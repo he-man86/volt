@@ -4,7 +4,7 @@ import {
 	VoltStatus,
 	pull, push, build, initFromProject, rebind, connectWorkspace, disconnectWorkspace, detectedProjects,
 	mergeContinue, mergeAbort, mergeResolve,
-	describePull, describePush, describeMerge, confirmInitMessage, confirmInitDetail, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
+	describePull, describePush, describeMerge, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
 	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type MergeOutcome, type DetectedProject,
 } from "@volt/control"
 

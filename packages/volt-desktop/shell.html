@@ -438,8 +438,18 @@
       const changedNote = s.ideChanged
         ? `<div class="note"><svg class="ico"><use href="#i-refresh"/></svg>The IDE project was edited — Refresh (above) to check for incoming updates.</div>`
         : ""
-      if (n === 0) syncBody = busyNote + changedNote + `<div class="note">✓ In sync with the IDE.</div>` // ready + no drift
-      else syncBody = busyNote + changedNote + `<div class="scroll" data-scroll="sync">` +
+      // `error` is the status read failing while the CONNECTION looks fine — `volt status` exited non-zero,
+      // or its output would not parse. The drift list below is then silently stale, and nothing said so:
+      // control has carried this field all along (`WorkspaceView.error`) and both shells threaded it through
+      // to a renderer that never read it. `status.ts` states the intent outright — "on any error keep the
+      // last good cached (just surface the error)" — and the surfacing was simply never written.
+      //
+      // Only in the READY branch, and that gate is the point: the two common errors ("not bound to a bridge",
+      // "bridge offline") arise exactly when mode is uninitialized/offline, where the panel already explains
+      // itself above. Rendering unconditionally would stack a redundant warning on the app's commonest state.
+      const errNote = s.error ? `<div class="note"><svg class="bolt"><use href="#bolt"/></svg>${esc(s.error)}</div>` : ""
+      if (n === 0) syncBody = busyNote + errNote + changedNote + `<div class="note">✓ In sync with the IDE.</div>` // ready + no drift
+      else syncBody = busyNote + errNote + changedNote + `<div class="scroll" data-scroll="sync">` +
         changeGrp("Incoming · IDE → pull", s.incoming, "incoming", s.workspaceRoot) +
         changeGrp("Outgoing · push → IDE", s.outgoing, "outgoing", s.workspaceRoot) + `</div>`
     }
