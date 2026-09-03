@@ -51,12 +51,12 @@ The plugin's `lspServers` entry SHALL run `volt-lsp-iec --stdio` and map `.fb`, 
 
 The installer SHALL add Volt's `bin` directory to the user's `PATH` and SHALL NOT write to, merge into, or otherwise mutate any configuration file owned by another vendor's product. This specifically forbids touching `~/.claude/settings.json`, `~/.cursor/mcp.json`, `~/.codeium/windsurf/mcp_config.json` and `%APPDATA%\Claude\claude_desktop_config.json`.
 
-PATH alone delivers the complete `volt` CLI to every host with a terminal, which covers Claude Code, Cursor, Windsurf and opencode. Host wiring beyond that SHALL be delivered as a published artifact plus a documented snippet the user applies deliberately.
+PATH alone delivers the complete `volt` CLI to every host with a terminal, which covers Claude Code, Cursor and Windsurf. Host wiring beyond that SHALL be delivered as a PLUGIN published to that supplier's own registry — an extension in the VS Code Marketplace and Open VSX, a plugin in Claude Code's marketplace, an MCP entry for Claude Desktop — plus, where a registry does not exist, a documented snippet the user applies deliberately. Volt ships no agent and installs itself into none.
 
 #### Scenario: A fresh install reaches terminal-capable agents
 
 - **WHEN** a user completes the installer and restarts their agent
-- **THEN** `volt` resolves on PATH in Claude Code, Cursor, Windsurf and opencode
+- **THEN** `volt` resolves on PATH in Claude Code, Cursor and Windsurf
 - **AND** no file under another vendor's config directory has been created or modified
 
 #### Scenario: Uninstall leaves other products untouched

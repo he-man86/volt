@@ -1,4 +1,4 @@
-﻿> **STATUS 2026-09-03 — two of the three mechanisms have SHIPPED; one has not, and it is the one that matters
+> **STATUS 2026-09-03 — two of the three mechanisms have SHIPPED; one has not, and it is the one that matters
 > for anyone who does not run the Windows installer.**
 >
 > - **Claude Code plugin — shipped.** `.claude-plugin/marketplace.json` exists at the repo root.
@@ -8,16 +8,35 @@
 > - **Registry publication — NOT done.** `release.yml` stamps the extension's version and stops; it runs no
 >   `vsce publish` and no `ovsx publish`. So the extension is in no registry, and anyone who installs Volt any
 >   other way — or who wants updates through their editor — still gets nothing. **This is the remaining work.**
->
-> The `## Why` below is written against a world where opencode was Volt's shipped integration. That is stale:
-> opencode was removed entirely on 2026-08-05 and `OPENCODE_CONFIG_DIR` no longer exists. The mechanism table it
-> derives is unaffected and is now the arrangement CLAUDE.md documents.
 
 ## Why
 
-Volt's language intelligence and CLI reach exactly two hosts today: opencode (via `OPENCODE_CONFIG_DIR`) and, in principle, VS Code — except the extension is published to **no registry at all**, so in practice the only shipped agent integration is for the tool Volt is least committed to. The hosts our industry actually uses — Claude Code, VS Code, Cursor, Windsurf, Claude Desktop — get nothing but a `volt` on PATH.
+**Volt ships PLUGINS, published to each supplier's own registry, and nothing else.** That is the settled
+direction (2026-09-03) and it is what remains undone here: the plugin exists, the registry entry does not.
 
-Researching the official docs for each host shows the gap is much cheaper to close than it looks: there are only **three delivery mechanisms** across all five hosts, and Volt already owns two of them. One `ovsx publish` reaches Cursor and Windsurf simultaneously; one plugin manifest reaches Claude Code; one new CLI verb reaches Claude Desktop.
+Every terminal-capable host already has the whole `volt` CLI on `PATH` — that is one persistent environment
+variable and it is the entire integration for Claude Code, Cursor, Windsurf and VS Code alike. What PATH cannot
+deliver is language intelligence: an LSP has to be REGISTERED by the host, and each supplier accepts exactly one
+kind of artifact for that.
+
+There are only three across every host that matters, and Volt already builds all three artifacts:
+
+| Artifact | Reaches |
+|---|---|
+| the `.vsix`, published to the VS Code Marketplace **and Open VSX** | VS Code, Cursor, Windsurf, VSCodium — one build, no fork-specific work |
+| the Claude Code plugin (`.claude-plugin/marketplace.json`) | Claude Code |
+| an MCP entry (`volt mcp`) | Claude Desktop — no terminal, no editor, so MCP is its only door |
+
+The gap is publication, not construction. The `.vsix` is built on every release and pushed to no registry, so it
+reaches users only by the Windows installer sideloading it into whichever editors it finds — which is the
+opposite of the model: it is Volt reaching into a supplier's product instead of the supplier's own channel
+handing Volt to the user. That is why §3 retires the sideload once §2 publishes.
+
+> **On opencode**, which the original text of this proposal was written around: it is gone. Removed entirely on
+> 2026-08-05 — no `opencode-config/`, no `OPENCODE_CONFIG_DIR` (the installer retires a stale one on upgrade and
+> `test-install.ts` fails if it survives), no bundled agent, no launcher. It is named here only so that the §0
+> tasks below read as history rather than as work outstanding. **Volt ships no agent and installs itself into
+> none**; a plugin in a supplier's registry is the only shape a host integration takes.
 
 ## What Changes
 

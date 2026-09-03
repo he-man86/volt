@@ -27,7 +27,9 @@
 - [ ] 3.1 Remove the extension install task from the installer (`installer/Volt.iss`)
 - [ ] 3.2 Drop `volt-vscode.vsix` from `build-payload.ts` and its guard in `build-installer.ts`
 - [ ] 3.3 Confirm `bun run test:install` still passes and that uninstall leaves the registry-installed extension alone
-- [ ] 3.4 Confirm the installer's only remaining environment effects are `PATH` and `OPENCODE_CONFIG_DIR`
+- [ ] 3.4 Confirm the installer's only remaining environment effect is `PATH` — one variable, nothing else.
+      (This task used to name `OPENCODE_CONFIG_DIR` as a second permitted effect. It is not permitted, it is
+      RETIRED: `Volt.iss` deletes it on upgrade and `test-install.ts` fails if it survives.)
 
 ## 4. Claude Code plugin
 
