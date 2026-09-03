@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { snapshot } from "./panel.js"
+import { detectedKey, snapshot } from "./panel.js"
 
 // shell.html is the renderer — a static file loaded at runtime, so nothing type-checks or bundles it, and a
 // syntax error in its <script> silently kills EVERY handler: the rail still draws (static HTML) but clicking a
@@ -73,4 +73,24 @@ test("unbound snapshot exposes empty drift arrays the renderer reads uncondition
     expect(snap.incoming).toEqual([])
     expect(snap.outgoing).toEqual([])
   }
+})
+
+// The detected-project list is only pushed to the renderer when its KEY changes, so the key has to cover every
+// field the picker draws — not just identity. It covered ids alone, while `projectBtn` draws `dirty` as a
+// trailing asterisk and `dirty` is re-read on every health poll. A project going dirty changed nothing, so the
+// panel sat contradicting the tray next to it, which redraws that same asterisk from that same field.
+//
+// The suppression is impure (it probes the connector and sends over a BrowserWindow), so the key is exported and
+// asserted directly. Asserting "two snapshots with different dirty differ" would have passed before the fix too.
+test("the detected-project key changes when dirty changes, not only when identity does", () => {
+  const p = (dirty: boolean) => [{ ...proj, dirty }] as never
+
+  expect(detectedKey(p(true))).not.toBe(detectedKey(p(false)))
+})
+
+test("...and is stable under reordering, since it is a set comparison", () => {
+  const a = { ...proj, id: "codesys::A:" }
+  const b = { ...proj, id: "codesys::B:" }
+
+  expect(detectedKey([a, b] as never)).toBe(detectedKey([b, a] as never))
 })

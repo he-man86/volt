@@ -76,6 +76,12 @@ export function pushStatus(shell: Shell): void {
   shell.win?.webContents.send("volt:status", snapshot(shell))
 }
 
+/** The change-detection key for the detected-project list: every field the picker DRAWS.
+ *
+ *  Exported for its test. The refresh around it is impure — it probes the connector and sends over a
+ *  BrowserWindow — so the decision worth pinning is this projection, not the plumbing. */
+export const detectedKey = (ps: DetectedProject[]): string => ps.map((p) => `${p.id}:${p.dirty}`).sort().join("|")
+
 /** Refresh the detected-project list from the connector. Pushes to the renderer only when the list changes, so the
  *  connector feed is otherwise silent. Runs even when BOUND: the list also feeds the offline connection surface (pick your
  *  project to reconnect, or a renamed one to rebind) — not only the unbound init picker. */
@@ -85,7 +91,18 @@ export async function refreshDetectedProjects(shell: Shell): Promise<void> {
   const view = await connectorStatus()
   const next = view?.projects ?? []
   const up = view !== undefined
-  const key = (ps: DetectedProject[]): string => ps.map((p) => p.id).sort().join("|")
+  // THE KEY COVERS WHAT THE PICKER DRAWS, not just identity. It was ids alone — but `projectBtn` also draws
+  // `dirty` as a trailing asterisk, and `dirty` is re-read on every health poll, so a project that became dirty
+  // (or clean) changed nothing here and the panel sat contradicting the tray beside it, which redraws that same
+  // asterisk from that same field.
+  //
+  // Worse than a stale asterisk: the early return below runs BEFORE `shell.projects = next`, so a suppressed
+  // update froze the cached list itself — which also feeds the offline reconnect surface and the pipe that
+  // rebind/init resolve against.
+  //
+  // NOT `displayName`: an id is `vendor + ":" + project name`, so a rename already changes it. NOT `status`:
+  // the picker does not draw it. The rule is the fields drawn, and no more.
+  const key = detectedKey
   // Clear the cold-start flag FIRST: on a machine with the connector down and no projects, nothing below changes,
   // so an early return here would leave the panel spinning on "Looking for…" forever.
   const wasAwaiting = shell.awaiting

@@ -98,6 +98,14 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
     const out = await pull(st.workspaceRoot, { force, onProgress: report })
     clearProgress()
     await settleOutcome(st, out)
+    // A pull rewrites source, so the Diagnostics body and the rail badge are stale the moment it lands. Nothing
+    // else re-fires them — the status watcher drives only `pushStatus` — so they held PRE-pull counts until
+    // someone pressed Re-analyze. The VS Code sibling gets this free from `onDidChangeDiagnostics`, which is how
+    // one workspace could show two different problem counts in two windows.
+    //
+    // GATED on `ok`: a conflicted pull leaves `<<<<<<<` markers on disk, and analysing those badges the rail
+    // with a flood of parse errors that say nothing except "you are mid-merge" — which the panel already says.
+    if (out.kind === "ok") void runDiagnostics(shell)
     await presentOutcome(
       describePull(out),
       presenter,
@@ -112,6 +120,10 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
     const out = await mergeContinue(st.workspaceRoot)
     clearProgress()
     await settleOutcome(st, out)
+    // `mergeContinue` writes no source itself — it stages and commits. It re-fires anyway because the desktop
+    // has no merge editor: the engineer resolved those conflicts in some OTHER editor, and Finish is this app's
+    // first chance to catch up with what they did there.
+    void runDiagnostics(shell)
     await presentOutcome(
       describeMerge(out),
       presenter,
@@ -125,6 +137,7 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
     const out = await mergeAbort(st.workspaceRoot)
     clearProgress()
     await settleOutcome(st, out)
+    void runDiagnostics(shell) // restores the pre-pull workspace — a wholesale tree rewrite, so counts are stale
     await presentOutcome(describeMerge(out), presenter, () => Promise.resolve(), DESKTOP_CAPS)
   }
   // Take a whole side for ONE conflicted file (mine = workspace, ide = IDE), then re-present so a now-fully-resolved
