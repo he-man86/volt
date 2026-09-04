@@ -238,12 +238,40 @@ try:
             td = prop(inner, "TextDocument")
             log("  .TextDocument = %r" % (td,))
             if td is not None:
+                # WHICH WAY OF SETTING THE TEXT IS CLEAN? `Text` lands the value and still throws; if
+                # `Insert` does the job without throwing, that is the one to write.
+                log("  -- Insert(0, st):")
+                try:
+                    m = None
+                    for src3 in [td.GetType()] + list(td.GetType().GetInterfaces()):
+                        for mm in src3.GetMethods():
+                            if mm.Name == "Insert" and len(mm.GetParameters()) == 2:
+                                m = mm; break
+                        if m is not None: break
+                    m.Invoke(td, System.Array[System.Object]([0, ST]))
+                    log("       ok, no throw")
+                except System.Exception, ex1:
+                    log("       THREW %s" % ex1.GetType().FullName)
+                    inr = ex1.InnerException
+                    while inr is not None:
+                        log("         inner: %s: %s" % (inr.GetType().FullName, inr.Message))
+                        inr = inr.InnerException
+                log("       Text now = %r" % (prop(td, "Text"),))
+
+                log("  -- set_Text(st):")
                 try:
                     td.GetType().GetProperty("Text", _bf()).SetValue(td, ST, None)
-                    ok, res = True, ""
-                except Exception:
-                    ok, res = False, traceback.format_exc().splitlines()[-1]
-                log("  TextDocument.Text = st -> %s %s" % (ok, res))
+                    log("       ok, no throw")
+                except System.Exception, ex2:
+                    log("       THREW %s: %s" % (ex2.GetType().FullName, ex2.Message))
+                    inr = ex2.InnerException
+                    while inr is not None:
+                        log("         inner: %s: %s" % (inr.GetType().FullName, inr.Message))
+                        for ln in (inr.StackTrace or "").splitlines()[:4]:
+                            log("            " + ln.strip())
+                        inr = inr.InnerException
+                log("       Text now = %r" % (prop(td, "Text"),))
+                ok, res = True, ""
                 if not ok:
                     for m in td.GetType().GetMethods(_bf()):
                         if "Text" in m.Name or m.Name in ("Replace", "SetText", "Insert"):
@@ -262,6 +290,40 @@ try:
             log("  set box.STSnippet -> ok; ProvidesSTSnippet now %r" % (prop(box, "ProvidesSTSnippet"),))
         except Exception:
             log("  set box.STSnippet threw: " + traceback.format_exc().splitlines()[-1])
+
+        # THE ENO SLOT AND FLAG, one call at a time - the live push NREs somewhere in here.
+        log("")
+        log("=== ENO slot + flag, isolated ===")
+        outs2 = prop(box, "Outputs")
+        log("  Outputs holder = %r" % (outs2,))
+        try:
+            emptyop = System.Activator.CreateInstance(T["Operand"], System.Array[System.Object]([""]))
+            log("  Operand(\"\") -> %r" % (emptyop,))
+        except System.Exception, e1:
+            emptyop = None
+            log("  Operand(\"\") THREW %s: %s" % (e1.GetType().FullName, e1.Message))
+        if emptyop is not None:
+            try:
+                call(outs2, "AppendOutputItem", [emptyop])
+                log("  AppendOutputItem(empty) -> ok")
+            except System.Exception, e2:
+                log("  AppendOutputItem(empty) THREW %s: %s" % (e2.GetType().FullName, e2.Message))
+        try:
+            op2 = prop(box, "OutputParams")
+            log("  OutputParams = %r" % (op2,))
+            call(op2, "AppendParam", ["ENO", ""])
+            log("  OutputParams.AppendParam(ENO) -> ok")
+        except System.Exception, e3:
+            log("  OutputParams.AppendParam THREW %s: %s" % (e3.GetType().FullName, e3.Message))
+        try:
+            box.GetType().GetProperty("Eno", _bf()).SetValue(box, True, None)
+            log("  set box.Eno = True -> ok")
+        except System.Exception, e4:
+            log("  set box.Eno THREW %s: %s" % (e4.GetType().FullName, e4.Message))
+            inr = e4.InnerException
+            while inr is not None:
+                log("      inner: %s: %s" % (inr.GetType().FullName, inr.Message))
+                inr = inr.InnerException
 
         ok, res = call(nets[0], "AppendTree", [box])
         log("  AppendTree -> %s %s" % (ok, "" if ok else res))

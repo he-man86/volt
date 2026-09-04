@@ -212,17 +212,6 @@ namespace Volt.Ide.Codesys
 
                     case Box b:
                     {
-                        // An Execute box carries raw ST on the box itself. The READER models it
-                        // (ProvidesSTSnippet + the STSnippet's Implementation aspect); constructing one is not
-                        // measured, and this wrote the box WITHOUT its code - a program that read back as
-                        // `???();` with the engineer's ST gone. Refuse until the construction is measured: a
-                        // dropped body is the one outcome this transport exists to prevent.
-                        if (b.StCode is not null)
-                            throw new NotSupportedException(
-                                "CODESYS: writing an Execute box (ST inside FBD) is not implemented - Volt can " +
-                                "READ one but not build one, and writing the box without its ST would silently " +
-                                "delete the code. Edit the Execute box in the IDE and pull.");
-
                         // AN FB CALL'S TYPE IS NOT ITS INSTANCE NAME. Network text carries ONE name for a
                         // call, so `t1 : TON` renders as `t1(...)` and the reader rebuilds `Box(Type: "t1")`.
                         // Writing that into BoxType puts an unresolvable type in the slot the IDE resolves the
@@ -248,7 +237,59 @@ namespace Volt.Ide.Codesys
                         // forgotten. Each is set through the member the reader reads, so the two cannot drift -
                         // and NwlInterop fails loud (naming the observed assembly version) if a member is not
                         // there, which is the whole reason this vendor's typed model is safer than an archive.
+                        // AN INSTANCE IS WRITTEN, AND SO IS THE ABSENCE OF ONE.
+                        //
+                        // A freshly constructed `BoxTreeBox` does not arrive blank: its `Instance` operand
+                        // holds `???`, the vendor's own unresolved-instance marker (measured by dumping a
+                        // created box beside an engineer-drawn one — `scripts/probe-nwl-execute-compare.py`:
+                        // created `Instance.OperandExpr = '???'`, real `= None`). Leaving it there hands the
+                        // compiler an operand that is not an expression, and the build answers `Expression
+                        // expected instead of '?'` — on a body that LOADS and round-trips byte-for-byte, so
+                        // neither the text, the reader nor the canonical gate can see it. C13 again.
+                        //
+                        // The reader already knows this marker means "no instance" (an empty `OperandExpr` is
+                        // how the vendor spells one); the writer has to say it too, or every box Volt creates
+                        // without an instance carries a marker the engineer never drew.
                         if (b.Instance is { } inst) WriteInstance(box, inst);
+                        else NwlInterop.Set(NwlInterop.Require(box, "Instance"), "OperandExpr", "");
+
+                        // AN EXECUTE BOX CARRIES RAW ST ON THE BOX ITSELF, and constructing one IS measured
+                        // now (`scripts/probe-nwl-execute-create.py`, live SP21): `STSnippet` and
+                        // `STImplementationObject` both have public parameterless constructors, `Snippet` is
+                        // settable through `ISTSnippet`, and setting `box.STSnippet` flips `ProvidesSTSnippet`
+                        // on its own. Committed, reloaded, read back byte-identical.
+                        //
+                        // THE TEXT GOES IN THROUGH `Insert`, NOT `Text`. Both throw, and only one works:
+                        // `set_Text` clears the document first (`TextDocument.Remove`), which underflows on a
+                        // document with no line info — `ArgumentOutOfRangeException: Non-negative number
+                        // required` — and leaves the text EMPTY. `Insert(0, …)` lands the text and then throws
+                        // `InvalidOperationException: Unique ID generator not available`, an editor-bookkeeping
+                        // service this document has no host for. So the throw is caught and the POSTCONDITION
+                        // IS VERIFIED: the text is read back and compared. That is what makes this a measured
+                        // vendor quirk rather than a swallowed error — if the ST did not land, this throws.
+                        if (b.StCode is not null)
+                        {
+                            var snippet = NwlInterop.New(box, "STSnippet");
+                            var stImpl = Activator.CreateInstance(
+                                Reflection.FindType("_3S.CoDeSys.STObject.STImplementationObject")
+                                ?? throw new InvalidOperationException(
+                                    "CODESYS: _3S.CoDeSys.STObject.STImplementationObject is not loaded, so an " +
+                                    "Execute box's ST has nowhere to live."))!;
+                            NwlInterop.Set(snippet, "Snippet", stImpl);
+
+                            var doc = NwlInterop.Require(stImpl, "TextDocument");
+                            try { NwlInterop.Call(doc, "Insert", 0, b.StCode); }
+                            catch (InvalidOperationException) { /* the UID generator; the text still lands */ }
+
+                            if (!string.Equals(NwlInterop.Text(doc, "Text"), b.StCode, StringComparison.Ordinal))
+                                throw new InvalidOperationException(
+                                    $"CODESYS: the Execute box '{b.Type}' did not take its ST — the document " +
+                                    "read back different text than was written. Refusing rather than creating " +
+                                    "a box whose code is gone.");
+
+                            NwlInterop.Set(box, "STSnippet", snippet);
+                        }
+
 
                         // THE ENABLE IS INPUT SLOT 0 — appended first, and named `EN` in the param list below,
                         // which is exactly how the reader finds it again (`Box.HasEnableSlot`).
@@ -263,6 +304,7 @@ namespace Volt.Ide.Codesys
                         {
                             NwlInterop.Call(box, "AppendInputItem", Node(en));
                             NwlInterop.Set(box, "En", true);
+                            NwlInterop.Set(box, "Eno", true);   // shown as a pair, and the vendor sets both
                         }
 
                         foreach (var p in b.Inputs)
@@ -289,19 +331,40 @@ namespace Volt.Ide.Codesys
                                 NwlInterop.Call(pins, "AppendParam", p.Formal ?? "", "");
                         }
 
-                        // THE BOX'S OWN OUTPUT PINS. Measured on the construct side
-                        // (`scripts/probe-nwl-boxoutputs.py`): `Outputs.AppendOutputItem` takes an `Operand`,
-                        // a Volt-built box needs no `ENO` slot of its own, and the result survives
-                        // save-and-reload with `CallType` resolved from `BoxType` by the vendor. Names go in
-                        // `OutputParams` the same way input names go in `InputParams`.
-                        if (b.Outputs.Count > 0)
+                        // THE BOX'S OWN OUTPUT PINS, and the `ENO` ECHO IN FRONT OF THEM.
+                        //
+                        // `Outputs.AppendOutputItem` takes an `Operand` and the result survives save-and-reload
+                        // with `CallType` resolved from `BoxType` by the vendor (`probe-nwl-boxoutputs.py`).
+                        // Names go in `OutputParams`, the way input names go in `InputParams`.
+                        //
+                        // <b>AN ENABLED BOX NEEDS ITS ENO SLOT, and leaving it out compiled to an error.</b> A
+                        // box Volt built with an enable and no output slot LOADS and round-trips byte-for-byte,
+                        // and the build answers `Expression expected instead of '?'` — the IDE drawing an empty
+                        // pin. The vendor's own enabled boxes all carry it: `OutputParams.Names[0] == "ENO"`
+                        // with `Outputs[0]` NULL (measured on 181 boxes, `scripts/nwl-census.log`). So the echo
+                        // is written as the vendor writes it — a named slot holding nothing — and the data pins
+                        // follow it, which is also what keeps their names aligned on the way back in.
+                        //
+                        // This is the C13 shape again: a self-consistent round trip said the body was fine
+                        // while the compiler disagreed with it, which is why this is gated by a BUILD.
+                        var eno = b.Enable is not null;
+                        if (eno || b.Outputs.Count > 0)
                         {
                             var outs = NwlInterop.Require(box, "Outputs");
+                            // AN EMPTY OPERAND, not a null. The vendor STORES the echo slot as null but will
+                            // not ACCEPT one: <c>AppendOutputItem(null)</c> answers "Object reference not set
+                            // to an instance of an object". An empty operand is the shape its own PLCopen
+                            // importer hangs off a box (see <c>DropImporterBoxOutputs</c> on the TwinCAT
+                            // side), and the reader skips an empty output slot, so it round-trips as the
+                            // echo it is.
+                            if (eno) NwlInterop.Call(outs, "AppendOutputItem", Operand(new Operand("")));
                             foreach (var o in b.Outputs)
                                 NwlInterop.Call(outs, "AppendOutputItem", Operand(o.Value));
-                            if (b.Outputs.Any(o => !string.IsNullOrEmpty(o.Formal)))
+
+                            if (eno || b.Outputs.Any(o => !string.IsNullOrEmpty(o.Formal)))
                             {
                                 var outPins = NwlInterop.Require(box, "OutputParams");
+                                if (eno) NwlInterop.Call(outPins, "AppendParam", Box.EnoPin, "");
                                 foreach (var o in b.Outputs)
                                     NwlInterop.Call(outPins, "AppendParam", o.Formal ?? "", "");
                             }

@@ -1,0 +1,85 @@
+created snippet text = 'iCount := iCount + 1;'
+
+======================================================================
+CREATED Execute box
+======================================================================
+  box : _3S.CoDeSys.NWLObject.BoxTreeBox
+      >> Instance.OperandExpr = '???'   Type=''   IsInstance=True
+      BoxType                      = 'EXECUTE'
+      STSnippet                    = <_3S.CoDeSys.NWLObject.STSnippet object at 0x0000000000000087 [_3S.CoDeSys.NWLObject.STSnippet]>
+      CallType                     = _3S.CoDeSys.Core.LanguageModel.Operator.None
+      Instance                     = <_3S.CoDeSys.NWLObject.Operand object at 0x0000000000000088 [???]>
+      Outputs                      = <_3S.CoDeSys.NWLObject.OutputItemList object at 0x0000000000000089 [_3S.CoDeSys.NWLObject.OutputItemList]>
+      InputItemList                = Array[IBoxTree](())
+      InputParams                  = <_3S.CoDeSys.NWLObject.ParamList object at 0x000000000000008A [_3S.CoDeSys.NWLObject.ParamList]>
+      OutputParams                 = <_3S.CoDeSys.NWLObject.ParamList object at 0x000000000000008B [_3S.CoDeSys.NWLObject.ParamList]>
+      Flags                        = <_3S.CoDeSys.NWLObject.Flags object at 0x000000000000008C>
+      MinInputPinCount             = 0
+      MaxInputPinCount             = 0
+      MinOutputPinCount            = 0
+      MaxOutputPinCount            = 2147483647
+      EnEnoPossible                = True
+      EnEno                        = True
+      Image                        = None
+      Ordinary                     = False
+      En                           = None
+      Eno                          = None
+      InputFlags                   = Array[Flags](())
+      ProvidesSTSnippet            = True
+      MainOutputIndex              = None
+      MainInputIndex               = None
+      ContainsExtensibleInputs     = False
+      Id                           = 5L
+      Added                        = False
+      Deleted                      = False
+      Changed                      = False
+      Accepted                     = False
+      DeletedAfter                 = False
+      DeletedBefore                = False
+      Inserted                     = False
+      ChangedContents              = False
+      Safe                         = False
+      SerializableValueNames       = Array[str](('BoxType', 'Instance', 'OutputItems', 'Flags', 'InputFlags', 'InputItems', 'InputParam', 'OutputPa...
+
+======================================================================
+REAL Execute box (SpeedCalculationDryer)
+======================================================================
+  box : _3S.CoDeSys.NWLObject.BoxTreeBox
+      >> Instance.OperandExpr = None   Type=''   IsInstance=True
+      BoxType                      = 'EXECUTE'
+      STSnippet                    = <_3S.CoDeSys.NWLObject.STSnippet object at 0x000000000000008D [_3S.CoDeSys.NWLObject.STSnippet]>
+      CallType                     = _3S.CoDeSys.Core.LanguageModel.Operator.None
+      Instance                     = <_3S.CoDeSys.NWLObject.Operand object at 0x000000000000008E>
+      Outputs                      = <_3S.CoDeSys.NWLObject.OutputItemList object at 0x000000000000008F [_3S.CoDeSys.NWLObject.OutputItemList]>
+      InputItemList                = Array[IBoxTree]((<_3S.CoDeSys.NWLObject.BoxTreeDemux object at 0x0000000000000090 [_3S.CoDeSys.NWLObject.BoxTr...
+      InputParams                  = <_3S.CoDeSys.NWLObject.ParamList object at 0x0000000000000091 [_3S.CoDeSys.NWLObject.ParamList]>
+      OutputParams                 = <_3S.CoDeSys.NWLObject.ParamList object at 0x0000000000000092 [_3S.CoDeSys.NWLObject.ParamList]>
+      Flags                        = <_3S.CoDeSys.NWLObject.Flags object at 0x0000000000000093>
+      MinInputPinCount             = 0
+      MaxInputPinCount             = 0
+      MinOutputPinCount            = 0
+      MaxOutputPinCount            = 2147483647
+      EnEnoPossible                = True
+      EnEno                        = True
+      Image                        = None
+      Ordinary                     = False
+      En                           = True
+      Eno                          = True
+      InputFlags                   = Array[Flags]((<_3S.CoDeSys.NWLObject.Flags object at 0x0000000000000094>))
+      ProvidesSTSnippet            = True
+      MainOutputIndex              = 0
+      MainInputIndex               = 0
+      ContainsExtensibleInputs     = False
+      Id                           = 1460L
+      Added                        = False
+      Deleted                      = False
+      Changed                      = False
+      Accepted                     = False
+      DeletedAfter                 = False
+      DeletedBefore                = False
+      Inserted                     = False
+      ChangedContents              = False
+      Safe                         = False
+      SerializableValueNames       = Array[str](('BoxType', 'Instance', 'OutputItems', 'Flags', 'InputFlags', 'InputItems', 'InputParam', 'OutputPa...
+
+done

@@ -1,0 +1,5 @@
+probe of: volt-exec-empty.project
+wanted POUs: ['PLC_PRG']
+opened (a copy; the original is never touched)
+
+done

@@ -331,4 +331,61 @@ public class CodesysCoilFlagTests
         Assert.Equal("EN", names[0]);
         Assert.True((bool?)written.En, "the vendor's `En` flag says the pin is SHOWN, and it must be set");
     }
+
+    /// <summary>A BOX WITH NO INSTANCE CLEARS THE VENDOR'S MARKER, and this is the test that was missing.
+    ///
+    /// <para>A freshly constructed <c>BoxTreeBox</c> does not arrive blank: its <c>Instance</c> operand holds
+    /// <c>???</c>, the vendor's unresolved-instance marker (measured by dumping a created box beside an
+    /// engineer-drawn one — created <c>'???'</c>, real <c>None</c>). The writer only touched <c>Instance</c>
+    /// when the model HAD one, so every box Volt created without one carried a marker the engineer never drew.
+    /// The build answers `Expression expected instead of '?'` on a body that LOADS and round-trips
+    /// byte-for-byte — invisible to the text, the reader and the canonical gate alike.</para>
+    ///
+    /// <para>The double defaulted <c>Instance</c> to NULL, which is why no offline test could see it. It is
+    /// present-but-empty now (a box READ from a project), and this test sets the construction default
+    /// explicitly.</para></summary>
+    [Fact]
+    public void A_box_with_no_instance_clears_the_vendors_marker()
+    {
+        var live = new Nwl.Network().With(new Nwl.BoxTreeAssign());
+        var model = new Network(0, null, null, null, false, new Node[]
+        {
+            new Box("AND", null, CallKind.Operator,
+                    new[]
+                    {
+                        new Input(null, new Leaf(new Operand("a"), Flags.None), Flags.None),
+                        new Input(null, new Leaf(new Operand("b"), Flags.None), Flags.None),
+                    },
+                    System.Array.Empty<Output>(), null, null, Flags.None),
+        });
+
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, null, BodyLanguage.Fbd);
+
+        var written = Assert.IsType<Nwl.BoxTreeBox>(live.GetTree(live.NetworkItemCount - 1));
+        var instance = Assert.IsType<Nwl.Operand>(written.Instance);
+        Assert.Equal("", instance.OperandExpr);
+    }
+
+    /// <summary>AN EXECUTE BOX IS CREATED WITH ITS ST. The writer refused one until the construction was
+    /// measured; it is measured now (`scripts/probe-nwl-execute-create.py`), and a live push of one builds
+    /// clean in an empty project. This pins the shape offline: the snippet is hung on the box, and the box
+    /// reports itself as providing one.</summary>
+    [Fact]
+    public void An_execute_box_is_created_carrying_its_ST()
+    {
+        const string st = "iCount := iCount + 1;";
+        var live = new Nwl.Network().With(new Nwl.BoxTreeAssign());
+        var model = new Network(0, null, null, null, false, new Node[]
+        {
+            new Box("EXECUTE", null, CallKind.Function, System.Array.Empty<Input>(),
+                    System.Array.Empty<Output>(), null, st, Flags.None),
+        });
+
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, null, BodyLanguage.Fbd);
+
+        var written = Assert.IsType<Nwl.BoxTreeBox>(live.GetTree(live.NetworkItemCount - 1));
+        Assert.Equal("EXECUTE", written.BoxType);
+        Assert.True(written.ProvidesSTSnippet, "the box must report that it carries ST");
+        Assert.NotNull(written.STSnippet);
+    }
 }

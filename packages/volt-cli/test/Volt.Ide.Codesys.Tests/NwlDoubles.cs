@@ -134,7 +134,16 @@ internal static class Nwl
         private readonly List<object> _inputs = new List<object>();
 
         public string BoxType { get; set; } = "";
-        public object? Instance { get; set; }
+
+        /// <summary>PRESENT, not null — the vendor's <c>Instance</c> member is on every box, and
+        /// <c>WriteInstance</c> <c>Require</c>s it. Empty by default, which is a box READ from a project
+        /// (measured: an engineer-drawn box with no instance answers <c>OperandExpr = None</c>).
+        ///
+        /// <para>A box the vendor has just CONSTRUCTED is different: it arrives holding <c>???</c>, its own
+        /// unresolved-instance marker. That default is not the read default, so it is set explicitly by the
+        /// test that cares (<c>A_box_with_no_instance_clears_the_vendors_marker</c>) rather than imposed on
+        /// every read test here.</para></summary>
+        public object? Instance { get; set; } = new Operand();
         public object? CallType { get; set; }
 
         /// <summary>Settable for a test that DESCRIBES a live box, and appended to by the writer.</summary>
@@ -163,7 +172,18 @@ internal static class Nwl
 
         public OutputItemList Outputs { get; } = new OutputItemList();
         public object? En { get; set; }
-        public bool ProvidesSTSnippet { get; set; }
+
+        /// <summary>The other half of the EN/ENO pair, and settable for the same reason: the vendor sets both
+        /// on a box that shows them (measured: a real Execute box answers <c>En = True, Eno = True</c>).</summary>
+        public object? Eno { get; set; }
+
+        /// <summary>Derived, not settable — the vendor has no setter for it (measured:
+        /// `BoxTreeBox.ProvidesSTSnippet settable: False`); hanging a snippet on the box turns it on.</summary>
+        public bool ProvidesSTSnippet => STSnippet != null;
+
+        /// <summary>An Execute box's ST, hung on the box. Settable, as on the vendor.</summary>
+        public object? STSnippet { get; set; }
+
         public object? Flags { get; set; }
     }
 
@@ -200,5 +220,23 @@ internal static class Nwl
         var impl = new NWLImplementationObject();
         impl.NetworkList.Add(new Network().With(trees));
         return impl;
+    }
+
+    /// <summary>An Execute box's snippet. <b>The NAME is the contract</b> - the writer builds one with
+    /// <c>New(box, "STSnippet")</c>, resolved by type name out of the sample's assembly, so a double called
+    /// anything else is simply not found.</summary>
+    internal sealed class STSnippet
+    {
+        /// <summary>Settable through the vendor's <c>ISTSnippet</c>; null on a fresh one, which is why the
+        /// writer has to supply an implementation object rather than expecting one.</summary>
+        public object? Snippet { get; set; }
+    }
+
+    /// <summary>A text document. The writer puts the ST in with <c>Insert(0, st)</c> - NOT by assigning
+    /// <c>Text</c>, which on the vendor clears the document first and underflows.</summary>
+    internal sealed class TextDocument
+    {
+        public string Text { get; private set; } = "";
+        public void Insert(int offset, string text) => Text = Text.Insert(offset, text);
     }
 }
