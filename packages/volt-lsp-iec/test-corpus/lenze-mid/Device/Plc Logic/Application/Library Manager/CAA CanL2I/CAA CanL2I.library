@@ -1,0 +1,6 @@
+LIBRARY CAA CanL2I
+NAMESPACE CL2I
+RESOLUTION CAA Can Low Level Imp Extern, 3.5.17.0 (CAA Technical Workgroup)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES CAA Types

@@ -1,5 +1,0 @@
-TYPE L_TB2P_CLASSID :
-(
-	DUMMY := 0
-);
-END_TYPE

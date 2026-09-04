@@ -1,0 +1,9 @@
+TYPE NMT :
+(
+	START := 16#1,
+	STOP := 16#2,
+	RESET := 16#81,
+	RESET_COM := 16#82,
+	ENTER_PREOP := 16#80
+);
+END_TYPE

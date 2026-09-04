@@ -16,7 +16,7 @@ VAR_OUTPUT
 END_VAR
 VAR_IN_OUT
 	SCPAR : _scPar_TM_TemperatureControlBase;
-	SCPD : L_TP2P_scPD_TemperatureControlBase;
+	SCPD : _scPD_TM_TemperatureControlBase;
 END_VAR
 VAR
 	DWREGDATASIZE : DWORD := 30;

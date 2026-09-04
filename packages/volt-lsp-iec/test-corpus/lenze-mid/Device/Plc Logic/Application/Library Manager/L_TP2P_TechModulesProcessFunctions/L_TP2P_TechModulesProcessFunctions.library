@@ -1,6 +1,6 @@
 LIBRARY L_TP2P_TechModulesProcessFunctions
 NAMESPACE L_TP2P
-RESOLUTION L_TP2P_TechModulesProcessFunctions, 3.34.0.9 (Lenze)
+RESOLUTION L_TP2P_TechModulesProcessFunctions, 3.26.0.12 (Lenze)
 PLACEHOLDER true
 SYSTEM false
-DEPENDENCIES SysTask, Analyzation, VisuDialogs, L_IE1P_ApplicationErrors, Standard, L_TB2P_TechModulesBasic, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs, SysTypes2 Interfaces, * (System), L_UM1P_MulticoreBasic
+DEPENDENCIES SysFile, CAA Tick, CmpErrors, SysTime, CmpApp, CmpEventMgr, SysTypes Interfaces, * (System), SysTarget, SysTask, IecSfc, Analyzation, VisuDialogs, L_IE1P_ApplicationErrors, CAA Mathematics, Standard, L_IMHP_ModuleHandler, L_TB2P_TechModulesBasic, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs

@@ -1,0 +1,6 @@
+LIBRARY L_CanMiniDriver
+NAMESPACE L_CanMiniDriver
+RESOLUTION L_CanMiniDriver, 3.22.0.0 (Lenze)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES 3S CANopenStack, L_SUDP_SlaveUpDownloadManager, IoStandard, CmpErrors, CAA CANopen Stack

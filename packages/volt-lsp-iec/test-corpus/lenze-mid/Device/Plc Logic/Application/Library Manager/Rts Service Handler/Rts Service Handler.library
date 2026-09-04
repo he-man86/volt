@@ -1,0 +1,6 @@
+LIBRARY Rts Service Handler
+NAMESPACE GSH
+RESOLUTION Rts Service Handler, 3.5.17.0 (3S - Smart Software Solutions GmbH)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES CAA Types, CmpEventMgr, CmpSrv, SysTypes2 Interfaces, * (System), CmpErrors2 Interfaces, * (System)

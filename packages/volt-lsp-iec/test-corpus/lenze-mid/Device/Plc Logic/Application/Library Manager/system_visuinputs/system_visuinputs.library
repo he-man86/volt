@@ -1,5 +1,5 @@
-LIBRARY system_visuinputs
-NAMESPACE visuinputs
-RESOLUTION visuinputs, 4.1.0.0 (system)
+LIBRARY System_VisuInputs
+NAMESPACE VisuInputs
+RESOLUTION VisuInputs, 4.2.0.0 (System)
 PLACEHOLDER true
 SYSTEM true

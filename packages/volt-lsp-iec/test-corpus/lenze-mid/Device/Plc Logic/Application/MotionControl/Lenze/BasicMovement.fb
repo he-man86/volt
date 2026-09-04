@@ -191,11 +191,11 @@ METHOD BasicMotionParameters
 VAR_INPUT
 END_VAR
 //General
-//ioSlaveAxis.scPar.WindowStandStill:=i_lrWindowStandstill;
-//ioSlaveAxis.scPar.JoggingSetVel:=i_lrJogVel;
-//ioSlaveAxis.scPar.JoggingSetAcc:=i_lrJogVel*10;
-//ioSlaveAxis.scPar.JoggingSetDec:=i_lrJogVel*10;
-//ioSlaveAxis.scPar.JoggingSetJerk:=0;
+ioSlaveAxis.scPar.WindowStandStill:=i_lrWindowStandstill;
+ioSlaveAxis.scPar.JoggingSetVel:=i_lrJogVel;
+ioSlaveAxis.scPar.JoggingSetAcc:=i_lrJogVel*10;
+ioSlaveAxis.scPar.JoggingSetDec:=i_lrJogVel*10;
+ioSlaveAxis.scPar.JoggingSetJerk:=0;
 END_METHOD
 
 METHOD BrakeLogic 

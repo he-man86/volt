@@ -1,0 +1,5 @@
+LIBRARY SysShm Interfaces, * (System)
+NAMESPACE SysShm_Interfaces
+RESOLUTION SysShm Interfaces, * (System)
+PLACEHOLDER false
+SYSTEM false

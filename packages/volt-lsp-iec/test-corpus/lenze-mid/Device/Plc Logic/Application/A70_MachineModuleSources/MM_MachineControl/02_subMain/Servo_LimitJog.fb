@@ -20,7 +20,8 @@ NETWORK 1 LD TITLE: "NETWORK 3 (p2): Check for limit switch"
   ioUDT_JogLimitFree.Status.Limit_Right_OK := iServoStatus.Spare2;
 END_NETWORK
 NETWORK 2 LD TITLE: "COPY previous control word to current controlword"
-  EXECUTE();
+  LET en1 := ;
+  IF en1 THEN EXECUTE(); END_IF
 END_NETWORK
 NETWORK 3 LD TITLE: "NETWORK 4 (p1): ControlToFreeLimitSwitches"
   oServoControl.Spare1 := (ioUDT_JogLimitFree.Status.Limit_Left_OK AND ioUDT_JogLimitFree.Control.Jog_LimitToLeft);

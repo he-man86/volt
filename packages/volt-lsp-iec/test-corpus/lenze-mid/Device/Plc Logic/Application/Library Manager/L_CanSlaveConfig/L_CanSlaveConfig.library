@@ -1,0 +1,6 @@
+LIBRARY L_CanSlaveConfig
+NAMESPACE L_CanCfg
+RESOLUTION L_CanSlaveConfig, 3.22.0.0 (Lenze)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES 3S CANopenStack, L_PLCLoggingAccess, CAA CiA405, CAA File, CAA Memory, CmpLog, IoStandard, L_CanMiniDriver, L_SUDP_SlaveUpDownloadManager, Standard

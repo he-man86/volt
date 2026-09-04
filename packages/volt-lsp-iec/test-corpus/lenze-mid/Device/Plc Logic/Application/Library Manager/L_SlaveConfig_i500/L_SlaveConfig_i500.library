@@ -1,0 +1,6 @@
+LIBRARY L_SlaveConfig_i500
+NAMESPACE L_ECC_i500
+RESOLUTION L_SlaveConfig_i500, 3.26.0.1 (Lenze)
+PLACEHOLDER true
+SYSTEM true
+DEPENDENCIES CAA File, IoStandard, 3S CANopenStack, Standard, CmpLog, SysTypes2 Interfaces, * (System), IODrvEtherCAT, L_EtcSlaveConfig, L_EtcSlaveConfig_i700, L_SEMP_ErrorManagement, L_SUDP_SlaveUpDownloadManager, L_IMHP_ModuleHandler, L_CanSlaveConfig

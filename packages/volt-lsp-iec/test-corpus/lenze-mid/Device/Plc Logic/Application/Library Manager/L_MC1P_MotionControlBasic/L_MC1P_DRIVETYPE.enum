@@ -8,7 +8,6 @@ TYPE L_MC1P_DRIVETYPE :
 	I500 := 5,
 	I900 := 6,
 	I900DRIVE := 7,
-	I750 := 8,
-	UNIVERSAL := 10
+	I750 := 8
 );
 END_TYPE

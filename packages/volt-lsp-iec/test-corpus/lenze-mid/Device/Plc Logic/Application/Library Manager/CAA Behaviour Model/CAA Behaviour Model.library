@@ -1,6 +1,6 @@
 LIBRARY CAA Behaviour Model
 NAMESPACE CBM
-RESOLUTION CAA Behaviour Model, 3.5.19.0 (CAA Technical Workgroup)
+RESOLUTION CAA Behaviour Model, 3.5.17.0 (CAA Technical Workgroup)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES CAA Types, CAA TickUtil, CAA Tick

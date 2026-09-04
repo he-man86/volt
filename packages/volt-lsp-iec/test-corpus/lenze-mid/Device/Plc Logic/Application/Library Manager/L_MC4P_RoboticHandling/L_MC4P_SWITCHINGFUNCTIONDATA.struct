@@ -1,7 +1,0 @@
-TYPE L_MC4P_SWITCHINGFUNCTIONDATA :
-STRUCT
-	AISWITCHINGFUNID : ARRAY [1..L_MC4P_Constants.gciMaxNumParallelSwitchingFun] OF INT;
-	ALRSWITCHINGFUNPARAM : ARRAY [1..L_MC4P_Constants.gciMaxNumParallelSwitchingFun] OF LREAL;
-	AESWITCHINGFUNPARAMTYPE : ARRAY [1..L_MC4P_Constants.gciMaxNumParallelSwitchingFun] OF L_MC4P_SwitchingFunParamType;
-END_STRUCT
-END_TYPE

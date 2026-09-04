@@ -1,0 +1,6 @@
+LIBRARY IoDriver Utility
+NAMESPACE IoDrvUtility
+RESOLUTION IoDrvUtility, 3.5.17.0 (3S - Smart Software Solutions GmbH)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES CAA Types, CAA Behaviour Model, CAA FB Factory, IoStandard

@@ -1,6 +1,6 @@
 LIBRARY L_EtcSlaveConfig
 NAMESPACE L_ECC
-RESOLUTION L_EtcSlaveConfig, 3.33.0.1 (Lenze)
+RESOLUTION L_EtcSlaveConfig, 3.26.0.1 (Lenze)
 PLACEHOLDER true
 SYSTEM false
-DEPENDENCIES CAA File, IoStandard, Standard, CAA Memory, CmpLog, SysMem, SysTypes2 Interfaces, * (System), IODrvEtherCAT, L_SUDP_SlaveUpDownloadManager, L_SEMP_ErrorManagement, CmpEventMgr, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs, L_IMHP_ModuleHandler, L_IC1P_ComponentDirectory, CAA Types, L_PLCLoggingAccess
+DEPENDENCIES CAA File, IoStandard, Standard, CAA Memory, CmpLog, SysMem, SysTypes2 Interfaces, * (System), IODrvEtherCAT, L_SUDP_SlaveUpDownloadManager, L_SEMP_ErrorManagement, CmpEventMgr, L_PLCLoggingAccess, * (Lenze), CAA Types Extern, 3.5.13.0 (CAA Technical Workgroup), System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs, L_IMHP_ModuleHandler

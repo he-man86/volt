@@ -1,3 +1,0 @@
-VAR_GLOBAL
-	WURL : WSTRING(82) := "svn://server04/LibrariesV3Source/branches/V3.5.9.0/System/SysLibs/SysTime/SysTime/";
-END_VAR

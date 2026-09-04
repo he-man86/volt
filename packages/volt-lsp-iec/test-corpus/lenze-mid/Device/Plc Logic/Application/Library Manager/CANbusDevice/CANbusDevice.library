@@ -1,0 +1,6 @@
+LIBRARY CANbusDevice
+NAMESPACE CANbusDevice
+RESOLUTION CANbusDevice, 3.5.17.0 (3S - Smart Software Solutions GmbH)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES CAA Device Diagnosis, IoStandard, CANbus, 3.5.7.0 (3S - Smart Software Solutions GmbH), SysMem, IoDrvBase, IoDriver Interfaces, * (System), SysTypes2 Interfaces, * (System), CmpErrors2 Interfaces, * (System), IoDriver Utility, CAA Types, SysCpuHandling, Base Interfaces, * (System), IoDriver Parameter Interfaces, * (System), Component Manager, CmpLog, Standard

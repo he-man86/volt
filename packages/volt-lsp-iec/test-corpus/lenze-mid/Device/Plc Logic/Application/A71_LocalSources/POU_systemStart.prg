@@ -3,7 +3,7 @@ VAR
 END_VAR
 
 NETWORK 0 LD
-  LST_General.FirstCycle := ;
+  LST_General.FirstCycle S= ;
 END_NETWORK
 
 END_PROGRAM

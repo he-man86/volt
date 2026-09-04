@@ -8,6 +8,7 @@ VAR_OUTPUT
 	SCERROR : L_MC4P_ErrorStruct;
 END_VAR
 VAR
+	ESEGMENTTYPE : L_MC4P_SegmentType;
 	FBPOLYNOM : L_MC4P_GeoObjectPolynom;
 	FBCIRCLE : L_MC4P_GeoObjectCircle;
 	FBCUBICSPLINE : L_MC4P_GeoObjectCubicSpline;

@@ -1,6 +1,0 @@
-TYPE L_MC1P_INTERFACEID :
-(
-	L_MC1P_ITOUCHPROBEHANDLER := (L_MC1P_Internal.cdiEnumStartValue + 1),
-	L_MC1P_IAXIS_REF_MASTERVALUES := (L_MC1P_Internal.cdiEnumStartValue + 2)
-);
-END_TYPE

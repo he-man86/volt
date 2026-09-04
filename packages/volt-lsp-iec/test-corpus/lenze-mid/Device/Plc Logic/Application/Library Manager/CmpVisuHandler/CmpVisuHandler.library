@@ -1,6 +1,6 @@
 LIBRARY CmpVisuHandler
 NAMESPACE CmpVisuHandler
-RESOLUTION CmpVisuHandler, 3.5.19.0 (System)
+RESOLUTION CmpVisuHandler, 3.5.17.0 (System)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES SysTypes2 Interfaces, * (System)

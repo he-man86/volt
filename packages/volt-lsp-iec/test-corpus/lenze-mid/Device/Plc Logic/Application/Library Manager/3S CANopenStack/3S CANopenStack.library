@@ -1,0 +1,6 @@
+LIBRARY 3S CANopenStack
+NAMESPACE _3SCOS
+RESOLUTION 3S CANopenStack, 3.5.17.0 (3S - Smart Software Solutions GmbH)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES IoStandard, CAA CanL2, CAA CanL2I, CAA Types, CAA CANopen Manager, CAA CANopen Stack, Standard, IoDrvBase, CmpIecTask, CAA MemBlockMan, 3SLicense, SysMem, SysTime, SysTarget, SysCpuHandling, CmpLog, Base Interfaces, * (System), IoDriver Interfaces, * (System), IoDriver Parameter Interfaces, * (System), SysTypes2 Interfaces, * (System), Component Manager, CmpErrors2 Interfaces, * (System), CAA Device Diagnosis, CANbusDevice, CmpAsyncMgr, IoDriver Utility, CmpSchedule, Redundancy

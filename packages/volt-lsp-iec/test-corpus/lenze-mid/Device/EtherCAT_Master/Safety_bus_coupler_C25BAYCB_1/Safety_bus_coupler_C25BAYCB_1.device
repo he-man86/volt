@@ -1,0 +1,6 @@
+Name:         Safety bus coupler(C25BAYCB)
+Vendor:       Lenze
+Type:         65
+ID:           3B_4300434200000001
+Version:      1.0.0.0
+Description:  EtherCAT Slave imported from Slave XML: Lenze_Safety-Buskoppler.xml Device: Safety bus coupler(C25BAYCB)

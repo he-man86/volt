@@ -1,0 +1,6 @@
+LIBRARY CAA CanL2
+NAMESPACE CL2
+RESOLUTION CAA Can Low Level Extern, 3.5.17.0 (CAA Technical Workgroup)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES CAA Types, CAA Callback, CAA CanL2I, CAA MemBlockMan, CAA ResMan

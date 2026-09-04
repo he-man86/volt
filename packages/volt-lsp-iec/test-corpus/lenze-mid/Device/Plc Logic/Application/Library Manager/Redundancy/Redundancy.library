@@ -1,0 +1,6 @@
+LIBRARY Redundancy
+NAMESPACE RDCY
+RESOLUTION Redundancy, 3.5.17.0 (3S - Smart Software Solutions GmbH)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES Redundancy Interfaces, * (System), Redundancy Implementation

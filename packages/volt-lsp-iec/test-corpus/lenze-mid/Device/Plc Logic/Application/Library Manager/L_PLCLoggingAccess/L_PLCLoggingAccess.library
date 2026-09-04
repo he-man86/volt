@@ -1,6 +1,6 @@
 LIBRARY L_PLCLoggingAccess
 NAMESPACE L_LA
-RESOLUTION L_PLCLoggingAccess, 3.32.0.2 (Lenze)
+RESOLUTION L_PLCLoggingAccess, 3.26.0.0 (Lenze)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES CmpLog, SysTypes2 Interfaces, * (System)

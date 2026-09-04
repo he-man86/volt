@@ -82,7 +82,7 @@ END_NETWORK
 NETWORK 2 LD TITLE: "NETWORK 4: Stop delay auxiliary drives"
   LET g28 := (GenFlags.EnableAuxDrive AND NOT GenFlags.StartFlag AND DnStartDelayAuxDrives AND NOT GenFlags.DriveIsRunning AND NOT GenFlags.Rotflag);
   DnStopDelayAuxDrives := OnDelayStopAuxDrives(IN := g28, PT := iPreStopDelayAuxDrives);
-  DnStopDelayAuxDrives := (g28 AND (( = iPreStopDelayAuxDrives = T#0MS) OR DnStopDelayAuxDrives));
+  DnStopDelayAuxDrives := (g28 AND ((iPreStopDelayAuxDrives = T#0MS) OR DnStopDelayAuxDrives));
 END_NETWORK
 NETWORK 3 LD TITLE: "NETWORK 5: Manual stop auxiliary drives"
   DnManualStopAuxDrives := OnDelayManStopAuxDrives(IN := (GenFlags.EnableAuxDrive AND (NOT iStop1 OR NOT iStop2 OR NOT iStop3)), PT := T#2S);
@@ -91,8 +91,8 @@ NETWORK 4 LD TITLE: "NETWORK 6: Startup delay auxiliary drives"
   LET g47 := True;
   LET g48 := (g47 AND GenFlags.EnableAuxDrive AND NOT GenFlags.AuxDrivesStarted);
   DnStartDelayAuxDrives := OnDelayStartAuxDrives(IN := g48, PT := iPreStartDelayAuxDrives);
-  DnStartDelayAuxDrives := (g48 AND (( = iPreStartDelayAuxDrives = T#0MS) OR DnStartDelayAuxDrives));
-  GenFlags.AuxDrivesStarted := g47 SET;
+  DnStartDelayAuxDrives := (g48 AND ((iPreStartDelayAuxDrives = T#0MS) OR DnStartDelayAuxDrives));
+  GenFlags.AuxDrivesStarted R= g47;
 END_NETWORK
 NETWORK 5 LD TITLE: "NETWORK 7: Enable markers"
   LET g190 := (GenFlags.DelayAfterEmergStop AND NOT GenFlags.MajorAlarm);
@@ -177,12 +177,12 @@ NETWORK 22 LD TITLE: "DONE NETWORK 24: Only when during a complete CPU cycle the
   GenFlags.MajorAlarmActive := (g185 AND GenFlags.MajorAlarm);
 END_NETWORK
 NETWORK 23 LD TITLE: "DONE NETWORK 25: Reset alarm actions"
-  LET g1 := True SET;
-  GenFlags.Warning := g1;
-  GenFlags.MinorAlarm := g1;
-  GenFlags.MajorAlarm := g1;
-  GenFlags.DummyWarning := g1;
-  GenFlags.DisableControl := g1;
+  LET g1 := True;
+  GenFlags.Warning R= g1;
+  GenFlags.MinorAlarm R= g1;
+  GenFlags.MajorAlarm R= g1;
+  GenFlags.DummyWarning R= g1;
+  GenFlags.DisableControl R= g1;
 END_NETWORK
 NETWORK 24 LD TITLE: "TODO NETWORK 26: SAVE"
 END_NETWORK

@@ -25,17 +25,18 @@ END_VAR
 
 NETWORK 0 LD
   // Always Off
-  AlwaysOff := AlwaysOff SET;
+  AlwaysOff R= AlwaysOff;
 END_NETWORK
 NETWORK 1 LD
   // Always ON
-  AlwaysOn := NOT AlwaysOn SET;
+  AlwaysOn S= NOT AlwaysOn;
 END_NETWORK
 NETWORK 2 LD
-  FirstCycle := (AlwaysOn AND OSfirstflagcycle) SET;
+  FirstCycle R= (AlwaysOn AND OSfirstflagcycle);
 END_NETWORK
 NETWORK 3 LD
-  MOVE(AlwaysOn, 0);
+  LET en1 := AlwaysOn;
+  IF en1 THEN MOVE(0); END_IF
 END_NETWORK
 NETWORK 4 LD
   LET g2 := ;

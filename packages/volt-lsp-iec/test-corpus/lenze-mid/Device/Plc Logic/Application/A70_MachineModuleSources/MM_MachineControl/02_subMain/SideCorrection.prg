@@ -13,33 +13,42 @@ END_VAR
 
 NETWORK 0 LD TITLE: "Network 1: Averaging of sensorsignal"
   LET i1 := TO_INT(LST_InputsOutputs.IW340_LeafCoverageSensor);
-  fc_MeanValue(, 20, True, i1, db_MeanValuesSideCorrectionSensor.MeasurementValues);
+  LET en1 := ;
+  IF en1 THEN fc_MeanValue(20, True, i1, db_MeanValuesSideCorrectionSensor.MeasurementValues); END_IF
 END_NETWORK
 NETWORK 1 LD
   LET g62 := TRUE;
-  DB_Kantcorrectie.CopyMeasuredToDark := MOVE((g62 AND DB_Kantcorrectie.CopyMeasuredToDark), DB_Kantcorrectie.MeasuredValue) SET;
-  DB_Kantcorrectie.CopyMeasuredToLight := MOVE((g62 AND DB_Kantcorrectie.CopyMeasuredToLight), DB_Kantcorrectie.MeasuredValue) SET;
+  LET en1 := (g62 AND DB_Kantcorrectie.CopyMeasuredToDark);
+  IF en1 THEN DB_Kantcorrectie.CopyMeasuredToDark R= MOVE(DB_Kantcorrectie.MeasuredValue); END_IF
+  LET en2 := (g62 AND DB_Kantcorrectie.CopyMeasuredToLight);
+  IF en2 THEN DB_Kantcorrectie.CopyMeasuredToLight R= MOVE(DB_Kantcorrectie.MeasuredValue); END_IF
 END_NETWORK
 NETWORK 2 LD TITLE: "Network 2: Read out inputvalue and calculate correctionvalue"
   LET i1 := REAL_TO_INT(tReal);
-  MOVE(SidecorrectionCalculation(MOVE(TRUE, Mach1_Data.Settings.Ints.SideCorrectionScaleFactor), DB_Kantcorrectie.MeasuredValue, DB_Kantcorrectie.Setpoint, -1, DB_Kantcorrectie.LightValue, DB_Kantcorrectie.DarkValue, DB_Kantcorrectie.NoWrapperPercentage), i1);
+  LET en1 := SidecorrectionCalculation(DB_Kantcorrectie.MeasuredValue, DB_Kantcorrectie.Setpoint, -1, DB_Kantcorrectie.LightValue, DB_Kantcorrectie.DarkValue, DB_Kantcorrectie.NoWrapperPercentage);
+  IF en1 THEN MOVE(i1); END_IF
 END_NETWORK
 NETWORK 3 LD TITLE: "Network 3: Determine side-correction value"
   LET g85 := fc_CamC_CP_UDT(, HMI_Var.Mach1.Position, Mach1.GenFlags.Rotflag, Mach1_Data.CamControls.MeasurementForSidecorrection_CP);
-  MOVE(MOVE((g85 AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_right_OK), DB_Kantcorrectie.MeasuredValueReal), DB_Kantcorrectie.Percentage10);
+  LET en1 := MOVE(DB_Kantcorrectie.MeasuredValueReal);
+  IF en1 THEN MOVE(DB_Kantcorrectie.Percentage10); END_IF
   LET g86 := (g85 AND Mach1_AuxData.MemWrapperDetected_ResetLimitedSpeed);
-  Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper := g86 SET;
-  Mach1_AuxData.MemWrapperDetected_ResetLimitedSpeed := g86 SET;
-  Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper := (((g85 - DB_Kantcorrectie.LightValue - DB_Kantcorrectie.DeviationNoWrapper) > LST_InputsOutputs.IW340_LeafCoverageSensor > DB_Kantcorrectie.NoWrapperValue) AND HMI_Var.Test_Prod) SET;
+  Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper R= g86;
+  Mach1_AuxData.MemWrapperDetected_ResetLimitedSpeed R= g86;
+  Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper S= ((LST_InputsOutputs.IW340_LeafCoverageSensor > DB_Kantcorrectie.NoWrapperValue) AND HMI_Var.Test_Prod);
 END_NETWORK
 NETWORK 4 LD TITLE: "DONE Network 4: In case a limit switch is reached: overwrite values"
   LET g48 := True;
-  MOVE((g48 AND NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK), -100.0);
-  MOVE(MOVE((g48 AND NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK), 100.0), -1);
-  MOVE(MOVE((g48 AND ((NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK AND NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK) OR NOT HMI_Var.Test_Prod OR Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper)), 0.0), 1);
+  LET en1 := (g48 AND NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK);
+  IF en1 THEN MOVE(-100.0); END_IF
+  LET en2 := MOVE(100.0);
+  IF en2 THEN MOVE(-1); END_IF
+  LET en3 := MOVE(0.0);
+  IF en3 THEN MOVE(1); END_IF
 END_NETWORK
 NETWORK 5 LD TITLE: "DONE Network 5: Write side-correction values to the servo drive"
-  EXECUTE();
+  LET en1 := ;
+  IF en1 THEN EXECUTE(); END_IF
 END_NETWORK
 NETWORK 6 LD TITLE: "DONE Network 6 : Manual adjustment of the sidecorrection"
   LET g56 := True;

@@ -20,10 +20,12 @@ VAR
 END_VAR
 
 NETWORK 0 FBD
-  RecipeManager(EN := TRUE, sDatabaseName := 'Recipes');
+  LET en1 := TRUE;
+  IF en1 THEN RecipeManager(sDatabaseName := 'Recipes'); END_IF
 END_NETWORK
 NETWORK 1 FBD
-  MachineParManager(EN := TRUE, sDatabaseName := 'MachinePar');
+  LET en1 := TRUE;
+  IF en1 THEN MachineParManager(sDatabaseName := 'MachinePar'); END_IF
 END_NETWORK
 
 END_PROGRAM

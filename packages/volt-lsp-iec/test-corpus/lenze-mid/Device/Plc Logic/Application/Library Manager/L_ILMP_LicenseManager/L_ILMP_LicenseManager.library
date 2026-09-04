@@ -1,6 +1,6 @@
 LIBRARY L_ILMP_LicenseManager
 NAMESPACE L_ILMP
-RESOLUTION L_ILMP_LicenseManager, 3.32.0.1 (Lenze)
+RESOLUTION L_ILMP_LicenseManager, 3.26.0.8 (Lenze)
 PLACEHOLDER true
 SYSTEM false
-DEPENDENCIES L_IMHP_ModuleHandler, IoStandard, CmpErrors2 Interfaces, * (System), SysMem, L_UBUP_BasicUtilities, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs
+DEPENDENCIES SysTypes Interfaces, * (System), L_IMHP_ModuleHandler, IoStandard, CmpErrors2 Interfaces, * (System), L_IE1P_ApplicationErrors, SysMem, L_UBUP_BasicUtilities

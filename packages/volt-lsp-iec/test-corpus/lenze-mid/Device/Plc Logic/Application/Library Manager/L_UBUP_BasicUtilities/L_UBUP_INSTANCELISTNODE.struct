@@ -3,7 +3,7 @@ STRUCT
 	ITFLIST : L_UBUP_IInstanceList;
 	ITFPREV : L_UBUP_IInstanceListProxy;
 	ITFNEXT : L_UBUP_IInstanceListProxy;
-	ITFINST : L_UBUP_IPoolInstance;
+	ITFINST : L_UBUP_IInstance;
 	ITFPASSENGER : __SYSTEM.IQueryInterface;
 END_STRUCT
 END_TYPE

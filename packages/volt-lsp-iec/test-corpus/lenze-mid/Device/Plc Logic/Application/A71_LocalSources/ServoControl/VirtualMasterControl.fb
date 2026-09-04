@@ -22,14 +22,18 @@ END_NETWORK
 NETWORK 1 LD
   LET g0 := ioVirtualMaster.Control.StartMovement;
   ioVirtualMasterCom.Control.StartMovement := g0;
-  MOVE(g0, Mach1_Data.Drives.MainDrive_VM.Control.DriveMasterSpeed);
-  MOVE(g0, iDec);
-  MOVE(g0, iAcc);
+  LET en1 := g0;
+  IF en1 THEN MOVE(Mach1_Data.Drives.MainDrive_VM.Control.DriveMasterSpeed); END_IF
+  LET en2 := g0;
+  IF en2 THEN MOVE(iDec); END_IF
+  LET en3 := g0;
+  IF en3 THEN MOVE(iAcc); END_IF
 END_NETWORK
 NETWORK 2 LD
   LET i1 := LREAL_TO_INT(ioVirtualMasterCom.Status.ActSpeed);
   LET i2 := LREAL_TO_INT(ioVirtualMasterCom.Status.ActPos);
-  ((TRUE / i1 / 6) / i2 / 1);
+  LET en1 := (i1 / 6);
+  IF en1 THEN (i2 / 1); END_IF
 END_NETWORK
 NETWORK 3 LD
   ioVirtualMaster.Status.DriveIsReady := ioVirtualMasterCom.Status.ReadyForMotion;

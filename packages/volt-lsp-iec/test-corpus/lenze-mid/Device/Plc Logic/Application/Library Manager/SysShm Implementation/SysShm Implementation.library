@@ -1,0 +1,6 @@
+LIBRARY SysShm Implementation
+NAMESPACE SysShm_Implementation
+RESOLUTION SysShm Implementation, 3.5.17.0 (System)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES SysTypes2 Interfaces, * (System)

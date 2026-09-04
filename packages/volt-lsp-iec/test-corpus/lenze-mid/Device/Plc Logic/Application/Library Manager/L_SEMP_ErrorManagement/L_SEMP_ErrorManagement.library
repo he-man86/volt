@@ -1,6 +1,6 @@
 LIBRARY L_SEMP_ErrorManagement
 NAMESPACE L_SEMP
-RESOLUTION L_SEMP_ErrorManagement, 3.32.0.3 (Lenze)
+RESOLUTION L_SEMP_ErrorManagement, 3.26.0.0 (Lenze)
 PLACEHOLDER true
 SYSTEM false
-DEPENDENCIES Standard, CmpEventMgr, L_IE1P_ApplicationErrorsTypes, SysTypes2 Interfaces, * (System)
+DEPENDENCIES SysTypes Interfaces, * (System), Standard, CmpEventMgr, L_IE1P_ApplicationErrors

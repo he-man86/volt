@@ -1,6 +1,6 @@
 LIBRARY L_Util
 NAMESPACE L_Util
-RESOLUTION L_Util, 3.32.0.5 (Lenze)
+RESOLUTION L_Util, 3.26.0.0 (Lenze)
 PLACEHOLDER true
 SYSTEM false
-DEPENDENCIES System_VisuElems, System_VisuElemMeter, System_VisuElemsWinControls, System_VisuElemTrace, System_VisuInputs, Standard, CmpIecTask, CmpApp, L_PLCLoggingAccess, SysFile, CAA Callback Extern, SysTypes2 Interfaces, * (System), CmpEventMgr, L_SSYP_CmpLenzeIPCSystem, CmpErrors2 Interfaces, * (System), SysTarget, IODrvEtherCAT, IoStandard
+DEPENDENCIES System_VisuElems, System_VisuElemMeter, System_VisuElemsWinControls, System_VisuElemTrace, System_VisuInputs, Standard, CmpIecTask, CmpApp, L_PLCLoggingAccess, SysFile, CAA Callback Extern, SysTypes2 Interfaces, * (System), CmpEventMgr, L_SSYP_CmpLenzeIPCSystem, CmpErrors2 Interfaces, * (System), SysTarget

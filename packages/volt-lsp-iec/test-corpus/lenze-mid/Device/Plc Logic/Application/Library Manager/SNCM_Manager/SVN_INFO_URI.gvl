@@ -1,0 +1,3 @@
+VAR_GLOBAL
+	WURL : WSTRING(96) := "svn://server04/LibrariesV3Source/branches/V3.5.8.30/Intern/Networking/SNCM Manager/SNCM_Manager/";
+END_VAR

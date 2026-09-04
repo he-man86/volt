@@ -1,0 +1,5 @@
+LIBRARY Redundancy Interfaces, * (System)
+NAMESPACE Redundancy_Interfaces
+RESOLUTION Redundancy Interfaces, * (System)
+PLACEHOLDER false
+SYSTEM false

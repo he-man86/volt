@@ -1,6 +1,6 @@
 LIBRARY CAA Storage
 NAMESPACE STO
-RESOLUTION CAA Storage, 3.5.21.0 (CAA Technical Workgroup)
+RESOLUTION CAA Storage, 3.5.17.0 (CAA Technical Workgroup)
 PLACEHOLDER true
 SYSTEM false
-DEPENDENCIES CAA Types, CAA FB Factory
+DEPENDENCIES CAA Types, CAA Behaviour Model, CAA FB Factory

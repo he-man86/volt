@@ -1,8 +1,0 @@
-TYPE L_TB2P_INTERFACEID :
-(
-	L_TB2P_ITECHMODULEBASE := (L_TB2P_Internal.cdiEnumStartValue + 1),
-	L_TB2P_ITECHMODULEINTERNAL := (L_TB2P_Internal.cdiEnumStartValue + 2),
-	L_TB2M_IERRORMANAGER := (L_TB2P_Internal.cdiEnumStartValue + 22),
-	L_TB2P_ISTRUCTPROVIDER := (L_TB2P_Internal.cdiEnumStartValue + 23)
-);
-END_TYPE

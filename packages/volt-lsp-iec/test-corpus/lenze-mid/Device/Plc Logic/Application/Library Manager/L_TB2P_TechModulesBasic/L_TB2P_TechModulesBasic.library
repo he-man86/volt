@@ -1,6 +1,6 @@
 LIBRARY L_TB2P_TechModulesBasic
 NAMESPACE L_TB2P
-RESOLUTION L_TB2P_TechModulesBasic, 3.34.0.37 (Lenze)
+RESOLUTION L_TB2P_TechModulesBasic, 3.26.0.177 (Lenze)
 PLACEHOLDER true
 SYSTEM false
-DEPENDENCIES SysTarget, L_IE1P_ApplicationErrors, Standard, L_MC1P_MotionControlBasic, L_MC2P_MotionControlCam, L_IMHP_ModuleHandler, L_UMTP_Mathematics, L_UBUP_BasicUtilities, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs, L_UM1P_MulticoreBasic
+DEPENDENCIES SysTarget, SysTask, CAA Mathematics, L_IE1P_ApplicationErrors, SysTypes Interfaces, * (System), Standard, L_MC1P_MotionControlBasic, L_MC2P_MotionControlCam, L_IMHP_ModuleHandler, L_UMTP_Mathematics, L_UBUP_BasicUtilities, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs

@@ -1,0 +1,65 @@
+=== BEFORE opening any project ===
+  LMServiceProvider = <_3S.CoDeSys.LanguageModelManager.Services.ServiceProvider object at 0x0000000000000087 [_3S.CoDeSys.LanguageModelManager.Services.ServiceProvider]>
+
+=== AFTER projects.open(Lenze_MID-S100_V5_00_602_T51.project) ===
+  LMServiceProvider : _3S.CoDeSys.LanguageModelManager.Services.ServiceProvider
+      prop CommandService                     = <_3S.CoDeSys.LanguageModelManager.Services.CommandService object at 0x0000000000000088 [_3S.CoDeSys.LanguageModelManager.Services.CommandService]>
+      prop CompileService                     = <_3S.CoDeSys.LanguageModelManager.Services.CompileService object at 0x0000000000000089 [_3S.CoDeSys.LanguageModelManager.Services.CompileService]>
+      prop ConfigurationService               = <_3S.CoDeSys.LanguageModelManager.Services.ConfigurationService object at 0x000000000000008A [_3S.CoDeSys.LanguageModelManager.Services.ConfigurationService]>
+      prop CreatorService                     = <_3S.CoDeSys.LanguageModelManager.Services.CreatorService object at 0x000000000000008B [_3S.CoDeSys.LanguageModelManager.Services.CreatorService]>
+      prop DownloadedApplicationService       = <_3S.CoDeSys.LanguageModelManager.Services.DownloadedApplicationService object at 0x000000000000008C [_3S.CoDeSys.LanguageModelManager.Services.DownloadedApplicationService]>
+      prop FlowMonitoringService              = <_3S.CoDeSys.LanguageModelManager.Services.FlowMonitoringService object at 0x000000000000008D [_3S.CoDeSys.LanguageModelManager.Services.FlowMonitoringService]>
+      prop LanguageModelProviderService       = <_3S.CoDeSys.LanguageModelManager.Services.LanguageModelProviderService object at 0x000000000000008E [_3S.CoDeSys.LanguageModelManager.Services.LanguageModelProviderService]>
+      prop MonitoringService                  = <_3S.CoDeSys.LanguageModelManager.Services.MonitoringService object at 0x000000000000008F [_3S.CoDeSys.LanguageModelManager.Services.MonitoringService]>
+      prop ObsoleteService                    = <_3S.CoDeSys.LanguageModelManager.Services.ObsoleteService object at 0x0000000000000090 [_3S.CoDeSys.LanguageModelManager.Services.ObsoleteService]>
+      prop PreCompileCrossReferenceService    = <_3S.CoDeSys.LanguageModelManager.Services.PreCompileCrossReferenceService object at 0x0000000000000091 [_3S.CoDeSys.LanguageModelManager.Services.PreCompileCrossReferenceService]>
+      prop PreCompileService                  = <_3S.CoDeSys.LanguageModelManager.Services.PreCompileService object at 0x0000000000000092 [_3S.CoDeSys.LanguageModelManager.Services.PreCompileService]>
+      prop PreCompileSmartCodingService       = <_3S.CoDeSys.LanguageModelManager.Services.PreCompileSmartCodingService object at 0x0000000000000093 [_3S.CoDeSys.LanguageModelManager.Services.PreCompileSmartCodingService]>
+      prop PreCompileStorageSizeEstimatorService = <_3S.CoDeSys.LanguageModelManager.Services.PreCompileStorageSizeEstimatorService object at 0x0000000000000094 [_3S.CoDeSys.LanguageModelManager.Services.PreCompileStorageSizeEstimatorService]>
+      prop CompiledSetStorageFormatFactory    = <_3S.CoDeSys.LanguageModelManager.ArchiveStorageFormatFactory object at 0x0000000000000095 [_3S.CoDeSys.LanguageModelManager.ArchiveStorageFormatFactory]>
+      prop CompiledSetStorage                 = <_3S.CoDeSys.LanguageModelManager.LMCompiledSetOperations.CompiledSetStorage object at 0x0000000000000096 [_3S.CoDeSys.LanguageModelManager.LMCompiledSetOperations.CompiledSetStorage]>
+      prop LMPouSetPersistenceService         = <_3S.CoDeSys.LanguageModelManager.LMCompiledSetOperations.LMCompiledSetPersistence object at 0x0000000000000097 [_3S.CoDeSys.LanguageModelManager.LMCompiledSetOperations.LMCompiledSetPersistence]>
+      prop CachingService                     = <_3S.CoDeSys.LanguageModelManager.Services.CommandService object at 0x0000000000000088 [_3S.CoDeSys.LanguageModelManager.Services.CommandService]>
+      prop TaskLMService                      = <_3S.CoDeSys.LanguageModelManager.Services.TaskLMService object at 0x0000000000000098 [_3S.CoDeSys.LanguageModelManager.Services.TaskLMService]>
+      prop SingleByteStringEncodingService    = <_3S.CoDeSys.LanguageModelManager.DefaultStringEncodingService object at 0x0000000000000099 [_3S.CoDeSys.LanguageModelManager.DefaultStringEncodingService]>
+      prop CallTreeService                    = None
+      m()  OnAllSystemInstancesAvailable      = None
+      m()  GetHashCode                        = 10677157
+      m()  GetType                            = <System.RuntimeType object at 0x000000000000009A [_3S.CoDeSys.LanguageModelManager.Services.ServiceProvider]>
+      m()  ToString                           = '_3S.CoDeSys.LanguageModelManager.Services.ServiceProvider'
+
+  ConfigurationService : _3S.CoDeSys.LanguageModelManager.Services.ConfigurationService
+      prop RegisteredAttributes               = <_3S.CoDeSys.Utilities.LList`1[[_3S.CoDeSys.Core.LanguageModel.IAttribute, Compiler, Version=3.5.21.40, Culture=neutral, PublicKeyToken=null]] object at 0x000000000000009B [_3S.CoDeSys.Utilities.LList`1[_3S.CoDeSys.Core.LanguageModel.IAttribute]]>
+      prop WarningConfiguration               = <_3S.CoDeSys.LanguageModelManager.WarningHelper object at 0x000000000000009C [_3S.CoDeSys.LanguageModelManager.WarningHelper]>
+      prop CompileOptions                     = <_3S.CoDeSys.LanguageModelManager.CompileOptions object at 0x000000000000009D [_3S.CoDeSys.LanguageModelManager.CompileOptions]>
+      prop LibraryDevelopmentOptions          = <_3S.CoDeSys.LanguageModelManager.LibraryDevelopmentOptions object at 0x000000000000009E [_3S.CoDeSys.LanguageModelManager.LibraryDevelopmentOptions]>
+      m()  GetHashCode                        = 11772813
+      m()  GetType                            = <System.RuntimeType object at 0x000000000000009F [_3S.CoDeSys.LanguageModelManager.Services.ConfigurationService]>
+      m()  ToString                           = '_3S.CoDeSys.LanguageModelManager.Services.ConfigurationService'
+
+  WarningConfiguration : _3S.CoDeSys.LanguageModelManager.WarningHelper
+      prop WarningsSet                        = List[int]([33, 100, 118, 125, 139, 187, 195, 196, 197, 198, 200, 209, 210, 220, 223, 228, 245, 266, 269, 298, 308, 312, 315, 316, 325, 327, 335, 339, 344, 349, 350, 351, 354, 355, 357, 370, 371, 373, 388, 389, 394, 404, 406, 410, 421, 422, 426, 441, 447, 508, 513, 514, 515, 516, 517, 522, 525, 526, 527, 533, 540, 542, 543, 555, 561, 564, 565, 566, 567, 568, 569, 571, 572, 573, 580])
+      prop DisabledWarningsSet                = None
+      prop WarningAsErrorSet                  = None
+      m()  GetDisabledWarningIds              = None
+      m()  GetWarningAsErrorIds               = None
+      m()  GetHashCode                        = 43554041
+      m()  GetType                            = <System.RuntimeType object at 0x00000000000000A0 [_3S.CoDeSys.LanguageModelManager.WarningHelper]>
+      m()  ToString                           = '_3S.CoDeSys.LanguageModelManager.WarningHelper'
+  GetDisabledWarningIds() -> None
+  GetWarningAsErrorIds() -> None
+
+=== after a BUILD ===
+  building 'Application' ...
+  build returned
+  AFTER BUILD GetDisabledWarningIds() -> None
+  AFTER BUILD GetWarningAsErrorIds() -> None
+
+=== after selecting the application ===
+  find('Application') -> 1
+  app = 'Application'  guid=<System.Guid object at 0x00000000000000A1 [cdb0b22a-824e-4f84-a307-dcfc8f4e7161]>
+  set_active_application threw: AttributeError: 'ScriptObject' object has no attribute 'set_active_application'
+  GetDisabledWarningIds() -> None
+  GetWarningAsErrorIds() -> None
+
+done

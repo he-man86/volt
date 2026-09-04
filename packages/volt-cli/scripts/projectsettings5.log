@@ -1,0 +1,72 @@
+opened Lenze_MID-S100_V5_00_602_T51.project
+
+=== OptionStorage surface ===
+   GetRootKey                         (OptionRoot) -> IOptionKey
+   GetEditors                         (OptionRoot) -> IOptionEditor[]
+   Load                               (OptionRoot, Stream) -> Void
+   Save                               (OptionRoot, Stream) -> Void
+   BeginUpdate                        () -> Void
+   EndUpdate                          () -> Void
+   RaiseCreated                       (IOptionKey, String) -> Void
+   RaiseChanged                       (IOptionKey, String) -> Void
+   RaiseDeleted                       (IOptionKey, String) -> Void
+   add_OptionCreated                  (OptionEventHandler) -> Void
+   remove_OptionCreated               (OptionEventHandler) -> Void
+   add_OptionChanged                  (OptionEventHandler) -> Void
+   remove_OptionChanged               (OptionEventHandler) -> Void
+   add_OptionDeleted                  (OptionEventHandler) -> Void
+   remove_OptionDeleted               (OptionEventHandler) -> Void
+   add_OptionStorageMerging           (EventHandler) -> Void
+   remove_OptionStorageMerging        (EventHandler) -> Void
+   add_OptionStorageMerged            (EventHandler) -> Void
+   remove_OptionStorageMerged         (EventHandler) -> Void
+   add_OptionMerging                  (EventHandler`1) -> Void
+   remove_OptionMerging               (EventHandler`1) -> Void
+   add_OptionMerged                   (EventHandler`1) -> Void
+   remove_OptionMerged                (EventHandler`1) -> Void
+   Load                               (Stream) -> IOptionKey
+   Save                               (IOptionKey, Stream) -> Void
+   Merge                              (IOptionKey, Stream) -> Void
+   Export                             (IEnumerable`1, Stream) -> Void
+   Import                             (Stream) -> Void
+   InitLiveOptionHandler              () -> Void
+   UnregisterLiveOptionHandler        () -> Void
+   IsLiveOptionKeyAlreadyInUse        (IOptionKey, String) -> Boolean
+   Equals                             (Object) -> Boolean
+   GetHashCode                        () -> Int32
+   GetType                            () -> Type
+   ToString                           () -> String
+   prop AllExportableOptions           = List[IExportableOption]([<_3S.CoDeSys.SmartCodingOptions.SmartCodingExportableOption object at 0x0000000000000087 [_3S.CoDeSys.SmartCodingOptions.SmartCodingExportableOption]>, <_3S.CoDeSys.LibManObject.LibraryRepositoryExportableOption object at 0x0000000000000088 [_3S.CoDeSys.LibManObject.LibraryRepositoryExportableOption]>, <_3S.CoDeSys.Refactoring.RefactoringExportableOption object at 0x0000000000000089 [_3S.CoDeSys.Refactoring.RefactoringExportableOption]>, <_3S.CoDeSys.DeviceEditor.DeviceEditorExportableOption object at 0x000000000000008A [_3S.CoDeSys.DeviceEditor.DeviceEditorExportableOption]>, <_3S.CoDeSys.IECTextEditor.SyntaxHighlightingAndTextEditorExportableOption object at 0x000000000000008B [_3S.CoDeSys.IECTextEditor.SyntaxHighlightingAndTextEditorExportableOption]>, <_3S.CoDeSys.DeviceRepository.DeviceRepositoryExportableOption object at 0x000000000000008C [_3S.CoDeSys.DeviceRepository.DeviceRepositoryExportableOption]>, <_3S.CoDeSys.VisualEditor.VisualEditorExportableOption object at 0x000000000000008D [_3S.CoDeSys.VisualEditor.VisualEditorExportableOption]>, <_3S.CoDeSys.VisualStyles.VisualStylesRepositoryExportableOption object at 0x000000000000008E [_3S.CoDeSys.VisualStyles.VisualStylesRepositoryExportableOption]>, <_3S.CoDeSys.NWLEditor.NWLEditorExportableOption object at 0x000000000000008F [_3S.CoDeSys.NWLEditor.NWLEditorExportableOption]>, <_3S.CoDeSys.VisualElemRepository.VisualElemRepositoryExportableOption object at 0x0000000000000090 [_3S.CoDeSys.VisualElemRepository.VisualElemRepositoryExportableOption]>, <_3S.CoDeSys.SFCEditor.SFCEditorExportableOption object at 0x0000000000000091 [_3S.CoDeSys.SFCEditor.SFCEditorExportableOption]>])
+   IsLiveOptionKeyAlreadyInUse        (IOptionKey, String) -> Boolean
+   InitLiveOptionHandler              () -> Void
+   UnregisterLiveOptionHandler        () -> Void
+   Export                             (IEnumerable`1, Stream) -> Void
+   Import                             (Stream) -> Void
+   prop AllExportableOptions           = List[IExportableOption]([<_3S.CoDeSys.SmartCodingOptions.SmartCodingExportableOption object at 0x0000000000000087 [_3S.CoDeSys.SmartCodingOptions.SmartCodingExportableOption]>, <_3S.CoDeSys.LibManObject.LibraryRepositoryExportableOption object at 0x0000000000000088 [_3S.CoDeSys.LibManObject.LibraryRepositoryExportableOption]>, <_3S.CoDeSys.Refactoring.RefactoringExportableOption object at 0x0000000000000089 [_3S.CoDeSys.Refactoring.RefactoringExportableOption]>, <_3S.CoDeSys.DeviceEditor.DeviceEditorExportableOption object at 0x000000000000008A [_3S.CoDeSys.DeviceEditor.DeviceEditorExportableOption]>, <_3S.CoDeSys.IECTextEditor.SyntaxHighlightingAndTextEditorExportableOption object at 0x000000000000008B [_3S.CoDeSys.IECTextEditor.SyntaxHighlightingAndTextEditorExportableOption]>, <_3S.CoDeSys.DeviceRepository.DeviceRepositoryExportableOption object at 0x000000000000008C [_3S.CoDeSys.DeviceRepository.DeviceRepositoryExportableOption]>, <_3S.CoDeSys.VisualEditor.VisualEditorExportableOption object at 0x000000000000008D [_3S.CoDeSys.VisualEditor.VisualEditorExportableOption]>, <_3S.CoDeSys.VisualStyles.VisualStylesRepositoryExportableOption object at 0x000000000000008E [_3S.CoDeSys.VisualStyles.VisualStylesRepositoryExportableOption]>, <_3S.CoDeSys.NWLEditor.NWLEditorExportableOption object at 0x000000000000008F [_3S.CoDeSys.NWLEditor.NWLEditorExportableOption]>, <_3S.CoDeSys.VisualElemRepository.VisualElemRepositoryExportableOption object at 0x0000000000000090 [_3S.CoDeSys.VisualElemRepository.VisualElemRepositoryExportableOption]>, <_3S.CoDeSys.SFCEditor.SFCEditorExportableOption object at 0x0000000000000091 [_3S.CoDeSys.SFCEditor.SFCEditorExportableOption]>])
+   Merge                              (IOptionKey, Stream) -> Void
+   add_OptionMerging                  (EventHandler`1) -> Void
+   remove_OptionMerging               (EventHandler`1) -> Void
+   add_OptionMerged                   (EventHandler`1) -> Void
+   remove_OptionMerged                (EventHandler`1) -> Void
+   add_OptionStorageMerging           (EventHandler) -> Void
+   remove_OptionStorageMerging        (EventHandler) -> Void
+   add_OptionStorageMerged            (EventHandler) -> Void
+   remove_OptionStorageMerged         (EventHandler) -> Void
+   Load                               (Stream) -> IOptionKey
+   Save                               (IOptionKey, Stream) -> Void
+   GetRootKey                         (OptionRoot) -> IOptionKey
+   GetEditors                         (OptionRoot) -> IOptionEditor[]
+   Load                               (OptionRoot, Stream) -> Void
+   Save                               (OptionRoot, Stream) -> Void
+   BeginUpdate                        () -> Void
+   EndUpdate                          () -> Void
+   add_OptionCreated                  (OptionEventHandler) -> Void
+   remove_OptionCreated               (OptionEventHandler) -> Void
+   add_OptionChanged                  (OptionEventHandler) -> Void
+   remove_OptionChanged               (OptionEventHandler) -> Void
+   add_OptionDeleted                  (OptionEventHandler) -> Void
+   remove_OptionDeleted               (OptionEventHandler) -> Void
+
+=== keys ===
+
+done

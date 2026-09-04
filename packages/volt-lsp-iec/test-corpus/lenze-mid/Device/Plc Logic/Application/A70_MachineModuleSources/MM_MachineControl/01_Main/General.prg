@@ -13,25 +13,31 @@ VAR
 END_VAR
 
 NETWORK 0 LD
-  GeneralProgramFlags(TRUE);
+  LET en1 := TRUE;
+  IF en1 THEN GeneralProgramFlags(); END_IF
 END_NETWORK
 NETWORK 1 LD
-  fc_Information(TRUE);
+  LET en1 := TRUE;
+  IF en1 THEN fc_Information(); END_IF
 END_NETWORK
 NETWORK 2 LD
   WordConvertor_v2(ioSafetyStatusUDT := Mach1_Safety.Status, ioSafetyControlUDT := Mach1_Safety.Control);
 END_NETWORK
 NETWORK 3 LD
   LET g16 := NOT HMI_Var.ForceOutputs;
-  Mach1_MIDS(g16);
-  fc_Visualisation_HMI(g16);
-  SMC_BitsToBytes(g16);
+  LET en1 := g16;
+  IF en1 THEN Mach1_MIDS(); END_IF
+  LET en2 := g16;
+  IF en2 THEN fc_Visualisation_HMI(); END_IF
+  LET en3 := g16;
+  IF en3 THEN SMC_BitsToBytes(); END_IF
 END_NETWORK
 NETWORK 4 LD
-  Status_ForceOutputs(TRUE);
+  LET en1 := TRUE;
+  IF en1 THEN Status_ForceOutputs(); END_IF
 END_NETWORK
 NETWORK 5 LD
-  LST_General.FirstCycle := ;
+  LST_General.FirstCycle R= ;
 END_NETWORK
 NETWORK 6 LD
   Bugs.checkconnection := BLINK_0(ENABLE := TRUE, TIMELOW := T#1S, TIMEHIGH := T#1S);

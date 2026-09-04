@@ -1,0 +1,6 @@
+LIBRARY SNCM_ECATSlave
+NAMESPACE SNCM_ETC_ITF
+RESOLUTION SNCM_ETC_ITF, 3.20.0.0 (Lenze)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES IoStandard, CmpErrors2 Interfaces, * (System), SNCM ECATSlave Interfaces, * (3S - Smart Software Solutions GmbH), IODrvEtherCAT

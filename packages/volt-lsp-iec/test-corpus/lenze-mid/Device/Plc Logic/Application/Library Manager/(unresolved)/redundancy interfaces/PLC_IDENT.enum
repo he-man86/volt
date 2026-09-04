@@ -1,0 +1,7 @@
+TYPE PLC_IDENT :
+(
+	PLC_ID_NONE := 0,
+	PLC_ID_1 := 1,
+	PLC_ID_2 := 2
+);
+END_TYPE

@@ -5,12 +5,12 @@ VAR_INPUT
 	LRSLOPEN : LREAL;
 END_VAR
 VAR
-	ALRSPLINECOEFFS : ARRAY [0..(L_UMTP_Constants.gc_udiMaxCubSplinePts - 2)] OF ARRAY [1..4] OF LREAL;
-	ALRH : ARRAY [0..(L_UMTP_Constants.gc_udiMaxCubSplinePts - 2)] OF LREAL;
-	ALRINVH : ARRAY [0..(L_UMTP_Constants.gc_udiMaxCubSplinePts - 2)] OF LREAL;
-	ALRX : ARRAY [0..(L_UMTP_Constants.gc_udiMaxCubSplinePts - 1), 1..1] OF LREAL;
-	ALRA : ARRAY [0..(L_UMTP_Constants.gc_udiMaxCubSplinePts - 1), 1..3] OF LREAL;
-	ALRD : ARRAY [0..(L_UMTP_Constants.gc_udiMaxCubSplinePts - 1), 1..1] OF LREAL;
+	ALRSPLINECOEFFS : ARRAY [0..(gc_udiMaxCubSplinePts - 2)] OF ARRAY [1..4] OF LREAL;
+	ALRH : ARRAY [0..(gc_udiMaxCubSplinePts - 2)] OF LREAL;
+	ALRINVH : ARRAY [0..(gc_udiMaxCubSplinePts - 2)] OF LREAL;
+	ALRX : ARRAY [0..(gc_udiMaxCubSplinePts - 1), 1..1] OF LREAL;
+	ALRA : ARRAY [0..(gc_udiMaxCubSplinePts - 1), 1..3] OF LREAL;
+	ALRD : ARRAY [0..(gc_udiMaxCubSplinePts - 1), 1..1] OF LREAL;
 	EINTERPOLATIONTYPEINT : L_UMTP_InterpolationType;
 	INTERPOLATIONTYPE : L_UMTP_InterpolationType;
 END_VAR

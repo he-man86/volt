@@ -19,7 +19,7 @@ VAR_IN_OUT
 END_VAR
 
 NETWORK 0 LD
-  tBool := (( >= iMachinePosition >= iStartCam) AND NOT iResetFlag AND iEN);
+  tBool := ((iMachinePosition >= iStartCam) AND NOT iResetFlag AND iEN);
 END_NETWORK
 NETWORK 1 LD
   fc_CamC_CP_Base := (tbool AND NOT ioAuxOneShot);

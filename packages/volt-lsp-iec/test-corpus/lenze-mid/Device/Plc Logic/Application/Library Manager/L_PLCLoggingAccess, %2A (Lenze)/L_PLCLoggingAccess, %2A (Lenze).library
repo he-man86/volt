@@ -1,0 +1,5 @@
+LIBRARY L_PLCLoggingAccess, * (Lenze)
+NAMESPACE L_LA
+RESOLUTION L_PLCLoggingAccess, * (Lenze)
+PLACEHOLDER false
+SYSTEM false

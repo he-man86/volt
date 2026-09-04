@@ -1,5 +1,5 @@
 LIBRARY Standard
 NAMESPACE Standard
-RESOLUTION Standard, 3.5.18.0 (System)
+RESOLUTION Standard, 3.5.17.0 (System)
 PLACEHOLDER true
 SYSTEM false

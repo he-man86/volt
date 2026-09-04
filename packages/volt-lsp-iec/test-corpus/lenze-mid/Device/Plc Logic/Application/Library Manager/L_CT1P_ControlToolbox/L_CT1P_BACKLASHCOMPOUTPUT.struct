@@ -1,5 +1,0 @@
-TYPE L_CT1P_BACKLASHCOMPOUTPUT :
-STRUCT
-	ECONTACTSTATE : L_CT1P_BacklashContactState := L_CT1P_BacklashContactState.Unknown;
-END_STRUCT
-END_TYPE

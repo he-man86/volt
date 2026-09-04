@@ -1,0 +1,5 @@
+LIBRARY IIecVarAccess7, * (System)
+NAMESPACE IIecVarAccess7
+RESOLUTION IIecVarAccess7, * (System)
+PLACEHOLDER false
+SYSTEM false

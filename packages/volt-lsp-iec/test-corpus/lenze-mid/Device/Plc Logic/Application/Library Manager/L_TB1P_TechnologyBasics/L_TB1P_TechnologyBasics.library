@@ -1,6 +1,6 @@
 LIBRARY L_TB1P_TechnologyBasics
 NAMESPACE L_TB1P
-RESOLUTION L_TB1P_TechnologyBasics, 3.34.0.1 (Lenze)
+RESOLUTION L_TB1P_TechnologyBasics, 3.26.0.2 (Lenze)
 PLACEHOLDER true
 SYSTEM false
-DEPENDENCIES L_MC1P_MotionControlBasic, L_MC2P_MotionControlCam, L_USPP_SignalProcessing, CAA Mathematics, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs, L_IE1P_ApplicationErrorsTypes, SysTypes2 Interfaces, * (System)
+DEPENDENCIES L_MC1P_MotionControlBasic, SysFile, CAA Tick, SysTime, CmpApp, CmpEventMgr, L_IOM_IOModules, L_MC2P_MotionControlCam, L_USPP_SignalProcessing, L_IE1P_ApplicationErrors, SysTypes Interfaces, * (System), Standard, CAA Mathematics, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs

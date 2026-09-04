@@ -37,49 +37,49 @@ END_VAR
 
 NETWORK 0 LD TITLE: "Network 2 : Initialise with STATE HomePosNotOK"
   LET g8 := (NOT STATE_Prehoming AND NOT STATE_HomePosNOK AND NOT STATE_HomePOSOK AND NOT STATE_WaitingForEnable AND NOT STATE_Synchronising);
-  STATE_Prehoming := g8 SET;
-  STATE_HomePosNOK := g8 SET;
-  STATE_HomePOSOK := g8 SET;
-  STATE_WaitingForEnable := g8 SET;
-  STATE_Synchronising := g8 SET;
-  STATE_HomePosNOK := g8 SET;
+  STATE_Prehoming R= g8;
+  STATE_HomePosNOK R= g8;
+  STATE_HomePOSOK R= g8;
+  STATE_WaitingForEnable R= g8;
+  STATE_Synchronising R= g8;
+  STATE_HomePosNOK S= g8;
 END_NETWORK
 NETWORK 1 LD TITLE: "Network 3 : STATE: Prehoming"
-  LET g1 := ((STATE_WaitingForEnable OR STATE_Synchronising) AND iServoStatus.DriveCommAlive AND Man_SetHomePos AND iServoStatus.HomingPosOK) SET;
-  STATE_Prehoming := g1;
-  STATE_HomePOSOK := g1;
-  STATE_WaitingForEnable := g1;
-  STATE_Synchronising := g1;
+  LET g1 := ((STATE_WaitingForEnable OR STATE_Synchronising) AND iServoStatus.DriveCommAlive AND Man_SetHomePos AND iServoStatus.HomingPosOK);
+  STATE_Prehoming S= g1;
+  STATE_HomePOSOK R= g1;
+  STATE_WaitingForEnable R= g1;
+  STATE_Synchronising R= g1;
 END_NETWORK
 NETWORK 2 LD TITLE: "STATE: HomePos not OK"
-  LET g1 := ((STATE_Prehoming OR STATE_HomePOSOK OR STATE_WaitingForEnable OR STATE_Synchronising) AND iServoStatus.DriveCommAlive AND NOT iServoStatus.HomingPosOK) SET;
-  STATE_HomePosNOK := g1;
-  STATE_Prehoming := g1;
-  STATE_HomePOSOK := g1;
-  STATE_WaitingForEnable := g1;
-  STATE_Synchronising := g1;
+  LET g1 := ((STATE_Prehoming OR STATE_HomePOSOK OR STATE_WaitingForEnable OR STATE_Synchronising) AND iServoStatus.DriveCommAlive AND NOT iServoStatus.HomingPosOK);
+  STATE_HomePosNOK S= g1;
+  STATE_Prehoming R= g1;
+  STATE_HomePOSOK R= g1;
+  STATE_WaitingForEnable R= g1;
+  STATE_Synchronising R= g1;
 END_NETWORK
 NETWORK 3 LD TITLE: "Network 5: STATE: HomePos OK"
-  LET g1 := (STATE_HomePosNOK AND iServoStatus.DriveCommAlive AND iServoStatus.HomingPosOK) SET;
-  STATE_HomePOSOK := g1;
-  STATE_HomePosNOK := g1;
-  Man_SetHomePos := g1;
+  LET g1 := (STATE_HomePosNOK AND iServoStatus.DriveCommAlive AND iServoStatus.HomingPosOK);
+  STATE_HomePOSOK S= g1;
+  STATE_HomePosNOK R= g1;
+  Man_SetHomePos R= g1;
 END_NETWORK
 NETWORK 4 LD TITLE: "Network 6 : STATE: WaitingForEnable"
-  LET g1 := (STATE_HomePOSOK OR (STATE_Synchronising AND NOT ioUDT_ServoDrive.Control.SetDriveEnable)) SET;
-  STATE_WaitingForEnable := g1;
-  STATE_HomePOSOK := g1;
-  STATE_Synchronising := g1;
+  LET g1 := (STATE_HomePOSOK OR (STATE_Synchronising AND NOT ioUDT_ServoDrive.Control.SetDriveEnable));
+  STATE_WaitingForEnable S= g1;
+  STATE_HomePOSOK R= g1;
+  STATE_Synchronising R= g1;
 END_NETWORK
 NETWORK 5 LD TITLE: "DONE Network 7: STATE: Synchronising"
-  LET g1 := (STATE_WaitingForEnable AND ioUDT_ServoDrive.Control.SetDriveEnable) SET;
-  STATE_Synchronising := g1;
-  STATE_WaitingForEnable := g1;
+  LET g1 := (STATE_WaitingForEnable AND ioUDT_ServoDrive.Control.SetDriveEnable);
+  STATE_Synchronising S= g1;
+  STATE_WaitingForEnable R= g1;
 END_NETWORK
 NETWORK 6 LD TITLE: "DONE Network 8: Activate set HomePos Cycle"
   LET g22 := OSP_SetHomnePos(CLK := (ioUDT_ServoDrive.Control.StartSetHomePos AND ioUDT_ServoDrive.Status.DriveIsReady));
-  Man_SetHomePos := g22 SET;
-  ioUDT_ServoDrive.Control.StartSetHomePos := g22 SET;
+  Man_SetHomePos S= g22;
+  ioUDT_ServoDrive.Control.StartSetHomePos R= g22;
 END_NETWORK
 NETWORK 7 LD TITLE: "DONE Network 9: Output: Activate Synchronise drive"
   oServoControl.ActivateCamming := (STATE_Synchronising AND ioUDT_ServoDrive.Control.SetInSync);
@@ -103,15 +103,19 @@ NETWORK 13 LD TITLE: "DONE Network 18: SelectBypassCAM"
   oServoControl.SelectBypassCAM := ioUDT_ServoDrive.Control.SelectBypassCAM;
 END_NETWORK
 NETWORK 14 LD TITLE: "DONE Network 19: Output: X-offset"
-  EXECUTE();
+  LET en1 := ;
+  IF en1 THEN EXECUTE(); END_IF
 END_NETWORK
 NETWORK 15 LD TITLE: "DONE Network 20: Scaling of the Y value"
   LET g21 := True;
-  MOVE((g21 >= ioUDT_ServoDrive.CAM.CamType >= ctCurveIs0ToMax), 1000);
-  (((g21 >= ioUDT_ServoDrive.CAM.CamType >= ctCurveIs0To0) OR ( >= ioUDT_ServoDrive.CAM.CamType >= ctCurveIsSpeed)) + ioUDT_ServoDrive.CAM.Y_Scale_Base + ioUDT_ServoDrive.CAM.Y_Scale_Recipe);
+  LET en1 := (ioUDT_ServoDrive.CAM.CamType >= ctCurveIs0ToMax);
+  IF en1 THEN MOVE(1000); END_IF
+  LET en2 := ((ioUDT_ServoDrive.CAM.CamType >= ctCurveIs0To0) OR (ioUDT_ServoDrive.CAM.CamType >= ctCurveIsSpeed));
+  IF en2 THEN (ioUDT_ServoDrive.CAM.Y_Scale_Base + ioUDT_ServoDrive.CAM.Y_Scale_Recipe); END_IF
 END_NETWORK
 NETWORK 16 LD TITLE: "DONE Network 21: Y-offset"
-  EXECUTE();
+  LET en1 := ;
+  IF en1 THEN EXECUTE(); END_IF
 END_NETWORK
 NETWORK 17 LD TITLE: "TODO Network 22: Status inputs from drive"
 END_NETWORK
@@ -126,17 +130,20 @@ NETWORK 19 LD TITLE: "DONE Network 24: Output to Program"
 END_NETWORK
 NETWORK 20 LD TITLE: "DONE Network 25: ActualXPos/Ypos"
   LET i1 := LREAL_TO_INT(iServoStatus.ActPos);
-  MOVE(, i1);
+  LET en1 := ;
+  IF en1 THEN MOVE(i1); END_IF
 END_NETWORK
 NETWORK 21 LD TITLE: "DONE Network 26: ActualSpeed"
   LET i1 := LREAL_TO_INT(iServoStatus.ActSpeed);
-  MOVE(, i1);
+  LET en1 := ;
+  IF en1 THEN MOVE(i1); END_IF
 END_NETWORK
 NETWORK 22 LD
-  MOVE(, ioUDT_ServoDrive.Control.TorqueLimit);
+  LET en1 := ;
+  IF en1 THEN MOVE(ioUDT_ServoDrive.Control.TorqueLimit); END_IF
 END_NETWORK
 NETWORK 23 LD TITLE: "DONE Network 27: Reset ResetError in UDT"
-  ioUDT_ServoDrive.Control.ResetError := (True AND ioUDT_ServoDrive.Status.DriveIsReady) SET;
+  ioUDT_ServoDrive.Control.ResetError R= (True AND ioUDT_ServoDrive.Status.DriveIsReady);
 END_NETWORK
 
 END_FUNCTION_BLOCK

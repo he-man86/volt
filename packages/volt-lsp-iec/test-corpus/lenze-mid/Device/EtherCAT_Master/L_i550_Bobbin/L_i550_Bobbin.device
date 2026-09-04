@@ -1,0 +1,6 @@
+Name:         i550 cabinet FW V05.09
+Vendor:       Lenze
+Type:         65
+ID:           3B_6905500000050009
+Version:      05.09.00.01
+Description:  EtherCAT Slave imported from Slave XML: Lenze_Inverter_i550_V0509.xml Device: i550 Inverter FW V05.09.00.02

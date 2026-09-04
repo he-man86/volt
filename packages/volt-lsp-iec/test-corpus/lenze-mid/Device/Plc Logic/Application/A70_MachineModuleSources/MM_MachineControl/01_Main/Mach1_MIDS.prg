@@ -81,8 +81,8 @@ NETWORK 1 LD TITLE: "DONE Network 2: Main Block FB100 TODO"
 END_NETWORK
 NETWORK 2 LD
   LET g54 := TRUE;
-  Mach1_Safety.Control.ResetSafetyGuard := (g54 AND (mach1.Genflags.StartFlag OR tResetSafetyGuard)) SET;
-  Mach1_Safety.Control.ResetSafetyGuard := TMR_ResetSafety(IN := (g54 AND Mach1_Safety.Control.ResetSafetyGuard), PT := T#1S) SET;
+  Mach1_Safety.Control.ResetSafetyGuard S= (g54 AND (mach1.Genflags.StartFlag OR tResetSafetyGuard));
+  Mach1_Safety.Control.ResetSafetyGuard R= TMR_ResetSafety(IN := (g54 AND Mach1_Safety.Control.ResetSafetyGuard), PT := T#1S);
 END_NETWORK
 NETWORK 3 LD TITLE: "DONE Network 3 :Muting zones"
   LET g2 := (TRUE AND Mach1_AuxData.MainDriveHomed AND Mach1_AuxData.RollingDeviceHomed);
@@ -99,7 +99,7 @@ NETWORK 6 LD TITLE: "DONE NETWORK 4 (p3)Major alarms (start-up conditions)"
   Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.MIDS_Active AND Mach1.Genflags.DelayAfterEmergStop AND NOT LST_InputsOutputs.I100_0_AirpressureOK), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm004, Mach1.GenFlags.MajorAlarm);
 END_NETWORK
 NETWORK 7 LD TITLE: "DONE NETWORK 4 (p4)Major alarms (start-up conditions)"
-  Mach1_Safety.Control.ExternalRequestResetSafetyModule := (Alarms_V5_1_100(Mach1_Alarms, TMR_DelaySafetyModuleError(IN := (Mach1_AuxData.MIDS_Active AND (Mach1_Safety.Status.ErrorInInputModule OR Mach1_Safety.Status.ErrorInOutputModule)), PT := T#1S), TRUE, Mach1_Alarms.Alm009, Mach1.GenFlags.MinorAlarm) SET AND (FB_Mach1.iStart1 OR FB_Mach1.iStart2 OR FB_Mach1.iStart3));
+  Mach1_Safety.Control.ExternalRequestResetSafetyModule := (Alarms_V5_1_100(Mach1_Alarms, TMR_DelaySafetyModuleError(IN := (Mach1_AuxData.MIDS_Active AND (Mach1_Safety.Status.ErrorInInputModule OR Mach1_Safety.Status.ErrorInOutputModule)), PT := T#1S), TRUE, Mach1_Alarms.Alm009, Mach1.GenFlags.MinorAlarm) AND (FB_Mach1.iStart1 OR FB_Mach1.iStart2 OR FB_Mach1.iStart3));
 END_NETWORK
 NETWORK 8 LD
   Comm_OK := (Axis_MainDrive.xCommunicationOK AND Axis_SideCorrection.xCommunicationOK AND Axis_FeedFowardWrapper.xCommunicationOK AND Axis_OverrollingDevice.xCommunicationOK AND Axis_Bobbin.xCommunicationOK AND Axis_Fan.xCommunicationOK AND Axis_FeedForwardADS.xCommunicationOK AND Axis_FeedForwardATF.xCommunicationOK AND Axis_Elevator.xCommunicationOK);
@@ -108,21 +108,22 @@ NETWORK 9 LD TITLE: "DONE NETWORK 4 (p3)Major alarms (start-up conditions)"
   Alarms_V5_1_100(Mach1_Alarms, (LST_General.StartUpDelayPLC AND NOT Comm_OK), (Mach1.GenFlags.StartFlag OR NOT LST_General.StartUpDelayPLC OR Comm_OK), Mach1_Alarms.Alm011, Mach1.GenFlags.Warning);
 END_NETWORK
 NETWORK 10 LD
-  LET g1 := TON_DelayAfterNetworkError(IN := (Mach1_Alarms.Alm011 AND NOT Mach1_Alarms.Alm011), PT := T#10000S) SET;
+  LET g1 := TON_DelayAfterNetworkError(IN := (Mach1_Alarms.Alm011 AND NOT Mach1_Alarms.Alm011), PT := T#10000S);
   EtherCAT_Master.xRestart := g1;
-  REQ_RestartComm := g1;
+  REQ_RestartComm S= g1;
 END_NETWORK
 NETWORK 11 LD
   ReInitAllNodes(xExecute := REQ_RestartComm, xInitCommunication := TRUE);
 END_NETWORK
 NETWORK 12 LD
-  REQ_RestartComm := (REQ_RestartComm AND Comm_OK) SET;
+  REQ_RestartComm R= (REQ_RestartComm AND Comm_OK);
 END_NETWORK
 NETWORK 13 LD TITLE: "TODO NETWORK 6"
-  HMI_Var.Mach1.HourCounterRunning := (MainDrive(TRUE) AND Mach1.GenFlags.DriveIsRunning) SET;
+  HMI_Var.Mach1.HourCounterRunning S= (MainDrive() AND Mach1.GenFlags.DriveIsRunning);
 END_NETWORK
 NETWORK 14 LD TITLE: "DONE NETWORK 6: Drives"
-  Mach1_Drives_DB(EN := );
+  LET en1 := ;
+  IF en1 THEN Mach1_Drives_DB(); END_IF
 END_NETWORK
 NETWORK 15 LD TITLE: "DONE NETWORK 7: Positioned stop leaf carrier"
   LET g3 := TRUE;
@@ -130,7 +131,7 @@ NETWORK 15 LD TITLE: "DONE NETWORK 7: Positioned stop leaf carrier"
   tStopPositionLeafCarrier := (fc_CamC_CP_UDT(g3, HMI_Var.Mach1.Position, Mach1.GenFlags.Rotflag, Mach1_Data.CamControls.StopPostionLeafCarrier_CP) AND Mach1_Data.CamControls.StopPostionLeafCarrier_CP.Active AND Mach1_AuxData.MemStopLeafCarrier);
 END_NETWORK
 NETWORK 16 LD TITLE: "DONE NETWORK 8: Alarm Positioned stop leaf carrier"
-  Mach1.GenFlags.StopDriveDirect := Alarms_V5_1_100(Mach1_Alarms, tStopPositionLeafCarrier, NOT Mach1_AuxData.MemStopLeafCarrier, Mach1_Alarms.Alm054, Mach1.GenFlags.MinorAlarm) SET;
+  Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(Mach1_Alarms, tStopPositionLeafCarrier, NOT Mach1_AuxData.MemStopLeafCarrier, Mach1_Alarms.Alm054, Mach1.GenFlags.MinorAlarm);
 END_NETWORK
 NETWORK 17 LD TITLE: "DONE NETWORK 9: Positioned stop cleaning"
   LET g4 := TRUE;
@@ -138,37 +139,38 @@ NETWORK 17 LD TITLE: "DONE NETWORK 9: Positioned stop cleaning"
   tStopPositionCleaning := (fc_CamC_CP_UDT(g4, HMI_Var.Mach1.Position, Mach1.GenFlags.Rotflag, Mach1_Data.CamControls.StopPostionCleaning_CP) AND Mach1_AuxData.MemStopCleaning);
 END_NETWORK
 NETWORK 18 LD TITLE: "DONE NETWORK 10: Alarm Positioned stop cleaning"
-  Mach1.GenFlags.StopDriveDirect := Alarms_V5_1_100(Mach1_Alarms, tStopPositionCleaning, NOT Mach1_AuxData.MemStopCleaning, Mach1_Alarms.Alm037, Mach1.GenFlags.MinorAlarm) SET;
+  Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(Mach1_Alarms, tStopPositionCleaning, NOT Mach1_AuxData.MemStopCleaning, Mach1_Alarms.Alm037, Mach1.GenFlags.MinorAlarm);
 END_NETWORK
 NETWORK 19 LD TITLE: "DONE NETWORK 11 (p1): Level bunch magazine alarms"
-  Alarms_V5_1_100(, Mach1_Alarms, Mach1_AuxData.IEC_TIMERS.TON_BunchLevelWarning(IN := (Mach1_AuxData.MIDS_Active AND Mach1.GenFlags.DelayAfterEmergStop AND NOT LST_InputsOutputs.I101_4_Level_bunch_magazine AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND HMI_Var.Mach1.MuteNoBunchAlarm AND Mach1_Alarms.Alm036), PT := T#5S), (LST_InputsOutputs.I101_4_Level_bunch_magazine OR HMI_Var.Test_Prod OR HMI_Var.Btn_Cleaning OR HMI_Var.Mach1.MuteNoBunchAlarm OR Mach1_Alarms.Alm036), Mach1_Alarms.Alm073, Mach1.GenFlags.Warning);
+  LET en1 := ;
+  IF en1 THEN Alarms_V5_1_100(Mach1_Alarms, Mach1_AuxData.IEC_TIMERS.TON_BunchLevelWarning(IN := (Mach1_AuxData.MIDS_Active AND Mach1.GenFlags.DelayAfterEmergStop AND NOT LST_InputsOutputs.I101_4_Level_bunch_magazine AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND HMI_Var.Mach1.MuteNoBunchAlarm AND Mach1_Alarms.Alm036), PT := T#5S), (LST_InputsOutputs.I101_4_Level_bunch_magazine OR HMI_Var.Test_Prod OR HMI_Var.Btn_Cleaning OR HMI_Var.Mach1.MuteNoBunchAlarm OR Mach1_Alarms.Alm036), Mach1_Alarms.Alm073, Mach1.GenFlags.Warning); END_IF
 END_NETWORK
 NETWORK 20 LD TITLE: "DONE NETWORK 11 (p2): Level bunch magazine alarms"
   LET i1 := fc_dinttotime(Mach1_Data.Timers.BunchMagazineEmptyTime,0);
-  Mach1.GenFlags.StopDriveDirect := Alarms_V5_1_100(Mach1_Alarms, Mach1_AuxData.IEC_TIMERS.TON_BunchLevelAlarm(IN := (Mach1_AuxData.MIDS_Active AND Mach1.GenFlags.DelayAfterEmergStop AND NOT Mach1_Alarms.Alm036 AND NOT LST_InputsOutputs.I101_4_Level_bunch_magazine AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND NOT HMI_Var.Mach1.MuteNoBunchAlarm), PT := i1), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm036, Mach1.GenFlags.MinorAlarm) SET;
+  Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(Mach1_Alarms, Mach1_AuxData.IEC_TIMERS.TON_BunchLevelAlarm(IN := (Mach1_AuxData.MIDS_Active AND Mach1.GenFlags.DelayAfterEmergStop AND NOT Mach1_Alarms.Alm036 AND NOT LST_InputsOutputs.I101_4_Level_bunch_magazine AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND NOT HMI_Var.Mach1.MuteNoBunchAlarm), PT := i1), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm036, Mach1.GenFlags.MinorAlarm);
 END_NETWORK
 NETWORK 21 LD TITLE: "TODO NETWORK 12: SR Bunches (JL / rolling device / outfeed)"
   LET g119 := fc_camc_cp_udt(, HMI_Var.Mach1.Position, Mach1.GenFlags.Rotflag, Mach1_Data.CamControls.BunchDetection_CP);
-  Mach1_AuxData.ShiftRegister.SR_bunch_present_position_3_outfeed := (g119 AND Mach1_AuxData.ShiftRegister.SR_bunch_present_position_3_outfeed) SET;
+  Mach1_AuxData.ShiftRegister.SR_bunch_present_position_3_outfeed R= (g119 AND Mach1_AuxData.ShiftRegister.SR_bunch_present_position_3_outfeed);
   LET g120 := (g119 AND Mach1_AuxData.ShiftRegister.SR_bunch_present_position_2_wrapping_device);
-  Mach1_AuxData.ShiftRegister.SR_bunch_present_position_3_outfeed := g120 SET;
-  Mach1_AuxData.ShiftRegister.SR_bunch_present_position_2_wrapping_device := g120 SET;
+  Mach1_AuxData.ShiftRegister.SR_bunch_present_position_3_outfeed S= g120;
+  Mach1_AuxData.ShiftRegister.SR_bunch_present_position_2_wrapping_device R= g120;
   LET g121 := (g119 AND Mach1_AuxData.ShiftRegister.SR_bunch_present_position_1_JL);
-  Mach1_AuxData.ShiftRegister.SR_bunch_present_position_2_wrapping_device := g121 SET;
-  Mach1_AuxData.ShiftRegister.SR_bunch_present_position_1_JL := g121 SET;
-  Mach1_AuxData.ShiftRegister.SR_bunch_present_position_1_JL := (g119 AND LST_InputsOutputs.I101_1_FC_Bunch_present) SET;
+  Mach1_AuxData.ShiftRegister.SR_bunch_present_position_2_wrapping_device S= g121;
+  Mach1_AuxData.ShiftRegister.SR_bunch_present_position_1_JL R= g121;
+  Mach1_AuxData.ShiftRegister.SR_bunch_present_position_1_JL S= (g119 AND LST_InputsOutputs.I101_1_FC_Bunch_present);
   tBool := g119;
 END_NETWORK
 NETWORK 22 LD TITLE: "DONE NETWORK 13: Stop bunch infeed when cleaning is activated"
-  HMI_Var.Btn_BunchSupply := Mach1_AuxData.Edge.OSP_Emptying_Cleaning(CLK := HMI_Var.Btn_Cleaning) SET;
+  HMI_Var.Btn_BunchSupply R= Mach1_AuxData.Edge.OSP_Emptying_Cleaning(CLK := HMI_Var.Btn_Cleaning);
 END_NETWORK
 NETWORK 23 LD TITLE: "DONE NETWORK 14: PNV Block bunch infeed"
   LET g5 := TRUE;
   LET g6 := (g5 AND TRUE);
   LET g7 := (fc_CamC_CP_UDT(g6, HMI_Var.Mach1.Position, LST_General.AlwaysOff, Mach1_Data.CamControls.BlockBunchInfeed_CP) AND TRUE);
-  Mach1_AuxData.BlockBunchInfeed := (g7 AND NOT HMI_Var.Btn_BunchSupply) SET;
-  Mach1_AuxData.BlockBunchInfeed := (g7 AND HMI_Var.Btn_BunchSupply) SET;
-  Mach1_AuxData.BlockBunchInfeed := (g6 AND NOT Mach1.GenFlags.DelayAfterEmergStop) SET;
+  Mach1_AuxData.BlockBunchInfeed S= (g7 AND NOT HMI_Var.Btn_BunchSupply);
+  Mach1_AuxData.BlockBunchInfeed R= (g7 AND HMI_Var.Btn_BunchSupply);
+  Mach1_AuxData.BlockBunchInfeed S= (g6 AND NOT Mach1.GenFlags.DelayAfterEmergStop);
   PneumValveTerminalSMC.Pos2A := (g5 AND Mach1.GenFlags.EnablePneumEStop AND Mach1_AuxData.BlockBunchInfeed AND NOT Mach1_Alarms.Alm011);
 END_NETWORK
 NETWORK 24 LD TITLE: "DONE NETWORK 15: Muting of alarm ""No bunch"""
@@ -177,10 +179,10 @@ NETWORK 24 LD TITLE: "DONE NETWORK 15: Muting of alarm ""No bunch"""
 END_NETWORK
 NETWORK 25 LD TITLE: "DONE NETWORK 16 (p1): Alarms Bunch"
   LET i1 := INT_TO_WORD(Mach1_Data.Counters.MaxRepetitionNoBunch.SetValue);
-  Mach1.GenFlags.StopDriveDirect := Alarms_V5_1_100(Mach1_Alarms, ((Mach1_AuxData.COUNTERS.RepetitionNoBunch(CD := (tBool AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND NOT HMI_Var.Mach1.MuteNoBunchAlarm AND NOT Mach1_AuxData.ShiftRegister.SR_bunch_present_position_1_JL), LOAD := ((tBool AND (NOT HMI_Var.Test_Prod OR HMI_Var.Btn_Cleaning OR Mach1_AuxData.ShiftRegister.SR_bunch_present_position_1_JL OR NOT HMI_Var.Btn_BunchSupply OR hmi_var.mach1.MuteNoBunchAlarm)) OR (Mach1.GenFlags.StartFlag AND Mach1_Alarms.Alm041)), PV := i1) AND Mach1_AuxData.AllDrivesHomed) AND NOT HMI_Var.Mach1.MuteNoBunchAlarm), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm041, Mach1.GenFlags.MinorAlarm) SET;
+  Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(Mach1_Alarms, ((Mach1_AuxData.COUNTERS.RepetitionNoBunch(CD := (tBool AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND NOT HMI_Var.Mach1.MuteNoBunchAlarm AND NOT Mach1_AuxData.ShiftRegister.SR_bunch_present_position_1_JL), LOAD := ((tBool AND (NOT HMI_Var.Test_Prod OR HMI_Var.Btn_Cleaning OR Mach1_AuxData.ShiftRegister.SR_bunch_present_position_1_JL OR NOT HMI_Var.Btn_BunchSupply OR hmi_var.mach1.MuteNoBunchAlarm)) OR (Mach1.GenFlags.StartFlag AND Mach1_Alarms.Alm041)), PV := i1) AND Mach1_AuxData.AllDrivesHomed) AND NOT HMI_Var.Mach1.MuteNoBunchAlarm), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm041, Mach1.GenFlags.MinorAlarm);
 END_NETWORK
 NETWORK 26 LD TITLE: "DONE NETWORK 16 (p2): Alarms Bunch"
-  Mach1.GenFlags.StopDriveDirect := Alarms_V5_1_100(Mach1_Alarms, (tBool AND NOT Mach1_AuxData.PhotocellBunchHasBeenOff AND HMI_Var.Btn_BunchSupply AND Mach1_AuxData.AllDrivesHomed), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm042, Mach1.GenFlags.MinorAlarm) SET;
+  Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(Mach1_Alarms, (tBool AND NOT Mach1_AuxData.PhotocellBunchHasBeenOff AND HMI_Var.Btn_BunchSupply AND Mach1_AuxData.AllDrivesHomed), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm042, Mach1.GenFlags.MinorAlarm);
 END_NETWORK
 NETWORK 27 LD TITLE: "DONE NETWORK 16 (p3): Alarms Bunch"
   ATD_SR(NOT LST_InputsOutputs.I101_1_FC_Bunch_present, tBool, Mach1_AuxData.PhotocellBunchHasBeenOff);
@@ -189,30 +191,31 @@ NETWORK 28 LD
 END_NETWORK
 NETWORK 29 LD TITLE: "DONE NETWORK 17 (p1): Alarms: Cigar fault"
   LET i1 := INT_TO_WORD(Mach1_Data.Counters.MaxRepetitionNoCigars.SetValue);
-  Mach1.GenFlags.StopDriveDirect := Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.COUNTERS.RepetitionNoCigar(CD := (fc_CamC_CP_UDT(, HMI_Var.Mach1.Position, Mach1.GenFlags.Rotflag, Mach1_Data.CamControls.CigarDetection_CP) AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND Mach1_AuxData.ShiftRegister.SR_bunch_present_position_3_outfeed AND NOT LST_InputsOutputs.I101_2_Cigar_present), LOAD := ((tBool AND (NOT HMI_Var.Test_Prod OR HMI_Var.Btn_Cleaning OR (Mach1_AuxData.ShiftRegister.SR_bunch_present_position_3_outfeed AND LST_InputsOutputs.I101_2_Cigar_present))) OR (Mach1.GenFlags.StartFlag AND Mach1_Alarms.Alm046)), PV := i1) AND Mach1_AuxData.AllDrivesHomed), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm046, Mach1.GenFlags.MinorAlarm) SET;
+  Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.COUNTERS.RepetitionNoCigar(CD := (fc_CamC_CP_UDT(, HMI_Var.Mach1.Position, Mach1.GenFlags.Rotflag, Mach1_Data.CamControls.CigarDetection_CP) AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND Mach1_AuxData.ShiftRegister.SR_bunch_present_position_3_outfeed AND NOT LST_InputsOutputs.I101_2_Cigar_present), LOAD := ((tBool AND (NOT HMI_Var.Test_Prod OR HMI_Var.Btn_Cleaning OR (Mach1_AuxData.ShiftRegister.SR_bunch_present_position_3_outfeed AND LST_InputsOutputs.I101_2_Cigar_present))) OR (Mach1.GenFlags.StartFlag AND Mach1_Alarms.Alm046)), PV := i1) AND Mach1_AuxData.AllDrivesHomed), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm046, Mach1.GenFlags.MinorAlarm);
 END_NETWORK
 NETWORK 30 LD TITLE: "DONE NETWORK 17 (p2): Alarms: Cigar fault"
-  Mach1.GenFlags.StopDriveDirect := Alarms_V5_1_100(Mach1_Alarms, (tbool AND NOT Mach1_AuxData.PhotocellCigarHasBeenOff AND Mach1_AuxData.AllDrivesHomed), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm047, Mach1.GenFlags.MinorAlarm) SET;
+  Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(Mach1_Alarms, (tbool AND NOT Mach1_AuxData.PhotocellCigarHasBeenOff AND Mach1_AuxData.AllDrivesHomed), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm047, Mach1.GenFlags.MinorAlarm);
 END_NETWORK
 NETWORK 31 LD TITLE: "DONE NETWORK 17 (p3): Alarms: Cigar fault"
   ATD_SR(NOT LST_InputsOutputs.I101_2_Cigar_present, tbool, Mach1_AuxData.PhotocellCigarHasBeenOff);
 END_NETWORK
 NETWORK 32 LD TITLE: "DONE NETWORK 18: Production counter"
-  HMI_Var.Mach1.PRDCounterIncr := (tBool AND Mach1_AuxData.ShiftRegister.SR_bunch_present_position_3_outfeed AND LST_InputsOutputs.I101_2_Cigar_present) SET;
+  HMI_Var.Mach1.PRDCounterIncr S= (tBool AND Mach1_AuxData.ShiftRegister.SR_bunch_present_position_3_outfeed AND LST_InputsOutputs.I101_2_Cigar_present);
 END_NETWORK
 NETWORK 33 LD TITLE: "DONE NETWORK 19 (p1): Set cigar present in checkRegister"
   LET g124 := TRUE;
-  db_CheckRegister.Positie[1].Infeed.Cigar_present_infeed := (g124 AND tCampulseCigarPresent AND LST_InputsOutputs.I101_2_Cigar_present) SET;
-  Mach1_AuxData.MemCigarAtCrossOver := (g124 AND LST_InputsOutputs.I133_2_Cigar_detected_at_cross_over) SET;
+  db_CheckRegister.Positie[1].Infeed.Cigar_present_infeed S= (g124 AND tCampulseCigarPresent AND LST_InputsOutputs.I101_2_Cigar_present);
+  Mach1_AuxData.MemCigarAtCrossOver S= (g124 AND LST_InputsOutputs.I133_2_Cigar_detected_at_cross_over);
   LET g125 := Mach1_AuxData.Edge.OSP_DryerZeroPoint(CLK := (g124 AND LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS));
   LET g126 := (g125 AND Mach1_AuxData.MemCigarAtCrossOver);
-  db_CheckRegister.Positie[CTE.posCigarPresentOutfeed].Outfeed.Cigar_present_outfeed := g126 SET;
-  Mach1_AuxData.MemCigarAtCrossOver := g126 SET;
-  Mach1_AuxData.PreviousCycleHasOutfeedError := g125 SET;
-  Mach1_AuxData.PreviousCycleHasOutfeedError := (g125 AND Mach1_AuxData.CurrentCycleHasOutfeedError) SET;
-  fc_CheckRegister(g125);
-  Mach1_AuxData.CurrentCycleHasOutfeedError := g125 SET;
-  Mach1_AuxData.CurrentCycleHasOutfeedError := (g125 AND db_CheckRegister.CheckRegisterError) SET;
+  db_CheckRegister.Positie[CTE.posCigarPresentOutfeed].Outfeed.Cigar_present_outfeed S= g126;
+  Mach1_AuxData.MemCigarAtCrossOver R= g126;
+  Mach1_AuxData.PreviousCycleHasOutfeedError R= g125;
+  Mach1_AuxData.PreviousCycleHasOutfeedError S= (g125 AND Mach1_AuxData.CurrentCycleHasOutfeedError);
+  LET en1 := g125;
+  IF en1 THEN fc_CheckRegister(); END_IF
+  Mach1_AuxData.CurrentCycleHasOutfeedError R= g125;
+  Mach1_AuxData.CurrentCycleHasOutfeedError S= (g125 AND db_CheckRegister.CheckRegisterError);
 END_NETWORK
 NETWORK 34 LD TITLE: "DONE NETWORK 20: Start Fan"
   LET g109 := (Mach1.GenFlags.EnableAuxDrive AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning);
@@ -220,7 +223,7 @@ NETWORK 34 LD TITLE: "DONE NETWORK 20: Start Fan"
   TMR_StartupFan(IN := g109, PT := T#5S);
 END_NETWORK
 NETWORK 35 LD
-  mach1.Genflags.StopDriveDirect := Alarms_V5_1_100(Mach1_Alarms, (NOT HMI_Var.Btn_Cleaning AND Mach1.GenFlags.EnableAuxDrive AND HMI_Var.Test_Prod AND NOT TMR_StartupFan.Q), TRUE, Mach1_Alarms.Alm034, mach1.Genflags.MinorAlarm) SET;
+  mach1.Genflags.StopDriveDirect S= Alarms_V5_1_100(Mach1_Alarms, (NOT HMI_Var.Btn_Cleaning AND Mach1.GenFlags.EnableAuxDrive AND HMI_Var.Test_Prod AND NOT TMR_StartupFan.Q), TRUE, Mach1_Alarms.Alm034, mach1.Genflags.MinorAlarm);
 END_NETWORK
 NETWORK 36 LD TITLE: "DONE NETWORK 21: Blocking glue rod"
   LET g12 := (Mach1.GenFlags.EnablePneumEStop AND Mach1_Safety.Status.DoorsOK);
@@ -243,10 +246,13 @@ NETWORK 41 LD TITLE: "DONE NETWORK 24: Manual glue pumping"
   LET g103 := Mach1_AuxData.EnableGlueSprayCalibration;
   LET g104 := (g103 AND TRUE AND (HMI_Var.Mach1.GlueStart OR HMI_Var.Mach1.GlueStop OR HMI_Var.Mach1.GlueReset OR HMI_Var.Mach1.SprayStart OR HMI_Var.Mach1.SprayStop OR HMI_Var.Mach1.SprayReset OR Mach1_AuxData.ScreenForOperatorSettingsActivated));
   Mach1_AuxData.ScreenForOperatorSettingsActivated := g104;
-  Mach1.GenFlags.StopDriveDirect := g104 SET;
-  MOVE((g103 AND (HMI_Var.Mach1.GlueReset OR NOT LST_InputsOutputs.I100_2_Pushbutton_stop_OP0a)), 0);
-  Mach1_AuxData.GlueWeighingCycleStarted := ((g103 AND Mach1.GenFlags.EnablePneumEStop AND (((HMI_Var.Mach1.GlueStart OR LST_InputsOutputs.I100_4_Pushbutton_request_glue_OP0a) AND NOT LST_General.FF500ms) OR Mach1_AuxData.GlueWeighingCycleStarted) AND NOT HMI_Var.Mach1.GlueStop AND NOT HMI_Var.Mach1.GlueReset AND LST_InputsOutputs.I100_2_Pushbutton_stop_OP0a) < Mach1_Data.Settings.Ints.ActualNumberOfGluePulses < Mach1_Data.Settings.Ints.MaxNumberOfGluePulses);
-  ((Mach1_AuxData.Edge.OSN_Gluepump(CLK := (g103 AND PneumValveTerminalSMC.Pos6A)) AND Mach1_AuxData.GlueWeighingCycleStarted) + Mach1_Data.Settings.Ints.ActualNumberOfGluePulses + 1);
+  Mach1.GenFlags.StopDriveDirect S= g104;
+  LET en1 := (g103 AND (HMI_Var.Mach1.GlueReset OR NOT LST_InputsOutputs.I100_2_Pushbutton_stop_OP0a));
+  IF en1 THEN MOVE(0); END_IF
+  LET en2 := (g103 AND Mach1.GenFlags.EnablePneumEStop AND (((HMI_Var.Mach1.GlueStart OR LST_InputsOutputs.I100_4_Pushbutton_request_glue_OP0a) AND NOT LST_General.FF500ms) OR Mach1_AuxData.GlueWeighingCycleStarted) AND NOT HMI_Var.Mach1.GlueStop AND NOT HMI_Var.Mach1.GlueReset AND LST_InputsOutputs.I100_2_Pushbutton_stop_OP0a);
+  IF en2 THEN Mach1_AuxData.GlueWeighingCycleStarted := (Mach1_Data.Settings.Ints.ActualNumberOfGluePulses < Mach1_Data.Settings.Ints.MaxNumberOfGluePulses); END_IF
+  LET en3 := (Mach1_AuxData.Edge.OSN_Gluepump(CLK := (g103 AND PneumValveTerminalSMC.Pos6A)) AND Mach1_AuxData.GlueWeighingCycleStarted);
+  IF en3 THEN (Mach1_Data.Settings.Ints.ActualNumberOfGluePulses + 1); END_IF
 END_NETWORK
 NETWORK 42 LD TITLE: "DONE NETWORK 25: Continuous Glueing"
   LET g15 := TRUE;
@@ -279,16 +285,20 @@ NETWORK 49 LD TITLE: "DONE NETWORK 32: Blow off bobbin"
   PneumValveTerminalSMC.Pos1A := (fc_CamC_CC_UDT((Mach1.GenFlags.EnablePneumEStop AND Mach1.GenFlags.DriveIsRunning), HMI_Var.Mach1.Position, Mach1_Data.CamControls.BlowOffBobine_C) AND NOT Mach1_Alarms.Alm011);
 END_NETWORK
 NETWORK 50 LD TITLE: "DONE NETWORK 33:"
-  AHWF();
+  LET en1 := ;
+  IF en1 THEN AHWF(); END_IF
 END_NETWORK
 NETWORK 51 LD TITLE: "TODO NETWORK 34: OBSOLETE"
 END_NETWORK
 NETWORK 52 LD TITLE: "DONE NETWORK 35: Main FB:  Dryer-trayfiller"
-  LET g105 := IDB_Dryer(iGenFlags := Mach1.GenFlags, iMachineStarted := (Mach1.GenFlags.EnableAuxDrive AND Mach1_Safety.Status.DoorsOK AND NOT Mach1.GenFlags.StopFlag), iSwitchDryer := HMI_Var.Btn_DryerOn, iDryerClosed := LST_InputsOutputs.I133_0_PROX_Dryer_closed, iStartFeedForward := fc_CamC_CP_UDT(, HMI_Var.Mach1.Position, Mach1.GenFlags.Rotflag, Mach1_Data.CamControls.FeedforwardDryer_CP), iStopFeedForward := (((NOT Mach1.GenFlags.EnableAuxDrive OR ( < Mach1_AuxData.COUNTERS.EmptyingCycles.CV < 105) OR NOT Trayfiller_Data.commInterface.Permission OR NOT Mach1_Safety.Status.DoorsOK) AND LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS) OR Mach1_Alarms.Alm048), iPermissionDownstream := (Trayfiller_Data.commInterface.Permission AND NOT Mach1_Alarms.Alm053), iSetPowerHeater1 := Mach1_Data.Dryer.Heater1.SetHeaterPower, iSetPowerHeater2 := Mach1_Data.Dryer.Heater2.SetHeaterPower, iSetPowerHeater3 := Mach1_Data.Dryer.Heater3.SetHeaterPower, iPowerOrAnalog := TRUE, iSpeedForEmptying := 100);
+  LET g105 := IDB_Dryer(iGenFlags := Mach1.GenFlags, iMachineStarted := (Mach1.GenFlags.EnableAuxDrive AND Mach1_Safety.Status.DoorsOK AND NOT Mach1.GenFlags.StopFlag), iSwitchDryer := HMI_Var.Btn_DryerOn, iDryerClosed := LST_InputsOutputs.I133_0_PROX_Dryer_closed, iStartFeedForward := fc_CamC_CP_UDT(, HMI_Var.Mach1.Position, Mach1.GenFlags.Rotflag, Mach1_Data.CamControls.FeedforwardDryer_CP), iStopFeedForward := (((NOT Mach1.GenFlags.EnableAuxDrive OR (Mach1_AuxData.COUNTERS.EmptyingCycles.CV < 105) OR NOT Trayfiller_Data.commInterface.Permission OR NOT Mach1_Safety.Status.DoorsOK) AND LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS) OR Mach1_Alarms.Alm048), iPermissionDownstream := (Trayfiller_Data.commInterface.Permission AND NOT Mach1_Alarms.Alm053), iSetPowerHeater1 := Mach1_Data.Dryer.Heater1.SetHeaterPower, iSetPowerHeater2 := Mach1_Data.Dryer.Heater2.SetHeaterPower, iSetPowerHeater3 := Mach1_Data.Dryer.Heater3.SetHeaterPower, iPowerOrAnalog := TRUE, iSpeedForEmptying := 100);
   LST_InputsOutputs.Q132_2_Enable_power_controllers := (g105 AND HMI_Var.Mach1.HeatersActive);
-  MOVE((g105 >= Mach1_Data.Dryer.Heater1.SetHeaterPower >= 350), 350);
-  MOVE((g105 >= Mach1_Data.Dryer.Heater2.SetHeaterPower >= 350), 350);
-  MOVE((g105 >= Mach1_Data.Dryer.Heater3.SetHeaterPower >= 350), 350);
+  LET en1 := (Mach1_Data.Dryer.Heater1.SetHeaterPower >= 350);
+  IF en1 THEN MOVE(350); END_IF
+  LET en2 := (Mach1_Data.Dryer.Heater2.SetHeaterPower >= 350);
+  IF en2 THEN MOVE(350); END_IF
+  LET en3 := (Mach1_Data.Dryer.Heater3.SetHeaterPower >= 350);
+  IF en3 THEN MOVE(350); END_IF
 END_NETWORK
 NETWORK 53 LD TITLE: "DONE NETWORK 36: CT Fan dryer"
   LST_InputsOutputs.Q132_4_CT_Fan_dryer := (Mach1_AuxData.TrayfillerActive AND Mach1.GenFlags.EnableAuxDrive AND HMI_Var.Btn_DryerOn);
@@ -298,80 +308,86 @@ NETWORK 54 LD TITLE: "TODO NETWORK 37:"
   // max AO-value: 2^14=16384
   LET g40 := TRUE;
   LET i1 := DINT_TO_REAL(HMI_Var.Mach1.ActualSpeedDryer);
-  DRYER_Scaling_Speed(EN := g40, IN := i1, IN_MIN := 0, IN_MAX := 1000, OUT_MIN := 0, OUT_MAX := 1);
-  LET i2 := REAL_TO_INT(lrHeater1_ScaledPower*lrDryer_ScaledSpeed*1500);
-  LET i3 := REAL_TO_WORD(lrHeater1_Analog);
-  MOVE(DRYER_SCALING_Heater1_Analog(EN := MOVE(DRYER_SCALING_Heater1(EN := g40, IN := tHeater1Word, IN_MIN := 0, IN_MAX := 1500, OUT_MIN := 0, OUT_MAX := 1), i2), IN := lrDryer_ScaledSpeed*lrHeater1_ScaledPower*1500, IN_MIN := 0, IN_MAX := 1500, OUT_MIN := 0, OUT_MAX := 16384), i3);
-  LET i4 := REAL_TO_INT(lrHeater2_ScaledPower*lrDryer_ScaledSpeed*1500);
-  LET i5 := REAL_TO_WORD(lrHeater2_Analog);
-  MOVE(DRYER_SCALING_Heater2_Analog(EN := MOVE(DRYER_SCALING_Heater2(EN := g40, IN := tHeater2Word, IN_MIN := 0, IN_MAX := 1500, OUT_MIN := 0, OUT_MAX := 1), i4), IN := lrDryer_ScaledSpeed*lrHeater2_ScaledPower*1500, IN_MIN := 0, IN_MAX := 1500, OUT_MIN := 0, OUT_MAX := 16384), i5);
-  LET i6 := REAL_TO_INT(lrHeater3_ScaledPower*lrDryer_ScaledSpeed*1500);
-  LET i7 := REAL_TO_WORD(lrHeater3_Analog);
-  MOVE(DRYER_SCALING_Heater2_Analog(EN := MOVE(DRYER_SCALING_Heater3(EN := g40, IN := tHeater3Word, IN_MIN := 0, IN_MAX := 1500, OUT_MIN := 0, OUT_MAX := 1), i6), IN := lrDryer_ScaledSpeed*lrHeater3_ScaledPower*1500, IN_MIN := 0, IN_MAX := 1500, OUT_MIN := 0, OUT_MAX := 16384), i7);
+  LET en1 := g40;
+  IF en1 THEN DRYER_Scaling_Speed(IN := i1, IN_MIN := 0, IN_MAX := 1000, OUT_MIN := 0, OUT_MAX := 1); END_IF
+  LET i2 := REAL_TO_WORD(lrHeater1_Analog);
+  LET en2 := DRYER_SCALING_Heater1_Analog(IN := lrDryer_ScaledSpeed*lrHeater1_ScaledPower*1500, IN_MIN := 0, IN_MAX := 1500, OUT_MIN := 0, OUT_MAX := 16384);
+  IF en2 THEN MOVE(i2); END_IF
+  LET i3 := REAL_TO_WORD(lrHeater2_Analog);
+  LET en3 := DRYER_SCALING_Heater2_Analog(IN := lrDryer_ScaledSpeed*lrHeater2_ScaledPower*1500, IN_MIN := 0, IN_MAX := 1500, OUT_MIN := 0, OUT_MAX := 16384);
+  IF en3 THEN MOVE(i3); END_IF
+  LET i4 := REAL_TO_WORD(lrHeater3_Analog);
+  LET en4 := DRYER_SCALING_Heater2_Analog(IN := lrDryer_ScaledSpeed*lrHeater3_ScaledPower*1500, IN_MIN := 0, IN_MAX := 1500, OUT_MIN := 0, OUT_MAX := 16384);
+  IF en4 THEN MOVE(i4); END_IF
 END_NETWORK
 NETWORK 55 LD TITLE: "DONE NETWORK 38 (p1): Alarms dryer"
-  Mach1.GenFlags.StopDriveDirect := RuntimeGuard_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND ((IDB_Dryer.oFeedForward AND Mach1.Genflags.DelayAfterSTO) OR mach1.Genflags.DriveIsRunning) AND (Mach1_AuxData.AllDrivesHomed OR NOT Mach1_AuxData.MIDS_Active)), LST_General.AlwaysOff, ((Mach1.GenFlags.EnableAuxDrive AND NOT Mach1_Alarms.Alm048 AND ((Mach1.Genflags.DelayAfterSTO AND IDB_Dryer.oFeedForward) OR mach1.Genflags.DriveIsRunning) AND NOT LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS) >= Mach1_Data.Drives.FeedForwardADS.Control.AutoSpeed >= 10), T#10S, Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm048, Mach1.GenFlags.MinorAlarm, Mach1_AuxData.IEC_TIMERS.RuntimeGuardFeedforwardDryer) SET;
+  Mach1.GenFlags.StopDriveDirect S= RuntimeGuard_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND ((IDB_Dryer.oFeedForward AND Mach1.Genflags.DelayAfterSTO) OR mach1.Genflags.DriveIsRunning) AND (Mach1_AuxData.AllDrivesHomed OR NOT Mach1_AuxData.MIDS_Active)), LST_General.AlwaysOff, (Mach1_Data.Drives.FeedForwardADS.Control.AutoSpeed >= 10), T#10S, Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm048, Mach1.GenFlags.MinorAlarm, Mach1_AuxData.IEC_TIMERS.RuntimeGuardFeedforwardDryer);
 END_NETWORK
 NETWORK 56 LD TITLE: "DONE NETWORK 38 (p2): Alarms dryer"
-  Mach1.GenFlags.StopDriveDirect := (Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND Mach1.GenFlags.DelayAfterEmergStop AND IDB_Dryer.oFaultDryerOpened), TRUE, Mach1_Alarms.Alm049, Mach1.GenFlags.MinorAlarm) AND Mach1_AuxData.AllDrivesHomed) SET;
+  Mach1.GenFlags.StopDriveDirect S= (Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND Mach1.GenFlags.DelayAfterEmergStop AND IDB_Dryer.oFaultDryerOpened), TRUE, Mach1_Alarms.Alm049, Mach1.GenFlags.MinorAlarm) AND Mach1_AuxData.AllDrivesHomed);
 END_NETWORK
 NETWORK 57 LD TITLE: "TODO NETWORK 38 (p3): Alarms dryer"
-  LET g123 := Alarms_V5_1_100(Mach1_Alarms, (((mach1.Genflags.DelayAfterEmergStop AND HMI_Var.Test_Prod AND Mach1_AuxData.TrayfillerActive) > Mach1_Data.Counters.MaxRepetitionNoCigarsDryer.SetValue > 0) AND db_CheckRegister.CheckRegisterError AND NOT Mach1_AuxData.PreviousCycleHasOutfeedError), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm053, Mach1.GenFlags.MinorAlarm);
-  Mach1.GenFlags.StopDriveDirect := g123 SET;
-  db_CheckRegister.CheckRegisterError := g123 SET;
+  LET g123 := Alarms_V5_1_100(Mach1_Alarms, ((Mach1_Data.Counters.MaxRepetitionNoCigarsDryer.SetValue > 0) AND db_CheckRegister.CheckRegisterError AND NOT Mach1_AuxData.PreviousCycleHasOutfeedError), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm053, Mach1.GenFlags.MinorAlarm);
+  Mach1.GenFlags.StopDriveDirect S= g123;
+  db_CheckRegister.CheckRegisterError R= g123;
 END_NETWORK
 NETWORK 58 LD TITLE: "DONE NETWORK 38 (p4): Alarms dryer"
-  Mach1.GenFlags.StopDriveDirect := Alarms_V5_1_100(Mach1_Alarms, Mach1_AuxData.IEC_TIMERS.TON_DryerSwitchedOff(IN := (Mach1_AuxData.TrayfillerActive AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_DryerOn), PT := T#5S), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm058, Mach1.GenFlags.MinorAlarm) SET;
+  Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(Mach1_Alarms, Mach1_AuxData.IEC_TIMERS.TON_DryerSwitchedOff(IN := (Mach1_AuxData.TrayfillerActive AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_DryerOn), PT := T#5S), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm058, Mach1.GenFlags.MinorAlarm);
 END_NETWORK
 NETWORK 59 LD TITLE: "TODO NETWORK 39: Analog setpoint feedforward dryer"
-  SpeedCalculationDryer();
+  LET en1 := ;
+  IF en1 THEN SpeedCalculationDryer(); END_IF
 END_NETWORK
 NETWORK 60 LD TITLE: "TODO NETWORK 40: Analog setpoint feedforward trayfiller"
-  SpeedCalculationTrayfiller();
+  LET en1 := ;
+  IF en1 THEN SpeedCalculationTrayfiller(); END_IF
 END_NETWORK
 NETWORK 61 LD TITLE: "DONE NETWORK 41: Empty trayfiller"
-  HMI_Var.Btn_Cleaning := Mach1_AuxData.COUNTERS.EmptyingCycles(CD := (HMI_Var.Btn_Cleaning AND LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS), LOAD := NOT HMI_Var.Btn_Cleaning, PV := 194) SET;
+  HMI_Var.Btn_Cleaning R= Mach1_AuxData.COUNTERS.EmptyingCycles(CD := (HMI_Var.Btn_Cleaning AND LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS), LOAD := NOT HMI_Var.Btn_Cleaning, PV := 194);
 END_NETWORK
 NETWORK 62 LD TITLE: "DONE NETWORK 42: Main block Trayfiller"
-  IDB_TrayFiller(iGenFlags := Mach1.GenFlags, iMachineStarted := (Mach1.GenFlags.EnableAuxDrive AND NOT Mach1.GenFlags.StopFlag), iButtonChangeTray := LST_General.AlwaysOff, iButtonTrayDown := LST_InputsOutputs.I132_6_Tray_down, iButtonTrayUp := LST_InputsOutputs.I132_7_Tray_up, iCigarAtCrossover := (LST_InputsOutputs.I133_2_Cigar_detected_at_cross_over OR ( < Mach1_AuxData.COUNTERS.EmptyingCycles.CV < 106)), iStartFeedForward := ((LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS OR ( < Mach1_AuxData.COUNTERS.EmptyingCycles.CV < 106)) AND Mach1_Safety.Status.DoorsOK), iStopFeedForward := LST_InputsOutputs.I133_3_PROX_zero_position_transport_ATF, iCigarAtInpusher := LST_InputsOutputs.I133_4_Cigar_detected_at_inpusher, iRpsInpusher := LST_InputsOutputs.I133_6_PROX_inpusher_retracted, iEpsInpusher := LST_InputsOutputs.I133_7_PROX_inpusher_at_tray, iGuardInpusher := TRUE, iPsElevatorUp := LST_InputsOutputs.I136_0_PROX_Elevator_above, iPsElevatorDown := LST_InputsOutputs.I136_1_PROX_Elevator_below, iPulseCounterElevator := LST_InputsOutputs.I136_2_PROX_pulse_counter_elevator, iFcGuardTrayOnElev := LST_InputsOutputs.I136_3_FC_Position_tray_OK, iRowHeight := Mach1_Data.TrayFiller.RowHeight, iSetNumberOfRows := Mach1_Data.Trayfiller.SetNumberOfRows, iInitialDescentValue := Mach1_Data.Trayfiller.InitialDescentValue, iLightCurtainInpusher := Mach1_Safety.Status.Door_switch17, iLightCurtainElevator := Mach1_Safety.Status.Door_switch18, iPsInfeedConvAtInit := LST_InputsOutputs.I136_4_PROX_Infeed_conveyor_initial_position, iPsInfeedConvAtElev := LST_InputsOutputs.I136_5_PROX_Infeed_conveyor_at_elevator, iFcGuardTrayFromElev := LST_InputsOutputs.I136_6_FC_Guard_tray_from_elevator, iFcOutfeedConvFull := LST_InputsOutputs.I136_7_FC_Outfeed_conveyor_full, iTestProd := TRUE, ioActNumberOfRows := HMI_Var.Mach1.ActNumberOfRows);
+  IDB_TrayFiller(iGenFlags := Mach1.GenFlags, iMachineStarted := (Mach1.GenFlags.EnableAuxDrive AND NOT Mach1.GenFlags.StopFlag), iButtonChangeTray := LST_General.AlwaysOff, iButtonTrayDown := LST_InputsOutputs.I132_6_Tray_down, iButtonTrayUp := LST_InputsOutputs.I132_7_Tray_up, iCigarAtCrossover := (LST_InputsOutputs.I133_2_Cigar_detected_at_cross_over OR (Mach1_AuxData.COUNTERS.EmptyingCycles.CV < 106)), iStartFeedForward := ((LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS OR (Mach1_AuxData.COUNTERS.EmptyingCycles.CV < 106)) AND Mach1_Safety.Status.DoorsOK), iStopFeedForward := LST_InputsOutputs.I133_3_PROX_zero_position_transport_ATF, iCigarAtInpusher := LST_InputsOutputs.I133_4_Cigar_detected_at_inpusher, iRpsInpusher := LST_InputsOutputs.I133_6_PROX_inpusher_retracted, iEpsInpusher := LST_InputsOutputs.I133_7_PROX_inpusher_at_tray, iGuardInpusher := TRUE, iPsElevatorUp := LST_InputsOutputs.I136_0_PROX_Elevator_above, iPsElevatorDown := LST_InputsOutputs.I136_1_PROX_Elevator_below, iPulseCounterElevator := LST_InputsOutputs.I136_2_PROX_pulse_counter_elevator, iFcGuardTrayOnElev := LST_InputsOutputs.I136_3_FC_Position_tray_OK, iRowHeight := Mach1_Data.TrayFiller.RowHeight, iSetNumberOfRows := Mach1_Data.Trayfiller.SetNumberOfRows, iInitialDescentValue := Mach1_Data.Trayfiller.InitialDescentValue, iLightCurtainInpusher := Mach1_Safety.Status.Door_switch17, iLightCurtainElevator := Mach1_Safety.Status.Door_switch18, iPsInfeedConvAtInit := LST_InputsOutputs.I136_4_PROX_Infeed_conveyor_initial_position, iPsInfeedConvAtElev := LST_InputsOutputs.I136_5_PROX_Infeed_conveyor_at_elevator, iFcGuardTrayFromElev := LST_InputsOutputs.I136_6_FC_Guard_tray_from_elevator, iFcOutfeedConvFull := LST_InputsOutputs.I136_7_FC_Outfeed_conveyor_full, iTestProd := TRUE, ioActNumberOfRows := HMI_Var.Mach1.ActNumberOfRows);
 END_NETWORK
 NETWORK 63 LD
   Mach1_Data.Drives.FeedForwardATF.Control.StartAuto := IDB_TrayFiller.oFeedForwardMotor;
 END_NETWORK
 NETWORK 64 LD TITLE: "DONE NETWORK 43: Selection of inpusher runtimeguard time"
   LET g20 := IDB_TrayFiller.oValveInpusher;
-  MOVE(g20, T#1S);
-  MOVE(NOT(g20), T#5S);
+  LET en1 := g20;
+  IF en1 THEN MOVE(T#1S); END_IF
+  LET en2 := NOT(g20);
+  IF en2 THEN MOVE(T#5S); END_IF
 END_NETWORK
 NETWORK 65 LD TITLE: "DONE NETWORK 44 (p1): Runtimeguard trayfiller"
-  Mach1.GenFlags.StopDriveDirect := RuntimeGuard_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND IDB_TrayFiller.oValveInpusher AND Mach1_AuxData.AllDrivesHomed), (Mach1_AuxData.TrayfillerActive AND NOT IDB_TrayFiller.oValveInpusher AND Mach1_AuxData.AllDrivesHomed), (Mach1_AuxData.TrayfillerActive AND Mach1.GenFlags.EnablePneumEStop AND ((IDB_TrayFiller.oValveInpusher AND NOT LST_InputsOutputs.I133_7_PROX_inpusher_at_tray) OR (NOT IDB_TrayFiller.oValveInpusher AND NOT LST_InputsOutputs.I133_6_PROX_inpusher_retracted))), T#3S, Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm050, Mach1.GenFlags.MinorAlarm, Mach1_AuxData.IEC_TIMERS.RuntimeguardInpusher) SET;
+  Mach1.GenFlags.StopDriveDirect S= RuntimeGuard_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND IDB_TrayFiller.oValveInpusher AND Mach1_AuxData.AllDrivesHomed), (Mach1_AuxData.TrayfillerActive AND NOT IDB_TrayFiller.oValveInpusher AND Mach1_AuxData.AllDrivesHomed), (Mach1_AuxData.TrayfillerActive AND Mach1.GenFlags.EnablePneumEStop AND ((IDB_TrayFiller.oValveInpusher AND NOT LST_InputsOutputs.I133_7_PROX_inpusher_at_tray) OR (NOT IDB_TrayFiller.oValveInpusher AND NOT LST_InputsOutputs.I133_6_PROX_inpusher_retracted))), T#3S, Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm050, Mach1.GenFlags.MinorAlarm, Mach1_AuxData.IEC_TIMERS.RuntimeguardInpusher);
 END_NETWORK
 NETWORK 66 LD TITLE: "DONE NETWORK 44 (p2): Runtimeguard trayfiller"
-  Mach1.GenFlags.StopDriveDirect := RuntimeGuard_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND IDB_TrayFiller.oElevatorMotorUp AND Mach1_AuxData.AllDrivesHomed), (Mach1_AuxData.TrayfillerActive AND IDB_TrayFiller.oElevatorMotorDown AND Mach1_AuxData.AllDrivesHomed), TRUE, T#15S, Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm052, Mach1.GenFlags.MinorAlarm, Mach1_AuxData.IEC_TIMERS.RuntimeGuardElevator) SET;
+  Mach1.GenFlags.StopDriveDirect S= RuntimeGuard_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND IDB_TrayFiller.oElevatorMotorUp AND Mach1_AuxData.AllDrivesHomed), (Mach1_AuxData.TrayfillerActive AND IDB_TrayFiller.oElevatorMotorDown AND Mach1_AuxData.AllDrivesHomed), TRUE, T#15S, Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm052, Mach1.GenFlags.MinorAlarm, Mach1_AuxData.IEC_TIMERS.RuntimeGuardElevator);
 END_NETWORK
 NETWORK 67 LD TITLE: "DONE NETWORK 44 (p3): Runtimeguard trayfiller"
-  Mach1.GenFlags.StopDriveDirect := RuntimeGuard_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND IDB_TrayFiller.oInfeedMotorFwd AND Mach1_AuxData.AllDrivesHomed), (Mach1_AuxData.TrayfillerActive AND IDB_TrayFiller.oInfeedMotorRev AND Mach1_AuxData.AllDrivesHomed), TRUE, T#4000MS, Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm065, Mach1.GenFlags.MinorAlarm, Mach1_AuxData.IEC_TIMERS.RuntimeGuardInfeedConveyor) SET;
+  Mach1.GenFlags.StopDriveDirect S= RuntimeGuard_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND IDB_TrayFiller.oInfeedMotorFwd AND Mach1_AuxData.AllDrivesHomed), (Mach1_AuxData.TrayfillerActive AND IDB_TrayFiller.oInfeedMotorRev AND Mach1_AuxData.AllDrivesHomed), TRUE, T#4000MS, Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm065, Mach1.GenFlags.MinorAlarm, Mach1_AuxData.IEC_TIMERS.RuntimeGuardInfeedConveyor);
 END_NETWORK
 NETWORK 68 LD TITLE: "DONE NETWORK 44 (p4): Runtimeguard trayfiller"
-  Mach1.GenFlags.StopDriveDirect := RuntimeGuard_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND IDB_TrayFiller.oOutfeedMotorFwd AND Mach1_AuxData.AllDrivesHomed), NOT TRUE, TRUE, T#8500MS, Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm066, Mach1.GenFlags.MinorAlarm, Mach1_AuxData.IEC_TIMERS.RuntimeGuardOutfeedConveyor) SET;
+  Mach1.GenFlags.StopDriveDirect S= RuntimeGuard_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND IDB_TrayFiller.oOutfeedMotorFwd AND Mach1_AuxData.AllDrivesHomed), NOT TRUE, TRUE, T#8500MS, Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm066, Mach1.GenFlags.MinorAlarm, Mach1_AuxData.IEC_TIMERS.RuntimeGuardOutfeedConveyor);
 END_NETWORK
 NETWORK 69 LD TITLE: "DONE NETWORK 45: Elevator: profinet vs IO"
   LET g21 := (tElevatorUp OR tElevatorDown);
   Mach1_Data.Drives.ElevatorATF.Control.StartAuto := g21;
-  MOVE(g21, 30);
+  LET en1 := g21;
+  IF en1 THEN MOVE(30); END_IF
   Mach1_Data.Drives.ElevatorATF.Control.Reverse := (g21 AND tElevatorDown);
 END_NETWORK
 NETWORK 70 LD TITLE: "DONE NETWORK 46 (p1): Alarms trayfiller"
-  Mach1.GenFlags.StopDriveDirect := Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND Mach1.GenFlags.DelayAfterEmergStop AND Mach1.GenFlags.DelayAfterSTO AND NOT LST_InputsOutputs.I132_0_Thermal_guards_OK AND (Mach1_AuxData.AllDrivesHomed OR NOT Mach1_AuxData.MIDS_Active)), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm005, Mach1.GenFlags.MinorAlarm) SET;
+  Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND Mach1.GenFlags.DelayAfterEmergStop AND Mach1.GenFlags.DelayAfterSTO AND NOT LST_InputsOutputs.I132_0_Thermal_guards_OK AND (Mach1_AuxData.AllDrivesHomed OR NOT Mach1_AuxData.MIDS_Active)), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm005, Mach1.GenFlags.MinorAlarm);
 END_NETWORK
 NETWORK 71 LD TITLE: "DONE NETWORK 46 (p2): Alarms trayfiller"
-  Mach1.GenFlags.StopDriveDirect := Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND Trayfiller_Data.Alarms.AlmInpusherBlocked AND (Mach1_AuxData.AllDrivesHomed OR NOT Mach1_AuxData.MIDS_Active)), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm059, Mach1.GenFlags.MinorAlarm) SET;
+  Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND Trayfiller_Data.Alarms.AlmInpusherBlocked AND (Mach1_AuxData.AllDrivesHomed OR NOT Mach1_AuxData.MIDS_Active)), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm059, Mach1.GenFlags.MinorAlarm);
 END_NETWORK
 NETWORK 72 LD TITLE: "DONE NETWORK 46 (p3): Alarms trayfiller"
-  Mach1.GenFlags.StopDriveDirect := Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND (Trayfiller_Data.Alarms.AlmTrayPosition OR Trayfiller_Data.Alarms.AlmTrayInfeeding) AND Mach1_AuxData.AllDrivesHomed), TRUE, Mach1_Alarms.Alm060, Mach1.GenFlags.MinorAlarm) SET;
+  Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND (Trayfiller_Data.Alarms.AlmTrayPosition OR Trayfiller_Data.Alarms.AlmTrayInfeeding) AND Mach1_AuxData.AllDrivesHomed), TRUE, Mach1_Alarms.Alm060, Mach1.GenFlags.MinorAlarm);
 END_NETWORK
 NETWORK 73 LD TITLE: "DONE NETWORK 46 (p4): Alarms trayfiller"
-  Mach1.GenFlags.StopDriveDirect := Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND Trayfiller_Data.Alarms.AlmLightCurtainInpusher AND (Mach1_AuxData.AllDrivesHomed OR NOT Mach1_AuxData.MIDS_Active)), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm061, Mach1.GenFlags.MinorAlarm) SET;
+  Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND Trayfiller_Data.Alarms.AlmLightCurtainInpusher AND (Mach1_AuxData.AllDrivesHomed OR NOT Mach1_AuxData.MIDS_Active)), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm061, Mach1.GenFlags.MinorAlarm);
 END_NETWORK
 NETWORK 74 LD TITLE: "DONE NETWORK 46 (p5): Alarms trayfiller"
   Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND Trayfiller_Data.Alarms.WrnChangeTray AND (Mach1_AuxData.AllDrivesHomed OR NOT Mach1_AuxData.MIDS_Active)), TRUE, Mach1_Alarms.Alm075, Mach1.GenFlags.Warning);
@@ -383,27 +399,31 @@ NETWORK 76 LD TITLE: "DONE NETWORK 46 (p7): Alarms trayfiller"
   Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND Trayfiller_Data.Alarms.AlmOutfeeding AND (Mach1_AuxData.AllDrivesHomed OR NOT Mach1_AuxData.MIDS_Active)), TRUE, Mach1_Alarms.Alm063, Mach1.GenFlags.MinorAlarm);
 END_NETWORK
 NETWORK 77 LD TITLE: "DONE NETWORK 46 (p8): Alarms trayfiller"
-  Mach1.GenFlags.StopDriveDirect := Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND Trayfiller_Data.Alarms.AlmLightCurtainElevator AND (Mach1_AuxData.AllDrivesHomed OR NOT Mach1_AuxData.MIDS_Active)), TRUE, Mach1_Alarms.Alm064, Mach1.GenFlags.MinorAlarm) SET;
+  Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND Trayfiller_Data.Alarms.AlmLightCurtainElevator AND (Mach1_AuxData.AllDrivesHomed OR NOT Mach1_AuxData.MIDS_Active)), TRUE, Mach1_Alarms.Alm064, Mach1.GenFlags.MinorAlarm);
 END_NETWORK
 NETWORK 78 LD TITLE: "DONE NETWORK 46 (p9): Alarms trayfiller"
-  Mach1.GenFlags.StopDriveDirect := (Mach1_AuxData.AllDrivesHomed AND Mach1_AuxData.TrayfillerActive AND NOT Trayfiller_Data.commInterface.Permission) SET;
+  Mach1.GenFlags.StopDriveDirect S= (Mach1_AuxData.AllDrivesHomed AND Mach1_AuxData.TrayfillerActive AND NOT Trayfiller_Data.commInterface.Permission);
 END_NETWORK
 NETWORK 79 LD TITLE: "TODO NETWORK 47 (p1):Greasing system"
 END_NETWORK
 NETWORK 80 LD TITLE: "DONE NETWORK 47 (p2): Greasing system"
-  Mach1.GenFlags.StopDriveDirect := Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterEmergStop AND tLowLevel), TRUE, Mach1_Alarms.Alm078, Mach1.GenFlags.Warning) SET;
+  Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterEmergStop AND tLowLevel), TRUE, Mach1_Alarms.Alm078, Mach1.GenFlags.Warning);
 END_NETWORK
 NETWORK 81 LD TITLE: "DONE NETWORK 48: Alarm: Greasing system"
-  Mach1.GenFlags.StopDriveDirect := Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterEmergStop AND tErrorRuntimeGreasingSystem), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm067, Mach1.GenFlags.MinorAlarm) SET;
+  Mach1.GenFlags.StopDriveDirect S= Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterEmergStop AND tErrorRuntimeGreasingSystem), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm067, Mach1.GenFlags.MinorAlarm);
 END_NETWORK
 NETWORK 82 LD TITLE: "DONE NETWORK 49: State of the machine"
   LET g22 := TRUE;
-  tAlarmSL := MOVE((g22 AND (Mach1.GenFlags.MajorAlarm OR Mach1.GenFlags.MinorAlarm)), 0);
+  LET en1 := (g22 AND (Mach1.GenFlags.MajorAlarm OR Mach1.GenFlags.MinorAlarm));
+  IF en1 THEN tAlarmSL := MOVE(0); END_IF
   LET g23 := (g22 AND NOT Mach1.GenFlags.MajorAlarm AND NOT Mach1.GenFlags.MinorAlarm);
-  tWarningSL := MOVE((g23 AND Mach1.GenFlags.Warning), 1);
+  LET en2 := (g23 AND Mach1.GenFlags.Warning);
+  IF en2 THEN tWarningSL := MOVE(1); END_IF
   LET g24 := (g23 AND NOT Mach1.GenFlags.Warning);
-  tStandbySL := MOVE((g24 AND NOT Mach1.GenFlags.RunMan AND NOT Mach1.GenFlags.RunAuto), 2);
-  tRunningSL := MOVE((g24 AND (Mach1.GenFlags.RunMan OR Mach1.GenFlags.RunAuto)), 3);
+  LET en3 := (g24 AND NOT Mach1.GenFlags.RunMan AND NOT Mach1.GenFlags.RunAuto);
+  IF en3 THEN tStandbySL := MOVE(2); END_IF
+  LET en4 := (g24 AND (Mach1.GenFlags.RunMan OR Mach1.GenFlags.RunAuto));
+  IF en4 THEN tRunningSL := MOVE(3); END_IF
 END_NETWORK
 NETWORK 83 LD TITLE: "TODO NETWORK 50: SL Alarmlamp"
   LET g25 := TRUE;

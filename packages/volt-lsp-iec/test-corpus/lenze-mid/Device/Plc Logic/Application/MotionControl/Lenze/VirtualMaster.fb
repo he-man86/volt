@@ -228,11 +228,11 @@ METHOD VirtualMasterParameters
 VAR_INPUT
 END_VAR
 //General
-//ioSlaveAxis.scPar.WindowStandStill:=i_lrWindowStandstill;
-//ioSlaveAxis.scPar.JoggingSetVel:=i_lrJogVel;
-//ioSlaveAxis.scPar.JoggingSetAcc:=i_lrJogVel*10;
-//ioSlaveAxis.scPar.JoggingSetDec:=i_lrJogVel*10;
-//ioSlaveAxis.scPar.JoggingSetJerk:=0;
+ioSlaveAxis.scPar.WindowStandStill:=i_lrWindowStandstill;
+ioSlaveAxis.scPar.JoggingSetVel:=i_lrJogVel;
+ioSlaveAxis.scPar.JoggingSetAcc:=i_lrJogVel*10;
+ioSlaveAxis.scPar.JoggingSetDec:=i_lrJogVel*10;
+ioSlaveAxis.scPar.JoggingSetJerk:=0;
 
 IF (Control_Local.VelUnit>i_VelMax) THEN
 	AxisControl.lrSetVel:=i_VelMax;

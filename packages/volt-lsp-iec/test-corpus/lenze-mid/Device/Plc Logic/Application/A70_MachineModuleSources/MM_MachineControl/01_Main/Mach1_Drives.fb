@@ -57,8 +57,8 @@ NETWORK 0 LD TITLE: "DONE network 3 : All drives ready"
 END_NETWORK
 NETWORK 1 LD
   LET g24 := EnableDrivePower;
-  Mach1_Data.Drives.WrappingDevice.Control.StartSetHomePos := (g24 AND Mach1_Data.Drives.WrappingDevice.Status.DriveIsHomed) SET;
-  Mach1_Data.Drives.WrappingDevice.Control.StartSetHomePos := ((g24 AND NOT Mach1_Data.Drives.WrappingDevice.Status.DriveIsHomed) AND FF500ms) SET;
+  Mach1_Data.Drives.WrappingDevice.Control.StartSetHomePos R= (g24 AND Mach1_Data.Drives.WrappingDevice.Status.DriveIsHomed);
+  Mach1_Data.Drives.WrappingDevice.Control.StartSetHomePos S= ((g24 AND NOT Mach1_Data.Drives.WrappingDevice.Status.DriveIsHomed) AND FF500ms);
 END_NETWORK
 NETWORK 2 LD TITLE: "DONE Network 4: Enable drive power"
   // The off delay ensures that the drive can stop before the power is removed from the drive. The power must be removed from the drive before it goes to STO. If the power remains on during STO, the drive will generate an error.
@@ -71,8 +71,10 @@ NETWORK 4 LD
   LET g0 := TRUE;
   Mach1_Data.Drives.MainDrive_VM.Control.SetDriveEnable := (g0 AND mach1.Genflags.DelayAfterSTO);
   Mach1_Data.Drives.MainDrive_VM.Control.ResetError := ((g0 AND NOT Mach1_Data.Drives.MainDrive_VM.Status.DriveIsReady) AND FF100ms);
-  MainDrive_VirtualMasterControl(EN := g0, iAcc := 600, iDec := 1800, ioVirtualMaster := Mach1_Data.Drives.MainDrive_VM, ioVirtualMasterCom := Data_Exchange_Motion.Servo_VirtualMaster);
-  MOVE(MOVE(g0, Mach1_Data.Drives.MainDrive_VM.Status.ActSpeed), Mach1_Data.Drives.MainDrive_VM.Status.ActXPos);
+  LET en1 := g0;
+  IF en1 THEN MainDrive_VirtualMasterControl(iAcc := 600, iDec := 1800, ioVirtualMaster := Mach1_Data.Drives.MainDrive_VM, ioVirtualMasterCom := Data_Exchange_Motion.Servo_VirtualMaster); END_IF
+  LET en2 := MOVE(Mach1_Data.Drives.MainDrive_VM.Status.ActSpeed);
+  IF en2 THEN MOVE(Mach1_Data.Drives.MainDrive_VM.Status.ActXPos); END_IF
 END_NETWORK
 NETWORK 5 LD TITLE: "Warning: machine in manual homing mode"
   Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterSTO AND Mach1_AuxData.EnableManualHomeSetting), Mach1.GenFlags.ResetFlag, Mach1_Alarms.Alm033, Mach1.GenFlags.Warning);
@@ -92,54 +94,58 @@ END_NETWORK
 NETWORK 7 LD TITLE: "DONE Network 6: Servo Main drive: Control"
   LET g4 := TRUE;
   Mach1_Data.Drives.MainDrive_VM.Control.StartMovement := (g4 AND ((Mach1_Safety.Control.RequestManSpeed AND Mach1_Safety.Status.SafetyManSpeed) OR (Mach1_Safety.Control.RequestAutoSpeed AND Mach1_Safety.Status.SafetyAutoSpeed)));
-  Mach1_Data.Drives.MainDrive.Control.SetInSync := (MOVE((g4 AND TRUE), ctCurveIs0ToMax) AND tSetDrivesInLock);
+  Mach1_Data.Drives.MainDrive.Control.SetInSync := (MOVE(ctCurveIs0ToMax) AND tSetDrivesInLock);
   LET g5 := (g4 AND TRUE);
   Mach1_Data.Drives.MainDrive.Control.SetBrakeRelease := (g5 AND Mach1_Alarms.Alm001 AND HMI_Var.ReleaseBrake);
-  HMI_Var.ReleaseBrake := (g5 AND (NOT Mach1_Alarms.Alm001 OR (mach1.Genflags.StartFlag AND Mach1_Alarms.Alm001))) SET;
-  Mach1.GenFlags.Rotflag := OspRotationFlag(CLK := (ServoMainDrive(EN := (g4 AND TRUE), iServoStatus := Data_Exchange_Motion.Servo_MainDrive.Status, iEnableHomeMovement := TRUE, iEnablePower := EnableDrivePower, iFF100ms := LST_General.FF100ms, ioUDT_ServoDrive := Mach1_Data.Drives.MainDrive) AND Mach1_Data.Drives.MainDrive.Status.RotationPulse));
+  HMI_Var.ReleaseBrake R= (g5 AND (NOT Mach1_Alarms.Alm001 OR (mach1.Genflags.StartFlag AND Mach1_Alarms.Alm001)));
+  Mach1.GenFlags.Rotflag := OspRotationFlag(CLK := (ServoMainDrive(iServoStatus := Data_Exchange_Motion.Servo_MainDrive.Status, iEnableHomeMovement := TRUE, iEnablePower := EnableDrivePower, iFF100ms := LST_General.FF100ms, ioUDT_ServoDrive := Mach1_Data.Drives.MainDrive) AND Mach1_Data.Drives.MainDrive.Status.RotationPulse));
 END_NETWORK
 NETWORK 8 LD TITLE: "DONE Network 7 : Servo Main drive: Alarms"
-  Mach1.GenFlags.StopDriveDirect := (Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterSTO AND NOT Mach1_Data.Drives.MainDrive.Status.DriveIsReady), Mach1.GenFlags.ResetFlag, Mach1_Alarms.Alm020, Mach1.GenFlags.MinorAlarm) OR Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterSTO AND Mach1_Data.Drives.MainDrive.Status.DriveTorqueError), Mach1.GenFlags.ResetFlag, Mach1_Alarms.Alm021, Mach1.GenFlags.MinorAlarm) OR Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterSTO AND NOT Mach1_Data.Drives.MainDrive.Status.DriveIsHomed), Mach1.GenFlags.ResetFlag, Mach1_Alarms.Alm022, Mach1.GenFlags.MinorAlarm)) SET;
+  Mach1.GenFlags.StopDriveDirect S= (Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterSTO AND NOT Mach1_Data.Drives.MainDrive.Status.DriveIsReady), Mach1.GenFlags.ResetFlag, Mach1_Alarms.Alm020, Mach1.GenFlags.MinorAlarm) OR Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterSTO AND Mach1_Data.Drives.MainDrive.Status.DriveTorqueError), Mach1.GenFlags.ResetFlag, Mach1_Alarms.Alm021, Mach1.GenFlags.MinorAlarm) OR Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterSTO AND NOT Mach1_Data.Drives.MainDrive.Status.DriveIsHomed), Mach1.GenFlags.ResetFlag, Mach1_Alarms.Alm022, Mach1.GenFlags.MinorAlarm));
 END_NETWORK
 NETWORK 9 LD
-  Mach1_Data.Drives.MainDrive.Control.ResetError := (((Mach1_Alarms.Alm020 OR Mach1_Alarms.Alm021 OR Mach1_Alarms.Alm022) AND Mach1.GenFlags.ResetFlag) OR (TON_0.Q AND Imp100ms AND Mach1_Safety.Status.ServiceMode AND Mach1_Safety.Status.Service_ButtonAB)) SET;
+  Mach1_Data.Drives.MainDrive.Control.ResetError S= (((Mach1_Alarms.Alm020 OR Mach1_Alarms.Alm021 OR Mach1_Alarms.Alm022) AND Mach1.GenFlags.ResetFlag) OR (TON_0.Q AND Imp100ms AND Mach1_Safety.Status.ServiceMode AND Mach1_Safety.Status.Service_ButtonAB));
 END_NETWORK
 NETWORK 10 LD TITLE: "DONE Network 8: Servo Wrapping device: Control"
   LET g6 := TRUE;
-  Mach1_Data.Drives.WrappingDevice.Control.SetInSync := (MOVE((g6 AND TRUE), ctCurveIsSpeed) AND tSetDrivesInLock);
-  MOVE(g6, Mach1_Data.Settings.Ints.RollingDeviceSpeedFactor);
-  ServoWrappingDevice(EN := (g6 AND TRUE), iServoStatus := Data_Exchange_Motion.Servo_WrappingDevice.Status, iEnableHomeMovement := TRUE, iEnablePower := EnableDrivePower, iFF100ms := LST_General.FF100ms, ioUDT_ServoDrive := Mach1_Data.Drives.WrappingDevice);
+  Mach1_Data.Drives.WrappingDevice.Control.SetInSync := (MOVE(ctCurveIsSpeed) AND tSetDrivesInLock);
+  LET en1 := g6;
+  IF en1 THEN MOVE(Mach1_Data.Settings.Ints.RollingDeviceSpeedFactor); END_IF
+  LET en2 := (g6 AND TRUE);
+  IF en2 THEN ServoWrappingDevice(iServoStatus := Data_Exchange_Motion.Servo_WrappingDevice.Status, iEnableHomeMovement := TRUE, iEnablePower := EnableDrivePower, iFF100ms := LST_General.FF100ms, ioUDT_ServoDrive := Mach1_Data.Drives.WrappingDevice); END_IF
 END_NETWORK
 NETWORK 11 LD TITLE: "DONE Network 9 : Servo Wrapping Device: Alarms"
   LET g7 := (Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterSTO AND NOT Mach1_Data.Drives.WrappingDevice.Status.DriveIsReady AND Mach1_Data.Drives.WrappingDevice.Control.SetDriveEnable), Mach1.GenFlags.ResetFlag, Mach1_Alarms.Alm023, Mach1.GenFlags.MinorAlarm) OR Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterSTO AND Mach1_Data.Drives.WrappingDevice.Status.DriveTorqueError), Mach1.GenFlags.ResetFlag, Mach1_Alarms.Alm024, Mach1.GenFlags.MinorAlarm) OR Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterSTO AND NOT Mach1_Data.Drives.WrappingDevice.Status.DriveIsHomed), Mach1.GenFlags.ResetFlag, Mach1_Alarms.Alm025, Mach1.GenFlags.MinorAlarm));
-  Mach1.GenFlags.StopDriveDirect := g7 SET;
-  Mach1_Data.Drives.WrappingDevice.Control.ResetError := (g7 AND Mach1.GenFlags.ResetFlag) SET;
+  Mach1.GenFlags.StopDriveDirect S= g7;
+  Mach1_Data.Drives.WrappingDevice.Control.ResetError S= (g7 AND Mach1.GenFlags.ResetFlag);
 END_NETWORK
 NETWORK 12 LD
-  Mach1_Data.Drives.WrappingDevice.Control.ResetError := (((Mach1_Alarms.Alm023 OR Mach1_Alarms.Alm024 OR Mach1_Alarms.Alm025) AND Mach1.GenFlags.ResetFlag) OR (TON_0.Q AND Imp100ms AND Mach1_Safety.Status.ServiceMode AND Mach1_Safety.Status.Service_ButtonAB)) SET;
+  Mach1_Data.Drives.WrappingDevice.Control.ResetError S= (((Mach1_Alarms.Alm023 OR Mach1_Alarms.Alm024 OR Mach1_Alarms.Alm025) AND Mach1.GenFlags.ResetFlag) OR (TON_0.Q AND Imp100ms AND Mach1_Safety.Status.ServiceMode AND Mach1_Safety.Status.Service_ButtonAB));
 END_NETWORK
 NETWORK 13 LD
 END_NETWORK
 NETWORK 14 LD TITLE: "Digital inputs"
   // 16: non-motor side
   // 17: motor side
-  LET g8 := MOVE(TRUE, %ID79);
+  LET g8 := MOVE(%ID79);
   Data_Exchange_Motion.Servo_SideCorrection.Status.Spare1 := (g8 AND mydword.16);
   Data_Exchange_Motion.Servo_SideCorrection.Status.Spare2 := (g8 AND mydword.17);
 END_NETWORK
 NETWORK 15 LD TITLE: "DONE Network 10: Servo Side correction: Control"
   LET g9 := TRUE;
-  Mach1_Data.Drives.SideCorrection.Control.SetInSync := (MOVE((g9 AND TRUE), ctCurveIsSpeed) AND tSetDrivesInLock);
-  ServoSideCorrection(EN := (g9 AND TRUE), iServoStatus := Data_Exchange_Motion.Servo_SideCorrection.Status, iEnableHomeMovement := TRUE, iEnablePower := EnableDrivePower, iFF100ms := LST_General.FF100ms, ioUDT_ServoDrive := Mach1_Data.Drives.SideCorrection);
-  Servo_LimitJog_Instance(EN := (g9 AND TRUE), iServoStatus := Data_Exchange_Motion.Servo_SideCorrection.Status, iServoControl := SideCorrection_CW, ioUDT_ServoDrive := Mach1_Data.Drives.SideCorrection, ioUDT_JogLimitFree := Mach1_Data.Drives.SideCorrection_FreeLimit);
+  Mach1_Data.Drives.SideCorrection.Control.SetInSync := (MOVE(ctCurveIsSpeed) AND tSetDrivesInLock);
+  LET en1 := (g9 AND TRUE);
+  IF en1 THEN ServoSideCorrection(iServoStatus := Data_Exchange_Motion.Servo_SideCorrection.Status, iEnableHomeMovement := TRUE, iEnablePower := EnableDrivePower, iFF100ms := LST_General.FF100ms, ioUDT_ServoDrive := Mach1_Data.Drives.SideCorrection); END_IF
+  LET en2 := (g9 AND TRUE);
+  IF en2 THEN Servo_LimitJog_Instance(iServoStatus := Data_Exchange_Motion.Servo_SideCorrection.Status, iServoControl := SideCorrection_CW, ioUDT_ServoDrive := Mach1_Data.Drives.SideCorrection, ioUDT_JogLimitFree := Mach1_Data.Drives.SideCorrection_FreeLimit); END_IF
 END_NETWORK
 NETWORK 16 LD TITLE: "DONE Network 11 : Servo Side correction: Alarms"
   LET g10 := (Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterSTO AND NOT Mach1_Data.Drives.SideCorrection.Status.DriveIsReady AND Mach1_Data.Drives.SideCorrection.Control.SetDriveEnable), Mach1.GenFlags.ResetFlag, Mach1_Alarms.Alm026, Mach1.GenFlags.MinorAlarm) OR Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterSTO AND Mach1_Data.Drives.SideCorrection.Status.DriveTorqueError), Mach1.GenFlags.ResetFlag, Mach1_Alarms.Alm027, Mach1.GenFlags.MinorAlarm) OR Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterSTO AND NOT Mach1_Data.Drives.SideCorrection.Status.DriveIsHomed), Mach1.GenFlags.ResetFlag, Mach1_Alarms.Alm028, Mach1.GenFlags.MinorAlarm));
-  Mach1.GenFlags.StopDriveDirect := g10 SET;
-  Mach1_Data.Drives.SideCorrection.Control.ResetError := (g10 AND Mach1.GenFlags.ResetFlag) SET;
+  Mach1.GenFlags.StopDriveDirect S= g10;
+  Mach1_Data.Drives.SideCorrection.Control.ResetError S= (g10 AND Mach1.GenFlags.ResetFlag);
 END_NETWORK
 NETWORK 17 LD
-  Mach1_Data.Drives.SideCorrection.Control.ResetError := (((Mach1_Alarms.Alm026 OR Mach1_Alarms.Alm027 OR Mach1_Alarms.Alm028) AND Mach1.GenFlags.ResetFlag) OR (TON_0.Q AND Imp100ms AND Mach1_Safety.Status.ServiceMode AND Mach1_Safety.Status.Service_ButtonAB)) SET;
+  Mach1_Data.Drives.SideCorrection.Control.ResetError S= (((Mach1_Alarms.Alm026 OR Mach1_Alarms.Alm027 OR Mach1_Alarms.Alm028) AND Mach1.GenFlags.ResetFlag) OR (TON_0.Q AND Imp100ms AND Mach1_Safety.Status.ServiceMode AND Mach1_Safety.Status.Service_ButtonAB));
 END_NETWORK
 NETWORK 18 LD
 END_NETWORK
@@ -147,78 +153,91 @@ NETWORK 19 LD TITLE: "DONE Network 12: Feedforward ADS"
   LET g11 := TRUE;
   Mach1_Data.Drives.FeedForwardADS.Control.Enable := (g11 AND Mach1.GenFlags.DelayAfterEmergStop AND NOT Mach1_Alarms.Alm015);
   Mach1_Data.Drives.FeedForwardADS.Control.Reverse := g11;
-  FBFeedforwardADS(EN := g11, iStatusWord := Data_Exchange_Motion.FQI_FeedforwardADS.Status, iGearRatioNumerator := 2790.0, iGearRatioDenominator := 111.0, iNominalMotorSpeedwoSlipComp_RPM := 3000.0, iNominalMotorFrequency_Hz := 100.0, iAxisJogSpeed_RPM := 10.0, ioUDT := Mach1_Data.Drives.FeedForwardADS);
+  LET en1 := g11;
+  IF en1 THEN FBFeedforwardADS(iStatusWord := Data_Exchange_Motion.FQI_FeedforwardADS.Status, iGearRatioNumerator := 2790.0, iGearRatioDenominator := 111.0, iNominalMotorSpeedwoSlipComp_RPM := 3000.0, iNominalMotorFrequency_Hz := 100.0, iAxisJogSpeed_RPM := 10.0, ioUDT := Mach1_Data.Drives.FeedForwardADS); END_IF
 END_NETWORK
 NETWORK 20 LD TITLE: "DONE Network 13: Alarms feed forward dryer"
   LET g12 := Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterEmergStop AND Mach1_Data.Drives.FeedForwardADS.Status.Error), True, Mach1_Alarms.Alm015, Mach1.GenFlags.MinorAlarm);
-  Mach1.GenFlags.StopDriveDirect := g12 SET;
-  Mach1_Data.Drives.FeedForwardADS.Control.ResetError := (g12 AND Mach1.GenFlags.ResetFlag) SET;
+  Mach1.GenFlags.StopDriveDirect S= g12;
+  Mach1_Data.Drives.FeedForwardADS.Control.ResetError S= (g12 AND Mach1.GenFlags.ResetFlag);
 END_NETWORK
 NETWORK 21 LD TITLE: "DONE Network 14: Feedforward ATF"
   LET g13 := TRUE;
   Mach1_Data.Drives.FeedForwardATF.Control.Enable := (g13 AND Mach1.GenFlags.DelayAfterEmergStop AND NOT Mach1_Alarms.Alm016);
-  FBFeedforwardATF(EN := g13, iStatusWord := Data_Exchange_Motion.FQI_FeedforwardATF.Status, iGearRatioNumerator := 2790.0, iGearRatioDenominator := 111.0, iNominalMotorSpeedwoSlipComp_RPM := 3000.0, iNominalMotorFrequency_Hz := 100.0, iAxisJogSpeed_RPM := 10.0, ioUDT := Mach1_Data.Drives.FeedForwardATF);
+  LET en1 := g13;
+  IF en1 THEN FBFeedforwardATF(iStatusWord := Data_Exchange_Motion.FQI_FeedforwardATF.Status, iGearRatioNumerator := 2790.0, iGearRatioDenominator := 111.0, iNominalMotorSpeedwoSlipComp_RPM := 3000.0, iNominalMotorFrequency_Hz := 100.0, iAxisJogSpeed_RPM := 10.0, ioUDT := Mach1_Data.Drives.FeedForwardATF); END_IF
 END_NETWORK
 NETWORK 22 LD TITLE: "DONE Network 15: Alarms feed forward trayfiller"
   LET g14 := Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterEmergStop AND Mach1_Data.Drives.FeedForwardATF.Status.Error), True, Mach1_Alarms.Alm016, Mach1.GenFlags.MinorAlarm);
-  Mach1.GenFlags.StopDriveDirect := g14 SET;
-  Mach1_Data.Drives.FeedForwardATF.Control.ResetError := (g14 AND Mach1.GenFlags.ResetFlag) SET;
+  Mach1.GenFlags.StopDriveDirect S= g14;
+  Mach1_Data.Drives.FeedForwardATF.Control.ResetError S= (g14 AND Mach1.GenFlags.ResetFlag);
 END_NETWORK
 NETWORK 23 LD TITLE: "DONE Network 16: Elevator ATF"
   LET g15 := TRUE;
   Mach1_Data.Drives.ElevatorATF.Control.Enable := (g15 AND Mach1.GenFlags.DelayAfterEmergStop AND NOT Mach1_Alarms.Alm014);
-  FBElevatorATF(EN := g15, iStatusWord := Data_Exchange_Motion.FQI_ElevatorATF.Status, iGearRatioNumerator := 100.0, iGearRatioDenominator := 111.0, iNominalMotorSpeedwoSlipComp_RPM := 3000.0, iNominalMotorFrequency_Hz := 100.0, iAxisJogSpeed_RPM := 10.0, ioUDT := Mach1_Data.Drives.ElevatorATF);
+  LET en1 := g15;
+  IF en1 THEN FBElevatorATF(iStatusWord := Data_Exchange_Motion.FQI_ElevatorATF.Status, iGearRatioNumerator := 100.0, iGearRatioDenominator := 111.0, iNominalMotorSpeedwoSlipComp_RPM := 3000.0, iNominalMotorFrequency_Hz := 100.0, iAxisJogSpeed_RPM := 10.0, ioUDT := Mach1_Data.Drives.ElevatorATF); END_IF
 END_NETWORK
 NETWORK 24 LD TITLE: "DONE Network 17: Alarms Elevator trayfiller"
   LET g16 := Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterEmergStop AND Mach1_Data.Drives.ElevatorATF.Status.Error), True, Mach1_Alarms.Alm014, Mach1.GenFlags.MinorAlarm);
-  Mach1.GenFlags.StopDriveDirect := g16 SET;
-  Mach1_Data.Drives.ElevatorATF.Control.ResetError := (g16 AND Mach1.GenFlags.ResetFlag) SET;
+  Mach1.GenFlags.StopDriveDirect S= g16;
+  Mach1_Data.Drives.ElevatorATF.Control.ResetError S= (g16 AND Mach1.GenFlags.ResetFlag);
 END_NETWORK
 NETWORK 25 LD TITLE: "DONE Network 18: Fan"
   LET g26 := TRUE;
   Mach1_Data.Drives.Fan.Control.Enable := (g26 AND Mach1.GenFlags.EnableAuxDrive AND NOT Mach1_Alarms.Alm017);
-  FBFan(EN := g26, iStatusWord := Data_Exchange_Motion.FQI_Fan.Status, iGearRatioNumerator := 1.0, iGearRatioDenominator := 1.0, iNominalMotorSpeedwoSlipComp_RPM := 3000.0, iNominalMotorFrequency_Hz := 50.0, iAxisJogSpeed_RPM := 10.0, ioUDT := Mach1_Data.Drives.Fan);
+  LET en1 := g26;
+  IF en1 THEN FBFan(iStatusWord := Data_Exchange_Motion.FQI_Fan.Status, iGearRatioNumerator := 1.0, iGearRatioDenominator := 1.0, iNominalMotorSpeedwoSlipComp_RPM := 3000.0, iNominalMotorFrequency_Hz := 50.0, iAxisJogSpeed_RPM := 10.0, ioUDT := Mach1_Data.Drives.Fan); END_IF
 END_NETWORK
 NETWORK 26 LD TITLE: "DONE Network 19: Alarms Fan"
   LET g18 := Alarms_V5_1_100(Mach1_Alarms, (Mach1.GenFlags.DelayAfterEmergStop AND Mach1_Data.Drives.Fan.Status.Error), True, Mach1_Alarms.Alm017, Mach1.GenFlags.MinorAlarm);
-  Mach1.GenFlags.StopDriveDirect := g18 SET;
-  Mach1_Data.Drives.Fan.Control.ResetError := (g18 AND Mach1.GenFlags.ResetFlag) SET;
+  Mach1.GenFlags.StopDriveDirect S= g18;
+  Mach1_Data.Drives.Fan.Control.ResetError S= (g18 AND Mach1.GenFlags.ResetFlag);
 END_NETWORK
 NETWORK 27 LD TITLE: "DONE Network 20: Bobbin"
   LET g19 := TRUE;
-  LET g20 := (((g19 AND Mach1.GenFlags.EnableAuxDrive AND NOT HMI_Var.Btn_Cleaning) > Mach1_Data.Settings.Ints.TorqueControlBobbin > 0) AND Mach1_Safety.Status.AllDoorsActuallyClosed);
+  LET g20 := ((Mach1_Data.Settings.Ints.TorqueControlBobbin > 0) AND Mach1_Safety.Status.AllDoorsActuallyClosed);
   Mach1_Data.Drives.Bobbine.Control.Enable := g20;
-  Mach1_Data.Drives.Bobbine.Control.StartAuto := MOVE(g20, 860);
-  FBBobbin(EN := g19, iStatusWord := Data_Exchange_Motion.FQI_Bobbin.Status, iGearRatioNumerator := 2790.0, iGearRatioDenominator := 111.0, iNominalMotorSpeedwoSlipComp_RPM := 3000.0, iNominalMotorFrequency_Hz := 50.0, iAxisJogSpeed_RPM := 10.0, ioUDT := Mach1_Data.Drives.Bobbine);
+  LET en1 := g20;
+  IF en1 THEN Mach1_Data.Drives.Bobbine.Control.StartAuto := MOVE(860); END_IF
+  LET en2 := g19;
+  IF en2 THEN FBBobbin(iStatusWord := Data_Exchange_Motion.FQI_Bobbin.Status, iGearRatioNumerator := 2790.0, iGearRatioDenominator := 111.0, iNominalMotorSpeedwoSlipComp_RPM := 3000.0, iNominalMotorFrequency_Hz := 50.0, iAxisJogSpeed_RPM := 10.0, ioUDT := Mach1_Data.Drives.Bobbine); END_IF
   LET g21 := (g19 AND HMI_Var.Mach1.CalibrateTorqueValues);
-  MOVE(g21, Mach1_AuxData.TorqueCalibrationValue);
-  HMI_Var.Mach1.setMinTorqueValue := MOVE((g21 AND HMI_Var.Mach1.setMinTorqueValue), Mach1_AuxData.TorqueCalibrationValue) SET;
-  HMI_Var.Mach1.setMaxTorqueValue := MOVE((g21 AND HMI_Var.Mach1.setMaxTorqueValue), Mach1_AuxData.TorqueCalibrationValue) SET;
+  LET en3 := g21;
+  IF en3 THEN MOVE(Mach1_AuxData.TorqueCalibrationValue); END_IF
+  LET en4 := (g21 AND HMI_Var.Mach1.setMinTorqueValue);
+  IF en4 THEN HMI_Var.Mach1.setMinTorqueValue R= MOVE(Mach1_AuxData.TorqueCalibrationValue); END_IF
+  LET en5 := (g21 AND HMI_Var.Mach1.setMaxTorqueValue);
+  IF en5 THEN HMI_Var.Mach1.setMaxTorqueValue R= MOVE(Mach1_AuxData.TorqueCalibrationValue); END_IF
   LET i1 := DINT_TO_REAL(Mach1_Data.Settings.Dints.minTorqueValue);
   LET i2 := DINT_TO_REAL(Mach1_Data.Settings.Dints.maxTorqueValue);
   LET i3 := REAL_TO_DINT(tBobbinTorque);
-  MOVE(ScaleBobbinTorque(EN := (g19 AND NOT HMI_Var.Mach1.CalibrateTorqueValues), IN := Mach1_Data.Settings.Ints.TorqueControlBobbin, IN_MIN := 0, IN_MAX := 1000, OUT_MIN := i1, OUT_MAX := i2), i3);
+  LET en6 := ScaleBobbinTorque(IN := Mach1_Data.Settings.Ints.TorqueControlBobbin, IN_MIN := 0, IN_MAX := 1000, OUT_MIN := i1, OUT_MAX := i2);
+  IF en6 THEN MOVE(i3); END_IF
 END_NETWORK
 NETWORK 28 LD TITLE: "DONE Network 21: Alarms Bobbine"
   LET g22 := Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.MIDS_Active AND Mach1.GenFlags.DelayAfterEmergStop AND NOT Mach1_Data.Drives.Bobbine.Status.DriveReady AND Mach1_AuxData.AllDrivesHomed), True, Mach1_Alarms.Alm010, Mach1.GenFlags.MinorAlarm);
-  Mach1.GenFlags.StopDriveDirect := g22 SET;
-  Mach1_Data.Drives.Bobbine.Control.ResetError := (g22 AND Mach1.GenFlags.ResetFlag) SET;
+  Mach1.GenFlags.StopDriveDirect S= g22;
+  Mach1_Data.Drives.Bobbine.Control.ResetError S= (g22 AND Mach1.GenFlags.ResetFlag);
 END_NETWORK
 NETWORK 29 LD TITLE: "TODO Network 22:"
   // WRAPPER
 END_NETWORK
 NETWORK 30 LD TITLE: "TODO Network 23: Limit Wrapper stop position"
   LET g23 := TRUE;
-  MOVE((g23 > Mach1_Data.Settings.Dints.WrapperStopPosition > 400), 400);
-  MOVE((g23 < Mach1_Data.Settings.Dints.WrapperStopPosition < 5), 5);
-  (g23 * Mach1_Data.Settings.Dints.WrapperStopPosition * 100);
+  LET en1 := (Mach1_Data.Settings.Dints.WrapperStopPosition > 400);
+  IF en1 THEN MOVE(400); END_IF
+  LET en2 := (Mach1_Data.Settings.Dints.WrapperStopPosition < 5);
+  IF en2 THEN MOVE(5); END_IF
+  LET en3 := g23;
+  IF en3 THEN (Mach1_Data.Settings.Dints.WrapperStopPosition * 100); END_IF
 END_NETWORK
 NETWORK 31 LD TITLE: "TODO Network 25:"
   Data_Exchange_Motion.FeedForwardWrapper.Control.Enable := (TRUE AND Mach1.GenFlags.DelayAfterEmergStop AND NOT Mach1_Alarms.Alm066);
 END_NETWORK
 NETWORK 32 LD TITLE: "TODO Network 26:"
-  LET g1 := (Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.MIDS_Active AND Mach1.GenFlags.EnableMainDrive AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND Mach1_AuxData.AllDrivesHomed AND NOT Data_Exchange_Motion.FeedForwardWrapper.Status.ReadyForMotion), Mach1.Genflags.StartFlag, Mach1_Alarms.Alm056, Mach1.GenFlags.MinorAlarm) AND mach1.Genflags.ResetFlag) SET;
-  Mach1_Data.Drives.WrappingDevice.Control.ResetError := g1;
+  LET g1 := (Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.MIDS_Active AND Mach1.GenFlags.EnableMainDrive AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND Mach1_AuxData.AllDrivesHomed AND NOT Data_Exchange_Motion.FeedForwardWrapper.Status.ReadyForMotion), Mach1.Genflags.StartFlag, Mach1_Alarms.Alm056, Mach1.GenFlags.MinorAlarm) AND mach1.Genflags.ResetFlag);
+  Mach1_Data.Drives.WrappingDevice.Control.ResetError S= g1;
   Data_Exchange_Motion.FeedForwardWrapper.Control.ResetError := g1;
 END_NETWORK
 NETWORK 33 LD TITLE: "TODO Network 27:"

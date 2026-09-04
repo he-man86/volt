@@ -1,0 +1,6 @@
+LIBRARY L_IAMP_AssetManagement
+NAMESPACE L_IAMP
+RESOLUTION L_IAMP_AssetManagement, 3.26.0.18 (Lenze)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES Standard, L_IMHP_ModuleHandler, StringUtils, SysTypes Interfaces, * (System), L_SMHP_ModuleHandler, CmpErrors2 Interfaces, * (System), IoStandard, Base Interfaces, * (System), IoDriver Parameter Interfaces, * (System), L_SAMP_AssetManagement, L_IPAP_ParameterManagerAccess

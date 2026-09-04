@@ -1,6 +1,6 @@
 LIBRARY CmpDynamicText
 NAMESPACE CmpDynamicText
-RESOLUTION CmpDynamicText, 3.5.20.0 (System)
+RESOLUTION CmpDynamicText, 3.5.17.0 (System)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES SysTypes2 Interfaces, * (System)

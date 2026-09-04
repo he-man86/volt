@@ -1,0 +1,7 @@
+Name:         Safety Process Data SDI16
+Vendor:       Lenze
+Type:         68
+ID:           3B_0000A85C_190_Safety Process Data SDI16
+Version:      1.0.0.6
+Order number: Safety Process Data SDI16
+Description:  EtherCAT Module imported from Slave XML: Lenze-IOSafeDIn16 Rev_8.xml Device: Safety SDI16

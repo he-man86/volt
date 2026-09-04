@@ -16,7 +16,7 @@ VAR_IN_OUT
 END_VAR
 
 NETWORK 0 LD TITLE: "Return when virtual axis"
-  ??? := ioAxis.xVirtual;
+  IF ioAxis.xVirtual THEN RETURN; END_IF
 END_NETWORK
 NETWORK 1 LD
   BasicSpeed(Axis := ioAxis, xEnableInternalControl := TRUE, xRegulatorOn := OffDelay(IN := DataIO.Controlword.Bit4_RunForward, PT := T#1S), xResetError := DataIO.Controlword.Bit7_ResetFault, xSetDriveQsp := DataIO.Controlword.Bit2_QuickStop, xEnableSetVel := DataIO.Controlword.Bit4_RunForward, xInvertDirection := DataIO.Controlword.Bit12_ReverseDirection, lrSetVel := DataIO.RefSpeed, lrSetAcc := lrAcc, lrSetDec := lrDec);

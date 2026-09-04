@@ -1,6 +1,6 @@
 LIBRARY L_SPMI_PlcParameterManager
 NAMESPACE L_SPMI
-RESOLUTION L_SPMI_PlcParameterManager, 3.33.0.1 (Lenze)
+RESOLUTION L_SPMI_PlcParameterManager, 3.26.0.0 (Lenze)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES CAA Types, CmpApp, SysTypes2 Interfaces, * (System), CmpAsyncMgr, CmpChecksum, CmpEventMgr, Standard, SysFile, SysMem, SysTask, L_SSYP_CmpLenzeIPCSystem, L_SEMP_ErrorManagement, SysTimeRtc, IoStandard, L_IMHP_ModuleHandler

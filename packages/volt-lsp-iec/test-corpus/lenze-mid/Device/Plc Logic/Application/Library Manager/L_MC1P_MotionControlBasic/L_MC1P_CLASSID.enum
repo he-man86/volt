@@ -1,6 +1,0 @@
-TYPE L_MC1P_CLASSID :
-(
-	AXIS_REF := (L_MC1P_Internal.cdiEnumStartValue + 2),
-	AXISBASICCONTROLV2 := (L_MC1P_Internal.cdiEnumStartValue + 3)
-);
-END_TYPE

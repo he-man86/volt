@@ -1,6 +1,4 @@
 TYPE _SCAP_TM_SMARTTRACKSTATE :
 STRUCT
-	AP_XALLTRACKCORRCAM : BOOL;
-	AP_ASCALLTRACKCORRCAM : ARRAY [0..4] OF L_MC2P_XYVA := [STRUCT(eLawOfMotion := L_MC2P_LawOfMotion.Poly5, lrX := 0, lrY := 0, lrYs := 0, lrYss := 0), STRUCT(eLawOfMotion := L_MC2P_LawOfMotion.StraightLine, lrX := 0.179999992251396, lrY := 0.1, lrYs := 1.25000011525118, lrYss := 0), STRUCT(eLawOfMotion := L_MC2P_LawOfMotion.Poly5, lrX := 0.819999933242798, lrY := 0.9, lrYs := 1.25000011525118, lrYss := 0), STRUCT(eLawOfMotion := L_MC2P_LawOfMotion.Poly5, lrX := 1.0, lrY := 1.0, lrYs := 0, lrYss := 0)];
 END_STRUCT
 END_TYPE

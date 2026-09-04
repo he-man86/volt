@@ -1,0 +1,50 @@
+opened Lenze_MID-S100_V5_00_602_T51.project
+
+=== SystemInstances statics ===
+   LanguageModelMgr                   = <_3S.CoDeSys.LanguageModelManagerLegacy.LanguageModelManagerLegacy object at 0x0000000000000087 [_3S.CoDeSys.LanguageModelManagerLegacy.LanguageModelManagerLegacy]>
+   LanguageModelMgrOrNull             = <_3S.CoDeSys.LanguageModelManagerLegacy.LanguageModelManagerLegacy object at 0x0000000000000087 [_3S.CoDeSys.LanguageModelManagerLegacy.LanguageModelManagerLegacy]>
+   IsLanguageModelMgrAvailable        = True
+   MessageStorage                     = <_3S.CoDeSys.MessageStorage.MessageStorage object at 0x0000000000000088 [_3S.CoDeSys.MessageStorage.MessageStorage]>
+   MessageStorageOrNull               = <_3S.CoDeSys.MessageStorage.MessageStorage object at 0x0000000000000088 [_3S.CoDeSys.MessageStorage.MessageStorage]>
+   IsMessageStorageAvailable          = True
+   ObjectMgr                          = <_3S.CoDeSys.ObjectManager.ObjectManager object at 0x0000000000000089 [================================================================================...]>
+   ObjectMgrOrNull                    = <_3S.CoDeSys.ObjectManager.ObjectManager object at 0x0000000000000089 [================================================================================...]>
+   IsObjectMgrAvailable               = True
+   OnlineMgr                          = <_3S.CoDeSys.OnlineManager.OnlineManager object at 0x000000000000008A [_3S.CoDeSys.OnlineManager.OnlineManager]>
+   OnlineMgrOrNull                    = <_3S.CoDeSys.OnlineManager.OnlineManager object at 0x000000000000008A [_3S.CoDeSys.OnlineManager.OnlineManager]>
+   IsOnlineMgrAvailable               = True
+   OptionStorage                      = <_3S.CoDeSys.OptionStorage.OptionStorage object at 0x000000000000008B [_3S.CoDeSys.OptionStorage.OptionStorage]>
+   OptionStorageOrNull                = <_3S.CoDeSys.OptionStorage.OptionStorage object at 0x000000000000008B [_3S.CoDeSys.OptionStorage.OptionStorage]>
+   IsOptionStorageAvailable           = True
+   TargetSettingsMgr                  = <_3S.CoDeSys.TargetSettings.TargetSettingsManager object at 0x000000000000008C [_3S.CoDeSys.TargetSettings.TargetSettingsManager]>
+   TargetSettingsMgrOrNull            = <_3S.CoDeSys.TargetSettings.TargetSettingsManager object at 0x000000000000008C [_3S.CoDeSys.TargetSettings.TargetSettingsManager]>
+   IsTargetSettingsManagerAvailable   = True
+   Engine                             = <_3S.CoDeSys.Engine.Engine object at 0x000000000000008D [_3S.CoDeSys.Engine.Engine]>
+   EngineOrNull                       = <_3S.CoDeSys.Engine.Engine object at 0x000000000000008D [_3S.CoDeSys.Engine.Engine]>
+   IsEngineAvailable                  = True
+   FrameForm                          = None
+   MessageService                     = <_3S.CoDeSys.Core.MessageServiceWithKeys object at 0x000000000000008E [_3S.CoDeSys.Core.MessageServiceWithKeys]>
+   CompilerVersionMgr                 = <_3S.CoDeSys.LanguageModelManager.CompilerVersionManager object at 0x000000000000008F [_3S.CoDeSys.LanguageModelManager.CompilerVersionManager]>
+   CompilerVersionMgrOrNull           = <_3S.CoDeSys.LanguageModelManager.CompilerVersionManager object at 0x000000000000008F [_3S.CoDeSys.LanguageModelManager.CompilerVersionManager]>
+   IsCompilerVersionMgrAvailable      = True
+   FeatureSettingsMgr                 = '<threw>'
+   FeatureSettingsMgrOrNull           = None
+   IsFeatureSettingsMgrAvailable      = False
+
+=== CompilerSettings ===
+  type : _3S.CoDeSys.LanguageModelManager.CompilerSettings
+      inst prop AllowNestedComments
+
+=== *OptionManager / *SettingsManager types ===
+   System.Windows.Forms.ToolStripSettingsManager
+   _3S.CoDeSys.Core.TargetSettings.ITargetSettingsManager
+   _3S.CoDeSys.Core.Options.IFeatureSettingsManager
+   _3S.CoDeSys.TargetSettings.TargetSettingsManager
+   _3S.CoDeSys.VisualEditor.IntegratedVisu.VisuSettingsManager
+   _3S.CoDeSys.VisualEditor.OfflinePainting.GeneratedAssemblyBasedOfflinePainter+OfflinePaintingVisuSettingsManager
+   CODESYS.CAS.Connector.Plugin.ScriptDriver.CasOptionsManager
+   _3S.CoDeSys.SecurityAgent.SecuritySettingsManager
+   _3S.CoDeSys.VisualElem.Trend.Appearance.Variable_settings.ITrendVariableSettingsManager
+   _3S.CoDeSys.VisualElem.Trend.Appearance.Variable_settings.TrendVariableSettingsManager
+
+done

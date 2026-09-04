@@ -2,6 +2,6 @@ Name:         EtherCAT Master
 Vendor:       Lenze
 Type:         64
 ID:           1028 0100
-Version:      3.32.0.1
+Version:      3.18.4.0
 Order number: ---
 Description:  EtherCAT Master for using EtherCAT as fieldbus

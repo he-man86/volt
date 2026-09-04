@@ -1,5 +1,5 @@
 LIBRARY System_VisuElemsDateTime
 NAMESPACE VisuElemsDateTime
-RESOLUTION VisuElemsDateTime, 4.8.0.0 (System)
+RESOLUTION VisuElemsDateTime, 3.5.17.0 (System)
 PLACEHOLDER true
 SYSTEM true

@@ -35,7 +35,8 @@ VAR
 END_VAR
 
 NETWORK 0 FBD
-  EXECUTE(TRUE);
+  LET en1 := TRUE;
+  IF en1 THEN EXECUTE(); END_IF
 END_NETWORK
 NETWORK 1 FBD
   L_RecipeManager1(xEnable := TRUE, sDatabaseName := 'Recipes', sSelectedRecipeName := sSelectedRecipeName, xRecipe_Load := g_HMI_MachCommand.CMD.bLoadRecipe, xRecipe_New := g_HMI_MachCommand.CMD.bNewRecipe, xRecipe_Edit := g_HMI_MachCommand.CMD.bEditRecipe, xRecipe_Save := g_HMI_MachCommand.CMD.bSaveRecipe, xRecipe_Copy := g_HMI_MachCommand.CMD.bCopyRecipe, xRecipe_Delete := g_HMI_MachCommand.CMD.bDeleteRecipe, xRecipe_Update := g_HMI_MachCommand.CMD.bUpdateRecipe, scRecipeVisu := g_HMI_RCP_Parameters_Visu, scRecipePLC := g_HMI_RCP_Parameters);
@@ -57,7 +58,8 @@ NETWORK 6 FBD
   sRecipeNamePar := REPLACE(sDateAndTIme2, 'm', 1, 17);
 END_NETWORK
 NETWORK 7 FBD
-  EXECUTE(TRUE);
+  LET en1 := TRUE;
+  IF en1 THEN EXECUTE(); END_IF
 END_NETWORK
 NETWORK 8 FBD
 END_NETWORK

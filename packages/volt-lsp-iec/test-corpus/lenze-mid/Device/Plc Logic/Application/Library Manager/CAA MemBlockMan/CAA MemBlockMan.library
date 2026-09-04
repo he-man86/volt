@@ -1,6 +1,6 @@
 LIBRARY CAA MemBlockMan
 NAMESPACE MBM
-RESOLUTION CAA Memory Block Manager Extern, 3.5.18.0 (CAA Technical Workgroup)
+RESOLUTION CAA Memory Block Manager Extern, 3.5.17.0 (CAA Technical Workgroup)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES CAA Types, CAA Callback, CAA ResMan

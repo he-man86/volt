@@ -20,7 +20,8 @@ NETWORK 0 FBD
 END_NETWORK
 NETWORK 1 FBD
   // On a rising edge of the output, save the current date/time
-  MOVE(output RISING, TimeSettings.dtNow);
+  LET en1 := output RISING;
+  IF en1 THEN MOVE(TimeSettings.dtNow); END_IF
 END_NETWORK
 END_METHOD
 

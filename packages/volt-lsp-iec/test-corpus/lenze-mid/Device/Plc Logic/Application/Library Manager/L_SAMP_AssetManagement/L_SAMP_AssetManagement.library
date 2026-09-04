@@ -1,0 +1,6 @@
+LIBRARY L_SAMP_AssetManagement
+NAMESPACE L_SAMP
+RESOLUTION L_SAMP_AssetManagement, 3.26.0.3 (Lenze)
+PLACEHOLDER true
+SYSTEM false
+DEPENDENCIES SysTypes Interfaces, * (System), Standard, CmpEventMgr

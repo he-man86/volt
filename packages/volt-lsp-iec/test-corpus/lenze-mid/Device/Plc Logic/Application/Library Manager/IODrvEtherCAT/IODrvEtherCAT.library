@@ -1,6 +1,6 @@
 LIBRARY IODrvEtherCAT
 NAMESPACE L_ETC
-RESOLUTION L_IODrvEtherCAT, 3.32.0.11 (Lenze)
+RESOLUTION L_IODrvEtherCAT, 3.26.0.0 (Lenze)
 PLACEHOLDER true
 SYSTEM false
-DEPENDENCIES Standard, IoStandard, CmpDynamicText, CAA Types, CAA Device Diagnosis, L_IMHP_ModuleHandler, CmpEventMgr, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs, L_IC1P_ComponentDirectory, SysTypes2 Interfaces, * (System)
+DEPENDENCIES Standard, IoStandard, CmpDynamicText, CAA Types, CAA Device Diagnosis, VisuDialogs, SysTypes Interfaces, * (System), L_IMHP_ModuleHandler, CmpEventMgr, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, System_VisuElemXYChart, system_visuinputs

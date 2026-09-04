@@ -21,7 +21,8 @@ END_VAR
 
 NETWORK 0 LD
   LET i1 := UINT_TO_WORD(ioUDT.Control.AutoSpeed);
-  MOVE(, i1);
+  LET en1 := ;
+  IF en1 THEN MOVE(i1); END_IF
 END_NETWORK
 NETWORK 1 LD
   LET g6 := TRUE;
@@ -33,7 +34,7 @@ NETWORK 2 LD
   oControlWord.Bit4_RunForward := (g17 AND ioUDT.Control.Enable AND ioUDT.Control.StartAuto);
   LET g18 := (g17 AND ioUDT.Control.ResetError);
   oControlWord.Bit7_ResetFault := g18;
-  ioUDT.Control.ResetError := g18 SET;
+  ioUDT.Control.ResetError R= g18;
   oControlWord.Bit12_ReverseDirection := (g17 AND ioUDT.Control.Reverse);
 END_NETWORK
 

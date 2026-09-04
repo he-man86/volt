@@ -272,11 +272,11 @@ METHOD FlexCamParameters
 VAR_INPUT
 END_VAR
 //General
-//ioSlaveAxis.scPar.WindowStandStill:=i_lrWindowStandstill;
-//ioSlaveAxis.scPar.JoggingSetVel:=i_lrJogVel;
-//ioSlaveAxis.scPar.JoggingSetAcc:=i_lrJogVel*10;
-//ioSlaveAxis.scPar.JoggingSetDec:=i_lrJogVel*10;
-//ioSlaveAxis.scPar.JoggingSetJerk:=0;
+ioSlaveAxis.scPar.WindowStandStill:=i_lrWindowStandstill;
+ioSlaveAxis.scPar.JoggingSetVel:=i_lrJogVel;
+ioSlaveAxis.scPar.JoggingSetAcc:=i_lrJogVel*10;
+ioSlaveAxis.scPar.JoggingSetDec:=i_lrJogVel*10;
+ioSlaveAxis.scPar.JoggingSetJerk:=0;
 //Set Flexcam Parameters
 AxisControl.scPar.lrSyncVel:=i_lrSyncVel;
 AxisControl.scPar.lrSyncAcc:=i_lrSyncVel*10;

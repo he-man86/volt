@@ -48,7 +48,8 @@ END_VAR
 
 NETWORK 0 LD TITLE: "DONE Network 1: Convert speed to cycle time"
   // tEmtyingCycle : (1/(MachineSpeed/60))*1000 gives time in [ms]
-  EXECUTE();
+  LET en1 := ;
+  IF en1 THEN EXECUTE(); END_IF
 END_NETWORK
 NETWORK 1 LD TITLE: "DONE Network 2: Feed forward dryer"
   LET i1 := DINT_TO_TIME(tEmptyingCycleInterval);
@@ -63,33 +64,48 @@ NETWORK 2 LD TITLE: "DONE Network 3: Enable heaters"
 END_NETWORK
 NETWORK 3 LD TITLE: "DONE Network 4: Output power heater 1"
   LET g0 := True;
-  MOVE((g0 AND NOT tEnableHeaters), 0);
+  LET en1 := (g0 AND NOT tEnableHeaters);
+  IF en1 THEN MOVE(0); END_IF
   LET g1 := (g0 AND tEnableHeaters);
-  ((g1 AND LST_General.Imp100ms) + stActPowerHeater1 + 10);
-  MOVE((g1 > stActPowerHeater1 > iSetPowerHeater1), iSetPowerHeater1);
-  EXECUTE((g0 AND NOT iPowerOrAnalog));
+  LET en2 := (g1 AND LST_General.Imp100ms);
+  IF en2 THEN (stActPowerHeater1 + 10); END_IF
+  LET en3 := (stActPowerHeater1 > iSetPowerHeater1);
+  IF en3 THEN MOVE(iSetPowerHeater1); END_IF
+  LET en4 := (g0 AND NOT iPowerOrAnalog);
+  IF en4 THEN EXECUTE(); END_IF
   LET i1 := INT_TO_WORD(stActPowerHeater1);
-  MOVE((g0 AND iPowerOrAnalog), i1);
+  LET en5 := (g0 AND iPowerOrAnalog);
+  IF en5 THEN MOVE(i1); END_IF
 END_NETWORK
 NETWORK 4 LD TITLE: "DONE Network 5: Output power heater 2"
   LET g6 := True;
-  MOVE((g6 AND NOT tEnableHeaters), 0);
+  LET en1 := (g6 AND NOT tEnableHeaters);
+  IF en1 THEN MOVE(0); END_IF
   LET g7 := (g6 AND tEnableHeaters);
-  ((g7 AND LST_General.Imp100ms) + stActPowerHeater2 + 10);
-  MOVE((g7 > stActPowerHeater2 > iSetPowerHeater2), iSetPowerHeater2);
-  EXECUTE((g6 AND NOT iPowerOrAnalog));
+  LET en2 := (g7 AND LST_General.Imp100ms);
+  IF en2 THEN (stActPowerHeater2 + 10); END_IF
+  LET en3 := (stActPowerHeater2 > iSetPowerHeater2);
+  IF en3 THEN MOVE(iSetPowerHeater2); END_IF
+  LET en4 := (g6 AND NOT iPowerOrAnalog);
+  IF en4 THEN EXECUTE(); END_IF
   LET i1 := INT_TO_WORD(stActPowerHeater2);
-  MOVE((g6 AND iPowerOrAnalog), i1);
+  LET en5 := (g6 AND iPowerOrAnalog);
+  IF en5 THEN MOVE(i1); END_IF
 END_NETWORK
 NETWORK 5 LD TITLE: "DONE Network 6: Output power heater 3"
   LET g8 := True;
-  MOVE((g8 AND NOT tEnableHeaters), 0);
+  LET en1 := (g8 AND NOT tEnableHeaters);
+  IF en1 THEN MOVE(0); END_IF
   LET g9 := (g8 AND tEnableHeaters);
-  ((g9 AND LST_General.Imp100ms) + stActPowerHeater3 + 10);
-  MOVE((g9 > stActPowerHeater3 > iSetPowerHeater3), iSetPowerHeater3);
-  EXECUTE((g8 AND NOT iPowerOrAnalog));
+  LET en2 := (g9 AND LST_General.Imp100ms);
+  IF en2 THEN (stActPowerHeater3 + 10); END_IF
+  LET en3 := (stActPowerHeater3 > iSetPowerHeater3);
+  IF en3 THEN MOVE(iSetPowerHeater3); END_IF
+  LET en4 := (g8 AND NOT iPowerOrAnalog);
+  IF en4 THEN EXECUTE(); END_IF
   LET i1 := INT_TO_WORD(stActPowerHeater3);
-  MOVE((g8 AND iPowerOrAnalog), i1);
+  LET en5 := (g8 AND iPowerOrAnalog);
+  IF en5 THEN MOVE(i1); END_IF
 END_NETWORK
 NETWORK 6 LD TITLE: "DONE Network 37: Fault: dryer opened"
   oFaultDryerOpened := stFaultDryerOpened(SET1 := TMR_DryerOpened(IN := (iMachineStarted AND iSwitchDryer AND NOT iDryerClosed AND NOT stFaultDryerOpened.Q1), PT := T#5S), RESET := iGenFlags.StartFlag);

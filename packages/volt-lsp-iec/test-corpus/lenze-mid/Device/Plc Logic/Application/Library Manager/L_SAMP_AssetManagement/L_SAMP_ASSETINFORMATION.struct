@@ -1,0 +1,19 @@
+TYPE L_SAMP_ASSETINFORMATION :
+STRUCT
+	VERSION : DWORD := 1;
+	SIZE : DWORD := SIZEOF(L_SAMP_AssetInformation);
+	ASSETNAME : L_SAMP_AssetAttribute := STRUCT(AttributeId := L_SAMP_AttributeId.ASSET_NAME);
+	SERIALNUMBER : L_SAMP_AssetAttribute := STRUCT(AttributeId := L_SAMP_AttributeId.SERIAL_NUMBER);
+	REVISIONCOUNTER : L_SAMP_AssetAttribute := STRUCT(AttributeId := L_SAMP_AttributeId.REVISION_COUNTER);
+	MANUFACTURER : L_SAMP_AssetAttribute := STRUCT(AttributeId := L_SAMP_AttributeId.MANUFACTURER);
+	MODEL : L_SAMP_AssetAttribute := STRUCT(AttributeId := L_SAMP_AttributeId.MODEL);
+	DEVICEMANUAL : L_SAMP_AssetAttribute := STRUCT(AttributeId := L_SAMP_AttributeId.DEVICE_MANUAL);
+	DEVICEREVISION : L_SAMP_AssetAttribute := STRUCT(AttributeId := L_SAMP_AttributeId.DEVICE_REVISION);
+	SOFTWAREREVISION : L_SAMP_AssetAttribute := STRUCT(AttributeId := L_SAMP_AttributeId.SOFTWARE_REVISION);
+	HARDWAREREVISION : L_SAMP_AssetAttribute := STRUCT(AttributeId := L_SAMP_AttributeId.HARDWARE_REVISION);
+	DEVICECLASS : L_SAMP_AssetAttribute := STRUCT(AttributeId := L_SAMP_AttributeId.DEVICE_CLASS);
+	MANUFACTURERURI : L_SAMP_AssetAttribute := STRUCT(AttributeId := L_SAMP_AttributeId.MANUFACTURER_URI);
+	PRODUCTCODE : L_SAMP_AssetAttribute := STRUCT(AttributeId := L_SAMP_AttributeId.PRODUCT_CODE);
+	PRODUCTINSTANCEURI : L_SAMP_AssetAttribute := STRUCT(AttributeId := L_SAMP_AttributeId.PRODUCT_INSTANCE_URI);
+END_STRUCT
+END_TYPE
