@@ -89,17 +89,47 @@ public class ItemKindTests
         Assert.DoesNotContain(ItemKind.ReferenceKindExtensions, r => source.Contains(r.Kind));
     }
 
-    /// <summary>`FileExtensions` IS THE TWO LISTS, with the writable flag matching which list a kind came from.
-    /// The CLI's own extension registry is built from this projection, so a kind that arrived with the wrong
-    /// flag would make a read-only descriptor pushable — or a real source file refused.</summary>
+    /// <summary>`FileExtensions` is the two lists WITH THE DUT SPLIT APPLIED, and the writable flag still
+    /// matches which list a kind came from. The CLI's own extension registry is built from this projection, so
+    /// a kind that arrived with the wrong flag would make a read-only descriptor pushable — or a real source
+    /// file refused.
+    ///
+    /// <para>The one asymmetry is deliberate: a DUT's KIND extension is <c>dut</c> (the wire name — one kind,
+    /// because that is what both vendors have) and its FILE extensions are the four subtypes it is written
+    /// under. All five appear: the four because they are produced, <c>dut</c> because a workspace pulled before
+    /// the split is full of them and an unrecognized file is neither updated nor swept — it is stranded.
+    /// <see cref="ItemKind.WireExtFor"/> closes the loop.</para></summary>
     [Fact]
     public void FileExtensions_reports_writability_from_the_list_a_kind_came_from()
     {
         var flags = ItemKind.FileExtensions.ToDictionary(x => x.Ext, x => x.IsSource, StringComparer.Ordinal);
 
-        Assert.Equal(ItemKind.SourceKindExtensions.Count + ItemKind.ReferenceKindExtensions.Count, flags.Count);
+        var sourceOnDisk = ItemKind.SourceKindExtensions.Count + ItemKind.DutFileExtensions.Count;
+        Assert.Equal(sourceOnDisk + ItemKind.ReferenceKindExtensions.Count, flags.Count);
+
         Assert.All(ItemKind.SourceKindExtensions, x => Assert.True(flags[x.Ext]));
+        // The four subtypes are writable source too — and `.dut` stays recognized for what is already on disk.
+        Assert.All(ItemKind.DutFileExtensions, ext => Assert.True(flags[ext]));
+        Assert.Contains(ItemKind.ExtFor(ItemKind.Kinds.Dut), flags.Keys);
+
         Assert.All(ItemKind.ReferenceKindExtensions, x => Assert.False(flags[x.Ext]));
+    }
+
+    /// <summary>Every DUT file extension maps back to the ONE wire extension, and every other extension is its
+    /// own. This is the whole many-to-one mapping; if it ever became many-to-many the wire would start seeing
+    /// names the bridge cannot resolve.</summary>
+    [Fact]
+    public void WireExtFor_folds_the_four_dut_extensions_onto_the_one_kind()
+    {
+        Assert.All(ItemKind.DutFileExtensions,
+                   ext => Assert.Equal(ItemKind.ExtFor(ItemKind.Kinds.Dut), ItemKind.WireExtFor(ext)));
+        Assert.All(ItemKind.DutFileExtensions, ext => Assert.True(ItemKind.IsDutFileExtension(ext)));
+        // A leading dot is accepted either way — callers hold both forms.
+        Assert.Equal(ItemKind.ExtFor(ItemKind.Kinds.Dut), ItemKind.WireExtFor(".struct"));
+        // Everything else passes through untouched.
+        Assert.Equal("fb", ItemKind.WireExtFor("fb"));
+        Assert.Equal("gvl", ItemKind.WireExtFor(".gvl"));
+        Assert.False(ItemKind.IsDutFileExtension("fb"));
     }
 
     /// <summary>AND EVERY KIND IN THE TABLE RESOLVES THROUGH `ExtFor` to the extension the table gives it —

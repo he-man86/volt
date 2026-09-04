@@ -29,6 +29,17 @@ const corpus = join(import.meta.dir, "..", "test-corpus", name)
 const tmp = mkdtempSync(join(tmpdir(), "volt-corpus-"))
 execFileSync(VOLT, ["init", "--vendor", vendor], { cwd: tmp, stdio: "inherit" })
 
+// `volt init` creates the workspace in a subdirectory NAMED AFTER THE PROJECT (that folder is the git repo
+// root), so the materialized tree is `<tmp>/<ProjectName>/src` — not `<tmp>/src`, which is what this script
+// assumed until the tree it produced stopped existing. Read the name off disk rather than deriving it from
+// the corpus folder: the two need not match (`test-corpus/pro2193` comes from `Pro2193-94-95-96_COdesys`).
+const created = readdirSync(tmp, { withFileTypes: true }).filter((e) => e.isDirectory())
+if (created.length !== 1)
+	throw new Error(`expected \`volt init\` to create exactly one workspace dir in ${tmp}, found ${created.length}`)
+const workspace = join(tmp, created[0]!.name)
+const pulled = join(workspace, "src")
+if (!existsSync(pulled)) throw new Error(`no materialized tree at ${pulled} — did the pull fail?`)
+
 // Preserve the recorded build oracle across the swap — it's ground truth, not harvested.
 const oracles = existsSync(corpus)
 	? readdirSync(corpus)
@@ -36,7 +47,7 @@ const oracles = existsSync(corpus)
 			.map((f) => [f, readFileSync(join(corpus, f))] as const)
 	: []
 rmSync(corpus, { recursive: true, force: true })
-cpSync(join(tmp, "src"), corpus, { recursive: true })
+cpSync(pulled, corpus, { recursive: true })
 for (const [f, data] of oracles) writeFileSync(join(corpus, f), data)
 rmSync(tmp, { recursive: true, force: true })
 console.log(`refreshed test-corpus/${name} via volt pull (${vendor})`)

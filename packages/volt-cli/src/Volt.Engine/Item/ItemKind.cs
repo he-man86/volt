@@ -272,6 +272,36 @@ public static class ItemKind
         (Kinds.Interface, "itf"), (Kinds.Dut, "dut"), (Kinds.Gvl, "gvl"),
     };
 
+    /// <summary>The on-disk extensions a DUT can materialize under, by its declaration's SUBTYPE.
+    ///
+    /// <para>A DUT is still ONE wire kind (<see cref="Kinds.Dut"/>) — that is a vendor fact and it does not
+    /// change: CODESYS creates every DUT with one <c>create_dut</c> call, and the four TwinCAT tree codes all
+    /// map to the one kind. What changes here is only how the item is NAMED ON DISK, which is a materialization
+    /// choice, not a wire one.</para>
+    ///
+    /// <para><b>The wire identity keeps <c>.dut</c></b>. It has to: <c>Versioning.VersionedItem.Identity</c> is
+    /// the full wire name, every <c>ifVersion</c> gate keys on it, and if the subtype were part of it then
+    /// editing a struct into an enum would present as a DELETE plus a CREATE of the same underlying object —
+    /// a recreate rather than an update. So these extensions live on the file side of the seam and map back to
+    /// the one kind; push does not consult them at all, because it recovers the kind from file CONTENT.</para></summary>
+    public static readonly IReadOnlyList<string> DutFileExtensions = new[] { "struct", "enum", "union", "alias" };
+
+    private static readonly HashSet<string> DutExtSet =
+        new HashSet<string>(DutFileExtensions, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>True when this FILE extension is one a DUT materializes under. The caller maps it to the one
+    /// wire kind; nothing downstream of the wire needs to know which of the four it was.</summary>
+    public static bool IsDutFileExtension(string ext) => DutExtSet.Contains(ext.TrimStart('.'));
+
+    /// <summary>A file extension → the extension the WIRE uses for it. Identity for every kind except a DUT,
+    /// whose four file extensions all name the one <c>dut</c> kind. This is the whole of the many-to-one
+    /// mapping — there is no second copy, and no kind is invented from a filename.</summary>
+    public static string WireExtFor(string fileExt)
+    {
+        var ext = fileExt.TrimStart('.');
+        return IsDutFileExtension(ext) ? ExtFor(Kinds.Dut) : ext;
+    }
+
     /// <summary>Read-only reference kinds (opaque manifests / descriptors), each with its file extension.</summary>
     public static readonly IReadOnlyList<(string Kind, string Ext)> ReferenceKindExtensions = new (string, string)[]
     {
@@ -293,9 +323,17 @@ public static class ItemKind
 
     /// <summary>Every workspace file extension paired with whether it is writable source (<c>true</c>) vs a
     /// read-only reference (<c>false</c>) — the CLI's <c>Volt.Cli.Sync.Extensions</c> registry is built from
-    /// this, so access and the extension list live in ONE place.</summary>
+    /// this, so access and the extension list live in ONE place.
+    ///
+    /// <para>A DUT contributes FIVE extensions: the four subtypes it is now written under, plus <c>dut</c>
+    /// itself — which the materializer no longer produces but must still RECOGNIZE. A workspace pulled before
+    /// this change is full of <c>.dut</c> files, and a library's rendered signatures carry them too; dropping
+    /// the extension would make every one of them untracked, which to `status` and `pull` reads as a file that
+    /// is not Volt's — so they would be neither updated nor swept, just stranded.</para></summary>
     public static IEnumerable<(string Ext, bool IsSource)> FileExtensions =>
-        SourceKindExtensions.Select(x => (x.Ext, true)).Concat(ReferenceKindExtensions.Select(x => (x.Ext, false)));
+        SourceKindExtensions.Select(x => (x.Ext, true))
+            .Concat(DutFileExtensions.Select(ext => (ext, true)))
+            .Concat(ReferenceKindExtensions.Select(x => (x.Ext, false)));
 
     /// <summary>Workspace file extension for a kind string (lowercase). No silent fallback — an unmapped kind
     /// throws so a new kind is caught, not dropped. That includes <see cref="Kinds.Folder"/>: a folder is a PATH

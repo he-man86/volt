@@ -129,6 +129,44 @@ public static class CodeHelper
         }
     }
 
+    /// <summary>Which SUBTYPE a DUT declaration is — <c>struct</c> / <c>enum</c> / <c>union</c> / <c>alias</c>.
+    ///
+    /// <para>This is a MATERIALIZATION concern only: it picks the file extension the DUT is written under. The
+    /// wire kind stays the one <c>dut</c> (see <see cref="ItemKind.DutSubtypeExtensions"/> for why identity must
+    /// not carry it), and both vendors still create every DUT with a single call, deriving the subtype from
+    /// this same declaration text. So Volt is not classifying anything the IDE does not — it is reading the
+    /// same thing the IDE reads, to name the file the way an engineer expects.</para>
+    ///
+    /// <para>The rule is the grammar's: after the type name's <c>:</c>, a DUT body opens with <c>STRUCT</c>,
+    /// <c>UNION</c>, or <c>(</c> for an enumeration; anything else is an alias (<c>TYPE T : INT (0..10);</c>,
+    /// <c>TYPE T : ARRAY[..] OF X;</c>, <c>TYPE T : POINTER TO Y;</c>). Comments, pragmas and a BOM are skipped
+    /// by <see cref="CodeOn"/>, and an <c>EXTENDS Base</c> clause sits BEFORE the colon so it never interferes.
+    /// A declaration that does not parse falls to alias — the shape that assumes least.</para></summary>
+    public static string DutSubtype(string code)
+    {
+        var meaningful = new System.Text.StringBuilder();
+        var inBlockComment = false;
+        string rest = "";
+        foreach (var line in (code ?? "").Split('\n'))
+        {
+            var onLine = CodeOn(line, ref inBlockComment);
+            if (onLine.Length > 0) meaningful.Append(onLine).Append(' ');
+            // Stop at the first token AFTER the colon, not at the colon itself: `TYPE BUS_INFO :` and `STRUCT`
+            // are routinely on separate lines in real exports, and breaking on the colon reads every such DUT
+            // as an alias. A whole body is still never scanned — one more meaningful line is enough.
+            var text = meaningful.ToString();
+            var at = text.IndexOf(':');
+            if (at < 0) continue;
+            rest = text.Substring(at + 1).TrimStart();
+            if (rest.Length > 0) break;
+        }
+        if (meaningful.ToString().IndexOf(':') < 0) return "alias";
+        if (rest.StartsWith("STRUCT", StringComparison.OrdinalIgnoreCase)) return "struct";
+        if (rest.StartsWith("UNION", StringComparison.OrdinalIgnoreCase)) return "union";
+        if (rest.StartsWith("(", StringComparison.Ordinal)) return "enum";
+        return "alias";
+    }
+
     public static CodeHeader ParseCodeHeader(string code)
     {
         if (string.IsNullOrWhiteSpace(code))

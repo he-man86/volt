@@ -2,21 +2,58 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "Structured Text",
   "scopeName": "source.structured-text",
-  "fileTypes": ["fb", "prg", "fun", "itf", "dut", "gvl"],
+  "fileTypes": [
+    "fb",
+    "prg",
+    "fun",
+    "itf",
+    "gvl",
+    "struct",
+    "enum",
+    "union",
+    "alias",
+    "dut"
+  ],
   "patterns": [
-    { "include": "#comments" },
-    { "include": "#strings" },
-    { "include": "#numeric-literals" },
-    { "include": "#structural-keywords" },
-    { "include": "#var-section-keywords" },
-    { "include": "#control-flow-keywords" },
-    { "include": "#modifier-keywords" },
-    { "include": "#logical-operators" },
-    { "include": "#type-keywords" },
-    { "include": "#constants" },
-    { "include": "#operators" },
-    { "include": "#punctuation" },
-    { "include": "#identifiers" }
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numeric-literals"
+    },
+    {
+      "include": "#structural-keywords"
+    },
+    {
+      "include": "#var-section-keywords"
+    },
+    {
+      "include": "#control-flow-keywords"
+    },
+    {
+      "include": "#modifier-keywords"
+    },
+    {
+      "include": "#logical-operators"
+    },
+    {
+      "include": "#type-keywords"
+    },
+    {
+      "include": "#constants"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#punctuation"
+    },
+    {
+      "include": "#identifiers"
+    }
   ],
   "repository": {
     "comments": {
@@ -25,23 +62,39 @@
           "name": "comment.line.double-slash.structured-text",
           "begin": "//",
           "end": "$",
-          "beginCaptures": { "0": { "name": "punctuation.definition.comment.structured-text" } }
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.comment.structured-text"
+            }
+          }
         },
         {
-          "comment": "Our Volt convention — (* folder: X *) annotates intra-FB folder for METHOD/ACTION/PROPERTY. Highlighted distinctly so it's visible as load-bearing metadata.",
+          "comment": "Our Volt convention \u2014 (* folder: X *) annotates intra-FB folder for METHOD/ACTION/PROPERTY. Highlighted distinctly so it's visible as load-bearing metadata.",
           "name": "comment.block.metadata.folder.structured-text",
           "match": "\\(\\*\\s*folder\\s*:\\s*[^*]+\\*\\)",
-          "captures": { "0": { "name": "meta.annotation.folder.structured-text" } }
+          "captures": {
+            "0": {
+              "name": "meta.annotation.folder.structured-text"
+            }
+          }
         },
         {
           "name": "comment.block.structured-text",
           "begin": "\\(\\*",
           "end": "\\*\\)",
-          "beginCaptures": { "0": { "name": "punctuation.definition.comment.begin.structured-text" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.comment.end.structured-text" } },
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.comment.begin.structured-text"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.comment.end.structured-text"
+            }
+          },
           "patterns": [
             {
-              "comment": "ST supports nested block comments — match inner pairs so we don't close on the outer too early.",
+              "comment": "ST supports nested block comments \u2014 match inner pairs so we don't close on the outer too early.",
               "name": "comment.block.nested.structured-text",
               "begin": "\\(\\*",
               "end": "\\*\\)"
@@ -57,11 +110,25 @@
           "name": "string.quoted.single.structured-text",
           "begin": "'",
           "end": "'",
-          "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.structured-text" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.string.end.structured-text" } },
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.begin.structured-text"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end.structured-text"
+            }
+          },
           "patterns": [
-            { "name": "constant.character.escape.structured-text", "match": "''" },
-            { "name": "constant.character.escape.structured-text", "match": "\\$[\\$LNRTPpr0-9A-Fa-f][0-9A-Fa-f]?" }
+            {
+              "name": "constant.character.escape.structured-text",
+              "match": "''"
+            },
+            {
+              "name": "constant.character.escape.structured-text",
+              "match": "\\$[\\$LNRTPpr0-9A-Fa-f][0-9A-Fa-f]?"
+            }
           ]
         },
         {
@@ -69,11 +136,25 @@
           "name": "string.quoted.double.structured-text",
           "begin": "\"",
           "end": "\"",
-          "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.structured-text" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.string.end.structured-text" } },
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.begin.structured-text"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end.structured-text"
+            }
+          },
           "patterns": [
-            { "name": "constant.character.escape.structured-text", "match": "\"\"" },
-            { "name": "constant.character.escape.structured-text", "match": "\\$[\\$LNRTPpr0-9A-Fa-f][0-9A-Fa-f]?" }
+            {
+              "name": "constant.character.escape.structured-text",
+              "match": "\"\""
+            },
+            {
+              "name": "constant.character.escape.structured-text",
+              "match": "\\$[\\$LNRTPpr0-9A-Fa-f][0-9A-Fa-f]?"
+            }
           ]
         }
       ]
@@ -85,9 +166,15 @@
           "name": "constant.numeric.typed.structured-text",
           "match": "\\b([A-Za-z_][A-Za-z0-9_]*)(#)([0-9A-Fa-f_.+\\-eE]+|[A-Za-z0-9_]+)\\b",
           "captures": {
-            "1": { "name": "storage.type.literal-prefix.structured-text" },
-            "2": { "name": "punctuation.separator.literal.structured-text" },
-            "3": { "name": "constant.numeric.value.structured-text" }
+            "1": {
+              "name": "storage.type.literal-prefix.structured-text"
+            },
+            "2": {
+              "name": "punctuation.separator.literal.structured-text"
+            },
+            "3": {
+              "name": "constant.numeric.value.structured-text"
+            }
           }
         },
         {
@@ -113,7 +200,7 @@
       ]
     },
     "structural-keywords": {
-      "comment": "Block-level declarations — what defines the file's structure.",
+      "comment": "Block-level declarations \u2014 what defines the file's structure.",
       "match": "(?i)\\b(FUNCTION_BLOCK|END_FUNCTION_BLOCK|FUNCTION|END_FUNCTION|PROGRAM|END_PROGRAM|METHOD|END_METHOD|ACTION|END_ACTION|PROPERTY|END_PROPERTY|END_GET|END_SET|INTERFACE|END_INTERFACE|TYPE|END_TYPE|STRUCT|END_STRUCT|UNION|END_UNION|NAMESPACE|END_NAMESPACE|GET|SET)\\b",
       "name": "keyword.declaration.structural.structured-text"
     },
@@ -168,14 +255,38 @@
     },
     "punctuation": {
       "patterns": [
-        { "match": ":", "name": "punctuation.separator.type.structured-text" },
-        { "match": ";", "name": "punctuation.terminator.statement.structured-text" },
-        { "match": ",", "name": "punctuation.separator.delimiter.structured-text" },
-        { "match": "\\.", "name": "punctuation.accessor.structured-text" },
-        { "match": "\\(", "name": "punctuation.section.parens.begin.structured-text" },
-        { "match": "\\)", "name": "punctuation.section.parens.end.structured-text" },
-        { "match": "\\[", "name": "punctuation.section.brackets.begin.structured-text" },
-        { "match": "\\]", "name": "punctuation.section.brackets.end.structured-text" }
+        {
+          "match": ":",
+          "name": "punctuation.separator.type.structured-text"
+        },
+        {
+          "match": ";",
+          "name": "punctuation.terminator.statement.structured-text"
+        },
+        {
+          "match": ",",
+          "name": "punctuation.separator.delimiter.structured-text"
+        },
+        {
+          "match": "\\.",
+          "name": "punctuation.accessor.structured-text"
+        },
+        {
+          "match": "\\(",
+          "name": "punctuation.section.parens.begin.structured-text"
+        },
+        {
+          "match": "\\)",
+          "name": "punctuation.section.parens.end.structured-text"
+        },
+        {
+          "match": "\\[",
+          "name": "punctuation.section.brackets.begin.structured-text"
+        },
+        {
+          "match": "\\]",
+          "name": "punctuation.section.brackets.end.structured-text"
+        }
       ]
     },
     "identifiers": {
@@ -183,7 +294,11 @@
         {
           "comment": "Function / method call: identifier immediately followed by '('",
           "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
-          "captures": { "1": { "name": "entity.name.function.structured-text" } }
+          "captures": {
+            "1": {
+              "name": "entity.name.function.structured-text"
+            }
+          }
         },
         {
           "comment": "Plain identifier (variable, type, field reference, etc.)",

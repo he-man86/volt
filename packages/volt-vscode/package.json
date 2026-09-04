@@ -21,7 +21,7 @@
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:structured-text",
-    "workspaceContains:**/*.{fb,prg,fun,itf,dut,gvl,library,library_manager,task,image_pool,text_list,recipe_manager,visualization,visualization_manager,class_diagram,external_types,tmc}"
+    "workspaceContains:**/*.{fb,prg,fun,itf,gvl,struct,enum,union,alias,dut,library,library_manager,task,image_pool,text_list,recipe_manager,visualization,visualization_manager,class_diagram,external_types,tmc}"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -70,8 +70,12 @@
           ".prg",
           ".fun",
           ".itf",
-          ".dut",
-          ".gvl"
+          ".gvl",
+          ".struct",
+          ".enum",
+          ".union",
+          ".alias",
+          ".dut"
         ],
         "configuration": "./languages/structured-text/language-configuration.json",
         "icon": {

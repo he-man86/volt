@@ -10,7 +10,20 @@
  * layer. The bridge/CLI own the on-disk layout (`ItemKind.ExtFor` in `volt-cli`); this mirrors its
  * writable-source rows and is cross-checked against every other copy by `scripts/check-wiring.ts`.
  */
-export const SOURCE_EXTENSIONS: readonly string[] = [".fb", ".prg", ".fun", ".itf", ".dut", ".gvl"]
+export const SOURCE_EXTENSIONS: readonly string[] = [
+  ".fb",
+  ".prg",
+  ".fun",
+  ".itf",
+  ".gvl",
+  // A DUT is one wire kind but four files on disk, by its declaration's subtype. `.dut` stays recognized:
+  // a workspace pulled before the split is full of them, and an unknown extension is not analyzed at all.
+  ".struct",
+  ".enum",
+  ".union",
+  ".alias",
+  ".dut",
+]
 
 /** Membership set for the same extensions — for the hot `.has(ext)` path in the crawl and tests. */
 export const SOURCE_EXTENSION_SET: ReadonlySet<string> = new Set(SOURCE_EXTENSIONS)

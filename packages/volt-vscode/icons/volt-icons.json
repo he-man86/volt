@@ -1,12 +1,20 @@
 {
   "iconDefinitions": {
-    "_file":             { "iconPath": "./generic-file.svg" },
-    "_folder":           { "iconPath": "./generic-folder.svg" },
-    "_folder_open":      { "iconPath": "./generic-folder-open.svg" },
-    "_st":               { "iconPath": "./st.svg" }
+    "_file": {
+      "iconPath": "./generic-file.svg"
+    },
+    "_folder": {
+      "iconPath": "./generic-folder.svg"
+    },
+    "_folder_open": {
+      "iconPath": "./generic-folder-open.svg"
+    },
+    "_st": {
+      "iconPath": "./st.svg"
+    }
   },
-  "file":           "_file",
-  "folder":         "_folder",
+  "file": "_file",
+  "folder": "_folder",
   "folderExpanded": "_folder_open",
   "fileExtensions": {
     "fb": "_st",
@@ -14,7 +22,11 @@
     "fun": "_st",
     "itf": "_st",
     "dut": "_st",
-    "gvl": "_st"
+    "gvl": "_st",
+    "struct": "_st",
+    "enum": "_st",
+    "union": "_st",
+    "alias": "_st"
   },
   "languageIds": {
     "structured-text": "_st"

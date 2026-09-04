@@ -48,7 +48,14 @@ public static class Extensions
         }
         var dot = baseName.LastIndexOf('.');
         if (dot < 0) return null;
-        return GetByExt(baseName.Substring(dot)) == null ? null : baseName;
+        if (GetByExt(baseName.Substring(dot)) == null) return null;
+        // A DUT is on disk as `.struct`/`.enum`/`.union`/`.alias` but on the wire as `.dut` — the one kind both
+        // vendors have. Map it back here, at the single path→name seam, so nothing downstream (push, the version
+        // gates, the folder maps) ever sees a name the bridge would not recognize.
+        var ext = baseName.Substring(dot + 1);
+        return ItemKind.IsDutFileExtension(ext)
+            ? baseName.Substring(0, dot + 1) + ItemKind.WireExtFor(ext)
+            : baseName;
     }
 
     /// <summary>The extension definition for a full filename ("PLC_PRG.prg" → { ext:"prg", rw }).</summary>

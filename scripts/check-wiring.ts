@@ -157,7 +157,15 @@ const itemKindPath = (() => {
 const itemKindSrc = readFileSync(itemKindPath, "utf-8");
 const canonBlock = /SourceKindExtensions = new \(string, string\)\[\]\s*\{([\s\S]*?)\};/.exec(itemKindSrc);
 if (!canonBlock) throw new Error("check-wiring: could not find ItemKind.SourceKindExtensions");
-const CANON = normExts([...canonBlock[1].matchAll(/\(\s*(?:"[^"]+"|[\w.]+)\s*,\s*"([^"]+)"\s*\)/g)].map((m) => m[1]));
+// A DUT is ONE wire kind (`dut`) written to disk under FOUR subtype extensions, so the set of source files a
+// runtime must recognize is the kind table PLUS those four — not the kind table alone. Reading both from
+// ItemKind keeps this a projection of the canonical tables rather than a third list to keep in step.
+const dutBlock = /DutFileExtensions = new\[\]\s*\{([^}]*)\}/.exec(itemKindSrc);
+if (!dutBlock) throw new Error("check-wiring: could not find ItemKind.DutFileExtensions");
+const CANON = normExts([
+	...[...canonBlock[1].matchAll(/\(\s*(?:"[^"]+"|[\w.]+)\s*,\s*"([^"]+)"\s*\)/g)].map((m) => m[1]),
+	...[...dutBlock[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]),
+]);
 
 const jsonAt = (rel: string, pick: (o: any) => unknown): string[] => {
 	const v = pick(JSON.parse(readRepo(rel)));
