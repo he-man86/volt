@@ -1,0 +1,5 @@
+copied CodesysTestProject.project -> C:\Users\marce\AppData\Local\Temp\volt-roundtrip-empty.project
+removed 3 Application child(ren): ['PLC_PRG', 'VltFixtureCfc', 'VltFixtureSfc']
+Application now holds: ['Library Manager', 'Task Configuration']
+saved C:\Users\marce\AppData\Local\Temp\volt-roundtrip-empty.project
+done
