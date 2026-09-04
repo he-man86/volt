@@ -11,7 +11,7 @@
  * The recorded build oracle (expected-build.<vendor>.json) is captured SEPARATELY (record-corpus-build.ts)
  * and preserved across the swap. Re-record it when a project's source changes.
  */
-import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs"
 import { execFileSync } from "node:child_process"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -58,11 +58,16 @@ if (existsSync(corpus))
  * Renaming first means a lock costs nothing: the rename throws with the corpus untouched. Only once the new
  * tree is in place is the old one removed, and if that removal is the thing that fails, the refresh has still
  * succeeded — a leftover directory is a mess, not a loss.
+ *
+ * A move ACROSS volumes (`%TEMP%` on another drive) is EXDEV, and there is deliberately no copy fallback for
+ * it: the restore below already makes that a clean failure with the corpus intact, which is the whole
+ * guarantee. Copying would only buy the convenience of finishing, at the price of a slow half-written tree.
+ * Add it if someone actually hits EXDEV.
  */
 const backup = `${corpus}.replaced-${process.pid}`
 if (existsSync(corpus)) rename(corpus, backup, "the corpus is in use — close anything reading it and retry")
 try {
-	moveInto(pulled, corpus)
+	rename(pulled, corpus, "could not move the pulled tree into place")
 } catch (err) {
 	if (existsSync(backup)) renameSync(backup, corpus) // put it back exactly as it was
 	throw err
@@ -85,20 +90,5 @@ function rename(from: string, to: string, what: string): void {
 			if (attempt === 5) throw new Error(`${what}: ${String(err)}`)
 			Bun.sleepSync(200)
 		}
-	}
-}
-
-/**
- * Move the staged tree into place. A rename is preferred — it is one operation, so the corpus is never
- * half-written — but `%TEMP%` need not be on the repo's volume, and a cross-device rename is `EXDEV` rather
- * than something a retry fixes. Copy then, which is slower and still safe: the old tree is already renamed
- * aside, so a failure mid-copy restores it rather than losing it.
- */
-function moveInto(from: string, to: string): void {
-	try {
-		renameSync(from, to)
-	} catch (err) {
-		if ((err as NodeJS.ErrnoException).code !== "EXDEV") throw err
-		cpSync(from, to, { recursive: true })
 	}
 }
