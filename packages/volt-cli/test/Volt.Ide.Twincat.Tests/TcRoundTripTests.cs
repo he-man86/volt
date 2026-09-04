@@ -386,4 +386,30 @@ public class TcRoundTripTests
         Assign a => a with { Value = a.Value == null ? null : SwapNode(a.Value) },
         _ => n,
     };
+
+    /// <summary>A BOX'S OUTPUT PIN, EDITED IN TEXT, REACHES THE ARCHIVE.
+    ///
+    /// <para>This writer used to skip a box's own outputs entirely, and the reason given was sound while it
+    /// held: network text had no syntax for them, so a text-derived model's <c>Box.Outputs</c> was always
+    /// empty and comparing it against the archive compared against nothing. The format spells them now
+    /// (<c>ET =&gt; elapsed</c>, and the unnamed result pin as the call's assignment), so skipping stopped
+    /// being neutral — it would make an engineer's edit a SILENT NO-OP, the push reporting success while the
+    /// archive kept the old variable. That is the failure shape this suite exists for.</para>
+    ///
+    /// <para>Driven through the TEXT, not by hand-building a model, so it exercises the same path a push
+    /// does: pull the fixture, rename the pin's variable in the rendered text, validate, apply.</para></summary>
+    [Fact]
+    public void An_edited_box_output_pin_is_written_to_the_archive()
+    {
+        var before = Body("FanOut.TcPOU");
+        var text = NetworkTextWriter.Write(TcNetworkReader.Read(Impl(before), LanguageOf(before)));
+        Assert.Contains("out1", text);
+
+        var edited = NetworkTextGate.Validate(text.Replace("out1", "renamed"));
+        var written = TcNetworkWriter.Apply(before, edited);
+
+        Assert.NotNull(written);
+        Assert.Contains("\"renamed\"", written!);
+        Assert.DoesNotContain("\"out1\"", written!);
+    }
 }

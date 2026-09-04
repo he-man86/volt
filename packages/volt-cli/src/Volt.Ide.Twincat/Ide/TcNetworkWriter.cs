@@ -298,18 +298,19 @@ internal static class TcNetworkWriter
 
                 changed |= WriteOperand(e, "Instance", b.Instance);
 
-                // A BOX'S OWN OUTPUT PINS ARE NOT WRITTEN, and the count is NOT compared. Network text has no
-                // syntax for them at all - `Outputs` appears nowhere in `NetworkTextWriter` or
-                // `NetworkTextReader` - so a text-derived model's `Box.Outputs` is ALWAYS empty, and comparing
-                // it against the archive was comparing against information the model can never carry. The
-                // refusal could only ever pass when the archive's box had zero outputs too, which is true of
-                // every hand-authored fixture and false of every box the IDE has RESOLVED: TwinCAT gives a
-                // resolved `AND` one output item holding an empty operand. So the first body TwinCAT built from
-                // an import could be pulled and never pushed back - "an item changes from 1 to 0 output(s)" on
-                // a push that changed nothing.
+                // A BOX'S OWN OUTPUT PINS ARE WRITTEN NOW, matched to their SLOTS BY NAME.
                 //
-                // An ASSIGNMENT's targets are a different thing and ARE written (see the Assign arm): `out := x`
-                // is exactly what network text spells, so the model does carry those.
+                // This used to skip them entirely, and the reason was sound at the time: "network text has no
+                // syntax for them at all, so a text-derived model's `Box.Outputs` is ALWAYS empty, and
+                // comparing it against the archive was comparing against information the model can never
+                // carry". The format spells them today (`ET => elapsed`, and the unnamed result pin as the
+                // call's assignment), so the model DOES carry them and skipping is no longer neutral: it makes
+                // an engineer's edit to an output pin a silent no-op, the push reporting success while the
+                // archive keeps the old variable.
+                //
+                // The COUNT is still not compared, for the original measured reason: the archive holds one slot
+                // per declared pin whether or not it is wired, plus an ENO slot, and the model carries only the
+                // wired ones. Matching by name is what lets the two disagree in length without either lying.
                 // THE ENABLE IS INPUT SLOT 0, and it is not the `EN` member.
                 //
                 // This wrote `b.Enable` into `EN`, which was the reader's mistake in mirror image: the member
@@ -331,6 +332,7 @@ internal static class TcNetworkWriter
                     changed |= WriteNode(inputs[i + enSlot], b.Inputs[i].Value);
 
                 changed |= WriteFormalNames(e, b);
+                changed |= WriteBoxOutputs(e, b);
                 return changed;
             }
 
@@ -417,6 +419,41 @@ internal static class TcNetworkWriter
     /// created. An OPERATOR box has no formal names (its pins are positional, measured on every box in every
     /// fixture) and its model carries none, so it is left untouched rather than given an empty list. A count
     /// mismatch is a shape change and is refused, exactly as the input count above is.</para></summary>
+    /// <summary>A box's OUTPUT PINS, written into the slots they belong to.
+    ///
+    /// <para>BY NAME, not by position, and the two lists genuinely differ in length: the archive holds a slot
+    /// for every DECLARED pin plus the <c>ENO</c> echo, while the model carries only the pins actually wired
+    /// (`CodesysNetworkReader.ReadBoxOutputs` and `BoxOutputs` here drop the rest). Writing positionally would
+    /// put a pin's variable on its neighbour — the same swap `WriteFormalNames` exists to prevent on the input
+    /// side, where it was measured changing a running program.</para>
+    ///
+    /// <para>The box's RESULT — the pin the vendor leaves unnamed — matches the first non-ENO slot whose name
+    /// is empty. A slot the model does not mention is left ALONE rather than cleared: network text does not
+    /// spell an unwired pin, so a push that never mentioned one is not an instruction to disconnect it.</para></summary>
+    private static bool WriteBoxOutputs(XElement e, Box b)
+    {
+        if (b.Outputs.Count == 0) return false;
+
+        var holder = TcArchive.Obj(e, "OutputItems");
+        var slots = TcArchive.List(holder, "OutputItems");
+        var names = TcArchive.Strings(TcArchive.Obj(e, "OutputParam"), "Names");
+        var eno = Box.HasEnoSlot(names) ? 1 : 0;
+
+        var changed = false;
+        var placed = 0;
+        for (int i = eno; i < slots.Count; i++)
+        {
+            var name = Box.FormalAt(names, i);
+            var pin = b.Outputs.FirstOrDefault(o => string.Equals(o.Formal, name, StringComparison.Ordinal));
+            if (pin is null) continue;
+            changed |= WriteOutputOperand(slots[i], pin.Value);
+            placed++;
+        }
+        if (placed != b.Outputs.Count)
+            throw Refuse($"box '{b.Type}' names an output pin the IDE has no slot for");
+        return changed;
+    }
+
     private static bool WriteFormalNames(XElement e, Box b)
     {
         if (!b.Inputs.Any(i => !string.IsNullOrEmpty(i.Formal))) return false;   // operator: positional pins
