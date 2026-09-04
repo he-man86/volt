@@ -12,6 +12,28 @@ import type { NetworkTextBody, NetworkLanguage, NetworkName, NetworkTextNetwork,
 // Uppercased header token → network text language (no cast: the map's values ARE NetworkLanguage).
 const LANGUAGES: Record<string, NetworkLanguage> = { FBD: "FBD", LD: "LD", CFC: "CFC", SFC: "SFC" }
 
+/**
+ * The words this parser treats as SYNTAX rather than as names, uppercased.
+ *
+ * Exported so the editor can colour them: they are keywords of the network-text sublanguage but not of ST, so
+ * the lexer hands them back as plain identifiers and semantic tokens would otherwise paint `NETWORK` and
+ * `END_NETWORK` the same as a variable. Declared here, beside the code that acts on them, so the colouring
+ * cannot list a word the parser does not honour (or miss one it does).
+ *
+ * `SET`/`RESET` are absent on purpose — they are ST keywords already and colour correctly without help.
+ */
+export const NETWORK_TEXT_KEYWORDS: ReadonlySet<string> = new Set([
+  "NETWORK",
+  "END_NETWORK",
+  ...Object.keys(LANGUAGES),
+  "DISABLED",
+  "LET",
+  "EXECUTE",
+  "END_EXECUTE",
+  "JMP",
+  "RETURN",
+])
+
 /** Parse a graphical body's tokens into a network-text AST + structural diagnostics. */
 export function parseNetworkText(body: BodySpan): NetworkTextBody {
   const toks = body.tokens.filter((t) => t.kind !== "whitespace" && t.kind !== "pragma")

@@ -7,10 +7,11 @@
  * good enough for coloring; a mis-colored deep member is cosmetic, never wrong data.
  */
 import type { SemanticTokens, SemanticTokensEdit } from "vscode-languageserver-protocol"
-import { lex, type Token, type TokenKind } from "../../syntax/index.js"
+import { isGraphicalBody, lex, unitBodies, type Span, type Token, type TokenKind } from "../../syntax/index.js"
 import { lookup, resolveBareEnumMember, type Scope, type SymbolKind } from "../../symbols/index.js"
 import { isKnownPrimitive } from "../../types/index.js"
 import { scopeAtOffset, type Document } from "../shared/index.js"
+import { NETWORK_TEXT_KEYWORDS } from "../../network/text/parser.js"
 
 /** The token-type legend (index = the `typeIdx` emitted). Advertised to the client in server capabilities. */
 export const SEMANTIC_TOKEN_TYPES = [
@@ -47,8 +48,9 @@ interface TokenRecord {
 /** Every classified token of a document, in order, absolute-positioned. */
 function tokenRecords(doc: Document, project: Scope): TokenRecord[] {
   const out: TokenRecord[] = []
+  const graphical = graphicalBodySpans(doc)
   for (const tok of lex(doc.source)) {
-    const type = classify(tok, doc, project)
+    const type = classify(tok, doc, project, graphical)
     if (type === undefined) continue
     // Multi-line tokens (block comments) are emitted on their first line only — clients tolerate this.
     out.push({
@@ -109,7 +111,7 @@ export function diffSemanticTokens(prev: readonly number[], next: readonly numbe
   return [{ start: p, deleteCount: prev.length - p - s, data: next.slice(p, next.length - s) }]
 }
 
-function classify(tok: Token, doc: Document, project: Scope): string | undefined {
+function classify(tok: Token, doc: Document, project: Scope, graphical: readonly Span[]): string | undefined {
   const byKind = KIND_TYPE[tok.kind]
   if (byKind !== undefined) return byKind
   if (tok.kind === "keyword") return "keyword"
@@ -118,8 +120,22 @@ function classify(tok: Token, doc: Document, project: Scope): string | undefined
   const scope = scopeAtOffset(doc, project, tok.span.start)
   const sym = lookup(scope, tok.text)?.symbol ?? resolveBareEnumMember(project, tok.text)
   if (sym !== undefined) return SYMBOL_TYPE[sym.kind]
+  // A network-text keyword. These are syntax of the FBD/LD sublanguage but NOT of ST, so the lexer returns
+  // them as identifiers and `NETWORK`/`END_NETWORK`/`LET` painted the same as a variable. Only inside a
+  // graphical body, and only AFTER the symbol lookup: a declared name wins, so a project that really has an
+  // FB called `Execute` still colours its calls as that FB while a bare `EXECUTE` block reads as syntax.
+  if (NETWORK_TEXT_KEYWORDS.has(tok.text.toUpperCase()) && graphical.some((s) => tok.span.start >= s.start && tok.span.end <= s.end))
+    return "keyword"
   if (isKnownPrimitive(tok.text)) return "type" // INT/BOOL/… are type names, not variables
   return "variable"
+}
+
+/** The spans of this document's graphical bodies — computed once per document, not per token. */
+function graphicalBodySpans(doc: Document): Span[] {
+  const out: Span[] = []
+  for (const unit of doc.parseResult.units)
+    for (const body of unitBodies(unit)) if (isGraphicalBody(body)) out.push(body.span)
+  return out
 }
 
 const KIND_TYPE: Partial<Record<TokenKind, string>> = {
