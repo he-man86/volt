@@ -201,16 +201,14 @@ xSetDeactiveShiftContiniousUpdate := FALSE;
 END_ACTION
 
 ACTION call_OEE_FB
-NETWORK 1 FBD
+NETWORK 0 FBD
   // //**********************************************************************************************************************************************************
   // // Call up L_OEE_FBs for OEE KPI calculation, Downtime & Production state Tracking
   // // With the Bit xSimultionEnabled the FB will go in simulation mode and generate Part count, state changes and donwtimes
   // // With the Bit xHMIShiftDataActive the FB will take the Shift data from the HMI datastructure if TRUE 
   // //**********************************************************************************************************************************************************
   LET i1 := scSimulationDowntimes .uiMaxSimulationEvents;
-  fbOEE_FBs(xEnabled := xEnabled, xResetActualData := xResetActualData, xResetHistoryData := xResetHistoryData, xProdSimultionEnabled := xProdSimultionEnabled, xProdSimEventOccurrence := xProdSimEventOccurrence, xProdSimMaterialProduction := xProdSimMaterialProduction, xHMIActive := xHMIActive, eSchedulerMode := eSchedulerMode, eSetWeekday := eSetWeekday, xDeactiveShiftContiniousUpdate := xDeactiveShiftContiniousUpdate, uiMaxSimulationEvents := i1, scTrigger := scTrigger, xUseResonCodeString := xUseReasonCodeString, xUpdateJsonOEEKPI := xUpdateJsonOEEKPI, xManualShiftReset := xManualShiftReset, xShiftProductionActive := scMachineData.scProduction.xProductionActive, xLaterShiftStartEnabled := xLaterShiftStartEnable, scSimulationModes := scSimulationModes, sReasonTextPowerOn := GVL_FirstErrCapture.sReasonTextPowerOn);
-  xError := fbOEE_FBs.xError;
-  GVL_OEE_Var.scShiftValues := fbOEE_FBs.scShiftValues;
+  fbOEE_FBs(xEnabled := xEnabled, xResetActualData := xResetActualData, xResetHistoryData := xResetHistoryData, xProdSimultionEnabled := xProdSimultionEnabled, xProdSimEventOccurrence := xProdSimEventOccurrence, xProdSimMaterialProduction := xProdSimMaterialProduction, xHMIActive := xHMIActive, eSchedulerMode := eSchedulerMode, eSetWeekday := eSetWeekday, xDeactiveShiftContiniousUpdate := xDeactiveShiftContiniousUpdate, uiMaxSimulationEvents := i1, scTrigger := scTrigger, xUseResonCodeString := xUseReasonCodeString, xUpdateJsonOEEKPI := xUpdateJsonOEEKPI, xManualShiftReset := xManualShiftReset, xShiftProductionActive := scMachineData.scProduction.xProductionActive, xLaterShiftStartEnabled := xLaterShiftStartEnable, scSimulationModes := scSimulationModes, sReasonTextPowerOn := GVL_FirstErrCapture.sReasonTextPowerOn, scProductionMode := scProductionModeLib, asErrorCategory := asErrorCategoryLib, scFirstErrorData := scFirstErrorData, ascDaySchedules := ascDaySchedules, scPDinternal := MM_PD.scPDinternal, scPDinternalDowntime := MM_PD.scPDinternalDowntime, scPDProductionData := MM_PD.scPDProductionData, scPDShiftDayIndex := MM_PD.scPDShiftDayIndex, scPDShiftHistory_base := MM_PD.scShiftHistory, scShiftDowntimeHistory := MM_PD.scShiftDowntimeHistory, scOEE_VisuPD := MM_PD.scOEE_VisuPD, scVisu_OUT_PartCorrection := GVL_OEE_Var.scVisu_OUT_PartCorrection, scVisu_OUT_Buttons := GVL_OEE_Var.scVisu_OUT_Buttons, scSimulationDowntimes := scSimulationDowntimesLib, scMachineData := scMachineData, scPerformance := GVL_OEE_Var.scPerformance, scActualStateDuration := GVL_OEE_Var.scActualStateDuration, scDowntime := MM_PD.scDowntime, scVisu_IN_X_Trend := GVL_OEE_Var.scVisu_IN_X_Trend, scVisu_IN_Y_Trend := GVL_OEE_Var.scVisu_IN_Y_Trend, scVisu_Trend_Y_Limits := GVL_OEE_Var.scVisu_Trend_Y_Limits);
 END_NETWORK
 END_ACTION
 

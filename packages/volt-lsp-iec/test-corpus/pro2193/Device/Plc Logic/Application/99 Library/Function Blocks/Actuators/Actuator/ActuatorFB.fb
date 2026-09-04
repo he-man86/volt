@@ -14,15 +14,13 @@ Counters();
 END_FUNCTION_BLOCK
 
 METHOD PRIVATE Counters
-NETWORK 1 FBD
+NETWORK 0 FBD
   // Calculate the on-time and the number of switches of the output
   MeasureOnTime(In := output);
 END_NETWORK
-NETWORK 2 FBD
+NETWORK 1 FBD
   // On a rising edge of the output, save the current date/time
-  LET i1 := output RISING;
-  LET en1 := i1;
-  IF en1 THEN TimeOfLastSwitch := MOVE(TimeSettings.dtNow); END_IF
+  MOVE(output RISING, TimeSettings.dtNow);
 END_NETWORK
 END_METHOD
 

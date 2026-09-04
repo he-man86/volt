@@ -128,7 +128,11 @@ function parseStatement(
     return { statement: { kind: "comment", text: t.text, span: t.span }, next: start + 1 }
   }
   if (word(t) === "IF") return parseEnEnoIf(toks, start, diagnostics, names)
-  if (word(t) === "EXECUTE") return parseExecute(toks, start)
+  // `EXECUTE` opens an inline-ST box — UNLESS it is followed by `(`, which makes it an ordinary call to a POU
+  // that happens to be named EXECUTE. Real projects have both: bakon-nano and lenze-mid each materialize
+  // `EXECUTE(TRUE);` as a plain box call, and treating that as a block opener made the parser run past
+  // `END_NETWORK` hunting for `END_EXECUTE` — reported as NETWORK_NOT_CLOSED on a network that closes fine.
+  if (word(t) === "EXECUTE" && toks[start + 1]?.text !== "(") return parseExecute(toks, start)
   if (word(t) === "RETURN") {
     return { statement: { kind: "return", span: t.span }, next: skipSemi(toks, start + 1) }
   }

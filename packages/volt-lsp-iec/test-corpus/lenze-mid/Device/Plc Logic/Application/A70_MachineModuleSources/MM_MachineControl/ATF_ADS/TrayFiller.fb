@@ -89,237 +89,209 @@ VAR_IN_OUT
 	ioActNumberOfRows: INT;
 END_VAR
 
-NETWORK 0 LD
-  stRestposition := LST_General.FirstCycle SET;
-  bReturnInfeedConv := LST_General.FirstCycle RESET;
-  stInpushingRow := LST_General.FirstCycle RESET;
-  stDecendTray := LST_General.FirstCycle RESET;
-  stTrayDecended := LST_General.FirstCycle RESET;
-  stTiltInpusher := LST_General.FirstCycle RESET;
-  stReturnInpusher := LST_General.FirstCycle RESET;
-  stLowerInpusher := LST_General.FirstCycle RESET;
-  stMoveElevatorUp := LST_General.FirstCycle RESET;
-  stMoveElevatorDown := LST_General.FirstCycle RESET;
-  stElevatorAtBottom := LST_General.FirstCycle RESET;
-  stOutfeedTray := LST_General.FirstCycle RESET;
-  stTrayFedOut := LST_General.FirstCycle RESET;
-  stElevatorAtTop := LST_General.FirstCycle RESET;
-  stInfeedTray := LST_General.FirstCycle RESET;
-  stLightCurtainInterruptedBeforeStart := LST_General.FirstCycle RESET;
-  stLightCurtainInterruptedDuringInpushing := LST_General.FirstCycle RESET;
-  stTrayFaultOutfeeding := LST_General.FirstCycle RESET;
-  bRecoverFromLightCurtainInterrupted := LST_General.FirstCycle RESET;
-  stSrCigarAtEnd := LST_General.FirstCycle RESET;
+NETWORK 0 LD "DONE NETWORK 1: Condition: Reset all"
+  LET g1 := LST_General.FirstCycle SET;
+  stRestposition := g1;
+  bReturnInfeedConv := g1;
+  stInpushingRow := g1;
+  stDecendTray := g1;
+  stTrayDecended := g1;
+  stTiltInpusher := g1;
+  stReturnInpusher := g1;
+  stLowerInpusher := g1;
+  stMoveElevatorUp := g1;
+  stMoveElevatorDown := g1;
+  stElevatorAtBottom := g1;
+  stOutfeedTray := g1;
+  stTrayFedOut := g1;
+  stElevatorAtTop := g1;
+  stInfeedTray := g1;
+  stLightCurtainInterruptedBeforeStart := g1;
+  stLightCurtainInterruptedDuringInpushing := g1;
+  stTrayFaultOutfeeding := g1;
+  bRecoverFromLightCurtainInterrupted := g1;
+  stSrCigarAtEnd := g1;
 END_NETWORK
-NETWORK 1 LD
-  TMR_InpusherDown(IN := stLowerInpusher, PT := T#500MS);
-  LET g1 := (stInfeedTray AND iPsInfeedConvAtElev);
-  LET g2 := ((stLightCurtainInterruptedBeforeStart AND iLightCurtainInpusher) AND iGenFlags.StartFlag);
-  stRestposition := (TMR_InpusherDown.stRestposition OR g1 OR g2) SET;
-  stLowerInpusher := (TMR_InpusherDown.stLowerInpusher OR g1 OR g2) RESET;
-  stInfeedTray := (TMR_InpusherDown.stInfeedTray OR g1 OR g2) RESET;
-  stLightCurtainInterruptedBeforeStart := (TMR_InpusherDown.stLightCurtainInterruptedBeforeStart OR g1 OR g2) RESET;
-  Trayfiller_Data.Alarms.AlmTrayInfeeding := (((TMR_InpusherDown.Q OR g1 OR g2) AND NOT iFcGuardTrayOnElev) AND iTestProd) SET;
+NETWORK 1 LD "DONE NETWORK 2: Condition: Rest position"
+  LET g0 := (TMR_InpusherDown(IN := stLowerInpusher, PT := T#500MS) OR (stInfeedTray AND iPsInfeedConvAtElev) OR (stLightCurtainInterruptedBeforeStart AND iLightCurtainInpusher AND iGenFlags.StartFlag));
+  LET g1 := g0 SET;
+  stRestposition := g1;
+  stLowerInpusher := g1;
+  stInfeedTray := g1;
+  stLightCurtainInterruptedBeforeStart := g1;
+  Trayfiller_Data.Alarms.AlmTrayInfeeding := (g0 AND NOT iFcGuardTrayOnElev AND iTestProd) SET;
 END_NETWORK
-NETWORK 2 LD
-  LET g1 := (True AND iGenFlags.StartFlag);
-  bReturnInfeedConv := ((True AND bReturnInfeedConv) AND iPsInfeedConvAtInit) RESET;
-  Trayfiller_Data.Alarms.AlmTrayInfeeding := ((g1 AND iFcGuardTrayOnElev) OR (g1 AND NOT iTestProd)) RESET;
+NETWORK 2 LD "TODO NETWORK 3: Condition: Set infeed conveyor at init position"
+  LET g1 := True;
+  bReturnInfeedConv := (g1 AND bReturnInfeedConv AND iPsInfeedConvAtInit) SET;
+  Trayfiller_Data.Alarms.AlmTrayInfeeding := (g1 AND iGenFlags.StartFlag AND (iFcGuardTrayOnElev OR NOT iTestProd)) SET;
 END_NETWORK
-NETWORK 3 LD
+NETWORK 3 LD "DONE NETWORK 4: Delay return infeed conveyor"
   TMR_DelayReturnInfeed(IN := bReturnInfeedConv, PT := T#500MS);
 END_NETWORK
-NETWORK 4 LD
-  LET g1 := ((stRestposition AND stSrCigarAtEnd) AND NOT stFaultPositionTray.Q1);
-  stInpushingRow := g1 SET;
-  stRestposition := g1 RESET;
+NETWORK 4 LD "DONE NETWORK 5: Condition: Inpushing row"
+  LET g1 := (stRestposition AND stSrCigarAtEnd AND NOT stFaultPositionTray.Q1) SET;
+  stInpushingRow := g1;
+  stRestposition := g1;
 END_NETWORK
-NETWORK 5 LD
-  LET g1 := (((stInpushingRow OR (stRestposition AND stSrCigarAtEndBeforeLast)) AND NOT iLightCurtainInpusher) AND iRpsInpusher);
-  stLightCurtainInterruptedBeforeStart := g1 SET;
-  stInpushingRow := g1 RESET;
+NETWORK 5 LD "TODO NETWORK 6: Condition: Light curtain inpusher interrupted before start"
+  LET g1 := ((stInpushingRow OR (stRestposition AND stSrCigarAtEndBeforeLast)) AND NOT iLightCurtainInpusher AND iRpsInpusher) SET;
+  stLightCurtainInterruptedBeforeStart := g1;
+  stInpushingRow := g1;
 END_NETWORK
-NETWORK 6 LD
-  TMR_DelayDescend(IN := ((stInpushingRow AND iLightCurtainInpusher) AND iEpsInpusher), PT := T#500MS);
-  LET en1 := ((TMR_DelayDescend.Q OR ((stLightCurtainInterruptedDuringInpushing AND iLightCurtainInpusher) AND iGenFlags.StartFlag)) AND NOT stFaultInpusherBlocked.Q1);
-  IF en1 THEN ioActNumberOfRows := (ioActNumberOfRows + 1); END_IF
-  stDecendTray := en1 SET;
-  stInpushingRow := en1 RESET;
-  stLightCurtainInterruptedDuringInpushing := en1 RESET;
-  stSrCigarAtEndBeforeLast := en1 RESET;
-  stSrCigarAtEnd := en1 RESET;
+NETWORK 6 LD "TODO NETWORK 7: Condition: Decend tray"
+  LET g1 := (((TMR_DelayDescend(IN := (stInpushingRow AND iLightCurtainInpusher AND iEpsInpusher), PT := T#500MS) OR (stLightCurtainInterruptedDuringInpushing AND iLightCurtainInpusher AND iGenFlags.StartFlag)) AND NOT stFaultInpusherBlocked.Q1) + ioActNumberOfRows + 1) SET;
+  stDecendTray := g1;
+  stInpushingRow := g1;
+  stLightCurtainInterruptedDuringInpushing := g1;
+  stSrCigarAtEndBeforeLast := g1;
+  stSrCigarAtEnd := g1;
 END_NETWORK
-NETWORK 7 LD
-  LET g1 := ((stInpushingRow AND NOT iLightCurtainInpusher) AND NOT iRpsInpusher);
-  stLightCurtainInterruptedDuringInpushing := g1 SET;
-  stInpushingRow := g1 RESET;
-  bRecoverFromLightCurtainInterrupted := g1 RESET;
+NETWORK 7 LD "TODO NETWORK 8: Condition: Light curtain inpusher interrupted during inpushing"
+  LET g1 := (stInpushingRow AND NOT iLightCurtainInpusher AND NOT iRpsInpusher) SET;
+  stLightCurtainInterruptedDuringInpushing := g1;
+  stInpushingRow := g1;
+  bRecoverFromLightCurtainInterrupted := g1;
 END_NETWORK
-NETWORK 8 LD
-  LET g1 := (True AND True);
-  LET g2 := (g1 AND iPulseCounterElevator);
-  stRePulseCounter(CLK := g2);
-  stFePulseCounter(CLK := g2);
-  LET g3 := (g1 AND tBool);
-  LET en1 := ((g3 AND stDecendTray) OR (g3 AND stTrayDecended) OR (g3 AND stTiltInpusher));
-  IF en1 THEN stActHeightElevator := (stActHeightElevator + 5); END_IF
-  LET en2 := (True AND stDecendTray);
-  IF en2 THEN tInt := (ioActNumberOfRows * iRowHeight); END_IF
-  LET en3 := en2;
-  IF en3 THEN tInt := (tInt + iInitialDescentValue); END_IF
-  LET en4 := en3;
-  IF en4 THEN LET g4 := (stActHeightElevator >= tInt); END_IF
-  LET g5 := (en3 AND iPsElevatorDown);
-  tBool := stRePulseCounter.Q;
-  tBool := stFePulseCounter.Q SET;
-  stTrayDecended := (g4 OR g5) SET;
-  stDecendTray := (g4 OR g5) RESET;
+NETWORK 8 LD "TODO NETWORK 9: Condition: Tray decend"
+  LET g2 := True;
+  LET g3 := (g2 AND True);
+  LET g4 := (g3 AND iPulseCounterElevator);
+  tBool := stRePulseCounter(CLK := g4);
+  tBool := stFePulseCounter(CLK := g4) SET;
+  ((g3 AND tBool AND (stDecendTray OR stTrayDecended OR stTiltInpusher)) + stActHeightElevator + 5);
+  LET g1 := ((((g2 AND stDecendTray) * ioActNumberOfRows * iRowHeight) + tInt + iInitialDescentValue) AND (( >= stActHeightElevator >= tInt) OR iPsElevatorDown)) SET;
+  stTrayDecended := g1;
+  stDecendTray := g1;
 END_NETWORK
-NETWORK 9 LD
-  stTiltInpusher := stTrayDecended SET;
-  stTrayDecended := stTrayDecended RESET;
-  bReturnInfeedConv := stTrayDecended SET;
+NETWORK 9 LD "TODO NETWORK 10: Condition: Tilt inpusher"
+  LET g1 := stTrayDecended SET;
+  stTiltInpusher := g1;
+  stTrayDecended := g1;
+  bReturnInfeedConv := g1;
 END_NETWORK
-NETWORK 10 LD
-  TMR_InpusherTilted(IN := stTiltInpusher, PT := T#500MS);
-  stReturnInpusher := TMR_InpusherTilted.Q SET;
-  stTiltInpusher := TMR_InpusherTilted.Q RESET;
+NETWORK 10 LD "TODO NETWORK 11: Condition: Return inpusher"
+  LET g1 := TMR_InpusherTilted(IN := stTiltInpusher, PT := T#500MS) SET;
+  stReturnInpusher := g1;
+  stTiltInpusher := g1;
 END_NETWORK
-NETWORK 11 LD
-  LET en1 := (stReturnInpusher AND iRpsInpusher);
-  IF en1 THEN LET g1 := (ioActNumberOfRows < iSetNumberOfRows); END_IF
-  LET g2 := ((g1 AND NOT iPsElevatorDown) AND NOT stFaultInpusherBlocked.Q1);
-  stLowerInpusher := g2 SET;
-  stReturnInpusher := g2 RESET;
-  bRecoverFromLightCurtainInterrupted := g2 RESET;
+NETWORK 11 LD "TODO NETWORK 12: Condition: Lower inpusher"
+  LET g1 := (((stReturnInpusher AND iRpsInpusher) < ioActNumberOfRows < iSetNumberOfRows) AND NOT iPsElevatorDown AND NOT stFaultInpusherBlocked.Q1) SET;
+  stLowerInpusher := g1;
+  stReturnInpusher := g1;
+  bRecoverFromLightCurtainInterrupted := g1;
 END_NETWORK
-NETWORK 12 LD
-  LET g1 := (stReturnInpusher AND iRpsInpusher);
-  LET en1 := g1;
-  IF en1 THEN LET g2 := (ioActNumberOfRows >= iSetNumberOfRows); END_IF
-  LET g3 := (((g2 OR (g1 AND iPsElevatorDown)) AND NOT stFaultInpusherBlocked.Q1) AND iMachineStarted);
-  LET g4 := (stOutfeedConvFull AND iGenFlags.StartFlag);
-  TMR_DelayEmptying(IN := ((stRestposition AND iGenFlags.DelayAfterEmergStop) AND iPsElevatorDown), PT := T#2S);
-  stMoveElevatorDown := (g3 OR g4 OR TMR_DelayEmptying.Q) SET;
-  stReturnInpusher := (g3 OR g4 OR TMR_DelayEmptying.Q) RESET;
-  stOutfeedConvFull := (g3 OR g4 OR TMR_DelayEmptying.Q) RESET;
-  stRestposition := (g3 OR g4 OR TMR_DelayEmptying.Q) RESET;
+NETWORK 12 LD "TODO NETWORK 13: Condition: Move elevator down"
+  LET g1 := ((((stReturnInpusher AND iRpsInpusher) AND (( >= ioActNumberOfRows >= iSetNumberOfRows) OR iPsElevatorDown)) AND NOT stFaultInpusherBlocked.Q1 AND iMachineStarted) OR (stOutfeedConvFull AND iGenFlags.StartFlag) OR TMR_DelayEmptying(IN := (stRestposition AND iGenFlags.DelayAfterEmergStop AND iPsElevatorDown), PT := T#2S)) SET;
+  stMoveElevatorDown := g1;
+  stReturnInpusher := g1;
+  stOutfeedConvFull := g1;
+  stRestposition := g1;
 END_NETWORK
-NETWORK 13 LD
-  LET g1 := (stMoveElevatorDown AND iPsElevatorDown);
-  LET g2 := (stTrayFaultOutfeeding AND iGenFlags.StartFlag);
-  LET g3 := (((stElevatorAtTop AND oElevatorMotorDown) AND iPsElevatorDown) AND iButtonTrayDown);
-  stElevatorAtBottom := (g1 OR g2 OR g3) SET;
-  stMoveElevatorDown := (g1 OR g2 OR g3) RESET;
-  stTrayFaultOutfeeding := (g1 OR g2 OR g3) RESET;
-  stElevatorAtTop := (g1 OR g2 OR g3) RESET;
-  bReturnInfeedConv := (g1 OR g2 OR g3) SET;
+NETWORK 13 LD "TODO NETWORK 14: Condition: Elevator at bottom"
+  LET g1 := ((stMoveElevatorDown AND iPsElevatorDown) OR (stTrayFaultOutfeeding AND iGenFlags.StartFlag) OR (stElevatorAtTop AND oElevatorMotorDown AND iPsElevatorDown AND iButtonTrayDown)) SET;
+  stElevatorAtBottom := g1;
+  stMoveElevatorDown := g1;
+  stTrayFaultOutfeeding := g1;
+  stElevatorAtTop := g1;
+  bReturnInfeedConv := g1;
 END_NETWORK
-NETWORK 14 LD
-  LET g1 := ((stElevatorAtBottom AND iMachineStarted) AND iFcOutfeedConvFull);
-  stOutfeedConvFull := g1 SET;
-  stElevatorAtBottom := g1 RESET;
+NETWORK 14 LD "TODO NETWORK 15: Condition: Outfeed conveyor full"
+  LET g1 := (stElevatorAtBottom AND iMachineStarted AND iFcOutfeedConvFull) SET;
+  stOutfeedConvFull := g1;
+  stElevatorAtBottom := g1;
 END_NETWORK
-NETWORK 15 LD
-  LET g1 := ((stElevatorAtBottom AND iMachineStarted) AND NOT iFcOutfeedConvFull);
-  stOutfeedTray := g1 SET;
-  stElevatorAtBottom := g1 RESET;
-  bReturnInfeedConv := g1 SET;
+NETWORK 15 LD "TODO NETWORK 16: Condition: Outfeed tray"
+  LET g1 := (stElevatorAtBottom AND iMachineStarted AND NOT iFcOutfeedConvFull) SET;
+  stOutfeedTray := g1;
+  stElevatorAtBottom := g1;
+  bReturnInfeedConv := g1;
 END_NETWORK
-NETWORK 16 LD
-  TMR_DelayFaultOutfeed(IN := ((((stOutfeedTray AND NOT iFcGuardTrayFromElev) AND NOT iFcOutfeedConvFull) OR ((stOutfeedTray AND iFcGuardTrayFromElev) AND iFcOutfeedConvFull)) AND iTestProd), PT := T#7S);
-  stTrayFaultOutfeeding := TMR_DelayFaultOutfeed.Q SET;
-  stOutfeedTray := TMR_DelayFaultOutfeed.Q RESET;
-  bFaultOutfeeding := TMR_DelayFaultOutfeed.Q RESET;
+NETWORK 16 LD "TODO NETWORK 17: Condition: Fault Outfeeding"
+  LET g1 := TMR_DelayFaultOutfeed(IN := (stOutfeedTray AND ((NOT iFcGuardTrayFromElev AND NOT iFcOutfeedConvFull) OR (iFcGuardTrayFromElev AND iFcOutfeedConvFull)) AND iTestProd), PT := T#7S) SET;
+  stTrayFaultOutfeeding := g1;
+  stOutfeedTray := g1;
+  bFaultOutfeeding := g1;
 END_NETWORK
-NETWORK 17 LD
-  LET g1 := (stOutfeedTray AND NOT iFcGuardTrayFromElev);
-  TMR_DelayTrayFedOut(IN := ((g1 AND iFcOutfeedConvFull) OR (g1 AND NOT iTestProd)), PT := T#500MS);
-  stTrayFedOut := TMR_DelayTrayFedOut.Q SET;
-  stOutfeedTray := TMR_DelayTrayFedOut.Q RESET;
-  bFaultOutfeeding := TMR_DelayTrayFedOut.Q RESET;
+NETWORK 17 LD "TODO NETWORK 18: Condition: Tray fed out"
+  LET g1 := TMR_DelayTrayFedOut(IN := (stOutfeedTray AND NOT iFcGuardTrayFromElev AND (iFcOutfeedConvFull OR NOT iTestProd)), PT := T#500MS) SET;
+  stTrayFedOut := g1;
+  stOutfeedTray := g1;
+  bFaultOutfeeding := g1;
 END_NETWORK
-NETWORK 18 LD
-  LET g1 := (stTrayFedOut AND iMachineStarted);
-  stMoveElevatorUp := g1 SET;
-  stTrayFedOut := g1 RESET;
+NETWORK 18 LD "TODO NETWORK 19: Condition: Move elevator up"
+  LET g1 := (stTrayFedOut AND iMachineStarted) SET;
+  stMoveElevatorUp := g1;
+  stTrayFedOut := g1;
 END_NETWORK
-NETWORK 19 LD
-  LET en1 := (stMoveElevatorUp AND iPsElevatorUp);
-  IF en1 THEN ioActNumberOfRows := MOVE(0); END_IF
-  LET en2 := en1;
-  IF en2 THEN stActHeightElevator := MOVE(0); END_IF
-  stElevatorAtTop := en2 SET;
-  stMoveElevatorUp := en2 RESET;
+NETWORK 19 LD "TODO NETWORK 20: Condition: Elevator at top"
+  LET g1 := MOVE(MOVE((stMoveElevatorUp AND iPsElevatorUp), 0), 0) SET;
+  stElevatorAtTop := g1;
+  stMoveElevatorUp := g1;
 END_NETWORK
-NETWORK 20 LD
-  LET g1 := (((stElevatorAtTop AND NOT iFcGuardTrayOnElev) OR (stElevatorAtTop AND NOT iTestProd)) AND NOT bReturnInfeedConv);
-  stInfeedTray := g1 SET;
-  stElevatorAtTop := g1 RESET;
+NETWORK 20 LD "TODO NETWORK 21: Condition: Infeed tray"
+  LET g1 := (stElevatorAtTop AND (NOT iFcGuardTrayOnElev OR NOT iTestProd) AND NOT bReturnInfeedConv) SET;
+  stInfeedTray := g1;
+  stElevatorAtTop := g1;
 END_NETWORK
-NETWORK 21 LD
-  LET g1 := (True AND True);
-  Trayfiller_Data.Alarms.AlmLightCurtainElevator := (((g1 AND oElevatorMotorUp) OR (g1 AND oElevatorMotorDown)) AND NOT iLightCurtainElevator) SET;
-  Trayfiller_Data.Alarms.AlmLightCurtainElevator := ((True AND iGenFlags.StartFlag) AND iLightCurtainElevator) RESET;
+NETWORK 21 LD "TODO NETWORK 22: Condition: Light curtain elevator interrupted"
+  LET g5 := True;
+  Trayfiller_Data.Alarms.AlmLightCurtainElevator := (g5 AND True AND (oElevatorMotorUp OR oElevatorMotorDown) AND NOT iLightCurtainElevator) SET;
+  Trayfiller_Data.Alarms.AlmLightCurtainElevator := (g5 AND iGenFlags.StartFlag AND iLightCurtainElevator) SET;
 END_NETWORK
-NETWORK 22 LD
-  stFaultInpusherBlocked(SET1 := (iGenFlags.DelayAfterEmergStop AND NOT iGuardInpusher), RESET := iGenFlags.StartFlag);
-  Trayfiller_Data.Alarms.AlmInpusherBlocked := stFaultInpusherBlocked.Q1;
+NETWORK 22 LD "TODO NETWORK 23: Output: Fault inpusher blocked"
+  Trayfiller_Data.Alarms.AlmInpusherBlocked := stFaultInpusherBlocked(SET1 := (iGenFlags.DelayAfterEmergStop AND NOT iGuardInpusher), RESET := iGenFlags.StartFlag);
 END_NETWORK
-NETWORK 23 LD
-  stFaultPositionTray(SET1 := ((((iGenFlags.DelayAfterEmergStop AND stSrCigarAtEndBeforeLast) OR (iGenFlags.DelayAfterEmergStop AND stSrCigarAtEnd)) AND NOT iFcGuardTrayOnElev) AND iTestProd), RESET := (iGenFlags.StartFlag OR stMoveElevatorUp));
-  Trayfiller_Data.Alarms.AlmTrayPosition := stFaultPositionTray.Q1;
+NETWORK 23 LD "TODO NETWORK 24: Output: Fault position tray"
+  Trayfiller_Data.Alarms.AlmTrayPosition := stFaultPositionTray(SET1 := (iGenFlags.DelayAfterEmergStop AND (stSrCigarAtEndBeforeLast OR stSrCigarAtEnd) AND NOT iFcGuardTrayOnElev AND iTestProd), RESET := (iGenFlags.StartFlag OR stMoveElevatorUp));
 END_NETWORK
-NETWORK 24 LD
+NETWORK 24 LD "TODO NETWORK 25: Output: Fault outfeed conveyor full"
   Trayfiller_Data.Alarms.AlmOutfeedFull := (iGenFlags.DelayAfterEmergStop AND stOutfeedConvFull);
 END_NETWORK
-NETWORK 25 LD
+NETWORK 25 LD "TODO NETWORK 26: Output: Fault Tray outfeeding"
   Trayfiller_Data.Alarms.AlmOutfeeding := (iGenFlags.DelayAfterEmergStop AND stTrayFaultOutfeeding);
 END_NETWORK
-NETWORK 26 LD
-  Trayfiller_Data.commInterface.Permission := (((((((NOT stSrCigarAtEndBeforeLast OR stRestposition) AND NOT stSrCigarAtEnd) OR stInpushingRow) AND NOT stFaultInpusherBlocked.Q1) AND NOT stFaultPositionTray.Q1) AND NOT stLightCurtainInterruptedBeforeStart) AND NOT stLightCurtainInterruptedDuringInpushing);
+NETWORK 26 LD "TODO NETWORK 27: Output: Permission upstream"
+  Trayfiller_Data.commInterface.Permission := ((((NOT stSrCigarAtEndBeforeLast OR stRestposition) AND NOT stSrCigarAtEnd) OR stInpushingRow) AND NOT stFaultInpusherBlocked.Q1 AND NOT stFaultPositionTray.Q1 AND NOT stLightCurtainInterruptedBeforeStart AND NOT stLightCurtainInterruptedDuringInpushing);
 END_NETWORK
-NETWORK 27 LD
+NETWORK 27 LD "TODO NETWORK 28: Output: lightcurtain inpusher interrupted"
   Trayfiller_Data.Alarms.AlmLightCurtainInpusher := (stLightCurtainInterruptedBeforeStart OR stLightCurtainInterruptedDuringInpushing);
 END_NETWORK
-NETWORK 28 LD
-  oValveInpusher := ((iGenFlags.EnablePneumEStop AND stInpushingRow) OR (((iGenFlags.EnablePneumEStop AND stDecendTray) OR (iGenFlags.EnablePneumEStop AND stTrayDecended) OR (iGenFlags.EnablePneumEStop AND stTiltInpusher)) AND NOT bRecoverFromLightCurtainInterrupted));
+NETWORK 28 LD "TODO NETWORK 29: Output: Valve inpusher"
+  oValveInpusher := (iGenFlags.EnablePneumEStop AND (stInpushingRow OR ((stDecendTray OR stTrayDecended OR stTiltInpusher) AND NOT bRecoverFromLightCurtainInterrupted)));
 END_NETWORK
-NETWORK 29 LD
-  oValveTiltInpusher := ((iGenFlags.EnablePneumEStop AND stTiltInpusher) OR (iGenFlags.EnablePneumEStop AND stReturnInpusher) OR (iGenFlags.EnablePneumEStop AND stLightCurtainInterruptedDuringInpushing) OR ((iGenFlags.EnablePneumEStop AND stDecendTray) AND bRecoverFromLightCurtainInterrupted));
+NETWORK 29 LD "TODO NETWORK 30: Output: Valve tilt inpusher"
+  oValveTiltInpusher := (iGenFlags.EnablePneumEStop AND (stTiltInpusher OR stReturnInpusher OR stLightCurtainInterruptedDuringInpushing OR (stDecendTray AND bRecoverFromLightCurtainInterrupted)));
 END_NETWORK
-NETWORK 30 LD
-  stReStopFeedForward(CLK := iStopFeedForward);
-  stAuxFeedForward(SET := ((iStartFeedForward AND iCigarAtCrossover) OR (iStartFeedForward AND NOT iTestProd)), RESET1 := stReStopFeedForward.Q);
-  tBool := stReStopFeedForward.Q;
-  oFeedForwardMotor := (stAuxFeedForward.Q1 AND iGenFlags.DelayAfterEmergStop);
+NETWORK 30 LD "TODO NETWORK 31: Output: Feed forward motor"
+  oFeedForwardMotor := (stAuxFeedForward(SET := (iStartFeedForward AND (iCigarAtCrossover OR NOT iTestProd)), RESET1 := stReStopFeedForward(CLK := iStopFeedForward)) AND iGenFlags.DelayAfterEmergStop);
 END_NETWORK
-NETWORK 31 LD
-  TOdoTEst(CD := tBool, LOAD := stSrCigarAtEnd, PV := 30);
-  ToDo.CounterCigarAtEnd := TOdoTEst.Q;
+NETWORK 31 LD "TODO NETWORK 32: TODo test count down"
+  ToDo.CounterCigarAtEnd := TOdoTEst(CD := tBool, LOAD := stSrCigarAtEnd, PV := 30);
 END_NETWORK
-NETWORK 32 LD
-  LET g1 := (tBool AND stSrCigarAtEndBeforeLast);
-  stSrCigarAtEnd := g1 SET;
-  stSrCigarAtEndBeforeLast := (g1 AND LST_General.AlwaysOff) RESET;
-  stSrCigarAtEndBeforeLast := ((((tBool AND iCigarAtInpusher) OR ((tBool AND NOT iTestProd) AND ToDo.CounterCigarAtEnd)) AND iRpsInpusher) AND NOT stLowerInpusher) SET;
+NETWORK 32 LD "TODO NETWORK 33: Aux marker: Cigar detection register"
+  LET g6 := tBool;
+  LET g7 := (g6 AND stSrCigarAtEndBeforeLast);
+  stSrCigarAtEnd := g7 SET;
+  stSrCigarAtEndBeforeLast := (g7 AND LST_General.AlwaysOff) SET;
+  stSrCigarAtEndBeforeLast := (g6 AND (iCigarAtInpusher OR (NOT iTestProd AND ToDo.CounterCigarAtEnd)) AND iRpsInpusher AND NOT stLowerInpusher) SET;
 END_NETWORK
-NETWORK 33 LD
-  oElevatorMotorUp := (((((iGenFlags.DelayAfterEmergStop AND stMoveElevatorUp) OR ((iGenFlags.DelayAfterEmergStop AND NOT stDecendTray) AND iButtonTrayUp)) AND NOT iPsElevatorUp) AND NOT oElevatorMotorDown) AND NOT Trayfiller_Data.Alarms.AlmLightCurtainElevator);
-  oElevatorMotorDown := (((((iGenFlags.DelayAfterEmergStop AND stMoveElevatorDown) OR (iGenFlags.DelayAfterEmergStop AND stDecendTray) OR (iGenFlags.DelayAfterEmergStop AND iButtonTrayDown)) AND NOT iPsElevatorDown) AND NOT oElevatorMotorUp) AND NOT Trayfiller_Data.Alarms.AlmLightCurtainElevator);
-  oElevatorMotorBrake := ((iGenFlags.DelayAfterEmergStop AND oElevatorMotorUp) OR (iGenFlags.DelayAfterEmergStop AND oElevatorMotorDown));
+NETWORK 33 LD "TODO NETWORK 34: Ouput: Stop feedforward while inpushing"
+  LET g8 := iGenFlags.DelayAfterEmergStop;
+  oElevatorMotorUp := (g8 AND (stMoveElevatorUp OR (NOT stDecendTray AND iButtonTrayUp)) AND NOT iPsElevatorUp AND NOT oElevatorMotorDown AND NOT Trayfiller_Data.Alarms.AlmLightCurtainElevator);
+  oElevatorMotorDown := (g8 AND (stMoveElevatorDown OR stDecendTray OR iButtonTrayDown) AND NOT iPsElevatorDown AND NOT oElevatorMotorUp AND NOT Trayfiller_Data.Alarms.AlmLightCurtainElevator);
+  oElevatorMotorBrake := (g8 AND (oElevatorMotorUp OR oElevatorMotorDown));
 END_NETWORK
-NETWORK 34 LD
+NETWORK 34 LD "TODO NETWORK 35: Ouput: Stop feedforward while inpushing"
   Trayfiller_Data.commInterface.HoldFeedFwd := (stInpushingRow AND NOT iEpsInpusher);
 END_NETWORK
-NETWORK 35 LD
-  LET g1 := (iGenFlags.DelayAfterEmergStop AND Mach1.GenFlags.RunAuto);
-  LET g2 := (iGenFlags.DelayAfterEmergStop AND Mach1.GenFlags.RunMan);
-  oInfeedMotorFwd := ((((g1 OR g2) AND stInfeedTray) AND NOT iPsInfeedConvAtElev) AND NOT oInfeedMotorRev);
-  oInfeedMotorRev := (((((g1 OR g2) AND TMR_DelayReturnInfeed.Q) AND NOT Trayfiller_Data.Alarms.AlmTrayInfeeding) AND NOT iPsInfeedConvAtInit) AND NOT oInfeedMotorFwd);
+NETWORK 35 LD "TODO NETWORK 36: Output: Infeed conveyor"
+  LET g9 := (iGenFlags.DelayAfterEmergStop AND (Mach1.GenFlags.RunAuto OR Mach1.GenFlags.RunMan));
+  oInfeedMotorFwd := (g9 AND stInfeedTray AND NOT iPsInfeedConvAtElev AND NOT oInfeedMotorRev);
+  oInfeedMotorRev := (g9 AND TMR_DelayReturnInfeed.Q AND NOT Trayfiller_Data.Alarms.AlmTrayInfeeding AND NOT iPsInfeedConvAtInit AND NOT oInfeedMotorFwd);
 END_NETWORK
-NETWORK 36 LD
-  oOutfeedMotorFwd := ((iGenFlags.DelayAfterEmergStop AND stOutfeedTray) AND Mach1.GenFlags.EnableAuxDrive);
+NETWORK 36 LD "TODO NETWORK 37: Output: Outfeed conveyor"
+  oOutfeedMotorFwd := (iGenFlags.DelayAfterEmergStop AND stOutfeedTray AND Mach1.GenFlags.EnableAuxDrive);
 END_NETWORK
 
 END_FUNCTION_BLOCK

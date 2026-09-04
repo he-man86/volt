@@ -10,7 +10,7 @@ VAR_OUTPUT
 END_VAR
 
 NETWORK 0 LD
-  oDriveSpeed := (iRPM * 6);
+  ( * iRPM * 6);
 END_NETWORK
 
 END_FUNCTION

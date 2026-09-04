@@ -19,20 +19,11 @@ VAR
 	dwMachineParReturnValue: DWORD;
 END_VAR
 
-NETWORK 1 FBD
-  LET en1 := TRUE;
-  IF en1 THEN RecipeManager(sDatabaseName := 'Recipes'); END_IF
-  iNumberOfRecipes := RecipeManager.iNumberOfRecipes;
-  dwRecipeReturnValue := RecipeManager.dwReturnValue;
-  ActiveRecipe := RecipeManager.ActiveRecipe;
-  xLoadedNewRecipe := RecipeManager.xLoadedNewRecipe;
-  xRcpVisuPlcAreEqual := RecipeManager.xRcpVisuPlcAreEqual;
+NETWORK 0 FBD
+  RecipeManager(EN := TRUE, sDatabaseName := 'Recipes');
 END_NETWORK
-NETWORK 2 FBD
-  LET en1 := TRUE;
-  IF en1 THEN MachineParManager(sDatabaseName := 'MachinePar'); END_IF
-  iNumberOfMachinePar := MachineParManager.iNumberOfRecipes;
-  dwMachineParReturnValue := MachineParManager.dwReturnValue;
+NETWORK 1 FBD
+  MachineParManager(EN := TRUE, sDatabaseName := 'MachinePar');
 END_NETWORK
 
 END_PROGRAM

@@ -13,10 +13,10 @@ VAR_IN_OUT
 END_VAR
 
 NETWORK 0 LD
-  ioUDTCamControlLS.MachinePos_HMI := MOVE(iActualPos);
+  MOVE(, iActualPos);
 END_NETWORK
 NETWORK 1 LD
-  fc_CamC_LS_UDT := fc_CamC_LS_Base2(iActualSpeed, ioUDTCamControlLS.LowSpeed.SetSpeed, ioUDTCamControlLS.HighSpeed.SetSpeed, ioUDTCamControlLS.LowSpeed.Start, ioUDTCamControlLS.LowSpeed.Stop, ioUDTCamControlLS.HighSpeed.Start, ioUDTCamControlLS.HighSpeed.Stop, iActualPos);
+  fc_CamC_LS_UDT := fc_CamC_LS_Base2(, iActualSpeed, ioUDTCamControlLS.LowSpeed.SetSpeed, ioUDTCamControlLS.HighSpeed.SetSpeed, ioUDTCamControlLS.LowSpeed.Start, ioUDTCamControlLS.LowSpeed.Stop, ioUDTCamControlLS.HighSpeed.Start, ioUDTCamControlLS.HighSpeed.Stop, iActualPos, ioUDTCamControlLS.Calculation.OSStart, ioUDTCamControlLS.Calculation.OSStop, ioUDTCamControlLS.Calculation.FFStarted);
 END_NETWORK
 
 END_FUNCTION

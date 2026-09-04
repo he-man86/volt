@@ -1,3 +1,4 @@
+
 // Used for mapping a REAL input value into a WORD (from 0 to 65535)
 FUNCTION RANGE_TO_WORD : WORD
 VAR_INPUT

@@ -28,7 +28,7 @@ import {
   resolveConfig,
   type Vendor,
 } from "../../src/analysis/index.js"
-import { loadTaskRoots, loadWorkspaceRefs } from "../../src/workspace-refs.js"
+import { loadTaskRoots, loadWorkspaceRefs, scanWorkspace } from "../../src/workspace-refs.js"
 import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
 
 const CORPUS_ROOT = join(import.meta.dir, "..", "..", "test-corpus")
@@ -54,9 +54,11 @@ const norm = (m: string): string =>
     .replace(/\s*;\s*/g, ";")
     .trim()
 
-/** The unique normalized WARNING messages the LSP emits across a project (same dead-code suppression as the server). */
+/** The unique normalized WARNING messages the LSP emits across a project (same dead-code suppression as the
+ *  server, and the same PROJECT compiler-warning settings — a warning the project switched off is one the build
+ *  never emitted, so reporting it here would be a false positive by construction). */
 function lspWarnings(dir: string): Set<string> {
-  const config = resolveConfig({ vendor: VENDOR })
+  const config = resolveConfig({ vendor: VENDOR, diagnostics: scanWorkspace(dir).projectDiagnostics })
   const inputs = walk(dir).map((uri) => {
     const source = readFileSync(uri, "utf8")
     return { uri, source, parseResult: parseSource(source) }

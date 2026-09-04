@@ -11,66 +11,40 @@ VAR
 	tbool: BOOL;
 END_VAR
 
-NETWORK 0 LD
+NETWORK 0 LD "Network 1: Averaging of sensorsignal"
   LET i1 := TO_INT(LST_InputsOutputs.IW340_LeafCoverageSensor);
-  DB_Kantcorrectie.MeasuredValue := fc_MeanValue(20, True, i1);
+  fc_MeanValue(, 20, True, i1, db_MeanValuesSideCorrectionSensor.MeasurementValues);
 END_NETWORK
 NETWORK 1 LD
-  LET en1 := (TRUE AND DB_Kantcorrectie.CopyMeasuredToDark);
-  IF en1 THEN DB_Kantcorrectie.DarkValue := MOVE(DB_Kantcorrectie.MeasuredValue); END_IF
-  LET en2 := (TRUE AND DB_Kantcorrectie.CopyMeasuredToLight);
-  IF en2 THEN DB_Kantcorrectie.LightValue := MOVE(DB_Kantcorrectie.MeasuredValue); END_IF
-  DB_Kantcorrectie.CopyMeasuredToDark := en1 RESET;
-  DB_Kantcorrectie.CopyMeasuredToLight := en2 RESET;
+  LET g62 := TRUE;
+  DB_Kantcorrectie.CopyMeasuredToDark := MOVE((g62 AND DB_Kantcorrectie.CopyMeasuredToDark), DB_Kantcorrectie.MeasuredValue) SET;
+  DB_Kantcorrectie.CopyMeasuredToLight := MOVE((g62 AND DB_Kantcorrectie.CopyMeasuredToLight), DB_Kantcorrectie.MeasuredValue) SET;
 END_NETWORK
-NETWORK 2 LD
+NETWORK 2 LD "Network 2: Read out inputvalue and calculate correctionvalue"
   LET i1 := REAL_TO_INT(tReal);
-  LET en1 := TRUE;
-  IF en1 THEN tCorrectionScale := MOVE(Mach1_Data.Settings.Ints.SideCorrectionScaleFactor); END_IF
-  LET en2 := en1;
-  IF en2 THEN LET g1 := SidecorrectionCalculation(DB_Kantcorrectie.MeasuredValue, DB_Kantcorrectie.Setpoint, -1, DB_Kantcorrectie.LightValue, DB_Kantcorrectie.DarkValue, DB_Kantcorrectie.NoWrapperPercentage); END_IF
-  LET en3 := en2;
-  IF en3 THEN DB_Kantcorrectie.DeviationNoWrapper := MOVE(i1); END_IF
-  DB_Kantcorrectie.Percentage10 := g1;
-  DB_Kantcorrectie.MeasuredValueReal := g1;
-  tReal := g1;
+  MOVE(SidecorrectionCalculation(MOVE(TRUE, Mach1_Data.Settings.Ints.SideCorrectionScaleFactor), DB_Kantcorrectie.MeasuredValue, DB_Kantcorrectie.Setpoint, -1, DB_Kantcorrectie.LightValue, DB_Kantcorrectie.DarkValue, DB_Kantcorrectie.NoWrapperPercentage), i1);
 END_NETWORK
-NETWORK 3 LD
-  LET g1 := fc_CamC_CP_UDT(HMI_Var.Mach1.Position, Mach1.GenFlags.Rotflag);
-  LET en1 := ((g1 AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK) AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_right_OK);
-  IF en1 THEN DB_Kantcorrectie.CopiedValueReal := MOVE(DB_Kantcorrectie.MeasuredValueReal); END_IF
-  LET en2 := en1;
-  IF en2 THEN DB_Kantcorrectie.CopiedValueInt := MOVE(DB_Kantcorrectie.Percentage10); END_IF
-  LET g2 := (g1 AND Mach1_AuxData.MemWrapperDetected_ResetLimitedSpeed);
-  LET en3 := g1;
-  IF en3 THEN DB_Kantcorrectie.NoWrapperValue := (DB_Kantcorrectie.LightValue - DB_Kantcorrectie.DeviationNoWrapper); END_IF
-  LET en4 := en3;
-  IF en4 THEN LET g3 := (LST_InputsOutputs.IW340_LeafCoverageSensor > DB_Kantcorrectie.NoWrapperValue); END_IF
-  Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper := g2 RESET;
-  Mach1_AuxData.MemWrapperDetected_ResetLimitedSpeed := g2 RESET;
-  Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper := (g3 AND HMI_Var.Test_Prod) SET;
+NETWORK 3 LD "Network 3: Determine side-correction value"
+  LET g85 := fc_CamC_CP_UDT(, HMI_Var.Mach1.Position, Mach1.GenFlags.Rotflag, Mach1_Data.CamControls.MeasurementForSidecorrection_CP);
+  MOVE(MOVE((g85 AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_right_OK), DB_Kantcorrectie.MeasuredValueReal), DB_Kantcorrectie.Percentage10);
+  LET g86 := (g85 AND Mach1_AuxData.MemWrapperDetected_ResetLimitedSpeed);
+  Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper := g86 SET;
+  Mach1_AuxData.MemWrapperDetected_ResetLimitedSpeed := g86 SET;
+  Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper := (((g85 - DB_Kantcorrectie.LightValue - DB_Kantcorrectie.DeviationNoWrapper) > LST_InputsOutputs.IW340_LeafCoverageSensor > DB_Kantcorrectie.NoWrapperValue) AND HMI_Var.Test_Prod) SET;
 END_NETWORK
-NETWORK 4 LD
-  LET en1 := ((True AND NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK) AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK);
-  IF en1 THEN DB_Kantcorrectie.CopiedValueReal := MOVE(-100.0); END_IF
-  LET en2 := ((True AND NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK) AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK);
-  IF en2 THEN DB_Kantcorrectie.CopiedValueReal := MOVE(100.0); END_IF
-  LET en3 := en2;
-  IF en3 THEN tCorrectionScale := MOVE(-1); END_IF
-  LET en4 := (((True AND NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK) AND NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK) OR (True AND NOT HMI_Var.Test_Prod) OR (True AND Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper));
-  IF en4 THEN DB_Kantcorrectie.CopiedValueReal := MOVE(0.0); END_IF
-  LET en5 := en4;
-  IF en5 THEN tCorrectionScale := MOVE(1); END_IF
+NETWORK 4 LD "DONE Network 4: In case a limit switch is reached: overwrite values"
+  LET g48 := True;
+  MOVE((g48 AND NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK), -100.0);
+  MOVE(MOVE((g48 AND NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK), 100.0), -1);
+  MOVE(MOVE((g48 AND ((NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK AND NOT Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK) OR NOT HMI_Var.Test_Prod OR Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper)), 0.0), 1);
 END_NETWORK
-NETWORK 5 LD
-  EXECUTE
-tReal:=DB_Kantcorrectie.CopiedValueReal*DINT_TO_REAL(tCorrectionScale);
-Mach1_Data.Drives.SideCorrection.CAM.Y_Scale_Recipe:=REAL_TO_INT(tReal/(-1000));
-  END_EXECUTE
+NETWORK 5 LD "DONE Network 5: Write side-correction values to the servo drive"
+  EXECUTE();
 END_NETWORK
-NETWORK 6 LD
-  Mach1_Data.Drives.SideCorrection_FreeLimit.Control.Jog_LimitToLeft := ((True AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK) AND HMI_Var.Mach1.DTA_PositioningLeft);
-  Mach1_Data.Drives.SideCorrection_FreeLimit.Control.Jog_LimitToRight := ((True AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK) AND HMI_Var.Mach1.DTA_PositioningRight);
+NETWORK 6 LD "DONE Network 6 : Manual adjustment of the sidecorrection"
+  LET g56 := True;
+  Mach1_Data.Drives.SideCorrection_FreeLimit.Control.Jog_LimitToLeft := (g56 AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK AND HMI_Var.Mach1.DTA_PositioningLeft);
+  Mach1_Data.Drives.SideCorrection_FreeLimit.Control.Jog_LimitToRight := (g56 AND Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK AND HMI_Var.Mach1.DTA_PositioningRight);
 END_NETWORK
 
 END_PROGRAM

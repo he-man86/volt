@@ -1,4 +1,4 @@
-{attribute 'symbol' := 'noe'}
+{attribute 'symbol' := 'none'}
 PROGRAM XuUnits
 VAR_INPUT
 	{attribute 'symbol' := 'readwrite'}	Unit						: ARRAY[1..usiNumberOfUnits] OF XuUnit_ForChainFB

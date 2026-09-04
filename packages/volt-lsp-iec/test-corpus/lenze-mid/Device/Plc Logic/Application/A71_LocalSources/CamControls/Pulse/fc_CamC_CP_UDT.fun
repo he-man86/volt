@@ -16,10 +16,10 @@ VAR_IN_OUT
 END_VAR
 
 NETWORK 0 LD
-  ioPulse.MachinePos_HMI := MOVE(iMachinePosition);
+  MOVE(, iMachinePosition);
 END_NETWORK
 NETWORK 1 LD
-  LET g1 := fc_CamC_CP_Base(iEN, ioPulse.Start, iMachinePosition, iResetFlag);
+  LET g1 := fc_CamC_CP_Base(iEN, ioPulse.Start, iMachinePosition, iResetFlag, ioPulse.OSP);
   fc_CamC_CP_UDT := g1;
   ioPulse.Active := g1;
 END_NETWORK

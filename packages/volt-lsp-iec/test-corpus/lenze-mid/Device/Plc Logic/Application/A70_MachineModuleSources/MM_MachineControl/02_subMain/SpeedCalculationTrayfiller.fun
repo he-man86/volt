@@ -6,14 +6,11 @@ VAR
 	tBool: BOOL;
 END_VAR
 
-NETWORK 0 LD
+NETWORK 0 LD "NETWORK 1: Write setpoint speed in DB"
   // The speed of the trayfiller has to be higher then the speed of the dryer. In this way there is always an empty space at the startpostition of the trayfiller.
-  LET g1 := (Mach1_Data.Drives.FeedForwardADS.Control.AutoSpeed + 30);
-  LET en1 := g1;
-  IF en1 THEN Mach1_Data.Drives.FeedForwardATF.Control.AutoSpeed := MOVE(tInt); END_IF
-  tInt := g1;
+  MOVE(( + Mach1_Data.Drives.FeedForwardADS.Control.AutoSpeed + 30), tInt);
 END_NETWORK
-NETWORK 1 LD
+NETWORK 1 LD "NETWORK 2: Activation + Runtime guard feed forward dryer/trayfiller"
   // Runtime calculation:
   // 1 cycle = 60s/rpm
   // speed = in 0.1 rpm -> 60s = 600 1/10s
@@ -23,12 +20,7 @@ NETWORK 1 LD
   // First multiply by 1000 (s -> ms)
   // 1cycle = (600*1000)/speed1
   // To give a little margin: add 500ms
-  LET g1 := ((Mach1_AuxData.TrayfillerActive AND Mach1_MIDS.IDB_TrayFiller.oFeedForwardMotor) AND Mach1.Genflags.DelayAfterSTO);
-  LET en1 := ((Mach1.Genflags.DelayAfterSTO AND Mach1_Data.Drives.FeedForwardATF.Control.StartAuto) AND NOT LST_InputsOutputs.I133_3_PROX_zero_position_transport_ATF);
-  IF en1 THEN LET g2 := (Mach1_Data.Drives.FeedForwardATF.Control.AutoSpeed >= 10); END_IF
-  LET g3 := RuntimeGuard_V5_1_100(((g1 AND Mach1_AuxData.AllDrivesHomed) OR (g1 AND NOT Mach1_AuxData.TrayfillerActive)), LST_General.AlwaysOff, g2, T#10S, Mach1.GenFlags.StartFlag);
-  Mach1.GenFlags.StopDriveDirect := g3 SET;
-  Mach1_Data.Drives.FeedForwardATF.Control.StartAuto := g3;
+  Mach1.GenFlags.StopDriveDirect := RuntimeGuard_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND Mach1_MIDS.IDB_TrayFiller.oFeedForwardMotor AND Mach1.Genflags.DelayAfterSTO AND (Mach1_AuxData.AllDrivesHomed OR NOT Mach1_AuxData.TrayfillerActive)), LST_General.AlwaysOff, ((Mach1.Genflags.DelayAfterSTO AND Mach1_Data.Drives.FeedForwardATF.Control.StartAuto AND NOT LST_InputsOutputs.I133_3_PROX_zero_position_transport_ATF) >= Mach1_Data.Drives.FeedForwardATF.Control.AutoSpeed >= 10), T#10S, Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm051, Mach1.GenFlags.MinorAlarm, Mach1_AuxData.IEC_TIMERS.RuntimeGuardFeedforwardTrayfiller) SET;
 END_NETWORK
 
 END_FUNCTION

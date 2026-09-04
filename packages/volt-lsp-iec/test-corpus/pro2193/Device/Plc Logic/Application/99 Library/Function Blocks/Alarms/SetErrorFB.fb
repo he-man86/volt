@@ -21,6 +21,8 @@ VAR
 	KeepShittyAlarmHigh : Standard.TOF;	// todo: test if this is still needed!!
 END_VAR
 
+(* @volt-graphical: CFC *)
+
 END_FUNCTION_BLOCK
 
 METHOD PRIVATE CheckRefs

@@ -15,14 +15,11 @@ VAR_IN_OUT
 	DataIO: sUDT_FQIComm_Drive;;
 END_VAR
 
-NETWORK 0 LD
-  IF ioAxis.xVirtual THEN RETURN; END_IF
+NETWORK 0 LD "Return when virtual axis"
+  ??? := ioAxis.xVirtual;
 END_NETWORK
 NETWORK 1 LD
-  OffDelay(IN := DataIO.Controlword.Bit4_RunForward, PT := T#1S);
-  BasicSpeed(xEnableInternalControl := TRUE, xRegulatorOn := OffDelay.Q, xResetError := DataIO.Controlword.Bit7_ResetFault, xSetDriveQsp := DataIO.Controlword.Bit2_QuickStop, xEnableSetVel := DataIO.Controlword.Bit4_RunForward, xInvertDirection := DataIO.Controlword.Bit12_ReverseDirection, lrSetVel := DataIO.RefSpeed, lrSetAcc := lrAcc, lrSetDec := lrDec);
-  DataIO.Status.Bit0_ReadyForOperation := BasicSpeed.xAxisReady;
-  DataIO.Status.Bit3_Fault := BasicSpeed.xDriveError;
+  BasicSpeed(Axis := ioAxis, xEnableInternalControl := TRUE, xRegulatorOn := OffDelay(IN := DataIO.Controlword.Bit4_RunForward, PT := T#1S), xResetError := DataIO.Controlword.Bit7_ResetFault, xSetDriveQsp := DataIO.Controlword.Bit2_QuickStop, xEnableSetVel := DataIO.Controlword.Bit4_RunForward, xInvertDirection := DataIO.Controlword.Bit12_ReverseDirection, lrSetVel := DataIO.RefSpeed, lrSetAcc := lrAcc, lrSetDec := lrDec);
 END_NETWORK
 
 END_FUNCTION_BLOCK

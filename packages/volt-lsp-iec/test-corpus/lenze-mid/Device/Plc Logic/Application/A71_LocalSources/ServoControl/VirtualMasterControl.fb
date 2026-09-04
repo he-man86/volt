@@ -15,25 +15,21 @@ VAR_IN_OUT
 END_VAR
 
 NETWORK 0 LD
-  ioVirtualMasterCom.Control.Enable := (TRUE AND ioVirtualMaster.Control.SetDriveEnable);
-  ioVirtualMasterCom.Control.ResetError := (TRUE AND ioVirtualMaster.Control.ResetError);
+  LET g3 := TRUE;
+  ioVirtualMasterCom.Control.Enable := (g3 AND ioVirtualMaster.Control.SetDriveEnable);
+  ioVirtualMasterCom.Control.ResetError := (g3 AND ioVirtualMaster.Control.ResetError);
 END_NETWORK
 NETWORK 1 LD
-  LET en1 := ioVirtualMaster.Control.StartMovement;
-  IF en1 THEN ioVirtualMasterCom.Control.VelUnit := MOVE(Mach1_Data.Drives.MainDrive_VM.Control.DriveMasterSpeed); END_IF
-  LET en2 := ioVirtualMaster.Control.StartMovement;
-  IF en2 THEN ioVirtualMasterCom.Control.DecUnit := MOVE(iDec); END_IF
-  LET en3 := ioVirtualMaster.Control.StartMovement;
-  IF en3 THEN ioVirtualMasterCom.Control.AccUnit := MOVE(iAcc); END_IF
-  ioVirtualMasterCom.Control.StartMovement := ioVirtualMaster.Control.StartMovement;
+  LET g0 := ioVirtualMaster.Control.StartMovement;
+  ioVirtualMasterCom.Control.StartMovement := g0;
+  MOVE(g0, Mach1_Data.Drives.MainDrive_VM.Control.DriveMasterSpeed);
+  MOVE(g0, iDec);
+  MOVE(g0, iAcc);
 END_NETWORK
 NETWORK 2 LD
   LET i1 := LREAL_TO_INT(ioVirtualMasterCom.Status.ActSpeed);
   LET i2 := LREAL_TO_INT(ioVirtualMasterCom.Status.ActPos);
-  LET en1 := TRUE;
-  IF en1 THEN ioVirtualMaster.Status.ActSpeed := (i1 / 6); END_IF
-  LET en2 := en1;
-  IF en2 THEN ioVirtualMaster.Status.ActXPos := (i2 / 1); END_IF
+  ((TRUE / i1 / 6) / i2 / 1);
 END_NETWORK
 NETWORK 3 LD
   ioVirtualMaster.Status.DriveIsReady := ioVirtualMasterCom.Status.ReadyForMotion;

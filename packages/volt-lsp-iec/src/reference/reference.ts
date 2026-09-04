@@ -135,6 +135,11 @@ const STANDARD_FUNCTIONS: ReadonlyArray<ReferenceEntry> = [
   ref("STRCPYW", "standard-function", "CODESYS wide-string copy."),
   ref("STRCMPA", "standard-function", "CODESYS ASCII string compare."),
   ref("STRCMPW", "standard-function", "CODESYS wide-string compare."),
+  // Found by the build oracle: pro2193 calls `StrReplaceA` and CODESYS builds it clean, so the LSP flagging it
+  // was a false positive. The A/W pair completes the family — every other member (Concat/Len/Find/Mid/Trim/
+  // Cpy/Cmp) is already here in both spellings. Only the A form is oracle-confirmed; W follows the family.
+  ref("STRREPLACEA", "standard-function", "CODESYS ASCII substring replace."),
+  ref("STRREPLACEW", "standard-function", "CODESYS wide-string replace."),
 ]
 
 /** IEC 61131-3 standard function blocks — instantiated as types, but listed so hover/completion know them. */

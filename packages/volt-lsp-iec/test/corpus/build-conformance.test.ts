@@ -24,7 +24,7 @@ import {
   resolveConfig,
   type Vendor,
 } from "../../src/analysis/index.js"
-import { loadTaskRoots, loadWorkspaceRefs } from "../../src/workspace-refs.js"
+import { loadTaskRoots, loadWorkspaceRefs, scanWorkspace } from "../../src/workspace-refs.js"
 import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
 
 // Several diagnostics EMBED the offending source line (C0139 "The code '<line>' has no effect"). The LSP keeps
@@ -79,20 +79,17 @@ function walk(dir: string): string[] {
   return out
 }
 
-// Per-project compiler-warning settings that differ from CODESYS defaults — a project can toggle a warning
-// off in its IDE (Compiler Warnings dialog), and the recorded build reflects that. The LSP must mirror it, else
-// a warning the build suppressed reads as a false positive. Keyed by corpus folder; empty = all defaults.
-// pro2193 turned C0371 (inout-own-access) OFF — confirmed by its owner. (Live-verified: build omits C0371.)
-const PROJECT_DIAGNOSTICS: Record<string, NonNullable<Parameters<typeof resolveConfig>[0]>["diagnostics"]> = {
-  pro2193: { "inout-own-access": "off" }, // owner disabled C0371 in the IDE (build omits it)
-  "lenze-mid": { "inout-own-access": "off" }, // ditto — re-recorded oracle has C0371 off (6 warnings, untruncated)
-}
+// Per-project compiler-warning settings come from the project's own `.projectsettings`, which `volt pull`
+// materializes from the IDE's Compiler Warnings dialog — the same file the running server reads. This used to
+// be a hand-kept table here (pro2193 and lenze-mid, both "C0371 off, confirmed by its owner"), which was true
+// and unmaintainable: it had to be rediscovered per project and could not be checked against anything. Both
+// projects' pulled settings now say `Disabled warnings: C0371`, so the fact is READ rather than remembered.
 
 /** Every ERROR+WARNING LSP message across a project, with the same dead-code suppression + per-project config
  *  the server would apply. Warnings are compared too (not just errors) — a lint the build never emitted is as
  *  much a false positive as a phantom error. */
-function lspMessages(dir: string, projectName: string): string[] {
-  const config = resolveConfig({ vendor: VENDOR, diagnostics: PROJECT_DIAGNOSTICS[projectName] })
+function lspMessages(dir: string): string[] {
+  const config = resolveConfig({ vendor: VENDOR, diagnostics: scanWorkspace(dir).projectDiagnostics })
   const inputs = walk(dir).map((uri) => {
     const source = readFileSync(uri, "utf8")
     return { uri, source, parseResult: parseSource(source) }
@@ -133,7 +130,7 @@ describe("corpus build-conformance (LSP errors+warnings ⊆ real IDE build)", ()
       // than silently green-lighting or red-flagging noise.
       if (isTruncated(buildMsgs))
         throw new Error(`${project}: build recording is TRUNCATED at CODESYS's 100-warning cap — re-record with the cap raised (Compiler Warnings → max) before this gate is meaningful.`)
-      const fps = buildFalsePositives(lspMessages(join(CORPUS_ROOT, project), project), buildMsgs)
+      const fps = buildFalsePositives(lspMessages(join(CORPUS_ROOT, project)), buildMsgs)
       expect(fps).toEqual([])
     }, 120_000)
   }

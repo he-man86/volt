@@ -1,0 +1,5 @@
+Replace constants:     on
+Unicode identifiers:   off
+UTF-8 encoding:        off
+Max compiler warnings: 100
+Breakpoint logging:    on

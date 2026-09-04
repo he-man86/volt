@@ -9,10 +9,10 @@ VAR
 END_VAR
 
 NETWORK 0 LD
-  SUPER^();
+  SUPER^(ioAxis := ioAxis, DataIO := DataIO);
 END_NETWORK
 NETWORK 1 LD
-  L_MC1P_CyclicParameterAccessWrite_0(xEnable := TRUE, wIndex := 16#4008, usiSubIndex := 5, usiSize := 2, xSigned := 1, lrScaleFactor := 1, lrData := lrTorque);
+  L_MC1P_CyclicParameterAccessWrite_0(Axis := ioAxis, xEnable := TRUE, wIndex := 16#4008, usiSubIndex := 5, usiSize := 2, xSigned := 1, lrScaleFactor := 1, lrData := lrTorque);
 END_NETWORK
 
 END_FUNCTION_BLOCK

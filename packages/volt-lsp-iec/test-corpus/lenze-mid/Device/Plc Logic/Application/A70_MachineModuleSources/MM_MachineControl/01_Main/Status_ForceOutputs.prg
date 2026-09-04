@@ -3,28 +3,22 @@ VAR
 END_VAR
 
 NETWORK 0 LD
-  LET en1 := TRUE;
-  IF en1 THEN LST_InputsOutputs.Serv_IB100 := MOVE(%IB26); END_IF
-  LET en2 := TRUE;
-  IF en2 THEN LST_InputsOutputs.Serv_IB101 := MOVE(%IB27); END_IF
+  LET g9 := TRUE;
+  MOVE(g9, %IB26);
+  MOVE(g9, %IB27);
 END_NETWORK
 NETWORK 1 LD
-  LET en1 := TRUE;
-  IF en1 THEN LST_InputsOutputs.Serv_IB132 := MOVE(%IB370); END_IF
-  LET en2 := TRUE;
-  IF en2 THEN LST_InputsOutputs.Serv_IB133 := MOVE(%IB371); END_IF
-  LET en3 := TRUE;
-  IF en3 THEN LST_InputsOutputs.Serv_IB136 := MOVE(%IB372); END_IF
-  LET en4 := TRUE;
-  IF en4 THEN LST_InputsOutputs.Serv_IB137 := MOVE(%IB373); END_IF
+  LET g13 := TRUE;
+  MOVE(g13, %IB370);
+  MOVE(g13, %IB371);
+  MOVE(g13, %IB372);
+  MOVE(g13, %IB373);
 END_NETWORK
 NETWORK 2 LD
-  LET en1 := HMI_Var.ForceOutputs;
-  IF en1 THEN LET g1 := ForceOutput(); END_IF
+  ForceOutput(HMI_Var.ForceOutputs);
 END_NETWORK
 NETWORK 3 LD
-  LET en1 := NOT HMI_Var.ForceOutputs;
-  IF en1 THEN LET g1 := ForceOutput_1(); END_IF
+  ForceOutput_1(NOT HMI_Var.ForceOutputs);
 END_NETWORK
 NETWORK 4 LD
 END_NETWORK

@@ -25,45 +25,40 @@ END_VAR
 
 NETWORK 0 LD
   // Always Off
-  AlwaysOff := AlwaysOff RESET;
+  AlwaysOff := AlwaysOff SET;
 END_NETWORK
 NETWORK 1 LD
   // Always ON
   AlwaysOn := NOT AlwaysOn SET;
 END_NETWORK
 NETWORK 2 LD
-  FirstCycle := (AlwaysOn AND OSfirstflagcycle) RESET;
+  FirstCycle := (AlwaysOn AND OSfirstflagcycle) SET;
 END_NETWORK
 NETWORK 3 LD
-  LET en1 := AlwaysOn;
-  IF en1 THEN dummyWord := MOVE(0); END_IF
+  MOVE(AlwaysOn, 0);
 END_NETWORK
 NETWORK 4 LD
-  tmr_FF50ms(IN := NOT tmr_FF50ms_not.Q, PT := T#100MS);
-  tmr_FF50ms_not(IN := FF50ms, PT := T#100MS);
-  FF50ms := tmr_FF50ms.Q;
-  LST_General.Imp100ms := tmr_FF50ms_not.Q;
+  LET g2 := ;
+  FF50ms := tmr_FF50ms(IN := (g2 AND NOT tmr_FF50ms_not.Q), PT := T#100MS);
+  LST_General.Imp100ms := tmr_FF50ms_not(IN := (g2 AND FF50ms), PT := T#100MS);
 END_NETWORK
 NETWORK 5 LD
-  tmr_FF100ms(IN := NOT tmr_FF100ms_not.Q, PT := T#500MS);
-  tmr_FF100ms_not(IN := FF100ms, PT := T#500MS);
-  FF100ms := tmr_FF100ms.Q;
-  LST_General.Imp200ms := tmr_FF100ms_not.Q;
+  LET g1 := ;
+  FF100ms := tmr_FF100ms(IN := (g1 AND NOT tmr_FF100ms_not.Q), PT := T#500MS);
+  LST_General.Imp200ms := tmr_FF100ms_not(IN := (g1 AND FF100ms), PT := T#500MS);
 END_NETWORK
 NETWORK 6 LD
-  tmr_FF500ms(IN := NOT tmr_FF500ms_not.Q, PT := T#500MS);
-  tmr_FF500ms_not(IN := FF500ms, PT := T#500MS);
-  FF500ms := tmr_FF500ms.Q;
-  LST_General.Imp1s := tmr_FF500ms_not.Q;
+  LET g3 := ;
+  FF500ms := tmr_FF500ms(IN := (g3 AND NOT tmr_FF500ms_not.Q), PT := T#500MS);
+  LST_General.Imp1s := tmr_FF500ms_not(IN := (g3 AND FF500ms), PT := T#500MS);
 END_NETWORK
 NETWORK 7 LD
-  tmr_FF1s(IN := NOT tmr_FF1s_not.Q, PT := T#1S);
-  tmr_FF1s_not(IN := FF1s, PT := T#1S);
-  FF1s := tmr_FF1s.Q;
+  LET g4 := ;
+  FF1s := tmr_FF1s(IN := (g4 AND NOT tmr_FF1s_not.Q), PT := T#1S);
+  tmr_FF1s_not(IN := (g4 AND FF1s), PT := T#1S);
 END_NETWORK
 NETWORK 8 LD
-  PLC_StartUp_Delay(IN := AlwaysOn, PT := T#60S);
-  LST_General.StartUpDelayPLC := PLC_StartUp_Delay.Q;
+  LST_General.StartUpDelayPLC := PLC_StartUp_Delay(IN := AlwaysOn, PT := T#60S);
 END_NETWORK
 
 END_PROGRAM

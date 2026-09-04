@@ -180,8 +180,8 @@ VAR_INPUT
 	xOutInv		: BOOL;		// The output that moves the cylinder the other way.
 	xSensor		: BOOL;		// The sensor on the cylinder.
 END_VAR
-NETWORK 1 FBD
-  SetAlarm := (((xOutput AND NOT xOutInv AND NOT xSensor) OR (xOutInv AND NOT xOutput AND xSensor) OR (xOutput AND xOutInv AND xSensor)) AND EnableOutputs.Q);
+NETWORK 0 FBD
+  SetAlarm := (((xOutput AND xOutInv AND xSensor) OR (xOutInv AND xOutput AND xSensor) OR (xOutput AND xOutInv AND xSensor)) AND EnableOutputs.Q);
 END_NETWORK
 END_METHOD
 

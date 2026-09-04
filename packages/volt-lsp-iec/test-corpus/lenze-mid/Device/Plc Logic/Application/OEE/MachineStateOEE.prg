@@ -2,14 +2,12 @@ PROGRAM MachineStateOEE
 VAR
 END_VAR
 
-NETWORK 0 LD
-  LET en1 := ((TRUE AND Mach1.GenFlags.MajorAlarm) OR (TRUE AND Mach1.GenFlags.MinorAlarm));
-  IF en1 THEN GVL_OEE_Var.eStatus_States := MOVE(eStates.Aborted); END_IF
-  LET g1 := ((TRUE AND NOT Mach1.GenFlags.MajorAlarm) AND NOT Mach1.GenFlags.MinorAlarm);
-  LET en2 := ((g1 AND NOT Mach1.GenFlags.RunMan) AND NOT Mach1.GenFlags.RunAuto);
-  IF en2 THEN GVL_OEE_Var.eStatus_States := MOVE(eStates.Stopped); END_IF
-  LET en3 := ((g1 AND Mach1.GenFlags.RunMan) OR (g1 AND Mach1.GenFlags.RunAuto));
-  IF en3 THEN GVL_OEE_Var.eStatus_States := MOVE(eStates.Execute); END_IF
+NETWORK 0 LD "DONE NETWORK 49: State of the machine"
+  LET g22 := TRUE;
+  MOVE((g22 AND (Mach1.GenFlags.MajorAlarm OR Mach1.GenFlags.MinorAlarm)), eStates.Aborted);
+  LET g23 := (g22 AND NOT Mach1.GenFlags.MajorAlarm AND NOT Mach1.GenFlags.MinorAlarm);
+  MOVE((g23 AND NOT Mach1.GenFlags.RunMan AND NOT Mach1.GenFlags.RunAuto), eStates.Stopped);
+  MOVE((g23 AND (Mach1.GenFlags.RunMan OR Mach1.GenFlags.RunAuto)), eStates.Execute);
 END_NETWORK
 
 END_PROGRAM

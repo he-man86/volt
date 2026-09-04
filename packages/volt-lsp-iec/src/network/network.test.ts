@@ -605,3 +605,28 @@ test("network text references: a cursor outside any symbol resolves to nothing",
   const vg = by("file:///FB_VG.fb")
   expect(referencesAnywhere(docs, project, vg, vg.source.indexOf("NETWORK"))).toBeUndefined()
 })
+
+// Found by a fresh corpus pull: bakon-nano and lenze-mid materialize an FBD box call as `EXECUTE(TRUE);`.
+// `EXECUTE` also opens an inline-ST box, so the parser took the call as a block opener and ran past
+// END_NETWORK looking for END_EXECUTE — reporting NETWORK_NOT_CLOSED on a network that closes correctly.
+test("network text: EXECUTE followed by ( is a CALL, not an inline-ST box", () => {
+  const src = `PROGRAM P
+VAR x : BOOL; END_VAR
+NETWORK 0 FBD
+  EXECUTE(TRUE);
+END_NETWORK
+END_PROGRAM`
+  expect(vgDiags(src).map((d) => d.code)).not.toContain("NETWORK_NOT_CLOSED")
+})
+
+test("network text: EXECUTE without ( still opens an inline-ST box", () => {
+  const src = `PROGRAM P
+VAR x : BOOL; END_VAR
+NETWORK 0 FBD
+  EXECUTE
+  x := TRUE;
+  END_EXECUTE
+END_NETWORK
+END_PROGRAM`
+  expect(vgDiags(src).map((d) => d.code)).toEqual([])
+})

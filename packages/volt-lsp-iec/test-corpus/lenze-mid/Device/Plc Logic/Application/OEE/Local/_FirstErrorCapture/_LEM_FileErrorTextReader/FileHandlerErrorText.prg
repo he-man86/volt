@@ -68,23 +68,19 @@ FirstScanCycle:= TRUE;
 END_PROGRAM
 
 ACTION actReadFromFile
-NETWORK 1 FBD
-  fbReadErrorFromFile(xEnable := xEnable, xExecute := xExecute, xStoreAllErrorText := xStoreAllErrorText, xStoreTexRefIDErrorText := xStoreTexRefIDErrorText, xStoreAllAppTexRefIDErrorText := xStoreAllAppTexRefIDErrorText, xStopIfErrorFound := xStopIfErrorFound, xContinuousRead := xContinuousRead, xRepeat := xRepeat, xInit := xInit, xClearErrorArrays := xClearErrorArrays, scIN := scIN);
-  xError := fbReadErrorFromFile.xError;
-  xBusy := fbReadErrorFromFile.xBusy;
-  xDone := fbReadErrorFromFile.xDone;
-  scOUT := fbReadErrorFromFile.scOUT;
+NETWORK 0 FBD
+  fbReadErrorFromFile(asErrorText := L_FECA.GVL_ReadErrorFromFile.asErrorText, adwErrorID := L_FECA.GVL_ReadErrorFromFile.adwErrorID, xEnable := xEnable, xExecute := xExecute, xStoreAllErrorText := xStoreAllErrorText, xStoreTexRefIDErrorText := xStoreTexRefIDErrorText, xStoreAllAppTexRefIDErrorText := xStoreAllAppTexRefIDErrorText, xStopIfErrorFound := xStopIfErrorFound, xContinuousRead := xContinuousRead, xRepeat := xRepeat, xInit := xInit, xClearErrorArrays := xClearErrorArrays, scIN := scIN);
 END_NETWORK
-NETWORK 2 FBD
+NETWORK 1 FBD
   xRepeat := FALSE;
 END_NETWORK
-NETWORK 3 FBD
+NETWORK 2 FBD
   xInit := FALSE;
 END_NETWORK
-NETWORK 4 FBD
+NETWORK 3 FBD
   xRestart := FALSE;
 END_NETWORK
-NETWORK 5 FBD
+NETWORK 4 FBD
   xClearErrorArrays := FALSE;
 END_NETWORK
 END_ACTION
