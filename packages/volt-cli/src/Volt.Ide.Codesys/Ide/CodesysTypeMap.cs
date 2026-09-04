@@ -72,8 +72,8 @@ namespace Volt.Ide.Codesys
 
             // The project's "Project Information" metadata (title/author/version/company) — a standard
             // IProjectInfoObject with a readable ScriptProjectInfo facet. Emitted as a read-only `.projectinfo`
-            // descriptor. (Project SETTINGS — IWorkspaceObject below — has NO readable facet, so it stays a
-            // deliberate known-skip.)
+            // descriptor. (Project SETTINGS — IWorkspaceObject below — is a separate node with its own
+            // `.projectsettings` descriptor, read from the object model rather than a scripting facet.)
             if (Has(ifaces, "IProjectInfoObject")) return ItemKind.PlcProjectInfo;
 
             // Read-only descriptors for non-source project objects with clean scripting facets:
@@ -94,10 +94,12 @@ namespace Volt.Ide.Codesys
             // is CODESYS declaring the type opaque. Listed explicitly so it reads as a decision, not a miss.
             if (Has(ifaces, "IUnknownObject")) return ItemKind.Unknown;
 
-            // KNOWN-SKIP: CODESYS-only artifacts with no editable source. IWorkspaceObject is "Project
-            // Settings" — a config tree the scripting API exposes NO readable content for (only a
-            // ScriptNoProjectInfoMarker), so there is nothing to mirror as text.
-            if (Has(ifaces, "IWorkspaceObject")) return ItemKind.Unknown;
+            // "Project Settings" (IWorkspaceObject) — the compiler-warning states and compile options.
+            // This WAS a known-skip, and the reason was specific: the SCRIPTING api exposes nothing readable
+            // for it (only a ScriptNoProjectInfoMarker). The object model does — see
+            // CodesysObjectModel.ProjectSettingsDescriptor — so the node is now emitted as a read-only
+            // `.projectsettings` descriptor instead of dropped.
+            if (Has(ifaces, "IWorkspaceObject")) return ItemKind.PlcProjectSettings;
 
             // A node with NO specific object type — only the base IGenericObject/IObject — is a transparent
             // grouping container (e.g. a SoftMotion "Kinematics" holding its axis devices). No warning: it

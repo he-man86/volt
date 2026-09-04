@@ -54,6 +54,71 @@ namespace Volt.Ide.Codesys
             ("Title", "title"), ("Version", "version"), ("Company", "company"), ("Author", "author"),
             ("Default namespace", "default_namespace"), ("Released", "released"), ("Description", "description"));
 
+        // ── project settings (compiler warnings + compile options) ──────────
+        /// <summary>The project's COMPILER SETTINGS as a read-only <c>.projectsettings</c> descriptor — the
+        /// three-state compiler-warning configuration (off / warning / error) and the compile options, i.e.
+        /// CODESYS's Project Settings dialog.
+        ///
+        /// <para>Unlike every other descriptor here, this one does NOT read its node: the scripting api exposes
+        /// nothing for Project Settings (<c>get_project_settings()</c> is null, <c>IScriptProjectSettings</c>
+        /// carries only <c>available_download_content</c>/<c>project_defines</c>) — which is why this node was a
+        /// known-skip. The settings live in the language model instead:</para>
+        /// <code>
+        /// APEnvironment.LMServiceProvider -> ConfigurationService -> WarningConfiguration / CompileOptions
+        /// </code>
+        /// <para>The APEnvironment host is deliberately <c>_3S.CoDeSys.Engine</c>: every plugin has one and they
+        /// all return the SAME provider singleton, but <c>Compiler35210</c> and friends are SP-pinned and would
+        /// break on a CODESYS upgrade. Verified live on SP21 (3.5.21.40).</para>
+        ///
+        /// <para>Only the DEVIATIONS from default are emitted. CODESYS's <c>WarningsSet</c> is the dialog's ~75
+        /// ROWS, not "the ones that are on" — every row defaults to warning — so listing all of them would churn
+        /// the file on any version that adds an id, while telling a reader nothing. Absent from both lists means
+        /// warning, which is what the LSP already defaults to.</para></summary>
+        public string ProjectSettingsDescriptor(object node)
+        {
+            var provider = GetStaticMember("_3S.CoDeSys.Engine.APEnvironment", "LMServiceProvider")
+                ?? throw new InvalidOperationException("CODESYS: APEnvironment.LMServiceProvider unavailable");
+            var config = GetMember(provider, "ConfigurationService")
+                ?? throw new InvalidOperationException("CODESYS: ILMServiceProvider.ConfigurationService unavailable");
+            var warnings = GetMember(config, "WarningConfiguration");
+            var options = GetMember(config, "CompileOptions");
+
+            return new Descriptor()
+                .Add("Disabled warnings", WarningIds(warnings, "GetDisabledWarningIds"))
+                .Add("Warnings as errors", WarningIds(warnings, "GetWarningAsErrorIds"))
+                .Add("Replace constants", Flag(options, "ReplaceConstants"))
+                .Add("Unicode identifiers", Flag(options, "UnicodeIdentifiers"))
+                .Add("UTF-8 encoding", Flag(options, "UTF8Encoding"))
+                .Add("Max compiler warnings", System.Convert.ToString(GetMember(options, "MaxCompilerWarnings")))
+                .Add("Breakpoint logging", Flag(options, "EnableBreakpointLogging"))
+                .Add("Project defines", System.Convert.ToString(GetMember(options, "ProjectDefines")))
+                .ToString();
+        }
+
+        /// <summary>One warning-id set, rendered as sorted <c>Cnnnn</c> codes. The ids come back as BARE INTEGERS
+        /// (371, not C0371) and the collection is <c>null</c> — not empty — when nothing is configured, which is
+        /// the vendor's representation of "none", not a missing value to guard against.</summary>
+        private static string WarningIds(object? warnings, string getter)
+        {
+            if (InvokeMethod(warnings, getter) is not IEnumerable ids) return "";
+            var codes = new List<string>();
+            foreach (var id in ids)
+            {
+                if (id == null) continue;
+                if (int.TryParse(System.Convert.ToString(id), out var n)) codes.Add("C" + n.ToString("D4"));
+            }
+            codes.Sort(StringComparer.Ordinal);
+            return string.Join(", ", codes);
+        }
+
+        /// <summary>A compile-option boolean as <c>on</c>/<c>off</c> — never blank, so an option that is OFF is
+        /// still a line in the file (Descriptor drops empty values, and "absent" would read as "unknown").</summary>
+        private static string Flag(object? options, string name)
+        {
+            var v = GetMember(options, name);
+            return v is bool b ? (b ? "on" : "off") : "";
+        }
+
         /// <summary>A trace/recording configuration (`.trace`): which task/trigger/resolution records what.
         /// Read from the `ScriptTraceObject` facet. The per-diagram traced-variable expressions are not exposed
         /// as scripting properties, so this captures the recording config (the reproducible part).</summary>

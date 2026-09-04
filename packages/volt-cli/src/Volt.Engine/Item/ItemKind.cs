@@ -80,7 +80,12 @@ public static class ItemKind
     public const int PlcRecipe = 698;       // a recipe definition — its variable list (read-only `.recipe`).
                                             // IRecipeDefinitionObject, a child of the Recipe Manager.
     public const int PlcSymbolConfig = 699;  // the symbol-configuration flags (read-only `.symbols`). ISymbolConfigObject.
-                                            // (695-699 are CODESYS-first read-only descriptors for non-source project objects.)
+    public const int PlcProjectSettings = 700;  // the project's compiler settings (read-only `.projectsettings`):
+                                            // which compiler warnings are off / raised to errors, plus the compile
+                                            // options. IWorkspaceObject. This was a deliberate known-skip while the
+                                            // only way in was the SCRIPTING api, which exposes nothing readable for
+                                            // it; the object model does (see the descriptor). CODESYS-first.
+                                            // (695-700 are CODESYS-first read-only descriptors for non-source project objects.)
 
     // ── [TC-only] TwinCAT TREEITEMTYPEs with no CODESYS equivalent ──
     public const int PlcParamList = 629;    // ADS parameter list — CODESYS has no parameter-list object type (docs + Hauzer)
@@ -145,6 +150,7 @@ public static class ItemKind
         public const string Trace = "trace";
         public const string Recipe = "recipe";
         public const string SymbolConfig = "symbol_config";
+        public const string ProjectSettings = "project_settings";
     }
 
     /// <summary>Code → vendor-neutral wire kind string. null = not emitted as a tracked item: the containers
@@ -186,6 +192,7 @@ public static class ItemKind
         PlcTrace => Kinds.Trace,
         PlcRecipe => Kinds.Recipe,
         PlcSymbolConfig => Kinds.SymbolConfig,
+        PlcProjectSettings => Kinds.ProjectSettings,
         _ => null,
     };
 
@@ -270,6 +277,7 @@ public static class ItemKind
     {
         (Kinds.Library, "library"), (Kinds.Device, "device"), (Kinds.ProjectInfo, "projectinfo"),
         (Kinds.Trace, "trace"), (Kinds.Recipe, "recipe"), (Kinds.SymbolConfig, "symbols"), (Kinds.Task, "task"),
+        (Kinds.ProjectSettings, "projectsettings"),
         (Kinds.ImagePool, "image_pool"), (Kinds.ParameterList, "parameter_list"), (Kinds.TextList, "text_list"),
         (Kinds.RecipeManager, "recipe_manager"), (Kinds.VisualizationManager, "visualization_manager"),
         (Kinds.Visualization, "visualization"), (Kinds.LibraryManager, "library_manager"),

@@ -412,6 +412,7 @@ public sealed partial class CodesysDriver
         : kind == ItemKind.Kinds.Trace ? _om.TraceDescriptor(item.Native)
         : kind == ItemKind.Kinds.Recipe ? _om.RecipeDescriptor(item.Native)
         : kind == ItemKind.Kinds.SymbolConfig ? _om.SymbolConfigDescriptor(item.Native)
+        : kind == ItemKind.Kinds.ProjectSettings ? _om.ProjectSettingsDescriptor(item.Native)
         : kind == ItemKind.Kinds.Task ? _om.TaskDescriptor(item.Native)
         : NoDescriptorReader(kind);
 
