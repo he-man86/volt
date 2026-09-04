@@ -119,7 +119,9 @@ NETWORK 12 LD
   REQ_RestartComm R= (REQ_RestartComm AND Comm_OK);
 END_NETWORK
 NETWORK 13 LD TITLE: "TODO NETWORK 6"
-  HMI_Var.Mach1.HourCounterRunning S= (MainDrive() AND Mach1.GenFlags.DriveIsRunning);
+  LET en1 := TRUE;
+  IF en1 THEN MainDrive(); END_IF
+  HMI_Var.Mach1.HourCounterRunning S= (en1 AND Mach1.GenFlags.DriveIsRunning);
 END_NETWORK
 NETWORK 14 LD TITLE: "DONE NETWORK 6: Drives"
   LET en1 := ;
@@ -291,14 +293,22 @@ END_NETWORK
 NETWORK 51 LD TITLE: "TODO NETWORK 34: OBSOLETE"
 END_NETWORK
 NETWORK 52 LD TITLE: "DONE NETWORK 35: Main FB:  Dryer-trayfiller"
-  LET g105 := IDB_Dryer(iGenFlags := Mach1.GenFlags, iMachineStarted := (Mach1.GenFlags.EnableAuxDrive AND Mach1_Safety.Status.DoorsOK AND NOT Mach1.GenFlags.StopFlag), iSwitchDryer := HMI_Var.Btn_DryerOn, iDryerClosed := LST_InputsOutputs.I133_0_PROX_Dryer_closed, iStartFeedForward := fc_CamC_CP_UDT(, HMI_Var.Mach1.Position, Mach1.GenFlags.Rotflag, Mach1_Data.CamControls.FeedforwardDryer_CP), iStopFeedForward := (((NOT Mach1.GenFlags.EnableAuxDrive OR (Mach1_AuxData.COUNTERS.EmptyingCycles.CV < 105) OR NOT Trayfiller_Data.commInterface.Permission OR NOT Mach1_Safety.Status.DoorsOK) AND LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS) OR Mach1_Alarms.Alm048), iPermissionDownstream := (Trayfiller_Data.commInterface.Permission AND NOT Mach1_Alarms.Alm053), iSetPowerHeater1 := Mach1_Data.Dryer.Heater1.SetHeaterPower, iSetPowerHeater2 := Mach1_Data.Dryer.Heater2.SetHeaterPower, iSetPowerHeater3 := Mach1_Data.Dryer.Heater3.SetHeaterPower, iPowerOrAnalog := TRUE, iSpeedForEmptying := 100, oEnableHeaters => HMI_Var.Mach1.HeatersActive, oPowerHeater1 => tHeater1Word, oPowerHeater2 => tHeater2Word, oPowerHeater3 => tHeater3Word);
+  LET en1 := ;
+  IF en1 THEN (Mach1_AuxData.COUNTERS.EmptyingCycles.CV < 105); END_IF
+  LET g105 := IDB_Dryer(iGenFlags := Mach1.GenFlags, iMachineStarted := (Mach1.GenFlags.EnableAuxDrive AND Mach1_Safety.Status.DoorsOK AND NOT Mach1.GenFlags.StopFlag), iSwitchDryer := HMI_Var.Btn_DryerOn, iDryerClosed := LST_InputsOutputs.I133_0_PROX_Dryer_closed, iStartFeedForward := fc_CamC_CP_UDT(, HMI_Var.Mach1.Position, Mach1.GenFlags.Rotflag, Mach1_Data.CamControls.FeedforwardDryer_CP), iStopFeedForward := (((NOT Mach1.GenFlags.EnableAuxDrive OR en1 OR NOT Trayfiller_Data.commInterface.Permission OR NOT Mach1_Safety.Status.DoorsOK) AND LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS) OR Mach1_Alarms.Alm048), iPermissionDownstream := (Trayfiller_Data.commInterface.Permission AND NOT Mach1_Alarms.Alm053), iSetPowerHeater1 := Mach1_Data.Dryer.Heater1.SetHeaterPower, iSetPowerHeater2 := Mach1_Data.Dryer.Heater2.SetHeaterPower, iSetPowerHeater3 := Mach1_Data.Dryer.Heater3.SetHeaterPower, iPowerOrAnalog := TRUE, iSpeedForEmptying := 100, oEnableHeaters => HMI_Var.Mach1.HeatersActive, oPowerHeater1 => tHeater1Word, oPowerHeater2 => tHeater2Word, oPowerHeater3 => tHeater3Word);
   LST_InputsOutputs.Q132_2_Enable_power_controllers := (g105 AND HMI_Var.Mach1.HeatersActive);
-  LET en1 := (Mach1_Data.Dryer.Heater1.SetHeaterPower >= 350);
-  IF en1 THEN Mach1_Data.Dryer.Heater1.SetHeaterPower := MOVE(350); END_IF
-  LET en2 := (Mach1_Data.Dryer.Heater2.SetHeaterPower >= 350);
-  IF en2 THEN Mach1_Data.Dryer.Heater2.SetHeaterPower := MOVE(350); END_IF
-  LET en3 := (Mach1_Data.Dryer.Heater3.SetHeaterPower >= 350);
-  IF en3 THEN Mach1_Data.Dryer.Heater3.SetHeaterPower := MOVE(350); END_IF
+  LET en2 := g105;
+  IF en2 THEN (Mach1_Data.Dryer.Heater1.SetHeaterPower >= 350); END_IF
+  LET en3 := en2;
+  IF en3 THEN Mach1_Data.Dryer.Heater1.SetHeaterPower := MOVE(350); END_IF
+  LET en4 := g105;
+  IF en4 THEN (Mach1_Data.Dryer.Heater2.SetHeaterPower >= 350); END_IF
+  LET en5 := en4;
+  IF en5 THEN Mach1_Data.Dryer.Heater2.SetHeaterPower := MOVE(350); END_IF
+  LET en6 := g105;
+  IF en6 THEN (Mach1_Data.Dryer.Heater3.SetHeaterPower >= 350); END_IF
+  LET en7 := en6;
+  IF en7 THEN Mach1_Data.Dryer.Heater3.SetHeaterPower := MOVE(350); END_IF
 END_NETWORK
 NETWORK 53 LD TITLE: "DONE NETWORK 36: CT Fan dryer"
   LST_InputsOutputs.Q132_4_CT_Fan_dryer := (Mach1_AuxData.TrayfillerActive AND Mach1.GenFlags.EnableAuxDrive AND HMI_Var.Btn_DryerOn);
@@ -310,24 +320,49 @@ NETWORK 54 LD TITLE: "TODO NETWORK 37:"
   LET i1 := DINT_TO_REAL(HMI_Var.Mach1.ActualSpeedDryer);
   LET en1 := g40;
   IF en1 THEN DRYER_Scaling_Speed(IN := i1, IN_MIN := 0, IN_MAX := 1000, OUT_MIN := 0, OUT_MAX := 1, OUT => lrDryer_ScaledSpeed); END_IF
-  LET i2 := REAL_TO_WORD(lrHeater1_Analog);
-  LET en2 := DRYER_SCALING_Heater1_Analog(IN := lrDryer_ScaledSpeed*lrHeater1_ScaledPower*1500, IN_MIN := 0, IN_MAX := 1500, OUT_MIN := 0, OUT_MAX := 16384, OUT => lrHeater1_Analog);
-  IF en2 THEN %QW105 := MOVE(i2); END_IF
-  LET i3 := REAL_TO_WORD(lrHeater2_Analog);
-  LET en3 := DRYER_SCALING_Heater2_Analog(IN := lrDryer_ScaledSpeed*lrHeater2_ScaledPower*1500, IN_MIN := 0, IN_MAX := 1500, OUT_MIN := 0, OUT_MAX := 16384, OUT => lrHeater2_Analog);
-  IF en3 THEN %QW106 := MOVE(i3); END_IF
-  LET i4 := REAL_TO_WORD(lrHeater3_Analog);
-  LET en4 := DRYER_SCALING_Heater2_Analog(IN := lrDryer_ScaledSpeed*lrHeater3_ScaledPower*1500, IN_MIN := 0, IN_MAX := 1500, OUT_MIN := 0, OUT_MAX := 16384, OUT => lrHeater3_Analog);
-  IF en4 THEN %QW107 := MOVE(i4); END_IF
+  LET en2 := g40;
+  IF en2 THEN DRYER_SCALING_Heater1(IN := tHeater1Word, IN_MIN := 0, IN_MAX := 1500, OUT_MIN := 0, OUT_MAX := 1, OUT => lrHeater1_ScaledPower); END_IF
+  LET i2 := REAL_TO_INT(lrHeater1_ScaledPower*lrDryer_ScaledSpeed*1500);
+  LET en3 := en2;
+  IF en3 THEN HMI_Var.Mach1.ActHeater1 := MOVE(i2); END_IF
+  LET en4 := en3;
+  IF en4 THEN DRYER_SCALING_Heater1_Analog(IN := lrDryer_ScaledSpeed*lrHeater1_ScaledPower*1500, IN_MIN := 0, IN_MAX := 1500, OUT_MIN := 0, OUT_MAX := 16384, OUT => lrHeater1_Analog); END_IF
+  LET i3 := REAL_TO_WORD(lrHeater1_Analog);
+  LET en5 := en4;
+  IF en5 THEN %QW105 := MOVE(i3); END_IF
+  LET en6 := g40;
+  IF en6 THEN DRYER_SCALING_Heater2(IN := tHeater2Word, IN_MIN := 0, IN_MAX := 1500, OUT_MIN := 0, OUT_MAX := 1, OUT => lrHeater2_ScaledPower); END_IF
+  LET i4 := REAL_TO_INT(lrHeater2_ScaledPower*lrDryer_ScaledSpeed*1500);
+  LET en7 := en6;
+  IF en7 THEN HMI_Var.Mach1.ActHeater2 := MOVE(i4); END_IF
+  LET en8 := en7;
+  IF en8 THEN DRYER_SCALING_Heater2_Analog(IN := lrDryer_ScaledSpeed*lrHeater2_ScaledPower*1500, IN_MIN := 0, IN_MAX := 1500, OUT_MIN := 0, OUT_MAX := 16384, OUT => lrHeater2_Analog); END_IF
+  LET i5 := REAL_TO_WORD(lrHeater2_Analog);
+  LET en9 := en8;
+  IF en9 THEN %QW106 := MOVE(i5); END_IF
+  LET en10 := g40;
+  IF en10 THEN DRYER_SCALING_Heater3(IN := tHeater3Word, IN_MIN := 0, IN_MAX := 1500, OUT_MIN := 0, OUT_MAX := 1, OUT => lrHeater3_ScaledPower); END_IF
+  LET i6 := REAL_TO_INT(lrHeater3_ScaledPower*lrDryer_ScaledSpeed*1500);
+  LET en11 := en10;
+  IF en11 THEN HMI_Var.Mach1.ActHeater3 := MOVE(i6); END_IF
+  LET en12 := en11;
+  IF en12 THEN DRYER_SCALING_Heater2_Analog(IN := lrDryer_ScaledSpeed*lrHeater3_ScaledPower*1500, IN_MIN := 0, IN_MAX := 1500, OUT_MIN := 0, OUT_MAX := 16384, OUT => lrHeater3_Analog); END_IF
+  LET i7 := REAL_TO_WORD(lrHeater3_Analog);
+  LET en13 := en12;
+  IF en13 THEN %QW107 := MOVE(i7); END_IF
 END_NETWORK
 NETWORK 55 LD TITLE: "DONE NETWORK 38 (p1): Alarms dryer"
-  Mach1.GenFlags.StopDriveDirect S= RuntimeGuard_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND ((IDB_Dryer.oFeedForward AND Mach1.Genflags.DelayAfterSTO) OR mach1.Genflags.DriveIsRunning) AND (Mach1_AuxData.AllDrivesHomed OR NOT Mach1_AuxData.MIDS_Active)), LST_General.AlwaysOff, (Mach1_Data.Drives.FeedForwardADS.Control.AutoSpeed >= 10), T#10S, Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm048, Mach1.GenFlags.MinorAlarm, Mach1_AuxData.IEC_TIMERS.RuntimeGuardFeedforwardDryer, oForwardUnguarded => tBool, oForwardGuarded => Mach1_Data.Drives.FeedForwardADS.Control.StartAuto, oReverseUnguarded => tBool, oReverseGuarded => tBool);
+  LET en1 := (Mach1.GenFlags.EnableAuxDrive AND NOT Mach1_Alarms.Alm048 AND ((Mach1.Genflags.DelayAfterSTO AND IDB_Dryer.oFeedForward) OR mach1.Genflags.DriveIsRunning) AND NOT LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS);
+  IF en1 THEN (Mach1_Data.Drives.FeedForwardADS.Control.AutoSpeed >= 10); END_IF
+  Mach1.GenFlags.StopDriveDirect S= RuntimeGuard_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND ((IDB_Dryer.oFeedForward AND Mach1.Genflags.DelayAfterSTO) OR mach1.Genflags.DriveIsRunning) AND (Mach1_AuxData.AllDrivesHomed OR NOT Mach1_AuxData.MIDS_Active)), LST_General.AlwaysOff, en1, T#10S, Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm048, Mach1.GenFlags.MinorAlarm, Mach1_AuxData.IEC_TIMERS.RuntimeGuardFeedforwardDryer, oForwardUnguarded => tBool, oForwardGuarded => Mach1_Data.Drives.FeedForwardADS.Control.StartAuto, oReverseUnguarded => tBool, oReverseGuarded => tBool);
 END_NETWORK
 NETWORK 56 LD TITLE: "DONE NETWORK 38 (p2): Alarms dryer"
   Mach1.GenFlags.StopDriveDirect S= (Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.TrayfillerActive AND Mach1.GenFlags.DelayAfterEmergStop AND IDB_Dryer.oFaultDryerOpened), TRUE, Mach1_Alarms.Alm049, Mach1.GenFlags.MinorAlarm) AND Mach1_AuxData.AllDrivesHomed);
 END_NETWORK
 NETWORK 57 LD TITLE: "TODO NETWORK 38 (p3): Alarms dryer"
-  LET g123 := Alarms_V5_1_100(Mach1_Alarms, ((Mach1_Data.Counters.MaxRepetitionNoCigarsDryer.SetValue > 0) AND db_CheckRegister.CheckRegisterError AND NOT Mach1_AuxData.PreviousCycleHasOutfeedError), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm053, Mach1.GenFlags.MinorAlarm);
+  LET en1 := (mach1.Genflags.DelayAfterEmergStop AND HMI_Var.Test_Prod AND Mach1_AuxData.TrayfillerActive);
+  IF en1 THEN (Mach1_Data.Counters.MaxRepetitionNoCigarsDryer.SetValue > 0); END_IF
+  LET g123 := Alarms_V5_1_100(Mach1_Alarms, (en1 AND db_CheckRegister.CheckRegisterError AND NOT Mach1_AuxData.PreviousCycleHasOutfeedError), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm053, Mach1.GenFlags.MinorAlarm);
   Mach1.GenFlags.StopDriveDirect S= g123;
   db_CheckRegister.CheckRegisterError R= g123;
 END_NETWORK
@@ -346,7 +381,11 @@ NETWORK 61 LD TITLE: "DONE NETWORK 41: Empty trayfiller"
   HMI_Var.Btn_Cleaning R= Mach1_AuxData.COUNTERS.EmptyingCycles(CD := (HMI_Var.Btn_Cleaning AND LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS), LOAD := NOT HMI_Var.Btn_Cleaning, PV := 194);
 END_NETWORK
 NETWORK 62 LD TITLE: "DONE NETWORK 42: Main block Trayfiller"
-  IDB_TrayFiller(iGenFlags := Mach1.GenFlags, iMachineStarted := (Mach1.GenFlags.EnableAuxDrive AND NOT Mach1.GenFlags.StopFlag), iButtonChangeTray := LST_General.AlwaysOff, iButtonTrayDown := LST_InputsOutputs.I132_6_Tray_down, iButtonTrayUp := LST_InputsOutputs.I132_7_Tray_up, iCigarAtCrossover := (LST_InputsOutputs.I133_2_Cigar_detected_at_cross_over OR (Mach1_AuxData.COUNTERS.EmptyingCycles.CV < 106)), iStartFeedForward := ((LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS OR (Mach1_AuxData.COUNTERS.EmptyingCycles.CV < 106)) AND Mach1_Safety.Status.DoorsOK), iStopFeedForward := LST_InputsOutputs.I133_3_PROX_zero_position_transport_ATF, iCigarAtInpusher := LST_InputsOutputs.I133_4_Cigar_detected_at_inpusher, iRpsInpusher := LST_InputsOutputs.I133_6_PROX_inpusher_retracted, iEpsInpusher := LST_InputsOutputs.I133_7_PROX_inpusher_at_tray, iGuardInpusher := TRUE, iPsElevatorUp := LST_InputsOutputs.I136_0_PROX_Elevator_above, iPsElevatorDown := LST_InputsOutputs.I136_1_PROX_Elevator_below, iPulseCounterElevator := LST_InputsOutputs.I136_2_PROX_pulse_counter_elevator, iFcGuardTrayOnElev := LST_InputsOutputs.I136_3_FC_Position_tray_OK, iRowHeight := Mach1_Data.TrayFiller.RowHeight, iSetNumberOfRows := Mach1_Data.Trayfiller.SetNumberOfRows, iInitialDescentValue := Mach1_Data.Trayfiller.InitialDescentValue, iLightCurtainInpusher := Mach1_Safety.Status.Door_switch17, iLightCurtainElevator := Mach1_Safety.Status.Door_switch18, iPsInfeedConvAtInit := LST_InputsOutputs.I136_4_PROX_Infeed_conveyor_initial_position, iPsInfeedConvAtElev := LST_InputsOutputs.I136_5_PROX_Infeed_conveyor_at_elevator, iFcGuardTrayFromElev := LST_InputsOutputs.I136_6_FC_Guard_tray_from_elevator, iFcOutfeedConvFull := LST_InputsOutputs.I136_7_FC_Outfeed_conveyor_full, iTestProd := TRUE, ioActNumberOfRows := HMI_Var.Mach1.ActNumberOfRows, oValveTiltInpusher => LST_InputsOutputs.Q132_7_PNV_tilting_inpusher);
+  LET en1 := ;
+  IF en1 THEN (Mach1_AuxData.COUNTERS.EmptyingCycles.CV < 106); END_IF
+  LET en2 := ;
+  IF en2 THEN (Mach1_AuxData.COUNTERS.EmptyingCycles.CV < 106); END_IF
+  IDB_TrayFiller(iGenFlags := Mach1.GenFlags, iMachineStarted := (Mach1.GenFlags.EnableAuxDrive AND NOT Mach1.GenFlags.StopFlag), iButtonChangeTray := LST_General.AlwaysOff, iButtonTrayDown := LST_InputsOutputs.I132_6_Tray_down, iButtonTrayUp := LST_InputsOutputs.I132_7_Tray_up, iCigarAtCrossover := (LST_InputsOutputs.I133_2_Cigar_detected_at_cross_over OR en1), iStartFeedForward := ((LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS OR en2) AND Mach1_Safety.Status.DoorsOK), iStopFeedForward := LST_InputsOutputs.I133_3_PROX_zero_position_transport_ATF, iCigarAtInpusher := LST_InputsOutputs.I133_4_Cigar_detected_at_inpusher, iRpsInpusher := LST_InputsOutputs.I133_6_PROX_inpusher_retracted, iEpsInpusher := LST_InputsOutputs.I133_7_PROX_inpusher_at_tray, iGuardInpusher := TRUE, iPsElevatorUp := LST_InputsOutputs.I136_0_PROX_Elevator_above, iPsElevatorDown := LST_InputsOutputs.I136_1_PROX_Elevator_below, iPulseCounterElevator := LST_InputsOutputs.I136_2_PROX_pulse_counter_elevator, iFcGuardTrayOnElev := LST_InputsOutputs.I136_3_FC_Position_tray_OK, iRowHeight := Mach1_Data.TrayFiller.RowHeight, iSetNumberOfRows := Mach1_Data.Trayfiller.SetNumberOfRows, iInitialDescentValue := Mach1_Data.Trayfiller.InitialDescentValue, iLightCurtainInpusher := Mach1_Safety.Status.Door_switch17, iLightCurtainElevator := Mach1_Safety.Status.Door_switch18, iPsInfeedConvAtInit := LST_InputsOutputs.I136_4_PROX_Infeed_conveyor_initial_position, iPsInfeedConvAtElev := LST_InputsOutputs.I136_5_PROX_Infeed_conveyor_at_elevator, iFcGuardTrayFromElev := LST_InputsOutputs.I136_6_FC_Guard_tray_from_elevator, iFcOutfeedConvFull := LST_InputsOutputs.I136_7_FC_Outfeed_conveyor_full, iTestProd := TRUE, ioActNumberOfRows := HMI_Var.Mach1.ActNumberOfRows, oValveTiltInpusher => LST_InputsOutputs.Q132_7_PNV_tilting_inpusher);
 END_NETWORK
 NETWORK 63 LD
   Mach1_Data.Drives.FeedForwardATF.Control.StartAuto := IDB_TrayFiller.oFeedForwardMotor;

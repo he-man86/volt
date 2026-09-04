@@ -336,6 +336,30 @@ public static class NetworkTextWriter
                 // and is emitted as a statement, but it can also sit inline as its own consumer's source.
                 case Demux d: return ApplyMods(NameOf(d.VarId), d.Flags);
 
+                // AN ENABLED BOX AT OPERAND POSITION IS HOISTED, because EN/ENO has no inline form. The
+                // format spells an enable as a statement — `LET en := src; IF en THEN … END_IF` — and a
+                // downstream consumer chains off the echo (docs/network-text.md §EN/ENO, "so a downstream box
+                // chains off it"). That is exactly this case: the consumer is another box's pin.
+                //
+                // <b>Without this the box VANISHED.</b> `Definition` renders inputs and NAMED outputs; it has
+                // never read `Enable`, and until the enable was read correctly that did not show, because an
+                // enable was always null. Reading it properly turned a mis-placed operand into a missing one:
+                // measured in `SideCorrection`, a `SUB` box wired into a `GT`'s EN slot — with its own two
+                // inputs and its own output pin — materialized as nothing at all, and `GT` rendered from its
+                // remaining pins as if the SUB had never been there. Self-consistent text, so it round-trips,
+                // the canonical gate passes, `volt status` is clean, and the next push rebuilds the network
+                // without the box. A regression of the fix above it, in the one position it did not cover.
+                case Box b when b.Enable is not null:
+                {
+                    var enText = Render(b.Enable, nested: false);   // may hoist in its own right
+                    var body = Definition(b);
+                    var result = ResultOf(b);
+                    var en = Mint("en", ref _en);
+                    _prelude.Add("LET " + en + " := " + enText + ";");
+                    _prelude.Add("IF " + en + " THEN " + (result is { } r ? Lhs(r) + " := " : "") + body + "; END_IF");
+                    return ApplyMods(en, b.Flags);
+                }
+
                 case Box b: return ApplyMods(Definition(b), b.Flags);
                 case Parallel p:
                     // Branches are OR-ed. A ladder's parallel IS an OR, it is the only form the published text

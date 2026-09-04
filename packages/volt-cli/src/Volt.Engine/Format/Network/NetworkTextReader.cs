@@ -167,6 +167,10 @@ public static class NetworkTextReader
         /// <c>IF … THEN</c> guards. <see cref="MergeEnableEchoes"/> is the only reader of it.</summary>
         private readonly Dictionary<string, int> _echoes = new(StringComparer.Ordinal);
 
+        /// <summary>Echoes whose box is substituted INTO a consumer rather than standing as its own statement
+        /// — an enabled box at operand position. Applied over the inline map in <see cref="Build"/>.</summary>
+        private readonly Dictionary<string, Node> _echoInline = new(StringComparer.Ordinal);
+
         public Builder(int order, string rest)
         {
             Order = order;
@@ -479,6 +483,41 @@ public static class NetworkTextReader
                 foreach (var i in consumers) drop.Add(i);
             }
 
+            // AN ECHO REFERENCED FROM INSIDE AN EXPRESSION is an enabled box at OPERAND position — the
+            // writer hoists one because EN/ENO has no inline form, and the consumer chains off the echo. The
+            // box belongs in that consumer, so it is substituted there and its own statement goes away.
+            //
+            // Its `Enable` is rebound to the enable EXPRESSION first. The reader set it to a reference to the
+            // echo itself (that is how `Enable(node, cond)` records the guard), so leaving it would make the
+            // substitution self-referential.
+            foreach (var kv in _echoes)
+            {
+                var echo = kv.Key;
+                var at = kv.Value;
+                if (drop.Contains(at) || _echoInline.ContainsKey(echo)) continue;
+                if (_stmts[at].Let is not null || !_lets.TryGetValue(echo, out var enableExpr)) continue;
+
+                // Referenced anywhere OTHER than by the guard's own statement?
+                var uses = new Dictionary<string, int>(StringComparer.Ordinal) { [echo] = 0 };
+                for (int i = 0; i < _stmts.Count; i++)
+                {
+                    if (i == at || drop.Contains(i)) continue;
+                    CountRefs(_stmts[i].Let is null ? _stmts[i].Node : _lets[_stmts[i].Let!], uses);
+                }
+                if (uses[echo] == 0) continue;
+
+                var box = _stmts[at].Node switch { Assign { Value: Box b2 } => b2, Box b2 => b2, _ => null };
+                if (box is null) continue;
+                if (_stmts[at].Node is Assign { Targets.Count: > 0 } g2)
+                    box = box with
+                    {
+                        Outputs = box.Outputs.Concat(g2.Targets.Select(t => new Output(null, t))).ToList(),
+                    };
+
+                _echoInline[echo] = box with { Enable = enableExpr };
+                drop.Add(at);
+            }
+
             if (drop.Count == 0) return;
             var kept = new List<(string? Let, Node Node)>();
             for (int i = 0; i < _stmts.Count; i++)
@@ -528,6 +567,14 @@ public static class NetworkTextReader
                                && uses.TryGetValue(kv.Key, out var n) && n >= 2);
                 if (wire) wires[kv.Key] = VarIdOf(kv.Key, wires.Count);
                 else inline[kv.Key] = kv.Value;
+            }
+
+            // An echo standing for a hoisted box beats both: it is neither a wire the vendor holds nor its
+            // own enable expression, it IS the box.
+            foreach (var kv in _echoInline)
+            {
+                wires.Remove(kv.Key);
+                inline[kv.Key] = kv.Value;
             }
 
             var trees = new List<Node>();
@@ -794,9 +841,8 @@ public static class NetworkTextReader
             _i++;   // '('
             var args = new List<Input>();
             SkipWs();
-            bool named = false;
             var outs = new List<Output>();
-            int outAt = -1;
+            bool isOutput = false;
 
             // DRIVEN BY THE COMMAS, not by "is there something before the `)`". The old loop asked whether the
             // next character was `)` and stopped if it was, so `f(a, )` — a call whose LAST pin is unconnected —
@@ -820,24 +866,22 @@ public static class NetworkTextReader
                     {
                         _i += 2;
                         formal = maybe;
-                        named = true;
                     }
                     else if (!AtEnd && _s[_i] == '=' && _i + 1 < _s.Length && _s[_i + 1] == '>')
                     {
                         _i += 2;
                         formal = maybe;
-                        named = true;
-                        outAt = args.Count + outs.Count;
+                        isOutput = true;
                     }
                     else _i = save;
                 }
 
                 // `NAME => target` is an OUTPUT pin, not an input. ST's own output-parameter operator, and
                 // the reason the probe above has to look past `:=` too: both start with an identifier.
-                if (formal is not null && outAt >= 0 && outAt == args.Count + outs.Count)
+                if (isOutput)
                 {
                     outs.Add(new Output(formal, new Operand(Token())));
-                    outAt = -1;
+                    isOutput = false;
                 }
                 else
                 {

@@ -151,28 +151,17 @@ namespace Volt.Ide.Codesys
 
                     case Assign a:
                     {
-                        // COIL STORAGE GOES BACK WHERE THIS VENDOR KEEPS IT — on the TARGET — having been read
-                        // onto the value (see CodesysNetworkReader). It is written from the value and STRIPPED
-                        // from the value, so the source operand does not also come out latched: `out := a SET;`
-                        // is a set COIL, not a set input. Without this the write half of the same gap stayed
-                        // open — a SET an engineer typed in the workspace was accepted and landed as a plain
-                        // coil, changing what the program does.
-                        // STORAGE ONLY — not the value's whole flag record.
+                        // STORAGE USED TO BE LIFTED OFF THE VALUE HERE, and the two paragraphs that stood
+                        // in this place described that design in the present tense long after it was gone.
+                        // What they recorded is still worth keeping: the write took `a.Value?.Flags` WHOLE and
+                        // applied every bit to each target, so the NOT in `out := NOT a;` landed on the COIL as
+                        // well as the input and the IDE ran `out := NOT NOT a` — the inverse of the committed
+                        // source. Invisible from every direction Volt had: the reader lifted only storage back
+                        // off a target, the text writer rendered no modifier on a target at all, so the next
+                        // pull was byte-identical and the change gate said "unchanged"; and a negated BOOL coil
+                        // COMPILES, so the build oracle was blind too. The format spells storage on the coil
+                        // now, so there is nothing to lift and nothing to strip.
                         //
-                        // This was `a.Value?.Flags ?? Flags.None`, and every bit of it was then applied to each
-                        // target below. `ApplyFlags` sets Negation, Rtrig and Ftrig as readily as Set, so the NOT
-                        // in `out := NOT a;` landed on the COIL as well as on the input and the IDE ran
-                        // `out := NOT NOT a` — the inverse of the committed source, on the vendor's canonical FBD
-                        // fixture. `out := clk RISING;` gave a rising-edge coil the same way.
-                        //
-                        // Invisible from every direction Volt had: the reader lifts only storage back off a
-                        // target (`CoilStorage.OntoValue`) and the text writer renders a target with no modifiers
-                        // at all, so the next pull was byte-identical and the change gate then said "unchanged";
-                        // and a negated BOOL coil COMPILES, so the build oracle could not see it either.
-                        //
-                        // DIALECT D26 already stated the rule — "the write back is BIT-PRECISE rather than a
-                        // whole-flags assignment" — and TwinCAT obeys it (`TcNetworkWriter.WriteStorage` touches
-                        // the Set bit alone). This vendor did not.
                         // STORAGE COMES OFF THE TARGET, because that is where the model carries it and where
                         // this vendor keeps it. It used to be lifted off the VALUE (`CoilStorage`, deleted) to
                         // suit the old `out := v SET;` spelling, applied as ONE record to every target — so a

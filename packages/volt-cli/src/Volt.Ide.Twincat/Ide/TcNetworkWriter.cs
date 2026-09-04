@@ -236,10 +236,6 @@ internal static class TcNetworkWriter
 
             case Assign a when type == "BoxTreeAssign":
             {
-                // COIL STORAGE GOES BACK WHERE THE ARCHIVE KEEPS IT — on the TARGET — having been read onto the
-                // value (see TcNetworkReader). It is written from the value and STRIPPED from the value, so the
-                // source operand does not also come out latched: `out := a SET;` is a set COIL, not a set input.
-
                 // A JUMP OR RETURN HAS NO OUTPUTS, and its `Targets` are not outputs either — a jump's
                 // single target is its LABEL (the destination network's name) and a return has none at all.
                 // Comparing them against the archive's `OutputItems` therefore compared two unrelated
@@ -406,19 +402,6 @@ internal static class TcNetworkWriter
     /// <para>The whole-flags write cannot be used here. A target may carry modifiers network text has no form
     /// for — a NEGATED coil is the measured case (`Flags=Negation,Set`) — and rewriting the field wholesale
     /// would erase them on a push that never mentioned them. Only the bit the format can express is touched.</para></summary>
-    /// <summary>A box's FORMAL PIN NAMES, written alongside its input values.
-    ///
-    /// <para><b>Values were written positionally while the names were never written at all</b>, and that pairing
-    /// is a silent semantic swap. Network text names the pins — <c>t1(IN := a, PT := pt)</c> — so an engineer who
-    /// REORDERS them to <c>t1(PT := pt, IN := a)</c> is saying the same thing; the writer put the values into
-    /// slots 0 and 1 while the archive's Names stayed <c>[IN, PT]</c>, so <c>PT</c>'s value landed on <c>IN</c>.
-    /// Nothing refused it, the text round-tripped, and the running program changed. CODESYS writes these on
-    /// every rebuild (<c>AppendParam</c>); this is the in-place equivalent.</para>
-    ///
-    /// <para>Assigning existing <c>&lt;v&gt;</c> values is squarely inside this writer's rule — no element is
-    /// created. An OPERATOR box has no formal names (its pins are positional, measured on every box in every
-    /// fixture) and its model carries none, so it is left untouched rather than given an empty list. A count
-    /// mismatch is a shape change and is refused, exactly as the input count above is.</para></summary>
     /// <summary>A box's OUTPUT PINS, written into the slots they belong to.
     ///
     /// <para>BY NAME, not by position, and the two lists genuinely differ in length: the archive holds a slot
@@ -432,10 +415,15 @@ internal static class TcNetworkWriter
     /// spell an unwired pin, so a push that never mentioned one is not an instruction to disconnect it.</para></summary>
     private static bool WriteBoxOutputs(XElement e, Box b)
     {
-        if (b.Outputs.Count == 0) return false;
-
+        // NO EARLY RETURN ON AN EMPTY MODEL. "The model carries no outputs" is precisely the DELETION case -
+        // an engineer removed `=> x` from the text - so skipping there is the silent no-op this method exists
+        // to end. The loop below distinguishes the two: an archive slot with an empty operand was never
+        // wired and is left alone; one with a variable in it that the push does not mention is refused.
         var holder = TcArchive.Obj(e, "OutputItems");
-        var slots = TcArchive.List(holder, "OutputItems");
+        // SLOTS, not items: `TcArchive.List` drops a `<n />` and the ENO slot is one, so indexing the
+        // compacted list would write a pin's variable onto its NEIGHBOUR - the swap `WriteFormalNames`
+        // exists to prevent on the input side, where it was measured changing a running program.
+        var slots = TcArchive.Slots(holder, "OutputItems");
         var names = TcArchive.Strings(TcArchive.Obj(e, "OutputParam"), "Names");
         var eno = Box.HasEnoSlot(names) ? 1 : 0;
 
@@ -443,10 +431,25 @@ internal static class TcNetworkWriter
         var placed = 0;
         for (int i = eno; i < slots.Count; i++)
         {
+            if (slots[i] is not { } slot) continue;
             var name = Box.FormalAt(names, i);
             var pin = b.Outputs.FirstOrDefault(o => string.Equals(o.Formal, name, StringComparison.Ordinal));
-            if (pin is null) continue;
-            changed |= WriteOutputOperand(slots[i], pin.Value);
+            if (pin is null)
+            {
+                // A SLOT THE MODEL DOES NOT NAME, WHICH THE ARCHIVE HAS WIRED, IS A DELETION - and leaving
+                // it alone would be the silent no-op this method was written to end. The reader cannot tell
+                // "never wired" from "just disconnected", but the WRITER can: every output the model carries
+                // is always rendered to text (`Definition` spells a named pin, `ResultOf` the unnamed one,
+                // and both throw rather than drop), so a wired slot the push does not mention can only be an
+                // edit that removed it. Refusing routes it to the rebuild path rather than writing "" - the
+                // vendor rejects an empty operand there (see `DropImporterBoxOutputs`).
+                if (!string.IsNullOrEmpty(TcArchive.Str(slot, "Operand")))
+                    throw Refuse(
+                        $"box '{b.Type}' drops the output pin '{name ?? "(result)"}', and this in-place write " +
+                        "cannot disconnect one");
+                continue;
+            }
+            changed |= WriteOutputOperand(slot, pin.Value);
             placed++;
         }
         if (placed != b.Outputs.Count)
@@ -454,6 +457,19 @@ internal static class TcNetworkWriter
         return changed;
     }
 
+    /// <summary>A box's FORMAL PIN NAMES, written alongside its input values.
+    ///
+    /// <para><b>Values were written positionally while the names were never written at all</b>, and that pairing
+    /// is a silent semantic swap. Network text names the pins — <c>t1(IN := a, PT := pt)</c> — so an engineer who
+    /// REORDERS them to <c>t1(PT := pt, IN := a)</c> is saying the same thing; the writer put the values into
+    /// slots 0 and 1 while the archive's Names stayed <c>[IN, PT]</c>, so <c>PT</c>'s value landed on <c>IN</c>.
+    /// Nothing refused it, the text round-tripped, and the running program changed. CODESYS writes these on
+    /// every rebuild (<c>AppendParam</c>); this is the in-place equivalent.</para>
+    ///
+    /// <para>Assigning existing <c>&lt;v&gt;</c> values is squarely inside this writer's rule — no element is
+    /// created. An OPERATOR box has no formal names (its pins are positional, measured on every box in every
+    /// fixture) and its model carries none, so it is left untouched rather than given an empty list. A count
+    /// mismatch is a shape change and is refused, exactly as the input count above is.</para></summary>
     private static bool WriteFormalNames(XElement e, Box b)
     {
         if (!b.Inputs.Any(i => !string.IsNullOrEmpty(i.Formal))) return false;   // operator: positional pins

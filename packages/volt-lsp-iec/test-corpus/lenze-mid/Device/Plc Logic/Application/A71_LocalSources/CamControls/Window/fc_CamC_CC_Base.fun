@@ -12,7 +12,19 @@ VAR
 END_VAR
 
 NETWORK 0 LD
-  o_xCamControl := (i_xEnable AND ((i_lrMachinePosition <= i_intStopCam) OR ((i_intStartCam > i_intStopCam) AND ((i_lrMachinePosition >= i_intStartCam) OR (i_lrMachinePosition <= i_intStopCam)))));
+  LET en1 := ;
+  IF en1 THEN (i_intStartCam < i_intStopCam); END_IF
+  LET en2 := en1;
+  IF en2 THEN (i_lrMachinePosition >= i_intStartCam); END_IF
+  LET en3 := en2;
+  IF en3 THEN (i_lrMachinePosition <= i_intStopCam); END_IF
+  LET en4 := ;
+  IF en4 THEN (i_lrMachinePosition >= i_intStartCam); END_IF
+  LET en5 := ;
+  IF en5 THEN (i_lrMachinePosition <= i_intStopCam); END_IF
+  LET en6 := ;
+  IF en6 THEN (i_intStartCam > i_intStopCam); END_IF
+  o_xCamControl := (i_xEnable AND (en3 OR (en6 AND (en4 OR en5))));
 END_NETWORK
 
 END_FUNCTION

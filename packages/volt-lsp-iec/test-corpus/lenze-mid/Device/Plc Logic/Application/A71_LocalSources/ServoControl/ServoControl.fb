@@ -113,10 +113,16 @@ oServoControl.XOffset := INT_TO_WORD(ioUDT_ServoDrive.CAM.X_Offset_Base + ioUDT_
 END_NETWORK
 NETWORK 15 LD TITLE: "DONE Network 20: Scaling of the Y value"
   LET g21 := True;
-  LET en1 := (ioUDT_ServoDrive.CAM.CamType >= ctCurveIs0ToMax);
-  IF en1 THEN oServoControl.YScale := MOVE(1000); END_IF
-  LET en2 := ((ioUDT_ServoDrive.CAM.CamType >= ctCurveIs0To0) OR (ioUDT_ServoDrive.CAM.CamType >= ctCurveIsSpeed));
-  IF en2 THEN oServoControl.YScale := (ioUDT_ServoDrive.CAM.Y_Scale_Base + ioUDT_ServoDrive.CAM.Y_Scale_Recipe); END_IF
+  LET en1 := g21;
+  IF en1 THEN (ioUDT_ServoDrive.CAM.CamType >= ctCurveIs0ToMax); END_IF
+  LET en2 := en1;
+  IF en2 THEN oServoControl.YScale := MOVE(1000); END_IF
+  LET en3 := g21;
+  IF en3 THEN (ioUDT_ServoDrive.CAM.CamType >= ctCurveIs0To0); END_IF
+  LET en4 := ;
+  IF en4 THEN (ioUDT_ServoDrive.CAM.CamType >= ctCurveIsSpeed); END_IF
+  LET en5 := (en3 OR en4);
+  IF en5 THEN oServoControl.YScale := (ioUDT_ServoDrive.CAM.Y_Scale_Base + ioUDT_ServoDrive.CAM.Y_Scale_Recipe); END_IF
 END_NETWORK
 NETWORK 16 LD TITLE: "DONE Network 21: Y-offset"
   LET en1 := ;

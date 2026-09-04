@@ -412,4 +412,53 @@ public class TcRoundTripTests
         Assert.Contains("\"renamed\"", written!);
         Assert.DoesNotContain("\"out1\"", written!);
     }
+
+    /// <summary>A BOX'S OUTPUT PIN BEHIND AN <c>ENO</c> SLOT — the alignment case, and the one no fixture had.
+    ///
+    /// <para><c>OutputItems</c> is index-aligned with <c>OutputParam/Names</c>, and the <c>ENO</c> echo sits in
+    /// slot 0 as a NULL (<c>&lt;n /&gt;</c>). <c>TcArchive.List</c> drops nulls, so reading through it
+    /// compacted the list and every later pin took its neighbour's name — or, with one pin wired, was dropped
+    /// outright. The CODESYS twin reads raw for exactly this reason; the TwinCAT arm shipped through the
+    /// compacting accessor while its own doc comment claimed the two shared the rule.</para>
+    ///
+    /// <para><b>Nothing caught it.</b> Every other TC fixture has <c>Names = [""]</c>, so
+    /// <c>Box.HasEnoSlot</c> was false in all of them and the skip never ran — deleting the body of
+    /// <c>WriteBoxOutputs</c> left the suite green. This fixture is `FbCall.derived.TcPOU` with the two output
+    /// slots the vendor gives a box that shows EN/ENO: the null echo, then the wired pin.</para></summary>
+    [Fact]
+    public void A_pin_behind_the_ENO_slot_keeps_its_own_name()
+    {
+        var model = TcNetworkReader.Read(Impl(Body("EnoSlot.derived.TcPOU")), BodyLanguage.Fbd);
+
+        var box = model.Networks.SelectMany(n => n.Trees).SelectMany(Boxes).Single(b => b.Outputs.Count > 0);
+        var pin = Assert.Single(box.Outputs);
+        Assert.Equal("oResult", pin.Formal);      // not "ENO", and not null
+        Assert.Equal("wiredPin", pin.Value.Text);
+    }
+
+    /// <summary>…and it survives the round trip to text and back, so the `=>` form carries the right name.</summary>
+    [Fact]
+    public void A_pin_behind_the_ENO_slot_round_trips_through_the_text()
+    {
+        var text = NetworkTextWriter.Write(TcNetworkReader.Read(Impl(Body("EnoSlot.derived.TcPOU")), BodyLanguage.Fbd));
+
+        Assert.Contains("oResult => wiredPin", text);
+    }
+
+    /// <summary>DELETING a pin in the text is REFUSED, not silently ignored. The writer skipped any slot the
+    /// model did not name, so removing `=> x` left the old variable driving the live PLC while the push
+    /// reported success and the next pull put the line back — the exact silent no-op this file's own comment
+    /// says the box-output write exists to end.</summary>
+    [Fact]
+    public void Dropping_a_box_output_pin_is_refused_rather_than_ignored()
+    {
+        var before = Body("EnoSlot.derived.TcPOU");
+        var text = NetworkTextWriter.Write(TcNetworkReader.Read(Impl(before), BodyLanguage.Fbd));
+        Assert.Contains("oResult => wiredPin", text);
+
+        var without = NetworkTextGate.Validate(text.Replace(", oResult => wiredPin", "").Replace("oResult => wiredPin", ""));
+
+        var ex = Assert.ThrowsAny<System.Exception>(() => TcNetworkWriter.Apply(before, without));
+        Assert.Contains("output pin", ex.Message);
+    }
 }

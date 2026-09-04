@@ -182,8 +182,8 @@ public sealed record Input(string? Formal, Node Value, Flags Flags);
 /// <para><b>This did not exist, and box outputs were simply DROPPED.</b> <c>Box.Outputs</c> was a bare
 /// operand list that <c>NetworkTextWriter</c> only ever consulted for name collection — never rendered — so
 /// every pin an engineer wired straight off a box vanished from the text: <c>MOVE(EN := rung, IN := 0)</c>
-/// with its output on <c>TempI</c> materialized as <c>MOVE(0)</c>, and `TempI` was nowhere in the file. ~250
-/// such connections in one real project. The push side knew: it REFUSED any box carrying outputs, because
+/// with its output on <c>TempI</c> materialized as <c>MOVE(0)</c>, and `TempI` was nowhere in the file. 208 wired
+/// output pins on 171 boxes across 373 networks (`scripts/nwl-census.log`). The push side knew: it REFUSED any box carrying outputs, because
 /// "network text has no form for them" — which was true, and is what this record exists to end.</para></summary>
 public sealed record Output(string? Formal, Operand Value);
 

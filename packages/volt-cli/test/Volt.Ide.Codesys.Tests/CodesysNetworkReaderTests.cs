@@ -435,7 +435,8 @@ public class CodesysNetworkReaderTests
     /// a real project carries 29 empty ones).</para>
     ///
     /// <para>Reading them at all is the fix: <c>Box.Outputs</c> was never rendered, so `TempI` in
-    /// <c>MOVE(EN := rung, IN := 0) -> TempI</c> was simply not in the file, ~250 times in one project.</para></summary>
+    /// <c>MOVE(EN := rung, IN := 0) -> TempI</c> was simply not in the file, 208 times in one project
+    /// (`scripts/nwl-census.log`: 208 wired output pins on 171 boxes).</para></summary>
     [Fact]
     public void A_box_output_pin_is_read_without_the_ENO_slot_or_the_unwired_ones()
     {

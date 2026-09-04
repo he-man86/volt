@@ -170,17 +170,6 @@ internal static class TcNetworkReader
             "would look complete and would not be. Edit this POU in the IDE.");
     }
 
-    /// <summary>A box's inputs, WITH their pin names.
-    ///
-    /// <para>The archive carries them as <c>&lt;o n="InputParam" t="ParamList"&gt;&lt;l2 n="Names"&gt;</c> - a
-    /// measured member of <c>BoxTreeBox</c> (DIALECT N4) - and this hard-coded every <c>Formal</c> to null. The
-    /// text writer renders an instance call as <c>Formal := value</c>, so a TON pulled as
-    /// <c>fbTimer( := bStart,  := T#5s)</c>: the pin bindings gone from the file committed to git, and the text
-    /// unparseable, so the POU could never be pushed back. CODESYS reads exactly this data - the same fact on
-    /// the same object model, dropped on one side only.</para>
-    ///
-    /// <para>An OPERATOR box legitimately has an empty <c>InputParam</c> (measured on every box in every fixture
-    /// here): its pins are positional and have no names, so those stay null rather than being refused.</para></summary>
     /// <summary>The enable wire, if input slot 0 is one — read BEFORE <see cref="ReadInputs"/> pairs the rest
     /// with their names, and removed from them there. See <see cref="Box.HasEnableSlot"/>: the enable is an
     /// ordinary input item, and the <c>EN</c> member is the "EN/ENO is shown" flag rather than the wire.</summary>
@@ -192,6 +181,17 @@ internal static class TcNetworkReader
         return items.Count > 0 ? ReadNode(items[0]) : null;
     }
 
+    /// <summary>A box's inputs, WITH their pin names.
+    ///
+    /// <para>The archive carries them as <c>&lt;o n="InputParam" t="ParamList"&gt;&lt;l2 n="Names"&gt;</c> - a
+    /// measured member of <c>BoxTreeBox</c> (DIALECT N4) - and this hard-coded every <c>Formal</c> to null. The
+    /// text writer renders an instance call as <c>Formal := value</c>, so a TON pulled as
+    /// <c>fbTimer( := bStart,  := T#5s)</c>: the pin bindings gone from the file committed to git, and the text
+    /// unparseable, so the POU could never be pushed back. CODESYS reads exactly this data - the same fact on
+    /// the same object model, dropped on one side only.</para>
+    ///
+    /// <para>An OPERATOR box legitimately has an empty <c>InputParam</c> (measured on every box in every fixture
+    /// here): its pins are positional and have no names, so those stay null rather than being refused.</para></summary>
     private static List<Input> ReadInputs(XElement e)
     {
         var items = TcArchive.List(e, "InputItems");
@@ -228,13 +228,23 @@ internal static class TcNetworkReader
     private static IReadOnlyList<Output> BoxOutputs(XElement e)
     {
         var names = TcArchive.Strings(TcArchive.Obj(e, "OutputParam"), "Names");
+        // SLOTS, NOT ITEMS. `Outputs`/`TcArchive.List` drop a `<n />` slot, and the ENO slot IS one — so
+        // indexing the compacted list against `Names` named every later pin one place wrong, or dropped the
+        // only wired pin outright. The CODESYS twin reads raw for the same reason; this used to go through
+        // `Outputs(e)` while its own comment claimed the two vendors shared the rule.
+        var holder = TcArchive.RequireObj(e, "OutputItems", $"the {TcArchive.TypeOf(e) ?? "item"}");
+        var slots = TcArchive.Slots(holder, "OutputItems");
         var eno = Box.HasEnoSlot(names) ? 1 : 0;
-        return Outputs(e)
-            .Select((op, i) => (op, i))
-            .Skip(eno)
-            .Where(x => x.op.Text.Length > 0)
-            .Select(x => new Output(Box.FormalAt(names, x.i), x.op))
-            .ToList();
+
+        var outputs = new List<Output>();
+        for (var i = eno; i < slots.Count; i++)
+        {
+            if (slots[i] is not { } slot) continue;
+            var operand = ReadOperand(slot);
+            if (operand.Text.Length == 0) continue;      // a declared pin the engineer never wired
+            outputs.Add(new Output(Box.FormalAt(names, i), operand));
+        }
+        return outputs;
     }
 
     /// <summary>An assignment's TARGETS. Same items as <see cref="Outputs"/>, read through the coil decode:

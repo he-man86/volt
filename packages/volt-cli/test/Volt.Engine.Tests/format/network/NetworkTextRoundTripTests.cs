@@ -32,7 +32,7 @@ public class NetworkTextRoundTripTests
     [InlineData("NETWORK 0 FBD\n  LET i1 := x;\n  fb(IN := NOT i1);\nEND_NETWORK\n")]
     // A BOX'S OWN OUTPUT PINS. The unnamed one is the box's RESULT and takes the assignment position; a named
     // one rides in the call with ST's output-parameter operator. Both were DROPPED entirely until now —
-    // `Box.Outputs` was never rendered — so ~250 wired pins in one real project were absent from the text.
+    // `Box.Outputs` was never rendered — so 208 wired pins in one real project were absent from the text.
     [InlineData("NETWORK 0 FBD\n  dst := MOVE(src);\nEND_NETWORK\n")]
     [InlineData("NETWORK 0 FBD\n  fc_MeanValue(20, oMeanValue => measured);\nEND_NETWORK\n")]
     [InlineData("NETWORK 0 FBD\n  t1(IN := a, PT := pt, ET => elapsed);\nEND_NETWORK\n")]
@@ -54,6 +54,13 @@ public class NetworkTextRoundTripTests
     // pin (§3), and a `LET` was the one place that would not read one back — so the guard below refused a
     // body the writer had just produced, in 9 POUs of one real project.
     [InlineData("NETWORK 0 FBD\n  LET en1 := ;\n  IF en1 THEN oDriveSpeed := (iRPM * 6); END_IF\nEND_NETWORK\n")]
+    // AN ENABLED BOX AT OPERAND POSITION — one box's enable fed by ANOTHER enabled box, which is the shape
+    // `SideCorrection` holds (a SUB in a GT's EN slot, with its own output pin). EN/ENO has no inline form,
+    // so the inner box is hoisted and the outer chains off its echo. Rendering it through `Definition`
+    // instead dropped the inner box, its inputs and its pin entirely — silently, and round-tripping.
+    [InlineData("NETWORK 0 LD\n  LET en1 := rung;\n  IF en1 THEN diff := (light - deviation); END_IF\n  LET en2 := en1;\n  IF en2 THEN out := (sensor > diff); END_IF\nEND_NETWORK\n")]
+    // the inner box with NO pin of its own — the enable still has to survive
+    [InlineData("NETWORK 0 LD\n  LET en1 := rung;\n  IF en1 THEN (light - deviation); END_IF\n  LET en2 := en1;\n  IF en2 THEN out := (sensor > 5); END_IF\nEND_NETWORK\n")]
     // a leaf's OWN modifier rides on its RHS
     [InlineData("NETWORK 0 FBD\n  LET i1 := NOT x;\n  fb(IN := i1);\nEND_NETWORK\n")]
     // an empty network (or one whose only content was a dropped opaque/vendor node) keeps its

@@ -31,9 +31,11 @@ NETWORK 1 LD
 END_NETWORK
 NETWORK 2 LD
   LET i1 := LREAL_TO_INT(ioVirtualMasterCom.Status.ActSpeed);
+  LET en1 := TRUE;
+  IF en1 THEN ioVirtualMaster.Status.ActSpeed := (i1 / 6); END_IF
   LET i2 := LREAL_TO_INT(ioVirtualMasterCom.Status.ActPos);
-  LET en1 := (i1 / 6);
-  IF en1 THEN ioVirtualMaster.Status.ActXPos := (i2 / 1); END_IF
+  LET en2 := en1;
+  IF en2 THEN ioVirtualMaster.Status.ActXPos := (i2 / 1); END_IF
 END_NETWORK
 NETWORK 3 LD
   ioVirtualMaster.Status.DriveIsReady := ioVirtualMasterCom.Status.ReadyForMotion;

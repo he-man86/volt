@@ -92,6 +92,23 @@ internal static class TcArchive
         owner?.Elements("o").FirstOrDefault(e => (string?)e.Attribute("n") == name);
 
     /// <summary>The items of a named list, with nulls (<c>&lt;n/&gt;</c>) dropped.</summary>
+    /// <summary>A list WITH ITS HOLES: one entry per SLOT, null where the archive wrote <c>&lt;n /&gt;</c>.
+    ///
+    /// <para><see cref="List"/> and <see cref="RequireList"/> return <c>Elements("o")</c>, so a null slot
+    /// simply disappears — right for a list read for its CONTENT, and wrong for one read by POSITION. A box's
+    /// <c>OutputItems</c> is index-aligned with <c>OutputParam/Names</c>, and its <c>ENO</c> slot is a null
+    /// (measured on CODESYS's live model: the ENO slot is null on every box that has one). Compacting it away
+    /// shifts every later pin one place against its name, so a pin is read under its neighbour's name or, when
+    /// only one is wired, dropped entirely. <c>CodesysNetworkReader.ReadBoxOutputs</c> reads raw for exactly
+    /// this reason; this is the same rule through the archive's spelling.</para></summary>
+    public static IReadOnlyList<XElement?> Slots(XElement? owner, string name)
+    {
+        var l = owner?.Elements("l2").FirstOrDefault(e => (string?)e.Attribute("n") == name);
+        return l == null
+            ? Array.Empty<XElement?>()
+            : l.Elements().Select(e => e.Name == "o" ? e : null).ToList();
+    }
+
     public static IReadOnlyList<XElement> List(XElement? owner, string name)
     {
         var l = owner?.Elements("l2").FirstOrDefault(e => (string?)e.Attribute("n") == name);

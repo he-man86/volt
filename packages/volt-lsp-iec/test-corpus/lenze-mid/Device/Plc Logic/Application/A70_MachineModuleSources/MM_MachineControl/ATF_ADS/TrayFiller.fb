@@ -162,7 +162,13 @@ NETWORK 8 LD TITLE: "TODO NETWORK 9: Condition: Tray decend"
   tBool S= stFePulseCounter(CLK := g4);
   LET en1 := (g3 AND tBool AND (stDecendTray OR stTrayDecended OR stTiltInpusher));
   IF en1 THEN stActHeightElevator := (stActHeightElevator + 5); END_IF
-  LET g1 := ((tInt + iInitialDescentValue) AND ((stActHeightElevator >= tInt) OR iPsElevatorDown));
+  LET en2 := ;
+  IF en2 THEN (stActHeightElevator >= tInt); END_IF
+  LET en3 := (g2 AND stDecendTray);
+  IF en3 THEN tInt := (ioActNumberOfRows * iRowHeight); END_IF
+  LET en4 := en3;
+  IF en4 THEN tInt := (tInt + iInitialDescentValue); END_IF
+  LET g1 := (en4 AND (en2 OR iPsElevatorDown));
   stTrayDecended S= g1;
   stDecendTray R= g1;
 END_NETWORK
@@ -178,13 +184,17 @@ NETWORK 10 LD TITLE: "TODO NETWORK 11: Condition: Return inpusher"
   stTiltInpusher R= g1;
 END_NETWORK
 NETWORK 11 LD TITLE: "TODO NETWORK 12: Condition: Lower inpusher"
-  LET g1 := ((ioActNumberOfRows < iSetNumberOfRows) AND NOT iPsElevatorDown AND NOT stFaultInpusherBlocked.Q1);
+  LET en1 := (stReturnInpusher AND iRpsInpusher);
+  IF en1 THEN (ioActNumberOfRows < iSetNumberOfRows); END_IF
+  LET g1 := (en1 AND NOT iPsElevatorDown AND NOT stFaultInpusherBlocked.Q1);
   stLowerInpusher S= g1;
   stReturnInpusher R= g1;
   bRecoverFromLightCurtainInterrupted R= g1;
 END_NETWORK
 NETWORK 12 LD TITLE: "TODO NETWORK 13: Condition: Move elevator down"
-  LET g1 := ((((stReturnInpusher AND iRpsInpusher) AND ((ioActNumberOfRows >= iSetNumberOfRows) OR iPsElevatorDown)) AND NOT stFaultInpusherBlocked.Q1 AND iMachineStarted) OR (stOutfeedConvFull AND iGenFlags.StartFlag) OR TMR_DelayEmptying(IN := (stRestposition AND iGenFlags.DelayAfterEmergStop AND iPsElevatorDown), PT := T#2S));
+  LET en1 := ;
+  IF en1 THEN (ioActNumberOfRows >= iSetNumberOfRows); END_IF
+  LET g1 := ((((stReturnInpusher AND iRpsInpusher) AND (en1 OR iPsElevatorDown)) AND NOT stFaultInpusherBlocked.Q1 AND iMachineStarted) OR (stOutfeedConvFull AND iGenFlags.StartFlag) OR TMR_DelayEmptying(IN := (stRestposition AND iGenFlags.DelayAfterEmergStop AND iPsElevatorDown), PT := T#2S));
   stMoveElevatorDown S= g1;
   stReturnInpusher R= g1;
   stOutfeedConvFull R= g1;
@@ -227,10 +237,12 @@ NETWORK 18 LD TITLE: "TODO NETWORK 19: Condition: Move elevator up"
   stTrayFedOut R= g1;
 END_NETWORK
 NETWORK 19 LD TITLE: "TODO NETWORK 20: Condition: Elevator at top"
-  LET en1 := MOVE(0);
-  IF en1 THEN stActHeightElevator := MOVE(0); END_IF
-  stElevatorAtTop S= en1;
-  stMoveElevatorUp R= en1;
+  LET en1 := (stMoveElevatorUp AND iPsElevatorUp);
+  IF en1 THEN ioActNumberOfRows := MOVE(0); END_IF
+  LET en2 := en1;
+  IF en2 THEN stActHeightElevator := MOVE(0); END_IF
+  stElevatorAtTop S= en2;
+  stMoveElevatorUp R= en2;
 END_NETWORK
 NETWORK 20 LD TITLE: "TODO NETWORK 21: Condition: Infeed tray"
   LET g1 := (stElevatorAtTop AND (NOT iFcGuardTrayOnElev OR NOT iTestProd) AND NOT bReturnInfeedConv);

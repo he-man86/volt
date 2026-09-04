@@ -361,7 +361,7 @@ CopyMeasuredToDark R= en1;
 **These pins used to be DROPPED.** `Box.Outputs` was read and then never rendered — the writer consulted it
 only to reserve names — so a pin an engineer wired straight off a box was absent from the file:
 `MOVE(EN := rung, IN := 0)` with its output on `TempI` materialized as `MOVE(0)`, and `TempI` appeared
-nowhere. ~250 such connections in one real project. The push side knew and said so, refusing any box that
+nowhere. 208 wired output pins on 171 boxes across 373 networks (`scripts/nwl-census.log`). The push side knew and said so, refusing any box that
 carried outputs because "network text has no form for them"; this is that form.
 
 Two rules keep it honest, and both refuse rather than guess:

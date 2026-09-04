@@ -82,7 +82,9 @@ END_NETWORK
 NETWORK 2 LD TITLE: "NETWORK 4: Stop delay auxiliary drives"
   LET g28 := (GenFlags.EnableAuxDrive AND NOT GenFlags.StartFlag AND DnStartDelayAuxDrives AND NOT GenFlags.DriveIsRunning AND NOT GenFlags.Rotflag);
   DnStopDelayAuxDrives := OnDelayStopAuxDrives(IN := g28, PT := iPreStopDelayAuxDrives);
-  DnStopDelayAuxDrives := (g28 AND ((iPreStopDelayAuxDrives = T#0MS) OR DnStopDelayAuxDrives));
+  LET en1 := ;
+  IF en1 THEN (iPreStopDelayAuxDrives = T#0MS); END_IF
+  DnStopDelayAuxDrives := (g28 AND (en1 OR DnStopDelayAuxDrives));
 END_NETWORK
 NETWORK 3 LD TITLE: "NETWORK 5: Manual stop auxiliary drives"
   DnManualStopAuxDrives := OnDelayManStopAuxDrives(IN := (GenFlags.EnableAuxDrive AND (NOT iStop1 OR NOT iStop2 OR NOT iStop3)), PT := T#2S);
@@ -91,7 +93,9 @@ NETWORK 4 LD TITLE: "NETWORK 6: Startup delay auxiliary drives"
   LET g47 := True;
   LET g48 := (g47 AND GenFlags.EnableAuxDrive AND NOT GenFlags.AuxDrivesStarted);
   DnStartDelayAuxDrives := OnDelayStartAuxDrives(IN := g48, PT := iPreStartDelayAuxDrives);
-  DnStartDelayAuxDrives := (g48 AND ((iPreStartDelayAuxDrives = T#0MS) OR DnStartDelayAuxDrives));
+  LET en1 := ;
+  IF en1 THEN (iPreStartDelayAuxDrives = T#0MS); END_IF
+  DnStartDelayAuxDrives := (g48 AND (en1 OR DnStartDelayAuxDrives));
   GenFlags.AuxDrivesStarted R= g47;
 END_NETWORK
 NETWORK 5 LD TITLE: "NETWORK 7: Enable markers"

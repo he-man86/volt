@@ -26,19 +26,23 @@ NETWORK 1 LD TITLE: "DONE NETWORK 2: Activating main drive"
   tMainDriveRun := g1;
   oMainDriveRun := g1;
   Mach1_Safety.Control.RequestAutoSpeed := g1;
-  LET en2 := ((g176 AND (NOT Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper OR (Mach1_Data.AUTOSPEED <= 40))) AND NOT HMI_Var.Btn_Cleaning);
-  IF en2 THEN tInt := MOVE(Mach1_Data.AUTOSPEED); END_IF
-  LET en3 := ((Mach1_Data.AUTOSPEED > 40) AND NOT HMI_Var.Btn_Cleaning);
-  IF en3 THEN tInt := MOVE(30); END_IF
-  LET en4 := (g176 AND HMI_Var.Btn_Cleaning);
-  IF en4 THEN tInt := MOVE(6); END_IF
+  LET en2 := Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper;
+  IF en2 THEN (Mach1_Data.AUTOSPEED <= 40); END_IF
+  LET en3 := ((g176 AND (NOT Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper OR en2)) AND NOT HMI_Var.Btn_Cleaning);
+  IF en3 THEN tInt := MOVE(Mach1_Data.AUTOSPEED); END_IF
+  LET en4 := (g176 AND Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper);
+  IF en4 THEN (Mach1_Data.AUTOSPEED > 40); END_IF
+  LET en5 := (en4 AND NOT HMI_Var.Btn_Cleaning);
+  IF en5 THEN tInt := MOVE(30); END_IF
+  LET en6 := (g176 AND HMI_Var.Btn_Cleaning);
+  IF en6 THEN tInt := MOVE(6); END_IF
   LET g177 := (g175 AND Mach1.GenFlags.RunMan);
   LET g2 := g177;
   tMainDriveJog := g2;
   oMainDriveJog := g2;
   Mach1_Safety.Control.RequestManSpeed := g2;
-  LET en5 := g177;
-  IF en5 THEN tInt := MOVE(Mach1_Data.MANUALSPEED); END_IF
+  LET en7 := g177;
+  IF en7 THEN tInt := MOVE(Mach1_Data.MANUALSPEED); END_IF
   RPM_To_DriveSpeed(g174, tInt, oDriveSpeed => Mach1_Data.Drives.MainDrive_VM.Control.DriveMasterSpeed);
 END_NETWORK
 NETWORK 2 LD TITLE: "DONE NETWORK 3 : DriveIsRunning flag"
@@ -48,7 +52,9 @@ NETWORK 2 LD TITLE: "DONE NETWORK 3 : DriveIsRunning flag"
   Mach1.GenFlags.DriveAtSpeed := Mach1_AuxData.IEC_TIMERS.TOFF_MainDriveAtProductionSpeed(IN := Mach1_AuxData.IEC_TIMERS.TON_MainDriveAtProductionSpeed(IN := (g96 AND tMainDriveRun), PT := T#200MS), PT := T#60MS);
 END_NETWORK
 NETWORK 3 LD TITLE: "DONE NETWORK 4: Alarm: Main drive blocked"
-  Mach1.GenFlags.StopDriveDirect S= (Alarms_V5_1_100(Mach1_Alarms, (HMI_Var.Mach1.ActualSpeed < 5), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm040, Mach1.GenFlags.MinorAlarm) AND Mach1_Alarms.Alm040);
+  LET en1 := Mach1_AuxData.IEC_TIMERS.TON_MainDriveBlocked(IN := oMainDriveRun, PT := T#12S);
+  IF en1 THEN (HMI_Var.Mach1.ActualSpeed < 5); END_IF
+  Mach1.GenFlags.StopDriveDirect S= (Alarms_V5_1_100(Mach1_Alarms, en1, Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm040, Mach1.GenFlags.MinorAlarm) AND Mach1_Alarms.Alm040);
 END_NETWORK
 NETWORK 4 LD TITLE: "DONE NETWORK 5: Manual brakerelease" DISABLED
   LET g180 := TRUE;
