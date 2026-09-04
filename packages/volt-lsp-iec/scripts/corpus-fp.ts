@@ -12,7 +12,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, extname } from "node:path"
 import { parseSource } from "../src/syntax/index.js"
-import { buildSymbolTable } from "../src/symbols/index.js"
+import { buildSymbolTable, isLibrarySymbol } from "../src/symbols/index.js"
 import {
   computeSemanticDiagnostics,
   resolveConfig,
@@ -51,6 +51,12 @@ for (const project of readdirSync(CORPUS)) {
   const dead = deadPous(inputs, loadTaskRoots(dir))
   const deadMembers = deadMemberSpans(inputs, dead)
   for (const f of inputs) {
+    // The server's ROOT gate (`server/diagnostics.ts`): a referenced library is a precompiled blob the project
+    // never recompiles, so NOTHING under `Library Manager/` is diagnosed. Without the same skip this script
+    // reports diagnostics no user can ever see — and library materialization legitimately carries patterns
+    // source never would (a base class's methods flattened into the derived FB's file, so `FB_init` appears
+    // twice → a phantom C0582).
+    if (isLibrarySymbol({ uri: f.uri })) continue
     const owner = ownerPou(f.parseResult)
     if (owner !== undefined && dead.has(owner)) continue
     const dm = deadMembers.get(f.uri)
