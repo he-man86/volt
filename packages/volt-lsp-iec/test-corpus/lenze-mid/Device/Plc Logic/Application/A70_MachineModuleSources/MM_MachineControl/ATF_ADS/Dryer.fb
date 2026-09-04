@@ -49,7 +49,11 @@ END_VAR
 NETWORK 0 LD TITLE: "DONE Network 1: Convert speed to cycle time"
   // tEmtyingCycle : (1/(MachineSpeed/60))*1000 gives time in [ms]
   LET en1 := ;
-  IF en1 THEN EXECUTE(); END_IF
+  IF en1 THEN
+  EXECUTE
+tEmptyingCycleInterval:=(60*1000)/TO_DINT(iSpeedForEmptying);
+  END_EXECUTE
+  END_IF
 END_NETWORK
 NETWORK 1 LD TITLE: "DONE Network 2: Feed forward dryer"
   LET i1 := DINT_TO_TIME(tEmptyingCycleInterval);
@@ -72,7 +76,11 @@ NETWORK 3 LD TITLE: "DONE Network 4: Output power heater 1"
   LET en3 := (stActPowerHeater1 > iSetPowerHeater1);
   IF en3 THEN stActPowerHeater1 := MOVE(iSetPowerHeater1); END_IF
   LET en4 := (g0 AND NOT iPowerOrAnalog);
-  IF en4 THEN EXECUTE(); END_IF
+  IF en4 THEN
+  EXECUTE
+oPowerHeater1:=INT_TO_WORD(stActPowerHeater1*27648/1000);
+  END_EXECUTE
+  END_IF
   LET i1 := INT_TO_WORD(stActPowerHeater1);
   LET en5 := (g0 AND iPowerOrAnalog);
   IF en5 THEN oPowerHeater1 := MOVE(i1); END_IF
@@ -87,7 +95,11 @@ NETWORK 4 LD TITLE: "DONE Network 5: Output power heater 2"
   LET en3 := (stActPowerHeater2 > iSetPowerHeater2);
   IF en3 THEN stActPowerHeater2 := MOVE(iSetPowerHeater2); END_IF
   LET en4 := (g6 AND NOT iPowerOrAnalog);
-  IF en4 THEN EXECUTE(); END_IF
+  IF en4 THEN
+  EXECUTE
+oPowerHeater2:=INT_TO_WORD(stActPowerHeater2*27648/1000);
+  END_EXECUTE
+  END_IF
   LET i1 := INT_TO_WORD(stActPowerHeater2);
   LET en5 := (g6 AND iPowerOrAnalog);
   IF en5 THEN oPowerHeater2 := MOVE(i1); END_IF
@@ -102,7 +114,11 @@ NETWORK 5 LD TITLE: "DONE Network 6: Output power heater 3"
   LET en3 := (stActPowerHeater3 > iSetPowerHeater3);
   IF en3 THEN stActPowerHeater3 := MOVE(iSetPowerHeater3); END_IF
   LET en4 := (g8 AND NOT iPowerOrAnalog);
-  IF en4 THEN EXECUTE(); END_IF
+  IF en4 THEN
+  EXECUTE
+oPowerHeater3:=INT_TO_WORD(stActPowerHeater3*27648/1000);
+  END_EXECUTE
+  END_IF
   LET i1 := INT_TO_WORD(stActPowerHeater3);
   LET en5 := (g8 AND iPowerOrAnalog);
   IF en5 THEN oPowerHeater3 := MOVE(i1); END_IF

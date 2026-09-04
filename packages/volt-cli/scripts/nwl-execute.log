@@ -1,0 +1,450 @@
+probe of: Lenze_MID-S100_V5_00_602_T51.project
+wanted POUs: ['SpeedCalculationDryer']
+opened (a copy; the original is never touched)
+
+==============================================================================
+POU SpeedCalculationDryer  (3 networks)
+==============================================================================
+
+-- NETWORK 0  title='NETWORK 1 : Speed control transport system dryer' label='' comment=''
+  tree[0]: BoxTreeDemux  itemflags=none
+    Input: BoxTreeOperand  itemflags=none
+      Operand = 'True' type='BOOL' flags=none
+  tree[1]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    ProvidesSTSnippet=False  STSnippet=None
+    InputItemList count=2   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeDemux  itemflags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = '0' type='INT' flags=none
+    out[0] = <null>
+    out[1] = 'TempI' type='INT' flags=none
+  tree[2]: BoxTreeBox  itemflags=none  BoxType='MUL'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    ProvidesSTSnippet=False  STSnippet=None
+    InputItemList count=3   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeDemux  itemflags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'Mach1_Data.AUTOSPEED' type='INT' flags=none
+      in[2]: BoxTreeOperand  itemflags=none
+        Operand = '10' type='INT' flags=none
+    out[0] = <null>
+    out[1] = 'MainDrive_AutoSpeed01rpm' type='INT' flags=none
+  tree[3]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    ProvidesSTSnippet=False  STSnippet=None
+    InputItemList count=2   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeDemux  itemflags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'MainDrive_AutoSpeed01rpm' type='INT' flags=none
+    out[0] = <null>
+    out[1] = 'Droger_Data.Cor_denumerator' type='INT' flags=none
+  tree[4]: BoxTreeDemux  itemflags=none
+    Input: BoxTreeBox  itemflags=none  BoxType='AND'
+      En  = None (null)
+      Eno = None (null)
+      EnEno=True  EnEnoPossible=True
+      ProvidesSTSnippet=False  STSnippet=None
+      InputItemList count=2   InputParams.Names=[]
+      OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+        in[0]: BoxTreeDemux  itemflags=none
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'True' type='BOOL' flags=none
+  tree[5]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    ProvidesSTSnippet=False  STSnippet=None
+    InputItemList count=2   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+        En  = True (Boolean)
+        Eno = True (Boolean)
+        EnEno=True  EnEnoPossible=True
+        ProvidesSTSnippet=False  STSnippet=None
+        InputItemList count=2   InputParams.Names=['EN']
+        OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+          in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+            En  = None (null)
+            Eno = None (null)
+            EnEno=True  EnEnoPossible=True
+            ProvidesSTSnippet=False  STSnippet=None
+            InputItemList count=2   InputParams.Names=[]
+            OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+              in[0]: BoxTreeBox  itemflags=none  BoxType='TON'
+                En  = False (Boolean)
+                Eno = False (Boolean)
+                EnEno=True  EnEnoPossible=True
+                ProvidesSTSnippet=False  STSnippet=None
+                InputItemList count=2   InputParams.Names=['IN', 'PT']
+                OutputParams.Names=['Q', 'ET']  MainOutputIndex=0  MainInputIndex=0
+                  in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+                    En  = None (null)
+                    Eno = None (null)
+                    EnEno=True  EnEnoPossible=True
+                    ProvidesSTSnippet=False  STSnippet=None
+                    InputItemList count=2   InputParams.Names=[]
+                    OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+                      in[0]: BoxTreeDemux  itemflags=none
+                      in[1]: BoxTreeOperand  itemflags=Negation
+                        Operand = 'Mach1.GenFlags.DriveIsRunning' type='BOOL' flags=Negation
+                  in[1]: BoxTreeOperand  itemflags=none
+                    Operand = 'T#500MS' type='TIME' flags=none
+                out[0] = <null>
+                out[1] = '' type='TIME' flags=none
+              in[1]: BoxTreeOperand  itemflags=Negation
+                Operand = 'Mach1_Alarms.Alm049' type='BOOL' flags=Negation
+          in[1]: BoxTreeOperand  itemflags=none
+            Operand = 'MainDrive_AutoSpeed01rpm' type='INT' flags=none
+        out[0] = <null>
+        out[1] = 'Mach_ActSpeed_Rpm01' type='INT' flags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'MainDrive_AutoSpeed01rpm' type='INT' flags=none
+    out[0] = <null>
+    out[1] = 'Droger_Data.Cor_numerator' type='INT' flags=none
+  tree[6]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    ProvidesSTSnippet=False  STSnippet=None
+    InputItemList count=2   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+        En  = None (null)
+        Eno = None (null)
+        EnEno=True  EnEnoPossible=True
+        ProvidesSTSnippet=False  STSnippet=None
+        InputItemList count=2   InputParams.Names=[]
+        OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+          in[0]: BoxTreeDemux  itemflags=none
+          in[1]: BoxTreeBox  itemflags=none  BoxType='OR'
+            En  = None (null)
+            Eno = None (null)
+            EnEno=True  EnEnoPossible=True
+            ProvidesSTSnippet=False  STSnippet=None
+            InputItemList count=2   InputParams.Names=[]
+            OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+              in[0]: BoxTreeOperand  itemflags=none
+                Operand = 'Mach1.GenFlags.DriveIsRunning' type='BOOL' flags=none
+              in[1]: BoxTreeOperand  itemflags=Negation
+                Operand = 'Mach1_AuxData.IEC_TIMERS.TON_DelayIdling.Q' type='BOOL' flags=Negation
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'HMI_Var.Mach1.ActualSpeed*10' type='INT' flags=none
+    out[0] = <null>
+    out[1] = 'Mach_ActSpeed_Rpm01' type='INT' flags=none
+  tree[7]: BoxTreeDemux  itemflags=none
+    Input: BoxTreeBox  itemflags=none  BoxType='AND'
+      En  = None (null)
+      Eno = None (null)
+      EnEno=True  EnEnoPossible=True
+      ProvidesSTSnippet=False  STSnippet=None
+      InputItemList count=2   InputParams.Names=[]
+      OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+        in[0]: BoxTreeDemux  itemflags=none
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'True' type='BOOL' flags=none
+  tree[8]: BoxTreeDemux  itemflags=none
+    Input: BoxTreeBox  itemflags=none  BoxType='AND'
+      En  = None (null)
+      Eno = None (null)
+      EnEno=True  EnEnoPossible=True
+      ProvidesSTSnippet=False  STSnippet=None
+      InputItemList count=2   InputParams.Names=[]
+      OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+        in[0]: BoxTreeDemux  itemflags=none
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'Trayfiller_Data.commInterface.HoldFeedFwd' type='BOOL' flags=none
+  tree[9]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    ProvidesSTSnippet=False  STSnippet=None
+    InputItemList count=2   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeAssign  itemflags=none
+        RValue: BoxTreeBox  itemflags=none  BoxType='AND'
+          En  = None (null)
+          Eno = None (null)
+          EnEno=True  EnEnoPossible=True
+          ProvidesSTSnippet=False  STSnippet=None
+          InputItemList count=2   InputParams.Names=[]
+          OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+            in[0]: BoxTreeDemux  itemflags=none
+            in[1]: BoxTreeBox  itemflags=none  BoxType='OR'
+              En  = None (null)
+              Eno = None (null)
+              EnEno=True  EnEnoPossible=True
+              ProvidesSTSnippet=False  STSnippet=None
+              InputItemList count=2   InputParams.Names=[]
+              OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+                in[0]: BoxTreeOperand  itemflags=none
+                  Operand = 'LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS' type='BOOL' flags=none
+                in[1]: BoxTreeOperand  itemflags=none
+                  Operand = 'Mach1_AuxData.ADS_StopOnZeroPulse' type='BOOL' flags=none
+        out[0] = 'Mach1_AuxData.ADS_StopOnZeroPulse' type='BOOL' flags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = '750' type='INT' flags=none
+    out[0] = <null>
+    out[1] = 'Droger_Data.Cor_numerator' type='INT' flags=none
+  tree[10]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    ProvidesSTSnippet=False  STSnippet=None
+    InputItemList count=2   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeBox  itemflags=none  BoxType='F_TRIG'
+        En  = False (Boolean)
+        Eno = False (Boolean)
+        EnEno=True  EnEnoPossible=True
+        ProvidesSTSnippet=False  STSnippet=None
+        InputItemList count=1   InputParams.Names=['CLK']
+        OutputParams.Names=['Q']  MainOutputIndex=0  MainInputIndex=0
+          in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+            En  = None (null)
+            Eno = None (null)
+            EnEno=True  EnEnoPossible=True
+            ProvidesSTSnippet=False  STSnippet=None
+            InputItemList count=2   InputParams.Names=[]
+            OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+              in[0]: BoxTreeDemux  itemflags=none
+              in[1]: BoxTreeOperand  itemflags=none
+                Operand = 'Trayfiller_Data.commInterface.Permission' type='BOOL' flags=none
+        out[0] = <null>
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = '5' type='INT' flags=none
+    out[0] = <null>
+    out[1] = 'Mach1_AuxData.CounterHighSpeedATF_ADS' type='INT' flags=none
+  tree[11]: BoxTreeBox  itemflags=none  BoxType='MUL'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    ProvidesSTSnippet=False  STSnippet=None
+    InputItemList count=3   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeBox  itemflags=none  BoxType='NE'
+        En  = True (Boolean)
+        Eno = False (Boolean)
+        EnEno=True  EnEnoPossible=True
+        ProvidesSTSnippet=False  STSnippet=None
+        InputItemList count=3   InputParams.Names=['EN']
+        OutputParams.Names=['']  MainOutputIndex=0  MainInputIndex=0
+          in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+            En  = None (null)
+            Eno = None (null)
+            EnEno=True  EnEnoPossible=True
+            ProvidesSTSnippet=False  STSnippet=None
+            InputItemList count=2   InputParams.Names=[]
+            OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+              in[0]: BoxTreeDemux  itemflags=none
+              in[1]: BoxTreeOperand  itemflags=none
+                Operand = 'Trayfiller_Data.commInterface.Permission' type='BOOL' flags=none
+          in[1]: BoxTreeOperand  itemflags=none
+            Operand = 'Mach1_AuxData.CounterHighSpeedATF_ADS' type='INT' flags=none
+          in[2]: BoxTreeOperand  itemflags=none
+            Operand = '0' type='INT' flags=none
+        out[0] = <null>
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'Mach1_Data.AUTOSPEED' type='INT' flags=none
+      in[2]: BoxTreeOperand  itemflags=none
+        Operand = '13' type='INT' flags=none
+    out[0] = <null>
+    out[1] = 'Droger_Data.Cor_numerator' type='INT' flags=none
+  tree[12]: BoxTreeBox  itemflags=none  BoxType='EXECUTE'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    ProvidesSTSnippet=True  STSnippet=<_3S.CoDeSys.NWLObject.STSnippet object at 0x0000000000000087 [_3S.CoDeSys.NWLObject.STSnippet]>
+      snippet.Accepted               = False
+      snippet.Added                  = False
+      snippet.Changed                = False
+      snippet.ChangedContents        = False
+      snippet.Deleted                = False
+      snippet.DeletedAfter           = False
+      snippet.DeletedBefore          = False
+      snippet.GenericObjectService   = <_3S.CoDeSys.ObjectManager.GenericObjectService object at 0x0000000000000088 [_3S.CoDeSys.ObjectManager.GenericObjectService]>
+      snippet.Id                     = 1459L
+      snippet.Inserted               = False
+      snippet.Safe                   = False
+      snippet.SerializableValueNames = Array[str](('STSnippet', 'Id'))
+      snippet._3S.CoDeSys.NWLObject.ISTSnippet.Snippet = <_3S.CoDeSys.STObject.STImplementationObject object at 0x0000000000000089 [_3S.CoDeSys.STObject.STImplementationObject]>
+      >> Get(snippet,'Snippet') -> <_3S.CoDeSys.STObject.STImplementationObject object at 0x0000000000000089 [_3S.CoDeSys.STObject.STImplementationObject]>
+        impl.GenericObjectService       = <_3S.CoDeSys.ObjectManager.GenericObjectService object at 0x000000000000008A [_3S.CoDeSys.ObjectManager.GenericObjectService]>
+        impl.LineNumberMapper           = <_3S.CoDeSys.Refactoring.LineNumberMapper object at 0x000000000000008B [_3S.CoDeSys.Refactoring.LineNumberMapper]>
+        impl.OwnerObject                = None
+        impl.SerializableValueNames     = Array[str](('TextDocument'))
+        impl.TextDocument               = <_3S.CoDeSys.TextDocument.TextDocument object at 0x000000000000008C [_3S.CoDeSys.TextDocument.TextDocument]>
+    InputItemList count=1   InputParams.Names=['EN']
+    OutputParams.Names=['ENO']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeDemux  itemflags=none
+    out[0] = <null>
+
+-- NETWORK 1  title='NETWORK 2: Deviation calculation of sync point, transport system trayfiller' label='' comment="Principle: It's better to accelerate the drive then to decelerate, because otherwise cigars could be missed. \r\nSo that is why the deceleration should be kept short, by trial and error the optimum point is 60degrees (difference between setpoint and actual point).\r\ndev: [0-60]: dec.\r\ndev: ]60-360]: acc.\r\n\r\nNumerator = (Act_syncpos -/- Gew_syncpos) + Cte\r\nCte=little bit slower then the value for the set speed. (If the mid-s rotates 100rpm (value=1000), then this value should be a little less (e.g 99,8rpm).\r\n        This way, the system lags a little bit, and therefor needs to accelerate (which is beter). If the system leads, then it needs to decel. (which is not ideal)\r\n\r\nUit metingen is gebleken dat de optimale synchronisatiepositie op 60 graden \r\nligt.\r\n\r\ncorrectie  -60     0     60     120    180    240    300\r\n            |------|------|------|------|------|------|--\r\nencoder     0     60     120    180    240    300    360\r\n\r\nOm de ingestelde synchronisatiepositie te verschuiven naar het optimale window \r\nvan -60..300 wordt de correctiefactor gecorrigeerd:\r\n - indien correctie < -60 dan 360 erbij optellen\r\n - indien correctie > 300 dan 360 eraf tellen"
+  tree[0]: BoxTreeDemux  itemflags=none
+    Input: BoxTreeBox  itemflags=none  BoxType='ADD'
+      En  = True (Boolean)
+      Eno = True (Boolean)
+      EnEno=True  EnEnoPossible=True
+      ProvidesSTSnippet=False  STSnippet=None
+      InputItemList count=3   InputParams.Names=['EN']
+      OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+        in[0]: BoxTreeBox  itemflags=none  BoxType='SUB'
+          En  = True (Boolean)
+          Eno = True (Boolean)
+          EnEno=True  EnEnoPossible=True
+          ProvidesSTSnippet=False  STSnippet=None
+          InputItemList count=3   InputParams.Names=['EN']
+          OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+            in[0]: BoxTreeBox  itemflags=none  BoxType='SUB'
+              En  = True (Boolean)
+              Eno = True (Boolean)
+              EnEno=True  EnEnoPossible=True
+              ProvidesSTSnippet=False  STSnippet=None
+              InputItemList count=3   InputParams.Names=['EN']
+              OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+                in[0]: BoxTreeOperand  itemflags=none
+                  Operand = 'Mach1.GenFlags.DriveIsRunning' type='BOOL' flags=none
+                in[1]: BoxTreeOperand  itemflags=none
+                  Operand = 'Droger_Data.Act_sync_pos' type='INT' flags=none
+                in[2]: BoxTreeOperand  itemflags=none
+                  Operand = 'Droger_Data.set_sync_pos' type='INT' flags=none
+              out[0] = <null>
+              out[1] = 'devAngle' type='INT' flags=none
+            in[1]: BoxTreeOperand  itemflags=none
+              Operand = 'MainDrive_AutoSpeed01rpm' type='INT' flags=none
+            in[2]: BoxTreeOperand  itemflags=none
+              Operand = '2' type='INT' flags=none
+          out[0] = <null>
+          out[1] = 'cor_Const' type='INT' flags=none
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'devAngle' type='INT' flags=none
+        in[2]: BoxTreeOperand  itemflags=none
+          Operand = 'cor_Const' type='INT' flags=none
+      out[0] = <null>
+      out[1] = 'Droger_Data.Cor_numerator' type='INT' flags=none
+  tree[1]: BoxTreeBox  itemflags=none  BoxType='ADD'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    ProvidesSTSnippet=False  STSnippet=None
+    InputItemList count=3   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeBox  itemflags=none  BoxType='LT'
+        En  = True (Boolean)
+        Eno = False (Boolean)
+        EnEno=True  EnEnoPossible=True
+        ProvidesSTSnippet=False  STSnippet=None
+        InputItemList count=3   InputParams.Names=['EN']
+        OutputParams.Names=['']  MainOutputIndex=0  MainInputIndex=0
+          in[0]: BoxTreeDemux  itemflags=none
+          in[1]: BoxTreeOperand  itemflags=none
+            Operand = 'devAngle' type='INT' flags=none
+          in[2]: BoxTreeOperand  itemflags=none
+            Operand = '-60' type='INT' flags=none
+        out[0] = <null>
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'Droger_Data.Cor_numerator' type='INT' flags=none
+      in[2]: BoxTreeOperand  itemflags=none
+        Operand = '360' type='INT' flags=none
+    out[0] = <null>
+    out[1] = 'Droger_Data.Cor_numerator' type='INT' flags=none
+  tree[2]: BoxTreeBox  itemflags=none  BoxType='SUB'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    ProvidesSTSnippet=False  STSnippet=None
+    InputItemList count=3   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeBox  itemflags=none  BoxType='GT'
+        En  = True (Boolean)
+        Eno = False (Boolean)
+        EnEno=True  EnEnoPossible=True
+        ProvidesSTSnippet=False  STSnippet=None
+        InputItemList count=3   InputParams.Names=['EN']
+        OutputParams.Names=['']  MainOutputIndex=0  MainInputIndex=0
+          in[0]: BoxTreeDemux  itemflags=none
+          in[1]: BoxTreeOperand  itemflags=none
+            Operand = 'devAngle' type='INT' flags=none
+          in[2]: BoxTreeOperand  itemflags=none
+            Operand = '300' type='INT' flags=none
+        out[0] = <null>
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'Droger_Data.Cor_numerator' type='INT' flags=none
+      in[2]: BoxTreeOperand  itemflags=none
+        Operand = '360' type='INT' flags=none
+    out[0] = <null>
+    out[1] = 'Droger_Data.Cor_numerator' type='INT' flags=none
+
+-- NETWORK 2  title='' label='' comment=''
+  tree[0]: BoxTreeDemux  itemflags=none
+    Input: BoxTreeBox  itemflags=none  BoxType='R_TRIG'
+      En  = False (Boolean)
+      Eno = False (Boolean)
+      EnEno=True  EnEnoPossible=True
+      ProvidesSTSnippet=False  STSnippet=None
+      InputItemList count=1   InputParams.Names=['CLK']
+      OutputParams.Names=['Q']  MainOutputIndex=0  MainInputIndex=0
+        in[0]: BoxTreeOperand  itemflags=none
+          Operand = 'LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS' type='BOOL' flags=none
+      out[0] = <null>
+  tree[1]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    ProvidesSTSnippet=False  STSnippet=None
+    InputItemList count=2   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeDemux  itemflags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'HMI_Var.Mach1.Position' type='INT' flags=none
+    out[0] = <null>
+    out[1] = 'Droger_Data.Act_sync_pos' type='INT' flags=none
+  tree[2]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    ProvidesSTSnippet=False  STSnippet=None
+    InputItemList count=2   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeDemux  itemflags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'Mach1_Data.CamControls.FeedforwardDryer_CP.Start' type='INT' flags=none
+    out[0] = <null>
+    out[1] = 'Droger_Data.set_sync_pos' type='INT' flags=none
+  tree[3]: BoxTreeBox  itemflags=none  BoxType='SUB'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    ProvidesSTSnippet=False  STSnippet=None
+    InputItemList count=3   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeBox  itemflags=none  BoxType='GT'
+        En  = True (Boolean)
+        Eno = False (Boolean)
+        EnEno=True  EnEnoPossible=True
+        ProvidesSTSnippet=False  STSnippet=None
+        InputItemList count=3   InputParams.Names=['EN']
+        OutputParams.Names=['']  MainOutputIndex=0  MainInputIndex=0
+          in[0]: BoxTreeDemux  itemflags=none
+          in[1]: BoxTreeOperand  itemflags=none
+            Operand = 'Mach1_AuxData.CounterHighSpeedATF_ADS' type='INT' flags=none
+          in[2]: BoxTreeOperand  itemflags=none
+            Operand = '0' type='INT' flags=none
+        out[0] = <null>
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'Mach1_AuxData.CounterHighSpeedATF_ADS' type='INT' flags=none
+      in[2]: BoxTreeOperand  itemflags=none
+        Operand = '1' type='INT' flags=none
+    out[0] = <null>
+    out[1] = 'Mach1_AuxData.CounterHighSpeedATF_ADS' type='INT' flags=none
+
+done

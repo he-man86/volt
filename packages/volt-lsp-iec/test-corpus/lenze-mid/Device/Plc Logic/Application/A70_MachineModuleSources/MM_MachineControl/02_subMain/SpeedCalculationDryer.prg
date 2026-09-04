@@ -40,7 +40,16 @@ NETWORK 0 LD TITLE: "NETWORK 1 : Speed control transport system dryer"
   LET en8 := (Mach1_AuxData.CounterHighSpeedATF_ADS <> 0);
   IF en8 THEN Droger_Data.Cor_numerator := (Mach1_Data.AUTOSPEED * 13); END_IF
   LET en9 := g186;
-  IF en9 THEN EXECUTE(); END_IF
+  IF en9 THEN
+  EXECUTE
+cor_NumDI:=Droger_Data.Cor_numerator;
+cor_DenumDI:=Droger_Data.Cor_denumerator;
+//cor_NumDI:=1;
+//cor_DenumDI:=1;
+HMI_Var.Mach1.ActualSpeedDryer:=(Mach_ActSpeed_Rpm01*cor_numDI)/cor_denumdi;
+Mach1_Data.Drives.FeedForwardADS.Control.AutoSpeed:=REAL_TO_INT(0.9*dint_to_real(HMI_Var.Mach1.ActualSpeedDryer)*6/10);
+  END_EXECUTE
+  END_IF
 END_NETWORK
 NETWORK 1 LD TITLE: "NETWORK 2: Deviation calculation of sync point, transport system trayfiller"
   // Principle: It's better to accelerate the drive then to decelerate, because otherwise cigars could be missed. 

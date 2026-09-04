@@ -123,6 +123,22 @@ def dump(n, depth, tag):
         eno = prop(n, "Eno")
         log("  " * (depth + 1) + "Eno = %r (%s)" % (eno, eno.GetType().Name if eno is not None else "null"))
         log("  " * (depth + 1) + "EnEno=%r  EnEnoPossible=%r" % (prop(n, "EnEno"), prop(n, "EnEnoPossible")))
+        pss = prop(n, "ProvidesSTSnippet")
+        sn = prop(n, "STSnippet")
+        log("  " * (depth + 1) + "ProvidesSTSnippet=%r  STSnippet=%r" % (pss, sn))
+        if sn is not None:
+            for mm in sorted(sn.GetType().GetProperties(_bf()), key=lambda x: x.Name):
+                try: v = mm.GetValue(sn, None)
+                except Exception: v = "<threw>"
+                log("  " * (depth + 2) + "snippet.%-22s = %r" % (mm.Name, v))
+            inner = prop(sn, "Snippet")
+            log("  " * (depth + 2) + ">> Get(snippet,'Snippet') -> %r" % (inner,))
+            if inner is not None:
+                for mm in sorted(inner.GetType().GetProperties(_bf()), key=lambda x: x.Name):
+                    try: v = mm.GetValue(inner, None)
+                    except Exception: v = "<threw>"
+                    sv = repr(v)
+                    log("  " * (depth + 3) + "impl.%-26s = %s" % (mm.Name, sv[:200]))
         ip = prop(n, "InputParams")
         names = None
         if ip is not None:

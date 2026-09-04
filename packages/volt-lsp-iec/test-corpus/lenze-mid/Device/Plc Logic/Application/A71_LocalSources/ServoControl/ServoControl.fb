@@ -104,7 +104,12 @@ NETWORK 13 LD TITLE: "DONE Network 18: SelectBypassCAM"
 END_NETWORK
 NETWORK 14 LD TITLE: "DONE Network 19: Output: X-offset"
   LET en1 := ;
-  IF en1 THEN EXECUTE(); END_IF
+  IF en1 THEN
+  EXECUTE
+ioUDT_ServoDrive.CAM.X_Offset_ToSlave := ioUDT_ServoDrive.CAM.X_Offset_FromMaster + ioUDT_ServoDrive.CAM.X_Offset_Recipe;
+oServoControl.XOffset := INT_TO_WORD(ioUDT_ServoDrive.CAM.X_Offset_Base + ioUDT_ServoDrive.CAM.X_Offset_ToSlave);
+  END_EXECUTE
+  END_IF
 END_NETWORK
 NETWORK 15 LD TITLE: "DONE Network 20: Scaling of the Y value"
   LET g21 := True;
@@ -115,7 +120,11 @@ NETWORK 15 LD TITLE: "DONE Network 20: Scaling of the Y value"
 END_NETWORK
 NETWORK 16 LD TITLE: "DONE Network 21: Y-offset"
   LET en1 := ;
-  IF en1 THEN EXECUTE(); END_IF
+  IF en1 THEN
+  EXECUTE
+oServoControl.YOffset := INT_TO_WORD(ioUDT_ServoDrive.CAM.Y_Offset_Base + ioUDT_ServoDrive.CAM.Y_Offset_Recipe);
+  END_EXECUTE
+  END_IF
 END_NETWORK
 NETWORK 17 LD TITLE: "TODO Network 22: Status inputs from drive"
 END_NETWORK

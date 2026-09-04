@@ -50,7 +50,12 @@ NETWORK 4 LD TITLE: "DONE Network 4: In case a limit switch is reached: overwrit
 END_NETWORK
 NETWORK 5 LD TITLE: "DONE Network 5: Write side-correction values to the servo drive"
   LET en1 := ;
-  IF en1 THEN EXECUTE(); END_IF
+  IF en1 THEN
+  EXECUTE
+tReal:=DB_Kantcorrectie.CopiedValueReal*DINT_TO_REAL(tCorrectionScale);
+Mach1_Data.Drives.SideCorrection.CAM.Y_Scale_Recipe:=REAL_TO_INT(tReal/(-1000));
+  END_EXECUTE
+  END_IF
 END_NETWORK
 NETWORK 6 LD TITLE: "DONE Network 6 : Manual adjustment of the sidecorrection"
   LET g56 := True;

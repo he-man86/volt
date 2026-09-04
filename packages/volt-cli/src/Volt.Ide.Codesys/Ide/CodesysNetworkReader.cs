@@ -224,14 +224,27 @@ namespace Volt.Ide.Codesys
                 flags);
         }
 
-        /// <summary>A CODESYS Execute box: a box whose call is raw ST, carried on the box itself.</summary>
+        /// <summary>A CODESYS Execute box: a box whose call is raw ST, carried on the box itself.
+        ///
+        /// <para><b>The aspect is <c>Snippet</c>, and asking for <c>Implementation</c> got nothing.</b>
+        /// <see cref="CodesysObjectModel.ReadAspectText"/> resolves <c>aspect -&gt; TextDocument -&gt; Text</c>,
+        /// so it wants the OWNER and the aspect's name. This resolved the aspect itself first and then asked
+        /// that object for an <c>Implementation</c> member it does not have — measured on a live SP21 box, an
+        /// <c>STImplementationObject</c> carries <c>TextDocument</c>, <c>LineNumberMapper</c>,
+        /// <c>OwnerObject</c> and <c>GenericObjectService</c>, and nothing called <c>Implementation</c>. So the
+        /// lookup answered "", <c>StCode</c> came back null, and the writer's <c>EXECUTE … END_EXECUTE</c> path
+        /// never ran for any box.</para>
+        ///
+        /// <para>What that cost: the engineer's raw ST inside an FBD network was DROPPED. The box materialized
+        /// as <c>EXECUTE();</c> — a call to a function that does not exist — so the POU could be pulled and
+        /// never pushed back, and the logic was absent from git. Nine such boxes in one real project, and the
+        /// `ProvidesSTSnippet` guard above passed on every one of them.</para></summary>
         private static string? ReadStCode(object n)
         {
             if (!NwlInterop.Flag(n, "ProvidesSTSnippet")) return null;
             var snippet = NwlInterop.Get(n, "STSnippet");
             if (snippet == null) return null;
-            var impl = NwlInterop.Get(snippet, "Snippet") ?? snippet;
-            return CodesysObjectModel.ReadAspectText(impl, "Implementation") is { Length: > 0 } t ? t : null;
+            return CodesysObjectModel.ReadAspectText(snippet, "Snippet") is { Length: > 0 } t ? t : null;
         }
 
         private static Operand ReadOperand(object o) =>
