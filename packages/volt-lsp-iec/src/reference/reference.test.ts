@@ -29,3 +29,27 @@ test("hover falls back to the reference catalog for a built-in type", () => {
   const h = hover(doc, project, src.indexOf(": INT") + 2)
   expect((h?.contents as { value: string }).value).toContain("elementary type")
 })
+
+// ─── conversion built-ins (found via the transpiler's corpus call census: 504 sites) ──────────────────────
+
+test("the conversion operators resolve, derived from the elementary types rather than listed", () => {
+  const real = lookupReference("INT_TO_REAL")
+  expect(real?.oneLiner).toBe("Convert INT to REAL.")
+  expect(real?.returnType).toBe("REAL")
+
+  // the short form names only its target
+  expect(lookupReference("TO_DINT")?.oneLiner).toBe("Convert the operand to DINT.")
+  // case-insensitive, like every other catalog lookup
+  expect(lookupReference("to_real")?.returnType).toBe("REAL")
+  // an integer target carries its range, from `types/elementary` — the same numbers the checks use
+  expect(lookupReference("TO_SINT")?.details).toBe("result range -128..127")
+  // TRUNC stays hand-written: the catalog's wording names its real target (DINT), which the name does not
+  expect(lookupReference("TRUNC")?.oneLiner).toBe("Truncate a REAL/LREAL toward zero to DINT.")
+})
+
+test("a conversion-shaped name with an unknown type is NOT described", () => {
+  // `nameResolves` still lets these through (zero-FP), but the catalog must not invent a target it can't name
+  expect(lookupReference("TO_MYSTRUCT")).toBeUndefined()
+  expect(lookupReference("FOO_TO_BAR")).toBeUndefined()
+  expect(lookupReference("INT_TO_NOPE")).toBeUndefined()
+})

@@ -175,10 +175,44 @@ const CATALOG: ReadonlyMap<string, ReferenceEntry> = new Map(
   ]),
 )
 
+/**
+ * The compiler's type-conversion operators — `INT_TO_REAL`, `TO_REAL`, `TRUNC_DINT`. They are BUILT-INS, not
+ * library functions: no reference is needed to call one, and the corpus calls them 504 times.
+ *
+ * Synthesized rather than listed. There are ~30 elementary types, so enumerating the pairs would be ~900
+ * rows — a second, hand-maintained copy of `ELEMENTARY_TYPES` that could disagree with it. Deriving means the
+ * entry describes exactly what the name says, and a new elementary type gets its conversions for free.
+ *
+ * Deliberately stricter than `nameResolves`' `CONVERSION_RE`, and NOT shared with it: that predicate answers
+ * "may I flag this?" and stays loose so an unusual conversion is never a false positive; this one answers
+ * "can I describe this?" and must not invent a target type it cannot name.
+ */
+const CONVERSION = /^(?:([A-Z0-9]+)_TO_([A-Z0-9]+)|TO_([A-Z0-9]+))$/
+
+function conversionEntry(upper: string): ReferenceEntry | undefined {
+  const m = CONVERSION.exec(upper)
+  if (m === null) return undefined
+  const [, from, to, bare] = m
+  const dst = elementaryType(to ?? bare!)
+  if (dst === undefined) return undefined
+  if (from !== undefined && elementaryType(from) === undefined) return undefined
+  return {
+    name: upper,
+    kind: "operator",
+    oneLiner: `Convert ${from ?? "the operand"} to ${dst.name}.`,
+    returnType: dst.name,
+    ...(dst.range === undefined ? {} : { details: `result range ${dst.range.min}..${dst.range.max}` }),
+  }
+}
+
 /** Look up a built-in reference entry by name (case-insensitive, alias-aware for types). */
 export function lookupReference(name: string): ReferenceEntry | undefined {
   const u = name.toUpperCase()
-  return CATALOG.get(u) ?? (elementaryType(u) !== undefined ? dataTypeEntry(u) : undefined)
+  return (
+    CATALOG.get(u) ??
+    (elementaryType(u) !== undefined ? dataTypeEntry(u) : undefined) ??
+    conversionEntry(u)
+  )
 }
 
 /** Markdown hover body for a reference entry. */
