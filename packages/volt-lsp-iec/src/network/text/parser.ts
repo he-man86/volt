@@ -63,9 +63,26 @@ function parseNetwork(
     i++
   }
   let title: string | undefined
-  if (toks[i]?.kind === "string_lit") {
-    title = stripQuotes(toks[i]!.text)   // the header string is the TITLE; the LABEL is a `name:` statement
-    i++
+  // The header string is the TITLE (the LABEL is a `name:` statement). The bridge writes it DOUBLE-quoted —
+  // `NETWORK 1 LD "STATE: Prehoming"` — which IEC lexes as a WSTRING literal, not a STRING one. Accepting only
+  // `string_lit` meant a titled network never consumed its title: the token fell through into the statement
+  // stream and swallowed the first statement with it, so every `LET` that opened a titled network silently
+  // stopped defining its wire and every use of that wire read as undeclared. Both spellings are taken because
+  // a hand-written body may use either, and the delimiter is not what the title means.
+  const isQuoted = (t: Token | undefined): boolean => t?.kind === "wstring_lit" || t?.kind === "string_lit"
+  if (isQuoted(toks[i])) {
+    // A quote inside the title is DOUBLED by the writer (`NetworkTextWriter`) — the format's only escape, and
+    // not one IEC's lexer knows, so it ends the literal at each quote instead. `"a ""b"""` therefore arrives as
+    // three ADJACENT wstring tokens. Contiguity is exactly what doubling produces, so re-joining the adjacent
+    // run reconstructs the raw title and reproduces the C# reader's rule — "runs to the first UNDOUBLED quote".
+    const first = toks[i]!
+    let raw = ""
+    while (isQuoted(toks[i]) && (raw === "" || toks[i]!.span.start === toks[i - 1]!.span.end)) {
+      raw += toks[i]!.text
+      i++
+    }
+    const quote = first.text[0]!
+    title = stripQuotes(raw).split(quote + quote).join(quote)
   }
   let disabled = false
   if (toks[i]?.kind === "identifier" && toks[i]!.text.toUpperCase() === "DISABLED") {

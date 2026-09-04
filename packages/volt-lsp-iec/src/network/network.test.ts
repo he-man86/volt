@@ -630,3 +630,90 @@ END_NETWORK
 END_PROGRAM`
   expect(vgDiags(src).map((d) => d.code)).toEqual([])
 })
+
+// ─── found by a fresh corpus pull (lenze-mid, 250 diagnostics) ────────────────
+
+// A network TITLE is written DOUBLE-quoted by the bridge, which IEC lexes as a WSTRING literal — not the
+// STRING literal the header parser accepted. The title token therefore fell into the statement stream and
+// swallowed the first statement with it, so a `LET` opening a titled network stopped defining its wire and
+// every later use of that wire read as undeclared. Every real graphical POU has titles.
+test("network text: a double-quoted title is consumed, not parsed as a statement", () => {
+  const src = `FUNCTION_BLOCK F
+VAR a : BOOL; b : BOOL; END_VAR
+NETWORK 0 FBD "Some title"
+  LET g1 := a;
+  b := g1;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  const net = parseNetworkText(vgBody(src)).networks[0]!
+  expect(net.title).toBe("Some title")
+  expect(net.statements.map((s) => s.kind)).toEqual(["wire_def", "sink"])
+  expect(vgDiags(src)).toEqual([])
+})
+
+test("network text: a single-quoted title works too, and a colon in one is not a label", () => {
+  const src = `FUNCTION_BLOCK F
+VAR a : BOOL; END_VAR
+NETWORK 0 LD 'Network 3 : STATE: Prehoming'
+  a := a;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  expect(parseNetworkText(vgBody(src)).networks[0]!.title).toBe("Network 3 : STATE: Prehoming")
+})
+
+// The writer DOUBLES a quote inside the title — the format's only escape, and one IEC's lexer does not know,
+// so it ends the literal at each quote and the title arrives as several ADJACENT tokens.
+test("network text: a doubled quote inside a title round-trips", () => {
+  const src = `FUNCTION_BLOCK F
+VAR a : BOOL; b : BOOL; END_VAR
+NETWORK 0 LD "Muting of alarm ""No bunch"""
+  LET g1 := a;
+  b := g1;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  const net = parseNetworkText(vgBody(src)).networks[0]!
+  expect(net.title).toBe('Muting of alarm "No bunch"')
+  expect(net.statements.map((s) => s.kind)).toEqual(["wire_def", "sink"])
+  expect(vgDiags(src)).toEqual([])
+})
+
+test("network text: DISABLED still parses after a title", () => {
+  const src = `FUNCTION_BLOCK F
+VAR a : BOOL; END_VAR
+NETWORK 0 FBD "T" DISABLED
+  a := a;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  const net = parseNetworkText(vgBody(src)).networks[0]!
+  expect(net.title).toBe("T")
+  expect(net.disabled).toBe(true)
+})
+
+// EN/ENO are IMPLICIT pins on every FBD/LD box — not declared in the FB, so a pin set built only from
+// declared members called a legal `inst(EN := …)` unknown. lenze-mid drives EN on four project FBs and its
+// recorded build accepts every one.
+test("network text: EN and ENO are pins of every box, not unknown ones", () => {
+  const src = `FUNCTION_BLOCK Outer
+VAR inner : Inner; go : BOOL; done : BOOL; END_VAR
+NETWORK 0 FBD
+  inner(EN := go, ENO => done);
+END_NETWORK
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK Inner
+VAR_INPUT x : BOOL; END_VAR
+END_FUNCTION_BLOCK`
+  expect(vgDiags(src).filter((d) => d.code === "network-unknown-pin")).toEqual([])
+})
+
+test("network text: a pin the FB really lacks is still reported", () => {
+  const src = `FUNCTION_BLOCK Outer
+VAR inner : Inner; go : BOOL; END_VAR
+NETWORK 0 FBD
+  inner(nosuchpin := go);
+END_NETWORK
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK Inner
+VAR_INPUT x : BOOL; END_VAR
+END_FUNCTION_BLOCK`
+  expect(vgDiags(src).map((d) => d.code)).toContain("network-unknown-pin")
+})

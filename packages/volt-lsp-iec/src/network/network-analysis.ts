@@ -210,10 +210,18 @@ function checkPins(statements: readonly NetworkTextStatement[], scope: Scope, pr
   }
 }
 
-/** An FB's settable pin names (lowercased), inherited included — or `undefined` if any EXTENDS base is unresolved. */
+/**
+ * An FB's settable pin names (lowercased), inherited included — or `undefined` if any EXTENDS base is
+ * unresolved.
+ *
+ * `EN`/`ENO` are seeded because they are IMPLICIT: every box in FBD/LD carries the enable input and its
+ * output, and neither is declared in the FB, so a pin set built only from declared members reports a legal
+ * `inst(EN := …)` as unknown. Measured, not assumed — lenze-mid drives `EN` on four different project FBs and
+ * its recorded CODESYS build has no complaint about any of them.
+ */
 function pinSet(fbScope: Scope): Set<string> | undefined {
   if (hasUnresolvedBase(fbScope)) return undefined // an incomplete pin set — don't guess
-  const pins = new Set<string>()
+  const pins = new Set<string>(["en", "eno"])
   const seen = new Set<Scope>()
   let s: Scope | undefined = fbScope
   while (s !== undefined && !seen.has(s)) {
