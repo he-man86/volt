@@ -1,0 +1,649 @@
+probe of: Lenze_MID-S100_V5_00_602_T51.project
+wanted POUs: ['General', 'call_OEE_FB', 'SideCorrection', 'ATD_TorqueControl']
+opened (a copy; the original is never touched)
+
+==============================================================================
+POU General  (10 networks)
+==============================================================================
+
+-- NETWORK 0  title='' label='' comment=''
+  tree[0]: BoxTreeBox  itemflags=none  BoxType='GeneralProgramFlags'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=1   InputParams.Names=['EN']
+    OutputParams.Names=['ENO']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeOperand  itemflags=none
+        Operand = 'TRUE' type='BOOL' flags=none
+    out[0] = <null>
+    out[1] = <null>
+
+-- NETWORK 1  title='' label='' comment=''
+  tree[0]: BoxTreeBox  itemflags=none  BoxType='fc_Information'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=1   InputParams.Names=['EN']
+    OutputParams.Names=['ENO']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeOperand  itemflags=none
+        Operand = 'TRUE' type='BOOL' flags=none
+    out[0] = <null>
+    out[1] = <null>
+
+-- NETWORK 2  title='' label='' comment=''
+  tree[0]: BoxTreeBox  itemflags=none  BoxType='SafetyPLC_WordsToUDT_v2'
+    En  = False (Boolean)
+    Eno = False (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=2   InputParams.Names=['ioSafetyStatusUDT', 'ioSafetyControlUDT']
+    OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+      in[0]: BoxTreeOperand  itemflags=none
+        Operand = 'Mach1_Safety.Status' type='udtSafety_Status' flags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'Mach1_Safety.Control' type='udtSafety_Control' flags=none
+
+-- NETWORK 3  title='' label='' comment=''
+  tree[0]: BoxTreeDemux  itemflags=none
+    Input: BoxTreeOperand  itemflags=Negation
+      Operand = 'HMI_Var.ForceOutputs' type='BOOL' flags=Negation
+  tree[1]: BoxTreeBox  itemflags=none  BoxType='Mach1_MIDS'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=1   InputParams.Names=['EN']
+    OutputParams.Names=['ENO']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeDemux  itemflags=none
+    out[0] = <null>
+    out[1] = <null>
+  tree[2]: BoxTreeBox  itemflags=none  BoxType='fc_Visualisation_HMI'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=1   InputParams.Names=['EN']
+    OutputParams.Names=['ENO']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeDemux  itemflags=none
+    out[0] = <null>
+    out[1] = <null>
+  tree[3]: BoxTreeBox  itemflags=none  BoxType='SMC_BitsToBytes'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=1   InputParams.Names=['EN']
+    OutputParams.Names=['ENO']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeDemux  itemflags=none
+    out[0] = <null>
+    out[1] = <null>
+
+-- NETWORK 4  title='' label='' comment=''
+  tree[0]: BoxTreeBox  itemflags=none  BoxType='Status_ForceOutputs'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=1   InputParams.Names=['EN']
+    OutputParams.Names=['ENO']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeOperand  itemflags=none
+        Operand = 'TRUE' type='BOOL' flags=none
+    out[0] = <null>
+    out[1] = <null>
+
+-- NETWORK 5  title='' label='' comment=''
+  tree[0]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeTerminator  itemflags=none
+    out[0] = 'LST_General.FirstCycle' type='BOOL' flags=Negation+Set
+
+-- NETWORK 6  title='' label='' comment=''
+  tree[0]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeBox  itemflags=none  BoxType='BLINK'
+      En  = False (Boolean)
+      Eno = False (Boolean)
+      EnEno=True  EnEnoPossible=True
+      InputItemList count=3   InputParams.Names=['ENABLE', 'TIMELOW', 'TIMEHIGH']
+      OutputParams.Names=['OUT']  MainOutputIndex=0  MainInputIndex=0
+        in[0]: BoxTreeOperand  itemflags=none
+          Operand = 'TRUE' type='BOOL' flags=none
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'T#1S' type='TIME' flags=none
+        in[2]: BoxTreeOperand  itemflags=none
+          Operand = 'T#1S' type='TIME' flags=none
+      out[0] = <null>
+    out[0] = 'Bugs.checkconnection' type='BOOL' flags=none
+
+-- NETWORK 7  title='' label='' comment=''
+  tree[0]: BoxTreeBox  itemflags=none  BoxType='TON'
+    En  = False (Boolean)
+    Eno = False (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=2   InputParams.Names=['IN', 'PT']
+    OutputParams.Names=['Q']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeOperand  itemflags=Negation
+        Operand = 'Bugs.reportConnectionAlive' type='BOOL' flags=Negation
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'T#2S' type='TIME' flags=none
+    out[0] = <null>
+
+-- NETWORK 8  title='' label='' comment=''
+  tree[0]: BoxTreeBox  itemflags=none  BoxType='TON'
+    En  = False (Boolean)
+    Eno = False (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=2   InputParams.Names=['IN', 'PT']
+    OutputParams.Names=['Q']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeOperand  itemflags=none
+        Operand = 'Bugs.reportConnectionAlive' type='BOOL' flags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'T#2S' type='TIME' flags=none
+    out[0] = <null>
+
+-- NETWORK 9  title='' label='' comment=''
+  tree[0]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeBox  itemflags=none  BoxType='OR'
+      En  = None (null)
+      Eno = None (null)
+      EnEno=True  EnEnoPossible=True
+      InputItemList count=2   InputParams.Names=[]
+      OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+        in[0]: BoxTreeOperand  itemflags=none
+          Operand = 'TON_0.Q' type='BOOL' flags=none
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'TON_1.Q' type='BOOL' flags=none
+    out[0] = 'Bugs.restart' type='BOOL' flags=none
+
+==============================================================================
+POU SideCorrection  (7 networks)
+==============================================================================
+
+-- NETWORK 0  title='Network 1: Averaging of sensorsignal' label='' comment=''
+  tree[0]: BoxTreeBox  itemflags=none  BoxType='fc_MeanValue'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=5   InputParams.Names=['EN', 'iLength', 'iAcquireNewValue', 'iNewValue', 'ioValues']
+    OutputParams.Names=['ENO', 'oMeanValue']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeTerminator  itemflags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = '20' type='INT' flags=none
+      in[2]: BoxTreeOperand  itemflags=none
+        Operand = 'True' type='BOOL' flags=none
+      in[3]: BoxTreeOperand  itemflags=none
+        Operand = 'TO_INT(LST_InputsOutputs.IW340_LeafCoverageSensor)' type='INT' flags=none
+      in[4]: BoxTreeOperand  itemflags=none
+        Operand = 'db_MeanValuesSideCorrectionSensor.MeasurementValues' type='ARRAY [0..50] OF INT' flags=none
+    out[0] = <null>
+    out[1] = 'DB_Kantcorrectie.MeasuredValue' type='INT' flags=none
+
+-- NETWORK 1  title='' label='' comment=''
+  tree[0]: BoxTreeDemux  itemflags=none
+    Input: BoxTreeOperand  itemflags=none
+      Operand = 'TRUE' type='BOOL' flags=none
+  tree[1]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeBox  itemflags=none  BoxType='MOVE'
+      En  = True (Boolean)
+      Eno = True (Boolean)
+      EnEno=True  EnEnoPossible=True
+      InputItemList count=2   InputParams.Names=['EN']
+      OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+        in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+          En  = None (null)
+          Eno = None (null)
+          EnEno=True  EnEnoPossible=True
+          InputItemList count=2   InputParams.Names=[]
+          OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+            in[0]: BoxTreeDemux  itemflags=none
+            in[1]: BoxTreeOperand  itemflags=none
+              Operand = 'DB_Kantcorrectie.CopyMeasuredToDark' type='BOOL' flags=none
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'DB_Kantcorrectie.MeasuredValue' type='INT' flags=none
+      out[0] = <null>
+      out[1] = 'DB_Kantcorrectie.DarkValue' type='INT' flags=none
+    out[0] = 'DB_Kantcorrectie.CopyMeasuredToDark' type='BOOL' flags=Negation+Set
+  tree[2]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeBox  itemflags=none  BoxType='MOVE'
+      En  = True (Boolean)
+      Eno = True (Boolean)
+      EnEno=True  EnEnoPossible=True
+      InputItemList count=2   InputParams.Names=['EN']
+      OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+        in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+          En  = None (null)
+          Eno = None (null)
+          EnEno=True  EnEnoPossible=True
+          InputItemList count=2   InputParams.Names=[]
+          OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+            in[0]: BoxTreeDemux  itemflags=none
+            in[1]: BoxTreeOperand  itemflags=none
+              Operand = 'DB_Kantcorrectie.CopyMeasuredToLight' type='BOOL' flags=none
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'DB_Kantcorrectie.MeasuredValue' type='INT' flags=none
+      out[0] = <null>
+      out[1] = 'DB_Kantcorrectie.LightValue' type='INT' flags=none
+    out[0] = 'DB_Kantcorrectie.CopyMeasuredToLight' type='BOOL' flags=Negation+Set
+
+-- NETWORK 2  title='Network 2: Read out inputvalue and calculate correctionvalue' label='' comment=''
+  tree[0]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=2   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeBox  itemflags=none  BoxType='SidecorrectionCalculation'
+        En  = True (Boolean)
+        Eno = True (Boolean)
+        EnEno=True  EnEnoPossible=True
+        InputItemList count=7   InputParams.Names=['EN', 'iAnalogInputValue', 'iSetpoint', 'iCorrectionScale', 'iLightValue', 'iDarkValue', 'iNoWrapperOffsetPercentage01Perc']
+        OutputParams.Names=['ENO', 'oIntPercentage', 'oCorrectionValue', 'oDeviationNoWrapper']  MainOutputIndex=0  MainInputIndex=0
+          in[0]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+            En  = True (Boolean)
+            Eno = True (Boolean)
+            EnEno=True  EnEnoPossible=True
+            InputItemList count=2   InputParams.Names=['EN']
+            OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+              in[0]: BoxTreeOperand  itemflags=none
+                Operand = 'TRUE' type='BOOL' flags=none
+              in[1]: BoxTreeOperand  itemflags=none
+                Operand = 'Mach1_Data.Settings.Ints.SideCorrectionScaleFactor' type='INT' flags=none
+            out[0] = <null>
+            out[1] = 'tCorrectionScale' type='DINT' flags=none
+          in[1]: BoxTreeOperand  itemflags=none
+            Operand = 'DB_Kantcorrectie.MeasuredValue' type='INT' flags=none
+          in[2]: BoxTreeOperand  itemflags=none
+            Operand = 'DB_Kantcorrectie.Setpoint' type='INT' flags=none
+          in[3]: BoxTreeOperand  itemflags=none
+            Operand = '-1' type='INT' flags=none
+          in[4]: BoxTreeOperand  itemflags=none
+            Operand = 'DB_Kantcorrectie.LightValue' type='INT' flags=none
+          in[5]: BoxTreeOperand  itemflags=none
+            Operand = 'DB_Kantcorrectie.DarkValue' type='INT' flags=none
+          in[6]: BoxTreeOperand  itemflags=none
+            Operand = 'DB_Kantcorrectie.NoWrapperPercentage' type='INT' flags=none
+        out[0] = <null>
+        out[1] = 'DB_Kantcorrectie.Percentage10' type='INT' flags=none
+        out[2] = 'DB_Kantcorrectie.MeasuredValueReal' type='REAL' flags=none
+        out[3] = 'tReal' type='REAL' flags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'REAL_TO_INT(tReal)' type='INT' flags=none
+    out[0] = <null>
+    out[1] = 'DB_Kantcorrectie.DeviationNoWrapper' type='INT' flags=none
+
+-- NETWORK 3  title='Network 3: Determine side-correction value' label='' comment=''
+  tree[0]: BoxTreeDemux  itemflags=none
+    Input: BoxTreeBox  itemflags=none  BoxType='fc_CamC_CP_UDT'
+      En  = False (Boolean)
+      Eno = False (Boolean)
+      EnEno=True  EnEnoPossible=True
+      InputItemList count=4   InputParams.Names=['iEN', 'iMachinePosition', 'iResetFlag', 'ioPulse']
+      OutputParams.Names=['   ']  MainOutputIndex=0  MainInputIndex=0
+        in[0]: BoxTreeTerminator  itemflags=none
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'HMI_Var.Mach1.Position' type='INT' flags=none
+        in[2]: BoxTreeOperand  itemflags=none
+          Operand = 'Mach1.GenFlags.Rotflag' type='BOOL' flags=none
+        in[3]: BoxTreeOperand  itemflags=none
+          Operand = 'Mach1_Data.CamControls.MeasurementForSidecorrection_CP' type='UDT_CamPulse' flags=none
+      out[0] = <null>
+  tree[1]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=2   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+        En  = True (Boolean)
+        Eno = True (Boolean)
+        EnEno=True  EnEnoPossible=True
+        InputItemList count=2   InputParams.Names=['EN']
+        OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+          in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+            En  = None (null)
+            Eno = None (null)
+            EnEno=True  EnEnoPossible=True
+            InputItemList count=3   InputParams.Names=[]
+            OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+              in[0]: BoxTreeDemux  itemflags=none
+              in[1]: BoxTreeOperand  itemflags=none
+                Operand = 'Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK' type='BOOL' flags=none
+              in[2]: BoxTreeOperand  itemflags=none
+                Operand = 'Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_right_OK' type='BOOL' flags=none
+          in[1]: BoxTreeOperand  itemflags=none
+            Operand = 'DB_Kantcorrectie.MeasuredValueReal' type='REAL' flags=none
+        out[0] = <null>
+        out[1] = 'DB_Kantcorrectie.CopiedValueReal' type='REAL' flags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'DB_Kantcorrectie.Percentage10' type='INT' flags=none
+    out[0] = <null>
+    out[1] = 'DB_Kantcorrectie.CopiedValueInt' type='INT' flags=none
+  tree[2]: BoxTreeDemux  itemflags=none
+    Input: BoxTreeBox  itemflags=none  BoxType='AND'
+      En  = None (null)
+      Eno = None (null)
+      EnEno=True  EnEnoPossible=True
+      InputItemList count=2   InputParams.Names=[]
+      OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+        in[0]: BoxTreeDemux  itemflags=none
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'Mach1_AuxData.MemWrapperDetected_ResetLimitedSpeed' type='BOOL' flags=none
+  tree[3]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeDemux  itemflags=none
+    out[0] = 'Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper' type='BOOL' flags=Negation+Set
+  tree[4]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeDemux  itemflags=none
+    out[0] = 'Mach1_AuxData.MemWrapperDetected_ResetLimitedSpeed' type='BOOL' flags=Negation+Set
+  tree[5]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeBox  itemflags=none  BoxType='AND'
+      En  = None (null)
+      Eno = None (null)
+      EnEno=True  EnEnoPossible=True
+      InputItemList count=2   InputParams.Names=[]
+      OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+        in[0]: BoxTreeBox  itemflags=none  BoxType='GT'
+          En  = True (Boolean)
+          Eno = False (Boolean)
+          EnEno=True  EnEnoPossible=True
+          InputItemList count=3   InputParams.Names=['EN']
+          OutputParams.Names=['']  MainOutputIndex=0  MainInputIndex=0
+            in[0]: BoxTreeBox  itemflags=none  BoxType='SUB'
+              En  = True (Boolean)
+              Eno = True (Boolean)
+              EnEno=True  EnEnoPossible=True
+              InputItemList count=3   InputParams.Names=['EN']
+              OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+                in[0]: BoxTreeDemux  itemflags=none
+                in[1]: BoxTreeOperand  itemflags=none
+                  Operand = 'DB_Kantcorrectie.LightValue' type='INT' flags=none
+                in[2]: BoxTreeOperand  itemflags=none
+                  Operand = 'DB_Kantcorrectie.DeviationNoWrapper' type='INT' flags=none
+              out[0] = <null>
+              out[1] = 'DB_Kantcorrectie.NoWrapperValue' type='INT' flags=none
+            in[1]: BoxTreeOperand  itemflags=none
+              Operand = 'LST_InputsOutputs.IW340_LeafCoverageSensor' type='INT' flags=none
+            in[2]: BoxTreeOperand  itemflags=none
+              Operand = 'DB_Kantcorrectie.NoWrapperValue' type='INT' flags=none
+          out[0] = <null>
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'HMI_Var.Test_Prod' type='BOOL' flags=none
+    out[0] = 'Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper' type='BOOL' flags=Set
+
+-- NETWORK 4  title='DONE Network 4: In case a limit switch is reached: overwrite values' label='' comment=''
+  tree[0]: BoxTreeDemux  itemflags=none
+    Input: BoxTreeOperand  itemflags=none
+      Operand = 'True' type='BOOL' flags=none
+  tree[1]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=2   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+        En  = None (null)
+        Eno = None (null)
+        EnEno=True  EnEnoPossible=True
+        InputItemList count=3   InputParams.Names=[]
+        OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+          in[0]: BoxTreeDemux  itemflags=none
+          in[1]: BoxTreeOperand  itemflags=Negation
+            Operand = 'Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK' type='BOOL' flags=Negation
+          in[2]: BoxTreeOperand  itemflags=none
+            Operand = 'Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK' type='BOOL' flags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = '-100.0' type='LREAL' flags=none
+    out[0] = <null>
+    out[1] = 'DB_Kantcorrectie.CopiedValueReal' type='REAL' flags=none
+  tree[2]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=2   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+        En  = True (Boolean)
+        Eno = True (Boolean)
+        EnEno=True  EnEnoPossible=True
+        InputItemList count=2   InputParams.Names=['EN']
+        OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+          in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+            En  = None (null)
+            Eno = None (null)
+            EnEno=True  EnEnoPossible=True
+            InputItemList count=3   InputParams.Names=[]
+            OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+              in[0]: BoxTreeDemux  itemflags=none
+              in[1]: BoxTreeOperand  itemflags=Negation
+                Operand = 'Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK' type='BOOL' flags=Negation
+              in[2]: BoxTreeOperand  itemflags=none
+                Operand = 'Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK' type='BOOL' flags=none
+          in[1]: BoxTreeOperand  itemflags=none
+            Operand = '100.0' type='LREAL' flags=none
+        out[0] = <null>
+        out[1] = 'DB_Kantcorrectie.CopiedValueReal' type='REAL' flags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = '-1' type='INT' flags=none
+    out[0] = <null>
+    out[1] = 'tCorrectionScale' type='DINT' flags=none
+  tree[3]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=2   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+        En  = True (Boolean)
+        Eno = True (Boolean)
+        EnEno=True  EnEnoPossible=True
+        InputItemList count=2   InputParams.Names=['EN']
+        OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+          in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+            En  = None (null)
+            Eno = None (null)
+            EnEno=True  EnEnoPossible=True
+            InputItemList count=2   InputParams.Names=[]
+            OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+              in[0]: BoxTreeDemux  itemflags=none
+              in[1]: BoxTreeBox  itemflags=none  BoxType='OR'
+                En  = None (null)
+                Eno = None (null)
+                EnEno=True  EnEnoPossible=True
+                InputItemList count=3   InputParams.Names=[]
+                OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+                  in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+                    En  = None (null)
+                    Eno = None (null)
+                    EnEno=True  EnEnoPossible=True
+                    InputItemList count=2   InputParams.Names=[]
+                    OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+                      in[0]: BoxTreeOperand  itemflags=Negation
+                        Operand = 'Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK' type='BOOL' flags=Negation
+                      in[1]: BoxTreeOperand  itemflags=Negation
+                        Operand = 'Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK' type='BOOL' flags=Negation
+                  in[1]: BoxTreeOperand  itemflags=Negation
+                    Operand = 'HMI_Var.Test_Prod' type='BOOL' flags=Negation
+                  in[2]: BoxTreeOperand  itemflags=none
+                    Operand = 'Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper' type='BOOL' flags=none
+          in[1]: BoxTreeOperand  itemflags=none
+            Operand = '0.0' type='LREAL' flags=none
+        out[0] = <null>
+        out[1] = 'DB_Kantcorrectie.CopiedValueReal' type='REAL' flags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = '1' type='INT' flags=none
+    out[0] = <null>
+    out[1] = 'tCorrectionScale' type='DINT' flags=none
+
+-- NETWORK 5  title='DONE Network 5: Write side-correction values to the servo drive' label='' comment=''
+  tree[0]: BoxTreeBox  itemflags=none  BoxType='EXECUTE'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=1   InputParams.Names=['EN']
+    OutputParams.Names=['ENO']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeTerminator  itemflags=none
+    out[0] = <null>
+
+-- NETWORK 6  title='DONE Network 6 : Manual adjustment of the sidecorrection' label='' comment=''
+  tree[0]: BoxTreeDemux  itemflags=none
+    Input: BoxTreeOperand  itemflags=none
+      Operand = 'True' type='BOOL' flags=none
+  tree[1]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeBox  itemflags=none  BoxType='AND'
+      En  = None (null)
+      Eno = None (null)
+      EnEno=True  EnEnoPossible=True
+      InputItemList count=3   InputParams.Names=[]
+      OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+        in[0]: BoxTreeDemux  itemflags=none
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Left_OK' type='BOOL' flags=none
+        in[2]: BoxTreeOperand  itemflags=none
+          Operand = 'HMI_Var.Mach1.DTA_PositioningLeft' type='BOOL' flags=none
+    out[0] = 'Mach1_Data.Drives.SideCorrection_FreeLimit.Control.Jog_LimitToLeft' type='BOOL' flags=none
+  tree[2]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeBox  itemflags=none  BoxType='AND'
+      En  = None (null)
+      Eno = None (null)
+      EnEno=True  EnEnoPossible=True
+      InputItemList count=3   InputParams.Names=[]
+      OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+        in[0]: BoxTreeDemux  itemflags=none
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'Mach1_Data.Drives.SideCorrection_FreeLimit.Status.Limit_Right_OK' type='BOOL' flags=none
+        in[2]: BoxTreeOperand  itemflags=none
+          Operand = 'HMI_Var.Mach1.DTA_PositioningRight' type='BOOL' flags=none
+    out[0] = 'Mach1_Data.Drives.SideCorrection_FreeLimit.Control.Jog_LimitToRight' type='BOOL' flags=none
+
+==============================================================================
+POU ATD_TorqueControl  (2 networks)
+==============================================================================
+
+-- NETWORK 0  title='' label='' comment=''
+  tree[0]: BoxTreeBox  itemflags=none  BoxType='ATD_FQI'
+    En  = False (Boolean)
+    Eno = False (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=2   InputParams.Names=['ioAxis', 'DataIO']
+    OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+      in[0]: BoxTreeOperand  itemflags=none
+        Operand = 'ioAxis' type='AXIS_REF' flags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'DataIO' type='sUDT_FQIComm_Drive' flags=none
+
+-- NETWORK 1  title='' label='' comment=''
+  tree[0]: BoxTreeBox  itemflags=none  BoxType='L_MC1P_CyclicParameterAccessWrite'
+    En  = False (Boolean)
+    Eno = False (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=8   InputParams.Names=['Axis', 'xEnable', 'wIndex', 'usiSubIndex', 'usiSize', 'xSigned', 'lrScaleFactor', 'lrData']
+    OutputParams.Names=['xValid', 'xBusy', 'xError', 'eErrorID']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeOperand  itemflags=none
+        Operand = 'ioAxis' type='AXIS_REF' flags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'TRUE' type='BOOL' flags=none
+      in[2]: BoxTreeOperand  itemflags=none
+        Operand = '16#4008' type='INT' flags=none
+      in[3]: BoxTreeOperand  itemflags=none
+        Operand = '5' type='INT' flags=none
+      in[4]: BoxTreeOperand  itemflags=none
+        Operand = '2' type='INT' flags=none
+      in[5]: BoxTreeOperand  itemflags=none
+        Operand = '1' type='INT' flags=none
+      in[6]: BoxTreeOperand  itemflags=none
+        Operand = '1' type='INT' flags=none
+      in[7]: BoxTreeOperand  itemflags=none
+        Operand = 'lrTorque' type='LREAL' flags=none
+    out[0] = <null>
+    out[1] = '' type='' flags=none
+    out[2] = '' type='' flags=none
+    out[3] = '' type='' flags=none
+
+==============================================================================
+POU call_OEE_FB  (1 networks)
+==============================================================================
+
+-- NETWORK 0  title='' label='' comment='//**********************************************************************************************************************************************************\r\n// Call up L_OEE_FBs for OEE KPI calculation, Downtime & Production state Tracking\r\n// With the Bit xSimultionEnabled the FB will go in simulation mode and generate Part count, state changes and donwtimes\r\n// With the Bit xHMIShiftDataActive the FB will take the Shift data from the HMI datastructure if TRUE \r\n//**********************************************************************************************************************************************************'
+  tree[0]: BoxTreeBox  itemflags=none  BoxType='L_OEEA_FBs'
+    En  = False (Boolean)
+    Eno = False (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=40   InputParams.Names=['xEnabled', 'xResetActualData', 'xResetHistoryData', 'xProdSimultionEnabled', 'xProdSimEventOccurrence', 'xProdSimMaterialProduction', 'xHMIActive', 'eSchedulerMode', 'eSetWeekday', 'xDeactiveShiftContiniousUpdate', 'uiMaxSimulationEvents', 'scTrigger', 'xUseResonCodeString', 'xUpdateJsonOEEKPI', 'xManualShiftReset', 'xShiftProductionActive', 'xLaterShiftStartEnabled', 'scSimulationModes', 'sReasonTextPowerOn', 'scProductionMode', 'asErrorCategory', 'scFirstErrorData', 'ascDaySchedules', 'scPDinternal', 'scPDinternalDowntime', 'scPDProductionData', 'scPDShiftDayIndex', 'scPDShiftHistory_base', 'scShiftDowntimeHistory', 'scOEE_VisuPD', 'scVisu_OUT_PartCorrection', 'scVisu_OUT_Buttons', 'scSimulationDowntimes', 'scMachineData', 'scPerformance', 'scActualStateDuration', 'scDowntime', 'scVisu_IN_X_Trend', 'scVisu_IN_Y_Trend', 'scVisu_Trend_Y_Limits']
+    OutputParams.Names=['xBusy', 'xError', 'scShiftValues']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeOperand  itemflags=none
+        Operand = 'xEnabled' type='BOOL' flags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'xResetActualData' type='BOOL' flags=none
+      in[2]: BoxTreeOperand  itemflags=none
+        Operand = 'xResetHistoryData' type='BOOL' flags=none
+      in[3]: BoxTreeOperand  itemflags=none
+        Operand = 'xProdSimultionEnabled' type='BOOL' flags=none
+      in[4]: BoxTreeOperand  itemflags=none
+        Operand = 'xProdSimEventOccurrence' type='BOOL' flags=none
+      in[5]: BoxTreeOperand  itemflags=none
+        Operand = 'xProdSimMaterialProduction' type='BOOL' flags=none
+      in[6]: BoxTreeOperand  itemflags=none
+        Operand = 'xHMIActive' type='BOOL' flags=none
+      in[7]: BoxTreeOperand  itemflags=none
+        Operand = 'eSchedulerMode' type='L_OEEA_Lib.enumShiftMode' flags=none
+      in[8]: BoxTreeOperand  itemflags=none
+        Operand = 'eSetWeekday' type='L_OEEA_Lib.RTCLK.WEEKDAY' flags=none
+      in[9]: BoxTreeOperand  itemflags=none
+        Operand = 'xDeactiveShiftContiniousUpdate' type='BOOL' flags=none
+      in[10]: BoxTreeOperand  itemflags=none
+        Operand = 'scSimulationDowntimes .uiMaxSimulationEvents' type='UINT' flags=none
+      in[11]: BoxTreeOperand  itemflags=none
+        Operand = 'scTrigger' type='L_OEEA_Lib.scTrigger' flags=none
+      in[12]: BoxTreeOperand  itemflags=none
+        Operand = 'xUseReasonCodeString' type='BOOL' flags=none
+      in[13]: BoxTreeOperand  itemflags=none
+        Operand = 'xUpdateJsonOEEKPI' type='BOOL' flags=none
+      in[14]: BoxTreeOperand  itemflags=none
+        Operand = 'xManualShiftReset' type='BOOL' flags=none
+      in[15]: BoxTreeOperand  itemflags=none
+        Operand = 'scMachineData.scProduction.xProductionActive' type='BOOL' flags=none
+      in[16]: BoxTreeOperand  itemflags=none
+        Operand = 'xLaterShiftStartEnable' type='BOOL' flags=none
+      in[17]: BoxTreeOperand  itemflags=none
+        Operand = 'scSimulationModes' type='L_OEEA_Lib.scSimulationModes' flags=none
+      in[18]: BoxTreeOperand  itemflags=none
+        Operand = 'GVL_FirstErrCapture.sReasonTextPowerOn' type='STRING' flags=none
+      in[19]: BoxTreeOperand  itemflags=none
+        Operand = 'scProductionModeLib' type='L_OEEA_Lib.scProductionMode' flags=none
+      in[20]: BoxTreeOperand  itemflags=none
+        Operand = 'asErrorCategoryLib' type='L_OEEA_Lib.scCategoryStruct' flags=none
+      in[21]: BoxTreeOperand  itemflags=none
+        Operand = 'scFirstErrorData' type='L_OEEA_Lib.scErrorData' flags=none
+      in[22]: BoxTreeOperand  itemflags=none
+        Operand = 'ascDaySchedules' type='ARRAY [1..L_OEEA_lib.uiDaySchedule] OF L_OEEA_Lib.scDaySchedule' flags=none
+      in[23]: BoxTreeOperand  itemflags=none
+        Operand = 'MM_PD.scPDinternal' type='L_OEEA_Lib.scInternalVar' flags=none
+      in[24]: BoxTreeOperand  itemflags=none
+        Operand = 'MM_PD.scPDinternalDowntime' type='L_OEEA_Lib.scInternalDownVar' flags=none
+      in[25]: BoxTreeOperand  itemflags=none
+        Operand = 'MM_PD.scPDProductionData' type='L_OEEA_Lib.scInternalProductionData' flags=none
+      in[26]: BoxTreeOperand  itemflags=none
+        Operand = 'MM_PD.scPDShiftDayIndex' type='L_OEEA_Lib.scPDShiftData' flags=none
+      in[27]: BoxTreeOperand  itemflags=none
+        Operand = 'MM_PD.scShiftHistory' type='L_OEEA_Lib.scVisuShiftHistory_base' flags=none
+      in[28]: BoxTreeOperand  itemflags=none
+        Operand = 'MM_PD.scShiftDowntimeHistory' type='ARRAY [1..3] OF L_OEEA_Lib.scDowntime_base' flags=none
+      in[29]: BoxTreeOperand  itemflags=none
+        Operand = 'MM_PD.scOEE_VisuPD' type='L_OEEA_Lib.scOEE_VisuPD' flags=none
+      in[30]: BoxTreeOperand  itemflags=none
+        Operand = 'GVL_OEE_Var.scVisu_OUT_PartCorrection' type='L_OEEA_Lib.scPartCorrectionInput' flags=none
+      in[31]: BoxTreeOperand  itemflags=none
+        Operand = 'GVL_OEE_Var.scVisu_OUT_Buttons' type='L_OEEA_Lib.scVisuButtons' flags=none
+      in[32]: BoxTreeOperand  itemflags=none
+        Operand = 'scSimulationDowntimesLib' type='L_OEEA_Lib.scSimulationDowntimes' flags=none
+      in[33]: BoxTreeOperand  itemflags=none
+        Operand = 'scMachineData' type='L_OEEA_Lib.scMachineData' flags=none
+      in[34]: BoxTreeOperand  itemflags=none
+        Operand = 'GVL_OEE_Var.scPerformance' type='L_OEEA_Lib.scPerformance' flags=none
+      in[35]: BoxTreeOperand  itemflags=none
+        Operand = 'GVL_OEE_Var.scActualStateDuration' type='L_OEEA_Lib.scVisuProductionStatus_base' flags=none
+      in[36]: BoxTreeOperand  itemflags=none
+        Operand = 'MM_PD.scDowntime' type='L_OEEA_Lib.scDowntime' flags=none
+      in[37]: BoxTreeOperand  itemflags=none
+        Operand = 'GVL_OEE_Var.scVisu_IN_X_Trend' type='L_OEEA_Lib.scXAxis_Trend' flags=none
+      in[38]: BoxTreeOperand  itemflags=none
+        Operand = 'GVL_OEE_Var.scVisu_IN_Y_Trend' type='L_OEEA_Lib.scYAxis_Trend' flags=none
+      in[39]: BoxTreeOperand  itemflags=none
+        Operand = 'GVL_OEE_Var.scVisu_Trend_Y_Limits' type='L_OEEA_Lib.scTrend_Limits' flags=none
+    out[0] = <null>
+    out[1] = 'xError' type='BOOL' flags=none
+    out[2] = 'GVL_OEE_Var.scShiftValues' type='L_OEEA_Lib.scCurrentShiftValues' flags=none
+
+done

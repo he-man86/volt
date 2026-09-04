@@ -324,9 +324,10 @@ public static class NetworkTextReader
                 // item is removed") and lose the rung.
                 if (a.Rhs.Trim().Length == 0)
                     return (null, new Assign(new Terminator(null, Flags.None),
-                                             new List<Operand> { new(a.Lhs) }, Flags.None));
+                                             new List<Operand> { new(a.Lhs, Flags: a.Storage) }, Flags.None));
 
-                return (null, new Assign(ParseOperand(a.Rhs), new List<Operand> { new(a.Lhs) }, Flags.None));
+                return (null, new Assign(ParseOperand(a.Rhs),
+                                         new List<Operand> { new(a.Lhs, Flags: a.Storage) }, Flags.None));
             }
 
             // A bare call statement is an FB INSTANCE invocation, and an instance binds its pins BY NAME. A
@@ -362,9 +363,18 @@ public static class NetworkTextReader
             throw new NetworkTextException("not a statement: " + line);
         }
 
-        /// <summary>Split on the FIRST top-level <c>:=</c> — one inside a call's argument list
-        /// (<c>t1(IN := a)</c>) is not the statement's assignment.</summary>
-        private static (string Lhs, string Rhs)? SplitAssign(string s)
+        /// <summary>Split on the FIRST top-level assignment operator — one inside a call's argument list
+        /// (<c>t1(IN := a)</c>) is not the statement's assignment.
+        ///
+        /// <para>Three operators, and the one used says what KIND OF COIL the target is: <c>:=</c> a plain
+        /// coil, <c>S=</c> a set coil, <c>R=</c> a reset coil. They are ExST's own (see
+        /// <c>NetworkTextWriter.AssignOp</c>), so the storage rides on the operator rather than as a trailing
+        /// word on the value.</para>
+        ///
+        /// <para><c>S=</c>/<c>R=</c> are recognised only as a TOKEN OF THEIR OWN — preceded by whitespace, not
+        /// followed by another <c>=</c> — so a comparison, or an l-value whose name merely ends in those
+        /// letters, cannot be mistaken for one.</para></summary>
+        private static (string Lhs, string Rhs, Flags Storage)? SplitAssign(string s)
         {
             int depth = 0;
             for (int i = 0; i + 1 < s.Length; i++)
@@ -373,7 +383,12 @@ public static class NetworkTextReader
                 if (c == '(') depth++;
                 else if (c == ')') depth--;
                 else if (depth == 0 && c == ':' && s[i + 1] == '=')
-                    return (s.Substring(0, i).Trim(), s.Substring(i + 2).Trim());
+                    return (s.Substring(0, i).Trim(), s.Substring(i + 2).Trim(), Flags.None);
+                else if (depth == 0 && (c == 'S' || c == 'R') && s[i + 1] == '='
+                         && i > 0 && char.IsWhiteSpace(s[i - 1])
+                         && (i + 2 >= s.Length || s[i + 2] != '='))
+                    return (s.Substring(0, i).Trim(), s.Substring(i + 2).Trim(),
+                            c == 'S' ? Flags.None with { Set = true } : Flags.None with { Reset = true });
             }
             return null;
         }
@@ -620,9 +635,9 @@ public static class NetworkTextReader
             var core = Core();
             SkipWs();
             bool rising = Word("RISING"), falling = !rising && Word("FALLING");
-            SkipWs();
-            bool set = Word("SET"), reset = !set && Word("RESET");
-            var f = new Flags(negated, set, reset, false, false, rising, falling);
+            // NO STORAGE HERE. `SET`/`RESET` used to be read as trailing modifiers on the value; storage is a
+            // property of the COIL and is now the assignment operator (`S=` / `R=`), read where the target is.
+            var f = new Flags(negated, false, false, false, false, rising, falling);
             return f.IsNone ? core : WithFlags(core, f);
         }
 

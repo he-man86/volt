@@ -407,8 +407,37 @@ END_FUNCTION_BLOCK`
   expect(d?.message).toBe("Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : Possible change of sign")
 })
 
-// Gap found via a re-harvested corpus: a RESET/SET coil value collides with a same-named enum member.
-test("network text: a reset-coil sink (`:= RESET`) is not typed as an enum→BOOL mismatch", () => {
+// A reset coil is now the `R=` OPERATOR, so it cannot collide with a name.
+//
+// This test used to assert the opposite: that `flag := RESET;` was a reset coil and must NOT be typed. That
+// was the old spelling — storage as a trailing word on the value — and it forced the analysis to exempt the
+// bare words `SET`/`RESET` everywhere a sink value could stand. The exemption was not free, and this test was
+// the evidence: `RESET` is a perfectly ordinary enum member, so the rule that kept a coil quiet also silenced
+// every genuine mistake involving one. Both halves are now checkable, and they are the two cases below.
+test("network text: a reset coil is the R= operator, and it is not a type mismatch", () => {
+  const src = `TYPE DEVICE_STATE : (START, STOP, RESET); END_TYPE
+FUNCTION_BLOCK F
+VAR flag : BOOL; drive : BOOL; END_VAR
+NETWORK 0 LD
+flag R= drive;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  expect(vgDiags(src).filter((d) => d.code === "assignment-type-mismatch")).toEqual([])
+})
+
+test("network text: a set coil is the S= operator, and it is not a type mismatch", () => {
+  const src = `FUNCTION_BLOCK F
+VAR flag : BOOL; drive : BOOL; END_VAR
+NETWORK 0 LD
+flag S= drive;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  expect(vgDiags(src).filter((d) => d.code === "assignment-type-mismatch")).toEqual([])
+})
+
+// The half the old exemption had to give up. Assigning an enum member to a BOOL is a real mistake, and with
+// storage spelled as an operator there is nothing left to confuse it with.
+test("network text: assigning a same-named enum member to a BOOL is still a mismatch", () => {
   const src = `TYPE DEVICE_STATE : (START, STOP, RESET); END_TYPE
 FUNCTION_BLOCK F
 VAR flag : BOOL; END_VAR
@@ -416,7 +445,7 @@ NETWORK 0 LD
 flag := RESET;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  expect(vgDiags(src).filter((d) => d.code === "assignment-type-mismatch")).toEqual([])
+  expect(vgDiags(src).filter((d) => d.code === "assignment-type-mismatch")).not.toEqual([])
 })
 
 test("network text: a bad binary operand (MOD on REAL) is flagged like ST", () => {

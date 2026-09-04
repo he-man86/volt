@@ -101,16 +101,14 @@ namespace Volt.Ide.Codesys
 
                 case "BoxTreeAssign":
                 {
-                    var targets = NwlInterop.RequireItems(n, "Outputs").Select(ReadOperand).ToList();
+                    var targets = NwlInterop.RequireItems(n, "Outputs").Select(ReadTarget).ToList();
                     var value = Tree(NwlInterop.Get(n, "RValue")) is { } rv ? ReadNode(rv) : null;
 
-                    // COIL STORAGE MOVES ONTO THE VALUE. CODESYS keeps `Set` on the operand being assigned TO
-                    // (measured on a real ladder: 246 Set flags across 356 networks), while network text spells
-                    // it as a trailing modifier after the VALUE and `NetworkTextWriter` renders modifiers from
-                    // the value only. This read used to drop the targets' flags entirely, so a SET or negated
-                    // coil pulled as a PLAIN one — invisible in git, and downgraded on the next push. DIALECT
-                    // D26 claimed this reader "already puts storage on the value", which is how the gap outlived
-                    // being written down; the rule now lives in ONE place both drivers call.
+                    // COIL STORAGE STAYS ON THE TARGET, where both vendors keep it, because the FORMAT now
+                    // spells it there too — `out S= v;` / `out R= v;`, ExST's own assignment operators. It used
+                    // to be moved onto the VALUE (`out := v SET;`) and moved back on write, which needed a
+                    // whole translation layer (`CoilStorage`, deleted) whose own doc comments record the two
+                    // bugs it existed to paper over. A modifier that belongs to the coil now lives on the coil.
                     // CONTROL FLOW IS READ OFF THE TARGET OPERAND, for the same reason storage is: that is
                     // where this vendor keeps it. Reading it from the ITEM only ever worked for jumps VOLT
                     // had written, because Volt was the only thing that put it there — a jump an engineer
@@ -119,8 +117,7 @@ namespace Volt.Ide.Codesys
                     // JUMP AND RETURN TOGETHER, in one call both drivers share: this was fixed for `Jump`
                     // alone, and `Return` sits in the same bit-field on the same operand, so a RETURN coil
                     // kept the bug for another release. See `Flags.WithControlFlowFrom`.
-                    return new Assign(CoilStorage.OntoValue(value, targets), targets,
-                                      flags.WithControlFlowFrom(targets));
+                    return new Assign(value, targets, flags.WithControlFlowFrom(targets));
                 }
 
                 case "BoxTreeBox":
@@ -230,14 +227,33 @@ namespace Volt.Ide.Codesys
                 NwlInterop.Flag(o, "IsLValue"),
                 ReadFlags(NwlInterop.Get(o, "Flags")));
 
-        /// <summary>The vendor bit-field, read by NAME rather than by bit position.</summary>
+        /// <summary>An assignment TARGET — an operand whose <c>Negation</c>/<c>Set</c> bits spell a COIL KIND
+        /// rather than two independent modifiers. <see cref="Flags.CoilFromVendor"/> holds the measured
+        /// mapping; reading a target through <see cref="ReadOperand"/> instead is what made every reset coil
+        /// in a project read as a negated SET coil, and materialize as a plain <c>SET</c>.</summary>
+        private static Operand ReadTarget(object o)
+        {
+            var op = ReadOperand(o);
+            var f = NwlInterop.Get(o, "Flags");
+            var coil = Flags.CoilFromVendor(NwlInterop.Flag(f, "Negation"), NwlInterop.Flag(f, "Set"));
+            return op with
+            {
+                Flags = (op.Flags ?? Flags.None) with { Negated = coil.Negated, Set = coil.Set, Reset = coil.Reset },
+            };
+        }
+
+        /// <summary>The vendor bit-field, read by NAME rather than by bit position.
+        ///
+        /// <para><see cref="Flags.Reset"/> is left false here ON PURPOSE: this reads an item or a CONTACT,
+        /// where <c>Negation</c> means negation. Only an assignment TARGET spells a coil kind with those bits,
+        /// and only <see cref="ReadTarget"/> decodes them.</para></summary>
         private static Flags ReadFlags(object? f) =>
             f == null
                 ? Flags.None
                 : new Flags(
                     Negated: NwlInterop.Flag(f, "Negation"),
                     Set: NwlInterop.Flag(f, "Set"),
-                    Reset: false,          // no Reset bit exists; see NetworkModel.Flags
+                    Reset: false,          // see ReadTarget — a coil kind is decoded, never read bit-for-bit
                     Jump: NwlInterop.Flag(f, "Jump"),
                     Return: NwlInterop.Flag(f, "Return"),
                     Rising: NwlInterop.Flag(f, "Rtrig"),

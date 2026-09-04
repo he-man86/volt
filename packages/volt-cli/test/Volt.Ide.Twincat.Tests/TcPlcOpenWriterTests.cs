@@ -142,6 +142,7 @@ public class TcPlcOpenWriterTests
     [Theory]
     [InlineData("NegatedContact.derived.TcPOU", 1)]
     [InlineData("SetCoil.derived.TcPOU", 2)]
+    [InlineData("ResetCoil.derived.TcPOU", 3)]     // Negation|Set - the vendor's spelling of a RESET coil
     public void A_modifier_the_import_cannot_carry_is_restored_by_the_archive_write(string fixture, int flag)
     {
         var vendor = Body(fixture);

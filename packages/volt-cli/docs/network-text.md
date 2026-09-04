@@ -18,12 +18,12 @@ server can work over a graphical body **as text**, even though it was authored g
 **Bodies are ST _or_ network text.** When a project is pulled, every writable POU materialises as a single kind-named file
 (`.fb`/`.prg`/`.fun`) — a textual body as ST, an editable FBD/LD body as network text (the body language
 rides on the network text `NETWORK` marker in the content, not the extension). When pushed, the bridge parses the network text back to the graphical node
-graph and writes it through the vendor's PLCopen XML transport. The round trip is exact, so a graphical body
+tree and writes it through the vendor's own object model. The round trip is exact, so a graphical body
 can be read, edited, and written entirely as network text. (CFC, SFC and IL are unsupported: a marker, not content.)
 
 ```
-  Vendor IDE  ──PLCopen XML──►  graph (GraphBody)  ──NetworkTextWriter──►  network text   (pull / read)
-  Vendor IDE  ◄─PLCopen XML──   graph (GraphBody)  ◄─NetworkTextReader──   network text   (push / write)
+  Vendor IDE  ──vendor model──►  NetworkBody  ──NetworkTextWriter──►  network text   (pull / read)
+  Vendor IDE  ◄─vendor model──   NetworkBody  ◄─NetworkTextReader──   network text   (push / write)
 ```
 
 **Division of responsibility:**
@@ -93,8 +93,9 @@ real PLC identifiers and must round-trip verbatim.
 | **Header fields** | `LABEL:` (the jump target), `TITLE:` (free text) — both named, both on the header |
 | **Network flags** | `DISABLED` (header) |
 | **Operators** | `AND OR XOR  +  -  *  /  MOD  >  <  >=  <=  =  <>` (§7) |
-| **Modifier words** | `NOT` (leading), `RISING` `FALLING` `SET` `RESET` (trailing) |
-| **Punctuation** | `:=` (assign), `;` (terminator), `.` (member access), `(` `)` (group/call), `,` (arg sep), `:` (label) |
+| **Modifier words** | `NOT` (leading), `RISING` `FALLING` (trailing) |
+| **Assignment** | `:=` (plain coil), `S=` (set coil), `R=` (reset coil) — ExST's own operators; the coil KIND is the operator (§8) |
+| **Punctuation** | `;` (terminator), `.` (member access), `(` `)` (group/call), `,` (arg sep) |
 | **Comment** | `// …` to end of line (a network comment) |
 | **Identifier** | a PLC name: `[A-Za-z_]\w*`, optionally `inst.Pin` for an FB output. A member access may carry **whitespace around its dot** (`a .b`) — engineers type it and the IDE keeps it, so it is part of the name and round-trips verbatim |
 | **Empty slot** | *nothing*, where an operand belongs — a pin connected to nothing (see below) |
@@ -150,7 +151,8 @@ language       = "FBD" | "LD" ;
 statement      = wire-def | sink | call-stmt | en-eno-if | execute-box | control-flow | comment | empty-stmt ;
 
 wire-def       = "LET" , name , ":=" , producer , [ ";" ] ;   (* an internal wire *)
-sink           = lvalue , ":=" , operand , [ ";" ] ;          (* an outVariable / coil *)
+sink           = lvalue , assign-op , operand , [ ";" ] ;     (* an outVariable / coil *)
+assign-op      = ":=" | "S=" | "R=" ;                          (* the coil KIND lives here, §8 *)
 call-stmt      = call , [ ";" ] ;                             (* an FB instance, OR a box whose output *)
                                                               (* goes nowhere: `MOVE(g0, iDec);` *)
 empty-stmt     = ";" ;                                        (* an item wired to nothing at all *)
@@ -158,8 +160,7 @@ en-eno-if      = "IF" , name , "THEN" , ( wire-def | sink | fb-call ) , [ ";" ] 
 execute-box    = [ "IF" , name , "THEN" ] ,                   (* an Execute box: ST-in-FBD/LD (§6) *)
                  "EXECUTE" , st-text , "END_EXECUTE" ,        (* st-text = verbatim ST, kept byte-for-byte *)
                  [ "END_IF" ] ;                               (* the IF/END_IF present iff the box has a wired EN *)
-control-flow   = label | jump | return ;
-label          = name , ":" ;
+control-flow   = jump | return ;                              (* a LABEL is a header field, not a statement *)
 jump           = "JMP" , name , [ ";" ]
                | "IF" , operand , "THEN" , "JMP" , name , [ ";" ] , "END_IF" ;
 return         = "RETURN" , [ ";" ]
@@ -168,7 +169,7 @@ comment        = "//" , text ;
 
 producer       = group | call ;                 (* a wire is always a block result or an opaque leaf *)
 operand        = empty
-               | [ "NOT" ] , core , [ "RISING" | "FALLING" ] , [ "SET" | "RESET" ] ;
+               | [ "NOT" ] , core , [ "RISING" | "FALLING" ] ;
 empty          = (* nothing — a pin connected to nothing, §3 *) ;
 core           = group | call | member | name | literal ;
 group          = "(" , operand , operator , operand , { operator , operand } , ")" ;
@@ -190,27 +191,20 @@ opaque text. An *opaque leaf* (`LET i1 := <text>`, §6) carries arbitrary inline
 
 ## 5. Semantic model
 
-network text is a 1:1 textual projection of a **graph** (`GraphBody`, `src/Volt.Engine/Body/Graph/GraphModel.cs`). Understanding
-the graph is the key to understanding what each statement *means*.
+network text is a 1:1 textual projection of the model in
+`src/Volt.Engine/Format/Network/NetworkModel.cs` — a list of networks, each holding statement TREES.
+Understanding the tree is the key to understanding what each statement *means*, and **`NetworkModel.cs` is the
+description**: every record there carries the vendor measurement it was shaped by, and it is kept current
+because the readers and writers compile against it.
 
-```
-GraphBody    = Language("FBD"|"LD") , Network+
-GraphNetwork = Order(int) , Label?(string) , Title?(string) , Comment?(string) , Disabled(bool) , Node+
+> This section used to inline a second copy of the model — `GraphBody` / `GraphNode` / `Conn` / `Pin`, from
+> `src/Volt.Engine/Body/Graph/GraphModel.cs`. That file was deleted with the graph-to-tree rewrite, and the copy
+> stayed, describing `localId`/`refLocalId` wiring the format no longer has and a per-pin `Storage(None|Set|Reset)`
+> that never belonged to a pin at all. A model documented in two places is documented in the one that rots.
 
-GraphNode (abstract: LocalId, ExecOrder?)
-  ├─ InVar   (Expression, Mods)                              -- a value source: literal / variable / opaque text
-  ├─ OutVar  (Expression, Mods, Source:Conn?)               -- a value sink (l-value): a coil / outVariable
-  ├─ Block   (TypeName, InstanceName?, Inputs:Pin[],         -- an operator, function, or FB-instance box
-  │           OutputPins:string[], CallType?, OutputTypes?)
-  ├─ Label   (Name)                                          -- a jump target
-  ├─ Jump    (Target, Condition:Conn?, Mods)                 -- JMP
-  ├─ Return  (Condition:Conn?, Mods)                         -- RETURN
-  └─ OpaqueNode (Kind, RawXml)                               -- a node kind preserved verbatim (contacts, rails…)
-
-Conn = RefLocalId(long) , FormalParameter?(string)           -- a directed wire (producer localId + output pin)
-Pin  = FormalParameter , Source:Conn? , Mods , Type?         -- one input pin of a Block
-Mods = Negated(bool) , Edge(None|Rising|Falling) , Storage(None|Set|Reset)
-```
+The shapes a tree is built from: `Leaf` (an operand), `Assign` (a coil or outVariable, and — via its flags —
+`JMP`/`RETURN`), `Box` (an operator, function or FB-instance call), `Demux` (a fan-out wire), `Parallel` (an LD
+parallel branch) and `Terminator` (a rung end). `Flags` is the vendor's own bit-field.
 
 **Wire vs sink — the central distinction.**
 
@@ -343,13 +337,40 @@ carried opaquely — the bridge reconstructs `<block typeName="EXECUTE">` from i
 round-trip), and the LSP treats it as full ST rather than the simplified network text grammar.
 
 ### Modifiers — ride on the consumer
-`NOT` (negation, leading), `RISING`/`FALLING` (edge, trailing), `SET`/`RESET` (coil storage, trailing). A
-modifier rides on the **operand or sink that consumes the wire**, never as its own statement.
+`NOT` (negation, leading) and `RISING`/`FALLING` (edge, trailing). A modifier rides on the **operand or sink
+that consumes the wire**, never as its own statement.
 ```
 out := NOT (a AND b);     -- negation on a sink's source
-out := a SET;             -- a set coil
 out := clk RISING;        -- rising-edge
 ```
+
+### Coil storage — the assignment operator
+A coil's **kind** is spelled by the operator, using ExST's own (`docs/codesys-reference/01-languages-and-editors.md`):
+```
+out := v;                 -- a plain coil
+out S= v;                 -- a set coil
+out R= v;                 -- a reset coil
+```
+This is a property of the **coil**, so it is written on the coil. It used to be a trailing word on the value
+(`out := v SET;`), which read backwards and cost three things:
+
+* A whole translation layer (`CoilStorage`, deleted) existed to move the flag off the target on read and back
+  on write, because both vendors keep it on the target.
+* A **fan-out whose coils disagree could not be spelled at all** — one trailing word had to serve every
+  target of the statement, so only the first coil's storage survived. Per target, it is just three lines:
+  ```
+  LET g1 := (a OR b);
+  plain := g1;
+  latched S= g1;
+  cleared R= g1;
+  ```
+* A **RESET coil came out as a SET coil.** The vendors spell a reset coil `Negation + Set` on the target (one
+  enum in two bits, not two modifiers — measured against CODESYS's own PLCopen export across 17 POUs), and the
+  writer rendered no modifier on a target at all. `GeneralProgramFlags` network 0, comment *"Always Off"*,
+  pulled as `AlwaysOff := AlwaysOff SET;`. Pushed back, the flag that must stay false latches true.
+
+`S=`/`R=` are recognised only as a token of their own — preceded by whitespace, not followed by `=` — so a
+comparison, or an l-value whose name ends in those letters, is never mistaken for one.
 A modifier on a *bare-leaf operand inside a group* turns that leaf into an **opaque leaf** (because `NOT b` is no
 longer a single token): `out := (a AND NOT b)` reads back as `LET i1 := NOT b; out := (a AND i1)`.
 

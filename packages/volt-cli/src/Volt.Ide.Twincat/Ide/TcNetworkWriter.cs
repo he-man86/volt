@@ -239,7 +239,6 @@ internal static class TcNetworkWriter
                 // COIL STORAGE GOES BACK WHERE THE ARCHIVE KEEPS IT — on the TARGET — having been read onto the
                 // value (see TcNetworkReader). It is written from the value and STRIPPED from the value, so the
                 // source operand does not also come out latched: `out := a SET;` is a set COIL, not a set input.
-                var storage = a.Value?.Flags ?? Flags.None;
 
                 // A JUMP OR RETURN HAS NO OUTPUTS, and its `Targets` are not outputs either — a jump's
                 // single target is its LABEL (the destination network's name) and a return has none at all.
@@ -264,10 +263,10 @@ internal static class TcNetworkWriter
                 // the driver wrote nothing at all. The push reported success, the PLC still jumped to `Done`,
                 // and the next pull reverted the engineer's file.
                 return changed
-                     | WriteChild(e, "RValue", CoilStorage.WithoutStorage(a.Value))
+                     | WriteChild(e, "RValue", a.Value)
                      | (a.Flags.Return ? false : WriteOutputs(e, a.Targets))
                      | WriteJump(e, a.Flags.Jump)
-                     | WriteStorage(e, storage);
+                     | (a.Flags.Return ? false : WriteCoilBits(e, a.Targets));
             }
 
             case Box b when type == "BoxTreeBox":
@@ -520,25 +519,39 @@ internal static class TcNetworkWriter
         return changed;
     }
 
-    private static bool WriteStorage(XElement e, Flags storage)
+    /// <summary>The two bits each target's COIL KIND is spelled with — <c>Negation</c> and <c>Set</c>
+    /// together, per target, index-aligned with the archive's own output slots.
+    ///
+    /// <para><b>Per target, and both bits.</b> This was <c>WriteStorage(e, storage)</c>: ONE storage record,
+    /// lifted off the assignment's VALUE, written to every output slot, and touching the <c>Set</c> bit alone.
+    /// Two things followed. A fan-out whose coils disagree got the first coil's storage on all of them. And a
+    /// RESET coil — which this vendor, like CODESYS, spells <c>Negation + Set</c> (<see cref="Flags.CoilFromVendor"/>)
+    /// — was refused outright as having "no representation in the IDE's flag set", because <c>Negation</c> was
+    /// read as a modifier rather than as half of the coil kind.</para>
+    ///
+    /// <para>Still BIT-PRECISE (D26): only the two coil bits are cleared and rewritten, so an edge or a jump
+    /// bit the text has no form for survives an edit.</para></summary>
+    private static bool WriteCoilBits(XElement e, IReadOnlyList<Operand> targets)
     {
-        if (storage.Reset)
-            throw new NotSupportedException(
-                "TwinCAT: a RESET modifier has no representation in the IDE's flag set. Refusing rather than " +
-                "writing a plain coil, which would change what the program does.");
-
         var holder = TcArchive.Obj(e, "OutputItems");
+        var items = TcArchive.List(holder, "OutputItems");
+        if (items.Count != targets.Count)
+            throw Refuse($"an item changes from {items.Count} to {targets.Count} output(s)");
+
+        const int coilBits = TcArchive.FlagNegation | TcArchive.FlagSet;
         var changed = false;
-        foreach (var target in TcArchive.List(holder, "OutputItems"))
+        for (int i = 0; i < items.Count; i++)
         {
-            var flags = TcArchive.Obj(target, "Flags");
+            var (negation, set) = (targets[i].Flags ?? Flags.None).VendorCoilBits();
+            var flags = TcArchive.Obj(items[i], "Flags");
             if (flags == null)
             {
-                if (storage.Set) throw Refuse("a SET modifier appears on a coil that carries no flags");
+                if (negation || set) throw Refuse("a SET or RESET coil carries no flags");
                 continue;
             }
-            var now = TcArchive.Int(flags, "Flags");
-            var next = storage.Set ? now | TcArchive.FlagSet : now & ~TcArchive.FlagSet;
+            var next = (TcArchive.Int(flags, "Flags") & ~coilBits)
+                     | (negation ? TcArchive.FlagNegation : 0)
+                     | (set ? TcArchive.FlagSet : 0);
             changed |= SetInt(flags, "Flags", next);
         }
         return changed;

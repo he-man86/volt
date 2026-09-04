@@ -136,7 +136,16 @@ def dump(n, depth, tag):
             cnt = len(list(items))
         except Exception:
             pass
+        op_names = None
+        opp = prop(n, "OutputParams")
+        if opp is not None:
+            try:
+                op_names = [str(x) for x in (prop(opp, "Names") or [])]
+            except Exception:
+                op_names = "<threw>"
         log("  " * (depth + 1) + "InputItemList count=%d   InputParams.Names=%r" % (cnt, names))
+        log("  " * (depth + 1) + "OutputParams.Names=%r  MainOutputIndex=%r  MainInputIndex=%r"
+            % (op_names, prop(n, "MainOutputIndex"), prop(n, "MainInputIndex")))
         try:
             for i, x in enumerate(list(items)):
                 dump(x, depth + 2, "in[%d]" % i)

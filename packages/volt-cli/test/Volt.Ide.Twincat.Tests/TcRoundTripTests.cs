@@ -81,6 +81,7 @@ public class TcRoundTripTests
     [InlineData("ladder.TcPOU")]
     [InlineData("FbCall.derived.TcPOU")]   // an FB call - the shape a box-type refusal wrongly rejects
     [InlineData("SetCoil.derived.TcPOU")]  // a SET coil - modifiers on an assignment TARGET
+    [InlineData("ResetCoil.derived.TcPOU")]       // a RESET coil - the SAME target, Flags 3 instead of 2
     [InlineData("NegatedContact.derived.TcPOU")]  // a negated contact - the commonest modifier of all
     [InlineData("MultiOutput.derived.TcPOU")]     // one value driving two coils
     [InlineData("FanOut.TcPOU")]                  // a box with a REAL output item - see the note on this row
@@ -114,6 +115,7 @@ public class TcRoundTripTests
     [InlineData("ladder.TcPOU")]
     [InlineData("FbCall.derived.TcPOU")]
     [InlineData("SetCoil.derived.TcPOU")]
+    [InlineData("ResetCoil.derived.TcPOU")]
     [InlineData("NegatedContact.derived.TcPOU")]  // a negated contact - the commonest modifier of all
     [InlineData("MultiOutput.derived.TcPOU")]     // one value driving two coils
     [InlineData("FanOut.TcPOU")]                  // a box with a REAL output item - see the note on this row

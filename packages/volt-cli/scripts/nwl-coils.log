@@ -1,0 +1,24 @@
+opened a copy of Lenze_MID-S100_V5_00_602_T51.project
+POUs with a non-plain coil: 17
+
+POU                          NWL target flags                   PLCopen <coil negated/storage>
+--------------------------------------------------------------------------------------------------------------
+AHWF                         Negation+Set x5, Set x6, none x3   neg=false/none x3, neg=false/reset x5, neg=false/set x6
+ATD_FQI                      Return x1                          <no coils>
+FB_Lenze_i550                Negation+Set x1, none x5           neg=false/none x5, neg=false/reset x1
+General                      Negation+Set x1, none x2           neg=false/none x2, neg=false/reset x1
+GeneralMachineFlags          Negation+Set x6, none x41          neg=false/none x41, neg=false/reset x6
+GeneralProgramFlags          Negation+Set x2, Set x1, none x8   neg=false/none x8, neg=false/reset x2, neg=false/set x1
+Mach1_Drives                 Negation+Set x4, Set x20, none x29 neg=false/none x29, neg=false/reset x4, neg=false/set x20
+Mach1_MIDS                   Negation+Set x12, Set x40, none x4 neg=false/none x49, neg=false/reset x12, neg=false/set x40
+Mach1_MotionControl          Set x3, none x3                    neg=false/none x3, neg=false/set x3
+MainDrive                    Negation+Set x3, Set x1, none x10  neg=false/none x9, neg=false/reset x2, neg=false/set x1
+POU_systemStart              Set x1                             neg=false/set x1
+ServoControl                 Negation+Set x19, Set x7, none x11 neg=false/none x11, neg=false/reset x19, neg=false/set x7
+SideCorrection               Negation+Set x4, Set x1, none x2   neg=false/none x2, neg=false/reset x4, neg=false/set x1
+SpeedCalculationTrayfiller   Set x1                             neg=false/set x1
+TrayFiller                   Negation+Set x54, Set x27, none x1 neg=false/none x19, neg=false/reset x54, neg=false/set x27
+WSM                          Negation+Set x13, Set x10, none x1 neg=false/none x11, neg=false/reset x13, neg=false/set x10
+fc_Visualisation_HMI         Negation+Set x4, none x4           neg=false/none x4, neg=false/reset x4
+
+done

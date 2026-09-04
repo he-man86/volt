@@ -173,9 +173,12 @@ namespace Volt.Ide.Codesys
                         // DIALECT D26 already stated the rule — "the write back is BIT-PRECISE rather than a
                         // whole-flags assignment" — and TwinCAT obeys it (`TcNetworkWriter.WriteStorage` touches
                         // the Set bit alone). This vendor did not.
-                        var storage = CoilStorage.Of(a.Value);
+                        // STORAGE COMES OFF THE TARGET, because that is where the model carries it and where
+                        // this vendor keeps it. It used to be lifted off the VALUE (`CoilStorage`, deleted) to
+                        // suit the old `out := v SET;` spelling, applied as ONE record to every target — so a
+                        // fan-out whose coils disagreed got the first coil's storage on all of them.
                         var asg = NwlInterop.New(_net, "BoxTreeAssign");
-                        if (CoilStorage.WithoutStorage(a.Value) is { } v) NwlInterop.Set(asg, "RValue", Node(v));
+                        if (a.Value is { } v) NwlInterop.Set(asg, "RValue", Node(v));
                         // A JUMP RIDES ON THE TARGET OPERAND, exactly like coil storage — and putting it on
                         // the ITEM instead made every jump a COMPILE ERROR.
                         //
@@ -201,9 +204,20 @@ namespace Volt.Ide.Codesys
                         // read it back from the item, so the text was byte-identical while the IDE disagreed
                         // with both halves. Only a BUILD sees it, which is why the jump tests now do one.
                         var outputs = NwlInterop.Require(asg, "Outputs");
-                        var onTarget = storage with { Jump = a.Flags.Jump };
                         foreach (var t in a.Targets)
-                            NwlInterop.Call(outputs, "AppendOutputItem", Operand(t, onTarget));
+                        {
+                            // ENCODED, not applied on top. A target's flags are a COIL KIND, and the vendor
+                            // spells that kind with `Negation`/`Set` (`Flags.VendorCoilBits`, the inverse of
+                            // the reader's decode — `CoilBitsRoundTrip` gates that the pair agrees). Handing
+                            // the raw target to `Operand(o, extra)` would send `Reset` through `ApplyFlags`,
+                            // which knows only the vendor's own bit names and has no Reset to write.
+                            var (negation, set) = (t.Flags ?? Flags.None).VendorCoilBits();
+                            var coil = t with
+                            {
+                                Flags = Flags.None with { Negated = negation, Set = set, Jump = a.Flags.Jump },
+                            };
+                            NwlInterop.Call(outputs, "AppendOutputItem", Operand(coil));
+                        }
                         return Flagged(asg, a.Flags);
                     }
 
@@ -457,11 +471,16 @@ namespace Volt.Ide.Codesys
             private static void ApplyFlags(object item, Flags? flags)
             {
                 if (flags is not { } f || f.IsNone) return;
+                // A RESET reaching here has not been through the coil encoding, and this is the wrong place to
+                // do it: `Reset` is a COIL KIND, spelled by the vendor as `Negation + Set` on an assignment
+                // TARGET (`Flags.CoilFromVendor`), and only the assignment arm knows which operands are
+                // targets. This used to refuse outright — "a RESET modifier has no representation in the IDE's
+                // flag set" — which was the belief that made every reset coil in a project pull as a SET coil.
                 if (f.Reset)
-                    throw new NotSupportedException(
-                        "CODESYS: a RESET modifier has no representation in the IDE's flag set (it carries " +
-                        "Negation/Set/Jump/Return/Rtrig/Ftrig and no Reset). Refusing rather than writing a " +
-                        "plain coil, which would change what the program does.");
+                    throw new InvalidOperationException(
+                        "CODESYS: a RESET reached the generic flag write. Coil storage is encoded per TARGET " +
+                        "via Flags.VendorCoilBits(); a Reset anywhere else is a modifier the model should " +
+                        "never have produced.");
 
                 var target = NwlInterop.Get(item, "Flags")
                     ?? throw new InvalidOperationException(

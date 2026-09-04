@@ -20,7 +20,8 @@ const LANGUAGES: Record<string, NetworkLanguage> = { FBD: "FBD", LD: "LD", CFC: 
  * `END_NETWORK` the same as a variable. Declared here, beside the code that acts on them, so the colouring
  * cannot list a word the parser does not honour (or miss one it does).
  *
- * `SET`/`RESET` are absent on purpose — they are ST keywords already and colour correctly without help.
+ * `SET`/`RESET` are absent because they are no longer part of this language: a coil's storage is the
+ * assignment OPERATOR (`S=` / `R=`, see `ASSIGN_OPS`), which the ST lexer already tokenises and colours.
  */
 export const NETWORK_TEXT_KEYWORDS: ReadonlySet<string> = new Set([
   "NETWORK",
@@ -338,14 +339,23 @@ function dedupeName(name: NetworkName, names: Set<string>, diagnostics: NetworkT
   names.add(name.text)
 }
 
-/** Index of the first `:=` at paren/bracket depth 0 in a run, else -1. */
+/**
+ * The three assignment operators, all of which open a sink. `S=` and `R=` are ExST's own set/reset assignment
+ * operators (the lexer already emits them as single tokens), and network text uses them for a coil's STORAGE —
+ * `out S= v` is a set coil, `out R= v` a reset coil. The storage used to be a trailing `SET`/`RESET` word on
+ * the VALUE, which is why `NETWORK_MODIFIER_WORDS` had to exempt two words that collide with ordinary enum
+ * members (`DEVICE_TRANSITION_STATE.RESET`); as operators they are unambiguous and need no exemption.
+ */
+const ASSIGN_OPS: ReadonlySet<string> = new Set([":=", "S=", "R="])
+
+/** Index of the first assignment operator at paren/bracket depth 0 in a run, else -1. */
 function topLevelAssign(run: Token[]): number {
   let depth = 0
   for (let k = 0; k < run.length; k++) {
     const x = run[k]!
     if (x.text === "(" || x.text === "[") depth++
     else if (x.text === ")" || x.text === "]") depth = Math.max(0, depth - 1)
-    else if (depth === 0 && x.text === ":=") return k
+    else if (depth === 0 && ASSIGN_OPS.has(x.text)) return k
   }
   return -1
 }

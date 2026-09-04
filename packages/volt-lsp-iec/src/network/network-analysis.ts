@@ -79,12 +79,17 @@ export function computeNetworkTextDiagnostics(
 }
 
 /**
- * Network-text operand MODIFIER words (network-text.md §Modifier words / operand grammar), lowercased. Trailing
- * `SET`/`RESET` (coil storage) + `RISING`/`FALLING` (edge) are graphical keywords the lean operand parser
- * leaves in the expression, not identifiers — so the undeclared check must skip them. (`NOT`, the leading
- * modifier, already resolves via the reference catalog's boolean operator.)
+ * Network-text operand MODIFIER words (network-text.md §Modifiers), lowercased. Trailing `RISING`/`FALLING`
+ * (edge) are graphical keywords the lean operand parser leaves in the expression, not identifiers — so the
+ * undeclared check must skip them. (`NOT`, the leading modifier, already resolves via the reference catalog's
+ * boolean operator.)
+ *
+ * `set`/`reset` USED TO BE HERE, and dropping them is the point rather than a tidy-up. Coil storage is the
+ * assignment operator now (`out S= v`), so those two are ordinary names again — and exempting them was never
+ * free: `RESET` is a perfectly good enum member (`DEVICE_TRANSITION_STATE.RESET`), so every real use of one
+ * was silently skipped by the undeclared check in order to keep a coil modifier quiet.
  */
-const NETWORK_MODIFIER_WORDS: ReadonlySet<string> = new Set(["set", "reset", "rising", "falling"])
+const NETWORK_MODIFIER_WORDS: ReadonlySet<string> = new Set(["rising", "falling"])
 
 /**
  * network-undeclared-identifier + network-unknown-member: resolve every operand identifier in the network against its
@@ -379,10 +384,9 @@ function checkStatements(
 }
 
 /**
- * A sink value that is a bare LD coil/edge MODIFIER word (`out := RESET` = a reset coil), NOT an assigned
- * expression. The parser leaves it as a plain identifier, and it can COLLIDE with a project enum member of
- * the same name (`DEVICE_TRANSITION_STATE.RESET`), so the assignment/narrowing rules must skip it — else a
- * reset coil reads as `enum → BOOL`. (The undeclared check skips the same set.)
+ * A sink value that is a bare edge MODIFIER word (`out := clk RISING`), NOT an assigned expression. The parser
+ * leaves it as a plain identifier, so the assignment/narrowing rules must skip it. (The undeclared check skips
+ * the same set.)
  */
 function isModifierValue(value: Expr): boolean {
   return value.kind === "ident_expr" && NETWORK_MODIFIER_WORDS.has(value.name.toLowerCase())

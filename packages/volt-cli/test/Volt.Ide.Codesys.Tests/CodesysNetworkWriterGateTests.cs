@@ -186,6 +186,15 @@ public class CodesysCoilFlagTests
             new Assign(new Leaf(new Operand("a"), onValue), new[] { new Operand("out") }, Flags.None),
         });
 
+    /// <summary>The other side of the same statement: one coil whose TARGET carries <paramref name="onTarget"/>
+    /// — the coil kind (`:=` / `S=` / `R=`), which is where storage lives now.</summary>
+    private static Network CoilRung(Flags onTarget) =>
+        new Network(0, null, null, null, false, new Node[]
+        {
+            new Assign(new Leaf(new Operand("a"), Flags.None),
+                       new[] { new Operand("out", Flags: onTarget) }, Flags.None),
+        });
+
     /// <summary>THE REGRESSION. A negated INPUT must not negate the COIL.</summary>
     [Fact]
     public void A_negated_value_does_not_negate_the_coil()
@@ -206,15 +215,41 @@ public class CodesysCoilFlagTests
         Assert.False(FlagsOf(coil).Ftrig);
     }
 
-    /// <summary>And the bit that genuinely DOES belong there still arrives — the fix must not throw storage out
-    /// with the leak. `out := a SET;` is a SET COIL: the format spells storage after the value, the vendor keeps
-    /// it on the target, and <c>CoilStorage</c> is the one place that translation lives.</summary>
+    /// <summary>And the bit that genuinely DOES belong there still arrives. `out S= a;` is a SET COIL — the
+    /// format spells storage as the assignment OPERATOR now, and the model carries it on the target, so this
+    /// is a straight write rather than the translation <c>CoilStorage</c> used to perform.</summary>
     [Fact]
-    public void Coil_storage_still_lands_on_the_target()
+    public void A_set_coil_reaches_the_target_as_the_Set_bit()
     {
-        var coil = Coil(Rung(Flags.None with { Set = true }));
+        var coil = Coil(CoilRung(Flags.None with { Set = true }));
 
-        Assert.True(FlagsOf(coil).Set, "`out := a SET;` lost the SET on the way to the coil");
+        Assert.True(FlagsOf(coil).Set, "`out S= a;` lost the SET on the way to the coil");
+        Assert.False(FlagsOf(coil).Negation);
+    }
+
+    /// <summary>A RESET COIL IS `Negation + Set`, and writing it is what this vendor used to REFUSE.
+    ///
+    /// <para><c>ApplyFlags</c> threw on any <c>Reset</c> — "a RESET modifier has no representation in the IDE's
+    /// flag set" — which was the same wrong belief that made every reset coil PULL as a set coil. The vendor's
+    /// own PLCopen export names the encoding (<c>storage="reset"</c> for exactly this bit pair, 17 POUs,
+    /// exact counts); <see cref="Flags.CoilFromVendor"/> holds it and this asserts the write half.</para></summary>
+    [Fact]
+    public void A_reset_coil_is_written_as_the_vendors_two_bits()
+    {
+        var coil = Coil(CoilRung(Flags.None with { Reset = true }));
+
+        Assert.True(FlagsOf(coil).Set, "a reset coil sets BOTH bits — Negation alone is not a reset");
+        Assert.True(FlagsOf(coil).Negation);
+    }
+
+    /// <summary>A plain coil sets neither bit, so the encoding cannot drift into writing storage nobody asked
+    /// for — the failure mode that turns a monitoring coil into a latch.</summary>
+    [Fact]
+    public void A_plain_coil_carries_neither_coil_bit()
+    {
+        var coil = Coil(CoilRung(Flags.None));
+
+        Assert.False(FlagsOf(coil).Set);
         Assert.False(FlagsOf(coil).Negation);
     }
 

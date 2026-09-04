@@ -155,12 +155,10 @@ public enum CallKind { Operator, Function, FunctionBlock }
 /// destination network's <see cref="Network.Label"/>. Promoting them would be re-interpreting the vendor's
 /// model to suit a rendering, which is the mistake the previous model made wholesale.</para>
 ///
-/// <para><b><see cref="Reset"/> is the one field here with no vendor counterpart</b>, and it is present
-/// deliberately. `IFlags` has `Set` and no `Reset`, but network text — a PUBLISHED format, with `RESET` in its
-/// grammar and in engineers' committed `.fb` files — requires it. The format is fixed and the model serves the
-/// format; dropping the field to match the bit-field would silently change what Volt can express. How a reset
-/// coil actually reaches the IDE is UNMEASURED (it may be `Set = false` on a coil item, or a distinct item)
-/// and must be settled against a real LD fixture before the adapter writes one.</para>
+/// <para><b><see cref="Reset"/> has no BIT of its own, and that is the vendor's encoding, not a gap.</b> This
+/// used to read "the one field here with no vendor counterpart … how a reset coil actually reaches the IDE is
+/// UNMEASURED". It is measured now, and the answer is that <c>Negation</c> and <c>Set</c> on an assignment
+/// TARGET are two bits spelling one enum — see <see cref="CoilFromVendor"/>.</para>
 /// </summary>
 public sealed record Flags(
     bool Negated = false,
@@ -173,6 +171,44 @@ public sealed record Flags(
 {
     public static readonly Flags None = new();
     public bool IsNone => !Negated && !Set && !Reset && !Jump && !Return && !Rising && !Falling;
+
+    /// <summary>The coil kind the vendor's two bits spell, on an ASSIGNMENT TARGET. <c>IFlags</c> has
+    /// <c>Negation</c> and <c>Set</c> and no <c>Reset</c>, because those two bits are one enum with four values
+    /// and not two independent modifiers.
+    ///
+    /// <para><b>Measured, by asking the vendor rather than reading the logic around it.</b> CODESYS's own
+    /// PLCopen export names coil storage outright, so exporting every POU in a real project that has a
+    /// non-plain coil and pairing the two views settles it. All 17 POUs agree, exactly, with no residue
+    /// (<c>scripts/probe-nwl-coils.py</c> · <c>scripts/nwl-coils.log</c>):</para>
+    /// <code>
+    ///   NWL target flags        CODESYS PLCopen export
+    ///   (none)              ->  negated="false" storage="none"
+    ///   Set                 ->  negated="false" storage="set"      TrayFiller x27, ServoControl x7, …
+    ///   Negation + Set      ->  negated="false" storage="reset"    TrayFiller x54, ServoControl x19, …
+    /// </code>
+    ///
+    /// <para><b>What it cost to have this wrong.</b> <c>Negation</c> was mapped to <see cref="Negated"/> and
+    /// <c>Set</c> to <see cref="Set"/>, independently — so a RESET coil read as a negated SET coil, the text
+    /// writer renders no modifier on a target, and every reset coil in a project materialized as a plain
+    /// <c>SET</c>. 128 of them in one real project, each one INVERTED: `GeneralProgramFlags` network 0, whose
+    /// comment is "Always Off", pulled as <c>AlwaysOff := AlwaysOff SET;</c>. Pushed back, the flag that must
+    /// stay false latches true. Nothing in git showed it, because the text Volt wrote was self-consistent.</para>
+    ///
+    /// <para><c>negated="true"</c> on a coil does not occur anywhere in the surveyed project, so the fourth
+    /// combination — <c>Negation</c> WITHOUT <c>Set</c> — is unobserved on a target. It is carried as
+    /// <see cref="Negated"/> rather than guessed at or refused: refusing makes the body unreadable, and an
+    /// unreadable body loses the whole POU.</para></summary>
+    public static Flags CoilFromVendor(bool negation, bool set) => (negation, set) switch
+    {
+        (false, false) => None,
+        (false, true) => None with { Set = true },
+        (true, true) => None with { Reset = true },
+        (true, false) => None with { Negated = true },
+    };
+
+    /// <summary>The inverse of <see cref="CoilFromVendor"/> — the two bits a coil kind is written back as.
+    /// The pair must round-trip, and <c>CoilBitsRoundTrip</c> gates that they do.</summary>
+    public (bool Negation, bool Set) VendorCoilBits() => (Reset || Negated, Set || Reset);
 
     /// <summary>These item flags, plus the CONTROL-FLOW bits carried by an assignment's TARGET operands.
     ///

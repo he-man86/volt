@@ -231,8 +231,8 @@
     "operators": {
       "patterns": [
         {
-          "comment": "Assignment + reference assignment",
-          "match": ":=|=>",
+          "comment": "Assignment, output-parameter assignment, and ExST's set/reset/reference-rebind forms (S=, R=, REF= — docs/codesys-reference/01-languages-and-editors.md). The lexer has tokenised all three since it was written; the grammar did not colour them, so they read as a plain identifier followed by a comparison. Network text spells a coil's storage with S=/R=, which is what made the gap worth closing. The leading \\b keeps `flagS=` an identifier, and the alternation is ordered longest-first so REF= is not read as an F= that never existed.",
+          "match": "\\b(?:REF|S|R)=|:=|=>",
           "name": "keyword.operator.assignment.structured-text"
         },
         {

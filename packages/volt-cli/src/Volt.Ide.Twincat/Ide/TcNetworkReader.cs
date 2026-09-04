@@ -78,16 +78,13 @@ internal static class TcNetworkReader
 
             case "BoxTreeAssign":
             {
-                var targets = Outputs(e);
+                var targets = Targets(e);
                 var value = TcArchive.Obj(e, "RValue") is { } rv ? ReadNode(rv) : null;
 
-                // COIL STORAGE MOVES ONTO THE VALUE, because that is where network text spells it and where the
-                // model keeps it. The archive puts SET on the assignment TARGET (measured: a coil operand came
-                // back `Flags=Negation,Set`), while the format writes `out := a SET;` - the trailing modifier
-                // after the VALUE - and `NetworkTextWriter` renders modifiers from the value, never from the
-                // target. Left untranslated, a SET coil pulled from TwinCAT rendered as a PLAIN one: invisible
-                // in the workspace, and silently downgraded on the next create. CODESYS's reader already puts it
-                // on the value, so this is the two vendors agreeing rather than a TwinCAT special case.
+                // COIL STORAGE STAYS ON THE TARGET, where this archive keeps it (measured: a coil operand comes
+                // back `Flags=Negation,Set`) and where the format now spells it — `out S= v;` / `out R= v;`.
+                // It used to be moved onto the VALUE to suit `out := v SET;` and moved back on write; the
+                // translation layer that did it (`CoilStorage`) is deleted with the spelling that needed it.
                 // A JUMP IS READ OFF THE TARGET OPERAND TOO, the same rule CODESYS's reader applies.
                 //
                 // TwinCAT writes the bit in BOTH places — a jump built by its own PLCopen importer carries
@@ -102,8 +99,7 @@ internal static class TcNetworkReader
                 // only place the bit appears — an engineer's RETURN coil came back as `??? := cond;`. The two
                 // bits share a bit-field and an operand; splitting them across two lines is what let one be
                 // fixed while the other stayed broken.
-                return new Assign(CoilStorage.OntoValue(value, targets), targets,
-                                  flags.WithControlFlowFrom(targets));
+                return new Assign(value, targets, flags.WithControlFlowFrom(targets));
             }
 
             case "BoxTreeBox":
@@ -202,6 +198,24 @@ internal static class TcNetworkReader
         return TcArchive.RequireList(holder, "OutputItems", $"the {TcArchive.TypeOf(e) ?? "item"}'s outputs")
             .Select(x => ReadOperand(x)).ToList();
     }
+
+    /// <summary>An assignment's TARGETS. Same items as <see cref="Outputs"/>, read through the coil decode:
+    /// on a target, <c>Negation</c> and <c>Set</c> are two bits spelling ONE coil kind, not two modifiers.
+    /// See <see cref="Flags.CoilFromVendor"/> — the mapping was measured on CODESYS, and the bit values here
+    /// (<c>FlagNegation = 1</c>, <c>FlagSet = 2</c>) are the same <c>IFlags</c> member order, so a reset coil
+    /// is <c>3</c> on this vendor too.</summary>
+    private static IReadOnlyList<Operand> Targets(XElement e) =>
+        Outputs(e).Zip(
+            TcArchive.RequireList(TcArchive.RequireObj(e, "OutputItems", "the assignment"), "OutputItems", "the assignment's outputs"),
+            (op, x) =>
+            {
+                var bits = TcArchive.FlagBits(x);
+                var coil = Flags.CoilFromVendor((bits & TcArchive.FlagNegation) != 0, (bits & TcArchive.FlagSet) != 0);
+                return op with
+                {
+                    Flags = (op.Flags ?? Flags.None) with { Negated = coil.Negated, Set = coil.Set, Reset = coil.Reset },
+                };
+            }).ToList();
 
     private static Operand ReadOperand(XElement? o)
     {

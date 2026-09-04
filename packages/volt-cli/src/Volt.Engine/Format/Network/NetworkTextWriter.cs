@@ -174,14 +174,16 @@ public static class NetworkTextWriter
             var value = a.Value is null ? Unconnected : ApplyMods(Render(a.Value, nested: false), a.Flags);
 
             if (a.Targets.Count == 0) { Flush(); Line(value + ";"); return; }
-            if (a.Targets.Count == 1) { Flush(); Line(Lhs(a.Targets[0]) + " := " + value + ";"); return; }
+            if (a.Targets.Count == 1) { Flush(); Line(Lhs(a.Targets[0]) + " " + AssignOp(a.Targets[0]) + " " + value + ";"); return; }
 
             // One value, several l-values: name it once rather than repeating the expression, which would
-            // duplicate the producing box on the way back in.
+            // duplicate the producing box on the way back in. EACH TARGET KEEPS ITS OWN OPERATOR — a fan-out
+            // whose coils disagree (one plain, one SET) is ordinary, and the old trailing-word spelling had
+            // one modifier for the whole statement, so it could only carry the first coil's storage.
             var g = Mint("g", ref _g);
             Flush();
             Line("LET " + g + " := " + value + ";");
-            foreach (var t in a.Targets) Line(Lhs(t) + " := " + g + ";");
+            foreach (var t in a.Targets) Line(Lhs(t) + " " + AssignOp(t) + " " + g + ";");
         }
 
         /// <summary>The left-hand side. A split point is an INTERNAL wire and is introduced with <c>LET</c>;
@@ -226,12 +228,12 @@ public static class NetworkTextWriter
             Flush();
             Line("LET " + en + " := " + enText + ";");
             if (a.Targets.Count == 1)
-                Line("IF " + en + " THEN " + Lhs(a.Targets[0]) + " := " + body + "; END_IF");
+                Line("IF " + en + " THEN " + Lhs(a.Targets[0]) + " " + AssignOp(a.Targets[0]) + " " + body + "; END_IF");
             else
             {
                 var g = Mint("g", ref _g);
                 Line("IF " + en + " THEN LET " + g + " := " + body + "; END_IF");
-                foreach (var t in a.Targets) Line(Lhs(t) + " := " + g + ";");
+                foreach (var t in a.Targets) Line(Lhs(t) + " " + AssignOp(t) + " " + g + ";");
             }
         }
 
@@ -409,18 +411,32 @@ public static class NetworkTextWriter
             _prelude.Clear();
         }
 
-        /// <summary>Decorate an operand with its modifiers: <c>NOT</c> prefix, trailing <c>RISING</c>/
-        /// <c>FALLING</c>, trailing <c>SET</c>/<c>RESET</c>. Inverse of the reader's modifier parsing.</summary>
+        /// <summary>Decorate an operand with the modifiers a VALUE carries: <c>NOT</c> prefix, trailing
+        /// <c>RISING</c>/<c>FALLING</c>. Inverse of the reader's modifier parsing.
+        ///
+        /// <para>Coil storage is deliberately absent. It belongs to the TARGET, and <see cref="AssignOp"/>
+        /// renders it as the assignment operator.</para></summary>
         private static string ApplyMods(string value, Flags f)
         {
             if (f.IsNone) return value;
             if (f.Negated) value = "NOT " + value;
             if (f.Rising) value += " RISING";
             else if (f.Falling) value += " FALLING";
-            if (f.Set) value += " SET";
-            else if (f.Reset) value += " RESET";
             return value;
         }
+
+        /// <summary>The assignment operator a coil's STORAGE spells — ExST's own, per
+        /// <c>docs/codesys-reference/01-languages-and-editors.md</c>: <c>S=</c> sets, <c>R=</c> resets.
+        ///
+        /// <para><b>Storage is a property of the coil, and now reads like one.</b> The format used to spell it
+        /// as a trailing word on the VALUE — <c>out := a SET;</c> — which put it on the wrong side of the
+        /// assignment and cost more than legibility: the whole of <c>CoilStorage</c> (deleted) existed to carry
+        /// the flag across that gap and back, a fan-out whose coils disagreed could not be spelled at all
+        /// because one trailing word had to serve every target, and the target's own bits were never rendered,
+        /// so a RESET coil — the vendor's <c>Negation + Set</c> — came out as a plain <c>SET</c>. Per target,
+        /// on the target, none of those are expressible.</para></summary>
+        private static string AssignOp(Operand target) =>
+            target.Flags switch { { Reset: true } => "R=", { Set: true } => "S=", _ => ":=" };
 
         /// <summary>A leaf can sit inline iff its text is a single safe token — no whitespace (which would
         /// mis-split an operator expression) and no parens (which would mis-parse as a call or group).</summary>

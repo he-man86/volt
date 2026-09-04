@@ -36,8 +36,11 @@ END_NETWORK
 - **EN/ENO** box: `LET en := <src>; IF en THEN LET result := <expr>; END_IF` — the IF is its faithful ST. `en` is
   the box's enable echo (its `ENO`), so a downstream box chains off it (`LET en2 := NOT en1`). An EN/ENO body that
   writes straight to a sink stays bare (`IF en THEN out := <expr>; END_IF`).
-- **Modifiers**: `NOT` (negation), `RISING`/`FALLING` (edge), `SET`/`RESET` (coil storage) ride on the CONSUMER
-  (the operand/sink), never as their own statement (`out := NOT g1`, not `LET g2 := NOT g1`).
+- **Modifiers**: `NOT` (negation) and `RISING`/`FALLING` (edge) ride on the CONSUMER (the operand/sink), never
+  as their own statement (`out := NOT g1`, not `LET g2 := NOT g1`).
+- **Coil storage** is the assignment OPERATOR, not a modifier: `out := v` a plain coil, `out S= v` a set coil,
+  `out R= v` a reset coil. It belongs to the coil, so it is written on the coil — one per target, so a fan-out
+  whose coils disagree can be spelled.
 
 A simple leaf feeding two consumers is **inlined into each** (two separate boxes — the valid FBD shape), so the
 canonical form never contains a single fanned-out leaf; only block results and opaque leaves are named-and-shared.

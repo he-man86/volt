@@ -20,10 +20,15 @@ public class NetworkTextRoundTripTests
     [InlineData("NETWORK 0 FBD TITLE: \"my title\"\n  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 OR i2);\n  out := g1;\nEND_NETWORK\n")]
     // LD is the same structure as FBD — only the language token on the marker differs (view toggle).
     [InlineData("NETWORK 0 LD\n  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 AND i2);\n  out := g1;\nEND_NETWORK\n")]
-    // modifiers ride on the REFERENCE: negation (NOT), edge (RISING/FALLING), storage (SET/RESET)
+    // modifiers ride on the REFERENCE: negation (NOT) and edge (RISING/FALLING). Coil STORAGE does not — it
+    // belongs to the target, and is spelled by the assignment operator (`S=` / `R=`) in the cases below.
     [InlineData("NETWORK 0 FBD\n  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (NOT i1 AND i2);\n  out := g1;\nEND_NETWORK\n")]
     [InlineData("NETWORK 0 FBD\n  LET i1 := clk;\n  t1(CLK := i1 RISING);\nEND_NETWORK\n")]
-    [InlineData("NETWORK 0 FBD\n  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 OR i2);\n  out := g1 SET;\nEND_NETWORK\n")]
+    [InlineData("NETWORK 0 FBD\n  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 OR i2);\n  out S= g1;\nEND_NETWORK\n")]
+    [InlineData("NETWORK 0 FBD\n  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 OR i2);\n  out R= g1;\nEND_NETWORK\n")]
+    // A fan-out whose coils DISAGREE — one plain, one set, one reset. The old trailing-word spelling had one
+    // modifier for the whole statement, so this shape could not be written down at all.
+    [InlineData("NETWORK 0 FBD\n  LET g1 := (a OR b);\n  plain := g1;\n  latched S= g1;\n  cleared R= g1;\nEND_NETWORK\n")]
     [InlineData("NETWORK 0 FBD\n  LET i1 := x;\n  fb(IN := NOT i1);\nEND_NETWORK\n")]
     // a leaf's OWN modifier rides on its RHS
     [InlineData("NETWORK 0 FBD\n  LET i1 := NOT x;\n  fb(IN := i1);\nEND_NETWORK\n")]

@@ -194,17 +194,12 @@ public class CodesysNetworkReaderTests
         public object? GetSplitPoint(int i) => null;
     }
 
-    /// <summary>A SET COIL MUST SURVIVE THE PULL. CODESYS keeps coil storage on the operand being assigned TO
-    /// (measured on a real ladder: 246 Set flags across 356 networks), while network text spells it as a
-    /// trailing modifier after the VALUE — `out := a SET;` — and NetworkTextWriter renders modifiers from the
-    /// value only. This reader dropped the targets' flags entirely, so a SET coil pulled as a PLAIN coil:
-    /// invisible in git, and silently downgraded to a plain coil on the next push. It changes what the program
-    /// does, and nothing in the workspace showed it.
-    ///
-    /// <para>DIALECT D26 asserted this reader "already puts storage on the value" — it did not, which is how the
-    /// gap outlived being written down.</para></summary>
+    /// <summary>A SET COIL MUST SURVIVE THE PULL, on the TARGET — where the vendor keeps it (measured on a real
+    /// ladder: 246 Set flags across 356 networks) and where the format now spells it, `out S= a;`. This reader
+    /// dropped the targets' flags entirely, so a SET coil pulled as a PLAIN coil: invisible in git, and
+    /// silently downgraded on the next push.</summary>
     [Fact]
-    public void A_set_coil_carries_its_storage_onto_the_value()
+    public void A_set_coil_keeps_its_storage_on_the_target()
     {
         var assign = new Nwl.BoxTreeAssign { RValue = new Nwl.BoxTreeOperand { Operand = new Nwl.Operand { OperandExpr = "a" } } };
         assign.Outputs.List.Add(new Nwl.Operand
@@ -217,23 +212,40 @@ public class CodesysNetworkReaderTests
         var read = CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0);
 
         var a = Assert.IsType<Assign>(read.Trees.Single());
-        Assert.True(a.Value!.Flags.Set, "the coil's SET must land on the value, where network text spells it");
+        Assert.True(a.Targets.Single().Flags!.Set, "the coil's SET must stay on the coil");
+        Assert.False(a.Value!.Flags.Set, "storage no longer moves onto the value — CoilStorage is deleted");
         Assert.Equal("out", a.Targets.Single().Text);
     }
 
-    /// <summary>A NEGATED coil keeps its negation on the TARGET, where it is rendered from — only Set/Reset
-    /// move. Moving everything would put the negation on the source operand and change the logic.</summary>
+    /// <summary>A RESET COIL IS `Negation + Set` ON THE TARGET, and reading those two bits as two independent
+    /// modifiers is what made every reset coil in a project pull as a SET coil.
+    ///
+    /// <para>The vendor names the encoding itself: exporting each of the 17 POUs in `Lenze_MID-S100` that has a
+    /// non-plain coil gives <c>storage="reset"</c> for exactly this bit pair, counts matching on both sides
+    /// with no residue (<c>scripts/probe-nwl-coils.py</c>). <c>negated="true"</c> never appears on a coil
+    /// there, which is why the fourth bit combination is unobserved rather than merely rare.</para>
+    ///
+    /// <para>The cost of the old reading was not subtle. `GeneralProgramFlags` network 0, whose comment is
+    /// "Always Off", pulled as <c>AlwaysOff := AlwaysOff SET;</c> — a reset coil written as a set coil, in a
+    /// program whose job is to hold that flag false. Pushed back, it latches true.</para></summary>
     [Fact]
-    public void A_negated_coil_keeps_its_negation_on_the_target()
+    public void A_reset_coil_reads_as_a_reset_and_not_as_a_negated_set()
     {
         var assign = new Nwl.BoxTreeAssign { RValue = new Nwl.BoxTreeOperand { Operand = new Nwl.Operand { OperandExpr = "a" } } };
-        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true, Flags = new Nwl.Flags { Negation = true } });
+        // The vendor's own spelling of a reset coil.
+        assign.Outputs.List.Add(new Nwl.Operand
+        {
+            OperandExpr = "out",
+            IsLValue = true,
+            Flags = new Nwl.Flags { Negation = true, Set = true },
+        });
 
         var read = CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0);
 
-        var a = Assert.IsType<Assign>(read.Trees.Single());
-        Assert.False(a.Value!.Flags.Set);
-        Assert.True(a.Targets.Single().Flags!.Negated);
+        var target = Assert.IsType<Assign>(read.Trees.Single()).Targets.Single();
+        Assert.True(target.Flags!.Reset);
+        Assert.False(target.Flags!.Set, "a reset coil is not a set coil");
+        Assert.False(target.Flags!.Negated, "the Negation bit is half the coil KIND, not a modifier on it");
     }
 
     /// <summary>A plain coil stays plain — the translation must not invent storage.</summary>

@@ -1,0 +1,238 @@
+probe of: Lenze_MID-S100_V5_00_602_T51.project
+wanted POUs: ['GeneralProgramFlags']
+opened (a copy; the original is never touched)
+
+==============================================================================
+POU GeneralProgramFlags  (9 networks)
+==============================================================================
+
+-- NETWORK 0  title='' label='' comment='Always Off'
+  tree[0]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeOperand  itemflags=none
+      Operand = 'AlwaysOff' type='BOOL' flags=none
+    out[0] = 'AlwaysOff' type='BOOL' flags=Negation+Set
+
+-- NETWORK 1  title='' label='' comment='Always ON'
+  tree[0]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeOperand  itemflags=Negation
+      Operand = 'AlwaysOn' type='BOOL' flags=Negation
+    out[0] = 'AlwaysOn' type='BOOL' flags=Set
+
+-- NETWORK 2  title='' label='' comment=''
+  tree[0]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeBox  itemflags=none  BoxType='AND'
+      En  = None (null)
+      Eno = None (null)
+      EnEno=True  EnEnoPossible=True
+      InputItemList count=2   InputParams.Names=[]
+      OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+        in[0]: BoxTreeOperand  itemflags=none
+          Operand = 'AlwaysOn' type='BOOL' flags=none
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'OSfirstflagcycle' type='BOOL' flags=none
+    out[0] = 'FirstCycle' type='BOOL' flags=Negation+Set
+
+-- NETWORK 3  title='' label='' comment=''
+  tree[0]: BoxTreeBox  itemflags=none  BoxType='MOVE'
+    En  = True (Boolean)
+    Eno = True (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=2   InputParams.Names=['EN']
+    OutputParams.Names=['ENO', '']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeOperand  itemflags=none
+        Operand = 'AlwaysOn' type='BOOL' flags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = '0' type='INT' flags=none
+    out[0] = <null>
+    out[1] = 'dummyWord' type='INT' flags=none
+
+-- NETWORK 4  title='' label='' comment=''
+  tree[0]: BoxTreeDemux  itemflags=none
+    Input: BoxTreeTerminator  itemflags=none
+  tree[1]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeBox  itemflags=none  BoxType='TON'
+      En  = False (Boolean)
+      Eno = False (Boolean)
+      EnEno=True  EnEnoPossible=True
+      InputItemList count=2   InputParams.Names=['IN', 'PT']
+      OutputParams.Names=['Q']  MainOutputIndex=0  MainInputIndex=0
+        in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+          En  = None (null)
+          Eno = None (null)
+          EnEno=True  EnEnoPossible=True
+          InputItemList count=2   InputParams.Names=[]
+          OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+            in[0]: BoxTreeDemux  itemflags=none
+            in[1]: BoxTreeOperand  itemflags=Negation
+              Operand = 'tmr_FF50ms_not.Q' type='BOOL' flags=Negation
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'T#100MS' type='TIME' flags=none
+      out[0] = <null>
+    out[0] = 'FF50ms' type='BOOL' flags=none
+  tree[2]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeBox  itemflags=none  BoxType='TON'
+      En  = False (Boolean)
+      Eno = False (Boolean)
+      EnEno=True  EnEnoPossible=True
+      InputItemList count=2   InputParams.Names=['IN', 'PT']
+      OutputParams.Names=['Q']  MainOutputIndex=0  MainInputIndex=0
+        in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+          En  = None (null)
+          Eno = None (null)
+          EnEno=True  EnEnoPossible=True
+          InputItemList count=2   InputParams.Names=[]
+          OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+            in[0]: BoxTreeDemux  itemflags=none
+            in[1]: BoxTreeOperand  itemflags=none
+              Operand = 'FF50ms' type='BOOL' flags=none
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'T#100MS' type='TIME' flags=none
+      out[0] = <null>
+    out[0] = 'LST_General.Imp100ms' type='BOOL' flags=none
+
+-- NETWORK 5  title='' label='' comment=''
+  tree[0]: BoxTreeDemux  itemflags=none
+    Input: BoxTreeTerminator  itemflags=none
+  tree[1]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeBox  itemflags=none  BoxType='TON'
+      En  = False (Boolean)
+      Eno = False (Boolean)
+      EnEno=True  EnEnoPossible=True
+      InputItemList count=2   InputParams.Names=['IN', 'PT']
+      OutputParams.Names=['Q']  MainOutputIndex=0  MainInputIndex=0
+        in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+          En  = None (null)
+          Eno = None (null)
+          EnEno=True  EnEnoPossible=True
+          InputItemList count=2   InputParams.Names=[]
+          OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+            in[0]: BoxTreeDemux  itemflags=none
+            in[1]: BoxTreeOperand  itemflags=Negation
+              Operand = 'tmr_FF100ms_not.Q' type='BOOL' flags=Negation
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'T#500MS' type='TIME' flags=none
+      out[0] = <null>
+    out[0] = 'FF100ms' type='BOOL' flags=none
+  tree[2]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeBox  itemflags=none  BoxType='TON'
+      En  = False (Boolean)
+      Eno = False (Boolean)
+      EnEno=True  EnEnoPossible=True
+      InputItemList count=2   InputParams.Names=['IN', 'PT']
+      OutputParams.Names=['Q']  MainOutputIndex=0  MainInputIndex=0
+        in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+          En  = None (null)
+          Eno = None (null)
+          EnEno=True  EnEnoPossible=True
+          InputItemList count=2   InputParams.Names=[]
+          OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+            in[0]: BoxTreeDemux  itemflags=none
+            in[1]: BoxTreeOperand  itemflags=none
+              Operand = 'FF100ms' type='BOOL' flags=none
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'T#500MS' type='TIME' flags=none
+      out[0] = <null>
+    out[0] = 'LST_General.Imp200ms' type='BOOL' flags=none
+
+-- NETWORK 6  title='' label='' comment=''
+  tree[0]: BoxTreeDemux  itemflags=none
+    Input: BoxTreeTerminator  itemflags=none
+  tree[1]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeBox  itemflags=none  BoxType='TON'
+      En  = False (Boolean)
+      Eno = False (Boolean)
+      EnEno=True  EnEnoPossible=True
+      InputItemList count=2   InputParams.Names=['IN', 'PT']
+      OutputParams.Names=['Q']  MainOutputIndex=0  MainInputIndex=0
+        in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+          En  = None (null)
+          Eno = None (null)
+          EnEno=True  EnEnoPossible=True
+          InputItemList count=2   InputParams.Names=[]
+          OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+            in[0]: BoxTreeDemux  itemflags=none
+            in[1]: BoxTreeOperand  itemflags=Negation
+              Operand = 'tmr_FF500ms_not.Q' type='BOOL' flags=Negation
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'T#500MS' type='TIME' flags=none
+      out[0] = <null>
+    out[0] = 'FF500ms' type='BOOL' flags=none
+  tree[2]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeBox  itemflags=none  BoxType='TON'
+      En  = False (Boolean)
+      Eno = False (Boolean)
+      EnEno=True  EnEnoPossible=True
+      InputItemList count=2   InputParams.Names=['IN', 'PT']
+      OutputParams.Names=['Q']  MainOutputIndex=0  MainInputIndex=0
+        in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+          En  = None (null)
+          Eno = None (null)
+          EnEno=True  EnEnoPossible=True
+          InputItemList count=2   InputParams.Names=[]
+          OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+            in[0]: BoxTreeDemux  itemflags=none
+            in[1]: BoxTreeOperand  itemflags=none
+              Operand = 'FF500ms' type='BOOL' flags=none
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'T#500MS' type='TIME' flags=none
+      out[0] = <null>
+    out[0] = 'LST_General.Imp1s' type='BOOL' flags=none
+
+-- NETWORK 7  title='' label='' comment=''
+  tree[0]: BoxTreeDemux  itemflags=none
+    Input: BoxTreeTerminator  itemflags=none
+  tree[1]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeBox  itemflags=none  BoxType='TON'
+      En  = False (Boolean)
+      Eno = False (Boolean)
+      EnEno=True  EnEnoPossible=True
+      InputItemList count=2   InputParams.Names=['IN', 'PT']
+      OutputParams.Names=['Q']  MainOutputIndex=0  MainInputIndex=0
+        in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+          En  = None (null)
+          Eno = None (null)
+          EnEno=True  EnEnoPossible=True
+          InputItemList count=2   InputParams.Names=[]
+          OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+            in[0]: BoxTreeDemux  itemflags=none
+            in[1]: BoxTreeOperand  itemflags=Negation
+              Operand = 'tmr_FF1s_not.Q' type='BOOL' flags=Negation
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'T#1S' type='TIME' flags=none
+      out[0] = <null>
+    out[0] = 'FF1s' type='BOOL' flags=none
+  tree[2]: BoxTreeBox  itemflags=none  BoxType='TON'
+    En  = False (Boolean)
+    Eno = False (Boolean)
+    EnEno=True  EnEnoPossible=True
+    InputItemList count=2   InputParams.Names=['IN', 'PT']
+    OutputParams.Names=['Q']  MainOutputIndex=0  MainInputIndex=0
+      in[0]: BoxTreeBox  itemflags=none  BoxType='AND'
+        En  = None (null)
+        Eno = None (null)
+        EnEno=True  EnEnoPossible=True
+        InputItemList count=2   InputParams.Names=[]
+        OutputParams.Names=[]  MainOutputIndex=None  MainInputIndex=0
+          in[0]: BoxTreeDemux  itemflags=none
+          in[1]: BoxTreeOperand  itemflags=none
+            Operand = 'FF1s' type='BOOL' flags=none
+      in[1]: BoxTreeOperand  itemflags=none
+        Operand = 'T#1S' type='TIME' flags=none
+    out[0] = <null>
+
+-- NETWORK 8  title='' label='' comment=''
+  tree[0]: BoxTreeAssign  itemflags=none
+    RValue: BoxTreeBox  itemflags=none  BoxType='TON'
+      En  = False (Boolean)
+      Eno = False (Boolean)
+      EnEno=True  EnEnoPossible=True
+      InputItemList count=2   InputParams.Names=['IN', 'PT']
+      OutputParams.Names=['Q']  MainOutputIndex=0  MainInputIndex=0
+        in[0]: BoxTreeOperand  itemflags=none
+          Operand = 'AlwaysOn' type='BOOL' flags=none
+        in[1]: BoxTreeOperand  itemflags=none
+          Operand = 'T#60S' type='TIME' flags=none
+      out[0] = <null>
+    out[0] = 'LST_General.StartUpDelayPLC' type='BOOL' flags=none
+
+done
