@@ -1,7 +1,7 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../syntax/index.js"
 import { buildSymbolTable } from "../symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig, CONFIGURABLE_CHECKS } from "./index.js"
+import { computeSemanticDiagnostics, resolveConfig, projectDiagnosticsFrom, CONFIGURABLE_CHECKS } from "./index.js"
 
 /**
  * CODESYS's "Compiler warnings" dialog model: each configurable code is a 3-state control (off / warning /
@@ -54,4 +54,54 @@ test("a non-configurable ERROR is never affected by the dialog states", () => {
   const allOff = Object.fromEntries(CONFIGURABLE_CHECKS.map((w) => [w.code, "off"]))
   const d = diag(src, { diagnostics: allOff as never }).filter((x) => x.code === "unresolved-identifier")
   expect(d[0]?.severity).toBe("error")
+})
+
+// ─── project settings (`.projectsettings`) ───────────────────────────────────
+// A compiler warning's state is a PROJECT fact. pro2193 disables C0371, and the LSP reporting it anyway is
+// why that project's VAR_IN_OUT conformance failed — the check was right, the input was missing.
+
+test("a disabled warning from the project turns its check off", () => {
+  const body = ["Disabled warnings:     C0371", "Replace constants:     on", "Max compiler warnings: 100"].join("\n")
+  expect(projectDiagnosticsFrom(body)).toEqual({ "inout-own-access": "off" })
+})
+
+test("warnings-as-errors raise severity", () => {
+  expect(projectDiagnosticsFrom("Warnings as errors:    C0033, C0139")).toEqual({
+    "pointer-not-convertible": "error",
+    "no-op-statement": "error",
+  })
+})
+
+test("both lists apply at once", () => {
+  const body = "Disabled warnings:     C0371\nWarnings as errors:    C0139"
+  expect(projectDiagnosticsFrom(body)).toEqual({ "inout-own-access": "off", "no-op-statement": "error" })
+})
+
+test("a paired control resolves from EITHER compiler code", () => {
+  // C0195/C0196 is one dialog row, two compiler codes — the file may carry either.
+  expect(projectDiagnosticsFrom("Disabled warnings: C0195")).toEqual({ "sign-change-conversion": "off" })
+  expect(projectDiagnosticsFrom("Disabled warnings: C0196")).toEqual({ "sign-change-conversion": "off" })
+})
+
+test("a code Volt does not implement is skipped, not rejected", () => {
+  // The file lists the PROJECT's configuration; it may configure warnings this LSP has no check for.
+  expect(projectDiagnosticsFrom("Disabled warnings: C0999, C0371")).toEqual({ "inout-own-access": "off" })
+})
+
+test("a settings file with no warning lines configures nothing", () => {
+  expect(projectDiagnosticsFrom("Replace constants: on\nUTF-8 encoding: off")).toEqual({})
+  expect(projectDiagnosticsFrom("")).toEqual({})
+})
+
+test("the project's state overrides the editor's, which is the whole point", () => {
+  const editor = { "inout-own-access": "error" } as const
+  const project = projectDiagnosticsFrom("Disabled warnings: C0371")
+  const resolved = resolveConfig({ vendor: "codesys", diagnostics: { ...editor, ...project } })
+  expect(resolved.diagnostics["inout-own-access"]).toBe("off")
+})
+
+test("codes the project leaves alone keep their default", () => {
+  const resolved = resolveConfig({ vendor: "codesys", diagnostics: projectDiagnosticsFrom("Disabled warnings: C0371") })
+  expect(resolved.diagnostics["no-op-statement"]).toBe("warning")
+  expect(resolved.diagnostics["inout-own-access"]).toBe("off")
 })

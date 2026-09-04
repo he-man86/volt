@@ -16,7 +16,13 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { basename, extname, join } from "node:path"
-import { EMPTY_WORKSPACE_REFS, type WorkspaceRefs } from "./analysis/index.js"
+import {
+  EMPTY_WORKSPACE_REFS,
+  projectDiagnosticsFrom,
+  type ConfigurableCode,
+  type DiagnosticState,
+  type WorkspaceRefs,
+} from "./analysis/index.js"
 import { SOURCE_EXTENSION_SET } from "./source-extensions.js"
 
 /** All files under `root`, recursively. Unreadable directories are skipped, not thrown. */
@@ -141,6 +147,9 @@ export interface WorkspaceScan {
   refs: WorkspaceRefs
   taskRoots: Set<string>
   sources: { path: string; source: string }[]
+  /** Per-code states from the project's `.projectsettings`, or undefined when the project has none (a
+   *  TwinCAT workspace, or one pulled before the bridge emitted it) ⇒ the editor's settings stand alone. */
+  projectDiagnostics?: Partial<Record<ConfigurableCode, DiagnosticState>>
 }
 
 /**
@@ -150,6 +159,7 @@ export interface WorkspaceScan {
  */
 export function scanWorkspace(root: string): WorkspaceScan {
   const empty: WorkspaceScan = { refs: EMPTY_WORKSPACE_REFS, taskRoots: new Set(), sources: [] }
+  let projectDiagnostics: Partial<Record<ConfigurableCode, DiagnosticState>> | undefined
   if (root.length === 0) return empty
   const libraryNamespaces = new Set<string>()
   const deviceInstances = new Set<string>()
@@ -164,6 +174,10 @@ export function scanWorkspace(root: string): WorkspaceScan {
         if (ns) libraryNamespaces.add(ns.toLowerCase())
       } else if (ext === ".device") {
         deviceInstances.add(deviceInstanceOf(file).toLowerCase())
+      } else if (ext === ".projectsettings") {
+        // The project's own compiler-warning configuration — see `projectDiagnosticsFrom`. One per project;
+        // a second would mean two projects in one root, which the workspace model does not support anyway.
+        projectDiagnostics = projectDiagnosticsFrom(readFileSync(file, "utf8"))
       } else if (ext === ".task") {
         for (const p of taskRootsOf(file)) taskRoots.add(p.toLowerCase())
       } else if (SOURCE_EXTENSION_SET.has(ext)) {
@@ -175,5 +189,10 @@ export function scanWorkspace(root: string): WorkspaceScan {
       continue // unreadable file — skip
     }
   }
-  return { refs: { libraryNamespaces, deviceInstances, obsoletePous }, taskRoots, sources }
+  return {
+    refs: { libraryNamespaces, deviceInstances, obsoletePous },
+    taskRoots,
+    sources,
+    ...(projectDiagnostics === undefined ? {} : { projectDiagnostics }),
+  }
 }

@@ -7,7 +7,7 @@ import { test, expect, beforeAll, afterAll } from "bun:test"
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { loadTaskRoots, loadLibraryNamespaces, loadDeviceInstances, loadWorkspaceRefs } from "./workspace-refs.js"
+import { loadTaskRoots, loadLibraryNamespaces, loadDeviceInstances, loadWorkspaceRefs, scanWorkspace } from "./workspace-refs.js"
 
 let root: string
 
@@ -73,4 +73,30 @@ test("a missing / empty root yields empty sets, never throws (safe fallback)", (
   const empty = loadWorkspaceRefs("")
   expect(empty.libraryNamespaces.size).toBe(0)
   expect(empty.deviceInstances.size).toBe(0)
+})
+
+test("the workspace scan picks up the project's .projectsettings", () => {
+  const dir = mkdtempSync(join(tmpdir(), "volt-ps-"))
+  try {
+    writeFileSync(
+      join(dir, "Project.projectsettings"),
+      ["Disabled warnings:     C0371", "Replace constants:     on", "Max compiler warnings: 100"].join("\n"),
+    )
+    writeFileSync(join(dir, "Main.prg"), "PROGRAM Main\nVAR\n  n : INT;\nEND_VAR\nn := 1;\nEND_PROGRAM\n")
+    const scan = scanWorkspace(dir)
+    expect(scan.projectDiagnostics).toEqual({ "inout-own-access": "off" })
+    expect(scan.sources.length).toBe(1) // the settings file is NOT a source unit
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test("a workspace with no .projectsettings leaves the editor's settings alone", () => {
+  const dir = mkdtempSync(join(tmpdir(), "volt-ps-"))
+  try {
+    writeFileSync(join(dir, "Main.prg"), "PROGRAM Main\nEND_PROGRAM\n")
+    expect(scanWorkspace(dir).projectDiagnostics).toBeUndefined()
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })

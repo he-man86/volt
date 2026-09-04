@@ -69,7 +69,14 @@ import {
   type WorkspaceDiagnosticReport,
 } from "vscode-languageserver-protocol/node.js"
 import { fileURLToPath, pathToFileURL } from "node:url"
-import { messagesFor, resolveConfig, type AnalysisInitOptions, type Vendor } from "../analysis/index.js"
+import {
+  messagesFor,
+  resolveConfig,
+  type AnalysisInitOptions,
+  type ConfigurableCode,
+  type DiagnosticState,
+  type Vendor,
+} from "../analysis/index.js"
 import { scanWorkspace } from "../workspace-refs.js"
 import { SOURCE_EXTENSIONS } from "../source-extensions.js"
 import type { Scope, Symbol } from "../symbols/index.js"
@@ -137,6 +144,26 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   const store = new WorkspaceStore(resolveConfig({ vendor }))
   // Set on initialize; the eager crawl + watcher registration run in the `initialized` handler.
   let root: string | undefined
+  /** What the EDITOR asked for, kept so a re-crawl can re-apply the project's settings on top of it. */
+  let editorOptions: AnalysisInitOptions = {}
+  /** What the PROJECT configures (`.projectsettings`), refreshed by every crawl. */
+  let projectDiagnostics: Partial<Record<ConfigurableCode, DiagnosticState>> | undefined
+
+  /**
+   * Resolve the config from both sources, PROJECT LAST.
+   *
+   * A compiler warning's state is a fact about the project, not a preference of whoever opened it: CODESYS
+   * stores it in the project, the bridge mirrors it into `.projectsettings`, and it must therefore beat an
+   * editor setting rather than be overridden by one. Editor options still own everything the project does
+   * not speak to — `diagnoseDeadCode`, and any code the project leaves at its default.
+   */
+  function applyResolvedConfig(): void {
+    store.config = resolveConfig({
+      vendor,
+      diagnoseDeadCode: editorOptions.diagnoseDeadCode,
+      diagnostics: { ...editorOptions.diagnostics, ...projectDiagnostics },
+    })
+  }
   // False until the first workspace crawl has seeded the disk layer. Diagnostics resolve cross-file symbols from the
   // WHOLE-project table, so computing them before the crawl reports every other-file reference as "unresolved" — a
   // burst of false errors that only clears once indexing finishes. Gate all diagnostics on this; publish nothing
@@ -167,6 +194,10 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     const scan = scanWorkspace(root)
     store.workspaceRefs = scan.refs
     store.taskRoots = scan.taskRoots
+    // A crawl can bring a NEW `.projectsettings` (first pull, or the user changed it in the IDE and pulled),
+    // so the config is re-resolved here, not only when the editor pushes settings.
+    projectDiagnostics = scan.projectDiagnostics
+    applyResolvedConfig()
     store.seedDisk(scan.sources.map((s) => ({ uri: pathToFileURL(s.path).href, source: s.source })))
     indexed = true // the disk layer is fully seeded — diagnostics can now resolve cross-file symbols
     for (const uri of store.openUris()) pushDiagnostics(uri)
@@ -196,7 +227,8 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     if (settings === null || typeof settings !== "object") return false
     const s = settings as AnalysisInitOptions
     if (s.diagnoseDeadCode === undefined && s.diagnostics === undefined) return false
-    store.config = resolveConfig({ vendor, diagnoseDeadCode: s.diagnoseDeadCode === true, diagnostics: s.diagnostics })
+    editorOptions = { diagnoseDeadCode: s.diagnoseDeadCode === true, diagnostics: s.diagnostics }
+    applyResolvedConfig()
     store.invalidate()
     for (const uri of store.openUris()) pushDiagnostics(uri) // push-mode clients
     if (clientSupportsPull) void conn.sendRequest(DiagnosticRefreshRequest.type).catch(() => {}) // pull-mode: re-pull with new config
@@ -225,8 +257,10 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   // ─── lifecycle ───────────────────────────────────────────────────────────
   conn.onRequest(InitializeRequest.type, (params): InitializeResult => {
     const opts = params.initializationOptions as AnalysisInitOptions | undefined
-    if (opts !== undefined && (opts.diagnoseDeadCode !== undefined || opts.diagnostics !== undefined))
-      store.config = resolveConfig({ vendor, diagnoseDeadCode: opts.diagnoseDeadCode, diagnostics: opts.diagnostics })
+    if (opts !== undefined && (opts.diagnoseDeadCode !== undefined || opts.diagnostics !== undefined)) {
+      editorOptions = { diagnoseDeadCode: opts.diagnoseDeadCode, diagnostics: opts.diagnostics }
+      applyResolvedConfig()
+    }
     root = workspaceRoot(params.rootUri, params.rootPath)
     // No workspace root ⇒ no crawl to wait for (single-file / bare client): the open buffer IS the project, so let
     // diagnostics flow at once. WITH a root, stay gated until the `initialized` crawl seeds the disk layer.

@@ -109,3 +109,53 @@ export function resolveConfig(opts: AnalysisInitOptions = {}): ResolvedConfig {
     diagnoseDeadCode: opts.diagnoseDeadCode ?? false,
   }
 }
+
+// ─── project settings (the `.projectsettings` descriptor) ─────────────────────
+
+/**
+ * Which diagnostics a PROJECT configures, parsed from the read-only `.projectsettings` file the bridge
+ * materializes from CODESYS's Project Settings dialog.
+ *
+ * This is the point of that file: a compiler warning's state belongs to the project, not to whoever opened
+ * it. Without it the LSP reports warnings the project switched off — pro2193 disables C0371, and its
+ * VAR_IN_OUT conformance failures were exactly that, not a defect in the check.
+ *
+ * Only DEVIATIONS are listed (the bridge omits the rest, so the file doesn't churn when a CODESYS version
+ * adds a warning id), so anything absent keeps the "warning" default. `Cnnnn` codes map back through
+ * {@link CONFIGURABLE_CHECKS} — the same table the filter keys on, so there is one mapping, not two.
+ */
+const CODE_BY_CNNNN: ReadonlyMap<string, ConfigurableCode> = new Map(
+  // `c` is occasionally a pair (`C0195/C0196` — one control, two compiler codes); both must resolve.
+  CONFIGURABLE_CHECKS.flatMap((w) => w.c.split("/").map((c) => [c.trim().toUpperCase(), w.code] as const)),
+)
+
+/** `Cnnnn` → the LSP diagnostic code it configures, or undefined for one Volt does not implement. */
+export function configurableCodeFor(cnnnn: string): ConfigurableCode | undefined {
+  return CODE_BY_CNNNN.get(cnnnn.trim().toUpperCase())
+}
+
+/**
+ * Read the per-code states out of a `.projectsettings` body. Two lines matter:
+ *
+ *     Disabled warnings:     C0371, C0139
+ *     Warnings as errors:    C0033
+ *
+ * Anything else in the file is compile options, which the analysis does not consume (yet). A code Volt
+ * does not implement is skipped rather than rejected: the file lists the PROJECT's configuration, and a
+ * project may legitimately configure a warning this LSP has no check for.
+ */
+export function projectDiagnosticsFrom(body: string): Partial<Record<ConfigurableCode, DiagnosticState>> {
+  const out: Partial<Record<ConfigurableCode, DiagnosticState>> = {}
+  for (const [label, state] of [
+    ["disabled warnings", "off"],
+    ["warnings as errors", "error"],
+  ] as const) {
+    const line = body.split(/\r?\n/).find((l) => l.toLowerCase().startsWith(`${label}:`))
+    if (line === undefined) continue
+    for (const raw of line.slice(line.indexOf(":") + 1).split(",")) {
+      const code = configurableCodeFor(raw)
+      if (code !== undefined) out[code] = state
+    }
+  }
+  return out
+}
