@@ -164,9 +164,7 @@ namespace Volt.Ide.Codesys
 
         private static Box ReadBox(object n, Flags flags)
         {
-            var inputs = NwlInterop.RequireItems(n, "InputItemList", listMember: "")
-                .Select(x => new Input(null, ReadNode(x), Flags.None))
-                .ToList();
+            var items = NwlInterop.RequireItems(n, "InputItemList", listMember: "").ToList();
 
             // Formal pin names, where the vendor supplies them. Operator boxes are positional; an FB call names
             // its pins, and network text needs those names to write `inst(IN := x, PT := y)`.
@@ -174,12 +172,26 @@ namespace Volt.Ide.Codesys
             // READ OFF `Names`, NOT by enumerating objects. `InputParams` is an `IParamList`, whose whole surface
             // is two STRING ARRAYS - `Names` and `Types` - plus AppendParam/InsertParam/RemoveParam/SetType.
             // This asked `Items(...)` for a `List` of objects each carrying a `Name`, which an IParamList has
-            // never had: the lookup found nothing, `formals` came back EMPTY every time, and the count guard
-            // below then quietly left every pin unnamed. So an FB call pulled as `t1( := a,  := pt)` - text that
+            // never had: the lookup found nothing, `formals` came back EMPTY every time, and a count guard
+            // then quietly left every pin unnamed. So an FB call pulled as `t1( := a,  := pt)` - text that
             // does not parse, which means such a POU could be pulled and never pushed back.
             var formals = Names(NwlInterop.Get(n, "InputParams"));
-            if (formals.Count == inputs.Count)
-                inputs = inputs.Select((p, i) => p with { Formal = Clean(formals[i]) }).ToList();
+
+            // THE ENABLE IS INPUT SLOT 0, not the `En` member. `Box.HasEnableSlot` holds the measurement and
+            // what reading it as a data pin cost; here it is two lines, and they must run BEFORE the pins are
+            // paired with their names so the remaining slots line up with the remaining names.
+            Node? enable = null;
+            if (Box.HasEnableSlot(formals) && items.Count > 0)
+            {
+                enable = ReadNode(items[0]);
+                items.RemoveAt(0);
+                formals.RemoveAt(0);
+            }
+
+            // INDEX-ALIGNED, never length-equal: `Names` may be shorter than the item list (see Box.FormalAt).
+            var inputs = items
+                .Select((x, i) => new Input(Clean(Box.FormalAt(formals, i)), ReadNode(x), Flags.None))
+                .ToList();
 
             // AN INSTANCE THAT NAMES NOTHING IS NOT AN INSTANCE. The member is PRESENT on every box —
             // the serializer writes `<o n="Instance" t="Operand">` with an empty `Operand` inside on every
@@ -200,10 +212,13 @@ namespace Volt.Ide.Codesys
                 ReadCallKind(NwlInterop.Get(n, "CallType"), instance),
                 inputs,
                 NwlInterop.RequireItems(n, "Outputs").Select(ReadOperand).ToList(),
-                // From the En PIN, never from the EnEno flag: EnEno is a CAPABILITY marker and is true on every
-                // box in a real project — including every plain AND and OR — so keying on it would wrap the
-                // whole project in `IF en THEN ... END_IF`.
-                Tree(NwlInterop.Get(n, "En")) is { } en ? ReadNode(en) : null,
+                // From INPUT SLOT 0 (above), never from `En` and never from `EnEno`. `EnEno` is a CAPABILITY
+                // marker, true on every box in a real project including every plain AND and OR, so keying on it
+                // would wrap the whole project in `IF en THEN … END_IF`. `En` is the "EN/ENO is shown" flag —
+                // a Boolean on 468 boxes, null on 814, a tree on none. Reading the enable from it therefore
+                // never produced one, which is why this used to read `Tree(Get(n, "En"))` and always answer
+                // null: dead code that read as a guarantee.
+                enable,
                 ReadStCode(n),
                 flags);
         }

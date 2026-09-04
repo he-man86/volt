@@ -131,11 +131,32 @@ internal static class Nwl
     /// there when nothing is wired to the EN pin.</para></summary>
     internal sealed class BoxTreeBox
     {
+        private readonly List<object> _inputs = new List<object>();
+
         public string BoxType { get; set; } = "";
         public object? Instance { get; set; }
         public object? CallType { get; set; }
-        public object[] InputItemList { get; set; } = new object[0];
-        public object? InputParams { get; set; }
+
+        /// <summary>Settable for a test that DESCRIBES a live box, and appended to by the writer.</summary>
+        public object[] InputItemList
+        {
+            get { return _inputs.ToArray(); }
+            set { _inputs.Clear(); _inputs.AddRange(value); }
+        }
+
+        /// <summary>The vendor's own append, and the reason it is here is the reason
+        /// <see cref="OutputItemList.AppendOutputItem"/> is: the writer BUILDS through these, so a double
+        /// without them cannot complete a rebuild and the whole box-construction path stays untested offline.
+        /// It was missing, and the enable write is the first thing that needed it — input SLOT 0 is where an
+        /// enable lives, so nothing about it can be gated without being able to append.</summary>
+        public void AppendInputItem(object item) { _inputs.Add(item); }
+
+        /// <summary>PRESENT by default, like the vendor's. Every box in a real project has an
+        /// <c>IParamList</c> — an AND box's is simply EMPTY (<c>Names=[]</c>, measured) — and the writer
+        /// `Require`s it, so a null default made the box build path unreachable for a reason the vendor
+        /// does not have.</summary>
+        public object? InputParams { get; set; } = new ParamList();
+
         public OutputItemList Outputs { get; } = new OutputItemList();
         public object? En { get; set; }
         public bool ProvidesSTSnippet { get; set; }
@@ -145,8 +166,24 @@ internal static class Nwl
     /// <summary>The vendor's parameter list: two STRING ARRAYS, not a list of named objects.</summary>
     internal sealed class ParamList
     {
-        public string[] Names { get; set; } = new string[0];
-        public string[] Types { get; set; } = new string[0];
+        private readonly List<string> _names = new List<string>();
+        private readonly List<string> _types = new List<string>();
+
+        public string[] Names
+        {
+            get { return _names.ToArray(); }
+            set { _names.Clear(); _names.AddRange(value); }
+        }
+
+        public string[] Types
+        {
+            get { return _types.ToArray(); }
+            set { _types.Clear(); _types.AddRange(value); }
+        }
+
+        /// <summary>The vendor's append — two parallel arrays grow together, which is what makes the name at
+        /// index i the name OF pin i.</summary>
+        public void AppendParam(string name, string type) { _names.Add(name); _types.Add(type); }
     }
 
     // ── builders, so a test reads as the body it describes ────────────────────────────────────────

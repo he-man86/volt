@@ -261,6 +261,21 @@ namespace Volt.Ide.Codesys
                         // there, which is the whole reason this vendor's typed model is safer than an archive.
                         if (b.Instance is { } inst) WriteInstance(box, inst);
 
+                        // THE ENABLE IS INPUT SLOT 0 — appended first, and named `EN` in the param list below,
+                        // which is exactly how the reader finds it again (`Box.HasEnableSlot`).
+                        //
+                        // This used to REFUSE a wired enable outright: "the vendor's `En` member is a nullable
+                        // BOOLEAN, not a wired expression, so there is nowhere to put the enable's tree." The
+                        // first half was measured and true; the conclusion was not. `En` is the "EN/ENO is
+                        // shown on this box" flag, and the enable's EXPRESSION is an ordinary input item — 220
+                        // of 220 boxes with one, in a real project. So there was somewhere to put it after all,
+                        // and every push carrying an enable was refused for want of looking one slot over.
+                        if (b.Enable is { } en)
+                        {
+                            NwlInterop.Call(box, "AppendInputItem", Node(en));
+                            NwlInterop.Set(box, "En", true);
+                        }
+
                         foreach (var p in b.Inputs)
                             NwlInterop.Call(box, "AppendInputItem", Node(p.Value));
 
@@ -272,31 +287,18 @@ namespace Volt.Ide.Codesys
                         // An OPERATOR has no formal names (its pins are positional) and must not be given any.
                         // The TYPE is left empty on purpose: it is the IDE's to resolve from the box type, and
                         // the vendor's own PLCopen export writes an empty `InputParamTypes` for the same reason.
-                        if (b.Inputs.Any(i => !string.IsNullOrEmpty(i.Formal)))
+                        // The pin names, in the SAME order the items were appended — so an enable occupies
+                        // slot 0 under the name the reader looks for. Written whenever any pin is named OR an
+                        // enable is present: an enable on an otherwise positional operator (`MOVE`, `MUL` — the
+                        // commonest shape in a ladder) still has to name its own slot, or the reader cannot
+                        // tell the rung from a data operand on the way back in.
+                        if (b.Enable is not null || b.Inputs.Any(i => !string.IsNullOrEmpty(i.Formal)))
                         {
                             var pins = NwlInterop.Require(box, "InputParams");
+                            if (b.Enable is not null) NwlInterop.Call(pins, "AppendParam", Box.EnablePin, "");
                             foreach (var p in b.Inputs)
                                 NwlInterop.Call(pins, "AppendParam", p.Formal ?? "", "");
                         }
-
-                        // A WIRED ENABLE IS REFUSED, and the refusal is measured rather than assumed.
-                        //
-                        // This assigned the enable's tree straight to `En`, and live CODESYS answers:
-                        //   "Object of type '_3S.CoDeSys.NWLObject.BoxTreeOperand' cannot be converted to type
-                        //    'System.Nullable`1[System.Boolean]'."
-                        // `En` is a NULLABLE BOOLEAN on this vendor, not a node — which is the same fact DIALECT
-                        // C7 records from the other side, where an unwired pin reads back as `System.Boolean
-                        // false` rather than null. So a wired enable was never written here: every push carrying
-                        // one failed, and failed by leaking a raw .NET type error to the engineer.
-                        //
-                        // Where a wired enable's EXPRESSION actually lives on this vendor is not measured, so
-                        // this refuses instead of guessing — the same answer TwinCAT gives, for a different
-                        // measured reason (its importer folds the pin into the box as an ordinary input).
-                        if (b.Enable is not null)
-                            throw new NotSupportedException(
-                                "CODESYS: this graphical body wires a box's EN input, which Volt cannot create — " +
-                                "the vendor's `En` member is a nullable BOOLEAN, not a wired expression, so there " +
-                                "is nowhere to put the enable's tree. Draw it in the IDE and pull it.");
 
                         // A BOX'S EMBEDDED OUTPUT IS REFUSED, because a rebuild cannot carry one.
                         //

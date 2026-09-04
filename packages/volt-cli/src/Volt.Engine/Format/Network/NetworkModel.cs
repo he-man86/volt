@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Volt.Engine.Format.Network;
 
@@ -94,7 +95,41 @@ public sealed record Box(
     IReadOnlyList<Operand> Outputs,
     Node? Enable,
     string? StCode,
-    Flags Flags) : Node(Flags);
+    Flags Flags) : Node(Flags)
+{
+    /// <summary>The vendor's name for the enable pin. It occupies INPUT SLOT 0 of a box that shows EN/ENO,
+    /// and the vendor says so by naming that slot — see <see cref="HasEnableSlot"/>.</summary>
+    public const string EnablePin = "EN";
+
+    /// <summary>Whether the box's input slot 0 is the ENABLE WIRE rather than a data pin.
+    ///
+    /// <para><b>The enable's expression is an ORDINARY INPUT ITEM, and the <c>En</c> member is not it.</b>
+    /// Measured across 373 real networks (<c>scripts/probe-nwl-census.py</c>): <c>En</c> is a Boolean on 468
+    /// boxes and null on 814, and a tree on NONE — it is the "EN/ENO is shown on this box" flag. The wire
+    /// itself arrives as <c>InputItemList[0]</c>, and the vendor names that slot <c>"EN"</c> in
+    /// <c>InputParams</c> on 220 of 220 boxes that have one. Live CODESYS agrees from the write side, in a
+    /// type error: assigning a tree to <c>En</c> answers "Object of type BoxTreeOperand cannot be converted
+    /// to type System.Nullable`1[System.Boolean]".</para>
+    ///
+    /// <para><b>What reading it as a data pin cost.</b> The rung a ladder box sits on IS its enable, so every
+    /// such box gained a leading BOOLEAN operand: <c>MOVE(EN := rung, IN := 0)</c> materialized as
+    /// <c>MOVE(g185, 0)</c> and <c>MUL(EN := rung, …)</c> as <c>(g185 * AUTOSPEED * 10)</c> — a BOOL
+    /// multiplied by an INT, which the graphical build oracle reported as a type error on a project that
+    /// builds clean. Pushed back, it would build a box with one data pin too many.</para></summary>
+    public static bool HasEnableSlot(IReadOnlyList<string?> formals) =>
+        formals.Count > 0 && string.Equals(formals[0], EnablePin, StringComparison.Ordinal);
+
+    /// <summary>The formal name of pin <paramref name="slot"/>, or null when it is POSITIONAL.
+    ///
+    /// <para>The vendor's <c>Names</c> array is INDEX-ALIGNED with the item list and may be SHORTER than it —
+    /// an extensible operator names only the pins it has names for. Both drivers used to require the two
+    /// lengths to be EQUAL and fall back to naming nothing, which split the format down the middle on a
+    /// detail no one chose: 50 boxes in one project happened to match and rendered <c>f(EN := g0, …)</c>,
+    /// leaking the enable pin into the text as a data argument, while the other 169 matched on nothing and
+    /// lost every pin name they had.</para></summary>
+    public static string? FormalAt(IReadOnlyList<string?> formals, int slot) =>
+        slot < formals.Count && !string.IsNullOrEmpty(formals[slot]) ? formals[slot] : null;
+}
 
 /// <summary>An LD parallel branch — <c>BoxTreeParallel</c> (contacts in parallel = a boolean OR of rungs).
 /// <see cref="Input"/> is the rung feeding the branch; <see cref="Branches"/> are the parallel paths.</summary>

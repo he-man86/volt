@@ -103,9 +103,16 @@ public class CodesysNetworkWriterGateTests
     public void An_empty_live_network_against_real_logic_is_a_change()
     {
         var model = CodesysNetworkReader.ReadNetwork(LiveAndRung(), 0);
+        var live = new Nwl.Network();
 
-        // Nothing to tear down, so the proof it got past the gate is that it went on to build.
-        Assert.NotNull(Push(new Nwl.Network(), model));
+        var thrown = Push(live, model);
+
+        // Nothing to tear down, so the proof it got past the gate is what it BUILT. This used to assert a
+        // throw — the doubles could not construct a box, so "it threw" stood in for "it tried" — which is a
+        // proxy that stops being true the moment the doubles get more complete. They did (the box build path
+        // is exercised now), so the test asserts the outcome instead of the symptom.
+        Assert.Null(thrown);
+        Assert.Equal(1, live.NetworkItemCount);
     }
 
     /// <summary>And empty-to-empty writes nothing, so re-pushing an untouched empty body is a true no-op.</summary>
@@ -269,5 +276,59 @@ public class CodesysCoilFlagTests
         Assert.Equal("Done", target.OperandExpr);
         Assert.True(FlagsOf(target).Jump, "the jump's destination operand lost its Jump bit");
         Assert.False(FlagsOf(target).Negation);
+    }
+
+    /// <summary>A WIRED ENABLE ROUND-TRIPS, and this is the write half of a refusal that turned out to be
+    /// wrong.
+    ///
+    /// <para>The writer used to throw on any <c>Box.Enable</c>: "the vendor's `En` member is a nullable
+    /// BOOLEAN, not a wired expression, so there is nowhere to put the enable's tree." The premise was
+    /// measured and correct; the conclusion was not. The enable's expression is an ordinary INPUT ITEM in
+    /// slot 0, named <c>EN</c> in the param list — 220 of 220 boxes with one, in a real project — and `En`
+    /// is the flag saying the pin is shown. So every push carrying an enable was refused for want of looking
+    /// one slot over, and this asserts the two halves now agree by reading back what was written.</para></summary>
+    [Fact]
+    public void A_wired_enable_round_trips_through_input_slot_zero()
+    {
+        var model = new Network(0, null, null, null, false, new Node[]
+        {
+            new Box("MOVE", null, CallKind.Function,
+                    new[] { new Input(null, new Leaf(new Operand("value"), Flags.None), Flags.None) },
+                    System.Array.Empty<Operand>(),
+                    new Leaf(new Operand("rung"), Flags.None),
+                    null, Flags.None),
+        });
+
+        var live = new Nwl.Network().With(new Nwl.BoxTreeAssign());
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, null, BodyLanguage.Ld);
+        var back = CodesysNetworkReader.ReadNetwork(live, 0);
+
+        var box = Assert.IsType<Box>(back.Trees.Last());
+        Assert.Equal("rung", Assert.IsType<Leaf>(box.Enable).Operand.Text);
+        Assert.Equal(new[] { "value" }, box.Inputs.Select(i => ((Leaf)i.Value).Operand.Text));
+    }
+
+    /// <summary>The enable NAMES ITS OWN SLOT, even on a box whose data pins are positional. Without the name
+    /// the reader cannot tell the rung from a data operand, and `MOVE` — the commonest enabled box in a
+    /// ladder — has exactly that shape: one unnamed data pin.</summary>
+    [Fact]
+    public void An_enabled_operator_still_writes_the_EN_pin_name()
+    {
+        var model = new Network(0, null, null, null, false, new Node[]
+        {
+            new Box("MOVE", null, CallKind.Function,
+                    new[] { new Input(null, new Leaf(new Operand("value"), Flags.None), Flags.None) },
+                    System.Array.Empty<Operand>(),
+                    new Leaf(new Operand("rung"), Flags.None),
+                    null, Flags.None),
+        });
+
+        var live = new Nwl.Network().With(new Nwl.BoxTreeAssign());
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, null, BodyLanguage.Ld);
+
+        var written = Assert.IsType<Nwl.BoxTreeBox>(live.GetTree(live.NetworkItemCount - 1));
+        var names = Assert.IsType<Nwl.ParamList>(written.InputParams).Names;
+        Assert.Equal("EN", names[0]);
+        Assert.True((bool?)written.En, "the vendor's `En` flag says the pin is SHOWN, and it must be set");
     }
 }

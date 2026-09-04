@@ -145,11 +145,28 @@ def walk(n, where):
         else:
             bump("EnNotTrue: Names[0]==EN -> %s" % has_en_name, where)
             bump("EnNotTrue: inputs==len(Names) -> %s" % (cnt == len(nm or [])), where)
+        opp = prop(n, "OutputParams")
+        onames = None
+        if opp is not None:
+            try:
+                onames = [str(x) for x in (prop(opp, "Names") or [])]
+            except Exception:
+                onames = None
         outs = prop(n, "Outputs")
         lst = prop(outs, "List") if outs is not None else None
         if lst is not None:
             n_null = sum(1 for x in lst if x is None)
-            bump("box.outputs.count=%d null=%d (EnTrue=%s)" % (len(lst), n_null, ent == "Boolean" and bool(en)), where)
+            n_empty = sum(1 for x in lst if x is not None and not (prop(x, "OperandExpr") or ""))
+            n_real = len(lst) - n_null - n_empty
+            bump("OUT slots=%d null=%d empty=%d REAL=%d" % (len(lst), n_null, n_empty, n_real), where)
+            if onames is not None:
+                bump("OUT names==slots -> %s" % (len(onames) == len(lst)), where)
+                bump("OUT names[0]==ENO -> %s (EnTrue=%s)"
+                     % (len(onames) > 0 and onames[0] == "ENO", ent == "Boolean" and bool(en)), where)
+                for i, x in enumerate(lst):
+                    if x is not None and (prop(x, "OperandExpr") or ""):
+                        nmv = onames[i] if i < len(onames) else "<past end>"
+                        bump("OUT real at slot %d named %r" % (i, nmv), where)
         for x in items:
             walk(x, where)
 

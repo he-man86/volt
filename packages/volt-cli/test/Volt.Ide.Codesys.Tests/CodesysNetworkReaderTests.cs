@@ -61,24 +61,57 @@ public class CodesysNetworkReaderTests
         Assert.Equal(new[] { "out" }, read.Targets.Select(t => t.Text));
     }
 
-    /// <summary>A WIRED enable still arrives. The guard rejects non-nodes, so it must not reject nodes — an
-    /// over-broad fix would silently drop every real EN pin instead, which is the same class of loss one layer
-    /// over.</summary>
+    /// <summary>A WIRED ENABLE ARRIVES FROM INPUT SLOT 0, which is where the vendor puts it.
+    ///
+    /// <para><b>This test used to hand the double a shape no vendor emits</b> — <c>En = Leaf("enable")</c>, a
+    /// TREE in the <c>En</c> member — and passed, which is worse than failing: it certified a read that could
+    /// never fire. Across 373 real networks <c>En</c> is a Boolean on 468 boxes, null on 814, and a tree on
+    /// none (<c>scripts/probe-nwl-census.py</c>); live CODESYS says the same from the write side, refusing a
+    /// tree with "cannot be converted to type System.Nullable`1[System.Boolean]". <c>En</c> is the "EN/ENO is
+    /// shown on this box" flag. The WIRE is an ordinary input item in slot 0, and the vendor names that slot
+    /// <c>EN</c> — 220 of 220 boxes that have one.</para>
+    ///
+    /// <para>So the shape below is the ladder shape: a rung feeding a box's enable, with the box's own data
+    /// pins after it. Read as a data pin instead, the rung became a leading BOOLEAN operand — `MOVE(g185, 0)`
+    /// for `MOVE(EN := rung, IN := 0)` — and the build oracle saw the type error that followed.</para></summary>
     [Fact]
-    public void A_wired_EN_pin_is_still_read()
+    public void A_wired_EN_pin_is_read_from_input_slot_zero()
     {
         var box = new Nwl.BoxTreeBox
         {
-            BoxType = "AND",
-            InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b") },
-            En = Nwl.Leaf("enable"),
+            BoxType = "MOVE",
+            InputItemList = new object[] { Nwl.Leaf("rung"), Nwl.Leaf("value") },
+            InputParams = new Nwl.ParamList { Names = new[] { "EN" }, Types = new[] { "BOOL" } },
+            En = true,   // the vendor's flag: EN/ENO is SHOWN. Never the wire.
         };
 
         var body = CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd);
 
         var read = Assert.IsType<Box>(body.Networks.Single().Trees.Single());
-        var enable = Assert.IsType<Leaf>(read.Enable);
-        Assert.Equal("enable", enable.Operand.Text);
+        Assert.Equal("rung", Assert.IsType<Leaf>(read.Enable).Operand.Text);
+        // The enable is NOT also a data pin, and the one real pin keeps its position.
+        Assert.Equal(new[] { "value" }, read.Inputs.Select(i => ((Leaf)i.Value).Operand.Text));
+        Assert.All(read.Inputs, i => Assert.Null(i.Formal));   // MOVE's data pin is positional
+    }
+
+    /// <summary>A box with no EN slot keeps every input as data — the guard must not eat a real first pin just
+    /// because the box has a name in slot 0.</summary>
+    [Fact]
+    public void A_box_whose_first_pin_is_not_EN_keeps_all_of_its_inputs()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "TON",
+            Instance = new Nwl.Operand { OperandExpr = "t1", IsInstance = true },
+            InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("pt") },
+            InputParams = new Nwl.ParamList { Names = new[] { "IN", "PT" }, Types = new[] { "BOOL", "TIME" } },
+        };
+
+        var read = Assert.IsType<Box>(
+            CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd).Networks.Single().Trees.Single());
+
+        Assert.Null(read.Enable);
+        Assert.Equal(new[] { "IN", "PT" }, read.Inputs.Select(i => i.Formal));
     }
 
     /// <summary>FORMAL PIN NAMES COME OFF `Names`, a STRING ARRAY — the vendor's <c>IParamList</c> has no list of
@@ -103,23 +136,47 @@ public class CodesysNetworkReaderTests
         Assert.Equal("t1", read.Instance?.Text);
     }
 
-    /// <summary>A count that does not match the pins is not a licence to mis-pair them: the reader only applies
-    /// formals when there is exactly one per input, so a partial list leaves them all unnamed rather than
-    /// sliding the names onto the wrong pins.</summary>
+    /// <summary>A SHORTER `Names` ARRAY IS INDEX-ALIGNED, not a partial list to throw away.
+    ///
+    /// <para>This used to assert the opposite — "the reader only applies formals when there is exactly one per
+    /// input, so a partial list leaves them all unnamed rather than sliding the names onto the wrong pins".
+    /// The worry was right and the remedy was not: the array is aligned by INDEX, so nothing can slide, and a
+    /// short one is how an EXTENSIBLE operator says its trailing pins are positional. Requiring equality split
+    /// one real project's boxes in half on that accident — 50 matched and rendered their enable as
+    /// <c>f(EN := g0, …)</c>, a data argument that is not one; 169 matched on nothing and lost every pin name
+    /// the vendor had given them.</para></summary>
     [Fact]
-    public void A_mismatched_param_list_names_nothing()
+    public void A_short_param_list_names_the_pins_it_covers_and_no_others()
     {
         var box = new Nwl.BoxTreeBox
         {
-            BoxType = "AND",
-            InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b") },
+            BoxType = "ADD",
+            InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b"), Nwl.Leaf("c") },
             InputParams = new Nwl.ParamList { Names = new[] { "In1" }, Types = new[] { "BOOL" } },
         };
 
         var body = CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd);
 
         var read = Assert.IsType<Box>(body.Networks.Single().Trees.Single());
-        Assert.All(read.Inputs, i => Assert.Null(i.Formal));
+        Assert.Equal(new string?[] { "In1", null, null }, read.Inputs.Select(i => i.Formal));
+    }
+
+    /// <summary>An EMPTY name is positional too — the vendor writes `""` for a pin it does not name (`MOVE`'s
+    /// data output is one), and an empty formal would render as `f( := a)`, which does not parse.</summary>
+    [Fact]
+    public void An_empty_pin_name_is_positional()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "MOVE",
+            InputItemList = new object[] { Nwl.Leaf("a") },
+            InputParams = new Nwl.ParamList { Names = new[] { "" }, Types = new[] { "" } },
+        };
+
+        var read = Assert.IsType<Box>(
+            CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd).Networks.Single().Trees.Single());
+
+        Assert.Null(read.Inputs.Single().Formal);
     }
 
     /// <summary>A NETWORK TITLE IS NOT A VENDOR SENTINEL. The archive layer's placeholders

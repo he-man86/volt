@@ -310,18 +310,25 @@ internal static class TcNetworkWriter
                 //
                 // An ASSIGNMENT's targets are a different thing and ARE written (see the Assign arm): `out := x`
                 // is exactly what network text spells, so the model does carry those.
-                // "EN" — the same correction as the reader's, and it HAS to land in the same change. The
-                // two halves were misspelled in agreement, so the write no-opped for exactly the bodies
-                // the read could not see. Fixing only the reader makes b.Enable non-null while this still
-                // looked up "En", found nothing, and refused "a 'En' input appears where the IDE wrote
-                // none" — a push refusal on a body nobody had touched.
-                changed |= WriteChild(e, "EN", b.Enable);
-
+                // THE ENABLE IS INPUT SLOT 0, and it is not the `EN` member.
+                //
+                // This wrote `b.Enable` into `EN`, which was the reader's mistake in mirror image: the member
+                // is the "EN/ENO is shown on this box" flag, not the wire. Both halves agreed, so the pair
+                // no-opped together and nothing showed it. With the read corrected, the enable is a real input
+                // item again — and the count check below has to know that, or every ladder box would refuse
+                // ("changes from 2 to 1 input(s)") on a push that changed nothing.
                 var inputs = TcArchive.List(e, "InputItems");
-                if (inputs.Count != b.Inputs.Count)
-                    throw Refuse($"box '{b.Type}' changes from {inputs.Count} to {b.Inputs.Count} input(s)");
-                for (int i = 0; i < inputs.Count; i++)
-                    changed |= WriteNode(inputs[i], b.Inputs[i].Value);
+                var pinNames = TcArchive.Strings(TcArchive.Obj(e, "InputParam"), "Names");
+                var enSlot = Box.HasEnableSlot(pinNames) && inputs.Count > 0 ? 1 : 0;
+                if (enSlot == 1 && b.Enable is null)
+                    throw Refuse($"box '{b.Type}' drops its EN input, which network text cannot express");
+                if (enSlot == 0 && b.Enable is not null)
+                    throw Refuse($"box '{b.Type}' gains an EN input, which this in-place write cannot add");
+                if (inputs.Count - enSlot != b.Inputs.Count)
+                    throw Refuse($"box '{b.Type}' changes from {inputs.Count - enSlot} to {b.Inputs.Count} input(s)");
+                if (enSlot == 1) changed |= WriteNode(inputs[0], b.Enable!);
+                for (int i = 0; i < b.Inputs.Count; i++)
+                    changed |= WriteNode(inputs[i + enSlot], b.Inputs[i].Value);
 
                 changed |= WriteFormalNames(e, b);
                 return changed;
@@ -419,14 +426,19 @@ internal static class TcNetworkWriter
         if (list == null)
             throw Refuse($"box '{b.Type}' names its pins but the IDE wrote no InputParam/Names to name");
 
+        // The ENABLE OWNS SLOT 0 of this list too, under the name the reader finds it by, so the model's pins
+        // start one along. `Names` is also allowed to be SHORTER than the model's pin list — that is how an
+        // extensible operator says its trailing pins are positional — so only the slots the IDE actually
+        // wrote are compared, and a mismatch on those is still refused.
         var slots = list.Elements("v").ToList();
-        if (slots.Count != b.Inputs.Count)
-            throw Refuse($"box '{b.Type}' changes from {slots.Count} to {b.Inputs.Count} named pin(s)");
+        var enSlot = Box.HasEnableSlot(slots.Select(v => (string?)v.Value).ToList()) ? 1 : 0;
+        if (slots.Count - enSlot > b.Inputs.Count)
+            throw Refuse($"box '{b.Type}' changes from {slots.Count - enSlot} to {b.Inputs.Count} named pin(s)");
 
         var changed = false;
-        for (int i = 0; i < slots.Count; i++)
+        for (int i = enSlot; i < slots.Count; i++)
         {
-            var want = b.Inputs[i].Formal ?? "";
+            var want = b.Inputs[i - enSlot].Formal ?? "";
             if (slots[i].Value == want) continue;
             slots[i].Value = want;
             changed = true;

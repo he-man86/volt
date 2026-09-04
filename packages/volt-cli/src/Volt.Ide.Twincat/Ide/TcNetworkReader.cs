@@ -109,11 +109,15 @@ internal static class TcNetworkReader
                     CallKindOf(e),
                     ReadInputs(e),
                     Outputs(e),
-                    // "EN", not "En". The archive spells this member in UPPERCASE — 33 occurrences across
-                    // every fixture and both real TwinCAT projects, and zero of "En" — and TcArchive.Obj
-                    // compares ordinally, so the old spelling matched nothing and a WIRED enable was
-                    // silently dropped. DIALECT N4's measured BoxTreeBox member list says EN too.
-                    TcArchive.Obj(e, "EN") is { } en ? ReadNode(en) : null,
+                    // FROM INPUT SLOT 0, not from the `EN` member.
+                    //
+                    // Correcting the member's SPELLING (`En` -> `EN`, 33 occurrences in every fixture and both
+                    // real projects) fixed a real ordinal mismatch and still read nothing, because the member
+                    // is not the wire: it is the "EN/ENO is shown on this box" flag, which the archive writes
+                    // as `<n n="EN" />` when unset and a scalar when set — never a tree, so `Obj` matched
+                    // nothing either way. The enable's expression is an ordinary input item, measured on the
+                    // other vendor's live model (`Box.HasEnableSlot`) and identical here by N1.
+                    ReadEnable(e),
                     ReadStCode(e),
                     flags);
 
@@ -177,14 +181,32 @@ internal static class TcNetworkReader
     ///
     /// <para>An OPERATOR box legitimately has an empty <c>InputParam</c> (measured on every box in every fixture
     /// here): its pins are positional and have no names, so those stay null rather than being refused.</para></summary>
+    /// <summary>The enable wire, if input slot 0 is one — read BEFORE <see cref="ReadInputs"/> pairs the rest
+    /// with their names, and removed from them there. See <see cref="Box.HasEnableSlot"/>: the enable is an
+    /// ordinary input item, and the <c>EN</c> member is the "EN/ENO is shown" flag rather than the wire.</summary>
+    private static Node? ReadEnable(XElement e)
+    {
+        var names = TcArchive.Strings(TcArchive.Obj(e, "InputParam"), "Names");
+        if (!Box.HasEnableSlot(names)) return null;
+        var items = TcArchive.List(e, "InputItems");
+        return items.Count > 0 ? ReadNode(items[0]) : null;
+    }
+
     private static List<Input> ReadInputs(XElement e)
     {
         var items = TcArchive.List(e, "InputItems");
         var names = TcArchive.Strings(TcArchive.Obj(e, "InputParam"), "Names");
 
-        // Only pair them when the vendor gave one name per input. A partial list is not something to guess at.
-        var named = names.Count == items.Count;
-        return items.Select((x, i) => new Input(named && names[i].Length > 0 ? names[i] : null, ReadNode(x), Flags.None)).ToList();
+        // Slot 0 is the ENABLE when the vendor names it so, and it is not a data pin — `ReadEnable` takes it.
+        var skip = Box.HasEnableSlot(names) && items.Count > 0 ? 1 : 0;
+
+        // INDEX-ALIGNED, never length-equal. This used to pair the two lists only when the vendor gave exactly
+        // one name per input ("a partial list is not something to guess at") and otherwise name nothing — but a
+        // shorter `Names` is not a partial list to guess at, it is how an EXTENSIBLE operator says its trailing
+        // pins are positional. Requiring equality split one project's boxes in half on that accident.
+        return items.Skip(skip)
+            .Select((x, i) => new Input(Box.FormalAt(names, i + skip), ReadNode(x), Flags.None))
+            .ToList();
     }
 
     /// <summary>An item's outputs. The archive nests them one level deeper than the live model does — an
