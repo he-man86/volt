@@ -15,6 +15,7 @@ import { id, fid, cleanup, requireHealthy, snapshot, assertDelta, createItem, up
 import { LIFECYCLE_KINDS } from "../fixtures"
 
 // Each writable source kind is named by its KIND: function_block→fb, program→prg, gvl→gvl, every DUT→dut.
+// (That is the WIRE name. The workspace file a DUT lands in is `.struct`/`.enum`/`.union`/`.alias`.)
 const EXT_BY_KIND: Record<string, string> = {
 	function_block: "fb", program: "prg", gvl: "gvl", dut: "dut",
 }

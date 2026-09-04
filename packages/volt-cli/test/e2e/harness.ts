@@ -262,7 +262,8 @@ export async function requireHealthy(timeoutMs = 60_000): Promise<void> {
 // name + extension) used for every op and lookup. No bare↔full resolution anywhere.
 export function id(s: string): string { return `${PREFIX}_${s}` }
 /** The FULL wire name: the IEC name + KIND extension. A POU is named by kind — default `.fb` (function
- *  block); pass "prg"/"fun"/"itf"/"dut"/"gvl" for other kinds (every DUT is one "dut"). */
+ *  block); pass "prg"/"fun"/"itf"/"dut"/"gvl" for other kinds (every DUT is one wire kind "dut" —
+ *  the four file extensions are a materialization concern the wire never sees). */
 export function fid(s: string, ext = "fb"): string { return `${id(s)}.${ext}` }
 
 export async function cleanup(): Promise<void> {
