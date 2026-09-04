@@ -173,4 +173,30 @@ public sealed record Flags(
 {
     public static readonly Flags None = new();
     public bool IsNone => !Negated && !Set && !Reset && !Jump && !Return && !Rising && !Falling;
+
+    /// <summary>These item flags, plus the CONTROL-FLOW bits carried by an assignment's TARGET operands.
+    ///
+    /// <para><b>Both vendors keep <see cref="Jump"/> and <see cref="Return"/> on the operand, not on the item</b>
+    /// — measured on a live SP21 project: a RETURN coil an engineer drew reads back as
+    /// <c>out[0] = '???' type='BOOL' flags=Return</c> on a <c>BoxTreeAssign</c> whose own flags are none. Reading
+    /// them from the item alone only ever worked for control flow VOLT had written, because Volt was the only
+    /// thing that put the bit there.</para>
+    ///
+    /// <para><b>Jump was fixed here once and Return was left behind</b>, which is why this is one call and not
+    /// two conditions inlined per driver. The cost of the omission is not a missing modifier: a return coil has
+    /// no operand to name, so the vendor writes <c>???</c> in it, and the missed bit turned an engineer's
+    /// <c>RETURN</c> into <c>??? := cond;</c> — a coil assigning to the unresolved-instance marker. That text is
+    /// refused on push, so the POU could be pulled and never pushed back, and the graphical build oracle read it
+    /// as a compile error on a project that builds clean.</para></summary>
+    public Flags WithControlFlowFrom(IEnumerable<Operand> targets)
+    {
+        bool jump = Jump, ret = Return;
+        foreach (var t in targets)
+        {
+            if (t.Flags is not { } f) continue;
+            jump |= f.Jump;
+            ret |= f.Return;
+        }
+        return jump == Jump && ret == Return ? this : this with { Jump = jump, Return = ret };
+    }
 }

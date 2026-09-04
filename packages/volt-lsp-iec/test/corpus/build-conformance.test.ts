@@ -13,18 +13,11 @@
 import { describe, expect, test } from "bun:test"
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { extname, join } from "node:path"
-import { parseSource } from "../../src/syntax/index.js"
-import { buildSymbolTable, isLibrarySymbol } from "../../src/symbols/index.js"
-import {
-  computeSemanticDiagnostics,
-  deadMemberSpans,
-  deadPous,
-  inDeadMember,
-  ownerPou,
-  resolveConfig,
-  type Vendor,
-} from "../../src/analysis/index.js"
+import { DiagnosticSeverity } from "vscode-languageserver-protocol"
+import { messagesFor, resolveConfig, type Vendor } from "../../src/analysis/index.js"
 import { loadTaskRoots, loadWorkspaceRefs, scanWorkspace } from "../../src/workspace-refs.js"
+import { WorkspaceStore } from "../../src/server/workspace-store.js"
+import { documentDiagnostics } from "../../src/server/diagnostics.js"
 import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
 
 // Several diagnostics EMBED the offending source line (C0139 "The code '<line>' has no effect"). The LSP keeps
@@ -85,32 +78,37 @@ function walk(dir: string): string[] {
 // and unmaintainable: it had to be rediscovered per project and could not be checked against anything. Both
 // projects' pulled settings now say `Disabled warnings: C0371`, so the fact is READ rather than remembered.
 
-/** Every ERROR+WARNING LSP message across a project, with the same dead-code suppression + per-project config
- *  the server would apply. Warnings are compared too (not just errors) — a lint the build never emitted is as
- *  much a false positive as a phantom error. */
+/**
+ * Every ERROR+WARNING LSP message across a project, through `documentDiagnostics` — THE SERVER'S OWN PATH.
+ *
+ * It used to call `computeSemanticDiagnostics` and re-implement the server's suppression beside it (the
+ * library gate, dead POUs, dead members), with a comment saying the harness "must apply the SAME skip". Two
+ * consequences, and the second was costly: the copy could drift, and it silently covered only HALF the LSP.
+ * `computeSemanticDiagnostics` lives in `analysis` (layer D) and network text in `network` (layer F), so the
+ * analysis layer structurally CANNOT include graphical diagnostics — they are merged one layer up, in
+ * `documentDiagnostics`. Calling the lower function put every network-text diagnostic outside the oracle:
+ * nothing held them to the compiler, and the two that were wrong — a title that swallowed the first statement,
+ * `EXECUTE(` read as a block opener — survived until a real pull made them numerous enough to notice.
+ *
+ * Going through the server's function is therefore both less code and more coverage, and it is what
+ * `corpus.test.ts` already did.
+ *
+ * Warnings are compared too, not just errors: a lint the build never emitted is as much a false positive as a
+ * phantom error.
+ */
 function lspMessages(dir: string): string[] {
-  const config = resolveConfig({ vendor: VENDOR, diagnostics: scanWorkspace(dir).projectDiagnostics })
-  const inputs = walk(dir).map((uri) => {
-    const source = readFileSync(uri, "utf8")
-    return { uri, source, parseResult: parseSource(source) }
-  })
-  const project = buildSymbolTable(inputs)
-  const references = loadWorkspaceRefs(dir)
-  const dead = deadPous(inputs, loadTaskRoots(dir))
-  const deadMembers = deadMemberSpans(inputs, dead)
+  const store = new WorkspaceStore(
+    resolveConfig({ vendor: VENDOR, diagnostics: scanWorkspace(dir).projectDiagnostics }),
+  )
+  store.workspaceRefs = loadWorkspaceRefs(dir)
+  store.taskRoots = loadTaskRoots(dir)
+  store.seedDisk(walk(dir).map((uri) => ({ uri, source: readFileSync(uri, "utf8") })))
+
   const messages: string[] = []
-  for (const f of inputs) {
-    // The live server's ROOT gate: a referenced library is a precompiled blob the project never recompiles, so
-    // CODESYS runs no check on its materialized source (documentDiagnostics returns [] for these). The harness
-    // must apply the SAME skip, else legitimate library-only patterns (e.g. an FB_Init overload in a library FB)
-    // read as false positives the live LSP never emits.
-    if (isLibrarySymbol({ uri: f.uri })) continue
-    const owner = ownerPou(f.parseResult)
-    if (owner !== undefined && dead.has(owner)) continue
-    const dm = deadMembers.get(f.uri)
-    for (const d of computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config, references }))
-      if ((d.severity === "error" || d.severity === "warning") && !inDeadMember(d.span, dm)) messages.push(d.message)
-  }
+  for (const d of store.workspace())
+    for (const diag of documentDiagnostics(store, messagesFor(VENDOR), d))
+      if (diag.severity === DiagnosticSeverity.Error || diag.severity === DiagnosticSeverity.Warning)
+        messages.push(diag.message)
   return messages
 }
 

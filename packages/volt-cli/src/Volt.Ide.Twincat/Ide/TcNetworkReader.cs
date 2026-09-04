@@ -96,9 +96,14 @@ internal static class TcNetworkReader
                 // luck. On CODESYS the operand was the ONLY place the bit appeared for a jump an engineer drew,
                 // and reading the item there turned their control flow into a coil assigning to the label. One
                 // rule on both vendors costs two lines and removes the asymmetry that made that possible.
-                var jumps = targets.Any(t => t.Flags?.Jump == true);
+                //
+                // It covers RETURN as well as JMP, and the rule now lives in `Flags.WithControlFlowFrom` for
+                // that reason: this read lifted `Jump` and stopped, so on CODESYS — where the operand is the
+                // only place the bit appears — an engineer's RETURN coil came back as `??? := cond;`. The two
+                // bits share a bit-field and an operand; splitting them across two lines is what let one be
+                // fixed while the other stayed broken.
                 return new Assign(CoilStorage.OntoValue(value, targets), targets,
-                                  jumps ? flags with { Jump = true } : flags);
+                                  flags.WithControlFlowFrom(targets));
             }
 
             case "BoxTreeBox":

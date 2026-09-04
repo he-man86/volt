@@ -1,0 +1,43 @@
+census of: Lenze_MID-S100_V5_00_602_T51.project
+POUs with networks: 40   networks: 373
+
+En.bool=False                                           249   e.g. Mach1_Drives net5
+En.bool=True                                            219   e.g. Mach1_Drives net4
+En.type=Boolean                                         468   e.g. Mach1_Drives net4
+En.type=null                                            814   e.g. Mach1_Drives net0
+EnNotTrue: Names[0]==EN -> False                       1062   e.g. Mach1_Drives net0
+EnNotTrue: Names[0]==EN -> True                           1   e.g. AHWF net2
+EnNotTrue: inputs==len(Names) -> False                  834   e.g. Mach1_Drives net0
+EnNotTrue: inputs==len(Names) -> True                   229   e.g. Mach1_Drives net5
+EnTrue: Names[0]==EN -> True                            219   e.g. Mach1_Drives net4
+EnTrue: inputs-len(Names) = 0                            50   e.g. Mach1_Drives net4
+EnTrue: inputs-len(Names) = 1                           100   e.g. Mach1_Drives net4
+EnTrue: inputs-len(Names) = 2                            69   e.g. Mach1_Drives net27
+EnTrue: inputs==len(Names) -> False                     169   e.g. Mach1_Drives net4
+EnTrue: inputs==len(Names) -> True                       50   e.g. Mach1_Drives net4
+assign/box null output entry                            469   e.g. Mach1_Drives net4
+box.outputs.count=0 null=0 (EnTrue=False)               823   e.g. Mach1_Drives net0
+box.outputs.count=1 null=1 (EnTrue=False)               174   e.g. Mach1_Drives net5
+box.outputs.count=1 null=1 (EnTrue=True)                 57   e.g. Mach1_Drives net4
+box.outputs.count=15 null=1 (EnTrue=False)                2   e.g. Mach1_MIDS net1
+box.outputs.count=2 null=1 (EnTrue=False)                37   e.g. Mach1_Drives net6
+box.outputs.count=2 null=1 (EnTrue=True)                146   e.g. Mach1_Drives net4
+box.outputs.count=2 null=2 (EnTrue=True)                 10   e.g. General net0
+box.outputs.count=3 null=1 (EnTrue=False)                 2   e.g. call_OEE_FB net0
+box.outputs.count=3 null=1 (EnTrue=True)                  5   e.g. Mach1_Drives net19
+box.outputs.count=30 null=1 (EnTrue=False)                1   e.g. POU net0
+box.outputs.count=31 null=1 (EnTrue=False)                1   e.g. POU net2
+box.outputs.count=33 null=1 (EnTrue=False)                1   e.g. POU net3
+box.outputs.count=35 null=1 (EnTrue=False)                1   e.g. POU net4
+box.outputs.count=4 null=1 (EnTrue=False)                 5   e.g. ATD_TorqueControl net1
+box.outputs.count=4 null=1 (EnTrue=True)                  1   e.g. SideCorrection net2
+box.outputs.count=40 null=1 (EnTrue=False)                1   e.g. POU net1
+box.outputs.count=5 null=1 (EnTrue=False)                 8   e.g. Mach1_MIDS net55
+box.outputs.count=6 null=1 (EnTrue=False)                 4   e.g. Mach1_MotionControl net9
+box.outputs.count=7 null=1 (EnTrue=False)                 1   e.g. Mach1_MIDS net52
+box.outputs.count=9 null=1 (EnTrue=False)                 2   e.g. Mach1_MIDS net62
+itemflag:Negation                                       718   e.g. Mach1_Drives net0
+operandflag:Negation                                    359   e.g. Mach1_Drives net0
+outputflag:Negation                                     128   e.g. Mach1_Drives net1
+outputflag:Return                                         1   e.g. ATD_FQI net0
+outputflag:Set                                          246   e.g. Mach1_Drives net1

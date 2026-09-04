@@ -290,4 +290,71 @@ public class CodesysNetworkReaderTests
 
         Assert.True(Assert.IsType<Leaf>(Assert.IsType<Assign>(read.Trees.Single()).Value).Flags.Rising);
     }
+
+    /// <summary>A RETURN COIL IS CONTROL FLOW, and the bit that says so is on the TARGET OPERAND.
+    ///
+    /// <para><b>Ground truth, measured on a live SP21 project</b> (Lenze_MID-S100, POU <c>ATD_FQI</c> network 0,
+    /// titled "Return when virtual axis"). The probe read back exactly this shape:</para>
+    /// <code>
+    /// tree[0]: BoxTreeAssign  itemflags=none
+    ///   RValue: BoxTreeOperand  Operand = 'ioAxis.xVirtual' type='BOOL' flags=none
+    ///   out[0] = '???' type='BOOL' flags=Return
+    /// </code>
+    ///
+    /// <para><b>The bit was read off the ITEM, which never carries it</b>, so the network materialized as
+    /// <c>??? := ioAxis.xVirtual;</c>. That is not a near-miss: a return coil has no operand to name, so the
+    /// vendor writes its unresolved-instance marker <c>???</c> in the slot, and the marker is REFUSED on push —
+    /// the POU could be pulled and never pushed back. It also read as a compile error to the graphical build
+    /// oracle on a project that builds clean, which is how it was found.</para>
+    ///
+    /// <para><see cref="Flags.Jump"/> had already been moved to the operand for exactly this reason;
+    /// <see cref="Flags.Return"/> shares its bit-field and its operand and was left behind. Both now come from
+    /// one call, so the next control-flow bit cannot be half-fixed.</para></summary>
+    [Fact]
+    public void A_return_coil_reads_as_control_flow_not_as_an_assignment_to_the_marker()
+    {
+        var assign = new Nwl.BoxTreeAssign
+        {
+            RValue = new Nwl.BoxTreeOperand { Operand = new Nwl.Operand { OperandExpr = "ioAxis.xVirtual", Type = "BOOL" } },
+        };
+        // The vendor's own spelling: the marker in the operand, the Return bit on it, nothing on the item.
+        assign.Outputs.List.Add(new Nwl.Operand
+        {
+            OperandExpr = "???",
+            Type = "BOOL",
+            IsLValue = true,
+            Flags = new Nwl.Flags { Return = true },
+        });
+
+        var read = CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0);
+
+        var a = Assert.IsType<Assign>(read.Trees.Single());
+        Assert.True(a.Flags.Return, "the Return bit lives on the target operand, and must reach the item");
+        Assert.False(a.Flags.Jump);
+        Assert.Equal("ioAxis.xVirtual", ((Leaf)a.Value!).Operand.Text);
+    }
+
+    /// <summary>The writer's half of the same fact, so the fix is gated end-to-end rather than at the model:
+    /// a conditional return renders as control flow, and the <c>???</c> marker never reaches the text.</summary>
+    [Fact]
+    public void A_return_coil_renders_as_a_conditional_RETURN()
+    {
+        var assign = new Nwl.BoxTreeAssign
+        {
+            RValue = new Nwl.BoxTreeOperand { Operand = new Nwl.Operand { OperandExpr = "ioAxis.xVirtual", Type = "BOOL" } },
+        };
+        assign.Outputs.List.Add(new Nwl.Operand
+        {
+            OperandExpr = "???",
+            Type = "BOOL",
+            IsLValue = true,
+            Flags = new Nwl.Flags { Return = true },
+        });
+
+        var body = CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld);
+        var text = NetworkTextWriter.Write(body);
+
+        Assert.Contains("IF ioAxis.xVirtual THEN RETURN; END_IF", text);
+        Assert.DoesNotContain("???", text);
+    }
 }

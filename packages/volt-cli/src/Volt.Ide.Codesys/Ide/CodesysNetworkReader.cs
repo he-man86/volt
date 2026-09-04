@@ -111,14 +111,16 @@ namespace Volt.Ide.Codesys
                     // coil pulled as a PLAIN one — invisible in git, and downgraded on the next push. DIALECT
                     // D26 claimed this reader "already puts storage on the value", which is how the gap outlived
                     // being written down; the rule now lives in ONE place both drivers call.
-                    // A JUMP IS READ OFF THE TARGET OPERAND, for the same reason storage is: that is where
-                    // this vendor keeps it. Reading it from the ITEM only ever worked for jumps VOLT had
-                    // written, because Volt was the only thing that put it there — a jump an engineer drew
-                    // in the IDE has the bit on the operand alone, and came back as a plain coil assigning
-                    // to the label, silently turning their control flow into an assignment.
-                    var jumps = targets.Any(t => t.Flags?.Jump == true);
+                    // CONTROL FLOW IS READ OFF THE TARGET OPERAND, for the same reason storage is: that is
+                    // where this vendor keeps it. Reading it from the ITEM only ever worked for jumps VOLT
+                    // had written, because Volt was the only thing that put it there — a jump an engineer
+                    // drew in the IDE has the bit on the operand alone, and came back as a plain coil
+                    // assigning to the label, silently turning their control flow into an assignment.
+                    // JUMP AND RETURN TOGETHER, in one call both drivers share: this was fixed for `Jump`
+                    // alone, and `Return` sits in the same bit-field on the same operand, so a RETURN coil
+                    // kept the bug for another release. See `Flags.WithControlFlowFrom`.
                     return new Assign(CoilStorage.OntoValue(value, targets), targets,
-                                      jumps ? flags with { Jump = true } : flags);
+                                      flags.WithControlFlowFrom(targets));
                 }
 
                 case "BoxTreeBox":
