@@ -163,6 +163,10 @@ public static class NetworkTextReader
         private readonly List<(string? Let, Node Node)> _stmts = new();
         private readonly Dictionary<string, Node> _lets = new(StringComparer.Ordinal);
 
+        /// <summary>Every <c>en*</c> echo this network binds, and the index of the statement its
+        /// <c>IF … THEN</c> guards. <see cref="MergeEnableEchoes"/> is the only reader of it.</summary>
+        private readonly Dictionary<string, int> _echoes = new(StringComparer.Ordinal);
+
         public Builder(int order, string rest)
         {
             Order = order;
@@ -235,6 +239,9 @@ public static class NetworkTextReader
 
                 var (let, node) = ParseSimple(inner);
                 _stmts.Add((let, Enable(node, cond)));
+                // Remember which statement this echo guards. A LATER statement may drive a coil FROM the echo
+                // — the box's ENO continuing the rung — and `MergeEnableEchoes` needs to find the box again.
+                if (cond is Leaf e) _echoes[e.Operand.Text] = _stmts.Count - 1;
                 if (let != null) _lets[let] = ((Assign)_stmts[_stmts.Count - 1].Node).Value!;
                 return;
             }
@@ -279,7 +286,13 @@ public static class NetworkTextReader
         /// <summary>A wire definition, a sink, or a bare call. Returns the LET name when there is one.</summary>
         private (string? Let, Node Node) ParseSimple(string line)
         {
-            var let = Regex.Match(line, @"^LET\s+(\w+)\s*:=\s*(.+)$", RegexOptions.IgnoreCase);
+            // `(.*)`, NOT `(.+)`: the value may be EMPTY. `LET en1 := ;` is a box whose EN pin is SHOWN and
+            // wired to nothing, which is an ordinary shape - the format spells every unconnected pin as
+            // nothing at all (§3), and `coil := ;` has always been read that way. Requiring a character here
+            // meant the line matched no production, so the name was never bound and the guard below refused
+            // the body: "the EN guard 'en1' is not defined in this network". Nine POUs in one real project,
+            // every one of them unpushable.
+            var let = Regex.Match(line, @"^LET\s+(\w+)\s*:=\s*(.*)$", RegexOptions.IgnoreCase);
             if (let.Success)
             {
                 var name = let.Groups[1].Value;
@@ -298,9 +311,12 @@ public static class NetworkTextReader
                 //
                 // Measured on Lenze_MID-S100: 23 networks, every one refused by the canonical-form gate — which
                 // is the only reason this surfaced as a refusal rather than as a silently restructured body.
-                var value = OpaqueLeaf.IsMatch(name)
-                    ? new Leaf(new Operand(let.Groups[2].Value.Trim()), Flags.None)
-                    : ParseOperand(let.Groups[2].Value);
+                var rhs = let.Groups[2].Value.Trim();
+                var value = rhs.Length == 0
+                    ? new Terminator(null, Flags.None)      // the pin is there and nothing drives it
+                    : OpaqueLeaf.IsMatch(name)
+                        ? new Leaf(new Operand(rhs), Flags.None)
+                        : ParseOperand(let.Groups[2].Value);
                 return (name, new Assign(value, new List<Operand> { new(name) }, Flags.None));
             }
 
@@ -400,8 +416,83 @@ public static class NetworkTextReader
             _ => n,
         };
 
+        /// <summary>A coil driven by an <c>en*</c> ECHO is driven by the BOX, and this puts it back on the box.
+        ///
+        /// <para>The shape, which the writer emits whenever an enabled box writes its own output pin AND the
+        /// rung carries on into a coil:</para>
+        /// <code>
+        /// LET en1 := g20;
+        /// IF en1 THEN Bobbine.Control.AutoSpeed := MOVE(860); END_IF   -- the box's RESULT pin
+        /// Bobbine.Control.StartAuto := en1;                            -- the coil, driven by its ENO
+        /// </code>
+        /// <para>The vendor holds that as ONE item: <c>Assign{ RValue = the MOVE box, Targets = [StartAuto] }</c>,
+        /// with the box carrying <c>AutoSpeed</c> on its own output pin. Rebuilt statement-by-statement it comes
+        /// back as three unrelated things, and <c>en1</c> — referenced by the guard AND by the coil — trips the
+        /// use-count rule below into calling it a fan-out WIRE. The text then stops round-tripping
+        /// (<c>LET g3 := g20; LET en1 := g3; … := g3;</c>) and the canonical-form gate refuses the push. 20 such
+        /// statements across 6 POUs in one real project.</para>
+        ///
+        /// <para><b>The prefix decides here too.</b> The rule below already knows <c>g*</c> is a wire and
+        /// <c>i*</c> an opaque leaf because those are names the WRITER mints; <c>en*</c> is minted just as
+        /// deliberately and means neither. Inlining it instead would be no better — it would COPY the enable
+        /// subtree into the coil, duplicating the very box the wire exists to share.</para>
+        ///
+        /// <para>Only the exact shape merges. A guard whose statement is not a box, a consumer that binds a
+        /// <c>LET</c>, a jump or a return — all left alone, so anything unrecognised keeps whatever behaviour
+        /// it had rather than being quietly restructured.</para></summary>
+        private void MergeEnableEchoes()
+        {
+            if (_echoes.Count == 0) return;
+            var drop = new HashSet<int>();
+
+            foreach (var kv in _echoes)
+            {
+                var echo = kv.Key;
+                var at = kv.Value;
+                if (drop.Contains(at)) continue;
+                if (_stmts[at].Let is not null) continue;
+
+                // The coils this echo drives: statements whose WHOLE value is a reference to it.
+                var consumers = new List<int>();
+                for (int i = 0; i < _stmts.Count; i++)
+                {
+                    if (i == at || drop.Contains(i) || _stmts[i].Let is not null) continue;
+                    if (_stmts[i].Node is Assign { Value: Leaf l } c
+                        && string.Equals(l.Operand.Text, echo, StringComparison.Ordinal)
+                        && !c.Flags.Jump && !c.Flags.Return
+                        && c.Targets.Count > 0)
+                        consumers.Add(i);
+                }
+                if (consumers.Count == 0) continue;
+
+                // The guarded statement holds the box; its own target is the box's RESULT pin.
+                var box = _stmts[at].Node switch { Assign { Value: Box b } => b, Box b => b, _ => null };
+                if (box is null) continue;
+                if (_stmts[at].Node is Assign { Targets.Count: > 0 } guarded)
+                    box = box with
+                    {
+                        Outputs = box.Outputs.Concat(guarded.Targets.Select(t => new Output(null, t))).ToList(),
+                    };
+
+                var targets = consumers.SelectMany(i => ((Assign)_stmts[i].Node).Targets).ToList();
+                _stmts[at] = (null, new Assign(box, targets, Flags.None));
+                foreach (var i in consumers) drop.Add(i);
+            }
+
+            if (drop.Count == 0) return;
+            var kept = new List<(string? Let, Node Node)>();
+            for (int i = 0; i < _stmts.Count; i++)
+                if (!drop.Contains(i)) kept.Add(_stmts[i]);
+            _stmts.Clear();
+            _stmts.AddRange(kept);
+        }
+
         public Network Build()
         {
+            // BEFORE the use count, because it is what makes the count right: an `en*` echo referenced by a
+            // guard and by a coil is ONE box, not a wire with two consumers.
+            MergeEnableEchoes();
+
             // Use count decides what a LET is. Count references across every statement AND every other LET's
             // value, so a chain (`LET a := …; LET b := (a OR x); out := b;`) resolves correctly.
             var uses = new Dictionary<string, int>(StringComparer.Ordinal);

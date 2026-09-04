@@ -40,6 +40,20 @@ public class NetworkTextRoundTripTests
     [InlineData("NETWORK 0 FBD\n  dst := f(src, oErr => err);\nEND_NETWORK\n")]
     // an enabled box writing its own pin — the ladder shape a rung with a MOVE on it produces
     [InlineData("NETWORK 0 LD\n  LET en1 := rung;\n  IF en1 THEN dst := MOVE(src); END_IF\nEND_NETWORK\n")]
+    // AND THE RUNG CARRIES ON INTO A COIL. The box writes its own output pin, and its ENO — spelled by the
+    // `en1` echo — drives the coil after it. Caught by pushing a pulled project into an empty one: `en1` is
+    // referenced by the guard AND by the coil, and the use-count rule called it a fan-out wire, so the text
+    // came back as `LET g3 := rung; LET en1 := g3; … := g3;` and the canonical-form gate refused the push.
+    [InlineData("NETWORK 0 LD\n  LET en1 := rung;\n  IF en1 THEN dst := MOVE(src); END_IF\n  coil := en1;\nEND_NETWORK\n")]
+    // the same, with the coil's own storage — the flags ride on the target, so they must survive the merge
+    [InlineData("NETWORK 0 LD\n  LET en1 := rung;\n  IF en1 THEN dst := MOVE(src); END_IF\n  latched S= en1;\nEND_NETWORK\n")]
+    [InlineData("NETWORK 0 LD\n  LET en1 := rung;\n  IF en1 THEN dst := MOVE(src); END_IF\n  cleared R= en1;\nEND_NETWORK\n")]
+    // several coils off one echo — one Assign with several targets on the vendor
+    [InlineData("NETWORK 0 LD\n  LET en1 := rung;\n  IF en1 THEN dst := MOVE(src); END_IF\n  a := en1;\n  b S= en1;\nEND_NETWORK\n")]
+    // AN EN PIN THAT IS SHOWN AND WIRED TO NOTHING. The empty slot is how this format spells every unwired
+    // pin (§3), and a `LET` was the one place that would not read one back — so the guard below refused a
+    // body the writer had just produced, in 9 POUs of one real project.
+    [InlineData("NETWORK 0 FBD\n  LET en1 := ;\n  IF en1 THEN oDriveSpeed := (iRPM * 6); END_IF\nEND_NETWORK\n")]
     // a leaf's OWN modifier rides on its RHS
     [InlineData("NETWORK 0 FBD\n  LET i1 := NOT x;\n  fb(IN := i1);\nEND_NETWORK\n")]
     // an empty network (or one whose only content was a dropped opaque/vendor node) keeps its
