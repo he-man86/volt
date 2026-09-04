@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 
 namespace Volt.Connector
@@ -100,7 +100,7 @@ namespace Volt.Connector
         /// <para>The dialog is named from the ENABLED window — the one that can still be clicked, which is the
         /// one to dismiss. A <c>#32770</c> is preferred when several qualify, because a tool window that happens
         /// to be enabled is not what is blocking anything.</para></summary>
-        internal static string? ModalTitle(XaeWindowState w)
+        private static string? ModalTitle(XaeWindowState w)
         {
             var windows = w.Windows;
             if (windows == null || windows.Count == 0) return null;
