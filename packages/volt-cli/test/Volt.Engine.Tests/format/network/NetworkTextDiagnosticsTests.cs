@@ -44,7 +44,7 @@ public class NetworkTextDiagnosticsTests
     // of them in one real ladder project - so the reference DOES reach the IDE and the hazard is gone.
     // Refusing it would also break closure: the writer emits exactly this shape for a negated fan-out wire.
     [InlineData("NETWORK 0 FBD\n  LET g1 := (a AND b);\n  LET g1 := (c OR d);\n  out := g1;\nEND_NETWORK\n", "NETWORK_DUPLICATE_NAME")] // result defined twice
-    [InlineData("NETWORK 0 FBD\n  lbl:\n  lbl:\nEND_NETWORK\n", "NETWORK_DUPLICATE_NAME")]                        // label declared twice
+    [InlineData("NETWORK 0 FBD LABEL: lbl LABEL: lbl\nEND_NETWORK\n", "NETWORK_DUPLICATE_NAME")]                        // label declared twice
 
     // ── EN/ENO ────────────────────────────────────────────────────────────────────────
     [InlineData("NETWORK 0 FBD\n  IF en1 THEN LET g1 := (a AND b); END_IF\n  out := g1;\nEND_NETWORK\n", "NETWORK_BAD_EXPRESSION")] // IF guard with no 'en1 := …' binding
@@ -60,7 +60,7 @@ public class NetworkTextDiagnosticsTests
     [InlineData("NETWORK 0 FBD\n  LET g1 := (a AND b);\n  out := g1;\n  z := g1;\nEND_NETWORK\n")] // a fan-out result named ONCE, referenced twice — not a duplicate
     [InlineData("NETWORK 0 FBD\n  out := a;\nEND_NETWORK\nNETWORK 1 FBD\n  z := b;\nEND_NETWORK\n")]            // distinct network indices
     [InlineData("NETWORK 0 FBD\n  LET en1 := a;\n  IF en1 THEN LET g1 := (b AND c); END_IF\n  out := g1;\nEND_NETWORK\n")] // a valid EN/ENO box
-    [InlineData("NETWORK 0 FBD\n  lbl:\n  JMP lbl;\nEND_NETWORK\n")]                                          // a label + a jump to it
+    [InlineData("NETWORK 0 FBD LABEL: lbl\n  JMP lbl;\nEND_NETWORK\n")]                                          // a label + a jump to it
     [InlineData("NETWORK 0 FBD\n  LET g1 := (a OR b);\n  LET g2 := NOT g1;\n  out := g2;\nEND_NETWORK\n")]   // a negated fan-out wire: a real Demux reference, not an alias
     public void Valid_structure_is_accepted(string net) => NetworkTextReader.Parse(net);   // must not throw
 }

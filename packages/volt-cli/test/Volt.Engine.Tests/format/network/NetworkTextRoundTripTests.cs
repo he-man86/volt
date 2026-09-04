@@ -17,7 +17,7 @@ public class NetworkTextRoundTripTests
     [InlineData("NETWORK 0 FBD\n  LET i1 := FALSE;\n  LET i2 := TRUE;\n  LET i3 := TRUE;\n  Config(xFASTSystemInTaskMidPrio := i1, xLogErrorTypeInformation := i2, xLogErrorTypeWarning := i3);\nEND_NETWORK\n")]
     [InlineData("NETWORK 0 FBD\n  LET i1 := A;\n  LET i2 := B;\n  LET i3 := C;\n  LET g1 := (i1 AND i2);\n  LET g2 := (g1 OR i3);\n  result := g2;\nEND_NETWORK\n")]
     [InlineData("NETWORK 0 FBD\n  LET i1 := start;\n  LET i2 := pt;\n  t1(IN := i1, PT := i2);\n  running := t1.Q;\n  elapsed := t1.ET;\nEND_NETWORK\n")]
-    [InlineData("NETWORK 0 FBD \"my label\"\n  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 OR i2);\n  out := g1;\nEND_NETWORK\n")]
+    [InlineData("NETWORK 0 FBD TITLE: \"my title\"\n  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 OR i2);\n  out := g1;\nEND_NETWORK\n")]
     // LD is the same structure as FBD — only the language token on the marker differs (view toggle).
     [InlineData("NETWORK 0 LD\n  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 AND i2);\n  out := g1;\nEND_NETWORK\n")]
     // modifiers ride on the REFERENCE: negation (NOT), edge (RISING/FALLING), storage (SET/RESET)
@@ -31,7 +31,7 @@ public class NetworkTextRoundTripTests
     // delimiters and has no internal wires
     [InlineData("NETWORK 0 FBD\nEND_NETWORK\n")]
     // control flow: labels, jumps, returns (valid CODESYS ST) — conditions are named leaves
-    [InlineData("NETWORK 0 FBD\n  myLabel:\nEND_NETWORK\n")]
+    [InlineData("NETWORK 0 FBD LABEL: myLabel\nEND_NETWORK\n")]
     [InlineData("NETWORK 0 FBD\n  JMP myLabel;\nEND_NETWORK\n")]
     [InlineData("NETWORK 0 FBD\n  LET i1 := cond;\n  IF i1 THEN JMP myLabel; END_IF\nEND_NETWORK\n")]
     [InlineData("NETWORK 0 FBD\n  LET i1 := cond;\n  IF NOT i1 THEN JMP myLabel; END_IF\nEND_NETWORK\n")]
@@ -84,13 +84,13 @@ public class NetworkTextRoundTripTests
     //
     // A QUOTED TITLE, A DOTTED NAME AN ENGINEER SPACED OUT, AND A COMMENT THEY INDENTED. All three are
     // text the engineer typed, and all three came back changed.
-    [InlineData("NETWORK 0 LD \"Muting of alarm \"\"No bunch\"\"\"\n  out := a;\nEND_NETWORK\n")]   // a quote in the title, doubled
+    [InlineData("NETWORK 0 LD TITLE: \"Muting of alarm \"\"No bunch\"\"\"\n  out := a;\nEND_NETWORK\n")]   // a quote in the title, doubled
     [InlineData("NETWORK 0 FBD\n  out := scSimulationDowntimes .uiMaxSimulationEvents;\nEND_NETWORK\n")]   // the space is the engineer's
     [InlineData("NETWORK 0 FBD\n  //     indented on purpose\n  out := a;\nEND_NETWORK\n")]   // alignment is content
     //
     // DISABLED IS A HEADER KEYWORD, not a word in a title - a network titled with it used to switch
     // itself off on the way back in.
-    [InlineData("NETWORK 0 LD \"DISABLED during commissioning\"\n  out := a;\nEND_NETWORK\n")]
+    [InlineData("NETWORK 0 LD TITLE: \"DISABLED during commissioning\"\n  out := a;\nEND_NETWORK\n")]
     //
     //
     // A NETWORK'S LABEL COMES BEFORE ITS COMMENT, mirroring the IDE's own header layout (the label above the
@@ -98,7 +98,7 @@ public class NetworkTextRoundTripTests
     // canonical this way round so that writing a network the way the IDE displays it is not refused. It was
     // the other way for a while, which made the one thing engineers hand-write the one thing the gate
     // rejected, for no reason the model or either vendor had an opinion about.
-    [InlineData("NETWORK 0 LD \"interlock\"\n  Guard:\n  // holds the drive off while the guard is open\n  // second line of the same comment\n  out := (a AND b);\nEND_NETWORK\n")]
+    [InlineData("NETWORK 0 LD LABEL: Guard TITLE: \"interlock\"\n  // holds the drive off while the guard is open\n  // second line of the same comment\n  out := (a AND b);\nEND_NETWORK\n")]
     public void A_real_projects_shapes_round_trip_byte_for_byte(string net) => Assert.Equal(net, Round(net));
 
     [Theory]

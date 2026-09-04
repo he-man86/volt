@@ -35,7 +35,7 @@ VAR CONSTANT
 	ctCurveIsSpeed: INT := 2;
 END_VAR
 
-NETWORK 0 LD "Network 2 : Initialise with STATE HomePosNotOK"
+NETWORK 0 LD TITLE: "Network 2 : Initialise with STATE HomePosNotOK"
   LET g8 := (NOT STATE_Prehoming AND NOT STATE_HomePosNOK AND NOT STATE_HomePOSOK AND NOT STATE_WaitingForEnable AND NOT STATE_Synchronising);
   STATE_Prehoming := g8 SET;
   STATE_HomePosNOK := g8 SET;
@@ -44,14 +44,14 @@ NETWORK 0 LD "Network 2 : Initialise with STATE HomePosNotOK"
   STATE_Synchronising := g8 SET;
   STATE_HomePosNOK := g8 SET;
 END_NETWORK
-NETWORK 1 LD "Network 3 : STATE: Prehoming"
+NETWORK 1 LD TITLE: "Network 3 : STATE: Prehoming"
   LET g1 := ((STATE_WaitingForEnable OR STATE_Synchronising) AND iServoStatus.DriveCommAlive AND Man_SetHomePos AND iServoStatus.HomingPosOK) SET;
   STATE_Prehoming := g1;
   STATE_HomePOSOK := g1;
   STATE_WaitingForEnable := g1;
   STATE_Synchronising := g1;
 END_NETWORK
-NETWORK 2 LD "STATE: HomePos not OK"
+NETWORK 2 LD TITLE: "STATE: HomePos not OK"
   LET g1 := ((STATE_Prehoming OR STATE_HomePOSOK OR STATE_WaitingForEnable OR STATE_Synchronising) AND iServoStatus.DriveCommAlive AND NOT iServoStatus.HomingPosOK) SET;
   STATE_HomePosNOK := g1;
   STATE_Prehoming := g1;
@@ -59,83 +59,83 @@ NETWORK 2 LD "STATE: HomePos not OK"
   STATE_WaitingForEnable := g1;
   STATE_Synchronising := g1;
 END_NETWORK
-NETWORK 3 LD "Network 5: STATE: HomePos OK"
+NETWORK 3 LD TITLE: "Network 5: STATE: HomePos OK"
   LET g1 := (STATE_HomePosNOK AND iServoStatus.DriveCommAlive AND iServoStatus.HomingPosOK) SET;
   STATE_HomePOSOK := g1;
   STATE_HomePosNOK := g1;
   Man_SetHomePos := g1;
 END_NETWORK
-NETWORK 4 LD "Network 6 : STATE: WaitingForEnable"
+NETWORK 4 LD TITLE: "Network 6 : STATE: WaitingForEnable"
   LET g1 := (STATE_HomePOSOK OR (STATE_Synchronising AND NOT ioUDT_ServoDrive.Control.SetDriveEnable)) SET;
   STATE_WaitingForEnable := g1;
   STATE_HomePOSOK := g1;
   STATE_Synchronising := g1;
 END_NETWORK
-NETWORK 5 LD "DONE Network 7: STATE: Synchronising"
+NETWORK 5 LD TITLE: "DONE Network 7: STATE: Synchronising"
   LET g1 := (STATE_WaitingForEnable AND ioUDT_ServoDrive.Control.SetDriveEnable) SET;
   STATE_Synchronising := g1;
   STATE_WaitingForEnable := g1;
 END_NETWORK
-NETWORK 6 LD "DONE Network 8: Activate set HomePos Cycle"
+NETWORK 6 LD TITLE: "DONE Network 8: Activate set HomePos Cycle"
   LET g22 := OSP_SetHomnePos(CLK := (ioUDT_ServoDrive.Control.StartSetHomePos AND ioUDT_ServoDrive.Status.DriveIsReady));
   Man_SetHomePos := g22 SET;
   ioUDT_ServoDrive.Control.StartSetHomePos := g22 SET;
 END_NETWORK
-NETWORK 7 LD "DONE Network 9: Output: Activate Synchronise drive"
+NETWORK 7 LD TITLE: "DONE Network 9: Output: Activate Synchronise drive"
   oServoControl.ActivateCamming := (STATE_Synchronising AND ioUDT_ServoDrive.Control.SetInSync);
 END_NETWORK
-NETWORK 8 LD "DONE Network 10: Reset HomePos in Servo drive"
+NETWORK 8 LD TITLE: "DONE Network 10: Reset HomePos in Servo drive"
   oServoControl.ResetHomePos := (STATE_Prehoming AND Man_SetHomePos);
 END_NETWORK
-NETWORK 9 LD "DONE Network 11: Set HomePos in Servo drive"
+NETWORK 9 LD TITLE: "DONE Network 11: Set HomePos in Servo drive"
   oServoControl.SetHomePos := (STATE_HomePosNOK AND Man_SetHomePos AND iEnableHomeMovement AND ioUDT_ServoDrive.Status.DriveIsReady);
 END_NETWORK
-NETWORK 10 LD "DONE Network 11: Set HomePos in Servo drive"
+NETWORK 10 LD TITLE: "DONE Network 11: Set HomePos in Servo drive"
   oServoControl.ReleaseBrake := ioUDT_ServoDrive.Control.SetBrakeRelease;
 END_NETWORK
-NETWORK 11 LD "TODO Network 16: Enable drive from software"
+NETWORK 11 LD TITLE: "TODO Network 16: Enable drive from software"
   oServoControl.Enable := (ioUDT_ServoDrive.Control.SetDriveEnable AND iEnablePower);
 END_NETWORK
-NETWORK 12 LD "DONE Network 17: Reset error"
+NETWORK 12 LD TITLE: "DONE Network 17: Reset error"
   oServoControl.ResetError := (ioUDT_ServoDrive.Control.ResetError AND iFF100ms);
 END_NETWORK
-NETWORK 13 LD "DONE Network 18: SelectBypassCAM"
+NETWORK 13 LD TITLE: "DONE Network 18: SelectBypassCAM"
   oServoControl.SelectBypassCAM := ioUDT_ServoDrive.Control.SelectBypassCAM;
 END_NETWORK
-NETWORK 14 LD "DONE Network 19: Output: X-offset"
+NETWORK 14 LD TITLE: "DONE Network 19: Output: X-offset"
   EXECUTE();
 END_NETWORK
-NETWORK 15 LD "DONE Network 20: Scaling of the Y value"
+NETWORK 15 LD TITLE: "DONE Network 20: Scaling of the Y value"
   LET g21 := True;
   MOVE((g21 >= ioUDT_ServoDrive.CAM.CamType >= ctCurveIs0ToMax), 1000);
   (((g21 >= ioUDT_ServoDrive.CAM.CamType >= ctCurveIs0To0) OR ( >= ioUDT_ServoDrive.CAM.CamType >= ctCurveIsSpeed)) + ioUDT_ServoDrive.CAM.Y_Scale_Base + ioUDT_ServoDrive.CAM.Y_Scale_Recipe);
 END_NETWORK
-NETWORK 16 LD "DONE Network 21: Y-offset"
+NETWORK 16 LD TITLE: "DONE Network 21: Y-offset"
   EXECUTE();
 END_NETWORK
-NETWORK 17 LD "TODO Network 22: Status inputs from drive"
+NETWORK 17 LD TITLE: "TODO Network 22: Status inputs from drive"
 END_NETWORK
-NETWORK 18 LD "TODO Network 23: SetOuput bits to drive"
+NETWORK 18 LD TITLE: "TODO Network 23: SetOuput bits to drive"
 END_NETWORK
-NETWORK 19 LD "DONE Network 24: Output to Program"
+NETWORK 19 LD TITLE: "DONE Network 24: Output to Program"
   LET g18 := True;
   ioUDT_ServoDrive.Status.DriveIsReady := (g18 AND iServoStatus.ReadyForMotion);
   ioUDT_ServoDrive.Status.InSync := (g18 AND iServoStatus.InSync);
   ioUDT_ServoDrive.Status.DriveTorqueError := (g18 AND iServoStatus.TorqueLimit);
   ioUDT_ServoDrive.Status.DriveIsHomed := HomingDoneDelay(IN := (g18 AND NOT STATE_Prehoming AND NOT STATE_HomePosNOK), PT := T#2S);
 END_NETWORK
-NETWORK 20 LD "DONE Network 25: ActualXPos/Ypos"
+NETWORK 20 LD TITLE: "DONE Network 25: ActualXPos/Ypos"
   LET i1 := LREAL_TO_INT(iServoStatus.ActPos);
   MOVE(, i1);
 END_NETWORK
-NETWORK 21 LD "DONE Network 26: ActualSpeed"
+NETWORK 21 LD TITLE: "DONE Network 26: ActualSpeed"
   LET i1 := LREAL_TO_INT(iServoStatus.ActSpeed);
   MOVE(, i1);
 END_NETWORK
 NETWORK 22 LD
   MOVE(, ioUDT_ServoDrive.Control.TorqueLimit);
 END_NETWORK
-NETWORK 23 LD "DONE Network 27: Reset ResetError in UDT"
+NETWORK 23 LD TITLE: "DONE Network 27: Reset ResetError in UDT"
   ioUDT_ServoDrive.Control.ResetError := (True AND ioUDT_ServoDrive.Status.DriveIsReady) SET;
 END_NETWORK
 

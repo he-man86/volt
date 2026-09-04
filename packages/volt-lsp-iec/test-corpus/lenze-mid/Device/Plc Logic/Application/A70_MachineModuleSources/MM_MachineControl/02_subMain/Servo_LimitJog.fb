@@ -13,19 +13,19 @@ VAR_IN_OUT
 	ioUDT_JogLimitFree			: UDT_ServoJogLimitFree;
 END_VAR
 
-NETWORK 0 LD "NETWORK 3 (p1): Check for limit switch"
+NETWORK 0 LD TITLE: "NETWORK 3 (p1): Check for limit switch"
   ioUDT_JogLimitFree.Status.Limit_Left_OK := iServoStatus.Spare1;
 END_NETWORK
-NETWORK 1 LD "NETWORK 3 (p2): Check for limit switch"
+NETWORK 1 LD TITLE: "NETWORK 3 (p2): Check for limit switch"
   ioUDT_JogLimitFree.Status.Limit_Right_OK := iServoStatus.Spare2;
 END_NETWORK
-NETWORK 2 LD "COPY previous control word to current controlword"
+NETWORK 2 LD TITLE: "COPY previous control word to current controlword"
   EXECUTE();
 END_NETWORK
-NETWORK 3 LD "NETWORK 4 (p1): ControlToFreeLimitSwitches"
+NETWORK 3 LD TITLE: "NETWORK 4 (p1): ControlToFreeLimitSwitches"
   oServoControl.Spare1 := (ioUDT_JogLimitFree.Status.Limit_Left_OK AND ioUDT_JogLimitFree.Control.Jog_LimitToLeft);
 END_NETWORK
-NETWORK 4 LD "NETWORK 4 (p2): ControlToFreeLimitSwitches"
+NETWORK 4 LD TITLE: "NETWORK 4 (p2): ControlToFreeLimitSwitches"
   oServoControl.Spare2 := (ioUDT_JogLimitFree.Status.Limit_Right_OK AND ioUDT_JogLimitFree.Control.Jog_LimitToRight);
 END_NETWORK
 

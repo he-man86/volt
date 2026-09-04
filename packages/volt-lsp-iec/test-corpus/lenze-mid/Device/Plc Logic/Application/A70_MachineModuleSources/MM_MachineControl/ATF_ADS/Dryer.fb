@@ -46,22 +46,22 @@ VAR RETAIN PERSISTENT
 	TMR_HeaterTimeOut: TON;
 END_VAR
 
-NETWORK 0 LD "DONE Network 1: Convert speed to cycle time"
+NETWORK 0 LD TITLE: "DONE Network 1: Convert speed to cycle time"
   // tEmtyingCycle : (1/(MachineSpeed/60))*1000 gives time in [ms]
   EXECUTE();
 END_NETWORK
-NETWORK 1 LD "DONE Network 2: Feed forward dryer"
+NETWORK 1 LD TITLE: "DONE Network 2: Feed forward dryer"
   LET i1 := DINT_TO_TIME(tEmptyingCycleInterval);
   oFeedForward := stAuxFeedForward(SET := (iStartFeedForward OR (TMR_IntervalTimerEmptying(IN := NOT(stReFeedForward(CLK := stAuxFeedForward.Q1)), PT := i1) AND iMachineStarted AND NOT stFaultDryerOpened.Q1 AND Mach1.GenFlags.DelayAfterSTO AND NOT iGenFlags.DriveIsRunning AND iPermissionDownstream)), RESET1 := stReStopFeedForward(CLK := iStopFeedForward));
 END_NETWORK
-NETWORK 2 LD "DONE Network 3: Enable heaters"
+NETWORK 2 LD TITLE: "DONE Network 3: Enable heaters"
   LET g36 := TRUE;
   TMR_HeaterTimeOut(IN := (g36 AND NOT LST_InputsOutputs.I133_1_PROX_zero_position_transport_ADS), PT := T#7S);
   LET g37 := (g36 AND iGenFlags.EnableAuxDrive AND iPermissionDownstream AND NOT TMR_HeaterTimeOut.Q AND iSwitchDryer);
   oEnableHeaters := g37;
   tEnableHeaters := g37;
 END_NETWORK
-NETWORK 3 LD "DONE Network 4: Output power heater 1"
+NETWORK 3 LD TITLE: "DONE Network 4: Output power heater 1"
   LET g0 := True;
   MOVE((g0 AND NOT tEnableHeaters), 0);
   LET g1 := (g0 AND tEnableHeaters);
@@ -71,7 +71,7 @@ NETWORK 3 LD "DONE Network 4: Output power heater 1"
   LET i1 := INT_TO_WORD(stActPowerHeater1);
   MOVE((g0 AND iPowerOrAnalog), i1);
 END_NETWORK
-NETWORK 4 LD "DONE Network 5: Output power heater 2"
+NETWORK 4 LD TITLE: "DONE Network 5: Output power heater 2"
   LET g6 := True;
   MOVE((g6 AND NOT tEnableHeaters), 0);
   LET g7 := (g6 AND tEnableHeaters);
@@ -81,7 +81,7 @@ NETWORK 4 LD "DONE Network 5: Output power heater 2"
   LET i1 := INT_TO_WORD(stActPowerHeater2);
   MOVE((g6 AND iPowerOrAnalog), i1);
 END_NETWORK
-NETWORK 5 LD "DONE Network 6: Output power heater 3"
+NETWORK 5 LD TITLE: "DONE Network 6: Output power heater 3"
   LET g8 := True;
   MOVE((g8 AND NOT tEnableHeaters), 0);
   LET g9 := (g8 AND tEnableHeaters);
@@ -91,7 +91,7 @@ NETWORK 5 LD "DONE Network 6: Output power heater 3"
   LET i1 := INT_TO_WORD(stActPowerHeater3);
   MOVE((g8 AND iPowerOrAnalog), i1);
 END_NETWORK
-NETWORK 6 LD "DONE Network 37: Fault: dryer opened"
+NETWORK 6 LD TITLE: "DONE Network 37: Fault: dryer opened"
   oFaultDryerOpened := stFaultDryerOpened(SET1 := TMR_DryerOpened(IN := (iMachineStarted AND iSwitchDryer AND NOT iDryerClosed AND NOT stFaultDryerOpened.Q1), PT := T#5S), RESET := iGenFlags.StartFlag);
 END_NETWORK
 NETWORK 7 LD

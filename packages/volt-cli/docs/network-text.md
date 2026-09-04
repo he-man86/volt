@@ -90,7 +90,8 @@ real PLC identifiers and must round-trip verbatim.
 | **Conditional keyword** | `IF` … `THEN` … `END_IF` |
 | **Control-flow** | `JMP`, `RETURN` |
 | **Language tags** | `FBD`, `LD` (on the `NETWORK` header) |
-| **Network flags** | `DISABLED` (header), `"…"` quoted network label (header) |
+| **Header fields** | `LABEL:` (the jump target), `TITLE:` (free text) — both named, both on the header |
+| **Network flags** | `DISABLED` (header) |
 | **Operators** | `AND OR XOR  +  -  *  /  MOD  >  <  >=  <=  =  <>` (§7) |
 | **Modifier words** | `NOT` (leading), `RISING` `FALLING` `SET` `RESET` (trailing) |
 | **Punctuation** | `:=` (assign), `;` (terminator), `.` (member access), `(` `)` (group/call), `,` (arg sep), `:` (label) |
@@ -127,7 +128,9 @@ An **operator still needs a right-hand operand**: `(a AND )` is refused (`NETWOR
 | `"he said ""no"""` | a network title containing `"` | the quote is **doubled**; writing it raw ended the title early and lost the rest |
 | `//     aligned` | a comment indented by the engineer | everything after the one separator space is the comment's text |
 
-`DISABLED` is a header keyword and is recognised only **after** the title, never inside it — a network titled `"DISABLED during commissioning"` stays enabled.
+`DISABLED` is a header keyword and is recognised only **after** the title, never inside it — a network titled `TITLE: "DISABLED during commissioning"` stays enabled.
+
+The optional header fields are **named**: `LABEL: <name>` is the jump target `JMP` resolves against, `TITLE: "…"` is free text the engineer wrote. They are two different things and both vendors' `INetwork` carries both, so naming them means neither can be mistaken for the other, for the language, or for `DISABLED` — and the order between them does not matter. The label was a `myLabel:` line in the BODY until 2026-09-04, which modelled a property of the network as a statement; that form is now refused with a message naming the header field.
 
 ---
 
@@ -139,7 +142,8 @@ declaration    = (* ordinary ST: PROGRAM/FUNCTION_BLOCK/… + VAR sections — N
 body           = { network } ;
 
 network        = network-header , { statement } , "END_NETWORK" ;
-network-header = "NETWORK" , integer , language , [ title ] , [ "DISABLED" ] ;
+network-header = "NETWORK" , integer , language , { header-field } , [ "DISABLED" ] ;
+header-field   = ( "LABEL:" , identifier ) | ( "TITLE:" , title ) ;   (* named; order-independent *)
 title          = '"' , { char - '"' | '""' } , '"' ;          (* a literal quote is DOUBLED *)
 language       = "FBD" | "LD" ;
 
@@ -191,7 +195,7 @@ the graph is the key to understanding what each statement *means*.
 
 ```
 GraphBody    = Language("FBD"|"LD") , Network+
-GraphNetwork = Order(int) , Label?(string) , Comment?(string) , Disabled(bool) , Node+
+GraphNetwork = Order(int) , Label?(string) , Title?(string) , Comment?(string) , Disabled(bool) , Node+
 
 GraphNode (abstract: LocalId, ExecOrder?)
   ├─ InVar   (Expression, Mods)                              -- a value source: literal / variable / opaque text
@@ -360,9 +364,10 @@ IF cond THEN RETURN; END_IF           -- conditional return
 
 ### Networks, comments, flags
 ```
-NETWORK 0 FBD "optional title" DISABLED   -- index, language (FBD|LD), optional quoted title, optional DISABLED
-  myLabel:                                -- optional jump label, FIRST
-  // a network comment                    -- optional comment, THEN
+NETWORK 0 FBD LABEL: myLabel TITLE: "optional title" DISABLED
+                                          -- index, language (FBD|LD), then the NAMED optional fields
+                                          -- LABEL: the jump target · TITLE: free text · then DISABLED
+  // a network comment                    -- optional comment, FIRST in the body
   out := (a AND b);
 END_NETWORK
 NETWORK 1 LD                              -- a second network; index 1 → localIds in the 1×10¹⁰ band

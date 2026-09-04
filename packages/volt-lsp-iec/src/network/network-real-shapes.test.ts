@@ -144,14 +144,17 @@ test("an ordinary body reports no unresolved boxes", () => {
   expect(unresolved(wrap("NETWORK 0 LD\n  out := (a AND b);\nEND_NETWORK")).length).toBe(0)
 })
 
-// ── §3 label and comment PLACEMENT — relocating a refusal the push already makes ──────────────
-// Measured 2026-09-03 (engine `MetadataPlacementTests`): the push refuses all three of these. These pin that
-// the editor now says so first, in the engineer's terms.
+// ── §3 metadata PLACEMENT — relocating a refusal the push already makes ──────────────────────
+// Measured 2026-09-03 (engine `MetadataPlacementTests`): the push refuses these. These pin that the editor
+// says so first, in the engineer's terms. The LABEL half is now structural — it is a header field, so the
+// placement and duplicate rules it needed are things the grammar no longer lets you express.
 
 const byCode = (src: string, code: string) => diags(src).filter((d) => d.code === code)
 
 test("a second label in one network is an error, in the reader's own words", () => {
-  const got = byCode(wrap("NETWORK 0 LD\n  First:\n  Second:\n  out := a;\nEND_NETWORK"), "NETWORK_DUPLICATE_NAME")
+  // Naming the field makes a second label a REPEATED FIELD rather than a stray statement, but it is still
+  // refused: taking the last one silently would drop a target a `JMP` may already name.
+  const got = byCode(wrap("NETWORK 0 LD LABEL: First LABEL: Second\n  out := a;\nEND_NETWORK"), "NETWORK_DUPLICATE_NAME")
   expect(got.length).toBe(1)
   expect(got[0]!.severity).toBe("error")
   // Byte-identical to the engine reader's refusal, so one fact has one phrasing.
@@ -160,11 +163,18 @@ test("a second label in one network is an error, in the reader's own words", () 
   )
 })
 
-test("a label after a statement warns that it will move", () => {
-  const got = byCode(wrap("NETWORK 0 LD\n  out := a;\n  Later:\n  b := a;\nEND_NETWORK"), "NETWORK_LABEL_NOT_FIRST")
+// The label CANNOT be misplaced any more — it is a header field, so there is no position for it to be in.
+// The rule was not relaxed; the model stopped admitting the mistake, which is what the move bought.
+test("a label has no placement rule left to break — it lives on the header", () => {
+  const src = wrap("NETWORK 0 LD LABEL: Guard\n  out := a;\n  b := a;\nEND_NETWORK")
+  expect(diags(src).map((d) => `${d.code}: ${d.message}`)).toEqual([])
+})
+
+// A bare `name:` line is what the label USED to be. It is refused, and the message says where it went.
+test("the old body-label form is refused and points at the header", () => {
+  const got = byCode(wrap("NETWORK 0 LD\n  out := a;\n  Later:\n  b := a;\nEND_NETWORK"), "NETWORK_PARSE")
   expect(got.length).toBe(1)
-  expect(got[0]!.severity).toBe("warning")
-  expect(got[0]!.message).toContain("moves to the head")
+  expect(got[0]!.message).toContain("LABEL: Later")
 })
 
 test("a comment after a statement warns that it will move", () => {
@@ -174,7 +184,9 @@ test("a comment after a statement warns that it will move", () => {
 })
 
 test("the canonical shape — label then comment, both at the head — is silent", () => {
-  const src = wrap('NETWORK 0 LD "interlock"\n  Guard:\n  // holds the drive off\n  out := (a AND b);\nEND_NETWORK')
+  const src = wrap(
+    'NETWORK 0 LD LABEL: Guard TITLE: "interlock"\n  // holds the drive off\n  out := (a AND b);\nEND_NETWORK',
+  )
   expect(diags(src).map((d) => `${d.code}: ${d.message}`)).toEqual([])
 })
 
@@ -185,8 +197,12 @@ test("several comment LINES before the first statement are NOT reported", () => 
   expect(diags(src).map((d) => `${d.code}: ${d.message}`)).toEqual([])
 })
 
-test("a label is still allowed to sit after the comment, as the IDE lays it out", () => {
-  // The emitted order is label-then-comment, but the reader accepts either — so neither ordering warns.
-  const src = wrap("NETWORK 0 LD\n  // why\n  Guard:\n  out := a;\nEND_NETWORK")
-  expect(diags(src).map((d) => `${d.code}: ${d.message}`)).toEqual([])
+// Ordering between the label and the comment used to be a live question — the writer emitted one order, the
+// reader took either, and getting it wrong failed the canonical-form gate. On the header the question cannot
+// be asked: the label is a field, the comment is still the first statement, and neither can precede the other.
+test("the label/comment ordering question no longer exists", () => {
+  const labelFirst = wrap('NETWORK 0 LD LABEL: Guard TITLE: "t"\n  // why\n  out := a;\nEND_NETWORK')
+  const titleFirst = wrap('NETWORK 0 LD TITLE: "t" LABEL: Guard\n  // why\n  out := a;\nEND_NETWORK')
+  expect(diags(labelFirst).map((d) => d.code)).toEqual([])
+  expect(diags(titleFirst).map((d) => d.code)).toEqual([])
 })

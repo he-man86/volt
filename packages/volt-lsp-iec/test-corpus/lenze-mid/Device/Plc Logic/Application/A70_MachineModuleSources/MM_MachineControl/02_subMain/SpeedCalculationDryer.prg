@@ -18,7 +18,7 @@ VAR
 	
 END_VAR
 
-NETWORK 0 LD "NETWORK 1 : Speed control transport system dryer"
+NETWORK 0 LD TITLE: "NETWORK 1 : Speed control transport system dryer"
   LET g185 := True;
   MOVE(g185, 0);
   (g185 * Mach1_Data.AUTOSPEED * 10);
@@ -33,7 +33,7 @@ NETWORK 0 LD "NETWORK 1 : Speed control transport system dryer"
   (((g187 AND Trayfiller_Data.commInterface.Permission) <> Mach1_AuxData.CounterHighSpeedATF_ADS <> 0) * Mach1_Data.AUTOSPEED * 13);
   EXECUTE(g186);
 END_NETWORK
-NETWORK 1 LD "NETWORK 2: Deviation calculation of sync point, transport system trayfiller"
+NETWORK 1 LD TITLE: "NETWORK 2: Deviation calculation of sync point, transport system trayfiller"
   // Principle: It's better to accelerate the drive then to decelerate, because otherwise cigars could be missed. 
   // So that is why the deceleration should be kept short, by trial and error the optimum point is 60degrees (difference between setpoint and actual point).
   // dev: [0-60]: dec.

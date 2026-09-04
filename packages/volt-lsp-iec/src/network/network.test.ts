@@ -98,18 +98,60 @@ END_FUNCTION_BLOCK`
   if (sink?.kind === "sink") expect(idents(sink.value)).toEqual(["g"]) // wire reference
 })
 
-test("network text: header parses language, label and DISABLED", () => {
+test("network text: header parses language, the named LABEL/TITLE fields and DISABLED", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-NETWORK 3 FBD 'my label' DISABLED
+NETWORK 3 FBD LABEL: skipRest TITLE: 'my title' DISABLED
 out := FALSE;
 END_NETWORK
 END_FUNCTION_BLOCK`
   const n = parseNetworkText(vgBody(src)).networks[0]!
   expect(n.index).toBe(3)
   expect(n.language).toBe("FBD")
-  expect(n.title).toBe("my label")   // the header's quoted string is the TITLE, not the label
+  expect(n.label).toBe("skipRest") // the jump target
+  expect(n.title).toBe("my title") // free text — a different thing, and now impossible to confuse
   expect(n.disabled).toBe(true)
+})
+
+// Named fields mean ORDER DOES NOT MATTER, which is the point of naming them: the label/comment ordering
+// argument the writer used to have simply cannot arise on the header.
+test("network text: LABEL and TITLE parse in either order", () => {
+  const swapped = `FUNCTION_BLOCK F
+VAR out : BOOL; END_VAR
+NETWORK 0 LD TITLE: "t" LABEL: skipRest
+out := FALSE;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  const n = parseNetworkText(vgBody(swapped)).networks[0]!
+  expect(n.label).toBe("skipRest")
+  expect(n.title).toBe("t")
+})
+
+// A network titled `"DISABLED during commissioning"` stays ENABLED — the flag is a header keyword, and text
+// the engineer wrote is not the header.
+test("network text: DISABLED inside the title does not disable the network", () => {
+  const src = `FUNCTION_BLOCK F
+VAR out : BOOL; END_VAR
+NETWORK 0 LD TITLE: "DISABLED during commissioning"
+out := FALSE;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  expect(parseNetworkText(vgBody(src)).networks[0]!.disabled).toBe(false)
+})
+
+// The label moved to the header because it is a PROPERTY of the network, not a statement. A bare `name:` line
+// is refused with a message that says where it went — not left to fail as an unparseable statement.
+test("network text: a bare `name:` line is refused and points at the header", () => {
+  const src = `FUNCTION_BLOCK F
+VAR out : BOOL; END_VAR
+NETWORK 0 LD
+Loop:
+out := TRUE;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  const d = parseNetworkText(vgBody(src)).diagnostics
+  expect(d.map((x) => x.code)).toContain("NETWORK_PARSE")
+  expect(d[0]!.message).toContain("LABEL: Loop")
 })
 
 test("network text: an unclosed network reports NETWORK_NOT_CLOSED", () => {
@@ -199,15 +241,15 @@ END_FUNCTION_BLOCK`
 test("network text: label, JMP and RETURN are recognised", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-NETWORK 0 LD
-Loop:
+NETWORK 0 LD LABEL: Loop
 out := TRUE;
 JMP Loop;
 RETURN;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const kinds = parseNetworkText(vgBody(src)).networks[0]!.statements.map((s) => s.kind)
-  expect(kinds).toContain("label")
+  const net = parseNetworkText(vgBody(src)).networks[0]!
+  expect(net.label).toBe("Loop") // a network property, not a statement
+  const kinds = net.statements.map((s) => s.kind)
   expect(kinds).toContain("jump")
   expect(kinds).toContain("return")
 })
@@ -388,9 +430,9 @@ END_FUNCTION_BLOCK`
 })
 
 // A JUMP GOES TO ANOTHER NETWORK. That is what a jump IS in FBD/LD: each network may carry one label, and
-// `JMP name` transfers control to the network carrying it. `NetworkTextWriter` emits that label as `name:` at
-// the top of the DESTINATION network's statements (from `Network.Label`, which both drivers read and write), so
-// a legitimate forward jump names a label the jumping network does not contain.
+// `JMP name` transfers control to the network carrying it. `NetworkTextWriter` emits that label on the
+// DESTINATION network's header (`LABEL:`, from `Network.Label`, which both drivers read and write), so a
+// legitimate forward jump names a label the jumping network does not carry.
 //
 // Checking labels per network therefore rejects the normal case and accepts only a jump to a label in its own
 // network — which is either an infinite loop or a no-op. This is the shape real ladder uses.
@@ -400,8 +442,7 @@ VAR a : BOOL; out : BOOL; END_VAR
 NETWORK 0 LD
 IF a THEN JMP Done; END_IF
 END_NETWORK
-NETWORK 1 LD
-Done:
+NETWORK 1 LD LABEL: Done
 out := TRUE;
 END_NETWORK
 END_FUNCTION_BLOCK`
@@ -420,8 +461,7 @@ END_FUNCTION_BLOCK`
   expect(vgByCode(bad, "network-undefined-label")).toBe(1)
   const good = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-NETWORK 0 LD
-Loop:
+NETWORK 0 LD LABEL: Loop
 out := TRUE;
 JMP Loop;
 END_NETWORK
@@ -640,7 +680,7 @@ END_PROGRAM`
 test("network text: a double-quoted title is consumed, not parsed as a statement", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; END_VAR
-NETWORK 0 FBD "Some title"
+NETWORK 0 FBD TITLE: "Some title"
   LET g1 := a;
   b := g1;
 END_NETWORK
@@ -654,7 +694,7 @@ END_FUNCTION_BLOCK`
 test("network text: a single-quoted title works too, and a colon in one is not a label", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; END_VAR
-NETWORK 0 LD 'Network 3 : STATE: Prehoming'
+NETWORK 0 LD TITLE: 'Network 3 : STATE: Prehoming'
   a := a;
 END_NETWORK
 END_FUNCTION_BLOCK`
@@ -666,7 +706,7 @@ END_FUNCTION_BLOCK`
 test("network text: a doubled quote inside a title round-trips", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; END_VAR
-NETWORK 0 LD "Muting of alarm ""No bunch"""
+NETWORK 0 LD TITLE: "Muting of alarm ""No bunch"""
   LET g1 := a;
   b := g1;
 END_NETWORK
@@ -680,7 +720,7 @@ END_FUNCTION_BLOCK`
 test("network text: DISABLED still parses after a title", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; END_VAR
-NETWORK 0 FBD "T" DISABLED
+NETWORK 0 FBD TITLE: "T" DISABLED
   a := a;
 END_NETWORK
 END_FUNCTION_BLOCK`

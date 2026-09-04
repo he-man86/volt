@@ -59,7 +59,7 @@ VAR RETAIN PERSISTENT
 	stFeedForward: BOOL;
 END_VAR
 
-NETWORK 0 LD "DONE Network 2: State: Initialise"
+NETWORK 0 LD TITLE: "DONE Network 2: State: Initialise"
   LET g8 := (iInit OR NOT iTest_Prod OR iCleaning OR ioManualStartSupply);
   stRestposition := g8 SET;
   LET g1 := g8 SET;
@@ -68,12 +68,12 @@ NETWORK 0 LD "DONE Network 2: State: Initialise"
   stNoWrapper := g1;
   stPhotocellWrapperFault := g1;
 END_NETWORK
-NETWORK 1 LD "DONE Network 3: State: Restposition"
+NETWORK 1 LD TITLE: "DONE Network 3: State: Restposition"
   LET g1 := (stOSN_TakeOverCycle(CLK := iTakeOverCycle) AND stWrapperPresent) SET;
   stRestposition := g1;
   stWrapperPresent := g1;
 END_NETWORK
-NETWORK 2 LD "DONE Network 4: State: Supply wrapper"
+NETWORK 2 LD TITLE: "DONE Network 4: State: Supply wrapper"
   LET g1 := ((stRestposition AND ((iTest_Prod AND NOT iCleaning AND iBunchPresent AND NOT iTakeOverCycle AND (iGenFlags.RunMan OR iGenFlags.RunAuto)) OR ioManualStartSupply)) OR (stNoWrapper AND iGenFlags.StartFlag) OR (stPhotocellWrapperFault AND iGenFlags.StartFlag)) SET;
   stSupplyWrapper := g1;
   stRestposition := g1;
@@ -81,64 +81,64 @@ NETWORK 2 LD "DONE Network 4: State: Supply wrapper"
   stPhotocellWrapperFault := g1;
   ioManualStartSupply := g1;
 END_NETWORK
-NETWORK 3 LD "DONE Network 5: State: Wrapper Present"
+NETWORK 3 LD TITLE: "DONE Network 5: State: Wrapper Present"
   LET g15 := (iWrapperPresentForLeafCarrier AND stSupplyWrapper);
   stWrapperPresent := g15 SET;
   (g15 + 1 + HMI_Var.Mach1.PRDWrapCurrentCntr);
   (g15 + 1 + HMI_Var.Mach1.PRDWrapDayCounter);
   stSupplyWrapper := g15 SET;
 END_NETWORK
-NETWORK 4 LD "DONE Network 6: State: No Wrapper"
+NETWORK 4 LD TITLE: "DONE Network 6: State: No Wrapper"
   LET g1 := TMR_TimeOutSupply(IN := (stSupplyWrapper AND stFeedForward), PT := iTimeOutSupplyWrapper) SET;
   stNoWrapper := g1;
   stSupplyWrapper := g1;
 END_NETWORK
-NETWORK 5 LD "DONE Network 7: State: Photocell wrapper fault"
+NETWORK 5 LD TITLE: "DONE Network 7: State: Photocell wrapper fault"
   LET g1 := TMR_TimeOutPhotocell(IN := (stSupplyWrapper AND stFeedForward AND iPhotocellWrapper), PT := T#10S) SET;
   stPhotocellWrapperFault := g1;
   stSupplyWrapper := g1;
 END_NETWORK
-NETWORK 6 LD "DONE Network 8: Faults"
+NETWORK 6 LD TITLE: "DONE Network 8: Faults"
   LET g21 := True;
   oFaultWaitingForWrapper := (g21 AND stSupplyWrapper AND iTakeOverCycle);
   oFaultNoWrapper := (g21 AND stNoWrapper);
   oFaultPhotocellWrapper := (g21 AND stPhotocellWrapperFault);
 END_NETWORK
-NETWORK 7 LD "DONE Network 9: Ventilation motor"
+NETWORK 7 LD TITLE: "DONE Network 9: Ventilation motor"
   oVentilationMotor := (iGenFlags.EnableAuxDrive AND iTest_Prod AND NOT iCleaning);
 END_NETWORK
-NETWORK 8 LD "DONE Network 10:"
+NETWORK 8 LD TITLE: "DONE Network 10:"
   LET g23 := (iGenFlags.EnableAuxDrive AND stSupplyWrapper AND NOT iGenFlags.StopFlag);
   stFeedForward := g23;
   oPositionMotor := g23;
 END_NETWORK
-NETWORK 9 LD "DONE Network 11: Winding motor"
+NETWORK 9 LD TITLE: "DONE Network 11: Winding motor"
   oWindingMotor := (iGenFlags.EnableAuxDrive AND NOT iGenFlags.StopFlag AND iTest_Prod AND NOT iCleaning);
 END_NETWORK
-NETWORK 10 LD "DONE Network 12: Start spray cycle"
+NETWORK 10 LD TITLE: "DONE Network 12: Start spray cycle"
   LET g46 := stFeedForward;
   stSprayCycleActive := stRePositionMotor(CLK := g46) SET;
   stSprayCycleActive := TMR_DelayContinuousSpraying(IN := g46, PT := iDelayContSpraying) SET;
 END_NETWORK
-NETWORK 11 LD "DONE Network 13: Timing spray cycle"
+NETWORK 11 LD TITLE: "DONE Network 13: Timing spray cycle"
   stSprayCycleActive := (TMR_SprayTime(IN := stSprayCycleActive, PT := iSprayTime) AND NOT TMR_DelayContinuousSpraying.Q) SET;
 END_NETWORK
-NETWORK 12 LD "DONE Network 14: Spraying valve"
+NETWORK 12 LD TITLE: "DONE Network 14: Spraying valve"
   oSprayingValve := (ioEnableSpraying AND stSprayCycleActive);
 END_NETWORK
-NETWORK 13 LD "DONE Network 15: Automatic trigger of water"
+NETWORK 13 LD TITLE: "DONE Network 15: Automatic trigger of water"
   ioEnableSpraying := (FALSE AND iGenFlags.EnablePneumEStop AND iWrapperPresentForLeafCarrier AND iTest_Prod AND NOT iCleaning) SET;
 END_NETWORK
-NETWORK 14 LD "DONE Network 16: Water level control"
+NETWORK 14 LD TITLE: "DONE Network 16: Water level control"
   oWaterLevelValve := (ioEnableSpraying AND iWaterLevelSensor);
 END_NETWORK
-NETWORK 15 LD "DONE Network 17: Manual spray cycle"
+NETWORK 15 LD TITLE: "DONE Network 17: Manual spray cycle"
   LET g45 := iScreenForOperatorSettingsActivated;
   MOVE((g45 AND iManualSprayCycleReset), 0);
   stManualSprayCycleStarted := ((g45 AND iGenFlags.EnablePneumEStop AND (iManualSprayCycleStart OR stManualSprayCycleStarted) AND NOT iManualSprayCycleStop AND NOT iManualSprayCycleReset) < ioManualSprayCycleActualCount < iMaxNumberOfSprayPulses);
   stSprayCycleActive := (TMR_ManualSprayCycleIdle(IN := (g45 AND stManualSprayCycleStarted AND NOT stSprayCycleActive), PT := T#300MS) + ioManualSprayCycleActualCount + 1) SET;
 END_NETWORK
-NETWORK 16 LD "DONE Network 18: SAVE RLO"
+NETWORK 16 LD TITLE: "DONE Network 18: SAVE RLO"
   ENO := EN;
 END_NETWORK
 

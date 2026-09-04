@@ -12,10 +12,10 @@ VAR_OUTPUT
 	oMainDriveJog: BOOL;
 END_VAR
 
-NETWORK 0 LD "DONE NETWORK 1: Delay after doors closed"
+NETWORK 0 LD TITLE: "DONE NETWORK 1: Delay after doors closed"
   Mach1_AuxData.DelayAfterDoorsActuallyClosed := Mach1_AuxData.IEC_TIMERS.TON_DelayAfterDoorsClosed(IN := (Mach1.GenFlags.DelayAfterEmergStop AND Mach1_Safety.Status.AllDoorsActuallyClosed AND Mach1_Safety.Status.DoorsOK), PT := T#150MS);
 END_NETWORK
-NETWORK 1 LD "DONE NETWORK 2: Activating main drive"
+NETWORK 1 LD TITLE: "DONE NETWORK 2: Activating main drive"
   LET g174 := TRUE;
   MOVE(g174, 0);
   Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper := (g174 AND NOT HMI_Var.Test_Prod) SET;
@@ -36,16 +36,16 @@ NETWORK 1 LD "DONE NETWORK 2: Activating main drive"
   MOVE(g177, Mach1_Data.MANUALSPEED);
   RPM_To_DriveSpeed(g174, tInt);
 END_NETWORK
-NETWORK 2 LD "DONE NETWORK 3 : DriveIsRunning flag"
+NETWORK 2 LD TITLE: "DONE NETWORK 3 : DriveIsRunning flag"
   LET g96 := TRUE;
   Mach1.GenFlags.StopDriveDirect := g96 SET;
   Mach1.GenFlags.DriveIsRunning := (g96 AND (tMainDriveRun OR tMainDriveJog));
   Mach1.GenFlags.DriveAtSpeed := Mach1_AuxData.IEC_TIMERS.TOFF_MainDriveAtProductionSpeed(IN := Mach1_AuxData.IEC_TIMERS.TON_MainDriveAtProductionSpeed(IN := (g96 AND tMainDriveRun), PT := T#200MS), PT := T#60MS);
 END_NETWORK
-NETWORK 3 LD "DONE NETWORK 4: Alarm: Main drive blocked"
+NETWORK 3 LD TITLE: "DONE NETWORK 4: Alarm: Main drive blocked"
   Mach1.GenFlags.StopDriveDirect := (Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.IEC_TIMERS.TON_MainDriveBlocked(IN := oMainDriveRun, PT := T#12S) < HMI_Var.Mach1.ActualSpeed < 5), Mach1.GenFlags.StartFlag, Mach1_Alarms.Alm040, Mach1.GenFlags.MinorAlarm) AND Mach1_Alarms.Alm040) SET;
 END_NETWORK
-NETWORK 4 LD "DONE NETWORK 5: Manual brakerelease" DISABLED
+NETWORK 4 LD TITLE: "DONE NETWORK 5: Manual brakerelease" DISABLED
   LET g180 := TRUE;
   LST_InputsOutputs.Q101_0_REL_release_brake := (g180 AND Mach1_Alarms.Alm001 AND HMI_Var.ReleaseBrake);
   HMI_Var.ReleaseBrake := (g180 AND (NOT Mach1_Alarms.Alm001 OR (Mach1_Alarms.Alm001 AND NOT Mach1.GenFlags.StartFlag))) SET;

@@ -32,7 +32,7 @@ END_NETWORK
 NETWORK 2 LD
   Data_Exchange_Motion.Servo_MainDrive.Control.Enable := (Data_Exchange_Motion.Servo_MainDrive.Control.Enable AND xMainDriveDoneOnce);
 END_NETWORK
-NETWORK 3 LD "Main drive motion"
+NETWORK 3 LD TITLE: "Main drive motion"
   Maindrive(EN := , ioDataExchange := Data_Exchange_Motion.Servo_MainDrive, i_xOnlyPositiveDirectionSync := TRUE, i_lrWindowStandstill := 1, i_lrJogVel := 2, i_lrSyncVel := 10, i_NormalCamRefTable := , i_ByPassCamRefTable := , i_CamCyclic := TRUE, i_MasterAbsolute := TRUE, i_SlaveAbsolute := TRUE, ioMasterAxis := LM_VirtualMaster, ioSlaveAxis := Axis_MainDrive);
 END_NETWORK
 NETWORK 4 LD
@@ -41,10 +41,10 @@ END_NETWORK
 NETWORK 5 LD
   Data_Exchange_Motion.Servo_WrappingDevice.Control.Enable := (Data_Exchange_Motion.Servo_WrappingDevice.Control.Enable AND xWrappingDeviceDoneOnce);
 END_NETWORK
-NETWORK 6 LD "Wrapping device"
+NETWORK 6 LD TITLE: "Wrapping device"
   WrappingDevice(EN := , ioDataExchange := Data_Exchange_Motion.Servo_WrappingDevice, i_xOnlyPositiveDirectionSync := FALSE, i_lrWindowStandstill := 5, i_lrJogVel := 10, i_lrSyncVel := 10, i_NormalCamRefTable := , i_ByPassCamRefTable := , i_CamCyclic := TRUE, i_MasterAbsolute := TRUE, i_SlaveAbsolute := FALSE, ioMasterAxis := LM_VirtualMaster, ioSlaveAxis := Axis_OverrollingDevice);
 END_NETWORK
-NETWORK 7 LD "Side correction"
+NETWORK 7 LD TITLE: "Side correction"
   Sidecorrection(EN := , ioDataExchange := Data_Exchange_Motion.Servo_SideCorrection, i_xOnlyPositiveDirectionSync := FALSE, i_lrWindowStandstill := 5, i_lrJogVel := 100, i_lrSyncVel := 10, i_NormalCamRefTable := , i_ByPassCamRefTable := , i_CamCyclic := TRUE, i_MasterAbsolute := TRUE, i_SlaveAbsolute := FALSE, ioMasterAxis := LM_VirtualMaster, ioSlaveAxis := Axis_SideCorrection, i_NormalCamRefTableNeg := );
 END_NETWORK
 NETWORK 8 LD
@@ -56,22 +56,22 @@ END_NETWORK
 NETWORK 10 LD
   Data_Exchange_Motion.FeedForwardWrapper.Control.Enable := (Data_Exchange_Motion.FeedForwardWrapper.Control.Enable AND identPolePosition_FeedforwardWrapper.doneOnce);
 END_NETWORK
-NETWORK 11 LD "Feed forward wrapper DTA"
+NETWORK 11 LD TITLE: "Feed forward wrapper DTA"
   FeedForwardWrapper(ioDataExchange := Data_Exchange_Motion.FeedForwardWrapper, TouchProbeSensor := NOT LST_InputsOutputs.I101_0_Wrapper_present, i_lrWindowStandstill := 5, i_lrJogVel := 10, ioSlaveAxis := Axis_FeedFowardWrapper);
 END_NETWORK
-NETWORK 12 LD "FQI Bobbin"
+NETWORK 12 LD TITLE: "FQI Bobbin"
   Bobbin(lrAcc := 6000, lrDec := 6000, ioAxis := Axis_Bobbin, DataIO := Data_Exchange_Motion.FQI_Bobbin, lrTorque := Data_Exchange_Motion.BobbinTorque);
 END_NETWORK
-NETWORK 13 LD "FQI Fan"
+NETWORK 13 LD TITLE: "FQI Fan"
   Fan(lrAcc := 500, lrDec := 75, ioAxis := Axis_Fan, DataIO := Data_Exchange_Motion.FQI_Fan);
 END_NETWORK
-NETWORK 14 LD "FQI FeedForward ADS"
+NETWORK 14 LD TITLE: "FQI FeedForward ADS"
   FeedForwardADS(lrAcc := 6000, lrDec := 6000, ioAxis := Axis_FeedForwardADS, DataIO := Data_Exchange_Motion.FQI_FeedforwardADS);
 END_NETWORK
-NETWORK 15 LD "FQI FeedForward  ATF"
+NETWORK 15 LD TITLE: "FQI FeedForward  ATF"
   FeedForwardATF(lrAcc := 6000, lrDec := 1500, ioAxis := Axis_FeedForwardATF, DataIO := Data_Exchange_Motion.FQI_FeedforwardATF);
 END_NETWORK
-NETWORK 16 LD "FQI Elevator"
+NETWORK 16 LD TITLE: "FQI Elevator"
   Elevator(lrAcc := 50, lrDec := 200, ioAxis := Axis_Elevator, DataIO := Data_Exchange_Motion.FQI_ElevatorATF);
 END_NETWORK
 

@@ -27,6 +27,8 @@ export const NETWORK_TEXT_KEYWORDS: ReadonlySet<string> = new Set([
   "END_NETWORK",
   ...Object.keys(LANGUAGES),
   "DISABLED",
+  "LABEL",
+  "TITLE",
   "LET",
   "EXECUTE",
   "END_EXECUTE",
@@ -69,7 +71,7 @@ function parseNetwork(
   start: number,
   diagnostics: NetworkTextDiagnostic[],
 ): { network: NetworkTextNetwork; next: number } {
-  // header: NETWORK <int> <LANG> [string] [DISABLED]
+  // header: NETWORK <int> <LANG> [LABEL: name] [TITLE: "text"] [DISABLED]
   let i = start + 1
   const headerStart = toks[start]!.span.start
   let index: number | undefined
@@ -84,19 +86,40 @@ function parseNetwork(
     language = mapped
     i++
   }
+  // The optional header fields are NAMED — `LABEL: skipRest TITLE: "…"` — so neither can be mistaken for the
+  // other, for the language, or for `DISABLED`, and the order between them does not matter. Both are
+  // properties of the network on the vendor model; the label used to be a `name:` STATEMENT in the body,
+  // which modelled a property as a statement.
   let title: string | undefined
-  // The header string is the TITLE (the LABEL is a `name:` statement). The bridge writes it DOUBLE-quoted —
-  // `NETWORK 1 LD "STATE: Prehoming"` — which IEC lexes as a WSTRING literal, not a STRING one. Accepting only
-  // `string_lit` meant a titled network never consumed its title: the token fell through into the statement
-  // stream and swallowed the first statement with it, so every `LET` that opened a titled network silently
-  // stopped defining its wire and every use of that wire read as undeclared. Both spellings are taken because
-  // a hand-written body may use either, and the delimiter is not what the title means.
+  let label: string | undefined
   const isQuoted = (t: Token | undefined): boolean => t?.kind === "wstring_lit" || t?.kind === "string_lit"
-  if (isQuoted(toks[i])) {
-    // A quote inside the title is DOUBLED by the writer (`NetworkTextWriter`) — the format's only escape, and
-    // not one IEC's lexer knows, so it ends the literal at each quote instead. `"a ""b"""` therefore arrives as
-    // three ADJACENT wstring tokens. Contiguity is exactly what doubling produces, so re-joining the adjacent
-    // run reconstructs the raw title and reproduces the C# reader's rule — "runs to the first UNDOUBLED quote".
+  /** `NAME` when position `at` starts a `NAME:` header field, else undefined. */
+  const fieldAt = (at: number): string | undefined =>
+    toks[at]?.kind === "identifier" && toks[at + 1]?.text === ":" ? toks[at]!.text.toUpperCase() : undefined
+
+  for (let field = fieldAt(i); field !== undefined; field = fieldAt(i)) {
+    if (field === "LABEL" && toks[i + 2]?.kind === "identifier") {
+      // One network, one jump target. Naming the field makes a SECOND label a repeated field rather than a
+      // stray statement, but it must still be refused — taking the last silently would drop a target `JMP`
+      // may already name. Wording is the engine reader's, so one fact keeps one phrasing.
+      if (label !== undefined)
+        diagnostics.push({
+          code: "NETWORK_DUPLICATE_NAME",
+          message: `label '${toks[i + 2]!.text}' - the network already declares the label '${label}'; a network is a single jump target`,
+          span: toks[i + 2]!.span,
+        })
+      else label = toks[i + 2]!.text
+      i += 3
+      continue
+    }
+    if (field !== "TITLE" || !isQuoted(toks[i + 2])) break
+    i += 2
+    // The bridge writes the title DOUBLE-quoted, which IEC lexes as a WSTRING literal rather than a STRING one,
+    // and a quote inside it is DOUBLED — the format's only escape, and not one IEC's lexer knows, so it ends
+    // the literal at each quote. `"a ""b"""` therefore arrives as three ADJACENT wstring tokens. Contiguity is
+    // exactly what doubling produces, so re-joining the adjacent run reconstructs the raw title and reproduces
+    // the C# reader's rule — "runs to the first UNDOUBLED quote". Both delimiters are taken because a
+    // hand-written body may use either, and the delimiter is not what the title means.
     const first = toks[i]!
     let raw = ""
     while (isQuoted(toks[i]) && (raw === "" || toks[i]!.span.start === toks[i - 1]!.span.end)) {
@@ -133,7 +156,7 @@ function parseNetwork(
     })
   }
   const span = spanFromSpans(toks[start]!.span, endSpan, headerStart, endSpan.end)
-  return { network: { index, language, title, disabled, statements, span, headerSpan }, next: i }
+  return { network: { index, language, title, label, disabled, statements, span, headerSpan }, next: i }
 }
 
 // ─── statements ────────────────────────────────────────────────────────────────
@@ -182,11 +205,16 @@ function parseStatement(
     const span = target ? spanOf([t, target]) : t.span
     return { statement: { kind: "jump", target: name, span }, next: skipSemi(toks, start + (target ? 2 : 1)) }
   }
-  // `name:` label — a lone `:` token (not `:=`), no `;` terminator; must be caught before the run scan.
+  // A lone `name:` line USED to be the jump label. It is a property of the network, so it moved to the header
+  // as `LABEL:` — reported here rather than left to the run scan, which would fail on it as an unparseable
+  // statement and say nothing about where the label belongs now.
   if (t.kind === "identifier" && toks[start + 1]?.text === ":") {
-    const name: NetworkName = { text: t.text, span: t.span }
-    dedupeName(name, names, diagnostics)
-    return { statement: { kind: "label", name, span: spanOf([t, toks[start + 1]!]) }, next: start + 2 }
+    diagnostics.push({
+      code: "NETWORK_PARSE",
+      message: `'${t.text}:' - a jump label belongs on the NETWORK header now (\`LABEL: ${t.text}\`), not on a line of its own.`,
+      span: spanOf([t, toks[start + 1]!]),
+    })
+    return { statement: undefined, next: start + 2 }
   }
 
   // Collect the run up to the next top-level `;` (or IF / END_NETWORK / EOF).

@@ -30,7 +30,7 @@ public class MetadataPlacementTests
     [Fact]
     public void The_canonical_shape_is_accepted()
         => Assert.Equal("<ACCEPTED>",
-            Verdict("NETWORK 0 LD \"interlock\"\n  Guard:\n  // holds the drive off\n  out := (a AND b);\nEND_NETWORK\n"));
+            Verdict("NETWORK 0 LD LABEL: Guard TITLE: \"interlock\"\n  // holds the drive off\n  out := (a AND b);\nEND_NETWORK\n"));
 
     /// <summary>TWO LABELS — refused, and the message NAMES THE DUPLICATE.
     ///
@@ -41,7 +41,7 @@ public class MetadataPlacementTests
     [Fact]
     public void Two_labels_are_refused_and_the_message_names_the_second_one()
     {
-        var message = Verdict("NETWORK 0 LD\n  First:\n  Second:\n  out := a;\nEND_NETWORK\n");
+        var message = Verdict("NETWORK 0 LD LABEL: First LABEL: Second\n  out := a;\nEND_NETWORK\n");
 
         Assert.NotEqual("<ACCEPTED>", message);
         Assert.Contains("Second", message);

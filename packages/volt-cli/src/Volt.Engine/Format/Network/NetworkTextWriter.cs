@@ -96,28 +96,30 @@ public static class NetworkTextWriter
 
         public void Emit()
         {
+            // `NETWORK <order> <language>` is the network's IDENTITY and stays positional — every reader,
+            // regex and editor grammar anchors on that prefix. Everything optional after it is NAMED.
             _sb.Append("NETWORK ").Append(_net.Order).Append(' ').Append(_lang == BodyLanguage.Ld ? "LD" : "FBD");
-            // The quoted string is the network's TITLE. The previous model had one string field and PLCopen
-            // carried neither, so title and jump-label were the same slot; both vendors' INetwork has both.
+
+            // LABEL and TITLE are two different things and both vendors' INetwork carries both: the label is
+            // the jump target `JMP` resolves against, the title is free text the engineer wrote. They were
+            // one slot once, and the title spent a while being called the label. Naming them on the header
+            // ends that: neither can be mistaken for the other, for `DISABLED`, or for the language, and a
+            // later field can be added without shifting anything. The label used to be a `myLabel:` line in
+            // the BODY, which modelled a property of the network as a statement — the same conflation in a
+            // different place.
+            if (!string.IsNullOrEmpty(_net.Label)) _sb.Append(" LABEL: ").Append(_net.Label);
+
             // A QUOTE INSIDE THE TITLE IS DOUBLED. Engineers put quotes in network titles — one real project
             // has two, `Muting of alarm "No bunch"` and `the "Active"-alarm signals are reset` — and writing
             // them raw ended the title early for any reader, so the second half was lost on the way back in.
             // Doubling is the escape because it needs nothing but the delimiter itself: no new character to
             // reserve, and a title with no quote in it is unchanged.
             if (!string.IsNullOrEmpty(_net.Title))
-                _sb.Append(" \"").Append(_net.Title!.Replace("\"", "\"\"")).Append('"');
+                _sb.Append(" TITLE: \"").Append(_net.Title!.Replace("\"", "\"\"")).Append('"');
+
+            // DISABLED stays a bare flag — it is a keyword, not a value, and reads better than `DISABLED: true`.
             if (_net.Disabled) _sb.Append(" DISABLED");
             _sb.Append('\n');
-
-            // LABEL FIRST, THEN COMMENT — the order the IDE lays a network header out, where the label sits
-            // above the single comment box. This used to be the other way round, which made the one thing
-            // engineers hand-write the one thing the canonical-form gate refused: the reader takes them in
-            // either order, so typing them as the IDE shows them parsed fine and was then re-emitted swapped
-            // and rejected as "not in canonical form". Nothing about the model or the vendors preferred the
-            // old order; it was arbitrary, and arbitrary was costing an error message.
-            //
-            // A jump TARGET is the network's label — `myLabel:` on its own line.
-            if (!string.IsNullOrEmpty(_net.Label)) _sb.Append("  ").Append(_net.Label).Append(":\n");
 
             if (!string.IsNullOrEmpty(_net.Comment))
                 foreach (var line in _net.Comment!.Replace("\r", "").Split('\n'))

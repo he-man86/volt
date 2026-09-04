@@ -15,7 +15,7 @@ VAR_IN_OUT
 	DataIO: sUDT_FQIComm_Drive;;
 END_VAR
 
-NETWORK 0 LD "Return when virtual axis"
+NETWORK 0 LD TITLE: "Return when virtual axis"
   ??? := ioAxis.xVirtual;
 END_NETWORK
 NETWORK 1 LD

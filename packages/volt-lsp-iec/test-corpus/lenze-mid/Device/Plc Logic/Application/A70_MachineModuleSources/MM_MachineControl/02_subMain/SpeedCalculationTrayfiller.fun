@@ -6,11 +6,11 @@ VAR
 	tBool: BOOL;
 END_VAR
 
-NETWORK 0 LD "NETWORK 1: Write setpoint speed in DB"
+NETWORK 0 LD TITLE: "NETWORK 1: Write setpoint speed in DB"
   // The speed of the trayfiller has to be higher then the speed of the dryer. In this way there is always an empty space at the startpostition of the trayfiller.
   MOVE(( + Mach1_Data.Drives.FeedForwardADS.Control.AutoSpeed + 30), tInt);
 END_NETWORK
-NETWORK 1 LD "NETWORK 2: Activation + Runtime guard feed forward dryer/trayfiller"
+NETWORK 1 LD TITLE: "NETWORK 2: Activation + Runtime guard feed forward dryer/trayfiller"
   // Runtime calculation:
   // 1 cycle = 60s/rpm
   // speed = in 0.1 rpm -> 60s = 600 1/10s

@@ -166,9 +166,22 @@ public static class NetworkTextReader
         public Builder(int order, string rest)
         {
             Order = order;
+            // The optional header fields are NAMED (`LABEL: x TITLE: "y"`), so neither can be mistaken for the
+            // other, for the language, or for `DISABLED`, and order does not matter.
+            //
+            // One network, one jump target. Naming the field makes a second label a REPEATED FIELD rather than
+            // a stray statement, but it is still refused: keeping the first silently would drop a target a
+            // `JMP` may already name, and the writer could not reproduce the text either way.
+            var labels = Regex.Matches(rest, @"\bLABEL:\s*(\w+)", RegexOptions.IgnoreCase);
+            if (labels.Count > 0) _label = labels[0].Groups[1].Value;
+            if (labels.Count > 1)
+                throw new NetworkTextException(
+                    $"label '{labels[1].Groups[1].Value}' - the network already declares the label '{_label}'; "
+                    + "a network is a single jump target", "NETWORK_DUPLICATE_NAME");
+
             // The title runs to the first UNDOUBLED quote (the writer doubles any quote in the text), so a
             // title that contains one survives instead of ending the moment it reaches it.
-            var q = Regex.Match(rest, "\"((?:[^\"]|\"\")*)\"");
+            var q = Regex.Match(rest, "\\bTITLE:\\s*\"((?:[^\"]|\"\")*)\"", RegexOptions.IgnoreCase);
             if (q.Success) _title = q.Groups[1].Value.Replace("\"\"", "\"");
 
             // DISABLED is looked for only AFTER the title, never inside it. Scanning the whole header meant
@@ -250,17 +263,13 @@ public static class NetworkTextReader
                                              Flags.None with { Return = true })));
                 return;
             }
-            // A label — `myLabel:` — is the network's jump target.
-            var lbl = Regex.Match(line, @"^(\w+)\s*:$");
-            if (lbl.Success)
-            {
-                if (_label != null)
-                    throw new NetworkTextException(
-                        $"label '{lbl.Groups[1].Value}' - the network already declares the label '{_label}'; "
-                        + "a network is a single jump target", "NETWORK_DUPLICATE_NAME");
-                _label = lbl.Groups[1].Value;
-                return;
-            }
+            // A bare `myLabel:` line USED to be how the jump target was written. It is a property of the
+            // network, not a statement, so it moved to the header as `LABEL:` — refuse it here rather than
+            // let it fall through to the expression parser and fail as something unrecognisable.
+            if (Regex.IsMatch(line, @"^\w+\s*:$"))
+                throw new NetworkTextException(
+                    $"'{line}' - a jump label belongs on the NETWORK header now (`NETWORK n LD LABEL: {line.TrimEnd(':', ' ')}`), "
+                    + "not on a line of its own", "NETWORK_PARSE");
 
             var (letName, stmt) = ParseSimple(line);
             _stmts.Add((letName, stmt));

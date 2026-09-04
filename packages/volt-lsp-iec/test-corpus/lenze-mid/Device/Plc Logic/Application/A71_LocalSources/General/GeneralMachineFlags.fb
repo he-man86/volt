@@ -73,42 +73,42 @@ VAR
 
 END_VAR
 
-NETWORK 0 LD "NETWORK 2: Startup delay after emergency stop"
+NETWORK 0 LD TITLE: "NETWORK 2: Startup delay after emergency stop"
   GenFlags.DelayAfterEmergStop := OnDelayAfterEmergencyStop(IN := (NOT iFirstCycle AND iEmergencyUnitOK), PT := iPreDelayAfterEmergStop);
 END_NETWORK
-NETWORK 1 LD "NETWORK 3: Startup delay after STO has been enabled"
+NETWORK 1 LD TITLE: "NETWORK 3: Startup delay after STO has been enabled"
   GenFlags.DelayAfterSTO := OnDelayAfterSTOEnabled(IN := (GenFlags.DelayAfterEmergStop AND iSTO_Enabled), PT := iPreDelayAfterSTOEnabled);
 END_NETWORK
-NETWORK 2 LD "NETWORK 4: Stop delay auxiliary drives"
+NETWORK 2 LD TITLE: "NETWORK 4: Stop delay auxiliary drives"
   LET g28 := (GenFlags.EnableAuxDrive AND NOT GenFlags.StartFlag AND DnStartDelayAuxDrives AND NOT GenFlags.DriveIsRunning AND NOT GenFlags.Rotflag);
   DnStopDelayAuxDrives := OnDelayStopAuxDrives(IN := g28, PT := iPreStopDelayAuxDrives);
   DnStopDelayAuxDrives := (g28 AND (( = iPreStopDelayAuxDrives = T#0MS) OR DnStopDelayAuxDrives));
 END_NETWORK
-NETWORK 3 LD "NETWORK 5: Manual stop auxiliary drives"
+NETWORK 3 LD TITLE: "NETWORK 5: Manual stop auxiliary drives"
   DnManualStopAuxDrives := OnDelayManStopAuxDrives(IN := (GenFlags.EnableAuxDrive AND (NOT iStop1 OR NOT iStop2 OR NOT iStop3)), PT := T#2S);
 END_NETWORK
-NETWORK 4 LD "NETWORK 6: Startup delay auxiliary drives"
+NETWORK 4 LD TITLE: "NETWORK 6: Startup delay auxiliary drives"
   LET g47 := True;
   LET g48 := (g47 AND GenFlags.EnableAuxDrive AND NOT GenFlags.AuxDrivesStarted);
   DnStartDelayAuxDrives := OnDelayStartAuxDrives(IN := g48, PT := iPreStartDelayAuxDrives);
   DnStartDelayAuxDrives := (g48 AND (( = iPreStartDelayAuxDrives = T#0MS) OR DnStartDelayAuxDrives));
   GenFlags.AuxDrivesStarted := g47 SET;
 END_NETWORK
-NETWORK 5 LD "NETWORK 7: Enable markers"
+NETWORK 5 LD TITLE: "NETWORK 7: Enable markers"
   LET g190 := (GenFlags.DelayAfterEmergStop AND NOT GenFlags.MajorAlarm);
   LET g191 := (g190 AND iDoorUnitOK);
   GenFlags.EnableControl := (g191 AND NOT GenFlags.DisableControl);
   GenFlags.EnableMainDrive := (g191 AND GenFlags.EnableAuxDrive AND NOT GenFlags.AuxDrivesStarted AND DnStartDelayAuxDrives);
   GenFlags.EnableAuxDrive := (g190 AND (GenFlags.StartFlag OR (GenFlags.RunAuto AND GenFlags.RestartAuxDrives) OR (GenFlags.EnableAuxDrive AND NOT DnStopDelayAuxDrives AND NOT DnManualStopAuxDrives)));
 END_NETWORK
-NETWORK 6 LD "NETWORK 8: Pneumatic markers"
+NETWORK 6 LD TITLE: "NETWORK 8: Pneumatic markers"
   LET g118 := iEmergencyUnitOK;
   GenFlags.EnablePneumEStop := OffDelayPneumEStop(IN := g118, PT := T#1S);
   LET g119 := (g118 AND (iSTO_Enabled OR NOT iAirPressureDoorsSeparate));
   GenFlags.EnablePneumSafetyGuard := OffDelayPneumSafetyGuard(IN := g119, PT := T#1S);
   GenFlags.EnablePneumPressurised := OffDelayPneumPressurised(IN := (g119 AND iAirPressureOK), PT := T#1S);
 END_NETWORK
-NETWORK 7 LD "NETWORK 9: Active control panel"
+NETWORK 7 LD TITLE: "NETWORK 9: Active control panel"
   LET g159 := True;
   GenFlags.ControlService := (g159 AND iSwitchService);
   LET g160 := (g159 AND NOT iSwitchService);
@@ -119,64 +119,64 @@ NETWORK 7 LD "NETWORK 9: Active control panel"
   GenFlags.ControlMan3 := (g162 AND iAutoManual3);
   GenFlags.ControlAuto := (g162 AND NOT iAutoManual3);
 END_NETWORK
-NETWORK 8 LD "NETWORK 10: Control manual"
+NETWORK 8 LD TITLE: "NETWORK 10: Control manual"
   GenFlags.RunMan := (GenFlags.EnableControl AND ((GenFlags.ControlService AND iButtonService) OR (GenFlags.ControlMan1 AND iStart1) OR (GenFlags.ControlMan2 AND iStart2) OR (GenFlags.ControlMan3 AND iStart3)) AND iStop1 AND iStop2 AND iStop3);
 END_NETWORK
-NETWORK 9 LD "NETWORK 11: Control automatic"
+NETWORK 9 LD TITLE: "NETWORK 11: Control automatic"
   GenFlags.RunAuto := RunAuto(SET1 := (GenFlags.EnableControl AND GenFlags.ControlAuto AND (iStart1 OR iStart2 OR iStart3) AND iStop1 AND iStop2 AND iStop3), RESET := (GenFlags.RunAuto AND (NOT GenFlags.EnableControl OR NOT GenFlags.ControlAuto OR NOT iStop1 OR NOT iStop2 OR NOT iStop3 OR (NOT GenFlags.DriveIsRunning AND (GenFlags.MinorAlarm OR GenFlags.MajorAlarm)))));
 END_NETWORK
-NETWORK 10 LD "DONE NETWORK 12: Start pulse"
+NETWORK 10 LD TITLE: "DONE NETWORK 12: Start pulse"
   GenFlags.StartFlag := ((OneShotStart1(CLK := ((GenFlags.ControlService AND iButtonService) OR (GenFlags.ControlMan1 AND iStart1) OR (GenFlags.ControlMan2 AND iStart2) OR (GenFlags.ControlMan3 AND iStart3) OR (GenFlags.ControlAuto AND (iStart1 OR iStart2 OR iStart3)) OR OneShotStart2.Q)) AND iStop1 AND iStop2 AND iStop3) OR OneShotStart2(CLK := (GenFlags.RunMan OR GenFlags.RunAuto)));
 END_NETWORK
-NETWORK 11 LD "DONE NETWORK 13: Reset pulse"
+NETWORK 11 LD TITLE: "DONE NETWORK 13: Reset pulse"
   GenFlags.ResetFlag := ((OneShotReset1(CLK := ((GenFlags.ControlService AND ((iServiceButtonHasResetFunction AND iButtonService) OR iReset1 OR iReset2 OR iReset3)) OR ((GenFlags.ControlMan1 OR GenFlags.ControlMan2 OR GenFlags.ControlMan3 OR GenFlags.ControlAuto) AND (iReset1 OR iReset2 OR iReset3)))) AND iStop1 AND iStop2 AND iStop3) OR (NOT iStartResetSeparate AND GenFlags.StartFlag));
 END_NETWORK
-NETWORK 12 LD "DONE NETWORK 14: Stop flag"
+NETWORK 12 LD TITLE: "DONE NETWORK 14: Stop flag"
   GenFlags.StopFlag := (NOT iStop1 OR NOT iStop2 OR NOT iStop3 OR (GenFlags.StopFlag AND NOT GenFlags.StartFlag));
 END_NETWORK
-NETWORK 13 LD "DONE NETWORK 15: Reset safety unit"
+NETWORK 13 LD TITLE: "DONE NETWORK 15: Reset safety unit"
   oResetEmergencyUnit := ((NOT iEmergencyUnitOK OR (iEmergencyUnitOK AND NOT iDoorUnitOK)) AND ((iStartResetSeparate AND (((GenFlags.ControlMan1 OR GenFlags.ControlMan2 OR GenFlags.ControlMan3 OR GenFlags.ControlAuto) AND (iReset1 OR iReset2 OR iReset3)) OR (GenFlags.ControlService AND ((iServiceButtonHasResetFunction AND iButtonService) OR iReset1 OR iReset2 OR iReset3)))) OR (NOT iStartResetSeparate AND (((GenFlags.ControlMan1 OR GenFlags.ControlAuto) AND iStart1) OR ((GenFlags.ControlMan2 OR GenFlags.ControlAuto) AND iStart2) OR ((GenFlags.ControlMan3 OR GenFlags.ControlAuto) AND iStart3) OR (GenFlags.ControlService AND iButtonService)) AND iStop1 AND iStop2 AND iStop3)));
 END_NETWORK
-NETWORK 14 LD "DONE NETWORK 16: Reset door unit"
+NETWORK 14 LD TITLE: "DONE NETWORK 16: Reset door unit"
   oResetDoorUnit := (iEmergencyUnitOK AND NOT iDoorUnitOK AND ((iStartResetSeparate AND (((GenFlags.ControlMan1 OR GenFlags.ControlMan2 OR GenFlags.ControlMan3 OR GenFlags.ControlAuto) AND (iReset1 OR iReset2 OR iReset3)) OR (GenFlags.ControlService AND ((iServiceButtonHasResetFunction AND iButtonService) OR iReset1 OR iReset2 OR iReset3)))) OR (NOT iStartResetSeparate AND (((GenFlags.ControlMan1 OR GenFlags.ControlAuto) AND iStart1) OR ((GenFlags.ControlMan2 OR GenFlags.ControlAuto) AND iStart2) OR ((GenFlags.ControlMan3 OR GenFlags.ControlAuto) AND iStart3) OR (GenFlags.ControlService AND iButtonService)) AND iStop1 AND iStop2 AND iStop3)));
 END_NETWORK
-NETWORK 15 LD "DONE NETWORK 17: Crossing doorcircuit control panel 1"
+NETWORK 15 LD TITLE: "DONE NETWORK 17: Crossing doorcircuit control panel 1"
   oCrossingDoorCircuit1 := GenFlags.ControlMan1;
 END_NETWORK
-NETWORK 16 LD "DONE NETWORK 18: Crossing doorcircuit control panel 2"
+NETWORK 16 LD TITLE: "DONE NETWORK 18: Crossing doorcircuit control panel 2"
   oCrossingDoorCircuit2 := GenFlags.ControlMan2;
 END_NETWORK
-NETWORK 17 LD "DONE NETWORK 19: Crossing doorcircuit control panel 3"
+NETWORK 17 LD TITLE: "DONE NETWORK 19: Crossing doorcircuit control panel 3"
   oCrossingDoorCircuit3 := GenFlags.ControlMan3;
 END_NETWORK
-NETWORK 18 LD "DONE NETWORK 20: Signal lamps control panel 1"
+NETWORK 18 LD TITLE: "DONE NETWORK 20: Signal lamps control panel 1"
   LET g187 := True;
   oStart1 := (g187 AND (GenFlags.ControlMan1 OR GenFlags.ControlAuto) AND (((GenFlags.RunMan OR GenFlags.RunAuto) AND NOT GenFlags.MinorAlarm AND NOT GenFlags.MajorAlarm) OR ((GenFlags.EnableControl OR (NOT iStartResetSeparate AND (GenFlags.MinorAlarm OR GenFlags.MajorAlarm))) AND iSignalPulse AND ((NOT GenFlags.MinorAlarm AND NOT GenFlags.MajorAlarm) OR NOT iStartResetSeparate))));
   oStop1 := (g187 AND iEmergencyUnitOK AND (NOT GenFlags.RunMan OR NOT GenFlags.ControlMan1) AND NOT GenFlags.RunAuto);
   oReset1 := (g187 AND (GenFlags.ControlMan1 OR GenFlags.ControlMan2 OR GenFlags.ControlMan3 OR GenFlags.ControlAuto OR GenFlags.ControlService) AND (GenFlags.MinorAlarm OR GenFlags.MajorAlarm OR NOT iDoorUnitOK) AND iSignalPulse);
 END_NETWORK
-NETWORK 19 LD "DONE NETWORK 21: Signal lamps control panel 2"
+NETWORK 19 LD TITLE: "DONE NETWORK 21: Signal lamps control panel 2"
   LET g186 := True;
   oStart2 := (g186 AND (GenFlags.ControlMan2 OR GenFlags.ControlAuto) AND (((GenFlags.RunMan OR GenFlags.RunAuto) AND NOT GenFlags.MinorAlarm AND NOT GenFlags.MajorAlarm) OR ((GenFlags.EnableControl OR (NOT iStartResetSeparate AND (GenFlags.MinorAlarm OR GenFlags.MajorAlarm))) AND iSignalPulse AND ((NOT GenFlags.MinorAlarm AND NOT GenFlags.MajorAlarm) OR NOT iStartResetSeparate))));
   oStop2 := (g186 AND iEmergencyUnitOK AND (NOT GenFlags.RunMan OR NOT GenFlags.ControlMan1) AND NOT GenFlags.RunAuto);
   oReset2 := (g186 AND (GenFlags.ControlMan1 OR GenFlags.ControlMan2 OR GenFlags.ControlMan3 OR GenFlags.ControlAuto OR GenFlags.ControlService) AND (GenFlags.MinorAlarm OR GenFlags.MajorAlarm OR NOT iDoorUnitOK) AND iSignalPulse);
 END_NETWORK
-NETWORK 20 LD "DONE NETWORK 22: Signal lamps control panel 3"
+NETWORK 20 LD TITLE: "DONE NETWORK 22: Signal lamps control panel 3"
   LET g0 := True;
   oStart3 := (g0 AND (GenFlags.ControlMan3 OR GenFlags.ControlAuto) AND (((GenFlags.RunMan OR GenFlags.RunAuto) AND NOT GenFlags.MinorAlarm AND NOT GenFlags.MajorAlarm) OR ((GenFlags.EnableControl OR (NOT iStartResetSeparate AND (GenFlags.MinorAlarm OR GenFlags.MajorAlarm))) AND iSignalPulse AND ((NOT GenFlags.MinorAlarm AND NOT GenFlags.MajorAlarm) OR NOT iStartResetSeparate))));
   oStop3 := (g0 AND iEmergencyUnitOK AND (NOT GenFlags.RunMan OR NOT GenFlags.ControlMan1) AND NOT GenFlags.RunAuto);
   oReset3 := (g0 AND (GenFlags.ControlMan1 OR GenFlags.ControlMan2 OR GenFlags.ControlMan3 OR GenFlags.ControlAuto OR GenFlags.ControlService) AND (GenFlags.MinorAlarm OR GenFlags.MajorAlarm OR NOT iDoorUnitOK) AND iSignalPulse);
 END_NETWORK
-NETWORK 21 LD "TODO NETWORK 23: Signal lamp alarm"
+NETWORK 21 LD TITLE: "TODO NETWORK 23: Signal lamp alarm"
   oAlarm := ((GenFlags.Warning OR GenFlags.MinorAlarm OR GenFlags.MajorAlarm) AND iSignalPulse);
 END_NETWORK
-NETWORK 22 LD "DONE NETWORK 24: Only when during a complete CPU cycle there is no alarm, the ""Active""-alarm signals are reset"
+NETWORK 22 LD TITLE: "DONE NETWORK 24: Only when during a complete CPU cycle there is no alarm, the ""Active""-alarm signals are reset"
   LET g185 := True;
   GenFlags.WarningActive := (g185 AND GenFlags.Warning);
   GenFlags.MinorAlarmActive := (g185 AND GenFlags.MinorAlarm);
   GenFlags.MajorAlarmActive := (g185 AND GenFlags.MajorAlarm);
 END_NETWORK
-NETWORK 23 LD "DONE NETWORK 25: Reset alarm actions"
+NETWORK 23 LD TITLE: "DONE NETWORK 25: Reset alarm actions"
   LET g1 := True SET;
   GenFlags.Warning := g1;
   GenFlags.MinorAlarm := g1;
@@ -184,7 +184,7 @@ NETWORK 23 LD "DONE NETWORK 25: Reset alarm actions"
   GenFlags.DummyWarning := g1;
   GenFlags.DisableControl := g1;
 END_NETWORK
-NETWORK 24 LD "TODO NETWORK 26: SAVE"
+NETWORK 24 LD TITLE: "TODO NETWORK 26: SAVE"
 END_NETWORK
 
 END_FUNCTION_BLOCK

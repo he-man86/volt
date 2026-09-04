@@ -128,30 +128,25 @@ function checkUndeclared(
  *
  * SCOPE IS THE BODY, NOT THE NETWORK — and it used to be the network, which rejected the normal case. A jump in
  * FBD/LD exists precisely to leave the current network: each network may carry one label, and `JMP name` transfers
- * control to the network carrying it. The bridge writes that label as `name:` at the top of the DESTINATION
- * network's statements (from `Network.Label`, which both drivers read and write), so a legitimate forward jump
- * names a label the jumping network does not contain. Resolving per network therefore flagged every real jump and
+ * control to the network carrying it. The bridge writes that label on the DESTINATION network's header
+ * (`LABEL:`, from `Network.Label`, which both drivers read and write), so a legitimate forward jump names a
+ * label the jumping network does not carry. Resolving per network therefore flagged every real jump and
  * accepted only a jump to a label in its own network — an infinite loop or a no-op.
  *
- * Labels + jumps are gathered through EN/ENO boxes too, since a jump inside one still reaches the body's labels.
+ * Jumps are gathered through EN/ENO boxes too, since one inside a branch still reaches the body's labels.
  * ponytail: message PROVISIONAL/bridge-gated — network text has no conformance recording yet (like the NETWORK_* codes).
  */
 function checkLabels(
-  networkScopes: Iterable<readonly [{ statements: readonly NetworkTextStatement[] }, unknown]>,
+  networkScopes: Iterable<readonly [NetworkTextNetwork, unknown]>,
   out: DiagnosticItem[],
 ): void {
   const networks = [...networkScopes].map(([network]) => network)
 
+  // A label is a property of the network (`NETWORK 0 LD LABEL: skipRest`), so the jump targets are the
+  // networks' own labels — no statement walk, and no way for one to hide inside an EN/ENO branch.
   const labels = new Set<string>()
-  for (const network of networks) collectLabels(network.statements, labels)
+  for (const network of networks) if (network.label !== undefined) labels.add(network.label.toLowerCase())
   for (const network of networks) checkJumps(network.statements, labels, out)
-}
-
-function collectLabels(statements: readonly NetworkTextStatement[], labels: Set<string>): void {
-  for (const s of statements) {
-    if (s.kind === "label") labels.add(s.name.text.toLowerCase())
-    else if (s.kind === "en_eno_if") collectLabels(s.body, labels)
-  }
 }
 
 function checkJumps(statements: readonly NetworkTextStatement[], labels: ReadonlySet<string>, out: DiagnosticItem[]): void {
@@ -280,12 +275,16 @@ function checkUnresolvedBoxes(body: BodySpan, out: DiagnosticItem[]): void {
 }
 
 /**
- * The three placement rules for a network's LABEL and COMMENT — reported here so an engineer sees them while
- * typing rather than when the push refuses.
+ * The placement rule for a network's COMMENT — reported here so an engineer sees it while typing rather than
+ * when the push refuses.
  *
- * A network carries exactly ONE label and ONE comment, both per-network metadata on `INetwork` (and both
- * distinct from the network's TITLE, the quoted string in the header). The text grammar admits them as ordinary
- * statements, so it accepts bodies the model cannot hold.
+ * A network carries exactly ONE comment, per-network metadata on `INetwork`. The text grammar admits it as an
+ * ordinary statement, so it accepts bodies the model cannot hold.
+ *
+ * The LABEL used to be checked here too, for the same reason and with two more rules (one label per network,
+ * and it must come first). Both became unrepresentable when the label moved onto the header as `LABEL:` — a
+ * header field cannot appear twice or in the wrong place — so the checks went with it rather than being
+ * rewritten. That is the point of moving it: the model stopped admitting the mistake.
  *
  * **These are RELOCATIONS, not new rules** — measured 2026-09-03 and pinned by the engine's
  * `MetadataPlacementTests`: the push already refuses all three. A second label is rejected by the reader; a
@@ -294,8 +293,7 @@ function checkUnresolvedBoxes(body: BodySpan, out: DiagnosticItem[]): void {
  * phrasing for one fact, and the messages name the round-trip consequence instead of the grammar rule: what the
  * engineer will actually see is a body that comes back different from the one they wrote.
  *
- * Severity follows the push. The duplicate is an ERROR because the reader refuses outright and one of the two
- * labels cannot exist; the misplacements are WARNINGS because the content survives — only its position does not.
+ * Severity follows the push: a WARNING, because the content survives — only its position does not.
  *
  * NOT reported: several `//` lines before the first statement. `Network.Comment` is multi-line, the lines are
  * joined, and the round trip is exact — a warning there would fire on correct content. The proposal called that
@@ -303,53 +301,23 @@ function checkUnresolvedBoxes(body: BodySpan, out: DiagnosticItem[]): void {
  */
 function checkMetadataPlacement(network: NetworkTextNetwork, out: DiagnosticItem[]): void {
   let firstReal: number | undefined
-  let label: { text: string } | undefined
 
   network.statements.forEach((stmt, i) => {
-    if (stmt.kind !== "label" && stmt.kind !== "comment") {
+    if (stmt.kind !== "comment") {
       firstReal ??= i
       return
     }
+    if (firstReal === undefined) return // a comment before any statement is where it belongs
 
-    if (stmt.kind === "label") {
-      if (label !== undefined) {
-        out.push({
-          severity: "error",
-          span: stmt.name.span,
-          source: SOURCE,
-          code: "NETWORK_DUPLICATE_NAME",
-          message:
-            `label '${stmt.name.text}' - the network already declares the label '${label.text}'; ` +
-            "a network is a single jump target",
-        })
-        return
-      }
-      label = { text: stmt.name.text }
-    }
-
-    if (firstReal === undefined) return // metadata before any statement is where it belongs
-
-    out.push(
-      stmt.kind === "label"
-        ? {
-            severity: "warning",
-            span: stmt.span,
-            source: SOURCE,
-            code: "NETWORK_LABEL_NOT_FIRST",
-            message:
-              "a label's position is not stored - this one moves to the head of the network on the next pull, " +
-              "so the pushed text and the project stop matching",
-          }
-        : {
-            severity: "warning",
-            span: stmt.span,
-            source: SOURCE,
-            code: "NETWORK_COMMENT_NOT_FIRST",
-            message:
-              "a comment's position is not stored - this one moves to the head of the network on the next pull, " +
-              "so the pushed text and the project stop matching",
-          },
-    )
+    out.push({
+      severity: "warning",
+      span: stmt.span,
+      source: SOURCE,
+      code: "NETWORK_COMMENT_NOT_FIRST",
+      message:
+        "a comment's position is not stored - this one moves to the head of the network on the next pull, " +
+        "so the pushed text and the project stop matching",
+    })
   })
 }
 

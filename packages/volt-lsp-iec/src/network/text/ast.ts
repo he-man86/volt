@@ -25,14 +25,20 @@ export interface NetworkTextNetwork {
   index?: number
   language: NetworkLanguage
   /**
-   * The network's TITLE — the quoted string in the header, `NETWORK 0 LD "interlock"`.
+   * The network's TITLE — free text the engineer wrote: `NETWORK 0 LD TITLE: "interlock"`.
    *
-   * Named `label` until 2026-09-03, which was wrong and actively misleading: a network's LABEL is a separate
-   * thing entirely — a `name:` STATEMENT, the jump target `JMP` resolves against — and the two are distinct
-   * fields on the vendor model too (`Network.Title` vs `Network.Label`). One name for two concepts is how a
-   * later check gets written against the wrong one.
+   * TITLE and LABEL are two different things and both vendors' `INetwork` carries both. They shared one slot
+   * once, and this field was itself called `label` until 2026-09-03. Naming them on the header ends the
+   * confusion: neither can be mistaken for the other, for the language, or for `DISABLED`.
    */
   title?: string
+  /**
+   * The network's LABEL — the jump target `JMP` resolves against: `NETWORK 0 LD LABEL: skipRest`.
+   *
+   * A property of the network, so it lives here beside the title. It used to be a `myLabel:` STATEMENT in the
+   * body, which modelled a property as a statement — the same title/label conflation in a different place.
+   */
+  label?: string
   disabled: boolean
   statements: NetworkTextStatement[]
   span: Span
@@ -45,7 +51,6 @@ export type NetworkTextStatement =
   | NetworkFbCall
   | NetworkEnEnoIf
   | NetworkExecute
-  | NetworkLabel
   | NetworkJump
   | NetworkReturn
   | NetworkComment
@@ -90,11 +95,6 @@ export interface NetworkExecute {
   kind: "execute"
   statements: StatementList
   ok: boolean
-  span: Span
-}
-export interface NetworkLabel {
-  kind: "label"
-  name: NetworkName
   span: Span
 }
 export interface NetworkJump {
