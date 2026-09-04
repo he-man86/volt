@@ -1,6 +1,6 @@
 /**
  * The kind-named writable-source extensions Volt materializes on disk — POUs (`.fb`/`.prg`/`.fun`),
- * interface (`.itf`), every DUT (`.dut`), and GVL (`.gvl`). This is the LSP-side single source of truth
+ * interface (`.itf`), every DUT (`.struct`/`.enum`/`.union`/`.alias`), and GVL (`.gvl`). This is the LSP-side single source of truth
  * for "is this a Volt source file", shared by the workspace crawl, the running server, vendor detection,
  * the corpus tests, and the maintenance scripts — so the set is defined once, not copied per consumer.
  *
@@ -16,13 +16,12 @@ export const SOURCE_EXTENSIONS: readonly string[] = [
   ".fun",
   ".itf",
   ".gvl",
-  // A DUT is one wire kind but four files on disk, by its declaration's subtype. `.dut` stays recognized:
-  // a workspace pulled before the split is full of them, and an unknown extension is not analyzed at all.
+  // A DUT is one wire kind but FOUR files on disk, named by its declaration's subtype. There is no `.dut`
+  // file: the CLI writes the subtype and the library-signature renderer does too.
   ".struct",
   ".enum",
   ".union",
   ".alias",
-  ".dut",
 ]
 
 /** Membership set for the same extensions — for the hot `.has(ext)` path in the crawl and tests. */

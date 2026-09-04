@@ -157,14 +157,17 @@ const itemKindPath = (() => {
 const itemKindSrc = readFileSync(itemKindPath, "utf-8");
 const canonBlock = /SourceKindExtensions = new \(string, string\)\[\]\s*\{([\s\S]*?)\};/.exec(itemKindSrc);
 if (!canonBlock) throw new Error("check-wiring: could not find ItemKind.SourceKindExtensions");
-// A DUT is ONE wire kind (`dut`) written to disk under FOUR subtype extensions, so the set of source files a
-// runtime must recognize is the kind table PLUS those four — not the kind table alone. Reading both from
-// ItemKind keeps this a projection of the canonical tables rather than a third list to keep in step.
+// Mirror `ItemKind.FileExtensions`, which is the kind table with the DUT SPLIT applied: a DUT is one wire kind
+// (`dut`) written to disk under four subtype extensions, so `dut` names no file and drops out while the four
+// join. Reading both tables from ItemKind keeps this a projection of the canonical source, not a third list.
 const dutBlock = /DutFileExtensions = new\[\]\s*\{([^}]*)\}/.exec(itemKindSrc);
 if (!dutBlock) throw new Error("check-wiring: could not find ItemKind.DutFileExtensions");
+const DUT_FILE_EXTS = [...dutBlock[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
 const CANON = normExts([
-	...[...canonBlock[1].matchAll(/\(\s*(?:"[^"]+"|[\w.]+)\s*,\s*"([^"]+)"\s*\)/g)].map((m) => m[1]),
-	...[...dutBlock[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]),
+	...[...canonBlock[1].matchAll(/\(\s*(?:"[^"]+"|[\w.]+)\s*,\s*"([^"]+)"\s*\)/g)]
+		.map((m) => m[1])
+		.filter((ext) => ext !== "dut"),
+	...DUT_FILE_EXTS,
 ]);
 
 const jsonAt = (rel: string, pick: (o: any) => unknown): string[] => {

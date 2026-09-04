@@ -3,7 +3,7 @@
  *
  * `volt pull` mirrors the IDE project as text files. This module crawls that tree once and returns:
  *
- *   - **source files** (`.fb`/`.prg`/`.fun`/`.itf`/`.dut`/`.gvl`) — the
+ *   - **source files** (`.fb`/`.prg`/`.fun`/`.itf`/`.gvl`/`.struct`/`.enum`/`.union`/`.alias`) — the
  *     units the binder cross-indexes, so a type declared in an unopened file still resolves.
  *   - **reference names** the unresolved-identifier check must SKIP (they resolve OUTSIDE the project):
  *       - `.library` files carry a `NAMESPACE <name>` line — the root of a qualified library reference.

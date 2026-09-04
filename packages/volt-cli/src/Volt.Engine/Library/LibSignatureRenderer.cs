@@ -68,10 +68,10 @@ public static class LibSignatureRenderer
         if (!OkName(name)) return null;
 
         // A DUT alias (`TYPE HANDLE : __XWORD; END_TYPE`) — render it faithfully, not as an empty struct. The
-        // base can be a `__`-prefixed CODESYS system type (target-specific word), which the LSP resolves. Every
-        // DUT is one `.dut` (the alias-ness lives in the body form, not the extension).
+        // base can be a `__`-prefixed CODESYS system type (target-specific word), which the LSP resolves. The
+        // subtype is not re-derived from the text here: this renderer BUILT the body, so it already knows.
         if (!string.IsNullOrEmpty(s.AliasBase))
-            return (".dut", $"TYPE {name} : {s.AliasBase};\nEND_TYPE");
+            return (".alias", $"TYPE {name} : {s.AliasBase};\nEND_TYPE");
 
         var kind = s.PouType.Contains(".") ? s.PouType.Substring(s.PouType.LastIndexOf('.') + 1) : s.PouType;
 
@@ -137,7 +137,7 @@ public static class LibSignatureRenderer
                 {
                     // Enum members carry their ordinal in Initial (`NO_ERROR := 0, FIRST_ERROR := 5700`).
                     var members = mem.Select(v => "\t" + v.Name + (string.IsNullOrEmpty(v.Initial) ? "" : $" := {v.Initial}"));
-                    return (".dut", $"TYPE {name} :\n(\n{string.Join(",\n", members)}\n);\nEND_TYPE");
+                    return (".enum", $"TYPE {name} :\n(\n{string.Join(",\n", members)}\n);\nEND_TYPE");
                 }
                 return (".gvl", string.Join("\n", new[] { "VAR_GLOBAL" }.Concat(mem.Select(v => $"\t{VarDecl(v)};")).Concat(new[] { "END_VAR" })));
             }
@@ -145,9 +145,11 @@ public static class LibSignatureRenderer
             {
                 var fields = s.Members.Where(v => OkName(v.Name)).Select(v => $"\t{VarDecl(v)};");
                 // A UNION shares the struct shape but with UNION/END_UNION (overlapping members); a STRUCT is the
-                // default. Both are a DUT → one `.dut` extension (the subkind lives in the body keyword only).
-                var (open, close) = s.Flags.Contains("Union") ? ("UNION", "END_UNION") : ("STRUCT", "END_STRUCT");
-                return (".dut", string.Join("\n", new[] { $"TYPE {name} :", open }.Concat(fields).Concat(new[] { close, "END_TYPE" })));
+                // default. One wire kind still — but the FILE is named for what it is, as a project DUT now is.
+                var union = s.Flags.Contains("Union");
+                var (open, close) = union ? ("UNION", "END_UNION") : ("STRUCT", "END_STRUCT");
+                return (union ? ".union" : ".struct",
+                        string.Join("\n", new[] { $"TYPE {name} :", open }.Concat(fields).Concat(new[] { close, "END_TYPE" })));
             }
             default:
                 return null;

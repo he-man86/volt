@@ -368,7 +368,7 @@ const PRG = `PROGRAM PLC_PRG\nVAR\n\tmode : E_Mode;\nEND_VAR\nmode := E_Mode.Idl
 const ENUM = `TYPE E_Mode : (Idle, Run); END_TYPE`
 
 test("server: a type in an unopened sibling file resolves (eager disk index)", async () => {
-  const dir = tempWorkspace({ "PLC_PRG.prg": PRG, "E_Mode.dut": ENUM })
+  const dir = tempWorkspace({ "PLC_PRG.prg": PRG, "E_Mode.enum": ENUM })
   const client = connect()
   await initInDir(client, dir)
   const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
@@ -384,10 +384,10 @@ test("server: a type in an unopened sibling file resolves (eager disk index)", a
 
 test("server: an open buffer overrides the on-disk version", async () => {
   // Disk declares E_Mode; the open buffer renames it away → the reference no longer resolves.
-  const dir = tempWorkspace({ "E_Mode.dut": ENUM })
+  const dir = tempWorkspace({ "E_Mode.enum": ENUM })
   const client = connect()
   await initInDir(client, dir)
-  const uri = pathToFileURL(join(dir, "E_Mode.dut")).href
+  const uri = pathToFileURL(join(dir, "E_Mode.enum")).href
   const diags = onceDiag(client, uri)
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri, languageId: "iecst", version: 1, text: `TYPE E_Other : (Idle, Run); END_TYPE` },
@@ -415,7 +415,7 @@ test("server: a newly added file re-indexes on didChangeWatchedFiles (create)", 
   })
   expect(notDefined(await before, "E_Mode")).toBe(true) // unresolved until the enum lands
 
-  const enumPath = join(dir, "E_Mode.dut")
+  const enumPath = join(dir, "E_Mode.enum")
   writeFileSync(enumPath, ENUM)
   const after = onceDiag(client, prgUri) // reindex re-publishes for open docs
   await client.sendNotification(DidChangeWatchedFilesNotification.type, {
@@ -427,7 +427,7 @@ test("server: a newly added file re-indexes on didChangeWatchedFiles (create)", 
 })
 
 test("server: a deleted file re-indexes on didChangeWatchedFiles (delete)", async () => {
-  const dir = tempWorkspace({ "PLC_PRG.prg": PRG, "E_Mode.dut": ENUM })
+  const dir = tempWorkspace({ "PLC_PRG.prg": PRG, "E_Mode.enum": ENUM })
   const client = connect()
   await initInDir(client, dir)
   const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
@@ -437,7 +437,7 @@ test("server: a deleted file re-indexes on didChangeWatchedFiles (delete)", asyn
   })
   expect(notDefined(await before, "E_Mode")).toBe(false)
 
-  const enumPath = join(dir, "E_Mode.dut")
+  const enumPath = join(dir, "E_Mode.enum")
   rmSync(enumPath)
   const after = onceDiag(client, prgUri)
   await client.sendNotification(DidChangeWatchedFilesNotification.type, {
@@ -449,11 +449,11 @@ test("server: a deleted file re-indexes on didChangeWatchedFiles (delete)", asyn
 })
 
 test("server: a closed declaring file stays indexed from disk", async () => {
-  const dir = tempWorkspace({ "PLC_PRG.prg": PRG, "E_Mode.dut": ENUM })
+  const dir = tempWorkspace({ "PLC_PRG.prg": PRG, "E_Mode.enum": ENUM })
   const client = connect()
   await initInDir(client, dir)
   const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
-  const enumUri = pathToFileURL(join(dir, "E_Mode.dut")).href
+  const enumUri = pathToFileURL(join(dir, "E_Mode.enum")).href
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: prgUri, languageId: "iecst", version: 1, text: PRG },
   })
@@ -473,11 +473,11 @@ test("server: a closed declaring file stays indexed from disk", async () => {
 })
 
 test("server: a file open AND on disk contributes its symbols once (definition is single)", async () => {
-  const dir = tempWorkspace({ "PLC_PRG.prg": PRG, "E_Mode.dut": ENUM })
+  const dir = tempWorkspace({ "PLC_PRG.prg": PRG, "E_Mode.enum": ENUM })
   const client = connect()
   await initInDir(client, dir)
   const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
-  const enumUri = pathToFileURL(join(dir, "E_Mode.dut")).href
+  const enumUri = pathToFileURL(join(dir, "E_Mode.enum")).href
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: prgUri, languageId: "iecst", version: 1, text: PRG },
   })
@@ -743,7 +743,7 @@ test("server: diagnostics are GATED until the workspace is indexed (no startup f
   // PLC_PRG references E_Mode, defined in a SIBLING file — resolvable ONLY after the cross-file crawl. Before the
   // crawl the store holds just the open buffer, so E_Mode reads as "not defined": exactly the false error the gate
   // must suppress. (Removing the gate makes the first pull below report that error and this test fails.)
-  const dir = tempWorkspace({ "E_Mode.dut": ENUM, "PLC_PRG.prg": PRG })
+  const dir = tempWorkspace({ "E_Mode.enum": ENUM, "PLC_PRG.prg": PRG })
   const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
   const client = connect()
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: pathToFileURL(dir).href, capabilities: {} })
@@ -760,7 +760,7 @@ test("server: diagnostics are GATED until the workspace is indexed (no startup f
 })
 
 test("server: workspaceSymbol finds a DUT in an unopened file and narrows by query", async () => {
-  const dir = tempWorkspace({ "E_Mode.dut": ENUM, "PLC_PRG.prg": PRG })
+  const dir = tempWorkspace({ "E_Mode.enum": ENUM, "PLC_PRG.prg": PRG })
   const client = connect()
   await initInDir(client, dir) // eager crawl indexes both files without opening them
   const all = (await client.sendRequest(WorkspaceSymbolRequest.type, { query: "E_Mode" })) as {

@@ -329,7 +329,7 @@ public sealed partial class BeckhoffDriver
     // kind — invisible to refs and fetch, and absent means DELETED to a pull.
     // All four map onto the one wire kind `dut`, so we emit the raw code as-is and Core maps it. The
     // struct/enum/union/alias distinction is NOT computed on a read (its only
-    // consumer was the four-way extension, now unified to `.dut`); it is derived from the declaration on push-
+    // consumer was the four-way extension, now the four subtype extensions); it is derived from the declaration on push-
     // create only. This drops the per-DUT declaration read the walk used to pay.
     private int ClassifiedKind(object node) => _om.ItemType(node);
 

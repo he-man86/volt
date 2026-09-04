@@ -5,7 +5,7 @@ using Volt.Engine.Item;
 namespace Volt.Engine.Tests;
 
 /// <summary>
-/// TwinCAT's DUT tree codes. A DUT is ONE wire kind (<c>dut</c>, one <c>.dut</c> extension) but FOUR tree codes on
+/// TwinCAT's DUT tree codes. A DUT is ONE wire kind (<c>dut</c>) but FOUR tree codes on
 /// that vendor, and for a long time only one of them was mapped.
 /// <para><b>The bug this pins was silent data loss.</b> <c>ItemKind</c> asserted that 605/606/607 — the
 /// enum/struct/union subtypes — were "never produced, never needed". They are: a DUT authored in the TwinCAT IDE

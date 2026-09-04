@@ -62,13 +62,13 @@ test("a bare-accessible enum member (non-qualified_only) is not flagged", () => 
 })
 
 // ─── enum type-attribute semantics ({attribute 'qualified_only'} / {attribute 'strict'}) ───
-// Faithful to real projects: the enum is its OWN `.dut` (a file-level pragma), consumed from another file.
+// Faithful to real projects: the enum is its OWN `.enum` (a file-level pragma), consumed from another file.
 // Pins how each attribute changes member resolution — the difference WITH vs WITHOUT it.
 
 /** unresolved-identifier messages in `consumer`, with `enumDut` supplied as a second workspace file. */
 const enumUse = (enumDut: string, consumer: string): string[] => {
   const files = [
-    { uri: "E.dut", parseResult: parseSource(enumDut), source: enumDut },
+    { uri: "E.enum", parseResult: parseSource(enumDut), source: enumDut },
     { uri: "F.fb", parseResult: parseSource(consumer), source: consumer },
   ]
   const project = buildSymbolTable(files)
@@ -221,7 +221,7 @@ test("member access on a LIBRARY-typed base is not flagged (signatures may be lo
   const libPr = parseSource(libSrc)
   const usePr = parseSource(useSrc)
   const project = buildSymbolTable([
-    { uri: "Device/Plc Logic/Application/Library Manager/MyLib/Pt.dut", parseResult: libPr, source: libSrc },
+    { uri: "Device/Plc Logic/Application/Library Manager/MyLib/Pt.struct", parseResult: libPr, source: libSrc },
     { uri: "F.fb", parseResult: usePr, source: useSrc },
   ])
   const diags = computeSemanticDiagnostics({ parseResult: usePr, source: useSrc, project, config: resolveConfig({ vendor: "codesys" }) })

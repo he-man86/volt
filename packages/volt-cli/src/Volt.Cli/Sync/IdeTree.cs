@@ -48,8 +48,8 @@ public static class IdeTree
 
         // A referenced LIBRARY's rendered element signatures are not IDE items and have no identity on the wire:
         // they are content the bridge re-renders per library version, and they carry ordinary SOURCE extensions
-        // (.fb/.fun/.itf/.dut/.gvl). So a bare-name sweep hits them by accident — deleting the project's own
-        // `ERROR.dut` also deleted `Library Manager/CAA/ERROR.dut`, which nothing regenerates until that library's
+        // (.fb/.fun/.itf/.struct/.gvl). So a bare-name sweep hits them by accident — deleting the project's own
+        // `ERROR.struct` also deleted `Library Manager/CAA/ERROR.struct`, which nothing regenerates until that library's
         // version changes. Removal is keyed by NAME (identity is the item name) and these files have no item, so
         // they are exempt by LOCATION. A library root is any directory holding a `.library` stub.
         var libraryRoots = parentIde is null
@@ -100,7 +100,7 @@ public static class IdeTree
     /// <summary>The workspace folders that hold a REFERENCED LIBRARY's rendered files — any directory containing
     /// a <c>.library</c> stub, taken from a tree listing of <c>src/</c> paths.
     /// <para>Library files are read-only and identity-less by LOCATION, not by extension: the element signatures
-    /// the bridge renders beside each stub carry ordinary SOURCE extensions (.fb/.fun/.itf/.dut/.gvl), so the
+    /// the bridge renders beside each stub carry ordinary SOURCE extensions (.fb/.fun/.itf/.struct/.gvl), so the
     /// extension-keyed classifier calls them writable and a bare-name sweep matches them by accident. Two
     /// separate places need that answer — the pull's removal sweep and the push's read-only guard — so it is
     /// defined ONCE here; two spellings of it would drift and each drift is a data-loss bug.</para></summary>

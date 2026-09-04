@@ -44,7 +44,7 @@ public class LibrarySignatureFetchTests
     /// file nothing was wrong with.</para>
     /// <para>Worse than a lost file, and this is why it is Tier 1: with the stub gone `IdeTree.LibraryRoots` no
     /// longer recognises the folder, so everything under it loses both the removal exemption and the read-only
-    /// guard — a `.dut` there becomes PUSHABLE as a project item, keyed by bare name, either creating junk inside
+    /// guard — a `.struct` there becomes PUSHABLE as a project item, keyed by bare name, either creating junk inside
     /// the Library Manager or overwriting the project's own DUT of the same short name.</para>
     /// <para>`volt status` stays clean throughout, because the sidecar still lists it.</para></summary>
     [Fact]

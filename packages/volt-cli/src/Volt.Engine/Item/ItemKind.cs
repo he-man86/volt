@@ -31,9 +31,11 @@ public static class ItemKind
     public const int PlcPouFb = 604;
     public const int PlcGvl = 615;
     public const int PlcItf = 618;
-    // A DUT is ONE wire kind (`dut`), ONE `.dut` extension. The struct/enum/union/alias distinction is NOT a Volt
-    // concept at all — it lives solely in the declaration body, and BOTH the IDE's create and its read derive it
-    // from that text. CODESYS classifies every IDUTObject as PlcDut and creates with one create_dut call.
+    // A DUT is ONE wire kind (`dut`) and FOUR files on disk (`.struct`/`.enum`/`.union`/`.alias`). The subtype is
+    // not a WIRE concept: it lives solely in the declaration body, and BOTH the IDE's create and its read derive it
+    // from that text. CODESYS classifies every IDUTObject as PlcDut and creates with one create_dut call. Volt reads
+    // the same text for the same reason — to NAME the file. Identity stays the wire name, so a struct edited into an
+    // enum is still one item being updated (see DutFileExtensions).
     //
     // But it is FOUR tree codes on TwinCAT, not one, and that correction cost real data. This used to say
     // "605/606/607 = the old PLCDUTENUM/STRUCT/UNION codes — NEVER PRODUCED, never needed", and every walk that
@@ -325,13 +327,12 @@ public static class ItemKind
     /// read-only reference (<c>false</c>) — the CLI's <c>Volt.Cli.Sync.Extensions</c> registry is built from
     /// this, so access and the extension list live in ONE place.
     ///
-    /// <para>A DUT contributes FIVE extensions: the four subtypes it is now written under, plus <c>dut</c>
-    /// itself — which the materializer no longer produces but must still RECOGNIZE. A workspace pulled before
-    /// this change is full of <c>.dut</c> files, and a library's rendered signatures carry them too; dropping
-    /// the extension would make every one of them untracked, which to `status` and `pull` reads as a file that
-    /// is not Volt's — so they would be neither updated nor swept, just stranded.</para></summary>
+    /// <para>A DUT contributes its FOUR subtype extensions and <c>dut</c> is NOT among them: no path writes a
+    /// <c>.dut</c> file — not the materializer, not the library-signature renderer — so recognizing one would
+    /// advertise a file Volt never produces. <c>dut</c> remains the WIRE kind (see <see cref="WireExtFor"/>),
+    /// which is a different name in a different place.</para></summary>
     public static IEnumerable<(string Ext, bool IsSource)> FileExtensions =>
-        SourceKindExtensions.Select(x => (x.Ext, true))
+        SourceKindExtensions.Where(x => x.Kind != Kinds.Dut).Select(x => (x.Ext, true))
             .Concat(DutFileExtensions.Select(ext => (ext, true)))
             .Concat(ReferenceKindExtensions.Select(x => (x.Ext, false)));
 

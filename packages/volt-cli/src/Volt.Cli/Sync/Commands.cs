@@ -334,7 +334,7 @@ public static class Commands
         if (sidecar is null || voltHead is null)
             return PushResult.Rejected("no IDE baseline yet — run `volt pull` once before pushing");
 
-        // Unrecognized-extension guard (BEFORE committing anything): a `.dut` etc. can't sync — fail loud instead
+        // Unrecognized-extension guard (BEFORE committing anything): a `.struct` etc. cannot sync — fail loud instead
         // of silently skipping and reporting "nothing to push".
         var foreign = Git.DiffWorktree(root, IdeTree.Range, "src")
             .Where(r => r.Kind != DiffKinds.Delete)
@@ -344,7 +344,7 @@ public static class Commands
         if (foreign.Count > 0)
             return PushResult.Rejected(
                 "unrecognized file extension — these can't sync to the IDE and were NOT pushed. Rename each to its " +
-                "Volt kind extension (DUTs — struct/enum/union/alias — are all .dut; POUs .fb/.prg/.fun/.itf; " +
+                "Volt extension (a DUT is .struct/.enum/.union/.alias, by its declaration; POUs .fb/.prg/.fun/.itf; " +
                 "global var list .gvl):\n" + string.Join("\n", foreign.Select(p => "  " + p)));
 
         // The same refusal `Pull` makes, and for a sharper reason: a push's FIRST act is an auto-commit, and a
@@ -368,10 +368,10 @@ public static class Commands
             ? new[] { Files.StripSrcPrefix(r.OldPath), Files.StripSrcPrefix(r.NewPath) }
             : new[] { Files.StripSrcPrefix(r.Path) }).ToList();
         // A referenced library's files are read-only by LOCATION, not by extension. The element signatures the
-        // bridge renders beside each `.library` stub carry SOURCE extensions (.fb/.fun/.itf/.dut/.gvl - every arm
+        // bridge renders beside each `.library` stub carry SOURCE extensions (.fb/.fun/.itf/.struct/.gvl - every arm
         // of LibSignatureRenderer), so `Extensions.IsReadOnly`, which keys on the extension alone, calls them
         // WRITABLE. Pushing one is never right and is destructive, because a push op is keyed by BARE NAME:
-        // `Library Manager/CAA/HANDLE.dut` pushes as item "HANDLE.dut", which either creates junk inside the
+        // `Library Manager/CAA/HANDLE.alias` pushes as item "HANDLE.dut", which either creates junk inside the
         // Library Manager or OVERWRITES the project's own DUT that happens to share the short name.
         var libraryRoots = IdeTree.LibraryRoots(Git.ListTree(gitDir, IdeTree.Range).Select(e => e.Path));
         var readOnly = affected.Where(p => Extensions.IsReadOnly(p) || IdeTree.IsUnderLibraryRoot(p, libraryRoots)).ToList();

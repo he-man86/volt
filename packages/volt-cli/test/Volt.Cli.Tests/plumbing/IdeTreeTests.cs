@@ -158,8 +158,8 @@ public class IdeTreeTests
 
     /// <summary>Removal is keyed by bare NAME (identity is the item name), so the sweep matched that name against
     /// EVERY path in the tree — and a referenced library's rendered element signatures carry ordinary source
-    /// extensions. Deleting the project's own `ERROR.dut` therefore also deleted
-    /// `Library Manager/CAA/ERROR.dut`, which nothing regenerates until that library's version changes: silent
+    /// extensions. Deleting the project's own `ERROR.struct` therefore also deleted
+    /// `Library Manager/CAA/ERROR.struct`, which nothing regenerates until that library's version changes: silent
     /// loss of content the workspace cannot rebuild. Library files have no item and are exempt by LOCATION.</summary>
     [Fact]
     public void A_removed_project_item_never_sweeps_a_same_named_library_signature()
@@ -170,17 +170,17 @@ public class IdeTreeTests
             var gitDir = Git.ResolveGitDir(root);
             var parent = Git.CommitTree(gitDir, Git.BuildTree(gitDir, new[]
             {
-                new IndexEntry("100644", Git.WriteBlob(gitDir, "P"), "src/POUs/ERROR.dut"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "P"), "src/POUs/ERROR.struct"),
                 new IndexEntry("100644", Git.WriteBlob(gitDir, "L"), "src/Library Manager/CAA/CAA.library"),
-                new IndexEntry("100644", Git.WriteBlob(gitDir, "S"), "src/Library Manager/CAA/ERROR.dut"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "S"), "src/Library Manager/CAA/ERROR.struct"),
             }), Array.Empty<string>(), "parent");
 
-            // The IDE deleted the PROJECT's ERROR.dut. The library's same-named signature must survive.
+            // The IDE deleted the PROJECT's ERROR.struct. The library's same-named signature must survive.
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
-                Array.Empty<MaterializedFile>(), new[] { "ERROR.dut" }, librariesRefreshed: false);
+                Array.Empty<MaterializedFile>(), new[] { "ERROR.struct" }, librariesRefreshed: false);
 
-            Assert.False(Has(root, tree, "src/POUs/ERROR.dut"));                  // the real deletion lands
-            Assert.True(Has(root, tree, "src/Library Manager/CAA/ERROR.dut"));    // the collateral one does not
+            Assert.False(Has(root, tree, "src/POUs/ERROR.struct"));                  // the real deletion lands
+            Assert.True(Has(root, tree, "src/Library Manager/CAA/ERROR.struct"));    // the collateral one does not
             Assert.True(Has(root, tree, "src/Library Manager/CAA/CAA.library"));
         }
         finally { TestUtil.ForceDelete(root); }

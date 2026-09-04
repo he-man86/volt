@@ -10,11 +10,14 @@ describe("isPouFile", () => {
 		expect(isPouFile("PLC_PRG.prg")).toBe(true);
 		expect(isPouFile("Fun_Calc.fun")).toBe(true);
 		expect(isPouFile("IMotor.itf")).toBe(true);
-		expect(isPouFile("DUT_Data.dut")).toBe(true);
 		expect(isPouFile("GVL_Config.gvl")).toBe(true);
-		// Every DUT variant is one `.dut` — the old per-subkind extensions no longer match.
-		expect(isPouFile("DUT_Data.struct")).toBe(false);
-		expect(isPouFile("E_Mode.enum")).toBe(false);
+		// A DUT is named by its declaration's subtype — four extensions, all source.
+		expect(isPouFile("DUT_Data.struct")).toBe(true);
+		expect(isPouFile("E_Mode.enum")).toBe(true);
+		expect(isPouFile("U_Bits.union")).toBe(true);
+		expect(isPouFile("T_Handle.alias")).toBe(true);
+		// `.dut` is the WIRE kind, never a file — nothing writes one, so nothing recognizes one.
+		expect(isPouFile("DUT_Data.dut")).toBe(false);
 	});
 
 	test("is case-insensitive (Windows paths arrive mixed-case)", () => {

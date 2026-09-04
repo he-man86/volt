@@ -5,14 +5,19 @@
   "lspServers": {
     "volt-lsp-iec": {
       "command": "volt-lsp-iec",
-      "args": ["--stdio"],
+      "args": [
+        "--stdio"
+      ],
       "extensionToLanguage": {
         ".fb": "structured-text",
         ".prg": "structured-text",
         ".fun": "structured-text",
         ".itf": "structured-text",
-        ".dut": "structured-text",
-        ".gvl": "structured-text"
+        ".gvl": "structured-text",
+        ".struct": "structured-text",
+        ".enum": "structured-text",
+        ".union": "structured-text",
+        ".alias": "structured-text"
       }
     }
   }

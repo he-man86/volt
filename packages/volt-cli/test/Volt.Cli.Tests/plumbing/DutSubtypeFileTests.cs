@@ -64,13 +64,14 @@ public class DutSubtypeFileTests
     }
 
     [Fact]
-    public void A_workspace_pulled_before_the_split_is_still_tracked()
+    public void No_path_produces_or_recognizes_a_dut_FILE()
     {
-        // `.dut` files exist in every workspace pulled before this change, and a library's rendered signatures
-        // still carry them. An unrecognized extension is not "left alone" — it is invisible to status and pull.
-        Assert.True(Extensions.IsTrackedPath("POUs/X.dut"));
-        Assert.True(Extensions.IsPushable("POUs/X.dut"));
-        Assert.Equal("X.dut", Materialize.PathToItem("POUs/X.dut")!.Value.Name);
+        // `.dut` is the WIRE kind and nothing else. Nothing writes such a file — not the materializer, not the
+        // library-signature renderer — so recognizing one would advertise a file Volt never produces and invite
+        // exactly the two-spellings-for-one-item drift the split exists to end.
+        Assert.False(Extensions.IsTrackedPath("POUs/X.dut"));
+        Assert.False(Extensions.IsPushable("POUs/X.dut"));
+        Assert.Null(Materialize.PathToItem("POUs/X.dut"));
     }
 
     [Fact]

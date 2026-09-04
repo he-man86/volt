@@ -96,21 +96,21 @@ public class ItemKindTests
     ///
     /// <para>The one asymmetry is deliberate: a DUT's KIND extension is <c>dut</c> (the wire name — one kind,
     /// because that is what both vendors have) and its FILE extensions are the four subtypes it is written
-    /// under. All five appear: the four because they are produced, <c>dut</c> because a workspace pulled before
-    /// the split is full of them and an unrecognized file is neither updated nor swept — it is stranded.
-    /// <see cref="ItemKind.WireExtFor"/> closes the loop.</para></summary>
+    /// under. Only the four appear: <c>dut</c> names no file that any path writes, so recognizing it would
+    /// advertise one Volt never produces. <see cref="ItemKind.WireExtFor"/> closes the loop.</para></summary>
     [Fact]
     public void FileExtensions_reports_writability_from_the_list_a_kind_came_from()
     {
         var flags = ItemKind.FileExtensions.ToDictionary(x => x.Ext, x => x.IsSource, StringComparer.Ordinal);
 
-        var sourceOnDisk = ItemKind.SourceKindExtensions.Count + ItemKind.DutFileExtensions.Count;
+        var sourceOnDisk = ItemKind.SourceKindExtensions.Count - 1 + ItemKind.DutFileExtensions.Count;
         Assert.Equal(sourceOnDisk + ItemKind.ReferenceKindExtensions.Count, flags.Count);
 
-        Assert.All(ItemKind.SourceKindExtensions, x => Assert.True(flags[x.Ext]));
-        // The four subtypes are writable source too — and `.dut` stays recognized for what is already on disk.
+        Assert.All(ItemKind.SourceKindExtensions.Where(x => x.Kind != ItemKind.Kinds.Dut),
+                   x => Assert.True(flags[x.Ext]));
+        // The DUT contributes its four subtypes INSTEAD of a `dut` file extension, which does not exist.
         Assert.All(ItemKind.DutFileExtensions, ext => Assert.True(flags[ext]));
-        Assert.Contains(ItemKind.ExtFor(ItemKind.Kinds.Dut), flags.Keys);
+        Assert.DoesNotContain(ItemKind.ExtFor(ItemKind.Kinds.Dut), flags.Keys);
 
         Assert.All(ItemKind.ReferenceKindExtensions, x => Assert.False(flags[x.Ext]));
     }

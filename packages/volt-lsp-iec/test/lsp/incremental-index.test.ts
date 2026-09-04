@@ -48,7 +48,7 @@ function seed(store: WorkspaceStore) {
     { uri: "file:///Base.fb", source: `${BASE}\n${METHOD}` }, // Base + its standalone method (same file)
     { uri: "file:///Derived.fb", source: DERIVED },
     { uri: "file:///GVL.gvl", source: GVL },
-    { uri: "file:///Color.dut", source: ENUM },
+    { uri: "file:///Color.enum", source: ENUM },
   ])
 }
 

@@ -189,7 +189,7 @@ public static class FetchService
         {
             // A library whose own version did not move still has to be described, or the client deletes it. That
             // costs more than one file: with the stub gone `IdeTree.LibraryRoots` stops recognising the folder,
-            // so everything under it loses both the removal exemption and the read-only guard — and a `.dut`
+            // so everything under it loses both the removal exemption and the read-only guard — and a `.struct`
             // there becomes PUSHABLE as a project item, keyed by bare name, either creating junk inside the
             // Library Manager or overwriting the project's own DUT of the same short name. `volt status` stays
             // clean throughout, because the sidecar still lists it.
