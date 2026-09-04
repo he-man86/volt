@@ -1,0 +1,53 @@
+types: ['BoxTreeBox', 'BoxTreeOperand', 'Flags', 'Operand']
+
+=== 1. a bare BoxTreeBox, before BoxType ===
+  -- fresh
+     BoxType   = 'AND'
+     CallType  = _3S.CoDeSys.Core.LanguageModel.Operator.None
+     EnEno     = True   En = None
+     InputParams.Names  = []
+     OutputParams.Names = []
+     InputItemList count = 0
+     Outputs.List = []
+
+=== 2. after BoxType = MOVE (does the vendor derive the pins?) ===
+  -- BoxType=MOVE
+     BoxType   = 'MOVE'
+     CallType  = _3S.CoDeSys.Core.LanguageModel.Operator.None
+     EnEno     = True   En = None
+     InputParams.Names  = []
+     OutputParams.Names = []
+     InputItemList count = 0
+     Outputs.List = []
+
+=== 3. append an INPUT, then an OUTPUT operand ===
+  AppendInputItem(src) -> True 
+  Outputs.AppendOutputItem(dst) -> True 
+  -- after appends
+     BoxType   = 'MOVE'
+     CallType  = _3S.CoDeSys.Core.LanguageModel.Operator.None
+     EnEno     = True   En = None
+     InputParams.Names  = []
+     OutputParams.Names = []
+     InputItemList count = 1
+     Outputs.List = ['dst']
+
+=== 4. append to the network and ask the vendor if it is valid ===
+  before                 FBDValid=False ILValid=False ILActive=False items=0
+  AppendTree -> True 
+  after append           FBDValid=False ILValid=False ILActive=False items=1
+  committed
+
+=== 5. reload and read it back ===
+  network item count = 1
+  tree[0]: BoxTreeBox
+  -- read back
+     BoxType   = 'MOVE'
+     CallType  = _3S.CoDeSys.Core.LanguageModel.Operator.Move
+     EnEno     = True   En = None
+     InputParams.Names  = []
+     OutputParams.Names = []
+     InputItemList count = 1
+     Outputs.List = ['dst']
+
+done

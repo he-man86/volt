@@ -483,7 +483,7 @@ public sealed partial class BeckhoffDriver
             Leaf l => l.Operand.Flags is { IsNone: false },
             Assign a => a.Targets.Any(t => t.Flags is { IsNone: false }) || (a.Value is { } v && HasFlags(v)),
             Box b => b.Instance?.Flags is { IsNone: false }
-                     || b.Outputs.Any(o => o.Flags is { IsNone: false })
+                     || b.Outputs.Any(o => o.Value.Flags is { IsNone: false })
                      || b.Inputs.Any(i => !i.Flags.IsNone || HasFlags(i.Value))
                      || (b.Enable is { } e && HasFlags(e)),
             Volt.Engine.Format.Network.Parallel p =>

@@ -17,7 +17,7 @@ END_VAR
 
 NETWORK 0 LD
   LET en1 := ;
-  IF en1 THEN MOVE(iMachinePosition); END_IF
+  IF en1 THEN ioPulse.MachinePos_HMI := MOVE(iMachinePosition); END_IF
 END_NETWORK
 NETWORK 1 LD
   LET g1 := fc_CamC_CP_Base(iEN, ioPulse.Start, iMachinePosition, iResetFlag, ioPulse.OSP);

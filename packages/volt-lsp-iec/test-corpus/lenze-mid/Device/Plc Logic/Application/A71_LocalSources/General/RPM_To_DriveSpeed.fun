@@ -11,7 +11,7 @@ END_VAR
 
 NETWORK 0 LD
   LET en1 := ;
-  IF en1 THEN (iRPM * 6); END_IF
+  IF en1 THEN oDriveSpeed := (iRPM * 6); END_IF
 END_NETWORK
 
 END_FUNCTION

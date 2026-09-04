@@ -108,7 +108,7 @@ internal static class TcNetworkReader
                     InstanceOf(e),
                     CallKindOf(e),
                     ReadInputs(e),
-                    Outputs(e),
+                    BoxOutputs(e),
                     // FROM INPUT SLOT 0, not from the `EN` member.
                     //
                     // Correcting the member's SPELLING (`En` -> `EN`, 33 occurrences in every fixture and both
@@ -219,6 +219,22 @@ internal static class TcNetworkReader
         var holder = TcArchive.RequireObj(e, "OutputItems", $"the {TcArchive.TypeOf(e) ?? "item"}");
         return TcArchive.RequireList(holder, "OutputItems", $"the {TcArchive.TypeOf(e) ?? "item"}'s outputs")
             .Select(x => ReadOperand(x)).ToList();
+    }
+
+    /// <summary>A box's OUTPUT PINS — the wired ones. The same rule as CODESYS (`Box.HasEnoSlot`): output
+    /// slot 0 is the <c>ENO</c> echo when the vendor names it so, names are index-aligned with the slots, and
+    /// an unwired pin is an EMPTY operand rather than an absent one. Nothing here is TwinCAT-specific; the two
+    /// vendors ship the same NWL model (N1) and this is that model through the archive's spelling.</summary>
+    private static IReadOnlyList<Output> BoxOutputs(XElement e)
+    {
+        var names = TcArchive.Strings(TcArchive.Obj(e, "OutputParam"), "Names");
+        var eno = Box.HasEnoSlot(names) ? 1 : 0;
+        return Outputs(e)
+            .Select((op, i) => (op, i))
+            .Skip(eno)
+            .Where(x => x.op.Text.Length > 0)
+            .Select(x => new Output(Box.FormalAt(names, x.i), x.op))
+            .ToList();
     }
 
     /// <summary>An assignment's TARGETS. Same items as <see cref="Outputs"/>, read through the coil decode:

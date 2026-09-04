@@ -1,0 +1,18 @@
+opened Pro2193-94-95-96_COdesys.project
+loading C:\Users\marce\Github\volt\packages\volt-cli\src\Volt.Ide.Codesys\bin\Release\net48\Volt.Ide.Codesys.dll
+type: <System.RuntimeType object at 0x0000000000000087 [Volt.Ide.Codesys.CodesysObjectModel]>
+ctors: [['Object']]
+instance: <Volt.Ide.Codesys.CodesysObjectModel object at 0x0000000000000088 [Volt.Ide.Codesys.CodesysObjectModel]>
+method: True
+node: 'Project Settings'
+
+--- .projectsettings body ---
+Disabled warnings:     C0371
+Replace constants:     on
+Unicode identifiers:   off
+UTF-8 encoding:        off
+Max compiler warnings: 100
+Breakpoint logging:    on
+
+--- end ---
+done

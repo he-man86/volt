@@ -18,7 +18,7 @@ END_NETWORK
 NETWORK 1 LD TITLE: "DONE NETWORK 2: Activating main drive"
   LET g174 := TRUE;
   LET en1 := g174;
-  IF en1 THEN MOVE(0); END_IF
+  IF en1 THEN tInt := MOVE(0); END_IF
   Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper R= (g174 AND NOT HMI_Var.Test_Prod);
   LET g175 := (g174 AND Mach1.GenFlags.EnableMainDrive AND Mach1.GenFlags.ConditionsReadyForOperation AND NOT Mach1.GenFlags.StopDriveDirect AND Mach1_AuxData.AllDrivesInLock);
   LET g176 := (g175 AND Mach1.GenFlags.RunAuto);
@@ -27,19 +27,19 @@ NETWORK 1 LD TITLE: "DONE NETWORK 2: Activating main drive"
   oMainDriveRun := g1;
   Mach1_Safety.Control.RequestAutoSpeed := g1;
   LET en2 := ((g176 AND (NOT Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper OR (Mach1_Data.AUTOSPEED <= 40))) AND NOT HMI_Var.Btn_Cleaning);
-  IF en2 THEN MOVE(Mach1_Data.AUTOSPEED); END_IF
+  IF en2 THEN tInt := MOVE(Mach1_Data.AUTOSPEED); END_IF
   LET en3 := ((Mach1_Data.AUTOSPEED > 40) AND NOT HMI_Var.Btn_Cleaning);
-  IF en3 THEN MOVE(30); END_IF
+  IF en3 THEN tInt := MOVE(30); END_IF
   LET en4 := (g176 AND HMI_Var.Btn_Cleaning);
-  IF en4 THEN MOVE(6); END_IF
+  IF en4 THEN tInt := MOVE(6); END_IF
   LET g177 := (g175 AND Mach1.GenFlags.RunMan);
   LET g2 := g177;
   tMainDriveJog := g2;
   oMainDriveJog := g2;
   Mach1_Safety.Control.RequestManSpeed := g2;
   LET en5 := g177;
-  IF en5 THEN MOVE(Mach1_Data.MANUALSPEED); END_IF
-  RPM_To_DriveSpeed(g174, tInt);
+  IF en5 THEN tInt := MOVE(Mach1_Data.MANUALSPEED); END_IF
+  RPM_To_DriveSpeed(g174, tInt, oDriveSpeed => Mach1_Data.Drives.MainDrive_VM.Control.DriveMasterSpeed);
 END_NETWORK
 NETWORK 2 LD TITLE: "DONE NETWORK 3 : DriveIsRunning flag"
   LET g96 := TRUE;

@@ -21,7 +21,7 @@ END_NETWORK
 NETWORK 1 FBD
   // On a rising edge of the output, save the current date/time
   LET en1 := output RISING;
-  IF en1 THEN MOVE(TimeSettings.dtNow); END_IF
+  IF en1 THEN TimeOfLastSwitch := MOVE(TimeSettings.dtNow); END_IF
 END_NETWORK
 END_METHOD
 

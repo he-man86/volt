@@ -294,7 +294,7 @@ public class CodesysCoilFlagTests
         {
             new Box("MOVE", null, CallKind.Function,
                     new[] { new Input(null, new Leaf(new Operand("value"), Flags.None), Flags.None) },
-                    System.Array.Empty<Operand>(),
+                    System.Array.Empty<Output>(),
                     new Leaf(new Operand("rung"), Flags.None),
                     null, Flags.None),
         });
@@ -318,7 +318,7 @@ public class CodesysCoilFlagTests
         {
             new Box("MOVE", null, CallKind.Function,
                     new[] { new Input(null, new Leaf(new Operand("value"), Flags.None), Flags.None) },
-                    System.Array.Empty<Operand>(),
+                    System.Array.Empty<Output>(),
                     new Leaf(new Operand("rung"), Flags.None),
                     null, Flags.None),
         });

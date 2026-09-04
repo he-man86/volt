@@ -22,7 +22,7 @@ END_VAR
 NETWORK 0 LD
   LET i1 := UINT_TO_WORD(ioUDT.Control.AutoSpeed);
   LET en1 := ;
-  IF en1 THEN MOVE(i1); END_IF
+  IF en1 THEN oRefSpeed := MOVE(i1); END_IF
 END_NETWORK
 NETWORK 1 LD
   LET g6 := TRUE;

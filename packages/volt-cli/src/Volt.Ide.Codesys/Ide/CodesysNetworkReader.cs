@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Volt.Engine.Format.Network;
@@ -211,7 +212,7 @@ namespace Volt.Ide.Codesys
                 instance,
                 ReadCallKind(NwlInterop.Get(n, "CallType"), instance),
                 inputs,
-                NwlInterop.RequireItems(n, "Outputs").Select(ReadOperand).ToList(),
+                ReadBoxOutputs(n),
                 // From INPUT SLOT 0 (above), never from `En` and never from `EnEno`. `EnEno` is a CAPABILITY
                 // marker, true on every box in a real project including every plain AND and OR, so keying on it
                 // would wrap the whole project in `IF en THEN … END_IF`. `En` is the "EN/ENO is shown" flag —
@@ -241,6 +242,40 @@ namespace Volt.Ide.Codesys
                 NwlInterop.Flag(o, "IsInstance"),
                 NwlInterop.Flag(o, "IsLValue"),
                 ReadFlags(NwlInterop.Get(o, "Flags")));
+
+        /// <summary>A box's OUTPUT PINS — the ones actually wired to something.
+        ///
+        /// <para>The vendor's <c>OutputParams.Names</c> is index-aligned with <c>Outputs</c>, exactly like the
+        /// input side, and slot 0 is the <c>ENO</c> ECHO when the vendor names it so (<c>Box.HasEnoSlot</c>).
+        /// Measured across 373 networks: the ENO slot is null in every case — the rung's continuation is the
+        /// enclosing <c>Assign</c>, not a variable — so it carries nothing and is dropped here rather than
+        /// pretending to be a data pin.</para>
+        ///
+        /// <para><b>An UNWIRED pin is an EMPTY OPERAND, not a null.</b> A resolved FB box carries one slot per
+        /// declared output whether or not the engineer wired it — 29 empty slots on one 30-pin box — so the
+        /// non-empty ones are the connections, and emitting the rest would fabricate assignments to nothing.
+        /// Nulls occur too (the ENO slot), so both are skipped.</para></summary>
+        private static List<Output> ReadBoxOutputs(object n)
+        {
+            // RAW, nulls and all. `NwlInterop.Items` drops nulls — right for a list read for its CONTENT, and
+            // wrong here, because the ENO slot IS a null and dropping it shifts every later slot one place
+            // against `OutputParams.Names`. The pin names would then belong to the wrong pins.
+            var holder = NwlInterop.Require(n, "Outputs");
+            var slots = (NwlInterop.Get(holder, "List") as IEnumerable)?.Cast<object?>().ToList()
+                        ?? new List<object?>();
+            var names = Names(NwlInterop.Get(n, "OutputParams"));
+            var eno = Box.HasEnoSlot(names) ? 1 : 0;
+
+            var outputs = new List<Output>();
+            for (var i = eno; i < slots.Count; i++)
+            {
+                if (slots[i] is not { } slot) continue;
+                var operand = ReadOperand(slot);
+                if (operand.Text.Length == 0) continue;
+                outputs.Add(new Output(Clean(Box.FormalAt(names, i)), operand));
+            }
+            return outputs;
+        }
 
         /// <summary>An assignment TARGET — an operand whose <c>Negation</c>/<c>Set</c> bits spell a COIL KIND
         /// rather than two independent modifiers. <see cref="Flags.CoilFromVendor"/> holds the measured

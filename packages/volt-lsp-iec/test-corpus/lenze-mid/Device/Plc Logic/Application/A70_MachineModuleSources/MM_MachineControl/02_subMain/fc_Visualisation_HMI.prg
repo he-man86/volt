@@ -35,15 +35,18 @@ NETWORK 8 LD TITLE: "Reset of alarmlogging"
 END_NETWORK
 NETWORK 9 LD TITLE: "Adding product counters"
   LET en1 := (HMI_Var.Mach1.PRDCigDayCounter + 1);
-  IF en1 THEN HMI_Var.Mach1.PRDCounterIncr R= (HMI_Var.Mach1.PRDCigCurrentCntr + 1); END_IF
+  IF en1 THEN HMI_Var.Mach1.PRDCigCurrentCntr := (HMI_Var.Mach1.PRDCigCurrentCntr + 1); END_IF
+  HMI_Var.Mach1.PRDCounterIncr R= en1;
 END_NETWORK
 NETWORK 10 LD TITLE: "Reset Day Counter"
   LET en1 := MOVE(0);
-  IF en1 THEN HMI_Var.Mach1.PRDDayCounterReset_01 R= MOVE(0); END_IF
+  IF en1 THEN HMI_Var.Mach1.PRDCigDayCounter := MOVE(0); END_IF
+  HMI_Var.Mach1.PRDDayCounterReset_01 R= en1;
 END_NETWORK
 NETWORK 11 LD TITLE: "Reset Current Counter"
   LET en1 := MOVE(0);
-  IF en1 THEN HMI_Var.Mach1.PRDDayCounterReset R= MOVE(0); END_IF
+  IF en1 THEN HMI_Var.Mach1.PRDCigCurrentCntr := MOVE(0); END_IF
+  HMI_Var.Mach1.PRDDayCounterReset R= en1;
 END_NETWORK
 NETWORK 12 LD
   LET en1 := TRUE;

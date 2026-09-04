@@ -85,9 +85,9 @@ NETWORK 3 LD TITLE: "DONE Network 5: State: Wrapper Present"
   LET g15 := (iWrapperPresentForLeafCarrier AND stSupplyWrapper);
   stWrapperPresent S= g15;
   LET en1 := g15;
-  IF en1 THEN (1 + HMI_Var.Mach1.PRDWrapCurrentCntr); END_IF
+  IF en1 THEN HMI_Var.Mach1.PRDWrapCurrentCntr := (1 + HMI_Var.Mach1.PRDWrapCurrentCntr); END_IF
   LET en2 := g15;
-  IF en2 THEN (1 + HMI_Var.Mach1.PRDWrapDayCounter); END_IF
+  IF en2 THEN HMI_Var.Mach1.PRDWrapDayCounter := (1 + HMI_Var.Mach1.PRDWrapDayCounter); END_IF
   stSupplyWrapper R= g15;
 END_NETWORK
 NETWORK 4 LD TITLE: "DONE Network 6: State: No Wrapper"
@@ -137,11 +137,12 @@ END_NETWORK
 NETWORK 15 LD TITLE: "DONE Network 17: Manual spray cycle"
   LET g45 := iScreenForOperatorSettingsActivated;
   LET en1 := (g45 AND iManualSprayCycleReset);
-  IF en1 THEN MOVE(0); END_IF
+  IF en1 THEN ioManualSprayCycleActualCount := MOVE(0); END_IF
   LET en2 := (g45 AND iGenFlags.EnablePneumEStop AND (iManualSprayCycleStart OR stManualSprayCycleStarted) AND NOT iManualSprayCycleStop AND NOT iManualSprayCycleReset);
   IF en2 THEN stManualSprayCycleStarted := (ioManualSprayCycleActualCount < iMaxNumberOfSprayPulses); END_IF
   LET en3 := TMR_ManualSprayCycleIdle(IN := (g45 AND stManualSprayCycleStarted AND NOT stSprayCycleActive), PT := T#300MS);
-  IF en3 THEN stSprayCycleActive S= (ioManualSprayCycleActualCount + 1); END_IF
+  IF en3 THEN ioManualSprayCycleActualCount := (ioManualSprayCycleActualCount + 1); END_IF
+  stSprayCycleActive S= en3;
 END_NETWORK
 NETWORK 16 LD TITLE: "DONE Network 18: SAVE RLO"
   ENO := EN;

@@ -92,7 +92,7 @@ public sealed record Box(
     Operand? Instance,
     CallKind Kind,
     IReadOnlyList<Input> Inputs,
-    IReadOnlyList<Operand> Outputs,
+    IReadOnlyList<Output> Outputs,
     Node? Enable,
     string? StCode,
     Flags Flags) : Node(Flags)
@@ -118,6 +118,16 @@ public sealed record Box(
     /// builds clean. Pushed back, it would build a box with one data pin too many.</para></summary>
     public static bool HasEnableSlot(IReadOnlyList<string?> formals) =>
         formals.Count > 0 && string.Equals(formals[0], EnablePin, StringComparison.Ordinal);
+
+    /// <summary>The vendor's name for the enable ECHO — output slot 0 of a box that shows EN/ENO.</summary>
+    public const string EnoPin = "ENO";
+
+    /// <summary>Whether the box's output slot 0 is the <c>ENO</c> echo rather than a data pin. The mirror of
+    /// <see cref="HasEnableSlot"/>, and measured the same way: <c>OutputParams.Names[0] == "ENO"</c> on 181 of
+    /// the boxes that have one, and the slot itself is null on every one of them — the rung's continuation is
+    /// the enclosing <see cref="Assign"/>, never a variable.</summary>
+    public static bool HasEnoSlot(IReadOnlyList<string?> formals) =>
+        formals.Count > 0 && string.Equals(formals[0], EnoPin, StringComparison.Ordinal);
 
     /// <summary>The formal name of pin <paramref name="slot"/>, or null when it is POSITIONAL.
     ///
@@ -160,6 +170,22 @@ public sealed record Demux(int VarId, Node? Input, Flags Flags) : Node(Flags);
 /// <summary>One input pin: the formal parameter name where the vendor supplies one, the sub-tree feeding it,
 /// and that pin's own modifiers (the vendor keeps these in <c>BoxTreeBox.InputFlags</c>, per pin).</summary>
 public sealed record Input(string? Formal, Node Value, Flags Flags);
+
+/// <summary>One OUTPUT pin of a box, wired to an l-value — the mirror of <see cref="Input"/>, and it carries a
+/// name for the same reason: the vendor's <c>OutputParams.Names</c> is index-aligned with <c>Outputs</c>, so
+/// pin 1 of <c>fc_MeanValue</c> is <c>oMeanValue</c> and pin 1 of <c>MOVE</c> is unnamed.
+///
+/// <para><b><see cref="Formal"/> null means the box's RESULT</b>, the pin ST spells by assigning the call —
+/// <c>x := MOVE(v)</c> — while a named pin is <c>f(… , oMeanValue =&gt; x)</c>. That split is IEC's own, not a
+/// Volt convention: a function's return value is assigned and its <c>VAR_OUTPUT</c>s use <c>=&gt;</c>.</para>
+///
+/// <para><b>This did not exist, and box outputs were simply DROPPED.</b> <c>Box.Outputs</c> was a bare
+/// operand list that <c>NetworkTextWriter</c> only ever consulted for name collection — never rendered — so
+/// every pin an engineer wired straight off a box vanished from the text: <c>MOVE(EN := rung, IN := 0)</c>
+/// with its output on <c>TempI</c> materialized as <c>MOVE(0)</c>, and `TempI` was nowhere in the file. ~250
+/// such connections in one real project. The push side knew: it REFUSED any box carrying outputs, because
+/// "network text has no form for them" — which was true, and is what this record exists to end.</para></summary>
+public sealed record Output(string? Formal, Operand Value);
 
 /// <summary>A variable, literal or expression. <see cref="Type"/> is the vendor's declared type when it
 /// supplies one — read-only metadata used to declare a wire's temp; it is NOT load-bearing for round-trip.

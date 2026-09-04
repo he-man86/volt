@@ -300,34 +300,31 @@ namespace Volt.Ide.Codesys
                                 NwlInterop.Call(pins, "AppendParam", p.Formal ?? "", "");
                         }
 
-                        // A BOX'S EMBEDDED OUTPUT IS REFUSED, because a rebuild cannot carry one.
-                        //
-                        // This was `if (b.Outputs.Count > 0) { ...append them... }` — a guard that can NEVER
-                        // be true. `Box.Outputs` has no network-text syntax (`Outputs` appears nowhere in
-                        // `NetworkTextWriter` or `NetworkTextReader`), every Box the text reader builds is
-                        // constructed with an empty list, and every model reaching this writer is text-derived.
-                        // So the branch never ran, while the comment above claimed the loss was closed — the
-                        // same dead-code-that-reads-as-a-guarantee shape the `Type`/`IsLValue` writes were
-                        // deleted for.
-                        //
-                        // What it was hiding: a box that writes a pin's value directly — a TON whose `ET` pin
-                        // carries `elapsed` on the pin itself, the shape a vendor FBD export writes —
-                        // pulls as `t1(IN := a, PT :=
-                        // pt);` with `elapsed` nowhere in the file. Edit anything else in that network and the
-                        // destroy-and-rebuild drops it from the live project: no diff (git never held it), no
-                        // diagnostic, and no compile error, because nothing references the variable — it simply
-                        // stops being written. TwinCAT does not lose it; its box arm neither compares nor writes
-                        // outputs, so an in-place edit leaves them alone.
-                        //
-                        // Refusing is the honest answer until the format can spell one. The model can only ever
-                        // carry outputs from a LIVE read, so this fires exactly when a caller hands the writer a
-                        // vendor-derived box — which no production path does today, and which must not silently
-                        // lose pins the day one does.
+                        // THE BOX'S OWN OUTPUT PINS. Measured on the construct side
+                        // (`scripts/probe-nwl-boxoutputs.py`): `Outputs.AppendOutputItem` takes an `Operand`,
+                        // a Volt-built box needs no `ENO` slot of its own, and the result survives
+                        // save-and-reload with `CallType` resolved from `BoxType` by the vendor. Names go in
+                        // `OutputParams` the same way input names go in `InputParams`.
                         if (b.Outputs.Count > 0)
-                            throw new NotSupportedException(
-                                $"CODESYS: the box '{b.Type}' writes to an output pin directly, which network " +
-                                "text has no form for — rebuilding it would drop the pin's variable from the " +
-                                "project. Edit this POU in the IDE.");
+                        {
+                            var outs = NwlInterop.Require(box, "Outputs");
+                            foreach (var o in b.Outputs)
+                                NwlInterop.Call(outs, "AppendOutputItem", Operand(o.Value));
+                            if (b.Outputs.Any(o => !string.IsNullOrEmpty(o.Formal)))
+                            {
+                                var outPins = NwlInterop.Require(box, "OutputParams");
+                                foreach (var o in b.Outputs)
+                                    NwlInterop.Call(outPins, "AppendParam", o.Formal ?? "", "");
+                            }
+                        }
+
+                        // THE REFUSAL THAT USED TO STAND HERE said a box's embedded output "has no network
+                        // text form, so rebuilding it would drop the pin's variable from the project" — true
+                        // when it was written, and the reason it was written is worth keeping: a TON whose `ET`
+                        // pin carries `elapsed` on the pin itself pulled as `t1(IN := a, PT := pt);` with
+                        // `elapsed` nowhere in the file, and the next edit to that network dropped it from the
+                        // live project with no diff, no diagnostic and no compile error. The format spells the
+                        // pin now (`ET => elapsed`), so the honest answer is to write it rather than refuse it.
 
                         return Flagged(box, b.Flags);
                     }

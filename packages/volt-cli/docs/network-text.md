@@ -95,6 +95,7 @@ real PLC identifiers and must round-trip verbatim.
 | **Operators** | `AND OR XOR  +  -  *  /  MOD  >  <  >=  <=  =  <>` (§7) |
 | **Modifier words** | `NOT` (leading), `RISING` `FALLING` (trailing) |
 | **Assignment** | `:=` (plain coil), `S=` (set coil), `R=` (reset coil) — ExST's own operators; the coil KIND is the operator (§8) |
+| **Output pin** | `NAME => target` inside a call — a box's named output pin; the UNNAMED one is the call's assignment |
 | **Punctuation** | `;` (terminator), `.` (member access), `(` `)` (group/call), `,` (arg sep) |
 | **Comment** | `// …` to end of line (a network comment) |
 | **Identifier** | a PLC name: `[A-Za-z_]\w*`, optionally `inst.Pin` for an FB output. A member access may carry **whitespace around its dot** (`a .b`) — engineers type it and the IDE keeps it, so it is part of the name and round-trips verbatim |
@@ -179,7 +180,9 @@ member         = name , [ ws ] , "." , [ ws ] , name ;  (* inst.Q — spacing is
 
 fb-args        = fb-arg , { "," , fb-arg } ;
 fb-arg         = name , ":=" , operand ;
-args           = operand , { "," , operand } | fb-args ;
+out-arg        = name , "=>" , lvalue ;                (* an OUTPUT pin of the box, §6 *)
+args           = ( operand | out-arg ) , { "," , ( operand | out-arg ) }
+               | ( fb-arg | out-arg ) , { "," , ( fb-arg | out-arg ) } ;
 operator       = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
                | ">" | "<" | ">=" | "<=" | "=" | "<>" ;
 ```
@@ -335,6 +338,42 @@ A box with no wired EN renders as a bare `EXECUTE … END_EXECUTE` (no `IF`). Th
 delimiter (not "until `END_IF`") disambiguates the ST's own nested `END_IF`s. The ST between the markers is
 carried opaquely — the bridge reconstructs `<block typeName="EXECUTE">` from it on push (a real, live-verified
 round-trip), and the LSP treats it as full ST rather than the simplified network text grammar.
+
+### Box output pins — the call's assignment, and `=>`
+A box has OUTPUT pins of its own, and they are wired to variables. The vendor names them
+(`OutputParams.Names`, index-aligned with the slots), and the name decides how the pin is spelled — which is
+IEC's own split, not a Volt convention: a function's RESULT is assigned, its `VAR_OUTPUT`s use `=>`.
+
+```
+dst := MOVE(src);                          -- the UNNAMED pin: the box's result
+fc_MeanValue(20, oMeanValue => measured);  -- a NAMED pin
+dst := f(src, oErr => err);                -- both on one box
+```
+
+An enabled box writes its own pin inside the `IF`, and the rung continues on the enable echo:
+
+```
+LET en1 := (g0 AND CopyMeasuredToDark);
+IF en1 THEN DarkValue := MOVE(MeasuredValue); END_IF
+CopyMeasuredToDark R= en1;
+```
+
+**These pins used to be DROPPED.** `Box.Outputs` was read and then never rendered — the writer consulted it
+only to reserve names — so a pin an engineer wired straight off a box was absent from the file:
+`MOVE(EN := rung, IN := 0)` with its output on `TempI` materialized as `MOVE(0)`, and `TempI` appeared
+nowhere. ~250 such connections in one real project. The push side knew and said so, refusing any box that
+carried outputs because "network text has no form for them"; this is that form.
+
+Two rules keep it honest, and both refuse rather than guess:
+
+* An **infix operator** has no argument list, so a named pin on one is refused (`NETWORK_UNSUPPORTED`).
+  Operator boxes have unnamed outputs on every box measured, so this is a shape nobody has seen.
+* **Two unnamed pins** would be two results with one assignment to give, so that is refused too. Every one of
+  the 129 boxes with an unnamed output in a real project has exactly one.
+
+An **unwired** pin is not written at all. A resolved FB box carries one slot per declared output whether or not
+the engineer connected it — 29 empty slots on one 30-pin box — and the `ENO` echo occupies slot 0 whenever the
+vendor names it so. Neither is a connection, so neither is spelled.
 
 ### Modifiers — ride on the consumer
 `NOT` (negation, leading) and `RISING`/`FALLING` (edge, trailing). A modifier rides on the **operand or sink

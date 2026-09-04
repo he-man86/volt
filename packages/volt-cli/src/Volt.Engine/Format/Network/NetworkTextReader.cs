@@ -195,7 +195,7 @@ public static class NetworkTextReader
 
         public void AddExecute(string? en, string st)
         {
-            var box = new Box("EXECUTE", null, CallKind.Function, new List<Input>(), new List<Operand>(),
+            var box = new Box("EXECUTE", null, CallKind.Function, new List<Input>(), new List<Output>(),
                               en is null ? null : new Leaf(new Operand(en), Flags.None), st, Flags.None);
             _stmts.Add((null, box));
         }
@@ -693,7 +693,7 @@ public static class NetworkTextReader
                 return args[0];   // a parenthesised single operand
             return new Box(FbdOperators.SymbolToType[sym], null, CallKind.Operator,
                            args.Select(a => new Input(null, a, Flags.None)).ToList(),
-                           new List<Operand>(), null, null, Flags.None);
+                           new List<Output>(), null, null, Flags.None);
         }
 
         /// <summary>A call. Named arguments (<c>PIN := v</c>) mean an FB INSTANCE; positional ones mean a
@@ -704,6 +704,8 @@ public static class NetworkTextReader
             var args = new List<Input>();
             SkipWs();
             bool named = false;
+            var outs = new List<Output>();
+            int outAt = -1;
 
             // DRIVEN BY THE COMMAS, not by "is there something before the `)`". The old loop asked whether the
             // next character was `)` and stopped if it was, so `f(a, )` — a call whose LAST pin is unconnected —
@@ -729,11 +731,28 @@ public static class NetworkTextReader
                         formal = maybe;
                         named = true;
                     }
+                    else if (!AtEnd && _s[_i] == '=' && _i + 1 < _s.Length && _s[_i + 1] == '>')
+                    {
+                        _i += 2;
+                        formal = maybe;
+                        named = true;
+                        outAt = args.Count + outs.Count;
+                    }
                     else _i = save;
                 }
 
-                var val = Operand();
-                args.Add(new Input(formal, val, Flags.None));
+                // `NAME => target` is an OUTPUT pin, not an input. ST's own output-parameter operator, and
+                // the reason the probe above has to look past `:=` too: both start with an identifier.
+                if (formal is not null && outAt >= 0 && outAt == args.Count + outs.Count)
+                {
+                    outs.Add(new Output(formal, new Operand(Token())));
+                    outAt = -1;
+                }
+                else
+                {
+                    var val = Operand();
+                    args.Add(new Input(formal, val, Flags.None));
+                }
                 SkipWs();
                 if (!AtEnd && _s[_i] == ',') { _i++; more = true; }
                 else more = false;
@@ -741,10 +760,14 @@ public static class NetworkTextReader
             if (AtEnd) throw new NetworkTextException($"unclosed '(' in call to '{name}'");
             _i++;   // ')'
 
-            return named
+            // An INSTANCE call is one whose INPUT pins are named. A box that only names an OUTPUT
+            // (`fc_MeanValue(20, oMeanValue => x)`) is still a function — naming a result pin says nothing
+            // about whether the call has an instance.
+            var instanceCall = args.Any(a => !string.IsNullOrEmpty(a.Formal));
+            return instanceCall
                 ? new Box(name, new Operand(name, IsInstance: true), CallKind.FunctionBlock, args,
-                          new List<Operand>(), null, null, Flags.None)
-                : new Box(name, null, CallKind.Function, args, new List<Operand>(), null, null, Flags.None);
+                          outs, null, null, Flags.None)
+                : new Box(name, null, CallKind.Function, args, outs, null, null, Flags.None);
         }
 
         /// <summary>Is there NO operand at this position?

@@ -81,7 +81,7 @@ NETWORK 2 FBD
   GVL_FirstErrCapture.xFirstErrorBit := fbFirstErrCapture(xEnable := fbTonEnableDelay(IN := TRUE, PT := ), ascErrorInfo := GVL_FirstErrCapture.ascErrorInfo, ascAddErrorInfo := GVL_FirstErrCapture.ascAddErrorInfo, scFastErrorInfo := GVL_FirstErrCapture.scFastErrorInfo, scFastAddErrorInfo := GVL_FirstErrCapture.scFastAddErrorInfo, xActivateFastErrorInput := xActivateFastErrorInput, xCaptureAllReason := xCaptureAllReason, xCaptureOnlyFastError := xCaptureOnlyFastError, xCaptureStoreWarning_lock := xCaptureStoreWarning_lock, xPrioFromError := xPrioFromError, xResetFirstErrCapture := ((GVL_FirstErrCapture.xResetFirstError OR (trig_NewGoodProductDetected.Q AND fbFirstErrCapture.xErrorActive AND fbFirstErrCapture.xIsWarningInfo)) AND (GVL_OEE_Var.eStatus_States = eStates.Execute) AND (GVL_OEE_Var.eStatus_Modes = eModes.Production)), uiMaxError := uiMaxError, iProductionMode := GVL_OEE_Var.iProductionMode);
 END_NETWORK
 NETWORK 3 FBD
-  fbOverwriteFirstErrCapture(xEnable := (xEnabledOverwrite AND fbTonEnableDelay.Q), scFirstErrorData := fbFirstErrCapture.scFirstErrorData, scErrorInfo := GVL_FirstErrCapture.scOverwriteErrorInfo, scAddErrorInfo := GVL_FirstErrCapture.scOverwriteAddErrorInfo, iProductionMode := GVL_OEE_Var.iProductionMode);
+  fbOverwriteFirstErrCapture(xEnable := (xEnabledOverwrite AND fbTonEnableDelay.Q), scFirstErrorData := fbFirstErrCapture.scFirstErrorData, scErrorInfo := GVL_FirstErrCapture.scOverwriteErrorInfo, scAddErrorInfo := GVL_FirstErrCapture.scOverwriteAddErrorInfo, iProductionMode := GVL_OEE_Var.iProductionMode, scOutFirstErrorData => GVL_FirstErrCapture.scFirstErrorData);
 END_NETWORK
 NETWORK 4 FBD
   // //****************************************************************************************************************************************************
@@ -89,7 +89,7 @@ NETWORK 4 FBD
   // // Call up L_GetErrorTextFromFileArray for getting the Error/Reasoncode Text of the active error/reason message
   // // Before using this FB the FB L_ReadErrorFromFile must be used to read the error/reson code text from the error text file into the assigned array
   // //*****************************************************************************************************************************************************
-  fbGetErrorTextFromFileArray(xEnabled := (xEnabledGetErrorTextfromFileArray AND fbTonEnableDelay.Q), xErrorActive := fbFirstErrCapture.xErrorActive, xUpdateError := (fbFirstErrCapture.xUpdateError OR fbOverwriteFirstErrCapture.xUpdateError), xOnlyUserAppErrorFromFile := TRUE, scFirstErrorData := fbOverwriteFirstErrCapture.scOutFirstErrorData, iMaxNoOfSearchLoops := , asErrorText := GVL_ReadErrorFromFile.asErrorText, adwErrorID := GVL_ReadErrorFromFile.adwErrorID);
+  fbGetErrorTextFromFileArray(xEnabled := (xEnabledGetErrorTextfromFileArray AND fbTonEnableDelay.Q), xErrorActive := fbFirstErrCapture.xErrorActive, xUpdateError := (fbFirstErrCapture.xUpdateError OR fbOverwriteFirstErrCapture.xUpdateError), xOnlyUserAppErrorFromFile := TRUE, scFirstErrorData := fbOverwriteFirstErrCapture.scOutFirstErrorData, iMaxNoOfSearchLoops := , asErrorText := GVL_ReadErrorFromFile.asErrorText, adwErrorID := GVL_ReadErrorFromFile.adwErrorID, scFirstErrorDataOut => GVL_FirstErrCapture.scFirstErrorData);
 END_NETWORK
 NETWORK 5 FBD
 END_NETWORK
@@ -110,6 +110,6 @@ NETWORK 8 FBD DISABLED
   // // Logic for xResetFirstErrCapture has to be programmed/adapt, ussaly this BIT is True when the machine is back 
   // // in automatic and execution and good parts has be produced
   // //************************************************************************************************************************************
-  GVL_FirstErrCapture.xFirstErrorBit := fbFirstErrCaptureErrorAccess(xEnable := xStructError, xPrioFromError := xPrioFromError, xResetFirstErrCapture := ((GVL_FirstErrCapture.xResetFirstError OR (trig_NewGoodProductDetected.Q AND fbFirstErrCaptureErrorAccess.xErrorActive AND fbFirstErrCaptureErrorAccess.xIsWarningInfo)) AND (GVL_OEE_Var.eStatus_States = eStates.Execute) AND (GVL_OEE_Var.eStatus_Modes = eModes.Production)), scErrorAccess := GVL_FirstErrCapture.scErrorAccess, iProductionMode := GVL_OEE_Var.iProductionMode, aCategoryString := asErrorCategoryLib);
+  GVL_FirstErrCapture.xFirstErrorBit := fbFirstErrCaptureErrorAccess(xEnable := xStructError, xPrioFromError := xPrioFromError, xResetFirstErrCapture := ((GVL_FirstErrCapture.xResetFirstError OR (trig_NewGoodProductDetected.Q AND fbFirstErrCaptureErrorAccess.xErrorActive AND fbFirstErrCaptureErrorAccess.xIsWarningInfo)) AND (GVL_OEE_Var.eStatus_States = eStates.Execute) AND (GVL_OEE_Var.eStatus_Modes = eModes.Production)), scErrorAccess := GVL_FirstErrCapture.scErrorAccess, iProductionMode := GVL_OEE_Var.iProductionMode, aCategoryString := asErrorCategoryLib, scFirstErrorData => GVL_FirstErrCapture.scFirstErrorData);
 END_NETWORK
 END_ACTION

@@ -426,4 +426,80 @@ public class CodesysNetworkReaderTests
         Assert.Contains("IF ioAxis.xVirtual THEN RETURN; END_IF", text);
         Assert.DoesNotContain("???", text);
     }
+
+    /// <summary>A BOX'S OUTPUT PINS ARRIVE, and the ENO slot is not one of them.
+    ///
+    /// <para>The shape is the vendor's, measured across 373 networks: <c>OutputParams.Names</c> is
+    /// index-aligned with <c>Outputs</c>, slot 0 is <c>ENO</c> when the vendor names it so and is null on every
+    /// box that has one, and an UNWIRED pin is an EMPTY operand rather than an absent slot (one 30-pin box in
+    /// a real project carries 29 empty ones).</para>
+    ///
+    /// <para>Reading them at all is the fix: <c>Box.Outputs</c> was never rendered, so `TempI` in
+    /// <c>MOVE(EN := rung, IN := 0) -> TempI</c> was simply not in the file, ~250 times in one project.</para></summary>
+    [Fact]
+    public void A_box_output_pin_is_read_without_the_ENO_slot_or_the_unwired_ones()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "fc_MeanValue",
+            InputItemList = new object[] { Nwl.Leaf("rung"), Nwl.Leaf("len") },
+            InputParams = new Nwl.ParamList { Names = new[] { "EN", "iLength" }, Types = new[] { "BOOL", "INT" } },
+            OutputParams = new Nwl.ParamList { Names = new[] { "ENO", "oMeanValue", "oSpare" }, Types = new[] { "", "", "" } },
+            En = true,
+        };
+        box.Outputs.List.Add(null);                                              // the ENO echo, never wired
+        box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "measured" });      // the pin the engineer wired
+        box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "" });              // a declared pin left unwired
+
+        var read = Assert.IsType<Box>(
+            CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd).Networks.Single().Trees.Single());
+
+        var pin = Assert.Single(read.Outputs);
+        Assert.Equal("oMeanValue", pin.Formal);
+        Assert.Equal("measured", pin.Value.Text);
+    }
+
+    /// <summary>A box with no ENO slot keeps output slot 0 — the guard must key on the NAME, not the position.
+    /// Measured: one box in a real project has a real, named data output sitting in slot 0.</summary>
+    [Fact]
+    public void A_box_without_an_ENO_slot_keeps_its_first_output()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "BLINK",
+            InputItemList = new object[] { Nwl.Leaf("enable") },
+            InputParams = new Nwl.ParamList { Names = new[] { "ENABLE" }, Types = new[] { "BOOL" } },
+            OutputParams = new Nwl.ParamList { Names = new[] { "OUT" }, Types = new[] { "BOOL" } },
+        };
+        box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "pulse" });
+
+        var read = Assert.IsType<Box>(
+            CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd).Networks.Single().Trees.Single());
+
+        var pin = Assert.Single(read.Outputs);
+        Assert.Equal("OUT", pin.Formal);
+        Assert.Equal("pulse", pin.Value.Text);
+    }
+
+    /// <summary>An UNNAMED output pin is the box's RESULT, and the writer spells it by assigning the call —
+    /// `MOVE`'s data output is unnamed on the vendor (`OutputParams.Names = ['ENO', '']`), which is the
+    /// commonest wired pin there is.</summary>
+    [Fact]
+    public void An_unnamed_output_pin_renders_as_the_calls_assignment()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "MOVE",
+            InputItemList = new object[] { Nwl.Leaf("src") },
+            InputParams = new Nwl.ParamList { Names = new[] { "" }, Types = new[] { "" } },
+            OutputParams = new Nwl.ParamList { Names = new[] { "ENO", "" }, Types = new[] { "", "" } },
+        };
+        box.Outputs.List.Add(null);
+        box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "dst" });
+
+        var body = CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd);
+        var text = NetworkTextWriter.Write(body);
+
+        Assert.Contains("dst := MOVE(src);", text);
+    }
 }

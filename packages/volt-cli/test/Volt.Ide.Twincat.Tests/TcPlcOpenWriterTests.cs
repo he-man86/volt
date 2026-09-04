@@ -196,7 +196,7 @@ public class TcPlcOpenWriterTests
                         new Input(null, new Leaf(new Operand("FALSE"), Flags.None), Flags.None),
                         new Input(null, new Leaf(new Operand("FALSE"), Flags.None), Flags.None),
                     },
-                    Array.Empty<Operand>(), null, null, Flags.None),
+                    Array.Empty<Output>(), null, null, Flags.None),
             }),
         });
 

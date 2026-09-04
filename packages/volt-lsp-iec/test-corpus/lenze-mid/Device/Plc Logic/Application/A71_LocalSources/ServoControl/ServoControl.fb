@@ -109,9 +109,9 @@ END_NETWORK
 NETWORK 15 LD TITLE: "DONE Network 20: Scaling of the Y value"
   LET g21 := True;
   LET en1 := (ioUDT_ServoDrive.CAM.CamType >= ctCurveIs0ToMax);
-  IF en1 THEN MOVE(1000); END_IF
+  IF en1 THEN oServoControl.YScale := MOVE(1000); END_IF
   LET en2 := ((ioUDT_ServoDrive.CAM.CamType >= ctCurveIs0To0) OR (ioUDT_ServoDrive.CAM.CamType >= ctCurveIsSpeed));
-  IF en2 THEN (ioUDT_ServoDrive.CAM.Y_Scale_Base + ioUDT_ServoDrive.CAM.Y_Scale_Recipe); END_IF
+  IF en2 THEN oServoControl.YScale := (ioUDT_ServoDrive.CAM.Y_Scale_Base + ioUDT_ServoDrive.CAM.Y_Scale_Recipe); END_IF
 END_NETWORK
 NETWORK 16 LD TITLE: "DONE Network 21: Y-offset"
   LET en1 := ;
@@ -131,16 +131,16 @@ END_NETWORK
 NETWORK 20 LD TITLE: "DONE Network 25: ActualXPos/Ypos"
   LET i1 := LREAL_TO_INT(iServoStatus.ActPos);
   LET en1 := ;
-  IF en1 THEN MOVE(i1); END_IF
+  IF en1 THEN ioUDT_ServoDrive.CAM.ActualYPos := MOVE(i1); END_IF
 END_NETWORK
 NETWORK 21 LD TITLE: "DONE Network 26: ActualSpeed"
   LET i1 := LREAL_TO_INT(iServoStatus.ActSpeed);
   LET en1 := ;
-  IF en1 THEN MOVE(i1); END_IF
+  IF en1 THEN ioUDT_ServoDrive.CAM.ActualYSpeed := MOVE(i1); END_IF
 END_NETWORK
 NETWORK 22 LD
   LET en1 := ;
-  IF en1 THEN MOVE(ioUDT_ServoDrive.Control.TorqueLimit); END_IF
+  IF en1 THEN oServoControl.TorqueLimit := MOVE(ioUDT_ServoDrive.Control.TorqueLimit); END_IF
 END_NETWORK
 NETWORK 23 LD TITLE: "DONE Network 27: Reset ResetError in UDT"
   ioUDT_ServoDrive.Control.ResetError R= (True AND ioUDT_ServoDrive.Status.DriveIsReady);

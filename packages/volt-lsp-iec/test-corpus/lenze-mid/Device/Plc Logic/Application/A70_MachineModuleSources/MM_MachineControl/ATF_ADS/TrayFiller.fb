@@ -141,12 +141,12 @@ NETWORK 5 LD TITLE: "TODO NETWORK 6: Condition: Light curtain inpusher interrupt
 END_NETWORK
 NETWORK 6 LD TITLE: "TODO NETWORK 7: Condition: Decend tray"
   LET en1 := ((TMR_DelayDescend(IN := (stInpushingRow AND iLightCurtainInpusher AND iEpsInpusher), PT := T#500MS) OR (stLightCurtainInterruptedDuringInpushing AND iLightCurtainInpusher AND iGenFlags.StartFlag)) AND NOT stFaultInpusherBlocked.Q1);
-  IF en1 THEN LET g1 := (ioActNumberOfRows + 1); END_IF
-  stDecendTray S= g1;
-  stInpushingRow R= g1;
-  stLightCurtainInterruptedDuringInpushing R= g1;
-  stSrCigarAtEndBeforeLast R= g1;
-  stSrCigarAtEnd R= g1;
+  IF en1 THEN ioActNumberOfRows := (ioActNumberOfRows + 1); END_IF
+  stDecendTray S= en1;
+  stInpushingRow R= en1;
+  stLightCurtainInterruptedDuringInpushing R= en1;
+  stSrCigarAtEndBeforeLast R= en1;
+  stSrCigarAtEnd R= en1;
 END_NETWORK
 NETWORK 7 LD TITLE: "TODO NETWORK 8: Condition: Light curtain inpusher interrupted during inpushing"
   LET g1 := (stInpushingRow AND NOT iLightCurtainInpusher AND NOT iRpsInpusher);
@@ -161,7 +161,7 @@ NETWORK 8 LD TITLE: "TODO NETWORK 9: Condition: Tray decend"
   tBool := stRePulseCounter(CLK := g4);
   tBool S= stFePulseCounter(CLK := g4);
   LET en1 := (g3 AND tBool AND (stDecendTray OR stTrayDecended OR stTiltInpusher));
-  IF en1 THEN (stActHeightElevator + 5); END_IF
+  IF en1 THEN stActHeightElevator := (stActHeightElevator + 5); END_IF
   LET g1 := ((tInt + iInitialDescentValue) AND ((stActHeightElevator >= tInt) OR iPsElevatorDown));
   stTrayDecended S= g1;
   stDecendTray R= g1;
@@ -228,9 +228,9 @@ NETWORK 18 LD TITLE: "TODO NETWORK 19: Condition: Move elevator up"
 END_NETWORK
 NETWORK 19 LD TITLE: "TODO NETWORK 20: Condition: Elevator at top"
   LET en1 := MOVE(0);
-  IF en1 THEN LET g1 := MOVE(0); END_IF
-  stElevatorAtTop S= g1;
-  stMoveElevatorUp R= g1;
+  IF en1 THEN stActHeightElevator := MOVE(0); END_IF
+  stElevatorAtTop S= en1;
+  stMoveElevatorUp R= en1;
 END_NETWORK
 NETWORK 20 LD TITLE: "TODO NETWORK 21: Condition: Infeed tray"
   LET g1 := (stElevatorAtTop AND (NOT iFcGuardTrayOnElev OR NOT iTestProd) AND NOT bReturnInfeedConv);

@@ -157,6 +157,10 @@ internal static class Nwl
         /// does not have.</summary>
         public object? InputParams { get; set; } = new ParamList();
 
+        /// <summary>The output side's name list, index-aligned with <see cref="Outputs"/> — present by
+        /// default like the vendor's, where an operator box simply has an empty one.</summary>
+        public object? OutputParams { get; set; } = new ParamList();
+
         public OutputItemList Outputs { get; } = new OutputItemList();
         public object? En { get; set; }
         public bool ProvidesSTSnippet { get; set; }

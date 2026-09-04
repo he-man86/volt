@@ -14,7 +14,7 @@ END_VAR
 
 NETWORK 0 LD
   LET en1 := ;
-  IF en1 THEN MOVE(iActualPos); END_IF
+  IF en1 THEN ioUDTCamControlLS.MachinePos_HMI := MOVE(iActualPos); END_IF
 END_NETWORK
 NETWORK 1 LD
   fc_CamC_LS_UDT := fc_CamC_LS_Base2(, iActualSpeed, ioUDTCamControlLS.LowSpeed.SetSpeed, ioUDTCamControlLS.HighSpeed.SetSpeed, ioUDTCamControlLS.LowSpeed.Start, ioUDTCamControlLS.LowSpeed.Stop, ioUDTCamControlLS.HighSpeed.Start, ioUDTCamControlLS.HighSpeed.Stop, iActualPos, ioUDTCamControlLS.Calculation.OSStart, ioUDTCamControlLS.Calculation.OSStop, ioUDTCamControlLS.Calculation.FFStarted);

@@ -1,0 +1,22 @@
+bridge: C:\Users\marce\Github\volt\packages\volt-cli\src\Volt.Ide.Codesys\bin\Release\net48\Volt.Ide.Codesys.dll
+
+========================================================================
+OPEN Pro2193-94-95-96_COdesys.project
+========================================================================
+  OLD (session-global service) GetDisabledWarningIds -> [371]
+  NEW (project option storage):
+      Disabled warnings:     C0371
+      Replace constants:     on
+      Unicode identifiers:   off
+      UTF-8 encoding:        off
+      Max compiler warnings: 100
+      Breakpoint logging:    on
+
+========================================================================
+OPEN Lenze_MID-S100_V5_00_602_T51.project
+========================================================================
+  OLD (session-global service) GetDisabledWarningIds -> none
+  NEW (project option storage):
+      <nothing set - all defaults>
+
+done

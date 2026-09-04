@@ -140,7 +140,17 @@ public static class NetworkTextWriter
                 case Assign a when a.Flags.Jump || a.Flags.Return: Goto(a); break;
                 case Assign a: Assignment(a); break;
                 case Box b when b.Enable is not null: EnabledCall(b); break;
-                case Box b: { var t = Definition(b); Flush(); Line(t + ";"); break; }
+                // A box's RESULT pin takes the assignment position — `TempI := MOVE(0);`. This arm used to
+                // render `Definition(b)` alone, and `Box.Outputs` went nowhere at all, so the variable an
+                // engineer wired to the pin was simply absent from the file.
+                case Box b:
+                {
+                    var t = Definition(b);
+                    var result = ResultOf(b);
+                    Flush();
+                    Line(result is { } r ? Lhs(r) + " := " + t + ";" : t + ";");
+                    break;
+                }
                 case Terminator t when t.Input is not null: Statement(t.Input); break;
                 // NOT a bare `break`. An unconnected terminator standing as its own statement is an item the
                 // IDE is holding, and dropping it emitted no line at all — the item gone from the workspace
@@ -227,6 +237,17 @@ public static class NetworkTextWriter
             var en = Mint("en", ref _en);
             Flush();
             Line("LET " + en + " := " + enText + ";");
+
+            // THE BOX WRITES ITS OWN PIN, and the assignment's coils are driven by its ENO — which is `en`,
+            // the echo this form already mints. The measured shape: a MOVE gated by a one-shot flag, its
+            // output on `DarkValue`, and the flag RESET by the coil the rung continues into.
+            if (ResultOf(b) is { } result)
+            {
+                Line("IF " + en + " THEN " + Lhs(result) + " := " + body + "; END_IF");
+                foreach (var t in a.Targets) Line(Lhs(t) + " " + AssignOp(t) + " " + en + ";");
+                return;
+            }
+
             if (a.Targets.Count == 1)
                 Line("IF " + en + " THEN " + Lhs(a.Targets[0]) + " " + AssignOp(a.Targets[0]) + " " + body + "; END_IF");
             else
@@ -241,10 +262,11 @@ public static class NetworkTextWriter
         {
             var enText = Render(b.Enable!, nested: false);
             var body = Definition(b);
+            var result = ResultOf(b);
             var en = Mint("en", ref _en);
             Flush();
             Line("LET " + en + " := " + enText + ";");
-            Line("IF " + en + " THEN " + body + "; END_IF");
+            Line("IF " + en + " THEN " + (result is { } r ? Lhs(r) + " := " : "") + body + "; END_IF");
         }
 
         /// <summary>A CODESYS Execute box: an enabled box whose call is raw ST. The ST is emitted VERBATIM
@@ -389,11 +411,47 @@ public static class NetworkTextWriter
                 .Select(p => (p.Formal, Text: ApplyMods(Render(p.Value, nested: true), p.Flags)))
                 .ToList();
 
+            // A NAMED OUTPUT PIN rides in the call, with ST's own output-parameter operator. `=>` is what IEC
+            // spells a VAR_OUTPUT with, so `fc_MeanValue(iLength := 20, oMeanValue => measured)` is ordinary
+            // ST rather than a form this format invented — the same argument that made coil storage `S=`.
+            var outs = b.Outputs.Where(o => o.Formal is { Length: > 0 })
+                .Select(o => o.Formal + " => " + o.Value.Text).ToList();
+
             if (FbdOperators.TypeToSymbol.TryGetValue(b.Type, out var op))
+            {
+                // An infix operator has no argument list to put a named pin in. Operator boxes have unnamed
+                // outputs (measured: every `OUT real at slot N named ''` is one), so this cannot fire on
+                // anything seen — and if it ever does, the honest answer is to say so, not to drop the pin.
+                if (outs.Count > 0)
+                    throw new NetworkTextException(
+                        $"the operator box '{b.Type}' names an output pin ({string.Join(", ", outs)}), which the "
+                        + "infix form has nowhere to put", "NETWORK_UNSUPPORTED");
                 return "(" + string.Join(" " + op + " ", args.Select(a => a.Text)) + ")";
+            }
             if (b.Instance is { } inst)
-                return inst.Text + "(" + string.Join(", ", args.Select(a => a.Formal + " := " + a.Text)) + ")";
-            return b.Type + "(" + string.Join(", ", args.Select(a => a.Text)) + ")";
+                return inst.Text + "(" + string.Join(", ", args.Select(a => a.Formal + " := " + a.Text).Concat(outs)) + ")";
+            return b.Type + "(" + string.Join(", ", args.Select(a => a.Text).Concat(outs)) + ")";
+        }
+
+        /// <summary>The box's RESULT pin — its one UNNAMED output, the pin ST spells by assigning the call.
+        /// Null when the box has none, which is the common case (an operator feeding another box).
+        ///
+        /// <para>Two unnamed outputs would be two results and there is no form for that; it has never been
+        /// seen (129 boxes with an unnamed output in a real project, every one of them alone), so it is
+        /// refused rather than resolved by picking one.</para></summary>
+        private static Operand? ResultOf(Box b)
+        {
+            Operand? result = null;
+            foreach (var o in b.Outputs)
+            {
+                if (o.Formal is { Length: > 0 }) continue;
+                if (result is not null)
+                    throw new NetworkTextException(
+                        $"the box '{b.Type}' has two unnamed output pins, and network text spells a box's "
+                        + "result by assigning the call — there is one assignment to give", "NETWORK_UNSUPPORTED");
+                result = o.Value;
+            }
+            return result;
         }
 
         // ── helpers ───────────────────────────────────────────────────────────────────────────────
@@ -467,7 +525,7 @@ public static class NetworkTextWriter
                 case Box b:
                     if (b.Instance is { } i && !string.IsNullOrEmpty(i.Text)) into.Add(i.Text);
                     foreach (var o in b.Outputs)
-                        if (!string.IsNullOrEmpty(o.Text)) into.Add(o.Text);
+                        if (!string.IsNullOrEmpty(o.Value.Text)) into.Add(o.Value.Text);
                     CollectNames(b.Enable, into);
                     foreach (var p in b.Inputs) CollectNames(p.Value, into);
                     break;

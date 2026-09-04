@@ -30,6 +30,16 @@ public class NetworkTextRoundTripTests
     // modifier for the whole statement, so this shape could not be written down at all.
     [InlineData("NETWORK 0 FBD\n  LET g1 := (a OR b);\n  plain := g1;\n  latched S= g1;\n  cleared R= g1;\nEND_NETWORK\n")]
     [InlineData("NETWORK 0 FBD\n  LET i1 := x;\n  fb(IN := NOT i1);\nEND_NETWORK\n")]
+    // A BOX'S OWN OUTPUT PINS. The unnamed one is the box's RESULT and takes the assignment position; a named
+    // one rides in the call with ST's output-parameter operator. Both were DROPPED entirely until now —
+    // `Box.Outputs` was never rendered — so ~250 wired pins in one real project were absent from the text.
+    [InlineData("NETWORK 0 FBD\n  dst := MOVE(src);\nEND_NETWORK\n")]
+    [InlineData("NETWORK 0 FBD\n  fc_MeanValue(20, oMeanValue => measured);\nEND_NETWORK\n")]
+    [InlineData("NETWORK 0 FBD\n  t1(IN := a, PT := pt, ET => elapsed);\nEND_NETWORK\n")]
+    // a result AND a named pin on the same box
+    [InlineData("NETWORK 0 FBD\n  dst := f(src, oErr => err);\nEND_NETWORK\n")]
+    // an enabled box writing its own pin — the ladder shape a rung with a MOVE on it produces
+    [InlineData("NETWORK 0 LD\n  LET en1 := rung;\n  IF en1 THEN dst := MOVE(src); END_IF\nEND_NETWORK\n")]
     // a leaf's OWN modifier rides on its RHS
     [InlineData("NETWORK 0 FBD\n  LET i1 := NOT x;\n  fb(IN := i1);\nEND_NETWORK\n")]
     // an empty network (or one whose only content was a dropped opaque/vendor node) keeps its
@@ -150,7 +160,7 @@ public class NetworkTextRoundTripTests
                     new Box("AND", null, CallKind.Operator,
                             new[] { new Input(null, new Leaf(new Operand("a"), Flags.None), Flags.None),
                                     new Input(null, opaque, Flags.None) },
-                            Array.Empty<Operand>(), null, null, Flags.None),
+                            Array.Empty<Output>(), null, null, Flags.None),
                     new[] { new Operand("out") },
                     Flags.None),
             }),
@@ -177,7 +187,7 @@ public class NetworkTextRoundTripTests
         var wire = new Demux(7, new Box("AND", null, CallKind.Operator,
                                         new[] { new Input(null, new Leaf(new Operand("a"), Flags.None), Flags.None),
                                                 new Input(null, new Leaf(new Operand("b"), Flags.None), Flags.None) },
-                                        Array.Empty<Operand>(), null, null, Flags.None),
+                                        Array.Empty<Output>(), null, null, Flags.None),
                              Flags.None);
 
         var body = new NetworkBody(BodyLanguage.Fbd, new[]
@@ -220,7 +230,7 @@ public class NetworkTextRoundTripTests
                 new Demux(5, new Box("AND", null, CallKind.Operator,
                                      new[] { new Input(null, new Leaf(new Operand("g5"), Flags.None), Flags.None),
                                              new Input(null, new Leaf(new Operand("b"), Flags.None), Flags.None) },
-                                     Array.Empty<Operand>(), null, null, Flags.None),
+                                     Array.Empty<Output>(), null, null, Flags.None),
                           Flags.None),
                 new Assign(new Demux(5, null, Flags.None), new[] { new Operand("out1") }, Flags.None),
                 new Assign(new Demux(5, null, Flags.None), new[] { new Operand("out2") }, Flags.None),
