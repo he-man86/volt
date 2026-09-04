@@ -118,6 +118,9 @@ def dump(n, depth, tag):
         log("  " * (depth + 1) + "Operand = " + opdump(op))
 
     if tn.startswith("BoxTreeBox"):
+        insn = prop(n, "Instance")
+        if insn is not None:
+            log("  " * (depth + 1) + "Instance = %r" % (prop(insn, "OperandExpr"),))
         en = prop(n, "En")
         log("  " * (depth + 1) + "En  = %r (%s)" % (en, en.GetType().Name if en is not None else "null"))
         eno = prop(n, "Eno")

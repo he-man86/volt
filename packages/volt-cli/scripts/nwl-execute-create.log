@@ -1,0 +1,40 @@
+BoxTreeBox present: True   STSnippet present: True
+
+=== constructing STSnippet ===
+  ctor()
+  STSnippet() -> <_3S.CoDeSys.NWLObject.STSnippet object at 0x0000000000000087 [_3S.CoDeSys.NWLObject.STSnippet]>
+  .Snippet on a fresh snippet = None
+
+=== can .Snippet be SET? ===
+  settable: ISTSnippet.Snippet
+
+=== can an STImplementationObject be constructed? ===
+  type in STObject.plugin
+    ctor()
+    STImplementationObject() -> <_3S.CoDeSys.STObject.STImplementationObject object at 0x0000000000000088 [_3S.CoDeSys.STObject.STImplementationObject]>
+    .TextDocument = <_3S.CoDeSys.TextDocument.TextDocument object at 0x0000000000000089 [_3S.CoDeSys.TextDocument.TextDocument]>
+    set snip.Snippet -> ok; now <_3S.CoDeSys.STObject.STImplementationObject object at 0x0000000000000088 [_3S.CoDeSys.STObject.STImplementationObject]>
+  .TextDocument = <_3S.CoDeSys.TextDocument.TextDocument object at 0x0000000000000089 [_3S.CoDeSys.TextDocument.TextDocument]>
+  TextDocument.Text = st -> False StandardError: Exception has been thrown by the target of an invocation.
+      td.add_TextDocumentEdited(EventHandler)
+      td.remove_TextDocumentEdited(EventHandler)
+      td.UpdateAllText()
+      td.Insert(Int32, String)
+      td.GetLineText(Int32)
+      td.GetText(Int32, Int32)
+      td.get_Text()
+      td.set_Text(String)
+      td.get_TextLines()
+      td.set_TextLines(TextLine[])
+      td.OnTextDocumentEdited(EventArgs)
+  TextDocument.Text now = 'iCount := iCount + 1;\nIF iCount > 10 THEN\n\tiCount := 0;\nEND_IF'
+  BoxTreeBox.STSnippet settable: True
+  BoxTreeBox.ProvidesSTSnippet settable: False
+  set box.STSnippet -> ok; ProvidesSTSnippet now True
+  AppendTree -> True 
+
+=== reload and read the ST back ===
+  BoxType='EXECUTE' ProvidesSTSnippet=True
+  ST read back = 'iCount := iCount + 1;\nIF iCount > 10 THEN\n\tiCount := 0;\nEND_IF'
+
+done
