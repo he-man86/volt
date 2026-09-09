@@ -31,7 +31,7 @@
  *
  * Budget ~5-20 min per corpus; pro2193 and lenze-mid are ~8k items each. Exits non-zero when anything drifted.
  */
-import { execFileSync, spawn } from "node:child_process"
+import { execFileSync } from "node:child_process"
 import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join, relative, sep } from "node:path"
@@ -42,15 +42,10 @@ import { callOn } from "../test/e2e/lib/pipe"
 const REPO = join(import.meta.dir, "..", "..", "..")
 const VOLT = join(REPO, "packages", "volt-cli", "src", "Volt.Cli", "bin", "Release", "net10.0", "volt.exe")
 const CORPUS_ROOT = join(REPO, "packages", "volt-lsp-iec", "test-corpus")
-const LAUNCHER = join(import.meta.dir, "codesys-pipe.ps1")
-const TC_LAUNCHER = join(import.meta.dir, "twincat-instances.ps1")
-const TC_WORKER = join(REPO, "packages", "volt-cli", "src", "Volt.Ide.Twincat", "bin", "Release",
-	"net10.0-windows", "VoltBridgeTwincat.exe")
+const LAUNCHER = join(import.meta.dir, "ide.ps1")
 /** The pipe THIS run launched. Every `volt` call is pinned to it, so a stray IDE cannot be used. */
 let activePipe: string | undefined
 
-/** The worker this run spawned, so `close()` can stop the one it started and not someone else's. */
-let tcWorker: ReturnType<typeof spawn> | null = null
 
 /** A referenced library's files carry SOURCE extensions but are read-only by LOCATION — the push refuses them
  *  and the blank target has different libraries anyway. Excluded by folder, exactly as the CLI does.
@@ -90,18 +85,17 @@ const CODESYS: Blank = {
 		//
 		// Nothing is needed to make the IDE usable: the launcher serves every project through the SHIPPED host,
 		// so the IDE's own message loop answers the pipe and the window stays clickable while the push runs.
-		const out = ps(LAUNCHER, ["-Action", "up", "-NoBuild", "-Project", project])
-		// The launcher prints `CODESYS launched (pid NNNN)`. Pinning to THAT pid's pipe is what stops the
-		// run attaching to an IDE someone left open — the TwinCAT arm already does this with its XAE pid.
-		const pid = /pid (\d+)/.exec(out)?.[1]
-		activePipe = waitForPipe(pid ? `volt.bridge.codesys.${pid}` : undefined)
+		// `-Wait` blocks until a NEW pipe appears and prints its name. Pinning to that is what stops the run
+		// attaching to an IDE someone left open — and it is the only thing that can: CODESYS RE-EXECS during
+		// startup, so the pid `Start-Process` reported is not the pid that ends up serving.
+		activePipe = pipeFrom(ps(LAUNCHER, ["-Action", "up", "-Vendor", "codesys", "-NoBuild", "-Fixture", project, "-Wait"]))
 	},
 	close() {
 		if (process.env.VOLT_SHOW) {
 			console.log("  VOLT_SHOW: leaving the IDE open on the migrated project — close it yourself when done")
 			return
 		}
-		ps(LAUNCHER, ["-Action", "down"])
+		ps(LAUNCHER, ["-Action", "down", "-Vendor", "codesys"])
 	},
 }
 
@@ -125,9 +119,9 @@ function buildToolchain(): void {
  * template's `PLC_PRG`. A copy, never the fixture itself: the fixture is a real project under version control
  * and a migration would gut it.
  *
- * The worker is spawned DIRECTLY (`--xae-pid`) rather than waited for. In production the connector supervises
- * it, but only once a client declares an interest in that project — a session dance a finder has no business
- * performing, and one that would make the run depend on the tray being up.
+ * The launcher spawns the worker (`--xae-pid`) rather than waiting for one. In production the CONNECTOR
+ * supervises it, but only once a client declares an interest in that project — a session dance a finder has no
+ * business performing, and one that would make the run depend on the tray being up.
  */
 const TWINCAT: Blank = {
 	async open(label) {
@@ -135,15 +129,10 @@ const TWINCAT: Blank = {
 		cpSync(join(REPO, "packages", "volt-cli", "test", "fixtures", "TwinCAT Project13"), scratch, { recursive: true })
 		const sln = join(scratch, "TwinCAT Project13.sln")
 
-		const out = ps(TC_LAUNCHER, ["-Action", "up", "-Solution", sln])
-		const pid = /TcXaeShell pid (\d+)/.exec(out)?.[1]
-		if (!pid) throw new Error(`could not read the TcXaeShell pid from the launcher:\n${out}`)
-
-		// TcXaeShell is Visual-Studio-based: the window exists long before the PLC project is loaded, and the
-		// worker cannot attach to a solution that is still opening.
-		Bun.sleepSync(90_000)
-		tcWorker = spawn(TC_WORKER, ["--xae-pid", pid], { stdio: ["ignore", "ignore", "inherit"] })
-		const pipe = waitForPipe(`volt.bridge.twincat.${pid}`)
+		// The launcher spawns the worker and waits for the ROT, so this arm no longer carries its own copy of
+		// either. It used to sleep a flat 90s before spawning, because TcXaeShell's window exists long before
+		// the PLC project is loaded — `--list-xae-pids` answers that question instead of guessing at it.
+		const pipe = pipeFrom(ps(LAUNCHER, ["-Action", "up", "-Vendor", "twincat", "-Fixture", sln, "-Wait"]))
 		activePipe = pipe
 
 		// A TwinCAT XAE starts every project IDLE and must be TOLD which to serve — CODESYS serves its loaded
@@ -162,9 +151,8 @@ const TWINCAT: Blank = {
 		throw new Error(`the TwinCAT bridge never served a project on ${pipe} — is the XAE still loading?`)
 	},
 	close() {
-		tcWorker?.kill()
-		tcWorker = null
-		ps(TC_LAUNCHER, ["-Action", "down"])
+		// `down -Vendor twincat` closes the XAE windows AND the workers attached to them.
+		ps(LAUNCHER, ["-Action", "down", "-Vendor", "twincat"])
 	},
 }
 
@@ -185,25 +173,22 @@ function codesysInstall(): string {
  * stray instance holding a probe's leftovers produced `ENOENT ... VltCollideA.prg` and it was reported as a
  * GAP in the product. A fabricated finding from a real run is worse than no run.</p>
  */
-function waitForPipe(expected?: string, timeoutMs = 300_000): string {
-	const prefix = `volt.bridge.${VENDOR}.`
-	const deadline = Date.now() + timeoutMs
-	while (Date.now() < deadline) {
-		const pipes = readdirSync("\\\\.\\pipe\\").filter((p) => p.startsWith(prefix))
-		const found = expected ? pipes.find((p) => p === expected) : pipes[0]
-		if (found) {
-			// Say so rather than choosing silently: another IDE on another project is exactly the setup that
-			// fabricated a GAP, and the operator is the only one who can close it.
-			const strays = pipes.filter((p) => p !== found)
-			if (strays.length > 0)
-				console.log(`   NOTE  ${strays.length} other ${VENDOR} IDE(s) serving (${strays.join(", ")}) — this run `
-					+ `is pinned to ${found}`)
-			return found
-		}
-		Bun.sleepSync(2000)
-	}
-	throw new Error(`no ${expected ?? prefix + "*"} pipe after ${timeoutMs / 1000}s — did the IDE fail to open `
-		+ "the blank project?")
+/** The pipe `ide.ps1 -Wait` reported — the IDE THIS run brought up, which is the only one it may drive.
+ *
+ *  The launcher's last such token is that pipe: `-Wait` returns the one that appeared during the call, so an
+ *  IDE someone left open cannot be mistaken for it. Strays are still NAMED, because an IDE serving a different
+ *  project is exactly the setup that once fabricated a GAP, and the operator is the only one who can close it.
+ *  (The polling this function used to do lives in the launcher now, for both vendors.) */
+function pipeFrom(out: string): string {
+	const all = [...out.matchAll(/volt\.bridge\.(?:codesys|twincat)\.\d+/g)].map((m) => m[0])
+	if (all.length === 0) throw new Error(`the launcher never reported a pipe:\n${out}`)
+	const mine = all[all.length - 1]
+	const vendor = mine.split(".")[2]
+	const strays = readdirSync("\\\\.\\pipe\\").filter((p) => p.startsWith(`volt.bridge.${vendor}.`) && p !== mine)
+	if (strays.length > 0)
+		console.log(`   NOTE  ${strays.length} other ${vendor} IDE(s) serving (${strays.join(", ")}) — this run `
+			+ `is pinned to ${mine}`)
+	return mine
 }
 
 function ps(script: string, args: string[]): string {

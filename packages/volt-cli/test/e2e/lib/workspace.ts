@@ -85,7 +85,7 @@ export async function requireHealthy(timeoutMs = 60_000): Promise<void> {
 	throw new Error(
 		lastProject
 			? `bridge never served '${lastProject}' (selected it but it stayed idle — is the IDE still loading, or is the worker crashing?)`
-			: `no project detected on the bridge (open the IDE + its project; for TwinCAT run scripts/twincat-instances.ps1 up)`,
+			: `no project detected on the bridge (open the IDE + its project; for TwinCAT run scripts/ide.ps1 up -Vendor twincat)`,
 	)
 }
 

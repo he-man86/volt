@@ -7,7 +7,7 @@
  * This drives real OS process kills + a fresh TcXaeShell boot + build, so it is SLOW, DESTRUCTIVE (it closes an
  * IDE window), and LOCAL-only. It is GATED behind `VOLT_E2E_IDE_CHAOS=1` and runs only for TwinCAT: there the
  * connector worker survives the IDE's death and must recover; for CODESYS the in-proc host dies WITH the IDE, so
- * there's nothing on the far side of the pipe to test. It reopens via the committed fixtures (twincat-instances.ps1),
+ * there's nothing on the far side of the pipe to test. It reopens via the committed fixtures (ide.ps1),
  * so run it against a FIXTURE-launched setup, not a project you can't afford to have closed.
  *
  *   $env:VOLT_E2E_IDE_CHAOS="1"; $env:VOLT_PIPE="volt.bridge.twincat"; $env:VOLT_VENDOR="twincat"
@@ -33,7 +33,7 @@ function killIde(project: string): void {
 /** Reopen the committed fixture for this project via the launcher (Project13 -> 13, Project14 -> 14). */
 function reopenIde(project: string): void {
 	const n = project.match(/(\d+)\s*$/)?.[1] ?? "14"
-	ps(`& '${process.cwd()}\\scripts\\twincat-instances.ps1' up -Which ${n}`)
+	ps(`& '${process.cwd()}\\scripts\\ide.ps1' up -Which ${n}`)
 }
 async function serving(): Promise<boolean> { return (await opErrorCode(() => bridge.refs())) === null }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -53,7 +53,7 @@ function requireSingleIde(): void {
 	if (pipes.length !== 1)
 		throw new Error(
 			`ide-restart needs EXACTLY ONE live TwinCAT XAE, found ${pipes.length} (${pipes.join(", ") || "none"}). ` +
-				`Reset with: pwsh scripts/twincat-instances.ps1 down; then up -Which 13`,
+				`Reset with: pwsh scripts/ide.ps1 down -Vendor twincat; then up -Which 13`,
 		)
 }
 

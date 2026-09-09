@@ -387,7 +387,7 @@ marked in the code with its reason — a `ponytail:` comment — rather than lef
 
 See `README.md` for commands. In short: `dotnet build Volt.sln`; the C# unit tests
 (`test/Volt.Engine.Tests/`) run offline against a fake IDE, and the TS e2e tests (`test/e2e/`) drive a live
-bridge over the pipe; the CODESYS dev loop is `scripts/codesys-pipe.ps1` (the TwinCAT worker is spawned
+bridge over the pipe; the CODESYS dev loop is `scripts/ide.ps1` (the TwinCAT worker is spawned
 by the connector).
 
 ## Reading a vendor API instead of guessing at it

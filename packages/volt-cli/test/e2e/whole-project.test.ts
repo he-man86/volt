@@ -17,8 +17,8 @@
  * RUNNING IT AGAINST A REAL PROJECT. It sweeps whatever the host has open, so no flag is needed — point the host
  * at a customer project and re-run:
  *
- *   pwsh scripts/codesys-pipe.ps1 down
- *   pwsh scripts/codesys-pipe.ps1 up -Project "<path>\Some_Customer.project"
+ *   pwsh scripts/ide.ps1 down -Vendor codesys
+ *   pwsh scripts/ide.ps1 up -Vendor codesys -Fixture "<path>\Some_Customer.project"
  *   bun test test/e2e/whole-project.test.ts
  *
  * The push half writes each item's OWN bytes back, so a correct bridge changes nothing; that is exactly what

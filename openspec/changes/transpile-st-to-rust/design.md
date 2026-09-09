@@ -100,7 +100,7 @@ a variable name; the standard blocks' parameter names). At this scale that is no
 the dominant cost — and it produces confidently wrong results, which is worse than gaps.
 
 **It is cheap here.** The bridge already drives a headless CODESYS over a named pipe against a committed
-fixture project (`scripts/codesys-pipe.ps1`). The missing piece is reading variable state across scan cycles,
+fixture project (`scripts/ide.ps1`). The missing piece is reading variable state across scan cycles,
 not the harness itself.
 
 ## 8. What "fully implemented" means

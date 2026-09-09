@@ -114,7 +114,7 @@ export function call(op: string, body?: unknown): Promise<any> {
 	if (!livePipes().includes(pipe))
 		throw new Error(
 			`no live ${PIPE_PREFIX}* pipe — is the IDE running with its project loaded? ` +
-				`(CODESYS: scripts/codesys-pipe.ps1 up · TwinCAT: scripts/twincat-instances.ps1 up, connector running)`,
+				`(CODESYS: scripts/ide.ps1 up -Vendor codesys · TwinCAT: scripts/ide.ps1 up -Vendor twincat, connector running)`,
 		)
 	return callOn(pipe, op, body)
 }

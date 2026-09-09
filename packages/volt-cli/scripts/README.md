@@ -17,6 +17,12 @@ That rule removed 32 files in one pass: eight `probe-projectsettings*.py` that w
 the one the openspec change actually cites, plus eleven orphaned logs whose probes had been deleted long
 before. Keeping them cost nothing visible and hid the twenty that matter.
 
+It has since removed four more, and the pattern repeated exactly: `probe-nwl-survey`, `probe-nwl-objectmodel`
+and `probe-nwl-construct` were the ladder up to `probe-nwl-census`/`-dump`, and `probe-projectsettings8` the
+one up to `-scope`. Each was cited only from a CLOSED, archived change, and the first three never had a
+committed `.log` at all — their answers were `.gitignore`d, which is the same as saying they were never
+evidence.
+
 **A probe's `.log` is committed with it.** The probe is the question; the log is the answer, and the answer is
 what a source comment cites. `AccessorDeclaration.Keep` says "263 accessors hold a bare `VAR`/`END_VAR`" — the
 file that makes that checkable rather than a claim is `accessor-census.log`.
@@ -26,13 +32,12 @@ file that makes that checkable rather than a claim is `accessor-census.log`.
 | | |
 |---|---|
 | `build-cli.ps1` | publish `volt.exe`, the pipe workers and the connector bundle |
-| `codesys-pipe.ps1` | serve a CODESYS project over the pipe, **the way a user does** — a normal GUI IDE running the shipped `start_volt_codesys.py`. `up` / `down` / `logs` / `pipe`. |
-| `twincat-instances.ps1` | the same for TwinCAT XAE (`-Solution`), which needs its PLC project selected before it will serve |
+| `ide.ps1` | serve a committed FIXTURE over the pipe on EITHER vendor — `up` / `down` / `pipe` / `logs`, `-Vendor codesys\|twincat`. Builds the bridge first, waits for the pipe with `-Wait`, and prints its name. CODESYS runs the shipped `start_volt_codesys.py` in-proc; TwinCAT gets a `VoltBridgeTwincat --xae-pid` worker, which this spawns so the tier does not depend on the tray. |
 | `corpus-migration.ts` | the migration finder: pull a corpus, push it into an empty project, pull again, compare |
 | `e2e-graphical-coverage.ts` | which network-text constructs the live suite actually PUSHES — a report, not a gate. 20 of 25 today. |
 | `start_volt_codesys.py` | **shipped** — the in-IDE host; CODESYS's own message loop answers the pipe, so the IDE stays clickable |
 | `stop_volt_codesys.py` | its counterpart |
-| `run_pipe_production.py` | the launcher `codesys-pipe.ps1` hands to `--runscript` (dialog suppression + a file log) |
+| `run_pipe_production.py` | the launcher `ide.ps1` hands to `--runscript` (dialog suppression + a file log) |
 | `probe-tc-task.ps1` | a PowerShell probe — TwinCAT is COM, not IronPython |
 | `probe-tc-project-object.ps1` | the other one: what `Projects.Item(i).Object` IS, and how to tell a TwinCAT project from a C# one (DIALECT D35) |
 
@@ -77,10 +82,10 @@ so it is stored content and not an API default), `probe-accessor-decl`.
 `probe-task-create`, `probe-task-config-survives-delete` (the container is localized, and survives its last
 task being deleted).
 
-**Networks / NWL** — `probe-nwl-census`, `probe-nwl-dump`, `probe-nwl-survey`, `probe-nwl-objectmodel`,
+**Networks / NWL** — `probe-nwl-census`, `probe-nwl-dump`,
 `probe-nwl-coils` (the `Negation`+`Set` bits are ONE enum, correlated against the vendor's own PLCopen export),
 `probe-nwl-coil-modifiers` (576 assignment targets across five real projects: no edge or negated coil occurs),
-`probe-nwl-boxoutputs`, `probe-nwl-construct`, `probe-nwl-execute-compare`, `probe-nwl-execute-create`.
+`probe-nwl-boxoutputs`, `probe-nwl-execute-compare`, `probe-nwl-execute-create`.
 
 **Structure** — `probe-tc-name-collision` (TwinCAT refuses to CREATE a folder whose name an object at that
 level already has, in either kind — but the two may COEXIST, so it is an ORDER constraint, DIALECT D34).
@@ -89,8 +94,7 @@ level already has, in either kind — but the two may COEXIST, so it is an ORDER
 
 **Project / settings** — `probe-project-container`, `probe-projectsettings-scope` (the compiler configuration
 is a session SERVICE over per-project state, and the read is sound — DIALECT C24, which closed
-`project-settings-sync`), `probe-projectsettings8` (the option-storage surface, from when the read was still in
-doubt).
+`project-settings-sync`).
 
 ## Running one
 

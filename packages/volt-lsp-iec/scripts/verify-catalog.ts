@@ -13,7 +13,7 @@
  * that instantiates its pushed units (making them reachable). A repro that puts VAR_CONFIG/malformed content in
  * PLC_PRG turns it UNREADABLE and un-settable; recovery is delete-with-the-`UNREADABLE000000`-sentinel then
  * recreate. Every fixture starts from a hard reset (minimal PLC_PRG + all non-baseline items deleted). Safe
- * against the headless fixture project only.
+ * against the committed fixture project only.
  *
  * Why `verified` is trustworthy despite tasking: a `verified` outcome REQUIRES the IDE to have emitted the LSP's
  * message, which only happens if the unit was actually compiled (or the diagnostic is parse/declaration-level,
@@ -139,7 +139,7 @@ const synthPlc = (types: string[], calls: string[]): string =>
 // Vendor (→ which catalog fields to stamp) auto-detected from the bridge's platform.
 const VENDOR: "codesys" | "twincat" = (await call("health")).platform === "twincat" ? "twincat" : "codesys"
 const ACTUAL_FIELD = `${VENDOR}Actual`
-const fx = await openFixture() // shared fixture: set/del items + reset the headless project between repros
+const fx = await openFixture() // shared fixture: set/del items + reset the fixture project between repros
 
 // ── the catalog ──────────────────────────────────────────────────────────────
 const catalog = JSON.parse(readFileSync(CATALOG, "utf8"))

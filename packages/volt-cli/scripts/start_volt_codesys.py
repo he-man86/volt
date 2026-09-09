@@ -15,7 +15,7 @@ DLL resolution (first that exists wins):
   2. <this folder>/Volt.Ide.Codesys.dll       shipped beside this script (backup copy in the install dir)
   3. %LOCALAPPDATA%\Programs\Volt\...              the install dir — where the DLLs live when this script was
                                                    published to a visible folder (Documents\Volt) that has no DLL
-(For the dev loop, codesys-pipe.ps1 sets VOLT_BRIDGE_DLL - case 1 - before running this.)
+(For the dev loop, ide.ps1 sets VOLT_BRIDGE_DLL - case 1 - before running this.)
 """
 from __future__ import print_function
 import os
@@ -53,7 +53,7 @@ def _candidates():
         out.append(os.path.join(local, *(_INSTALL_SUBDIR + (_DLL_NAME,))))
     # There is deliberately NO repo-build fallback here. This file used to carry an ABSOLUTE PATH into one
     # developer's home directory, which is dead weight on every path that matters: the dev loop goes through
-    # VOLT_BRIDGE_DLL, which codesys-pipe.ps1 sets to the resolved DLL before running this script, and an
+    # VOLT_BRIDGE_DLL, which ide.ps1 sets to the resolved DLL before running this script, and an
     # install finds the DLL beside the script or in the install dir. It only ever worked on one machine, and
     # it shipped.
     return out

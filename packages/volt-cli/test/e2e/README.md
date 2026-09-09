@@ -28,7 +28,7 @@ of how a test exits — is the remaining half of the suite rebuild.
 
 **If a run leaves the fixture project dirty, clean it over the wire and let the IDE close normally.** Delete the
 leftover items through the bridge (`cleanup()` does this; `requireHealthy()` now does it for you), then stop the
-IDE with `twincat-instances.ps1 down` / `codesys-pipe.ps1 down`.
+IDE with `ide.ps1 down -Vendor twincat` / `ide.ps1 down -Vendor codesys`.
 
 `git restore` on a fixture **while the IDE has it open** does not clean anything — it fights the IDE. TwinCAT
 holds its own in-memory model of the project and writes it back on save, so restoring files underneath it leaves
@@ -73,7 +73,7 @@ The TwinCAT fixtures are committed **source-only** — a `test/.gitignore` strip
 
 ## CODESYS
 
-`scripts/codesys-pipe.ps1` loads the in-proc pipe host into CODESYS against the committed **fixture** (never
+`scripts/ide.ps1` loads the in-proc pipe host into CODESYS against the committed **fixture** (never
 your live IDE). Two modes:
 
 > It opens the fixture **in place** — `run_pipe_production.py` calls `projects.open(path)` on the committed file.
@@ -81,17 +81,20 @@ your live IDE). Two modes:
 > a change proposal, where it was used to argue TwinCAT should copy too.
 >
 > **The fixture survives anyway because of the STORAGE MODEL, not a copy.** A CODESYS project is one file
-> that is written on SAVE, and the headless runner never saves — so items created and deleted during a run
-> exist only in memory. TwinCAT stores one file per POU and writes them as it goes, which is why the same
+> that is written on SAVE, and nothing in this loop saves — so items created and deleted during a run
+> exist only in memory. That is a property of the RUN, not of the IDE: the GUI marks the project dirty
+> (`Project*` in the title bar) and a human who hits Ctrl+S, or answers "save?" on close, commits the e2e's
+> churn to the fixture. Tear down with `ide.ps1 down`, which force-closes and discards.
+ TwinCAT stores one file per POU and writes them as it goes, which is why the same
 > suite leaves its fixture modified on one vendor and pristine on the other. That asymmetry is the whole
 > reason `twincat-e2e-fixture-hygiene` exists.
 
 ```powershell
 # ONE mode: a normal GUI CODESYS running the SHIPPED start_volt_codesys.py
-pwsh packages/volt-cli/scripts/codesys-pipe.ps1 up
+pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys
 # multiple instances (per-pid pipes): -Instance a / -Instance b
-pwsh packages/volt-cli/scripts/codesys-pipe.ps1 up -Instance a
-pwsh packages/volt-cli/scripts/codesys-pipe.ps1 down          # (add -Instance a to stop that one)
+pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys -Instance a
+pwsh packages/volt-cli/scripts/ide.ps1 down -Vendor codesys          # (add -Instance a to stop that one)
 
 bun run test:e2e:codesys   # discovers the live codesys pipe + runs the suite
 ```
@@ -107,7 +110,7 @@ into a **per-session temp copy** (which is what lets an install update while the
 immediately, leaving the **IDE's own message loop** to serve the pipe. The window is then a normal CODESYS you
 can click around in while the suite drives it. Measured 2026-09-05, before the deletion: 189 pass / 0 fail on
 both hosts, so the harness was not hiding a defect — it was hiding a difference. Stop it the way a user does,
-from the IDE: `stop_volt_codesys.py` (or `codesys-pipe.ps1 down`, which kills the pid it launched).
+from the IDE: `stop_volt_codesys.py` (or `ide.ps1 down -Vendor codesys`, which kills the pid it launched).
 
 The one thing the harness did that the shipped script does not is silence .NET assertion dialogs; that moved
 into `run_pipe_production.py`, which is the right home — an engineer at their desk wants to see an assertion,
@@ -125,9 +128,9 @@ TwinCAT has **no in-proc host and no headless mode** (TcXaeShell is Visual-Studi
 *opens* the fixtures:
 
 ```powershell
-pwsh packages/volt-cli/scripts/twincat-instances.ps1 up            # both fixtures = the multi-XAE scenario
-pwsh packages/volt-cli/scripts/twincat-instances.ps1 up -Which 13  # just one
-pwsh packages/volt-cli/scripts/twincat-instances.ps1 down          # close the ones it opened
+pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor twincat            # both fixtures = the multi-XAE scenario
+pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor twincat -Which 13  # just one
+pwsh packages/volt-cli/scripts/ide.ps1 down -Vendor twincat          # close the ones it opened
 
 # TcXaeShell takes ~30-60s to load; the runner discovers the pipe + selects the project + waits, so just:
 bun run test:e2e:twincat
@@ -163,8 +166,8 @@ line, a reordered VAR block — which passes twice and is invisible. Run both la
 command; the suite finds the other pipe itself via `livePipesFor`.
 
 ```bash
-pwsh packages/volt-cli/scripts/codesys-pipe.ps1 up
-pwsh packages/volt-cli/scripts/twincat-instances.ps1 up -Which 13
+pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys
+pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor twincat -Which 13
 bun run test:e2e:twincat        # vendor-parity runs; everything else drives TwinCAT
 ```
 

@@ -1,11 +1,11 @@
 /**
  * Shared live-bridge fixture helpers for the recording scripts (verify-catalog.ts, record-gaps.ts). Speaks the
- * push wire and keeps the headless fixture project clean between repros.
+ * push wire and keeps the fixture project clean between repros.
  *
  * UNREADABLE-safe (learned the hard way): a malformed push can leave an item that's invisible in `/refs` but
  * blocks re-create — delete it with the `UNREADABLE000000` sentinel version, then recreate. Reachability note:
  * an untasked POU is NOT compiled, so a repro must live in / be called from the tasked PLC_PRG to build. Safe
- * against the headless FIXTURE project only.
+ * against the committed FIXTURE project only.
  */
 import { call } from "./bridge.js"
 

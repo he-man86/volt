@@ -19,7 +19,7 @@ over the harness pump is not cosmetic:
 The only thing scripted here that a user does by hand is OPENING the project — everything after that is the
 production script, unmodified. Stop it the way a user does too: run `stop_volt_codesys.py` from the IDE.
 
-Driven by `codesys-pipe.ps1 up -Production` (which implies -Ui).
+Driven by `ide.ps1 up -Vendor codesys -Production` (which implies -Ui).
 """
 from __future__ import print_function
 import os

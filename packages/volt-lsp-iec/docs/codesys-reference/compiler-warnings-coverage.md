@@ -78,7 +78,7 @@ documented here as gaps, each with the concrete reason it isn't a setting yet. R
 
 ## Closing the gaps
 
-Re-verify each against current CODESYS before acting — the catalog notes are dated observations, not standing facts (headless bridge: `codesys-pipe.ps1 up`, then `scripts/record-gaps.ts`). A check that fires on the IDE-clean corpus is a false positive, not a finding.
+Re-verify each against current CODESYS before acting — the catalog notes are dated observations, not standing facts (bring a bridge up: `ide.ps1 up -Vendor codesys`, then `scripts/record-gaps.ts`). A check that fires on the IDE-clean corpus is a false positive, not a finding.
 
 ### Needs live-CODESYS verification (4)
 
@@ -93,7 +93,7 @@ Offline-feasible in principle, but the exact trigger/wording is unverified and/o
 
 ### Needs IDE build/runtime data — cannot be done offline (11)
 
-These need device/library metadata, codegen, memory layout, or a project option a headless bridge does not have.
+These need device/library metadata, codegen, memory layout, or a project option the bridge does not expose.
 
 | CODESYS | what it flags | why Volt cannot |
 |---|---|---|

@@ -20,7 +20,7 @@ a task that does not move it was mis-prioritised.
 Nothing after this should be built on remembered vendor behaviour (design §7). This phase changes the risk of
 every later phase, not its size.
 
-- [ ] Extend the headless-CODESYS harness (`packages/volt-cli/scripts/codesys-pipe.ps1`) to read variable
+- [ ] Extend the headless-CODESYS harness (`packages/volt-cli/scripts/ide.ps1`) to read variable
       state after N scan cycles. The pipe and the fixture project already exist; the missing verb is a
       state read, not a new harness.
 - [ ] `test/exec/differential.test.ts` — same POU, same inputs, IDE vs `interp/`; assert equal state.

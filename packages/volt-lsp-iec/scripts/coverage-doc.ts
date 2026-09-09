@@ -67,9 +67,9 @@ const section = (title: string, key: string, blurb: string, col: string) => {
   md += `\n### ${title} (${rows.length})\n\n${blurb}\n\n| CODESYS | what it flags | ${col} |\n|---|---|---|\n`
   for (const [code, e] of rows) md += `| ${code} | ${desc(e)} | ${e ? reason(e) : ""} |\n`
 }
-md += `\n## Closing the gaps\n\nRe-verify each against current CODESYS before acting — the catalog notes are dated observations, not standing facts (headless bridge: \`codesys-pipe.ps1 up\`, then \`scripts/record-gaps.ts\`). A check that fires on the IDE-clean corpus is a false positive, not a finding.\n`
+md += `\n## Closing the gaps\n\nRe-verify each against current CODESYS before acting — the catalog notes are dated observations, not standing facts (bring a bridge up: \`ide.ps1 up -Vendor codesys\`, then \`scripts/record-gaps.ts\`). A check that fires on the IDE-clean corpus is a false positive, not a finding.\n`
 section("Needs live-CODESYS verification", "needs-live-verify", "Offline-feasible in principle, but the exact trigger/wording is unverified and/or needs infrastructure the pipeline lacks.", "blocker")
-section("Needs IDE build/runtime data — cannot be done offline", "ide-only", "These need device/library metadata, codegen, memory layout, or a project option a headless bridge does not have.", "why Volt cannot")
+section("Needs IDE build/runtime data — cannot be done offline", "ide-only", "These need device/library metadata, codegen, memory layout, or a project option the bridge does not expose.", "why Volt cannot")
 section("Won't-fix — would false-positive on legal code", "wont-fix", "Offline-decidable, but the trigger fires on code CODESYS accepts (proven against the corpus / live IDE).", "why not")
 section("Blocked by architecture", "blocked", "", "blocker")
 md += `\n### Not yet catalogued (${buckets.absent.length})\n\nDialog codes with no catalog entry — record each from live CODESYS, then it moves to a group above.\n\n\`${buckets.absent.map((x) => x[0]).join("`, `")}\`\n`

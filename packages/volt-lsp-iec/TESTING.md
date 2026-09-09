@@ -91,7 +91,7 @@ Grouped by what they need. **Live** = a bridge must be up (see below). **Offline
 | `check-layering.ts` | offline | `lint` | fail on an illegal upward import between layers |
 
 Bring a bridge up first (the data wire is a **named pipe**, not an HTTP port): CODESYS —
-`pwsh packages/volt-cli/scripts/codesys-pipe.ps1 up` (headless; serves `volt.bridge.codesys.<pid>` when no
+`pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys` (a GUI IDE; serves `volt.bridge.codesys.<pid>` when no
 `VOLT_PIPE` is set — pass `VOLT_PIPE=volt.bridge.codesys.<pid>`); TwinCAT — run `VoltConnector.exe` and pick the
 project from the tray (serves `volt.bridge.twincat`, XAE open on a project).
 

@@ -32,7 +32,7 @@ setDefaultTimeout(60000)
  * single live one is taken.
  *
  * <p>This was `livePipesFor(v)[0]`, and with two instances of a vendor up it picks ARBITRARILY. Measured: with
- * a second headless CODESYS serving the 9.9 MB `Pro2193…` fixture (the deliberately SLOW instance
+ * a second CODESYS serving the 9.9 MB `Pro2193…` fixture (the deliberately SLOW instance
  * `parallel-instances` needs), this suite bound to THAT one and every case timed out at 60s — a five-minute red
  * whose message was "timeout" and whose cause was the environment. An ambiguous pick now SAYS it is ambiguous
  * instead of guessing.</p>
@@ -55,7 +55,7 @@ const BOTH = cs !== undefined && tc !== undefined
 
 // Not a capability claim, and not permanent: this is the one suite that needs BOTH IDEs, and a normal run has
 // one. It prints why rather than vanishing — a silent skip is how the TwinCAT move test stayed off for an entire
-// implementation. Run it with `scripts/codesys-pipe.ps1 up` AND `scripts/twincat-instances.ps1 up` together.
+// implementation. Run it with `scripts/ide.ps1 up -Vendor codesys` AND `scripts/ide.ps1 up -Vendor twincat` together.
 if (!BOTH)
 	console.log(
 		`vendor-parity: SKIPPED — needs both bridges up (codesys: ${cs ?? "down"}, twincat: ${tc ?? "down"}). ` +

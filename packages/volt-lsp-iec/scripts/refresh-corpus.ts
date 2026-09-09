@@ -4,8 +4,8 @@
  * throwaway temp dir does the pull + materialization, then its `src/` tree is swapped in — pull first,
  * replace last, so a failure anywhere leaves the existing corpus exactly as it was.
  *
- * The bridge must already serve the project (headless launcher, or your live IDE):
- *   pwsh packages/volt-cli/scripts/codesys-pipe.ps1 up -Project <path>     # or a running IDE + connector
+ * The bridge must already serve the project (the fixture launcher, or your live IDE):
+ *   pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys -Fixture <path>     # or a running IDE + connector
  *   bun run refresh:corpus <name> [codesys|twincat]
  *
  * The recorded build oracle (expected-build.<vendor>.json) is captured SEPARATELY (record-corpus-build.ts)

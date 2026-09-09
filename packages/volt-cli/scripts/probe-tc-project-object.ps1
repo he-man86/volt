@@ -14,7 +14,7 @@
 #
 # Read-only throughout: no path this looks up exists, and nothing is written.
 #
-#   pwsh packages/volt-cli/scripts/twincat-instances.ps1 up -Which 14
+#   pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor twincat -Which 14
 #   pwsh packages/volt-cli/scripts/probe-tc-project-object.ps1
 
 $ErrorActionPreference = "Continue"

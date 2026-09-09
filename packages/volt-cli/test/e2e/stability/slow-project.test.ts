@@ -11,7 +11,7 @@
  *  - The heavy ops COMPLETE and agree: `fetch` returns the same item set `refs` listed; `build` returns a verdict;
  *    nothing throws, nothing flips the bridge to `degraded` across the whole run.
  *
- * Run against the large project (from packages/volt-cli), after `codesys-pipe.ps1 up -Project <the .project>`:
+ * Run against the large project (from packages/volt-cli), after `ide.ps1 up -Vendor codesys -Fixture <the .project>`:
  *   VOLT_PIPE=volt.bridge.codesys.<pid> bun test test/e2e/stability --timeout 120000
  */
 import { test, expect, beforeAll } from "bun:test"

@@ -57,9 +57,10 @@ bun test test/e2e                                    # TS e2e parity suite (set 
 pwsh scripts/build-cli.ps1                           # publish volt.exe + pipe workers + the connector bundle
 ```
 
-Headless CODESYS dev loop: `pwsh scripts/codesys-pipe.ps1 up|down|logs` loads the in-proc pipe host into a
-CODESYS against a fixture project - through the SHIPPED host, so the IDE stays usable and the e2e drives the
-same path a user does; then `bun run test:e2e:codesys`.
+Live-IDE dev loop, one script for both vendors: `pwsh scripts/ide.ps1 up -Vendor codesys|twincat [-Wait]`
+(`down` / `pipe` / `logs` alongside). It builds the bridge, opens a committed fixture, gets the bridge serving
+- in-proc through the SHIPPED host on CODESYS, a spawned `--xae-pid` worker on TwinCAT - and with `-Wait`
+prints the pipe name. Then `bun run test:e2e:codesys` or `test:e2e:twincat`.
 
 ### Where a test goes
 

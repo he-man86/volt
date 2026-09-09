@@ -5,7 +5,7 @@
  * VS Code diff editor's refs) reads the right bytes on each side of a real conflict.
  *
  * Local-only (needs a live CODESYS/TwinCAT bridge and the built volt.exe), like the rest of test/e2e:
- *   pwsh scripts/codesys-pipe.ps1 up
+ *   pwsh scripts/ide.ps1 up -Vendor codesys
  *   $env:VOLT_PIPE="volt.bridge.codesys"; $env:VOLT_VENDOR="codesys"; bun test test/e2e/lifecycle/conflict-resolve.test.ts
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"

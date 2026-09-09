@@ -99,7 +99,7 @@ VS Code extension manifest). Offline and key-free, so **CI runs it on every push
 
 | Script | Home |
 |---|---|
-| `build-cli.ps1` (publish the toolchain), `codesys-pipe.ps1` (CODESYS dev loop, through the shipped host), `run_pipe_production.py`, and the **live-IDE probes** — each mapped in its own `README.md` there | `packages/volt-cli/scripts/` |
+| `build-cli.ps1` (publish the toolchain), `ide.ps1` (CODESYS dev loop, through the shipped host), `run_pipe_production.py`, and the **live-IDE probes** — each mapped in its own `README.md` there | `packages/volt-cli/scripts/` |
 | LSP corpus/conformance recorders + oracles | `packages/volt-lsp-iec/scripts/` |
 
 The installer itself lives at **`installer/`** — `Volt.iss` plus a `README.md` documenting every location Volt

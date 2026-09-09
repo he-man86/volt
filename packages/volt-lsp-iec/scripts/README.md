@@ -9,11 +9,11 @@ against. The tests themselves live in `src/**/*.test.ts` and `test/` — see [`.
 | File | Role |
 |---|---|
 | `bridge.ts` | named-pipe client — `call(op, body)` speaks the Volt wire to a live bridge |
-| `bridge-fixture.ts` | `openFixture()` → `{ set, del, reset }` — push items + reset the headless project between repros |
+| `bridge-fixture.ts` | `openFixture()` → `{ set, del, reset }` — push items + reset the fixture project between repros |
 
 ## Live tools (a bridge must be up)
 
-Bring one up first: `pwsh packages/volt-cli/scripts/codesys-pipe.ps1 up` (CODESYS, headless). With no `VOLT_PIPE`
+Bring one up first: `pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys`. With no `VOLT_PIPE`
 it serves `volt.bridge.codesys.<pid>` — pass `VOLT_PIPE=volt.bridge.codesys.<pid>` to the tool.
 
 | File | Produces / does |

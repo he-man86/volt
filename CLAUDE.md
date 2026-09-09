@@ -93,10 +93,14 @@ bun test test/e2e                                          # TS e2e parity suite
 pwsh scripts/build-cli.ps1                                 # publish volt.exe + pipe workers + the connector bundle
 ```
 
-CODESYS dev/test loop (Windows/PowerShell): `pwsh packages/volt-cli/scripts/codesys-pipe.ps1 up|down|logs`
-serves a committed **fixture** project (never the engineer's live IDE); then `bun run test:e2e:codesys`, which
-discovers the live pipe by prefix — it is `volt.bridge.codesys.<pid>`, one per IDE, so there is nothing to
-hand it.
+IDE dev/test loop (Windows/PowerShell), **one script for both vendors**:
+`pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys|twincat [-Wait]` (plus `down` / `pipe` / `logs`).
+It serves a committed **fixture** project (never the engineer's live IDE); then `bun run test:e2e:codesys` or
+`test:e2e:twincat`, which discover the live pipe by prefix — `volt.bridge.<vendor>.<pid>`, one per IDE, so
+there is nothing to hand them. The vendors differ in exactly one step and the script owns it: CODESYS loads
+the bridge IN-PROC, TwinCAT needs a separate `VoltBridgeTwincat --xae-pid` worker, which the script spawns so
+the tier does not silently depend on the connector tray being up. There were two scripts until 2026-09-09 and
+only the CODESYS one was finished — the TwinCAT half started no bridge, waited for nothing and printed no pipe.
 
 **There is one way to serve an IDE and it is the way a user does it**: a normal GUI CODESYS running the SHIPPED
 `start_volt_codesys.py`, whose own message loop answers the pipe — so the IDE stays clickable while the suite
