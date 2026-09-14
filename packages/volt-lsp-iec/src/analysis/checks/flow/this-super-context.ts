@@ -15,9 +15,12 @@ export function checkThisSuperContext(ctx: CheckContext, out: DiagnosticItem[]):
     if (unit.kind !== "program" && unit.kind !== "function") continue
     walkAllExprs(statements, (e) => {
       if (e.kind !== "ident_expr") return
-      if (e.name === "THIS")
+      // Case-insensitive, as ST names are: a lower-case `this`/`super` is the same error (conformance `cc_self_this_*`,
+      // `cc_self_super_*`). An exact `=== "THIS"` let them through (consolidate-lsp-structure A8).
+      const name = e.name.toUpperCase()
+      if (name === "THIS")
         out.push({ severity: "error", span: e.span, source: SOURCE, code: "this-not-allowed", message: ctx.messages.thisNotAllowed() })
-      else if (e.name === "SUPER")
+      else if (name === "SUPER")
         out.push({ severity: "error", span: e.span, source: SOURCE, code: "super-not-allowed", message: ctx.messages.superNotAllowed() })
     })
   }

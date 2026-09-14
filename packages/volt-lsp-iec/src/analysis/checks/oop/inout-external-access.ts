@@ -10,7 +10,7 @@
  * Conservative (zero-FP): fires only when the base infers to a project-local FB (library sections flatten →
  * unreliable) and the member resolves to a VAR_IN_OUT; a THIS/SUPER base (the FB's own params) is legal.
  */
-import { walkAllExprs, type Expr } from "../../../syntax/index.js"
+import { isSelfRef, walkAllExprs } from "../../../syntax/index.js"
 import { bodies } from "../../../symbols/index.js"
 import { inferExprType, resolveMemberChain } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
@@ -19,7 +19,7 @@ import { isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
 export function checkInoutExternalAccess(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkAllExprs(statements, (e) => {
-      if (e.kind !== "member" || isInternalBase(e.base)) return
+      if (e.kind !== "member" || isSelfRef(e.base)) return
       const baseType = inferExprType(e.base, scope, ctx.project)
       if (baseType.kind !== "function_block") return
       const sym = resolveMemberChain(e, scope, ctx.project)
@@ -36,10 +36,3 @@ export function checkInoutExternalAccess(ctx: CheckContext, out: DiagnosticItem[
   }
 }
 
-/** True when the member base is the enclosing instance (`THIS`/`SUPER`, optionally deref'd) — internal access. */
-function isInternalBase(expr: Expr): boolean {
-  let e = expr
-  if (e.kind === "paren") e = e.inner
-  if (e.kind === "deref") e = e.base
-  return e.kind === "ident_expr" && (e.name.toUpperCase() === "THIS" || e.name.toUpperCase() === "SUPER")
-}

@@ -153,6 +153,20 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
   fb("cc_decl_init_trailing_int", "`x : INT := 5 6;` → compiler error", "x : INT := 5 6;"),
   fb("cc_ltime_literal_into_time", "an LTIME literal into a TIME → ?", "t1 : TIME;", "t1 := LTIME#1S;"),
   fb("cc_fp_ltime_literal_into_ltime", "an LTIME literal into an LTIME → accepted", "lt1 : LTIME;", "lt1 := LTIME#1S;"),
+  // consolidate-lsp-structure A8 — `this-super-context.ts` compares `THIS`/`SUPER` exactly, so a lower-case `this` or
+  // `super` in a PROGRAM is never flagged (two OOP checks upper-case first). PLC_PRG is a PROGRAM: the uses go in its body.
+  ...(["this", "super", "THIS"] as const).map(
+    (word): LanguageTest => ({
+      name: `cc_self_${word === "THIS" ? "upper_this" : word}_in_program`,
+      pouName: `FB_LANG_cc_self_${word === "THIS" ? "upper_this" : word}_in_program`,
+      kind: "function_block",
+      feature: `\`${word}\` in a PROGRAM (PLC_PRG) → compiler error?`,
+      fromDoc: "check-coverage",
+      plcPrgVar: `inst_self_${word === "THIS" ? "upper_this" : word} : FB_LANG_cc_self_${word === "THIS" ? "upper_this" : word}_in_program;\n\tpSelf_${word === "THIS" ? "upper_this" : word} : POINTER TO BYTE;`,
+      plcPrgBody: `inst_self_${word === "THIS" ? "upper_this" : word}();\npSelf_${word === "THIS" ? "upper_this" : word} := ${word};`,
+      source: `FUNCTION_BLOCK FB_LANG_cc_self_${word === "THIS" ? "upper_this" : word}_in_program\nVAR\n\tx : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n`,
+    }),
+  ),
   // consolidate-lsp-structure A4 — six `X_TO_Y` name parsers disagree on the spelled-out type names: the transpiler reads
   // `TIME_OF_DAY_TO_UDINT`, the narrowing / conversion-source / reference parsers do not. Is the spelled-out form a
   // conversion function in CODESYS at all — and if so, is its source checked like `TOD_TO_UDINT`'s?

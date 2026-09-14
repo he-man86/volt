@@ -8,7 +8,7 @@
  * (library sections flatten — unreliable), and whose section is neither input nor output. Anything
  * uncertain skips → zero FP.
  */
-import { walkStatements, type Expr } from "../../../syntax/index.js"
+import { isSelfRef, walkStatements } from "../../../syntax/index.js"
 import { bodies } from "../../../symbols/index.js"
 import { inferExprType, resolveMemberChain } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
@@ -19,7 +19,7 @@ export function checkExternalNonInputWrite(ctx: CheckContext, out: DiagnosticIte
     walkStatements(statements, (s) => {
       if (s.kind !== "assign" || s.op !== undefined) return // plain `:=` only
       if (s.target.kind !== "member") return
-      if (isInternalBase(s.target.base)) return // writing your own member (THIS/SUPER) is legal
+      if (isSelfRef(s.target.base)) return // writing your own member (THIS/SUPER) is legal
       const baseType = inferExprType(s.target.base, scope, ctx.project)
       if (baseType.kind !== "function_block") return // struct/unknown → skip
       const sym = resolveMemberChain(s.target, scope, ctx.project)
@@ -41,10 +41,3 @@ export function checkExternalNonInputWrite(ctx: CheckContext, out: DiagnosticIte
   }
 }
 
-/** True when the member base is the enclosing instance (`THIS`/`SUPER`, optionally deref'd) — internal write. */
-function isInternalBase(expr: Expr): boolean {
-  let e = expr
-  if (e.kind === "paren") e = e.inner
-  if (e.kind === "deref") e = e.base
-  return e.kind === "ident_expr" && (e.name.toUpperCase() === "THIS" || e.name.toUpperCase() === "SUPER")
-}

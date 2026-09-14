@@ -42,9 +42,13 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       divergence". `messages.networkJumpLabelUndefined` is vendor data (undefined on TwinCAT); the pin check uses
       `messages.noInput`; the divergence entry is gone. *Why missed:* the known-divergence set accepted the mismatch
       instead of asking which side was wrong.
-- [ ] A8 **`this-super-context.ts:18` compares `THIS` case-sensitively**; `external-write.ts:49` / `inout-external-access.ts:44`
-      do not. Verify lowercase `this`, then one `isSelfRef`.
-- [ ] A9 **Label keys**: ST `jump-labels.ts` upper-cases, network lower-cases — verify case-insensitivity holds in both.
+- [x] A8 **`this-super-context.ts` compared `THIS`/`SUPER` exactly.** DONE 2026-09-14: recorded — a lower-case `this` or
+      `super` in a PROGRAM is the same error ("Expression THIS is not allowed in this context", `cc_self_*`); the check
+      now upper-cases first. The byte-identical private helper in `external-write.ts` and `inout-external-access.ts` is one
+      `syntax/isSelfRef`. *Why missed:* every THIS/SUPER fixture and test wrote the keyword in upper case.
+- [x] A9 **Label keys**: ST `jump-labels.ts` upper-cases, network-text lower-cases. VERIFIED 2026-09-14, no bug — each
+      compares its own keys consistently, so both are case-insensitive, and the two never meet. The duplicated
+      normalisation is left to C4's shared `nameKey`.
 - [ ] A10 **Three string-literal length rules** — `lower.ts` `decodeIecString` (measured), `string-constant.ts:31`,
       `assignment.ts:81` (raw count over-counts `$` escapes). One decoder in `syntax/literal-value.ts`.
 - [ ] A11 **`network-analyze.ts:88` `synthTypeExpr`** loses string length, arrays and pointers.

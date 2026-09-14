@@ -14,6 +14,19 @@
 import type { Expr, MemberExpr, Statement, StatementList } from "./ast.js"
 
 /** Immediate sub-expressions of an expression, in source order. */
+/**
+ * True when `e` names the enclosing instance — `THIS` or `SUPER`, in any case (ST names are case-insensitive), optionally
+ * parenthesised and dereferenced (`THIS^`). The one home of that test: two OOP checks each kept a private copy.
+ */
+export function isSelfRef(e: Expr): boolean {
+  let x = e
+  if (x.kind === "paren") x = x.inner
+  if (x.kind === "deref") x = x.base
+  if (x.kind !== "ident_expr") return false
+  const name = x.name.toUpperCase()
+  return name === "THIS" || name === "SUPER"
+}
+
 export function exprChildren(e: Expr): Expr[] {
   switch (e.kind) {
     case "ident_expr":
