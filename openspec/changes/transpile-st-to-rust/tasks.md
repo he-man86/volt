@@ -214,15 +214,37 @@ every oracle case into a real-code test of the bridge the CLI ships, on construc
       SingleCycle` exist on SP21); reading values there is still to probe. Only then can `record:exec` drop the
       runscript. TwinCAT would need its own answer.
 
-## Phase 3 — the memory model, then the frame · BLOCKED ON A DECISION
+## Phase 3 — the memory model, then the frame · PLANNED, AWAITING REVIEW
 
 **Decide design §9 before writing any of this.** Instances, methods and GVLs are what a pointer points at;
 building them on slot indices and then finding `ADR` needs offsets means doing the work twice.
 
+**The ratchet today (2026-09-14, one symbol table per project):** 4 of 304 POUs with a body lower. It read 6 before the
+review refused struct- and FB-typed slots the emitter could not print (`slot-struct`, `slot-function_block`) — a
+deliberate drop, not a regression. `stmt-call_stmt` blocks 256, and is the ONLY blocker of 93: calls on declared FB
+instances alone take the ratchet from 4 to as many as 97.
+
+**The plan — a new IR, built in this order, each step oracle-first (record, then build, then green in both backends):**
+1. **Port before adding.** A backend-only type that is total by construction; places as root (self · globals · a
+   parameter) + path (field · normalised index · bit); lowering's failure propagation a throw caught at the POU
+   boundary. Gate: every case `transpile.test.ts` passes today still passes, value for value, before anything new lands.
+2. **The application frame.** A DUT is a struct, an FB a struct of its VAR/VAR_INPUT/VAR_OUTPUT/VAR_STAT, the GVLs one
+   `Globals`, each program `fn scan(&mut self, g: &mut Globals)` (design §9, `memory-sketch.rs`).
+3. **Calls on declared instances** (the 93): `inst(a := x, q => y)` assigns inputs, runs the body, reads outputs.
+   Record first: inputs retained across calls, outputs read after the call, an instance called twice in one scan, an
+   unconnected input.
+4. **METHOD / ACTION bodies** on the FB's frame; **FUNCTION calls** with locals per call (record whether they reset).
+5. **Member access and GVLs** (`expr-member` 95, `place-shape` 91, `place-not-local` 51) on the same places.
+6. **Handles** — ADR, POINTER TO, REFERENCE TO, VAR_IN_OUT (phase 4's list moves here: the model is settled) — and
+   SIZEOF from the measured layout.
+**Checkpoint before step 1:** the user reviews this plan, since it replaces the IR the interpreter and emitter print.
+
 - [x] **Review before phase 3** (2026-09-14, design §19): four emitter/lowering bugs found by probe and fixed — CONTINUE
       (3 oracle cases recorded), Rust field names (keywords, snake_case collisions), unrepresentable slots. Direction
       chosen: keep the measured semantics and the oracle; phase 3 is a new IR on the settled memory model.
-- [ ] **Decision: slot+path, byte-addressed image, or the hybrid.** Record it in `design.md` §9.
+- [x] **Decision: slot+path, byte-addressed image, or the hybrid.** DONE 2026-09-14 — the handle-first hybrid (user),
+      from a corpus census; six `mem_*` fixtures recorded (layout, FB header, pointer steps, method through a pointer,
+      ADR of a VAR_IN_OUT member); `memory-sketch.rs` proves the emitted shape is plain safe Rust (design §9).
 - [ ] `expr-member` (95 POUs, 31%) + `place-shape` (85, 28%) + `expr-index` (4) — fill in `Place.path`.
       ST arrays have arbitrary lower bounds; index normalisation belongs in lowering.
 - [ ] `stmt-call_stmt` (256, **84%** — the single biggest unblocker) — FB instances in the frame.
