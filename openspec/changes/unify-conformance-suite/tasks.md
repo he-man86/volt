@@ -60,6 +60,9 @@
       again (a parse-recovery cascade); and an FB's over-long initializer, which the build reports TWICE — as it does
       for every STRING one already recorded.
 - [ ] 5.3 TwinCAT build pass for the program cases when the TwinCAT worker is available; the replay tolerates unrecorded
-      cases until then.
+      cases until then. PARKED (user, 2026-09-14) — the CODESYS data is complete. Tried once: `ide.ps1 up -Vendor twincat`
+      attaches workers to two XAE windows, both "no project selected"; `connect {project: "TwinCAT Project13"}` binds
+      it (worker log: "select: bound", "DEGRADED cleared") and one `refs` answers, then the recorder's `refs` is refused
+      PLC_DISCONNECTED with no deselect in the log. Not diagnosed.
 - [x] 5.4 A case the bridge and the simulator disagree on (compiles in one only) is written into design §6 as a finding.
       DONE 2026-09-14: none — design §6.
