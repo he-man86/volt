@@ -443,4 +443,5 @@ simulation device (alignment and padding); `p[i]` and `p + SIZEOF(T)` over an ar
 instance calling a method through `^`; `ADR` of a member of a VAR_IN_OUT; what a dangling or null dereference does
 (the recorder already sees a null write stop the application).
 
-**Decision needed**: handle-first hybrid (recommended), slot + path with no byte view at all, or a full byte image.
+**Decided (user, 2026-09-14): the handle-first hybrid.** Slot + path with no byte view, and a full byte image, were the
+alternatives. The measurements above are recorded before any of it is built.
