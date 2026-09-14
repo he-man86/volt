@@ -60,7 +60,8 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // 293 → 311: gap 13 — an untyped integer literal the target cannot hold, typed as its narrowest integer type.
   // 311 → 315: consolidate-lsp-structure A2 — an L-prefixed date literal is the 64-bit type, printed in full.
   // 315 → 316: A4 — one conversion-name parser; the types it prints are the compiler's.
-  { vendor: "codesys", filename: "expected-codesys.json", floor: 316 },
+  // 316 → 318: A10 — one string-literal decoder; the assignment message counts decoded characters.
+  { vendor: "codesys", filename: "expected-codesys.json", floor: 318 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence

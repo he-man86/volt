@@ -4,7 +4,7 @@
  * `types/compat` + `types/infer`; conservative — any side that isn't a checkable category
  * (elementary or enum) skips, so a struct/FB/composite/library type never false-positives.
  */
-import { walkStatements, type Expr, type Span } from "../../../syntax/index.js"
+import { decodeStringLiteral, walkStatements, type Expr, type Span } from "../../../syntax/index.js"
 import { bodies, lookup, resolveBareEnumMember, type Scope, type Symbol } from "../../../symbols/index.js"
 import {
   inferExprType,
@@ -61,12 +61,14 @@ function conversionError(lhs: Type, value: Expr, span: Span, scope: Scope, proje
   const rhs = literalCheckType(value, lhs) ?? checkableType(value, scope, project)
   if (rhs === undefined) return undefined
   if (isAssignable(lhs, rhs)) return undefined
+  const display = rhsDisplay(value, rhs)
+  if (display === undefined) return undefined
   return {
     severity: "error",
     span,
     source: SOURCE,
     code: "assignment-type-mismatch",
-    message: messages.cannotConvert(rhsDisplay(value, rhs), renderType(lhs)),
+    message: messages.cannotConvert(display, renderType(lhs)),
   }
 }
 
@@ -96,14 +98,16 @@ function enumValueRef(expr: Expr, scope: Scope, project: Scope): Symbol | undefi
 
 /**
  * The RHS type as the COMPILER renders it in the mismatch message. A string LITERAL is shown
- * length-tagged — `STRING(INT#<len>)` (`WSTRING` for `"…"`) — matching both vendors byte for byte.
+ * length-tagged — `STRING(INT#<len>)` (`WSTRING` for `"…"`) — matching both vendors byte for byte. The length is the
+ * DECODED one: `i := 'a$Tb'` is "Cannot convert type 'STRING(INT#3)' to type 'INT'" (conformance
+ * `cc_string_escape_literal_into_int`); this counted raw characters (4). A literal whose escape the shared decoder does not
+ * know has no measured length — undefined, and no message.
  */
-function rhsDisplay(value: Expr, rhs: Type): string {
+function rhsDisplay(value: Expr, rhs: Type): string | undefined {
   if (value.kind === "literal" && (value.literalKind === "string" || value.literalKind === "wstring")) {
-    // ponytail: raw code-unit count — IEC `$`-escapes would over-count; no corpus fixture uses them.
-    const inner = value.text.replace(/^['"]/, "").replace(/['"]$/, "")
-    const base = value.literalKind === "wstring" ? "WSTRING" : "STRING"
-    return `${base}(INT#${inner.length})`
+    const wide = value.literalKind === "wstring"
+    const decoded = decodeStringLiteral(value.value as string, wide)
+    return decoded === undefined ? undefined : `${wide ? "WSTRING" : "STRING"}(INT#${decoded.length})`
   }
   return renderType(rhs)
 }

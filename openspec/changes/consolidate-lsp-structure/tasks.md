@@ -49,8 +49,13 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
 - [x] A9 **Label keys**: ST `jump-labels.ts` upper-cases, network-text lower-cases. VERIFIED 2026-09-14, no bug — each
       compares its own keys consistently, so both are case-insensitive, and the two never meet. The duplicated
       normalisation is left to C4's shared `nameKey`.
-- [ ] A10 **Three string-literal length rules** — `lower.ts` `decodeIecString` (measured), `string-constant.ts:31`,
-      `assignment.ts:81` (raw count over-counts `$` escapes). One decoder in `syntax/literal-value.ts`.
+- [x] A10 **Three string-literal length rules.** DONE 2026-09-14 — one `syntax/decodeStringLiteral` (the transpiler's
+      measured decoder, moved), used by the transpiler, the string-constant check and the assignment message. Recorded
+      18 fixtures on the way, and they found more than the length: `i := 'a$Tb'` is `STRING(INT#3)` (the message counted
+      raw characters, 4); the too-long constant is a WARNING, not the error the documentation catalog said; and its
+      message prints a prefix of the literal AS WRITTEN sized by the destination (n − 3 characters, or n below 3 —
+      lengths 1–7 recorded), where the check always printed `''...'`. *Why missed:* the check was written from the
+      catalog, not a recording, and its only fixture happened to be STRING(4), where `''...'` is right.
 - [ ] A11 **`network-analyze.ts:88` `synthTypeExpr`** loses string length, arrays and pointers.
 - [ ] A12 **`lower.ts` `wider` is order-dependent** at equal rank, mixed sign (DINT vs UDINT) — only one order measured.
 - [ ] A13 **Gap 14** (transpile-st-to-rust tasks): a declaration's non-literal initializer is never type-checked.

@@ -13,7 +13,8 @@ import { readFileSync } from "node:fs"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { decodeIecString, emitRust, load, lowerSource, snake, type IrValue } from "../../src/transpile/index.js"
+import { decodeStringLiteral } from "../../src/syntax/index.js"
+import { emitRust, load, lowerSource, snake, type IrValue } from "../../src/transpile/index.js"
 import { CASES, programSource } from "./cases.js"
 import { STANDARD_LIBRARY as LIBRARIES } from "./standard-library.js"
 
@@ -36,7 +37,7 @@ function ideValue(raw: string): IrValue {
   // A WSTRING displays in double quotes: `"héllo"`.
   const quote = raw[0]
   if (raw.length >= 2 && (quote === "'" || quote === '"') && raw.endsWith(quote)) {
-    const text = decodeIecString(raw.slice(1, -1), quote === '"')
+    const text = decodeStringLiteral(raw.slice(1, -1), quote === '"')
     if (text === undefined) throw new Error(`unrecognised escape in IDE value ${JSON.stringify(raw)}`)
     return text
   }

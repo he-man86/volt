@@ -17,6 +17,7 @@
  * structs, pointers and FB instances each report their own code and are counted, not guessed at.
  */
 import {
+  decodeStringLiteral,
   isGraphicalBody,
   parseSource,
   parseStatements,
@@ -182,7 +183,7 @@ class Lowering {
   /** A string literal's decoded text, or null (reported) when it holds an escape not measured yet. */
   private text(e: Extract<Expr, { kind: "literal" }>): string | null {
     const wide = e.literalKind === "wstring"
-    const decoded = decodeIecString(e.value as string, wide)
+    const decoded = decodeStringLiteral(e.value as string, wide)
     if (decoded === undefined) {
       this.bail("string-escape", `${e.text} holds a \`$\` escape that is not measured yet`, e.span)
       return null
@@ -772,37 +773,6 @@ function promoted(t: Type): Type {
   const e = elem(t)
   const integral = e !== undefined && (e.family === "int" || e.family === "bitstring") && e.rank !== undefined
   return integral && e.bits < 32 ? named("DINT") : t
-}
-
-/**
- * A string literal's text with its `$` escapes decoded — only the ones measured (test/exec `string_escapes*`): `$T` and
- * `$t` are one tab and `$$` one dollar ('a$Tb', 'x$$y' have LEN 3); `$N` and `$L` are both ONE line feed (LEN('$N') is
- * 1, not CR LF), `$R` is 16#0D, `$P` 16#0C, `$'` and `$"` the quotes, and two hex digits one byte ('$41' = 'A'). Any
- * other escape returns undefined, so the caller reports it rather than guessing what it means.
- */
-export function decodeIecString(raw: string, wide = false): string | undefined {
-  const MEASURED: Readonly<Record<string, string>> = { T: "\t", t: "\t", N: "\n", L: "\n", R: "\r", P: "\f", $: "$", "'": "'", '"': '"' }
-  let out = ""
-  for (let i = 0; i < raw.length; i++) {
-    if (raw[i] !== "$") {
-      out += raw[i]
-      continue
-    }
-    // a STRING's hex escape is two digits, one byte ('$41' = 'A'); a WSTRING's four, one code unit ('$00E9' = 'é')
-    const digits = wide ? 4 : 2
-    const hex = raw.slice(i + 1, i + 1 + digits)
-    if (hex.length === digits && /^[0-9A-Fa-f]+$/.test(hex)) {
-      out += String.fromCharCode(parseInt(hex, 16))
-      i += digits
-      continue
-    }
-    // ponytail: a WSTRING's named escapes ($T, $$, $") are not measured yet — refused, add a case when one is needed
-    if (wide) return undefined
-    const decoded = MEASURED[raw[++i] ?? ""]
-    if (decoded === undefined) return undefined
-    out += decoded
-  }
-  return out
 }
 
 /** A slot's string type with its capacity stated: a sizeless STRING or WSTRING holds 80 (`string_default_length`,

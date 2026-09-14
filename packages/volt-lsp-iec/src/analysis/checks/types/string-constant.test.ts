@@ -19,6 +19,23 @@ test("an over-length string literal is flagged", () => {
   expect(sc(`  str : STRING(4) := '12345';`)).toEqual(["String constant ''...' too long for destination type 'STRING(4)'"])
 })
 
+test("the message prints a prefix of the literal as written, sized by the destination (consolidate-lsp-structure A10)", () => {
+  // It always printed `''...'`, from the documentation catalog — right only for STRING(1) and STRING(4). Recorded for
+  // lengths 1–7 (conformance `cc_string_prefix_len_*`, `cc_string_*_too_long`).
+  expect(sc(`  s7 : STRING(7) := 'abcdefghij';`)).toEqual(["String constant ''abc...' too long for destination type 'STRING(7)'"])
+  expect(sc(`  s3 : STRING(3) := 'ab$T$T';`)).toEqual(["String constant '...' too long for destination type 'STRING(3)'"])
+  expect(sc(`  s2 : STRING(2) := '$Tabc';`)).toEqual(["String constant ''$...' too long for destination type 'STRING(2)'"])
+})
+
+test("it is a WARNING, and the length is the decoded one", () => {
+  const src = `PROGRAM P\nVAR\n  s2 : STRING(2) := 'abc';\n  fits : STRING(3) := 'a$Tb';\nEND_VAR\nEND_PROGRAM`
+  const pr = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const found = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "string-constant-too-long")
+  expect(found.map((d) => d.severity)).toEqual(["warning"]) // 'abc' into STRING(2); 'a$Tb' is 3 decoded and fits
+})
+
 test("exact/short literals and sizeless STRING stay quiet (0-FP)", () => {
   expect(sc(`  str : STRING(4) := '1234';`)).toEqual([]) // exact
   expect(sc(`  str : STRING(4) := 'ab';`)).toEqual([]) // short

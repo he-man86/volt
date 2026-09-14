@@ -13,6 +13,36 @@ export interface ParsedLiteral {
   prefix?: string
 }
 
+/**
+ * A string literal's text with its `$` escapes decoded — only the ones measured on CODESYS (test/exec `string_escapes*`,
+ * `wstring_code_units`): `$T`/`$t` a tab, `$$` a dollar, `$N` and `$L` ONE line feed, `$R` CR, `$P` form feed, `$'` and `$"`
+ * the quotes; two hex digits one byte in a STRING, four one code unit in a WSTRING (`$00E9` = 'é'). Any other escape — and
+ * a WSTRING's named escapes, unmeasured — returns undefined, so a caller refuses rather than guesses. The ONE decoder:
+ * the transpiler, the string-constant check and the assignment message used to count three different ways.
+ */
+export function decodeStringLiteral(raw: string, wide = false): string | undefined {
+  const MEASURED: Readonly<Record<string, string>> = { T: "\t", t: "\t", N: "\n", L: "\n", R: "\r", P: "\f", $: "$", "'": "'", '"': '"' }
+  let out = ""
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i] !== "$") {
+      out += raw[i]
+      continue
+    }
+    const digits = wide ? 4 : 2
+    const hex = raw.slice(i + 1, i + 1 + digits)
+    if (hex.length === digits && /^[0-9A-Fa-f]+$/.test(hex)) {
+      out += String.fromCharCode(parseInt(hex, 16))
+      i += digits
+      continue
+    }
+    if (wide) return undefined // a WSTRING's named escapes are not measured yet
+    const decoded = MEASURED[raw[++i] ?? ""]
+    if (decoded === undefined) return undefined
+    out += decoded
+  }
+  return out
+}
+
 export function parseLiteralValue(kind: LiteralKind, text: string): ParsedLiteral {
   switch (kind) {
     case "int":

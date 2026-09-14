@@ -185,7 +185,13 @@ export interface Messages {
   /** `__NEW` used in a chained (multiple) assignment (C0509). verified both vendors. */
   multipleAssignmentNew(): string
   /** A string literal longer than its declared `STRING(n)` destination (C0198). verified both vendors. */
-  stringConstantTooLong(value: string, type: string): string
+  /**
+   * A string literal longer than its STRING(n) destination (C0198, a WARNING). The compiler prints a prefix of the literal
+   * AS WRITTEN — opening quote included — cut so prefix + `...` fills n characters: n − 3 of them, or all n when n < 3
+   * leaves no room. Recorded for n = 1…7 (conformance `cc_string_prefix_len_*`, `cc_string_*_too_long`): STRING(7) of
+   * 'abcdefghij' prints `''abc...'`, STRING(3) prints `'...'`, STRING(2) prints `''a...'`. TwinCAT unrecorded.
+   */
+  stringConstantTooLong(literalText: string, destLength: number, type: string): string
   /** A relational operator applied to a composite (array) type (C0068). verified both vendors. */
   compareNotPossible(type: string): string
   /** A relational operator between two differently-typed arrays (C0069). verified both vendors. */
@@ -492,7 +498,8 @@ export function messagesFor(vendor: Vendor): Messages {
     multipleAssignmentNew: () => `Multiple assignments are not allowed for operator '__New'.`,
     // Mirror the IDE: it elides the actual string content to `'...'` (both vendors), so we do too rather than
     // echoing the value (the goal is byte-identical IDE parity, not a more-informative message).
-    stringConstantTooLong: (_value, type) => `String constant ''...' too long for destination type '${type}'`,
+    stringConstantTooLong: (literalText, destLength, type) =>
+      `String constant '${literalText.slice(0, destLength >= 3 ? destLength - 3 : destLength)}...' too long for destination type '${type}'`,
     compareNotPossible: (type) => `Compare not possible on objects of type '${type}'`,
     compareNotPossibleTwo: (left, right) => `Compare not possible on objects of type '${left}' or '${right}'`,
     bitInWrongContainer: () => (tc ? `Only Structures and Function Blocks can contain variables of type BIT.` : `Only structures and function blocks can contain variables of type BIT`),

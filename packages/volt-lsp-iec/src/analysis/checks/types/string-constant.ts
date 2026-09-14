@@ -6,6 +6,7 @@
  * are one character each, so `STRING(1) := '$T'` is fine. Only a narrow `STRING(n)` with a const-foldable length
  * and a string-literal init fires, on a strict over-length; a sizeless `STRING` and any `WSTRING` are skipped.
  */
+import { decodeStringLiteral } from "../../../syntax/index.js"
 import { constEval, renderTypeExpr } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, forEachDecl, type DiagnosticItem } from "../_shared.js"
@@ -16,23 +17,18 @@ export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): v
     const init = decl.init
     if (init === undefined || init.kind !== "literal" || typeof init.value !== "string") continue
     const size = constEval(decl.type.length, scope)
-    if (typeof size !== "bigint" || BigInt(decodedLength(init.value)) <= size) continue
+    // the shared decoder's length — an escape it does not know has no measured length, so nothing is reported
+    const decoded = decodeStringLiteral(init.value)
+    if (typeof size !== "bigint" || decoded === undefined || BigInt(decoded.length) <= size) continue
     out.push({
-      severity: "error",
+      // a WARNING, recorded twice (`cc_string_plain_init_too_long`, `cc_string_escape_init_too_long`) — the documentation
+      // catalog this check was written from said error
+      severity: "warning",
       span: init.span,
       source: SOURCE,
       code: "string-constant-too-long",
-      message: ctx.messages.stringConstantTooLong(init.value, renderTypeExpr(decl.type)),
+      // the literal as written (quotes and escapes included) — the compiler prints a prefix of that text, not the value
+      message: ctx.messages.stringConstantTooLong(init.text, Number(size), renderTypeExpr(decl.type)),
     })
   }
-}
-
-/** Character count of an IEC string literal body, treating `$` escapes as one char (`$T`, `$$`, `$0D` hex). */
-function decodedLength(s: string): number {
-  let n = 0
-  const hex = (c: string | undefined) => c !== undefined && /[0-9A-Fa-f]/.test(c)
-  for (let i = 0; i < s.length; i++, n++) {
-    if (s[i] === "$" && i + 1 < s.length) i += hex(s[i + 1]) && hex(s[i + 2]) ? 2 : 1 // $XX hex vs $<named>
-  }
-  return n
 }
