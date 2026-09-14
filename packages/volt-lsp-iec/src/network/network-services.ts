@@ -36,7 +36,7 @@ import {
   type Ref,
 } from "../services/index.js"
 import { analyzeNetworkText, networkNetworkAt, wireDefs } from "./network-analyze.js"
-import { networkStatements, type NetworkTextStatement } from "./text/ast.js"
+import { networkStatements, type NetworkTextStatement } from "../network-text/ast.js"
 
 /** True when the offset falls inside a graphical (network text) body — the server's routing discriminator. */
 export function inNetworkText(doc: Document, offset: number): boolean {

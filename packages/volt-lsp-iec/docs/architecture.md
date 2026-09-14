@@ -61,13 +61,17 @@ range, widening rank, aliases, `ANY_*`); the rich `Type` model (`UNKNOWN` is the
 fallback); `resolve` (TypeExpr → Type); `const-eval` (Expr → value); `infer` (Expr → Type, one engine);
 `compat` (assignability · narrowing · conversion-source, one relation); `arith` (arithmetic result types — run-time
 `commonType`/`promoteForRuntime` for the transpiler, checked `checkedNegationType` for diagnostics); `render`
-(Type/TypeExpr → string, one renderer). Powers diagnostics, hover, completion, navigation, and codegen alike.
+(a resolved `Type` → string — a declared `TypeExpr` or an expression prints through `syntax/print`). Powers
+diagnostics, hover, completion, navigation, and codegen alike.
 
 ### D — `analysis/`
-`diagnostics` (the orchestrator, vendor-keyed config), `messages` (per-vendor builders), and `checks/` — thin
-rules on the type system, grouped by concern: `types/` · `declarations/` · `names/` · `oop/` · `calls/` ·
-`pragmas/`. Every body-walking check iterates through `symbols/bodies` (one loop, not a per-check copy). Each
-check traces to a conformance fixture recorded against the live compiler.
+`diagnostics` (the orchestrator, vendor-keyed config, the CODESYS-only check list), `messages` (per-vendor builders
+and the compiler-exact type text), `diagnostic-item`, `rules` (the diagnostics more than one checker applies — the
+store, narrowing, conversion-argument and binary-operator rules the ST checks and the network-text checks share),
+`resolution` (identifier resolution, likewise shared), `error-code-map` (slug → `Cnnnn`), and `checks/` — thin walks
+over those rules, grouped by concern: `types/` · `declarations/` · `names/` · `oop/` · `calls/` · `pragmas/`. Every
+body-walking check iterates through `symbols/bodies` (one loop, not a per-check copy). Each check traces to a
+conformance fixture recorded against the live compiler.
 
 ### E — `services/`
 The LSP features, thin over C/D via `shared/` (`resolve-at` cursor→symbol, positions, `locations`,
@@ -80,7 +84,7 @@ implementation), `hierarchy` (call + type), `assist` (hover · completion · sig
 ### F — `reference/` · `network/`
 `reference/` holds the language data catalogs (types · operators · conversions · pragmas · standard fns/fbs ·
 lifecycle) — ranges derive from `types/elementary`. `network/` is the FBD/LD family: the readable text
-encoding (`network/text/`, room for future formats), plus infer/checks/services that **reuse the shared
+encoding (`network-text/`, room for future formats), plus infer/checks/services that **reuse the shared
 core** — one type engine, one orchestrator, one service set. Graphical is a second front-end that plugs in, not
 a second stack.
 

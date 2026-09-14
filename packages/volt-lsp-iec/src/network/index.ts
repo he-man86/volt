@@ -1,8 +1,8 @@
 // Layer F — network text. The textual FBD/LD sublanguage: parser + AST, structural diagnostics, and
 // the graphical branch of the outline. A second front-end that plugs in, not a second stack.
 // See architecture.md → ownership map: `network/` owns the network-text AST + network-text diagnostics.
-export * from "./text/ast.js"
-export { parseNetworkText } from "./text/parser.js"
+export * from "../network-text/ast.js"
+export { parseNetworkText } from "../network-text/parser.js"
 export { analyzeNetworkText, wireDefs, type NetworkTextAnalysis } from "./network-analyze.js"
 export { computeNetworkTextDiagnostics } from "./network-analysis.js"
 export { documentSymbolsWithVg } from "./network-symbols.js"

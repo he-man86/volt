@@ -11,7 +11,7 @@ import { type Document, graphicalBodies, lex, type Span, type Token, type TokenK
 import { lookup, resolveBareEnumMember, type Scope, type SymbolKind } from "../../symbols/index.js"
 import { isKnownPrimitive } from "../../types/index.js"
 import { scopeAtOffset } from "../shared/index.js"
-import { NETWORK_TEXT_KEYWORDS } from "../../network/text/parser.js"
+import { NETWORK_TEXT_KEYWORDS } from "../../network-text/parser.js"
 
 /** The token-type legend (index = the `typeIdx` emitted). Advertised to the client in server capabilities. */
 export const SEMANTIC_TOKEN_TYPES = [

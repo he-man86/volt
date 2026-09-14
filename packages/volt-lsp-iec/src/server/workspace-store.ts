@@ -18,13 +18,12 @@ import {
   deadPousFromInfos,
   deadMemberSpansFromInfos,
   fileReachInfo,
-  deadNameUniverse,
-  reachDeadEquivalent,
   EMPTY_WORKSPACE_REFS,
   type FileReachInfo,
   type ResolvedConfig,
   type WorkspaceRefs,
 } from "../analysis/index.js"
+import { deadNameUniverse, reachDeadEquivalent } from "./dead-code-equivalence.js"
 
 // Windows and macOS default to case-insensitive filesystems; Linux is case-sensitive. Case-fold the key on
 // the former so an open buffer and its disk crawl (which may differ in path case) collapse to one entry.

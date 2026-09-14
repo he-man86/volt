@@ -139,7 +139,7 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       walker in `network/text/ast.ts` replacing 7 recursions; `collectBareRefs` onto `ast-walk`. DONE 2026-09-14:
       `syntax/print.ts` (`renderTypeExpr`, `exprText`, `dimText`; `types/render` keeps `renderType`), `syntax/span`
       `spanContains`, `syntax/token-at` `tokenAtOffset` (tests moved with them), `isSelfRef` in `ast-walk` (A-phase), and
-      `network/text/networkStatements` replacing the seven EN/ENO recursions. Not done, on purpose: the formatter's
+      `networkStatements` (now `network-text/ast.ts`) replacing the seven EN/ENO recursions. Not done, on purpose: the formatter's
       statement printer has no second copy to merge; `nameKey` no longer exists and `sameName` has one home
       (`types/compat`); `collectBareRefs` is gone; and tokens on `ParseResult` waits for a profile that asks for it.
 - [x] C5 `libraryOf(uri)` in symbols; `lower.ts` Standard gate uses it; drop the `_shared.ts:95` shim. DONE 2026-09-14:
@@ -168,4 +168,9 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
 - [ ] C9 Split monoliths: `lower.ts` (frame · expr · calls table · literals), `server.ts` `runServer`,
       `network-analysis.ts` → `network/checks/`; `interp` values module.
 - [ ] C10 Placement: `network/text` to a syntax-tier folder, `reference/error-code-map.ts` next to `analysis/config`,
-      `reachability.ts` incremental half to `server/`, top-level app files to `src/workspace/`.
+      `reachability.ts` incremental half to `server/`, top-level app files to `src/workspace/`. PARTLY DONE 2026-09-14:
+      `src/network-text/` (the layering lint's special case is gone — the folder is its layer), `analysis/error-code-map.ts`,
+      `server/dead-code-equivalence.ts` (`deadNameUniverse`, `reachDeadEquivalent` — only the workspace store caches).
+      Open, for the user: the top-level app files. `init.ts` finds its package root as `..` from `import.meta.url`, with a
+      Bun-binary fallback — a move changes that path and only the install gate proves it; and `detectVendor` /
+      `installCorpus` (C8) may not stay at all. `scripts/check-wiring.ts` also reads `src/source-extensions.ts` by path.

@@ -16,7 +16,7 @@ import {
   type Messages,
 } from "../analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../network/index.js"
-import { codesysCodeFor } from "../reference/error-code-map.js"
+import { codesysCodeFor } from "../analysis/error-code-map.js"
 import { isLibrarySymbol } from "../symbols/index.js"
 import { rangeFromSpan } from "../services/index.js"
 import type { Document } from "../syntax/index.js"

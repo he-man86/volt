@@ -19,7 +19,7 @@ const SRC = resolve(import.meta.dir, "..", "src")
 // consumed BY analysis + services), while `network` reuses the services core (so it sits above them).
 const RANK: Record<string, number> = {
   syntax: 0,
-  // network/text/ is the network-text FRONTEND (text→AST): it depends only on syntax, so it is ranked just above it and
+  // network-text/ is the network-text FRONTEND (text→AST): it depends only on syntax, so it is ranked just above it and
   // both `services` and `network` consume it downward.
   "network-text": 0.5,
   symbols: 1,
@@ -52,11 +52,10 @@ function walk(dir: string): string[] {
   return out
 }
 
-// The file's layer: its first folder under src/ (network/text/ its own), a top-level module's "workspace", or null for
+// The file's layer: its first folder under src/, a top-level module's "workspace", or null for
 // a barrel.
 function layerOf(file: string): string | null {
   const rel = relative(SRC, file).replaceAll("\\", "/")
-  if (rel.startsWith("network/text/")) return "network-text"
   if (!rel.includes("/")) return BARRELS.has(rel) ? null : "workspace"
   return rel.split("/")[0]!
 }

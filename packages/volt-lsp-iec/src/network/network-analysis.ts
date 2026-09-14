@@ -44,8 +44,8 @@ import {
 import { EMPTY_WORKSPACE_REFS } from "../analysis/index.js"
 import { hasUnresolvedBase, type Scope } from "../symbols/index.js"
 import { analyzeNetworkText } from "./network-analyze.js"
-import { networkStatements, type NetworkTextNetwork, type NetworkTextStatement } from "./text/ast.js"
-import { ASSIGN_OPS } from "./text/parser.js"
+import { networkStatements, type NetworkTextNetwork, type NetworkTextStatement } from "../network-text/ast.js"
+import { ASSIGN_OPS } from "../network-text/parser.js"
 
 export function computeNetworkTextDiagnostics(
   doc: Document,

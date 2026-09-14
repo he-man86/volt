@@ -97,7 +97,7 @@ export type { ErrorCode }
 // catches a code added to one and forgotten in the other. Add a new mapped code to error-code-map.ts (and its
 // catalog entry gets `ourCode`); if they diverge, this fails.
 test("the LSP code map and the catalog agree on every mapped code", async () => {
-  const { CODESYS_CODE_MAP } = await import("../../src/reference/error-code-map.js")
+  const { CODESYS_CODE_MAP } = await import("../../src/analysis/error-code-map.js")
   const fromCatalog: Record<string, [string, string]> = {}
   for (const e of errorCatalog()) if (e.ourCode && !(e.ourCode in fromCatalog)) fromCatalog[e.ourCode] = [e.code, e.url]
   expect(CODESYS_CODE_MAP).toEqual(fromCatalog)

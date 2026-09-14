@@ -10,7 +10,7 @@
  * nav/checks) rather than the full NetworkGroup/NetworkOperand tree — enough for structure diagnostics, outline,
  * and identifier nav. The full operand tree + graphical type inference is a noted follow-on.
  */
-import type { Expr, Span, StatementList, Token } from "../../syntax/index.js"
+import type { Expr, Span, StatementList, Token } from "../syntax/index.js"
 
 export type NetworkLanguage = "FBD" | "LD" | "CFC" | "SFC" | "UNKNOWN"
 

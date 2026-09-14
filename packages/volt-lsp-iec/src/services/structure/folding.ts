@@ -4,7 +4,7 @@
  */
 import type { FoldingRange } from "vscode-languageserver-protocol"
 import { type Document, isGraphicalBody, parseStatements, type Span, unitBodies, walkStatements } from "../../syntax/index.js"
-import { parseNetworkText } from "../../network/text/parser.js"
+import { parseNetworkText } from "../../network-text/parser.js"
 
 export function foldingRanges(doc: Document): FoldingRange[] {
   const out: FoldingRange[] = []

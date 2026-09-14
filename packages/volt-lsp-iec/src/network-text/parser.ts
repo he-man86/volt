@@ -6,7 +6,7 @@
  * ST expression parser — network-text operands ARE fully-parenthesised ST expressions, so the one type engine /
  * resolveMemberChain / nav / hover apply unchanged. EXECUTE boxes hold ordinary ST, parsed as such.
  */
-import { parseExprFromTokens, parseStatements, type BodySpan, type Span, type Token } from "../../syntax/index.js"
+import { parseExprFromTokens, parseStatements, type BodySpan, type Span, type Token } from "../syntax/index.js"
 import type { NetworkTextBody, NetworkLanguage, NetworkName, NetworkTextNetwork, NetworkTextStatement, NetworkTextDiagnostic } from "./ast.js"
 
 // Uppercased header token → network text language (no cast: the map's values ARE NetworkLanguage).

@@ -17,8 +17,8 @@ import {
 } from "../symbols/index.js"
 import { inferExprType, typeToTypeExpr } from "../types/index.js"
 import type { BodySpan, TopLevel } from "../syntax/index.js"
-import { parseNetworkText } from "./text/parser.js"
-import { networkStatements, type NetworkTextBody, type NetworkTextNetwork, type NetworkTextStatement, type NetworkWireDef } from "./text/ast.js"
+import { parseNetworkText } from "../network-text/parser.js"
+import { networkStatements, type NetworkTextBody, type NetworkTextNetwork, type NetworkTextStatement, type NetworkWireDef } from "../network-text/ast.js"
 
 export interface NetworkTextAnalysis {
   vg: NetworkTextBody
