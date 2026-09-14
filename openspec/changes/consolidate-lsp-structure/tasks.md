@@ -107,7 +107,9 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       `call-arguments.ts:185/227`, `assignment.ts:51`, `comparison.ts:60`, `_shared.ts:86`.
 - [ ] B7 Rendering: `typeToTypeExpr` (for A11), `memberScopeOf` (completion.ts:87 = infer scopeOf); compiler-exact type
       text (`comparison.ts:65`, `subrange.ts:35`, `assignment.ts:78`) into `analysis/messages`.
-- [ ] B8 `defaultValueOf(type)` into `transpile/ir` (interp `defaultOf` = emit `defaultLiteral`).
+- [x] B8 `defaultValueOf(type)` into `transpile/ir` (interp `defaultOf` = emit `defaultLiteral`). DONE 2026-09-14: lowering
+      stamps every slot's `init` (the type's zero when none is written), so neither backend picks a default. The emitter's
+      copy printed `IecStr::new()` for every string, a STRING for a WSTRING field; test `emit.test.ts`.
 
 ## C. Structure
 

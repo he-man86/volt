@@ -88,14 +88,6 @@ const MAX_ITERATIONS = 1_000_000
 // ─── values ──────────────────────────────────────────────────────────────────
 
 /** The default a slot holds before its first assignment, from the type's own facts. */
-export function defaultOf(type: Type): Val {
-  if (type.kind !== "elementary") return 0n
-  if (type.elem.family === "bool") return false
-  if (type.elem.family === "real") return 0
-  if (type.elem.family === "string") return ""
-  return 0n
-}
-
 function num(v: Val): bigint | number {
   if (typeof v === "bigint" || typeof v === "number") return v
   throw new TypeError(`expected a number, got ${typeof v}`)
@@ -420,7 +412,7 @@ export interface Runner {
 
 /** Prepare a lowered POU for execution: allocate its frame, seed it from the slots' initial values. */
 export function run(pou: IrPou): Runner {
-  const frame = pou.slots.map((s) => fit(s.init ?? defaultOf(s.type), s.type))
+  const frame = pou.slots.map((s) => fit(s.init, s.type))
   const byName = new Map(pou.slots.map((s, i) => [s.name.toUpperCase(), i]))
   const machine = new Machine(
     frame,

@@ -63,6 +63,7 @@ import type {
   LoweredPou,
   Place,
 } from "../ir/index.js"
+import { defaultValueOf } from "../ir/index.js"
 
 /** ST binary operators → IR opcodes. A name a backend never has to interpret. `**` and `&` are absent on purpose: the
  *  parser accepts them (the LSP reports them), but neither is an operator in CODESYS, so they reach `binary-op`. */
@@ -175,13 +176,13 @@ class Lowering {
    * `for_limit` would have collided with the temp. The interpreter reads slots by index, so only the emitter noticed.
    */
   temp(name: string, type: Type): number {
-    this.slots.push({ name: `__${name}_${this.slots.length}`, type, section: "temp" })
+    this.slots.push({ name: `__${name}_${this.slots.length}`, type, section: "temp", init: defaultValueOf(type) })
     return this.slots.length - 1
   }
 
   private slot(name: Identifier, type: Type, section: VarSection["sectionKind"], init?: IrValue): void {
     this.byName.set(name.text.toUpperCase(), this.slots.length)
-    this.slots.push({ name: name.text, type, section, ...(init === undefined ? {} : { init }) })
+    this.slots.push({ name: name.text, type, section, init: init ?? defaultValueOf(type) })
   }
 
   private resolve(t: TypeExpr): Type {

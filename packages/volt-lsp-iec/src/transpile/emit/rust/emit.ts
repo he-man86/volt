@@ -348,7 +348,7 @@ export function emitRust(pou: IrPou): Emitted {
   p.push("pub fn new() -> Self {", 1)
   p.push("Self {", 2)
   for (const slot of pou.slots)
-    p.push(`${snake(slot.name)}: ${slot.init === undefined ? defaultLiteral(slot.type) : literal(slot.init, slot.type)},`, 3)
+    p.push(`${snake(slot.name)}: ${literal(slot.init, slot.type)},`, 3)
   p.push("}", 2)
   p.push("}", 1)
   p.push("", 0)
@@ -363,12 +363,4 @@ export function emitRust(pou: IrPou): Emitted {
   if (!p.code.includes("IecStr") && !p.code.includes("IecWString")) return { code: p.code, sourceMap: p.sourceMap }
   const offset = STRING_PRELUDE.split("\n").length - 1
   return { code: STRING_PRELUDE + p.code, sourceMap: p.sourceMap.map((m) => ({ ...m, line: m.line + offset })) }
-}
-
-function defaultLiteral(t: Type): string {
-  if (t.kind !== "elementary") return "Default::default()"
-  if (t.elem.family === "bool") return "false"
-  if (t.elem.family === "real") return "0.0"
-  if (t.elem.family === "string") return "IecStr::new()"
-  return "0"
 }

@@ -12,6 +12,11 @@ function ir(src: string, name?: string) {
 const wrap = (body: string, vars = "iCount : INT;") => `PROGRAM P\nVAR\n  ${vars}\nEND_VAR\n${body}\nEND_PROGRAM\n`
 
 describe("lower — the frame", () => {
+  test("a slot without an initial value carries its type's zero in the IR — no backend picks one", () => {
+    const pou = ir(wrap("iCount := 1;", "iCount : INT;\n  flag : BOOL;\n  ratio : REAL;\n  text : STRING;"))
+    expect(pou.slots.map((s) => s.init)).toEqual([0n, false, 0, ""])
+  })
+
   test("every declared variable becomes a slot carrying its RESOLVED type, not a name", () => {
     const pou = ir(`
 PROGRAM P

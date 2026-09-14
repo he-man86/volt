@@ -27,6 +27,13 @@ END_PROGRAM
 `
 
 describe("emit/rust", () => {
+  test("a slot without an initial value starts at its type's zero — and a WSTRING's is a WSTRING", () => {
+    // `new` printed its own defaults, and gave every string `IecStr::new()`: a STRING for a WSTRING field
+    const code = rust("PROGRAM P\nVAR\n  flag : BOOL;\n  wide : WSTRING;\n  ratio : REAL;\nEND_VAR\nflag := TRUE;\nEND_PROGRAM\n")
+    expect(code).not.toContain("IecStr::new()")
+    expect(code).toMatch(/wide: IecWString\S*::lit\(/)
+  })
+
   test("the IEC type mapping comes from the type's own facts", () => {
     const { pou } = lowerSource("PROGRAM P\nVAR a : SINT; b : INT; c : DINT; d : BYTE; e : WORD; f : REAL; g : LREAL; h : BOOL; END_VAR\na := a;\nEND_PROGRAM\n")
     expect(pou!.slots.map((s) => rustType(s.type))).toEqual(["i8", "i16", "i32", "u8", "u16", "f32", "f64", "bool"])

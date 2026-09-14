@@ -27,6 +27,17 @@ import type { Type } from "../../types/index.js"
  *  MILLISECONDS (32-bit), LTIME in nanoseconds (64-bit), as measured; not the nanoseconds for both this once said. */
 export type IrValue = bigint | number | boolean | string
 
+/**
+ * A type's zero — the value a slot declared without one starts at: FALSE, 0, 0.0, an empty string, and 0 for a duration,
+ * a date and a pointer (an index into the frame). Lowering stamps it on the slot, so no backend picks a default: the
+ * interpreter and the Rust emitter each kept a copy, and the emitter's gave a WSTRING field a STRING
+ * (consolidate-lsp-structure B8).
+ */
+export function defaultValueOf(type: Type): IrValue {
+  const family = type.kind === "elementary" ? type.elem.family : undefined
+  return family === "bool" ? false : family === "real" ? 0 : family === "string" ? "" : 0n
+}
+
 // ─── places ──────────────────────────────────────────────────────────────────
 
 /** One step from a slot toward a sub-location. `bit` is `x.3` on an integer slot (design §14) — a place of type
@@ -212,8 +223,8 @@ export interface IrSlot {
   name: string
   type: Type
   section: VarSectionKind | "temp"
-  /** Constant-folded initial value; `undefined` means "the type's default". */
-  init?: IrValue
+  /** The initial value: the declaration's, constant-folded, or the type's zero (`defaultValueOf`). */
+  init: IrValue
 }
 
 /** A lowered POU: a flat frame plus a body. This IS the "one static memory image" decision, made concrete. */
