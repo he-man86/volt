@@ -15,11 +15,9 @@
 import { walkExpr, type Expr, type MemberExpr, type Span } from "../syntax/index.js"
 import { lookupReference } from "../reference/index.js"
 import { hasUnresolvedBase, isLibrarySymbol, lookup, lookupLocal, lookupMember, resolveBareEnumMember, type Scope } from "../symbols/index.js"
-import { inferExprType } from "../types/index.js"
+import { inferExprType, parseConversionName } from "../types/index.js"
 import type { WorkspaceRefs } from "./config.js"
 
-/** A conversion-operator call shape: `INT_TO_REAL`, `WORD_TO_BYTE`, `TO_STRING`. Not a scope symbol. */
-const CONVERSION_RE = /^(?:[A-Za-z][A-Za-z0-9]*_TO_[A-Za-z]|TO_[A-Za-z])/i
 
 /**
  * Compiler-provided implicit references (lowercased) — never declared in project source, always valid:
@@ -89,7 +87,9 @@ function collectBareRefs(e: Expr, emit: (ref: BareRef) => void): void {
 export function nameResolves(name: string, scope: Scope, project: Scope, references: WorkspaceRefs): boolean {
   const lower = name.toLowerCase()
   if (name.startsWith("__")) return true // reserved system operator (`__NEW`, `__ISVALIDREF`, …)
-  if (CONVERSION_RE.test(name)) return true // conversion call — an implicit token, not a symbol
+  // A conversion operator — an implicit token, not a symbol. Only a name CODESYS defines: this matched any `…_TO_…` shape,
+  // so `TIME_OF_DAY_TO_UDINT` (not defined) and a project name like `GO_TO_START` were never flagged (consolidate A4).
+  if (parseConversionName(name) !== undefined) return true
   if (COMPILER_PROVIDED_IMPLICITS.has(lower)) return true
   if (lookupReference(name) !== undefined) return true // built-in operator / std function / std FB / type
   if (references.libraryNamespaces.has(lower)) return true // referenced-library namespace root

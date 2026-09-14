@@ -153,6 +153,14 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
   fb("cc_decl_init_trailing_int", "`x : INT := 5 6;` → compiler error", "x : INT := 5 6;"),
   fb("cc_ltime_literal_into_time", "an LTIME literal into a TIME → ?", "t1 : TIME;", "t1 := LTIME#1S;"),
   fb("cc_fp_ltime_literal_into_ltime", "an LTIME literal into an LTIME → accepted", "lt1 : LTIME;", "lt1 := LTIME#1S;"),
+  // consolidate-lsp-structure A4 — six `X_TO_Y` name parsers disagree on the spelled-out type names: the transpiler reads
+  // `TIME_OF_DAY_TO_UDINT`, the narrowing / conversion-source / reference parsers do not. Is the spelled-out form a
+  // conversion function in CODESYS at all — and if so, is its source checked like `TOD_TO_UDINT`'s?
+  fb("cc_conv_spelled_source_mismatch", "`TIME_OF_DAY_TO_UDINT(anInt)` → ?", "i : INT; u : UDINT;", "u := TIME_OF_DAY_TO_UDINT(i);"),
+  fb("cc_conv_spelled_source_ok", "`TIME_OF_DAY_TO_UDINT(aTod)` → ?", "t : TOD; u : UDINT;", "u := TIME_OF_DAY_TO_UDINT(t);"),
+  fb("cc_conv_spelled_target_into_int", "`i := UDINT_TO_TIME_OF_DAY(u)` → ?", "u : UDINT; i : INT;", "i := UDINT_TO_TIME_OF_DAY(u);"),
+  fb("cc_conv_spelled_target_into_tod", "`t := UDINT_TO_TIME_OF_DAY(u)` → ?", "u : UDINT; t : TOD;", "t := UDINT_TO_TIME_OF_DAY(u);"),
+  fb("cc_conv_short_source_mismatch", "`TOD_TO_UDINT(anInt)` → compiler error (the short form, for comparison)", "i : INT; u : UDINT;", "u := TOD_TO_UDINT(i);"),
   // consolidate-lsp-structure A2 — inference typed every date literal without its `L` prefix (`LDATE#…` as DATE), while
   // lowering typed it right. An LTIME literal into a TIME is "Cannot convert type 'LTIME' to type 'TIME'" (recorded);
   // what do the calendar types say?

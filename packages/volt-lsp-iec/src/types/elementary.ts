@@ -149,6 +149,24 @@ export function integerLiteralType(value: bigint): ElementaryType | undefined {
   return undefined
 }
 
+/**
+ * A conversion operator's name — `INT_TO_REAL`, `TO_STRING` — as its source and target types, or undefined when the name is
+ * none. Both sides must be an elementary type spelled as this table spells it: CODESYS defines `TOD_TO_UDINT` but not
+ * `TIME_OF_DAY_TO_UDINT` ("Identifier 'TIME_OF_DAY_TO_UDINT' not defined", conformance `cc_conv_spelled_*`), and a project
+ * function called `GO_TO_START` is no conversion. The ONE parser — lowering, inference, the checks, identifier resolution
+ * and the reference catalog all read a conversion name through it; there were six, and they disagreed.
+ */
+export function parseConversionName(name: string): { from?: ElementaryType; to: ElementaryType } | undefined {
+  // case-insensitive, as every ST name is — `int_to_real` is `INT_TO_REAL` (the test caught a missing `i` here)
+  const m = /^(?:([A-Za-z]+)_)?TO_([A-Za-z]+)$/i.exec(name)
+  if (m === null) return undefined
+  const to = ELEMENTARY_TYPES.get(m[2]!.toUpperCase())
+  if (to === undefined) return undefined
+  if (m[1] === undefined) return { to }
+  const from = ELEMENTARY_TYPES.get(m[1].toUpperCase())
+  return from === undefined ? undefined : { from, to }
+}
+
 export function elementaryType(name: string): ElementaryType | undefined {
   return ELEMENTARY_TYPES.get(canonicalElem(name))
 }

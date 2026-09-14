@@ -7,7 +7,7 @@
  */
 import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../syntax/index.js"
 import { bodies, type Scope } from "../../../symbols/index.js"
-import { elementaryType, elementaryTypeRef, inferExprType, literalCheckType, resolveTypeExpr } from "../../../types/index.js"
+import { elementaryTypeRef, inferExprType, literalCheckType, parseConversionName, resolveTypeExpr } from "../../../types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { conversionWarning, forEachDecl, type DiagnosticItem } from "../_shared.js"
@@ -37,12 +37,6 @@ export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[
   }
 }
 
-/** The elementary SOURCE type of a conversion call `<SRC>_TO_<DST>` (`UINT_TO_WORD` → UINT), or undefined for a
- *  non-typed conversion (`TO_STRING`) or a non-elementary source. The `<SRC>` before `_TO_` names the type the
- *  argument is implicitly converted TO before the cast — where CODESYS emits the same C0195/C0197 an assignment
- *  would (the sole reason `UINT_TO_WORD(anINT)` warns "change of sign" and `REAL_TO_DINT(anLREAL)` warns "loss"). */
-const CONVERSION_SOURCE_RE = /^([A-Za-z][A-Za-z0-9]*)_TO_[A-Za-z]/i
-
 /**
  * The implicit-conversion WARNING for a conversion-function ARGUMENT, or undefined. `<SRC>_TO_<DST>(arg)`
  * converts `arg` to `<SRC>` first, so an `arg` that narrows/sign-changes into `<SRC>` warns exactly as the
@@ -57,10 +51,10 @@ export function conversionArgError(
   messages: Messages,
 ): DiagnosticItem | undefined {
   if (x.kind !== "call" || x.callee.kind !== "ident_expr") return undefined
-  const m = CONVERSION_SOURCE_RE.exec(x.callee.name)
-  if (m === null) return undefined
-  const srcElem = elementaryType(m[1]!)
-  if (srcElem === undefined) return undefined // e.g. TO_STRING (no explicit source) or non-elementary
+  // The `<SRC>` before `_TO_` is the type the argument converts TO before the cast — where CODESYS emits the same
+  // C0195/C0197 an assignment would (`UINT_TO_WORD(anINT)` warns "change of sign", `REAL_TO_DINT(anLREAL)` "loss").
+  const srcElem = parseConversionName(x.callee.name)?.from
+  if (srcElem === undefined) return undefined // not a conversion, or `TO_STRING` (no explicit source)
   const arg = x.args[0]?.value
   if (arg === undefined) return undefined
   return conversionWarning(elementaryTypeRef(srcElem), inferExprType(arg, scope, project), arg, messages)

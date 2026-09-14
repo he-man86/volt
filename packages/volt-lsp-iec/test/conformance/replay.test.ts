@@ -49,7 +49,8 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // divergences (parse cascades, app-config warnings, op_sys_* / __-system constructs) — not reproducible
   // offline; the subset (no-FP) gate stays green on them.
   // 253 → 255 (2026-09-14): gap 13 — untyped integer literals typed as CODESYS/TwinCAT type them (`overflow_*`).
-  { vendor: "twincat", filename: "expected-tc.json", floor: 255 },
+  // 255 → 256: consolidate-lsp-structure A7 — the network-text jump-label check no longer fires on TwinCAT.
+  { vendor: "twincat", filename: "expected-tc.json", floor: 256 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (coverage.test.ts), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -58,7 +59,8 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // replay project, as it is in the recording project; and declaration parse errors no longer counted twice here.
   // 293 → 311: gap 13 — an untyped integer literal the target cannot hold, typed as its narrowest integer type.
   // 311 → 315: consolidate-lsp-structure A2 — an L-prefixed date literal is the 64-bit type, printed in full.
-  { vendor: "codesys", filename: "expected-codesys.json", floor: 315 },
+  // 315 → 316: A4 — one conversion-name parser; the types it prints are the compiler's.
+  { vendor: "codesys", filename: "expected-codesys.json", floor: 316 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
@@ -70,7 +72,9 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
 // literals), so the LSP is silent on them; they read as honest "not-yet-implemented" misses.
 const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   // TwinCAT does NOT flag a network-text JMP to a missing label (CODESYS does) — confirmed live 2026-07-07.
-  twincat: new Set<string>(["cc_vg_undefined_label"]),
+  // `cc_vg_undefined_label` was listed here: the LSP flagged the network-text JMP on TwinCAT too, a false positive this
+  // set hid. The message is vendor data now (`networkJumpLabelUndefined`), undefined on TwinCAT — no divergence left.
+  twincat: new Set<string>(),
   // The `???` fixtures were here while the LSP answered every position with ONE invented sentence. They are
   // NOT divergences any more: the check reads the slot and emits the COMPILER'S wording for it
   // (`Expression expected instead of '?'` for an operand/pin/instance, `The assignment target is not

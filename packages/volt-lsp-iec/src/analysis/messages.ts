@@ -298,6 +298,9 @@ export interface Messages {
   jumpLabelDuplicate(name: string): string
   /** `JMP` to a label that isn't declared in the POU body (C0117). verified both vendors. */
   jumpLabelUndefined(name: string): string
+  /** A network-text `JMP` to an undefined label: CODESYS words it as `jumpLabelUndefined`; TwinCAT does NOT report it at
+   *  all (confirmed live, conformance `cc_vg_undefined_label`) — so undefined there, and the check stays silent. */
+  networkJumpLabelUndefined(name: string): string | undefined
   /** A jump label declared but never targeted by any `JMP` (C0118). verified both vendors. */
   jumpLabelUnreferenced(name: string): string
   /** External access to an FB instance's VAR_IN_OUT member — forbidden, it's a call-bound reference (C0178). verified both vendors. */
@@ -340,6 +343,7 @@ export function messagesFor(vendor: Vendor): Messages {
     jumpInvalidDestination: (dest) => `Invalid destination ${dest} for ${tc ? "JUMP" : "JMP"}`,
     jumpLabelDuplicate: (name) => `The label '${name.toUpperCase()}' is a duplicate`,
     jumpLabelUndefined: (name) => `No such label '${name.toUpperCase()}' within the scope of the JMP statement${tc ? "." : ""}`,
+    networkJumpLabelUndefined: (name) => (tc ? undefined : `No such label '${name.toUpperCase()}' within the scope of the JMP statement`),
     jumpLabelUnreferenced: (name) => `The label '${name.toUpperCase()}' has not been referenced`,
     // PROVISIONAL (no live recording yet). Object name is the FB TYPE name, matching the doc example.
     // Byte-identical both vendors (2026-07-11), incl. the trailing stray quote (`…of 'FB'."`). TC quotes

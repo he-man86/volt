@@ -35,6 +35,7 @@ import {
   elementaryType,
   inferExprType,
   integerLiteralType,
+  parseConversionName,
   resolveTypeExpr,
   UNKNOWN,
   type ElementaryType,
@@ -362,14 +363,11 @@ class Lowering {
    */
   private builtin(e: Extract<Expr, { kind: "call" }>): IrExpr | undefined {
     const name = e.callee.kind === "ident_expr" ? e.callee.name.toUpperCase() : undefined
-    // `X_TO_Y` / `TO_Y` — a conversion only when BOTH names are elementary types, so a project function that
-    // happens to be called `GO_TO_START` is still an ordinary (not yet lowered) call.
-    const conv = name === undefined ? null : /^(?:([A-Z_]+?)_)?TO_([A-Z_]+)$/.exec(name)
-    if (conv !== null) {
-      const to = named(conv[2]!)
-      const from = conv[1] === undefined ? undefined : named(conv[1])
-      if (to !== UNKNOWN && from !== UNKNOWN) return this.conversion(e, from, to)
-    }
+    // `X_TO_Y` / `TO_Y` — `types/parseConversionName`, the one parser: both names elementary and spelled as CODESYS
+    // spells them. A project function called `GO_TO_START` is an ordinary call, and `TIME_OF_DAY_TO_UDINT` is no
+    // conversion at all (it is not defined — this used to read it as one).
+    const conv = name === undefined ? undefined : parseConversionName(name)
+    if (conv !== undefined) return this.conversion(e, conv.from && named(conv.from.name), named(conv.to.name))
     if (name !== undefined && STANDARD_STRING_FUNCTIONS.has(name)) return this.standardString(e, name)
     const arity = name === undefined ? undefined : BUILTIN_ARITY[name]
     if (name === undefined || arity === undefined) return this.bail("expr-call", "call is not lowered yet", e.span)

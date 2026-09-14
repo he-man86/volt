@@ -74,12 +74,12 @@ export function computeNetworkTextDiagnostics(
         checkBinaryOps(network.statements, scope, project, messages, out)
         checkConversionArgs(network.statements, scope, project, messages, out)
         checkUndeclared(network.statements, scope, project, references, messages, out)
-        checkPins(network.statements, scope, project, out)
+        checkPins(network.statements, scope, project, messages, out)
         checkMetadataPlacement(network, out)
       }
 
       // Labels are resolved across the WHOLE BODY, not per network — see checkLabels.
-      checkLabels(analysis.networkScopes, out)
+      checkLabels(analysis.networkScopes, messages, out)
     }
   }
   return out
@@ -150,6 +150,7 @@ function checkUndeclared(
  */
 function checkLabels(
   networkScopes: Iterable<readonly [NetworkTextNetwork, unknown]>,
+  messages: Messages,
   out: DiagnosticItem[],
 ): void {
   const networks = [...networkScopes].map(([network]) => network)
@@ -158,25 +159,25 @@ function checkLabels(
   // networks' own labels — no statement walk, and no way for one to hide inside an EN/ENO branch.
   const labels = new Set<string>()
   for (const network of networks) if (network.label !== undefined) labels.add(network.label.toLowerCase())
-  for (const network of networks) checkJumps(network.statements, labels, out)
+  for (const network of networks) checkJumps(network.statements, labels, messages, out)
 }
 
-function checkJumps(statements: readonly NetworkTextStatement[], labels: ReadonlySet<string>, out: DiagnosticItem[]): void {
+function checkJumps(
+  statements: readonly NetworkTextStatement[],
+  labels: ReadonlySet<string>,
+  messages: Messages,
+  out: DiagnosticItem[],
+): void {
   for (const s of statements) {
     if (s.kind === "jump") {
-      if (!labels.has(s.target.text.toLowerCase())) {
-        out.push({
-          severity: "error",
-          span: s.target.span,
-          source: SOURCE,
-          code: "network-undefined-label",
-          // CODESYS wording, confirmed live (label UPPERCASED). TwinCAT does NOT flag a network-text JMP to a missing
-          // label at all — so the fixture is a TwinCAT KNOWN_DIVERGENCE in the conformance replay.
-          message: `No such label '${s.target.text.toUpperCase()}' within the scope of the JMP statement`,
-        })
-      }
+      // CODESYS reports it (label UPPERCASED); TwinCAT does not flag a network-text JMP to a missing label at all, so the
+      // message is undefined there. This hard-coded the CODESYS text for both vendors — a TwinCAT false positive the
+      // replay hid as a "known divergence" (consolidate-lsp-structure A7).
+      const message = labels.has(s.target.text.toLowerCase()) ? undefined : messages.networkJumpLabelUndefined(s.target.text)
+      if (message !== undefined)
+        out.push({ severity: "error", span: s.target.span, source: SOURCE, code: "network-undefined-label", message })
     } else if (s.kind === "en_eno_if") {
-      checkJumps(s.body, labels, out)
+      checkJumps(s.body, labels, messages, out)
     }
   }
 }
@@ -189,10 +190,16 @@ function checkJumps(statements: readonly NetworkTextStatement[], labels: Readonl
  * IN_OUT members + PROPERTY accessors (all bare-settable on a box), inherited members included.
  * ponytail: message PROVISIONAL/bridge-gated (network text has no conformance recording yet).
  */
-function checkPins(statements: readonly NetworkTextStatement[], scope: Scope, project: Scope, out: DiagnosticItem[]): void {
+function checkPins(
+  statements: readonly NetworkTextStatement[],
+  scope: Scope,
+  project: Scope,
+  messages: Messages,
+  out: DiagnosticItem[],
+): void {
   for (const s of statements) {
     if (s.kind === "en_eno_if") {
-      checkPins(s.body, scope, project, out)
+      checkPins(s.body, scope, project, messages, out)
       continue
     }
     if (s.kind !== "fb_call" || s.call?.kind !== "call") continue
@@ -208,9 +215,9 @@ function checkPins(statements: readonly NetworkTextStatement[], scope: Scope, pr
           span: arg.param.span,
           source: SOURCE,
           code: "network-unknown-pin",
-          // Both compilers: "'<pin>' is no input of '<FB TYPE, UPPERCASED>'" (confirmed live). Use the FB's
-          // TYPE name (t.name), not the instance expression.
-          message: `'${arg.param.name}' is no input of '${t.name.toUpperCase()}'`,
+          // Both compilers: "'<pin>' is no input of '<FB TYPE, UPPERCASED>'" (confirmed live) — the ST check's
+          // `messages.noInput`, no second copy of the wording. The FB's TYPE name (t.name), not the instance expression.
+          message: messages.noInput(arg.param.name, t.name.toUpperCase()),
         })
       }
     }

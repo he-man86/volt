@@ -7,7 +7,7 @@
  * ponytail: a curated core catalog, not an exhaustive doc port. The full keyword/pragma/standard-FB
  * catalogs + per-vendor equivalence are follow-on data; add entries as hover/lint needs surface them.
  */
-import { ELEMENTARY_TYPES, elementaryType } from "../types/index.js"
+import { ELEMENTARY_TYPES, elementaryType, parseConversionName } from "../types/index.js"
 
 export type ReferenceKind = "data-type" | "operator" | "standard-function"
 
@@ -190,23 +190,17 @@ const CATALOG: ReadonlyMap<string, ReferenceEntry> = new Map(
  * rows — a second, hand-maintained copy of `ELEMENTARY_TYPES` that could disagree with it. Deriving means the
  * entry describes exactly what the name says, and a new elementary type gets its conversions for free.
  *
- * Deliberately stricter than `nameResolves`' `CONVERSION_RE`, and NOT shared with it: that predicate answers
- * "may I flag this?" and stays loose so an unusual conversion is never a false positive; this one answers
- * "can I describe this?" and must not invent a target type it cannot name.
+ * The name is read by `types/parseConversionName`, the one parser identifier resolution, inference and the checks share —
+ * this used to keep its own, and `nameResolves` a looser one that let `TIME_OF_DAY_TO_UDINT` (not defined in CODESYS) pass.
  */
-const CONVERSION = /^(?:([A-Z0-9]+)_TO_([A-Z0-9]+)|TO_([A-Z0-9]+))$/
-
 function conversionEntry(upper: string): ReferenceEntry | undefined {
-  const m = CONVERSION.exec(upper)
-  if (m === null) return undefined
-  const [, from, to, bare] = m
-  const dst = elementaryType(to ?? bare!)
-  if (dst === undefined) return undefined
-  if (from !== undefined && elementaryType(from) === undefined) return undefined
+  const conv = parseConversionName(upper)
+  if (conv === undefined) return undefined
+  const dst = conv.to
   return {
     name: upper,
     kind: "operator",
-    oneLiner: `Convert ${from ?? "the operand"} to ${dst.name}.`,
+    oneLiner: `Convert ${conv.from?.name ?? "the operand"} to ${dst.name}.`,
     returnType: dst.name,
     ...(dst.range === undefined ? {} : { details: `result range ${dst.range.min}..${dst.range.max}` }),
   }

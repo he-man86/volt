@@ -22,9 +22,13 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       arithmetic still folds at full width (`typed_literal_constant_fold`, already matching). `lower.ts` `typedRealOf`
       types a REAL/LREAL-prefixed literal by its prefix, in expressions and initializers. *Why missed:* no oracle case
       had a typed real literal; lowering's literal typing was written for untyped ones.
-- [ ] A4 **Six `X_TO_Y` parsers** (`infer.ts:376`, `reference.ts:197`, `narrowing.ts:35`, `conversion.ts:14`, `lower.ts:366`,
-      `_identifier-resolution.ts:21` loose on purpose) — `TIME_OF_DAY_TO_UDINT`/`DATE_AND_TIME_TO_*` unrecognised in three.
-      One `parseConversionName` in `types/`; record a narrowing fixture on an alias source.
+- [x] A4 **Six `X_TO_Y` parsers** disagreed on spelled-out type names. DONE 2026-09-14 — recorded first, and the
+      recording turned the item around: CODESYS defines NO spelled-out conversion (`TIME_OF_DAY_TO_UDINT` is "Identifier
+      'TIME_OF_DAY_TO_UDINT' not defined", `cc_conv_spelled_*`). So the strict parsers were right; the gaps were the loose
+      one in `analysis/resolution.ts` (any `…_TO_…` shape resolved — the spelled-out names and a project name like
+      `GO_TO_START` were never flagged), lowering reading the spelled-out names as conversions, and `conversion.ts`
+      printing `TOD` where CODESYS prints 'TIME_OF_DAY' (`cc_conv_short_source_mismatch`). One `types/parseConversionName`
+      — exact table names — now used by all six sites. *Why missed:* every conversion fixture used a short name.
 - [x] A5 **Property-accessor scope** — `services/shared/resolve-at.ts`, `assist/signature-help.ts` and
       `assist/inlay-hints.ts` re-walked the bodies with the UNIT scope where `symbols/bodies.ts` uses the accessor's.
       DONE 2026-09-14: `symbols/bodiesAt(offset)`; the three use it (or `bodies()`), and resolve-at's private walker went.
@@ -33,7 +37,11 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
 - [x] A6 **Inlay hints rebuilt parameters** from the callee's AST — no hints for an FB-instance call or inherited inputs.
       DONE 2026-09-14: `resolveCallee`, as signature help and the call checks already did. *Why missed:* the only inlay
       test called a METHOD.
-- [ ] A7 **Network wording hard-coded** — `network-analysis.ts:175` (jump label; TwinCAT differs), `:213` (no input).
+- [x] A7 **Network wording hard-coded** — DONE 2026-09-14. Worse than wording: the jump-label check emitted CODESYS's
+      text on TwinCAT too, where the compiler reports nothing — a TwinCAT false positive the replay listed as a "known
+      divergence". `messages.networkJumpLabelUndefined` is vendor data (undefined on TwinCAT); the pin check uses
+      `messages.noInput`; the divergence entry is gone. *Why missed:* the known-divergence set accepted the mismatch
+      instead of asking which side was wrong.
 - [ ] A8 **`this-super-context.ts:18` compares `THIS` case-sensitively**; `external-write.ts:49` / `inout-external-access.ts:44`
       do not. Verify lowercase `this`, then one `isSelfRef`.
 - [ ] A9 **Label keys**: ST `jump-labels.ts` upper-cases, network lower-cases — verify case-insensitivity holds in both.

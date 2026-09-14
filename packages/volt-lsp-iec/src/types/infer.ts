@@ -19,7 +19,7 @@ import type {
   TypeExpr,
   VarSection,
 } from "../syntax/index.js"
-import { canonicalElem, elementaryType, integerLiteralType, isDatetime, isDuration } from "./elementary.js"
+import { canonicalElem, elementaryType, integerLiteralType, isDatetime, isDuration, parseConversionName } from "./elementary.js"
 import { resolveTypeExpr } from "./resolve.js"
 import { elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
 // Inherent cycle: type inference resolves references via the reference catalog, which itself depends on the type system (bidirectional by design). Function-body import, no init hazard.
@@ -396,8 +396,7 @@ function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
   // FIXED modeled return type yields that. Flows a built-in's result into downstream checks — e.g.
   // `REAL_TO_DINT(EXPT(…))` needs EXPT's type to see an implicit LREAL→REAL narrowing on the argument.
   if (call.callee.kind === "ident_expr") {
-    const conv = /_TO_([A-Za-z][A-Za-z0-9]*)$/i.exec(call.callee.name) ?? /^TO_([A-Za-z][A-Za-z0-9]*)$/i.exec(call.callee.name)
-    const modeled = conv?.[1] ?? lookupReference(call.callee.name)?.returnType
+    const modeled = parseConversionName(call.callee.name)?.to.name ?? lookupReference(call.callee.name)?.returnType
     if (modeled !== undefined) {
       const elem = elementaryType(modeled)
       if (elem !== undefined) return elementaryTypeRef(elem)
