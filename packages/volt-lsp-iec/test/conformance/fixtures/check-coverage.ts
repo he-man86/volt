@@ -95,4 +95,76 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
     plcPrgBody: "inst_vgp();",
     source: `FUNCTION_BLOCK FB_LANG_cc_vgpin_callee\nVAR_INPUT\n\tgoodPin : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nFUNCTION_BLOCK FB_LANG_cc_vg_pin\nVAR\n\tcallee : FB_LANG_cc_vgpin_callee;\nEND_VAR\nNETWORK 0 FBD\n  callee(badPin := TRUE);\nEND_NETWORK\nEND_FUNCTION_BLOCK\n`,
   },
+
+  // ── LSP gaps the transpiler's execution oracle exposed (2026-09-14; tasks.md "Found along the way"). Each was a
+  //    construct with NO fixture, so the zero-FP gate could not see a miss and the corpus never contains it. ──
+  // gap 1 — `R`/`S` are set/reset keywords: `r : REAL` fails to compile in CODESYS; the LSP accepted it.
+  fb("cc_reserved_name_r", "a variable named r → compiler error (R is the reset keyword)", "r : INT;"),
+  fb("cc_reserved_name_s_upper", "a variable named S → compiler error (S is the set keyword)", "S : BOOL;"),
+  // Three existing unit tests declare `s : STRING` as "compiler-accepted code" — never verified for the NAME. Measure
+  // it exactly as they write it before touching them.
+  fb("cc_reserved_name_s_string", "`s : STRING; s := 'abc';` → compiler-accepted, or the set keyword?", "s : STRING;", "s := 'abc';"),
+  // gap 2 — `**` does not parse in CODESYS; the LSP parses it as a power. TwinCAT unmeasured.
+  fb("cc_power_operator", "`**` → not an operator in CODESYS", "x : REAL;", "x := 2.0 ** 3.0;"),
+  // gap 3 — a negated SINT is typed INT for checking (`sint := -sint` fails); the LSP says unary minus preserves the
+  //         type. Measure which types: the rule is NOT "never narrow" (DINT → INT compiled in the exec oracle).
+  fb("cc_neg_sint_into_sint", "negated SINT into SINT → compiler error (typed INT)", "a : SINT; b : SINT;", "b := -a;"),
+  fb("cc_neg_usint_into_usint", "negated USINT into USINT → ?", "a : USINT; b : USINT;", "b := -a;"),
+  fb("cc_neg_byte_into_byte", "negated BYTE into BYTE → ?", "a : BYTE; b : BYTE;", "b := -a;"),
+  fb("cc_fp_neg_int_into_int", "negated INT into INT → accepted", "a : INT; b : INT;", "b := -a;"),
+  fb("cc_fp_neg_dint_into_dint", "negated DINT into DINT → accepted", "a : DINT; b : DINT;", "b := -a;"),
+  fb("cc_fp_neg_sint_into_int", "negated SINT into INT → accepted", "a : SINT; b : INT;", "b := -a;"),
+  fb("cc_fp_sint_plus_one", "SINT := SINT + 1 → accepted (arithmetic promotes at run time, not for checking)", "a : SINT;", "a := a + 1;"),
+  // Recorded: SINT/USINT/BYTE negate to INT, INT and DINT keep their type. Where do the WIDER unsigned types go?
+  fb("cc_neg_uint_into_uint", "negated UINT into UINT → ?", "a : UINT; b : UINT;", "b := -a;"),
+  fb("cc_neg_word_into_word", "negated WORD into WORD → ?", "a : WORD; b : WORD;", "b := -a;"),
+  fb("cc_neg_udint_into_udint", "negated UDINT into UDINT → ?", "a : UDINT; b : UDINT;", "b := -a;"),
+  fb("cc_neg_uint_into_int", "negated UINT into INT → ?", "a : UINT; b : INT;", "b := -a;"),
+  fb("cc_fp_neg_lint_into_lint", "negated LINT into LINT → accepted", "a : LINT; b : LINT;", "b := -a;"),
+  // gap 4 — EXPT's TYPE: values cannot tell, a narrowing WARNING can (LREAL → REAL warns; REAL → REAL does not).
+  fb("cc_expt_real_into_real", "EXPT(REAL, REAL) into REAL → a narrowing warning only if EXPT is typed LREAL", "a : REAL; b : REAL; c : REAL;", "c := EXPT(a, b);"),
+  fb("cc_expt_int_into_real", "EXPT(INT, INT) into REAL → narrowing warning expected (typed LREAL)", "i : INT; c : REAL;", "c := EXPT(i, i);"),
+  // Recorded: EXPT(REAL, REAL) is typed REAL (no warning), EXPT(INT, INT) LREAL (warning). The mixed pair decides.
+  fb("cc_expt_real_int_into_real", "EXPT(REAL, INT) into REAL → ?", "a : REAL; i : INT; c : REAL;", "c := EXPT(a, i);"),
+  fb("cc_expt_lreal_real_into_real", "EXPT(LREAL, REAL) into REAL → ?", "l : LREAL; a : REAL; c : REAL;", "c := EXPT(l, a);"),
+  // The class fix: every operator the grammar accepts gets at least one fixture (test/conformance/coverage.test.ts
+  // enforces it). These six had NONE when it was first measured — the same blind spot `**` sat in.
+  fb("cc_fp_op_divide", "`/` → accepted", "a : INT := 7; b : INT := 2; c : INT;", "c := a / b;"),
+  fb("cc_fp_op_less_equal", "`<=` → accepted", "a : INT; ok : BOOL;", "ok := a <= 3;"),
+  // Written as FP-bait; the compiler said otherwise — `&` is NOT an operator in CODESYS (a parse error, like `**`).
+  // The name keeps its `fp_` prefix because the recording is keyed by it and is never edited by hand.
+  fb("cc_fp_op_ampersand", "`&` → NOT an operator in CODESYS (measured: a parse error)", "a : BOOL; b : BOOL; c : BOOL;", "c := a & b;"),
+  fb("cc_fp_op_xor", "`XOR` → accepted", "a : BOOL; b : BOOL; c : BOOL;", "c := a XOR b;"),
+  fb("cc_fp_op_and_then", "`AND_THEN` → accepted", "a : BOOL; b : BOOL; c : BOOL;", "c := a AND_THEN b;"),
+  fb("cc_fp_op_or_else", "`OR_ELSE` → accepted", "a : BOOL; b : BOOL; c : BOOL;", "c := a OR_ELSE b;"),
+  // gap 7 — `T#1500US` does not compile in CODESYS (TIME is milliseconds; the execution oracle measured it); the LSP
+  //         accepts it silently. gap 8 — the AST gives `LTIME#` and `T#` one literalKind, so an LTIME literal may be
+  //         typed TIME for checking: does CODESYS reject one stored into a TIME?
+  fb("cc_time_microsecond_literal", "`T#1500US` → not a TIME literal in CODESYS", "fine : TIME := T#1500US;"),
+  // Recorded: the declaration shape is a parse cascade that stops at the unit. Before mirroring it — the body shape,
+  // a nanosecond unit, and a unit after a valid component.
+  fb("cc_time_microsecond_literal_in_body", "`t := T#1500US` in a body → ?", "t1 : TIME;", "t1 := T#1500US;"),
+  fb("cc_time_nanosecond_literal", "`T#5NS` → ?", "t1 : TIME;", "t1 := T#5NS;"),
+  fb("cc_time_seconds_then_microseconds", "`T#1S500US` → ?", "t1 : TIME;", "t1 := T#1S500US;"),
+  fb("cc_fp_ltime_microsecond_literal", "`LTIME#1500US` → accepted", "lt1 : LTIME;", "lt1 := LTIME#1500US;"),
+  // gap 12 — the declaration parser silently accepts a stray token after an initializer (why gap 7's declaration shape
+  //          stayed silent). What does CODESYS say for the general case?
+  fb("cc_decl_init_trailing_ident", "`x : INT := 5 abc;` → compiler error", "x : INT := 5 abc;"),
+  fb("cc_decl_init_trailing_int", "`x : INT := 5 6;` → compiler error", "x : INT := 5 6;"),
+  fb("cc_ltime_literal_into_time", "an LTIME literal into a TIME → ?", "t1 : TIME;", "t1 := LTIME#1S;"),
+  fb("cc_fp_ltime_literal_into_ltime", "an LTIME literal into an LTIME → accepted", "lt1 : LTIME;", "lt1 := LTIME#1S;"),
+  // gap 9 — a Standard FUNCTION's arguments were never checked (call-arguments skipped every library callee); CODESYS
+  //         refuses a WSTRING for LEN's STRING(255) (execution oracle `standard_len_wstring_rejected`).
+  fb("cc_standard_len_wstring", "Standard LEN given a WSTRING → compiler error", "w : WSTRING; n : INT;", "n := LEN(w);"),
+  // gap 11 — arithmetic on a STRING is silent in the LSP; CODESYS: "Cannot convert type 'STRING' to type 'ANY_NUM'"
+  //          (execution oracle `string_arithmetic_rejected`). Which operators, which side, and WSTRING too?
+  fb("cc_string_plus_string", "STRING + STRING → compiler error", "a : STRING; b : STRING; c : STRING;", "c := a + b;"),
+  fb("cc_string_minus_string", "STRING - STRING → ?", "a : STRING; b : STRING; c : STRING;", "c := a - b;"),
+  fb("cc_string_times_int", "STRING * INT → ?", "a : STRING; i : INT; c : STRING;", "c := a * i;"),
+  fb("cc_string_div_int", "STRING / INT → ?", "a : STRING; i : INT; c : STRING;", "c := a / i;"),
+  fb("cc_int_plus_string", "INT + STRING → ?", "a : STRING; i : INT; j : INT;", "j := i + a;"),
+  fb("cc_wstring_plus_wstring", "WSTRING + WSTRING → ?", "a : WSTRING; b : WSTRING; c : WSTRING;", "c := a + b;"),
+  // gap 5 — set/reset assignment had no fixture at all, and the LSP's parser rejected a valid chain.
+  fb("cc_fp_set_reset", "S= and R= → accepted", "a : BOOL; b : BOOL;", "a S= b;\na R= b;"),
+  fb("cc_fp_set_reset_chain", "chained `a S= b R= c` → accepted", "a : BOOL; b : BOOL; c : BOOL;", "a S= b R= c;"),
 ]

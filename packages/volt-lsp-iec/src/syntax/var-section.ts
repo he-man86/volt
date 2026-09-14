@@ -21,7 +21,29 @@ import { type Identifier, type VarDecl, type VarSection, type VarSectionKind } f
 import { Cursor } from "./cursor.js"
 import { bodySpanFromTokens, identFromToken, joinSpans } from "./util.js"
 import { parseTypeExpression } from "./type-expr.js"
-import { collectInitTokens, initializerFromTokens } from "./expression.js"
+import { collectInitTokens, initializerFromTokens, parseExprFromTokens } from "./expression.js"
+
+/**
+ * The first token after a COMPLETE scalar initializer, or undefined. `x : INT := 5 abc;` does not compile —
+ * "';' expected instead of 'abc'" (conformance `cc_decl_init_trailing_ident`, `_int`) — but the initializer's tokens were
+ * collected up to the `;` and anything that did not parse became an opaque aggregate, silently (gap 12). An aggregate
+ * shape (`(`, `[`, `STRUCT`) is the aggregate parser's. A TIME literal cut at a `US`/`NS` unit is not a stray token
+ * either: CODESYS rejects the literal itself there, which `analysis/checks/types/time-literal-unit.ts` reports.
+ * ponytail: tries each prefix, longest first — quadratic in the initializer's token count, which is a handful.
+ */
+function strayAfterScalarInit(tokens: readonly Token[]): Token | undefined {
+  const first = tokens[0]
+  if (first === undefined || ["(", "[", "STRUCT"].includes(first.text.toUpperCase())) return undefined
+  if (parseExprFromTokens(tokens) !== undefined) return undefined
+  for (let k = tokens.length - 1; k >= 1; k--) {
+    if (parseExprFromTokens(tokens.slice(0, k)) === undefined) continue
+    const before = tokens[k - 1]!
+    const stray = tokens[k]!
+    if (before.kind === "time_lit" && before.span.end === stray.span.start) return undefined
+    return stray
+  }
+  return undefined
+}
 
 const SECTION_KEYWORDS: readonly Keyword[] = [
   "VAR",
@@ -153,7 +175,10 @@ function parseVarDecl(c: Cursor): VarDecl | undefined {
   const hasBracketInit = c.peek().kind === "punct" && c.peek().text === "["
   const assign = hasBracketInit ? undefined : (c.eatPunct(":=") ?? c.eatPunct("REF="))
   if (hasBracketInit || assign !== undefined) {
-    init = initializerFromTokens(collectInitTokens(c))
+    const initTokens = collectInitTokens(c)
+    init = initializerFromTokens(initTokens)
+    const stray = strayAfterScalarInit(initTokens)
+    if (stray !== undefined) c.pushError(`';' expected instead of '${stray.text}'`, stray.span)
   }
 
   const semi = c.expectPunct(";", "after var declaration")

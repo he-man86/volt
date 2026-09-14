@@ -23,6 +23,7 @@ import { parseSource } from "../../src/syntax/index.js"
 import { buildSymbolTable } from "../../src/symbols/index.js"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig, type Vendor } from "../../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../../src/network/index.js"
+import { STANDARD_LIBRARY } from "../exec/standard-library.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 
 interface RecordedDiagnostic {
@@ -48,7 +49,13 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // divergences (parse cascades, app-config warnings, op_sys_* / __-system constructs) — not reproducible
   // offline; the subset (no-FP) gate stays green on them.
   { vendor: "twincat", filename: "expected-tc.json", floor: 253 },
-  { vendor: "codesys", filename: "expected-codesys.json", floor: 257 },   // the `???` slots match on text
+  // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
+  // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
+  // (coverage.test.ts), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
+  // 280 → 293 (2026-09-14): gaps 7 (a TIME literal's US/NS unit), 8 (LTIME literal typing), 9 (a library FUNCTION's
+  // arguments), 11 (string arithmetic), 12 (a stray token after an initializer); the Standard library now in the CODESYS
+  // replay project, as it is in the recording project; and declaration parse errors no longer counted twice here.
+  { vendor: "codesys", filename: "expected-codesys.json", floor: 293 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
@@ -106,6 +113,11 @@ function extFor(kind: string): string {
   return map[kind] ?? "fb"
 }
 
+// The CODESYS recording project references Standard, as every CODESYS project does, so a fixture calling LEN compiled
+// against that library's declaration: replay against the same materialized files (gap 9, `cc_standard_len_wstring`).
+// TwinCAT's standard library is Tc2_Standard, a different materialization — not added for it.
+const CODESYS_STANDARD = STANDARD_LIBRARY.map((l) => ({ ...l, parseResult: parseSource(l.source) }))
+
 /** Every error+warning message the LSP emits for a fixture (incl. parse errors + PLC_PRG usage). */
 function runLsp(testIdx: number, vendor: Vendor): string[] {
   const own = PARSED[testIdx] as (typeof PARSED)[number]
@@ -114,6 +126,7 @@ function runLsp(testIdx: number, vendor: Vendor): string[] {
     { uri: own.uri, parseResult: own.parseResult, source: own.source },
     ...(plc ? [{ uri: plc.uri, parseResult: plc.parseResult, source: plc.source }] : []),
     ...CROSS_DECLS.filter((_, i) => i !== testIdx),
+    ...(vendor === "codesys" ? CODESYS_STANDARD : []),
   ])
   const config = resolveConfig({ vendor })
   const diags = computeSemanticDiagnostics({ parseResult: own.parseResult, source: own.source, project, config })
@@ -125,7 +138,8 @@ function runLsp(testIdx: number, vendor: Vendor): string[] {
   const msgs = diags
     .filter((d) => d.severity === "error" || d.severity === "warning")
     .map((d) => `[${d.severity}] ${d.message}`)
-  for (const e of own.parseResult.errors) msgs.push(`[error] ${e.message}`)
+  // No separate `parseResult.errors` here: `checkParseErrors` already reports them. Pushing them again counted every
+  // DECLARATION parse error twice, so a fixture like `cc_decl_init_trailing_ident` could never agree exactly.
   return msgs.sort()
 }
 

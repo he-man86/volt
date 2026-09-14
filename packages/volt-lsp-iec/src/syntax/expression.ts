@@ -32,7 +32,9 @@ import type {
 import { parseLiteralValue } from "./literal-value.js"
 
 // ─── Precedence table (task 1.3) — lowest binding first ──────────────
-const BINARY_PRECEDENCE: ReadonlyArray<{
+// Exported for `test/conformance/coverage.test.ts`, which requires every operator here to appear in at least one
+// conformance fixture — so an operator the grammar accepts can never again go unmeasured, the way `**` did.
+export const BINARY_PRECEDENCE: ReadonlyArray<{
   ops: readonly string[]
   prec: number
   rightAssoc?: boolean

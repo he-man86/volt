@@ -35,6 +35,19 @@ END_FUNCTION_BLOCK`)
   expect(fb.implements?.map((i) => i.text)).toEqual(["IA", "IB"])
 })
 
+test("an assignment chain keeps each link's operator — `a S= b R= c` is valid CODESYS, not a parse error", () => {
+  // No parser test covered chains at all, so a loop that accepted `:=` links only — after a plain `:=` only — made
+  // a set/reset chain CODESYS compiles (test/exec `set_reset_chained`) into "';' expected instead of 'R='".
+  type Assign = Extract<ReturnType<typeof stmts>["statements"][number], { kind: "assign" }>
+  const chain = stmts("a S= b R= c;")
+  expect(chain.ok).toBe(true)
+  const s = chain.statements[0] as Assign
+  expect([s.op, s.chained?.length, s.chainOps]).toEqual(["S=", 1, ["R="]])
+  const plain = stmts("a := b := c;")
+  expect(plain.ok).toBe(true)
+  expect((plain.statements[0] as Assign).chainOps).toEqual([undefined])
+})
+
 test("subrange is structured with valued bounds", () => {
   const t = firstDecl("FUNCTION_BLOCK F\nVAR\n x : INT(0..100);\nEND_VAR\nEND_FUNCTION_BLOCK").type as NamedType
   expect(t.kind).toBe("named_type")
@@ -133,6 +146,17 @@ test("statement tree: CODESYS typed char literal `UCHAR#'A'` parses cleanly", ()
 // for a missing END_VAR that is right there sent readers hunting the wrong line.
 
 const messages = (src: string) => parseSource(src).errors.map((e) => e.message)
+
+test("a stray token after a scalar initializer is a parse error, worded as CODESYS reports it (gap 12)", () => {
+  // It was silent: the initializer's tokens were collected up to `;`, and an unparsable tail became an opaque aggregate.
+  const fb = (decl: string) => `FUNCTION_BLOCK F\nVAR\n  ${decl}\nEND_VAR\nEND_FUNCTION_BLOCK`
+  expect(messages(fb("x : INT := 5 abc;"))).toEqual(["';' expected instead of 'abc'"])
+  expect(messages(fb("x : INT := 5 6;"))).toEqual(["';' expected instead of '6'"])
+  // not stray: an aggregate, a complete expression, and a TIME literal cut at its unit (its own check reports that)
+  expect(messages(fb("p : ST := (a := 1, b := 2);"))).toEqual([])
+  expect(messages(fb("x : INT := 2 + 3;"))).toEqual([])
+  expect(messages(fb("t1 : TIME := T#1500US;"))).toEqual([])
+})
 
 test("a reserved word as a variable name is reported on the name, not the section header", () => {
   const src = "PROGRAM P\nVAR\n  Limit : INT;\n  Ok : BOOL;\nEND_VAR\nOk := TRUE;\nEND_PROGRAM\n"

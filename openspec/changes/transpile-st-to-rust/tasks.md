@@ -1,8 +1,12 @@
 Rehomed from `build-st-language-server` (task X.1). The architecture is in place; coverage is the work.
 
-Every percentage below is measured by `bun run scripts/lower-completeness.ts` over the 4-project corpus,
-against the **301 POUs that have a body**. Re-run it after each item — the number is the progress report, and
-a task that does not move it was mis-prioritised.
+**Two progress measures, for two kinds of work.**
+- **Primitives (phase 2)** — measured by the oracle: every type/operator row below is done when its cases in
+  `test/exec` are recorded from CODESYS and green in BOTH `interp/` and the emitted Rust.
+- **Structure (phase 3+)** — measured by `bun run scripts/lower-completeness.ts` over the 4-project corpus
+  (304 POUs with a body). Primitives barely move that number, by design: calls to FB instances (84%) and member
+  access (31%) block nearly every real POU, and both wait on design §9. Primitives go first anyway (decided
+  2026-09-14): they are fully testable today, need no design decision, and are what an ST unit test exercises most.
 
 ## Phase 0 — the skeleton and the executable core · DONE
 
@@ -15,34 +19,187 @@ a task that does not move it was mis-prioritised.
 - [x] `scripts/lower-completeness.ts` — the ratchet, counted over POUs with a body.
 - [x] `check-layering.ts` — inside `transpile/`, only `ir/` crosses folders.
 
-## Phase 1 — the oracle · DO THIS FIRST
+## Phase 1 — the oracle · DONE
 
-Nothing after this should be built on remembered vendor behaviour (design §7). This phase changes the risk of
-every later phase, not its size.
+Nothing after this is built on remembered vendor behaviour (design §7).
 
-- [ ] Extend the headless-CODESYS harness (`packages/volt-cli/scripts/ide.ps1`) to read variable
-      state after N scan cycles. The pipe and the fixture project already exist; the missing verb is a
-      state read, not a new harness.
-- [ ] `test/exec/differential.test.ts` — same POU, same inputs, IDE vs `interp/`; assert equal state.
-      Recorded like `test/conformance/` so it replays offline in CI, live only when recording.
-- [ ] Seed it with the executable core: arithmetic at type boundaries, integer division and MOD signs,
+- [x] Read variable state from CODESYS after N scan cycles: `bun run record:exec` runs `scripts/record-exec.py`
+      inside a headless CODESYS, in SIMULATION, on a copy of the fixture. **Not a pipe verb**, as this line first
+      said: the scripting `online` object only works inside a running script — measured on SP21 by
+      `volt-cli/scripts/probe-online-state.py` (`ScriptOnline` peeks an execution stack that is empty outside one).
+- [x] `test/exec/differential.test.ts` — same program, same initial values, IDE vs `interp/` AND vs the emitted
+      Rust (each case its own debug binary, so an overflow panic is a divergence). Replays
+      `test/exec/recordings/expected-codesys.json` offline, like `test/conformance/`.
+- [x] Seed it with the executable core: arithmetic at type boundaries, integer division and MOD signs,
       REAL/LREAL precision, CASE range edges, FOR with a negative step.
-- [ ] Settle the one construct already known-unverified: an all-constant expression in a REAL context
-      (`x : REAL := 7 / 2`) — see design §4, and the `ponytail:` note in `lower.ts`.
-- [ ] Re-verify C0582's wording while a live IDE is up. Its catalog entry is `verified: {codesys: false}`
-      with PROVISIONAL wording, and its recorded `codesysActual` shows the repro never compiled.
+- [x] Fix every divergence found — all in design §4: `7 / 2` into REAL is 3; REAL is float32; integers wrap at
+      width; ints AND bit strings under 32 bits promote to signed DINT; AND/OR/XOR and unary minus promote, NOT
+      does not; one REAL operand makes a division REAL; all-constant integers fold at full width. `**` and an
+      implicit REAL → INT do not compile in CODESYS.
+- [x] Re-verify C0582's wording. **It cannot be verified on SP21** (`volt-cli/scripts/probe-duplicate-method.py`):
+      the object tree refuses a second same-named method at CREATE, so the compiler never sees the repro.
+      Whether the LSP should mirror that creation error instead is an LSP-catalog decision, not taken here.
 
-## Phase 2 — the built-ins · 2,424 call sites, 81 names
+## The input contract — code CODESYS compiles (decided with the user 2026-09-14)
 
-Bounded, IEC-specified, and mandatory (a built-in cannot be stubbed the way a library FB can). Each one is
-verified against phase 1, not against recollection.
+The transpiler is defined only for programs the vendor build accepts; the gate is that build, not the LSP (false
+negatives). Written into `src/transpile/index.ts`. Consequences, done: `**`/`&` lost their IR meanings (neither parses
+in CODESYS) and the IR `pow` op went; the `LEN(WSTRING)` refusal went. "Does not compile" is MEASURED: an exec case with
+`rejects` asserts the refusal. Every remaining refusal is valid code, *not modelled yet* or *not measured yet*.
+- [x] Recorded 2026-09-14 — every probe refused: `**`/`&` (parse errors), `LEN(WSTRING)`, `'x' + 'y'` ("Cannot convert
+      type 'STRING' to type 'ANY_NUM'"), `word16.16` ("'16' is no valid bit number"), and STRING↔WSTRING stores and
+      comparisons — so `mixedWidth` (`string-width`) was deleted: lowering has no rule for input that cannot exist.
 
-- [ ] `MAX` 309 · `SEL` 209 · `LIMIT` 62 · `MIN` 57 — the value functions. One-liners over `types/elementary`.
-- [ ] The conversion family — 504 sites, 43 names. Table-driven from family/bits/signed, **not** 43 cases.
-- [ ] `CONCAT` 100 and the string functions — blocked on the STRING decision in phase 5.
-- [ ] `ADR` 333 · `SIZEOF` 56 · `UPPER_BOUND` 46 · `LOWER_BOUND` 41 — blocked on phase 3's memory model.
-- [ ] `__POUNAME` 304 · `__ISVALIDREF` 48 · `__QUERYINTERFACE` 33 — CODESYS compiler operators.
-- [ ] `TRUNC`/`TRUNC_INT`, `ABS`, `EXPT`, `SIN`/`COS`/`ATAN` — numeric; watch rounding against the oracle.
+## Phase 2 — the primitives · IN PROGRESS
+
+Every row: record oracle cases FIRST, then implement, then green in both backends. In this order:
+
+- [x] **Value functions** — `MAX` 309 · `SEL` 209 · `LIMIT` 62 · `MIN` 57. One `IrBuiltin` node; see design §10,
+      incl. why LIMIT is not Rust's `clamp`.
+- [x] **Conversions** — the `*_TO_*` family (504 sites, 43 names) plus `TRUNC`/`TRUNC_INT`, and `TO_*`. Done
+      2026-09-14: 14 oracle cases, green in both backends; one `convert` node shared with the implicit conversions,
+      table-driven from family/bits/signed. Measured rules in design §11 — REAL → integer rounds half AWAY from zero
+      (the interpreter truncated); every integer result wraps; TRUNC out of DINT range is DINT's minimum (not a wrap).
+      `expr-call` 58 → 53 POUs. TIME/DATE/STRING conversions report `conversion-type` until their rows.
+- [x] **Math** — `ABS`, `SQRT`, `LN`, `LOG`, `EXP`, `EXPT`, `SIN`/`COS`/`TAN`/`ASIN`/`ACOS`/`ATAN`. Done 2026-09-14:
+      9 oracle cases, green in both backends; rules in design §12 — a REAL argument computes in float32, an LREAL or
+      integer in LREAL; EXPT is REAL only when both arguments are REAL; ABS promotes. Left open, each noted in §12:
+      - runtime exceptions (a math domain error, division by zero) — the application stops; not modelled, and the
+        oracle cannot record a value for one;
+      - the LSP types EXPT as always LREAL (`reference.ts`) — maybe wrong for `EXPT(REAL, REAL)`, undecidable from
+        values; an LSP-catalog question;
+      - `**` does not parse in CODESYS, yet `lower.ts` still maps it to `pow`.
+- [x] **Bit operations** — `SHL`/`SHR`/`ROL`/`ROR`, `MUX`, bit access `x.3` for READ and WRITE. Done 2026-09-14:
+      13 oracle cases, green in both backends; rules in design §14 — SHL/SHR shift the promoted value with an
+      x86-style count mask (5 bits, 6 for 64-bit types) and SHR is arithmetic on signed; ROL/ROR keep their own width;
+      MUX's out-of-range K picks the last input; bits are two's complement. Rust's `wrapping_shl`/`rotate_left` match
+      every edge. Bit access is the first `Place.path` step and needed no §9 decision. **Ratchet: fully lowered
+      1 → 5 of 304** — the first primitive row to move it. `bit-on-reference` (1 POU) is aliasing, phase 4.
+- [x] **Set/reset assignment** — `S=` / `R=`. Done 2026-09-14: 7 oracle cases, green in both backends; rules in
+      design §15 — a latch, not an assignment; in a chain the VALUE flows right to left, converted at each link, and
+      a latch passes it on unchanged. `assign-op` 17 → 0 POUs; **fully lowered 5 → 6 of 304**. Bugs it exposed, each
+      with the test gap that let it through: the LSP parser rejected valid chains (no chain test, no `S=` fixture,
+      none in the corpus); the formatter would have rewritten `a S= b R= c` into `a S= b S= c` (no chain test); two
+      temps in one POU emitted duplicate Rust fields (no test ever had two temps).
+- [x] **TIME / LTIME** — Done 2026-09-14: 6 oracle cases, green in both backends; rules in design §16 — TIME is
+      32-bit MILLISECONDS (max + 1 ms wraps to 0), LTIME 64-bit nanoseconds, a duration × ÷ an integer stays a
+      duration, `T#1500US` does not compile. The suspected bug was real, and worse: every duration was an unbounded
+      bigint of nanoseconds (emitted `i64`), and `t : TIME := T#1S` started at 0 because `constEval` skips durations.
+      *Why missed:* no TIME oracle case; the unit was a recalled note while `types/elementary` said 32 bits. Ratchet
+      unchanged (6 of 304) — no POU was blocked on TIME alone. LSP gaps 7/8 (above) await a bridge pass.
+- [x] **DATE / TOD / DT** (+ L variants) — Done 2026-09-14: 10 oracle cases, green in both backends; rules in design §17
+      — DATE/DT 32-bit SECONDS (not days), TOD 32-bit milliseconds NOT reduced modulo a day, L variants 64-bit ns; a
+      date ± a duration truncates into the date's unit; date − date scales into TIME and wraps as a UDINT. Bugs: a date
+      literal was typed STRING, its initializer never folded, date arithmetic did not lower, and `types/elementary`
+      said DT is 64 bits. *Why missed:* no date oracle case. The recorder's TOD/DATE displays are lossy, so the replay
+      compares values as displayed and reads stored truth through `*_TO_UDINT`. Ratchet unchanged (6 of 304).
+- [ ] **STRING / WSTRING** — nearly done 2026-09-14; rules in design §18. Green in both backends: capacity on the
+      resolved type (sizeless = 80, STRING and WSTRING), truncation on every store, comparison by code unit, every `$`
+      escape, the nine Standard string functions as LIBRARY-GATED intrinsics (bound only to `Library Manager/Standard/`,
+      signature STRING(255) from the `.fun`, so a longer argument is cut on the way in) with all position edges, and
+      integer/bit string/BOOL/TIME → STRING, STRING → integer/REAL/LREAL. Rust: a generated `IecStr<T, N>` (u8 / u16).
+      Bugs, each with why no test caught it (§18): every string slot started EMPTY (`declare` silently dropped an
+      unfoldable initializer — now `init-not-constant`, 22 corpus POUs that were silently wrong); `String` moved out of
+      `self`; `STRING(n)`'s length was never resolved; the recorder mangled non-ASCII in both directions. Open:
+      - **REAL_TO_STRING / LREAL_TO_STRING — stays REFUSED (user decision 2026-09-14)**: no one digit rule fits the
+        samples (§18). The recorded case `real_to_string_digits` is `deferred`, not red;
+      - (done) WSTRING is UTF-16 units — `wstring_code_units`, recorded once the recorder stopped mangling non-ASCII;
+      - Standard64's W-functions — PARKED with the rest of the Standard-library work (user, 2026-09-14).
+
+## Found along the way — LSP gaps the oracle exposed · RESEARCH AND FIX (decided 2026-09-14)
+
+The execution oracle compiles every case in real CODESYS, so it keeps finding places where the LSP disagrees with
+the compiler. Each is researched and fixed where found, not parked: a conformance fixture recorded from the live
+compiler (`bun run record:language`, `RECORD_ONLY=`) so the wording is the IDE's, then the fix, then a colocated
+test. A rule that may differ on TwinCAT goes behind the vendor config — never a new FP on the other vendor.
+
+**Every fix also answers "why did no test catch this?" — and closes THAT hole** (decided 2026-09-14). The pattern so
+far: the conformance gate fails only on a FALSE POSITIVE, and its agreement ratchet only covers fixtures that already
+exist — so a construct with no fixture can be silently accepted forever, and the corpus cannot help (real projects do
+not contain the invalid code). A missing fixture is the symptom; the class fix is a coverage check (e.g. every
+operator and reserved word in the reference catalog has a conformance fixture), so the next gap shows up as a missing
+row instead of being found by accident.
+
+All five fixed 2026-09-14 — 22 fixtures in `check-coverage.ts` recorded live over the bridge; CODESYS exact agreement
+264 → 275 (floor raised), zero-FP gate and corpus green:
+
+- [x] **`R` / `S` as names** — CODESYS rejects a variable named `r`/`s` at the declaration AND every use
+      (`Unexpected token 's' found`, echoing the name as written). New check `names/set-reset-name.ts`, CODESYS-only
+      (TwinCAT unmeasured). *Why missed:* the lexer reads a bare `r`/`s` as an identifier; no fixture declared one;
+      no project does. **It also exposed three unit tests whose "compiler-accepted" premise was false** — they
+      declared `s` — verified by `cc_reserved_name_s_string`, then renamed.
+- [x] **`**`** — CODESYS parse error (`';' expected instead of '**'`, `Unexpected token '**' found`). New check
+      `types/power-operator.ts`, CODESYS-only. *Why missed:* the grammar took `**` from the IEC standard, never a
+      compiler, and no fixture used it.
+- [x] **Unary minus typing** — the signed type of the operand's width, at least 16 bits: SINT/USINT/BYTE/UINT/WORD →
+      INT, UDINT → DINT (64-bit unsigned unmeasured → unknown), plus the operand's "change of sign" for UINT/WORD/
+      UDINT. `infer.ts` `negatedType`, `narrowing.ts` `negationOperandWarning`. *Why missed:* a recalled comment
+      ("NOT/-/+ preserve the type") and no FP-bait or fixture ever negated a narrow type.
+- [x] **EXPT's type** — REAL only when both arguments are REAL, else LREAL (an int literal counts as not-REAL; a REAL
+      beside an int literal stays unknown — unmeasured). It was a LIVE FALSE POSITIVE: `real := EXPT(real, real)`
+      warned. `infer.ts` `exptType`; the recalled "always LREAL" left `reference.ts`. *Why missed:* no fixture
+      stored a REAL-argument EXPT into a REAL.
+- [x] **Chained `a S= b R= c`** — parser + formatter fixed (design §15); `cc_fp_set_reset*` recorded and green.
+- [x] **`T#1500US`** (gap 7) — FIXED 2026-09-14. Recorded (`cc_time_microsecond_literal*`, `cc_time_nanosecond_literal`,
+      `cc_time_seconds_then_microseconds`, `cc_fp_ltime_microsecond_literal`): a TIME literal has no US/NS unit — CODESYS
+      ends the literal there and reports `';' expected instead of 'T#1500'` and `Expression expected instead of 'T#1500'`
+      (+ a failed initial value in a declaration); `LTIME#1500US` is fine. The lexer now ends a TIME body at `u`/`n`/`µ`,
+      and `types/time-literal-unit.ts` (CODESYS-only) reports the literal. *Why missed:* the lexer accepted every duration
+      unit for every duration prefix (LTIME needs them), no fixture used one on a TIME, no compiling project has one.
+- [x] **LTIME literal typing** (gap 8) — FIXED 2026-09-14. Inference typed `LTIME#1S` as TIME: `lt := LTIME#1S` was a
+      FALSE POSITIVE and `t := LTIME#1S` silent ("Cannot convert type 'LTIME' to type 'TIME'"). `infer.ts` reads the
+      prefix. *Why missed:* one `literalKind` for both, and no fixture put an LTIME literal anywhere. An `LT#` prefix was
+      claimed by inference and by the transpiler without a measurement (the lexer reads `LT` as a keyword) — removed.
+- [x] **The class fix: every grammar operator has a fixture** — `test/conformance/coverage.test.ts` reads the grammar's
+      own `BINARY_PRECEDENCE`. First measured: `/`, `<=`, `&`, `XOR`, `AND_THEN`, `OR_ELSE` had NO fixture. Recording
+      them found **gap 6 on the spot: `&` is not an operator in CODESYS** (parse error, exactly like `**`) — the check
+      became `types/unsupported-operator.ts` for both. CODESYS agreement 275 → 280.
+- [ ] **C0582's wording** — unreachable on SP21 (design §7 of phase 1 above). Mirror the tree's creation error
+      instead? A decision for the user, not researched further.
+- [x] **A Standard function's arguments are never checked** (gap 9) — FIXED 2026-09-14: a library FUNCTION's arguments
+      are checked (a library FB or method stays skipped — inheritance is flattened there); `renderType` prints a declared
+      string length (`STRING(255)`); the CODESYS replay project now holds Standard's `.fun` files, as the recording
+      project does. Fixture `cc_standard_len_wstring`. — `call-arguments.ts` skips EVERY library callee
+      ("library signatures flatten var sections"), so `LEN(wide)` with a WSTRING is silent while CODESYS refuses it:
+      "Cannot convert type 'WSTRING' to type 'STRING(255)'" (execution oracle, `wstring_basic`, 2026-09-14). Standard's
+      materialized `.fun` files are complete (VAR_INPUT kept), so the skip is too broad for them. Needs a fixture recorded
+      live before the fix. *Why missed:* the skip was written for lossy libraries and no fixture passed a library
+      function a wrong argument.
+- [x] **Arithmetic on a STRING is silent** (gap 11) — FIXED 2026-09-14 in `binary-operators.ts`: a string on the LEFT of
+      + - * / is "Cannot convert type '<STRING|WSTRING>' to type 'ANY_NUM'", on the RIGHT of a number "Cannot convert type
+      'STRING' to type '<that number>'" (fixtures `cc_string_*`, `cc_int_plus_string`, `cc_wstring_plus_wstring`). — `joined := left + right` with two STRINGs: CODESYS "Cannot convert
+      type 'STRING' to type 'ANY_NUM'" (exec `string_arithmetic_rejected`, 2026-09-14); the LSP reports nothing. Found by
+      running every `rejects` case through `computeSemanticDiagnostics`: 4 of 6 agree (`**`, `&`, bit number, STRING↔
+      WSTRING); the other miss is gap 9. *Why missed:* `binary-operators.ts` covers BOOL-with-numeric, and no fixture
+      added two strings.
+- [x] **A stray token after a declaration's initializer is silent** (gap 12) — FIXED 2026-09-14. `x : INT := 5 abc;` is
+      "';' expected instead of 'abc'" (fixtures `cc_decl_init_trailing_ident` / `_int`); found while fixing gap 7, whose
+      declaration shape stayed silent. `var-section.ts` reports the first token after a complete scalar initializer.
+      *Why missed:* `collectInitTokens` took everything up to `;` and an unparsable tail became an opaque aggregate with
+      no error; no fixture had a malformed initializer.
+- [x] **The class fix: every source CODESYS refuses is an LSP error** — `test/exec/rejects-lsp.test.ts` runs every exec
+      `rejects` case through the LSP and requires CODESYS's own wording. It went red on gaps 9 and 11 before their fixes.
+- [x] **The replay counted every declaration parse error twice** (`replay.test.ts` pushed `parseResult.errors` next to
+      `checkParseErrors`, which already reports them) — so no declaration-level parse-error fixture could agree exactly.
+      Removed; CODESYS agreement 280 → 293 across this pass.
+- [ ] **Standard's functions and blocks are also hard-coded as always-present names** (gap 10, raised by the user
+      2026-09-14) — `reference.ts` lists LEN…FIND and TON…RS, so they resolve even in a project that references no
+      Standard. Analysis done. **PARKED by the user 2026-09-14** ("a lot still to cover before we get to that") —
+      together with all other Standard-library work (Standard64, the runtime tier).
+
+## Route the oracle through the C# bridge — every case becomes a CLI test too (proposed 2026-09-14)
+
+`record:language` already talks to the live IDE through the bridge (`push` → `build` → diagnostics over the pipe);
+`record:exec` does not — it is a headless runscript, because the scripting `online` object only works inside a
+running script (`volt-cli/scripts/probe-online-state.py`). Routing the execution oracle through the bridge turns
+every oracle case into a real-code test of the bridge the CLI ships, on constructs its own fixtures never hold:
+
+- [ ] **Push round-trip** — push each case's ST through the bridge, fetch it back, require it byte-identical. Existing
+      ops only; catches serialization bugs on bit access, chains, conversions, literals.
+- [ ] **Build parity** — the bridge's `build` diagnostics for each case agree with what the oracle compile reported.
+- [ ] **Execution through the bridge** — a `run` op on the Core online API (`IOnlineApplication.Login/Start/
+      SingleCycle` exist on SP21); reading values there is still to probe. Only then can `record:exec` drop the
+      runscript. TwinCAT would need its own answer.
 
 ## Phase 3 — the memory model, then the frame · BLOCKED ON A DECISION
 
@@ -50,14 +207,15 @@ verified against phase 1, not against recollection.
 building them on slot indices and then finding `ADR` needs offsets means doing the work twice.
 
 - [ ] **Decision: slot+path, byte-addressed image, or the hybrid.** Record it in `design.md` §9.
-- [ ] `expr-member` (91 POUs, 30%) + `place-shape` (84, 28%) + `expr-index` (4) — fill in `Place.path`.
+- [ ] `expr-member` (95 POUs, 31%) + `place-shape` (85, 28%) + `expr-index` (4) — fill in `Place.path`.
       ST arrays have arbitrary lower bounds; index normalisation belongs in lowering.
-- [ ] `stmt-call_stmt` (254, **84%** — the single biggest unblocker) — FB instances in the frame.
+- [ ] `stmt-call_stmt` (256, **84%** — the single biggest unblocker) — FB instances in the frame.
       Instances nest statically, so composition works: `struct Parent { child: Child }`, `child.scan()`.
-- [ ] METHOD/ACTION bodies — **34,090 of them**, sharing their FB's frame. A method is
-      `fn(&mut self, params)`; an ACTION is a private method with no params.
+- [ ] METHOD/ACTION bodies — sharing their FB's frame. A method is `fn(&mut self, params)`; an ACTION is a private
+      method with no params.
 - [ ] `place-not-local` (47, 16%) — GVLs. The frame widens from one POU to an `App` owning every POU and GVL.
-- [ ] `expr-call` (60, 20%) — project FUNCTION calls, once the frame can hold a callee's locals.
+- [ ] `expr-call` (58, 19%) — project FUNCTION calls, once the frame can hold a callee's locals.
+- [ ] `ADR` 333 · `SIZEOF` 56 · `UPPER_BOUND` 46 · `LOWER_BOUND` 41 — the memory built-ins, on this model.
 
 ## Phase 4 — aliasing
 
@@ -66,13 +224,12 @@ building them on slot indices and then finding `ADR` needs offsets means doing t
 
 ## Phase 5 — the remaining language
 
-- [ ] **STRING(n) is a fixed-size buffer with defined truncation, not Rust `String`.** The current mapping in
-      `emit/rust/rustType` is wrong for fidelity and must change before the string built-ins.
 - [ ] Interfaces, `EXTENDS`, `__QUERYINTERFACE` — dynamic dispatch.
-- [ ] `aggregate-init` (31, 10%) · `assign-op` S=/R= (17, 6%) · `expr-assign_expr` (1) — mechanical desugars.
+- [ ] `__POUNAME` 304 and the other CODESYS compiler operators.
+- [ ] `aggregate-init` (31, 10%) · `expr-assign_expr` (1) — mechanical desugars, once arrays/structs exist.
 - [ ] `stmt-try` (6, 2%) — `__TRY`/`__CATCH`. The interpreter can run it; Rust has no exceptions, so the
       emitter needs a strategy or an explicit refusal. Decide rather than default.
-- [ ] `type-unknown` (16, 5%) — triage; each is a type the frontend could not resolve.
+- [ ] `type-unknown` (18, 6%) — triage; each is a type the frontend could not resolve.
 
 ## Phase 6 — the standard library
 
@@ -82,6 +239,16 @@ building them on slot indices and then finding `ADR` needs offsets means doing t
 - [ ] `CTU`/`CTD`/`CTUD`/`R_TRIG`/`F_TRIG`/`RS`/`SR`.
 - [ ] **Parameter names come from the bridge's library-signature extraction, not from memory** (design §6).
 - [ ] Stub mechanism for third-party library FBs, so a POU that calls one is still testable (design §8).
+
+## Beyond this change — ST under a standard test framework
+
+The goal all of this serves: an engineer or an agent tests ST with an **ordinary test framework** — `cargo test`
+over the emitted Rust, `bun test` over `interp/` — rather than a PLC-specific tool. The oracle is what makes a
+green run mean the PLC would agree. When that becomes user-facing (`volt test`), it gets its own proposal — and
+it needs one before phase 6, because the test API (inputs, cycles, simulated time, stubs) shapes the runtime crate.
+Running tests in the vendor's simulator through the bridge was considered and is NOT the default: it switches the
+engineer's device to simulation and downloads over their application, and TwinCAT has no equivalent. (If it is
+ever wanted, SP21's Core `IOnlineApplication` has a real `SingleCycle()` that the scripting surface does not.)
 
 ## Non-goals
 

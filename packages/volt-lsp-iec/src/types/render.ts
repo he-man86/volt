@@ -13,6 +13,9 @@ import type { Type } from "./type.js"
 export function renderType(t: Type): string {
   switch (t.kind) {
     case "elementary":
+      // a declared string capacity is part of the type CODESYS prints: "Cannot convert type 'WSTRING' to type
+      // 'STRING(255)'" (conformance `cc_standard_len_wstring`)
+      return t.length === undefined ? t.name : `${t.name}(${t.length})`
     case "enum":
     case "struct":
     case "function_block":

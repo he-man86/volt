@@ -206,8 +206,12 @@ export interface Assignment {
   kind: "assign"
   target: Expr
   value: Expr
-  op?: "S=" | "R=" | "REF=" // IEC set/reset/reference-rebind; undefined for `:=`
-  chained?: Expr[] // intermediate l-values of `a := b := c`
+  op?: "S=" | "R=" | "REF=" // IEC set/reset/reference-rebind; undefined for `:=` — the operator after `target`
+  chained?: Expr[] // intermediate l-values of `a := b := c` / `a S= b R= c`
+  /** The operator AFTER each `chained[i]` (undefined for `:=`), parallel to `chained`. A chain can MIX operators —
+   *  `a S= b R= c` compiles in CODESYS (test/exec `set_reset_chained`) — so one `op` for the whole chain is not
+   *  enough, and the formatter printing that one `op` for every link silently rewrote `R=` into `S=`. */
+  chainOps?: ("S=" | "R=" | "REF=" | undefined)[]
   span: Span
 }
 export interface CallStatement {

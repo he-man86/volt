@@ -22,12 +22,31 @@ function codes(...sources: string[]): string[] {
 const FB_ONE_INPUT = `FUNCTION_BLOCK FB_T\nVAR_INPUT\n\tn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
 const FB_TWO_INPUTS = `FUNCTION_BLOCK FB_T\nVAR_INPUT\n\ta : INT;\n\tb : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
 const FB_THREE_INPUTS = `FUNCTION_BLOCK FB_T\nVAR_INPUT\n\ta : INT;\n\tb : INT;\n\tc : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
-const caller = (body: string) => `PROGRAM P\nVAR\n\tfb : FB_T;\n\ts : STRING;\nEND_VAR\n${body}\nEND_PROGRAM`
+// `sText`, not `s`: CODESYS rejects a variable named `s` — the set keyword (conformance cc_reserved_name_s_string) —
+// so the "correct call is clean" premise of 4.5b never held for the caller this helper built.
+const caller = (body: string) => `PROGRAM P\nVAR\n\tfb : FB_T;\n\tsText : STRING;\nEND_VAR\n${body}\nEND_PROGRAM`
+
+test("gap 9: a library FUNCTION's arguments are checked — Standard's LEN given a WSTRING", () => {
+  // Every library callee was skipped ("library signatures flatten var sections"), so this was silent while CODESYS
+  // refuses it (conformance `cc_standard_len_wstring`). Flattening is an FB/inheritance effect; a FUNCTION keeps its
+  // VAR_INPUT — and its declared STRING(255) is printed with the length, as CODESYS prints it.
+  const len = {
+    uri: "Device/Plc Logic/Application/Library Manager/Standard/LEN.fun",
+    source: "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\nEND_FUNCTION",
+  }
+  const program = "PROGRAM P\nVAR\n\twide : WSTRING;\n\tn : INT;\nEND_VAR\nn := LEN(wide);\nEND_PROGRAM"
+  const files = [len, { uri: "P.prg", source: program }].map((f) => ({ ...f, parseResult: parseSource(f.source) }))
+  const project = buildSymbolTable(files)
+  const messages = computeSemanticDiagnostics({ parseResult: files[1]!.parseResult, source: program, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "call-argument-type")
+    .map((d) => d.message)
+  expect(messages).toEqual(["Cannot convert type 'WSTRING' to type 'STRING(255)'"])
+})
 
 test("4.1 a wrong argument type is flagged (INT input called with STRING)", () => {
-  expect(codes(FB_ONE_INPUT, caller(`fb(n := s);`))).toContain("call-argument-type")
+  expect(codes(FB_ONE_INPUT, caller(`fb(n := sText);`))).toContain("call-argument-type")
   // ...and positionally, on an all-positional call.
-  expect(codes(FB_ONE_INPUT, caller(`fb(s);`))).toContain("call-argument-type")
+  expect(codes(FB_ONE_INPUT, caller(`fb(sText);`))).toContain("call-argument-type")
 })
 
 test("4.2 too many positional arguments is flagged", () => {
@@ -101,8 +120,8 @@ test("4.3e C0201: a VAR_IN_OUT bound to a non-identical type is flagged; the sam
 })
 
 test("4.4 a mixed named+positional call does not type-check the trailing positional", () => {
-  // `s` (STRING) would mismatch `b : INT` IF bound by index — but a mixed call must not bind positionally.
-  const c = codes(FB_TWO_INPUTS, caller(`fb(a := 1, s);`))
+  // `sText` (STRING) would mismatch `b : INT` IF bound by index — but a mixed call must not bind positionally.
+  const c = codes(FB_TWO_INPUTS, caller(`fb(a := 1, sText);`))
   expect(c).not.toContain("call-argument-type")
   expect(c).not.toContain("input-assignment-missing")
   expect(c).not.toContain("unknown-named-argument")

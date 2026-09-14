@@ -5,6 +5,8 @@
  * stable code and the POU lowers to nothing — so an untestable POU is reported, never silently wrong, and
  * `scripts/lower-completeness.ts` can count exactly what blocks the corpus.
  *
+ * Its input is code CODESYS COMPILES (the contract in `../index.ts`): a rule here exists for valid programs only.
+ *
  * It resolves names and types by CONSUMING the frontend, never by re-deriving:
  *   names   → `symbols/` (`lookup`) decides what an identifier IS; lowering decides only where it lives
  *   types   → `types/` (`resolveTypeExpr`, `inferExprType`) — the IR carries the resulting `Type` itself
@@ -40,6 +42,7 @@ import {
 import type {
   IrArm,
   IrBinOp,
+  IrBuiltinName,
   IrExpr,
   IrPou,
   IrSlot,
@@ -50,14 +53,14 @@ import type {
   Place,
 } from "../ir/index.js"
 
-/** ST binary operators → IR opcodes. A name a backend never has to interpret. */
+/** ST binary operators → IR opcodes. A name a backend never has to interpret. `**` and `&` are absent on purpose: the
+ *  parser accepts them (the LSP reports them), but neither is an operator in CODESYS, so they reach `binary-op`. */
 const BIN_OPS: Readonly<Record<string, IrBinOp>> = {
   "+": "add",
   "-": "sub",
   "*": "mul",
   "/": "div",
   MOD: "mod",
-  "**": "pow",
   "=": "eq",
   "<>": "ne",
   "<": "lt",
@@ -65,7 +68,6 @@ const BIN_OPS: Readonly<Record<string, IrBinOp>> = {
   ">": "gt",
   ">=": "ge",
   AND: "and",
-  "&": "and",
   OR: "or",
   XOR: "xor",
   AND_THEN: "and_then",
@@ -73,6 +75,38 @@ const BIN_OPS: Readonly<Record<string, IrBinOp>> = {
 }
 
 const COMPARISONS: ReadonlySet<IrBinOp> = new Set(["eq", "ne", "lt", "le", "gt", "ge"])
+
+/** The value functions `builtin` lowers, and how many operands each takes. SEL's count includes its selector. */
+const BUILTIN_ARITY: Readonly<Record<string, { min: number; max?: number }>> = {
+  MAX: { min: 1 },
+  MIN: { min: 1 },
+  LIMIT: { min: 3, max: 3 },
+  SEL: { min: 3, max: 3 },
+  TRUNC: { min: 1, max: 1 },
+  TRUNC_INT: { min: 1, max: 1 },
+  ABS: { min: 1, max: 1 },
+  EXPT: { min: 2, max: 2 },
+  SHL: { min: 2, max: 2 },
+  SHR: { min: 2, max: 2 },
+  ROL: { min: 2, max: 2 },
+  ROR: { min: 2, max: 2 },
+  MUX: { min: 2 },
+  ...Object.fromEntries(["SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"].map((n) => [n, { min: 1, max: 1 }])),
+}
+
+/** The Standard library's string functions — lowered only when the callee resolves into that library (`standardString`). */
+const STANDARD_STRING_FUNCTIONS: ReadonlySet<string> = new Set(["LEN", "LEFT", "RIGHT", "MID", "CONCAT", "INSERT", "DELETE", "REPLACE", "FIND"])
+
+/** The one-argument math functions — same arity, same typing rule (see `builtin`). */
+const UNARY_MATH: ReadonlySet<string> = new Set(["SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"])
+
+/** The operators whose operands are promoted (see `promoted`). Arithmetic is measured, and so are AND/OR/XOR:
+ *  `minus1 AND 255` with `minus1 : SINT := -1` stored into an INT is 255 — the AND happens in DINT, after the -1
+ *  sign-extends (test/exec `bitwise_on_narrow_types`). A comparison is included because widening both sides can
+ *  never change its answer, while a narrow compare against an out-of-range literal would. Unary NOT is NOT
+ *  promoted — `NOT u255` with `u255 : USINT` stored into a DINT is 0 — and it is not a binary operator anyway.
+ *  On BOOL operands `promoted` is the identity, so AND/OR/XOR on BOOLs are untouched. */
+const LIFTED: ReadonlySet<IrBinOp> = new Set([...COMPARISONS, "add", "sub", "mul", "div", "mod", "and", "or", "xor"])
 
 class Lowering {
   readonly diagnostics: LowerDiagnostic[] = []
@@ -98,19 +132,39 @@ class Lowering {
   declare(sections: readonly VarSection[]): void {
     for (const sec of sections)
       for (const decl of sec.decls) {
-        const type = this.resolve(decl.type)
+        const type = withStringCapacity(this.resolve(decl.type))
         if (decl.init?.kind === "aggregate_init") {
           this.bail("aggregate-init", "an aggregate initializer is not lowered yet", decl.init.span)
           continue
         }
-        const init = decl.init === undefined ? undefined : this.constant(decl.init)
+        // The folded value takes the SLOT's type: `x : REAL := 7 / 2` folds to the integer 3 and is stored as REAL 3.
+        // Left as-is, a REAL slot started life holding a bigint.
+        // `constEval` folds only numbers and booleans — a duration or date literal came back undefined, so every
+        // `t : TIME := T#1S` / `d : DATE := D#…` slot silently started at 0. They fold here, in their type's unit.
+        const temporal = decl.init?.kind === "literal" ? (durationOf(decl.init) ?? calendarOf(decl.init)) : undefined
+        // `constEval` does not fold strings either: every `s : STRING := 'abc'` started empty (test/exec `string_*`).
+        const text = decl.init?.kind === "literal" && typeof decl.init.value === "string" ? this.text(decl.init) : undefined
+        if (text === null) continue
+        const folded = temporal?.value ?? text ?? (decl.init === undefined ? undefined : this.constant(decl.init))
+        // An initializer that does not fold is REPORTED — it used to be dropped, so the slot silently started at its
+        // default. That is how every string slot lost its value without one lowering diagnostic.
+        if (decl.init !== undefined && folded === undefined) {
+          this.bail("init-not-constant", "an initial value that is not a compile-time constant", decl.init.span)
+          continue
+        }
+        const init = folded === undefined ? undefined : valueAs(folded, type)
         for (const name of decl.names) this.slot(name, type, sec.sectionKind, init)
       }
   }
 
-  /** A lowering-owned slot, invisible to ST — a FOR bound evaluated once, and nothing else so far. */
+  /**
+   * A lowering-owned slot, invisible to ST — a FOR bound evaluated once, a chain's value. Its name is UNIQUE and
+   * starts with `__`, which CODESYS reserves, so no user variable can take it. It used to be the bare purpose: two FOR
+   * loops in one POU made two `for_limit` fields — a Rust struct rustc rejects — and a variable the user called
+   * `for_limit` would have collided with the temp. The interpreter reads slots by index, so only the emitter noticed.
+   */
   temp(name: string, type: Type): number {
-    this.slots.push({ name, type, section: "temp" })
+    this.slots.push({ name: `__${name}_${this.slots.length}`, type, section: "temp" })
     return this.slots.length - 1
   }
 
@@ -123,6 +177,25 @@ class Lowering {
     return resolveTypeExpr(t, this.project)
   }
 
+  /** A string literal's decoded text, or null (reported) when it holds an escape not measured yet. */
+  private text(e: Extract<Expr, { kind: "literal" }>): string | null {
+    const wide = e.literalKind === "wstring"
+    const decoded = decodeIecString(e.value as string, wide)
+    if (decoded === undefined) {
+      this.bail("string-escape", `${e.text} holds a \`$\` escape that is not measured yet`, e.span)
+      return null
+    }
+    // A WSTRING holds UTF-16 code units, one per character: "héllo" into a WSTRING(3) is "hél" and "ü!" fits a
+    // WSTRING(2) (test/exec `wstring_code_units`). A character beyond the BMP (two units) is not measured; nor is which
+    // byte a non-ASCII character TYPED into a STRING becomes — both refused.
+    if (wide ? [...decoded].some((ch) => ch.length > 1) : /[^\x00-\x7f]/.test(e.value as string)) {
+      this.bail(wide ? "wstring-surrogate" : "string-non-ascii", `${e.text} holds a character not measured yet`, e.span)
+      return null
+    }
+    return decoded
+  }
+
+
   private constant(e: Expr): IrValue | undefined {
     const v = constEval(e, this.scope)
     return v === undefined ? undefined : v
@@ -131,6 +204,7 @@ class Lowering {
   // ─── places ────────────────────────────────────────────────────────────────
 
   place(e: Expr): Place | undefined {
+    if (e.kind === "member") return this.bitPlace(e, "place-shape")
     if (e.kind !== "ident_expr")
       return this.bail("place-shape", `${e.kind} is not a lowerable storage location yet`, e.span)
     const slot = this.byName.get(e.name.toUpperCase())
@@ -142,6 +216,26 @@ class Lowering {
       return this.bail("place-not-local", `${e.name} ${what}`, e.span)
     }
     return { slot, path: [], type: this.slots[slot]!.type, span: e.span }
+  }
+
+  /**
+   * `x.3` on a local integer — one bit of one slot, readable and writable (design §14): two's complement, so
+   * `im1.15` with `im1 : INT := -1` is TRUE and `i0.15 := TRUE` makes -32768. Any other dotted name is a struct or
+   * instance member, which waits on the memory model (§9) — it keeps the counted code the caller passes, so the
+   * coverage report's categories do not shift under it.
+   */
+  private bitPlace(e: Extract<Expr, { kind: "member" }>, notABit: string): Place | undefined {
+    const index = /^\d+$/.test(e.member.name) ? Number(e.member.name) : undefined
+    if (index === undefined || e.base.kind !== "ident_expr") return this.bail(notABit, "member access is not lowered yet", e.span)
+    const base = this.place(e.base)
+    if (base === undefined) return undefined
+    // A bit of something that is not an integer SLOT says what it is instead: `slice.0` with `slice : REFERENCE TO
+    // BYTE` (pro2193 MapperInputs.fb) is aliasing — phase 4 — and a `bit-index` there sent the reader to the wrong phase.
+    if (base.type.kind !== "elementary") return this.bail(`bit-on-${base.type.kind}`, `bit ${index} of ${e.base.name}`, e.span)
+    const t = base.type.elem
+    if (t.rank === undefined || (t.family !== "int" && t.family !== "bitstring") || index >= t.bits)
+      return this.bail("bit-index", `bit ${index} of ${e.base.name}`, e.span)
+    return { slot: base.slot, path: [{ kind: "bit", index }], type: boolType(), span: e.span }
   }
 
   // ─── expressions ───────────────────────────────────────────────────────────
@@ -160,6 +254,14 @@ class Lowering {
       case "literal": {
         const v = e.value
         if (v === undefined) return this.bail("bad-literal", `malformed literal ${e.text}`, e.span)
+        const temporal = durationOf(e) ?? calendarOf(e)
+        if (temporal !== undefined) return { kind: "const", value: temporal.value, type: temporal.type, span: e.span }
+        if (typeof v === "string") {
+          const text = this.text(e)
+          if (text === null) return undefined
+          const base = named(e.literalKind === "wstring" ? "WSTRING" : "STRING")
+          return { kind: "const", value: text, type: { ...base, length: text.length } as Type, span: e.span }
+        }
         // An IEC integer literal has NO intrinsic type — it takes the one the context requires, which is
         // exactly why `inferExprType` returns UNKNOWN for it. Context first; the narrowest type that holds
         // the value otherwise, so a bare literal still meets its neighbour cleanly.
@@ -179,8 +281,14 @@ class Lowering {
         if (e.op === "+") return this.expr(e.operand, expected)
         if (e.op !== "-" && e.op !== "NOT") return this.bail("unary-op", `unary ${e.op}`, e.span)
         const operand = this.expr(e.operand, expected)
-        // Both ST unary operators are type-preserving: `-x` and `NOT x` are the type of `x`.
-        return operand && { kind: "unary", op: e.op === "-" ? "neg" : "not", operand, type: operand.type, span: e.span }
+        if (operand === undefined) return undefined
+        // `NOT x` keeps the type of `x` — `NOT u255` with `u255 : USINT` into a DINT is 0. `-x` does NOT: it promotes
+        // like the arithmetic it is — `-sMin` with `sMin : SINT := -128` is 128, `-iMin` with `iMin : INT := -32768`
+        // into a DINT is 32768, and a DINT's minimum still negates to itself even into a LINT (test/exec
+        // `unary_minus_at_the_edge`). This used to preserve the operand type, and wrapped all three.
+        if (e.op === "NOT") return { kind: "unary", op: "not", operand, type: operand.type, span: e.span }
+        const type = promoted(operand.type)
+        return { kind: "unary", op: "neg", operand: convert(operand, type), type, span: e.span }
       }
       case "binary": {
         const op = BIN_OPS[e.op]
@@ -192,23 +300,249 @@ class Lowering {
         if (left === undefined) return undefined
         let right = this.expr(e.right, left.kind === "const" ? undefined : left.type)
         if (right === undefined) return undefined
-        if (left.kind === "const" && right.kind !== "const") left = retype(left, right.type)
-        else if (right.kind === "const" && left.kind !== "const") right = retype(right, left.type)
-        else if (left.kind === "const" && right.kind === "const" && expected !== undefined) {
-          // ponytail: an ALL-constant expression takes the context's type, so `x : REAL := 7 / 2` divides in
-          // REAL. Which vendors actually do here is unverified — check against a live build before relying
-          // on it; every case with a variable operand is decided above and is not affected.
-          left = retype(left, expected)
-          right = retype(right, expected)
+        // Two STRINGs compare as they are, byte by byte — never converted to one capacity first, which would cut the
+        // longer one and make 'abc' = 'abcd' TRUE. Measured: 'abc' < 'b' and 'A' < 'a' (test/exec `string_compare`).
+        const isString = (x: IrExpr): boolean => elem(x.type)?.family === "string"
+        if (isString(left) || isString(right)) {
+          // Anything else on a STRING does not compile — `'x' + 'y'` is "Cannot convert type 'STRING' to type 'ANY_NUM'"
+          // (`string_arithmetic_rejected`) — so this refusal only keeps lowering total.
+          if (!COMPARISONS.has(op) || !isString(left) || !isString(right))
+            return this.bail("string-op", `operator ${e.op} on a STRING`, e.span)
+          return { kind: "binary", op, left, right, type: boolType(), span: e.span }
         }
+        // BEFORE the constant retyping below: `dt + T#1S` would otherwise stamp the 1000-ms literal as a DT — 1000 s.
+        const calendar = calendarArithmetic(op, left, right, e.span)
+        if (calendar !== undefined) return calendar
+        // Arithmetic and comparison happen in the PROMOTED type (see `promoted`), so a literal beside a narrow
+        // variable takes that type too — else `si + 1000` would wrap the 1000 into SINT before promoting.
+        const lift = LIFTED.has(op) ? promoted : (t: Type): Type => t
+        if (left.kind === "const" && right.kind !== "const") left = adopt(left, lift(right.type))
+        else if (right.kind === "const" && left.kind !== "const") right = adopt(right, lift(left.type))
+        else if (left.kind === "const" && right.kind === "const") {
+          // An ALL-constant integer expression folds at FULL width and then converts: `i := 100 + 100` is 200 and
+          // `li := 2000000000 + 2000000000` is 4000000000 (test/exec `constant_arithmetic_width`). It does not take
+          // the context's type either — `x : REAL := 7 / 2` is 3, not 3.5 (`all_constant_division_in_real_context`);
+          // this used to retype both sides to the context. LINT is the widest the IR can type.
+          if (elem(left.type)?.family === "int") left = retype(left, named("LINT"))
+          if (elem(right.type)?.family === "int") right = retype(right, named("LINT"))
+        }
+        // A duration × or ÷ an integer (and an integer × a duration) computes in the duration's type: `T#1S * 3` is
+        // T#3S and `T#1S / 4` is T#250MS (test/exec `time_multiply_divide`). A duration has no widening rank, so
+        // without this `wider` would find no common type.
+        const isDuration = (t: Type): boolean => elem(t)?.family === "time"
+        const isIntegral = (t: Type): boolean => ["int", "bitstring"].includes(elem(t)?.family ?? "")
+        if ((op === "mul" || op === "div") && isDuration(left.type) && isIntegral(right.type)) right = convert(right, left.type)
+        else if (op === "mul" && isIntegral(left.type) && isDuration(right.type)) left = convert(left, right.type)
         const meet = wider(left.type, right.type)
         if (meet === UNKNOWN) return this.bail("type-unknown", `the operands of ${e.op} have no common type`, e.span)
-        const type = COMPARISONS.has(op) ? boolType() : meet
-        return { kind: "binary", op, left: convert(left, meet), right: convert(right, meet), type, span: e.span }
+        const operands = lift(meet)
+        const type = COMPARISONS.has(op) ? boolType() : operands
+        return { kind: "binary", op, left: convert(left, operands), right: convert(right, operands), type, span: e.span }
+      }
+      case "call":
+        return this.builtin(e)
+      case "member": {
+        const place = this.bitPlace(e, "expr-member")
+        return place && { kind: "load", place, type: place.type, span: e.span }
       }
       default:
         return this.bail(`expr-${e.kind}`, `${e.kind} is not lowered yet`, e.span)
     }
+  }
+
+  /**
+   * The value functions MAX/MIN/LIMIT/SEL → one `builtin` node. Every rule is MEASURED on CODESYS 3.5.21.40
+   * (test/exec `max_*`, `limit_*`, `sel_basic`), not recalled:
+   *   - MAX/MIN are extensible — `MAX(1, 5, 3)` is 5, `MIN(8, 4, 6, 9)` is 4;
+   *   - the arguments MEET like a binary operator's operands — `MAX(i3, r25)` is REAL 3, and
+   *     `MAX(us200, sMinus1)` (USINT 200, SINT -1) is 200, a comparison of VALUES after promotion;
+   *   - `LIMIT(MN, IN, MX)` is exactly `MIN(MAX(IN, MN), MX)` — with MN > MX it returns MX for every IN;
+   *   - `SEL(G, IN0, IN1)` is IN0 on FALSE, IN1 on TRUE.
+   * Any other call — a project function, a library, a conversion — is still `expr-call`, and counted.
+   */
+  private builtin(e: Extract<Expr, { kind: "call" }>): IrExpr | undefined {
+    const name = e.callee.kind === "ident_expr" ? e.callee.name.toUpperCase() : undefined
+    // `X_TO_Y` / `TO_Y` — a conversion only when BOTH names are elementary types, so a project function that
+    // happens to be called `GO_TO_START` is still an ordinary (not yet lowered) call.
+    const conv = name === undefined ? null : /^(?:([A-Z_]+?)_)?TO_([A-Z_]+)$/.exec(name)
+    if (conv !== null) {
+      const to = named(conv[2]!)
+      const from = conv[1] === undefined ? undefined : named(conv[1])
+      if (to !== UNKNOWN && from !== UNKNOWN) return this.conversion(e, from, to)
+    }
+    if (name !== undefined && STANDARD_STRING_FUNCTIONS.has(name)) return this.standardString(e, name)
+    const arity = name === undefined ? undefined : BUILTIN_ARITY[name]
+    if (name === undefined || arity === undefined) return this.bail("expr-call", "call is not lowered yet", e.span)
+    if (e.args.some((a) => a.param !== undefined || a.output || a.value === undefined))
+      return this.bail("call-named-args", `${name} with named or output arguments`, e.span)
+    if (e.args.length < arity.min || (arity.max !== undefined && e.args.length > arity.max))
+      return this.bail("call-arity", `${name} with ${e.args.length} arguments`, e.span)
+
+    const values = e.args.map((a) => a.value!)
+    if (name === "TRUNC" || name === "TRUNC_INT") {
+      const arg = this.expr(values[0]!)
+      if (arg === undefined) return undefined
+      // Toward zero — TRUNC(-2.7) is -2 — into DINT (TRUNC) or INT (TRUNC_INT). test/exec `trunc_functions`.
+      const type = named(name === "TRUNC" ? "DINT" : "INT")
+      return { kind: "builtin", name: "trunc", args: [arg], type, span: e.span }
+    }
+    if (name === "ABS") {
+      const arg = this.expr(values[0]!)
+      if (arg === undefined) return undefined
+      // Promotes like unary minus: ABS(SINT -128) is 128, ABS(INT -32768) into a DINT is 32768 and into an INT wraps
+      // back to -32768; ABS of a USINT is the value itself (test/exec `abs_values`, `abs_unsigned`).
+      const type = promoted(arg.type)
+      return { kind: "builtin", name: "abs", args: [convert(arg, type)], type, span: e.span }
+    }
+    if (name === "SHL" || name === "SHR" || name === "ROL" || name === "ROR") {
+      const value = this.expr(values[0]!)
+      const count = value === undefined ? undefined : this.expr(values[1]!)
+      if (value === undefined || count === undefined) return undefined
+      // SHL/SHR shift the PROMOTED value — SHL(BYTE 1, 9) into a WORD is 512 — while ROL/ROR rotate in the value's
+      // own width: ROL(BYTE 129, 1) is 3 (test/exec `shift_basic`, `rotate_basic`).
+      const shift = name === "SHL" || name === "SHR"
+      const type = shift ? promoted(value.type) : value.type
+      const op = name.toLowerCase() as IrBuiltinName
+      return { kind: "builtin", name: op, args: [convert(value, type), count], type, span: e.span }
+    }
+    if (name === "MUX") {
+      const index = this.expr(values[0]!)
+      if (index === undefined) return undefined
+      const inputs: IrExpr[] = []
+      for (const v of values.slice(1)) {
+        const lowered = this.expr(v)
+        if (lowered === undefined) return undefined
+        inputs.push(lowered)
+      }
+      // The inputs meet like MAX's — MUX(0, INT 10, REAL 2.5) is REAL 10 (test/exec `mux_mixed_types`).
+      const type = this.meet(inputs, e.span)
+      if (type === undefined) return undefined
+      return { kind: "builtin", name: "mux", args: [index, ...inputs.map((i) => convert(i, type))], type, span: e.span }
+    }
+    if (name === "EXPT") {
+      const base = this.expr(values[0]!)
+      const exponent = base === undefined ? undefined : this.expr(values[1]!)
+      if (base === undefined || exponent === undefined) return undefined
+      // REAL only when BOTH arguments are REAL — EXPT(REAL 2.0, REAL 0.5) is float32's √2 — and LREAL otherwise:
+      // EXPT(REAL 3.0, INT 20) is 3486784401 (float32 would give 3486784512), EXPT(INT 2, REAL 0.5) and
+      // EXPT(LREAL, REAL) are float64, and EXPT(INT, INT) is LREAL-typed (into an INT it does not compile).
+      // test/exec `expt_types`, `expt_mixed_width`.
+      const real32 = (t: Type): boolean => elem(t)?.family === "real" && elem(t)?.bits === 32
+      const type = real32(base.type) && real32(exponent.type) ? base.type : named("LREAL")
+      return { kind: "builtin", name: "expt", args: [convert(base, type), convert(exponent, type)], type, span: e.span }
+    }
+    if (UNARY_MATH.has(name)) {
+      const arg = this.expr(values[0]!)
+      if (arg === undefined) return undefined
+      // A REAL argument computes in REAL — SQRT(REAL 2.0) is float32's 1.4142135381698608 — an LREAL in LREAL, and an
+      // INTEGER in LREAL: SQRT(INT 2) is 1.4142135623730951 (test/exec `sqrt_precision`, `exp_log_precision`,
+      // `trig_precision`).
+      const type = elem(arg.type)?.family === "real" ? arg.type : named("LREAL")
+      const math = name.toLowerCase() as IrBuiltinName
+      return { kind: "builtin", name: math, args: [convert(arg, type)], type, span: e.span }
+    }
+    const selector = name === "SEL" ? this.expr(values[0]!, boolType()) : undefined
+    if (name === "SEL" && selector === undefined) return undefined
+    const operands: IrExpr[] = []
+    for (const v of name === "SEL" ? values.slice(1) : values) {
+      const lowered = this.expr(v)
+      if (lowered === undefined) return undefined
+      operands.push(lowered)
+    }
+    const type = this.meet(operands, e.span)
+    if (type === undefined) return undefined
+    const args = operands.map((o) => convert(o, type))
+    const lower = name.toLowerCase() as IrBuiltinName
+    return { kind: "builtin", name: lower, args: selector === undefined ? args : [selector, ...args], type, span: e.span }
+  }
+
+  /**
+   * A string function of the referenced Standard library → one `builtin` node — a library-gated intrinsic
+   * (plc-library-runtime, tier 1). It binds ONLY when the name resolves to that library's own declaration under
+   * `Library Manager/Standard/`: a project that references no Standard has no LEN, and a project FUNCTION called LEN is
+   * not this one. The signature is the library's, never recalled — every parameter and result is STRING(255) there,
+   * so an argument converts to it (and a longer one is cut on the way in) exactly as the compiler passes it.
+   */
+  private standardString(e: Extract<Expr, { kind: "call" }>, name: string): IrExpr | undefined {
+    const sym = lookup(this.scope, name)?.symbol
+    if (sym === undefined || sym.ast.kind !== "function" || !/Library Manager[\\/]Standard[\\/]/.test(sym.uri.replace(/%20/g, " ")))
+      return this.bail("expr-call", `${name} does not resolve to the Standard library`, e.span)
+    const params = sym.ast.varSections
+      .filter((s) => s.sectionKind === "VAR_INPUT")
+      .flatMap((s) => s.decls.flatMap((d) => d.names.map(() => withStringCapacity(this.resolve(d.type)))))
+    const result = sym.ast.returnType === undefined ? UNKNOWN : withStringCapacity(this.resolve(sym.ast.returnType))
+    if (e.args.some((a) => a.param !== undefined || a.output || a.value === undefined))
+      return this.bail("call-named-args", `${name} with named or output arguments`, e.span)
+    if (e.args.length !== params.length || result === UNKNOWN || params.includes(UNKNOWN))
+      return this.bail("call-arity", `${name} with ${e.args.length} arguments`, e.span)
+    const args: IrExpr[] = []
+    for (const [i, a] of e.args.entries()) {
+      const arg = this.expr(a.value!, params[i])
+      if (arg === undefined) return undefined
+      args.push(convert(arg, params[i]!))
+    }
+    return { kind: "builtin", name: name.toLowerCase() as IrBuiltinName, args, type: result, span: e.span }
+  }
+
+  /**
+   * `X_TO_Y(v)` / `TO_Y(v)` → an explicit `convert` node. The rules themselves live in that IR node (design §11), so
+   * implicit and explicit conversions cannot drift apart. `X_TO_Y` first brings `v` to X the way the compiler
+   * would; `TO_Y` converts from whatever `v` is. The explicit step is always a NODE, never a retyped constant:
+   * `DINT_TO_SINT(300)` is 44, and a constant stamped SINT would print as Rust's out-of-range `300i8`.
+   */
+  private conversion(e: Extract<Expr, { kind: "call" }>, from: Type | undefined, to: Type): IrExpr | undefined {
+    const scalar = (t: Type): boolean => ["bool", "int", "bitstring", "real", "time", "date"].includes(elem(t)?.family ?? "")
+    // STRING ↔ a signed or unsigned integer, measured (test/exec `string_conversions`): INT_TO_STRING(-42) is '-42' and
+    // STRING_TO_INT reads the leading number — '12abc' is 12. A REAL, BOOL, TIME or bit string's text format is not
+    // pinned down yet (`string_conversions_more`), so those still report. The result is a sizeless STRING (80): an
+    // integer's text is at most 20 characters, so that capacity cannot show.
+    // A bit string's text is decimal too — BYTE_TO_STRING(255) is '255'; parsing INTO one is not measured.
+    const isInt = (t: Type | undefined, orBits = false): boolean =>
+      t !== undefined && (elem(t)?.family === "int" || (orBits && elem(t)?.family === "bitstring"))
+    const isString = (t: Type | undefined): boolean => t !== undefined && elem(t)?.family === "string"
+    // BOOL_TO_STRING is 'TRUE'/'FALSE' and TIME_TO_STRING 'T#1s500ms', 'T#1d2h', 'T#0ms' (`string_conversions_*`)
+    const hasText = (t: Type | undefined): boolean => isInt(t, true) || (t !== undefined && ["BOOL", "TIME"].includes(elem(t)?.name ?? ""))
+    // STRING_TO_REAL / STRING_TO_LREAL read a decimal prefix (`string_to_real_parse`); REAL_TO_STRING's digits are not
+    // one rule (design §18), so the REAL → STRING direction still reports.
+    const parses = (t: Type): boolean => isInt(t) || elem(t)?.family === "real"
+    if ((isString(to) && elem(to)?.name === "STRING" && hasText(from)) || (isString(from) && elem(from ?? UNKNOWN)?.name === "STRING" && parses(to))) {
+      const only = e.args[0]
+      if (e.args.length !== 1 || only?.value === undefined || only.param !== undefined || only.output)
+        return this.bail("call-arity", "a conversion takes exactly one positional argument", e.span)
+      const arg = this.expr(only.value, from)
+      if (arg === undefined) return undefined
+      const type = withStringCapacity(to)
+      return { kind: "convert", value: convert(arg, withStringCapacity(from!)), type, span: e.span }
+    }
+    if (!scalar(to) || (from !== undefined && !scalar(from)))
+      return this.bail("conversion-type", "this STRING conversion is not measured yet", e.span)
+    // A duration or date converts to and from INTEGERS, in its own unit — TIME_TO_DINT(T#1S500MS) is 1500,
+    // DATE_TO_UDINT(D#1970-01-02) is 86400 seconds, TOD_TO_UDINT(TOD#00:00:01) is 1000 ms (test/exec `time_conversions`,
+    // `date_representation`). ↔ REAL/BOOL, and between two temporal types, were not measured: refused, not guessed.
+    const temporal = [to, from].filter((t) => t !== undefined && ["time", "date"].includes(elem(t)?.family ?? "")).length
+    const nonIntegral = [to, from].some((t) => t !== undefined && ["real", "bool"].includes(elem(t)?.family ?? ""))
+    if ((temporal > 0 && nonIntegral) || temporal === 2)
+      return this.bail("conversion-type", "a TIME/DATE conversion to REAL, BOOL or another temporal type is not measured yet", e.span)
+    const only = e.args[0]
+    if (e.args.length !== 1 || only?.value === undefined || only.param !== undefined || only.output)
+      return this.bail("call-arity", "a conversion takes exactly one positional argument", e.span)
+    const arg = this.expr(only.value)
+    if (arg === undefined) return undefined
+    const source = from === undefined ? arg : convert(arg, from)
+    return elem(source.type)?.name === elem(to)?.name ? source : { kind: "convert", value: source, type: to, span: e.span }
+  }
+
+  /** The one type a list of operands meets at — a binary operator's rule, over N operands: variables decide, a
+   *  REAL constant still widens (as in `int7 / 2.0`), all-constant integers fold as LINT, and the result promotes. */
+  private meet(operands: readonly IrExpr[], span: Span): Type | undefined {
+    const variables = operands.filter((o) => o.kind !== "const")
+    let type =
+      variables.length > 0
+        ? variables.map((o) => o.type).reduce((a, b) => wider(a, b))
+        : operands.map((o) => (elem(o.type)?.family === "int" ? named("LINT") : o.type)).reduce((a, b) => wider(a, b))
+    for (const o of operands) if (o.kind === "const" && elem(o.type)?.family === "real") type = wider(type, o.type)
+    if (type === UNKNOWN) return this.bail("type-unknown", "the arguments have no common type", span)
+    return promoted(type)
   }
 
   // ─── statements ────────────────────────────────────────────────────────────
@@ -217,21 +551,70 @@ class Lowering {
     const out: IrStmt[] = []
     for (const s of list) {
       const lowered = this.stmt(s)
-      if (lowered !== undefined) out.push(lowered)
+      if (Array.isArray(lowered)) out.push(...lowered)
+      else if (lowered !== undefined) out.push(lowered)
     }
     return out
   }
 
-  stmt(s: Statement): IrStmt | undefined {
+  /**
+   * An assignment CHAIN — `a := b := c`, `a S= b R= c`, `a := b S= c`. One rule fits every chain measured
+   * (test/exec `set_reset_chained*`, `assign_chained_*`): the VALUE flows right to left, converted to each link's
+   * type as it passes; a `:=` link stores it, and an `S=`/`R=` link latches its target on it and passes it on UNCHANGED.
+   *   - `a S= b R= c` with b FALSE, c TRUE SETS `a` — it latches on `c`, not on the old or new `b`;
+   *   - `plain := latch S= cond` with cond FALSE makes `plain` FALSE even though `latch` stays TRUE;
+   *   - `sint := dint := int` does not compile, "Cannot convert type 'DINT' to type 'SINT'" — `sint` receives the value
+   *     as converted THROUGH the DINT link, not the INT source.
+   * The value is evaluated ONCE, into a temp, so a call in it cannot run twice.
+   */
+  private chain(s: Extract<Statement, { kind: "assign" }>): IrStmt[] | undefined {
+    const targets = [s.target, ...(s.chained ?? [])]
+    const ops = [s.op, ...(s.chainOps ?? [])] // ops[i] is the operator after targets[i]
+    if (ops.includes("REF=")) return this.bail("assign-op", "REF= in an assignment chain", s.span)
+    const value = this.expr(s.value)
+    if (value === undefined) return undefined
+    const held: Place = { slot: this.temp("chain_value", value.type), path: [], type: value.type, span: s.value.span }
+    const out: IrStmt[] = [{ kind: "assign", target: held, value, span: s.value.span }]
+    let flowing: IrExpr = { kind: "load", place: held, type: value.type, span: s.value.span }
+    for (let i = targets.length - 1; i >= 0; i--) {
+      const target = this.place(targets[i]!)
+      if (target === undefined) return undefined
+      const op = ops[i]
+      if (op === undefined) {
+        flowing = convert(flowing, target.type) // a `:=` link converts the value on its way through
+        out.push({ kind: "assign", target, value: flowing, span: s.span })
+        continue
+      }
+      // a latch acts on the value and passes it on unchanged
+      const latch: IrExpr = { kind: "const", value: op === "S=", type: boolType(), span: s.span }
+      const set: IrStmt = { kind: "assign", target, value: convert(latch, target.type), span: s.span }
+      out.push({ kind: "if", cond: convert(flowing, boolType()), then: [set], else: [], span: s.span })
+    }
+    return out
+  }
+
+  stmt(s: Statement): IrStmt | IrStmt[] | undefined {
     switch (s.kind) {
       case "empty":
         return undefined
       case "assign": {
-        if (s.op !== undefined) return this.bail("assign-op", `${s.op} assignment`, s.span)
-        if (s.chained !== undefined) return this.bail("assign-chained", "a chained assignment", s.span)
+        if (s.chained !== undefined) return this.chain(s)
+        if (s.op === "REF=") return this.bail("assign-op", `${s.op} assignment`, s.span)
         const target = this.place(s.target)
-        const value = target === undefined ? undefined : this.expr(s.value, target.type)
-        return target && value ? { kind: "assign", target, value: convert(value, target.type), span: s.span } : undefined
+        if (target === undefined) return undefined
+        if (s.op === "S=" || s.op === "R=") {
+          // A LATCH, not an assignment: `x S= c` sets x only when c is TRUE and otherwise leaves it — `latched := TRUE;
+          // latched S= FALSE` stays TRUE — and `R=` clears the same way. The whole right-hand side is the condition:
+          // `x S= (i > 5) AND flag` (test/exec `set_reset_*`). So it lowers to the IF it is; no backend sees an `S=`.
+          const cond = this.expr(s.value, boolType())
+          if (cond === undefined) return undefined
+          const latch: IrExpr = { kind: "const", value: s.op === "S=", type: boolType(), span: s.span }
+          const set: IrStmt = { kind: "assign", target, value: convert(latch, target.type), span: s.span }
+          return { kind: "if", cond, then: [set], else: [], span: s.span }
+        }
+        const value = this.expr(s.value, target.type)
+        if (value === undefined) return undefined
+        return { kind: "assign", target, value: convert(value, target.type), span: s.span }
       }
       case "if": {
         // ELSIF is an ELSE holding one nested IF — one shape for the backend, not a branch list.
@@ -383,11 +766,71 @@ function wider(a: Type, b: Type): Type {
   return ea.rank >= eb.rank ? a : b
 }
 
-/** Wrap in an explicit conversion when the types differ — a backend never widens on its own. */
+/**
+ * Integer promotion: an `int`-family operand narrower than 32 bits computes in DINT. Measured on CODESYS
+ * 3.5.21.40 (test/exec `arithmetic_width`): `toInt := si + 1` with `si : SINT := 127` is 128, `toDint := us - 1`
+ * with `us : USINT := 0` is -1 (SIGNED DINT, not UDINT), `fromInt := i + 1` with `i : INT := 32767` is 32768 —
+ * and `fromDint := di + 1` with `di : DINT` at its max is -2147483648 even into a LINT, so DINT itself is not
+ * promoted further. Bit strings follow the SAME rule (test/exec `bit_string_arithmetic`): `BYTE 255 + 1` into a
+ * WORD is 256, and `BYTE 0 - 1` / `WORD 0 - 1` into a DINT are -1 — signed DINT, as for USINT. BIT has no rank and
+ * is never an arithmetic operand, so it is excluded.
+ */
+function promoted(t: Type): Type {
+  const e = elem(t)
+  const integral = e !== undefined && (e.family === "int" || e.family === "bitstring") && e.rank !== undefined
+  return integral && e.bits < 32 ? named("DINT") : t
+}
+
+/**
+ * A slot's STRING type with its capacity stated. A sizeless `STRING` holds 80 characters — measured: 85 characters
+ * stored into one read back with LEN 80 (test/exec `string_default_length`). WSTRING's default is not measured yet, so
+ * it stays unstated and a backend that needs it refuses rather than guessing.
+ */
+/**
+ * A string literal's text with its `$` escapes decoded — only the ones measured (test/exec `string_escapes*`): `$T` and
+ * `$t` are one tab and `$$` one dollar ('a$Tb', 'x$$y' have LEN 3); `$N` and `$L` are both ONE line feed (LEN('$N') is
+ * 1, not CR LF), `$R` is 16#0D, `$P` 16#0C, `$'` and `$"` the quotes, and two hex digits one byte ('$41' = 'A'). Any
+ * other escape returns undefined, so the caller reports it rather than guessing what it means.
+ */
+export function decodeIecString(raw: string, wide = false): string | undefined {
+  const MEASURED: Readonly<Record<string, string>> = { T: "\t", t: "\t", N: "\n", L: "\n", R: "\r", P: "\f", $: "$", "'": "'", '"': '"' }
+  let out = ""
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i] !== "$") {
+      out += raw[i]
+      continue
+    }
+    // a STRING's hex escape is two digits, one byte ('$41' = 'A'); a WSTRING's four, one code unit ('$00E9' = 'é')
+    const digits = wide ? 4 : 2
+    const hex = raw.slice(i + 1, i + 1 + digits)
+    if (hex.length === digits && /^[0-9A-Fa-f]+$/.test(hex)) {
+      out += String.fromCharCode(parseInt(hex, 16))
+      i += digits
+      continue
+    }
+    // ponytail: a WSTRING's named escapes ($T, $$, $") are not measured yet — refused, add a case when one is needed
+    if (wide) return undefined
+    const decoded = MEASURED[raw[++i] ?? ""]
+    if (decoded === undefined) return undefined
+    out += decoded
+  }
+  return out
+}
+
+function withStringCapacity(t: Type): Type {
+  // WSTRING too: 85 characters stored into a sizeless one compare equal to a WSTRING(80) of 80 (`wstring_basic`)
+  if (t.kind !== "elementary" || t.length !== undefined || (t.name !== "STRING" && t.name !== "WSTRING")) return t
+  return { ...t, length: 80 }
+}
+
+/** Wrap in an explicit conversion when the types differ — a backend never widens on its own. Two STRINGs of different
+ *  capacity differ too: the conversion is where a longer string is truncated into a shorter one. */
 function convert(e: IrExpr, to: Type): IrExpr {
   const from = elem(e.type)
   const target = elem(to)
-  if (from === undefined || target === undefined || from.name === target.name) return e
+  const sameCapacity =
+    e.type.kind !== "elementary" || to.kind !== "elementary" || e.type.length === to.length
+  if (from === undefined || target === undefined || (from.name === target.name && sameCapacity)) return e
   // Retyping a constant is free and leaves cleaner output than converting it at run time.
   if (e.kind === "const") return retype(e, to)
   return { kind: "convert", value: e, type: to, span: e.span }
@@ -395,16 +838,121 @@ function convert(e: IrExpr, to: Type): IrExpr {
 
 /** Re-stamp a constant with a type, moving its value across the int/real divide if that is what changed. */
 function retype(e: IrExpr, to: Type): IrExpr {
-  if (e.kind !== "const") return e
+  if (e.kind !== "const" || elem(to) === undefined) return e
+  return { ...e, value: valueAs(e.value, to), type: to }
+}
+
+/**
+ * A constant taking its variable neighbour's type — but never a REAL constant demoted to an integer. `int7 / 2.0`
+ * is 3.5 in CODESYS (test/exec `division_with_a_real_operand`); retyping the `2.0` to INT made it the integer 2
+ * and the division integral. A REAL constant keeps its type, and `wider` meets the pair in REAL.
+ */
+function adopt(c: IrExpr, to: Type): IrExpr {
+  return elem(c.type)?.family === "real" && elem(to)?.family !== "real" ? c : retype(c, to)
+}
+
+/** A constant value moved across the int/real divide to match `to`. Width is a backend's job (it stores it). */
+function valueAs(v: IrValue, to: Type): IrValue {
   const target = elem(to)
-  if (target === undefined) return e
-  const value =
-    target.family === "real" && typeof e.value === "bigint"
-      ? Number(e.value)
-      : target.family !== "real" && typeof e.value === "number" && Number.isInteger(e.value)
-        ? BigInt(e.value)
-        : e.value
-  return { ...e, value, type: to }
+  if (target === undefined) return v
+  if (target.family === "real" && typeof v === "bigint") return Number(v)
+  if (target.family !== "real" && typeof v === "number" && Number.isInteger(v)) return BigInt(v)
+  return v
+}
+
+/**
+ * A duration literal's value in its type's UNIT. Measured (test/exec `time_*`, `ltime_basic`): TIME is 32-bit
+ * MILLISECONDS — T#49D17H2M47S295MS plus 1 ms wraps to 0 — and LTIME 64-bit NANOSECONDS. The AST normalizes both to
+ * nanoseconds under one `literalKind: "time"`, so the prefix decides which. This used to type every duration TIME
+ * and hold it in nanoseconds: a recalled design note, while `types/elementary` already said TIME is 32 bits.
+ */
+function durationOf(e: Extract<Expr, { kind: "literal" }>): { value: bigint; type: Type } | undefined {
+  const v = e.value
+  if (e.literalKind !== "time" || typeof v !== "object" || v === null || !("ns" in v)) return undefined
+  // `LTIME#` only — the lexer reads `LT` as the less-than keyword, and an `LT#` prefix was never measured
+  return /^LTIME#/i.test(e.text)
+    ? { value: v.ns, type: named("LTIME") }
+    : { value: v.ns / 1_000_000n, type: named("TIME") }
+}
+
+/**
+ * A date, date-and-time or time-of-day literal's value in its type's UNIT. Measured (test/exec `date_*`,
+ * `ldate_ltod_ldt`): DATE and DT count SECONDS since 1970-01-01 in 32 bits (DATE_TO_UDINT(D#1970-01-02) is 86400, not
+ * 1; DT#2106-02-07-06:28:15 plus a second wraps to the epoch), TOD counts MILLISECONDS since midnight in 32 bits, and
+ * LDATE / LDT / LTOD count NANOSECONDS in 64. The AST keeps the text (`"1970-01-02"`) and the prefix decides the type.
+ */
+function calendarOf(e: Extract<Expr, { kind: "literal" }>): { value: bigint; type: Type } | undefined {
+  const text = e.value
+  if (typeof text !== "string" || !["date", "datetime", "tod"].includes(e.literalKind)) return undefined
+  const long = /^L/i.test(e.prefix ?? e.text)
+  const ns = calendarNanoseconds(e.literalKind as "date" | "datetime" | "tod", text)
+  if (ns === undefined) return undefined
+  const typeName = e.literalKind === "date" ? "DATE" : e.literalKind === "datetime" ? "DT" : "TOD"
+  if (long) return { value: ns, type: named(`L${typeName}`) }
+  return { value: ns / (e.literalKind === "tod" ? 1_000_000n : 1_000_000_000n), type: named(typeName) }
+}
+
+/** Nanoseconds per unit of each duration and date type — the one table the calendar arithmetic scales by. */
+const UNIT_NS: Readonly<Record<string, bigint>> = {
+  TIME: 1_000_000n,
+  TOD: 1_000_000n,
+  DATE: 1_000_000_000n,
+  DT: 1_000_000_000n,
+  LTIME: 1n,
+  LTOD: 1n,
+  LDATE: 1n,
+  LDT: 1n,
+}
+
+/**
+ * Date/time arithmetic, scaled between the units each type counts. Measured (test/exec `date_*`, `dt_*`, `tod_*`):
+ *   - a date ± a duration, or a duration + a date, converts the duration into the DATE'S unit by truncating division —
+ *     `DT#1970-01-01-00:00:00 + T#1500MS` is one second — and computes in the date's width: `DT max + T#1S` wraps to the
+ *     epoch, `D#2024-02-28 + T#1D` is D#2024-02-29, `DT - T#1S` steps back across a leap day;
+ *   - a date - a date of the same type is the difference scaled into TIME (LTIME for the L variants):
+ *     `D#2024-03-01 - D#2024-02-28` is T#2D, and the reverse wraps as a UDINT (4122167296 ms);
+ *   - TOD is NOT reduced modulo a day: TOD#12:30:15.5 + T#12H stores 88215500 ms (the IDE only DISPLAYS 0:30:15.500).
+ * A duration finer than its date (a TIME on an LDT) was not measured: undefined, so lowering reports it.
+ */
+function calendarArithmetic(op: IrBinOp, left: IrExpr, right: IrExpr, span: Span): IrExpr | undefined {
+  if (op !== "add" && op !== "sub") return undefined
+  const family = (x: IrExpr): string | undefined => elem(x.type)?.family
+  const unit = (x: IrExpr): bigint | undefined => UNIT_NS[elem(x.type)?.name ?? ""]
+  const scale = (x: IrExpr, by: bigint, as: Type, how: "div" | "mul"): IrExpr =>
+    by === 1n ? x : { kind: "binary", op: how, left: x, right: { kind: "const", value: by, type: as, span }, type: as, span }
+
+  const date = family(left) === "date" ? left : op === "add" && family(right) === "date" ? right : undefined
+  const duration = date === left ? right : date === right ? left : undefined
+  if (date !== undefined && duration !== undefined && family(duration) === "time") {
+    const [dateUnit, durationUnit] = [unit(date), unit(duration)]
+    if (dateUnit === undefined || durationUnit === undefined || dateUnit % durationUnit !== 0n) return undefined
+    const step = scale(convert(duration, date.type), dateUnit / durationUnit, date.type, "div")
+    return { kind: "binary", op, left: date, right: step, type: date.type, span }
+  }
+
+  if (op === "sub" && family(left) === "date" && elem(left.type)?.name === elem(right.type)?.name) {
+    const leftUnit = unit(left)
+    if (leftUnit === undefined) return undefined
+    const durationType = named(leftUnit === 1n ? "LTIME" : "TIME")
+    const difference: IrExpr = { kind: "binary", op: "sub", left, right, type: left.type, span }
+    return scale(convert(difference, durationType), leftUnit / UNIT_NS[elem(durationType)!.name]!, durationType, "mul")
+  }
+  return undefined
+}
+
+/** Nanoseconds since the epoch (DATE/DT) or since midnight (TOD) for a literal's text, or undefined when malformed. */
+function calendarNanoseconds(kind: "date" | "datetime" | "tod", text: string): bigint | undefined {
+  const clock = (h: string, m: string, s: string, frac = ""): bigint =>
+    ((BigInt(h) * 60n + BigInt(m)) * 60n + BigInt(s)) * 1_000_000_000n + BigInt(frac.padEnd(9, "0").slice(0, 9) || "0")
+  if (kind === "tod") {
+    const t = /^(\d+):(\d+):(\d+)(?:\.(\d+))?$/.exec(text)
+    return t === null ? undefined : clock(t[1]!, t[2]!, t[3]!, t[4])
+  }
+  const d = /^(\d+)-(\d+)-(\d+)(?:-(\d+):(\d+):(\d+)(?:\.(\d+))?)?$/.exec(text)
+  if (d === null) return undefined
+  const days = BigInt(Date.UTC(Number(d[1]), Number(d[2]) - 1, Number(d[3])) / 86_400_000)
+  const midnight = days * 86_400n * 1_000_000_000n
+  return kind === "date" || d[4] === undefined ? midnight : midnight + clock(d[4], d[5]!, d[6]!, d[7])
 }
 
 /** The type an IEC literal takes: the context's, or the narrowest that holds the value. */
@@ -456,14 +1004,23 @@ export function lowerUnit(unit: TopLevel, scope: Scope, project: Scope): Lowered
   return { pou, diagnostics: [] }
 }
 
-/** Parse, bind and lower one source string. The test/CLI path. */
-export function lowerSource(source: string, name?: string): LoweredPou {
+/** A referenced library's materialized declaration file — `uri` must keep its `Library Manager/<library>/` path. */
+export interface LibraryFile {
+  uri: string
+  source: string
+}
+
+/** Parse, bind and lower one source string, against the library files a project would reference. The test/CLI path. */
+export function lowerSource(source: string, name?: string, libraries: readonly LibraryFile[] = []): LoweredPou {
   const parseResult = parseSource(source)
   if (parseResult.errors.length > 0) {
     const first = parseResult.errors[0]!
     return { diagnostics: [{ code: "parse", message: first.message, span: first.span }] }
   }
-  const project = buildSymbolTable([{ uri: "transpile://source", parseResult, source }])
+  const project = buildSymbolTable([
+    { uri: "transpile://source", parseResult, source },
+    ...libraries.map((l) => ({ uri: l.uri, parseResult: parseSource(l.source), source: l.source })),
+  ])
   const runnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "function_block" }> =>
     u.kind === "program" || u.kind === "function_block"
   const unit = parseResult.units

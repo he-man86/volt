@@ -197,7 +197,7 @@ export function lex(src: string): Token[] {
       if (peek() === "#") {
         if (TIME_PREFIXES.has(upper)) {
           advance(1)
-          lexTimeLiteralBody()
+          lexTimeLiteralBody(upper.startsWith("L"))
           emit("time_lit", startPos, startLine, startCol)
           continue
         }
@@ -398,11 +398,15 @@ export function lex(src: string): Token[] {
     emit(isReal ? "real_lit" : "int_lit", s, sl, sc)
   }
 
-  function lexTimeLiteralBody(): void {
+  function lexTimeLiteralBody(long: boolean): void {
     // Body: digits, time units (ms/s/m/h/d), underscores. Stop at
     // whitespace/punct that isn't part of the body.
+    // A TIME (not LTIME) has no microsecond or nanosecond unit: CODESYS lexes `T#1500US` as `T#1500` then `US`, and the
+    // parse errors follow from that (gap 7, conformance `cc_time_*`); `LTIME#1500US` is a literal. So a TIME body ends at
+    // the first `u`, `n` or `µ` — none of them starts a TIME unit.
     while (pos < len) {
       const c = peek()
+      if (!long && (c === "u" || c === "U" || c === "n" || c === "N" || c === "µ")) break
       if (isAlnum(c) || c === "_" || c === ".") {
         advance(1)
       } else {

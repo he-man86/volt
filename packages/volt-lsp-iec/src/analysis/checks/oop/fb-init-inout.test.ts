@@ -31,9 +31,11 @@ test("assigning an INPUT at init is legal — no FP", () => {
 })
 
 test("a struct (non-FB) init is left alone — no FP", () => {
-  const src = `TYPE S : STRUCT io : INT; END_STRUCT END_TYPE`
+  // Not `s : S`: CODESYS rejects the name `s` (the set keyword — conformance cc_reserved_name_s_string), so the
+  // "no FP" premise did not hold for the names this test used, only for the struct init it is about.
+  const src = `TYPE ST_Io : STRUCT io : INT; END_STRUCT END_TYPE`
   const p1 = parseSource(src)
-  const main = `PROGRAM PLC_PRG\nVAR\n s : S := (io := 3);\nEND_VAR\nEND_PROGRAM`
+  const main = `PROGRAM PLC_PRG\nVAR\n stIo : ST_Io := (io := 3);\nEND_VAR\nEND_PROGRAM`
   const p2 = parseSource(main)
   const project = buildSymbolTable([{ uri: "s.struct", parseResult: p1, source: src }, { uri: "m.prg", parseResult: p2, source: main }])
   const ds = computeSemanticDiagnostics({ parseResult: p2, source: main, project, config: resolveConfig({ vendor: "codesys" }) })

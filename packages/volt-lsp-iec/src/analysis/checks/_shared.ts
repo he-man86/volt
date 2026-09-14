@@ -5,6 +5,8 @@
  */
 import { walkAllExprs, walkExpr, type Expr, type ParseResult, type Span } from "../../syntax/index.js"
 import { bodies, scopeForUnit, type Scope } from "../../symbols/index.js"
+import { classifyConversion, elementaryType, type Type } from "../../types/index.js"
+import type { Messages } from "../messages.js"
 
 export interface DiagnosticItem {
   severity: "error" | "warning" | "information" | "hint"
@@ -50,6 +52,42 @@ export function* forEachDecl(parseResult: ParseResult, project: Scope) {
     const scope = scopeForUnit(project, unit) ?? project
     for (const section of unit.varSections) for (const decl of section.decls) yield { unit, section, decl, scope }
   }
+}
+
+/**
+ * Map a source→value conversion to its narrowing / change-of-sign WARNING on `at`, or undefined. The ONE mapping —
+ * the assignment pair and conversion-argument checks (types/narrowing.ts), the negation operand, and the
+ * call-argument check (calls/call-arguments.ts) all funnel through it, so the wording stays byte-identical.
+ *
+ * It lives here, not in narrowing.ts, because two check groups share it: `call-arguments.ts` imported it from its
+ * sibling `narrowing.ts`, which the layering rule forbids — and that lint had been red, unnoticed, since 2026-09-06,
+ * because CI is advisory and nothing else runs it.
+ */
+export function conversionWarning(lhs: Type, rhs: Type, at: Expr, messages: Messages): DiagnosticItem | undefined {
+  const kind = classifyConversion(lhs, rhs)
+  if (kind === "narrow") return conversionWarn(at, "narrowing-conversion", messages.narrowing(typeName(rhs), typeName(lhs)))
+  if (kind === "sign-change")
+    return conversionWarn(
+      at,
+      "sign-change-conversion",
+      messages.signChange(signOf(rhs), typeName(rhs), signOf(lhs), typeName(lhs)),
+    )
+  return undefined
+}
+
+const conversionWarn = (target: Expr, code: string, message: string): DiagnosticItem => ({
+  severity: "warning",
+  span: target.span,
+  source: SOURCE,
+  code,
+  message,
+})
+
+function typeName(t: Type): string {
+  return t.kind === "elementary" ? t.name : ""
+}
+function signOf(t: Type): string {
+  return t.kind === "elementary" && elementaryType(t.name)?.signed ? "signed" : "unsigned"
 }
 
 // `isLibrarySymbol` moved to the symbols layer (B) so types (const-eval/infer) reach the SAME normalized

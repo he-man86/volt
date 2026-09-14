@@ -32,6 +32,12 @@ describe("emit/rust", () => {
     expect(pou!.slots.map((s) => rustType(s.type))).toEqual(["i8", "i16", "i32", "u8", "u16", "f32", "f64", "bool"])
   })
 
+  test("TIME is a u32 of milliseconds and LTIME a u64 of nanoseconds — not the i64 every duration used to be", () => {
+    const { pou } = lowerSource("PROGRAM P\nVAR t : TIME := T#1S500MS; lt1 : LTIME := LTIME#1NS; END_VAR\nt := t;\nEND_PROGRAM\n")
+    expect(pou!.slots.map((s) => rustType(s.type))).toEqual(["u32", "u64"])
+    expect(pou!.slots.map((s) => s.init)).toEqual([1500n, 1n]) // folded, in each type's unit
+  })
+
   test("ST names become snake_case fields", () => {
     expect(["iCount", "MaxCount", "PLC_Ready", "x"].map(snake)).toEqual(["i_count", "max_count", "plc_ready", "x"])
   })
@@ -49,6 +55,60 @@ describe("emit/rust", () => {
 
   test("IEC integers wrap at their width rather than panicking like Rust's defaults", () => {
     expect(rust(COUNTER)).toContain("wrapping_add")
+  })
+
+  test("integer negation wraps — Rust's `-` panics on a minimum — while REAL negation stays plain", () => {
+    const code = rust("PROGRAM P\nVAR d : DINT; e : DINT; x : REAL; y : REAL; END_VAR\ne := -d; y := -x;\nEND_PROGRAM\n")
+    expect(code).toContain("self.d.wrapping_neg()")
+    expect(code).toContain("(-self.x)")
+  })
+
+  test("LIMIT prints as max-then-min, never `clamp` — Rust's clamp panics when MN > MX, CODESYS answers it", () => {
+    const code = rust("PROGRAM P\nVAR x : INT; y : INT; g : BOOL; END_VAR\ny := LIMIT(100, x, 0); y := MAX(x, 1, 2); y := SEL(g, 1, 2);\nEND_PROGRAM\n")
+    expect(code).not.toContain("clamp")
+    expect(code).toContain(".max(")
+    expect(code).toContain(".min(")
+    expect(code).toContain("(if self.g {")
+  })
+
+  test("conversions print CODESYS's rules, not a bare `as` — which truncates, saturates, and has no bool", () => {
+    const code = rust(
+      "PROGRAM P\nVAR x : REAL; i : INT; b : BOOL; n : INT; y : REAL; d : DINT; END_VAR\ni := REAL_TO_INT(x); b := INT_TO_BOOL(n); y := BOOL_TO_REAL(b); d := TRUNC(x); i := DINT_TO_SINT(300);\nEND_PROGRAM\n",
+    )
+    expect(code).toContain("((self.x.round() as i64) as i16)") // rounds, then wraps through i64
+    expect(code).toContain("(self.n != 0)")
+    expect(code).toContain("((self.b as u8) as f32)")
+    // TRUNC out of DINT range is i32::MIN (measured), so it is range-checked, not pushed through a wrapping i64
+    expect(code).toContain("(self.x as f64).trunc()")
+    expect(code).toContain("i32::MIN")
+    expect(code).not.toContain("300i8") // an explicit conversion is a node, never an out-of-range literal
+  })
+
+  test("math computes through f64 and narrows; ABS wraps a signed minimum and is the identity on unsigned", () => {
+    const code = rust(
+      "PROGRAM P\nVAR x : REAL; y : REAL; i : INT; j : DINT; u : ULINT; v : ULINT; END_VAR\ny := LN(x); j := ABS(i); y := ABS(x); v := ABS(u);\nEND_PROGRAM\n",
+    )
+    expect(code).toContain("((self.x as f64).ln() as f32)")
+    expect(code).toContain("(self.i as i32).wrapping_abs()") // promoted to DINT; `abs` would panic on the minimum
+    expect(code).toContain("self.x.abs()")
+    expect(code).toContain("self.v = self.u;") // u64 has no `abs`
+  })
+
+  test("EXPT is `powf` through f64, narrowed to REAL only when both arguments are REAL", () => {
+    const code = rust("PROGRAM P\nVAR x : REAL; y : REAL; n : INT; z : LREAL; END_VAR\ny := EXPT(x, y); z := EXPT(x, n);\nEND_PROGRAM\n")
+    expect(code).toContain("((self.x as f64).powf(self.y as f64) as f32)")
+    expect(code).toContain("(((self.x as f64) as f64).powf((self.n as f64) as f64) as f64)") // one INT: LREAL
+  })
+
+  test("bit operations print Rust's own wrapping_shl/rotate_left, MUX a match, and bit access one slot's mask", () => {
+    const code = rust(
+      "PROGRAM P\nVAR b : BYTE; n : INT; w : WORD; x : BOOL; i : INT; k : INT; END_VAR\nw := SHL(b, n); b := ROL(b, n); x := w.3; i.15 := x; i := MUX(k, 1, 2, 3);\nEND_PROGRAM\n",
+    )
+    expect(code).toContain("(self.b as i32).wrapping_shl((self.n as u32))") // promoted, then Rust's own mask
+    expect(code).toContain("self.b.rotate_left((self.n as u32))") // the BYTE's own width
+    expect(code).toContain("(((self.w >> 3) & 1) != 0)")
+    expect(code).toContain("self.i = if self.x { self.i | (1i16 << 15) } else { self.i & !(1i16 << 15) };")
+    expect(code).toContain("_ => ") // out-of-range K picks the last input
   })
 
   test("all three loop forms print as the same Rust shape", () => {
@@ -95,10 +155,17 @@ describe.skipIf(rustc === null)("emit/rust — compiles", () => {
       COUNTER,
       "PROGRAM Loops\nVAR i : INT; n : INT; w : INT; END_VAR\nFOR i := 1 TO 3 DO n := n + i; END_FOR\nWHILE w < 3 DO w := w + 1; END_WHILE\nREPEAT n := n - 1; UNTIL n <= 0 END_REPEAT\nEND_PROGRAM\n",
       "PROGRAM Branch\nVAR m : INT; n : INT; r : REAL; ok : BOOL; END_VAR\nCASE m OF\n 1: n := 0;\n 2..4: n := 1;\nELSE\n n := 9;\nEND_CASE\nok := (m > 0) AND_THEN (n < 10);\nr := m / 2;\nEND_PROGRAM\n",
+      // Two temps of each kind in ONE POU. Temps were named by purpose alone, so this made two identical struct
+      // fields — and no source here ever held more than one temp, so the crate check could not see it.
+      "PROGRAM Temps\nVAR i : INT; j : INT; n : INT; a : BOOL; b : BOOL; c : BOOL; END_VAR\nFOR i := 1 TO 3 DO n := n + i; END_FOR\nFOR j := 1 TO 2 DO n := n - j; END_FOR\na S= b R= c;\nb S= a R= c;\nEND_PROGRAM\n",
+      // STRING: a truncating store, a byte-wise compare, both conversions and a Standard function. No source here held a
+      // string, so the Rust `String` it used to map to — which `self.a = self.b` MOVES out of `self` — was never built.
+      "PROGRAM Strings\nVAR a : STRING(3); b : STRING := 'ab$Tc'; ok : BOOL; n : INT; END_VAR\na := b;\nok := a < b;\nb := INT_TO_STRING(n);\nn := STRING_TO_INT(b) + LEN(b);\nEND_PROGRAM\n",
     ]
+    const len = { uri: "Library Manager/Standard/LEN.fun", source: "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\nEND_FUNCTION\n" }
     const crate = sources
       .map((src) => {
-        const { pou, diagnostics } = lowerSource(src)
+        const { pou, diagnostics } = lowerSource(src, undefined, [len])
         expect(diagnostics).toEqual([])
         return emitRust(pou!).code
       })

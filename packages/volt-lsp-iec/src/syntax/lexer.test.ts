@@ -23,6 +23,14 @@ test("range `..` does not eat the number's dot", () => {
   expect(toks[1].text).toBe("..")
 })
 
+test("a TIME literal has no microsecond or nanosecond unit — it ends there; an LTIME literal keeps it (gap 7)", () => {
+  // CODESYS lexes `T#1500US` as `T#1500` then `US` (conformance `cc_time_*`); the LSP read it as one literal and accepted it.
+  expect(code("T#1500US").slice(0, 2).map((t) => [t.kind, t.text])).toEqual([["time_lit", "T#1500"], ["identifier", "US"]])
+  expect(code("TIME#1s500ns").slice(0, 2).map((t) => [t.kind, t.text])).toEqual([["time_lit", "TIME#1s500"], ["identifier", "ns"]])
+  expect(code("LTIME#1500US")[0]).toMatchObject({ kind: "time_lit", text: "LTIME#1500US" })
+  expect(code("T#1d2h3m4s5ms")[0]).toMatchObject({ kind: "time_lit", text: "T#1d2h3m4s5ms" })
+})
+
 test("literal families", () => {
   expect(code("T#10ms")[0].kind).toBe("time_lit")
   expect(code("DT#2020-01-01-00:00:00")[0].kind).toBe("datetime_lit")

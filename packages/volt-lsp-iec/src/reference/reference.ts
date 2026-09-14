@@ -69,7 +69,9 @@ const OPERATORS: ReadonlyArray<ReferenceEntry> = [
   ref("LN", "operator", "Natural logarithm."),
   ref("LOG", "operator", "Base-10 logarithm."),
   ref("EXP", "operator", "e raised to a power."),
-  { ...ref("EXPT", "operator", "Power. `EXPT(base, exp)`."), returnType: "LREAL" }, // CODESYS: always LREAL
+  // No fixed returnType: EXPT is REAL when BOTH arguments are REAL, LREAL otherwise (measured — `types/infer.ts`
+  // `exptType`). The "always LREAL" this used to carry made `real := EXPT(real, real)` warn falsely.
+  ref("EXPT", "operator", "Power. `EXPT(base, exp)` — REAL when both arguments are REAL, otherwise LREAL."),
   ref("SIN", "operator", "Sine (radians)."),
   ref("COS", "operator", "Cosine (radians)."),
   ref("TAN", "operator", "Tangent (radians)."),

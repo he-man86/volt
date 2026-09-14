@@ -184,7 +184,8 @@ type StatementList = Statement[]
 interface Assignment {
   kind: "assign"; target: Expr; value: Expr
   op?: "S=" | "R=" | "REF="   // IEC set/reset/reference; undefined for :=
-  chained?: Expr[]            // intermediate l-values of `a := b := c`
+  chained?: Expr[]            // intermediate l-values of `a := b := c` / `a S= b R= c`
+  chainOps?: ("S=" | "R=" | "REF=" | undefined)[]  // the operator after each chained[i]; links may mix
   span: Span
 }
 interface CallStatement { kind: "call_stmt"; call: CallExpr; span: Span }

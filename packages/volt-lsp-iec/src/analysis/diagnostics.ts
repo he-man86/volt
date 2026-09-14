@@ -82,6 +82,9 @@ import { checkUnresolvedIdentifiers } from "./checks/names/unresolved-identifier
 import { checkAmbiguousGlobal } from "./checks/names/ambiguous-global.js"
 import { checkTypeAsValue } from "./checks/names/type-as-value.js"
 import { checkReservedKeyword } from "./checks/names/reserved-keyword.js"
+import { checkSetResetName } from "./checks/names/set-reset-name.js"
+import { checkUnsupportedOperator } from "./checks/types/unsupported-operator.js"
+import { checkTimeLiteralUnit } from "./checks/types/time-literal-unit.js"
 import { checkVarSectionPlacement } from "./checks/declarations/var-section-placement.js"
 import { checkHeaderRules } from "./checks/declarations/header-rules.js"
 import { checkAttributePlacement } from "./checks/declarations/attribute-placement.js"
@@ -129,6 +132,8 @@ const CHECKS: readonly Check[] = [
   checkReferenceAssign,
   checkDataRecursion,
   checkEnumInit,
+  checkUnsupportedOperator,
+  checkTimeLiteralUnit,
   // flow/
   checkCaseLabels,
   checkStatementRules,
@@ -170,6 +175,7 @@ const CHECKS: readonly Check[] = [
   checkAmbiguousGlobal,
   checkTypeAsValue,
   checkReservedKeyword,
+  checkSetResetName,
   // declarations/
   checkVarSectionPlacement,
   checkInoutInitializer,

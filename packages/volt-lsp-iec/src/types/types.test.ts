@@ -173,6 +173,33 @@ test("infer: THIS resolves to the enclosing FB member scope", () => {
   expect(t.kind).toBe("function_block")
 })
 
+test("infer: unary minus is typed as the signed type of the operand's width, at least 16 bits (measured)", () => {
+  // This said "NOT/-/+ preserve the operand's type" from recollection; CODESYS rejects `sint := -sint` with "Cannot
+  // convert type 'INT' to type 'SINT'" (conformance cc_neg_*). No fixture or FP-bait ever negated an 8-bit type.
+  const neg = (type: string) => inferExpr("", `VAR\n a : ${type};\nEND_VAR`, "-a")
+  expect(neg("SINT")).toMatchObject({ kind: "elementary", name: "INT" })
+  expect(neg("USINT")).toMatchObject({ kind: "elementary", name: "INT" })
+  expect(neg("BYTE")).toMatchObject({ kind: "elementary", name: "INT" })
+  expect(neg("UINT")).toMatchObject({ kind: "elementary", name: "INT" })
+  expect(neg("UDINT")).toMatchObject({ kind: "elementary", name: "DINT" })
+  expect(neg("INT")).toMatchObject({ kind: "elementary", name: "INT" })
+  expect(neg("LINT")).toMatchObject({ kind: "elementary", name: "LINT" })
+  expect(neg("ULINT")).toEqual(UNKNOWN) // 64-bit unsigned was not measured: silence, not a guess
+  expect(inferExpr("", "VAR\n w : WORD;\nEND_VAR", "NOT w")).toMatchObject({ kind: "elementary", name: "WORD" })
+})
+
+test("infer: EXPT is REAL only when BOTH arguments are REAL (measured) — never a fixed LREAL", () => {
+  // The reference said "always LREAL", which made `real := EXPT(real, real)` warn falsely (conformance
+  // cc_expt_real_into_real). No fixture ever stored a REAL-argument EXPT into a REAL.
+  // as an assignment's value: `inferExpr` reads the last statement's value, and a bare call is a call statement
+  const expt = (decls: string, call: string) => inferExpr("", `VAR\n ${decls}\nEND_VAR`, `tmp := ${call}`)
+  expect(expt("a : REAL; b : REAL;", "EXPT(a, b)")).toMatchObject({ kind: "elementary", name: "REAL" })
+  expect(expt("i : INT;", "EXPT(i, i)")).toMatchObject({ kind: "elementary", name: "LREAL" })
+  expect(expt("a : REAL; i : INT;", "EXPT(a, i)")).toMatchObject({ kind: "elementary", name: "LREAL" })
+  expect(expt("l : LREAL; a : REAL;", "EXPT(l, a)")).toMatchObject({ kind: "elementary", name: "LREAL" })
+  expect(expt("a : REAL;", "EXPT(a, 2)")).toEqual(UNKNOWN) // a bare literal has no width: stay silent
+})
+
 // ─── C.6 conservative-skip: an unresolved sub-part makes the whole type not-known ───
 
 test("isKnown: an unknown sub-part collapses the whole type", () => {

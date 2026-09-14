@@ -30,9 +30,8 @@ import {
   type CalleeInfo,
   type Type,
 } from "../../../types/index.js"
-import { conversionWarning } from "../types/narrowing.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { conversionWarning, isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkCallArguments(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -40,8 +39,10 @@ export function checkCallArguments(ctx: CheckContext, out: DiagnosticItem[]): vo
       if (e.kind !== "call") return
       const callee = resolveCallee(e, scope, ctx.project)
       if (callee === undefined) return // unresolved callee → skip (zero-FP)
-      // Library signatures flatten var sections (inputs may vanish), so any arg check on them is unreliable.
-      if (isLibrarySymbol(callee.sym)) return
+      // A library FB's or method's materialized signature is lossy — inheritance is flattened, inputs may vanish — so its
+      // arguments are not checked. A library FUNCTION has no inheritance and keeps its VAR_INPUT: it is checked like any
+      // other. Skipping it too hid "Cannot convert type 'WSTRING' to type 'STRING(255)'" for Standard's LEN (gap 9).
+      if (isLibrarySymbol(callee.sym) && callee.sym.kind !== "function") return
       checkCall(e.args, e.callee.span, callee, scope, ctx, out)
     })
   }

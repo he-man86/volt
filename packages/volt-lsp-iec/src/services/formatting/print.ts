@@ -219,9 +219,12 @@ function printStatement(s: Statement, depth: number): string {
   const ind = TAB.repeat(depth)
   switch (s.kind) {
     case "assign": {
-      // `a := b := c` chains through `chained`; set/reset ops never chain.
-      const op = s.op ?? ":="
-      return `${ind}${[s.target, ...(s.chained ?? []), s.value].map(exprText).join(` ${op} `)};`
+      // Each link prints its OWN operator. This used to print `s.op` for every link on the belief that set/reset
+      // ops never chain — they do (`a S= b R= c` compiles), and that belief would have reformatted it into
+      // `a S= b S= c`: a different program, written back to the user's file.
+      const ops = [s.op, ...(s.chainOps ?? [])].map((o) => o ?? ":=")
+      const parts = [s.target, ...(s.chained ?? []), s.value].map(exprText)
+      return `${ind}${parts.map((p, i) => (i === 0 ? p : `${ops[i - 1]} ${p}`)).join(" ")};`
     }
     case "call_stmt":
       return `${ind}${exprText(s.call)};`

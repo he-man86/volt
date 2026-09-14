@@ -4869,7 +4869,7 @@
     },
     "fix": null,
     "triage": null,
-    "note": "Two same-name methods in one FB (unmarked overload). NOT bridge-verifiable: the push is rejected/collapsed (the wire is keyed by name, so the second method silently overwrites the first — a data-loss path the LSP catches upstream). Wording from the doc (PROVISIONAL). C0581/C0583 stay unimplemented — they need overload RESOLUTION, which can't happen since overloads can't be represented.",
+    "note": "Two same-name methods in one FB (unmarked overload). NOT bridge-verifiable: the push is rejected/collapsed (the wire is keyed by name, so the second method silently overwrites the first — a data-loss path the LSP catches upstream). UNREACHABLE on SP21 by any path (measured 2026-09-14, volt-cli/scripts/probe-duplicate-method.py): the scripting object tree refuses the second same-named method at CREATE — \"An object with the name 'Compute' already exists within the corresponding namespace\" — so the compiler never sees the repro. The recorded codesysActual below is the old run where the repro never compiled. Wording from the doc (PROVISIONAL). C0581/C0583 stay unimplemented — they need overload RESOLUTION, which can't happen since overloads can't be represented.",
     "codesysActual": [
       "Unknown type: 'FB_Math'"
     ],

@@ -24,7 +24,10 @@ test("type checks do not false-positive on compiler-accepted code", () => {
     "x : INT; y : DINT;\nEND_VAR\ny := x;", // widening
     "w : WORD;\nEND_VAR\nw := 16#FF;", // hex → WORD
     "x : INT; w : WORD;\nEND_VAR\nx := w;", // WORD → INT (compiler warns, never errors)
-    "s : STRING;\nEND_VAR\ns := 'abc';", // string literal
+    // string literal. This was `s : STRING; s := 'abc'` — NOT compiler-accepted: CODESYS rejects the NAME `s` (the set
+    // keyword), "Unexpected token 's' found" at the declaration and the use (conformance cc_reserved_name_s_string).
+    // The battery was verified for the string assignment, never for the variable name.
+    "sText : STRING;\nEND_VAR\nsText := 'abc';",
     "t : TIME;\nEND_VAR\nt := T#1S;", // time literal
     "x : INT; y : DINT; z : DINT;\nEND_VAR\nz := x + y;", // mixed-width arithmetic
     "x : REAL; y : INT; z : REAL;\nEND_VAR\nz := x + y;", // real + int

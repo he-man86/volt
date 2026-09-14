@@ -23,13 +23,15 @@ import type { Type } from "../../types/index.js"
 
 // ─── values ──────────────────────────────────────────────────────────────────
 
-/** A constant, in the same shape the interpreter computes with. TIME is `bigint` nanoseconds. */
+/** A constant, in the same shape the interpreter computes with. A duration is a `bigint` in its type's unit — TIME in
+ *  MILLISECONDS (32-bit), LTIME in nanoseconds (64-bit), as measured; not the nanoseconds for both this once said. */
 export type IrValue = bigint | number | boolean | string
 
 // ─── places ──────────────────────────────────────────────────────────────────
 
-/** One step from a slot toward a sub-location. Empty today; `field`/`index`/`deref` land here. */
-export type Access = never
+/** One step from a slot toward a sub-location. `bit` is `x.3` on an integer slot (design §14) — a place of type
+ *  BOOL inside one slot, which needs no memory model. `field`/`index`/`deref` land here with design §9. */
+export type Access = { kind: "bit"; index: number }
 
 /** A resolved storage location: a slot in the frame, plus a path into it. */
 export interface Place {
@@ -48,7 +50,6 @@ export type IrBinOp =
   | "mul"
   | "div"
   | "mod"
-  | "pow"
   | "eq"
   | "ne"
   | "lt"
@@ -64,7 +65,49 @@ export type IrBinOp =
 
 export type IrUnOp = "neg" | "not"
 
-export type IrExpr = IrConst | IrLoad | IrBinary | IrUnary | IrConvert
+export type IrExpr = IrConst | IrLoad | IrBinary | IrUnary | IrConvert | IrBuiltin
+
+/** The value functions. A name here is ONE fixed meaning, measured against the vendor — not a call to resolve.
+ *  `trunc` is TRUNC/TRUNC_INT: toward zero, into its node's DINT/INT `type` — the one conversion that does not
+ *  round, so it cannot be a `convert`. */
+export type IrBuiltinName =
+  | "max"
+  | "min"
+  | "limit"
+  | "sel"
+  | "trunc"
+  | "abs"
+  | "expt"
+  /** `(value, count)`, value already promoted; the count is masked to the width's bits (design §14). */
+  | "shl"
+  | "shr"
+  /** `(value, count)` in the value's OWN width; the count is taken modulo that width. */
+  | "rol"
+  | "ror"
+  /** `(K, IN0, …)`: inputs already met; an out-of-range K — negative included — picks the LAST input. */
+  | "mux"
+  | IrMathName
+  | IrStringName
+
+/** The Standard library's string functions, argument order as its declarations give it — MID(STR, LEN, POS),
+ *  DELETE(STR, LEN, POS), REPLACE(STR1, STR2, L, P); positions 1-based; FIND answers 0 when absent (design §18). */
+export type IrStringName = "len" | "left" | "right" | "mid" | "concat" | "insert" | "delete" | "replace" | "find"
+
+/** The one-argument math functions: the argument is already converted to the node's `type` (design §12). */
+export type IrMathName = "sqrt" | "ln" | "log" | "exp" | "sin" | "cos" | "tan" | "asin" | "acos" | "atan"
+
+/**
+ * A built-in value function, with every argument already converted to `type` by lowering — so a backend picks
+ * nothing, not even a comparison type. Argument order is the IEC one: `max`/`min` take 1+ operands, `limit` is
+ * `(MN, IN, MX)`, and `sel` is `(G, IN0, IN1)` with a BOOL selector that is the one argument NOT of `type`.
+ */
+export interface IrBuiltin {
+  kind: "builtin"
+  name: IrBuiltinName
+  args: readonly IrExpr[]
+  type: Type
+  span: Span
+}
 
 export interface IrConst {
   kind: "const"
@@ -93,7 +136,12 @@ export interface IrUnary {
   type: Type
   span: Span
 }
-/** An explicit type conversion. Lowering inserts every one of these — a backend never widens implicitly. */
+/**
+ * A type conversion — implicit (lowering inserts every one; a backend never widens on its own) or explicit
+ * (`X_TO_Y`, `TO_Y`). ONE meaning for both, measured on CODESYS (design §11): REAL → integer rounds half away from
+ * zero, every integer result wraps to its width, BOOL → numeric is 1/0, numeric → BOOL is "not zero", → REAL is
+ * float32. An implicit REAL → integer never reaches here from valid code — it does not compile.
+ */
 export interface IrConvert {
   kind: "convert"
   value: IrExpr

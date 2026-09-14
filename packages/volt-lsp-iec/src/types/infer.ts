@@ -54,9 +54,12 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
     }
     case "call":
       return callReturnType(expr, scope, project)
-    case "unary":
-      // NOT/-/+ preserve the operand's type (NOT on WORD is a bitwise complement, not BOOL).
-      return inferExprType(expr.operand, scope, project)
+    case "unary": {
+      // NOT and + keep the operand's type (NOT on WORD is a bitwise complement, not BOOL). Unary MINUS does not — see
+      // `negatedType`. This comment used to say "NOT/-/+ preserve the operand's type", written from recollection.
+      const operand = inferExprType(expr.operand, scope, project)
+      return expr.op === "-" ? negatedType(operand) : operand
+    }
     case "binary":
       return binaryResultType(expr, scope, project)
     case "paren":
@@ -263,7 +266,10 @@ function literalType(lit: Literal): Type {
     case "bool":
       return elem("BOOL")
     case "time":
-      return elem("TIME")
+      // The AST gives `T#` and `LTIME#` one literalKind; the prefix decides. Typed TIME, `lt := LTIME#1S` was a false
+      // positive and `t := LTIME#1S` was silent (gap 8, conformance `cc_ltime_literal_into_time`).
+      // (`LTIME#` only: the lexer reads `LT` as the less-than keyword, and an `LT#` prefix was never measured)
+      return elem(/^LTIME#/i.test(lit.text) ? "LTIME" : "TIME")
     case "date":
       return elem("DATE")
     case "tod":
@@ -317,13 +323,55 @@ function binaryResultType(e: BinaryExpr, scope: Scope, project: Scope): Type {
   return UNKNOWN
 }
 
+/**
+ * The type a unary minus gives: the SIGNED type of the operand's width, at least 16 bits. Measured live on CODESYS
+ * SP21 (conformance `cc_neg_*`): SINT, USINT and BYTE negate to INT — `sint := -sint` is "Cannot convert type 'INT'
+ * to type 'SINT'" — UINT and WORD to INT and UDINT to DINT (each with a "change of sign" on the operand, which the
+ * narrowing check emits); INT, DINT and LINT keep their type. A 64-bit UNSIGNED operand was not measured, so it
+ * stays UNKNOWN — silence, never a guessed diagnostic.
+ */
+function negatedType(t: Type): Type {
+  if (t.kind !== "elementary") return t
+  const e = elementaryType(t.name)
+  if (e === undefined || e.rank === undefined || (e.family !== "int" && e.family !== "bitstring")) return t
+  if (e.bits > 32 && !e.signed) return UNKNOWN
+  const signed = elementaryType(e.bits <= 16 ? "INT" : e.bits <= 32 ? "DINT" : "LINT")
+  return signed === undefined ? UNKNOWN : elementaryTypeRef(signed)
+}
+
+/**
+ * EXPT's type: REAL when BOTH arguments are REAL, LREAL when both are known numerics otherwise — measured live
+ * (conformance `cc_expt_*`): `real := EXPT(real, real)` compiles without a warning, while EXPT(INT, INT),
+ * EXPT(REAL, INT) and EXPT(LREAL, REAL) into a REAL each warn "Implicit conversion from 'LREAL' to 'REAL'".
+ * An unknown argument keeps it UNKNOWN. The reference catalog used to say "always LREAL", from recollection — which
+ * made the narrowing check warn on `real := EXPT(real, real)`, code the compiler accepts silently.
+ */
+function exptType(call: CallExpr, scope: Scope, project: Scope): Type {
+  // Each argument is REAL, NOT REAL, or unknown. An integer LITERAL has no width but can never be a REAL, so it counts
+  // as not-REAL: `REAL_TO_DINT(EXPT(10, n))` warns LREAL → REAL in a real project (build conformance). A REAL literal
+  // can take either width, so it stays unknown.
+  const kinds = call.args.map((a): "real" | "not-real" | "int-literal" | "unknown" => {
+    if (a.value === undefined) return "unknown"
+    if (a.value.kind === "literal") return typeof a.value.value === "bigint" ? "int-literal" : "unknown"
+    const t = inferExprType(a.value, scope, project)
+    if (t.kind !== "elementary" || elementaryType(t.name)?.rank === undefined) return "unknown"
+    return canonicalElem(t.name) === "REAL" ? "real" : "not-real"
+  })
+  if (kinds.length !== 2 || kinds.includes("unknown")) return UNKNOWN
+  if (kinds[0] === "real" && kinds[1] === "real") return elementaryTypeRef(elementaryType("REAL")!)
+  // A REAL beside an integer literal was not measured — silence rather than a guessed type.
+  if (kinds.includes("real") && kinds.includes("int-literal")) return UNKNOWN
+  return elementaryTypeRef(elementaryType("LREAL")!)
+}
+
 function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
   // A project function/method wins (user code can shadow a built-in name).
   const sym = resolveMemberChain(call.callee, scope, project)
   if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project)
+  if (call.callee.kind === "ident_expr" && call.callee.name.toUpperCase() === "EXPT") return exptType(call, scope, project)
   // Otherwise a built-in call: a conversion `<X>_TO_<Y>`/`TO_<Y>` yields elementary `<Y>`; an operator with a
-  // FIXED modeled return type (EXPT→LREAL) yields that. Flows a built-in's result into downstream checks — e.g.
-  // `REAL_TO_DINT(EXPT(…))` needs EXPT's LREAL to see the implicit LREAL→REAL narrowing on the argument.
+  // FIXED modeled return type yields that. Flows a built-in's result into downstream checks — e.g.
+  // `REAL_TO_DINT(EXPT(…))` needs EXPT's type to see an implicit LREAL→REAL narrowing on the argument.
   if (call.callee.kind === "ident_expr") {
     const conv = /_TO_([A-Za-z][A-Za-z0-9]*)$/i.exec(call.callee.name) ?? /^TO_([A-Za-z][A-Za-z0-9]*)$/i.exec(call.callee.name)
     const modeled = conv?.[1] ?? lookupReference(call.callee.name)?.returnType

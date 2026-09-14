@@ -61,9 +61,38 @@ typed one, then the assignment target's, then the narrowest type that holds the 
 assignment target inward instead makes it 3.5 — a different program, silently. Found by a test, not by
 reading.
 
-**Unverified corner, marked in the code.** An all-constant expression (`x : REAL := 7 / 2`) takes the
-context's type. Which vendors actually do there is not confirmed; every case with a variable operand is
-decided by the rule above and is unaffected.
+**The all-constant corner — measured, and the code is wrong.** An all-constant expression (`x : REAL := 7 / 2`)
+takes the context's type in `lower.ts`, which makes it 3.5. CODESYS 3.5.21.40 gives **3**, in REAL and LREAL, as
+a body assignment and as a declaration initializer (`test/exec`, case `all_constant_division_in_real_context`):
+constants divide in the integer type first and the result widens — the same rule as a variable operand. The
+special branch is deleted.
+
+**One REAL operand makes it REAL** (test/exec `division_with_a_real_operand`): `7 / 2.0`, `7.0 / 2`,
+`int7 / 2.0`, `real7 / 2` and `real7 / int2` are all 3.5, in a body or an initializer; only INT / INT is 3. So a
+constant adopts its variable neighbour's type only when that does not demote a REAL to an integer — `int7 / 2.0`
+used to retype the `2.0` to INT and divide integrally (`adopt` in `lower.ts`).
+
+**Integer promotion — measured, and it overrides "narrowest".** The literal rule above picks the narrowest type
+that holds a value, and a store into the same type cannot tell where arithmetic wraps. A store into a wider one
+can (test/exec `arithmetic_width`, `constant_arithmetic_width`), and CODESYS 3.5.21.40 answers like C:
+- an `int`-family operand under 32 bits computes in **signed DINT** — `SINT 127 + 1` is 128, `USINT 0 - 1` is -1;
+- DINT is not promoted further — `DINT max + 1` is -2147483648 even stored into a LINT;
+- an all-constant integer expression folds at full width — `2000000000 + 2000000000` is 4000000000.
+
+Lowering owns this (`promoted`, applied to arithmetic and — because widening cannot change the answer —
+comparisons), so the interpreter's width fit and the emitter's `wrapping_*` follow the IR's types with no rule of
+their own. Measured next (2026-09-14, test/exec):
+- **bit strings promote the same way** — `BYTE 255 + 1` into WORD is 256; `BYTE 0 - 1` and `WORD 0 - 1` into DINT
+  are -1 (signed DINT);
+- **AND/OR/XOR promote; NOT does not** — `SINT -1 AND 255` into INT is 255, `NOT USINT 255` into DINT is 0;
+- **a signed/unsigned comparison meets at the wider rank** — `UDINT max > DINT -1` is FALSE and `=` is TRUE, which
+  the existing meet already did;
+- **unary minus promotes like arithmetic** — `-SINT(-128)` is 128 (and `sint := -sint` does not compile: "Cannot
+  convert type 'INT' to type 'SINT'"), `-INT(-32768)` into DINT is 32768, `-DINT(min)` into LINT is still
+  -2147483648. The emitter prints integer negation as `wrapping_neg()`: Rust's `-` panicked on that last one;
+- **there is no implicit REAL → INT** — it does not compile, so REAL → INT only ever happens through a built-in;
+- **`**` is not CODESYS ST** — it does not parse; EXPT is the only power.
+TwinCAT is unmeasured throughout.
 
 ## 5. Coverage is counted over POUs *with a body*
 
@@ -99,9 +128,17 @@ behaviour is safe. Two vendor facts asserted from memory in one session were wro
 a variable name; the standard blocks' parameter names). At this scale that is not an occasional slip, it is
 the dominant cost — and it produces confidently wrong results, which is worse than gaps.
 
-**It is cheap here.** The bridge already drives a headless CODESYS over a named pipe against a committed
-fixture project (`scripts/ide.ps1`). The missing piece is reading variable state across scan cycles,
-not the harness itself.
+**It is cheap here — but not through the bridge.** This first said the pipe harness only lacked a state-read
+verb. Measured on SP21 (`volt-cli/scripts/probe-online-state.py`): the scripting online API does run a POU in
+simulation and read every variable back in ~3s, but its `ScriptOnline` object only works inside a running
+script, so a C# pipe op cannot call it. The recorder is therefore a `--runscript` (`scripts/record-exec.py`,
+driven by `bun run record:exec`), which is the right shape anyway: recording ground truth is a dev-time act
+on a fixture copy, not something a bridge serving an engineer's project should do.
+
+Three facts the recorder is built on, all measured: there is no single-cycle step on the scripting surface
+(PLC_PRG gates its own body on a counter and raises a done flag); login must use `OnlineChangeOption.Never`,
+because an online change keeps variable values across a code change; values come back as typed monitoring
+strings (`INT#5`, `REAL#3`, `LREAL#0.33333333333333331`, `TRUE`).
 
 ## 8. What "fully implemented" means
 
@@ -116,6 +153,222 @@ not the harness itself.
 so a POU that calls one is still testable. Chasing literal 100% means reimplementing other vendors' libraries
 indefinitely.
 
+## 10. The value functions are one IR node, and every rule is measured
+
+**Decision.** MAX/MIN/LIMIT/SEL lower to an `IrBuiltin` whose arguments lowering has already converted to one type,
+so neither backend picks a comparison type. Rules, from CODESYS 3.5.21.40 (test/exec `max_*`, `limit_*`, `sel_basic`):
+- MAX/MIN are extensible (`MAX(1, 5, 3)` is 5);
+- arguments meet like a binary operator's operands — `MAX(INT 3, REAL 2.5)` is REAL 3, and `MAX(USINT 200, SINT -1)`
+  is 200, a comparison of values after promotion;
+- `LIMIT(MN, IN, MX)` is exactly `MIN(MAX(IN, MN), MX)`: with MN > MX it returns MX for every IN;
+- `SEL(G, IN0, IN1)` is IN0 on FALSE and IN1 on TRUE.
+
+**The trap it avoids.** Rust's `clamp` panics when MN > MX — a case CODESYS answers — so LIMIT emits
+`.max(mn).min(mx)`. It would have been the natural choice, and wrong exactly where the oracle looked.
+
+## 18. STRING is a fixed-capacity value; its functions come from the referenced library
+
+**Measured on CODESYS 3.5.21.40** (test/exec `string_*`, `wstring_*`, `real_to_string_digits`):
+- **Capacity.** `STRING(n)` holds n characters, a sizeless STRING **80** (85 stored → LEN 80), and a sizeless WSTRING 80
+  too. Every store truncates: `STRING(5) := 'abcdefgh'` is 'abcde'. The capacity rides on the resolved type
+  (`ElementaryTypeRef.length`); two capacities differ like two types, so the store's `convert` node is the truncation.
+- **Comparison** is by code unit, never after converting to one capacity: 'abc' < 'b', 'A' < 'a'.
+- **Escapes.** `$T`/`$t` tab, `$N` and `$L` ONE line feed, `$R` CR, `$P` form feed, `$$`, `$'`, `$"`, and two hex digits
+  one byte. The IDE displays them re-escaped.
+- **A WSTRING holds UTF-16 code units**: "héllo" into a WSTRING(3) is "hél", "ü!" fits a WSTRING(2), and a four-digit
+  escape is one unit ("h$00E9llo" = "héllo"). Unmeasured, so refused: a character beyond the BMP, a WSTRING's named
+  escapes, and which byte a non-ASCII character typed into a STRING becomes. (A first recording said "hé" — the
+  RECORDER's IronPython json had turned é into two characters on the way in; fixed, see the recorder note below.)
+- **Standard's string functions** (LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND) are a LIBRARY, not language
+  (plc-library-runtime, tier 1): lowering binds them only when the call resolves to the declaration under
+  `Library Manager/Standard/`, and takes its signature from there — STRING(255) in and out, so a STRING(300) argument is
+  cut to 255 on the way in (`string_input_truncation`). Positions are 1-based; a count clamps to the string; MID/DELETE
+  select nothing at a position below 1 or a length ≤ 0; INSERT prepends at 0 but leaves the string alone past its end
+  or below 0; FIND of '' is 0; REPLACE is DELETE then INSERT at max(P − 1, 0). A WSTRING argument does not compile
+  ("Cannot convert type 'WSTRING' to type 'STRING(255)'") — the W-functions need Standard64, which the fixture does not
+  reference.
+- **Conversions.** An integer or bit string → its decimal text; BOOL → 'TRUE'/'FALSE'; TIME → `T#` and its non-zero
+  components ('T#1d2h', 'T#0ms'). STRING → integer skips spaces and tabs, takes one sign, reads digits up to the first
+  other character, then wraps ('12abc' → 12, '- 5' → 0, '99999' → INT -31073). STRING → REAL/LREAL reads a decimal
+  prefix after spaces and tabs: '.5' → 0.5, '5.' → 5, '1.5E' → 1.5, '2e2' → 200, '1,5' → 1, 'abc' → 0; REAL rounds to
+  the nearest float32 ('1.23456789' → 1.23456788).
+- **REAL_TO_STRING is NOT one rule — refused (user decision 2026-09-14: keep refusing for now).** Samples (`string_conversions_*`,
+  `real_to_string_digits`): '3.0', '0.1', '1000000.0', '10000000.0', '99999990.0', '16777220.0', '1E08', '1.5E08',
+  '-1E08', '1E10', '3.402824E38', '0.0001', '1E-05', '2.5E-10', ties up ('1234566.5' → '1234567.0'). Seven significant
+  digits fits all of them EXCEPT 123456792 → '1.2345679E08' (eight). That is CODESYS's own digit routine; more samples
+  narrow it but cannot prove it. LREAL_TO_STRING is a different format again ('1.0e-1'). Options: keep refusing (the
+  default — a POU that formats a REAL reports `conversion-type`), or accept a documented approximation.
+
+**Rust.** One generated `IecStr<T, N>` — `[T; N]` plus a length, `Copy`, `IecString<N>` = u8 units and `IecWString<N>` =
+u16 — prepended only to a POU that holds a string. `lit`/`to` keep at most N units, so truncation holds by construction;
+`PartialOrd` compares used units. The Standard functions are `iec_*` helpers mirroring the interpreter line for line.
+
+**What was wrong, and why no test caught it.**
+- Every STRING slot started EMPTY: `constEval` folds no strings and `declare` silently dropped an initializer it could
+  not fold. No oracle case held a string, and nothing asserted that an initializer reaches its slot unless it folded.
+  Now an unfoldable initializer is reported (`init-not-constant`, 22 corpus POUs — each one was silently wrong).
+- STRING mapped to Rust `String`, which `self.a = self.b` MOVES out of `self` — no string program was ever in the rustc
+  crate check.
+- A STRING capacity was never resolved (`resolve.ts` dropped `STRING(5)`'s length).
+- My first REPLACE rule ("DELETE then INSERT at P − 1") implied INSERT at −1 prepends; the recorded INSERT said otherwise.
+  Inferences stay inferences until a case records them.
+
+**The test harness prints a string's units, not Rust's `Debug`** — Debug writes a form feed as `\u{c}`, which is not JSON.
+
+**The recorder is ASCII-only in both directions.** The runscript's IronPython `json` treats every string as UTF-8 bytes:
+a case's "héllo" reached CODESYS as "hÃ©llo", and a genuine é read back crashed the dump and lost the whole recording.
+`record-exec.ts` now writes non-ASCII as `\uXXXX` escapes, and the runscript returns values the same way.
+
+## 17. DATE and DT count seconds, TOD milliseconds — and their displays lose information
+
+**Measured on CODESYS 3.5.21.40** (test/exec `date_*`, `dt_*`, `tod_*`, `ldate_ltod_ldt`):
+- **DATE and DT are 32-bit counts of SECONDS since 1970-01-01** — `DATE_TO_UDINT(D#1970-01-02)` is 86400, not 1 —
+  and DT wraps: `DT#2106-02-07-06:28:15 + T#1S` is the epoch. (`types/elementary` said DT is 64 bits; fixed.)
+- **TOD is a 32-bit count of MILLISECONDS since midnight, NOT reduced modulo a day**: `TOD#12:30:15.5 + T#12H` stores
+  88215500 ms, while the IDE shows `TIME_OF_DAY#0:30:15.500`.
+- **LDATE / LDT / LTOD are 64-bit NANOSECONDS**.
+- **A date ± a duration converts the duration into the date's unit by TRUNCATING division** (`DT + T#1500MS` adds one
+  second) and computes in the date's width; `DT - TIME` and `DATE + TIME` compile (`D#2024-02-28 + T#1D` is 2024-02-29).
+- **A date − a date of the same type is the difference scaled into TIME** (LTIME for the L variants):
+  `D#2024-03-01 - D#2024-02-28` is `T#2D`, and the reverse wraps as a UDINT (4122167296 ms).
+
+Lowering scales through one table of nanoseconds per unit (`calendarArithmetic`), and runs BEFORE the constant
+retyping — otherwise `dt + T#1S` would stamp the 1000-ms literal as a DT and add 1000 seconds. A duration finer than its
+date (a TIME on an LDT) was not measured and is refused.
+
+**What was wrong.** A date literal reached lowering as its TEXT and was typed STRING; as an initializer it did not fold
+(slots began at 0); and date arithmetic did not lower at all. *Why missed:* no date oracle case, and no fixture.
+
+**The recorder's displays are lossy.** A TOD displays modulo a day and a DATE without its time of day, so the replay
+compares the backends' values AS DISPLAYED, and each case reads the stored truth through a lossless `*_TO_UDINT`
+variable.
+
+## 16. TIME is 32-bit milliseconds; LTIME is 64-bit nanoseconds
+
+**Measured on CODESYS 3.5.21.40** (test/exec `time_*`, `ltime_basic`):
+- **TIME is an unsigned 32-bit count of MILLISECONDS.** `T#49D17H2M47S295MS` (4294967295 ms) plus `T#1MS` is `T#0MS`,
+  and `T#500MS - T#1S` wraps below zero to `T#49D17H2M46S796MS`. `TIME_TO_DINT(T#1S500MS)` is 1500 and
+  `DINT_TO_TIME(2500)` is `T#2S500MS` — conversions count milliseconds.
+- **LTIME is a 64-bit count of NANOSECONDS**: `LTIME_TO_LINT(LTIME#1S + LTIME#1NS)` is 1000000001.
+- **A duration times or divided by an integer stays a duration** (`T#1S * 3` is `T#3S`, `T#1S / 4` is `T#250MS`), and
+  durations compare as their counts.
+- **`T#1500US` does not compile** — TIME has no microsecond unit; sub-millisecond precision is LTIME's.
+
+**What was wrong, and why nothing caught it.** The IR held every duration as an unbounded bigint of NANOSECONDS and
+the emitter printed it as an `i64` — a recalled design note, while `types/elementary` already declared TIME 32 bits.
+Worse, `constEval` folds only numbers and booleans, so `t : TIME := T#1S` started at 0. The oracle had no TIME case.
+Now a duration literal is held in its type's unit (the prefix decides — the AST gives `T#` and `LTIME#` the same
+`literalKind`), the interpreter wraps it at its width, and the emitter prints `u32` / `u64`. Duration ↔ REAL/BOOL
+conversions are unmeasured and refused.
+
+## 15. S= and R= are latches, and a chain acts on its final value
+
+**Measured on CODESYS 3.5.21.40** (test/exec `set_reset_*`):
+- **`x S= c` is a latch, not an assignment**: it sets `x` only when `c` is TRUE and otherwise leaves it — a set `x`
+  stays set under `S= FALSE`, and `R=` clears the same way. The whole right-hand side is the condition
+  (`x S= (i > 5) AND flag`), across scan cycles too. It lowers to the IF it is; no backend sees an `S=`.
+- **Assignment chains: the VALUE flows right to left, converted to each link's type as it passes; a `:=` link stores
+  it, an `S=`/`R=` link latches its target on it and passes it on unchanged.** Every chain measured fits:
+  `a S= b R= c` compiles, and with `b` FALSE and `c` TRUE `a` is SET — it latches on `c`, not on `b`;
+  `plain := latch S= cond` with `cond` FALSE makes `plain` FALSE although `latch` stays TRUE; and
+  `sint := dint := int` fails "Cannot convert type 'DINT' to type 'SINT'" — `sint` receives the value as converted
+  through the DINT link (`assign_chained_plain` confirms the same by value, through a REAL link). Lowering evaluates
+  the value once into a temp.
+
+**Two tools were wrong about chains, and no test covered either.** The parser accepted only `:=` links after a plain
+`:=` ("';' expected instead of 'R='" on valid code), and the formatter printed one operator for the whole chain — it
+would have rewritten `a S= b R= c` into `a S= b S= c` in the user's file. Neither had a single chain test, no
+conformance fixture used `S=`/`R=` at all, and the corpus contains no chain, so the zero-FP gate could never see it.
+Both now carry per-link operators (`chainOps`) with a parser test and a formatter round-trip test.
+
+## 14. Bit operations, and bit access as the first `Place.path` step
+
+**Measured on CODESYS 3.5.21.40** (test/exec `shift_*`, `rotate_*`, `mux_*`, `bit_access_*`):
+- **SHL/SHR shift the PROMOTED value**: `SHL(BYTE 1, 9)` into a WORD is 512. The count is **masked to the width's
+  bits, like x86**: `SHL(DWORD 1, 32)` is 1, `SHL(DWORD 1, 33)` is 2, and a count of -1 behaves as 31 (`SHL(BYTE 8, -1)`
+  is 0). **SHR is arithmetic on a signed value**: `SHR(SINT -128, 1)` is -64, `SHR(INT -2, 1)` is -1. A 64-bit type
+  masks to 6 bits — `SHL(LWORD 1, 65)` is 2 — and `SHR(LINT -8, 1)` is -4 (`shift_64bit`).
+- **ROL/ROR rotate in the value's OWN width** — `ROL(BYTE 129, 1)` is 3, `ROR(BYTE 129, 1)` is 192 — with the count
+  taken modulo that width: `ROL(BYTE 129, 9)` is 3 and `ROL(BYTE 129, 8)` is 129.
+- **MUX's inputs meet like MAX's** (`MUX(0, INT 10, REAL 2.5)` is REAL 10), and **an out-of-range K picks the LAST
+  input** — for K = 3 of three inputs, and for K = -1.
+- **Bit access `x.n` is two's complement**, readable and writable: `INT -1 .15` is TRUE, `DWORD .31` reads, `INT 0
+  .15 := TRUE` makes -32768, and clearing bit 0 of WORD 65535 gives 65534.
+
+**Rust's own features match every edge here** (§13): `wrapping_shl`/`wrapping_shr` mask the count exactly as above
+and shift signed values arithmetically; `rotate_left`/`rotate_right` take the count modulo the width. MUX prints as a
+`match` whose `_` arm is the last input. A bit reads as `((x >> n) & 1) != 0` and writes as `x | (1T << n)` /
+`x & !(1T << n)` with a typed one, so `1i16 << 15` is exactly the IDE's -32768.
+
+**Why bit access does not need §9.** It is one `Access` step — `{ kind: "bit", index }` — on one local integer slot:
+no pointer can target it and no instance holds it, so none of the slot+path / byte-image trade-offs apply. Every other
+dotted name (a struct or instance member) still reports `expr-member` / `place-shape`, unchanged.
+
+## 13. Use the Rust feature — once the oracle proves it means the same thing
+
+**Decision (2026-09-14).** When Rust has a feature for an IEC operation, the emitter uses it — `.max()`, `.round()`,
+`.sqrt()`, `.powf()`, `rotate_left` — so the output reads as ordinary Rust. The condition is not the name but the
+EDGES: the feature is used only once `test/exec` shows it agrees with CODESYS where the two could differ.
+
+**Why the condition is not a formality.** Every emitter divergence so far was a Rust feature with the right name
+and a different edge: `clamp` panics when MN > MX (CODESYS returns MX); float → int `as` truncates and saturates
+(CODESYS rounds half away from zero and wraps); `-x` and `abs` panic on a signed minimum in a debug build (CODESYS
+wraps); `f32::ln` is its own float32 routine (CODESYS's REAL results are the float64 ones, narrowed). Where the edge
+differs, the emitter composes the measured behaviour from features that do agree, and says why at the call site.
+
+## 12. Math functions: the argument's width is the computation's width
+
+**Measured on CODESYS 3.5.21.40** (test/exec `abs_values`, `abs_unsigned`, `sqrt_precision`, `exp_log_precision`,
+`trig_precision`); results stored into LREAL, so a 32-bit computation shows its float32 digits:
+- **SQRT, LN, LOG (base 10), EXP, SIN/COS/TAN/ASIN/ACOS/ATAN** keep a REAL argument in REAL — `SQRT(REAL 2.0)` is
+  1.4142135381698608, `LN(REAL 2.0)` is 0.69314718246459961 — compute an LREAL in LREAL, and take an INTEGER argument
+  to LREAL (`SQRT(INT 2)` is 1.4142135623730951, `LN(INT 10)` is 2.302585092994046).
+- **A REAL result equals the float64 result narrowed to float32** for all ten — which is how both backends compute
+  it: the interpreter through `Math.*` then `fit`, the emitter through `(x as f64).fn() as f32`. `f32::ln` is a
+  different float32 routine and is deliberately not used.
+- **ABS promotes like unary minus**: `ABS(SINT -128)` is 128; `ABS(INT -32768)` is 32768 into a DINT and wraps back to
+  -32768 into an INT. `ABS` of a USINT compiles and is the value itself. The emitter prints `wrapping_abs` (`abs`
+  panics on a signed minimum in a debug build) and the identity for unsigned types (which have no `abs`).
+- **EXPT computes in REAL only when BOTH arguments are REAL** (test/exec `expt_types`, `expt_mixed_width`):
+  `EXPT(REAL 2.0, REAL 0.5)` is float32's √2, but `EXPT(REAL 3.0, INT 20)` is 3486784401 (float32 gives 3486784512),
+  and `EXPT(INT 2, REAL 0.5)` / `EXPT(LREAL, REAL)` are float64. `EXPT(INT, INT)` is LREAL-typed — into an INT it does
+  not compile. **Open, for the LSP not the transpiler:** `reference.ts` types EXPT as always LREAL, and `infer.ts`
+  leans on that for a narrowing warning. Whether `EXPT(REAL, REAL)` is typed REAL or LREAL cannot be told from values
+  — an implicit LREAL → REAL compiles (`implicit_lreal_to_real`), so `real := EXPT(r, r)` compiling proves nothing.
+- **A domain error stops the application**: `SQRT(-1.0)` / `LN(0.0)` made the simulated application stop answering
+  (the recorder's read timed out). It is a runtime exception, like division by zero; neither backend models runtime
+  exceptions, and the oracle cannot record a value for one.
+
+## 11. Conversions are one IR node with one meaning, implicit or explicit
+
+**Decision.** `X_TO_Y(v)` and `TO_Y(v)` lower to the same `convert` node lowering already inserts for implicit
+widening — so the two cannot drift. `X_TO_Y` first brings `v` to X the way the compiler would. The explicit step is
+always a node, never a retyped constant: `DINT_TO_SINT(300)` stamped as a SINT constant would print as Rust's
+out-of-range literal `300i8`. TRUNC/TRUNC_INT is the one conversion that does not round, so it is a `trunc` builtin.
+A name is a conversion only when both halves are elementary types; a project function called `GO_TO_START` is not.
+
+**The rules — measured on CODESYS 3.5.21.40** (test/exec: 12 cases, inputs as variables so the conversion runs at
+scan time, and one case proving constants fold to the same answers):
+- **REAL/LREAL → integer rounds half AWAY from zero**: 0.5 → 1, 2.5 → 3, -2.5 → -3, -0.5 → -1. Not truncation (what
+  the interpreter did), and not banker's rounding.
+- **every integer result wraps to its width** — out-of-range REAL too: `REAL_TO_INT(40000.0)` is -25536,
+  `LREAL_TO_DINT(3.0E9)` is -1294967296; and integer → integer of any width or signedness: `DINT_TO_SINT(300)` is 44,
+  `DINT_TO_SINT(-129)` is 127, `SINT_TO_USINT(-1)` is 255, `UDINT_TO_DINT(4294967295)` is -1.
+- **TRUNC/TRUNC_INT go toward zero**, into DINT / INT: `TRUNC(-2.7)` is -2. **Out of DINT range TRUNC is DINT's
+  minimum** — `TRUNC(3.0E9)` is -2147483648, x86's "integer indefinite", neither a wrap nor a saturation — while
+  `LREAL_TO_DINT(3.0E9)` wraps to -1294967296: TRUNC does not go through 64 bits. `TRUNC_INT` truncates into that
+  DINT and then wraps into INT (`TRUNC_INT(40000.5)` is -25536). Confirmed beyond DINT (`trunc_beyond_dint`):
+  `TRUNC_INT(3.0E9)` and `TRUNC_INT(-3.0E9)` are 0 (DINT's minimum, wrapped into INT), `TRUNC(-3.0E9)` is
+  -2147483648. The emitter range-checks into `i32::MIN`.
+- **BOOL → numeric is 1/0; numeric → BOOL is "not zero"** — INT 2, INT -1, BYTE 16 and REAL 0.5 are all TRUE.
+- **→ REAL is float32**: `DINT_TO_REAL(16777217)` is 16777216; `REAL_TO_LREAL` widens the float32 exactly
+  (`0.1` → 0.10000000149011612). `LINT_TO_LREAL(9007199254740993)` is 9007199254740992.
+- **`TO_Y` exists** (SP21) and follows the same rules.
+
+**The emitter traps.** Rust's float → int `as` truncates AND saturates; CODESYS rounds and wraps. So a REAL →
+integer prints `(x.round() as i64) as T` — `f64::round` is exactly half-away-from-zero, and `as` between integers
+wraps. `as bool` does not exist (`!= 0`), nor does `bool as f32` (`as u8` first).
+
 ## 9. OPEN — the memory model, and it blocks phase 3
 
 `Place` is `{ slot, path }` with `path` empty. Two ways forward:
@@ -127,6 +380,10 @@ indefinitely.
 | `VAR_IN_OUT` | index + path tuple | offset |
 | emitted Rust | named struct fields — readable | one `[u8; N]` — opaque |
 | debuggability of output | high | low |
+
+**The coverage ratchet now says so too** (2026-09-14): the first four built-ins moved `expr-call` from 60 to 58
+POUs and fully-lowered POUs stayed at 1 of 304, because `stmt-call_stmt` (84%) and `expr-member` (31%) block
+nearly every real POU. More built-ins are correct work that barely moves the number; this decision is what does.
 
 **This must be settled before FB instances, methods and GVLs are built**, because those are what a pointer
 points *at*. Building them on slot indices and then discovering `ADR` needs offsets means doing that work

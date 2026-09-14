@@ -2,7 +2,8 @@
 
 The ST frontend that powers the LSP (parser · AST · symbols · types) was always meant to feed one more
 consumer: a **compiler backend for headless test execution** — take a POU, run its scan cycles, assert I/O, so
-PLC logic can be tested without the IDE. This was the last deferred task of `build-st-language-server` (X.1);
+PLC logic can be tested without the IDE, with an ordinary test framework (`cargo test`, `bun test`) rather than
+a PLC-specific one. This was the last deferred task of `build-st-language-server` (X.1);
 that change's LSP scope is complete and archived, so the backend gets its own home here.
 
 The original title says "transpile ST to Rust". The requirement is narrower, and the spec already said so:

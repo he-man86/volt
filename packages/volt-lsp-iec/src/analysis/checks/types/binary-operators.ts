@@ -43,7 +43,16 @@ export function binaryOpError(
   // arithmetic
   if (isNumericType(a) && isNumericType(b)) return undefined
   if (a === "BOOL" || b === "BOOL") return diag(e, messages.cannotConvert("BOOL", a === "BOOL" ? b : a))
+  // A string operand (gap 11, conformance `cc_string_*`): on the LEFT it must become a number — "Cannot convert type
+  // 'STRING' to type 'ANY_NUM'", for + - * / and for WSTRING alike; on the RIGHT of a number it must become THAT
+  // number's type — `i + str` is "Cannot convert type 'STRING' to type 'INT'". One message either way.
+  if (isStringType(a)) return diag(e, messages.cannotConvert(a, "ANY_NUM"))
+  if (isStringType(b) && isNumericType(a)) return diag(e, messages.cannotConvert(b, a))
   return undefined
+}
+
+function isStringType(name: string): boolean {
+  return name === "STRING" || name === "WSTRING"
 }
 
 function diag(e: BinaryExpr, message: string): DiagnosticItem {

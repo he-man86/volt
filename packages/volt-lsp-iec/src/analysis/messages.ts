@@ -28,7 +28,9 @@ export interface Messages {
   /** Same name declared twice in one scope — identical wording on both vendors. */
   duplicateDeclaration(name: string, scope: string): string
   /** Two methods with the same name in one FB (C0582) — an unmarked overload. Volt can't push it either way.
-   *  PROVISIONAL: the bridge rejects the push, so this wording can't be live-verified. */
+   *  PROVISIONAL, and UNVERIFIABLE on SP21: the object tree itself refuses a second same-named method at create
+   *  ("An object with the name '…' already exists within the corresponding namespace", measured by
+   *  `volt-cli/scripts/probe-duplicate-method.py`), so the compiler never sees the repro by ANY path. */
   duplicateMethod(name: string): string
   /** A bare identifier that resolves in no reachable scope — byte-identical on both vendors. */
   /**
@@ -308,6 +310,15 @@ export interface Messages {
   cannotCallType(type: string): string
   /** Calling a plain value (a scalar/struct var) — CODESYS asks for a program/function/FB instead (C0035). */
   callTargetExpected(name: string): string
+  /** A token the parser cannot use where it stands — the compiler echoes the token AS WRITTEN: `r : INT;` reports
+   *  `Unexpected token 'r' found` (lowercase). Recorded live on CODESYS SP21 (conformance `cc_reserved_name_r`,
+   *  `cc_power_operator`); unmeasured on TwinCAT, so the checks that use it are CODESYS-only. */
+  unexpectedToken(token: string): string
+  /** The parse error that precedes `unexpectedToken` for an unknown operator: `';' expected instead of '**'`. */
+  semicolonExpectedInsteadOf(token: string): string
+  /** A token where an expression must start: `Expression expected instead of 'T#1500'` — a TIME literal cut at a `US`
+   *  unit (conformance `cc_time_*`). Recorded on CODESYS SP21; unmeasured on TwinCAT. */
+  expressionExpectedInsteadOf(token: string): string
 }
 
 export type LifecycleMethod = "FB_Init" | "FB_Exit" | "FB_ReInit"
@@ -342,6 +353,9 @@ export function messagesFor(vendor: Vendor): Messages {
     fbInitNoOutput: (id, fb) => `'${id}' is no input of '${fb}'`,
     cannotCallType: (type) => `Cannot call object of type '${type}'`,
     callTargetExpected: (name) => `Program name, function or function block instance expected instead of '${name}'`,
+    unexpectedToken: (token) => `Unexpected token '${token}' found`,
+    semicolonExpectedInsteadOf: (token) => `';' expected instead of '${token}'`,
+    expressionExpectedInsteadOf: (token) => `Expression expected instead of '${token}'`,
     lifecycle: (method) => {
       if (method === "FB_Init") {
         return tc
@@ -365,7 +379,7 @@ export function messagesFor(vendor: Vendor): Messages {
     modNotDefined: (type) => (tc ? `'MOD' is not defined for '${type}'` : `MOD is not defined for ${type}`),
     operatorNotPossible: (op, type) => `Operation '${op}' is not possible on type '${type}'`,
     duplicateDeclaration: (name, scope) => `A local variable named '${name}' is already defined in '${scope}'`,
-    // PROVISIONAL — bridge rejects the push (CreateChild name collision), so unverifiable. Doc wording (C0582).
+    // PROVISIONAL doc wording (C0582) — unverifiable: the object tree refuses the duplicate at create, before any build.
     duplicateMethod: (name) =>
       `There is another method with the name '${name}'. Use the Attribute {attribute 'overloaded'} if you want to define overloaded methods.`,
     // Both MEASURED on live CODESYS SP21; unverified on TwinCAT (see the interface docs), so the CODESYS

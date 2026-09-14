@@ -6,6 +6,7 @@
 import type { Scope } from "../symbols/index.js"
 import { findChildScope, lookupLocal } from "../symbols/index.js"
 import type { TypeDecl, TypeExpr } from "../syntax/index.js"
+import { constEval } from "./const-eval.js"
 import { elementaryType } from "./elementary.js"
 import { elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
 
@@ -17,8 +18,12 @@ export function resolveTypeExpr(t: TypeExpr, project: Scope, depth = 0): Type {
   switch (t.kind) {
     case "named_type":
       return resolveNamedType(t.name.text, project, depth)
-    case "string_type":
-      return resolveElementary(t.wide ? "WSTRING" : "STRING")
+    case "string_type": {
+      // Carry a declared capacity (`STRING(5)`); a length this scope cannot fold leaves it unstated, never guessed.
+      const base = resolveElementary(t.wide ? "WSTRING" : "STRING")
+      const length = t.length === undefined ? undefined : constEval(t.length, project)
+      return base.kind === "elementary" && typeof length === "bigint" ? { ...base, length: Number(length) } : base
+    }
     case "implicit_enum_type":
       // Inline enum: its values live as bare constants in the enclosing scope, so no member scope here.
       return { kind: "enum", name: "(implicit)" }

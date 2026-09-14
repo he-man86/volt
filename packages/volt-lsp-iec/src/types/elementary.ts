@@ -67,7 +67,9 @@ export const ELEMENTARY_TYPES: ReadonlyMap<string, ElementaryType> = new Map(
       T("LTIME", "time", 64, false),
       T("DATE", "date", 32, false),
       T("TOD", "date", 32, false),
-      T("DT", "date", 64, false),
+      // 32, not the 64 this said: DT counts SECONDS in 32 bits — DT#2106-02-07-06:28:15 plus one second wraps to
+      // DT#1970-01-01-00:00:00 on CODESYS 3.5.21.40 (test/exec `date_width_wrap`). LDT is the 64-bit one.
+      T("DT", "date", 32, false),
       T("LDATE", "date", 64, false),
       T("LTOD", "date", 64, false),
       T("LDT", "date", 64, false),

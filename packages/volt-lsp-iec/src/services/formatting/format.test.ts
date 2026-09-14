@@ -34,6 +34,20 @@ function roundtrips(src: string): void {
   astEqual(doc.parseResult, parseSource(formatted))
 }
 
+test("roundtrip: a mixed set/reset chain keeps each link's operator", () => {
+  // `print.ts` printed the FIRST operator for every link, believing set/reset ops never chain — so formatting
+  // `a S= b R= c` would have written `a S= b S= c` back to the user's file. No test ever formatted a chain.
+  roundtrips(`PROGRAM P
+VAR
+	a : BOOL;
+	b : BOOL;
+	c : BOOL;
+END_VAR
+a S= b R= c;
+a := b := c;
+END_PROGRAM`)
+})
+
 test("roundtrip: FB with var sections + assignments + arithmetic", () => {
   roundtrips(`FUNCTION_BLOCK F
 VAR

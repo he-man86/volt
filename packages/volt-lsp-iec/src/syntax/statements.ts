@@ -170,28 +170,35 @@ function parseJmp(cur: Cursor): Statement | undefined {
   return { kind: "jmp", target, span: merge(kw.span, semi?.span ?? target.span) }
 }
 
+/** The assignment operator a token spells: `"S="`/`"R="`/`"REF="`, `undefined` for `:=`, or `null` when it is not one. */
+function assignOpOf(t: { kind: string; text: string }): "S=" | "R=" | "REF=" | undefined | null {
+  if (t.kind !== "punct") return null
+  if (t.text === ":=") return undefined
+  return t.text === "S=" || t.text === "R=" || t.text === "REF=" ? t.text : null
+}
+
 function parseExprOrAssign(cur: Cursor): Statement | undefined {
   const expr = parseExpression(cur)
   if (expr === undefined) return undefined
   // Assignment operators: plain `:=` plus the IEC set/reset/reference forms `S=` / `R=` / `REF=`.
   const opTok = cur.peek()
-  const isAssignOp =
-    opTok.kind === "punct" &&
-    (opTok.text === ":=" || opTok.text === "S=" || opTok.text === "R=" || opTok.text === "REF=")
-  if (isAssignOp) {
+  if (assignOpOf(opTok) !== null) {
     cur.consume() // the assignment operator
-    const op = opTok.text === ":=" ? undefined : (opTok.text as "S=" | "R=" | "REF=")
+    const op = assignOpOf(opTok) ?? undefined
     let value = parseExpression(cur)
     if (value === undefined) return undefined
-    // Chained assignment `a := b := c` (CODESYS): each `:=` promotes the last RHS to an
-    // intermediate target; all receive the final value. Only plain `:=` chains.
+    // A CHAIN promotes each right-hand side to an intermediate target: `a := b := c`, and — measured, not assumed —
+    // `a S= b R= c`, which CODESYS compiles (test/exec `set_reset_chained`). This loop used to accept `:=` links
+    // only, after a plain `:=` only, so a valid set/reset chain was a parse error ("';' expected instead of 'R='").
+    // The operators may mix, so each link keeps its own (`chainOps`).
     const chained: Expr[] = []
-    if (op === undefined) {
-      while (cur.eatPunct(":=") !== undefined) {
-        chained.push(value)
-        value = parseExpression(cur)
-        if (value === undefined) return undefined
-      }
+    const chainOps: ("S=" | "R=" | "REF=" | undefined)[] = []
+    for (let link = assignOpOf(cur.peek()); link !== null; link = assignOpOf(cur.peek())) {
+      cur.consume()
+      chained.push(value)
+      chainOps.push(link ?? undefined)
+      value = parseExpression(cur)
+      if (value === undefined) return undefined
     }
     const semi = cur.expectPunct(";", "after assignment")
     if (semi === undefined) return undefined
@@ -200,7 +207,7 @@ function parseExprOrAssign(cur: Cursor): Statement | undefined {
       target: expr,
       value,
       ...(op !== undefined ? { op } : {}),
-      ...(chained.length > 0 ? { chained } : {}),
+      ...(chained.length > 0 ? { chained, chainOps } : {}),
       span: merge(expr.span, semi.span),
     }
   }

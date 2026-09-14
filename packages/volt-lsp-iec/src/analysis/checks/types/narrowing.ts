@@ -7,10 +7,10 @@
  */
 import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../syntax/index.js"
 import { bodies, type Scope } from "../../../symbols/index.js"
-import { classifyConversion, elementaryType, elementaryTypeRef, inferExprType, type Type } from "../../../types/index.js"
+import { elementaryType, elementaryTypeRef, inferExprType } from "../../../types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { conversionWarning, type DiagnosticItem } from "../_shared.js"
 
 export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -21,7 +21,7 @@ export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[
       }
       for (const e of stmtExprs(s))
         walkExpr(e, (x) => {
-          const diag = conversionArgError(x, scope, ctx.project, ctx.messages)
+          const diag = conversionArgError(x, scope, ctx.project, ctx.messages) ?? negationOperandWarning(x, scope, ctx.project, ctx.messages)
           if (diag !== undefined) out.push(diag)
         })
     })
@@ -58,6 +58,18 @@ export function conversionArgError(
 }
 
 /**
+ * The "change of sign" a unary minus puts on an UNSIGNED operand: it negates the value as the signed type of its
+ * width, so `-uint` converts UINT → INT first. Measured live (conformance `cc_neg_uint_into_int`, `cc_neg_word_*`,
+ * `cc_neg_udint_*`): CODESYS warns "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT' : Possible
+ * change of sign" on the operand. An 8-bit unsigned operand widens into INT and stays silent, as recorded — the same
+ * `classifyConversion` answer, so no special case.
+ */
+function negationOperandWarning(x: Expr, scope: Scope, project: Scope, messages: Messages): DiagnosticItem | undefined {
+  if (x.kind !== "unary" || x.op !== "-") return undefined
+  return conversionWarning(inferExprType(x, scope, project), inferExprType(x.operand, scope, project), x.operand, messages)
+}
+
+/**
  * The implicit-conversion WARNING for one `target := value` pair, or undefined. The ONE home for the rule —
  * the ST assign check and the network-text sink check both call it, so wording stays byte-identical per vendor. Emits for
  * `classifyConversion === "narrow"` (loss) and `=== "sign-change"` (sign); the ERROR kinds are the assignment /
@@ -78,33 +90,3 @@ export function narrowingPairError(
   )
 }
 
-/** Map a source→value conversion to its narrowing/sign-change warning on `at`, or undefined. The ONE mapping —
- *  the assignment pair, the conversion-arg check and the CALL-ARGUMENT check all funnel through it, so wording
- *  stays byte-identical.
- *
- *  Exported for `call-arguments.ts`, which resolves a parameter's declared type and the argument's inferred type
- *  itself and then has only the assignability question answered. Passing an `INT` into a `UINT` parameter is a
- *  sign crossing exactly as `u := i` is, but `isAssignable` is true for it (a sign-change is assignable), so that
- *  check returned early and the warning was never emitted from a call site. */
-export function conversionWarning(lhs: Type, rhs: Type, at: Expr, messages: Messages): DiagnosticItem | undefined {
-  const kind = classifyConversion(lhs, rhs)
-  if (kind === "narrow") return warn(at, "narrowing-conversion", messages.narrowing(name(rhs), name(lhs)))
-  if (kind === "sign-change")
-    return warn(at, "sign-change-conversion", messages.signChange(sign(rhs), name(rhs), sign(lhs), name(lhs)))
-  return undefined
-}
-
-const warn = (target: Expr, code: string, message: string): DiagnosticItem => ({
-  severity: "warning",
-  span: target.span,
-  source: SOURCE,
-  code,
-  message,
-})
-
-function name(t: Type): string {
-  return t.kind === "elementary" ? t.name : ""
-}
-function sign(t: Type): string {
-  return t.kind === "elementary" && elementaryType(t.name)?.signed ? "signed" : "unsigned"
-}
