@@ -3,7 +3,7 @@
 // See architecture.md → ownership map: `network/` owns the network-text AST + network-text diagnostics.
 export * from "./text/ast.js"
 export { parseNetworkText } from "./text/parser.js"
-export { analyzeNetworkText, networkScopeAt, wireDefs, type NetworkTextAnalysis } from "./network-analyze.js"
+export { analyzeNetworkText, wireDefs, type NetworkTextAnalysis } from "./network-analyze.js"
 export { computeNetworkTextDiagnostics } from "./network-analysis.js"
 export { documentSymbolsWithVg } from "./network-symbols.js"
 export {
@@ -14,7 +14,6 @@ export {
   networkTypeDefinition,
   networkCompletion,
   networkResolveAt,
-  resolveAnywhere,
   allReferences,
   referencesAnywhere,
   documentHighlightsAnywhere,

@@ -181,11 +181,6 @@ export function elementaryType(name: string): ElementaryType | undefined {
   return ELEMENTARY_TYPES.get(canonicalElem(name))
 }
 
-/** True when the type participates in the numeric widening lattice (int / bit-string / real). */
-export function isNumeric(t: ElementaryType): boolean {
-  return t.rank !== undefined
-}
-
 // ─── Derived views — the ONE place each old scattered set is now computed from the table above ───
 
 /** Numeric widening rank (was `NUMERIC_RANK` in check-assignment-types), or undefined for non-numeric. */
@@ -208,11 +203,6 @@ export function isNumericType(name: string): boolean {
 export function isIsolated(name: string): boolean {
   const f = elementaryType(name)?.family
   return f === "bool" || f === "string" || f === "time" || f === "date"
-}
-
-/** Enum↔scalar isolated families (was `ENUM_ISOLATED`): the isolated set PLUS real. */
-export function isEnumIsolated(name: string): boolean {
-  return isIsolated(name) || elementaryType(name)?.family === "real"
 }
 
 /** Date/time (non-duration) family (was `DATETIME_TYPES`). */

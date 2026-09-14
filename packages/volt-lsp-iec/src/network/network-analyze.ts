@@ -59,11 +59,6 @@ export function analyzeNetworkText(unit: TopLevel, body: BodySpan, project: Scop
   return { vg, pou, networkScopes }
 }
 
-/** The network whose span contains `offset`, and its scope; POU scope when outside every network. */
-export function networkScopeAt(analysis: NetworkTextAnalysis, offset: number): Scope {
-  return networkNetworkAt(analysis, offset)?.scope ?? analysis.pou
-}
-
 /** The network containing `offset` paired with its resolution scope, or undefined when outside all. */
 export function networkNetworkAt(analysis: NetworkTextAnalysis, offset: number): { network: NetworkTextNetwork; scope: Scope } | undefined {
   for (const [network, scope] of analysis.networkScopes) {

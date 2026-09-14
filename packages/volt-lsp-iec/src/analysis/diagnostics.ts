@@ -15,7 +15,6 @@ import {
   type AnalysisInitOptions,
   type ConfigurableCode,
   type ResolvedConfig,
-  type Vendor,
   type WorkspaceRefs,
 } from "./config.js"
 import { messagesFor, type Messages } from "./messages.js"
@@ -101,7 +100,6 @@ export interface CheckContext {
   project: Scope
   config: ResolvedConfig
   messages: Messages
-  activeVendor: Vendor
   /** Workspace reference-file names (library namespaces + device instances) the checks may skip. */
   references: WorkspaceRefs
   /** The source lexed ONCE, shared by every pragma/attribute-token check. The parser strips pragmas, so these
@@ -217,7 +215,6 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
     project: args.project,
     config,
     messages: messagesFor(config.vendor),
-    activeVendor: config.vendor,
     references: args.references ?? EMPTY_WORKSPACE_REFS,
     tokens: () => (tokenCache ??= lex(args.source)),
   }
@@ -247,8 +244,18 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
   return result
 }
 
-/** Per-check wall-time accumulator (ms), for the offline profiler only. Enable by assigning `{}`. */
-export let CHECK_TIMING: Record<string, number> | undefined = process.env.PROFILE_CHECKS ? {} : undefined
+/** Per-check wall time (ms) under `PROFILE_CHECKS=1`, printed slowest first when the process exits. The corpus and
+ *  bench tests point at this switch for a timeout; it used to collect the numbers and print nothing. */
+const CHECK_TIMING: Record<string, number> | undefined = process.env.PROFILE_CHECKS ? {} : undefined
+if (CHECK_TIMING !== undefined) {
+  process.on("exit", () =>
+    console.table(
+      Object.entries(CHECK_TIMING)
+        .sort(([, a], [, b]) => b - a)
+        .map(([check, ms]) => ({ check, ms: Math.round(ms) })),
+    ),
+  )
+}
 
 function isResolved(c: DiagnosticsArgs["config"]): c is ResolvedConfig {
   return c !== undefined && "warnings" in c && typeof (c as ResolvedConfig).vendor === "string"
