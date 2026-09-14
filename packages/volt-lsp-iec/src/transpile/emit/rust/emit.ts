@@ -16,7 +16,7 @@
  * rather than Rust's overflow-panicking defaults. The width comes from `types/elementary`, the same facts the
  * diagnostics use — there is no second table of type sizes here.
  */
-import type { IrExpr, IrLayout, IrMathName, IrPou, IrStmt, IrValue, Place } from "../../ir/index.js"
+import type { IrExpr, IrLayout, IrMathName, IrPou, IrRoutine, IrStmt, IrValue, Place } from "../../ir/index.js"
 import { defaultValueOf, isBit, peelArray } from "../../ir/index.js"
 import type { Span } from "../../../syntax/index.js"
 import type { Type } from "../../../types/index.js"
@@ -171,27 +171,28 @@ class Printer {
   private readonly loops: { n: number; exits: boolean; continues: boolean }[] = []
   private loopCount = 0
 
-  /** The VAR_IN_OUT parameters of the FB body being printed: their Rust names and slots. */
-  private inoutNames: readonly string[] = []
-  private inoutSlots: IrPou["slots"] = []
+  /** The body being printed: its VAR_IN_OUT parameters and its routine's locals (Rust names and slots), and the name of
+   *  the result local a `return` hands back. */
+  private frame: Frame = { inoutNames: [], inoutSlots: [], localNames: [], localSlots: [] }
 
   constructor(
     private fields: readonly string[],
     private readonly layouts: ReadonlyMap<string, { layout: IrLayout; fields: readonly string[] }>,
+    private readonly routines: ReadonlyMap<string, IrRoutine>,
   ) {}
 
-  /** Print `run` inside an FB's `call`: its fields are `self`, its VAR_IN_OUT the `&mut` parameters. */
-  inFrame(fields: readonly string[], inoutNames: readonly string[], inoutSlots: IrPou["slots"], run: () => void): void {
-    const saved = [this.fields, this.inoutNames, this.inoutSlots] as const
-    ;[this.fields, this.inoutNames, this.inoutSlots] = [fields, inoutNames, inoutSlots]
+  /** Print `run` inside an FB's `call` or a routine: `fields` are `self`'s, the frame holds its parameters and locals. */
+  inFrame(fields: readonly string[], frame: Frame, run: () => void): void {
+    const saved = [this.fields, this.frame] as const
+    ;[this.fields, this.frame] = [fields, frame]
     run()
-    ;[this.fields, this.inoutNames, this.inoutSlots] = saved
+    ;[this.fields, this.frame] = saved
   }
 
-  /** A place as a Rust lvalue — `self.inst.q`, `self.arr[(self.i as i64 - 1i64) as usize].x`, `(*v)` — without a final bit step. */
+  /** A place as a Rust lvalue — `self.inst.q`, `self.arr[(self.i as i64 - 1i64) as usize].x`, `(*v)`, `count` — without a final bit step. */
   place(p: Place, slots: IrPou["slots"]): string {
-    let text = p.inout ? `(*${this.inoutNames[p.slot]})` : `self.${this.fields[p.slot]}`
-    let type: Type = p.inout ? this.inoutSlots[p.slot]!.type : slots[p.slot]!.type
+    let text = p.root === "inout" ? `(*${this.frame.inoutNames[p.slot]})` : p.root === "local" ? this.frame.localNames[p.slot]! : `self.${this.fields[p.slot]}`
+    let type: Type = p.root === "inout" ? this.frame.inoutSlots[p.slot]!.type : p.root === "local" ? this.frame.localSlots[p.slot]!.type : slots[p.slot]!.type
     for (const step of p.path) {
       if (step.kind === "field") {
         const entry = type.kind === "struct" || type.kind === "function_block" ? this.layouts.get(type.name.toUpperCase()) : undefined
@@ -222,6 +223,13 @@ class Printer {
     switch (e.kind) {
       case "const":
         return literal(e.value, e.type)
+      case "invoke": {
+        // the inputs by value, then the VAR_IN_OUT as `&mut` — a METHOD or ACTION on its instance, a FUNCTION free
+        const routine = this.routines.get(e.routine)!
+        const args = [...e.inputs.map((a) => this.expr(a, slots)), ...e.inouts.map((p) => `&mut ${this.place(p, slots)}`)].join(", ")
+        const fn = routineFnName(routine)
+        return e.instance === undefined ? `${fn}(${args})` : `${this.place(e.instance, slots)}.${fn}(${args})`
+      }
       case "load": {
         const field = this.place(e.place, slots)
         const bit = e.place.path.at(-1)
@@ -434,7 +442,10 @@ class Printer {
         return
       }
       case "return":
-        this.push("return;", indent, s.span)
+        this.push(this.frame.result === undefined ? "return;" : `return ${this.frame.result};`, indent, s.span)
+        return
+      case "eval":
+        this.push(`${this.expr(s.value, slots)};`, indent, s.span)
         return
       case "call": {
         // the inputs were assigned before this line and the outputs are read after it; VAR_IN_OUT is a `&mut` (design §9)
@@ -446,13 +457,57 @@ class Printer {
   }
 }
 
+/** What a body is printed against: its VAR_IN_OUT parameters, its routine's locals, and its result local. */
+interface Frame {
+  inoutNames: readonly string[]
+  inoutSlots: IrPou["slots"]
+  localNames: readonly string[]
+  localSlots: IrPou["slots"]
+  result?: string
+}
+
+/** A routine's Rust fn name: snake_case, a keyword or a name the emitter generates itself (`new`, `call`, `scan`) suffixed `_`. */
+function routineFnName(routine: IrRoutine): string {
+  const snaked = snake(routine.name.slice(routine.name.lastIndexOf(".") + 1))
+  return RUST_KEYWORDS.has(snaked) || ["new", "call", "scan"].includes(snaked) ? `${snaked}_` : snaked
+}
+
+/**
+ * A METHOD or ACTION as an `fn` in its FB's `impl`, or a FUNCTION as a free `fn`: the inputs are parameters, the VAR_IN_OUT
+ * `&mut` parameters, every other local a `let mut` at its initial value — so each call starts over, as measured — and the
+ * result local is handed back.
+ */
+function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[], fieldSlots: IrPou["slots"], indent: number): void {
+  const names = fieldNames([...routine.locals, ...routine.inouts])
+  const localNames = names.slice(0, routine.locals.length)
+  const inoutNames = names.slice(routine.locals.length)
+  const params = [
+    ...(routine.kind === "function" ? [] : ["&mut self"]),
+    ...routine.inputs.map((i) => `mut ${localNames[i]}: ${rustType(routine.locals[i]!.type)}`),
+    ...routine.inouts.map((slot, i) => `${inoutNames[i]}: &mut ${rustType(slot.type)}`),
+  ]
+  const result = routine.result === undefined ? undefined : localNames[routine.result]!
+  const returns = routine.result === undefined ? "" : ` -> ${rustType(routine.locals[routine.result]!.type)}`
+  p.push("", 0)
+  // generated locals may go unread or unwritten, and a body that ends in `return` leaves the tail unreachable
+  p.push("#[allow(unused_mut, unused_variables, unused_assignments, unreachable_code, non_snake_case)]", indent)
+  p.push(`pub fn ${routineFnName(routine)}(${params.join(", ")})${returns} {`, indent)
+  for (const [i, slot] of routine.locals.entries())
+    if (!routine.inputs.includes(i)) p.push(`let mut ${localNames[i]}: ${rustType(slot.type)} = ${initOf(slot.type, slot.init)};`, indent + 1)
+  const frame: Frame = { inoutNames, inoutSlots: routine.inouts, localNames, localSlots: routine.locals, ...(result === undefined ? {} : { result }) }
+  p.inFrame(fields, frame, () => p.block(routine.body, fieldSlots, indent + 1))
+  if (result !== undefined) p.push(result, indent + 1)
+  p.push("}", indent)
+}
+
 /**
  * A variable path as the IDE names it (`inst.q`, `arr[2].x`) → the Rust field access under a POU value, and the
  * variable's type — how a test reads the emitted program exactly where the interpreter's `get` reads.
  */
 export function rustAccess(pou: IrPou, path: string): { expr: string; type: Type } {
-  const parts = [...path.matchAll(/([A-Za-z_]\w*)|\[\s*(-?\d+)\s*\]/g)]
-  const slot = pou.slots.findIndex((s) => s.name.toUpperCase() === parts[0]?.[1]?.toUpperCase())
+  const parts = [...path.matchAll(/(`[^`]+`|[A-Za-z_]\w*)|\[\s*(-?\d+)\s*\]/g)]
+  const bare = (n: string | undefined): string | undefined => n?.replace(/^`|`$/g, "").toUpperCase()
+  const slot = pou.slots.findIndex((s) => bare(s.name) === bare(parts[0]?.[1]))
   if (slot < 0) throw new Error(`no variable ${path} in ${pou.name}`)
   let expr = fieldNames(pou.slots)[slot]!
   let type = pou.slots[slot]!.type
@@ -460,7 +515,7 @@ export function rustAccess(pou: IrPou, path: string): { expr: string; type: Type
     if (part[1] !== undefined) {
       const typeName = type.kind === "struct" || type.kind === "function_block" ? type.name.toUpperCase() : undefined
       const layout = pou.layouts.find((l) => l.name.toUpperCase() === typeName)
-      const i = layout?.fields.findIndex((f) => f.name.toUpperCase() === part[1]!.toUpperCase()) ?? -1
+      const i = layout?.fields.findIndex((f) => bare(f.name) === bare(part[1])) ?? -1
       if (layout === undefined || i < 0) throw new Error(`no variable ${path} in ${pou.name}`)
       expr += `.${fieldNames(layout.fields)[i]}`
       type = layout.fields[i]!.type
@@ -478,7 +533,7 @@ export function rustAccess(pou: IrPou, path: string): { expr: string; type: Type
 export function emitRust(pou: IrPou): Emitted {
   const layouts = new Map(pou.layouts.map((l) => [l.name.toUpperCase(), { layout: l, fields: fieldNames(l.fields) }]))
   const fields = fieldNames(pou.slots)
-  const p = new Printer(fields, layouts)
+  const p = new Printer(fields, layouts, new Map(pou.routines.map((r) => [r.key, r])))
   const name = rustName(pou.name)
 
   p.push(`// generated from ${pou.name} — do not edit`, 0)
@@ -504,9 +559,10 @@ export function emitRust(pou: IrPou): Emitted {
       const params = inouts.map((slot, i) => `, ${inoutNames[i]}: &mut ${rustType(slot.type)}`).join("")
       p.push("", 0)
       p.push(`pub fn call(&mut self${params}) {`, 1)
-      p.inFrame(names, inoutNames, inouts, () => p.block(layout.body!, layout.fields, 2))
+      p.inFrame(names, { inoutNames, inoutSlots: inouts, localNames: [], localSlots: [] }, () => p.block(layout.body!, layout.fields, 2))
       p.push("}", 1)
     }
+    for (const routine of pou.routines.filter((r) => r.fb?.toUpperCase() === layout.name.toUpperCase())) printRoutine(p, routine, names, layout.fields, 1)
     p.push("}", 0)
     p.push("", 0)
   }
@@ -529,6 +585,8 @@ export function emitRust(pou: IrPou): Emitted {
   p.block(pou.body, pou.slots, 2)
   p.push("}", 1)
   p.push("}", 0)
+  // a FUNCTION has no instance: a free fn beside the structs
+  for (const routine of pou.routines.filter((r) => r.kind === "function")) printRoutine(p, routine, [], [], 0)
 
   // Only a program that holds a string gets the string type — every other output stays exactly what it was.
   // ponytail: the prelude rides with each POU, so a crate of TWO string POUs would define it twice; hoist it into a

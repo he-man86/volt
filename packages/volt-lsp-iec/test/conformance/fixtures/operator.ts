@@ -471,6 +471,10 @@ END_METHOD
     kind: "function_block",
     feature: "SIN / COS / TAN — trigonometric functions on REAL",
     fromDoc: "03-operators.md",
+    // Measured 2026-09-14, once method calls lowered: COS(1.5708) is -3.6732051033465756E-06 in CODESYS and
+    // -3.673205103346574e-6 from the IEEE libm the interpreter and Rust use — one ULP apart, near a zero of COS. SIN and TAN
+    // agree, as do `trig_precision`'s angles. Matching the controller's own trig routine bit for bit is not modelled.
+    deferred: { transpile: "COS near π/2 differs from CODESYS in the last ULP — its trig routine is not modelled" },
     plcPrgVar: "fb_trig : FB_LANG_op_math_trig;",
     plcPrgBody: "fb_trig.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_math_trig

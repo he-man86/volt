@@ -33,7 +33,7 @@ import {
   type VarSection,
   unitAttributes,
 } from "../../syntax/index.js"
-import { buildSymbolTable, libraryOf, lookup, scopeForUnit, type Scope } from "../../symbols/index.js"
+import { buildSymbolTable, findChildScope, libraryOf, lookup, lookupMember, scopeForUnit, type Scope } from "../../symbols/index.js"
 import {
   commonType,
   constEval,
@@ -59,8 +59,10 @@ import type {
   IrBinOp,
   IrBuiltinName,
   IrExpr,
+  IrInvoke,
   IrLayout,
   IrPou,
+  IrRoutine,
   IrSlot,
   IrStmt,
   IrValue,
@@ -135,12 +137,19 @@ interface PendingBody {
   state: "pending" | "lowered" | "failed"
 }
 
+/** A METHOD, ACTION or FUNCTION lowered once per POU — or the fact that it could not be. */
+type CalledRoutine = { state: "lowered"; routine: IrRoutine } | { state: "failed" }
+
 class Lowering {
   readonly diagnostics: LowerDiagnostic[] = []
   private readonly slots: IrSlot[] = []
   private readonly byName = new Map<string, number>()
   private readonly inoutSlots: IrSlot[] = []
   private readonly inoutByName = new Map<string, number>()
+  private readonly localSlots: IrSlot[] = []
+  private readonly localByName = new Map<string, number>()
+  /** Lowering a METHOD, ACTION or FUNCTION body: its declarations and temps are per-call locals, not fields. */
+  private routineMode = false
 
   constructor(
     private readonly scope: Scope,
@@ -150,7 +159,131 @@ class Lowering {
     private readonly bodies: Map<string, PendingBody> = new Map(),
     /** The `{attribute '…'}` names on each POU (`syntax/unitAttributes`) — the AST keeps no pragmas. */
     private readonly attributes: ReadonlyMap<TopLevel, ReadonlySet<string>> = new Map(),
+    /** Every METHOD, ACTION and FUNCTION a call reached, by upper-cased key — shared like `layouts`. */
+    readonly routines: Map<string, CalledRoutine> = new Map(),
   ) {}
+
+  /** A temp as a place — a per-call local inside a routine, a field or slot elsewhere. */
+  private tempPlace(purpose: string, type: Type, span: Span): Place {
+    if (!this.routineMode) return { slot: this.temp(purpose, type), path: [], type, span }
+    this.localSlots.push({ name: `__${purpose}_${this.localSlots.length}`, type, section: "temp", init: defaultValueOf(type) })
+    return { slot: this.localSlots.length - 1, path: [], type, span, root: "local" }
+  }
+
+  /**
+   * A METHOD or ACTION of the FB laid out as `fb`, or a FUNCTION — lowered once, in a frame of the instance's fields (for a
+   * METHOD or ACTION) plus per-call locals. Refused, until each is measured: a VAR_OUTPUT (how `=>` reads it back), and
+   * VAR_INST or VAR_STAT (storage that outlives the call).
+   */
+  private calledRoutine(sym: NonNullable<ReturnType<typeof lookup>>["symbol"], fb: IrLayout | undefined, span: Span): IrRoutine | undefined {
+    const name = fb === undefined ? sym.name : `${fb.name}.${sym.name}`
+    const key = name.toUpperCase()
+    const cached = this.routines.get(key)
+    if (cached?.state === "lowered") return cached.routine
+    if (cached?.state === "failed") return this.bail("call-body", `${name}'s body does not lower`, span)
+    const failed = (code: string, message: string): undefined => {
+      this.routines.set(key, { state: "failed" })
+      return this.bail(code, message, span)
+    }
+    const ast = sym.ast as Extract<TopLevel, { kind: "method" | "action" | "function" }>
+    const scope = findChildScope(fb === undefined ? this.project : sym.owner, sym.name)
+    if (scope === undefined) return failed("call-target", `${name} did not bind`)
+    const sections = ast.kind === "action" ? [] : ast.varSections
+    const unmeasured = sections.find((s) => ["VAR_OUTPUT", "VAR_INST", "VAR_STAT"].includes(s.sectionKind))
+    if (unmeasured !== undefined) return failed(`routine-${unmeasured.sectionKind.toLowerCase()}`, `${name} has ${unmeasured.sectionKind}, not measured yet`)
+    if (isGraphicalBody(ast.body)) return failed("graphical-body", `${name} has a graphical body`)
+    const parsed = parseStatements(ast.body)
+    if (!parsed.ok) return failed("parse", parsed.firstError ?? `${name}'s body did not parse`)
+
+    const r = new Lowering(scope, this.project, this.layouts, this.bodies, this.attributes, this.routines)
+    if (fb !== undefined) r.inherit(fb.fields)
+    r.routineMode = true
+    let result: number | undefined
+    if (ast.kind !== "action" && ast.returnType !== undefined) {
+      const type = r.storage(r.resolve(ast.returnType))
+      r.localByName.set(sym.name.toUpperCase(), 0)
+      r.localSlots.push({ name: sym.name, type, section: "VAR", init: defaultValueOf(type) })
+      result = 0
+    }
+    const firstInput = r.localSlots.length
+    r.declare(sections.filter((s) => s.sectionKind === "VAR_INPUT"))
+    const inputs = Array.from({ length: r.localSlots.length - firstInput }, (_, i) => firstInput + i)
+    r.declare(sections.filter((s) => s.sectionKind === "VAR" || s.sectionKind === "VAR_TEMP"))
+    r.declareInOuts(sections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
+    const body = r.block(parsed.statements)
+    if (r.diagnostics.length > 0) {
+      this.diagnostics.push(...r.diagnostics)
+      this.routines.set(key, { state: "failed" })
+      return undefined
+    }
+    const kind = ast.kind
+    const routine: IrRoutine = { name, key, kind, ...(fb === undefined ? {} : { fb: fb.name }), locals: r.localSlots, inputs, inouts: r.inoutSlots, ...(result === undefined ? {} : { result }), body }
+    this.routines.set(key, { state: "lowered", routine })
+    return routine
+  }
+
+  /**
+   * `inst.M(a := x)`, `inst.A()` or `F(x)` → an `IrInvoke`. Arguments bind by name; positionally only to a routine with
+   * no VAR_IN_OUT (measured for a FUNCTION's input, `fbcall_function_locals`). An input left out is refused — whether it
+   * takes its initial value is not measured.
+   */
+  private invoke(call: Extract<Expr, { kind: "call" }>): IrInvoke | undefined {
+    const callee = call.callee
+    let routine: IrRoutine | undefined
+    let instance: Place | undefined
+    if (callee.kind === "member") {
+      const base = this.place(callee.base)
+      if (base === undefined) return undefined
+      const layout = base.type.kind === "function_block" ? this.layouts.get(base.type.name.toUpperCase()) : undefined
+      const sym = base.type.kind === "function_block" && base.type.scope !== undefined ? lookupMember(base.type.scope, callee.member.name) : undefined
+      if (layout === undefined || (sym?.kind !== "method" && sym?.kind !== "action"))
+        return this.bail("call-method", `${callee.member.name} is not a METHOD or ACTION lowering can call`, call.span)
+      // an override in a derived FB would decide which body runs — dynamic dispatch, not measured
+      if (this.bodies.get(layout.name.toUpperCase())?.unit.extends !== undefined)
+        return this.bail("call-extends", `${layout.name} EXTENDS another FB — which ${callee.member.name} runs is not measured yet`, call.span)
+      routine = this.calledRoutine(sym, layout, call.span)
+      instance = base
+    } else if (callee.kind === "ident_expr") {
+      const sym = lookup(this.scope, callee.name)?.symbol
+      if (sym?.kind !== "function" || libraryOf(sym) !== undefined) return this.bail("expr-call", `${callee.name} is not a project FUNCTION`, call.span)
+      routine = this.calledRoutine(sym, undefined, call.span)
+    } else return this.bail("expr-call", "a call of an expression", call.span)
+    if (routine === undefined) return undefined
+
+    const inputs: (IrExpr | undefined)[] = routine.inputs.map(() => undefined)
+    const inouts: (Place | undefined)[] = routine.inouts.map(() => undefined)
+    for (const [position, arg] of call.args.entries()) {
+      if (arg.value === undefined || arg.output) return this.bail("call-output", `${routine.name} called with an output or empty argument`, arg.span)
+      let k: number
+      if (arg.param === undefined) {
+        if (routine.inouts.length > 0 || position >= routine.inputs.length)
+          return this.bail("call-positional", `${routine.name} called with a positional argument`, arg.span)
+        k = position
+      } else {
+        const name = arg.param.name.toUpperCase()
+        const inout = routine.inouts.findIndex((p) => p.name.toUpperCase() === name)
+        if (inout >= 0) {
+          const target = this.place(arg.value)
+          if (target === undefined) return undefined
+          if (instance !== undefined && target.slot === instance.slot && target.root === instance.root)
+            return this.bail("call-inout-alias", `${arg.param.name} is bound to a variable of the instance it calls`, arg.span)
+          if (target.path.some((s) => s.kind === "bit")) return this.bail("call-inout-bit", `${arg.param.name} is bound to a bit`, arg.span)
+          inouts[inout] = target
+          continue
+        }
+        k = routine.inputs.findIndex((i) => routine!.locals[i]!.name.toUpperCase() === name)
+        if (k < 0) return this.bail("call-param", `${arg.param.name} is not an input of ${routine.name}`, arg.span)
+      }
+      const slot = routine.locals[routine.inputs[k]!]!
+      const value = this.expr(arg.value, slot.type)
+      if (value === undefined) return undefined
+      inputs[k] = convert(value, slot.type)
+    }
+    if (inputs.includes(undefined)) return this.bail("call-input-missing", `${routine.name} called without every input — its default is not measured yet`, call.span)
+    if (inouts.includes(undefined)) return this.bail("call-inout-missing", `${routine.name} called without every VAR_IN_OUT`, call.span)
+    const type = routine.result === undefined ? UNKNOWN : routine.locals[routine.result]!.type
+    return { kind: "invoke", routine: routine.key, ...(instance === undefined ? {} : { instance }), inputs: inputs as IrExpr[], inouts: inouts as Place[], type, span: call.span }
+  }
 
   /** A base type's fields, first in this frame — so a field's index here is its index in the layout. */
   private inherit(fields: readonly IrSlot[]): void {
@@ -185,13 +318,6 @@ class Lowering {
     if (pending.state === "failed") return this.bail("call-body", `${name}'s body does not lower`, span)
     const unit = pending.unit
     if (unit.extends !== undefined) return this.fail(pending, "call-extends", `${name} EXTENDS ${unit.extends.text} — which bodies a call runs is not measured yet`, span)
-    // The compiler acts on these, and the program's text does not say what it does: `instance-path` fills a STRING with
-    // the instance's path (conformance `instance_path_with_reflection`), and a `call_after_global_init_slot` METHOD runs
-    // once before the first scan (`call_after_global_init_slot`: iCount 1) — while `call_after_init`'s did not
-    // (`call_after_init`: 0 after a scan). None is modelled, so an FB that carries one is refused rather than run wrong.
-    const unmodelled = [...(this.attributes.get(unit) ?? [])].find((a) => a === "instance-path" || a.startsWith("call_after"))
-    if (unmodelled !== undefined)
-      return this.fail(pending, `attr-${unmodelled}`, `${name} carries {attribute '${unmodelled}'}, which lowering does not model`, span)
     if (unit.varSections.some((s) => s.sectionKind === "VAR_TEMP"))
       return this.fail(pending, "fb-var-temp", `${name} has VAR_TEMP — whether it starts over per call is not measured yet`, span)
     if (isGraphicalBody(unit.body)) return this.fail(pending, "graphical-body", `${name} has a graphical body`, span)
@@ -223,17 +349,25 @@ class Lowering {
    */
   private callStatement(call: Extract<Statement, { kind: "call_stmt" }>["call"]): IrStmt[] | undefined {
     const callee = call.callee
-    if (callee.kind === "ident_expr" && !this.byName.has(callee.name.toUpperCase()) && !this.inoutByName.has(callee.name.toUpperCase())) {
+    const upper = callee.kind === "ident_expr" ? callee.name.toUpperCase() : ""
+    if (callee.kind === "ident_expr" && !this.localByName.has(upper) && !this.byName.has(upper) && !this.inoutByName.has(upper)) {
       const kind = lookup(this.scope, callee.name)?.symbol.kind
-      const code = kind === "program" ? "call-program" : kind === "function" ? "call-function" : "stmt-call_stmt"
+      if (kind === "function") {
+        const value = this.invoke(call)
+        return value && [{ kind: "eval", value, span: call.span }]
+      }
+      const code = kind === "program" ? "call-program" : kind === "method" || kind === "action" ? "call-this" : "stmt-call_stmt"
       return this.bail(code, `${callee.name} is not a callable instance yet`, call.span)
     }
     if (callee.kind === "member") {
       const base = this.place(callee.base)
       if (base === undefined) return undefined
       const layout = base.type.kind === "function_block" ? this.layouts.get(base.type.name.toUpperCase()) : undefined
-      if (!layout?.fields.some((f) => f.name.toUpperCase() === callee.member.name.toUpperCase()))
-        return this.bail("call-method", `${callee.member.name} — a METHOD or ACTION call is not lowered yet`, call.span)
+      // `inst.M(…)` / `inst.A()` — anything that is not an instance held in a field is a METHOD or ACTION
+      if (!layout?.fields.some((f) => f.name.toUpperCase() === callee.member.name.toUpperCase())) {
+        const value = this.invoke(call)
+        return value && [{ kind: "eval", value, span: call.span }]
+      }
     }
     const instance = this.place(callee)
     if (instance === undefined) return undefined
@@ -253,7 +387,7 @@ class Lowering {
         const target = this.place(arg.value)
         if (target === undefined) return undefined
         // two `&mut` into one place do not exist in Rust — the handle form (design §9 form 3) is for later
-        if (target.slot === instance.slot && target.inout === instance.inout)
+        if (target.slot === instance.slot && target.root === instance.root)
           return this.bail("call-inout-alias", `${arg.param.name} is bound to a variable of the instance it calls`, arg.span)
         if (target.path.some((s) => s.kind === "bit")) return this.bail("call-inout-bit", `${arg.param.name} is bound to a bit`, arg.span)
         bound.set(name, target)
@@ -296,7 +430,7 @@ class Lowering {
 
   /** A struct's fields or an FB instance's storage, lowered in the type's own scope — a base type's fields first. */
   private buildLayout(t: Extract<Type, { kind: "struct" | "function_block" }>, sym: ReturnType<typeof lookup> extends infer R ? (R extends { symbol: infer S } ? S : never) | undefined : never): void {
-    const nested = new Lowering(t.scope ?? this.project, this.project, this.layouts, this.bodies, this.attributes)
+    const nested = new Lowering(t.scope ?? this.project, this.project, this.layouts, this.bodies, this.attributes, this.routines)
     const base = (name: string | undefined): void => {
       if (name === undefined) return
       const baseType = this.storage(resolveNamedType(name, this.project))
@@ -309,6 +443,12 @@ class Lowering {
       base(ast.body.extends?.text)
       nested.declare([{ sectionKind: "VAR", decls: ast.body.fields } as unknown as VarSection])
     } else if (t.kind === "function_block" && ast?.kind === "function_block") {
+      // The compiler acts on these whether or not the FB is ever called, and the program's text does not say what it
+      // does: `instance-path` fills a STRING with the instance's path (conformance `instance_path_with_reflection`), and a
+      // `call_after_global_init_slot` METHOD runs once before the first scan (iCount 1) — while `call_after_init`'s did
+      // not (0 after a scan). None is modelled, so an FB that carries one is refused rather than run wrong.
+      const unmodelled = [...(this.attributes.get(ast) ?? [])].find((a) => a === "instance-path" || a.startsWith("call_after"))
+      if (unmodelled !== undefined) this.bail(`attr-${unmodelled}`, `${t.name} carries {attribute '${unmodelled}'}, which lowering does not model`, sym?.span ?? ZERO_SPAN)
       base(ast.extends?.text)
       nested.declare(ast.varSections.filter((s) => INSTANCE_STORAGE.has(s.sectionKind)))
       this.bodies.set(t.name.toUpperCase(), { lowering: nested, unit: ast, state: "pending" })
@@ -385,6 +525,11 @@ class Lowering {
   }
 
   private slot(name: Identifier, type: Type, section: VarSection["sectionKind"], init?: IrValue): void {
+    if (this.routineMode) {
+      this.localByName.set(name.text.toUpperCase(), this.localSlots.length)
+      this.localSlots.push({ name: name.text, type, section, init: init ?? defaultValueOf(type) })
+      return
+    }
     this.byName.set(name.text.toUpperCase(), this.slots.length)
     this.slots.push({ name: name.text, type, section, init: init ?? defaultValueOf(type) })
   }
@@ -444,10 +589,13 @@ class Lowering {
     }
     if (e.kind !== "ident_expr")
       return this.bail("place-shape", `${e.kind} is not a lowerable storage location yet`, e.span)
+    // a routine's own local (its result, inputs and VAR) shadows the instance's field of the same name
+    const local = this.localByName.get(e.name.toUpperCase())
+    if (local !== undefined) return { slot: local, path: [], type: this.localSlots[local]!.type, span: e.span, root: "local" }
     const slot = this.byName.get(e.name.toUpperCase())
     const inout = this.inoutByName.get(e.name.toUpperCase())
     if (slot === undefined && inout !== undefined)
-      return { slot: inout, path: [], type: this.inoutSlots[inout]!.type, span: e.span, inout: true }
+      return { slot: inout, path: [], type: this.inoutSlots[inout]!.type, span: e.span, root: "inout" }
     if (slot === undefined) {
       // `symbols/` decides what the name IS — a GVL, an enum member, a library global — so the report names
       // the real reason rather than "unknown identifier".
@@ -614,7 +762,12 @@ class Lowering {
     if (conv !== undefined) return this.conversion(e, conv.from && elementaryRef(conv.from.name), elementaryRef(conv.to.name))
     if (name !== undefined && STANDARD_STRING_FUNCTIONS.has(name)) return this.standardString(e, name)
     const arity = name === undefined ? undefined : BUILTIN_ARITY[name]
-    if (name === undefined || arity === undefined) return this.bail("expr-call", "call is not lowered yet", e.span)
+    if (name === undefined || arity === undefined) {
+      // a METHOD of an instance, or a project FUNCTION — a routine with a result
+      const value = this.invoke(e)
+      if (value === undefined) return undefined
+      return value.type === UNKNOWN ? this.bail("call-no-result", "a call without a result used as a value", e.span) : value
+    }
     if (e.args.some((a) => a.param !== undefined || a.output || a.value === undefined))
       return this.bail("call-named-args", `${name} with named or output arguments`, e.span)
     if (e.args.length < arity.min || (arity.max !== undefined && e.args.length > arity.max))
@@ -809,7 +962,7 @@ class Lowering {
     if (ops.includes("REF=")) return this.bail("assign-op", "REF= in an assignment chain", s.span)
     const value = this.expr(s.value)
     if (value === undefined) return undefined
-    const held: Place = { slot: this.temp("chain_value", value.type), path: [], type: value.type, span: s.value.span }
+    const held = this.tempPlace("chain_value", value.type, s.value.span)
     const out: IrStmt[] = [{ kind: "assign", target: held, value, span: s.value.span }]
     let flowing: IrExpr = { kind: "load", place: held, type: value.type, span: s.value.span }
     for (let i = targets.length - 1; i >= 0; i--) {
@@ -935,8 +1088,7 @@ class Lowering {
       // Nothing here needs it yet, and guessing `<=` would silently run zero times for a negative step.
       return this.bail("for-step-runtime", "a FOR step that is not a compile-time constant", s.by!.span)
 
-    const limit = this.temp("for_limit", to.type)
-    const limitPlace: Place = { slot: limit, path: [], type: to.type, span: s.to.span }
+    const limitPlace = this.tempPlace("for_limit", to.type, s.to.span)
     const stepExpr: IrExpr = { kind: "const", value: step, type: control.type, span: s.by?.span ?? s.span }
 
     return {
@@ -1203,13 +1355,18 @@ export function lowerUnit(
   // accepts (transpiler review 2026-09-14). Checked only here, so a POU another construct blocks keeps that blocker's
   // category in the coverage report.
   const layouts = [...lowering.layouts.values()]
-  const unrepresentable = [...lowering.frame, ...layouts.flatMap((l) => [...l.fields, ...(l.inouts ?? [])])].find((s) => !representable(s.type))
+  const routines = [...lowering.routines.values()].flatMap((r) => (r.state === "lowered" ? [r.routine] : []))
+  const unrepresentable = [
+    ...lowering.frame,
+    ...layouts.flatMap((l) => [...l.fields, ...(l.inouts ?? [])]),
+    ...routines.flatMap((r) => [...r.locals, ...r.inouts]),
+  ].find((s) => !representable(s.type))
   if (unrepresentable !== undefined) {
     const kind = unrepresentable.type.kind
     return { diagnostics: [{ code: `slot-${kind}`, message: `${unrepresentable.name} is a ${kind} variable, which has no runtime representation yet`, span: unit.span }] }
   }
 
-  const pou: IrPou = { name: unit.name.text, slots: lowering.frame, body, layouts, span: unit.span }
+  const pou: IrPou = { name: unit.name.text, slots: lowering.frame, body, layouts, routines, span: unit.span }
   return { pou, diagnostics: [] }
 }
 

@@ -17,7 +17,15 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { decodeStringLiteral } from "../../src/syntax/index.js"
-import { emitRust, isBit, load, lowerSource, rustAccess, type IrValue, type LoweredPou } from "../../src/transpile/index.js"
+import {
+  emitRust,
+  isBit,
+  load,
+  lowerSource,
+  rustAccess,
+  type IrValue,
+  type LoweredPou,
+} from "../../src/transpile/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 import { withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
@@ -39,12 +47,14 @@ const recording = JSON.parse(readFileSync(join(import.meta.dir, "recordings", "c
  * The cases with transpiler lowering held above this floor — execution cases and fixtures together. Raise it when more
  * cases lower; never lower it to make a change pass.
  */
-const LOWERED_FLOOR = 233
+const LOWERED_FLOOR = 315
 
 /** The source a case lowers from: the fixture's own units (an execution case has none), then its PLC_PRG. */
 function runSource(c: LanguageTest): string {
   // the project the recorder loaded: the fixtures this one depends on, itself, and PLC_PRG
-  const sources = withDependencies(c, ALL_TESTS).map((f) => f.source).filter((s) => s !== "")
+  const sources = withDependencies(c, ALL_TESTS)
+    .map((f) => f.source)
+    .filter((s) => s !== "")
   return [...sources, plcPrgSource(c)].join("\n")
 }
 
@@ -81,7 +91,8 @@ function ideValue(raw: string): IrValue {
   if (calendar !== null) {
     const [, long, kind, text] = calendar as unknown as [string, string, string, string]
     const clock = (h: string, m: string, s: string, frac = ""): bigint =>
-      ((BigInt(h) * 60n + BigInt(m)) * 60n + BigInt(s)) * 1_000_000_000n + BigInt(frac.padEnd(9, "0").slice(0, 9) || "0")
+      ((BigInt(h) * 60n + BigInt(m)) * 60n + BigInt(s)) * 1_000_000_000n +
+      BigInt(frac.padEnd(9, "0").slice(0, 9) || "0")
     let ns: bigint
     if (kind === "TIME_OF_DAY") {
       const t = /^(\d+):(\d+):(\d+)(?:\.(\d+))?$/.exec(text)!
@@ -98,7 +109,15 @@ function ideValue(raw: string): IrValue {
   // milliseconds and LTIME in nanoseconds.
   const duration = /^(L?TIME)#((?:\d+(?:ms|us|ns|d|h|m|s))+)$/.exec(raw)
   if (duration !== null) {
-    const unit: Record<string, bigint> = { d: 86_400_000_000_000n, h: 3_600_000_000_000n, m: 60_000_000_000n, s: 1_000_000_000n, ms: 1_000_000n, us: 1_000n, ns: 1n }
+    const unit: Record<string, bigint> = {
+      d: 86_400_000_000_000n,
+      h: 3_600_000_000_000n,
+      m: 60_000_000_000n,
+      s: 1_000_000_000n,
+      ms: 1_000_000n,
+      us: 1_000n,
+      ns: 1n,
+    }
     let ns = 0n
     for (const [, count, u] of duration[2]!.matchAll(/(\d+)(ms|us|ns|d|h|m|s)/g)) ns += BigInt(count!) * unit[u!]!
     return duration[1] === "LTIME" ? ns : ns / 1_000_000n
@@ -121,7 +140,8 @@ function asDisplayed(raw: string, value: IrValue): IrValue {
   if (typeof value !== "bigint") return value
   const floorTo = (v: bigint, step: bigint): bigint => v - (((v % step) + step) % step)
   if (raw.startsWith("TIME_OF_DAY#")) return ((value % 86_400_000n) + 86_400_000n) % 86_400_000n
-  if (raw.startsWith("LTIME_OF_DAY#")) return ((value % 86_400_000_000_000n) + 86_400_000_000_000n) % 86_400_000_000_000n
+  if (raw.startsWith("LTIME_OF_DAY#"))
+    return ((value % 86_400_000_000_000n) + 86_400_000_000_000n) % 86_400_000_000_000n
   if (raw.startsWith("DATE#")) return floorTo(value, 86_400n)
   if (raw.startsWith("LDATE#")) return floorTo(value, 86_400_000_000_000n)
   return value
@@ -171,7 +191,9 @@ describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
       const pou = load(runSource(c), "PLC_PRG", LIBRARIES)
       for (let i = 0; i < cycles; i++) pou.scan()
       const want = Object.fromEntries(Object.entries(rec.values!).map(([k, v]) => [k, ideValue(v)]))
-      const got = Object.fromEntries(Object.keys(want).map((k) => [k, asDisplayed(rec.values![k]!, pou.get(k) as IrValue)]))
+      const got = Object.fromEntries(
+        Object.keys(want).map((k) => [k, asDisplayed(rec.values![k]!, pou.get(k) as IrValue)]),
+      )
       expect(got).toEqual(want)
     })
   }
@@ -179,7 +201,9 @@ describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
   test(`the cases that lower do not regress (>= ${LOWERED_FLOOR})`, () => {
     const summary = [...blockers].sort((a, b) => b[1] - a[1]).map(([code, n]) => `${code} ${n}`)
     // eslint-disable-next-line no-console
-    console.log(`  [transpile] ${lowered} of ${CASES.length} cases lower; what blocks the rest: ${summary.join(" · ") || "nothing"}`)
+    console.log(
+      `  [transpile] ${lowered} of ${CASES.length} cases lower; what blocks the rest: ${summary.join(" · ") || "nothing"}`,
+    )
     expect(lowered).toBeGreaterThanOrEqual(LOWERED_FLOOR)
   })
 })
@@ -204,30 +228,48 @@ describe.skipIf(rustc === null)("differential execution — emitted Rust vs CODE
   beforeAll(async () => {
     const dir = await mkdtemp(join(tmpdir(), "volt-exec-rust-"))
     await Promise.all(
+      // each case its own try: one that throws while being prepared fails as itself, not as every Rust case at once
       recorded.map(async (c) => {
-        const { pou, diagnostics } = lowering(c)
-        if (pou === undefined) return void runs.set(c.name, { exit: -1, stdout: "", stderr: `does not lower: ${diagnostics[0]?.message}` })
-        const prints = Object.keys(recording.tests[c.name]!.values!).map((name) => {
-          const { expr, type } = rustAccess(pou, name)
-          // A REAL prints with Debug, which keeps its decimal point. A STRING prints its BYTES as a list — not Debug, whose
-          // `\u{c}` for a form feed is no JSON — so no control character inside it can break this tab-separated output.
-          const family = type.kind === "elementary" ? type.elem.family : undefined
-          const field = `p.${expr}${family === "string" ? ".units()" : ""}`
-          return `    println!("${name}\\t{${family === "real" || family === "string" ? ":?" : ""}}", ${field});`
-        })
-        const main = `fn main() {\n    let mut p = ${pou.name}::new();\n    for _ in 0..${c.cycles ?? 1} { p.scan(); }\n${prints.join("\n")}\n}\n`
-        const file = join(dir, `${c.name}.rs`)
-        const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
-        await Bun.write(file, `${emitRust(pou).code}\n${main}`)
-        const build = Bun.spawn([rustc!, "--edition", "2021", "-A", "warnings", "-o", exe, file], { stderr: "pipe" })
-        if ((await build.exited) !== 0)
-          return void runs.set(c.name, { exit: -1, stdout: "", stderr: `does not compile:\n${await new Response(build.stderr).text()}` })
-        const run = Bun.spawn([exe], { stdout: "pipe", stderr: "pipe" })
-        const exit = await run.exited
-        runs.set(c.name, { exit, stdout: await new Response(run.stdout).text(), stderr: await new Response(run.stderr).text() })
+        try {
+          await prepare(c)
+        } catch (error) {
+          runs.set(c.name, { exit: -1, stdout: "", stderr: `could not be prepared: ${(error as Error).message}` })
+        }
       }),
     )
     await rm(dir, { recursive: true, force: true })
+
+    async function prepare(c: LanguageTest): Promise<void> {
+      const { pou, diagnostics } = lowering(c)
+      if (pou === undefined)
+        return void runs.set(c.name, { exit: -1, stdout: "", stderr: `does not lower: ${diagnostics[0]?.message}` })
+      const prints = Object.keys(recording.tests[c.name]!.values!).map((name) => {
+        const { expr, type } = rustAccess(pou, name)
+        // A REAL prints with Debug, which keeps its decimal point. A STRING prints its BYTES as a list — not Debug, whose
+        // `\u{c}` for a form feed is no JSON — so no control character inside it can break this tab-separated output.
+        const family = type.kind === "elementary" ? type.elem.family : undefined
+        const field = `p.${expr}${family === "string" ? ".units()" : ""}`
+        return `    println!("${name}\\t{${family === "real" || family === "string" ? ":?" : ""}}", ${field});`
+      })
+      const main = `fn main() {\n    let mut p = ${pou.name}::new();\n    for _ in 0..${c.cycles ?? 1} { p.scan(); }\n${prints.join("\n")}\n}\n`
+      const file = join(dir, `${c.name}.rs`)
+      const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
+      await Bun.write(file, `${emitRust(pou).code}\n${main}`)
+      const build = Bun.spawn([rustc!, "--edition", "2021", "-A", "warnings", "-o", exe, file], { stderr: "pipe" })
+      if ((await build.exited) !== 0)
+        return void runs.set(c.name, {
+          exit: -1,
+          stdout: "",
+          stderr: `does not compile:\n${await new Response(build.stderr).text()}`,
+        })
+      const run = Bun.spawn([exe], { stdout: "pipe", stderr: "pipe" })
+      const exit = await run.exited
+      runs.set(c.name, {
+        exit,
+        stdout: await new Response(run.stdout).text(),
+        stderr: await new Response(run.stderr).text(),
+      })
+    }
   }, 180_000)
 
   for (const c of recorded) {
@@ -236,7 +278,12 @@ describe.skipIf(rustc === null)("differential execution — emitted Rust vs CODE
       expect({ exit: run.exit, stderr: run.stderr }).toEqual({ exit: 0, stderr: "" })
       const rec = recording.tests[c.name]!
       const pou = lowering(c).pou!
-      const printed = new Map(run.stdout.trim().split(/\r?\n/).map((line) => line.split("\t") as [string, string]))
+      const printed = new Map(
+        run.stdout
+          .trim()
+          .split(/\r?\n/)
+          .map((line) => line.split("\t") as [string, string]),
+      )
       const want = Object.fromEntries(Object.entries(rec.values!).map(([k, v]) => [k, ideValue(v)]))
       const got = Object.fromEntries(
         Object.keys(want).map((k) => {

@@ -77,6 +77,21 @@ describe("emit/rust", () => {
     expect(code).toContain("self.si = -128i8;")
   })
 
+  test("a METHOD is an fn in its FB's impl and a FUNCTION a free fn — inputs by value, locals `let mut` per call", () => {
+    const { pou, diagnostics } = lowerSource(
+      "FUNCTION_BLOCK FB_M\nVAR calls : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Tick : INT\nVAR_INPUT amount : INT; END_VAR\nVAR localCount : INT; END_VAR\nlocalCount := localCount + amount;\ncalls := calls + 1;\nTick := localCount;\nEND_METHOD\nFUNCTION F_Acc : INT\nVAR_INPUT amount : INT; END_VAR\nF_Acc := amount;\nEND_FUNCTION\nPROGRAM Routines\nVAR inst : FB_M; got : INT; END_VAR\ngot := inst.Tick(amount := 3) + F_Acc(4);\nEND_PROGRAM\n",
+      "Routines",
+    )
+    expect(diagnostics).toEqual([])
+    const code = emitRust(pou!).code
+    expect(code).toContain("pub fn tick(&mut self, mut amount: i16) -> i16 {")
+    expect(code).toContain("let mut local_count: i16 = 0i16;")
+    expect(code).toContain("self.calls = ") // the instance's field, through `self`
+    expect(code).toContain("pub fn f_acc(mut amount: i16) -> i16 {")
+    expect(code).toContain("self.inst.tick(3i16)")
+    expect(code).toContain("f_acc(4i16)")
+  })
+
   test("ST names become snake_case fields", () => {
     expect(["iCount", "MaxCount", "PLC_Ready", "x"].map(snake)).toEqual(["i_count", "max_count", "plc_ready", "x"])
   })
@@ -218,6 +233,9 @@ describe.skipIf(rustc === null)("emit/rust — compiles", () => {
       // Calls (phase 3 step 3): inputs and outputs around `.call(…)`, a VAR_IN_OUT as a `&mut` parameter bound to a field
       // of the caller, a nested instance called from an FB body — the borrow checker is the check.
       "PROGRAM Calls\nVAR inc : FB_Inc; outer : FB_Outer; n : INT; ok : BOOL; big : INT := 40000; si : SINT; END_VAR\ninc(by1 := 1, v := n, done => ok);\nouter();\nsi := 128;\nEND_PROGRAM\nFUNCTION_BLOCK FB_Inc\nVAR_INPUT by1 : INT; END_VAR\nVAR_IN_OUT v : INT; END_VAR\nVAR_OUTPUT done : BOOL; END_VAR\nv := v + by1;\ndone := TRUE;\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_Outer\nVAR inner : FB_Inc; total : INT; END_VAR\ninner(by1 := 2, v := total);\nEND_FUNCTION_BLOCK\n",
+      // Routines (phase 3 step 4): a METHOD with a result, a local, a loop temp and a RETURN; an ACTION; a METHOD with a
+      // VAR_IN_OUT bound to a program field; a FUNCTION called positionally inside an expression.
+      "PROGRAM RoutineCalls\nVAR inst : FB_R; got : INT; sink : INT; END_VAR\ngot := inst.Sum(upto := 4) + F_Twice(3);\ninst.Reset();\ninst.Store(dest := sink);\nEND_PROGRAM\nFUNCTION_BLOCK FB_R\nVAR total : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Sum : INT\nVAR_INPUT upto : INT; END_VAR\nVAR i : INT; END_VAR\nFOR i := 1 TO upto DO\n  Sum := Sum + i;\n  IF Sum > 100 THEN RETURN; END_IF\nEND_FOR\ntotal := Sum;\nEND_METHOD\nACTION Reset\ntotal := 0;\nEND_ACTION\nMETHOD Store\nVAR_IN_OUT dest : INT; END_VAR\ndest := total;\nEND_METHOD\nFUNCTION F_Twice : INT\nVAR_INPUT x : INT; END_VAR\nF_Twice := x * 2;\nEND_FUNCTION\n",
     ]
     const len = { uri: "Library Manager/Standard/LEN.fun", source: "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\nEND_FUNCTION\n" }
     // Each POU's output carries the string prelude when it holds a string (emit.ts's ponytail note) — one crate of several

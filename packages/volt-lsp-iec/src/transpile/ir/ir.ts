@@ -70,13 +70,15 @@ export type Access =
 
 /** A resolved storage location: a slot in the frame, plus a path into it. */
 export interface Place {
-  /** An index into the frame — or, when `inout`, into the enclosing FB body's VAR_IN_OUT parameters. */
+  /** An index into the frame — the POU's slots, or the instance's fields in an FB, METHOD or ACTION body — or, per `root`,
+   *  into the body's VAR_IN_OUT parameters or its routine's per-call locals. */
   slot: number
   path: readonly Access[]
   type: Type
   span: Span
-  /** Rooted at a VAR_IN_OUT parameter: the caller's variable, bound for the call (design §9 form 2 — a `&mut`). */
-  inout?: boolean
+  /** `inout`: a VAR_IN_OUT parameter — the caller's variable, bound for the call (design §9 form 2, a `&mut`).
+   *  `local`: a METHOD's, ACTION's or FUNCTION's local, which starts over on every call. */
+  root?: "inout" | "local"
 }
 
 // ─── expressions ─────────────────────────────────────────────────────────────
@@ -103,7 +105,26 @@ export type IrBinOp =
 
 export type IrUnOp = "neg" | "not"
 
-export type IrExpr = IrConst | IrLoad | IrBinary | IrUnary | IrConvert | IrBuiltin
+export type IrExpr = IrConst | IrLoad | IrBinary | IrUnary | IrConvert | IrBuiltin | IrInvoke
+
+/**
+ * A METHOD, ACTION or FUNCTION invocation. Its locals start over on every call — measured for a METHOD's and a
+ * FUNCTION's VAR (conformance `fbcall_method_locals`, `fbcall_function_locals`) — so its inputs are VALUES handed in, not
+ * assignments in the caller's frame. `type` is the routine's result; a call without one only appears in an `eval`.
+ */
+export interface IrInvoke {
+  kind: "invoke"
+  /** The routine's `key` in `IrPou.routines`. */
+  routine: string
+  /** The instance a METHOD or ACTION runs on; absent for a FUNCTION. */
+  instance?: Place
+  /** One value per VAR_INPUT, in declaration order, already converted to it. */
+  inputs: readonly IrExpr[]
+  /** The VAR_IN_OUT arguments, in declaration order. */
+  inouts: readonly Place[]
+  type: Type
+  span: Span
+}
 
 /** The value functions. A name here is ONE fixed meaning, measured against the vendor — not a call to resolve.
  *  `trunc` is TRUNC/TRUNC_INT: toward zero, into its node's DINT/INT `type` — the one conversion that does not
@@ -189,7 +210,14 @@ export interface IrConvert {
 
 // ─── statements ──────────────────────────────────────────────────────────────
 
-export type IrStmt = IrAssign | IrIf | IrSwitch | IrLoop | IrBreak | IrContinue | IrReturn | IrCall
+export type IrStmt = IrAssign | IrIf | IrSwitch | IrLoop | IrBreak | IrContinue | IrReturn | IrCall | IrEval
+
+/** A METHOD, ACTION or FUNCTION called as a statement — its result, if any, is dropped. */
+export interface IrEval {
+  kind: "eval"
+  value: IrInvoke
+  span: Span
+}
 
 /**
  * A call of a declared FB instance: run its layout's `body` on the instance. Its inputs and outputs are NOT here — lowering
@@ -285,12 +313,37 @@ export interface IrLayout {
   inouts?: readonly IrSlot[]
 }
 
-/** A lowered POU: its frame, its body, and the layout of every composite type its frame reaches — dependencies first. */
+/**
+ * A METHOD or ACTION of an FB, or a FUNCTION — a body with per-call locals. A METHOD's and ACTION's places index the
+ * instance's fields (`IrLayout.fields`) when they have no `root`; every routine's `local` places index `locals`.
+ */
+export interface IrRoutine {
+  /** `FB.Method` for a METHOD or ACTION, the name for a FUNCTION — source casing. */
+  name: string
+  /** `name` upper-cased — what an `IrInvoke` names. */
+  key: string
+  kind: "method" | "action" | "function"
+  /** The FB whose instance a METHOD or ACTION runs on. */
+  fb?: string
+  /** Per-call storage, each starting at its `init` on every call: the result slot (first, when there is one), the
+   *  VAR_INPUT, the VAR and VAR_TEMP, and lowering's temps. */
+  locals: readonly IrSlot[]
+  /** The VAR_INPUT locals, in declaration order — indices into `locals`. */
+  inputs: readonly number[]
+  inouts: readonly IrSlot[]
+  /** The result slot's index in `locals`, for a METHOD or FUNCTION with a return type. */
+  result?: number
+  body: readonly IrStmt[]
+}
+
+/** A lowered POU: its frame, its body, the layout of every composite type its frame reaches (dependencies first), and
+ *  every METHOD, ACTION and FUNCTION it calls. */
 export interface IrPou {
   name: string
   slots: readonly IrSlot[]
   body: readonly IrStmt[]
   layouts: readonly IrLayout[]
+  routines: readonly IrRoutine[]
   span: Span
 }
 

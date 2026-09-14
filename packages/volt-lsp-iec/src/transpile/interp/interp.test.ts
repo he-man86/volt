@@ -531,6 +531,51 @@ END_PROGRAM`,
     expect(pou.get("n")).toBe(21n)
   })
 
+  // Phase 3 step 4: METHOD, ACTION and FUNCTION calls, as CODESYS recorded them (conformance `fbcall_method_locals`,
+  // `fbcall_action`, `fbcall_function_locals`). Before it, `inst.M()` and `F(x)` refused the whole POU (`call-method`,
+  // `expr-call`).
+  test("a METHOD's and a FUNCTION's locals start over per call; an ACTION runs on its FB; VAR_IN_OUT reaches a routine", () => {
+    const pou = load(
+      `FUNCTION_BLOCK FB_M
+VAR calls : INT; count : INT; END_VAR
+END_FUNCTION_BLOCK
+METHOD Tick : INT
+VAR_INPUT amount : INT; END_VAR
+VAR localCount : INT; END_VAR
+localCount := localCount + amount;
+calls := calls + 1;
+Tick := localCount;
+END_METHOD
+METHOD AddTo
+VAR_IN_OUT target : INT; END_VAR
+target := target + calls;
+END_METHOD
+ACTION Inc
+count := count + 1;
+END_ACTION
+FUNCTION F_Acc : INT
+VAR_INPUT amount : INT; END_VAR
+VAR acc : INT; END_VAR
+acc := acc + amount;
+F_Acc := acc;
+END_FUNCTION
+PROGRAM P
+VAR inst : FB_M; first : INT; second : INT; viaF : INT; viaPositional : INT; sink : INT := 100; END_VAR
+first := inst.Tick(amount := 3);
+second := inst.Tick(amount := 3);
+inst.Inc();
+inst.Inc();
+viaF := F_Acc(amount := 4);
+viaPositional := F_Acc(4);
+inst.AddTo(target := sink);
+END_PROGRAM`,
+      "P",
+    )
+    pou.scan()
+    expect([pou.get("first"), pou.get("second"), pou.get("inst.calls")]).toEqual([3n, 3n, 2n])
+    expect([pou.get("inst.count"), pou.get("viaF"), pou.get("viaPositional"), pou.get("sink")]).toEqual([2n, 4n, 4n, 102n])
+  })
+
   // Why missed: no initializer or assignment test stored a literal its target could not hold, and none put an integer in
   // a BOOL — the conformance fixtures that do (`overflow_*`, `cc_literal_*`, `cc_init_*_into_bool`) sat inside FBs, which
   // did not lower until calls did.

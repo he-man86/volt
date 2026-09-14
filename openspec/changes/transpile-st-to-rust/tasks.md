@@ -250,7 +250,15 @@ reshaped in place, each commit gated value-for-value by the conformance replay, 
       stored at its variable's width (`INT := 40000`, `si := 128` — rustc rejected the literal) and an integer into a BOOL
       stayed an integer. Refused, counted, until measured: FB with VAR_TEMP, EXTENDS, `instance-path` and `call_after_*`
       attributes (the AST keeps no pragmas — `syntax/unitAttributes` reads the lexer), a VAR_IN_OUT aliasing its instance.
-- [ ] **Step 4 — METHOD / ACTION / FUNCTION calls** (`call-method` 99, `expr-call` 15 in the conformance cases).
+- [x] **Step 4 — METHOD / ACTION / FUNCTION calls.** DONE 2026-09-14: an `IrInvoke` runs an `IrRoutine` — per-call
+      locals (result, VAR_INPUT, VAR), the instance's fields for a METHOD or ACTION, VAR_IN_OUT bound. Rust: an `fn` in the
+      FB's `impl`, a free `fn` for a FUNCTION, inputs by value. Cases lowering 233 → 315. The newly running cases caught: a
+      backtick-quoted variable (`` `TYPE` ``) that the path readers could not name — and, in the test harness, one case that
+      throws while being prepared took every emitted-Rust case down with it (each is now prepared on its own). Deferred,
+      measured: `op_math_trig` — COS(1.5708) is one ULP from CODESYS's value. Refused, counted, until measured: a routine
+      with VAR_OUTPUT, VAR_INST or VAR_STAT, a call with an input left out, a METHOD of a derived FB (dispatch), a bare
+      or THIS^ method call inside an FB (`call-this`), and an FB carrying `instance-path` or a `call_after_*` attribute
+      (now refused wherever it is instantiated — the compiler acts on it without a call).
 - [ ] **Step 5 — PROGRAM calls and GVLs** (`place-not-local` 13, `call-program`).
 - [ ] **Step 6 — handles.**
 

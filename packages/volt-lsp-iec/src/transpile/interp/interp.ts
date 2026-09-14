@@ -8,7 +8,7 @@
  * ponytail: a tree walk. It is the oracle and the fast path to a green test, not the shipping runtime — if
  * scan throughput ever matters, that is what the Rust backend is for.
  */
-import type { Access, IrExpr, IrLayout, IrMathName, IrPou, IrStmt, IrStringName, IrValue, Place } from "../ir/index.js"
+import type { Access, IrExpr, IrInvoke, IrLayout, IrMathName, IrPou, IrRoutine, IrStmt, IrStringName, IrValue, Place } from "../ir/index.js"
 import { defaultValueOf, peelArray } from "../ir/index.js"
 import type { Type } from "../../types/index.js"
 
@@ -241,7 +241,35 @@ class Machine {
     private readonly keys: readonly (string | number)[],
     private readonly inouts: readonly Cell[],
     private readonly layouts: ReadonlyMap<string, IrLayout>,
+    private readonly routines: ReadonlyMap<string, IrRoutine>,
+    /** The running METHOD's, ACTION's or FUNCTION's per-call locals. */
+    private readonly locals: Val[] = [],
   ) {}
+
+  /** A METHOD, ACTION or FUNCTION: fresh locals, the inputs stored into them, the body run on the instance (or on nothing),
+   *  and the result slot's value — FALSE stands in for a routine without one, which only an `eval` calls. */
+  private invoke(e: IrInvoke): Val {
+    const routine = this.routines.get(e.routine)!
+    const inputs = e.inputs.map((x) => this.expr(x))
+    const bound = e.inouts.map((p): Cell => {
+      const cell = this.locate(p)
+      return { container: cell.container as Record<string | number, Val>, key: cell.key }
+    })
+    const locals = routine.locals.map((s) => instantiate(s.type, s.init, this.layouts))
+    routine.inputs.forEach((index, k) => {
+      const value = inputs[k]!
+      locals[index] = typeof value === "object" ? copy(value) : fit(value, routine.locals[index]!.type)
+    })
+    let root: Record<string | number, Val> = {}
+    let keys: string[] = []
+    if (e.instance !== undefined) {
+      const at = this.locate(e.instance)
+      root = (at.container as Record<string | number, Val>)[at.key] as Record<string | number, Val>
+      keys = this.layouts.get(routine.fb!.toUpperCase())!.fields.map((f) => f.name.toUpperCase())
+    }
+    new Machine(root, keys, bound, this.layouts, this.routines, locals).block(routine.body)
+    return routine.result === undefined ? false : locals[routine.result]!
+  }
 
   /** The container and key the steps before a place's last one lead to — where a read or write lands. */
   private locate(place: Place): { container: Val[] | { [field: string]: Val }; key: number | string; bit?: Extract<Access, { kind: "bit" }> } {
@@ -249,7 +277,12 @@ class Machine {
     const last = steps.at(-1)
     const bit = last?.kind === "bit" ? last : undefined
     const walk = bit === undefined ? steps : steps.slice(0, -1)
-    const start: Cell = place.inout ? this.inouts[place.slot]! : { container: this.root, key: this.keys[place.slot]! }
+    const start: Cell =
+      place.root === "inout"
+        ? this.inouts[place.slot]!
+        : place.root === "local"
+          ? { container: this.locals as unknown as Record<number, Val>, key: place.slot }
+          : { container: this.root, key: this.keys[place.slot]! }
     let container: Val[] | { [field: string]: Val } = start.container as Val[] | { [field: string]: Val }
     let key: number | string = start.key
     for (const step of walk) {
@@ -292,6 +325,8 @@ class Machine {
         return fit(e.value, e.type)
       case "load":
         return this.read(e.place)
+      case "invoke":
+        return this.invoke(e)
       case "convert":
         return fit(coerce(this.expr(e.value), e.type, e.value.type), e.type)
       case "builtin": {
@@ -453,9 +488,12 @@ class Machine {
           const cell = this.locate(p)
           return { container: cell.container as Record<string | number, Val>, key: cell.key }
         })
-        new Machine(instance, layout.fields.map((f) => f.name.toUpperCase()), bound, this.layouts).block(layout.body!)
+        new Machine(instance, layout.fields.map((f) => f.name.toUpperCase()), bound, this.layouts, this.routines).block(layout.body!)
         return "none"
       }
+      case "eval":
+        this.invoke(s.value)
+        return "none"
       case "break":
         return "break"
       case "continue":
@@ -478,12 +516,19 @@ export interface Runner {
   scan(): void
 }
 
+/** Two ST names for one variable: case-insensitive, a backtick quote (`` `TYPE` ``) not part of the name. */
+export function sameName(a: string, b: string): boolean {
+  const bare = (n: string): string => n.replace(/^`|`$/g, "").toUpperCase()
+  return bare(a) === bare(b)
+}
+
 /** A variable path's container, key and type — `inst.q` walks the slot `inst`, then its field `Q`; `arr[2]` subtracts
  *  the dimension's lower bound. Shared by `get` and `set`, so a test reads exactly where the program writes. */
 function resolvePath(pou: IrPou, frame: Val[], layouts: ReadonlyMap<string, IrLayout>, path: string) {
-  const parts = [...path.matchAll(/([A-Za-z_]\w*)|\[\s*(-?\d+)\s*\]/g)]
+  // a name may be backtick-quoted — ``fb.`TYPE` `` is how CODESYS names a variable declared `` `TYPE` ``
+  const parts = [...path.matchAll(/(`[^`]+`|[A-Za-z_]\w*)|\[\s*(-?\d+)\s*\]/g)]
   const first = parts[0]?.[1]
-  const slot = first === undefined ? -1 : pou.slots.findIndex((s) => s.name.toUpperCase() === first.toUpperCase())
+  const slot = first === undefined ? -1 : pou.slots.findIndex((s) => sameName(s.name, first))
   if (slot < 0) throw new Error(`no variable ${path} in ${pou.name}`)
   let container = frame as unknown as Record<string | number, Val>
   let key: string | number = slot
@@ -492,7 +537,7 @@ function resolvePath(pou: IrPou, frame: Val[], layouts: ReadonlyMap<string, IrLa
     container = container[key] as Record<string | number, Val>
     if (part[1] !== undefined) {
       const layout = type.kind === "struct" || type.kind === "function_block" ? layouts.get(type.name.toUpperCase()) : undefined
-      const field = layout?.fields.find((f) => f.name.toUpperCase() === part[1]!.toUpperCase())
+      const field = layout?.fields.find((f) => sameName(f.name, part[1]!))
       if (field === undefined) throw new Error(`no variable ${path} in ${pou.name}`)
       key = field.name.toUpperCase()
       type = field.type
@@ -510,7 +555,8 @@ function resolvePath(pou: IrPou, frame: Val[], layouts: ReadonlyMap<string, IrLa
 export function run(pou: IrPou): Runner {
   const layouts = new Map(pou.layouts.map((l) => [l.name.toUpperCase(), l]))
   const frame = pou.slots.map((s) => instantiate(s.type, s.init, layouts))
-  const machine = new Machine(frame as unknown as Record<number, Val>, pou.slots.map((_, i) => i), [], layouts)
+  const routines = new Map(pou.routines.map((r) => [r.key, r]))
+  const machine = new Machine(frame as unknown as Record<number, Val>, pou.slots.map((_, i) => i), [], layouts, routines)
 
   return {
     frame,
