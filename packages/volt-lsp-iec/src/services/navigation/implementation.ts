@@ -4,9 +4,9 @@
  * implements-list names the interface. Conservative: unresolved cursor → undefined.
  */
 import type { Location } from "vscode-languageserver-protocol"
-import type { FunctionBlock } from "../../syntax/index.js"
+import type { Document, FunctionBlock } from "../../syntax/index.js"
 import { findChildScope, lookupLocal, type Scope } from "../../symbols/index.js"
-import { locationOf, rangeFromSpan, resolveAt, type Document } from "../shared/index.js"
+import { locationOf, rangeFromSpan, resolveAt } from "../shared/index.js"
 
 export function implementation(
   docs: Iterable<Document>,

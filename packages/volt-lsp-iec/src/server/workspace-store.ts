@@ -12,7 +12,7 @@
  */
 import { TextDocument } from "vscode-languageserver-textdocument"
 import { fileURLToPath } from "node:url"
-import { parseSource, type Span } from "../syntax/index.js"
+import { type Document, parseSource, type Span } from "../syntax/index.js"
 import { buildSymbolTable, bindFile, unbindFile, linkExtends, type Scope } from "../symbols/index.js"
 import {
   deadPousFromInfos,
@@ -25,7 +25,6 @@ import {
   type ResolvedConfig,
   type WorkspaceRefs,
 } from "../analysis/index.js"
-import type { Document } from "../services/index.js"
 
 // Windows and macOS default to case-insensitive filesystems; Linux is case-sensitive. Case-fold the key on
 // the former so an open buffer and its disk crawl (which may differ in path case) collapse to one entry.

@@ -1,7 +1,7 @@
 import { test, expect } from "bun:test"
-import { parseSource } from "../syntax/index.js"
+import { type Document, parseSource } from "../syntax/index.js"
 import { buildSymbolTable } from "../symbols/index.js"
-import { completion, documentSymbols, hover, type Document } from "./index.js"
+import { completion, documentSymbols, hover } from "./index.js"
 
 function setup(src: string) {
   const parseResult = parseSource(src)

@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test"
-import { parseSource, parseStatements, type ParseResult } from "../../syntax/index.js"
-import { formatDocument, formatOnType, formatRange, type Document } from "../index.js"
+import { type Document, type ParseResult, parseSource, parseStatements } from "../../syntax/index.js"
+import { formatDocument, formatOnType, formatRange } from "../index.js"
 
 /**
  * Normalize a parse result to a span-free / token-free shape, embedding each body's PARSED statement

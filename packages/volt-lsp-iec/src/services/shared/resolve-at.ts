@@ -7,7 +7,7 @@
  * DECLARATION — return the symbol whose defining span it sits on, else resolve the token as a name/type.
  * Conservative: unresolved → undefined (a feature simply does nothing rather than guess).
  */
-import { exprAtOffset, memberAtOffset, type ParseResult } from "../../syntax/index.js"
+import { exprAtOffset, memberAtOffset, type Document, type ParseResult } from "../../syntax/index.js"
 import {
   bodiesAt,
   lookup,
@@ -19,12 +19,6 @@ import {
 import { resolveMemberChain } from "../../types/index.js"
 import { spanContains } from "./positions.js"
 import { tokenAtOffset } from "./token-scan.js"
-
-export interface Document {
-  uri: string
-  source: string
-  parseResult: ParseResult
-}
 
 export function resolveAt(doc: Document, project: Scope, offset: number): Symbol | undefined {
   // Body path — resolve through the statement tree where the cursor sits, in the body's own scope (a property accessor's

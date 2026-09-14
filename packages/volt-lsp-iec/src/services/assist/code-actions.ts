@@ -5,10 +5,10 @@
  */
 import type { CodeAction, Diagnostic } from "vscode-languageserver-protocol"
 import { CodeActionKind } from "vscode-languageserver-protocol"
-import { walkStatements, type Assignment } from "../../syntax/index.js"
+import { type Assignment, type Document, walkStatements } from "../../syntax/index.js"
 import { bodies, type Scope } from "../../symbols/index.js"
 import { exprText, inferExprType } from "../../types/index.js"
-import { offsetFromPosition, rangeFromSpan, type Document } from "../shared/index.js"
+import { offsetFromPosition, rangeFromSpan } from "../shared/index.js"
 
 // Matches the diagnostic `code` as the client sends it back — the CODESYS Cnnnn the server surfaces (C0032
 // assignment-type-mismatch, C0197 narrowing-conversion), not our internal slug.

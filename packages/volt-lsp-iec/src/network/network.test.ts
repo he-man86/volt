@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test"
-import { parseSource, unitBodies, isGraphicalBody, walkExpr, type BodySpan, type Expr } from "../syntax/index.js"
+import { type BodySpan, type Document, type Expr, isGraphicalBody, parseSource, unitBodies, walkExpr } from "../syntax/index.js"
 import { buildSymbolTable, type Scope } from "../symbols/index.js"
 import { messagesFor, type DiagnosticItem, type WorkspaceRefs } from "../analysis/index.js"
 import {
@@ -15,7 +15,6 @@ import {
   referencesAnywhere,
   renameAnywhere,
 } from "./index.js"
-import type { Document } from "../services/index.js"
 
 /** Every identifier name referenced anywhere in an expression. */
 function idents(e: Expr | undefined): string[] {

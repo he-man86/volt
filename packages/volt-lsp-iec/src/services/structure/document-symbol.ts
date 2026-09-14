@@ -4,8 +4,8 @@
  * Pure AST walk — no resolution needed.
  */
 import { SymbolKind as Lsp, type DocumentSymbol } from "vscode-languageserver-protocol"
-import type { TopLevel, VarSection } from "../../syntax/index.js"
-import { rangeFromSpan, type Document } from "../shared/index.js"
+import type { Document, TopLevel, VarSection } from "../../syntax/index.js"
+import { rangeFromSpan } from "../shared/index.js"
 
 export function documentSymbols(doc: Document): DocumentSymbol[] {
   const out: DocumentSymbol[] = []

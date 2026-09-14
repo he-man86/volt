@@ -1,9 +1,8 @@
 import { test, expect } from "bun:test"
-import { parseSource } from "../syntax/index.js"
+import { type Document, parseSource } from "../syntax/index.js"
 import { buildSymbolTable, type Scope } from "../symbols/index.js"
 import { messagesFor, type DiagnosticItem } from "../analysis/index.js"
 import { computeNetworkTextDiagnostics } from "./index.js"
-import type { Document } from "../services/index.js"
 
 /**
  * SHAPES A REAL PROJECT WRITES, which the LSP must not report as mistakes.

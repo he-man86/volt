@@ -8,9 +8,8 @@
  * a function-block INSTANCE (and its inherited inputs) does not have.
  */
 import { expect, test } from "bun:test"
-import { parseSource } from "../syntax/index.js"
+import { type Document, parseSource } from "../syntax/index.js"
 import { buildSymbolTable } from "../symbols/index.js"
-import type { Document } from "./shared/index.js"
 import { resolveAt } from "./shared/resolve-at.js"
 import { signatureHelp } from "./assist/signature-help.js"
 import { inlayHints } from "./assist/inlay-hints.js"

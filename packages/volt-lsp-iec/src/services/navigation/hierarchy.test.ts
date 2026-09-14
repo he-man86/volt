@@ -1,7 +1,6 @@
 import { test, expect } from "bun:test"
-import { parseSource } from "../../syntax/index.js"
+import { type Document, parseSource } from "../../syntax/index.js"
 import { buildSymbolTable } from "../../symbols/index.js"
-import type { Document } from "../shared/index.js"
 import { implementation } from "./implementation.js"
 import {
   prepareTypeHierarchy,

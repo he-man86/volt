@@ -10,16 +10,17 @@
  */
 import type { CompletionItem, Hover, Location, Range, TextEdit, WorkspaceEdit } from "vscode-languageserver-protocol"
 import {
+  type BodySpan,
+  type Document,
+  type Expr,
   exprAtOffset,
+  type IdentExpr,
   isGraphicalBody,
   memberAtOffset,
-  unitBodies,
-  walkAllExprs,
-  type BodySpan,
-  type Expr,
-  type IdentExpr,
   type Statement,
   type TopLevel,
+  unitBodies,
+  walkAllExprs,
 } from "../syntax/index.js"
 import { lookup, lookupLocal, resolveBareEnumMember, type Scope, type Symbol } from "../symbols/index.js"
 import { resolveMemberChain } from "../types/index.js"
@@ -33,7 +34,6 @@ import {
   symbolHover,
   toLocations,
   tokenAtOffset,
-  type Document,
   type Ref,
 } from "../services/index.js"
 import { analyzeNetworkText, networkNetworkAt, wireDefs } from "./network-analyze.js"

@@ -19,14 +19,15 @@
  * scope (POU + `LET` wires). Error severity, so the corpus 0-FP gate covers it.
  */
 import {
-  isTrivia,
-  unitBodies,
+  type BodySpan,
+  type Document,
+  type Expr,
   isGraphicalBody,
+  isTrivia,
   stmtExprs,
+  unitBodies,
   walkExpr,
   walkStatements,
-  type BodySpan,
-  type Expr,
 } from "../syntax/index.js"
 import { inferExprType, resolveCallee } from "../types/index.js"
 import {
@@ -43,7 +44,6 @@ import {
 } from "../analysis/index.js"
 import { EMPTY_WORKSPACE_REFS } from "../analysis/index.js"
 import { hasUnresolvedBase, type Scope } from "../symbols/index.js"
-import type { Document } from "../services/index.js"
 import { analyzeNetworkText } from "./network-analyze.js"
 import type { NetworkTextNetwork, NetworkTextStatement } from "./text/ast.js"
 import { ASSIGN_OPS } from "./text/parser.js"

@@ -1,8 +1,8 @@
 import { test, expect } from "bun:test"
 import { lookupReference, renderReferenceHover } from "./index.js"
-import { parseSource } from "../syntax/index.js"
+import { type Document, parseSource } from "../syntax/index.js"
 import { buildSymbolTable } from "../symbols/index.js"
-import { hover, type Document } from "../services/index.js"
+import { hover } from "../services/index.js"
 
 test("reference: elementary type entry with range DERIVED from types/elementary", () => {
   const int = lookupReference("INT")

@@ -109,9 +109,9 @@ import {
   typeSubtypes,
   typeSupertypes,
   workspaceSymbols,
-  type Document,
   type HierItem,
 } from "../services/index.js"
+import type { Document } from "../syntax/index.js"
 import {
   documentHighlightsAnywhere,
   documentSymbolsWithVg,

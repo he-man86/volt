@@ -6,10 +6,10 @@
  * A member-access chain resolves through `types/resolveMemberChain`; a bare ident through scope lookup.
  * The `.member` IdentExpr of a chain is NOT counted as a standalone ident (it's covered by the member node).
  */
-import { flatUnits, unitTypeNameRefs, walkAllExprs, type IdentExpr } from "../../syntax/index.js"
+import { type Document, flatUnits, type IdentExpr, unitTypeNameRefs, walkAllExprs } from "../../syntax/index.js"
 import { bodies, lookup, resolveBareEnumMember, scopeForUnit, type Scope, type Symbol } from "../../symbols/index.js"
 import { resolveMemberChain } from "../../types/index.js"
-import { rangeFromSpan, type Document } from "../shared/index.js"
+import { rangeFromSpan } from "../shared/index.js"
 import type { Location, Range } from "vscode-languageserver-protocol"
 
 export interface Ref {

@@ -10,20 +10,21 @@
  */
 import type { Position, Range, TextEdit } from "vscode-languageserver-protocol"
 import {
-  parseStatements,
-  stmtChildLists,
-  unitBodies,
   type BodySpan,
   type CaseArm,
+  type Document,
   type EnumValue,
+  parseStatements,
   type Statement,
   type StatementList,
+  stmtChildLists,
   type TopLevel,
+  unitBodies,
   type VarDecl,
   type VarSection,
 } from "../../syntax/index.js"
 import { exprText, renderTypeExpr } from "../../types/index.js"
-import { offsetFromPosition, rangeFromSpan, type Document } from "../shared/index.js"
+import { offsetFromPosition, rangeFromSpan } from "../shared/index.js"
 
 const TAB = "\t"
 

@@ -5,18 +5,19 @@
  */
 import type { SelectionRange } from "vscode-languageserver-protocol"
 import {
-  exprChildren,
-  parseStatements,
-  stmtChildLists,
-  stmtExprs,
-  walkStatements,
+  type Document,
   type Expr,
+  exprChildren,
+  isGraphicalBody,
+  parseStatements,
   type Span,
   type Statement,
+  stmtChildLists,
+  stmtExprs,
   unitBodies,
-  isGraphicalBody,
+  walkStatements,
 } from "../../syntax/index.js"
-import { rangeFromSpan, tokenAtOffset, type Document } from "../shared/index.js"
+import { rangeFromSpan, tokenAtOffset } from "../shared/index.js"
 
 export function selectionRange(doc: Document, offset: number): SelectionRange | undefined {
   // Collect every span that contains the offset, from the parse tree + the token.

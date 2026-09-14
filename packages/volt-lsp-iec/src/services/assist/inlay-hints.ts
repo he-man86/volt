@@ -5,10 +5,9 @@
  */
 import type { InlayHint } from "vscode-languageserver-protocol"
 import { InlayHintKind } from "vscode-languageserver-protocol"
-import { walkAllExprs } from "../../syntax/index.js"
+import { type Document, walkAllExprs } from "../../syntax/index.js"
 import { bodies, type Scope } from "../../symbols/index.js"
 import { resolveCallee } from "../../types/index.js"
-import type { Document } from "../shared/index.js"
 
 export function inlayHints(doc: Document, project: Scope, startOffset: number, endOffset: number): InlayHint[] {
   const out: InlayHint[] = []

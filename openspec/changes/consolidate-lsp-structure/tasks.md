@@ -120,7 +120,8 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
 
 ## C. Structure
 
-- [ ] C1 `Document` from `services/shared/resolve-at.ts:32` to `syntax/`.
+- [x] C1 `Document` from `services/shared/resolve-at.ts:32` to `syntax/`. DONE 2026-09-14: `syntax/ast.ts`; 33 importers,
+      the network layer and the server among them, no longer reach into services for it.
 - [ ] C2 One body iterator: `bodiesAt(offset)`, all-bodies-incl-unparsed, `graphicalBodies()`; replace 7 ST and 6 graphical
       copies; delete `stBodies`; `forEachExpr`/`forEachDecl` to `symbols/bodies.ts`.
 - [ ] C3 Network-shared rules out of `checks/`: `analysis/resolution.ts` (`_identifier-resolution`), `analysis/rules/`

@@ -7,10 +7,10 @@
  * good enough for coloring; a mis-colored deep member is cosmetic, never wrong data.
  */
 import type { SemanticTokens, SemanticTokensEdit } from "vscode-languageserver-protocol"
-import { isGraphicalBody, lex, unitBodies, type Span, type Token, type TokenKind } from "../../syntax/index.js"
+import { type Document, isGraphicalBody, lex, type Span, type Token, type TokenKind, unitBodies } from "../../syntax/index.js"
 import { lookup, resolveBareEnumMember, type Scope, type SymbolKind } from "../../symbols/index.js"
 import { isKnownPrimitive } from "../../types/index.js"
-import { scopeAtOffset, type Document } from "../shared/index.js"
+import { scopeAtOffset } from "../shared/index.js"
 import { NETWORK_TEXT_KEYWORDS } from "../../network/text/parser.js"
 
 /** The token-type legend (index = the `typeIdx` emitted). Advertised to the client in server capabilities. */

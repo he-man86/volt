@@ -4,9 +4,8 @@
  * fell back to scope symbols and hover on the member wrongly matched a builtin operator.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../syntax/index.js"
+import { type Document, parseSource } from "../../syntax/index.js"
 import { buildSymbolTable } from "../../symbols/index.js"
-import type { Document } from "../shared/index.js"
 import { hover } from "./hover.js"
 import { completion } from "./completion.js"
 import { signatureHelp } from "./signature-help.js"

@@ -18,7 +18,8 @@ import {
 import { computeNetworkTextDiagnostics } from "../network/index.js"
 import { codesysCodeFor } from "../reference/error-code-map.js"
 import { isLibrarySymbol } from "../symbols/index.js"
-import { rangeFromSpan, type Document } from "../services/index.js"
+import { rangeFromSpan } from "../services/index.js"
+import type { Document } from "../syntax/index.js"
 import type { WorkspaceStore } from "./workspace-store.js"
 
 const SEVERITY: Record<DiagnosticItem["severity"], DiagnosticSeverity> = {

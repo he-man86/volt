@@ -5,7 +5,8 @@
  */
 import type { Location, Range, TextEdit, WorkspaceEdit } from "vscode-languageserver-protocol"
 import { lookup, type Scope } from "../../symbols/index.js"
-import { locationOf, rangeFromSpan, resolveAt, tokenAtOffset, type Document } from "../shared/index.js"
+import { locationOf, rangeFromSpan, resolveAt, tokenAtOffset } from "../shared/index.js"
+import type { Document } from "../../syntax/index.js"
 import { findReferences, toLocations } from "./references.js"
 
 /** Go-to-definition: the defining location of the symbol under the cursor. */

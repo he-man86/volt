@@ -4,9 +4,8 @@
  * otherwise renaming the type silently leaves those uses stale, producing a broken project.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../syntax/index.js"
+import { type Document, parseSource } from "../../syntax/index.js"
 import { buildSymbolTable } from "../../symbols/index.js"
-import type { Document } from "../shared/index.js"
 import { references, rename } from "./index.js"
 
 const SRC = `FUNCTION_BLOCK FB_Base

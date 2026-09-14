@@ -11,7 +11,8 @@ import { CompletionItemKind, type CompletionItem } from "vscode-languageserver-p
 import { findChildScope, lookup, type Scope, type Symbol, type SymbolKind } from "../../symbols/index.js"
 import { memberScopeOf, resolveTypeExpr } from "../../types/index.js"
 import { KNOWN_ATTRIBUTE_NAMES, pragmaHelp } from "../../reference/index.js"
-import { humanKind, scopeAtOffset, type Document } from "../shared/index.js"
+import { humanKind, scopeAtOffset } from "../shared/index.js"
+import type { Document } from "../../syntax/index.js"
 
 export function completion(doc: Document, project: Scope, offset: number): CompletionItem[] {
   const attrs = attributeCompletions(doc.source, offset)

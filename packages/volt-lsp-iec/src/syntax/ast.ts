@@ -581,3 +581,14 @@ export interface ParseResult {
   units: TopLevel[]
   errors: ParseError[]
 }
+
+/**
+ * A parsed source document — its identity, its text and its parse: what every language service and the server work
+ * on. It lived in `services/shared/resolve-at.ts`, so the network layer and the server imported the services layer for
+ * a type (consolidate-lsp-structure C1).
+ */
+export interface Document {
+  uri: string
+  source: string
+  parseResult: ParseResult
+}

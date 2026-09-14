@@ -4,7 +4,8 @@
  */
 import type { CodeLens } from "vscode-languageserver-protocol"
 import type { Scope } from "../../symbols/index.js"
-import { rangeFromSpan, resolveAt, type Document } from "../shared/index.js"
+import { rangeFromSpan, resolveAt } from "../shared/index.js"
+import type { Document } from "../../syntax/index.js"
 import { findReferences } from "../navigation/index.js"
 
 export function codeLenses(docs: Iterable<Document>, project: Scope, doc: Document): CodeLens[] {
