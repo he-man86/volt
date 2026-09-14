@@ -50,13 +50,33 @@ The paths come from the parsed fixture (PLC_PRG's `plcPrgVar` instances, expande
 a called PROGRAM's variables under its name), so the recorder and the replay derive the same list from the same source.
 A value CODESYS displays lossily is compared as displayed, as `test/exec` already does (a TOD modulo a day).
 
-What the current simulator recorder does not yet do, and must be measured before it is built (tasks §3):
-- load a fixture's units into the project (it only replaces PLC_PRG's text today);
-- read an instance member through the online API (it reads PLC_PRG's scalars today).
+**Measured headless, 2026-09-14** (`scripts/probe-fixture-run.py` on CodesysTestProject, four fixtures: a DUT + FB, an
+FB + METHOD, an FB + PROPERTY, an FB + ACTION):
+- a fixture loads through the scripting API: `create_dut(name, DutType.Structure)`, `create_pou(name=, type=, language=)`,
+  `create_method(name=)`, `create_action(name=)`, `create_property(name=)`, each written through
+  `textual_declaration`/`textual_implementation`. `create_property` makes BOTH accessors; the one a fixture does not
+  declare is removed. All four built with no message, ran, and were removed again (`remove()`), so the next case starts
+  from the committed project;
+- an instance member reads like a scalar — `PLC_PRG.inst_cc_enum_int.x` is `INT#1`, `PLC_PRG.fb_upr.iBacking` `INT#42`;
+- a COMPOSITE does not: reading `PLC_PRG.inst_cc_enum_int` raises "Invalid pointer size.". So a run records LEAF paths
+  only, which is what `support/run-paths.ts` derives;
+- `call_after_init` recorded `fb_cai.iCounter = INT#0` after one scan — a vendor answer the fixture now carries.
 
-If either proves impossible headless, the fallback is recording runs through the GUI bridge — but the exec recorder is a
-runscript precisely because the online object only works inside a running script, so that path needs its own measurement
-first. The design does not pick it by default.
+The units are split by `support/fixture-units.ts` from the parser's spans; a pragma above a member (`{attribute
+'call_after_init'}`) travels with it. No GUI bridge is needed.
+
+**Measured over the full recording, 2026-09-14** — the first pass failed 21 fixtures, every one on the LOADER:
+- a body is its statements minus only the UNIT's terminator — stripping any trailing `END_…` cut `END_FOR` off a method;
+- a fixture that names another fixture's base FB, interface, struct (field type or `STRUCT EXTENDS`) or VAR_EXTERNAL
+  global needs that fixture in the project — the replay's cross-fixture project had hidden it. `withDependencies`
+  resolves them by name, transitively; the recorder loads them and the transpiler lowers from the same text;
+- an interface object holds only its header; each METHOD/PROPERTY prototype is its own child, and a property gets only
+  the accessors its text names — an unnamed SET made CODESYS demand `__SETVALUE` of a GET-only implementation;
+- a subrange value (`INT(0..100)` or a DUT that is one) does not read online: "Type 'Subrange' is not a literal type.";
+  such paths are not recorded;
+- a fixture written only to BUILD can fault when run — `use_pointer_deref_struct_field` and `cc_fp_ptr_deref` write
+  through a pointer before it is set; the application stops and the recorder times out. The replay counts them as todos
+  naming the fault; a fixture that does not COMPILE in the simulator is a loader bug and fails.
 
 ## 3. Recordings: one file per recorder, never two writers
 

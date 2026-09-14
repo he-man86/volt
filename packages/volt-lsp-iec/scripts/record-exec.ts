@@ -1,34 +1,51 @@
 /**
  * Execution recorder — re-creates `test/conformance/recordings/codesys.run.json` from CODESYS itself.
  *
- *   bun run record:exec          # Windows + CODESYS 3.5.21.40 (SP21); ~5s per case after a ~1min launch
+ *   bun run record:exec                          # every case that builds; Windows + CODESYS 3.5.21.40 (SP21)
+ *   RECORD_ONLY=a,b bun run record:exec          # just those cases, MERGED into the committed recording
  *
- * Launches a headless CODESYS with `record-exec.py` as its runscript, which opens a COPY of the committed fixture,
- * puts its device in simulation, and runs every case in `test/conformance/fixtures/execution.ts` there (see the .py for the three
- * measured facts that shape it). Not a bridge op: the scripting online object only works inside a running script.
+ * Launches a headless CODESYS with `record-exec.py` as its runscript, which opens a COPY of the committed fixture, puts
+ * its device in simulation, and for each case loads the fixture's units, writes PLC_PRG, builds, runs `cycles` scans and
+ * reads every variable path (see the .py for the measured facts that shape it). Not a bridge op: the scripting online
+ * object only works inside a running script.
  *
- * Variable names come from the PARSER, not from lowering, so a case the interpreter cannot run yet (a built-in,
- * say) is still recorded — the ground truth is wanted BEFORE the implementation, not after.
+ * WHICH cases: every conformance fixture whose CODESYS build recording says it builds, plus the execution cases (a
+ * program that does not compile records its error — that is how a `refused` case is pinned). A fixture with no variable
+ * to read has nothing to compare and is not sent. The paths come from `support/run-paths.ts` and the units from
+ * `support/fixture-units.ts` — the PARSER, not lowering, so a case the transpiler cannot lower yet is still recorded:
+ * the ground truth is wanted BEFORE the implementation (unify-conformance-suite design §2).
  */
 import { spawnSync } from "node:child_process"
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { parseSource } from "../src/syntax/index.js"
-import { EXECUTION_TESTS } from "../test/conformance/fixtures/execution.js"
-import { plcPrgSource } from "../test/conformance/support/plc-prg.js"
+import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
+import { fixtureUnits, withDependencies } from "../test/conformance/support/fixture-units.js"
+import { runPaths } from "../test/conformance/support/run-paths.js"
 
 const CODESYS = "C:\\Program Files\\CODESYS 3.5.21.40\\CODESYS\\Common\\CODESYS.exe"
 const PROFILE = "CODESYS V3.5 SP21 Patch 4"
 const PROJECT =
   process.env.VOLT_EXEC_PROJECT ?? join(import.meta.dir, "..", "..", "volt-cli", "test", "fixtures", "CodesysTestProject.project")
+const RECORDINGS = join(import.meta.dir, "..", "test", "conformance", "recordings")
+const ONLY = process.env.RECORD_ONLY ? new Set(process.env.RECORD_ONLY.split(",")) : undefined
 
-const cases = EXECUTION_TESTS.map((c) => {
-  const unit = parseSource(plcPrgSource(c)).units[0] as { varSections?: { decls: { names: { text: string }[] }[] }[] }
-  const names = (unit.varSections ?? []).flatMap((s) => s.decls.flatMap((d) => d.names.map((n) => n.text)))
-  if (names.length === 0) throw new Error(`${c.name}: no variables parsed — nothing to compare`)
-  return { name: c.name, vars: c.plcPrgVar ?? "", body: c.plcPrgBody ?? "", cycles: c.cycles ?? 1, names }
-})
+const build = JSON.parse(readFileSync(join(RECORDINGS, "codesys.build.json"), "utf8")).tests as Record<string, { buildSuccess: boolean }>
+const cases = ALL_TESTS.filter((t) => !t.recorderSkip && (ONLY === undefined || ONLY.has(t.name)))
+  .filter((t) => t.source === "" || build[t.name]?.buildSuccess === true)
+  .map((t) => ({
+    name: t.name,
+    units: withDependencies(t, ALL_TESTS).flatMap(fixtureUnits),
+    vars: t.plcPrgVar ?? "",
+    body: t.plcPrgBody ?? "",
+    cycles: t.cycles ?? 1,
+    names: runPaths(t, ALL_TESTS),
+  }))
+  .filter((c) => c.names.length > 0)
+if (ONLY !== undefined) {
+  const missing = [...ONLY].filter((n) => !cases.some((c) => c.name === n))
+  if (missing.length > 0) console.warn(`not recorded (no build success, or nothing to read): ${missing.join(", ")}`)
+}
 
 const work = join(tmpdir(), "volt-exec-oracle")
 mkdirSync(work, { recursive: true })
@@ -47,19 +64,28 @@ spawnSync(CODESYS, [`--profile="${PROFILE}"`, "--noUI", `--runscript="${join(imp
   env: { ...process.env, VOLT_EXEC_CASES: casesPath, VOLT_EXEC_OUT: outPath, VOLT_EXEC_PROJECT: PROJECT },
   windowsVerbatimArguments: true,
   stdio: "ignore",
-  timeout: 15 * 60_000, // a hang guard, not a budget: a healthy run is a few minutes
+  // a hang guard, not a budget: a launch is about a minute, a healthy case a few seconds
+  timeout: (120 + 15 * cases.length) * 1000,
 })
 if (!existsSync(outPath)) throw new Error(`CODESYS wrote no recording — see ${outPath}.log`)
 
 // The runscript writes each non-ASCII character as the TEXT `\uXXXX` (see `ascii_escaped` in the .py), which json.dump
 // escapes once more; un-doubling the backslash makes it a real JSON escape again.
 const result = JSON.parse(readFileSync(outPath, "utf8").replace(/\\\\u([0-9a-f]{4})/g, "\\u$1"))
-const dir = join(import.meta.dir, "..", "test", "conformance", "recordings")
-mkdirSync(dir, { recursive: true })
-writeFileSync(
-  join(dir, "codesys.run.json"),
-  JSON.stringify({ _doc: "Generated by scripts/record-exec.ts. Do not edit by hand — re-record.", ...result }, null, 2) + "\n",
-)
-const failed = Object.entries(result.tests as Record<string, { error?: string }>).filter(([, t]) => t.error)
-console.log(`recorded ${Object.keys(result.tests).length} case(s), ${failed.length} failed in the IDE`)
+mkdirSync(RECORDINGS, { recursive: true })
+const file = join(RECORDINGS, "codesys.run.json")
+const doc = "Generated by scripts/record-exec.ts. Do not edit by hand — re-record."
+if (ONLY !== undefined && existsSync(file)) {
+  const committed = JSON.parse(readFileSync(file, "utf8"))
+  for (const [name, rec] of Object.entries(result.tests)) committed.tests[name] = rec
+  committed.recorded = result.recorded
+  writeFileSync(file, JSON.stringify({ ...committed, _doc: doc }, null, 2) + "\n")
+} else {
+  writeFileSync(file, JSON.stringify({ _doc: doc, ...result }, null, 2) + "\n")
+}
+const tests = result.tests as Record<string, { error?: string; unreadable?: Record<string, string> }>
+const failed = Object.entries(tests).filter(([, t]) => t.error)
+const partial = Object.entries(tests).filter(([, t]) => t.unreadable !== undefined)
+console.log(`recorded ${Object.keys(tests).length} case(s), ${failed.length} failed in the IDE, ${partial.length} with an unreadable path`)
 for (const [name, t] of failed) console.log(`  ${name}: ${t.error}`)
+for (const [name, t] of partial) console.log(`  ${name}: unreadable ${JSON.stringify(t.unreadable)}`)

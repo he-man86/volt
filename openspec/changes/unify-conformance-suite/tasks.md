@@ -23,20 +23,29 @@
 
 ## 3. Measure the simulator before extending it
 
-- [ ] 3.1 Probe (a scratch runscript, not the recorder): load a multi-unit fixture — a DUT + an FB instantiated in PLC_PRG
-      — into the simulator project, build, run one cycle, read `PLC_PRG.inst.member`. Record what works, what fails and
-      the exact API in design §2.
-- [ ] 3.2 If a step is impossible headless: measure the GUI bridge path before choosing it (the online object and a
-      running script, design §2). Stop and report to the user if neither works.
+- [x] 3.1 Probe (a scratch runscript, not the recorder): load a multi-unit fixture — a DUT + an FB instantiated in PLC_PRG
+      — into the simulator project, build, run one cycle, read `PLC_PRG.inst.member`. DONE 2026-09-14 over four shapes
+      (DUT + FB, METHOD, PROPERTY, ACTION): all load, build, run and clean up headless; members read, composites do not
+      (design §2).
+- [x] 3.2 Not needed — headless covers it.
 
 ## 4. Run every fixture
 
-- [ ] 4.1 `record-exec.py` loads each case's units (not only PLC_PRG's text) and reads every variable path design §2
-      defines; the path list is derived from the parsed fixture, shared by the recorder and the replay.
-- [ ] 4.2 `transpile.test.ts` over every case: lowered → both backends must equal every value; not lowered → a todo
-      naming the lowering code; a floor on "lowered and matching" that only rises, and a per-code summary.
-- [ ] 4.3 Record runs for all fixtures that build. Every transpiler divergence on a case that lowers: fix, colocated src
-      test, why it was missed — each its own commit.
+- [x] 4.1 `record-exec.py` loads each case's units (not only PLC_PRG's text) and reads every variable path design §2
+      defines; the path list is derived from the parsed fixture, shared by the recorder and the replay. DONE 2026-09-14:
+      `support/fixture-units.ts` + `support/run-paths.ts` (equal to the recorded names for all 109 execution cases); an
+      unreadable path is kept apart (`unreadable`) instead of losing the case; `RECORD_ONLY` merges like the bridge
+      recorder. A trial over two execution cases and five fixtures left the execution values byte-identical.
+- [x] 4.2 `transpile.test.ts` over every case: lowered → both backends must equal every value; not lowered → a todo
+      naming the lowering code; a floor on the cases that lower, and a per-code summary.
+- [x] 4.3 Record runs for all fixtures that build. Every transpiler divergence on a case that lowers: fix, colocated src
+      test, why it was missed — each its own commit. DONE 2026-09-14: 366 cases recorded. The first pass failed 21
+      fixtures on the LOADER, not the product — a body lost its trailing `END_FOR`/`END_IF`; a fixture using another's
+      base FB, interface, struct or global loaded alone; an interface was written whole instead of header + prototypes;
+      a subrange value was read (refused online) — fixed in `support/`, re-recorded (design §2). Two fixtures fault at
+      run time (a pointer written before it is set) and are counted todos naming it. 111 cases lower (floor), the rest
+      are todos by code (`stmt-call_stmt` 226 — phase 3). ONE divergence: an alias type's initializer was dropped
+      (`type_dut_alias_with_init`), fixed in `lower.ts` with an interp test.
 
 ## 5. Build-record the programs
 

@@ -1,12 +1,15 @@
 /**
- * Differential execution — `interp/` vs CODESYS itself (transpile-st-to-rust, design §7: the oracle).
+ * Differential execution — the transpiler vs CODESYS itself (transpile-st-to-rust design §7; unify-conformance-suite).
  *
- * Every case in fixtures/execution.ts was run in CODESYS 3.5.21.40's simulator by `bun run record:exec`; this replays that
- * recording offline and runs the same program through the interpreter. Every variable must be EQUAL. A REAL
- * compares as the 32-bit float the IDE holds, so an interpreter that computes in float64 fails here — that is a
- * real divergence, not rounding noise.
+ * Every conformance case that builds was RUN in CODESYS 3.5.21.40's simulator by `bun run record:exec`: the execution
+ * cases (their program is PLC_PRG) and every other fixture (its units, then PLC_PRG). This replays that recording offline
+ * through the interpreter and the emitted Rust. Every recorded variable must be EQUAL. A REAL compares as the 32-bit float
+ * the IDE holds, so a backend that computes in float64 fails here — that is a real divergence, not rounding noise.
  *
- * A red case is the product being wrong, not the recording: fix `lower/` or `interp/`, never the expectation.
+ * A fixture the transpiler cannot LOWER yet is a todo naming the lowering code — counted, never a pass and never a skip —
+ * and the number of cases that do lower is held by a floor that only rises. A case that lowers and disagrees is a failure.
+ *
+ * A red case is the product being wrong, not the recording: fix `lower/`, `interp/` or `emit/`, never the expectation.
  */
 import { beforeAll, describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
@@ -14,20 +17,50 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { decodeStringLiteral } from "../../src/syntax/index.js"
-import { emitRust, fieldNames, load, lowerSource, type IrValue } from "../../src/transpile/index.js"
-import { EXECUTION_TESTS } from "./fixtures/execution.js"
+import { emitRust, fieldNames, load, lowerSource, type IrValue, type LoweredPou } from "../../src/transpile/index.js"
+import { ALL_TESTS } from "./fixtures/index.js"
+import { withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
 import { STANDARD_LIBRARY as LIBRARIES } from "./support/standard-library.js"
+import type { LanguageTest } from "./types.js"
 
 interface Recorded {
   cycles?: string
   values?: Record<string, string>
   error?: string
+  unreadable?: Record<string, string>
 }
 
 const recording = JSON.parse(readFileSync(join(import.meta.dir, "recordings", "codesys.run.json"), "utf8")) as {
   tests: Record<string, Recorded>
 }
+
+/**
+ * The cases with transpiler lowering held above this floor — execution cases and fixtures together. Raise it when more
+ * cases lower; never lower it to make a change pass.
+ */
+const LOWERED_FLOOR = 111
+
+/** The source a case lowers from: the fixture's own units (an execution case has none), then its PLC_PRG. */
+function runSource(c: LanguageTest): string {
+  // the project the recorder loaded: the fixtures this one depends on, itself, and PLC_PRG
+  const sources = withDependencies(c, ALL_TESTS).map((f) => f.source).filter((s) => s !== "")
+  return [...sources, plcPrgSource(c)].join("\n")
+}
+
+const loweredCache = new Map<string, LoweredPou>()
+function lowering(c: LanguageTest): LoweredPou {
+  let lowered = loweredCache.get(c.name)
+  if (lowered === undefined) {
+    lowered = lowerSource(runSource(c), "PLC_PRG", LIBRARIES)
+    loweredCache.set(c.name, lowered)
+  }
+  return lowered
+}
+
+/** The cases the transpiler answers to: every execution case (an unrecorded one is reported), and every other fixture
+ *  that has a run recording. */
+const CASES = ALL_TESTS.filter((c) => c.source === "" || recording.tests[c.name] !== undefined)
 
 /** A monitoring string as CODESYS prints it — `INT#5`, `REAL#3`, `TRUE` — as the interpreter's value. A form this
  *  does not know is refused, never guessed: a wrong parse would make both sides agree on something untrue. */
@@ -95,7 +128,9 @@ function asDisplayed(raw: string, value: IrValue): IrValue {
 }
 
 describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
-  for (const c of EXECUTION_TESTS) {
+  let lowered = 0
+  const blockers = new Map<string, number>()
+  for (const c of CASES) {
     const rec = recording.tests[c.name]
     if (rec === undefined) {
       test.skip(`${c.name} (not recorded — bun run record:exec)`, () => {})
@@ -111,18 +146,42 @@ describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
       test.todo(`${c.name} — deferred: ${c.deferred.transpile}`, () => {})
       continue
     }
+    // A FIXTURE written to BUILD can fault when it runs — `use_pointer_deref_struct_field` writes through a pointer its FB
+    // body never set, and the simulator stops the application (the recorder times out, as SQRT(-1) does). There is no value
+    // to compare, so it is a counted todo naming the fault. A fixture that does not COMPILE in the simulator is not this:
+    // the bridge built it, so the loader is wrong, and it fails below.
+    if (c.source !== "" && rec.error !== undefined && !rec.error.startsWith("does not compile")) {
+      test.todo(`${c.name} — does not run in CODESYS: ${rec.error}`, () => {})
+      continue
+    }
+    // A FIXTURE whose constructs do not lower yet is a counted todo naming its blocker. An execution case must lower.
+    if (c.source !== "" && rec.error === undefined && lowering(c).pou === undefined) {
+      const code = lowering(c).diagnostics[0]?.code ?? "unknown"
+      blockers.set(code, (blockers.get(code) ?? 0) + 1)
+      test.todo(`${c.name} — not lowered: ${code}`, () => {})
+      continue
+    }
+    lowered += 1
     test(c.name, () => {
       expect(rec.error).toBeUndefined()
+      expect(rec.unreadable).toBeUndefined()
       const cycles = c.cycles ?? 1
       expect(ideValue(rec.cycles!)).toBe(BigInt(cycles)) // the recorder's gate held
 
-      const pou = load(plcPrgSource(c), undefined, LIBRARIES)
+      const pou = load(runSource(c), "PLC_PRG", LIBRARIES)
       for (let i = 0; i < cycles; i++) pou.scan()
       const want = Object.fromEntries(Object.entries(rec.values!).map(([k, v]) => [k, ideValue(v)]))
       const got = Object.fromEntries(Object.keys(want).map((k) => [k, asDisplayed(rec.values![k]!, pou.get(k))]))
       expect(got).toEqual(want)
     })
   }
+
+  test(`the cases that lower do not regress (>= ${LOWERED_FLOOR})`, () => {
+    const summary = [...blockers].sort((a, b) => b[1] - a[1]).map(([code, n]) => `${code} ${n}`)
+    // eslint-disable-next-line no-console
+    console.log(`  [transpile] ${lowered} of ${CASES.length} cases lower; what blocks the rest: ${summary.join(" · ") || "nothing"}`)
+    expect(lowered).toBeGreaterThanOrEqual(LOWERED_FLOOR)
+  })
 })
 
 // ─── the same recordings, through the EMITTED RUST ───────────────────────────────────────────────────────────
@@ -134,14 +193,19 @@ describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
 const rustc = Bun.which("rustc")
 
 describe.skipIf(rustc === null)("differential execution — emitted Rust vs CODESYS 3.5.21.40", () => {
-  const recorded = EXECUTION_TESTS.filter((c) => recording.tests[c.name]?.values !== undefined && c.deferred?.transpile === undefined)
+  const recorded = CASES.filter(
+    (c) =>
+      recording.tests[c.name]?.values !== undefined &&
+      c.deferred?.transpile === undefined &&
+      (c.source === "" || lowering(c).pou !== undefined),
+  )
   const runs = new Map<string, { exit: number; stdout: string; stderr: string }>()
 
   beforeAll(async () => {
     const dir = await mkdtemp(join(tmpdir(), "volt-exec-rust-"))
     await Promise.all(
       recorded.map(async (c) => {
-        const { pou, diagnostics } = lowerSource(plcPrgSource(c), undefined, LIBRARIES)
+        const { pou, diagnostics } = lowering(c)
         if (pou === undefined) return void runs.set(c.name, { exit: -1, stdout: "", stderr: `does not lower: ${diagnostics[0]?.message}` })
         const fields = fieldNames(pou.slots)
         const prints = Object.keys(recording.tests[c.name]!.values!).map((name) => {
@@ -173,7 +237,7 @@ describe.skipIf(rustc === null)("differential execution — emitted Rust vs CODE
       const run = runs.get(c.name)!
       expect({ exit: run.exit, stderr: run.stderr }).toEqual({ exit: 0, stderr: "" })
       const rec = recording.tests[c.name]!
-      const slots = lowerSource(plcPrgSource(c), undefined, LIBRARIES).pou!.slots
+      const slots = lowering(c).pou!.slots
       const printed = new Map(run.stdout.trim().split(/\r?\n/).map((line) => line.split("\t") as [string, string]))
       const want = Object.fromEntries(Object.entries(rec.values!).map(([k, v]) => [k, ideValue(v)]))
       const got = Object.fromEntries(
