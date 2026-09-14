@@ -62,7 +62,8 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // 315 → 316: A4 — one conversion-name parser; the types it prints are the compiler's.
   // 316 → 318: A10 — one string-literal decoder; the assignment message counts decoded characters.
   // 318 → 333: A13 — declaration initializers type-checked like assignments (gap 14).
-  { vendor: "codesys", filename: "expected-codesys.json", floor: 333 },
+  // 333 → 349: A14 — IL operator names reserved as identifiers; C8 — a project enum's values and variables convert as INT.
+  { vendor: "codesys", filename: "expected-codesys.json", floor: 349 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence

@@ -21,6 +21,28 @@ test("an LTIME literal into a TIME does not convert — it was silent", () => {
   expect(mismatches("t1 : TIME;", "t1 := LTIME#1S;")).toEqual(["Cannot convert type 'LTIME' to type 'TIME'"])
 })
 
+/** Every `assignment-type-mismatch` message for `x := E_Mode.Busy` with `x : <target>`, beside an enum `E_Mode`. */
+const enumInto = (target: string, base = ""): string[] => {
+  const src = `TYPE E_Mode :\n(\n\tIdle := 0,\n\tBusy := 1\n)${base};\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tx : ${target};\nEND_VAR\nx := E_Mode.Busy;\nEND_PROGRAM`
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "assignment-type-mismatch")
+    .map((d) => d.message)
+}
+
+test("an enum value converts as INT — into SINT, USINT and BYTE it does not, and the message upper-cases its name", () => {
+  // `compat` widened an enum into every numeric type, so all three were silent (conformance `cc_enum_into_*`)
+  expect(enumInto("SINT")).toEqual(["Cannot convert type 'E_MODE' to type 'SINT'"])
+  expect(enumInto("USINT")).toEqual(["Cannot convert type 'E_MODE' to type 'USINT'"])
+  expect(enumInto("BYTE")).toEqual(["Cannot convert type 'E_MODE' to type 'BYTE'"])
+  for (const target of ["INT", "DINT", "LINT", "REAL", "LREAL", "UINT", "DWORD"]) expect(enumInto(target)).toEqual([])
+})
+
+test("an enum with a written base type is unmeasured, so it stays silent", () => {
+  expect(enumInto("SINT", " DINT")).toEqual([])
+})
+
 /** Every `assignment-type-mismatch` message for a declaration-only FB. */
 const initMismatches = (vars: string): string[] => {
   const src = `FUNCTION_BLOCK F\nVAR\n${vars}\nEND_VAR\nEND_FUNCTION_BLOCK`

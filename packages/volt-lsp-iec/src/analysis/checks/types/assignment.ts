@@ -5,19 +5,11 @@
  * (elementary or enum) skips, so a struct/FB/composite/library type never false-positives.
  */
 import { decodeStringLiteral, walkStatements, type Expr, type Span } from "../../../syntax/index.js"
-import { bodies, lookup, resolveBareEnumMember, type Scope, type Symbol } from "../../../symbols/index.js"
-import {
-  inferExprType,
-  isAssignable,
-  literalErrorType,
-  renderType,
-  resolveMemberChain,
-  resolveTypeExpr,
-  type Type,
-} from "../../../types/index.js"
+import { bodies, type Scope } from "../../../symbols/index.js"
+import { isAssignable, literalErrorType, resolveTypeExpr, type Type } from "../../../types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachDecl, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { checkableType, compilerTypeName, forEachDecl, SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -68,32 +60,8 @@ function conversionError(lhs: Type, value: Expr, span: Span, scope: Scope, proje
     span,
     source: SOURCE,
     code: "assignment-type-mismatch",
-    message: messages.cannotConvert(display, renderType(lhs)),
+    message: messages.cannotConvert(display, compilerTypeName(lhs)),
   }
-}
-
-/** The checkable type of an expression: elementary or enum (incl. enum-value references), else undefined. */
-function checkableType(expr: Expr, scope: Scope, project: Scope): Type | undefined {
-  const enumSym = enumValueRef(expr, scope, project)
-  if (enumSym !== undefined) return { kind: "enum", name: enumSym.owner.name, scope: enumSym.owner }
-  const t = inferExprType(expr, scope, project)
-  return t.kind === "elementary" || t.kind === "enum" ? t : undefined
-}
-
-/**
- * The enum-value symbol a reference denotes (bare `Red` or qualified `Color.Red`), else undefined.
- * Only a value owned by a real `enum` scope counts — an IMPLICIT/inline enum's values live in the
- * enclosing POU scope (not an enum scope), so typing them would mislabel the enum as the POU; those
- * skip (the compiler accepts inline-enum assignments, so silence is correct).
- */
-function enumValueRef(expr: Expr, scope: Scope, project: Scope): Symbol | undefined {
-  const sym =
-    expr.kind === "ident_expr"
-      ? (lookup(scope, expr.name)?.symbol ?? resolveBareEnumMember(project, expr.name))
-      : expr.kind === "member"
-        ? resolveMemberChain(expr, scope, project)
-        : undefined
-  return sym?.kind === "enum_value" && sym.owner.kind === "enum" ? sym : undefined
 }
 
 /**
@@ -109,5 +77,5 @@ function rhsDisplay(value: Expr, rhs: Type): string | undefined {
     const decoded = decodeStringLiteral(value.value as string, wide)
     return decoded === undefined ? undefined : `${wide ? "WSTRING" : "STRING"}(INT#${decoded.length})`
   }
-  return renderType(rhs)
+  return compilerTypeName(rhs)
 }

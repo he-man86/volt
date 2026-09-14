@@ -70,7 +70,12 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       LREAL; a constant expression is silent. `types/literalErrorType`; the assignment check now walks every scalar
       initializer. *Why missed:* the check walked statements only, and no fixture put a mismatch in a declaration.
 
-- [ ] A14 **IL operator names as identifiers** — found by the execution oracle twice: CODESYS rejects a variable named
+- [x] A14 (DONE 2026-09-14: 15 fixtures `cc_il_name_*` — LD, LDN, ST, STN, RET, RETC, RETCN, JMPC, JMPCN, CAL, CALCN,
+      ANDN, ORN, XORN are each "Unexpected token '<name as written>' found" on the declaration and every use, like R/S;
+      `set-reset-name` became `il-operator-name` over that set. CAL left the keyword table: it echoed 'CAL' and added a
+      false "Identifier 'cal' not defined". CALC parses as a conditional call with other messages — not claimed.
+      *Why missed:* no fixture declared one, and the keyword table's upper-case echo was assumed for every reserved word.)
+      **IL operator names as identifiers** — found by the execution oracle twice: CODESYS rejects a variable named
       `lt` and one named `ld` ("Unexpected token 'ld' found"), both instruction-list operators. The LSP's reserved-name
       handling covers `r`/`s` (set-reset-name) and the keyword table; the IL operator set (LD, LDN, ST, STN, GT, GE, EQ,
       NE, LE, LT, JMP, JMPC, CAL, RET, …) is unrecorded. Record which are reserved, then one check.
@@ -117,6 +122,15 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       service tests.
 - [ ] C8 Dead code: `isNumeric`, `isEnumIsolated`, `networkScopeAt`, `CHECK_TIMING`, `activeVendor`, `stBodies`,
       `resolveAnywhere` export, test-only exports; decide `detectVendor`/`installCorpus`; `reference/error-codes.ts` to test.
+      PARTLY DONE 2026-09-14: the named symbols are gone; `CHECK_TIMING` was a gap, not dead — collected, never printed
+      — and now prints under PROFILE_CHECKS=1. The dead `isEnumIsolated` disagreed with `compat` (enum into REAL), so it
+      was recorded (`cc_enum_into_*`, 12 targets) — both were wrong: an enum without a base type converts as INT (error
+      into SINT/USINT/BYTE, change of sign into UINT/UDINT/WORD/DWORD, silent otherwise), the name upper-cased in the
+      message; an enum-typed VARIABLE converts the same (`cc_enum_var_into_*`, 4 targets). Scoped to PROJECT enums
+      without a written base type: the corpus gate caught bakon-nano and pro2193 storing a LIBRARY enum into a WORD with
+      no warning, for a reason not recorded (library enum, or those projects' warning settings).
+      `types/compat` + `EnumType.base`; the narrowing warning now types an enum value (it was UNKNOWN there).
+      Open: test-only exports, `detectVendor`/`installCorpus`, `reference/error-codes.ts`.
 - [ ] C9 Split monoliths: `lower.ts` (frame · expr · calls table · literals), `server.ts` `runServer`,
       `network-analysis.ts` → `network/checks/`; `interp` values module.
 - [ ] C10 Placement: `network/text` to a syntax-tier folder, `reference/error-code-map.ts` next to `analysis/config`,

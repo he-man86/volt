@@ -4,7 +4,7 @@
  * fails (name not in scope, library type, cycle) yields `UNKNOWN` — callers skip, never false-positive.
  */
 import type { Scope } from "../symbols/index.js"
-import { findChildScope, lookupLocal } from "../symbols/index.js"
+import { findChildScope, isLibrarySymbol, lookupLocal } from "../symbols/index.js"
 import type { TypeDecl, TypeExpr } from "../syntax/index.js"
 import { constEval } from "./const-eval.js"
 import { elementaryType } from "./elementary.js"
@@ -53,7 +53,14 @@ export function resolveNamedType(name: string, project: Scope, depth = 0): Type 
   }
   if (sym.kind === "type") {
     const body = (sym.ast as TypeDecl).body
-    if (body.kind === "enum") return { kind: "enum", name, scope: findChildScope(project, name) }
+    if (body.kind === "enum") {
+      const scope = findChildScope(project, name)
+      // A project enum with no base type written converts as INT (conformance `cc_enum_into_*`, `cc_enum_var_into_*`). A
+      // written base type is unmeasured, and so is a LIBRARY enum: two real builds (bakon-nano, pro2193) store one into a
+      // WORD with no warning — both stay without a base, so they convert as before.
+      const measured = body.baseType === undefined && !isLibrarySymbol(sym)
+      return measured ? { kind: "enum", name, scope, base: elementaryTypeRef(elementaryType("INT")!) } : { kind: "enum", name, scope }
+    }
     if (body.kind === "struct" || body.kind === "union") {
       return { kind: "struct", name, scope: findChildScope(project, name) }
     }

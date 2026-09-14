@@ -24,12 +24,15 @@ export type ConversionKind = "identity" | "widen" | "narrow" | "sign-change" | "
 export function classifyConversion(lhs: Type, rhs: Type): ConversionKind {
   if (lhs.kind === "unknown" || rhs.kind === "unknown") return "identity" // conservative skip
 
-  // Enum rules: two different enums are incompatible; enum ↔ scalar is a NUMERIC relation — an enum member is a
-  // compile-time integer, freely widened to any numeric (int/bitstring/real). Only isolated families reject it.
+  // Enum rules: two different enums are incompatible. An enum VALUE stored into a scalar converts as its base type —
+  // measured for an enum without one, which is INT (conformance `cc_enum_into_*`): silent into INT/DINT/LINT/REAL/LREAL,
+  // "Cannot convert" into SINT/USINT/BYTE, "change of sign" into UINT/UDINT/WORD/DWORD. This used to widen into every
+  // numeric type. A scalar into an enum, and an explicit base type, are unmeasured: only isolated families reject them.
   if (lhs.kind === "enum" || rhs.kind === "enum") {
     if (lhs.kind === "enum" && rhs.kind === "enum") return sameName(lhs.name, rhs.name) ? "identity" : "incompatible"
     const scalar = lhs.kind === "enum" ? rhs : lhs
     if (scalar.kind !== "elementary") return "identity"
+    if (rhs.kind === "enum" && rhs.base !== undefined) return classifyElementary(scalar.name, rhs.base.name)
     return isIsolated(scalar.name) ? "incompatible" : "widen"
   }
 

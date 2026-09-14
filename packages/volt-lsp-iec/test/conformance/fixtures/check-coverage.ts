@@ -153,6 +153,40 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
   fb("cc_decl_init_trailing_int", "`x : INT := 5 6;` → compiler error", "x : INT := 5 6;"),
   fb("cc_ltime_literal_into_time", "an LTIME literal into a TIME → ?", "t1 : TIME;", "t1 := LTIME#1S;"),
   fb("cc_fp_ltime_literal_into_ltime", "an LTIME literal into an LTIME → accepted", "lt1 : LTIME;", "lt1 := LTIME#1S;"),
+  // consolidate-lsp-structure A14 — CODESYS rejects IL operator names as identifiers (`lt`, `ld`, found by the execution
+  // oracle). The LSP's keyword table has the comparison/arithmetic ones (LT, GT, EQ, ADD, CAL, JMP …); LD, LDN, ST, STN,
+  // RET and the conditional/negated forms are not in it and are silent. Which does CODESYS reserve? (`cal` is in the
+  // table but the LSP also says "Identifier 'cal' not defined" — is that CODESYS's too?)
+  ...(["ld", "ldn", "st", "stn", "ret", "retc", "retcn", "jmpc", "jmpcn", "calc", "calcn", "andn", "orn", "xorn", "cal"] as const).map((n) =>
+    fb(`cc_il_name_${n}`, `a variable named \`${n}\` (an IL operator) → compiler error?`, `${n} : INT;`, `${n} := 1;`),
+  ),
+  // consolidate-lsp-structure C8 — `types/compat` lets an enum value widen into ANY numeric type, REAL included, while a
+  // deleted, never-called `isEnumIsolated` said an enum and a REAL do not mix. Which one is the compiler?
+  // Recorded: REAL, LREAL and INT are silent and BYTE is "Cannot convert type 'DUT_LANG_CC_ENUM_BYTE' to type 'BYTE'" —
+  // so the rest of the integers and bit strings, to find the rule rather than guess it.
+  ...["REAL", "LREAL", "INT", "BYTE", "SINT", "USINT", "UINT", "DINT", "UDINT", "LINT", "WORD", "DWORD"].map((target) => ({
+    name: `cc_enum_into_${target.toLowerCase()}`,
+    pouName: `FB_LANG_cc_enum_into_${target.toLowerCase()}`,
+    kind: "function_block" as const,
+    feature: `an enum value assigned to a ${target} → ?`,
+    fromDoc: "check-coverage",
+    plcPrgVar: `inst_cc_enum_${target.toLowerCase()} : FB_LANG_cc_enum_into_${target.toLowerCase()};`,
+    plcPrgBody: `inst_cc_enum_${target.toLowerCase()}();`,
+    source: `TYPE DUT_LANG_cc_enum_${target.toLowerCase()} :\n(\n\tIdle := 0,\n\tBusy := 1\n);\nEND_TYPE\n\nFUNCTION_BLOCK FB_LANG_cc_enum_into_${target.toLowerCase()}\nVAR\n\tx : ${target};\nEND_VAR\nx := DUT_LANG_cc_enum_${target.toLowerCase()}.Busy;\nEND_FUNCTION_BLOCK\n`,
+  })),
+  // The rule above was measured for an enum VALUE. The bakon-nano build stores an enum-typed VARIABLE into a WORD with no
+  // warning — is a variable different from a value, or was it the library enum? Recorded: a variable converts exactly as
+  // a value does, so the difference is the library enum (or that project's warning settings) — unmeasured here.
+  ...["WORD", "UINT", "SINT", "DINT"].map((target) => ({
+    name: `cc_enum_var_into_${target.toLowerCase()}`,
+    pouName: `FB_LANG_cc_enum_var_into_${target.toLowerCase()}`,
+    kind: "function_block" as const,
+    feature: `an enum-typed variable assigned to a ${target} → ?`,
+    fromDoc: "check-coverage",
+    plcPrgVar: `inst_cc_enum_var_${target.toLowerCase()} : FB_LANG_cc_enum_var_into_${target.toLowerCase()};`,
+    plcPrgBody: `inst_cc_enum_var_${target.toLowerCase()}();`,
+    source: `TYPE DUT_LANG_cc_enum_var_${target.toLowerCase()} :\n(\n\tIdle := 0,\n\tBusy := 1\n);\nEND_TYPE\n\nFUNCTION_BLOCK FB_LANG_cc_enum_var_into_${target.toLowerCase()}\nVAR\n\te : DUT_LANG_cc_enum_var_${target.toLowerCase()};\n\tx : ${target};\nEND_VAR\nx := e;\nEND_FUNCTION_BLOCK\n`,
+  })),
   // consolidate-lsp-structure A13 (gap 14) — a declaration's initial value is type-checked only for an untyped integer
   // literal (gap 13). What does CODESYS say for the other shapes an initializer takes?
   fb("cc_init_bool_into_int", "`i : INT := TRUE` → ?", "i : INT := TRUE;"),

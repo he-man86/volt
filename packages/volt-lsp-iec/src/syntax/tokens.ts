@@ -191,7 +191,6 @@ export type Keyword =
   // Address / meta operators
   | "ADR"
   | "BITADR"
-  | "CAL"
   | "MOVE"
   | "INDEXOF"
   | "SIZEOF"
@@ -372,7 +371,6 @@ export const ALL_KEYWORDS: readonly Keyword[] = [
   // Address / meta
   "ADR",
   "BITADR",
-  "CAL",
   "MOVE",
   "INDEXOF",
   "SIZEOF",

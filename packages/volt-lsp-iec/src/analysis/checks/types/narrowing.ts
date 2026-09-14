@@ -7,10 +7,17 @@
  */
 import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../syntax/index.js"
 import { bodies, type Scope } from "../../../symbols/index.js"
-import { elementaryTypeRef, inferExprType, literalCheckType, parseConversionName, resolveTypeExpr } from "../../../types/index.js"
+import {
+  elementaryTypeRef,
+  inferExprType,
+  literalCheckType,
+  parseConversionName,
+  resolveTypeExpr,
+  UNKNOWN,
+} from "../../../types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { conversionWarning, forEachDecl, type DiagnosticItem } from "../_shared.js"
+import { checkableType, conversionWarning, forEachDecl, type DiagnosticItem } from "../_shared.js"
 
 export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[]): void {
   // A declaration's untyped integer literal the target cannot hold warns like an assignment (gap 13): `value : INT :=
@@ -87,6 +94,6 @@ export function narrowingPairError(
 ): DiagnosticItem | undefined {
   const lhs = inferExprType(target, scope, project)
   // an untyped integer literal the target cannot hold converts as its literal type (gap 13): `si := 128` warns USINT→SINT
-  return conversionWarning(lhs, literalCheckType(value, lhs) ?? inferExprType(value, scope, project), target, messages)
+  const rhs = literalCheckType(value, lhs) ?? checkableType(value, scope, project) ?? UNKNOWN
+  return conversionWarning(lhs, rhs, target, messages)
 }
-

@@ -17,6 +17,36 @@ const conv = (decls: string, body: string, vendor: Vendor = "codesys") => {
   )
 }
 
+test("an enum value into an unsigned type warns change of sign as a signed INT would — it was never typed here", () => {
+  // The warning typed the value by inference alone, which gives an enum VALUE no type (conformance `cc_enum_into_uint`,
+  // `cc_enum_into_dword`; into DINT silent, `cc_enum_into_dint`).
+  const src = `TYPE E_Mode :\n(\n\tIdle := 0,\n\tBusy := 1\n);\nEND_TYPE\n\nFUNCTION_BLOCK F\nVAR\n\tu : UINT;\n\tw : DWORD;\n\ti : DINT;\nEND_VAR\nu := E_Mode.Busy;\nw := E_Mode.Busy;\ni := E_Mode.Busy;\nEND_FUNCTION_BLOCK`
+  const pr = parseSource(src)
+  const p = buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }])
+  const messages = computeSemanticDiagnostics({ parseResult: pr, source: src, project: p, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "sign-change-conversion")
+    .map((d) => d.message)
+  expect(messages).toEqual([
+    "Implicit conversion from signed Type 'E_MODE' to unsigned Type 'UINT' : Possible change of sign",
+    "Implicit conversion from signed Type 'E_MODE' to unsigned Type 'DWORD' : Possible change of sign",
+  ])
+})
+
+test("a LIBRARY enum stays silent — real builds store one into a WORD without the warning", () => {
+  // bakon-nano and pro2193 assign `L_IE1P_Error` variables to WORDs and their builds report no change of sign, while a
+  // project enum's variable does warn (conformance `cc_enum_var_into_word`). Why is unrecorded, so no rule is guessed.
+  const lib = `TYPE E_Lib :\n(\n\tIdle := 0,\n\tBusy := 1\n);\nEND_TYPE`
+  const src = `FUNCTION_BLOCK F\nVAR\n\te : E_Lib;\n\tw : WORD;\nEND_VAR\nw := e;\nEND_FUNCTION_BLOCK`
+  const libResult = parseSource(lib)
+  const pr = parseSource(src)
+  const p = buildSymbolTable([
+    { uri: "Application/Library Manager/Lib/E_Lib.enum", parseResult: libResult, source: lib },
+    { uri: "F.fb", parseResult: pr, source: src },
+  ])
+  const d = computeSemanticDiagnostics({ parseResult: pr, source: src, project: p, config: resolveConfig({ vendor: "codesys" }) })
+  expect(d.filter((x) => x.code === "sign-change-conversion")).toEqual([])
+})
+
 test("narrowing (LREAL→REAL) warns 'possible loss of information'", () => {
   const d = conv("r : REAL; l : LREAL;", "r := l;")
   expect(d).toHaveLength(1)

@@ -4,8 +4,16 @@
  * check import it without a cycle.
  */
 import { walkAllExprs, walkExpr, type Expr, type ParseResult, type Span } from "../../syntax/index.js"
-import { bodies, scopeForUnit, type Scope } from "../../symbols/index.js"
-import { classifyConversion, elemOf, type Type } from "../../types/index.js"
+import { bodies, lookup, resolveBareEnumMember, scopeForUnit, type Scope, type Symbol } from "../../symbols/index.js"
+import {
+  classifyConversion,
+  elemOf,
+  inferExprType,
+  renderType,
+  resolveMemberChain,
+  resolveNamedType,
+  type Type,
+} from "../../types/index.js"
 import type { Messages } from "../messages.js"
 
 export interface DiagnosticItem {
@@ -55,6 +63,48 @@ export function* forEachDecl(parseResult: ParseResult, project: Scope) {
 }
 
 /**
+ * The checkable type of an expression: elementary or enum (incl. enum-value references), else undefined. Shared by the
+ * assignment error and the narrowing warning — the warning typed values by inference alone, so an enum VALUE was
+ * UNKNOWN there and `uint := E.Busy` never warned (conformance `cc_enum_into_uint`).
+ */
+export function checkableType(expr: Expr, scope: Scope, project: Scope): Type | undefined {
+  const enumSym = enumValueRef(expr, scope, project)
+  if (enumSym !== undefined) {
+    // resolved by name, so the enum carries its base type; a name that does not resolve at project level (a namespaced
+    // enum) keeps the bare enum, which converts as before
+    const resolved = resolveNamedType(enumSym.owner.name, project)
+    return resolved.kind === "enum" ? resolved : { kind: "enum", name: enumSym.owner.name, scope: enumSym.owner }
+  }
+  const t = inferExprType(expr, scope, project)
+  return t.kind === "elementary" || t.kind === "enum" ? t : undefined
+}
+
+/**
+ * The enum-value symbol a reference denotes (bare `Red` or qualified `Color.Red`), else undefined.
+ * Only a value owned by a real `enum` scope counts — an IMPLICIT/inline enum's values live in the
+ * enclosing POU scope (not an enum scope), so typing them would mislabel the enum as the POU; those
+ * skip (the compiler accepts inline-enum assignments, so silence is correct).
+ */
+function enumValueRef(expr: Expr, scope: Scope, project: Scope): Symbol | undefined {
+  const sym =
+    expr.kind === "ident_expr"
+      ? (lookup(scope, expr.name)?.symbol ?? resolveBareEnumMember(project, expr.name))
+      : expr.kind === "member"
+        ? resolveMemberChain(expr, scope, project)
+        : undefined
+  return sym?.kind === "enum_value" && sym.owner.kind === "enum" ? sym : undefined
+}
+
+/**
+ * A type as the COMPILER prints it in a conversion message. An enum's name is upper-cased — `DUT_LANG_cc_enum_byte` is
+ * "Cannot convert type 'DUT_LANG_CC_ENUM_BYTE' to type 'BYTE'" (conformance `cc_enum_into_*`); `renderType` keeps the
+ * declared spelling, which hover wants.
+ */
+export function compilerTypeName(t: Type): string {
+  return t.kind === "enum" ? t.name.toUpperCase() : renderType(t)
+}
+
+/**
  * Map a source→value conversion to its narrowing / change-of-sign WARNING on `at`, or undefined. The ONE mapping —
  * the assignment pair and conversion-argument checks (types/narrowing.ts), the negation operand, and the
  * call-argument check (calls/call-arguments.ts) all funnel through it, so the wording stays byte-identical.
@@ -65,12 +115,12 @@ export function* forEachDecl(parseResult: ParseResult, project: Scope) {
  */
 export function conversionWarning(lhs: Type, rhs: Type, at: Expr, messages: Messages): DiagnosticItem | undefined {
   const kind = classifyConversion(lhs, rhs)
-  if (kind === "narrow") return conversionWarn(at, "narrowing-conversion", messages.narrowing(typeName(rhs), typeName(lhs)))
+  if (kind === "narrow") return conversionWarn(at, "narrowing-conversion", messages.narrowing(compilerTypeName(rhs), compilerTypeName(lhs)))
   if (kind === "sign-change")
     return conversionWarn(
       at,
       "sign-change-conversion",
-      messages.signChange(signOf(rhs), typeName(rhs), signOf(lhs), typeName(lhs)),
+      messages.signChange(signOf(rhs), compilerTypeName(rhs), signOf(lhs), compilerTypeName(lhs)),
     )
   return undefined
 }
@@ -83,12 +133,9 @@ const conversionWarn = (target: Expr, code: string, message: string): Diagnostic
   message,
 })
 
-function typeName(t: Type): string {
-  return t.kind === "elementary" ? t.name : ""
-}
 function signOf(t: Type): string {
-  // the facts ride on the Type — no second lookup by name (consolidate-lsp-structure B1)
-  return elemOf(t)?.signed ? "signed" : "unsigned"
+  // the facts ride on the Type — no second lookup by name (consolidate-lsp-structure B1); an enum signs as its base
+  return elemOf(t.kind === "enum" && t.base !== undefined ? t.base : t)?.signed ? "signed" : "unsigned"
 }
 
 // `isLibrarySymbol` moved to the symbols layer (B) so types (const-eval/infer) reach the SAME normalized

@@ -44,6 +44,10 @@ export interface EnumType {
   name: string
   /** The enum's member scope (enum values), when resolved. */
   scope?: Scope
+  /** The type an enum's values and variables convert as, when measured: INT for a PROJECT enum declared without a base
+   *  type (conformance `cc_enum_into_*`, `cc_enum_var_into_*`). Undefined for a written base type, and for a library
+   *  enum — two real builds store one into a WORD without the warning a project enum gets, for a reason not recorded. */
+  base?: ElementaryTypeRef
 }
 export interface StructType {
   kind: "struct"
