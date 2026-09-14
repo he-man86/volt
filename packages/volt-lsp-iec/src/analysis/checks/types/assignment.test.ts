@@ -21,6 +21,31 @@ test("an LTIME literal into a TIME does not convert — it was silent", () => {
   expect(mismatches("t1 : TIME;", "t1 := LTIME#1S;")).toEqual(["Cannot convert type 'LTIME' to type 'TIME'"])
 })
 
+/** Every `assignment-type-mismatch` message for a declaration-only FB. */
+const initMismatches = (vars: string): string[] => {
+  const src = `FUNCTION_BLOCK F\nVAR\n${vars}\nEND_VAR\nEND_FUNCTION_BLOCK`
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "assignment-type-mismatch")
+    .map((d) => d.message)
+}
+
+test("an untyped integer literal too wide for its target is an error, as its literal type (gap 13)", () => {
+  // It was silent: inference types a bare integer literal UNKNOWN, and nothing checked an initializer at all.
+  expect(mismatches("si : SINT;", "si := 300;")).toEqual(["Cannot convert type 'INT' to type 'SINT'"])
+  expect(mismatches("si : SINT;", "si := -129;")).toEqual(["Cannot convert type 'INT' to type 'SINT'"])
+  expect(mismatches("us : USINT;", "us := 256;")).toEqual(["Cannot convert type 'INT' to type 'USINT'"])
+  expect(mismatches("u : UINT;", "u := 70000;")).toEqual(["Cannot convert type 'DINT' to type 'UINT'"])
+  expect(initMismatches("b : BYTE := 300;")).toEqual(["Cannot convert type 'INT' to type 'BYTE'"])
+  expect(initMismatches("w : WORD := 70000;")).toEqual(["Cannot convert type 'DINT' to type 'WORD'"])
+})
+
+test("a literal the target holds, or one only a sign warning away, is no error", () => {
+  expect(mismatches("b : BYTE; si : SINT; us : USINT; i : INT;", "b := 255; si := 127; us := 5; i := 200; si := 128; us := -1;")).toEqual([])
+  expect(initMismatches("i : INT := 40000; u : UINT := -5;")).toEqual([])
+})
+
 test("an LTIME literal into an LTIME is clean — typed TIME, it was a false positive", () => {
   expect(mismatches("lt1 : LTIME;", "lt1 := LTIME#1S;")).toEqual([])
   expect(mismatches("t1 : TIME;", "t1 := T#1S;")).toEqual([])

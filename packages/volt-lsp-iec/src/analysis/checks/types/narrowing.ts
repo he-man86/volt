@@ -7,12 +7,21 @@
  */
 import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../syntax/index.js"
 import { bodies, type Scope } from "../../../symbols/index.js"
-import { elementaryType, elementaryTypeRef, inferExprType } from "../../../types/index.js"
+import { elementaryType, elementaryTypeRef, inferExprType, literalCheckType, resolveTypeExpr } from "../../../types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { conversionWarning, type DiagnosticItem } from "../_shared.js"
+import { conversionWarning, forEachDecl, type DiagnosticItem } from "../_shared.js"
 
 export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[]): void {
+  // A declaration's untyped integer literal the target cannot hold warns like an assignment (gap 13): `value : INT :=
+  // 40000` is "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT'" (conformance `overflow_int_above_max`).
+  for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {
+    if (decl.init === undefined || decl.init.kind === "aggregate_init") continue
+    const lhs = resolveTypeExpr(decl.type, ctx.project)
+    const literal = literalCheckType(decl.init, lhs)
+    const diag = literal === undefined ? undefined : conversionWarning(lhs, literal, decl.init, ctx.messages)
+    if (diag !== undefined) out.push(diag)
+  }
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkStatements(statements, (s) => {
       if (s.kind === "assign" && s.op === undefined) {
@@ -82,11 +91,8 @@ export function narrowingPairError(
   project: Scope,
   messages: Messages,
 ): DiagnosticItem | undefined {
-  return conversionWarning(
-    inferExprType(target, scope, project),
-    inferExprType(value, scope, project),
-    target,
-    messages,
-  )
+  const lhs = inferExprType(target, scope, project)
+  // an untyped integer literal the target cannot hold converts as its literal type (gap 13): `si := 128` warns USINT→SINT
+  return conversionWarning(lhs, literalCheckType(value, lhs) ?? inferExprType(value, scope, project), target, messages)
 }
 

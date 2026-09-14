@@ -119,6 +119,22 @@ export const ANY_FAMILIES: ReadonlyMap<string, TypeFamily[]> = new Map([
 ])
 
 /** Facts for an elementary type name (resolves aliases, case-insensitive), or undefined if not elementary. */
+/** The integer types a literal can take, narrowest first, a signed type before the unsigned one of its width. */
+const LITERAL_INTEGER_ORDER = ["SINT", "USINT", "INT", "UINT", "DINT", "UDINT", "LINT", "ULINT"]
+
+/**
+ * The type CODESYS gives an untyped integer literal: the narrowest of SINT, USINT, INT, UINT, DINT, UDINT, LINT, ULINT
+ * that holds the value — 127 is SINT, 128 USINT, 300 INT, 40000 UINT, 70000 DINT, -129 INT, 3000000000 UDINT (conformance
+ * `overflow_*`, `cc_literal_*`). Undefined past ULINT. The one home of that order: checking and the transpiler both use it.
+ */
+export function integerLiteralType(value: bigint): ElementaryType | undefined {
+  for (const name of LITERAL_INTEGER_ORDER) {
+    const t = ELEMENTARY_TYPES.get(name)!
+    if (value >= t.range!.min && value <= t.range!.max) return t
+  }
+  return undefined
+}
+
 export function elementaryType(name: string): ElementaryType | undefined {
   return ELEMENTARY_TYPES.get(canonicalElem(name))
 }

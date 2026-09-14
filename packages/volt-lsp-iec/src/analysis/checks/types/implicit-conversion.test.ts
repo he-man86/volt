@@ -32,6 +32,19 @@ test("sign-change (WORD→INT) warns byte-identical; vendor differs only in caps
   expect(tc[0]?.message).toBe("Implicit conversion from unsigned Type 'WORD' to signed Type 'INT' : possible change of sign")
 })
 
+test("an untyped integer literal the target cannot hold warns as its literal type (gap 13)", () => {
+  // silent before: a bare integer literal typed UNKNOWN (conformance `cc_literal_*`, `overflow_*`)
+  const msgs = (decls: string, body: string) => conv(decls, body).map((d) => d.message)
+  expect(msgs("si : SINT;", "si := 128;")).toEqual(["Implicit conversion from unsigned Type 'USINT' to signed Type 'SINT' : Possible change of sign"])
+  expect(msgs("i : INT;", "i := 40000;")).toEqual(["Implicit conversion from unsigned Type 'UINT' to signed Type 'INT' : Possible change of sign"])
+  expect(msgs("d : DINT;", "d := 3000000000;")).toEqual(["Implicit conversion from unsigned Type 'UDINT' to signed Type 'DINT' : Possible change of sign"])
+  expect(msgs("us : USINT;", "us := -1;")).toEqual(["Implicit conversion from signed Type 'SINT' to unsigned Type 'USINT' : Possible change of sign"])
+  // a declaration's initializer too
+  expect(msgs("u : UINT := -5;", "")).toEqual(["Implicit conversion from signed Type 'SINT' to unsigned Type 'UINT' : Possible change of sign"])
+  // silent: the target holds the value (a small literal into an unsigned or a bit string warns nothing), or it is an error
+  expect(msgs("us : USINT; w : WORD; b : BYTE; si : SINT; r : REAL;", "us := 5; w := 5; b := 0; si := 127; r := 5; b := 300;")).toEqual([])
+})
+
 test("sign-change fires both directions (signed→unsigned too)", () => {
   const d = conv("u : UINT; i : INT;", "u := i;")
   expect(d[0]?.message).toBe("Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : Possible change of sign")

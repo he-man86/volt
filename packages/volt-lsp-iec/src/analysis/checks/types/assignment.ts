@@ -4,12 +4,20 @@
  * `types/compat` + `types/infer`; conservative — any side that isn't a checkable category
  * (elementary or enum) skips, so a struct/FB/composite/library type never false-positives.
  */
-import { walkStatements, type Expr } from "../../../syntax/index.js"
+import { walkStatements, type Expr, type Span } from "../../../syntax/index.js"
 import { bodies, lookup, resolveBareEnumMember, type Scope, type Symbol } from "../../../symbols/index.js"
-import { inferExprType, isAssignable, renderType, resolveMemberChain, type Type } from "../../../types/index.js"
+import {
+  inferExprType,
+  isAssignable,
+  literalCheckType,
+  renderType,
+  resolveMemberChain,
+  resolveTypeExpr,
+  type Type,
+} from "../../../types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { forEachDecl, SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -18,6 +26,16 @@ export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): 
       const diag = assignmentPairError(s.target, s.value, scope, ctx.project, ctx.messages)
       if (diag !== undefined) out.push(diag)
     })
+  }
+  // A declaration's initial value converts like an assignment: `b : BYTE := 300` is "Cannot convert type 'INT' to type
+  // 'BYTE'" (conformance `overflow_byte_above_max`). Only the measured shape — an untyped integer literal — is checked
+  // here; any other initializer is unmeasured (tasks.md gap 14) and stays silent.
+  for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
+    if (decl.init === undefined || decl.init.kind === "aggregate_init") continue
+    const lhs = resolveTypeExpr(decl.type, ctx.project)
+    if (literalCheckType(decl.init, lhs) === undefined) continue
+    const diag = conversionError(lhs, decl.init, decl.init.span, scope, ctx.project, ctx.messages)
+    if (diag !== undefined) out.push(diag)
   }
 }
 
@@ -34,13 +52,18 @@ export function assignmentPairError(
   messages: Messages,
 ): DiagnosticItem | undefined {
   const lhs = checkableType(target, scope, project)
-  if (lhs === undefined) return undefined
-  const rhs = checkableType(value, scope, project)
+  return lhs === undefined ? undefined : conversionError(lhs, value, target.span, scope, project, messages)
+}
+
+/** The "Cannot convert" error for `value` stored into a `lhs`, reported at `span`, or undefined. An untyped integer
+ *  literal the target cannot hold is typed by `literalCheckType` (gap 13); any other value by inference. */
+function conversionError(lhs: Type, value: Expr, span: Span, scope: Scope, project: Scope, messages: Messages): DiagnosticItem | undefined {
+  const rhs = literalCheckType(value, lhs) ?? checkableType(value, scope, project)
   if (rhs === undefined) return undefined
   if (isAssignable(lhs, rhs)) return undefined
   return {
     severity: "error",
-    span: target.span,
+    span,
     source: SOURCE,
     code: "assignment-type-mismatch",
     message: messages.cannotConvert(rhsDisplay(value, rhs), renderType(lhs)),

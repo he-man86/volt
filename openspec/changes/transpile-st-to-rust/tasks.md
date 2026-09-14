@@ -177,6 +177,19 @@ All five fixed 2026-09-14 — 22 fixtures in `check-coverage.ts` recorded live o
       declaration shape stayed silent. `var-section.ts` reports the first token after a complete scalar initializer.
       *Why missed:* `collectInitTokens` took everything up to `;` and an unparsable tail became an opaque aggregate with
       no error; no fixture had a malformed initializer.
+- [x] **An untyped integer literal out of its target's range is silent** (gap 13) — FIXED 2026-09-14, found by the class
+      fix below the moment the transpiler review recorded `b : BYTE := 300` as not compiling. CODESYS types the literal
+      as the narrowest of SINT, USINT, INT, UINT, DINT, UDINT, LINT, ULINT that holds it and converts that like a variable:
+      300 into BYTE is "Cannot convert type 'INT' to type 'BYTE'", 128 into SINT a sign-change warning, and a value the
+      target holds is silent (`us := 5`, `w := 5`, `b := 255`). 27 fixtures (`overflow_*`, `cc_literal_*`,
+      `cc_fp_literal_*`). `types/elementary.ts` `integerLiteralType` (also the transpiler's literal fallback, which had
+      its own SINT/INT/DINT/LINT list) and `types/infer.ts` `literalCheckType`, used by the assignment and sign-change
+      checks for statements and declarations. CODESYS agreement 293 → 311, TwinCAT 253 → 255. *Why missed:* the
+      constant-overflow check was removed as a false positive (2026-07-07) with the note "CODESYS accepts out-of-range
+      untyped literals" — true only when the literal's own type still converts; the error half was never re-homed.
+- [ ] **A declaration's initializer is never type-checked** (gap 14) — the assignment and sign-change checks walked
+      statements only; gap 13 added declarations for the measured literal shape alone. `x : BYTE := someInt;` and every
+      other non-literal initializer stay unchecked until recorded.
 - [x] **The class fix: every source CODESYS refuses is an LSP error** — `test/exec/rejects-lsp.test.ts` runs every exec
       `rejects` case through the LSP and requires CODESYS's own wording. It went red on gaps 9 and 11 before their fixes.
 - [x] **The replay counted every declaration parse error twice** (`replay.test.ts` pushed `parseResult.errors` next to

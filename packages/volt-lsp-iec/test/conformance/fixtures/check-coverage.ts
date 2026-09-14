@@ -164,6 +164,29 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
   fb("cc_string_div_int", "STRING / INT → ?", "a : STRING; i : INT; c : STRING;", "c := a / i;"),
   fb("cc_int_plus_string", "INT + STRING → ?", "a : STRING; i : INT; j : INT;", "j := i + a;"),
   fb("cc_wstring_plus_wstring", "WSTRING + WSTRING → ?", "a : WSTRING; b : WSTRING; c : WSTRING;", "c := a + b;"),
+  // gap 13 — an untyped integer literal out of its target's range: the execution oracle recorded `b : BYTE := 300` and
+  //          `si := 300` as "Cannot convert type 'INT' to type 'BYTE'/'SINT'" — silent in the LSP, whose constant-overflow
+  //          check was removed as a false positive. Which literal type does CODESYS name, where is the boundary, and
+  //          which shapes compile?
+  fb("cc_literal_300_into_byte_init", "`b : BYTE := 300` → compiler error", "b : BYTE := 300;"),
+  fb("cc_literal_300_into_sint", "`si := 300` → compiler error", "si : SINT;", "si := 300;"),
+  fb("cc_literal_40000_into_int", "`i := 40000` → ?", "i : INT;", "i := 40000;"),
+  fb("cc_literal_70000_into_uint", "`u := 70000` → ?", "u : UINT;", "u := 70000;"),
+  fb("cc_literal_minus129_into_sint", "`si := -129` → ?", "si : SINT;", "si := -129;"),
+  fb("cc_literal_256_into_usint", "`us := 256` → ?", "us : USINT;", "us := 256;"),
+  fb("cc_literal_3e9_into_dint", "`d := 3000000000` → ?", "d : DINT;", "d := 3000000000;"),
+  fb("cc_literal_128_into_sint", "`si := 128` → ?", "si : SINT;", "si := 128;"),
+  fb("cc_fp_literal_255_into_byte", "`b := 255` → accepted", "b : BYTE;", "b := 255;"),
+  fb("cc_fp_literal_minus1_into_usint", "`us := -1` → accepted (wraps to 255, execution oracle)", "us : USINT;", "us := -1;"),
+  fb("cc_fp_literal_127_into_sint", "`si := 127` → accepted", "si : SINT;", "si := 127;"),
+  // Recorded: the literal takes the smallest of SINT/USINT/INT/UINT/DINT/UDINT/LINT/ULINT holding it, then converts like a
+  // variable (128 is USINT: a sign-change warning into SINT). Before applying that everywhere: does a SMALL non-negative
+  // literal (a SINT by that rule) warn into an unsigned, a bit string, or a REAL? Real code does this constantly.
+  fb("cc_fp_literal_5_into_usint", "`us := 5` → ?", "us : USINT;", "us := 5;"),
+  fb("cc_fp_literal_5_into_word", "`w := 5` → ?", "w : WORD;", "w := 5;"),
+  fb("cc_fp_literal_0_into_byte", "`b := 0` → ?", "b : BYTE;", "b := 0;"),
+  fb("cc_fp_literal_5_into_real", "`re := 5` → ?", "re : REAL;", "re := 5;"),
+  fb("cc_fp_literal_200_into_int", "`i := 200` → ?", "i : INT;", "i := 200;"),
   // gap 5 — set/reset assignment had no fixture at all, and the LSP's parser rejected a valid chain.
   fb("cc_fp_set_reset", "S= and R= → accepted", "a : BOOL; b : BOOL;", "a S= b;\na R= b;"),
   fb("cc_fp_set_reset_chain", "chained `a S= b R= c` → accepted", "a : BOOL; b : BOOL; c : BOOL;", "a S= b R= c;"),

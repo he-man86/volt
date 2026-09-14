@@ -24,7 +24,6 @@ export * from "./ir/index.js"
 export * from "./lower/index.js"
 export * from "./interp/index.js"
 export * from "./emit/rust/index.js"
-export { printType } from "./print.js"
 
 import { lowerSource, type LibraryFile } from "./lower/index.js"
 import { run, type Runner } from "./interp/index.js"

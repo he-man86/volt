@@ -34,6 +34,7 @@ import {
   constEval,
   elementaryType,
   inferExprType,
+  integerLiteralType,
   resolveTypeExpr,
   UNKNOWN,
   type ElementaryType,
@@ -194,7 +195,6 @@ class Lowering {
     }
     return decoded
   }
-
 
   private constant(e: Expr): IrValue | undefined {
     const v = constEval(e, this.scope)
@@ -492,18 +492,13 @@ class Lowering {
    */
   private conversion(e: Extract<Expr, { kind: "call" }>, from: Type | undefined, to: Type): IrExpr | undefined {
     const scalar = (t: Type): boolean => ["bool", "int", "bitstring", "real", "time", "date"].includes(elem(t)?.family ?? "")
-    // STRING ↔ a signed or unsigned integer, measured (test/exec `string_conversions`): INT_TO_STRING(-42) is '-42' and
-    // STRING_TO_INT reads the leading number — '12abc' is 12. A REAL, BOOL, TIME or bit string's text format is not
-    // pinned down yet (`string_conversions_more`), so those still report. The result is a sizeless STRING (80): an
-    // integer's text is at most 20 characters, so that capacity cannot show.
-    // A bit string's text is decimal too — BYTE_TO_STRING(255) is '255'; parsing INTO one is not measured.
+    // STRING conversions (design §18): to STRING from an integer, a bit string, BOOL or TIME; from STRING to an integer,
+    // REAL or LREAL. REAL_TO_STRING has no single digit rule and stays refused; parsing into a bit string is unmeasured.
+    // The result is a sizeless STRING (80) — no text these produce is longer.
     const isInt = (t: Type | undefined, orBits = false): boolean =>
       t !== undefined && (elem(t)?.family === "int" || (orBits && elem(t)?.family === "bitstring"))
     const isString = (t: Type | undefined): boolean => t !== undefined && elem(t)?.family === "string"
-    // BOOL_TO_STRING is 'TRUE'/'FALSE' and TIME_TO_STRING 'T#1s500ms', 'T#1d2h', 'T#0ms' (`string_conversions_*`)
     const hasText = (t: Type | undefined): boolean => isInt(t, true) || (t !== undefined && ["BOOL", "TIME"].includes(elem(t)?.name ?? ""))
-    // STRING_TO_REAL / STRING_TO_LREAL read a decimal prefix (`string_to_real_parse`); REAL_TO_STRING's digits are not
-    // one rule (design §18), so the REAL → STRING direction still reports.
     const parses = (t: Type): boolean => isInt(t) || elem(t)?.family === "real"
     if ((isString(to) && elem(to)?.name === "STRING" && hasText(from)) || (isString(from) && elem(from ?? UNKNOWN)?.name === "STRING" && parses(to))) {
       const only = e.args[0]
@@ -782,11 +777,6 @@ function promoted(t: Type): Type {
 }
 
 /**
- * A slot's STRING type with its capacity stated. A sizeless `STRING` holds 80 characters — measured: 85 characters
- * stored into one read back with LEN 80 (test/exec `string_default_length`). WSTRING's default is not measured yet, so
- * it stays unstated and a backend that needs it refuses rather than guessing.
- */
-/**
  * A string literal's text with its `$` escapes decoded — only the ones measured (test/exec `string_escapes*`): `$T` and
  * `$t` are one tab and `$$` one dollar ('a$Tb', 'x$$y' have LEN 3); `$N` and `$L` are both ONE line feed (LEN('$N') is
  * 1, not CR LF), `$R` is 16#0D, `$P` 16#0C, `$'` and `$"` the quotes, and two hex digits one byte ('$41' = 'A'). Any
@@ -817,8 +807,9 @@ export function decodeIecString(raw: string, wide = false): string | undefined {
   return out
 }
 
+/** A slot's string type with its capacity stated: a sizeless STRING or WSTRING holds 80 (`string_default_length`,
+ *  `wstring_basic`). */
 function withStringCapacity(t: Type): Type {
-  // WSTRING too: 85 characters stored into a sizeless one compare equal to a WSTRING(80) of 80 (`wstring_basic`)
   if (t.kind !== "elementary" || t.length !== undefined || (t.name !== "STRING" && t.name !== "WSTRING")) return t
   return { ...t, length: 80 }
 }
@@ -961,16 +952,14 @@ function literalType(e: Extract<Expr, { kind: "literal" }>, expected?: Type): Ty
   const v = e.value
   if (v === undefined) return UNKNOWN
   if (typeof v === "boolean") return named("BOOL")
-  if (typeof v === "string") return named(e.literalKind === "wstring" ? "WSTRING" : "STRING")
-  if (typeof v === "object") return named("TIME") // a duration, normalized to nanoseconds
+  // (strings and durations never reach here: `expr` lowers both before asking for a literal's type)
+  if (typeof v === "string" || typeof v === "object") return UNKNOWN
   if (typeof v === "number") return want?.family === "real" ? expected! : named("LREAL")
   // An integer literal: honour a numeric context (REAL included — `x : REAL := 1;` is legal), else narrowest.
   if (want !== undefined && want.rank !== undefined) return expected!
-  for (const name of ["SINT", "INT", "DINT", "LINT"]) {
-    const t = elementaryType(name)!
-    if (t.range !== undefined && v >= t.range.min && v <= t.range.max) return named(name)
-  }
-  return named("LINT")
+  // the narrowest type CODESYS gives the literal — `types/`'s, not a second list here (this one used to skip the unsigned)
+  const t = integerLiteralType(v)
+  return t === undefined ? UNKNOWN : named(t.name)
 }
 
 function named(name: string): Type {

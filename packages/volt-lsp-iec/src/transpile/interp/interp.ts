@@ -11,7 +11,8 @@
 import type { IrExpr, IrMathName, IrPou, IrStmt, IrStringName, IrValue, Place } from "../ir/index.js"
 import type { Type } from "../../types/index.js"
 
-/** A runtime value. Ints stay `bigint` (so `/` truncates like IEC does); REAL is `number`; TIME is ns. */
+/** A runtime value. Integers, durations and dates stay `bigint` in their type's unit (so `/` truncates like IEC does);
+ *  REAL is `number`; STRING and WSTRING are `string`. */
 export type Val = IrValue
 
 type Signal = "none" | "break" | "continue" | "return"
@@ -105,18 +106,14 @@ function bool(v: Val): boolean {
   throw new TypeError(`expected BOOL, got ${typeof v}`)
 }
 
+// Lowering converts both operands of a comparison to ONE type, so the two values always share a representation, and
+// JavaScript's own operators compare it exactly — bigints as bigints (a LINT above 2^53 included), strings by code unit.
 function eq(a: Val, b: Val): boolean {
-  if (typeof a === "bigint" && typeof b === "number") return Number(a) === b
-  if (typeof a === "number" && typeof b === "bigint") return a === Number(b)
   return a === b
 }
 
 function ord(op: "lt" | "le" | "gt" | "ge", a: Val, b: Val): boolean {
-  // Two bigints compare as bigints: through `Number` a LINT above 2^53 would compare wrong.
-  const both = typeof a === "bigint" && typeof b === "bigint"
-  const l = both ? a : typeof a === "string" ? a : Number(num(a))
-  const r = both ? b : typeof b === "string" ? b : Number(num(b))
-  return op === "lt" ? l < r : op === "le" ? l <= r : op === "gt" ? l > r : l >= r
+  return op === "lt" ? a < b : op === "le" ? a <= b : op === "gt" ? a > b : a >= b
 }
 
 function arith(op: string, a: Val, b: Val): Val {
@@ -439,7 +436,11 @@ export function run(pou: IrPou): Runner {
   return {
     frame,
     get: (name) => frame[slotOf(name)]!,
-    set: (name, value) => void (frame[slotOf(name)] = value),
+    // stored as the slot's type holds it, like every write the program makes — a test cannot plant a value the PLC couldn't
+    set: (name, value) => {
+      const i = slotOf(name)
+      frame[i] = fit(value, pou.slots[i]!.type)
+    },
     scan: () => void machine.block(pou.body),
   }
 }

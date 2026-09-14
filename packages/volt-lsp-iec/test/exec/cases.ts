@@ -608,6 +608,30 @@ export const CASES: readonly ExecCase[] = [
     vars: 'escaped : WSTRING(3) := "h$00E9llo"; direct : WSTRING(3) := "héllo"; ascii : WSTRING(3) := "hello"; escapedIsDirect : BOOL; umlaut : WSTRING(2) := "ü!";',
     body: "escapedIsDirect := escaped = direct;",
   },
+  // ── transpiler review 2026-09-14: two suspected bugs, recorded before any fix — neither is one ──
+  // An untyped literal out of its target's range was suspected to reach the emitter as `300u8`, which rustc rejects. It
+  // cannot: CODESYS does not compile it (the transpiler's input contract), while a negative literal into USINT wraps.
+  {
+    name: "literal_out_of_range_init",
+    vars: "b300 : BYTE := 300; bIn : INT;",
+    body: "bIn := b300;",
+    rejects: "Cannot convert type 'INT' to type 'BYTE'",
+  },
+  {
+    name: "literal_out_of_range_assign",
+    vars: "si : SINT; siIn : INT;",
+    body: "si := 300; siIn := si;",
+    rejects: "Cannot convert type 'INT' to type 'SINT'",
+  },
+  { name: "literal_negative_into_unsigned", vars: "us : USINT; usIn : INT;", body: "us := -1; usIn := us;" },
+  {
+    // A FOR counter stepping past its type's maximum was suspected to wrap only in the transpiler (the step adds in the
+    // counter's own type, not promoted). CODESYS wraps it too: `runs` hits the guard (11) and the SINT counter reads -121.
+    name: "for_at_type_max",
+    vars: "i : SINT; runs : INT;",
+    body: "FOR i := 125 TO 127 DO runs := runs + 1; IF runs > 10 THEN EXIT; END_IF END_FOR",
+  },
+
   // ── code CODESYS does not compile — the transpiler's input contract (`rejects`, wording as recorded 2026-09-14) ──
   { name: "power_operator_rejected", vars: "base : INT := 2; result : INT;", body: "result := base ** 2;", rejects: "Unexpected token '**' found" },
   { name: "ampersand_operator_rejected", vars: "a : BOOL; b : BOOL; both : BOOL;", body: "both := a & b;", rejects: "Unexpected token '&' found" },

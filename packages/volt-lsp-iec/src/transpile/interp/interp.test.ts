@@ -479,6 +479,15 @@ END_PROGRAM
     expect(pou.get("ok")).toBe(false)
   })
 
+  test("a value set from outside is stored as the slot's type holds it", () => {
+    // `set` wrote the raw value, so a test could plant 300 in a SINT — a value no program on the PLC can produce
+    const pou = load("PROGRAM P\nVAR si : SINT; r : REAL; five : STRING(5); END_VAR\nsi := si;\nEND_PROGRAM\n")
+    pou.set("si", 300n)
+    pou.set("r", 0.1)
+    pou.set("five", "abcdefgh")
+    expect([pou.get("si"), pou.get("r"), pou.get("five")]).toEqual([44n, Math.fround(0.1), "abcde"])
+  })
+
   test("an unlowerable POU is refused at load, not run half-way", () => {
     // ADR, not MAX: MAX lowers now. ADR waits on the memory model (design §9), so it stays unlowerable for a while.
     expect(() => load("PROGRAM P\nVAR x : INT; END_VAR\nx := ADR(x);\nEND_PROGRAM\n")).toThrow(/expr-call/)

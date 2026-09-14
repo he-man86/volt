@@ -19,7 +19,7 @@ import type {
   TypeExpr,
   VarSection,
 } from "../syntax/index.js"
-import { canonicalElem, elementaryType, isDatetime, isDuration } from "./elementary.js"
+import { canonicalElem, elementaryType, integerLiteralType, isDatetime, isDuration } from "./elementary.js"
 import { resolveTypeExpr } from "./resolve.js"
 import { elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
 // Inherent cycle: type inference resolves references via the reference catalog, which itself depends on the type system (bidirectional by design). Function-body import, no init hazard.
@@ -255,6 +255,27 @@ function staticScopeType(project: Scope, name: string): Type | undefined {
     }
   }
   return undefined
+}
+
+/**
+ * The type an untyped integer literal is CHECKED as against an integer or bit-string target — or undefined when there is
+ * nothing to check: not such a literal, not such a target, or a value the target holds (`us := 5`, `b := 255`, `i := 200`
+ * are silent). A value the target cannot hold takes `integerLiteralType` and converts like a variable of it (gap 13,
+ * conformance `overflow_*`, `cc_literal_*`, `cc_fp_literal_*`): `b : BYTE := 300` is "Cannot convert type 'INT' to type
+ * 'BYTE'", `si := 128` warns "unsigned Type 'USINT' to signed Type 'SINT'", `us := -1` warns "signed Type 'SINT' to
+ * unsigned Type 'USINT'". Other targets (REAL, TIME, BOOL) are not measured, and stay unchecked.
+ */
+export function literalCheckType(value: Expr, target: Type): Type | undefined {
+  const negated = value.kind === "unary" && value.op === "-"
+  const lit = negated ? value.operand : value
+  if (lit.kind !== "literal" || lit.literalKind !== "int" || typeof lit.value !== "bigint") return undefined
+  const family = target.kind === "elementary" ? target.elem.family : undefined
+  const range = target.kind === "elementary" && (family === "int" || family === "bitstring") ? target.elem.range : undefined
+  if (range === undefined) return undefined
+  const v = negated ? -lit.value : lit.value
+  if (v >= range.min && v <= range.max) return undefined
+  const t = integerLiteralType(v)
+  return t === undefined ? undefined : elementaryTypeRef(t)
 }
 
 function literalType(lit: Literal): Type {
