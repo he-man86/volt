@@ -20,7 +20,6 @@ import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 const SUB_MILLISECOND = /^(us|ns)$/i
 
 export function checkTimeLiteralUnit(ctx: CheckContext, out: DiagnosticItem[]): void {
-  if (ctx.config.vendor !== "codesys") return
   const decls = [...forEachDecl(ctx.parseResult, ctx.project)].map(({ decl }) => decl)
   const tokens = ctx.tokens()
   for (let i = 0; i + 1 < tokens.length; i++) {

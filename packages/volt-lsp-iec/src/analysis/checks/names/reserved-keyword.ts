@@ -16,9 +16,6 @@ import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 const RESERVED = new Set(["char", "wchar"])
 
 export function checkReservedKeyword(ctx: CheckContext, out: DiagnosticItem[]): void {
-  // CODESYS-only: this is a CODESYS forward-compat warning; TwinCAT's compiler accepts CHAR/WCHAR as
-  // identifiers silently (verified live), so firing on TwinCAT would false-positive.
-  if (ctx.config.vendor !== "codesys") return
   for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {
     for (const name of decl.names) {
       if (!RESERVED.has(name.text.toLowerCase())) continue

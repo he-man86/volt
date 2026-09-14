@@ -12,7 +12,6 @@ import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkAbstractOutputDefault(ctx: CheckContext, out: DiagnosticItem[]): void {
-  if (ctx.config.vendor !== "codesys") return // live /build: TwinCAT silently accepts a VAR_OUTPUT default here
   for (const unit of ctx.parseResult.units) {
     if (unit.kind === "interface") {
       for (const m of unit.methods) flagOutputDefaults(m.varSections, ctx, out)

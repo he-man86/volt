@@ -19,7 +19,6 @@ import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 const UNSUPPORTED: ReadonlySet<string> = new Set(["**", "&"])
 
 export function checkUnsupportedOperator(ctx: CheckContext, out: DiagnosticItem[]): void {
-  if (ctx.config.vendor !== "codesys") return
   for (const { statements } of bodies(ctx.parseResult.units, ctx.project))
     walkStatements(statements, (s) => {
       for (const e of stmtExprs(s))

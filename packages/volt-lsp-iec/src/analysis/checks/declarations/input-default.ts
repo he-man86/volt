@@ -11,7 +11,6 @@ import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkInputDefault(ctx: CheckContext, out: DiagnosticItem[]): void {
-  if (ctx.config.vendor !== "codesys") return // live /build: TwinCAT silently accepts an array default on a FUNCTION input
   for (const unit of ctx.parseResult.units) {
     if (unit.kind !== "function") continue // FB/method inputs legitimately take array defaults; only FUNCTION forbids it
     for (const section of unit.varSections) {

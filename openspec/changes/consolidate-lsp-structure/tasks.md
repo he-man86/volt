@@ -144,7 +144,11 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       (`types/compat`); `collectBareRefs` is gone; and tokens on `ParseResult` waits for a profile that asks for it.
 - [x] C5 `libraryOf(uri)` in symbols; `lower.ts` Standard gate uses it; drop the `_shared.ts:95` shim. DONE 2026-09-14:
       `symbols/libraryOf` (with `%20` normalized, test `symbols.test.ts`); the shim went with `_shared.ts` in C3.
-- [ ] C6 Declarative vendor gating in the check list (8 early returns, `activeVendor`), rule gates in a `config.ts` table.
+- [x] C6 Declarative vendor gating in the check list (8 early returns, `activeVendor`), rule gates in a `config.ts` table.
+      DONE 2026-09-14: `diagnostics.ts` `CODESYS_ONLY` lists the eight CODESYS-only checks with each reason; their early
+      returns are gone, and `activeVendor` went in C8. Not done: the six gates INSIDE a check (one message of several —
+      const-context, statement-rules, header-rules, pragmas, lifecycle, pointer-conversion) stay beside the rule they
+      gate; a table would separate each condition from the code it qualifies.
 - [ ] C7 `test/support/project.ts`: `diagnose`, `codesOf`, `docSetup`, `libraryFile`; migrate the 76 check tests + 5
       service tests.
 - [ ] C8 Dead code: `isNumeric`, `isEnumIsolated`, `networkScopeAt`, `CHECK_TIMING`, `activeVendor`, `stBodies`,

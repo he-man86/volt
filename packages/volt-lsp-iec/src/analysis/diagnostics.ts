@@ -196,6 +196,21 @@ const CHECKS: readonly Check[] = [
   checkParseErrors,
 ]
 
+/**
+ * The checks that run for CODESYS only — one list, where each used to open with its own `if (vendor !== "codesys") return`
+ * (consolidate-lsp-structure C6). A rule gate INSIDE a check (one message of several) stays in that check.
+ */
+const CODESYS_ONLY: ReadonlySet<Check> = new Set<Check>([
+  checkAttributePlacement, // live /build: TwinCAT silently accepts pack_mode on a FUNCTION/METHOD
+  checkInputDefault, // live /build: TwinCAT silently accepts an array default on a FUNCTION input
+  checkAbstractAssign, // live /build (2026-07-11): TwinCAT accepts this — no such rule
+  checkAbstractOutputDefault, // live /build: TwinCAT silently accepts a VAR_OUTPUT default here
+  checkReservedKeyword, // a CODESYS forward-compat warning; TwinCAT accepts CHAR/WCHAR as names (verified live)
+  checkIlOperatorName, // TwinCAT unmeasured
+  checkTimeLiteralUnit, // TwinCAT unmeasured
+  checkUnsupportedOperator, // TwinCAT unmeasured
+])
+
 export interface DiagnosticsArgs {
   parseResult: ParseResult
   source: string
@@ -219,14 +234,15 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
     tokens: () => (tokenCache ??= lex(args.source)),
   }
   const out: DiagnosticItem[] = []
+  const active = config.vendor === "codesys" ? CHECKS : CHECKS.filter((check) => !CODESYS_ONLY.has(check))
   if (CHECK_TIMING !== undefined) {
-    for (const check of CHECKS) {
+    for (const check of active) {
       const t = Number(process.hrtime.bigint())
       check(ctx, out)
       CHECK_TIMING[check.name] = (CHECK_TIMING[check.name] ?? 0) + (Number(process.hrtime.bigint()) - t) / 1e6
     }
   } else {
-    for (const check of CHECKS) check(ctx, out)
+    for (const check of active) check(ctx, out)
   }
   // CODESYS "Compiler warnings" dialog: each configurable code is off / warning / error. Drop it when off,
   // else FORCE the configured severity (so a code the check emits as error but CODESYS defaults to warning is

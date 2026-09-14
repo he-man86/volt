@@ -26,7 +26,6 @@ const IL_OPERATOR_NAMES: ReadonlySet<string> = new Set([
 ])
 
 export function checkIlOperatorName(ctx: CheckContext, out: DiagnosticItem[]): void {
-  if (ctx.config.vendor !== "codesys") return
   const flag = (text: string, span: Span): void => {
     if (!IL_OPERATOR_NAMES.has(text.toLowerCase())) return
     out.push({ severity: "error", span, source: SOURCE, code: "il-operator-name", message: ctx.messages.unexpectedToken(text) })
