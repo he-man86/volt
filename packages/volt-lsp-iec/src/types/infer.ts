@@ -19,7 +19,8 @@ import type {
   TypeExpr,
   VarSection,
 } from "../syntax/index.js"
-import { canonicalElem, elementaryType, integerLiteralType, isDatetime, isDuration, parseConversionName } from "./elementary.js"
+import { checkedNegationType, exptResultType, temporalResultType } from "./arith.js"
+import { canonicalElem, elementaryType, integerLiteralType, parseConversionName } from "./elementary.js"
 import { resolveTypeExpr } from "./resolve.js"
 import { elementaryRef, elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
 // Inherent cycle: type inference resolves references via the reference catalog, which itself depends on the type system (bidirectional by design). Function-body import, no init hazard.
@@ -56,9 +57,9 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       return callReturnType(expr, scope, project)
     case "unary": {
       // NOT and + keep the operand's type (NOT on WORD is a bitwise complement, not BOOL). Unary MINUS does not — see
-      // `negatedType`. This comment used to say "NOT/-/+ preserve the operand's type", written from recollection.
+      // `checkedNegationType`. This comment used to say "NOT/-/+ preserve the operand's type", written from recollection.
       const operand = inferExprType(expr.operand, scope, project)
-      return expr.op === "-" ? negatedType(operand) : operand
+      return expr.op === "-" ? checkedNegationType(operand) : operand
     }
     case "binary":
       return binaryResultType(expr, scope, project)
@@ -343,27 +344,12 @@ function literalType(lit: Literal): Type {
 
 const COMPARISON_OPS: ReadonlySet<string> = new Set(["=", "<>", "<", ">", "<=", ">="])
 
-// IEC temporal arithmetic: DT − DT = TIME, DT ± TIME = DT. Names are canonical (DT/TOD/…).
-const durationFor = (name: string): string => (name.startsWith("L") ? "LTIME" : "TIME")
-
-function temporalArithResult(op: string, l: string, r: string): string | undefined {
-  if (op === "-") {
-    if (isDatetime(l) && l === r) return durationFor(l)
-    if (isDatetime(l) && isDuration(r)) return l
-  }
-  if (op === "+") {
-    if (isDatetime(l) && isDuration(r)) return l
-    if (isDuration(l) && isDatetime(r)) return r
-  }
-  return undefined
-}
-
 function binaryResultType(e: BinaryExpr, scope: Scope, project: Scope): Type {
   if (COMPARISON_OPS.has(e.op)) return elementaryRef("BOOL")
   const l = inferExprType(e.left, scope, project)
   const r = inferExprType(e.right, scope, project)
   if (l.kind === "elementary" && r.kind === "elementary") {
-    const temporal = temporalArithResult(e.op, canonicalElem(l.name), canonicalElem(r.name))
+    const temporal = e.op === "+" || e.op === "-" ? temporalResultType(e.op, l.name, r.name) : undefined
     if (temporal !== undefined) return elementaryRef(temporal)
     // Conservative: commit only when both operands are the same elementary type.
     if (canonicalElem(l.name) === canonicalElem(r.name)) return l
@@ -372,27 +358,9 @@ function binaryResultType(e: BinaryExpr, scope: Scope, project: Scope): Type {
 }
 
 /**
- * The type a unary minus gives: the SIGNED type of the operand's width, at least 16 bits. Measured live on CODESYS
- * SP21 (conformance `cc_neg_*`): SINT, USINT and BYTE negate to INT — `sint := -sint` is "Cannot convert type 'INT'
- * to type 'SINT'" — UINT and WORD to INT and UDINT to DINT (each with a "change of sign" on the operand, which the
- * narrowing check emits); INT, DINT and LINT keep their type. A 64-bit UNSIGNED operand was not measured, so it
- * stays UNKNOWN — silence, never a guessed diagnostic.
- */
-function negatedType(t: Type): Type {
-  if (t.kind !== "elementary") return t
-  const e = elementaryType(t.name)
-  if (e === undefined || e.rank === undefined || (e.family !== "int" && e.family !== "bitstring")) return t
-  if (e.bits > 32 && !e.signed) return UNKNOWN
-  const signed = elementaryType(e.bits <= 16 ? "INT" : e.bits <= 32 ? "DINT" : "LINT")
-  return signed === undefined ? UNKNOWN : elementaryTypeRef(signed)
-}
-
-/**
- * EXPT's type: REAL when BOTH arguments are REAL, LREAL when both are known numerics otherwise — measured live
- * (conformance `cc_expt_*`): `real := EXPT(real, real)` compiles without a warning, while EXPT(INT, INT),
- * EXPT(REAL, INT) and EXPT(LREAL, REAL) into a REAL each warn "Implicit conversion from 'LREAL' to 'REAL'".
- * An unknown argument keeps it UNKNOWN. The reference catalog used to say "always LREAL", from recollection — which
- * made the narrowing check warn on `real := EXPT(real, real)`, code the compiler accepts silently.
+ * EXPT's checked type — `exptResultType` once both arguments are known. An unknown argument keeps it UNKNOWN. The
+ * reference catalog used to say "always LREAL", from recollection — which made the narrowing check warn on
+ * `real := EXPT(real, real)`, code the compiler accepts silently.
  */
 function exptType(call: CallExpr, scope: Scope, project: Scope): Type {
   // Each argument is REAL, NOT REAL, or unknown. An integer LITERAL has no width but can never be a REAL, so it counts
@@ -406,10 +374,10 @@ function exptType(call: CallExpr, scope: Scope, project: Scope): Type {
     return canonicalElem(t.name) === "REAL" ? "real" : "not-real"
   })
   if (kinds.length !== 2 || kinds.includes("unknown")) return UNKNOWN
-  if (kinds[0] === "real" && kinds[1] === "real") return elementaryRef("REAL")
   // A REAL beside an integer literal was not measured — silence rather than a guessed type.
   if (kinds.includes("real") && kinds.includes("int-literal")) return UNKNOWN
-  return elementaryRef("LREAL")
+  const asType = (k: string): Type => elementaryRef(k === "real" ? "REAL" : "LINT")
+  return exptResultType(asType(kinds[0]!), asType(kinds[1]!))
 }
 
 function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {

@@ -32,10 +32,16 @@ import {
 } from "../../syntax/index.js"
 import { buildSymbolTable, lookup, scopeForUnit, type Scope } from "../../symbols/index.js"
 import {
+  commonType,
   constEval,
   elementaryRef,
   elemOf,
+  exptResultType,
+  inTypeGroup,
   integerLiteralType,
+  isIntegerType,
+  promoteForRuntime,
+  temporalResultType,
   parseConversionName,
   resolveTypeExpr,
   UNKNOWN,
@@ -288,7 +294,7 @@ class Lowering {
         // into a DINT is 32768, and a DINT's minimum still negates to itself even into a LINT (test/exec
         // `unary_minus_at_the_edge`). This used to preserve the operand type, and wrapped all three.
         if (e.op === "NOT") return { kind: "unary", op: "not", operand, type: operand.type, span: e.span }
-        const type = promoted(operand.type)
+        const type = promoteForRuntime(operand.type)
         return { kind: "unary", op: "neg", operand: convert(operand, type), type, span: e.span }
       }
       case "binary": {
@@ -303,7 +309,10 @@ class Lowering {
         if (right === undefined) return undefined
         // Two STRINGs compare as they are, byte by byte — never converted to one capacity first, which would cut the
         // longer one and make 'abc' = 'abcd' TRUE. Measured: 'abc' < 'b' and 'A' < 'a' (test/exec `string_compare`).
-        const isString = (x: IrExpr): boolean => elemOf(x.type)?.family === "string"
+        const isString = (x: IrExpr): boolean => {
+          const t = elemOf(x.type)
+          return t !== undefined && inTypeGroup("ANY_STRING", t)
+        }
         if (isString(left) || isString(right)) {
           // Anything else on a STRING does not compile — `'x' + 'y'` is "Cannot convert type 'STRING' to type 'ANY_NUM'"
           // (`string_arithmetic_rejected`) — so this refusal only keeps lowering total.
@@ -314,9 +323,9 @@ class Lowering {
         // BEFORE the constant retyping below: `dt + T#1S` would otherwise stamp the 1000-ms literal as a DT — 1000 s.
         const calendar = calendarArithmetic(op, left, right, e.span)
         if (calendar !== undefined) return calendar
-        // Arithmetic and comparison happen in the PROMOTED type (see `promoted`), so a literal beside a narrow
+        // Arithmetic and comparison happen in the PROMOTED type (see `promoteForRuntime`), so a literal beside a narrow
         // variable takes that type too — else `si + 1000` would wrap the 1000 into SINT before promoting.
-        const lift = LIFTED.has(op) ? promoted : (t: Type): Type => t
+        const lift = LIFTED.has(op) ? promoteForRuntime : (t: Type): Type => t
         if (left.kind === "const" && right.kind !== "const") left = adopt(left, lift(right.type))
         else if (right.kind === "const" && left.kind !== "const") right = adopt(right, lift(left.type))
         else if (left.kind === "const" && right.kind === "const") {
@@ -329,12 +338,12 @@ class Lowering {
         }
         // A duration × or ÷ an integer (and an integer × a duration) computes in the duration's type: `T#1S * 3` is
         // T#3S and `T#1S / 4` is T#250MS (test/exec `time_multiply_divide`). A duration has no widening rank, so
-        // without this `wider` would find no common type.
+        // without this `commonType` would find no common type.
         const isDuration = (t: Type): boolean => elemOf(t)?.family === "time"
-        const isIntegral = (t: Type): boolean => ["int", "bitstring"].includes(elemOf(t)?.family ?? "")
+        const isIntegral = (t: Type): boolean => isIntegerType(elemOf(t)?.name ?? "")
         if ((op === "mul" || op === "div") && isDuration(left.type) && isIntegral(right.type)) right = convert(right, left.type)
         else if (op === "mul" && isIntegral(left.type) && isDuration(right.type)) left = convert(left, right.type)
-        const meet = wider(left.type, right.type)
+        const meet = commonType(left.type, right.type)
         if (meet === UNKNOWN) return this.bail("type-unknown", `the operands of ${e.op} have no common type`, e.span)
         const operands = lift(meet)
         const type = COMPARISONS.has(op) ? elementaryRef("BOOL") : operands
@@ -389,7 +398,7 @@ class Lowering {
       if (arg === undefined) return undefined
       // Promotes like unary minus: ABS(SINT -128) is 128, ABS(INT -32768) into a DINT is 32768 and into an INT wraps
       // back to -32768; ABS of a USINT is the value itself (test/exec `abs_values`, `abs_unsigned`).
-      const type = promoted(arg.type)
+      const type = promoteForRuntime(arg.type)
       return { kind: "builtin", name: "abs", args: [convert(arg, type)], type, span: e.span }
     }
     if (name === "SHL" || name === "SHR" || name === "ROL" || name === "ROR") {
@@ -399,7 +408,7 @@ class Lowering {
       // SHL/SHR shift the PROMOTED value — SHL(BYTE 1, 9) into a WORD is 512 — while ROL/ROR rotate in the value's
       // own width: ROL(BYTE 129, 1) is 3 (test/exec `shift_basic`, `rotate_basic`).
       const shift = name === "SHL" || name === "SHR"
-      const type = shift ? promoted(value.type) : value.type
+      const type = shift ? promoteForRuntime(value.type) : value.type
       const op = name.toLowerCase() as IrBuiltinName
       return { kind: "builtin", name: op, args: [convert(value, type), count], type, span: e.span }
     }
@@ -425,8 +434,7 @@ class Lowering {
       // EXPT(REAL 3.0, INT 20) is 3486784401 (float32 would give 3486784512), EXPT(INT 2, REAL 0.5) and
       // EXPT(LREAL, REAL) are float64, and EXPT(INT, INT) is LREAL-typed (into an INT it does not compile).
       // test/exec `expt_types`, `expt_mixed_width`.
-      const real32 = (t: Type): boolean => elemOf(t)?.family === "real" && elemOf(t)?.bits === 32
-      const type = real32(base.type) && real32(exponent.type) ? base.type : elementaryRef("LREAL")
+      const type = exptResultType(base.type, exponent.type)
       return { kind: "builtin", name: "expt", args: [convert(base, type), convert(exponent, type)], type, span: e.span }
     }
     if (UNARY_MATH.has(name)) {
@@ -531,11 +539,11 @@ class Lowering {
     const variables = operands.filter((o) => o.kind !== "const")
     let type =
       variables.length > 0
-        ? variables.map((o) => o.type).reduce((a, b) => wider(a, b))
-        : operands.map((o) => (elemOf(o.type)?.family === "int" ? elementaryRef("LINT") : o.type)).reduce((a, b) => wider(a, b))
-    for (const o of operands) if (o.kind === "const" && elemOf(o.type)?.family === "real") type = wider(type, o.type)
+        ? variables.map((o) => o.type).reduce(commonType)
+        : operands.map((o) => (elemOf(o.type)?.family === "int" ? elementaryRef("LINT") : o.type)).reduce(commonType)
+    for (const o of operands) if (o.kind === "const" && elemOf(o.type)?.family === "real") type = commonType(type, o.type)
     if (type === UNKNOWN) return this.bail("type-unknown", "the arguments have no common type", span)
-    return promoted(type)
+    return promoteForRuntime(type)
   }
 
   // ─── statements ────────────────────────────────────────────────────────────
@@ -734,38 +742,6 @@ class Lowering {
 
 // ─── type helpers (facts come from `types/elementary`, never from a second table) ─────────────────────────
 
-
-/**
- * The common type two operands meet at — IEC numeric widening over the rank `types/elementary` already owns.
- * Non-numeric operands (BOOL, STRING, TIME) have no lattice: they meet only with their own kind.
- */
-function wider(a: Type, b: Type): Type {
-  const ea = elemOf(a)
-  const eb = elemOf(b)
-  if (ea === undefined || eb === undefined) return UNKNOWN
-  if (ea.name === eb.name) return a
-  if (ea.rank === undefined || eb.rank === undefined) return UNKNOWN
-  // REAL absorbs any integer; otherwise the wider rank within the same family wins.
-  if (ea.family === "real") return eb.family === "real" ? (ea.rank >= eb.rank ? a : b) : a
-  if (eb.family === "real") return b
-  return ea.rank >= eb.rank ? a : b
-}
-
-/**
- * Integer promotion: an `int`-family operand narrower than 32 bits computes in DINT. Measured on CODESYS
- * 3.5.21.40 (test/exec `arithmetic_width`): `toInt := si + 1` with `si : SINT := 127` is 128, `toDint := us - 1`
- * with `us : USINT := 0` is -1 (SIGNED DINT, not UDINT), `fromInt := i + 1` with `i : INT := 32767` is 32768 —
- * and `fromDint := di + 1` with `di : DINT` at its max is -2147483648 even into a LINT, so DINT itself is not
- * promoted further. Bit strings follow the SAME rule (test/exec `bit_string_arithmetic`): `BYTE 255 + 1` into a
- * WORD is 256, and `BYTE 0 - 1` / `WORD 0 - 1` into a DINT are -1 — signed DINT, as for USINT. BIT has no rank and
- * is never an arithmetic operand, so it is excluded.
- */
-function promoted(t: Type): Type {
-  const e = elemOf(t)
-  const integral = e !== undefined && (e.family === "int" || e.family === "bitstring") && e.rank !== undefined
-  return integral && e.bits < 32 ? elementaryRef("DINT") : t
-}
-
 /** A slot's string type with its capacity stated: a sizeless STRING or WSTRING holds 80 (`string_default_length`,
  *  `wstring_basic`). */
 function withStringCapacity(t: Type): Type {
@@ -881,28 +857,27 @@ const UNIT_NS: Readonly<Record<string, bigint>> = {
  */
 function calendarArithmetic(op: IrBinOp, left: IrExpr, right: IrExpr, span: Span): IrExpr | undefined {
   if (op !== "add" && op !== "sub") return undefined
-  const family = (x: IrExpr): string | undefined => elemOf(x.type)?.family
+  const [l, r] = [elemOf(left.type), elemOf(right.type)]
+  const result = l && r && temporalResultType(op === "add" ? "+" : "-", l.name, r.name)
+  if (result === undefined) return undefined
   const unit = (x: IrExpr): bigint | undefined => UNIT_NS[elemOf(x.type)?.name ?? ""]
   const scale = (x: IrExpr, by: bigint, as: Type, how: "div" | "mul"): IrExpr =>
     by === 1n ? x : { kind: "binary", op: how, left: x, right: { kind: "const", value: by, type: as, span }, type: as, span }
 
-  const date = family(left) === "date" ? left : op === "add" && family(right) === "date" ? right : undefined
-  const duration = date === left ? right : date === right ? left : undefined
-  if (date !== undefined && duration !== undefined && family(duration) === "time") {
+  const type = elementaryRef(result)
+  // a date ± a duration: the result is the date's type, and the date is whichever operand has it
+  if (l?.name !== r?.name) {
+    const [date, duration] = l?.name === result ? [left, right] : [right, left]
     const [dateUnit, durationUnit] = [unit(date), unit(duration)]
     if (dateUnit === undefined || durationUnit === undefined || dateUnit % durationUnit !== 0n) return undefined
     const step = scale(convert(duration, date.type), dateUnit / durationUnit, date.type, "div")
     return { kind: "binary", op, left: date, right: step, type: date.type, span }
   }
-
-  if (op === "sub" && family(left) === "date" && elemOf(left.type)?.name === elemOf(right.type)?.name) {
-    const leftUnit = unit(left)
-    if (leftUnit === undefined) return undefined
-    const durationType = elementaryRef(leftUnit === 1n ? "LTIME" : "TIME")
-    const difference: IrExpr = { kind: "binary", op: "sub", left, right, type: left.type, span }
-    return scale(convert(difference, durationType), leftUnit / UNIT_NS[elemOf(durationType)!.name]!, durationType, "mul")
-  }
-  return undefined
+  // a date − the same date: the difference, scaled into its duration's unit
+  const leftUnit = unit(left)
+  if (leftUnit === undefined) return undefined
+  const difference: IrExpr = { kind: "binary", op: "sub", left, right, type: left.type, span }
+  return scale(convert(difference, type), leftUnit / UNIT_NS[result]!, type, "mul")
 }
 
 /** Nanoseconds since the epoch (DATE/DT) or since midnight (TOD) for a literal's text, or undefined when malformed. */

@@ -59,7 +59,11 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
 - [x] A11 **`network-analyze.ts` `synthTypeExpr`** lost string length, arrays and pointers. DONE 2026-09-14: it rebuilds
       a string's length and array/pointer/reference structure; test `network/network-wire-type.test.ts`. *Why missed:*
       no network test typed a wire from anything but BOOL/INT.
-- [ ] A12 **`lower.ts` `wider` is order-dependent** at equal rank, mixed sign (DINT vs UDINT) — only one order measured.
+- [x] A12 **`lower.ts` `wider` is order-dependent** at equal rank, mixed sign (DINT vs UDINT) — only one order measured.
+      DONE 2026-09-14: at the same width the signed type wins on either side, bit strings included (test/exec
+      `same_width_mixed_sign_order`, `same_width_bitstring_sign`); `types/commonType`, interp test. *Why missed:* the
+      one recorded case (`signed_unsigned_comparison`) compared values whose bits are equal, where left-wins and
+      signed-wins give the same answer.
 - [x] A13 **Gap 14**: declaration initializers were never type-checked. DONE 2026-09-14: 16 recorded fixtures
       (`cc_init_*`, `cc_assign_*`) give one rule for initializers and assignments alike — a value converts as its type,
       an untyped integer as its narrowest type unless the target holds it (a BOOL takes 0 and 1), a real literal as
@@ -73,17 +77,22 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
 
 ## B. `src/types` is the only home of type knowledge
 
-- [ ] B1 Exported `elementaryRef(name)` / `elemOf(t)`; replace `infer.elem`, `resolve.resolveElementary`,
+- [x] B1 Exported `elementaryRef(name)` / `elemOf(t)`; replace `infer.elem`, `resolve.resolveElementary`,
       `lower.named/boolType/elem`, and redundant re-lookups (`conversion.ts:23/31`, `_shared.ts:90`).
-- [ ] B2 Predicates over `string | Type` with an explicit BIT policy: `isIntegerType`, `isNumericType`, `isRealType`,
+- [x] B2 (DONE 2026-09-14 as `inTypeGroup(group, t)` over `ANY_FAMILIES` plus the existing name predicates — no
+      `string | Type` overloads were needed) Predicates over `string | Type` with an explicit BIT policy: `isIntegerType`, `isNumericType`, `isRealType`,
       `isStringType`, `isBoolType`, `isTemporal`, `inTypeGroup`; switch every hard-coded family/name list (lower,
       `binary-operators`, `intrinsic-operands`, `indexing`, `bit-number` (BIT kept as a named exception), `pointer-conversion`
       (derive, key by name not `renderType`)).
 - [ ] B3 Facts on the table: temporal tick unit, mantissa bits, `DEFAULT_STRING_LENGTH`, duration-for-date; switch
       `lower` `UNIT_NS`/`/^L/`/`withStringCapacity`, `infer.durationFor`, `compat.MANTISSA_BITS`.
-- [ ] B4 `types/arith.ts`: `commonType` (from `wider`, after A12), `promoteForRuntime` (from `promoted`), exported
+- [x] B4 `types/arith.ts`: `commonType` (from `wider`, after A12), `promoteForRuntime` (from `promoted`), exported
       `checkedNegationType`, `exptResultType`, `temporalResultType` (incl. duration × integer), `arithmeticOperandError`
       (from `binary-operators`). Keep run-time vs checked types clearly named. Fix `docs/architecture.md:62`.
+      DONE 2026-09-14: lower and infer share `exptResultType` and `temporalResultType` (lowering's calendar arithmetic
+      keeps only the unit scaling). Left where they are: duration × integer (a run-time conversion rule lowering alone
+      has — the checker types no mixed operands), and `binaryOpError`, already the one home shared by the ST and
+      network checks and bound to `messages`, which `types/` must not import.
 - [ ] B5 Literal typing: export `literalType` (after A2), `REAL_LITERAL_TYPE`, `ANY_INT_RANGE`; lower keeps only context
       adoption; switch `enum-init.ts:28`, `constant-overflow.ts:18`.
 - [ ] B6 `isSameType` and a shared `checkableType` (or inference types an enum-value reference); switch

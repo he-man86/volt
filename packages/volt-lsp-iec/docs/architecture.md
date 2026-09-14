@@ -59,7 +59,8 @@ analysis check and the language services). Contract: name → declaring symbol/s
 The type system, the clean core: `elementary` (the type-facts source of truth — family, bits, signed, `bigint`
 range, widening rank, aliases, `ANY_*`); the rich `Type` model (`UNKNOWN` is the total, conservative
 fallback); `resolve` (TypeExpr → Type); `const-eval` (Expr → value); `infer` (Expr → Type, one engine);
-`compat` (assignability · narrowing · arithmetic-result · conversion-source, one relation); `render`
+`compat` (assignability · narrowing · conversion-source, one relation); `arith` (arithmetic result types — run-time
+`commonType`/`promoteForRuntime` for the transpiler, checked `checkedNegationType` for diagnostics); `render`
 (Type/TypeExpr → string, one renderer). Powers diagnostics, hover, completion, navigation, and codegen alike.
 
 ### D — `analysis/`

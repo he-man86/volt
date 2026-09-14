@@ -608,6 +608,24 @@ export const CASES: readonly ExecCase[] = [
     vars: 'escaped : WSTRING(3) := "h$00E9llo"; direct : WSTRING(3) := "héllo"; ascii : WSTRING(3) := "hello"; escapedIsDirect : BOOL; umlaut : WSTRING(2) := "ü!";',
     body: "escapedIsDirect := escaped = direct;",
   },
+  // ── consolidate-lsp-structure A12: a signed and an unsigned type of the SAME width — which one does the operation use? ──
+  {
+    // `wider` lets the LEFT operand win at equal rank, and only UDINT-on-the-left was ever measured
+    // (`signed_unsigned_comparison`). DINT -1 and UDINT 0 tell the two apart: in DINT the sum is -1 and -1 < 0, in UDINT
+    // the sum is 4294967295 and the comparison is FALSE. Both orders, and the 64-bit pair.
+    name: "same_width_mixed_sign_order",
+    // (`ld` is not a usable name — CODESYS reserves the IL operator `LD`: "Unexpected token 'ld' found")
+    vars: "d : DINT := -1; u : UDINT := 0; bigNeg64 : LINT := -1; bigZero64 : ULINT := 0; sumDU : LINT; sumUD : LINT; lessDU : BOOL; lessUD : BOOL; lessLong : BOOL; lessLongRev : BOOL;",
+    body: "sumDU := d + u; sumUD := u + d; lessDU := d < u; lessUD := u > d; lessLong := bigNeg64 < bigZero64; lessLongRev := bigZero64 > bigNeg64;",
+  },
+  {
+    // The int pairs above meet in the SIGNED type whichever side it is on. A bit string has the same width as its int
+    // (DWORD/DINT) but is a different family — does it follow the same rule?
+    name: "same_width_bitstring_sign",
+    vars: "dw : DWORD := 0; di : DINT := -1; sumDwDi : LINT; sumDiDw : LINT; greaterDw : BOOL; lessDi : BOOL;",
+    body: "sumDwDi := dw + di; sumDiDw := di + dw; greaterDw := dw > di; lessDi := di < dw;",
+  },
+
   // ── consolidate-lsp-structure A3: does a typed literal's prefix decide its type? Lowering ignores it ──
   {
     // `REAL#0.1` is float32's 0.1 if the prefix types it; lowering types a real literal by context, so into an LREAL it

@@ -86,7 +86,10 @@ their own. Measured next (2026-09-14, test/exec):
   are -1 (signed DINT);
 - **AND/OR/XOR promote; NOT does not** — `SINT -1 AND 255` into INT is 255, `NOT USINT 255` into DINT is 0;
 - **a signed/unsigned comparison meets at the wider rank** — `UDINT max > DINT -1` is FALSE and `=` is TRUE, which
-  the existing meet already did;
+  the existing meet already did; **at the same width the SIGNED type wins, on either side** — `UDINT 0 > DINT -1`,
+  `ULINT 0 > LINT -1` and `DWORD 0 > DINT -1` are TRUE and `UDINT 0 + DINT -1` into a LINT is -1
+  (`same_width_mixed_sign_order`, `same_width_bitstring_sign`). The meet let the LEFT operand win, and only
+  unsigned-left with equal bits had been measured, where the two rules agree;
 - **unary minus promotes like arithmetic** — `-SINT(-128)` is 128 (and `sint := -sint` does not compile: "Cannot
   convert type 'INT' to type 'SINT'"), `-INT(-32768)` into DINT is 32768, `-DINT(min)` into LINT is still
   -2147483648. The emitter prints integer negation as `wrapping_neg()`: Rust's `-` panicked on that last one;

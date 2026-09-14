@@ -147,6 +147,21 @@ END_PROGRAM
     ])
   })
 
+  test("a signed and an unsigned type of the same width meet in the signed one, on either side", () => {
+    const pou = load(`
+PROGRAM P
+VAR
+  d : DINT := -1; u : UDINT := 0; n64 : LINT := -1; z64 : ULINT := 0;
+  sumUD : LINT; lessUD : BOOL; lessLongRev : BOOL;
+END_VAR
+sumUD := u + d; lessUD := u > d; lessLongRev := z64 > n64;
+END_PROGRAM
+`)
+    pou.scan()
+    // unsigned on the LEFT: the left operand used to win, so this computed in UDINT (4294967295, FALSE, FALSE)
+    expect([pou.get("sumUD"), pou.get("lessUD"), pou.get("lessLongRev")]).toEqual([-1n, true, true])
+  })
+
   test("bit strings promote like integers, and so do AND/OR/XOR — but NOT does not", () => {
     const pou = load(`
 PROGRAM P
