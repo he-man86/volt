@@ -17,8 +17,11 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       decides. The recording also showed CODESYS prints the abbreviated types in full ('TIME_OF_DAY', 'LDATE_AND_TIME'),
       whatever the declaration wrote: `types/elementaryDisplayName`, the inverse of `ELEM_ALIASES`, used by `renderType`.
       *Why missed:* no fixture had an L-date literal; the transpiler's own literal typing hid that the LSP's disagreed.
-- [ ] A3 **Lowering ignores a typed literal's prefix** — `REAL#1.5` → LREAL, `INT#5` → SINT/context (`lower.ts` literalType).
-      Oracle case first.
+- [x] A3 **Lowering ignored a typed literal's prefix**. DONE 2026-09-14: recorded first — `REAL#0.1` stored into an LREAL
+      is float32's 0.1 (`typed_literal_real_prefix`), while an INTEGER prefix changes nothing measured: all-constant
+      arithmetic still folds at full width (`typed_literal_constant_fold`, already matching). `lower.ts` `typedRealOf`
+      types a REAL/LREAL-prefixed literal by its prefix, in expressions and initializers. *Why missed:* no oracle case
+      had a typed real literal; lowering's literal typing was written for untyped ones.
 - [ ] A4 **Six `X_TO_Y` parsers** (`infer.ts:376`, `reference.ts:197`, `narrowing.ts:35`, `conversion.ts:14`, `lower.ts:366`,
       `_identifier-resolution.ts:21` loose on purpose) — `TIME_OF_DAY_TO_UDINT`/`DATE_AND_TIME_TO_*` unrecognised in three.
       One `parseConversionName` in `types/`; record a narrowing fixture on an alias source.

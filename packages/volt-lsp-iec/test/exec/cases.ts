@@ -608,6 +608,22 @@ export const CASES: readonly ExecCase[] = [
     vars: 'escaped : WSTRING(3) := "h$00E9llo"; direct : WSTRING(3) := "héllo"; ascii : WSTRING(3) := "hello"; escapedIsDirect : BOOL; umlaut : WSTRING(2) := "ü!";',
     body: "escapedIsDirect := escaped = direct;",
   },
+  // ── consolidate-lsp-structure A3: does a typed literal's prefix decide its type? Lowering ignores it ──
+  {
+    // `REAL#0.1` is float32's 0.1 if the prefix types it; lowering types a real literal by context, so into an LREAL it
+    // would be float64's 0.1 — the digits differ.
+    name: "typed_literal_real_prefix",
+    vars: "fromReal : LREAL; fromLreal : LREAL; untyped : LREAL;",
+    body: "fromReal := REAL#0.1; fromLreal := LREAL#0.1; untyped := 0.1;",
+  },
+  {
+    // All-constant arithmetic folds at full width when untyped (`constant_arithmetic_width`). With a type prefix on both
+    // operands — does it fold in that type (INT 30000 + 30000 wraps), or still at full width?
+    name: "typed_literal_constant_fold",
+    vars: "intSum : DINT; usintSum : INT; mixedSum : DINT;",
+    body: "intSum := INT#30000 + INT#30000; usintSum := USINT#200 + USINT#100; mixedSum := INT#30000 + 30000;",
+  },
+
   // ── transpiler review 2026-09-14: two suspected bugs, recorded before any fix — neither is one ──
   // An untyped literal out of its target's range was suspected to reach the emitter as `300u8`, which rustc rejects. It
   // cannot: CODESYS does not compile it (the transpiler's input contract), while a negative literal into USINT wraps.

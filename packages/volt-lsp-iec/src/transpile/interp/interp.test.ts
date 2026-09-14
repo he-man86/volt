@@ -479,6 +479,14 @@ END_PROGRAM
     expect(pou.get("ok")).toBe(false)
   })
 
+  test("a REAL-prefixed literal is float32 even stored into an LREAL — the prefix decides, not the context", () => {
+    // Lowering typed every real literal by its context, so `REAL#0.1` into an LREAL was float64's 0.1 (test/exec
+    // `typed_literal_real_prefix` recorded float32's).
+    const pou = load("PROGRAM P\nVAR fromReal : LREAL; fromLreal : LREAL; init : LREAL := REAL#0.1; END_VAR\nfromReal := REAL#0.1; fromLreal := LREAL#0.1;\nEND_PROGRAM\n")
+    pou.scan()
+    expect([pou.get("fromReal"), pou.get("fromLreal"), pou.get("init")]).toEqual([Math.fround(0.1), 0.1, Math.fround(0.1)])
+  })
+
   test("a value set from outside is stored as the slot's type holds it", () => {
     // `set` wrote the raw value, so a test could plant 300 in a SINT — a value no program on the PLC can produce
     const pou = load("PROGRAM P\nVAR si : SINT; r : REAL; five : STRING(5); END_VAR\nsi := si;\nEND_PROGRAM\n")

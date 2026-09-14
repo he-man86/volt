@@ -142,7 +142,7 @@ class Lowering {
         // Left as-is, a REAL slot started life holding a bigint.
         // `constEval` folds only numbers and booleans — a duration or date literal came back undefined, so every
         // `t : TIME := T#1S` / `d : DATE := D#…` slot silently started at 0. They fold here, in their type's unit.
-        const temporal = decl.init?.kind === "literal" ? (durationOf(decl.init) ?? calendarOf(decl.init)) : undefined
+        const temporal = decl.init?.kind === "literal" ? (durationOf(decl.init) ?? calendarOf(decl.init) ?? typedRealOf(decl.init)) : undefined
         // `constEval` does not fold strings either: every `s : STRING := 'abc'` started empty (test/exec `string_*`).
         const text = decl.init?.kind === "literal" && typeof decl.init.value === "string" ? this.text(decl.init) : undefined
         if (text === null) continue
@@ -254,8 +254,8 @@ class Lowering {
       case "literal": {
         const v = e.value
         if (v === undefined) return this.bail("bad-literal", `malformed literal ${e.text}`, e.span)
-        const temporal = durationOf(e) ?? calendarOf(e)
-        if (temporal !== undefined) return { kind: "const", value: temporal.value, type: temporal.type, span: e.span }
+        const typed = durationOf(e) ?? calendarOf(e) ?? typedRealOf(e)
+        if (typed !== undefined) return { kind: "const", value: typed.value, type: typed.type, span: e.span }
         if (typeof v === "string") {
           const text = this.text(e)
           if (text === null) return undefined
@@ -881,6 +881,21 @@ function calendarOf(e: Extract<Expr, { kind: "literal" }>): { value: bigint; typ
   const typeName = e.literalKind === "date" ? "DATE" : e.literalKind === "datetime" ? "DT" : "TOD"
   if (long) return { value: ns, type: named(`L${typeName}`) }
   return { value: ns / (e.literalKind === "tod" ? 1_000_000n : 1_000_000_000n), type: named(typeName) }
+}
+
+/**
+ * A REAL- or LREAL-prefixed literal's value in its prefix type. The prefix decides, not the context: `lr := REAL#0.1`
+ * stores float32's 0.1 (0.10000000149011612), where `LREAL#0.1` and an untyped `0.1` store float64's (test/exec
+ * `typed_literal_real_prefix`). Lowering used to type every real literal by its context. An INTEGER prefix changed
+ * nothing measured — `INT#30000 + INT#30000` still folds at full width (`typed_literal_constant_fold`) — so it keeps the
+ * untyped path.
+ */
+function typedRealOf(e: Extract<Expr, { kind: "literal" }>): { value: number; type: Type } | undefined {
+  if (e.literalKind !== "typed" || typeof e.value !== "number") return undefined
+  const type = named(e.prefix ?? "")
+  const real = elem(type)
+  if (real?.family !== "real") return undefined
+  return { value: real.bits === 32 ? Math.fround(e.value) : e.value, type }
 }
 
 /** Nanoseconds per unit of each duration and date type — the one table the calendar arithmetic scales by. */
