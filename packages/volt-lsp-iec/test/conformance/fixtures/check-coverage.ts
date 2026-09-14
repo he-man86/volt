@@ -53,6 +53,47 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
   fb("cc_fp_ptr_deref", "valid pointer dereference → accepted", "p : POINTER TO INT; x : INT;", "x := p^;"),
   fb("cc_fp_word_to_int", "WORD→INT assignment → conversion warning, NOT an error", "x : INT; w : WORD;", "x := w;"),
 
+  // ── unify-conformance-suite §5.2: the execution programs' build warnings carry no line, so a program with several
+  //    mixed expressions cannot say which one warned. One expression each. ──
+  //    (`r` and `s` are not usable names — the IL operators R and S are reserved.)
+  fb("cc_bitwise_sint_and_literal", "SINT AND an untyped literal that only an unsigned type holds", "sn : SINT := -1; res : INT;", "res := sn AND 255;"),
+  fb("cc_bitwise_usint_xor_literal", "USINT XOR a small untyped literal", "un : USINT := 255; res : DINT;", "res := un XOR 1;"),
+  fb("cc_bitwise_sint_and_usint", "SINT AND USINT, two variables", "sn : SINT; un : USINT; res : INT;", "res := sn AND un;"),
+  fb("cc_max_usint_sint", "MAX of a USINT and a SINT", "un : USINT; sn : SINT; res : INT;", "res := MAX(un, sn);"),
+  fb("cc_max_uint_int", "MAX of a UINT and an INT", "un : UINT; si : INT; res : DINT;", "res := MAX(un, si);"),
+  fb("cc_add_usint_sint", "USINT + SINT", "un : USINT; sn : SINT; res : INT;", "res := un + sn;"),
+  fb("cc_add_uint_int", "UINT + INT", "un : UINT; si : INT; res : DINT;", "res := un + si;"),
+  fb("cc_typed_fold_usint", "USINT#200 + USINT#100 into an INT", "res : INT;", "res := USINT#200 + USINT#100;"),
+  fb("cc_typed_fold_int", "INT#30000 + INT#30000 into a DINT", "res : DINT;", "res := INT#30000 + INT#30000;"),
+  fb("cc_typed_fold_int_untyped", "INT#30000 + 30000 into a DINT", "res : DINT;", "res := INT#30000 + 30000;"),
+  fb("cc_not_sint_into_int", "NOT of a SINT into an INT", "sn : SINT := -1; res : INT;", "res := NOT sn;"),
+  fb("cc_not_usint_into_dint", "NOT of a USINT into a DINT", "un : USINT := 255; res : DINT;", "res := NOT un;"),
+  fb("cc_bitwise_int_and_uint", "INT AND UINT", "si : INT; un : UINT; res : DINT;", "res := si AND un;"),
+  fb("cc_bitwise_dint_and_udint", "DINT AND UDINT", "si : DINT; un : UDINT; res : LINT;", "res := si AND un;"),
+  fb("cc_bitwise_byte_and_sint", "BYTE AND SINT", "bv : BYTE; sn : SINT; res : INT;", "res := bv AND sn;"),
+  fb("cc_compare_uint_int", "UINT > INT", "un : UINT; si : INT; res : BOOL;", "res := un > si;"),
+  fb("cc_add_ulint_lint", "ULINT + LINT", "un : ULINT; si : LINT; res : LINT;", "res := un + si;"),
+  fb("cc_add_word_int", "WORD + INT", "wv : WORD; si : INT; res : DINT;", "res := wv + si;"),
+  fb("cc_max_udint_dint", "MAX of a UDINT and a DINT", "un : UDINT; si : DINT; res : LINT;", "res := MAX(un, si);"),
+  fb("cc_sub_udint_dint", "UDINT - DINT", "un : UDINT; si : DINT; res : LINT;", "res := un - si;"),
+  fb("cc_mul_udint_dint", "UDINT * DINT", "un : UDINT; si : DINT; res : LINT;", "res := un * si;"),
+  fb("cc_div_udint_dint", "UDINT / DINT", "un : UDINT; si : DINT; res : LINT;", "res := un / si;"),
+  fb("cc_mod_udint_dint", "UDINT MOD DINT", "un : UDINT; si : DINT; res : LINT;", "res := un MOD si;"),
+  fb("cc_or_int_uint", "INT OR UINT", "si : INT; un : UINT; res : DINT;", "res := si OR un;"),
+  fb("cc_xor_int_uint", "INT XOR UINT", "si : INT; un : UINT; res : DINT;", "res := si XOR un;"),
+  fb("cc_ne_udint_dint", "UDINT <> DINT", "un : UDINT; si : DINT; res : BOOL;", "res := un <> si;"),
+  fb("cc_le_udint_dint", "UDINT <= DINT", "un : UDINT; si : DINT; res : BOOL;", "res := un <= si;"),
+  fb("cc_ge_udint_dint", "UDINT >= DINT", "un : UDINT; si : DINT; res : BOOL;", "res := un >= si;"),
+  fb("cc_not_int_into_dint", "NOT of an INT into a DINT", "si : INT; res : DINT;", "res := NOT si;"),
+  fb("cc_typed_fold_int_into_int", "INT#30000 + INT#30000 into an INT", "res : INT;", "res := INT#30000 + INT#30000;"),
+  fb("cc_typed_fold_sint_into_int", "SINT#100 + SINT#100 into an INT", "res : INT;", "res := SINT#100 + SINT#100;"),
+  fb("cc_typed_fold_usint_fits", "USINT#1 + USINT#2 into an INT", "res : INT;", "res := USINT#1 + USINT#2;"),
+  fb("cc_real_init_max", "the largest REAL written as a literal", "rv : REAL := 3.4028235E38;"),
+  fb("cc_real_init_tiny", "a tiny REAL literal", "rv : REAL := 2.5E-10;"),
+  fb("cc_real_init_sci_fraction", "1.5E8 into a REAL", "rv : REAL := 1.5E8;"),
+  fb("cc_wstring_init_too_long_7", "an over-long WSTRING(7) initializer — which prefix is printed?", 'w : WSTRING(7) := "abcdefghij";'),
+  fb("cc_wstring_init_too_long_2", "an over-long WSTRING(2) initializer", 'w : WSTRING(2) := "abc";'),
+
   // ── network text (graphical) checks — canonical FBD/LD bodies (2-space indent); the recorder pushes them as real
   //    graphical POUs. Library types skip the LSP member/pin checks, so unknown-member/pin use a PROJECT type. ──
   {

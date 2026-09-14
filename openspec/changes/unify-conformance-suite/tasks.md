@@ -49,9 +49,17 @@
 
 ## 5. Build-record the programs
 
-- [ ] 5.1 Build-record the program cases on CODESYS through the bridge (`RECORD_ONLY` over the execution category).
-- [ ] 5.2 Every new LSP false positive or missed error: fix, colocated src test, why missed — each its own commit. Raise
-      the CODESYS agreement floor.
+- [x] 5.1 Build-record the program cases on CODESYS through the bridge (`RECORD_ONLY` over the execution category).
+      DONE 2026-09-14: 117 recorded, no false positive, agreement 354 → 460.
+- [x] 5.2 Every new LSP false positive or missed error: fix, colocated src test, why missed — each its own commit. Raise
+      the CODESYS agreement floor. DONE 2026-09-14: 11 misses. The build warnings carry no line, so 37 one-expression
+      `cc_*` probes pinned each rule first; fixed: an operator's same-width sign change (arithmetic → signed, bit
+      operations → unsigned, comparisons only from 32 bits), a chained assignment's inner store, an over-long WSTRING,
+      a REAL literal beyond REAL, a typed literal sum. Agreement 460 → 503. OPEN, not fixed: `power_operator_rejected`
+      and `ampersand_operator_rejected` — the compiler resumes after the bad token and reports the rest of the line
+      again (a parse-recovery cascade); and an FB's over-long initializer, which the build reports TWICE — as it does
+      for every STRING one already recorded.
 - [ ] 5.3 TwinCAT build pass for the program cases when the TwinCAT worker is available; the replay tolerates unrecorded
       cases until then.
-- [ ] 5.4 A case the bridge and the simulator disagree on (compiles in one only) is written into design §6 as a finding.
+- [x] 5.4 A case the bridge and the simulator disagree on (compiles in one only) is written into design §6 as a finding.
+      DONE 2026-09-14: none — design §6.

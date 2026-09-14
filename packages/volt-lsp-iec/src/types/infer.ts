@@ -296,6 +296,10 @@ function staticScopeType(project: Scope, name: string): Type | undefined {
 export function literalCheckType(value: Expr, target: Type): Type | undefined {
   const negated = value.kind === "unary" && value.op === "-"
   const lit = negated ? value.operand : value
+  // A real literal beyond REAL's largest value is an LREAL: `rv : REAL := 3.4028235E38` warns LREAL → REAL, `1.5E8` and
+  // `2.5E-10` do not (conformance `cc_real_init_max`, `_sci_fraction`, `_tiny`). A literal too small for a REAL is unmeasured.
+  if (lit.kind === "literal" && typeof lit.value === "number" && target.kind === "elementary" && target.elem.family === "real")
+    return target.elem.bits === 32 && Math.abs(lit.value) > 3.4028234663852886e38 ? elementaryRef("LREAL") : undefined
   if (lit.kind !== "literal" || lit.literalKind !== "int" || typeof lit.value !== "bigint") return undefined
   const family = target.kind === "elementary" ? target.elem.family : undefined
   const range = target.kind === "elementary" && (family === "int" || family === "bitstring") ? target.elem.range : undefined
@@ -383,10 +387,29 @@ function binaryResultType(e: BinaryExpr, scope: Scope, project: Scope): Type {
   if (l.kind === "elementary" && r.kind === "elementary") {
     const temporal = e.op === "+" || e.op === "-" ? temporalResultType(e.op, l.name, r.name) : undefined
     if (temporal !== undefined) return elementaryRef(temporal)
+    const folded = e.op === "+" ? typedLiteralSum(e, l, r) : undefined
+    if (folded !== undefined) return folded
     // Conservative: commit only when both operands are the same elementary type.
     if (canonicalElem(l.name) === canonicalElem(r.name)) return l
   }
   return UNKNOWN
+}
+
+/**
+ * A `+` of two integer literals typed alike folds into the narrowest type of their signedness, from their width up, that
+ * holds the sum (conformance `cc_typed_fold_*`, `typed_literal_constant_fold`): USINT#200 + USINT#100 is UINT (a change of
+ * sign into INT), INT#30000 + INT#30000 is DINT ("Cannot convert type 'DINT' to type 'INT'"), SINT#100 + SINT#100 is INT
+ * and USINT#1 + USINT#2 stays USINT. Other operators, bit strings and a typed-plus-untyped pair are unmeasured.
+ */
+function typedLiteralSum(e: BinaryExpr, l: Type, r: Type): Type | undefined {
+  const { left, right } = e
+  if (left.kind !== "literal" || right.kind !== "literal" || left.literalKind !== "typed" || right.literalKind !== "typed") return undefined
+  if (typeof left.value !== "bigint" || typeof right.value !== "bigint") return undefined
+  if (l.kind !== "elementary" || r.kind !== "elementary" || l.elem.family !== "int" || canonicalElem(l.name) !== canonicalElem(r.name)) return undefined
+  const sum = left.value + right.value
+  const order = l.elem.signed === true ? ["SINT", "INT", "DINT", "LINT"] : ["USINT", "UINT", "UDINT", "ULINT"]
+  const fits = order.map((name) => elementaryType(name)!).find((t) => t.bits >= l.elem.bits && sum >= t.range!.min && sum <= t.range!.max)
+  return fits === undefined ? undefined : elementaryRef(fits.name)
 }
 
 /**

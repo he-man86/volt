@@ -17,6 +17,44 @@ const conv = (decls: string, body: string, vendor: Vendor = "codesys") => {
   )
 }
 
+test("each `:=` link of a chained assignment is its own store — the inner narrowing warns", () => {
+  // Why missed: the check paired only the outer target with the final value; chains arrived with the execution programs
+  // (conformance `assign_chained_plain`: `outL := midR := srcL` warns LREAL → REAL once).
+  const diags = conv("x : INT; y : INT; z : INT; srcL : LREAL; midR : REAL; outL : LREAL;", "x := y := z;\noutL := midR := srcL;")
+  expect(diags.map((d) => d.message)).toEqual(["Implicit conversion from 'LREAL' to 'REAL': Possible loss of information"])
+})
+
+test("a same-width signed/unsigned pair warns on the operand the operation converts", () => {
+  // Why missed: only assignments, conversion arguments and unary minus were walked — never an operator's operands. The
+  // execution programs mixed signs inside expressions, and their builds warned where the LSP was silent (conformance
+  // `cc_add_*`, `cc_bitwise_*`, `cc_not_*`, `cc_max_*`, `cc_*_udint_dint`, `cc_compare_uint_int`).
+  const msgs = conv(
+    "wv : WORD; si : INT; bv : BYTE; sn : SINT; un : UINT; ud : UDINT; di : DINT; res : DINT; ok : BOOL;",
+    "res := wv + si;\nres := bv AND sn;\nres := NOT sn;\nres := MAX(ud, di);\nok := ud <= di;\nok := un > si;\nres := un XOR 1;\nres := sn AND 255;",
+  ).map((d) => d.message)
+  expect(msgs).toEqual([
+    "Implicit conversion from unsigned Type 'WORD' to signed Type 'INT' : Possible change of sign",
+    "Implicit conversion from signed Type 'SINT' to unsigned Type 'USINT' : Possible change of sign",
+    "Implicit conversion from signed Type 'SINT' to unsigned Type 'USINT' : Possible change of sign",
+    "Implicit conversion from unsigned Type 'UDINT' to signed Type 'DINT' : Possible change of sign",
+    "Implicit conversion from unsigned Type 'UDINT' to signed Type 'DINT' : Possible change of sign",
+    "Implicit conversion from signed Type 'SINT' to unsigned Type 'USINT' : Possible change of sign",
+  ])
+})
+
+test("a REAL literal beyond REAL's range is an LREAL — the only real literal that warns into a REAL", () => {
+  // Why missed: a literal's warning type was measured for integers only (conformance `cc_real_init_max`, `_tiny`,
+  // `_sci_fraction`; `real_to_string_digits`).
+  const msgs = conv("big : REAL := 3.4028235E38; mid : REAL := 1.5E8; tiny : REAL := 2.5E-10;", "").map((d) => d.message)
+  expect(msgs).toEqual(["Implicit conversion from 'LREAL' to 'REAL': Possible loss of information"])
+})
+
+test("a typed literal sum folds into the narrowest type of its signedness that holds it", () => {
+  // Why missed: inference typed `USINT#200 + USINT#100` as USINT, its operands' type (conformance `cc_typed_fold_*`).
+  const msgs = conv("i : INT; d : DINT;", "i := USINT#200 + USINT#100;\ni := SINT#100 + SINT#100;\ni := USINT#1 + USINT#2;\nd := INT#30000 + INT#30000;")
+  expect(msgs.map((d) => d.message)).toEqual(["Implicit conversion from unsigned Type 'UINT' to signed Type 'INT' : Possible change of sign"])
+})
+
 test("an enum value into an unsigned type warns change of sign as a signed INT would — it was never typed here", () => {
   // The warning typed the value by inference alone, which gives an enum VALUE no type (conformance `cc_enum_into_uint`,
   // `cc_enum_into_dword`; into DINT silent, `cc_enum_into_dint`).
