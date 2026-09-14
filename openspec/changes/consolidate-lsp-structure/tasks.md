@@ -110,8 +110,10 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       type, so `F(E.Busy)` into a SINT input was silent (CODESYS: an error; into UINT a change of sign); and comparison
       matched enum names case-sensitively. CODESYS compares two enum VALUES of different types silently — only
       variables warn C0354, names upper-cased — so the check now tells a value from a variable (`isEnumValueRef`).
-- [ ] B7 Rendering: `typeToTypeExpr` (for A11), `memberScopeOf` (completion.ts:87 = infer scopeOf); compiler-exact type
-      text (`comparison.ts:65`, `subrange.ts:35`, `assignment.ts:78`) into `analysis/messages`.
+- [x] B7 Rendering: `typeToTypeExpr` (for A11), `memberScopeOf` (completion.ts:87 = infer scopeOf); compiler-exact type
+      text (`comparison.ts:65`, `subrange.ts:35`, `assignment.ts:78`) into `analysis/messages`. DONE 2026-09-14:
+      `types/resolve.typeToTypeExpr` (was network `synthTypeExpr`), `infer.memberScopeOf`, and `compilerTypeName`,
+      `compilerArrayText`, `compilerSubrangeText`, `compilerStringLiteralText` in `analysis/messages`.
 - [x] B8 `defaultValueOf(type)` into `transpile/ir` (interp `defaultOf` = emit `defaultLiteral`). DONE 2026-09-14: lowering
       stamps every slot's `init` (the type's zero when none is written), so neither backend picks a default. The emitter's
       copy printed `IecStr::new()` for every string, a STRING for a WSTRING field; test `emit.test.ts`.

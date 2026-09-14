@@ -86,7 +86,7 @@ export function resolveMemberChain(expr: Expr, scope: Scope, project: Scope): Sy
       const gvlMember = resolveGvlMember(expr, scope, project)
       if (gvlMember !== undefined) return gvlMember
       const base = inferExprType(expr.base, scope, project)
-      const memberScope = scopeOf(base)
+      const memberScope = memberScopeOf(base)
       return memberScope !== undefined ? lookupLocal(memberScope, expr.member.name)[0] : undefined
     }
     case "paren":
@@ -208,8 +208,8 @@ function calleeInfo(
   return { sym, params, positional, positionalArity: positional.length, paramNames, scope, complete }
 }
 
-/** The member scope of a scoped type (enum/struct/FB), or undefined. */
-function scopeOf(t: Type): Scope | undefined {
+/** The member scope of a scoped type (enum, struct, FB, interface), or undefined. Completion kept a copy. */
+export function memberScopeOf(t: Type): Scope | undefined {
   return t.kind === "enum" || t.kind === "struct" || t.kind === "function_block" || t.kind === "interface" ? t.scope : undefined
 }
 

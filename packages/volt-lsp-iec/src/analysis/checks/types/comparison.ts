@@ -10,19 +10,10 @@
  * fire when either operand is an array, rendering the CODESYS-exact `ARRAY [lo..hi]` form; a non-foldable bound
  * skips (zero-FP). Struct/FB/pointer/unknown operands are still undecidable → skipped.
  */
-import {
-  classifyConversion,
-  constEval,
-  inferExprType,
-  isEnumValueRef,
-  isSameType,
-  renderType,
-  type ArrayTypeInfo,
-  type Type,
-} from "../../../types/index.js"
-import type { Scope } from "../../../symbols/index.js"
+import { classifyConversion, inferExprType, isEnumValueRef, isSameType, type Type } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { compilerTypeName, forEachExpr, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { compilerArrayText, compilerTypeName } from "../../messages.js"
+import { forEachExpr, SOURCE, type DiagnosticItem } from "../_shared.js"
 
 const CMP_OPS = new Set(["<", ">", "<=", ">=", "=", "<>"])
 
@@ -37,8 +28,8 @@ export function checkComparison(ctx: CheckContext, out: DiagnosticItem[]): void 
 
     // C0068 / C0069 — an array operand.
     if (left.kind === "array" || right.kind === "array") {
-      const ls = left.kind === "array" ? renderArray(left, scope) : undefined
-      const rs = right.kind === "array" ? renderArray(right, scope) : undefined
+      const ls = left.kind === "array" ? compilerArrayText(left, scope) : undefined
+      const rs = right.kind === "array" ? compilerArrayText(right, scope) : undefined
       if (left.kind === "array" && right.kind === "array") {
         if (ls === undefined || rs === undefined) return
         if (ls === rs) push("compare-array", ctx.messages.compareNotPossible(ls))
@@ -73,17 +64,4 @@ export function checkComparison(ctx: CheckContext, out: DiagnosticItem[]): void 
 /** The name to render for an operand type, or undefined for undecidable (composite / unknown) types. */
 function namedType(t: Type): string | undefined {
   return t.kind === "elementary" || t.kind === "enum" ? t.name : undefined
-}
-
-/** The compiler-exact `ARRAY [lo..hi] OF <elem>` render (CODESYS-verified), or undefined if a bound doesn't fold. */
-function renderArray(t: ArrayTypeInfo, scope: Scope): string | undefined {
-  const parts: string[] = []
-  for (const d of t.dims) {
-    if (d.lower === undefined || d.upper === undefined) return undefined
-    const lo = constEval(d.lower, scope)
-    const hi = constEval(d.upper, scope)
-    if (typeof lo !== "bigint" || typeof hi !== "bigint") return undefined
-    parts.push(`${lo}..${hi}`)
-  }
-  return `ARRAY [${parts.join(",")}] OF ${renderType(t.element)}`
 }

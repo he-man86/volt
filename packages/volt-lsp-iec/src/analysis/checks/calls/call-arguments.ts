@@ -29,7 +29,8 @@ import {
   type CalleeInfo,
 } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { checkable, checkableType, compilerTypeName, conversionWarning, isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { compilerTypeName } from "../../messages.js"
+import { checkable, checkableType, conversionWarning, isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkCallArguments(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {

@@ -5,7 +5,7 @@
  */
 import type { Scope } from "../symbols/index.js"
 import { findChildScope, isLibrarySymbol, lookupLocal } from "../symbols/index.js"
-import type { TypeDecl, TypeExpr } from "../syntax/index.js"
+import type { Span, TypeDecl, TypeExpr } from "../syntax/index.js"
 import { constEval } from "./const-eval.js"
 import { elementaryType } from "./elementary.js"
 import { elementaryRef, elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
@@ -33,6 +33,42 @@ export function resolveTypeExpr(t: TypeExpr, project: Scope, depth = 0): Type {
       return { kind: "pointer", target: resolveTypeExpr(t.target, project, depth + 1) }
     case "reference_type":
       return { kind: "reference", target: resolveTypeExpr(t.target, project, depth + 1) }
+  }
+}
+
+/**
+ * The inverse of `resolveTypeExpr`: a TypeExpr that resolves back to exactly `t`, placed at `span` — for a type that
+ * has no declaration of its own, like a network wire inferred from its producer. It lived in the network analysis as
+ * `synthTypeExpr`, which once emitted a bare name only: a string's length and an array, pointer or reference wire's
+ * structure were lost (consolidate-lsp-structure A11). An interface or unknown type has no TypeExpr here.
+ */
+export function typeToTypeExpr(t: Type, span: Span): TypeExpr | undefined {
+  const named = (text: string): TypeExpr => ({ kind: "named_type", name: { kind: "identifier", text, span }, span })
+  switch (t.kind) {
+    case "elementary":
+      if (t.elem.family !== "string" || t.length === undefined) return named(t.name)
+      return {
+        kind: "string_type",
+        wide: t.name === "WSTRING",
+        length: { kind: "literal", literalKind: "int", text: String(t.length), value: BigInt(t.length), span },
+        span,
+      }
+    case "enum":
+    case "struct":
+    case "function_block":
+      return named(t.name)
+    case "array": {
+      const element = typeToTypeExpr(t.element, span)
+      return element === undefined ? undefined : { kind: "array_type", dims: [...t.dims], element, span }
+    }
+    case "pointer":
+    case "reference": {
+      const target = typeToTypeExpr(t.target, span)
+      if (target === undefined) return undefined
+      return t.kind === "pointer" ? { kind: "pointer_type", target, span } : { kind: "reference_type", target, span }
+    }
+    default:
+      return undefined
   }
 }
 

@@ -10,6 +10,7 @@
 import { scopeForUnit } from "../../../symbols/index.js"
 import { constEval } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
+import { compilerSubrangeText } from "../../messages.js"
 import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkSubrange(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -31,8 +32,7 @@ export function checkSubrange(ctx: CheckContext, out: DiagnosticItem[]): void {
           span: decl.init.span,
           source: SOURCE,
           code: "subrange-out-of-range",
-          // The compilers render the target as `<BASE> (<lo>..<hi>)` (space before the paren, base type name).
-          message: ctx.messages.cannotConvert(value.toString(), `${decl.type.name.text} (${lo}..${hi})`),
+          message: ctx.messages.cannotConvert(value.toString(), compilerSubrangeText(decl.type.name.text, lo, hi)),
         })
       }
     }

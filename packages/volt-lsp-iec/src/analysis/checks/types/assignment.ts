@@ -7,9 +7,9 @@
 import { decodeStringLiteral, walkStatements, type Expr, type Span } from "../../../syntax/index.js"
 import { bodies, type Scope } from "../../../symbols/index.js"
 import { isAssignable, literalErrorType, resolveTypeExpr, type Type } from "../../../types/index.js"
-import type { Messages } from "../../messages.js"
+import { compilerStringLiteralText, compilerTypeName, type Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { checkable, checkableType, compilerTypeName, forEachDecl, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { checkable, checkableType, forEachDecl, SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -75,7 +75,7 @@ function rhsDisplay(value: Expr, rhs: Type): string | undefined {
   if (value.kind === "literal" && (value.literalKind === "string" || value.literalKind === "wstring")) {
     const wide = value.literalKind === "wstring"
     const decoded = decodeStringLiteral(value.value as string, wide)
-    return decoded === undefined ? undefined : `${wide ? "WSTRING" : "STRING"}(INT#${decoded.length})`
+    return decoded === undefined ? undefined : compilerStringLiteralText(decoded.length, wide)
   }
   return compilerTypeName(rhs)
 }

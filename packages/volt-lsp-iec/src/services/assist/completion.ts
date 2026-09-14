@@ -9,7 +9,7 @@
  */
 import { CompletionItemKind, type CompletionItem } from "vscode-languageserver-protocol"
 import { findChildScope, lookup, type Scope, type Symbol, type SymbolKind } from "../../symbols/index.js"
-import { resolveTypeExpr, type Type } from "../../types/index.js"
+import { memberScopeOf, resolveTypeExpr } from "../../types/index.js"
 import { KNOWN_ATTRIBUTE_NAMES, pragmaHelp } from "../../reference/index.js"
 import { humanKind, scopeAtOffset, type Document } from "../shared/index.js"
 
@@ -70,7 +70,7 @@ function memberCompletions(base: string, scope: Scope, project: Scope): Completi
     return items
   }
   let memberScope: Scope | undefined
-  if (sym?.typeExpr !== undefined) memberScope = scopeOfType(resolveTypeExpr(sym.typeExpr, project))
+  if (sym?.typeExpr !== undefined) memberScope = memberScopeOf(resolveTypeExpr(sym.typeExpr, project))
   memberScope ??= findChildScope(project, base) // static: an enum/namespace/type/FB name
   if (memberScope === undefined) return []
 
@@ -82,10 +82,6 @@ function memberCompletions(base: string, scope: Scope, project: Scope): Completi
     }
   }
   return items
-}
-
-function scopeOfType(t: Type): Scope | undefined {
-  return t.kind === "enum" || t.kind === "struct" || t.kind === "function_block" || t.kind === "interface" ? t.scope : undefined
 }
 
 function scopeCompletions(scope: Scope): CompletionItem[] {

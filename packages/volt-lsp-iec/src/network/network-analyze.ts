@@ -15,8 +15,8 @@ import {
   type Scope,
   type Symbol as StSymbol,
 } from "../symbols/index.js"
-import { inferExprType, type Type } from "../types/index.js"
-import type { BodySpan, Span, TopLevel, TypeExpr } from "../syntax/index.js"
+import { inferExprType, typeToTypeExpr } from "../types/index.js"
+import type { BodySpan, TopLevel } from "../syntax/index.js"
 import { parseNetworkText } from "./text/parser.js"
 import type { NetworkTextBody, NetworkTextNetwork, NetworkTextStatement, NetworkWireDef } from "./text/ast.js"
 
@@ -41,7 +41,7 @@ export function analyzeNetworkText(unit: TopLevel, body: BodySpan, project: Scop
     for (const wire of wireDefs(network.statements)) {
       // Infer against the scope so far — real vars + wires already defined above this one.
       const t = wire.producer !== undefined ? inferExprType(wire.producer, scope, project) : undefined
-      const typeExpr = t !== undefined ? synthTypeExpr(t, wire.name.span) : undefined
+      const typeExpr = t !== undefined ? typeToTypeExpr(t, wire.name.span) : undefined
       const sym: StSymbol = {
         kind: "var",
         name: wire.name.text,
@@ -72,40 +72,5 @@ export function* wireDefs(statements: readonly NetworkTextStatement[]): Generato
   for (const s of statements) {
     if (s.kind === "wire_def") yield s
     else if (s.kind === "en_eno_if") yield* wireDefs(s.body)
-  }
-}
-
-/**
- * A TypeExpr for an inferred wire type, so the shared `resolveTypeExpr` re-derives exactly that type. It used to emit a
- * bare name only, which dropped a string's declared length (`STRING(10)` came back as STRING) and gave an array, pointer
- * or reference wire no type at all (consolidate-lsp-structure A11). An interface or unknown type still skips.
- */
-function synthTypeExpr(t: Type, span: Span): TypeExpr | undefined {
-  const named = (text: string): TypeExpr => ({ kind: "named_type", name: { kind: "identifier", text, span }, span })
-  switch (t.kind) {
-    case "elementary":
-      if (t.elem.family !== "string" || t.length === undefined) return named(t.name)
-      return {
-        kind: "string_type",
-        wide: t.name === "WSTRING",
-        length: { kind: "literal", literalKind: "int", text: String(t.length), value: BigInt(t.length), span },
-        span,
-      }
-    case "enum":
-    case "struct":
-    case "function_block":
-      return named(t.name)
-    case "array": {
-      const element = synthTypeExpr(t.element, span)
-      return element === undefined ? undefined : { kind: "array_type", dims: [...t.dims], element, span }
-    }
-    case "pointer":
-    case "reference": {
-      const target = synthTypeExpr(t.target, span)
-      if (target === undefined) return undefined
-      return t.kind === "pointer" ? { kind: "pointer_type", target, span } : { kind: "reference_type", target, span }
-    }
-    default:
-      return undefined
   }
 }

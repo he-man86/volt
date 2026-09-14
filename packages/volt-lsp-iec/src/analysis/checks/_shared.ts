@@ -5,8 +5,8 @@
  */
 import { walkAllExprs, walkExpr, type Expr, type ParseResult, type Span } from "../../syntax/index.js"
 import { bodies, scopeForUnit, type Scope } from "../../symbols/index.js"
-import { classifyConversion, elemOf, inferExprType, renderType, type Type } from "../../types/index.js"
-import type { Messages } from "../messages.js"
+import { classifyConversion, elemOf, inferExprType, type Type } from "../../types/index.js"
+import { compilerTypeName, type Messages } from "../messages.js"
 
 export interface DiagnosticItem {
   severity: "error" | "warning" | "information" | "hint"
@@ -66,15 +66,6 @@ export function checkable(t: Type): Type | undefined {
  */
 export function checkableType(expr: Expr, scope: Scope, project: Scope): Type | undefined {
   return checkable(inferExprType(expr, scope, project))
-}
-
-/**
- * A type as the COMPILER prints it in a conversion message. An enum's name is upper-cased — `DUT_LANG_cc_enum_byte` is
- * "Cannot convert type 'DUT_LANG_CC_ENUM_BYTE' to type 'BYTE'" (conformance `cc_enum_into_*`); `renderType` keeps the
- * declared spelling, which hover wants.
- */
-export function compilerTypeName(t: Type): string {
-  return t.kind === "enum" ? t.name.toUpperCase() : renderType(t)
 }
 
 /**
