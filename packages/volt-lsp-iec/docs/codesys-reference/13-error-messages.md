@@ -47,7 +47,7 @@ notice. Concretely:
 
 1. **Catalog-driven coverage.** [`error-catalog.json`](./error-catalog.json) records every code with its exact
    message template(s), category, a minimal repro, and a coverage status (`covered` / `checkable` / `ide-only`).
-   `src/reference/error-codes.ts` wraps it. A `checkable` code with no check yet is a *visible, tracked* gap
+   `test/catalog/error-codes.ts` wraps it. A `checkable` code with no check yet is a *visible, tracked* gap
    (TRIAGE.md), not a silent absence.
 2. **Conformance-verified wording.** Any message we share with the compilers is verified byte-identical against how
    the live IDE actually builds (CODESYS / TwinCAT `/build`, which emits `Cnnnn: <message>`).
@@ -78,7 +78,7 @@ Exception: `C0454` is at `_cds_error_c0008-2040066.html`. Treat the URL in `_toc
 ## Notes for tooling
 
 **Landed** (via the `codesys-error-catalog-checks` change):
-- `src/reference/error-codes.ts` + [`error-catalog.json`](./error-catalog.json) — the structured catalog for every code (message, category, repro, coverage status), consumed by checks and the offline completeness test.
+- `test/catalog/error-codes.ts` + [`error-catalog.json`](./error-catalog.json) — the structured catalog for every code (message, category, repro, coverage status), consumed by checks and the offline completeness test.
 - ~104 catalog-sourced offline checks under `src/analysis/checks/**`, each conformance-verified (or `PROVISIONAL`) against the live IDE build.
 - [`TRIAGE.md`](./TRIAGE.md) — the per-code coverage map and the backlog of remaining `checkable` codes.
 

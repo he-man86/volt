@@ -161,7 +161,10 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       without a written base type: the corpus gate caught bakon-nano and pro2193 storing a LIBRARY enum into a WORD with
       no warning, for a reason not recorded (library enum, or those projects' warning settings).
       `types/compat` + `EnumType.base`; the narrowing warning now types an enum value (it was UNKNOWN there).
-      Open: test-only exports, `detectVendor`/`installCorpus`, `reference/error-codes.ts`.
+      Later the same day: `reference/error-codes.ts` and its burn-in test moved to `test/catalog/` (only that test and
+      `scripts/catalog-status.ts` read it). Open, for the user: `detectVendor` and `installCorpus` are exported from the
+      package entry but nothing in the repo calls them — a public-API decision, not dead code to delete unasked. Not done:
+      a sweep for exports only tests use needs a dead-export scanner; none is installed.
 - [ ] C9 Split monoliths: `lower.ts` (frame · expr · calls table · literals), `server.ts` `runServer`,
       `network-analysis.ts` → `network/checks/`; `interp` values module.
 - [ ] C10 Placement: `network/text` to a syntax-tier folder, `reference/error-code-map.ts` next to `analysis/config`,

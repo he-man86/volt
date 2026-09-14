@@ -14,7 +14,7 @@ Everything under `bun test` is **offline and deterministic** — no live IDE nee
 
 | I want to… | Look in | Layer |
 |---|---|---|
-| a **C-code** (a `Cnnnn` diagnostic) — is it emitted, with the right wording? | `src/reference/error-catalog.test.ts` (master net, one test per code) **+** the check's own `src/analysis/checks/**/*.test.ts` | Unit |
+| a **C-code** (a `Cnnnn` diagnostic) — is it emitted, with the right wording? | `test/catalog/error-catalog.test.ts` (master net, one test per code) **+** the check's own `src/analysis/checks/**/*.test.ts` | Unit |
 | check a C-code matches the **real CODESYS/TwinCAT** byte-for-byte | run `scripts/verify-catalog.ts` (live) → stamps `docs/codesys-reference/error-catalog.json`; view status with `scripts/catalog-status.ts` | Tooling |
 | a **language feature** — parse, resolve, hover, completion, signature, format, semantic tokens | colocated `src/syntax/`, `src/symbols/`, `src/services/**/*.test.ts` | Unit |
 | a **graphical (network-text)** body | `src/network/*.test.ts` | Unit |
@@ -64,7 +64,7 @@ The CODESYS `Cnnnn` catalog is data in `docs/codesys-reference/`, turned into te
 ```
 error-catalog.json  ── master checklist (status/ourCode/repro/verified per code)
    │
-   ├─▶ src/reference/error-catalog.test.ts   one test per code: implemented→burn-in, checkable→todo, ide-only→skip
+   ├─▶ test/catalog/error-catalog.test.ts   one test per code: implemented→burn-in, checkable→todo, ide-only→skip
    ├─▶ scripts/verify-catalog.ts  (live)     build each repro on CODESYS/TC, confirm LSP wording ⊆ IDE → verified flags
    ├─▶ scripts/catalog-status.ts  (offline)  render the status matrix (LSP / CS / TC)
    └─▶ compiler-warnings-coverage.md         the dialog's 66 configurable codes + Volt's coverage/gaps

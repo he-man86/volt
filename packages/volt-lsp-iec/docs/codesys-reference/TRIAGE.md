@@ -2,7 +2,7 @@
 
 Which of the 220 documented `Cnnnn` codes the LSP can check **offline** (its whole job), and what each still needs.
 This is the map that keeps catalog work batched-by-tier instead of code-by-code (see `error-catalog.json`,
-`src/reference/error-codes.ts`, and the burn-in `error-catalog.test.ts`).
+`test/catalog/error-codes.ts`, and the burn-in `error-catalog.test.ts`).
 
 Regenerate the tier split, the "already matches" scan, and corpus false-positives with:
 

@@ -9,7 +9,7 @@
  *   bun scripts/catalog-status.ts --unverified    # implemented but NOT yet verified on codesys
  *   bun scripts/catalog-status.ts --our           # only rows that map to one of our checks
  */
-import { errorCatalog } from "../src/reference/error-codes.js"
+import { errorCatalog } from "../test/catalog/error-codes.js"
 
 const arg = process.argv[2]
 const onlyUnverified = process.argv.includes("--unverified")
