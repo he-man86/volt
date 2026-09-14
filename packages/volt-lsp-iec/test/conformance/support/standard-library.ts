@@ -5,7 +5,7 @@
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
-const STANDARD = join(import.meta.dir, "..", "..", "test-corpus", "CodesysTestProject", "Device", "Plc Logic", "Application", "Library Manager", "Standard")
+const STANDARD = join(import.meta.dir, "..", "..", "..", "test-corpus", "CodesysTestProject", "Device", "Plc Logic", "Application", "Library Manager", "Standard")
 
 export const STANDARD_LIBRARY: readonly { uri: string; source: string }[] = readdirSync(STANDARD)
   .filter((f) => f.endsWith(".fun"))

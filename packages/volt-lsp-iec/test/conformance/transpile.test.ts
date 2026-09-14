@@ -1,7 +1,7 @@
 /**
  * Differential execution — `interp/` vs CODESYS itself (transpile-st-to-rust, design §7: the oracle).
  *
- * Every case in cases.ts was run in CODESYS 3.5.21.40's simulator by `bun run record:exec`; this replays that
+ * Every case in fixtures/execution.ts was run in CODESYS 3.5.21.40's simulator by `bun run record:exec`; this replays that
  * recording offline and runs the same program through the interpreter. Every variable must be EQUAL. A REAL
  * compares as the 32-bit float the IDE holds, so an interpreter that computes in float64 fails here — that is a
  * real divergence, not rounding noise.
@@ -15,8 +15,9 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { decodeStringLiteral } from "../../src/syntax/index.js"
 import { emitRust, fieldNames, load, lowerSource, type IrValue } from "../../src/transpile/index.js"
-import { CASES, programSource } from "./cases.js"
-import { STANDARD_LIBRARY as LIBRARIES } from "./standard-library.js"
+import { EXECUTION_TESTS } from "./fixtures/execution.js"
+import { plcPrgSource } from "./support/plc-prg.js"
+import { STANDARD_LIBRARY as LIBRARIES } from "./support/standard-library.js"
 
 interface Recorded {
   cycles?: string
@@ -24,7 +25,7 @@ interface Recorded {
   error?: string
 }
 
-const recording = JSON.parse(readFileSync(join(import.meta.dir, "recordings", "expected-codesys.json"), "utf8")) as {
+const recording = JSON.parse(readFileSync(join(import.meta.dir, "recordings", "codesys.run.json"), "utf8")) as {
   tests: Record<string, Recorded>
 }
 
@@ -33,7 +34,7 @@ const recording = JSON.parse(readFileSync(join(import.meta.dir, "recordings", "e
 function ideValue(raw: string): IrValue {
   if (raw === "TRUE") return true
   if (raw === "FALSE") return false
-  // A STRING displays quoted and re-escaped: `'a$Tb'` holds a tab and `'x$$y'` one dollar (test/exec `string_escapes`).
+  // A STRING displays quoted and re-escaped: `'a$Tb'` holds a tab and `'x$$y'` one dollar (conformance `string_escapes`).
   // A WSTRING displays in double quotes: `"héllo"`.
   const quote = raw[0]
   if (raw.length >= 2 && (quote === "'" || quote === '"') && raw.endsWith(quote)) {
@@ -94,7 +95,7 @@ function asDisplayed(raw: string, value: IrValue): IrValue {
 }
 
 describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
-  for (const c of CASES) {
+  for (const c of EXECUTION_TESTS) {
     const rec = recording.tests[c.name]
     if (rec === undefined) {
       test.skip(`${c.name} (not recorded — bun run record:exec)`, () => {})
@@ -102,12 +103,12 @@ describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
     }
     // A case that must NOT compile pins the transpiler's input contract (src/transpile/index.ts): the transpiler never sees
     // such code, so the only check is that CODESYS still refuses it. (The Rust half skips it: it recorded no values.)
-    if (c.rejects !== undefined) {
-      test(`${c.name} (does not compile)`, () => expect(rec.error).toContain(c.rejects!))
+    if (c.refused !== undefined) {
+      test(`${c.name} (does not compile)`, () => expect(rec.error).toContain(c.refused!))
       continue
     }
-    if (c.deferred !== undefined) {
-      test.todo(`${c.name} — deferred: ${c.deferred}`, () => {})
+    if (c.deferred?.transpile !== undefined) {
+      test.todo(`${c.name} — deferred: ${c.deferred.transpile}`, () => {})
       continue
     }
     test(c.name, () => {
@@ -115,7 +116,7 @@ describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
       const cycles = c.cycles ?? 1
       expect(ideValue(rec.cycles!)).toBe(BigInt(cycles)) // the recorder's gate held
 
-      const pou = load(programSource(c), undefined, LIBRARIES)
+      const pou = load(plcPrgSource(c), undefined, LIBRARIES)
       for (let i = 0; i < cycles; i++) pou.scan()
       const want = Object.fromEntries(Object.entries(rec.values!).map(([k, v]) => [k, ideValue(v)]))
       const got = Object.fromEntries(Object.keys(want).map((k) => [k, asDisplayed(rec.values![k]!, pou.get(k))]))
@@ -133,14 +134,14 @@ describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
 const rustc = Bun.which("rustc")
 
 describe.skipIf(rustc === null)("differential execution — emitted Rust vs CODESYS 3.5.21.40", () => {
-  const recorded = CASES.filter((c) => recording.tests[c.name]?.values !== undefined && c.deferred === undefined)
+  const recorded = EXECUTION_TESTS.filter((c) => recording.tests[c.name]?.values !== undefined && c.deferred?.transpile === undefined)
   const runs = new Map<string, { exit: number; stdout: string; stderr: string }>()
 
   beforeAll(async () => {
     const dir = await mkdtemp(join(tmpdir(), "volt-exec-rust-"))
     await Promise.all(
       recorded.map(async (c) => {
-        const { pou, diagnostics } = lowerSource(programSource(c), undefined, LIBRARIES)
+        const { pou, diagnostics } = lowerSource(plcPrgSource(c), undefined, LIBRARIES)
         if (pou === undefined) return void runs.set(c.name, { exit: -1, stdout: "", stderr: `does not lower: ${diagnostics[0]?.message}` })
         const fields = fieldNames(pou.slots)
         const prints = Object.keys(recording.tests[c.name]!.values!).map((name) => {
@@ -172,7 +173,7 @@ describe.skipIf(rustc === null)("differential execution — emitted Rust vs CODE
       const run = runs.get(c.name)!
       expect({ exit: run.exit, stderr: run.stderr }).toEqual({ exit: 0, stderr: "" })
       const rec = recording.tests[c.name]!
-      const slots = lowerSource(programSource(c), undefined, LIBRARIES).pou!.slots
+      const slots = lowerSource(plcPrgSource(c), undefined, LIBRARIES).pou!.slots
       const printed = new Map(run.stdout.trim().split(/\r?\n/).map((line) => line.split("\t") as [string, string]))
       const want = Object.fromEntries(Object.entries(rec.values!).map(([k, v]) => [k, ideValue(v)]))
       const got = Object.fromEntries(

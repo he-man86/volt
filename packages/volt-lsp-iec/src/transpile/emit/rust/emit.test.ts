@@ -133,7 +133,7 @@ describe("emit/rust", () => {
 
   test("CONTINUE leaves the loop's body, not the loop — the step and a tail test still run", () => {
     // A bare Rust `continue` skipped both: FOR never stepped past the CONTINUE and REPEAT never tested UNTIL, where
-    // CODESYS runs both (test/exec `continue_in_for`, `continue_in_repeat`, recorded 2026-09-14)
+    // CODESYS runs both (conformance `continue_in_for`, `continue_in_repeat`, recorded 2026-09-14)
     const code = rust("PROGRAM P\nVAR\n  i : INT;\n  n : INT;\nEND_VAR\nFOR i := 1 TO 5 DO\n  IF i = 3 THEN CONTINUE; END_IF\n  n := n + 1;\nEND_FOR\nEND_PROGRAM\n")
     expect(code).not.toMatch(/\bcontinue;/)
     const body = code.indexOf("break 'body_1;")

@@ -121,7 +121,7 @@ END_PROGRAM
     expect(pou.get("rate")).toBe(3) // INT division first, THEN widened — as the IDE does it
   })
 
-  // The three below were found by the differential oracle (test/exec) — CODESYS's answers, not recollection.
+  // The three below were found by the differential oracle (conformance) — CODESYS's answers, not recollection.
   test("integers wrap at their declared width, signed and unsigned", () => {
     const pou = load("PROGRAM P\nVAR si : SINT := 127; us : USINT; ud : UDINT; END_VAR\nsi := si + 1; us := us - 1; ud := ud - 1;\nEND_PROGRAM\n")
     pou.scan()
@@ -495,7 +495,7 @@ END_PROGRAM
   })
 
   test("a REAL-prefixed literal is float32 even stored into an LREAL — the prefix decides, not the context", () => {
-    // Lowering typed every real literal by its context, so `REAL#0.1` into an LREAL was float64's 0.1 (test/exec
+    // Lowering typed every real literal by its context, so `REAL#0.1` into an LREAL was float64's 0.1 (conformance
     // `typed_literal_real_prefix` recorded float32's).
     const pou = load("PROGRAM P\nVAR fromReal : LREAL; fromLreal : LREAL; init : LREAL := REAL#0.1; END_VAR\nfromReal := REAL#0.1; fromLreal := LREAL#0.1;\nEND_PROGRAM\n")
     pou.scan()
@@ -517,7 +517,7 @@ END_PROGRAM
   })
 })
 
-describe("interp — STRING (design §18; every expectation recorded in test/exec `string_*`)", () => {
+describe("interp — STRING (design §18; every expectation recorded in conformance `string_*`)", () => {
   /** A Standard declaration as the bridge materializes it, from its one-line signature. */
   const standard = (signature: string) => {
     const [, name, params, result] = /^(\w+)\((.*)\) : (.+)$/.exec(signature)!

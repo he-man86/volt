@@ -3,7 +3,7 @@
  *
  * The string types: one `[T; N]` plus a length, a STRING's T a byte and a WSTRING's a UTF-16 unit. `Copy`, so a store is
  * a copy; `lit`/`to` keep at most N units, so every store truncates by construction; equality and ordering compare the
- * used units, which is CODESYS's comparison ('abc' < 'b', 'A' < 'a' — test/exec `string_compare`, `wstring_basic`).
+ * used units, which is CODESYS's comparison ('abc' < 'b', 'A' < 'a' — conformance `string_compare`, `wstring_basic`).
  *
  * The `iec_*` functions are the Standard string functions and the STRING conversions, line for line the interpreter's
  * (`interp.ts` STRING_FUNCTIONS, `coerce`, `timeText`); the differential test checks both against CODESYS.

@@ -32,7 +32,7 @@
     "dev": "tsc -p tsconfig.build.json --watch",
     "typecheck": "tsc --noEmit",
     "lint": "bun run scripts/check-layering.ts",
-    "test": "bun test src test/conformance test/lsp test/exec",
+    "test": "bun test src test/conformance test/lsp",
     "test:corpus": "bun test test/corpus",
     "record:language": "bun run scripts/record-language.ts",
     "record:exec": "bun run scripts/record-exec.ts",

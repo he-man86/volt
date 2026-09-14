@@ -3,8 +3,8 @@
  *
  * Runs the LSP's semantic diagnostics over every catalog fixture and compares against PER-VENDOR
  * recordings captured from the LIVE compilers:
- *   - recordings/expected-codesys.json  — CODESYS ground truth (VOLT_VENDOR=codesys)
- *   - recordings/expected-tc.json       — TwinCAT ground truth  (VOLT_VENDOR=twincat)
+ *   - recordings/codesys.build.json  — CODESYS ground truth (VOLT_VENDOR=codesys)
+ *   - recordings/twincat.build.json  — TwinCAT ground truth  (VOLT_VENDOR=twincat)
  * The active vendor selects the recording AND the LSP's config, because the two IDEs diverge at times.
  *
  * The single criterion is byte-identical: the LSP's error+warning message SET must equal the
@@ -23,7 +23,8 @@ import { parseSource } from "../../src/syntax/index.js"
 import { buildSymbolTable } from "../../src/symbols/index.js"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig, type Vendor } from "../../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../../src/network/index.js"
-import { STANDARD_LIBRARY } from "../exec/standard-library.js"
+import { plcPrgSource } from "./support/plc-prg.js"
+import { STANDARD_LIBRARY } from "./support/standard-library.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 
 interface RecordedDiagnostic {
@@ -50,7 +51,7 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // offline; the subset (no-FP) gate stays green on them.
   // 253 → 255 (2026-09-14): gap 13 — untyped integer literals typed as CODESYS/TwinCAT type them (`overflow_*`).
   // 255 → 256: consolidate-lsp-structure A7 — the network-text jump-label check no longer fires on TwinCAT.
-  { vendor: "twincat", filename: "expected-tc.json", floor: 256 },
+  { vendor: "twincat", filename: "twincat.build.json", floor: 256 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (coverage.test.ts), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -64,7 +65,7 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // 318 → 333: A13 — declaration initializers type-checked like assignments (gap 14).
   // 333 → 349: A14 — IL operator names reserved as identifiers; C8 — a project enum's values and variables convert as INT.
   // 349 → 354: B6 — inference types an enum value, so call arguments and comparisons see it as assignments do.
-  { vendor: "codesys", filename: "expected-codesys.json", floor: 354 },
+  { vendor: "codesys", filename: "codesys.build.json", floor: 354 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
@@ -108,7 +109,7 @@ const CROSS_DECLS = PARSED.map((p) => ({
 // (assignment in the caller, external write) live there, so synthesize + analyze it too.
 const PLC_PRGS = ALL_TESTS.map((t) => {
   if (t.plcPrgVar === undefined && t.plcPrgBody === undefined) return undefined
-  const source = `PROGRAM PLC_PRG\nVAR\n${t.plcPrgVar ?? ""}\nEND_VAR\n${t.plcPrgBody ?? ""}\nEND_PROGRAM\n`
+  const source = plcPrgSource(t)
   return { uri: `file:///conformance/${t.name}__plcprg.fb`, source, parseResult: parseSource(source) }
 })
 

@@ -11,7 +11,7 @@
  * accepts, and the gate is that BUILD — not the LSP, whose diagnostics have false negatives. So:
  *   - Code that does not compile gets no semantics here. No operator, conversion or edge case exists in `lower/` only
  *     because some invalid program would need it (`**` and `&` were mapped to IR ops, yet neither parses in CODESYS —
- *     removed). "Does not compile" is itself MEASURED: a `test/exec` case with `rejects` pins each such fact.
+ *     removed). "Does not compile" is itself MEASURED: a conformance execution case marked `refused` pins each such fact.
  *   - Lowering stays total: invalid input still ends in a `LowerDiagnostic` under a generic code (`binary-op`,
  *     `call-arity`, `bad-literal`), never a throw and never an invented meaning.
  *   - Every other refusal is about VALID code, and is one of two kinds:

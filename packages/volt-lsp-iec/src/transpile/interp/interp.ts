@@ -33,7 +33,7 @@ const MATH: Readonly<Record<IrMathName, (x: number) => number>> = {
 
 /**
  * The Standard string functions, over already-converted arguments. Mirrored line for line by the emitter's prelude
- * (`iec_*`), so the differential test checks both against CODESYS. Measured (test/exec `string_*`,
+ * (`iec_*`), so the differential test checks both against CODESYS. Measured (conformance `string_*`,
  * `string_positions_*`): positions are 1-based and a count clamps to the string — LEFT(abc, 5) is 'abc', LEFT(abc, -1)
  * is ''; MID and DELETE select nothing at a position below 1 or a length at or below 0; INSERT at 0 prepends, but past
  * the end OR below 0 leaves the string as it was (INSERT(abc, 'XY', -1) is 'abc'); FIND of '' is 0. REPLACE is DELETE,
@@ -153,7 +153,7 @@ function logic(op: "and" | "or" | "xor", a: Val, b: Val): Val {
 
 /**
  * A value as its type STORES it — the interpreter's counterpart of the emitter's `wrapping_*` and `f32`. IEC
- * integers wrap at their declared width and REAL is a 32-bit float (both measured against CODESYS, `test/exec`);
+ * integers wrap at their declared width and REAL is a 32-bit float (both measured against CODESYS, `conformance`);
  * JavaScript gives neither for free, a bigint being unbounded and a number being float64. Every node that
  * produces a typed value passes through here, so an operand is always already in its type's representation.
  */
@@ -161,7 +161,7 @@ function fit(v: Val, type: Type): Val {
   if (type.kind !== "elementary") return v
   const { family, bits, signed } = type.elem
   if (family === "real") return bits === 32 && typeof v === "number" ? Math.fround(v) : v
-  // a STRING(n) keeps its first n characters — `STRING(5) := 'abcdefgh'` is 'abcde' (test/exec `string_*`)
+  // a STRING(n) keeps its first n characters — `STRING(5) := 'abcdefgh'` is 'abcde' (conformance `string_*`)
   if (family === "string") return typeof v === "string" && type.length !== undefined ? v.slice(0, type.length) : v
   // a duration or date wraps like the integer it is: TIME and TOD are 32-bit milliseconds, DATE and DT 32-bit seconds,
   // the L variants 64-bit nanoseconds (design §16, §17)
@@ -180,7 +180,7 @@ function coerce(v: Val, to: Type, from: Type): Val {
   const family = to.elem.family
   // → STRING: an integer's decimal text, 'TRUE'/'FALSE', a TIME as `T#` and its non-zero components ('T#1d2h', 'T#0ms').
   // STRING → integer skips leading spaces and tabs, reads an optional sign and the digits that follow, stopping at the
-  // first other character — '12abc' is 12, '$T7' is 7, '+5' is 5, '- 5' and '' are 0 (test/exec `string_conversions*`).
+  // first other character — '12abc' is 12, '$T7' is 7, '+5' is 5, '- 5' and '' are 0 (conformance `string_conversions*`).
   // `fit` then wraps it like any integer: STRING_TO_INT('99999') is -31073.
   if (family === "string") {
     if (typeof v === "boolean") return v ? "TRUE" : "FALSE"
@@ -257,7 +257,7 @@ class Machine {
             return fit(bool(args[0]!) ? args[2]! : args[1]!, e.type)
           case "trunc": {
             // Toward zero into a DINT whose out-of-range answer is DINT's MINIMUM — x86's "integer indefinite":
-            // TRUNC(3.0E9) is -2147483648, where LREAL_TO_DINT(3.0E9) wraps to -1294967296 (test/exec
+            // TRUNC(3.0E9) is -2147483648, where LREAL_TO_DINT(3.0E9) wraps to -1294967296 (conformance
             // `trunc_out_of_range`). TRUNC_INT then wraps that DINT into INT, as `fit` does for every integer.
             const t = Math.trunc(Number(num(args[0]!)))
             const inRange = Number.isFinite(t) && t >= -2147483648 && t <= 2147483647
@@ -265,7 +265,7 @@ class Machine {
           }
           case "shl":
           case "shr": {
-            // x86's count mask: SHL(DWORD 1, 33) is 2 and a count of -1 shifts by 31 (test/exec `shift_count_*`,
+            // x86's count mask: SHL(DWORD 1, 33) is 2 and a count of -1 shifts by 31 (conformance `shift_count_*`,
             // `shift_negative_count`). The value is already promoted, and a bigint `>>` is arithmetic on a negative —
             // SHR(SINT -128, 1) is -64, as measured.
             const bits = e.type.kind === "elementary" ? e.type.elem.bits : 32
@@ -275,7 +275,7 @@ class Machine {
           }
           case "rol":
           case "ror": {
-            // in the value's own width, count modulo that width — ROL(BYTE 129, 9) is 3 (test/exec `rotate_*`)
+            // in the value's own width, count modulo that width — ROL(BYTE 129, 9) is 3 (conformance `rotate_*`)
             const bits = e.type.kind === "elementary" ? e.type.elem.bits : 32
             const width = BigInt(bits)
             const left = BigInt(((Number(num(args[1]!)) % bits) + bits) % bits)
@@ -284,7 +284,7 @@ class Machine {
             return fit(BigInt.asUintN(bits, (unsigned << by) | (unsigned >> ((width - by) % width))), e.type)
           }
           case "mux": {
-            // an out-of-range K — negative included — picks the LAST input (test/exec `mux_out_of_range`)
+            // an out-of-range K — negative included — picks the LAST input (conformance `mux_out_of_range`)
             const k = Number(num(args[0]!))
             const inputs = args.slice(1)
             return fit(k >= 0 && k < inputs.length ? inputs[k]! : inputs[inputs.length - 1]!, e.type)

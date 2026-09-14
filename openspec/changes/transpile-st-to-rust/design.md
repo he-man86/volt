@@ -63,25 +63,25 @@ reading.
 
 **The all-constant corner — measured, and the code is wrong.** An all-constant expression (`x : REAL := 7 / 2`)
 takes the context's type in `lower.ts`, which makes it 3.5. CODESYS 3.5.21.40 gives **3**, in REAL and LREAL, as
-a body assignment and as a declaration initializer (`test/exec`, case `all_constant_division_in_real_context`):
+a body assignment and as a declaration initializer (conformance, case `all_constant_division_in_real_context`):
 constants divide in the integer type first and the result widens — the same rule as a variable operand. The
 special branch is deleted.
 
-**One REAL operand makes it REAL** (test/exec `division_with_a_real_operand`): `7 / 2.0`, `7.0 / 2`,
+**One REAL operand makes it REAL** (conformance `division_with_a_real_operand`): `7 / 2.0`, `7.0 / 2`,
 `int7 / 2.0`, `real7 / 2` and `real7 / int2` are all 3.5, in a body or an initializer; only INT / INT is 3. So a
 constant adopts its variable neighbour's type only when that does not demote a REAL to an integer — `int7 / 2.0`
 used to retype the `2.0` to INT and divide integrally (`adopt` in `lower.ts`).
 
 **Integer promotion — measured, and it overrides "narrowest".** The literal rule above picks the narrowest type
 that holds a value, and a store into the same type cannot tell where arithmetic wraps. A store into a wider one
-can (test/exec `arithmetic_width`, `constant_arithmetic_width`), and CODESYS 3.5.21.40 answers like C:
+can (conformance `arithmetic_width`, `constant_arithmetic_width`), and CODESYS 3.5.21.40 answers like C:
 - an `int`-family operand under 32 bits computes in **signed DINT** — `SINT 127 + 1` is 128, `USINT 0 - 1` is -1;
 - DINT is not promoted further — `DINT max + 1` is -2147483648 even stored into a LINT;
 - an all-constant integer expression folds at full width — `2000000000 + 2000000000` is 4000000000.
 
 Lowering owns this (`promoted`, applied to arithmetic and — because widening cannot change the answer —
 comparisons), so the interpreter's width fit and the emitter's `wrapping_*` follow the IR's types with no rule of
-their own. Measured next (2026-09-14, test/exec):
+their own. Measured next (2026-09-14, conformance):
 - **bit strings promote the same way** — `BYTE 255 + 1` into WORD is 256; `BYTE 0 - 1` and `WORD 0 - 1` into DINT
   are -1 (signed DINT);
 - **AND/OR/XOR promote; NOT does not** — `SINT -1 AND 255` into INT is 255, `NOT USINT 255` into DINT is 0;
@@ -159,7 +159,7 @@ indefinitely.
 ## 10. The value functions are one IR node, and every rule is measured
 
 **Decision.** MAX/MIN/LIMIT/SEL lower to an `IrBuiltin` whose arguments lowering has already converted to one type,
-so neither backend picks a comparison type. Rules, from CODESYS 3.5.21.40 (test/exec `max_*`, `limit_*`, `sel_basic`):
+so neither backend picks a comparison type. Rules, from CODESYS 3.5.21.40 (conformance `max_*`, `limit_*`, `sel_basic`):
 - MAX/MIN are extensible (`MAX(1, 5, 3)` is 5);
 - arguments meet like a binary operator's operands — `MAX(INT 3, REAL 2.5)` is REAL 3, and `MAX(USINT 200, SINT -1)`
   is 200, a comparison of values after promotion;
@@ -171,7 +171,7 @@ so neither backend picks a comparison type. Rules, from CODESYS 3.5.21.40 (test/
 
 ## 18. STRING is a fixed-capacity value; its functions come from the referenced library
 
-**Measured on CODESYS 3.5.21.40** (test/exec `string_*`, `wstring_*`, `real_to_string_digits`):
+**Measured on CODESYS 3.5.21.40** (conformance `string_*`, `wstring_*`, `real_to_string_digits`):
 - **Capacity.** `STRING(n)` holds n characters, a sizeless STRING **80** (85 stored → LEN 80), and a sizeless WSTRING 80
   too. Every store truncates: `STRING(5) := 'abcdefgh'` is 'abcde'. The capacity rides on the resolved type
   (`ElementaryTypeRef.length`); two capacities differ like two types, so the store's `convert` node is the truncation.
@@ -224,7 +224,7 @@ a case's "héllo" reached CODESYS as "hÃ©llo", and a genuine é read back cras
 
 ## 17. DATE and DT count seconds, TOD milliseconds — and their displays lose information
 
-**Measured on CODESYS 3.5.21.40** (test/exec `date_*`, `dt_*`, `tod_*`, `ldate_ltod_ldt`):
+**Measured on CODESYS 3.5.21.40** (conformance `date_*`, `dt_*`, `tod_*`, `ldate_ltod_ldt`):
 - **DATE and DT are 32-bit counts of SECONDS since 1970-01-01** — `DATE_TO_UDINT(D#1970-01-02)` is 86400, not 1 —
   and DT wraps: `DT#2106-02-07-06:28:15 + T#1S` is the epoch. (`types/elementary` said DT is 64 bits; fixed.)
 - **TOD is a 32-bit count of MILLISECONDS since midnight, NOT reduced modulo a day**: `TOD#12:30:15.5 + T#12H` stores
@@ -248,7 +248,7 @@ variable.
 
 ## 16. TIME is 32-bit milliseconds; LTIME is 64-bit nanoseconds
 
-**Measured on CODESYS 3.5.21.40** (test/exec `time_*`, `ltime_basic`):
+**Measured on CODESYS 3.5.21.40** (conformance `time_*`, `ltime_basic`):
 - **TIME is an unsigned 32-bit count of MILLISECONDS.** `T#49D17H2M47S295MS` (4294967295 ms) plus `T#1MS` is `T#0MS`,
   and `T#500MS - T#1S` wraps below zero to `T#49D17H2M46S796MS`. `TIME_TO_DINT(T#1S500MS)` is 1500 and
   `DINT_TO_TIME(2500)` is `T#2S500MS` — conversions count milliseconds.
@@ -266,7 +266,7 @@ conversions are unmeasured and refused.
 
 ## 15. S= and R= are latches, and a chain acts on its final value
 
-**Measured on CODESYS 3.5.21.40** (test/exec `set_reset_*`):
+**Measured on CODESYS 3.5.21.40** (conformance `set_reset_*`):
 - **`x S= c` is a latch, not an assignment**: it sets `x` only when `c` is TRUE and otherwise leaves it — a set `x`
   stays set under `S= FALSE`, and `R=` clears the same way. The whole right-hand side is the condition
   (`x S= (i > 5) AND flag`), across scan cycles too. It lowers to the IF it is; no backend sees an `S=`.
@@ -286,7 +286,7 @@ Both now carry per-link operators (`chainOps`) with a parser test and a formatte
 
 ## 14. Bit operations, and bit access as the first `Place.path` step
 
-**Measured on CODESYS 3.5.21.40** (test/exec `shift_*`, `rotate_*`, `mux_*`, `bit_access_*`):
+**Measured on CODESYS 3.5.21.40** (conformance `shift_*`, `rotate_*`, `mux_*`, `bit_access_*`):
 - **SHL/SHR shift the PROMOTED value**: `SHL(BYTE 1, 9)` into a WORD is 512. The count is **masked to the width's
   bits, like x86**: `SHL(DWORD 1, 32)` is 1, `SHL(DWORD 1, 33)` is 2, and a count of -1 behaves as 31 (`SHL(BYTE 8, -1)`
   is 0). **SHR is arithmetic on a signed value**: `SHR(SINT -128, 1)` is -64, `SHR(INT -2, 1)` is -1. A 64-bit type
@@ -311,7 +311,7 @@ dotted name (a struct or instance member) still reports `expr-member` / `place-s
 
 **Decision (2026-09-14).** When Rust has a feature for an IEC operation, the emitter uses it — `.max()`, `.round()`,
 `.sqrt()`, `.powf()`, `rotate_left` — so the output reads as ordinary Rust. The condition is not the name but the
-EDGES: the feature is used only once `test/exec` shows it agrees with CODESYS where the two could differ.
+EDGES: the feature is used only once `conformance` shows it agrees with CODESYS where the two could differ.
 
 **Why the condition is not a formality.** Every emitter divergence so far was a Rust feature with the right name
 and a different edge: `clamp` panics when MN > MX (CODESYS returns MX); float → int `as` truncates and saturates
@@ -321,7 +321,7 @@ differs, the emitter composes the measured behaviour from features that do agree
 
 ## 12. Math functions: the argument's width is the computation's width
 
-**Measured on CODESYS 3.5.21.40** (test/exec `abs_values`, `abs_unsigned`, `sqrt_precision`, `exp_log_precision`,
+**Measured on CODESYS 3.5.21.40** (conformance `abs_values`, `abs_unsigned`, `sqrt_precision`, `exp_log_precision`,
 `trig_precision`); results stored into LREAL, so a 32-bit computation shows its float32 digits:
 - **SQRT, LN, LOG (base 10), EXP, SIN/COS/TAN/ASIN/ACOS/ATAN** keep a REAL argument in REAL — `SQRT(REAL 2.0)` is
   1.4142135381698608, `LN(REAL 2.0)` is 0.69314718246459961 — compute an LREAL in LREAL, and take an INTEGER argument
@@ -332,7 +332,7 @@ differs, the emitter composes the measured behaviour from features that do agree
 - **ABS promotes like unary minus**: `ABS(SINT -128)` is 128; `ABS(INT -32768)` is 32768 into a DINT and wraps back to
   -32768 into an INT. `ABS` of a USINT compiles and is the value itself. The emitter prints `wrapping_abs` (`abs`
   panics on a signed minimum in a debug build) and the identity for unsigned types (which have no `abs`).
-- **EXPT computes in REAL only when BOTH arguments are REAL** (test/exec `expt_types`, `expt_mixed_width`):
+- **EXPT computes in REAL only when BOTH arguments are REAL** (conformance `expt_types`, `expt_mixed_width`):
   `EXPT(REAL 2.0, REAL 0.5)` is float32's √2, but `EXPT(REAL 3.0, INT 20)` is 3486784401 (float32 gives 3486784512),
   and `EXPT(INT 2, REAL 0.5)` / `EXPT(LREAL, REAL)` are float64. `EXPT(INT, INT)` is LREAL-typed — into an INT it does
   not compile. **Open, for the LSP not the transpiler:** `reference.ts` types EXPT as always LREAL, and `infer.ts`
@@ -350,7 +350,7 @@ always a node, never a retyped constant: `DINT_TO_SINT(300)` stamped as a SINT c
 out-of-range literal `300i8`. TRUNC/TRUNC_INT is the one conversion that does not round, so it is a `trunc` builtin.
 A name is a conversion only when both halves are elementary types; a project function called `GO_TO_START` is not.
 
-**The rules — measured on CODESYS 3.5.21.40** (test/exec: 12 cases, inputs as variables so the conversion runs at
+**The rules — measured on CODESYS 3.5.21.40** (conformance: 12 cases, inputs as variables so the conversion runs at
 scan time, and one case proving constants fold to the same answers):
 - **REAL/LREAL → integer rounds half AWAY from zero**: 0.5 → 1, 2.5 → 3, -2.5 → -3, -0.5 → -1. Not truncation (what
   the interpreter did), and not banker's rounding.
@@ -377,7 +377,7 @@ wraps. `as bool` does not exist (`!= 0`), nor does `bool as f32` (`as u8` first)
 A critical read of `transpile/` before phase 3, with a probe for each suspicion. Four bugs, none reachable by an oracle
 case, all fixed and pinned:
 - **CONTINUE** printed a bare Rust `continue`, which skipped a FOR's step and a REPEAT's UNTIL test and looped forever.
-  CODESYS runs both (test/exec `continue_in_for`, `continue_in_while`, `continue_in_repeat`: FOR counts 4 and ends at
+  CODESYS runs both (conformance `continue_in_for`, `continue_in_while`, `continue_in_repeat`: FOR counts 4 and ends at
   i = 6, REPEAT counts 3 and ends at j = 5). The body now sits in a labeled block that CONTINUE leaves; labels print
   only when used, since the crate builds under `-D warnings`.
 - **Field names**: the bare `snake` of an ST name was the Rust field, so `loop` emitted `pub loop: i16` and `aB` beside

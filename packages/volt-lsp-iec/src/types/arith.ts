@@ -2,7 +2,7 @@
  * Arithmetic result types — the one home of "what type does this operation compute in". Two views, named apart
  * because they differ on purpose:
  *   - RUN-TIME types (`commonType`, `promoteForRuntime`) are what the program computes in — the transpiler's rules,
- *     measured by the execution oracle (test/exec);
+ *     measured by the execution oracle (conformance);
  *   - CHECKED types (`checkedNegationType`) are what the compiler's messages name — the analyzer's rules, measured by
  *     conformance fixtures. `-sint` computes in DINT but is reported as INT.
  * `exptResultType` and `temporalResultType` are the same in both views.
@@ -24,7 +24,7 @@ export function commonType(a: Type, b: Type): Type {
   if (ea.family === "real") return eb.family === "real" ? (ea.rank >= eb.rank ? a : b) : a
   if (eb.family === "real") return b
   // At the same width the SIGNED type wins, on either side: DINT -1 and UDINT 0 sum to -1 and compare -1 < 0 in both
-  // orders, LINT/ULINT likewise (test/exec `same_width_mixed_sign_order`) — and not by value, UDINT 4294967295 = DINT -1
+  // orders, LINT/ULINT likewise (conformance `same_width_mixed_sign_order`) — and not by value, UDINT 4294967295 = DINT -1
   // (`signed_unsigned_comparison`). This let the left operand win, so `u > d` compared in UDINT.
   if (ea.rank === eb.rank) return eb.signed && !ea.signed ? b : a
   return ea.rank > eb.rank ? a : b
@@ -32,10 +32,10 @@ export function commonType(a: Type, b: Type): Type {
 
 /**
  * Run-time integer promotion: an integer or bit string narrower than 32 bits computes in DINT. Measured on CODESYS
- * 3.5.21.40 (test/exec `arithmetic_width`): `toInt := si + 1` with `si : SINT := 127` is 128, `toDint := us - 1` with
+ * 3.5.21.40 (conformance `arithmetic_width`): `toInt := si + 1` with `si : SINT := 127` is 128, `toDint := us - 1` with
  * `us : USINT := 0` is -1 (SIGNED DINT, not UDINT), `fromInt := i + 1` with `i : INT := 32767` is 32768 — and
  * `fromDint := di + 1` with `di : DINT` at its max is -2147483648 even into a LINT, so DINT itself is not promoted
- * further. Bit strings follow the SAME rule (test/exec `bit_string_arithmetic`): `BYTE 255 + 1` into a WORD is 256, and
+ * further. Bit strings follow the SAME rule (conformance `bit_string_arithmetic`): `BYTE 255 + 1` into a WORD is 256, and
  * `BYTE 0 - 1` / `WORD 0 - 1` into a DINT are -1. BIT has no rank and is never an arithmetic operand, so it is excluded.
  */
 export function promoteForRuntime(t: Type): Type {
@@ -62,7 +62,7 @@ export function checkedNegationType(t: Type): Type {
 /**
  * EXPT's type: REAL only when BOTH arguments are REAL, LREAL otherwise. Measured twice — by conformance (`cc_expt_*`:
  * `real := EXPT(real, real)` is silent, EXPT(INT, INT), EXPT(REAL, INT) and EXPT(LREAL, REAL) into a REAL warn LREAL →
- * REAL) and by execution (test/exec `expt_types`, `expt_mixed_width`: EXPT(REAL 3.0, INT 20) is 3486784401, which
+ * REAL) and by execution (conformance `expt_types`, `expt_mixed_width`: EXPT(REAL 3.0, INT 20) is 3486784401, which
  * float32 cannot hold).
  */
 export function exptResultType(base: Type, exponent: Type): Type {

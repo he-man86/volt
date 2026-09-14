@@ -114,7 +114,7 @@ const UNARY_MATH: ReadonlySet<string> = new Set(["SQRT", "LN", "LOG", "EXP", "SI
 
 /** The operators whose operands are promoted (see `promoted`). Arithmetic is measured, and so are AND/OR/XOR:
  *  `minus1 AND 255` with `minus1 : SINT := -1` stored into an INT is 255 — the AND happens in DINT, after the -1
- *  sign-extends (test/exec `bitwise_on_narrow_types`). A comparison is included because widening both sides can
+ *  sign-extends (conformance `bitwise_on_narrow_types`). A comparison is included because widening both sides can
  *  never change its answer, while a narrow compare against an out-of-range literal would. Unary NOT is NOT
  *  promoted — `NOT u255` with `u255 : USINT` stored into a DINT is 0 — and it is not a binary operator anyway.
  *  On BOOL operands `promoted` is the identity, so AND/OR/XOR on BOOLs are untouched. */
@@ -154,7 +154,7 @@ class Lowering {
         // `constEval` folds only numbers and booleans — a duration or date literal came back undefined, so every
         // `t : TIME := T#1S` / `d : DATE := D#…` slot silently started at 0. They fold here, in their type's unit.
         const temporal = decl.init?.kind === "literal" ? (durationOf(decl.init) ?? calendarOf(decl.init) ?? typedRealOf(decl.init)) : undefined
-        // `constEval` does not fold strings either: every `s : STRING := 'abc'` started empty (test/exec `string_*`).
+        // `constEval` does not fold strings either: every `s : STRING := 'abc'` started empty (conformance `string_*`).
         const text = decl.init?.kind === "literal" && typeof decl.init.value === "string" ? this.text(decl.init) : undefined
         if (text === null) continue
         const folded = temporal?.value ?? text ?? (decl.init === undefined ? undefined : this.constant(decl.init))
@@ -198,7 +198,7 @@ class Lowering {
       return null
     }
     // A WSTRING holds UTF-16 code units, one per character: "héllo" into a WSTRING(3) is "hél" and "ü!" fits a
-    // WSTRING(2) (test/exec `wstring_code_units`). A character beyond the BMP (two units) is not measured; nor is which
+    // WSTRING(2) (conformance `wstring_code_units`). A character beyond the BMP (two units) is not measured; nor is which
     // byte a non-ASCII character TYPED into a STRING becomes — both refused.
     if (wide ? [...decoded].some((ch) => ch.length > 1) : /[^\x00-\x7f]/.test(e.value as string)) {
       this.bail(wide ? "wstring-surrogate" : "string-non-ascii", `${e.text} holds a character not measured yet`, e.span)
@@ -295,7 +295,7 @@ class Lowering {
         if (operand === undefined) return undefined
         // `NOT x` keeps the type of `x` — `NOT u255` with `u255 : USINT` into a DINT is 0. `-x` does NOT: it promotes
         // like the arithmetic it is — `-sMin` with `sMin : SINT := -128` is 128, `-iMin` with `iMin : INT := -32768`
-        // into a DINT is 32768, and a DINT's minimum still negates to itself even into a LINT (test/exec
+        // into a DINT is 32768, and a DINT's minimum still negates to itself even into a LINT (conformance
         // `unary_minus_at_the_edge`). This used to preserve the operand type, and wrapped all three.
         if (e.op === "NOT") return { kind: "unary", op: "not", operand, type: operand.type, span: e.span }
         const type = promoteForRuntime(operand.type)
@@ -312,7 +312,7 @@ class Lowering {
         let right = this.expr(e.right, left.kind === "const" ? undefined : left.type)
         if (right === undefined) return undefined
         // Two STRINGs compare as they are, byte by byte — never converted to one capacity first, which would cut the
-        // longer one and make 'abc' = 'abcd' TRUE. Measured: 'abc' < 'b' and 'A' < 'a' (test/exec `string_compare`).
+        // longer one and make 'abc' = 'abcd' TRUE. Measured: 'abc' < 'b' and 'A' < 'a' (conformance `string_compare`).
         const isString = (x: IrExpr): boolean => {
           const t = elemOf(x.type)
           return t !== undefined && inTypeGroup("ANY_STRING", t)
@@ -334,14 +334,14 @@ class Lowering {
         else if (right.kind === "const" && left.kind !== "const") right = adopt(right, lift(left.type))
         else if (left.kind === "const" && right.kind === "const") {
           // An ALL-constant integer expression folds at FULL width and then converts: `i := 100 + 100` is 200 and
-          // `li := 2000000000 + 2000000000` is 4000000000 (test/exec `constant_arithmetic_width`). It does not take
+          // `li := 2000000000 + 2000000000` is 4000000000 (conformance `constant_arithmetic_width`). It does not take
           // the context's type either — `x : REAL := 7 / 2` is 3, not 3.5 (`all_constant_division_in_real_context`);
           // this used to retype both sides to the context. LINT is the widest the IR can type.
           if (elemOf(left.type)?.family === "int") left = retype(left, elementaryRef("LINT"))
           if (elemOf(right.type)?.family === "int") right = retype(right, elementaryRef("LINT"))
         }
         // A duration × or ÷ an integer (and an integer × a duration) computes in the duration's type: `T#1S * 3` is
-        // T#3S and `T#1S / 4` is T#250MS (test/exec `time_multiply_divide`). A duration has no widening rank, so
+        // T#3S and `T#1S / 4` is T#250MS (conformance `time_multiply_divide`). A duration has no widening rank, so
         // without this `commonType` would find no common type.
         const isDuration = (t: Type): boolean => elemOf(t)?.family === "time"
         const isIntegral = (t: Type): boolean => isIntegerType(elemOf(t)?.name ?? "")
@@ -366,7 +366,7 @@ class Lowering {
 
   /**
    * The value functions MAX/MIN/LIMIT/SEL → one `builtin` node. Every rule is MEASURED on CODESYS 3.5.21.40
-   * (test/exec `max_*`, `limit_*`, `sel_basic`), not recalled:
+   * (conformance `max_*`, `limit_*`, `sel_basic`), not recalled:
    *   - MAX/MIN are extensible — `MAX(1, 5, 3)` is 5, `MIN(8, 4, 6, 9)` is 4;
    *   - the arguments MEET like a binary operator's operands — `MAX(i3, r25)` is REAL 3, and
    *     `MAX(us200, sMinus1)` (USINT 200, SINT -1) is 200, a comparison of VALUES after promotion;
@@ -393,7 +393,7 @@ class Lowering {
     if (name === "TRUNC" || name === "TRUNC_INT") {
       const arg = this.expr(values[0]!)
       if (arg === undefined) return undefined
-      // Toward zero — TRUNC(-2.7) is -2 — into DINT (TRUNC) or INT (TRUNC_INT). test/exec `trunc_functions`.
+      // Toward zero — TRUNC(-2.7) is -2 — into DINT (TRUNC) or INT (TRUNC_INT). conformance `trunc_functions`.
       const type = elementaryRef(name === "TRUNC" ? "DINT" : "INT")
       return { kind: "builtin", name: "trunc", args: [arg], type, span: e.span }
     }
@@ -401,7 +401,7 @@ class Lowering {
       const arg = this.expr(values[0]!)
       if (arg === undefined) return undefined
       // Promotes like unary minus: ABS(SINT -128) is 128, ABS(INT -32768) into a DINT is 32768 and into an INT wraps
-      // back to -32768; ABS of a USINT is the value itself (test/exec `abs_values`, `abs_unsigned`).
+      // back to -32768; ABS of a USINT is the value itself (conformance `abs_values`, `abs_unsigned`).
       const type = promoteForRuntime(arg.type)
       return { kind: "builtin", name: "abs", args: [convert(arg, type)], type, span: e.span }
     }
@@ -410,7 +410,7 @@ class Lowering {
       const count = value === undefined ? undefined : this.expr(values[1]!)
       if (value === undefined || count === undefined) return undefined
       // SHL/SHR shift the PROMOTED value — SHL(BYTE 1, 9) into a WORD is 512 — while ROL/ROR rotate in the value's
-      // own width: ROL(BYTE 129, 1) is 3 (test/exec `shift_basic`, `rotate_basic`).
+      // own width: ROL(BYTE 129, 1) is 3 (conformance `shift_basic`, `rotate_basic`).
       const shift = name === "SHL" || name === "SHR"
       const type = shift ? promoteForRuntime(value.type) : value.type
       const op = name.toLowerCase() as IrBuiltinName
@@ -425,7 +425,7 @@ class Lowering {
         if (lowered === undefined) return undefined
         inputs.push(lowered)
       }
-      // The inputs meet like MAX's — MUX(0, INT 10, REAL 2.5) is REAL 10 (test/exec `mux_mixed_types`).
+      // The inputs meet like MAX's — MUX(0, INT 10, REAL 2.5) is REAL 10 (conformance `mux_mixed_types`).
       const type = this.meet(inputs, e.span)
       if (type === undefined) return undefined
       return { kind: "builtin", name: "mux", args: [index, ...inputs.map((i) => convert(i, type))], type, span: e.span }
@@ -437,7 +437,7 @@ class Lowering {
       // REAL only when BOTH arguments are REAL — EXPT(REAL 2.0, REAL 0.5) is float32's √2 — and LREAL otherwise:
       // EXPT(REAL 3.0, INT 20) is 3486784401 (float32 would give 3486784512), EXPT(INT 2, REAL 0.5) and
       // EXPT(LREAL, REAL) are float64, and EXPT(INT, INT) is LREAL-typed (into an INT it does not compile).
-      // test/exec `expt_types`, `expt_mixed_width`.
+      // conformance `expt_types`, `expt_mixed_width`.
       const type = exptResultType(base.type, exponent.type)
       return { kind: "builtin", name: "expt", args: [convert(base, type), convert(exponent, type)], type, span: e.span }
     }
@@ -445,7 +445,7 @@ class Lowering {
       const arg = this.expr(values[0]!)
       if (arg === undefined) return undefined
       // A REAL argument computes in REAL — SQRT(REAL 2.0) is float32's 1.4142135381698608 — an LREAL in LREAL, and an
-      // INTEGER in LREAL: SQRT(INT 2) is 1.4142135623730951 (test/exec `sqrt_precision`, `exp_log_precision`,
+      // INTEGER in LREAL: SQRT(INT 2) is 1.4142135623730951 (conformance `sqrt_precision`, `exp_log_precision`,
       // `trig_precision`).
       const type = elemOf(arg.type)?.family === "real" ? arg.type : elementaryRef("LREAL")
       const math = name.toLowerCase() as IrBuiltinName
@@ -522,7 +522,7 @@ class Lowering {
     if (!scalar(to) || (from !== undefined && !scalar(from)))
       return this.bail("conversion-type", "this STRING conversion is not measured yet", e.span)
     // A duration or date converts to and from INTEGERS, in its own unit — TIME_TO_DINT(T#1S500MS) is 1500,
-    // DATE_TO_UDINT(D#1970-01-02) is 86400 seconds, TOD_TO_UDINT(TOD#00:00:01) is 1000 ms (test/exec `time_conversions`,
+    // DATE_TO_UDINT(D#1970-01-02) is 86400 seconds, TOD_TO_UDINT(TOD#00:00:01) is 1000 ms (conformance `time_conversions`,
     // `date_representation`). ↔ REAL/BOOL, and between two temporal types, were not measured: refused, not guessed.
     const temporal = [to, from].filter((t) => t !== undefined && ["time", "date"].includes(elemOf(t)?.family ?? "")).length
     const nonIntegral = [to, from].some((t) => t !== undefined && ["real", "bool"].includes(elemOf(t)?.family ?? ""))
@@ -564,7 +564,7 @@ class Lowering {
 
   /**
    * An assignment CHAIN — `a := b := c`, `a S= b R= c`, `a := b S= c`. One rule fits every chain measured
-   * (test/exec `set_reset_chained*`, `assign_chained_*`): the VALUE flows right to left, converted to each link's
+   * (conformance `set_reset_chained*`, `assign_chained_*`): the VALUE flows right to left, converted to each link's
    * type as it passes; a `:=` link stores it, and an `S=`/`R=` link latches its target on it and passes it on UNCHANGED.
    *   - `a S= b R= c` with b FALSE, c TRUE SETS `a` — it latches on `c`, not on the old or new `b`;
    *   - `plain := latch S= cond` with cond FALSE makes `plain` FALSE even though `latch` stays TRUE;
@@ -610,7 +610,7 @@ class Lowering {
         if (s.op === "S=" || s.op === "R=") {
           // A LATCH, not an assignment: `x S= c` sets x only when c is TRUE and otherwise leaves it — `latched := TRUE;
           // latched S= FALSE` stays TRUE — and `R=` clears the same way. The whole right-hand side is the condition:
-          // `x S= (i > 5) AND flag` (test/exec `set_reset_*`). So it lowers to the IF it is; no backend sees an `S=`.
+          // `x S= (i > 5) AND flag` (conformance `set_reset_*`). So it lowers to the IF it is; no backend sees an `S=`.
           const cond = this.expr(s.value, elementaryRef("BOOL"))
           if (cond === undefined) return undefined
           const latch: IrExpr = { kind: "const", value: s.op === "S=", type: elementaryRef("BOOL"), span: s.span }
@@ -773,7 +773,7 @@ function retype(e: IrExpr, to: Type): IrExpr {
 
 /**
  * A constant taking its variable neighbour's type — but never a REAL constant demoted to an integer. `int7 / 2.0`
- * is 3.5 in CODESYS (test/exec `division_with_a_real_operand`); retyping the `2.0` to INT made it the integer 2
+ * is 3.5 in CODESYS (conformance `division_with_a_real_operand`); retyping the `2.0` to INT made it the integer 2
  * and the division integral. A REAL constant keeps its type, and `wider` meets the pair in REAL.
  */
 function adopt(c: IrExpr, to: Type): IrExpr {
@@ -790,7 +790,7 @@ function valueAs(v: IrValue, to: Type): IrValue {
 }
 
 /**
- * A duration literal's value in its type's UNIT. Measured (test/exec `time_*`, `ltime_basic`): TIME is 32-bit
+ * A duration literal's value in its type's UNIT. Measured (conformance `time_*`, `ltime_basic`): TIME is 32-bit
  * MILLISECONDS — T#49D17H2M47S295MS plus 1 ms wraps to 0 — and LTIME 64-bit NANOSECONDS. The AST normalizes both to
  * nanoseconds under one `literalKind: "time"`, so the prefix decides which. This used to type every duration TIME
  * and hold it in nanoseconds: a recalled design note, while `types/elementary` already said TIME is 32 bits.
@@ -802,7 +802,7 @@ function durationOf(e: Extract<Expr, { kind: "literal" }>): { value: bigint; typ
 }
 
 /**
- * A date, date-and-time or time-of-day literal's value in its type's UNIT. Measured (test/exec `date_*`,
+ * A date, date-and-time or time-of-day literal's value in its type's UNIT. Measured (conformance `date_*`,
  * `ldate_ltod_ldt`): DATE and DT count SECONDS since 1970-01-01 in 32 bits (DATE_TO_UDINT(D#1970-01-02) is 86400, not
  * 1; DT#2106-02-07-06:28:15 plus a second wraps to the epoch), TOD counts MILLISECONDS since midnight in 32 bits, and
  * LDATE / LDT / LTOD count NANOSECONDS in 64. The AST keeps the text (`"1970-01-02"`) and the prefix decides the type.
@@ -816,7 +816,7 @@ function calendarOf(e: Extract<Expr, { kind: "literal" }>): { value: bigint; typ
 
 /**
  * A REAL- or LREAL-prefixed literal's value in its prefix type. The prefix decides, not the context: `lr := REAL#0.1`
- * stores float32's 0.1 (0.10000000149011612), where `LREAL#0.1` and an untyped `0.1` store float64's (test/exec
+ * stores float32's 0.1 (0.10000000149011612), where `LREAL#0.1` and an untyped `0.1` store float64's (conformance
  * `typed_literal_real_prefix`). Lowering used to type every real literal by its context. An INTEGER prefix changed
  * nothing measured — `INT#30000 + INT#30000` still folds at full width (`typed_literal_constant_fold`) — so it keeps the
  * untyped path.
@@ -837,7 +837,7 @@ function inTicks(ns: bigint, type: Type): { value: bigint; type: Type } | undefi
 }
 
 /**
- * Date/time arithmetic, scaled between the units each type counts. Measured (test/exec `date_*`, `dt_*`, `tod_*`):
+ * Date/time arithmetic, scaled between the units each type counts. Measured (conformance `date_*`, `dt_*`, `tod_*`):
  *   - a date ± a duration, or a duration + a date, converts the duration into the DATE'S unit by truncating division —
  *     `DT#1970-01-01-00:00:00 + T#1500MS` is one second — and computes in the date's width: `DT max + T#1S` wraps to the
  *     epoch, `D#2024-02-28 + T#1D` is D#2024-02-29, `DT - T#1S` steps back across a leap day;

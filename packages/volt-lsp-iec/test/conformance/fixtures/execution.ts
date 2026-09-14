@@ -1,11 +1,15 @@
 /**
- * Differential-execution cases — each is ONE program, run for `cycles` scan cycles both in CODESYS's simulator
- * (`bun run record:exec`) and through `interp/` (differential.test.ts), and every variable must agree.
+ * Execution cases — each is ONE program, run for `cycles` scan cycles both in CODESYS's simulator (`bun run record:exec`)
+ * and through the transpiler (transpile.test.ts), and every variable must agree. They are conformance fixtures: the
+ * program IS PLC_PRG (`plcPrgVar`/`plcPrgBody`, no units of its own), which is exactly what both recorders build — so
+ * the LSP replay checks the same source once it has a build recording (unify-conformance-suite).
  *
  * A case states a question about the vendor, not the answer: nothing here says what the result should be. The
- * recording does. Add a case, re-record, and the replay tells you whether the interpreter already agrees.
+ * recording does. Add a case, re-record, and the replay tells you whether the transpiler already agrees.
  */
-export interface ExecCase {
+import type { LanguageTest } from "../types.js"
+
+interface ExecCase {
   name: string
   /** The body of a VAR block. Initial values are the inputs — the oracle writes no values online. */
   vars: string
@@ -20,7 +24,7 @@ export interface ExecCase {
   deferred?: string
 }
 
-export const CASES: readonly ExecCase[] = [
+const CASES: readonly ExecCase[] = [
   { name: "counter_across_cycles", cycles: 5, vars: "count : INT;", body: "count := count + 2;" },
 
   // ── arithmetic at type boundaries ──
@@ -804,7 +808,22 @@ export const CASES: readonly ExecCase[] = [
   //  neither backend models runtime exceptions yet, and the oracle cannot record one.)
 ]
 
-/** The program both sides run: the case as a PROGRAM, with no gate — the recorder adds its own around the body. */
-export function programSource(c: ExecCase): string {
-  return `PROGRAM PLC_PRG\nVAR\n${c.vars}\nEND_VAR\n${c.body}\nEND_PROGRAM\n`
+/** An execution case as a conformance fixture: no units, its program is PLC_PRG; `rejects` is `refused`, and a
+ *  `deferred` reason belongs to the transpiler. The name keeps a `PRG_LANG_` pouName unique in the replay's project. */
+function program(c: ExecCase): LanguageTest {
+  return {
+    name: c.name,
+    pouName: `PRG_LANG_${c.name}`,
+    kind: "program",
+    feature: `execution: ${c.name}`,
+    fromDoc: "execution-oracle",
+    source: "",
+    plcPrgVar: c.vars,
+    plcPrgBody: c.body,
+    ...(c.cycles === undefined ? {} : { cycles: c.cycles }),
+    ...(c.rejects === undefined ? {} : { refused: c.rejects }),
+    ...(c.deferred === undefined ? {} : { deferred: { transpile: c.deferred } }),
+  }
 }
+
+export const EXECUTION_TESTS: readonly LanguageTest[] = CASES.map(program)

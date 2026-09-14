@@ -155,7 +155,7 @@ Diagnostics match CODESYS and TwinCAT byte-for-byte, guaranteed by construction.
 exact diagnostics) → `recordings/` (the committed oracle truth) → `replay.test.ts` (offline; asserts the
 message set is byte-identical per vendor — the single criterion; a `KNOWN_DIVERGENCES` ledger is the only
 opt-out). `test/corpus/` is the real-project ratchet (a miss ⇒ add a fixture, never a threshold tweak); unit
-tests co-locate with each module; `test/exec/` runs transpiled Rust. The loop: corpus miss → catalog fixture →
+tests co-locate with each module; `test/conformance/` also runs the transpiler (interpreter + emitted Rust) against the simulator's recording. The loop: corpus miss → catalog fixture →
 record → mirror the message → replay green. A diagnostic cannot ship unless it matches both compilers.
 
 ## Preventing duplication (one home per concern — enforced, not hoped)

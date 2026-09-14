@@ -23,7 +23,7 @@ export interface ElementaryType {
   /** Numeric widening rank (int/bit-string/real only); undefined for non-numeric families. */
   rank?: number
   /** Nanoseconds per tick a time or date type counts: TIME and TOD milliseconds, DATE and DT seconds, the L variants
-   *  nanoseconds (test/exec `time_*`, `date_*`, `ldate_ltod_ldt`). Undefined for every other family. */
+   *  nanoseconds (conformance `time_*`, `date_*`, `ldate_ltod_ldt`). Undefined for every other family. */
   tickNs?: bigint
   /** The integer bits a floating type holds exactly — IEEE-754 single 24, double 53. A wider integer converts with
    *  "possible loss of information". Undefined for every other family. */
@@ -74,7 +74,7 @@ export const ELEMENTARY_TYPES: ReadonlyMap<string, ElementaryType> = new Map(
       { ...T("DATE", "date", 32, false), tickNs: 1_000_000_000n },
       { ...T("TOD", "date", 32, false), tickNs: 1_000_000n },
       // 32, not the 64 this said: DT counts SECONDS in 32 bits — DT#2106-02-07-06:28:15 plus one second wraps to
-      // DT#1970-01-01-00:00:00 on CODESYS 3.5.21.40 (test/exec `date_width_wrap`). LDT is the 64-bit one.
+      // DT#1970-01-01-00:00:00 on CODESYS 3.5.21.40 (conformance `date_width_wrap`). LDT is the 64-bit one.
       { ...T("DT", "date", 32, false), tickNs: 1_000_000_000n },
       { ...T("LDATE", "date", 64, false), tickNs: 1n },
       { ...T("LTOD", "date", 64, false), tickNs: 1n },
@@ -91,7 +91,7 @@ export const REAL_MAX_MAGNITUDE: ReadonlyMap<string, number> = new Map([
   ["LREAL", 1.7976931348623157e308],
 ])
 
-/** The characters a sizeless STRING or WSTRING holds (test/exec `string_default_length`, `wstring_basic`). */
+/** The characters a sizeless STRING or WSTRING holds (conformance `string_default_length`, `wstring_basic`). */
 export const DEFAULT_STRING_LENGTH = 80
 
 /** The type an untyped real literal takes — `i := 1.5` is "Cannot convert type 'LREAL' to type 'INT'" (conformance

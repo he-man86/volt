@@ -19,14 +19,20 @@ interface LanguageTest {
 ```
 
 A fixture already says everything a run needs: its units (`source`) and how PLC_PRG uses them (`plcPrgVar`,
-`plcPrgBody`). An exec program becomes a fixture through one helper, so no case is rewritten by hand:
+`plcPrgBody`). **An exec program is a fixture with no units whose program IS PLC_PRG** — measured against both recorders
+before the move: the bridge recorder writes PLC_PRG from `plcPrgVar`/`plcPrgBody` and pushes no item for an empty
+`source`, the LSP replay analyzes the same synthesized PLC_PRG, and the simulator recorder already runs exactly that
+program. One mapping converts every case, so no entry is rewritten by hand (`fixtures/execution.ts`):
 
 ```ts
-program("signed_overflow", { vars: "si : SINT := 127; …", body: "si := si + 1; …" })
-// → kind "program", pouName "PRG_LANG_signed_overflow",
-//   source "PROGRAM PRG_LANG_signed_overflow VAR … END_VAR … END_PROGRAM",
-//   plcPrgVar "", plcPrgBody "PRG_LANG_signed_overflow();"
+{ name: "signed_overflow", vars: "si : SINT := 127; …", body: "si := si + 1; …" }
+// → kind "program", pouName "PRG_LANG_signed_overflow" (keeps the replay's file URIs unique), source "",
+//   plcPrgVar vars, plcPrgBody body, cycles, refused (was `rejects`), deferred.transpile (was `deferred`)
 ```
+
+A first draft wrapped each program as `PRG_LANG_<name>` called from PLC_PRG; that would have built a different program
+from the one the simulator records, for no gain. The PLC_PRG text itself now has one home, `support/plc-prg.ts`, used by
+both recorders and both replays.
 
 **Alternative rejected — a new shared case type with an adapter for each old one.** It would touch all 426 fixtures for no
 new information; a fixture already describes a program, and "run it" adds only a cycle count.

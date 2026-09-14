@@ -199,7 +199,7 @@ class Printer {
           case "max":
           case "min":
             return args.reduce((acc, a) => `${acc}.${e.name}(${a})`)
-          // NOT `clamp`: Rust's panics when MN > MX, and CODESYS answers that case with MX for every IN (test/exec
+          // NOT `clamp`: Rust's panics when MN > MX, and CODESYS answers that case with MX for every IN (conformance
           // `limit_inverted_bounds`). MIN(MAX(IN, MN), MX) is exactly the measured behaviour.
           case "limit":
             return `${args[1]}.max(${args[0]}).min(${args[2]})`
@@ -266,7 +266,7 @@ class Printer {
         const operand = this.expr(e.operand, slots)
         if (e.op === "not") return `(!${operand})`
         // An integer's minimum has no positive counterpart in its own width, and Rust's `-` PANICS on it in a debug
-        // build — found by the differential test (test/exec `unary_minus_at_the_edge`, a DINT at its minimum).
+        // build — found by the differential test (conformance `unary_minus_at_the_edge`, a DINT at its minimum).
         const isReal = e.type.kind === "elementary" && e.type.elem.family === "real"
         return isReal ? `(-${operand})` : `${operand}.wrapping_neg()`
       }
@@ -341,7 +341,7 @@ class Printer {
       case "loop": {
         // One IR shape → one Rust shape: `loop` with the test placed at the head or the tail. The body sits in a labeled
         // block, and an IR `continue` leaves THAT block, so the step and a tail test still run — as CODESYS runs them: a
-        // CONTINUE in FOR still steps and in REPEAT still tests UNTIL (test/exec `continue_in_*`). It printed a bare Rust
+        // CONTINUE in FOR still steps and in REPEAT still tests UNTIL (conformance `continue_in_*`). It printed a bare Rust
         // `continue`, which skipped both and looped forever (transpiler review 2026-09-14). EXIT names the loop, since an
         // unlabeled `break` may not sit directly in a labeled block.
         const frame = { n: ++this.loopCount, exits: false, continues: false }

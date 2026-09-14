@@ -50,4 +50,11 @@ export interface LanguageTest {
   recorderSkip?: boolean
   /** Optional human note explaining why we expect what we expect. */
   note?: string
+  /** Scan cycles a run records after (`recordings/codesys.run.json`). Default 1. */
+  cycles?: number
+  /** CODESYS refuses the source, with a fragment of its error text: outside the transpiler's input contract, and an LSP
+   *  error that must be present (`refused.test.ts`). */
+  refused?: string
+  /** A consumer that deliberately does not check this case yet — the reason, with its date. */
+  deferred?: { lsp?: string; transpile?: string }
 }

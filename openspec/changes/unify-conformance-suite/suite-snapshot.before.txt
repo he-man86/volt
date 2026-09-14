@@ -1,0 +1,238 @@
+pass	 › every operator the grammar accepts has at least one conformance fixture
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › abs_unsigned
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › abs_values
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › all_constant_division_in_real_context
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › arithmetic_width
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › assign_chained_mixed
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › assign_chained_plain
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › bit_access_read
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › bit_access_write
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › bit_string_arithmetic
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › bitwise_on_narrow_types
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › bool_to_numeric
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › case_range_edges
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › constant_arithmetic_width
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › continue_in_for
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › continue_in_repeat
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › continue_in_while
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › conversion_constant_folding
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › counter_across_cycles
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › date_arithmetic
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › date_compare
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › date_negative_difference
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › date_plus_time
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › date_representation
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › date_width_wrap
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › division_and_mod_signs
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › division_with_a_real_operand
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › dt_minus_time
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › dt_plus_fractional_time
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › exp_log_precision
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › expt_mixed_width
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › expt_real_into_real
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › expt_types
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › for_at_type_max
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › for_negative_step
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › generic_to_conversion
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › implicit_lreal_to_real
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › integer_narrowing
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › ldate_ltod_ldt
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › limit_basic
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › limit_inverted_bounds
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › literal_negative_into_unsigned
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › lreal_to_dint_rounding
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › ltime_basic
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › max_extensible
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › max_min_basic
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › max_mixed_int_real
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › max_signed_unsigned
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › mux_basic
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › mux_mixed_types
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › mux_out_of_range
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › numeric_to_bool
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › real_lreal_precision
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › real_precision
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › real_to_bool
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › real_to_int_out_of_range
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › real_to_int_rounding
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › rotate_basic
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › rotate_beyond_width
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › same_width_bitstring_sign
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › same_width_mixed_sign_order
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › sel_basic
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › set_reset_across_cycles
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › set_reset_basic
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › set_reset_chained
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › set_reset_chained_disambiguation
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › set_reset_expression
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › shift_64bit
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › shift_basic
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › shift_count_at_width
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › shift_count_beyond_width
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › shift_negative_count
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › shift_signed_operand
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › signed_overflow
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › signed_unsigned_comparison
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › signed_unsigned_conversion
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › sqrt_precision
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › string_assign_truncation
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › string_compare
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › string_concat
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › string_conversions
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › string_conversions_formats
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › string_conversions_more
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › string_default_length
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › string_edge_positions
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › string_escapes
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › string_escapes_named
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › string_input_truncation
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › string_insert_delete_replace_find
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › string_len_left_right_mid
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › string_positions_high
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › string_positions_low
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › string_to_real_parse
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › time_basic
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › time_compare
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › time_conversions
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › time_multiply_divide
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › time_width_wrap
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › tod_wrap_representation
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › trig_precision
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › trunc_beyond_dint
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › trunc_functions
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › trunc_out_of_range
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › typed_literal_constant_fold
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › typed_literal_real_prefix
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › unary_minus_at_the_edge
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › unsigned_underflow
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › wstring_basic
+pass	differential execution — emitted Rust vs CODESYS 3.5.21.40 › wstring_code_units
+pass	differential execution — interp vs CODESYS 3.5.21.40 › abs_unsigned
+pass	differential execution — interp vs CODESYS 3.5.21.40 › abs_values
+pass	differential execution — interp vs CODESYS 3.5.21.40 › all_constant_division_in_real_context
+pass	differential execution — interp vs CODESYS 3.5.21.40 › ampersand_operator_rejected (does not compile)
+pass	differential execution — interp vs CODESYS 3.5.21.40 › arithmetic_width
+pass	differential execution — interp vs CODESYS 3.5.21.40 › assign_chained_mixed
+pass	differential execution — interp vs CODESYS 3.5.21.40 › assign_chained_plain
+pass	differential execution — interp vs CODESYS 3.5.21.40 › bit_access_read
+pass	differential execution — interp vs CODESYS 3.5.21.40 › bit_access_write
+pass	differential execution — interp vs CODESYS 3.5.21.40 › bit_index_out_of_range_rejected (does not compile)
+pass	differential execution — interp vs CODESYS 3.5.21.40 › bit_string_arithmetic
+pass	differential execution — interp vs CODESYS 3.5.21.40 › bitwise_on_narrow_types
+pass	differential execution — interp vs CODESYS 3.5.21.40 › bool_to_numeric
+pass	differential execution — interp vs CODESYS 3.5.21.40 › case_range_edges
+pass	differential execution — interp vs CODESYS 3.5.21.40 › constant_arithmetic_width
+pass	differential execution — interp vs CODESYS 3.5.21.40 › continue_in_for
+pass	differential execution — interp vs CODESYS 3.5.21.40 › continue_in_repeat
+pass	differential execution — interp vs CODESYS 3.5.21.40 › continue_in_while
+pass	differential execution — interp vs CODESYS 3.5.21.40 › conversion_constant_folding
+pass	differential execution — interp vs CODESYS 3.5.21.40 › counter_across_cycles
+pass	differential execution — interp vs CODESYS 3.5.21.40 › date_arithmetic
+pass	differential execution — interp vs CODESYS 3.5.21.40 › date_compare
+pass	differential execution — interp vs CODESYS 3.5.21.40 › date_negative_difference
+pass	differential execution — interp vs CODESYS 3.5.21.40 › date_plus_time
+pass	differential execution — interp vs CODESYS 3.5.21.40 › date_representation
+pass	differential execution — interp vs CODESYS 3.5.21.40 › date_width_wrap
+pass	differential execution — interp vs CODESYS 3.5.21.40 › division_and_mod_signs
+pass	differential execution — interp vs CODESYS 3.5.21.40 › division_with_a_real_operand
+pass	differential execution — interp vs CODESYS 3.5.21.40 › dt_minus_time
+pass	differential execution — interp vs CODESYS 3.5.21.40 › dt_plus_fractional_time
+pass	differential execution — interp vs CODESYS 3.5.21.40 › exp_log_precision
+pass	differential execution — interp vs CODESYS 3.5.21.40 › expt_mixed_width
+pass	differential execution — interp vs CODESYS 3.5.21.40 › expt_real_into_real
+pass	differential execution — interp vs CODESYS 3.5.21.40 › expt_types
+pass	differential execution — interp vs CODESYS 3.5.21.40 › for_at_type_max
+pass	differential execution — interp vs CODESYS 3.5.21.40 › for_negative_step
+pass	differential execution — interp vs CODESYS 3.5.21.40 › generic_to_conversion
+pass	differential execution — interp vs CODESYS 3.5.21.40 › implicit_lreal_to_real
+pass	differential execution — interp vs CODESYS 3.5.21.40 › integer_narrowing
+pass	differential execution — interp vs CODESYS 3.5.21.40 › ldate_ltod_ldt
+pass	differential execution — interp vs CODESYS 3.5.21.40 › limit_basic
+pass	differential execution — interp vs CODESYS 3.5.21.40 › limit_inverted_bounds
+pass	differential execution — interp vs CODESYS 3.5.21.40 › literal_negative_into_unsigned
+pass	differential execution — interp vs CODESYS 3.5.21.40 › literal_out_of_range_assign (does not compile)
+pass	differential execution — interp vs CODESYS 3.5.21.40 › literal_out_of_range_init (does not compile)
+pass	differential execution — interp vs CODESYS 3.5.21.40 › lreal_to_dint_rounding
+pass	differential execution — interp vs CODESYS 3.5.21.40 › ltime_basic
+pass	differential execution — interp vs CODESYS 3.5.21.40 › max_extensible
+pass	differential execution — interp vs CODESYS 3.5.21.40 › max_min_basic
+pass	differential execution — interp vs CODESYS 3.5.21.40 › max_mixed_int_real
+pass	differential execution — interp vs CODESYS 3.5.21.40 › max_signed_unsigned
+pass	differential execution — interp vs CODESYS 3.5.21.40 › mux_basic
+pass	differential execution — interp vs CODESYS 3.5.21.40 › mux_mixed_types
+pass	differential execution — interp vs CODESYS 3.5.21.40 › mux_out_of_range
+pass	differential execution — interp vs CODESYS 3.5.21.40 › numeric_to_bool
+pass	differential execution — interp vs CODESYS 3.5.21.40 › power_operator_rejected (does not compile)
+pass	differential execution — interp vs CODESYS 3.5.21.40 › real_lreal_precision
+pass	differential execution — interp vs CODESYS 3.5.21.40 › real_precision
+pass	differential execution — interp vs CODESYS 3.5.21.40 › real_to_bool
+pass	differential execution — interp vs CODESYS 3.5.21.40 › real_to_int_out_of_range
+pass	differential execution — interp vs CODESYS 3.5.21.40 › real_to_int_rounding
+pass	differential execution — interp vs CODESYS 3.5.21.40 › rotate_basic
+pass	differential execution — interp vs CODESYS 3.5.21.40 › rotate_beyond_width
+pass	differential execution — interp vs CODESYS 3.5.21.40 › same_width_bitstring_sign
+pass	differential execution — interp vs CODESYS 3.5.21.40 › same_width_mixed_sign_order
+pass	differential execution — interp vs CODESYS 3.5.21.40 › sel_basic
+pass	differential execution — interp vs CODESYS 3.5.21.40 › set_reset_across_cycles
+pass	differential execution — interp vs CODESYS 3.5.21.40 › set_reset_basic
+pass	differential execution — interp vs CODESYS 3.5.21.40 › set_reset_chained
+pass	differential execution — interp vs CODESYS 3.5.21.40 › set_reset_chained_disambiguation
+pass	differential execution — interp vs CODESYS 3.5.21.40 › set_reset_expression
+pass	differential execution — interp vs CODESYS 3.5.21.40 › shift_64bit
+pass	differential execution — interp vs CODESYS 3.5.21.40 › shift_basic
+pass	differential execution — interp vs CODESYS 3.5.21.40 › shift_count_at_width
+pass	differential execution — interp vs CODESYS 3.5.21.40 › shift_count_beyond_width
+pass	differential execution — interp vs CODESYS 3.5.21.40 › shift_negative_count
+pass	differential execution — interp vs CODESYS 3.5.21.40 › shift_signed_operand
+pass	differential execution — interp vs CODESYS 3.5.21.40 › signed_overflow
+pass	differential execution — interp vs CODESYS 3.5.21.40 › signed_unsigned_comparison
+pass	differential execution — interp vs CODESYS 3.5.21.40 › signed_unsigned_conversion
+pass	differential execution — interp vs CODESYS 3.5.21.40 › sqrt_precision
+pass	differential execution — interp vs CODESYS 3.5.21.40 › standard_len_wstring_rejected (does not compile)
+pass	differential execution — interp vs CODESYS 3.5.21.40 › string_arithmetic_rejected (does not compile)
+pass	differential execution — interp vs CODESYS 3.5.21.40 › string_assign_truncation
+pass	differential execution — interp vs CODESYS 3.5.21.40 › string_compare
+pass	differential execution — interp vs CODESYS 3.5.21.40 › string_concat
+pass	differential execution — interp vs CODESYS 3.5.21.40 › string_conversions
+pass	differential execution — interp vs CODESYS 3.5.21.40 › string_conversions_formats
+pass	differential execution — interp vs CODESYS 3.5.21.40 › string_conversions_more
+pass	differential execution — interp vs CODESYS 3.5.21.40 › string_default_length
+pass	differential execution — interp vs CODESYS 3.5.21.40 › string_edge_positions
+pass	differential execution — interp vs CODESYS 3.5.21.40 › string_escapes
+pass	differential execution — interp vs CODESYS 3.5.21.40 › string_escapes_named
+pass	differential execution — interp vs CODESYS 3.5.21.40 › string_input_truncation
+pass	differential execution — interp vs CODESYS 3.5.21.40 › string_insert_delete_replace_find
+pass	differential execution — interp vs CODESYS 3.5.21.40 › string_len_left_right_mid
+pass	differential execution — interp vs CODESYS 3.5.21.40 › string_positions_high
+pass	differential execution — interp vs CODESYS 3.5.21.40 › string_positions_low
+pass	differential execution — interp vs CODESYS 3.5.21.40 › string_to_real_parse
+pass	differential execution — interp vs CODESYS 3.5.21.40 › string_wstring_mixing (does not compile)
+pass	differential execution — interp vs CODESYS 3.5.21.40 › time_basic
+pass	differential execution — interp vs CODESYS 3.5.21.40 › time_compare
+pass	differential execution — interp vs CODESYS 3.5.21.40 › time_conversions
+pass	differential execution — interp vs CODESYS 3.5.21.40 › time_multiply_divide
+pass	differential execution — interp vs CODESYS 3.5.21.40 › time_width_wrap
+pass	differential execution — interp vs CODESYS 3.5.21.40 › tod_wrap_representation
+pass	differential execution — interp vs CODESYS 3.5.21.40 › trig_precision
+pass	differential execution — interp vs CODESYS 3.5.21.40 › trunc_beyond_dint
+pass	differential execution — interp vs CODESYS 3.5.21.40 › trunc_functions
+pass	differential execution — interp vs CODESYS 3.5.21.40 › trunc_out_of_range
+pass	differential execution — interp vs CODESYS 3.5.21.40 › typed_literal_constant_fold
+pass	differential execution — interp vs CODESYS 3.5.21.40 › typed_literal_real_prefix
+pass	differential execution — interp vs CODESYS 3.5.21.40 › unary_minus_at_the_edge
+pass	differential execution — interp vs CODESYS 3.5.21.40 › unsigned_underflow
+pass	differential execution — interp vs CODESYS 3.5.21.40 › wstring_basic
+pass	differential execution — interp vs CODESYS 3.5.21.40 › wstring_code_units
+pass	every source CODESYS refuses is an LSP error (codesys) › ampersand_operator_rejected
+pass	every source CODESYS refuses is an LSP error (codesys) › bit_index_out_of_range_rejected
+pass	every source CODESYS refuses is an LSP error (codesys) › literal_out_of_range_assign
+pass	every source CODESYS refuses is an LSP error (codesys) › literal_out_of_range_init
+pass	every source CODESYS refuses is an LSP error (codesys) › power_operator_rejected
+pass	every source CODESYS refuses is an LSP error (codesys) › standard_len_wstring_rejected
+pass	every source CODESYS refuses is an LSP error (codesys) › string_arithmetic_rejected
+pass	every source CODESYS refuses is an LSP error (codesys) › string_wstring_mixing
+pass	language conformance (LSP vs codesys) › agreement does not regress (>= 354)
+pass	language conformance (LSP vs codesys) › emits NO false positives (every LSP message is a real IDE message)
+pass	language conformance (LSP vs twincat) › agreement does not regress (>= 256)
+pass	language conformance (LSP vs twincat) › emits NO false positives (every LSP message is a real IDE message)
+skip	differential execution — interp vs CODESYS 3.5.21.40 › real_to_string_digits — deferred: REAL_TO_STRING stays refused — no single digit rule fits (user decision 2026-09-14)

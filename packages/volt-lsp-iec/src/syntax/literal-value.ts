@@ -14,7 +14,7 @@ export interface ParsedLiteral {
 }
 
 /**
- * A string literal's text with its `$` escapes decoded — only the ones measured on CODESYS (test/exec `string_escapes*`,
+ * A string literal's text with its `$` escapes decoded — only the ones measured on CODESYS (conformance `string_escapes*`,
  * `wstring_code_units`): `$T`/`$t` a tab, `$$` a dollar, `$N` and `$L` ONE line feed, `$R` CR, `$P` form feed, `$'` and `$"`
  * the quotes; two hex digits one byte in a STRING, four one code unit in a WSTRING (`$00E9` = 'é'). Any other escape — and
  * a WSTRING's named escapes, unmeasured — returns undefined, so a caller refuses rather than guesses. The ONE decoder:

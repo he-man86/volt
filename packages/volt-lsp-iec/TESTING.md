@@ -39,15 +39,27 @@ They layer, they don't overlap:
 
 ### Conformance, in detail (`test/conformance/`)
 
+One suite for BOTH tools — the LSP and the transpiler answer to the same cases (openspec `unify-conformance-suite`).
+
 ```
-fixtures/     input ST code + metadata (the cases)          ← authored by hand
-recordings/   what the real IDE said about each fixture     ← produced by scripts/record-language.ts
-replay.test.ts  runs our LSP on each fixture, diffs vs the recording   ← the actual test
+fixtures/                  input ST code + metadata (the cases)            ← authored by hand
+  execution.ts             programs that are also RUN (the program IS PLC_PRG)
+support/                   plc-prg.ts (the one PLC_PRG text) · standard-library.ts
+recordings/
+  codesys.build.json       what CODESYS's build said      ← scripts/record-language.ts (live bridge)
+  twincat.build.json       what TwinCAT's build said      ← scripts/record-language.ts (TwinCAT worker)
+  codesys.run.json         every variable after N scans   ← scripts/record-exec.ts (headless simulator)
+replay.test.ts             LSP diagnostics vs the build recordings: no false positive, agreement floor
+refused.test.ts            every case CODESYS refuses (`refused`) is an LSP error with its wording
+transpile.test.ts          interpreter AND emitted Rust vs the run recording
+coverage.test.ts           every grammar operator appears in a fixture
 ```
 
-A **fixture** is only input. A **recording** is the ground truth. The **ratchet** (floors in `replay.test.ts`)
-counts how many fixtures match the IDE byte-for-byte; it only ever rises. A fixture the IDE and LSP disagree on
-for a documented reason is listed in `KNOWN_DIVERGENCES`.
+A **fixture** is only input. A **recording** is the ground truth, and each file has ONE recorder. The **ratchet**
+(floors in `replay.test.ts`) counts how many fixtures match the IDE byte-for-byte; it only ever rises. A fixture the
+IDE and LSP disagree on for a documented reason is listed in `KNOWN_DIVERGENCES`. A case CODESYS refuses is outside
+the transpiler's input contract (`src/transpile/index.ts`), so `transpile.test.ts` only checks the refusal still
+holds. Moving tests between files is gated by `scripts/suite-snapshot.ts` (every title and result, before vs after).
 
 ### Corpus, in detail (`test/corpus/`)
 

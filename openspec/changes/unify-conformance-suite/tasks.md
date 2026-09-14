@@ -2,24 +2,24 @@
 
 ## 1. Gate first
 
-- [ ] 1.1 `scripts/suite-snapshot.ts`: run `bun test test/conformance test/exec` with the JUnit reporter and write
-      `title → status` (pass/fail/todo/skip) sorted, file names dropped. Commit the BEFORE snapshot.
+- [x] 1.1 `scripts/suite-snapshot.ts`: run the suites with the JUnit reporter and write `status  describe › title`, sorted,
+      file names dropped; `--compare` fails on any difference. BEFORE: `suite-snapshot.before.txt`, 238 tests (237 pass, 1
+      skip).
 
 ## 2. The move (no new recordings)
 
-- [ ] 2.1 `LanguageTest` gains `cycles?`, `refused?`, `deferred?` (design §1); document each in `types.ts`.
-- [ ] 2.2 `program(name, { vars, body, cycles?, refused?, deferred? })` in `test/conformance/fixtures/`.
-- [ ] 2.3 Move the 117 exec cases into `fixtures/execution/<topic>.ts` (arithmetic, conversions, bits, math, time, date,
-      string, statements, refused) through `program()`, names and comments unchanged; register the category.
-- [ ] 2.4 `standard-library.ts` → `test/conformance/support/`.
-- [ ] 2.5 Recordings renamed and moved, contents untouched: `codesys.build.json`, `twincat.build.json` (+ schema),
-      `codesys.run.json`. `record-language.ts`/`record-exec.ts` read and write them.
-- [ ] 2.6 `differential.test.ts` → `transpile.test.ts` over the run recording; `rejects-lsp.test.ts` → `refused.test.ts`;
-      `replay.test.ts` reads the build files.
-- [ ] 2.7 AFTER snapshot identical to BEFORE; any difference is fixed in the migration, never in an expectation.
-- [ ] 2.8 Delete `test/exec/`; `package.json` `test` script; the 52 ``test/exec `name` `` citations in `src/` →
-      ``conformance `name` ``; TESTING.md, `docs/architecture.md`, `transpile-st-to-rust` design/tasks, the exec-oracle
-      memory note. Commit the move on its own.
+- [x] 2.1 `LanguageTest` gains `cycles?`, `refused?`, `deferred?` (design §1); documented in `types.ts`.
+- [x] 2.2 The mapping from an exec case to a fixture — the program IS PLC_PRG (design §1, measured against both recorders).
+- [x] 2.3 The 117 cases moved into `fixtures/execution.ts` with every entry's text unchanged, registered as the `execution`
+      category. A split by topic is cosmetic and left for when the file grows; the section headers already group it.
+- [x] 2.4 `standard-library.ts` → `test/conformance/support/`, beside the new `plc-prg.ts` (the one PLC_PRG text).
+- [x] 2.5 Recordings renamed and moved, contents untouched: `codesys.build.json`, `twincat.build.json`,
+      `codesys.run.json`; both recorders write them.
+- [x] 2.6 `differential.test.ts` → `transpile.test.ts`; `rejects-lsp.test.ts` → `refused.test.ts`; the replay reads the
+      build files.
+- [x] 2.7 AFTER snapshot identical to BEFORE: 238 = 238, no line differs.
+- [x] 2.8 `test/exec/` deleted; `package.json` `test` script; the `src/` citations, `docs/architecture.md`, README and the
+      `transpile-st-to-rust` design point at the suite. Committed on its own.
 
 ## 3. Measure the simulator before extending it
 

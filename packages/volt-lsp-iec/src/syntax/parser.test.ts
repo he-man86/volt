@@ -37,7 +37,7 @@ END_FUNCTION_BLOCK`)
 
 test("an assignment chain keeps each link's operator — `a S= b R= c` is valid CODESYS, not a parse error", () => {
   // No parser test covered chains at all, so a loop that accepted `:=` links only — after a plain `:=` only — made
-  // a set/reset chain CODESYS compiles (test/exec `set_reset_chained`) into "';' expected instead of 'R='".
+  // a set/reset chain CODESYS compiles (conformance `set_reset_chained`) into "';' expected instead of 'R='".
   type Assign = Extract<ReturnType<typeof stmts>["statements"][number], { kind: "assign" }>
   const chain = stmts("a S= b R= c;")
   expect(chain.ok).toBe(true)

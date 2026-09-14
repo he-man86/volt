@@ -31,6 +31,7 @@ import { USAGE_PATTERN_TESTS } from "./usage-pattern.js"
 import { VARIABLE_SECTION_TESTS } from "./variable-section.js"
 import { CHECK_COVERAGE_TESTS } from "./check-coverage.js"
 import { ERROR_CATALOG_TESTS } from "./error-catalog.js"
+import { EXECUTION_TESTS } from "./execution.js"
 
 export interface CategoryGroup {
   name: string
@@ -65,6 +66,8 @@ export const CATEGORIES: readonly CategoryGroup[] = [
   { name: "check-coverage", tests: CHECK_COVERAGE_TESTS },
   // ── CODESYS error-catalog codes (Cnnnn) — awaiting live recording, see error-catalog.ts ──
   { name: "error-catalog", tests: ERROR_CATALOG_TESTS },
+  // ── programs that are also RUN in the simulator — the transpiler's cases (was test/exec, unify-conformance-suite) ──
+  { name: "execution", tests: EXECUTION_TESTS },
 ]
 
 export const ALL_TESTS: readonly LanguageTest[] = CATEGORIES.flatMap((c) => c.tests)

@@ -188,7 +188,7 @@ function parseExprOrAssign(cur: Cursor): Statement | undefined {
     let value = parseExpression(cur)
     if (value === undefined) return undefined
     // A CHAIN promotes each right-hand side to an intermediate target: `a := b := c`, and — measured, not assumed —
-    // `a S= b R= c`, which CODESYS compiles (test/exec `set_reset_chained`). This loop used to accept `:=` links
+    // `a S= b R= c`, which CODESYS compiles (conformance `set_reset_chained`). This loop used to accept `:=` links
     // only, after a plain `:=` only, so a valid set/reset chain was a parse error ("';' expected instead of 'R='").
     // The operators may mix, so each link keeps its own (`chainOps`).
     const chained: Expr[] = []

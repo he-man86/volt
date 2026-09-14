@@ -65,7 +65,7 @@ END_PROGRAM
     const assign = pou.body[0] as IrAssign
     expect(assign.target.slot).toBe(0)
     expect(assign.target.path).toEqual([]) // fields/indices/derefs append here later
-    // `iCount + 1` computes in DINT (integer promotion, measured against CODESYS in test/exec) and converts back
+    // `iCount + 1` computes in DINT (integer promotion, measured against CODESYS in conformance) and converts back
     // to INT on store — so the load sits under two conversions, but it is still slot 0, not a name.
     const value = assign.value
     expect(value.kind).toBe("convert")
