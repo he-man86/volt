@@ -78,7 +78,7 @@ server`), lint-enforced. See [`docs/architecture.md`](./docs/architecture.md) fo
 | `src/types/` | elementary type facts · the `Type` model · resolve · const-eval · infer · compat · render. |
 | `src/analysis/` | diagnostics orchestrator (vendor-keyed) · per-vendor messages · the `checks/`. |
 | `src/services/` | navigation · hierarchy · hover/completion/signature-help · semantic-tokens · formatting · code-actions. |
-| `src/reference/` · `src/graphical/` | language-data catalogs · the VG (FBD/LD) sublanguage (reuses the shared core). |
+| `src/reference/` · `src/network/` | language-data catalogs · the network-text (FBD/LD) sublanguage (reuses the shared core). |
 | `src/server/` | LSP 3.17 over stdio · `WorkspaceStore` (eager index + watched-file freshness) · push+pull diagnostics. |
 | `src/transpile/` | Rust backend — sibling consumer of the frontend for headless PLC-logic test execution. |
 | `test/conformance/` · `test/corpus/` · `test/exec/` | oracle replay · real-project ratchet · transpiled-Rust execution. |

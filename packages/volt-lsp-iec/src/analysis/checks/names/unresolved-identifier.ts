@@ -7,7 +7,7 @@
  * Emits two codes: `unresolved-identifier` (a bare name — `undefinedIdentifier`) and `unknown-member`
  * (`a.b` where `b` is not on `a`'s type — `unresolvedMembers`/`notAMember`). Member access is conservative:
  * only a PROJECT (non-library) struct/FB/enum base with a fully-resolved EXTENDS chain is checked, so
- * library-typed and namespace-qualified refs never false-positive (see `_identifier-resolution`).
+ * library-typed and namespace-qualified refs never false-positive (see `analysis/resolution.ts`).
  *
  * Bodies with a conditional-compile pragma (`{IF}`/`{ELSIF}`/`{ELSE}`/`{END_IF}`) are SKIPPED whole: the
  * compilers strip dead branches before analysis but we have no preprocessor, so checking would
@@ -17,7 +17,7 @@ import { stmtExprs, walkStatements, type BodySpan } from "../../../syntax/index.
 import { bodies } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../_shared.js"
-import { unresolvedInExprs, unresolvedMembers } from "./_identifier-resolution.js"
+import { unresolvedInExprs, unresolvedMembers } from "../../resolution.js"
 
 /** `{IF ...}` / `{ELSIF ...}` / `{ELSE}` / `{END_IF}` — permissive on inner leading whitespace. */
 const CONDITIONAL_PRAGMA_RE = /^\{\s*(?:IF|ELSIF|ELSE|END_IF)\b/i

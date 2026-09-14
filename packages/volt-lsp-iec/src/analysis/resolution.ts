@@ -1,6 +1,8 @@
 /**
- * Shared bare-identifier resolution (names/). The oracle behind BOTH the ST `unresolved-identifier` check
- * and the network-text `network-undeclared-identifier` check: network-text operands are ST `Expr` trees, so a graphical body resolves
+ * Shared bare-identifier resolution (analysis/). The oracle behind the ST `unresolved-identifier` check, the `inheritance`
+ * check's base-name test, and the network-text `network-undeclared-identifier` check — which is why it is not a helper
+ * inside one check group (it was `checks/names/_identifier-resolution.ts`, imported across groups; the layering lint now
+ * refuses that). The ST and network-text checks resolve alike: network-text operands are ST `Expr` trees, so a graphical body resolves
  * its identifiers by exactly the same rules as a textual one (against a network scope that layers `LET`
  * wires over the POU scope). Keeping the rules in one place is what makes the two checks agree by
  * construction — a name ST resolves can never be one the network-text check flags, and vice-versa.
@@ -10,12 +12,11 @@
  * `TYPE_CLASS`), a built-in in the reference catalog, a referenced-library namespace or device-tree instance,
  * a bare-accessible enum member, or anything in the given scope (parent chain + EXTENDS bases).
  */
-import { walkExpr, type Expr, type MemberExpr, type Span } from "../../../syntax/index.js"
-import { lookupReference } from "../../../reference/index.js"
-import { hasUnresolvedBase, lookup, lookupLocal, lookupMember, resolveBareEnumMember, type Scope } from "../../../symbols/index.js"
-import { inferExprType } from "../../../types/index.js"
-import type { WorkspaceRefs } from "../../config.js"
-import { isLibrarySymbol } from "../_shared.js"
+import { walkExpr, type Expr, type MemberExpr, type Span } from "../syntax/index.js"
+import { lookupReference } from "../reference/index.js"
+import { hasUnresolvedBase, isLibrarySymbol, lookup, lookupLocal, lookupMember, resolveBareEnumMember, type Scope } from "../symbols/index.js"
+import { inferExprType } from "../types/index.js"
+import type { WorkspaceRefs } from "./config.js"
 
 /** A conversion-operator call shape: `INT_TO_REAL`, `WORD_TO_BYTE`, `TO_STRING`. Not a scope symbol. */
 const CONVERSION_RE = /^(?:[A-Za-z][A-Za-z0-9]*_TO_[A-Za-z]|TO_[A-Za-z])/i

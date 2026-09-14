@@ -1,8 +1,8 @@
 // @volt/lsp-iec — public API barrel.
 //
 // The layer stack (imports point DOWNWARD only, lint-enforced by scripts/check-layering.ts):
-//   syntax ← symbols ← types ← analysis ← services ← reference/graphical ← server
-//                                        ↖ transpile consumes syntax·symbols·types
+//   syntax ← network/text ← symbols ← types ← reference ← analysis ← services ← network ← workspace files ← server
+//                                    ↖ transpile consumes syntax·symbols·types
 //
 // Re-export each layer's public surface as it fills in. Consumers of the package
 // import from here or from a layer barrel — never a deep file.

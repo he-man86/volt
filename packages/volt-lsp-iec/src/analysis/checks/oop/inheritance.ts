@@ -13,7 +13,7 @@
 import { lookup, scopeForUnit } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
-import { nameResolves } from "../names/_identifier-resolution.js"
+import { nameResolves } from "../../resolution.js"
 
 export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {

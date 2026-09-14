@@ -27,7 +27,7 @@ downward only** (`syntax ← symbols ← types ← analysis ← services ← ser
 ```
 G  server        LSP 3.17 / stdio · dispatch · capabilities · WorkspaceStore (eager index + watched-file
                  freshness) · push+pull diagnostics · progress
-F  reference · graphical      language data catalogs · the FBD/LD sublanguage (native, by reuse)
+F  reference · network        language data catalogs · the FBD/LD sublanguage (native, by reuse)
 E  services      navigation · hierarchy · hover/completion/signature-help · inlay-hints · code-lens ·
                  semantic-tokens · structure · formatting · code-actions
 D  analysis      diagnostics orchestrator · messages · the checks
@@ -188,7 +188,7 @@ constant, look it up here; if it exists, import it — never redefine.
 `from "../types"`, not `from "../types/elementary"`. One import path per layer makes "where does X come from"
 unambiguous — re-creating it reads as obviously wrong.
 
-**3. Lint-enforced layering.** A `dependency-cruiser` (or `eslint-plugin-boundaries`) rule FAILS the build when
+**3. Lint-enforced layering.** `scripts/check-layering.ts` (an import scan, not dependency-cruiser) FAILS the build when
 an import points upward (`types` importing `analysis`), when a check imports a sibling check, or when a layer
 re-declares a lower-layer type. Imports point downward only — mechanically, not by convention. This is the guard
 an AI cannot skip.

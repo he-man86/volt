@@ -17,7 +17,7 @@ Everything under `bun test` is **offline and deterministic** — no live IDE nee
 | a **C-code** (a `Cnnnn` diagnostic) — is it emitted, with the right wording? | `src/reference/error-catalog.test.ts` (master net, one test per code) **+** the check's own `src/analysis/checks/**/*.test.ts` | Unit |
 | check a C-code matches the **real CODESYS/TwinCAT** byte-for-byte | run `scripts/verify-catalog.ts` (live) → stamps `docs/codesys-reference/error-catalog.json`; view status with `scripts/catalog-status.ts` | Tooling |
 | a **language feature** — parse, resolve, hover, completion, signature, format, semantic tokens | colocated `src/syntax/`, `src/symbols/`, `src/services/**/*.test.ts` | Unit |
-| a **graphical (VG)** body | `src/graphical/*.test.ts` | Unit |
+| a **graphical (network-text)** body | `src/network/*.test.ts` | Unit |
 | prove a feature/diagnostic **agrees with the real compiler** | `test/conformance/` (replays recorded IDE output — no live IDE) | Conformance |
 | **no false positives on real projects** that compile clean | `test/corpus/` | Corpus |
 
