@@ -46,6 +46,27 @@ test("a literal the target holds, or one only a sign warning away, is no error",
   expect(initMismatches("i : INT := 40000; u : UINT := -5;")).toEqual([])
 })
 
+test("a declaration's initial value is type-checked like an assignment, for every literal shape (gap 14)", () => {
+  // Initializers were never checked; each expectation is a recording (conformance `cc_init_*`).
+  expect(initMismatches("i : INT := TRUE;")).toEqual(["Cannot convert type 'BOOL' to type 'INT'"])
+  expect(initMismatches("i : INT := 1.5;")).toEqual(["Cannot convert type 'LREAL' to type 'INT'"])
+  expect(initMismatches("t : TIME := 5;")).toEqual(["Cannot convert type 'SINT' to type 'TIME'"])
+  expect(initMismatches("i : INT := 'abc';")).toEqual(["Cannot convert type 'STRING(INT#3)' to type 'INT'"])
+  expect(initMismatches("si : SINT := INT#5;")).toEqual(["Cannot convert type 'INT' to type 'SINT'"])
+  expect(initMismatches("b : BOOL := 2;")).toEqual(["Cannot convert type 'SINT' to type 'BOOL'"])
+  expect(initMismatches("re : REAL := T#1S;")).toEqual(["Cannot convert type 'TIME' to type 'REAL'"])
+})
+
+test("the initializers and assignments CODESYS accepts stay silent", () => {
+  expect(initMismatches("b0 : BOOL := 0; b1 : BOOL := 1; re : REAL := 1.5; lr : LREAL := 1.5; si : SINT := 100 + 100;")).toEqual([])
+  expect(mismatches("b : BOOL;", "b := 1;")).toEqual([])
+})
+
+test("a statement converts a literal the same way (conformance `cc_assign_*`)", () => {
+  expect(mismatches("t : TIME;", "t := 5;")).toEqual(["Cannot convert type 'SINT' to type 'TIME'"])
+  expect(mismatches("i : INT;", "i := 1.5;")).toEqual(["Cannot convert type 'LREAL' to type 'INT'"])
+})
+
 test("an L-prefixed date literal is the 64-bit type, printed as CODESYS prints it (consolidate-lsp-structure A2)", () => {
   // Inference typed every date literal without its `L`, so these were silent while lowering typed them right.
   expect(mismatches("d1 : DATE;", "d1 := LDATE#2024-02-28;")).toEqual(["Cannot convert type 'LDATE' to type 'DATE'"])

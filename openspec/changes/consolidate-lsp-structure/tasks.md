@@ -56,9 +56,15 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       message prints a prefix of the literal AS WRITTEN sized by the destination (n − 3 characters, or n below 3 —
       lengths 1–7 recorded), where the check always printed `''...'`. *Why missed:* the check was written from the
       catalog, not a recording, and its only fixture happened to be STRING(4), where `''...'` is right.
-- [ ] A11 **`network-analyze.ts:88` `synthTypeExpr`** loses string length, arrays and pointers.
+- [x] A11 **`network-analyze.ts` `synthTypeExpr`** lost string length, arrays and pointers. DONE 2026-09-14: it rebuilds
+      a string's length and array/pointer/reference structure; test `network/network-wire-type.test.ts`. *Why missed:*
+      no network test typed a wire from anything but BOOL/INT.
 - [ ] A12 **`lower.ts` `wider` is order-dependent** at equal rank, mixed sign (DINT vs UDINT) — only one order measured.
-- [ ] A13 **Gap 14** (transpile-st-to-rust tasks): a declaration's non-literal initializer is never type-checked.
+- [x] A13 **Gap 14**: declaration initializers were never type-checked. DONE 2026-09-14: 16 recorded fixtures
+      (`cc_init_*`, `cc_assign_*`) give one rule for initializers and assignments alike — a value converts as its type,
+      an untyped integer as its narrowest type unless the target holds it (a BOOL takes 0 and 1), a real literal as
+      LREAL; a constant expression is silent. `types/literalErrorType`; the assignment check now walks every scalar
+      initializer. *Why missed:* the check walked statements only, and no fixture put a mismatch in a declaration.
 
 ## B. `src/types` is the only home of type knowledge
 

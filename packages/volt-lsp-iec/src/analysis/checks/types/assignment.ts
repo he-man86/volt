@@ -9,7 +9,7 @@ import { bodies, lookup, resolveBareEnumMember, type Scope, type Symbol } from "
 import {
   inferExprType,
   isAssignable,
-  literalCheckType,
+  literalErrorType,
   renderType,
   resolveMemberChain,
   resolveTypeExpr,
@@ -27,13 +27,13 @@ export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): 
       if (diag !== undefined) out.push(diag)
     })
   }
-  // A declaration's initial value converts like an assignment: `b : BYTE := 300` is "Cannot convert type 'INT' to type
-  // 'BYTE'" (conformance `overflow_byte_above_max`). Only the measured shape — an untyped integer literal — is checked
-  // here; any other initializer is unmeasured (tasks.md gap 14) and stays silent.
+  // A declaration's initial value converts like an assignment — the same rule, recorded for every literal shape
+  // (conformance `cc_init_*`: `i : INT := TRUE` is "Cannot convert type 'BOOL' to type 'INT'", `si : SINT := INT#5` INT to
+  // SINT, `si : SINT := 100 + 100` silent). Initializers were never type-checked at all (gap 14).
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (decl.init === undefined || decl.init.kind === "aggregate_init") continue
     const lhs = resolveTypeExpr(decl.type, ctx.project)
-    if (literalCheckType(decl.init, lhs) === undefined) continue
+    if (lhs.kind !== "elementary" && lhs.kind !== "enum") continue // a composite target is not this check's
     const diag = conversionError(lhs, decl.init, decl.init.span, scope, ctx.project, ctx.messages)
     if (diag !== undefined) out.push(diag)
   }
@@ -55,10 +55,10 @@ export function assignmentPairError(
   return lhs === undefined ? undefined : conversionError(lhs, value, target.span, scope, project, messages)
 }
 
-/** The "Cannot convert" error for `value` stored into a `lhs`, reported at `span`, or undefined. An untyped integer
- *  literal the target cannot hold is typed by `literalCheckType` (gap 13); any other value by inference. */
+/** The "Cannot convert" error for `value` stored into a `lhs`, reported at `span`, or undefined. An untyped numeric
+ *  literal is typed by `literalErrorType` (gaps 13, 14); any other value by inference. */
 function conversionError(lhs: Type, value: Expr, span: Span, scope: Scope, project: Scope, messages: Messages): DiagnosticItem | undefined {
-  const rhs = literalCheckType(value, lhs) ?? checkableType(value, scope, project)
+  const rhs = literalErrorType(value, lhs) ?? checkableType(value, scope, project)
   if (rhs === undefined) return undefined
   if (isAssignable(lhs, rhs)) return undefined
   const display = rhsDisplay(value, rhs)

@@ -61,7 +61,8 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // 311 → 315: consolidate-lsp-structure A2 — an L-prefixed date literal is the 64-bit type, printed in full.
   // 315 → 316: A4 — one conversion-name parser; the types it prints are the compiler's.
   // 316 → 318: A10 — one string-literal decoder; the assignment message counts decoded characters.
-  { vendor: "codesys", filename: "expected-codesys.json", floor: 318 },
+  // 318 → 333: A13 — declaration initializers type-checked like assignments (gap 14).
+  { vendor: "codesys", filename: "expected-codesys.json", floor: 333 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence

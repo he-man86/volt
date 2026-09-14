@@ -278,6 +278,35 @@ export function literalCheckType(value: Expr, target: Type): Type | undefined {
   return t === undefined ? undefined : elementaryTypeRef(t)
 }
 
+/**
+ * The type an untyped numeric literal is checked as for the "Cannot convert" ERROR when stored into `target` (an
+ * assignment or a declaration's initial value) — or undefined when there is nothing to check. Recorded on CODESYS
+ * (conformance `cc_init_*`, `cc_assign_*`, `cc_literal_*`, consolidate-lsp-structure A13):
+ *   - an integer the target holds is silent — an integer or bit-string target in range, and a BOOL takes 0 and 1
+ *     (`b := 1` is silent, `b := 2` is "Cannot convert type 'SINT' to type 'BOOL'");
+ *   - any other integer is its narrowest type (`integerLiteralType`) — `t := 5` is "Cannot convert type 'SINT' to type 'TIME'";
+ *   - a real literal is LREAL — `i := 1.5` is "Cannot convert type 'LREAL' to type 'INT'", and into REAL or LREAL it
+ *     converts silently (a narrowing, never an error).
+ * The WARNING checks keep `literalCheckType`: a literal's sign-change and loss warnings are measured only for integer
+ * targets.
+ */
+export function literalErrorType(value: Expr, target: Type): Type | undefined {
+  const negated = value.kind === "unary" && value.op === "-"
+  const lit = negated ? value.operand : value
+  if (lit.kind !== "literal") return undefined
+  if (lit.literalKind === "real" && typeof lit.value === "number") return elem("LREAL")
+  if (lit.literalKind !== "int" || typeof lit.value !== "bigint") return undefined
+  const v = negated ? -lit.value : lit.value
+  if (target.kind === "elementary" && target.elem.family === "bool") {
+    if (v === 0n || v === 1n) return undefined
+  } else {
+    const range = target.kind === "elementary" && ["int", "bitstring"].includes(target.elem.family) ? target.elem.range : undefined
+    if (range !== undefined && v >= range.min && v <= range.max) return undefined
+  }
+  const t = integerLiteralType(v)
+  return t === undefined ? undefined : elementaryTypeRef(t)
+}
+
 function literalType(lit: Literal): Type {
   switch (lit.literalKind) {
     case "string":

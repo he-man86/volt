@@ -153,6 +153,47 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
   fb("cc_decl_init_trailing_int", "`x : INT := 5 6;` → compiler error", "x : INT := 5 6;"),
   fb("cc_ltime_literal_into_time", "an LTIME literal into a TIME → ?", "t1 : TIME;", "t1 := LTIME#1S;"),
   fb("cc_fp_ltime_literal_into_ltime", "an LTIME literal into an LTIME → accepted", "lt1 : LTIME;", "lt1 := LTIME#1S;"),
+  // consolidate-lsp-structure A13 (gap 14) — a declaration's initial value is type-checked only for an untyped integer
+  // literal (gap 13). What does CODESYS say for the other shapes an initializer takes?
+  fb("cc_init_bool_into_int", "`i : INT := TRUE` → ?", "i : INT := TRUE;"),
+  fb("cc_init_int_into_bool", "`b : BOOL := 1` → ?", "b : BOOL := 1;"),
+  fb("cc_init_real_into_int", "`i : INT := 1.5` → ?", "i : INT := 1.5;"),
+  fb("cc_init_int_into_time", "`t : TIME := 5` → ?", "t : TIME := 5;"),
+  fb("cc_init_string_into_int", "`i : INT := 'abc'` → ?", "i : INT := 'abc';"),
+  fb("cc_init_typed_int_into_sint", "`si : SINT := INT#5` → ?", "si : SINT := INT#5;"),
+  fb("cc_init_constant_expr_into_sint", "`si : SINT := 100 + 100` → ?", "si : SINT := 100 + 100;"),
+  // Recorded: an initializer converts as its literal's type (5 is SINT, 1.5 LREAL, INT#5 INT) — except `b : BOOL := 1`,
+  // accepted. The edges before a rule: which integers a BOOL takes, whether a real literal is silent into REAL/LREAL, and
+  // the statement forms. (`cc_init_time_into_real` named its variable `r`, a reserved word — re-measured as `re`.)
+  fb("cc_init_zero_into_bool", "`b : BOOL := 0` → ?", "b : BOOL := 0;"),
+  fb("cc_init_two_into_bool", "`b : BOOL := 2` → ?", "b : BOOL := 2;"),
+  fb("cc_fp_init_real_literal_into_real", "`re : REAL := 1.5` → accepted?", "re : REAL := 1.5;"),
+  fb("cc_fp_init_real_literal_into_lreal", "`lr : LREAL := 1.5` → accepted?", "lr : LREAL := 1.5;"),
+  fb("cc_init_time_into_real_renamed", "`re : REAL := T#1S` → ?", "re : REAL := T#1S;"),
+  fb("cc_assign_int_literal_into_time", "`t := 5` → ?", "t : TIME;", "t := 5;"),
+  fb("cc_assign_real_literal_into_int", "`i := 1.5` → ?", "i : INT;", "i := 1.5;"),
+  fb("cc_assign_one_into_bool", "`b := 1` → ?", "b : BOOL;", "b := 1;"),
+  // consolidate-lsp-structure A10 — three rules for a string literal's length disagree on `$` escapes: the assignment
+  // message counts raw characters (`STRING(INT#<n>)`), the too-long check counts any `$X` as one, the transpiler decodes
+  // only the measured escapes. What does CODESYS count — and print?
+  fb("cc_string_escape_literal_into_int", "`i := 'a$Tb'` → STRING(INT#3) or (INT#4)?", "i : INT;", "i := 'a$Tb';"),
+  fb("cc_string_escape_init_too_long", "`s3 : STRING(3) := 'ab$T$T'` → too long (4 decoded)?", "s3 : STRING(3) := 'ab$T$T';"),
+  fb("cc_fp_string_escape_init_fits", "`s3 : STRING(3) := 'a$Tb'` → accepted (3 decoded)", "s3 : STRING(3) := 'a$Tb';"),
+  // Recorded: the escaped one is a WARNING, "String constant '...' too long…" — while the check, from the docs, emits an
+  // ERROR worded "''...'". The plain case, before either is changed:
+  fb("cc_string_plain_init_too_long", "`s4 : STRING(4) := '12345'` → warning or error, and which wording?", "s4 : STRING(4) := '12345';"),
+  // Recorded: both are WARNINGS; plain '12345' prints `''...'`, escaped 'ab$T$T' prints `'...'`. What decides the form?
+  fb("cc_string_plain_long_init_too_long", "`s2 : STRING(2) := 'abcdef'` → which form?", "s2 : STRING(2) := 'abcdef';"),
+  fb("cc_string_escape_first_too_long", "`s2 : STRING(2) := '$Tabc'` → which form?", "s2 : STRING(2) := '$Tabc';"),
+  fb("cc_string_escape_middle_too_long", "`s2 : STRING(2) := 'ab$Tc'` → which form?", "s2 : STRING(2) := 'ab$Tc';"),
+  fb("cc_string_escape_last_too_long", "`s2 : STRING(2) := 'abc$T'` → which form?", "s2 : STRING(2) := 'abc$T';"),
+  fb("cc_string_hex_escape_too_long", "`s2 : STRING(2) := 'ab$41'` → which form?", "s2 : STRING(2) := 'ab$41';"),
+  // Recorded: the message shows a prefix of the literal AS WRITTEN (opening quote included), and its length follows the
+  // destination, not the content — STRING(2) took 2 characters every time, STRING(4) 1, STRING(3) 0 ("length mod 3"
+  // fits, from three lengths only). One literal into four more lengths; mod 3 predicts 1, 2, 0, 1.
+  ...([1, 5, 6, 7] as const).map((n) =>
+    fb(`cc_string_prefix_len_${n}`, `'abcdefghij' into STRING(${n}) → how much of it is printed?`, `s${n} : STRING(${n}) := 'abcdefghij';`),
+  ),
   // consolidate-lsp-structure A8 — `this-super-context.ts` compares `THIS`/`SUPER` exactly, so a lower-case `this` or
   // `super` in a PROGRAM is never flagged (two OOP checks upper-case first). PLC_PRG is a PROGRAM: the uses go in its body.
   ...(["this", "super", "THIS"] as const).map(
