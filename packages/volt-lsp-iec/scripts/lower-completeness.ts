@@ -14,7 +14,7 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, extname, relative } from "node:path"
-import { isGraphicalBody, parseSource, parseStatements, type TopLevel } from "../src/syntax/index.js"
+import { isGraphicalBody, parseSource, parseStatements, unitAttributes, type TopLevel } from "../src/syntax/index.js"
 import { buildSymbolTable, scopeForUnit } from "../src/symbols/index.js"
 import { lowerUnit } from "../src/transpile/index.js"
 import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
@@ -66,6 +66,7 @@ for (const projectDir of projects) {
     }
   })
   const project = buildSymbolTable(files.map(({ file, source, parseResult }) => ({ uri: file, parseResult, source })))
+  const attributes = new Map(files.flatMap(({ source, parseResult }) => [...unitAttributes(parseResult, source)]))
   for (const { file, parseResult } of files) {
     // Where the code actually lives: a METHOD/ACTION body belongs to its FB's frame, which lowering does not
     // reach yet. Counted so the number is visible rather than quietly excluded.
@@ -80,7 +81,7 @@ for (const projectDir of projects) {
       if (hasCode) withCode++
       else declOnly++
 
-      const { pou, diagnostics } = lowerUnit(unit, scope, project)
+      const { pou, diagnostics } = lowerUnit(unit, scope, project, attributes)
       if (pou !== undefined) {
         if (hasCode) {
           withCodeLowered++

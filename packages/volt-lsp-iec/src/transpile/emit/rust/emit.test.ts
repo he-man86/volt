@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { emitRust, rustType, snake } from "./emit.js"
+import { STRING_PRELUDE } from "./prelude.js"
 import { lowerSource } from "../../lower/index.js"
 
 function rust(src: string): string {
@@ -56,6 +57,24 @@ describe("emit/rust", () => {
     const { pou } = lowerSource("PROGRAM P\nVAR t : TIME := T#1S500MS; lt1 : LTIME := LTIME#1NS; END_VAR\nt := t;\nEND_PROGRAM\n")
     expect(pou!.slots.map((s) => rustType(s.type))).toEqual(["u32", "u64"])
     expect(pou!.slots.map((s) => s.init)).toEqual([1500n, 1n]) // folded, in each type's unit
+  })
+
+  test("an FB call prints its inputs, `.call` with VAR_IN_OUT as `&mut`, then its outputs — and constants at their width", () => {
+    // named: `lowerSource` otherwise lowers the FIRST runnable unit, which is the FB
+    const { pou, diagnostics } = lowerSource(
+      "FUNCTION_BLOCK FB_Inc\nVAR_INPUT by1 : INT; END_VAR\nVAR_IN_OUT v : INT; END_VAR\nVAR_OUTPUT done : BOOL; END_VAR\nv := v + by1;\ndone := TRUE;\nEND_FUNCTION_BLOCK\nPROGRAM Calls\nVAR inc : FB_Inc; n : INT; ok : BOOL; big : INT := 40000; si : SINT; END_VAR\ninc(by1 := 1, v := n, done => ok);\nsi := 128;\nEND_PROGRAM\n",
+      "Calls",
+    )
+    expect(diagnostics).toEqual([])
+    const code = emitRust(pou!).code
+    expect(code).toContain("pub fn call(&mut self, v: &mut i16) {")
+    expect(code).toContain("(*v) = ") // the VAR_IN_OUT parameter, written through
+    expect(code).toContain("self.inc.by1 = 1i16;")
+    expect(code).toContain("self.inc.call(&mut self.n);")
+    expect(code).toContain("self.ok = self.inc.done;")
+    // the stored value, not the literal as written — `40000i16` and `128i8` do not compile
+    expect(code).toContain("big: -25536i16,")
+    expect(code).toContain("self.si = -128i8;")
   })
 
   test("ST names become snake_case fields", () => {
@@ -194,14 +213,24 @@ describe.skipIf(rustc === null)("emit/rust — compiles", () => {
       "PROGRAM Strings\nVAR a : STRING(3); b : STRING := 'ab$Tc'; ok : BOOL; n : INT; END_VAR\na := b;\nok := a < b;\nb := INT_TO_STRING(n);\nn := STRING_TO_INT(b) + LEN(b);\nEND_PROGRAM\n",
       // Composites (phase 3 step 2): a nested struct copied whole, an array of structs past 32 elements (no `Default`
       // derive), a two-dimensional array, a bit of a field and an FB instance's variable — all plain owned values.
-      "TYPE T_Pt : STRUCT x : INT := 7; name : STRING(4); END_STRUCT END_TYPE\nTYPE T_Pair : STRUCT a : T_Pt; b : T_Pt; END_STRUCT END_TYPE\nFUNCTION_BLOCK FB_Q\nVAR_OUTPUT q : INT; END_VAR\nEND_FUNCTION_BLOCK\nPROGRAM Composites\nVAR p1 : T_Pair; p2 : T_Pair; many : ARRAY[1..40] OF T_Pt; grid : ARRAY[0..1, 0..2] OF BOOL; inst : FB_Q; i : INT := 2; END_VAR\np2 := p1;\nmany[i].x := p2.a.x + inst.q;\ngrid[1, i] := many[40].x.0;\nEND_PROGRAM\n",
+      // The PROGRAM comes first: `lowerSource` lowers the first runnable unit, and with the FB first this built only the FB.
+      "PROGRAM Composites\nVAR p1 : T_Pair; p2 : T_Pair; many : ARRAY[1..40] OF T_Pt; grid : ARRAY[0..1, 0..2] OF BOOL; inst : FB_Q; i : INT := 2; END_VAR\np2 := p1;\nmany[i].x := p2.a.x + inst.q;\ngrid[1, i] := many[40].x.0;\nEND_PROGRAM\nTYPE T_Pt : STRUCT x : INT := 7; name : STRING(4); END_STRUCT END_TYPE\nTYPE T_Pair : STRUCT a : T_Pt; b : T_Pt; END_STRUCT END_TYPE\nFUNCTION_BLOCK FB_Q\nVAR_OUTPUT q : INT; END_VAR\nEND_FUNCTION_BLOCK\n",
+      // Calls (phase 3 step 3): inputs and outputs around `.call(…)`, a VAR_IN_OUT as a `&mut` parameter bound to a field
+      // of the caller, a nested instance called from an FB body — the borrow checker is the check.
+      "PROGRAM Calls\nVAR inc : FB_Inc; outer : FB_Outer; n : INT; ok : BOOL; big : INT := 40000; si : SINT; END_VAR\ninc(by1 := 1, v := n, done => ok);\nouter();\nsi := 128;\nEND_PROGRAM\nFUNCTION_BLOCK FB_Inc\nVAR_INPUT by1 : INT; END_VAR\nVAR_IN_OUT v : INT; END_VAR\nVAR_OUTPUT done : BOOL; END_VAR\nv := v + by1;\ndone := TRUE;\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_Outer\nVAR inner : FB_Inc; total : INT; END_VAR\ninner(by1 := 2, v := total);\nEND_FUNCTION_BLOCK\n",
     ]
     const len = { uri: "Library Manager/Standard/LEN.fun", source: "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\nEND_FUNCTION\n" }
+    // Each POU's output carries the string prelude when it holds a string (emit.ts's ponytail note) — one crate of several
+    // POUs keeps the first copy only.
+    let preluded = false
     const crate = sources
       .map((src) => {
         const { pou, diagnostics } = lowerSource(src, undefined, [len])
         expect(diagnostics).toEqual([])
-        return emitRust(pou!).code
+        const code = emitRust(pou!).code
+        if (!code.startsWith(STRING_PRELUDE)) return code
+        if (!preluded) return (preluded = true), code
+        return code.slice(STRING_PRELUDE.length)
       })
       .join("\n")
 

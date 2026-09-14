@@ -238,6 +238,21 @@ instances alone take the ratchet from 4 to as many as 97.
 6. **Handles** — ADR, POINTER TO, REFERENCE TO, VAR_IN_OUT (phase 4's list moves here: the model is settled) — and
    SIZEOF from the measured layout.
 **Checkpoint before step 1:** the user reviews this plan, since it replaces the IR the interpreter and emitter print.
+Reviewed — "loop over this plan to refactor and finish" (user, 2026-09-14). Step 1 was folded into step 2: the IR was
+reshaped in place, each commit gated value-for-value by the conformance replay, rather than duplicated beside itself.
+
+- [x] **Step 2 — the frame is a tree of owned values.** DONE 2026-09-14: places are root + `field`/`index`/`bit` path,
+      layouts for every struct and FB, bounded arrays (`types/` resolves constant bounds), whole-struct copies; Rust
+      plain structs with `new()`. Cases lowering 111 → 117. Bug caught by the oracle: a BIT field is a boolean.
+- [x] **Step 3 — calls on declared FB instances.** DONE 2026-09-14: inputs and outputs are assignments around an
+      `IrCall`; the FB body runs on the instance; VAR_IN_OUT is a bound place / `&mut` parameter. Twelve `fbcall_*`
+      fixtures recorded first. Cases lowering 117 → 233. Bugs the newly running fixtures caught: a constant was not
+      stored at its variable's width (`INT := 40000`, `si := 128` — rustc rejected the literal) and an integer into a BOOL
+      stayed an integer. Refused, counted, until measured: FB with VAR_TEMP, EXTENDS, `instance-path` and `call_after_*`
+      attributes (the AST keeps no pragmas — `syntax/unitAttributes` reads the lexer), a VAR_IN_OUT aliasing its instance.
+- [ ] **Step 4 — METHOD / ACTION / FUNCTION calls** (`call-method` 99, `expr-call` 15 in the conformance cases).
+- [ ] **Step 5 — PROGRAM calls and GVLs** (`place-not-local` 13, `call-program`).
+- [ ] **Step 6 — handles.**
 
 - [x] **Review before phase 3** (2026-09-14, design §19): four emitter/lowering bugs found by probe and fixed — CONTINUE
       (3 oracle cases recorded), Rust field names (keywords, snake_case collisions), unrepresentable slots. Direction

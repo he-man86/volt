@@ -171,15 +171,27 @@ class Printer {
   private readonly loops: { n: number; exits: boolean; continues: boolean }[] = []
   private loopCount = 0
 
+  /** The VAR_IN_OUT parameters of the FB body being printed: their Rust names and slots. */
+  private inoutNames: readonly string[] = []
+  private inoutSlots: IrPou["slots"] = []
+
   constructor(
-    private readonly fields: readonly string[],
+    private fields: readonly string[],
     private readonly layouts: ReadonlyMap<string, { layout: IrLayout; fields: readonly string[] }>,
   ) {}
 
-  /** A place as a Rust lvalue — `self.inst.q`, `self.arr[(self.i as i64 - 1i64) as usize].x` — without a final bit step. */
+  /** Print `run` inside an FB's `call`: its fields are `self`, its VAR_IN_OUT the `&mut` parameters. */
+  inFrame(fields: readonly string[], inoutNames: readonly string[], inoutSlots: IrPou["slots"], run: () => void): void {
+    const saved = [this.fields, this.inoutNames, this.inoutSlots] as const
+    ;[this.fields, this.inoutNames, this.inoutSlots] = [fields, inoutNames, inoutSlots]
+    run()
+    ;[this.fields, this.inoutNames, this.inoutSlots] = saved
+  }
+
+  /** A place as a Rust lvalue — `self.inst.q`, `self.arr[(self.i as i64 - 1i64) as usize].x`, `(*v)` — without a final bit step. */
   place(p: Place, slots: IrPou["slots"]): string {
-    let text = `self.${this.fields[p.slot]}`
-    let type: Type = slots[p.slot]!.type
+    let text = p.inout ? `(*${this.inoutNames[p.slot]})` : `self.${this.fields[p.slot]}`
+    let type: Type = p.inout ? this.inoutSlots[p.slot]!.type : slots[p.slot]!.type
     for (const step of p.path) {
       if (step.kind === "field") {
         const entry = type.kind === "struct" || type.kind === "function_block" ? this.layouts.get(type.name.toUpperCase()) : undefined
@@ -424,6 +436,12 @@ class Printer {
       case "return":
         this.push("return;", indent, s.span)
         return
+      case "call": {
+        // the inputs were assigned before this line and the outputs are read after it; VAR_IN_OUT is a `&mut` (design §9)
+        const bound = s.inouts.map((p) => `&mut ${this.place(p, slots)}`).join(", ")
+        this.push(`${this.place(s.instance, slots)}.call(${bound});`, indent, s.span)
+        return
+      }
     }
   }
 }
@@ -480,6 +498,15 @@ export function emitRust(pou: IrPou): Emitted {
     for (const [i, field] of layout.fields.entries()) p.push(`${names[i]}: ${initOf(field.type, field.init)},`, 3)
     p.push("}", 2)
     p.push("}", 1)
+    if (layout.body !== undefined) {
+      const inouts = layout.inouts ?? []
+      const inoutNames = fieldNames(inouts)
+      const params = inouts.map((slot, i) => `, ${inoutNames[i]}: &mut ${rustType(slot.type)}`).join("")
+      p.push("", 0)
+      p.push(`pub fn call(&mut self${params}) {`, 1)
+      p.inFrame(names, inoutNames, inouts, () => p.block(layout.body!, layout.fields, 2))
+      p.push("}", 1)
+    }
     p.push("}", 0)
     p.push("", 0)
   }

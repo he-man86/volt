@@ -227,8 +227,21 @@ function copy(v: Val): Val {
   return typeof v === "object" ? structuredClone(v) : v
 }
 
+/** Where a value lives: a container (a frame, a record, an array) and the key into it. */
+type Cell = { container: Record<string | number, Val>; key: string | number }
+
 class Machine {
-  constructor(readonly frame: Val[]) {}
+  /**
+   * @param root   the frame a body runs on — the POU's slot array, or an FB instance's record
+   * @param keys   the key of each slot index in `root`: the index itself, or the field's upper-cased name
+   * @param inouts the caller's variables bound to the body's VAR_IN_OUT parameters, by parameter index
+   */
+  constructor(
+    private readonly root: Record<string | number, Val>,
+    private readonly keys: readonly (string | number)[],
+    private readonly inouts: readonly Cell[],
+    private readonly layouts: ReadonlyMap<string, IrLayout>,
+  ) {}
 
   /** The container and key the steps before a place's last one lead to — where a read or write lands. */
   private locate(place: Place): { container: Val[] | { [field: string]: Val }; key: number | string; bit?: Extract<Access, { kind: "bit" }> } {
@@ -236,8 +249,9 @@ class Machine {
     const last = steps.at(-1)
     const bit = last?.kind === "bit" ? last : undefined
     const walk = bit === undefined ? steps : steps.slice(0, -1)
-    let container: Val[] | { [field: string]: Val } = this.frame
-    let key: number | string = place.slot
+    const start: Cell = place.inout ? this.inouts[place.slot]! : { container: this.root, key: this.keys[place.slot]! }
+    let container: Val[] | { [field: string]: Val } = start.container as Val[] | { [field: string]: Val }
+    let key: number | string = start.key
     for (const step of walk) {
       const next = (container as Record<string | number, Val>)[key] as Val[] | { [field: string]: Val }
       if (step.kind === "field") key = step.name.toUpperCase()
@@ -430,6 +444,18 @@ class Machine {
         }
         return "none"
       }
+      case "call": {
+        // the FB's body runs on the instance itself — its fields are the frame, the bound places its VAR_IN_OUT
+        const at = this.locate(s.instance)
+        const instance = (at.container as Record<string | number, Val>)[at.key] as Record<string | number, Val>
+        const layout = this.layouts.get(s.fb.toUpperCase())!
+        const bound = s.inouts.map((p): Cell => {
+          const cell = this.locate(p)
+          return { container: cell.container as Record<string | number, Val>, key: cell.key }
+        })
+        new Machine(instance, layout.fields.map((f) => f.name.toUpperCase()), bound, this.layouts).block(layout.body!)
+        return "none"
+      }
       case "break":
         return "break"
       case "continue":
@@ -484,7 +510,7 @@ function resolvePath(pou: IrPou, frame: Val[], layouts: ReadonlyMap<string, IrLa
 export function run(pou: IrPou): Runner {
   const layouts = new Map(pou.layouts.map((l) => [l.name.toUpperCase(), l]))
   const frame = pou.slots.map((s) => instantiate(s.type, s.init, layouts))
-  const machine = new Machine(frame)
+  const machine = new Machine(frame as unknown as Record<number, Val>, pou.slots.map((_, i) => i), [], layouts)
 
   return {
     frame,

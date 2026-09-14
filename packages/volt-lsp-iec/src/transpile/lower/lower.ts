@@ -31,6 +31,7 @@ import {
   type TypeDecl,
   type TypeExpr,
   type VarSection,
+  unitAttributes,
 } from "../../syntax/index.js"
 import { buildSymbolTable, libraryOf, lookup, scopeForUnit, type Scope } from "../../symbols/index.js"
 import {
@@ -127,17 +128,156 @@ const UNARY_MATH: ReadonlySet<string> = new Set(["SQRT", "LN", "LOG", "EXP", "SI
  *  On BOOL operands `promoted` is the identity, so AND/OR/XOR on BOOLs are untouched. */
 const LIFTED: ReadonlySet<IrBinOp> = new Set([...COMPARISONS, "add", "sub", "mul", "div", "mod", "and", "or", "xor"])
 
+/** An FB whose storage is laid out and whose body is lowered at its first call, in the lowering that declared its fields. */
+interface PendingBody {
+  lowering: Lowering
+  unit: Extract<TopLevel, { kind: "function_block" }>
+  state: "pending" | "lowered" | "failed"
+}
+
 class Lowering {
   readonly diagnostics: LowerDiagnostic[] = []
   private readonly slots: IrSlot[] = []
   private readonly byName = new Map<string, number>()
+  private readonly inoutSlots: IrSlot[] = []
+  private readonly inoutByName = new Map<string, number>()
 
   constructor(
     private readonly scope: Scope,
     private readonly project: Scope,
     /** Every composite type's storage, by upper-cased name — shared with the lowerings of the types it holds. */
     readonly layouts: Map<string, IrLayout> = new Map(),
+    private readonly bodies: Map<string, PendingBody> = new Map(),
+    /** The `{attribute '…'}` names on each POU (`syntax/unitAttributes`) — the AST keeps no pragmas. */
+    private readonly attributes: ReadonlyMap<TopLevel, ReadonlySet<string>> = new Map(),
   ) {}
+
+  /** A base type's fields, first in this frame — so a field's index here is its index in the layout. */
+  private inherit(fields: readonly IrSlot[]): void {
+    for (const field of fields) {
+      this.byName.set(field.name.toUpperCase(), this.slots.length)
+      this.slots.push(field)
+    }
+  }
+
+  /** An FB body's VAR_IN_OUT parameters — not storage: each names the caller's variable for the call. */
+  private declareInOuts(sections: readonly VarSection[]): void {
+    for (const sec of sections)
+      for (const decl of sec.decls) {
+        const type = this.storage(this.resolve(decl.type))
+        for (const name of decl.names) {
+          this.inoutByName.set(name.text.toUpperCase(), this.inoutSlots.length)
+          this.inoutSlots.push({ name: name.text, type, section: "VAR_IN_OUT", init: defaultValueOf(type) })
+        }
+      }
+  }
+
+  /**
+   * An FB's layout with its body lowered — once, at the first call that reaches it. Refused, until each is recorded:
+   * a derived FB (which bodies a call runs), and an FB with VAR_TEMP (whether it starts over per call).
+   */
+  private calledLayout(name: string, span: Span): IrLayout | undefined {
+    const key = name.toUpperCase()
+    const pending = this.bodies.get(key)
+    const layout = this.layouts.get(key)
+    if (pending === undefined || layout === undefined) return this.bail("call-target", `${name} has no body lowering can call`, span)
+    if (pending.state === "lowered") return layout
+    if (pending.state === "failed") return this.bail("call-body", `${name}'s body does not lower`, span)
+    const unit = pending.unit
+    if (unit.extends !== undefined) return this.fail(pending, "call-extends", `${name} EXTENDS ${unit.extends.text} — which bodies a call runs is not measured yet`, span)
+    // The compiler acts on these, and the program's text does not say what it does: `instance-path` fills a STRING with
+    // the instance's path (conformance `instance_path_with_reflection`), and a `call_after_global_init_slot` METHOD runs
+    // once before the first scan (`call_after_global_init_slot`: iCount 1) — while `call_after_init`'s did not
+    // (`call_after_init`: 0 after a scan). None is modelled, so an FB that carries one is refused rather than run wrong.
+    const unmodelled = [...(this.attributes.get(unit) ?? [])].find((a) => a === "instance-path" || a.startsWith("call_after"))
+    if (unmodelled !== undefined)
+      return this.fail(pending, `attr-${unmodelled}`, `${name} carries {attribute '${unmodelled}'}, which lowering does not model`, span)
+    if (unit.varSections.some((s) => s.sectionKind === "VAR_TEMP"))
+      return this.fail(pending, "fb-var-temp", `${name} has VAR_TEMP — whether it starts over per call is not measured yet`, span)
+    if (isGraphicalBody(unit.body)) return this.fail(pending, "graphical-body", `${name} has a graphical body`, span)
+    const parsed = parseStatements(unit.body)
+    if (!parsed.ok) return this.fail(pending, "parse", parsed.firstError ?? `${name}'s body did not parse`, span)
+    const nested = pending.lowering
+    const before = nested.diagnostics.length
+    nested.declareInOuts(unit.varSections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
+    const body = nested.block(parsed.statements)
+    if (nested.diagnostics.length > before) {
+      this.diagnostics.push(...nested.diagnostics.slice(before))
+      pending.state = "failed"
+      return undefined
+    }
+    pending.state = "lowered"
+    const called: IrLayout = { ...layout, body, inouts: nested.inoutSlots }
+    this.layouts.set(key, called)
+    return called
+  }
+
+  private fail(pending: PendingBody, code: string, message: string, span: Span): undefined {
+    pending.state = "failed"
+    return this.bail(code, message, span)
+  }
+
+  /**
+   * `inst(a := x, q => y)` → the input assignments, the call, the output assignments (IrCall). A FUNCTION, PROGRAM, METHOD
+   * or ACTION call reports its own code — they are the plan's next steps.
+   */
+  private callStatement(call: Extract<Statement, { kind: "call_stmt" }>["call"]): IrStmt[] | undefined {
+    const callee = call.callee
+    if (callee.kind === "ident_expr" && !this.byName.has(callee.name.toUpperCase()) && !this.inoutByName.has(callee.name.toUpperCase())) {
+      const kind = lookup(this.scope, callee.name)?.symbol.kind
+      const code = kind === "program" ? "call-program" : kind === "function" ? "call-function" : "stmt-call_stmt"
+      return this.bail(code, `${callee.name} is not a callable instance yet`, call.span)
+    }
+    if (callee.kind === "member") {
+      const base = this.place(callee.base)
+      if (base === undefined) return undefined
+      const layout = base.type.kind === "function_block" ? this.layouts.get(base.type.name.toUpperCase()) : undefined
+      if (!layout?.fields.some((f) => f.name.toUpperCase() === callee.member.name.toUpperCase()))
+        return this.bail("call-method", `${callee.member.name} — a METHOD or ACTION call is not lowered yet`, call.span)
+    }
+    const instance = this.place(callee)
+    if (instance === undefined) return undefined
+    if (instance.type.kind !== "function_block") return this.bail("stmt-call_stmt", "a call of something that is not an FB instance", call.span)
+    const layout = this.calledLayout(instance.type.name, call.span)
+    if (layout === undefined) return undefined
+
+    const before: IrStmt[] = []
+    const after: IrStmt[] = []
+    const bound = new Map<string, Place>()
+    const inouts = layout.inouts ?? []
+    for (const arg of call.args) {
+      if (arg.param === undefined || arg.value === undefined)
+        return this.bail("call-positional", `${layout.name} called with a positional or empty argument`, arg.span)
+      const name = arg.param.name.toUpperCase()
+      if (inouts.some((p) => p.name.toUpperCase() === name)) {
+        const target = this.place(arg.value)
+        if (target === undefined) return undefined
+        // two `&mut` into one place do not exist in Rust — the handle form (design §9 form 3) is for later
+        if (target.slot === instance.slot && target.inout === instance.inout)
+          return this.bail("call-inout-alias", `${arg.param.name} is bound to a variable of the instance it calls`, arg.span)
+        if (target.path.some((s) => s.kind === "bit")) return this.bail("call-inout-bit", `${arg.param.name} is bound to a bit`, arg.span)
+        bound.set(name, target)
+        continue
+      }
+      const field = layout.fields.find((f) => f.name.toUpperCase() === name)
+      if (field === undefined) return this.bail("call-param", `${arg.param.name} is not a parameter of ${layout.name}`, arg.span)
+      const member: Place = { ...instance, path: [...instance.path, { kind: "field", name: field.name }], type: field.type, span: arg.span }
+      if (arg.output) {
+        const target = this.place(arg.value)
+        if (target === undefined) return undefined
+        const value: IrExpr = { kind: "load", place: member, type: field.type, span: arg.span }
+        after.push({ kind: "assign", target, value: convert(value, target.type), span: arg.span })
+      } else {
+        const value = this.expr(arg.value, field.type)
+        if (value === undefined) return undefined
+        before.push({ kind: "assign", target: member, value: convert(value, field.type), span: arg.span })
+      }
+    }
+    const missing = inouts.find((p) => !bound.has(p.name.toUpperCase()))
+    if (missing !== undefined) return this.bail("call-inout-missing", `${missing.name} is not bound`, call.span)
+    const inoutPlaces = inouts.map((p) => bound.get(p.name.toUpperCase())!)
+    return [...before, { kind: "call", instance, fb: layout.name, inouts: inoutPlaces, span: call.span }, ...after]
+  }
 
   /**
    * The type a variable is STORED as: a sizeless string with its capacity, a struct or FB under its DECLARED name (ST is
@@ -156,14 +296,13 @@ class Lowering {
 
   /** A struct's fields or an FB instance's storage, lowered in the type's own scope — a base type's fields first. */
   private buildLayout(t: Extract<Type, { kind: "struct" | "function_block" }>, sym: ReturnType<typeof lookup> extends infer R ? (R extends { symbol: infer S } ? S : never) | undefined : never): void {
-    const nested = new Lowering(t.scope ?? this.project, this.project, this.layouts)
-    const fields: IrSlot[] = []
+    const nested = new Lowering(t.scope ?? this.project, this.project, this.layouts, this.bodies, this.attributes)
     const base = (name: string | undefined): void => {
       if (name === undefined) return
       const baseType = this.storage(resolveNamedType(name, this.project))
       const layout = baseType.kind === "struct" || baseType.kind === "function_block" ? this.layouts.get(baseType.name.toUpperCase()) : undefined
       if (layout === undefined) this.bail("layout-base", `the base type ${name} of ${t.name} has no layout`, sym?.span ?? ZERO_SPAN)
-      else fields.push(...layout.fields)
+      else nested.inherit(layout.fields)
     }
     const ast = sym?.ast
     if (t.kind === "struct" && ast?.kind === "type_decl" && ast.body.kind === "struct") {
@@ -172,12 +311,14 @@ class Lowering {
     } else if (t.kind === "function_block" && ast?.kind === "function_block") {
       base(ast.extends?.text)
       nested.declare(ast.varSections.filter((s) => INSTANCE_STORAGE.has(s.sectionKind)))
+      this.bodies.set(t.name.toUpperCase(), { lowering: nested, unit: ast, state: "pending" })
     } else {
       this.bail(`layout-${t.kind}`, `${t.name} has no declaration lowering can lay out`, sym?.span ?? ZERO_SPAN)
       return
     }
     this.diagnostics.push(...nested.diagnostics)
-    this.layouts.set(t.name.toUpperCase(), { name: t.name, kind: t.kind, fields: [...fields, ...nested.frame] })
+    // the live frame: temps the FB's body adds when a call lowers it are fields of the instance too
+    this.layouts.set(t.name.toUpperCase(), { name: t.name, kind: t.kind, fields: nested.frame })
   }
 
   bail(code: string, message: string, span: Span): undefined {
@@ -218,7 +359,7 @@ class Lowering {
           this.bail("init-not-constant", "an initial value that is not a compile-time constant", decl.init.span)
           continue
         }
-        const init = folded === undefined ? undefined : valueAs(folded, type)
+        const init = folded === undefined ? undefined : stored(valueAs(folded, type), type)
         for (const name of decl.names) this.slot(name, type, sec.sectionKind, init)
       }
   }
@@ -286,7 +427,7 @@ class Lowering {
       const layout = base.type.kind === "struct" || base.type.kind === "function_block" ? this.layouts.get(base.type.name.toUpperCase()) : undefined
       const field = layout?.fields.find((f) => f.name.toUpperCase() === e.member.name.toUpperCase())
       if (field === undefined) return this.bail(notAMember, "member access is not lowered yet", e.span)
-      return { slot: base.slot, path: [...base.path, { kind: "field", name: field.name }], type: field.type, span: e.span }
+      return { ...base, path: [...base.path, { kind: "field", name: field.name }], type: field.type, span: e.span }
     }
     if (e.kind === "index") {
       // one `index` step per dimension, each carrying the bounds a backend normalises by
@@ -304,6 +445,9 @@ class Lowering {
     if (e.kind !== "ident_expr")
       return this.bail("place-shape", `${e.kind} is not a lowerable storage location yet`, e.span)
     const slot = this.byName.get(e.name.toUpperCase())
+    const inout = this.inoutByName.get(e.name.toUpperCase())
+    if (slot === undefined && inout !== undefined)
+      return { slot: inout, path: [], type: this.inoutSlots[inout]!.type, span: e.span, inout: true }
     if (slot === undefined) {
       // `symbols/` decides what the name IS — a GVL, an enum member, a library global — so the report names
       // the real reason rather than "unknown identifier".
@@ -330,7 +474,7 @@ class Lowering {
     const t = base.type.elem
     if (t.rank === undefined || (t.family !== "int" && t.family !== "bitstring") || index >= t.bits)
       return this.bail("bit-index", `bit ${index} of a ${t.name}`, e.span)
-    return { slot: base.slot, path: [...base.path, { kind: "bit", index, of: base.type }], type: elementaryRef("BOOL"), span: e.span }
+    return { ...base, path: [...base.path, { kind: "bit", index, of: base.type }], type: elementaryRef("BOOL"), span: e.span }
   }
 
   // ─── expressions ───────────────────────────────────────────────────────────
@@ -759,6 +903,8 @@ class Lowering {
         const cond: IrExpr = { kind: "unary", op: "not", operand: until, type: until.type, span: until.span }
         return { kind: "loop", init: [], test: { cond, atEnd: true }, body: this.block(s.body), step: [], span: s.span }
       }
+      case "call_stmt":
+        return this.callStatement(s.call)
       case "exit":
         return { kind: "break", span: s.span }
       case "continue":
@@ -844,11 +990,18 @@ function withStringCapacity(t: Type): Type {
 function convert(e: IrExpr, to: Type): IrExpr {
   const from = elemOf(e.type)
   const target = elemOf(to)
+  // A constant lands at the target's width even when context already typed it so: `si := 128` types the literal SINT
+  // on the way in, and this returned it unchanged below — the emitter printed `128i8`, which rustc rejects.
+  if (e.kind === "const" && target !== undefined && from?.name === target.name && typeof e.value === "bigint")
+    return { ...e, value: stored(e.value, to) }
   const sameCapacity =
     e.type.kind !== "elementary" || to.kind !== "elementary" || e.type.length === to.length
   if (from === undefined || target === undefined || (from.name === target.name && sameCapacity)) return e
-  // Retyping a constant is free and leaves cleaner output than converting it at run time.
-  if (e.kind === "const") return retype(e, to)
+  // Retyping a constant is free and leaves cleaner output than converting it at run time — at the target's width.
+  if (e.kind === "const") {
+    const retyped = retype(e, to)
+    return retyped.kind === "const" ? { ...retyped, value: stored(retyped.value, to) } : retyped
+  }
   return { kind: "convert", value: e, type: to, span: e.span }
 }
 
@@ -867,13 +1020,32 @@ function adopt(c: IrExpr, to: Type): IrExpr {
   return elemOf(c.type)?.family === "real" && elemOf(to)?.family !== "real" ? c : retype(c, to)
 }
 
-/** A constant value moved across the int/real divide to match `to`. Width is a backend's job (it stores it). */
+/**
+ * A constant value moved across the int/real divide to match `to`, and an integer into a BOOL as "not zero" — `b : BOOL
+ * := 1` is TRUE and `:= 0` FALSE (conformance `cc_init_*_into_bool`, `cc_assign_one_into_bool`); both backends kept `1`.
+ * NOT the width: a literal is also retyped on its way to promotion (`minus1 AND 255` types the 255 as SINT first), and
+ * wrapping it there made it -1. The width is `stored`'s, where a value lands.
+ */
 function valueAs(v: IrValue, to: Type): IrValue {
   const target = elemOf(to)
   if (target === undefined) return v
   if (target.family === "real" && typeof v === "bigint") return Number(v)
-  if (target.family !== "real" && typeof v === "number" && Number.isInteger(v)) return BigInt(v)
+  if (target.family === "bool" && typeof v === "bigint") return v !== 0n
+  if (target.family !== "real" && typeof v === "number" && Number.isInteger(v)) return valueAs(BigInt(v), to)
   return v
+}
+
+/**
+ * A constant as a variable of `to` HOLDS it — at the integer's width. Measured (conformance `overflow_*`, `cc_literal_*`):
+ * `value : INT := 40000` holds -25536 and `si := 128` into a SINT -128. Only where a value is stored — an initial value,
+ * or a constant converted into its target — never while an operand is still on its way to promotion (`valueAs`). The
+ * width used to be left to the backends: the interpreter wrapped on store, the emitter printed `40000i16`, which rustc rejects.
+ */
+function stored(v: IrValue, to: Type): IrValue {
+  const target = elemOf(to)
+  if (typeof v !== "bigint" || target === undefined || target.rank === undefined) return v
+  if (!["int", "bitstring", "time", "date"].includes(target.family)) return v
+  return target.signed ? BigInt.asIntN(target.bits, v) : BigInt.asUintN(target.bits, v)
 }
 
 /**
@@ -1002,7 +1174,13 @@ const ZERO_SPAN: Span = { start: 0, end: 0, startLine: 1, startCol: 0, endLine: 
 // ─── entry points ────────────────────────────────────────────────────────────
 
 /** Lower one already-bound unit. The workspace path: the caller owns the project scope and its index. */
-export function lowerUnit(unit: TopLevel, scope: Scope, project: Scope): LoweredPou {
+export function lowerUnit(
+  unit: TopLevel,
+  scope: Scope,
+  project: Scope,
+  /** Each POU's `{attribute '…'}` names (`syntax/unitAttributes`), for the ones lowering must refuse. */
+  attributes: ReadonlyMap<TopLevel, ReadonlySet<string>> = new Map(),
+): LoweredPou {
   if (unit.kind !== "program" && unit.kind !== "function_block")
     return { diagnostics: [{ code: "unit-kind", message: `${unit.kind} is not lowered yet`, span: unit.span }] }
 
@@ -1012,7 +1190,7 @@ export function lowerUnit(unit: TopLevel, scope: Scope, project: Scope): Lowered
   if (isGraphicalBody(unit.body))
     return { diagnostics: [{ code: "graphical-body", message: "a graphical body is not lowered here", span: unit.span }] }
 
-  const lowering = new Lowering(scope, project)
+  const lowering = new Lowering(scope, project, new Map(), new Map(), attributes)
   lowering.declare(unit.varSections)
   const parsed = parseStatements(unit.body)
   if (!parsed.ok)
@@ -1025,7 +1203,7 @@ export function lowerUnit(unit: TopLevel, scope: Scope, project: Scope): Lowered
   // accepts (transpiler review 2026-09-14). Checked only here, so a POU another construct blocks keeps that blocker's
   // category in the coverage report.
   const layouts = [...lowering.layouts.values()]
-  const unrepresentable = [...lowering.frame, ...layouts.flatMap((l) => l.fields)].find((s) => !representable(s.type))
+  const unrepresentable = [...lowering.frame, ...layouts.flatMap((l) => [...l.fields, ...(l.inouts ?? [])])].find((s) => !representable(s.type))
   if (unrepresentable !== undefined) {
     const kind = unrepresentable.type.kind
     return { diagnostics: [{ code: `slot-${kind}`, message: `${unrepresentable.name} is a ${kind} variable, which has no runtime representation yet`, span: unit.span }] }
@@ -1064,5 +1242,5 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
   const scope = scopeForUnit(project, unit)
   if (scope === undefined)
     return { diagnostics: [{ code: "no-scope", message: `${unit.name.text} did not bind`, span: unit.span }] }
-  return lowerUnit(unit, scope, project)
+  return lowerUnit(unit, scope, project, unitAttributes(parseResult, source))
 }

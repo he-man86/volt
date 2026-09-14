@@ -70,10 +70,13 @@ export type Access =
 
 /** A resolved storage location: a slot in the frame, plus a path into it. */
 export interface Place {
+  /** An index into the frame — or, when `inout`, into the enclosing FB body's VAR_IN_OUT parameters. */
   slot: number
   path: readonly Access[]
   type: Type
   span: Span
+  /** Rooted at a VAR_IN_OUT parameter: the caller's variable, bound for the call (design §9 form 2 — a `&mut`). */
+  inout?: boolean
 }
 
 // ─── expressions ─────────────────────────────────────────────────────────────
@@ -186,7 +189,22 @@ export interface IrConvert {
 
 // ─── statements ──────────────────────────────────────────────────────────────
 
-export type IrStmt = IrAssign | IrIf | IrSwitch | IrLoop | IrBreak | IrContinue | IrReturn
+export type IrStmt = IrAssign | IrIf | IrSwitch | IrLoop | IrBreak | IrContinue | IrReturn | IrCall
+
+/**
+ * A call of a declared FB instance: run its layout's `body` on the instance. Its inputs and outputs are NOT here — lowering
+ * places them as ordinary assignments around the call, which is what CODESYS measured (conformance `fbcall_*`): an input
+ * given is stored before the body, one not given keeps its last value, and an output is read after the body.
+ */
+export interface IrCall {
+  kind: "call"
+  instance: Place
+  /** The FB's layout name. */
+  fb: string
+  /** The VAR_IN_OUT arguments, in the FB's parameter order — the caller's places, bound for the call. */
+  inouts: readonly Place[]
+  span: Span
+}
 
 export interface IrAssign {
   kind: "assign"
@@ -261,6 +279,10 @@ export interface IrLayout {
   name: string
   kind: "struct" | "function_block"
   fields: readonly IrSlot[]
+  /** An FB's body, once a call reached it — its places index `fields`, or `inouts` when marked. */
+  body?: readonly IrStmt[]
+  /** An FB's VAR_IN_OUT parameters, in declaration order. */
+  inouts?: readonly IrSlot[]
 }
 
 /** A lowered POU: its frame, its body, and the layout of every composite type its frame reaches — dependencies first. */

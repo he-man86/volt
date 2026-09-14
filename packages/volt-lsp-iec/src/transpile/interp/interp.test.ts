@@ -498,6 +498,53 @@ END_PROGRAM`,
     expect(pou.get("got")).toBe(5n) // bit 1 cleared on 7 (0b111)
   })
 
+  // Phase 3 step 3: calls on declared FB instances, as CODESYS recorded them (conformance `fbcall_*`). Before it, any
+  // `inst(...)` refused the whole POU (`stmt-call_stmt`, 84% of the corpus).
+  test("an FB call stores its inputs, runs the body on the instance, reads its outputs; VAR_IN_OUT writes back", () => {
+    const pou = load(
+      `FUNCTION_BLOCK FB_Add
+VAR_INPUT a : INT; b : INT; END_VAR
+VAR_OUTPUT sum : INT; END_VAR
+VAR count : INT; END_VAR
+count := count + 1;
+sum := a + b;
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK FB_Bump
+VAR_IN_OUT v : INT; END_VAR
+VAR inner : FB_Add; END_VAR
+inner(a := v, b := 10, sum => v);
+END_FUNCTION_BLOCK
+PROGRAM P
+VAR adder : FB_Add; bump : FB_Bump; wide : DINT; n : INT := 1; again : INT; END_VAR
+adder(a := 30000, b := 1, sum => wide);
+adder(b := 2);
+again := adder.sum;
+bump(v := n);
+END_PROGRAM`,
+      "P",
+    )
+    pou.scan()
+    expect(pou.get("wide")).toBe(30001n) // an INT output widened into a DINT on its way out
+    expect([pou.get("adder.a"), pou.get("again"), pou.get("adder.count")]).toEqual([30000n, 30002n, 2n]) // `a` kept its value
+    expect([pou.get("n"), pou.get("bump.inner.count")]).toEqual([11n, 1n]) // written back through a nested instance
+    pou.scan()
+    expect(pou.get("n")).toBe(21n)
+  })
+
+  // Why missed: no initializer or assignment test stored a literal its target could not hold, and none put an integer in
+  // a BOOL — the conformance fixtures that do (`overflow_*`, `cc_literal_*`, `cc_init_*_into_bool`) sat inside FBs, which
+  // did not lower until calls did.
+  test("a constant is stored at its variable's width, and an integer into a BOOL is TRUE when not zero", () => {
+    const pou = load(
+      "PROGRAM P\nVAR big : INT := 40000; on : BOOL := 1; off : BOOL := 0; si : SINT; minus1 : SINT := -1; masked : INT; END_VAR\nsi := 128; masked := minus1 AND 255;\nEND_PROGRAM\n",
+      "P",
+    )
+    expect([pou.get("big"), pou.get("on"), pou.get("off")]).toEqual([-25536n, true, false])
+    pou.scan()
+    // a literal typed by its neighbour is NOT wrapped on its way to promotion — `minus1 AND 255` is 255, not -1
+    expect([pou.get("si"), pou.get("masked")]).toEqual([-128n, 255n])
+  })
+
   // Why missed: every initializer test wrote `:= …` on the variable itself; the alias case only arrived with the
   // fixtures' run recordings (conformance `type_dut_alias_with_init`, 43 after one `x := x + 1`).
   test("a variable with no initializer starts at its ALIAS type's", () => {
