@@ -665,6 +665,24 @@ export const CASES: readonly ExecCase[] = [
     vars: "i : SINT; runs : INT;",
     body: "FOR i := 125 TO 127 DO runs := runs + 1; IF runs > 10 THEN EXIT; END_IF END_FOR",
   },
+  // ── transpiler review 2026-09-14: CONTINUE — the emitted Rust's `continue` skips a FOR's step and a REPEAT's UNTIL,
+  //    where the interpreter runs both. Neither was ever recorded. Each loop has a guard, so a CONTINUE that skips the
+  //    step cannot hang the simulator: `guard` counts iterations and EXITs past 20. ──
+  {
+    name: "continue_in_for",
+    vars: "i : INT; counted : INT; guard : INT;",
+    body: "FOR i := 1 TO 5 DO guard := guard + 1; IF guard > 20 THEN EXIT; END_IF IF i = 3 THEN CONTINUE; END_IF counted := counted + 1; END_FOR",
+  },
+  {
+    name: "continue_in_while",
+    vars: "k : INT; counted : INT; guard : INT;",
+    body: "WHILE k < 5 DO guard := guard + 1; IF guard > 20 THEN EXIT; END_IF k := k + 1; IF k = 3 THEN CONTINUE; END_IF counted := counted + 1; END_WHILE",
+  },
+  {
+    name: "continue_in_repeat",
+    vars: "j : INT; counted : INT; guard : INT;",
+    body: "REPEAT guard := guard + 1; IF guard > 20 THEN EXIT; END_IF j := j + 1; IF j < 3 THEN CONTINUE; END_IF counted := counted + 1; UNTIL j >= 5 END_REPEAT",
+  },
 
   // ── code CODESYS does not compile — the transpiler's input contract (`rejects`, wording as recorded 2026-09-14) ──
   { name: "power_operator_rejected", vars: "base : INT := 2; result : INT;", body: "result := base ** 2;", rejects: "Unexpected token '**' found" },

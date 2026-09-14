@@ -181,6 +181,13 @@ END_PROGRAM
       expect(() => lowerSource(src)).not.toThrow()
   })
 
+  test("a POU whose statements all lower is still refused when a slot has no runtime representation", () => {
+    // An unused POINTER lowered cleanly and made the Rust emitter throw — every backend must take what lowering gives it
+    const { pou, diagnostics } = lowerSource(wrap("iCount := 1;", "iCount : INT;\n  p : POINTER TO INT;"))
+    expect(pou).toBeUndefined()
+    expect(diagnostics.map((d) => d.code)).toEqual(["slot-pointer"])
+  })
+
   test("an initializer that does not fold is reported, never silently dropped", () => {
     // It was dropped: the slot started at its default with no diagnostic — which is how every STRING slot lost its
     // initial value (constEval folds no strings) while each string case still "lowered".

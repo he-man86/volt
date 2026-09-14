@@ -27,6 +27,19 @@ END_PROGRAM
 `
 
 describe("emit/rust", () => {
+  test("field names are Rust: a keyword gets `_`, and two names that snake_case alike stay two fields", () => {
+    // `pub loop: i16` and two `a_b` fields were emitted, and neither compiles (transpiler review 2026-09-14)
+    const keywords = rust("PROGRAM P\nVAR\n  loop : INT;\n  match : BOOL;\nEND_VAR\nloop := 1;\nEND_PROGRAM\n")
+    expect(keywords).toContain("pub loop_: i16,")
+    expect(keywords).toContain("pub match_: bool,")
+    expect(keywords).toContain("self.loop_ = 1i16;")
+    const collide = rust("PROGRAM P\nVAR\n  aB : INT;\n  a_b : INT;\nEND_VAR\naB := 1;\na_b := 2;\nEND_PROGRAM\n")
+    expect(collide).toContain("pub a_b: i16,")
+    expect(collide).toContain("pub a_b_2: i16,")
+    expect(collide).toContain("self.a_b = 1i16;")
+    expect(collide).toContain("self.a_b_2 = 2i16;")
+  })
+
   test("a slot without an initial value starts at its type's zero — and a WSTRING's is a WSTRING", () => {
     // `new` printed its own defaults, and gave every string `IecStr::new()`: a STRING for a WSTRING field
     const code = rust("PROGRAM P\nVAR\n  flag : BOOL;\n  wide : WSTRING;\n  ratio : REAL;\nEND_VAR\nflag := TRUE;\nEND_PROGRAM\n")
@@ -116,6 +129,17 @@ describe("emit/rust", () => {
     expect(code).toContain("(((self.w >> 3) & 1) != 0)")
     expect(code).toContain("self.i = if self.x { self.i | (1i16 << 15) } else { self.i & !(1i16 << 15) };")
     expect(code).toContain("_ => ") // out-of-range K picks the last input
+  })
+
+  test("CONTINUE leaves the loop's body, not the loop — the step and a tail test still run", () => {
+    // A bare Rust `continue` skipped both: FOR never stepped past the CONTINUE and REPEAT never tested UNTIL, where
+    // CODESYS runs both (test/exec `continue_in_for`, `continue_in_repeat`, recorded 2026-09-14)
+    const code = rust("PROGRAM P\nVAR\n  i : INT;\n  n : INT;\nEND_VAR\nFOR i := 1 TO 5 DO\n  IF i = 3 THEN CONTINUE; END_IF\n  n := n + 1;\nEND_FOR\nEND_PROGRAM\n")
+    expect(code).not.toMatch(/\bcontinue;/)
+    const body = code.indexOf("break 'body_1;")
+    const step = code.indexOf("self.i = self.i.wrapping_add(1i16);")
+    expect(body).toBeGreaterThan(-1)
+    expect(step).toBeGreaterThan(body) // the step follows the body block, where the CONTINUE lands
   })
 
   test("all three loop forms print as the same Rust shape", () => {

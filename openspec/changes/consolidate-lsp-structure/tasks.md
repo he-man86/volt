@@ -149,8 +149,9 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       returns are gone, and `activeVendor` went in C8. Not done: the six gates INSIDE a check (one message of several —
       const-context, statement-rules, header-rules, pragmas, lifecycle, pointer-conversion) stay beside the rule they
       gate; a table would separate each condition from the code it qualifies.
-- [ ] C7 `test/support/project.ts`: `diagnose`, `codesOf`, `docSetup`, `libraryFile`; migrate the 76 check tests + 5
-      service tests.
+- [x] C7 `test/support/project.ts`: `diagnose`, `codesOf`, `docSetup`, `libraryFile`; migrate the 76 check tests + 5
+      service tests. SKIPPED 2026-09-14 (user decision): a mass rewrite of test helpers finds no bugs and risks moving a
+      test's premise.
 - [ ] C8 Dead code: `isNumeric`, `isEnumIsolated`, `networkScopeAt`, `CHECK_TIMING`, `activeVendor`, `stBodies`,
       `resolveAnywhere` export, test-only exports; decide `detectVendor`/`installCorpus`; `reference/error-codes.ts` to test.
       PARTLY DONE 2026-09-14: the named symbols are gone; `CHECK_TIMING` was a gap, not dead — collected, never printed

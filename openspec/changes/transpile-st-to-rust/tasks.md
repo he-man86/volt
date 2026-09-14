@@ -219,6 +219,9 @@ every oracle case into a real-code test of the bridge the CLI ships, on construc
 **Decide design §9 before writing any of this.** Instances, methods and GVLs are what a pointer points at;
 building them on slot indices and then finding `ADR` needs offsets means doing the work twice.
 
+- [x] **Review before phase 3** (2026-09-14, design §19): four emitter/lowering bugs found by probe and fixed — CONTINUE
+      (3 oracle cases recorded), Rust field names (keywords, snake_case collisions), unrepresentable slots. Direction
+      chosen: keep the measured semantics and the oracle; phase 3 is a new IR on the settled memory model.
 - [ ] **Decision: slot+path, byte-addressed image, or the hybrid.** Record it in `design.md` §9.
 - [ ] `expr-member` (95 POUs, 31%) + `place-shape` (85, 28%) + `expr-index` (4) — fill in `Place.path`.
       ST arrays have arbitrary lower bounds; index normalisation belongs in lowering.

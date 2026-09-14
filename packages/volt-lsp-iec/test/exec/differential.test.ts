@@ -14,7 +14,7 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { decodeStringLiteral } from "../../src/syntax/index.js"
-import { emitRust, load, lowerSource, snake, type IrValue } from "../../src/transpile/index.js"
+import { emitRust, fieldNames, load, lowerSource, type IrValue } from "../../src/transpile/index.js"
 import { CASES, programSource } from "./cases.js"
 import { STANDARD_LIBRARY as LIBRARIES } from "./standard-library.js"
 
@@ -142,12 +142,14 @@ describe.skipIf(rustc === null)("differential execution — emitted Rust vs CODE
       recorded.map(async (c) => {
         const { pou, diagnostics } = lowerSource(programSource(c), undefined, LIBRARIES)
         if (pou === undefined) return void runs.set(c.name, { exit: -1, stdout: "", stderr: `does not lower: ${diagnostics[0]?.message}` })
+        const fields = fieldNames(pou.slots)
         const prints = Object.keys(recording.tests[c.name]!.values!).map((name) => {
-          const slot = pou.slots.find((s) => s.name.toUpperCase() === name.toUpperCase())!
+          const index = pou.slots.findIndex((s) => s.name.toUpperCase() === name.toUpperCase())
+          const slot = pou.slots[index]!
           // A REAL prints with Debug, which keeps its decimal point. A STRING prints its BYTES as a list — not Debug, whose
           // `\u{c}` for a form feed is no JSON — so no control character inside it can break this tab-separated output.
           const family = slot.type.kind === "elementary" ? slot.type.elem.family : undefined
-          const field = `p.${snake(slot.name)}${family === "string" ? ".units()" : ""}`
+          const field = `p.${fields[index]}${family === "string" ? ".units()" : ""}`
           return `    println!("${name}\\t{${family === "real" || family === "string" ? ":?" : ""}}", ${field});`
         })
         const main = `fn main() {\n    let mut p = ${pou.name}::new();\n    for _ in 0..${c.cycles ?? 1} { p.scan(); }\n${prints.join("\n")}\n}\n`

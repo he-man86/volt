@@ -54,6 +54,32 @@ export function snake(name: string): string {
     .toLowerCase()
 }
 
+/** Rust's keywords (strict and reserved, 2021) — a field named one does not compile. */
+const RUST_KEYWORDS: ReadonlySet<string> = new Set(
+  (
+    "as async await break const continue crate dyn else enum extern false fn for if impl in let loop match mod move mut pub " +
+    "ref return self static struct super trait true type unsafe use where while abstract become box do final macro " +
+    "override priv try typeof unsized virtual yield"
+  ).split(" "),
+)
+
+/**
+ * Each slot's Rust field name, in frame order: snake_case, a Rust keyword suffixed `_`, and unique within the POU. The
+ * bare `snake` was the field name, so a variable named `loop` emitted `pub loop: i16` and `aB` beside `a_b` emitted
+ * two `a_b` fields — neither compiles, and no oracle case held such a name (transpiler review 2026-09-14).
+ */
+export function fieldNames(slots: IrPou["slots"]): string[] {
+  const used = new Set<string>()
+  return slots.map((slot) => {
+    const snaked = snake(slot.name)
+    const base = RUST_KEYWORDS.has(snaked) ? `${snaked}_` : snaked
+    let name = base
+    for (let n = 2; used.has(name); n++) name = `${base}_${n}`
+    used.add(name)
+    return name
+  })
+}
+
 /** A string type's generated Rust type (STRING_PRELUDE) and capacity — the one place both are read off the type. */
 function stringType(t: Type): { name: "IecString" | "IecWString"; capacity: number } {
   if (t.kind !== "elementary" || t.length === undefined) throw new Error("no Rust mapping for a string type without a capacity")
@@ -120,6 +146,13 @@ class Printer {
   private readonly lines: string[] = []
   readonly sourceMap: { line: number; span: Span }[] = []
 
+  /** The enclosing IR loops, innermost last — each one's number names its `'loop_N` and `'body_N` labels, and the flags
+   *  say whether an EXIT or a CONTINUE used them (an unused label is a rustc warning, and the crate builds with none). */
+  private readonly loops: { n: number; exits: boolean; continues: boolean }[] = []
+  private loopCount = 0
+
+  constructor(private readonly fields: readonly string[]) {}
+
   push(text: string, indent: number, span?: Span): void {
     this.lines.push(`${"    ".repeat(indent)}${text}`)
     if (span !== undefined) this.sourceMap.push({ line: this.lines.length, span })
@@ -134,7 +167,7 @@ class Printer {
       case "const":
         return literal(e.value, e.type)
       case "load": {
-        const field = `self.${snake(slots[e.place.slot]!.name)}`
+        const field = `self.${this.fields[e.place.slot]}`
         const bit = e.place.path[0]
         return bit === undefined ? field : `(((${field} >> ${bit.index}) & 1) != 0)`
       }
@@ -268,7 +301,7 @@ class Printer {
     switch (s.kind) {
       case "assign": {
         const slot = slots[s.target.slot]!
-        const field = `self.${snake(slot.name)}`
+        const field = `self.${this.fields[s.target.slot]}`
         const bit = s.target.path[0]
         if (bit === undefined) {
           this.push(`${field} = ${this.expr(s.value, slots)};`, indent, s.span)
@@ -306,24 +339,43 @@ class Printer {
         return
       }
       case "loop": {
-        // One IR shape → one Rust shape: `loop` with the test placed at the head or the tail.
+        // One IR shape → one Rust shape: `loop` with the test placed at the head or the tail. The body sits in a labeled
+        // block, and an IR `continue` leaves THAT block, so the step and a tail test still run — as CODESYS runs them: a
+        // CONTINUE in FOR still steps and in REPEAT still tests UNTIL (test/exec `continue_in_*`). It printed a bare Rust
+        // `continue`, which skipped both and looped forever (transpiler review 2026-09-14). EXIT names the loop, since an
+        // unlabeled `break` may not sit directly in a labeled block.
+        const frame = { n: ++this.loopCount, exits: false, continues: false }
         for (const init of s.init) this.stmt(init, slots, indent)
-        this.push("loop {", indent, s.span)
+        const loopLine = this.lines.length
+        this.push(`'loop_${frame.n}: loop {`, indent, s.span)
         if (s.test !== undefined && !s.test.atEnd)
           this.push(`if !${this.expr(s.test.cond, slots)} { break; }`, indent + 1)
-        this.block(s.body, slots, indent + 1)
+        const bodyLine = this.lines.length
+        this.push(`'body_${frame.n}: {`, indent + 1)
+        this.loops.push(frame)
+        this.block(s.body, slots, indent + 2)
+        this.loops.pop()
+        this.push("}", indent + 1)
+        if (!frame.exits) this.lines[loopLine] = this.lines[loopLine]!.replace(`'loop_${frame.n}: `, "")
+        if (!frame.continues) this.lines[bodyLine] = this.lines[bodyLine]!.replace(`'body_${frame.n}: `, "")
         for (const step of s.step) this.stmt(step, slots, indent + 1)
         if (s.test !== undefined && s.test.atEnd)
           this.push(`if !${this.expr(s.test.cond, slots)} { break; }`, indent + 1)
         this.push("}", indent)
         return
       }
-      case "break":
-        this.push("break;", indent, s.span)
+      case "break": {
+        const frame = this.loops.at(-1)
+        if (frame !== undefined) frame.exits = true
+        this.push(frame === undefined ? "break;" : `break 'loop_${frame.n};`, indent, s.span)
         return
-      case "continue":
-        this.push("continue;", indent, s.span)
+      }
+      case "continue": {
+        const frame = this.loops.at(-1)
+        if (frame !== undefined) frame.continues = true
+        this.push(frame === undefined ? "continue;" : `break 'body_${frame.n};`, indent, s.span)
         return
+      }
       case "return":
         this.push("return;", indent, s.span)
         return
@@ -333,13 +385,14 @@ class Printer {
 
 /** Emit one lowered POU as a Rust struct with a `scan` method. */
 export function emitRust(pou: IrPou): Emitted {
-  const p = new Printer()
+  const fields = fieldNames(pou.slots)
+  const p = new Printer(fields)
   const name = pou.name.replace(/[^A-Za-z0-9_]/g, "_")
 
   p.push(`// generated from ${pou.name} — do not edit`, 0)
   p.push("#[derive(Debug, Default, Clone, PartialEq)]", 0)
   p.push(`pub struct ${name} {`, 0, pou.span)
-  for (const slot of pou.slots) p.push(`pub ${snake(slot.name)}: ${rustType(slot.type)},`, 1)
+  for (const [i, slot] of pou.slots.entries()) p.push(`pub ${fields[i]}: ${rustType(slot.type)},`, 1)
   p.push("}", 0)
   p.push("", 0)
   p.push(`impl ${name} {`, 0)
@@ -347,8 +400,7 @@ export function emitRust(pou: IrPou): Emitted {
   // `new` seeds the declared initial values; Default alone would zero them.
   p.push("pub fn new() -> Self {", 1)
   p.push("Self {", 2)
-  for (const slot of pou.slots)
-    p.push(`${snake(slot.name)}: ${literal(slot.init, slot.type)},`, 3)
+  for (const [i, slot] of pou.slots.entries()) p.push(`${fields[i]}: ${literal(slot.init, slot.type)},`, 3)
   p.push("}", 2)
   p.push("}", 1)
   p.push("", 0)

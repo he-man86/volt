@@ -372,6 +372,28 @@ scan time, and one case proving constants fold to the same answers):
 integer prints `(x.round() as i64) as T` — `f64::round` is exactly half-away-from-zero, and `as` between integers
 wraps. `as bool` does not exist (`!= 0`), nor does `bool as f32` (`as u8` first).
 
+## 19. The 2026-09-14 review — what it found, and the direction taken
+
+A critical read of `transpile/` before phase 3, with a probe for each suspicion. Four bugs, none reachable by an oracle
+case, all fixed and pinned:
+- **CONTINUE** printed a bare Rust `continue`, which skipped a FOR's step and a REPEAT's UNTIL test and looped forever.
+  CODESYS runs both (test/exec `continue_in_for`, `continue_in_while`, `continue_in_repeat`: FOR counts 4 and ends at
+  i = 6, REPEAT counts 3 and ends at j = 5). The body now sits in a labeled block that CONTINUE leaves; labels print
+  only when used, since the crate builds under `-D warnings`.
+- **Field names**: the bare `snake` of an ST name was the Rust field, so `loop` emitted `pub loop: i16` and `aB` beside
+  `a_b` two `a_b` fields. `emit/rust/fieldNames` suffixes a keyword and numbers a collision.
+- **Unrepresentable slots**: an unused `POINTER TO INT` lowered, and the emitter threw on its type. Lowering now refuses a
+  POU with a slot that has no runtime representation (`slot-<kind>`), checked last so another blocker keeps its category.
+- *Why missed:* the oracle exercises the shapes it holds, and "lowering never throws" stopped at lowering — nothing
+  asserted that a backend accepts what lowering accepts.
+
+The verdict: the measured expression semantics and the oracle stay; a full rewrite now would have to guess the memory
+model, and splitting `lower.ts` in place would polish the frame layer phase 3 replaces. **Chosen (user, 2026-09-14):
+settle §9, then build phase 3 as a new IR** — a backend-only type that is total by construction (no optional capacity
+for an emitter to throw on), places with paths, one application frame — porting the expression rules and the oracle
+unchanged, with lowering's failure propagation made a boundary throw instead of 44 `undefined` checks. The runtime-tier
+question (native Rust + a TS mirror, or an ST shim) is settled alongside, so builtins stop being written twice.
+
 ## 9. OPEN — the memory model, and it blocks phase 3
 
 `Place` is `{ slot, path }` with `path` empty. Two ways forward:

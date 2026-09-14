@@ -924,6 +924,14 @@ export function lowerUnit(unit: TopLevel, scope: Scope, project: Scope): Lowered
 
   const body = lowering.block(parsed.statements)
   if (lowering.diagnostics.length > 0) return { diagnostics: lowering.diagnostics }
+  // Every construct lowered — but every SLOT also needs a runtime representation. An unused `p : POINTER TO INT` lowered
+  // cleanly, then the Rust emitter threw on its type: a backend must accept whatever lowering accepts (transpiler review
+  // 2026-09-14). Checked only here, so a POU another construct blocks keeps that blocker's category in the coverage report.
+  const unrepresentable = lowering.frame.find((s) => s.type.kind !== "elementary")
+  if (unrepresentable !== undefined) {
+    const kind = unrepresentable.type.kind
+    return { diagnostics: [{ code: `slot-${kind}`, message: `${unrepresentable.name} is a ${kind} variable, which has no runtime representation yet`, span: unit.span }] }
+  }
 
   const pou: IrPou = { name: unit.name.text, slots: lowering.frame, body, span: unit.span }
   return { pou, diagnostics: [] }
