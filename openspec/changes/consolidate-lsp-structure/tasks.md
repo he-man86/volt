@@ -22,10 +22,14 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
 - [ ] A4 **Six `X_TO_Y` parsers** (`infer.ts:376`, `reference.ts:197`, `narrowing.ts:35`, `conversion.ts:14`, `lower.ts:366`,
       `_identifier-resolution.ts:21` loose on purpose) — `TIME_OF_DAY_TO_UDINT`/`DATE_AND_TIME_TO_*` unrecognised in three.
       One `parseConversionName` in `types/`; record a narrowing fixture on an alias source.
-- [ ] A5 **Property-accessor scope** — `services/shared/resolve-at.ts:82`, `assist/signature-help.ts:15`,
-      `assist/inlay-hints.ts:23` use the unit scope where `symbols/bodies.ts:42` uses the accessor's. Test a getter local.
-- [ ] A6 **Inlay hints rebuild parameters** (`inlay-hints.ts:30`) — no hints for FB-instance calls or inherited inputs;
-      use `resolveCallee`.
+- [x] A5 **Property-accessor scope** — `services/shared/resolve-at.ts`, `assist/signature-help.ts` and
+      `assist/inlay-hints.ts` re-walked the bodies with the UNIT scope where `symbols/bodies.ts` uses the accessor's.
+      DONE 2026-09-14: `symbols/bodiesAt(offset)`; the three use it (or `bodies()`), and resolve-at's private walker went.
+      Tests (`services/accessor-scope.test.ts`, all four red first): definition, signature help and inlay hints on a
+      getter-local. *Why missed:* no service test had a property accessor with its own VAR section.
+- [x] A6 **Inlay hints rebuilt parameters** from the callee's AST — no hints for an FB-instance call or inherited inputs.
+      DONE 2026-09-14: `resolveCallee`, as signature help and the call checks already did. *Why missed:* the only inlay
+      test called a METHOD.
 - [ ] A7 **Network wording hard-coded** — `network-analysis.ts:175` (jump label; TwinCAT differs), `:213` (no input).
 - [ ] A8 **`this-super-context.ts:18` compares `THIS` case-sensitively**; `external-write.ts:49` / `inout-external-access.ts:44`
       do not. Verify lowercase `this`, then one `isSelfRef`.

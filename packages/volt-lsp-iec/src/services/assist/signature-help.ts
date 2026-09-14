@@ -4,30 +4,24 @@
  * callee to a callable symbol, and renders its VAR_INPUT parameters.
  */
 import type { SignatureHelp, SignatureInformation } from "vscode-languageserver-protocol"
-import { isGraphicalBody, parseStatements, unitBodies, walkAllExprs, type CallExpr } from "../../syntax/index.js"
-import { scopeForUnit, type Scope } from "../../symbols/index.js"
+import { walkAllExprs, type CallExpr } from "../../syntax/index.js"
+import { bodiesAt, type Scope } from "../../symbols/index.js"
 import { renderTypeExpr, resolveCallee } from "../../types/index.js"
-import { spanContains, type Document } from "../shared/index.js"
+import type { Document } from "../shared/index.js"
 
 export function signatureHelp(doc: Document, project: Scope, offset: number): SignatureHelp | undefined {
-  for (const unit of doc.parseResult.units) {
-    if (!spanContains(unit.span, offset)) continue
-    const scope = scopeForUnit(project, unit) ?? project
-    for (const body of unitBodies(unit)) {
-      if (isGraphicalBody(body) || !spanContains(body.span, offset)) continue
-      const parsed = parseStatements(body)
-      if (!parsed.ok) continue
-      const call = innermostCallAt(parsed.statements, offset)
-      if (call === undefined) continue
-      const callee = resolveCallee(call, scope, project)
-      if (callee === undefined || callee.params.length === 0) return undefined
-      const labels = callee.params.map((p) => `${p.name.text} : ${renderTypeExpr(p.type)}`)
-      const sig: SignatureInformation = {
-        label: `${callee.sym.name}(${labels.join(", ")})`,
-        parameters: labels.map((l) => ({ label: l })),
-      }
-      return { signatures: [sig], activeSignature: 0, activeParameter: activeParam(call, offset) }
+  // `bodiesAt` gives a property accessor its own scope — a getter-local instance's method used to find no signature
+  for (const { scope, statements } of bodiesAt(doc.parseResult.units, project, offset)) {
+    const call = innermostCallAt(statements, offset)
+    if (call === undefined) continue
+    const callee = resolveCallee(call, scope, project)
+    if (callee === undefined || callee.params.length === 0) return undefined
+    const labels = callee.params.map((p) => `${p.name.text} : ${renderTypeExpr(p.type)}`)
+    const sig: SignatureInformation = {
+      label: `${callee.sym.name}(${labels.join(", ")})`,
+      parameters: labels.map((l) => ({ label: l })),
     }
+    return { signatures: [sig], activeSignature: 0, activeParameter: activeParam(call, offset) }
   }
   return undefined
 }

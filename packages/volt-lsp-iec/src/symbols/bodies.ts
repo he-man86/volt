@@ -45,3 +45,12 @@ export function* bodies(units: readonly TopLevel[], project: Scope): Generator<U
     }
   }
 }
+
+/**
+ * The bodies `bodies()` yields whose span holds `offset` (half-open, as a cursor sits) — for the features that act at a
+ * cursor. They used to re-walk the units with the UNIT scope, so a local declared inside a property accessor resolved
+ * nowhere in go-to-definition and signature help (consolidate-lsp-structure A5).
+ */
+export function* bodiesAt(units: readonly TopLevel[], project: Scope, offset: number): Generator<UnitBody> {
+  for (const b of bodies(units, project)) if (offset >= b.body.span.start && offset < b.body.span.end) yield b
+}

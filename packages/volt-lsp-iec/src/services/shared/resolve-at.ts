@@ -7,17 +7,10 @@
  * DECLARATION — return the symbol whose defining span it sits on, else resolve the token as a name/type.
  * Conservative: unresolved → undefined (a feature simply does nothing rather than guess).
  */
-import {
-  exprAtOffset,
-  isGraphicalBody,
-  memberAtOffset,
-  parseStatements,
-  unitBodies,
-  type BodySpan,
-  type ParseResult,
-} from "../../syntax/index.js"
+import { exprAtOffset, memberAtOffset, type ParseResult } from "../../syntax/index.js"
 import {
   bodies,
+  bodiesAt,
   lookup,
   resolveBareEnumMember,
   scopeForUnit,
@@ -45,16 +38,15 @@ export function stBodies(doc: Document, project: Scope): Generator<UnitBody> {
 }
 
 export function resolveAt(doc: Document, project: Scope, offset: number): Symbol | undefined {
-  // Body path — resolve through the statement tree where the cursor sits.
-  for (const { body, scope } of stBodiesAtOffset(doc.parseResult, project, offset)) {
-    const parsed = parseStatements(body)
-    if (!parsed.ok) continue
-    const member = memberAtOffset(parsed.statements, offset)
+  // Body path — resolve through the statement tree where the cursor sits, in the body's own scope (a property accessor's
+  // for its locals; this used the unit scope, so a getter-local resolved nowhere — consolidate-lsp-structure A5).
+  for (const { scope, statements } of bodiesAt(doc.parseResult.units, project, offset)) {
+    const member = memberAtOffset(statements, offset)
     if (member !== undefined) {
       const sym = resolveMemberChain(member, scope, project)
       if (sym !== undefined) return sym
     }
-    const expr = exprAtOffset(parsed.statements, offset)
+    const expr = exprAtOffset(statements, offset)
     if (expr?.kind === "ident_expr") {
       return lookup(scope, expr.name)?.symbol ?? resolveBareEnumMember(project, expr.name)
     }
@@ -69,21 +61,6 @@ export function resolveAt(doc: Document, project: Scope, offset: number): Symbol
     return lookup(scope, tok.text)?.symbol ?? resolveBareEnumMember(project, tok.text)
   }
   return undefined
-}
-
-/** ST (non-graphical) bodies containing the offset, paired with their unit scope. */
-function* stBodiesAtOffset(
-  parseResult: ParseResult,
-  project: Scope,
-  offset: number,
-): Generator<{ body: BodySpan; scope: Scope }> {
-  for (const unit of parseResult.units) {
-    if (!spanContains(unit.span, offset)) continue
-    const scope = scopeForUnit(project, unit) ?? project
-    for (const body of unitBodies(unit)) {
-      if (spanContains(body.span, offset) && !isGraphicalBody(body)) yield { body, scope }
-    }
-  }
 }
 
 /** The scope of the innermost unit containing the offset (project scope as the fallback). */
