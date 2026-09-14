@@ -449,11 +449,22 @@ known at compile time, so the Rust is plain nested structs — `#[derive(Default
 `RefCell` or `unsafe`, and no Rust reference ever stored:
 - a program is `impl PlcPrg { fn scan(&mut self, g: &mut Globals) }` — its own state and the globals are disjoint borrows;
 - an FB is a struct of its VAR, a method `&mut self`, a call on a declared instance `self.inst.bump()`;
-- VAR_IN_OUT is a `&mut` parameter (`self.fbio.call(&mut self.rec)`), and an ADR that never outlives the call a reborrow;
-- only a pointer that is STORED becomes a handle — one `enum` per pointee type, one variant per place an ADR of that
-  type is taken of, carrying the element index (`PtrDutMemPt::PlcPrgArr(1)`); `p[i]` / `p + SIZEOF(T)` move the index,
-  and one accessor per pointee type resolves it where it is used.
-`memory-sketch.rs` is that shape for the six memory-model fixtures; it compiles under `-D warnings` and its asserts pass.
+- a pointer, reference or VAR_IN_OUT takes the FIRST of three forms that applies — simplest first:
+  1. **its target is static** (one ADR of it, assigned before any use, never tested for null) → the place itself:
+     `p := ADR(arr[1]); p[2].x` is `self.arr[1 + 2].x`, `pInst^.Bump()` is `self.inst.bump()` — no pointer at all;
+  2. **it never outlives the call** (VAR_IN_OUT, a FUNCTION/METHOD pointer parameter, an ADR used within the call) → a
+     `&mut` borrow, a slice `&mut [T]` when indexed (`Calc_CopyCutsWithOffset(I_dataArray := ADR(arr))`);
+  3. **it is stored and has several targets** → a handle: a small `enum` of its targets with the element index,
+     matched where it is dereferenced.
+`memory-sketch.rs` shows all three for the six fixtures (plus a slice parameter and a two-target handle); it compiles
+under `-D warnings` and asserts the recorded values.
+
+**How often each form applies** (census of the 171 pointer/reference variables in project code, targets read from
+`x := ADR(…)` / `x REF= …`): where a local's targets are visible, most have ONE (FB locals 19 of 25, METHOD locals 24
+of 34, FUNCTION locals 5 of 5) — form 1; the 46 FUNCTION/METHOD pointer parameters are form 2 unless a method stores
+one; form 3 is the minority — 16 multi-target locals, and an FB's 32 pointer INPUTS, which persist between calls by
+definition. A pointer the text search saw no target for (a copy of another pointer, a positional argument) is decided
+by lowering from the parse, never assumed static.
 Safe Rust holds for everything the program owns. It stops at two edges, both refused-and-counted, never `unsafe`:
 memory the program only sees as BYTES (a `POINTER TO BYTE` over a struct, a copy or compare by `ADR` + `SIZEOF`) —
 reachable through an on-demand byte view, safe but less readable; and a pointer that comes from OUTSIDE the program
