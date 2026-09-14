@@ -19,6 +19,7 @@
 import {
   decodeStringLiteral,
   isGraphicalBody,
+  isSelfRef,
   parseSource,
   parseStatements,
   type Expr,
@@ -33,7 +34,16 @@ import {
   type VarSection,
   unitAttributes,
 } from "../../syntax/index.js"
-import { buildSymbolTable, findChildScope, libraryOf, lookup, lookupMember, scopeForUnit, type Scope } from "../../symbols/index.js"
+import {
+  buildSymbolTable,
+  findChildScope,
+  libraryOf,
+  lookup,
+  lookupMember,
+  resolveBareEnumMember,
+  scopeForUnit,
+  type Scope,
+} from "../../symbols/index.js"
 import {
   commonType,
   constEval,
@@ -175,6 +185,56 @@ class Lowering {
   private globalMode = false
   /** Lowering the POU's OWN body — the one place a PROGRAM is called from (see `globalPlace`); set by `lowerUnit`. */
   isRoot = false
+  /** The FB an FB, METHOD or ACTION body runs on — what `THIS^` names. */
+  private selfType: Type | undefined
+
+  /**
+   * An enum is stored as its base type: the one written after the value list (`) BYTE`), else INT — how a project enum
+   * without one converts, as measured (conformance `cc_enum_into_*`). An inline enum (`state : (Idle, Running)`) holds INT.
+   */
+  private enumStorage(t: Extract<Type, { kind: "enum" }>): Type {
+    const sym = t.name === "(implicit)" ? undefined : lookup(this.project, t.name)?.symbol
+    const body = sym?.kind === "type" ? (sym.ast as TypeDecl).body : undefined
+    if (body?.kind === "enum" && body.baseType !== undefined) return withStringCapacity(this.resolve(body.baseType))
+    return elementaryRef("INT")
+  }
+
+  /**
+   * An enum value — `E_Mode.Busy`, or a bare `Busy` when its enum is not qualified_only — as the constant it is: its written
+   * `:= n`, else one more than the value before it, starting at 0 (conformance `type_dut_enum_simple`: `Running` is 1;
+   * `type_dut_enum_explicit_values`), typed as its enum's storage. Undefined for anything that is not one.
+   */
+  private enumConstant(e: Expr): IrExpr | undefined {
+    let sym: ReturnType<typeof resolveBareEnumMember>
+    if (e.kind === "member" && e.base.kind === "ident_expr") {
+      const owner = lookup(this.scope, e.base.name)?.symbol
+      const scope = owner?.kind === "type" ? findChildScope(this.project, owner.name) : undefined
+      sym = scope === undefined ? undefined : lookupMember(scope, e.member.name)
+    } else if (e.kind === "ident_expr") {
+      const found = lookup(this.scope, e.name)?.symbol
+      sym = found?.kind === "enum_value" ? found : found === undefined ? resolveBareEnumMember(this.project, e.name) : undefined
+    }
+    if (sym?.kind !== "enum_value" || sym.owner.kind !== "enum") return undefined
+    const decl = lookup(this.project, sym.owner.name)?.symbol
+    const body = decl?.kind === "type" ? (decl.ast as TypeDecl).body : undefined
+    if (body?.kind !== "enum") return undefined
+    const type = this.enumStorage({ kind: "enum", name: sym.owner.name, scope: sym.owner })
+    let next = 0n
+    for (const v of body.values) {
+      const written = v.value === undefined ? undefined : constEval(v.value, this.project)
+      if (v.value !== undefined && typeof written !== "bigint") return this.bail("enum-value", `${v.name.text}'s value does not fold`, e.span)
+      const value = typeof written === "bigint" ? written : next
+      if (v.name.text.toUpperCase() === sym.name.toUpperCase()) return { kind: "const", value: stored(value, type), type, span: e.span }
+      next = value + 1n
+    }
+    return undefined
+  }
+
+  /** A name this frame, its parameters or its routine hold — which wins over an enum value of the same name. */
+  private holds(name: string): boolean {
+    const upper = name.toUpperCase()
+    return this.localByName.has(upper) || this.byName.has(upper) || this.inoutByName.has(upper)
+  }
 
   constructor(
     private readonly scope: Scope,
@@ -264,6 +324,7 @@ class Lowering {
 
     const r = new Lowering(scope, this.project, this.shared)
     if (fb !== undefined) r.inherit(fb.fields)
+    if (fb !== undefined) r.selfType = { kind: "function_block", name: fb.name, scope: sym.owner }
     r.routineMode = true
     let result: number | undefined
     if (ast.kind !== "action" && ast.returnType !== undefined) {
@@ -496,6 +557,7 @@ class Lowering {
    */
   private storage(t: Type): Type {
     if (t.kind === "array") return { ...t, element: this.storage(t.element) }
+    if (t.kind === "enum") return this.enumStorage(t)
     if (t.kind !== "struct" && t.kind !== "function_block") return withStringCapacity(t)
     const sym = lookup(this.project, t.name)?.symbol
     const name = sym?.name ?? t.name
@@ -507,6 +569,7 @@ class Lowering {
   /** A struct's fields or an FB instance's storage, lowered in the type's own scope — a base type's fields first. */
   private buildLayout(t: Extract<Type, { kind: "struct" | "function_block" }>, sym: ReturnType<typeof lookup> extends infer R ? (R extends { symbol: infer S } ? S : never) | undefined : never): void {
     const nested = new Lowering(t.scope ?? this.project, this.project, this.shared)
+    nested.selfType = t
     const base = (name: string | undefined): void => {
       if (name === undefined) return
       const baseType = this.storage(resolveNamedType(name, this.project))
@@ -639,6 +702,9 @@ class Lowering {
   }
 
   private constant(e: Expr): IrValue | undefined {
+    // an enum value is a constant too — a CASE label `E_Mode.Busy:` or `Busy:`
+    const enumValue = (e.kind === "ident_expr" && this.holds(e.name)) || (e.kind !== "ident_expr" && e.kind !== "member") ? undefined : this.enumConstant(e)
+    if (enumValue?.kind === "const") return enumValue.value
     const v = constEval(e, this.scope)
     return v === undefined ? undefined : v
   }
@@ -669,6 +735,10 @@ class Lowering {
       }
       return place
     }
+    // `THIS^` — the instance the body runs on (conformance `keyword_this_dereference`, `use_self_method_call`). SUPER^
+    // names a base FB, and a derived FB is not lowered yet.
+    if (e.kind === "deref" && isSelfRef(e) && e.base.kind === "ident_expr" && e.base.name.toUpperCase() === "THIS" && this.selfType !== undefined)
+      return { slot: 0, path: [], type: this.selfType, span: e.span, root: "this" }
     if (e.kind !== "ident_expr")
       return this.bail("place-shape", `${e.kind} is not a lowerable storage location yet`, e.span)
     // a routine's own local (its result, inputs and VAR) shadows the instance's field of the same name
@@ -741,6 +811,8 @@ class Lowering {
         return retype({ kind: "const", value: typeof v === "object" ? v.ns : v, type, span: e.span }, type)
       }
       case "ident_expr": {
+        const enumValue = this.holds(e.name) ? undefined : this.enumConstant(e)
+        if (enumValue !== undefined) return enumValue
         const place = this.place(e)
         if (place === undefined) return undefined
         if (place.type === UNKNOWN) return this.bail("type-unknown", `the type of ${e.name} is not resolvable`, e.span)
@@ -817,6 +889,8 @@ class Lowering {
         return this.builtin(e)
       case "member":
       case "index": {
+        const enumValue = e.kind === "member" ? this.enumConstant(e) : undefined
+        if (enumValue !== undefined) return enumValue
         const place = this.place(e, e.kind === "member" ? "expr-member" : "expr-index")
         if (place === undefined) return undefined
         if (place.type === UNKNOWN) return this.bail("type-unknown", "the type of a member is not resolvable", e.span)

@@ -266,7 +266,14 @@ reshaped in place, each commit gated value-for-value by the conformance replay, 
       own `scan` only) — `prg.prg_writer.call(g)`, where one struct would have been borrowed twice (rustc E0499, caught
       by `fbcall_program_writes_global`). Cases lowering 315 → 317. Refused, counted: a PROGRAM called from inside an FB,
       a routine or another program, a VAR_IN_OUT bound to a global, and a library's globals.
-- [ ] **Step 6 — handles.**
+- [x] **Enums and THIS^** (pulled forward from phase 5: 23 recorded cases, measured semantics, no handle needed). DONE
+      2026-09-14: an enum variable is stored as its written base type, else INT (as a project enum converts); `E.Value`
+      and a bare value are constants — the written `:= n`, else one more than the value before, from 0 — in expressions
+      and CASE labels; a variable's own name wins over an enum value's. `THIS^` is a place root: the instance the body
+      runs on (`self` in Rust). CODESYS displays an enum value by NAME, so the replay maps it back through the case's
+      TYPE declarations. Cases lowering 317 → 340, every earlier result unchanged.
+- [ ] **Step 6 — handles** (ADR, SIZEOF, REF=, POINTER TO: the `mem_*` fixtures, `type_pointer_to_int`,
+      `type_reference_to_int`, `op_sys_isvalidref`, `keyword_null_pointer_init`).
 
 - [x] **Review before phase 3** (2026-09-14, design §19): four emitter/lowering bugs found by probe and fixed — CONTINUE
       (3 oracle cases recorded), Rust field names (keywords, snake_case collisions), unrepresentable slots. Direction

@@ -610,6 +610,47 @@ END_PROGRAM`,
     expect([pou.get("seen"), pou.get("viaFb"), pou.get("runsSeen")]).toEqual([14n, 114n, 2n])
   })
 
+  // Enums and THIS^, as CODESYS recorded them (conformance `type_dut_enum_*`, `cc_enum_*`, `keyword_this_dereference`,
+  // `use_self_method_call`). Before them an enum variable, an enum value and `THIS^` each refused the POU.
+  test("an enum value is its number and an enum variable its base type; THIS^ is the instance a body runs on", () => {
+    const pou = load(
+      `TYPE E_Implicit : (Idle, Running, Halted); END_TYPE
+TYPE E_Written : (Released := 0, Pressed := 5, HeldLong); END_TYPE
+TYPE E_Byte : (LevelA, LevelB) BYTE; END_TYPE
+TYPE E_Other : (O0, O1); END_TYPE
+FUNCTION_BLOCK FB_Self
+VAR count : INT; END_VAR
+END_FUNCTION_BLOCK
+METHOD Inner
+THIS^.count := THIS^.count + 1;
+END_METHOD
+METHOD Outer
+THIS^.Inner();
+THIS^.Inner();
+END_METHOD
+PROGRAM P
+VAR
+  running : E_Implicit; held : E_Written; level : E_Byte; other : E_Other;
+  asWord : WORD; same : BOOL; picked : INT; inst : FB_Self;
+END_VAR
+running := E_Implicit.Running;
+held := HeldLong;
+level := E_Byte.LevelB;
+asWord := held;
+same := running = O1;
+CASE held OF
+  E_Written.Pressed: picked := 1;
+  HeldLong: picked := 2;
+END_CASE
+inst.Outer();
+END_PROGRAM`,
+      "P",
+    )
+    pou.scan()
+    expect([pou.get("running"), pou.get("held"), pou.get("level"), pou.get("asWord")]).toEqual([1n, 6n, 1n, 6n])
+    expect([pou.get("same"), pou.get("picked"), pou.get("inst.count")]).toEqual([true, 2n, 2n])
+  })
+
   // Why missed: no initializer or assignment test stored a literal its target could not hold, and none put an integer in
   // a BOOL — the conformance fixtures that do (`overflow_*`, `cc_literal_*`, `cc_init_*_into_bool`) sat inside FBs, which
   // did not lower until calls did.

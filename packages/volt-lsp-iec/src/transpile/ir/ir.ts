@@ -78,8 +78,9 @@ export interface Place {
   span: Span
   /** `inout`: a VAR_IN_OUT parameter — the caller's variable, bound for the call (design §9 form 2, a `&mut`).
    *  `local`: a METHOD's, ACTION's or FUNCTION's local, which starts over on every call.
-   *  `global`: the application's storage — a GVL variable, or a called PROGRAM's one instance (`IrPou.globals`). */
-  root?: "inout" | "local" | "global"
+   *  `global`: the application's storage — a GVL variable, or a called PROGRAM's one instance (`IrPou.globals`).
+   *  `this`: the instance an FB, METHOD or ACTION body runs on — `THIS^` (`slot` is unused). */
+  root?: "inout" | "local" | "global" | "this"
 }
 
 // ─── expressions ─────────────────────────────────────────────────────────────

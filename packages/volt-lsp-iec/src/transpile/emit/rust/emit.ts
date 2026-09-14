@@ -211,7 +211,9 @@ class Printer {
           ? this.frame.localNames[p.slot]!
           : p.root === "global"
             ? this.globals.access[p.slot]!
-            : `self.${this.fields[p.slot]}`
+            : p.root === "this"
+              ? "self"
+              : `self.${this.fields[p.slot]}`
     let type: Type =
       p.root === "inout"
         ? this.frame.inoutSlots[p.slot]!.type
@@ -219,7 +221,9 @@ class Printer {
           ? this.frame.localSlots[p.slot]!.type
           : p.root === "global"
             ? this.globals.slots[p.slot]!.type
-            : slots[p.slot]!.type
+            : p.root === "this"
+              ? this.frame.selfType!
+              : slots[p.slot]!.type
     for (const step of p.path) {
       if (step.kind === "field") {
         const entry = type.kind === "struct" || type.kind === "function_block" ? this.layouts.get(type.name.toUpperCase()) : undefined
@@ -491,6 +495,8 @@ interface Frame {
   localNames: readonly string[]
   localSlots: IrPou["slots"]
   result?: string
+  /** The FB a body runs on — what a `this` place (`THIS^`) walks from. */
+  selfType?: Type
 }
 
 /** A routine's Rust fn name: snake_case, a keyword or a name the emitter generates itself (`new`, `call`, `scan`) suffixed `_`. */
@@ -522,7 +528,14 @@ function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[],
   p.push(`pub fn ${routineFnName(routine)}(${params.join(", ")})${returns} {`, indent)
   for (const [i, slot] of routine.locals.entries())
     if (!routine.inputs.includes(i)) p.push(`let mut ${localNames[i]}: ${rustType(slot.type)} = ${initOf(slot.type, slot.init)};`, indent + 1)
-  const frame: Frame = { inoutNames, inoutSlots: routine.inouts, localNames, localSlots: routine.locals, ...(result === undefined ? {} : { result }) }
+  const frame: Frame = {
+    inoutNames,
+    inoutSlots: routine.inouts,
+    localNames,
+    localSlots: routine.locals,
+    ...(result === undefined ? {} : { result }),
+    ...(routine.fb === undefined ? {} : { selfType: { kind: "function_block", name: routine.fb } }),
+  }
   p.inFrame(fields, frame, () => p.block(routine.body, fieldSlots, indent + 1))
   if (result !== undefined) p.push(result, indent + 1)
   p.push("}", indent)
@@ -622,7 +635,8 @@ export function emitRust(pou: IrPou): Emitted {
       p.push("", 0)
       if (usesGlobals) p.push("#[allow(unused_variables)]", 1)
       p.push(`pub fn call(&mut self${params}) {`, 1)
-      p.inFrame(names, { inoutNames, inoutSlots: inouts, localNames: [], localSlots: [] }, () => p.block(layout.body!, layout.fields, 2))
+      const selfType: Type = { kind: "function_block", name: layout.name }
+      p.inFrame(names, { inoutNames, inoutSlots: inouts, localNames: [], localSlots: [], selfType }, () => p.block(layout.body!, layout.fields, 2))
       p.push("}", 1)
     }
     for (const routine of pou.routines.filter((r) => r.fb?.toUpperCase() === layout.name.toUpperCase())) printRoutine(p, routine, names, layout.fields, 1, usesGlobals)

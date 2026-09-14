@@ -110,6 +110,20 @@ describe("emit/rust", () => {
     expect(emitted.code).toContain("pub fn call(&mut self, g: &mut Globals) {")
   })
 
+  test("an enum variable is its base type and an enum value its number; THIS^ is `self`", () => {
+    const { pou, diagnostics } = lowerSource(
+      "PROGRAM Enums\nVAR mode : E_Mode; small : E_Small; inst : FB_This; END_VAR\nmode := E_Mode.Busy;\nsmall := Hi;\ninst.Bump();\nEND_PROGRAM\nTYPE E_Mode : (Idle, Busy := 4); END_TYPE\nTYPE E_Small : (Lo, Hi) BYTE; END_TYPE\nFUNCTION_BLOCK FB_This\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Bump\nTHIS^.n := THIS^.n + 1;\nEND_METHOD\n",
+      "Enums",
+    )
+    expect(diagnostics).toEqual([])
+    const code = emitRust(pou!).code
+    expect(code).toContain("pub mode: i16,")
+    expect(code).toContain("pub small: u8,")
+    expect(code).toContain("self.mode = 4i16;")
+    expect(code).toContain("self.small = 1u8;")
+    expect(code).toContain("self.n = ") // THIS^.n, through `self`
+  })
+
   test("ST names become snake_case fields", () => {
     expect(["iCount", "MaxCount", "PLC_Ready", "x"].map(snake)).toEqual(["i_count", "max_count", "plc_ready", "x"])
   })
@@ -256,6 +270,8 @@ describe.skipIf(rustc === null)("emit/rust — compiles", () => {
       // Globals (phase 3 step 5): a GVL variable read and written through VAR_EXTERNAL, an FB and a FUNCTION reaching it,
       // and a PROGRAM called — `g` and `prg` borrowed side by side.
       "PROGRAM GlobalCalls\nVAR_EXTERNAL gCount : INT; END_VAR\nVAR reader : FB_GReader; seen : INT; END_VAR\nPRG_GWriter();\ngCount := gCount + F_GRead(1);\nreader(q => seen);\nseen := PRG_GWriter.runs;\nEND_PROGRAM\nVAR_GLOBAL\n  gCount : INT := 1;\nEND_VAR\nFUNCTION_BLOCK FB_GReader\nVAR_OUTPUT q : INT; END_VAR\nq := gCount;\nEND_FUNCTION_BLOCK\nFUNCTION F_GRead : INT\nVAR_INPUT k : INT; END_VAR\nF_GRead := gCount * k;\nEND_FUNCTION\nPROGRAM PRG_GWriter\nVAR runs : INT; END_VAR\nruns := runs + 1;\ngCount := runs;\nEND_PROGRAM\n",
+      // Enums and THIS^: an enum variable of each base, a value in a CASE, a method calling another through THIS^.
+      "PROGRAM EnumsAndThis\nVAR mode : E_M; small : E_S; picked : INT; inst : FB_T; END_VAR\nmode := E_M.Busy;\nsmall := E_S.Hi;\nCASE mode OF\n  E_M.Idle: picked := 0;\n  Busy: picked := 1;\nEND_CASE\ninst.Outer();\nEND_PROGRAM\nTYPE E_M : (Idle, Busy); END_TYPE\nTYPE E_S : (Lo, Hi) BYTE; END_TYPE\nFUNCTION_BLOCK FB_T\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Inner\nTHIS^.n := THIS^.n + 1;\nEND_METHOD\nMETHOD Outer\nTHIS^.Inner();\nEND_METHOD\n",
       "PROGRAM RoutineCalls\nVAR inst : FB_R; got : INT; sink : INT; END_VAR\ngot := inst.Sum(upto := 4) + F_Twice(3);\ninst.Reset();\ninst.Store(dest := sink);\nEND_PROGRAM\nFUNCTION_BLOCK FB_R\nVAR total : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Sum : INT\nVAR_INPUT upto : INT; END_VAR\nVAR i : INT; END_VAR\nFOR i := 1 TO upto DO\n  Sum := Sum + i;\n  IF Sum > 100 THEN RETURN; END_IF\nEND_FOR\ntotal := Sum;\nEND_METHOD\nACTION Reset\ntotal := 0;\nEND_ACTION\nMETHOD Store\nVAR_IN_OUT dest : INT; END_VAR\ndest := total;\nEND_METHOD\nFUNCTION F_Twice : INT\nVAR_INPUT x : INT; END_VAR\nF_Twice := x * 2;\nEND_FUNCTION\n",
     ]
     const len = { uri: "Library Manager/Standard/LEN.fun", source: "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\nEND_FUNCTION\n" }

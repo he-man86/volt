@@ -286,7 +286,9 @@ class Machine {
           ? { container: this.locals as unknown as Record<number, Val>, key: place.slot }
           : place.root === "global"
             ? { container: this.globals as unknown as Record<number, Val>, key: place.slot }
-            : { container: this.root, key: this.keys[place.slot]! }
+            : place.root === "this"
+              ? { container: { THIS: this.root as Val }, key: "THIS" }
+              : { container: this.root, key: this.keys[place.slot]! }
     let container: Val[] | { [field: string]: Val } = start.container as Val[] | { [field: string]: Val }
     let key: number | string = start.key
     for (const step of walk) {

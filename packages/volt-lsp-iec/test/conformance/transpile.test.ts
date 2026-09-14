@@ -16,7 +16,7 @@ import { readFileSync } from "node:fs"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { decodeStringLiteral } from "../../src/syntax/index.js"
+import { decodeStringLiteral, parseSource } from "../../src/syntax/index.js"
 import {
   emitRust,
   isBit,
@@ -47,7 +47,7 @@ const recording = JSON.parse(readFileSync(join(import.meta.dir, "recordings", "c
  * The cases with transpiler lowering held above this floor — execution cases and fixtures together. Raise it when more
  * cases lower; never lower it to make a change pass.
  */
-const LOWERED_FLOOR = 317
+const LOWERED_FLOOR = 340
 
 /** The source a case lowers from: the fixture's own units (an execution case has none), then its PLC_PRG. */
 function runSource(c: LanguageTest): string {
@@ -68,15 +68,35 @@ function lowering(c: LanguageTest): LoweredPou {
   return lowered
 }
 
+/** Each `Type.Value` a case's enums declare, as the number it is: the written `:= n`, else one more than the value
+ *  before it, from 0 — how CODESYS numbers them (conformance `type_dut_enum_*`). */
+function enumsOf(c: LanguageTest): Map<string, bigint> {
+  const out = new Map<string, bigint>()
+  for (const unit of parseSource(runSource(c)).units) {
+    if (unit.kind !== "type_decl" || unit.body.kind !== "enum") continue
+    let next = 0n
+    for (const v of unit.body.values) {
+      const written = v.value?.kind === "literal" && typeof v.value.value === "bigint" ? v.value.value : undefined
+      const value = written ?? next
+      out.set(`${unit.name.text}.${v.name.text}`.toUpperCase(), value)
+      next = value + 1n
+    }
+  }
+  return out
+}
+
 /** The cases the transpiler answers to: every execution case (an unrecorded one is reported), and every other fixture
  *  that has a run recording. */
 const CASES = ALL_TESTS.filter((c) => c.source === "" || recording.tests[c.name] !== undefined)
 
 /** A monitoring string as CODESYS prints it — `INT#5`, `REAL#3`, `TRUE` — as the interpreter's value. A form this
  *  does not know is refused, never guessed: a wrong parse would make both sides agree on something untrue. */
-function ideValue(raw: string): IrValue {
+function ideValue(raw: string, enums: ReadonlyMap<string, bigint> = new Map()): IrValue {
   if (raw === "TRUE") return true
   if (raw === "FALSE") return false
+  // an enum value displays by NAME — `DUT_LANG_enum_simple.Running` — where both backends hold its number
+  const enumValue = /^[A-Za-z_]\w*\.[A-Za-z_]\w*$/.test(raw) ? enums.get(raw.toUpperCase()) : undefined
+  if (enumValue !== undefined) return enumValue
   // A STRING displays quoted and re-escaped: `'a$Tb'` holds a tab and `'x$$y'` one dollar (conformance `string_escapes`).
   // A WSTRING displays in double quotes: `"héllo"`.
   const quote = raw[0]
@@ -190,7 +210,7 @@ describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
 
       const pou = load(runSource(c), "PLC_PRG", LIBRARIES)
       for (let i = 0; i < cycles; i++) pou.scan()
-      const want = Object.fromEntries(Object.entries(rec.values!).map(([k, v]) => [k, ideValue(v)]))
+      const want = Object.fromEntries(Object.entries(rec.values!).map(([k, v]) => [k, ideValue(v, enumsOf(c))]))
       const got = Object.fromEntries(
         Object.keys(want).map((k) => [k, asDisplayed(rec.values![k]!, pou.get(k) as IrValue)]),
       )
@@ -292,7 +312,7 @@ describe.skipIf(rustc === null)("differential execution — emitted Rust vs CODE
           .split(/\r?\n/)
           .map((line) => line.split("\t") as [string, string]),
       )
-      const want = Object.fromEntries(Object.entries(rec.values!).map(([k, v]) => [k, ideValue(v)]))
+      const want = Object.fromEntries(Object.entries(rec.values!).map(([k, v]) => [k, ideValue(v, enumsOf(c))]))
       const got = Object.fromEntries(
         Object.keys(want).map((k) => {
           const { type } = rustAccess(pou, k)
