@@ -272,8 +272,16 @@ reshaped in place, each commit gated value-for-value by the conformance replay, 
       and CASE labels; a variable's own name wins over an enum value's. `THIS^` is a place root: the instance the body
       runs on (`self` in Rust). CODESYS displays an enum value by NAME, so the replay maps it back through the case's
       TYPE declarations. Cases lowering 317 → 340, every earlier result unchanged.
-- [ ] **Step 6 — handles** (ADR, SIZEOF, REF=, POINTER TO: the `mem_*` fixtures, `type_pointer_to_int`,
-      `type_reference_to_int`, `op_sys_isvalidref`, `keyword_null_pointer_init`).
+- [x] **Step 6a — the byte layout.** DONE 2026-09-14: `SIZEOF` of a variable or a type, and `ADR(a) - ADR(b)` inside
+      one variable, are constants from the layout the `mem_*` fixtures measured — each field aligned to its own size, a
+      struct padded to its widest field, a BOOL one byte, a STRING(n) n + 1, an array whole elements, an FB instance an
+      8-byte header plus its variables (its fields have no offset: where the header sits is not measured). VAR_TEMP,
+      VAR_STAT and lowering's temps are not instance storage. A ULINT, as a SIZEOF widens into one without a message.
+      Refused, counted: a BIT, a WSTRING, a pointer or a reference inside the type; an FB field's offset. Cases lowering
+      340 → 343 — the three layout fixtures agree with CODESYS in both backends.
+- [ ] **Step 6b — handles** (POINTER TO, REFERENCE TO, `REF=`, `__ISVALIDREF`, `p[i]`, `p + SIZEOF(T)`, `pInst^.M()`:
+      `type_pointer_to_int`, `type_reference_to_int`, `op_sys_isvalidref`, `keyword_null_pointer_init`,
+      `mem_pointer_index_struct_array`, `mem_pointer_to_instance_method`, `mem_adr_of_inout_member`).
 
 - [x] **Review before phase 3** (2026-09-14, design §19): four emitter/lowering bugs found by probe and fixed — CONTINUE
       (3 oracle cases recorded), Rust field names (keywords, snake_case collisions), unrepresentable slots. Direction

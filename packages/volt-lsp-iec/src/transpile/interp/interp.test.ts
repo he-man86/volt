@@ -651,6 +651,32 @@ END_PROGRAM`,
     expect([pou.get("same"), pou.get("picked"), pou.get("inst.count")]).toEqual([true, 2n, 2n])
   })
 
+  // Phase 3 step 6a: the byte layout, as the 64-bit simulator measured it (conformance `mem_sizeof_struct_mixed`,
+  // `mem_sizeof_fb_instance`, `mem_member_offsets`) — SIZEOF and a difference of addresses in one variable are constants.
+  test("SIZEOF and ADR(a) - ADR(b) follow the measured layout: C alignment, a STRING's terminator, an FB's header", () => {
+    const pou = load(
+      `TYPE T_Mixed : STRUCT b : BYTE; i : INT; d : DINT; x : BOOL; l : LREAL; END_STRUCT END_TYPE
+FUNCTION_BLOCK FB_Sized
+VAR b : BYTE; d : DINT; END_VAR
+END_FUNCTION_BLOCK
+PROGRAM P
+VAR
+  sv : T_Mixed; arr : ARRAY[0..2] OF T_Mixed; str : STRING; inst : FB_Sized;
+  szStruct : ULINT; szArr : ULINT; szBool : ULINT; szString : ULINT; szInst : ULINT; szType : ULINT;
+  offI : ULINT; offD : ULINT; offX : ULINT; offL : ULINT; offElement : ULINT;
+END_VAR
+szStruct := SIZEOF(sv); szArr := SIZEOF(arr); szBool := SIZEOF(sv.x); szString := SIZEOF(str); szInst := SIZEOF(inst);
+szType := SIZEOF(T_Mixed);
+offI := ADR(sv.i) - ADR(sv); offD := ADR(sv.d) - ADR(sv); offX := ADR(sv.x) - ADR(sv); offL := ADR(sv.l) - ADR(sv);
+offElement := ADR(arr[2].d) - ADR(arr[0]);
+END_PROGRAM`,
+      "P",
+    )
+    pou.scan()
+    expect(["szStruct", "szArr", "szBool", "szString", "szInst", "szType"].map((n) => pou.get(n))).toEqual([24n, 72n, 1n, 81n, 16n, 24n])
+    expect(["offI", "offD", "offX", "offL", "offElement"].map((n) => pou.get(n))).toEqual([2n, 4n, 8n, 16n, 52n])
+  })
+
   // Why missed: no initializer or assignment test stored a literal its target could not hold, and none put an integer in
   // a BOOL — the conformance fixtures that do (`overflow_*`, `cc_literal_*`, `cc_init_*_into_bool`) sat inside FBs, which
   // did not lower until calls did.
