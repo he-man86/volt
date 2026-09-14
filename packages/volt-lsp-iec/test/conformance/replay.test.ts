@@ -57,7 +57,8 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // arguments), 11 (string arithmetic), 12 (a stray token after an initializer); the Standard library now in the CODESYS
   // replay project, as it is in the recording project; and declaration parse errors no longer counted twice here.
   // 293 → 311: gap 13 — an untyped integer literal the target cannot hold, typed as its narrowest integer type.
-  { vendor: "codesys", filename: "expected-codesys.json", floor: 311 },
+  // 311 → 315: consolidate-lsp-structure A2 — an L-prefixed date literal is the 64-bit type, printed in full.
+  { vendor: "codesys", filename: "expected-codesys.json", floor: 315 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence

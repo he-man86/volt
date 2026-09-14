@@ -12,7 +12,11 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       `_`-helper imports and cross-layer cycles refused. It found one violation — `oop/inheritance.ts` imported the names
       group's `_identifier-resolution.ts` — fixed by moving that to `analysis/resolution.ts` (C3's first part). README and
       TESTING paths updated. *Why missed:* the lint had no test of its own coverage; renaming a folder silently exempted it.
-- [ ] A2 **`LDATE#`/`LTOD#`/`LDT#` literals typed DATE/TOD/DT** by `types/infer.ts` `literalType` (lower is right).
+- [x] A2 **`LDATE#`/`LTOD#`/`LDT#` literals typed DATE/TOD/DT** by `types/infer.ts` `literalType` (lower was right).
+      DONE 2026-09-14: recorded (`cc_ldate_literal_into_date`, `cc_ltod_*`, `cc_ldt_*`, `cc_fp_ldate_*`) — the prefix now
+      decides. The recording also showed CODESYS prints the abbreviated types in full ('TIME_OF_DAY', 'LDATE_AND_TIME'),
+      whatever the declaration wrote: `types/elementaryDisplayName`, the inverse of `ELEM_ALIASES`, used by `renderType`.
+      *Why missed:* no fixture had an L-date literal; the transpiler's own literal typing hid that the LSP's disagreed.
 - [ ] A3 **Lowering ignores a typed literal's prefix** — `REAL#1.5` → LREAL, `INT#5` → SINT/context (`lower.ts` literalType).
       Oracle case first.
 - [ ] A4 **Six `X_TO_Y` parsers** (`infer.ts:376`, `reference.ts:197`, `narrowing.ts:35`, `conversion.ts:14`, `lower.ts:366`,

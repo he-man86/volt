@@ -291,12 +291,14 @@ function literalType(lit: Literal): Type {
       // positive and `t := LTIME#1S` was silent (gap 8, conformance `cc_ltime_literal_into_time`).
       // (`LTIME#` only: the lexer reads `LT` as the less-than keyword, and an `LT#` prefix was never measured)
       return elem(/^LTIME#/i.test(lit.text) ? "LTIME" : "TIME")
+    // An `L` prefix (`LDATE#`, `LTOD#`/`LTIME_OF_DAY#`, `LDT#`/`LDATE_AND_TIME#`) is the 64-bit type. These were typed
+    // DATE/TOD/DT whatever the prefix, while lowering typed them right (consolidate-lsp-structure A2).
     case "date":
-      return elem("DATE")
+      return elem(/^L/i.test(lit.text) ? "LDATE" : "DATE")
     case "tod":
-      return elem("TOD")
+      return elem(/^L/i.test(lit.text) ? "LTOD" : "TOD")
     case "datetime":
-      return elem("DT")
+      return elem(/^L/i.test(lit.text) ? "LDT" : "DT")
     case "typed": {
       // `BYTE#170` / `INT#5` → the type prefix. `16#FF` (numeric base) has no type prefix → skip.
       const prefix = lit.prefix ?? ""

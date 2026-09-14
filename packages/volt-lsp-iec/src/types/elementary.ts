@@ -102,6 +102,20 @@ export function canonicalElem(name: string): string {
   return ELEM_ALIASES.get(u) ?? u
 }
 
+/** Canonical short form → the full name, the inverse of ELEM_ALIASES (so the two cannot drift apart). */
+const DISPLAY_NAMES: ReadonlyMap<string, string> = new Map([...ELEM_ALIASES].map(([full, short]) => [short, full]))
+
+/**
+ * The name a compiler message prints for an elementary type. CODESYS spells the abbreviated types out, whatever the
+ * declaration wrote: `t1 : TOD := LTOD#12:30:15` is "Cannot convert type 'LTIME_OF_DAY' to type 'TIME_OF_DAY'", a DT
+ * is 'DATE_AND_TIME' (conformance `cc_ltod_literal_into_tod`, `cc_ldt_literal_into_dt`); DATE and LDATE print as they
+ * are. TwinCAT is not recorded for these yet.
+ */
+export function elementaryDisplayName(name: string): string {
+  const canonical = canonicalElem(name)
+  return DISPLAY_NAMES.get(canonical) ?? canonical
+}
+
 /**
  * The `ANY_*` generic type-group families (parameter supertypes). A distinct concept from a concrete
  * elementary type — modeled as a family → its concrete members. Source: doc 06 type-group glossary.

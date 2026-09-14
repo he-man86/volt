@@ -153,6 +153,13 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
   fb("cc_decl_init_trailing_int", "`x : INT := 5 6;` → compiler error", "x : INT := 5 6;"),
   fb("cc_ltime_literal_into_time", "an LTIME literal into a TIME → ?", "t1 : TIME;", "t1 := LTIME#1S;"),
   fb("cc_fp_ltime_literal_into_ltime", "an LTIME literal into an LTIME → accepted", "lt1 : LTIME;", "lt1 := LTIME#1S;"),
+  // consolidate-lsp-structure A2 — inference typed every date literal without its `L` prefix (`LDATE#…` as DATE), while
+  // lowering typed it right. An LTIME literal into a TIME is "Cannot convert type 'LTIME' to type 'TIME'" (recorded);
+  // what do the calendar types say?
+  fb("cc_ldate_literal_into_date", "an LDATE literal into a DATE → ?", "d1 : DATE;", "d1 := LDATE#2024-02-28;"),
+  fb("cc_ltod_literal_into_tod", "an LTOD literal into a TOD → ?", "t1 : TOD;", "t1 := LTOD#12:30:15;"),
+  fb("cc_ldt_literal_into_dt", "an LDT literal into a DT → ?", "dt1 : DT;", "dt1 := LDT#2024-02-28-12:30:15;"),
+  fb("cc_fp_ldate_literal_into_ldate", "an LDATE literal into an LDATE → accepted", "ld1 : LDATE;", "ld1 := LDATE#2024-02-28;"),
   // gap 9 — a Standard FUNCTION's arguments were never checked (call-arguments skipped every library callee); CODESYS
   //         refuses a WSTRING for LEN's STRING(255) (execution oracle `standard_len_wstring_rejected`).
   fb("cc_standard_len_wstring", "Standard LEN given a WSTRING → compiler error", "w : WSTRING; n : INT;", "n := LEN(w);"),

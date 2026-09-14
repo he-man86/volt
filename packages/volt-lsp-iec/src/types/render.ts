@@ -7,15 +7,18 @@
  * wording and live in `analysis/messages`, not here — this renderer is the general, human display form.
  */
 import type { CallArg, Expr, TypeExpr } from "../syntax/index.js"
+import { elementaryDisplayName } from "./elementary.js"
 import type { Type } from "./type.js"
 
 /** Render a resolved `Type` to display text. */
 export function renderType(t: Type): string {
   switch (t.kind) {
-    case "elementary":
-      // a declared string capacity is part of the type CODESYS prints: "Cannot convert type 'WSTRING' to type
-      // 'STRING(255)'" (conformance `cc_standard_len_wstring`)
-      return t.length === undefined ? t.name : `${t.name}(${t.length})`
+    case "elementary": {
+      // the compiler's spelling — TOD prints 'TIME_OF_DAY' — and a declared string capacity is part of the type it
+      // prints: "Cannot convert type 'WSTRING' to type 'STRING(255)'" (conformance `cc_standard_len_wstring`)
+      const name = elementaryDisplayName(t.name)
+      return t.length === undefined ? name : `${name}(${t.length})`
+    }
     case "enum":
     case "struct":
     case "function_block":
