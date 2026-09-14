@@ -27,7 +27,7 @@ export function checkPointerConversion(ctx: CheckContext, out: DiagnosticItem[])
       if (rhs.kind !== "pointer") return
       const lhs = inferExprType(s.target, scope, ctx.project)
       if (lhs.kind !== "elementary") return
-      if (tc && POINTER_SIZED.has(renderType(lhs).toUpperCase())) return // TwinCAT: pointer-sized target is fine
+      if (tc && POINTER_SIZED.has(lhs.name)) return // TwinCAT: pointer-sized target is fine
       out.push({
         severity: "warning",
         span: s.target.span,

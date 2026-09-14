@@ -132,7 +132,16 @@ export const ANY_FAMILIES: ReadonlyMap<string, TypeFamily[]> = new Map([
   ["ANY", []], // ANY = truly any; empty member list is a sentinel, not "none"
 ])
 
-/** Facts for an elementary type name (resolves aliases, case-insensitive), or undefined if not elementary. */
+/**
+ * True when `t` is in the `ANY_*` type group `group`, by family as ANY_FAMILIES lists it (`ANY` holds everything). The one
+ * home of those lists — checks used to spell `["int", "bitstring", "real"]` and `STRING || WSTRING` out themselves
+ * (consolidate-lsp-structure B2). BIT is `bitstring`, so it is in ANY_INT and ANY_NUM.
+ */
+export function inTypeGroup(group: string, t: ElementaryType): boolean {
+  const families = ANY_FAMILIES.get(group)
+  return families !== undefined && (families.length === 0 || families.includes(t.family))
+}
+
 /** The integer types a literal can take, narrowest first, a signed type before the unsigned one of its width. */
 const LITERAL_INTEGER_ORDER = ["SINT", "USINT", "INT", "UINT", "DINT", "UDINT", "LINT", "ULINT"]
 
@@ -167,6 +176,7 @@ export function parseConversionName(name: string): { from?: ElementaryType; to: 
   return from === undefined ? undefined : { from, to }
 }
 
+/** Facts for an elementary type name (resolves aliases, case-insensitive), or undefined if not elementary. */
 export function elementaryType(name: string): ElementaryType | undefined {
   return ELEMENTARY_TYPES.get(canonicalElem(name))
 }

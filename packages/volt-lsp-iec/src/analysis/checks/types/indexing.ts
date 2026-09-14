@@ -9,7 +9,7 @@
  * differs from the index count (an array-of-array has `dims.length === 1`, so `arr[i]` on it is fine); C0126 on
  * a concrete pointer base.
  */
-import { inferExprType, renderType } from "../../../types/index.js"
+import { inferExprType, inTypeGroup, renderType } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachExpr, SOURCE, type DiagnosticItem } from "../_shared.js"
 
@@ -27,7 +27,7 @@ export function checkIndexing(ctx: CheckContext, out: DiagnosticItem[]): void {
         out.push({ severity: "error", span: e.span, source: SOURCE, code: "array-index-count", message: ctx.messages.arrayIndexCount(base.dims.length) }) // C0048
       return
     }
-    if (base.kind !== "elementary" || base.elem.family === "string") return
+    if (base.kind !== "elementary" || inTypeGroup("ANY_STRING", base.elem)) return
     out.push({
       severity: "error",
       span: e.span,

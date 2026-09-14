@@ -7,9 +7,9 @@
  * The `.member` IdentExpr of a chain is NOT counted as a standalone ident (it's covered by the member node).
  */
 import { flatUnits, unitTypeNameRefs, walkAllExprs, type IdentExpr } from "../../syntax/index.js"
-import { lookup, resolveBareEnumMember, scopeForUnit, type Scope, type Symbol } from "../../symbols/index.js"
+import { bodies, lookup, resolveBareEnumMember, scopeForUnit, type Scope, type Symbol } from "../../symbols/index.js"
 import { resolveMemberChain } from "../../types/index.js"
-import { rangeFromSpan, stBodies, type Document } from "../shared/index.js"
+import { rangeFromSpan, type Document } from "../shared/index.js"
 import type { Location, Range } from "vscode-languageserver-protocol"
 
 export interface Ref {
@@ -21,7 +21,7 @@ export interface Ref {
 export function findReferences(docs: Iterable<Document>, project: Scope, target: Symbol): Ref[] {
   const out: Ref[] = [{ uri: target.uri, range: rangeFromSpan(target.span) }] // the declaration itself
   for (const doc of docs) {
-    for (const { scope, statements } of stBodies(doc, project)) {
+    for (const { scope, statements } of bodies(doc.parseResult.units, project)) {
       const memberNames = new Set<IdentExpr>()
       walkAllExprs(statements, (e) => {
         if (e.kind === "member") memberNames.add(e.member)

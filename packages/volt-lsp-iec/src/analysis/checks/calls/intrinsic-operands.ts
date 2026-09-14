@@ -14,7 +14,7 @@
  * operator name is UNSHADOWED (a project/library symbol of the same name skips) and the argument's type is a
  * KNOWN non-numeric elementary (not ANY_NUM = int/bitstring/real).
  */
-import { inferExprType } from "../../../types/index.js"
+import { inferExprType, inTypeGroup } from "../../../types/index.js"
 import type { Span } from "../../../syntax/index.js"
 import { lookup } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
@@ -30,7 +30,6 @@ const OP_ARITY: Record<string, { exact?: number; atLeast?: number }> = {
   SEL: { exact: 3 },
   MUX: { atLeast: 3 },
 }
-const NUMERIC_FAMILIES = new Set(["int", "bitstring", "real"])
 const titleCase = (s: string): string => s.charAt(0) + s.slice(1).toLowerCase()
 
 export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -53,7 +52,7 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
     if (arg === undefined) return
     if (MATH_OPS.has(name) && lookup(scope, e.callee.name) === undefined) {
       const t = inferExprType(arg, scope, ctx.project)
-      if (t.kind === "elementary" && !NUMERIC_FAMILIES.has(t.elem.family))
+      if (t.kind === "elementary" && !inTypeGroup("ANY_NUM", t.elem))
         push(out, "error", arg.span, "operator-not-possible", ctx.messages.operatorNotPossible(titleCase(name), t.name)) // C0072
     }
     if (name === "ADR") {

@@ -7,7 +7,7 @@
  * Zero-FP: C0003 fires only on an integer/bit-string base with a known width and `N >= bits`; C0061 on a `call`
  * base. Other bases (REAL, struct, unresolved) are a different error / undecidable → skipped.
  */
-import { inferExprType } from "../../../types/index.js"
+import { inferExprType, inTypeGroup } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachExpr, SOURCE, type DiagnosticItem } from "../_shared.js"
 
@@ -19,7 +19,7 @@ export function checkBitNumber(ctx: CheckContext, out: DiagnosticItem[]): void {
       return
     }
     const base = inferExprType(e.base, scope, ctx.project)
-    if (base.kind !== "elementary" || (base.elem.family !== "int" && base.elem.family !== "bitstring")) return
+    if (base.kind !== "elementary" || !inTypeGroup("ANY_INT", base.elem)) return
     if (Number(e.member.name) < base.elem.bits) return // a valid bit index
     out.push({
       severity: "error",

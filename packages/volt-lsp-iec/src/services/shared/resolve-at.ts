@@ -9,14 +9,12 @@
  */
 import { exprAtOffset, memberAtOffset, type ParseResult } from "../../syntax/index.js"
 import {
-  bodies,
   bodiesAt,
   lookup,
   resolveBareEnumMember,
   scopeForUnit,
   type Scope,
   type Symbol,
-  type UnitBody,
 } from "../../symbols/index.js"
 import { resolveMemberChain } from "../../types/index.js"
 import { spanContains } from "./positions.js"
@@ -26,15 +24,6 @@ export interface Document {
   uri: string
   source: string
   parseResult: ParseResult
-}
-
-/**
- * Every cleanly-parsed ST body of a document with its unit + scope + statement tree — the ONE "walk the
- * POU bodies" loop the nav/assist/structure features share (references, hierarchy, folding, …). A thin
- * adapter over the shared `symbols/bodies` iterator (graphical + non-parsing bodies skipped there).
- */
-export function stBodies(doc: Document, project: Scope): Generator<UnitBody> {
-  return bodies(doc.parseResult.units, project)
 }
 
 export function resolveAt(doc: Document, project: Scope, offset: number): Symbol | undefined {

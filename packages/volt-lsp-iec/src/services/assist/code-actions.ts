@@ -6,9 +6,9 @@
 import type { CodeAction, Diagnostic } from "vscode-languageserver-protocol"
 import { CodeActionKind } from "vscode-languageserver-protocol"
 import { walkStatements, type Assignment } from "../../syntax/index.js"
-import type { Scope } from "../../symbols/index.js"
+import { bodies, type Scope } from "../../symbols/index.js"
 import { exprText, inferExprType } from "../../types/index.js"
-import { offsetFromPosition, rangeFromSpan, stBodies, type Document } from "../shared/index.js"
+import { offsetFromPosition, rangeFromSpan, type Document } from "../shared/index.js"
 
 // Matches the diagnostic `code` as the client sends it back — the CODESYS Cnnnn the server surfaces (C0032
 // assignment-type-mismatch, C0197 narrowing-conversion), not our internal slug.
@@ -26,7 +26,7 @@ export function codeActions(doc: Document, project: Scope, diagnostics: readonly
 }
 
 function wrapConversionFix(doc: Document, project: Scope, offset: number, diag: Diagnostic): CodeAction | undefined {
-  for (const { scope, statements } of stBodies(doc, project)) {
+  for (const { scope, statements } of bodies(doc.parseResult.units, project)) {
     let target: Assignment | undefined
     walkStatements(statements, (s) => {
       if (s.kind === "assign" && s.target.span.start === offset) target = s

@@ -6,7 +6,7 @@
  */
 import { type BinaryExpr, type Expr } from "../../../syntax/index.js"
 import { type Scope } from "../../../symbols/index.js"
-import { inferExprType, isIntegerType, isNumericType } from "../../../types/index.js"
+import { elementaryType, inferExprType, inTypeGroup, isIntegerType, isNumericType } from "../../../types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachExpr, SOURCE, type DiagnosticItem } from "../_shared.js"
@@ -51,8 +51,10 @@ export function binaryOpError(
   return undefined
 }
 
+/** A string type by name — the table's ANY_STRING group, not a second list of string type names. */
 function isStringType(name: string): boolean {
-  return name === "STRING" || name === "WSTRING"
+  const facts = elementaryType(name)
+  return facts !== undefined && inTypeGroup("ANY_STRING", facts)
 }
 
 function diag(e: BinaryExpr, message: string): DiagnosticItem {

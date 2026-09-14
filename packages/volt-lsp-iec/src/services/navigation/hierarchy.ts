@@ -5,9 +5,9 @@
  */
 import type { Range, SymbolKind as LspKind } from "vscode-languageserver-protocol"
 import { walkAllExprs, type TopLevel } from "../../syntax/index.js"
-import { findScopeByName, lookup, type Scope, type Symbol } from "../../symbols/index.js"
+import { bodies, findScopeByName, lookup, type Scope, type Symbol } from "../../symbols/index.js"
 import { resolveMemberChain } from "../../types/index.js"
-import { lspSymbolKind, rangeFromSpan, resolveAt, stBodies, type Document } from "../shared/index.js"
+import { lspSymbolKind, rangeFromSpan, resolveAt, type Document } from "../shared/index.js"
 
 export interface HierItem {
   name: string
@@ -93,7 +93,7 @@ export interface CallRef {
 export function callIncoming(docs: Iterable<Document>, project: Scope, target: Symbol): CallRef[] {
   const byCaller = new Map<Symbol, { item: HierItem; ranges: Range[] }>()
   for (const d of docs) {
-    for (const { unit, scope, statements } of stBodies(d, project)) {
+    for (const { unit, scope, statements } of bodies(d.parseResult.units, project)) {
       const callerSym = unitSymbol(unit, project)
       if (callerSym === undefined) continue
       walkAllExprs(statements, (e) => {
@@ -110,7 +110,7 @@ export function callIncoming(docs: Iterable<Document>, project: Scope, target: S
 /** What `source` calls — the callables invoked in its body. */
 export function callOutgoing(doc: Document, project: Scope, source: Symbol): CallRef[] {
   const byCallee = new Map<Symbol, { item: HierItem; ranges: Range[] }>()
-  for (const { unit, scope, statements } of stBodies(doc, project)) {
+  for (const { unit, scope, statements } of bodies(doc.parseResult.units, project)) {
     if (!("name" in unit) || unit.name.span !== source.span) continue // only the source POU's body
     walkAllExprs(statements, (e) => {
       if (e.kind !== "call") return
