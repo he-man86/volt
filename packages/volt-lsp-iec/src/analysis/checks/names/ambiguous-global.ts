@@ -8,9 +8,9 @@
  * manufacture false duplicates (ERR_OK, NULL, … live in many library GVLs). A reference locally shadowed by a
  * var/param is skipped.
  */
-import { lookup, type Scope } from "../../../symbols/index.js"
+import { forEachExpr, lookup, type Scope } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachExpr, isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
 
 /** The ambiguous-global set is a PROJECT-WIDE invariant (names in 2+ bare project GVLs) — it does NOT vary per
  *  file, so compute it once per project scope and reuse. A fresh project scope (rebuilt per workspace edit) gets

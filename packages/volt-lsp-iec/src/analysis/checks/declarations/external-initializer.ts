@@ -7,7 +7,8 @@
  * rejects it), named per variable.
  */
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, forEachDecl, type DiagnosticItem } from "../_shared.js"
+import { forEachDecl } from "../../../symbols/index.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkExternalInitializer(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { section, decl } of forEachDecl(ctx.parseResult, ctx.project)) {

@@ -7,7 +7,7 @@
  * good enough for coloring; a mis-colored deep member is cosmetic, never wrong data.
  */
 import type { SemanticTokens, SemanticTokensEdit } from "vscode-languageserver-protocol"
-import { type Document, isGraphicalBody, lex, type Span, type Token, type TokenKind, unitBodies } from "../../syntax/index.js"
+import { type Document, graphicalBodies, lex, type Span, type Token, type TokenKind } from "../../syntax/index.js"
 import { lookup, resolveBareEnumMember, type Scope, type SymbolKind } from "../../symbols/index.js"
 import { isKnownPrimitive } from "../../types/index.js"
 import { scopeAtOffset } from "../shared/index.js"
@@ -132,10 +132,7 @@ function classify(tok: Token, doc: Document, project: Scope, graphical: readonly
 
 /** The spans of this document's graphical bodies — computed once per document, not per token. */
 function graphicalBodySpans(doc: Document): Span[] {
-  const out: Span[] = []
-  for (const unit of doc.parseResult.units)
-    for (const body of unitBodies(unit)) if (isGraphicalBody(body)) out.push(body.span)
-  return out
+  return [...graphicalBodies(doc.parseResult.units)].map((b) => b.body.span)
 }
 
 const KIND_TYPE: Partial<Record<TokenKind, string>> = {

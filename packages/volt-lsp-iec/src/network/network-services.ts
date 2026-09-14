@@ -14,12 +14,11 @@ import {
   type Document,
   type Expr,
   exprAtOffset,
+  graphicalBodies,
   type IdentExpr,
-  isGraphicalBody,
   memberAtOffset,
   type Statement,
   type TopLevel,
-  unitBodies,
   walkAllExprs,
 } from "../syntax/index.js"
 import { lookup, lookupLocal, resolveBareEnumMember, type Scope, type Symbol } from "../symbols/index.js"
@@ -205,10 +204,7 @@ export function renameAnywhere(
 
 /** Every network-text body (with its unit) in a document. */
 function vgBodies(doc: Document): { unit: TopLevel; body: BodySpan }[] {
-  const out: { unit: TopLevel; body: BodySpan }[] = []
-  for (const unit of doc.parseResult.units)
-    for (const body of unitBodies(unit)) if (isGraphicalBody(body)) out.push({ unit, body })
-  return out
+  return [...graphicalBodies(doc.parseResult.units)]
 }
 
 // ─── resolution ──────────────────────────────────────────────────────────────
@@ -280,10 +276,6 @@ function operandStatements(statements: readonly NetworkTextStatement[]): Stateme
 
 /** The graphical body (with its unit) containing the offset, or undefined. */
 function vgBodyAt(doc: Document, offset: number): { unit: TopLevel; body: BodySpan } | undefined {
-  for (const unit of doc.parseResult.units) {
-    for (const body of unitBodies(unit)) {
-      if (isGraphicalBody(body) && offset >= body.span.start && offset < body.span.end) return { unit, body }
-    }
-  }
+  for (const b of graphicalBodies(doc.parseResult.units)) if (offset >= b.body.span.start && offset < b.body.span.end) return b
   return undefined
 }

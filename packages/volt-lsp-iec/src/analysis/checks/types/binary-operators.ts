@@ -5,11 +5,11 @@
  * Thin over `infer` + `elementary`; an operand that isn't elementary skips (zero-FP).
  */
 import { type BinaryExpr, type Expr } from "../../../syntax/index.js"
-import { type Scope } from "../../../symbols/index.js"
+import { forEachExpr, type Scope } from "../../../symbols/index.js"
 import { elementaryType, inferExprType, inTypeGroup, isIntegerType, isNumericType } from "../../../types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachExpr, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 const ARITH_OPS = new Set(["+", "-", "*", "/"])
 

@@ -12,7 +12,8 @@
 import type { Literal } from "../../../syntax/index.js"
 import { ANY_INT_RANGE, elementaryType, REAL_MAX_MAGNITUDE } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachExpr, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { forEachExpr } from "../../../symbols/index.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 const LREAL_MAX = REAL_MAX_MAGNITUDE.get("LREAL")!
 

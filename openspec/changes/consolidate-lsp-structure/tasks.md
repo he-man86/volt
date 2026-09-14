@@ -122,8 +122,12 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
 
 - [x] C1 `Document` from `services/shared/resolve-at.ts:32` to `syntax/`. DONE 2026-09-14: `syntax/ast.ts`; 33 importers,
       the network layer and the server among them, no longer reach into services for it.
-- [ ] C2 One body iterator: `bodiesAt(offset)`, all-bodies-incl-unparsed, `graphicalBodies()`; replace 7 ST and 6 graphical
-      copies; delete `stBodies`; `forEachExpr`/`forEachDecl` to `symbols/bodies.ts`.
+- [x] C2 One body iterator: `bodiesAt(offset)`, all-bodies-incl-unparsed, `graphicalBodies()`; replace 7 ST and 6 graphical
+      copies; delete `stBodies`; `forEachExpr`/`forEachDecl` to `symbols/bodies.ts`. DONE 2026-09-14: `bodiesAt` (A5),
+      `stBodies` gone (C8), `syntax/graphicalBodies` replaces the five graphical walks, and `forEachExpr`/`forEachDecl`
+      live in `symbols/bodies.ts` (30 checks re-pointed). Left as they are: selection, folding, formatting and
+      parse-errors walk `unitBodies` at the syntax level on purpose — they have no project scope, and parse-errors wants
+      the bodies that do NOT parse, which `bodies()` skips.
 - [ ] C3 Network-shared rules out of `checks/`: `analysis/resolution.ts` (`_identifier-resolution`), `analysis/rules/`
       (assignment/narrowing/binary pair rules); stop re-exporting check files; `inheritance.ts:16` cross-group import.
 - [ ] C4 Syntax-owned helpers: `syntax/print.ts` (`exprText`, `renderTypeExpr`, statement printing from formatting),

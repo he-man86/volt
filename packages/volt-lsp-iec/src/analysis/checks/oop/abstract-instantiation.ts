@@ -4,9 +4,9 @@
  * symbol whose AST carries `abstract`; arrays/pointers of an abstract FB and library FBs skip.
  */
 import type { FunctionBlock } from "../../../syntax/index.js"
-import { lookupLocal } from "../../../symbols/index.js"
+import { forEachDecl, lookupLocal } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, forEachDecl, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkAbstractInstantiation(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {

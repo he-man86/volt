@@ -3,8 +3,8 @@
  * "internal to the checks tree". `DiagnosticItem` lives here (a leaf) so the orchestrator and every
  * check import it without a cycle.
  */
-import { walkAllExprs, walkExpr, type Expr, type ParseResult, type Span } from "../../syntax/index.js"
-import { bodies, scopeForUnit, type Scope } from "../../symbols/index.js"
+import { type Expr, type Span } from "../../syntax/index.js"
+import { type Scope } from "../../symbols/index.js"
 import { classifyConversion, elemOf, inferExprType, type Type } from "../../types/index.js"
 import { compilerTypeName, type Messages } from "../messages.js"
 
@@ -18,41 +18,6 @@ export interface DiagnosticItem {
 
 /** Source tag on every DiagnosticItem this LSP emits. */
 export const SOURCE = "volt-lsp-iec"
-
-/**
- * Visit every expression node in a project, with the scope it resolves against — the ONE traversal the
- * expr-node checks (deref, binary-operators, constant-overflow, bit-number, indexing, comparison) share,
- * instead of each re-writing the `bodies() → walkAllExprs` loop. Covers BOTH scalar variable initializers
- * (unit scope) and statement bodies (body scope). Skips units whose scope doesn't resolve (0-FP, like
- * `bodies()`). Statement-level checks (assignment/narrowing pairs) walk statements directly, not this.
- */
-export function forEachExpr(parseResult: ParseResult, project: Scope, visit: (e: Expr, scope: Scope) => void): void {
-  for (const unit of parseResult.units) {
-    if (!("varSections" in unit)) continue
-    const scope = scopeForUnit(project, unit)
-    if (scope === undefined) continue
-    for (const section of unit.varSections)
-      for (const decl of section.decls)
-        if (decl.init !== undefined && decl.init.kind !== "aggregate_init") walkExpr(decl.init, (e) => visit(e, scope))
-  }
-  for (const { scope, statements } of bodies(parseResult.units, project))
-    walkAllExprs(statements, (e) => visit(e, scope))
-}
-
-/**
- * Visit every variable declaration in a project — the `units → varSections → sections → decls` walk shared by
- * the declaration / type / oop checks, plus the unit `scope` each resolves names against. The decl counterpart
- * of `forEachExpr`. Unlike `forEachExpr`, a unit whose scope doesn't resolve is NOT skipped: `scope` falls back
- * to the project scope, so a check that only touches the decl node (or looks up in `project`) still runs on
- * every unit. Checks needing the section or unit destructure them too.
- */
-export function* forEachDecl(parseResult: ParseResult, project: Scope) {
-  for (const unit of parseResult.units) {
-    if (!("varSections" in unit)) continue
-    const scope = scopeForUnit(project, unit) ?? project
-    for (const section of unit.varSections) for (const decl of section.decls) yield { unit, section, decl, scope }
-  }
-}
 
 /** A type a conversion check can decide — elementary or enum — else undefined (a struct, FB, array or unknown type). */
 export function checkable(t: Type): Type | undefined {

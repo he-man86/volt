@@ -22,10 +22,9 @@ import {
   type BodySpan,
   type Document,
   type Expr,
-  isGraphicalBody,
+  graphicalBodies,
   isTrivia,
   stmtExprs,
-  unitBodies,
   walkExpr,
   walkStatements,
 } from "../syntax/index.js"
@@ -55,32 +54,29 @@ export function computeNetworkTextDiagnostics(
   references: WorkspaceRefs = EMPTY_WORKSPACE_REFS,
 ): DiagnosticItem[] {
   const out: DiagnosticItem[] = []
-  for (const unit of doc.parseResult.units) {
-    for (const body of unitBodies(unit)) {
-      if (!isGraphicalBody(body)) continue
-      const analysis = analyzeNetworkText(unit, body, project, doc.uri)
-      for (const d of analysis.vg.diagnostics) {
-        out.push({ severity: "error", span: d.span, source: SOURCE, code: d.code, message: d.message })
-      }
-      // `??? := <a call that returns nothing>` — the marker sits in the TARGET slot but the compiler does not
-      // answer about the target. Gathered BEFORE the marker walk, which is token-based and cannot see it.
-      const voidCallTargets: { start: number; end: number }[] = []
-      for (const [network, scope] of analysis.networkScopes)
-        collectVoidCallTargets(network.statements, scope, project, voidCallTargets)
-      checkUnresolvedBoxes(body, messages, out, voidCallTargets)
-
-      for (const [network, scope] of analysis.networkScopes) {
-        checkStatements(network.statements, scope, project, messages, out)
-        checkBinaryOps(network.statements, scope, project, messages, out)
-        checkConversionArgs(network.statements, scope, project, messages, out)
-        checkUndeclared(network.statements, scope, project, references, messages, out)
-        checkPins(network.statements, scope, project, messages, out)
-        checkMetadataPlacement(network, out)
-      }
-
-      // Labels are resolved across the WHOLE BODY, not per network — see checkLabels.
-      checkLabels(analysis.networkScopes, messages, out)
+  for (const { unit, body } of graphicalBodies(doc.parseResult.units)) {
+    const analysis = analyzeNetworkText(unit, body, project, doc.uri)
+    for (const d of analysis.vg.diagnostics) {
+      out.push({ severity: "error", span: d.span, source: SOURCE, code: d.code, message: d.message })
     }
+    // `??? := <a call that returns nothing>` — the marker sits in the TARGET slot but the compiler does not
+    // answer about the target. Gathered BEFORE the marker walk, which is token-based and cannot see it.
+    const voidCallTargets: { start: number; end: number }[] = []
+    for (const [network, scope] of analysis.networkScopes)
+      collectVoidCallTargets(network.statements, scope, project, voidCallTargets)
+    checkUnresolvedBoxes(body, messages, out, voidCallTargets)
+
+    for (const [network, scope] of analysis.networkScopes) {
+      checkStatements(network.statements, scope, project, messages, out)
+      checkBinaryOps(network.statements, scope, project, messages, out)
+      checkConversionArgs(network.statements, scope, project, messages, out)
+      checkUndeclared(network.statements, scope, project, references, messages, out)
+      checkPins(network.statements, scope, project, messages, out)
+      checkMetadataPlacement(network, out)
+    }
+
+    // Labels are resolved across the WHOLE BODY, not per network — see checkLabels.
+    checkLabels(analysis.networkScopes, messages, out)
   }
   return out
 }

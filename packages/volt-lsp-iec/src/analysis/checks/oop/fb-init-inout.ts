@@ -9,10 +9,10 @@
  * targeting inputs/outputs/unknown members are left alone.
  */
 import type { Initializer, Span } from "../../../syntax/index.js"
-import { lookupLocal } from "../../../symbols/index.js"
+import { forEachDecl, lookupLocal } from "../../../symbols/index.js"
 import { resolveTypeExpr } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, forEachDecl, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkFbInitInout(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {

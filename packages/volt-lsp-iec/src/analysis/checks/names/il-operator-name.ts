@@ -17,9 +17,9 @@
  * CODESYS-only: TwinCAT is unmeasured, and a guess there would be a new false positive.
  */
 import { stmtExprs, walkExpr, walkStatements, type Span } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
+import { bodies, forEachDecl } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, forEachDecl, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 const IL_OPERATOR_NAMES: ReadonlySet<string> = new Set([
   "r", "s", "ld", "ldn", "st", "stn", "ret", "retc", "retcn", "jmpc", "jmpcn", "cal", "calcn", "andn", "orn", "xorn",

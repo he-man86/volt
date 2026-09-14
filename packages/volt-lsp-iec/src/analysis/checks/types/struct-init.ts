@@ -11,7 +11,8 @@
 import type { Initializer } from "../../../syntax/index.js"
 import { resolveTypeExpr } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, forEachDecl, type DiagnosticItem } from "../_shared.js"
+import { forEachDecl } from "../../../symbols/index.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkStructInit(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {

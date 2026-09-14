@@ -15,7 +15,11 @@ import {
   isGraphicalBody,
   parseStatements,
   unitBodies,
+  walkAllExprs,
+  walkExpr,
   type BodySpan,
+  type Expr,
+  type ParseResult,
   type StatementList,
   type TopLevel,
 } from "../syntax/index.js"
@@ -43,6 +47,41 @@ export function* bodies(units: readonly TopLevel[], project: Scope): Generator<U
       const parsed = parseStatements(body)
       if (parsed.ok) yield { unit, body, scope, statements: parsed.statements }
     }
+  }
+}
+
+/**
+ * Visit every expression node in a project, with the scope it resolves against — the ONE traversal the
+ * expr-node checks (deref, binary-operators, constant-overflow, bit-number, indexing, comparison) share,
+ * instead of each re-writing the `bodies() → walkAllExprs` loop. Covers BOTH scalar variable initializers
+ * (unit scope) and statement bodies (body scope). Skips units whose scope doesn't resolve (0-FP, like
+ * `bodies()`). Statement-level checks (assignment/narrowing pairs) walk statements directly, not this.
+ */
+export function forEachExpr(parseResult: ParseResult, project: Scope, visit: (e: Expr, scope: Scope) => void): void {
+  for (const unit of parseResult.units) {
+    if (!("varSections" in unit)) continue
+    const scope = scopeForUnit(project, unit)
+    if (scope === undefined) continue
+    for (const section of unit.varSections)
+      for (const decl of section.decls)
+        if (decl.init !== undefined && decl.init.kind !== "aggregate_init") walkExpr(decl.init, (e) => visit(e, scope))
+  }
+  for (const { scope, statements } of bodies(parseResult.units, project))
+    walkAllExprs(statements, (e) => visit(e, scope))
+}
+
+/**
+ * Visit every variable declaration in a project — the `units → varSections → sections → decls` walk shared by
+ * the declaration / type / oop checks (it lived in `analysis/checks/_shared`, beside nothing else it belongs with), plus the unit `scope` each resolves names against. The decl counterpart
+ * of `forEachExpr`. Unlike `forEachExpr`, a unit whose scope doesn't resolve is NOT skipped: `scope` falls back
+ * to the project scope, so a check that only touches the decl node (or looks up in `project`) still runs on
+ * every unit. Checks needing the section or unit destructure them too.
+ */
+export function* forEachDecl(parseResult: ParseResult, project: Scope) {
+  for (const unit of parseResult.units) {
+    if (!("varSections" in unit)) continue
+    const scope = scopeForUnit(project, unit) ?? project
+    for (const section of unit.varSections) for (const decl of section.decls) yield { unit, section, decl, scope }
   }
 }
 

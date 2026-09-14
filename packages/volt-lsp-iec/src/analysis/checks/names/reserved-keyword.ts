@@ -10,7 +10,8 @@
  * name a var after a reserved word). Scoped to VAR-section names (the verified case).
  */
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, forEachDecl, type DiagnosticItem } from "../_shared.js"
+import { forEachDecl } from "../../../symbols/index.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 const RESERVED = new Set(["char", "wchar"])
 

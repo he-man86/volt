@@ -31,6 +31,15 @@ export function isGraphicalBody(body: BodySpan): boolean {
   return first !== undefined && first.text.toUpperCase() === "NETWORK"
 }
 
+/**
+ * Every graphical (network text) body in a unit list, with its unit — the walk the outline, semantic tokens, the network
+ * diagnostics and the network services each wrote out by hand (consolidate-lsp-structure C2). The ST counterpart, with a
+ * resolved scope and parsed statements, is `symbols/bodies`.
+ */
+export function* graphicalBodies(units: readonly TopLevel[]): Generator<{ unit: TopLevel; body: BodySpan }> {
+  for (const unit of units) for (const body of unitBodies(unit)) if (isGraphicalBody(body)) yield { unit, body }
+}
+
 /** The VAR_INPUT parameters (name + declared type) of a POU/method's var sections, in order. */
 export function varInputParams(sections: readonly VarSection[]): { name: Identifier; type: TypeExpr }[] {
   const out: { name: Identifier; type: TypeExpr }[] = []

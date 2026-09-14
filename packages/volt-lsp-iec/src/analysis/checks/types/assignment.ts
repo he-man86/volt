@@ -5,11 +5,11 @@
  * (elementary or enum) skips, so a struct/FB/composite/library type never false-positives.
  */
 import { decodeStringLiteral, walkStatements, type Expr, type Span } from "../../../syntax/index.js"
-import { bodies, type Scope } from "../../../symbols/index.js"
+import { bodies, forEachDecl, type Scope } from "../../../symbols/index.js"
 import { isAssignable, literalErrorType, resolveTypeExpr, type Type } from "../../../types/index.js"
 import { compilerStringLiteralText, compilerTypeName, type Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { checkable, checkableType, forEachDecl, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { checkable, checkableType, SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {

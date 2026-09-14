@@ -16,9 +16,9 @@
  */
 import { inferExprType, inTypeGroup } from "../../../types/index.js"
 import type { Span } from "../../../syntax/index.js"
-import { lookup } from "../../../symbols/index.js"
+import { forEachExpr, lookup } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachExpr, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 /** Math operators requiring an ANY_NUM operand — a non-numeric argument is C0072. */
 const MATH_OPS = new Set(["ABS", "SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"])

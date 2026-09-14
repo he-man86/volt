@@ -5,9 +5,9 @@
  * Zero-FP: only a named type that RESOLVES to a project symbol of kind `function` fires; an elementary/DUT/FB
  * type resolves to another kind (or nothing) and is skipped.
  */
-import { lookup } from "../../../symbols/index.js"
+import { forEachDecl, lookup } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, forEachDecl, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkNonInstantiable(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {

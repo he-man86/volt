@@ -6,7 +6,7 @@
  * The vendor-specific capitalization ("Possible"/"possible") comes from `messages`, not an `if` here.
  */
 import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../syntax/index.js"
-import { bodies, type Scope } from "../../../symbols/index.js"
+import { bodies, forEachDecl, type Scope } from "../../../symbols/index.js"
 import {
   elementaryTypeRef,
   inferExprType,
@@ -17,7 +17,7 @@ import {
 } from "../../../types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { checkableType, conversionWarning, forEachDecl, type DiagnosticItem } from "../_shared.js"
+import { checkableType, conversionWarning, type DiagnosticItem } from "../_shared.js"
 
 export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[]): void {
   // A declaration's untyped integer literal the target cannot hold warns like an assignment (gap 13): `value : INT :=
