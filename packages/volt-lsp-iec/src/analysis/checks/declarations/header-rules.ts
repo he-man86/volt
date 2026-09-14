@@ -13,7 +13,7 @@
  * by construction (the corpus, which compiles clean, never sets them).
  */
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkHeaderRules(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {

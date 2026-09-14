@@ -15,7 +15,7 @@
 import type { Identifier, TopLevel, TypeExpr } from "../../../syntax/index.js"
 import type { Scope } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 interface Node {
   display: string

@@ -16,7 +16,7 @@
 import { stmtExprs, walkStatements, type BodySpan } from "../../../syntax/index.js"
 import { bodies } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { unresolvedInExprs, unresolvedMembers } from "../../resolution.js"
 
 /** `{IF ...}` / `{ELSIF ...}` / `{ELSE}` / `{END_IF}` — permissive on inner leading whitespace. */

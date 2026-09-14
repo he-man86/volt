@@ -16,7 +16,7 @@ import { walkAllExprs, type BodySpan, type Property, type TopLevel, type IdentEx
 import { bodies, type Scope } from "../../../symbols/index.js"
 import { resolveMemberChain } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkInoutOwnAccess(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { unit, body, scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {

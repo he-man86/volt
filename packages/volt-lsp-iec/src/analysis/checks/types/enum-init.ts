@@ -11,7 +11,7 @@
 import { scopeForUnit } from "../../../symbols/index.js"
 import { constEval, REAL_LITERAL_TYPE } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkEnumInit(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {

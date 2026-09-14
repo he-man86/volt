@@ -30,7 +30,7 @@ import {
   type TypeExpr,
   type VarSection,
 } from "../../syntax/index.js"
-import { buildSymbolTable, lookup, scopeForUnit, type Scope } from "../../symbols/index.js"
+import { buildSymbolTable, libraryOf, lookup, scopeForUnit, type Scope } from "../../symbols/index.js"
 import {
   commonType,
   constEval,
@@ -475,7 +475,7 @@ class Lowering {
    */
   private standardString(e: Extract<Expr, { kind: "call" }>, name: string): IrExpr | undefined {
     const sym = lookup(this.scope, name)?.symbol
-    if (sym === undefined || sym.ast.kind !== "function" || !/Library Manager[\\/]Standard[\\/]/.test(sym.uri.replace(/%20/g, " ")))
+    if (sym === undefined || sym.ast.kind !== "function" || libraryOf(sym) !== "Standard")
       return this.bail("expr-call", `${name} does not resolve to the Standard library`, e.span)
     const params = sym.ast.varSections
       .filter((s) => s.sectionKind === "VAR_INPUT")

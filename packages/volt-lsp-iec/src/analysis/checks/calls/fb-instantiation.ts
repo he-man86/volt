@@ -7,9 +7,9 @@
  * (skipped), functions/programs to their own kinds (skipped), and a LIBRARY symbol is skipped — a library name
  * can collide with a standard function (e.g. `DELETE`), where the call is the function, not a type invocation.
  */
-import { forEachExpr, lookup } from "../../../symbols/index.js"
+import { forEachExpr, isLibrarySymbol, lookup } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkFbInstantiation(ctx: CheckContext, out: DiagnosticItem[]): void {
   forEachExpr(ctx.parseResult, ctx.project, (e, scope) => {

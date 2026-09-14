@@ -14,7 +14,7 @@
  */
 import { isKnownAttribute } from "../../../reference/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
   const pragmas = ctx.tokens()

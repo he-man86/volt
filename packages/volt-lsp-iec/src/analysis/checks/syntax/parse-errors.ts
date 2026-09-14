@@ -18,7 +18,7 @@
  */
 import { isGraphicalBody, parseStatements, unitBodies, type ParseError } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkParseErrors(ctx: CheckContext, out: DiagnosticItem[]): void {
   const emit = (e: ParseError): void => {

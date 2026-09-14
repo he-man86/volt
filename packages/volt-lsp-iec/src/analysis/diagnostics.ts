@@ -18,7 +18,7 @@ import {
   type WorkspaceRefs,
 } from "./config.js"
 import { messagesFor, type Messages } from "./messages.js"
-import type { DiagnosticItem } from "./checks/_shared.js"
+import type { DiagnosticItem } from "./diagnostic-item.js"
 import { checkAssignmentTypes } from "./checks/types/assignment.js"
 import { checkNarrowingConversion } from "./checks/types/narrowing.js"
 import { checkBinaryOperators } from "./checks/types/binary-operators.js"

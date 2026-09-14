@@ -13,7 +13,7 @@ import { walkStatements } from "../../../syntax/index.js"
 import { bodies, lookupLocal } from "../../../symbols/index.js"
 import { inferExprType } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkAbstractAssign(ctx: CheckContext, out: DiagnosticItem[]): void {
   if (ctx.config.vendor !== "codesys") return // live /build (2026-07-11): TwinCAT accepts this — no such rule

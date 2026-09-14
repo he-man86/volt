@@ -8,7 +8,7 @@
 import { walkAllExprs } from "../../../syntax/index.js"
 import { bodies } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkThisSuperContext(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { unit, statements } of bodies(ctx.parseResult.units, ctx.project)) {

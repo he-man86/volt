@@ -8,7 +8,7 @@
  */
 import type { TopLevel, VarSection } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 const POU_KINDS = new Set(["program", "function", "function_block", "method", "action"])
 

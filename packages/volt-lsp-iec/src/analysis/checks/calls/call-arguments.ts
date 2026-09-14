@@ -18,7 +18,7 @@
  * ponytail: no too-few check — the only spec requirement about omission is the negative "don't flag it".
  */
 import { walkAllExprs, type CallArg, type Expr, type Span } from "../../../syntax/index.js"
-import { bodies, lookupMember, type Scope } from "../../../symbols/index.js"
+import { bodies, isLibrarySymbol, lookupMember, type Scope } from "../../../symbols/index.js"
 import {
   constancyOf,
   inferExprType,
@@ -30,7 +30,8 @@ import {
 } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { compilerTypeName } from "../../messages.js"
-import { checkable, checkableType, conversionWarning, isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { checkable, checkableType, conversionWarning } from "../../rules.js"
 
 export function checkCallArguments(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {

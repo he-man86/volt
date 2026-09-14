@@ -72,7 +72,8 @@ export function forEachExpr(parseResult: ParseResult, project: Scope, visit: (e:
 
 /**
  * Visit every variable declaration in a project — the `units → varSections → sections → decls` walk shared by
- * the declaration / type / oop checks (it lived in `analysis/checks/_shared`, beside nothing else it belongs with), plus the unit `scope` each resolves names against. The decl counterpart
+ * the declaration / type / oop checks (moved from `analysis/checks/_shared`, consolidate-lsp-structure C2), plus
+ * the unit `scope` each resolves names against. The decl counterpart
  * of `forEachExpr`. Unlike `forEachExpr`, a unit whose scope doesn't resolve is NOT skipped: `scope` falls back
  * to the project scope, so a check that only touches the decl node (or looks up in `project`) still runs on
  * every unit. Checks needing the section or unit destructure them too.

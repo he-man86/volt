@@ -14,7 +14,7 @@ import { classifyConversion, inferExprType, isEnumValueRef, isSameType, type Typ
 import type { CheckContext } from "../../diagnostics.js"
 import { compilerArrayText, compilerTypeName } from "../../messages.js"
 import { forEachExpr } from "../../../symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 const CMP_OPS = new Set(["<", ">", "<=", ">=", "=", "<>"])
 

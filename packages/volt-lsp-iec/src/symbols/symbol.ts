@@ -155,3 +155,12 @@ export function lookupLocal(scope: Scope, name: string): Symbol[] {
 export function isLibrarySymbol(sym: { uri: string }): boolean {
   return sym.uri.replace(/%20/g, " ").includes("Library Manager")
 }
+
+/**
+ * The referenced library a symbol/URI belongs to — the folder under `Library Manager/` (`Standard`, `Util` …) — or
+ * undefined for project source. `%20` is normalized first, as in `isLibrarySymbol`. The transpiler's Standard gate kept
+ * its own regex for this (consolidate-lsp-structure C5).
+ */
+export function libraryOf(sym: { uri: string }): string | undefined {
+  return /Library Manager[\\/]([^\\/]+)[\\/]/.exec(sym.uri.replace(/%20/g, " "))?.[1]
+}

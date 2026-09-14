@@ -12,7 +12,7 @@
 import { resolveTypeExpr } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachDecl } from "../../../symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 const INLINE_CONST_SECTIONS = new Set(["VAR", "VAR_GLOBAL"])
 

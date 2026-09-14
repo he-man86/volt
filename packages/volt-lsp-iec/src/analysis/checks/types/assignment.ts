@@ -1,15 +1,15 @@
 /**
- * assignment-type-mismatch (D.2 · types/). For each `target := value;`, type both sides via the
- * shared engine and flag when the compiler would refuse the implicit conversion. Thin over
- * `types/compat` + `types/infer`; conservative — any side that isn't a checkable category
- * (elementary or enum) skips, so a struct/FB/composite/library type never false-positives.
+ * assignment-type-mismatch (D.2 · types/). For each `target := value;` and each declaration's initial value, flag when
+ * the compiler would refuse the implicit conversion. The rule is `rules.assignmentPairError`/`storeConversionError`,
+ * shared with the network-text sink check; conservative — a side that isn't elementary or enum skips, so a
+ * struct/FB/composite/library type never false-positives.
  */
-import { decodeStringLiteral, walkStatements, type Expr, type Span } from "../../../syntax/index.js"
-import { bodies, forEachDecl, type Scope } from "../../../symbols/index.js"
-import { isAssignable, literalErrorType, resolveTypeExpr, type Type } from "../../../types/index.js"
-import { compilerStringLiteralText, compilerTypeName, type Messages } from "../../messages.js"
+import { walkStatements } from "../../../syntax/index.js"
+import { bodies, forEachDecl } from "../../../symbols/index.js"
+import { resolveTypeExpr } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { checkable, checkableType, SOURCE, type DiagnosticItem } from "../_shared.js"
+import type { DiagnosticItem } from "../../diagnostic-item.js"
+import { assignmentPairError, checkable, storeConversionError } from "../../rules.js"
 
 export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -26,56 +26,7 @@ export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): 
     if (decl.init === undefined || decl.init.kind === "aggregate_init") continue
     const lhs = checkable(resolveTypeExpr(decl.type, ctx.project))
     if (lhs === undefined) continue // a composite target is not this check's
-    const diag = conversionError(lhs, decl.init, decl.init.span, scope, ctx.project, ctx.messages)
+    const diag = storeConversionError(lhs, decl.init, decl.init.span, scope, ctx.project, ctx.messages)
     if (diag !== undefined) out.push(diag)
   }
-}
-
-/**
- * The assignment-type-mismatch diagnostic for one `target := value` pair, or undefined when the compiler
- * would accept it (or either side isn't checkable). The ONE home for this rule — the ST assign check and
- * the network-text sink check both call it, so the wording stays byte-identical per vendor.
- */
-export function assignmentPairError(
-  target: Expr,
-  value: Expr,
-  scope: Scope,
-  project: Scope,
-  messages: Messages,
-): DiagnosticItem | undefined {
-  const lhs = checkableType(target, scope, project)
-  return lhs === undefined ? undefined : conversionError(lhs, value, target.span, scope, project, messages)
-}
-
-/** The "Cannot convert" error for `value` stored into a `lhs`, reported at `span`, or undefined. An untyped numeric
- *  literal is typed by `literalErrorType` (gaps 13, 14); any other value by inference. */
-function conversionError(lhs: Type, value: Expr, span: Span, scope: Scope, project: Scope, messages: Messages): DiagnosticItem | undefined {
-  const rhs = literalErrorType(value, lhs) ?? checkableType(value, scope, project)
-  if (rhs === undefined) return undefined
-  if (isAssignable(lhs, rhs)) return undefined
-  const display = rhsDisplay(value, rhs)
-  if (display === undefined) return undefined
-  return {
-    severity: "error",
-    span,
-    source: SOURCE,
-    code: "assignment-type-mismatch",
-    message: messages.cannotConvert(display, compilerTypeName(lhs)),
-  }
-}
-
-/**
- * The RHS type as the COMPILER renders it in the mismatch message. A string LITERAL is shown
- * length-tagged — `STRING(INT#<len>)` (`WSTRING` for `"…"`) — matching both vendors byte for byte. The length is the
- * DECODED one: `i := 'a$Tb'` is "Cannot convert type 'STRING(INT#3)' to type 'INT'" (conformance
- * `cc_string_escape_literal_into_int`); this counted raw characters (4). A literal whose escape the shared decoder does not
- * know has no measured length — undefined, and no message.
- */
-function rhsDisplay(value: Expr, rhs: Type): string | undefined {
-  if (value.kind === "literal" && (value.literalKind === "string" || value.literalKind === "wstring")) {
-    const wide = value.literalKind === "wstring"
-    const decoded = decodeStringLiteral(value.value as string, wide)
-    return decoded === undefined ? undefined : compilerStringLiteralText(decoded.length, wide)
-  }
-  return compilerTypeName(rhs)
 }

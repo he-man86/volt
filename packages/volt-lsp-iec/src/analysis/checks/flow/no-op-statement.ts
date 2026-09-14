@@ -12,7 +12,7 @@ import { bodies } from "../../../symbols/index.js"
 import { inferExprType } from "../../../types/index.js"
 import type { Expr } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkNoOpStatement(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {

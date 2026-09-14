@@ -6,7 +6,7 @@
 import type { FunctionBlock } from "../../../syntax/index.js"
 import { forEachDecl, lookupLocal } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkAbstractInstantiation(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {

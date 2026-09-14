@@ -10,7 +10,7 @@
 import { inferExprType, inTypeGroup } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachExpr } from "../../../symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkBitNumber(ctx: CheckContext, out: DiagnosticItem[]): void {
   forEachExpr(ctx.parseResult, ctx.project, (e, scope) => {

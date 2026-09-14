@@ -12,10 +12,10 @@
  * library property (accessor info flattens across the wire) or any unresolved reference skips.
  */
 import { walkStatements, walkAllExprs, type Expr } from "../../../syntax/index.js"
-import { bodies, type Scope, type Symbol } from "../../../symbols/index.js"
+import { bodies, isLibrarySymbol, type Scope, type Symbol } from "../../../symbols/index.js"
 import { resolveMemberChain } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkPropertyAccess(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {

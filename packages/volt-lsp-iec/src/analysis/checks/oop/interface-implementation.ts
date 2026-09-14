@@ -11,7 +11,7 @@
  *     chain is abstract). A flat presence-check can't model that, so don't guess.
  * Only the PRESENCE check is ported; per-signature mismatch used LSP-custom wording that never matched.
  */
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { findScopeByName, lookupLocal, scopeForUnit, type Scope } from "../../../symbols/index.js"
 import type { FunctionBlock } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"

@@ -11,7 +11,7 @@
  */
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachDecl } from "../../../symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 const RESERVED = new Set(["char", "wchar"])
 

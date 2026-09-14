@@ -14,7 +14,7 @@
 import { stmtExprs, walkExpr, walkStatements } from "../../../syntax/index.js"
 import { bodies } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 const UNSUPPORTED: ReadonlySet<string> = new Set(["**", "&"])
 

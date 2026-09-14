@@ -9,7 +9,7 @@
  */
 import { walkExpr } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkInoutInitializer(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {

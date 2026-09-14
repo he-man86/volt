@@ -126,8 +126,8 @@ for (const file of walk(SRC)) {
       continue
     }
     // Rule 2: a check must not import a sibling check, nor another group's `_` helper. A "check file" is
-    // analysis/checks/<group>/<name>.ts with a non-`_` name; `checks/_shared.ts` (the tree's) and a group's own `_`
-    // helpers are exempt.
+    // analysis/checks/<group>/<name>.ts with a non-`_` name; a group's own `_` helpers are exempt. What several groups
+    // share lives outside the tree (`analysis/rules.ts`, `analysis/resolution.ts`).
     const fromGroup = checkGroup(relFrom)
     const toGroup = checkGroup(relTo)
     if (fromGroup && toGroup && relFrom !== relTo) {

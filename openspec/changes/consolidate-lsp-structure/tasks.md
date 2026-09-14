@@ -128,12 +128,17 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       live in `symbols/bodies.ts` (30 checks re-pointed). Left as they are: selection, folding, formatting and
       parse-errors walk `unitBodies` at the syntax level on purpose — they have no project scope, and parse-errors wants
       the bodies that do NOT parse, which `bodies()` skips.
-- [ ] C3 Network-shared rules out of `checks/`: `analysis/resolution.ts` (`_identifier-resolution`), `analysis/rules/`
+- [x] C3 Network-shared rules out of `checks/`: `analysis/resolution.ts` (`_identifier-resolution`), `analysis/rules/`
       (assignment/narrowing/binary pair rules); stop re-exporting check files; `inheritance.ts:16` cross-group import.
+      DONE 2026-09-14: `analysis/resolution.ts` (earlier), `analysis/rules.ts` (checkable types, conversion warning, the
+      store/narrowing/conversion-argument/binary-operator rules), `analysis/diagnostic-item.ts`; `checks/_shared.ts` is
+      deleted with its `isLibrarySymbol` re-export, and the analysis index re-exports no check file. `inheritance.ts`
+      already imported `analysis/resolution`.
 - [ ] C4 Syntax-owned helpers: `syntax/print.ts` (`exprText`, `renderTypeExpr`, statement printing from formatting),
       `spanContains`, `tokenAtOffset`, `nameKey`/`sameName`/`isSelfRef`, tokens kept on `ParseResult`; a network statement
       walker in `network/text/ast.ts` replacing 7 recursions; `collectBareRefs` onto `ast-walk`.
-- [ ] C5 `libraryOf(uri)` in symbols; `lower.ts` Standard gate uses it; drop the `_shared.ts:95` shim.
+- [x] C5 `libraryOf(uri)` in symbols; `lower.ts` Standard gate uses it; drop the `_shared.ts:95` shim. DONE 2026-09-14:
+      `symbols/libraryOf` (with `%20` normalized, test `symbols.test.ts`); the shim went with `_shared.ts` in C3.
 - [ ] C6 Declarative vendor gating in the check list (8 early returns, `activeVendor`), rule gates in a `config.ts` table.
 - [ ] C7 `test/support/project.ts`: `diagnose`, `codesOf`, `docSetup`, `libraryFile`; migrate the 76 check tests + 5
       service tests.

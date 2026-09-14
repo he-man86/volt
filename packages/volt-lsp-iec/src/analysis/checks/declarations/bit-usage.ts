@@ -12,7 +12,7 @@ import type { TypeExpr } from "../../../syntax/index.js"
 import type { Span } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachDecl } from "../../../symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 const BIT_OK_SECTIONS = new Set(["VAR_INPUT", "VAR_OUTPUT", "VAR"])
 const BIT_C0203_POUS = new Set(["program", "function", "method"])

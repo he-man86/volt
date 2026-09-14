@@ -7,7 +7,7 @@
  */
 import { forEachDecl, lookup } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkNonInstantiable(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {

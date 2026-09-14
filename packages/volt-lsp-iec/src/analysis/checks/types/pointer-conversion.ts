@@ -13,7 +13,7 @@ import { walkStatements } from "../../../syntax/index.js"
 import { bodies } from "../../../symbols/index.js"
 import { inferExprType, renderType } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 // Integer types wide enough to hold a pointer — TwinCAT accepts a pointer assigned to these silently.
 const POINTER_SIZED = new Set(["DWORD", "LWORD", "UDINT", "ULINT"])

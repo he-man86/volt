@@ -16,7 +16,7 @@ import { constancyOf, constEval, resolveTypeExpr } from "../../../types/index.js
 import type { AggregateElement } from "../../../syntax/index.js"
 import type { Span } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkArrayInit(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {

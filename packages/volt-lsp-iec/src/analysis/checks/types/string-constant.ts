@@ -10,7 +10,7 @@ import { decodeStringLiteral } from "../../../syntax/index.js"
 import { constEval, renderTypeExpr } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachDecl } from "../../../symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {

@@ -12,10 +12,10 @@
  * unambiguous mismatch; a same-count/different-type mismatch is (deliberately) not flagged yet. Library
  * bases/interfaces (whose members we can't fully see) are skipped, as are abstract/unresolved cases.
  */
-import { lookup, scopeForUnit, findScopeByName, type Scope, type Symbol } from "../../../symbols/index.js"
+import { findScopeByName, isLibrarySymbol, lookup, type Scope, scopeForUnit, type Symbol } from "../../../symbols/index.js"
 import type { Method, InterfaceMethod, VarSection } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkMethodSignatures(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {

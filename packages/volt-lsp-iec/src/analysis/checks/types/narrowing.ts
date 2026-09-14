@@ -2,22 +2,15 @@
  * implicit-conversion (D.2 · types/). The WARNINGs both compilers emit that a plain assignment otherwise
  * doesn't: an implicit lossy narrowing ("possible loss of information", e.g. `LREAL`→`REAL`) and a same-width
  * signed↔unsigned crossing ("change of sign", e.g. `WORD`→`INT`). Both derive from the ONE `classifyConversion`
- * relation — this check only maps the returned kind to a severity + per-vendor wording, it does not re-decide.
- * The vendor-specific capitalization ("Possible"/"possible") comes from `messages`, not an `if` here.
+ * relation, through the shared rules in `analysis/rules` — this check only walks the places they apply.
  */
 import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../syntax/index.js"
 import { bodies, forEachDecl, type Scope } from "../../../symbols/index.js"
-import {
-  elementaryTypeRef,
-  inferExprType,
-  literalCheckType,
-  parseConversionName,
-  resolveTypeExpr,
-  UNKNOWN,
-} from "../../../types/index.js"
+import { inferExprType, literalCheckType, resolveTypeExpr } from "../../../types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { checkableType, conversionWarning, type DiagnosticItem } from "../_shared.js"
+import type { DiagnosticItem } from "../../diagnostic-item.js"
+import { conversionArgError, conversionWarning, narrowingPairError } from "../../rules.js"
 
 export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[]): void {
   // A declaration's untyped integer literal the target cannot hold warns like an assignment (gap 13): `value : INT :=
@@ -45,29 +38,6 @@ export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[
 }
 
 /**
- * The implicit-conversion WARNING for a conversion-function ARGUMENT, or undefined. `<SRC>_TO_<DST>(arg)`
- * converts `arg` to `<SRC>` first, so an `arg` that narrows/sign-changes into `<SRC>` warns exactly as the
- * assignment `<SRC>Var := arg` would — the class the assignment-only check missed (both the textual
- * `REAL_TO_DINT(EXPT(…))` and the graphical `UINT_TO_WORD(…)` corpus cases). Exported so the network-text sink check
- * runs it over graphical operands too.
- */
-export function conversionArgError(
-  x: Expr,
-  scope: Scope,
-  project: Scope,
-  messages: Messages,
-): DiagnosticItem | undefined {
-  if (x.kind !== "call" || x.callee.kind !== "ident_expr") return undefined
-  // The `<SRC>` before `_TO_` is the type the argument converts TO before the cast — where CODESYS emits the same
-  // C0195/C0197 an assignment would (`UINT_TO_WORD(anINT)` warns "change of sign", `REAL_TO_DINT(anLREAL)` "loss").
-  const srcElem = parseConversionName(x.callee.name)?.from
-  if (srcElem === undefined) return undefined // not a conversion, or `TO_STRING` (no explicit source)
-  const arg = x.args[0]?.value
-  if (arg === undefined) return undefined
-  return conversionWarning(elementaryTypeRef(srcElem), inferExprType(arg, scope, project), arg, messages)
-}
-
-/**
  * The "change of sign" a unary minus puts on an UNSIGNED operand: it negates the value as the signed type of its
  * width, so `-uint` converts UINT → INT first. Measured live (conformance `cc_neg_uint_into_int`, `cc_neg_word_*`,
  * `cc_neg_udint_*`): CODESYS warns "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT' : Possible
@@ -77,23 +47,4 @@ export function conversionArgError(
 function negationOperandWarning(x: Expr, scope: Scope, project: Scope, messages: Messages): DiagnosticItem | undefined {
   if (x.kind !== "unary" || x.op !== "-") return undefined
   return conversionWarning(inferExprType(x, scope, project), inferExprType(x.operand, scope, project), x.operand, messages)
-}
-
-/**
- * The implicit-conversion WARNING for one `target := value` pair, or undefined. The ONE home for the rule —
- * the ST assign check and the network-text sink check both call it, so wording stays byte-identical per vendor. Emits for
- * `classifyConversion === "narrow"` (loss) and `=== "sign-change"` (sign); the ERROR kinds are the assignment /
- * conversion-source checks' job. Kept as one function so a site yields exactly one diagnostic.
- */
-export function narrowingPairError(
-  target: Expr,
-  value: Expr,
-  scope: Scope,
-  project: Scope,
-  messages: Messages,
-): DiagnosticItem | undefined {
-  const lhs = inferExprType(target, scope, project)
-  // an untyped integer literal the target cannot hold converts as its literal type (gap 13): `si := 128` warns USINT→SINT
-  const rhs = literalCheckType(value, lhs) ?? checkableType(value, scope, project) ?? UNKNOWN
-  return conversionWarning(lhs, rhs, target, messages)
 }

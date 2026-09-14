@@ -14,7 +14,7 @@ import { walkAllExprs, type Expr } from "../../../syntax/index.js"
 import { bodies } from "../../../symbols/index.js"
 import { inferExprType, resolveMemberChain } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 const CALLABLE_KINDS = new Set(["function_block", "function", "method", "program", "action", "interface_method"])
 const NON_CALLABLE_TYPE = new Set(["elementary", "enum", "struct", "array", "pointer", "reference"])

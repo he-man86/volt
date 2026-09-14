@@ -9,7 +9,7 @@
 import { walkStatements, type Expr, type Span } from "../../../syntax/index.js"
 import { bodies } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkJumpLabels(ctx: CheckContext, out: DiagnosticItem[]): void {
   const push = (code: string, span: Span, message: string) =>

@@ -17,7 +17,7 @@ import { bodies, type Scope } from "../../../symbols/index.js"
 import { constancyOf, constEval } from "../../../types/index.js"
 import type { Span } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkCaseLabels(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {

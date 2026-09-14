@@ -9,10 +9,10 @@
  * uncertain skips → zero FP.
  */
 import { isSelfRef, walkStatements } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
+import { bodies, isLibrarySymbol } from "../../../symbols/index.js"
 import { inferExprType, resolveMemberChain } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkExternalNonInputWrite(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {

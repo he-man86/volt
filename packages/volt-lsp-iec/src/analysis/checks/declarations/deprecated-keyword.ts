@@ -12,7 +12,7 @@
  */
 import { isTrivia } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkDeprecatedKeyword(ctx: CheckContext, out: DiagnosticItem[]): void {
   const toks = ctx.tokens().filter((t) => !isTrivia(t.kind))

@@ -10,7 +10,7 @@
  */
 import { isTrivia } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkAttributePlacement(ctx: CheckContext, out: DiagnosticItem[]): void {
   if (ctx.config.vendor !== "codesys") return // live /build: TwinCAT silently accepts pack_mode on a FUNCTION/METHOD

@@ -9,7 +9,7 @@
 import { varInputParams } from "../../../syntax/index.js"
 import type { LifecycleMethod } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 const REQUIRED: Record<LifecycleMethod, readonly string[]> = {
   FB_Init: ["bInitRetains", "bInCopyCode"],

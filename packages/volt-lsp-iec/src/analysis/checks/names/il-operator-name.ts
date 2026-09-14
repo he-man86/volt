@@ -19,7 +19,7 @@
 import { stmtExprs, walkExpr, walkStatements, type Span } from "../../../syntax/index.js"
 import { bodies, forEachDecl } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 const IL_OPERATOR_NAMES: ReadonlySet<string> = new Set([
   "r", "s", "ld", "ldn", "st", "stn", "ret", "retc", "retcn", "jmpc", "jmpcn", "cal", "calcn", "andn", "orn", "xorn",

@@ -1,17 +1,11 @@
 /**
- * binary-operator-type-mismatch (D.2 · types/):
- *   - `MOD` with a non-integer operand → "'MOD' is not defined for '<T>'" (wording per vendor),
- *   - arithmetic (+,-,*,/) mixing BOOL with a numeric → "Cannot convert type 'BOOL' to type '<T>'".
- * Thin over `infer` + `elementary`; an operand that isn't elementary skips (zero-FP).
+ * binary-operator-type-mismatch (D.2 · types/): `MOD` on a non-integer, and arithmetic mixing BOOL or a string with a
+ * numeric. The rule is `rules.binaryOpError`, shared with the network-text operand check; this walks every binary node.
  */
-import { type BinaryExpr, type Expr } from "../../../syntax/index.js"
-import { forEachExpr, type Scope } from "../../../symbols/index.js"
-import { elementaryType, inferExprType, inTypeGroup, isIntegerType, isNumericType } from "../../../types/index.js"
-import type { Messages } from "../../messages.js"
+import { forEachExpr } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
-
-const ARITH_OPS = new Set(["+", "-", "*", "/"])
+import type { DiagnosticItem } from "../../diagnostic-item.js"
+import { binaryOpError } from "../../rules.js"
 
 export function checkBinaryOperators(ctx: CheckContext, out: DiagnosticItem[]): void {
   forEachExpr(ctx.parseResult, ctx.project, (e, scope) => {
@@ -19,49 +13,4 @@ export function checkBinaryOperators(ctx: CheckContext, out: DiagnosticItem[]): 
     const diag = binaryOpError(e, scope, ctx.project, ctx.messages)
     if (diag !== undefined) out.push(diag)
   })
-}
-
-/**
- * The binary-operator-type-mismatch diagnostic for one binary node, or undefined. The ONE home for the
- * rule — the ST body check and the network-text operand check both call it. Both operands must be elementary (else
- * skip, zero-FP): `MOD` on a non-integer, or arithmetic mixing `BOOL` with a numeric.
- */
-export function binaryOpError(
-  e: BinaryExpr,
-  scope: Scope,
-  project: Scope,
-  messages: Messages,
-): DiagnosticItem | undefined {
-  if (!ARITH_OPS.has(e.op) && e.op !== "MOD") return undefined
-  const a = elemName(e.left, scope, project)
-  const b = elemName(e.right, scope, project)
-  if (a === undefined || b === undefined) return undefined
-  if (e.op === "MOD") {
-    if (isIntegerType(a) && isIntegerType(b)) return undefined
-    return diag(e, messages.modNotDefined(!isIntegerType(a) ? a : b))
-  }
-  // arithmetic
-  if (isNumericType(a) && isNumericType(b)) return undefined
-  if (a === "BOOL" || b === "BOOL") return diag(e, messages.cannotConvert("BOOL", a === "BOOL" ? b : a))
-  // A string operand (gap 11, conformance `cc_string_*`): on the LEFT it must become a number — "Cannot convert type
-  // 'STRING' to type 'ANY_NUM'", for + - * / and for WSTRING alike; on the RIGHT of a number it must become THAT
-  // number's type — `i + str` is "Cannot convert type 'STRING' to type 'INT'". One message either way.
-  if (isStringType(a)) return diag(e, messages.cannotConvert(a, "ANY_NUM"))
-  if (isStringType(b) && isNumericType(a)) return diag(e, messages.cannotConvert(b, a))
-  return undefined
-}
-
-/** A string type by name — the table's ANY_STRING group, not a second list of string type names. */
-function isStringType(name: string): boolean {
-  const facts = elementaryType(name)
-  return facts !== undefined && inTypeGroup("ANY_STRING", facts)
-}
-
-function diag(e: BinaryExpr, message: string): DiagnosticItem {
-  return { severity: "error", span: e.span, source: SOURCE, code: "binary-op-type-mismatch", message }
-}
-
-function elemName(expr: Expr, scope: Scope, project: Scope): string | undefined {
-  const t = inferExprType(expr, scope, project)
-  return t.kind === "elementary" ? t.name : undefined
 }

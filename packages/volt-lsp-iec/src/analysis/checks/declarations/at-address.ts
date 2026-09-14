@@ -10,7 +10,7 @@
 import { isTrivia } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachDecl } from "../../../symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkAtAddress(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {

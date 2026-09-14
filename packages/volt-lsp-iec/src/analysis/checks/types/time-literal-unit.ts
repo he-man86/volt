@@ -15,7 +15,7 @@
 import { renderTypeExpr } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachDecl } from "../../../symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 const SUB_MILLISECOND = /^(us|ns)$/i
 

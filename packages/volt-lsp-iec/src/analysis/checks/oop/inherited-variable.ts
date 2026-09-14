@@ -8,9 +8,9 @@
  * derived FB is skipped entirely). Only `var`-kind symbols collide — a method/property of the same name is a
  * legal override, not a duplicate variable. The nearest base that declares the name is the one reported.
  */
-import { lookup, scopeForUnit, type Scope, type Symbol } from "../../../symbols/index.js"
+import { isLibrarySymbol, lookup, type Scope, scopeForUnit, type Symbol } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkInheritedVariable(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {

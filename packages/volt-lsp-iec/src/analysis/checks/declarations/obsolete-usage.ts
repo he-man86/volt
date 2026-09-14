@@ -13,7 +13,7 @@
 import type { Span } from "../../../syntax/span.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachDecl, forEachExpr } from "../../../symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkObsoleteUsage(ctx: CheckContext, out: DiagnosticItem[]): void {
   const obsolete = ctx.references.obsoletePous

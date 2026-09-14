@@ -2,13 +2,19 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../syntax/index.js"
 import { buildSymbolTable, type SymbolTableInput } from "./binder.js"
 import { findChildScope, lookup, lookupMember, resolveBareEnumMember } from "./scope-nav.js"
-import { lookupLocal, type Scope } from "./symbol.js"
+import { libraryOf, lookupLocal, type Scope } from "./symbol.js"
 
 function build(...files: { uri: string; src: string }[]): Scope {
   return buildSymbolTable(
     files.map((f) => ({ uri: f.uri, parseResult: parseSource(f.src), source: f.src }) satisfies SymbolTableInput),
   )
 }
+
+test("libraryOf names the referenced library a file comes from — raw path, `file://` URI, or none", () => {
+  expect(libraryOf({ uri: "C:\\proj\\Application\\Library Manager\\Standard\\LEN.fun" })).toBe("Standard")
+  expect(libraryOf({ uri: "file:///c%3A/proj/Application/Library%20Manager/Util/BLINK.fb" })).toBe("Util")
+  expect(libraryOf({ uri: "C:/proj/Application/POUs/PLC_PRG.prg" })).toBeUndefined()
+})
 
 test("binder builds the scope tree: POU symbol + child scope + members", () => {
   const project = build({

@@ -1,5 +1,5 @@
+import { isLibrarySymbol } from "../../symbols/index.js"
 import { test, expect } from "bun:test"
-import { isLibrarySymbol } from "./_shared.js"
 
 // The guard identifies referenced-library symbols (skipped by member/section checks — library signatures are
 // lossy re: properties). It must match BOTH the raw OS path (corpus/tests) and the file:// URI the live server

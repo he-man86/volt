@@ -18,7 +18,7 @@ import { walkStatements } from "../../../syntax/index.js"
 import { bodies } from "../../../symbols/index.js"
 import type { Span } from "../../../syntax/span.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { SOURCE, type DiagnosticItem } from "../_shared.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 const HAS_COMMENT = /\/\/|\(\*|\/\*/
 
