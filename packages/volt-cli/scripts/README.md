@@ -92,6 +92,14 @@ level already has, in either kind — but the two may COEXIST, so it is an ORDER
 
 **Session** — `probe-tc-project-object` (a solution project is told apart by what it can ANSWER: an unknown member on a COM object comes back null, so only a `LookupTreeItem` call discriminates — DIALECT D35).
 
+**Online / simulation** — `probe-online-state` (a POU runs in simulation and every variable reads back as a typed
+string, `INT#5`; the scripting `ScriptOnline` only works INSIDE a running script, so no C# pipe op can use it —
+why the transpiler's oracle, `volt-lsp-iec/scripts/record-exec.py`, is a runscript).
+
+**Catalog** — `probe-duplicate-method` (C0582 is UNREACHABLE on SP21: the object tree refuses a second same-named
+method at create — "An object with the name '…' already exists within the corresponding namespace" — so the
+compiler never sees the repro, through scripting or the bridge).
+
 **Project / settings** — `probe-project-container`, `probe-projectsettings-scope` (the compiler configuration
 is a session SERVICE over per-project state, and the read is sound — DIALECT C24, which closed
 `project-settings-sync`).

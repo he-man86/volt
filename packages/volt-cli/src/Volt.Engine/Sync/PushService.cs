@@ -617,7 +617,10 @@ public static class PushService
 
             // Validate the body BEFORE creating the item - a refused push must not leave an orphaned, unlisted
             // stub POU behind that blocks the next create.
-            if (pouIsNetwork) NetworkTextGate.Validate(impl);
+            // `impl is not null` changes nothing at run time — `NetworkText.Is` is false for a null body — but it is the
+            // form the compiler can PROVE: netstandard2.0 has no [NotNullWhen] to carry that fact out of `Is`, and without
+            // it every build of the push path printed CS8604 here.
+            if (pouIsNetwork && impl is not null) NetworkTextGate.Validate(impl);
             BodyFormatGuard.RequireAuthorable(split);
 
             // The body language is passed UNCONDITIONALLY (null for ST). TwinCAT sets a POU's implementation
