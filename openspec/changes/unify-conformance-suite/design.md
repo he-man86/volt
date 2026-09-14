@@ -126,7 +126,10 @@ they change what the suite checks, so they must not be mixed into a move that mu
   scalar-only fixture with a body). Each is handled per the standing rule — the recording is the fixture; fix, colocated
   src test, why it was missed — and makes its step red until fixed.
 - **Bridge and simulator disagreeing on whether a case compiles** (both use `CodesysTestProject.project`, so unlikely).
-  Written down here, not smoothed over.
+  Written down here, not smoothed over. **Measured 2026-09-14: none.** Of the 117 execution programs the bridge build
+  and the simulator build refuse the same 8 (the `*_rejected`, `literal_out_of_range_*` and `string_wstring_mixing`
+  cases) with the same messages, and compile the other 109. The fixtures agree too, once the simulator loads them as
+  the bridge does (§2).
 
 ## 7. Citations
 
