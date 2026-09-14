@@ -18,20 +18,18 @@
  * ponytail: no too-few check — the only spec requirement about omission is the negative "don't flag it".
  */
 import { walkAllExprs, type CallArg, type Expr, type Span } from "../../../syntax/index.js"
-import { bodies, lookup, lookupMember, resolveBareEnumMember, type Scope, type Symbol } from "../../../symbols/index.js"
+import { bodies, lookupMember, type Scope } from "../../../symbols/index.js"
 import {
   constancyOf,
   inferExprType,
   isAssignable,
-  renderType,
+  isSameType,
   resolveCallee,
-  resolveMemberChain,
   resolveTypeExpr,
   type CalleeInfo,
-  type Type,
 } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { conversionWarning, isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { checkable, checkableType, compilerTypeName, conversionWarning, isLibrarySymbol, SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkCallArguments(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -182,7 +180,7 @@ function inOutChecks(
   // Conservative: both sides KNOWN elementary and differently-named (aliases resolve, so INT≡an INT alias).
   const pt = resolveTypeExpr(param.type, ctx.project)
   const at = inferExprType(value, scope, ctx.project)
-  if (pt.kind === "elementary" && at.kind === "elementary" && pt.name !== at.name) {
+  if (pt.kind === "elementary" && at.kind === "elementary" && !isSameType(pt, at)) {
     out.push({
       severity: "error",
       span: value.span,
@@ -203,7 +201,7 @@ function argTypeError(
 ): void {
   const target = checkable(resolveTypeExpr(paramType, ctx.project))
   if (target === undefined) return
-  const arg = argCheckableType(value, scope, ctx.project)
+  const arg = checkableType(value, scope, ctx.project)
   if (arg === undefined) return
   if (isAssignable(target, arg)) {
     // ASSIGNABLE IS NOT THE SAME AS CLEAN. A narrowing (`LREAL`→`REAL`) and a sign crossing (`INT`→`UINT`) are
@@ -219,31 +217,6 @@ function argTypeError(
     span: value.span,
     source: SOURCE,
     code: "call-argument-type",
-    message: ctx.messages.cannotConvert(renderType(arg), renderType(target)),
+    message: ctx.messages.cannotConvert(compilerTypeName(arg), compilerTypeName(target)),
   })
-}
-
-/** A resolved param type only when it's a checkable category (elementary or enum), else undefined. */
-function checkable(t: Type): Type | undefined {
-  return t.kind === "elementary" || t.kind === "enum" ? t : undefined
-}
-
-/** The checkable type of an argument expression: enum-value reference or an elementary/enum inferred type.
- *  Mirrors assignment.ts's private helper — checks stay isolated (the layering rule forbids a check
- *  importing a sibling check), so this small resolver is deliberately duplicated rather than shared. */
-function argCheckableType(expr: Expr, scope: Scope, project: Scope): Type | undefined {
-  const sym = enumValueRef(expr, scope, project)
-  if (sym !== undefined) return { kind: "enum", name: sym.owner.name, scope: sym.owner }
-  return checkable(inferExprType(expr, scope, project))
-}
-
-/** The enum-value symbol a bare (`Red`) or qualified (`Color.Red`) reference denotes, else undefined. */
-function enumValueRef(expr: Expr, scope: Scope, project: Scope): Symbol | undefined {
-  const sym =
-    expr.kind === "ident_expr"
-      ? (lookup(scope, expr.name)?.symbol ?? resolveBareEnumMember(project, expr.name))
-      : expr.kind === "member"
-        ? resolveMemberChain(expr, scope, project)
-        : undefined
-  return sym?.kind === "enum_value" && sym.owner.kind === "enum" ? sym : undefined
 }

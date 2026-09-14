@@ -10,10 +10,19 @@
  * fire when either operand is an array, rendering the CODESYS-exact `ARRAY [lo..hi]` form; a non-foldable bound
  * skips (zero-FP). Struct/FB/pointer/unknown operands are still undecidable → skipped.
  */
-import { classifyConversion, constEval, inferExprType, renderType, type ArrayTypeInfo, type Type } from "../../../types/index.js"
+import {
+  classifyConversion,
+  constEval,
+  inferExprType,
+  isEnumValueRef,
+  isSameType,
+  renderType,
+  type ArrayTypeInfo,
+  type Type,
+} from "../../../types/index.js"
 import type { Scope } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachExpr, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { compilerTypeName, forEachExpr, SOURCE, type DiagnosticItem } from "../_shared.js"
 
 const CMP_OPS = new Set(["<", ">", "<=", ">=", "=", "<>"])
 
@@ -41,9 +50,14 @@ export function checkComparison(ctx: CheckContext, out: DiagnosticItem[]): void 
       return
     }
 
-    // C0354 — two different enumeration types (the specific wording preempts the generic C0066).
-    if (left.kind === "enum" && right.kind === "enum" && left.name !== right.name) {
-      push("enum-comparison", ctx.messages.enumComparison(left.name, right.name))
+    // C0354 — two different enumeration types (the specific wording preempts the generic C0066), both names upper-cased
+    // (conformance `cc_enum_compare_two_enums`). Two enum VALUES compare silently (`cc_enum_compare_two_enum_values`) —
+    // inference now types a value, so it is told apart here — and one enum in two casings is the same enum
+    // (`cc_fp_enum_compare_same_enum_other_case`; this compared names case-sensitively). A variable against a value is
+    // unmeasured, so it stays silent too.
+    if (left.kind === "enum" && right.kind === "enum" && !isSameType(left, right)) {
+      if (!isEnumValueRef(e.left, scope, ctx.project) && !isEnumValueRef(e.right, scope, ctx.project))
+        push("enum-comparison", ctx.messages.enumComparison(compilerTypeName(left), compilerTypeName(right)))
       return
     }
 

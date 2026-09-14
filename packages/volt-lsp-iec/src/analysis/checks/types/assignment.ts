@@ -9,7 +9,7 @@ import { bodies, type Scope } from "../../../symbols/index.js"
 import { isAssignable, literalErrorType, resolveTypeExpr, type Type } from "../../../types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { checkableType, compilerTypeName, forEachDecl, SOURCE, type DiagnosticItem } from "../_shared.js"
+import { checkable, checkableType, compilerTypeName, forEachDecl, SOURCE, type DiagnosticItem } from "../_shared.js"
 
 export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -24,8 +24,8 @@ export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): 
   // SINT, `si : SINT := 100 + 100` silent). Initializers were never type-checked at all (gap 14).
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (decl.init === undefined || decl.init.kind === "aggregate_init") continue
-    const lhs = resolveTypeExpr(decl.type, ctx.project)
-    if (lhs.kind !== "elementary" && lhs.kind !== "enum") continue // a composite target is not this check's
+    const lhs = checkable(resolveTypeExpr(decl.type, ctx.project))
+    if (lhs === undefined) continue // a composite target is not this check's
     const diag = conversionError(lhs, decl.init, decl.init.span, scope, ctx.project, ctx.messages)
     if (diag !== undefined) out.push(diag)
   }

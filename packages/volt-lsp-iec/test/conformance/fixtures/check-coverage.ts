@@ -187,6 +187,38 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
     plcPrgBody: `inst_cc_enum_var_${target.toLowerCase()}();`,
     source: `TYPE DUT_LANG_cc_enum_var_${target.toLowerCase()} :\n(\n\tIdle := 0,\n\tBusy := 1\n);\nEND_TYPE\n\nFUNCTION_BLOCK FB_LANG_cc_enum_var_into_${target.toLowerCase()}\nVAR\n\te : DUT_LANG_cc_enum_var_${target.toLowerCase()};\n\tx : ${target};\nEND_VAR\nx := e;\nEND_FUNCTION_BLOCK\n`,
   })),
+  // consolidate-lsp-structure B6 — call arguments and comparisons typed enum values with their own copy of the enum
+  // lookup, which the INT rule above never reached. Does an ARGUMENT convert like an assignment, and what does comparing
+  // two different enums (variables and values) say? A differently-cased name of the SAME enum must stay silent.
+  ...["SINT", "UINT"].map((target) => {
+    const t = target.toLowerCase()
+    return {
+      name: `cc_enum_arg_into_${t}`,
+      pouName: `FB_LANG_cc_enum_arg_into_${t}`,
+      kind: "function_block" as const,
+      feature: `an enum value passed to a ${target} input → ?`,
+      fromDoc: "check-coverage",
+      plcPrgVar: `inst_cc_enum_arg_${t} : FB_LANG_cc_enum_arg_into_${t};`,
+      plcPrgBody: `inst_cc_enum_arg_${t}();`,
+      source: `TYPE DUT_LANG_cc_enum_arg_${t} :\n(\n\tIdle := 0,\n\tBusy := 1\n);\nEND_TYPE\n\nFUNCTION F_LANG_cc_enum_arg_${t} : BOOL\nVAR_INPUT\n\tx : ${target};\nEND_VAR\nF_LANG_cc_enum_arg_${t} := TRUE;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_LANG_cc_enum_arg_into_${t}\nVAR\n\tok : BOOL;\nEND_VAR\nok := F_LANG_cc_enum_arg_${t}(DUT_LANG_cc_enum_arg_${t}.Busy);\nEND_FUNCTION_BLOCK\n`,
+    }
+  }),
+  ...(
+    [
+      ["cc_enum_compare_two_enums", "two variables of different enum types compared → ?", "same := ea = eb;"],
+      ["cc_enum_compare_two_enum_values", "values of two different enum types compared → ?", "same := DUT_LANG_cc_enum_cmp_a.A1 = DUT_LANG_cc_enum_cmp_b.B1;"],
+      ["cc_fp_enum_compare_same_enum_other_case", "one enum type spelled in two casings, compared → accepted", "same := ea = ec;"],
+    ] as const
+  ).map(([name, feature, body]) => ({
+    name,
+    pouName: `FB_LANG_${name}`,
+    kind: "function_block" as const,
+    feature,
+    fromDoc: "check-coverage",
+    plcPrgVar: `inst_${name} : FB_LANG_${name};`,
+    plcPrgBody: `inst_${name}();`,
+    source: `TYPE DUT_LANG_cc_enum_cmp_a :\n(\n\tA0 := 0,\n\tA1 := 1\n);\nEND_TYPE\n\nTYPE DUT_LANG_cc_enum_cmp_b :\n(\n\tB0 := 0,\n\tB1 := 1\n);\nEND_TYPE\n\nFUNCTION_BLOCK FB_LANG_${name}\nVAR\n\tea : DUT_LANG_cc_enum_cmp_a;\n\teb : DUT_LANG_cc_enum_cmp_b;\n\tec : dut_lang_CC_ENUM_CMP_A;\n\tsame : BOOL;\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK\n`,
+  })),
   // consolidate-lsp-structure A13 (gap 14) — a declaration's initial value is type-checked only for an untyped integer
   // literal (gap 13). What does CODESYS say for the other shapes an initializer takes?
   fb("cc_init_bool_into_int", "`i : INT := TRUE` → ?", "i : INT := TRUE;"),

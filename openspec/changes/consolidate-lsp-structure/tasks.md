@@ -103,8 +103,13 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
 - [x] B5 Literal typing: export `literalType` (after A2), `REAL_LITERAL_TYPE`, `ANY_INT_RANGE`; lower keeps only context
       adoption; switch `enum-init.ts:28`, `constant-overflow.ts:18`. DONE 2026-09-14: lowering's `durationOf`/`calendarOf`
       take the literal's type from `types/literalType` and scale by its `tickNs`; its own typing is `contextLiteralType`.
-- [ ] B6 `isSameType` and a shared `checkableType` (or inference types an enum-value reference); switch
-      `call-arguments.ts:185/227`, `assignment.ts:51`, `comparison.ts:60`, `_shared.ts:86`.
+- [x] B6 `isSameType` and a shared `checkableType` (or inference types an enum-value reference); switch
+      `call-arguments.ts:185/227`, `assignment.ts:51`, `comparison.ts:60`, `_shared.ts:86`. DONE 2026-09-14: inference
+      types an enum value as its enum (base type included); `checkableType` is one line over it; `compat.isSameType`.
+      Two hidden bugs the copies held, both recorded (5 fixtures): the call-argument copy never learned the enum's base
+      type, so `F(E.Busy)` into a SINT input was silent (CODESYS: an error; into UINT a change of sign); and comparison
+      matched enum names case-sensitively. CODESYS compares two enum VALUES of different types silently — only
+      variables warn C0354, names upper-cased — so the check now tells a value from a variable (`isEnumValueRef`).
 - [ ] B7 Rendering: `typeToTypeExpr` (for A11), `memberScopeOf` (completion.ts:87 = infer scopeOf); compiler-exact type
       text (`comparison.ts:65`, `subrange.ts:35`, `assignment.ts:78`) into `analysis/messages`.
 - [x] B8 `defaultValueOf(type)` into `transpile/ir` (interp `defaultOf` = emit `defaultLiteral`). DONE 2026-09-14: lowering

@@ -7,7 +7,7 @@
  * off the node instead of re-resolving a `TypeExpr` (the win of the folded model).
  */
 import type { Scope, Symbol } from "../symbols/index.js"
-import { childScopesByName, lookup, lookupLocal, isLibrarySymbol } from "../symbols/index.js"
+import { childScopesByName, lookup, lookupLocal, isLibrarySymbol, resolveBareEnumMember } from "../symbols/index.js"
 import type {
   BinaryExpr,
   CallExpr,
@@ -21,7 +21,7 @@ import type {
 } from "../syntax/index.js"
 import { checkedNegationType, exptResultType, temporalResultType } from "./arith.js"
 import { canonicalElem, elementaryType, integerLiteralType, parseConversionName, REAL_LITERAL_TYPE } from "./elementary.js"
-import { resolveTypeExpr } from "./resolve.js"
+import { resolveNamedType, resolveTypeExpr } from "./resolve.js"
 import { elementaryRef, elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
 // Inherent cycle: type inference resolves references via the reference catalog, which itself depends on the type system (bidirectional by design). Function-body import, no init hazard.
 import { lookupReference } from "../reference/index.js"
@@ -34,14 +34,17 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
     case "ident_expr": {
       // THIS denotes the enclosing FB instance — resolve to its member scope so `THIS^.field` navigates.
       if (expr.name.toUpperCase() === "THIS") return thisType(scope)
-      const sym = lookup(scope, expr.name)?.symbol
+      const sym = lookup(scope, expr.name)?.symbol ?? resolveBareEnumMember(project, expr.name)
       if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project)
+      const value = sym === undefined ? undefined : enumValueType(sym, project)
+      if (value !== undefined) return value
       // Static base: the name denotes a GVL/enum/namespace/POU scope (`E_State.Idle`), not a typed var.
       return staticScopeType(project, expr.name) ?? UNKNOWN
     }
     case "member": {
       const sym = resolveMemberChain(expr, scope, project)
-      return sym?.typeExpr !== undefined ? resolveTypeExpr(sym.typeExpr, project) : UNKNOWN
+      if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project)
+      return (sym === undefined ? undefined : enumValueType(sym, project)) ?? UNKNOWN
     }
     case "index": {
       const base = inferExprType(expr.base, scope, project)
@@ -226,6 +229,30 @@ function resolveGvlMember(
 }
 
 /** The enclosing POU scope (walking out through method/accessor scopes) — the home of `THIS`. */
+/**
+ * An enum VALUE's type: its enum, resolved by name so it carries the base type (`EnumType.base`). Only a value owned by
+ * a real enum scope counts — an inline enum's values live in the enclosing POU's scope, and typing them would name the
+ * POU. Inference returned UNKNOWN for every enum value, so assignment, narrowing and call arguments each re-resolved one —
+ * and the call-argument copy never learned the base type (consolidate-lsp-structure B6).
+ */
+function enumValueType(sym: Symbol, project: Scope): Type | undefined {
+  if (sym.kind !== "enum_value" || sym.owner.kind !== "enum") return undefined
+  const resolved = resolveNamedType(sym.owner.name, project)
+  return resolved.kind === "enum" ? resolved : { kind: "enum", name: sym.owner.name, scope: sym.owner }
+}
+
+/** True when an expression names an enum VALUE (`Busy`, `E_Mode.Busy`) rather than a variable of an enum type — they
+ *  compare differently in CODESYS (conformance `cc_enum_compare_two_enums`, `cc_enum_compare_two_enum_values`). */
+export function isEnumValueRef(expr: Expr, scope: Scope, project: Scope): boolean {
+  const sym =
+    expr.kind === "ident_expr"
+      ? (lookup(scope, expr.name)?.symbol ?? resolveBareEnumMember(project, expr.name))
+      : expr.kind === "member"
+        ? resolveMemberChain(expr, scope, project)
+        : undefined
+  return sym?.kind === "enum_value"
+}
+
 function enclosingPou(scope: Scope): Scope | undefined {
   let s: Scope | undefined = scope
   while (s !== undefined) {

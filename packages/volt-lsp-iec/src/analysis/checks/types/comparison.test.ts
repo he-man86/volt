@@ -63,3 +63,20 @@ test("C0354: comparing two different enumeration types is flagged; same-enum and
   expect(run(`b := e1 = ea;`)).toEqual([]) // same enum type
   expect(run(`b := e1 = i;`)).toEqual([]) // enum vs int — valid
 })
+
+test("C0354 upper-cases both names, skips two enum VALUES, and treats a re-cased name as the same enum", () => {
+  // recorded: `cc_enum_compare_two_enums` upper-cases the names; `cc_enum_compare_two_enum_values` is silent; and
+  // `cc_fp_enum_compare_same_enum_other_case` is silent — the check compared names case-sensitively, so it fired
+  const enums = `TYPE E_Cmp_A : (A0, A1); END_TYPE\nTYPE E_Cmp_B : (B0, B1); END_TYPE\n`
+  const run = (body: string) => {
+    const src = `${enums}PROGRAM P\nVAR b : BOOL; ea : E_Cmp_A; eb : E_Cmp_B; ec : e_cmp_a;\nEND_VAR\n${body}\nEND_PROGRAM`
+    const pr = parseSource(src)
+    const project = buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }])
+    return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "enum-comparison")
+      .map((d) => d.message)
+  }
+  expect(run(`b := ea = eb;`)).toEqual(["Comparison of one enumeration type (E_CMP_A) with another (E_CMP_B)"])
+  expect(run(`b := E_Cmp_A.A1 = E_Cmp_B.B1;`)).toEqual([])
+  expect(run(`b := ea = ec;`)).toEqual([])
+})

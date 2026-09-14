@@ -213,6 +213,24 @@ test("regression: a qualified-enum argument is resolved (shared checkableType ha
   expect(codes(enumA, fb, call)).toContain("call-argument-type")
 })
 
+test("an enum VALUE argument converts as INT, like an assignment — into a SINT input an error, the name upper-cased", () => {
+  // This check typed enum values with its own lookup, which never learned the enum's base type: both were silent
+  // (conformance `cc_enum_arg_into_sint`, `cc_enum_arg_into_uint`).
+  const enumMode = `TYPE E_Mode : (Idle := 0, Busy := 1); END_TYPE`
+  const fn = (target: string) => `FUNCTION F_Take : BOOL\nVAR_INPUT x : ${target}; END_VAR\nF_Take := TRUE;\nEND_FUNCTION`
+  const call = `PROGRAM P\nVAR ok : BOOL; END_VAR\nok := F_Take(E_Mode.Busy);\nEND_PROGRAM`
+  const messages = (target: string): string[] => {
+    const files = [enumMode, fn(target), call].map((source, i) => ({ uri: `u${i}.fb`, source, parseResult: parseSource(source) }))
+    const project = buildSymbolTable(files)
+    return computeSemanticDiagnostics({ parseResult: files[2]!.parseResult, source: call, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "call-argument-type" || d.code === "sign-change-conversion")
+      .map((d) => d.message)
+  }
+  expect(messages("SINT")).toEqual(["Cannot convert type 'E_MODE' to type 'SINT'"])
+  expect(messages("UINT")).toEqual(["Implicit conversion from signed Type 'E_MODE' to unsigned Type 'UINT' : Possible change of sign"])
+  expect(messages("DINT")).toEqual([])
+})
+
 /**
  * AN ASSIGNABLE ARGUMENT IS NOT NECESSARILY A CLEAN ONE.
  *

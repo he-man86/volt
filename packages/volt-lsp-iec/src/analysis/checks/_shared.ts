@@ -4,16 +4,8 @@
  * check import it without a cycle.
  */
 import { walkAllExprs, walkExpr, type Expr, type ParseResult, type Span } from "../../syntax/index.js"
-import { bodies, lookup, resolveBareEnumMember, scopeForUnit, type Scope, type Symbol } from "../../symbols/index.js"
-import {
-  classifyConversion,
-  elemOf,
-  inferExprType,
-  renderType,
-  resolveMemberChain,
-  resolveNamedType,
-  type Type,
-} from "../../types/index.js"
+import { bodies, scopeForUnit, type Scope } from "../../symbols/index.js"
+import { classifyConversion, elemOf, inferExprType, renderType, type Type } from "../../types/index.js"
 import type { Messages } from "../messages.js"
 
 export interface DiagnosticItem {
@@ -62,37 +54,18 @@ export function* forEachDecl(parseResult: ParseResult, project: Scope) {
   }
 }
 
-/**
- * The checkable type of an expression: elementary or enum (incl. enum-value references), else undefined. Shared by the
- * assignment error and the narrowing warning — the warning typed values by inference alone, so an enum VALUE was
- * UNKNOWN there and `uint := E.Busy` never warned (conformance `cc_enum_into_uint`).
- */
-export function checkableType(expr: Expr, scope: Scope, project: Scope): Type | undefined {
-  const enumSym = enumValueRef(expr, scope, project)
-  if (enumSym !== undefined) {
-    // resolved by name, so the enum carries its base type; a name that does not resolve at project level (a namespaced
-    // enum) keeps the bare enum, which converts as before
-    const resolved = resolveNamedType(enumSym.owner.name, project)
-    return resolved.kind === "enum" ? resolved : { kind: "enum", name: enumSym.owner.name, scope: enumSym.owner }
-  }
-  const t = inferExprType(expr, scope, project)
+/** A type a conversion check can decide — elementary or enum — else undefined (a struct, FB, array or unknown type). */
+export function checkable(t: Type): Type | undefined {
   return t.kind === "elementary" || t.kind === "enum" ? t : undefined
 }
 
 /**
- * The enum-value symbol a reference denotes (bare `Red` or qualified `Color.Red`), else undefined.
- * Only a value owned by a real `enum` scope counts — an IMPLICIT/inline enum's values live in the
- * enclosing POU scope (not an enum scope), so typing them would mislabel the enum as the POU; those
- * skip (the compiler accepts inline-enum assignments, so silence is correct).
+ * An expression's checkable type — the ONE the assignment, narrowing and call-argument checks share. Inference types an
+ * enum value as its enum, so there is no enum lookup here: each of those checks kept its own, and the call-argument copy
+ * never learned an enum's base type (consolidate-lsp-structure B6).
  */
-function enumValueRef(expr: Expr, scope: Scope, project: Scope): Symbol | undefined {
-  const sym =
-    expr.kind === "ident_expr"
-      ? (lookup(scope, expr.name)?.symbol ?? resolveBareEnumMember(project, expr.name))
-      : expr.kind === "member"
-        ? resolveMemberChain(expr, scope, project)
-        : undefined
-  return sym?.kind === "enum_value" && sym.owner.kind === "enum" ? sym : undefined
+export function checkableType(expr: Expr, scope: Scope, project: Scope): Type | undefined {
+  return checkable(inferExprType(expr, scope, project))
 }
 
 /**

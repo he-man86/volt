@@ -29,7 +29,7 @@ export function classifyConversion(lhs: Type, rhs: Type): ConversionKind {
   // "Cannot convert" into SINT/USINT/BYTE, "change of sign" into UINT/UDINT/WORD/DWORD. This used to widen into every
   // numeric type. A scalar into an enum, and an explicit base type, are unmeasured: only isolated families reject them.
   if (lhs.kind === "enum" || rhs.kind === "enum") {
-    if (lhs.kind === "enum" && rhs.kind === "enum") return sameName(lhs.name, rhs.name) ? "identity" : "incompatible"
+    if (lhs.kind === "enum" && rhs.kind === "enum") return isSameType(lhs, rhs) ? "identity" : "incompatible"
     const scalar = lhs.kind === "enum" ? rhs : lhs
     if (scalar.kind !== "elementary") return "identity"
     if (rhs.kind === "enum" && rhs.base !== undefined) return classifyElementary(scalar.name, rhs.base.name)
@@ -78,6 +78,16 @@ function classifyElementary(lName: string, rName: string): ConversionKind {
     return src.rank === dst.rank ? "sign-change" : "widen" // unsigned → signed: only same-width overflows
   }
   return "widen"
+}
+
+/**
+ * The same type: the same kind and name — case-insensitively, as IEC names are, and an elementary name through its alias
+ * (`TIME_OF_DAY` is `TOD`). A type without a name (array, pointer, unknown) is never "the same" here. The comparison
+ * check compared enum names case-sensitively, so `a : E_Mode` against `b : e_mode` was two different enums.
+ */
+export function isSameType(a: Type, b: Type): boolean {
+  if (a.kind === "elementary" && b.kind === "elementary") return canonicalElem(a.name) === canonicalElem(b.name)
+  return a.kind === b.kind && "name" in a && "name" in b && sameName(a.name, b.name)
 }
 
 /** IEC assignment compatibility: can a value of type `rhs` be implicitly assigned to a `lhs` target? */
