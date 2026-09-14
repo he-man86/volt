@@ -207,10 +207,14 @@ END_PROGRAM
   })
 
   test("a POU whose statements all lower is still refused when a slot has no runtime representation", () => {
-    // An unused POINTER lowered cleanly and made the Rust emitter throw — every backend must take what lowering gives it
-    const { pou, diagnostics } = lowerSource(wrap("iCount := 1;", "iCount : INT;\n  p : POINTER TO INT;"))
+    // An unused POINTER lowered cleanly and made the Rust emitter throw — every backend must take what lowering gives it.
+    // A pointer has a representation since phase 3 step 6b (its one target's index); an interface variable still has none.
+    const { pou, diagnostics } = lowerSource(
+      "INTERFACE I_Shape\nEND_INTERFACE\n\nPROGRAM P\nVAR\n  iCount : INT;\n  shape : I_Shape;\nEND_VAR\niCount := 1;\nEND_PROGRAM\n",
+      "P",
+    )
     expect(pou).toBeUndefined()
-    expect(diagnostics.map((d) => d.code)).toEqual(["slot-pointer"])
+    expect(diagnostics.map((d) => d.code)).toEqual(["slot-interface"])
   })
 
   test("an initializer that does not fold is reported, never silently dropped", () => {

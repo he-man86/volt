@@ -81,6 +81,12 @@ export interface Place {
    *  `global`: the application's storage — a GVL variable, or a called PROGRAM's one instance (`IrPou.globals`).
    *  `this`: the instance an FB, METHOD or ACTION body runs on — `THIS^` (`slot` is unused). */
   root?: "inout" | "local" | "global" | "this"
+  /**
+   * A DEREFERENCE: this place is a pointer's or reference's one target (design §9 form 1), reached through `guard`, the
+   * pointer variable — which holds 0 when null, so a backend faults before the access (the interpreter throws, Rust
+   * panics), as a null dereference stops the CODESYS application.
+   */
+  guard?: Place
 }
 
 // ─── expressions ─────────────────────────────────────────────────────────────

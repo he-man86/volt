@@ -39,6 +39,8 @@ export function rustType(t: Type): string {
   if (t.kind === "struct" || t.kind === "function_block") return rustName(t.name)
   const array = peelArray(t)
   if (array !== undefined) return `[${rustType(array.element)}; ${array.length}]`
+  // a pointer or reference holds its one target's index, 0 when null (design §9 form 1)
+  if (t.kind === "pointer" || t.kind === "reference") return "usize"
   if (t.kind !== "elementary") throw new Error(`no Rust mapping for a ${t.kind} type`)
   const { family, bits, signed } = t.elem
   if (family === "bool" || isBit(t)) return "bool"
@@ -202,6 +204,16 @@ class Printer {
     ;[this.fields, this.frame] = saved
   }
 
+  /** A read through a dereference, checked first: `{ iec_deref(self.p); self.value }` — the null pointer panics. */
+  guarded(place: Place, text: string, slots: IrPou["slots"]): string {
+    return place.guard === undefined ? text : `{ iec_deref(${this.place(place.guard, slots)}); ${text} }`
+  }
+
+  /** A write through a dereference is checked on the line before it. */
+  guardLine(place: Place, slots: IrPou["slots"], indent: number): void {
+    if (place.guard !== undefined) this.push(`iec_deref(${this.place(place.guard, slots)});`, indent)
+  }
+
   /** A place as a Rust lvalue — `self.inst.q`, `self.arr[(self.i as i64 - 1i64) as usize].x`, `(*v)`, `count` — without a final bit step. */
   place(p: Place, slots: IrPou["slots"]): string {
     let text =
@@ -259,14 +271,15 @@ class Printer {
         const routine = this.routines.get(e.routine)!
         const args = [...this.globalsArg, ...e.inputs.map((a) => this.expr(a, slots)), ...e.inouts.map((p) => `&mut ${this.place(p, slots)}`)].join(", ")
         const fn = routineFnName(routine)
-        return e.instance === undefined ? `${fn}(${args})` : `${this.place(e.instance, slots)}.${fn}(${args})`
+        return e.instance === undefined ? `${fn}(${args})` : this.guarded(e.instance, `${this.place(e.instance, slots)}.${fn}(${args})`, slots)
       }
       case "load": {
         const field = this.place(e.place, slots)
         const bit = e.place.path.at(-1)
-        if (bit?.kind === "bit") return `(((${field} >> ${bit.index}) & 1) != 0)`
+        if (bit?.kind === "bit") return this.guarded(e.place, `(((${field} >> ${bit.index}) & 1) != 0)`, slots)
         // a whole struct, instance or array is copied, never moved out of `self`
-        return e.type.kind === "elementary" ? field : `${field}.clone()`
+        const copied = e.type.kind === "elementary" || e.type.kind === "pointer" || e.type.kind === "reference"
+        return this.guarded(e.place, copied ? field : `${field}.clone()`, slots)
       }
       case "convert": {
         // The measured rules (design §11), each where Rust's bare `as` means something else: a float → int `as`
@@ -397,6 +410,7 @@ class Printer {
   stmt(s: IrStmt, slots: IrPou["slots"], indent: number): void {
     switch (s.kind) {
       case "assign": {
+        this.guardLine(s.target, slots, indent)
         const field = this.place(s.target, slots)
         const bit = s.target.path.at(-1)
         if (bit?.kind !== "bit") {
@@ -480,6 +494,7 @@ class Printer {
         return
       case "call": {
         // the inputs were assigned before this line and the outputs are read after it; VAR_IN_OUT is a `&mut` (design §9)
+        this.guardLine(s.instance, slots, indent)
         const bound = [...this.globalsArg, ...s.inouts.map((p) => `&mut ${this.place(p, slots)}`)].join(", ")
         this.push(`${this.place(s.instance, slots)}.call(${bound});`, indent, s.span)
         return
@@ -664,6 +679,11 @@ export function emitRust(pou: IrPou): Emitted {
   p.push("}", 0)
   // a FUNCTION has no instance: a free fn beside the structs
   for (const routine of pou.routines.filter((r) => r.kind === "function")) printRoutine(p, routine, [], [], 0, usesGlobals)
+  // the one check every dereference makes: a null pointer stops the program, as it stops the CODESYS application
+  if (p.code.includes("iec_deref(")) {
+    p.push("", 0)
+    p.push('fn iec_deref(at: usize) { if at == 0 { panic!("dereference of a null pointer"); } }', 0)
+  }
 
   // Only a program that holds a string gets the string type — every other output stays exactly what it was.
   // ponytail: the prelude rides with each POU, so a crate of TWO string POUs would define it twice; hoist it into a

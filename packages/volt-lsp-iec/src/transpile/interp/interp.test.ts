@@ -677,6 +677,46 @@ END_PROGRAM`,
     expect(["offI", "offD", "offX", "offL", "offElement"].map((n) => pou.get(n))).toEqual([2n, 4n, 8n, 16n, 52n])
   })
 
+  // Phase 3 step 6b: pointers and references with one target (design §9 form 1), as CODESYS recorded them (conformance
+  // `type_pointer_to_int`, `mem_pointer_index_struct_array`, `mem_pointer_to_instance_method`, `type_reference_to_int`,
+  // `op_sys_isvalidref`, `keyword_null_pointer_init`).
+  test("a pointer or reference reaches its one target — elements step, a method runs through it, null faults", () => {
+    const source = `TYPE T_Pt : STRUCT x : INT; y : REAL; END_STRUCT END_TYPE
+FUNCTION_BLOCK FB_Counter
+VAR n : INT; END_VAR
+END_FUNCTION_BLOCK
+METHOD Bump
+n := n + 1;
+END_METHOD
+PROGRAM P
+VAR
+  iValue : INT := 7; pInt : POINTER TO INT; iCopy : INT;
+  arr : ARRAY[0..4] OF T_Pt; p : POINTER TO T_Pt; q : POINTER TO T_Pt; k : INT;
+  viaDeref : INT; viaIndex : INT; viaStep : INT;
+  inst : FB_Counter; pInst : POINTER TO FB_Counter; got : INT;
+  target : INT := 42; ref1 : REFERENCE TO INT; valid : BOOL; throughRef : INT;
+  nullPtr : POINTER TO INT := 0; isNull : BOOL; notNull : BOOL;
+END_VAR
+pInt := ADR(iValue); iCopy := pInt^; pInt^ := iCopy + 1;
+FOR k := 0 TO 4 DO arr[k].x := k * 10; END_FOR
+p := ADR(arr[1]); viaDeref := p^.x; viaIndex := p[2].x;
+q := p + SIZEOF(T_Pt); viaStep := q^.x; p[3].x := 77;
+pInst := ADR(inst); pInst^.Bump(); pInst^.Bump(); got := pInst^.n;
+ref1 REF= target; valid := __ISVALIDREF(ref1); throughRef := ref1; ref1 := ref1 + 1;
+isNull := (nullPtr = 0); notNull := pInt <> 0;
+END_PROGRAM`
+    const pou = load(source, "P")
+    pou.scan()
+    expect([pou.get("iCopy"), pou.get("iValue")]).toEqual([7n, 8n])
+    expect([pou.get("viaDeref"), pou.get("viaIndex"), pou.get("viaStep"), pou.get("arr[4].x")]).toEqual([10n, 30n, 20n, 77n])
+    expect([pou.get("got"), pou.get("inst.n")]).toEqual([2n, 2n])
+    expect([pou.get("valid"), pou.get("throughRef"), pou.get("target")]).toEqual([true, 42n, 43n])
+    expect([pou.get("isNull"), pou.get("notNull")]).toEqual([true, true])
+    // a dereference of a null pointer stops the program, as it stops the CODESYS application
+    const faulting = load("PROGRAM F\nVAR v : INT; ok : INT; pv : POINTER TO INT; END_VAR\npv := ADR(v); pv := 0; ok := pv^;\nEND_PROGRAM\n", "F")
+    expect(() => faulting.scan()).toThrow("dereference of a null pointer")
+  })
+
   // Why missed: no initializer or assignment test stored a literal its target could not hold, and none put an integer in
   // a BOOL — the conformance fixtures that do (`overflow_*`, `cc_literal_*`, `cc_init_*_into_bool`) sat inside FBs, which
   // did not lower until calls did.

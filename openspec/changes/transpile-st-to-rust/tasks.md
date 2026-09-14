@@ -279,9 +279,16 @@ reshaped in place, each commit gated value-for-value by the conformance replay, 
       VAR_STAT and lowering's temps are not instance storage. A ULINT, as a SIZEOF widens into one without a message.
       Refused, counted: a BIT, a WSTRING, a pointer or a reference inside the type; an FB field's offset. Cases lowering
       340 → 343 — the three layout fixtures agree with CODESYS in both backends.
-- [ ] **Step 6b — handles** (POINTER TO, REFERENCE TO, `REF=`, `__ISVALIDREF`, `p[i]`, `p + SIZEOF(T)`, `pInst^.M()`:
-      `type_pointer_to_int`, `type_reference_to_int`, `op_sys_isvalidref`, `keyword_null_pointer_init`,
-      `mem_pointer_index_struct_array`, `mem_pointer_to_instance_method`, `mem_adr_of_inout_member`).
+- [x] **Step 6b — pointers and references with one target** (design §9 form 1). DONE 2026-09-14: lowering records each
+      pointer or reference variable's ONE target — a variable, or an array's elements — and its value is 0 (null), 1, or
+      element index + 1, a plain integer in both backends (`usize` in Rust). A dereference lowers to the target place
+      itself, guarded by the pointer: a null one throws in the interpreter and panics in Rust, as it stops the CODESYS
+      application. `ADR`, `REF=`, `p^`, `p[i]`, `p + n·SIZEOF(T)`, `pInst^.M()`, reference reads and writes, `= 0`/`<> 0`
+      and `__ISVALIDREF` lower. Cases lowering 343 → 349. Caught by the replay's Rust half: the pointer–integer crossings
+      went unconverted (`convert` skips a non-elementary side), so an `i64` reached a `usize` field — now an explicit node.
+      Refused, counted: a pointer with more than one target (form 3, the handle enum), a pointer's value used as a number
+      (it is no real address here), a dereference before any address was stored, and a persistent pointer to a local or
+      VAR_IN_OUT that dies with the call (`mem_adr_of_inout_member`).
 
 - [x] **Review before phase 3** (2026-09-14, design §19): four emitter/lowering bugs found by probe and fixed — CONTINUE
       (3 oracle cases recorded), Rust field names (keywords, snake_case collisions), unrepresentable slots. Direction

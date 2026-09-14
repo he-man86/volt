@@ -275,6 +275,8 @@ class Machine {
 
   /** The container and key the steps before a place's last one lead to — where a read or write lands. */
   private locate(place: Place): { container: Val[] | { [field: string]: Val }; key: number | string; bit?: Extract<Access, { kind: "bit" }> } {
+    // a dereference: the pointer holds 0 when null, and CODESYS stops the application on that access — so does this
+    if (place.guard !== undefined && this.read(place.guard) === 0n) throw new RangeError("dereference of a null pointer")
     const steps = place.path
     const last = steps.at(-1)
     const bit = last?.kind === "bit" ? last : undefined

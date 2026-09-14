@@ -53,6 +53,7 @@ import {
   exptResultType,
   inTypeGroup,
   integerLiteralType,
+  inferExprType,
   isIntegerType,
   literalType,
   promoteForRuntime,
@@ -165,10 +166,24 @@ interface Shared {
   globals: { slots: IrSlot[]; byName: Map<string, number> }
   /** The POU being lowered: a PROGRAM that names it is the running frame, not a global instance. */
   root: string
+  /** Each pointer or reference variable's one target, by `pointerKey`. */
+  pointers: Map<string, PointerTarget>
 }
 
 function newShared(attributes: ReadonlyMap<TopLevel, ReadonlySet<string>> = new Map(), root = ""): Shared {
-  return { layouts: new Map(), bodies: new Map(), routines: new Map(), attributes, globals: { slots: [], byName: new Map() }, root }
+  return { layouts: new Map(), bodies: new Map(), routines: new Map(), attributes, globals: { slots: [], byName: new Map() }, root, pointers: new Map() }
+}
+
+/**
+ * A pointer's or reference's ONE target (design §9 form 1): every address stored into the variable names the same place, or
+ * elements of the same array. The pointer's value is 0 when null, 1 for its variable, and k + 1 for element k (from 0) —
+ * so `p = 0` and `__ISVALIDREF` are plain comparisons, and `p[i]` / `p + n·SIZEOF(T)` step whole elements.
+ */
+interface PointerTarget {
+  /** The variable — or the array whose elements the value indexes. */
+  base: Place
+  /** The array's first dimension, when the pointer points at its elements. */
+  element?: { lower: bigint; length: number; type: Type }
 }
 
 class Lowering {
@@ -187,6 +202,11 @@ class Lowering {
   isRoot = false
   /** The FB an FB, METHOD or ACTION body runs on — what `THIS^` names. */
   private selfType: Type | undefined
+  /** Which frame this body's plain slots belong to — the POU's or an FB's — so every body agrees on a pointer's key; the
+   *  POU's is set by `lowerUnit`. */
+  frameContext = "POU"
+  /** Which routine this body's locals belong to. */
+  private routineContext = ""
 
   /**
    * An enum is stored as its base type: the one written after the value list (`) BYTE`), else INT — how a project enum
@@ -360,6 +380,130 @@ class Lowering {
     return { kind: "const", value: from - to, type: elementaryRef("ULINT"), span: e.span }
   }
 
+  // ─── pointers and references (design §9 form 1) ────────────────────────────
+
+  /** Where a pointer or reference variable lives, as a key every body that reaches it agrees on — undefined for one this
+   *  does not track (a field of another instance, an element, a VAR_IN_OUT). */
+  private pointerKey(p: Place): string | undefined {
+    const field = p.path[0]
+    if (p.root === "this" && p.path.length === 1 && field?.kind === "field") return `${this.frameContext}.${field.name.toUpperCase()}`
+    if (p.path.length > 0 || p.guard !== undefined) return undefined
+    if (p.root === undefined) return `${this.frameContext}.${this.slots[p.slot]!.name.toUpperCase()}`
+    if (p.root === "local") return `${this.routineContext}.${this.localSlots[p.slot]!.name.toUpperCase()}`
+    if (p.root === "global") return `GLOBAL.${this.shared.globals.slots[p.slot]!.name.toUpperCase()}`
+    return undefined
+  }
+
+  /** Record `target` as the pointer's one target — refused when another was recorded, or when the pointer outlives it. */
+  private recordTarget(key: string, target: PointerTarget, span: Span): boolean {
+    const outlives = !key.startsWith("ROUTINE:") && (target.base.root === "local" || target.base.root === "inout")
+    if (outlives || (key.startsWith("GLOBAL.") && target.base.root !== "global")) {
+      this.bail("pointer-outlives", "a pointer that outlives the variable it points at", span)
+      return false
+    }
+    const known = this.shared.pointers.get(key)
+    if (known === undefined) {
+      this.shared.pointers.set(key, target)
+      return true
+    }
+    if (sameTarget(known, target)) return true
+    this.bail("pointer-targets", "a pointer that points at more than one variable — the handle form is not built yet", span)
+    return false
+  }
+
+  /** `ADR(x)` or the right side of `REF=` — the pointer's value (1, or element index + 1) and its target. */
+  private addressOf(x: Expr, pointerType: Type, span: Span): { value: IrExpr; target: PointerTarget } | undefined {
+    const place = this.place(x)
+    if (place === undefined) return undefined
+    if (place.guard !== undefined || place.path.some((s) => s.kind === "bit"))
+      return this.bail("pointer-shape", "the address of a dereference or a bit", span)
+    const last = place.path.at(-1)
+    if (last?.kind !== "index") return { value: { kind: "const", value: 1n, type: pointerType, span }, target: { base: place } }
+    if (x.kind !== "index" || x.indices.length !== 1) return this.bail("pointer-shape", "the address of an element of a multi-dimensional array", span)
+    const base = this.place(x.base)
+    const array = base === undefined ? undefined : peelArray(base.type)
+    if (base === undefined || array === undefined) return undefined
+    const lint = elementaryRef("LINT")
+    const offset = binaryOf("sub", convert(last.index, lint), { kind: "const", value: array.lower - 1n, type: lint, span }, lint, span)
+    return { value: cast(offset, pointerType), target: { base, element: { lower: array.lower, length: array.length, type: array.element } } }
+  }
+
+  /** A value stored into a pointer: `0`, `ADR(x)`, another pointer, or one stepped by whole elements (`p + SIZEOF(T)`). */
+  private pointerValue(e: Expr, pointerType: Type): { value: IrExpr; target?: PointerTarget } | undefined {
+    if (e.kind === "paren") return this.pointerValue(e.inner, pointerType)
+    if (e.kind === "literal" && e.value === 0n) return { value: { kind: "const", value: 0n, type: pointerType, span: e.span } }
+    const adr = e.kind === "call" && e.callee.kind === "ident_expr" && e.callee.name.toUpperCase() === "ADR" && e.args.length === 1 ? e.args[0]!.value : undefined
+    if (adr !== undefined) return this.addressOf(adr, pointerType, e.span)
+    const stepped = e.kind === "binary" && (e.op === "+" || e.op === "-") ? e : undefined
+    const operand = stepped?.left ?? e
+    if (operand.kind !== "ident_expr" && operand.kind !== "member" && operand.kind !== "index")
+      return this.bail("pointer-value", "a pointer value this does not model", e.span)
+    const source = this.place(operand)
+    if (source === undefined) return undefined
+    const key = source.type.kind === "pointer" ? this.pointerKey(source) : undefined
+    const target = key === undefined ? undefined : this.shared.pointers.get(key)
+    if (target === undefined) return this.bail("pointer-order", "a pointer copied before any address was stored into it", e.span)
+    const loaded: IrExpr = { kind: "load", place: source, type: source.type, span: operand.span }
+    if (stepped === undefined) return { value: convert(loaded, pointerType), target }
+    // measured: `p + SIZEOF(T)` is the next element (conformance `mem_pointer_index_struct_array`) — a step of whole elements
+    const bytes = this.expr(stepped.right)
+    const size = target.element === undefined ? undefined : this.bytes(target.element.type)?.size
+    if (bytes === undefined) return undefined
+    if (bytes.kind !== "const" || typeof bytes.value !== "bigint" || size === undefined || bytes.value % size !== 0n)
+      return this.bail("pointer-step", "a pointer stepped by something other than whole elements of its array", e.span)
+    const step: IrExpr = { kind: "const", value: bytes.value / size, type: pointerType, span: stepped.right.span }
+    return { value: binaryOf(stepped.op === "+" ? "add" : "sub", loaded, step, pointerType, e.span), target }
+  }
+
+  /** The place a pointer or reference points at, through `extra` more elements — its one target, guarded by it. */
+  private pointee(pointer: Place, extra: IrExpr | undefined, span: Span): Place | undefined {
+    const key = this.pointerKey(pointer)
+    const target = key === undefined ? undefined : this.shared.pointers.get(key)
+    if (target === undefined) return this.bail("pointer-order", "a dereference of a pointer no address was stored into before it", span)
+    if (target.element === undefined) {
+      if (extra !== undefined) return this.bail("pointer-index", "an index on a pointer to a single variable", span)
+      return { ...target.base, guard: pointer, span }
+    }
+    const lint = elementaryRef("LINT")
+    // the element the value names, back in the array's own index range: value - 1 + lower (+ extra)
+    let index = binaryOf("add", cast({ kind: "load", place: pointer, type: pointer.type, span }, lint), { kind: "const", value: target.element.lower - 1n, type: lint, span }, lint, span)
+    if (extra !== undefined) index = binaryOf("add", index, convert(extra, lint), lint, span)
+    const step = { kind: "index" as const, index, lower: target.element.lower, length: target.element.length }
+    return { ...target.base, path: [...target.base.path, step], type: target.element.type, guard: pointer, span }
+  }
+
+  /** `p := <pointer value>` — its target recorded for every body that dereferences `p`. */
+  private storePointer(target: Place, value: Expr, span: Span): IrStmt | undefined {
+    const key = this.pointerKey(target)
+    if (key === undefined) return this.bail("pointer-place", "a pointer stored somewhere this does not track", span)
+    const stored = this.pointerValue(value, target.type)
+    if (stored === undefined) return undefined
+    if (stored.target !== undefined && !this.recordTarget(key, stored.target, span)) return undefined
+    return { kind: "assign", target, value: stored.value, span }
+  }
+
+  /** `r REF= x` — the reference's one target, and its value set (conformance `type_reference_to_int`, `op_sys_isvalidref`). */
+  private bindReference(s: Extract<Statement, { kind: "assign" }>): IrStmt | undefined {
+    const target = this.place(s.target)
+    if (target === undefined) return undefined
+    const key = target.type.kind === "reference" ? this.pointerKey(target) : undefined
+    if (key === undefined) return this.bail("assign-op", "REF= into something that is not a tracked reference", s.span)
+    const address = this.addressOf(s.value, target.type, s.span)
+    if (address === undefined || !this.recordTarget(key, address.target, s.span)) return undefined
+    return { kind: "assign", target, value: address.value, span: s.span }
+  }
+
+  /** A place read as a value: a REFERENCE reads its target; a POINTER's own value is refused — it is not a real address
+   *  here, and only another pointer, a comparison with 0 and __ISVALIDREF (which lower it themselves) may use it. */
+  private loadValue(place: Place, span: Span): IrExpr | undefined {
+    if (place.type.kind === "reference") {
+      const target = this.pointee(place, undefined, span)
+      return target && { kind: "load", place: target, type: target.type, span }
+    }
+    if (place.type.kind === "pointer") return this.bail("pointer-value", "a pointer's value used as a number", span)
+    return { kind: "load", place, type: place.type, span }
+  }
+
   /** A name this frame, its parameters or its routine hold — which wins over an enum value of the same name. */
   private holds(name: string): boolean {
     const upper = name.toUpperCase()
@@ -455,6 +599,9 @@ class Lowering {
     const r = new Lowering(scope, this.project, this.shared)
     if (fb !== undefined) r.inherit(fb.fields)
     if (fb !== undefined) r.selfType = { kind: "function_block", name: fb.name, scope: sym.owner }
+    // a METHOD's plain slots are its FB's fields, so its pointers there share the FB's keys; its locals are its own
+    r.frameContext = fb === undefined ? `FUNCTION:${key}` : `FB:${fb.name.toUpperCase()}`
+    r.routineContext = `ROUTINE:${key}`
     r.routineMode = true
     let result: number | undefined
     if (ast.kind !== "action" && ast.returnType !== undefined) {
@@ -700,6 +847,7 @@ class Lowering {
   private buildLayout(t: Extract<Type, { kind: "struct" | "function_block" }>, sym: ReturnType<typeof lookup> extends infer R ? (R extends { symbol: infer S } ? S : never) | undefined : never): void {
     const nested = new Lowering(t.scope ?? this.project, this.project, this.shared)
     nested.selfType = t
+    nested.frameContext = `FB:${t.name.toUpperCase()}`
     const base = (name: string | undefined): void => {
       if (name === undefined) return
       const baseType = this.storage(resolveNamedType(name, this.project))
@@ -855,6 +1003,12 @@ class Lowering {
     if (e.kind === "index") {
       // one `index` step per dimension, each carrying the bounds a backend normalises by
       let place = this.place(e.base, notAMember)
+      // `p[i]` on a pointer: i elements past the one it points at (conformance `mem_pointer_index_struct_array`)
+      if (place !== undefined && place.type.kind === "pointer") {
+        if (e.indices.length !== 1) return this.bail("pointer-index", "a pointer indexed in more than one dimension", e.span)
+        const extra = this.expr(e.indices[0]!)
+        return extra && this.pointee(place, extra, e.span)
+      }
       for (const written of e.indices) {
         if (place === undefined) return undefined
         const array = peelArray(place.type)
@@ -869,6 +1023,12 @@ class Lowering {
     // names a base FB, and a derived FB is not lowered yet.
     if (e.kind === "deref" && isSelfRef(e) && e.base.kind === "ident_expr" && e.base.name.toUpperCase() === "THIS" && this.selfType !== undefined)
       return { slot: 0, path: [], type: this.selfType, span: e.span, root: "this" }
+    if (e.kind === "deref" && !isSelfRef(e)) {
+      const pointer = this.place(e.base, notAMember)
+      if (pointer === undefined) return undefined
+      if (pointer.type.kind !== "pointer") return this.bail("place-shape", "a dereference of something that is not a pointer", e.span)
+      return this.pointee(pointer, undefined, e.span)
+    }
     if (e.kind !== "ident_expr")
       return this.bail("place-shape", `${e.kind} is not a lowerable storage location yet`, e.span)
     // a routine's own local (its result, inputs and VAR) shadows the instance's field of the same name
@@ -946,7 +1106,11 @@ class Lowering {
         const place = this.place(e)
         if (place === undefined) return undefined
         if (place.type === UNKNOWN) return this.bail("type-unknown", `the type of ${e.name} is not resolvable`, e.span)
-        return { kind: "load", place, type: place.type, span: e.span }
+        return this.loadValue(place, e.span)
+      }
+      case "deref": {
+        const place = this.place(e)
+        return place && this.loadValue(place, e.span)
       }
       case "paren":
         return this.expr(e.inner, expected)
@@ -964,6 +1128,17 @@ class Lowering {
         return { kind: "unary", op: "neg", operand: convert(operand, type), type, span: e.span }
       }
       case "binary": {
+        // `p = 0` / `p <> 0` on a pointer or reference — null is 0 (conformance `keyword_null_pointer_init`)
+        if ((e.op === "=" || e.op === "<>") && e.right.kind === "literal" && e.right.value === 0n) {
+          const kind = inferExprType(e.left, this.scope, this.project).kind
+          if (kind === "pointer" || kind === "reference") {
+            const place = this.place(e.left)
+            if (place === undefined) return undefined
+            const zero: IrExpr = { kind: "const", value: 0n, type: place.type, span: e.right.span }
+            const loaded: IrExpr = { kind: "load", place, type: place.type, span: e.left.span }
+            return { kind: "binary", op: e.op === "=" ? "eq" : "ne", left: loaded, right: zero, type: elementaryRef("BOOL"), span: e.span }
+          }
+        }
         if (e.op === "-") {
           const difference = this.adrDifference(e)
           if (difference !== undefined) return difference ?? undefined
@@ -1028,7 +1203,7 @@ class Lowering {
         const place = this.place(e, e.kind === "member" ? "expr-member" : "expr-index")
         if (place === undefined) return undefined
         if (place.type === UNKNOWN) return this.bail("type-unknown", "the type of a member is not resolvable", e.span)
-        return { kind: "load", place, type: place.type, span: e.span }
+        return this.loadValue(place, e.span)
       }
       default:
         return this.bail(`expr-${e.kind}`, `${e.kind} is not lowered yet`, e.span)
@@ -1051,6 +1226,16 @@ class Lowering {
     // spells them. A project function called `GO_TO_START` is an ordinary call, and `TIME_OF_DAY_TO_UDINT` is no
     // conversion at all (it is not defined — this used to read it as one).
     if (name === "SIZEOF") return this.sizeOf(e)
+    if (name === "__ISVALIDREF") {
+      // a bound reference is valid (conformance `op_sys_isvalidref`: TRUE) — its value is not 0
+      const arg = e.args[0]?.value
+      if (e.args.length !== 1 || arg === undefined) return this.bail("call-arity", "__ISVALIDREF takes one argument", e.span)
+      const place = this.place(arg)
+      if (place === undefined) return undefined
+      if (place.type.kind !== "reference" && place.type.kind !== "pointer") return this.bail("call-arity", "__ISVALIDREF of something that is not a reference", e.span)
+      const loaded: IrExpr = { kind: "load", place, type: place.type, span: arg.span }
+      return { kind: "binary", op: "ne", left: loaded, right: { kind: "const", value: 0n, type: place.type, span: e.span }, type: elementaryRef("BOOL"), span: e.span }
+    }
     const conv = name === undefined ? undefined : parseConversionName(name)
     if (conv !== undefined) return this.conversion(e, conv.from && elementaryRef(conv.from.name), elementaryRef(conv.to.name))
     if (name !== undefined && STANDARD_STRING_FUNCTIONS.has(name)) return this.standardString(e, name)
@@ -1281,7 +1466,7 @@ class Lowering {
         return undefined
       case "assign": {
         if (s.chained !== undefined) return this.chain(s)
-        if (s.op === "REF=") return this.bail("assign-op", `${s.op} assignment`, s.span)
+        if (s.op === "REF=") return this.bindReference(s)
         const target = this.place(s.target)
         if (target === undefined) return undefined
         if (s.op === "S=" || s.op === "R=") {
@@ -1293,6 +1478,14 @@ class Lowering {
           const latch: IrExpr = { kind: "const", value: s.op === "S=", type: elementaryRef("BOOL"), span: s.span }
           const set: IrStmt = { kind: "assign", target, value: convert(latch, target.type), span: s.span }
           return { kind: "if", cond, then: [set], else: [], span: s.span }
+        }
+        if (target.type.kind === "pointer") return this.storePointer(target, s.value, s.span)
+        if (target.type.kind === "reference") {
+          // a write through a reference is a write to its target
+          const pointee = this.pointee(target, undefined, s.span)
+          if (pointee === undefined) return undefined
+          const written = this.expr(s.value, pointee.type)
+          return written && { kind: "assign", target: pointee, value: convert(written, pointee.type), span: s.span }
         }
         const value = this.expr(s.value, target.type)
         if (value === undefined) return undefined
@@ -1607,12 +1800,37 @@ function contextLiteralType(e: Extract<Expr, { kind: "literal" }>, expected?: Ty
 }
 
 
+/** An explicit conversion node, even between a pointer and an integer — `convert` returns the value unchanged when either
+ *  side is not elementary, and the emitted Rust then assigned an `i64` expression to a `usize` pointer field. */
+function cast(e: IrExpr, to: Type): IrExpr {
+  return { kind: "convert", value: e, type: to, span: e.span }
+}
+
+/** A binary node of a type the caller states — pointer arithmetic, where no operator typing applies. */
+function binaryOf(op: IrBinOp, left: IrExpr, right: IrExpr, type: Type, span: Span): IrExpr {
+  return { kind: "binary", op, left, right, type, span }
+}
+
+/** Two pointer targets naming the same variable (or the same array) — through fields and constant indices only. */
+function sameTarget(a: PointerTarget, b: PointerTarget): boolean {
+  if (a.base.slot !== b.base.slot || a.base.root !== b.base.root || (a.element === undefined) !== (b.element === undefined)) return false
+  if (a.base.path.length !== b.base.path.length) return false
+  return a.base.path.every((step, i) => {
+    const other = b.base.path[i]!
+    if (step.kind === "field") return other.kind === "field" && other.name.toUpperCase() === step.name.toUpperCase()
+    if (step.kind === "index")
+      return other.kind === "index" && step.index.kind === "const" && other.index.kind === "const" && step.index.value === other.index.value
+    return false
+  })
+}
+
 /** `offset` raised to the next multiple of `align`. */
 const alignUp = (offset: bigint, align: bigint): bigint => ((offset + align - 1n) / align) * align
 
 /** A type a backend can store: elementary, a laid-out struct or FB instance, or a sized array of those. */
 function representable(t: Type): boolean {
-  if (t.kind === "elementary" || t.kind === "struct" || t.kind === "function_block") return true
+  // a pointer or reference holds its one target's index (design §9 form 1) — a plain integer in both backends
+  if (t.kind === "elementary" || t.kind === "struct" || t.kind === "function_block" || t.kind === "pointer" || t.kind === "reference") return true
   const array = peelArray(t)
   return array !== undefined && representable(array.element)
 }
@@ -1640,6 +1858,7 @@ export function lowerUnit(
 
   const lowering = new Lowering(scope, project, newShared(attributes, unit.name.text))
   lowering.isRoot = true
+  lowering.frameContext = `POU:${unit.name.text.toUpperCase()}`
   lowering.declare(unit.varSections)
   const parsed = parseStatements(unit.body)
   if (!parsed.ok)
