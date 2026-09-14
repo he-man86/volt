@@ -576,6 +576,40 @@ END_PROGRAM`,
     expect([pou.get("inst.count"), pou.get("viaF"), pou.get("viaPositional"), pou.get("sink")]).toEqual([2n, 4n, 4n, 102n])
   })
 
+  // Phase 3 step 5: globals and PROGRAM calls, as CODESYS recorded them (conformance `fbcall_program_writes_global`: the
+  // called program's VAR persists and the global it writes is what the caller reads). Before it, a GVL variable, a
+  // VAR_EXTERNAL and a PROGRAM call each refused the POU (`place-not-local`, `call-program`) — and a VAR_EXTERNAL was
+  // declared as a LOCAL copy, so a write through it would never have reached the global.
+  test("a PROGRAM's instance and a GVL variable are the application's — shared by every body, VAR_EXTERNAL included", () => {
+    const pou = load(
+      `VAR_GLOBAL
+  gShared : INT;
+  gStart : INT := 100;
+END_VAR
+FUNCTION_BLOCK FB_Reader
+VAR_OUTPUT seenByFb : INT; END_VAR
+seenByFb := gShared + gStart;
+END_FUNCTION_BLOCK
+PROGRAM PRG_Writer
+VAR runs : INT; END_VAR
+runs := runs + 1;
+gShared := runs * 7;
+END_PROGRAM
+PROGRAM PLC_PRG
+VAR_EXTERNAL gShared : INT; END_VAR
+VAR reader : FB_Reader; seen : INT; viaFb : INT; runsSeen : INT; END_VAR
+PRG_Writer();
+seen := gShared;
+reader(seenByFb => viaFb);
+runsSeen := PRG_Writer.runs;
+END_PROGRAM`,
+      "PLC_PRG",
+    )
+    pou.scan()
+    pou.scan()
+    expect([pou.get("seen"), pou.get("viaFb"), pou.get("runsSeen")]).toEqual([14n, 114n, 2n])
+  })
+
   // Why missed: no initializer or assignment test stored a literal its target could not hold, and none put an integer in
   // a BOOL — the conformance fixtures that do (`overflow_*`, `cc_literal_*`, `cc_init_*_into_bool`) sat inside FBs, which
   // did not lower until calls did.

@@ -154,21 +154,46 @@ describe("lower — total, never silently wrong", () => {
     expect(beyond.diagnostics.map((d) => d.code)).toEqual(["bit-index"])
   })
 
+  // This refused a project GVL variable until globals lowered (phase 3 step 5); the refusal it pins moved to a name that
+  // still has no storage — a LIBRARY's global, which lowering leaves unmodelled.
   test("a name that is not a frame slot says WHAT it is, using the symbol table", () => {
-    const { diagnostics } = lowerSource(`
-VAR_GLOBAL
-  gTotal : INT;
-END_VAR
-
+    const library = { uri: "Library Manager/SomeLib/GVL_Lib.gvl", source: "VAR_GLOBAL\n  gLibCounter : INT;\nEND_VAR\n" }
+    const { diagnostics } = lowerSource(
+      `
 PROGRAM P
 VAR
   iCount : INT;
 END_VAR
-iCount := gTotal;
+iCount := gLibCounter;
 END_PROGRAM
-`)
+`,
+      "P",
+      [library],
+    )
     expect(diagnostics[0]!.code).toBe("place-not-local")
     expect(diagnostics[0]!.message).toContain("gvl_var")
+  })
+
+  test("a GVL variable, read directly or through VAR_EXTERNAL, is the application's storage — one slot for both", () => {
+    const { pou, diagnostics } = lowerSource(`
+VAR_GLOBAL
+  gTotal : INT := 5;
+END_VAR
+
+PROGRAM P
+VAR_EXTERNAL
+  gTotal : INT;
+END_VAR
+VAR
+  iCount : INT;
+END_VAR
+iCount := gTotal;
+gTotal := iCount + 1;
+END_PROGRAM
+`)
+    expect(diagnostics).toEqual([])
+    expect(pou!.slots.map((s) => s.name)).toEqual(["iCount"]) // the VAR_EXTERNAL is no local copy
+    expect(pou!.globals.map((s) => [s.name, s.init])).toEqual([["gTotal", 5n]])
   })
 
   test("a runtime FOR step is refused rather than guessed at", () => {

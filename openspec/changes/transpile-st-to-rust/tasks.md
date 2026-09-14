@@ -259,7 +259,13 @@ reshaped in place, each commit gated value-for-value by the conformance replay, 
       with VAR_OUTPUT, VAR_INST or VAR_STAT, a call with an input left out, a METHOD of a derived FB (dispatch), a bare
       or THIS^ method call inside an FB (`call-this`), and an FB carrying `instance-path` or a `call_after_*` attribute
       (now refused wherever it is instantiated — the compiler acts on it without a call).
-- [ ] **Step 5 — PROGRAM calls and GVLs** (`place-not-local` 13, `call-program`).
+- [x] **Step 5 — PROGRAM calls and GVLs.** DONE 2026-09-14: a GVL variable and a called PROGRAM's instance are the
+      application's storage (`IrPou.globals`, place root `global`), shared by every body. A VAR_EXTERNAL declared a
+      LOCAL COPY until now — a write through it would never have reached the global; it names the global instead. Rust
+      keeps two structs so a call borrows two things: `Globals` (handed to every body as `g`) and `Programs` (the POU's
+      own `scan` only) — `prg.prg_writer.call(g)`, where one struct would have been borrowed twice (rustc E0499, caught
+      by `fbcall_program_writes_global`). Cases lowering 315 → 317. Refused, counted: a PROGRAM called from inside an FB,
+      a routine or another program, a VAR_IN_OUT bound to a global, and a library's globals.
 - [ ] **Step 6 — handles.**
 
 - [x] **Review before phase 3** (2026-09-14, design §19): four emitter/lowering bugs found by probe and fixed — CONTINUE

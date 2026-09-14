@@ -77,8 +77,9 @@ export interface Place {
   type: Type
   span: Span
   /** `inout`: a VAR_IN_OUT parameter — the caller's variable, bound for the call (design §9 form 2, a `&mut`).
-   *  `local`: a METHOD's, ACTION's or FUNCTION's local, which starts over on every call. */
-  root?: "inout" | "local"
+   *  `local`: a METHOD's, ACTION's or FUNCTION's local, which starts over on every call.
+   *  `global`: the application's storage — a GVL variable, or a called PROGRAM's one instance (`IrPou.globals`). */
+  root?: "inout" | "local" | "global"
 }
 
 // ─── expressions ─────────────────────────────────────────────────────────────
@@ -292,7 +293,8 @@ export interface IrSlot {
   /** The ST name, source casing — the emitter's field name and the source map's anchor. */
   name: string
   type: Type
-  section: VarSectionKind | "temp"
+  /** `temp`: a lowering-owned slot. `program`: a called PROGRAM's one instance, in `IrPou.globals`. */
+  section: VarSectionKind | "temp" | "program"
   /** The initial value: the declaration's, constant-folded, or the type's zero (`defaultValueOf`). */
   init: IrValue
 }
@@ -344,6 +346,9 @@ export interface IrPou {
   body: readonly IrStmt[]
   layouts: readonly IrLayout[]
   routines: readonly IrRoutine[]
+  /** The application's global storage the POU reaches: GVL variables, and the instance of every PROGRAM it calls — one
+   *  each, shared by every body (conformance `fbcall_program_writes_global`: the called program's VAR persists). */
+  globals: readonly IrSlot[]
   span: Span
 }
 

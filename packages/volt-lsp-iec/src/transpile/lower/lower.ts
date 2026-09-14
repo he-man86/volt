@@ -133,12 +133,33 @@ const LIFTED: ReadonlySet<IrBinOp> = new Set([...COMPARISONS, "add", "sub", "mul
 /** An FB whose storage is laid out and whose body is lowered at its first call, in the lowering that declared its fields. */
 interface PendingBody {
   lowering: Lowering
-  unit: Extract<TopLevel, { kind: "function_block" }>
+  unit: Extract<TopLevel, { kind: "function_block" | "program" }>
   state: "pending" | "lowered" | "failed"
 }
 
+/** An FB's base, if it EXTENDS one — a PROGRAM never does. */
+const baseOf = (unit: PendingBody["unit"]) => (unit.kind === "function_block" ? unit.extends : undefined)
+
 /** A METHOD, ACTION or FUNCTION lowered once per POU — or the fact that it could not be. */
 type CalledRoutine = { state: "lowered"; routine: IrRoutine } | { state: "failed" }
+
+/** What every lowering of one POU shares — the frames of the types, bodies and routines its calls reach, and the
+ *  application's globals. */
+interface Shared {
+  layouts: Map<string, IrLayout>
+  bodies: Map<string, PendingBody>
+  routines: Map<string, CalledRoutine>
+  /** The `{attribute '…'}` names on each POU (`syntax/unitAttributes`) — the AST keeps no pragmas. */
+  attributes: ReadonlyMap<TopLevel, ReadonlySet<string>>
+  /** GVL variables and called PROGRAMs' instances, by upper-cased name. */
+  globals: { slots: IrSlot[]; byName: Map<string, number> }
+  /** The POU being lowered: a PROGRAM that names it is the running frame, not a global instance. */
+  root: string
+}
+
+function newShared(attributes: ReadonlyMap<TopLevel, ReadonlySet<string>> = new Map(), root = ""): Shared {
+  return { layouts: new Map(), bodies: new Map(), routines: new Map(), attributes, globals: { slots: [], byName: new Map() }, root }
+}
 
 class Lowering {
   readonly diagnostics: LowerDiagnostic[] = []
@@ -150,18 +171,64 @@ class Lowering {
   private readonly localByName = new Map<string, number>()
   /** Lowering a METHOD, ACTION or FUNCTION body: its declarations and temps are per-call locals, not fields. */
   private routineMode = false
+  /** Declaring a GVL variable: its slot is the application's, not this frame's. */
+  private globalMode = false
+  /** Lowering the POU's OWN body — the one place a PROGRAM is called from (see `globalPlace`); set by `lowerUnit`. */
+  isRoot = false
 
   constructor(
     private readonly scope: Scope,
     private readonly project: Scope,
-    /** Every composite type's storage, by upper-cased name — shared with the lowerings of the types it holds. */
-    readonly layouts: Map<string, IrLayout> = new Map(),
-    private readonly bodies: Map<string, PendingBody> = new Map(),
-    /** The `{attribute '…'}` names on each POU (`syntax/unitAttributes`) — the AST keeps no pragmas. */
-    private readonly attributes: ReadonlyMap<TopLevel, ReadonlySet<string>> = new Map(),
-    /** Every METHOD, ACTION and FUNCTION a call reached, by upper-cased key — shared like `layouts`. */
-    readonly routines: Map<string, CalledRoutine> = new Map(),
+    private readonly shared: Shared = newShared(),
   ) {}
+
+  /** Every composite type's storage, by upper-cased name. */
+  get layouts(): Map<string, IrLayout> {
+    return this.shared.layouts
+  }
+  private get bodies(): Map<string, PendingBody> {
+    return this.shared.bodies
+  }
+  /** Every METHOD, ACTION and FUNCTION a call reached, by upper-cased key. */
+  get routines(): Map<string, CalledRoutine> {
+    return this.shared.routines
+  }
+  private get attributes(): ReadonlyMap<TopLevel, ReadonlySet<string>> {
+    return this.shared.attributes
+  }
+  get globals(): readonly IrSlot[] {
+    return this.shared.globals.slots
+  }
+
+  /**
+   * A name no local, field or parameter holds: a GVL variable, or a called PROGRAM's instance — the application's
+   * storage, one of each (design §9). A POU's VAR_EXTERNAL names the global it declares. Undefined for anything else,
+   * which the caller reports; a library's globals stay unmodelled.
+   */
+  private globalPlace(name: string, span: Span): Place | undefined {
+    const upper = name.toUpperCase()
+    const place = (slot: number): Place => ({ slot, path: [], type: this.shared.globals.slots[slot]!.type, span, root: "global" })
+    // A PROGRAM's instance is reached from the POU's own body only. Rust holds the instances apart from the GVL variables
+    // (`Programs`, `Globals`) so that `prg.p.call(g)` borrows two things; a program called from inside an FB, a routine or
+    // another program would need the instances and itself at once.
+    const known = this.shared.globals.byName.get(upper)
+    if (known !== undefined) return this.shared.globals.slots[known]!.section === "program" && !this.isRoot ? undefined : place(known)
+    let sym = lookup(this.scope, name)?.symbol
+    if (sym?.varSection === "VAR_EXTERNAL") sym = lookup(this.project, name)?.symbol
+    if (sym === undefined || libraryOf(sym) !== undefined) return undefined
+    if (sym.kind === "gvl_var") {
+      const gvl = new Lowering(this.project, this.project, this.shared)
+      gvl.globalMode = true
+      gvl.declare([{ sectionKind: "VAR", decls: [sym.ast] } as unknown as VarSection])
+      this.diagnostics.push(...gvl.diagnostics)
+    } else if (sym.kind === "program" && this.isRoot && sym.name.toUpperCase() !== this.shared.root.toUpperCase()) {
+      const type = this.storage(resolveNamedType(sym.name, this.project))
+      this.shared.globals.byName.set(upper, this.shared.globals.slots.length)
+      this.shared.globals.slots.push({ name: sym.name, type, section: "program", init: defaultValueOf(type) })
+    } else return undefined
+    const slot = this.shared.globals.byName.get(upper)
+    return slot === undefined ? undefined : place(slot)
+  }
 
   /** A temp as a place — a per-call local inside a routine, a field or slot elsewhere. */
   private tempPlace(purpose: string, type: Type, span: Span): Place {
@@ -195,7 +262,7 @@ class Lowering {
     const parsed = parseStatements(ast.body)
     if (!parsed.ok) return failed("parse", parsed.firstError ?? `${name}'s body did not parse`)
 
-    const r = new Lowering(scope, this.project, this.layouts, this.bodies, this.attributes, this.routines)
+    const r = new Lowering(scope, this.project, this.shared)
     if (fb !== undefined) r.inherit(fb.fields)
     r.routineMode = true
     let result: number | undefined
@@ -239,7 +306,8 @@ class Lowering {
       if (layout === undefined || (sym?.kind !== "method" && sym?.kind !== "action"))
         return this.bail("call-method", `${callee.member.name} is not a METHOD or ACTION lowering can call`, call.span)
       // an override in a derived FB would decide which body runs — dynamic dispatch, not measured
-      if (this.bodies.get(layout.name.toUpperCase())?.unit.extends !== undefined)
+      const pendingFb = this.bodies.get(layout.name.toUpperCase())
+      if (pendingFb !== undefined && baseOf(pendingFb.unit) !== undefined)
         return this.bail("call-extends", `${layout.name} EXTENDS another FB — which ${callee.member.name} runs is not measured yet`, call.span)
       routine = this.calledRoutine(sym, layout, call.span)
       instance = base
@@ -268,6 +336,8 @@ class Lowering {
           if (instance !== undefined && target.slot === instance.slot && target.root === instance.root)
             return this.bail("call-inout-alias", `${arg.param.name} is bound to a variable of the instance it calls`, arg.span)
           if (target.path.some((s) => s.kind === "bit")) return this.bail("call-inout-bit", `${arg.param.name} is bound to a bit`, arg.span)
+        // every body is handed the globals as one `&mut`, so a VAR_IN_OUT into them would be a second borrow of the same place
+        if (target.root === "global") return this.bail("call-inout-global", `${arg.param.name} is bound to a global variable`, arg.span)
           inouts[inout] = target
           continue
         }
@@ -317,7 +387,8 @@ class Lowering {
     if (pending.state === "lowered") return layout
     if (pending.state === "failed") return this.bail("call-body", `${name}'s body does not lower`, span)
     const unit = pending.unit
-    if (unit.extends !== undefined) return this.fail(pending, "call-extends", `${name} EXTENDS ${unit.extends.text} — which bodies a call runs is not measured yet`, span)
+    const base = baseOf(unit)
+    if (base !== undefined) return this.fail(pending, "call-extends", `${name} EXTENDS ${base.text} — which bodies a call runs is not measured yet`, span)
     if (unit.varSections.some((s) => s.sectionKind === "VAR_TEMP"))
       return this.fail(pending, "fb-var-temp", `${name} has VAR_TEMP — whether it starts over per call is not measured yet`, span)
     if (isGraphicalBody(unit.body)) return this.fail(pending, "graphical-body", `${name} has a graphical body`, span)
@@ -356,8 +427,11 @@ class Lowering {
         const value = this.invoke(call)
         return value && [{ kind: "eval", value, span: call.span }]
       }
-      const code = kind === "program" ? "call-program" : kind === "method" || kind === "action" ? "call-this" : "stmt-call_stmt"
-      return this.bail(code, `${callee.name} is not a callable instance yet`, call.span)
+      // a PROGRAM's one instance is global, and calls like an FB's; anything else is not callable yet
+      if (kind !== "program" || !this.isRoot || callee.name.toUpperCase() === this.shared.root.toUpperCase()) {
+        const code = kind === "program" ? "call-program" : kind === "method" || kind === "action" ? "call-this" : "stmt-call_stmt"
+        return this.bail(code, `${callee.name} is not a callable instance yet`, call.span)
+      }
     }
     if (callee.kind === "member") {
       const base = this.place(callee.base)
@@ -390,6 +464,8 @@ class Lowering {
         if (target.slot === instance.slot && target.root === instance.root)
           return this.bail("call-inout-alias", `${arg.param.name} is bound to a variable of the instance it calls`, arg.span)
         if (target.path.some((s) => s.kind === "bit")) return this.bail("call-inout-bit", `${arg.param.name} is bound to a bit`, arg.span)
+        // every body is handed the globals as one `&mut`, so a VAR_IN_OUT into them would be a second borrow of the same place
+        if (target.root === "global") return this.bail("call-inout-global", `${arg.param.name} is bound to a global variable`, arg.span)
         bound.set(name, target)
         continue
       }
@@ -430,7 +506,7 @@ class Lowering {
 
   /** A struct's fields or an FB instance's storage, lowered in the type's own scope — a base type's fields first. */
   private buildLayout(t: Extract<Type, { kind: "struct" | "function_block" }>, sym: ReturnType<typeof lookup> extends infer R ? (R extends { symbol: infer S } ? S : never) | undefined : never): void {
-    const nested = new Lowering(t.scope ?? this.project, this.project, this.layouts, this.bodies, this.attributes, this.routines)
+    const nested = new Lowering(t.scope ?? this.project, this.project, this.shared)
     const base = (name: string | undefined): void => {
       if (name === undefined) return
       const baseType = this.storage(resolveNamedType(name, this.project))
@@ -442,14 +518,14 @@ class Lowering {
     if (t.kind === "struct" && ast?.kind === "type_decl" && ast.body.kind === "struct") {
       base(ast.body.extends?.text)
       nested.declare([{ sectionKind: "VAR", decls: ast.body.fields } as unknown as VarSection])
-    } else if (t.kind === "function_block" && ast?.kind === "function_block") {
+    } else if (t.kind === "function_block" && (ast?.kind === "function_block" || ast?.kind === "program")) {
       // The compiler acts on these whether or not the FB is ever called, and the program's text does not say what it
       // does: `instance-path` fills a STRING with the instance's path (conformance `instance_path_with_reflection`), and a
       // `call_after_global_init_slot` METHOD runs once before the first scan (iCount 1) — while `call_after_init`'s did
       // not (0 after a scan). None is modelled, so an FB that carries one is refused rather than run wrong.
       const unmodelled = [...(this.attributes.get(ast) ?? [])].find((a) => a === "instance-path" || a.startsWith("call_after"))
       if (unmodelled !== undefined) this.bail(`attr-${unmodelled}`, `${t.name} carries {attribute '${unmodelled}'}, which lowering does not model`, sym?.span ?? ZERO_SPAN)
-      base(ast.extends?.text)
+      base(baseOf(ast)?.text)
       nested.declare(ast.varSections.filter((s) => INSTANCE_STORAGE.has(s.sectionKind)))
       this.bodies.set(t.name.toUpperCase(), { lowering: nested, unit: ast, state: "pending" })
     } else {
@@ -473,7 +549,8 @@ class Lowering {
   // ─── slots ─────────────────────────────────────────────────────────────────
 
   declare(sections: readonly VarSection[]): void {
-    for (const sec of sections)
+    // a VAR_EXTERNAL declares no storage: its name is the global's (`globalPlace`) — a slot here would be a local copy
+    for (const sec of sections.filter((s) => s.sectionKind !== "VAR_EXTERNAL"))
       for (const written of sec.decls) {
         const type = this.storage(this.resolve(written.type))
         // A variable with no initializer of its own starts at its ALIAS type's: `TYPE T : INT := 42;` makes `x : T` 42
@@ -525,6 +602,11 @@ class Lowering {
   }
 
   private slot(name: Identifier, type: Type, section: VarSection["sectionKind"], init?: IrValue): void {
+    if (this.globalMode) {
+      this.shared.globals.byName.set(name.text.toUpperCase(), this.shared.globals.slots.length)
+      this.shared.globals.slots.push({ name: name.text, type, section, init: init ?? defaultValueOf(type) })
+      return
+    }
     if (this.routineMode) {
       this.localByName.set(name.text.toUpperCase(), this.localSlots.length)
       this.localSlots.push({ name: name.text, type, section, init: init ?? defaultValueOf(type) })
@@ -597,6 +679,8 @@ class Lowering {
     if (slot === undefined && inout !== undefined)
       return { slot: inout, path: [], type: this.inoutSlots[inout]!.type, span: e.span, root: "inout" }
     if (slot === undefined) {
+      const global = this.globalPlace(e.name, e.span)
+      if (global !== undefined) return global
       // `symbols/` decides what the name IS — a GVL, an enum member, a library global — so the report names
       // the real reason rather than "unknown identifier".
       const found = lookup(this.scope, e.name)?.symbol
@@ -1342,7 +1426,8 @@ export function lowerUnit(
   if (isGraphicalBody(unit.body))
     return { diagnostics: [{ code: "graphical-body", message: "a graphical body is not lowered here", span: unit.span }] }
 
-  const lowering = new Lowering(scope, project, new Map(), new Map(), attributes)
+  const lowering = new Lowering(scope, project, newShared(attributes, unit.name.text))
+  lowering.isRoot = true
   lowering.declare(unit.varSections)
   const parsed = parseStatements(unit.body)
   if (!parsed.ok)
@@ -1360,13 +1445,14 @@ export function lowerUnit(
     ...lowering.frame,
     ...layouts.flatMap((l) => [...l.fields, ...(l.inouts ?? [])]),
     ...routines.flatMap((r) => [...r.locals, ...r.inouts]),
+    ...lowering.globals,
   ].find((s) => !representable(s.type))
   if (unrepresentable !== undefined) {
     const kind = unrepresentable.type.kind
     return { diagnostics: [{ code: `slot-${kind}`, message: `${unrepresentable.name} is a ${kind} variable, which has no runtime representation yet`, span: unit.span }] }
   }
 
-  const pou: IrPou = { name: unit.name.text, slots: lowering.frame, body, layouts, routines, span: unit.span }
+  const pou: IrPou = { name: unit.name.text, slots: lowering.frame, body, layouts, routines, globals: lowering.globals, span: unit.span }
   return { pou, diagnostics: [] }
 }
 

@@ -27,6 +27,10 @@ export interface Emitted {
   code: string
   /** 1-based emitted line → the ST span it came from. */
   sourceMap: readonly { line: number; span: Span }[]
+  /** The program reaches GVL variables: `scan` takes `g: &mut Globals` (`Globals::new()` builds it). */
+  usesGlobals: boolean
+  /** The program calls PROGRAMs: `scan` takes `prg: &mut Programs` (`Programs::new()`), after `g`. */
+  usesPrograms: boolean
 }
 
 /** IEC elementary type → Rust type, derived from the type's own facts (family · bits · signed). */
@@ -88,8 +92,8 @@ const RUST_KEYWORDS: ReadonlySet<string> = new Set(
  * bare `snake` was the field name, so a variable named `loop` emitted `pub loop: i16` and `aB` beside `a_b` emitted
  * two `a_b` fields — neither compiles, and no oracle case held such a name (transpiler review 2026-09-14).
  */
-export function fieldNames(slots: IrPou["slots"]): string[] {
-  const used = new Set<string>()
+export function fieldNames(slots: IrPou["slots"], reserved: readonly string[] = []): string[] {
+  const used = new Set<string>(reserved)
   return slots.map((slot) => {
     const snaked = snake(slot.name)
     const base = RUST_KEYWORDS.has(snaked) ? `${snaked}_` : snaked
@@ -179,7 +183,16 @@ class Printer {
     private fields: readonly string[],
     private readonly layouts: ReadonlyMap<string, { layout: IrLayout; fields: readonly string[] }>,
     private readonly routines: ReadonlyMap<string, IrRoutine>,
+    /** Each global slot's Rust access (`g.g_shared`, `prg.prg_writer`), and the slots — `IrPou.globals`' order. */
+    private readonly globals: { access: readonly string[]; slots: IrPou["slots"] },
+    /** The program reaches GVL variables — every generated call is handed `g`. */
+    private readonly usesGlobals: boolean,
   ) {}
+
+  /** `g` before a generated call's arguments when the program has GVL variables. */
+  get globalsArg(): string[] {
+    return this.usesGlobals ? ["g"] : []
+  }
 
   /** Print `run` inside an FB's `call` or a routine: `fields` are `self`'s, the frame holds its parameters and locals. */
   inFrame(fields: readonly string[], frame: Frame, run: () => void): void {
@@ -191,8 +204,22 @@ class Printer {
 
   /** A place as a Rust lvalue — `self.inst.q`, `self.arr[(self.i as i64 - 1i64) as usize].x`, `(*v)`, `count` — without a final bit step. */
   place(p: Place, slots: IrPou["slots"]): string {
-    let text = p.root === "inout" ? `(*${this.frame.inoutNames[p.slot]})` : p.root === "local" ? this.frame.localNames[p.slot]! : `self.${this.fields[p.slot]}`
-    let type: Type = p.root === "inout" ? this.frame.inoutSlots[p.slot]!.type : p.root === "local" ? this.frame.localSlots[p.slot]!.type : slots[p.slot]!.type
+    let text =
+      p.root === "inout"
+        ? `(*${this.frame.inoutNames[p.slot]})`
+        : p.root === "local"
+          ? this.frame.localNames[p.slot]!
+          : p.root === "global"
+            ? this.globals.access[p.slot]!
+            : `self.${this.fields[p.slot]}`
+    let type: Type =
+      p.root === "inout"
+        ? this.frame.inoutSlots[p.slot]!.type
+        : p.root === "local"
+          ? this.frame.localSlots[p.slot]!.type
+          : p.root === "global"
+            ? this.globals.slots[p.slot]!.type
+            : slots[p.slot]!.type
     for (const step of p.path) {
       if (step.kind === "field") {
         const entry = type.kind === "struct" || type.kind === "function_block" ? this.layouts.get(type.name.toUpperCase()) : undefined
@@ -226,7 +253,7 @@ class Printer {
       case "invoke": {
         // the inputs by value, then the VAR_IN_OUT as `&mut` — a METHOD or ACTION on its instance, a FUNCTION free
         const routine = this.routines.get(e.routine)!
-        const args = [...e.inputs.map((a) => this.expr(a, slots)), ...e.inouts.map((p) => `&mut ${this.place(p, slots)}`)].join(", ")
+        const args = [...this.globalsArg, ...e.inputs.map((a) => this.expr(a, slots)), ...e.inouts.map((p) => `&mut ${this.place(p, slots)}`)].join(", ")
         const fn = routineFnName(routine)
         return e.instance === undefined ? `${fn}(${args})` : `${this.place(e.instance, slots)}.${fn}(${args})`
       }
@@ -449,7 +476,7 @@ class Printer {
         return
       case "call": {
         // the inputs were assigned before this line and the outputs are read after it; VAR_IN_OUT is a `&mut` (design §9)
-        const bound = s.inouts.map((p) => `&mut ${this.place(p, slots)}`).join(", ")
+        const bound = [...this.globalsArg, ...s.inouts.map((p) => `&mut ${this.place(p, slots)}`)].join(", ")
         this.push(`${this.place(s.instance, slots)}.call(${bound});`, indent, s.span)
         return
       }
@@ -477,12 +504,13 @@ function routineFnName(routine: IrRoutine): string {
  * `&mut` parameters, every other local a `let mut` at its initial value — so each call starts over, as measured — and the
  * result local is handed back.
  */
-function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[], fieldSlots: IrPou["slots"], indent: number): void {
-  const names = fieldNames([...routine.locals, ...routine.inouts])
+function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[], fieldSlots: IrPou["slots"], indent: number, usesGlobals: boolean): void {
+  const names = fieldNames([...routine.locals, ...routine.inouts], usesGlobals ? ["g"] : [])
   const localNames = names.slice(0, routine.locals.length)
   const inoutNames = names.slice(routine.locals.length)
   const params = [
     ...(routine.kind === "function" ? [] : ["&mut self"]),
+    ...(usesGlobals ? ["g: &mut Globals"] : []),
     ...routine.inputs.map((i) => `mut ${localNames[i]}: ${rustType(routine.locals[i]!.type)}`),
     ...routine.inouts.map((slot, i) => `${inoutNames[i]}: &mut ${rustType(slot.type)}`),
   ]
@@ -533,10 +561,44 @@ export function rustAccess(pou: IrPou, path: string): { expr: string; type: Type
 export function emitRust(pou: IrPou): Emitted {
   const layouts = new Map(pou.layouts.map((l) => [l.name.toUpperCase(), { layout: l, fields: fieldNames(l.fields) }]))
   const fields = fieldNames(pou.slots)
-  const p = new Printer(fields, layouts, new Map(pou.routines.map((r) => [r.key, r])))
+  // The application's global storage, as two structs so a call borrows two things: the GVL variables (`Globals`, handed
+  // to every body as `g`) and each called PROGRAM's one instance (`Programs`, the POU's own `scan` only) — design §9.
+  const variables = pou.globals.filter((s) => s.section !== "program")
+  const programs = pou.globals.filter((s) => s.section === "program")
+  const usesGlobals = variables.length > 0
+  const usesPrograms = programs.length > 0
+  const variableNames = fieldNames(variables)
+  const programNames = fieldNames(programs)
+  const access = pou.globals.map((s) =>
+    s.section === "program" ? `prg.${programNames[programs.indexOf(s)]}` : `g.${variableNames[variables.indexOf(s)]}`,
+  )
+  const p = new Printer(fields, layouts, new Map(pou.routines.map((r) => [r.key, r])), { access, slots: pou.globals }, usesGlobals)
   const name = rustName(pou.name)
+  // every generated body is handed the globals as `g`, so no parameter or local of its own may take that name
+  const globalsParam = usesGlobals ? ["g: &mut Globals"] : []
+  const reserved = usesGlobals ? ["g"] : []
 
   p.push(`// generated from ${pou.name} — do not edit`, 0)
+  for (const [struct, slots, names] of [
+    ["Globals", variables, variableNames],
+    ["Programs", programs, programNames],
+  ] as const) {
+    if (slots.length === 0) continue
+    p.push("#[allow(non_camel_case_types)]", 0)
+    p.push("#[derive(Debug, Clone, PartialEq)]", 0)
+    p.push(`pub struct ${struct} {`, 0)
+    for (const [i, slot] of slots.entries()) p.push(`pub ${names[i]}: ${rustType(slot.type)},`, 1)
+    p.push("}", 0)
+    p.push("", 0)
+    p.push(`impl ${struct} {`, 0)
+    p.push("pub fn new() -> Self {", 1)
+    p.push("Self {", 2)
+    for (const [i, slot] of slots.entries()) p.push(`${names[i]}: ${initOf(slot.type, slot.init)},`, 3)
+    p.push("}", 2)
+    p.push("}", 1)
+    p.push("}", 0)
+    p.push("", 0)
+  }
   // One plain struct per DUT and FB the frame holds, each with a `new` at its declared initial values. No `Default`
   // derive — Rust derives it only for arrays up to 32 elements — so every value starts through `new`.
   // ponytail: the layouts ride with each POU, like the string prelude; hoist them when whole projects are emitted.
@@ -555,14 +617,15 @@ export function emitRust(pou: IrPou): Emitted {
     p.push("}", 1)
     if (layout.body !== undefined) {
       const inouts = layout.inouts ?? []
-      const inoutNames = fieldNames(inouts)
-      const params = inouts.map((slot, i) => `, ${inoutNames[i]}: &mut ${rustType(slot.type)}`).join("")
+      const inoutNames = fieldNames(inouts, reserved)
+      const params = [...globalsParam, ...inouts.map((slot, i) => `${inoutNames[i]}: &mut ${rustType(slot.type)}`)].map((param) => `, ${param}`).join("")
       p.push("", 0)
+      if (usesGlobals) p.push("#[allow(unused_variables)]", 1)
       p.push(`pub fn call(&mut self${params}) {`, 1)
       p.inFrame(names, { inoutNames, inoutSlots: inouts, localNames: [], localSlots: [] }, () => p.block(layout.body!, layout.fields, 2))
       p.push("}", 1)
     }
-    for (const routine of pou.routines.filter((r) => r.fb?.toUpperCase() === layout.name.toUpperCase())) printRoutine(p, routine, names, layout.fields, 1)
+    for (const routine of pou.routines.filter((r) => r.fb?.toUpperCase() === layout.name.toUpperCase())) printRoutine(p, routine, names, layout.fields, 1, usesGlobals)
     p.push("}", 0)
     p.push("", 0)
   }
@@ -581,17 +644,22 @@ export function emitRust(pou: IrPou): Emitted {
   p.push("}", 2)
   p.push("}", 1)
   p.push("", 0)
-  p.push("pub fn scan(&mut self) {", 1)
+  p.push(`pub fn scan(&mut self${usesGlobals ? ", g: &mut Globals" : ""}${usesPrograms ? ", prg: &mut Programs" : ""}) {`, 1)
   p.block(pou.body, pou.slots, 2)
   p.push("}", 1)
   p.push("}", 0)
   // a FUNCTION has no instance: a free fn beside the structs
-  for (const routine of pou.routines.filter((r) => r.kind === "function")) printRoutine(p, routine, [], [], 0)
+  for (const routine of pou.routines.filter((r) => r.kind === "function")) printRoutine(p, routine, [], [], 0, usesGlobals)
 
   // Only a program that holds a string gets the string type — every other output stays exactly what it was.
   // ponytail: the prelude rides with each POU, so a crate of TWO string POUs would define it twice; hoist it into a
   // shared module when the emitter emits whole projects rather than one POU at a time.
-  if (!p.code.includes("IecStr") && !p.code.includes("IecWString")) return { code: p.code, sourceMap: p.sourceMap }
+  if (!p.code.includes("IecStr") && !p.code.includes("IecWString")) return { code: p.code, sourceMap: p.sourceMap, usesGlobals, usesPrograms }
   const offset = STRING_PRELUDE.split("\n").length - 1
-  return { code: STRING_PRELUDE + p.code, sourceMap: p.sourceMap.map((m) => ({ ...m, line: m.line + offset })) }
+  return {
+    code: STRING_PRELUDE + p.code,
+    sourceMap: p.sourceMap.map((m) => ({ ...m, line: m.line + offset })),
+    usesGlobals,
+    usesPrograms,
+  }
 }

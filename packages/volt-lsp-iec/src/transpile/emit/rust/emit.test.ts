@@ -92,6 +92,24 @@ describe("emit/rust", () => {
     expect(code).toContain("f_acc(4i16)")
   })
 
+  test("globals are a `Globals` struct handed to every body as `g`; called PROGRAMs live apart in `Programs`", () => {
+    const { pou, diagnostics } = lowerSource(
+      "PROGRAM Main\nVAR reader : FB_Reader; seen : INT; END_VAR\nPRG_Writer();\nseen := gShared;\nreader();\nEND_PROGRAM\nVAR_GLOBAL\n  gShared : INT := 3;\nEND_VAR\nFUNCTION_BLOCK FB_Reader\nVAR_OUTPUT q : INT; END_VAR\nq := gShared;\nEND_FUNCTION_BLOCK\nPROGRAM PRG_Writer\nVAR runs : INT; END_VAR\nruns := runs + 1;\ngShared := runs;\nEND_PROGRAM\n",
+      "Main",
+    )
+    expect(diagnostics).toEqual([])
+    const emitted = emitRust(pou!)
+    expect([emitted.usesGlobals, emitted.usesPrograms]).toEqual([true, true])
+    expect(emitted.code).toContain("pub struct Globals {")
+    expect(emitted.code).toContain("g_shared: 3i16,")
+    expect(emitted.code).toContain("pub struct Programs {")
+    expect(emitted.code).toContain("pub fn scan(&mut self, g: &mut Globals, prg: &mut Programs) {")
+    // two borrows, never one struct borrowed twice: the instance from `prg`, the variables from `g`
+    expect(emitted.code).toContain("prg.prg_writer.call(g);")
+    expect(emitted.code).toContain("self.seen = g.g_shared;")
+    expect(emitted.code).toContain("pub fn call(&mut self, g: &mut Globals) {")
+  })
+
   test("ST names become snake_case fields", () => {
     expect(["iCount", "MaxCount", "PLC_Ready", "x"].map(snake)).toEqual(["i_count", "max_count", "plc_ready", "x"])
   })
@@ -235,6 +253,9 @@ describe.skipIf(rustc === null)("emit/rust — compiles", () => {
       "PROGRAM Calls\nVAR inc : FB_Inc; outer : FB_Outer; n : INT; ok : BOOL; big : INT := 40000; si : SINT; END_VAR\ninc(by1 := 1, v := n, done => ok);\nouter();\nsi := 128;\nEND_PROGRAM\nFUNCTION_BLOCK FB_Inc\nVAR_INPUT by1 : INT; END_VAR\nVAR_IN_OUT v : INT; END_VAR\nVAR_OUTPUT done : BOOL; END_VAR\nv := v + by1;\ndone := TRUE;\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_Outer\nVAR inner : FB_Inc; total : INT; END_VAR\ninner(by1 := 2, v := total);\nEND_FUNCTION_BLOCK\n",
       // Routines (phase 3 step 4): a METHOD with a result, a local, a loop temp and a RETURN; an ACTION; a METHOD with a
       // VAR_IN_OUT bound to a program field; a FUNCTION called positionally inside an expression.
+      // Globals (phase 3 step 5): a GVL variable read and written through VAR_EXTERNAL, an FB and a FUNCTION reaching it,
+      // and a PROGRAM called — `g` and `prg` borrowed side by side.
+      "PROGRAM GlobalCalls\nVAR_EXTERNAL gCount : INT; END_VAR\nVAR reader : FB_GReader; seen : INT; END_VAR\nPRG_GWriter();\ngCount := gCount + F_GRead(1);\nreader(q => seen);\nseen := PRG_GWriter.runs;\nEND_PROGRAM\nVAR_GLOBAL\n  gCount : INT := 1;\nEND_VAR\nFUNCTION_BLOCK FB_GReader\nVAR_OUTPUT q : INT; END_VAR\nq := gCount;\nEND_FUNCTION_BLOCK\nFUNCTION F_GRead : INT\nVAR_INPUT k : INT; END_VAR\nF_GRead := gCount * k;\nEND_FUNCTION\nPROGRAM PRG_GWriter\nVAR runs : INT; END_VAR\nruns := runs + 1;\ngCount := runs;\nEND_PROGRAM\n",
       "PROGRAM RoutineCalls\nVAR inst : FB_R; got : INT; sink : INT; END_VAR\ngot := inst.Sum(upto := 4) + F_Twice(3);\ninst.Reset();\ninst.Store(dest := sink);\nEND_PROGRAM\nFUNCTION_BLOCK FB_R\nVAR total : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Sum : INT\nVAR_INPUT upto : INT; END_VAR\nVAR i : INT; END_VAR\nFOR i := 1 TO upto DO\n  Sum := Sum + i;\n  IF Sum > 100 THEN RETURN; END_IF\nEND_FOR\ntotal := Sum;\nEND_METHOD\nACTION Reset\ntotal := 0;\nEND_ACTION\nMETHOD Store\nVAR_IN_OUT dest : INT; END_VAR\ndest := total;\nEND_METHOD\nFUNCTION F_Twice : INT\nVAR_INPUT x : INT; END_VAR\nF_Twice := x * 2;\nEND_FUNCTION\n",
     ]
     const len = { uri: "Library Manager/Standard/LEN.fun", source: "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\nEND_FUNCTION\n" }

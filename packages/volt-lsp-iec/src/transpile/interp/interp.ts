@@ -242,6 +242,8 @@ class Machine {
     private readonly inouts: readonly Cell[],
     private readonly layouts: ReadonlyMap<string, IrLayout>,
     private readonly routines: ReadonlyMap<string, IrRoutine>,
+    /** The application's globals — ONE array every body shares. */
+    private readonly globals: Val[],
     /** The running METHOD's, ACTION's or FUNCTION's per-call locals. */
     private readonly locals: Val[] = [],
   ) {}
@@ -267,7 +269,7 @@ class Machine {
       root = (at.container as Record<string | number, Val>)[at.key] as Record<string | number, Val>
       keys = this.layouts.get(routine.fb!.toUpperCase())!.fields.map((f) => f.name.toUpperCase())
     }
-    new Machine(root, keys, bound, this.layouts, this.routines, locals).block(routine.body)
+    new Machine(root, keys, bound, this.layouts, this.routines, this.globals, locals).block(routine.body)
     return routine.result === undefined ? false : locals[routine.result]!
   }
 
@@ -282,7 +284,9 @@ class Machine {
         ? this.inouts[place.slot]!
         : place.root === "local"
           ? { container: this.locals as unknown as Record<number, Val>, key: place.slot }
-          : { container: this.root, key: this.keys[place.slot]! }
+          : place.root === "global"
+            ? { container: this.globals as unknown as Record<number, Val>, key: place.slot }
+            : { container: this.root, key: this.keys[place.slot]! }
     let container: Val[] | { [field: string]: Val } = start.container as Val[] | { [field: string]: Val }
     let key: number | string = start.key
     for (const step of walk) {
@@ -488,7 +492,7 @@ class Machine {
           const cell = this.locate(p)
           return { container: cell.container as Record<string | number, Val>, key: cell.key }
         })
-        new Machine(instance, layout.fields.map((f) => f.name.toUpperCase()), bound, this.layouts, this.routines).block(layout.body!)
+        new Machine(instance, layout.fields.map((f) => f.name.toUpperCase()), bound, this.layouts, this.routines, this.globals).block(layout.body!)
         return "none"
       }
       case "eval":
@@ -556,7 +560,8 @@ export function run(pou: IrPou): Runner {
   const layouts = new Map(pou.layouts.map((l) => [l.name.toUpperCase(), l]))
   const frame = pou.slots.map((s) => instantiate(s.type, s.init, layouts))
   const routines = new Map(pou.routines.map((r) => [r.key, r]))
-  const machine = new Machine(frame as unknown as Record<number, Val>, pou.slots.map((_, i) => i), [], layouts, routines)
+  const globals = pou.globals.map((s) => instantiate(s.type, s.init, layouts))
+  const machine = new Machine(frame as unknown as Record<number, Val>, pou.slots.map((_, i) => i), [], layouts, routines, globals)
 
   return {
     frame,

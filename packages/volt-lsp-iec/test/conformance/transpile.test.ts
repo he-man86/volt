@@ -47,7 +47,7 @@ const recording = JSON.parse(readFileSync(join(import.meta.dir, "recordings", "c
  * The cases with transpiler lowering held above this floor — execution cases and fixtures together. Raise it when more
  * cases lower; never lower it to make a change pass.
  */
-const LOWERED_FLOOR = 315
+const LOWERED_FLOOR = 317
 
 /** The source a case lowers from: the fixture's own units (an execution case has none), then its PLC_PRG. */
 function runSource(c: LanguageTest): string {
@@ -251,10 +251,18 @@ describe.skipIf(rustc === null)("differential execution — emitted Rust vs CODE
         const field = `p.${expr}${family === "string" ? ".units()" : ""}`
         return `    println!("${name}\\t{${family === "real" || family === "string" ? ":?" : ""}}", ${field});`
       })
-      const main = `fn main() {\n    let mut p = ${pou.name}::new();\n    for _ in 0..${c.cycles ?? 1} { p.scan(); }\n${prints.join("\n")}\n}\n`
+      const emitted = emitRust(pou)
+      // a program that reaches globals or calls PROGRAMs scans against one of each, created once like the IDE's application
+      const setup = [
+        ...(emitted.usesGlobals ? ["    let mut g = Globals::new();"] : []),
+        ...(emitted.usesPrograms ? ["    let mut prg = Programs::new();"] : []),
+      ]
+      const args = [...(emitted.usesGlobals ? ["&mut g"] : []), ...(emitted.usesPrograms ? ["&mut prg"] : [])].join(", ")
+      const scan = [...setup, `    for _ in 0..${c.cycles ?? 1} { p.scan(${args}); }`].join("\n")
+      const main = `fn main() {\n    let mut p = ${pou.name}::new();\n${scan}\n${prints.join("\n")}\n}\n`
       const file = join(dir, `${c.name}.rs`)
       const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
-      await Bun.write(file, `${emitRust(pou).code}\n${main}`)
+      await Bun.write(file, `${emitted.code}\n${main}`)
       const build = Bun.spawn([rustc!, "--edition", "2021", "-A", "warnings", "-o", exe, file], { stderr: "pipe" })
       if ((await build.exited) !== 0)
         return void runs.set(c.name, {
