@@ -14,12 +14,14 @@ import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
-    if (decl.type.kind !== "string_type" || decl.type.wide || decl.type.length === undefined) continue
+    if (decl.type.kind !== "string_type" || decl.type.length === undefined) continue
     const init = decl.init
     if (init === undefined || init.kind !== "literal" || typeof init.value !== "string") continue
     const size = constEval(decl.type.length, scope)
-    // the shared decoder's length — an escape it does not know has no measured length, so nothing is reported
-    const decoded = decodeStringLiteral(init.value)
+    // the shared decoder's length — an escape it does not know has no measured length, so nothing is reported. A WSTRING
+    // counts UTF-16 code units and prints its prefix by the same rule (conformance `wstring_code_units`,
+    // `cc_wstring_init_too_long_2`/`_7`: `'"a...'`, `'"abc...'`); it was skipped, so every over-long one went unreported.
+    const decoded = decodeStringLiteral(init.value, decl.type.wide)
     if (typeof size !== "bigint" || decoded === undefined || BigInt(decoded.length) <= size) continue
     out.push({
       // a WARNING, recorded twice (`cc_string_plain_init_too_long`, `cc_string_escape_init_too_long`) — the documentation

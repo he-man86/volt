@@ -27,6 +27,14 @@ test("the message prints a prefix of the literal as written, sized by the destin
   expect(sc(`  s2 : STRING(2) := '$Tabc';`)).toEqual(["String constant ''$...' too long for destination type 'STRING(2)'"])
 })
 
+test("a WSTRING is checked too — UTF-16 code units, the same printed prefix", () => {
+  // Why missed: the check skipped WSTRING outright, and no fixture had an over-long one until the execution programs
+  // (conformance `wstring_code_units`, `cc_wstring_init_too_long_2`, `cc_wstring_init_too_long_7`).
+  expect(sc(`  w7 : WSTRING(7) := "abcdefghij";`)).toEqual([`String constant '"abc...' too long for destination type 'WSTRING(7)'`])
+  expect(sc(`  w2 : WSTRING(2) := "abc";`)).toEqual([`String constant '"a...' too long for destination type 'WSTRING(2)'`])
+  expect(sc(`  e3 : WSTRING(3) := "h$00E9llo"; fits : WSTRING(2) := "ü!";`)).toEqual([`String constant '...' too long for destination type 'WSTRING(3)'`])
+})
+
 test("it is a WARNING, and the length is the decoded one", () => {
   const src = `PROGRAM P\nVAR\n  s2 : STRING(2) := 'abc';\n  fits : STRING(3) := 'a$Tb';\nEND_VAR\nEND_PROGRAM`
   const pr = parseSource(src)
