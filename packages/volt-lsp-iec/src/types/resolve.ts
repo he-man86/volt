@@ -27,8 +27,17 @@ export function resolveTypeExpr(t: TypeExpr, project: Scope, depth = 0): Type {
     case "implicit_enum_type":
       // Inline enum: its values live as bare constants in the enclosing scope, so no member scope here.
       return { kind: "enum", name: "(implicit)" }
-    case "array_type":
-      return { kind: "array", element: resolveTypeExpr(t.element, project, depth + 1), dims: t.dims }
+    case "array_type": {
+      const element = resolveTypeExpr(t.element, project, depth + 1)
+      const bounds = t.dims.map((d) => {
+        const lower = d.lower === undefined ? undefined : constEval(d.lower, project)
+        const upper = d.upper === undefined ? undefined : constEval(d.upper, project)
+        return typeof lower === "bigint" && typeof upper === "bigint" ? { lower, upper } : undefined
+      })
+      return bounds.every((b) => b !== undefined)
+        ? { kind: "array", element, dims: t.dims, bounds: bounds as { lower: bigint; upper: bigint }[] }
+        : { kind: "array", element, dims: t.dims }
+    }
     case "pointer_type":
       return { kind: "pointer", target: resolveTypeExpr(t.target, project, depth + 1) }
     case "reference_type":

@@ -33,6 +33,7 @@ import { CHECK_COVERAGE_TESTS } from "./check-coverage.js"
 import { ERROR_CATALOG_TESTS } from "./error-catalog.js"
 import { EXECUTION_TESTS } from "./execution.js"
 import { MEMORY_MODEL_TESTS } from "./memory-model.js"
+import { FB_CALL_TESTS } from "./fb-call.js"
 
 export interface CategoryGroup {
   name: string
@@ -71,6 +72,8 @@ export const CATEGORIES: readonly CategoryGroup[] = [
   { name: "execution", tests: EXECUTION_TESTS },
   // ── the facts the transpiler's memory model is built on (transpile-st-to-rust design §9) — run in the simulator ──
   { name: "memory-model", tests: MEMORY_MODEL_TESTS },
+  // ── call semantics: FB instances, methods, actions, functions, a program and a global (phase 3) ──
+  { name: "fb-call", tests: FB_CALL_TESTS },
 ]
 
 export const ALL_TESTS: readonly LanguageTest[] = CATEGORIES.flatMap((c) => c.tests)

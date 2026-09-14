@@ -31,12 +31,13 @@ function unitExt(u: any): string {
   }
   return { function_block: "fb", program: "prg", function: "fun", interface: "itf", global_var_list: "gvl", namespace: "namespace" }[u.kind as string] ?? "fb"
 }
-function splitItems(source: string): { wire: string; src: string }[] {
+function splitItems(source: string, pouName: string): { wire: string; src: string }[] {
   // Each item spans from a top-level unit's start to the NEXT top-level unit's start (or EOF) — a unit's own
   // span.end excludes its END_xxx keyword, and this also folds trailing member units into their POU.
   const tops = parseSource(source).units.filter((u) => TOP.has(u.kind))
   return tops.map((u, i) => ({
-    wire: `${(u as any).name.text}.${unitExt(u)}`,
+    // a VAR_GLOBAL block names nothing in its text — the fixture's pouName is its object's name
+    wire: `${u.kind === "global_var_list" ? pouName : (u as any).name.text}.${unitExt(u)}`,
     src: source.slice(u.span.start, i + 1 < tops.length ? tops[i + 1]!.span.start : source.length).trimEnd() + "\n",
   }))
 }
@@ -81,7 +82,7 @@ let done = 0
 const ONLY = process.env.RECORD_ONLY ? new Set(process.env.RECORD_ONLY.split(",")) : undefined
 for (const t of ALL_TESTS) {
   if (t.recorderSkip || (ONLY && !ONLY.has(t.name))) continue
-  const items = splitItems(t.source)
+  const items = splitItems(t.source, t.pouName)
   try {
     await pushOps(items.map((it) => ({ op: "set", name: it.wire, toFolder: plcFolder, sourceText: it.src, ifVersion: null })))
     if (t.plcPrgVar !== undefined || t.plcPrgBody !== undefined) {

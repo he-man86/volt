@@ -8,12 +8,14 @@
  * ponytail: a tree walk. It is the oracle and the fast path to a green test, not the shipping runtime — if
  * scan throughput ever matters, that is what the Rust backend is for.
  */
-import type { IrExpr, IrMathName, IrPou, IrStmt, IrStringName, IrValue, Place } from "../ir/index.js"
+import type { Access, IrExpr, IrLayout, IrMathName, IrPou, IrStmt, IrStringName, IrValue, Place } from "../ir/index.js"
+import { defaultValueOf, peelArray } from "../ir/index.js"
 import type { Type } from "../../types/index.js"
 
 /** A runtime value. Integers, durations and dates stay `bigint` in their type's unit (so `/` truncates like IEC does);
- *  REAL is `number`; STRING and WSTRING are `string`. */
-export type Val = IrValue
+ *  REAL is `number`; STRING and WSTRING are `string`; a struct or FB instance is a record keyed by its fields'
+ *  upper-cased names, and an array a JavaScript array (index 0 is the dimension's lower bound). */
+export type Val = IrValue | Val[] | { [field: string]: Val }
 
 type Signal = "none" | "break" | "continue" | "return"
 
@@ -206,29 +208,68 @@ function coerce(v: Val, to: Type, from: Type): Val {
 
 // ─── the machine ─────────────────────────────────────────────────────────────
 
+/** A fresh value of a type: an elementary one at `init`, a struct or FB instance at its fields' initial values, an array
+ *  of fresh elements — the interpreter's counterpart of the emitter's `new()`. */
+function instantiate(type: Type, init: IrValue, layouts: ReadonlyMap<string, IrLayout>): Val {
+  if (type.kind === "struct" || type.kind === "function_block") {
+    const layout = layouts.get(type.name.toUpperCase())
+    if (layout === undefined) throw new Error(`no layout for ${type.name}`)
+    return Object.fromEntries(layout.fields.map((f) => [f.name.toUpperCase(), instantiate(f.type, f.init, layouts)]))
+  }
+  const array = peelArray(type)
+  // every element starts at its OWN type's zero — a BOOL array's is FALSE, not the array slot's placeholder
+  if (array !== undefined) return Array.from({ length: array.length }, () => instantiate(array.element, defaultValueOf(array.element), layouts))
+  return fit(init, type)
+}
+
+/** A composite value copied, so a store of one struct or array into another shares nothing with its source. */
+function copy(v: Val): Val {
+  return typeof v === "object" ? structuredClone(v) : v
+}
+
 class Machine {
-  constructor(
-    readonly frame: Val[],
-    private readonly types: readonly Type[],
-  ) {}
+  constructor(readonly frame: Val[]) {}
+
+  /** The container and key the steps before a place's last one lead to — where a read or write lands. */
+  private locate(place: Place): { container: Val[] | { [field: string]: Val }; key: number | string; bit?: Extract<Access, { kind: "bit" }> } {
+    const steps = place.path
+    const last = steps.at(-1)
+    const bit = last?.kind === "bit" ? last : undefined
+    const walk = bit === undefined ? steps : steps.slice(0, -1)
+    let container: Val[] | { [field: string]: Val } = this.frame
+    let key: number | string = place.slot
+    for (const step of walk) {
+      const next = (container as Record<string | number, Val>)[key] as Val[] | { [field: string]: Val }
+      if (step.kind === "field") key = step.name.toUpperCase()
+      else if (step.kind === "index") {
+        const i = Number(num(this.expr(step.index)) as bigint) - Number(step.lower)
+        // ponytail: what an out-of-bounds index does in CODESYS is unmeasured (no CheckBounds: it writes past the array) — refused loudly
+        if (i < 0 || i >= step.length) throw new RangeError(`array index ${i + Number(step.lower)} is outside its bounds`)
+        key = i
+      }
+      container = next
+    }
+    return { container, key, ...(bit === undefined ? {} : { bit }) }
+  }
 
   read(place: Place): Val {
-    const value = this.frame[place.slot]!
-    const bit = place.path[0]
+    const { container, key, bit } = this.locate(place)
+    const value = (container as Record<string | number, Val>)[key]!
     // A bigint's `>>` and `&` work on infinite two's complement, so a negative INT's bits read as the PLC's do.
     return bit === undefined ? value : ((num(value) as bigint) >> BigInt(bit.index)) & 1n ? true : false
   }
 
   write(place: Place, value: Val): void {
-    const bit = place.path[0]
+    const { container, key, bit } = this.locate(place)
+    const slot = container as Record<string | number, Val>
     if (bit === undefined) {
-      this.frame[place.slot] = fit(value, place.type)
+      slot[key] = typeof value === "object" ? copy(value) : fit(value, place.type)
       return
     }
-    const current = num(this.frame[place.slot]!) as bigint
+    const current = num(slot[key]!) as bigint
     const mask = 1n << BigInt(bit.index)
-    // set or clear, then store at the SLOT's width — so INT's bit 15 set on 0 reads back as -32768
-    this.frame[place.slot] = fit(bool(value) ? current | mask : current & ~mask, this.types[place.slot]!)
+    // set or clear, then store at the INTEGER's width — so INT's bit 15 set on 0 reads back as -32768
+    slot[key] = fit(bool(value) ? current | mask : current & ~mask, bit.of)
   }
 
   expr(e: IrExpr): Val {
@@ -404,34 +445,57 @@ class Machine {
 export interface Runner {
   /** Live slot values, in frame order. */
   readonly frame: readonly Val[]
-  get(name: string): Val
-  set(name: string, value: Val): void
+  /** A variable by its path from the POU, as the IDE names it: `count`, `inst.q`, `arr[2].x`. */
+  get(path: string): Val
+  set(path: string, value: Val): void
   /** Run one scan cycle. */
   scan(): void
 }
 
+/** A variable path's container, key and type — `inst.q` walks the slot `inst`, then its field `Q`; `arr[2]` subtracts
+ *  the dimension's lower bound. Shared by `get` and `set`, so a test reads exactly where the program writes. */
+function resolvePath(pou: IrPou, frame: Val[], layouts: ReadonlyMap<string, IrLayout>, path: string) {
+  const parts = [...path.matchAll(/([A-Za-z_]\w*)|\[\s*(-?\d+)\s*\]/g)]
+  const first = parts[0]?.[1]
+  const slot = first === undefined ? -1 : pou.slots.findIndex((s) => s.name.toUpperCase() === first.toUpperCase())
+  if (slot < 0) throw new Error(`no variable ${path} in ${pou.name}`)
+  let container = frame as unknown as Record<string | number, Val>
+  let key: string | number = slot
+  let type: Type = pou.slots[slot]!.type
+  for (const part of parts.slice(1)) {
+    container = container[key] as Record<string | number, Val>
+    if (part[1] !== undefined) {
+      const layout = type.kind === "struct" || type.kind === "function_block" ? layouts.get(type.name.toUpperCase()) : undefined
+      const field = layout?.fields.find((f) => f.name.toUpperCase() === part[1]!.toUpperCase())
+      if (field === undefined) throw new Error(`no variable ${path} in ${pou.name}`)
+      key = field.name.toUpperCase()
+      type = field.type
+    } else {
+      const array = peelArray(type)
+      if (array === undefined) throw new Error(`${path} indexes a non-array`)
+      key = Number(BigInt(part[2]!) - array.lower)
+      type = array.element
+    }
+  }
+  return { container, key, type }
+}
+
 /** Prepare a lowered POU for execution: allocate its frame, seed it from the slots' initial values. */
 export function run(pou: IrPou): Runner {
-  const frame = pou.slots.map((s) => fit(s.init, s.type))
-  const byName = new Map(pou.slots.map((s, i) => [s.name.toUpperCase(), i]))
-  const machine = new Machine(
-    frame,
-    pou.slots.map((s) => s.type),
-  )
-
-  const slotOf = (name: string): number => {
-    const i = byName.get(name.toUpperCase())
-    if (i === undefined) throw new Error(`no variable ${name} in ${pou.name}`)
-    return i
-  }
+  const layouts = new Map(pou.layouts.map((l) => [l.name.toUpperCase(), l]))
+  const frame = pou.slots.map((s) => instantiate(s.type, s.init, layouts))
+  const machine = new Machine(frame)
 
   return {
     frame,
-    get: (name) => frame[slotOf(name)]!,
-    // stored as the slot's type holds it, like every write the program makes — a test cannot plant a value the PLC couldn't
-    set: (name, value) => {
-      const i = slotOf(name)
-      frame[i] = fit(value, pou.slots[i]!.type)
+    get: (path) => {
+      const { container, key } = resolvePath(pou, frame, layouts, path)
+      return container[key]!
+    },
+    // stored as the variable's type holds it, like every write the program makes — a test cannot plant a value the PLC couldn't
+    set: (path, value) => {
+      const { container, key, type } = resolvePath(pou, frame, layouts, path)
+      container[key] = typeof value === "object" ? copy(value) : fit(value, type)
     },
     scan: () => void machine.block(pou.body),
   }

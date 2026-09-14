@@ -48,6 +48,7 @@ import {
   REAL_LITERAL_TYPE,
   temporalResultType,
   parseConversionName,
+  resolveNamedType,
   resolveTypeExpr,
   UNKNOWN,
   type Type,
@@ -57,6 +58,7 @@ import type {
   IrBinOp,
   IrBuiltinName,
   IrExpr,
+  IrLayout,
   IrPou,
   IrSlot,
   IrStmt,
@@ -65,7 +67,10 @@ import type {
   LoweredPou,
   Place,
 } from "../ir/index.js"
-import { defaultValueOf } from "../ir/index.js"
+import { defaultValueOf, peelArray } from "../ir/index.js"
+
+/** The FB variable sections that are an instance's storage. VAR_IN_OUT is not: it aliases the caller's variable. */
+const INSTANCE_STORAGE: ReadonlySet<string> = new Set(["VAR", "VAR_INPUT", "VAR_OUTPUT", "VAR_STAT", "VAR_TEMP"])
 
 /** ST binary operators → IR opcodes. A name a backend never has to interpret. `**` and `&` are absent on purpose: the
  *  parser accepts them (the LSP reports them), but neither is an operator in CODESYS, so they reach `binary-op`. */
@@ -130,7 +135,50 @@ class Lowering {
   constructor(
     private readonly scope: Scope,
     private readonly project: Scope,
+    /** Every composite type's storage, by upper-cased name — shared with the lowerings of the types it holds. */
+    readonly layouts: Map<string, IrLayout> = new Map(),
   ) {}
+
+  /**
+   * The type a variable is STORED as: a sizeless string with its capacity, a struct or FB under its DECLARED name (ST is
+   * case-insensitive and Rust is not, so `fb_x : fb_conveyor` and `FB_Conveyor` must be one struct), an array of
+   * those. Building it builds the layout of every composite type it reaches, dependencies first.
+   */
+  private storage(t: Type): Type {
+    if (t.kind === "array") return { ...t, element: this.storage(t.element) }
+    if (t.kind !== "struct" && t.kind !== "function_block") return withStringCapacity(t)
+    const sym = lookup(this.project, t.name)?.symbol
+    const name = sym?.name ?? t.name
+    const key = name.toUpperCase()
+    if (!this.layouts.has(key)) this.buildLayout({ ...t, name }, sym)
+    return { ...t, name }
+  }
+
+  /** A struct's fields or an FB instance's storage, lowered in the type's own scope — a base type's fields first. */
+  private buildLayout(t: Extract<Type, { kind: "struct" | "function_block" }>, sym: ReturnType<typeof lookup> extends infer R ? (R extends { symbol: infer S } ? S : never) | undefined : never): void {
+    const nested = new Lowering(t.scope ?? this.project, this.project, this.layouts)
+    const fields: IrSlot[] = []
+    const base = (name: string | undefined): void => {
+      if (name === undefined) return
+      const baseType = this.storage(resolveNamedType(name, this.project))
+      const layout = baseType.kind === "struct" || baseType.kind === "function_block" ? this.layouts.get(baseType.name.toUpperCase()) : undefined
+      if (layout === undefined) this.bail("layout-base", `the base type ${name} of ${t.name} has no layout`, sym?.span ?? ZERO_SPAN)
+      else fields.push(...layout.fields)
+    }
+    const ast = sym?.ast
+    if (t.kind === "struct" && ast?.kind === "type_decl" && ast.body.kind === "struct") {
+      base(ast.body.extends?.text)
+      nested.declare([{ sectionKind: "VAR", decls: ast.body.fields } as unknown as VarSection])
+    } else if (t.kind === "function_block" && ast?.kind === "function_block") {
+      base(ast.extends?.text)
+      nested.declare(ast.varSections.filter((s) => INSTANCE_STORAGE.has(s.sectionKind)))
+    } else {
+      this.bail(`layout-${t.kind}`, `${t.name} has no declaration lowering can lay out`, sym?.span ?? ZERO_SPAN)
+      return
+    }
+    this.diagnostics.push(...nested.diagnostics)
+    this.layouts.set(t.name.toUpperCase(), { name: t.name, kind: t.kind, fields: [...fields, ...nested.frame] })
+  }
 
   bail(code: string, message: string, span: Span): undefined {
     this.diagnostics.push({ code, message, span })
@@ -146,7 +194,7 @@ class Lowering {
   declare(sections: readonly VarSection[]): void {
     for (const sec of sections)
       for (const written of sec.decls) {
-        const type = withStringCapacity(this.resolve(written.type))
+        const type = this.storage(this.resolve(written.type))
         // A variable with no initializer of its own starts at its ALIAS type's: `TYPE T : INT := 42;` makes `x : T` 42
         // (conformance `type_dut_alias_with_init`, 43 after `x := x + 1`). It started at 0 — `resolve` sees through the
         // alias to INT and the alias's initializer went with it.
@@ -229,8 +277,30 @@ class Lowering {
 
   // ─── places ────────────────────────────────────────────────────────────────
 
-  place(e: Expr): Place | undefined {
-    if (e.kind === "member") return this.bitPlace(e, "place-shape")
+  place(e: Expr, notAMember = "place-shape"): Place | undefined {
+    if (e.kind === "member") {
+      if (/^\d+$/.test(e.member.name)) return this.bitPlace(e, notAMember)
+      // a struct's field or an instance's variable: one `field` step on the base place (design §9)
+      const base = this.place(e.base, notAMember)
+      if (base === undefined) return undefined
+      const layout = base.type.kind === "struct" || base.type.kind === "function_block" ? this.layouts.get(base.type.name.toUpperCase()) : undefined
+      const field = layout?.fields.find((f) => f.name.toUpperCase() === e.member.name.toUpperCase())
+      if (field === undefined) return this.bail(notAMember, "member access is not lowered yet", e.span)
+      return { slot: base.slot, path: [...base.path, { kind: "field", name: field.name }], type: field.type, span: e.span }
+    }
+    if (e.kind === "index") {
+      // one `index` step per dimension, each carrying the bounds a backend normalises by
+      let place = this.place(e.base, notAMember)
+      for (const written of e.indices) {
+        if (place === undefined) return undefined
+        const array = peelArray(place.type)
+        if (array === undefined) return this.bail("place-shape", "an index on something that is not a sized array", e.span)
+        const index = this.expr(written)
+        if (index === undefined) return undefined
+        place = { ...place, path: [...place.path, { kind: "index", index, lower: array.lower, length: array.length }], type: array.element, span: e.span }
+      }
+      return place
+    }
     if (e.kind !== "ident_expr")
       return this.bail("place-shape", `${e.kind} is not a lowerable storage location yet`, e.span)
     const slot = this.byName.get(e.name.toUpperCase())
@@ -251,17 +321,16 @@ class Lowering {
    * coverage report's categories do not shift under it.
    */
   private bitPlace(e: Extract<Expr, { kind: "member" }>, notABit: string): Place | undefined {
-    const index = /^\d+$/.test(e.member.name) ? Number(e.member.name) : undefined
-    if (index === undefined || e.base.kind !== "ident_expr") return this.bail(notABit, "member access is not lowered yet", e.span)
-    const base = this.place(e.base)
+    const index = Number(e.member.name)
+    const base = this.place(e.base, notABit)
     if (base === undefined) return undefined
-    // A bit of something that is not an integer SLOT says what it is instead: `slice.0` with `slice : REFERENCE TO
-    // BYTE` (pro2193 MapperInputs.fb) is aliasing — phase 4 — and a `bit-index` there sent the reader to the wrong phase.
-    if (base.type.kind !== "elementary") return this.bail(`bit-on-${base.type.kind}`, `bit ${index} of ${e.base.name}`, e.span)
+    // A bit of something that is not an integer says what it is instead: `slice.0` with `slice : REFERENCE TO BYTE`
+    // (pro2193 MapperInputs.fb) is aliasing — phase 4 — and a `bit-index` there sent the reader to the wrong phase.
+    if (base.type.kind !== "elementary") return this.bail(`bit-on-${base.type.kind}`, `bit ${index} of a ${base.type.kind}`, e.span)
     const t = base.type.elem
     if (t.rank === undefined || (t.family !== "int" && t.family !== "bitstring") || index >= t.bits)
-      return this.bail("bit-index", `bit ${index} of ${e.base.name}`, e.span)
-    return { slot: base.slot, path: [{ kind: "bit", index }], type: elementaryRef("BOOL"), span: e.span }
+      return this.bail("bit-index", `bit ${index} of a ${t.name}`, e.span)
+    return { slot: base.slot, path: [...base.path, { kind: "bit", index, of: base.type }], type: elementaryRef("BOOL"), span: e.span }
   }
 
   // ─── expressions ───────────────────────────────────────────────────────────
@@ -370,9 +439,12 @@ class Lowering {
       }
       case "call":
         return this.builtin(e)
-      case "member": {
-        const place = this.bitPlace(e, "expr-member")
-        return place && { kind: "load", place, type: place.type, span: e.span }
+      case "member":
+      case "index": {
+        const place = this.place(e, e.kind === "member" ? "expr-member" : "expr-index")
+        if (place === undefined) return undefined
+        if (place.type === UNKNOWN) return this.bail("type-unknown", "the type of a member is not resolvable", e.span)
+        return { kind: "load", place, type: place.type, span: e.span }
       }
       default:
         return this.bail(`expr-${e.kind}`, `${e.kind} is not lowered yet`, e.span)
@@ -918,6 +990,15 @@ function contextLiteralType(e: Extract<Expr, { kind: "literal" }>, expected?: Ty
 }
 
 
+/** A type a backend can store: elementary, a laid-out struct or FB instance, or a sized array of those. */
+function representable(t: Type): boolean {
+  if (t.kind === "elementary" || t.kind === "struct" || t.kind === "function_block") return true
+  const array = peelArray(t)
+  return array !== undefined && representable(array.element)
+}
+
+const ZERO_SPAN: Span = { start: 0, end: 0, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
+
 // ─── entry points ────────────────────────────────────────────────────────────
 
 /** Lower one already-bound unit. The workspace path: the caller owns the project scope and its index. */
@@ -939,16 +1020,18 @@ export function lowerUnit(unit: TopLevel, scope: Scope, project: Scope): Lowered
 
   const body = lowering.block(parsed.statements)
   if (lowering.diagnostics.length > 0) return { diagnostics: lowering.diagnostics }
-  // Every construct lowered — but every SLOT also needs a runtime representation. An unused `p : POINTER TO INT` lowered
-  // cleanly, then the Rust emitter threw on its type: a backend must accept whatever lowering accepts (transpiler review
-  // 2026-09-14). Checked only here, so a POU another construct blocks keeps that blocker's category in the coverage report.
-  const unrepresentable = lowering.frame.find((s) => s.type.kind !== "elementary")
+  // Every construct lowered — but every SLOT (and every field of a layout) also needs a runtime representation. An unused
+  // `p : POINTER TO INT` lowered cleanly, then the Rust emitter threw on its type: a backend must accept whatever lowering
+  // accepts (transpiler review 2026-09-14). Checked only here, so a POU another construct blocks keeps that blocker's
+  // category in the coverage report.
+  const layouts = [...lowering.layouts.values()]
+  const unrepresentable = [...lowering.frame, ...layouts.flatMap((l) => l.fields)].find((s) => !representable(s.type))
   if (unrepresentable !== undefined) {
     const kind = unrepresentable.type.kind
     return { diagnostics: [{ code: `slot-${kind}`, message: `${unrepresentable.name} is a ${kind} variable, which has no runtime representation yet`, span: unit.span }] }
   }
 
-  const pou: IrPou = { name: unit.name.text, slots: lowering.frame, body, span: unit.span }
+  const pou: IrPou = { name: unit.name.text, slots: lowering.frame, body, layouts, span: unit.span }
   return { pou, diagnostics: [] }
 }
 

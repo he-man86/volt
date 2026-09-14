@@ -71,6 +71,9 @@ export interface ArrayTypeInfo {
   kind: "array"
   element: Type
   dims: readonly ArrayDim[]
+  /** Each dimension's bounds, when every one folds to a constant in the resolving scope — read by the transpiler,
+   *  which stores the array; absent for a `[*]` dimension or a bound it cannot fold. */
+  bounds?: readonly { lower: bigint; upper: bigint }[]
 }
 export interface PointerTypeInfo {
   kind: "pointer"

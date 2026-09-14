@@ -17,7 +17,7 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { decodeStringLiteral } from "../../src/syntax/index.js"
-import { emitRust, fieldNames, load, lowerSource, type IrValue, type LoweredPou } from "../../src/transpile/index.js"
+import { emitRust, isBit, load, lowerSource, rustAccess, type IrValue, type LoweredPou } from "../../src/transpile/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 import { withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
@@ -39,7 +39,7 @@ const recording = JSON.parse(readFileSync(join(import.meta.dir, "recordings", "c
  * The cases with transpiler lowering held above this floor — execution cases and fixtures together. Raise it when more
  * cases lower; never lower it to make a change pass.
  */
-const LOWERED_FLOOR = 111
+const LOWERED_FLOOR = 117
 
 /** The source a case lowers from: the fixture's own units (an execution case has none), then its PLC_PRG. */
 function runSource(c: LanguageTest): string {
@@ -171,7 +171,7 @@ describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
       const pou = load(runSource(c), "PLC_PRG", LIBRARIES)
       for (let i = 0; i < cycles; i++) pou.scan()
       const want = Object.fromEntries(Object.entries(rec.values!).map(([k, v]) => [k, ideValue(v)]))
-      const got = Object.fromEntries(Object.keys(want).map((k) => [k, asDisplayed(rec.values![k]!, pou.get(k))]))
+      const got = Object.fromEntries(Object.keys(want).map((k) => [k, asDisplayed(rec.values![k]!, pou.get(k) as IrValue)]))
       expect(got).toEqual(want)
     })
   }
@@ -207,14 +207,12 @@ describe.skipIf(rustc === null)("differential execution — emitted Rust vs CODE
       recorded.map(async (c) => {
         const { pou, diagnostics } = lowering(c)
         if (pou === undefined) return void runs.set(c.name, { exit: -1, stdout: "", stderr: `does not lower: ${diagnostics[0]?.message}` })
-        const fields = fieldNames(pou.slots)
         const prints = Object.keys(recording.tests[c.name]!.values!).map((name) => {
-          const index = pou.slots.findIndex((s) => s.name.toUpperCase() === name.toUpperCase())
-          const slot = pou.slots[index]!
+          const { expr, type } = rustAccess(pou, name)
           // A REAL prints with Debug, which keeps its decimal point. A STRING prints its BYTES as a list — not Debug, whose
           // `\u{c}` for a form feed is no JSON — so no control character inside it can break this tab-separated output.
-          const family = slot.type.kind === "elementary" ? slot.type.elem.family : undefined
-          const field = `p.${fields[index]}${family === "string" ? ".units()" : ""}`
+          const family = type.kind === "elementary" ? type.elem.family : undefined
+          const field = `p.${expr}${family === "string" ? ".units()" : ""}`
           return `    println!("${name}\\t{${family === "real" || family === "string" ? ":?" : ""}}", ${field});`
         })
         const main = `fn main() {\n    let mut p = ${pou.name}::new();\n    for _ in 0..${c.cycles ?? 1} { p.scan(); }\n${prints.join("\n")}\n}\n`
@@ -237,14 +235,14 @@ describe.skipIf(rustc === null)("differential execution — emitted Rust vs CODE
       const run = runs.get(c.name)!
       expect({ exit: run.exit, stderr: run.stderr }).toEqual({ exit: 0, stderr: "" })
       const rec = recording.tests[c.name]!
-      const slots = lowering(c).pou!.slots
+      const pou = lowering(c).pou!
       const printed = new Map(run.stdout.trim().split(/\r?\n/).map((line) => line.split("\t") as [string, string]))
       const want = Object.fromEntries(Object.entries(rec.values!).map(([k, v]) => [k, ideValue(v)]))
       const got = Object.fromEntries(
         Object.keys(want).map((k) => {
-          const type = slots.find((s) => s.name.toUpperCase() === k.toUpperCase())!.type
+          const { type } = rustAccess(pou, k)
           const raw = printed.get(k)!
-          if (type.kind === "elementary" && type.elem.family === "bool") return [k, raw === "true"]
+          if ((type.kind === "elementary" && type.elem.family === "bool") || isBit(type)) return [k, raw === "true"]
           if (type.kind === "elementary" && type.elem.family === "string")
             return [k, String.fromCharCode(...(JSON.parse(raw) as number[]))]
           if (type.kind === "elementary" && type.elem.family === "real")

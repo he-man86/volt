@@ -35,14 +35,38 @@ export type IrValue = bigint | number | boolean | string
  */
 export function defaultValueOf(type: Type): IrValue {
   const family = type.kind === "elementary" ? type.elem.family : undefined
-  return family === "bool" ? false : family === "real" ? 0 : family === "string" ? "" : 0n
+  return family === "bool" || isBit(type) ? false : family === "real" ? 0 : family === "string" ? "" : 0n
+}
+
+/** A BIT (a struct field of one bit) holds a BOOLEAN: CODESYS reads `dut.bFlag` as TRUE/FALSE, starting at FALSE
+ *  (conformance `type_dut_struct_with_bit_fields`) — so both backends store it as their boolean. */
+export function isBit(type: Type): boolean {
+  return type.kind === "elementary" && type.elem.name === "BIT"
+}
+
+/** An array's FIRST dimension — its element (the remaining dimensions, if any), lower bound and length — or undefined
+ *  for anything else, or an array whose bounds do not fold. The one way every backend walks an array type. */
+export function peelArray(t: Type): { element: Type; lower: bigint; length: number } | undefined {
+  if (t.kind !== "array" || t.bounds === undefined || t.bounds.length === 0) return undefined
+  const [dim, ...rest] = t.bounds
+  const element: Type = rest.length === 0 ? t.element : { ...t, bounds: rest, dims: t.dims.slice(1) }
+  return { element, lower: dim!.lower, length: Number(dim!.upper - dim!.lower + 1n) }
 }
 
 // ─── places ──────────────────────────────────────────────────────────────────
 
-/** One step from a slot toward a sub-location. `bit` is `x.3` on an integer slot (design §14) — a place of type
- *  BOOL inside one slot, which needs no memory model. `field`/`index`/`deref` land here with design §9. */
-export type Access = { kind: "bit"; index: number }
+/**
+ * One step from a slot toward a sub-location (design §9 — the application is one tree of owned values, so a place is a
+ * root slot plus a path, never an address):
+ *   - `field` — a struct's field or an FB instance's variable, by its ST name (`IrLayout.fields`);
+ *   - `index` — ONE array dimension: the index expression, the dimension's lower bound and its length, so a backend
+ *     normalises `arr[i]` to `i - lower` without deciding anything;
+ *   - `bit`   — `x.3` on an integer (design §14), the last step; `of` is that integer's type, which a write stores at.
+ */
+export type Access =
+  | { kind: "field"; name: string }
+  | { kind: "index"; index: IrExpr; lower: bigint; length: number }
+  | { kind: "bit"; index: number; of: Type }
 
 /** A resolved storage location: a slot in the frame, plus a path into it. */
 export interface Place {
@@ -227,11 +251,24 @@ export interface IrSlot {
   init: IrValue
 }
 
-/** A lowered POU: a flat frame plus a body. This IS the "one static memory image" decision, made concrete. */
+/**
+ * The storage of a composite type — a DUT struct, or an FB instance's variables. A slot or field whose `type` is a
+ * `struct`/`function_block` holds one of these by value (design §9: nested owned structs, no references), starting at
+ * its fields' initial values. A base type's fields come first (`EXTENDS`).
+ */
+export interface IrLayout {
+  /** The DUT or FB name, source casing — the Rust struct's name. */
+  name: string
+  kind: "struct" | "function_block"
+  fields: readonly IrSlot[]
+}
+
+/** A lowered POU: its frame, its body, and the layout of every composite type its frame reaches — dependencies first. */
 export interface IrPou {
   name: string
   slots: readonly IrSlot[]
   body: readonly IrStmt[]
+  layouts: readonly IrLayout[]
   span: Span
 }
 

@@ -16,7 +16,8 @@
  * rather than Rust's overflow-panicking defaults. The width comes from `types/elementary`, the same facts the
  * diagnostics use — there is no second table of type sizes here.
  */
-import type { IrExpr, IrMathName, IrPou, IrStmt, IrValue } from "../../ir/index.js"
+import type { IrExpr, IrLayout, IrMathName, IrPou, IrStmt, IrValue, Place } from "../../ir/index.js"
+import { defaultValueOf, isBit, peelArray } from "../../ir/index.js"
 import type { Span } from "../../../syntax/index.js"
 import type { Type } from "../../../types/index.js"
 import { STRING_PRELUDE } from "./prelude.js"
@@ -30,9 +31,13 @@ export interface Emitted {
 
 /** IEC elementary type → Rust type, derived from the type's own facts (family · bits · signed). */
 export function rustType(t: Type): string {
+  // a struct or FB instance is its layout's struct, held by value; an array is a Rust array, one per dimension
+  if (t.kind === "struct" || t.kind === "function_block") return rustName(t.name)
+  const array = peelArray(t)
+  if (array !== undefined) return `[${rustType(array.element)}; ${array.length}]`
   if (t.kind !== "elementary") throw new Error(`no Rust mapping for a ${t.kind} type`)
   const { family, bits, signed } = t.elem
-  if (family === "bool") return "bool"
+  if (family === "bool" || isBit(t)) return "bool"
   if (family === "real") return bits === 32 ? "f32" : "f64"
   // A fixed-capacity string, generated into the output (STRING_PRELUDE) — not Rust `String`, which neither truncates
   // nor copies: `a := b` MOVED a String out of `self`, and no emitted program had ever held a string to find out.
@@ -44,6 +49,21 @@ export function rustType(t: Type): string {
   // LTIME/LDATE/LDT/LTOD a u64 of nanoseconds (design §16, §17). This used to print every one of them as an i64.
   if (family === "int" || family === "bitstring" || family === "time" || family === "date") return `${signed ? "i" : "u"}${bits}`
   throw new Error(`no Rust mapping for ${t.name}`)
+}
+
+/** A POU's or DUT's Rust struct name: the ST name as written, so a reader finds `FB_Conveyor` under its own name
+ *  (the structs carry `#[allow(non_camel_case_types)]`). */
+export function rustName(name: string): string {
+  return name.replace(/[^A-Za-z0-9_]/g, "_")
+}
+
+/** The Rust expression a variable of `t` starts at: a literal, a layout's `new()`, or an array of fresh elements. */
+function initOf(t: Type, init: IrValue): string {
+  if (t.kind === "struct" || t.kind === "function_block") return `${rustName(t.name)}::new()`
+  const array = peelArray(t)
+  if (array === undefined) return literal(init, t)
+  const element = initOf(array.element, defaultValueOf(array.element))
+  return array.element.kind === "elementary" ? `[${element}; ${array.length}]` : `std::array::from_fn(|_| ${element})`
 }
 
 /** ST names are PascalCase/mixed; Rust fields are snake_case. Mechanical, and stable across runs. */
@@ -151,7 +171,31 @@ class Printer {
   private readonly loops: { n: number; exits: boolean; continues: boolean }[] = []
   private loopCount = 0
 
-  constructor(private readonly fields: readonly string[]) {}
+  constructor(
+    private readonly fields: readonly string[],
+    private readonly layouts: ReadonlyMap<string, { layout: IrLayout; fields: readonly string[] }>,
+  ) {}
+
+  /** A place as a Rust lvalue — `self.inst.q`, `self.arr[(self.i as i64 - 1i64) as usize].x` — without a final bit step. */
+  place(p: Place, slots: IrPou["slots"]): string {
+    let text = `self.${this.fields[p.slot]}`
+    let type: Type = slots[p.slot]!.type
+    for (const step of p.path) {
+      if (step.kind === "field") {
+        const entry = type.kind === "struct" || type.kind === "function_block" ? this.layouts.get(type.name.toUpperCase()) : undefined
+        const i = entry?.layout.fields.findIndex((f) => f.name.toUpperCase() === step.name.toUpperCase()) ?? -1
+        if (entry === undefined || i < 0) throw new Error(`no field ${step.name} in ${type.kind}`)
+        text += `.${entry.fields[i]}`
+        type = entry.layout.fields[i]!.type
+      } else if (step.kind === "index") {
+        const index = this.expr(step.index, slots)
+        // a negative offset wraps to a huge usize, so an index below the lower bound panics like one above the upper
+        text += step.lower === 0n ? `[(${index} as i64) as usize]` : `[((${index} as i64) - ${step.lower}i64) as usize]`
+        type = peelArray(type)!.element
+      }
+    }
+    return text
+  }
 
   push(text: string, indent: number, span?: Span): void {
     this.lines.push(`${"    ".repeat(indent)}${text}`)
@@ -167,9 +211,11 @@ class Printer {
       case "const":
         return literal(e.value, e.type)
       case "load": {
-        const field = `self.${this.fields[e.place.slot]}`
-        const bit = e.place.path[0]
-        return bit === undefined ? field : `(((${field} >> ${bit.index}) & 1) != 0)`
+        const field = this.place(e.place, slots)
+        const bit = e.place.path.at(-1)
+        if (bit?.kind === "bit") return `(((${field} >> ${bit.index}) & 1) != 0)`
+        // a whole struct, instance or array is copied, never moved out of `self`
+        return e.type.kind === "elementary" ? field : `${field}.clone()`
       }
       case "convert": {
         // The measured rules (design §11), each where Rust's bare `as` means something else: a float → int `as`
@@ -300,15 +346,14 @@ class Printer {
   stmt(s: IrStmt, slots: IrPou["slots"], indent: number): void {
     switch (s.kind) {
       case "assign": {
-        const slot = slots[s.target.slot]!
-        const field = `self.${this.fields[s.target.slot]}`
-        const bit = s.target.path[0]
-        if (bit === undefined) {
+        const field = this.place(s.target, slots)
+        const bit = s.target.path.at(-1)
+        if (bit?.kind !== "bit") {
           this.push(`${field} = ${this.expr(s.value, slots)};`, indent, s.span)
           return
         }
         // a typed one — `1i16 << 15` is -32768, exactly the two's complement bit the IDE sets
-        const one = `(1${rustType(slot.type)} << ${bit.index})`
+        const one = `(1${rustType(bit.of)} << ${bit.index})`
         this.push(`${field} = if ${this.expr(s.value, slots)} { ${field} | ${one} } else { ${field} & !${one} };`, indent, s.span)
         return
       }
@@ -383,24 +428,73 @@ class Printer {
   }
 }
 
+/**
+ * A variable path as the IDE names it (`inst.q`, `arr[2].x`) → the Rust field access under a POU value, and the
+ * variable's type — how a test reads the emitted program exactly where the interpreter's `get` reads.
+ */
+export function rustAccess(pou: IrPou, path: string): { expr: string; type: Type } {
+  const parts = [...path.matchAll(/([A-Za-z_]\w*)|\[\s*(-?\d+)\s*\]/g)]
+  const slot = pou.slots.findIndex((s) => s.name.toUpperCase() === parts[0]?.[1]?.toUpperCase())
+  if (slot < 0) throw new Error(`no variable ${path} in ${pou.name}`)
+  let expr = fieldNames(pou.slots)[slot]!
+  let type = pou.slots[slot]!.type
+  for (const part of parts.slice(1)) {
+    if (part[1] !== undefined) {
+      const typeName = type.kind === "struct" || type.kind === "function_block" ? type.name.toUpperCase() : undefined
+      const layout = pou.layouts.find((l) => l.name.toUpperCase() === typeName)
+      const i = layout?.fields.findIndex((f) => f.name.toUpperCase() === part[1]!.toUpperCase()) ?? -1
+      if (layout === undefined || i < 0) throw new Error(`no variable ${path} in ${pou.name}`)
+      expr += `.${fieldNames(layout.fields)[i]}`
+      type = layout.fields[i]!.type
+    } else {
+      const array = peelArray(type)
+      if (array === undefined) throw new Error(`${path} indexes a non-array`)
+      expr += `[${BigInt(part[2]!) - array.lower}]`
+      type = array.element
+    }
+  }
+  return { expr, type }
+}
+
 /** Emit one lowered POU as a Rust struct with a `scan` method. */
 export function emitRust(pou: IrPou): Emitted {
+  const layouts = new Map(pou.layouts.map((l) => [l.name.toUpperCase(), { layout: l, fields: fieldNames(l.fields) }]))
   const fields = fieldNames(pou.slots)
-  const p = new Printer(fields)
-  const name = pou.name.replace(/[^A-Za-z0-9_]/g, "_")
+  const p = new Printer(fields, layouts)
+  const name = rustName(pou.name)
 
   p.push(`// generated from ${pou.name} — do not edit`, 0)
-  p.push("#[derive(Debug, Default, Clone, PartialEq)]", 0)
+  // One plain struct per DUT and FB the frame holds, each with a `new` at its declared initial values. No `Default`
+  // derive — Rust derives it only for arrays up to 32 elements — so every value starts through `new`.
+  // ponytail: the layouts ride with each POU, like the string prelude; hoist them when whole projects are emitted.
+  for (const { layout, fields: names } of layouts.values()) {
+    p.push("#[allow(non_camel_case_types)]", 0)
+    p.push("#[derive(Debug, Clone, PartialEq)]", 0)
+    p.push(`pub struct ${rustName(layout.name)} {`, 0)
+    for (const [i, field] of layout.fields.entries()) p.push(`pub ${names[i]}: ${rustType(field.type)},`, 1)
+    p.push("}", 0)
+    p.push("", 0)
+    p.push(`impl ${rustName(layout.name)} {`, 0)
+    p.push("pub fn new() -> Self {", 1)
+    p.push("Self {", 2)
+    for (const [i, field] of layout.fields.entries()) p.push(`${names[i]}: ${initOf(field.type, field.init)},`, 3)
+    p.push("}", 2)
+    p.push("}", 1)
+    p.push("}", 0)
+    p.push("", 0)
+  }
+  p.push("#[allow(non_camel_case_types)]", 0)
+  p.push("#[derive(Debug, Clone, PartialEq)]", 0)
   p.push(`pub struct ${name} {`, 0, pou.span)
   for (const [i, slot] of pou.slots.entries()) p.push(`pub ${fields[i]}: ${rustType(slot.type)},`, 1)
   p.push("}", 0)
   p.push("", 0)
   p.push(`impl ${name} {`, 0)
 
-  // `new` seeds the declared initial values; Default alone would zero them.
+  // `new` seeds the declared initial values.
   p.push("pub fn new() -> Self {", 1)
   p.push("Self {", 2)
-  for (const [i, slot] of pou.slots.entries()) p.push(`${fields[i]}: ${literal(slot.init, slot.type)},`, 3)
+  for (const [i, slot] of pou.slots.entries()) p.push(`${fields[i]}: ${initOf(slot.type, slot.init)},`, 3)
   p.push("}", 2)
   p.push("}", 1)
   p.push("", 0)

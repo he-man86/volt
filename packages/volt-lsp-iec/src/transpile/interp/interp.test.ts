@@ -464,6 +464,40 @@ END_PROGRAM
     expect(pou.get("half")).toBe(3)
   })
 
+  // Phase 3 step 2 (design §9): the frame is a tree of owned values. Before it, any struct-, FB- or array-typed variable
+  // refused the whole POU (`slot-struct`, `slot-function_block`, `slot-array`).
+  test("structs, FB instances and arrays are values in the frame — fields, bounds, bits and whole copies", () => {
+    const pou = load(
+      `TYPE T_Point : STRUCT x : INT := 7; y : INT; END_STRUCT END_TYPE
+TYPE T_Line : STRUCT a : T_Point; b : T_Point; flag : BIT; END_STRUCT END_TYPE
+FUNCTION_BLOCK FB_Holder
+VAR_OUTPUT q : INT := 3; END_VAR
+END_FUNCTION_BLOCK
+PROGRAM P
+VAR
+  line1 : T_Line; line2 : T_Line;
+  table : ARRAY[1..3] OF T_Point;
+  grid : ARRAY[0..1, 5..6] OF INT;
+  holder : FB_Holder;
+  got : INT; bits : WORD;
+END_VAR
+line1.a.y := 5;
+line1.flag := TRUE;
+line2 := line1;
+line1.a.y := 99;
+table[3].x := line2.a.y;
+grid[1, 6] := table[1].x + holder.q;
+line1.b.x.1 := FALSE;
+got := line1.b.x;
+END_PROGRAM`,
+      "P",
+    )
+    pou.scan()
+    expect([pou.get("line2.a.y"), pou.get("line2.flag"), pou.get("line1.a.y")]).toEqual([5n, true, 99n]) // a copy, not an alias
+    expect([pou.get("table[3].x"), pou.get("grid[1][6]"), pou.get("line2.b.x")]).toEqual([5n, 10n, 7n]) // x starts at its field's 7
+    expect(pou.get("got")).toBe(5n) // bit 1 cleared on 7 (0b111)
+  })
+
   // Why missed: every initializer test wrote `:= …` on the variable itself; the alias case only arrived with the
   // fixtures' run recordings (conformance `type_dut_alias_with_init`, 43 after one `x := x + 1`).
   test("a variable with no initializer starts at its ALIAS type's", () => {
