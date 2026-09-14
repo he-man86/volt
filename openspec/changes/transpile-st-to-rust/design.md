@@ -414,3 +414,33 @@ nearly every real POU. More built-ins are correct work that barely moves the num
 points *at*. Building them on slot indices and then discovering `ADR` needs offsets means doing that work
 twice. A hybrid is likely — named fields for the common case, with a lowering-computed offset for anything
 `ADR` is taken of — but it is a decision, not a default, and it is not taken yet.
+
+**The corpus census (2026-09-14)** — project code only, Library Manager copies excluded (they inflate POINTER TO to
+25 086), over awa-palletizer, bakon-nano, lenze-mid and pro2193:
+
+| construct | count | what it points at |
+|---|---|---|
+| `ADR(…)` | 460 | 415 are call arguments: string buffers to StringUtils (`StrConcatA` 64, `StrFindA` 10, `StrCpyA` 8 …), an FB instance handed over as an object (`DiffLogger(Logger := ADR(g_Logger))` 124), an array start (`Calc_CopyCutsWithOffset` 43) |
+| `ADR` of a member / an element | 13 / 30 | a sub-location — a place with a path |
+| POINTER TO | 130 | BOOL, STRING, library structs, arrays; BYTE only 7 |
+| `p^[i]` / `p[i]` on a pointer | 32 / seen | element indexing — `I_dataArray[i - lb]` on a `POINTER TO XYA_Target` |
+| `(p + n)^`, `p := p + …` | 0 / 3 | raw pointer arithmetic is almost absent |
+| SIZEOF | 58 | with the few byte-level calls: `CreateJson` (5), `StrCpyA` (1), `…CopyStruct`, `FcCompareStructs` |
+| REFERENCE TO · VAR_IN_OUT · `REF=` · deref `^` | 112 · 176 · 69 · 616 | aliases of whole places |
+
+So a pointer is almost always a **typed handle to a place**: a root (a GVL, an instance, a frame) plus a path of fields
+and indices. Indexing a pointer moves its last index step. What needs BYTES is narrow: SIZEOF, and a handful of
+library functions that copy, compare or serialize a struct by address.
+
+**Recommended: a hybrid, handle-first.** A pointer/reference value is `{ root, path }` over the named-field model
+(readable Rust stays), `p[i]` and `p + k·SIZEOF(T)` move the last index step, and a byte view of a place is produced
+ON DEMAND from a lowering-computed layout — only where SIZEOF or a byte-level library function asks for one. Refused
+(counted), never guessed: arithmetic that leaves a typed element boundary, `POINTER TO BYTE` walks over a non-byte
+place, pointers compared or stored as integers.
+
+**Measure before building it** (the oracle, as for every rule): SIZEOF of a mixed struct and of an FB instance on the
+simulation device (alignment and padding); `p[i]` and `p + SIZEOF(T)` over an array of structs; a pointer to an FB
+instance calling a method through `^`; `ADR` of a member of a VAR_IN_OUT; what a dangling or null dereference does
+(the recorder already sees a null write stop the application).
+
+**Decision needed**: handle-first hybrid (recommended), slot + path with no byte view at all, or a full byte image.
