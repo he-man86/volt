@@ -14,7 +14,9 @@ import {
   type CaseArm,
   type Document,
   type EnumValue,
+  exprText,
   parseStatements,
+  renderTypeExpr,
   type Statement,
   type StatementList,
   stmtChildLists,
@@ -23,7 +25,6 @@ import {
   type VarDecl,
   type VarSection,
 } from "../../syntax/index.js"
-import { exprText, renderTypeExpr } from "../../types/index.js"
 import { offsetFromPosition, rangeFromSpan } from "../shared/index.js"
 
 const TAB = "\t"

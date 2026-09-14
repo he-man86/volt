@@ -83,6 +83,18 @@ export interface NetworkFbCall {
   call?: Expr
   span: Span
 }
+/**
+ * Every statement of a network in source order, an EN/ENO box's body flattened in after the box itself — the walk the
+ * network checks and services each recursed by hand, seven times (consolidate-lsp-structure C4). An EXECUTE box's body is
+ * ST and is not entered: a consumer walks it with the ST walker.
+ */
+export function* networkStatements(statements: readonly NetworkTextStatement[]): Generator<NetworkTextStatement> {
+  for (const s of statements) {
+    yield s
+    if (s.kind === "en_eno_if") yield* networkStatements(s.body)
+  }
+}
+
 /** `IF <en> THEN <statements> END_IF` — an EN/ENO box; its body is faithful network text. */
 export interface NetworkEnEnoIf {
   kind: "en_eno_if"

@@ -18,6 +18,7 @@ import {
   type IdentExpr,
   memberAtOffset,
   type Statement,
+  tokenAtOffset,
   type TopLevel,
   walkAllExprs,
 } from "../syntax/index.js"
@@ -32,11 +33,10 @@ import {
   resolveAt,
   symbolHover,
   toLocations,
-  tokenAtOffset,
   type Ref,
 } from "../services/index.js"
 import { analyzeNetworkText, networkNetworkAt, wireDefs } from "./network-analyze.js"
-import type { NetworkTextStatement } from "./text/ast.js"
+import { networkStatements, type NetworkTextStatement } from "./text/ast.js"
 
 /** True when the offset falls inside a graphical (network text) body — the server's routing discriminator. */
 export function inNetworkText(doc: Document, offset: number): boolean {
@@ -243,34 +243,30 @@ function operandStatements(statements: readonly NetworkTextStatement[]): Stateme
   const push = (e?: Expr): void => {
     if (e !== undefined) out.push({ kind: "expr_stmt", expr: e, span: e.span })
   }
-  const walk = (stmts: readonly NetworkTextStatement[]): void => {
-    for (const s of stmts) {
-      switch (s.kind) {
-        case "sink":
-          push(s.target)
-          push(s.value)
-          break
-        case "wire_def":
-          push(s.producer)
-          break
-        case "fb_call":
-          push(s.call)
-          break
-        case "en_eno_if":
-          push(s.en)
-          walk(s.body)
-          break
-        case "jump":
-        case "return":
-          push(s.condition)
-          break
-        case "execute":
-          out.push(...s.statements)
-          break
-      }
+  for (const s of networkStatements(statements)) {
+    switch (s.kind) {
+      case "sink":
+        push(s.target)
+        push(s.value)
+        break
+      case "wire_def":
+        push(s.producer)
+        break
+      case "fb_call":
+        push(s.call)
+        break
+      case "en_eno_if":
+        push(s.en)
+        break
+      case "jump":
+      case "return":
+        push(s.condition)
+        break
+      case "execute":
+        out.push(...s.statements)
+        break
     }
   }
-  walk(statements)
   return out
 }
 

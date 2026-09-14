@@ -14,10 +14,11 @@ import {
   type Statement,
   stmtChildLists,
   stmtExprs,
+  tokenAtOffset,
   unitBodies,
   walkStatements,
 } from "../../syntax/index.js"
-import { rangeFromSpan, tokenAtOffset } from "../shared/index.js"
+import { rangeFromSpan } from "../shared/index.js"
 
 export function selectionRange(doc: Document, offset: number): SelectionRange | undefined {
   // Collect every span that contains the offset, from the parse tree + the token.

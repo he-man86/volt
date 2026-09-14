@@ -44,7 +44,7 @@ import {
 import { EMPTY_WORKSPACE_REFS } from "../analysis/index.js"
 import { hasUnresolvedBase, type Scope } from "../symbols/index.js"
 import { analyzeNetworkText } from "./network-analyze.js"
-import type { NetworkTextNetwork, NetworkTextStatement } from "./text/ast.js"
+import { networkStatements, type NetworkTextNetwork, type NetworkTextStatement } from "./text/ast.js"
 import { ASSIGN_OPS } from "./text/parser.js"
 
 export function computeNetworkTextDiagnostics(
@@ -164,7 +164,7 @@ function checkJumps(
   messages: Messages,
   out: DiagnosticItem[],
 ): void {
-  for (const s of statements) {
+  for (const s of networkStatements(statements)) {
     if (s.kind === "jump") {
       // CODESYS reports it (label UPPERCASED); TwinCAT does not flag a network-text JMP to a missing label at all, so the
       // message is undefined there. This hard-coded the CODESYS text for both vendors — a TwinCAT false positive the
@@ -172,8 +172,6 @@ function checkJumps(
       const message = labels.has(s.target.text.toLowerCase()) ? undefined : messages.networkJumpLabelUndefined(s.target.text)
       if (message !== undefined)
         out.push({ severity: "error", span: s.target.span, source: SOURCE, code: "network-undefined-label", message })
-    } else if (s.kind === "en_eno_if") {
-      checkJumps(s.body, labels, messages, out)
     }
   }
 }
@@ -193,11 +191,7 @@ function checkPins(
   messages: Messages,
   out: DiagnosticItem[],
 ): void {
-  for (const s of statements) {
-    if (s.kind === "en_eno_if") {
-      checkPins(s.body, scope, project, messages, out)
-      continue
-    }
+  for (const s of networkStatements(statements)) {
     if (s.kind !== "fb_call" || s.call?.kind !== "call") continue
     const t = inferExprType(s.call.callee, scope, project)
     if (t.kind !== "function_block" || t.scope === undefined) continue // not a project FB instance → skip
@@ -426,8 +420,7 @@ function collectVoidCallTargets(
   project: Scope,
   out: { start: number; end: number }[],
 ): void {
-  for (const s of statements) {
-    if (s.kind === "en_eno_if") collectVoidCallTargets(s.body, scope, project, out)
+  for (const s of networkStatements(statements)) {
     if (s.kind !== "sink" || s.target !== undefined || s.value?.kind !== "call") continue
     // RESOLUTION IS THE TEST, and it is what separates a CALL from an OPERATOR. `NOT(a)` and `MOVE(x)` parse
     // as calls too, and the compiler DOES answer about the target for those (`_behind_enable`) — they resolve
@@ -439,7 +432,7 @@ function collectVoidCallTargets(
 
 function operandExprs(statements: readonly NetworkTextStatement[]): Expr[] {
   const out: Expr[] = []
-  for (const s of statements) {
+  for (const s of networkStatements(statements)) {
     switch (s.kind) {
       case "wire_def":
         if (s.producer !== undefined) out.push(s.producer)
@@ -453,7 +446,6 @@ function operandExprs(statements: readonly NetworkTextStatement[]): Expr[] {
         break
       case "en_eno_if":
         if (s.en !== undefined) out.push(s.en)
-        out.push(...operandExprs(s.body))
         break
       case "execute":
         if (s.ok) walkStatements(s.statements, (st) => out.push(...stmtExprs(st)))
@@ -477,13 +469,11 @@ function checkStatements(
   messages: Messages,
   out: DiagnosticItem[],
 ): void {
-  for (const s of statements) {
+  for (const s of networkStatements(statements)) {
     if (s.kind === "sink") {
       if (s.target !== undefined && s.value !== undefined && !isBoxOutput(s.value) && !isModifierValue(s.value)) {
         checkPair(s.target, s.value, scope, project, messages, out)
       }
-    } else if (s.kind === "en_eno_if") {
-      checkStatements(s.body, scope, project, messages, out)
     } else if (s.kind === "execute" && s.ok) {
       walkStatements(s.statements, (st) => {
         if (st.kind === "assign" && st.op === undefined && !isBoxOutput(st.value)) {

@@ -5,8 +5,7 @@
  * It used to exercise a second TypeExpr printer under `transpile/`, which nothing else called.
  */
 import { expect, test } from "bun:test"
-import { isTrivia, lex, parseSource, type TypeExpr } from "../syntax/index.js"
-import { renderTypeExpr } from "./render.js"
+import { isTrivia, lex, parseSource, renderTypeExpr, type TypeExpr } from "./index.js"
 
 /** The meaningful (non-trivia) token stream as `kind:text` pairs — the whitespace-insensitive identity. */
 const toks = (s: string): string[] =>

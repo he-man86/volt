@@ -134,9 +134,14 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       store/narrowing/conversion-argument/binary-operator rules), `analysis/diagnostic-item.ts`; `checks/_shared.ts` is
       deleted with its `isLibrarySymbol` re-export, and the analysis index re-exports no check file. `inheritance.ts`
       already imported `analysis/resolution`.
-- [ ] C4 Syntax-owned helpers: `syntax/print.ts` (`exprText`, `renderTypeExpr`, statement printing from formatting),
+- [x] C4 Syntax-owned helpers: `syntax/print.ts` (`exprText`, `renderTypeExpr`, statement printing from formatting),
       `spanContains`, `tokenAtOffset`, `nameKey`/`sameName`/`isSelfRef`, tokens kept on `ParseResult`; a network statement
-      walker in `network/text/ast.ts` replacing 7 recursions; `collectBareRefs` onto `ast-walk`.
+      walker in `network/text/ast.ts` replacing 7 recursions; `collectBareRefs` onto `ast-walk`. DONE 2026-09-14:
+      `syntax/print.ts` (`renderTypeExpr`, `exprText`, `dimText`; `types/render` keeps `renderType`), `syntax/span`
+      `spanContains`, `syntax/token-at` `tokenAtOffset` (tests moved with them), `isSelfRef` in `ast-walk` (A-phase), and
+      `network/text/networkStatements` replacing the seven EN/ENO recursions. Not done, on purpose: the formatter's
+      statement printer has no second copy to merge; `nameKey` no longer exists and `sameName` has one home
+      (`types/compat`); `collectBareRefs` is gone; and tokens on `ParseResult` waits for a profile that asks for it.
 - [x] C5 `libraryOf(uri)` in symbols; `lower.ts` Standard gate uses it; drop the `_shared.ts:95` shim. DONE 2026-09-14:
       `symbols/libraryOf` (with `%20` normalized, test `symbols.test.ts`); the shim went with `_shared.ts` in C3.
 - [ ] C6 Declarative vendor gating in the check list (8 early returns, `activeVendor`), rule gates in a `config.ts` table.

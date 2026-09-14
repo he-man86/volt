@@ -28,7 +28,3 @@ export function offsetFromPosition(src: string, pos: Position): number {
   }
   return line === pos.line && col === pos.character ? src.length : -1
 }
-
-export function spanContains(span: Span, offset: number): boolean {
-  return offset >= span.start && offset < span.end
-}

@@ -18,7 +18,7 @@ import {
 import { inferExprType, typeToTypeExpr } from "../types/index.js"
 import type { BodySpan, TopLevel } from "../syntax/index.js"
 import { parseNetworkText } from "./text/parser.js"
-import type { NetworkTextBody, NetworkTextNetwork, NetworkTextStatement, NetworkWireDef } from "./text/ast.js"
+import { networkStatements, type NetworkTextBody, type NetworkTextNetwork, type NetworkTextStatement, type NetworkWireDef } from "./text/ast.js"
 
 export interface NetworkTextAnalysis {
   vg: NetworkTextBody
@@ -67,10 +67,7 @@ export function networkNetworkAt(analysis: NetworkTextAnalysis, offset: number):
   return undefined
 }
 
-/** Every `LET` wire-def in a statement list, recursing into en/eno IF boxes, in source order. */
+/** Every `LET` wire-def in a statement list, EN/ENO box bodies included, in source order. */
 export function* wireDefs(statements: readonly NetworkTextStatement[]): Generator<NetworkWireDef> {
-  for (const s of statements) {
-    if (s.kind === "wire_def") yield s
-    else if (s.kind === "en_eno_if") yield* wireDefs(s.body)
-  }
+  for (const s of networkStatements(statements)) if (s.kind === "wire_def") yield s
 }

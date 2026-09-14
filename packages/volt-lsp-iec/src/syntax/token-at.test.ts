@@ -3,7 +3,7 @@
  * definition on type names + declared identifiers. Untested before; pin the inside/boundary/trivia cases.
  */
 import { test, expect } from "bun:test"
-import { tokenAtOffset } from "./token-scan.js"
+import { tokenAtOffset } from "./token-at.js"
 
 // "x := foo;" → x[0,1) :=[2,4) foo[5,8) ;[8,9)   (offsets 1 and 4 are whitespace = trivia)
 const SRC = "x := foo;"

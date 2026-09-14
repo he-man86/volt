@@ -3,9 +3,10 @@
  * definition, completion). Untested before; off-by-one here breaks all of them, so pin the line/col
  * boundaries, the end-of-source case, out-of-range, and the Span(1-based line)→Range(0-based) mapping.
  */
+import { spanContains } from "../../syntax/index.js"
 import { test, expect } from "bun:test"
 import type { Span } from "../../syntax/index.js"
-import { offsetFromPosition, rangeFromSpan, spanContains } from "./positions.js"
+import { offsetFromPosition, rangeFromSpan } from "./positions.js"
 
 const SRC = "abc\ndef\nghi" // offsets: a0 b1 c2 \n3 d4 e5 f6 \n7 g8 h9 i10  (length 11)
 

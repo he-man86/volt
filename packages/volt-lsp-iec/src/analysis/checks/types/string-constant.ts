@@ -6,8 +6,8 @@
  * are one character each, so `STRING(1) := '$T'` is fine. Only a narrow `STRING(n)` with a const-foldable length
  * and a string-literal init fires, on a strict over-length; a sizeless `STRING` and any `WSTRING` are skipped.
  */
-import { decodeStringLiteral } from "../../../syntax/index.js"
-import { constEval, renderTypeExpr } from "../../../types/index.js"
+import { decodeStringLiteral, renderTypeExpr } from "../../../syntax/index.js"
+import { constEval } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachDecl } from "../../../symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"

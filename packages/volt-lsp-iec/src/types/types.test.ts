@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test"
-import { parseSource, parseStatements, type Expr, type FunctionBlock, type TypeExpr } from "../syntax/index.js"
+import { type Expr, type FunctionBlock, parseSource, parseStatements, renderTypeExpr, type TypeExpr } from "../syntax/index.js"
 import { buildSymbolTable, findChildScope, type Scope } from "../symbols/index.js"
 import {
   constEval,
@@ -15,7 +15,6 @@ import {
   isNumericType,
   numericRank,
   renderType,
-  renderTypeExpr,
   resolveNamedType,
   resolveTypeExpr,
   UNKNOWN,

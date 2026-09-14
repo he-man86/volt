@@ -71,7 +71,7 @@ check traces to a conformance fixture recorded against the live compiler.
 
 ### E — `services/`
 The LSP features, thin over C/D via `shared/` (`resolve-at` cursor→symbol, positions, `locations`,
-`symbol-kinds`, `token-scan`): navigation (definition · type-definition · references · rename · highlight ·
+`symbol-kinds`): navigation (definition · type-definition · references · rename · highlight ·
 implementation), `hierarchy` (call + type), `assist` (hover · completion · signature-help), `inlay-hints`
 (inferred types + parameter names), `code-lens` ("N references" · "▶ Run test"), `semantic-tokens`, `structure`
 (document/workspace-symbol · folding · selection), `formatting` (print · editorconfig · on-type · range), and
@@ -175,7 +175,7 @@ constant, look it up here; if it exists, import it — never redefine.
 | The `Type` model | `types/type` |
 | Type compatibility (assignable/narrowing/arith/conversion) | `types/compat` |
 | Constant evaluation | `types/const-eval` |
-| Type/expr rendering | `types/render` — the ONE renderer |
+| Type/expr rendering | `types/render` (a resolved `Type`) · `syntax/print` (a declared `TypeExpr`, an expression) |
 | Diagnostic message building (per-vendor) | `analysis/messages` |
 | Vendor differences | `analysis` vendor-difference registry (data; see `language-reference.md` §10) |
 | Cursor → symbol resolution | `services/shared/resolve-at` |

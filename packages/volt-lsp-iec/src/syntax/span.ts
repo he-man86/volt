@@ -34,3 +34,8 @@ function lineColAt(src: string, offset: number): [number, number] {
   }
   return [line, col]
 }
+
+/** True when `offset` falls inside `span` — start inclusive, end exclusive, as a cursor sits. */
+export function spanContains(span: Span, offset: number): boolean {
+  return offset >= span.start && offset < span.end
+}

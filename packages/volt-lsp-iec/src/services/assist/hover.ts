@@ -6,10 +6,9 @@
  */
 import type { Hover } from "vscode-languageserver-protocol"
 import { lookupReference, pragmaHelp, renderReferenceHover } from "../../reference/index.js"
-import { type Document, lex } from "../../syntax/index.js"
+import { type Document, lex, renderTypeExpr, tokenAtOffset } from "../../syntax/index.js"
 import type { Scope, Symbol, SymbolKind } from "../../symbols/index.js"
-import { renderTypeExpr } from "../../types/index.js"
-import { humanKind, rangeFromSpan, resolveAt, tokenAtOffset } from "../shared/index.js"
+import { humanKind, rangeFromSpan, resolveAt } from "../shared/index.js"
 
 export function hover(doc: Document, project: Scope, offset: number): Hover | undefined {
   const tok = tokenAtOffset(doc.source, offset)
