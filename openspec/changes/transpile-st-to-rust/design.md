@@ -443,5 +443,37 @@ simulation device (alignment and padding); `p[i]` and `p + SIZEOF(T)` over an ar
 instance calling a method through `^`; `ADR` of a member of a VAR_IN_OUT; what a dangling or null dereference does
 (the recorder already sees a null write stop the application).
 
+**Why it stays simple — and safe Rust (review, 2026-09-14).** IEC declares every variable in a declaration section:
+no heap (`__NEW`: 0 in the corpus), no lifetimes to infer. The application is ONE tree of owned values whose shape is
+known at compile time, so the Rust is plain nested structs — `#[derive(Default)]`, arrays by value, no `Box`, `Rc`,
+`RefCell` or `unsafe`, and no Rust reference ever stored:
+- a program is `impl PlcPrg { fn scan(&mut self, g: &mut Globals) }` — its own state and the globals are disjoint borrows;
+- an FB is a struct of its VAR, a method `&mut self`, a call on a declared instance `self.inst.bump()`;
+- VAR_IN_OUT is a `&mut` parameter (`self.fbio.call(&mut self.rec)`), and an ADR that never outlives the call a reborrow;
+- only a pointer that is STORED becomes a handle — one `enum` per pointee type, one variant per place an ADR of that
+  type is taken of, carrying the element index (`PtrDutMemPt::PlcPrgArr(1)`); `p[i]` / `p + SIZEOF(T)` move the index,
+  and one accessor per pointee type resolves it where it is used.
+`memory-sketch.rs` is that shape for the six memory-model fixtures; it compiles under `-D warnings` and its asserts pass.
+Safe Rust holds for everything the program owns. It stops at two edges, both refused-and-counted, never `unsafe`:
+memory the program only sees as BYTES (a `POINTER TO BYTE` over a struct, a copy or compare by `ADR` + `SIZEOF`) —
+reachable through an on-demand byte view, safe but less readable; and a pointer that comes from OUTSIDE the program
+(`AppGetCurrent`, `IecTaskGetCurrent` return runtime-system memory) — runtime tier, not transpiled code. One subtle
+case: the same place passed to two VAR_IN_OUT parameters is two `&mut` to one place, which Rust rejects — that call
+takes the handle path.
+
+**Measured (2026-09-14, conformance `mem_*`, the 64-bit simulator):**
+- a struct lays out as C does: `b : BYTE; i : INT; d : DINT; x : BOOL; l : LREAL` has offsets 0 / 2 / 4 / 8 / 16 and
+  SIZEOF 24 (each field aligned to its size, the struct to its widest); an array of three is 72; a BOOL is 1 byte; a
+  STRING is 81 (80 + terminator); SIZEOF returns a width that widens silently into ULINT, and `ADR(a) - ADR(b)` into
+  ULINT compiles without a message;
+- an FB instance is LARGER than its variables: `b : BYTE; d : DINT` plus a method is 16, where the same struct is 8 —
+  consistent with one hidden pointer-sized header; its placement is not measured;
+- `p := ADR(arr[1])`: `p^.x` is arr[1], `p[2].x` arr[3], `p + SIZEOF(T)` arr[2], and `p[3].x := 77` writes arr[4] — an
+  index step, exactly the handle's; `(p + SIZEOF(T))^` does not PARSE ("';' expected instead of '^'"), so a stepped
+  pointer is always a stored one;
+- a method called through `pInst^` runs on the instance (n = 2 after two calls), and ADR of a VAR_IN_OUT member
+  written through changes the CALLER's place (rec.y = 99).
+`memory-sketch.rs` asserts these same values.
+
 **Decided (user, 2026-09-14): the handle-first hybrid.** Slot + path with no byte view, and a full byte image, were the
 alternatives. The measurements above are recorded before any of it is built.

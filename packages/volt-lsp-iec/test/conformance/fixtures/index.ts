@@ -32,6 +32,7 @@ import { VARIABLE_SECTION_TESTS } from "./variable-section.js"
 import { CHECK_COVERAGE_TESTS } from "./check-coverage.js"
 import { ERROR_CATALOG_TESTS } from "./error-catalog.js"
 import { EXECUTION_TESTS } from "./execution.js"
+import { MEMORY_MODEL_TESTS } from "./memory-model.js"
 
 export interface CategoryGroup {
   name: string
@@ -68,6 +69,8 @@ export const CATEGORIES: readonly CategoryGroup[] = [
   { name: "error-catalog", tests: ERROR_CATALOG_TESTS },
   // ── programs that are also RUN in the simulator — the transpiler's cases (was test/exec, unify-conformance-suite) ──
   { name: "execution", tests: EXECUTION_TESTS },
+  // ── the facts the transpiler's memory model is built on (transpile-st-to-rust design §9) — run in the simulator ──
+  { name: "memory-model", tests: MEMORY_MODEL_TESTS },
 ]
 
 export const ALL_TESTS: readonly LanguageTest[] = CATEGORIES.flatMap((c) => c.tests)

@@ -68,7 +68,8 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // 354 → 460 (2026-09-14): unify-conformance-suite §5 — the 117 execution programs build-recorded through the bridge.
   // 460 → 503: §5.2 — operand sign changes (arithmetic, bit operations, comparisons, MAX/MIN, NOT), a chained
   // assignment's inner store, an over-long WSTRING, a REAL literal beyond REAL, a typed literal sum; 37 `cc_*` probes.
-  { vendor: "codesys", filename: "codesys.build.json", floor: 503 },
+  // 503 → 509: the six memory-model fixtures (transpile-st-to-rust design §9).
+  { vendor: "codesys", filename: "codesys.build.json", floor: 509 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
