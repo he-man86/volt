@@ -66,6 +66,11 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       LREAL; a constant expression is silent. `types/literalErrorType`; the assignment check now walks every scalar
       initializer. *Why missed:* the check walked statements only, and no fixture put a mismatch in a declaration.
 
+- [ ] A14 **IL operator names as identifiers** — found by the execution oracle twice: CODESYS rejects a variable named
+      `lt` and one named `ld` ("Unexpected token 'ld' found"), both instruction-list operators. The LSP's reserved-name
+      handling covers `r`/`s` (set-reset-name) and the keyword table; the IL operator set (LD, LDN, ST, STN, GT, GE, EQ,
+      NE, LE, LT, JMP, JMPC, CAL, RET, …) is unrecorded. Record which are reserved, then one check.
+
 ## B. `src/types` is the only home of type knowledge
 
 - [ ] B1 Exported `elementaryRef(name)` / `elemOf(t)`; replace `infer.elem`, `resolve.resolveElementary`,

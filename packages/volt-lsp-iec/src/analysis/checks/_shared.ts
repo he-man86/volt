@@ -5,7 +5,7 @@
  */
 import { walkAllExprs, walkExpr, type Expr, type ParseResult, type Span } from "../../syntax/index.js"
 import { bodies, scopeForUnit, type Scope } from "../../symbols/index.js"
-import { classifyConversion, elementaryType, type Type } from "../../types/index.js"
+import { classifyConversion, elemOf, type Type } from "../../types/index.js"
 import type { Messages } from "../messages.js"
 
 export interface DiagnosticItem {
@@ -87,7 +87,8 @@ function typeName(t: Type): string {
   return t.kind === "elementary" ? t.name : ""
 }
 function signOf(t: Type): string {
-  return t.kind === "elementary" && elementaryType(t.name)?.signed ? "signed" : "unsigned"
+  // the facts ride on the Type — no second lookup by name (consolidate-lsp-structure B1)
+  return elemOf(t)?.signed ? "signed" : "unsigned"
 }
 
 // `isLibrarySymbol` moved to the symbols layer (B) so types (const-eval/infer) reach the SAME normalized

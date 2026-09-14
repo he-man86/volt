@@ -8,7 +8,7 @@ import { findChildScope, lookupLocal } from "../symbols/index.js"
 import type { TypeDecl, TypeExpr } from "../syntax/index.js"
 import { constEval } from "./const-eval.js"
 import { elementaryType } from "./elementary.js"
-import { elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
+import { elementaryRef, elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
 
 const MAX_ALIAS_DEPTH = 10
 
@@ -20,7 +20,7 @@ export function resolveTypeExpr(t: TypeExpr, project: Scope, depth = 0): Type {
       return resolveNamedType(t.name.text, project, depth)
     case "string_type": {
       // Carry a declared capacity (`STRING(5)`); a length this scope cannot fold leaves it unstated, never guessed.
-      const base = resolveElementary(t.wide ? "WSTRING" : "STRING")
+      const base = elementaryRef(t.wide ? "WSTRING" : "STRING")
       const length = t.length === undefined ? undefined : constEval(t.length, project)
       return base.kind === "elementary" && typeof length === "bigint" ? { ...base, length: Number(length) } : base
     }
@@ -60,9 +60,4 @@ export function resolveNamedType(name: string, project: Scope, depth = 0): Type 
     if (body.kind === "alias") return resolveTypeExpr(body.target, project, depth + 1)
   }
   return UNKNOWN
-}
-
-function resolveElementary(name: string): Type {
-  const elem = elementaryType(name)
-  return elem !== undefined ? elementaryTypeRef(elem) : UNKNOWN
 }

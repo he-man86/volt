@@ -21,7 +21,7 @@ import type {
 } from "../syntax/index.js"
 import { canonicalElem, elementaryType, integerLiteralType, isDatetime, isDuration, parseConversionName } from "./elementary.js"
 import { resolveTypeExpr } from "./resolve.js"
-import { elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
+import { elementaryRef, elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
 // Inherent cycle: type inference resolves references via the reference catalog, which itself depends on the type system (bidirectional by design). Function-body import, no init hazard.
 import { lookupReference } from "../reference/index.js"
 
@@ -294,7 +294,7 @@ export function literalErrorType(value: Expr, target: Type): Type | undefined {
   const negated = value.kind === "unary" && value.op === "-"
   const lit = negated ? value.operand : value
   if (lit.kind !== "literal") return undefined
-  if (lit.literalKind === "real" && typeof lit.value === "number") return elem("LREAL")
+  if (lit.literalKind === "real" && typeof lit.value === "number") return elementaryRef("LREAL")
   if (lit.literalKind !== "int" || typeof lit.value !== "bigint") return undefined
   const v = negated ? -lit.value : lit.value
   if (target.kind === "elementary" && target.elem.family === "bool") {
@@ -310,28 +310,28 @@ export function literalErrorType(value: Expr, target: Type): Type | undefined {
 function literalType(lit: Literal): Type {
   switch (lit.literalKind) {
     case "string":
-      return elem("STRING")
+      return elementaryRef("STRING")
     case "wstring":
-      return elem("WSTRING")
+      return elementaryRef("WSTRING")
     case "bool":
-      return elem("BOOL")
+      return elementaryRef("BOOL")
     case "time":
       // The AST gives `T#` and `LTIME#` one literalKind; the prefix decides. Typed TIME, `lt := LTIME#1S` was a false
       // positive and `t := LTIME#1S` was silent (gap 8, conformance `cc_ltime_literal_into_time`).
       // (`LTIME#` only: the lexer reads `LT` as the less-than keyword, and an `LT#` prefix was never measured)
-      return elem(/^LTIME#/i.test(lit.text) ? "LTIME" : "TIME")
+      return elementaryRef(/^LTIME#/i.test(lit.text) ? "LTIME" : "TIME")
     // An `L` prefix (`LDATE#`, `LTOD#`/`LTIME_OF_DAY#`, `LDT#`/`LDATE_AND_TIME#`) is the 64-bit type. These were typed
     // DATE/TOD/DT whatever the prefix, while lowering typed them right (consolidate-lsp-structure A2).
     case "date":
-      return elem(/^L/i.test(lit.text) ? "LDATE" : "DATE")
+      return elementaryRef(/^L/i.test(lit.text) ? "LDATE" : "DATE")
     case "tod":
-      return elem(/^L/i.test(lit.text) ? "LTOD" : "TOD")
+      return elementaryRef(/^L/i.test(lit.text) ? "LTOD" : "TOD")
     case "datetime":
-      return elem(/^L/i.test(lit.text) ? "LDT" : "DT")
+      return elementaryRef(/^L/i.test(lit.text) ? "LDT" : "DT")
     case "typed": {
       // `BYTE#170` / `INT#5` → the type prefix. `16#FF` (numeric base) has no type prefix → skip.
       const prefix = lit.prefix ?? ""
-      return /^[A-Za-z_]/.test(prefix) ? elem(prefix) : UNKNOWN
+      return /^[A-Za-z_]/.test(prefix) ? elementaryRef(prefix) : UNKNOWN
     }
     default:
       // int / real / address literals are context-dependent width — skip (conservative).
@@ -339,11 +339,7 @@ function literalType(lit: Literal): Type {
   }
 }
 
-/** An elementary Type by name, or UNKNOWN if the name isn't elementary. */
-function elem(name: string): Type {
-  const e = elementaryType(name)
-  return e !== undefined ? elementaryTypeRef(e) : UNKNOWN
-}
+
 
 const COMPARISON_OPS: ReadonlySet<string> = new Set(["=", "<>", "<", ">", "<=", ">="])
 
@@ -363,12 +359,12 @@ function temporalArithResult(op: string, l: string, r: string): string | undefin
 }
 
 function binaryResultType(e: BinaryExpr, scope: Scope, project: Scope): Type {
-  if (COMPARISON_OPS.has(e.op)) return elem("BOOL")
+  if (COMPARISON_OPS.has(e.op)) return elementaryRef("BOOL")
   const l = inferExprType(e.left, scope, project)
   const r = inferExprType(e.right, scope, project)
   if (l.kind === "elementary" && r.kind === "elementary") {
     const temporal = temporalArithResult(e.op, canonicalElem(l.name), canonicalElem(r.name))
-    if (temporal !== undefined) return elem(temporal)
+    if (temporal !== undefined) return elementaryRef(temporal)
     // Conservative: commit only when both operands are the same elementary type.
     if (canonicalElem(l.name) === canonicalElem(r.name)) return l
   }
@@ -410,10 +406,10 @@ function exptType(call: CallExpr, scope: Scope, project: Scope): Type {
     return canonicalElem(t.name) === "REAL" ? "real" : "not-real"
   })
   if (kinds.length !== 2 || kinds.includes("unknown")) return UNKNOWN
-  if (kinds[0] === "real" && kinds[1] === "real") return elementaryTypeRef(elementaryType("REAL")!)
+  if (kinds[0] === "real" && kinds[1] === "real") return elementaryRef("REAL")
   // A REAL beside an integer literal was not measured — silence rather than a guessed type.
   if (kinds.includes("real") && kinds.includes("int-literal")) return UNKNOWN
-  return elementaryTypeRef(elementaryType("LREAL")!)
+  return elementaryRef("LREAL")
 }
 
 function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {

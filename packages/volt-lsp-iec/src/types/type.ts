@@ -15,7 +15,7 @@
  */
 import type { Scope } from "../symbols/index.js"
 import type { ArrayDim } from "../syntax/index.js"
-import type { ElementaryType } from "./elementary.js"
+import { elementaryType, type ElementaryType } from "./elementary.js"
 
 export type Type =
   | ElementaryTypeRef
@@ -101,4 +101,18 @@ export function isKnown(t: Type): boolean {
 /** Construct an elementary Type from its facts. */
 export function elementaryTypeRef(elem: ElementaryType): ElementaryTypeRef {
   return { kind: "elementary", name: elem.name, elem }
+}
+
+/**
+ * The elementary Type named `name` (aliases resolved), or UNKNOWN. The ONE constructor by name — inference, resolution and
+ * the transpiler each kept a private copy (consolidate-lsp-structure B1).
+ */
+export function elementaryRef(name: string): Type {
+  const facts = elementaryType(name)
+  return facts === undefined ? UNKNOWN : elementaryTypeRef(facts)
+}
+
+/** A Type's elementary facts, or undefined for any other kind of type. */
+export function elemOf(t: Type): ElementaryType | undefined {
+  return t.kind === "elementary" ? t.elem : undefined
 }
