@@ -214,7 +214,14 @@ every oracle case into a real-code test of the bridge the CLI ships, on construc
       SingleCycle` exist on SP21); reading values there is still to probe. Only then can `record:exec` drop the
       runscript. TwinCAT would need its own answer.
 
-## Phase 3 — the memory model, then the frame · PLANNED, AWAITING REVIEW
+## Phase 3 — the memory model, then the frame · DONE 2026-09-14 (form 1 pointers; form 3 handles not needed by any recorded case)
+
+**Result.** Conformance cases lowering 111 → 349 of 384, every result equal to CODESYS in both backends. The corpus
+ratchet (one symbol table per project): POUs with a body lowering **4 → 24 of 304**. What blocks the corpus now — the
+work list after this phase, most first: `place-shape` 149 · `init-not-constant` 142 · `place-not-local` 121 (mostly
+library globals and constants) · `enum-value` 73 (a written value that does not fold) · `call-this` 63 (a bare method
+call inside an FB) · `aggregate-init` 56 · `call-positional` 38 · `attr-instance-path` 35 · `layout-struct` 33 (library
+structs) · `call-extends` 33.
 
 **Decide design §9 before writing any of this.** Instances, methods and GVLs are what a pointer points at;
 building them on slot indices and then finding `ADR` needs offsets means doing the work twice.
