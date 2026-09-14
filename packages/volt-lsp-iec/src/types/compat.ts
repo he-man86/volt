@@ -40,10 +40,6 @@ export function classifyConversion(lhs: Type, rhs: Type): ConversionKind {
   return classifyElementary(lhs.name, rhs.name)
 }
 
-// A REAL holds 24 mantissa bits, an LREAL 53 (IEEE-754 single/double). An integer wider than that can't be
-// represented exactly, so the compilers warn "possible loss of information" (DINT→REAL, LINT→LREAL, …).
-const MANTISSA_BITS: Record<string, number> = { REAL: 24, LREAL: 53 }
-
 /**
  * Elementary classification, over the lattice facts only — every rule is calibrated against the live compilers
  * by `scripts/conversion-matrix.ts` (the full N×N numeric matrix agrees severity-for-severity).
@@ -66,8 +62,8 @@ function classifyElementary(lName: string, rName: string): ConversionKind {
   if (dstReal) {
     // real → real: wider mantissa is safe, LREAL→REAL loses precision (a WARNING).
     if (srcReal) return src.rank <= dst.rank ? "widen" : "narrow"
-    // integer → real: safe unless the integer needs more bits than the mantissa holds.
-    return src.bits > (MANTISSA_BITS[l] ?? 24) ? "narrow" : "widen"
+    // integer → real: safe unless the integer needs more bits than the mantissa holds (DINT→REAL, LINT→LREAL warn).
+    return dst.mantissaBits !== undefined && src.bits > dst.mantissaBits ? "narrow" : "widen"
   }
   // real → integer needs an explicit X_TO_Y — an ERROR (e.g. `INT := someREAL`).
   if (srcReal) return "incompatible"

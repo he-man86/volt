@@ -34,13 +34,16 @@ import { buildSymbolTable, lookup, scopeForUnit, type Scope } from "../../symbol
 import {
   commonType,
   constEval,
+  DEFAULT_STRING_LENGTH,
   elementaryRef,
   elemOf,
   exptResultType,
   inTypeGroup,
   integerLiteralType,
   isIntegerType,
+  literalType,
   promoteForRuntime,
+  REAL_LITERAL_TYPE,
   temporalResultType,
   parseConversionName,
   resolveTypeExpr,
@@ -272,7 +275,7 @@ class Lowering {
         // An IEC integer literal has NO intrinsic type — it takes the one the context requires, which is
         // exactly why `inferExprType` returns UNKNOWN for it. Context first; the narrowest type that holds
         // the value otherwise, so a bare literal still meets its neighbour cleanly.
-        const type = literalType(e, expected)
+        const type = contextLiteralType(e, expected)
         if (type === UNKNOWN) return this.bail("type-unknown", `the type of ${e.text} is not resolvable`, e.span)
         return retype({ kind: "const", value: typeof v === "object" ? v.ns : v, type, span: e.span }, type)
       }
@@ -742,11 +745,10 @@ class Lowering {
 
 // ─── type helpers (facts come from `types/elementary`, never from a second table) ─────────────────────────
 
-/** A slot's string type with its capacity stated: a sizeless STRING or WSTRING holds 80 (`string_default_length`,
- *  `wstring_basic`). */
+/** A slot's string type with its capacity stated: a sizeless STRING or WSTRING holds `DEFAULT_STRING_LENGTH`. */
 function withStringCapacity(t: Type): Type {
   if (t.kind !== "elementary" || t.length !== undefined || (t.name !== "STRING" && t.name !== "WSTRING")) return t
-  return { ...t, length: 80 }
+  return { ...t, length: DEFAULT_STRING_LENGTH }
 }
 
 /** Wrap in an explicit conversion when the types differ — a backend never widens on its own. Two STRINGs of different
@@ -795,10 +797,7 @@ function valueAs(v: IrValue, to: Type): IrValue {
 function durationOf(e: Extract<Expr, { kind: "literal" }>): { value: bigint; type: Type } | undefined {
   const v = e.value
   if (e.literalKind !== "time" || typeof v !== "object" || v === null || !("ns" in v)) return undefined
-  // `LTIME#` only — the lexer reads `LT` as the less-than keyword, and an `LT#` prefix was never measured
-  return /^LTIME#/i.test(e.text)
-    ? { value: v.ns, type: elementaryRef("LTIME") }
-    : { value: v.ns / 1_000_000n, type: elementaryRef("TIME") }
+  return inTicks(v.ns, literalType(e))
 }
 
 /**
@@ -810,12 +809,8 @@ function durationOf(e: Extract<Expr, { kind: "literal" }>): { value: bigint; typ
 function calendarOf(e: Extract<Expr, { kind: "literal" }>): { value: bigint; type: Type } | undefined {
   const text = e.value
   if (typeof text !== "string" || !["date", "datetime", "tod"].includes(e.literalKind)) return undefined
-  const long = /^L/i.test(e.prefix ?? e.text)
   const ns = calendarNanoseconds(e.literalKind as "date" | "datetime" | "tod", text)
-  if (ns === undefined) return undefined
-  const typeName = e.literalKind === "date" ? "DATE" : e.literalKind === "datetime" ? "DT" : "TOD"
-  if (long) return { value: ns, type: elementaryRef(`L${typeName}`) }
-  return { value: ns / (e.literalKind === "tod" ? 1_000_000n : 1_000_000_000n), type: elementaryRef(typeName) }
+  return ns === undefined ? undefined : inTicks(ns, literalType(e))
 }
 
 /**
@@ -833,16 +828,11 @@ function typedRealOf(e: Extract<Expr, { kind: "literal" }>): { value: number; ty
   return { value: real.bits === 32 ? Math.fround(e.value) : e.value, type }
 }
 
-/** Nanoseconds per unit of each duration and date type — the one table the calendar arithmetic scales by. */
-const UNIT_NS: Readonly<Record<string, bigint>> = {
-  TIME: 1_000_000n,
-  TOD: 1_000_000n,
-  DATE: 1_000_000_000n,
-  DT: 1_000_000_000n,
-  LTIME: 1n,
-  LTOD: 1n,
-  LDATE: 1n,
-  LDT: 1n,
+/** A nanosecond count in its type's ticks (`types/elementary` `tickNs`), with that type — the literal's own
+ *  (`types/literalType`: its prefix decides). */
+function inTicks(ns: bigint, type: Type): { value: bigint; type: Type } | undefined {
+  const tick = elemOf(type)?.tickNs
+  return tick === undefined ? undefined : { value: ns / tick, type }
 }
 
 /**
@@ -860,7 +850,7 @@ function calendarArithmetic(op: IrBinOp, left: IrExpr, right: IrExpr, span: Span
   const [l, r] = [elemOf(left.type), elemOf(right.type)]
   const result = l && r && temporalResultType(op === "add" ? "+" : "-", l.name, r.name)
   if (result === undefined) return undefined
-  const unit = (x: IrExpr): bigint | undefined => UNIT_NS[elemOf(x.type)?.name ?? ""]
+  const unit = (x: IrExpr): bigint | undefined => elemOf(x.type)?.tickNs
   const scale = (x: IrExpr, by: bigint, as: Type, how: "div" | "mul"): IrExpr =>
     by === 1n ? x : { kind: "binary", op: how, left: x, right: { kind: "const", value: by, type: as, span }, type: as, span }
 
@@ -874,10 +864,10 @@ function calendarArithmetic(op: IrBinOp, left: IrExpr, right: IrExpr, span: Span
     return { kind: "binary", op, left: date, right: step, type: date.type, span }
   }
   // a date − the same date: the difference, scaled into its duration's unit
-  const leftUnit = unit(left)
-  if (leftUnit === undefined) return undefined
+  const [leftUnit, durationUnit] = [unit(left), elemOf(type)?.tickNs]
+  if (leftUnit === undefined || durationUnit === undefined) return undefined
   const difference: IrExpr = { kind: "binary", op: "sub", left, right, type: left.type, span }
-  return scale(convert(difference, type), leftUnit / UNIT_NS[result]!, type, "mul")
+  return scale(convert(difference, type), leftUnit / durationUnit, type, "mul")
 }
 
 /** Nanoseconds since the epoch (DATE/DT) or since midnight (TOD) for a literal's text, or undefined when malformed. */
@@ -895,15 +885,15 @@ function calendarNanoseconds(kind: "date" | "datetime" | "tod", text: string): b
   return kind === "date" || d[4] === undefined ? midnight : midnight + clock(d[4], d[5]!, d[6]!, d[7])
 }
 
-/** The type an IEC literal takes: the context's, or the narrowest that holds the value. */
-function literalType(e: Extract<Expr, { kind: "literal" }>, expected?: Type): Type {
+/** An untyped literal's type: the context's, or the narrowest that holds the value (its OWN type is `types/literalType`). */
+function contextLiteralType(e: Extract<Expr, { kind: "literal" }>, expected?: Type): Type {
   const want = elemOf(expected ?? UNKNOWN)
   const v = e.value
   if (v === undefined) return UNKNOWN
   if (typeof v === "boolean") return elementaryRef("BOOL")
   // (strings and durations never reach here: `expr` lowers both before asking for a literal's type)
   if (typeof v === "string" || typeof v === "object") return UNKNOWN
-  if (typeof v === "number") return want?.family === "real" ? expected! : elementaryRef("LREAL")
+  if (typeof v === "number") return want?.family === "real" ? expected! : elementaryRef(REAL_LITERAL_TYPE)
   // An integer literal: honour a numeric context (REAL included — `x : REAL := 1;` is legal), else narrowest.
   if (want !== undefined && want.rank !== undefined) return expected!
   // the narrowest type CODESYS gives the literal — `types/`'s, not a second list here (this one used to skip the unsigned)

@@ -70,9 +70,9 @@ export function exptResultType(base: Type, exponent: Type): Type {
   return real32(base) && real32(exponent) ? elementaryRef("REAL") : elementaryRef("LREAL")
 }
 
-/** The duration a date type's difference is: LTIME for the L variants, TIME otherwise. */
+/** The duration a date type's difference is: LTIME for a 64-bit date type, TIME otherwise. */
 export function durationFor(dateName: string): string {
-  return canonicalElem(dateName).startsWith("L") ? "LTIME" : "TIME"
+  return elementaryType(dateName)?.bits === 64 ? "LTIME" : "TIME"
 }
 
 /**

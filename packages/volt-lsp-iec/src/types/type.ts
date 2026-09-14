@@ -35,7 +35,7 @@ export interface ElementaryTypeRef {
   name: string
   elem: ElementaryType
   /** A STRING/WSTRING's capacity in characters, when the declaration states one (`STRING(5)` → 5). Undefined for a
-   *  sizeless `STRING` — the default capacity is a vendor fact the transpiler applies (measured: 80), not a
+   *  sizeless `STRING` — the default capacity is a vendor fact the transpiler applies (`DEFAULT_STRING_LENGTH`), not a
    *  resolution fact — and for every non-string type. */
   length?: number
 }

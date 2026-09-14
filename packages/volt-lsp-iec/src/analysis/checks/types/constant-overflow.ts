@@ -10,13 +10,10 @@
  * literal's own text (`INT#123456`, `10E500`), matching the compiler.
  */
 import type { Literal } from "../../../syntax/index.js"
-import { elementaryType, REAL_MAX_MAGNITUDE } from "../../../types/index.js"
+import { ANY_INT_RANGE, elementaryType, REAL_MAX_MAGNITUDE } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachExpr, SOURCE, type DiagnosticItem } from "../_shared.js"
 
-// The widest IEC integer range: no integer type holds a value outside [LINT.min .. ULINT.max].
-const ANY_INT_MIN = elementaryType("LINT")!.range!.min
-const ANY_INT_MAX = elementaryType("ULINT")!.range!.max
 const LREAL_MAX = REAL_MAX_MAGNITUDE.get("LREAL")!
 
 export function checkConstantOverflow(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -46,7 +43,7 @@ function overflowType(lit: Literal): string | undefined {
     return undefined
   }
   if (lit.literalKind === "int" && typeof lit.value === "bigint")
-    return lit.value < ANY_INT_MIN || lit.value > ANY_INT_MAX ? "ANY_INT" : undefined
+    return lit.value < ANY_INT_RANGE.min || lit.value > ANY_INT_RANGE.max ? "ANY_INT" : undefined
   if (lit.literalKind === "real" && typeof lit.value === "number")
     return !Number.isFinite(lit.value) || Math.abs(lit.value) > LREAL_MAX ? "ANY_REAL" : undefined
   return undefined

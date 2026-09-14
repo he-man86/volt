@@ -20,7 +20,7 @@ import type {
   VarSection,
 } from "../syntax/index.js"
 import { checkedNegationType, exptResultType, temporalResultType } from "./arith.js"
-import { canonicalElem, elementaryType, integerLiteralType, parseConversionName } from "./elementary.js"
+import { canonicalElem, elementaryType, integerLiteralType, parseConversionName, REAL_LITERAL_TYPE } from "./elementary.js"
 import { resolveTypeExpr } from "./resolve.js"
 import { elementaryRef, elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
 // Inherent cycle: type inference resolves references via the reference catalog, which itself depends on the type system (bidirectional by design). Function-body import, no init hazard.
@@ -295,7 +295,7 @@ export function literalErrorType(value: Expr, target: Type): Type | undefined {
   const negated = value.kind === "unary" && value.op === "-"
   const lit = negated ? value.operand : value
   if (lit.kind !== "literal") return undefined
-  if (lit.literalKind === "real" && typeof lit.value === "number") return elementaryRef("LREAL")
+  if (lit.literalKind === "real" && typeof lit.value === "number") return elementaryRef(REAL_LITERAL_TYPE)
   if (lit.literalKind !== "int" || typeof lit.value !== "bigint") return undefined
   const v = negated ? -lit.value : lit.value
   if (target.kind === "elementary" && target.elem.family === "bool") {
@@ -308,7 +308,12 @@ export function literalErrorType(value: Expr, target: Type): Type | undefined {
   return t === undefined ? undefined : elementaryTypeRef(t)
 }
 
-function literalType(lit: Literal): Type {
+/**
+ * A literal's OWN type — the one its prefix or kind decides (`INT#5`, `LTIME#1S`, `LDT#…`, a string). An untyped
+ * integer or real takes its type from context, so it is UNKNOWN here; lowering adopts the context, and the checks use
+ * `literalCheckType`/`literalErrorType`. Shared with the transpiler, which had its own copy of the date/time prefixes.
+ */
+export function literalType(lit: Literal): Type {
   switch (lit.literalKind) {
     case "string":
       return elementaryRef("STRING")

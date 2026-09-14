@@ -22,6 +22,12 @@ export interface ElementaryType {
   range?: { min: bigint; max: bigint }
   /** Numeric widening rank (int/bit-string/real only); undefined for non-numeric families. */
   rank?: number
+  /** Nanoseconds per tick a time or date type counts: TIME and TOD milliseconds, DATE and DT seconds, the L variants
+   *  nanoseconds (test/exec `time_*`, `date_*`, `ldate_ltod_ldt`). Undefined for every other family. */
+  tickNs?: bigint
+  /** The integer bits a floating type holds exactly — IEEE-754 single 24, double 53. A wider integer converts with
+   *  "possible loss of information". Undefined for every other family. */
+  mantissaBits?: number
 }
 
 const U = (bits: number): bigint => (1n << BigInt(bits)) - 1n // unsigned max
@@ -60,19 +66,19 @@ export const ELEMENTARY_TYPES: ReadonlyMap<string, ElementaryType> = new Map(
       T("UDINT", "int", 32, false, { min: 0n, max: U(32) }, 3),
       T("ULINT", "int", 64, false, { min: 0n, max: U(64) }, 4),
       // Floating point — no exact bigint range; rank above the integers (int→real widening is implicit).
-      T("REAL", "real", 32, true, undefined, 5),
-      T("LREAL", "real", 64, true, undefined, 6),
+      { ...T("REAL", "real", 32, true, undefined, 5), mantissaBits: 24 },
+      { ...T("LREAL", "real", 64, true, undefined, 6), mantissaBits: 53 },
       // Isolated families (no cross-family implicit conversion).
-      T("TIME", "time", 32, false),
-      T("LTIME", "time", 64, false),
-      T("DATE", "date", 32, false),
-      T("TOD", "date", 32, false),
+      { ...T("TIME", "time", 32, false), tickNs: 1_000_000n },
+      { ...T("LTIME", "time", 64, false), tickNs: 1n },
+      { ...T("DATE", "date", 32, false), tickNs: 1_000_000_000n },
+      { ...T("TOD", "date", 32, false), tickNs: 1_000_000n },
       // 32, not the 64 this said: DT counts SECONDS in 32 bits — DT#2106-02-07-06:28:15 plus one second wraps to
       // DT#1970-01-01-00:00:00 on CODESYS 3.5.21.40 (test/exec `date_width_wrap`). LDT is the 64-bit one.
-      T("DT", "date", 32, false),
-      T("LDATE", "date", 64, false),
-      T("LTOD", "date", 64, false),
-      T("LDT", "date", 64, false),
+      { ...T("DT", "date", 32, false), tickNs: 1_000_000_000n },
+      { ...T("LDATE", "date", 64, false), tickNs: 1n },
+      { ...T("LTOD", "date", 64, false), tickNs: 1n },
+      { ...T("LDT", "date", 64, false), tickNs: 1n },
       T("STRING", "string", 8, false),
       T("WSTRING", "string", 16, false),
     ] as ElementaryType[]
@@ -84,6 +90,16 @@ export const REAL_MAX_MAGNITUDE: ReadonlyMap<string, number> = new Map([
   ["REAL", 3.402823e38],
   ["LREAL", 1.7976931348623157e308],
 ])
+
+/** The characters a sizeless STRING or WSTRING holds (test/exec `string_default_length`, `wstring_basic`). */
+export const DEFAULT_STRING_LENGTH = 80
+
+/** The type an untyped real literal takes — `i := 1.5` is "Cannot convert type 'LREAL' to type 'INT'" (conformance
+ *  `cc_init_real_into_int`), an enum member `(A := 2.5)` "Type 'LREAL' can not be converted". */
+export const REAL_LITERAL_TYPE = "LREAL"
+
+/** The widest range any IEC integer type holds, [LINT min .. ULINT max]: an untyped integer outside it has no type. */
+export const ANY_INT_RANGE: { readonly min: bigint; readonly max: bigint } = { min: S_MIN(64), max: U(64) }
 
 /**
  * IEC abbreviations → their canonical short form, so `TIME_OF_DAY` and `TOD` compare equal. The SINGLE home

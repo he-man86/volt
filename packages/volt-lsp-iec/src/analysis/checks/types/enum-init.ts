@@ -9,7 +9,7 @@
  * LREAL by CODESYS default, which is the reported source type.
  */
 import { scopeForUnit } from "../../../symbols/index.js"
-import { constEval } from "../../../types/index.js"
+import { constEval, REAL_LITERAL_TYPE } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../_shared.js"
 
@@ -25,7 +25,7 @@ export function checkEnumInit(ctx: CheckContext, out: DiagnosticItem[]): void {
         span: member.value.span,
         source: SOURCE,
         code: "enum-init-not-convertible",
-        message: ctx.messages.enumInitNotConvertible("LREAL", unit.name.text),
+        message: ctx.messages.enumInitNotConvertible(REAL_LITERAL_TYPE, unit.name.text),
       })
     }
   }

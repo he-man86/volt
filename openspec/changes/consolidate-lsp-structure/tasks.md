@@ -89,8 +89,10 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       `isStringType`, `isBoolType`, `isTemporal`, `inTypeGroup`; switch every hard-coded family/name list (lower,
       `binary-operators`, `intrinsic-operands`, `indexing`, `bit-number` (BIT kept as a named exception), `pointer-conversion`
       (derive, key by name not `renderType`)).
-- [ ] B3 Facts on the table: temporal tick unit, mantissa bits, `DEFAULT_STRING_LENGTH`, duration-for-date; switch
+- [x] B3 Facts on the table: temporal tick unit, mantissa bits, `DEFAULT_STRING_LENGTH`, duration-for-date; switch
       `lower` `UNIT_NS`/`/^L/`/`withStringCapacity`, `infer.durationFor`, `compat.MANTISSA_BITS`.
+      DONE 2026-09-14: `tickNs` and `mantissaBits` on the table, `DEFAULT_STRING_LENGTH`; `durationFor` reads the date's
+      width. The `/^L/` prefix tests went with B5 — lowering takes a date/time literal's type from `types/literalType`.
 - [x] B4 `types/arith.ts`: `commonType` (from `wider`, after A12), `promoteForRuntime` (from `promoted`), exported
       `checkedNegationType`, `exptResultType`, `temporalResultType` (incl. duration × integer), `arithmeticOperandError`
       (from `binary-operators`). Keep run-time vs checked types clearly named. Fix `docs/architecture.md:62`.
@@ -98,8 +100,9 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       keeps only the unit scaling). Left where they are: duration × integer (a run-time conversion rule lowering alone
       has — the checker types no mixed operands), and `binaryOpError`, already the one home shared by the ST and
       network checks and bound to `messages`, which `types/` must not import.
-- [ ] B5 Literal typing: export `literalType` (after A2), `REAL_LITERAL_TYPE`, `ANY_INT_RANGE`; lower keeps only context
-      adoption; switch `enum-init.ts:28`, `constant-overflow.ts:18`.
+- [x] B5 Literal typing: export `literalType` (after A2), `REAL_LITERAL_TYPE`, `ANY_INT_RANGE`; lower keeps only context
+      adoption; switch `enum-init.ts:28`, `constant-overflow.ts:18`. DONE 2026-09-14: lowering's `durationOf`/`calendarOf`
+      take the literal's type from `types/literalType` and scale by its `tickNs`; its own typing is `contextLiteralType`.
 - [ ] B6 `isSameType` and a shared `checkableType` (or inference types an enum-value reference); switch
       `call-arguments.ts:185/227`, `assignment.ts:51`, `comparison.ts:60`, `_shared.ts:86`.
 - [ ] B7 Rendering: `typeToTypeExpr` (for A11), `memberScopeOf` (completion.ts:87 = infer scopeOf); compiler-exact type
