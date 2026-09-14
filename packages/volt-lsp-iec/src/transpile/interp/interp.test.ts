@@ -464,6 +464,15 @@ END_PROGRAM
     expect(pou.get("half")).toBe(3)
   })
 
+  // Why missed: every initializer test wrote `:= …` on the variable itself; the alias case only arrived with the
+  // fixtures' run recordings (conformance `type_dut_alias_with_init`, 43 after one `x := x + 1`).
+  test("a variable with no initializer starts at its ALIAS type's", () => {
+    const pou = load("TYPE T_Start : INT := 42; END_TYPE\nPROGRAM P\nVAR x : T_Start; END_VAR\nx := x + 1;\nEND_PROGRAM\n", "P")
+    expect(pou.get("x")).toBe(42n)
+    pou.scan()
+    expect(pou.get("x")).toBe(43n)
+  })
+
   test("one REAL operand — literal or variable, either side — makes the division REAL", () => {
     const pou = load(`
 PROGRAM P

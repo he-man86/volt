@@ -23,10 +23,12 @@ import {
   parseStatements,
   type Expr,
   type Identifier,
+  type Initializer,
   type Span,
   type Statement,
   type StatementList,
   type TopLevel,
+  type TypeDecl,
   type TypeExpr,
   type VarSection,
 } from "../../syntax/index.js"
@@ -143,8 +145,12 @@ class Lowering {
 
   declare(sections: readonly VarSection[]): void {
     for (const sec of sections)
-      for (const decl of sec.decls) {
-        const type = withStringCapacity(this.resolve(decl.type))
+      for (const written of sec.decls) {
+        const type = withStringCapacity(this.resolve(written.type))
+        // A variable with no initializer of its own starts at its ALIAS type's: `TYPE T : INT := 42;` makes `x : T` 42
+        // (conformance `type_dut_alias_with_init`, 43 after `x := x + 1`). It started at 0 — `resolve` sees through the
+        // alias to INT and the alias's initializer went with it.
+        const decl = { ...written, init: written.init ?? this.aliasInit(written.type) }
         if (decl.init?.kind === "aggregate_init") {
           this.bail("aggregate-init", "an aggregate initializer is not lowered yet", decl.init.span)
           continue
@@ -178,6 +184,15 @@ class Lowering {
   temp(name: string, type: Type): number {
     this.slots.push({ name: `__${name}_${this.slots.length}`, type, section: "temp", init: defaultValueOf(type) })
     return this.slots.length - 1
+  }
+
+  /** The initializer the variable's alias type carries. ponytail: an alias OF an alias is unmeasured, so only the
+   *  direct alias's own `:=` is taken — measure a chain before walking it. */
+  private aliasInit(t: TypeExpr): Initializer | undefined {
+    if (t.kind !== "named_type") return undefined
+    const sym = lookup(this.scope, t.name.text)?.symbol
+    const body = sym?.kind === "type" ? (sym.ast as TypeDecl).body : undefined
+    return body?.kind === "alias" ? body.init : undefined
   }
 
   private slot(name: Identifier, type: Type, section: VarSection["sectionKind"], init?: IrValue): void {
