@@ -8,7 +8,7 @@
  */
 import type { Span } from "../../syntax/index.js"
 import { elementaryRef, elemOf, type Type } from "../../types/index.js"
-import { type IrExpr, type IrStmt, peelArray, type Place } from "../ir/index.js"
+import { elementOf, type IrExpr, type IrStmt, peelArray, type Place } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 import { binaryOf, convert } from "./convert.js"
 import { rootType } from "./bytes.js"
@@ -31,7 +31,8 @@ export function unionOf(lw: Lowering, place: Place): { union: Place; member: str
       if (type.kind !== "struct" && type.kind !== "function_block") return undefined
       if (lw.shared.unions.has(type.name.toUpperCase())) return { union: { ...place, path: place.path.slice(0, i), type }, member: step.name }
       type = lw.layouts.get(type.name.toUpperCase())?.fields.find((f) => f.name.toUpperCase() === step.name.toUpperCase())?.type
-    } else if (step.kind === "index") type = peelArray(type)?.element
+    // an `ARRAY[*]` in-out's element too — the walk stopped there, so a union reached through one was never overlaid
+    } else if (step.kind === "index") type = elementOf(type)
     else return undefined
   }
   return undefined

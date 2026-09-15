@@ -351,4 +351,138 @@ END_METHOD
 `,
     "order : FB_CS_order13;",
     "order();"),
+  // The width of LOWER_BOUND/UPPER_BOUND's result: 70002 * 40000 overflows a DINT (to -1494887296) and fits a 64-bit
+  // integer (2800080000).
+  fb("callshape_array_star_bound_width", "FB_CS_user14", "UPPER_BOUND of an ARRAY[*] VAR_IN_OUT multiplied past the DINT range",
+    `FUNCTION F_CS_wide14 : LINT
+VAR_IN_OUT
+	values : ARRAY[*] OF BYTE;
+END_VAR
+F_CS_wide14 := UPPER_BOUND(values, 1) * 40000;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_CS_user14
+VAR
+	values : ARRAY[70000..70002] OF BYTE;
+	wide : LINT;
+END_VAR
+wide := F_CS_wide14(values := values);
+END_FUNCTION_BLOCK
+`,
+    "user : FB_CS_user14;",
+    "user();"),
+  fb("callshape_array_star_passed_on", "FB_CS_user15", "an ARRAY[*] VAR_IN_OUT passed on to another function's ARRAY[*] VAR_IN_OUT: its bounds and a write there",
+    `FUNCTION F_CS_inner15 : DINT
+VAR_IN_OUT
+	numbers : ARRAY[*] OF INT;
+END_VAR
+numbers[UPPER_BOUND(numbers, 1)] := 99;
+F_CS_inner15 := LOWER_BOUND(numbers, 1) * 100 + UPPER_BOUND(numbers, 1);
+END_FUNCTION
+
+FUNCTION F_CS_outer15 : DINT
+VAR_IN_OUT
+	numbers : ARRAY[*] OF INT;
+END_VAR
+F_CS_outer15 := F_CS_inner15(numbers := numbers) + 10000;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_CS_user15
+VAR
+	numbers : ARRAY[-2..4] OF INT;
+	bounds : DINT;
+END_VAR
+bounds := F_CS_outer15(numbers := numbers);
+END_FUNCTION_BLOCK
+`,
+    "user : FB_CS_user15;",
+    "user();"),
+  fb("callshape_array_star_fb_inout", "FB_CS_user16", "an FB's ARRAY[*] VAR_IN_OUT bound to a short array, then a longer one: the bounds each call sees",
+    `FUNCTION_BLOCK FB_CS_filler16
+VAR_IN_OUT
+	numbers : ARRAY[*] OF INT;
+END_VAR
+VAR_OUTPUT
+	elementCount : DINT;
+END_VAR
+VAR
+	index : DINT;
+END_VAR
+elementCount := UPPER_BOUND(numbers, 1) - LOWER_BOUND(numbers, 1) + 1;
+FOR index := LOWER_BOUND(numbers, 1) TO UPPER_BOUND(numbers, 1) DO
+	numbers[index] := DINT_TO_INT(index + elementCount * 100);
+END_FOR
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_CS_user16
+VAR
+	filler : FB_CS_filler16;
+	shortRow : ARRAY[1..2] OF INT;
+	longRow : ARRAY[5..8] OF INT;
+	shortCount : DINT;
+	longCount : DINT;
+END_VAR
+filler(numbers := shortRow);
+shortCount := filler.elementCount;
+filler(numbers := longRow);
+longCount := filler.elementCount;
+END_FUNCTION_BLOCK
+`,
+    "user : FB_CS_user16;",
+    "user();"),
+  fb("callshape_bounds_of_sized_array", "FB_CS_user17", "LOWER_BOUND and UPPER_BOUND of an array declared with its bounds, in each dimension",
+    `FUNCTION_BLOCK FB_CS_user17
+VAR
+	grid : ARRAY[-1..1, 3..9] OF INT;
+	firstLower : DINT;
+	secondUpper : DINT;
+END_VAR
+firstLower := LOWER_BOUND(grid, 1);
+secondUpper := UPPER_BOUND(grid, 2);
+END_FUNCTION_BLOCK
+`,
+    "user : FB_CS_user17;",
+    "user();"),
+  // The limit is read on every pass (`callshape_for_bounds_changed_in_body`) — is a PROPERTY read or a METHOD call there
+  // run on every pass too? The corpus's limits are property reads (`fbModuleManager.baseModulesCount`). Each runs 4 times
+  // for 3 passes if the test runs it per pass, once if it is taken once.
+  fb("callshape_for_limit_call", "FB_CS_user18", "a FOR whose limit is a PROPERTY read, and one whose limit is a METHOD call: how often each runs",
+    `FUNCTION_BLOCK FB_CS_holder18
+VAR
+	propertyReads : INT;
+	methodCalls : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+PROPERTY PassLimit : INT
+GET
+propertyReads := propertyReads + 1;
+PassLimit := 3;
+END_GET
+END_PROPERTY
+
+METHOD LimitOf : INT
+methodCalls := methodCalls + 1;
+LimitOf := 3;
+END_METHOD
+
+FUNCTION_BLOCK FB_CS_user18
+VAR
+	holder : FB_CS_holder18;
+	index : INT;
+	propertyPasses : INT;
+	methodPasses : INT;
+END_VAR
+propertyPasses := 0;
+methodPasses := 0;
+FOR index := 1 TO holder.PassLimit DO
+	propertyPasses := propertyPasses + 1;
+END_FOR
+FOR index := 1 TO holder.LimitOf() DO
+	methodPasses := methodPasses + 1;
+END_FOR
+END_FUNCTION_BLOCK
+`,
+    "user : FB_CS_user18;",
+    "user();"),
 ]

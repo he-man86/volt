@@ -18,7 +18,7 @@
  * diagnostics use — there is no second table of type sizes here.
  */
 import type { IrBinding, IrExpr, IrInit, IrLayout, IrMathName, IrPou, IrRoutine, IrStmt, IrValue, Place } from "../../ir/index.js"
-import { defaultValueOf, holdsCall, isBit, peelArray } from "../../ir/index.js"
+import { defaultValueOf, elementOf, holdsCall, isBit, peelArray } from "../../ir/index.js"
 import type { Span } from "../../../syntax/index.js"
 import type { Type } from "../../../types/index.js"
 import { STRING_PRELUDE } from "./prelude.js"
@@ -58,6 +58,25 @@ export function rustType(t: Type): string {
   // LTIME/LDATE/LDT/LTOD a u64 of nanoseconds (design §16, §17). This used to print every one of them as an i64.
   if (family === "int" || family === "bitstring" || family === "time" || family === "date") return `${signed ? "i" : "u"}${bits}`
   throw new Error(`no Rust mapping for ${t.name}`)
+}
+
+/**
+ * A VAR_IN_OUT's Rust parameter type. An `ARRAY[*]` is a slice, and each open dimension inside it a const generic Rust
+ * infers from the array every call lends — `grid : ARRAY[*, *] OF INT` is `&mut [[i16; N_GRID_2]]` (design §26).
+ */
+function inoutType(slot: { type: Type; readOnly?: boolean }, name: string): { param: string; generics: string[] } {
+  const t = slot.type
+  const borrow = slot.readOnly === true ? "&" : "&mut "
+  if (t.kind !== "array" || t.bounds !== undefined) return { param: `${name}: ${borrow}${rustType(t)}`, generics: [] }
+  const generics = t.dims.slice(1).map((_, d) => `N_${name.toUpperCase()}_${d + 2}`)
+  const inner = generics.reduceRight((element, n) => `[${element}; ${n}]`, rustType(t.element))
+  return { param: `${name}: ${borrow}[${inner}]`, generics: generics.map((n) => `const ${n}: usize`) }
+}
+
+/** `<const N: usize, …>` after a fn name, or nothing. */
+const genericList = (typed: readonly { generics: string[] }[]): string => {
+  const all = typed.flatMap((t) => t.generics)
+  return all.length === 0 ? "" : `<${all.join(", ")}>`
 }
 
 /** A POU's or DUT's Rust struct name: the ST name as written, so a reader finds `FB_Conveyor` under its own name
@@ -301,7 +320,7 @@ class Printer {
         const index = this.expr(step.index, slots)
         // a negative offset wraps to a huge usize, so an index below the lower bound panics like one above the upper
         text += step.lower === 0n ? `[(${index} as i64) as usize]` : `[((${index} as i64) - ${step.lower}i64) as usize]`
-        type = peelArray(type)!.element
+        type = elementOf(type)!
       }
     }
     return text
@@ -626,12 +645,13 @@ function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[],
   const names = fieldNames([...routine.locals, ...routine.inouts], p.globalsArg)
   const localNames = names.slice(0, routine.locals.length)
   const inoutNames = names.slice(routine.locals.length)
+  const typed = routine.inouts.map((slot, i) => inoutType(slot, inoutNames[i]!))
   const params = [
     ...(routine.kind === "function" ? [] : ["&mut self"]),
     ...p.globalsParams,
     ...routine.inputs.map((i) => `mut ${localNames[i]}: ${rustType(routine.locals[i]!.type)}`),
     // a VAR_IN_OUT CONSTANT is lent read-only — rustc refuses a write through it, as CODESYS does
-    ...routine.inouts.map((slot, i) => `${inoutNames[i]}: ${slot.readOnly === true ? "&" : "&mut "}${rustType(slot.type)}`),
+    ...typed.map((t) => t.param),
     // each FB instance of another frame the routine is lent for the call (design §24)
     ...(routine.lent ?? []).map((l, i) => `__lent_${i}: &mut ${rustType(l.type)}`),
   ]
@@ -640,7 +660,7 @@ function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[],
   p.push("", 0)
   // generated locals may go unread or unwritten, and a body that ends in `return` leaves the tail unreachable
   p.push("#[allow(unused_mut, unused_variables, unused_assignments, unreachable_code, non_snake_case)]", indent)
-  p.push(`pub fn ${routineFnName(routine)}(${params.join(", ")})${returns} {`, indent)
+  p.push(`pub fn ${routineFnName(routine)}${genericList(typed)}(${params.join(", ")})${returns} {`, indent)
   for (const [i, slot] of routine.locals.entries())
     if (!routine.inputs.includes(i)) p.push(`let mut ${localNames[i]}: ${rustType(slot.type)} = ${p.initOf(slot.type, slot.init)};`, indent + 1)
   const frame: Frame = {
@@ -761,10 +781,11 @@ export function emitRust(pou: IrPou): Emitted {
       const inouts = layout.inouts ?? []
       const inoutNames = fieldNames(inouts, reserved)
       const lentParams = (layout.lent ?? []).map((l, i) => `__lent_${i}: &mut ${rustType(l.type)}`)
-      const params = [...globalsParam, ...inouts.map((slot, i) => `${inoutNames[i]}: ${slot.readOnly === true ? "&" : "&mut "}${rustType(slot.type)}`), ...lentParams].map((param) => `, ${param}`).join("")
+      const typed = inouts.map((slot, i) => inoutType(slot, inoutNames[i]!))
+      const params = [...globalsParam, ...typed.map((t) => t.param), ...lentParams].map((param) => `, ${param}`).join("")
       p.push("", 0)
       if (globalsParam.length > 0) p.push("#[allow(unused_variables)]", 1)
-      p.push(`pub fn call(&mut self${params}) {`, 1)
+      p.push(`pub fn call${genericList(typed)}(&mut self${params}) {`, 1)
       const selfType: Type = { kind: "function_block", name: layout.name }
       p.inFrame(names, { inoutNames, inoutSlots: inouts, localNames: [], localSlots: [], selfType }, () => p.block(layout.body!, layout.fields, 2))
       p.push("}", 1)

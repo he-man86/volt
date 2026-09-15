@@ -38,10 +38,10 @@ import {
   type Place,
   holdsCall,
 } from "../ir/index.js"
-import { baseOf, Lowering, type PendingBody } from "./lowering.js"
+import { baseOf, boundName, Lowering, openDims, type PendingBody } from "./lowering.js"
 import { convert } from "./convert.js"
-import { declareInOuts, declareVars, storageOf, tempResets } from "./storage.js"
-import { lowerPlace } from "./places.js"
+import { declareInOuts, declareOpenBounds, declareVars, storageOf, tempResets } from "./storage.js"
+import { boundOf, lowerPlace } from "./places.js"
 import { refuseConstantWrite, through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 import { lowerBlock } from "./statements.js"
@@ -264,6 +264,8 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
           r.localSlots.push({ name: n.text, type: elementaryRef("DINT"), section: "VAR_INPUT", init: 0n })
         }
       }
+    // an `ARRAY[*]` in-out's bounds: hidden inputs every call fills from the array it binds (design §26)
+    declareOpenBounds(r, sections.filter((s) => s.sectionKind === "VAR_IN_OUT"), "VAR_INPUT")
     const inputs = Array.from({ length: r.localSlots.length - firstInput }, (_, i) => firstInput + i)
     anyInputsOf(lw).set(key, new Set(inputs.filter((i) => r.anyInputs.has(r.localSlots[i]!.name.toUpperCase()))))
     declareVars(r, sections.filter((s) => s.sectionKind === "VAR" || s.sectionKind === "VAR_TEMP"))
@@ -583,6 +585,19 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     inputs[k] = convert(value, slot.type)
     order.push(k)
   }
+  // An `ARRAY[*]` in-out is handed the bounds of the array it binds, as hidden inputs (design §26): a sized array's fold, an
+  // open in-out passed on hands on its own (conformance `callshape_array_star_passed_on`: 9804).
+  for (const [i, slot] of routine.inouts.entries()) {
+    const binding = inouts[i]
+    for (let dim = 1; binding !== undefined && dim <= openDims(slot.type); dim++)
+      for (const which of ["lower", "upper"] as const) {
+        const k = routine.inputs.findIndex((index) => routine!.locals[index]!.name.toUpperCase() === boundName(slot.name, which, dim).toUpperCase())
+        const value = k < 0 || "kind" in binding ? undefined : boundOf(lw, binding, which, dim)
+        if (value === undefined) return lw.bail("call-open-array", `${slot.name} is bound to an array whose bounds are not known here`, call.span)
+        inputs[k] = value
+        order.push(k)
+      }
+  }
   // An input left out starts at its declared initial value on every call (conformance `callshape_input_left_out`: 54 and
   // 51, never the last call's) — CODESYS compiles the omission only for an input that has one. An ANY input, or one
   // whose initial value is an aggregate, stays refused.
@@ -710,8 +725,18 @@ function lowerSuperCall(lw: Lowering, call: Extract<Statement, { kind: "call_stm
     before.push({ kind: "assign", target: member, value: convert(value, field.type), span: arg.span })
   }
   if (inouts.includes(undefined)) return lw.bail("call-inout-missing", `SUPER^ called without every VAR_IN_OUT`, call.span)
+  // The bounds live on the instance, which the derived body shares: `SUPER^(data := other)` overwrote them, and the derived
+  // body then indexed its own `data` by `other`'s bounds (review of batch 3b). Only passing an open in-out on as itself —
+  // same bounds — is kept; rebinding one under SUPER^ is not recorded.
+  for (const [i, slot] of routine.inouts.entries()) {
+    const binding = inouts[i]!
+    if (openDims(slot.type) > 0 && ("kind" in binding || binding.root !== "inout" || binding.path.length > 0 || lw.inoutSlots[binding.slot]!.name.toUpperCase() !== slot.name.toUpperCase()))
+      return lw.bail("call-open-array", `SUPER^ binds its ARRAY[*] ${slot.name} to another array`, call.span)
+  }
+  const bounds = storeOpenBounds(lw, instance, layout.fields, routine.inouts, (i) => inouts[i], call.span)
+  if (bounds === undefined) return undefined
   const invoke: IrInvoke = { kind: "invoke", routine: routine.key, instance, inputs: [], inouts: inouts as IrBinding[], type: UNKNOWN, span: call.span }
-  return [...before, { kind: "eval", value: invoke, span: call.span }]
+  return [...before, ...bounds, { kind: "eval", value: invoke, span: call.span }]
 }
 
 /**
@@ -805,8 +830,29 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
   if (missing !== undefined) return lw.bail("call-inout-missing", `${missing.name} is not bound`, call.span)
   const moved = movedInOut(call, (name) => bound.get(name), (arg) => before.filter((s) => s.kind === "assign" && s.target.path.at(-1)?.kind === "field" && (s.target.path.at(-1) as { name: string }).name.toUpperCase() === arg.param?.name.toUpperCase()))
   if (moved !== undefined) return lw.bail("call-inout-order", `${layout.name}'s ${moved} is bound before a call in a later argument that could move it`, call.span)
+  const bounds = storeOpenBounds(lw, instance, layout.fields, inouts, (i) => bound.get(inouts[i]!.name.toUpperCase()), call.span)
+  if (bounds === undefined) return undefined
   const inoutPlaces = inouts.map((p) => bound.get(p.name.toUpperCase())!)
-  return [...before, { kind: "call", instance, fb: layout.name, inouts: inoutPlaces, span: call.span }, ...after]
+  return [...before, ...bounds, { kind: "call", instance, fb: layout.name, inouts: inoutPlaces, span: call.span }, ...after]
+}
+
+/**
+ * The bounds of the arrays an FB's `ARRAY[*]` in-outs bind, stored into the instance's hidden fields before its body runs —
+ * where the body reads them (design §26; conformance `callshape_array_star_fb_inout`: 2, then 4). A METHOD reaching the
+ * in-out is refused (`boundOf`): no recording shows which bounds it sees.
+ */
+function storeOpenBounds(lw: Lowering, instance: Place, fields: readonly IrSlot[], inouts: readonly IrSlot[], binding: (i: number) => IrBinding | undefined, span: Span): IrStmt[] | undefined {
+  const stores: IrStmt[] = []
+  for (const [i, slot] of inouts.entries())
+    for (let dim = 1; dim <= openDims(slot.type); dim++)
+      for (const which of ["lower", "upper"] as const) {
+        const field = fields.find((f) => f.name.toUpperCase() === boundName(slot.name, which, dim).toUpperCase())
+        const bound = binding(i)
+        const value = field === undefined || bound === undefined || "kind" in bound ? undefined : boundOf(lw, bound, which, dim)
+        if (value === undefined) return lw.bail("call-open-array", `${slot.name} is bound to an array whose bounds are not known here`, span)
+        stores.push({ kind: "assign", target: { ...instance, path: [...instance.path, { kind: "field", name: field!.name }], type: field!.type, span }, value, span })
+      }
+  return stores
 }
 
 /**

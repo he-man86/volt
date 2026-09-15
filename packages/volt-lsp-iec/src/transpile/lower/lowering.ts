@@ -260,4 +260,10 @@ const PLATFORM_INTEGERS: Readonly<Record<string, string>> = { __XINT: "LINT", __
 
 export const ZERO_SPAN: Span ={ start: 0, end: 0, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
 
+/** How many open dimensions an `ARRAY[*]` has — 0 for any other type, a sized array whose bounds did not fold included. */
+export const openDims = (t: Type): number => (t.kind === "array" && t.bounds === undefined && t.dims.every((d) => d.lower === undefined && d.upper === undefined) ? t.dims.length : 0)
+
+/** The hidden slot holding one bound of an `ARRAY[*]` in-out's dimension (design §26) — `__`, which CODESYS reserves. */
+export const boundName = (inout: string, which: "lower" | "upper", dim: number): string => `__${inout}_${which}_${dim}`
+
 // ─── entry points ────────────────────────────────────────────────────────────

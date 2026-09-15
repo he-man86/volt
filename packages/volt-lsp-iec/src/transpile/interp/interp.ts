@@ -128,7 +128,7 @@ class Machine {
       else if (step.kind === "index") {
         const i = Number(num(this.expr(step.index)) as bigint) - Number(step.lower)
         // ponytail: what an out-of-bounds index does in CODESYS is unmeasured (no CheckBounds: it writes past the array) — refused loudly
-        if (i < 0 || i >= step.length) throw new RangeError(`array index ${i + Number(step.lower)} is outside its bounds`)
+        if (i < 0 || i >= (step.length ?? (next as Val[]).length)) throw new RangeError(`array index ${i + Number(step.lower)} is outside its bounds`)
         key = i
       }
       container = next

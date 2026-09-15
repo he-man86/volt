@@ -446,7 +446,23 @@ taken apart by construct before anything is built — record first, then build, 
       claims were recorded (`callshape_for_bounds_changed_in_body`, `callshape_inout_binding_order`): **a FOR reads its
       limit and step on every pass** — the once-evaluated limit temp, there since phase 1, was wrong, and two older tests
       pinned it (rewritten from the recording) — and an in-out is bound where written (a movable binding before a call is
-      refused, `call-inout-order`). Open: ARRAY[*] in-outs with LOWER_BOUND/UPPER_BOUND (recorded, next).
+      refused, `call-inout-order`).
+- [x] `ARRAY[*]` VAR_IN_OUT with LOWER_BOUND/UPPER_BOUND (design §26) — the largest shape behind pro2193's `place-shape`.
+      Recorded first (`callshape_array_star_*`, `callshape_bounds_of_sized_array`): the bounds are the bound array's, per
+      dimension, passed on unchanged (9804), per call on an FB (2 then 4), DINT (wraps at 70002 * 40000), folded on a
+      sized array. Built: a slice in Rust (`&mut [i16]`, an inner open dimension a const generic), the lower bound beside
+      it as hidden DINT inputs of a routine or hidden fields of an FB, an open index offset by it at lowering. Conformance
+      lowering **467 → 473 of 490**; corpus `expr-call` 105 → 75, `place-shape` 91 → 81 POUs. *Why missed:* no fixture
+      declared an `ARRAY[*]`. Reviewed between batches (4 lenses, adversarial verify): 6 confirmed, all refusals of
+      uses no recording covers that slipped through once the slice was representable — a whole-array read or store
+      (uncompilable Rust, a swapped caller array), ADR of an element (store dropped silently), a union behind an open
+      index (no copy), `SUPER^` rebinding (stale bounds), a METHOD reading the bounds, an untested `call-open-array`.
+      Open: `callshape_array_star_of_struct` stays refused (`call-inout-alias`) — an FB lending its
+      own field to its own METHOD is two `&mut` of one instance, independent of open arrays.
+- [x] A call in a FOR limit (`for-bound-call`, 25 corpus POUs — property reads like `fbModuleManager.baseModulesCount`).
+      Recorded (`callshape_for_limit_call`): a PROPERTY getter and a METHOD in the limit each run 4 times for 3 passes —
+      once per test, as the limit is read. Lowered as such; a call in the step, or in a limit a runtime step tests on two
+      arms, stays refused (unrecorded).
 - [ ] `__POUNAME` 304 and the other CODESYS compiler operators.
 - [x] `aggregate-init` — recorded first (`array_initializers`, `init_struct_by_field`, `init_array_of_structs`,
       `init_fb_instance_inputs`), then lowered to a structured initial value (`IrInit`: elements / named fields) that the

@@ -7,6 +7,7 @@ describe("transpile — public surface", () => {
   test("the runtime exports are exactly these", () => {
     expect(Object.keys(transpile).sort()).toEqual([
       "defaultValueOf",
+      "elementOf",
       "emitRust",
       "fieldNames",
       "holdsCall",

@@ -4,8 +4,9 @@
 import { type Expr, isSelfRef, type Span, type TopLevel, type VarDecl, type VarSection } from "../../syntax/index.js"
 import { libraryOf, lookup } from "../../symbols/index.js"
 import { elementaryRef, resolveNamedType } from "../../types/index.js"
-import { defaultValueOf, peelArray, type Place } from "../ir/index.js"
-import { Lowering } from "./lowering.js"
+import { defaultValueOf, elementOf, type IrExpr, peelArray, type Place } from "../ir/index.js"
+import { boundName, Lowering, openDims } from "./lowering.js"
+import { binaryOf, convert } from "./convert.js"
 import { declareVars, storageOf } from "./storage.js"
 import { pointeePlace } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
@@ -79,6 +80,41 @@ function listVariableShadows(lw: Lowering, list: string, member: string): boolea
   return !declares && (lw.project.symbols.get(list.toLowerCase())?.some((s) => s.kind === "gvl_var") ?? false)
 }
 
+/**
+ * One bound of one dimension of an array place — LOWER_BOUND/UPPER_BOUND. A sized array's folds; an `ARRAY[*]` in-out's
+ * is the hidden bound its call was handed (design §26). DINT, as measured (`callshape_array_star_bound_width`,
+ * `callshape_bounds_of_sized_array`). Undefined where neither is known.
+ */
+export function boundOf(lw: Lowering, place: Place, which: "lower" | "upper", dim: number): IrExpr | undefined {
+  const type = elementaryRef("DINT")
+  if (place.type.kind !== "array") return undefined
+  if (place.type.bounds !== undefined) {
+    const bound = place.type.bounds[dim - 1]
+    return bound === undefined ? undefined : { kind: "const", value: which === "lower" ? bound.lower : bound.upper, type, span: place.span }
+  }
+  if (place.root !== "inout" || place.path.length > 0 || dim < 1 || dim > place.type.dims.length) return undefined
+  // an FB's in-out reached from its METHOD would read the instance's fields — the bounds of the body's current binding, a
+  // model no recording shows (review of batch 3b)
+  if (lw.inoutSlots[place.slot]!.ofInstance === true) return undefined
+  const key = boundName(lw.inoutSlots[place.slot]!.name, which, dim).toUpperCase()
+  const local = lw.localByName.get(key)
+  const field = lw.byName.get(key)
+  const at: Place | undefined =
+    local !== undefined ? { slot: local, path: [], type, span: place.span, root: "local" } : field !== undefined ? { slot: field, path: [], type, span: place.span } : undefined
+  return at && { kind: "load", place: at, type, span: place.span }
+}
+
+/**
+ * An `ARRAY[*]` read or stored as a whole value — refused: it is only ever indexed, bound to another in-out, or read by
+ * LOWER_BOUND/UPPER_BOUND in what is recorded. `tmp := numbers` printed a slice clone rustc rejects, and a store swapped
+ * the caller's array for one of another length under the old bounds (review of batch 3b).
+ */
+export function refuseOpenArray(lw: Lowering, place: Place, span: Span): boolean {
+  if (openDims(place.type) === 0) return false
+  lw.bail("open-array-value", "an ARRAY[*] used as a whole value, not indexed or bound to an in-out", span)
+  return true
+}
+
 export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): Place | undefined {
   if (e.kind === "member") {
     if (/^\d+$/.test(e.member.name)) return bitPlace(lw, e, notAMember)
@@ -104,10 +140,21 @@ export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): P
     for (const written of e.indices) {
       if (place === undefined) return undefined
       const array = peelArray(place.type)
-      if (array === undefined) return lw.bail("place-shape", "an index on something that is not a sized array", e.span)
+      // an `ARRAY[*]` in-out's dimension: indexed from the lower bound its call was handed (design §26)
+      const open =
+        array === undefined && place.type.kind === "array" && place.root === "inout" && place.path.every((s) => s.kind === "index")
+          ? boundOf(lw, { ...place, path: [], type: lw.inoutSlots[place.slot]!.type }, "lower", place.path.length + 1)
+          : undefined
+      if (array === undefined && open === undefined) return lw.bail("place-shape", "an index on something that is not a sized array", e.span)
       const index = lowerExpr(lw, written)
       if (index === undefined) return undefined
-      place = { ...place, path: [...place.path, { kind: "index", index, lower: array.lower, length: array.length }], type: array.element, span: e.span }
+      if (open !== undefined) {
+        const wide = elementaryRef("LINT")
+        const offset = binaryOf("sub", convert(index, wide), convert(open, wide), wide, written.span)
+        place = { ...place, path: [...place.path, { kind: "index", index: offset, lower: 0n }], type: elementOf(place.type)!, span: e.span }
+        continue
+      }
+      place = { ...place, path: [...place.path, { kind: "index", index, lower: array!.lower, length: array!.length }], type: array!.element, span: e.span }
     }
     return place
   }

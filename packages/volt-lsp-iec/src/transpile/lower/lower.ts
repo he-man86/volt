@@ -36,7 +36,7 @@ import { buildSymbolTable, lookup, lookupMember, type Scope, scopeForUnit } from
 import { stored } from "./convert.js"
 import { resolveNamedType, type Type, UNKNOWN } from "../../types/index.js"
 import { type IrPou, type IrRoutine, type IrStmt, type LoweredPou, peelArray, type Place } from "../ir/index.js"
-import { baseOf, Lowering, newShared } from "./lowering.js"
+import { baseOf, Lowering, newShared, openDims } from "./lowering.js"
 import { declareVars, storageOf, tempResets } from "./storage.js"
 import { lowerBlock } from "./statements.js"
 import { calledLayout, calledRoutine } from "./calls.js"
@@ -47,6 +47,8 @@ function representable(t: Type): boolean {
   // a pointer or reference holds its one target's index (design §9 form 1) — a plain integer in both backends
   // an interface holds its instance's tag (design §22) — a plain integer too
   if (t.kind === "elementary" || t.kind === "struct" || t.kind === "function_block" || t.kind === "pointer" || t.kind === "reference" || t.kind === "interface") return true
+  // an `ARRAY[*]` — only ever a VAR_IN_OUT — is the array its call lends: a Rust slice (design §26)
+  if (openDims(t) > 0) return representable((t as Extract<Type, { kind: "array" }>).element)
   const array = peelArray(t)
   return array !== undefined && representable(array.element)
 }

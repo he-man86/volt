@@ -17,7 +17,8 @@ import type { IrBuiltinName, IrExpr } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 import { convert } from "./convert.js"
 import { withStringCapacity } from "./storage.js"
-import { lowerPlace } from "./places.js"
+import { boundOf, lowerPlace } from "./places.js"
+import { foldConstant } from "./constants.js"
 import { sizeOf } from "./bytes.js"
 import { lowerExpr } from "./expressions.js"
 import { lowerInvoke } from "./calls.js"
@@ -62,6 +63,17 @@ export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>): 
   // spells them. A project function called `GO_TO_START` is an ordinary call, and `TIME_OF_DAY_TO_UDINT` is no
   // conversion at all (it is not defined — this used to read it as one).
   if (name === "SIZEOF") return sizeOf(lw, e)
+  // LOWER_BOUND(array, dimension) / UPPER_BOUND: a DINT (conformance `callshape_array_star_*`, `callshape_bounds_of_sized_array`)
+  if (name === "LOWER_BOUND" || name === "UPPER_BOUND") {
+    const [array, dimension] = e.args
+    if (e.args.length !== 2 || e.args.some((a) => a.param !== undefined || a.output || a.value === undefined))
+      return lw.bail("call-arity", `${name} takes an array and a dimension`, e.span)
+    const place = lowerPlace(lw, array!.value!)
+    if (place === undefined) return undefined
+    const dim = foldConstant(lw, dimension!.value!)
+    const bound = typeof dim === "bigint" ? boundOf(lw, place, name === "LOWER_BOUND" ? "lower" : "upper", Number(dim)) : undefined
+    return bound ?? lw.bail("array-bound", `${name} of an array whose bounds are not known here`, e.span)
+  }
   if (name === "__ISVALIDREF") {
     // a bound reference is valid (conformance `op_sys_isvalidref`: TRUE) — its value is not 0
     const arg = e.args[0]?.value

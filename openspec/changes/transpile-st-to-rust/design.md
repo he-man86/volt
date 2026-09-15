@@ -372,6 +372,31 @@ scan time, and one case proving constants fold to the same answers):
 integer prints `(x.round() as i64) as T` — `f64::round` is exactly half-away-from-zero, and `as` between integers
 wraps. `as bool` does not exist (`!= 0`), nor does `bool as f32` (`as u8` first).
 
+## 26. An `ARRAY[*]` in-out is a slice, and its bounds travel beside it
+
+Measured (conformance `callshape_array_star_*`, `callshape_bounds_of_sized_array`): an `ARRAY[*]` VAR_IN_OUT's
+LOWER_BOUND/UPPER_BOUND are the bounds of the array the call binds — per dimension, passed on unchanged to another
+routine's `ARRAY[*]` (9804), and per call on an FB (2, then 4); both functions give a DINT (`UPPER_BOUND * 40000` wraps at
+70002); on a sized array they fold.
+
+A Rust slice is exactly "the caller's array, length included" — so the in-out is one: `numbers: &mut [i16]`, and an inner
+open dimension a const generic Rust infers from the array lent (`grid: &mut [[i16; N_GRID_2]]`). What a slice does not
+carry is the LOWER bound. That travels beside it as hidden DINT slots, two per open dimension (`__numbers_lower_1`,
+`__numbers_upper_1`; `__` is reserved in CODESYS, so no user name collides): a FUNCTION's or METHOD's are hidden inputs
+its callers fill — constants from a sized array, the caller's own hidden slots when it passes an open in-out on — and an
+FB's are hidden fields of the instance, stored before each body call, where the body reads them. An index into an open
+dimension is offset by the hidden lower bound at lowering, so both backends index from 0 and bound-check against the
+array itself; LOWER_BOUND/UPPER_BOUND read the hidden slots. Refused: bounds a call cannot know (`call-open-array` — a
+copy, an open array reached any other way) and a dimension that does not fold (`array-bound`).
+
+Only the recorded uses are lowered: indexed, bound to another in-out, read by LOWER_BOUND/UPPER_BOUND. The batch's review
+(4 lenses, adversarial verify) found every other use slipping through once the slice became representable, each now
+refused: the whole array read or stored (`open-array-value` — a slice clone rustc rejects, and a store that swapped the
+caller's array for one of another length), the address of an element (`pointer-shape` — the store vanished with no
+diagnostic), a union reached through an open index (the overlay walk stopped there, so no copy was made), `SUPER^`
+rebinding an open in-out to another array (the shared bound fields then described the other array), and a METHOD
+reading an FB's open in-out (which bounds it sees is not recorded).
+
 ## 25. A call runs its arguments in the order written, and starts every left-out input fresh
 
 Measured (conformance `callshape_*`): arguments are evaluated in the order the call writes them, not the order the

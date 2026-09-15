@@ -7,7 +7,7 @@ import { type IrExpr, type IrStmt, peelArray, type Place } from "../ir/index.js"
 import type { Lowering, PointerTarget } from "./lowering.js"
 import { binaryOf, cast, convert } from "./convert.js"
 import { storageOf } from "./storage.js"
-import { lowerPlace } from "./places.js"
+import { lowerPlace, refuseOpenArray } from "./places.js"
 import { byteSize } from "./bytes.js"
 import { lowerExpr } from "./expressions.js"
 import { refuseUnionWrite } from "./unions.js"
@@ -71,7 +71,10 @@ export function addressOf(lw: Lowering, x: Expr, pointerType: Type, span: Span):
   if (x.kind !== "index" || x.indices.length !== 1) return lw.bail("pointer-shape", "the address of an element of a multi-dimensional array", span)
   const base = lowerPlace(lw, x.base)
   const array = base === undefined ? undefined : peelArray(base.type)
-  if (base === undefined || array === undefined) return undefined
+  if (base === undefined) return undefined
+  // an `ARRAY[*]` in-out's element: its lower bound is the call's, not a constant — unmodelled. It returned undefined with
+  // no diagnostic, and the whole store vanished (review of batch 3b).
+  if (array === undefined) return lw.bail("pointer-shape", "the address of an element of an ARRAY[*]", span)
   if (!sameStorage(declared, array.element)) return lw.bail("pointer-type", "the address of an element of another type than the pointer's", span)
   const lint = elementaryRef("LINT")
   const offset = binaryOf("sub", convert(last.index, lint), { kind: "const", value: array.lower - 1n, type: lint, span }, lint, span)
@@ -175,6 +178,7 @@ export function refuseConstantWrite(lw: Lowering, place: Place, span: Span): boo
 /** A place read as a value: a REFERENCE reads its target; a POINTER's own value is refused — it is not a real address
  *  here, and only another pointer, a comparison with 0 and __ISVALIDREF (which lower it themselves) may use it. */
 export function loadValue(lw: Lowering, place: Place, span: Span): IrExpr | undefined {
+  if (refuseOpenArray(lw, place, span)) return undefined
   if (place.type.kind === "reference") {
     const target = pointeePlace(lw, place, undefined, span)
     return target && { kind: "load", place: target, type: target.type, span }

@@ -291,6 +291,64 @@ test("review of the call shapes: a child's METHOD, a METHOD naming no in-out, fo
   expect(codes(`PROGRAM P\nVAR n : INT; END_VAR\nPRG_R();\nn := PRG_R.Again();\nEND_PROGRAM\n${again}`)).toEqual(["call-program-reentrant"])
 })
 
+// Recorded first (conformance `callshape_array_star_*`, `callshape_bounds_of_sized_array`): an ARRAY[*] VAR_IN_OUT takes the
+// bounds of the array it binds — passed on unchanged, per call on an FB, per dimension — and LOWER_BOUND/UPPER_BOUND are
+// DINT (70002 * 40000 wraps). It was refused (`slot-array`, and LOWER_BOUND as `expr-call`). Why missed: no fixture
+// declared an ARRAY[*], though pro2193 indexes them 636 times.
+test("an ARRAY[*] in-out takes the bounds of the array it binds — in a FUNCTION, passed on, on an FB, in two dimensions", () => {
+  const source =
+    "PROGRAM P\nVAR numbers : ARRAY[-2..4] OF INT; bounds : DINT; grid : ARRAY[1..2, 0..2] OF INT; second : DINT; filler : FB_Fill; shortRow : ARRAY[1..2] OF INT; longRow : ARRAY[5..8] OF INT; " +
+    "shortCount : DINT; longCount : DINT; values : ARRAY[70000..70002] OF BYTE; wide : LINT; sized : DINT; stacks : ARRAY[1..3] OF ARRAY[1..4] OF INT; END_VAR\n" +
+    "bounds := F_Outer(numbers := numbers);\nsecond := F_Grid(grid := grid);\nfiller(numbers := shortRow);\nshortCount := filler.elementCount;\nfiller(numbers := longRow);\nlongCount := filler.elementCount;\n" +
+    "wide := F_Wide(values := values);\nsized := LOWER_BOUND(grid, 2) * 100 + UPPER_BOUND(numbers, 1);\nstacks[2][3] := 7;\nF_Shift(rows := stacks);\nEND_PROGRAM\n" +
+    "FUNCTION F_Inner : DINT\nVAR_IN_OUT numbers : ARRAY[*] OF INT; END_VAR\nnumbers[UPPER_BOUND(numbers, 1)] := 99;\nF_Inner := LOWER_BOUND(numbers, 1) * 100 + UPPER_BOUND(numbers, 1);\nEND_FUNCTION\n" +
+    "FUNCTION F_Outer : DINT\nVAR_IN_OUT numbers : ARRAY[*] OF INT; END_VAR\nF_Outer := F_Inner(numbers := numbers) + 10000;\nEND_FUNCTION\n" +
+    "FUNCTION F_Grid : DINT\nVAR_IN_OUT grid : ARRAY[*, *] OF INT; END_VAR\nVAR row : DINT; column : DINT; END_VAR\nFOR row := LOWER_BOUND(grid, 1) TO UPPER_BOUND(grid, 1) DO\n  FOR column := LOWER_BOUND(grid, 2) TO UPPER_BOUND(grid, 2) DO\n    grid[row, column] := DINT_TO_INT(row * 10 + column);\n  END_FOR\nEND_FOR\nF_Grid := LOWER_BOUND(grid, 2) * 10 + UPPER_BOUND(grid, 2);\nEND_FUNCTION\n" +
+    "FUNCTION_BLOCK FB_Fill\nVAR_IN_OUT numbers : ARRAY[*] OF INT; END_VAR\nVAR_OUTPUT elementCount : DINT; END_VAR\nVAR index : DINT; END_VAR\nelementCount := UPPER_BOUND(numbers, 1) - LOWER_BOUND(numbers, 1) + 1;\nFOR index := LOWER_BOUND(numbers, 1) TO UPPER_BOUND(numbers, 1) DO\n  numbers[index] := DINT_TO_INT(index + elementCount * 100);\nEND_FOR\nEND_FUNCTION_BLOCK\n" +
+    "FUNCTION F_Wide : LINT\nVAR_IN_OUT values : ARRAY[*] OF BYTE; END_VAR\nF_Wide := UPPER_BOUND(values, 1) * 40000;\nEND_FUNCTION\n" +
+    // pro2193's shape (`ShiftStackStatusFB`): an open array of sized rows, shifted down a row
+    "FUNCTION F_Shift : BOOL\nVAR_IN_OUT rows : ARRAY[*] OF ARRAY[1..4] OF INT; END_VAR\nVAR di : DINT; END_VAR\nFOR di := UPPER_BOUND(rows, 1) TO 2 BY -1 DO\n  rows[di] := rows[di - 1];\nEND_FOR\nEND_FUNCTION\n"
+  const runner = run(ir(source, "P"))
+  runner.scan()
+  expect(["bounds", "numbers[4]", "second", "grid[2][2]", "shortCount", "longCount", "shortRow[2]", "longRow[8]", "wide", "sized", "stacks[3][3]", "stacks[2][3]"].map((v) => runner.get(v))).toEqual([
+    9804n, 99n, 2n, 22n, 2n, 4n, 202n, 408n, -1494887296n, 4n, 7n, 0n,
+  ])
+  // a dimension that does not fold names no bound lowering knows
+  expect(lowerSource(source.replace("LOWER_BOUND(grid, 2) * 100", "LOWER_BOUND(grid, shortCount) * 100"), "P").diagnostics.map((d) => d.code)).toEqual(["array-bound"])
+})
+
+// Review of batch 3b (4 lenses, adversarial verify), each reproduced before its fix. Why missed: the batch's tests used an
+// ARRAY[*] only the recorded ways — indexed, bounded, passed on — never whole, by address, through a union, rebound under
+// SUPER^, read from a METHOD, or lent as a copy; each of those lowered silently once the slice became representable.
+test("review of ARRAY[*]: whole values, addresses, unions, SUPER^ rebinding, METHOD reads and copies are refused", () => {
+  const codes = (source: string) => lowerSource(source, "P").diagnostics.map((d) => d.code)
+  const union = "TYPE U_W :\nUNION\n\tword : WORD;\n\tbytes : ARRAY[1..2] OF BYTE;\nEND_UNION\nEND_TYPE\n"
+  const program = (body: string) =>
+    `PROGRAM P\nVAR row : ARRAY[2..5] OF INT; words : ARRAY[0..1] OF U_W; r : INT; END_VAR\nr := F(numbers := row, us := words);\nEND_PROGRAM\n` +
+    `FUNCTION F : INT\nVAR_IN_OUT numbers : ARRAY[*] OF INT; us : ARRAY[*] OF U_W; END_VAR\nVAR tmp : ARRAY[2..5] OF INT; p : POINTER TO INT; END_VAR\n${body}\nEND_FUNCTION\n` +
+    `FUNCTION G : INT\nVAR_INPUT whole : ARRAY[2..5] OF INT; END_VAR\nG := whole[2];\nEND_FUNCTION\n${union}`
+  // the recorded uses still lower
+  expect(codes(program("numbers[UPPER_BOUND(numbers, 1)] := 1;\nF := numbers[2];"))).toEqual([])
+  // a slice clone rustc rejects, and a store that swapped the caller's array for another under the old bounds
+  expect(codes(program("tmp := numbers;"))).toContain("open-array-value")
+  expect(codes(program("numbers := tmp;"))).toContain("open-array-value")
+  expect(codes(program("F := G(whole := numbers);"))).toContain("open-array-value")
+  // the store vanished with no diagnostic
+  expect(codes(program("p := ADR(numbers[2]);"))).toContain("pointer-shape")
+  // the overlay walk stopped at the open index: no copy made, no refusal
+  expect(codes(program("us[0].word := 16#ABCD;"))).toContain("union-write")
+  // SUPER^ rebinding an open in-out overwrote the bounds the derived body indexes its own by
+  const inherit = (binding: string) =>
+    `PROGRAM P\nVAR d : FB_D; g : ARRAY[1..3] OF INT; h : ARRAY[10..12] OF INT; END_VAR\nd(data := g, other := h);\nEND_PROGRAM\n` +
+    `FUNCTION_BLOCK FB_B\nVAR_IN_OUT data : ARRAY[*] OF INT; END_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_D EXTENDS FB_B\nVAR_IN_OUT other : ARRAY[*] OF INT; END_VAR\nSUPER^(${binding});\nEND_FUNCTION_BLOCK\n`
+  expect(codes(inherit("data := other"))).toContain("call-open-array")
+  expect(codes(inherit("data := data"))).toEqual([])
+  // a METHOD reading its FB's open in-out: which bounds it sees is not recorded
+  expect(codes("PROGRAM P\nVAR m : FB_M; g : ARRAY[1..3] OF INT; END_VAR\nm(data := g);\nEND_PROGRAM\nFUNCTION_BLOCK FB_M\nVAR_IN_OUT data : ARRAY[*] OF INT; END_VAR\nVAR top : DINT; END_VAR\nPeek();\nEND_FUNCTION_BLOCK\nMETHOD Peek\ntop := UPPER_BOUND(data, 1);\nEND_METHOD\n")).toContain("array-bound")
+  // a VAR_IN_OUT CONSTANT lent as a copy carries no bounds
+  expect(codes("PROGRAM P\nVAR s : FB_S; n : DINT; END_VAR\nn := s.Sum(v := s.arr);\nEND_PROGRAM\nFUNCTION_BLOCK FB_S\nVAR arr : ARRAY[1..3] OF INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Sum : DINT\nVAR_IN_OUT CONSTANT v : ARRAY[*] OF INT; END_VAR\nSum := v[1];\nEND_METHOD\n")).toContain("call-open-array")
+})
+
 /** Lower and require success — most tests are about the SHAPE, not the failure path. */
 function ir(src: string, name?: string) {
   const { pou, diagnostics } = lowerSource(src, name)
@@ -503,7 +561,18 @@ END_PROGRAM
     const changed = run(ir(wrap("FOR i := 1 TO finalIndex BY stride DO\n  visits := visits + 1;\n  stride := 3;\n  finalIndex := 4;\nEND_FOR", "i : INT;\n  finalIndex : INT := 9;\n  stride : INT := 1;\n  visits : INT;")))
     changed.scan()
     expect([changed.get("visits"), changed.get("i")]).toEqual([2n, 7n])
-    expect(lowerSource(wrap("FOR i := 1 TO F_Limit() DO\n  visits := visits + 1;\nEND_FOR", "i : INT;\n  visits : INT;") + "FUNCTION F_Limit : INT\nF_Limit := 3;\nEND_FUNCTION\n", "P").diagnostics.map((d) => d.code)).toEqual(["for-bound-call"])
+    // A call in the limit was refused here, how often it ran unrecorded; the recording since (`callshape_for_limit_call`)
+    // runs a PROPERTY getter 4 times for 3 passes — once per test. One in the step stays unrecorded, and refused.
+    const counted = run(
+      ir(
+        "PROGRAM P\nVAR holder : FB_H; i : INT; passes : INT; END_VAR\nFOR i := 1 TO holder.PassLimit DO\n  passes := passes + 1;\nEND_FOR\nEND_PROGRAM\n" +
+          "FUNCTION_BLOCK FB_H\nVAR reads : INT; END_VAR\nEND_FUNCTION_BLOCK\nPROPERTY PassLimit : INT\nGET\nreads := reads + 1;\nPassLimit := 3;\nEND_GET\nEND_PROPERTY\n",
+        "P",
+      ),
+    )
+    counted.scan()
+    expect([counted.get("passes"), counted.get("holder.reads")]).toEqual([3n, 4n])
+    expect(lowerSource(wrap("FOR i := 1 TO 5 BY F_Step() DO\n  visits := visits + 1;\nEND_FOR", "i : INT;\n  visits : INT;") + "FUNCTION F_Step : INT\nF_Step := 2;\nEND_FUNCTION\n", "P").diagnostics.map((d) => d.code)).toEqual(["for-bound-call"])
   })
 
   // Recorded (`callshape_inout_binding_order`): an in-out is bound where it is written — 201 after a call that moves its

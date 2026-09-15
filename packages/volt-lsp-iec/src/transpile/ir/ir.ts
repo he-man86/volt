@@ -52,6 +52,14 @@ export function peelArray(t: Type): { element: Type; lower: bigint; length: numb
   return { element, lower: dim!.lower, length: Number(dim!.upper - dim!.lower + 1n) }
 }
 
+/** What one index step into `t` reaches — a sized array's element (`peelArray`), or an `ARRAY[*]`'s, its remaining open
+ *  dimensions first. Undefined for anything that is not an array. */
+export function elementOf(t: Type): Type | undefined {
+  if (t.kind !== "array") return undefined
+  if (t.bounds !== undefined) return peelArray(t)?.element
+  return t.dims.length > 1 ? { ...t, dims: t.dims.slice(1) } : t.element
+}
+
 /** Whether an IR node holds a call (an invoke or a dispatch) — whose place in the evaluation order then shows. */
 export function holdsCall(node: unknown): boolean {
   if (Array.isArray(node)) return node.some(holdsCall)
@@ -73,7 +81,9 @@ export function holdsCall(node: unknown): boolean {
  */
 export type Access =
   | { kind: "field"; name: string }
-  | { kind: "index"; index: IrExpr; lower: bigint; length: number }
+  /** `length` is absent on an `ARRAY[*]` in-out's dimension: its index is already offset by the bound the call was
+   *  handed (`lower` 0), and the array it was bound to knows its own length. */
+  | { kind: "index"; index: IrExpr; lower: bigint; length?: number }
   | { kind: "bit"; index: number; of: Type }
 
 /** A resolved storage location: a slot in the frame, plus a path into it. */

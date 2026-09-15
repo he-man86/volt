@@ -8,7 +8,7 @@ import { holdsCall } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 import { convert } from "./convert.js"
 import { foldConstant } from "./constants.js"
-import { lowerPlace } from "./places.js"
+import { lowerPlace, refuseOpenArray } from "./places.js"
 import { bindReference, pointeePlace, refuseConstantWrite, storePointer, through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 import { lowerCallStatement, lowerPropertySet } from "./calls.js"
@@ -50,7 +50,7 @@ export function lowerChain(lw: Lowering, s: Extract<Statement, { kind: "assign" 
   let flowing: IrExpr = { kind: "load", place: held, type: value.type, span: s.value.span }
   for (let i = targets.length - 1; i >= 0; i--) {
     const written = lowerPlace(lw, targets[i]!)
-    const target = written === undefined ? undefined : through(lw, written, targets[i]!.span)
+    const target = written === undefined || refuseOpenArray(lw, written, targets[i]!.span) ? undefined : through(lw, written, targets[i]!.span)
     if (target === undefined) return undefined
     const op = ops[i]
     if (op === undefined) {
@@ -79,7 +79,8 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
       if (s.chained !== undefined) return lowerChain(lw, s)
       if (s.op === "REF=") return bindReference(lw, s)
       const target = lowerPlace(lw, s.target)
-      if (target === undefined || refuseConstantWrite(lw, target, s.span)) return undefined
+      // an `ARRAY[*]` is never stored whole (it is still BOUND whole to an in-out, which `through` checks, so not there)
+      if (target === undefined || refuseOpenArray(lw, target, s.span) || refuseConstantWrite(lw, target, s.span)) return undefined
       if (s.op === "S=" || s.op === "R=") {
         // A LATCH, not an assignment: `x S= c` sets x only when c is TRUE and otherwise leaves it — `latched := TRUE;
         // latched S= FALSE` stays TRUE — and `R=` clears the same way. The whole right-hand side is the condition:
@@ -187,8 +188,9 @@ export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): 
   if (s.by !== undefined && by === undefined) return undefined
   // The limit and the step are read on EVERY pass (conformance `callshape_for_bounds_changed_in_body`: a body that sets the
   // limit to 4 and the step to 3 after the first pass runs 2 passes, ending at 7). The limit was taken into a temp once —
-  // unrecorded, and wrong. A call in either would now run per pass, which is not recorded either: refused.
-  if (holdsCall(to) || holdsCall(by)) return lw.bail("for-bound-call", "a FOR limit or step holding a call — how often it runs is not recorded", s.span)
+  // unrecorded, and wrong. A PROPERTY read or METHOD call in the limit runs on every test too (`callshape_for_limit_call`:
+  // 4 runs for 3 passes, the corpus's `fbModuleManager.baseModulesCount`). One in the step, or in a limit a runtime step
+  // tests on two arms, would run a number of times no recording shows: refused below.
   const step: IrValue | undefined = s.by === undefined ? 1n : foldConstant(lw, s.by)
   // A step that does not fold makes the loop's DIRECTION runtime: the test takes the limit from below for a step of 0 or
   // more and from above for a negative one (conformance `callshape_for_runtime_step`). It was refused (`for-step-runtime`)
@@ -205,6 +207,9 @@ export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): 
     step !== undefined || unsigned
       ? binary(step === undefined || Number(step) >= 0 ? "le" : "ge", current, limit)
       : binary("or", binary("and", binary("ge", stepExpr, zero), binary("le", current, limit)), binary("and", binary("lt", stepExpr, zero), binary("ge", current, limit)))
+
+  if (holdsCall(by) || (holdsCall(to) && step === undefined && !unsigned))
+    return lw.bail("for-bound-call", "a FOR step holding a call, or a limit holding one tested on both arms of a runtime step — how often it runs is not recorded", s.span)
 
   return {
     kind: "loop",

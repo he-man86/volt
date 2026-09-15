@@ -3,9 +3,9 @@
  */
 import type { AggregateElement, AggregateInit, Expr, Initializer, Span, TypeDecl, TypeExpr, VarDecl, VarSection } from "../../syntax/index.js"
 import { lookup } from "../../symbols/index.js"
-import { DEFAULT_STRING_LENGTH, resolveNamedType, type Type } from "../../types/index.js"
-import { defaultValueOf, type IrInit, type IrStmt, type IrValue, peelArray } from "../ir/index.js"
-import { baseOf, Lowering, ZERO_SPAN } from "./lowering.js"
+import { DEFAULT_STRING_LENGTH, elementaryRef, resolveNamedType, type Type } from "../../types/index.js"
+import { defaultValueOf, elementOf, type IrInit, type IrStmt, type IrValue, peelArray } from "../ir/index.js"
+import { baseOf, boundName, Lowering, openDims, ZERO_SPAN } from "./lowering.js"
 import { stored, valueAs } from "./convert.js"
 import { calendarOf, durationOf, enumStorage, foldConstant, stringLiteralText, typedRealOf } from "./constants.js"
 import { overlayBytes } from "./unions.js"
@@ -73,6 +73,8 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
     // at all in a started application (measured).
     base(baseOf(ast)?.text)
     declareVars(nested, ast.varSections.filter((s) => INSTANCE_STORAGE.has(s.sectionKind)))
+    // an `ARRAY[*]` in-out's bounds are the instance's: each call stores them, and the body reads them there
+    declareOpenBounds(nested, ast.varSections.filter((s) => s.sectionKind === "VAR_IN_OUT"), "VAR")
     for (const section of ast.varSections.filter((s) => s.sectionKind === "VAR_STAT")) declareStatics(lw, nested, t.name, section, statics)
     lw.bodies.set(t.name.toUpperCase(), { lowering: nested, unit: ast, state: "pending" })
   } else {
@@ -259,10 +261,23 @@ export function declareInOuts(lw: Lowering, sections: readonly VarSection[]): vo
     }
 }
 
+/**
+ * An `ARRAY[*]` VAR_IN_OUT's bounds, two per dimension — hidden slots its caller fills with the bounds of the array it
+ * binds: a routine's as inputs, an FB's as fields of the instance (design §26). DINT, as measured
+ * (`callshape_array_star_bound_width`: `UPPER_BOUND(values, 1) * 40000` wraps at 70002).
+ */
+export function declareOpenBounds(lw: Lowering, sections: readonly VarSection[], section: "VAR_INPUT" | "VAR"): void {
+  for (const decl of sections.flatMap((s) => s.decls))
+    for (const name of decl.names)
+      for (let dim = 1; dim <= openDims(lw.resolve(decl.type)); dim++)
+        for (const which of ["lower", "upper"] as const) lw.slot({ kind: "identifier", text: boundName(name.text, which, dim), span: name.span }, elementaryRef("DINT"), section)
+}
+
 /** Whether a value of `t` holds an FB instance — it is one, or an element or a field at any depth is. */
 export function holdsInstance(lw: Lowering, t: Type): boolean {
-  const array = peelArray(t)
-  if (array !== undefined) return holdsInstance(lw, array.element)
+  // an `ARRAY[*]` of instances holds them too
+  const element = elementOf(t)
+  if (element !== undefined) return holdsInstance(lw, element)
   if (t.kind === "function_block") return true
   return t.kind === "struct" && (lw.layouts.get(t.name.toUpperCase())?.fields ?? []).some((f) => holdsInstance(lw, f.type))
 }
