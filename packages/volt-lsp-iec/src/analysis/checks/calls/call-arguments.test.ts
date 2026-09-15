@@ -94,6 +94,20 @@ test("4.3c C0041: a VAR_IN_OUT parameter passed a literal/constant is flagged; a
   expect(codes(fn, call(`i := TEST(in_out := x);`))).not.toContain("in-out-needs-writable") // named variable — ok
 })
 
+// VAR_IN_OUT CONSTANT (conformance `inout_const_*`, CODESYS SP21). It was checked as a plain VAR_IN_OUT: the STRING literal
+// and STRING constant CODESYS accepts were reported, and a rejected integer literal read the plain in-out wording. Why
+// missed: no fixture or corpus project held the section.
+test("VAR_IN_OUT CONSTANT: a STRING literal or constant binds; an integer literal or constant needs a variable", () => {
+  const fns = `FUNCTION F_Int : INT\nVAR_IN_OUT CONSTANT value : INT; END_VAR\nF_Int := value;\nEND_FUNCTION\nFUNCTION F_Text : BOOL\nVAR_IN_OUT CONSTANT text : STRING; END_VAR\nF_Text := text = 'abc';\nEND_FUNCTION`
+  const call = (b: string) => `PROGRAM P\nVAR CONSTANT seven : INT := 7; fixed : STRING := 'abc'; END_VAR\nVAR n : INT; ok : BOOL; x : INT; END_VAR\n${b}\nEND_PROGRAM`
+  expect(codes(fns, call(`ok := F_Text(text := 'abc');`))).toEqual([])
+  expect(codes(fns, call(`ok := F_Text(text := fixed);`))).toEqual([])
+  expect(codes(fns, call(`n := F_Int(value := x);`))).toEqual([])
+  expect(codes(fns, call(`n := F_Int(value := seven);`))).toEqual(["in-out-constant-needs-variable"])
+  expect(codes(fns, call(`n := F_Int(value := 5);`))).toContain("in-out-constant-needs-variable")
+  expect(codes(fns, call(`n := F_Int(value := 5);`))).not.toContain("in-out-needs-writable")
+})
+
 test("4.3d C0039: a VAR_IN_OUT left unbound in a call is flagged; a bound one is not", () => {
   const fb = `FUNCTION_BLOCK FB\nVAR_IN_OUT inout : INT; END_VAR\nVAR_INPUT n : INT; END_VAR\nEND_FUNCTION_BLOCK`
   const call = (b: string) => `PROGRAM P\nVAR inst : FB; x : INT; END_VAR\n${b}\nEND_PROGRAM`

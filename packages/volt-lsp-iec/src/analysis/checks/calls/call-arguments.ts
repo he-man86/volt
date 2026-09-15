@@ -162,14 +162,23 @@ function checkCall(
 /** Both VAR_IN_OUT operand rules for one bound argument: writability (C0041) and exact-type identity (C0201). */
 function inOutChecks(
   value: Expr,
-  param: { name: { text: string }; type: Parameters<typeof resolveTypeExpr>[0] },
+  param: { name: { text: string }; type: Parameters<typeof resolveTypeExpr>[0]; constant: boolean },
   callee: string,
   scope: Scope,
   ctx: CheckContext,
   out: DiagnosticItem[],
 ): void {
-  // C0041 — a VAR_IN_OUT needs a writable variable, not a literal/constant.
-  if (constancyOf(value, scope) === "constant") {
+  // VAR_IN_OUT CONSTANT (conformance `inout_const_*`): a STRING literal or STRING constant binds; an integer literal or
+  // constant does not, in the section's own wording. It was reported in the plain VAR_IN_OUT wording — a false positive on
+  // the STRING forms, the wrong message on the rest. Other types are not measured and stay silent (zero-FP).
+  if (param.constant) {
+    const argType = constancyOf(value, scope) === "constant" ? inferExprType(value, scope, ctx.project) : undefined
+    // an untyped integer literal infers no type (its width is its context's), so it is recognised by its kind
+    const integer = (value.kind === "literal" && value.literalKind === "int") || (argType?.kind === "elementary" && argType.elem.family === "int")
+    const message = integer ? ctx.messages.inOutConstantNeedsVariable(param.name.text, callee) : undefined
+    if (message !== undefined) out.push({ severity: "error", span: value.span, source: SOURCE, code: "in-out-constant-needs-variable", message })
+  } else if (constancyOf(value, scope) === "constant") {
+    // C0041 — a VAR_IN_OUT needs a writable variable, not a literal/constant.
     out.push({
       severity: "error",
       span: value.span,
