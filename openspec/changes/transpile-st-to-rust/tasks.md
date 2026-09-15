@@ -329,7 +329,8 @@ taken apart by construct before anything is built — record first, then build, 
   refused until the library tier exists.
 - `call-this` 63 — **37 a bare `M()`** on the FB's own method or action.
 
-- [ ] **Inheritance** (EXTENDS, `SUPER^`). Recorded first (`fixtures/inheritance.ts`, 2026-09-15): calling a derived FB
+- [x] **Inheritance** (EXTENDS, `SUPER^`). DONE 2026-09-15 — conformance cases lowering 349 → 362 of 394, every one
+      equal to CODESYS in both backends. Recorded first (`fixtures/inheritance.ts`, 2026-09-15): calling a derived FB
       runs ONLY its own body — the base body does not run, not even under an empty derived body; the base's inputs and
       outputs are the instance's fields. `SUPER^()` runs the base body on the same instance. A base body run that way
       reaches the DERIVED override, through `THIS^.M()` and a bare `M()` alike; from a derived body `SUPER^.M()` runs
@@ -338,8 +339,17 @@ taken apart by construct before anything is built — record first, then build, 
       everywhere — a base METHOD reached through `SUPER^.M()`, or inherited and called from outside, calls the
       derived override too. So: one body per FB, a base body is a routine of each derived FB that reaches it, and every
       method call resolves against the instance's own (most-derived) type.
-- [ ] **A bare method or action call** inside an FB is a `THIS^` call — measured (`fbcall_bare_method_call`).
-- [ ] **A `GVL.var` qualifier** names the global itself — measured (`fbcall_gvl_qualified`).
+- [x] **A bare method or action call** inside an FB is a `THIS^` call — measured (`fbcall_bare_method_call`). DONE.
+- [x] **A `GVL.var` qualifier** names the global itself — measured (`fbcall_gvl_qualified`). DONE: a `qualified_only`
+      list's variables are keyed by the list, so two lists may each hold a `gX`. The replay gave every GVL the file name
+      `source` (all fixtures folded into one text); each GVL fixture is now a file named by its pouName, as the recorder
+      loads it as an object of that name.
+- [x] **An FB lowered on its own is one instance of itself**, called each scan — so THIS^, its bases, SUPER^ and its
+      methods exist, as for a called instance; it had been lowered as if it were a PROGRAM. Corpus POUs with a body
+      lowering **24 → 34 of 304**. Declaration-only POUs lowering fell 2972 → 1801, and a per-POU diff against the
+      previous lowering accounts for every loss: each is a derived FB, whose base's fields were simply MISSING before
+      (so its "lowered" was wrong, and its base's refusals now count), or an FB with VAR_IN_OUT (`root-inout` — only a
+      caller binds one). No FB without EXTENDS or VAR_IN_OUT stopped lowering.
 
 ## Phase 4 — aliasing
 

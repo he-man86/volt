@@ -20,8 +20,8 @@ import { decodeStringLiteral, parseSource } from "../../src/syntax/index.js"
 import {
   emitRust,
   isBit,
-  load,
   lowerSource,
+  run,
   rustAccess,
   type IrValue,
   type LoweredPou,
@@ -47,7 +47,7 @@ const recording = JSON.parse(readFileSync(join(import.meta.dir, "recordings", "c
  * The cases with transpiler lowering held above this floor — execution cases and fixtures together. Raise it when more
  * cases lower; never lower it to make a change pass.
  */
-const LOWERED_FLOOR = 349
+const LOWERED_FLOOR = 362
 
 /** The source a case lowers from: the fixture's own units (an execution case has none), then its PLC_PRG. */
 function runSource(c: LanguageTest): string {
@@ -62,7 +62,12 @@ const loweredCache = new Map<string, LoweredPou>()
 function lowering(c: LanguageTest): LoweredPou {
   let lowered = loweredCache.get(c.name)
   if (lowered === undefined) {
-    lowered = lowerSource(runSource(c), "PLC_PRG", LIBRARIES)
+    // A GVL is an object of its own, named by its pouName — `GVL_Name.var` reaches it only under that name, which a file
+    // gives it. Folded into the one source, every list was named `source`, and no qualified access could resolve.
+    const fixtures = withDependencies(c, ALL_TESTS).filter((f) => f.source !== "")
+    const gvls = fixtures.filter((f) => f.kind === "gvl").map((f) => ({ uri: `${f.pouName}.gvl`, source: f.source }))
+    const rest = [...fixtures.filter((f) => f.kind !== "gvl").map((f) => f.source), plcPrgSource(c)].join("\n")
+    lowered = lowerSource(rest, "PLC_PRG", [...LIBRARIES, ...gvls])
     loweredCache.set(c.name, lowered)
   }
   return lowered
@@ -212,7 +217,10 @@ describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
       const cycles = c.cycles ?? 1
       expect(ideValue(rec.cycles!)).toBe(BigInt(cycles)) // the recorder's gate held
 
-      const pou = load(runSource(c), "PLC_PRG", LIBRARIES)
+      // the same lowering the Rust half prints — one project shape for both backends (a GVL a file of its own)
+      const lowered = lowering(c)
+      if (lowered.pou === undefined) throw new Error(`cannot lower: ${lowered.diagnostics[0]?.message} [${lowered.diagnostics[0]?.code}]`)
+      const pou = run(lowered.pou)
       for (let i = 0; i < cycles; i++) pou.scan()
       const want = Object.fromEntries(Object.entries(rec.values!).map(([k, v]) => [k, ideValue(v, enumsOf(c))]))
       const got = Object.fromEntries(

@@ -24,11 +24,12 @@
  */
 import { isGraphicalBody, parseSource, parseStatements, type TopLevel, unitAttributes } from "../../syntax/index.js"
 import { buildSymbolTable, type Scope, scopeForUnit } from "../../symbols/index.js"
-import type { Type } from "../../types/index.js"
-import { type IrPou, type LoweredPou, peelArray } from "../ir/index.js"
+import { resolveNamedType, type Type } from "../../types/index.js"
+import { type IrPou, type IrStmt, type LoweredPou, peelArray } from "../ir/index.js"
 import { Lowering, newShared } from "./lowering.js"
-import { declareVars } from "./storage.js"
+import { declareVars, storageOf } from "./storage.js"
 import { lowerBlock } from "./statements.js"
+import { calledLayout } from "./calls.js"
 
 /** A type a backend can store: elementary, a laid-out struct or FB instance, or a sized array of those. */
 function representable(t: Type): boolean {
@@ -58,12 +59,15 @@ export function lowerUnit(
   const lowering = new Lowering(scope, project, newShared(attributes, unit.name.text))
   lowering.isRoot = true
   lowering.frameContext = `POU:${unit.name.text.toUpperCase()}`
-  declareVars(lowering, unit.varSections)
-  const parsed = parseStatements(unit.body)
-  if (!parsed.ok)
-    return { diagnostics: [{ code: "parse", message: parsed.firstError ?? "body did not parse", span: unit.span }] }
-
-  const body = lowerBlock(lowering, parsed.statements)
+  let body: IrStmt[]
+  if (unit.kind === "function_block") body = rootInstance(lowering, unit)
+  else {
+    declareVars(lowering, unit.varSections)
+    const parsed = parseStatements(unit.body)
+    if (!parsed.ok)
+      return { diagnostics: [{ code: "parse", message: parsed.firstError ?? "body did not parse", span: unit.span }] }
+    body = lowerBlock(lowering, parsed.statements)
+  }
   if (lowering.diagnostics.length > 0) return { diagnostics: lowering.diagnostics }
   // Every construct lowered — but every SLOT (and every field of a layout) also needs a runtime representation. An unused
   // `p : POINTER TO INT` lowered cleanly, then the Rust emitter threw on its type: a backend must accept whatever lowering
@@ -82,8 +86,28 @@ export function lowerUnit(
     return { diagnostics: [{ code: `slot-${kind}`, message: `${unrepresentable.name} is a ${kind} variable, which has no runtime representation yet`, span: unit.span }] }
   }
 
-  const pou: IrPou = { name: unit.name.text, slots: lowering.frame, body, layouts, routines, globals: lowering.globals, span: unit.span }
+  // an FB's own struct already carries its name, so the POU that holds one instance of it is named apart
+  const name = unit.kind === "function_block" ? `${unit.name.text}__root` : unit.name.text
+  const pou: IrPou = { name, slots: lowering.frame, body, layouts, routines, globals: lowering.globals, span: unit.span }
   return { pou, diagnostics: [] }
+}
+
+/**
+ * An FB lowered on its own runs as what it only ever is — an instance: the POU holds one, named as the FB, and each scan
+ * calls it. Its body then sees THIS^, its bases' fields, SUPER^ and its own methods exactly as a called instance's does
+ * (phase 3½). It was lowered as if it were a PROGRAM, where none of those exist, so every derived FB the corpus holds
+ * stopped at its `SUPER^()` (128 of them). An FB with VAR_IN_OUT is refused: only a caller binds one.
+ */
+function rootInstance(lw: Lowering, unit: Extract<TopLevel, { kind: "function_block" }>): IrStmt[] {
+  const type = storageOf(lw, resolveNamedType(unit.name.text, lw.project))
+  const layout = type.kind === "function_block" ? calledLayout(lw, type.name, unit.span) : undefined
+  if (layout === undefined) return []
+  if ((layout.inouts ?? []).length > 0) {
+    lw.bail("root-inout", `${unit.name.text} has VAR_IN_OUT, which only a caller binds`, unit.span)
+    return []
+  }
+  lw.slot(unit.name, type, "VAR")
+  return [{ kind: "call", instance: { slot: lw.frame.length - 1, path: [], type, span: unit.span }, fb: layout.name, inouts: [], span: unit.span }]
 }
 
 /** A referenced library's materialized declaration file — `uri` must keep its `Library Manager/<library>/` path. */

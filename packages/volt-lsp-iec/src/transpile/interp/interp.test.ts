@@ -760,6 +760,41 @@ END_METHOD`,
     expect([pou.get("viaSuper.inBase"), pou.get("viaSuper.nBase"), pou.get("viaSuper.hookDerived"), pou.get("viaSuper.hookBase")]).toEqual([105n, 1n, 1n, 1n])
   })
 
+  // Phase 3½: the corpus lowers every FB on its own. Lowered as if it were a PROGRAM, it had no THIS^, no base and no
+  // SUPER^ — so this is the shape 128 corpus FBs stopped at.
+  test("an FB lowered on its own is one instance of itself, called each scan — its base, SUPER^ and methods included", () => {
+    const pou = load(
+      `FUNCTION_BLOCK FB_Top EXTENDS FB_Bottom
+VAR n : INT; END_VAR
+SUPER^(inBase := 2);
+Bump();
+END_FUNCTION_BLOCK
+METHOD Bump
+n := n + 1;
+END_METHOD
+FUNCTION_BLOCK FB_Bottom
+VAR_INPUT inBase : INT; END_VAR
+VAR total : INT; END_VAR
+total := total + inBase;
+END_FUNCTION_BLOCK`,
+      "FB_Top",
+    )
+    pou.scan()
+    pou.scan()
+    expect([pou.get("FB_Top.total"), pou.get("FB_Top.n"), pou.get("FB_Top.inBase")]).toEqual([4n, 2n, 2n])
+  })
+
+  // Phase 3½ (`fbcall_gvl_qualified`): a qualified_only list's variable is reachable only as `List.var`, and two lists
+  // may each declare one of the same name — two globals, not one.
+  test("a GVL variable named through its list, two qualified_only lists holding the same name apart", () => {
+    const q = { uri: "GVL_Q.gvl", source: "{attribute 'qualified_only'}\nVAR_GLOBAL\n  gX : INT := 1;\nEND_VAR\n" }
+    const other = { uri: "GVL_R.gvl", source: "{attribute 'qualified_only'}\nVAR_GLOBAL\n  gX : INT := 50;\nEND_VAR\n" }
+    const pou = load("PROGRAM P\nVAR seen : INT; apart : INT; END_VAR\nGVL_Q.gX := GVL_Q.gX + 5;\nseen := GVL_Q.gX;\napart := GVL_R.gX;\nEND_PROGRAM\n", "P", [q, other])
+    pou.scan()
+    pou.scan()
+    expect([pou.get("seen"), pou.get("apart")]).toEqual([11n, 50n])
+  })
+
   // Transpiler review 2026-09-15. Why missed: the reference tests bound one, read it and wrote it with a plain `:=` —
   // none wrote through one any other way, and none compared one with 0.
   test("a reference is written through by every kind of store, and `r = 0` compares its target", () => {

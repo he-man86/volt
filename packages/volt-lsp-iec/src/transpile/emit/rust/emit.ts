@@ -388,7 +388,6 @@ class Printer {
         const r = this.expr(e.right, slots)
         const infix = INFIX[e.op]
         if (infix !== undefined) return `(${l} ${infix} ${r})`
-        const isBool = e.type.kind === "elementary" && e.type.elem.family === "bool"
         // Rust's `&`/`|` on bool evaluate both sides, as AND/OR do in the interpreter; `&&`/`||` are AND_THEN/OR_ELSE.
         // BOOL AND printed `&&`, so a call on the right ran in one backend and not the other (transpiler review 2026-09-15).
         if (e.op === "and" || e.op === "or" || e.op === "xor") return `(${l} ${e.op === "and" ? "&" : e.op === "or" ? "|" : "^"} ${r})`

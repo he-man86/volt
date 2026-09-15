@@ -1,7 +1,7 @@
 /**
  * Places — where a name, a field, an element or a bit lives: in the frame, a local, a VAR_IN_OUT, or the globals.
  */
-import { type Expr, isSelfRef, type Span, type VarSection } from "../../syntax/index.js"
+import { type Expr, isSelfRef, type Span, type TopLevel, type VarDecl, type VarSection } from "../../syntax/index.js"
 import { libraryOf, lookup } from "../../symbols/index.js"
 import { elementaryRef, resolveNamedType } from "../../types/index.js"
 import { defaultValueOf, peelArray, type Place } from "../ir/index.js"
@@ -26,12 +26,8 @@ export function globalPlace(lw: Lowering, name: string, span: Span): Place | und
   let sym = lookup(lw.scope, name)?.symbol
   if (sym?.varSection === "VAR_EXTERNAL") sym = lookup(lw.project, name)?.symbol
   if (sym === undefined || libraryOf(sym) !== undefined) return undefined
-  if (sym.kind === "gvl_var") {
-    const gvl = new Lowering(lw.project, lw.project, lw.shared)
-    gvl.globalMode = true
-    declareVars(gvl, [{ sectionKind: "VAR", decls: [sym.ast] } as unknown as VarSection])
-    lw.diagnostics.push(...gvl.diagnostics)
-  } else if (sym.kind === "program" && lw.isRoot && sym.name.toUpperCase() !== lw.shared.root.toUpperCase()) {
+  if (sym.kind === "gvl_var") declareGlobal(lw, sym.ast as VarDecl, "")
+  else if (sym.kind === "program" && lw.isRoot && sym.name.toUpperCase() !== lw.shared.root.toUpperCase()) {
     const type = storageOf(lw, resolveNamedType(sym.name, lw.project))
     lw.shared.globals.byName.set(upper, lw.shared.globals.slots.length)
     lw.shared.globals.slots.push({ name: sym.name, type, section: "program", init: defaultValueOf(type) })
@@ -40,9 +36,37 @@ export function globalPlace(lw: Lowering, name: string, span: Span): Place | und
   return slot === undefined ? undefined : place(slot)
 }
 
+/** A GVL declaration's variables made the application's storage, each keyed by `prefix` and its name. */
+function declareGlobal(lw: Lowering, decl: VarDecl, prefix: string): void {
+  const gvl = new Lowering(lw.project, lw.project, lw.shared)
+  gvl.globalMode = true
+  gvl.globalPrefix = prefix
+  declareVars(gvl, [{ sectionKind: "VAR", decls: [decl] } as unknown as VarSection])
+  lw.diagnostics.push(...gvl.diagnostics)
+}
+
+/**
+ * `GVL_Name.var` — a global named through its list (conformance `fbcall_gvl_qualified`), the one way to a variable of a
+ * `qualified_only` list; a plain list's variable is the same global its bare name reaches.
+ */
+function qualifiedGlobal(lw: Lowering, list: string, name: string, span: Span): Place | undefined {
+  const block = lookup(lw.scope, list)?.symbol
+  if (block === undefined || libraryOf(block) !== undefined) return lw.bail("place-not-local", `${list} is a library's global list, which lowering leaves unmodelled`, span)
+  const gvl = block.ast as Extract<TopLevel, { kind: "global_var_list" }>
+  const decl = gvl.varSections.flatMap((s) => s.decls).find((d) => d.names.some((n) => n.text.toUpperCase() === name.toUpperCase()))
+  const sym = decl === undefined ? undefined : lw.project.symbols.get(name.toLowerCase())?.find((s) => s.kind === "gvl_var" && s.ast === decl)
+  if (sym === undefined) return lw.bail("place-not-local", `${list}.${name} names no variable of that list`, span)
+  const key = `${sym.qualifiedOnly ? `${block.name}.` : ""}${name}`.toUpperCase()
+  if (!lw.shared.globals.byName.has(key)) declareGlobal(lw, decl!, sym.qualifiedOnly ? `${block.name}.` : "")
+  const slot = lw.shared.globals.byName.get(key)
+  return slot === undefined ? undefined : { slot, path: [], type: lw.shared.globals.slots[slot]!.type, span, root: "global" }
+}
+
 export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): Place | undefined {
   if (e.kind === "member") {
     if (/^\d+$/.test(e.member.name)) return bitPlace(lw, e, notAMember)
+    if (e.base.kind === "ident_expr" && !lw.holds(e.base.name) && lookup(lw.scope, e.base.name)?.symbol.kind === "gvl_block")
+      return qualifiedGlobal(lw, e.base.name, e.member.name, e.span)
     // a struct's field or an instance's variable: one `field` step on the base place (design §9)
     const base = lowerPlace(lw, e.base, notAMember)
     if (base === undefined) return undefined

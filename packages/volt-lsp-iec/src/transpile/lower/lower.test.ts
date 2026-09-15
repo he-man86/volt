@@ -301,6 +301,11 @@ END_PROGRAM
     expect(code(`PROGRAM P\nVAR x : FB_Plain; END_VAR\nx();\nEND_PROGRAM\n${plain}`)).toEqual(["call-super"])
   })
 
+  test("an FB with VAR_IN_OUT lowered on its own is refused — only a caller binds its in-out", () => {
+    const { diagnostics } = lowerSource("FUNCTION_BLOCK FB_Io\nVAR_IN_OUT v : INT; END_VAR\nv := v + 1;\nEND_FUNCTION_BLOCK\n", "FB_Io")
+    expect(diagnostics.map((d) => d.code)).toEqual(["root-inout"])
+  })
+
   test("an initializer that does not fold is reported, never silently dropped", () => {
     // It was dropped: the slot started at its default with no diagnostic — which is how every STRING slot lost its
     // initial value (constEval folds no strings) while each string case still "lowered".

@@ -72,6 +72,9 @@ export class Lowering {
   routineMode = false
   /** Declaring a GVL variable: its slot is the application's, not this frame's. */
   globalMode = false
+  /** Prefixed to a declared global's key: a `qualified_only` list's name, as its variables are reachable only through
+   *  it — so two such lists may each declare a `gX` without sharing one slot. */
+  globalPrefix = ""
   /** Lowering the POU's OWN body — the one place a PROGRAM is called from (see `globalPlace`); set by `lowerUnit`. */
   isRoot = false
   /** The FB an FB, METHOD or ACTION body runs on — what `THIS^` names, and what a METHOD call resolves against. */
@@ -172,7 +175,7 @@ export class Lowering {
 
   slot(name: Identifier, type: Type, section: VarSection["sectionKind"], init?: IrValue): void {
     if (this.globalMode) {
-      this.shared.globals.byName.set(name.text.toUpperCase(), this.shared.globals.slots.length)
+      this.shared.globals.byName.set(`${this.globalPrefix}${name.text}`.toUpperCase(), this.shared.globals.slots.length)
       this.shared.globals.slots.push({ name: name.text, type, section, init: init ?? defaultValueOf(type) })
       return
     }
