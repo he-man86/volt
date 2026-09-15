@@ -1,0 +1,121 @@
+/**
+ * Places — where a name, a field, an element or a bit lives: in the frame, a local, a VAR_IN_OUT, or the globals.
+ */
+import { type Expr, isSelfRef, type Span, type VarSection } from "../../syntax/index.js"
+import { libraryOf, lookup } from "../../symbols/index.js"
+import { elementaryRef, resolveNamedType } from "../../types/index.js"
+import { defaultValueOf, peelArray, type Place } from "../ir/index.js"
+import { Lowering } from "./lowering.js"
+import { declareVars, storageOf } from "./storage.js"
+import { pointeePlace } from "./pointers.js"
+import { lowerExpr } from "./expressions.js"
+
+/**
+ * A name no local, field or parameter holds: a GVL variable, or a called PROGRAM's instance — the application's
+ * storage, one of each (design §9). A POU's VAR_EXTERNAL names the global it declares. Undefined for anything else,
+ * which the caller reports; a library's globals stay unmodelled.
+ */
+export function globalPlace(lw: Lowering, name: string, span: Span): Place | undefined {
+  const upper = name.toUpperCase()
+  const place = (slot: number): Place => ({ slot, path: [], type: lw.shared.globals.slots[slot]!.type, span, root: "global" })
+  // A PROGRAM's instance is reached from the POU's own body only. Rust holds the instances apart from the GVL variables
+  // (`Programs`, `Globals`) so that `prg.p.call(g)` borrows two things; a program called from inside an FB, a routine or
+  // another program would need the instances and itself at once.
+  const known = lw.shared.globals.byName.get(upper)
+  if (known !== undefined) return lw.shared.globals.slots[known]!.section === "program" && !lw.isRoot ? undefined : place(known)
+  let sym = lookup(lw.scope, name)?.symbol
+  if (sym?.varSection === "VAR_EXTERNAL") sym = lookup(lw.project, name)?.symbol
+  if (sym === undefined || libraryOf(sym) !== undefined) return undefined
+  if (sym.kind === "gvl_var") {
+    const gvl = new Lowering(lw.project, lw.project, lw.shared)
+    gvl.globalMode = true
+    declareVars(gvl, [{ sectionKind: "VAR", decls: [sym.ast] } as unknown as VarSection])
+    lw.diagnostics.push(...gvl.diagnostics)
+  } else if (sym.kind === "program" && lw.isRoot && sym.name.toUpperCase() !== lw.shared.root.toUpperCase()) {
+    const type = storageOf(lw, resolveNamedType(sym.name, lw.project))
+    lw.shared.globals.byName.set(upper, lw.shared.globals.slots.length)
+    lw.shared.globals.slots.push({ name: sym.name, type, section: "program", init: defaultValueOf(type) })
+  } else return undefined
+  const slot = lw.shared.globals.byName.get(upper)
+  return slot === undefined ? undefined : place(slot)
+}
+
+export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): Place | undefined {
+  if (e.kind === "member") {
+    if (/^\d+$/.test(e.member.name)) return bitPlace(lw, e, notAMember)
+    // a struct's field or an instance's variable: one `field` step on the base place (design §9)
+    const base = lowerPlace(lw, e.base, notAMember)
+    if (base === undefined) return undefined
+    const layout = base.type.kind === "struct" || base.type.kind === "function_block" ? lw.layouts.get(base.type.name.toUpperCase()) : undefined
+    const field = layout?.fields.find((f) => f.name.toUpperCase() === e.member.name.toUpperCase())
+    if (field === undefined) return lw.bail(notAMember, "member access is not lowered yet", e.span)
+    return { ...base, path: [...base.path, { kind: "field", name: field.name }], type: field.type, span: e.span }
+  }
+  if (e.kind === "index") {
+    // one `index` step per dimension, each carrying the bounds a backend normalises by
+    let place = lowerPlace(lw, e.base, notAMember)
+    // `p[i]` on a pointer: i elements past the one it points at (conformance `mem_pointer_index_struct_array`)
+    if (place !== undefined && place.type.kind === "pointer") {
+      if (e.indices.length !== 1) return lw.bail("pointer-index", "a pointer indexed in more than one dimension", e.span)
+      const extra = lowerExpr(lw, e.indices[0]!)
+      return extra && pointeePlace(lw, place, extra, e.span)
+    }
+    for (const written of e.indices) {
+      if (place === undefined) return undefined
+      const array = peelArray(place.type)
+      if (array === undefined) return lw.bail("place-shape", "an index on something that is not a sized array", e.span)
+      const index = lowerExpr(lw, written)
+      if (index === undefined) return undefined
+      place = { ...place, path: [...place.path, { kind: "index", index, lower: array.lower, length: array.length }], type: array.element, span: e.span }
+    }
+    return place
+  }
+  // `THIS^` — the instance the body runs on (conformance `keyword_this_dereference`, `use_self_method_call`). SUPER^
+  // names a base FB, and a derived FB is not lowered yet.
+  if (e.kind === "deref" && isSelfRef(e) && e.base.kind === "ident_expr" && e.base.name.toUpperCase() === "THIS" && lw.selfType !== undefined)
+    return { slot: 0, path: [], type: lw.selfType, span: e.span, root: "this" }
+  if (e.kind === "deref" && !isSelfRef(e)) {
+    const pointer = lowerPlace(lw, e.base, notAMember)
+    if (pointer === undefined) return undefined
+    if (pointer.type.kind !== "pointer") return lw.bail("place-shape", "a dereference of something that is not a pointer", e.span)
+    return pointeePlace(lw, pointer, undefined, e.span)
+  }
+  if (e.kind !== "ident_expr")
+    return lw.bail("place-shape", `${e.kind} is not a lowerable storage location yet`, e.span)
+  // a routine's own local (its result, inputs and VAR) shadows the instance's field of the same name
+  const local = lw.localByName.get(e.name.toUpperCase())
+  if (local !== undefined) return { slot: local, path: [], type: lw.localSlots[local]!.type, span: e.span, root: "local" }
+  const slot = lw.byName.get(e.name.toUpperCase())
+  const inout = lw.inoutByName.get(e.name.toUpperCase())
+  if (slot === undefined && inout !== undefined)
+    return { slot: inout, path: [], type: lw.inoutSlots[inout]!.type, span: e.span, root: "inout" }
+  if (slot === undefined) {
+    const global = globalPlace(lw, e.name, e.span)
+    if (global !== undefined) return global
+    // `symbols/` decides what the name IS — a GVL, an enum member, a library global — so the report names
+    // the real reason rather than "unknown identifier".
+    const found = lookup(lw.scope, e.name)?.symbol
+    const what = found === undefined ? "does not resolve" : `is a ${found.kind}, which has no frame slot yet`
+    return lw.bail("place-not-local", `${e.name} ${what}`, e.span)
+  }
+  return { slot, path: [], type: lw.slots[slot]!.type, span: e.span }
+}
+
+/**
+ * `x.3` on a local integer — one bit of one slot, readable and writable (design §14): two's complement, so
+ * `im1.15` with `im1 : INT := -1` is TRUE and `i0.15 := TRUE` makes -32768. Any other dotted name is a struct or
+ * instance member, which waits on the memory model (§9) — it keeps the counted code the caller passes, so the
+ * coverage report's categories do not shift under it.
+ */
+export function bitPlace(lw: Lowering, e: Extract<Expr, { kind: "member" }>, notABit: string): Place | undefined {
+  const index = Number(e.member.name)
+  const base = lowerPlace(lw, e.base, notABit)
+  if (base === undefined) return undefined
+  // A bit of something that is not an integer says what it is instead: `slice.0` with `slice : REFERENCE TO BYTE`
+  // (pro2193 MapperInputs.fb) is aliasing — phase 4 — and a `bit-index` there sent the reader to the wrong phase.
+  if (base.type.kind !== "elementary") return lw.bail(`bit-on-${base.type.kind}`, `bit ${index} of a ${base.type.kind}`, e.span)
+  const t = base.type.elem
+  if (t.rank === undefined || (t.family !== "int" && t.family !== "bitstring") || index >= t.bits)
+    return lw.bail("bit-index", `bit ${index} of a ${t.name}`, e.span)
+  return { ...base, path: [...base.path, { kind: "bit", index, of: base.type }], type: elementaryRef("BOOL"), span: e.span }
+}

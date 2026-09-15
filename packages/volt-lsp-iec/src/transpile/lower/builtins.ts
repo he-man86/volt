@@ -1,0 +1,249 @@
+/**
+ * The built-in functions: the value functions, the Standard library's string functions, and type conversions.
+ */
+import type { Expr, Span } from "../../syntax/index.js"
+import { libraryOf, lookup } from "../../symbols/index.js"
+import {
+  commonType,
+  elementaryRef,
+  elemOf,
+  exptResultType,
+  parseConversionName,
+  promoteForRuntime,
+  type Type,
+  UNKNOWN,
+} from "../../types/index.js"
+import type { IrBuiltinName, IrExpr } from "../ir/index.js"
+import type { Lowering } from "./lowering.js"
+import { convert } from "./convert.js"
+import { withStringCapacity } from "./storage.js"
+import { lowerPlace } from "./places.js"
+import { sizeOf } from "./bytes.js"
+import { lowerExpr } from "./expressions.js"
+import { lowerInvoke } from "./calls.js"
+
+/** The value functions `builtin` lowers, and how many operands each takes. SEL's count includes its selector. */
+export const BUILTIN_ARITY: Readonly<Record<string, { min: number; max?: number }>> = {
+  MAX: { min: 1 },
+  MIN: { min: 1 },
+  LIMIT: { min: 3, max: 3 },
+  SEL: { min: 3, max: 3 },
+  TRUNC: { min: 1, max: 1 },
+  TRUNC_INT: { min: 1, max: 1 },
+  ABS: { min: 1, max: 1 },
+  EXPT: { min: 2, max: 2 },
+  SHL: { min: 2, max: 2 },
+  SHR: { min: 2, max: 2 },
+  ROL: { min: 2, max: 2 },
+  ROR: { min: 2, max: 2 },
+  MUX: { min: 2 },
+  ...Object.fromEntries(["SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"].map((n) => [n, { min: 1, max: 1 }])),
+}
+
+/** The Standard library's string functions — lowered only when the callee resolves into that library (`standardString`). */
+export const STANDARD_STRING_FUNCTIONS: ReadonlySet<string> = new Set(["LEN", "LEFT", "RIGHT", "MID", "CONCAT", "INSERT", "DELETE", "REPLACE", "FIND"])
+
+/** The one-argument math functions — same arity, same typing rule (see `builtin`). */
+export const UNARY_MATH: ReadonlySet<string> = new Set(["SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"])
+
+/**
+ * The value functions MAX/MIN/LIMIT/SEL → one `builtin` node. Every rule is MEASURED on CODESYS 3.5.21.40
+ * (conformance `max_*`, `limit_*`, `sel_basic`), not recalled:
+ *   - MAX/MIN are extensible — `MAX(1, 5, 3)` is 5, `MIN(8, 4, 6, 9)` is 4;
+ *   - the arguments MEET like a binary operator's operands — `MAX(i3, r25)` is REAL 3, and
+ *     `MAX(us200, sMinus1)` (USINT 200, SINT -1) is 200, a comparison of VALUES after promotion;
+ *   - `LIMIT(MN, IN, MX)` is exactly `MIN(MAX(IN, MN), MX)` — with MN > MX it returns MX for every IN;
+ *   - `SEL(G, IN0, IN1)` is IN0 on FALSE, IN1 on TRUE.
+ * Any other call — a project function, a library, a conversion — is still `expr-call`, and counted.
+ */
+export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>): IrExpr | undefined {
+  const name = e.callee.kind === "ident_expr" ? e.callee.name.toUpperCase() : undefined
+  // `X_TO_Y` / `TO_Y` — `types/parseConversionName`, the one parser: both names elementary and spelled as CODESYS
+  // spells them. A project function called `GO_TO_START` is an ordinary call, and `TIME_OF_DAY_TO_UDINT` is no
+  // conversion at all (it is not defined — this used to read it as one).
+  if (name === "SIZEOF") return sizeOf(lw, e)
+  if (name === "__ISVALIDREF") {
+    // a bound reference is valid (conformance `op_sys_isvalidref`: TRUE) — its value is not 0
+    const arg = e.args[0]?.value
+    if (e.args.length !== 1 || arg === undefined) return lw.bail("call-arity", "__ISVALIDREF takes one argument", e.span)
+    const place = lowerPlace(lw, arg)
+    if (place === undefined) return undefined
+    if (place.type.kind !== "reference" && place.type.kind !== "pointer") return lw.bail("call-arity", "__ISVALIDREF of something that is not a reference", e.span)
+    const loaded: IrExpr = { kind: "load", place, type: place.type, span: arg.span }
+    return { kind: "binary", op: "ne", left: loaded, right: { kind: "const", value: 0n, type: place.type, span: e.span }, type: elementaryRef("BOOL"), span: e.span }
+  }
+  const conv = name === undefined ? undefined : parseConversionName(name)
+  if (conv !== undefined) return lowerConversion(lw, e, conv.from && elementaryRef(conv.from.name), elementaryRef(conv.to.name))
+  if (name !== undefined && STANDARD_STRING_FUNCTIONS.has(name)) return lowerStandardString(lw, e, name)
+  const arity = name === undefined ? undefined : BUILTIN_ARITY[name]
+  if (name === undefined || arity === undefined) {
+    // a METHOD of an instance, or a project FUNCTION — a routine with a result
+    const value = lowerInvoke(lw, e)
+    if (value === undefined) return undefined
+    return value.type === UNKNOWN ? lw.bail("call-no-result", "a call without a result used as a value", e.span) : value
+  }
+  if (e.args.some((a) => a.param !== undefined || a.output || a.value === undefined))
+    return lw.bail("call-named-args", `${name} with named or output arguments`, e.span)
+  if (e.args.length < arity.min || (arity.max !== undefined && e.args.length > arity.max))
+    return lw.bail("call-arity", `${name} with ${e.args.length} arguments`, e.span)
+
+  const values = e.args.map((a) => a.value!)
+  if (name === "TRUNC" || name === "TRUNC_INT") {
+    const arg = lowerExpr(lw, values[0]!)
+    if (arg === undefined) return undefined
+    // Toward zero — TRUNC(-2.7) is -2 — into DINT (TRUNC) or INT (TRUNC_INT). conformance `trunc_functions`.
+    const type = elementaryRef(name === "TRUNC" ? "DINT" : "INT")
+    return { kind: "builtin", name: "trunc", args: [arg], type, span: e.span }
+  }
+  if (name === "ABS") {
+    const arg = lowerExpr(lw, values[0]!)
+    if (arg === undefined) return undefined
+    // Promotes like unary minus: ABS(SINT -128) is 128, ABS(INT -32768) into a DINT is 32768 and into an INT wraps
+    // back to -32768; ABS of a USINT is the value itself (conformance `abs_values`, `abs_unsigned`).
+    const type = promoteForRuntime(arg.type)
+    return { kind: "builtin", name: "abs", args: [convert(arg, type)], type, span: e.span }
+  }
+  if (name === "SHL" || name === "SHR" || name === "ROL" || name === "ROR") {
+    const value = lowerExpr(lw, values[0]!)
+    const count = value === undefined ? undefined : lowerExpr(lw, values[1]!)
+    if (value === undefined || count === undefined) return undefined
+    // SHL/SHR shift the PROMOTED value — SHL(BYTE 1, 9) into a WORD is 512 — while ROL/ROR rotate in the value's
+    // own width: ROL(BYTE 129, 1) is 3 (conformance `shift_basic`, `rotate_basic`).
+    const shift = name === "SHL" || name === "SHR"
+    const type = shift ? promoteForRuntime(value.type) : value.type
+    const op = name.toLowerCase() as IrBuiltinName
+    return { kind: "builtin", name: op, args: [convert(value, type), count], type, span: e.span }
+  }
+  if (name === "MUX") {
+    const index = lowerExpr(lw, values[0]!)
+    if (index === undefined) return undefined
+    const inputs: IrExpr[] = []
+    for (const v of values.slice(1)) {
+      const lowered = lowerExpr(lw, v)
+      if (lowered === undefined) return undefined
+      inputs.push(lowered)
+    }
+    // The inputs meet like MAX's — MUX(0, INT 10, REAL 2.5) is REAL 10 (conformance `mux_mixed_types`).
+    const type = meetOperands(lw, inputs, e.span)
+    if (type === undefined) return undefined
+    return { kind: "builtin", name: "mux", args: [index, ...inputs.map((i) => convert(i, type))], type, span: e.span }
+  }
+  if (name === "EXPT") {
+    const base = lowerExpr(lw, values[0]!)
+    const exponent = base === undefined ? undefined : lowerExpr(lw, values[1]!)
+    if (base === undefined || exponent === undefined) return undefined
+    // REAL only when BOTH arguments are REAL — EXPT(REAL 2.0, REAL 0.5) is float32's √2 — and LREAL otherwise:
+    // EXPT(REAL 3.0, INT 20) is 3486784401 (float32 would give 3486784512), EXPT(INT 2, REAL 0.5) and
+    // EXPT(LREAL, REAL) are float64, and EXPT(INT, INT) is LREAL-typed (into an INT it does not compile).
+    // conformance `expt_types`, `expt_mixed_width`.
+    const type = exptResultType(base.type, exponent.type)
+    return { kind: "builtin", name: "expt", args: [convert(base, type), convert(exponent, type)], type, span: e.span }
+  }
+  if (UNARY_MATH.has(name)) {
+    const arg = lowerExpr(lw, values[0]!)
+    if (arg === undefined) return undefined
+    // A REAL argument computes in REAL — SQRT(REAL 2.0) is float32's 1.4142135381698608 — an LREAL in LREAL, and an
+    // INTEGER in LREAL: SQRT(INT 2) is 1.4142135623730951 (conformance `sqrt_precision`, `exp_log_precision`,
+    // `trig_precision`).
+    const type = elemOf(arg.type)?.family === "real" ? arg.type : elementaryRef("LREAL")
+    const math = name.toLowerCase() as IrBuiltinName
+    return { kind: "builtin", name: math, args: [convert(arg, type)], type, span: e.span }
+  }
+  const selector = name === "SEL" ? lowerExpr(lw, values[0]!, elementaryRef("BOOL")) : undefined
+  if (name === "SEL" && selector === undefined) return undefined
+  const operands: IrExpr[] = []
+  for (const v of name === "SEL" ? values.slice(1) : values) {
+    const lowered = lowerExpr(lw, v)
+    if (lowered === undefined) return undefined
+    operands.push(lowered)
+  }
+  const type = meetOperands(lw, operands, e.span)
+  if (type === undefined) return undefined
+  const args = operands.map((o) => convert(o, type))
+  const lower = name.toLowerCase() as IrBuiltinName
+  return { kind: "builtin", name: lower, args: selector === undefined ? args : [selector, ...args], type, span: e.span }
+}
+
+/**
+ * A string function of the referenced Standard library → one `builtin` node — a library-gated intrinsic
+ * (plc-library-runtime, tier 1). It binds ONLY when the name resolves to that library's own declaration under
+ * `Library Manager/Standard/`: a project that references no Standard has no LEN, and a project FUNCTION called LEN is
+ * not this one. The signature is the library's, never recalled — every parameter and result is STRING(255) there,
+ * so an argument converts to it (and a longer one is cut on the way in) exactly as the compiler passes it.
+ */
+export function lowerStandardString(lw: Lowering, e: Extract<Expr, { kind: "call" }>, name: string): IrExpr | undefined {
+  const sym = lookup(lw.scope, name)?.symbol
+  if (sym === undefined || sym.ast.kind !== "function" || libraryOf(sym) !== "Standard")
+    return lw.bail("expr-call", `${name} does not resolve to the Standard library`, e.span)
+  const params = sym.ast.varSections
+    .filter((s) => s.sectionKind === "VAR_INPUT")
+    .flatMap((s) => s.decls.flatMap((d) => d.names.map(() => withStringCapacity(lw.resolve(d.type)))))
+  const result = sym.ast.returnType === undefined ? UNKNOWN : withStringCapacity(lw.resolve(sym.ast.returnType))
+  if (e.args.some((a) => a.param !== undefined || a.output || a.value === undefined))
+    return lw.bail("call-named-args", `${name} with named or output arguments`, e.span)
+  if (e.args.length !== params.length || result === UNKNOWN || params.includes(UNKNOWN))
+    return lw.bail("call-arity", `${name} with ${e.args.length} arguments`, e.span)
+  const args: IrExpr[] = []
+  for (const [i, a] of e.args.entries()) {
+    const arg = lowerExpr(lw, a.value!, params[i])
+    if (arg === undefined) return undefined
+    args.push(convert(arg, params[i]!))
+  }
+  return { kind: "builtin", name: name.toLowerCase() as IrBuiltinName, args, type: result, span: e.span }
+}
+
+/**
+ * `X_TO_Y(v)` / `TO_Y(v)` → an explicit `convert` node. The rules themselves live in that IR node (design §11), so
+ * implicit and explicit conversions cannot drift apart. `X_TO_Y` first brings `v` to X the way the compiler
+ * would; `TO_Y` converts from whatever `v` is. The explicit step is always a NODE, never a retyped constant:
+ * `DINT_TO_SINT(300)` is 44, and a constant stamped SINT would print as Rust's out-of-range `300i8`.
+ */
+export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>, from: Type | undefined, to: Type): IrExpr | undefined {
+  const scalar = (t: Type): boolean => ["bool", "int", "bitstring", "real", "time", "date"].includes(elemOf(t)?.family ?? "")
+  // STRING conversions (design §18): to STRING from an integer, a bit string, BOOL or TIME; from STRING to an integer,
+  // REAL or LREAL. REAL_TO_STRING has no single digit rule and stays refused; parsing into a bit string is unmeasured.
+  // The result is a sizeless STRING (80) — no text these produce is longer.
+  const isInt = (t: Type | undefined, orBits = false): boolean =>
+    t !== undefined && (elemOf(t)?.family === "int" || (orBits && elemOf(t)?.family === "bitstring"))
+  const isString = (t: Type | undefined): boolean => t !== undefined && elemOf(t)?.family === "string"
+  const hasText = (t: Type | undefined): boolean => isInt(t, true) || (t !== undefined && ["BOOL", "TIME"].includes(elemOf(t)?.name ?? ""))
+  const parses = (t: Type): boolean => isInt(t) || elemOf(t)?.family === "real"
+  if ((isString(to) && elemOf(to)?.name === "STRING" && hasText(from)) || (isString(from) && elemOf(from ?? UNKNOWN)?.name === "STRING" && parses(to))) {
+    const only = e.args[0]
+    if (e.args.length !== 1 || only?.value === undefined || only.param !== undefined || only.output)
+      return lw.bail("call-arity", "a conversion takes exactly one positional argument", e.span)
+    const arg = lowerExpr(lw, only.value, from)
+    if (arg === undefined) return undefined
+    const type = withStringCapacity(to)
+    return { kind: "convert", value: convert(arg, withStringCapacity(from!)), type, span: e.span }
+  }
+  if (!scalar(to) || (from !== undefined && !scalar(from)))
+    return lw.bail("conversion-type", "this STRING conversion is not measured yet", e.span)
+  // A duration or date converts to and from INTEGERS, in its own unit — TIME_TO_DINT(T#1S500MS) is 1500,
+  // DATE_TO_UDINT(D#1970-01-02) is 86400 seconds, TOD_TO_UDINT(TOD#00:00:01) is 1000 ms (conformance `time_conversions`,
+  // `date_representation`). ↔ REAL/BOOL, and between two temporal types, were not measured: refused, not guessed.
+  const temporal = [to, from].filter((t) => t !== undefined && ["time", "date"].includes(elemOf(t)?.family ?? "")).length
+  const nonIntegral = [to, from].some((t) => t !== undefined && ["real", "bool"].includes(elemOf(t)?.family ?? ""))
+  if ((temporal > 0 && nonIntegral) || temporal === 2)
+    return lw.bail("conversion-type", "a TIME/DATE conversion to REAL, BOOL or another temporal type is not measured yet", e.span)
+  const only = e.args[0]
+  if (e.args.length !== 1 || only?.value === undefined || only.param !== undefined || only.output)
+    return lw.bail("call-arity", "a conversion takes exactly one positional argument", e.span)
+  const arg = lowerExpr(lw, only.value)
+  if (arg === undefined) return undefined
+  const source = from === undefined ? arg : convert(arg, from)
+  return elemOf(source.type)?.name === elemOf(to)?.name ? source : { kind: "convert", value: source, type: to, span: e.span }
+}
+
+/** The one type a list of operands meets at — a binary operator's rule, over N operands: variables decide, a
+ *  REAL constant still widens (as in `int7 / 2.0`), all-constant integers fold as LINT, and the result promotes. */
+export function meetOperands(lw: Lowering, operands: readonly IrExpr[], span: Span): Type | undefined {
+  const variables = operands.filter((o) => o.kind !== "const")
+  let type =
+    variables.length > 0
+      ? variables.map((o) => o.type).reduce(commonType)
+      : operands.map((o) => (elemOf(o.type)?.family === "int" ? elementaryRef("LINT") : o.type)).reduce(commonType)
+  for (const o of operands) if (o.kind === "const" && elemOf(o.type)?.family === "real") type = commonType(type, o.type)
+  if (type === UNKNOWN) return lw.bail("type-unknown", "the arguments have no common type", span)
+  return promoteForRuntime(type)
+}
