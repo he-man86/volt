@@ -47,7 +47,7 @@ const recording = JSON.parse(readFileSync(join(import.meta.dir, "recordings", "c
  * The cases with transpiler lowering held above this floor — execution cases and fixtures together. Raise it when more
  * cases lower; never lower it to make a change pass.
  */
-const LOWERED_FLOOR = 418
+const LOWERED_FLOOR = 424
 
 /** The source a case lowers from: the fixture's own units (an execution case has none), then its PLC_PRG. */
 function runSource(c: LanguageTest): string {
@@ -290,7 +290,9 @@ describe.skipIf(rustc === null)("differential execution — emitted Rust vs CODE
         ...(emitted.usesPrograms ? ["    let mut prg = Programs::new();"] : []),
       ]
       const args = [...(emitted.usesGlobals ? ["&mut g"] : []), ...(emitted.usesPrograms ? ["&mut prg"] : [])].join(", ")
-      const scan = [...setup, `    for _ in 0..${c.cycles ?? 1} { p.scan(${args}); }`].join("\n")
+      // a POU with an init step (a `call_after_global_init_slot` method) runs it once, before the first scan
+      const init = pou.init === undefined ? [] : [`    p.init(${args});`]
+      const scan = [...setup, ...init, `    for _ in 0..${c.cycles ?? 1} { p.scan(${args}); }`].join("\n")
       const main = `fn main() {\n    let mut p = ${pou.name}::new();\n${scan}\n${prints.join("\n")}\n}\n`
       const file = join(dir, `${c.name}.rs`)
       const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)

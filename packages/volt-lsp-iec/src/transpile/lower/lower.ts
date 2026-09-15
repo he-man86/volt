@@ -22,14 +22,14 @@
  *   statements.ts   assignment, IF, CASE, loops                        calls.ts      FB bodies, routines, in-outs
  *   pointers.ts     POINTER / REFERENCE (design §9 form 1)             bytes.ts      SIZEOF, ADR differences
  */
-import { isGraphicalBody, parseSource, parseActive, type TopLevel, unitAttributes } from "../../syntax/index.js"
-import { buildSymbolTable, type Scope, scopeForUnit } from "../../symbols/index.js"
-import { resolveNamedType, type Type } from "../../types/index.js"
-import { type IrPou, type IrStmt, type LoweredPou, peelArray } from "../ir/index.js"
+import { isGraphicalBody, memberAttributes, parseSource, parseActive, type Span, type TopLevel, unitAttributes } from "../../syntax/index.js"
+import { buildSymbolTable, lookupMember, type Scope, scopeForUnit } from "../../symbols/index.js"
+import { resolveNamedType, type Type, UNKNOWN } from "../../types/index.js"
+import { type IrPou, type IrRoutine, type IrStmt, type LoweredPou, peelArray, type Place } from "../ir/index.js"
 import { Lowering, newShared } from "./lowering.js"
 import { declareVars, storageOf } from "./storage.js"
 import { lowerBlock } from "./statements.js"
-import { calledLayout } from "./calls.js"
+import { calledLayout, calledRoutine } from "./calls.js"
 
 /** A type a backend can store: elementary, a laid-out struct or FB instance, or a sized array of those. */
 function representable(t: Type): boolean {
@@ -69,6 +69,8 @@ export function lowerUnit(
     body = lowerBlock(lowering, parsed.statements)
   }
   if (lowering.diagnostics.length > 0) return { diagnostics: lowering.diagnostics }
+  const init = initStep(lowering, unit.span)
+  if (init === undefined || lowering.diagnostics.length > 0) return { diagnostics: lowering.diagnostics }
   // Every construct lowered — but every SLOT (and every field of a layout) also needs a runtime representation. An unused
   // `p : POINTER TO INT` lowered cleanly, then the Rust emitter threw on its type: a backend must accept whatever lowering
   // accepts (transpiler review 2026-09-14). Checked only here, so a POU another construct blocks keeps that blocker's
@@ -88,8 +90,62 @@ export function lowerUnit(
 
   // an FB's own struct already carries its name, so the POU that holds one instance of it is named apart
   const name = unit.kind === "function_block" ? `${unit.name.text}__root` : unit.name.text
-  const pou: IrPou = { name, slots: lowering.frame, body, layouts, routines, globals: lowering.globals, span: unit.span }
+  const pou: IrPou = { name, slots: lowering.frame, body, layouts, routines, globals: lowering.globals, ...(init.length > 0 ? { init } : {}), span: unit.span }
   return { pou, diagnostics: [] }
+}
+
+const INIT_ATTRIBUTE = "call_after_global_init_slot"
+
+/**
+ * The init step: each instance's `call_after_global_init_slot` METHOD, run once before the first scan (conformance
+ * `state_call_after_global_init_counts` — once per instance, however many scans follow). Instances are found through the
+ * frame, nested instances and struct fields included, and the method is resolved by the instance's own type. One the walk
+ * does not reach — an array element, a global, a routine's local — is refused: whether and when it would run is not
+ * measured. Neither is the order between instances; the frame's is taken, as no recorded case can tell them apart.
+ */
+function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
+  type Fb = Extract<Type, { kind: "function_block" }>
+  const initMethod = (fb: Fb) => {
+    for (let s = fb.scope; s !== undefined; s = s.baseScope)
+      for (const list of s.symbols.values())
+        for (const sym of list)
+          if (sym.kind === "method" && lw.attributes.get(sym.ast as TopLevel)?.has(INIT_ATTRIBUTE)) return lookupMember(fb.scope!, sym.name)
+    return undefined
+  }
+  const known = new Map<string, boolean>()
+  const reaches = (t: Type): boolean => {
+    const array = peelArray(t)
+    if (array !== undefined) return reaches(array.element)
+    if (t.kind !== "function_block" && t.kind !== "struct") return false
+    const key = t.name.toUpperCase()
+    if (known.has(key)) return known.get(key)!
+    known.set(key, false)
+    const result = (t.kind === "function_block" && initMethod(t) !== undefined) || (lw.layouts.get(key)?.fields ?? []).some((f) => reaches(f.type))
+    known.set(key, result)
+    return result
+  }
+  const unreached = (where: string): undefined => lw.bail("attr-init-unreached", `an instance with a ${INIT_ATTRIBUTE} method in ${where}, which the init step does not reach`, span)
+  const out: IrStmt[] = []
+  const visit = (place: Place): boolean => {
+    const t = place.type
+    if (!reaches(t)) return true
+    if (peelArray(t) !== undefined) return unreached("an array") ?? false
+    if (t.kind !== "function_block" && t.kind !== "struct") return true
+    const sym = t.kind === "function_block" ? initMethod(t) : undefined
+    if (t.kind === "function_block" && sym !== undefined) {
+      const routine: IrRoutine | undefined = calledRoutine(lw, sym, t, span)
+      if (routine === undefined) return false
+      if (routine.inputs.length > 0 || routine.inouts.length > 0) return lw.bail("attr-init-inputs", `${sym.name} takes arguments`, span) ?? false
+      out.push({ kind: "eval", value: { kind: "invoke", routine: routine.key, instance: place, inputs: [], inouts: [], type: UNKNOWN, span }, span })
+    }
+    for (const field of lw.layouts.get(t.name.toUpperCase())?.fields ?? [])
+      if (!visit({ ...place, path: [...place.path, { kind: "field", name: field.name }], type: field.type })) return false
+    return true
+  }
+  for (const [slot, frameSlot] of lw.frame.entries()) if (!visit({ slot, path: [], type: frameSlot.type, span })) return undefined
+  if (lw.globals.some((g) => reaches(g.type))) return unreached("the globals")
+  for (const r of lw.routines.values()) if (r.state === "lowered" && r.routine.locals.some((l) => reaches(l.type))) return unreached(`${r.routine.name}'s locals`)
+  return out
 }
 
 /**
@@ -139,5 +195,5 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
   const scope = scopeForUnit(project, unit)
   if (scope === undefined)
     return { diagnostics: [{ code: "no-scope", message: `${unit.name.text} did not bind`, span: unit.span }] }
-  return lowerUnit(unit, scope, project, unitAttributes(parseResult, source))
+  return lowerUnit(unit, scope, project, new Map([...unitAttributes(parseResult, source), ...memberAttributes(parseResult, source)]))
 }

@@ -52,11 +52,12 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
     base(ast.body.extends?.text)
     declareVars(nested, [{ sectionKind: "VAR", decls: ast.body.fields } as unknown as VarSection])
   } else if (t.kind === "function_block" && (ast?.kind === "function_block" || ast?.kind === "program")) {
-    // The compiler acts on these whether or not the FB is ever called, and the program's text does not say what it
-    // does: `instance-path` fills a STRING with the instance's path (conformance `instance_path_with_reflection`), and a
-    // `call_after_global_init_slot` METHOD runs once before the first scan (iCount 1) — while `call_after_init`'s did
-    // not (0 after a scan). None is modelled, so an FB that carries one is refused rather than run wrong.
-    const unmodelled = [...(lw.attributes.get(ast) ?? [])].find((a) => a === "instance-path" || a.startsWith("call_after"))
+    // The compiler acts on this whether or not the FB is ever called: `instance-path` fills a STRING with the instance's
+    // path in the device tree (conformance `instance_path_with_reflection`), which the program's text does not name — so
+    // an FB that carries it is refused rather than run wrong. The `call_after_*` methods are measured: a
+    // `call_after_global_init_slot` one runs once per instance before the first scan (`lowerUnit`'s init step), while
+    // `call_after_init`'s and `call_after_online_change_slot`'s did not run at all in a started application.
+    const unmodelled = [...(lw.attributes.get(ast) ?? [])].find((a) => a === "instance-path")
     if (unmodelled !== undefined) lw.bail(`attr-${unmodelled}`, `${t.name} carries {attribute '${unmodelled}'}, which lowering does not model`, sym?.span ?? ZERO_SPAN)
     base(baseOf(ast)?.text)
     declareVars(nested, ast.varSections.filter((s) => INSTANCE_STORAGE.has(s.sectionKind)))

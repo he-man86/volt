@@ -379,6 +379,7 @@ export function run(pou: IrPou): Runner {
   const routines = new Map(pou.routines.map((r) => [r.key, r]))
   const globals = pou.globals.map((s) => instantiate(s.type, s.init, layouts))
   const machine = new Machine(frame as unknown as Record<number, Val>, pou.slots.map((_, i) => i), [], layouts, routines, globals)
+  if (pou.init !== undefined) machine.block(pou.init)
 
   return {
     frame,

@@ -1,6 +1,24 @@
 import { expect, test } from "bun:test"
 import { parseSource } from "./parser.js"
-import { unitAttributes } from "./unit-attributes.js"
+import { memberAttributes, unitAttributes } from "./unit-attributes.js"
+
+// A `call_after_global_init_slot` method runs once per instance before the first scan (conformance
+// `state_call_after_global_init_counts`) — lowering has to know WHICH method, which the folded map above cannot say.
+test("memberAttributes names the METHOD an attribute sits on, and no POU", () => {
+  const source = `FUNCTION_BLOCK FB_A
+END_FUNCTION_BLOCK
+
+METHOD Plain
+END_METHOD
+
+{attribute 'call_after_global_init_slot' := '50000'}
+METHOD AfterInit
+END_METHOD
+`
+  const parseResult = parseSource(source)
+  const byName = new Map([...memberAttributes(parseResult, source)].map(([unit, names]) => ["name" in unit ? unit.name.text : unit.kind, [...names]]))
+  expect([...byName]).toEqual([["AfterInit", ["call_after_global_init_slot"]]])
+})
 
 // The transpiler refuses an FB the compiler treats specially (`instance-path`, `call_after_*`), and the AST keeps no
 // pragmas — so this map is the only place those attributes are seen (transpile-st-to-rust phase 3 step 3).

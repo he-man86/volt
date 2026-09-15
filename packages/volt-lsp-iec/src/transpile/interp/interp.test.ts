@@ -760,6 +760,32 @@ END_METHOD`,
     expect([pou.get("viaSuper.inBase"), pou.get("viaSuper.nBase"), pou.get("viaSuper.hookDerived"), pou.get("viaSuper.hookBase")]).toEqual([105n, 1n, 1n, 1n])
   })
 
+  // `state_call_after_global_init_counts`: the method runs once per instance before the first scan, however many scans
+  // follow. Why missed: `call_after_global_init_slot` wrote `iCount := 1`, and an FB carrying it was refused.
+  test("a call_after_global_init_slot METHOD runs once per instance, before the first scan", () => {
+    const pou = load(
+      `PROGRAM P
+VAR one : FB_I; two : FB_I; END_VAR
+one();
+two();
+END_PROGRAM
+FUNCTION_BLOCK FB_I
+VAR inits : INT; scans : INT; END_VAR
+scans := scans + 1;
+END_FUNCTION_BLOCK
+{attribute 'call_after_global_init_slot' := '50000'}
+METHOD AfterGlobalInit
+inits := inits + 1;
+END_METHOD`,
+      "P",
+    )
+    expect([pou.get("one.inits"), pou.get("one.scans")]).toEqual([1n, 0n]) // run at start, before any scan
+    pou.scan()
+    pou.scan()
+    pou.scan()
+    expect(["one.inits", "one.scans", "two.inits", "two.scans"].map((n) => pou.get(n))).toEqual([1n, 3n, 1n, 3n])
+  })
+
   // `state_routine_outputs`: a FUNCTION's and a METHOD's VAR_OUTPUT starts over at every call, is read through `=>`, and
   // may be left unconnected. Why missed: routine outputs were refused, and `var_output_on_function` wrote 0 — a value
   // no store could be told from.

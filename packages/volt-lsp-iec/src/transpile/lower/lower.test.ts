@@ -311,6 +311,16 @@ END_PROGRAM
     expect(diagnostics.map((d) => d.code)).toEqual(["sizeof-unmeasured"])
   })
 
+  // The init step reaches instances through the frame; one inside an array (or a global, or a routine's local) is where
+  // the walk does not follow and its timing is unmeasured — refused, never silently left uninitialised.
+  test("a call_after_global_init_slot FB inside an array is refused", () => {
+    const { diagnostics } = lowerSource(
+      "PROGRAM P\nVAR many : ARRAY[1..2] OF FB_I; END_VAR\nmany[1]();\nEND_PROGRAM\nFUNCTION_BLOCK FB_I\nVAR inits : INT; END_VAR\nEND_FUNCTION_BLOCK\n{attribute 'call_after_global_init_slot' := '50000'}\nMETHOD AfterGlobalInit\ninits := inits + 1;\nEND_METHOD\n",
+      "P",
+    )
+    expect(diagnostics.map((d) => d.code)).toEqual(["attr-init-unreached"])
+  })
+
   test("an FB with VAR_IN_OUT lowered on its own is refused — only a caller binds its in-out", () => {
     const { diagnostics } = lowerSource("FUNCTION_BLOCK FB_Io\nVAR_IN_OUT v : INT; END_VAR\nv := v + 1;\nEND_FUNCTION_BLOCK\n", "FB_Io")
     expect(diagnostics.map((d) => d.code)).toEqual(["root-inout"])

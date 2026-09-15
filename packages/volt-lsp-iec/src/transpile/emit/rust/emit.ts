@@ -684,6 +684,14 @@ export function emitRust(pou: IrPou): Emitted {
   p.push("}", 2)
   p.push("}", 1)
   p.push("", 0)
+  // once, before the first scan: each instance's `call_after_global_init_slot` method (IrPou.init) — only a POU that has one
+  if (pou.init !== undefined) {
+    p.push("#[allow(unused_variables)]", 1)
+    p.push(`pub fn init(&mut self${usesGlobals ? ", g: &mut Globals" : ""}${usesPrograms ? ", prg: &mut Programs" : ""}) {`, 1)
+    p.block(pou.init, pou.slots, 2)
+    p.push("}", 1)
+    p.push("", 0)
+  }
   p.push(`pub fn scan(&mut self${usesGlobals ? ", g: &mut Globals" : ""}${usesPrograms ? ", prg: &mut Programs" : ""}) {`, 1)
   p.block(pou.body, pou.slots, 2)
   p.push("}", 1)

@@ -355,6 +355,9 @@ export interface IrPou {
   /** The application's global storage the POU reaches: GVL variables, and the instance of every PROGRAM it calls — one
    *  each, shared by every body (conformance `fbcall_program_writes_global`: the called program's VAR persists). */
   globals: readonly IrSlot[]
+  /** Run once before the first scan: each instance's `call_after_global_init_slot` METHOD (conformance
+   *  `state_call_after_global_init_counts` — once per instance, however many scans follow). */
+  init?: readonly IrStmt[]
   span: Span
 }
 
