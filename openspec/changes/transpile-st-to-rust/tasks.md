@@ -503,6 +503,15 @@ taken apart by construct before anything is built — record first, then build, 
       Recorded for the next item: `fbcall_program_own_members` — a PROGRAM calling its own METHODs and ACTION bare runs
       them on its one instance (calls 4, deep 40, tidied 200, doubled 8). It lowers when called; lowered as the root it
       is still `call-this`.
+- [x] A root PROGRAM calling its own METHOD or ACTION bare (`call-this`, ~25 corpus POUs: `Initialize()`, `Alarms()`,
+      `act_Assign_Errors_01_09()`; recorded `fbcall_program_own_members`). Built: a PROGRAM that has METHODs or ACTIONs
+      lowers as its one instance, as a root FB already did (`rootInstance`), so a bare call resolves on THIS; a PROGRAM
+      without members keeps its variables as the POU's own slots. The corpus has no `call-this` left; none of those POUs
+      lowers yet, as each has other blockers. Its review found what the slot form had and the instance form lost: an
+      instance-path took the program's name twice (`Device.Application.P.P.outer.inner`), and an FB_Init argument naming
+      the program's own VAR (recorded: 4) was refused — both kept now. A PROGRAM's own FB_Init or init-slot METHOD, which
+      the slot form never ran and the instance form would, is refused (`fb-init-program`) until recorded; so is nothing
+      else — THIS^ in such a PROGRAM now lowers, and whether CODESYS compiles it is unrecorded.
 - [x] FB_Init — silently ignored until now: an ordinary METHOD nothing called, and the parser dropped a declaration's
       `inst : FB(x := 1)` arguments, so every instance started as if it had none, with no diagnostic. Recorded first
       (`lifecycle.ts` `fb_init_runs_with_declared_arguments`, `fb_init_base_and_derived`, `fb_init_argument_left_out`):

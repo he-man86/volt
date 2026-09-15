@@ -381,6 +381,9 @@ describe.skipIf(rustc === null)("emit/rust — compiles", () => {
         "FUNCTION_BLOCK FB_OU\nVAR counter : INT := 7; result : INT; values : ARRAY[0..2] OF INT; END_VAR\nresult := Mixed(counter, 3);\nFill(values);\nEND_FUNCTION_BLOCK\n" +
         "METHOD Mixed : INT\nVAR_IN_OUT target : INT; END_VAR\nVAR_INPUT amount : INT; END_VAR\ntarget := target + amount;\nMixed := target * 10;\nEND_METHOD\n" +
         "METHOD Fill\nVAR_IN_OUT line : ARRAY[*] OF INT; END_VAR\nVAR k : DINT; END_VAR\nFOR k := LOWER_BOUND(line, 1) TO UPPER_BOUND(line, 1) DO\n  line[k] := DINT_TO_INT(k) + 1;\nEND_FOR\nEND_METHOD\n",
+      // A root PROGRAM calling its own METHODs and ACTION bare (recorded), lowered as its one instance.
+      "PROGRAM PrgOwn\nVAR calls : INT; tidied : INT; doubled : INT; END_VAR\nBump();\nTidy();\ndoubled := Twice(calls);\nEND_PROGRAM\n" +
+        "METHOD Bump\ncalls := calls + 1;\nEND_METHOD\nMETHOD Twice : INT\nVAR_INPUT n : INT; END_VAR\nTwice := n * 2;\nEND_METHOD\nACTION Tidy\ntidied := tidied + 100;\nEND_ACTION\n",
       // SUPER^ given the derived FB's own fields, its own in-outs left unused: `call` took `a`, `b` unread — denied (review).
       "PROGRAM SuperOwn\nVAR d : FB_SOD; x : INT; y : INT; END_VAR\nd(a := x, b := y);\nEND_PROGRAM\n" +
         "FUNCTION_BLOCK FB_SOB\nVAR_IN_OUT a : INT; b : INT; END_VAR\na := 5;\nb := b + 1;\nEND_FUNCTION_BLOCK\n" +

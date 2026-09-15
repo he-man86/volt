@@ -78,7 +78,11 @@ export function lowerUnit(
   lowering.isRoot = true
   lowering.frameContext = `POU:${unit.name.text.toUpperCase()}`
   let body: IrStmt[]
-  if (unit.kind === "function_block") body = rootInstance(lowering, unit)
+  // A PROGRAM with METHODs or ACTIONs runs them on its one instance (conformance `fbcall_program_own_members`), so it
+  // lowers as one, as an FB does — its bare `M()` was `call-this`, having no instance to run on. Others keep their slots.
+  const ownMembers = unit.kind === "program" && [...scope.symbols.values()].flat().some((s) => s.kind === "method" || s.kind === "action")
+  const asInstance = unit.kind === "function_block" || ownMembers
+  if (asInstance) body = rootInstance(lowering, unit)
   else {
     // A PROGRAM's VAR_IN_OUT is the caller's variable, bound for a call — it lowered as a field the POU owned (review
     // 2026-09-15). Refused, as a root FB's is (`root-inout`).
@@ -117,7 +121,7 @@ export function lowerUnit(
   }
 
   // an FB's own struct already carries its name, so the POU that holds one instance of it is named apart
-  const name = unit.kind === "function_block" ? `${unit.name.text}__root` : unit.name.text
+  const name = asInstance ? `${unit.name.text}__root` : unit.name.text
   const pou: IrPou = { name, slots: lowering.frame, body, layouts, routines, globals: lowering.globals, ...(init.length > 0 ? { init } : {}), span: unit.span }
   return { pou, diagnostics: [] }
 }
@@ -213,13 +217,21 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   // global. The review of that batch found the rest accepted unrecorded — a struct field's declaration read in the POU's
   // scope, a later or VAR_TEMP variable, an instance's field, a global an FB_Init writes (checked after the walk).
   const globalArguments = new Set<number>()
-  const recordedArgument = (expr: Expr, instanceSlot: number): Place | undefined => {
+  // A PROGRAM with METHODs or ACTIONs lowers as its one instance (`rootInstance`): the frame's slot that IS the program.
+  const ownProgram = (place: Place): boolean => {
+    const slot = lw.frame[place.slot]
+    return place.root === undefined && root?.kind === "program" && slot?.type.kind === "function_block" && slot.type.name.toUpperCase() === root.name.toUpperCase()
+  }
+  /** `declaring` lowers the argument where the instance is declared; `holder`, in a PROGRAM lowered as its instance, is that
+   *  instance — the variable read is then its field (review: the recorded case was refused once the program had a METHOD). */
+  const recordedArgument = (expr: Expr, instanceSlot: number, declaring: Lowering = lw, holder?: Place): Place | undefined => {
     if (expr.kind !== "ident_expr") return undefined
-    const read = lowerPlace(lw, expr)
+    const read = lowerPlace(declaring, expr)
     if (read === undefined || read.path.length > 0 || read.type.kind !== "elementary") return undefined
     if (read.root === undefined) {
-      const section = lw.frame[read.slot]?.section
-      return read.slot < instanceSlot && (section === "VAR" || section === "VAR_INPUT") ? read : undefined
+      const declared = declaring.frame[read.slot]
+      if (!(read.slot < instanceSlot && (declared?.section === "VAR" || declared?.section === "VAR_INPUT"))) return undefined
+      return holder === undefined ? read : { ...holder, path: [{ kind: "field", name: declared!.name }], type: read.type }
     }
     if (read.root !== "global" || lw.globals[read.slot]?.section === "program") return undefined
     globalArguments.add(read.slot)
@@ -287,6 +299,9 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     if (!reaches(t)) return true
     if (peelArray(t) !== undefined) return unreached("an array") ?? false
     if (t.kind !== "function_block" && t.kind !== "struct") return true
+    // whether CODESYS runs a PROGRAM's own FB_Init or init-slot METHOD is not recorded — the instance form would (review)
+    if (t.kind === "function_block" && place.path.length === 0 && ownProgram(place) && (fbInits(t).length > 0 || initMethod(t) !== undefined))
+      return lw.bail("fb-init-program", `${t.name} is a PROGRAM with its own FB_Init or ${INIT_ATTRIBUTE} method, whose running is not recorded`, span) ?? false
     const inits = t.kind === "function_block" ? fbInits(t) : []
     const mine: IrStmt[] = []
     if (t.kind === "function_block" && inits.length > 0) {
@@ -317,6 +332,12 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
             const read = recordedArgument(expr, place.slot)
             if (read !== undefined) input = convert({ kind: "load", place: read, type: read.type, span }, slot.type)
           }
+          const held = place.path[0]
+          if (input === undefined && expr !== undefined && place.path.length === 1 && held?.kind === "field" && ownProgram(place)) {
+            const holder: Place = { slot: place.slot, path: [], type: lw.frame[place.slot]!.type, span }
+            const read = recordedArgument(expr, declaring.frame.findIndex((f) => f.name.toUpperCase() === held.name.toUpperCase()), declaring, holder)
+            if (read !== undefined) input = convert({ kind: "load", place: read, type: read.type, span }, slot.type)
+          }
           if (input === undefined) return lw.bail("fb-init-argument", `${t.name}'s FB_Init input ${slot.name} is given nothing lowering can pass`, span) ?? false
           inputs.push(input)
         }
@@ -337,7 +358,8 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     if (paths.length > 0) {
       if (application === undefined) return lw.bail("attr-instance-path", `${t.name}'s instance-path needs the project tree (Device/Plc Logic/Application), which this source is not in`, span) ?? false
       if (root?.kind !== "program") return lw.bail("attr-instance-path", `an FB lowered on its own has no instance path`, span) ?? false
-      const hierarchy = [lw.frame[place.slot]!.name, ...place.path.flatMap((step) => (step.kind === "field" ? [step.name] : []))]
+      // a PROGRAM lowered as its one instance: that slot IS the program, whose name `text` already carries (review)
+      const hierarchy = [...(ownProgram(place) ? [] : [lw.frame[place.slot]!.name]), ...place.path.flatMap((step) => (step.kind === "field" ? [step.name] : []))]
       const text = [application, root.name, ...hierarchy].join(".")
       for (const name of paths) {
         const field = lw.layouts.get(t.name.toUpperCase())?.fields.find((f) => f.name.toUpperCase() === name.toUpperCase())
@@ -384,7 +406,7 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
  * (phase 3½). It was lowered as if it were a PROGRAM, where none of those exist, so every derived FB the corpus holds
  * stopped at its `SUPER^()` (128 of them). An FB with VAR_IN_OUT is refused: only a caller binds one.
  */
-function rootInstance(lw: Lowering, unit: Extract<TopLevel, { kind: "function_block" }>): IrStmt[] {
+function rootInstance(lw: Lowering, unit: Extract<TopLevel, { kind: "function_block" | "program" }>): IrStmt[] {
   const type = storageOf(lw, resolveNamedType(unit.name.text, lw.project))
   const layout = type.kind === "function_block" ? calledLayout(lw, type.name, unit.span) : undefined
   if (layout === undefined) return []
