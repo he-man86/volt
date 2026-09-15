@@ -462,6 +462,21 @@ taken apart by construct before anything is built — record first, then build, 
       FB sees the caller's bounds (306) and writes the caller's array; the hidden-field model already gave both.
       Open: `callshape_array_star_of_struct` stays refused (`call-inout-alias`) — an FB lending its
       own field to its own METHOD is two `&mut` of one instance, independent of open arrays.
+- [x] An FB instance inside a PROGRAM, reached from outside it (pro2193's `SER.EnableFreqInvertersRelay.Map()`,
+      `Attach`/`Detach`; `call-program-method` no longer ranks, though every corpus POU it stopped still stops at another
+      refusal — the corpus lowered count is unchanged). Recorded (`callshape_program_instance_from_outside`):
+      a METHOD and a body call from PLC_PRG and from an FB run on the program's own instance (303, 403 over two cycles).
+      Built: the program is moved out of `Programs` for the call, as for its own METHOD, and the call runs on the path
+      into it. Refused: a runtime index on that path (read on the stand-in), a body or METHOD reaching the program.
+      Also found on the way, library-bound and parked: `init-not-constant` (199) is Library Manager types initialized
+      from library enums and `ADR`s; `call-param` on `SetErrorFB.severity` is its library-bound enum default; `enum-value`
+      (132) is `enumErrorSeverity`'s values taken from `L_IE1P`. Project constants named through their GVL or PROGRAM
+      (`GVL_Constants.N`, `XiUnits.MaxVacuums`) now fold in the shared `constEval` — compile-evident name resolution.
+      Reviewed between batches (3 lenses, adversarial verify): 7 confirmed, all fixed with a test — a constant cycle hung
+      `constEval` (the editor's diagnostics too; the bare cycle already did), a REAL constant folded as an integer
+      (`RC / 4` = 2), a `qualified_only` list's bare sibling resolved to another list's constant, a PROPERTY on an instance
+      inside a program ran on the stand-in (now refused, unrecorded), a body reaching the program through an interface
+      call escaped the re-entrancy check (refused), two refusals untested, and a corpus figure in this entry was wrong.
 - [x] A call in a FOR limit (`for-bound-call`, 25 corpus POUs — property reads like `fbModuleManager.baseModulesCount`).
       Recorded (`callshape_for_limit_call`): a PROPERTY getter and a METHOD in the limit each run 4 times for 3 passes —
       once per test, as the limit is read. Lowered as such; a call in the step, or in a limit a runtime step tests on two

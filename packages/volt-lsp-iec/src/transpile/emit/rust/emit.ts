@@ -326,6 +326,13 @@ class Printer {
     return text
   }
 
+  /** A place in a PROGRAM's one instance, as a call on it runs: the program moved out of `Programs` (`program`, of `type`),
+   *  and the path from it to the instance (`member`, empty for the program itself). */
+  movedOut(p: Place, slots: IrPou["slots"]): { program: string; type: string; member: string } {
+    const program = this.place({ ...p, path: [] }, slots)
+    return { program, type: rustName((this.globals.slots[p.slot]!.type as { name: string }).name), member: this.place(p, slots).slice(program.length) }
+  }
+
   push(text: string, indent: number, span?: Span): void {
     this.lines.push(`${"    ".repeat(indent)}${text}`)
     if (span !== undefined) this.sourceMap.push({ line: this.lines.length, span })
@@ -346,7 +353,7 @@ class Printer {
         // written (`callshape_argument_order`) — which also keeps a call on the same instance out of the argument list's
         // borrow. Inputs without one stay inline, where no order can show — except on a PROGRAM's METHOD, whose inline
         // arguments would run after the program is moved out and read its `::new()` stand-in (review of batch 3a).
-        const onProgram = e.instance !== undefined && e.instance.root === "global" && e.instance.path.length === 0 && this.globals.slots[e.instance.slot]?.section === "program"
+        const onProgram = e.instance !== undefined && e.instance.root === "global" && this.globals.slots[e.instance.slot]?.section === "program"
         const hoisted = onProgram || e.inputs.some(holdsCall)
         const inputLets = hoisted ? [...(e.order ?? e.inputs.keys())].map((k) => `let __arg_${k} = ${this.expr(e.inputs[k]!, slots)};`).join(" ") : ""
         const inputs = e.inputs.map((a, k) => (hoisted ? `__arg_${k}` : this.expr(a, slots)))
@@ -354,12 +361,12 @@ class Printer {
         const args = [...this.globalsArg, ...inputs, ...e.inouts.map((b, i) => this.lend(b, i, routine.inouts[i]!, slots)), ...(e.lent ?? []).map((l) => this.lendMut(l, slots))].join(", ")
         const fn = routineFnName(routine)
         // a METHOD of a PROGRAM's one instance runs moved out of `Programs`, as the program's call does (`prg` is handed in)
-        const program = onProgram ? this.place(e.instance!, slots) : ""
+        const moved = onProgram ? this.movedOut(e.instance!, slots) : undefined
         const call =
           e.instance === undefined
             ? `${fn}(${args})`
-            : onProgram
-              ? `{ let mut __program = std::mem::replace(&mut ${program}, ${rustName(routine.fb!)}::new()); let __result = __program.${fn}(${args}); ${program} = __program; __result }`
+            : moved !== undefined
+              ? `{ let mut __program = std::mem::replace(&mut ${moved.program}, ${moved.type}::new()); let __result = __program${moved.member}.${fn}(${args}); ${moved.program} = __program; __result }`
               : this.guarded(e.instance, `${this.place(e.instance, slots)}.${fn}(${args})`, slots)
         // a VAR_IN_OUT bound through a dereference is checked before the call, as the interpreter checks it when binding
         const checked = e.inouts.reduce((text, b) => ("kind" in b ? text : this.guarded(b, text, slots)), call)
@@ -607,8 +614,10 @@ class Printer {
         const lets = this.lentCopies(s.inouts, slots)
         // A PROGRAM's instance lives in `Programs`, which the call is handed too — `prg.p.call(g, prg)` would borrow it
         // twice (E0499) — so it runs moved out and back. Lowering refuses a program whose run reaches its own instance.
-        if (s.instance.root === "global" && s.instance.path.length === 0 && this.globals.slots[s.instance.slot]?.section === "program") {
-          this.push(`{ ${lets}${lets === "" ? "" : " "}let mut program = std::mem::replace(&mut ${instance}, ${rustName(s.fb)}::new()); program.call(${bound}); ${instance} = program; }`, indent, s.span)
+        if (s.instance.root === "global" && this.globals.slots[s.instance.slot]?.section === "program") {
+          // an instance inside the program too (`callshape_program_instance_from_outside`): called on the moved-out value
+          const moved = this.movedOut(s.instance, slots)
+          this.push(`{ ${lets}${lets === "" ? "" : " "}let mut program = std::mem::replace(&mut ${moved.program}, ${moved.type}::new()); program${moved.member}.call(${bound}); ${moved.program} = program; }`, indent, s.span)
           return
         }
         this.push(lets === "" ? `${instance}.call(${bound});` : `{ ${lets} ${instance}.call(${bound}); }`, indent, s.span)

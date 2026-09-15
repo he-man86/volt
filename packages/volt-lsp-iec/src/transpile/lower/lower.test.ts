@@ -285,8 +285,14 @@ test("review of the call shapes: a child's METHOD, a METHOD naming no in-out, fo
   const unsigned = run(ir(wrap("FOR u := 1 TO 5 BY stride DO\n  visits := visits + 1;\nEND_FOR", "u : UINT; stride : UINT := 2; visits : INT;")))
   unsigned.scan()
   expect(unsigned.get("visits")).toEqual(3n)
-  // refused: a METHOD of an instance INSIDE a PROGRAM, and a PROGRAM's METHOD reaching its own program while moved out
-  expect(codes(`PROGRAM P\nVAR n : INT; END_VAR\nn := PRG_H.inner.Count();\nEND_PROGRAM\nPROGRAM PRG_H\nVAR inner : FB_W; END_VAR\nEND_PROGRAM\n${counter}`)).toEqual(["call-program-method"])
+  // A METHOD of an instance INSIDE a PROGRAM was refused here; the recording since (`callshape_program_instance_from_outside`:
+  // 303, 403) shows it runs on that instance, and it lowers with the program moved out. Refused: reaching the instance
+  // through a runtime index (read on the stand-in), and a PROGRAM's METHOD reaching its own program while moved out.
+  const holder = (call: string) => `PROGRAM P\nVAR n : INT; i : INT := 2; END_VAR\nn := ${call};\nEND_PROGRAM\nPROGRAM PRG_H\nVAR inner : FB_W; inners : ARRAY[1..2] OF FB_W; END_VAR\nEND_PROGRAM\n${counter}`
+  const inside = run(ir(holder("PRG_H.inner.Count()"), "P"))
+  inside.scan()
+  expect(inside.get("n")).toEqual(1n)
+  expect(codes(holder("PRG_H.inners[i].Count()"))).toEqual(["call-program-method"])
   const again = "PROGRAM PRG_R\nVAR runs : INT; END_VAR\nruns := runs + 1;\nEND_PROGRAM\nMETHOD Again : INT\nAgain := PRG_R.runs;\nEND_METHOD\n"
   expect(codes(`PROGRAM P\nVAR n : INT; END_VAR\nPRG_R();\nn := PRG_R.Again();\nEND_PROGRAM\n${again}`)).toEqual(["call-program-reentrant"])
 })
@@ -315,6 +321,44 @@ test("an ARRAY[*] in-out takes the bounds of the array it binds — in a FUNCTIO
   ])
   // a dimension that does not fold names no bound lowering knows
   expect(lowerSource(source.replace("LOWER_BOUND(grid, 2) * 100", "LOWER_BOUND(grid, shortCount) * 100"), "P").diagnostics.map((d) => d.code)).toEqual(["array-bound"])
+})
+
+// pro2193 sizes arrays and starts variables through qualified constants — `ARRAY[1..GVL_Constants.ChainProductsForReject]`,
+// `MaxVacuums : USINT := XiUnits.MaxVacuums`, `prevState : DINT := GVL_Constants.DintSmallest`. None folded (`constEval`
+// stopped at a member), so those arrays were "not a sized array", those initializers `init-not-constant`, and the slot
+// then missing (`place-not-local`). Name resolution the compiled project proves — no recording. Why missed: every
+// fixture's constant was bare.
+test("a constant named through its GVL or its PROGRAM sizes an array, starts a variable and bounds a loop", () => {
+  const gvl = [{ uri: "file:///project/GVL_Constants.gvl", source: "{attribute 'qualified_only'}\nVAR_GLOBAL CONSTANT\n  Count : INT := 3;\n  Smallest : DINT := -2147483648;\nEND_VAR\n" }]
+  const source =
+    "PROGRAM P\nVAR worker : FB_W; END_VAR\nworker();\nEND_PROGRAM\n" +
+    "PROGRAM Units\nVAR CONSTANT\n  MaxVacuums : USINT := GVL_Constants.Count + 1;\nEND_VAR\nEND_PROGRAM\n" +
+    "FUNCTION_BLOCK FB_W\nVAR\n  flags : ARRAY[1..GVL_Constants.Count] OF BOOL;\n  prevState : DINT := GVL_Constants.Smallest;\n  i : INT;\n  visits : INT;\nEND_VAR\nVAR CONSTANT\n  MaxVacuums : USINT := Units.MaxVacuums;\nEND_VAR\n" +
+    "FOR i := 1 TO MaxVacuums DO\n  visits := visits + 1;\nEND_FOR\nflags[GVL_Constants.Count] := TRUE;\nEND_FUNCTION_BLOCK\n"
+  const { pou, diagnostics } = lowerSource(source, "P", gvl)
+  expect(diagnostics).toEqual([])
+  const runner = run(pou!)
+  runner.scan()
+  expect([runner.get("worker.visits"), runner.get("worker.flags[3]"), runner.get("worker.prevState")]).toEqual([4n, true, -2147483648n])
+})
+
+// Review of the qualified-constant / program-instance batch (adversarial verify), each reproduced before its fix. Why
+// missed: the tests called the recorded shapes only — no PROPERTY on the instance, no runtime index, no body reaching the
+// program, no call through an interface inside the called body; the two body-call refusals were never exercised.
+test("an instance inside a PROGRAM: a PROPERTY, a runtime index, a body reaching the program and an interface call are refused", () => {
+  const codes = (source: string) => lowerSource(source, "P").diagnostics.map((d) => d.code)
+  const station = (extra: string) =>
+    "PROGRAM PRG_S\nVAR relay : FB_R; relays : ARRAY[1..2] OF FB_R; runs : INT; END_VAR\nruns := runs + 1;\nEND_PROGRAM\n" +
+    "INTERFACE I_Sq\nMETHOD Area : INT\nEND_METHOD\nEND_INTERFACE\nFUNCTION_BLOCK FB_Sq IMPLEMENTS I_Sq\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := 4;\nEND_METHOD\n" +
+    `FUNCTION_BLOCK FB_R\nVAR_INPUT amount : INT; END_VAR\nVAR seen : INT; square : FB_Sq; held : I_Sq; END_VAR\nheld := square;\n${extra}\nEND_FUNCTION_BLOCK\n` +
+    "PROPERTY Level : INT\nGET\nLevel := amount;\nEND_GET\nEND_PROPERTY\nMETHOD Plain : INT\nPlain := amount;\nEND_METHOD\nMETHOD Reach : INT\nReach := PRG_S.runs;\nEND_METHOD\nMETHOD Through : INT\nIF held <> 0 THEN\n  Through := held.Area();\nEND_IF\nEND_METHOD\n"
+  const program = (body: string, extra = "") => `PROGRAM P\nVAR n : INT; i : INT := 1; END_VAR\nPRG_S();\n${body}\nEND_PROGRAM\n${station(extra)}`
+  expect(codes(program("n := PRG_S.relay.Plain();"))).toEqual([])
+  expect(codes(program("n := PRG_S.relay.Level;"))).toContain("call-program-property")
+  expect(codes(program("PRG_S.relays[i](amount := 1);"))).toContain("call-program-member")
+  expect(codes(program("n := PRG_S.relay.Reach();"))).toContain("call-program-reentrant")
+  expect(codes(program("PRG_S.relay(amount := 1);", "seen := PRG_S.runs;"))).toContain("call-program-reentrant")
+  expect(codes(program("n := PRG_S.relay.Through();"))).toContain("call-program-reentrant")
 })
 
 // Review of batch 3b (4 lenses, adversarial verify), each reproduced before its fix. Why missed: the batch's tests used an

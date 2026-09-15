@@ -356,6 +356,10 @@ function propertyAccess(lw: Lowering, e: Expr): { instance: Place; frame: FbType
   if (instance === undefined) return undefined
   if (instance.type.kind !== "function_block" || instance.type.scope === undefined) return null
   if (inGlobals(lw, instance)) return lw.bail("call-global-instance", `${e.member.name} is read or written on an instance declared in a GVL`, e.span)
+  // An accessor on an FB instance inside a PROGRAM would run with the program moved out, as a METHOD there does — but with
+  // none of its checks, and no recording covers a PROPERTY there (review of the batch): refused.
+  if (instance.root === "global" && instance.path.length > 0)
+    return lw.bail("call-program-property", `${e.member.name} is read or written on an instance inside a PROGRAM`, e.span)
   const sym = lookupMember(instance.type.scope, e.member.name)
   return sym?.kind === "property" ? { instance, frame: instance.type, sym } : null
 }
@@ -499,14 +503,18 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     if (base.type.kind === "interface") return interfaceCall(lw, base, call, callee.member.name)
     if (inGlobals(lw, base)) return lw.bail("call-global-instance", `${callee.member.name} is called on an instance declared in a GVL`, call.span)
     // A METHOD of a PROGRAM's one instance (conformance `callshape_method_on_program`) runs moved out of `Programs`, as the
-    // program's own call does. One of an instance INSIDE a program would borrow `Programs` twice (`prg.p.inst.m(g, prg)`).
-    if (base.root === "global" && base.path.length > 0) return lw.bail("call-program-method", `${callee.member.name} is called on an instance inside a PROGRAM`, call.span)
+    // program's own call does — and so does one of an FB instance INSIDE a program (`callshape_program_instance_from_outside`),
+    // on the path into the moved-out program. It was refused (`prg.p.inst.m(g, prg)` borrows `Programs` twice). A runtime
+    // index in that path would be read on the stand-in: refused.
+    if (base.root === "global" && !staticPath(base)) return lw.bail("call-program-method", `${callee.member.name} is called on an instance inside a PROGRAM through a runtime index`, call.span)
     if (base.type.kind !== "function_block") return lw.bail("call-method", `${callee.member.name} is not a METHOD or ACTION lowering can call`, call.span)
     routine = methodOf(lw, base.type, callee.member.name, call.span)
     instance = base
     // moved out while it runs, the program must not reach its own instance from the method
     if (routine !== undefined && base.root === "global" && touchesOf(lw).get(routine.key)?.has(base.slot))
       return lw.bail("call-program-reentrant", `${callee.member.name} reaches its own PROGRAM's instance while it runs`, call.span)
+    if (routine !== undefined && base.root === "global" && base.path.length > 0 && reachesDispatch(lw, routine.body))
+      return lw.bail("call-program-reentrant", `${callee.member.name} calls through an interface, which may reach its PROGRAM while it runs`, call.span)
   } else if (callee.kind === "ident_expr" && ownMember(lw, callee.name) !== undefined) {
     const frame = selfFb(lw)!
     routine = methodOf(lw, frame, callee.name, call.span)
@@ -683,6 +691,37 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
 }
 
 /**
+ * Whether a body, or any body it calls, calls through an interface. Such a call's arms are finished only after the POU
+ * lowers, so the PROGRAM instances they reach are not in `touched` when a call on an instance inside a program is checked
+ * — one read the program's `::new()` stand-in (review of the batch). ponytail: refuses every such body; check the finished
+ * arms instead if the corpus needs it.
+ */
+function reachesDispatch(lw: Lowering, body: readonly IrStmt[], seen = new Set<string>()): boolean {
+  let found = false
+  const walk = (node: unknown): void => {
+    if (found || node === null || typeof node !== "object") return
+    if (Array.isArray(node)) return node.forEach(walk)
+    const n = node as { kind?: string; routine?: string; fb?: string }
+    if (n.kind === "dispatch") return void (found = true)
+    if (n.kind === "invoke" && n.routine !== undefined && !seen.has(n.routine)) {
+      seen.add(n.routine)
+      const called = lw.routines.get(n.routine)
+      if (called?.state === "lowered") walk(called.routine.body)
+    }
+    if (n.kind === "call" && n.fb !== undefined && !seen.has(`FB:${n.fb}`)) {
+      seen.add(`FB:${n.fb}`)
+      walk(lw.layouts.get(n.fb.toUpperCase())?.body)
+    }
+    for (const [key, child] of Object.entries(node)) if (key !== "span" && key !== "type") walk(child)
+  }
+  walk(body)
+  return found
+}
+
+/** A place whose path is fields and constant indices only — the same place read before a program is moved out and after. */
+const staticPath = (place: Place): boolean => place.path.every((s) => s.kind === "field" || (s.kind === "index" && s.index.kind === "const"))
+
+/**
  * An FB instance held in the GVL storage. Every body is handed that storage as one `&mut g`, so calling the instance —
  * `g.inst.call(g)` — borrows it twice (E0499; transpiler review 2026-09-15). A PROGRAM's instance lives apart, in `prg`.
  */
@@ -780,11 +819,17 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
   if (instance === undefined) return undefined
   if (instance.type.kind !== "function_block") return lw.bail("stmt-call_stmt", "a call of something that is not an FB instance", call.span)
   if (inGlobals(lw, instance)) return lw.bail("call-global-instance", `${instance.type.name} is called on an instance declared in a GVL`, call.span)
-  // an FB instance inside a PROGRAM, called from outside it: `prg.p.inst.call(g, prg)` borrows `Programs` twice
-  if (instance.root === "global" && instance.path.length > 0)
-    return lw.bail("call-program-member", `${instance.type.name} is called inside a PROGRAM's instance from outside it`, call.span)
+  // An FB instance inside a PROGRAM, called from outside it (`callshape_program_instance_from_outside`): the program is
+  // moved out of `Programs` for the call, as for its own. It was refused (`prg.p.inst.call(g, prg)` borrows `Programs`
+  // twice). A runtime index on the way would be read on the stand-in, and a body reaching its program would too: refused.
+  if (instance.root === "global" && !staticPath(instance))
+    return lw.bail("call-program-member", `${instance.type.name} is called inside a PROGRAM's instance through a runtime index`, call.span)
   const layout = calledLayout(lw, instance.type.name, call.span)
   if (layout === undefined) return undefined
+  if (instance.root === "global" && instance.path.length > 0 && lw.bodies.get(instance.type.name.toUpperCase())?.lowering.touched.has(instance.slot))
+    return lw.bail("call-program-reentrant", `${instance.type.name}'s body reaches the PROGRAM it is called inside`, call.span)
+  if (instance.root === "global" && instance.path.length > 0 && reachesDispatch(lw, layout.body ?? []))
+    return lw.bail("call-program-reentrant", `${instance.type.name}'s body calls through an interface, which may reach the PROGRAM it is called inside`, call.span)
 
   const before: IrStmt[] = []
   const after: IrStmt[] = []

@@ -6,9 +6,9 @@
  *
  * Integers stay `bigint` (exact for the 64-bit types); reals are `number`.
  */
-import type { Scope } from "../symbols/index.js"
-import { lookup, isLibrarySymbol } from "../symbols/index.js"
-import type { Expr, VarDecl } from "../syntax/index.js"
+import type { Scope, Symbol } from "../symbols/index.js"
+import { findChildScope, lookup, lookupLocal, lookupMember, isLibrarySymbol, resolveGvlMember } from "../symbols/index.js"
+import type { Expr, TypeExpr, VarDecl } from "../syntax/index.js"
 
 export type ConstValue = bigint | number | boolean | undefined
 
@@ -52,34 +52,82 @@ export function constancyOf(expr: Expr, scope: Scope): Constancy {
 }
 
 export function constEval(expr: Expr, scope: Scope): ConstValue {
+  return fold(expr, scope, { folding: new Set() })
+}
+
+/** What a fold carries down: the constants being folded — a cycle (`X := Y; Y := X`, `P.N := P.N`) stops there instead of
+ *  recursing forever, which froze the editor's diagnostics — and the global list whose initializer is being folded. */
+interface FoldContext {
+  folding: Set<Symbol>
+  list?: string
+}
+
+function fold(expr: Expr, scope: Scope, ctx: FoldContext): ConstValue {
   switch (expr.kind) {
     case "literal": {
       const v = expr.value
       return typeof v === "bigint" || typeof v === "number" || typeof v === "boolean" ? v : undefined
     }
     case "paren":
-      return constEval(expr.inner, scope)
+      return fold(expr.inner, scope, ctx)
     case "unary":
-      return foldUnary(expr.op, constEval(expr.operand, scope))
+      return foldUnary(expr.op, fold(expr.operand, scope, ctx))
     case "binary":
-      return foldBinary(expr.op, constEval(expr.left, scope), constEval(expr.right, scope))
+      return foldBinary(expr.op, fold(expr.left, scope, ctx), fold(expr.right, scope, ctx))
     case "ident_expr":
-      return constRef(expr.name, scope)
+      return constRef(expr.name, scope, ctx)
+    case "member":
+      return qualifiedConstRef(expr, scope, ctx)
     default:
-      // member / index / call / deref / assign — not a foldable constant.
+      // index / call / deref / assign — not a foldable constant.
       return undefined
   }
 }
 
-/** Fold a reference to a `CONSTANT` variable by evaluating its initializer in its owning scope. */
-function constRef(name: string, scope: Scope): ConstValue {
-  const found = lookup(scope, name)
-  if (found === undefined || found.symbol.constant !== true) return undefined
-  const init = (found.symbol.ast as VarDecl).init
-  // A scalar initializer is an Expr; an AggregateInit is not a constant scalar.
-  if (init === undefined || init.kind === "aggregate_init") return undefined
-  return constEval(init, found.symbol.owner)
+const rootOf = (scope: Scope): Scope => (scope.parent === undefined ? scope : rootOf(scope.parent))
+
+/**
+ * `List.Const` / `Program.Const` — a CONSTANT named through its global variable list or its PROGRAM, as pro2193 sizes
+ * arrays (`ARRAY[1..GVL_Constants.ChainProductsForReject]`, `MaxVacuums : USINT := XiUnits.MaxVacuums`). Neither folded,
+ * so every such array had no size and every such initializer no value. A library's are left unfolded, like a bare one's
+ * constancy (`constancyOf`): its declarations may be partial.
+ */
+function qualifiedConstRef(expr: Extract<Expr, { kind: "member" }>, scope: Scope, ctx: FoldContext): ConstValue {
+  if (expr.base.kind !== "ident_expr") return undefined
+  const project = rootOf(scope)
+  const base = lookup(scope, expr.base.name)?.symbol
+  if (base === undefined || isLibrarySymbol(base)) return undefined
+  const programScope = base.kind === "program" ? findChildScope(project, base.name) : undefined
+  const target = base.kind === "gvl_block" ? resolveGvlMember(expr, scope, project) : programScope && lookupMember(programScope, expr.member.name)
+  return target === undefined || isLibrarySymbol(target) ? undefined : initialValue(target, ctx)
 }
+
+/**
+ * A reference to a `CONSTANT` variable. Inside a global list's own initializer its siblings are seen bare first — a
+ * `qualified_only` list's too, which bare lookup skips: pro2193's `GVL_Constants` compiles
+ * `MaxProductsInMould := MaxMouldLevels * …`, and a same-named constant of ANOTHER list was folded in its place.
+ */
+function constRef(name: string, scope: Scope, ctx: FoldContext): ConstValue {
+  const sibling = ctx.list === undefined ? undefined : lookupLocal(rootOf(scope), name).find((s) => s.kind === "gvl_var" && s.uri === ctx.list)
+  const symbol = sibling ?? lookup(scope, name)?.symbol
+  return symbol === undefined ? undefined : initialValue(symbol, ctx)
+}
+
+/** A constant's value: its initializer folded in its owning scope, at its declared type's kind of number. */
+function initialValue(symbol: Symbol, ctx: FoldContext): ConstValue {
+  if (symbol.constant !== true || ctx.folding.has(symbol)) return undefined
+  const decl = symbol.ast as VarDecl
+  // A scalar initializer is an Expr; an AggregateInit is not a constant scalar.
+  if (decl.init === undefined || decl.init.kind === "aggregate_init") return undefined
+  ctx.folding.add(symbol)
+  const value = fold(decl.init, symbol.owner, { folding: ctx.folding, ...(symbol.kind === "gvl_var" ? { list: symbol.uri } : {}) })
+  ctx.folding.delete(symbol)
+  // `RC : REAL := 10` is a REAL: `RC / 4` is 2.5, not the integer 2 the literal would fold to.
+  // ponytail: a REAL behind an alias type folds as its literal; resolve the alias when one is seen
+  return typeof value === "bigint" && isRealType(decl.type) ? Number(value) : value
+}
+
+const isRealType = (t: TypeExpr): boolean => t.kind === "named_type" && /^L?REAL$/i.test(t.name.text)
 
 function foldUnary(op: string, v: ConstValue): ConstValue {
   if (v === undefined) return undefined

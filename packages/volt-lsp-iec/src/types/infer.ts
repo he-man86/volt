@@ -7,7 +7,7 @@
  * off the node instead of re-resolving a `TypeExpr` (the win of the folded model).
  */
 import type { Scope, Symbol } from "../symbols/index.js"
-import { childScopesByName, lookup, lookupLocal, isLibrarySymbol, resolveBareEnumMember } from "../symbols/index.js"
+import { childScopesByName, lookup, lookupLocal, isLibrarySymbol, resolveBareEnumMember, resolveGvlMember } from "../symbols/index.js"
 import type {
   BinaryExpr,
   CallExpr,
@@ -211,21 +211,6 @@ function calleeInfo(
 /** The member scope of a scoped type (enum, struct, FB, interface), or undefined. Completion kept a copy. */
 export function memberScopeOf(t: Type): Scope | undefined {
   return t.kind === "enum" || t.kind === "struct" || t.kind === "function_block" || t.kind === "interface" ? t.scope : undefined
-}
-
-/** `GVL.field` → the flat project-level `gvl_var` sharing the block's uri, or undefined. */
-function resolveGvlMember(
-  expr: { base: Expr; member: { name: string } },
-  scope: Scope,
-  project: Scope,
-): Symbol | undefined {
-  if (expr.base.kind !== "ident_expr") return undefined
-  const block = lookup(scope, expr.base.name)?.symbol
-  if (block?.kind !== "gvl_block") return undefined
-  for (const sym of lookupLocal(project, expr.member.name)) {
-    if (sym.kind === "gvl_var" && sym.uri === block.uri) return sym
-  }
-  return undefined
 }
 
 /** The enclosing POU scope (walking out through method/accessor scopes) — the home of `THIS`. */

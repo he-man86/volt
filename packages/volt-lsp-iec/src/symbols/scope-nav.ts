@@ -12,7 +12,7 @@
  *
  * Case-insensitive (PLC convention).
  */
-import type { Span, TopLevel } from "../syntax/index.js"
+import type { Expr, Span, TopLevel } from "../syntax/index.js"
 import { lookupLocal, type Scope, type Symbol } from "./symbol.js"
 
 export interface LookupResult {
@@ -54,6 +54,15 @@ export function lookup(start: Scope, name: string): LookupResult | undefined {
 /** A member name within `scope` + its EXTENDS base chain (does NOT walk outward to parents). */
 export function lookupMember(scope: Scope, name: string): Symbol | undefined {
   return lookupInChain(scope, name)?.symbol
+}
+
+/** `GVL.field` → the flat project-level `gvl_var` sharing the block's uri, or undefined. Type inference and constant
+ *  folding both qualify through it (it lived privately in `infer.ts`). */
+export function resolveGvlMember(expr: { base: Expr; member: { name: string } }, scope: Scope, project: Scope): Symbol | undefined {
+  if (expr.base.kind !== "ident_expr") return undefined
+  const block = lookup(scope, expr.base.name)?.symbol
+  if (block?.kind !== "gvl_block") return undefined
+  return lookupLocal(project, expr.member.name).find((sym) => sym.kind === "gvl_var" && sym.uri === block.uri)
 }
 
 /**

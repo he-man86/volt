@@ -526,4 +526,46 @@ END_FUNCTION_BLOCK
 `,
     "user : FB_CS_user19;",
     "user();"),
+  // pro2193 reaches FB instances declared INSIDE a PROGRAM from other POUs: `SER.EnableFreqInvertersRelay.Map()`, and
+  // `Attach`/`Detach` on a program's instance (the transpiler's `call-program-method`, 60 corpus POUs). Does a METHOD run
+  // on that instance, and does a call of it from outside run its body on the same instance the program's own body calls?
+  fb("callshape_program_instance_from_outside", "FB_CS_caller20", "a METHOD and a body call of an FB instance declared inside a PROGRAM, reached through the program's name from PLC_PRG and from an FB",
+    `FUNCTION_BLOCK FB_CS_relay20
+VAR_INPUT
+	level : INT;
+END_VAR
+VAR
+	maps : INT;
+	calls : INT;
+	lastLevel : INT;
+END_VAR
+calls := calls + 1;
+lastLevel := level;
+END_FUNCTION_BLOCK
+
+METHOD Map : INT
+maps := maps + 1;
+Map := maps * 100 + calls;
+END_METHOD
+
+PROGRAM PRG_CS_station20
+VAR
+	relay : FB_CS_relay20;
+	runs : INT;
+END_VAR
+runs := runs + 1;
+relay(level := runs);
+END_PROGRAM
+
+FUNCTION_BLOCK FB_CS_caller20
+VAR_OUTPUT
+	seen : INT;
+END_VAR
+seen := PRG_CS_station20.relay.Map();
+PRG_CS_station20.relay(level := 50);
+END_FUNCTION_BLOCK
+`,
+    "caller : FB_CS_caller20; fromPlc : INT;",
+    "PRG_CS_station20();\nfromPlc := PRG_CS_station20.relay.Map();\ncaller();",
+    2),
 ]
