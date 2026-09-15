@@ -152,7 +152,7 @@ interface PendingBody {
 const baseOf = (unit: PendingBody["unit"]) => (unit.kind === "function_block" ? unit.extends : undefined)
 
 /** A METHOD, ACTION or FUNCTION lowered once per POU — or the fact that it could not be. */
-type CalledRoutine = { state: "lowered"; routine: IrRoutine } | { state: "failed" }
+type CalledRoutine = { state: "lowering" } | { state: "lowered"; routine: IrRoutine } | { state: "failed" }
 
 /** What every lowering of one POU shares — the frames of the types, bodies and routines its calls reach, and the
  *  application's globals. */
@@ -605,6 +605,10 @@ class Lowering {
     const cached = this.routines.get(key)
     if (cached?.state === "lowered") return cached.routine
     if (cached?.state === "failed") return this.bail("call-body", `${name}'s body does not lower`, span)
+    // A routine reached again while its own body lowers calls itself — which lowered it again, without end (a RangeError
+    // out of lowering; transpiler review 2026-09-15). Whether CODESYS allows a recursive call at all is not measured.
+    if (cached?.state === "lowering") return this.bail("call-recursive", `${name} calls itself`, span)
+    this.routines.set(key, { state: "lowering" })
     const failed = (code: string, message: string): undefined => {
       this.routines.set(key, { state: "failed" })
       return this.bail(code, message, span)
@@ -662,6 +666,7 @@ class Lowering {
     if (callee.kind === "member") {
       const base = this.place(callee.base)
       if (base === undefined) return undefined
+      if (this.inGlobals(base)) return this.bail("call-global-instance", `${callee.member.name} is called on an instance declared in a GVL`, call.span)
       const layout = base.type.kind === "function_block" ? this.layouts.get(base.type.name.toUpperCase()) : undefined
       const sym = base.type.kind === "function_block" && base.type.scope !== undefined ? lookupMember(base.type.scope, callee.member.name) : undefined
       if (layout === undefined || (sym?.kind !== "method" && sym?.kind !== "action"))
@@ -698,8 +703,8 @@ class Lowering {
           if (instance !== undefined && target.slot === instance.slot && target.root === instance.root)
             return this.bail("call-inout-alias", `${arg.param.name} is bound to a variable of the instance it calls`, arg.span)
           if (target.path.some((s) => s.kind === "bit")) return this.bail("call-inout-bit", `${arg.param.name} is bound to a bit`, arg.span)
-        // every body is handed the globals as one `&mut`, so a VAR_IN_OUT into them would be a second borrow of the same place
-        if (target.root === "global") return this.bail("call-inout-global", `${arg.param.name} is bound to a global variable`, arg.span)
+          // every body is handed the globals as one `&mut`, so a VAR_IN_OUT into them would be a second borrow of the same place
+          if (target.root === "global") return this.bail("call-inout-global", `${arg.param.name} is bound to a global variable`, arg.span)
           inouts[inout] = target
           continue
         }
@@ -771,6 +776,14 @@ class Lowering {
     return called
   }
 
+  /**
+   * An FB instance held in the GVL storage. Every body is handed that storage as one `&mut g`, so calling the instance —
+   * `g.inst.call(g)` — borrows it twice (E0499; transpiler review 2026-09-15). A PROGRAM's instance lives apart, in `prg`.
+   */
+  private inGlobals(place: Place): boolean {
+    return place.root === "global" && this.shared.globals.slots[place.slot]!.section !== "program"
+  }
+
   private fail(pending: PendingBody, code: string, message: string, span: Span): undefined {
     pending.state = "failed"
     return this.bail(code, message, span)
@@ -784,13 +797,15 @@ class Lowering {
     const callee = call.callee
     const upper = callee.kind === "ident_expr" ? callee.name.toUpperCase() : ""
     if (callee.kind === "ident_expr" && !this.localByName.has(upper) && !this.byName.has(upper) && !this.inoutByName.has(upper)) {
-      const kind = lookup(this.scope, callee.name)?.symbol.kind
+      const sym = lookup(this.scope, callee.name)?.symbol
+      const kind = sym?.kind
       if (kind === "function") {
         const value = this.invoke(call)
         return value && [{ kind: "eval", value, span: call.span }]
       }
-      // a PROGRAM's one instance is global, and calls like an FB's; anything else is not callable yet
-      if (kind !== "program" || !this.isRoot || callee.name.toUpperCase() === this.shared.root.toUpperCase()) {
+      // a PROGRAM's one instance is global, and calls like an FB's; a GVL instance goes on to be refused by what it is
+      const global = kind === "gvl_var" || sym?.varSection === "VAR_EXTERNAL"
+      if (!global && (kind !== "program" || !this.isRoot || callee.name.toUpperCase() === this.shared.root.toUpperCase())) {
         const code = kind === "program" ? "call-program" : kind === "method" || kind === "action" ? "call-this" : "stmt-call_stmt"
         return this.bail(code, `${callee.name} is not a callable instance yet`, call.span)
       }
@@ -808,6 +823,7 @@ class Lowering {
     const instance = this.place(callee)
     if (instance === undefined) return undefined
     if (instance.type.kind !== "function_block") return this.bail("stmt-call_stmt", "a call of something that is not an FB instance", call.span)
+    if (this.inGlobals(instance)) return this.bail("call-global-instance", `${instance.type.name} is called on an instance declared in a GVL`, call.span)
     const layout = this.calledLayout(instance.type.name, call.span)
     if (layout === undefined) return undefined
 

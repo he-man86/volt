@@ -232,6 +232,23 @@ END_PROGRAM
     expect(code("p := ADR(grid[2][i]); n := p^;")).toEqual([])
   })
 
+  // Transpiler review 2026-09-15. Why missed: every routine test called a routine that did not reach itself, so the
+  // lower-once cache was always filled before a second lookup; nothing tested the lookup DURING lowering.
+  test("a FUNCTION or METHOD that calls itself is refused, not lowered without end", () => {
+    const code = (source: string) => lowerSource(source, "P").diagnostics.map((d) => d.code)
+    expect(code("PROGRAM P\nVAR n : INT; END_VAR\nn := F_Down(3);\nEND_PROGRAM\nFUNCTION F_Down : INT\nVAR_INPUT k : INT; END_VAR\nIF k > 0 THEN F_Down := F_Down(k - 1); END_IF\nEND_FUNCTION\n")).toContain("call-recursive")
+    expect(code("PROGRAM P\nVAR inst : FB_R; END_VAR\ninst.M();\nEND_PROGRAM\nFUNCTION_BLOCK FB_R\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD M\nn := n + 1;\nIF n < 3 THEN THIS^.M(); END_IF\nEND_METHOD\n")).toContain("call-recursive")
+  })
+
+  // Transpiler review 2026-09-15. Why missed: the globals tests read and wrote GVL variables and called a PROGRAM; none
+  // declared an FB INSTANCE in a GVL, and the rustc crate check is the only thing that sees the double borrow.
+  test("an FB instance declared in a GVL is refused as a call target — `g.inst.call(g)` borrows g twice", () => {
+    const code = (body: string) =>
+      lowerSource(`PROGRAM P\n${body}\nEND_PROGRAM\nVAR_GLOBAL\n  gInst : FB_G;\nEND_VAR\nFUNCTION_BLOCK FB_G\nVAR n : INT; END_VAR\nn := n + 1;\nEND_FUNCTION_BLOCK\nMETHOD M\nn := 0;\nEND_METHOD\n`, "P").diagnostics.map((d) => d.code)
+    expect(code("gInst();")).toEqual(["call-global-instance"])
+    expect(code("gInst.M();")).toEqual(["call-global-instance"])
+  })
+
   test("an initializer that does not fold is reported, never silently dropped", () => {
     // It was dropped: the slot started at its default with no diagnostic — which is how every STRING slot lost its
     // initial value (constEval folds no strings) while each string case still "lowered".
