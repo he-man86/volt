@@ -372,6 +372,25 @@ scan time, and one case proving constants fold to the same answers):
 integer prints `(x.round() as i64) as T` — `f64::round` is exactly half-away-from-zero, and `as` between integers
 wraps. `as bool` does not exist (`!= 0`), nor does `bool as f32` (`as u8` first).
 
+## 22. An interface holds its instance's tag; a call through it is a dispatch
+
+Measured (conformance `itf_*`): an interface variable starts null and keeps what it holds across cycles; a call runs the
+held instance's METHOD, a PROPERTY read or write its accessor; an interface copies into a variable of an interface it
+EXTENDS; `__QUERYINTERFACE` answers TRUE and binds the target when the instance implements its interface, and on FALSE
+sets the target to null — it does not keep what it held.
+
+Lowering gives each FB instance place that is stored into an interface a TAG (1 and up, per lowered POU); the variable
+holds the tag, 0 when null — a `u64` in Rust. A call through it is an `IrDispatch`: an expression whose arms each invoke
+the routine on one instance, and which faults when no arm matches, as a null call stops the application. So a copy
+between interfaces is a plain copy, and both backends see ordinary invokes — `match` in Rust, borrowing one field per arm.
+
+The arms cannot be decided where the call lowers: `ref := b` later in the source reaches a call earlier in it on the
+next cycle. Stores record what a variable may hold — tags, and edges from variables copied into it (filtered by interface
+for a query) — and every dispatch and query is finished once the whole POU has lowered (`finishInterfaces`), repeating
+while finishing lowers more. An arm on an instance of another frame is refused; so are, until built, an interface passed
+as an input or bound as an in-out or output, a method with VAR_IN_OUT/VAR_OUTPUT called through one, and an instance
+that is a local, an in-out, a dereference or an element at a runtime index.
+
 ## 21. A UNION is a struct kept overlaid by its stores
 
 Measured: every member starts at offset 0, little-endian (`iWord := 16#ABCD` reads `aBytes[0] = 16#CD`). The byte view

@@ -12,6 +12,7 @@ import { bindReference, pointeePlace, storePointer, through } from "./pointers.j
 import { lowerExpr } from "./expressions.js"
 import { lowerCallStatement, lowerPropertySet } from "./calls.js"
 import { refuseUnionWrite, unionCopies } from "./unions.js"
+import { lowerQueryInterface, storeInterface } from "./interfaces.js"
 
 export function lowerBlock(lw: Lowering, list: StatementList): IrStmt[] {
   const out: IrStmt[] = []
@@ -72,6 +73,8 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
       // a PROPERTY's setter (conformance `state_property_get_set`)
       const property = lowerPropertySet(lw, s)
       if (property !== null) return property
+      const query = lowerQueryInterface(lw, s)
+      if (query !== null) return query
       if (s.chained !== undefined) return lowerChain(lw, s)
       if (s.op === "REF=") return bindReference(lw, s)
       const target = lowerPlace(lw, s.target)
@@ -89,6 +92,7 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
         return { kind: "if", cond, then: [set], else: [], span: s.span }
       }
       if (target.type.kind === "pointer") return storePointer(lw, target, s.value, s.span)
+      if (target.type.kind === "interface") return storeInterface(lw, target, s.value, s.span)
       if (target.type.kind === "reference") {
         // a write through a reference is a write to its target
         const pointee = pointeePlace(lw, target, undefined, s.span)

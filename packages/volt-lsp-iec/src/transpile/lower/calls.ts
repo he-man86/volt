@@ -27,6 +27,7 @@ import { ANY_FAMILIES, elementaryRef, inferExprType, type Type, UNKNOWN } from "
 import { byteSize } from "./bytes.js"
 import {
   defaultValueOf,
+  type IrDispatch,
   type IrExpr,
   type IrInvoke,
   type IrLayout,
@@ -42,6 +43,7 @@ import { lowerPlace } from "./places.js"
 import { through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 import { lowerBlock } from "./statements.js"
+import { interfaceCall, interfacePropertyGet, interfacePropertySet } from "./interfaces.js"
 
 type FbType = Extract<Type, { kind: "function_block" }>
 type RoutineSymbol = NonNullable<ReturnType<typeof lookup>>["symbol"]
@@ -251,7 +253,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
 
 /** A METHOD or ACTION called on an instance of `frame` — by the instance's own type, so an override wins wherever the
  *  call is written (conformance `inh_base_body_reaches_override`, `inh_inherited_method_reaches_override`). */
-function methodOf(lw: Lowering, frame: FbType, name: string, span: Span): IrRoutine | undefined {
+export function methodOf(lw: Lowering, frame: FbType, name: string, span: Span): IrRoutine | undefined {
   const sym = frame.scope === undefined ? undefined : lookupMember(frame.scope, name)
   if (sym?.kind !== "method" && sym?.kind !== "action") return lw.bail("call-method", `${name} is not a METHOD or ACTION lowering can call`, span)
   return calledRoutine(lw, sym, frame, span)
@@ -261,7 +263,7 @@ function methodOf(lw: Lowering, frame: FbType, name: string, span: Span): IrRout
  * A PROPERTY's GET or SET as a routine of the FB it runs on: the getter's result, or the setter's one input, is a local
  * named as the property, and its VAR starts over on every call (conformance `state_property_get_set`).
  */
-function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol, accessor: "get" | "set", span: Span): IrRoutine | undefined {
+export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol, accessor: "get" | "set", span: Span): IrRoutine | undefined {
   const name = `${frame.name}.${sym.name}__${accessor}`
   return once(lw, name, span, () => {
     const ast = sym.ast as Property
@@ -313,9 +315,11 @@ function propertyAccess(lw: Lowering, e: Expr): { instance: Place; frame: FbType
 }
 
 /** A PROPERTY read → its getter, run on the instance. `null` when the expression reads no property. */
-export function lowerPropertyGet(lw: Lowering, e: Expr): IrInvoke | undefined | null {
+export function lowerPropertyGet(lw: Lowering, e: Expr): IrInvoke | IrDispatch | undefined | null {
   const access = propertyAccess(lw, e)
-  if (access === null || access === undefined) return access
+  if (access === undefined) return undefined
+  // not an instance's: perhaps an interface's (conformance `itf_property_through_interface`)
+  if (access === null) return interfacePropertyGet(lw, e)
   if (lw.arguments > 0) return lw.bail("call-nested", "a PROPERTY read inside a call's arguments", e.span)
   const routine = propertyRoutine(lw, access.frame, access.sym, "get", e.span)
   if (routine === undefined) return undefined
@@ -329,7 +333,8 @@ export function lowerPropertyGet(lw: Lowering, e: Expr): IrInvoke | undefined | 
  */
 export function lowerPropertySet(lw: Lowering, s: Extract<Statement, { kind: "assign" }>): IrStmt[] | undefined | null {
   const access = propertyAccess(lw, s.target)
-  if (access === null || access === undefined) return access
+  if (access === undefined) return undefined
+  if (access === null) return interfacePropertySet(lw, s)
   if (s.op !== undefined || s.chained !== undefined) return lw.bail("property-store", `${access.sym.name} set by ${s.op ?? "a chain"}`, s.span)
   const routine = propertyRoutine(lw, access.frame, access.sym, "set", s.span)
   if (routine === undefined) return undefined
@@ -391,7 +396,7 @@ function bindInOut(lw: Lowering, arg: CallArg, param: IrSlot, held: readonly Pla
  * positionally only to a routine with no VAR_IN_OUT (measured for a FUNCTION's input, `fbcall_function_locals`). An
  * input left out is refused — whether it takes its initial value is not measured.
  */
-export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>): IrInvoke | undefined {
+export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>): IrInvoke | IrDispatch | undefined {
   // `a.M(k := b.M(k := 1))` prints the inner call as an argument of the outer one: two `&mut g` at once, or two of `a`
   // for `a.M(k := a.M(…))` — E0499 (transpiler review 2026-09-15, compiled). Hoisting the inner call would move it ahead
   // of the operands read before it, an evaluation order not measured — so it is refused.
@@ -411,6 +416,8 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
   } else if (callee.kind === "member") {
     const base = lowerPlace(lw, callee.base)
     if (base === undefined) return undefined
+    // through an interface: the method of whichever instance it holds (conformance `itf_call_dispatches_on_instance`)
+    if (base.type.kind === "interface") return interfaceCall(lw, base, call, callee.member.name)
     if (inGlobals(lw, base)) return lw.bail("call-global-instance", `${callee.member.name} is called on an instance declared in a GVL`, call.span)
     // a METHOD of a PROGRAM's instance, or of an instance inside one: `prg.p.m(g, prg)` borrows `Programs` twice
     if (base.root === "global") return lw.bail("call-program-method", `${callee.member.name} is called on a PROGRAM's instance`, call.span)
@@ -473,6 +480,7 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
       continue
     }
     const slot = routine.locals[routine.inputs[k]!]!
+    if (slot.type.kind === "interface") return lw.bail("interface-input", "an interface passed as an input — not built yet", arg.span)
     const value = lw.inArgument(() => lowerExpr(lw, arg.value!, slot.type))
     if (value === undefined) return undefined
     inputs[k] = convert(value, slot.type)
@@ -656,6 +664,7 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
       const value: IrExpr = { kind: "load", place: member, type: field.type, span: arg.span }
       after.push({ kind: "assign", target, value: convert(value, target.type), span: arg.span })
     } else {
+      if (field.type.kind === "interface") return lw.bail("interface-input", "an interface passed as an input — not built yet", arg.span)
       const value = lowerExpr(lw, arg.value, field.type)
       if (value === undefined) return undefined
       before.push({ kind: "assign", target: member, value: convert(value, field.type), span: arg.span })

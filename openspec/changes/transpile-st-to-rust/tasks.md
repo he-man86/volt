@@ -375,6 +375,14 @@ taken apart by construct before anything is built — record first, then build, 
 ## Phase 5 — the remaining language
 
 - [ ] Interfaces, `EXTENDS`, `__QUERYINTERFACE` — dynamic dispatch.
+  - [x] Recorded first (`interface-calls.ts`, 5 cases), then built (design §22): interface variables hold the held
+        instance's tag; METHOD calls and PROPERTY get/set dispatch on it, arms finished after the whole POU lowers;
+        copies to a base interface; `found := __QUERYINTERFACE(from, into)`, null on failure (measured). Conformance
+        lowering **440 → 444 of 459**. *Why missed:* no fixture ever read a value through an interface — the five in
+        `interface.ts` only pin declarations that compile, so they had "nothing to read", and the one lowering test
+        pinned `slot-interface` as the expected refusal.
+  - [ ] An interface passed as an input (`itf_function_input`, recorded: 17) — refused `interface-input`; the routine
+        needs the caller's instance, a `&mut` per concrete FB type.
 - [ ] `__POUNAME` 304 and the other CODESYS compiler operators.
 - [x] `aggregate-init` — recorded first (`array_initializers`, `init_struct_by_field`, `init_array_of_structs`,
       `init_fb_instance_inputs`), then lowered to a structured initial value (`IrInit`: elements / named fields) that the

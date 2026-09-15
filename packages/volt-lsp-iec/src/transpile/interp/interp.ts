@@ -150,6 +150,13 @@ class Machine {
         return this.read(e.place)
       case "invoke":
         return this.invoke(e)
+      case "dispatch": {
+        // a call through an interface runs on the instance its value names; none — a null interface — stops the application
+        const tag = this.expr(e.tag)
+        const arm = e.arms.find((a) => a.tag === tag)
+        if (arm === undefined) throw new RangeError("call through an interface that holds no instance")
+        return this.invoke(arm.call)
+      }
       case "convert":
         return fit(coerce(this.expr(e.value), e.type, e.value.type), e.type)
       case "builtin": {
@@ -315,7 +322,8 @@ class Machine {
         return "none"
       }
       case "eval":
-        this.invoke(s.value)
+        // a call as a statement — direct, or dispatched through an interface
+        this.expr(s.value)
         return "none"
       case "break":
         return "break"

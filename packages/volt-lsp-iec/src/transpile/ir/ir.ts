@@ -112,7 +112,20 @@ export type IrBinOp =
 
 export type IrUnOp = "neg" | "not"
 
-export type IrExpr = IrConst | IrLoad | IrBinary | IrUnary | IrConvert | IrBuiltin | IrInvoke
+export type IrExpr = IrConst | IrLoad | IrBinary | IrUnary | IrConvert | IrBuiltin | IrInvoke | IrDispatch
+
+/**
+ * A call through an interface variable (design §22): the variable holds which instance it names — 0 for none, else the
+ * tag lowering gave that instance — and each arm is the METHOD or PROPERTY accessor invoked on one instance it may name.
+ * A value no arm names faults, as a call through a null interface stops the CODESYS application.
+ */
+export interface IrDispatch {
+  kind: "dispatch"
+  tag: IrExpr
+  arms: readonly { tag: bigint; call: IrInvoke }[]
+  type: Type
+  span: Span
+}
 
 /**
  * A METHOD, ACTION or FUNCTION invocation. Its locals start over on every call — measured for a METHOD's and a
@@ -219,10 +232,10 @@ export interface IrConvert {
 
 export type IrStmt = IrAssign | IrIf | IrSwitch | IrLoop | IrBreak | IrContinue | IrReturn | IrCall | IrEval
 
-/** A METHOD, ACTION or FUNCTION called as a statement — its result, if any, is dropped. */
+/** A METHOD, ACTION or FUNCTION called as a statement — directly or through an interface; its result, if any, is dropped. */
 export interface IrEval {
   kind: "eval"
-  value: IrInvoke
+  value: IrInvoke | IrDispatch
   span: Span
 }
 

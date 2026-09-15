@@ -134,7 +134,8 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
       // `r = m - 5` (the same comparison) dereferenced — measured only for a pointer (transpiler review 2026-09-15).
       if ((e.op === "=" || e.op === "<>") && e.right.kind === "literal" && e.right.value === 0n) {
         const kind = inferExprType(e.left, lw.scope, lw.project).kind
-        if (kind === "pointer") {
+        // an interface is null the same way (conformance `itf_call_dispatches_on_instance`)
+        if (kind === "pointer" || kind === "interface") {
           const place = lowerPlace(lw, e.left)
           if (place === undefined) return undefined
           const zero: IrExpr = { kind: "const", value: 0n, type: place.type, span: e.right.span }

@@ -40,11 +40,13 @@ import { Lowering, newShared } from "./lowering.js"
 import { declareVars, storageOf } from "./storage.js"
 import { lowerBlock } from "./statements.js"
 import { calledLayout, calledRoutine } from "./calls.js"
+import { finishInterfaces } from "./interfaces.js"
 
 /** A type a backend can store: elementary, a laid-out struct or FB instance, or a sized array of those. */
 function representable(t: Type): boolean {
   // a pointer or reference holds its one target's index (design §9 form 1) — a plain integer in both backends
-  if (t.kind === "elementary" || t.kind === "struct" || t.kind === "function_block" || t.kind === "pointer" || t.kind === "reference") return true
+  // an interface holds its instance's tag (design §22) — a plain integer too
+  if (t.kind === "elementary" || t.kind === "struct" || t.kind === "function_block" || t.kind === "pointer" || t.kind === "reference" || t.kind === "interface") return true
   const array = peelArray(t)
   return array !== undefined && representable(array.element)
 }
@@ -80,6 +82,8 @@ export function lowerUnit(
   }
   if (lowering.diagnostics.length > 0) return { diagnostics: lowering.diagnostics }
   const init = initStep(lowering, unit.span)
+  // every store into an interface has lowered by now: each call through one gets its instances (`interfaces.ts`)
+  finishInterfaces(lowering)
   if (init === undefined || lowering.diagnostics.length > 0) return { diagnostics: lowering.diagnostics }
   // Every construct lowered — but every SLOT (and every field of a layout) also needs a runtime representation. An unused
   // `p : POINTER TO INT` lowered cleanly, then the Rust emitter threw on its type: a backend must accept whatever lowering

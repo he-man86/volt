@@ -56,6 +56,31 @@ test("a UNION member's store shows through every member it overlays; a write the
   expect(codes("FOR n := 1 TO 2 DO u.word := 1; END_FOR", "wide : REAL;")).toContain("layout-union")
 })
 
+// Interfaces (conformance `itf_*`): an interface variable had no representation (`slot-interface`), so nothing called
+// through one lowered. It holds the tag of its instance, and each call dispatches once every store has lowered.
+const INTERFACES =
+  "INTERFACE I_Base\nMETHOD Area : INT\nEND_METHOD\nEND_INTERFACE\n" +
+  "INTERFACE I_Shape EXTENDS I_Base\nPROPERTY Size : INT\nGET\nEND_GET\nSET\nEND_SET\nEND_PROPERTY\nEND_INTERFACE\n" +
+  "FUNCTION_BLOCK FB_Sq IMPLEMENTS I_Shape\nVAR side : INT := 3; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := side * side;\nEND_METHOD\nPROPERTY Size : INT\nGET\nSize := side;\nEND_GET\nSET\nside := Size;\nEND_SET\nEND_PROPERTY\n" +
+  "FUNCTION_BLOCK FB_Rc IMPLEMENTS I_Base\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := 7;\nEND_METHOD\n"
+test("a call through an interface runs the instance it holds — a store later in the source reaches it next cycle", () => {
+  const program = (vars: string, body: string) => `PROGRAM P\nVAR sq : FB_Sq; rc : FB_Rc; shapeRef : I_Shape; baseRef : I_Base; ${vars} END_VAR\n${body}\nEND_PROGRAM\n${INTERFACES}`
+  const runner = run(
+    ir(program(
+      "found : BOOL; lost : BOOL; a1 : INT; later : INT; seen : INT; nulls : INT;",
+      "IF baseRef = 0 THEN\n  nulls := nulls + 1;\nELSE\n  later := baseRef.Area();\nEND_IF\nshapeRef := sq;\na1 := shapeRef.Area();\nshapeRef.Size := 5;\nseen := shapeRef.Size;\nbaseRef := shapeRef;\nfound := __QUERYINTERFACE(baseRef, shapeRef);\nbaseRef := rc;\nlost := __QUERYINTERFACE(baseRef, shapeRef);",
+    ), "P"),
+  )
+  runner.scan()
+  runner.scan()
+  // cycle 2 reaches rc through `baseRef := rc`, stored after the call; the failed query left `shapeRef` null
+  expect(["nulls", "later", "a1", "seen", "sq.side", "found", "lost"].map((v) => runner.get(v))).toEqual([1n, 7n, 25n, 5n, 5n, true, false])
+  const faulting = run(ir(program("n : INT;", "n := shapeRef.Area();"), "P"))
+  expect(() => faulting.scan()).toThrow("holds no instance")
+  const input = `${program("n : INT;", "n := F_Area(sq);")}FUNCTION F_Area : INT\nVAR_INPUT shape : I_Base; END_VAR\nF_Area := 1;\nEND_FUNCTION\n`
+  expect(lowerSource(input, "P").diagnostics.map((d) => d.code)).toEqual(["interface-input"])
+})
+
 /** Lower and require success — most tests are about the SHAPE, not the failure path. */
 function ir(src: string, name?: string) {
   const { pou, diagnostics } = lowerSource(src, name)
@@ -262,13 +287,14 @@ END_PROGRAM
 
   test("a POU whose statements all lower is still refused when a slot has no runtime representation", () => {
     // An unused POINTER lowered cleanly and made the Rust emitter throw — every backend must take what lowering gives it.
-    // A pointer has a representation since phase 3 step 6b (its one target's index); an interface variable still has none.
+    // A pointer has a representation since phase 3 step 6b (its one target's index), an interface since phase 5 (its
+    // instance's tag) — this used an unused interface variable. An array whose bounds do not fold still has none.
     const { pou, diagnostics } = lowerSource(
-      "INTERFACE I_Shape\nEND_INTERFACE\n\nPROGRAM P\nVAR\n  iCount : INT;\n  shape : I_Shape;\nEND_VAR\niCount := 1;\nEND_PROGRAM\n",
+      "PROGRAM P\nVAR\n  iCount : INT;\n  sized : ARRAY[0..iCount] OF INT;\nEND_VAR\niCount := 1;\nEND_PROGRAM\n",
       "P",
     )
     expect(pou).toBeUndefined()
-    expect(diagnostics.map((d) => d.code)).toEqual(["slot-interface"])
+    expect(diagnostics.map((d) => d.code)).toEqual(["slot-array"])
   })
 
   // Transpiler review 2026-09-15. Why missed: every pointer test took the address of a whole variable or of an element with

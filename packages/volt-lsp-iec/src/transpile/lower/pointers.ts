@@ -153,6 +153,8 @@ export function bindReference(lw: Lowering, s: Extract<Statement, { kind: "assig
  * reference's own slot, overwriting its stored index instead of the variable (transpiler review 2026-09-15).
  */
 export function through(lw: Lowering, place: Place, span: Span): Place | undefined {
+  // an interface's instances are recorded only by a plain `:=` (`storeInterface`)
+  if (place.type.kind === "interface") return lw.bail("interface-store", "an interface stored by anything but a plain `:=`", span)
   const written = place.type.kind === "reference" ? pointeePlace(lw, place, undefined, span) : place
   return written === undefined || refuseUnionWrite(lw, written, span) ? undefined : written
 }
@@ -165,6 +167,8 @@ export function loadValue(lw: Lowering, place: Place, span: Span): IrExpr | unde
     return target && { kind: "load", place: target, type: target.type, span }
   }
   if (place.type.kind === "pointer") return lw.bail("pointer-value", "a pointer's value used as a number", span)
+  if (place.type.kind === "interface")
+    return lw.bail("interface-value", "an interface used other than to call through it, store it, or compare it with 0", span)
   return { kind: "load", place, type: place.type, span }
 }
 

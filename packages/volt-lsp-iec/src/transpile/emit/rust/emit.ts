@@ -42,6 +42,8 @@ export function rustType(t: Type): string {
   if (array !== undefined) return `[${rustType(array.element)}; ${array.length}]`
   // a pointer or reference holds its one target's index, 0 when null (design §9 form 1)
   if (t.kind === "pointer" || t.kind === "reference") return "usize"
+  // an interface holds the tag of the instance it names, 0 when null (design §22)
+  if (t.kind === "interface") return "u64"
   if (t.kind !== "elementary") throw new Error(`no Rust mapping for a ${t.kind} type`)
   const { family, bits, signed } = t.elem
   if (family === "bool" || isBit(t)) return "bool"
@@ -302,12 +304,17 @@ class Printer {
         // a VAR_IN_OUT bound through a dereference is checked before the call, as the interpreter checks it when binding
         return e.inouts.reduce((text, p) => this.guarded(p, text, slots), call)
       }
+      case "dispatch": {
+        // a call through an interface: its value picks the instance; none — a null interface — panics (design §22)
+        const arms = e.arms.map((a) => `${a.tag} => ${this.expr(a.call, slots)},`).join(" ")
+        return `(match ${this.expr(e.tag, slots)} { ${arms} _ => panic!("call through an interface that holds no instance") })`
+      }
       case "load": {
         const field = this.place(e.place, slots)
         const bit = e.place.path.at(-1)
         if (bit?.kind === "bit") return this.guarded(e.place, `(((${field} >> ${bit.index}) & 1) != 0)`, slots)
         // a whole struct, instance or array is copied, never moved out of `self`
-        const copied = e.type.kind === "elementary" || e.type.kind === "pointer" || e.type.kind === "reference"
+        const copied = e.type.kind === "elementary" || e.type.kind === "pointer" || e.type.kind === "reference" || e.type.kind === "interface"
         return this.guarded(e.place, copied ? field : `${field}.clone()`, slots)
       }
       case "convert": {

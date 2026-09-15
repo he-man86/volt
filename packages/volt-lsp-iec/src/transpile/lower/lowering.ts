@@ -46,10 +46,29 @@ export interface Shared {
   pointers: Map<string, PointerTarget>
   /** The layouts that are a UNION's, by upper-cased name — their members overlay one another (`unions.ts`). */
   unions: Set<string>
+  /** Every FB instance stored into an interface, at its tag - 1, with the frame its place indexes (`interfaces.ts`). */
+  instances: { place: Place; context: string; fb: Extract<Type, { kind: "function_block" }> }[]
+  /** What each interface variable may hold, by `pointerKey`: the tags stored into it, and the variables copied into it
+   *  (`only`: through __QUERYINTERFACE, the instances implementing that interface). */
+  interfaces: Map<string, { tags: Set<number>; from: { key: string; only?: string }[] }>
+  /** Each call through an interface, finished once the POU has lowered (`finishInterfaces`) — true when it reached more. */
+  dispatches: ((root: Lowering) => boolean)[]
 }
 
 export function newShared(attributes: ReadonlyMap<object, ReadonlySet<string>> = new Map(), root = ""): Shared {
-  return { layouts: new Map(), bodies: new Map(), routines: new Map(), attributes, globals: { slots: [], byName: new Map() }, root, pointers: new Map(), unions: new Set() }
+  return {
+    layouts: new Map(),
+    bodies: new Map(),
+    routines: new Map(),
+    attributes,
+    globals: { slots: [], byName: new Map() },
+    root,
+    pointers: new Map(),
+    unions: new Set(),
+    instances: [],
+    interfaces: new Map(),
+    dispatches: [],
+  }
 }
 
 /**
