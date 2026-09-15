@@ -530,6 +530,39 @@ test("a derived FB's METHOD reaches its base's in-out through a base METHOD — 
   expect(value("d(shared := v);", "Bump();\nEND_FUNCTION_BLOCK\nMETHOD Bump\nAddTen();\nEND_METHOD\n")).toEqual(11n)
   expect(value("d(shared := v);\nd.Bump();", "AddTen();\nEND_FUNCTION_BLOCK\nMETHOD Bump\nAddTen();\nEND_METHOD\n")).toEqual(21n)
   expect(value("d(shared := v);", "AddTen();\nEND_FUNCTION_BLOCK\nMETHOD AddTen\nSUPER^.AddTen();\nEND_METHOD\n")).toEqual(11n)
+  // pro2193's own shape (recorded `callshape_inout_override_from_base_body`: 11, `…_from_outside_base_method`: 21): the
+  // BASE's body run through SUPER^(), or a base METHOD called from outside, calls an override writing the DERIVED FB's
+  // own in-out. The SUPER^ body took its base chain's in-outs only, and a METHOD its owner's: `call-fb-inout`.
+  const overriding = (body: string, derived: string) => {
+    const source =
+      "PROGRAM P\nVAR d : FB_OD; v : INT := 1; END_VAR\n" + body + "\nEND_PROGRAM\n" +
+      "FUNCTION_BLOCK FB_OB\nVAR calls : INT; END_VAR\ncalls := calls + 1;\nHook();\nEND_FUNCTION_BLOCK\nMETHOD Hook\n;\nEND_METHOD\nMETHOD Run\nHook();\nEND_METHOD\n" +
+      "FUNCTION_BLOCK FB_OD EXTENDS FB_OB\nVAR_IN_OUT profile : INT; END_VAR\nSUPER^();\nEND_FUNCTION_BLOCK\nMETHOD Hook\nprofile := profile + 10;\nEND_METHOD\n" + derived
+    const runner = run(ir(source, "P"))
+    runner.scan()
+    return runner.get("v")
+  }
+  expect(overriding("d(profile := v);", "")).toEqual(11n)
+  expect(overriding("d(profile := v);\nd.Run();", "")).toEqual(21n)
+  // Review of the override build. A base body calling no override took every derived in-out, so `SUPER^(a := extra)` lent
+  // `extra` twice (E0499) — it lowers again; one that calls an override, with that argument, is refused.
+  const rebound = (baseBody: string, derived: string) =>
+    `PROGRAM P\nVAR d : FB_RD; v : INT := 1; w : INT := 100; END_VAR\nd(a := w, extra := v);\nEND_PROGRAM\nFUNCTION_BLOCK FB_RB\nVAR_IN_OUT a : INT; END_VAR\n${baseBody}\nEND_FUNCTION_BLOCK\nMETHOD Hook\n;\nEND_METHOD\n` +
+    `FUNCTION_BLOCK FB_RD EXTENDS FB_RB\nVAR_IN_OUT extra : INT; END_VAR\nSUPER^(a := extra);\nEND_FUNCTION_BLOCK\n${derived}`
+  expect(lowerSource(rebound("a := a + 1;", ""), "P").diagnostics).toEqual([])
+  expect(lowerSource(rebound("Hook();", "METHOD Hook\nextra := extra + 10;\nEND_METHOD\n"), "P").diagnostics.map((d) => d.code)).toContain("call-inout-alias")
+  // a base METHOD calling no override took the derived in-outs too, and faulted called before any binding: it runs
+  const plain =
+    "PROGRAM P\nVAR d : FB_PD; END_VAR\nd.Run();\nEND_PROGRAM\nFUNCTION_BLOCK FB_PB\nVAR calls : INT; END_VAR\ncalls := calls + 1;\nEND_FUNCTION_BLOCK\n" +
+    "METHOD Hook\ncalls := calls + 1;\nEND_METHOD\nMETHOD Run\nHook();\nEND_METHOD\nFUNCTION_BLOCK FB_PD EXTENDS FB_PB\nVAR_IN_OUT profile : INT; END_VAR\nSUPER^();\nEND_FUNCTION_BLOCK\n"
+  const plainRun = run(ir(plain, "P"))
+  plainRun.scan()
+  expect(plainRun.get("d.calls")).toEqual(1n)
+  // SUPER^() inside a METHOD whose own parameter hides the FB's in-out passed the METHOD's parameter on as the FB's
+  const shadow =
+    "PROGRAM P\nVAR d : FB_SD; v : INT := 1; w : INT := 500; END_VAR\nd(profile := v);\nd.Again(profile := w);\nEND_PROGRAM\nFUNCTION_BLOCK FB_SB\nVAR calls : INT; END_VAR\ncalls := calls + 1;\nHook();\nEND_FUNCTION_BLOCK\nMETHOD Hook\n;\nEND_METHOD\n" +
+    "FUNCTION_BLOCK FB_SD EXTENDS FB_SB\nVAR_IN_OUT profile : INT; END_VAR\nSUPER^();\nEND_FUNCTION_BLOCK\nMETHOD Hook\nprofile := profile + 10;\nEND_METHOD\nMETHOD Again\nVAR_IN_OUT profile : INT; END_VAR\nSUPER^();\nEND_METHOD\n"
+  expect(lowerSource(shadow, "P").diagnostics.map((d) => d.code)).toContain("call-inout-shadowed")
   // Review: the in-out lent by an argument AND reached by the callee printed two `&mut` of it (E0499) — refused, inherited
   // or the FB's own
   const twice = "Outer();\nEND_FUNCTION_BLOCK\nMETHOD Outer\nBump2(x := shared);\nEND_METHOD\nMETHOD Bump2\nVAR_IN_OUT x : INT; END_VAR\nx := x + 1;\nAddTen();\nEND_METHOD\n"

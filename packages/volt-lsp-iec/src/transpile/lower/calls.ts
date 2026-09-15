@@ -90,6 +90,37 @@ function chainOf(lw: Lowering, unit: PendingBody["unit"]): PendingBody["unit"][]
 
 const inOutSections = (chain: readonly PendingBody["unit"][]) => chain.flatMap((u) => u.varSections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
 
+/** An FB's name and its EXTENDS chain's, upper-cased. */
+function chainNames(lw: Lowering, name: string): Set<string> {
+  const names = new Set<string>()
+  for (let unit = lookup(lw.project, name)?.symbol.ast as TopLevel | undefined; unit !== undefined && (unit.kind === "function_block" || unit.kind === "program") && !names.has(unit.name.text.toUpperCase()); ) {
+    names.add(unit.name.text.toUpperCase())
+    const base = unit.kind === "function_block" ? unit.extends : undefined
+    unit = base === undefined ? undefined : (lookup(lw.project, base.text)?.symbol.ast as TopLevel | undefined)
+  }
+  return names
+}
+
+/** Whether a body calls — `M()`, `THIS^.M()`, `SUPER^.M()` — a METHOD or ACTION that `frame` overrides below `chain`: a
+ *  routine of that chain run on the frame then reaches the frame's own in-outs through the override. */
+function overridesCalled(frame: FbType, chain: ReadonlySet<string>, statements: readonly unknown[]): boolean {
+  const scope = frame.scope
+  if (scope === undefined) return false
+  let found = false
+  const walk = (node: unknown): void => {
+    if (found || node === null || typeof node !== "object") return
+    if (Array.isArray(node)) return node.forEach(walk)
+    const n = node as { kind?: string; callee?: { kind: string; name?: string; base?: { kind: string }; member?: { name: string } } }
+    const callee = n.kind === "call" ? n.callee : undefined
+    const name = callee?.kind === "ident_expr" ? callee.name : callee?.kind === "member" && callee.base?.kind === "deref" ? callee.member?.name : undefined
+    const member = name === undefined ? undefined : lookupMember(scope, name)
+    if ((member?.kind === "method" || member?.kind === "action") && !chain.has((member as RoutineSymbol).owner.name.toUpperCase())) found = true
+    Object.values(node).forEach(walk)
+  }
+  walk(statements)
+  return found
+}
+
 /** A section whose every name carries `prefix` — how a routine's kept variables get a name of their own in the frame. */
 const prefixed = (section: VarSection, prefix: string): VarSection => ({
   ...section,
@@ -308,9 +339,14 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
       // the owner's own only, so a derived METHOD calling such a base METHOD was `call-fb-inout` (pro2193's ConveyorFB).
       const sections: VarSection[] = []
       const seen = new Set<string>()
-      for (let unit = lookup(lw.project, sym.owner.name)?.symbol.ast as TopLevel | undefined; unit !== undefined && (unit.kind === "function_block" || unit.kind === "program") && !seen.has(unit.name.text.toUpperCase()); ) {
+      // Below the owner's chain, the FRAME's — the instance's type — when the routine calls a METHOD overridden there: a base
+      // METHOD run on a derived instance then reaches the derived FB's own in-outs (`callshape_inout_override_from_outside_base_method`).
+      // Not otherwise: one calling no override took them all, and faulted unbound (review).
+      const ownerChain = chainNames(lw, sym.owner.name)
+      const overridden = overridesCalled(frame, ownerChain, parsed.statements)
+      for (let unit = lookup(lw.project, frame.name)?.symbol.ast as TopLevel | undefined; unit !== undefined && (unit.kind === "function_block" || unit.kind === "program") && !seen.has(unit.name.text.toUpperCase()); ) {
         seen.add(unit.name.text.toUpperCase())
-        sections.unshift(...unit.varSections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
+        if (overridden || ownerChain.has(unit.name.text.toUpperCase())) sections.unshift(...unit.varSections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
         const base = unit.kind === "function_block" ? unit.extends : undefined
         unit = base === undefined ? undefined : (lookup(lw.project, base.text)?.symbol.ast as TopLevel | undefined)
       }
@@ -319,7 +355,12 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
       r.diagnostics.push(...declared.diagnostics)
       for (const slot of declared.inoutSlots) {
         const own = slot.name.toUpperCase()
-        if ((reached !== "all" && !reached.has(own)) || r.inoutByName.has(own) || r.localByName.has(own)) continue
+        if (reached !== "all" && !reached.has(own)) continue
+        // a parameter or local of the routine by that name hides the FB's in-out: a call that would take it is refused (review)
+        if (r.inoutByName.has(own) || r.localByName.has(own)) {
+          r.shadowedInOuts.add(own)
+          continue
+        }
         r.inoutByName.set(own, r.inoutSlots.length)
         r.inoutSlots.push({ ...slot, ofInstance: true })
       }
@@ -456,6 +497,16 @@ function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: Span): I
     const key = name.toUpperCase()
     const r = routineLowering(lw, base.lowering.scope, frame, base.lowering.codeOwner, key)
     declareInOuts(r, inOutSections(chain))
+    // The derived frame's own in-outs too, marked `ofInstance`: the base body calls METHODs the derived FB overrides, which
+    // reach them (`callshape_inout_override_from_base_body`) — `lowerSuperCall` passes each on as itself.
+    // Only when it calls one: a base body calling none took them all, and `SUPER^(io := profile)` lent `profile` twice (review).
+    const frameUnit = lw.bodies.get(frame.name.toUpperCase())?.unit
+    const frameChain = frameUnit === undefined ? undefined : chainOf(lw, frameUnit)
+    const taken = new Set(r.inoutSlots.map((s) => s.name.toUpperCase()))
+    const first = r.inoutSlots.length
+    if (frameChain !== undefined && overridesCalled(frame, new Set(chain.map((u) => u.name.text.toUpperCase())), parsed.statements))
+      declareInOuts(r, inOutSections(frameChain).map((s) => ({ ...s, decls: s.decls.map((d) => ({ ...d, names: d.names.filter((n) => !taken.has(n.text.toUpperCase())) })).filter((d) => d.names.length > 0) })))
+    for (let i = first; i < r.inoutSlots.length; i++) r.inoutSlots[i] = { ...r.inoutSlots[i]!, ofInstance: true }
     // the base's own VAR_TEMP starts over each time `SUPER^()` runs it
     const body = [...(tempResets(r, unit.varSections, unit.span) ?? []), ...lowerBlock(r, parsed.statements)]
     if (r.diagnostics.length > 0) {
@@ -721,6 +772,9 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
   for (const [i, slot] of routine.inouts.entries()) {
     if (slot.ofInstance !== true) continue
     // THIS instance itself — `THIS^.inner.M()` is rooted at THIS too, but runs on a child with in-outs of its own
+    // a parameter or local of this routine by that name hides the FB's in-out — lending it would lend the wrong one (review)
+    if (instance?.root === "this" && instance.path.length === 0 && lw.shadowedInOuts.has(slot.name.toUpperCase()))
+      return lw.bail("call-inout-shadowed", `${routine.name} reaches ${slot.name}, which a parameter or local of the calling routine hides`, call.span)
     const held = instance?.root === "this" && instance.path.length === 0 ? lw.inoutByName.get(slot.name.toUpperCase()) : undefined
     if (held === undefined) outside = true
     else {
@@ -893,6 +947,19 @@ function lowerSuperCall(lw: Lowering, call: Extract<Statement, { kind: "call_stm
     if (value === undefined) return undefined
     const member: Place = { ...instance, path: [{ kind: "field", name: field.name }], type: field.type, span: arg.span }
     before.push({ kind: "assign", target: member, value: convert(value, field.type), span: arg.span })
+  }
+  // A derived in-out the base body takes (`baseBody`) is passed on as itself — SUPER^ cannot name it. Not one a METHOD's own
+  // parameter of that name hides, and never beside an argument already lending it (E0499) — both refused (review).
+  for (const [k, slot] of routine.inouts.entries()) {
+    if (slot.ofInstance !== true || inouts[k] !== undefined) continue
+    const name = slot.name.toUpperCase()
+    if (lw.shadowedInOuts.has(name)) return lw.bail("call-inout-shadowed", `SUPER^ would pass on ${slot.name}, which a parameter or local of this routine hides`, call.span)
+    const found = lw.inoutByName.get(name)
+    if (found === undefined) continue
+    const own: Place = { slot: found, path: [], type: lw.inoutSlots[found]!.type, span: call.span, root: "inout" }
+    if (inouts.some((b) => b !== undefined && !("kind" in b) && aliases(own, b)))
+      return lw.bail("call-inout-alias", `SUPER^ passes on ${slot.name}, which an argument of the same call already lends`, call.span)
+    inouts[k] = own
   }
   if (inouts.includes(undefined)) return lw.bail("call-inout-missing", `SUPER^ called without every VAR_IN_OUT`, call.span)
   // The bounds live on the instance, which the derived body shares: `SUPER^(data := other)` overwrote them, and the derived

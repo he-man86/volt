@@ -568,6 +568,10 @@ END_METHOD
     kind: "program",
     feature: "{attribute 'instance-path'} in an FB instance nested in a PROGRAM that has a METHOD",
     fromDoc: "07-pragmas.md#instance-path",
+    deferred: {
+      transpile:
+        "the path is taken from the project tree, Device.Application.PRG_LANG_pathM.outer.inner — the simulator's reads Device.Sim.Device.Application…, a segment the tree does not hold (user decision 2026-09-15); the program's name once is checked in lower.test.ts",
+    },
     plcPrgVar: "seen : STRING(255);",
     plcPrgBody: "PRG_LANG_pathM();\nseen := PRG_LANG_pathM.outer.inner.sMyPath;",
     source: `PROGRAM PRG_LANG_pathM

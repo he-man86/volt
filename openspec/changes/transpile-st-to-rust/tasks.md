@@ -547,7 +547,10 @@ taken apart by construct before anything is built — record first, then build, 
       and the three lower and match (502 of 526). pro2193's sites stay refused: they are yet another shape — the BASE's
       body, run through the derived body's SUPER^(), calls a METHOD the derived FB overrides, which writes the DERIVED
       FB's own in-out; the SUPER^ body takes only its base chain's in-outs. Recorded next
-      (`callshape_inout_override_from_base_body`, `callshape_inout_override_from_outside_base_method`).
+      (`callshape_inout_override_from_base_body`: 11, `callshape_inout_override_from_outside_base_method`: 21) and built:
+      a METHOD takes the in-outs of its FRAME's chain — the instance's type, not the METHOD's owner — and the SUPER^ body
+      also takes the derived frame's own, which `lowerSuperCall` passes on as themselves. Both lower and match (504 of
+      528), and the corpus has no `call-fb-inout` left; its POUs stay behind other blockers (43 of 304 lower).
 - [x] Conformance fixtures for every shape this phase met only in the test corpus or a src test (user request
       2026-09-15: "so we dont rely on the testcorpus") — each recorded in CODESYS SP21, build and run, and replayed by
       the LSP and both transpiler backends. The LSP's error/warning set matches CODESYS exactly on all but

@@ -391,6 +391,13 @@ describe.skipIf(rustc === null)("emit/rust — compiles", () => {
       // called with, each call storing its tag.
       "PROGRAM LastBinding\nVAR worker : FB_LB; first : INT := 1; second : INT := 100; END_VAR\nworker(shared := first);\nworker.AddTen();\nworker(shared := second);\nworker.AddTen();\nEND_PROGRAM\n" +
         "FUNCTION_BLOCK FB_LB\nVAR_IN_OUT shared : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD AddTen\nshared := shared + 10;\nEND_METHOD\n",
+      // SUPER^ binding the base's in-out to a derived one, the base body calling no override: `profile` was lent twice
+      // (E0499, review of the override build); and the recorded override shape, the base body reaching the derived in-out.
+      "PROGRAM SuperPass\nVAR d : FB_SPD; v : INT := 1; u : INT; o : FB_OVD; w : INT := 1; END_VAR\nd(profile := v, io := u);\no(profile := w);\nEND_PROGRAM\n" +
+        "FUNCTION_BLOCK FB_SPB\nVAR_IN_OUT io : INT; END_VAR\nio := io + 1;\nEND_FUNCTION_BLOCK\n" +
+        "FUNCTION_BLOCK FB_SPD EXTENDS FB_SPB\nVAR_IN_OUT profile : INT; END_VAR\nSUPER^(io := profile);\nEND_FUNCTION_BLOCK\n" +
+        "FUNCTION_BLOCK FB_OVB\nVAR calls : INT; END_VAR\ncalls := calls + 1;\nHook();\nEND_FUNCTION_BLOCK\nMETHOD Hook\n;\nEND_METHOD\n" +
+        "FUNCTION_BLOCK FB_OVD EXTENDS FB_OVB\nVAR_IN_OUT profile : INT; END_VAR\nSUPER^();\nEND_FUNCTION_BLOCK\nMETHOD Hook\nprofile := profile + 10;\nEND_METHOD\n",
       // A root PROGRAM calling its own METHODs and ACTION bare (recorded), lowered as its one instance.
       "PROGRAM PrgOwn\nVAR calls : INT; tidied : INT; doubled : INT; END_VAR\nBump();\nTidy();\ndoubled := Twice(calls);\nEND_PROGRAM\n" +
         "METHOD Bump\ncalls := calls + 1;\nEND_METHOD\nMETHOD Twice : INT\nVAR_INPUT n : INT; END_VAR\nTwice := n * 2;\nEND_METHOD\nACTION Tidy\ntidied := tidied + 100;\nEND_ACTION\n",

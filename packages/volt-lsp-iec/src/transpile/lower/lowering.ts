@@ -155,6 +155,8 @@ export class Lowering {
   /** A `__QUERYINTERFACE` call an IF condition leads with, by its AST node → the hidden BOOL its query was taken into
    *  just before the IF (`queryCondition`); the call reads it where the condition lowers (`lowerBuiltin`). */
   readonly hoistedQueries = new Map<object, IrExpr>()
+  /** The FB in-outs a routine would reach but a parameter or local of its own hides, by upper-cased name (`calls.ts`). */
+  readonly shadowedInOuts = new Set<string>()
 
   /** A name this frame, its parameters or its routine hold — which wins over an enum value of the same name. */
   holds(name: string): boolean {
