@@ -207,6 +207,8 @@ class Lowering {
   frameContext = "POU"
   /** Which routine this body's locals belong to. */
   private routineContext = ""
+  /** How deep in a routine call's arguments this lowering is — a call there is refused (`call-nested`). */
+  private arguments = 0
 
   /**
    * An enum is stored as its base type: the one written after the value list (`) BYTE`), else INT — how a project enum
@@ -215,6 +217,9 @@ class Lowering {
   private enumStorage(t: Extract<Type, { kind: "enum" }>): Type {
     const sym = t.name === "(implicit)" ? undefined : lookup(this.project, t.name)?.symbol
     const body = sym?.kind === "type" ? (sym.ast as TypeDecl).body : undefined
+    // `TYPE E : (A, B) := B` starts every E at B; a variable started at 0 regardless (transpiler review 2026-09-15). The
+    // type's default is not measured, so such an enum is refused rather than started at a guess.
+    if (body?.kind === "enum" && body.init !== undefined) this.bail("enum-default", `${t.name} declares a default value, not modelled yet`, sym!.span)
     if (body?.kind === "enum" && body.baseType !== undefined) return withStringCapacity(this.resolve(body.baseType))
     return elementaryRef("INT")
   }
@@ -295,11 +300,17 @@ class Lowering {
    * A struct's size, alignment and each field's offset: every field aligned to its own alignment, the whole padded to the
    * widest (`b BYTE; i INT; d DINT; x BOOL; l LREAL` is offsets 0/2/4/8/16, size 24). An FB instance also carries a
    * pointer-sized header (`b BYTE; d DINT` is 16), and where it sits is not measured — so an FB has a size but its fields
-   * have no offset. VAR_TEMP and VAR_STAT are not instance storage, and neither are lowering's own temps.
+   * have no offset. VAR_TEMP and VAR_STAT are not instance storage, and neither are lowering's own temps. Undefined for a
+   * derived type (where its base's part and header sit) and an FB with VAR_IN_OUT (the in-out is stored in the instance,
+   * not in `fields`) — neither measured; both were answered as if absent (transpiler review 2026-09-15).
    */
   private fieldBytes(t: Extract<Type, { kind: "struct" | "function_block" }>): { size: bigint; align: bigint; offsets?: Map<string, bigint> } | undefined {
     const layout = this.layouts.get(t.name.toUpperCase())
     if (layout === undefined) return undefined
+    const pending = this.bodies.get(t.name.toUpperCase())
+    if (pending !== undefined && (baseOf(pending.unit) !== undefined || pending.unit.varSections.some((s) => s.sectionKind === "VAR_IN_OUT"))) return undefined
+    const decl = t.kind === "struct" ? lookup(this.project, t.name)?.symbol.ast : undefined
+    if (decl?.kind === "type_decl" && decl.body.kind === "struct" && decl.body.extends !== undefined) return undefined
     const isFb = t.kind === "function_block"
     let offset = isFb ? 8n : 0n
     let align = isFb ? 8n : 1n
@@ -660,6 +671,10 @@ class Lowering {
    * takes its initial value is not measured.
    */
   private invoke(call: Extract<Expr, { kind: "call" }>): IrInvoke | undefined {
+    // `a.M(k := b.M(k := 1))` prints the inner call as an argument of the outer one: two `&mut g` at once, or two of `a`
+    // for `a.M(k := a.M(…))` — E0499 (transpiler review 2026-09-15, compiled). Hoisting the inner call would move it ahead
+    // of the operands read before it, an evaluation order not measured — so it is refused.
+    if (this.arguments > 0) return this.bail("call-nested", "a METHOD, ACTION or FUNCTION called inside another call's arguments", call.span)
     const callee = call.callee
     let routine: IrRoutine | undefined
     let instance: Place | undefined
@@ -697,11 +712,11 @@ class Lowering {
         const name = arg.param.name.toUpperCase()
         const inout = routine.inouts.findIndex((p) => p.name.toUpperCase() === name)
         if (inout >= 0) {
-          const written = this.place(arg.value)
+          const written = this.inArgument(() => this.place(arg.value!))
           const target = written === undefined ? undefined : this.through(written, arg.span)
           if (target === undefined) return undefined
-          if (instance !== undefined && target.slot === instance.slot && target.root === instance.root)
-            return this.bail("call-inout-alias", `${arg.param.name} is bound to a variable of the instance it calls`, arg.span)
+          if ((instance !== undefined && aliases(target, instance)) || inouts.some((p) => p !== undefined && aliases(target, p)))
+            return this.bail("call-inout-alias", `${arg.param.name} is bound to a variable the call already holds`, arg.span)
           if (target.path.some((s) => s.kind === "bit")) return this.bail("call-inout-bit", `${arg.param.name} is bound to a bit`, arg.span)
           // every body is handed the globals as one `&mut`, so a VAR_IN_OUT into them would be a second borrow of the same place
           if (target.root === "global") return this.bail("call-inout-global", `${arg.param.name} is bound to a global variable`, arg.span)
@@ -712,7 +727,7 @@ class Lowering {
         if (k < 0) return this.bail("call-param", `${arg.param.name} is not an input of ${routine.name}`, arg.span)
       }
       const slot = routine.locals[routine.inputs[k]!]!
-      const value = this.expr(arg.value, slot.type)
+      const value = this.inArgument(() => this.expr(arg.value!, slot.type))
       if (value === undefined) return undefined
       inputs[k] = convert(value, slot.type)
     }
@@ -720,6 +735,13 @@ class Lowering {
     if (inouts.includes(undefined)) return this.bail("call-inout-missing", `${routine.name} called without every VAR_IN_OUT`, call.span)
     const type = routine.result === undefined ? UNKNOWN : routine.locals[routine.result]!.type
     return { kind: "invoke", routine: routine.key, ...(instance === undefined ? {} : { instance }), inputs: inputs as IrExpr[], inouts: inouts as Place[], type, span: call.span }
+  }
+
+  private inArgument<T>(lower: () => T): T {
+    this.arguments++
+    const lowered = lower()
+    this.arguments--
+    return lowered
   }
 
   /** A base type's fields, first in this frame — so a field's index here is its index in the layout. */
@@ -840,8 +862,8 @@ class Lowering {
         const target = written === undefined ? undefined : this.through(written, arg.span)
         if (target === undefined) return undefined
         // two `&mut` into one place do not exist in Rust — the handle form (design §9 form 3) is for later
-        if (target.slot === instance.slot && target.root === instance.root)
-          return this.bail("call-inout-alias", `${arg.param.name} is bound to a variable of the instance it calls`, arg.span)
+        if (aliases(target, instance) || [...bound.values()].some((p) => aliases(target, p)))
+          return this.bail("call-inout-alias", `${arg.param.name} is bound to a variable the call already holds`, arg.span)
         if (target.path.some((s) => s.kind === "bit")) return this.bail("call-inout-bit", `${arg.param.name} is bound to a bit`, arg.span)
         // every body is handed the globals as one `&mut`, so a VAR_IN_OUT into them would be a second borrow of the same place
         if (target.root === "global") return this.bail("call-inout-global", `${arg.param.name} is bound to a global variable`, arg.span)
@@ -1856,6 +1878,17 @@ function cast(e: IrExpr, to: Type): IrExpr {
 /** A binary node of a type the caller states — pointer arithmetic, where no operator typing applies. */
 function binaryOf(op: IrBinOp, left: IrExpr, right: IrExpr, type: Type, span: Span): IrExpr {
   return { kind: "binary", op, left, right, type, span }
+}
+
+/**
+ * Two places one call cannot hold as two `&mut`: the same root variable, whatever the path within it — or, through THIS^,
+ * the instance and anything of its own. Only the instance was compared, by slot and root, so two VAR_IN_OUT bound to one
+ * variable, or `THIS^.M(v := n)` with `n` a field of that FB, printed a double borrow (transpiler review 2026-09-15).
+ */
+function aliases(a: Place, b: Place): boolean {
+  const own = (p: Place) => p.root === "this" || p.root === undefined
+  if (a.root === "this" || b.root === "this") return own(a) && own(b)
+  return a.slot === b.slot && a.root === b.root
 }
 
 /** Two stored types that are the same: one elementary type (and capacity), one struct or FB, or arrays of the same bounds

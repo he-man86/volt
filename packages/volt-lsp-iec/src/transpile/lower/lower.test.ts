@@ -249,6 +249,45 @@ END_PROGRAM
     expect(code("gInst.M();")).toEqual(["call-global-instance"])
   })
 
+  // Transpiler review 2026-09-15. Why missed: the in-out tests bound ONE VAR_IN_OUT per call, and the alias test compared
+  // it with the called instance only — never two parameters on one variable, never a METHOD reached through THIS^.
+  test("a VAR_IN_OUT is refused when the call already holds its variable — through another in-out, or through THIS^", () => {
+    const code = (source: string) => lowerSource(source, "P").diagnostics.map((d) => d.code)
+    const two = "FUNCTION_BLOCK FB_Two\nVAR_IN_OUT a : INT; b : INT; END_VAR\na := b;\nEND_FUNCTION_BLOCK\n"
+    expect(code(`PROGRAM P\nVAR pair : FB_Two; n : INT; m : INT; END_VAR\npair(a := n, b := n);\nEND_PROGRAM\n${two}`)).toEqual(["call-inout-alias"])
+    expect(code(`PROGRAM P\nVAR pair : FB_Two; n : INT; m : INT; END_VAR\npair(a := n, b := m);\nEND_PROGRAM\n${two}`)).toEqual([])
+    const self = "FUNCTION_BLOCK FB_S\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Store\nVAR_IN_OUT dest : INT; END_VAR\ndest := 1;\nEND_METHOD\nMETHOD Outer\nTHIS^.Store(dest := n);\nEND_METHOD\n"
+    expect(code(`PROGRAM P\nVAR s : FB_S; END_VAR\ns.Outer();\nEND_PROGRAM\n${self}`)).toContain("call-inout-alias")
+  })
+
+  // Transpiler review 2026-09-15. Why missed: every call test passed constants or variables as arguments; the crate check
+  // never held a call inside a call, where the printed Rust borrows `g` (or the one instance) twice.
+  test("a routine called inside another call's arguments is refused", () => {
+    const fb = "FUNCTION_BLOCK FB_B\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD M : INT\nVAR_INPUT k : INT; END_VAR\nn := n + k;\nM := n;\nEND_METHOD\nFUNCTION F : INT\nVAR_INPUT k : INT; END_VAR\nF := k;\nEND_FUNCTION\n"
+    const code = (body: string) => lowerSource(`PROGRAM P\nVAR a : FB_B; n : INT; END_VAR\n${body}\nEND_PROGRAM\n${fb}`, "P").diagnostics.map((d) => d.code)
+    expect(code("n := a.M(k := a.M(k := 1));")).toEqual(["call-nested"])
+    expect(code("n := F(k := F(k := 1));")).toEqual(["call-nested"])
+    expect(code("n := a.M(k := 1) + F(k := 2);")).toEqual([]) // side by side is not nested
+  })
+
+  // Transpiler review 2026-09-15. Why missed: the SIZEOF fixtures are a plain struct and an FB of plain variables; the
+  // layout of a derived type or of an FB's VAR_IN_OUT was never recorded, and nothing asked for it.
+  test("SIZEOF of a derived type or of an FB with VAR_IN_OUT is refused — neither layout is measured", () => {
+    const types = "TYPE T_Base : STRUCT a : INT; END_STRUCT END_TYPE\nTYPE T_Derived EXTENDS T_Base : STRUCT b : INT; END_STRUCT END_TYPE\nFUNCTION_BLOCK FB_Io\nVAR_IN_OUT v : INT; END_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_Base\nVAR a : INT; END_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_Derived EXTENDS FB_Base\nVAR b : INT; END_VAR\nEND_FUNCTION_BLOCK\n"
+    const code = (arg: string) => lowerSource(`PROGRAM P\nVAR n : ULINT; END_VAR\nn := SIZEOF(${arg});\nEND_PROGRAM\n${types}`, "P").diagnostics.map((d) => d.code)
+    expect(code("T_Derived")).toEqual(["sizeof-unmeasured"])
+    expect(code("FB_Io")).toEqual(["sizeof-unmeasured"])
+    expect(code("FB_Derived")).toEqual(["sizeof-unmeasured"])
+    expect(code("T_Base")).toEqual([])
+  })
+
+  // Transpiler review 2026-09-15. Why missed: the enum fixtures number values and store them; none declares the TYPE's
+  // own default (`:= B` after the list), which no code read.
+  test("an enum type with a default value is refused — a variable of it would start at 0", () => {
+    const { diagnostics } = lowerSource("PROGRAM P\nVAR m : E_D; END_VAR\nm := m;\nEND_PROGRAM\nTYPE E_D : (Idle, Busy) := Busy; END_TYPE\n", "P")
+    expect(diagnostics.map((d) => d.code)).toContain("enum-default")
+  })
+
   test("an initializer that does not fold is reported, never silently dropped", () => {
     // It was dropped: the slot started at its default with no diagnostic — which is how every STRING slot lost its
     // initial value (constEval folds no strings) while each string case still "lowered".

@@ -152,6 +152,16 @@ describe("emit/rust", () => {
     expect(code).toContain("self.adder.call(&mut self.n);")
   })
 
+  test("BOOL AND/OR print Rust's eager `&`/`|`; only AND_THEN/OR_ELSE short-circuit", () => {
+    // Why missed (transpiler review 2026-09-15): the golden and crate sources used AND_THEN, or AND on operands without
+    // a call, where `&&` and `&` give one answer — the interpreter's both-sides evaluation was never compared.
+    const { pou, diagnostics } = lowerSource("PROGRAM Eager\nVAR a : BOOL; b : BOOL; c : BOOL; d : BOOL; END_VAR\nc := a AND b;\nd := a OR_ELSE b;\nEND_PROGRAM\n", "Eager")
+    expect(diagnostics).toEqual([])
+    const code = emitRust(pou!).code
+    expect(code).toContain("self.c = (self.a & self.b);")
+    expect(code).toContain("self.d = (self.a || self.b);")
+  })
+
   test("ST names become snake_case fields", () => {
     expect(["iCount", "MaxCount", "PLC_Ready", "x"].map(snake)).toEqual(["i_count", "max_count", "plc_ready", "x"])
   })
@@ -221,7 +231,8 @@ describe("emit/rust", () => {
     expect(code).toContain("(self.b as i32).wrapping_shl((self.n as u32))") // promoted, then Rust's own mask
     expect(code).toContain("self.b.rotate_left((self.n as u32))") // the BYTE's own width
     expect(code).toContain("(((self.w >> 3) & 1) != 0)")
-    expect(code).toContain("self.i = if self.x { self.i | (1i16 << 15) } else { self.i & !(1i16 << 15) };")
+    // the place named once (review 2026-09-15: printed on both sides, a call in its index ran twice)
+    expect(code).toContain("{ let v = self.x; let w = &mut self.i; *w = if v { *w | (1i16 << 15) } else { *w & !(1i16 << 15) }; }")
     expect(code).toContain("_ => ") // out-of-range K picks the last input
   })
 

@@ -8,9 +8,10 @@
  *
  * Two things are not cosmetic:
  *
- * **No Rust references.** A POU is one flat `struct` of slots, and its body is `fn scan(&mut self)`. When
- * pointers and VAR_IN_OUT arrive they become slot INDICES into that same struct, never `&mut` — see
- * `ir.ts` for why borrowck is a fight this design declines to have.
+ * **Safe Rust, three forms of memory** (design §9). A POU, struct or FB is one owned `struct`, its body
+ * `fn scan(&mut self)`; GVL variables are a `Globals` struct handed in as `g`, called PROGRAMs a `Programs` as `prg`. A
+ * VAR_IN_OUT, which never outlives its call, is a `&mut` parameter; a POINTER or REFERENCE is a `usize` naming its one
+ * target (0 is null), checked at every dereference. Lowering refuses whatever would need two `&mut` at once.
  *
  * **Deterministic numerics.** IEC integers wrap at their declared width, so arithmetic emits `wrapping_*`
  * rather than Rust's overflow-panicking defaults. The width comes from `types/elementary`, the same facts the
@@ -388,10 +389,9 @@ class Printer {
         const infix = INFIX[e.op]
         if (infix !== undefined) return `(${l} ${infix} ${r})`
         const isBool = e.type.kind === "elementary" && e.type.elem.family === "bool"
-        if (e.op === "and" || e.op === "or" || e.op === "xor") {
-          const op = e.op === "and" ? "&" : e.op === "or" ? "|" : "^"
-          return `(${l} ${isBool && op !== "^" ? op.repeat(2) : op} ${r})`
-        }
+        // Rust's `&`/`|` on bool evaluate both sides, as AND/OR do in the interpreter; `&&`/`||` are AND_THEN/OR_ELSE.
+        // BOOL AND printed `&&`, so a call on the right ran in one backend and not the other (transpiler review 2026-09-15).
+        if (e.op === "and" || e.op === "or" || e.op === "xor") return `(${l} ${e.op === "and" ? "&" : e.op === "or" ? "|" : "^"} ${r})`
         const wrapping = WRAPPING[e.op]
         const isReal = e.type.kind === "elementary" && e.type.elem.family === "real"
         if (wrapping !== undefined && !isReal) return `${l}.wrapping_${wrapping}(${r})`
@@ -419,9 +419,11 @@ class Printer {
           this.push(`${field} = ${this.expr(s.value, slots)};`, indent, s.span)
           return
         }
-        // a typed one — `1i16 << 15` is -32768, exactly the two's complement bit the IDE sets
+        // a typed one — `1i16 << 15` is -32768, exactly the two's complement bit the IDE sets. The place is named once,
+        // through one `&mut`: printed on both sides, an index holding a call ran that call twice (transpiler review
+        // 2026-09-15). The value first, as a plain `place = value` evaluates it.
         const one = `(1${rustType(bit.of)} << ${bit.index})`
-        this.push(`${field} = if ${this.expr(s.value, slots)} { ${field} | ${one} } else { ${field} & !${one} };`, indent, s.span)
+        this.push(`{ let v = ${this.expr(s.value, slots)}; let w = &mut ${field}; *w = if v { *w | ${one} } else { *w & !${one} }; }`, indent, s.span)
         return
       }
       case "if": {
