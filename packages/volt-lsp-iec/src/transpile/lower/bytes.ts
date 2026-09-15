@@ -63,6 +63,11 @@ export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "fu
   if (pending !== undefined && (baseOf(pending.unit) !== undefined || pending.unit.varSections.some((s) => s.sectionKind === "VAR_IN_OUT"))) return undefined
   const decl = t.kind === "struct" ? lookup(lw.project, t.name)?.symbol.ast : undefined
   if (decl?.kind === "type_decl" && decl.body.kind === "struct" && decl.body.extends !== undefined) return undefined
+  // A METHOD's VAR_INST is storage in the instance, laid out as a field only once the method lowers — where it sits is not
+  // measured, and a SIZEOF taken before and after that call would differ. Refused while any method of the FB declares one.
+  for (let s = t.kind === "function_block" ? t.scope : undefined; s !== undefined; s = s.baseScope)
+    for (const list of s.symbols.values())
+      if (list.some((sym) => sym.kind === "method" && (sym.ast as { varSections?: readonly { sectionKind: string }[] }).varSections?.some((v) => v.sectionKind === "VAR_INST"))) return undefined
   const isFb = t.kind === "function_block"
   let offset = isFb ? 8n : 0n
   let align = isFb ? 8n : 1n

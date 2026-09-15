@@ -301,6 +301,16 @@ END_PROGRAM
     expect(code(`PROGRAM P\nVAR x : FB_Plain; END_VAR\nx();\nEND_PROGRAM\n${plain}`)).toEqual(["call-super"])
   })
 
+  // A METHOD's VAR_INST becomes a field when the method lowers — so a SIZEOF taken before that call and one after would
+  // differ, and where CODESYS lays the variable out is not measured.
+  test("SIZEOF of an FB whose METHOD has VAR_INST is refused", () => {
+    const { diagnostics } = lowerSource(
+      "PROGRAM P\nVAR n : ULINT; END_VAR\nn := SIZEOF(FB_K);\nEND_PROGRAM\nFUNCTION_BLOCK FB_K\nVAR x : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Tick\nVAR_INST kept : INT; END_VAR\nkept := kept + 1;\nEND_METHOD\n",
+      "P",
+    )
+    expect(diagnostics.map((d) => d.code)).toEqual(["sizeof-unmeasured"])
+  })
+
   test("an FB with VAR_IN_OUT lowered on its own is refused — only a caller binds its in-out", () => {
     const { diagnostics } = lowerSource("FUNCTION_BLOCK FB_Io\nVAR_IN_OUT v : INT; END_VAR\nv := v + 1;\nEND_FUNCTION_BLOCK\n", "FB_Io")
     expect(diagnostics.map((d) => d.code)).toEqual(["root-inout"])

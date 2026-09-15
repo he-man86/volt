@@ -10,7 +10,7 @@ import { foldConstant } from "./constants.js"
 import { lowerPlace } from "./places.js"
 import { bindReference, pointeePlace, storePointer, through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
-import { lowerCallStatement } from "./calls.js"
+import { lowerCallStatement, lowerPropertySet } from "./calls.js"
 
 export function lowerBlock(lw: Lowering, list: StatementList): IrStmt[] {
   const out: IrStmt[] = []
@@ -64,6 +64,9 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
     case "empty":
       return undefined
     case "assign": {
+      // a PROPERTY's setter (conformance `state_property_get_set`)
+      const property = lowerPropertySet(lw, s)
+      if (property !== null) return property
       if (s.chained !== undefined) return lowerChain(lw, s)
       if (s.op === "REF=") return bindReference(lw, s)
       const target = lowerPlace(lw, s.target)

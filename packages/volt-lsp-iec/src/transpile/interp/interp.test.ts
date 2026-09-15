@@ -760,6 +760,79 @@ END_METHOD`,
     expect([pou.get("viaSuper.inBase"), pou.get("viaSuper.nBase"), pou.get("viaSuper.hookDerived"), pou.get("viaSuper.hookBase")]).toEqual([105n, 1n, 1n, 1n])
   })
 
+  // Phase 3½, the rules the `state_*` recordings measured: a METHOD's VAR_INST is kept per instance from its initial value,
+  // its VAR_STAT is one variable for every instance, and `a := ,` assigns nothing.
+  test("VAR_INST per instance, VAR_STAT shared by every instance, and an empty argument that assigns nothing", () => {
+    const pou = load(
+      `PROGRAM P
+VAR one : FB_T; two : FB_T; first : INT; other : INT; sOne : INT; sTwo : INT; inst : FB_E; got : INT; END_VAR
+first := one.Tick();
+first := one.Tick();
+other := two.Tick();
+sOne := one.Shared();
+sTwo := two.Shared();
+inst(a := 100, b := 1);
+inst(a := , b := 2, sum => got);
+END_PROGRAM
+FUNCTION_BLOCK FB_T
+VAR x : INT; END_VAR
+END_FUNCTION_BLOCK
+METHOD Tick : INT
+VAR_INST ticks : INT := 10; END_VAR
+ticks := ticks + 1;
+Tick := ticks;
+END_METHOD
+METHOD Shared : INT
+VAR_STAT count : INT := 10; END_VAR
+count := count + 1;
+Shared := count;
+END_METHOD
+FUNCTION_BLOCK FB_E
+VAR_INPUT a : INT := 7; b : INT; END_VAR
+VAR_OUTPUT sum : INT; END_VAR
+sum := a + b;
+END_FUNCTION_BLOCK`,
+      "P",
+    )
+    pou.scan()
+    expect([pou.get("first"), pou.get("other"), pou.get("sOne"), pou.get("sTwo"), pou.get("got")]).toEqual([12n, 11n, 11n, 12n, 102n])
+  })
+
+  // `state_property_get_set`: set 3 → stored 4; the body's bare read gets 8; `THIS^.Level := THIS^.Level + 5` stores 14;
+  // two reads in one expression run the getter twice; its VAR starts over each call, so `gets` counts the calls.
+  test("a PROPERTY: the getter per read with its VAR started over, a set after its value — bare, THIS^ and dot", () => {
+    const pou = load(
+      `PROGRAM P
+VAR inst : FB_STATE_prop; twice : INT; END_VAR
+inst.Level := 3;
+inst();
+inst.Bump();
+twice := inst.Level + inst.Level;
+END_PROGRAM
+FUNCTION_BLOCK FB_STATE_prop
+VAR stored : INT; gets : INT; inside : INT; END_VAR
+inside := Level;
+END_FUNCTION_BLOCK
+METHOD Bump
+THIS^.Level := THIS^.Level + 5;
+END_METHOD
+PROPERTY Level : INT
+GET
+VAR scratch : INT; END_VAR
+scratch := scratch + 1;
+gets := gets + scratch;
+Level := stored * 2;
+END_GET
+SET
+stored := Level + 1;
+END_SET
+END_PROPERTY`,
+      "P",
+    )
+    pou.scan()
+    expect([pou.get("inst.stored"), pou.get("inst.gets"), pou.get("inst.inside"), pou.get("twice")]).toEqual([14n, 4n, 8n, 56n])
+  })
+
   // Phase 3½: the corpus lowers every FB on its own. Lowered as if it were a PROGRAM, it had no THIS^, no base and no
   // SUPER^ — so this is the shape 128 corpus FBs stopped at.
   test("an FB lowered on its own is one instance of itself, called each scan — its base, SUPER^ and methods included", () => {

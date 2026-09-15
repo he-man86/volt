@@ -344,6 +344,18 @@ taken apart by construct before anything is built — record first, then build, 
       list's variables are keyed by the list, so two lists may each hold a `gX`. The replay gave every GVL the file name
       `source` (all fixtures folded into one text); each GVL fixture is now a file named by its pouName, as the recorder
       loads it as an object of that name.
+- [x] **Routine state and call edges** (`fixtures/routine-state.ts`, recorded 2026-09-15). DONE — conformance cases
+      lowering 362 → 371 of 399, corpus POUs with a body 34 → 37. A METHOD's VAR_INST is kept per instance from its
+      initial value (a field of the instance, named for the method that declares it, so `inst.M()` and `SUPER^.M()`
+      share it); its VAR_STAT is one variable for every instance (a global); a PROPERTY getter runs once per read with its
+      VAR started over, and a set computes its value into a temp before the setter runs (a getter inside it would
+      otherwise be a call in the setter's arguments); `inst(a := , b := 2)` assigns nothing to `a`. SIZEOF of an FB
+      whose method has VAR_INST is refused — the field appears when the method lowers, and its place is not measured.
+- [ ] **A PROGRAM called from an FB body** (60 corpus POUs) — recorded (`state_program_called_from_fb`: the one
+      instance PLC_PRG calls), not built. Rust holds program instances in `Programs`, handed only to the POU's own
+      `scan`; an FB body would need them too, and a program body calling on would borrow them twice. The likely shape:
+      every body takes `prg`, and a program call moves its instance out and back (`mem::replace`), with a lowering guard
+      against re-entering a body still being lowered.
 - [x] **An FB lowered on its own is one instance of itself**, called each scan — so THIS^, its bases, SUPER^ and its
       methods exist, as for a called instance; it had been lowered as if it were a PROGRAM. Corpus POUs with a body
       lowering **24 → 34 of 304**. Declaration-only POUs lowering fell 2972 → 1801, and a per-POU diff against the

@@ -109,6 +109,9 @@ export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): P
   // a routine's own local (its result, inputs and VAR) shadows the instance's field of the same name
   const local = lw.localByName.get(e.name.toUpperCase())
   if (local !== undefined) return { slot: local, path: [], type: lw.localSlots[local]!.type, span: e.span, root: "local" }
+  // a METHOD's VAR_STAT: one global, named for the method that declares it (conformance `state_var_stat_two_instances`)
+  const stat = lw.statics.get(e.name.toUpperCase())
+  if (stat !== undefined) return { slot: stat, path: [], type: lw.shared.globals.slots[stat]!.type, span: e.span, root: "global" }
   const slot = lw.byName.get(e.name.toUpperCase())
   const inout = lw.inoutByName.get(e.name.toUpperCase())
   if (slot === undefined && inout !== undefined)

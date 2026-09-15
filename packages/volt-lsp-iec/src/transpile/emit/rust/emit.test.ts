@@ -3,7 +3,6 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { emitRust, rustType, snake } from "./emit.js"
-import { STRING_PRELUDE } from "./prelude.js"
 import { lowerSource } from "../../lower/index.js"
 
 function rust(src: string): string {
@@ -315,22 +314,22 @@ describe.skipIf(rustc === null)("emit/rust — compiles", () => {
       // through a pointer to an instance, a reference bound with REF= and read and written, a null comparison.
       "PROGRAM Pointers\nVAR iValue : INT := 7; pInt : POINTER TO INT; arr : ARRAY[0..4] OF T_P; p : POINTER TO T_P; q : POINTER TO T_P; inst : FB_P; pInst : POINTER TO FB_P; target : INT; r : REFERENCE TO INT; ok : BOOL; n : INT; END_VAR\npInt := ADR(iValue);\nn := pInt^;\np := ADR(arr[1]);\nq := p + SIZEOF(T_P);\np[2].x := q^.x;\npInst := ADR(inst);\npInst^.Bump();\nr REF= target;\nr := r + 1;\nok := __ISVALIDREF(r) AND (pInt <> 0);\nEND_PROGRAM\nTYPE T_P : STRUCT x : INT; y : REAL; END_STRUCT END_TYPE\nFUNCTION_BLOCK FB_P\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Bump\nn := n + 1;\nEND_METHOD\n",
       "PROGRAM RoutineCalls\nVAR inst : FB_R; got : INT; sink : INT; END_VAR\ngot := inst.Sum(upto := 4) + F_Twice(3);\ninst.Reset();\ninst.Store(dest := sink);\nEND_PROGRAM\nFUNCTION_BLOCK FB_R\nVAR total : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Sum : INT\nVAR_INPUT upto : INT; END_VAR\nVAR i : INT; END_VAR\nFOR i := 1 TO upto DO\n  Sum := Sum + i;\n  IF Sum > 100 THEN RETURN; END_IF\nEND_FOR\ntotal := Sum;\nEND_METHOD\nACTION Reset\ntotal := 0;\nEND_ACTION\nMETHOD Store\nVAR_IN_OUT dest : INT; END_VAR\ndest := total;\nEND_METHOD\nFUNCTION F_Twice : INT\nVAR_INPUT x : INT; END_VAR\nF_Twice := x * 2;\nEND_FUNCTION\n",
+      // Routine state (phase 3½): a METHOD's VAR_INST as a field and VAR_STAT as a global, a PROPERTY set from its own
+      // getter through a temp (never a call inside the setter's arguments), and an argument left empty.
+      "PROGRAM State\nVAR one : FB_SK; got : INT; seen : INT; END_VAR\ngot := one.Tick();\none.Level := one.Level + 1;\nseen := one.Level;\none(a := , b := 2);\nEND_PROGRAM\nFUNCTION_BLOCK FB_SK\nVAR_INPUT a : INT; b : INT; END_VAR\nVAR stored : INT; END_VAR\nstored := stored + a + b;\nEND_FUNCTION_BLOCK\nMETHOD Tick : INT\nVAR_INST ticks : INT := 10; END_VAR\nVAR_STAT shared : INT; END_VAR\nticks := ticks + 1;\nshared := shared + 1;\nTick := ticks + shared;\nEND_METHOD\nPROPERTY Level : INT\nGET\nLevel := stored;\nEND_GET\nSET\nstored := Level;\nEND_SET\nEND_PROPERTY\n",
       // Inheritance (phase 3½): a derived FB with inherited fields and VAR_IN_OUT, `SUPER^(…)` passing the in-out on, a
       // base body calling the override bare, and `SUPER^.M()` — each base routine an `fn` of the derived FB's `impl`.
       "PROGRAM Inherit\nVAR plain : FB_ID; viaSuper : FB_IS; shared : INT; END_VAR\nplain(inBase := 7, io := shared);\nviaSuper(inBase := 5, io := shared);\nEND_PROGRAM\nFUNCTION_BLOCK FB_IB\nVAR_INPUT inBase : INT; END_VAR\nVAR_IN_OUT io : INT; END_VAR\nVAR nBase : INT; END_VAR\nnBase := nBase + 1;\nio := io + inBase;\nHook();\nEND_FUNCTION_BLOCK\nMETHOD Hook\nnBase := nBase + 10;\nEND_METHOD\nFUNCTION_BLOCK FB_ID EXTENDS FB_IB\nVAR nDerived : INT; END_VAR\nnDerived := nDerived + inBase;\nio := io + 1;\nEND_FUNCTION_BLOCK\nMETHOD Hook\nnDerived := 0;\nEND_METHOD\nFUNCTION_BLOCK FB_IS EXTENDS FB_IB\nSUPER^(inBase := inBase + 100, io := io);\nSUPER^.Hook();\nEND_FUNCTION_BLOCK\nMETHOD Hook\nnBase := nBase - 1;\nEND_METHOD\n",
     ]
     const len = { uri: "Library Manager/Standard/LEN.fun", source: "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\nEND_FUNCTION\n" }
-    // Each POU's output carries the string prelude when it holds a string (emit.ts's ponytail note) — one crate of several
-    // POUs keeps the first copy only.
-    let preluded = false
+    // Each POU's output is emitted on its own — its string prelude and its `Globals` with it (emit.ts's ponytail notes) — so
+    // each goes into a module of its own. One flat crate kept the first prelude only, and broke the moment a second POU
+    // owned globals: two `struct Globals` (E0428), a collision of the test's namespace, not of any one POU's Rust.
     const crate = sources
-      .map((src) => {
+      .map((src, i) => {
         const { pou, diagnostics } = lowerSource(src, undefined, [len])
         expect(diagnostics).toEqual([])
-        const code = emitRust(pou!).code
-        if (!code.startsWith(STRING_PRELUDE)) return code
-        if (!preluded) return (preluded = true), code
-        return code.slice(STRING_PRELUDE.length)
+        return `pub mod pou_${i} {\n${emitRust(pou!).code}\n}`
       })
       .join("\n")
 

@@ -29,6 +29,7 @@ import { lowerPlace } from "./places.js"
 import { loadValue } from "./pointers.js"
 import { adrDifference } from "./bytes.js"
 import { lowerBuiltin } from "./builtins.js"
+import { lowerPropertyGet } from "./calls.js"
 
 /** ST binary operators → IR opcodes. A name a backend never has to interpret. `**` and `&` are absent on purpose: the
  *  parser accepts them (the LSP reports them), but neither is an operator in CODESYS, so they reach `binary-op`. */
@@ -91,6 +92,9 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
       return retype({ kind: "const", value: typeof v === "object" ? v.ns : v, type, span: e.span }, type)
     }
     case "ident_expr": {
+      // `P` bare inside an FB, when P is its PROPERTY: the getter (conformance `state_property_get_set`)
+      const property = lowerPropertyGet(lw, e)
+      if (property !== null) return property
       const enumValue = lw.holds(e.name) ? undefined : enumConstant(lw, e)
       if (enumValue !== undefined) return enumValue
       const place = lowerPlace(lw, e)
@@ -192,6 +196,9 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
     case "index": {
       const enumValue = e.kind === "member" ? enumConstant(lw, e) : undefined
       if (enumValue !== undefined) return enumValue
+      // `inst.P` / `THIS^.P` on a PROPERTY: its getter, run on the instance
+      const property = e.kind === "member" ? lowerPropertyGet(lw, e) : null
+      if (property !== null) return property
       const place = lowerPlace(lw, e, e.kind === "member" ? "expr-member" : "expr-index")
       if (place === undefined) return undefined
       if (place.type === UNKNOWN) return lw.bail("type-unknown", "the type of a member is not resolvable", e.span)

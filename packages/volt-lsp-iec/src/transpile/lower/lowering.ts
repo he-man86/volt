@@ -94,10 +94,13 @@ export class Lowering {
 
   // ─── pointers and references (design §9 form 1) ────────────────────────────
 
+  /** A routine's VAR_STAT names → the global slot each is (one per declaring METHOD, shared by every instance). */
+  readonly statics = new Map<string, number>()
+
   /** A name this frame, its parameters or its routine hold — which wins over an enum value of the same name. */
   holds(name: string): boolean {
     const upper = name.toUpperCase()
-    return this.localByName.has(upper) || this.byName.has(upper) || this.inoutByName.has(upper)
+    return this.localByName.has(upper) || this.statics.has(upper) || this.byName.has(upper) || this.inoutByName.has(upper)
   }
 
   constructor(
