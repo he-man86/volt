@@ -25,7 +25,13 @@ export function pointerKey(lw: Lowering, p: Place): string | undefined {
 
 /** Record `target` as the pointer's one target — refused when another was recorded, or when the pointer outlives it. */
 export function recordTarget(lw: Lowering, key: string, target: PointerTarget, span: Span): boolean {
-  const outlives = !key.startsWith("ROUTINE:") && (target.base.root === "local" || target.base.root === "inout")
+  // An FB body's own field pointing into its VAR_IN_OUT (conformance `mem_adr_of_inout_member`) names the variable the
+  // caller bound for THIS call — exact wherever the body stored it on this run. Read anywhere else (a method, the caller,
+  // this body before the store) it would follow the next binding where CODESYS follows the stale address, which is
+  // unmeasured: `pointeePlace` refuses those.
+  const scoped = target.base.root === "inout" && lw.frameContext.startsWith("FB:") && !lw.routineMode && key.startsWith(`${lw.frameContext}.`)
+  if (scoped) target = { ...target, scopedTo: lw }
+  const outlives = !key.startsWith("ROUTINE:") && (target.base.root === "local" || (target.base.root === "inout" && !scoped))
   if (outlives || (key.startsWith("GLOBAL.") && target.base.root !== "global")) {
     lw.bail("pointer-outlives", "a pointer that outlives the variable it points at", span)
     return false
@@ -103,6 +109,8 @@ export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undef
   const key = pointerKey(lw, pointer)
   const target = key === undefined ? undefined : lw.shared.pointers.get(key)
   if (target === undefined) return lw.bail("pointer-order", "a dereference of a pointer no address was stored into before it", span)
+  if (target.scopedTo !== undefined && (target.scopedTo !== lw || !lw.boundPointers.has(key!)))
+    return lw.bail("pointer-outlives", "a pointer into a VAR_IN_OUT dereferenced outside the run of the body that stored it", span)
   if (target.element === undefined) {
     if (extra !== undefined) return lw.bail("pointer-index", "an index on a pointer to a single variable", span)
     return { ...target.base, guard: pointer, span }
@@ -122,6 +130,7 @@ export function storePointer(lw: Lowering, target: Place, value: Expr, span: Spa
   const stored = pointerValue(lw, value, target.type)
   if (stored === undefined) return undefined
   if (stored.target !== undefined && !recordTarget(lw, key, stored.target, span)) return undefined
+  if (lw.conditional === 0) lw.boundPointers.add(key)
   return { kind: "assign", target, value: stored.value, span }
 }
 
@@ -133,6 +142,7 @@ export function bindReference(lw: Lowering, s: Extract<Statement, { kind: "assig
   if (key === undefined) return lw.bail("assign-op", "REF= into something that is not a tracked reference", s.span)
   const address = addressOf(lw, s.value, target.type, s.span)
   if (address === undefined || !recordTarget(lw, key, address.target, s.span)) return undefined
+  if (lw.conditional === 0) lw.boundPointers.add(key)
   return { kind: "assign", target, value: address.value, span: s.span }
 }
 

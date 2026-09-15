@@ -15,7 +15,11 @@ import { lowerCallStatement, lowerPropertySet } from "./calls.js"
 export function lowerBlock(lw: Lowering, list: StatementList): IrStmt[] {
   const out: IrStmt[] = []
   for (const s of list) {
+    // a statement inside another runs only sometimes — a pointer it stores is not stored for what follows (`recordTarget`)
+    const nests = s.kind === "if" || s.kind === "case" || s.kind === "for" || s.kind === "while" || s.kind === "repeat"
+    if (nests) lw.conditional++
     const lowered = lowerStmt(lw, s)
+    if (nests) lw.conditional--
     if (Array.isArray(lowered)) out.push(...lowered)
     else if (lowered !== undefined) out.push(lowered)
   }

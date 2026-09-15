@@ -60,6 +60,8 @@ export interface PointerTarget {
   base: Place
   /** The array's first dimension, when the pointer points at its elements. */
   element?: { lower: bigint; length: number; type: Type }
+  /** A place in a VAR_IN_OUT: the FB body binding it — the one body that may dereference it (`recordTarget`). */
+  scopedTo?: Lowering
 }
 
 export class Lowering {
@@ -91,6 +93,10 @@ export class Lowering {
   routineContext = ""
   /** How deep in a routine call's arguments this lowering is — a call there is refused (`call-nested`). */
   arguments = 0
+  /** How deep in an IF, CASE or loop body lowering is: a statement at 0 runs on every run of the body. */
+  conditional = 0
+  /** The pointers and references this body stores at depth 0, by `pointerKey` — so far, in source order. */
+  readonly boundPointers = new Set<string>()
 
   // ─── byte layout (design §9 — the on-demand byte view) ─────────────────────
 

@@ -366,6 +366,10 @@ taken apart by construct before anything is built — record first, then build, 
 ## Phase 4 — aliasing
 
 - [ ] `VAR_IN_OUT`, `POINTER TO`, `REFERENCE TO`, `expr-deref` — on the phase-3 model.
+  - [x] An FB field pointing into the body's own VAR_IN_OUT (`mem_adr_of_inout_member`): exact where the body stored it
+        unconditionally earlier in the same run — the in-out is the variable bound for this call. A dereference anywhere
+        else (a method, the caller, before the store, after a store inside IF/CASE/a loop) would follow the next binding
+        where CODESYS follows the stale address — unmeasured, so refused (`pointer-outlives`).
 - [ ] `__ISVALIDREF` and the pointer built-ins, which only mean something here.
 
 ## Phase 5 — the remaining language
