@@ -74,6 +74,36 @@ END_METHOD
 `,
     "worker : FB_CS_worker3; first : INT := 1; second : INT := 100;",
     "worker(shared := first);\nworker.AddTen();\nworker(shared := second);\nworker.AddTen();"),
+  // The binding a METHOD called from outside uses: kept into LATER cycles? Bound to `first` in cycle 1 only, AddTen in
+  // cycles 2 and 3 — 21 if it is kept, 1 if not (pro2193 calls `Conveyor.Reset()` from other METHODs, other runs).
+  fb("callshape_inout_method_in_later_cycle", "FB_CS_workerLate", "an FB's VAR_IN_OUT written inside its METHOD called from outside in cycles after the one call that bound it",
+    `FUNCTION_BLOCK FB_CS_workerLate
+VAR_IN_OUT
+	shared : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD AddTen
+shared := shared + 10;
+END_METHOD
+`,
+    "worker : FB_CS_workerLate; first : INT := 1; bound : BOOL; runs : INT;",
+    "runs := runs + 1;\nIF bound THEN\n\tworker.AddTen();\nELSE\n\tworker(shared := first);\n\tbound := TRUE;\nEND_IF",
+    3),
+  // ...and before any call bound it: the METHOD runs first, then the call binds `first` (1 cycle). A stop here is the answer.
+  fb("callshape_inout_method_before_binding", "FB_CS_workerEarly", "an FB's VAR_IN_OUT written inside its METHOD called from outside before any call of the FB bound it",
+    `FUNCTION_BLOCK FB_CS_workerEarly
+VAR_IN_OUT
+	shared : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD AddTen
+shared := shared + 10;
+END_METHOD
+`,
+    "worker : FB_CS_workerEarly; first : INT := 1; reached : INT;",
+    "worker.AddTen();\nreached := 1;\nworker(shared := first);"),
   fb("callshape_argument_order", "FB_CS_marker4", "calls inside a call's arguments: the order they run in, written in declaration order and reversed",
     `FUNCTION_BLOCK FB_CS_marker4
 VAR
