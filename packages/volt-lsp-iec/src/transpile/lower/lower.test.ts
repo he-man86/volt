@@ -217,6 +217,21 @@ END_PROGRAM
     expect(diagnostics.map((d) => d.code)).toEqual(["slot-interface"])
   })
 
+  // Transpiler review 2026-09-15. Why missed: every pointer test took the address of a whole variable or of an element with
+  // the index LAST, and every one used the pointer's own target type — no test named a place with an index inside its
+  // path, or a byte-sized pointer over a wider variable.
+  test("an address is refused when an index before its last step is read at run time, or its type is not the pointer's", () => {
+    const decls = "TYPE T_S : STRUCT x : INT; END_STRUCT END_TYPE\nPROGRAM P\nVAR arr : ARRAY[1..3] OF T_S; grid : ARRAY[1..3] OF ARRAY[1..3] OF INT; i : INT := 1; j : INT := 2; n : INT; p : POINTER TO INT; pb : POINTER TO BYTE; r : REFERENCE TO INT; END_VAR\n"
+    const code = (body: string) => lowerSource(`${decls}${body}\nEND_PROGRAM\n`, "P").diagnostics.map((d) => d.code)
+    expect(code("p := ADR(arr[i].x);")).toEqual(["pointer-runtime-index"])
+    expect(code("p := ADR(grid[i][j]);")).toEqual(["pointer-runtime-index"])
+    expect(code("r REF= arr[i].x;")).toEqual(["pointer-runtime-index"])
+    expect(code("pb := ADR(n);")).toEqual(["pointer-type"])
+    // still lowered: a constant index before the last step, and a runtime index as the last step
+    expect(code("p := ADR(arr[2].x); n := p^;")).toEqual([])
+    expect(code("p := ADR(grid[2][i]); n := p^;")).toEqual([])
+  })
+
   test("an initializer that does not fold is reported, never silently dropped", () => {
     // It was dropped: the slot started at its default with no diagnostic — which is how every STRING slot lost its
     // initial value (constEval folds no strings) while each string case still "lowered".

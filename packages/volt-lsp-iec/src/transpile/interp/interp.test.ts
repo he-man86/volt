@@ -717,6 +717,39 @@ END_PROGRAM`
     expect(() => faulting.scan()).toThrow("dereference of a null pointer")
   })
 
+  // Transpiler review 2026-09-15. Why missed: the reference tests bound one, read it and wrote it with a plain `:=` —
+  // none wrote through one any other way, and none compared one with 0.
+  test("a reference is written through by every kind of store, and `r = 0` compares its target", () => {
+    const pou = load(
+      `FUNCTION_BLOCK FB_Out
+VAR_OUTPUT q : INT; END_VAR
+q := 42;
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK FB_Add10
+VAR_IN_OUT v : INT; END_VAR
+v := v + 10;
+END_FUNCTION_BLOCK
+PROGRAM P
+VAR
+  n1 : INT; n2 : INT := 1; n3 : INT; flag : BOOL; zero : INT;
+  r1 : REFERENCE TO INT; r2 : REFERENCE TO INT; r3 : REFERENCE TO INT; rb : REFERENCE TO BOOL; rz : REFERENCE TO INT;
+  out : FB_Out; adder : FB_Add10; m : INT; isZero : BOOL; notZero : BOOL;
+END_VAR
+r1 REF= n1; r2 REF= n2; r3 REF= n3; rb REF= flag; rz REF= zero;
+out(q => r1);
+adder(v := r2);
+rb S= TRUE;
+m := r3 := 5;
+isZero := rz = 0;
+notZero := rz <> 0;
+END_PROGRAM`,
+      "P",
+    )
+    pou.scan()
+    expect([pou.get("n1"), pou.get("n2"), pou.get("flag"), pou.get("n3"), pou.get("m")]).toEqual([42n, 11n, true, 5n, 5n])
+    expect([pou.get("isZero"), pou.get("notZero")]).toEqual([true, false]) // the target is 0 — the reference is bound
+  })
+
   // Why missed: no initializer or assignment test stored a literal its target could not hold, and none put an integer in
   // a BOOL — the conformance fixtures that do (`overflow_*`, `cc_literal_*`, `cc_init_*_into_bool`) sat inside FBs, which
   // did not lower until calls did.

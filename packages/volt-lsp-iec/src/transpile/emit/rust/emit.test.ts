@@ -139,6 +139,19 @@ describe("emit/rust", () => {
     expect(code).toContain('fn iec_deref(at: usize) { if at == 0 { panic!("dereference of a null pointer"); } }')
   })
 
+  test("a VAR_IN_OUT bound through a reference binds its target, checked for null first", () => {
+    // Why missed (transpiler review 2026-09-15): a VAR_IN_OUT argument printed `&mut <place>` with no check, where the
+    // interpreter checks the guard when it binds — and no test bound one through a reference or a pointer.
+    const { pou, diagnostics } = lowerSource(
+      "PROGRAM Bind\nVAR n : INT; r : REFERENCE TO INT; adder : FB_Add; END_VAR\nr REF= n;\nadder(v := r);\nEND_PROGRAM\nFUNCTION_BLOCK FB_Add\nVAR_IN_OUT v : INT; END_VAR\nv := v + 1;\nEND_FUNCTION_BLOCK\n",
+      "Bind",
+    )
+    expect(diagnostics).toEqual([])
+    const code = emitRust(pou!).code
+    expect(code).toContain("iec_deref(self.r);")
+    expect(code).toContain("self.adder.call(&mut self.n);")
+  })
+
   test("ST names become snake_case fields", () => {
     expect(["iCount", "MaxCount", "PLC_Ready", "x"].map(snake)).toEqual(["i_count", "max_count", "plc_ready", "x"])
   })

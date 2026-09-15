@@ -271,7 +271,9 @@ class Printer {
         const routine = this.routines.get(e.routine)!
         const args = [...this.globalsArg, ...e.inputs.map((a) => this.expr(a, slots)), ...e.inouts.map((p) => `&mut ${this.place(p, slots)}`)].join(", ")
         const fn = routineFnName(routine)
-        return e.instance === undefined ? `${fn}(${args})` : this.guarded(e.instance, `${this.place(e.instance, slots)}.${fn}(${args})`, slots)
+        const call = e.instance === undefined ? `${fn}(${args})` : this.guarded(e.instance, `${this.place(e.instance, slots)}.${fn}(${args})`, slots)
+        // a VAR_IN_OUT bound through a dereference is checked before the call, as the interpreter checks it when binding
+        return e.inouts.reduce((text, p) => this.guarded(p, text, slots), call)
       }
       case "load": {
         const field = this.place(e.place, slots)
@@ -495,6 +497,8 @@ class Printer {
       case "call": {
         // the inputs were assigned before this line and the outputs are read after it; VAR_IN_OUT is a `&mut` (design §9)
         this.guardLine(s.instance, slots, indent)
+        // a VAR_IN_OUT bound through a dereference is checked too — the interpreter checks it when it binds the argument
+        for (const p of s.inouts) this.guardLine(p, slots, indent)
         const bound = [...this.globalsArg, ...s.inouts.map((p) => `&mut ${this.place(p, slots)}`)].join(", ")
         this.push(`${this.place(s.instance, slots)}.call(${bound});`, indent, s.span)
         return
