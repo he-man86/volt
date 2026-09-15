@@ -819,6 +819,26 @@ const CASES: readonly ExecCase[] = [
     body: "fromInt5 := NOT i5; fromSint0 := NOT s0; fromNegSint := NOT sn6; fromDint0 := NOT d0; fromWord0 := NOT w0; sameInt := NOT i5; intToLreal := NOT i5;",
   },
 
+  // ── conversions between temporal types, to text, and to/from REAL: `conversion_date_to_string` and
+  //    `conversion_dt_to_date` hold one value each, too few for a rule — single-digit fields, milliseconds, a date at the
+  //    epoch, a REAL that is not a whole number of milliseconds ──
+  {
+    name: "temporal_conversions",
+    vars: [
+      "dt1 : DT := DT#2026-05-29-12:30:45; d1 : DATE := D#2026-05-09; tod1 : TOD := TOD#07:05:03.250; tod0 : TOD := TOD#23:59:59;",
+      "t1 : TIME := T#1H2M3S4MS; epoch : DATE := D#1970-01-01; rHalf : REAL := 2.5; rBig : REAL := 1500.7;",
+      "toDate : DATE; toTod : TOD; dateToDt : DT; todToTime : TIME; timeToTod : TOD;",
+      "dtText : STRING; dateText : STRING; todText : STRING; tod0Text : STRING; epochText : STRING;",
+      "timeToReal : REAL; realHalfToTime : TIME; realBigToTime : TIME; dateToReal : LREAL;",
+    ].join("\n"),
+    body: [
+      "toDate := DT_TO_DATE(dt1); toTod := DT_TO_TOD(dt1); dateToDt := DATE_TO_DT(d1);",
+      "todToTime := TOD_TO_TIME(tod1); timeToTod := TIME_TO_TOD(t1);",
+      "dtText := DT_TO_STRING(dt1); dateText := DATE_TO_STRING(d1); todText := TOD_TO_STRING(tod1); tod0Text := TOD_TO_STRING(tod0); epochText := DATE_TO_STRING(epoch);",
+      "timeToReal := TIME_TO_REAL(t1); realHalfToTime := REAL_TO_TIME(rHalf); realBigToTime := REAL_TO_TIME(rBig); dateToReal := DATE_TO_LREAL(d1);",
+    ].join("\n"),
+  },
+
   // (No math-domain-error case: `SQRT(-1.0)` / `LN(0.0)` stop the simulated application — the recorder's read
   //  times out, measured 2026-09-14 — so there is no state to compare. A runtime exception, like division by zero;
   //  neither backend models runtime exceptions yet, and the oracle cannot record one.)

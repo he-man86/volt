@@ -206,7 +206,8 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   const isInt = (t: Type | undefined, orBits = false): boolean =>
     t !== undefined && (elemOf(t)?.family === "int" || (orBits && elemOf(t)?.family === "bitstring"))
   const isString = (t: Type | undefined): boolean => t !== undefined && elemOf(t)?.family === "string"
-  const hasText = (t: Type | undefined): boolean => isInt(t, true) || (t !== undefined && ["BOOL", "TIME"].includes(elemOf(t)?.name ?? ""))
+  // DATE, DT and TOD print as their literal, zero-padded, a TOD's milliseconds only when non-zero (`temporal_conversions`)
+  const hasText = (t: Type | undefined): boolean => isInt(t, true) || (t !== undefined && ["BOOL", "TIME", "DATE", "DT", "TOD"].includes(elemOf(t)?.name ?? ""))
   const parses = (t: Type): boolean => isInt(t) || elemOf(t)?.family === "real"
   if ((isString(to) && elemOf(to)?.name === "STRING" && hasText(from)) || (isString(from) && elemOf(from ?? UNKNOWN)?.name === "STRING" && parses(to))) {
     const only = e.args[0]
@@ -219,20 +220,45 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   }
   if (!scalar(to) || (from !== undefined && !scalar(from)))
     return lw.bail("conversion-type", "this STRING conversion is not measured yet", e.span)
-  // A duration or date converts to and from INTEGERS, in its own unit — TIME_TO_DINT(T#1S500MS) is 1500,
-  // DATE_TO_UDINT(D#1970-01-02) is 86400 seconds, TOD_TO_UDINT(TOD#00:00:01) is 1000 ms (conformance `time_conversions`,
-  // `date_representation`). ↔ REAL/BOOL, and between two temporal types, were not measured: refused, not guessed.
-  const temporal = [to, from].filter((t) => t !== undefined && ["time", "date"].includes(elemOf(t)?.family ?? "")).length
-  const nonIntegral = [to, from].some((t) => t !== undefined && ["real", "bool"].includes(elemOf(t)?.family ?? ""))
-  if ((temporal > 0 && nonIntegral) || temporal === 2)
-    return lw.bail("conversion-type", "a TIME/DATE conversion to REAL, BOOL or another temporal type is not measured yet", e.span)
   const only = e.args[0]
   if (e.args.length !== 1 || only?.value === undefined || only.param !== undefined || only.output)
     return lw.bail("call-arity", "a conversion takes exactly one positional argument", e.span)
   const arg = lowerExpr(lw, only.value)
   if (arg === undefined) return undefined
   const source = from === undefined ? arg : convert(arg, from)
-  return elemOf(source.type)?.name === elemOf(to)?.name ? source : { kind: "convert", value: source, type: to, span: e.span }
+  const fromName = elemOf(source.type)?.name ?? ""
+  const toName = elemOf(to)?.name ?? ""
+  // A duration or date converts to and from INTEGERS, in its own unit — TIME_TO_DINT(T#1S500MS) is 1500,
+  // DATE_TO_UDINT(D#1970-01-02) is 86400 seconds, TOD_TO_UDINT(TOD#00:00:01) is 1000 ms (conformance `time_conversions`,
+  // `date_representation`). Measured beyond that (`temporal_conversions`): DT→DATE keeps the day and DT→TOD the time of
+  // day; DATE→DT, TOD→TIME and TIME→TOD keep the count, as the units agree; TIME and DATE → REAL/LREAL are their count;
+  // REAL/LREAL→TIME rounds half away from zero (2.5 is 3ms). Any other pair — BOOL, DT/TOD → REAL, DATE→TOD — is refused.
+  const real = (name: string) => name === "REAL" || name === "LREAL"
+  const pair = `${fromName}>${toName}`
+  const span = e.span
+  const udint = elementaryRef("UDINT")
+  const n = (value: bigint): IrExpr => ({ kind: "const", value, type: udint, span })
+  if (pair === "DT>DATE" || pair === "DT>TOD") {
+    const seconds = convert(source, udint)
+    const inDay: IrExpr = { kind: "binary", op: "mod", left: seconds, right: n(86400n), type: udint, span }
+    const count: IrExpr =
+      pair === "DT>DATE"
+        ? { kind: "binary", op: "sub", left: seconds, right: inDay, type: udint, span }
+        : { kind: "binary", op: "mul", left: inDay, right: n(1000n), type: udint, span }
+    return { kind: "convert", value: count, type: to, span }
+  }
+  const temporal = (t: Type): boolean => ["time", "date"].includes(elemOf(t)?.family ?? "")
+  const fromTemporal = temporal(source.type)
+  const toTemporal = temporal(to)
+  const integral = (name: string): boolean => !real(name) && name !== "BOOL"
+  const measured =
+    (fromTemporal !== toTemporal && integral(fromName) && integral(toName)) ||
+    ["DATE>DT", "TOD>TIME", "TIME>TOD"].includes(pair) ||
+    ((fromName === "TIME" || fromName === "DATE") && real(toName)) ||
+    (real(fromName) && toName === "TIME")
+  if ((fromTemporal || toTemporal) && fromName !== toName && !measured)
+    return lw.bail("conversion-type", `${fromName}_TO_${toName} is not measured yet`, e.span)
+  return fromName === toName ? source : { kind: "convert", value: source, type: to, span: e.span }
 }
 
 /** The one type a list of operands meets at — a binary operator's rule, over N operands: variables decide, a

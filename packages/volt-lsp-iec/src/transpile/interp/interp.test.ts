@@ -760,6 +760,35 @@ END_METHOD`,
     expect([pou.get("viaSuper.inBase"), pou.get("viaSuper.nBase"), pou.get("viaSuper.hookDerived"), pou.get("viaSuper.hookBase")]).toEqual([105n, 1n, 1n, 1n])
   })
 
+  // `temporal_conversions`. Why missed: the temporal rules were measured to and from integers only; these pairs were
+  // refused, so no test reached them.
+  test("temporal conversions: DT to its day and time of day, the literal text, REAL counts, and REAL to TIME rounding", () => {
+    const pou = load(
+      `PROGRAM P
+VAR dt1 : DT := DT#2026-05-29-12:30:45; d1 : DATE := D#2026-05-09; tod1 : TOD := TOD#07:05:03.250; tod0 : TOD := TOD#23:59:59;
+  t1 : TIME := T#1H2M3S4MS; rHalf : REAL := 2.5;
+  toDate : DATE; toTod : TOD; dateText : STRING; dtText : STRING; todText : STRING; tod0Text : STRING; timeToReal : REAL; halfToTime : TIME; END_VAR
+toDate := DT_TO_DATE(dt1); toTod := DT_TO_TOD(dt1);
+dateText := DATE_TO_STRING(d1); dtText := DT_TO_STRING(dt1); todText := TOD_TO_STRING(tod1); tod0Text := TOD_TO_STRING(tod0);
+timeToReal := TIME_TO_REAL(t1); halfToTime := REAL_TO_TIME(rHalf);
+END_PROGRAM`,
+      "P",
+    )
+    pou.scan()
+    expect(pou.get("toDate")).toBe(1780012800n) // 2026-05-29, seconds
+    expect(pou.get("toTod")).toBe(45045000n) // 12:30:45, milliseconds
+    expect([pou.get("dateText"), pou.get("dtText"), pou.get("todText"), pou.get("tod0Text")]).toEqual(["D#2026-05-09", "DT#2026-05-29-12:30:45", "TOD#07:05:03.250", "TOD#23:59:59"])
+    expect([pou.get("timeToReal"), pou.get("halfToTime")]).toEqual([3723004, 3n])
+  })
+
+  // `operand_partial_word_in_dword`: the slice counts from the low end. Why missed: `.%W1` parsed (for the LSP) but no
+  // transpiler test ever read one — it stopped at "member access is not lowered".
+  test("partial access reads a byte or word of an unsigned integer, counted from the low end", () => {
+    const pou = load("PROGRAM P\nVAR dw : DWORD := 16#DEADBEEF; w1 : WORD; b3 : BYTE; b0 : BYTE; END_VAR\nw1 := dw.%W1;\nb3 := dw.%B3;\nb0 := dw.%B0;\nEND_PROGRAM", "P")
+    pou.scan()
+    expect([pou.get("w1"), pou.get("b3"), pou.get("b0")]).toEqual([57005n, 222n, 239n])
+  })
+
   // The `cc_*` recordings (2026-09-15) and `not_result_width` / `mod_by_zero`. Why missed: NOT was only ever tested on an
   // unsigned operand (`NOT u255`), where keeping the type and taking the bit string agree; and no case divided by a zero
   // variable, so MOD's zero was never asked — it threw, as `/` does.

@@ -61,6 +61,37 @@ export const STRING_FUNCTIONS: Readonly<Record<IrStringName, (args: readonly Val
 }
 
 /** A TIME's text — mirrored by the emitter's `iec_time_text`. */
+/** Days since 1970 as a civil year, month and day — Hinnant's days-from-civil inverse, mirrored by the prelude's `iec_civil`. */
+export function civilDate(days: bigint): [bigint, bigint, bigint] {
+  const z = days + 719468n
+  const era = (z >= 0n ? z : z - 146096n) / 146097n
+  const doe = z - era * 146097n
+  const yoe = (doe - doe / 1460n + doe / 36524n - doe / 146096n) / 365n
+  const doy = doe - (365n * yoe + yoe / 4n - yoe / 100n)
+  const mp = (5n * doy + 2n) / 153n
+  const d = doy - (153n * mp + 2n) / 5n + 1n
+  const m = mp < 10n ? mp + 3n : mp - 9n
+  return [yoe + era * 400n + (m <= 2n ? 1n : 0n), m, d]
+}
+
+const pad = (n: bigint, width: number): string => n.toString().padStart(width, "0")
+
+/** A DATE, DT (seconds) or TOD (milliseconds) as its literal text, zero-padded; a TOD's milliseconds only when non-zero
+ *  (conformance `temporal_conversions`) — mirrored by the prelude's `iec_date_text` / `iec_dt_text` / `iec_tod_text`. */
+export function calendarText(name: "DATE" | "DT" | "TOD", v: bigint): string {
+  if (name === "TOD") {
+    const s = v / 1000n
+    const clock = `${pad(s / 3600n, 2)}:${pad((s / 60n) % 60n, 2)}:${pad(s % 60n, 2)}`
+    return `TOD#${clock}${v % 1000n === 0n ? "" : `.${pad(v % 1000n, 3)}`}`
+  }
+  const days = v >= 0n ? v / 86400n : (v - 86399n) / 86400n
+  const [y, m, d] = civilDate(days)
+  const date = `${pad(y, 4)}-${pad(m, 2)}-${pad(d, 2)}`
+  if (name === "DATE") return `D#${date}`
+  const t = v - days * 86400n
+  return `DT#${date}-${pad(t / 3600n, 2)}:${pad((t / 60n) % 60n, 2)}:${pad(t % 60n, 2)}`
+}
+
 export function timeText(ms: bigint): string {
   let rest = ms
   let out = ""
@@ -182,7 +213,9 @@ export function coerce(v: Val, to: Type, from: Type): Val {
   // `fit` then wraps it like any integer: STRING_TO_INT('99999') is -31073.
   if (family === "string") {
     if (typeof v === "boolean") return v ? "TRUE" : "FALSE"
-    return from.kind === "elementary" && from.name === "TIME" ? timeText(v as bigint) : String(v)
+    const source = from.kind === "elementary" ? from.name : ""
+    if (source === "TIME") return timeText(v as bigint)
+    return source === "DATE" || source === "DT" || source === "TOD" ? calendarText(source, v as bigint) : String(v)
   }
   if (typeof v === "string" && family === "real") {
     // a decimal prefix after spaces/tabs: '.5', '5.', '1.5E' (1.5), '2e2', '1,5' (1); none at all is 0 (`string_to_real_parse`)
@@ -198,7 +231,8 @@ export function coerce(v: Val, to: Type, from: Type): Val {
   const n = typeof v === "boolean" ? (v ? 1n : 0n) : v
   if (family === "real") return typeof n === "bigint" ? Number(n) : n
   // Math.round alone rounds -2.5 to -2 (half toward +infinity); on the magnitude it is half away from zero.
-  if (typeof n === "number" && to.elem.rank !== undefined) return BigInt(Math.sign(n) * Math.round(Math.abs(n)))
+  // REAL → TIME rounds the same way: REAL_TO_TIME(2.5) is 3ms (conformance `temporal_conversions`)
+  if (typeof n === "number" && (to.elem.rank !== undefined || family === "time")) return BigInt(Math.sign(n) * Math.round(Math.abs(n)))
   return n
 }
 

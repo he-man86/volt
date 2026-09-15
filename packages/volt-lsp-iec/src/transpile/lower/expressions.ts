@@ -203,6 +203,23 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
     case "index": {
       const enumValue = e.kind === "member" ? enumConstant(lw, e) : undefined
       if (enumValue !== undefined) return enumValue
+      // `x.%B3` / `.%W1` / `.%D0` — partial access, a byte, word or double word of an unsigned integer counted from the
+      // low end: DWORD 16#DEADBEEF has %W1 16#DEAD and %B3 16#DE (conformance `operand_partial_word_in_dword`). The slice
+      // is the value shifted down and narrowed. `.%X` (a bit), a signed source and a store into a slice are not measured.
+      const partial = e.kind === "member" ? /^%([XBWD])(\d+)$/i.exec(e.member.name) : null
+      if (e.kind === "member" && partial !== null) {
+        const source = lowerExpr(lw, e.base)
+        if (source === undefined) return undefined
+        const elem = source.type.kind === "elementary" ? source.type.elem : undefined
+        const width = ({ B: 8, W: 16, D: 32 } as Record<string, number>)[partial[1]!.toUpperCase()]
+        const at = Number(partial[2])
+        const unsigned = elem !== undefined && (elem.family === "bitstring" || (elem.family === "int" && !elem.signed))
+        if (width === undefined || !unsigned || (at + 1) * width > elem.bits)
+          return lw.bail("partial-access", `${e.member.name} of a ${source.type.kind === "elementary" ? source.type.name : source.type.kind} is not measured`, e.span)
+        const slice = elementaryRef(({ 8: "BYTE", 16: "WORD", 32: "DWORD" } as Record<number, string>)[width]!)
+        const count: IrExpr = { kind: "const", value: BigInt(at * width), type: elementaryRef("INT"), span: e.span }
+        return convert({ kind: "builtin", name: "shr", args: [source, count], type: source.type, span: e.span }, slice)
+      }
       // `inst.P` / `THIS^.P` on a PROPERTY: its getter, run on the instance
       const property = e.kind === "member" ? lowerPropertyGet(lw, e) : null
       if (property !== null) return property

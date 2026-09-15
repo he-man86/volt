@@ -119,4 +119,68 @@ END_SET
 END_PROPERTY
 `,
     "inst : FB_STATE_prop; twice : INT;", "inst.Level := 3; inst(); inst.Bump(); twice := inst.Level + inst.Level;"),
+  // `var_output_on_function` writes 0 to its output, which a store never made cannot be told from. These carry values:
+  // a FUNCTION's and a METHOD's VAR_OUTPUT read through `=>`, an output not connected, and whether an output starts
+  // over on every call (a FUNCTION's) or keeps its value.
+  {
+    name: "state_routine_outputs",
+    pouName: "F_STATE_split",
+    kind: "function",
+    feature: "VAR_OUTPUT of a FUNCTION and of a METHOD — read through `=>`, left unconnected, and across calls",
+    fromDoc: doc,
+    source: `FUNCTION F_STATE_split : INT
+VAR_INPUT
+	value : INT;
+END_VAR
+VAR_OUTPUT
+	tens : INT;
+	calls : INT;
+END_VAR
+calls := calls + 1;
+tens := value / 10;
+F_STATE_split := value MOD 10;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_STATE_outs
+VAR
+	stored : INT := 5;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD Take : INT
+VAR_INPUT
+	amount : INT;
+END_VAR
+VAR_OUTPUT
+	before : INT;
+	kept : INT;
+END_VAR
+kept := kept + 1;
+before := stored;
+stored := stored + amount;
+Take := stored;
+END_METHOD
+`,
+    plcPrgVar: "inst : FB_STATE_outs; units : INT; tens : INT; calls1 : INT; calls2 : INT; units2 : INT; took : INT; before : INT; kept1 : INT; kept2 : INT;",
+    plcPrgBody:
+      "units := F_STATE_split(value := 47, tens => tens, calls => calls1); units2 := F_STATE_split(value := 3, calls => calls2); F_STATE_split(value := 9); took := inst.Take(amount := 2, before => before, kept => kept1); inst.Take(amount := 1, kept => kept2);",
+    cycles: 2,
+  },
+  // `call_after_global_init_slot` set `iCount := 1`, which cannot tell "once before the first scan" from "every scan"; this
+  // counts, over three scans, on two instances.
+  fb("state_call_after_global_init_counts", "FB_STATE_init", "{attribute 'call_after_global_init_slot'} — how often the method runs, and on each instance",
+    `FUNCTION_BLOCK FB_STATE_init
+VAR
+	inits : INT;
+	scans : INT;
+END_VAR
+scans := scans + 1;
+END_FUNCTION_BLOCK
+
+{attribute 'call_after_global_init_slot' := '50000'}
+METHOD AfterGlobalInit
+inits := inits + 1;
+END_METHOD
+`,
+    "one : FB_STATE_init; two : FB_STATE_init;", "one(); two();", 3),
 ]
