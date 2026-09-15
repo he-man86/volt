@@ -803,6 +803,22 @@ const CASES: readonly ExecCase[] = [
     body: "FOR i := 10 TO 1 BY -3 DO runs := runs + 1; sum := sum + i; END_FOR",
   },
 
+  // ── MOD by zero: `cc_mod_udint_dint` (0 MOD 0) recorded 0 where `/` by zero stopped the application. Is the answer 0,
+  //    or the dividend — in each signedness and width? ──
+  {
+    name: "mod_by_zero",
+    vars: "i7 : INT := 7; iz : INT; dn7 : DINT := -7; dz : DINT; u7 : UDINT := 7; uz : UDINT; l7 : LINT := 7; lz : LINT; mi : INT; md : DINT; mu : UDINT; ml : LINT;",
+    body: "mi := i7 MOD iz; md := dn7 MOD dz; mu := u7 MOD uz; ml := l7 MOD lz;",
+  },
+
+  // ── NOT's result width: `cc_not_int_into_dint` recorded NOT of INT 0 into a DINT as 65535 — zero-extended, as if NOT
+  //    of an INT were a WORD. Does that hold for every width, a non-zero operand, a negative one, a store of the same width? ──
+  {
+    name: "not_result_width",
+    vars: "i5 : INT := 5; s0 : SINT; sn6 : SINT := -6; d0 : DINT; w0 : WORD; fromInt5 : DINT; fromSint0 : INT; fromNegSint : INT; fromDint0 : LINT; fromWord0 : DINT; sameInt : INT; intToLreal : LREAL;",
+    body: "fromInt5 := NOT i5; fromSint0 := NOT s0; fromNegSint := NOT sn6; fromDint0 := NOT d0; fromWord0 := NOT w0; sameInt := NOT i5; intToLreal := NOT i5;",
+  },
+
   // (No math-domain-error case: `SQRT(-1.0)` / `LN(0.0)` stop the simulated application — the recorder's read
   //  times out, measured 2026-09-14 — so there is no state to compare. A runtime exception, like division by zero;
   //  neither backend models runtime exceptions yet, and the oracle cannot record one.)

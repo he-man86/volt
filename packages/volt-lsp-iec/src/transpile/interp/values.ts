@@ -107,7 +107,10 @@ export function arith(op: string, a: Val, b: Val): Val {
   const l = num(a)
   const r = num(b)
   if (typeof l === "bigint" && typeof r === "bigint") {
-    if ((op === "div" || op === "mod") && r === 0n) throw new RangeError("division by zero")
+    // `/` by zero stops the application (the recorder's read times out); MOD by zero is 0 in every width and signedness,
+    // the dividend's sign regardless (conformance `mod_by_zero`, `cc_mod_udint_dint`)
+    if (op === "div" && r === 0n) throw new RangeError("division by zero")
+    if (op === "mod" && r === 0n) return 0n
     switch (op) {
       case "add":
         return l + r

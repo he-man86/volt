@@ -161,6 +161,15 @@ describe("emit/rust", () => {
     expect(code).toContain("self.d = (self.a || self.b);")
   })
 
+  test("MOD guards a zero divisor — 0, as measured, where Rust's % panics — and NOT of an INT is a u16", () => {
+    const { pou, diagnostics } = lowerSource("PROGRAM M\nVAR a : INT := 7; z : INT; m : INT; w : DINT; END_VAR\nm := a MOD z;\nw := NOT a;\nEND_PROGRAM\n", "M")
+    expect(diagnostics).toEqual([])
+    const code = emitRust(pou!).code
+    // the operands promoted to DINT first (MOD is a lifted operator), then the guard; the result narrowed back to INT
+    expect(code).toContain("self.m = (({ let a = (self.a as i32); let d = (self.z as i32); if d == 0 { 0 } else { a.wrapping_rem(d) } }) as i16);")
+    expect(code).toContain("self.w = ((!(self.a as u16)) as i32);")
+  })
+
   test("ST names become snake_case fields", () => {
     expect(["iCount", "MaxCount", "PLC_Ready", "x"].map(snake)).toEqual(["i_count", "max_count", "plc_ready", "x"])
   })

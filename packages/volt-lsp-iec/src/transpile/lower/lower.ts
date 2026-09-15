@@ -22,7 +22,7 @@
  *   statements.ts   assignment, IF, CASE, loops                        calls.ts      FB bodies, routines, in-outs
  *   pointers.ts     POINTER / REFERENCE (design §9 form 1)             bytes.ts      SIZEOF, ADR differences
  */
-import { isGraphicalBody, parseSource, parseStatements, type TopLevel, unitAttributes } from "../../syntax/index.js"
+import { isGraphicalBody, parseSource, parseActive, type TopLevel, unitAttributes } from "../../syntax/index.js"
 import { buildSymbolTable, type Scope, scopeForUnit } from "../../symbols/index.js"
 import { resolveNamedType, type Type } from "../../types/index.js"
 import { type IrPou, type IrStmt, type LoweredPou, peelArray } from "../ir/index.js"
@@ -50,7 +50,7 @@ export function lowerUnit(
   if (unit.kind !== "program" && unit.kind !== "function_block")
     return { diagnostics: [{ code: "unit-kind", message: `${unit.kind} is not lowered yet`, span: unit.span }] }
 
-  // A graphical body holds no statements, so `parseStatements` returns an empty list rather than an error —
+  // A graphical body holds no statements, so `parseActive` returns an empty list rather than an error —
   // which would lower to a POU that "succeeds" and does nothing. Refuse it explicitly; FBD/LD reach the
   // backend through network text, not through here.
   if (isGraphicalBody(unit.body))
@@ -63,7 +63,7 @@ export function lowerUnit(
   if (unit.kind === "function_block") body = rootInstance(lowering, unit)
   else {
     declareVars(lowering, unit.varSections)
-    const parsed = parseStatements(unit.body)
+    const parsed = parseActive(unit.body)
     if (!parsed.ok)
       return { diagnostics: [{ code: "parse", message: parsed.firstError ?? "body did not parse", span: unit.span }] }
     body = lowerBlock(lowering, parsed.statements)

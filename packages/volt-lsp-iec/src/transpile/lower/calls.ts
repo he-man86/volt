@@ -15,7 +15,7 @@ import {
   type CallArg,
   type Expr,
   isGraphicalBody,
-  parseStatements,
+  parseActive,
   type Property,
   type Span,
   type Statement,
@@ -156,7 +156,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     const sections = ast.kind === "action" ? [] : ast.varSections
     if (sections.some((s) => s.sectionKind === "VAR_OUTPUT")) return lw.bail("routine-var_output", `${name} has VAR_OUTPUT, not measured yet`, span)
     if (isGraphicalBody(ast.body)) return lw.bail("graphical-body", `${name} has a graphical body`, span)
-    const parsed = parseStatements(ast.body)
+    const parsed = parseActive(ast.body)
     if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${name}'s body did not parse`, span)
     const kept = keptVariables(lw, sym, sections, frame, span)
     if (kept === undefined) return undefined
@@ -209,7 +209,7 @@ function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol, access
     const unmeasured = part.varSections.find((s) => s.sectionKind !== "VAR" && s.sectionKind !== "VAR_TEMP")
     if (unmeasured !== undefined) return lw.bail(`routine-${unmeasured.sectionKind.toLowerCase()}`, `${name} has ${unmeasured.sectionKind}, not measured yet`, span)
     if (isGraphicalBody(part.body)) return lw.bail("graphical-body", `${name} has a graphical body`, span)
-    const parsed = parseStatements(part.body)
+    const parsed = parseActive(part.body)
     if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${name}'s body did not parse`, span)
     const key = name.toUpperCase()
     const r = routineLowering(lw, scope, frame, sym.owner, key)
@@ -291,7 +291,7 @@ function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: Span): I
     if (chain.some((u) => u.varSections.some((s) => s.sectionKind === "VAR_TEMP")))
       return lw.bail("fb-var-temp", `${unit.name.text} has VAR_TEMP — whether it starts over per call is not measured yet`, span)
     if (isGraphicalBody(unit.body)) return lw.bail("graphical-body", `${unit.name.text} has a graphical body`, span)
-    const parsed = parseStatements(unit.body)
+    const parsed = parseActive(unit.body)
     if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${unit.name.text}'s body did not parse`, span)
     const key = name.toUpperCase()
     const r = routineLowering(lw, base.lowering.scope, frame, base.lowering.codeOwner, key)
@@ -414,7 +414,7 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
   if (chain.some((u) => u.varSections.some((s) => s.sectionKind === "VAR_TEMP")))
     return lw.fail(pending, "fb-var-temp", `${name} has VAR_TEMP — whether it starts over per call is not measured yet`, span)
   if (isGraphicalBody(unit.body)) return lw.fail(pending, "graphical-body", `${name} has a graphical body`, span)
-  const parsed = parseStatements(unit.body)
+  const parsed = parseActive(unit.body)
   if (!parsed.ok) return lw.fail(pending, "parse", parsed.firstError ?? `${name}'s body did not parse`, span)
   const nested = pending.lowering
   const before = nested.diagnostics.length

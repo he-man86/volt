@@ -393,6 +393,8 @@ class Printer {
         if (e.op === "and" || e.op === "or" || e.op === "xor") return `(${l} ${e.op === "and" ? "&" : e.op === "or" ? "|" : "^"} ${r})`
         const wrapping = WRAPPING[e.op]
         const isReal = e.type.kind === "elementary" && e.type.elem.family === "real"
+        // MOD by zero is 0, measured (`mod_by_zero`), where Rust's `%` panics; each operand is evaluated once, left first
+        if (e.op === "mod" && !isReal) return `({ let a = ${l}; let d = ${r}; if d == 0 { 0 } else { a.wrapping_rem(d) } })`
         if (wrapping !== undefined && !isReal) return `${l}.wrapping_${wrapping}(${r})`
         const plain = e.op === "add" ? "+" : e.op === "sub" ? "-" : e.op === "mul" ? "*" : e.op === "div" ? "/" : "%"
         return `(${l} ${plain} ${r})`

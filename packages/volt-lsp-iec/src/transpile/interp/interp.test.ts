@@ -760,6 +760,24 @@ END_METHOD`,
     expect([pou.get("viaSuper.inBase"), pou.get("viaSuper.nBase"), pou.get("viaSuper.hookDerived"), pou.get("viaSuper.hookBase")]).toEqual([105n, 1n, 1n, 1n])
   })
 
+  // The `cc_*` recordings (2026-09-15) and `not_result_width` / `mod_by_zero`. Why missed: NOT was only ever tested on an
+  // unsigned operand (`NOT u255`), where keeping the type and taking the bit string agree; and no case divided by a zero
+  // variable, so MOD's zero was never asked — it threw, as `/` does.
+  test("NOT of a signed integer is the bit string of its width; MOD by zero is 0 while / by zero stops", () => {
+    const pou = load(
+      `PROGRAM P
+VAR i5 : INT := 5; s0 : SINT; sn6 : SINT := -6; d0 : DINT; fromInt5 : DINT; fromSint0 : INT; fromNegSint : INT; fromDint0 : LINT; sameInt : INT;
+  i7 : INT := 7; iz : INT; dn7 : DINT := -7; dz : DINT; mi : INT; md : DINT; END_VAR
+fromInt5 := NOT i5; fromSint0 := NOT s0; fromNegSint := NOT sn6; fromDint0 := NOT d0; sameInt := NOT i5;
+mi := i7 MOD iz; md := dn7 MOD dz;
+END_PROGRAM`,
+      "P",
+    )
+    pou.scan()
+    expect(["fromInt5", "fromSint0", "fromNegSint", "fromDint0", "sameInt", "mi", "md"].map((n) => pou.get(n))).toEqual([65530n, 255n, 5n, 4294967295n, -6n, 0n, 0n])
+    expect(() => load("PROGRAM P\nVAR a : INT := 7; z : INT; q : INT; END_VAR\nq := a / z;\nEND_PROGRAM", "P").scan()).toThrow("division by zero")
+  })
+
   // Phase 3½, the rules the `state_*` recordings measured: a METHOD's VAR_INST is kept per instance from its initial value,
   // its VAR_STAT is one variable for every instance, and `a := ,` assigns nothing.
   test("VAR_INST per instance, VAR_STAT shared by every instance, and an empty argument that assigns nothing", () => {

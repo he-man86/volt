@@ -113,11 +113,18 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
       if (e.op !== "-" && e.op !== "NOT") return lw.bail("unary-op", `unary ${e.op}`, e.span)
       const operand = lowerExpr(lw, e.operand, expected)
       if (operand === undefined) return undefined
-      // `NOT x` keeps the type of `x` — `NOT u255` with `u255 : USINT` into a DINT is 0. `-x` does NOT: it promotes
-      // like the arithmetic it is — `-sMin` with `sMin : SINT := -128` is 128, `-iMin` with `iMin : INT := -32768`
-      // into a DINT is 32768, and a DINT's minimum still negates to itself even into a LINT (conformance
-      // `unary_minus_at_the_edge`). This used to preserve the operand type, and wrapped all three.
-      if (e.op === "NOT") return { kind: "unary", op: "not", operand, type: operand.type, span: e.span }
+      // `NOT x` is not promoted — `NOT u255` with `u255 : USINT` into a DINT is 0 — and on a SIGNED integer it is the bit
+      // string of its width: NOT of INT 5 into a DINT is 65530, of SINT 0 into an INT 255, of DINT 0 into a LINT
+      // 4294967295, and back into an INT it is -6 (conformance `not_result_width`, `cc_not_int_into_dint`). It kept the
+      // signed type, so the widening store sign-extended: 65535 read as -1. `-x` does promote, like the arithmetic it is
+      // — `-sMin` with `sMin : SINT := -128` is 128, `-iMin` with `iMin : INT := -32768` into a DINT is 32768, and a DINT's
+      // minimum still negates to itself even into a LINT (conformance `unary_minus_at_the_edge`).
+      if (e.op === "NOT") {
+        const signed = operand.type.kind === "elementary" && operand.type.elem.family === "int" && operand.type.elem.signed
+        const bits = signed && operand.type.kind === "elementary" ? operand.type.elem.bits : 0
+        const type = signed ? elementaryRef(({ 8: "BYTE", 16: "WORD", 32: "DWORD", 64: "LWORD" } as Record<number, string>)[bits]!) : operand.type
+        return { kind: "unary", op: "not", operand: convert(operand, type), type, span: e.span }
+      }
       const type = promoteForRuntime(operand.type)
       return { kind: "unary", op: "neg", operand: convert(operand, type), type, span: e.span }
     }
