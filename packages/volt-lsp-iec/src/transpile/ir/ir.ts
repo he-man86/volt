@@ -162,14 +162,26 @@ export interface IrInvoke {
   /** One value per VAR_INPUT, in declaration order, already converted to it. */
   inputs: readonly IrExpr[]
   /** The order the inputs are evaluated in: as WRITTEN in the call (conformance `callshape_argument_order`: a reversed call
-   *  runs its right argument first). Absent, declaration order. */
-  order?: readonly number[]
+   *  runs its right argument first). Absent, declaration order. A freeze among them is an in-out's index taken where the
+   *  in-out is written (`IrFreeze`). */
+  order?: readonly (number | IrFreeze)[]
   /** The VAR_IN_OUT arguments, in declaration order. */
   inouts: readonly IrBinding[]
   /** The instances lent to the routine (`IrRoutine.lent`), in its order — filled once the POU has lowered. */
   lent?: readonly Place[]
   type: Type
   span: Span
+}
+
+/**
+ * A VAR_IN_OUT's runtime index, stored into `temp` at the position its argument is written — CODESYS binds an in-out
+ * where it is written (conformance `callshape_inout_binding_order`: 101 before a call that moves the index), so a call
+ * in a later argument cannot move it. The binding indexes by `temp`.
+ */
+export interface IrFreeze {
+  kind: "freeze"
+  temp: Place
+  value: IrExpr
 }
 
 /**

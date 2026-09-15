@@ -360,7 +360,9 @@ class Printer {
         // arguments would run after the program is moved out and read its `::new()` stand-in (review of batch 3a).
         const onProgram = e.instance !== undefined && e.instance.root === "global" && this.globals.slots[e.instance.slot]?.section === "program"
         const hoisted = onProgram || e.inputs.some(holdsCall)
-        const inputLets = hoisted ? [...(e.order ?? e.inputs.keys())].map((k) => `let __arg_${k} = ${this.expr(e.inputs[k]!, slots)};`).join(" ") : ""
+        const inputLets = hoisted
+          ? [...(e.order ?? e.inputs.keys())].map((k) => (typeof k === "number" ? `let __arg_${k} = ${this.expr(e.inputs[k]!, slots)};` : `${this.place(k.temp, slots)} = ${this.expr(k.value, slots)};`)).join(" ")
+          : ""
         const inputs = e.inputs.map((a, k) => (hoisted ? `__arg_${k}` : this.expr(a, slots)))
         // the inputs, the in-outs, then each instance lent to the routine (design §24)
         const args = [...this.globalsArg, ...inputs, ...e.inouts.map((b, i) => this.lend(b, i, routine.inouts[i]!, slots)), ...(e.lent ?? []).map((l) => this.lendMut(l, slots))].join(", ")

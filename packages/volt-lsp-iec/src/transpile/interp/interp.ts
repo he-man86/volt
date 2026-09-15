@@ -71,7 +71,11 @@ class Machine {
     const routine = this.routines.get(e.routine)!
     // the inputs in the order they are written — a call inside one runs there (`callshape_argument_order`)
     const inputs: Val[] = new Array(e.inputs.length)
-    for (const k of e.order ?? e.inputs.keys()) inputs[k] = this.expr(e.inputs[k]!)
+    for (const k of e.order ?? e.inputs.keys()) {
+      if (typeof k === "number") inputs[k] = this.expr(e.inputs[k]!)
+      // an in-out's index, taken where the in-out is written (`IrFreeze`)
+      else this.write(k.temp, this.expr(k.value))
+    }
     const bound = e.inouts.map((b) => this.bind(b))
     const locals = routine.locals.map((s) => instantiate(s.type, s.init, this.layouts))
     routine.inputs.forEach((index, k) => {

@@ -861,7 +861,15 @@ END_PROGRAM
     const after = run(ir(program("F_Take(stepValue := Advance(), boundValue := numbers[cursor])"), "P"))
     after.scan()
     expect(after.get("o.got")).toEqual(201n)
-    expect(lowerSource(program("F_Take(boundValue := numbers[cursor], stepValue := Advance())"), "P").diagnostics.map((d) => d.code)).toEqual(["call-inout-order"])
+    // Written before the call, it was refused (`call-inout-order`) — both backends bound it after the inputs. Its index is
+    // now taken where it is written, which the recording shows CODESYS binding: 101.
+    const before = run(ir(program("F_Take(boundValue := numbers[cursor], stepValue := Advance())"), "P"))
+    before.scan()
+    expect(before.get("o.got")).toEqual(101n)
+    // A VAR_OUTPUT target is not an in-out: where its index is read is not recorded, so written before a call it stays
+    // refused (review of the batch: dropping `movedInOut` let it through, reading the index after the call).
+    const output = "FUNCTION F_Out : INT\nVAR_INPUT stepValue : INT; END_VAR\nVAR_OUTPUT res : INT; END_VAR\nres := 7;\nEND_FUNCTION\n"
+    expect(lowerSource(program("F_Out(res => numbers[cursor], stepValue := Advance())") + output, "P").diagnostics.map((d) => d.code)).toEqual(["call-inout-order"])
     // a binding nothing can move — a constant index — lowers in either order
     const fixed = run(ir(program("F_Take(boundValue := numbers[2], stepValue := Advance())"), "P"))
     fixed.scan()

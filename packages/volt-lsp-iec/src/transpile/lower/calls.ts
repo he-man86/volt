@@ -34,6 +34,8 @@ import {
   type IrLayout,
   type IrRoutine,
   type IrSlot,
+  type Access,
+  type IrFreeze,
   type IrStmt,
   type Place,
   holdsCall,
@@ -588,8 +590,9 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
   if (routine === undefined) return undefined
 
   const inputs: (IrExpr | undefined)[] = routine.inputs.map(() => undefined)
-  // the inputs in the order they are written — the order they run in (conformance `callshape_argument_order`)
-  const order: number[] = []
+  // the inputs in the order they are written — the order they run in (conformance `callshape_argument_order`) — and where
+  // each in-out is written, which decides whether its index is frozen there
+  const order: (number | { inout: number; output?: true })[] = []
   const inouts: (IrBinding | undefined)[] = routine.inouts.map(() => undefined)
   const held = () => holding(instance, inouts)
   // Positional arguments bind in declaration order across VAR_INPUT and VAR_IN_OUT (conformance
@@ -622,6 +625,7 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
       if (target.type.kind !== "elementary" || param.type.kind !== "elementary" || target.type.name !== param.type.name || target.type.length !== param.type.length)
         return lw.bail("call-output-type", `${param.name} is read into a variable of another type`, arg.span)
       inouts[bound] = target
+      order.push({ inout: bound, output: true })
       continue
     }
     if (arg.value === undefined) return lw.bail("call-output", `${routine.name} called with an empty argument`, arg.span)
@@ -630,6 +634,7 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
       const target = bindInOut(lw, arg, param, held(), routine.body, routine.fb)
       if (target === undefined) return undefined
       inouts[bound] = target
+      order.push({ inout: bound })
       continue
     }
     const k = routine.inputs.findIndex((i) => routine!.locals[i]!.name.toUpperCase() === name)
@@ -708,14 +713,33 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     inouts[i] = temp
   }
   // every argument is named by now — a positional one by the parameter at its position
-  const moved = movedInOut(
-    { args },
-    (name) => inouts[routine!.inouts.findIndex((p) => p.name.toUpperCase() === name)],
-    (arg) => inputs[routine!.inputs.findIndex((i) => routine!.locals[i]!.name.toUpperCase() === arg.param!.name.toUpperCase())],
-  )
-  if (moved !== undefined) return lw.bail("call-inout-order", `${routine.name}'s ${moved} is bound before a call in a later argument that could move it`, call.span)
+  // An in-out is bound where it is written (conformance `callshape_inout_binding_order`: 101 before a call that moves its
+  // index, 201 after). Both backends bind after the inputs, so an in-out written before an input holding a call has each
+  // runtime index taken into a temp there. It was refused (`call-inout-order`); a pointer's target or a copied value still
+  // is — what the call could move there is more than an index.
+  const written: (number | IrFreeze)[] = []
+  for (const [at, entry] of order.entries()) {
+    if (typeof entry === "number") {
+      written.push(entry)
+      continue
+    }
+    if (!order.slice(at + 1).some((later) => typeof later === "number" && holdsCall(inputs[later]))) continue
+    const binding = inouts[entry.inout]!
+    const name = routine.inouts[entry.inout]!.name
+    const movable = "kind" in binding || binding.guard !== undefined || binding.path.some((s) => s.kind === "index" && s.index.kind !== "const")
+    // where a VAR_OUTPUT's target index is read — written, or after the call — is not recorded (review of this batch)
+    if (movable && ("kind" in binding || binding.guard !== undefined || entry.output === true))
+      return lw.bail("call-inout-order", `${routine.name}'s ${name} is bound before a call in a later argument that could move it`, call.span)
+    const path = binding.path.map((step): Access => {
+      if (step.kind !== "index" || step.index.kind === "const") return step
+      const temp = lw.tempPlace("inout_index", step.index.type, binding.span)
+      written.push({ kind: "freeze", temp, value: step.index })
+      return { ...step, index: { kind: "load", place: temp, type: step.index.type, span: binding.span } }
+    })
+    inouts[entry.inout] = { ...binding, path }
+  }
   const type = routine.result === undefined ? UNKNOWN : routine.locals[routine.result]!.type
-  return { kind: "invoke", routine: routine.key, ...(instance === undefined ? {} : { instance }), inputs: inputs as IrExpr[], order, inouts: inouts as IrBinding[], type, span: call.span }
+  return { kind: "invoke", routine: routine.key, ...(instance === undefined ? {} : { instance }), inputs: inputs as IrExpr[], order: written, inouts: inouts as IrBinding[], type, span: call.span }
 }
 
 /**

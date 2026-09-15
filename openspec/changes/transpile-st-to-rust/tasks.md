@@ -512,6 +512,24 @@ taken apart by construct before anything is built — record first, then build, 
       the program's own VAR (recorded: 4) was refused — both kept now. A PROGRAM's own FB_Init or init-slot METHOD, which
       the slot form never ran and the instance form would, is refused (`fb-init-program`) until recorded; so is nothing
       else — THIS^ in such a PROGRAM now lowers, and whether CODESYS compiles it is unrecorded.
+- [x] An in-out written before a call that moves its index (`call-inout-order`; recorded `callshape_inout_binding_order`:
+      101 — CODESYS binds an in-out where it is written). Built: `IrInvoke.order` also holds an `IrFreeze` — each runtime
+      index of such an in-out taken into a temp at its written position, the binding indexing by that temp; the
+      interpreter's order loop and the emitter's argument lets both take it there. A pointer's target or a copied value
+      written before such a call stays refused, as does the FB body call's form — and so does a VAR_OUTPUT `=>` target
+      with a runtime index: its review found dropping the old check had let one through, its index read after the call,
+      where CODESYS reads it is not recorded. The earlier refusal test was a
+      representability premise and now asserts the recorded 101. Conformance: 491 of 508 lower; `call-fb-inout` is the
+      last blocker.
+- [ ] An FB's VAR_IN_OUT reached by its METHOD called from OUTSIDE the FB's run (`call-fb-inout`; ~14 corpus sites,
+      pro2193's `Conveyor.Reset()` / `BufferAir.Set()` from the holder's other METHODs). Recorded: the METHOD uses the
+      instance's LAST binding (`callshape_inout_in_method_after_call`: 11 then 110), kept into later cycles
+      (`callshape_inout_method_in_later_cycle`: 21 after three), and a METHOD run before any call bound it stops the
+      application (`callshape_inout_method_before_binding`: timeout); CODESYS builds each with the warning "Access to
+      VAR_IN_OUT … from external context". A model that fits all three: a hidden binding tag per instance, stored by
+      every body call (one tag per static place bound), and the outside METHOD call a dispatch on that tag whose arms
+      lend each place — tag 0 faulting, as the recording stops. The binding sites can lower after the METHOD call, so
+      the arms fill once the POU has lowered, as an interface call's do (`finishInterfaces`). Not built: a decision.
 - [x] FB_Init — silently ignored until now: an ordinary METHOD nothing called, and the parser dropped a declaration's
       `inst : FB(x := 1)` arguments, so every instance started as if it had none, with no diagnostic. Recorded first
       (`lifecycle.ts` `fb_init_runs_with_declared_arguments`, `fb_init_base_and_derived`, `fb_init_argument_left_out`):
