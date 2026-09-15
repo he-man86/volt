@@ -372,6 +372,17 @@ scan time, and one case proving constants fold to the same answers):
 integer prints `(x.round() as i64) as T` — `f64::round` is exactly half-away-from-zero, and `as` between integers
 wraps. `as bool` does not exist (`!= 0`), nor does `bool as f32` (`as u8` first).
 
+## 20. An aggregate initializer is a structured initial value, not code
+
+A slot's `init` is an `IrInit`: a scalar, `{ elements }` for an array, or `{ fields }` by upper-cased name for a struct or
+FB instance. Nothing is desugared into assignments — the value exists before the first scan, as the IDE's does. What an
+initializer leaves out is left out of the IR too, and each backend fills it from the type: an element from its type's
+own initial value, a field from its TYPE's declaration (`new()` in Rust, the layout's `init` in the interpreter). That is
+the measured rule — `(y := 7)` on a struct whose `x : INT := 5` keeps `x = 5`, nested and in array elements alike — and
+it is why lowering never copies a type's defaults into the initializer: a copy would be a second place for them to live.
+Row order for a multi-dimensional array, `n(v)` repeats and string truncation are all measured (conformance
+`array_initializers`, `init_*`).
+
 ## 19. The 2026-09-14 review — what it found, and the direction taken
 
 A critical read of `transpile/` before phase 3, with a probe for each suspicion. Four bugs, none reachable by an oracle

@@ -372,7 +372,16 @@ taken apart by construct before anything is built — record first, then build, 
 
 - [ ] Interfaces, `EXTENDS`, `__QUERYINTERFACE` — dynamic dispatch.
 - [ ] `__POUNAME` 304 and the other CODESYS compiler operators.
-- [ ] `aggregate-init` (31, 10%) · `expr-assign_expr` (1) — mechanical desugars, once arrays/structs exist.
+- [x] `aggregate-init` — recorded first (`array_initializers`, `init_struct_by_field`, `init_array_of_structs`,
+      `init_fb_instance_inputs`), then lowered to a structured initial value (`IrInit`: elements / named fields) that the
+      interpreter and `initOf` both build. Measured: a short array list leaves the rest at the element's own initial
+      value; `n(v)` repeats; a multi-dimensional array fills row by row; a struct or FB instance sets only the fields it
+      names, every other field keeping its TYPE's initial value (nested and array-of-struct elements too); `STRUCT(…)`
+      is `(…)`. A field the type lacks, or a positional element in struct form, is refused. Conformance lowering
+      **434 → 438 of 454**. *Why missed:* two parser gaps hid behind the refusal — a one-field `(y := 7)` parsed as a
+      parenthesized inline assignment, and a top-level `STRUCT(…)` as a call — so neither was ever an aggregate;
+      every aggregate parser test used two fields or more, and one documented the call as intended.
+- [ ] `expr-assign_expr` (1).
 - [ ] `stmt-try` (6, 2%) — `__TRY`/`__CATCH`. The interpreter can run it; Rust has no exceptions, so the
       emitter needs a strategy or an explicit refusal. Decide rather than default.
 - [ ] `type-unknown` (18, 6%) — triage; each is a type the frontend could not resolve.

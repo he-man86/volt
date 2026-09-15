@@ -32,11 +32,25 @@ test("array of scalars", () => {
 })
 
 test("struct fields (multi-field paren form)", () => {
-  // A top-level `STRUCT(…)` parses as a call (named args), not an aggregate — the aggregate parser sees the
-  // `STRUCT(…)` form only when nested (covered below). The multi-field paren form is the aggregate case.
   const s = agg("(p1 := 1, p2 := 2)")
   expect(s.form).toBe("struct")
   expect(shapes(s)).toEqual(["p1:=1", "p2:=2"])
+})
+
+// A top-level `STRUCT(…)` used to stay a call (named args) — this test file said so. CODESYS initializes with it exactly
+// as with `(…)` (conformance `init_struct_by_field`, the `keyword` variable), so the transpiler reported it not constant.
+test("a top-level STRUCT(…) is a struct initializer, not a call", () => {
+  const s = agg("STRUCT(x := 20, y := 1.5)")
+  expect(s.form).toBe("struct")
+  expect(shapes(s)).toEqual(["x:=20", "y:=1.5"])
+})
+
+// It parsed as a parenthesized inline assignment — an expression — so the transpiler reported "not a compile-time constant"
+// (conformance `init_struct_by_field`, `init_fb_instance_inputs`). Every aggregate test used two fields or more.
+test("a one-field paren initializer is a struct initializer, not an inline assignment", () => {
+  const s = agg("(y := 7)")
+  expect(s.form).toBe("struct")
+  expect(shapes(s)).toEqual(["y:=7"])
 })
 
 test("nested arrays (multi-dimensional)", () => {

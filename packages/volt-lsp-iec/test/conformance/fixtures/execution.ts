@@ -839,6 +839,21 @@ const CASES: readonly ExecCase[] = [
     ].join("\n"),
   },
 
+  // ── array initializers: no fixture held one. A list shorter than the array (is the rest 0?), a repeat count, a REAL
+  //    array given integers, a 2D array in row order, a STRING array, and a negative element ──
+  {
+    name: "array_initializers",
+    vars: [
+      "partial : ARRAY[1..5] OF INT := [1, 2, 3];",
+      "repeated : ARRAY[0..5] OF INT := [2(7), 3(9), 4];",
+      "reals : ARRAY[0..2] OF REAL := [1, 2.5, -3];",
+      "grid : ARRAY[0..1, 0..2] OF INT := [1, 2, 3, 4, 5, 6];",
+      "texts : ARRAY[0..2] OF STRING(4) := ['a', 'bcdef'];",
+      "negatives : ARRAY[-1..1] OF DINT := [-1, 0, 1];",
+    ].join("\n"),
+    body: "partial[5] := partial[5] + 0;",
+  },
+
   // (No math-domain-error case: `SQRT(-1.0)` / `LN(0.0)` stop the simulated application — the recorder's read
   //  times out, measured 2026-09-14 — so there is no state to compare. A runtime exception, like division by zero;
   //  neither backend models runtime exceptions yet, and the oracle cannot record one.)

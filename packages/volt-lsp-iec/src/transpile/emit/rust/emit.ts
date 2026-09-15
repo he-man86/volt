@@ -17,7 +17,7 @@
  * rather than Rust's overflow-panicking defaults. The width comes from `types/elementary`, the same facts the
  * diagnostics use — there is no second table of type sizes here.
  */
-import type { IrExpr, IrLayout, IrMathName, IrPou, IrRoutine, IrStmt, IrValue, Place } from "../../ir/index.js"
+import type { IrExpr, IrInit, IrLayout, IrMathName, IrPou, IrRoutine, IrStmt, IrValue, Place } from "../../ir/index.js"
 import { defaultValueOf, isBit, peelArray } from "../../ir/index.js"
 import type { Span } from "../../../syntax/index.js"
 import type { Type } from "../../../types/index.js"
@@ -197,6 +197,25 @@ class Printer {
   /** `g` and `prg` before a generated call's arguments, as far as the program has them. */
   get globalsArg(): string[] {
     return [...(this.usesGlobals ? ["g"] : []), ...(this.usesPrograms ? ["prg"] : [])]
+  }
+
+  /**
+   * A slot's initial value as a Rust expression: a struct or FB instance at its TYPE's values (`new()`), with the fields
+   * an aggregate initializer names set over them; an array element by element, each left out at its type's own.
+   */
+  initOf(t: Type, init: IrInit): string {
+    if (t.kind === "struct" || t.kind === "function_block") {
+      const base = `${rustName(t.name)}::new()`
+      const named = typeof init === "object" && "fields" in init ? init.fields : undefined
+      const entry = this.layouts.get(t.name.toUpperCase())
+      if (named === undefined || entry === undefined) return base
+      const sets = entry.layout.fields.flatMap((f, i) => (named[f.name.toUpperCase()] === undefined ? [] : [`v.${entry.fields[i]} = ${this.initOf(f.type, named[f.name.toUpperCase()]!)};`]))
+      return sets.length === 0 ? base : `{ let mut v = ${base}; ${sets.join(" ")} v }`
+    }
+    const array = peelArray(t)
+    const elements = typeof init === "object" && "elements" in init ? init.elements : undefined
+    if (array === undefined || elements === undefined) return initOf(t, init as IrValue)
+    return `[${Array.from({ length: array.length }, (_, i) => this.initOf(array.element, elements[i] ?? defaultValueOf(array.element))).join(", ")}]`
   }
 
   /** The parameters every generated body declares for them. */
@@ -568,7 +587,7 @@ function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[],
   p.push("#[allow(unused_mut, unused_variables, unused_assignments, unreachable_code, non_snake_case)]", indent)
   p.push(`pub fn ${routineFnName(routine)}(${params.join(", ")})${returns} {`, indent)
   for (const [i, slot] of routine.locals.entries())
-    if (!routine.inputs.includes(i)) p.push(`let mut ${localNames[i]}: ${rustType(slot.type)} = ${initOf(slot.type, slot.init)};`, indent + 1)
+    if (!routine.inputs.includes(i)) p.push(`let mut ${localNames[i]}: ${rustType(slot.type)} = ${p.initOf(slot.type, slot.init)};`, indent + 1)
   const frame: Frame = {
     inoutNames,
     inoutSlots: routine.inouts,
@@ -650,7 +669,7 @@ export function emitRust(pou: IrPou): Emitted {
     p.push(`impl ${struct} {`, 0)
     p.push("pub fn new() -> Self {", 1)
     p.push("Self {", 2)
-    for (const [i, slot] of slots.entries()) p.push(`${names[i]}: ${initOf(slot.type, slot.init)},`, 3)
+    for (const [i, slot] of slots.entries()) p.push(`${names[i]}: ${p.initOf(slot.type, slot.init)},`, 3)
     p.push("}", 2)
     p.push("}", 1)
     p.push("}", 0)
@@ -669,7 +688,7 @@ export function emitRust(pou: IrPou): Emitted {
     p.push(`impl ${rustName(layout.name)} {`, 0)
     p.push("pub fn new() -> Self {", 1)
     p.push("Self {", 2)
-    for (const [i, field] of layout.fields.entries()) p.push(`${names[i]}: ${initOf(field.type, field.init)},`, 3)
+    for (const [i, field] of layout.fields.entries()) p.push(`${names[i]}: ${p.initOf(field.type, field.init)},`, 3)
     p.push("}", 2)
     p.push("}", 1)
     if (layout.body !== undefined) {
@@ -698,7 +717,7 @@ export function emitRust(pou: IrPou): Emitted {
   // `new` seeds the declared initial values.
   p.push("pub fn new() -> Self {", 1)
   p.push("Self {", 2)
-  for (const [i, slot] of pou.slots.entries()) p.push(`${fields[i]}: ${initOf(slot.type, slot.init)},`, 3)
+  for (const [i, slot] of pou.slots.entries()) p.push(`${fields[i]}: ${p.initOf(slot.type, slot.init)},`, 3)
   p.push("}", 2)
   p.push("}", 1)
   p.push("", 0)

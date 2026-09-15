@@ -7,6 +7,7 @@ import {
   type IrLayout,
   type IrMathName,
   type IrStringName,
+  type IrInit,
   type IrValue,
   peelArray,
 } from "../ir/index.js"
@@ -238,16 +239,20 @@ export function coerce(v: Val, to: Type, from: Type): Val {
 
 /** A fresh value of a type: an elementary one at `init`, a struct or FB instance at its fields' initial values, an array
  *  of fresh elements — the interpreter's counterpart of the emitter's `new()`. */
-export function instantiate(type: Type, init: IrValue, layouts: ReadonlyMap<string, IrLayout>): Val {
+export function instantiate(type: Type, init: IrInit, layouts: ReadonlyMap<string, IrLayout>): Val {
   if (type.kind === "struct" || type.kind === "function_block") {
     const layout = layouts.get(type.name.toUpperCase())
     if (layout === undefined) throw new Error(`no layout for ${type.name}`)
-    return Object.fromEntries(layout.fields.map((f) => [f.name.toUpperCase(), instantiate(f.type, f.init, layouts)]))
+    // the TYPE's own field values, with the fields an aggregate initializer names set over them
+    const named = typeof init === "object" && "fields" in init ? init.fields : {}
+    return Object.fromEntries(layout.fields.map((f) => [f.name.toUpperCase(), instantiate(f.type, named[f.name.toUpperCase()] ?? f.init, layouts)]))
   }
   const array = peelArray(type)
-  // every element starts at its OWN type's zero — a BOOL array's is FALSE, not the array slot's placeholder
-  if (array !== undefined) return Array.from({ length: array.length }, () => instantiate(array.element, defaultValueOf(array.element), layouts))
-  return fit(init, type)
+  // every element starts at its OWN type's zero — a BOOL array's is FALSE, not the array slot's placeholder — unless an
+  // aggregate initializer gave it one
+  const elements = typeof init === "object" && "elements" in init ? init.elements : []
+  if (array !== undefined) return Array.from({ length: array.length }, (_, i) => instantiate(array.element, elements[i] ?? defaultValueOf(array.element), layouts))
+  return fit(init as IrValue, type)
 }
 
 /** A composite value copied, so a store of one struct or array into another shares nothing with its source. */

@@ -381,7 +381,13 @@ export function parseExprFromTokens(tokens: readonly Token[]): Expr | undefined 
 export function initializerFromTokens(tokens: Token[]): Initializer | undefined {
   if (tokens.length === 0) return undefined
   const expr = parseExprFromTokens(tokens)
-  if (expr !== undefined) return expr
+  // `(y := 7)` parses as a parenthesized inline assignment, but a declaration assigns nothing: it is a one-field struct or
+  // FB initializer (conformance `init_struct_by_field`, `init_fb_instance_inputs`). `STRUCT(x := 20)` parses as a call,
+  // and is the same initializer spelled with its keyword.
+  const aggregate =
+    (expr?.kind === "paren" && expr.inner.kind === "assign_expr") ||
+    (expr?.kind === "call" && expr.callee.kind === "ident_expr" && expr.callee.name.toUpperCase() === "STRUCT")
+  if (expr !== undefined && !aggregate) return expr
   const first = tokens[0]
   const last = tokens[tokens.length - 1]
   const { form, elements } = parseAggregate(tokens)

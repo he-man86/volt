@@ -302,8 +302,16 @@ export interface IrSlot {
   /** `temp`: a lowering-owned slot. `program`: a called PROGRAM's one instance, in `IrPou.globals`. */
   section: VarSectionKind | "temp" | "program"
   /** The initial value: the declaration's, constant-folded, or the type's zero (`defaultValueOf`). */
-  init: IrValue
+  init: IrInit
 }
+
+/**
+ * A slot's initial value: a scalar, or an aggregate initializer's — an array's elements in order (an element left out,
+ * or `undefined`, starts at its type's own initial value), or the fields of a struct or FB instance it names, by
+ * upper-cased name (every other field at its TYPE's initial value). Conformance `array_initializers`,
+ * `init_struct_by_field`, `init_array_of_structs`, `init_fb_instance_inputs`.
+ */
+export type IrInit = IrValue | { readonly elements: readonly (IrInit | undefined)[] } | { readonly fields: Readonly<Record<string, IrInit>> }
 
 /**
  * The storage of a composite type — a DUT struct, or an FB instance's variables. A slot or field whose `type` is a

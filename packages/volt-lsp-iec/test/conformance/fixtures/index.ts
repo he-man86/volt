@@ -36,6 +36,7 @@ import { MEMORY_MODEL_TESTS } from "./memory-model.js"
 import { FB_CALL_TESTS } from "./fb-call.js"
 import { INHERITANCE_TESTS } from "./inheritance.js"
 import { ROUTINE_STATE_TESTS } from "./routine-state.js"
+import { INITIALIZER_TESTS } from "./initializers.js"
 
 export interface CategoryGroup {
   name: string
@@ -80,6 +81,8 @@ export const CATEGORIES: readonly CategoryGroup[] = [
   { name: "inheritance", tests: INHERITANCE_TESTS },
   // ── routine state and call edges: VAR_INST, VAR_STAT, properties, empty arguments, programs from FBs (phase 3½) ──
   { name: "routine-state", tests: ROUTINE_STATE_TESTS },
+  // ── aggregate initializers: structs by field, nested, arrays of structs, FB instances (phase 3½) ──
+  { name: "initializers", tests: INITIALIZER_TESTS },
 ]
 
 export const ALL_TESTS: readonly LanguageTest[] = CATEGORIES.flatMap((c) => c.tests)

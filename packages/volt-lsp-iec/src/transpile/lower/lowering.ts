@@ -7,6 +7,7 @@ import type { Scope } from "../../symbols/index.js"
 import { elementaryRef, resolveTypeExpr, type Type } from "../../types/index.js"
 import {
   defaultValueOf,
+  type IrInit,
   type IrLayout,
   type IrRoutine,
   type IrSlot,
@@ -183,7 +184,7 @@ export class Lowering {
     return this.slots.length - 1
   }
 
-  slot(name: Identifier, type: Type, section: VarSection["sectionKind"], init?: IrValue): void {
+  slot(name: Identifier, type: Type, section: VarSection["sectionKind"], init?: IrInit): void {
     if (this.globalMode) {
       this.shared.globals.byName.set(`${this.globalPrefix}${name.text}`.toUpperCase(), this.shared.globals.slots.length)
       this.shared.globals.slots.push({ name: name.text, type, section, init: init ?? defaultValueOf(type) })

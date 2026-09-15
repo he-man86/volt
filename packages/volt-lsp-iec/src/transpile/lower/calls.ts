@@ -185,7 +185,8 @@ function declareOutputs(lw: Lowering, r: Lowering, sections: readonly VarSection
     r.inoutByName.set(slot.name.toUpperCase(), at)
     r.inoutSlots.push({ ...slot, section: "VAR_OUTPUT" })
     const target: Place = { slot: at, path: [], type: slot.type, span, root: "inout" }
-    resets.push({ kind: "assign", target, value: { kind: "const", value: slot.init, type: slot.type, span }, span })
+    // an elementary output's initial value is a scalar (the check above), never an aggregate
+    resets.push({ kind: "assign", target, value: { kind: "const", value: slot.init as bigint | number | boolean | string, type: slot.type, span }, span })
   }
   return resets
 }
