@@ -169,4 +169,177 @@ END_FUNCTION
 `,
     "square : FB_IC_square5; areaPlusOne : INT;",
     "areaPlusOne := F_IC_area5(square);"),
+  // An interface INPUT outlives nothing in a FUNCTION, but an FB keeps its inputs: whether it keeps the instance given and
+  // uses it when a later call leaves the input out decides whether the input can be a borrow for the call. Asked here
+  // before the transpiler takes one (`interface-input`, 127 corpus POUs, mostly FB inputs).
+  fb("itf_fb_input_each_call", "FB_IC_meter6", "an FB's interface-typed VAR_INPUT, given on every call, called through in its body",
+    `INTERFACE ITF_IC_shape6
+METHOD Area : INT
+END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK FB_IC_square6 IMPLEMENTS ITF_IC_shape6
+VAR
+	side : INT := 4;
+	calls : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD Area : INT
+calls := calls + 1;
+Area := side * side;
+END_METHOD
+
+FUNCTION_BLOCK FB_IC_rect6 IMPLEMENTS ITF_IC_shape6
+VAR
+	width : INT := 2;
+	height : INT := 3;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD Area : INT
+Area := width * height;
+END_METHOD
+
+FUNCTION_BLOCK FB_IC_meter6
+VAR_INPUT
+	shape : ITF_IC_shape6;
+END_VAR
+VAR_OUTPUT
+	measured : INT;
+END_VAR
+measured := shape.Area();
+END_FUNCTION_BLOCK
+`,
+    "square : FB_IC_square6; rect : FB_IC_rect6; meterSquare : FB_IC_meter6; meterRect : FB_IC_meter6; areaSquare : INT; areaRect : INT;",
+    "meterSquare(shape := square, measured => areaSquare);\nmeterRect(shape := rect, measured => areaRect);",
+    2),
+  fb("itf_fb_input_left_out", "FB_IC_meter7", "an FB's interface-typed VAR_INPUT left out of a call: null before any is given, and after one is given",
+    `INTERFACE ITF_IC_shape7
+METHOD Area : INT
+END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK FB_IC_square7 IMPLEMENTS ITF_IC_shape7
+VAR
+	side : INT := 4;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD Area : INT
+Area := side * side;
+END_METHOD
+
+FUNCTION_BLOCK FB_IC_meter7
+VAR_INPUT
+	shape : ITF_IC_shape7;
+END_VAR
+VAR_OUTPUT
+	measured : INT;
+	nullSeen : INT;
+END_VAR
+IF shape = 0 THEN
+	nullSeen := nullSeen + 1;
+	measured := -1;
+ELSE
+	measured := shape.Area();
+END_IF
+END_FUNCTION_BLOCK
+`,
+    "square : FB_IC_square7; meter : FB_IC_meter7; beforeAny : INT; given : INT; leftOut : INT; nulls : INT;",
+    "meter(measured => beforeAny);\nmeter(shape := square, measured => given);\nmeter(measured => leftOut);\nnulls := meter.nullSeen;"),
+  fb("itf_method_input_passed_on", "FB_IC_outer8", "a METHOD's interface-typed VAR_INPUT passed on to a FUNCTION and to a nested FB's input",
+    `INTERFACE ITF_IC_shape8
+METHOD Area : INT
+END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK FB_IC_square8 IMPLEMENTS ITF_IC_shape8
+VAR
+	side : INT := 4;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD Area : INT
+Area := side * side;
+END_METHOD
+
+FUNCTION F_IC_area8 : INT
+VAR_INPUT
+	shape : ITF_IC_shape8;
+END_VAR
+F_IC_area8 := shape.Area() * 10;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_IC_inner8
+VAR_INPUT
+	shape : ITF_IC_shape8;
+END_VAR
+VAR_OUTPUT
+	got : INT;
+END_VAR
+got := shape.Area() + 1;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_IC_outer8
+VAR
+	inner : FB_IC_inner8;
+END_VAR
+VAR_OUTPUT
+	viaFunction : INT;
+	viaInner : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD Measure
+VAR_INPUT
+	shape : ITF_IC_shape8;
+END_VAR
+viaFunction := F_IC_area8(shape := shape);
+inner(shape := shape);
+viaInner := inner.got;
+END_METHOD
+`,
+    "square : FB_IC_square8; outer : FB_IC_outer8;",
+    "outer.Measure(shape := square);"),
+  fb("itf_interface_variable_as_input", "FB_IC_meter9", "an interface variable passed as an FB's interface-typed input, reassigned between cycles",
+    `INTERFACE ITF_IC_shape9
+METHOD Area : INT
+END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK FB_IC_square9 IMPLEMENTS ITF_IC_shape9
+VAR
+	side : INT := 4;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD Area : INT
+Area := side * side;
+END_METHOD
+
+FUNCTION_BLOCK FB_IC_rect9 IMPLEMENTS ITF_IC_shape9
+VAR
+	width : INT := 2;
+	height : INT := 3;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD Area : INT
+Area := width * height;
+END_METHOD
+
+FUNCTION_BLOCK FB_IC_meter9
+VAR_INPUT
+	shape : ITF_IC_shape9;
+END_VAR
+VAR_OUTPUT
+	measured : INT;
+END_VAR
+measured := shape.Area();
+END_FUNCTION_BLOCK
+`,
+    "square : FB_IC_square9; rect : FB_IC_rect9; shapeRef : ITF_IC_shape9; meter : FB_IC_meter9; total : INT;",
+    "IF shapeRef = 0 THEN\n\tshapeRef := square;\nELSE\n\tshapeRef := rect;\nEND_IF\nmeter(shape := shapeRef);\ntotal := total + meter.measured;",
+    2),
 ]
