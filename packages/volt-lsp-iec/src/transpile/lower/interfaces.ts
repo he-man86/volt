@@ -329,23 +329,30 @@ function queryInto(lw: Lowering, target: Place, v: Extract<Expr, { kind: "call" 
 }
 
 /**
- * `IF __QUERYINTERFACE(from, into) THEN` — pro2193's form (~30 uses) — or under NOT: the recorded query above, into a
- * hidden BOOL taken just before the test that reads it. An ELSIF's is taken inside the ELSE its IF lowers to, so only
- * when that branch is reached. `null` when the condition is no such query; one under AND_THEN / OR_ELSE, which may skip
- * it, is not the whole condition and is refused where it is lowered (`lowerBuiltin`).
+ * `IF __QUERYINTERFACE(from, into) THEN` — pro2193's form (~30 uses) — and the query as the condition's LEADING operand:
+ * under NOT, in parentheses, or the left side of AND_THEN / OR_ELSE, which always runs first
+ * (`IF NOT __QUERYINTERFACE(xuUnit, xuUnitExtended) OR_ELSE NOT xuUnitExtended.InSafePosForMouldEntry THEN`). It is the
+ * recorded query above, into a hidden BOOL taken just before the test; the condition then lowers as written, the call
+ * reading that BOOL (`hoistedQueries`, read by `lowerBuiltin`). An ELSIF's is taken inside the ELSE its IF lowers to, so
+ * only when reached. A query anywhere else — a right operand a short-circuit may skip, an operand of a plain AND/OR whose
+ * order is not recorded — stays refused there. `null` when the condition leads with no query.
  */
 export function queryCondition(lw: Lowering, cond: Expr): { before: IrStmt[]; cond: IrExpr } | undefined | null {
-  const bare = (e: Expr): Expr => (e.kind === "paren" ? bare(e.inner) : e)
-  const whole = bare(cond)
-  const negated = whole.kind === "unary" && whole.op === "NOT"
-  const call = whole.kind === "unary" && whole.op === "NOT" ? bare(whole.operand) : whole
-  if (!isQuery(call)) return null
+  const leading = (e: Expr): Expr | undefined =>
+    e.kind === "paren" ? leading(e.inner)
+    : e.kind === "unary" && e.op === "NOT" ? leading(e.operand)
+    : e.kind === "binary" && (e.op === "AND_THEN" || e.op === "OR_ELSE") ? leading(e.left)
+    : e
+  const call = leading(cond)
+  if (call === undefined || !isQuery(call)) return null
   const bool = elementaryRef("BOOL")
   const found = lw.tempPlace("query_found", bool, cond.span)
   const before = queryInto(lw, found, call, cond.span)
   if (before === undefined) return undefined
-  const read: IrExpr = { kind: "load", place: found, type: bool, span: cond.span }
-  return { before, cond: negated ? { kind: "unary", op: "not", operand: read, type: bool, span: cond.span } : read }
+  lw.hoistedQueries.set(call, { kind: "load", place: found, type: bool, span: call.span })
+  const lowered = lowerExpr(lw, cond, bool)
+  lw.hoistedQueries.delete(call)
+  return lowered && { before, cond: lowered }
 }
 
 /**

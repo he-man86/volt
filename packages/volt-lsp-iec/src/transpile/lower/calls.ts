@@ -356,10 +356,6 @@ function propertyAccess(lw: Lowering, e: Expr): { instance: Place; frame: FbType
   if (instance === undefined) return undefined
   if (instance.type.kind !== "function_block" || instance.type.scope === undefined) return null
   if (inGlobals(lw, instance)) return lw.bail("call-global-instance", `${e.member.name} is read or written on an instance declared in a GVL`, e.span)
-  // An accessor on an FB instance inside a PROGRAM would run with the program moved out, as a METHOD there does — but with
-  // none of its checks, and no recording covers a PROPERTY there (review of the batch): refused.
-  if (instance.root === "global" && instance.path.length > 0)
-    return lw.bail("call-program-property", `${e.member.name} is read or written on an instance inside a PROGRAM`, e.span)
   const sym = lookupMember(instance.type.scope, e.member.name)
   return sym?.kind === "property" ? { instance, frame: instance.type, sym } : null
 }
@@ -373,6 +369,14 @@ export function lowerPropertyGet(lw: Lowering, e: Expr): IrInvoke | IrDispatch |
   if (lw.arguments > 0) return lw.bail("call-nested", "a PROPERTY read inside a call's arguments", e.span)
   const routine = propertyRoutine(lw, access.frame, access.sym, "get", e.span)
   if (routine === undefined) return undefined
+  // The getter of an FB instance inside a PROGRAM runs on the program's instance (conformance
+  // `callshape_program_instance_property`: 33, 34), with the program moved out as for a METHOD there — under the same checks.
+  const inside = access.instance
+  if (inside.root === "global" && inside.path.length > 0) {
+    if (!staticPath(inside)) return lw.bail("call-program-property", `${access.sym.name} is read on an instance inside a PROGRAM through a runtime index`, e.span)
+    if (touchesOf(lw).get(routine.key)?.has(inside.slot) || reachesDispatch(lw, routine.body))
+      return lw.bail("call-program-reentrant", `${access.sym.name}'s getter may reach the PROGRAM it is read inside`, e.span)
+  }
   return { kind: "invoke", routine: routine.key, instance: access.instance, inputs: [], inouts: [], type: routine.locals[0]!.type, span: e.span }
 }
 
@@ -386,6 +390,10 @@ export function lowerPropertySet(lw: Lowering, s: Extract<Statement, { kind: "as
   if (access === undefined) return undefined
   if (access === null) return interfacePropertySet(lw, s)
   if (s.op !== undefined || s.chained !== undefined) return lw.bail("property-store", `${access.sym.name} set by ${s.op ?? "a chain"}`, s.span)
+  // written from outside the PROGRAM it lives in, it does not compile: "'gauge' is no input of 'PRG_CS_station21'"
+  // (recorded while making `callshape_program_instance_property`)
+  if (access.instance.root === "global" && access.instance.path.length > 0)
+    return lw.bail("call-program-property", `${access.sym.name} is written on an instance inside a PROGRAM, from outside it`, s.span)
   const routine = propertyRoutine(lw, access.frame, access.sym, "set", s.span)
   if (routine === undefined) return undefined
   const type = routine.locals[0]!.type

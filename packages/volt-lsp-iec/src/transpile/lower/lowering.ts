@@ -7,6 +7,7 @@ import type { Scope } from "../../symbols/index.js"
 import { elementaryRef, resolveTypeExpr, type Type } from "../../types/index.js"
 import {
   defaultValueOf,
+  type IrExpr,
   type IrInit,
   type IrLayout,
   type IrRoutine,
@@ -142,6 +143,9 @@ export class Lowering {
   /** The PROGRAM instances (global slots) this body reads or calls, and those of every body it calls. In Rust a program
    *  runs moved out of `Programs`, so a program whose run reaches its own instance would read a stand-in: refused. */
   readonly touched = new Set<number>()
+  /** A `__QUERYINTERFACE` call an IF condition leads with, by its AST node → the hidden BOOL its query was taken into
+   *  just before the IF (`queryCondition`); the call reads it where the condition lowers (`lowerBuiltin`). */
+  readonly hoistedQueries = new Map<object, IrExpr>()
 
   /** A name this frame, its parameters or its routine hold — which wins over an enum value of the same name. */
   holds(name: string): boolean {

@@ -568,4 +568,97 @@ END_FUNCTION_BLOCK
     "caller : FB_CS_caller20; fromPlc : INT;",
     "PRG_CS_station20();\nfromPlc := PRG_CS_station20.relay.Map();\ncaller();",
     2),
+  // The same instance's PROPERTY, read from outside the PROGRAM (pro2193's `HardwareButtons.F1.ObserverCount` — the
+  // transpiler's `call-program-property`, 64 corpus POUs): does the getter run on the program's instance? Recorded first
+  // with the property also WRITTEN from outside, which does not compile: "'gauge' is no input of 'PRG_CS_station21'" —
+  // so the program writes it, and the others only read.
+  fb("callshape_program_instance_property", "FB_CS_caller21", "a PROPERTY of an FB instance declared inside a PROGRAM, set by the program and read through the program's name from PLC_PRG and from an FB",
+    `FUNCTION_BLOCK FB_CS_gauge21
+VAR
+	stored : INT;
+	gets : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+PROPERTY Level : INT
+GET
+gets := gets + 1;
+Level := stored * 10 + gets;
+END_GET
+SET
+stored := stored + Level;
+END_SET
+END_PROPERTY
+
+PROGRAM PRG_CS_station21
+VAR
+	gauge : FB_CS_gauge21;
+	runs : INT;
+END_VAR
+runs := runs + 1;
+gauge.Level := runs;
+END_PROGRAM
+
+FUNCTION_BLOCK FB_CS_caller21
+VAR_OUTPUT
+	seen : INT;
+END_VAR
+seen := PRG_CS_station21.gauge.Level;
+END_FUNCTION_BLOCK
+`,
+    "caller : FB_CS_caller21; fromPlc : INT;",
+    "PRG_CS_station21();\nfromPlc := PRG_CS_station21.gauge.Level;\ncaller();",
+    2),
+  // Positional arguments across sections (the transpiler's `call-positional`, 62 corpus POUs): pro2193 calls
+  // `Arrays.Bool_All(result, TRUE)` — a VAR_IN_OUT declared before a VAR_INPUT — and `ClearProducts.Single(Product)`. Do
+  // positional arguments bind in declaration order across VAR_IN_OUT and VAR_INPUT, interleaved too? In declaration order:
+  // 100, 315, 46, with counter 11.
+  fb("callshape_positional_arguments", "FB_CS_user22", "positional arguments to a METHOD whose VAR_IN_OUT comes before its VAR_INPUT, to one with VAR_INPUT, VAR_IN_OUT, VAR_INPUT interleaved, and to a FUNCTION",
+    `FUNCTION F_CS_positional22 : INT
+VAR_INPUT
+	leftValue : INT;
+	rightValue : INT;
+END_VAR
+F_CS_positional22 := leftValue * 10 + rightValue;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_CS_user22
+VAR
+	counter : INT := 7;
+	mixedResult : INT;
+	interleavedResult : INT;
+	functionResult : INT;
+END_VAR
+mixedResult := Mixed(counter, 3);
+interleavedResult := Interleaved(2, counter, 5);
+functionResult := F_CS_positional22(4, 6);
+END_FUNCTION_BLOCK
+
+METHOD Mixed : INT
+VAR_IN_OUT
+	target : INT;
+END_VAR
+VAR_INPUT
+	amount : INT;
+END_VAR
+target := target + amount;
+Mixed := target * 10;
+END_METHOD
+
+METHOD Interleaved : INT
+VAR_INPUT
+	leading : INT;
+END_VAR
+VAR_IN_OUT
+	target : INT;
+END_VAR
+VAR_INPUT
+	trailing : INT;
+END_VAR
+target := target + 1;
+Interleaved := leading * 100 + target * 10 + trailing;
+END_METHOD
+`,
+    "user : FB_CS_user22;",
+    "user();"),
 ]

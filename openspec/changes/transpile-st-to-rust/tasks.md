@@ -480,7 +480,14 @@ taken apart by construct before anything is built — record first, then build, 
 - [x] `__QUERYINTERFACE` as an IF's or ELSIF's whole condition, or under NOT — pro2193's form (~30 uses), which only lowered as
       `found := __QUERYINTERFACE(from, into)`. It is that recorded query into a hidden BOOL, taken just before the test; an
       ELSIF's inside the ELSE its IF lowers to, so only when reached. Anywhere else — under AND_THEN / OR_ELSE, inside another
-      expression — it is refused (`interface-query`), where the timing of its store is not modelled.
+      expression — it is refused (`interface-query`), where the timing of its store is not modelled. Then extended to the
+      condition's LEADING operand (under NOT, the left side of AND_THEN / OR_ELSE, which always runs first — pro2193's
+      `IF NOT __QUERYINTERFACE(xuUnit, xuUnitExtended) OR_ELSE NOT xuUnitExtended.InSafePosForMouldEntry THEN`).
+- [x] A PROPERTY of an FB instance inside a PROGRAM, read from outside it (pro2193's `HardwareButtons.F1.ObserverCount`;
+      `call-program-property` 64 corpus POUs, a refusal the batch before added). Recorded (`callshape_program_instance_property`):
+      the getter runs on the program's instance (33, 34) — and a WRITE from outside does not compile ("'gauge' is no
+      input of 'PRG_CS_station21'"), recorded while making the case. The read lowers under a METHOD's checks there; a write
+      from outside stays refused.
 - [x] A call in a FOR limit (`for-bound-call`, 25 corpus POUs — property reads like `fbModuleManager.baseModulesCount`).
       Recorded (`callshape_for_limit_call`): a PROPERTY getter and a METHOD in the limit each run 4 times for 3 passes —
       once per test, as the limit is read. Lowered as such; a call in the step, or in a limit a runtime step tests on two

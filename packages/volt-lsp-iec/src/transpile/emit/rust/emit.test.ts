@@ -381,8 +381,9 @@ describe.skipIf(rustc === null)("emit/rust — compiles", () => {
         "INTERFACE I_QBase\nMETHOD Area : INT\nEND_METHOD\nEND_INTERFACE\nINTERFACE I_QShape EXTENDS I_QBase\nMETHOD Side : INT\nEND_METHOD\nEND_INTERFACE\n" +
         "FUNCTION_BLOCK FB_QSq IMPLEMENTS I_QShape\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := 9;\nEND_METHOD\nMETHOD Side : INT\nSide := 3;\nEND_METHOD\n",
       // An FB instance inside a PROGRAM, from outside it (recorded): a METHOD and a body call, each with the program moved out.
-      "PROGRAM ProgramMember\nVAR seen : INT; END_VAR\nPRG_PMStation();\nseen := PRG_PMStation.relay.Map();\nPRG_PMStation.relay(level := 50);\nEND_PROGRAM\n" +
+      "PROGRAM ProgramMember\nVAR seen : INT; count : INT; END_VAR\nPRG_PMStation();\nseen := PRG_PMStation.relay.Map();\nPRG_PMStation.relay(level := 50);\ncount := PRG_PMStation.relay.Count;\nEND_PROGRAM\n" +
         "FUNCTION_BLOCK FB_PMRelay\nVAR_INPUT level : INT; END_VAR\nVAR maps : INT; calls : INT; END_VAR\ncalls := calls + level;\nEND_FUNCTION_BLOCK\nMETHOD Map : INT\nmaps := maps + 1;\nMap := maps * 100 + calls;\nEND_METHOD\n" +
+        "PROPERTY Count : INT\nGET\nCount := calls;\nEND_GET\nEND_PROPERTY\n" +
         "PROGRAM PRG_PMStation\nVAR relay : FB_PMRelay; runs : INT; END_VAR\nruns := runs + 1;\nrelay(level := runs);\nEND_PROGRAM\n",
       // ARRAY[*] in-outs (recorded): a slice with its bounds handed in beside it, passed on, a const generic for an inner
       // open dimension, an FB's bounds stored on the instance, and an open array of sized rows.

@@ -360,7 +360,14 @@ test("__QUERYINTERFACE as an IF's or ELSIF's whole condition, or under NOT, is t
   )
   runner.scan()
   expect(["hits", "misses", "area", "elsifArea"].map((v) => runner.get(v))).toEqual([1n, 1n, 9n, 2n])
-  // under a short-circuit that may skip it, the query is not the whole condition
+  // the LEADING operand of OR_ELSE / AND_THEN always runs first: pro2193's `IF NOT __QUERYINTERFACE(xuUnit, xuUnitExtended)
+  // OR_ELSE NOT xuUnitExtended.InSafePosForMouldEntry THEN` — the right operand reads what the query stored
+  const leading = run(
+    ir(program("led : INT;", "baseRef := sq;\nIF NOT __QUERYINTERFACE(baseRef, shapeRef) OR_ELSE shapeRef.Area() <> 9 THEN\n  led := 1;\nELSE\n  led := 2;\nEND_IF"), "P"),
+  )
+  leading.scan()
+  expect(leading.get("led")).toEqual(2n)
+  // as a right operand a short-circuit may skip, the query is not taken before the test
   expect(lowerSource(program("done : BOOL;", "IF done OR_ELSE __QUERYINTERFACE(baseRef, shapeRef) THEN\n  done := TRUE;\nEND_IF"), "P").diagnostics.map((d) => d.code)).toEqual(["interface-query"])
 })
 
@@ -376,7 +383,13 @@ test("an instance inside a PROGRAM: a PROPERTY, a runtime index, a body reaching
     "PROPERTY Level : INT\nGET\nLevel := amount;\nEND_GET\nEND_PROPERTY\nMETHOD Plain : INT\nPlain := amount;\nEND_METHOD\nMETHOD Reach : INT\nReach := PRG_S.runs;\nEND_METHOD\nMETHOD Through : INT\nIF held <> 0 THEN\n  Through := held.Area();\nEND_IF\nEND_METHOD\n"
   const program = (body: string, extra = "") => `PROGRAM P\nVAR n : INT; i : INT := 1; END_VAR\nPRG_S();\n${body}\nEND_PROGRAM\n${station(extra)}`
   expect(codes(program("n := PRG_S.relay.Plain();"))).toEqual([])
-  expect(codes(program("n := PRG_S.relay.Level;"))).toContain("call-program-property")
+  // A PROPERTY there was refused here; the recording since (`callshape_program_instance_property`: 33, 34) shows the getter
+  // runs on the program's instance — and that a WRITE from outside does not compile. A runtime index stays refused.
+  const getter = run(ir(program("n := PRG_S.relay.Level;"), "P"))
+  getter.scan()
+  expect(getter.get("n")).toEqual(0n)
+  expect(codes(program("PRG_S.relay.Level := 1;"))).toContain("call-program-property")
+  expect(codes(program("n := PRG_S.relays[i].Level;"))).toContain("call-program-property")
   expect(codes(program("PRG_S.relays[i](amount := 1);"))).toContain("call-program-member")
   expect(codes(program("n := PRG_S.relay.Reach();"))).toContain("call-program-reentrant")
   expect(codes(program("PRG_S.relay(amount := 1);", "seen := PRG_S.runs;"))).toContain("call-program-reentrant")
