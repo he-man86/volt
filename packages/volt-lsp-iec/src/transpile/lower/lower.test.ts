@@ -311,6 +311,16 @@ END_PROGRAM
     expect(diagnostics.map((d) => d.code)).toEqual(["sizeof-unmeasured"])
   })
 
+  // In Rust a PROGRAM runs moved out of `Programs` and back, so a program whose run reaches its own instance — here
+  // through an FB it calls — would read a stand-in there. Refused, rather than read wrong.
+  test("a PROGRAM whose run reaches its own instance through an FB it calls is refused", () => {
+    const { diagnostics } = lowerSource(
+      "PROGRAM P\nPRG_Self();\nEND_PROGRAM\nPROGRAM PRG_Self\nVAR peek : FB_Peek; runs : INT; END_VAR\nruns := runs + 1;\npeek();\nEND_PROGRAM\nFUNCTION_BLOCK FB_Peek\nVAR seen : INT; END_VAR\nseen := PRG_Self.runs;\nEND_FUNCTION_BLOCK\n",
+      "P",
+    )
+    expect(diagnostics.map((d) => d.code)).toContain("call-program-reentrant")
+  })
+
   // The init step reaches instances through the frame; one inside an array (or a global, or a routine's local) is where
   // the walk does not follow and its timing is unmeasured — refused, never silently left uninitialised.
   test("a call_after_global_init_slot FB inside an array is refused", () => {

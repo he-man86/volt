@@ -88,18 +88,31 @@ const prefixed = (section: VarSection, prefix: string): VarSection => ({
 function once(lw: Lowering, name: string, span: Span, build: () => IrRoutine | undefined): IrRoutine | undefined {
   const key = name.toUpperCase()
   const cached = lw.routines.get(key)
-  if (cached?.state === "lowered") return cached.routine
   if (cached?.state === "failed") return lw.bail("call-body", `${name}'s body does not lower`, span)
   if (cached?.state === "lowering") return lw.bail("call-recursive", `${name} calls itself`, span)
-  lw.routines.set(key, { state: "lowering" })
-  const routine = build()
-  lw.routines.set(key, routine === undefined ? { state: "failed" } : { state: "lowered", routine })
+  let routine = cached?.state === "lowered" ? cached.routine : undefined
+  if (routine === undefined) {
+    lw.routines.set(key, { state: "lowering" })
+    routine = build()
+    lw.routines.set(key, routine === undefined ? { state: "failed" } : { state: "lowered", routine })
+  }
+  // the program instances the routine reaches are reached by whoever calls it (`Lowering.touched`)
+  for (const slot of touchesOf(lw).get(key) ?? []) lw.touched.add(slot)
   return routine
+}
+
+/** Each routine's `touched` set, by key — per POU lowering, so the routine's callers can take it on. */
+const touches = new WeakMap<object, Map<string, ReadonlySet<number>>>()
+function touchesOf(lw: Lowering): Map<string, ReadonlySet<number>> {
+  let map = touches.get(lw.shared)
+  if (map === undefined) touches.set(lw.shared, (map = new Map()))
+  return map
 }
 
 /** The lowering a routine body is lowered in: the frame's fields (when it runs on an instance) plus per-call locals. */
 function routineLowering(lw: Lowering, scope: Scope, frame: FbType | undefined, codeOwner: Scope | undefined, key: string): Lowering {
   const r = new Lowering(scope, lw.project, lw.shared)
+  touchesOf(lw).set(key, r.touched)
   const layout = frame === undefined ? undefined : lw.layouts.get(frame.name.toUpperCase())
   if (layout !== undefined) r.inherit(layout.fields)
   r.selfType = frame
@@ -376,6 +389,8 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     const base = lowerPlace(lw, callee.base)
     if (base === undefined) return undefined
     if (inGlobals(lw, base)) return lw.bail("call-global-instance", `${callee.member.name} is called on an instance declared in a GVL`, call.span)
+    // a METHOD of a PROGRAM's instance, or of an instance inside one: `prg.p.m(g, prg)` borrows `Programs` twice
+    if (base.root === "global") return lw.bail("call-program-method", `${callee.member.name} is called on a PROGRAM's instance`, call.span)
     if (base.type.kind !== "function_block") return lw.bail("call-method", `${callee.member.name} is not a METHOD or ACTION lowering can call`, call.span)
     routine = methodOf(lw, base.type, callee.member.name, call.span)
     instance = base
@@ -453,8 +468,13 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
   const pending = lw.bodies.get(key)
   const layout = lw.layouts.get(key)
   if (pending === undefined || layout === undefined) return lw.bail("call-target", `${name} has no body lowering can call`, span)
-  if (pending.state === "lowered") return layout
+  if (pending.state === "lowered") {
+    // the program instances its body reaches are reached by this caller too
+    for (const slot of pending.lowering.touched) lw.touched.add(slot)
+    return layout
+  }
   if (pending.state === "failed") return lw.bail("call-body", `${name}'s body does not lower`, span)
+  if (pending.state === "lowering") return lw.bail("call-recursive", `${name} is reached again while its own body lowers`, span)
   const unit = pending.unit
   const chain = chainOf(lw, unit)
   if (chain === undefined) return lw.fail(pending, "call-base", `a base of ${name} has no body lowering can reach`, span)
@@ -466,13 +486,20 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
   const nested = pending.lowering
   const before = nested.diagnostics.length
   declareInOuts(nested, inOutSections(chain))
+  pending.state = "lowering"
   const body = lowerBlock(nested, parsed.statements)
+  // A PROGRAM runs moved out of `Programs` in Rust (the call moves its instance out and back), so a program whose run
+  // reaches its own instance — reading `P.x` from an FB it calls — would read a stand-in there. Refused.
+  const own = unit.kind === "program" ? lw.shared.globals.byName.get(unit.name.text.toUpperCase()) : undefined
+  if (own !== undefined && nested.touched.has(own) && nested.diagnostics.length === before)
+    nested.bail("call-program-reentrant", `${name} reaches its own instance while it runs`, span)
   if (nested.diagnostics.length > before) {
     lw.diagnostics.push(...nested.diagnostics.slice(before))
     pending.state = "failed"
     return undefined
   }
   pending.state = "lowered"
+  for (const slot of nested.touched) lw.touched.add(slot)
   const called: IrLayout = { ...layout, body, inouts: nested.inoutSlots }
   lw.layouts.set(key, called)
   return called
@@ -543,7 +570,7 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
     }
     // a PROGRAM's one instance is global, and calls like an FB's; a GVL instance goes on to be refused by what it is
     const global = kind === "gvl_var" || sym?.varSection === "VAR_EXTERNAL"
-    if (!global && (kind !== "program" || !lw.isRoot || callee.name.toUpperCase() === lw.shared.root.toUpperCase())) {
+    if (!global && (kind !== "program" || callee.name.toUpperCase() === lw.shared.root.toUpperCase())) {
       const code = kind === "program" ? "call-program" : kind === "method" || kind === "action" ? "call-this" : "stmt-call_stmt"
       return lw.bail(code, `${callee.name} is not a callable instance yet`, call.span)
     }
@@ -566,6 +593,9 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
   if (instance === undefined) return undefined
   if (instance.type.kind !== "function_block") return lw.bail("stmt-call_stmt", "a call of something that is not an FB instance", call.span)
   if (inGlobals(lw, instance)) return lw.bail("call-global-instance", `${instance.type.name} is called on an instance declared in a GVL`, call.span)
+  // an FB instance inside a PROGRAM, called from outside it: `prg.p.inst.call(g, prg)` borrows `Programs` twice
+  if (instance.root === "global" && instance.path.length > 0)
+    return lw.bail("call-program-member", `${instance.type.name} is called inside a PROGRAM's instance from outside it`, call.span)
   const layout = calledLayout(lw, instance.type.name, call.span)
   if (layout === undefined) return undefined
 

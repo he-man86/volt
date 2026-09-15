@@ -760,6 +760,32 @@ END_METHOD`,
     expect([pou.get("viaSuper.inBase"), pou.get("viaSuper.nBase"), pou.get("viaSuper.hookDerived"), pou.get("viaSuper.hookBase")]).toEqual([105n, 1n, 1n, 1n])
   })
 
+  // `state_program_called_from_fb`: a PROGRAM called from an FB's body is the one instance PLC_PRG calls. Why missed: a
+  // program was callable from the POU's own body only, as Rust held its instance for the root scan alone.
+  test("a PROGRAM called from inside an FB is the same one instance the POU calls", () => {
+    const pou = load(
+      `PROGRAM P
+VAR inst : FB_C; direct : INT; END_VAR
+inst();
+PRG_Counted();
+direct := PRG_Counted.runs;
+END_PROGRAM
+PROGRAM PRG_Counted
+VAR runs : INT; END_VAR
+runs := runs + 1;
+END_PROGRAM
+FUNCTION_BLOCK FB_C
+VAR_OUTPUT seen : INT; END_VAR
+PRG_Counted();
+seen := PRG_Counted.runs;
+END_FUNCTION_BLOCK`,
+      "P",
+    )
+    pou.scan()
+    pou.scan()
+    expect([pou.get("inst.seen"), pou.get("direct")]).toEqual([3n, 4n])
+  })
+
   // `state_call_after_global_init_counts`: the method runs once per instance before the first scan, however many scans
   // follow. Why missed: `call_after_global_init_slot` wrote `iCount := 1`, and an FB carrying it was refused.
   test("a call_after_global_init_slot METHOD runs once per instance, before the first scan", () => {

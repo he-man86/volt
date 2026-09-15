@@ -19,7 +19,8 @@ import {
 export interface PendingBody {
   lowering: Lowering
   unit: Extract<TopLevel, { kind: "function_block" | "program" }>
-  state: "pending" | "lowered" | "failed"
+  /** `lowering` while its body lowers: reached again then, the body calls itself (through a program, say) — refused */
+  state: "pending" | "lowering" | "lowered" | "failed"
 }
 
 /** An FB's base, if it EXTENDS one — a PROGRAM never does. */
@@ -96,6 +97,9 @@ export class Lowering {
 
   /** A routine's VAR_STAT names → the global slot each is (one per declaring METHOD, shared by every instance). */
   readonly statics = new Map<string, number>()
+  /** The PROGRAM instances (global slots) this body reads or calls, and those of every body it calls. In Rust a program
+   *  runs moved out of `Programs`, so a program whose run reaches its own instance would read a stand-in: refused. */
+  readonly touched = new Set<number>()
 
   /** A name this frame, its parameters or its routine hold — which wins over an enum value of the same name. */
   holds(name: string): boolean {

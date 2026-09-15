@@ -190,11 +190,18 @@ class Printer {
     private readonly globals: { access: readonly string[]; slots: IrPou["slots"] },
     /** The program reaches GVL variables — every generated call is handed `g`. */
     private readonly usesGlobals: boolean,
+    /** The program reaches PROGRAM instances — every generated call is handed `prg` too, as any body may call one. */
+    private readonly usesPrograms = false,
   ) {}
 
-  /** `g` before a generated call's arguments when the program has GVL variables. */
+  /** `g` and `prg` before a generated call's arguments, as far as the program has them. */
   get globalsArg(): string[] {
-    return this.usesGlobals ? ["g"] : []
+    return [...(this.usesGlobals ? ["g"] : []), ...(this.usesPrograms ? ["prg"] : [])]
+  }
+
+  /** The parameters every generated body declares for them. */
+  get globalsParams(): string[] {
+    return [...(this.usesGlobals ? ["g: &mut Globals"] : []), ...(this.usesPrograms ? ["prg: &mut Programs"] : [])]
   }
 
   /** Print `run` inside an FB's `call` or a routine: `fields` are `self`'s, the frame holds its parameters and locals. */
@@ -507,7 +514,14 @@ class Printer {
         // a VAR_IN_OUT bound through a dereference is checked too — the interpreter checks it when it binds the argument
         for (const p of s.inouts) this.guardLine(p, slots, indent)
         const bound = [...this.globalsArg, ...s.inouts.map((p) => `&mut ${this.place(p, slots)}`)].join(", ")
-        this.push(`${this.place(s.instance, slots)}.call(${bound});`, indent, s.span)
+        const instance = this.place(s.instance, slots)
+        // A PROGRAM's instance lives in `Programs`, which the call is handed too — `prg.p.call(g, prg)` would borrow it
+        // twice (E0499) — so it runs moved out and back. Lowering refuses a program whose run reaches its own instance.
+        if (s.instance.root === "global" && s.instance.path.length === 0 && this.globals.slots[s.instance.slot]?.section === "program") {
+          this.push(`{ let mut program = std::mem::replace(&mut ${instance}, ${rustName(s.fb)}::new()); program.call(${bound}); ${instance} = program; }`, indent, s.span)
+          return
+        }
+        this.push(`${instance}.call(${bound});`, indent, s.span)
         return
       }
     }
@@ -536,13 +550,14 @@ function routineFnName(routine: IrRoutine): string {
  * `&mut` parameters, every other local a `let mut` at its initial value — so each call starts over, as measured — and the
  * result local is handed back.
  */
-function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[], fieldSlots: IrPou["slots"], indent: number, usesGlobals: boolean): void {
-  const names = fieldNames([...routine.locals, ...routine.inouts], usesGlobals ? ["g"] : [])
+function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[], fieldSlots: IrPou["slots"], indent: number): void {
+  // `g` and `prg`, as far as the program has them, are every body's first parameters — no local may take those names
+  const names = fieldNames([...routine.locals, ...routine.inouts], p.globalsArg)
   const localNames = names.slice(0, routine.locals.length)
   const inoutNames = names.slice(routine.locals.length)
   const params = [
     ...(routine.kind === "function" ? [] : ["&mut self"]),
-    ...(usesGlobals ? ["g: &mut Globals"] : []),
+    ...p.globalsParams,
     ...routine.inputs.map((i) => `mut ${localNames[i]}: ${rustType(routine.locals[i]!.type)}`),
     ...routine.inouts.map((slot, i) => `${inoutNames[i]}: &mut ${rustType(slot.type)}`),
   ]
@@ -611,11 +626,11 @@ export function emitRust(pou: IrPou): Emitted {
   const access = pou.globals.map((s) =>
     s.section === "program" ? `prg.${programNames[programs.indexOf(s)]}` : `g.${variableNames[variables.indexOf(s)]}`,
   )
-  const p = new Printer(fields, layouts, new Map(pou.routines.map((r) => [r.key, r])), { access, slots: pou.globals }, usesGlobals)
+  const p = new Printer(fields, layouts, new Map(pou.routines.map((r) => [r.key, r])), { access, slots: pou.globals }, usesGlobals, usesPrograms)
   const name = rustName(pou.name)
   // every generated body is handed the globals as `g`, so no parameter or local of its own may take that name
-  const globalsParam = usesGlobals ? ["g: &mut Globals"] : []
-  const reserved = usesGlobals ? ["g"] : []
+  const globalsParam = p.globalsParams
+  const reserved = [...(usesGlobals ? ["g"] : []), ...(usesPrograms ? ["prg"] : [])]
 
   p.push(`// generated from ${pou.name} — do not edit`, 0)
   for (const [struct, slots, names] of [
@@ -659,13 +674,13 @@ export function emitRust(pou: IrPou): Emitted {
       const inoutNames = fieldNames(inouts, reserved)
       const params = [...globalsParam, ...inouts.map((slot, i) => `${inoutNames[i]}: &mut ${rustType(slot.type)}`)].map((param) => `, ${param}`).join("")
       p.push("", 0)
-      if (usesGlobals) p.push("#[allow(unused_variables)]", 1)
+      if (globalsParam.length > 0) p.push("#[allow(unused_variables)]", 1)
       p.push(`pub fn call(&mut self${params}) {`, 1)
       const selfType: Type = { kind: "function_block", name: layout.name }
       p.inFrame(names, { inoutNames, inoutSlots: inouts, localNames: [], localSlots: [], selfType }, () => p.block(layout.body!, layout.fields, 2))
       p.push("}", 1)
     }
-    for (const routine of pou.routines.filter((r) => r.fb?.toUpperCase() === layout.name.toUpperCase())) printRoutine(p, routine, names, layout.fields, 1, usesGlobals)
+    for (const routine of pou.routines.filter((r) => r.fb?.toUpperCase() === layout.name.toUpperCase())) printRoutine(p, routine, names, layout.fields, 1)
     p.push("}", 0)
     p.push("", 0)
   }
@@ -697,7 +712,7 @@ export function emitRust(pou: IrPou): Emitted {
   p.push("}", 1)
   p.push("}", 0)
   // a FUNCTION has no instance: a free fn beside the structs
-  for (const routine of pou.routines.filter((r) => r.kind === "function")) printRoutine(p, routine, [], [], 0, usesGlobals)
+  for (const routine of pou.routines.filter((r) => r.kind === "function")) printRoutine(p, routine, [], [], 0)
   // the one check every dereference makes: a null pointer stops the program, as it stops the CODESYS application
   if (p.code.includes("iec_deref(")) {
     p.push("", 0)

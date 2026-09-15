@@ -103,10 +103,12 @@ describe("emit/rust", () => {
     expect(emitted.code).toContain("g_shared: 3i16,")
     expect(emitted.code).toContain("pub struct Programs {")
     expect(emitted.code).toContain("pub fn scan(&mut self, g: &mut Globals, prg: &mut Programs) {")
-    // two borrows, never one struct borrowed twice: the instance from `prg`, the variables from `g`
-    expect(emitted.code).toContain("prg.prg_writer.call(g);")
+    // Every body is handed `g` and `prg`, as any body may call a PROGRAM (conformance `state_program_called_from_fb`); a
+    // program runs moved out of `Programs` and back, so the call never borrows `prg` twice. This read
+    // `prg.prg_writer.call(g)` while only the POU's own scan could call a program.
+    expect(emitted.code).toContain("{ let mut program = std::mem::replace(&mut prg.prg_writer, PRG_Writer::new()); program.call(g, prg); prg.prg_writer = program; }")
     expect(emitted.code).toContain("self.seen = g.g_shared;")
-    expect(emitted.code).toContain("pub fn call(&mut self, g: &mut Globals) {")
+    expect(emitted.code).toContain("pub fn call(&mut self, g: &mut Globals, prg: &mut Programs) {")
   })
 
   test("an enum variable is its base type and an enum value its number; THIS^ is `self`", () => {

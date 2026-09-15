@@ -18,19 +18,23 @@ import { lowerExpr } from "./expressions.js"
 export function globalPlace(lw: Lowering, name: string, span: Span): Place | undefined {
   const upper = name.toUpperCase()
   const place = (slot: number): Place => ({ slot, path: [], type: lw.shared.globals.slots[slot]!.type, span, root: "global" })
-  // A PROGRAM's instance is reached from the POU's own body only. Rust holds the instances apart from the GVL variables
-  // (`Programs`, `Globals`) so that `prg.p.call(g)` borrows two things; a program called from inside an FB, a routine or
-  // another program would need the instances and itself at once.
+  // A PROGRAM's instance is the application's, reached from any body (conformance `state_program_called_from_fb`: the one
+  // instance PLC_PRG calls). Rust holds the instances apart from the GVL variables (`Programs`, `Globals`), and each body
+  // that reaches one records it (`touched`) — a program runs moved out of `Programs`, so it must not reach itself.
   const known = lw.shared.globals.byName.get(upper)
-  if (known !== undefined) return lw.shared.globals.slots[known]!.section === "program" && !lw.isRoot ? undefined : place(known)
+  if (known !== undefined) {
+    if (lw.shared.globals.slots[known]!.section === "program") lw.touched.add(known)
+    return place(known)
+  }
   let sym = lookup(lw.scope, name)?.symbol
   if (sym?.varSection === "VAR_EXTERNAL") sym = lookup(lw.project, name)?.symbol
   if (sym === undefined || libraryOf(sym) !== undefined) return undefined
   if (sym.kind === "gvl_var") declareGlobal(lw, sym.ast as VarDecl, "")
-  else if (sym.kind === "program" && lw.isRoot && sym.name.toUpperCase() !== lw.shared.root.toUpperCase()) {
+  else if (sym.kind === "program" && sym.name.toUpperCase() !== lw.shared.root.toUpperCase()) {
     const type = storageOf(lw, resolveNamedType(sym.name, lw.project))
     lw.shared.globals.byName.set(upper, lw.shared.globals.slots.length)
     lw.shared.globals.slots.push({ name: sym.name, type, section: "program", init: defaultValueOf(type) })
+    lw.touched.add(lw.shared.globals.slots.length - 1)
   } else return undefined
   const slot = lw.shared.globals.byName.get(upper)
   return slot === undefined ? undefined : place(slot)
