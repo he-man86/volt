@@ -342,6 +342,33 @@ test("a constant named through its GVL or its PROGRAM sizes an array, starts a v
   expect([runner.get("worker.visits"), runner.get("worker.flags[3]"), runner.get("worker.prevState")]).toEqual([4n, true, -2147483648n])
 })
 
+// Recorded first (`callshape_positional_arguments`): positional arguments bind in declaration order across VAR_INPUT and
+// VAR_IN_OUT, interleaved too (100, 315, 46). They were refused (`call-positional`) whenever the routine had an in-out —
+// pro2193's `Arrays.Bool_All(result, TRUE)` — and a METHOD calling its FB's own METHOD takes the FB's in-outs, so even
+// pro2193's `ManualControl(a, b)` was. Why missed: no fixture called positionally past plain inputs.
+test("positional arguments bind in declaration order across VAR_INPUT and VAR_IN_OUT", () => {
+  // The recording binds the FB's own field to its own METHOD, which lowering refuses on other grounds (two `&mut` of one
+  // instance, `call-inout-alias`) — so the METHODs run on a child instance here, with the same parameters and values.
+  const routines = (manual: string) =>
+    "PROGRAM P\nVAR user : FB_U; io : INT; END_VAR\nuser(shared := io);\nEND_PROGRAM\n" +
+    "FUNCTION F_Pos : INT\nVAR_INPUT leftValue : INT; rightValue : INT; END_VAR\nF_Pos := leftValue * 10 + rightValue;\nEND_FUNCTION\n" +
+    `FUNCTION_BLOCK FB_U\nVAR_IN_OUT shared : INT; END_VAR\nVAR helper : FB_H; counter : INT := 7; mixedResult : INT; interleavedResult : INT; functionResult : INT; manualResult : INT; outs : INT; END_VAR\n` +
+    `mixedResult := helper.Mixed(counter, 3);\ninterleavedResult := helper.Interleaved(2, counter, 5);\nfunctionResult := F_Pos(4, 6);\n${manual}\nEND_FUNCTION_BLOCK\n` +
+    // pro2193's `ManualControl(a, b)`: a METHOD calling its FB's own METHOD takes the FB's in-outs, and was refused
+    "METHOD Manual\nVAR_INPUT lower : INT; upper : INT; END_VAR\nmanualResult := lower * 10 + upper;\nBump();\nEND_METHOD\nMETHOD Bump\nshared := shared + 1;\nEND_METHOD\n" +
+    "FUNCTION_BLOCK FB_H\nEND_FUNCTION_BLOCK\n" +
+    "METHOD Mixed : INT\nVAR_IN_OUT target : INT; END_VAR\nVAR_INPUT amount : INT; END_VAR\ntarget := target + amount;\nMixed := target * 10;\nEND_METHOD\n" +
+    "METHOD Interleaved : INT\nVAR_INPUT leading : INT; END_VAR\nVAR_IN_OUT target : INT; END_VAR\nVAR_INPUT trailing : INT; END_VAR\ntarget := target + 1;\nInterleaved := leading * 100 + target * 10 + trailing;\nEND_METHOD\n" +
+    "METHOD WithOutput : INT\nVAR_INPUT first : INT; END_VAR\nVAR_OUTPUT given : INT; END_VAR\nVAR_INPUT second : INT; END_VAR\ngiven := first;\nWithOutput := second;\nEND_METHOD\n"
+  const runner = run(ir(routines("Manual(1, 2);"), "P"))
+  runner.scan()
+  expect(["user.mixedResult", "user.interleavedResult", "user.functionResult", "user.counter", "user.manualResult", "io"].map((v) => runner.get(v))).toEqual([100n, 315n, 46n, 11n, 12n, 1n])
+  const codes = (manual: string) => lowerSource(routines(manual), "P").diagnostics.map((d) => d.code)
+  // past the parameters, and counted across a VAR_OUTPUT (how a position counts one is not recorded)
+  expect(codes("Manual(1, 2, 3);")).toContain("call-positional")
+  expect(codes("outs := helper.WithOutput(1, 2);")).toContain("call-positional")
+})
+
 // pro2193 queries an interface as an IF's condition (`IF __QUERYINTERFACE(transferProducts, prepareTransfer) THEN`, ~30
 // uses); only `found := __QUERYINTERFACE(from, into)` lowered (`expr-call`). It is that recorded query into a hidden BOOL
 // taken just before the test — an ELSIF's only when reached. Why missed: the recorded case used the assignment form only.

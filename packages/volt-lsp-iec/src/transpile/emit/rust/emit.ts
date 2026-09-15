@@ -374,9 +374,12 @@ class Printer {
         return lets === "" ? checked : `{ ${lets} ${checked} }`
       }
       case "dispatch": {
-        // a call through an interface: its value picks the instance; none — a null interface — panics (design §22)
+        // a call through an interface: its value picks the instance; none — a null interface — panics (design §22). The panic
+        // is a closure of the call's own type: with no arm at all — an interface nothing is ever stored into — a bare
+        // `panic!` made the match `!`, which no cast takes (E0605) and rustc called unreachable (found in a review, 2026-09-15).
         const arms = e.arms.map((a) => `${a.tag} => ${this.expr(a.call, slots)},`).join(" ")
-        return `(match ${this.expr(e.tag, slots)} { ${arms} _ => panic!("call through an interface that holds no instance") })`
+        const typed = e.type.kind === "unknown" ? "()" : rustType(e.type)
+        return `(match ${this.expr(e.tag, slots)} { ${arms} _ => (|| -> ${typed} { panic!("call through an interface that holds no instance") })() })`
       }
       case "load": {
         const field = this.place(e.place, slots)

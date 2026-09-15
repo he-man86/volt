@@ -114,6 +114,15 @@ function touchesOf(lw: Lowering): Map<string, ReadonlySet<number>> {
   return map
 }
 
+/** Each routine's parameters in declaration order — VAR_INPUT, VAR_IN_OUT and VAR_OUTPUT as written — by key: the order a
+ *  positional argument binds in (conformance `callshape_positional_arguments`). */
+const positionals = new WeakMap<object, Map<string, readonly { name: string; output: boolean }[]>>()
+function positionalOf(lw: Lowering): Map<string, readonly { name: string; output: boolean }[]> {
+  let map = positionals.get(lw.shared)
+  if (map === undefined) positionals.set(lw.shared, (map = new Map()))
+  return map
+}
+
 /** Each routine's ANY / ANY_* input slots, by key — the inputs a call fills with its argument's size, not its value. */
 const anyInputs = new WeakMap<object, Map<string, ReadonlySet<number>>>()
 function anyInputsOf(lw: Lowering): Map<string, ReadonlySet<number>> {
@@ -268,6 +277,12 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     declareOpenBounds(r, sections.filter((s) => s.sectionKind === "VAR_IN_OUT"), "VAR_INPUT")
     const inputs = Array.from({ length: r.localSlots.length - firstInput }, (_, i) => firstInput + i)
     anyInputsOf(lw).set(key, new Set(inputs.filter((i) => r.anyInputs.has(r.localSlots[i]!.name.toUpperCase()))))
+    positionalOf(lw).set(
+      key,
+      sections
+        .filter((s) => s.sectionKind === "VAR_INPUT" || s.sectionKind === "VAR_IN_OUT" || s.sectionKind === "VAR_OUTPUT")
+        .flatMap((s) => s.decls.flatMap((d) => d.names.map((n) => ({ name: n.text, output: s.sectionKind === "VAR_OUTPUT" })))),
+    )
     declareVars(r, sections.filter((s) => s.sectionKind === "VAR" || s.sectionKind === "VAR_TEMP"))
     declareInOuts(r, sections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
     const resets = declareOutputs(lw, r, sections.filter((s) => s.sectionKind === "VAR_OUTPUT"), span)
@@ -539,7 +554,24 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
   const order: number[] = []
   const inouts: (IrBinding | undefined)[] = routine.inouts.map(() => undefined)
   const held = () => [...(instance === undefined ? [] : [instance]), ...inouts.filter(isPlace)]
+  // Positional arguments bind in declaration order across VAR_INPUT and VAR_IN_OUT (conformance
+  // `callshape_positional_arguments`: 100, 315, 46), so each is named here by the parameter at its position. They were
+  // refused whenever the routine had an in-out — pro2193's `Arrays.Bool_All(result, TRUE)` — and a METHOD calling its own
+  // FB's METHODs takes the FB's in-outs, so even `ManualControl(a, b)` was. How a position counts a VAR_OUTPUT declared
+  // among them is not recorded: refused.
+  const declared = positionalOf(lw).get(routine.key) ?? []
+  const args: CallArg[] = []
   for (const [position, arg] of call.args.entries()) {
+    if (arg.param !== undefined || arg.output) {
+      args.push(arg)
+      continue
+    }
+    const parameter = declared[position]
+    if (parameter === undefined || declared.slice(0, position + 1).some((d) => d.output))
+      return lw.bail("call-positional", `${routine.name} called with a positional argument ${parameter === undefined ? "past its parameters" : "counted across a VAR_OUTPUT"}`, arg.span)
+    args.push({ ...arg, param: { kind: "ident_expr", name: parameter.name, span: arg.span } })
+  }
+  for (const arg of args) {
     const name = arg.param?.name.toUpperCase()
     const bound = name === undefined ? -1 : routine.inouts.findIndex((p) => p.name.toUpperCase() === name)
     const param = bound >= 0 ? routine.inouts[bound]! : undefined
@@ -555,22 +587,15 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
       continue
     }
     if (arg.value === undefined) return lw.bail("call-output", `${routine.name} called with an empty argument`, arg.span)
-    let k: number
-    if (arg.param === undefined) {
-      if (routine.inouts.length > 0 || position >= routine.inputs.length)
-        return lw.bail("call-positional", `${routine.name} called with a positional argument`, arg.span)
-      k = position
-    } else {
-      if (param?.section === "VAR_OUTPUT") return lw.bail("call-output", `${param.name} is a VAR_OUTPUT, bound with :=`, arg.span)
-      if (param !== undefined) {
-        const target = bindInOut(lw, arg, param, held(), routine.body)
-        if (target === undefined) return undefined
-        inouts[bound] = target
-        continue
-      }
-      k = routine.inputs.findIndex((i) => routine!.locals[i]!.name.toUpperCase() === name)
-      if (k < 0) return lw.bail("call-param", `${arg.param.name} is not an input of ${routine.name}`, arg.span)
+    if (param?.section === "VAR_OUTPUT") return lw.bail("call-output", `${param.name} is a VAR_OUTPUT, bound with :=`, arg.span)
+    if (param !== undefined) {
+      const target = bindInOut(lw, arg, param, held(), routine.body)
+      if (target === undefined) return undefined
+      inouts[bound] = target
+      continue
     }
+    const k = routine.inputs.findIndex((i) => routine!.locals[i]!.name.toUpperCase() === name)
+    if (k < 0) return lw.bail("call-param", `${arg.param!.name} is not an input of ${routine.name}`, arg.span)
     if (anyInputsOf(lw).get(routine.key)?.has(routine.inputs[k]!)) {
       // an ANY argument: the routine sees its size — SIZEOF's layout (conformance `state_any_input_sizes`) — of a variable
       const place = lw.inArgument(() => lowerPlace(lw, arg.value!))
@@ -642,10 +667,11 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     if (held().some((p) => aliases(temp, p))) return lw.bail("call-inout-alias", `${slot.name} is unconnected on a call of this instance's own method`, call.span)
     inouts[i] = temp
   }
+  // every argument is named by now — a positional one by the parameter at its position
   const moved = movedInOut(
-    call,
+    { args },
     (name) => inouts[routine!.inouts.findIndex((p) => p.name.toUpperCase() === name)],
-    (arg, position) => inputs[arg.param === undefined ? position : routine!.inputs.findIndex((i) => routine!.locals[i]!.name.toUpperCase() === arg.param!.name.toUpperCase())],
+    (arg) => inputs[routine!.inputs.findIndex((i) => routine!.locals[i]!.name.toUpperCase() === arg.param!.name.toUpperCase())],
   )
   if (moved !== undefined) return lw.bail("call-inout-order", `${routine.name}'s ${moved} is bound before a call in a later argument that could move it`, call.span)
   const type = routine.result === undefined ? UNKNOWN : routine.locals[routine.result]!.type

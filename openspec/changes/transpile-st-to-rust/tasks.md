@@ -483,6 +483,15 @@ taken apart by construct before anything is built — record first, then build, 
       expression — it is refused (`interface-query`), where the timing of its store is not modelled. Then extended to the
       condition's LEADING operand (under NOT, the left side of AND_THEN / OR_ELSE, which always runs first — pro2193's
       `IF NOT __QUERYINTERFACE(xuUnit, xuUnitExtended) OR_ELSE NOT xuUnitExtended.InSafePosForMouldEntry THEN`).
+- [x] Positional arguments across sections (`call-positional`, 62 corpus POUs). Recorded (`callshape_positional_arguments`):
+      they bind in declaration order across VAR_INPUT and VAR_IN_OUT, interleaved too (100, 315, 46). Built: each routine
+      keeps its parameters' declaration order; a positional argument is named by the one at its position. They were refused
+      whenever the routine had an in-out (`Arrays.Bool_All(result, TRUE)`), and a METHOD calling its FB's own METHODs takes
+      the FB's in-outs, so even `ManualControl(a, b)` was. Still refused: a position counted across a VAR_OUTPUT (not
+      recorded), and positional FB body calls. The recorded case itself binds the FB's own field to its own METHOD, which
+      stays refused on other grounds (`call-inout-alias`, two `&mut` of one instance) — its values are checked in
+      `lower.test.ts` with the METHODs on a child instance. Also fixed, found by the batch before's review: a call through an interface
+      nothing is ever stored into printed a `!`-typed match rustc refused (E0605) — its panic arm is typed now.
 - [x] A PROPERTY of an FB instance inside a PROGRAM, read from outside it (pro2193's `HardwareButtons.F1.ObserverCount`;
       `call-program-property` 64 corpus POUs, a refusal the batch before added). Recorded (`callshape_program_instance_property`):
       the getter runs on the program's instance (33, 34) — and a WRITE from outside does not compile ("'gauge' is no
