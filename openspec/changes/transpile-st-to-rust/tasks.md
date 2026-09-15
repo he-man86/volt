@@ -457,6 +457,9 @@ taken apart by construct before anything is built — record first, then build, 
       uses no recording covers that slipped through once the slice was representable — a whole-array read or store
       (uncompilable Rust, a swapped caller array), ADR of an element (store dropped silently), a union behind an open
       index (no copy), `SUPER^` rebinding (stale bounds), a METHOD reading the bounds, an untested `call-open-array`.
+      An `ARRAY[*]` takes the size of the array connected to it — it only looks dynamic — so whether it chains was
+      recorded too (`callshape_array_star_fb_chain`): an FB hands its `ARRAY[*]` in-out on to a nested FB's, and the inner
+      FB sees the caller's bounds (306) and writes the caller's array; the hidden-field model already gave both.
       Open: `callshape_array_star_of_struct` stays refused (`call-inout-alias`) — an FB lending its
       own field to its own METHOD is two `&mut` of one instance, independent of open arrays.
 - [x] A call in a FOR limit (`for-bound-call`, 25 corpus POUs — property reads like `fbModuleManager.baseModulesCount`).

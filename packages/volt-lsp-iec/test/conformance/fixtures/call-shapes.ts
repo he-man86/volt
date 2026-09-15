@@ -485,4 +485,45 @@ END_FUNCTION_BLOCK
 `,
     "user : FB_CS_user18;",
     "user();"),
+  // An ARRAY[*] feels dynamic but takes the size of the array connected to it — so can an FB hand its ARRAY[*] in-out on to
+  // a nested FB's ARRAY[*] in-out, FB layers deep? (A FUNCTION passing one on to a FUNCTION compiles: 9804.) If it compiles,
+  // the inner FB sees the caller's bounds, 306, and its write reaches the caller's array.
+  fb("callshape_array_star_fb_chain", "FB_CS_user19", "an FB's ARRAY[*] VAR_IN_OUT passed on to a nested FB's ARRAY[*] VAR_IN_OUT: does it compile, and which bounds does the inner FB see",
+    `FUNCTION_BLOCK FB_CS_inner19
+VAR_IN_OUT
+	numbers : ARRAY[*] OF INT;
+END_VAR
+VAR_OUTPUT
+	seenBounds : DINT;
+END_VAR
+seenBounds := LOWER_BOUND(numbers, 1) * 100 + UPPER_BOUND(numbers, 1);
+numbers[UPPER_BOUND(numbers, 1)] := 77;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_CS_outer19
+VAR_IN_OUT
+	numbers : ARRAY[*] OF INT;
+END_VAR
+VAR_OUTPUT
+	seenBounds : DINT;
+END_VAR
+VAR
+	inner : FB_CS_inner19;
+END_VAR
+inner(numbers := numbers);
+seenBounds := inner.seenBounds;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_CS_user19
+VAR
+	outer : FB_CS_outer19;
+	row : ARRAY[3..6] OF INT;
+	seen : DINT;
+END_VAR
+outer(numbers := row);
+seen := outer.seenBounds;
+END_FUNCTION_BLOCK
+`,
+    "user : FB_CS_user19;",
+    "user();"),
 ]
