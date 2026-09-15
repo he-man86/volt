@@ -28,7 +28,7 @@ export function enumStorage(lw: Lowering, t: Extract<Type, { kind: "enum" }>): T
   // `TYPE E : (A, B) := B` starts every E at B; a variable started at 0 regardless (transpiler review 2026-09-15). The
   // type's default is not measured, so such an enum is refused rather than started at a guess.
   if (body?.kind === "enum" && body.init !== undefined) lw.bail("enum-default", `${t.name} declares a default value, not modelled yet`, sym!.span)
-  if (body?.kind === "enum" && body.baseType !== undefined) return withStringCapacity(lw.resolve(body.baseType))
+  if (body?.kind === "enum" && body.baseType !== undefined) return withStringCapacity(lw.resolve(body.baseType, lw.project))
   return elementaryRef("INT")
 }
 

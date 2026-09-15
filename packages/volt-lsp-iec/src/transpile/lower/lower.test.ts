@@ -212,6 +212,85 @@ test("an interface naming an instance's own field stays with that instance: cros
   expect(codes(`PROGRAM P\nVAR sq : FB_S; END_VAR\nsq.Poke(shape := sq);\nEND_PROGRAM\n${shapes}${poke}`)).toContain("interface-lend-alias")
 })
 
+// Corpus research (2026-09-15), each confirmed in a real project: an array bound that is the POU's or an FB's own VAR
+// CONSTANT (pro2193 `ARRAY[1..numberOfXYControls]`) was "not a sized array" — bounds folded in the project scope only; a
+// GVL variable named like its own list (lenze-mid `Mach1_Alarms.Alm001`) resolved to the list; a FOR step decided at run
+// time was refused. Why missed: every fixture bound was a literal or a GVL constant, every list named apart from its
+// variables, and every FOR step a literal.
+test("bounds from a POU's own constant, a GVL variable named like its list, a FOR step decided at run time", () => {
+  const source =
+    "PROGRAM P\nVAR CONSTANT count : INT := 3; END_VAR\nVAR arr : ARRAY[1..count] OF INT; inst : FB_C; up : INT; down : INT; i : INT; step : INT := 2; backwards : BOOL := TRUE; END_VAR\n" +
+    "arr[count] := 7;\ninst();\nFOR i := 1 TO 5 BY step DO\n  up := up + 1;\nEND_FOR\nFOR i := 5 TO 1 BY SEL(backwards, 2, -2) DO\n  down := down + i;\nEND_FOR\nEND_PROGRAM\n" +
+    "FUNCTION_BLOCK FB_C\nVAR CONSTANT size : INT := 2; END_VAR\nVAR cells : ARRAY[0..size] OF INT; END_VAR\ncells[size] := 5;\nEND_FUNCTION_BLOCK\n"
+  const runner = run(ir(source, "P"))
+  runner.scan()
+  // 1, 3, 5 counted up; 5 + 3 + 1 summed counting down
+  expect(["arr[3]", "inst.cells[2]", "up", "down"].map((v) => runner.get(v))).toEqual([7n, 5n, 3n, 9n])
+  const alarms = "PROGRAM P\nVAR seen : BOOL; END_VAR\nseen := Alarms.Alm001;\nEND_PROGRAM\nTYPE T_Alarms : STRUCT Alm001 : BOOL := TRUE; END_STRUCT END_TYPE\n"
+  const listed = lowerSource(alarms, "P", [{ uri: "file:///project/Alarms.gvl", source: "VAR_GLOBAL\n  Alarms : T_Alarms;\nEND_VAR\n" }])
+  expect(listed.diagnostics).toEqual([])
+  const alarmRun = run(listed.pou!)
+  alarmRun.scan()
+  expect(alarmRun.get("seen")).toEqual(true)
+})
+
+// Recorded first (conformance `callshape_*`): an input left out starts at its declared initial value; arguments run in the
+// order written, calls and PROPERTY reads inside them included; a METHOD runs on a PROGRAM's one instance; an FB's
+// VAR_IN_OUT is reached from its METHOD called from its body. Each was refused (`call-input-missing`, `call-nested`,
+// `call-program-method`, `place-not-local`). Why missed: no fixture called any of these shapes.
+test("left-out inputs, written argument order, a METHOD on a PROGRAM, an FB's in-out inside its METHOD", () => {
+  const source =
+    "PROGRAM P\nVAR marker : FB_Mark; inOrder : INT; reversed : INT; defaulted : INT; worker : FB_Work; shared : INT := 1; seen : INT; END_VAR\n" +
+    "inOrder := F_Pair(leftValue := marker.Mark(digit := 1), rightValue := marker.Mark(digit := 2));\nreversed := F_Pair(rightValue := marker.Mark(digit := 3), leftValue := marker.Mark(digit := 4));\n" +
+    "defaulted := marker.Combine(extra := 4);\nworker(io := shared);\nPRG_Count();\nseen := PRG_Count.Bump(amount := 10);\nEND_PROGRAM\n" +
+    "FUNCTION_BLOCK FB_Mark\nVAR order : DINT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Mark : INT\nVAR_INPUT digit : INT; END_VAR\norder := order * 10 + digit;\nMark := digit;\nEND_METHOD\nMETHOD Combine : INT\nVAR_INPUT baseValue : INT := 5; extra : INT; END_VAR\nCombine := baseValue * 10 + extra;\nEND_METHOD\n" +
+    "FUNCTION F_Pair : INT\nVAR_INPUT leftValue : INT; rightValue : INT; END_VAR\nF_Pair := leftValue * 10 + rightValue;\nEND_FUNCTION\n" +
+    "FUNCTION_BLOCK FB_Work\nVAR_IN_OUT io : INT; END_VAR\nAddTen();\nEND_FUNCTION_BLOCK\nMETHOD AddTen\nio := io + 10;\nEND_METHOD\n" +
+    "PROGRAM PRG_Count\nVAR runs : INT; bumps : INT; END_VAR\nruns := runs + 1;\nEND_PROGRAM\nMETHOD Bump : INT\nVAR_INPUT amount : INT; END_VAR\nbumps := bumps + amount;\nBump := bumps + runs;\nEND_METHOD\n"
+  const runner = run(ir(source, "P"))
+  runner.scan()
+  expect(["inOrder", "reversed", "marker.order", "defaulted", "shared", "seen"].map((v) => runner.get(v))).toEqual([12n, 43n, 1234n, 54n, 11n, 11n])
+  // from outside the FB's own run the METHOD would use the in-out's LAST binding — recorded, not modelled
+  expect(lowerSource(source.replace("worker(io := shared);", "worker(io := shared);\nworker.AddTen();"), "P").diagnostics.map((d) => d.code)).toContain("call-fb-inout")
+})
+
+// Review of batch 3a (4 lenses, adversarial verify), each reproduced before its fix. Why missed: the batch's tests called
+// each shape once, in the spelling its recording used — never through `THIS^.child`, from a METHOD that names no in-out,
+// with a local constant shadowing the one a foreign declaration folds, or with an unsigned counter.
+test("review of the call shapes: a child's METHOD, a METHOD naming no in-out, foreign declarations, unsigned steps, refusals", () => {
+  const codes = (source: string) => lowerSource(source, "P").diagnostics.map((d) => d.code)
+  // `THIS^.inner.Get()` runs on the child, whose in-out is its own last binding — it was handed the parent's `io`
+  const inner = "FUNCTION_BLOCK FB_In\nVAR_IN_OUT io : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Get : INT\nGet := io;\nEND_METHOD\n"
+  const outer = "FUNCTION_BLOCK FB_Out\nVAR_IN_OUT io : INT; other : INT; END_VAR\nVAR inner : FB_In; got : INT; END_VAR\ninner(io := other);\ngot := THIS^.inner.Get();\nEND_FUNCTION_BLOCK\n"
+  expect(codes(`PROGRAM P\nVAR o : FB_Out; a : INT := 1; b : INT := 100; END_VAR\no(io := a, other := b);\nEND_PROGRAM\n${outer}${inner}`)).toContain("call-fb-inout")
+  // a METHOD naming none of its FB's in-outs is called from outside, whichever call is written first — every METHOD took
+  // every in-out of the FB's body, and only when the body had lowered first
+  const counter = "FUNCTION_BLOCK FB_W\nVAR_IN_OUT io : INT; END_VAR\nVAR k : INT; END_VAR\nio := io + 1;\nEND_FUNCTION_BLOCK\nMETHOD Count : INT\nk := k + 1;\nCount := k;\nEND_METHOD\n"
+  for (const body of ["w(io := x);\nn := w.Count();", "n := w.Count();\nw(io := x);"]) {
+    const runner = run(ir(`PROGRAM P\nVAR w : FB_W; x : INT; n : INT; END_VAR\n${body}\nEND_PROGRAM\n${counter}`, "P"))
+    runner.scan()
+    expect([runner.get("x"), runner.get("n")]).toEqual([1n, 1n])
+  }
+  // an interface METHOD's STRING(N) folds N where it is declared — it took the CALLER's own `N`, cutting the text to 3
+  const consts = [{ uri: "file:///project/Consts.gvl", source: "VAR_GLOBAL CONSTANT\n  N : INT := 10;\nEND_VAR\n" }]
+  const keeper =
+    "INTERFACE I_P\nMETHOD Put : BOOL\nVAR_INPUT s : STRING(N); END_VAR\nEND_METHOD\nEND_INTERFACE\n" +
+    "FUNCTION_BLOCK FB_P IMPLEMENTS I_P\nVAR kept : STRING(20); END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Put : BOOL\nVAR_INPUT s : STRING(N); END_VAR\nkept := s;\nPut := TRUE;\nEND_METHOD\n"
+  const put = lowerSource(`PROGRAM P\nVAR CONSTANT N : INT := 3; END_VAR\nVAR fb : FB_P; r : I_P; ok : BOOL; END_VAR\nr := fb;\nok := r.Put(s := 'abcdefgh');\nEND_PROGRAM\n${keeper}`, "P", consts)
+  expect(put.diagnostics).toEqual([])
+  const putRun = run(put.pou!)
+  putRun.scan()
+  expect(putRun.get("fb.kept")).toEqual("abcdefgh")
+  // an unsigned counter's runtime step cannot be negative: one test, counting up
+  const unsigned = run(ir(wrap("FOR u := 1 TO 5 BY stride DO\n  visits := visits + 1;\nEND_FOR", "u : UINT; stride : UINT := 2; visits : INT;")))
+  unsigned.scan()
+  expect(unsigned.get("visits")).toEqual(3n)
+  // refused: a METHOD of an instance INSIDE a PROGRAM, and a PROGRAM's METHOD reaching its own program while moved out
+  expect(codes(`PROGRAM P\nVAR n : INT; END_VAR\nn := PRG_H.inner.Count();\nEND_PROGRAM\nPROGRAM PRG_H\nVAR inner : FB_W; END_VAR\nEND_PROGRAM\n${counter}`)).toEqual(["call-program-method"])
+  const again = "PROGRAM PRG_R\nVAR runs : INT; END_VAR\nruns := runs + 1;\nEND_PROGRAM\nMETHOD Again : INT\nAgain := PRG_R.runs;\nEND_METHOD\n"
+  expect(codes(`PROGRAM P\nVAR n : INT; END_VAR\nPRG_R();\nn := PRG_R.Again();\nEND_PROGRAM\n${again}`)).toEqual(["call-program-reentrant"])
+})
+
 /** Lower and require success — most tests are about the SHAPE, not the failure path. */
 function ir(src: string, name?: string) {
   const { pou, diagnostics } = lowerSource(src, name)
@@ -256,9 +335,11 @@ END_PROGRAM
     expect(pou.slots[0]!.init).toBe(5n)
   })
 
-  test("every slot name is unique — two FOR loops and two chains each get their own temp", () => {
+  test("every slot name is unique — two chains each get their own temp", () => {
     // Temps were named by purpose alone, so a second FOR loop (or chain) duplicated `for_limit` (`chain_value`): a
     // Rust struct with two identical fields. The interpreter reads by index and never noticed; no test had two temps.
+    // A FOR takes no temp since its limit is read on every pass (conformance `callshape_for_bounds_changed_in_body`), so
+    // the two loops add none — the two chains still need two.
     const pou = ir(
       wrap(
         "FOR iCount := 1 TO 3 DO flag := TRUE; END_FOR\nFOR iCount := 1 TO 2 DO flag := FALSE; END_FOR\nflag S= done R= flag;\ndone S= flag R= done;",
@@ -266,7 +347,7 @@ END_PROGRAM
       ),
     )
     const names = pou.slots.map((s) => s.name.toUpperCase())
-    expect(pou.slots.filter((s) => s.section === "temp").length).toBe(4)
+    expect(pou.slots.filter((s) => s.section === "temp").length).toBe(2)
     expect(new Set(names).size).toBe(names.length)
   })
 
@@ -323,11 +404,13 @@ describe("lower — semantics resolved before any backend sees them", () => {
     expect(kinds).toEqual(["loop", "loop", "loop"])
   })
 
-  test("FOR evaluates its limit ONCE, into a temp slot", () => {
+  // This pinned the limit "evaluated ONCE, into a temp slot" — never recorded. The recording made in the review of batch 3a
+  // (`callshape_for_bounds_changed_in_body`) shows CODESYS reads the limit and the step on every pass.
+  test("FOR reads its limit on every pass — no temp holds it", () => {
     const pou = ir(wrap("FOR i := 1 TO iCount DO iCount := 0; END_FOR", "iCount : INT;\n  i : INT;"))
-    expect(pou.slots.map((s) => s.section)).toEqual(["VAR", "VAR", "temp"])
+    expect(pou.slots.map((s) => s.section)).toEqual(["VAR", "VAR"])
     const loop = pou.body[0] as IrLoop
-    expect(loop.init.length).toBe(2) // limit temp, then the control variable
+    expect(loop.init.length).toBe(1) // the control variable
     expect(loop.test?.atEnd).toBe(false)
     expect(loop.step.length).toBe(1)
   })
@@ -406,9 +489,38 @@ END_PROGRAM
     expect(pou!.globals.map((s) => [s.name, s.init])).toEqual([["gTotal", 5n]])
   })
 
-  test("a runtime FOR step is refused rather than guessed at", () => {
-    const { diagnostics } = lowerSource(wrap("FOR i := 1 TO 10 BY iCount DO i := i; END_FOR", "iCount : INT;\n  i : INT;"))
-    expect(diagnostics.map((d) => d.code)).toEqual(["for-step-runtime"])
+  // Refused (`for-step-runtime`) until recorded: a step decided at run time sets the direction (conformance
+  // `callshape_for_runtime_step`). This test then claimed the step was "evaluated once" — the review of batch 3a found no
+  // recording showed it, and the one made since (`callshape_for_bounds_changed_in_body`) shows the opposite: the limit
+  // and the step are both read on every pass. The limit had been taken into a temp once since phase 1; no fixture's body
+  // ever changed it.
+  test("a FOR reads its limit and its step on every pass — a runtime step decides the direction", () => {
+    const runner = run(ir(wrap("FOR i := 1 TO 10 BY iCount DO\n  visits := visits + 1;\nEND_FOR", "iCount : INT := 3;\n  i : INT;\n  visits : INT;")))
+    runner.scan()
+    // 1, 4, 7, 10 — then i steps past the limit, to 13
+    expect([runner.get("visits"), runner.get("i")]).toEqual([4n, 13n])
+    // the recording: a body that sets the limit to 4 and the step to 3 after the first pass ends after 2 passes, at 7
+    const changed = run(ir(wrap("FOR i := 1 TO finalIndex BY stride DO\n  visits := visits + 1;\n  stride := 3;\n  finalIndex := 4;\nEND_FOR", "i : INT;\n  finalIndex : INT := 9;\n  stride : INT := 1;\n  visits : INT;")))
+    changed.scan()
+    expect([changed.get("visits"), changed.get("i")]).toEqual([2n, 7n])
+    expect(lowerSource(wrap("FOR i := 1 TO F_Limit() DO\n  visits := visits + 1;\nEND_FOR", "i : INT;\n  visits : INT;") + "FUNCTION F_Limit : INT\nF_Limit := 3;\nEND_FUNCTION\n", "P").diagnostics.map((d) => d.code)).toEqual(["for-bound-call"])
+  })
+
+  // Recorded (`callshape_inout_binding_order`): an in-out is bound where it is written — 201 after a call that moves its
+  // index, 101 before it. Both backends bind every in-out after the inputs; where that differs, the call is refused. Why
+  // missed: the argument-order recording had inputs only.
+  test("an in-out is bound where it is written: after a call in an earlier argument, refused before one", () => {
+    const take = "FUNCTION F_Take : INT\nVAR_INPUT stepValue : INT; END_VAR\nVAR_IN_OUT boundValue : INT; END_VAR\nF_Take := boundValue * 10 + stepValue;\nEND_FUNCTION\n"
+    const program = (call: string) =>
+      `PROGRAM P\nVAR o : FB_O; END_VAR\no();\nEND_PROGRAM\nFUNCTION_BLOCK FB_O\nVAR_OUTPUT got : INT; END_VAR\nVAR numbers : ARRAY[0..3] OF INT := [10, 20, 30, 40]; cursor : INT; END_VAR\ncursor := 0;\ngot := ${call};\nEND_FUNCTION_BLOCK\nMETHOD Advance : INT\ncursor := cursor + 1;\nAdvance := cursor;\nEND_METHOD\n${take}`
+    const after = run(ir(program("F_Take(stepValue := Advance(), boundValue := numbers[cursor])"), "P"))
+    after.scan()
+    expect(after.get("o.got")).toEqual(201n)
+    expect(lowerSource(program("F_Take(boundValue := numbers[cursor], stepValue := Advance())"), "P").diagnostics.map((d) => d.code)).toEqual(["call-inout-order"])
+    // a binding nothing can move — a constant index — lowers in either order
+    const fixed = run(ir(program("F_Take(boundValue := numbers[2], stepValue := Advance())"), "P"))
+    fixed.scan()
+    expect(fixed.get("o.got")).toEqual(301n)
   })
 
   test("lowering never throws, whatever it is handed", () => {
@@ -473,12 +585,15 @@ END_PROGRAM
 
   // Transpiler review 2026-09-15. Why missed: every call test passed constants or variables as arguments; the crate check
   // never held a call inside a call, where the printed Rust borrows `g` (or the one instance) twice.
-  test("a routine called inside another call's arguments is refused", () => {
+  // It was refused (`call-nested`) while the order a call's arguments run in was unmeasured. Recorded since — as written
+  // (conformance `callshape_argument_order`) — each argument holding a call is taken first, in a `let`, so the same
+  // instance is never borrowed twice in one argument list.
+  test("a routine called inside another call's arguments runs first, where it is written", () => {
     const fb = "FUNCTION_BLOCK FB_B\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD M : INT\nVAR_INPUT k : INT; END_VAR\nn := n + k;\nM := n;\nEND_METHOD\nFUNCTION F : INT\nVAR_INPUT k : INT; END_VAR\nF := k;\nEND_FUNCTION\n"
-    const code = (body: string) => lowerSource(`PROGRAM P\nVAR a : FB_B; n : INT; END_VAR\n${body}\nEND_PROGRAM\n${fb}`, "P").diagnostics.map((d) => d.code)
-    expect(code("n := a.M(k := a.M(k := 1));")).toEqual(["call-nested"])
-    expect(code("n := F(k := F(k := 1));")).toEqual(["call-nested"])
-    expect(code("n := a.M(k := 1) + F(k := 2);")).toEqual([]) // side by side is not nested
+    const runner = run(ir(`PROGRAM P\nVAR a : FB_B; nested : INT; twice : INT; side : INT; END_VAR\nnested := a.M(k := a.M(k := 1));\ntwice := F(k := F(k := 1));\nside := a.M(k := 1) + F(k := 2);\nEND_PROGRAM\n${fb}`, "P"))
+    runner.scan()
+    // the inner M adds 1 and returns 1; the outer adds that and returns 2; then M adds 1 more (3) beside F's 2
+    expect(["nested", "twice", "side", "a.n"].map((v) => runner.get(v))).toEqual([2n, 1n, 5n, 3n])
   })
 
   // Transpiler review 2026-09-15. Why missed: the SIZEOF fixtures are a plain struct and an FB of plain variables; the

@@ -237,11 +237,14 @@ export class Lowering {
     this.slots.push({ name: name.text, type, section, init: init ?? defaultValueOf(type) })
   }
 
-  resolve(t: TypeExpr): Type {
+  /** `where` is the scope the declaration belongs to — this one by default; a type declared by another POU (an
+   *  interface's METHOD, a library FUNCTION, a DUT) folds in the project's, never in whichever scope is calling it. */
+  resolve(t: TypeExpr, where: Scope = this.scope): Type {
     // CODESYS's pointer-width integers take the target's width: 64 bits on the recorded simulator — `__XINT` reads back as
     // LINT#42, `__UXINT` ULINT, `__XWORD` LWORD (conformance `type_codesys_*`). ponytail: a 32-bit target is not modelled.
     const platform = t.kind === "named_type" ? PLATFORM_INTEGERS[t.name.text.toUpperCase()] : undefined
-    return platform !== undefined ? elementaryRef(platform) : resolveTypeExpr(t, this.project)
+    // bounds and capacities fold where the variable is declared — its own VAR CONSTANT included
+    return platform !== undefined ? elementaryRef(platform) : resolveTypeExpr(t, this.project, 0, where)
   }
 
   // ─── places ────────────────────────────────────────────────────────────────

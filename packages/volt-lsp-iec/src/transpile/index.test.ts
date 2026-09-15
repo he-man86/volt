@@ -9,6 +9,7 @@ describe("transpile — public surface", () => {
       "defaultValueOf",
       "emitRust",
       "fieldNames",
+      "holdsCall",
       "isBit",
       "load",
       "lowerSource",

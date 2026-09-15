@@ -177,8 +177,8 @@ export function lowerStandardString(lw: Lowering, e: Extract<Expr, { kind: "call
     return lw.bail("expr-call", `${name} does not resolve to the Standard library`, e.span)
   const params = sym.ast.varSections
     .filter((s) => s.sectionKind === "VAR_INPUT")
-    .flatMap((s) => s.decls.flatMap((d) => d.names.map(() => withStringCapacity(lw.resolve(d.type)))))
-  const result = sym.ast.returnType === undefined ? UNKNOWN : withStringCapacity(lw.resolve(sym.ast.returnType))
+    .flatMap((s) => s.decls.flatMap((d) => d.names.map(() => withStringCapacity(lw.resolve(d.type, lw.project)))))
+  const result = sym.ast.returnType === undefined ? UNKNOWN : withStringCapacity(lw.resolve(sym.ast.returnType, lw.project))
   if (e.args.some((a) => a.param !== undefined || a.output || a.value === undefined))
     return lw.bail("call-named-args", `${name} with named or output arguments`, e.span)
   if (e.args.length !== params.length || result === UNKNOWN || params.includes(UNKNOWN))

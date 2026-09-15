@@ -290,6 +290,20 @@ describe("emit/rust", () => {
 })
 
 // ─── the check that matters: does it actually build? ─────────────────────────
+// Review of batch 3a: a PROGRAM's METHOD printed its plain arguments inline, AFTER `std::mem::replace` had moved the program
+// out — `PRG_C.Bump(amount := PRG_C.runs)` read the `::new()` stand-in's 0 while the interpreter read 1. It compiled, so
+// the crate check could not see it. Why missed: the recorded call passed a literal, which reads the same either side.
+test("a PROGRAM's METHOD takes its arguments before the program is moved out of Programs", () => {
+  const src =
+    "PROGRAM P\nVAR seen : INT; END_VAR\nPRG_C();\nseen := PRG_C.Bump(amount := PRG_C.runs);\nEND_PROGRAM\n" +
+    "PROGRAM PRG_C\nVAR runs : INT; bumps : INT; END_VAR\nruns := runs + 1;\nEND_PROGRAM\nMETHOD Bump : INT\nVAR_INPUT amount : INT; END_VAR\nbumps := bumps + amount;\nBump := bumps;\nEND_METHOD\n"
+  const { pou, diagnostics } = lowerSource(src, "P")
+  expect(diagnostics).toEqual([])
+  const line = emitRust(pou!).code.split("\n").find((l) => l.includes("__program.bump"))!
+  expect(line.indexOf("let __arg_0 = ")).toBeGreaterThanOrEqual(0)
+  expect(line.indexOf("let __arg_0 = ")).toBeLessThan(line.indexOf("std::mem::replace"))
+})
+
 // `rustc` alone, no cargo and no crate — a golden-text test proves the shape, this proves the Rust is real.
 // Skipped where rustc is absent so `bun test` stays toolchain-free; CI on a Rust-equipped runner still runs it.
 
@@ -356,6 +370,12 @@ describe.skipIf(rustc === null)("emit/rust — compiles", () => {
       // Review of that batch: THIS^ lent to a FUNCTION's interface input (`&mut *self`, it was `&mut self`, E0596), and a
       // parent handing its own child its own field, per instance.
       "PROGRAM LendThis\nVAR o : FB_LTo; p1 : FB_LTp; p2 : FB_LTp; END_VAR\no();\np1(k := 2);\np2(k := 3);\nEND_PROGRAM\nINTERFACE I_LT\nMETHOD Area : INT\nEND_METHOD\nEND_INTERFACE\nFUNCTION_BLOCK FB_LTo IMPLEMENTS I_LT\nVAR k : INT; END_VAR\nk := F_LT(shape := THIS^);\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := 4;\nEND_METHOD\nFUNCTION F_LT : INT\nVAR_INPUT shape : I_LT; END_VAR\nF_LT := shape.Area();\nEND_FUNCTION\nFUNCTION_BLOCK FB_LTs IMPLEMENTS I_LT\nVAR_INPUT side : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := side * side;\nEND_METHOD\nFUNCTION_BLOCK FB_LTm\nVAR_INPUT shape : I_LT; END_VAR\nVAR_OUTPUT got : INT; END_VAR\nIF shape <> 0 THEN\n  got := shape.Area();\nEND_IF\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_LTp\nVAR_INPUT k : INT; END_VAR\nVAR s : FB_LTs; m : FB_LTm; END_VAR\ns(side := k);\nm(shape := s);\nEND_FUNCTION_BLOCK\n",
+      // A FOR step decided at run time (the direction tested with it), and a bound from the POU's own VAR CONSTANT.
+      // An unsigned counter's runtime step: `0u16 <= step` was printed, a rustc lint this crate denies (review of batch 3a).
+      "PROGRAM ForStep\nVAR CONSTANT count : INT := 3; END_VAR\nVAR arr : ARRAY[1..count] OF INT; i : INT; step : INT := 2; n : INT; u : UINT; stride : UINT := 2; END_VAR\nFOR i := 1 TO 5 BY step DO\n  n := n + arr[count];\nEND_FOR\nFOR u := 1 TO 5 BY stride DO\n  n := n + 1;\nEND_FOR\nEND_PROGRAM\n",
+      // Call shapes (recorded): calls in arguments taken into `let`s in written order — two calls on one instance among
+      // them — a defaulted input, a METHOD on a PROGRAM moved out of `Programs`, and an FB's in-out handed to its METHOD.
+      "PROGRAM CallShapes\nVAR marker : FB_CSMark; reversed : INT; defaulted : INT; worker : FB_CSWork; shared : INT := 1; seen : INT; END_VAR\nreversed := F_CSPair(rightValue := marker.Mark(digit := 3), leftValue := marker.Mark(digit := 4));\nreversed := marker.Mark(digit := marker.Mark(digit := 5));\ndefaulted := marker.Combine(extra := 4);\nworker(io := shared);\nPRG_CSCount();\nseen := PRG_CSCount.Bump(amount := 10);\nEND_PROGRAM\nFUNCTION_BLOCK FB_CSMark\nVAR order : DINT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Mark : INT\nVAR_INPUT digit : INT; END_VAR\norder := order * 10 + digit;\nMark := digit;\nEND_METHOD\nMETHOD Combine : INT\nVAR_INPUT baseValue : INT := 5; extra : INT; END_VAR\nCombine := baseValue * 10 + extra;\nEND_METHOD\nFUNCTION F_CSPair : INT\nVAR_INPUT leftValue : INT; rightValue : INT; END_VAR\nF_CSPair := leftValue * 10 + rightValue;\nEND_FUNCTION\nFUNCTION_BLOCK FB_CSWork\nVAR_IN_OUT io : INT; END_VAR\nAddTen();\nEND_FUNCTION_BLOCK\nMETHOD AddTen\nio := io + 10;\nEND_METHOD\nPROGRAM PRG_CSCount\nVAR runs : INT; bumps : INT; END_VAR\nruns := runs + 1;\nEND_PROGRAM\nMETHOD Bump : INT\nVAR_INPUT amount : INT; END_VAR\nbumps := bumps + amount;\nBump := bumps + runs;\nEND_METHOD\n",
       "PROGRAM Inherit\nVAR plain : FB_ID; viaSuper : FB_IS; shared : INT; END_VAR\nplain(inBase := 7, io := shared);\nviaSuper(inBase := 5, io := shared);\nEND_PROGRAM\nFUNCTION_BLOCK FB_IB\nVAR_INPUT inBase : INT; END_VAR\nVAR_IN_OUT io : INT; END_VAR\nVAR nBase : INT; END_VAR\nnBase := nBase + 1;\nio := io + inBase;\nHook();\nEND_FUNCTION_BLOCK\nMETHOD Hook\nnBase := nBase + 10;\nEND_METHOD\nFUNCTION_BLOCK FB_ID EXTENDS FB_IB\nVAR nDerived : INT; END_VAR\nnDerived := nDerived + inBase;\nio := io + 1;\nEND_FUNCTION_BLOCK\nMETHOD Hook\nnDerived := 0;\nEND_METHOD\nFUNCTION_BLOCK FB_IS EXTENDS FB_IB\nSUPER^(inBase := inBase + 100, io := io);\nSUPER^.Hook();\nEND_FUNCTION_BLOCK\nMETHOD Hook\nnBase := nBase - 1;\nEND_METHOD\n",
     ]
     const len = { uri: "Library Manager/Standard/LEN.fun", source: "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\nEND_FUNCTION\n" }

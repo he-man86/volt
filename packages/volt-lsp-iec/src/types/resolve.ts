@@ -12,8 +12,12 @@ import { elementaryRef, elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
 
 const MAX_ALIAS_DEPTH = 10
 
-/** Resolve a full TypeExpr to a rich Type. */
-export function resolveTypeExpr(t: TypeExpr, project: Scope, depth = 0): Type {
+/**
+ * Resolve a full TypeExpr to a rich Type. `valueScope` is where a bound or a string capacity folds — the declaring POU's
+ * scope, so `ARRAY[1..count]` with `count` its own VAR CONSTANT folds (pro2193 `ARRAY[1..numberOfXYControls]` was "not a
+ * sized array"); it defaults to the project scope, where only a GVL constant is seen.
+ */
+export function resolveTypeExpr(t: TypeExpr, project: Scope, depth = 0, valueScope: Scope = project): Type {
   if (depth > MAX_ALIAS_DEPTH) return UNKNOWN
   switch (t.kind) {
     case "named_type":
@@ -21,17 +25,17 @@ export function resolveTypeExpr(t: TypeExpr, project: Scope, depth = 0): Type {
     case "string_type": {
       // Carry a declared capacity (`STRING(5)`); a length this scope cannot fold leaves it unstated, never guessed.
       const base = elementaryRef(t.wide ? "WSTRING" : "STRING")
-      const length = t.length === undefined ? undefined : constEval(t.length, project)
+      const length = t.length === undefined ? undefined : constEval(t.length, valueScope)
       return base.kind === "elementary" && typeof length === "bigint" ? { ...base, length: Number(length) } : base
     }
     case "implicit_enum_type":
       // Inline enum: its values live as bare constants in the enclosing scope, so no member scope here.
       return { kind: "enum", name: "(implicit)" }
     case "array_type": {
-      const element = resolveTypeExpr(t.element, project, depth + 1)
+      const element = resolveTypeExpr(t.element, project, depth + 1, valueScope)
       const bounds = t.dims.map((d) => {
-        const lower = d.lower === undefined ? undefined : constEval(d.lower, project)
-        const upper = d.upper === undefined ? undefined : constEval(d.upper, project)
+        const lower = d.lower === undefined ? undefined : constEval(d.lower, valueScope)
+        const upper = d.upper === undefined ? undefined : constEval(d.upper, valueScope)
         return typeof lower === "bigint" && typeof upper === "bigint" ? { lower, upper } : undefined
       })
       return bounds.every((b) => b !== undefined)
@@ -39,9 +43,9 @@ export function resolveTypeExpr(t: TypeExpr, project: Scope, depth = 0): Type {
         : { kind: "array", element, dims: t.dims }
     }
     case "pointer_type":
-      return { kind: "pointer", target: resolveTypeExpr(t.target, project, depth + 1) }
+      return { kind: "pointer", target: resolveTypeExpr(t.target, project, depth + 1, valueScope) }
     case "reference_type":
-      return { kind: "reference", target: resolveTypeExpr(t.target, project, depth + 1) }
+      return { kind: "reference", target: resolveTypeExpr(t.target, project, depth + 1, valueScope) }
   }
 }
 

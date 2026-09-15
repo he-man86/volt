@@ -4,6 +4,7 @@
 import type { Statement, StatementList } from "../../syntax/index.js"
 import { elementaryRef } from "../../types/index.js"
 import type { IrArm, IrExpr, IrStmt, IrValue } from "../ir/index.js"
+import { holdsCall } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 import { convert } from "./convert.js"
 import { foldConstant } from "./constants.js"
@@ -184,48 +185,33 @@ export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): 
 
   const by = s.by === undefined ? undefined : lowerExpr(lw, s.by, control.type)
   if (s.by !== undefined && by === undefined) return undefined
+  // The limit and the step are read on EVERY pass (conformance `callshape_for_bounds_changed_in_body`: a body that sets the
+  // limit to 4 and the step to 3 after the first pass runs 2 passes, ending at 7). The limit was taken into a temp once —
+  // unrecorded, and wrong. A call in either would now run per pass, which is not recorded either: refused.
+  if (holdsCall(to) || holdsCall(by)) return lw.bail("for-bound-call", "a FOR limit or step holding a call — how often it runs is not recorded", s.span)
   const step: IrValue | undefined = s.by === undefined ? 1n : foldConstant(lw, s.by)
-  if (step === undefined)
-    // A runtime BY makes the loop's DIRECTION runtime too, so the test becomes a two-armed condition.
-    // Nothing here needs it yet, and guessing `<=` would silently run zero times for a negative step.
-    return lw.bail("for-step-runtime", "a FOR step that is not a compile-time constant", s.by!.span)
-
-  const limitPlace = lw.tempPlace("for_limit", to.type, s.to.span)
-  const stepExpr: IrExpr = { kind: "const", value: step, type: control.type, span: s.by?.span ?? s.span }
+  // A step that does not fold makes the loop's DIRECTION runtime: the test takes the limit from below for a step of 0 or
+  // more and from above for a negative one (conformance `callshape_for_runtime_step`). It was refused (`for-step-runtime`)
+  // — guessing `<=` would run a negative step zero times.
+  const stepExpr: IrExpr = step === undefined ? convert(by!, control.type) : { kind: "const", value: step, type: control.type, span: s.by?.span ?? s.span }
+  const bool = elementaryRef("BOOL")
+  const current: IrExpr = { kind: "load", place: control, type: control.type, span: s.controlVar.span }
+  const limit = convert(to, to.type)
+  const binary = (op: "le" | "ge" | "lt" | "and" | "or", left: IrExpr, right: IrExpr): IrExpr => ({ kind: "binary", op, left, right, type: bool, span: s.span })
+  const zero: IrExpr = { kind: "const", value: 0n, type: control.type, span: s.span }
+  // an unsigned control variable's step cannot be negative: its loop only counts up (and `0u16 <= step` is a rustc lint)
+  const unsigned = control.type.kind === "elementary" && !control.type.elem.signed
+  const cond =
+    step !== undefined || unsigned
+      ? binary(step === undefined || Number(step) >= 0 ? "le" : "ge", current, limit)
+      : binary("or", binary("and", binary("ge", stepExpr, zero), binary("le", current, limit)), binary("and", binary("lt", stepExpr, zero), binary("ge", current, limit)))
 
   return {
     kind: "loop",
-    init: [
-      { kind: "assign", target: limitPlace, value: convert(to, to.type), span: s.to.span },
-      { kind: "assign", target: control, value: convert(from, control.type), span: s.from.span },
-    ],
-    test: {
-      cond: {
-        kind: "binary",
-        op: Number(step) >= 0 ? "le" : "ge",
-        left: { kind: "load", place: control, type: control.type, span: s.controlVar.span },
-        right: { kind: "load", place: limitPlace, type: to.type, span: s.to.span },
-        type: elementaryRef("BOOL"),
-        span: s.span,
-      },
-      atEnd: false,
-    },
+    init: [{ kind: "assign", target: control, value: convert(from, control.type), span: s.from.span }],
+    test: { cond, atEnd: false },
     body: lowerBlock(lw, s.body),
-    step: [
-      {
-        kind: "assign",
-        target: control,
-        value: {
-          kind: "binary",
-          op: "add",
-          left: { kind: "load", place: control, type: control.type, span: s.controlVar.span },
-          right: stepExpr,
-          type: control.type,
-          span: s.span,
-        },
-        span: s.span,
-      },
-    ],
+    step: [{ kind: "assign", target: control, value: { kind: "binary", op: "add", left: current, right: stepExpr, type: control.type, span: s.span }, span: s.span }],
     span: s.span,
   }
 }

@@ -69,7 +69,9 @@ class Machine {
    *  and the result slot's value — FALSE stands in for a routine without one, which only an `eval` calls. */
   private invoke(e: IrInvoke): Val {
     const routine = this.routines.get(e.routine)!
-    const inputs = e.inputs.map((x) => this.expr(x))
+    // the inputs in the order they are written — a call inside one runs there (`callshape_argument_order`)
+    const inputs: Val[] = new Array(e.inputs.length)
+    for (const k of e.order ?? e.inputs.keys()) inputs[k] = this.expr(e.inputs[k]!)
     const bound = e.inouts.map((b) => this.bind(b))
     const locals = routine.locals.map((s) => instantiate(s.type, s.init, this.layouts))
     routine.inputs.forEach((index, k) => {

@@ -372,6 +372,43 @@ scan time, and one case proving constants fold to the same answers):
 integer prints `(x.round() as i64) as T` — `f64::round` is exactly half-away-from-zero, and `as` between integers
 wraps. `as bool` does not exist (`!= 0`), nor does `bool as f32` (`as u8` first).
 
+## 25. A call runs its arguments in the order written, and starts every left-out input fresh
+
+Measured (conformance `callshape_*`): arguments are evaluated in the order the call writes them, not the order the
+callee declares them; an input a METHOD or FUNCTION call leaves out starts at its declared initial value on every call
+(one without an initial value does not compile, so the rule has no hole); a PROGRAM's METHOD runs on the program's one
+instance; an FB's VAR_IN_OUT, seen from its own METHOD called from the body, is the body's current binding.
+
+An in-out is bound where it is written too (`callshape_inout_binding_order`: 201 written after a call that moves its
+index, 101 before it). Both back ends bind in-outs after the inputs — a Rust `&mut` taken early would block the calls
+after it — so a binding a later argument's call could move (a runtime index, a pointer, a copied value) is refused
+(`call-inout-order`); a binding nothing can move reads the same either way.
+
+So `IrInvoke.order` lists the input slots in written order and both back ends honour it. Rust evaluates call arguments
+left to right too, but a `&mut self.x` receiver is taken before them, so when any input holds a call the emitter takes
+every input into `let __arg_k` first, in order — the borrow checker then sees one call at a time. An omitted input is
+filled from `slot.init`, which is what the callee's own local would start at. A PROGRAM's METHOD needs `&mut` of the
+program while `g` is already borrowed: the program is moved out of `Programs` with `std::mem::replace` for the call
+and put back — refused when the METHOD reaches its own program again (`call-program-reentrant`) or the instance is not
+the root one. An FB's in-outs are appended to each of its routines as `ofInstance` in-outs: a call on `THIS` passes the
+caller's in-outs of the same name on; any other call would need the binding CODESYS keeps from the instance's last
+body call — a stored address, which safe Rust has no place for — and is refused (`call-fb-inout`). Only the in-outs a
+routine can reach are appended (a name it reads, or all when it calls its own instance's METHOD or ACTION), taken from
+the FB's declaration — not from its lowered body, which made the result depend on which POU lowered first.
+
+A FOR reads its limit AND its step on every pass (`callshape_for_bounds_changed_in_body`: a body that sets the limit to 4
+and the step to 3 after the first pass runs 2 passes and ends at 7). Since phase 1 the limit had been taken into a temp
+once — never recorded, and no fixture's body changed it. So the loop test reads both live; a step that does not fold
+makes it `(step >= 0 AND i <= limit) OR (step < 0 AND i >= limit)`, one arm for an unsigned counter. A call in either is
+refused (`for-bound-call`): how often CODESYS runs it is not recorded.
+
+The batch's review (4 lenses, adversarial verify) confirmed five defects, all fixed with a test each: a PROGRAM METHOD's
+plain arguments printed after the program was moved out (they read the `::new()` stand-in); `THIS^.child.M()` handed the
+parent's in-out to the child; `Lowering.resolve` folding an interface's or library's declaration in the CALLER's scope
+(now the project's — only a POU's own declarations fold in its own); every METHOD taking every in-out; an unsigned
+runtime step printing `0u16 <= step`. It also asked for evidence two claims lacked — "the step is evaluated once" and
+in-out binding order — and the recordings made for them overturned the first.
+
 ## 24. An interface input is a kept tag; the instances it names are lent per call
 
 Measured (conformance `itf_fb_input_*`, `itf_method_input_passed_on`, `itf_interface_variable_as_input`,

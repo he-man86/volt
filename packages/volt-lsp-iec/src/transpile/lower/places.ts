@@ -28,6 +28,8 @@ export function globalPlace(lw: Lowering, name: string, span: Span): Place | und
   }
   let sym = lookup(lw.scope, name)?.symbol
   if (sym?.varSection === "VAR_EXTERNAL") sym = lookup(lw.project, name)?.symbol
+  // a GVL variable named like its own list (`listVariableShadows`): the bare name is the variable
+  if (sym?.kind === "gvl_block") sym = lw.project.symbols.get(upper.toLowerCase())?.find((s) => s.kind === "gvl_var") ?? sym
   if (sym === undefined || libraryOf(sym) !== undefined) return undefined
   if (sym.kind === "gvl_var") declareGlobal(lw, sym.ast as VarDecl, "")
   else if (sym.kind === "program" && sym.name.toUpperCase() !== lw.shared.root.toUpperCase()) {
@@ -66,10 +68,21 @@ function qualifiedGlobal(lw: Lowering, list: string, name: string, span: Span): 
   return slot === undefined ? undefined : { slot, path: [], type: lw.shared.globals.slots[slot]!.type, span, root: "global" }
 }
 
+/**
+ * `Mach1_Alarms.Alm001` where `Mach1_Alarms.gvl` declares a variable `Mach1_Alarms` (lenze-mid): the list declares no
+ * `Alm001`, so the name can only be the variable and `.Alm001` its field — the one reading that compiles, as the project
+ * does in CODESYS. It resolved to the list and was refused ("names no variable of that list", 100 corpus hits).
+ */
+function listVariableShadows(lw: Lowering, list: string, member: string): boolean {
+  const gvl = lookup(lw.scope, list)?.symbol.ast as Extract<TopLevel, { kind: "global_var_list" }> | undefined
+  const declares = gvl?.varSections.some((s) => s.decls.some((d) => d.names.some((n) => n.text.toUpperCase() === member.toUpperCase()))) ?? false
+  return !declares && (lw.project.symbols.get(list.toLowerCase())?.some((s) => s.kind === "gvl_var") ?? false)
+}
+
 export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): Place | undefined {
   if (e.kind === "member") {
     if (/^\d+$/.test(e.member.name)) return bitPlace(lw, e, notAMember)
-    if (e.base.kind === "ident_expr" && !lw.holds(e.base.name) && lookup(lw.scope, e.base.name)?.symbol.kind === "gvl_block")
+    if (e.base.kind === "ident_expr" && !lw.holds(e.base.name) && lookup(lw.scope, e.base.name)?.symbol.kind === "gvl_block" && !listVariableShadows(lw, e.base.name, e.member.name))
       return qualifiedGlobal(lw, e.base.name, e.member.name, e.span)
     // a struct's field or an instance's variable: one `field` step on the base place (design §9)
     const base = lowerPlace(lw, e.base, notAMember)

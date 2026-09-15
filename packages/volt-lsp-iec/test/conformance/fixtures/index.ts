@@ -40,6 +40,7 @@ import { INITIALIZER_TESTS } from "./initializers.js"
 import { INTERFACE_CALL_TESTS } from "./interface-calls.js"
 import { DECLARATION_LIFETIME_TESTS } from "./declaration-lifetimes.js"
 import { INOUT_CONSTANT_TESTS } from "./inout-constant.js"
+import { CALL_SHAPE_TESTS } from "./call-shapes.js"
 
 export interface CategoryGroup {
   name: string
@@ -89,6 +90,7 @@ export const CATEGORIES: readonly CategoryGroup[] = [
   { name: "interface-calls", tests: INTERFACE_CALL_TESTS },
   { name: "declaration-lifetimes", tests: DECLARATION_LIFETIME_TESTS },
   { name: "inout-constant", tests: INOUT_CONSTANT_TESTS },
+  { name: "call-shapes", tests: CALL_SHAPE_TESTS },
 ]
 
 export const ALL_TESTS: readonly LanguageTest[] = CATEGORIES.flatMap((c) => c.tests)

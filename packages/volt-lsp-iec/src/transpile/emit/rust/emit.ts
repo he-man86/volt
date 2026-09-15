@@ -18,7 +18,7 @@
  * diagnostics use — there is no second table of type sizes here.
  */
 import type { IrBinding, IrExpr, IrInit, IrLayout, IrMathName, IrPou, IrRoutine, IrStmt, IrValue, Place } from "../../ir/index.js"
-import { defaultValueOf, isBit, peelArray } from "../../ir/index.js"
+import { defaultValueOf, holdsCall, isBit, peelArray } from "../../ir/index.js"
 import type { Span } from "../../../syntax/index.js"
 import type { Type } from "../../../types/index.js"
 import { STRING_PRELUDE } from "./prelude.js"
@@ -323,13 +323,28 @@ class Printer {
       case "invoke": {
         // the inputs by value, then the VAR_IN_OUT as `&mut` — a METHOD or ACTION on its instance, a FUNCTION free
         const routine = this.routines.get(e.routine)!
+        // An input holding a call makes its evaluation order visible: every input is then taken into a `let`, in the order
+        // written (`callshape_argument_order`) — which also keeps a call on the same instance out of the argument list's
+        // borrow. Inputs without one stay inline, where no order can show — except on a PROGRAM's METHOD, whose inline
+        // arguments would run after the program is moved out and read its `::new()` stand-in (review of batch 3a).
+        const onProgram = e.instance !== undefined && e.instance.root === "global" && e.instance.path.length === 0 && this.globals.slots[e.instance.slot]?.section === "program"
+        const hoisted = onProgram || e.inputs.some(holdsCall)
+        const inputLets = hoisted ? [...(e.order ?? e.inputs.keys())].map((k) => `let __arg_${k} = ${this.expr(e.inputs[k]!, slots)};`).join(" ") : ""
+        const inputs = e.inputs.map((a, k) => (hoisted ? `__arg_${k}` : this.expr(a, slots)))
         // the inputs, the in-outs, then each instance lent to the routine (design §24)
-        const args = [...this.globalsArg, ...e.inputs.map((a) => this.expr(a, slots)), ...e.inouts.map((b, i) => this.lend(b, i, routine.inouts[i]!, slots)), ...(e.lent ?? []).map((l) => this.lendMut(l, slots))].join(", ")
+        const args = [...this.globalsArg, ...inputs, ...e.inouts.map((b, i) => this.lend(b, i, routine.inouts[i]!, slots)), ...(e.lent ?? []).map((l) => this.lendMut(l, slots))].join(", ")
         const fn = routineFnName(routine)
-        const call = e.instance === undefined ? `${fn}(${args})` : this.guarded(e.instance, `${this.place(e.instance, slots)}.${fn}(${args})`, slots)
+        // a METHOD of a PROGRAM's one instance runs moved out of `Programs`, as the program's call does (`prg` is handed in)
+        const program = onProgram ? this.place(e.instance!, slots) : ""
+        const call =
+          e.instance === undefined
+            ? `${fn}(${args})`
+            : onProgram
+              ? `{ let mut __program = std::mem::replace(&mut ${program}, ${rustName(routine.fb!)}::new()); let __result = __program.${fn}(${args}); ${program} = __program; __result }`
+              : this.guarded(e.instance, `${this.place(e.instance, slots)}.${fn}(${args})`, slots)
         // a VAR_IN_OUT bound through a dereference is checked before the call, as the interpreter checks it when binding
         const checked = e.inouts.reduce((text, b) => ("kind" in b ? text : this.guarded(b, text, slots)), call)
-        const lets = this.lentCopies(e.inouts, slots)
+        const lets = [inputLets, this.lentCopies(e.inouts, slots)].filter((l) => l !== "").join(" ")
         return lets === "" ? checked : `{ ${lets} ${checked} }`
       }
       case "dispatch": {

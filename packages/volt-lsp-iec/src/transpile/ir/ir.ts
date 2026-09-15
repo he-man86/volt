@@ -52,6 +52,15 @@ export function peelArray(t: Type): { element: Type; lower: bigint; length: numb
   return { element, lower: dim!.lower, length: Number(dim!.upper - dim!.lower + 1n) }
 }
 
+/** Whether an IR node holds a call (an invoke or a dispatch) — whose place in the evaluation order then shows. */
+export function holdsCall(node: unknown): boolean {
+  if (Array.isArray(node)) return node.some(holdsCall)
+  if (node === null || typeof node !== "object") return false
+  const kind = (node as { kind?: string }).kind
+  if (kind === "invoke" || kind === "dispatch") return true
+  return Object.entries(node).some(([key, child]) => key !== "type" && key !== "span" && key !== "of" && holdsCall(child))
+}
+
 // ─── places ──────────────────────────────────────────────────────────────────
 
 /**
@@ -142,6 +151,9 @@ export interface IrInvoke {
   instance?: Place
   /** One value per VAR_INPUT, in declaration order, already converted to it. */
   inputs: readonly IrExpr[]
+  /** The order the inputs are evaluated in: as WRITTEN in the call (conformance `callshape_argument_order`: a reversed call
+   *  runs its right argument first). Absent, declaration order. */
+  order?: readonly number[]
   /** The VAR_IN_OUT arguments, in declaration order. */
   inouts: readonly IrBinding[]
   /** The instances lent to the routine (`IrRoutine.lent`), in its order — filled once the POU has lowered. */
@@ -343,6 +355,9 @@ export interface IrSlot {
    *  CODESYS calls the instance and its METHODs through it (`inout_const_fb_method_12`, `inout_const_fb_call_13`), and
    *  each of those runs on `&mut self`. */
   readOnly?: boolean
+  /** An FB's own VAR_IN_OUT reached from its METHOD or ACTION — a parameter the call binds to the in-out the FB's running
+   *  body holds (conformance `callshape_inout_in_method_from_body`). */
+  ofInstance?: boolean
 }
 
 /**

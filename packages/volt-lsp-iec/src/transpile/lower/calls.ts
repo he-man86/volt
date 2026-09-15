@@ -36,6 +36,7 @@ import {
   type IrSlot,
   type IrStmt,
   type Place,
+  holdsCall,
 } from "../ir/index.js"
 import { baseOf, Lowering, type PendingBody } from "./lowering.js"
 import { convert } from "./convert.js"
@@ -198,6 +199,29 @@ function declareOutputs(lw: Lowering, r: Lowering, sections: readonly VarSection
 }
 
 /**
+ * The bare names a body reads — or "all" when it calls a METHOD or ACTION of its own instance (`M()`, `THIS^.M()`,
+ * `SUPER^()`), which may reach any of the FB's in-outs. ponytail: "all" over-approximates; a call graph would narrow it.
+ */
+function reachedNames(r: Lowering, statements: readonly unknown[]): Set<string> | "all" {
+  const names = new Set<string>()
+  let all = false
+  const walk = (node: unknown): void => {
+    if (all || node === null || typeof node !== "object") return
+    if (Array.isArray(node)) return node.forEach(walk)
+    const n = node as { kind?: string; name?: string; callee?: { kind: string; name?: string; base?: { kind: string } } }
+    if (n.kind === "ident_expr") names.add(n.name!.toUpperCase())
+    if (n.kind === "call" && n.callee !== undefined) {
+      const callee = n.callee
+      const kind = callee.kind === "ident_expr" ? lookup(r.scope, callee.name!)?.symbol.kind : undefined
+      if (kind === "method" || kind === "action" || callee.kind === "deref" || (callee.kind === "member" && callee.base?.kind === "deref")) all = true
+    }
+    for (const [key, child] of Object.entries(node)) if (key !== "span") walk(child)
+  }
+  walk(statements)
+  return all ? "all" : names
+}
+
+/**
  * A METHOD or ACTION run on an instance of `frame`, or a FUNCTION — lowered once per frame, in the instance's fields plus
  * per-call locals. `as` names a routine that is not the one the frame resolves by name (`SUPER^.M()`).
  */
@@ -246,6 +270,22 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     declareInOuts(r, sections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
     const resets = declareOutputs(lw, r, sections.filter((s) => s.sectionKind === "VAR_OUTPUT"), span)
     if (resets === undefined) return undefined
+    // The FB's own VAR_IN_OUT a METHOD or ACTION reaches — each a parameter the call binds (`lowerInvoke`). Taken from the
+    // FB's declaration, in its scope, and only those the routine can reach: they were every in-out of the FB's LOWERED body,
+    // so a METHOD that never names one was refused from outside, and which POU lowered first decided (review of batch 3a).
+    if (frame !== undefined) {
+      const reached = reachedNames(r, parsed.statements)
+      const owner = lookup(lw.project, sym.owner.name)?.symbol.ast
+      const declared = new Lowering(sym.owner, r.project, r.shared)
+      declareInOuts(declared, owner !== undefined && "varSections" in owner ? owner.varSections.filter((s) => s.sectionKind === "VAR_IN_OUT") : [])
+      r.diagnostics.push(...declared.diagnostics)
+      for (const slot of declared.inoutSlots) {
+        const own = slot.name.toUpperCase()
+        if ((reached !== "all" && !reached.has(own)) || r.inoutByName.has(own) || r.localByName.has(own)) continue
+        r.inoutByName.set(own, r.inoutSlots.length)
+        r.inoutSlots.push({ ...slot, ofInstance: true })
+      }
+    }
     const body = [...resets, ...lowerBlock(r, parsed.statements)]
     if (r.diagnostics.length > 0) {
       lw.diagnostics.push(...r.diagnostics)
@@ -456,11 +496,15 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     // through an interface: the method of whichever instance it holds (conformance `itf_call_dispatches_on_instance`)
     if (base.type.kind === "interface") return interfaceCall(lw, base, call, callee.member.name)
     if (inGlobals(lw, base)) return lw.bail("call-global-instance", `${callee.member.name} is called on an instance declared in a GVL`, call.span)
-    // a METHOD of a PROGRAM's instance, or of an instance inside one: `prg.p.m(g, prg)` borrows `Programs` twice
-    if (base.root === "global") return lw.bail("call-program-method", `${callee.member.name} is called on a PROGRAM's instance`, call.span)
+    // A METHOD of a PROGRAM's one instance (conformance `callshape_method_on_program`) runs moved out of `Programs`, as the
+    // program's own call does. One of an instance INSIDE a program would borrow `Programs` twice (`prg.p.inst.m(g, prg)`).
+    if (base.root === "global" && base.path.length > 0) return lw.bail("call-program-method", `${callee.member.name} is called on an instance inside a PROGRAM`, call.span)
     if (base.type.kind !== "function_block") return lw.bail("call-method", `${callee.member.name} is not a METHOD or ACTION lowering can call`, call.span)
     routine = methodOf(lw, base.type, callee.member.name, call.span)
     instance = base
+    // moved out while it runs, the program must not reach its own instance from the method
+    if (routine !== undefined && base.root === "global" && touchesOf(lw).get(routine.key)?.has(base.slot))
+      return lw.bail("call-program-reentrant", `${callee.member.name} reaches its own PROGRAM's instance while it runs`, call.span)
   } else if (callee.kind === "ident_expr" && ownMember(lw, callee.name) !== undefined) {
     const frame = selfFb(lw)!
     routine = methodOf(lw, frame, callee.name, call.span)
@@ -473,6 +517,8 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
   if (routine === undefined) return undefined
 
   const inputs: (IrExpr | undefined)[] = routine.inputs.map(() => undefined)
+  // the inputs in the order they are written — the order they run in (conformance `callshape_argument_order`)
+  const order: number[] = []
   const inouts: (IrBinding | undefined)[] = routine.inouts.map(() => undefined)
   const held = () => [...(instance === undefined ? [] : [instance]), ...inouts.filter(isPlace)]
   for (const [position, arg] of call.args.entries()) {
@@ -514,6 +560,7 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
       const size = byteSize(lw, place.type)
       if (size === undefined) return lw.bail("any-input", "an ANY argument whose byte size is not measured", arg.span)
       inputs[k] = { kind: "const", value: size.size, type: elementaryRef("DINT"), span: arg.span }
+      order.push(k)
       continue
     }
     const slot = routine.locals[routine.inputs[k]!]!
@@ -525,13 +572,37 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
       const tag = interfaceArgument(lw, `ROUTINE:${routine.key}.${slot.name.toUpperCase()}`, slot.type, arg.value!, arg.span, foreign)
       if (tag === undefined) return undefined
       inputs[k] = tag
+      order.push(k)
       continue
     }
-    const value = lw.inArgument(() => lowerExpr(lw, arg.value!, slot.type))
+    // A call or PROPERTY read in an input runs where it is written, before the call (`callshape_argument_order`,
+    // `callshape_property_read_in_arguments`) — each backend takes the inputs in `order`. It was refused (`call-nested`),
+    // which stays for a call inside an in-out binding, whose place the call borrows.
+    const value = lowerExpr(lw, arg.value!, slot.type)
     if (value === undefined) return undefined
     inputs[k] = convert(value, slot.type)
+    order.push(k)
   }
-  if (inputs.includes(undefined)) return lw.bail("call-input-missing", `${routine.name} called without every input — its default is not measured yet`, call.span)
+  // An input left out starts at its declared initial value on every call (conformance `callshape_input_left_out`: 54 and
+  // 51, never the last call's) — CODESYS compiles the omission only for an input that has one. An ANY input, or one
+  // whose initial value is an aggregate, stays refused.
+  for (const [k, index] of routine.inputs.entries()) {
+    if (inputs[k] !== undefined) continue
+    const slot = routine.locals[index]!
+    if (anyInputsOf(lw).get(routine.key)?.has(index) || typeof slot.init === "object")
+      return lw.bail("call-input-missing", `${routine.name} called without ${slot.name}, whose starting value is not modelled`, call.span)
+    inputs[k] = { kind: "const", value: slot.init, type: slot.type, span: call.span }
+    order.push(k)
+  }
+  // the FB's own VAR_IN_OUT a METHOD reaches: bound to the in-out this body holds — a call on THIS instance from the FB's own
+  // run. From outside, CODESYS uses the instance's LAST binding (`callshape_inout_in_method_after_call`): not modelled.
+  for (const [i, slot] of routine.inouts.entries()) {
+    if (slot.ofInstance !== true) continue
+    // THIS instance itself — `THIS^.inner.M()` is rooted at THIS too, but runs on a child with in-outs of its own
+    const held = instance?.root === "this" && instance.path.length === 0 ? lw.inoutByName.get(slot.name.toUpperCase()) : undefined
+    if (held === undefined) return lw.bail("call-fb-inout", `${routine.name} reaches ${slot.name}, its FB's VAR_IN_OUT, called outside the FB's own run`, call.span)
+    inouts[i] = { slot: held, path: [], type: lw.inoutSlots[held]!.type, span: call.span, root: "inout" }
+  }
   for (const [i, slot] of routine.inouts.entries()) {
     if (inouts[i] !== undefined) continue
     if (slot.section !== "VAR_OUTPUT") return lw.bail("call-inout-missing", `${routine.name} called without every VAR_IN_OUT`, call.span)
@@ -540,8 +611,14 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     if (held().some((p) => aliases(temp, p))) return lw.bail("call-inout-alias", `${slot.name} is unconnected on a call of this instance's own method`, call.span)
     inouts[i] = temp
   }
+  const moved = movedInOut(
+    call,
+    (name) => inouts[routine!.inouts.findIndex((p) => p.name.toUpperCase() === name)],
+    (arg, position) => inputs[arg.param === undefined ? position : routine!.inputs.findIndex((i) => routine!.locals[i]!.name.toUpperCase() === arg.param!.name.toUpperCase())],
+  )
+  if (moved !== undefined) return lw.bail("call-inout-order", `${routine.name}'s ${moved} is bound before a call in a later argument that could move it`, call.span)
   const type = routine.result === undefined ? UNKNOWN : routine.locals[routine.result]!.type
-  return { kind: "invoke", routine: routine.key, ...(instance === undefined ? {} : { instance }), inputs: inputs as IrExpr[], inouts: inouts as IrBinding[], type, span: call.span }
+  return { kind: "invoke", routine: routine.key, ...(instance === undefined ? {} : { instance }), inputs: inputs as IrExpr[], order, inouts: inouts as IrBinding[], type, span: call.span }
 }
 
 /**
@@ -726,8 +803,28 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
   }
   const missing = inouts.find((p) => !bound.has(p.name.toUpperCase()))
   if (missing !== undefined) return lw.bail("call-inout-missing", `${missing.name} is not bound`, call.span)
+  const moved = movedInOut(call, (name) => bound.get(name), (arg) => before.filter((s) => s.kind === "assign" && s.target.path.at(-1)?.kind === "field" && (s.target.path.at(-1) as { name: string }).name.toUpperCase() === arg.param?.name.toUpperCase()))
+  if (moved !== undefined) return lw.bail("call-inout-order", `${layout.name}'s ${moved} is bound before a call in a later argument that could move it`, call.span)
   const inoutPlaces = inouts.map((p) => bound.get(p.name.toUpperCase())!)
   return [...before, { kind: "call", instance, fb: layout.name, inouts: inoutPlaces, span: call.span }, ...after]
+}
+
+/**
+ * The in-out a call in a LATER-written argument could move — its binding reads an index, a pointer or a copied value.
+ * CODESYS binds each in-out where it is written (conformance `callshape_inout_binding_order`: 201 written after the call,
+ * 101 before it); both backends bind every in-out after the inputs, which differs exactly there — so it is refused.
+ */
+function movedInOut(call: { args: readonly CallArg[] }, binding: (name: string) => IrBinding | undefined, input: (arg: CallArg, position: number) => unknown): string | undefined {
+  let callLater = false
+  for (let position = call.args.length - 1; position >= 0; position--) {
+    const arg = call.args[position]!
+    const bound = arg.param === undefined ? undefined : binding(arg.param.name.toUpperCase())
+    if (bound === undefined) {
+      if (holdsCall(input(arg, position))) callLater = true
+    } else if (callLater && ("kind" in bound || bound.guard !== undefined || bound.path.some((s) => s.kind === "index" && s.index.kind !== "const")))
+      return arg.param!.name
+  }
+  return undefined
 }
 
 /**

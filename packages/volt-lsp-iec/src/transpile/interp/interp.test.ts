@@ -89,7 +89,9 @@ END_PROGRAM
     expect(pou.get("n")).toBe(11n)
   })
 
-  test("a FOR limit is read once, so changing it mid-loop does not extend the loop", () => {
+  // This claimed the limit was read once (3 runs) — never recorded. CODESYS reads it on every pass (conformance
+  // `callshape_for_bounds_changed_in_body`, recorded in the review of batch 3a), so raising it mid-loop extends the loop.
+  test("a FOR limit is read on every pass, so raising it mid-loop extends the loop", () => {
     const pou = load(`
 PROGRAM P
 VAR
@@ -104,7 +106,7 @@ END_FOR
 END_PROGRAM
 `)
     pou.scan()
-    expect(pou.get("runs")).toBe(3n)
+    expect(pou.get("runs")).toBe(100n)
   })
 
   test("REAL arithmetic crosses the int divide through the lowered conversion", () => {

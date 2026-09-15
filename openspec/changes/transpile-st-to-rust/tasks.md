@@ -425,6 +425,28 @@ taken apart by construct before anything is built — record first, then build, 
         reached through another instance is foreign, and an FB-frame tag may not arrive foreign or be lent to a call on
         another instance. `THIS^` lent printed `&mut self` (E0596) → `&mut *self`. Open: one FB type given interface
         inputs from two frames is refused (`interface-context`) — its lends are per type, not per instance.
+- [x] Call shapes the corpus refused (design §25). Recorded first (`call-shapes.ts`, CODESYS SP21): arguments run in
+      the order written (a reversed call runs 3 then 4; property reads too); an input left out of a METHOD or FUNCTION
+      call starts at its declared initial value on every call (54, 51) and one with no initial value does not compile; a
+      METHOD of a PROGRAM runs on the program's one instance (14, the caller sees 24); an FB's VAR_IN_OUT reached from
+      its METHOD is the binding of the body's current call (21), and from outside after a call the LAST binding (11,
+      110 — not modelled, refused `call-fb-inout`); a FOR step that is a variable runs up (3 visits, index 7) and down
+      (3 visits, index −1). Built: `IrInvoke.order`, the interpreter evaluating inputs in it and the emitter taking every
+      input into a `let` in it when one holds a call (the `call-nested` refusal lifted for inputs); omitted inputs from
+      `slot.init`; the program moved out of `Programs` around its METHOD; the FB's in-outs appended to its METHODs as
+      `ofInstance` in-outs, bound from `THIS`; a runtime step evaluated once into a temp with a two-armed test. Found on
+      the way in the corpus (compile-evident, no recording): an array bound naming the POU's own `VAR CONSTANT`
+      (`resolveTypeExpr` folds in the declaring scope), and a GVL variable named like its own list (lenze-mid
+      `Mach1_Alarms`). Conformance lowering **460 → 467 of 486**. *Why missed:* two lowering tests pinned the refusals
+      as the intended result (`runtime FOR step` refused, a call inside another call's arguments refused) — both
+      rewritten from the recordings, not the code.
+      Reviewed between batches (4 lenses, adversarial verify): 5 defects confirmed and fixed — a PROGRAM METHOD's
+      arguments read after the move-out, `THIS^.child.M()` given the parent's in-out, foreign declarations folded in the
+      caller's scope, every METHOD taking every FB in-out (order-dependent refusals), `0u16 <= step`. Two unevidenced
+      claims were recorded (`callshape_for_bounds_changed_in_body`, `callshape_inout_binding_order`): **a FOR reads its
+      limit and step on every pass** — the once-evaluated limit temp, there since phase 1, was wrong, and two older tests
+      pinned it (rewritten from the recording) — and an in-out is bound where written (a movable binding before a call is
+      refused, `call-inout-order`). Open: ARRAY[*] in-outs with LOWER_BOUND/UPPER_BOUND (recorded, next).
 - [ ] `__POUNAME` 304 and the other CODESYS compiler operators.
 - [x] `aggregate-init` — recorded first (`array_initializers`, `init_struct_by_field`, `init_array_of_structs`,
       `init_fb_instance_inputs`), then lowered to a structured initial value (`IrInit`: elements / named fields) that the
