@@ -506,6 +506,17 @@ taken apart by construct before anything is built — record first, then build, 
       The sibling recording then exposed a harness-path bug: `lowerSource` read `{attribute …}`s from the main source only,
       so an FB's init-slot METHOD in a GVL or library file never ran (0 where CODESYS gives 7) — every file's are read now.
       Conformance lowering 477 → 482 of 500.
+      Then the two refusals left recorded (`fb_init_nested_in_fb_init`, `fb_init_argument_from_variable`,
+      `fb_init_argument_from_global`): an instance's FB_Init runs after those of the instances inside it (the outer's saw
+      the inner's 5), and an argument naming a variable gives its value, the initial one (4, 6). Built: FB_Init calls in
+      that order, a variable argument as a load where the POU itself declares the instance. Still refused: a variable
+      argument in a declaration inside an FB (it names that FB's field), an interface argument, a positional one.
+      Reviewed between batches: 4 confirmed, each fixed with a test — a variable argument in a STRUCT field's declaration
+      was read in the POU's scope; later, VAR_TEMP and instance-field variables and a global an FB_Init writes were
+      accepted unrecorded; dropping the order refusal also fixed an unrecorded order for a derived FB holding FB_Init
+      instances (refused again); a global only `init` reads left `g` unused in Rust's `scan` (-D warnings). A variable
+      argument is now exactly what was recorded: an elementary VAR/VAR_INPUT declared before the instance, or a global no
+      FB_Init of the init step writes.
 - [x] Positional arguments across sections (`call-positional`, 62 corpus POUs). Recorded (`callshape_positional_arguments`):
       they bind in declaration order across VAR_INPUT and VAR_IN_OUT, interleaved too (100, 315, 46). Built: each routine
       keeps its parameters' declaration order; a positional argument is named by the one at its position. They were refused

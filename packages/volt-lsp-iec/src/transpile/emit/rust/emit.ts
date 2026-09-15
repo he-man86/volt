@@ -829,6 +829,8 @@ export function emitRust(pou: IrPou): Emitted {
     p.push("}", 1)
     p.push("", 0)
   }
+  // a global only `init` reads — an FB_Init argument — leaves `g` unused in the scan (found in a review, 2026-09-15)
+  if (usesGlobals || usesPrograms) p.push("#[allow(unused_variables)]", 1)
   p.push(`pub fn scan(&mut self${usesGlobals ? ", g: &mut Globals" : ""}${usesPrograms ? ", prg: &mut Programs" : ""}) {`, 1)
   p.block(pou.body, pou.slots, 2)
   p.push("}", 1)

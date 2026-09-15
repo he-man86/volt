@@ -361,8 +361,11 @@ test("FB_Init runs once per instance before the first cycle, with its declared a
     5n, 1n, 35n, true, false, 2n, 12n, 7n, 107n,
   ])
   const codes = (vars: string) => lowerSource(source.replace("five : FB_Args(startValue := 5);", vars), "P").diagnostics.map((d) => d.code)
-  // not recorded: an argument that is not a constant, a positional one, an instance in an array
-  expect(codes("n : INT := 2; five : FB_Args(startValue := n);")).toContain("fb-init-argument")
+  // An argument naming a variable was refused here as "not a constant"; the recording since (`fb_init_argument_from_variable`:
+  // 4) gives the variable's initial value, so it lowers. Not recorded, and refused: a positional argument, an array element.
+  const fromVariable = run(ir(source.replace("five : FB_Args(startValue := 5);", "n : INT := 2; five : FB_Args(startValue := n);"), "P"))
+  fromVariable.scan()
+  expect(fromVariable.get("five.started")).toEqual(2n)
   expect(codes("five : FB_Args(5);")).toContain("fb-init-argument")
   expect(codes("five : FB_Args(startValue := 5); many : ARRAY[1..2] OF FB_Args;")).toContain("attr-init-unreached")
 })
@@ -392,6 +395,40 @@ test("every FB_Init runs before the init-slot methods, and a structured initiali
   const fromGvl = run(inGvl.pou!)
   fromGvl.scan()
   expect(fromGvl.get("reader.seen")).toEqual(7n)
+})
+
+// Recorded (`fb_init_nested_in_fb_init`, `fb_init_argument_from_variable`, `fb_init_argument_from_global`): an instance's
+// FB_Init runs after those of the instances inside it (the outer's saw the inner's 5), and an argument naming a variable
+// gives its value — the initial one (4, 6). Both were refused (`fb-init-order`, and `fb-init-argument` for anything not a
+// constant). Why missed: the first FB_Init recordings had one level and constants only.
+test("FB_Init: an inner instance's runs first, and an argument may name a variable", () => {
+  const inner = "FUNCTION_BLOCK FB_In\nVAR started : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; startValue : INT; END_VAR\nstarted := startValue;\nEND_METHOD\n"
+  const outer = "FUNCTION_BLOCK FB_Out\nVAR inner : FB_In(startValue := 5); seenInner : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; startValue : INT; END_VAR\nseenInner := inner.started;\nEND_METHOD\n"
+  const source = (decls: string, extra = "") => `PROGRAM P\nVAR seed : INT := 4; ${decls} END_VAR\nseed := seed;\nEND_PROGRAM\n${inner}${outer}${extra}`
+  const seedList = [{ uri: "file:///project/GVL_Seed.gvl", source: "VAR_GLOBAL\n  gSeed : INT := 6;\nEND_VAR\n" }]
+  const lowered = lowerSource(source("outer : FB_Out(startValue := 1); fromVariable : FB_In(startValue := seed); fromGlobal : FB_In(startValue := gSeed);"), "P", seedList)
+  expect(lowered.diagnostics).toEqual([])
+  const runner = run(lowered.pou!)
+  runner.scan()
+  expect(["outer.seenInner", "outer.inner.started", "fromVariable.started", "fromGlobal.started"].map((v) => runner.get(v))).toEqual([5n, 5n, 4n, 6n])
+  // a variable named in a declaration inside an FB means that FB's field — not a place the POU's init step has
+  const holder = "FUNCTION_BLOCK FB_Holder\nVAR localSeed : INT := 3; held : FB_In(startValue := localSeed); END_VAR\nEND_FUNCTION_BLOCK\n"
+  expect(lowerSource(source("holder : FB_Holder;", holder), "P").diagnostics.map((d) => d.code)).toContain("fb-init-argument")
+  // Review of that batch: only what the recordings cover takes a variable argument. A struct field's declaration was read
+  // in the POU's scope (a local the struct cannot see), and a later or VAR_TEMP variable, or a global an FB_Init writes,
+  // gave values no recording shows; a derived FB holding FB_Init instances got an order none shows either.
+  const codes = (decls: string, extra = "") => lowerSource(source(decls, extra), "P", seedList).diagnostics.map((d) => d.code)
+  expect(codes("h : ST_H;", "TYPE ST_H :\nSTRUCT\n  held : FB_In(startValue := seed);\nEND_STRUCT\nEND_TYPE\n")).toContain("fb-init-argument")
+  expect(codes("fromLater : FB_In(startValue := later); later : INT := 3;")).toContain("fb-init-argument")
+  expect(
+    lowerSource(`PROGRAM P\nVAR_TEMP temp : INT := 4; END_VAR\nVAR a : FB_In(startValue := temp); END_VAR\ntemp := temp;\nEND_PROGRAM\n${inner}`, "P").diagnostics.map((d) => d.code),
+  ).toContain("fb-init-argument")
+  const globalWriter = "FUNCTION_BLOCK FB_Wg\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; startValue : INT; END_VAR\ngSeed := startValue;\nEND_METHOD\n"
+  expect(codes("w : FB_Wg(startValue := 1); fromGlobal : FB_In(startValue := gSeed);", globalWriter)).toContain("fb-init-argument")
+  const derived =
+    "FUNCTION_BLOCK FB_B2\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; startValue : INT; END_VAR\nEND_METHOD\n" +
+    "FUNCTION_BLOCK FB_D2 EXTENDS FB_B2\nVAR l : FB_In(startValue := 2); END_VAR\nEND_FUNCTION_BLOCK\n"
+  expect(codes("d : FB_D2(startValue := 1);", derived)).toContain("fb-init-order")
 })
 
 // Recorded first (`callshape_positional_arguments`): positional arguments bind in declaration order across VAR_INPUT and

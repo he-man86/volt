@@ -402,6 +402,109 @@ mine := startValue;
 END_METHOD
 `,
   },
+  // The refusals left after the FB_Init batch, asked. (4) An instance running FB_Init declared inside an FB that runs one
+  // of its own: whose runs first? The global reads 21 inner first, 12 outer first; the outer's FB_Init also reads what
+  // the inner's set (5 if the inner ran, 0 if not yet).
+  {
+    name: "fb_init_nested_in_fb_init",
+    pouName: "GVL_LANG_init_order",
+    kind: "gvl",
+    feature: "FB_Init of an FB instance declared inside an FB whose own FB_Init runs: the order between them",
+    fromDoc: "11-fb-lifecycle.md#fb_init",
+    plcPrgVar: "outer : FB_LANG_init_outer(startValue := 1);",
+    plcPrgBody: "outer();",
+    source: `VAR_GLOBAL
+	gLangInitOrder : INT;
+END_VAR
+
+FUNCTION_BLOCK FB_LANG_init_innermost
+VAR
+	started : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD FB_Init : BOOL
+VAR_INPUT
+	bInitRetains : BOOL;
+	bInCopyCode : BOOL;
+	startValue : INT;
+END_VAR
+started := startValue;
+gLangInitOrder := gLangInitOrder * 10 + 2;
+END_METHOD
+
+FUNCTION_BLOCK FB_LANG_init_outer
+VAR
+	inner : FB_LANG_init_innermost(startValue := 5);
+	seenInner : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD FB_Init : BOOL
+VAR_INPUT
+	bInitRetains : BOOL;
+	bInCopyCode : BOOL;
+	startValue : INT;
+END_VAR
+seenInner := inner.started;
+gLangInitOrder := gLangInitOrder * 10 + 1;
+END_METHOD
+`,
+  },
+  // (5) An FB_Init argument that is a variable with an initial value, not a constant: does it compile, and what arrives?
+  {
+    name: "fb_init_argument_from_variable",
+    pouName: "FB_LANG_init_var",
+    kind: "function_block",
+    feature: "an FB_Init argument naming a variable of the declaring POU, which has an initial value",
+    fromDoc: "11-fb-lifecycle.md#fb_init",
+    plcPrgVar: "seed : INT := 4; fromVariable : FB_LANG_init_var(startValue := seed);",
+    plcPrgBody: "fromVariable();",
+    source: `FUNCTION_BLOCK FB_LANG_init_var
+VAR
+	started : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD FB_Init : BOOL
+VAR_INPUT
+	bInitRetains : BOOL;
+	bInCopyCode : BOOL;
+	startValue : INT;
+END_VAR
+started := startValue;
+END_METHOD
+`,
+  },
+  // (6) The same with a global variable that has an initial value.
+  {
+    name: "fb_init_argument_from_global",
+    pouName: "GVL_LANG_init_seed",
+    kind: "gvl",
+    feature: "an FB_Init argument naming a global variable, which has an initial value",
+    fromDoc: "11-fb-lifecycle.md#fb_init",
+    plcPrgVar: "fromGlobal : FB_LANG_init_gvar(startValue := gLangInitSeed);",
+    plcPrgBody: "fromGlobal();",
+    source: `VAR_GLOBAL
+	gLangInitSeed : INT := 6;
+END_VAR
+
+FUNCTION_BLOCK FB_LANG_init_gvar
+VAR
+	started : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD FB_Init : BOOL
+VAR_INPUT
+	bInitRetains : BOOL;
+	bInCopyCode : BOOL;
+	startValue : INT;
+END_VAR
+started := startValue;
+END_METHOD
+`,
+  },
   // An instance declared WITHOUT the argument FB_Init's extra input needs. Recorded: it does not compile — "No matching
   // 'FB_Init' method found for instantiation of FB_LANG_init_leftout. Specified 'FB_Init' method requires exactly 1 inputs".
   {

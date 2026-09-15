@@ -35,8 +35,9 @@ import {
   unitAttributes,
 } from "../../syntax/index.js"
 import { buildSymbolTable, lookup, lookupMember, type Scope, scopeForUnit, type Symbol } from "../../symbols/index.js"
-import { stored, valueAs } from "./convert.js"
+import { convert, stored, valueAs } from "./convert.js"
 import { foldConstant } from "./constants.js"
+import { lowerPlace } from "./places.js"
 import { resolveNamedType, type Type, UNKNOWN } from "../../types/index.js"
 import { defaultValueOf, type IrExpr, type IrInit, type IrPou, type IrRoutine, type IrSlot, type IrStmt, type LoweredPou, peelArray, type Place } from "../ir/index.js"
 import { baseOf, Lowering, newShared, openDims } from "./lowering.js"
@@ -194,6 +195,53 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     }
     return chain
   }
+  // whether a value of `t` holds, at any depth, an instance running FB_Init
+  const fbInitHeld = new Map<string, boolean>()
+  const holdsFbInit = (t: Type): boolean => {
+    const array = peelArray(t)
+    if (array !== undefined) return holdsFbInit(array.element)
+    if (t.kind !== "function_block" && t.kind !== "struct") return false
+    const key = t.name.toUpperCase()
+    if (fbInitHeld.has(key)) return fbInitHeld.get(key)!
+    fbInitHeld.set(key, false)
+    const result = (t.kind === "function_block" && fbInits(t).length > 0) || (lw.layouts.get(key)?.fields ?? []).some((f) => holdsFbInit(f.type))
+    fbInitHeld.set(key, result)
+    return result
+  }
+  // What the recordings cover as a variable FB_Init argument (`fb_init_argument_from_variable`, `_from_global`): a plain
+  // elementary variable whose initial value arrives — the POU's own VAR or VAR_INPUT declared before the instance, or a
+  // global. The review of that batch found the rest accepted unrecorded — a struct field's declaration read in the POU's
+  // scope, a later or VAR_TEMP variable, an instance's field, a global an FB_Init writes (checked after the walk).
+  const globalArguments = new Set<number>()
+  const recordedArgument = (expr: Expr, instanceSlot: number): Place | undefined => {
+    if (expr.kind !== "ident_expr") return undefined
+    const read = lowerPlace(lw, expr)
+    if (read === undefined || read.path.length > 0 || read.type.kind !== "elementary") return undefined
+    if (read.root === undefined) {
+      const section = lw.frame[read.slot]?.section
+      return read.slot < instanceSlot && (section === "VAR" || section === "VAR_INPUT") ? read : undefined
+    }
+    if (read.root !== "global" || lw.globals[read.slot]?.section === "program") return undefined
+    globalArguments.add(read.slot)
+    return read
+  }
+  // whether init statements write a global, through any routine or FB body they call
+  const writesGlobal = (node: unknown, seen: Set<string> = new Set()): boolean => {
+    if (node === null || typeof node !== "object") return false
+    if (Array.isArray(node)) return node.some((n) => writesGlobal(n, seen))
+    const n = node as { kind?: string; target?: Place; routine?: string; fb?: string }
+    if (n.kind === "assign" && n.target?.root === "global") return true
+    if (n.kind === "invoke" && n.routine !== undefined && !seen.has(n.routine)) {
+      seen.add(n.routine)
+      const called = lw.routines.get(n.routine)
+      if (called?.state === "lowered" && writesGlobal(called.routine.body, seen)) return true
+    }
+    if (n.kind === "call" && n.fb !== undefined && !seen.has(`FB:${n.fb}`)) {
+      seen.add(`FB:${n.fb}`)
+      if (writesGlobal(lw.layouts.get(n.fb.toUpperCase())?.body, seen)) return true
+    }
+    return Object.entries(node).some(([key, child]) => key !== "span" && key !== "type" && writesGlobal(child, seen))
+  }
   // the FB_Init arguments a field is declared with, by the unit (or struct) declaring it — its base FBs' too
   const declaredArgs = (owner: TopLevel | undefined, name: string): readonly CallArg[] => {
     for (let unit = owner; unit !== undefined; ) {
@@ -232,18 +280,20 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   const fbInitCalls: IrStmt[] = []
   const reapplied: IrStmt[] = []
   const slotCalls: IrStmt[] = []
-  /** `args`: the FB_Init arguments the place is declared with, folded in `declaring`'s scope; `insideInit`: an instance
-   *  holding it runs an FB_Init of its own; `init` / `clearInit`: the declaring slot's initial value, and a way to take a
-   *  structured initializer out of it — to be applied after FB_Init instead. */
-  const visit = (place: Place, args: readonly CallArg[], declaring: Lowering, insideInit: boolean, init: IrInit, clearInit: () => void): boolean => {
+  /** `args`: the FB_Init arguments the place is declared with, lowered in `declaring`; `init` / `clearInit`: the declaring
+   *  slot's initial value, and a way to take a structured initializer out of it — to be applied after FB_Init instead. */
+  const visit = (place: Place, args: readonly CallArg[], declaring: Lowering, init: IrInit, clearInit: () => void): boolean => {
     const t = place.type
     if (!reaches(t)) return true
     if (peelArray(t) !== undefined) return unreached("an array") ?? false
     if (t.kind !== "function_block" && t.kind !== "struct") return true
     const inits = t.kind === "function_block" ? fbInits(t) : []
+    const mine: IrStmt[] = []
     if (t.kind === "function_block" && inits.length > 0) {
-      // which of a nested instance's FB_Init and its holder's runs first is not recorded
-      if (insideInit) return lw.bail("fb-init-order", `${t.name}'s FB_Init inside an instance that runs an FB_Init of its own — their order is not recorded`, span) ?? false
+      // Inner first is recorded for a holder with no EXTENDS (`fb_init_nested_in_fb_init`). With a base chain, whether a
+      // field's FB_Init runs before the base's or the derived's is not — the review of that batch found it guessed.
+      if (t.scope?.baseScope !== undefined && (lw.layouts.get(t.name.toUpperCase())?.fields ?? []).some((f) => holdsFbInit(f.type)))
+        return lw.bail("fb-init-order", `${t.name} extends a base and holds an instance running FB_Init — their order is not recorded`, span) ?? false
       const given = new Map<string, Expr>()
       for (const arg of args) {
         if (arg.param === undefined || arg.output || arg.value === undefined) return lw.bail("fb-init-argument", `${t.name} declared with a positional FB_Init argument`, span) ?? false
@@ -258,11 +308,19 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
           const slot = routine.locals[index]!
           const name = slot.name.toUpperCase()
           const expr = given.get(name)
-          const value = name === "BINITRETAINS" ? true : name === "BINCOPYCODE" ? false : expr === undefined ? undefined : foldConstant(declaring, expr)
-          if (value === undefined) return lw.bail("fb-init-argument", `${t.name}'s FB_Init input ${slot.name} is not given a compile-time constant`, span) ?? false
-          inputs.push({ kind: "const", value: stored(valueAs(value, slot.type), slot.type), type: slot.type, span })
+          const folded = name === "BINITRETAINS" ? true : name === "BINCOPYCODE" ? false : expr === undefined ? undefined : foldConstant(declaring, expr)
+          let input: IrExpr | undefined = folded === undefined ? undefined : { kind: "const", value: stored(valueAs(folded, slot.type), slot.type), type: slot.type, span }
+          // A variable gives its value when FB_Init runs — its initial value, recorded (`fb_init_argument_from_variable`: 4,
+          // `fb_init_argument_from_global`: 6). Only in a declaration of the POU's own, where the name means the same place
+          // in the init step; inside an FB it names that FB's field. An interface would need its instances tracked.
+          if (input === undefined && expr !== undefined && declaring === lw && place.path.length === 0) {
+            const read = recordedArgument(expr, place.slot)
+            if (read !== undefined) input = convert({ kind: "load", place: read, type: read.type, span }, slot.type)
+          }
+          if (input === undefined) return lw.bail("fb-init-argument", `${t.name}'s FB_Init input ${slot.name} is given nothing lowering can pass`, span) ?? false
+          inputs.push(input)
         }
-        fbInitCalls.push({ kind: "eval", value: { kind: "invoke", routine: routine.key, instance: place, inputs, inouts: [], type: UNKNOWN, span }, span })
+        mine.push({ kind: "eval", value: { kind: "invoke", routine: routine.key, instance: place, inputs, inouts: [], type: UNKNOWN, span }, span })
       }
       if (typeof init === "object" && "fields" in init) {
         const fields = lw.layouts.get(t.name.toUpperCase())?.fields ?? []
@@ -301,17 +359,22 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     const layoutFields = (lw.layouts.get(t.name.toUpperCase())?.fields ?? []) as IrSlot[]
     for (const [i, field] of [...layoutFields].entries()) {
       const clear = () => void (layoutFields[i] = { ...layoutFields[i]!, init: defaultValueOf(field.type) })
-      if (!visit({ ...place, path: [...place.path, { kind: "field", name: field.name }], type: field.type }, declaredArgs(owner, field.name), nested, insideInit || inits.length > 0, field.init, clear)) return false
+      if (!visit({ ...place, path: [...place.path, { kind: "field", name: field.name }], type: field.type }, declaredArgs(owner, field.name), nested, field.init, clear)) return false
     }
+    // an instance's own FB_Init runs after those of the instances inside it (`fb_init_nested_in_fb_init`: the outer's saw 5)
+    fbInitCalls.push(...mine)
     return true
   }
   const frame = lw.frame as IrSlot[]
   for (const [slot, frameSlot] of [...frame].entries()) {
     const clear = () => void (frame[slot] = { ...frame[slot]!, init: defaultValueOf(frameSlot.type) })
-    if (!visit({ slot, path: [], type: frameSlot.type, span }, declaredArgs(root?.ast as TopLevel | undefined, frameSlot.name), lw, false, frameSlot.init, clear)) return undefined
+    if (!visit({ slot, path: [], type: frameSlot.type, span }, declaredArgs(root?.ast as TopLevel | undefined, frameSlot.name), lw, frameSlot.init, clear)) return undefined
   }
   if (lw.globals.some((g) => reaches(g.type))) return unreached("the globals")
   for (const r of lw.routines.values()) if (r.state === "lowered" && r.routine.locals.some((l) => reaches(l.type))) return unreached(`${r.routine.name}'s locals`)
+  // a global an FB_Init argument reads while an FB_Init of this init step writes globals: which value arrives is not recorded
+  if (globalArguments.size > 0 && writesGlobal(fbInitCalls))
+    return lw.bail("fb-init-argument", "an FB_Init argument reads a global while an FB_Init writes globals — which value arrives is not recorded", span)
   return [...out, ...fbInitCalls, ...reapplied, ...slotCalls]
 }
 
