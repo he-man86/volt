@@ -472,6 +472,40 @@ test("an FB's own field lent to its own METHOD is copied in and written back, wh
   expect([viaSuper.get("d.n"), viaSuper.get("d.m"), viaSuper.get("x")]).toEqual([5n, 201n, 0n])
 })
 
+// Review of the fixture batch — what the init step's new reach into called PROGRAMs, and the VAR_OUTPUT rule, let through.
+// Why missed: every init test declared its instances in the root, once each; the output fixture bound nothing else.
+test("the init step visits every called PROGRAM, refuses a moved-out read, and re-applies each instance's initializer", () => {
+  const inner = "FUNCTION_BLOCK FB_In\nVAR started : INT; other : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; startValue : INT; END_VAR\nstarted := startValue;\nEND_METHOD\n"
+  const codes = (source: string) => lowerSource(source, "Root").diagnostics.map((d) => d.code)
+  // a PROGRAM first reached by another program's init-slot METHOD was never visited: its FB_Init skipped (0, not 5)
+  const late =
+    "PROGRAM Root\nVAR seen : INT; END_VAR\nPRG_A();\nseen := PRG_A.n;\nEND_PROGRAM\n" +
+    "PROGRAM PRG_A\nVAR n : INT; END_VAR\nn := n;\nEND_PROGRAM\n{attribute 'call_after_global_init_slot' := '50000'}\nMETHOD Boot\nn := PRG_B.inst.started;\nEND_METHOD\n" +
+    `PROGRAM PRG_B\nVAR inst : FB_In(startValue := 5); END_VAR\nEND_PROGRAM\n${inner}`
+  const lateRun = run(ir(late, "Root"))
+  lateRun.scan()
+  expect(lateRun.get("seen")).toEqual(5n)
+  // an init-slot METHOD of an instance inside a called PROGRAM reading that program: Rust ran it moved out, reading 0
+  const reentrant =
+    "PROGRAM Root\nVAR seen : INT; END_VAR\nPRG_C();\nseen := PRG_C.reader.got;\nEND_PROGRAM\n" +
+    "PROGRAM PRG_C\nVAR inst : FB_In(startValue := 5); reader : FB_S; END_VAR\nEND_PROGRAM\n" +
+    `FUNCTION_BLOCK FB_S\nVAR got : INT; END_VAR\nEND_FUNCTION_BLOCK\n{attribute 'call_after_global_init_slot' := '50000'}\nMETHOD Boot\ngot := PRG_C.inst.started;\nEND_METHOD\n${inner}`
+  expect(codes(reentrant)).toContain("call-program-reentrant")
+  // a structured initializer beside FB_Init arguments (recorded `fb_init_and_structured_initializer`: applied after it) on
+  // two instances of one layout: the second started from 0
+  const shared =
+    "PROGRAM Root\nVAR a : FB_Outer; seen : INT; o : INT; END_VAR\nPRG_D();\nseen := PRG_D.x.inner.other;\no := a.inner.other;\nEND_PROGRAM\n" +
+    `PROGRAM PRG_D\nVAR x : FB_Outer; END_VAR\nEND_PROGRAM\nFUNCTION_BLOCK FB_Outer\nVAR inner : FB_In(startValue := 2) := (other := 9); END_VAR\nEND_FUNCTION_BLOCK\n${inner}`
+  const sharedRun = run(ir(shared, "Root"))
+  sharedRun.scan()
+  expect([sharedRun.get("seen"), sharedRun.get("o")]).toEqual([9n, 9n])
+  // a FUNCTION's VAR_OUTPUT beside an in-out bound to its index variable: printed E0503 (`&mut self.cursor` held)
+  const both =
+    "PROGRAM Root\nVAR o : FB_O; END_VAR\no();\nEND_PROGRAM\nFUNCTION_BLOCK FB_O\nVAR numbers : ARRAY[0..3] OF INT; cursor : INT; got : INT; END_VAR\ngot := F_Both(res => numbers[cursor], io := cursor, stepValue := Advance());\nEND_FUNCTION_BLOCK\n" +
+    "METHOD Advance : INT\ncursor := cursor + 1;\nAdvance := cursor;\nEND_METHOD\nFUNCTION F_Both : INT\nVAR_INPUT stepValue : INT; END_VAR\nVAR_IN_OUT io : INT; END_VAR\nVAR_OUTPUT res : INT; END_VAR\nres := 7;\nEND_FUNCTION\n"
+  expect(codes(both)).toContain("call-inout-order")
+})
+
 // Recorded (`fbcall_program_own_members`: calls 4, deep 40, tidied 200, doubled 8 after two cycles): a PROGRAM calling its
 // own METHODs and ACTION bare runs them on its one instance. Lowered as the root it was `call-this` (~25 corpus POUs:
 // `Initialize()`, `Alarms()`, `act_Assign_Errors_01_09()`). Why missed: the fixture's PROGRAM ran called from PLC_PRG,
@@ -507,9 +541,29 @@ test("a root PROGRAM calls its own METHODs and ACTIONs bare, on its one instance
   arguedRun.scan()
   expect([arguedRun.get("P.fromVariable.started"), arguedRun.get("P.fromGlobal.started")]).toEqual([4n, 6n])
   expect(lowerSource(withMethod("fromLater : FB_In(startValue := later); later : INT := 3;"), "P", seedList).diagnostics.map((d) => d.code)).toContain("fb-init-argument")
-  // Whether CODESYS runs a PROGRAM's own FB_Init is not recorded: the slot form never ran it, the instance form would — refused
+  // A PROGRAM's own FB_Init was refused while unrecorded; recorded since (`fb_init_program_own`: 1), it leaves the program's
+  // variables as they were — seed stays 4. One that calls something could still show more: refused.
   const ownInit = "METHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; END_VAR\nseed := 100;\nEND_METHOD\n"
-  expect(lowerSource(withMethod("", ownInit), "P").diagnostics.map((d) => d.code)).toContain("fb-init-program")
+  const ownInitRun = run(ir(withMethod("", ownInit), "P"))
+  ownInitRun.scan()
+  expect(ownInitRun.get("P.seed")).toEqual(4n)
+  const callingInit = "METHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; END_VAR\nNop();\nEND_METHOD\n"
+  expect(lowerSource(withMethod("", callingInit), "P").diagnostics.map((d) => d.code)).toContain("fb-init-program")
+  // A PROGRAM the root CALLS is an instance among the globals, and the init step skipped it (`attr-init-unreached`): its
+  // FB_Init argument from its own VAR (recorded 4), its own FB_Init (1) and its init-slot METHOD (101). Why missed: every
+  // init test declared its instances in the root.
+  const called =
+    "PROGRAM Root\nVAR seen : INT; slot : INT; END_VAR\nPRG_Called();\nseen := PRG_Called.inst.started;\nslot := PRG_Called.n;\nEND_PROGRAM\n" +
+    "PROGRAM PRG_Called\nVAR seed : INT := 4; inst : FB_In(startValue := seed); n : INT; END_VAR\nn := n + 1;\nEND_PROGRAM\n" +
+    "{attribute 'call_after_global_init_slot' := '50000'}\nMETHOD Boot\nn := n + 100;\nEND_METHOD\n" +
+    "METHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; END_VAR\nn := 50;\nEND_METHOD\n" + inner
+  const calledRun = run(ir(called, "Root"))
+  calledRun.scan()
+  expect([calledRun.get("seen"), calledRun.get("slot")]).toEqual([4n, 101n])
+  // THIS^ in such a PROGRAM lowered, as its instance form has a self type; CODESYS refuses it (`fbcall_this_in_program`:
+  // "Expression THIS is not allowed in this context"). Why missed: no fixture used THIS in a PROGRAM.
+  const withThis = "PROGRAM P\nVAR x : INT; END_VAR\nTHIS^.x := THIS^.x + 3;\nNop();\nEND_PROGRAM\nMETHOD Nop\n;\nEND_METHOD\n"
+  expect(lowerSource(withThis, "P").diagnostics.map((d) => d.code)).toContain("this-in-program")
 })
 
 // Recorded first (`callshape_positional_arguments`): positional arguments bind in declaration order across VAR_INPUT and
@@ -866,10 +920,12 @@ END_PROGRAM
     const before = run(ir(program("F_Take(boundValue := numbers[cursor], stepValue := Advance())"), "P"))
     before.scan()
     expect(before.get("o.got")).toEqual(101n)
-    // A VAR_OUTPUT target is not an in-out: where its index is read is not recorded, so written before a call it stays
-    // refused (review of the batch: dropping `movedInOut` let it through, reading the index after the call).
+    // A VAR_OUTPUT target is not an in-out. Refused here while unrecorded (review of the batch); recorded since
+    // (`callshape_output_index_before_call`): its index is read after the inputs — 7 lands in numbers[1], not numbers[0].
     const output = "FUNCTION F_Out : INT\nVAR_INPUT stepValue : INT; END_VAR\nVAR_OUTPUT res : INT; END_VAR\nres := 7;\nEND_FUNCTION\n"
-    expect(lowerSource(program("F_Out(res => numbers[cursor], stepValue := Advance())") + output, "P").diagnostics.map((d) => d.code)).toEqual(["call-inout-order"])
+    const outputRun = run(ir(program("F_Out(res => numbers[cursor], stepValue := Advance())") + output, "P"))
+    outputRun.scan()
+    expect([outputRun.get("o.numbers[0]"), outputRun.get("o.numbers[1]")]).toEqual([10n, 7n])
     // a binding nothing can move — a constant index — lowers in either order
     const fixed = run(ir(program("F_Take(boundValue := numbers[2], stepValue := Advance())"), "P"))
     fixed.scan()

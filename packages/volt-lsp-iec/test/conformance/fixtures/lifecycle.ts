@@ -476,6 +476,128 @@ started := startValue;
 END_METHOD
 `,
   },
+  // A PROGRAM's own FB_Init: does it compile, and does it run before the first cycle (51 after one) or not (1)?
+  {
+    name: "fb_init_program_own",
+    pouName: "PRG_LANG_initOwn",
+    kind: "program",
+    feature: "a METHOD FB_Init declared on a PROGRAM",
+    fromDoc: "11-fb-lifecycle.md#fb_init",
+    plcPrgVar: "seen : INT;",
+    plcPrgBody: "PRG_LANG_initOwn();\nseen := PRG_LANG_initOwn.n;",
+    source: `PROGRAM PRG_LANG_initOwn
+VAR
+	n : INT;
+END_VAR
+n := n + 1;
+END_PROGRAM
+
+METHOD FB_Init : BOOL
+VAR_INPUT
+	bInitRetains : BOOL;
+	bInCopyCode : BOOL;
+END_VAR
+n := 50;
+END_METHOD
+`,
+  },
+  // A PROGRAM's own call_after_global_init_slot METHOD: does it run before the first cycle (101 after one) or not (1)?
+  {
+    name: "init_slot_program_own",
+    pouName: "PRG_LANG_slotOwn",
+    kind: "program",
+    feature: "a {attribute 'call_after_global_init_slot'} METHOD declared on a PROGRAM",
+    fromDoc: "11-fb-lifecycle.md#fb_init",
+    plcPrgVar: "seen : INT;",
+    plcPrgBody: "PRG_LANG_slotOwn();\nseen := PRG_LANG_slotOwn.n;",
+    source: `PROGRAM PRG_LANG_slotOwn
+VAR
+	n : INT;
+END_VAR
+n := n + 1;
+END_PROGRAM
+
+{attribute 'call_after_global_init_slot' := '50000'}
+METHOD Boot
+n := n + 100;
+END_METHOD
+`,
+  },
+  // An FB_Init argument naming a VAR of a PROGRAM that also has a METHOD — the program-with-members form (4).
+  {
+    name: "fb_init_argument_in_program_with_method",
+    pouName: "PRG_LANG_initArgM",
+    kind: "program",
+    feature: "an FB_Init argument naming a variable of a PROGRAM that has a METHOD",
+    fromDoc: "11-fb-lifecycle.md#fb_init",
+    plcPrgVar: "seen : INT;",
+    plcPrgBody: "PRG_LANG_initArgM();\nseen := PRG_LANG_initArgM.inst.started;",
+    source: `PROGRAM PRG_LANG_initArgM
+VAR
+	seed : INT := 4;
+	inst : FB_LANG_initArgM(startValue := seed);
+END_VAR
+Nop();
+inst();
+END_PROGRAM
+
+METHOD Nop
+;
+END_METHOD
+
+FUNCTION_BLOCK FB_LANG_initArgM
+VAR
+	started : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD FB_Init : BOOL
+VAR_INPUT
+	bInitRetains : BOOL;
+	bInCopyCode : BOOL;
+	startValue : INT;
+END_VAR
+started := startValue;
+END_METHOD
+`,
+  },
+  // An instance-path inside an FB held by a PROGRAM that has a METHOD: the program's name once.
+  {
+    name: "instance_path_in_program_with_method",
+    pouName: "PRG_LANG_pathM",
+    kind: "program",
+    feature: "{attribute 'instance-path'} in an FB instance nested in a PROGRAM that has a METHOD",
+    fromDoc: "07-pragmas.md#instance-path",
+    plcPrgVar: "seen : STRING(255);",
+    plcPrgBody: "PRG_LANG_pathM();\nseen := PRG_LANG_pathM.outer.inner.sMyPath;",
+    source: `PROGRAM PRG_LANG_pathM
+VAR
+	outer : FB_LANG_pathOuterM;
+END_VAR
+Nop();
+outer();
+END_PROGRAM
+
+METHOD Nop
+;
+END_METHOD
+
+FUNCTION_BLOCK FB_LANG_pathOuterM
+VAR
+	inner : FB_LANG_pathInnerM;
+END_VAR
+END_FUNCTION_BLOCK
+
+{attribute 'reflection'}
+FUNCTION_BLOCK FB_LANG_pathInnerM
+VAR
+	{attribute 'instance-path'}
+	{attribute 'noinit'}
+	sMyPath : STRING(255);
+END_VAR
+END_FUNCTION_BLOCK
+`,
+  },
   // (6) The same with a global variable that has an initial value.
   {
     name: "fb_init_argument_from_global",

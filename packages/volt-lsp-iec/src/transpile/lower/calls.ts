@@ -512,6 +512,13 @@ function bindInOut(lw: Lowering, arg: CallArg, param: IrSlot, held: readonly Pla
   return target
 }
 
+/** A routine run on an instance inside (or being) a called PROGRAM runs with that program moved out of `Programs`, so it
+ *  must not reach the program again — directly or through an interface. `lowerInvoke` checks a body's call; the init step
+ *  checks its FB_Init and slot-METHOD calls here (review of the fixture batch: Rust read the `::new()` stand-in). */
+export function programReentrant(lw: Lowering, routine: IrRoutine, instance: Place): boolean {
+  return instance.root === "global" && (touchesOf(lw).get(routine.key)?.has(instance.slot) === true || reachesDispatch(lw, routine.body))
+}
+
 /**
  * A callee that touches nothing but its own locals, inputs and in-outs, and calls nothing — no METHOD, FB body, FUNCTION or
  * interface call, no dereference. The only way from it to a variable of its caller is then an in-out it was bound.
@@ -726,8 +733,13 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     if (!order.slice(at + 1).some((later) => typeof later === "number" && holdsCall(inputs[later]))) continue
     const binding = inouts[entry.inout]!
     const name = routine.inouts[entry.inout]!.name
+    // A VAR_OUTPUT's target is NOT bound where written: its index is read after the inputs (`callshape_output_index_before_call`:
+    // 7 into numbers[1]) — as both backends bind it — for a FUNCTION that binds nothing else and touches only its own
+    // locals, so nothing moves the index while it runs. Anything else is refused: a METHOD could move it, a global write
+    // or another in-out on the index variable could (review: `io := cursor` beside it printed E0503), and a pointer's
+    // target is not recorded there.
+    if (entry.output === true && instance === undefined && routine.inouts.length === 1 && touchesOnlyItsOwn(routine.body) && !("kind" in binding) && binding.guard === undefined) continue
     const movable = "kind" in binding || binding.guard !== undefined || binding.path.some((s) => s.kind === "index" && s.index.kind !== "const")
-    // where a VAR_OUTPUT's target index is read — written, or after the call — is not recorded (review of this batch)
     if (movable && ("kind" in binding || binding.guard !== undefined || entry.output === true))
       return lw.bail("call-inout-order", `${routine.name}'s ${name} is bound before a call in a later argument that could move it`, call.span)
     const path = binding.path.map((step): Access => {

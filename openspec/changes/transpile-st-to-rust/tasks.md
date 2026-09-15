@@ -530,6 +530,30 @@ taken apart by construct before anything is built — record first, then build, 
       every body call (one tag per static place bound), and the outside METHOD call a dispatch on that tag whose arms
       lend each place — tag 0 faulting, as the recording stops. The binding sites can lower after the METHOD call, so
       the arms fill once the POU has lowered, as an interface call's do (`finishInterfaces`). Not built: a decision.
+- [x] Conformance fixtures for every shape this phase met only in the test corpus or a src test (user request
+      2026-09-15: "so we dont rely on the testcorpus") — each recorded in CODESYS SP21, build and run, and replayed by
+      the LSP and both transpiler backends. The LSP's error/warning set matches CODESYS exactly on all but
+      `fbcall_this_in_program`, where it has the refusing error but not CODESYS's four follow-on errors. Recorded:
+      an own field lent to its own METHOD that also reads it by name, 10 (by reference); one field lent to two in-outs,
+      6; SUPER^ binding both base in-outs to one field, 6, and to two, 5 and 201; a child's field lent through THIS^
+      while the METHOD writes it by name, 11; a VAR_OUTPUT target's index read AFTER the inputs, 7 into numbers[1];
+      a nested index taken where written, 401; an in-out through a pointer bound where written, 101; a PROGRAM's own
+      FB_Init leaving its variables as they were, 1, and its init-slot METHOD running, 101; an FB_Init argument from the
+      VAR of a PROGRAM with a METHOD, 4; an instance-path through such a PROGRAM, its name once; THIS^ in a PROGRAM
+      refused; an ANY_INT's caller variable written through a union of pointers (6, 7, 8, 9). They overturned three
+      refusals and one acceptance, each rewritten with its recording: a FUNCTION's VAR_OUTPUT with a runtime index now
+      lowers; a PROGRAM's own FB_Init is not called (refused if it calls or writes a global); a PROGRAM the root calls
+      is visited by the init step (it was `attr-init-unreached`: FB_Init arguments, instance-path, init-slot METHODs);
+      THIS^ in a PROGRAM is refused (`this-in-program`). `refused.test.ts` analysed a refused fixture without its own
+      source. Still refused, exactly: the four by-reference aliases (`call-inout-alias`), the pointer in-out
+      (`call-inout-order`), the ANY_INT union of pointers (`layout-union`). Conformance: 497 of 523 lower. The review
+      of these fixes found four holes, each now closed with a src test: a PROGRAM first reached by another program's
+      init-slot METHOD was never visited (0 where FB_Init gives 5) — the globals are walked by index; an init-step call
+      on an instance inside a called PROGRAM that reads that program ran moved out, Rust reading the `::new()` stand-in —
+      refused `call-program-reentrant`, as a body's call is (`programReentrant`); a structured initializer beside FB_Init
+      arguments was re-applied only on the first instance of its layout (the second started from 0, not 9) — each
+      instance now sees the declared initializers; and the VAR_OUTPUT rule let an in-out on the index variable beside it
+      print E0503 — it now holds only for a FUNCTION that binds nothing else and touches only its own locals.
 - [x] FB_Init — silently ignored until now: an ordinary METHOD nothing called, and the parser dropped a declaration's
       `inst : FB(x := 1)` arguments, so every instance started as if it had none, with no diagnostic. Recorded first
       (`lifecycle.ts` `fb_init_runs_with_declared_arguments`, `fb_init_base_and_derived`, `fb_init_argument_left_out`):

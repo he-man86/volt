@@ -18,10 +18,13 @@ const libraries = STANDARD_LIBRARY.map((l) => ({ ...l, parseResult: parseSource(
 describe("every source CODESYS refuses is an LSP error (codesys)", () => {
   for (const c of ALL_TESTS.filter((x) => x.refused !== undefined)) {
     test(c.name, () => {
-      const source = plcPrgSource(c)
-      const parseResult = parseSource(source)
-      const project = buildSymbolTable([{ uri: "PLC_PRG.prg", parseResult, source }, ...libraries])
-      const errors = computeSemanticDiagnostics({ parseResult, source, project, config: resolveConfig({ vendor: "codesys" }) })
+      // PLC_PRG and the fixture's own units: a fixture refused for its source was analysed without it, so every name it
+      // declares read as undefined (`fbcall_this_in_program`)
+      const files = [plcPrgSource(c), c.source].map((source, i) => ({ uri: i === 0 ? "PLC_PRG.prg" : `${c.pouName}.src`, source, parseResult: parseSource(source) }))
+      const project = buildSymbolTable([...files, ...libraries])
+      const config = resolveConfig({ vendor: "codesys" })
+      const errors = files
+        .flatMap((f) => computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }))
         .filter((d) => d.severity === "error")
         .map((d) => d.message)
       expect(errors).toContainEqual(expect.stringContaining(c.refused!))

@@ -200,6 +200,45 @@ END_TYPE
     plcPrgBody:
       "sizeInt := F_STATE_anySize(intArg); sizeLreal := F_STATE_anySize(lrealArg); sizeString := F_STATE_anySize(str10); sizeBool := F_STATE_anySize(boolArg); sizePair := F_STATE_anySize(pairArg); numLreal := F_STATE_anyNumSize(lrealArg); numInt := F_STATE_anyNumSize(intArg);",
   },
+  // pro2193's `Increment.AnyInt` without its library: an ANY_INT input's `pValue` stored into a union of pointers, and the
+  // caller's variable incremented through the one its `diSize` picks — does it change the caller's variable (6, 7, 8, 9)?
+  {
+    name: "state_any_int_pointer_increment",
+    pouName: "F_STATE_incAnyInt",
+    kind: "function",
+    feature: "an ANY_INT input's pValue taken into a union of pointers and the caller's variable written through it by diSize",
+    fromDoc: doc,
+    source: `FUNCTION F_STATE_incAnyInt : BOOL
+VAR_INPUT
+	input : ANY_INT;
+	incrementBy : INT := 1;
+END_VAR
+VAR
+	u : DUT_STATE_ptrSizes;
+END_VAR
+u.p1_Byte := input.pValue;
+CASE input.diSize OF
+	1: u.p1_Sint^ := u.p1_Sint^ + TO_SINT(incrementBy);
+	2: u.p2_Int^ := u.p2_Int^ + incrementBy;
+	4: u.p4_Dint^ := u.p4_Dint^ + incrementBy;
+	8: u.p8_Lint^ := u.p8_Lint^ + incrementBy;
+END_CASE
+F_STATE_incAnyInt := TRUE;
+END_FUNCTION
+
+TYPE DUT_STATE_ptrSizes :
+UNION
+	p1_Byte : POINTER TO BYTE;
+	p1_Sint : POINTER TO SINT;
+	p2_Int : POINTER TO INT;
+	p4_Dint : POINTER TO DINT;
+	p8_Lint : POINTER TO LINT;
+END_UNION
+END_TYPE
+`,
+    plcPrgVar: "siArg : SINT := 1; iArg : INT := 2; dArg : DINT := 3; lArg : LINT := 4; done : BOOL;",
+    plcPrgBody: "done := F_STATE_incAnyInt(siArg, 5);\ndone := F_STATE_incAnyInt(iArg, 5);\ndone := F_STATE_incAnyInt(dArg, 5);\ndone := F_STATE_incAnyInt(lArg, 5);",
+  },
   // `call_after_global_init_slot` set `iCount := 1`, which cannot tell "once before the first scan" from "every scan"; this
   // counts, over three scans, on two instances.
   fb("state_call_after_global_init_counts", "FB_STATE_init", "{attribute 'call_after_global_init_slot'} — how often the method runs, and on each instance",

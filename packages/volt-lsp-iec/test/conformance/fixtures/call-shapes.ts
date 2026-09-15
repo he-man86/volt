@@ -104,6 +104,217 @@ END_METHOD
 `,
     "worker : FB_CS_workerEarly; first : INT := 1; reached : INT;",
     "worker.AddTen();\nreached := 1;\nworker(shared := first);"),
+  // An FB lending its own field to its own METHOD, which also reads the field by name after writing the in-out: by
+  // reference the name sees the new value (10), a copy would not (7).
+  fb("callshape_own_field_inout_read_by_name", "FB_CS_ownRead15", "an FB's own field lent to its own METHOD's VAR_IN_OUT, the METHOD reading the field by name after writing the in-out",
+    `FUNCTION_BLOCK FB_CS_ownRead15
+VAR_OUTPUT
+	result : INT;
+END_VAR
+VAR
+	counter : INT := 7;
+END_VAR
+result := Mixed(counter, 3);
+END_FUNCTION_BLOCK
+
+METHOD Mixed : INT
+VAR_IN_OUT
+	target : INT;
+END_VAR
+VAR_INPUT
+	amount : INT;
+END_VAR
+target := target + amount;
+Mixed := counter;
+END_METHOD
+`,
+    "user : FB_CS_ownRead15;",
+    "user();"),
+  // One field lent to two in-outs of one call: both name it, so 5 then + 1 gives 6.
+  fb("callshape_own_field_two_inouts", "FB_CS_twoInouts16", "one field of the FB lent to two VAR_IN_OUT of its own METHOD in the same call",
+    `FUNCTION_BLOCK FB_CS_twoInouts16
+VAR
+	n : INT := 100;
+END_VAR
+Two(a := n, b := n);
+END_FUNCTION_BLOCK
+
+METHOD Two
+VAR_IN_OUT
+	a : INT;
+	b : INT;
+END_VAR
+a := 5;
+b := b + 1;
+END_METHOD
+`,
+    "user : FB_CS_twoInouts16;",
+    "user();"),
+  // SUPER^ binding the base's two in-outs to ONE field of the derived FB: by reference n is 6.
+  fb("callshape_super_own_field_twice", "FB_CS_superBase17", "SUPER^ binding both of the base's VAR_IN_OUT to one field of the derived FB",
+    `FUNCTION_BLOCK FB_CS_superBase17
+VAR_IN_OUT
+	a : INT;
+	b : INT;
+END_VAR
+a := 5;
+b := b + 1;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_CS_superTwice17 EXTENDS FB_CS_superBase17
+VAR
+	n : INT := 100;
+END_VAR
+SUPER^(a := n, b := n);
+END_FUNCTION_BLOCK
+`,
+    "twice : FB_CS_superTwice17; x : INT; y : INT;",
+    "twice(a := x, b := y);"),
+  // SUPER^ binding the base's in-outs to two fields of the derived FB, the derived body leaving its own in-outs unread.
+  fb("callshape_super_own_fields", "FB_CS_superBase18", "SUPER^ binding the base's VAR_IN_OUT to two fields of the derived FB",
+    `FUNCTION_BLOCK FB_CS_superBase18
+VAR_IN_OUT
+	a : INT;
+	b : INT;
+END_VAR
+a := 5;
+b := b + 1;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_CS_superPair18 EXTENDS FB_CS_superBase18
+VAR
+	n : INT := 100;
+	m : INT := 200;
+END_VAR
+SUPER^(a := n, b := m);
+END_FUNCTION_BLOCK
+`,
+    "pair : FB_CS_superPair18; x : INT := 1; y : INT := 2;",
+    "pair(a := x, b := y);"),
+  // A child instance's field lent to the child's METHOD called through THIS^, the METHOD also writing that field by name:
+  // by reference 0 + 1, then + 10 — 11.
+  fb("callshape_inout_sub_instance_field", "FB_CS_subHolder19", "a child instance's field lent to the child's METHOD through THIS^, the METHOD writing the field by name too",
+    `FUNCTION_BLOCK FB_CS_subHolder19
+VAR
+	inner : FB_CS_subInner19;
+END_VAR
+THIS^.inner.Bump(v := inner.x);
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_CS_subInner19
+VAR
+	x : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD Bump
+VAR_IN_OUT
+	v : INT;
+END_VAR
+v := v + 1;
+x := x + 10;
+END_METHOD
+`,
+    "holder : FB_CS_subHolder19;",
+    "holder();"),
+  // A VAR_OUTPUT target indexed by a variable, written before a call in a later argument that moves the index: is the
+  // index read where written (7 into numbers[0]) or after the call (numbers[1])?
+  fb("callshape_output_index_before_call", "FB_CS_outOrder20", "a VAR_OUTPUT bound with => to an element indexed by a variable that a call in a later argument changes",
+    `FUNCTION F_CS_out20 : INT
+VAR_INPUT
+	stepValue : INT;
+END_VAR
+VAR_OUTPUT
+	res : INT;
+END_VAR
+res := 7;
+F_CS_out20 := stepValue;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_CS_outOrder20
+VAR_OUTPUT
+	got : INT;
+END_VAR
+VAR
+	numbers : ARRAY[0..3] OF INT := [10, 20, 30, 40];
+	cursor : INT;
+END_VAR
+cursor := 0;
+got := F_CS_out20(res => numbers[cursor], stepValue := Advance());
+END_FUNCTION_BLOCK
+
+METHOD Advance : INT
+cursor := cursor + 1;
+Advance := cursor;
+END_METHOD
+`,
+    "order : FB_CS_outOrder20;",
+    "order();"),
+  // An in-out indexed through another array, written before a call that moves the inner index: where written,
+  // numbers[slots[0]] = numbers[3] (401); after the call, numbers[slots[1]] = numbers[2] (301).
+  fb("callshape_inout_nested_index_before_call", "FB_CS_nested21", "an in-out bound to numbers[slots[cursor]] before a call in a later argument that changes cursor",
+    `FUNCTION F_CS_take21 : INT
+VAR_INPUT
+	stepValue : INT;
+END_VAR
+VAR_IN_OUT
+	boundValue : INT;
+END_VAR
+F_CS_take21 := boundValue * 10 + stepValue;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_CS_nested21
+VAR_OUTPUT
+	got : INT;
+END_VAR
+VAR
+	numbers : ARRAY[0..3] OF INT := [10, 20, 30, 40];
+	slots : ARRAY[0..3] OF INT := [3, 2, 1, 0];
+	cursor : INT;
+END_VAR
+cursor := 0;
+got := F_CS_take21(boundValue := numbers[slots[cursor]], stepValue := Advance());
+END_FUNCTION_BLOCK
+
+METHOD Advance : INT
+cursor := cursor + 1;
+Advance := cursor;
+END_METHOD
+`,
+    "nested : FB_CS_nested21;",
+    "nested();"),
+  // An in-out bound through a pointer, written before a call that repoints it: where written, numbers[0] (101); after
+  // the call, numbers[1] (201).
+  fb("callshape_inout_pointer_before_call", "FB_CS_pointer22", "an in-out bound to p^ before a call in a later argument that stores another address into p",
+    `FUNCTION F_CS_take22 : INT
+VAR_INPUT
+	stepValue : INT;
+END_VAR
+VAR_IN_OUT
+	boundValue : INT;
+END_VAR
+F_CS_take22 := boundValue * 10 + stepValue;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_CS_pointer22
+VAR_OUTPUT
+	got : INT;
+END_VAR
+VAR
+	numbers : ARRAY[0..1] OF INT := [10, 20];
+	p : POINTER TO INT;
+END_VAR
+p := ADR(numbers[0]);
+got := F_CS_take22(boundValue := p^, stepValue := Repoint());
+END_FUNCTION_BLOCK
+
+METHOD Repoint : INT
+p := ADR(numbers[1]);
+Repoint := 1;
+END_METHOD
+`,
+    "pointed : FB_CS_pointer22;",
+    "pointed();"),
   fb("callshape_argument_order", "FB_CS_marker4", "calls inside a call's arguments: the order they run in, written in declaration order and reversed",
     `FUNCTION_BLOCK FB_CS_marker4
 VAR

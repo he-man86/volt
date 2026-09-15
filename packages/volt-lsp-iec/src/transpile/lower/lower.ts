@@ -39,11 +39,11 @@ import { convert, stored, valueAs } from "./convert.js"
 import { foldConstant } from "./constants.js"
 import { lowerPlace } from "./places.js"
 import { resolveNamedType, type Type, UNKNOWN } from "../../types/index.js"
-import { defaultValueOf, type IrExpr, type IrInit, type IrPou, type IrRoutine, type IrSlot, type IrStmt, type LoweredPou, peelArray, type Place } from "../ir/index.js"
+import { defaultValueOf, holdsCall, type IrExpr, type IrInit, type IrPou, type IrRoutine, type IrSlot, type IrStmt, type LoweredPou, peelArray, type Place } from "../ir/index.js"
 import { baseOf, Lowering, newShared, openDims } from "./lowering.js"
 import { declareVars, storageOf, tempResets } from "./storage.js"
 import { lowerBlock } from "./statements.js"
-import { calledLayout, calledRoutine } from "./calls.js"
+import { calledLayout, calledRoutine, programReentrant } from "./calls.js"
 import { finishInterfaces } from "./interfaces.js"
 
 /** A type a backend can store: elementary, a laid-out struct or FB instance, or a sized array of those. */
@@ -219,6 +219,8 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   const globalArguments = new Set<number>()
   // A PROGRAM with METHODs or ACTIONs lowers as its one instance (`rootInstance`): the frame's slot that IS the program.
   const ownProgram = (place: Place): boolean => {
+    // ...or a PROGRAM this POU calls: its one instance among the globals
+    if (place.root === "global") return lw.globals[place.slot]?.section === "program"
     const slot = lw.frame[place.slot]
     return place.root === undefined && root?.kind === "program" && slot?.type.kind === "function_block" && slot.type.name.toUpperCase() === root.name.toUpperCase()
   }
@@ -292,6 +294,7 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   const fbInitCalls: IrStmt[] = []
   const reapplied: IrStmt[] = []
   const slotCalls: IrStmt[] = []
+  const declaredInits = new Map<string, IrInit[]>()
   /** `args`: the FB_Init arguments the place is declared with, lowered in `declaring`; `init` / `clearInit`: the declaring
    *  slot's initial value, and a way to take a structured initializer out of it — to be applied after FB_Init instead. */
   const visit = (place: Place, args: readonly CallArg[], declaring: Lowering, init: IrInit, clearInit: () => void): boolean => {
@@ -299,10 +302,18 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     if (!reaches(t)) return true
     if (peelArray(t) !== undefined) return unreached("an array") ?? false
     if (t.kind !== "function_block" && t.kind !== "struct") return true
-    // whether CODESYS runs a PROGRAM's own FB_Init or init-slot METHOD is not recorded — the instance form would (review)
-    if (t.kind === "function_block" && place.path.length === 0 && ownProgram(place) && (fbInits(t).length > 0 || initMethod(t) !== undefined))
-      return lw.bail("fb-init-program", `${t.name} is a PROGRAM with its own FB_Init or ${INIT_ATTRIBUTE} method, whose running is not recorded`, span) ?? false
-    const inits = t.kind === "function_block" ? fbInits(t) : []
+    // A PROGRAM's own FB_Init leaves its variables as they were (`fb_init_program_own`: 1) — whether it runs at all, before
+    // their initial values, is not recorded, so one that calls anything or writes a global is refused. Its init-slot METHOD
+    // runs (`init_slot_program_own`: 101), as an FB's does.
+    const program = t.kind === "function_block" && place.path.length === 0 && ownProgram(place)
+    if (program)
+      for (const sym of fbInits(t)) {
+        const routine: IrRoutine | undefined = calledRoutine(lw, sym, t, span)
+        if (routine === undefined) return false
+        if (holdsCall(routine.body) || writesGlobal(routine.body))
+          return lw.bail("fb-init-program", `${t.name} is a PROGRAM whose FB_Init calls or writes beyond its own variables — whether it runs is not recorded`, span) ?? false
+      }
+    const inits = t.kind === "function_block" && !program ? fbInits(t) : []
     const mine: IrStmt[] = []
     if (t.kind === "function_block" && inits.length > 0) {
       // Inner first is recorded for a holder with no EXTENDS (`fb_init_nested_in_fb_init`). With a base chain, whether a
@@ -334,13 +345,15 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
           }
           const held = place.path[0]
           if (input === undefined && expr !== undefined && place.path.length === 1 && held?.kind === "field" && ownProgram(place)) {
-            const holder: Place = { slot: place.slot, path: [], type: lw.frame[place.slot]!.type, span }
+            const holder: Place = { ...place, path: [], type: (place.root === "global" ? lw.globals : lw.frame)[place.slot]!.type }
             const read = recordedArgument(expr, declaring.frame.findIndex((f) => f.name.toUpperCase() === held.name.toUpperCase()), declaring, holder)
             if (read !== undefined) input = convert({ kind: "load", place: read, type: read.type, span }, slot.type)
           }
           if (input === undefined) return lw.bail("fb-init-argument", `${t.name}'s FB_Init input ${slot.name} is given nothing lowering can pass`, span) ?? false
           inputs.push(input)
         }
+        if (programReentrant(lw, routine, place))
+          return lw.bail("call-program-reentrant", `${sym.owner.name}'s FB_Init may reach the PROGRAM its instance lives in, which it runs moved out of`, span) ?? false
         mine.push({ kind: "eval", value: { kind: "invoke", routine: routine.key, instance: place, inputs, inouts: [], type: UNKNOWN, span }, span })
       }
       if (typeof init === "object" && "fields" in init) {
@@ -358,9 +371,10 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     if (paths.length > 0) {
       if (application === undefined) return lw.bail("attr-instance-path", `${t.name}'s instance-path needs the project tree (Device/Plc Logic/Application), which this source is not in`, span) ?? false
       if (root?.kind !== "program") return lw.bail("attr-instance-path", `an FB lowered on its own has no instance path`, span) ?? false
-      // a PROGRAM lowered as its one instance: that slot IS the program, whose name `text` already carries (review)
-      const hierarchy = [...(ownProgram(place) ? [] : [lw.frame[place.slot]!.name]), ...place.path.flatMap((step) => (step.kind === "field" ? [step.name] : []))]
-      const text = [application, root.name, ...hierarchy].join(".")
+      // The program the instance lives in, then its path: the root's own slot; a PROGRAM lowered as its one instance, whose
+      // slot IS the program (review); or a PROGRAM this POU calls, its instance among the globals.
+      const top = place.root === "global" ? [lw.globals[place.slot]!.name] : ownProgram(place) ? [root.name] : [root.name, lw.frame[place.slot]!.name]
+      const text = [application, ...top, ...place.path.flatMap((step) => (step.kind === "field" ? [step.name] : []))].join(".")
       for (const name of paths) {
         const field = lw.layouts.get(t.name.toUpperCase())?.fields.find((f) => f.name.toUpperCase() === name.toUpperCase())
         if (field === undefined || field.type.kind !== "elementary" || field.type.elem.family !== "string")
@@ -374,14 +388,20 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
       const routine: IrRoutine | undefined = calledRoutine(lw, sym, t, span)
       if (routine === undefined) return false
       if (routine.inputs.length > 0 || routine.inouts.length > 0) return lw.bail("attr-init-inputs", `${sym.name} takes arguments`, span) ?? false
+      if (programReentrant(lw, routine, place))
+        return lw.bail("call-program-reentrant", `${sym.name} may reach the PROGRAM its instance lives in, which it runs moved out of`, span) ?? false
       slotCalls.push({ kind: "eval", value: { kind: "invoke", routine: routine.key, instance: place, inputs: [], inouts: [], type: UNKNOWN, span }, span })
     }
     const owner = lookup(lw.project, t.name)?.symbol.ast as TopLevel | undefined
     const nested = lw.bodies.get(t.name.toUpperCase())?.lowering ?? declaring
     const layoutFields = (lw.layouts.get(t.name.toUpperCase())?.fields ?? []) as IrSlot[]
+    // every instance of the layout sees its initializers as declared: the first one's clearInit emptied them for the next,
+    // which then started from 0 where the 9 is re-applied (review of the fixture batch)
+    const declared = declaredInits.get(t.name.toUpperCase()) ?? layoutFields.map((f) => f.init)
+    declaredInits.set(t.name.toUpperCase(), declared)
     for (const [i, field] of [...layoutFields].entries()) {
       const clear = () => void (layoutFields[i] = { ...layoutFields[i]!, init: defaultValueOf(field.type) })
-      if (!visit({ ...place, path: [...place.path, { kind: "field", name: field.name }], type: field.type }, declaredArgs(owner, field.name), nested, field.init, clear)) return false
+      if (!visit({ ...place, path: [...place.path, { kind: "field", name: field.name }], type: field.type }, declaredArgs(owner, field.name), nested, declared[i]!, clear)) return false
     }
     // an instance's own FB_Init runs after those of the instances inside it (`fb_init_nested_in_fb_init`: the outer's saw 5)
     fbInitCalls.push(...mine)
@@ -392,7 +412,18 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     const clear = () => void (frame[slot] = { ...frame[slot]!, init: defaultValueOf(frameSlot.type) })
     if (!visit({ slot, path: [], type: frameSlot.type, span }, declaredArgs(root?.ast as TopLevel | undefined, frameSlot.name), lw, frameSlot.init, clear)) return undefined
   }
-  if (lw.globals.some((g) => reaches(g.type))) return unreached("the globals")
+  // A PROGRAM this POU calls is an instance among the globals, visited as the frame's slots are — its FB_Init arguments, an
+  // instance-path, an init-slot METHOD. They were `attr-init-unreached` (`fb_init_argument_in_program_with_method`: 4,
+  // `init_slot_program_own`: 101). Any other global reaching one still is.
+  const globals = lw.globals as IrSlot[]
+  // by index: visiting one program can lower a METHOD that reaches another for the first time (review — it was skipped)
+  for (let slot = 0; slot < globals.length; slot++) {
+    const global = globals[slot]!
+    if (global.section !== "program") continue
+    const clear = () => void (globals[slot] = { ...globals[slot]!, init: defaultValueOf(global.type) })
+    if (!visit({ slot, path: [], type: global.type, span, root: "global" }, [], lw, global.init, clear)) return undefined
+  }
+  if (lw.globals.some((g) => g.section !== "program" && reaches(g.type))) return unreached("the globals")
   for (const r of lw.routines.values()) if (r.state === "lowered" && r.routine.locals.some((l) => reaches(l.type))) return unreached(`${r.routine.name}'s locals`)
   // a global an FB_Init argument reads while an FB_Init of this init step writes globals: which value arrives is not recorded
   if (globalArguments.size > 0 && writesGlobal(fbInitCalls))

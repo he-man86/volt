@@ -160,8 +160,12 @@ export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): P
   }
   // `THIS^` — the instance the body runs on (conformance `keyword_this_dereference`, `use_self_method_call`). `SUPER^` is
   // no place of its own: `SUPER^()` and `SUPER^.M()` are calls, lowered in `calls.ts`.
-  if (e.kind === "deref" && isSelfRef(e) && e.base.kind === "ident_expr" && e.base.name.toUpperCase() === "THIS" && lw.selfType !== undefined)
+  if (e.kind === "deref" && isSelfRef(e) && e.base.kind === "ident_expr" && e.base.name.toUpperCase() === "THIS" && lw.selfType !== undefined) {
+    // a PROGRAM lowered as its one instance has a self type too, but CODESYS refuses THIS there (`fbcall_this_in_program`)
+    if (lw.selfType.kind === "function_block" && lw.bodies.get(lw.selfType.name.toUpperCase())?.unit.kind === "program")
+      return lw.bail("this-in-program", "THIS in a PROGRAM, which CODESYS does not compile", e.span)
     return { slot: 0, path: [], type: lw.selfType, span: e.span, root: "this" }
+  }
   if (e.kind === "deref" && !isSelfRef(e)) {
     const pointer = lowerPlace(lw, e.base, notAMember)
     if (pointer === undefined) return undefined

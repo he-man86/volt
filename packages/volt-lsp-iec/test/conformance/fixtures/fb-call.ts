@@ -242,6 +242,31 @@ END_ACTION
     plcPrgBody: "PRG_CALL_own();\ncalls := PRG_CALL_own.calls;\ndeep := PRG_CALL_own.deep;\ntidied := PRG_CALL_own.tidied;\ndoubled := PRG_CALL_own.doubled;",
     cycles: 2,
   },
+  // THIS^ inside a PROGRAM that has a METHOD. Recorded: it does not compile ("Expression THIS is not allowed in this
+  // context") — the transpiler lowered it once such a PROGRAM became an instance (review of that batch).
+  {
+    name: "fbcall_this_in_program",
+    pouName: "PRG_CALL_this",
+    kind: "program",
+    feature: "THIS^ used in the body of a PROGRAM that has a METHOD",
+    fromDoc: doc,
+    refused: "Expression THIS is not allowed in this context",
+    source: `PROGRAM PRG_CALL_this
+VAR
+	x : INT;
+END_VAR
+THIS^.x := THIS^.x + 3;
+Nop();
+END_PROGRAM
+
+METHOD Nop
+;
+END_METHOD
+`,
+    plcPrgVar: "seen : INT;",
+    plcPrgBody: "PRG_CALL_this();\nseen := PRG_CALL_this.x;",
+    cycles: 2,
+  },
   {
     name: "fbcall_gvl_qualified",
     pouName: "GVL_CALL_qualified",
