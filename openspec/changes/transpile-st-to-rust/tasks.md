@@ -311,15 +311,35 @@ reshaped in place, each commit gated value-for-value by the conformance replay, 
       and in-out layouts, an enum type's default — fixed or refused. Then `lower.ts` (~2000 lines) split move-only into
       one file per concern and `interp/values.ts` out of the machine, gated by an export pin and a byte-identical
       `lower-completeness`.
-- [ ] `expr-member` (95 POUs, 31%) + `place-shape` (85, 28%) + `expr-index` (4) — fill in `Place.path`.
-      ST arrays have arbitrary lower bounds; index normalisation belongs in lowering.
-- [ ] `stmt-call_stmt` (256, **84%** — the single biggest unblocker) — FB instances in the frame.
-      Instances nest statically, so composition works: `struct Parent { child: Child }`, `child.scan()`.
-- [ ] METHOD/ACTION bodies — sharing their FB's frame. A method is `fn(&mut self, params)`; an ACTION is a private
-      method with no params.
-- [ ] `place-not-local` (47, 16%) — GVLs. The frame widens from one POU to an `App` owning every POU and GVL.
-- [ ] `expr-call` (58, 19%) — project FUNCTION calls, once the frame can hold a callee's locals.
-- [ ] `ADR` 333 · `SIZEOF` 56 · `UPPER_BOUND` 46 · `LOWER_BOUND` 41 — the memory built-ins, on this model.
+(The pre-plan rows that stood here — `Place.path`, calls on FB instances, METHOD/ACTION bodies, GVLs, FUNCTION calls,
+ADR/SIZEOF — are steps 2–6b above. `UPPER_BOUND`/`LOWER_BOUND` move to the corpus work list below.)
+
+## Phase 3½ — the corpus work list (2026-09-15)
+
+What blocks the corpus after phase 3 (POUs with a body, one symbol table per project; 24 of 304 lower), each row
+taken apart by construct before anything is built — record first, then build, then green in both backends.
+
+**The census** (a scratch pass over every refusal, grouped by construct):
+- `place-shape` 146 — **129 are `SUPER^`** (a derived FB's body or method); the rest member access through a library
+  type and indexing a non-array. With `call-extends` 33, inheritance is the largest single construct in the corpus.
+- `place-not-local` 121 — a name with no slot: 59 a `var` of another scope, **39 a `GVL.var` qualifier**, 23 names that
+  do not resolve (Lenze libraries not materialized), 16 a PROPERTY.
+- `init-not-constant` 142 · `enum-value` 73 — mostly declarations reaching LIBRARY constants and enums: pro2193's
+  `enumErrorSeverity` is `TO_USINT(L_IE1P.L_IE1P_SeverityLevel.…)`, whose values the corpus does not carry. Correctly
+  refused until the library tier exists.
+- `call-this` 63 — **37 a bare `M()`** on the FB's own method or action.
+
+- [ ] **Inheritance** (EXTENDS, `SUPER^`). Recorded first (`fixtures/inheritance.ts`, 2026-09-15): calling a derived FB
+      runs ONLY its own body — the base body does not run, not even under an empty derived body; the base's inputs and
+      outputs are the instance's fields. `SUPER^()` runs the base body on the same instance. A base body run that way
+      reaches the DERIVED override, through `THIS^.M()` and a bare `M()` alike; from a derived body `SUPER^.M()` runs
+      the base's method and a bare `M()` the override. `SUPER^(in := x, io := y)` is a call: it assigns the instance's
+      input (it stays assigned) and binds the in-out, then runs the base body. Dispatch is by the instance's type
+      everywhere — a base METHOD reached through `SUPER^.M()`, or inherited and called from outside, calls the
+      derived override too. So: one body per FB, a base body is a routine of each derived FB that reaches it, and every
+      method call resolves against the instance's own (most-derived) type.
+- [ ] **A bare method or action call** inside an FB is a `THIS^` call — measured (`fbcall_bare_method_call`).
+- [ ] **A `GVL.var` qualifier** names the global itself — measured (`fbcall_gvl_qualified`).
 
 ## Phase 4 — aliasing
 

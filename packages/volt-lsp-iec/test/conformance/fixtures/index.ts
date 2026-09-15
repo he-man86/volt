@@ -34,6 +34,7 @@ import { ERROR_CATALOG_TESTS } from "./error-catalog.js"
 import { EXECUTION_TESTS } from "./execution.js"
 import { MEMORY_MODEL_TESTS } from "./memory-model.js"
 import { FB_CALL_TESTS } from "./fb-call.js"
+import { INHERITANCE_TESTS } from "./inheritance.js"
 
 export interface CategoryGroup {
   name: string
@@ -74,6 +75,8 @@ export const CATEGORIES: readonly CategoryGroup[] = [
   { name: "memory-model", tests: MEMORY_MODEL_TESTS },
   // ── call semantics: FB instances, methods, actions, functions, a program and a global (phase 3) ──
   { name: "fb-call", tests: FB_CALL_TESTS },
+  // ── inheritance: which bodies and methods EXTENDS and SUPER^ run (phase 3½) ──
+  { name: "inheritance", tests: INHERITANCE_TESTS },
 ]
 
 export const ALL_TESTS: readonly LanguageTest[] = CATEGORIES.flatMap((c) => c.tests)

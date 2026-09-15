@@ -170,4 +170,46 @@ END_PROGRAM
     plcPrgBody: "PRG_CALL_writer(); seen := gCallShared;",
     cycles: 2,
   },
+  // Phase 3½ (2026-09-15): what the corpus's `call-this` and `gvl_block` blockers turn on, recorded before either is built.
+  fb("fbcall_bare_method_call", "FB_CALL_bare", "a METHOD and an ACTION called bare — from the FB's body and from another method",
+    `FUNCTION_BLOCK FB_CALL_bare
+VAR
+	calls : INT;
+	deep : INT;
+	tidied : INT;
+END_VAR
+Bump();
+Bump();
+Tidy();
+END_FUNCTION_BLOCK
+
+METHOD Bump
+calls := calls + 1;
+Deeper();
+END_METHOD
+
+METHOD Deeper
+deep := deep + 10;
+END_METHOD
+
+ACTION Tidy
+tidied := tidied + 100;
+END_ACTION
+`,
+    "inst : FB_CALL_bare;", "inst();", 2),
+  {
+    name: "fbcall_gvl_qualified",
+    pouName: "GVL_CALL_qualified",
+    kind: "gvl",
+    feature: "a `qualified_only` global read and written through its list's name",
+    fromDoc: doc,
+    source: `{attribute 'qualified_only'}
+VAR_GLOBAL
+	gQualified : INT := 1;
+END_VAR
+`,
+    plcPrgVar: "seen : INT;",
+    plcPrgBody: "GVL_CALL_qualified.gQualified := GVL_CALL_qualified.gQualified + 5; seen := GVL_CALL_qualified.gQualified;",
+    cycles: 2,
+  },
 ]
