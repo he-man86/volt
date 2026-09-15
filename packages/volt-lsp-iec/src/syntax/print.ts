@@ -11,7 +11,9 @@ export function renderTypeExpr(t: TypeExpr): string {
     case "named_type": {
       const q = t.qualifiers && t.qualifiers.length > 0 ? `${t.qualifiers.map((i) => i.text).join(".")}.` : ""
       const sub = t.subrange ? `(${exprText(t.subrange.lo)}..${exprText(t.subrange.hi)})` : ""
-      return `${q}${t.name.text}${sub}`
+      // `inst : FB(x := 1)`'s FB_Init arguments — the formatter printed the type without them, deleting them from the file
+      const init = t.initArgs ? `(${t.initArgs.map(callArgText).join(", ")})` : ""
+      return `${q}${t.name.text}${sub}${init}`
     }
     case "string_type":
       return (t.wide ? "WSTRING" : "STRING") + (t.length ? `(${exprText(t.length)})` : "")

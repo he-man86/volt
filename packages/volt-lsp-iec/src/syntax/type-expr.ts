@@ -15,7 +15,7 @@
  * Primitive names (BOOL/INT/REAL) lex as identifiers; the semantic layer classifies them.
  */
 import type { Token } from "./tokens.js"
-import type { ArrayDim, EnumValue, Expr, Identifier, Subrange, TypeExpr } from "./ast.js"
+import type { ArrayDim, CallArg, EnumValue, Expr, Identifier, Subrange, TypeExpr } from "./ast.js"
 import type { Span } from "./span.js"
 import { Cursor } from "./cursor.js"
 // Inherent recursive-descent recursion: type-expr ↔ util ↔ var-section parse into each other. Function-body imports, no init hazard.
@@ -145,6 +145,7 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
   // Scan the balanced group first, then parse the bounds in a contained sub-cursor, so an
   // FB-init or a malformed bound never pushes a spurious error onto the main parse.
   let subrange: Subrange | undefined
+  let initArgs: CallArg[] | undefined
   if (c.peek().kind === "punct" && c.peek().text === "(") {
     const open = c.consume() // (
     const { inner, closeSpan } = collectBalancedParenInner(c)
@@ -156,6 +157,12 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
       if (lo !== undefined && hi !== undefined) {
         subrange = { kind: "subrange", lo, hi, span: joinSpans(open.span, closeSpan) }
       }
+    } else {
+      // An FB_Init call on the declaration (`inst : FB(x := 1)`, conformance `fb_init_runs_with_declared_arguments`): its
+      // arguments, parsed as the call they are written as. They were consumed and dropped, so no consumer could see them.
+      const close = { ...open, text: ")", span: closeSpan }
+      const call = parseExprFromTokens([idTok, open, ...inner, close])
+      if (call?.kind === "call") initArgs = call.args
     }
   }
 
@@ -165,6 +172,7 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
       name: qualifiers[qualifiers.length - 1],
       qualifiers: [head, ...qualifiers.slice(0, -1)],
       ...(subrange !== undefined ? { subrange } : {}),
+      ...(initArgs !== undefined ? { initArgs } : {}),
       span: joinSpans(head.span, lastSpan),
     }
   }
@@ -172,6 +180,7 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
     kind: "named_type",
     name: head,
     ...(subrange !== undefined ? { subrange } : {}),
+    ...(initArgs !== undefined ? { initArgs } : {}),
     span: joinSpans(head.span, lastSpan),
   }
 }

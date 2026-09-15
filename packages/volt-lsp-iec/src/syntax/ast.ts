@@ -324,6 +324,7 @@ export interface NamedType {
   name: Identifier
   qualifiers?: Identifier[] // `Tc2_Standard.TON` → ["Tc2_Standard"]
   subrange?: Subrange // `INT(lo..hi)` — structured, not opaque
+  initArgs?: CallArg[] // `inst : FB(x := 1)` — the FB_Init arguments an instance is declared with
   span: Span
 }
 /** A structured subrange bound (A.2): both ends are const-expressions. */

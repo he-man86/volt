@@ -23,7 +23,9 @@
  *   pointers.ts     POINTER / REFERENCE (design §9 form 1)             bytes.ts      SIZEOF, ADR differences
  */
 import {
+  type CallArg,
   declarationAttributes,
+  type Expr,
   isGraphicalBody,
   memberAttributes,
   parseSource,
@@ -32,10 +34,11 @@ import {
   type TopLevel,
   unitAttributes,
 } from "../../syntax/index.js"
-import { buildSymbolTable, lookup, lookupMember, type Scope, scopeForUnit } from "../../symbols/index.js"
-import { stored } from "./convert.js"
+import { buildSymbolTable, lookup, lookupMember, type Scope, scopeForUnit, type Symbol } from "../../symbols/index.js"
+import { stored, valueAs } from "./convert.js"
+import { foldConstant } from "./constants.js"
 import { resolveNamedType, type Type, UNKNOWN } from "../../types/index.js"
-import { type IrPou, type IrRoutine, type IrStmt, type LoweredPou, peelArray, type Place } from "../ir/index.js"
+import { defaultValueOf, type IrExpr, type IrInit, type IrPou, type IrRoutine, type IrSlot, type IrStmt, type LoweredPou, peelArray, type Place } from "../ir/index.js"
 import { baseOf, Lowering, newShared, openDims } from "./lowering.js"
 import { declareVars, storageOf, tempResets } from "./storage.js"
 import { lowerBlock } from "./statements.js"
@@ -179,6 +182,32 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     }
     return names
   }
+  // FB_Init (conformance `fb_init_runs_with_declared_arguments`, `fb_init_base_and_derived`): once per instance before the
+  // first cycle, after the fields' own initial values (35, not 5), with bInitRetains TRUE and bInCopyCode FALSE at a cold
+  // start and the arguments the instance is declared with — every FB_Init of the EXTENDS chain, the base's first (order
+  // 12). It was an ordinary METHOD nothing called, so every instance started as if it had none, with no diagnostic.
+  const fbInits = (fb: Fb): Symbol[] => {
+    const chain: Symbol[] = []
+    for (let s = fb.scope; s !== undefined; s = s.baseScope) {
+      const own = (s.symbols.get("fb_init") ?? []).find((sym) => sym.kind === "method" && sym.owner === s)
+      if (own !== undefined) chain.unshift(own)
+    }
+    return chain
+  }
+  // the FB_Init arguments a field is declared with, by the unit (or struct) declaring it — its base FBs' too
+  const declaredArgs = (owner: TopLevel | undefined, name: string): readonly CallArg[] => {
+    for (let unit = owner; unit !== undefined; ) {
+      const decls =
+        unit.kind === "function_block" || unit.kind === "program" ? unit.varSections.flatMap((s) => s.decls)
+        : unit.kind === "type_decl" && unit.body.kind === "struct" ? unit.body.fields
+        : []
+      const decl = decls.find((d) => d.names.some((n) => n.text.toUpperCase() === name.toUpperCase()))
+      if (decl !== undefined) return decl.type.kind === "named_type" ? (decl.type.initArgs ?? []) : []
+      const base = unit.kind === "function_block" ? unit.extends : undefined
+      unit = base === undefined ? undefined : lookup(lw.project, base.text)?.symbol.ast as TopLevel | undefined
+    }
+    return []
+  }
   const known = new Map<string, boolean>()
   const reaches = (t: Type): boolean => {
     const array = peelArray(t)
@@ -187,7 +216,7 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     const key = t.name.toUpperCase()
     if (known.has(key)) return known.get(key)!
     known.set(key, false)
-    const own = t.kind === "function_block" && (initMethod(t) !== undefined || pathFields(t).length > 0)
+    const own = t.kind === "function_block" && (initMethod(t) !== undefined || pathFields(t).length > 0 || fbInits(t).length > 0)
     const result = own || (lw.layouts.get(key)?.fields ?? []).some((f) => reaches(f.type))
     known.set(key, result)
     return result
@@ -195,11 +224,57 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   const unreached = (where: string): undefined =>
     lw.bail("attr-init-unreached", `an instance with a ${INIT_ATTRIBUTE} method or an instance-path in ${where}, which the init step does not reach`, span)
   const out: IrStmt[] = []
-  const visit = (place: Place): boolean => {
+  // Recorded (`fb_init_before_slot_method_nested`: 5, `fb_init_before_slot_method_sibling`: 7): every FB_Init runs before
+  // any call_after_global_init_slot method, a holder's and a sibling's declared earlier alike; and a structured
+  // initializer on an instance running FB_Init applies AFTER it (`fb_init_and_structured_initializer`: FB_Init saw 0, the
+  // 9 stayed). They were interleaved per instance, in declaration order, the initializer first — an order no recording
+  // showed (review of the FB_Init batch). So: the FB_Init calls, then those initializers, then the slot methods.
+  const fbInitCalls: IrStmt[] = []
+  const reapplied: IrStmt[] = []
+  const slotCalls: IrStmt[] = []
+  /** `args`: the FB_Init arguments the place is declared with, folded in `declaring`'s scope; `insideInit`: an instance
+   *  holding it runs an FB_Init of its own; `init` / `clearInit`: the declaring slot's initial value, and a way to take a
+   *  structured initializer out of it — to be applied after FB_Init instead. */
+  const visit = (place: Place, args: readonly CallArg[], declaring: Lowering, insideInit: boolean, init: IrInit, clearInit: () => void): boolean => {
     const t = place.type
     if (!reaches(t)) return true
     if (peelArray(t) !== undefined) return unreached("an array") ?? false
     if (t.kind !== "function_block" && t.kind !== "struct") return true
+    const inits = t.kind === "function_block" ? fbInits(t) : []
+    if (t.kind === "function_block" && inits.length > 0) {
+      // which of a nested instance's FB_Init and its holder's runs first is not recorded
+      if (insideInit) return lw.bail("fb-init-order", `${t.name}'s FB_Init inside an instance that runs an FB_Init of its own — their order is not recorded`, span) ?? false
+      const given = new Map<string, Expr>()
+      for (const arg of args) {
+        if (arg.param === undefined || arg.output || arg.value === undefined) return lw.bail("fb-init-argument", `${t.name} declared with a positional FB_Init argument`, span) ?? false
+        given.set(arg.param.name.toUpperCase(), arg.value)
+      }
+      for (const sym of inits) {
+        const routine: IrRoutine | undefined = calledRoutine(lw, sym, t, span, sym.owner === t.scope ? sym.name : `SUPER_${sym.owner.name}_${sym.name}`)
+        if (routine === undefined) return false
+        if (routine.inouts.length > 0) return lw.bail("fb-init-argument", `${sym.owner.name}'s FB_Init has a VAR_IN_OUT or VAR_OUTPUT`, span) ?? false
+        const inputs: IrExpr[] = []
+        for (const index of routine.inputs) {
+          const slot = routine.locals[index]!
+          const name = slot.name.toUpperCase()
+          const expr = given.get(name)
+          const value = name === "BINITRETAINS" ? true : name === "BINCOPYCODE" ? false : expr === undefined ? undefined : foldConstant(declaring, expr)
+          if (value === undefined) return lw.bail("fb-init-argument", `${t.name}'s FB_Init input ${slot.name} is not given a compile-time constant`, span) ?? false
+          inputs.push({ kind: "const", value: stored(valueAs(value, slot.type), slot.type), type: slot.type, span })
+        }
+        fbInitCalls.push({ kind: "eval", value: { kind: "invoke", routine: routine.key, instance: place, inputs, inouts: [], type: UNKNOWN, span }, span })
+      }
+      if (typeof init === "object" && "fields" in init) {
+        const fields = lw.layouts.get(t.name.toUpperCase())?.fields ?? []
+        for (const [name, value] of Object.entries(init.fields)) {
+          const field = fields.find((f) => f.name.toUpperCase() === name)
+          if (field === undefined || typeof value === "object")
+            return lw.bail("fb-init-order", `${t.name} declared with FB_Init arguments and a nested structured initializer — applied after FB_Init, not modelled`, span) ?? false
+          reapplied.push({ kind: "assign", target: { ...place, path: [...place.path, { kind: "field", name: field.name }], type: field.type }, value: { kind: "const", value, type: field.type, span }, span })
+        }
+        clearInit()
+      }
+    }
     const paths = t.kind === "function_block" ? pathFields(t) : []
     if (paths.length > 0) {
       if (application === undefined) return lw.bail("attr-instance-path", `${t.name}'s instance-path needs the project tree (Device/Plc Logic/Application), which this source is not in`, span) ?? false
@@ -219,16 +294,25 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
       const routine: IrRoutine | undefined = calledRoutine(lw, sym, t, span)
       if (routine === undefined) return false
       if (routine.inputs.length > 0 || routine.inouts.length > 0) return lw.bail("attr-init-inputs", `${sym.name} takes arguments`, span) ?? false
-      out.push({ kind: "eval", value: { kind: "invoke", routine: routine.key, instance: place, inputs: [], inouts: [], type: UNKNOWN, span }, span })
+      slotCalls.push({ kind: "eval", value: { kind: "invoke", routine: routine.key, instance: place, inputs: [], inouts: [], type: UNKNOWN, span }, span })
     }
-    for (const field of lw.layouts.get(t.name.toUpperCase())?.fields ?? [])
-      if (!visit({ ...place, path: [...place.path, { kind: "field", name: field.name }], type: field.type })) return false
+    const owner = lookup(lw.project, t.name)?.symbol.ast as TopLevel | undefined
+    const nested = lw.bodies.get(t.name.toUpperCase())?.lowering ?? declaring
+    const layoutFields = (lw.layouts.get(t.name.toUpperCase())?.fields ?? []) as IrSlot[]
+    for (const [i, field] of [...layoutFields].entries()) {
+      const clear = () => void (layoutFields[i] = { ...layoutFields[i]!, init: defaultValueOf(field.type) })
+      if (!visit({ ...place, path: [...place.path, { kind: "field", name: field.name }], type: field.type }, declaredArgs(owner, field.name), nested, insideInit || inits.length > 0, field.init, clear)) return false
+    }
     return true
   }
-  for (const [slot, frameSlot] of lw.frame.entries()) if (!visit({ slot, path: [], type: frameSlot.type, span })) return undefined
+  const frame = lw.frame as IrSlot[]
+  for (const [slot, frameSlot] of [...frame].entries()) {
+    const clear = () => void (frame[slot] = { ...frame[slot]!, init: defaultValueOf(frameSlot.type) })
+    if (!visit({ slot, path: [], type: frameSlot.type, span }, declaredArgs(root?.ast as TopLevel | undefined, frameSlot.name), lw, false, frameSlot.init, clear)) return undefined
+  }
   if (lw.globals.some((g) => reaches(g.type))) return unreached("the globals")
   for (const r of lw.routines.values()) if (r.state === "lowered" && r.routine.locals.some((l) => reaches(l.type))) return unreached(`${r.routine.name}'s locals`)
-  return out
+  return [...out, ...fbInitCalls, ...reapplied, ...slotCalls]
 }
 
 /**
@@ -263,10 +347,8 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
     const first = parseResult.errors[0]!
     return { diagnostics: [{ code: "parse", message: first.message, span: first.span }] }
   }
-  const project = buildSymbolTable([
-    { uri, parseResult, source },
-    ...libraries.map((l) => ({ uri: l.uri, parseResult: parseSource(l.source), source: l.source })),
-  ])
+  const files = [{ uri, parseResult, source }, ...libraries.map((l) => ({ uri: l.uri, parseResult: parseSource(l.source), source: l.source }))]
+  const project = buildSymbolTable(files)
   const runnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "function_block" }> =>
     u.kind === "program" || u.kind === "function_block"
   const unit = parseResult.units
@@ -279,5 +361,11 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
   const scope = scopeForUnit(project, unit)
   if (scope === undefined)
     return { diagnostics: [{ code: "no-scope", message: `${unit.name.text} did not bind`, span: unit.span }] }
-  return lowerUnit(unit, scope, project, new Map<object, Set<string>>([...unitAttributes(parseResult, source), ...memberAttributes(parseResult, source), ...declarationAttributes(parseResult, source)]))
+  // Every file's `{attribute …}`s: a GVL's or a library's unit carries its own. Only the main source's were read, so the
+  // call_after_global_init_slot method of an FB in `fb_init_before_slot_method_sibling`'s GVL file never ran (seen 0, 7
+  // recorded) — and any other attribute outside the main source was silently unread.
+  const attributes = new Map<object, Set<string>>(
+    files.flatMap((f) => [...unitAttributes(f.parseResult, f.source), ...memberAttributes(f.parseResult, f.source), ...declarationAttributes(f.parseResult, f.source)]),
+  )
+  return lowerUnit(unit, scope, project, attributes)
 }

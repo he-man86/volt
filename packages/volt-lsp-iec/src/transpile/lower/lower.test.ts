@@ -342,6 +342,58 @@ test("a constant named through its GVL or its PROGRAM sizes an array, starts a v
   expect([runner.get("worker.visits"), runner.get("worker.flags[3]"), runner.get("worker.prevState")]).toEqual([4n, true, -2147483648n])
 })
 
+// Recorded first (`fb_init_runs_with_declared_arguments`, `fb_init_base_and_derived`): FB_Init runs once per instance
+// before the first cycle, after the fields' initial values, with bInitRetains TRUE, bInCopyCode FALSE and the arguments
+// the instance is declared with — the base's FB_Init first. It was an ordinary METHOD nothing called, and the parser
+// dropped `inst : FB(x := 1)`'s arguments: every instance started as if it had no FB_Init, with no diagnostic. Why
+// missed: the lifecycle fixtures only checked that the signatures compile.
+test("FB_Init runs once per instance before the first cycle, with its declared arguments, the base's first", () => {
+  const source =
+    "PROGRAM P\nVAR five : FB_Args(startValue := 5); derived : FB_Derived(startValue := 7); END_VAR\nfive();\nderived();\nEND_PROGRAM\n" +
+    "FUNCTION_BLOCK FB_Args\nVAR started : INT; retains : BOOL; copyCode : BOOL; initCalls : INT; bodyRuns : INT; seenInitial : INT := 3; END_VAR\nbodyRuns := bodyRuns + 1;\nEND_FUNCTION_BLOCK\n" +
+    "METHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; startValue : INT; END_VAR\nstarted := startValue;\nretains := bInitRetains;\ncopyCode := bInCopyCode;\ninitCalls := initCalls + 1;\nseenInitial := seenInitial * 10 + startValue;\nEND_METHOD\n" +
+    "FUNCTION_BLOCK FB_Base\nVAR baseStarted : INT; order : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; startValue : INT; END_VAR\nbaseStarted := startValue;\norder := order * 10 + 1;\nEND_METHOD\n" +
+    "FUNCTION_BLOCK FB_Derived EXTENDS FB_Base\nVAR derivedStarted : INT; seenBase : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; startValue : INT; END_VAR\nderivedStarted := startValue + 100;\nseenBase := baseStarted;\norder := order * 10 + 2;\nEND_METHOD\n"
+  const runner = run(ir(source, "P"))
+  runner.scan()
+  runner.scan()
+  expect(["five.started", "five.initCalls", "five.seenInitial", "five.retains", "five.copyCode", "five.bodyRuns", "derived.order", "derived.seenBase", "derived.derivedStarted"].map((v) => runner.get(v))).toEqual([
+    5n, 1n, 35n, true, false, 2n, 12n, 7n, 107n,
+  ])
+  const codes = (vars: string) => lowerSource(source.replace("five : FB_Args(startValue := 5);", vars), "P").diagnostics.map((d) => d.code)
+  // not recorded: an argument that is not a constant, a positional one, an instance in an array
+  expect(codes("n : INT := 2; five : FB_Args(startValue := n);")).toContain("fb-init-argument")
+  expect(codes("five : FB_Args(5);")).toContain("fb-init-argument")
+  expect(codes("five : FB_Args(startValue := 5); many : ARRAY[1..2] OF FB_Args;")).toContain("attr-init-unreached")
+})
+
+// Recorded after the review of the FB_Init batch found both orders guessed: every FB_Init runs before any
+// call_after_global_init_slot method — a holder's (`fb_init_before_slot_method_nested`: 5) and a sibling's declared
+// earlier (`fb_init_before_slot_method_sibling`: 7) — and a structured initializer on an instance running FB_Init applies
+// AFTER it (`fb_init_and_structured_initializer`: FB_Init saw 0, the 9 stayed). They were interleaved per instance in
+// declaration order, the initializer first. Why missed: no recording combined FB_Init with either.
+test("every FB_Init runs before the init-slot methods, and a structured initializer applies after FB_Init", () => {
+  const writer = "FUNCTION_BLOCK FB_W\nVAR mine : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; startValue : INT; END_VAR\ngShared := startValue;\nmine := startValue;\nEND_METHOD\n"
+  const reader = "FUNCTION_BLOCK FB_R\nVAR seen : INT; END_VAR\nEND_FUNCTION_BLOCK\n{attribute 'call_after_global_init_slot' := '50000'}\nMETHOD AfterGlobalInit\nseen := gShared;\nEND_METHOD\n"
+  const inner = "FUNCTION_BLOCK FB_I\nVAR started : INT; seenBefore : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; startValue : INT; END_VAR\nseenBefore := started;\nstarted := started * 10 + startValue;\nEND_METHOD\n"
+  const holder = "FUNCTION_BLOCK FB_H\nVAR inner : FB_I(startValue := 5); seen : INT; END_VAR\nEND_FUNCTION_BLOCK\n{attribute 'call_after_global_init_slot' := '50000'}\nMETHOD AfterGlobalInit\nseen := inner.started;\nEND_METHOD\n"
+  const source = `PROGRAM P\nVAR reader : FB_R; writer : FB_W(startValue := 7); holder : FB_H; both : FB_I(startValue := 5) := (started := 9); END_VAR\nreader();\nwriter();\nholder();\nboth();\nEND_PROGRAM\n${writer}${reader}${inner}${holder}`
+  const lowered = lowerSource(source, "P", [{ uri: "file:///project/GVL_Shared.gvl", source: "VAR_GLOBAL\n  gShared : INT;\nEND_VAR\n" }])
+  expect(lowered.diagnostics).toEqual([])
+  const runner = run(lowered.pou!)
+  runner.scan()
+  expect(["reader.seen", "holder.seen", "holder.inner.started", "both.seenBefore", "both.started"].map((v) => runner.get(v))).toEqual([7n, 5n, 5n, 0n, 9n])
+  // the recording's own shape: both FBs in the GVL's file. `lowerSource` read attributes from the main source only, so the
+  // reader's init-slot METHOD, declared there, never ran — the conformance case gave 0 where CODESYS gives 7
+  const inGvl = lowerSource("PROGRAM P\nVAR reader : FB_R; writer : FB_W(startValue := 7); END_VAR\nreader();\nwriter();\nEND_PROGRAM\n", "P", [
+    { uri: "file:///project/GVL_Shared.gvl", source: `VAR_GLOBAL\n  gShared : INT;\nEND_VAR\n${reader}${writer}` },
+  ])
+  expect(inGvl.diagnostics).toEqual([])
+  const fromGvl = run(inGvl.pou!)
+  fromGvl.scan()
+  expect(fromGvl.get("reader.seen")).toEqual(7n)
+})
+
 // Recorded first (`callshape_positional_arguments`): positional arguments bind in declaration order across VAR_INPUT and
 // VAR_IN_OUT, interleaved too (100, 315, 46). They were refused (`call-positional`) whenever the routine had an in-out —
 // pro2193's `Arrays.Bool_All(result, TRUE)` — and a METHOD calling its FB's own METHOD takes the FB's in-outs, so even

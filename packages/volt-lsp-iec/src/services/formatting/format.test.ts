@@ -34,6 +34,21 @@ function roundtrips(src: string): void {
   astEqual(doc.parseResult, parseSource(formatted))
 }
 
+test("roundtrip: an instance's FB_Init arguments survive formatting", () => {
+  // `inst : FB(x := 1)` passes FB_Init its arguments (conformance `fb_init_runs_with_declared_arguments`). The parser dropped
+  // them and `renderTypeExpr` printed the bare type, so formatting DELETED them from the user's file — unseen by the
+  // round-trip gate while the AST held nothing to compare. pro2193 declares 29 files of such instances.
+  const src = `PROGRAM P
+VAR
+	sensor : DigitalSensorFB(invert := TRUE);
+	drawer : Lib.DrawerFB(instanceNo := 1, moduleParent := 0);
+END_VAR
+END_PROGRAM
+`
+  roundtrips(src)
+  expect(formatDocument({ uri: "file:///P.prg", source: src, parseResult: parseSource(src) })).toContain("Lib.DrawerFB(instanceNo := 1, moduleParent := 0)")
+})
+
 test("roundtrip: a mixed set/reset chain keeps each link's operator", () => {
   // `print.ts` printed the FIRST operator for every link, believing set/reset ops never chain — so formatting
   // `a S= b R= c` would have written `a S= b S= c` back to the user's file. No test ever formatted a chain.

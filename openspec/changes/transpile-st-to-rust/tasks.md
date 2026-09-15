@@ -483,6 +483,29 @@ taken apart by construct before anything is built — record first, then build, 
       expression — it is refused (`interface-query`), where the timing of its store is not modelled. Then extended to the
       condition's LEADING operand (under NOT, the left side of AND_THEN / OR_ELSE, which always runs first — pro2193's
       `IF NOT __QUERYINTERFACE(xuUnit, xuUnitExtended) OR_ELSE NOT xuUnitExtended.InSafePosForMouldEntry THEN`).
+- [x] FB_Init — silently ignored until now: an ordinary METHOD nothing called, and the parser dropped a declaration's
+      `inst : FB(x := 1)` arguments, so every instance started as if it had none, with no diagnostic. Recorded first
+      (`lifecycle.ts` `fb_init_runs_with_declared_arguments`, `fb_init_base_and_derived`, `fb_init_argument_left_out`):
+      FB_Init runs once per instance before the first cycle, after the fields' own initial values (35, not 5), with
+      bInitRetains TRUE and bInCopyCode FALSE at a cold start and the declared arguments; the base FB's FB_Init runs
+      first with the same arguments (order 12); an instance declared without a required argument does not compile, nor
+      does the argument written as an initializer (`:= (startValue := 5)` — "Check syntax 'five : FB(INT)'"). Built: the
+      parser keeps the arguments (`NamedType.initArgs`), and the init step runs each FB_Init of the chain, base first,
+      on every instance it reaches. Refused, unrecorded: a non-constant or positional argument, an FB_Init instance nested
+      inside another (their order), and instances in arrays, globals or locals (as for the init attribute). Found on the
+      way, an LSP data loss: the formatter printed a declared type without its FB_Init arguments (`renderTypeExpr`), so
+      formatting deleted them from the user's file — invisible to the round-trip gate while the AST held nothing to
+      compare; keeping the arguments made the gate fail on 29 pro2193 files, fixed with a test. The corpus lowered count
+      went 45 → 43 POUs with a body (2804 → 2651 declaration-only): Lenze library FBs whose FB_Init takes interfaces or
+      nests other FB_Init instances, which lowered silently wrong before and are refused now. Reviewed between batches: 3
+      confirmed, all orders the batch chose without a recording — recorded then (`fb_init_and_structured_initializer`,
+      `fb_init_before_slot_method_nested`, `fb_init_before_slot_method_sibling`): every FB_Init runs before any
+      call_after_global_init_slot method, a holder's and an earlier sibling's alike (5, 7), and a structured initializer on
+      an instance running FB_Init applies AFTER it (FB_Init saw 0, the 9 stayed) — the batch had them interleaved per
+      instance with the initializer first. Built as recorded: the FB_Init calls, then those initializers, then the slots.
+      The sibling recording then exposed a harness-path bug: `lowerSource` read `{attribute …}`s from the main source only,
+      so an FB's init-slot METHOD in a GVL or library file never ran (0 where CODESYS gives 7) — every file's are read now.
+      Conformance lowering 477 → 482 of 500.
 - [x] Positional arguments across sections (`call-positional`, 62 corpus POUs). Recorded (`callshape_positional_arguments`):
       they bind in declaration order across VAR_INPUT and VAR_IN_OUT, interleaved too (100, 315, 46). Built: each routine
       keeps its parameters' declaration order; a positional argument is named by the one at its position. They were refused

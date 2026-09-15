@@ -65,6 +65,18 @@ test("FB-instance init constraint `FB()` is not mistaken for a subrange", () => 
   expect((t.element as NamedType).subrange).toBeUndefined()
 })
 
+// `inst : FB(x := 1)` passes FB_Init its arguments (conformance `fb_init_runs_with_declared_arguments`). They were consumed
+// and dropped, so the transpiler ran no FB_Init with them — and ran none at all, silently.
+test("an FB_Init call on a declaration keeps its arguments; a subrange is not one", () => {
+  const t = firstDecl("PROGRAM P\nVAR\n five : FB_Args(startValue := 5, other := TRUE);\nEND_VAR\nEND_PROGRAM").type as NamedType
+  expect(t.subrange).toBeUndefined()
+  expect(t.initArgs?.map((a) => [a.param?.name, (a.value as Literal).value])).toEqual([
+    ["startValue", 5n],
+    ["other", true],
+  ])
+  expect((firstDecl("FUNCTION_BLOCK F\nVAR\n x : INT(0..100);\nEND_VAR\nEND_FUNCTION_BLOCK").type as NamedType).initArgs).toBeUndefined()
+})
+
 test("array dims are structured; ARRAY[*] is dynamic", () => {
   const t = firstDecl("FUNCTION_BLOCK F\nVAR\n a : ARRAY[0..9, 1..N] OF INT;\nEND_VAR\nEND_FUNCTION_BLOCK")
     .type as ArrayType
