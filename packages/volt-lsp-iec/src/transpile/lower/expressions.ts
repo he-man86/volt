@@ -201,6 +201,14 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
       return lowerBuiltin(lw, e)
     case "member":
     case "index": {
+      // `anyArg.diSize` — an ANY input's size, which the call handed in as a hidden DINT (conformance `state_any_input_sizes`)
+      if (e.kind === "member" && e.base.kind === "ident_expr" && lw.anyInputs.has(e.base.name.toUpperCase())) {
+        const slot = lw.localByName.get(e.base.name.toUpperCase())
+        if (e.member.name.toUpperCase() !== "DISIZE" || slot === undefined)
+          return lw.bail("any-input", `${e.base.name}.${e.member.name} of an ANY input is not measured`, e.span)
+        const type = lw.localSlots[slot]!.type
+        return { kind: "load", place: { slot, path: [], type, span: e.span, root: "local" }, type, span: e.span }
+      }
       const enumValue = e.kind === "member" ? enumConstant(lw, e) : undefined
       if (enumValue !== undefined) return enumValue
       // `x.%B3` / `.%W1` / `.%D0` — partial access, a byte, word or double word of an unsigned integer counted from the

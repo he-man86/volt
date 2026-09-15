@@ -760,6 +760,32 @@ END_METHOD`,
     expect([pou.get("viaSuper.inBase"), pou.get("viaSuper.nBase"), pou.get("viaSuper.hookDerived"), pou.get("viaSuper.hookBase")]).toEqual([105n, 1n, 1n, 1n])
   })
 
+  // `state_any_input_sizes`: an ANY / ANY_NUM input's `diSize` is the argument's byte size, as SIZEOF lays it out — INT 2,
+  // LREAL 8, BOOL 1, STRING(10) 11, a {BYTE; DINT} struct 8. Why missed: ANY had no type, so a function taking one was
+  // refused — and the one recorded case read a single INT.
+  test("an ANY input's diSize is its argument's byte size", () => {
+    const pou = load(
+      `PROGRAM P
+VAR intArg : INT; lrealArg : LREAL; str10 : STRING(10); boolArg : BOOL; pairArg : T_Pair;
+  sizeInt : DINT; sizeLreal : DINT; sizeString : DINT; sizeBool : DINT; sizePair : DINT; numLreal : DINT; END_VAR
+sizeInt := F_Size(intArg); sizeLreal := F_Size(lrealArg); sizeString := F_Size(str10); sizeBool := F_Size(boolArg);
+sizePair := F_Size(pairArg); numLreal := F_NumSize(anyNum := lrealArg);
+END_PROGRAM
+FUNCTION F_Size : DINT
+VAR_INPUT anyArg : ANY; END_VAR
+F_Size := anyArg.diSize;
+END_FUNCTION
+FUNCTION F_NumSize : DINT
+VAR_INPUT anyNum : ANY_NUM; END_VAR
+F_NumSize := anyNum.diSize;
+END_FUNCTION
+TYPE T_Pair : STRUCT a : BYTE; b : DINT; END_STRUCT END_TYPE`,
+      "P",
+    )
+    pou.scan()
+    expect(["sizeInt", "sizeLreal", "sizeString", "sizeBool", "sizePair", "numLreal"].map((n) => pou.get(n))).toEqual([2n, 8n, 11n, 1n, 8n, 8n])
+  })
+
   // `type_codesys_xint`, `type_implicit_enum_inline`, `type_array_2d` (recorded once the recorder read them): `__XINT` is a
   // LINT on the 64-bit target, an inline enum's value folds as a TYPE enum's does, a 2D element reads as `m[i, j]`. Why
   // missed: the recorder read none of these, so no value ever reached the replay, and `:= Idle` did not fold.

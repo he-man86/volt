@@ -97,6 +97,9 @@ export class Lowering {
 
   /** A routine's VAR_STAT names → the global slot each is (one per declaring METHOD, shared by every instance). */
   readonly statics = new Map<string, number>()
+  /** A routine's ANY / ANY_* inputs, upper-cased: each a hidden DINT holding the argument's `diSize` — the one part of
+   *  the ANY value measured (conformance `state_any_input_sizes`); any other use of the parameter is refused. */
+  readonly anyInputs = new Set<string>()
   /** The PROGRAM instances (global slots) this body reads or calls, and those of every body it calls. In Rust a program
    *  runs moved out of `Programs`, so a program whose run reaches its own instance would read a stand-in: refused. */
   readonly touched = new Set<number>()

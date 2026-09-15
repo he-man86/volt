@@ -110,6 +110,8 @@ export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): P
   }
   if (e.kind !== "ident_expr")
     return lw.bail("place-shape", `${e.kind} is not a lowerable storage location yet`, e.span)
+  // an ANY input is read only as `.diSize`; its value, `pValue` and `typeClass` are not measured
+  if (lw.anyInputs.has(e.name.toUpperCase())) return lw.bail("any-input", `${e.name} is an ANY input, used other than as .diSize`, e.span)
   // a routine's own local (its result, inputs and VAR) shadows the instance's field of the same name
   const local = lw.localByName.get(e.name.toUpperCase())
   if (local !== undefined) return { slot: local, path: [], type: lw.localSlots[local]!.type, span: e.span, root: "local" }

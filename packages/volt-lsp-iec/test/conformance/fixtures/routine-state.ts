@@ -166,6 +166,40 @@ END_METHOD
       "units := F_STATE_split(value := 47, tens => tens, calls => calls1); units2 := F_STATE_split(value := 3, calls => calls2); F_STATE_split(value := 9); took := inst.Take(amount := 2, before => before, kept => kept1); inst.Take(amount := 1, kept => kept2);",
     cycles: 2,
   },
+  // `type_any_function_input` read `diSize` of one INT (2). Is `diSize` the argument's SIZEOF for every type — a REAL, a
+  // STRING(10), a BOOL, a struct — and does an ANY_NUM input carry the same?
+  {
+    name: "state_any_input_sizes",
+    pouName: "F_STATE_anySize",
+    kind: "function",
+    feature: "an ANY / ANY_NUM input's diSize, across argument types",
+    fromDoc: doc,
+    source: `FUNCTION F_STATE_anySize : DINT
+VAR_INPUT
+	anyArg : ANY;
+END_VAR
+F_STATE_anySize := anyArg.diSize;
+END_FUNCTION
+
+FUNCTION F_STATE_anyNumSize : DINT
+VAR_INPUT
+	anyNum : ANY_NUM;
+END_VAR
+F_STATE_anyNumSize := anyNum.diSize;
+END_FUNCTION
+
+TYPE DUT_STATE_pair :
+STRUCT
+	a : BYTE;
+	b : DINT;
+END_STRUCT
+END_TYPE
+`,
+    plcPrgVar:
+      "intArg : INT; lrealArg : LREAL; str10 : STRING(10); boolArg : BOOL; pairArg : DUT_STATE_pair; sizeInt : DINT; sizeLreal : DINT; sizeString : DINT; sizeBool : DINT; sizePair : DINT; numLreal : DINT; numInt : DINT;",
+    plcPrgBody:
+      "sizeInt := F_STATE_anySize(intArg); sizeLreal := F_STATE_anySize(lrealArg); sizeString := F_STATE_anySize(str10); sizeBool := F_STATE_anySize(boolArg); sizePair := F_STATE_anySize(pairArg); numLreal := F_STATE_anyNumSize(lrealArg); numInt := F_STATE_anyNumSize(intArg);",
+  },
   // `call_after_global_init_slot` set `iCount := 1`, which cannot tell "once before the first scan" from "every scan"; this
   // counts, over three scans, on two instances.
   fb("state_call_after_global_init_counts", "FB_STATE_init", "{attribute 'call_after_global_init_slot'} — how often the method runs, and on each instance",

@@ -23,7 +23,8 @@ import {
   type VarSection,
 } from "../../syntax/index.js"
 import { childScopesByName, findChildScope, libraryOf, lookup, lookupMember, type Scope } from "../../symbols/index.js"
-import { inferExprType, type Type, UNKNOWN } from "../../types/index.js"
+import { ANY_FAMILIES, elementaryRef, inferExprType, type Type, UNKNOWN } from "../../types/index.js"
+import { byteSize } from "./bytes.js"
 import {
   defaultValueOf,
   type IrExpr,
@@ -106,6 +107,14 @@ const touches = new WeakMap<object, Map<string, ReadonlySet<number>>>()
 function touchesOf(lw: Lowering): Map<string, ReadonlySet<number>> {
   let map = touches.get(lw.shared)
   if (map === undefined) touches.set(lw.shared, (map = new Map()))
+  return map
+}
+
+/** Each routine's ANY / ANY_* input slots, by key — the inputs a call fills with its argument's size, not its value. */
+const anyInputs = new WeakMap<object, Map<string, ReadonlySet<number>>>()
+function anyInputsOf(lw: Lowering): Map<string, ReadonlySet<number>> {
+  let map = anyInputs.get(lw.shared)
+  if (map === undefined) anyInputs.set(lw.shared, (map = new Map()))
   return map
 }
 
@@ -211,8 +220,21 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
       result = 0
     }
     const firstInput = r.localSlots.length
-    declareVars(r, sections.filter((s) => s.sectionKind === "VAR_INPUT"))
+    // an ANY / ANY_* input is a hidden DINT the call fills with its argument's size (conformance `state_any_input_sizes`)
+    for (const section of sections.filter((s) => s.sectionKind === "VAR_INPUT"))
+      for (const decl of section.decls) {
+        if (decl.type.kind !== "named_type" || !ANY_FAMILIES.has(decl.type.name.text.toUpperCase())) {
+          declareVars(r, [{ ...section, decls: [decl] }])
+          continue
+        }
+        for (const n of decl.names) {
+          r.anyInputs.add(n.text.toUpperCase())
+          r.localByName.set(n.text.toUpperCase(), r.localSlots.length)
+          r.localSlots.push({ name: n.text, type: elementaryRef("DINT"), section: "VAR_INPUT", init: 0n })
+        }
+      }
     const inputs = Array.from({ length: r.localSlots.length - firstInput }, (_, i) => firstInput + i)
+    anyInputsOf(lw).set(key, new Set(inputs.filter((i) => r.anyInputs.has(r.localSlots[i]!.name.toUpperCase()))))
     declareVars(r, sections.filter((s) => s.sectionKind === "VAR" || s.sectionKind === "VAR_TEMP"))
     declareInOuts(r, sections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
     const resets = declareOutputs(lw, r, sections.filter((s) => s.sectionKind === "VAR_OUTPUT"), span)
@@ -439,6 +461,15 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
       }
       k = routine.inputs.findIndex((i) => routine!.locals[i]!.name.toUpperCase() === name)
       if (k < 0) return lw.bail("call-param", `${arg.param.name} is not an input of ${routine.name}`, arg.span)
+    }
+    if (anyInputsOf(lw).get(routine.key)?.has(routine.inputs[k]!)) {
+      // an ANY argument: the routine sees its size — SIZEOF's layout (conformance `state_any_input_sizes`) — of a variable
+      const place = lw.inArgument(() => lowerPlace(lw, arg.value!))
+      if (place === undefined) return undefined
+      const size = byteSize(lw, place.type)
+      if (size === undefined) return lw.bail("any-input", "an ANY argument whose byte size is not measured", arg.span)
+      inputs[k] = { kind: "const", value: size.size, type: elementaryRef("DINT"), span: arg.span }
+      continue
     }
     const slot = routine.locals[routine.inputs[k]!]!
     const value = lw.inArgument(() => lowerExpr(lw, arg.value!, slot.type))
