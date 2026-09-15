@@ -52,13 +52,10 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
     base(ast.body.extends?.text)
     declareVars(nested, [{ sectionKind: "VAR", decls: ast.body.fields } as unknown as VarSection])
   } else if (t.kind === "function_block" && (ast?.kind === "function_block" || ast?.kind === "program")) {
-    // The compiler acts on this whether or not the FB is ever called: `instance-path` fills a STRING with the instance's
-    // path in the device tree (conformance `instance_path_with_reflection`), which the program's text does not name — so
-    // an FB that carries it is refused rather than run wrong. The `call_after_*` methods are measured: a
-    // `call_after_global_init_slot` one runs once per instance before the first scan (`lowerUnit`'s init step), while
-    // `call_after_init`'s and `call_after_online_change_slot`'s did not run at all in a started application.
-    const unmodelled = [...(lw.attributes.get(ast) ?? [])].find((a) => a === "instance-path")
-    if (unmodelled !== undefined) lw.bail(`attr-${unmodelled}`, `${t.name} carries {attribute '${unmodelled}'}, which lowering does not model`, sym?.span ?? ZERO_SPAN)
+    // The compiler acts on these whether or not the FB is ever called, and `lowerUnit`'s init step models them: an
+    // `instance-path` STRING holds the instance's path from the project tree, and a `call_after_global_init_slot` method
+    // runs once per instance before the first scan; `call_after_init`'s and `call_after_online_change_slot`'s did not run
+    // at all in a started application (measured).
     base(baseOf(ast)?.text)
     declareVars(nested, ast.varSections.filter((s) => INSTANCE_STORAGE.has(s.sectionKind)))
     lw.bodies.set(t.name.toUpperCase(), { lowering: nested, unit: ast, state: "pending" })

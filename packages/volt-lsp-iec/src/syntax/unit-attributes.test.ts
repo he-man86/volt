@@ -1,6 +1,25 @@
 import { expect, test } from "bun:test"
 import { parseSource } from "./parser.js"
-import { memberAttributes, unitAttributes } from "./unit-attributes.js"
+import { declarationAttributes, memberAttributes, unitAttributes } from "./unit-attributes.js"
+
+// An `instance-path` STRING is set from the project tree (user decision 2026-09-15) — lowering has to know WHICH variable
+// carries the attribute, which the folded map cannot say.
+test("declarationAttributes names the variable declaration an attribute sits on", () => {
+  const source = `{attribute 'reflection'}
+FUNCTION_BLOCK FB_A
+VAR
+	plain : INT;
+	{attribute 'instance-path'}
+	{attribute 'noinit'}
+	sPath : STRING(255);
+	after : INT;
+END_VAR
+END_FUNCTION_BLOCK
+`
+  const parseResult = parseSource(source)
+  const byName = new Map([...declarationAttributes(parseResult, source)].map(([decl, names]) => [decl.names[0]!.text, [...names].sort()]))
+  expect([...byName]).toEqual([["sPath", ["instance-path", "noinit"]]])
+})
 
 // A `call_after_global_init_slot` method runs once per instance before the first scan (conformance
 // `state_call_after_global_init_counts`) — lowering has to know WHICH method, which the folded map above cannot say.

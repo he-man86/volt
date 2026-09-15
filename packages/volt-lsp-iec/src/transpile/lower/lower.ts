@@ -22,8 +22,18 @@
  *   statements.ts   assignment, IF, CASE, loops                        calls.ts      FB bodies, routines, in-outs
  *   pointers.ts     POINTER / REFERENCE (design §9 form 1)             bytes.ts      SIZEOF, ADR differences
  */
-import { isGraphicalBody, memberAttributes, parseSource, parseActive, type Span, type TopLevel, unitAttributes } from "../../syntax/index.js"
-import { buildSymbolTable, lookupMember, type Scope, scopeForUnit } from "../../symbols/index.js"
+import {
+  declarationAttributes,
+  isGraphicalBody,
+  memberAttributes,
+  parseSource,
+  parseActive,
+  type Span,
+  type TopLevel,
+  unitAttributes,
+} from "../../syntax/index.js"
+import { buildSymbolTable, lookup, lookupMember, type Scope, scopeForUnit } from "../../symbols/index.js"
+import { stored } from "./convert.js"
 import { resolveNamedType, type Type, UNKNOWN } from "../../types/index.js"
 import { type IrPou, type IrRoutine, type IrStmt, type LoweredPou, peelArray, type Place } from "../ir/index.js"
 import { Lowering, newShared } from "./lowering.js"
@@ -45,7 +55,7 @@ export function lowerUnit(
   scope: Scope,
   project: Scope,
   /** Each POU's `{attribute '…'}` names (`syntax/unitAttributes`), for the ones lowering must refuse. */
-  attributes: ReadonlyMap<TopLevel, ReadonlySet<string>> = new Map(),
+  attributes: ReadonlyMap<object, ReadonlySet<string>> = new Map(),
 ): LoweredPou {
   if (unit.kind !== "program" && unit.kind !== "function_block")
     return { diagnostics: [{ code: "unit-kind", message: `${unit.kind} is not lowered yet`, span: unit.span }] }
@@ -112,6 +122,23 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
           if (sym.kind === "method" && lw.attributes.get(sym.ast as TopLevel)?.has(INIT_ATTRIBUTE)) return lookupMember(fb.scope!, sym.name)
     return undefined
   }
+  // {attribute 'instance-path'} (user decision 2026-09-15): the STRING holds the instance's path from the project tree —
+  // the device folder (before `Plc Logic`), the application folder (after it), then the instance hierarchy from the POU.
+  // The simulator's own reads `Device.Sim.Device.Application…`, a segment the tree does not hold.
+  const root = lookup(lw.project, lw.shared.root)?.symbol
+  const tree = (root?.uri ?? "").split(/[\\/]/)
+  const logic = tree.findIndex((segment) => segment.toLowerCase() === "plc logic")
+  const application = logic > 0 && logic + 2 < tree.length ? `${tree[logic - 1]}.${tree[logic + 1]}` : undefined
+  const pathFields = (fb: Fb): string[] => {
+    const names: string[] = []
+    for (let unit = lw.bodies.get(fb.name.toUpperCase())?.unit; unit !== undefined; ) {
+      for (const section of unit.varSections)
+        for (const decl of section.decls) if (lw.attributes.get(decl)?.has("instance-path")) names.push(...decl.names.map((n) => n.text))
+      const base = unit.kind === "function_block" ? unit.extends : undefined
+      unit = base === undefined ? undefined : lw.bodies.get(base.text.toUpperCase())?.unit
+    }
+    return names
+  }
   const known = new Map<string, boolean>()
   const reaches = (t: Type): boolean => {
     const array = peelArray(t)
@@ -120,17 +147,33 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     const key = t.name.toUpperCase()
     if (known.has(key)) return known.get(key)!
     known.set(key, false)
-    const result = (t.kind === "function_block" && initMethod(t) !== undefined) || (lw.layouts.get(key)?.fields ?? []).some((f) => reaches(f.type))
+    const own = t.kind === "function_block" && (initMethod(t) !== undefined || pathFields(t).length > 0)
+    const result = own || (lw.layouts.get(key)?.fields ?? []).some((f) => reaches(f.type))
     known.set(key, result)
     return result
   }
-  const unreached = (where: string): undefined => lw.bail("attr-init-unreached", `an instance with a ${INIT_ATTRIBUTE} method in ${where}, which the init step does not reach`, span)
+  const unreached = (where: string): undefined =>
+    lw.bail("attr-init-unreached", `an instance with a ${INIT_ATTRIBUTE} method or an instance-path in ${where}, which the init step does not reach`, span)
   const out: IrStmt[] = []
   const visit = (place: Place): boolean => {
     const t = place.type
     if (!reaches(t)) return true
     if (peelArray(t) !== undefined) return unreached("an array") ?? false
     if (t.kind !== "function_block" && t.kind !== "struct") return true
+    const paths = t.kind === "function_block" ? pathFields(t) : []
+    if (paths.length > 0) {
+      if (application === undefined) return lw.bail("attr-instance-path", `${t.name}'s instance-path needs the project tree (Device/Plc Logic/Application), which this source is not in`, span) ?? false
+      if (root?.kind !== "program") return lw.bail("attr-instance-path", `an FB lowered on its own has no instance path`, span) ?? false
+      const hierarchy = [lw.frame[place.slot]!.name, ...place.path.flatMap((step) => (step.kind === "field" ? [step.name] : []))]
+      const text = [application, root.name, ...hierarchy].join(".")
+      for (const name of paths) {
+        const field = lw.layouts.get(t.name.toUpperCase())?.fields.find((f) => f.name.toUpperCase() === name.toUpperCase())
+        if (field === undefined || field.type.kind !== "elementary" || field.type.elem.family !== "string")
+          return lw.bail("attr-instance-path", `${name} carries instance-path but is not a STRING`, span) ?? false
+        const target: Place = { ...place, path: [...place.path, { kind: "field", name: field.name }], type: field.type }
+        out.push({ kind: "assign", target, value: { kind: "const", value: stored(text, field.type), type: field.type, span }, span })
+      }
+    }
     const sym = t.kind === "function_block" ? initMethod(t) : undefined
     if (t.kind === "function_block" && sym !== undefined) {
       const routine: IrRoutine | undefined = calledRoutine(lw, sym, t, span)
@@ -172,15 +215,16 @@ export interface LibraryFile {
   source: string
 }
 
-/** Parse, bind and lower one source string, against the library files a project would reference. The test/CLI path. */
-export function lowerSource(source: string, name?: string, libraries: readonly LibraryFile[] = []): LoweredPou {
+/** Parse, bind and lower one source string, against the library files a project would reference. The test/CLI path.
+ *  `uri` places the source in a project tree — where an `instance-path` takes its device and application from. */
+export function lowerSource(source: string, name?: string, libraries: readonly LibraryFile[] = [], uri = "transpile://source"): LoweredPou {
   const parseResult = parseSource(source)
   if (parseResult.errors.length > 0) {
     const first = parseResult.errors[0]!
     return { diagnostics: [{ code: "parse", message: first.message, span: first.span }] }
   }
   const project = buildSymbolTable([
-    { uri: "transpile://source", parseResult, source },
+    { uri, parseResult, source },
     ...libraries.map((l) => ({ uri: l.uri, parseResult: parseSource(l.source), source: l.source })),
   ])
   const runnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "function_block" }> =>
@@ -195,5 +239,5 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
   const scope = scopeForUnit(project, unit)
   if (scope === undefined)
     return { diagnostics: [{ code: "no-scope", message: `${unit.name.text} did not bind`, span: unit.span }] }
-  return lowerUnit(unit, scope, project, new Map([...unitAttributes(parseResult, source), ...memberAttributes(parseResult, source)]))
+  return lowerUnit(unit, scope, project, new Map<object, Set<string>>([...unitAttributes(parseResult, source), ...memberAttributes(parseResult, source), ...declarationAttributes(parseResult, source)]))
 }

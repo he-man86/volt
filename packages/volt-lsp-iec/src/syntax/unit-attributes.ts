@@ -7,6 +7,26 @@
 import type { ParseResult, TopLevel } from "./ast.js"
 import { lex } from "./lexer.js"
 
+type Declaration = Extract<TopLevel, { kind: "function_block" }>["varSections"][number]["decls"][number]
+
+/** The `{attribute '…'}` names on each variable declaration: a pragma inside a VAR section belongs to the declaration that
+ *  follows it (`{attribute 'instance-path'}` above `sPath : STRING(255);`). */
+export function declarationAttributes(parseResult: ParseResult, source: string): Map<Declaration, Set<string>> {
+  const sections = parseResult.units.flatMap((u) => ("varSections" in u ? u.varSections : []))
+  const out = new Map<Declaration, Set<string>>()
+  for (const token of lex(source)) {
+    if (token.kind !== "pragma") continue
+    const name = /^\{\s*attribute\s+'([^']+)'/i.exec(token.text)?.[1]
+    const section = name === undefined ? undefined : sections.find((s) => s.span.start <= token.span.start && token.span.end <= s.span.end)
+    const decl = section?.decls.find((d) => d.span.start >= token.span.end)
+    if (decl === undefined) continue
+    const names = out.get(decl) ?? new Set<string>()
+    names.add(name!.toLowerCase())
+    out.set(decl, names)
+  }
+  return out
+}
+
 /** The `{attribute '…'}` names on each METHOD, ACTION and PROPERTY itself — the ones `unitAttributes` folds into their POU,
  *  for a consumer that must know WHICH member carries one (a `call_after_global_init_slot` method). */
 export function memberAttributes(parseResult: ParseResult, source: string): Map<TopLevel, Set<string>> {

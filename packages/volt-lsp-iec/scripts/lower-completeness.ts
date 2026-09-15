@@ -14,7 +14,7 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, extname, relative } from "node:path"
-import { isGraphicalBody, memberAttributes, parseSource, parseStatements, unitAttributes, type TopLevel } from "../src/syntax/index.js"
+import { declarationAttributes, isGraphicalBody, memberAttributes, parseSource, parseStatements, unitAttributes, type TopLevel } from "../src/syntax/index.js"
 import { buildSymbolTable, scopeForUnit } from "../src/symbols/index.js"
 import { lowerUnit } from "../src/transpile/index.js"
 import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
@@ -66,8 +66,12 @@ for (const projectDir of projects) {
     }
   })
   const project = buildSymbolTable(files.map(({ file, source, parseResult }) => ({ uri: file, parseResult, source })))
-  const attributes = new Map(
-    files.flatMap(({ source, parseResult }) => [...unitAttributes(parseResult, source), ...memberAttributes(parseResult, source)]),
+  const attributes = new Map<object, Set<string>>(
+    files.flatMap(({ source, parseResult }) => [
+      ...unitAttributes(parseResult, source),
+      ...memberAttributes(parseResult, source),
+      ...declarationAttributes(parseResult, source),
+    ]),
   )
   for (const { file, parseResult } of files) {
     // Where the code actually lives: a METHOD/ACTION body belongs to its FB's frame, which lowering does not

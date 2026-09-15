@@ -549,6 +549,10 @@ END_FUNCTION_BLOCK
     feature: "{attribute 'instance-path'} STRING var inside a {attribute 'reflection'} FB",
     fromDoc: "07-pragmas.md#instance-path",
     note: "Compound attribute setup: instance-path requires reflection on the FB + noinit on the STRING.",
+    deferred: {
+      transpile:
+        "the path is taken from the project tree, Device.Application.PLC_PRG.fb_ipr — the simulator's reads Device.Sim.Device.Application…, a segment the tree does not hold (user decision 2026-09-15)",
+    },
     plcPrgVar: "fb_ipr : FB_LANG_instance_path_with_reflection;",
     plcPrgBody: "fb_ipr();",
     source: `{attribute 'reflection'}

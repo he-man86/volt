@@ -36,7 +36,7 @@ export interface Shared {
   bodies: Map<string, PendingBody>
   routines: Map<string, CalledRoutine>
   /** The `{attribute '…'}` names on each POU (`syntax/unitAttributes`) — the AST keeps no pragmas. */
-  attributes: ReadonlyMap<TopLevel, ReadonlySet<string>>
+  attributes: ReadonlyMap<object, ReadonlySet<string>>
   /** GVL variables and called PROGRAMs' instances, by upper-cased name. */
   globals: { slots: IrSlot[]; byName: Map<string, number> }
   /** The POU being lowered: a PROGRAM that names it is the running frame, not a global instance. */
@@ -45,7 +45,7 @@ export interface Shared {
   pointers: Map<string, PointerTarget>
 }
 
-export function newShared(attributes: ReadonlyMap<TopLevel, ReadonlySet<string>> = new Map(), root = ""): Shared {
+export function newShared(attributes: ReadonlyMap<object, ReadonlySet<string>> = new Map(), root = ""): Shared {
   return { layouts: new Map(), bodies: new Map(), routines: new Map(), attributes, globals: { slots: [], byName: new Map() }, root, pointers: new Map() }
 }
 
@@ -124,7 +124,7 @@ export class Lowering {
   get routines(): Map<string, CalledRoutine> {
     return this.shared.routines
   }
-  get attributes(): ReadonlyMap<TopLevel, ReadonlySet<string>> {
+  get attributes(): ReadonlyMap<object, ReadonlySet<string>> {
     return this.shared.attributes
   }
   get globals(): readonly IrSlot[] {
