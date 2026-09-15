@@ -7,6 +7,7 @@ import type { Scope } from "../../symbols/index.js"
 import { elementaryRef, resolveTypeExpr, type Type } from "../../types/index.js"
 import {
   defaultValueOf,
+  type IrCall,
   type IrExpr,
   type IrInit,
   type IrLayout,
@@ -61,6 +62,12 @@ export interface Shared {
   addressed: { area: string; bits: readonly (readonly [number, number])[]; name: string; owner: string }[]
   /** Each routine's lowering, by key — whose `lends` a call of the routine must fill. */
   routineLowerings: Map<string, Lowering>
+  /** Every call of an FB with VAR_IN_OUT, its instance and binding keyed — what a METHOD called from outside the FB's run
+   *  dispatches over (`bindings.ts`). */
+  bodyCalls: { call: IrCall; instance: string | undefined; binding: string | undefined; context: string }[]
+  /** The FBs whose SUPER^ call binds a base in-out to a place other than that in-out passed on — what `lastBinding`
+   *  refuses, as what the instance then holds is not recorded. */
+  superRebinds: Set<string>
 }
 
 export function newShared(attributes: ReadonlyMap<object, ReadonlySet<string>> = new Map(), root = ""): Shared {
@@ -78,6 +85,8 @@ export function newShared(attributes: ReadonlyMap<object, ReadonlySet<string>> =
     dispatches: [],
     addressed: [],
     routineLowerings: new Map(),
+    bodyCalls: [],
+    superRebinds: new Set(),
   }
 }
 

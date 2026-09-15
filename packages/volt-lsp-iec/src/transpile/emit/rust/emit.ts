@@ -625,6 +625,9 @@ class Printer {
         const instance = this.place(s.instance, slots)
         const lets = this.lentCopies(s.inouts, slots)
         const back = this.copiesBack(s.inouts, slots)
+        // the binding this call makes, which the FB's METHODs called from outside dispatch on (`lower/bindings.ts`)
+        if (s.bind !== undefined)
+          this.push(`${this.place(s.bind.place, slots)} = ${this.expr({ kind: "const", value: s.bind.tag, type: s.bind.place.type, span: s.span }, slots)};`, indent, s.span)
         // A PROGRAM's instance lives in `Programs`, which the call is handed too — `prg.p.call(g, prg)` would borrow it
         // twice (E0499) — so it runs moved out and back. Lowering refuses a program whose run reaches its own instance.
         if (s.instance.root === "global" && this.globals.slots[s.instance.slot]?.section === "program") {

@@ -104,6 +104,73 @@ END_METHOD
 `,
     "worker : FB_CS_workerEarly; first : INT := 1; reached : INT;",
     "worker.AddTen();\nreached := 1;\nworker(shared := first);"),
+  // pro2193's ConveyorFB / AirBufferFB: a DERIVED FB's METHOD that names no in-out calls a BASE METHOD that writes the
+  // base's VAR_IN_OUT, from the derived body's run — the binding of that call (11)?
+  fb("callshape_inout_base_method_from_derived_method", "FB_CS_actBase23", "a derived FB's METHOD calling the base's METHOD that writes the base's VAR_IN_OUT, from the derived body",
+    `FUNCTION_BLOCK FB_CS_actBase23
+VAR_IN_OUT
+	shared : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD AddTen
+shared := shared + 10;
+END_METHOD
+
+FUNCTION_BLOCK FB_CS_actDerived23 EXTENDS FB_CS_actBase23
+Bump();
+END_FUNCTION_BLOCK
+
+METHOD Bump
+AddTen();
+END_METHOD
+`,
+    "derived : FB_CS_actDerived23; v : INT := 1;",
+    "derived(shared := v);"),
+  // ...and that derived METHOD called from outside after the call: the last binding, through the chain (11, then 21).
+  fb("callshape_inout_base_method_from_outside_derived", "FB_CS_actBase24", "a derived FB's METHOD, called from outside after the FB's call, reaching the base's VAR_IN_OUT through the base's METHOD",
+    `FUNCTION_BLOCK FB_CS_actBase24
+VAR_IN_OUT
+	shared : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD AddTen
+shared := shared + 10;
+END_METHOD
+
+FUNCTION_BLOCK FB_CS_actDerived24 EXTENDS FB_CS_actBase24
+AddTen();
+END_FUNCTION_BLOCK
+
+METHOD Bump
+AddTen();
+END_METHOD
+`,
+    "derived : FB_CS_actDerived24; v : INT := 1;",
+    "derived(shared := v);\nderived.Bump();"),
+  // An override calling SUPER^.M(), the base's M writing the base's VAR_IN_OUT, from the derived body's run (11).
+  fb("callshape_inout_super_method_from_override", "FB_CS_actBase25", "a derived FB's override calling SUPER^ of a METHOD that writes the base's VAR_IN_OUT",
+    `FUNCTION_BLOCK FB_CS_actBase25
+VAR_IN_OUT
+	shared : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD AddTen
+shared := shared + 10;
+END_METHOD
+
+FUNCTION_BLOCK FB_CS_actDerived25 EXTENDS FB_CS_actBase25
+AddTen();
+END_FUNCTION_BLOCK
+
+METHOD AddTen
+SUPER^.AddTen();
+END_METHOD
+`,
+    "derived : FB_CS_actDerived25; v : INT := 1;",
+    "derived(shared := v);"),
   // An FB lending its own field to its own METHOD, which also reads the field by name after writing the in-out: by
   // reference the name sees the new value (10), a copy would not (7).
   fb("callshape_own_field_inout_read_by_name", "FB_CS_ownRead15", "an FB's own field lent to its own METHOD's VAR_IN_OUT, the METHOD reading the field by name after writing the in-out",

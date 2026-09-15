@@ -309,6 +309,9 @@ export interface IrCall {
   inouts: readonly IrBinding[]
   /** The instances lent to the FB's body (`IrLayout.lent`), in its order — filled once the POU has lowered. */
   lent?: readonly Place[]
+  /** Which binding this call makes, stored into the instance's hidden field before the body runs — what a METHOD called
+   *  from outside the FB's run dispatches on (`lower/bindings.ts`). Filled once the POU has lowered, when one does. */
+  bind?: { place: Place; tag: bigint }
   span: Span
 }
 

@@ -250,8 +250,11 @@ test("left-out inputs, written argument order, a METHOD on a PROGRAM, an FB's in
   const runner = run(ir(source, "P"))
   runner.scan()
   expect(["inOrder", "reversed", "marker.order", "defaulted", "shared", "seen"].map((v) => runner.get(v))).toEqual([12n, 43n, 1234n, 54n, 11n, 11n])
-  // from outside the FB's own run the METHOD would use the in-out's LAST binding — recorded, not modelled
-  expect(lowerSource(source.replace("worker(io := shared);", "worker(io := shared);\nworker.AddTen();"), "P").diagnostics.map((d) => d.code)).toContain("call-fb-inout")
+  // From outside the FB's own run the METHOD uses the in-out's LAST binding (`callshape_inout_in_method_after_call`). Refused
+  // here while that was not modelled (`call-fb-inout`); it is now: the body's own call made 11, this one 21.
+  const outside = run(ir(source.replace("worker(io := shared);", "worker(io := shared);\nworker.AddTen();"), "P"))
+  outside.scan()
+  expect(outside.get("shared")).toEqual(21n)
 })
 
 // Review of batch 3a (4 lenses, adversarial verify), each reproduced before its fix. Why missed: the batch's tests called
@@ -470,6 +473,47 @@ test("an FB's own field lent to its own METHOD is copied in and written back, wh
   const viaSuper = run(ir(derived("SUPER^(a := n, b := m);"), "P"))
   viaSuper.scan()
   expect([viaSuper.get("d.n"), viaSuper.get("d.m"), viaSuper.get("x")]).toEqual([5n, 201n, 0n])
+})
+
+// Recorded (`callshape_inout_in_method_after_call`: 11 then 110, `callshape_inout_method_in_later_cycle`: 21 after three
+// cycles, `callshape_inout_method_before_binding`: the run stops): a METHOD called from outside its FB reaches the in-out
+// the instance was LAST called with. It was refused (`call-fb-inout`). Why missed: nothing modelled a binding kept past
+// the call that made it — the recordings came first (user decision 2026-09-15: build it).
+test("a METHOD called from outside its FB reaches the in-out the instance was last called with", () => {
+  const worker = "FUNCTION_BLOCK FB_W\nVAR_IN_OUT shared : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD AddTen\nshared := shared + 10;\nEND_METHOD\n"
+  const program = (vars: string, body: string, extra = "") =>
+    `PROGRAM P\nVAR worker : FB_W; first : INT := 1; second : INT := 100; ${vars} END_VAR\n${body}\nEND_PROGRAM\n${worker}${extra}`
+  const after = run(ir(program("", "worker(shared := first);\nworker.AddTen();\nworker(shared := second);\nworker.AddTen();"), "P"))
+  after.scan()
+  expect([after.get("first"), after.get("second")]).toEqual([11n, 110n])
+  const later = run(ir(program("bound : BOOL;", "IF bound THEN\n  worker.AddTen();\nELSE\n  worker(shared := first);\n  bound := TRUE;\nEND_IF"), "P"))
+  later.scan()
+  later.scan()
+  later.scan()
+  expect(later.get("first")).toEqual(21n)
+  // before any call bound it: no arm — the run stops, as CODESYS's did
+  const early = run(ir(program("", "worker.AddTen();\nworker(shared := first);"), "P"))
+  expect(() => early.scan()).toThrow()
+  const codes = (vars: string, body: string, extra = "") => lowerSource(program(vars, body, extra), "P").diagnostics.map((d) => d.code)
+  // a call binding an element at a runtime index: which element the METHOD reaches later is not a place this can lend again
+  expect(codes("i : INT; arr : ARRAY[0..1] OF INT;", "worker(shared := arr[i]);\nworker.AddTen();")).toContain("call-fb-inout")
+  // the instance called some other way too — through a FUNCTION's VAR_IN_OUT — could hold a binding no arm lends
+  const through = "FUNCTION F_Call : BOOL\nVAR_IN_OUT w : FB_W; x : INT; END_VAR\nw(shared := x);\nEND_FUNCTION\n"
+  expect(codes("", "F_Call(w := worker, x := second);\nworker.AddTen();", through)).toContain("call-fb-inout")
+  // Review of the build — each accepted with a stale or wrong binding, now refused:
+  // an input that calls: the tag was read before it, though it could bind the instance first
+  const plus = "METHOD Plus\nVAR_INPUT n : INT; END_VAR\nshared := shared + n;\nEND_METHOD\nFUNCTION F_Five : INT\nF_Five := 5;\nEND_FUNCTION\n"
+  expect(codes("", "worker(shared := first);\nworker.Plus(n := F_Five());", plus)).toContain("call-fb-inout")
+  // a PROGRAM's one instance bound from an FB with two instances: the tag lent whichever instance ran
+  const shared =
+    "PROGRAM P\nVAR x1 : FB_X; x2 : FB_X; END_VAR\nx1(bind := TRUE);\nx2(bind := TRUE);\nx1(bind := FALSE);\nEND_PROGRAM\n" +
+    "FUNCTION_BLOCK FB_X\nVAR_INPUT bind : BOOL; END_VAR\nVAR a : INT := 1; END_VAR\nIF bind THEN\n  PW(shared := a);\nELSE\n  PW.AddTen();\nEND_IF\nEND_FUNCTION_BLOCK\n" +
+    "PROGRAM PW\nVAR_IN_OUT shared : INT; END_VAR\nEND_PROGRAM\nMETHOD AddTen\nshared := shared + 10;\nEND_METHOD\n"
+  expect(lowerSource(shared, "P").diagnostics.map((d) => d.code)).toContain("call-fb-inout")
+  // SUPER^ binding the in-out to another place, and an instance copied whole: what the instance holds is not recorded
+  const rebinding = "FUNCTION_BLOCK FB_D EXTENDS FB_W\nVAR other : INT := 500; END_VAR\nSUPER^(shared := other);\nEND_FUNCTION_BLOCK\n"
+  expect(codes("d : FB_D;", "d(shared := first);\nd.AddTen();", rebinding)).toContain("call-fb-inout")
+  expect(codes("w2 : FB_W;", "worker(shared := first);\nw2 := worker;\nw2.AddTen();")).toContain("call-fb-inout")
 })
 
 // Review of the fixture batch — what the init step's new reach into called PROGRAMs, and the VAR_OUTPUT rule, let through.

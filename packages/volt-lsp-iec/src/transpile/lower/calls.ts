@@ -35,6 +35,7 @@ import {
   type IrRoutine,
   type IrSlot,
   type Access,
+  type IrCall,
   type IrFreeze,
   type IrStmt,
   type Place,
@@ -48,6 +49,7 @@ import { refuseConstantWrite, sameStorage, through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 import { lowerBlock } from "./statements.js"
 import { interfaceArgument, interfaceCall, interfacePropertyGet, interfacePropertySet, storeInterface } from "./interfaces.js"
+import { lastBinding, registerBodyCall } from "./bindings.js"
 
 type FbType = Extract<Type, { kind: "function_block" }>
 type RoutineSymbol = NonNullable<ReturnType<typeof lookup>>["symbol"]
@@ -703,16 +705,18 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     order.push(k)
   }
   // the FB's own VAR_IN_OUT a METHOD reaches: bound to the in-out this body holds — a call on THIS instance from the FB's own
-  // run. From outside, CODESYS uses the instance's LAST binding (`callshape_inout_in_method_after_call`): not modelled.
+  // run. From outside, CODESYS uses the instance's LAST binding (`callshape_inout_in_method_after_call`): left unbound here,
+  // for `lastBinding` to dispatch on.
+  let outside = false
   for (const [i, slot] of routine.inouts.entries()) {
     if (slot.ofInstance !== true) continue
     // THIS instance itself — `THIS^.inner.M()` is rooted at THIS too, but runs on a child with in-outs of its own
     const held = instance?.root === "this" && instance.path.length === 0 ? lw.inoutByName.get(slot.name.toUpperCase()) : undefined
-    if (held === undefined) return lw.bail("call-fb-inout", `${routine.name} reaches ${slot.name}, its FB's VAR_IN_OUT, called outside the FB's own run`, call.span)
-    inouts[i] = { slot: held, path: [], type: lw.inoutSlots[held]!.type, span: call.span, root: "inout" }
+    if (held === undefined) outside = true
+    else inouts[i] = { slot: held, path: [], type: lw.inoutSlots[held]!.type, span: call.span, root: "inout" }
   }
   for (const [i, slot] of routine.inouts.entries()) {
-    if (inouts[i] !== undefined) continue
+    if (inouts[i] !== undefined || (outside && slot.ofInstance === true)) continue
     if (slot.section !== "VAR_OUTPUT") return lw.bail("call-inout-missing", `${routine.name} called without every VAR_IN_OUT`, call.span)
     // an unconnected output still needs somewhere to go: a temp of its own, which nothing reads
     const temp = lw.tempPlace("output", slot.type, call.span)
@@ -751,7 +755,8 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     inouts[entry.inout] = { ...binding, path }
   }
   const type = routine.result === undefined ? UNKNOWN : routine.locals[routine.result]!.type
-  return { kind: "invoke", routine: routine.key, ...(instance === undefined ? {} : { instance }), inputs: inputs as IrExpr[], order: written, inouts: inouts as IrBinding[], type, span: call.span }
+  const invoke: IrInvoke = { kind: "invoke", routine: routine.key, ...(instance === undefined ? {} : { instance }), inputs: inputs as IrExpr[], order: written, inouts: inouts as IrBinding[], type, span: call.span }
+  return outside ? lastBinding(lw, routine, invoke, call.span) : invoke
 }
 
 /**
@@ -879,8 +884,10 @@ function lowerSuperCall(lw: Lowering, call: Extract<Statement, { kind: "call_stm
   // same bounds — is kept; rebinding one under SUPER^ is not recorded.
   for (const [i, slot] of routine.inouts.entries()) {
     const binding = inouts[i]!
-    if (openDims(slot.type) > 0 && ("kind" in binding || binding.root !== "inout" || binding.path.length > 0 || lw.inoutSlots[binding.slot]!.name.toUpperCase() !== slot.name.toUpperCase()))
-      return lw.bail("call-open-array", `SUPER^ binds its ARRAY[*] ${slot.name} to another array`, call.span)
+    const passedOn = !("kind" in binding) && binding.root === "inout" && binding.path.length === 0 && lw.inoutSlots[binding.slot]!.name.toUpperCase() === slot.name.toUpperCase()
+    if (openDims(slot.type) > 0 && !passedOn) return lw.bail("call-open-array", `SUPER^ binds its ARRAY[*] ${slot.name} to another array`, call.span)
+    // what the instance holds for a METHOD called from outside after this is not recorded (`bindings.ts` refuses it)
+    if (!passedOn) lw.shared.superRebinds.add(frame.name.toUpperCase())
   }
   const bounds = storeOpenBounds(lw, instance, layout.fields, routine.inouts, (i) => inouts[i], call.span)
   if (bounds === undefined) return undefined
@@ -988,7 +995,10 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
   const bounds = storeOpenBounds(lw, instance, layout.fields, inouts, (i) => bound.get(inouts[i]!.name.toUpperCase()), call.span)
   if (bounds === undefined) return undefined
   const inoutPlaces = inouts.map((p) => bound.get(p.name.toUpperCase())!)
-  return [...before, ...bounds, { kind: "call", instance, fb: layout.name, inouts: inoutPlaces, span: call.span }, ...after]
+  const stmt: IrCall = { kind: "call", instance, fb: layout.name, inouts: inoutPlaces, span: call.span }
+  // every call of an FB with in-outs records the binding it makes, for its METHODs called from outside (`bindings.ts`)
+  if (inouts.length > 0) registerBodyCall(lw, stmt)
+  return [...before, ...bounds, stmt, ...after]
 }
 
 /**

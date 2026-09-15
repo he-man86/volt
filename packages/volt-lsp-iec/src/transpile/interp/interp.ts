@@ -340,6 +340,8 @@ class Machine {
         const at = this.locate(s.instance)
         const instance = (at.container as Record<string | number, Val>)[at.key] as Record<string | number, Val>
         const layout = this.layouts.get(s.fb.toUpperCase())!
+        // the binding this call makes, which the FB's METHODs called from outside dispatch on (`lower/bindings.ts`)
+        if (s.bind !== undefined) this.write(s.bind.place, s.bind.tag)
         const bound = s.inouts.map((b) => this.bind(b))
         const lent = (s.lent ?? []).map((p) => this.bind(p))
         new Machine(instance, layout.fields.map((f) => f.name.toUpperCase()), bound, this.layouts, this.routines, this.globals, [], lent).block(layout.body!)

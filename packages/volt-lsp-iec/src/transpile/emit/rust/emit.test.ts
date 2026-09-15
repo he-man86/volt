@@ -387,6 +387,10 @@ describe.skipIf(rustc === null)("emit/rust — compiles", () => {
         "FUNCTION F_FITake : INT\nVAR_INPUT stepValue : INT; END_VAR\nVAR_IN_OUT boundValue : INT; END_VAR\nF_FITake := boundValue * 10 + stepValue;\nEND_FUNCTION\n" +
         "FUNCTION_BLOCK FB_FI\nVAR numbers : ARRAY[0..3] OF INT := [10, 20, 30, 40]; cursor : INT; got : INT; END_VAR\ncursor := 0;\ngot := F_FITake(boundValue := numbers[cursor], stepValue := Advance());\nEND_FUNCTION_BLOCK\n" +
         "METHOD Advance : INT\ncursor := cursor + 1;\nAdvance := cursor;\nEND_METHOD\n",
+      // An FB's METHOD called from outside reaching its in-out (recorded): a dispatch on the binding the instance was last
+      // called with, each call storing its tag.
+      "PROGRAM LastBinding\nVAR worker : FB_LB; first : INT := 1; second : INT := 100; END_VAR\nworker(shared := first);\nworker.AddTen();\nworker(shared := second);\nworker.AddTen();\nEND_PROGRAM\n" +
+        "FUNCTION_BLOCK FB_LB\nVAR_IN_OUT shared : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD AddTen\nshared := shared + 10;\nEND_METHOD\n",
       // A root PROGRAM calling its own METHODs and ACTION bare (recorded), lowered as its one instance.
       "PROGRAM PrgOwn\nVAR calls : INT; tidied : INT; doubled : INT; END_VAR\nBump();\nTidy();\ndoubled := Twice(calls);\nEND_PROGRAM\n" +
         "METHOD Bump\ncalls := calls + 1;\nEND_METHOD\nMETHOD Twice : INT\nVAR_INPUT n : INT; END_VAR\nTwice := n * 2;\nEND_METHOD\nACTION Tidy\ntidied := tidied + 100;\nEND_ACTION\n",

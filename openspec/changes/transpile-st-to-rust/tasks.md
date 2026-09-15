@@ -521,7 +521,7 @@ taken apart by construct before anything is built — record first, then build, 
       where CODESYS reads it is not recorded. The earlier refusal test was a
       representability premise and now asserts the recorded 101. Conformance: 491 of 508 lower; `call-fb-inout` is the
       last blocker.
-- [ ] An FB's VAR_IN_OUT reached by its METHOD called from OUTSIDE the FB's run (`call-fb-inout`; ~14 corpus sites,
+- [x] An FB's VAR_IN_OUT reached by its METHOD called from OUTSIDE the FB's run (`call-fb-inout`; ~14 corpus sites,
       pro2193's `Conveyor.Reset()` / `BufferAir.Set()` from the holder's other METHODs). Recorded: the METHOD uses the
       instance's LAST binding (`callshape_inout_in_method_after_call`: 11 then 110), kept into later cycles
       (`callshape_inout_method_in_later_cycle`: 21 after three), and a METHOD run before any call bound it stops the
@@ -529,7 +529,21 @@ taken apart by construct before anything is built — record first, then build, 
       VAR_IN_OUT … from external context". A model that fits all three: a hidden binding tag per instance, stored by
       every body call (one tag per static place bound), and the outside METHOD call a dispatch on that tag whose arms
       lend each place — tag 0 faulting, as the recording stops. The binding sites can lower after the METHOD call, so
-      the arms fill once the POU has lowered, as an interface call's do (`finishInterfaces`). Not built: a decision.
+      the arms fill once the POU has lowered, as an interface call's do (`finishInterfaces`). Built (user decision
+      2026-09-15, `lower/bindings.ts`): every call of an FB with in-outs registers its instance and binding; a METHOD or
+      ACTION called from outside is a dispatch on the hidden `__inout_binding` field, one arm per binding a call made on
+      that instance, each call storing its tag (`IrCall.bind`) before the body. Exact only where the instance is named one
+      way — every call of the FB on a static place of its frame or the globals, not through another instance — and bound
+      to places that frame can lend again; anything else stays `call-fb-inout`. The two recorded cases that run now
+      lower and match (11/110, 21); the one before any binding faults, as CODESYS stops. Its review found two wrong
+      values and two unrecorded acceptances, each now refused with a src test: the tag was read before an input that
+      calls (which could bind the instance first); a PROGRAM's one instance bound from an FB of which there are several
+      instances lent the running one's field — a PROGRAM's binding is taken only from the root's own frame; a SUPER^
+      binding the in-out to another place, and an instance copied whole, leave a binding no recording shows. The corpus's
+      ~14 sites are a different shape, recorded since (`callshape_inout_base_method_from_derived_method`: 11,
+      `callshape_inout_base_method_from_outside_derived`: 21, `callshape_inout_super_method_from_override`: 11): a
+      DERIVED FB's METHOD reaching the BASE's in-out through a base METHOD — refused, as a METHOD takes only its own
+      FB's declared in-outs, not its bases'.
 - [x] Conformance fixtures for every shape this phase met only in the test corpus or a src test (user request
       2026-09-15: "so we dont rely on the testcorpus") — each recorded in CODESYS SP21, build and run, and replayed by
       the LSP and both transpiler backends. The LSP's error/warning set matches CODESYS exactly on all but
