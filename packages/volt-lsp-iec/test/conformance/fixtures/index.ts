@@ -35,6 +35,7 @@ import { EXECUTION_TESTS } from "./execution.js"
 import { MEMORY_MODEL_TESTS } from "./memory-model.js"
 import { FB_CALL_TESTS } from "./fb-call.js"
 import { INHERITANCE_TESTS } from "./inheritance.js"
+import { ROUTINE_STATE_TESTS } from "./routine-state.js"
 
 export interface CategoryGroup {
   name: string
@@ -77,6 +78,8 @@ export const CATEGORIES: readonly CategoryGroup[] = [
   { name: "fb-call", tests: FB_CALL_TESTS },
   // ── inheritance: which bodies and methods EXTENDS and SUPER^ run (phase 3½) ──
   { name: "inheritance", tests: INHERITANCE_TESTS },
+  // ── routine state and call edges: VAR_INST, VAR_STAT, properties, empty arguments, programs from FBs (phase 3½) ──
+  { name: "routine-state", tests: ROUTINE_STATE_TESTS },
 ]
 
 export const ALL_TESTS: readonly LanguageTest[] = CATEGORIES.flatMap((c) => c.tests)
