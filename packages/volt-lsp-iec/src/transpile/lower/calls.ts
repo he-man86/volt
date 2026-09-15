@@ -27,6 +27,7 @@ import { ANY_FAMILIES, elementaryRef, inferExprType, type Type, UNKNOWN } from "
 import { byteSize } from "./bytes.js"
 import {
   defaultValueOf,
+  type IrBinding,
   type IrDispatch,
   type IrExpr,
   type IrInvoke,
@@ -40,7 +41,7 @@ import { baseOf, Lowering, type PendingBody } from "./lowering.js"
 import { convert } from "./convert.js"
 import { declareInOuts, declareVars, storageOf, tempResets } from "./storage.js"
 import { lowerPlace } from "./places.js"
-import { through } from "./pointers.js"
+import { refuseConstantWrite, through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 import { lowerBlock } from "./statements.js"
 import { interfaceCall, interfacePropertyGet, interfacePropertySet } from "./interfaces.js"
@@ -379,10 +380,31 @@ function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: Span): I
  * design §9 form 3, is for later), a bit, a global (every body holds the globals as one `&mut`), and a derived instance
  * or struct standing in for its base type — the parameter would dispatch on the base, which is not modelled.
  */
-function bindInOut(lw: Lowering, arg: CallArg, param: IrSlot, held: readonly Place[]): Place | undefined {
-  const written = lw.inArgument(() => lowerPlace(lw, arg.value!))
-  const target = written === undefined ? undefined : through(lw, written, arg.span)
+function bindInOut(lw: Lowering, arg: CallArg, param: IrSlot, held: readonly Place[], callee: readonly IrStmt[]): IrBinding | undefined {
+  // `(x)` is the variable x — it takes the alias check below like a bare `x` (review of the batch, 2026-09-15)
+  let value = arg.value!
+  while (value.kind === "paren") value = value.inner
+  // A VAR_IN_OUT CONSTANT reads what it is lent (conformance `inout_const_*`). A LITERAL — the STRING literal CODESYS accepts —
+  // is lent as a copy, which nothing can write; any other value goes on to `lowerPlace`, which refuses it, as CODESYS
+  // refuses an expression (`inout_const_expression_2`).
+  if (param.readOnly === true && value.kind === "literal" && value.literalKind === "string") {
+    const literal = value
+    const lowered = lw.inArgument(() => lowerExpr(lw, literal, param.type))
+    return lowered && { kind: "copy", value: convert(lowered, param.type), type: param.type, span: arg.span }
+  }
+  const variable = value
+  const written = lw.inArgument(() => lowerPlace(lw, variable))
+  // a read-only binding writes nothing, so it is not a store `through` must check — a reference still reads its target
+  const target = written === undefined ? undefined : param.constant === true && written.type.kind !== "reference" ? written : through(lw, written, arg.span)
   if (target === undefined) return undefined
+  const shared = held.some((p) => aliases(target, p)) || target.root === "global"
+  // A variable the call also holds (the instance a METHOD runs on, `inst.M(v := inst.x)`) or a global cannot be lent as `&`
+  // beside the `&mut` of the instance or `g`. For a read-only in-out a copy reads the same — exactly when the callee writes
+  // nothing but its own locals and calls nothing, so nothing can change the variable while it runs (`inout_const_method_9`).
+  if (param.readOnly === true && shared && target.path.every((s) => s.kind !== "bit")) {
+    if (writesOnlyLocals(callee)) return { kind: "copy", value: { kind: "load", place: target, type: target.type, span: arg.span }, type: param.type, span: arg.span }
+    return lw.bail("call-inout-alias", `${param.name} is bound to a variable the callee could change while it reads it`, arg.span)
+  }
   if (held.some((p) => aliases(target, p))) return lw.bail("call-inout-alias", `${param.name} is bound to a variable the call already holds`, arg.span)
   if (target.path.some((s) => s.kind === "bit")) return lw.bail("call-inout-bit", `${param.name} is bound to a bit`, arg.span)
   if (target.root === "global") return lw.bail("call-inout-global", `${param.name} is bound to a global variable`, arg.span)
@@ -391,6 +413,19 @@ function bindInOut(lw: Lowering, arg: CallArg, param: IrSlot, held: readonly Pla
     return lw.bail("call-inout-derived", `${param.name} is bound to a ${target.type.kind === "function_block" || target.type.kind === "struct" ? target.type.name : target.type.kind}, not its own type`, arg.span)
   return target
 }
+
+/** A body that writes nothing but its own locals and calls nothing (IR walked whole; a type's scope graph is skipped). */
+function writesOnlyLocals(node: unknown): boolean {
+  if (Array.isArray(node)) return node.every(writesOnlyLocals)
+  if (node === null || typeof node !== "object") return true
+  const n = node as { kind?: string; target?: Place }
+  if (n.kind === "invoke" || n.kind === "dispatch" || n.kind === "call") return false
+  if (n.kind === "assign" && n.target?.root !== "local") return false
+  return Object.entries(node).every(([key, child]) => key === "type" || key === "of" || key === "span" || writesOnlyLocals(child))
+}
+
+/** A binding that is the caller's place — not a copy lent to a VAR_IN_OUT CONSTANT. */
+const isPlace = (b: IrBinding | undefined): b is Place => b !== undefined && !("kind" in b)
 
 /**
  * `inst.M(a := x)`, `M()` inside an FB, `SUPER^.M()`, `inst.A()` or `F(x)` → an `IrInvoke`. Arguments bind by name;
@@ -437,8 +472,8 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
   if (routine === undefined) return undefined
 
   const inputs: (IrExpr | undefined)[] = routine.inputs.map(() => undefined)
-  const inouts: (Place | undefined)[] = routine.inouts.map(() => undefined)
-  const held = () => [...(instance === undefined ? [] : [instance]), ...inouts.filter((p): p is Place => p !== undefined)]
+  const inouts: (IrBinding | undefined)[] = routine.inouts.map(() => undefined)
+  const held = () => [...(instance === undefined ? [] : [instance]), ...inouts.filter(isPlace)]
   for (const [position, arg] of call.args.entries()) {
     const name = arg.param?.name.toUpperCase()
     const bound = name === undefined ? -1 : routine.inouts.findIndex((p) => p.name.toUpperCase() === name)
@@ -447,7 +482,7 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     if (arg.output) {
       if (param?.section !== "VAR_OUTPUT") return lw.bail("call-output", `${arg.param?.name ?? "an argument"} is no VAR_OUTPUT of ${routine.name}`, arg.span)
       if (arg.value === undefined) continue
-      const target = bindInOut(lw, arg, param, held())
+      const target = bindInOut(lw, arg, param, held(), routine.body)
       if (target === undefined) return undefined
       if (target.type.kind !== "elementary" || param.type.kind !== "elementary" || target.type.name !== param.type.name || target.type.length !== param.type.length)
         return lw.bail("call-output-type", `${param.name} is read into a variable of another type`, arg.span)
@@ -463,7 +498,7 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     } else {
       if (param?.section === "VAR_OUTPUT") return lw.bail("call-output", `${param.name} is a VAR_OUTPUT, bound with :=`, arg.span)
       if (param !== undefined) {
-        const target = bindInOut(lw, arg, param, held())
+        const target = bindInOut(lw, arg, param, held(), routine.body)
         if (target === undefined) return undefined
         inouts[bound] = target
         continue
@@ -496,7 +531,7 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     inouts[i] = temp
   }
   const type = routine.result === undefined ? UNKNOWN : routine.locals[routine.result]!.type
-  return { kind: "invoke", routine: routine.key, ...(instance === undefined ? {} : { instance }), inputs: inputs as IrExpr[], inouts: inouts as Place[], type, span: call.span }
+  return { kind: "invoke", routine: routine.key, ...(instance === undefined ? {} : { instance }), inputs: inputs as IrExpr[], inouts: inouts as IrBinding[], type, span: call.span }
 }
 
 /**
@@ -568,14 +603,14 @@ function lowerSuperCall(lw: Lowering, call: Extract<Statement, { kind: "call_stm
   if (routine === undefined) return undefined
   const instance = thisPlace(frame, call.callee.span)
   const before: IrStmt[] = []
-  const inouts: (Place | undefined)[] = routine.inouts.map(() => undefined)
+  const inouts: (IrBinding | undefined)[] = routine.inouts.map(() => undefined)
   for (const arg of call.args) {
     if (arg.param === undefined || arg.output) return lw.bail("call-positional", "SUPER^ called with a positional or output argument", arg.span)
     if (arg.value === undefined) continue
     const name = arg.param.name.toUpperCase()
     const k = routine.inouts.findIndex((p) => p.name.toUpperCase() === name)
     if (k >= 0) {
-      const target = bindInOut(lw, arg, routine.inouts[k]!, [instance, ...inouts.filter((p): p is Place => p !== undefined)])
+      const target = bindInOut(lw, arg, routine.inouts[k]!, [instance, ...inouts.filter(isPlace)], routine.body)
       if (target === undefined) return undefined
       inouts[k] = target
       continue
@@ -588,7 +623,7 @@ function lowerSuperCall(lw: Lowering, call: Extract<Statement, { kind: "call_stm
     before.push({ kind: "assign", target: member, value: convert(value, field.type), span: arg.span })
   }
   if (inouts.includes(undefined)) return lw.bail("call-inout-missing", `SUPER^ called without every VAR_IN_OUT`, call.span)
-  const invoke: IrInvoke = { kind: "invoke", routine: routine.key, instance, inputs: [], inouts: inouts as Place[], type: UNKNOWN, span: call.span }
+  const invoke: IrInvoke = { kind: "invoke", routine: routine.key, instance, inputs: [], inouts: inouts as IrBinding[], type: UNKNOWN, span: call.span }
   return [...before, { kind: "eval", value: invoke, span: call.span }]
 }
 
@@ -641,7 +676,7 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
 
   const before: IrStmt[] = []
   const after: IrStmt[] = []
-  const bound = new Map<string, Place>()
+  const bound = new Map<string, IrBinding>()
   const inouts = layout.inouts ?? []
   for (const arg of call.args) {
     if (arg.param === undefined) return lw.bail("call-positional", `${layout.name} called with a positional argument`, arg.span)
@@ -649,7 +684,7 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
     const name = arg.param.name.toUpperCase()
     const param = inouts.find((p) => p.name.toUpperCase() === name)
     if (param !== undefined) {
-      const target = bindInOut(lw, arg, param, [instance, ...bound.values()])
+      const target = bindInOut(lw, arg, param, [instance, ...[...bound.values()].filter(isPlace)], layout.body ?? [])
       if (target === undefined) return undefined
       bound.set(name, target)
       continue
@@ -665,6 +700,9 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
       after.push({ kind: "assign", target, value: convert(value, target.type), span: arg.span })
     } else {
       if (field.type.kind === "interface") return lw.bail("interface-input", "an interface passed as an input — not built yet", arg.span)
+      // an input stored into an instance lent through a VAR_IN_OUT CONSTANT: CODESYS calls one (`inout_const_fb_call_13`), but
+      // storing into it is not recorded — refused as the store it is
+      if (refuseConstantWrite(lw, member, arg.span)) return undefined
       const value = lowerExpr(lw, arg.value, field.type)
       if (value === undefined) return undefined
       before.push({ kind: "assign", target: member, value: convert(value, field.type), span: arg.span })

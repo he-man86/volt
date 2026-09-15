@@ -188,4 +188,106 @@ END_VAR
 Matches := text = 'abc';
 END_METHOD
 `),
+  // The batch's review found forms no recording answered: an FB call binding a variable and a STRING literal (only an FB's
+  // INT literal was recorded, and it does not compile), the address of the in-out, and an FB instance lent read-only —
+  // its METHOD and output read, and the instance called.
+  fb("inout_const_fb_variable_10", "FB_IOC_user10", "an FB's VAR_IN_OUT CONSTANT bound to a variable and a STRING one to a literal, through the FB call",
+    `FUNCTION_BLOCK FB_IOC_holder10
+VAR_IN_OUT CONSTANT
+	threshold : INT;
+	label : STRING;
+END_VAR
+VAR_OUTPUT
+	doubled : INT;
+	labelMatches : BOOL;
+END_VAR
+doubled := threshold * 2;
+labelMatches := label = 'abc';
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_IOC_user10
+VAR
+	holder : FB_IOC_holder10;
+	plainVar : INT := 5;
+	got : INT;
+	matched : BOOL;
+END_VAR
+holder(threshold := plainVar, label := 'abc');
+got := holder.doubled;
+matched := holder.labelMatches;
+END_FUNCTION_BLOCK
+`),
+  fb("inout_const_adr_11", "FB_IOC_user11", "the address of a VAR_IN_OUT CONSTANT taken, and read through",
+    `FUNCTION F_IOC_viaPointer11 : INT
+VAR_IN_OUT CONSTANT
+	value : INT;
+END_VAR
+VAR
+	pointerToValue : POINTER TO INT;
+END_VAR
+pointerToValue := ADR(value);
+F_IOC_viaPointer11 := pointerToValue^;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_IOC_user11
+VAR
+	plainVar : INT := 9;
+	got : INT;
+END_VAR
+got := F_IOC_viaPointer11(value := plainVar);
+END_FUNCTION_BLOCK
+`),
+  fb("inout_const_fb_method_12", "FB_IOC_user12", "an FB instance lent as VAR_IN_OUT CONSTANT: its METHOD called and its output read",
+    `FUNCTION_BLOCK FB_IOC_counter12
+VAR
+	count : INT := 3;
+END_VAR
+VAR_OUTPUT
+	shown : INT := 7;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD Peek : INT
+Peek := count;
+END_METHOD
+
+FUNCTION F_IOC_peek12 : INT
+VAR_IN_OUT CONSTANT
+	lentCounter : FB_IOC_counter12;
+END_VAR
+F_IOC_peek12 := lentCounter.Peek() + lentCounter.shown;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_IOC_user12
+VAR
+	counter : FB_IOC_counter12;
+	got : INT;
+END_VAR
+got := F_IOC_peek12(lentCounter := counter);
+END_FUNCTION_BLOCK
+`),
+  fb("inout_const_fb_call_13", "FB_IOC_user13", "an FB instance lent as VAR_IN_OUT CONSTANT, called",
+    `FUNCTION_BLOCK FB_IOC_counter13
+VAR_OUTPUT
+	calls : INT;
+END_VAR
+calls := calls + 1;
+END_FUNCTION_BLOCK
+
+FUNCTION F_IOC_call13 : INT
+VAR_IN_OUT CONSTANT
+	lentCounter : FB_IOC_counter13;
+END_VAR
+lentCounter();
+F_IOC_call13 := lentCounter.calls;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_IOC_user13
+VAR
+	counter : FB_IOC_counter13;
+	got : INT;
+END_VAR
+got := F_IOC_call13(lentCounter := counter);
+END_FUNCTION_BLOCK
+`),
 ]

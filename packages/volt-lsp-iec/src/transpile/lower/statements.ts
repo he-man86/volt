@@ -8,7 +8,7 @@ import type { Lowering } from "./lowering.js"
 import { convert } from "./convert.js"
 import { foldConstant } from "./constants.js"
 import { lowerPlace } from "./places.js"
-import { bindReference, pointeePlace, storePointer, through } from "./pointers.js"
+import { bindReference, pointeePlace, refuseConstantWrite, storePointer, through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 import { lowerCallStatement, lowerPropertySet } from "./calls.js"
 import { refuseUnionWrite, unionCopies } from "./unions.js"
@@ -78,7 +78,7 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
       if (s.chained !== undefined) return lowerChain(lw, s)
       if (s.op === "REF=") return bindReference(lw, s)
       const target = lowerPlace(lw, s.target)
-      if (target === undefined) return undefined
+      if (target === undefined || refuseConstantWrite(lw, target, s.span)) return undefined
       if (s.op === "S=" || s.op === "R=") {
         // A LATCH, not an assignment: `x S= c` sets x only when c is TRUE and otherwise leaves it — `latched := TRUE;
         // latched S= FALSE` stays TRUE — and `R=` clears the same way. The whole right-hand side is the condition:
@@ -96,7 +96,7 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
       if (target.type.kind === "reference") {
         // a write through a reference is a write to its target
         const pointee = pointeePlace(lw, target, undefined, s.span)
-        if (pointee === undefined) return undefined
+        if (pointee === undefined || refuseConstantWrite(lw, pointee, s.span)) return undefined
         const written = lowerExpr(lw, s.value, pointee.type)
         return written && { kind: "assign", target: pointee, value: convert(written, pointee.type), span: s.span }
       }
@@ -177,7 +177,7 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
  */
 export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): IrStmt | undefined {
   const control = lowerPlace(lw, s.controlVar)
-  if (control === undefined || refuseUnionWrite(lw, control, s.controlVar.span)) return undefined
+  if (control === undefined || refuseUnionWrite(lw, control, s.controlVar.span) || refuseConstantWrite(lw, control, s.controlVar.span)) return undefined
   const from = lowerExpr(lw, s.from, control.type)
   const to = lowerExpr(lw, s.to, control.type)
   if (from === undefined || to === undefined) return undefined

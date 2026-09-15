@@ -68,10 +68,7 @@ class Machine {
   private invoke(e: IrInvoke): Val {
     const routine = this.routines.get(e.routine)!
     const inputs = e.inputs.map((x) => this.expr(x))
-    const bound = e.inouts.map((p): Cell => {
-      const cell = this.locate(p)
-      return { container: cell.container as Record<string | number, Val>, key: cell.key }
-    })
+    const bound = e.inouts.map((b) => this.bind(b))
     const locals = routine.locals.map((s) => instantiate(s.type, s.init, this.layouts))
     routine.inputs.forEach((index, k) => {
       const value = inputs[k]!
@@ -86,6 +83,16 @@ class Machine {
     }
     new Machine(root, keys, bound, this.layouts, this.routines, this.globals, locals).block(routine.body)
     return routine.result === undefined ? false : locals[routine.result]!
+  }
+
+  /** A VAR_IN_OUT binding: the caller's place itself — or, lent to a VAR_IN_OUT CONSTANT, a cell holding a copy of a value. */
+  private bind(b: import("../ir/index.js").IrBinding): Cell {
+    if ("kind" in b) {
+      const value = this.expr(b.value)
+      return { container: { v: typeof value === "object" ? copy(value) : fit(value, b.type) }, key: "v" }
+    }
+    const cell = this.locate(b)
+    return { container: cell.container as Record<string | number, Val>, key: cell.key }
   }
 
   /** The container and key the steps before a place's last one lead to — where a read or write lands. */
@@ -314,10 +321,7 @@ class Machine {
         const at = this.locate(s.instance)
         const instance = (at.container as Record<string | number, Val>)[at.key] as Record<string | number, Val>
         const layout = this.layouts.get(s.fb.toUpperCase())!
-        const bound = s.inouts.map((p): Cell => {
-          const cell = this.locate(p)
-          return { container: cell.container as Record<string | number, Val>, key: cell.key }
-        })
+        const bound = s.inouts.map((b) => this.bind(b))
         new Machine(instance, layout.fields.map((f) => f.name.toUpperCase()), bound, this.layouts, this.routines, this.globals).block(layout.body!)
         return "none"
       }

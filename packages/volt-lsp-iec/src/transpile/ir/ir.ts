@@ -141,7 +141,22 @@ export interface IrInvoke {
   /** One value per VAR_INPUT, in declaration order, already converted to it. */
   inputs: readonly IrExpr[]
   /** The VAR_IN_OUT arguments, in declaration order. */
-  inouts: readonly Place[]
+  inouts: readonly IrBinding[]
+  type: Type
+  span: Span
+}
+
+/**
+ * What a VAR_IN_OUT is bound to for a call: the caller's place (a `&mut`, or a `&` for a VAR_IN_OUT CONSTANT) — or, for a
+ * VAR_IN_OUT CONSTANT only, a COPY of a value lent for the call (a `&{ value }` in Rust): a literal with no place of its
+ * own, or a variable the call already holds mutably, where the callee provably changes nothing while it reads it.
+ */
+export type IrBinding = Place | IrCopy
+
+export interface IrCopy {
+  kind: "copy"
+  value: IrExpr
+  /** The parameter's type — the copy is stored as it. */
   type: Type
   span: Span
 }
@@ -249,8 +264,8 @@ export interface IrCall {
   instance: Place
   /** The FB's layout name. */
   fb: string
-  /** The VAR_IN_OUT arguments, in the FB's parameter order — the caller's places, bound for the call. */
-  inouts: readonly Place[]
+  /** The VAR_IN_OUT arguments, in the FB's parameter order — the caller's places (or copies), bound for the call. */
+  inouts: readonly IrBinding[]
   span: Span
 }
 
@@ -316,6 +331,12 @@ export interface IrSlot {
   section: VarSectionKind | "temp" | "program"
   /** The initial value: the declaration's, constant-folded, or the type's zero (`defaultValueOf`). */
   init: IrInit
+  /** A VAR_IN_OUT CONSTANT: no store into it lowers, however it is written (conformance `inout_const_write_5`). */
+  constant?: boolean
+  /** Lent as a shared `&`: a VAR_IN_OUT CONSTANT that holds no FB instance. One that does is lent `&mut`, as any in-out:
+   *  CODESYS calls the instance and its METHODs through it (`inout_const_fb_method_12`, `inout_const_fb_call_13`), and
+   *  each of those runs on `&mut self`. */
+  readOnly?: boolean
 }
 
 /**

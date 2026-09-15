@@ -4,7 +4,7 @@
 import type { AggregateElement, AggregateInit, Expr, Initializer, Span, TypeDecl, TypeExpr, VarDecl, VarSection } from "../../syntax/index.js"
 import { lookup } from "../../symbols/index.js"
 import { DEFAULT_STRING_LENGTH, resolveNamedType, type Type } from "../../types/index.js"
-import { defaultValueOf, type IrInit, type IrStmt, type IrValue } from "../ir/index.js"
+import { defaultValueOf, type IrInit, type IrStmt, type IrValue, peelArray } from "../ir/index.js"
 import { baseOf, Lowering, ZERO_SPAN } from "./lowering.js"
 import { stored, valueAs } from "./convert.js"
 import { calendarOf, durationOf, enumStorage, foldConstant, stringLiteralText, typedRealOf } from "./constants.js"
@@ -253,9 +253,18 @@ export function declareInOuts(lw: Lowering, sections: readonly VarSection[]): vo
       const type = storageOf(lw, lw.resolve(decl.type))
       for (const name of decl.names) {
         lw.inoutByName.set(name.text.toUpperCase(), lw.inoutSlots.length)
-        lw.inoutSlots.push({ name: name.text, type, section: "VAR_IN_OUT", init: defaultValueOf(type) })
+        const constant = sec.constant === true ? { constant: true, ...(holdsInstance(lw, type) ? {} : { readOnly: true }) } : {}
+        lw.inoutSlots.push({ name: name.text, type, section: "VAR_IN_OUT", init: defaultValueOf(type), ...constant })
       }
     }
+}
+
+/** Whether a value of `t` holds an FB instance — it is one, or an element or a field at any depth is. */
+export function holdsInstance(lw: Lowering, t: Type): boolean {
+  const array = peelArray(t)
+  if (array !== undefined) return holdsInstance(lw, array.element)
+  if (t.kind === "function_block") return true
+  return t.kind === "struct" && (lw.layouts.get(t.name.toUpperCase())?.fields ?? []).some((f) => holdsInstance(lw, f.type))
 }
 
 /** The initializer the variable's alias type carries. ponytail: an alias OF an alias is unmeasured, so only the

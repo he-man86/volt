@@ -386,16 +386,18 @@ each declaration kind in one of three forms:
   every body as `g`/`prg`); an `AT` variable (plain storage, as the simulator runs it — refused where its address aliases
   another variable or is shared by several instances of an FB).
 - **Borrowed for the call** — VAR_IN_OUT: a `&mut` parameter that never outlives the call. A root PROGRAM's or FB's
-  VAR_IN_OUT has no caller and is refused.
+  VAR_IN_OUT has no caller and is refused. A VAR_IN_OUT CONSTANT holding no FB instance is a shared `&`: a variable is
+  lent by reference, a STRING literal (and a variable the call already holds mutably, when the callee provably changes
+  nothing) as a copy taken into a `let` before the call. One holding an FB instance is `&mut` — CODESYS calls the lent
+  instance and its METHODs, each on `&mut self` — and no store into either kind lowers.
 - **A handle, re-borrowed at each use** — POINTER TO, REFERENCE TO and interfaces stored in a frame. They outlive the call
   and usually point into the struct that holds them, which a Rust borrow cannot express without a self-referential
   struct; a `usize` (one target, §9 form 1) or a `u64` instance tag (§22) names the target, and each dereference is a
   fresh borrow of that place.
 
 Open in this model (tasks.md): a routine's VAR_OUTPUT is a `&mut` reset on entry, where CODESYS copies it back after
-the call — equal while every binding the callee could also see is refused, not beyond; VAR_IN_OUT CONSTANT prints `&mut`
-where `&` states it; a stored pointer with several targets needs a multi-target handle; a REFERENCE or POINTER input of a
-routine could be a borrow for the call.
+the call — equal while every binding the callee could also see is refused, not beyond; a stored pointer with several
+targets needs a multi-target handle; a REFERENCE or POINTER input of a routine could be a borrow for the call.
 
 ## 22. An interface holds its instance's tag; a call through it is a dispatch
 

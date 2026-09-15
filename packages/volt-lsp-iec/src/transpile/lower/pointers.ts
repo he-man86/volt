@@ -156,7 +156,20 @@ export function through(lw: Lowering, place: Place, span: Span): Place | undefin
   // an interface's instances are recorded only by a plain `:=` (`storeInterface`)
   if (place.type.kind === "interface") return lw.bail("interface-store", "an interface stored by anything but a plain `:=`", span)
   const written = place.type.kind === "reference" ? pointeePlace(lw, place, undefined, span) : place
-  return written === undefined || refuseUnionWrite(lw, written, span) ? undefined : written
+  return written === undefined || refuseUnionWrite(lw, written, span) || refuseConstantWrite(lw, written, span) ? undefined : written
+}
+
+/**
+ * A store into a VAR_IN_OUT CONSTANT — "'value' is no valid assignment target" (conformance `inout_const_write_5`, a `:=`):
+ * refused however it is written — a store, a latch, a chain link, an output, a FOR variable, an input stored into a lent
+ * instance, a store through a pointer or reference to it (its address may be taken, `inout_const_adr_11`, and read).
+ * Only the `:=` is recorded; the rest are refused as the stores they are, not claimed as the compiler's.
+ */
+export function refuseConstantWrite(lw: Lowering, place: Place, span: Span): boolean {
+  const slot = place.root === "inout" ? lw.inoutSlots[place.slot] : undefined
+  if (slot?.constant !== true) return false
+  lw.bail("inout-constant-write", `'${slot.name}' is a VAR_IN_OUT CONSTANT — no valid assignment target`, span)
+  return true
 }
 
 /** A place read as a value: a REFERENCE reads its target; a POINTER's own value is refused — it is not a real address

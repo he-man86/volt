@@ -375,13 +375,24 @@ taken apart by construct before anything is built — record first, then build, 
       across scans, an FB's refused). Conformance lowering **444 → 447 of 462**. *Why missed:* no running fixture declared
       any of them — the section fixtures only prove the declarations compile, and VAR_TEMP was only recorded in a METHOD.
 - [ ] A routine's VAR_OUTPUT as a local copied back after the call, not a `&mut` reset on entry.
-- [ ] VAR_IN_OUT CONSTANT as `&`. Recorded (`inout-constant.ts`, CODESYS SP21), in a FUNCTION, a METHOD and an FB
+- [x] VAR_IN_OUT CONSTANT as `&`. Recorded (`inout-constant.ts`, CODESYS SP21), in a FUNCTION, a METHOD and an FB
       alike: a variable binds (7 → 6), a STRING literal and a STRING `VAR CONSTANT` bind; an integer literal, an integer
       `VAR CONSTANT` and an expression do not ("VAR_IN_OUT CONSTANT parameter … needs variable as input" — the expression
       in the plain in-out wording); a write inside the callee does not compile. Transpiler today: a variable and a STRING
       constant lower (as `&mut` — values right, borrow too wide); a STRING literal is refused (`place-shape`); a
       METHOD bound to its own field is refused (`call-inout-alias`). The LSP's in-out check treated the section as a
       plain VAR_IN_OUT — false positives on the STRING forms, fixed with the recording.
+      Built (design §23): `IrBinding` = the caller's place or a copy. A VAR_IN_OUT CONSTANT holding no FB instance is lent
+      `&`; a STRING literal is lent as a copy; a variable the call already holds mutably (the instance a METHOD runs on,
+      or `g`) as a copy only when the callee writes nothing but locals and calls nothing; every copy is taken into a `let`
+      before the call. One holding an FB instance is lent `&mut`, as recorded later: CODESYS calls the lent instance and
+      its METHODs (`inout_const_fb_method_12`, `_call_13`) and takes the in-out's address (`inout_const_adr_11`). Every
+      store into it — `:=`, chain, FOR, input of a lent instance, through a pointer or reference — is refused.
+      Conformance lowering **449 → 455 of 470**. The batch's review workflow (4 lenses, adversarial verify) confirmed
+      12 findings, all folded in: a copy beside a `&mut` of the same variable (E0503 → `let` first); calls on a lent
+      instance through `&` (E0596 → recorded, lent `&mut`); ADR refused in unrecorded wording (→ recorded, allowed);
+      `(own)` skipping the alias check; missing negative tests. Open: the copy rule refuses callees that write fields or
+      outputs that cannot reach the lent variable (coverage only, never a wrong result).
 - [ ] A multi-target handle for stored POINTER/REFERENCE (`pointer-targets`).
 - [ ] REFERENCE/POINTER inputs of a routine as borrows for the call — and interface inputs (`itf_function_input`).
 

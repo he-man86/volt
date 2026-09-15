@@ -17,7 +17,7 @@
  * rather than Rust's overflow-panicking defaults. The width comes from `types/elementary`, the same facts the
  * diagnostics use — there is no second table of type sizes here.
  */
-import type { IrExpr, IrInit, IrLayout, IrMathName, IrPou, IrRoutine, IrStmt, IrValue, Place } from "../../ir/index.js"
+import type { IrBinding, IrExpr, IrInit, IrLayout, IrMathName, IrPou, IrRoutine, IrStmt, IrValue, Place } from "../../ir/index.js"
 import { defaultValueOf, isBit, peelArray } from "../../ir/index.js"
 import type { Span } from "../../../syntax/index.js"
 import type { Type } from "../../../types/index.js"
@@ -233,6 +233,21 @@ class Printer {
     ;[this.fields, this.frame] = saved
   }
 
+  /** A VAR_IN_OUT argument: `&mut place` — a VAR_IN_OUT CONSTANT's `&place`, or `&__lent_i`, the copy `lentCopies` took. */
+  lend(b: IrBinding, i: number, param: IrPou["slots"][number], slots: IrPou["slots"]): string {
+    if ("kind" in b) return `&__lent_${i}`
+    return `${param.readOnly === true ? "&" : "&mut "}${this.place(b, slots)}`
+  }
+
+  /**
+   * The copies a call lends its VAR_IN_OUT CONSTANTs, each into a `let` before the call — so a copy of `x` sits beside a
+   * `&mut x` of the same call, which `f(&mut self.x, &{ self.x })` could not (E0503; review of the batch, 2026-09-15). No
+   * argument holds a call (`call-nested`), so taking them first changes no order anything can observe.
+   */
+  lentCopies(bindings: readonly IrBinding[], slots: IrPou["slots"]): string {
+    return bindings.flatMap((b, i) => ("kind" in b ? [`let __lent_${i} = ${this.expr(b.value, slots)};`] : [])).join(" ")
+  }
+
   /** A read through a dereference, checked first: `{ iec_deref(self.p); self.value }` — the null pointer panics. */
   guarded(place: Place, text: string, slots: IrPou["slots"]): string {
     return place.guard === undefined ? text : `{ iec_deref(${this.place(place.guard, slots)}); ${text} }`
@@ -298,11 +313,13 @@ class Printer {
       case "invoke": {
         // the inputs by value, then the VAR_IN_OUT as `&mut` — a METHOD or ACTION on its instance, a FUNCTION free
         const routine = this.routines.get(e.routine)!
-        const args = [...this.globalsArg, ...e.inputs.map((a) => this.expr(a, slots)), ...e.inouts.map((p) => `&mut ${this.place(p, slots)}`)].join(", ")
+        const args = [...this.globalsArg, ...e.inputs.map((a) => this.expr(a, slots)), ...e.inouts.map((b, i) => this.lend(b, i, routine.inouts[i]!, slots))].join(", ")
         const fn = routineFnName(routine)
         const call = e.instance === undefined ? `${fn}(${args})` : this.guarded(e.instance, `${this.place(e.instance, slots)}.${fn}(${args})`, slots)
         // a VAR_IN_OUT bound through a dereference is checked before the call, as the interpreter checks it when binding
-        return e.inouts.reduce((text, p) => this.guarded(p, text, slots), call)
+        const checked = e.inouts.reduce((text, b) => ("kind" in b ? text : this.guarded(b, text, slots)), call)
+        const lets = this.lentCopies(e.inouts, slots)
+        return lets === "" ? checked : `{ ${lets} ${checked} }`
       }
       case "dispatch": {
         // a call through an interface: its value picks the instance; none — a null interface — panics (design §22)
@@ -538,16 +555,18 @@ class Printer {
         // the inputs were assigned before this line and the outputs are read after it; VAR_IN_OUT is a `&mut` (design §9)
         this.guardLine(s.instance, slots, indent)
         // a VAR_IN_OUT bound through a dereference is checked too — the interpreter checks it when it binds the argument
-        for (const p of s.inouts) this.guardLine(p, slots, indent)
-        const bound = [...this.globalsArg, ...s.inouts.map((p) => `&mut ${this.place(p, slots)}`)].join(", ")
+        for (const b of s.inouts) if (!("kind" in b)) this.guardLine(b, slots, indent)
+        const params = this.layouts.get(s.fb.toUpperCase())?.layout.inouts ?? []
+        const bound = [...this.globalsArg, ...s.inouts.map((b, i) => this.lend(b, i, params[i]!, slots))].join(", ")
         const instance = this.place(s.instance, slots)
+        const lets = this.lentCopies(s.inouts, slots)
         // A PROGRAM's instance lives in `Programs`, which the call is handed too — `prg.p.call(g, prg)` would borrow it
         // twice (E0499) — so it runs moved out and back. Lowering refuses a program whose run reaches its own instance.
         if (s.instance.root === "global" && s.instance.path.length === 0 && this.globals.slots[s.instance.slot]?.section === "program") {
-          this.push(`{ let mut program = std::mem::replace(&mut ${instance}, ${rustName(s.fb)}::new()); program.call(${bound}); ${instance} = program; }`, indent, s.span)
+          this.push(`{ ${lets}${lets === "" ? "" : " "}let mut program = std::mem::replace(&mut ${instance}, ${rustName(s.fb)}::new()); program.call(${bound}); ${instance} = program; }`, indent, s.span)
           return
         }
-        this.push(`${instance}.call(${bound});`, indent, s.span)
+        this.push(lets === "" ? `${instance}.call(${bound});` : `{ ${lets} ${instance}.call(${bound}); }`, indent, s.span)
         return
       }
     }
@@ -585,7 +604,8 @@ function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[],
     ...(routine.kind === "function" ? [] : ["&mut self"]),
     ...p.globalsParams,
     ...routine.inputs.map((i) => `mut ${localNames[i]}: ${rustType(routine.locals[i]!.type)}`),
-    ...routine.inouts.map((slot, i) => `${inoutNames[i]}: &mut ${rustType(slot.type)}`),
+    // a VAR_IN_OUT CONSTANT is lent read-only — rustc refuses a write through it, as CODESYS does
+    ...routine.inouts.map((slot, i) => `${inoutNames[i]}: ${slot.readOnly === true ? "&" : "&mut "}${rustType(slot.type)}`),
   ]
   const result = routine.result === undefined ? undefined : localNames[routine.result]!
   const returns = routine.result === undefined ? "" : ` -> ${rustType(routine.locals[routine.result]!.type)}`
@@ -712,7 +732,7 @@ export function emitRust(pou: IrPou): Emitted {
     if (layout.body !== undefined) {
       const inouts = layout.inouts ?? []
       const inoutNames = fieldNames(inouts, reserved)
-      const params = [...globalsParam, ...inouts.map((slot, i) => `${inoutNames[i]}: &mut ${rustType(slot.type)}`)].map((param) => `, ${param}`).join("")
+      const params = [...globalsParam, ...inouts.map((slot, i) => `${inoutNames[i]}: ${slot.readOnly === true ? "&" : "&mut "}${rustType(slot.type)}`)].map((param) => `, ${param}`).join("")
       p.push("", 0)
       if (globalsParam.length > 0) p.push("#[allow(unused_variables)]", 1)
       p.push(`pub fn call(&mut self${params}) {`, 1)
