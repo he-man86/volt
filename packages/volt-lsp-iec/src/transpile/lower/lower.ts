@@ -13,8 +13,14 @@
  *   consts  → `types/` (`constEval`) folds initializers and CASE labels
  *   IEC facts → `types/elementary` (bits · signed · family · rank), the source of truth a backend maps from
  *
- * ponytail: the executable core only — assignment, expressions, IF/CASE, the three loops. Calls, arrays,
- * structs, pointers and FB instances each report their own code and are counted, not guessed at.
+ * One file per concern, each a set of `function f(lw: Lowering, …)` over the frame being built:
+ *   lower.ts        the entry points (this file)
+ *   lowering.ts     the shared state and the `Lowering` frame — bail, slots, temps, type resolution
+ *   storage.ts      a type's storage and layout; declarations          constants.ts  literals, enums, folding
+ *   places.ts       where a name, field, element or bit lives          convert.ts    conversion nodes
+ *   expressions.ts  operators and their promotion                      builtins.ts   value functions, strings
+ *   statements.ts   assignment, IF, CASE, loops                        calls.ts      FB bodies, routines, in-outs
+ *   pointers.ts     POINTER / REFERENCE (design §9 form 1)             bytes.ts      SIZEOF, ADR differences
  */
 import { isGraphicalBody, parseSource, parseStatements, type TopLevel, unitAttributes } from "../../syntax/index.js"
 import { buildSymbolTable, type Scope, scopeForUnit } from "../../symbols/index.js"

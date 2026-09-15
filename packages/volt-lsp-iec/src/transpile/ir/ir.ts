@@ -3,13 +3,12 @@
  *
  * Two decisions shape it, and both are load-bearing:
  *
- * **1. Places, not names.** A variable is a SLOT INDEX into the POU's flat frame, never an identifier looked
- * up at run time. ST's memory model is one static image: instances are fixed allocations, `VAR_IN_OUT` is a
- * pointer, `POINTER TO`/`REFERENCE TO` are real aliases, GVLs are global mutable state. Mapping any of that
- * onto Rust `&mut` loses to the borrow checker the moment two aliases live at once — so nothing here ever
- * becomes a Rust reference. A pointer will lower to an index into the same flat frame, which is both safe
- * Rust and what a PLC's memory actually is. `Place.path` is empty today; fields, array indices and derefs
- * append to it without changing a single consumer.
+ * **1. Places, not names.** A variable is a SLOT in a frame — the POU's, an instance's, a routine's locals, the
+ * globals — reached through a `Place.path` of fields, indices and bits, never an identifier looked up at run time.
+ * ST declares all storage up front, so every alias is one of three forms (design §9): the place itself, a
+ * VAR_IN_OUT that never outlives its call (a `&mut` in Rust), or a POINTER / REFERENCE naming its one target (an
+ * index, checked at every dereference). Lowering refuses whatever would need two live `&mut` at once, so the Rust
+ * stays safe.
  *
  * **2. The IR carries semantics; a backend carries none.** Implicit widening is an explicit `convert` node,
  * CASE ranges are resolved bounds, all three loop forms are one `loop`, and every type is a resolved `Type`

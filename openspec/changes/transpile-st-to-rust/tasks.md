@@ -303,6 +303,14 @@ reshaped in place, each commit gated value-for-value by the conformance replay, 
 - [x] **Decision: slot+path, byte-addressed image, or the hybrid.** DONE 2026-09-14 — the handle-first hybrid (user),
       from a corpus census; six `mem_*` fixtures recorded (layout, FB header, pointer steps, method through a pointer,
       ADR of a VAR_IN_OUT member); `memory-sketch.rs` proves the emitted shape is plain safe Rust (design §9).
+- [x] **Multi-agent review after phase 3** (2026-09-15): six confirmed bugs fixed, each with a colocated test and why it
+      was missed — an address re-reading a runtime index, `r = 0` on a REFERENCE, writes through a reference by `=>` /
+      VAR_IN_OUT / `S=` `R=` / chains, `ADR` of another type, a routine calling itself, a call on a GVL instance. The
+      unverified findings were checked (borrow claims by compiling): eager BOOL AND/OR in Rust, in-out aliasing across
+      bindings and THIS^, a call nested in a call's arguments, a bit store naming its place twice, SIZEOF of derived
+      and in-out layouts, an enum type's default — fixed or refused. Then `lower.ts` (~2000 lines) split move-only into
+      one file per concern and `interp/values.ts` out of the machine, gated by an export pin and a byte-identical
+      `lower-completeness`.
 - [ ] `expr-member` (95 POUs, 31%) + `place-shape` (85, 28%) + `expr-index` (4) — fill in `Place.path`.
       ST arrays have arbitrary lower bounds; index normalisation belongs in lowering.
 - [ ] `stmt-call_stmt` (256, **84%** — the single biggest unblocker) — FB instances in the frame.

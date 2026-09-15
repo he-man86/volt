@@ -82,7 +82,7 @@ export function span(s: string, start: number, length: number): string {
   return s.slice(Math.min(start, s.length), Math.min(start + length, s.length))
 }
 
-/** The default a slot holds before its first assignment, from the type's own facts. */
+/** A value that must be a number — lowering typed it so; anything else is an interpreter bug, thrown. */
 export function num(v: Val): bigint | number {
   if (typeof v === "bigint" || typeof v === "number") return v
   throw new TypeError(`expected a number, got ${typeof v}`)

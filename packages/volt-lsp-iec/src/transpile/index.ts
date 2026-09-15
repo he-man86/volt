@@ -5,7 +5,7 @@
  *                          └── emit/rust/    prints it (+ source map)
  *
  * `lower/` owns every ST semantic; the backends are printers. See `ir/ir.ts` for the two decisions that
- * shape all of it — places-not-references, and semantics-in-the-IR.
+ * shape all of it — places-not-names, and semantics-in-the-IR.
  *
  * **The input contract: code CODESYS compiles.** The transpiler is defined only for a program the vendor's compiler
  * accepts, and the gate is that BUILD — not the LSP, whose diagnostics have false negatives. So:
