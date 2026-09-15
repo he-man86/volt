@@ -372,6 +372,31 @@ scan time, and one case proving constants fold to the same answers):
 integer prints `(x.round() as i64) as T` — `f64::round` is exactly half-away-from-zero, and `as` between integers
 wraps. `as bool` does not exist (`!= 0`), nor does `bool as f32` (`as u8` first).
 
+## 23. Every declaration is owned, borrowed, or a handle — and none needs `unsafe`
+
+ST allocates nothing at run time (`__NEW` is refused and unused), so every variable's storage is known when the program
+compiles, and every form of it is safe Rust. The rustc builds forbid `unsafe_code` outright. The review of 2026-09-15 put
+each declaration kind in one of three forms:
+
+- **Owned** — the POU's, instance's or routine's own storage, mutated in place: VAR; VAR_INPUT (an FB's is a field the
+  call assigns, a routine's a by-value parameter — ST copies inputs, and the callee may change its copy); an FB's
+  VAR_OUTPUT (a field read after the call); VAR_INST (an instance field); VAR_STAT (one global per declaring FB or
+  METHOD, shared by every instance — measured for both); VAR_TEMP (a slot started over at its initial value at the head of
+  every run — measured for FB and PROGRAM); GVL variables and called PROGRAMs (owned by `Globals`/`Programs`, lent to
+  every body as `g`/`prg`); an `AT` variable (plain storage, as the simulator runs it — refused where its address aliases
+  another variable or is shared by several instances of an FB).
+- **Borrowed for the call** — VAR_IN_OUT: a `&mut` parameter that never outlives the call. A root PROGRAM's or FB's
+  VAR_IN_OUT has no caller and is refused.
+- **A handle, re-borrowed at each use** — POINTER TO, REFERENCE TO and interfaces stored in a frame. They outlive the call
+  and usually point into the struct that holds them, which a Rust borrow cannot express without a self-referential
+  struct; a `usize` (one target, §9 form 1) or a `u64` instance tag (§22) names the target, and each dereference is a
+  fresh borrow of that place.
+
+Open in this model (tasks.md): a routine's VAR_OUTPUT is a `&mut` reset on entry, where CODESYS copies it back after
+the call — equal while every binding the callee could also see is refused, not beyond; VAR_IN_OUT CONSTANT prints `&mut`
+where `&` states it; a stored pointer with several targets needs a multi-target handle; a REFERENCE or POINTER input of a
+routine could be a borrow for the call.
+
 ## 22. An interface holds its instance's tag; a call through it is a dispatch
 
 Measured (conformance `itf_*`): an interface variable starts null and keeps what it holds across cycles; a call runs the

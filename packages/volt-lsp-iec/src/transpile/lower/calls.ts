@@ -38,7 +38,7 @@ import {
 } from "../ir/index.js"
 import { baseOf, Lowering, type PendingBody } from "./lowering.js"
 import { convert } from "./convert.js"
-import { declareInOuts, declareVars, storageOf } from "./storage.js"
+import { declareInOuts, declareVars, storageOf, tempResets } from "./storage.js"
 import { lowerPlace } from "./places.js"
 import { through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
@@ -126,6 +126,8 @@ function routineLowering(lw: Lowering, scope: Scope, frame: FbType | undefined, 
   touchesOf(lw).set(key, r.touched)
   const layout = frame === undefined ? undefined : lw.layouts.get(frame.name.toUpperCase())
   if (layout !== undefined) r.inherit(layout.fields)
+  // the FB's VAR_STAT, one global each, by their own names (`declareStatics`)
+  for (const shared of layout?.statics ?? []) r.statics.set(shared.name.toUpperCase(), shared.global)
   r.selfType = frame
   r.codeOwner = codeOwner
   // a METHOD's plain slots are its FB's fields, so its pointers there share the FB's keys; its locals are its own
@@ -356,15 +358,14 @@ function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: Span): I
   return once(lw, name, span, () => {
     const chain = chainOf(lw, unit)
     if (chain === undefined) return lw.bail("call-base", `a base of ${unit.name.text} has no body lowering can reach`, span)
-    if (chain.some((u) => u.varSections.some((s) => s.sectionKind === "VAR_TEMP")))
-      return lw.bail("fb-var-temp", `${unit.name.text} has VAR_TEMP — whether it starts over per call is not measured yet`, span)
     if (isGraphicalBody(unit.body)) return lw.bail("graphical-body", `${unit.name.text} has a graphical body`, span)
     const parsed = parseActive(unit.body)
     if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${unit.name.text}'s body did not parse`, span)
     const key = name.toUpperCase()
     const r = routineLowering(lw, base.lowering.scope, frame, base.lowering.codeOwner, key)
     declareInOuts(r, inOutSections(chain))
-    const body = lowerBlock(r, parsed.statements)
+    // the base's own VAR_TEMP starts over each time `SUPER^()` runs it
+    const body = [...(tempResets(r, unit.varSections, unit.span) ?? []), ...lowerBlock(r, parsed.statements)]
     if (r.diagnostics.length > 0) {
       lw.diagnostics.push(...r.diagnostics)
       return undefined
@@ -518,8 +519,6 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
   const unit = pending.unit
   const chain = chainOf(lw, unit)
   if (chain === undefined) return lw.fail(pending, "call-base", `a base of ${name} has no body lowering can reach`, span)
-  if (chain.some((u) => u.varSections.some((s) => s.sectionKind === "VAR_TEMP")))
-    return lw.fail(pending, "fb-var-temp", `${name} has VAR_TEMP — whether it starts over per call is not measured yet`, span)
   if (isGraphicalBody(unit.body)) return lw.fail(pending, "graphical-body", `${name} has a graphical body`, span)
   const parsed = parseActive(unit.body)
   if (!parsed.ok) return lw.fail(pending, "parse", parsed.firstError ?? `${name}'s body did not parse`, span)
@@ -527,7 +526,8 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
   const before = nested.diagnostics.length
   declareInOuts(nested, inOutSections(chain))
   pending.state = "lowering"
-  const body = lowerBlock(nested, parsed.statements)
+  // its own VAR_TEMP starts over on every call (a base's, when `SUPER^()` runs that body)
+  const body = [...(tempResets(nested, unit.varSections, unit.span) ?? []), ...lowerBlock(nested, parsed.statements)]
   // A PROGRAM runs moved out of `Programs` in Rust (the call moves its instance out and back), so a program whose run
   // reaches its own instance — reading `P.x` from an FB it calls — would read a stand-in there. Refused.
   const own = unit.kind === "program" ? lw.shared.globals.byName.get(unit.name.text.toUpperCase()) : undefined

@@ -53,6 +53,9 @@ export interface Shared {
   interfaces: Map<string, { tags: Set<number>; from: { key: string; only?: string }[] }>
   /** Each call through an interface, finished once the POU has lowered (`finishInterfaces`) — true when it reached more. */
   dispatches: ((root: Lowering) => boolean)[]
+  /** Every variable bound AT an address: its area, its bit range under byte and under word addressing, and the frame that
+   *  declares it (`storage.ts` `bindAddress`). */
+  addressed: { area: string; bits: readonly (readonly [number, number])[]; name: string; owner: string }[]
 }
 
 export function newShared(attributes: ReadonlyMap<object, ReadonlySet<string>> = new Map(), root = ""): Shared {
@@ -68,6 +71,7 @@ export function newShared(attributes: ReadonlyMap<object, ReadonlySet<string>> =
     instances: [],
     interfaces: new Map(),
     dispatches: [],
+    addressed: [],
   }
 }
 

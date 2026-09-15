@@ -340,6 +340,9 @@ export interface IrLayout {
   body?: readonly IrStmt[]
   /** An FB's VAR_IN_OUT parameters, in declaration order. */
   inouts?: readonly IrSlot[]
+  /** An FB's VAR_STAT (its bases' included): not fields — one global each, which every instance shares (conformance
+   *  `life_fb_var_stat_instances`) — named here so a path through an instance (`first.counter`) still reaches it. */
+  statics?: readonly { name: string; global: number }[]
 }
 
 /**

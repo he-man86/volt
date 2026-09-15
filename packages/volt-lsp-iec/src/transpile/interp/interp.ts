@@ -353,7 +353,7 @@ export function sameName(a: string, b: string): boolean {
 
 /** A variable path's container, key and type — `inst.q` walks the slot `inst`, then its field `Q`; `arr[2]` subtracts
  *  the dimension's lower bound. Shared by `get` and `set`, so a test reads exactly where the program writes. */
-function resolvePath(pou: IrPou, frame: Val[], layouts: ReadonlyMap<string, IrLayout>, path: string) {
+function resolvePath(pou: IrPou, frame: Val[], globals: Val[], layouts: ReadonlyMap<string, IrLayout>, path: string) {
   // a name may be backtick-quoted — ``fb.`TYPE` `` is how CODESYS names a variable declared `` `TYPE` ``
   // `a[1, 2]` indexes two dimensions: one step each, as `a[1][2]` would
   const parts = [...path.matchAll(/(`[^`]+`|[A-Za-z_]\w*)|\[([^\]]+)\]/g)].flatMap((m) =>
@@ -370,6 +370,14 @@ function resolvePath(pou: IrPou, frame: Val[], layouts: ReadonlyMap<string, IrLa
     if (part[1] !== undefined) {
       const layout = type.kind === "struct" || type.kind === "function_block" ? layouts.get(type.name.toUpperCase()) : undefined
       const field = layout?.fields.find((f) => sameName(f.name, part[1]!))
+      // an FB's VAR_STAT, named through an instance, is the one global every instance shares
+      const shared = field === undefined ? layout?.statics?.find((s) => sameName(s.name, part[1]!)) : undefined
+      if (shared !== undefined) {
+        container = globals as unknown as Record<string | number, Val>
+        key = shared.global
+        type = pou.globals[shared.global]!.type
+        continue
+      }
       if (field === undefined) throw new Error(`no variable ${path} in ${pou.name}`)
       key = field.name.toUpperCase()
       type = field.type
@@ -395,12 +403,12 @@ export function run(pou: IrPou): Runner {
   return {
     frame,
     get: (path) => {
-      const { container, key } = resolvePath(pou, frame, layouts, path)
+      const { container, key } = resolvePath(pou, frame, globals, layouts, path)
       return container[key]!
     },
     // stored as the variable's type holds it, like every write the program makes — a test cannot plant a value the PLC couldn't
     set: (path, value) => {
-      const { container, key, type } = resolvePath(pou, frame, layouts, path)
+      const { container, key, type } = resolvePath(pou, frame, globals, layouts, path)
       container[key] = typeof value === "object" ? copy(value) : fit(value, type)
     },
     scan: () => void machine.block(pou.body),

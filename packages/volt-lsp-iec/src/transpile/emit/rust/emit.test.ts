@@ -338,6 +338,9 @@ describe.skipIf(rustc === null)("emit/rust — compiles", () => {
       // Interfaces (phase 5): a call and a property set and get dispatched on the tag, a copy between interfaces, and
       // __QUERYINTERFACE as a `match` — the arms borrow one instance field each.
       "PROGRAM Interfaces\nVAR sq : FB_Sq; rc : FB_Rc; shapeRef : I_Shape; baseRef : I_Base; found : BOOL; a1 : INT; seen : INT; END_VAR\nIF baseRef <> 0 THEN a1 := baseRef.Area(); END_IF\nshapeRef := sq;\nshapeRef.Size := 5;\nseen := shapeRef.Size;\nbaseRef := shapeRef;\nfound := __QUERYINTERFACE(baseRef, shapeRef);\nbaseRef := rc;\nEND_PROGRAM\nINTERFACE I_Base\nMETHOD Area : INT\nEND_METHOD\nEND_INTERFACE\nINTERFACE I_Shape EXTENDS I_Base\nPROPERTY Size : INT\nGET\nEND_GET\nSET\nEND_SET\nEND_PROPERTY\nEND_INTERFACE\nFUNCTION_BLOCK FB_Sq IMPLEMENTS I_Shape\nVAR side : INT := 3; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := side * side;\nEND_METHOD\nPROPERTY Size : INT\nGET\nSize := side;\nEND_GET\nSET\nside := Size;\nEND_SET\nEND_PROPERTY\nFUNCTION_BLOCK FB_Rc IMPLEMENTS I_Base\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := 7;\nEND_METHOD\n",
+      // Declaration lifetimes (review 2026-09-15): an FB's VAR_STAT one field of `Globals` handed as `g`, VAR_TEMP reset
+      // at the head of the body, the base's in the `SUPER^()` routine, the root's at the head of `scan`.
+      "PROGRAM Lifetimes\nVAR first : FB_LD; second : FB_LD; END_VAR\nVAR_TEMP scratch : INT := 2; END_VAR\nscratch := scratch + 1;\nfirst();\nsecond();\nEND_PROGRAM\nFUNCTION_BLOCK FB_LB\nVAR_STAT counter : INT; END_VAR\nVAR_TEMP baseTemp : INT := 10; END_VAR\nbaseTemp := baseTemp + counter;\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_LD EXTENDS FB_LB\nVAR_TEMP own : INT; END_VAR\nown := own + 1;\ncounter := counter + own;\nSUPER^();\nEND_FUNCTION_BLOCK\n",
       "PROGRAM Inherit\nVAR plain : FB_ID; viaSuper : FB_IS; shared : INT; END_VAR\nplain(inBase := 7, io := shared);\nviaSuper(inBase := 5, io := shared);\nEND_PROGRAM\nFUNCTION_BLOCK FB_IB\nVAR_INPUT inBase : INT; END_VAR\nVAR_IN_OUT io : INT; END_VAR\nVAR nBase : INT; END_VAR\nnBase := nBase + 1;\nio := io + inBase;\nHook();\nEND_FUNCTION_BLOCK\nMETHOD Hook\nnBase := nBase + 10;\nEND_METHOD\nFUNCTION_BLOCK FB_ID EXTENDS FB_IB\nVAR nDerived : INT; END_VAR\nnDerived := nDerived + inBase;\nio := io + 1;\nEND_FUNCTION_BLOCK\nMETHOD Hook\nnDerived := 0;\nEND_METHOD\nFUNCTION_BLOCK FB_IS EXTENDS FB_IB\nSUPER^(inBase := inBase + 100, io := io);\nSUPER^.Hook();\nEND_FUNCTION_BLOCK\nMETHOD Hook\nnBase := nBase - 1;\nEND_METHOD\n",
     ]
     const len = { uri: "Library Manager/Standard/LEN.fun", source: "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\nEND_FUNCTION\n" }
@@ -366,6 +369,9 @@ describe.skipIf(rustc === null)("emit/rust — compiles", () => {
       "--emit=metadata",
       "-D",
       "warnings",
+      // ST has no dynamic memory: every storage form is safe Rust (design §9), and `unsafe` is forbidden outright
+      "-F",
+      "unsafe_code",
       "-A",
       "dead_code",
       // Generated code is not read for style: it is fully parenthesized on purpose, so precedence can never

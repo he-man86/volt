@@ -36,8 +36,8 @@ import { buildSymbolTable, lookup, lookupMember, type Scope, scopeForUnit } from
 import { stored } from "./convert.js"
 import { resolveNamedType, type Type, UNKNOWN } from "../../types/index.js"
 import { type IrPou, type IrRoutine, type IrStmt, type LoweredPou, peelArray, type Place } from "../ir/index.js"
-import { Lowering, newShared } from "./lowering.js"
-import { declareVars, storageOf } from "./storage.js"
+import { baseOf, Lowering, newShared } from "./lowering.js"
+import { declareVars, storageOf, tempResets } from "./storage.js"
 import { lowerBlock } from "./statements.js"
 import { calledLayout, calledRoutine } from "./calls.js"
 import { finishInterfaces } from "./interfaces.js"
@@ -74,11 +74,16 @@ export function lowerUnit(
   let body: IrStmt[]
   if (unit.kind === "function_block") body = rootInstance(lowering, unit)
   else {
+    // A PROGRAM's VAR_IN_OUT is the caller's variable, bound for a call — it lowered as a field the POU owned (review
+    // 2026-09-15). Refused, as a root FB's is (`root-inout`).
+    const inout = unit.varSections.find((s) => s.sectionKind === "VAR_IN_OUT")
+    if (inout !== undefined) return { diagnostics: [{ code: "root-inout", message: `${unit.name.text} has VAR_IN_OUT, which only a caller binds`, span: inout.span }] }
     declareVars(lowering, unit.varSections)
     const parsed = parseActive(unit.body)
     if (!parsed.ok)
       return { diagnostics: [{ code: "parse", message: parsed.firstError ?? "body did not parse", span: unit.span }] }
-    body = lowerBlock(lowering, parsed.statements)
+    // its VAR_TEMP starts over on every scan (conformance `life_program_var_temp_runs`)
+    body = [...(tempResets(lowering, unit.varSections, unit.span) ?? []), ...lowerBlock(lowering, parsed.statements)]
   }
   if (lowering.diagnostics.length > 0) return { diagnostics: lowering.diagnostics }
   const init = initStep(lowering, unit.span)
@@ -91,6 +96,9 @@ export function lowerUnit(
   // category in the coverage report.
   const layouts = [...lowering.layouts.values()]
   const routines = [...lowering.routines.values()].flatMap((r) => (r.state === "lowered" ? [r.routine] : []))
+  const sharedAddress = addressSharedByInstances(lowering, [...lowering.frame, ...lowering.globals, ...routines.flatMap((r) => r.locals)])
+  if (sharedAddress !== undefined)
+    return { diagnostics: [{ code: "var-at-instances", message: `${sharedAddress} binds a variable AT an address and has several instances, which would share it`, span: unit.span }] }
   const unrepresentable = [
     ...lowering.frame,
     ...layouts.flatMap((l) => [...l.fields, ...(l.inouts ?? [])]),
@@ -106,6 +114,32 @@ export function lowerUnit(
   const name = unit.kind === "function_block" ? `${unit.name.text}__root` : unit.name.text
   const pou: IrPou = { name, slots: lowering.frame, body, layouts, routines, globals: lowering.globals, ...(init.length > 0 ? { init } : {}), span: unit.span }
   return { pou, diagnostics: [] }
+}
+
+/**
+ * An FB whose own or inherited field is bound AT an address, and of which the POU holds more than one instance — each one
+ * would be storage of its own, where the address is one place (review 2026-09-15). Instances are counted through fields,
+ * arrays (by length), globals and routine locals; an instance of a derived FB counts for each of its bases.
+ */
+function addressSharedByInstances(lw: Lowering, slots: readonly { type: Type }[]): string | undefined {
+  const addressed = new Set(lw.shared.addressed.filter((a) => a.owner.startsWith("FB:")).map((a) => a.owner.slice(3)))
+  if (addressed.size === 0) return undefined
+  const count = new Map<string, number>()
+  const walk = (t: Type, times: number): void => {
+    const array = peelArray(t)
+    if (array !== undefined) return walk(array.element, times * array.length)
+    if (t.kind !== "struct" && t.kind !== "function_block") return
+    const key = t.name.toUpperCase()
+    for (let unit = lw.bodies.get(key)?.unit; unit !== undefined; ) {
+      const name = unit.name.text.toUpperCase()
+      count.set(name, (count.get(name) ?? 0) + times)
+      const base = baseOf(unit)
+      unit = base === undefined ? undefined : lw.bodies.get(base.text.toUpperCase())?.unit
+    }
+    for (const field of lw.layouts.get(key)?.fields ?? []) walk(field.type, times)
+  }
+  for (const slot of slots) walk(slot.type, 1)
+  return [...addressed].find((fb) => (count.get(fb) ?? 0) > 1)
 }
 
 const INIT_ATTRIBUTE = "call_after_global_init_slot"

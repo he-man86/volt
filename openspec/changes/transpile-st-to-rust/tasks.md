@@ -363,6 +363,22 @@ taken apart by construct before anything is built — record first, then build, 
       (so its "lowered" was wrong, and its base's refusals now count), or an FB with VAR_IN_OUT (`root-inout` — only a
       caller binds one). No FB without EXTENDS or VAR_IN_OUT stopped lowering.
 
+## Review 2026-09-15 — declarations (design §23)
+
+- [x] No `unsafe` anywhere in the generator or prelude; every rustc build now forbids `unsafe_code`.
+- [x] `AT` variables were plain fields without a check. They stay plain storage — the simulator agrees
+      (`operand_hw_address_marker`) — but overlapping addresses (byte or word addressing alike), several names on one
+      address, `%I*`, an address in a routine, and an FB field's address shared by several instances are refused.
+- [x] A root PROGRAM's VAR_IN_OUT lowered as an owned field — refused (`root-inout`).
+- [x] Recorded first (`declaration-lifetimes.ts`): an FB body's VAR_STAT is shared by every instance (was a field per
+      instance); an FB's and a PROGRAM's VAR_TEMP start over at their initial value on every run (a PROGRAM's was kept
+      across scans, an FB's refused). Conformance lowering **444 → 447 of 462**. *Why missed:* no running fixture declared
+      any of them — the section fixtures only prove the declarations compile, and VAR_TEMP was only recorded in a METHOD.
+- [ ] A routine's VAR_OUTPUT as a local copied back after the call, not a `&mut` reset on entry.
+- [ ] VAR_IN_OUT CONSTANT as `&`.
+- [ ] A multi-target handle for stored POINTER/REFERENCE (`pointer-targets`).
+- [ ] REFERENCE/POINTER inputs of a routine as borrows for the call — and interface inputs (`itf_function_input`).
+
 ## Phase 4 — aliasing
 
 - [ ] `VAR_IN_OUT`, `POINTER TO`, `REFERENCE TO`, `expr-deref` — on the phase-3 model.

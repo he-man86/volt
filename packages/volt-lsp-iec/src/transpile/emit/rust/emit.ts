@@ -610,9 +610,10 @@ function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[],
 
 /**
  * A variable path as the IDE names it (`inst.q`, `arr[2].x`) → the Rust field access under a POU value, and the
- * variable's type — how a test reads the emitted program exactly where the interpreter's `get` reads.
+ * variable's type — how a test reads the emitted program exactly where the interpreter's `get` reads. `global`: the path
+ * reaches an FB's VAR_STAT through an instance, and `expr` is then under the `Globals` value.
  */
-export function rustAccess(pou: IrPou, path: string): { expr: string; type: Type } {
+export function rustAccess(pou: IrPou, path: string): { expr: string; type: Type; global: boolean } {
   // `a[1, 2]` indexes two dimensions: one step each, as `a[1][2]` would
   const parts = [...path.matchAll(/(`[^`]+`|[A-Za-z_]\w*)|\[([^\]]+)\]/g)].flatMap((m) =>
     m[2] === undefined ? [m] : m[2].split(",").map((index) => [m[0], undefined, index.trim()] as unknown as RegExpExecArray),
@@ -622,11 +623,21 @@ export function rustAccess(pou: IrPou, path: string): { expr: string; type: Type
   if (slot < 0) throw new Error(`no variable ${path} in ${pou.name}`)
   let expr = fieldNames(pou.slots)[slot]!
   let type = pou.slots[slot]!.type
+  let global = false
   for (const part of parts.slice(1)) {
     if (part[1] !== undefined) {
       const typeName = type.kind === "struct" || type.kind === "function_block" ? type.name.toUpperCase() : undefined
       const layout = pou.layouts.find((l) => l.name.toUpperCase() === typeName)
       const i = layout?.fields.findIndex((f) => bare(f.name) === bare(part[1])) ?? -1
+      const shared = i < 0 ? layout?.statics?.find((s) => bare(s.name) === bare(part[1])) : undefined
+      if (shared !== undefined) {
+        // an FB's VAR_STAT is a field of `Globals`, named as `emitRust` names the GVL variables
+        const variables = pou.globals.filter((s) => s.section !== "program")
+        expr = fieldNames(variables)[variables.indexOf(pou.globals[shared.global]!)]!
+        type = pou.globals[shared.global]!.type
+        global = true
+        continue
+      }
       if (layout === undefined || i < 0) throw new Error(`no variable ${path} in ${pou.name}`)
       expr += `.${fieldNames(layout.fields)[i]}`
       type = layout.fields[i]!.type
@@ -637,7 +648,7 @@ export function rustAccess(pou: IrPou, path: string): { expr: string; type: Type
       type = array.element
     }
   }
-  return { expr, type }
+  return { expr, type, global }
 }
 
 /** Emit one lowered POU as a Rust struct with a `scan` method. */

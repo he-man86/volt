@@ -47,7 +47,7 @@ const recording = JSON.parse(readFileSync(join(import.meta.dir, "recordings", "c
  * The cases with transpiler lowering held above this floor — execution cases and fixtures together. Raise it when more
  * cases lower; never lower it to make a change pass.
  */
-const LOWERED_FLOOR = 444
+const LOWERED_FLOOR = 447
 
 /** The source a case lowers from: the fixture's own units (an execution case has none), then its PLC_PRG. */
 function runSource(c: LanguageTest): string {
@@ -283,11 +283,12 @@ describe.skipIf(rustc === null)("differential execution — emitted Rust vs CODE
       if (pou === undefined)
         return void runs.set(c.name, { exit: -1, stdout: "", stderr: `does not lower: ${diagnostics[0]?.message}` })
       const prints = Object.keys(recording.tests[c.name]!.values!).map((name) => {
-        const { expr, type } = rustAccess(pou, name)
+        const { expr, type, global } = rustAccess(pou, name)
         // A REAL prints with Debug, which keeps its decimal point. A STRING prints its BYTES as a list — not Debug, whose
         // `\u{c}` for a form feed is no JSON — so no control character inside it can break this tab-separated output.
         const family = type.kind === "elementary" ? type.elem.family : undefined
-        const field = `p.${expr}${family === "string" ? ".units()" : ""}`
+        // an FB's VAR_STAT read through an instance lives in the application's globals
+        const field = `${global ? "g" : "p"}.${expr}${family === "string" ? ".units()" : ""}`
         return `    println!("${name}\\t{${family === "real" || family === "string" ? ":?" : ""}}", ${field});`
       })
       const emitted = emitRust(pou)
@@ -304,7 +305,8 @@ describe.skipIf(rustc === null)("differential execution — emitted Rust vs CODE
       const file = join(dir, `${c.name}.rs`)
       const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
       await Bun.write(file, `${emitted.code}\n${main}`)
-      const build = Bun.spawn([rustc!, "--edition", "2021", "-A", "warnings", "-o", exe, file], { stderr: "pipe" })
+      // ST has no dynamic memory, so the Rust needs no `unsafe` — forbidden, so a case needing it fails rather than builds
+      const build = Bun.spawn([rustc!, "--edition", "2021", "-A", "warnings", "-F", "unsafe_code", "-o", exe, file], { stderr: "pipe" })
       if ((await build.exited) !== 0)
         return void runs.set(c.name, {
           exit: -1,

@@ -38,6 +38,7 @@ import { INHERITANCE_TESTS } from "./inheritance.js"
 import { ROUTINE_STATE_TESTS } from "./routine-state.js"
 import { INITIALIZER_TESTS } from "./initializers.js"
 import { INTERFACE_CALL_TESTS } from "./interface-calls.js"
+import { DECLARATION_LIFETIME_TESTS } from "./declaration-lifetimes.js"
 
 export interface CategoryGroup {
   name: string
@@ -85,6 +86,7 @@ export const CATEGORIES: readonly CategoryGroup[] = [
   // ── aggregate initializers: structs by field, nested, arrays of structs, FB instances (phase 3½) ──
   { name: "initializers", tests: INITIALIZER_TESTS },
   { name: "interface-calls", tests: INTERFACE_CALL_TESTS },
+  { name: "declaration-lifetimes", tests: DECLARATION_LIFETIME_TESTS },
 ]
 
 export const ALL_TESTS: readonly LanguageTest[] = CATEGORIES.flatMap((c) => c.tests)
