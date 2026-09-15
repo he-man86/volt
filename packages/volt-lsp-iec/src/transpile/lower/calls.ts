@@ -44,7 +44,7 @@ import { lowerPlace } from "./places.js"
 import { refuseConstantWrite, through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 import { lowerBlock } from "./statements.js"
-import { interfaceCall, interfacePropertyGet, interfacePropertySet } from "./interfaces.js"
+import { interfaceArgument, interfaceCall, interfacePropertyGet, interfacePropertySet, storeInterface } from "./interfaces.js"
 
 type FbType = Extract<Type, { kind: "function_block" }>
 type RoutineSymbol = NonNullable<ReturnType<typeof lookup>>["symbol"]
@@ -125,6 +125,7 @@ function anyInputsOf(lw: Lowering): Map<string, ReadonlySet<number>> {
 function routineLowering(lw: Lowering, scope: Scope, frame: FbType | undefined, codeOwner: Scope | undefined, key: string): Lowering {
   const r = new Lowering(scope, lw.project, lw.shared)
   touchesOf(lw).set(key, r.touched)
+  lw.shared.routineLowerings.set(key, r)
   const layout = frame === undefined ? undefined : lw.layouts.get(frame.name.toUpperCase())
   if (layout !== undefined) r.inherit(layout.fields)
   // the FB's VAR_STAT, one global each, by their own names (`declareStatics`)
@@ -250,7 +251,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
       lw.diagnostics.push(...r.diagnostics)
       return undefined
     }
-    return { name, key, kind: ast.kind, ...(frame === undefined ? {} : { fb: frame.name }), locals: r.localSlots, inputs, inouts: r.inoutSlots, ...(result === undefined ? {} : { result }), body }
+    return { name, key, kind: ast.kind, ...(frame === undefined ? {} : { fb: frame.name }), locals: r.localSlots, inputs, inouts: r.inoutSlots, ...(result === undefined ? {} : { result }), body, lent: r.lends }
   })
 }
 
@@ -291,7 +292,7 @@ export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol,
       return undefined
     }
     const shape = accessor === "get" ? { inputs: [], result: 0 } : { inputs: [0] }
-    return { name, key, kind: "method", fb: frame.name, locals: r.localSlots, inouts: [], ...shape, body }
+    return { name, key, kind: "method", fb: frame.name, locals: r.localSlots, inouts: [], ...shape, body, lent: r.lends }
   })
 }
 
@@ -371,7 +372,7 @@ function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: Span): I
       lw.diagnostics.push(...r.diagnostics)
       return undefined
     }
-    return { name, key, kind: "action", fb: frame.name, locals: r.localSlots, inputs: [], inouts: r.inoutSlots, body }
+    return { name, key, kind: "action", fb: frame.name, locals: r.localSlots, inputs: [], inouts: r.inoutSlots, body, lent: r.lends }
   })
 }
 
@@ -516,7 +517,16 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
       continue
     }
     const slot = routine.locals[routine.inputs[k]!]!
-    if (slot.type.kind === "interface") return lw.bail("interface-input", "an interface passed as an input — not built yet", arg.span)
+    if (slot.type.kind === "interface") {
+      // a routine's interface input: the tag, recorded for the routine's own local (conformance `itf_function_input`,
+      // `itf_method_input_passed_on`) — the instances it names are lent to the routine by its callers (design §24)
+      // handed to a METHOD of an instance other than this body's own (an in-out, a lent instance, a global): foreign
+      const foreign = instance !== undefined && instance.root !== undefined && instance.root !== "this"
+      const tag = interfaceArgument(lw, `ROUTINE:${routine.key}.${slot.name.toUpperCase()}`, slot.type, arg.value!, arg.span, foreign)
+      if (tag === undefined) return undefined
+      inputs[k] = tag
+      continue
+    }
     const value = lw.inArgument(() => lowerExpr(lw, arg.value!, slot.type))
     if (value === undefined) return undefined
     inputs[k] = convert(value, slot.type)
@@ -575,7 +585,7 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
   }
   pending.state = "lowered"
   for (const slot of nested.touched) lw.touched.add(slot)
-  const called: IrLayout = { ...layout, body, inouts: nested.inoutSlots }
+  const called: IrLayout = { ...layout, body, inouts: nested.inoutSlots, lent: nested.lends }
   lw.layouts.set(key, called)
   return called
 }
@@ -699,10 +709,16 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
       const value: IrExpr = { kind: "load", place: member, type: field.type, span: arg.span }
       after.push({ kind: "assign", target, value: convert(value, target.type), span: arg.span })
     } else {
-      if (field.type.kind === "interface") return lw.bail("interface-input", "an interface passed as an input — not built yet", arg.span)
       // an input stored into an instance lent through a VAR_IN_OUT CONSTANT: CODESYS calls one (`inout_const_fb_call_13`), but
       // storing into it is not recorded — refused as the store it is
       if (refuseConstantWrite(lw, member, arg.span)) return undefined
+      if (field.type.kind === "interface") {
+        // an FB keeps an interface input as it keeps any (`itf_fb_input_left_out`): the tag stored into its field
+        const stored = storeInterface(lw, member, arg.value, arg.span)
+        if (stored === undefined) return undefined
+        before.push(stored)
+        continue
+      }
       const value = lowerExpr(lw, arg.value, field.type)
       if (value === undefined) return undefined
       before.push({ kind: "assign", target: member, value: convert(value, field.type), span: arg.span })

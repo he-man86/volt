@@ -372,6 +372,40 @@ scan time, and one case proving constants fold to the same answers):
 integer prints `(x.round() as i64) as T` — `f64::round` is exactly half-away-from-zero, and `as` between integers
 wraps. `as bool` does not exist (`!= 0`), nor does `bool as f32` (`as u8` first).
 
+## 24. An interface input is a kept tag; the instances it names are lent per call
+
+Measured (conformance `itf_fb_input_*`, `itf_method_input_passed_on`, `itf_interface_variable_as_input`,
+`itf_function_input`): an FB's interface-typed VAR_INPUT keeps the instance it was given — a later call that leaves it
+out still reaches it, and before any is given it is null; a METHOD's or FUNCTION's interface input can be passed on to
+another routine or to a nested FB's input.
+
+So an interface input is what an interface variable already was (§22): a slot holding a tag. An FB's input field is
+keyed `FB:<type>.<field>` — the key its own body dispatches on — so every caller's store reaches the body; a routine's
+input is keyed as its local. What is new is WHERE the instance lives: a dispatch in `meter`'s body names `square`, a field
+of the POU that called it. Rust cannot store a borrow of `square` in `meter` (the owner would borrow itself), and a
+handle table would move every instance out of its owner. Instead the body is LENT the instance for the call: a hidden
+`__lent_i: &mut FB_Square` parameter (a `lent` place), and each caller passes it — `self.meter.call(&mut self.square)` —
+from its own fields, or passes on what it was lent in turn (`&mut (*__lent_0)`). The tag still chooses the arm; the lent
+reference is what the arm calls. Which instances a body must be lent is known only once the POU has lowered (a store
+later in the source reaches an earlier call), so `finishInterfaces` walks every body's calls and fills their lent
+arguments to a fixpoint.
+
+It is context passing — Rust's own answer to "a callee needs something its caller owns" — so it stays safe and
+zero-cost. Refused: an instance the POU itself would need lent (it has no caller), a GVL instance (beside `g`), an
+instance lent to a call that already holds it (`interface-lend-alias`), and an interface argument of a call made through
+an interface.
+
+A tag names a place in a FRAME. The POU's frame has one instance, so its tags are absolute; an FB's frame is every
+instance of the FB, so its tags mean "this field of whichever instance runs" — exact only with the instance that stored
+the tag. The batch's review found two ways such a tag reached another instance of the same type and answered for it
+(reading `x1.mine` into `x2`; a METHOD of an in-out storing it, another instance calling). The rule since: an interface
+is read or dispatched only through the frame's own variables; a write reached through another instance — an in-out, a
+lent instance, a global — marks what it writes FOREIGN; an FB-frame tag arriving foreign, or lent to a call whose
+receiver is not the caller's own, is refused (`interface-instance-relative`). What stays exact is the shape the corpus
+uses: a parent hands its own child its own field, and the child is only ever called by that parent. Lends are per FB
+TYPE, so one type given interface inputs from two frames is refused too (`interface-context`) — per-instance provenance
+would lift it.
+
 ## 23. Every declaration is owned, borrowed, or a handle — and none needs `unsafe`
 
 ST allocates nothing at run time (`__NEW` is refused and unused), so every variable's storage is known when the program

@@ -233,9 +233,15 @@ class Printer {
     ;[this.fields, this.frame] = saved
   }
 
-  /** A VAR_IN_OUT argument: `&mut place` — a VAR_IN_OUT CONSTANT's `&place`, or `&__lent_i`, the copy `lentCopies` took. */
+  /** An instance lent to a call (design §24): `&mut place` — and `THIS^`, already `&mut self`, reborrowed as `&mut *self`
+   *  (`&mut self` is a `&mut &mut`, E0596; review of the interface-input batch, 2026-09-15). */
+  lendMut(place: Place, slots: IrPou["slots"]): string {
+    return place.root === "this" && place.path.length === 0 ? "&mut *self" : `&mut ${this.place(place, slots)}`
+  }
+
+  /** A VAR_IN_OUT argument: `&mut place` — a VAR_IN_OUT CONSTANT's `&place`, or `&__copy_i`, the copy `lentCopies` took. */
   lend(b: IrBinding, i: number, param: IrPou["slots"][number], slots: IrPou["slots"]): string {
-    if ("kind" in b) return `&__lent_${i}`
+    if ("kind" in b) return `&__copy_${i}`
     return `${param.readOnly === true ? "&" : "&mut "}${this.place(b, slots)}`
   }
 
@@ -245,7 +251,7 @@ class Printer {
    * argument holds a call (`call-nested`), so taking them first changes no order anything can observe.
    */
   lentCopies(bindings: readonly IrBinding[], slots: IrPou["slots"]): string {
-    return bindings.flatMap((b, i) => ("kind" in b ? [`let __lent_${i} = ${this.expr(b.value, slots)};`] : [])).join(" ")
+    return bindings.flatMap((b, i) => ("kind" in b ? [`let __copy_${i} = ${this.expr(b.value, slots)};`] : [])).join(" ")
   }
 
   /** A read through a dereference, checked first: `{ iec_deref(self.p); self.value }` — the null pointer panics. */
@@ -263,6 +269,8 @@ class Printer {
     let text =
       p.root === "inout"
         ? `(*${this.frame.inoutNames[p.slot]})`
+        : p.root === "lent"
+          ? `(*__lent_${p.slot})`
         : p.root === "local"
           ? this.frame.localNames[p.slot]!
           : p.root === "global"
@@ -273,6 +281,8 @@ class Printer {
     let type: Type =
       p.root === "inout"
         ? this.frame.inoutSlots[p.slot]!.type
+        : p.root === "lent"
+          ? p.type
         : p.root === "local"
           ? this.frame.localSlots[p.slot]!.type
           : p.root === "global"
@@ -313,7 +323,8 @@ class Printer {
       case "invoke": {
         // the inputs by value, then the VAR_IN_OUT as `&mut` — a METHOD or ACTION on its instance, a FUNCTION free
         const routine = this.routines.get(e.routine)!
-        const args = [...this.globalsArg, ...e.inputs.map((a) => this.expr(a, slots)), ...e.inouts.map((b, i) => this.lend(b, i, routine.inouts[i]!, slots))].join(", ")
+        // the inputs, the in-outs, then each instance lent to the routine (design §24)
+        const args = [...this.globalsArg, ...e.inputs.map((a) => this.expr(a, slots)), ...e.inouts.map((b, i) => this.lend(b, i, routine.inouts[i]!, slots)), ...(e.lent ?? []).map((l) => this.lendMut(l, slots))].join(", ")
         const fn = routineFnName(routine)
         const call = e.instance === undefined ? `${fn}(${args})` : this.guarded(e.instance, `${this.place(e.instance, slots)}.${fn}(${args})`, slots)
         // a VAR_IN_OUT bound through a dereference is checked before the call, as the interpreter checks it when binding
@@ -557,7 +568,7 @@ class Printer {
         // a VAR_IN_OUT bound through a dereference is checked too — the interpreter checks it when it binds the argument
         for (const b of s.inouts) if (!("kind" in b)) this.guardLine(b, slots, indent)
         const params = this.layouts.get(s.fb.toUpperCase())?.layout.inouts ?? []
-        const bound = [...this.globalsArg, ...s.inouts.map((b, i) => this.lend(b, i, params[i]!, slots))].join(", ")
+        const bound = [...this.globalsArg, ...s.inouts.map((b, i) => this.lend(b, i, params[i]!, slots)), ...(s.lent ?? []).map((l) => this.lendMut(l, slots))].join(", ")
         const instance = this.place(s.instance, slots)
         const lets = this.lentCopies(s.inouts, slots)
         // A PROGRAM's instance lives in `Programs`, which the call is handed too — `prg.p.call(g, prg)` would borrow it
@@ -606,6 +617,8 @@ function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[],
     ...routine.inputs.map((i) => `mut ${localNames[i]}: ${rustType(routine.locals[i]!.type)}`),
     // a VAR_IN_OUT CONSTANT is lent read-only — rustc refuses a write through it, as CODESYS does
     ...routine.inouts.map((slot, i) => `${inoutNames[i]}: ${slot.readOnly === true ? "&" : "&mut "}${rustType(slot.type)}`),
+    // each FB instance of another frame the routine is lent for the call (design §24)
+    ...(routine.lent ?? []).map((l, i) => `__lent_${i}: &mut ${rustType(l.type)}`),
   ]
   const result = routine.result === undefined ? undefined : localNames[routine.result]!
   const returns = routine.result === undefined ? "" : ` -> ${rustType(routine.locals[routine.result]!.type)}`
@@ -732,7 +745,8 @@ export function emitRust(pou: IrPou): Emitted {
     if (layout.body !== undefined) {
       const inouts = layout.inouts ?? []
       const inoutNames = fieldNames(inouts, reserved)
-      const params = [...globalsParam, ...inouts.map((slot, i) => `${inoutNames[i]}: ${slot.readOnly === true ? "&" : "&mut "}${rustType(slot.type)}`)].map((param) => `, ${param}`).join("")
+      const lentParams = (layout.lent ?? []).map((l, i) => `__lent_${i}: &mut ${rustType(l.type)}`)
+      const params = [...globalsParam, ...inouts.map((slot, i) => `${inoutNames[i]}: ${slot.readOnly === true ? "&" : "&mut "}${rustType(slot.type)}`), ...lentParams].map((param) => `, ${param}`).join("")
       p.push("", 0)
       if (globalsParam.length > 0) p.push("#[allow(unused_variables)]", 1)
       p.push(`pub fn call(&mut self${params}) {`, 1)

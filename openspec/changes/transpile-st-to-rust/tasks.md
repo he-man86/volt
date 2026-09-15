@@ -414,8 +414,17 @@ taken apart by construct before anything is built — record first, then build, 
         lowering **440 → 444 of 459**. *Why missed:* no fixture ever read a value through an interface — the five in
         `interface.ts` only pin declarations that compile, so they had "nothing to read", and the one lowering test
         pinned `slot-interface` as the expected refusal.
-  - [ ] An interface passed as an input (`itf_function_input`, recorded: 17) — refused `interface-input`; the routine
-        needs the caller's instance, a `&mut` per concrete FB type.
+  - [x] Interface inputs (design §24). Recorded first (`interface-calls.ts` cases 6–9): an FB keeps an interface input
+        across calls — null before any is given, the last instance after — and a METHOD's input can be passed on. Built:
+        an FB's input field is a tag keyed `FB:<type>.<field>`, a routine's input a tag argument; a body that dispatches
+        on an instance of another frame is lent a `&mut` of it per call, filled through every caller once the POU has
+        lowered. Conformance lowering **455 → 460 of 474**; every conformance fixture that should lower now does.
+        Reviewed between batches (4 lenses, adversarial verify): 6 confirmed. Two wrong results — a tag naming a field
+        of one FB instance reached another instance of the same type (`x2(shape := x1.mine)`; a METHOD of an in-out) and
+        answered for the wrong one — now refused: interfaces are read only through the frame's own variables, a write
+        reached through another instance is foreign, and an FB-frame tag may not arrive foreign or be lent to a call on
+        another instance. `THIS^` lent printed `&mut self` (E0596) → `&mut *self`. Open: one FB type given interface
+        inputs from two frames is refused (`interface-context`) — its lends are per type, not per instance.
 - [ ] `__POUNAME` 304 and the other CODESYS compiler operators.
 - [x] `aggregate-init` — recorded first (`array_initializers`, `init_struct_by_field`, `init_array_of_structs`,
       `init_fb_instance_inputs`), then lowered to a structured initial value (`IrInit`: elements / named fields) that the

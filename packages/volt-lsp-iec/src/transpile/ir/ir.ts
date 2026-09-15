@@ -78,8 +78,10 @@ export interface Place {
   /** `inout`: a VAR_IN_OUT parameter — the caller's variable, bound for the call (design §9 form 2, a `&mut`).
    *  `local`: a METHOD's, ACTION's or FUNCTION's local, which starts over on every call.
    *  `global`: the application's storage — a GVL variable, or a called PROGRAM's one instance (`IrPou.globals`).
-   *  `this`: the instance an FB, METHOD or ACTION body runs on — `THIS^` (`slot` is unused). */
-  root?: "inout" | "local" | "global" | "this"
+   *  `this`: the instance an FB, METHOD or ACTION body runs on — `THIS^` (`slot` is unused).
+   *  `lent`: an FB instance of another frame, lent to this body for the call by its caller (`IrRoutine.lent`,
+   *  `IrLayout.lent`) — how a call through an interface reaches the instance its tag names (design §24). */
+  root?: "inout" | "local" | "global" | "this" | "lent"
   /**
    * A DEREFERENCE: this place is a pointer's or reference's one target (design §9 form 1), reached through `guard`, the
    * pointer variable — which holds 0 when null, so a backend faults before the access (the interpreter throws, Rust
@@ -142,6 +144,8 @@ export interface IrInvoke {
   inputs: readonly IrExpr[]
   /** The VAR_IN_OUT arguments, in declaration order. */
   inouts: readonly IrBinding[]
+  /** The instances lent to the routine (`IrRoutine.lent`), in its order — filled once the POU has lowered. */
+  lent?: readonly Place[]
   type: Type
   span: Span
 }
@@ -266,6 +270,8 @@ export interface IrCall {
   fb: string
   /** The VAR_IN_OUT arguments, in the FB's parameter order — the caller's places (or copies), bound for the call. */
   inouts: readonly IrBinding[]
+  /** The instances lent to the FB's body (`IrLayout.lent`), in its order — filled once the POU has lowered. */
+  lent?: readonly Place[]
   span: Span
 }
 
@@ -364,6 +370,8 @@ export interface IrLayout {
   /** An FB's VAR_STAT (its bases' included): not fields — one global each, which every instance shares (conformance
    *  `life_fb_var_stat_instances`) — named here so a path through an instance (`first.counter`) still reaches it. */
   statics?: readonly { name: string; global: number }[]
+  /** The FB instances its body is lent per call (`lent` places), each an interface's tag of another frame (design §24). */
+  lent?: readonly { tag: number; type: Type }[]
 }
 
 /**
@@ -387,6 +395,8 @@ export interface IrRoutine {
   /** The result slot's index in `locals`, for a METHOD or FUNCTION with a return type. */
   result?: number
   body: readonly IrStmt[]
+  /** The FB instances the routine is lent per call (`lent` places) — see `IrLayout.lent`. */
+  lent?: readonly { tag: number; type: Type }[]
 }
 
 /** A lowered POU: its frame, its body, the layout of every composite type its frame reaches (dependencies first), and

@@ -77,8 +77,12 @@ test("a call through an interface runs the instance it holds — a store later i
   expect(["nulls", "later", "a1", "seen", "sq.side", "found", "lost"].map((v) => runner.get(v))).toEqual([1n, 7n, 25n, 5n, 5n, true, false])
   const faulting = run(ir(program("n : INT;", "n := shapeRef.Area();"), "P"))
   expect(() => faulting.scan()).toThrow("holds no instance")
-  const input = `${program("n : INT;", "n := F_Area(sq);")}FUNCTION F_Area : INT\nVAR_INPUT shape : I_Base; END_VAR\nF_Area := 1;\nEND_FUNCTION\n`
-  expect(lowerSource(input, "P").diagnostics.map((d) => d.code)).toEqual(["interface-input"])
+  // an instance passed to a FUNCTION's interface input: refused (`interface-input`) until recorded (`itf_function_input`);
+  // now the routine is lent the instance for the call (design §24)
+  const input = `${program("n : INT;", "n := F_Area(sq);")}FUNCTION F_Area : INT\nVAR_INPUT shape : I_Base; END_VAR\nF_Area := shape.Area() + 1;\nEND_FUNCTION\n`
+  const lent = run(ir(input, "P"))
+  lent.scan()
+  expect(lent.get("n")).toEqual(10n)
 })
 
 // Review 2026-09-15 (declarations). A root PROGRAM's VAR_IN_OUT lowered as a field the POU owned. An `AT` variable lowered
@@ -162,6 +166,50 @@ test("VAR_IN_OUT CONSTANT: every write form refused, `(x)` checked as x, a lent 
     "PROGRAM P\nVAR inst : FB_P; END_VAR\ninst();\nEND_PROGRAM\nFUNCTION_BLOCK FB_P\nVAR own : INT := 4; got : INT; END_VAR\ngot := Twice(value := (own));\nEND_FUNCTION_BLOCK\n" +
     "METHOD Twice : INT\nVAR_IN_OUT CONSTANT value : INT; END_VAR\nown := 0;\nTwice := value * 2;\nEND_METHOD\n"
   expect(lowerSource(paren, "P").diagnostics.map((d) => d.code)).toEqual(["call-inout-alias"])
+})
+
+// Interface inputs (conformance `itf_fb_input_*`, `itf_method_input_passed_on`, `itf_interface_variable_as_input`): refused as
+// `interface-input`. An FB keeps the instance given — a tag in its field — and each body that calls through one is lent a
+// `&mut` of the instances its callers hold (design §24). Why missed: no fixture passed an instance to an interface input.
+test("an interface input is a kept tag, and each body is lent by its callers the instances it calls through", () => {
+  const source =
+    "PROGRAM P\nVAR sq : FB_Sq; meter : FB_Meter; outer : FB_Outer; beforeAny : INT; given : INT; leftOut : INT; END_VAR\n" +
+    "meter(measured => beforeAny);\nmeter(shape := sq, measured => given);\nmeter(measured => leftOut);\nouter.Measure(shape := sq);\nEND_PROGRAM\n" +
+    INTERFACES +
+    "FUNCTION_BLOCK FB_Meter\nVAR_INPUT shape : I_Base; END_VAR\nVAR_OUTPUT measured : INT; END_VAR\nIF shape = 0 THEN\n  measured := -1;\nELSE\n  measured := shape.Area();\nEND_IF\nEND_FUNCTION_BLOCK\n" +
+    "FUNCTION F_Ten : INT\nVAR_INPUT shape : I_Base; END_VAR\nF_Ten := shape.Area() * 10;\nEND_FUNCTION\n" +
+    "FUNCTION_BLOCK FB_Outer\nVAR inner : FB_Meter; END_VAR\nVAR_OUTPUT viaFunction : INT; viaInner : INT; END_VAR\nEND_FUNCTION_BLOCK\n" +
+    "METHOD Measure\nVAR_INPUT shape : I_Base; END_VAR\nviaFunction := F_Ten(shape := shape);\ninner(shape := shape);\nviaInner := inner.measured;\nEND_METHOD\n"
+  const runner = run(ir(source, "P"))
+  runner.scan()
+  // null before any is given; then the instance given, KEPT when a later call leaves the input out; passed on by a METHOD
+  expect(["beforeAny", "given", "leftOut", "outer.viaFunction", "outer.viaInner"].map((v) => runner.get(v))).toEqual([-1n, 9n, 9n, 90n, 9n])
+})
+
+// Review of the interface-input batch (2026-09-15), each reproduced in both backends: a tag naming a field of ONE FB
+// instance reached another instance of the same type — through a read of that instance's interface field, and through a
+// METHOD of an in-out — and answered for the wrong instance (25 for 9). Each crossing is refused now; the parent that owns
+// a child and hands it its own field (the corpus's shape) still lowers, each instance its own child.
+test("an interface naming an instance's own field stays with that instance: crossing is refused, not answered wrong", () => {
+  const shapes = "INTERFACE I_S\nMETHOD Area : INT\nEND_METHOD\nEND_INTERFACE\nFUNCTION_BLOCK FB_S IMPLEMENTS I_S\nVAR_INPUT side : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := side * side;\nEND_METHOD\n"
+  const codes = (source: string) => lowerSource(source, "P").diagnostics.map((d) => d.code)
+  const holder = "FUNCTION_BLOCK FB_X\nVAR_INPUT k : INT; shape : I_S; END_VAR\nVAR_OUTPUT mine : I_S; area : INT; END_VAR\nVAR a : FB_S; END_VAR\na(side := k);\nmine := a;\nIF shape <> 0 THEN\n  area := shape.Area();\nEND_IF\nEND_FUNCTION_BLOCK\n"
+  expect(codes(`PROGRAM P\nVAR x1 : FB_X; x2 : FB_X; END_VAR\nx1(k := 3);\nx2(k := 5, shape := x1.mine);\nEND_PROGRAM\n${shapes}${holder}`)).toContain("interface-place")
+  const parent =
+    "FUNCTION_BLOCK FB_M\nVAR_INPUT shape : I_S; END_VAR\nVAR_OUTPUT got : INT; END_VAR\nIF shape <> 0 THEN\n  got := shape.Area();\nEND_IF\nEND_FUNCTION_BLOCK\n" +
+    "FUNCTION_BLOCK FB_O\nVAR_INPUT k : INT; END_VAR\nVAR s : FB_S; m : FB_M; END_VAR\ns(side := k);\nm(shape := s);\nEND_FUNCTION_BLOCK\n"
+  const runner = run(ir(`PROGRAM P\nVAR o1 : FB_O; o2 : FB_O; END_VAR\no1(k := 3);\no2(k := 5);\nEND_PROGRAM\n${shapes}${parent}`, "P"))
+  runner.scan()
+  expect([runner.get("o1.m.got"), runner.get("o2.m.got")]).toEqual([9n, 25n])
+  const meter =
+    "FUNCTION_BLOCK FB_Meter\nVAR_INPUT shape : I_S; END_VAR\nVAR_OUTPUT measured : INT; END_VAR\nIF shape <> 0 THEN\n  measured := shape.Area();\nEND_IF\nEND_FUNCTION_BLOCK\nMETHOD SetShape\nVAR_INPUT s : I_S; END_VAR\nshape := s;\nEND_METHOD\n" +
+    "FUNCTION_BLOCK FB_H\nVAR_INPUT k : INT; END_VAR\nVAR sq : FB_S; END_VAR\nsq(side := k);\nEND_FUNCTION_BLOCK\nMETHOD Give\nVAR_IN_OUT m : FB_Meter; END_VAR\nm.SetShape(s := sq);\nEND_METHOD\nMETHOD Use : INT\nVAR_IN_OUT m : FB_Meter; END_VAR\nm();\nUse := m.measured;\nEND_METHOD\n"
+  expect(codes(`PROGRAM P\nVAR meter : FB_Meter; a : FB_H; b : FB_H; n : INT; END_VAR\na(k := 3);\nb(k := 5);\na.Give(m := meter);\nn := b.Use(m := meter);\nEND_PROGRAM\n${shapes}${meter}`)).toContain("interface-instance-relative")
+  // an FB type given an interface input from two frames (a limitation), and an instance lent to a call on itself
+  expect(codes(`PROGRAM P\nVAR sq : FB_S; m : FB_M; o : FB_O; END_VAR\nsq(side := 2);\nm(shape := sq);\no(k := 4);\nEND_PROGRAM\n${shapes}${parent}`)).toContain("interface-context")
+  const poke = "METHOD Poke\nVAR_INPUT shape : I_S; END_VAR\nVAR t : INT; END_VAR\nt := shape.Area();\nEND_METHOD\n"
+  // (appended after FB_S's own METHOD, a METHOD of FB_S — `METHOD Area` also opens the interface's prototype)
+  expect(codes(`PROGRAM P\nVAR sq : FB_S; END_VAR\nsq.Poke(shape := sq);\nEND_PROGRAM\n${shapes}${poke}`)).toContain("interface-lend-alias")
 })
 
 /** Lower and require success — most tests are about the SHAPE, not the failure path. */

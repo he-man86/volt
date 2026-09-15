@@ -50,12 +50,16 @@ export interface Shared {
   instances: { place: Place; context: string; fb: Extract<Type, { kind: "function_block" }> }[]
   /** What each interface variable may hold, by `pointerKey`: the tags stored into it, and the variables copied into it
    *  (`only`: through __QUERYINTERFACE, the instances implementing that interface). */
-  interfaces: Map<string, { tags: Set<number>; from: { key: string; only?: string }[] }>
+  //  `foreign`: the value arrived through a write reached through another instance (an in-out, a lent instance, a global)
+  //  — which instance an instance-relative tag names is then not tracked (`interfaces.ts`).
+  interfaces: Map<string, { tags: Map<number, boolean>; from: { key: string; only?: string; foreign: boolean }[] }>
   /** Each call through an interface, finished once the POU has lowered (`finishInterfaces`) — true when it reached more. */
   dispatches: ((root: Lowering) => boolean)[]
   /** Every variable bound AT an address: its area, its bit range under byte and under word addressing, and the frame that
    *  declares it (`storage.ts` `bindAddress`). */
   addressed: { area: string; bits: readonly (readonly [number, number])[]; name: string; owner: string }[]
+  /** Each routine's lowering, by key — whose `lends` a call of the routine must fill. */
+  routineLowerings: Map<string, Lowering>
 }
 
 export function newShared(attributes: ReadonlyMap<object, ReadonlySet<string>> = new Map(), root = ""): Shared {
@@ -72,6 +76,7 @@ export function newShared(attributes: ReadonlyMap<object, ReadonlySet<string>> =
     interfaces: new Map(),
     dispatches: [],
     addressed: [],
+    routineLowerings: new Map(),
   }
 }
 
@@ -122,6 +127,8 @@ export class Lowering {
   conditional = 0
   /** The pointers and references this body stores at depth 0, by `pointerKey` — so far, in source order. */
   readonly boundPointers = new Set<string>()
+  /** The FB instances of other frames this body is lent per call, by tag — its `lent` places (`interfaces.ts`). */
+  readonly lends: { tag: number; type: Extract<Type, { kind: "function_block" }> }[] = []
 
   // ─── byte layout (design §9 — the on-demand byte view) ─────────────────────
 

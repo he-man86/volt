@@ -6,24 +6,39 @@
  *
  * Which instances a variable may name is recorded as stores lower: an instance's tag, or an edge from the variable it
  * was copied from. The arms of a call are filled in only when the whole POU has lowered (`finishInterfaces`) — a store
- * later in the source reaches a call earlier in it on the next cycle, so source order proves nothing. An instance is
- * reachable only from the frame its place indexes: an arm lowered in another frame is refused (`interface-context`).
+ * later in the source reaches a call earlier in it on the next cycle, so source order proves nothing. An arm on an
+ * instance of another frame reaches it as a `lent` place: the body is lent a `&mut` of that instance per call, and each
+ * caller passes it from its own frame or from what it was lent in turn (design §24) — an FB's interface input is kept
+ * like any input (`itf_fb_input_left_out`), so its instances are lent at every call of the FB, not only the one that
+ * gave them. The POU itself has no caller to lend it one (`interface-context`).
  *
- * Not built yet, and refused: an interface passed as an input (`itf_function_input`) or bound as an in-out or output,
- * a METHOD with a VAR_IN_OUT or VAR_OUTPUT called through one, an instance that is a local, an in-out, a dereference or
- * reached through a runtime index.
+ * A tag names an instance by its place in a FRAME — for an FB's frame, a field of whichever instance runs — so a tag of
+ * an FB frame means something only with the instance that stored it (review of the interface-input batch, 2026-09-15:
+ * `x2(shape := x1.mine)` answered for x2's field). It may therefore not cross to another instance: an interface is read
+ * and dispatched only through the frame's own variables; a value written through another instance (an in-out, a lent
+ * instance, a global) is FOREIGN, and an FB-frame tag arriving foreign is refused (`interface-instance-relative`), as is
+ * lending one to a call whose receiver is not the caller's own. A tag of the POU itself names its one instance and moves
+ * freely. The shape the corpus uses — a parent handing its own child its own field — stays exact: the child is always
+ * called by the instance that wrote it.
+ *
+ * Not built yet, and refused: an interface bound as an in-out or output, an interface argument of a call made through an
+ * interface, a METHOD with a VAR_IN_OUT or VAR_OUTPUT called through one, an instance that is a local, an in-out, a
+ * dereference or reached through a runtime index, an instance lent to a call that already holds it, and one FB type given
+ * interface inputs from two frames — its instances are lent per TYPE, so every caller would have to lend both frames'
+ * (`interface-context`; a limitation, not recorded behaviour).
  */
 import type { Expr, Interface, Span, Statement } from "../../syntax/index.js"
 import { lookup, lookupMember } from "../../symbols/index.js"
 import { elementaryRef, inferExprType, type Type, UNKNOWN } from "../../types/index.js"
-import type { IrArm, IrDispatch, IrExpr, IrInvoke, IrStmt, Place } from "../ir/index.js"
+import { type IrArm, type IrCall, type IrDispatch, type IrExpr, type IrInvoke, type IrStmt, peelArray, type Place } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 import { convert } from "./convert.js"
 import { storageOf } from "./storage.js"
 import { lowerPlace } from "./places.js"
 import { pointerKey, sameTarget } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
-import { methodOf, propertyRoutine } from "./calls.js"
+import { rootType } from "./bytes.js"
+import { aliases, methodOf, propertyRoutine } from "./calls.js"
 
 type FbType = Extract<Type, { kind: "function_block" }>
 type SymbolAst = NonNullable<ReturnType<typeof lookup>>["symbol"]["ast"]
@@ -67,35 +82,83 @@ function tagOf(lw: Lowering, place: Place, fb: FbType, span: Span): number | und
   return lw.shared.instances.length
 }
 
-/** The instances an interface variable holds, by `pointerKey` — created at its first use. */
-function heldAt(lw: Lowering, place: Place, span: Span) {
-  const key = pointerKey(lw, place)
-  if (key === undefined) return lw.bail("interface-place", "an interface held somewhere this does not track — a field of another instance, an element, an in-out", span)
-  let held = lw.shared.interfaces.get(key)
-  if (held === undefined) lw.shared.interfaces.set(key, (held = { tags: new Set(), from: [] }))
-  return { key, held }
+/**
+ * Where an interface variable's instances are recorded: its own frame's key (`pointerKey`) — or, for a field of an FB
+ * instance reached by fields and constant indices, `FB:<type>.<field>`, the key the FB's own body uses, so what every
+ * caller stores into `inst.shape` is what the body dispatches on.
+ */
+function interfaceKey(lw: Lowering, place: Place): string | undefined {
+  const own = pointerKey(lw, place)
+  if (own !== undefined) return own
+  const last = place.path.at(-1)
+  if (place.guard !== undefined || place.root === "inout" || place.root === "lent" || last?.kind !== "field") return undefined
+  let type = rootType(lw, place)
+  for (const step of place.path.slice(0, -1)) {
+    if (type === undefined) return undefined
+    if (step.kind === "field") type = type.kind === "struct" || type.kind === "function_block" ? lw.layouts.get(type.name.toUpperCase())?.fields.find((f) => f.name.toUpperCase() === step.name.toUpperCase())?.type : undefined
+    else if (step.kind === "index" && step.index.kind === "const") type = peelArray(type)?.element
+    else return undefined
+  }
+  return type?.kind === "function_block" ? `FB:${type.name.toUpperCase()}.${last.name.toUpperCase()}` : undefined
 }
 
-/** Every tag the variable may hold: its own stores, and what each variable it was copied from may hold. */
-function tagsOf(lw: Lowering, key: string, seen: ReadonlySet<string> = new Set()): Set<number> {
+/** The instances recorded under a key — created at its first use. */
+function heldBy(lw: Lowering, key: string) {
+  let held = lw.shared.interfaces.get(key)
+  if (held === undefined) lw.shared.interfaces.set(key, (held = { tags: new Map(), from: [] }))
+  return held
+}
+
+/**
+ * The instances an interface variable READ holds — one of this frame's own variables (`pointerKey`). Another instance's
+ * interface field (`x1.mine`) holds tags of that instance's frame, which would name the reader's own fields: refused.
+ */
+function heldAt(lw: Lowering, place: Place, span: Span) {
+  const key = pointerKey(lw, place)
+  if (key === undefined) return lw.bail("interface-place", "an interface read somewhere this does not track — another instance's field, an element, an in-out, a dereference", span)
+  return { key, held: heldBy(lw, key) }
+}
+
+/** A tag naming a place of an FB's frame — a field of whichever instance runs — not of the POU's one instance. */
+const instanceRelative = (root: Lowering, tag: number): boolean => root.shared.instances[tag - 1]!.context !== root.frameContext
+
+/**
+ * Where `body` reaches the instance a tag names: its own place, when the instance is of the body's frame — otherwise a
+ * `lent` place, a `&mut` its callers lend it, appended the first time it is needed (design §24). The POU has no caller,
+ * and a GVL instance is not lent beside the globals every body already holds.
+ */
+function lendPlace(root: Lowering, body: Lowering, tag: number, span: Span): Place | undefined {
+  const instance = body.shared.instances[tag - 1]!
+  if (instance.context === body.frameContext) return instance.place
+  if (body === root || instance.context === "GLOBAL")
+    return body.bail("interface-context", `an instance of ${instance.fb.name} held where no caller can lend it`, span)
+  let at = body.lends.findIndex((l) => l.tag === tag)
+  if (at < 0) at = body.lends.push({ tag, type: instance.fb }) - 1
+  return { slot: at, path: [], type: instance.fb, span, root: "lent" }
+}
+
+/** Every tag the variable may hold — its own stores, and what each variable it was copied from may hold — each with
+ *  whether it arrived through a foreign write anywhere on the way. */
+function tagsOf(lw: Lowering, key: string, seen: ReadonlySet<string> = new Set()): Map<number, boolean> {
   const held = lw.shared.interfaces.get(key)
-  if (held === undefined || seen.has(key)) return new Set()
-  const tags = new Set(held.tags)
+  if (held === undefined || seen.has(key)) return new Map()
+  const tags = new Map(held.tags)
   for (const edge of held.from)
-    for (const tag of tagsOf(lw, edge.key, new Set([...seen, key])))
-      if (edge.only === undefined || implementsInterface(lw, lw.shared.instances[tag - 1]!.fb.name, edge.only)) tags.add(tag)
+    for (const [tag, foreign] of tagsOf(lw, edge.key, new Set([...seen, key])))
+      if (edge.only === undefined || implementsInterface(lw, lw.shared.instances[tag - 1]!.fb.name, edge.only))
+        tags.set(tag, (tags.get(tag) ?? false) || foreign || edge.foreign)
   return tags
 }
 
 /** A finisher: run for each tag the variable may hold that it has not seen, reporting into the root lowering. */
-function onEachTag(lw: Lowering, key: string, each: (tag: number) => void): void {
+function onEachTag(lw: Lowering, key: string, each: (tag: number, root: Lowering, foreign: boolean) => void): void {
   const seen = new Set<number>()
   lw.shared.dispatches.push((root) => {
     const before = lw.diagnostics.length
-    const fresh = [...tagsOf(lw, key)].filter((tag) => !seen.has(tag))
-    for (const tag of fresh) {
+    const fresh = [...tagsOf(lw, key)].filter(([tag]) => !seen.has(tag))
+    for (const [tag, foreign] of fresh) {
       seen.add(tag)
-      each(tag)
+      each(tag, root, foreign)
     }
     if (lw !== root) root.diagnostics.push(...lw.diagnostics.slice(before))
     return fresh.length > 0
@@ -104,27 +167,41 @@ function onEachTag(lw: Lowering, key: string, each: (tag: number) => void): void
 
 /** `ref := inst`, `ref := other`, `ref := 0` — the tag stored, and what the variable may hold recorded. */
 export function storeInterface(lw: Lowering, target: Place, value: Expr, span: Span): IrStmt | undefined {
-  const into = heldAt(lw, target, span)
-  if (into === undefined) return undefined
-  const store = (v: IrExpr): IrStmt => ({ kind: "assign", target, value: v, span })
-  if (value.kind === "literal" && value.value === 0n) return store({ kind: "const", value: 0n, type: target.type, span })
+  const key = interfaceKey(lw, target)
+  if (key === undefined) return lw.bail("interface-place", "an interface held somewhere this does not track — an element, an in-out, a dereference", span)
+  // a variable of this frame (or this routine), or the field of one of its own child instances — else foreign (a global)
+  const frame = key.slice(0, key.lastIndexOf("."))
+  const own = frame === lw.frameContext || frame === lw.routineContext
+  const child = (target.root === undefined || target.root === "this") && target.path.length > 0
+  const tag = interfaceArgument(lw, key, target.type, value, span, !own && !child)
+  return tag && { kind: "assign", target, value: tag, span }
+}
+
+/**
+ * The tag an interface of type `itf` is given — `0`, an FB instance's tag, or another interface's value — with what it may
+ * name recorded under `key`: a variable's (`storeInterface`), an FB's input field, a routine's input local. `foreign`: the
+ * write reaches the key through another instance than this body's own.
+ */
+export function interfaceArgument(lw: Lowering, key: string, itf: Type, value: Expr, span: Span, foreign: boolean): IrExpr | undefined {
+  const held = heldBy(lw, key)
+  if (value.kind === "literal" && value.value === 0n) return { kind: "const", value: 0n, type: itf, span }
   const source = lowerPlace(lw, value)
   if (source === undefined) return undefined
   if (source.type.kind === "function_block") {
-    const itf = (target.type as { name: string }).name
-    if (!implementsInterface(lw, source.type.name, itf)) return lw.bail("interface-type", `${source.type.name} does not implement ${itf}`, span)
+    const name = (itf as { name: string }).name
+    if (!implementsInterface(lw, source.type.name, name)) return lw.bail("interface-type", `${source.type.name} does not implement ${name}`, span)
     const tag = tagOf(lw, source, source.type, span)
     if (tag === undefined) return undefined
-    into.held.tags.add(tag)
-    return store({ kind: "const", value: BigInt(tag), type: target.type, span })
+    held.tags.set(tag, (held.tags.get(tag) ?? false) || foreign)
+    return { kind: "const", value: BigInt(tag), type: itf, span }
   }
   if (source.type.kind === "interface") {
     const from = heldAt(lw, source, span)
     if (from === undefined) return undefined
-    into.held.from.push({ key: from.key })
-    return store({ kind: "load", place: source, type: target.type, span })
+    held.from.push({ key: from.key, foreign })
+    return { kind: "load", place: source, type: itf, span }
   }
-  return lw.bail("interface-value", "an interface stored from something that is neither an FB instance nor an interface", span)
+  return lw.bail("interface-value", "an interface given something that is neither an FB instance nor an interface", span)
 }
 
 /** A call through `ref`: one arm per instance it may hold, each built by `arm` once every store has lowered. */
@@ -132,11 +209,14 @@ function dispatch(lw: Lowering, ref: Place, type: Type, arm: (instance: Place, f
   const at = heldAt(lw, ref, span)
   if (at === undefined) return undefined
   const arms: { tag: bigint; call: IrInvoke }[] = []
-  const context = lw.frameContext
-  onEachTag(lw, at.key, (tag) => {
-    const instance = lw.shared.instances[tag - 1]!
-    if (instance.context !== context) return void lw.bail("interface-context", `a call through an interface on ${instance.fb.name} held in another frame`, span)
-    const call = arm(instance.place, instance.fb)
+  onEachTag(lw, at.key, (tag, root, foreign) => {
+    // an FB frame's tag handed across instances names a field of whichever instance runs here — not the one it came from
+    if (foreign && instanceRelative(root, tag))
+      return void lw.bail("interface-instance-relative", `an interface naming a field of one ${lw.shared.instances[tag - 1]!.fb.name} holder, handed to another instance — which instance it names is not tracked`, span)
+    // the instance where this body can reach it: its own, or lent to it by its callers
+    const place = lendPlace(root, lw, tag, span)
+    if (place === undefined) return
+    const call = arm(place, lw.shared.instances[tag - 1]!.fb)
     if (call !== undefined) arms.push({ tag: BigInt(tag), call })
   })
   return { kind: "dispatch", tag: { kind: "load", place: ref, type: ref.type, span }, arms, type, span }
@@ -225,7 +305,7 @@ export function lowerQueryInterface(lw: Lowering, s: Extract<Statement, { kind: 
   const [source, dest] = [heldAt(lw, from, s.span), heldAt(lw, into, s.span)]
   if (source === undefined || dest === undefined) return undefined
   const wanted = into.type.name
-  dest.held.from.push({ key: source.key, only: wanted })
+  dest.held.from.push({ key: source.key, only: wanted, foreign: false })
   const bool = elementaryRef("BOOL")
   const outcome = (tag: bigint, found: boolean): IrStmt[] => [
     { kind: "assign", target: into, value: { kind: "const", value: tag, type: into.type, span: s.span }, span: s.span },
@@ -243,9 +323,74 @@ export function lowerQueryInterface(lw: Lowering, s: Extract<Statement, { kind: 
  * Every call through an interface, and every __QUERYINTERFACE, given the instances its variables may hold — run once the
  * POU has lowered. Finishing one can lower a routine that stores more, so it repeats until nothing new is reached.
  */
-export function finishInterfaces(root: Lowering): void {
+export function finishInterfaces(root: Lowering, rootBody: readonly IrStmt[]): void {
   for (let progress = true; progress; ) {
     progress = false
     for (const finish of [...root.shared.dispatches]) if (finish(root)) progress = true
+    // a dispatch may have made its body need a lent instance: every call of that body passes it, and so on up
+    for (const [body, lowering] of bodiesOf(root, rootBody)) if (lendToCallees(root, lowering, body)) progress = true
   }
+}
+
+/** Every lowered body with the lowering it was lowered in: the POU's, each FB body's, each routine's. */
+function bodiesOf(root: Lowering, rootBody: readonly IrStmt[]): [readonly IrStmt[], Lowering][] {
+  const out: [readonly IrStmt[], Lowering][] = [[rootBody, root]]
+  for (const [key, layout] of root.layouts) {
+    const pending = root.bodies.get(key)
+    if (layout.body !== undefined && pending !== undefined) out.push([layout.body, pending.lowering])
+  }
+  for (const [key, entry] of root.routines) {
+    const lowering = root.shared.routineLowerings.get(key)
+    if (entry.state === "lowered" && lowering !== undefined) out.push([entry.routine.body, lowering])
+  }
+  return out
+}
+
+/** Calls whose lending was refused, so a later round does not report them again. */
+const refusedLends = new WeakSet<object>()
+
+/** Each call in `body` passes its callee the instances the callee is lent — from the caller's frame, or lent on. */
+function lendToCallees(root: Lowering, caller: Lowering, body: readonly IrStmt[]): boolean {
+  let progress = false
+  for (const node of callsIn(body)) {
+    if (refusedLends.has(node)) continue
+    const callee = node.kind === "call" ? root.bodies.get(node.fb.toUpperCase())?.lowering : root.shared.routineLowerings.get(node.routine)
+    const needs = callee?.lends ?? []
+    const lent = ((node as { lent?: Place[] }).lent ??= [])
+    const before = caller.diagnostics.length
+    // a call on this body's own instance, a child field of it, or no instance at all (a FUNCTION)
+    const ownReceiver = node.instance === undefined || node.instance.root === undefined || node.instance.root === "this"
+    for (let i = lent.length; i < needs.length && !refusedLends.has(node); i++) {
+      // an FB frame's tag lent to another instance (an in-out, a lent one) would name this caller's field for it
+      if (!ownReceiver && instanceRelative(root, needs[i]!.tag)) {
+        caller.bail("interface-instance-relative", `an instance of ${needs[i]!.type.name} named relative to this FB, lent to a call on another instance`, node.span)
+        refusedLends.add(node)
+        break
+      }
+      const place = lendPlace(root, caller, needs[i]!.tag, node.span)
+      const held = [...(node.instance === undefined ? [] : [node.instance]), ...node.inouts.filter((b): b is Place => !("kind" in b)), ...lent]
+      if (place !== undefined && held.some((p) => aliases(place, p)))
+        caller.bail("interface-lend-alias", `an instance of ${needs[i]!.type.name} lent to a call that already holds it`, node.span)
+      if (place === undefined || caller.diagnostics.length > before) refusedLends.add(node)
+      else {
+        lent.push(place)
+        progress = true
+      }
+    }
+    if (caller !== root) root.diagnostics.push(...caller.diagnostics.slice(before))
+  }
+  return progress
+}
+
+/** Every call in a body — FB calls, and invokes wherever they sit, dispatch arms included. */
+function callsIn(node: unknown, out: (IrInvoke | IrCall)[] = []): (IrInvoke | IrCall)[] {
+  if (Array.isArray(node)) {
+    for (const child of node) callsIn(child, out)
+    return out
+  }
+  if (node === null || typeof node !== "object") return out
+  const kind = (node as { kind?: string }).kind
+  if (kind === "call" || kind === "invoke") out.push(node as IrInvoke | IrCall)
+  for (const [key, child] of Object.entries(node)) if (key !== "type" && key !== "of" && key !== "span" && key !== "lent") callsIn(child, out)
+  return out
 }

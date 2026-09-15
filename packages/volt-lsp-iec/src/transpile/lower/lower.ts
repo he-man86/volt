@@ -88,7 +88,7 @@ export function lowerUnit(
   if (lowering.diagnostics.length > 0) return { diagnostics: lowering.diagnostics }
   const init = initStep(lowering, unit.span)
   // every store into an interface has lowered by now: each call through one gets its instances (`interfaces.ts`)
-  finishInterfaces(lowering)
+  finishInterfaces(lowering, [...body, ...(init ?? [])])
   if (init === undefined || lowering.diagnostics.length > 0) return { diagnostics: lowering.diagnostics }
   // Every construct lowered — but every SLOT (and every field of a layout) also needs a runtime representation. An unused
   // `p : POINTER TO INT` lowered cleanly, then the Rust emitter threw on its type: a backend must accept whatever lowering

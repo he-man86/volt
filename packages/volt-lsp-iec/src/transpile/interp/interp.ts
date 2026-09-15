@@ -61,6 +61,8 @@ class Machine {
     private readonly globals: Val[],
     /** The running METHOD's, ACTION's or FUNCTION's per-call locals. */
     private readonly locals: Val[] = [],
+    /** The FB instances this body's caller lends it (`lent` places), by slot. */
+    private readonly lent: readonly Cell[] = [],
   ) {}
 
   /** A METHOD, ACTION or FUNCTION: fresh locals, the inputs stored into them, the body run on the instance (or on nothing),
@@ -81,7 +83,8 @@ class Machine {
       root = (at.container as Record<string | number, Val>)[at.key] as Record<string | number, Val>
       keys = this.layouts.get(routine.fb!.toUpperCase())!.fields.map((f) => f.name.toUpperCase())
     }
-    new Machine(root, keys, bound, this.layouts, this.routines, this.globals, locals).block(routine.body)
+    const lent = (e.lent ?? []).map((p) => this.bind(p))
+    new Machine(root, keys, bound, this.layouts, this.routines, this.globals, locals, lent).block(routine.body)
     return routine.result === undefined ? false : locals[routine.result]!
   }
 
@@ -106,6 +109,8 @@ class Machine {
     const start: Cell =
       place.root === "inout"
         ? this.inouts[place.slot]!
+        : place.root === "lent"
+          ? this.lent[place.slot]!
         : place.root === "local"
           ? { container: this.locals as unknown as Record<number, Val>, key: place.slot }
           : place.root === "global"
@@ -322,7 +327,8 @@ class Machine {
         const instance = (at.container as Record<string | number, Val>)[at.key] as Record<string | number, Val>
         const layout = this.layouts.get(s.fb.toUpperCase())!
         const bound = s.inouts.map((b) => this.bind(b))
-        new Machine(instance, layout.fields.map((f) => f.name.toUpperCase()), bound, this.layouts, this.routines, this.globals).block(layout.body!)
+        const lent = (s.lent ?? []).map((p) => this.bind(p))
+        new Machine(instance, layout.fields.map((f) => f.name.toUpperCase()), bound, this.layouts, this.routines, this.globals, [], lent).block(layout.body!)
         return "none"
       }
       case "eval":
