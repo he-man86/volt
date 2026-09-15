@@ -142,9 +142,35 @@ function keptVariables(lw: Lowering, sym: RoutineSymbol, sections: readonly VarS
 }
 
 /**
+ * A routine's VAR_OUTPUT as parameters beside its VAR_IN_OUT — each bound by the caller to the place `=>` names (or a temp,
+ * left unconnected) — and the statements that start each over at its initial value when the routine is called: a
+ * FUNCTION's and a METHOD's output begins every call anew and is read after it (conformance `state_routine_outputs`).
+ * An output of a struct, FB or array type is refused, unmeasured.
+ */
+function declareOutputs(lw: Lowering, r: Lowering, sections: readonly VarSection[], span: Span): IrStmt[] | undefined {
+  if (sections.length === 0) return []
+  const scratch = new Lowering(r.scope, r.project, r.shared)
+  scratch.routineMode = true
+  declareVars(scratch, sections)
+  if (scratch.diagnostics.length > 0) {
+    lw.diagnostics.push(...scratch.diagnostics)
+    return undefined
+  }
+  const resets: IrStmt[] = []
+  for (const slot of scratch.localSlots) {
+    if (slot.type.kind !== "elementary") return lw.bail("routine-var_output", `${slot.name} is a ${slot.type.kind} VAR_OUTPUT, not measured`, span)
+    const at = r.inoutSlots.length
+    r.inoutByName.set(slot.name.toUpperCase(), at)
+    r.inoutSlots.push({ ...slot, section: "VAR_OUTPUT" })
+    const target: Place = { slot: at, path: [], type: slot.type, span, root: "inout" }
+    resets.push({ kind: "assign", target, value: { kind: "const", value: slot.init, type: slot.type, span }, span })
+  }
+  return resets
+}
+
+/**
  * A METHOD or ACTION run on an instance of `frame`, or a FUNCTION — lowered once per frame, in the instance's fields plus
- * per-call locals. `as` names a routine that is not the one the frame resolves by name (`SUPER^.M()`). Refused, until
- * measured: a VAR_OUTPUT (how `=>` reads it back).
+ * per-call locals. `as` names a routine that is not the one the frame resolves by name (`SUPER^.M()`).
  */
 export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | undefined, span: Span, as = sym.name): IrRoutine | undefined {
   const name = frame === undefined ? sym.name : `${frame.name}.${as}`
@@ -154,7 +180,6 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     const scope = findChildScope(frame === undefined ? lw.project : sym.owner, sym.name)
     if (scope === undefined) return lw.bail("call-target", `${name} did not bind`, span)
     const sections = ast.kind === "action" ? [] : ast.varSections
-    if (sections.some((s) => s.sectionKind === "VAR_OUTPUT")) return lw.bail("routine-var_output", `${name} has VAR_OUTPUT, not measured yet`, span)
     if (isGraphicalBody(ast.body)) return lw.bail("graphical-body", `${name} has a graphical body`, span)
     const parsed = parseActive(ast.body)
     if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${name}'s body did not parse`, span)
@@ -177,7 +202,9 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     const inputs = Array.from({ length: r.localSlots.length - firstInput }, (_, i) => firstInput + i)
     declareVars(r, sections.filter((s) => s.sectionKind === "VAR" || s.sectionKind === "VAR_TEMP"))
     declareInOuts(r, sections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
-    const body = lowerBlock(r, parsed.statements)
+    const resets = declareOutputs(lw, r, sections.filter((s) => s.sectionKind === "VAR_OUTPUT"), span)
+    if (resets === undefined) return undefined
+    const body = [...resets, ...lowerBlock(r, parsed.statements)]
     if (r.diagnostics.length > 0) {
       lw.diagnostics.push(...r.diagnostics)
       return undefined
@@ -365,21 +392,34 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
 
   const inputs: (IrExpr | undefined)[] = routine.inputs.map(() => undefined)
   const inouts: (Place | undefined)[] = routine.inouts.map(() => undefined)
+  const held = () => [...(instance === undefined ? [] : [instance]), ...inouts.filter((p): p is Place => p !== undefined)]
   for (const [position, arg] of call.args.entries()) {
-    if (arg.value === undefined || arg.output) return lw.bail("call-output", `${routine.name} called with an output or empty argument`, arg.span)
+    const name = arg.param?.name.toUpperCase()
+    const bound = name === undefined ? -1 : routine.inouts.findIndex((p) => p.name.toUpperCase() === name)
+    const param = bound >= 0 ? routine.inouts[bound]! : undefined
+    // `name => target`: a VAR_OUTPUT bound to the caller's place (conformance `state_routine_outputs`); left empty, a temp
+    if (arg.output) {
+      if (param?.section !== "VAR_OUTPUT") return lw.bail("call-output", `${arg.param?.name ?? "an argument"} is no VAR_OUTPUT of ${routine.name}`, arg.span)
+      if (arg.value === undefined) continue
+      const target = bindInOut(lw, arg, param, held())
+      if (target === undefined) return undefined
+      if (target.type.kind !== "elementary" || param.type.kind !== "elementary" || target.type.name !== param.type.name || target.type.length !== param.type.length)
+        return lw.bail("call-output-type", `${param.name} is read into a variable of another type`, arg.span)
+      inouts[bound] = target
+      continue
+    }
+    if (arg.value === undefined) return lw.bail("call-output", `${routine.name} called with an empty argument`, arg.span)
     let k: number
     if (arg.param === undefined) {
       if (routine.inouts.length > 0 || position >= routine.inputs.length)
         return lw.bail("call-positional", `${routine.name} called with a positional argument`, arg.span)
       k = position
     } else {
-      const name = arg.param.name.toUpperCase()
-      const inout = routine.inouts.findIndex((p) => p.name.toUpperCase() === name)
-      if (inout >= 0) {
-        const held = [...(instance === undefined ? [] : [instance]), ...inouts.filter((p): p is Place => p !== undefined)]
-        const target = bindInOut(lw, arg, routine.inouts[inout]!, held)
+      if (param?.section === "VAR_OUTPUT") return lw.bail("call-output", `${param.name} is a VAR_OUTPUT, bound with :=`, arg.span)
+      if (param !== undefined) {
+        const target = bindInOut(lw, arg, param, held())
         if (target === undefined) return undefined
-        inouts[inout] = target
+        inouts[bound] = target
         continue
       }
       k = routine.inputs.findIndex((i) => routine!.locals[i]!.name.toUpperCase() === name)
@@ -391,7 +431,14 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     inputs[k] = convert(value, slot.type)
   }
   if (inputs.includes(undefined)) return lw.bail("call-input-missing", `${routine.name} called without every input — its default is not measured yet`, call.span)
-  if (inouts.includes(undefined)) return lw.bail("call-inout-missing", `${routine.name} called without every VAR_IN_OUT`, call.span)
+  for (const [i, slot] of routine.inouts.entries()) {
+    if (inouts[i] !== undefined) continue
+    if (slot.section !== "VAR_OUTPUT") return lw.bail("call-inout-missing", `${routine.name} called without every VAR_IN_OUT`, call.span)
+    // an unconnected output still needs somewhere to go: a temp of its own, which nothing reads
+    const temp = lw.tempPlace("output", slot.type, call.span)
+    if (held().some((p) => aliases(temp, p))) return lw.bail("call-inout-alias", `${slot.name} is unconnected on a call of this instance's own method`, call.span)
+    inouts[i] = temp
+  }
   const type = routine.result === undefined ? UNKNOWN : routine.locals[routine.result]!.type
   return { kind: "invoke", routine: routine.key, ...(instance === undefined ? {} : { instance }), inputs: inputs as IrExpr[], inouts: inouts as Place[], type, span: call.span }
 }

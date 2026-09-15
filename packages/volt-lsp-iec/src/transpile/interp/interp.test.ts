@@ -760,6 +760,45 @@ END_METHOD`,
     expect([pou.get("viaSuper.inBase"), pou.get("viaSuper.nBase"), pou.get("viaSuper.hookDerived"), pou.get("viaSuper.hookBase")]).toEqual([105n, 1n, 1n, 1n])
   })
 
+  // `state_routine_outputs`: a FUNCTION's and a METHOD's VAR_OUTPUT starts over at every call, is read through `=>`, and
+  // may be left unconnected. Why missed: routine outputs were refused, and `var_output_on_function` wrote 0 — a value
+  // no store could be told from.
+  test("a routine's VAR_OUTPUT starts over every call and is read through =>, connected or not", () => {
+    const pou = load(
+      `PROGRAM P
+VAR inst : FB_O; units : INT; tens : INT; calls1 : INT; calls2 : INT; units2 : INT; took : INT; before : INT; kept1 : INT; kept2 : INT; END_VAR
+units := F_S(value := 47, tens => tens, calls => calls1);
+units2 := F_S(value := 3, calls => calls2);
+F_S(value := 9);
+took := inst.Take(amount := 2, before => before, kept => kept1);
+inst.Take(amount := 1, kept => kept2);
+END_PROGRAM
+FUNCTION F_S : INT
+VAR_INPUT value : INT; END_VAR
+VAR_OUTPUT tens : INT; calls : INT; END_VAR
+calls := calls + 1;
+tens := value / 10;
+F_S := value MOD 10;
+END_FUNCTION
+FUNCTION_BLOCK FB_O
+VAR stored : INT := 5; END_VAR
+END_FUNCTION_BLOCK
+METHOD Take : INT
+VAR_INPUT amount : INT; END_VAR
+VAR_OUTPUT before : INT; kept : INT; END_VAR
+kept := kept + 1;
+before := stored;
+stored := stored + amount;
+Take := stored;
+END_METHOD`,
+      "P",
+    )
+    pou.scan()
+    pou.scan()
+    const names = ["before", "calls1", "calls2", "inst.stored", "kept1", "kept2", "tens", "took", "units", "units2"]
+    expect(names.map((n) => pou.get(n))).toEqual([8n, 1n, 1n, 11n, 1n, 1n, 4n, 10n, 7n, 3n])
+  })
+
   // `temporal_conversions`. Why missed: the temporal rules were measured to and from integers only; these pairs were
   // refused, so no test reached them.
   test("temporal conversions: DT to its day and time of day, the literal text, REAL counts, and REAL to TIME rounding", () => {
