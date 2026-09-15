@@ -296,27 +296,56 @@ export function interfacePropertySet(lw: Lowering, s: Extract<Statement, { kind:
  */
 export function lowerQueryInterface(lw: Lowering, s: Extract<Statement, { kind: "assign" }>): IrStmt[] | undefined | null {
   const v = s.value
-  if (v.kind !== "call" || v.callee.kind !== "ident_expr" || v.callee.name.toUpperCase() !== "__QUERYINTERFACE") return null
-  if (s.op !== undefined || s.chained !== undefined || v.args.length !== 2 || v.args.some((a) => a.param !== undefined || a.value === undefined))
-    return lw.bail("interface-query", "__QUERYINTERFACE other than `found := __QUERYINTERFACE(from, into)`", s.span)
-  const [target, from, into] = [lowerPlace(lw, s.target), lowerPlace(lw, v.args[0]!.value!), lowerPlace(lw, v.args[1]!.value!)]
-  if (target === undefined || from === undefined || into === undefined) return undefined
-  if (from.type.kind !== "interface" || into.type.kind !== "interface") return lw.bail("interface-query", "__QUERYINTERFACE of something other than two interfaces", s.span)
-  const [source, dest] = [heldAt(lw, from, s.span), heldAt(lw, into, s.span)]
+  if (!isQuery(v)) return null
+  if (s.op !== undefined || s.chained !== undefined) return lw.bail("interface-query", "__QUERYINTERFACE other than `found := __QUERYINTERFACE(from, into)`", s.span)
+  const target = lowerPlace(lw, s.target)
+  return target && queryInto(lw, target, v, s.span)
+}
+
+const isQuery = (e: Expr): e is Extract<Expr, { kind: "call" }> => e.kind === "call" && e.callee.kind === "ident_expr" && e.callee.name.toUpperCase() === "__QUERYINTERFACE"
+
+/** The query itself: `into` set to the instance or null, `target` to whether it implements `into`'s interface. */
+function queryInto(lw: Lowering, target: Place, v: Extract<Expr, { kind: "call" }>, span: Span): IrStmt[] | undefined {
+  if (v.args.length !== 2 || v.args.some((a) => a.param !== undefined || a.value === undefined))
+    return lw.bail("interface-query", "__QUERYINTERFACE other than `found := __QUERYINTERFACE(from, into)`", span)
+  const [from, into] = [lowerPlace(lw, v.args[0]!.value!), lowerPlace(lw, v.args[1]!.value!)]
+  if (from === undefined || into === undefined) return undefined
+  if (from.type.kind !== "interface" || into.type.kind !== "interface") return lw.bail("interface-query", "__QUERYINTERFACE of something other than two interfaces", span)
+  const [source, dest] = [heldAt(lw, from, span), heldAt(lw, into, span)]
   if (source === undefined || dest === undefined) return undefined
   const wanted = into.type.name
   dest.held.from.push({ key: source.key, only: wanted, foreign: false })
   const bool = elementaryRef("BOOL")
   const outcome = (tag: bigint, found: boolean): IrStmt[] => [
-    { kind: "assign", target: into, value: { kind: "const", value: tag, type: into.type, span: s.span }, span: s.span },
-    { kind: "assign", target, value: convert({ kind: "const", value: found, type: bool, span: s.span }, target.type), span: s.span },
+    { kind: "assign", target: into, value: { kind: "const", value: tag, type: into.type, span }, span },
+    { kind: "assign", target, value: convert({ kind: "const", value: found, type: bool, span }, target.type), span },
   ]
   const arms: IrArm[] = []
   onEachTag(lw, source.key, (tag) => {
     if (implementsInterface(lw, lw.shared.instances[tag - 1]!.fb.name, wanted))
-      arms.push({ labels: [{ lo: BigInt(tag), hi: BigInt(tag) }], body: outcome(BigInt(tag), true), span: s.span })
+      arms.push({ labels: [{ lo: BigInt(tag), hi: BigInt(tag) }], body: outcome(BigInt(tag), true), span })
   })
-  return [{ kind: "switch", selector: { kind: "load", place: from, type: from.type, span: s.span }, arms, else: outcome(0n, false), span: s.span }]
+  return [{ kind: "switch", selector: { kind: "load", place: from, type: from.type, span }, arms, else: outcome(0n, false), span }]
+}
+
+/**
+ * `IF __QUERYINTERFACE(from, into) THEN` — pro2193's form (~30 uses) — or under NOT: the recorded query above, into a
+ * hidden BOOL taken just before the test that reads it. An ELSIF's is taken inside the ELSE its IF lowers to, so only
+ * when that branch is reached. `null` when the condition is no such query; one under AND_THEN / OR_ELSE, which may skip
+ * it, is not the whole condition and is refused where it is lowered (`lowerBuiltin`).
+ */
+export function queryCondition(lw: Lowering, cond: Expr): { before: IrStmt[]; cond: IrExpr } | undefined | null {
+  const bare = (e: Expr): Expr => (e.kind === "paren" ? bare(e.inner) : e)
+  const whole = bare(cond)
+  const negated = whole.kind === "unary" && whole.op === "NOT"
+  const call = whole.kind === "unary" && whole.op === "NOT" ? bare(whole.operand) : whole
+  if (!isQuery(call)) return null
+  const bool = elementaryRef("BOOL")
+  const found = lw.tempPlace("query_found", bool, cond.span)
+  const before = queryInto(lw, found, call, cond.span)
+  if (before === undefined) return undefined
+  const read: IrExpr = { kind: "load", place: found, type: bool, span: cond.span }
+  return { before, cond: negated ? { kind: "unary", op: "not", operand: read, type: bool, span: cond.span } : read }
 }
 
 /**

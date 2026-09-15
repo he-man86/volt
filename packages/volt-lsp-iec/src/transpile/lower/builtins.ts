@@ -63,6 +63,10 @@ export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>): 
   // spells them. A project function called `GO_TO_START` is an ordinary call, and `TIME_OF_DAY_TO_UDINT` is no
   // conversion at all (it is not defined — this used to read it as one).
   if (name === "SIZEOF") return sizeOf(lw, e)
+  // lowered as an assignment's whole value or an IF's whole condition (`queryCondition`); anywhere else — under a
+  // short-circuit that may skip it, inside another expression — its side effect's timing is not modelled
+  if (name === "__QUERYINTERFACE")
+    return lw.bail("interface-query", "__QUERYINTERFACE other than an assignment's whole value or an IF's whole condition", e.span)
   // LOWER_BOUND(array, dimension) / UPPER_BOUND: a DINT (conformance `callshape_array_star_*`, `callshape_bounds_of_sized_array`)
   if (name === "LOWER_BOUND" || name === "UPPER_BOUND") {
     const [array, dimension] = e.args

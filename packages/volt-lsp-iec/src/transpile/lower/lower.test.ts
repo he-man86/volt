@@ -342,6 +342,28 @@ test("a constant named through its GVL or its PROGRAM sizes an array, starts a v
   expect([runner.get("worker.visits"), runner.get("worker.flags[3]"), runner.get("worker.prevState")]).toEqual([4n, true, -2147483648n])
 })
 
+// pro2193 queries an interface as an IF's condition (`IF __QUERYINTERFACE(transferProducts, prepareTransfer) THEN`, ~30
+// uses); only `found := __QUERYINTERFACE(from, into)` lowered (`expr-call`). It is that recorded query into a hidden BOOL
+// taken just before the test — an ELSIF's only when reached. Why missed: the recorded case used the assignment form only.
+test("__QUERYINTERFACE as an IF's or ELSIF's whole condition, or under NOT, is the recorded query taken just before the test", () => {
+  const program = (vars: string, body: string) => `PROGRAM P\nVAR sq : FB_Sq; rc : FB_Rc; shapeRef : I_Shape; baseRef : I_Base; ${vars} END_VAR\n${body}\nEND_PROGRAM\n${INTERFACES}`
+  const runner = run(
+    ir(
+      program(
+        "hits : INT; misses : INT; area : INT; elsifArea : INT;",
+        "baseRef := sq;\nIF __QUERYINTERFACE(baseRef, shapeRef) THEN\n  area := shapeRef.Area();\n  hits := hits + 1;\nEND_IF\n" +
+          "baseRef := rc;\nIF NOT __QUERYINTERFACE(baseRef, shapeRef) THEN\n  misses := misses + 1;\nEND_IF\n" +
+          "IF hits = 0 THEN\n  misses := 100;\nELSIF (__QUERYINTERFACE(baseRef, shapeRef)) THEN\n  elsifArea := 1;\nELSE\n  elsifArea := 2;\nEND_IF",
+      ),
+      "P",
+    ),
+  )
+  runner.scan()
+  expect(["hits", "misses", "area", "elsifArea"].map((v) => runner.get(v))).toEqual([1n, 1n, 9n, 2n])
+  // under a short-circuit that may skip it, the query is not the whole condition
+  expect(lowerSource(program("done : BOOL;", "IF done OR_ELSE __QUERYINTERFACE(baseRef, shapeRef) THEN\n  done := TRUE;\nEND_IF"), "P").diagnostics.map((d) => d.code)).toEqual(["interface-query"])
+})
+
 // Review of the qualified-constant / program-instance batch (adversarial verify), each reproduced before its fix. Why
 // missed: the tests called the recorded shapes only — no PROPERTY on the instance, no runtime index, no body reaching the
 // program, no call through an interface inside the called body; the two body-call refusals were never exercised.

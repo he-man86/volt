@@ -13,7 +13,7 @@ import { bindReference, pointeePlace, refuseConstantWrite, storePointer, through
 import { lowerExpr } from "./expressions.js"
 import { lowerCallStatement, lowerPropertySet } from "./calls.js"
 import { refuseUnionWrite, unionCopies } from "./unions.js"
-import { lowerQueryInterface, storeInterface } from "./interfaces.js"
+import { lowerQueryInterface, queryCondition, storeInterface } from "./interfaces.js"
 
 export function lowerBlock(lw: Lowering, list: StatementList): IrStmt[] {
   const out: IrStmt[] = []
@@ -110,15 +110,18 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
       return copies && [store, ...copies]
     }
     case "if": {
-      // ELSIF is an ELSE holding one nested IF — one shape for the backend, not a branch list.
-      const build = (i: number): IrStmt | undefined => {
+      // ELSIF is an ELSE holding one nested IF — one shape for the backend, not a branch list. A condition that is a
+      // `__QUERYINTERFACE` query puts the query just before the IF that tests it (`queryCondition`).
+      const build = (i: number): IrStmt[] | undefined => {
         const branch = s.branches[i]
         if (branch === undefined) return undefined
-        const cond = lowerExpr(lw, branch.cond, elementaryRef("BOOL"))
+        const query = queryCondition(lw, branch.cond)
+        if (query === undefined) return undefined
+        const cond = query === null ? lowerExpr(lw, branch.cond, elementaryRef("BOOL")) : query.cond
         if (cond === undefined) return undefined
         const rest = build(i + 1)
-        const otherwise = rest !== undefined ? [rest] : s.elseBody ? lowerBlock(lw, s.elseBody) : []
-        return { kind: "if", cond, then: lowerBlock(lw, branch.body), else: otherwise, span: branch.span }
+        const otherwise = rest !== undefined ? rest : s.elseBody ? lowerBlock(lw, s.elseBody) : []
+        return [...(query?.before ?? []), { kind: "if", cond, then: lowerBlock(lw, branch.body), else: otherwise, span: branch.span }]
       }
       return build(0)
     }

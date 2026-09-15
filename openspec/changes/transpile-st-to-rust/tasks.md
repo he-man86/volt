@@ -477,6 +477,10 @@ taken apart by construct before anything is built — record first, then build, 
       (`RC / 4` = 2), a `qualified_only` list's bare sibling resolved to another list's constant, a PROPERTY on an instance
       inside a program ran on the stand-in (now refused, unrecorded), a body reaching the program through an interface
       call escaped the re-entrancy check (refused), two refusals untested, and a corpus figure in this entry was wrong.
+- [x] `__QUERYINTERFACE` as an IF's or ELSIF's whole condition, or under NOT — pro2193's form (~30 uses), which only lowered as
+      `found := __QUERYINTERFACE(from, into)`. It is that recorded query into a hidden BOOL, taken just before the test; an
+      ELSIF's inside the ELSE its IF lowers to, so only when reached. Anywhere else — under AND_THEN / OR_ELSE, inside another
+      expression — it is refused (`interface-query`), where the timing of its store is not modelled.
 - [x] A call in a FOR limit (`for-bound-call`, 25 corpus POUs — property reads like `fbModuleManager.baseModulesCount`).
       Recorded (`callshape_for_limit_call`): a PROPERTY getter and a METHOD in the limit each run 4 times for 3 passes —
       once per test, as the limit is read. Lowered as such; a call in the step, or in a limit a runtime step tests on two
