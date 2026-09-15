@@ -11,6 +11,7 @@ import { lowerPlace } from "./places.js"
 import { bindReference, pointeePlace, storePointer, through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 import { lowerCallStatement, lowerPropertySet } from "./calls.js"
+import { refuseUnionWrite, unionCopies } from "./unions.js"
 
 export function lowerBlock(lw: Lowering, list: StatementList): IrStmt[] {
   const out: IrStmt[] = []
@@ -97,7 +98,10 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
       }
       const value = lowerExpr(lw, s.value, target.type)
       if (value === undefined) return undefined
-      return { kind: "assign", target, value: convert(value, target.type), span: s.span }
+      const store: IrStmt = { kind: "assign", target, value: convert(value, target.type), span: s.span }
+      // a UNION member's store, then its bytes into the members it overlays
+      const copies = unionCopies(lw, target, s.span)
+      return copies && [store, ...copies]
     }
     case "if": {
       // ELSIF is an ELSE holding one nested IF — one shape for the backend, not a branch list.
@@ -169,7 +173,7 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
  */
 export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): IrStmt | undefined {
   const control = lowerPlace(lw, s.controlVar)
-  if (control === undefined) return undefined
+  if (control === undefined || refuseUnionWrite(lw, control, s.controlVar.span)) return undefined
   const from = lowerExpr(lw, s.from, control.type)
   const to = lowerExpr(lw, s.to, control.type)
   if (from === undefined || to === undefined) return undefined

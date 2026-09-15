@@ -386,6 +386,12 @@ taken apart by construct before anything is built — record first, then build, 
       parenthesized inline assignment, and a top-level `STRUCT(…)` as a call — so neither was ever an aggregate;
       every aggregate parser test used two fields or more, and one documented the call as intended.
 - [ ] `expr-assign_expr` (1).
+- [x] UNION (`type_dut_union`, measured little-endian overlay) — laid out as a struct of its members; a plain `:=` into
+      one member is followed by copying its bytes into every other (design §21). Only unsigned integers and bit strings,
+      and one-dimensional arrays of them, without initial values; SIZEOF, an aggregate initializer, and every other write
+      path (in-out/output binding, latch, chain, FOR variable, ADR) are refused. Conformance lowering **439 → 440 of
+      454** — every fixture that should lower now does. *Why missed:* `buildLayout` had no union branch at all, and its
+      refusal was the generic `layout-struct`, so no count ever named UNION.
 - [ ] `stmt-try` (6, 2%) — `__TRY`/`__CATCH`. The interpreter can run it; Rust has no exceptions, so the
       emitter needs a strategy or an explicit refusal. Decide rather than default.
 - [ ] `type-unknown` (18, 6%) — triage; each is a type the frontend could not resolve.

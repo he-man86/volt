@@ -44,10 +44,12 @@ export interface Shared {
   root: string
   /** Each pointer or reference variable's one target, by `pointerKey`. */
   pointers: Map<string, PointerTarget>
+  /** The layouts that are a UNION's, by upper-cased name — their members overlay one another (`unions.ts`). */
+  unions: Set<string>
 }
 
 export function newShared(attributes: ReadonlyMap<object, ReadonlySet<string>> = new Map(), root = ""): Shared {
-  return { layouts: new Map(), bodies: new Map(), routines: new Map(), attributes, globals: { slots: [], byName: new Map() }, root, pointers: new Map() }
+  return { layouts: new Map(), bodies: new Map(), routines: new Map(), attributes, globals: { slots: [], byName: new Map() }, root, pointers: new Map(), unions: new Set() }
 }
 
 /**

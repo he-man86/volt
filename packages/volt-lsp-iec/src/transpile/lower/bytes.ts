@@ -58,7 +58,8 @@ export function byteSize(lw: Lowering, t: Type): { size: bigint; align: bigint }
  */
 export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "function_block" }>): { size: bigint; align: bigint; offsets?: Map<string, bigint> } | undefined {
   const layout = lw.layouts.get(t.name.toUpperCase())
-  if (layout === undefined) return undefined
+  // a UNION's size (its widest member, aligned?) is not measured
+  if (layout === undefined || lw.shared.unions.has(t.name.toUpperCase())) return undefined
   const pending = lw.bodies.get(t.name.toUpperCase())
   if (pending !== undefined && (baseOf(pending.unit) !== undefined || pending.unit.varSections.some((s) => s.sectionKind === "VAR_IN_OUT"))) return undefined
   const decl = t.kind === "struct" ? lookup(lw.project, t.name)?.symbol.ast : undefined

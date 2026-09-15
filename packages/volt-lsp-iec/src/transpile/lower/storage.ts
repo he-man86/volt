@@ -8,6 +8,7 @@ import { defaultValueOf, type IrInit, type IrValue } from "../ir/index.js"
 import { baseOf, Lowering, ZERO_SPAN } from "./lowering.js"
 import { stored, valueAs } from "./convert.js"
 import { calendarOf, durationOf, enumStorage, foldConstant, stringLiteralText, typedRealOf } from "./constants.js"
+import { overlayBytes } from "./unions.js"
 
 /** The FB variable sections that are an instance's storage. VAR_IN_OUT is not: it aliases the caller's variable. */
 export const INSTANCE_STORAGE: ReadonlySet<string> = new Set(["VAR", "VAR_INPUT", "VAR_OUTPUT", "VAR_STAT", "VAR_TEMP"])
@@ -51,6 +52,14 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
   if (t.kind === "struct" && ast?.kind === "type_decl" && ast.body.kind === "struct") {
     base(ast.body.extends?.text)
     declareVars(nested, [{ sectionKind: "VAR", decls: ast.body.fields } as unknown as VarSection])
+  } else if (t.kind === "struct" && ast?.kind === "type_decl" && ast.body.kind === "union") {
+    // a struct of its members, kept overlaid by the store (`unions.ts`) — only the measured kind of member
+    declareVars(nested, [{ sectionKind: "VAR", decls: ast.body.fields } as unknown as VarSection])
+    if (ast.body.fields.some((f) => f.init !== undefined) || nested.frame.some((f) => overlayBytes(f.type) === undefined)) {
+      lw.bail("layout-union", `${t.name} has a member whose overlaid bytes are not measured, or an initial value`, sym?.span ?? ZERO_SPAN)
+      return
+    }
+    lw.shared.unions.add(t.name.toUpperCase())
   } else if (t.kind === "function_block" && (ast?.kind === "function_block" || ast?.kind === "program")) {
     // The compiler acts on these whether or not the FB is ever called, and `lowerUnit`'s init step models them: an
     // `instance-path` STRING holds the instance's path from the project tree, and a `call_after_global_init_slot` method
@@ -142,6 +151,7 @@ function aggregateInit(lw: Lowering, init: AggregateInit, type: Type): IrInit | 
   if (init.form === "struct") {
     const layout = type.kind === "struct" || type.kind === "function_block" ? lw.layouts.get(type.name.toUpperCase()) : undefined
     if (layout === undefined) return refuse("in struct form for something that is not a struct or FB instance")
+    if (lw.shared.unions.has(layout.name.toUpperCase())) return refuse("of a UNION, which is not measured")
     const fields: Record<string, IrInit> = {}
     for (const e of init.elements) {
       if (e.kind !== "field") return refuse("with an element that names no field")

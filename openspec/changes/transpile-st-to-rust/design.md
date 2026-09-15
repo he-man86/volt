@@ -372,6 +372,16 @@ scan time, and one case proving constants fold to the same answers):
 integer prints `(x.round() as i64) as T` — `f64::round` is exactly half-away-from-zero, and `as` between integers
 wraps. `as bool` does not exist (`!= 0`), nor does `bool as f32` (`as u8` first).
 
+## 21. A UNION is a struct kept overlaid by its stores
+
+Measured: every member starts at offset 0, little-endian (`iWord := 16#ABCD` reads `aBytes[0] = 16#CD`). The byte view
+of design §9 is not built for it. The union is a struct holding every member, and lowering follows a plain `:=` into one
+member with IR copies of its bytes into each other member — unsigned `div`/`mod` by powers of 256, which neither backend
+can overflow. Every read stays a plain field read, so both backends, the replay paths and `rustAccess` need nothing new.
+The price is that the copy must follow EVERY write, so every write that cannot carry it is refused rather than trusted:
+in-out and output bindings and latches and chain links (all through `through`), FOR variables, and ADR. A signed, REAL,
+BOOL or STRING member is unmeasured and refused, and so is SIZEOF of a union.
+
 ## 20. An aggregate initializer is a structured initial value, not code
 
 A slot's `init` is an `IrInit`: a scalar, `{ elements }` for an array, or `{ fields }` by upper-cased name for a struct or

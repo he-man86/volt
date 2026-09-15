@@ -10,6 +10,7 @@ import { storageOf } from "./storage.js"
 import { lowerPlace } from "./places.js"
 import { byteSize } from "./bytes.js"
 import { lowerExpr } from "./expressions.js"
+import { refuseUnionWrite } from "./unions.js"
 
 /** Where a pointer or reference variable lives, as a key every body that reaches it agrees on — undefined for one this
  *  does not track (a field of another instance, an element, a VAR_IN_OUT). */
@@ -50,7 +51,7 @@ export function recordTarget(lw: Lowering, key: string, target: PointerTarget, s
 export function addressOf(lw: Lowering, x: Expr, pointerType: Type, span: Span): { value: IrExpr; target: PointerTarget } | undefined {
   if (pointerType.kind !== "pointer" && pointerType.kind !== "reference") return lw.bail("pointer-shape", "an address stored into something that is not a pointer", span)
   const place = lowerPlace(lw, x)
-  if (place === undefined) return undefined
+  if (place === undefined || refuseUnionWrite(lw, place, span)) return undefined
   if (place.guard !== undefined || place.path.some((s) => s.kind === "bit"))
     return lw.bail("pointer-shape", "the address of a dereference or a bit", span)
   const last = place.path.at(-1)
@@ -152,7 +153,8 @@ export function bindReference(lw: Lowering, s: Extract<Statement, { kind: "assig
  * reference's own slot, overwriting its stored index instead of the variable (transpiler review 2026-09-15).
  */
 export function through(lw: Lowering, place: Place, span: Span): Place | undefined {
-  return place.type.kind === "reference" ? pointeePlace(lw, place, undefined, span) : place
+  const written = place.type.kind === "reference" ? pointeePlace(lw, place, undefined, span) : place
+  return written === undefined || refuseUnionWrite(lw, written, span) ? undefined : written
 }
 
 /** A place read as a value: a REFERENCE reads its target; a POINTER's own value is refused — it is not a real address
