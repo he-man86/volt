@@ -14,6 +14,7 @@ import { DATA_TYPE_TESTS } from "./data-type.js"
 import { IDENTIFIER_TESTS } from "./identifier.js"
 import { NETWORK_UNRESOLVED_TESTS } from "./network-unresolved.js"
 import { INIT_SLOT_TESTS } from "./init-slot.js"
+import { IMPLICIT_CHECK_TESTS } from "./implicit-checks.js"
 import { INTERFACE_TESTS } from "./interface.js"
 import { KEYWORD_TESTS } from "./keyword.js"
 import { LIFECYCLE_TESTS } from "./lifecycle.js"
@@ -91,6 +92,8 @@ export const CATEGORIES: readonly CategoryGroup[] = [
   { name: "declaration-lifetimes", tests: DECLARATION_LIFETIME_TESTS },
   { name: "inout-constant", tests: INOUT_CONSTANT_TESTS },
   { name: "call-shapes", tests: CALL_SHAPE_TESTS },
+  // ── implicit check functions a project defines (CheckBounds, CheckDiv…): what CODESYS calls, with what ──
+  { name: "implicit-checks", tests: IMPLICIT_CHECK_TESTS },
 ]
 
 export const ALL_TESTS: readonly LanguageTest[] = CATEGORIES.flatMap((c) => c.tests)

@@ -184,6 +184,9 @@ export interface IrCopy {
   value: IrExpr
   /** The parameter's type — the copy is stored as it. */
   type: Type
+  /** A copy lent `&mut` and written back to this place after the call: an FB's own field lent to its own METHOD, which
+   *  would otherwise be two `&mut` of one instance — exact because the callee reaches the field only through it. */
+  back?: Place
   span: Span
 }
 

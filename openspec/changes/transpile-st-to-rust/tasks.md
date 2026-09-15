@@ -483,6 +483,26 @@ taken apart by construct before anything is built — record first, then build, 
       expression — it is refused (`interface-query`), where the timing of its store is not modelled. Then extended to the
       condition's LEADING operand (under NOT, the left side of AND_THEN / OR_ELSE, which always runs first — pro2193's
       `IF NOT __QUERYINTERFACE(xuUnit, xuUnitExtended) OR_ELSE NOT xuUnitExtended.InSafePosForMouldEntry THEN`).
+- [x] An FB's own field lent to its own METHOD (`call-inout-alias`; the recorded `callshape_array_star_of_struct`
+      `Shift(line := points)` and `callshape_positional_arguments` `Mixed(counter, 3)`) — two `&mut` of one instance.
+      Built: the field is copied in, lent `&mut`, and written back after the call (`IrCopy.back`) — in exactly one shape:
+      the call is on THIS itself and nothing else it binds is that field; the field is the FB's own, reached by fields
+      and constant indices, of the parameter's type, not an output; and the callee touches only its own locals, inputs
+      and in-outs and calls nothing. The first cut allowed any callee that did not NAME the field; its review found eight
+      ways a stale copy was still seen (another in-out of the call, a THIS^ sub-instance, an interface, a FUNCTION given
+      THIS^, an output, a derived type) — each a wrong value — so the rule is now the one that is exact by construction.
+      Also recorded while looking for silently ignored semantics (`implicit-checks.ts`): a FUNCTION named `CheckBounds`
+      or `CheckDivDInt` loaded as a plain POU is not called by CODESYS (0 calls; an out-of-range write lands in the next
+      variable, `10 MOD 0` is 0, DINT and REAL division by zero stop the run) — an implicit check must be CODESYS's own
+      object kind, which the fixture loader cannot create. Whether the bridge keeps that kind for bakon-nano's and
+      pro2193's check POUs is open. Without one, an out-of-range index stops the run in both backends (the interpreter
+      throws, Rust's indexing panics — never `unsafe`, which the crate forbids): a deliberate difference from CODESYS's
+      silent write into the next variable. The narrowed rule's review found SUPER^ and the FB body call building their
+      held list from bound places alone — `SUPER^(a := n, b := n)` copied n twice (101 where by reference it is 6) — now
+      one `holding` for all three calls; and an FB `call` whose in-outs go unread under SUPER^ failed `-D warnings`.
+      Recorded for the next item: `fbcall_program_own_members` — a PROGRAM calling its own METHODs and ACTION bare runs
+      them on its one instance (calls 4, deep 40, tidied 200, doubled 8). It lowers when called; lowered as the root it
+      is still `call-this`.
 - [x] FB_Init — silently ignored until now: an ordinary METHOD nothing called, and the parser dropped a declaration's
       `inst : FB(x := 1)` arguments, so every instance started as if it had none, with no diagnostic. Recorded first
       (`lifecycle.ts` `fb_init_runs_with_declared_arguments`, `fb_init_base_and_derived`, `fb_init_argument_left_out`):

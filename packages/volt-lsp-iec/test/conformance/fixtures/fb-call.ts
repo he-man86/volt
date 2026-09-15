@@ -197,6 +197,51 @@ tidied := tidied + 100;
 END_ACTION
 `,
     "inst : FB_CALL_bare;", "inst();", 2),
+  // The corpus's `call-this` shape: a PROGRAM's body calling its own METHOD and ACTION bare, a METHOD calling another, and
+  // a METHOD's result read — do they run on the program's one instance, whose VAR PLC_PRG then reads?
+  {
+    name: "fbcall_program_own_members",
+    pouName: "PRG_CALL_own",
+    kind: "program",
+    feature: "a PROGRAM calling its own METHOD and ACTION bare — from its body and from another method — and reading a method's result",
+    fromDoc: doc,
+    source: `PROGRAM PRG_CALL_own
+VAR
+	calls : INT;
+	deep : INT;
+	tidied : INT;
+	doubled : INT;
+END_VAR
+Bump();
+Bump();
+Tidy();
+doubled := Twice(calls);
+END_PROGRAM
+
+METHOD Bump
+calls := calls + 1;
+Deeper();
+END_METHOD
+
+METHOD Deeper
+deep := deep + 10;
+END_METHOD
+
+METHOD Twice : INT
+VAR_INPUT
+	n : INT;
+END_VAR
+Twice := n * 2;
+END_METHOD
+
+ACTION Tidy
+tidied := tidied + 100;
+END_ACTION
+`,
+    plcPrgVar: "calls : INT; deep : INT; tidied : INT; doubled : INT;",
+    plcPrgBody: "PRG_CALL_own();\ncalls := PRG_CALL_own.calls;\ndeep := PRG_CALL_own.deep;\ntidied := PRG_CALL_own.tidied;\ndoubled := PRG_CALL_own.doubled;",
+    cycles: 2,
+  },
   {
     name: "fbcall_gvl_qualified",
     pouName: "GVL_CALL_qualified",

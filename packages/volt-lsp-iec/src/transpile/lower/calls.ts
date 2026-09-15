@@ -42,7 +42,7 @@ import { baseOf, boundName, Lowering, openDims, type PendingBody } from "./lower
 import { convert } from "./convert.js"
 import { declareInOuts, declareOpenBounds, declareVars, storageOf, tempResets } from "./storage.js"
 import { boundOf, lowerPlace } from "./places.js"
-import { refuseConstantWrite, through } from "./pointers.js"
+import { refuseConstantWrite, sameStorage, through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 import { lowerBlock } from "./statements.js"
 import { interfaceArgument, interfaceCall, interfacePropertyGet, interfacePropertySet, storeInterface } from "./interfaces.js"
@@ -54,6 +54,13 @@ type RoutineSymbol = NonNullable<ReturnType<typeof lookup>>["symbol"]
 const selfFb = (lw: Lowering): FbType | undefined => (lw.selfType?.kind === "function_block" ? lw.selfType : undefined)
 
 const thisPlace = (type: FbType, span: Span): Place => ({ slot: 0, path: [], type, span, root: "this" })
+
+/** What a call already holds: its instance, each in-out bound to a place, and the place each copy is written back to. The
+ *  SUPER^ and FB body calls passed only the places, so `SUPER^(a := n, b := n)` copied n twice (review of the copy-back). */
+const holding = (instance: Place | undefined, bindings: readonly (IrBinding | undefined)[]): Place[] => [
+  ...(instance === undefined ? [] : [instance]),
+  ...bindings.flatMap((b) => (b === undefined ? [] : "kind" in b ? (b.back === undefined ? [] : [b.back]) : [b])),
+]
 
 const isSuper = (e: Expr): boolean => e.kind === "deref" && e.base.kind === "ident_expr" && e.base.name.toUpperCase() === "SUPER"
 
@@ -450,7 +457,7 @@ function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: Span): I
  * design §9 form 3, is for later), a bit, a global (every body holds the globals as one `&mut`), and a derived instance
  * or struct standing in for its base type — the parameter would dispatch on the base, which is not modelled.
  */
-function bindInOut(lw: Lowering, arg: CallArg, param: IrSlot, held: readonly Place[], callee: readonly IrStmt[]): IrBinding | undefined {
+function bindInOut(lw: Lowering, arg: CallArg, param: IrSlot, held: readonly Place[], callee: readonly IrStmt[], calleeFb: string | undefined): IrBinding | undefined {
   // `(x)` is the variable x — it takes the alias check below like a bare `x` (review of the batch, 2026-09-15)
   let value = arg.value!
   while (value.kind === "paren") value = value.inner
@@ -475,13 +482,45 @@ function bindInOut(lw: Lowering, arg: CallArg, param: IrSlot, held: readonly Pla
     if (writesOnlyLocals(callee)) return { kind: "copy", value: { kind: "load", place: target, type: target.type, span: arg.span }, type: param.type, span: arg.span }
     return lw.bail("call-inout-alias", `${param.name} is bound to a variable the callee could change while it reads it`, arg.span)
   }
-  if (held.some((p) => aliases(target, p))) return lw.bail("call-inout-alias", `${param.name} is bound to a variable the call already holds`, arg.span)
+  if (held.some((p) => aliases(target, p))) {
+    // An FB lending its own field to its own METHOD — pro2193's `Shift(line := points)` (conformance
+    // `callshape_array_star_of_struct`), `Mixed(counter, 3)` (`callshape_positional_arguments`) — is two `&mut` of one
+    // instance. Copied in and written back after the call it reads the same — exactly in this shape, and only this: the
+    // call is on THIS itself and nothing else the call binds is that field; the field is the FB's own, reached by fields
+    // and constant indices, of the parameter's own type, not an output; and the callee touches nothing but its own locals,
+    // inputs and in-outs and calls nothing, so the in-out is its one way to the field. The review of the first cut (a
+    // callee that "does not name the field") found eight ways a stale copy was still seen — through another in-out, a
+    // sub-instance, an interface, a FUNCTION given THIS^ — and each wrote a wrong value.
+    const aliased = held.filter((p) => aliases(target, p))
+    const own = aliased.length === 1 && aliased[0]!.root === "this" && aliased[0]!.path.length === 0 && target.root === undefined
+    // an ARRAY[*] parameter takes an array of its dimensions over its element (design §26); anything else, the same storage
+    const lendable =
+      openDims(param.type) > 0
+        ? param.type.kind === "array" && target.type.kind === "array" && param.type.dims.length === target.type.dims.length && sameStorage(param.type.element, target.type.element)
+        : sameStorage(param.type, target.type)
+    if (own && param.section !== "VAR_OUTPUT" && staticPath(target) && target.guard === undefined && lendable && touchesOnlyItsOwn(callee))
+      return { kind: "copy", value: { kind: "load", place: target, type: target.type, span: arg.span }, type: param.type, back: target, span: arg.span }
+    return lw.bail("call-inout-alias", `${param.name} is bound to a variable the call already holds`, arg.span)
+  }
   if (target.path.some((s) => s.kind === "bit")) return lw.bail("call-inout-bit", `${param.name} is bound to a bit`, arg.span)
   if (target.root === "global") return lw.bail("call-inout-global", `${param.name} is bound to a global variable`, arg.span)
   const composite = (t: Type): string | undefined => (t.kind === "function_block" || t.kind === "struct" ? t.name.toUpperCase() : undefined)
   if (composite(param.type) !== undefined && composite(param.type) !== composite(target.type))
     return lw.bail("call-inout-derived", `${param.name} is bound to a ${target.type.kind === "function_block" || target.type.kind === "struct" ? target.type.name : target.type.kind}, not its own type`, arg.span)
   return target
+}
+
+/**
+ * A callee that touches nothing but its own locals, inputs and in-outs, and calls nothing — no METHOD, FB body, FUNCTION or
+ * interface call, no dereference. The only way from it to a variable of its caller is then an in-out it was bound.
+ */
+function touchesOnlyItsOwn(node: unknown): boolean {
+  if (Array.isArray(node)) return node.every(touchesOnlyItsOwn)
+  if (node === null || typeof node !== "object") return true
+  const n = node as { kind?: string; slot?: unknown; path?: unknown; root?: string; guard?: unknown }
+  if (n.kind === "invoke" || n.kind === "dispatch" || n.kind === "call") return false
+  if (typeof n.slot === "number" && Array.isArray(n.path) && (n.guard !== undefined || (n.root !== "local" && n.root !== "inout"))) return false
+  return Object.entries(node).every(([key, child]) => key === "type" || key === "of" || key === "span" || touchesOnlyItsOwn(child))
 }
 
 /** A body that writes nothing but its own locals and calls nothing (IR walked whole; a type's scope graph is skipped). */
@@ -495,7 +534,6 @@ function writesOnlyLocals(node: unknown): boolean {
 }
 
 /** A binding that is the caller's place — not a copy lent to a VAR_IN_OUT CONSTANT. */
-const isPlace = (b: IrBinding | undefined): b is Place => b !== undefined && !("kind" in b)
 
 /**
  * `inst.M(a := x)`, `M()` inside an FB, `SUPER^.M()`, `inst.A()` or `F(x)` → an `IrInvoke`. Arguments bind by name;
@@ -553,7 +591,7 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
   // the inputs in the order they are written — the order they run in (conformance `callshape_argument_order`)
   const order: number[] = []
   const inouts: (IrBinding | undefined)[] = routine.inouts.map(() => undefined)
-  const held = () => [...(instance === undefined ? [] : [instance]), ...inouts.filter(isPlace)]
+  const held = () => holding(instance, inouts)
   // Positional arguments bind in declaration order across VAR_INPUT and VAR_IN_OUT (conformance
   // `callshape_positional_arguments`: 100, 315, 46), so each is named here by the parameter at its position. They were
   // refused whenever the routine had an in-out — pro2193's `Arrays.Bool_All(result, TRUE)` — and a METHOD calling its own
@@ -579,7 +617,7 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     if (arg.output) {
       if (param?.section !== "VAR_OUTPUT") return lw.bail("call-output", `${arg.param?.name ?? "an argument"} is no VAR_OUTPUT of ${routine.name}`, arg.span)
       if (arg.value === undefined) continue
-      const target = bindInOut(lw, arg, param, held(), routine.body)
+      const target = bindInOut(lw, arg, param, held(), routine.body, routine.fb)
       if (target === undefined) return undefined
       if (target.type.kind !== "elementary" || param.type.kind !== "elementary" || target.type.name !== param.type.name || target.type.length !== param.type.length)
         return lw.bail("call-output-type", `${param.name} is read into a variable of another type`, arg.span)
@@ -589,7 +627,7 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     if (arg.value === undefined) return lw.bail("call-output", `${routine.name} called with an empty argument`, arg.span)
     if (param?.section === "VAR_OUTPUT") return lw.bail("call-output", `${param.name} is a VAR_OUTPUT, bound with :=`, arg.span)
     if (param !== undefined) {
-      const target = bindInOut(lw, arg, param, held(), routine.body)
+      const target = bindInOut(lw, arg, param, held(), routine.body, routine.fb)
       if (target === undefined) return undefined
       inouts[bound] = target
       continue
@@ -633,7 +671,9 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     for (let dim = 1; binding !== undefined && dim <= openDims(slot.type); dim++)
       for (const which of ["lower", "upper"] as const) {
         const k = routine.inputs.findIndex((index) => routine!.locals[index]!.name.toUpperCase() === boundName(slot.name, which, dim).toUpperCase())
-        const value = k < 0 || "kind" in binding ? undefined : boundOf(lw, binding, which, dim)
+        // a copy written back takes the bounds of the place it copies (an FB's own array lent to its own METHOD)
+        const at = "kind" in binding ? binding.back : binding
+        const value = k < 0 || at === undefined ? undefined : boundOf(lw, at, which, dim)
         if (value === undefined) return lw.bail("call-open-array", `${slot.name} is bound to an array whose bounds are not known here`, call.span)
         inputs[k] = value
         order.push(k)
@@ -785,7 +825,7 @@ function lowerSuperCall(lw: Lowering, call: Extract<Statement, { kind: "call_stm
     const name = arg.param.name.toUpperCase()
     const k = routine.inouts.findIndex((p) => p.name.toUpperCase() === name)
     if (k >= 0) {
-      const target = bindInOut(lw, arg, routine.inouts[k]!, [instance, ...inouts.filter(isPlace)], routine.body)
+      const target = bindInOut(lw, arg, routine.inouts[k]!, holding(instance, inouts), routine.body, routine.fb)
       if (target === undefined) return undefined
       inouts[k] = target
       continue
@@ -875,7 +915,7 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
     const name = arg.param.name.toUpperCase()
     const param = inouts.find((p) => p.name.toUpperCase() === name)
     if (param !== undefined) {
-      const target = bindInOut(lw, arg, param, [instance, ...[...bound.values()].filter(isPlace)], layout.body ?? [])
+      const target = bindInOut(lw, arg, param, holding(instance, [...bound.values()]), layout.body ?? [], layout.name)
       if (target === undefined) return undefined
       bound.set(name, target)
       continue
@@ -927,7 +967,8 @@ function storeOpenBounds(lw: Lowering, instance: Place, fields: readonly IrSlot[
       for (const which of ["lower", "upper"] as const) {
         const field = fields.find((f) => f.name.toUpperCase() === boundName(slot.name, which, dim).toUpperCase())
         const bound = binding(i)
-        const value = field === undefined || bound === undefined || "kind" in bound ? undefined : boundOf(lw, bound, which, dim)
+        const at = bound === undefined ? undefined : "kind" in bound ? bound.back : bound
+        const value = field === undefined || at === undefined ? undefined : boundOf(lw, at, which, dim)
         if (value === undefined) return lw.bail("call-open-array", `${slot.name} is bound to an array whose bounds are not known here`, span)
         stores.push({ kind: "assign", target: { ...instance, path: [...instance.path, { kind: "field", name: field!.name }], type: field!.type, span }, value, span })
       }

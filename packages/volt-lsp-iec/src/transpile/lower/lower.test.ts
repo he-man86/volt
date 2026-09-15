@@ -431,6 +431,47 @@ test("FB_Init: an inner instance's runs first, and an argument may name a variab
   expect(codes("d : FB_D2(startValue := 1);", derived)).toContain("fb-init-order")
 })
 
+// Recorded (`callshape_positional_arguments` `Mixed(counter, 3)`, `callshape_array_star_of_struct` `Shift(line := points)`):
+// an FB lending its own field to its own METHOD. Refused (`call-inout-alias`: two `&mut` of one instance) — copied in and
+// written back after the call it reads the same, when the callee reaches that field only through the in-out. Why
+// missed: every in-out test lent the callee something the caller owned apart from the instance.
+test("an FB's own field lent to its own METHOD is copied in and written back, when nothing else reaches it", () => {
+  const source = (body: string, method = "target := target + amount;\nMixed := target * 10;") =>
+    `PROGRAM P\nVAR user : FB_U; END_VAR\nuser();\nEND_PROGRAM\nFUNCTION_BLOCK FB_U\nVAR counter : INT := 7; result : INT; values : ARRAY[0..2] OF INT; i : INT; END_VAR\n${body}\nEND_FUNCTION_BLOCK\n` +
+    `METHOD Mixed : INT\nVAR_IN_OUT target : INT; END_VAR\nVAR_INPUT amount : INT; END_VAR\n${method}\nEND_METHOD\n` +
+    "METHOD Fill\nVAR_IN_OUT line : ARRAY[*] OF INT; END_VAR\nVAR k : DINT; END_VAR\nFOR k := LOWER_BOUND(line, 1) TO UPPER_BOUND(line, 1) DO\n  line[k] := DINT_TO_INT(k) + 1;\nEND_FOR\nEND_METHOD\n"
+  const runner = run(ir(source("result := Mixed(counter, 3);\nFill(values);"), "P"))
+  runner.scan()
+  expect(["user.counter", "user.result", "user.values[2]"].map((v) => runner.get(v))).toEqual([10n, 100n, 3n])
+  const codes = (body: string, method?: string) => lowerSource(source(body, method), "P").diagnostics.map((d) => d.code)
+  // the callee also reads the field by name: through the in-out it sees the new value at once, through a copy it would not
+  expect(codes("result := Mixed(counter, 3);", "target := target + amount;\nMixed := counter;")).toContain("call-inout-alias")
+  // a runtime index the callee could move before the value is written back
+  expect(codes("result := Mixed(values[i], 3);")).toContain("call-inout-alias")
+  // Review of the first cut, which copied whenever the callee did not NAME the field — each of these wrote a wrong value:
+  const extra = (methods: string, vars = "") =>
+    lowerSource(
+      `PROGRAM P\nVAR user : FB_V; END_VAR\nuser();\nEND_PROGRAM\nFUNCTION_BLOCK FB_V\nVAR n : INT; inner : FB_In; ${vars} END_VAR\n${methods.split("|")[0]}\nEND_FUNCTION_BLOCK\n${methods.split("|")[1]}` +
+        "FUNCTION_BLOCK FB_In\nVAR x : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Bump\nVAR_IN_OUT v : INT; END_VAR\nv := v + 1;\nx := x + 10;\nEND_METHOD\n",
+      "P",
+    ).diagnostics.map((d) => d.code)
+  // the same field lent to two in-outs of one call — the last write-back won
+  expect(extra("Two(a := n, b := n);|METHOD Two\nVAR_IN_OUT a : INT; b : INT; END_VAR\na := 5;\nb := b + 1;\nEND_METHOD\n")).toContain("call-inout-alias")
+  // a sub-instance reached through THIS^, its METHOD writing the field directly — checked against the wrong frame
+  expect(extra("THIS^.inner.Bump(v := inner.x);|")).toContain("call-inout-alias")
+  // a callee that calls anything — here a FUNCTION given THIS^, which could read the field through it
+  expect(extra("M(v := n);|METHOD M\nVAR_IN_OUT v : INT; END_VAR\nv := v + 1;\nn := F_Id(k := 1);\nEND_METHOD\nFUNCTION F_Id : INT\nVAR_INPUT k : INT; END_VAR\nF_Id := k;\nEND_FUNCTION\n")).toContain("call-inout-alias")
+  // Review of the narrowed cut: SUPER^ built its held list from the bound places alone, so a field bound twice was copied
+  // twice (n = 101 where by reference it is 6). Why missed: the two-in-out case above went through a METHOD call only.
+  const derived = (superCall: string) =>
+    `PROGRAM P\nVAR d : FB_D; x : INT; y : INT; END_VAR\nd(a := x, b := y);\nEND_PROGRAM\nFUNCTION_BLOCK FB_B\nVAR_IN_OUT a : INT; b : INT; END_VAR\na := 5;\nb := b + 1;\nEND_FUNCTION_BLOCK\n` +
+    `FUNCTION_BLOCK FB_D EXTENDS FB_B\nVAR n : INT := 100; m : INT := 200; END_VAR\n${superCall}\nEND_FUNCTION_BLOCK\n`
+  expect(lowerSource(derived("SUPER^(a := n, b := n);"), "P").diagnostics.map((d) => d.code)).toContain("call-inout-alias")
+  const viaSuper = run(ir(derived("SUPER^(a := n, b := m);"), "P"))
+  viaSuper.scan()
+  expect([viaSuper.get("d.n"), viaSuper.get("d.m"), viaSuper.get("x")]).toEqual([5n, 201n, 0n])
+})
+
 // Recorded first (`callshape_positional_arguments`): positional arguments bind in declaration order across VAR_INPUT and
 // VAR_IN_OUT, interleaved too (100, 315, 46). They were refused (`call-positional`) whenever the routine had an in-out —
 // pro2193's `Arrays.Bool_All(result, TRUE)` — and a METHOD calling its FB's own METHOD takes the FB's in-outs, so even
@@ -843,8 +884,15 @@ END_PROGRAM
     const two = "FUNCTION_BLOCK FB_Two\nVAR_IN_OUT a : INT; b : INT; END_VAR\na := b;\nEND_FUNCTION_BLOCK\n"
     expect(code(`PROGRAM P\nVAR pair : FB_Two; n : INT; m : INT; END_VAR\npair(a := n, b := n);\nEND_PROGRAM\n${two}`)).toEqual(["call-inout-alias"])
     expect(code(`PROGRAM P\nVAR pair : FB_Two; n : INT; m : INT; END_VAR\npair(a := n, b := m);\nEND_PROGRAM\n${two}`)).toEqual([])
-    const self = "FUNCTION_BLOCK FB_S\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Store\nVAR_IN_OUT dest : INT; END_VAR\ndest := 1;\nEND_METHOD\nMETHOD Outer\nTHIS^.Store(dest := n);\nEND_METHOD\n"
-    expect(code(`PROGRAM P\nVAR s : FB_S; END_VAR\ns.Outer();\nEND_PROGRAM\n${self}`)).toContain("call-inout-alias")
+    // `THIS^.Store(dest := n)` lends the instance's own field to its own METHOD. It was refused only because two `&mut` of
+    // one instance cannot be printed; since the copy-back (`IrCopy.back`) it lowers — exact while Store reaches n only
+    // through dest. A Store that also reads n by name would see the copy's stale value: still refused.
+    const self = (store: string) =>
+      `FUNCTION_BLOCK FB_S\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Store\nVAR_IN_OUT dest : INT; END_VAR\n${store}\nEND_METHOD\nMETHOD Outer\nTHIS^.Store(dest := n);\nEND_METHOD\n`
+    const through = run(ir(`PROGRAM P\nVAR s : FB_S; END_VAR\ns.Outer();\nEND_PROGRAM\n${self("dest := 1;")}`, "P"))
+    through.scan()
+    expect(through.get("s.n")).toEqual(1n)
+    expect(code(`PROGRAM P\nVAR s : FB_S; END_VAR\ns.Outer();\nEND_PROGRAM\n${self("dest := n + 1;")}`)).toContain("call-inout-alias")
   })
 
   // Transpiler review 2026-09-15. Why missed: every call test passed constants or variables as arguments; the crate check

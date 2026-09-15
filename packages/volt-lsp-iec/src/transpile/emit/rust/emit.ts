@@ -260,8 +260,13 @@ class Printer {
 
   /** A VAR_IN_OUT argument: `&mut place` — a VAR_IN_OUT CONSTANT's `&place`, or `&__copy_i`, the copy `lentCopies` took. */
   lend(b: IrBinding, i: number, param: IrPou["slots"][number], slots: IrPou["slots"]): string {
-    if ("kind" in b) return `&__copy_${i}`
+    if ("kind" in b) return b.back !== undefined ? `&mut __copy_${i}` : `&__copy_${i}`
     return `${param.readOnly === true ? "&" : "&mut "}${this.place(b, slots)}`
+  }
+
+  /** After the call, each copy marked `back` stored to its place: `self.points = __copy_0;` (an own field lent to an own METHOD). */
+  copiesBack(bindings: readonly IrBinding[], slots: IrPou["slots"]): string {
+    return bindings.flatMap((b, i) => ("kind" in b && b.back !== undefined ? [`${this.place(b.back, slots)} = __copy_${i};`] : [])).join(" ")
   }
 
   /**
@@ -270,7 +275,7 @@ class Printer {
    * argument holds a call (`call-nested`), so taking them first changes no order anything can observe.
    */
   lentCopies(bindings: readonly IrBinding[], slots: IrPou["slots"]): string {
-    return bindings.flatMap((b, i) => ("kind" in b ? [`let __copy_${i} = ${this.expr(b.value, slots)};`] : [])).join(" ")
+    return bindings.flatMap((b, i) => ("kind" in b ? [`let ${b.back !== undefined ? "mut " : ""}__copy_${i} = ${this.expr(b.value, slots)};`] : [])).join(" ")
   }
 
   /** A read through a dereference, checked first: `{ iec_deref(self.p); self.value }` — the null pointer panics. */
@@ -371,6 +376,8 @@ class Printer {
         // a VAR_IN_OUT bound through a dereference is checked before the call, as the interpreter checks it when binding
         const checked = e.inouts.reduce((text, b) => ("kind" in b ? text : this.guarded(b, text, slots)), call)
         const lets = [inputLets, this.lentCopies(e.inouts, slots)].filter((l) => l !== "").join(" ")
+        const back = this.copiesBack(e.inouts, slots)
+        if (back !== "") return `{ ${lets} let __back = ${checked}; ${back} __back }`
         return lets === "" ? checked : `{ ${lets} ${checked} }`
       }
       case "dispatch": {
@@ -615,15 +622,16 @@ class Printer {
         const bound = [...this.globalsArg, ...s.inouts.map((b, i) => this.lend(b, i, params[i]!, slots)), ...(s.lent ?? []).map((l) => this.lendMut(l, slots))].join(", ")
         const instance = this.place(s.instance, slots)
         const lets = this.lentCopies(s.inouts, slots)
+        const back = this.copiesBack(s.inouts, slots)
         // A PROGRAM's instance lives in `Programs`, which the call is handed too — `prg.p.call(g, prg)` would borrow it
         // twice (E0499) — so it runs moved out and back. Lowering refuses a program whose run reaches its own instance.
         if (s.instance.root === "global" && this.globals.slots[s.instance.slot]?.section === "program") {
           // an instance inside the program too (`callshape_program_instance_from_outside`): called on the moved-out value
           const moved = this.movedOut(s.instance, slots)
-          this.push(`{ ${lets}${lets === "" ? "" : " "}let mut program = std::mem::replace(&mut ${moved.program}, ${moved.type}::new()); program${moved.member}.call(${bound}); ${moved.program} = program; }`, indent, s.span)
+          this.push(`{ ${lets}${lets === "" ? "" : " "}let mut program = std::mem::replace(&mut ${moved.program}, ${moved.type}::new()); program${moved.member}.call(${bound}); ${moved.program} = program;${back === "" ? "" : ` ${back}`} }`, indent, s.span)
           return
         }
-        this.push(lets === "" ? `${instance}.call(${bound});` : `{ ${lets} ${instance}.call(${bound}); }`, indent, s.span)
+        this.push(lets === "" && back === "" ? `${instance}.call(${bound});` : `{ ${lets} ${instance}.call(${bound}); ${back} }`, indent, s.span)
         return
       }
     }
@@ -796,7 +804,8 @@ export function emitRust(pou: IrPou): Emitted {
       const typed = inouts.map((slot, i) => inoutType(slot, inoutNames[i]!))
       const params = [...globalsParam, ...typed.map((t) => t.param), ...lentParams].map((param) => `, ${param}`).join("")
       p.push("", 0)
-      if (globalsParam.length > 0) p.push("#[allow(unused_variables)]", 1)
+      // an in-out the body leaves to SUPER^ (or never reads) is unused too (review of the copy-back)
+      if (globalsParam.length > 0 || inouts.length > 0 || lentParams.length > 0) p.push("#[allow(unused_variables)]", 1)
       p.push(`pub fn call${genericList(typed)}(&mut self${params}) {`, 1)
       const selfType: Type = { kind: "function_block", name: layout.name }
       p.inFrame(names, { inoutNames, inoutSlots: inouts, localNames: [], localSlots: [], selfType }, () => p.block(layout.body!, layout.fields, 2))

@@ -87,10 +87,18 @@ class Machine {
     }
     const lent = (e.lent ?? []).map((p) => this.bind(p))
     new Machine(root, keys, bound, this.layouts, this.routines, this.globals, locals, lent).block(routine.body)
+    this.writeBack(e.inouts, bound)
     return routine.result === undefined ? false : locals[routine.result]!
   }
 
   /** A VAR_IN_OUT binding: the caller's place itself — or, lent to a VAR_IN_OUT CONSTANT, a cell holding a copy of a value. */
+  /** A copy lent for a call and marked `back` is written to its place once the call returns (`bindInOut`). */
+  private writeBack(bindings: readonly import("../ir/index.js").IrBinding[], cells: readonly Cell[]): void {
+    bindings.forEach((b, i) => {
+      if ("kind" in b && b.back !== undefined) this.write(b.back, (cells[i]!.container as Record<string | number, Val>)[cells[i]!.key]!)
+    })
+  }
+
   private bind(b: import("../ir/index.js").IrBinding): Cell {
     if ("kind" in b) {
       const value = this.expr(b.value)
@@ -331,6 +339,7 @@ class Machine {
         const bound = s.inouts.map((b) => this.bind(b))
         const lent = (s.lent ?? []).map((p) => this.bind(p))
         new Machine(instance, layout.fields.map((f) => f.name.toUpperCase()), bound, this.layouts, this.routines, this.globals, [], lent).block(layout.body!)
+        this.writeBack(s.inouts, bound)
         return "none"
       }
       case "eval":
