@@ -303,9 +303,19 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     // so a METHOD that never names one was refused from outside, and which POU lowered first decided (review of batch 3a).
     if (frame !== undefined) {
       const reached = reachedNames(r, parsed.statements)
-      const owner = lookup(lw.project, sym.owner.name)?.symbol.ast
+      // The owner's EXTENDS chain, base first: a base's in-out is the derived FB's too, reached through the base's METHODs
+      // (`callshape_inout_base_method_from_derived_method`: 11, `callshape_inout_super_method_from_override`: 11). They were
+      // the owner's own only, so a derived METHOD calling such a base METHOD was `call-fb-inout` (pro2193's ConveyorFB).
+      const sections: VarSection[] = []
+      const seen = new Set<string>()
+      for (let unit = lookup(lw.project, sym.owner.name)?.symbol.ast as TopLevel | undefined; unit !== undefined && (unit.kind === "function_block" || unit.kind === "program") && !seen.has(unit.name.text.toUpperCase()); ) {
+        seen.add(unit.name.text.toUpperCase())
+        sections.unshift(...unit.varSections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
+        const base = unit.kind === "function_block" ? unit.extends : undefined
+        unit = base === undefined ? undefined : (lookup(lw.project, base.text)?.symbol.ast as TopLevel | undefined)
+      }
       const declared = new Lowering(sym.owner, r.project, r.shared)
-      declareInOuts(declared, owner !== undefined && "varSections" in owner ? owner.varSections.filter((s) => s.sectionKind === "VAR_IN_OUT") : [])
+      declareInOuts(declared, sections)
       r.diagnostics.push(...declared.diagnostics)
       for (const slot of declared.inoutSlots) {
         const own = slot.name.toUpperCase()
@@ -713,7 +723,13 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     // THIS instance itself — `THIS^.inner.M()` is rooted at THIS too, but runs on a child with in-outs of its own
     const held = instance?.root === "this" && instance.path.length === 0 ? lw.inoutByName.get(slot.name.toUpperCase()) : undefined
     if (held === undefined) outside = true
-    else inouts[i] = { slot: held, path: [], type: lw.inoutSlots[held]!.type, span: call.span, root: "inout" }
+    else {
+      const own: Place = { slot: held, path: [], type: lw.inoutSlots[held]!.type, span: call.span, root: "inout" }
+      // an explicit argument already lent it — `Bump2(x := shared)` where Bump2 reaches `shared` too: two `&mut` (E0499, review)
+      if (inouts.some((b) => b !== undefined && !("kind" in b) && aliases(own, b)))
+        return lw.bail("call-inout-alias", `${routine.name} reaches ${slot.name}, which an argument of the same call already lends`, call.span)
+      inouts[i] = own
+    }
   }
   for (const [i, slot] of routine.inouts.entries()) {
     if (inouts[i] !== undefined || (outside && slot.ofInstance === true)) continue

@@ -516,6 +516,26 @@ test("a METHOD called from outside its FB reaches the in-out the instance was la
   expect(codes("w2 : FB_W;", "worker(shared := first);\nw2 := worker;\nw2.AddTen();")).toContain("call-fb-inout")
 })
 
+// Recorded (`callshape_inout_base_method_from_derived_method`: 11, `callshape_inout_base_method_from_outside_derived`: 21,
+// `callshape_inout_super_method_from_override`: 11): a derived FB's METHOD reaches the BASE's in-out through a base METHOD.
+// Refused (`call-fb-inout`, pro2193's ConveyorFB and AirBufferFB): a METHOD took only its own FB's declared in-outs. Why
+// missed: every test of an in-out reached from a METHOD declared the in-out in the FB the METHOD belonged to.
+test("a derived FB's METHOD reaches its base's in-out through a base METHOD — from the body, from outside, through SUPER^", () => {
+  const base = "FUNCTION_BLOCK FB_B\nVAR_IN_OUT shared : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD AddTen\nshared := shared + 10;\nEND_METHOD\n"
+  const value = (body: string, derived: string) => {
+    const runner = run(ir(`PROGRAM P\nVAR d : FB_D; v : INT := 1; END_VAR\n${body}\nEND_PROGRAM\n${base}FUNCTION_BLOCK FB_D EXTENDS FB_B\n${derived}`, "P"))
+    runner.scan()
+    return runner.get("v")
+  }
+  expect(value("d(shared := v);", "Bump();\nEND_FUNCTION_BLOCK\nMETHOD Bump\nAddTen();\nEND_METHOD\n")).toEqual(11n)
+  expect(value("d(shared := v);\nd.Bump();", "AddTen();\nEND_FUNCTION_BLOCK\nMETHOD Bump\nAddTen();\nEND_METHOD\n")).toEqual(21n)
+  expect(value("d(shared := v);", "AddTen();\nEND_FUNCTION_BLOCK\nMETHOD AddTen\nSUPER^.AddTen();\nEND_METHOD\n")).toEqual(11n)
+  // Review: the in-out lent by an argument AND reached by the callee printed two `&mut` of it (E0499) — refused, inherited
+  // or the FB's own
+  const twice = "Outer();\nEND_FUNCTION_BLOCK\nMETHOD Outer\nBump2(x := shared);\nEND_METHOD\nMETHOD Bump2\nVAR_IN_OUT x : INT; END_VAR\nx := x + 1;\nAddTen();\nEND_METHOD\n"
+  expect(lowerSource(`PROGRAM P\nVAR d : FB_D; v : INT := 1; END_VAR\nd(shared := v);\nEND_PROGRAM\n${base}FUNCTION_BLOCK FB_D EXTENDS FB_B\n${twice}`, "P").diagnostics.map((d) => d.code)).toContain("call-inout-alias")
+})
+
 // Review of the fixture batch — what the init step's new reach into called PROGRAMs, and the VAR_OUTPUT rule, let through.
 // Why missed: every init test declared its instances in the root, once each; the output fixture bound nothing else.
 test("the init step visits every called PROGRAM, refuses a moved-out read, and re-applies each instance's initializer", () => {

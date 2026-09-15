@@ -543,7 +543,11 @@ taken apart by construct before anything is built — record first, then build, 
       ~14 sites are a different shape, recorded since (`callshape_inout_base_method_from_derived_method`: 11,
       `callshape_inout_base_method_from_outside_derived`: 21, `callshape_inout_super_method_from_override`: 11): a
       DERIVED FB's METHOD reaching the BASE's in-out through a base METHOD — refused, as a METHOD takes only its own
-      FB's declared in-outs, not its bases'.
+      FB's declared in-outs, not its bases'. Built since: a METHOD takes the in-outs of its owner's whole EXTENDS chain,
+      and the three lower and match (502 of 526). pro2193's sites stay refused: they are yet another shape — the BASE's
+      body, run through the derived body's SUPER^(), calls a METHOD the derived FB overrides, which writes the DERIVED
+      FB's own in-out; the SUPER^ body takes only its base chain's in-outs. Recorded next
+      (`callshape_inout_override_from_base_body`, `callshape_inout_override_from_outside_base_method`).
 - [x] Conformance fixtures for every shape this phase met only in the test corpus or a src test (user request
       2026-09-15: "so we dont rely on the testcorpus") — each recorded in CODESYS SP21, build and run, and replayed by
       the LSP and both transpiler backends. The LSP's error/warning set matches CODESYS exactly on all but

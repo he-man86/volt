@@ -171,6 +171,65 @@ END_METHOD
 `,
     "derived : FB_CS_actDerived25; v : INT := 1;",
     "derived(shared := v);"),
+  // pro2193's shape itself: the BASE's body, run through the derived body's SUPER^(), calls a METHOD the derived FB
+  // overrides, and the override writes the DERIVED FB's own VAR_IN_OUT — the binding of the derived call (11)?
+  fb("callshape_inout_override_from_base_body", "FB_CS_ovBase26", "a base FB's body, run through SUPER^(), calling a METHOD whose override writes the derived FB's VAR_IN_OUT",
+    `FUNCTION_BLOCK FB_CS_ovBase26
+VAR
+	calls : INT;
+END_VAR
+calls := calls + 1;
+Hook();
+END_FUNCTION_BLOCK
+
+METHOD Hook
+;
+END_METHOD
+
+FUNCTION_BLOCK FB_CS_ovDerived26 EXTENDS FB_CS_ovBase26
+VAR_IN_OUT
+	profile : INT;
+END_VAR
+SUPER^();
+END_FUNCTION_BLOCK
+
+METHOD Hook
+profile := profile + 10;
+END_METHOD
+`,
+    "derived : FB_CS_ovDerived26; v : INT := 1;",
+    "derived(profile := v);"),
+  // ...and a BASE METHOD called from outside after the call, calling that override: the last binding (11, then 21).
+  fb("callshape_inout_override_from_outside_base_method", "FB_CS_ovBase27", "a base FB's METHOD, called from outside after the call, calling a METHOD whose override writes the derived FB's VAR_IN_OUT",
+    `FUNCTION_BLOCK FB_CS_ovBase27
+VAR
+	calls : INT;
+END_VAR
+calls := calls + 1;
+Hook();
+END_FUNCTION_BLOCK
+
+METHOD Hook
+;
+END_METHOD
+
+METHOD Run
+Hook();
+END_METHOD
+
+FUNCTION_BLOCK FB_CS_ovDerived27 EXTENDS FB_CS_ovBase27
+VAR_IN_OUT
+	profile : INT;
+END_VAR
+SUPER^();
+END_FUNCTION_BLOCK
+
+METHOD Hook
+profile := profile + 10;
+END_METHOD
+`,
+    "derived : FB_CS_ovDerived27; v : INT := 1;",
+    "derived(profile := v);\nderived.Run();"),
   // An FB lending its own field to its own METHOD, which also reads the field by name after writing the in-out: by
   // reference the name sees the new value (10), a copy would not (7).
   fb("callshape_own_field_inout_read_by_name", "FB_CS_ownRead15", "an FB's own field lent to its own METHOD's VAR_IN_OUT, the METHOD reading the field by name after writing the in-out",
