@@ -4,7 +4,7 @@
  */
 import type { Identifier, Span, TopLevel, TypeExpr, VarSection } from "../../syntax/index.js"
 import type { Scope } from "../../symbols/index.js"
-import { resolveTypeExpr, type Type } from "../../types/index.js"
+import { elementaryRef, resolveTypeExpr, type Type } from "../../types/index.js"
 import {
   defaultValueOf,
   type IrLayout,
@@ -196,7 +196,10 @@ export class Lowering {
   }
 
   resolve(t: TypeExpr): Type {
-    return resolveTypeExpr(t, this.project)
+    // CODESYS's pointer-width integers take the target's width: 64 bits on the recorded simulator — `__XINT` reads back as
+    // LINT#42, `__UXINT` ULINT, `__XWORD` LWORD (conformance `type_codesys_*`). ponytail: a 32-bit target is not modelled.
+    const platform = t.kind === "named_type" ? PLATFORM_INTEGERS[t.name.text.toUpperCase()] : undefined
+    return platform !== undefined ? elementaryRef(platform) : resolveTypeExpr(t, this.project)
   }
 
   // ─── places ────────────────────────────────────────────────────────────────
@@ -207,6 +210,9 @@ export class Lowering {
 
 }
 
-export const ZERO_SPAN: Span = { start: 0, end: 0, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
+/** CODESYS's pointer-width integer types, as the 64-bit simulator holds them (conformance `type_codesys_*`). */
+const PLATFORM_INTEGERS: Readonly<Record<string, string>> = { __XINT: "LINT", __UXINT: "ULINT", __XWORD: "LWORD" }
+
+export const ZERO_SPAN: Span ={ start: 0, end: 0, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
 
 // ─── entry points ────────────────────────────────────────────────────────────

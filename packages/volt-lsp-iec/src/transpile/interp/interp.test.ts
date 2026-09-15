@@ -760,6 +760,24 @@ END_METHOD`,
     expect([pou.get("viaSuper.inBase"), pou.get("viaSuper.nBase"), pou.get("viaSuper.hookDerived"), pou.get("viaSuper.hookBase")]).toEqual([105n, 1n, 1n, 1n])
   })
 
+  // `type_codesys_xint`, `type_implicit_enum_inline`, `type_array_2d` (recorded once the recorder read them): `__XINT` is a
+  // LINT on the 64-bit target, an inline enum's value folds as a TYPE enum's does, a 2D element reads as `m[i, j]`. Why
+  // missed: the recorder read none of these, so no value ever reached the replay, and `:= Idle` did not fold.
+  test("a pointer-width integer, an inline enum's initial value, and a 2D array element read by path", () => {
+    const pou = load(
+      `PROGRAM P
+VAR x : __XINT; state : (Idle, Running, Halted) := Idle; m : ARRAY[0..1, 0..2] OF REAL; wasIdle : BOOL; END_VAR
+x := 42;
+wasIdle := state = Idle;
+state := Running;
+m[1, 2] := 1.5;
+END_PROGRAM`,
+      "P",
+    )
+    pou.scan()
+    expect([pou.get("x"), pou.get("state"), pou.get("wasIdle"), pou.get("m[1, 2]"), pou.get("m[0, 0]")]).toEqual([42n, 1n, true, 1.5, 0])
+  })
+
   // `state_program_called_from_fb`: a PROGRAM called from an FB's body is the one instance PLC_PRG calls. Why missed: a
   // program was callable from the POU's own body only, as Rust held its instance for the root scan alone.
   test("a PROGRAM called from inside an FB is the same one instance the POU calls", () => {

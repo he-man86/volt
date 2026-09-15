@@ -47,7 +47,7 @@ const recording = JSON.parse(readFileSync(join(import.meta.dir, "recordings", "c
  * The cases with transpiler lowering held above this floor — execution cases and fixtures together. Raise it when more
  * cases lower; never lower it to make a change pass.
  */
-const LOWERED_FLOOR = 425
+const LOWERED_FLOOR = 431
 
 /** The source a case lowers from: the fixture's own units (an execution case has none), then its PLC_PRG. */
 function runSource(c: LanguageTest): string {
@@ -77,19 +77,26 @@ function lowering(c: LanguageTest): LoweredPou {
  *  before it, from 0 — how CODESYS numbers them (conformance `type_dut_enum_*`). */
 function enumsOf(c: LanguageTest): Map<string, bigint> {
   const out = new Map<string, bigint>()
-  for (const unit of parseSource(runSource(c)).units) {
-    if (unit.kind !== "type_decl" || unit.body.kind !== "enum") continue
+  const number = (prefix: string, values: readonly { name: { text: string }; value?: import("../../src/syntax/index.js").Expr }[]) => {
     let next = 0n
-    for (const v of unit.body.values) {
+    for (const v of values) {
       // `Cold := -1` is a unary minus over a literal — reading literals only numbered it as the value before it plus one
       const negated = v.value?.kind === "unary" && v.value.op === "-" ? v.value.operand : undefined
       const literal = negated ?? v.value
       const magnitude = literal?.kind === "literal" && typeof literal.value === "bigint" ? literal.value : undefined
       const written = magnitude === undefined ? undefined : negated === undefined ? magnitude : -magnitude
       const value = written ?? next
-      out.set(`${unit.name.text}.${v.name.text}`.toUpperCase(), value)
+      out.set(`${prefix}.${v.name.text}`.toUpperCase(), value)
       next = value + 1n
     }
+  }
+  for (const unit of parseSource(runSource(c)).units) {
+    if (unit.kind === "type_decl" && unit.body.kind === "enum") number(unit.name.text, unit.body.values)
+    // an implicit enumeration displays under a name of the IDE's making: `Implicit_Enum__FB_LANG_implicit_enum__eState.Running`
+    if ("varSections" in unit && "name" in unit && unit.name !== undefined)
+      for (const section of unit.varSections)
+        for (const decl of section.decls)
+          if (decl.type.kind === "implicit_enum_type") for (const n of decl.names) number(`Implicit_Enum__${unit.name.text}__${n.text}`, decl.type.values)
   }
   return out
 }

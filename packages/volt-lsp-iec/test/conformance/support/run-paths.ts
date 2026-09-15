@@ -60,27 +60,37 @@ export function runPaths(t: LanguageTest, all: readonly LanguageTest[]): string[
         return
       case "named_type": {
         if (type.subrange !== undefined) return
-        if (elementaryType(type.name.text) !== undefined) return void out.push(path)
+        // `__XINT`, `__UXINT`, `__XWORD`, `__UXWORD`: CODESYS's pointer-width integers, one value each
+        if (elementaryType(type.name.text) !== undefined || /^__U?X(INT|WORD)$/i.test(type.name.text)) return void out.push(path)
         const unit = declared.get(type.name.text.toUpperCase())
         if (unit?.kind === "function_block") return expandFb(unit, `${path}.`, depth)
         if (unit?.kind === "type_decl") {
-          if (unit.body.kind === "struct") {
-            // a derived struct holds its base's fields too (`TYPE D EXTENDS B : STRUCT`)
-            if (unit.body.extends !== undefined) expand({ ...type, name: unit.body.extends }, path, depth + 1)
+          if (unit.body.kind === "struct" || unit.body.kind === "union") {
+            // a derived struct holds its base's fields too (`TYPE D EXTENDS B : STRUCT`); a union's fields overlap, each read
+            if (unit.body.kind === "struct" && unit.body.extends !== undefined) expand({ ...type, name: unit.body.extends }, path, depth + 1)
             for (const f of unit.body.fields) for (const n of f.names) expand(f.type, `${path}.${n.text}`, depth + 1)
           } else if (unit.body.kind === "enum") out.push(path)
           else if (unit.body.kind === "alias") expand(unit.body.target, path, depth)
         }
         return
       }
+      case "implicit_enum_type":
+        out.push(path)
+        return
       case "array_type": {
-        if (type.dims.length !== 1) return
-        const dim = type.dims[0]!
-        if (dim.lower === undefined || dim.upper === undefined) return
-        const lo = constEval(dim.lower, project)
-        const hi = constEval(dim.upper, project)
-        if (typeof lo !== "bigint" || typeof hi !== "bigint" || hi - lo + 1n > BigInt(MAX_ELEMENTS)) return
-        for (let i = lo; i <= hi; i++) expand(type.element, `${path}[${i}]`, depth + 1)
+        // every dimension's bounds must fold; the elements are read as `a[i, j]`, at most MAX_ELEMENTS of them
+        const bounds: [bigint, bigint][] = []
+        for (const dim of type.dims) {
+          if (dim.lower === undefined || dim.upper === undefined) return
+          const lo = constEval(dim.lower, project)
+          const hi = constEval(dim.upper, project)
+          if (typeof lo !== "bigint" || typeof hi !== "bigint") return
+          bounds.push([lo, hi])
+        }
+        if (bounds.reduce((n, [lo, hi]) => n * (hi - lo + 1n), 1n) > BigInt(MAX_ELEMENTS)) return
+        let indices: bigint[][] = [[]]
+        for (const [lo, hi] of bounds) indices = indices.flatMap((prefix) => Array.from({ length: Number(hi - lo + 1n) }, (_, k) => [...prefix, lo + BigInt(k)]))
+        for (const index of indices) expand(type.element, `${path}[${index.join(", ")}]`, depth + 1)
         return
       }
       default:

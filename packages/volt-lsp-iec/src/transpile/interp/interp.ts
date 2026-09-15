@@ -347,7 +347,10 @@ export function sameName(a: string, b: string): boolean {
  *  the dimension's lower bound. Shared by `get` and `set`, so a test reads exactly where the program writes. */
 function resolvePath(pou: IrPou, frame: Val[], layouts: ReadonlyMap<string, IrLayout>, path: string) {
   // a name may be backtick-quoted — ``fb.`TYPE` `` is how CODESYS names a variable declared `` `TYPE` ``
-  const parts = [...path.matchAll(/(`[^`]+`|[A-Za-z_]\w*)|\[\s*(-?\d+)\s*\]/g)]
+  // `a[1, 2]` indexes two dimensions: one step each, as `a[1][2]` would
+  const parts = [...path.matchAll(/(`[^`]+`|[A-Za-z_]\w*)|\[([^\]]+)\]/g)].flatMap((m) =>
+    m[2] === undefined ? [m] : m[2].split(",").map((index) => [m[0], undefined, index.trim()] as unknown as RegExpExecArray),
+  )
   const first = parts[0]?.[1]
   const slot = first === undefined ? -1 : pou.slots.findIndex((s) => sameName(s.name, first))
   if (slot < 0) throw new Error(`no variable ${path} in ${pou.name}`)

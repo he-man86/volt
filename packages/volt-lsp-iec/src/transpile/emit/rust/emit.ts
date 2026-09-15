@@ -587,7 +587,10 @@ function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[],
  * variable's type — how a test reads the emitted program exactly where the interpreter's `get` reads.
  */
 export function rustAccess(pou: IrPou, path: string): { expr: string; type: Type } {
-  const parts = [...path.matchAll(/(`[^`]+`|[A-Za-z_]\w*)|\[\s*(-?\d+)\s*\]/g)]
+  // `a[1, 2]` indexes two dimensions: one step each, as `a[1][2]` would
+  const parts = [...path.matchAll(/(`[^`]+`|[A-Za-z_]\w*)|\[([^\]]+)\]/g)].flatMap((m) =>
+    m[2] === undefined ? [m] : m[2].split(",").map((index) => [m[0], undefined, index.trim()] as unknown as RegExpExecArray),
+  )
   const bare = (n: string | undefined): string | undefined => n?.replace(/^`|`$/g, "").toUpperCase()
   const slot = pou.slots.findIndex((s) => bare(s.name) === bare(parts[0]?.[1]))
   if (slot < 0) throw new Error(`no variable ${path} in ${pou.name}`)
