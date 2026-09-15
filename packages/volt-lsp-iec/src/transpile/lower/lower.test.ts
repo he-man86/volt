@@ -288,6 +288,19 @@ END_PROGRAM
     expect(diagnostics.map((d) => d.code)).toContain("enum-default")
   })
 
+  // Phase 3½: every METHOD call resolves against the instance's own type — which holds only while an instance is never
+  // seen through its base type. A base-typed VAR_IN_OUT bound to a derived instance would dispatch on the parameter's
+  // type; that is not modelled, so it is refused, as is a SUPER^ with no base to name.
+  test("a derived instance bound to a base-typed VAR_IN_OUT, and SUPER^ outside a derived FB, are refused", () => {
+    const code = (source: string) => lowerSource(source, "P").diagnostics.map((d) => d.code)
+    const fbs =
+      "FUNCTION_BLOCK FB_B\nVAR n : INT; END_VAR\nn := n + 1;\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_D EXTENDS FB_B\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_Take\nVAR_IN_OUT b : FB_B; END_VAR\nVAR seen : INT; END_VAR\nseen := b.n;\nEND_FUNCTION_BLOCK\n"
+    expect(code(`PROGRAM P\nVAR d : FB_D; take : FB_Take; END_VAR\ntake(b := d);\nEND_PROGRAM\n${fbs}`)).toEqual(["call-inout-derived"])
+    expect(code(`PROGRAM P\nVAR b : FB_B; take : FB_Take; END_VAR\ntake(b := b);\nEND_PROGRAM\n${fbs}`)).toEqual([])
+    const plain = "FUNCTION_BLOCK FB_Plain\nVAR n : INT; END_VAR\nSUPER^();\nEND_FUNCTION_BLOCK\n"
+    expect(code(`PROGRAM P\nVAR x : FB_Plain; END_VAR\nx();\nEND_PROGRAM\n${plain}`)).toEqual(["call-super"])
+  })
+
   test("an initializer that does not fold is reported, never silently dropped", () => {
     // It was dropped: the slot started at its default with no diagnostic — which is how every STRING slot lost its
     // initial value (constEval folds no strings) while each string case still "lowered".

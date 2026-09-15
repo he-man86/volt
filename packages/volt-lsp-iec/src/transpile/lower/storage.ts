@@ -38,6 +38,7 @@ export function storageOf(lw: Lowering, t: Type): Type {
 export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "function_block" }>, sym: ReturnType<typeof lookup> extends infer R ? (R extends { symbol: infer S } ? S : never) | undefined : never): void {
   const nested = new Lowering(t.scope ?? lw.project, lw.project, lw.shared)
   nested.selfType = t
+  nested.codeOwner = t.scope
   nested.frameContext = `FB:${t.name.toUpperCase()}`
   const base = (name: string | undefined): void => {
     if (name === undefined) return

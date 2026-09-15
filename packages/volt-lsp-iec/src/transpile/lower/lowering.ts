@@ -74,8 +74,11 @@ export class Lowering {
   globalMode = false
   /** Lowering the POU's OWN body — the one place a PROGRAM is called from (see `globalPlace`); set by `lowerUnit`. */
   isRoot = false
-  /** The FB an FB, METHOD or ACTION body runs on — what `THIS^` names. */
+  /** The FB an FB, METHOD or ACTION body runs on — what `THIS^` names, and what a METHOD call resolves against. */
   selfType: Type | undefined
+  /** The FB whose DECLARATION this code is. A base FB's body or method runs on a derived instance (`selfType`) yet still
+   *  names ITS OWN base as `SUPER^` — the two differ exactly there. */
+  codeOwner: Scope | undefined
   /** Which frame this body's plain slots belong to — the POU's or an FB's — so every body agrees on a pointer's key; the
    *  POU's is set by `lowerUnit`. */
   frameContext = "POU"

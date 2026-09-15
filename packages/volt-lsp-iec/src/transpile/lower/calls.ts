@@ -1,7 +1,14 @@
 /**
  * Calls: an FB instance's body, a METHOD, ACTION or FUNCTION lowered once — and what a call may bind as `&mut`.
+ *
+ * Inheritance, as recorded (conformance `inh_*`): calling a derived FB runs ONLY its own body; `SUPER^()` runs the base
+ * body on the same instance, `SUPER^.M()` the base's method; and every METHOD call — written in a derived body, a base
+ * body or a base method alike — resolves against the instance's own type, so an override wins. Each routine is therefore
+ * lowered for the FB it runs ON (the frame, `THIS^`), once per such FB, while `SUPER^` is read from the FB whose code it
+ * is (`codeOwner`).
  */
 import {
+  type CallArg,
   type Expr,
   isGraphicalBody,
   parseStatements,
@@ -9,18 +16,19 @@ import {
   type Statement,
   type TopLevel,
 } from "../../syntax/index.js"
-import { findChildScope, libraryOf, lookup, lookupMember } from "../../symbols/index.js"
-import { UNKNOWN } from "../../types/index.js"
+import { findChildScope, libraryOf, lookup, lookupMember, type Scope } from "../../symbols/index.js"
+import { type Type, UNKNOWN } from "../../types/index.js"
 import {
   defaultValueOf,
   type IrExpr,
   type IrInvoke,
   type IrLayout,
   type IrRoutine,
+  type IrSlot,
   type IrStmt,
   type Place,
 } from "../ir/index.js"
-import { baseOf, Lowering } from "./lowering.js"
+import { baseOf, Lowering, type PendingBody } from "./lowering.js"
 import { convert } from "./convert.js"
 import { declareInOuts, declareVars, storageOf } from "./storage.js"
 import { lowerPlace } from "./places.js"
@@ -28,70 +36,168 @@ import { through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 import { lowerBlock } from "./statements.js"
 
+type FbType = Extract<Type, { kind: "function_block" }>
+type RoutineSymbol = NonNullable<ReturnType<typeof lookup>>["symbol"]
+
+/** The FB a body runs on — what `THIS^` names — when it runs on one. */
+const selfFb = (lw: Lowering): FbType | undefined => (lw.selfType?.kind === "function_block" ? lw.selfType : undefined)
+
+const thisPlace = (type: FbType, span: Span): Place => ({ slot: 0, path: [], type, span, root: "this" })
+
+const isSuper = (e: Expr): boolean => e.kind === "deref" && e.base.kind === "ident_expr" && e.base.name.toUpperCase() === "SUPER"
+
+/** A METHOD or ACTION a bare name inside an FB names — `M()` is `THIS^.M()` (conformance `fbcall_bare_method_call`). */
+function ownMember(lw: Lowering, name: string): RoutineSymbol | undefined {
+  const frame = selfFb(lw)
+  if (frame?.scope === undefined || lookup(lw.scope, name)?.symbol.kind === "function") return undefined
+  const member = lookupMember(frame.scope, name)
+  return member?.kind === "method" || member?.kind === "action" ? member : undefined
+}
+
+/** An FB unit and its bases, the root of the EXTENDS chain first — undefined when a base has no body to lower. */
+function chainOf(lw: Lowering, unit: PendingBody["unit"]): PendingBody["unit"][] | undefined {
+  const chain = [unit]
+  for (let base = baseOf(unit); base !== undefined; ) {
+    const pending = lw.bodies.get(base.text.toUpperCase())
+    if (pending === undefined || chain.includes(pending.unit)) return undefined
+    chain.unshift(pending.unit)
+    base = baseOf(pending.unit)
+  }
+  return chain
+}
+
+const inOutSections = (chain: readonly PendingBody["unit"][]) => chain.flatMap((u) => u.varSections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
+
 /**
- * A METHOD or ACTION of the FB laid out as `fb`, or a FUNCTION — lowered once, in a frame of the instance's fields (for a
- * METHOD or ACTION) plus per-call locals. Refused, until each is measured: a VAR_OUTPUT (how `=>` reads it back), and
- * VAR_INST or VAR_STAT (storage that outlives the call).
+ * A routine lowered once per POU under `name`: cached, or refused if it failed before — or if it is reached again while
+ * its own body lowers, which is a routine calling itself and lowered it again without end (a RangeError out of lowering;
+ * transpiler review 2026-09-15). Whether CODESYS allows a recursive call at all is not measured.
  */
-export function calledRoutine(lw: Lowering, sym: NonNullable<ReturnType<typeof lookup>>["symbol"], fb: IrLayout | undefined, span: Span): IrRoutine | undefined {
-  const name = fb === undefined ? sym.name : `${fb.name}.${sym.name}`
+function once(lw: Lowering, name: string, span: Span, build: () => IrRoutine | undefined): IrRoutine | undefined {
   const key = name.toUpperCase()
   const cached = lw.routines.get(key)
   if (cached?.state === "lowered") return cached.routine
   if (cached?.state === "failed") return lw.bail("call-body", `${name}'s body does not lower`, span)
-  // A routine reached again while its own body lowers calls itself — which lowered it again, without end (a RangeError
-  // out of lowering; transpiler review 2026-09-15). Whether CODESYS allows a recursive call at all is not measured.
   if (cached?.state === "lowering") return lw.bail("call-recursive", `${name} calls itself`, span)
   lw.routines.set(key, { state: "lowering" })
-  const failed = (code: string, message: string): undefined => {
-    lw.routines.set(key, { state: "failed" })
-    return lw.bail(code, message, span)
-  }
-  const ast = sym.ast as Extract<TopLevel, { kind: "method" | "action" | "function" }>
-  const scope = findChildScope(fb === undefined ? lw.project : sym.owner, sym.name)
-  if (scope === undefined) return failed("call-target", `${name} did not bind`)
-  const sections = ast.kind === "action" ? [] : ast.varSections
-  const unmeasured = sections.find((s) => ["VAR_OUTPUT", "VAR_INST", "VAR_STAT"].includes(s.sectionKind))
-  if (unmeasured !== undefined) return failed(`routine-${unmeasured.sectionKind.toLowerCase()}`, `${name} has ${unmeasured.sectionKind}, not measured yet`)
-  if (isGraphicalBody(ast.body)) return failed("graphical-body", `${name} has a graphical body`)
-  const parsed = parseStatements(ast.body)
-  if (!parsed.ok) return failed("parse", parsed.firstError ?? `${name}'s body did not parse`)
-
-  const r = new Lowering(scope, lw.project, lw.shared)
-  if (fb !== undefined) r.inherit(fb.fields)
-  if (fb !== undefined) r.selfType = { kind: "function_block", name: fb.name, scope: sym.owner }
-  // a METHOD's plain slots are its FB's fields, so its pointers there share the FB's keys; its locals are its own
-  r.frameContext = fb === undefined ? `FUNCTION:${key}` : `FB:${fb.name.toUpperCase()}`
-  r.routineContext = `ROUTINE:${key}`
-  r.routineMode = true
-  let result: number | undefined
-  if (ast.kind !== "action" && ast.returnType !== undefined) {
-    const type = storageOf(r, r.resolve(ast.returnType))
-    r.localByName.set(sym.name.toUpperCase(), 0)
-    r.localSlots.push({ name: sym.name, type, section: "VAR", init: defaultValueOf(type) })
-    result = 0
-  }
-  const firstInput = r.localSlots.length
-  declareVars(r, sections.filter((s) => s.sectionKind === "VAR_INPUT"))
-  const inputs = Array.from({ length: r.localSlots.length - firstInput }, (_, i) => firstInput + i)
-  declareVars(r, sections.filter((s) => s.sectionKind === "VAR" || s.sectionKind === "VAR_TEMP"))
-  declareInOuts(r, sections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
-  const body = lowerBlock(r, parsed.statements)
-  if (r.diagnostics.length > 0) {
-    lw.diagnostics.push(...r.diagnostics)
-    lw.routines.set(key, { state: "failed" })
-    return undefined
-  }
-  const kind = ast.kind
-  const routine: IrRoutine = { name, key, kind, ...(fb === undefined ? {} : { fb: fb.name }), locals: r.localSlots, inputs, inouts: r.inoutSlots, ...(result === undefined ? {} : { result }), body }
-  lw.routines.set(key, { state: "lowered", routine })
+  const routine = build()
+  lw.routines.set(key, routine === undefined ? { state: "failed" } : { state: "lowered", routine })
   return routine
 }
 
+/** The lowering a routine body is lowered in: the frame's fields (when it runs on an instance) plus per-call locals. */
+function routineLowering(lw: Lowering, scope: Scope, frame: FbType | undefined, codeOwner: Scope | undefined, key: string): Lowering {
+  const r = new Lowering(scope, lw.project, lw.shared)
+  const layout = frame === undefined ? undefined : lw.layouts.get(frame.name.toUpperCase())
+  if (layout !== undefined) r.inherit(layout.fields)
+  r.selfType = frame
+  r.codeOwner = codeOwner
+  // a METHOD's plain slots are its FB's fields, so its pointers there share the FB's keys; its locals are its own
+  r.frameContext = frame === undefined ? `FUNCTION:${key}` : `FB:${frame.name.toUpperCase()}`
+  r.routineContext = `ROUTINE:${key}`
+  r.routineMode = true
+  return r
+}
+
 /**
- * `inst.M(a := x)`, `inst.A()` or `F(x)` → an `IrInvoke`. Arguments bind by name; positionally only to a routine with
- * no VAR_IN_OUT (measured for a FUNCTION's input, `fbcall_function_locals`). An input left out is refused — whether it
- * takes its initial value is not measured.
+ * A METHOD or ACTION run on an instance of `frame`, or a FUNCTION — lowered once per frame, in the instance's fields plus
+ * per-call locals. `as` names a routine that is not the one the frame resolves by name (`SUPER^.M()`). Refused, until each
+ * is measured: a VAR_OUTPUT (how `=>` reads it back), and VAR_INST or VAR_STAT (storage that outlives the call).
+ */
+export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | undefined, span: Span, as = sym.name): IrRoutine | undefined {
+  const name = frame === undefined ? sym.name : `${frame.name}.${as}`
+  return once(lw, name, span, () => {
+    if (frame !== undefined && !lw.layouts.has(frame.name.toUpperCase())) return lw.bail("call-target", `${frame.name} has no layout`, span)
+    const ast = sym.ast as Extract<TopLevel, { kind: "method" | "action" | "function" }>
+    const scope = findChildScope(frame === undefined ? lw.project : sym.owner, sym.name)
+    if (scope === undefined) return lw.bail("call-target", `${name} did not bind`, span)
+    const sections = ast.kind === "action" ? [] : ast.varSections
+    const unmeasured = sections.find((s) => ["VAR_OUTPUT", "VAR_INST", "VAR_STAT"].includes(s.sectionKind))
+    if (unmeasured !== undefined) return lw.bail(`routine-${unmeasured.sectionKind.toLowerCase()}`, `${name} has ${unmeasured.sectionKind}, not measured yet`, span)
+    if (isGraphicalBody(ast.body)) return lw.bail("graphical-body", `${name} has a graphical body`, span)
+    const parsed = parseStatements(ast.body)
+    if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${name}'s body did not parse`, span)
+
+    const key = name.toUpperCase()
+    const r = routineLowering(lw, scope, frame, frame === undefined ? undefined : sym.owner, key)
+    let result: number | undefined
+    if (ast.kind !== "action" && ast.returnType !== undefined) {
+      const type = storageOf(r, r.resolve(ast.returnType))
+      r.localByName.set(sym.name.toUpperCase(), 0)
+      r.localSlots.push({ name: sym.name, type, section: "VAR", init: defaultValueOf(type) })
+      result = 0
+    }
+    const firstInput = r.localSlots.length
+    declareVars(r, sections.filter((s) => s.sectionKind === "VAR_INPUT"))
+    const inputs = Array.from({ length: r.localSlots.length - firstInput }, (_, i) => firstInput + i)
+    declareVars(r, sections.filter((s) => s.sectionKind === "VAR" || s.sectionKind === "VAR_TEMP"))
+    declareInOuts(r, sections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
+    const body = lowerBlock(r, parsed.statements)
+    if (r.diagnostics.length > 0) {
+      lw.diagnostics.push(...r.diagnostics)
+      return undefined
+    }
+    return { name, key, kind: ast.kind, ...(frame === undefined ? {} : { fb: frame.name }), locals: r.localSlots, inputs, inouts: r.inoutSlots, ...(result === undefined ? {} : { result }), body }
+  })
+}
+
+/** A METHOD or ACTION called on an instance of `frame` — by the instance's own type, so an override wins wherever the
+ *  call is written (conformance `inh_base_body_reaches_override`, `inh_inherited_method_reaches_override`). */
+function methodOf(lw: Lowering, frame: FbType, name: string, span: Span): IrRoutine | undefined {
+  const sym = frame.scope === undefined ? undefined : lookupMember(frame.scope, name)
+  if (sym?.kind !== "method" && sym?.kind !== "action") return lw.bail("call-method", `${name} is not a METHOD or ACTION lowering can call`, span)
+  return calledRoutine(lw, sym, frame, span)
+}
+
+/**
+ * The base FB's body as a routine of the derived FB that runs it through `SUPER^()` — lowered in the derived frame, so
+ * the calls in it reach the derived overrides, with the in-outs of the base's chain as its parameters.
+ */
+function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: Span): IrRoutine | undefined {
+  const unit = base.unit
+  const name = `${frame.name}.SUPER_${unit.name.text}`
+  return once(lw, name, span, () => {
+    const chain = chainOf(lw, unit)
+    if (chain === undefined) return lw.bail("call-base", `a base of ${unit.name.text} has no body lowering can reach`, span)
+    if (chain.some((u) => u.varSections.some((s) => s.sectionKind === "VAR_TEMP")))
+      return lw.bail("fb-var-temp", `${unit.name.text} has VAR_TEMP — whether it starts over per call is not measured yet`, span)
+    if (isGraphicalBody(unit.body)) return lw.bail("graphical-body", `${unit.name.text} has a graphical body`, span)
+    const parsed = parseStatements(unit.body)
+    if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${unit.name.text}'s body did not parse`, span)
+    const key = name.toUpperCase()
+    const r = routineLowering(lw, base.lowering.scope, frame, base.lowering.codeOwner, key)
+    declareInOuts(r, inOutSections(chain))
+    const body = lowerBlock(r, parsed.statements)
+    if (r.diagnostics.length > 0) {
+      lw.diagnostics.push(...r.diagnostics)
+      return undefined
+    }
+    return { name, key, kind: "action", fb: frame.name, locals: r.localSlots, inputs: [], inouts: r.inoutSlots, body }
+  })
+}
+
+/**
+ * The place a VAR_IN_OUT argument binds. Refused: two `&mut` into one place (they do not exist in Rust — the handle form,
+ * design §9 form 3, is for later), a bit, a global (every body holds the globals as one `&mut`), and a derived instance
+ * or struct standing in for its base type — the parameter would dispatch on the base, which is not modelled.
+ */
+function bindInOut(lw: Lowering, arg: CallArg, param: IrSlot, held: readonly Place[]): Place | undefined {
+  const written = lw.inArgument(() => lowerPlace(lw, arg.value!))
+  const target = written === undefined ? undefined : through(lw, written, arg.span)
+  if (target === undefined) return undefined
+  if (held.some((p) => aliases(target, p))) return lw.bail("call-inout-alias", `${param.name} is bound to a variable the call already holds`, arg.span)
+  if (target.path.some((s) => s.kind === "bit")) return lw.bail("call-inout-bit", `${param.name} is bound to a bit`, arg.span)
+  if (target.root === "global") return lw.bail("call-inout-global", `${param.name} is bound to a global variable`, arg.span)
+  const composite = (t: Type): string | undefined => (t.kind === "function_block" || t.kind === "struct" ? t.name.toUpperCase() : undefined)
+  if (composite(param.type) !== undefined && composite(param.type) !== composite(target.type))
+    return lw.bail("call-inout-derived", `${param.name} is bound to a ${target.type.kind === "function_block" || target.type.kind === "struct" ? target.type.name : target.type.kind}, not its own type`, arg.span)
+  return target
+}
+
+/**
+ * `inst.M(a := x)`, `M()` inside an FB, `SUPER^.M()`, `inst.A()` or `F(x)` → an `IrInvoke`. Arguments bind by name;
+ * positionally only to a routine with no VAR_IN_OUT (measured for a FUNCTION's input, `fbcall_function_locals`). An
+ * input left out is refused — whether it takes its initial value is not measured.
  */
 export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>): IrInvoke | undefined {
   // `a.M(k := b.M(k := 1))` prints the inner call as an argument of the outer one: two `&mut g` at once, or two of `a`
@@ -101,20 +207,26 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
   const callee = call.callee
   let routine: IrRoutine | undefined
   let instance: Place | undefined
-  if (callee.kind === "member") {
+  if (callee.kind === "member" && isSuper(callee.base)) {
+    // the BASE's method, not the override (conformance `inh_super_method_from_body`) — a routine of its own on this frame
+    const frame = selfFb(lw)
+    const base = lw.codeOwner?.baseScope
+    const sym = base === undefined ? undefined : lookupMember(base, callee.member.name)
+    if (frame === undefined || (sym?.kind !== "method" && sym?.kind !== "action"))
+      return lw.bail("call-super", `SUPER^.${callee.member.name} names no METHOD of a base FB`, call.span)
+    routine = calledRoutine(lw, sym, frame, call.span, `SUPER_${sym.owner.name}_${sym.name}`)
+    instance = thisPlace(frame, callee.base.span)
+  } else if (callee.kind === "member") {
     const base = lowerPlace(lw, callee.base)
     if (base === undefined) return undefined
     if (inGlobals(lw, base)) return lw.bail("call-global-instance", `${callee.member.name} is called on an instance declared in a GVL`, call.span)
-    const layout = base.type.kind === "function_block" ? lw.layouts.get(base.type.name.toUpperCase()) : undefined
-    const sym = base.type.kind === "function_block" && base.type.scope !== undefined ? lookupMember(base.type.scope, callee.member.name) : undefined
-    if (layout === undefined || (sym?.kind !== "method" && sym?.kind !== "action"))
-      return lw.bail("call-method", `${callee.member.name} is not a METHOD or ACTION lowering can call`, call.span)
-    // an override in a derived FB would decide which body runs — dynamic dispatch, not measured
-    const pendingFb = lw.bodies.get(layout.name.toUpperCase())
-    if (pendingFb !== undefined && baseOf(pendingFb.unit) !== undefined)
-      return lw.bail("call-extends", `${layout.name} EXTENDS another FB — which ${callee.member.name} runs is not measured yet`, call.span)
-    routine = calledRoutine(lw, sym, layout, call.span)
+    if (base.type.kind !== "function_block") return lw.bail("call-method", `${callee.member.name} is not a METHOD or ACTION lowering can call`, call.span)
+    routine = methodOf(lw, base.type, callee.member.name, call.span)
     instance = base
+  } else if (callee.kind === "ident_expr" && ownMember(lw, callee.name) !== undefined) {
+    const frame = selfFb(lw)!
+    routine = methodOf(lw, frame, callee.name, call.span)
+    instance = thisPlace(frame, callee.span)
   } else if (callee.kind === "ident_expr") {
     const sym = lookup(lw.scope, callee.name)?.symbol
     if (sym?.kind !== "function" || libraryOf(sym) !== undefined) return lw.bail("expr-call", `${callee.name} is not a project FUNCTION`, call.span)
@@ -135,14 +247,9 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
       const name = arg.param.name.toUpperCase()
       const inout = routine.inouts.findIndex((p) => p.name.toUpperCase() === name)
       if (inout >= 0) {
-        const written = lw.inArgument(() => lowerPlace(lw, arg.value!))
-        const target = written === undefined ? undefined : through(lw, written, arg.span)
+        const held = [...(instance === undefined ? [] : [instance]), ...inouts.filter((p): p is Place => p !== undefined)]
+        const target = bindInOut(lw, arg, routine.inouts[inout]!, held)
         if (target === undefined) return undefined
-        if ((instance !== undefined && aliases(target, instance)) || inouts.some((p) => p !== undefined && aliases(target, p)))
-          return lw.bail("call-inout-alias", `${arg.param.name} is bound to a variable the call already holds`, arg.span)
-        if (target.path.some((s) => s.kind === "bit")) return lw.bail("call-inout-bit", `${arg.param.name} is bound to a bit`, arg.span)
-        // every body is handed the globals as one `&mut`, so a VAR_IN_OUT into them would be a second borrow of the same place
-        if (target.root === "global") return lw.bail("call-inout-global", `${arg.param.name} is bound to a global variable`, arg.span)
         inouts[inout] = target
         continue
       }
@@ -161,8 +268,9 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
 }
 
 /**
- * An FB's layout with its body lowered — once, at the first call that reaches it. Refused, until each is recorded:
- * a derived FB (which bodies a call runs), and an FB with VAR_TEMP (whether it starts over per call).
+ * An FB's layout with its body lowered — once, at the first call that reaches it. A derived FB runs ONLY its own body
+ * (conformance `inh_call_runs_derived_body`, `inh_empty_derived_body`), and takes the VAR_IN_OUT of its whole chain, the
+ * bases' first, as its fields are. Refused, until recorded: an FB with VAR_TEMP (whether it starts over per call).
  */
 export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout | undefined {
   const key = name.toUpperCase()
@@ -172,16 +280,16 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
   if (pending.state === "lowered") return layout
   if (pending.state === "failed") return lw.bail("call-body", `${name}'s body does not lower`, span)
   const unit = pending.unit
-  const base = baseOf(unit)
-  if (base !== undefined) return lw.fail(pending, "call-extends", `${name} EXTENDS ${base.text} — which bodies a call runs is not measured yet`, span)
-  if (unit.varSections.some((s) => s.sectionKind === "VAR_TEMP"))
+  const chain = chainOf(lw, unit)
+  if (chain === undefined) return lw.fail(pending, "call-base", `a base of ${name} has no body lowering can reach`, span)
+  if (chain.some((u) => u.varSections.some((s) => s.sectionKind === "VAR_TEMP")))
     return lw.fail(pending, "fb-var-temp", `${name} has VAR_TEMP — whether it starts over per call is not measured yet`, span)
   if (isGraphicalBody(unit.body)) return lw.fail(pending, "graphical-body", `${name} has a graphical body`, span)
   const parsed = parseStatements(unit.body)
   if (!parsed.ok) return lw.fail(pending, "parse", parsed.firstError ?? `${name}'s body did not parse`, span)
   const nested = pending.lowering
   const before = nested.diagnostics.length
-  declareInOuts(nested, unit.varSections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
+  declareInOuts(nested, inOutSections(chain))
   const body = lowerBlock(nested, parsed.statements)
   if (nested.diagnostics.length > before) {
     lw.diagnostics.push(...nested.diagnostics.slice(before))
@@ -203,16 +311,55 @@ export function inGlobals(lw: Lowering, place: Place): boolean {
 }
 
 /**
- * `inst(a := x, q => y)` → the input assignments, the call, the output assignments (IrCall). A FUNCTION, PROGRAM, METHOD
- * or ACTION call reports its own code — they are the plan's next steps.
+ * `SUPER^(in := x, io := y)` — the base FB's body, run on this instance (conformance `inh_super_call_runs_base_body`,
+ * `inh_super_call_with_arguments`): each input is assigned to the instance's own field, and stays assigned; each in-out
+ * is bound; then the base body runs (`baseBody`). An output argument is refused — not measured.
+ */
+function lowerSuperCall(lw: Lowering, call: Extract<Statement, { kind: "call_stmt" }>["call"]): IrStmt[] | undefined {
+  const frame = selfFb(lw)
+  const baseScope = lw.codeOwner?.baseScope
+  const base = baseScope === undefined ? undefined : lw.bodies.get(baseScope.name.toUpperCase())
+  const layout = frame === undefined ? undefined : lw.layouts.get(frame.name.toUpperCase())
+  if (frame === undefined || base === undefined || layout === undefined) return lw.bail("call-super", "SUPER^() outside a derived FB, or on a base with no body", call.span)
+  const routine = baseBody(lw, frame, base, call.span)
+  if (routine === undefined) return undefined
+  const instance = thisPlace(frame, call.callee.span)
+  const before: IrStmt[] = []
+  const inouts: (Place | undefined)[] = routine.inouts.map(() => undefined)
+  for (const arg of call.args) {
+    if (arg.param === undefined || arg.value === undefined || arg.output)
+      return lw.bail("call-positional", "SUPER^ called with a positional, empty or output argument", arg.span)
+    const name = arg.param.name.toUpperCase()
+    const k = routine.inouts.findIndex((p) => p.name.toUpperCase() === name)
+    if (k >= 0) {
+      const target = bindInOut(lw, arg, routine.inouts[k]!, [instance, ...inouts.filter((p): p is Place => p !== undefined)])
+      if (target === undefined) return undefined
+      inouts[k] = target
+      continue
+    }
+    const field = layout.fields.find((f) => f.name.toUpperCase() === name && f.section === "VAR_INPUT")
+    if (field === undefined) return lw.bail("call-param", `${arg.param.name} is not an input of ${frame.name}'s base`, arg.span)
+    const value = lowerExpr(lw, arg.value, field.type)
+    if (value === undefined) return undefined
+    const member: Place = { ...instance, path: [{ kind: "field", name: field.name }], type: field.type, span: arg.span }
+    before.push({ kind: "assign", target: member, value: convert(value, field.type), span: arg.span })
+  }
+  if (inouts.includes(undefined)) return lw.bail("call-inout-missing", `SUPER^ called without every VAR_IN_OUT`, call.span)
+  const invoke: IrInvoke = { kind: "invoke", routine: routine.key, instance, inputs: [], inouts: inouts as Place[], type: UNKNOWN, span: call.span }
+  return [...before, { kind: "eval", value: invoke, span: call.span }]
+}
+
+/**
+ * `inst(a := x, q => y)` → the input assignments, the call, the output assignments (IrCall). A FUNCTION, a METHOD or
+ * ACTION called bare, or `SUPER^(…)`, goes to its own lowering; a PROGRAM calls like an FB on its one instance.
  */
 export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind: "call_stmt" }>["call"]): IrStmt[] | undefined {
   const callee = call.callee
-  const upper = callee.kind === "ident_expr" ? callee.name.toUpperCase() : ""
-  if (callee.kind === "ident_expr" && !lw.localByName.has(upper) && !lw.byName.has(upper) && !lw.inoutByName.has(upper)) {
+  if (isSuper(callee)) return lowerSuperCall(lw, call)
+  if (callee.kind === "ident_expr" && !lw.holds(callee.name)) {
     const sym = lookup(lw.scope, callee.name)?.symbol
     const kind = sym?.kind
-    if (kind === "function") {
+    if (kind === "function" || ownMember(lw, callee.name) !== undefined) {
       const value = lowerInvoke(lw, call)
       return value && [{ kind: "eval", value, span: call.span }]
     }
@@ -224,6 +371,10 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
     }
   }
   if (callee.kind === "member") {
+    if (isSuper(callee.base)) {
+      const value = lowerInvoke(lw, call)
+      return value && [{ kind: "eval", value, span: call.span }]
+    }
     const base = lowerPlace(lw, callee.base)
     if (base === undefined) return undefined
     const layout = base.type.kind === "function_block" ? lw.layouts.get(base.type.name.toUpperCase()) : undefined
@@ -248,16 +399,10 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
     if (arg.param === undefined || arg.value === undefined)
       return lw.bail("call-positional", `${layout.name} called with a positional or empty argument`, arg.span)
     const name = arg.param.name.toUpperCase()
-    if (inouts.some((p) => p.name.toUpperCase() === name)) {
-      const written = lowerPlace(lw, arg.value)
-      const target = written === undefined ? undefined : through(lw, written, arg.span)
+    const param = inouts.find((p) => p.name.toUpperCase() === name)
+    if (param !== undefined) {
+      const target = bindInOut(lw, arg, param, [instance, ...bound.values()])
       if (target === undefined) return undefined
-      // two `&mut` into one place do not exist in Rust — the handle form (design §9 form 3) is for later
-      if (aliases(target, instance) || [...bound.values()].some((p) => aliases(target, p)))
-        return lw.bail("call-inout-alias", `${arg.param.name} is bound to a variable the call already holds`, arg.span)
-      if (target.path.some((s) => s.kind === "bit")) return lw.bail("call-inout-bit", `${arg.param.name} is bound to a bit`, arg.span)
-      // every body is handed the globals as one `&mut`, so a VAR_IN_OUT into them would be a second borrow of the same place
-      if (target.root === "global") return lw.bail("call-inout-global", `${arg.param.name} is bound to a global variable`, arg.span)
       bound.set(name, target)
       continue
     }

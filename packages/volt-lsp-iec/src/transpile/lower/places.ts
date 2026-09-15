@@ -70,8 +70,8 @@ export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): P
     }
     return place
   }
-  // `THIS^` — the instance the body runs on (conformance `keyword_this_dereference`, `use_self_method_call`). SUPER^
-  // names a base FB, and a derived FB is not lowered yet.
+  // `THIS^` — the instance the body runs on (conformance `keyword_this_dereference`, `use_self_method_call`). `SUPER^` is
+  // no place of its own: `SUPER^()` and `SUPER^.M()` are calls, lowered in `calls.ts`.
   if (e.kind === "deref" && isSelfRef(e) && e.base.kind === "ident_expr" && e.base.name.toUpperCase() === "THIS" && lw.selfType !== undefined)
     return { slot: 0, path: [], type: lw.selfType, span: e.span, root: "this" }
   if (e.kind === "deref" && !isSelfRef(e)) {

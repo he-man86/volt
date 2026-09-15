@@ -717,6 +717,49 @@ END_PROGRAM`
     expect(() => faulting.scan()).toThrow("dereference of a null pointer")
   })
 
+  // Phase 3½ (2026-09-15), the rules the `inh_*` recordings measured: calling a derived FB runs only its own body;
+  // `SUPER^(in := x)` assigns the instance's input and runs the base body on it; that base body's bare `Hook()` reaches
+  // the derived override; `SUPER^.Hook()` is the base's.
+  test("inheritance: a derived body runs alone, SUPER^ runs the base, and a method call reaches the override", () => {
+    const pou = load(
+      `PROGRAM P
+VAR plain : FB_D; viaSuper : FB_S; END_VAR
+plain(inBase := 7);
+viaSuper(inBase := 5);
+END_PROGRAM
+FUNCTION_BLOCK FB_B
+VAR_INPUT inBase : INT; END_VAR
+VAR nBase : INT; hookBase : INT; END_VAR
+nBase := nBase + 1;
+Hook();
+END_FUNCTION_BLOCK
+METHOD Hook
+hookBase := hookBase + 1;
+END_METHOD
+FUNCTION_BLOCK FB_D EXTENDS FB_B
+VAR nDerived : INT; hookDerived : INT; END_VAR
+nDerived := nDerived + inBase;
+END_FUNCTION_BLOCK
+METHOD Hook
+hookDerived := hookDerived + 1;
+END_METHOD
+FUNCTION_BLOCK FB_S EXTENDS FB_B
+VAR hookDerived : INT; END_VAR
+SUPER^(inBase := inBase + 100);
+SUPER^.Hook();
+END_FUNCTION_BLOCK
+METHOD Hook
+hookDerived := hookDerived + 1;
+END_METHOD`,
+      "P",
+    )
+    pou.scan()
+    // the base body did not run for `plain` (inh_call_runs_derived_body)
+    expect([pou.get("plain.nBase"), pou.get("plain.nDerived"), pou.get("plain.hookBase"), pou.get("plain.hookDerived")]).toEqual([0n, 7n, 0n, 0n])
+    // SUPER^ assigned 105 and ran the base body, whose Hook() is the override; SUPER^.Hook() is the base's
+    expect([pou.get("viaSuper.inBase"), pou.get("viaSuper.nBase"), pou.get("viaSuper.hookDerived"), pou.get("viaSuper.hookBase")]).toEqual([105n, 1n, 1n, 1n])
+  })
+
   // Transpiler review 2026-09-15. Why missed: the reference tests bound one, read it and wrote it with a plain `:=` —
   // none wrote through one any other way, and none compared one with 0.
   test("a reference is written through by every kind of store, and `r = 0` compares its target", () => {
