@@ -76,7 +76,11 @@ function enumsOf(c: LanguageTest): Map<string, bigint> {
     if (unit.kind !== "type_decl" || unit.body.kind !== "enum") continue
     let next = 0n
     for (const v of unit.body.values) {
-      const written = v.value?.kind === "literal" && typeof v.value.value === "bigint" ? v.value.value : undefined
+      // `Cold := -1` is a unary minus over a literal — reading literals only numbered it as the value before it plus one
+      const negated = v.value?.kind === "unary" && v.value.op === "-" ? v.value.operand : undefined
+      const literal = negated ?? v.value
+      const magnitude = literal?.kind === "literal" && typeof literal.value === "bigint" ? literal.value : undefined
+      const written = magnitude === undefined ? undefined : negated === undefined ? magnitude : -magnitude
       const value = written ?? next
       out.set(`${unit.name.text}.${v.name.text}`.toUpperCase(), value)
       next = value + 1n

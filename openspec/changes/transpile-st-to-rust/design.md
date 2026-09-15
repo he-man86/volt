@@ -394,7 +394,7 @@ for an emitter to throw on), places with paths, one application frame — portin
 unchanged, with lowering's failure propagation made a boundary throw instead of 44 `undefined` checks. The runtime-tier
 question (native Rust + a TS mirror, or an ST shim) is settled alongside, so builtins stop being written twice.
 
-## 9. OPEN — the memory model, and it blocks phase 3
+## 9. The memory model — decided: three forms in safe Rust (the first analysis kept above the decision)
 
 `Place` is `{ slot, path }` with `path` empty. Two ways forward:
 
