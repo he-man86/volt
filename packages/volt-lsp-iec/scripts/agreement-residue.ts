@@ -1,7 +1,9 @@
 /**
  * Why each fixture does NOT agree exactly with the IDE — the work list for closing the agreement gap.
  *
- *   bun run scripts/agreement-residue.ts
+ *   bun run scripts/agreement-residue.ts            the buckets + the most-missed messages
+ *   bun run scripts/agreement-residue.ts --detail   every incomplete fixture and what it misses
+ *   bun run scripts/agreement-residue.ts <name>…    one fixture's source beside both sides in full
  *
  * `replay.test.ts` reports ONE number (exact agreement) and fails only on a false positive, so a fixture that is
  * merely INCOMPLETE — the LSP right about everything it says and silent about the rest — is invisible in it. This
@@ -31,8 +33,11 @@ const add = (k: string, name: string) => buckets.set(k, [...(buckets.get(k) ?? [
 const missingMessages = new Map<string, number>()
 const perFixture: [name: string, missing: string[], extra: string[]][] = []
 
+const only = process.argv.slice(2).filter((a) => !a.startsWith("--"))
+
 for (const t of ALL_TESTS) {
   if (t.source === "") continue
+  if (only.length > 0 && !only.includes(t.name)) continue
   const rec = build[t.name]
   if (rec === undefined) {
     add("no recording at all", t.name)
@@ -52,6 +57,16 @@ for (const t of ALL_TESTS) {
     for (const d of computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }))
       if (d.severity === "error" || d.severity === "warning") lsp.push(`[${d.severity}] ${comparable(d.message)}`)
   lsp.sort()
+  if (only.length > 0) {
+    console.log(`
+=== ${t.name}
+--- source
+${t.source}--- IDE (${String(ide.length)})`)
+    for (const m of ide) console.log(`  ${m}`)
+    console.log(`--- LSP (${String(lsp.length)})`)
+    for (const m of lsp) console.log(`  ${m}`)
+    continue
+  }
   if (lsp.length === ide.length && lsp.every((m, i) => m === ide[i])) continue
   const ideSet = new Set(ide)
   const lspSet = new Set(lsp)
@@ -67,6 +82,7 @@ for (const t of ALL_TESTS) {
   }
 }
 
+if (only.length > 0) process.exit(0)
 console.log("why a fixture does not agree:")
 for (const [k, names] of [...buckets].sort((a, b) => b[1].length - a[1].length)) console.log(`  ${String(names.length).padStart(4)}  ${k}${k.startsWith("repeat") ? `  <- ${names.slice(0, 2).join(", ")}` : ""}`)
 console.log("\nthe IDE messages the LSP most often MISSES:")

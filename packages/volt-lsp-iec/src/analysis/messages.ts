@@ -48,6 +48,8 @@ export interface Messages {
    * `from`/`to` are bare type names.
    */
   cannotConvert(from: string, to: string): string
+  /** An expression the compiler could not type, as it names it in a message (C0032 family). CODESYS SP21. */
+  unknownType(expr: string): string
   /** Implicit narrowing (`LREAL`→`REAL`): CODESYS capitalizes "Possible", TwinCAT lowercases it; no period. */
   narrowing(fromType: string, toType: string): string
   /** A same-width signed↔unsigned conversion — WARNING "change of sign". `sign` is "signed"/"unsigned". */
@@ -375,6 +377,7 @@ export function messagesFor(vendor: Vendor): Messages {
   const possible = tc ? "possible" : "Possible"
   return {
     cannotConvert: (from, to) => `Cannot convert type '${from}' to type '${to}'`,
+    unknownType: (expr) => `Unknown type: '${expr}'`,
     narrowing: (fromType, toType) =>
       `Implicit conversion from '${fromType}' to '${toType}': ${possible} loss of information`,
     // Confirmed live both vendors (only "Possible"/"possible" differs) — note the SPACE before the colon.
