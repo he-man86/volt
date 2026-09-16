@@ -37,11 +37,19 @@ export function enumStorage(lw: Lowering, t: Extract<Type, { kind: "enum" }>): T
  * `:= n`, else one more than the value before it, starting at 0 (conformance `type_dut_enum_simple`: `Running` is 1;
  * `type_dut_enum_explicit_values`), typed as its enum's storage. Undefined for anything that is not one.
  */
-export function enumConstant(lw: Lowering, e: Expr): IrExpr | undefined {
+export function enumConstant(lw: Lowering, e: Expr, depth = 0): IrExpr | undefined {
   let sym: ReturnType<typeof resolveBareEnumMember>
   if (e.kind === "member" && e.base.kind === "ident_expr") {
     const owner = lookup(lw.scope, e.base.name)?.symbol
     const scope = owner?.kind === "type" ? findChildScope(lw.project, owner.name) : undefined
+    sym = scope === undefined ? undefined : lookupMember(scope, e.member.name)
+  } else if (e.kind === "member" && e.base.kind === "member" && e.base.base.kind === "ident_expr") {
+    // `Ns.Enum.Value` — a referenced library's namespace over the units it materialized (`bindLibraryNamespaces`):
+    // pro2193's `enumErrorSeverity` takes every one of its values from `L_IE1P.L_IE1P_SeverityLevel`
+    const ns = lookup(lw.scope, e.base.base.name)?.symbol
+    const nsScope = ns?.kind === "namespace" ? findChildScope(lw.project, ns.name) : undefined
+    const owner = nsScope === undefined ? undefined : lookupMember(nsScope, e.base.member.name)
+    const scope = owner?.kind === "type" && nsScope !== undefined ? findChildScope(nsScope, owner.name) : undefined
     sym = scope === undefined ? undefined : lookupMember(scope, e.member.name)
   } else if (e.kind === "ident_expr") {
     const found = lookup(lw.scope, e.name)?.symbol
@@ -59,7 +67,7 @@ export function enumConstant(lw: Lowering, e: Expr): IrExpr | undefined {
   const type = implicit !== undefined ? enumStorage(lw, { kind: "enum", name: "(implicit)" }) : enumStorage(lw, { kind: "enum", name: sym.owner.name, scope: sym.owner })
   let next = 0n
   for (const v of values) {
-    const written = v.value === undefined ? undefined : constEval(v.value, lw.project)
+    const written = v.value === undefined ? undefined : enumValueOf(lw, v.value, depth)
     if (v.value !== undefined && typeof written !== "bigint") return lw.bail("enum-value", `${v.name.text}'s value does not fold`, e.span)
     const value = typeof written === "bigint" ? written : next
     if (v.name.text.toUpperCase() === sym.name.toUpperCase()) return { kind: "const", value: stored(value, type), type, span: e.span }
@@ -84,6 +92,35 @@ export function stringLiteralText(lw: Lowering, e: Extract<Expr, { kind: "litera
     return null
   }
   return decoded
+}
+
+/**
+ * One enum value's written `:= …`. Beyond a plain constant it may name ANOTHER enum's value, and may convert it —
+ * pro2193's `enumErrorSeverity` is `TO_USINT(L_IE1P.L_IE1P_SeverityLevel.No_Response)` throughout, which folded to
+ * nothing while the namespace resolved to nothing and `constEval` folds no call. The conversion is folded here rather
+ * than in `constEval`, whose consumers are the LSP's checks: this one knows the measured store (`stored` wraps at the
+ * target's width), and only for an integer or bit-string target, which is all an enum value can be.
+ */
+function enumValueOf(lw: Lowering, e: Expr, depth: number): bigint | number | boolean | undefined {
+  if (depth > 8) return undefined
+  const member = e.kind === "member" ? enumConstant(lw, e, depth + 1) : undefined
+  if (member?.kind === "const") return member.value as bigint
+  const converted = convertedConstant(lw, e, depth)
+  if (converted !== undefined) return converted
+  return constEval(e, lw.project)
+}
+
+/** `TO_USINT(x)` / `INT_TO_BYTE(x)` over a constant — the value stored at the target's width, as measured (design §11). */
+function convertedConstant(lw: Lowering, e: Expr, depth: number): bigint | undefined {
+  if (e.kind !== "call" || e.callee.kind !== "ident_expr" || e.args.length !== 1) return undefined
+  const written = e.args[0]?.value
+  const name = /^(?:[A-Za-z]+_)?TO_([A-Za-z]+)$/.exec(e.callee.name)?.[1]?.toUpperCase()
+  if (written === undefined || name === undefined) return undefined
+  const target = elementaryRef(name)
+  const elem = target.kind === "elementary" ? elemOf(target) : undefined
+  if (elem === undefined || !(elem.family === "int" || elem.family === "bitstring")) return undefined
+  const value = enumValueOf(lw, written, depth + 1)
+  return typeof value === "bigint" ? (stored(value, target) as bigint) : undefined
 }
 
 export function foldConstant(lw: Lowering, e: Expr): IrValue | undefined {

@@ -1085,6 +1085,29 @@ END_PROGRAM
     expect([literal[0], ...new Set(literal.slice(1))]).toEqual(["any-input", "pointer-order"])
   })
 
+  // A referenced library's NAMESPACE, read from its `<folder>.library` manifest and bound over the units it materialized
+  // (`symbols/bindLibraryNamespaces`). pro2193's `enumErrorSeverity` takes every one of its values from
+  // `TO_USINT(L_IE1P.L_IE1P_SeverityLevel.…)`, which folded to nothing: the namespace resolved to nothing, and
+  // `constEval` folds no call. Why missed: no fixture ever qualified a name with a library namespace.
+  test("an enum value taken from a library namespace, converted, folds to the value the library declares", () => {
+    const LIB = "C:/p/Device/Plc Logic/Application/Library Manager/LibSeverity"
+    const libraries = [
+      { uri: `${LIB}/LibSeverity.library`, source: "LIBRARY LibSeverity\nNAMESPACE LSEV\nRESOLUTION LibSeverity, 1.0.0.0 (Acme)\n" },
+      { uri: `${LIB}/E_SEVERITY.enum`, source: "TYPE E_Severity :\n(\n\tLow := 2,\n\tHigh := 30\n);\nEND_TYPE\n" },
+    ]
+    const source =
+      "TYPE E_Local :\n(\n\tQuiet := TO_USINT(LSEV.E_Severity.Low),\n\tLoud := TO_USINT(LSEV.E_Severity.High)\n) USINT;\nEND_TYPE\n" +
+      "PROGRAM P\nVAR level : E_Local; n : USINT; END_VAR\nlevel := E_Local.Loud;\nn := TO_USINT(level) + TO_USINT(E_Local.Quiet);\nEND_PROGRAM\n"
+    const { pou, diagnostics } = lowerSource(source, "P", libraries)
+    expect(diagnostics).toEqual([])
+    const runner = run(pou!)
+    runner.scan()
+    expect([runner.get("level"), runner.get("n")]).toEqual([30n, 32n])
+    // without the manifest the namespace is not a name at all, and the enum's values do not fold — reported, never guessed
+    const noManifest = lowerSource(source, "P", [libraries[1]!])
+    expect(noManifest.diagnostics.map((d) => d.code)).toContain("enum-value")
+  })
+
   test("lowering never throws, whatever it is handed", () => {
     for (const src of ["", "PROGRAM P END_PROGRAM", wrap("iCount := ptr^;", "iCount : INT;\n  ptr : POINTER TO INT;")])
       expect(() => lowerSource(src)).not.toThrow()
