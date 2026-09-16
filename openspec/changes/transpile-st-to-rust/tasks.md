@@ -407,21 +407,43 @@ the construct with the biggest reach can unlock nothing. `lower-completeness` no
 many POUs a construct is the ONLY blocker of — and ranks by it. `init-not-constant` reaches 202 POUs and is the sole
 blocker of 3.
 
-**The ceiling, and where it is.** Of the 252 blocked POUs, **170 (67%) are blocked by a THIRD-PARTY library** — a name
-that does not resolve (`L_LA`, `L_IMHP`, `CmpApp`, `PACK_ML`, `L_MC1P`, `CIA405`), a call into one (`StrConcatA`,
-`StrFindA`, `SysTimeRtcGet`, `L_MC1P_*`), or a constant/enum/type reached from one. No amount of language work moves
-them, because there is no source to lower — these libraries ship compiled (non-goals; design §8). So:
+**Where the corpus is really blocked.** Of the 252 blocked POUs, **190 are blocked by BOTH** a library construct and a
+language one, 53 by language alone, 9 by a library alone. So neither half opens the corpus by itself:
 
 | | |
 |---|---|
-| **44.1% (134/304)** | the ceiling with NO library work at all — every library-free POU lowered |
-| **~41% (125/304)** | what the 18 library-free constructs below actually reach, worked in order |
-| **the rest** | needs the library tier: a stub mechanism for third-party FBs and functions (design §8) |
+| **20.1% (61/304)** | the library half alone, today's language |
+| **~41% (125/304)** | the language list below alone, today's libraries |
+| **100%** | the two together — every blocked POU is in one of the three groups above |
 
-**This is the decision the number forces:** the language work left is worth ~24 points of corpus and is bounded;
-past that, coverage is a LIBRARY problem, not a language one. `plc-library-runtime` covers Standard/Standard64 only
-— the corpus is blocked by vendor libraries neither tier names. Parked here deliberately, as the user asked
-(2026-09-16), but it is the next proposal after this change, not a phase of it.
+**And the library half is NOT a missing runtime — it is a missing namespace (measured 2026-09-16).** Every one of the
+top "does not resolve" names is a library NAMESPACE whose declarations the corpus already carries, materialized under
+`Library Manager/`:
+
+| the code writes | the folder | probe |
+|---|---|---|
+| `L_IE1P.L_IE1P_SeverityLevel.No_Response` | `L_IE1P_ApplicationErrorsTypes/L_IE1P_SEVERITYLEVEL.enum` | `L_IE1P_SeverityLevel` → **found**, `L_IE1P` → NOT FOUND |
+| `L_LA.L_AddLog2` | `L_PLCLoggingAccess/L_ADDLOG2.fun` | `L_AddLog2` → **found**, `L_LA` → NOT FOUND |
+| `L_IMHP.…` · `CmpApp.…` · `L_MC1P.…` · `PACK_ML.…` · `TICKS.…` · `stu.…` | each its own folder | same shape |
+
+Each folder holds a `<folder>.library` manifest that names it — `LIBRARY L_IE1P_ApplicationErrorsTypes` /
+`NAMESPACE L_IE1P_Types` / `RESOLUTION …, 3.32.0.11 (Lenze)`. **Volt never reads those manifests**, so a library's
+symbols exist in the table under their own names but under no namespace, and every qualified use falls to
+`place-not-local` / `enum-value` / `expr-call`. Reach of the names that fail this way: 134 + 133 (the `enumErrorSeverity`
+folds) · 105 `L_LA` · 93 `L_IMHP` · 86 `stu` · 73 `CmpApp` · 25 `PACK_ML` · 21 `L_MC1P` · 9 `TICKS`.
+
+- [ ] **Read the `.library` manifests and bind each library's symbols under its NAMESPACE.** The highest-leverage
+      item in this change and not a runtime: a manifest reader (`LIBRARY`/`NAMESPACE`/`RESOLUTION`, three lines of
+      regex), a folder → namespace map, and `ns.Name` resolving against that folder's symbols. It needs the manifests
+      threaded to `buildSymbolTable` — they are not source, so they are not in `SOURCE_EXTENSIONS` and no crawl carries
+      them today (the LSP server's, the corpus harness's, `lowerSource`'s `libraries`). Do it before the language list:
+      it is what makes most of the 190 mixed POUs reachable at all, and it fixes the LSP too, where a qualified
+      library name resolves to nothing.
+- [ ] **Then** what is left of the library half: a call into a library FUNCTION or FB, whose BODY really is absent
+      (`L_MC1P_ModuloCycle`, `StrConcatA`, `SysTimeRtcGet`) — design §8's stub mechanism, so a POU that calls one is
+      still testable. `plc-library-runtime` covers Standard/Standard64 only and names none of these vendor libraries.
+      Parked as the user asked (2026-09-16), and it is the next proposal after this change, not a phase of it.
+
 
 **The order, each step `+N` POUs and the running total** (greedy over the library-free set; record first, build, green
 in both backends, as every row above):
@@ -445,8 +467,9 @@ in both backends, as every row above):
 
 **Not on this list, and why.** The blockers with the largest reach — `init-not-constant` 202, `enum-value` 134,
 `call-body` 118, `expr-member` 93, `place-shape` 81, `pointer-value` 77, `expr-call` 75, `interface-*` 62–73,
-`layout-union` 61 — are mostly the SAME 170 library-bound POUs seen from different angles. Their reach counts are a
-measure of the library gap, not of the language gap, and they will not fall until the library tier exists.
+`layout-union` 61 — are mostly the same library-bound POUs seen from different angles, and most of that is the one
+namespace item above. Re-measure this list after it lands: the greedy order is derived from the refusals, so it
+changes when they do.
 
 ## Phase 4 — aliasing
 

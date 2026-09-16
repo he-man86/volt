@@ -11,6 +11,7 @@
  *
  * Usage: `bun run scripts/lower-completeness.ts [--top N] [--code <slug>]`
  *   --code lists the files blocked by one construct — the fixtures to work from when you go implement it.
+ *   --why  lists the distinct MESSAGES behind one construct — which shape to build first.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, extname, relative } from "node:path"
@@ -23,6 +24,9 @@ const CORPUS = join(import.meta.dir, "..", "test-corpus")
 const args = process.argv.slice(2)
 const top = Number(args[args.indexOf("--top") + 1]) || 20
 const only = args.includes("--code") ? args[args.indexOf("--code") + 1] : undefined
+/** --why <code>: the distinct MESSAGES behind one code, most POUs first — which construct to build, not just where. */
+const why = args.includes("--why") ? args[args.indexOf("--why") + 1] : undefined
+const reasons = new Map<string, number>()
 
 const walk = (d: string): string[] => {
   const out: string[] = []
@@ -100,6 +104,9 @@ for (const projectDir of projects) {
       // One POU counts once per DISTINCT blocking construct — otherwise a loop body with 40 calls would
       // drown out a construct that blocks 40 different projects.
       const codes = new Set(diagnostics.map((d) => d.code))
+      if (why !== undefined)
+        for (const m of new Set(diagnostics.filter((d) => d.code === why).map((d) => d.message)))
+          reasons.set(m, (reasons.get(m) ?? 0) + 1)
       for (const code of codes) {
         const entry = blockers.get(code) ?? { pous: 0, sole: 0, examples: [] }
         entry.pous++
@@ -114,6 +121,12 @@ for (const projectDir of projects) {
 }
 
 const pct = (n: number, of: number) => (of === 0 ? "0.0" : ((n / of) * 100).toFixed(1))
+
+if (why !== undefined) {
+  console.log(`${why}: ${[...reasons].length} distinct reasons`)
+  for (const [message, n] of [...reasons].sort((a, b) => b[1] - a[1]).slice(0, top)) console.log(`  ${String(n).padStart(4)}  ${message}`)
+  process.exit(0)
+}
 
 if (only !== undefined) {
   const entry = blockers.get(only)
