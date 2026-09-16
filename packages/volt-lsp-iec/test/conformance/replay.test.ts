@@ -78,7 +78,7 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // for the type, once for the instance initialisation it generates — and the LSP now does the same (measured with
   // `initializer-repeat.ts`: no instance 0, one instance 2, two instances 2, nested 2, PROGRAM 1; so it is per-type,
   // not per-instance). The goal is the IDE's answer, not a tidier one.
-  { vendor: "codesys", filename: "codesys.build.json", floor: 806 },
+  { vendor: "codesys", filename: "codesys.build.json", floor: 808 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence

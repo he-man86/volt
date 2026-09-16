@@ -36,3 +36,13 @@ test("C0141: `REF= 0` (null idiom) and `REF= <writable var>` are valid", () => {
   expect(c0141(`r REF= 0;`)).toEqual([]) // null-out a reference
   expect(c0141(`r REF= i;`)).toEqual([]) // writable variable
 })
+
+test("a LITERAL on the right of REF= is a TYPE error, not the write-access one", () => {
+  const src = `FUNCTION_BLOCK F\nVAR\nbound : REFERENCE TO INT;\nEND_VAR\nbound REF= 7;\nEND_FUNCTION_BLOCK`
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "assignment-type-mismatch" || d.code.startsWith("reference-assign"))
+    .map((d) => d.message)
+  expect(msgs).toEqual(["Cannot convert type 'SINT' to type 'REFERENCE TO INT'"])
+})

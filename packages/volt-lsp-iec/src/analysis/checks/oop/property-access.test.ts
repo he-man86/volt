@@ -42,3 +42,16 @@ test("writing a set-only property is not flagged; reading a get-only property is
   expect(pa(`f.SetOnly := 5;`)).toEqual([])
   expect(pa(`y := f.GetOnly;`)).toEqual([])
 })
+
+test("the owning FB's own body names its property BARE — but the accessor's own value is not a read", () => {
+  const run = (src: string) => {
+    const parseResult = parseSource(src)
+    const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "property-lacks-getter")
+      .map((d) => d.message)
+  }
+  const setOnly = `FUNCTION_BLOCK F\nVAR\nstored : INT;\nreadBack : INT;\nEND_VAR\nLevel := 4;\nreadBack := Level;\nEND_FUNCTION_BLOCK\n\nPROPERTY Level : INT\nSET\nstored := Level;\nEND_SET\nEND_PROPERTY`
+  // the bare read in the FB body is flagged; the bare name inside SET is the incoming value, not a read
+  expect(run(setOnly)).toEqual(["The property 'Level' cannot be used in this context because it lacks the get accessor"])
+})
