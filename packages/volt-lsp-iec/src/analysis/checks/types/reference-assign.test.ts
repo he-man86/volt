@@ -24,9 +24,12 @@ test("C0140: REF= to a non-reference target is flagged; a reference target is fi
   expect(c0140(`r REF= i;`)).toEqual([])
 })
 
-test("C0141: REF= RHS needs write access — non-zero literal and constant error", () => {
-  expect(c0141(`r REF= 314;`)).toEqual(["Reference assign needs variable with write access"]) // non-zero literal
+// The literal half of this was WRONG, and the IDE said so the first time a fixture asked it (conformance
+// `cc3_reference_assign`): `bound REF= 7` is "Cannot convert type 'SINT' to type 'REFERENCE TO INT'", a type error,
+// and C0141 fired beside it as a false positive. C0141 is about a named CONSTANT, which has no write access.
+test("C0141: REF= RHS needs write access — a named CONSTANT errors, a literal is the TYPE's business", () => {
   expect(c0141(`r REF= K;`)).toEqual(["Reference assign needs variable with write access"]) // VAR CONSTANT
+  expect(c0141(`r REF= 314;`)).toEqual([]) // a literal — CODESYS reports the conversion instead
 })
 
 test("C0141: `REF= 0` (null idiom) and `REF= <writable var>` are valid", () => {
