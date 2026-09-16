@@ -34,6 +34,16 @@ const missingMessages = new Map<string, number>()
 const perFixture: [name: string, missing: string[], extra: string[]][] = []
 
 const only = process.argv.slice(2).filter((a) => !a.startsWith("--"))
+/** Each fixture as a DECLARATION source for the others — programs dropped, as the replay drops them. */
+const crossDecls = ALL_TESTS.filter((t) => t.source !== "").map((t) => {
+  const parsed = parseSource(t.source)
+  return {
+    name: t.name,
+    uri: `${t.pouName}__decl.st`,
+    source: t.source,
+    parseResult: { units: parsed.units.filter((u) => u.kind !== "program"), errors: [] },
+  }
+})
 
 for (const t of ALL_TESTS) {
   if (t.source === "") continue
@@ -46,9 +56,14 @@ for (const t of ALL_TESTS) {
   const ide = rec.diagnostics.filter((d) => d.severity === "error" || d.severity === "warning").map((d) => `[${d.severity}] ${comparable(d.message)}`).sort()
   const fixtures = withDependencies(t, ALL_TESTS).filter((f) => f.source !== "")
   const plc = plcPrgSource(t)
+  // Every OTHER fixture's declarations are in scope too, exactly as `replay.test.ts` builds them (its `CROSS_DECLS`):
+  // one recording project holds them all, so a name another fixture declares resolves here. Without them this script
+  // invents unresolved-name findings that the replay does not have (`op_sys_queryinterface`).
+  const own = new Set(fixtures.map((f) => f.name))
   const files = [
     ...fixtures.map((f) => ({ uri: `${f.pouName}.st`, parseResult: parseSource(f.source), source: f.source })),
     { uri: "plc_prg.prg", parseResult: parseSource(plc), source: plc },
+    ...crossDecls.filter((d) => !own.has(d.name)),
     ...std,
   ]
   const project = buildSymbolTable(files)

@@ -364,6 +364,8 @@ export interface Messages {
   /** A token where an expression must start: `Expression expected instead of 'T#1500'` — a TIME literal cut at a `US`
    *  unit (conformance `cc_time_*`). Recorded on CODESYS SP21; unmeasured on TwinCAT. */
   expressionExpectedInsteadOf(token: string): string
+  /** What a DECLARATION wanted after a name — the doubled comma is the compiler's own (CODESYS SP21). */
+  commaAtOrColonExpected(token: string): string
 }
 
 export type LifecycleMethod = "FB_Init" | "FB_Exit" | "FB_ReInit"
@@ -403,6 +405,7 @@ export function messagesFor(vendor: Vendor): Messages {
     unexpectedToken: (token) => `Unexpected token '${token}' found`,
     semicolonExpectedInsteadOf: (token) => `';' expected instead of '${token}'`,
     expressionExpectedInsteadOf: (token) => `Expression expected instead of '${token}'`,
+    commaAtOrColonExpected: (token) => `',, AT or :' expected instead of '${token}'`,
     lifecycle: (method) => {
       if (method === "FB_Init") {
         return tc

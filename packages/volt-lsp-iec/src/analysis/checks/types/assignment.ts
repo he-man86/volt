@@ -6,10 +6,13 @@
  */
 import { walkStatements } from "../../../syntax/index.js"
 import { bodies, forEachDecl } from "../../../symbols/index.js"
-import { resolveTypeExpr } from "../../../types/index.js"
+import { literalErrorType, renderType, resolveTypeExpr } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import type { DiagnosticItem } from "../../diagnostic-item.js"
+import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { assignmentPairError, checkable, storeConversionError } from "../../rules.js"
+
+/** The target kinds that take an aggregate initializer and refuse a scalar literal. */
+const COMPOSITE: ReadonlySet<string> = new Set(["struct", "function_block"])
 
 export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -24,8 +27,26 @@ export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): 
   // SINT, `si : SINT := 100 + 100` silent). Initializers were never type-checked at all (gap 14).
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (decl.init === undefined || decl.init.kind === "aggregate_init") continue
-    const lhs = checkable(resolveTypeExpr(decl.type, ctx.project))
-    if (lhs === undefined) continue // a composite target is not this check's
+    const resolved = resolveTypeExpr(decl.type, ctx.project)
+    const lhs = checkable(resolved)
+    if (lhs === undefined) {
+      // A composite target takes an AGGREGATE initializer (skipped above) and refuses a scalar LITERAL, which the
+      // compiler types to say so: `wrongWay : DUT_C3_point := 7` is "Cannot convert type 'SINT' to type
+      // 'DUT_C3_point'" (conformance `cc3_unexpected_struct_init`, `cc3_input_defaults`). `classifyConversion` calls
+      // every composite pair compatible on purpose — that conservative default is what kept this silent — so the
+      // literal is typed here rather than by widening a relation the whole analysis leans on.
+      if (decl.init.kind !== "literal" || !COMPOSITE.has(resolved.kind)) continue
+      const rhs = literalErrorType(decl.init, resolved)
+      if (rhs === undefined) continue
+      out.push({
+        severity: "error",
+        span: decl.init.span,
+        source: SOURCE,
+        code: "assignment-type-mismatch",
+        message: ctx.messages.cannotConvert(renderType(rhs), renderType(resolved)),
+      })
+      continue
+    }
     const diag = storeConversionError(lhs, decl.init, decl.init.span, scope, ctx.project, ctx.messages)
     if (diag !== undefined) out.push(diag)
   }
