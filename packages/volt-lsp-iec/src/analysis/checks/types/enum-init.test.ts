@@ -15,8 +15,12 @@ const ei = (src: string): string[] => {
     .map((d) => d.message)
 }
 
-test("a real-valued enum initializer is flagged", () => {
-  expect(ei(`TYPE DUT : (A := 1, B := 2.5); END_TYPE`)).toEqual(["Cannot convert type 'LREAL' to type 'DUT'"])
+test("a real-valued enum initializer is flagged — twice, as the compiler reports it", () => {
+  // the VALUE as written, then the conversion it could not make (conformance `cc5_enum_init_not_convertible`)
+  expect(ei(`TYPE DUT : (A := 1, B := 2.5); END_TYPE`)).toEqual([
+    "2.5 is no valid initialisation for an enumeration",
+    "Cannot convert type 'LREAL' to type 'DUT'",
+  ])
 })
 
 test("integer inits, sibling references, and plain enums are not flagged", () => {

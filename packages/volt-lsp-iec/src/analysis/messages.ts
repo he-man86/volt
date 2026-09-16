@@ -290,6 +290,14 @@ export interface Messages {
   interfaceNotFound(name: string): string
   /** An object kind that cannot be invoked at all — `Cannot call object of type 'INTERFACE'` (CODESYS SP21). */
   cannotCallObjectOfType(kind: string): string
+  /**
+   * A subrange as the target of an ASSIGNMENT, which CODESYS spells with a typed LOWER bound — `INT (INT#1..100)`
+   * — where its own DECLARATION form says `INT (1..100)`. TwinCAT says the bare form in both. Recorded, not chosen
+   * (conformance `subrange_assign_const_out` vs `subrange_init_above_range`).
+   */
+  subrangeAssignTarget(base: string, lo: bigint, hi: bigint): string
+  /** An enumeration member's initial value the compiler will not take, named as written (CODESYS SP21). */
+  invalidEnumInitialisation(value: string): string
   /** A known attribute given a value outside its published set (CODESYS SP21, a warning). */
   invalidAttributeValue(value: string, attribute: string, allowed: readonly string[]): string
   /** An attribute that only means something on a variable declaration, placed elsewhere (CODESYS SP21). */
@@ -580,6 +588,8 @@ export function messagesFor(vendor: Vendor): Messages {
     baseClassNotFound: (name) => `No definition found for base class '${name}'`,
     interfaceNotFound: (name) => `No definition found for interface '${name}'`,
     cannotCallObjectOfType: (kind) => `Cannot call object of type '${kind}'`,
+    subrangeAssignTarget: (base, lo, hi) => `${base} (${tc ? lo : `INT#${lo}`}..${hi})`,
+    invalidEnumInitialisation: (value) => `${value} is no valid initialisation for an enumeration`,
     invalidAttributeValue: (value, attribute, allowed) =>
       `Invalid value '${value}' for attribute '${attribute}' should be one of: [${allowed.map((a) => `'${a}'`).join(", ")}]`,
     attributeOnlyOnVariables: (attribute) =>
