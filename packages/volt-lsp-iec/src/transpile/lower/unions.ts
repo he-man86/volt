@@ -73,6 +73,17 @@ export function unionCopies(lw: Lowering, target: Place, span: Span): IrStmt[] |
         : { ...m.place, path: [...m.place.path, { kind: "index", index: { kind: "const", value: BigInt(i) + array.lower, type: lint, span }, lower: array.lower, length: array.length }], type: m.bytes.element }
     return { place, shift: n - i * m.bytes.size }
   }
+  // Every member of a union of POINTERs holds the same one integer (design §9 form 1), so the overlay is a plain copy —
+  // and it must happen, or a member never written would read 0 and its dereference would fault on the null guard.
+  if (layout.fields.every((f) => f.type.kind === "pointer")) {
+    const written: Place = { ...found.union, path: [...found.union.path, { kind: "field", name: found.member }], type: layout.fields.find((f) => f.name.toUpperCase() === found.member.toUpperCase())!.type }
+    return layout.fields
+      .filter((f) => f.name.toUpperCase() !== found.member.toUpperCase())
+      .map((f) => {
+        const to: Place = { ...found.union, path: [...found.union.path, { kind: "field", name: f.name }], type: f.type }
+        return { kind: "assign", target: to, value: convert({ kind: "load", place: written, type: written.type, span }, f.type), span }
+      })
+  }
   const from = member(found.member)
   const out: IrStmt[] = []
   for (const field of layout.fields) {

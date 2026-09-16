@@ -1059,6 +1059,32 @@ END_PROGRAM
     expect([pointed.get("o.got"), pointed.get("o.numbers[0]"), pointed.get("o.numbers[1]")]).toEqual([101n, 10n, 20n])
   })
 
+  // An ANY_INT input's `pValue` taken into a UNION of POINTERs and the caller's variable written through the member its
+  // `diSize` selects (conformance `state_any_int_pointer_increment`: 1 -> 6, 2 -> 7, 3 -> 8, 4 -> 9). Three refusals at
+  // once until now — `any-input` allowed only `.diSize`, `layout-union` only measured bytes, and a pointer records ONE
+  // target while the four call sites pass four variables. An ANY input a call names a VARIABLE for is a hidden
+  // VAR_IN_OUT bound to it, so the routine is lowered once per argument type and form 1 is enough.
+  test("an ANY input's pValue is the variable the call names, read back through a union of pointers", () => {
+    const source =
+      "FUNCTION F_Inc : BOOL\nVAR_INPUT input : ANY_INT; incrementBy : INT := 1; END_VAR\nVAR u : DUT_Ptrs; END_VAR\n" +
+      "u.p1_Byte := input.pValue;\nCASE input.diSize OF\n1: u.p1_Sint^ := u.p1_Sint^ + TO_SINT(incrementBy);\n2: u.p2_Int^ := u.p2_Int^ + incrementBy;\n4: u.p4_Dint^ := u.p4_Dint^ + incrementBy;\n8: u.p8_Lint^ := u.p8_Lint^ + incrementBy;\nEND_CASE\nF_Inc := TRUE;\nEND_FUNCTION\n" +
+      "TYPE DUT_Ptrs :\nUNION\np1_Byte : POINTER TO BYTE;\np1_Sint : POINTER TO SINT;\np2_Int : POINTER TO INT;\np4_Dint : POINTER TO DINT;\np8_Lint : POINTER TO LINT;\nEND_UNION\nEND_TYPE\n"
+    const runner = run(
+      ir(
+        "PROGRAM P\nVAR siArg : SINT := 1; iArg : INT := 2; dArg : DINT := 3; lArg : LINT := 4; done : BOOL; END_VAR\n" +
+          "done := F_Inc(siArg, 5);\ndone := F_Inc(iArg, 5);\ndone := F_Inc(dArg, 5);\ndone := F_Inc(lArg, 5);\nEND_PROGRAM\n" +
+          source,
+        "P",
+      ),
+    )
+    runner.scan()
+    expect(["siArg", "iArg", "dArg", "lArg", "done"].map((v) => runner.get(v))).toEqual([6n, 7n, 8n, 9n, true])
+    // An ANY argument that is no variable has no address to hand on: `pValue` is refused — and the dereferences that
+    // follow then have no target, which is the same refusal reported where each of them stands.
+    const literal = lowerSource(`PROGRAM P\nVAR done : BOOL; END_VAR\ndone := F_Inc(7, 5);\nEND_PROGRAM\n${source}`, "P").diagnostics.map((d) => d.code)
+    expect([literal[0], ...new Set(literal.slice(1))]).toEqual(["any-input", "pointer-order"])
+  })
+
   test("lowering never throws, whatever it is handed", () => {
     for (const src of ["", "PROGRAM P END_PROGRAM", wrap("iCount := ptr^;", "iCount : INT;\n  ptr : POINTER TO INT;")])
       expect(() => lowerSource(src)).not.toThrow()

@@ -4,7 +4,7 @@
 import type { AggregateElement, AggregateInit, Expr, Initializer, Span, TypeDecl, TypeExpr, VarDecl, VarSection } from "../../syntax/index.js"
 import { lookup } from "../../symbols/index.js"
 import { DEFAULT_STRING_LENGTH, elementaryRef, resolveNamedType, type Type } from "../../types/index.js"
-import { defaultValueOf, elementOf, type IrInit, type IrStmt, type IrValue, peelArray } from "../ir/index.js"
+import { defaultValueOf, elementOf, type IrInit, type IrStmt, type IrValue } from "../ir/index.js"
 import { baseOf, boundName, Lowering, openDims, ZERO_SPAN } from "./lowering.js"
 import { stored, valueAs } from "./convert.js"
 import { calendarOf, durationOf, enumStorage, foldConstant, stringLiteralText, typedRealOf } from "./constants.js"
@@ -59,9 +59,13 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
     base(ast.body.extends?.text)
     declareVars(nested, [{ sectionKind: "VAR", decls: ast.body.fields } as unknown as VarSection])
   } else if (t.kind === "struct" && ast?.kind === "type_decl" && ast.body.kind === "union") {
-    // a struct of its members, kept overlaid by the store (`unions.ts`) — only the measured kind of member
+    // A struct of its members, kept overlaid by the store (`unions.ts`) — either every member's bytes are measured, or
+    // EVERY member is a pointer, which is one integer in this model (design §9 form 1), so the overlay is a plain copy.
+    // A union of pointers is how an ANY input's `pValue` is read at the width its `diSize` selects (conformance
+    // `state_any_int_pointer_increment`).
     declareVars(nested, [{ sectionKind: "VAR", decls: ast.body.fields } as unknown as VarSection])
-    if (ast.body.fields.some((f) => f.init !== undefined) || nested.frame.some((f) => overlayBytes(f.type) === undefined)) {
+    const pointers = nested.frame.length > 0 && nested.frame.every((f) => f.type.kind === "pointer")
+    if (ast.body.fields.some((f) => f.init !== undefined) || !(pointers || nested.frame.every((f) => overlayBytes(f.type) !== undefined))) {
       lw.bail("layout-union", `${t.name} has a member whose overlaid bytes are not measured, or an initial value`, sym?.span ?? ZERO_SPAN)
       return
     }

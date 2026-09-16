@@ -274,12 +274,53 @@ function reachedNames(r: Lowering, statements: readonly unknown[]): Set<string> 
   return all ? "all" : names
 }
 
+/** The prefix of the hidden VAR_IN_OUT an ANY input is given where a call names a variable for it. */
+export const ANY_TARGET = "__any_"
+
+/** A type as a name, for a routine variant's key — the storage the argument is, not the syntax. */
+const typeKey = (t: Type): string => (t.kind === "elementary" ? `${t.name}${t.length === undefined ? "" : String(t.length)}` : t.kind === "struct" || t.kind === "function_block" ? t.name.toUpperCase() : t.kind)
+
+/**
+ * The ANY / ANY_* VAR_INPUTs a call names a plain VARIABLE for, and that variable's type — read from the routine's AST,
+ * WITHOUT lowering it, since it is what decides which variant of the routine to lower. An argument that is not a place
+ * (an expression, a literal) simply has no entry: the routine is then the plain one, whose `pValue` is refused.
+ */
+function anyArgumentTypes(lw: Lowering, sym: RoutineSymbol, call: Extract<Expr, { kind: "call" }>): Map<string, Type> {
+  const ast = sym.ast as Extract<TopLevel, { kind: "method" | "action" | "function" }>
+  const sections = ast.kind === "action" ? [] : ast.varSections
+  const any = new Set<string>()
+  const declared: string[] = []
+  for (const section of sections.filter((s) => s.sectionKind === "VAR_INPUT" || s.sectionKind === "VAR_IN_OUT" || s.sectionKind === "VAR_OUTPUT"))
+    for (const decl of section.decls)
+      for (const n of decl.names) {
+        declared.push(n.text.toUpperCase())
+        if (section.sectionKind === "VAR_INPUT" && decl.type.kind === "named_type" && ANY_FAMILIES.has(decl.type.name.text.toUpperCase())) any.add(n.text.toUpperCase())
+      }
+  const out = new Map<string, Type>()
+  if (any.size === 0) return out
+  for (const [position, arg] of call.args.entries()) {
+    const name = arg.param?.name.toUpperCase() ?? declared[position]
+    if (name === undefined || arg.output || arg.value === undefined || !any.has(name)) continue
+    // a failed lowering is not this pass's to report — the argument goes on to the ANY branch of `lowerInvoke`
+    const before = lw.diagnostics.length
+    const place = lw.inArgument(() => lowerPlace(lw, arg.value!))
+    lw.diagnostics.length = before
+    if (place !== undefined && place.guard === undefined) out.set(name, place.type)
+  }
+  return out
+}
+
 /**
  * A METHOD or ACTION run on an instance of `frame`, or a FUNCTION — lowered once per frame, in the instance's fields plus
  * per-call locals. `as` names a routine that is not the one the frame resolves by name (`SUPER^.M()`).
  */
-export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | undefined, span: Span, as = sym.name): IrRoutine | undefined {
-  const name = frame === undefined ? sym.name : `${frame.name}.${as}`
+export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | undefined, span: Span, as = sym.name, call?: Extract<Expr, { kind: "call" }>): IrRoutine | undefined {
+  // An ANY input is only a size until a call names a VARIABLE for it: then the routine also takes that variable as a
+  // hidden VAR_IN_OUT, which is what `pValue` reads (conformance `state_any_int_pointer_increment`). Its type is the
+  // argument's, so the routine is lowered once per argument type — the variant in its name.
+  const targets = call === undefined ? new Map<string, Type>() : anyArgumentTypes(lw, sym, call)
+  const variant = [...targets].map(([n, t]) => `${n}=${typeKey(t)}`).join(",")
+  const name = `${frame === undefined ? sym.name : `${frame.name}.${as}`}${variant === "" ? "" : `#${variant}`}`
   return once(lw, name, span, () => {
     if (frame !== undefined && !lw.layouts.has(frame.name.toUpperCase())) return lw.bail("call-target", `${frame.name} has no layout`, span)
     const ast = sym.ast as Extract<TopLevel, { kind: "method" | "action" | "function" }>
@@ -329,6 +370,11 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     )
     declareVars(r, sections.filter((s) => s.sectionKind === "VAR" || s.sectionKind === "VAR_TEMP"))
     declareInOuts(r, sections.filter((s) => s.sectionKind === "VAR_IN_OUT"))
+    // the ANY inputs this variant was given a variable for: one hidden VAR_IN_OUT each, which `pValue` names
+    for (const [input, type] of targets) {
+      r.anyTargets.set(input, r.inoutSlots.length)
+      r.inoutSlots.push({ name: `${ANY_TARGET}${input}`, type, section: "VAR_IN_OUT", init: defaultValueOf(type) })
+    }
     const resets = declareOutputs(lw, r, sections.filter((s) => s.sectionKind === "VAR_OUTPUT"), span)
     if (resets === undefined) return undefined
     // The FB's own VAR_IN_OUT a METHOD or ACTION reaches — each a parameter the call binds (`lowerInvoke`). Taken from the
@@ -378,10 +424,10 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
 
 /** A METHOD or ACTION called on an instance of `frame` — by the instance's own type, so an override wins wherever the
  *  call is written (conformance `inh_base_body_reaches_override`, `inh_inherited_method_reaches_override`). */
-export function methodOf(lw: Lowering, frame: FbType, name: string, span: Span): IrRoutine | undefined {
+export function methodOf(lw: Lowering, frame: FbType, name: string, span: Span, call?: Extract<Expr, { kind: "call" }>): IrRoutine | undefined {
   const sym = frame.scope === undefined ? undefined : lookupMember(frame.scope, name)
   if (sym?.kind !== "method" && sym?.kind !== "action") return lw.bail("call-method", `${name} is not a METHOD or ACTION lowering can call`, span)
-  return calledRoutine(lw, sym, frame, span)
+  return calledRoutine(lw, sym, frame, span, sym.name, call)
 }
 
 /**
@@ -637,7 +683,7 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     const sym = base === undefined ? undefined : lookupMember(base, callee.member.name)
     if (frame === undefined || (sym?.kind !== "method" && sym?.kind !== "action"))
       return lw.bail("call-super", `SUPER^.${callee.member.name} names no METHOD of a base FB`, call.span)
-    routine = calledRoutine(lw, sym, frame, call.span, `SUPER_${sym.owner.name}_${sym.name}`)
+    routine = calledRoutine(lw, sym, frame, call.span, `SUPER_${sym.owner.name}_${sym.name}`, call)
     instance = thisPlace(frame, callee.base.span)
   } else if (callee.kind === "member") {
     const base = lowerPlace(lw, callee.base)
@@ -651,7 +697,7 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     // index in that path would be read on the stand-in: refused.
     if (base.root === "global" && !staticPath(base)) return lw.bail("call-program-method", `${callee.member.name} is called on an instance inside a PROGRAM through a runtime index`, call.span)
     if (base.type.kind !== "function_block") return lw.bail("call-method", `${callee.member.name} is not a METHOD or ACTION lowering can call`, call.span)
-    routine = methodOf(lw, base.type, callee.member.name, call.span)
+    routine = methodOf(lw, base.type, callee.member.name, call.span, call)
     instance = base
     // moved out while it runs, the program must not reach its own instance from the method
     if (routine !== undefined && base.root === "global" && touchesOf(lw).get(routine.key)?.has(base.slot))
@@ -660,12 +706,12 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
       return lw.bail("call-program-reentrant", `${callee.member.name} calls through an interface, which may reach its PROGRAM while it runs`, call.span)
   } else if (callee.kind === "ident_expr" && ownMember(lw, callee.name) !== undefined) {
     const frame = selfFb(lw)!
-    routine = methodOf(lw, frame, callee.name, call.span)
+    routine = methodOf(lw, frame, callee.name, call.span, call)
     instance = thisPlace(frame, callee.span)
   } else if (callee.kind === "ident_expr") {
     const sym = lookup(lw.scope, callee.name)?.symbol
     if (sym?.kind !== "function" || libraryOf(sym) !== undefined) return lw.bail("expr-call", `${callee.name} is not a project FUNCTION`, call.span)
-    routine = calledRoutine(lw, sym, undefined, call.span)
+    routine = calledRoutine(lw, sym, undefined, call.span, sym.name, call)
   } else return lw.bail("expr-call", "a call of an expression", call.span)
   if (routine === undefined) return undefined
 
@@ -674,6 +720,8 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
   // each in-out is written, which decides whether its index is frozen there
   const order: (number | { inout: number; output?: true })[] = []
   const inouts: (IrBinding | InFrame | undefined)[] = routine.inouts.map(() => undefined)
+  /** each ANY argument's place, by parameter name — the hidden VAR_IN_OUT `pValue` reads is bound to it */
+  const anyPlaces = new Map<string, Place>()
   const held = () => holding(instance, inouts)
   // Positional arguments bind in declaration order across VAR_INPUT and VAR_IN_OUT (conformance
   // `callshape_positional_arguments`: 100, 315, 46), so each is named here by the parameter at its position. They were
@@ -725,6 +773,7 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
       if (place === undefined) return undefined
       const size = byteSize(lw, place.type)
       if (size === undefined) return lw.bail("any-input", "an ANY argument whose byte size is not measured", arg.span)
+      anyPlaces.set(name!, place)
       inputs[k] = { kind: "const", value: size.size, type: elementaryRef("DINT"), span: arg.span }
       order.push(k)
       continue
@@ -794,6 +843,14 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
         return lw.bail("call-inout-alias", `${routine.name} reaches ${slot.name}, which an argument of the same call already lends`, call.span)
       inouts[i] = own
     }
+  }
+  // the hidden VAR_IN_OUT of an ANY input this variant was lowered for: the very variable the argument names
+  for (const [i, slot] of routine.inouts.entries()) {
+    if (inouts[i] !== undefined || !slot.name.startsWith(ANY_TARGET)) continue
+    const place = anyPlaces.get(slot.name.slice(ANY_TARGET.length).toUpperCase())
+    if (place === undefined) return lw.bail("any-input", `${routine.name} is lowered for an ANY argument this call does not name`, call.span)
+    if (held().some((p) => aliases(place, p))) return lw.bail("call-inout-alias", `${routine.name}'s ANY argument is a variable the call already holds`, call.span)
+    inouts[i] = place
   }
   for (const [i, slot] of routine.inouts.entries()) {
     if (inouts[i] !== undefined || (outside && slot.ofInstance === true)) continue

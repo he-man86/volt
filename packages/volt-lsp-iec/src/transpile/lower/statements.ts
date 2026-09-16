@@ -93,7 +93,12 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
         const set: IrStmt = { kind: "assign", target: latched, value: convert(latch, latched.type), span: s.span }
         return { kind: "if", cond, then: [set], else: [], span: s.span }
       }
-      if (target.type.kind === "pointer") return storePointer(lw, target, s.value, s.span)
+      if (target.type.kind === "pointer") {
+        const stored = storePointer(lw, target, s.value, s.span)
+        // a pointer stored into one member of a union of pointers overlays the others (`unions.ts`)
+        const overlaid = stored === undefined ? undefined : unionCopies(lw, target, s.span)
+        return stored === undefined || overlaid === undefined ? undefined : [stored, ...overlaid]
+      }
       if (target.type.kind === "interface") return storeInterface(lw, target, s.value, s.span)
       if (target.type.kind === "reference") {
         // a write through a reference is a write to its target

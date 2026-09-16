@@ -409,7 +409,7 @@ interpreter AND the emitted Rust. **509 lower and every one equals the IDE.** Th
 | 8 | **`refused`** — CODESYS does not compile them. They pin the input contract; the transpiler never sees them. |
 | 6 | **the run faults in CODESYS** — a null dereference, a division by zero, a METHOD called before its in-out was bound. The recorder has no values to compare. |
 | 4 | **deferred, each a decision** — the two `instance_path_*` (the simulator's path holds a `Device.Sim.` segment the project tree does not), `op_math_trig` (COS near π/2, one ULP), `real_to_string_digits` (no digit rule fits, user 2026-09-14). |
-| **1** | **`state_any_int_pointer_increment`** — the only construct left (see below). |
+| **0** | nothing. `[transpile] 510 of 528 cases lower; what blocks the rest: nothing`. |
 
 Closed 2026-09-16, each recorded first and green in both backends:
 
@@ -426,14 +426,19 @@ Closed 2026-09-16, each recorded first and green in both backends:
       runtime index into a temp at the written position; the pointer's own value is frozen the same way, carrying the
       null check with it.
 
-- [ ] **`state_any_int_pointer_increment` — the last one, and it needs three things at once.** An `ANY_INT` input's
-      `pValue` taken into a UNION of POINTERs, the caller's variable written through the member its `diSize` selects
-      (1 → 6, 2 → 7, 3 → 8, 4 → 9 over four calls with SINT/INT/DINT/LINT). Today: `any-input` allows only `.diSize`,
-      `layout-union` allows only unsigned integers and bit strings, and a pointer records ONE target (design §9 form 1)
-      while these four call sites pass four different variables — form 3, the handle enum (`pointer-targets`). The
-      tractable route is specialization again, now on a routine's ANY INPUT: per call site the argument is one known
-      variable, so `pValue` is its address, `diSize` folds, and form 1 is enough. The dead CASE arms still lower, so
-      each arm's pointee type must be allowed to differ from the target's. **Not started — a decision, not a step.**
+- [x] **`state_any_int_pointer_increment`** — an `ANY_INT` input's `pValue` taken into a UNION of POINTERs, the caller's
+      variable written through the member its `diSize` selects (1 → 6, 2 → 7, 3 → 8, 4 → 9 over four calls with
+      SINT/INT/DINT/LINT). Three refusals at once: `any-input` allowed only `.diSize`, `layout-union` only members whose
+      bytes are measured, and a pointer records ONE target (design §9 form 1) while the four call sites pass four
+      different variables — which read as form 3, the handle enum. It is not: **an ANY input a call names a VARIABLE for
+      is a hidden VAR_IN_OUT bound to that variable**, so the routine is lowered once per argument TYPE (the variant in
+      its name, `anyArgumentTypes` reading the AST before the routine lowers) and each variant has exactly one target.
+      `pValue` is that parameter; the write lands in the caller's own variable at its own width; and the CASE arms the
+      size does not select are dead, so their pointee type differing from the target's costs nothing. Beside it: a union
+      whose members are ALL pointers is laid out (they are one integer in this model) and its overlay is a plain copy,
+      not the byte walk — a member never written would otherwise read 0 and fault on the null guard; and `pointerKey`
+      normalises any union member to the union, so the five members are one pointer with one target. An ANY argument
+      that is not a variable keeps `pValue` refused, as `diSize` alone still works.
 
 ## The plan from here — measured, not ranked by reach (2026-09-16)
 

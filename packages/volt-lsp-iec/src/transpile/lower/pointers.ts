@@ -10,11 +10,15 @@ import { storageOf } from "./storage.js"
 import { lowerPlace, refuseOpenArray } from "./places.js"
 import { byteSize } from "./bytes.js"
 import { lowerExpr } from "./expressions.js"
-import { refuseUnionWrite } from "./unions.js"
+import { refuseUnionWrite, unionOf } from "./unions.js"
 
 /** Where a pointer or reference variable lives, as a key every body that reaches it agrees on — undefined for one this
  *  does not track (a field of another instance, an element, a VAR_IN_OUT). */
 export function pointerKey(lw: Lowering, p: Place): string | undefined {
+  // Every member of a union of pointers overlays the same value, so they are ONE pointer with one target: `u.p1_Byte`
+  // stored and `u.p2_Int^` read back name the same thing (conformance `state_any_int_pointer_increment`).
+  const union = unionOf(lw, p)
+  if (union !== undefined) return p.path.length === union.union.path.length + 1 ? pointerKey(lw, union.union) : undefined
   const field = p.path[0]
   if (p.root === "this" && p.path.length === 1 && field?.kind === "field") return `${lw.frameContext}.${field.name.toUpperCase()}`
   if (p.path.length > 0 || p.guard !== undefined) return undefined
@@ -87,6 +91,15 @@ export function pointerValue(lw: Lowering, e: Expr, pointerType: Type): { value:
   if (e.kind === "literal" && e.value === 0n) return { value: { kind: "const", value: 0n, type: pointerType, span: e.span } }
   const adr = e.kind === "call" && e.callee.kind === "ident_expr" && e.callee.name.toUpperCase() === "ADR" && e.args.length === 1 ? e.args[0]!.value : undefined
   if (adr !== undefined) return addressOf(lw, adr, pointerType, e.span)
+  // `anyArg.pValue` — the address of the variable the call passed. An ANY input is a hidden VAR_IN_OUT bound to it, per
+  // call site (`calls.ts`), so the "address" is that parameter: one target, form 1, and the write lands in the caller's
+  // own variable at its own width (conformance `state_any_int_pointer_increment`).
+  if (e.kind === "member" && e.base.kind === "ident_expr" && lw.anyInputs.has(e.base.name.toUpperCase()) && e.member.name.toUpperCase() === "PVALUE") {
+    const slot = lw.anyTargets.get(e.base.name.toUpperCase())
+    if (slot === undefined) return lw.bail("any-input", `${e.base.name}.pValue, whose argument this call site does not name as a variable`, e.span)
+    const base: Place = { slot, path: [], type: lw.inoutSlots[slot]!.type, span: e.span, root: "inout" }
+    return { value: { kind: "const", value: 1n, type: pointerType, span: e.span }, target: { base } }
+  }
   const stepped = e.kind === "binary" && (e.op === "+" || e.op === "-") ? e : undefined
   const operand = stepped?.left ?? e
   if (operand.kind !== "ident_expr" && operand.kind !== "member" && operand.kind !== "index")
