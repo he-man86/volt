@@ -193,6 +193,14 @@ function runLsp(testIdx: number, vendor: Vendor): string[] {
   return msgs.sort()
 }
 
+/**
+ * A note the residue script turned up (2026-09-16), so it is not rediscovered: about 20 fixtures differ from the IDE in
+ * neither a missing message nor an extra one but in HOW OFTEN one repeats. A warning on a DECLARATION'S INITIALIZER —
+ * "String constant '…' too long", "Implicit conversion from …" — is reported TWICE by the IDE when the POU is
+ * instantiated, once for the type and once for the instance. The LSP reports it once, at the declaration, which is
+ * what an editor should show; matching the IDE would mean counting instantiations from another file and underlining
+ * the same declaration twice. The LSP is right here and these fixtures cannot reach exact agreement.
+ */
 function ideMsgs(ds: readonly RecordedDiagnostic[]): string[] {
   return ds
     .filter((d) => d.severity === "error" || d.severity === "warning")

@@ -57,9 +57,16 @@ for (const t of ALL_TESTS) {
   const extra = lsp.filter((m) => !ideSet.has(m))
   for (const m of missing) missingMessages.set(m, (missingMessages.get(m) ?? 0) + 1)
   add(extra.length > 0 ? (missing.length > 0 ? "both extra and missing" : "extra only") : "missing only", t.name)
+  if (extra.length === 0 && missing.length === 0) {
+    const count = (list: string[]) => { const m = new Map<string, number>(); for (const x of list) m.set(x, (m.get(x) ?? 0) + 1); return m }
+    const a = count(ide), b = count(lsp)
+    for (const [msg, n] of a) if ((b.get(msg) ?? 0) !== n) add(`repeat: ide ${String(n)} vs lsp ${String(b.get(msg) ?? 0)} | ${msg.slice(0, 70)}`, t.name)
+  }
 }
 
+const sizes = new Map<number, string[]>()
+for (const [k, names] of buckets) if (k === "missing only") for (const n of names) void n
 console.log("why a fixture does not agree:")
-for (const [k, names] of [...buckets].sort((a, b) => b[1].length - a[1].length)) console.log(`  ${String(names.length).padStart(4)}  ${k}`)
+for (const [k, names] of [...buckets].sort((a, b) => b[1].length - a[1].length)) console.log(`  ${String(names.length).padStart(4)}  ${k}${k.startsWith("repeat") ? `  <- ${names.slice(0, 2).join(", ")}` : ""}`)
 console.log("\nthe IDE messages the LSP most often MISSES:")
 for (const [m, n] of [...missingMessages].sort((a, b) => b[1] - a[1]).slice(0, 22)) console.log(`  ${String(n).padStart(4)}  ${m.slice(0, 118)}`)
