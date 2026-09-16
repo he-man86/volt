@@ -29,6 +29,9 @@ export function checkPointerConversion(ctx: CheckContext, out: DiagnosticItem[])
       if (lhs.kind !== "elementary") return
       if (tc && POINTER_SIZED.has(lhs.name)) return // TwinCAT: pointer-sized target is fine
       out.push({
+        // C0033 is CONFIGURABLE, so the filter forces the project's own state and this severity is not what ships.
+        // The recording project has it as an ERROR; the replay resolves no project settings, so the two differ by
+        // configuration, not by behaviour (conformance `cc5_pointer_not_convertible`).
         severity: "warning",
         span: s.target.span,
         source: SOURCE,

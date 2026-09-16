@@ -53,6 +53,7 @@ import { CORPUS_ADDRESS_TESTS } from "./corpus-addresses.js"
 import { CHECK_COVERAGE_TWO_TESTS } from "./check-coverage-two.js"
 import { CHECK_COVERAGE_THREE_TESTS } from "./check-coverage-three.js"
 import { CHECK_COVERAGE_FOUR_TESTS } from "./check-coverage-four.js"
+import { CHECK_COVERAGE_FIVE_TESTS } from "./check-coverage-five.js"
 
 export interface CategoryGroup {
   name: string
@@ -71,6 +72,7 @@ export const CATEGORIES: readonly CategoryGroup[] = [
   { name: "check-coverage-two", tests: CHECK_COVERAGE_TWO_TESTS },
   { name: "check-coverage-three", tests: CHECK_COVERAGE_THREE_TESTS },
   { name: "check-coverage-four", tests: CHECK_COVERAGE_FOUR_TESTS },
+  { name: "check-coverage-five", tests: CHECK_COVERAGE_FIVE_TESTS },
   { name: "pragma", tests: PRAGMA_TESTS },
   { name: "pragma-tc", tests: PRAGMA_TC_TESTS },
   { name: "lifecycle", tests: LIFECYCLE_TESTS },

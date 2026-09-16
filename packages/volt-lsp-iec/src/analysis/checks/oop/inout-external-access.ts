@@ -30,7 +30,9 @@ export function checkInoutExternalAccess(ctx: CheckContext, out: DiagnosticItem[
         span: e.span,
         source: SOURCE,
         code: "inout-no-external-access",
-        message: ctx.messages.inoutNoExternalAccess(e.member.name, fbName),
+        // the IDE prints the FB UPPER-cased here, whatever the declaration wrote (conformance
+        // `cc5_inout_external_access`: "… parameter 'shared' of 'FB_C5_HOLDER'.")
+        message: ctx.messages.inoutNoExternalAccess(e.member.name, fbName.toUpperCase()),
       })
     })
   }

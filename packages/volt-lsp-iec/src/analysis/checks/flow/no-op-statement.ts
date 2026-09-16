@@ -23,12 +23,21 @@ export function checkNoOpStatement(ctx: CheckContext, out: DiagnosticItem[]): vo
         severity: "warning",
         span: s.expr.span,
         source: SOURCE,
-        // Mirror the IDE: it echoes the whole statement source (incl. the `;`), not just the expression.
+        // Mirror the IDE: it echoes the whole statement source (incl. the `;`), not just the expression — and the
+        // LINE BREAK that ends it, which is in the recorded message (conformance `cc5_no_op_statement`).
         code: "no-op-statement",
-        message: ctx.messages.codeHasNoEffect(ctx.source.slice(s.span.start, s.span.end)),
+        message: ctx.messages.codeHasNoEffect(withLineEnd(ctx.source, s.span.start, s.span.end)),
       })
     })
   }
+}
+
+/** The statement's source, plus the newline that ends its line — what the IDE quotes. */
+function withLineEnd(source: string, start: number, end: number): string {
+  const tail = source.slice(end)
+  const upTo = tail.search(/\S/)
+  const gap = upTo < 0 ? tail : tail.slice(0, upTo)
+  return source.slice(start, end) + (gap.includes("\n") ? "\n" : "")
 }
 
 function containsCall(e: Expr): boolean {

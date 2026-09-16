@@ -100,7 +100,23 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                            value, the LSP matches exactly.)
   //   `cc2_var_in_interface` — the LSP says "Variable declarations are not allowed in interfaces"; CODESYS BUILDS it,
   //                            reporting nothing.
-  codesys: new Set<string>(["cc2_call_recursion", "cc2_type_name_and_method_without_parens", "cc2_var_in_interface"]),
+  //   `cc5_no_op_statement`  — the IDE echoes the statement with the line ending its own copy has, which the bridge
+  //                            wrote as CRLF; the fixture's source is LF. A difference of storage, not of behaviour.
+  //   `cc5_pointer_not_convertible` — C0033 is CONFIGURABLE. The recording project has it as an ERROR; the replay
+  //                            resolves no project settings, so it is a warning here. Configuration, not behaviour.
+  //   `cc5_new_in_expression` — the recording device has no memory configured for dynamic creation, so the IDE
+  //                            reports that instead and never reaches the nesting rule.
+  //   `cc5_deprecated_functionblock_keyword` — the IDE does not report the spelling at all: it parses `FUNCTIONBLOCK`
+  //                            as something else and reports "Unknown type". Both LSP messages are Volt's own.
+  codesys: new Set<string>([
+    "cc2_call_recursion",
+    "cc2_type_name_and_method_without_parens",
+    "cc2_var_in_interface",
+    "cc5_no_op_statement",
+    "cc5_pointer_not_convertible",
+    "cc5_new_in_expression",
+    "cc5_deprecated_functionblock_keyword",
+  ]),
 }
 
 // Cross-fixture declaration context: every fixture's interfaces/DUTs/GVLs and FBs (with their standalone

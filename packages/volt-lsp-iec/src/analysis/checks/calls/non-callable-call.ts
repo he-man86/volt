@@ -16,7 +16,10 @@ import { inferExprType, resolveMemberChain } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
-const CALLABLE_KINDS = new Set(["function_block", "function", "method", "program", "action", "interface_method"])
+// `interface` is here so C0035 cedes the INTERFACE case to `fb-instantiation`, which has the IDE's own two messages
+// for it — "Cannot call object of type 'INTERFACE'" and "Interface '…' must be instantiated to be accessed"
+// (conformance `cc5_type_invoked_directly`). C0035's generic sentence fired beside them as a false positive.
+const CALLABLE_KINDS = new Set(["function_block", "function", "method", "program", "action", "interface_method", "interface"])
 const NON_CALLABLE_TYPE = new Set(["elementary", "enum", "struct", "array", "pointer", "reference"])
 
 /** The invoked name for the C0035 message (`i` in `i()`, the member in `a.b()`). */

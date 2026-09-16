@@ -25,7 +25,8 @@ export function checkEnumInit(ctx: CheckContext, out: DiagnosticItem[]): void {
         span: member.value.span,
         source: SOURCE,
         code: "enum-init-not-convertible",
-        message: ctx.messages.enumInitNotConvertible(REAL_LITERAL_TYPE, unit.name.text),
+        // UPPER-cased, as the IDE prints it (conformance `cc5_enum_init_not_convertible`: "… to type 'DUT_C5_ODD'")
+        message: ctx.messages.enumInitNotConvertible(REAL_LITERAL_TYPE, unit.name.text.toUpperCase()),
       })
     }
   }
