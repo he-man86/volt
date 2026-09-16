@@ -399,6 +399,42 @@ taken apart by construct before anything is built — record first, then build, 
 - [ ] A multi-target handle for stored POINTER/REFERENCE (`pointer-targets`).
 - [ ] REFERENCE/POINTER inputs of a routine as borrows for the call — and interface inputs (`itf_function_input`).
 
+## The fixtures — every standard language feature the conformance suite describes (user ask 2026-09-16)
+
+`test/conformance/fixtures/` is the specification: 528 cases, each recorded from CODESYS SP21 and replayed through the
+interpreter AND the emitted Rust. **509 lower and every one equals the IDE.** The 19 that do not are, exactly:
+
+| | why it does not lower |
+|---|---|
+| 8 | **`refused`** — CODESYS does not compile them. They pin the input contract; the transpiler never sees them. |
+| 6 | **the run faults in CODESYS** — a null dereference, a division by zero, a METHOD called before its in-out was bound. The recorder has no values to compare. |
+| 4 | **deferred, each a decision** — the two `instance_path_*` (the simulator's path holds a `Device.Sim.` segment the project tree does not), `op_math_trig` (COS near π/2, one ULP), `real_to_string_digits` (no digit rule fits, user 2026-09-14). |
+| **1** | **`state_any_int_pointer_increment`** — the only construct left (see below). |
+
+Closed 2026-09-16, each recorded first and green in both backends:
+
+- [x] **An in-out bound INSIDE the instance its routine runs on** (`call-inout-alias`, 4 fixtures: an own field lent to
+      its own METHOD that also reads it by name 10, one field lent to two in-outs 6, `SUPER^` binding both base in-outs
+      to one field 6, a child's field lent through THIS^ while the METHOD writes it by name 11). By reference the in-out
+      and the field are ONE storage — which a `&mut` cannot say beside the `&mut` of the instance (E0499), and which the
+      copy-written-back gets wrong as soon as the callee reaches the field another way. So the parameter is not a
+      reference: it is a PATH from the instance, and the routine is specialized on it (`lower/specialize.ts`), the
+      parameter gone. Narrow on purpose — the routine must CALL nothing, the path must be static, and a VAR_IN_OUT
+      CONSTANT is excluded (what it reads after the callee writes the field by name is not recorded).
+- [x] **An in-out through a POINTER bound where written** (`call-inout-order`, `callshape_inout_pointer_before_call`: 101
+      — a later argument repoints `p` and `boundValue` is still `numbers[0]`). The binding-order pass already froze a
+      runtime index into a temp at the written position; the pointer's own value is frozen the same way, carrying the
+      null check with it.
+
+- [ ] **`state_any_int_pointer_increment` — the last one, and it needs three things at once.** An `ANY_INT` input's
+      `pValue` taken into a UNION of POINTERs, the caller's variable written through the member its `diSize` selects
+      (1 → 6, 2 → 7, 3 → 8, 4 → 9 over four calls with SINT/INT/DINT/LINT). Today: `any-input` allows only `.diSize`,
+      `layout-union` allows only unsigned integers and bit strings, and a pointer records ONE target (design §9 form 1)
+      while these four call sites pass four different variables — form 3, the handle enum (`pointer-targets`). The
+      tractable route is specialization again, now on a routine's ANY INPUT: per call site the argument is one known
+      variable, so `pValue` is its address, `diSize` folds, and form 1 is enough. The dead CASE arms still lower, so
+      each arm's pointee type must be allowed to differ from the target's. **Not started — a decision, not a step.**
+
 ## The plan from here — measured, not ranked by reach (2026-09-16)
 
 **Corpus today: 52 of 304 POUs with a body (17.1%).** The work list above ranked constructs by how many POUs each
