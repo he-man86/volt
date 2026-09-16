@@ -10,8 +10,8 @@
  * That last rule was refused once — "the compilers parse-cascade, so a single clean message would false-positive
  * against their error spray". The spray is what the LSP emits now, so the objection is spent.
  */
-import { stmtExprs, walkExpr, walkStatements, type TopLevel, type VarSection } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
+import type { TopLevel, VarSection } from "../../../syntax/index.js"
+import { reportLostUses } from "../../lost-declaration.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
@@ -68,25 +68,7 @@ export function checkVarSectionPlacement(ctx: CheckContext, out: DiagnosticItem[
       })
     }
   }
-  if (lost.size > 0) reportLostUses(ctx, out, lost)
-}
-
-/** Every use of a name whose section the compiler lost — it never saw the declaration (see the header). */
-function reportLostUses(ctx: CheckContext, out: DiagnosticItem[], lost: ReadonlySet<string>): void {
-  for (const { statements } of bodies(ctx.parseResult.units, ctx.project))
-    walkStatements(statements, (s) => {
-      for (const e of stmtExprs(s))
-        walkExpr(e, (x) => {
-          if (x.kind !== "ident_expr" || !lost.has(x.name.toLowerCase())) return
-          out.push({
-            severity: "error",
-            span: x.span,
-            source: SOURCE,
-            code: "unresolved-identifier",
-            message: ctx.messages.undefinedIdentifier(x.name),
-          })
-        })
-    })
+  reportLostUses(ctx, out, lost)
 }
 
 function misplacedSection(unit: TopLevel, section: VarSection): string | undefined {

@@ -4,20 +4,23 @@
  * rejects it. This owns the whole VAR_IN_OUT-member case; `external-write` cedes it (its generic "is no input"
  * is for VAR/VAR_STAT/… members).
  *
- * NOT here: C0371 (a method accessing its OWN FB's VAR_IN_OUT) — that is `inout-own-access`, a toggleable
- * warning (default on), which owns the own-member-scope case. The two never overlap.
+ * The compiler reports the C0371 WARNING here too, naming the body that reached in (`__MAIN` for an FB's own body):
+ * an external instance access is two diagnostics, not one (conformance `cc5_inout_external_access`). C0371's
+ * own-member-scope case stays with `inout-own-access`; the two never overlap on WHICH access they describe.
  *
  * Conservative (zero-FP): fires only when the base infers to a project-local FB (library sections flatten →
  * unreliable) and the member resolves to a VAR_IN_OUT; a THIS/SUPER base (the FB's own params) is legal.
  */
 import { isSelfRef, walkAllExprs } from "../../../syntax/index.js"
 import { bodies, isLibrarySymbol } from "../../../symbols/index.js"
+import { bodyContext } from "./body-context.js"
 import { inferExprType, resolveMemberChain } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkInoutExternalAccess(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
+  for (const { unit, body, scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
+    const context = bodyContext(scope, unit, body)
     walkAllExprs(statements, (e) => {
       if (e.kind !== "member" || isSelfRef(e.base)) return
       const baseType = inferExprType(e.base, scope, ctx.project)
@@ -33,6 +36,13 @@ export function checkInoutExternalAccess(ctx: CheckContext, out: DiagnosticItem[
         // the IDE prints the FB UPPER-cased here, whatever the declaration wrote (conformance
         // `cc5_inout_external_access`: "… parameter 'shared' of 'FB_C5_HOLDER'.")
         message: ctx.messages.inoutNoExternalAccess(e.member.name, fbName.toUpperCase()),
+      })
+      out.push({
+        severity: "warning",
+        span: e.span,
+        source: SOURCE,
+        code: "inout-own-access",
+        message: ctx.messages.inoutOwnAccess(e.member.name, fbName, context),
       })
     })
   }

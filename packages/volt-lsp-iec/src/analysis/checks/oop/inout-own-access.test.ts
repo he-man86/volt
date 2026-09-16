@@ -60,3 +60,15 @@ test("a project that disabled the warning can turn it off (lints.inoutOwnAccess=
   const ds = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", diagnostics: { "inout-own-access": "off" } }) })
   expect(ds.filter((d) => d.code === "inout-own-access")).toEqual([])
 })
+
+test("a call argument's PARAMETER name is not a reference — one access, one warning", () => {
+  // Why missed: `F(book := book)` counted the formal parameter as well as the value, so one access warned twice
+  // (conformance `xo3_inout_chain_four_deep`).
+  const src = `FUNCTION F_mark : BOOL\nVAR_IN_OUT\nbook : INT;\nEND_VAR\nF_mark := TRUE;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_inner\nVAR_IN_OUT\nbook : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD Deeper\nF_mark(book := book);\nEND_METHOD`
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "inout-own-access")
+    .map((d) => d.message)
+  expect(msgs).toEqual(["Access to VAR_IN_OUT 'book' declared in 'FB_inner' from external context 'Deeper'"])
+})

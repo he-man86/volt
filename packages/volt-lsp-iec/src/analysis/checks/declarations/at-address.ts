@@ -6,13 +6,18 @@
  * Zero-FP: a valid AT operand is a direct-address literal (`%IB8`, `%IX0.0`, `%I*`) — the lexer tags those
  * `address_lit`. We flag ONLY when the operand's first meaningful token is an `identifier` (`ABC`), which an
  * address can never be. Exotic/placeholder addresses stay `address_lit`, so real memory-mapped vars never fire.
+ *
+ * The declaration is LOST when this fires — the compiler never saw it, and answers `Identifier 'misplaced' not
+ * defined` at every use (conformance `cc5_at_address_not_direct`).
  */
 import { isTrivia } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachDecl } from "../../../symbols/index.js"
+import { reportLostUses } from "../../lost-declaration.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkAtAddress(ctx: CheckContext, out: DiagnosticItem[]): void {
+  const lost = new Set<string>()
   for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {
     const op = decl.at?.tokens.find((t) => !isTrivia(t.kind))
     if (op === undefined || op.kind !== "identifier") continue
@@ -23,5 +28,7 @@ export function checkAtAddress(ctx: CheckContext, out: DiagnosticItem[]): void {
       code: "at-address",
       message: ctx.messages.directAddressExpectedAt(op.text),
     })
+    for (const name of decl.names) lost.add(name.text.toLowerCase())
   }
+  reportLostUses(ctx, out, lost)
 }

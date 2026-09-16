@@ -10,8 +10,8 @@
  * carries the hole on from there (conformance `cc2_constant_and_external`, where one dangling name accounts for six
  * of the ten recorded errors).
  */
-import { stmtExprs, walkExpr, walkStatements } from "../../../syntax/index.js"
-import { bodies, forEachDecl, lookupLocal } from "../../../symbols/index.js"
+import { forEachDecl, lookupLocal } from "../../../symbols/index.js"
+import { reportLostUses } from "../../lost-declaration.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
@@ -31,19 +31,5 @@ export function checkExternalGlobal(ctx: CheckContext, out: DiagnosticItem[]): v
       })
     }
   }
-  if (dangling.size === 0) return
-  for (const { statements } of bodies(ctx.parseResult.units, ctx.project))
-    walkStatements(statements, (s) => {
-      for (const e of stmtExprs(s))
-        walkExpr(e, (x) => {
-          if (x.kind !== "ident_expr" || !dangling.has(x.name.toLowerCase())) return
-          out.push({
-            severity: "error",
-            span: x.span,
-            source: SOURCE,
-            code: "unresolved-identifier",
-            message: ctx.messages.undefinedIdentifier(x.name),
-          })
-        })
-    })
+  reportLostUses(ctx, out, dangling)
 }

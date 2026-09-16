@@ -12,22 +12,26 @@
  * Sibling `inout-external-access` (C0178) owns the external-instance case; this owns the own-member-scope case.
  * The two never overlap (that check requires a non-THIS FB-typed base; this requires a bare/own reference).
  */
-import { walkAllExprs, type BodySpan, type Property, type TopLevel, type IdentExpr } from "../../../syntax/index.js"
-import { bodies, type Scope } from "../../../symbols/index.js"
+import { walkAllExprs, type IdentExpr } from "../../../syntax/index.js"
+import { bodies } from "../../../symbols/index.js"
+import { bodyContext, MAIN_BODY } from "./body-context.js"
 import { resolveMemberChain } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkInoutOwnAccess(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { unit, body, scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
-    const context = externalContext(scope, unit, body) // method/action/property-accessor scope; undefined = the FB's own body
-    if (context === undefined) continue
-    const memberNames = new Set<IdentExpr>()
+    const context = bodyContext(scope, unit, body)
+    if (context === MAIN_BODY) continue // the FB's own body — VAR_IN_OUT lives there, which is normal
+    // A member name and a call argument's PARAMETER name are not references to anything in this scope. The parameter
+    // was counted, so `F(book := book)` warned TWICE for one access (conformance `xo3_inout_chain_four_deep`).
+    const notReferences = new Set<IdentExpr>()
     walkAllExprs(statements, (e) => {
-      if (e.kind === "member") memberNames.add(e.member)
+      if (e.kind === "member") notReferences.add(e.member)
+      if (e.kind === "call") for (const a of e.args) if (a.param !== undefined) notReferences.add(a.param)
     })
     walkAllExprs(statements, (e) => {
-      if (e.kind !== "ident_expr" || memberNames.has(e)) return
+      if (e.kind !== "ident_expr" || notReferences.has(e)) return
       const sym = resolveMemberChain(e, scope, ctx.project)
       if (sym?.varSection !== "VAR_IN_OUT" || sym.owner.kind !== "pou") return
       out.push({
@@ -39,16 +43,4 @@ export function checkInoutOwnAccess(ctx: CheckContext, out: DiagnosticItem[]): v
       })
     })
   }
-}
-
-/** The "external context" name CODESYS uses for a member-scope body — a method/action is its own name; a
- *  property accessor is `__get<Prop>` / `__set<Prop>` (matching the compiler). Undefined for the FB's own body. */
-function externalContext(scope: Scope, unit: TopLevel, body: BodySpan): string | undefined {
-  if (scope.kind === "method") return scope.name // method or action
-  if (scope.kind === "accessor" && unit.kind === "property") {
-    const p = unit as Property
-    if (p.getter !== undefined && p.getter.body.span.start === body.span.start) return `__get${p.name.text}`
-    if (p.setter !== undefined && p.setter.body.span.start === body.span.start) return `__set${p.name.text}`
-  }
-  return undefined
 }

@@ -16,14 +16,17 @@ const diag = (body: string): { code: string; message: string }[] => {
 }
 const codes = (body: string): string[] => diag(body).map((d) => d.code)
 
-test("C0178 — external READ of a VAR_IN_OUT member", () => {
+// The compiler reports BOTH for an external access — the C0178 error and the C0371 warning naming the body that
+// reached in, `__MAIN` for a main body (conformance `cc5_inout_external_access`: four diagnostics for two accesses).
+test("C0178 — external READ of a VAR_IN_OUT member, with the C0371 warning beside it", () => {
   const ds = diag("i := inst.io;")
-  expect(ds.map((d) => d.code)).toEqual(["inout-no-external-access"])
+  expect(ds.map((d) => d.code)).toEqual(["inout-no-external-access", "inout-own-access"])
   expect(ds[0].message).toBe(`No external access to VAR_IN_OUT parameter 'io' of 'FB'."`)
+  expect(ds[1].message).toBe(`Access to VAR_IN_OUT 'io' declared in 'FB' from external context '__MAIN'`)
 })
 
-test("C0178 — external WRITE of a VAR_IN_OUT member (single fire, not external-write)", () => {
-  expect(codes("inst.io := 5;")).toEqual(["inout-no-external-access"])
+test("C0178 — external WRITE of a VAR_IN_OUT member (not external-write)", () => {
+  expect(codes("inst.io := 5;")).toEqual(["inout-no-external-access", "inout-own-access"])
 })
 
 test("a VAR_INPUT member is externally accessible — no FP", () => {
