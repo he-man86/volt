@@ -8,6 +8,9 @@ Rehomed from `build-st-language-server` (task X.1). The architecture is in place
   access (31%) block nearly every real POU, and both wait on design §9. Primitives go first anyway (decided
   2026-09-14): they are fully testable today, need no design decision, and are what an ST unit test exercises most.
 
+**The current work order is "The plan from here" below (2026-09-16)** — measured by `sole` blocker, not by reach.
+The phases below record what was built and what it measured; they are no longer the order.
+
 ## Phase 0 — the skeleton and the executable core · DONE
 
 - [x] `ir/` — places-not-references, resolved `types/` `Type` per node, one loop shape, coded diagnostics.
@@ -395,6 +398,55 @@ taken apart by construct before anything is built — record first, then build, 
       outputs that cannot reach the lent variable (coverage only, never a wrong result).
 - [ ] A multi-target handle for stored POINTER/REFERENCE (`pointer-targets`).
 - [ ] REFERENCE/POINTER inputs of a routine as borrows for the call — and interface inputs (`itf_function_input`).
+
+## The plan from here — measured, not ranked by reach (2026-09-16)
+
+**Corpus today: 52 of 304 POUs with a body (17.1%).** The work list above ranked constructs by how many POUs each
+one *reaches*, and that number is misleading: almost every blocked POU is blocked by several constructs at once, so
+the construct with the biggest reach can unlock nothing. `lower-completeness` now prints `sole` beside `reach` — how
+many POUs a construct is the ONLY blocker of — and ranks by it. `init-not-constant` reaches 202 POUs and is the sole
+blocker of 3.
+
+**The ceiling, and where it is.** Of the 252 blocked POUs, **170 (67%) are blocked by a THIRD-PARTY library** — a name
+that does not resolve (`L_LA`, `L_IMHP`, `CmpApp`, `PACK_ML`, `L_MC1P`, `CIA405`), a call into one (`StrConcatA`,
+`StrFindA`, `SysTimeRtcGet`, `L_MC1P_*`), or a constant/enum/type reached from one. No amount of language work moves
+them, because there is no source to lower — these libraries ship compiled (non-goals; design §8). So:
+
+| | |
+|---|---|
+| **44.1% (134/304)** | the ceiling with NO library work at all — every library-free POU lowered |
+| **~41% (125/304)** | what the 18 library-free constructs below actually reach, worked in order |
+| **the rest** | needs the library tier: a stub mechanism for third-party FBs and functions (design §8) |
+
+**This is the decision the number forces:** the language work left is worth ~24 points of corpus and is bounded;
+past that, coverage is a LIBRARY problem, not a language one. `plc-library-runtime` covers Standard/Standard64 only
+— the corpus is blocked by vendor libraries neither tier names. Parked here deliberately, as the user asked
+(2026-09-16), but it is the next proposal after this change, not a phase of it.
+
+**The order, each step `+N` POUs and the running total** (greedy over the library-free set; record first, build, green
+in both backends, as every row above):
+
+- [x] `root-inout` +10 → 52 — an FB's or PROGRAM's in-out is the harness's variable (2026-09-16). `ARRAY[*]` still refused.
+- [ ] `place-not-local` +4 → 56 — the library-free half: a `var` of another scope with no frame slot (`Unit`, `AxisRef`).
+- [ ] `init-not-constant` +3 → 59 — the library-free half: an initializer that folds but is not reached.
+- [ ] `graphical-body` +6 → 65 — an FBD/LD body reaching the backend through **network text**, not through `lowerUnit`.
+- [ ] `place-shape` +4 → 69 — member access on a base with no layout, an index on a non-array, a literal as a place.
+- [ ] `pointer-order` +5 → 74.
+- [ ] `call-body` +5 → 79.
+- [ ] `aggregate-init` +3 → 82 — an initializer naming an INHERITED field (`instanceNo` of a base FB) is the top shape.
+- [ ] `enum-value` +17 → 99 — **the biggest single step**: the library-free half, an enum value that does not fold.
+- [ ] `call-param` +4 → 103.
+- [ ] `interface-type` +3 → 106.
+- [ ] `expr-member` +4 → 110.
+- [ ] `stmt-try` +3 → 113 — `__TRY`/`__CATCH`; Rust has no exceptions, so decide a strategy or refuse explicitly.
+- [ ] `layout-union` +4 → 117.
+- [ ] `conversion-type` +2 → 119 · `fb-init-argument` +2 → 121 · `expr-call` +2 → 123 (the built-ins `ADR`, `LTIME`,
+      `TEST_AND_SET`, `DELETE` reaching the generic call path) · `call-inout-alias` +1 → 124 · `stmt-call_stmt` +1 → 125.
+
+**Not on this list, and why.** The blockers with the largest reach — `init-not-constant` 202, `enum-value` 134,
+`call-body` 118, `expr-member` 93, `place-shape` 81, `pointer-value` 77, `expr-call` 75, `interface-*` 62–73,
+`layout-union` 61 — are mostly the SAME 170 library-bound POUs seen from different angles. Their reach counts are a
+measure of the library gap, not of the language gap, and they will not fall until the library tier exists.
 
 ## Phase 4 — aliasing
 
