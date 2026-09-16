@@ -16,18 +16,9 @@ import { renderTypeExpr } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachDecl } from "../../../symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { leftoverStatement } from "../../resync.js"
 
 const SUB_MILLISECOND = /^(us|ns)$/i
-const LINE_END_AFTER = /^[^\S\r\n]*(\r?\n)/
-
-/** The orphaned unit as the statement it becomes — through its `;` and the line break that ends it, as the IDE quotes it. */
-function leftoverStatement(source: string, from: number): string | undefined {
-  const rest = source.slice(from)
-  const end = rest.indexOf(";")
-  if (end < 0) return undefined
-  const br = LINE_END_AFTER.exec(rest.slice(end + 1))
-  return rest.slice(0, end + 1) + (br?.[1] ?? "")
-}
 
 export function checkTimeLiteralUnit(ctx: CheckContext, out: DiagnosticItem[]): void {
   const decls = [...forEachDecl(ctx.parseResult, ctx.project)].map(({ decl }) => decl)

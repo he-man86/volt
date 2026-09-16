@@ -1,6 +1,7 @@
 /**
  * unsupported-operator (types/). Two operators the LSP's grammar accepts are not operators in CODESYS at all — each is
- * a parse error there, `';' expected instead of '<op>'` then `Unexpected token '<op>' found` (recorded live):
+ * a parse error there, `';' expected instead of '<op>'` then `Unexpected token '<op>' found`, and then whatever
+ * followed the operator is left over: see `analysis/resync`. Recorded live:
  *   - `**` — `x := 2.0 ** 3.0` (conformance `cc_power_operator`); EXPT is the only power;
  *   - `&`  — `c := a & b` (conformance `cc_fp_op_ampersand`); AND is the boolean/bitwise and.
  *
@@ -15,6 +16,7 @@ import { stmtExprs, walkExpr, walkStatements } from "../../../syntax/index.js"
 import { bodies } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { leftoverStatement } from "../../resync.js"
 
 const UNSUPPORTED: ReadonlySet<string> = new Set(["**", "&"])
 
@@ -24,8 +26,22 @@ export function checkUnsupportedOperator(ctx: CheckContext, out: DiagnosticItem[
       for (const e of stmtExprs(s))
         walkExpr(e, (x) => {
           if (x.kind !== "binary" || !UNSUPPORTED.has(x.op)) return
-          for (const message of [ctx.messages.semicolonExpectedInsteadOf(x.op), ctx.messages.unexpectedToken(x.op)])
+          const error = (message: string): void => {
             out.push({ severity: "error", span: x.span, source: SOURCE, code: "unsupported-operator", message })
+          }
+          error(ctx.messages.semicolonExpectedInsteadOf(x.op))
+          error(ctx.messages.unexpectedToken(x.op))
+          // the right operand is what is left over — named if it cannot start a statement, re-read as one if it can
+          const tail = x.right
+          const text = ctx.source.slice(tail.span.start, tail.span.end)
+          error(ctx.messages.semicolonExpectedInsteadOf(text))
+          if (tail.kind !== "ident_expr") {
+            error(ctx.messages.unexpectedToken(text))
+            return
+          }
+          const statement = leftoverStatement(ctx.source, tail.span.start)
+          if (statement !== undefined)
+            out.push({ severity: "warning", span: tail.span, source: SOURCE, code: "unsupported-operator", message: ctx.messages.codeHasNoEffect(statement) })
         })
     })
 }
