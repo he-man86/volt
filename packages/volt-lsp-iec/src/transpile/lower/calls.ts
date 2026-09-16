@@ -445,8 +445,8 @@ export function methodOf(lw: Lowering, frame: FbType, name: string, span: Span, 
  * A PROPERTY's GET or SET as a routine of the FB it runs on: the getter's result, or the setter's one input, is a local
  * named as the property, and its VAR starts over on every call (conformance `state_property_get_set`).
  */
-export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol, accessor: "get" | "set", span: Span): IrRoutine | undefined {
-  const name = `${frame.name}.${sym.name}__${accessor}`
+export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol, accessor: "get" | "set", span: Span, as = sym.name): IrRoutine | undefined {
+  const name = `${frame.name}.${as}__${accessor}`
   return once(lw, name, span, () => {
     const ast = sym.ast as Property
     const part = accessor === "get" ? ast.getter : ast.setter
@@ -478,7 +478,17 @@ export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol,
  * The instance and PROPERTY an expression names — `inst.P`, `THIS^.P`, or `P` bare inside the FB — resolved by the
  * instance's own type, as a METHOD is. `null` when it names no property; `undefined` when it does and was refused.
  */
-function propertyAccess(lw: Lowering, e: Expr): { instance: Place; frame: FbType; sym: RoutineSymbol } | undefined | null {
+function propertyAccess(lw: Lowering, e: Expr): { instance: Place; frame: FbType; sym: RoutineSymbol; as?: string } | undefined | null {
+  // `SUPER^.P` — the BASE's accessor, run on this instance, as `SUPER^.M()` runs the base's METHOD (conformance
+  // `xo2_property_override_chain`: the derived getter gives 82 where SUPER^ gives 41). It was no place at all —
+  // `place-shape`, "deref is not a lowerable storage location" — because only `SUPER^.M()` was ever resolved.
+  if (e.kind === "member" && isSuper(e.base)) {
+    const frame = selfFb(lw)
+    const baseScope = lw.codeOwner?.baseScope
+    const sym = baseScope === undefined ? undefined : lookupMember(baseScope, e.member.name)
+    if (frame === undefined || sym?.kind !== "property") return null
+    return { instance: thisPlace(frame, e.base.span), frame, sym, as: `SUPER_${sym.owner.name}_${sym.name}` }
+  }
   if (e.kind === "ident_expr") {
     const frame = selfFb(lw)
     if (frame?.scope === undefined || lw.holds(e.name)) return null
@@ -503,7 +513,7 @@ export function lowerPropertyGet(lw: Lowering, e: Expr): IrInvoke | IrDispatch |
   // not an instance's: perhaps an interface's (conformance `itf_property_through_interface`)
   if (access === null) return interfacePropertyGet(lw, e)
   if (lw.arguments > 0) return lw.bail("call-nested", "a PROPERTY read inside a call's arguments", e.span)
-  const routine = propertyRoutine(lw, access.frame, access.sym, "get", e.span)
+  const routine = propertyRoutine(lw, access.frame, access.sym, "get", e.span, access.as)
   if (routine === undefined) return undefined
   // The getter of an FB instance inside a PROGRAM runs on the program's instance (conformance
   // `callshape_program_instance_property`: 33, 34), with the program moved out as for a METHOD there — under the same checks.
@@ -530,7 +540,7 @@ export function lowerPropertySet(lw: Lowering, s: Extract<Statement, { kind: "as
   // (recorded while making `callshape_program_instance_property`)
   if (access.instance.root === "global" && access.instance.path.length > 0)
     return lw.bail("call-program-property", `${access.sym.name} is written on an instance inside a PROGRAM, from outside it`, s.span)
-  const routine = propertyRoutine(lw, access.frame, access.sym, "set", s.span)
+  const routine = propertyRoutine(lw, access.frame, access.sym, "set", s.span, access.as)
   if (routine === undefined) return undefined
   const type = routine.locals[0]!.type
   const value = lowerExpr(lw, s.value, type)
@@ -1104,7 +1114,10 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
     const named = lowerPlace(lw, callee.base)
     const base = named === undefined ? undefined : instancePlace(lw, named, call.span)
     if (base === undefined) return undefined
-    const layout = base.type.kind === "function_block" ? lw.layouts.get(base.type.name.toUpperCase()) : undefined
+    // A STRUCT's field can be an FB instance too (conformance `xo2_instance_in_struct`: `x.drive(speed := 6)` on a
+    // `DUT_X2_axis` holding an `FB_X2_motor`) — only an FB's layout was looked at, so the call went on as a METHOD of
+    // the struct and was refused `call-method`.
+    const layout = base.type.kind === "function_block" || base.type.kind === "struct" ? lw.layouts.get(base.type.name.toUpperCase()) : undefined
     // `inst.M(…)` / `inst.A()` — anything that is not an instance held in a field is a METHOD or ACTION
     if (!layout?.fields.some((f) => f.name.toUpperCase() === callee.member.name.toUpperCase())) {
       const value = lowerInvoke(lw, call)

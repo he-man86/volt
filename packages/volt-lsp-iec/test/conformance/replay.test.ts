@@ -201,3 +201,25 @@ for (const { vendor, filename, floor } of RECORDINGS) {
     })
   })
 }
+
+/**
+ * The class fix behind the cross-object batches (2026-09-16): a fixture written today had NO LSP oracle until somebody
+ * brought the bridge up and re-recorded `codesys.build.json`, so it could sit green for weeks while the LSP reported
+ * nonsense on it. It does have one. `codesys.run.json` says the case BUILT and RAN in the simulator — so every LSP ERROR
+ * on it is a false positive, whether or not its diagnostics were ever recorded. Errors only: a build that succeeds still
+ * emits warnings, and which ones is what the recorded agreement above is for. Weaker than that check (it cannot see a
+ * diagnostic the LSP MISSES) and needs nothing but the run recording.
+ */
+describe("LSP vs the simulator run (every fixture CODESYS built and ran)", () => {
+  const ran = JSON.parse(readFileSync(join(import.meta.dir, "recordings", "codesys.run.json"), "utf8")).tests as Record<string, { error?: string }>
+  it("emits NO error on a fixture the IDE compiled and executed", () => {
+    const falsePositives: string[] = []
+    for (const [i, test] of ALL_TESTS.entries()) {
+      const rec = ran[test.name]
+      if (rec === undefined || rec.error !== undefined || test.source === "" || test.recorderSkip === true) continue
+      if (KNOWN_DIVERGENCES.codesys.has(test.name)) continue
+      for (const m of runLsp(i, "codesys")) if (m.startsWith("[error]")) falsePositives.push(`${test.name}: ${m}`)
+    }
+    expect(falsePositives).toEqual([])
+  })
+})

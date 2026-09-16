@@ -1142,6 +1142,39 @@ END_PROGRAM
     expect([runner.get("total"), runner.get("a.calls"), runner.get("d.calls")]).toEqual([22n, 1n, 1n])
   })
 
+  // Batch two of the cross-object fixtures (2026-09-16), two more constructs the single-object catalog never held.
+  // `xo2_instance_in_struct`: an FB instance held as a STRUCT FIELD, called through it. Only an FB's layout was looked
+  // at, so the call went on as a METHOD of the struct and was refused `call-method`.
+  test("an FB instance held in a STRUCT field is called, and its METHOD run, through the field", () => {
+    const source =
+      "PROGRAM P\nVAR m : FB_M; END_VAR\nm();\nEND_PROGRAM\n" +
+      "FUNCTION_BLOCK FB_Motor\nVAR_INPUT speed : INT; END_VAR\nVAR travelled : INT; END_VAR\ntravelled := travelled + speed;\nEND_FUNCTION_BLOCK\n" +
+      "METHOD Halt : INT\ntravelled := 0;\nHalt := speed;\nEND_METHOD\n" +
+      "TYPE T_Axis : STRUCT drive : FB_Motor; name : STRING(6); END_STRUCT END_TYPE\n" +
+      "FUNCTION_BLOCK FB_M\nVAR x : T_Axis; lastSpeed : INT; END_VAR\nx.name := 'X';\nx.drive(speed := 6);\nIF x.drive.travelled > 10 THEN\n\tlastSpeed := x.drive.Halt();\nEND_IF\nEND_FUNCTION_BLOCK\n"
+    const runner = run(ir(source, "P"))
+    for (let scan = 0; scan < 3; scan++) runner.scan()
+    // 6, then 12 which trips the Halt back to 0, then 6 again (conformance `xo2_instance_in_struct`)
+    expect([runner.get("m.x.drive.travelled"), runner.get("m.lastSpeed"), runner.get("m.x.name")]).toEqual([6n, 6n, "X"])
+  })
+
+  // `xo2_property_override_chain`: a PROPERTY read through SUPER^ runs the BASE's accessor, as `SUPER^.M()` runs the
+  // base's METHOD. It was no place at all — `place-shape`, "deref is not a lowerable storage location".
+  test("a PROPERTY read through SUPER^ runs the base's accessor, not the override", () => {
+    const source =
+      "PROGRAM P\nVAR d : FB_D; outside : INT; END_VAR\nd();\noutside := d.Level;\nEND_PROGRAM\n" +
+      "FUNCTION_BLOCK FB_B\nVAR stored : INT := 1; getRuns : INT; setRuns : INT; END_VAR\nEND_FUNCTION_BLOCK\n" +
+      "PROPERTY Level : INT\nGET\ngetRuns := getRuns + 1;\nLevel := stored;\nEND_GET\nSET\nsetRuns := setRuns + 1;\nstored := Level;\nEND_SET\nEND_PROPERTY\n" +
+      "FUNCTION_BLOCK FB_D EXTENDS FB_B\nVAR seen : INT; viaSuper : INT; END_VAR\nLevel := 40;\nseen := Level;\nviaSuper := SUPER^.Level;\nEND_FUNCTION_BLOCK\n" +
+      "PROPERTY Level : INT\nGET\ngetRuns := getRuns + 1;\nLevel := stored * 2;\nEND_GET\nSET\nsetRuns := setRuns + 1;\nstored := Level + 1;\nEND_SET\nEND_PROPERTY\n"
+    const runner = run(ir(source, "P"))
+    runner.scan()
+    // the derived setter stores 41, the derived getter doubles it, SUPER^ reads the base's 41 (conformance
+    // `xo2_property_override_chain`), and three getter runs in all — derived, base, and PLC_PRG's read
+    expect([runner.get("d.stored"), runner.get("d.seen"), runner.get("d.viaSuper")]).toEqual([41n, 82n, 41n])
+    expect([runner.get("d.getRuns"), runner.get("d.setRuns"), runner.get("outside")]).toEqual([3n, 1n, 82n])
+  })
+
   test("lowering never throws, whatever it is handed", () => {
     for (const src of ["", "PROGRAM P END_PROGRAM", wrap("iCount := ptr^;", "iCount : INT;\n  ptr : POINTER TO INT;")])
       expect(() => lowerSource(src)).not.toThrow()
