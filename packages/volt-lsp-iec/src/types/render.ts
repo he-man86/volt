@@ -24,7 +24,9 @@ export function renderType(t: Type): string {
     case "interface":
       return t.name
     case "array":
-      return `ARRAY[${t.dims.map(dimText).join(", ")}] OF ${renderType(t.element)}`
+      // the IDE writes a SPACE after ARRAY — "The type ARRAY [1..3] OF INT cannot have a default value in
+      // this context" (conformance `cc6_function_input_array_default`); no recorded message spells it without one
+      return `ARRAY [${t.dims.map(dimText).join(", ")}] OF ${renderType(t.element)}`
     case "pointer":
       return `POINTER TO ${renderType(t.target)}`
     case "reference":

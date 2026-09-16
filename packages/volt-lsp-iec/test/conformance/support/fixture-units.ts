@@ -203,9 +203,13 @@ function asUnit(t: LanguageTest, source: string, unit: TopLevel, pragmas: string
         }),
       }
     }
-    case "global_var_list":
-      // a GVL has no name in its text; the fixture's pouName is the object's name
-      return { kind: "gvl", name: t.pouName, declaration: pragmas + withEnd(source, unit.span), implementation: "", members: [] }
+    case "global_var_list": {
+      // A GVL has no name in its text; the fixture's pouName is the object's name — or, for a fixture holding SEVERAL
+      // lists, the matching entry of `gvlNames`, since two objects cannot share one name on the wire.
+      const lists = parseSource(source).units.filter((u) => u.kind === "global_var_list")
+      const at = lists.findIndex((u) => u.span.start === unit.span.start)
+      return { kind: "gvl", name: t.gvlNames?.[at] ?? t.pouName, declaration: pragmas + withEnd(source, unit.span), implementation: "", members: [] }
+    }
     default:
       throw new Error(`${t.name}: no CODESYS object for a top-level ${unit.kind}`)
   }

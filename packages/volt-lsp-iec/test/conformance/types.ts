@@ -57,4 +57,11 @@ export interface LanguageTest {
   refused?: string
   /** A consumer that deliberately does not check this case yet — the reason, with its date. */
   deferred?: { lsp?: string; transpile?: string }
+  /**
+   * The object NAME of each VAR_GLOBAL block in `source`, in order. A GVL names nothing in its own text, so one is
+   * named after `pouName` — which is fine for a fixture with a single list and wrong for one with two, where both
+   * objects would collide on the wire. A fixture that needs two lists declaring the SAME global (the only way to
+   * reach `ambiguous-global`) names them here.
+   */
+  gvlNames?: readonly string[]
 }

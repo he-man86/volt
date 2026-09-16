@@ -116,6 +116,9 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     "cc5_pointer_not_convertible",
     "cc5_new_in_expression",
     "cc5_deprecated_functionblock_keyword",
+    //   `cc6_loop_cannot_exit` — C0266 is CONFIGURABLE too, and the recording project has it OFF: the IDE warns only
+    //                            about the sign change in `FOR small : SINT := 1 TO 200`, which the LSP matches.
+    "cc6_loop_cannot_exit",
   ]),
 }
 

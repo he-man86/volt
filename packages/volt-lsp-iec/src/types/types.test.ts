@@ -267,7 +267,7 @@ function declType(src: string): TypeExpr {
 test("renderType / renderTypeExpr", () => {
   const p = proj("")
   expect(renderType(resolveNamedType("INT", p))).toBe("INT")
-  expect(renderType(resolveTypeExpr(declType("a : ARRAY[0..9] OF INT;"), p))).toBe("ARRAY[0..9] OF INT")
+  expect(renderType(resolveTypeExpr(declType("a : ARRAY[0..9] OF INT;"), p))).toBe("ARRAY [0..9] OF INT") // the IDE's spelling (conformance `cc6_function_input_array_default`)
   expect(renderType(resolveTypeExpr(declType("q : POINTER TO REAL;"), p))).toBe("POINTER TO REAL")
   expect(renderTypeExpr(declType("s : STRING(80);"))).toBe("STRING(80)")
   expect(renderTypeExpr(declType("x : INT(0..100);"))).toBe("INT(0..100)")

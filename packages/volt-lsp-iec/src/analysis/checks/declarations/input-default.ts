@@ -6,7 +6,7 @@
  *
  * Zero-FP: an array default on a function/method input never compiles, so a clean corpus never exhibits it.
  */
-import { resolveTypeExpr } from "../../../types/index.js"
+import { renderType, resolveTypeExpr } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
@@ -17,15 +17,18 @@ export function checkInputDefault(ctx: CheckContext, out: DiagnosticItem[]): voi
       if (section.sectionKind !== "VAR_INPUT") continue
       for (const decl of section.decls) {
         if (decl.init === undefined) continue
-        if (resolveTypeExpr(decl.type, ctx.project).kind !== "array") continue // scalars may take a default
-        const typeName = ctx.source.slice(decl.type.span.start, decl.type.span.end).trim()
+        const type = resolveTypeExpr(decl.type, ctx.project)
+        if (type.kind !== "array") continue // scalars may take a default
+        // The IDE does NOT echo the written form, as this read: a declaration spelled `ARRAY[1..3] OF INT` comes back
+        // as "ARRAY [1..3] OF INT", with the space `renderType` now writes (conformance
+        // `cc6_function_input_array_default`). It is a WARNING there too, not an error.
         for (const name of decl.names)
           out.push({
-            severity: "error",
+            severity: "warning",
             span: name.span,
             source: SOURCE,
             code: "input-default-composite",
-            message: ctx.messages.noDefaultForType(typeName),
+            message: ctx.messages.noDefaultForType(renderType(type)),
           })
       }
     }

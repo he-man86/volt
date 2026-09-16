@@ -33,13 +33,15 @@ function unitExt(u: any): string {
   }
   return { function_block: "fb", program: "prg", function: "fun", interface: "itf", global_var_list: "gvl", namespace: "namespace" }[u.kind as string] ?? "fb"
 }
-function splitItems(source: string, pouName: string): { wire: string; src: string }[] {
+function splitItems(source: string, pouName: string, gvlNames?: readonly string[]): { wire: string; src: string }[] {
   // Each item spans from a top-level unit's start to the NEXT top-level unit's start (or EOF) — a unit's own
   // span.end excludes its END_xxx keyword, and this also folds trailing member units into their POU.
   const tops = parseSource(source).units.filter((u) => TOP.has(u.kind))
+  const lists = tops.filter((u) => u.kind === "global_var_list")
   return tops.map((u, i) => ({
-    // a VAR_GLOBAL block names nothing in its text — the fixture's pouName is its object's name
-    wire: `${u.kind === "global_var_list" ? pouName : (u as any).name.text}.${unitExt(u)}`,
+    // a VAR_GLOBAL block names nothing in its text — the fixture's pouName is its object's name, or its entry in
+    // `gvlNames` where the fixture holds more than one list
+    wire: `${u.kind === "global_var_list" ? (gvlNames?.[lists.indexOf(u)] ?? pouName) : (u as any).name.text}.${unitExt(u)}`,
     src: source.slice(u.span.start, i + 1 < tops.length ? tops[i + 1]!.span.start : source.length).trimEnd() + "\n",
   }))
 }
@@ -88,7 +90,7 @@ for (const t of ALL_TESTS) {
   // exactly as the replay's cross-fixture project lets it. Those must be in the IDE too, or the build records nothing
   // but the fallout of their absence ("Unknown type: 'DUT_XO_tally'"), which is not the fixture's ground truth at all.
   // `withDependencies` names them, dependencies first, as the execution recorder already does.
-  const items = [...new Map(withDependencies(t, ALL_TESTS).flatMap((f) => splitItems(f.source, f.pouName)).map((it) => [it.wire, it])).values()]
+  const items = [...new Map(withDependencies(t, ALL_TESTS).flatMap((f) => splitItems(f.source, f.pouName, f.gvlNames)).map((it) => [it.wire, it])).values()]
   try {
     await pushOps(items.map((it) => ({ op: "set", name: it.wire, toFolder: plcFolder, sourceText: it.src, ifVersion: null })))
     if (t.plcPrgVar !== undefined || t.plcPrgBody !== undefined) {
