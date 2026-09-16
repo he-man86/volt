@@ -16,7 +16,7 @@
  *
  * CODESYS-only: TwinCAT is unmeasured, and a guess there would be a new false positive.
  */
-import { stmtExprs, walkExpr, walkStatements, type Span } from "../../../syntax/index.js"
+import { isTrivia, lex, stmtExprs, walkExpr, walkStatements, type Span } from "../../../syntax/index.js"
 import { bodies, forEachDecl } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
@@ -27,23 +27,22 @@ const IL_OPERATOR_NAMES: ReadonlySet<string> = new Set([
 ])
 
 export function checkIlOperatorName(ctx: CheckContext, out: DiagnosticItem[]): void {
-  const flag = (text: string, span: Span): void => {
-    if (!IL_OPERATOR_NAMES.has(text.toLowerCase())) return
-    out.push({ severity: "error", span, source: SOURCE, code: "il-operator-name", message: ctx.messages.unexpectedToken(text) })
-  }
-  // An elementary TYPE name is reserved the same way, and fails the same way: `bit : BOOL;` is
+  // An elementary TYPE name is reserved exactly as an IL operator name is, and fails the same way: `bit : BOOL;` is
   // `Unexpected token 'bit' found`, echoing the name as written, and so is `byte : INT;` (conformance
-  // `cc4_type_name_bit_as_variable`, `cc4_type_name_byte_as_variable`). The lexer reads a type name the parser does not
-  // treat as a keyword — BIT and BYTE among them — as an identifier, so the declaration was accepted. DECLARATIONS
-  // only: a type name in an expression is `type-as-value`'s, which has its own recorded wording.
-  const reservedType = (text: string, span: Span): void => {
-    if (elementaryType(text) === undefined || IL_OPERATOR_NAMES.has(text.toLowerCase())) return
+  // `cc4_type_name_bit_as_variable`, `cc4_type_name_byte_as_variable`). The lexer reads a type name the parser does
+  // not treat as a keyword — BIT and BYTE among them — as an ordinary identifier, so the declaration was accepted.
+  const report = (text: string, span: Span): void => {
     out.push({ severity: "error", span, source: SOURCE, code: "il-operator-name", message: ctx.messages.unexpectedToken(text) })
+    cascadeAfter(ctx, out, "il-operator-name", span.end)
+  }
+  // An IL operator name is reported at its declaration AND at every use; an elementary TYPE name only at a
+  // DECLARATION, because a type name is a legitimate ARGUMENT — `XSIZEOF(DINT)` is not a reserved-name error.
+  const flag = (text: string, span: Span): void => {
+    if (IL_OPERATOR_NAMES.has(text.toLowerCase())) report(text, span)
   }
   for (const { decl } of forEachDecl(ctx.parseResult, ctx.project))
     for (const name of decl.names) {
-      flag(name.text, name.span)
-      reservedType(name.text, name.span)
+      if (IL_OPERATOR_NAMES.has(name.text.toLowerCase()) || elementaryType(name.text) !== undefined) report(name.text, name.span)
     }
   // Bare identifiers only: `S=`/`R=` are operator tokens, and a member name (`fb.S`) was not measured.
   for (const { statements } of bodies(ctx.parseResult.units, ctx.project))
@@ -53,4 +52,20 @@ export function checkIlOperatorName(ctx: CheckContext, out: DiagnosticItem[]): v
           if (x.kind === "ident_expr") flag(x.name, x.span)
         })
     })
+}
+
+/**
+ * The IDE's parse-error CASCADE after a bad identifier. CODESYS reports the name, then resyncs by demanding a `;`:
+ * for every token up to the next one it emits `';' expected instead of 'T'` and `Unexpected token 'T' found`, in that
+ * order (conformance `cc_reserved_name_r`, `cc4_type_name_bit_as_variable` — `bit : BOOL;` is five errors, not one).
+ * Only the first was emitted here, so 22 fixtures whose every IDE error is part of such a cascade could never agree.
+ */
+function cascadeAfter(ctx: CheckContext, out: DiagnosticItem[], code: string, from: number): void {
+  for (const token of lex(ctx.source.slice(from))) {
+    if (isTrivia(token.kind)) continue
+    if (token.text === ";") return
+    const span = { ...token.span, start: token.span.start + from, end: token.span.end + from }
+    for (const message of [ctx.messages.semicolonExpectedInsteadOf(token.text), ctx.messages.unexpectedToken(token.text)])
+      out.push({ severity: "error", span, source: SOURCE, code, message })
+  }
 }

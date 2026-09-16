@@ -17,32 +17,51 @@ const program = (decl: string, body = "") => `PROGRAM PLC_PRG\nVAR\n  ${decl}\nE
 const flagged = (decl: string, vendor: Vendor = "codesys") =>
   diagnose(program(decl), vendor).filter((d) => d.code === "il-operator-name")
 
-test("a variable named r is a CODESYS parse error, echoing the name as written", () => {
-  // The lexer reads a bare `r` as an identifier, so the parser accepted this and nothing flagged it.
+// The IDE does not stop at the name: it resyncs by demanding a `;`, reporting a PAIR for every token until it finds
+// one (conformance `cc_reserved_name_r`: five errors, not one). Only the first was emitted here, which is why 22
+// fixtures whose every IDE error belongs to such a cascade could not agree.
+test("a variable named r is a CODESYS parse error, echoing the name as written, then the resync cascade", () => {
   const d = flagged("r : INT;")
-  expect(d).toHaveLength(1)
   expect(d[0]?.severity).toBe("error")
-  expect(d[0]?.message).toBe("Unexpected token 'r' found")
+  expect(d.map((x) => x.message)).toEqual([
+    "Unexpected token 'r' found",
+    "';' expected instead of ':'",
+    "Unexpected token ':' found",
+    "';' expected instead of 'INT'",
+    "Unexpected token 'INT' found",
+  ])
   expect(flagged("S : BOOL;")[0]?.message).toBe("Unexpected token 'S' found")
 })
 
 test("every recorded IL operator name is reserved the same way — LD, ST, RET, the conditional and negated forms", () => {
   // Found by the execution oracle (`lt`, `ld` would not compile) and recorded one by one (cc_il_name_*); all were silent.
   for (const n of ["ld", "ldn", "st", "stn", "ret", "retc", "retcn", "jmpc", "jmpcn", "calcn", "andn", "orn", "xorn"])
-    expect(flagged(`${n} : INT;`).map((d) => d.message)).toEqual([`Unexpected token '${n}' found`])
+    expect(flagged(`${n} : INT;`).map((d) => d.message)).toEqual([
+      `Unexpected token '${n}' found`,
+      "';' expected instead of ':'",
+      "Unexpected token ':' found",
+      "';' expected instead of 'INT'",
+      "Unexpected token 'INT' found",
+    ])
 })
 
 test("`cal` is reported as written and its use is not an undefined identifier", () => {
   // CAL sat in the keyword table: the name was echoed 'CAL', and `cal := 1` added "Identifier 'cal' not defined" —
   // neither is in the recording (cc_il_name_cal), which reports 'cal' on the declaration and on the use.
-  const d = diagnose(program("cal : INT;", "cal := 1;"))
-  expect(d.map((x) => x.message)).toEqual(["Unexpected token 'cal' found", "Unexpected token 'cal' found"])
+  const d = diagnose(program("cal : INT;", "cal := 1;")).filter((x) => x.code === "il-operator-name")
+  expect(d.map((x) => x.message).filter((m) => m.includes("'cal'"))).toEqual([
+    "Unexpected token 'cal' found",
+    "Unexpected token 'cal' found",
+  ])
 })
 
 test("a USE is flagged too — CODESYS reports the declaration and every use", () => {
   // recorded: `s : STRING; s := 'abc';` → "Unexpected token 's' found" twice (cc_reserved_name_s_string)
   const d = diagnose(program("s : STRING;", "s := 'abc';")).filter((x) => x.code === "il-operator-name")
-  expect(d.map((x) => x.message)).toEqual(["Unexpected token 's' found", "Unexpected token 's' found"])
+  expect(d.map((x) => x.message).filter((m) => m.includes("'s'"))).toEqual([
+    "Unexpected token 's' found",
+    "Unexpected token 's' found",
+  ])
 })
 
 test("S= and R= stay operators — only a bare NAME is flagged", () => {
