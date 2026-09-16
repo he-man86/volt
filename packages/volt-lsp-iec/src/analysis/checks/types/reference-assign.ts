@@ -24,8 +24,10 @@ export function checkReferenceAssign(ctx: CheckContext, out: DiagnosticItem[]): 
         out.push({ severity: "error", span: s.target.span, source: SOURCE, code: "reference-assign-target", message: ctx.messages.referenceAssignTarget() }) // C0140
         return
       }
-      // C0141 — the RHS must be writable. `0` is the null idiom (skip); any other constant/literal has no write access.
-      if (constEval(s.value, scope) === 0n) return
+      // C0141 — the RHS must be writable. `0` is the null idiom (skip); a named CONSTANT has no write access.
+      // A plain LITERAL is not this error: `r REF= 7` is a type error to CODESYS, "Cannot convert type 'SINT' to type
+      // 'REFERENCE TO INT'" (conformance `cc3_reference_assign`), and C0141 fired beside it as a false positive.
+      if (constEval(s.value, scope) === 0n || s.value.kind === "literal") return
       if (constancyOf(s.value, scope) === "constant")
         out.push({ severity: "error", span: s.value.span, source: SOURCE, code: "reference-assign-write", message: ctx.messages.referenceAssignWriteAccess() })
     })
