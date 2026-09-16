@@ -15,6 +15,9 @@ import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { nameResolves } from "../../resolution.js"
 
+/** POU kinds an `IMPLEMENTS` name must not be — each disproves "this is an interface". */
+const NOT_AN_INTERFACE: ReadonlySet<string> = new Set(["function_block", "function", "program", "dut"])
+
 /** The EXTENDS chain from `start` back to `start`, or undefined when it ends or leaves the project. */
 function cycleFrom(start: string, ctx: CheckContext): string[] | undefined {
   const declared = new Map<string, string>()
@@ -68,7 +71,12 @@ export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void
       }
     }
     for (const iface of unit.implements ?? []) {
-      if (!nameResolves(iface.text, scope, ctx.project, ctx.references))
+      // Not found, and ALSO found-but-not-an-interface: `IMPLEMENTS FB_Something` is "No definition found for
+      // interface 'FB_Something'" all the same (conformance `cc3_interface_misuse`). Only a PROJECT symbol of a POU
+      // kind counts as the disproof — a library symbol's kind is flattened and would false-positive.
+      const sym = lookup(scope, iface.text)?.symbol
+      const notAnInterface = sym !== undefined && !isLibrarySymbol(sym) && NOT_AN_INTERFACE.has(sym.kind)
+      if (notAnInterface || !nameResolves(iface.text, scope, ctx.project, ctx.references))
         out.push({
           severity: "error",
           span: iface.span,

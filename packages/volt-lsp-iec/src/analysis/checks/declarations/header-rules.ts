@@ -6,6 +6,8 @@
  *   C0144 inheritance-not-allowed    — `EXTENDS` on an enum/alias DUT (inheritance is FB/interface/struct only).
  *   C0542 union-inheritance          — `EXTENDS` on a UNION DUT (unions cannot inherit).
  *   C0145 function-implements        — `IMPLEMENTS` on a FUNCTION (only FBs implement interfaces).
+ *   property-without-accessor        — a PROPERTY declaring neither GET nor SET, which nothing can use (a WARNING;
+ *          conformance `interface_with_property`).
  *
  * Each reads a field the parser only sets in the illegal case (`extendsExtra` / program `returnType` /
  * `implementsMisused` / `extendsMisused`), so the check is a pure presence test — zero-FP
@@ -16,6 +18,18 @@ import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkHeaderRules(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {
+    // A standalone PROPERTY carries its accessors as bodies; an INTERFACE's carries them as flags, since a
+    // signature has no body to hold.
+    const accessorless =
+      unit.kind === "property"
+        ? unit.getter === undefined && unit.setter === undefined
+          ? [unit.name.span]
+          : []
+        : unit.kind === "interface"
+          ? unit.properties.filter((p) => !p.hasGetter && !p.hasSetter).map((p) => p.name.span)
+          : []
+    for (const span of accessorless)
+      out.push({ severity: "warning", span, source: SOURCE, code: "property-without-accessor", message: ctx.messages.propertyWithoutAccessor() })
     if (unit.kind === "function_block" && unit.extendsExtra !== undefined && unit.extendsExtra.length > 0) {
       // Anchor on the first illegal extra base (the point past the single allowed one).
       out.push({

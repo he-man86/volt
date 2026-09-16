@@ -41,3 +41,25 @@ test("C0509: __NEW in a chained assignment is flagged; a single __NEW is not", (
   expect(nw(`pb := pa := __NEW(BYTE);`)).toEqual(["Multiple assignments are not allowed for operator '__New'."])
   expect(nw(`pa := __NEW(BYTE);`)).toEqual([])
 })
+
+test("CONTINUE outside a loop is reported too, and the compiler names the statement", () => {
+  // silent before: only EXIT was checked (conformance `cc2_exit_outside_loop`, which records both).
+  const src = `FUNCTION_BLOCK F\nVAR\nn : INT;\nEND_VAR\nn := 1;\nEXIT;\nCONTINUE;\nEND_FUNCTION_BLOCK`
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "exit-outside-loop")
+    .map((d) => d.message)
+  expect(msgs).toEqual(["No enclosing loop of which to exit", "No enclosing loop of which to continue"])
+  // inside a loop, both are fine
+  const ok = `FUNCTION_BLOCK F\nVAR\ni : INT;\nEND_VAR\nFOR i := 1 TO 3 DO\nCONTINUE;\nEXIT;\nEND_FOR\nEND_FUNCTION_BLOCK`
+  const okParse = parseSource(ok)
+  expect(
+    computeSemanticDiagnostics({
+      parseResult: okParse,
+      source: ok,
+      project: buildSymbolTable([{ uri: "F.fb", parseResult: okParse, source: ok }]),
+      config: resolveConfig({ vendor: "codesys" }),
+    }).filter((d) => d.code === "exit-outside-loop"),
+  ).toEqual([])
+})

@@ -212,6 +212,15 @@ function checkPins(
           // `messages.noInput`, no second copy of the wording. The FB's TYPE name (t.name), not the instance expression.
           message: messages.noInput(arg.param.name, t.name.toUpperCase()),
         })
+        // The compiler then looks the pin name up as an ordinary identifier, and does not find it either
+        // (conformance `cc_vg_unknown_pin`).
+        out.push({
+          severity: "error",
+          span: arg.param.span,
+          source: SOURCE,
+          code: "network-undeclared-identifier",
+          message: messages.undefinedIdentifier(arg.param.name),
+        })
       }
     }
   }

@@ -221,7 +221,7 @@ export interface Messages {
   /** `REF=` whose target is not a `REFERENCE TO` variable (C0140). verified both vendors. */
   referenceAssignTarget(): string
   /** An `EXIT` statement outside any loop (C0132). verified both vendors. */
-  noEnclosingLoop(): string
+  noEnclosingLoop(verb: "exit" | "continue"): string
   /** `__NEW` used in a chained (multiple) assignment (C0509). verified both vendors. */
   multipleAssignmentNew(): string
   /** A string literal longer than its declared `STRING(n)` destination (C0198). verified both vendors. */
@@ -288,6 +288,10 @@ export interface Messages {
   baseClassNotFound(name: string): string
   /** An `IMPLEMENTS` interface that resolves to no definition (C0086). verified both vendors. */
   interfaceNotFound(name: string): string
+  /** An object kind that cannot be invoked at all — `Cannot call object of type 'INTERFACE'` (CODESYS SP21). */
+  cannotCallObjectOfType(kind: string): string
+  /** A PROPERTY declaring neither accessor (CODESYS SP21, a warning). */
+  propertyWithoutAccessor(): string
   /** An FB EXTENDS-list naming more than one base FB — single inheritance only (C0096). verified both vendors. */
   multipleInheritance(): string
   /** A return type declared on a POU that is not a FUNCTION/METHOD, e.g. a PROGRAM (C0182). verified both vendors. */
@@ -535,7 +539,7 @@ export function messagesFor(vendor: Vendor): Messages {
     notAssignmentTarget: (target) => `'${target}' is no valid assignment target`,
     notStructuredVariable: (base) => `'${base}' is no structured variable`,
     referenceAssignTarget: () => (tc ? `Reference assign is only allowed to variables of Reference type` : `Reference assign is only allowed to variables of reference type`),
-    noEnclosingLoop: () => `No enclosing loop of which to exit`,
+    noEnclosingLoop: (verb) => `No enclosing loop of which to ${verb}`,
     multipleAssignmentNew: () => `Multiple assignments are not allowed for operator '__New'.`,
     // Mirror the IDE: it elides the actual string content to `'...'` (both vendors), so we do too rather than
     // echoing the value (the goal is byte-identical IDE parity, not a more-informative message).
@@ -571,6 +575,8 @@ export function messagesFor(vendor: Vendor): Messages {
     circularInheritance: (chain) => `Recursion in base function block list: ${chain}`,
     baseClassNotFound: (name) => `No definition found for base class '${name}'`,
     interfaceNotFound: (name) => `No definition found for interface '${name}'`,
+    cannotCallObjectOfType: (kind) => `Cannot call object of type '${kind}'`,
+    propertyWithoutAccessor: () => `The property defines neither a get nor a set accessor.`,
     multipleInheritance: () =>
       tc ? `Only one base function block may be defined in EXTENDS-list` : `Only one base function block may be defined in EXTENDS list`,
     returnTypeNotAllowed: () =>
