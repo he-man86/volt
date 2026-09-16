@@ -66,6 +66,8 @@ function featuresOf(source: string, result: ParseResult, into: Map<string, numbe
       if ((s as { persistent?: boolean }).persistent) bump("section:PERSISTENT")
     }
     walkNode(u.varSections, false)
+    // a DUT's fields are not varSections — without this a type only ever declared in a STRUCT (BIT) reads as a gap
+    walkNode(u.body !== undefined && (u.body as { kind?: string }).kind !== "body" ? u.body : undefined, false)
     const body = u.body as { kind?: string } | undefined
     if (body?.kind === "body") {
       if (isGraphicalBody(body as never)) bump("body:graphical")

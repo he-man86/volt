@@ -7,7 +7,7 @@ import { elementaryRef, resolveNamedType } from "../../types/index.js"
 import { defaultValueOf, elementOf, type IrExpr, peelArray, type Place } from "../ir/index.js"
 import { boundName, Lowering, openDims } from "./lowering.js"
 import { binaryOf, convert } from "./convert.js"
-import { declareVars, storageOf } from "./storage.js"
+import { addressPlace, declareVars, storageOf } from "./storage.js"
 import { pointeePlace } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 
@@ -172,6 +172,9 @@ export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): P
     if (pointer.type.kind !== "pointer") return lw.bail("place-shape", "a dereference of something that is not a pointer", e.span)
     return pointeePlace(lw, pointer, undefined, e.span)
   }
+  // `%IB8` / `%MW30` written with no variable on it — the process image itself (`addressPlace`, conformance
+  // `ca_direct_address_expression`). It is a place, readable and writable, exactly as an `AT` variable is.
+  if (e.kind === "literal" && e.literalKind === "address") return addressPlace(lw, e.text, e.span)
   if (e.kind !== "ident_expr")
     return lw.bail("place-shape", `${e.kind} is not a lowerable storage location yet`, e.span)
   // an ANY input is read only as `.diSize`; its value, `pValue` and `typeClass` are not measured

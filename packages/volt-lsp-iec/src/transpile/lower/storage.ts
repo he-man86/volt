@@ -4,7 +4,7 @@
 import type { AggregateElement, AggregateInit, Expr, Initializer, Span, TypeDecl, TypeExpr, VarDecl, VarSection } from "../../syntax/index.js"
 import { lookup } from "../../symbols/index.js"
 import { DEFAULT_STRING_LENGTH, elementaryRef, resolveNamedType, type Type } from "../../types/index.js"
-import { defaultValueOf, elementOf, type IrInit, type IrStmt, type IrValue } from "../ir/index.js"
+import { defaultValueOf, elementOf, type IrInit, type IrStmt, type IrValue, type Place } from "../ir/index.js"
 import { baseOf, boundName, Lowering, openDims, ZERO_SPAN } from "./lowering.js"
 import { stored, valueAs } from "./convert.js"
 import { calendarOf, durationOf, enumStorage, foldConstant, stringLiteralText, typedRealOf } from "./constants.js"
@@ -157,6 +157,44 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[]): void
  * the project uses is not read — several names on one address, an incomplete `%I*` (mapped elsewhere), an address in a
  * METHOD or FUNCTION. An FB field's address shared by the FB's several instances is refused once the POU has lowered.
  */
+/**
+ * A DIRECT ADDRESS written as an EXPRESSION — `x := %IB8`, `%MW30 := %MW30 + 1` — which the corpus does 8 times and no
+ * variable names. It is the same plain storage an `AT` variable is (conformance `ca_direct_address_expression`: `%MW30`
+ * written 258 reads back 258, then 259; an input image reads 0, since nothing drives one in the simulator), so it gets
+ * one APPLICATION-WIDE slot per address: the process image is not a frame's. Two mentions of one address are one slot;
+ * two addresses that would overlap are refused, as two `AT` variables on overlapping addresses already are.
+ */
+export function addressPlace(lw: Lowering, text: string, span: Span): Place | undefined {
+  const m = /^%([IQM])([XBWDL])(\d+)(?:\.(\d+))?$/i.exec(text)
+  if (m === null || (m[2]!.toUpperCase() === "X") !== (m[4] !== undefined))
+    return lw.bail("var-at", `${text}: an address that is incomplete, or of a shape not modelled`, span)
+  const key = text.toUpperCase()
+  const known = lw.shared.globals.byName.get(key)
+  const width = m[2]!.toUpperCase() as "X" | "B" | "W" | "D" | "L"
+  const type = elementaryRef({ X: "BOOL", B: "BYTE", W: "WORD", D: "DWORD", L: "LWORD" }[width])
+  if (known !== undefined) return { slot: known, path: [], type, span, root: "global" }
+  if (!reserveAddress(lw, text, m, key, span)) return undefined
+  lw.shared.globals.byName.set(key, lw.shared.globals.slots.length)
+  lw.shared.globals.slots.push({ name: key, type, section: "VAR", init: defaultValueOf(type) })
+  return { slot: lw.shared.globals.slots.length - 1, path: [], type, span, root: "global" }
+}
+
+/** The overlap bookkeeping `bindAddress` keeps, for an address with no variable on it. */
+function reserveAddress(lw: Lowering, text: string, m: RegExpExecArray, name: string, span: Span): boolean {
+  const n = Number(m[3])
+  const width = { X: 0, B: 1, W: 2, D: 4, L: 8 }[m[2]!.toUpperCase() as "X" | "B" | "W" | "D" | "L"]
+  const bit = n * 8 + Number(m[4] ?? 0)
+  const bits: [number, number][] = width === 0 ? [[bit, bit + 1], [bit, bit + 1]] : [[n * 8, (n + width) * 8], [n * width * 8, (n + 1) * width * 8]]
+  const area = m[1]!.toUpperCase()
+  const clash = lw.shared.addressed.find((x) => x.area === area && x.bits.some(([from, to], mode) => from < bits[mode]![1] && bits[mode]![0] < to))
+  if (clash !== undefined) {
+    lw.bail("var-at", `${text} overlaps ${clash.name}, which plain storage would not alias`, span)
+    return false
+  }
+  lw.shared.addressed.push({ area, bits, name, owner: "GLOBAL" })
+  return true
+}
+
 function bindAddress(lw: Lowering, decl: VarDecl): boolean {
   const text = decl.at!.tokens.map((t) => t.text).join("")
   const refuse = (why: string): boolean => {

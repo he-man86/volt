@@ -74,6 +74,12 @@ export const LIFTED: ReadonlySet<IrBinOp> = new Set([...COMPARISONS, "add", "sub
 export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | undefined {
   switch (e.kind) {
     case "literal": {
+      // `%IB8` is not a value but a PLACE — the process image with no variable on it (`addressPlace`, conformance
+      // `ca_direct_address_expression`). The lexer makes it a literal, so a READ of one lands here.
+      if (e.literalKind === "address") {
+        const place = lowerPlace(lw, e)
+        return place && { kind: "load", place, type: place.type, span: e.span }
+      }
       const v = e.value
       if (v === undefined) return lw.bail("bad-literal", `malformed literal ${e.text}`, e.span)
       const typed = durationOf(e) ?? calendarOf(e) ?? typedRealOf(e)
