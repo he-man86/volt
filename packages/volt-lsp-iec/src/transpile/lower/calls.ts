@@ -824,15 +824,24 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     // target is not recorded there.
     if (entry.output === true && instance === undefined && routine.inouts.length === 1 && touchesOnlyItsOwn(routine.body) && !("kind" in binding) && binding.guard === undefined) continue
     const movable = "kind" in binding || binding.guard !== undefined || binding.path.some((s) => s.kind === "index" && s.index.kind !== "const")
-    if (movable && ("kind" in binding || binding.guard !== undefined || entry.output === true))
+    if (movable && ("kind" in binding || entry.output === true))
       return lw.bail("call-inout-order", `${routine.name}'s ${name} is bound before a call in a later argument that could move it`, call.span)
+    // A pointer's target moves with the POINTER, and `p^`'s index is read from it — so the pointer's own value is frozen
+    // where the in-out is written, as an index is (conformance `callshape_inout_pointer_before_call`: 101, `boundValue`
+    // still numbers[0] after a later argument repoints p). The frozen value carries the null check with it.
+    let guard = binding.guard
+    if (guard !== undefined) {
+      const temp = lw.tempPlace("inout_guard", guard.type, binding.span)
+      written.push({ kind: "freeze", temp, value: { kind: "load", place: guard, type: guard.type, span: binding.span } })
+      guard = temp
+    }
     const path = binding.path.map((step): Access => {
       if (step.kind !== "index" || step.index.kind === "const") return step
       const temp = lw.tempPlace("inout_index", step.index.type, binding.span)
       written.push({ kind: "freeze", temp, value: step.index })
       return { ...step, index: { kind: "load", place: temp, type: step.index.type, span: binding.span } }
     })
-    inouts[entry.inout] = { ...binding, path }
+    inouts[entry.inout] = { ...binding, path, ...(guard === undefined ? {} : { guard }) }
   }
   const type = routine.result === undefined ? UNKNOWN : routine.locals[routine.result]!.type
   // An in-out bound inside the instance is substituted into a copy of the routine, not lent (`specialize.ts`). Never

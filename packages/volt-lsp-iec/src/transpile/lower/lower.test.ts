@@ -1045,6 +1045,18 @@ END_PROGRAM
     const fixed = run(ir(program("F_Take(boundValue := numbers[2], stepValue := Advance())"), "P"))
     fixed.scan()
     expect(fixed.get("o.got")).toEqual(301n)
+    // A pointer's target moves with the POINTER, and `p^`'s index is read from it — so the pointer's own value is frozen
+    // where the in-out is written, as an index is (conformance `callshape_inout_pointer_before_call`: 101, boundValue
+    // still numbers[0] after a later argument repoints p). It was refused (`call-inout-order`).
+    const pointed = run(
+      ir(
+        "PROGRAM P\nVAR o : FB_P; END_VAR\no();\nEND_PROGRAM\nFUNCTION_BLOCK FB_P\nVAR_OUTPUT got : INT; END_VAR\nVAR numbers : ARRAY[0..1] OF INT := [10, 20]; p : POINTER TO INT; END_VAR\np := ADR(numbers[0]);\ngot := F_Take(boundValue := p^, stepValue := Repoint());\nEND_FUNCTION_BLOCK\nMETHOD Repoint : INT\np := ADR(numbers[1]);\nRepoint := 1;\nEND_METHOD\n" +
+          take,
+        "P",
+      ),
+    )
+    pointed.scan()
+    expect([pointed.get("o.got"), pointed.get("o.numbers[0]"), pointed.get("o.numbers[1]")]).toEqual([101n, 10n, 20n])
   })
 
   test("lowering never throws, whatever it is handed", () => {
