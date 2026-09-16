@@ -5,8 +5,8 @@
  *
  * Shared by the two VAR_IN_OUT checks, which name the accessing body for the same C0371 warning.
  */
-import type { BodySpan, Property, TopLevel } from "../../../syntax/index.js"
-import type { Scope } from "../../../symbols/index.js"
+import type { BodySpan, Property, TopLevel } from "../syntax/index.js"
+import type { Scope } from "../symbols/index.js"
 
 export const MAIN_BODY = "__MAIN"
 

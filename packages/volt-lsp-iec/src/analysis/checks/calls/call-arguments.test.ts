@@ -314,3 +314,25 @@ END_PROGRAM`
   expect(cs).not.toContain("sign-change-conversion")
   expect(cs).not.toContain("narrowing-conversion")
 })
+
+test("a LITERAL bound to a VAR_IN_OUT is typed by its narrowest type for the identity test (C0201)", () => {
+  // Why missed: an untyped integer literal infers no type, so the by-reference identity test skipped every literal
+  // and four fixtures missed this error (conformance `inout_plain_literal_4`, `cc2_in_out_not_assigned`).
+  const src = `FUNCTION F_takes : INT\nVAR_IN_OUT\nvalue : INT;\nEND_VAR\nF_takes := value;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_user\nVAR\nn : INT;\nEND_VAR\nn := F_takes(value := 5);\nEND_FUNCTION_BLOCK`
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "in-out-type-mismatch")
+    .map((d) => d.message)
+  expect(msgs).toEqual(["Type 'SINT' is not equal to type 'INT' of VAR_IN_OUT respectively REFERENCE 'value'"])
+})
+
+test("a literal whose narrowest type MATCHES the parameter stays silent", () => {
+  const src = `FUNCTION F_takes : INT\nVAR_IN_OUT\nvalue : SINT;\nEND_VAR\nF_takes := value;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_user\nVAR\nn : INT;\nEND_VAR\nn := F_takes(value := 5);\nEND_FUNCTION_BLOCK`
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  expect(
+    computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "in-out-type-mismatch"),
+  ).toEqual([])
+})

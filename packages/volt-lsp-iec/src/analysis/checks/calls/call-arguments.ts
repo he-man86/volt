@@ -21,12 +21,15 @@ import { walkAllExprs, type CallArg, type Expr, type Span } from "../../../synta
 import { bodies, isLibrarySymbol, lookupMember, type Scope } from "../../../symbols/index.js"
 import {
   constancyOf,
+  elementaryTypeRef,
   inferExprType,
+  integerLiteralType,
   isAssignable,
   isSameType,
   resolveCallee,
   resolveTypeExpr,
   type CalleeInfo,
+  type Type,
 } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { compilerTypeName } from "../../messages.js"
@@ -190,7 +193,7 @@ function inOutChecks(
   // C0201 — a VAR_IN_OUT is by-reference, so the argument's type must be IDENTICAL (not merely assignable).
   // Conservative: both sides KNOWN elementary and differently-named (aliases resolve, so INT≡an INT alias).
   const pt = resolveTypeExpr(param.type, ctx.project)
-  const at = inferExprType(value, scope, ctx.project)
+  const at = argumentType(value, scope, ctx)
   if (pt.kind === "elementary" && at.kind === "elementary" && !isSameType(pt, at)) {
     out.push({
       severity: "error",
@@ -200,6 +203,21 @@ function inOutChecks(
       message: ctx.messages.inOutTypeMismatch(at.name, pt.name, param.name.text),
     })
   }
+}
+
+/**
+ * The argument's type for the by-reference identity test. An untyped integer literal has no inferred type — its width
+ * comes from its context — but a VAR_IN_OUT gives it none, so the compiler falls back to the literal's own NARROWEST
+ * type and compares that: `F(value := 5)` where `value : INT` is "Type 'SINT' is not equal to type 'INT'"
+ * (conformance `inout_plain_literal_4`, `cc2_in_out_not_assigned`, `inout_const_bound_forms_1`,
+ * `inout_const_fb_literal_6`). Without this the identity test skipped every literal.
+ */
+function argumentType(value: Expr, scope: Scope, ctx: CheckContext): Type {
+  const inferred = inferExprType(value, scope, ctx.project)
+  if (inferred.kind !== "unknown") return inferred
+  if (value.kind !== "literal" || value.literalKind !== "int" || typeof value.value !== "bigint") return inferred
+  const narrowest = integerLiteralType(value.value)
+  return narrowest === undefined ? inferred : elementaryTypeRef(narrowest)
 }
 
 /** Flag an argument whose checkable type is not assignment-compatible with its parameter's declared type. */

@@ -14,7 +14,7 @@
  */
 import { walkAllExprs, type IdentExpr } from "../../../syntax/index.js"
 import { bodies } from "../../../symbols/index.js"
-import { bodyContext, MAIN_BODY } from "./body-context.js"
+import { bodyContext, MAIN_BODY } from "../../body-context.js"
 import { resolveMemberChain } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"

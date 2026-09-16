@@ -4,6 +4,10 @@
  * IDE rejects; a compiler-parity check, so it runs always. The resolution rules (and the whole skip surface)
  * live in `identifier-resolution` — shared verbatim with the network-text `network-undeclared-identifier` check.
  *
+ * A name that does not resolve and is CALLED is two errors, not one: the compiler adds "Program name, function or
+ * function block instance expected instead of 'X'" (conformance `cc_conv_spelled_*` — CODESYS has no
+ * `TIME_OF_DAY_TO_UDINT`, only `TOD_TO_UDINT`).
+ *
  * Emits two codes: `unresolved-identifier` (a bare name — `undefinedIdentifier`) and `unknown-member`
  * (`a.b` where `b` is not on `a`'s type — `unresolvedMembers`/`notAMember`). Member access is conservative:
  * only a PROJECT (non-library) struct/FB/enum base with a fully-resolved EXTENDS chain is checked, so
@@ -13,7 +17,7 @@
  * compilers strip dead branches before analysis but we have no preprocessor, so checking would
  * false-positive on stripped-branch references.
  */
-import { stmtExprs, walkStatements, type BodySpan } from "../../../syntax/index.js"
+import { stmtExprs, walkExpr, walkStatements, type BodySpan } from "../../../syntax/index.js"
 import { bodies } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
@@ -27,6 +31,8 @@ export function checkUnresolvedIdentifiers(ctx: CheckContext, out: DiagnosticIte
     if (bodyHasConditionalPragma(body)) continue
     walkStatements(statements, (stmt) => {
       const exprs = stmtExprs(stmt)
+      const callees = new Set<number>()
+      for (const e of exprs) walkExpr(e, (x) => { if (x.kind === "call" && x.callee.kind === "ident_expr") callees.add(x.callee.span.start) })
       for (const ref of unresolvedInExprs(exprs, scope, ctx.project, ctx.references)) {
         out.push({
           severity: "error",
@@ -35,6 +41,14 @@ export function checkUnresolvedIdentifiers(ctx: CheckContext, out: DiagnosticIte
           code: "unresolved-identifier",
           message: ctx.messages.undefinedIdentifier(ref.name),
         })
+        if (callees.has(ref.span.start))
+          out.push({
+            severity: "error",
+            span: ref.span,
+            source: SOURCE,
+            code: "invalid-call-target",
+            message: ctx.messages.callTargetExpected(ref.name),
+          })
       }
       for (const ref of unresolvedMembers(exprs, scope, ctx.project)) {
         out.push({

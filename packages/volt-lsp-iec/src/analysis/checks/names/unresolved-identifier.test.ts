@@ -251,3 +251,18 @@ END_FUNCTION_BLOCK`
     "'z' is no component of 'Pt'", // through the pointer target type
   ])
 })
+
+test("a name that does not resolve and is CALLED is two errors", () => {
+  // CODESYS has no `TIME_OF_DAY_TO_UDINT` — only `TOD_TO_UDINT` — and says both that the name is undefined and that
+  // it is not something you can call (conformance `cc_conv_spelled_source_ok` and its three siblings).
+  const src = `FUNCTION_BLOCK F\nVAR\nt : TOD;\nu : UDINT;\nEND_VAR\nu := TIME_OF_DAY_TO_UDINT(t);\nEND_FUNCTION_BLOCK`
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "unresolved-identifier" || d.code === "invalid-call-target")
+    .map((d) => d.message)
+  expect(msgs).toEqual([
+    "Identifier 'TIME_OF_DAY_TO_UDINT' not defined",
+    "Program name, function or function block instance expected instead of 'TIME_OF_DAY_TO_UDINT'",
+  ])
+})

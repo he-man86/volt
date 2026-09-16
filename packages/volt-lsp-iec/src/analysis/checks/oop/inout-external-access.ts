@@ -13,7 +13,7 @@
  */
 import { isSelfRef, walkAllExprs } from "../../../syntax/index.js"
 import { bodies, isLibrarySymbol } from "../../../symbols/index.js"
-import { bodyContext } from "./body-context.js"
+import { bodyContext } from "../../body-context.js"
 import { inferExprType, resolveMemberChain } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"

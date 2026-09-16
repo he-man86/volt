@@ -19,7 +19,8 @@ import { plcPrgSource } from "../test/conformance/support/plc-prg.js"
 import { STANDARD_LIBRARY } from "../test/conformance/support/standard-library.js"
 import { parseSource } from "../src/syntax/index.js"
 import { buildSymbolTable } from "../src/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../src/analysis/index.js"
+import { computeSemanticDiagnostics, messagesFor, resolveConfig } from "../src/analysis/index.js"
+import { computeNetworkTextDiagnostics } from "../src/network/index.js"
 import { comparable } from "../test/conformance/support/compare-message.js"
 
 const build = JSON.parse(readFileSync(join(import.meta.dir, "..", "test", "conformance", "recordings", "codesys.build.json"), "utf8")).tests as Record<
@@ -70,6 +71,12 @@ for (const t of ALL_TESTS) {
   const lsp: string[] = []
   for (const f of files.slice(0, fixtures.length + 1))
     for (const d of computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }))
+      if (d.severity === "error" || d.severity === "warning") lsp.push(`[${d.severity}] ${comparable(d.message)}`)
+  // Graphical bodies: the semantic pass skips them, so the replay runs the network-text checks too. Without this the
+  // script reports every NETWORK fixture as answering nothing.
+  const ownFile = files[0]
+  if (ownFile !== undefined)
+    for (const d of computeNetworkTextDiagnostics({ uri: ownFile.uri, source: ownFile.source, parseResult: ownFile.parseResult }, project, messagesFor("codesys")))
       if (d.severity === "error" || d.severity === "warning") lsp.push(`[${d.severity}] ${comparable(d.message)}`)
   lsp.sort()
   if (only.length > 0) {
