@@ -18,6 +18,7 @@ import { STANDARD_LIBRARY } from "../test/conformance/support/standard-library.j
 import { parseSource } from "../src/syntax/index.js"
 import { buildSymbolTable } from "../src/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../src/analysis/index.js"
+import { comparable } from "../test/conformance/support/compare-message.js"
 
 const build = JSON.parse(readFileSync(join(import.meta.dir, "..", "test", "conformance", "recordings", "codesys.build.json"), "utf8")).tests as Record<
   string,
@@ -28,6 +29,7 @@ const std = STANDARD_LIBRARY.map((l) => ({ uri: l.uri, parseResult: parseSource(
 const buckets = new Map<string, string[]>()
 const add = (k: string, name: string) => buckets.set(k, [...(buckets.get(k) ?? []), name])
 const missingMessages = new Map<string, number>()
+const perFixture: [name: string, missing: string[], extra: string[]][] = []
 
 for (const t of ALL_TESTS) {
   if (t.source === "") continue
@@ -36,7 +38,7 @@ for (const t of ALL_TESTS) {
     add("no recording at all", t.name)
     continue
   }
-  const ide = rec.diagnostics.filter((d) => d.severity === "error" || d.severity === "warning").map((d) => `[${d.severity}] ${d.message}`).sort()
+  const ide = rec.diagnostics.filter((d) => d.severity === "error" || d.severity === "warning").map((d) => `[${d.severity}] ${comparable(d.message)}`).sort()
   const fixtures = withDependencies(t, ALL_TESTS).filter((f) => f.source !== "")
   const plc = plcPrgSource(t)
   const files = [
@@ -48,7 +50,7 @@ for (const t of ALL_TESTS) {
   const lsp: string[] = []
   for (const f of files.slice(0, fixtures.length + 1))
     for (const d of computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }))
-      if (d.severity === "error" || d.severity === "warning") lsp.push(`[${d.severity}] ${d.message}`)
+      if (d.severity === "error" || d.severity === "warning") lsp.push(`[${d.severity}] ${comparable(d.message)}`)
   lsp.sort()
   if (lsp.length === ide.length && lsp.every((m, i) => m === ide[i])) continue
   const ideSet = new Set(ide)
@@ -57,6 +59,7 @@ for (const t of ALL_TESTS) {
   const extra = lsp.filter((m) => !ideSet.has(m))
   for (const m of missing) missingMessages.set(m, (missingMessages.get(m) ?? 0) + 1)
   add(extra.length > 0 ? (missing.length > 0 ? "both extra and missing" : "extra only") : "missing only", t.name)
+  if (missing.length > 0 || extra.length > 0) perFixture.push([t.name, missing, extra])
   if (extra.length === 0 && missing.length === 0) {
     const count = (list: string[]) => { const m = new Map<string, number>(); for (const x of list) m.set(x, (m.get(x) ?? 0) + 1); return m }
     const a = count(ide), b = count(lsp)
@@ -64,9 +67,17 @@ for (const t of ALL_TESTS) {
   }
 }
 
-const sizes = new Map<number, string[]>()
-for (const [k, names] of buckets) if (k === "missing only") for (const n of names) void n
 console.log("why a fixture does not agree:")
 for (const [k, names] of [...buckets].sort((a, b) => b[1].length - a[1].length)) console.log(`  ${String(names.length).padStart(4)}  ${k}${k.startsWith("repeat") ? `  <- ${names.slice(0, 2).join(", ")}` : ""}`)
 console.log("\nthe IDE messages the LSP most often MISSES:")
 for (const [m, n] of [...missingMessages].sort((a, b) => b[1] - a[1]).slice(0, 22)) console.log(`  ${String(n).padStart(4)}  ${m.slice(0, 118)}`)
+
+// `--detail` lists every incomplete fixture with what it misses (-) and wrongly adds (+) — the work list itself.
+if (process.argv.includes("--detail")) {
+  console.log("\nper fixture:")
+  for (const [name, missing, extra] of perFixture.sort((a, b) => b[1].length + b[2].length - (a[1].length + a[2].length))) {
+    console.log(`\n  ${name}`)
+    for (const m of missing) console.log(`    - ${m.slice(0, 130)}`)
+    for (const m of extra) console.log(`    + ${m.slice(0, 130)}`)
+  }
+}

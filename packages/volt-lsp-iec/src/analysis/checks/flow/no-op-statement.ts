@@ -32,12 +32,16 @@ export function checkNoOpStatement(ctx: CheckContext, out: DiagnosticItem[]): vo
   }
 }
 
-/** The statement's source, plus the newline that ends its line — what the IDE quotes. */
+/**
+ * The statement's source, plus the line break that ends its line — what the IDE quotes, in the document's OWN
+ * spelling: a CRLF file (which is what CODESYS stores, so what the recording shows) quotes `\r\n`.
+ */
 function withLineEnd(source: string, start: number, end: number): string {
   const tail = source.slice(end)
   const upTo = tail.search(/\S/)
   const gap = upTo < 0 ? tail : tail.slice(0, upTo)
-  return source.slice(start, end) + (gap.includes("\n") ? "\n" : "")
+  const br = /\r?\n/.exec(gap)
+  return source.slice(start, end) + (br?.[0] ?? "")
 }
 
 function containsCall(e: Expr): boolean {

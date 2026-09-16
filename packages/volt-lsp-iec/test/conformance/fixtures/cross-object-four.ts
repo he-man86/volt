@@ -193,8 +193,7 @@ END_FUNCTION_BLOCK
   // The warning `xo4_array_of_strings` turned up and the LSP did not have: a string CONSTANT longer than where it is
   // stored. Recorded at several lengths, and in a WSTRING, to pin how the message quotes the literal — and that one
   // which FITS says nothing.
-  {
-    ...fb("xo4_string_constant_too_long", "FB_X4_overlong", "a STRING and a WSTRING constant longer than the destination, at ten capacities, beside ones that fit",
+  fb("xo4_string_constant_too_long", "FB_X4_overlong", "a STRING and a WSTRING constant longer than the destination, at ten capacities, beside ones that fit",
     `FUNCTION_BLOCK FB_X4_overlong
 VAR
 	eight : STRING(8);
@@ -224,16 +223,7 @@ w6 := "abcdefgh";
 w9 := "abcdefghijk";
 END_FUNCTION_BLOCK
 `,
-      "inst : FB_X4_overlong;", "inst();"),
-    deferred: {
-      lsp: `the warning is real and the LSP does not have it, but its message quotes the literal TRUNCATED by a rule ten
-capacities do not settle: the characters shown after the opening quote are STRING(1) 0 · STRING(2) 1 · WSTRING(4) 0 ·
-STRING(5) 1 · STRING(6) 2 · WSTRING(6) 2 · STRING(8) 4 · STRING(9) 5 · WSTRING(9) 5 — capacity minus 4 everywhere except
-STRING(2), which shows one where that gives none, and it is not monotone in the capacity (2 shows one, 4 shows none).
-The check is worth having; inventing the truncation is not. Recorded 2026-09-16 so the next attempt starts from the
-table rather than from nothing (transpile: the stores themselves lower and run).`,
-    },
-  },
+    "inst : FB_X4_overlong;", "inst();"),
 
   // ─── a member chain four deep across three objects ─────────────────────────
   fb("xo4_member_chain_four_deep", "FB_X4_deep", "a struct of a struct of a struct, each in its own object, written and read four names deep",

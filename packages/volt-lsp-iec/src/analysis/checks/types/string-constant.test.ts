@@ -55,3 +55,28 @@ test("IEC `$` escapes count as one character (0-FP — was a corpus FP)", () => 
   expect(sc(`  str : STRING(2) := '$$$'';`)).toEqual([]) // $$ + $' = 2 chars
   expect(sc(`  str : STRING(1) := '$0D';`)).toEqual([]) // $0D = hex = 1 char
 })
+
+test("an ASSIGNMENT's target is the same destination as a declaration's", () => {
+  // Why missed: the check only walked declarations, so a body store went unreported — all ten of
+  // `xo4_string_constant_too_long`'s recorded warnings were missing.
+  const body = (decls: string, stmts: string): string[] => {
+    const src = `PROGRAM P\nVAR\n${decls}\nEND_VAR\n${stmts}\nEND_PROGRAM`
+    const pr = parseSource(src)
+    const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+    return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "string-constant-too-long")
+      .map((d) => d.message)
+  }
+  expect(body(`  eight : STRING(8);`, `eight := 'seventeen';`)).toEqual([
+    "String constant ''seve...' too long for destination type 'STRING(8)'",
+  ])
+  expect(body(`  w6 : WSTRING(6);`, `w6 := "abcdefgh";`)).toEqual([
+    'String constant \'"ab...\' too long for destination type \'WSTRING(6)\'',
+  ])
+  // one that FITS, a sizeless STRING, and a non-literal source stay silent
+  expect(body(`  fits : STRING(4); free : STRING; other : STRING(4);`, `fits := 'abcd';\nfree := 'anything at all';\nfits := other;`)).toEqual([])
+  // each `:=` link is its own store: the link that takes the literal is the one that warns
+  expect(body(`  a : STRING(9); b : STRING(2);`, `a := b := 'abcdefgh';`)).toEqual([
+    "String constant ''a...' too long for destination type 'STRING(2)'",
+  ])
+})

@@ -26,6 +26,7 @@ import { computeNetworkTextDiagnostics } from "../../src/network/index.js"
 import { plcPrgSource } from "./support/plc-prg.js"
 import { STANDARD_LIBRARY } from "./support/standard-library.js"
 import { ALL_TESTS } from "./fixtures/index.js"
+import { comparable } from "./support/compare-message.js"
 
 interface RecordedDiagnostic {
   severity: "error" | "warning" | "info"
@@ -77,7 +78,7 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // for the type, once for the instance initialisation it generates — and the LSP now does the same (measured with
   // `initializer-repeat.ts`: no instance 0, one instance 2, two instances 2, nested 2, PROGRAM 1; so it is per-type,
   // not per-instance). The goal is the IDE's answer, not a tidier one.
-  { vendor: "codesys", filename: "codesys.build.json", floor: 755 },
+  { vendor: "codesys", filename: "codesys.build.json", floor: 757 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
@@ -196,7 +197,7 @@ function runLsp(testIdx: number, vendor: Vendor): string[] {
   diags.push(...computeNetworkTextDiagnostics({ uri: own.uri, source: own.source, parseResult: own.parseResult }, project, messagesFor(vendor)))
   const msgs = diags
     .filter((d) => d.severity === "error" || d.severity === "warning")
-    .map((d) => `[${d.severity}] ${d.message}`)
+    .map((d) => `[${d.severity}] ${comparable(d.message)}`)
   // No separate `parseResult.errors` here: `checkParseErrors` already reports them. Pushing them again counted every
   // DECLARATION parse error twice, so a fixture like `cc_decl_init_trailing_ident` could never agree exactly.
   return msgs.sort()
@@ -205,7 +206,7 @@ function runLsp(testIdx: number, vendor: Vendor): string[] {
 function ideMsgs(ds: readonly RecordedDiagnostic[]): string[] {
   return ds
     .filter((d) => d.severity === "error" || d.severity === "warning")
-    .map((d) => `[${d.severity}] ${d.message}`)
+    .map((d) => `[${d.severity}] ${comparable(d.message)}`)
     .sort()
 }
 
