@@ -160,3 +160,52 @@ test("a quoted attribute value, and a non-hasattribute condition, are not flagge
   expect(attrValue(`PROGRAM PLC_PRG\n{IF hasattribute(pou: MyPOU, 'MyAttribute')}\n{END_IF}\nEND_PROGRAM`)).toEqual([])
   expect(attrValue(`PROGRAM PLC_PRG\n{IF defined(FOO)}\n{END_IF}\nEND_PROGRAM`)).toEqual([])
 })
+
+test("an attribute's value is checked against its published set — unless the declaration is hidden", () => {
+  const fb = (decls: string) => `FUNCTION_BLOCK F\nVAR\n${decls}\nEND_VAR\nEND_FUNCTION_BLOCK`
+  const attr = (src: string) => {
+    const parseResult = parseSource(src)
+    const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "unknown-attribute")
+      .map((d) => d.message)
+  }
+  expect(attr(fb(`{attribute 'monitoring_encoding' := 'UTF8'}\nsValue : STRING;`))).toEqual([
+    "Invalid value 'UTF8' for attribute 'monitoring_encoding' should be one of: ['UTF-8', 'UnicodeCharacter']",
+  ])
+  expect(attr(fb(`{attribute 'monitoring_encoding' := 'UTF-8'}\nsValue : STRING;`))).toEqual([])
+  // a HIDDEN variable is not monitored, so the compiler never validates how it would be displayed
+  expect(attr(fb(`{attribute 'hide'}\n{attribute 'monitoring_encoding' := 'UTF8'}\nsValue : STRING;`))).toEqual([])
+})
+
+test("an UNQUOTED attribute value is no value at all — the compiler reads the empty string", () => {
+  const src = `FUNCTION_BLOCK F\nVAR\n{attribute 'symbol' := readwrite}\nn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "unknown-attribute")
+    .map((d) => d.message)
+  expect(msgs).toEqual(["SymbolConfig: Invalid value '' for attribute 'symbol'. Should be one of: none, read, write, readwrite"])
+})
+
+test("an attribute that belongs on a VARIABLE, placed on a POU header, is ignored and says so", () => {
+  const src = `{attribute 'pingroup' := 'inputs'}\nFUNCTION_BLOCK F\nVAR_INPUT\niA : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  expect(
+    computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "unknown-attribute")
+      .map((d) => d.message),
+  ).toEqual(["The attribute 'pingroup' can only be added to variable declarations. It will be ignored here."])
+  // on a variable, where it belongs, it is silent
+  const ok = `FUNCTION_BLOCK F\nVAR_INPUT\n{attribute 'pingroup' := 'inputs'}\niA : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
+  const okParse = parseSource(ok)
+  expect(
+    computeSemanticDiagnostics({
+      parseResult: okParse,
+      source: ok,
+      project: buildSymbolTable([{ uri: "F.fb", parseResult: okParse, source: ok }]),
+      config: resolveConfig({ vendor: "codesys" }),
+    }).filter((d) => d.code === "unknown-attribute"),
+  ).toEqual([])
+})

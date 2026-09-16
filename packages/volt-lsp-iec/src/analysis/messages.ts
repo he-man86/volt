@@ -290,6 +290,10 @@ export interface Messages {
   interfaceNotFound(name: string): string
   /** An object kind that cannot be invoked at all — `Cannot call object of type 'INTERFACE'` (CODESYS SP21). */
   cannotCallObjectOfType(kind: string): string
+  /** A known attribute given a value outside its published set (CODESYS SP21, a warning). */
+  invalidAttributeValue(value: string, attribute: string, allowed: readonly string[]): string
+  /** An attribute that only means something on a variable declaration, placed elsewhere (CODESYS SP21). */
+  attributeOnlyOnVariables(attribute: string): string
   /** A PROPERTY declaring neither accessor (CODESYS SP21, a warning). */
   propertyWithoutAccessor(): string
   /** An FB EXTENDS-list naming more than one base FB — single inheritance only (C0096). verified both vendors. */
@@ -576,6 +580,10 @@ export function messagesFor(vendor: Vendor): Messages {
     baseClassNotFound: (name) => `No definition found for base class '${name}'`,
     interfaceNotFound: (name) => `No definition found for interface '${name}'`,
     cannotCallObjectOfType: (kind) => `Cannot call object of type '${kind}'`,
+    invalidAttributeValue: (value, attribute, allowed) =>
+      `Invalid value '${value}' for attribute '${attribute}' should be one of: [${allowed.map((a) => `'${a}'`).join(", ")}]`,
+    attributeOnlyOnVariables: (attribute) =>
+      `The attribute '${attribute}' can only be added to variable declarations. It will be ignored here.`,
     propertyWithoutAccessor: () => `The property defines neither a get nor a set accessor.`,
     multipleInheritance: () =>
       tc ? `Only one base function block may be defined in EXTENDS-list` : `Only one base function block may be defined in EXTENDS list`,

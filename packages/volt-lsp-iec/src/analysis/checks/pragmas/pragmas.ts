@@ -7,6 +7,8 @@
  *   - MESSAGE pragmas: `{warning 'msg'}` / `{error 'msg'}` surface the author's compile-time message
  *     verbatim at matching severity (both compilers emit these when reached).
  *   - C0351 unknown `{attribute '<name>'}` (CODESYS-only) — a toggleable warning, only as complete as the catalog.
+ *   - a KNOWN attribute given a value outside its published set, or placed where it means nothing (`pingroup` on a
+ *     POU header). Both CODESYS-only, both only for attributes whose rules are published and closed.
  *
  * Pragmas are lexer trivia (stripped from the parsed body), so re-lex the source for `pragma` tokens.
  * ponytail: no `{IF}` predicate evaluation — a message pragma inside a false branch is still surfaced;
@@ -72,6 +74,21 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
   // an unknown attribute on a `TYPE …` (verified live: a bogus attribute on a built, referenced DUT emits nothing,
   // whereas the same on a POU variable warns C0351). Firing here false-positived on `qualified_oly`/`strit` typos.
   const isDut = ctx.parseResult.units.length > 0 && ctx.parseResult.units.every((u) => u.kind === "type_decl")
+  // A pragma inside a VAR section decorates the declaration that follows it; one outside decorates the POU.
+  const varRanges = ctx.parseResult.units.flatMap((u) => ("varSections" in u ? u.varSections.map((v) => v.span) : []))
+  const inVarSection = (at: number): boolean => varRanges.some((r) => at >= r.start && at <= r.end)
+  /**
+   * `{attribute 'hide'}` on the SAME declaration silences the value check: a hidden variable is not monitored, so
+   * the compiler never validates how it would be displayed. Measured — `monitoring_encoding` warns about 'UTF8' and
+   * `pragma_conflict_hide_plus_monitoring`, the same attribute with `hide` above it, says nothing at all.
+   * Pragmas decorating one declaration are consecutive with only whitespace between them.
+   */
+  const isHidden = (p: { span: DiagnosticItem["span"] }): boolean =>
+    pragmas.some(
+      (q) =>
+        q.attributeName?.toLowerCase() === "hide" &&
+        ctx.source.slice(Math.min(q.span.end, p.span.end), Math.max(q.span.start, p.span.start)).trim().length === 0,
+    )
   if (ctx.config.vendor === "codesys" && !isDut) {
     for (const p of pragmas) {
       // C0351a — a KNOWN attribute (`symbol`) with an out-of-set VALUE. `symbol` governs symbol-table export;
@@ -85,6 +102,31 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
           source: SOURCE,
           code: "unknown-attribute",
           message: ctx.messages.invalidSymbolAttributeValue(p.attributeValue),
+        })
+        continue
+      }
+      // The same rule for every OTHER attribute with a published closed value set, in that message's own wording
+      // (conformance `monitoring_encoding`).
+      const closed = p.attributeName === undefined ? undefined : CLOSED_VALUE_SETS[p.attributeName.toLowerCase()]
+      if (closed !== undefined && p.attributeValue !== undefined && !closed.includes(p.attributeValue) && !isHidden(p)) {
+        out.push({
+          severity: "warning",
+          span: p.span,
+          source: SOURCE,
+          code: "unknown-attribute",
+          message: ctx.messages.invalidAttributeValue(p.attributeValue, p.attributeName!, closed),
+        })
+        continue
+      }
+      // An attribute that belongs to a VARIABLE, placed on a POU header instead — the compiler ignores it and says
+      // so (conformance `pragma_conflicting_pair`).
+      if (p.attributeName !== undefined && VARIABLE_ONLY.has(p.attributeName.toLowerCase()) && !inVarSection(p.span.start)) {
+        out.push({
+          severity: "warning",
+          span: p.span,
+          source: SOURCE,
+          code: "unknown-attribute",
+          message: ctx.messages.attributeOnlyOnVariables(p.attributeName),
         })
         continue
       }
@@ -103,6 +145,18 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
 
 /** The legal access modes for `{attribute 'symbol'}` (symbol-table export). CODESYS: none/read/write/readwrite. */
 const SYMBOL_VALUES: ReadonlySet<string> = new Set(["none", "read", "write", "readwrite"])
+
+/**
+ * Attributes whose legal values are a published closed set, in the compiler's own order (it prints the set). Only
+ * an attribute whose set is CLOSED and documented belongs here — every other attribute is skipped, so an unusual
+ * but legal value never false-positives. `symbol` is handled above: its message has a different shape.
+ */
+const CLOSED_VALUE_SETS: Record<string, readonly string[]> = {
+  monitoring_encoding: ["UTF-8", "UnicodeCharacter"],
+}
+
+/** Attributes that only mean something on a VARIABLE declaration; on a POU header the compiler ignores them. */
+const VARIABLE_ONLY: ReadonlySet<string> = new Set(["pingroup"])
 
 function orphan(ctx: CheckContext, p: { span: DiagnosticItem["span"]; directive: string }): DiagnosticItem {
   return {
@@ -126,7 +180,12 @@ function parsePragma(text: string): { directive: string; messageText?: string; a
   if (dir === "attribute") {
     // `{attribute 'name'}` or `{attribute 'name' := 'value'}` — name + optional value, both first-quoted.
     const m2 = /^\{\s*attribute\s+'([^']*)'(?:\s*:=\s*'([^']*)')?/i.exec(text)
-    if (m2 !== null) return { directive, attributeName: m2[1], attributeValue: m2[2] }
+    if (m2 !== null) {
+      // An UNQUOTED value (`:= readwrite`) is not a value at all to the compiler: it reads the empty string and
+      // says so — "Invalid value ''" (conformance `cc4_attribute_value_string`).
+      const assigned = /'[^']*'\s*:=/.test(text)
+      return { directive, attributeName: m2[1], attributeValue: m2[2] ?? (assigned ? "" : undefined) }
+    }
   }
   return { directive }
 }
