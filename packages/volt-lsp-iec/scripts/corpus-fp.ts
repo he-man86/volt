@@ -23,6 +23,7 @@ import {
 } from "../src/analysis/index.js"
 import { loadWorkspaceRefs, loadTaskRoots } from "../src/workspace-refs.js"
 import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
+import { scanLibraryManifests } from "../src/workspace-refs.js"
 
 const CORPUS = join(import.meta.dir, "..", "test-corpus")
 const filter = process.argv[2]
@@ -46,7 +47,7 @@ for (const project of readdirSync(CORPUS)) {
     const source = readFileSync(uri, "utf8")
     return { uri, source, parseResult: parseSource(source) }
   })
-  const scope = buildSymbolTable(inputs)
+  const scope = buildSymbolTable(inputs, scanLibraryManifests(dir))
   const references = loadWorkspaceRefs(dir)
   const dead = deadPous(inputs, loadTaskRoots(dir))
   const deadMembers = deadMemberSpans(inputs, dead)

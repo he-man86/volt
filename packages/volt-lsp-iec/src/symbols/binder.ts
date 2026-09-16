@@ -30,6 +30,7 @@ import type {
 } from "../syntax/index.js"
 import { lex } from "../syntax/index.js"
 import { createProjectScope, defineSymbol, makeScope, type Scope, type SymbolKind } from "./symbol.js"
+import { bindLibraryNamespaces, type LibraryManifest } from "./library-namespace.js"
 
 export interface SymbolTableInput {
   /** URI of the source document. "" is allowed for tests that don't track URIs. */
@@ -52,11 +53,14 @@ function hasQualifiedOnly(source: string): boolean {
   return false
 }
 
-/** Build one project scope from a set of parsed files, then link EXTENDS bases across all of them. */
-export function buildSymbolTable(files: readonly SymbolTableInput[]): Scope {
+/** Build one project scope from a set of parsed files, then link EXTENDS bases across all of them.
+ *  `manifests` are the referenced libraries' `.library` files (`parseLibraryManifest`), each binding its own
+ *  units under the NAMESPACE the source qualifies them with. */
+export function buildSymbolTable(files: readonly SymbolTableInput[], manifests: readonly LibraryManifest[] = []): Scope {
   const project = createProjectScope()
   for (const file of files) bindFile(project, file)
   linkExtends(project)
+  bindLibraryNamespaces(project, manifests)
   return project
 }
 

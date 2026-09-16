@@ -104,7 +104,8 @@ export class WorkspaceStore {
   project(): Scope {
     if (this.projectScope === undefined) {
       const docs = this.docs()
-      this.projectScope = buildSymbolTable(docs)
+      // each referenced library's units under the NAMESPACE the source qualifies them with (`bindLibraryNamespaces`)
+      this.projectScope = buildSymbolTable(docs, this.workspaceRefs.libraryManifests)
       this.boundDocs.clear()
       for (const d of docs) this.boundDocs.set(normalizeKey(d.uri), d)
     }
@@ -123,6 +124,14 @@ export class WorkspaceStore {
    *  first `project()` builds fresh). O(changed file), not O(project). */
   private rebindKey(key: string): void {
     if (this.projectScope === undefined) return
+    // A library namespace scope ALIASES the library's top-level scopes and symbols (`bindLibraryNamespaces`), so
+    // unbinding one of those files would leave the namespace holding what the project no longer has. Rebuild whole;
+    // a file under `Library Manager/` is read-only in practice, so this never costs an edit loop.
+    if (key.includes("library manager/") || key.includes("library manager\\")) {
+      this.projectScope = undefined
+      this.boundDocs.clear()
+      return
+    }
     const old = this.boundDocs.get(key)
     if (old !== undefined) unbindFile(this.projectScope, old.uri)
     const desired = this.mergedDoc(key)

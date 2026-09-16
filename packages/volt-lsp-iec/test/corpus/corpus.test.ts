@@ -29,6 +29,7 @@ import { allowedCode } from "../lsp/diagnostic-codes.js"
 import { formatDocument } from "../../src/services/index.js"
 import { parseNetworkText, computeNetworkTextDiagnostics } from "../../src/network/index.js"
 import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
+import { scanLibraryManifests } from "../../src/workspace-refs.js"
 
 const CORPUS_ROOT = join(import.meta.dir, "..", "..", "test-corpus")
 
@@ -137,7 +138,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
       const dir = join(CORPUS_ROOT, project)
       if (!statSync(dir).isDirectory()) continue
       const inputs = walk(dir).map((uri) => ({ uri, parseResult: parseSource(readFileSync(uri, "utf8")), source: "" }))
-      const scope = buildSymbolTable(inputs)
+      const scope = buildSymbolTable(inputs, scanLibraryManifests(dir))
       expect(scope.children.length).toBeGreaterThan(0)
       totalBases += scope.children.filter((c) => c.baseScope !== undefined).length
     }

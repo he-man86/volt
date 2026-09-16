@@ -23,6 +23,7 @@ import {
   type DiagnosticState,
   type WorkspaceRefs,
 } from "./analysis/index.js"
+import { parseLibraryManifest, type LibraryManifest } from "./symbols/index.js"
 import { SOURCE_EXTENSION_SET } from "./source-extensions.js"
 
 /** All files under `root`, recursively. Unreadable directories are skipped, not thrown. */
@@ -44,6 +45,22 @@ function walkFiles(root: string): string[] {
     }
     if (dir) out.push(...walkFiles(p))
     else out.push(p)
+  }
+  return out
+}
+
+/** Every referenced library's manifest under `root` — what binds its units under the NAMESPACE the source writes
+ *  (`bindLibraryNamespaces`). Separate from the source walk: a `.library` file is not ST and never parses as one. */
+export function scanLibraryManifests(root: string): LibraryManifest[] {
+  const out: LibraryManifest[] = []
+  for (const file of walkFiles(root)) {
+    if (extname(file).toLowerCase() !== ".library") continue
+    try {
+      const manifest = parseLibraryManifest(file, readFileSync(file, "utf8"))
+      if (manifest !== undefined) out.push(manifest)
+    } catch {
+      continue
+    }
   }
   return out
 }
@@ -138,6 +155,7 @@ export function loadWorkspaceRefs(root: string): WorkspaceRefs {
   if (root.length === 0) return EMPTY_WORKSPACE_REFS
   return {
     libraryNamespaces: loadLibraryNamespaces(root),
+    libraryManifests: scanLibraryManifests(root),
     deviceInstances: loadDeviceInstances(root),
     obsoletePous: loadObsoletePous(root),
   }
@@ -162,6 +180,7 @@ export function scanWorkspace(root: string): WorkspaceScan {
   let projectDiagnostics: Partial<Record<ConfigurableCode, DiagnosticState>> | undefined
   if (root.length === 0) return empty
   const libraryNamespaces = new Set<string>()
+  const libraryManifests: LibraryManifest[] = []
   const deviceInstances = new Set<string>()
   const taskRoots = new Set<string>()
   const obsoletePous = new Map<string, { name: string; message: string }>()
@@ -172,6 +191,8 @@ export function scanWorkspace(root: string): WorkspaceScan {
       if (ext === ".library") {
         const ns = libraryNamespaceOf(file)
         if (ns) libraryNamespaces.add(ns.toLowerCase())
+        const manifest = parseLibraryManifest(file, readFileSync(file, "utf8"))
+        if (manifest !== undefined) libraryManifests.push(manifest)
       } else if (ext === ".device") {
         deviceInstances.add(deviceInstanceOf(file).toLowerCase())
       } else if (ext === ".projectsettings") {
@@ -190,7 +211,7 @@ export function scanWorkspace(root: string): WorkspaceScan {
     }
   }
   return {
-    refs: { libraryNamespaces, deviceInstances, obsoletePous },
+    refs: { libraryNamespaces, libraryManifests, deviceInstances, obsoletePous },
     taskRoots,
     sources,
     ...(projectDiagnostics === undefined ? {} : { projectDiagnostics }),

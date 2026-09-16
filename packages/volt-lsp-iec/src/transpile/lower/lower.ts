@@ -34,7 +34,7 @@ import {
   type TopLevel,
   unitAttributes,
 } from "../../syntax/index.js"
-import { buildSymbolTable, lookup, lookupMember, type Scope, scopeForUnit, type Symbol } from "../../symbols/index.js"
+import { buildSymbolTable, lookup, lookupMember, parseLibraryManifest, type Scope, scopeForUnit, type Symbol } from "../../symbols/index.js"
 import { convert, stored, valueAs } from "./convert.js"
 import { foldConstant } from "./constants.js"
 import { lowerPlace } from "./places.js"
@@ -486,8 +486,10 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
     const first = parseResult.errors[0]!
     return { diagnostics: [{ code: "parse", message: first.message, span: first.span }] }
   }
-  const files = [{ uri, parseResult, source }, ...libraries.map((l) => ({ uri: l.uri, parseResult: parseSource(l.source), source: l.source }))]
-  const project = buildSymbolTable(files)
+  const manifests = libraries.flatMap((l) => parseLibraryManifest(l.uri, l.source) ?? [])
+  const declarations = libraries.filter((l) => parseLibraryManifest(l.uri, l.source) === undefined)
+  const files = [{ uri, parseResult, source }, ...declarations.map((l) => ({ uri: l.uri, parseResult: parseSource(l.source), source: l.source }))]
+  const project = buildSymbolTable(files, manifests)
   const runnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "function_block" }> =>
     u.kind === "program" || u.kind === "function_block"
   const unit = parseResult.units
