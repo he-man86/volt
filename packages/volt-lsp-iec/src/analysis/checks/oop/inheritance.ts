@@ -61,13 +61,10 @@ export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void
       } else if (cycle !== undefined) {
         continue
       } else if (!nameResolves(unit.extends.text, scope, ctx.project, ctx.references)) {
-        out.push({
-          severity: "error",
-          span: unit.extends.span,
-          source: SOURCE,
-          code: "base-class-not-found",
-          message: ctx.messages.baseClassNotFound(unit.extends.text),
-        })
+        // Two errors for a base: the definition it could not find, and the TYPE it therefore does not have. An
+        // unresolved INTERFACE gets only the first (conformance `cc2_base_and_interface_not_found`).
+        for (const message of [ctx.messages.baseClassNotFound(unit.extends.text), ctx.messages.unknownType(unit.extends.text)])
+          out.push({ severity: "error", span: unit.extends.span, source: SOURCE, code: "base-class-not-found", message })
       }
     }
     for (const iface of unit.implements ?? []) {

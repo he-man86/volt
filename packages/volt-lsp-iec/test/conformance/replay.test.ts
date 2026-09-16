@@ -78,7 +78,7 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // for the type, once for the instance initialisation it generates — and the LSP now does the same (measured with
   // `initializer-repeat.ts`: no instance 0, one instance 2, two instances 2, nested 2, PROGRAM 1; so it is per-type,
   // not per-instance). The goal is the IDE's answer, not a tidier one.
-  { vendor: "codesys", filename: "codesys.build.json", floor: 814 },
+  { vendor: "codesys", filename: "codesys.build.json", floor: 816 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
@@ -92,7 +92,11 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   // TwinCAT does NOT flag a network-text JMP to a missing label (CODESYS does) — confirmed live 2026-07-07.
   // `cc_vg_undefined_label` was listed here: the LSP flagged the network-text JMP on TwinCAT too, a false positive this
   // set hid. The message is vendor data now (`networkJumpLabelUndefined`), undefined on TwinCAT — no divergence left.
-  twincat: new Set<string>(),
+  //   `op_sys_varinfo` — the TwinCAT RECORDING is truncated, not the behaviour: it stores `The code '.size;` with no
+  //                       closing quote, where CODESYS stores the whole sentence including the line break it quotes.
+  //                       The message is cut at that break on the way out of the TwinCAT driver — a BRIDGE bug to
+  //                       fix and re-record, not something for the LSP to match.
+  twincat: new Set<string>(["op_sys_varinfo"]),
   // The `???` fixtures were here while the LSP answered every position with ONE invented sentence. They are
   // NOT divergences any more: the check reads the slot and emits the COMPILER'S wording for it
   // (`Expression expected instead of '?'` for an operand/pin/instance, `The assignment target is not

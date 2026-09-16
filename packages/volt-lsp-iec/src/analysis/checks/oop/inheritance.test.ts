@@ -22,9 +22,12 @@ test("C0091: an FB extending itself is flagged (cycle, not not-found)", () => {
   expect(codes(`FUNCTION_BLOCK FB EXTENDS FB\nEND_FUNCTION_BLOCK`).some((d) => d.code === "base-class-not-found")).toBe(false)
 })
 
-test("C0090: an EXTENDS base that resolves nowhere is flagged; a resolved base is not", () => {
+test("C0090: an EXTENDS base that resolves nowhere is flagged TWICE; a resolved base is not", () => {
+  // the definition it could not find, and the TYPE the FB therefore does not have — an unresolved INTERFACE gets
+  // only the first (conformance `cc2_base_and_interface_not_found`)
   expect(msgs(`FUNCTION_BLOCK FB EXTENDS UnknownBase\nEND_FUNCTION_BLOCK`, "base-class-not-found")).toEqual([
     "No definition found for base class 'UnknownBase'",
+    "Unknown type: 'UnknownBase'",
   ])
   expect(msgs(`FUNCTION_BLOCK FB EXTENDS B\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK B\nEND_FUNCTION_BLOCK`, "base-class-not-found")).toEqual([])
 })
