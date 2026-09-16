@@ -42,6 +42,7 @@ import {
   holdsCall,
 } from "../ir/index.js"
 import { baseOf, boundName, Lowering, openDims, type PendingBody } from "./lowering.js"
+import { callsNothing, type InFrame, inFramePlace, isInFrame, specializeRoutine } from "./specialize.js"
 import { convert } from "./convert.js"
 import { declareInOuts, declareOpenBounds, declareVars, storageOf, tempResets } from "./storage.js"
 import { boundOf, lowerPlace } from "./places.js"
@@ -61,9 +62,10 @@ const thisPlace = (type: FbType, span: Span): Place => ({ slot: 0, path: [], typ
 
 /** What a call already holds: its instance, each in-out bound to a place, and the place each copy is written back to. The
  *  SUPER^ and FB body calls passed only the places, so `SUPER^(a := n, b := n)` copied n twice (review of the copy-back). */
-const holding = (instance: Place | undefined, bindings: readonly (IrBinding | undefined)[]): Place[] => [
+// an in-frame binding lends nothing — it is a path into the instance, which is held already
+const holding = (instance: Place | undefined, bindings: readonly (IrBinding | InFrame | undefined)[]): Place[] => [
   ...(instance === undefined ? [] : [instance]),
-  ...bindings.flatMap((b) => (b === undefined ? [] : "kind" in b ? (b.back === undefined ? [] : [b.back]) : [b])),
+  ...bindings.flatMap((b) => (b === undefined || isInFrame(b) ? [] : "kind" in b ? (b.back === undefined ? [] : [b.back]) : [b])),
 ]
 
 const isSuper = (e: Expr): boolean => e.kind === "deref" && e.base.kind === "ident_expr" && e.base.name.toUpperCase() === "SUPER"
@@ -522,7 +524,7 @@ function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: Span): I
  * design §9 form 3, is for later), a bit, a global (every body holds the globals as one `&mut`), and a derived instance
  * or struct standing in for its base type — the parameter would dispatch on the base, which is not modelled.
  */
-function bindInOut(lw: Lowering, arg: CallArg, param: IrSlot, held: readonly Place[], callee: readonly IrStmt[], calleeFb: string | undefined): IrBinding | undefined {
+function bindInOut(lw: Lowering, arg: CallArg, param: IrSlot, held: readonly Place[], callee: readonly IrStmt[], calleeFb: string | undefined, instance: Place | undefined): IrBinding | InFrame | undefined {
   // `(x)` is the variable x — it takes the alias check below like a bare `x` (review of the batch, 2026-09-15)
   let value = arg.value!
   while (value.kind === "paren") value = value.inner
@@ -539,6 +541,14 @@ function bindInOut(lw: Lowering, arg: CallArg, param: IrSlot, held: readonly Pla
   // a read-only binding writes nothing, so it is not a store `through` must check — a reference still reads its target
   const target = written === undefined ? undefined : param.constant === true && written.type.kind !== "reference" ? written : through(lw, written, arg.span)
   if (target === undefined) return undefined
+  // A place INSIDE the instance the callee runs on is not lent at all: the routine is specialized on the path to it
+  // (`specialize.ts`), which is the only exact answer where the callee also reaches that storage another way.
+  // Not a VAR_IN_OUT CONSTANT: what it reads after the callee writes the same field by name is not recorded, and its copy
+  // rule (`inout_const_method_9`) already covers what is.
+  if (held.some((p) => aliases(target, p)) && param.readOnly !== true && param.section !== "VAR_OUTPUT" && openDims(param.type) === 0 && sameStorage(param.type, target.type) && callsNothing(callee)) {
+    const place = inFramePlace(lw, instance, target, calleeFb)
+    if (place !== undefined) return { kind: "inframe", place, span: arg.span }
+  }
   const shared = held.some((p) => aliases(target, p)) || target.root === "global"
   // A variable the call also holds (the instance a METHOD runs on, `inst.M(v := inst.x)`) or a global cannot be lent as `&`
   // beside the `&mut` of the instance or `g`. For a read-only in-out a copy reads the same — exactly when the callee writes
@@ -663,7 +673,7 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
   // the inputs in the order they are written — the order they run in (conformance `callshape_argument_order`) — and where
   // each in-out is written, which decides whether its index is frozen there
   const order: (number | { inout: number; output?: true })[] = []
-  const inouts: (IrBinding | undefined)[] = routine.inouts.map(() => undefined)
+  const inouts: (IrBinding | InFrame | undefined)[] = routine.inouts.map(() => undefined)
   const held = () => holding(instance, inouts)
   // Positional arguments bind in declaration order across VAR_INPUT and VAR_IN_OUT (conformance
   // `callshape_positional_arguments`: 100, 315, 46), so each is named here by the parameter at its position. They were
@@ -690,8 +700,8 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     if (arg.output) {
       if (param?.section !== "VAR_OUTPUT") return lw.bail("call-output", `${arg.param?.name ?? "an argument"} is no VAR_OUTPUT of ${routine.name}`, arg.span)
       if (arg.value === undefined) continue
-      const target = bindInOut(lw, arg, param, held(), routine.body, routine.fb)
-      if (target === undefined) return undefined
+      const target = bindInOut(lw, arg, param, held(), routine.body, routine.fb, instance)
+      if (target === undefined || isInFrame(target)) return undefined
       if (target.type.kind !== "elementary" || param.type.kind !== "elementary" || target.type.name !== param.type.name || target.type.length !== param.type.length)
         return lw.bail("call-output-type", `${param.name} is read into a variable of another type`, arg.span)
       inouts[bound] = target
@@ -701,7 +711,7 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     if (arg.value === undefined) return lw.bail("call-output", `${routine.name} called with an empty argument`, arg.span)
     if (param?.section === "VAR_OUTPUT") return lw.bail("call-output", `${param.name} is a VAR_OUTPUT, bound with :=`, arg.span)
     if (param !== undefined) {
-      const target = bindInOut(lw, arg, param, held(), routine.body, routine.fb)
+      const target = bindInOut(lw, arg, param, held(), routine.body, routine.fb, instance)
       if (target === undefined) return undefined
       inouts[bound] = target
       order.push({ inout: bound })
@@ -747,7 +757,7 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
       for (const which of ["lower", "upper"] as const) {
         const k = routine.inputs.findIndex((index) => routine!.locals[index]!.name.toUpperCase() === boundName(slot.name, which, dim).toUpperCase())
         // a copy written back takes the bounds of the place it copies (an FB's own array lent to its own METHOD)
-        const at = "kind" in binding ? binding.back : binding
+        const at = isInFrame(binding) ? undefined : "kind" in binding ? binding.back : binding
         const value = k < 0 || at === undefined ? undefined : boundOf(lw, at, which, dim)
         if (value === undefined) return lw.bail("call-open-array", `${slot.name} is bound to an array whose bounds are not known here`, call.span)
         inputs[k] = value
@@ -825,7 +835,12 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     inouts[entry.inout] = { ...binding, path }
   }
   const type = routine.result === undefined ? UNKNOWN : routine.locals[routine.result]!.type
-  const invoke: IrInvoke = { kind: "invoke", routine: routine.key, ...(instance === undefined ? {} : { instance }), inputs: inputs as IrExpr[], order: written, inouts: inouts as IrBinding[], type, span: call.span }
+  // An in-out bound inside the instance is substituted into a copy of the routine, not lent (`specialize.ts`). Never
+  // beside `outside`, whose unbound in-outs `lastBinding` fills by the routine's own parameter indices.
+  const special = outside ? undefined : specializeRoutine(lw, routine, inouts)
+  const bound = special?.inouts ?? (inouts as (IrBinding | undefined)[])
+  if (special !== undefined && bound.includes(undefined)) return lw.bail("call-inout-missing", `${routine.name} called without every VAR_IN_OUT`, call.span)
+  const invoke: IrInvoke = { kind: "invoke", routine: special?.routine.key ?? routine.key, ...(instance === undefined ? {} : { instance }), inputs: inputs as IrExpr[], order: written, inouts: bound as IrBinding[], type, span: call.span }
   return outside ? lastBinding(lw, routine, invoke, call.span) : invoke
 }
 
@@ -929,14 +944,14 @@ function lowerSuperCall(lw: Lowering, call: Extract<Statement, { kind: "call_stm
   if (routine === undefined) return undefined
   const instance = thisPlace(frame, call.callee.span)
   const before: IrStmt[] = []
-  const inouts: (IrBinding | undefined)[] = routine.inouts.map(() => undefined)
+  const inouts: (IrBinding | InFrame | undefined)[] = routine.inouts.map(() => undefined)
   for (const arg of call.args) {
     if (arg.param === undefined || arg.output) return lw.bail("call-positional", "SUPER^ called with a positional or output argument", arg.span)
     if (arg.value === undefined) continue
     const name = arg.param.name.toUpperCase()
     const k = routine.inouts.findIndex((p) => p.name.toUpperCase() === name)
     if (k >= 0) {
-      const target = bindInOut(lw, arg, routine.inouts[k]!, holding(instance, inouts), routine.body, routine.fb)
+      const target = bindInOut(lw, arg, routine.inouts[k]!, holding(instance, inouts.filter((b) => !isInFrame(b)) as (IrBinding | undefined)[]), routine.body, routine.fb, instance)
       if (target === undefined) return undefined
       inouts[k] = target
       continue
@@ -972,9 +987,11 @@ function lowerSuperCall(lw: Lowering, call: Extract<Statement, { kind: "call_stm
     // what the instance holds for a METHOD called from outside after this is not recorded (`bindings.ts` refuses it)
     if (!passedOn) lw.shared.superRebinds.add(frame.name.toUpperCase())
   }
-  const bounds = storeOpenBounds(lw, instance, layout.fields, routine.inouts, (i) => inouts[i], call.span)
+  const bounds = storeOpenBounds(lw, instance, layout.fields, routine.inouts, (i) => (isInFrame(inouts[i]) ? undefined : (inouts[i] as IrBinding | undefined)), call.span)
   if (bounds === undefined) return undefined
-  const invoke: IrInvoke = { kind: "invoke", routine: routine.key, instance, inputs: [], inouts: inouts as IrBinding[], type: UNKNOWN, span: call.span }
+  // `SUPER^(a := n, b := n)` binds the base's in-outs inside the instance the base body runs on: substituted, not lent
+  const special = specializeRoutine(lw, routine, inouts)
+  const invoke: IrInvoke = { kind: "invoke", routine: special?.routine.key ?? routine.key, instance, inputs: [], inouts: (special?.inouts ?? inouts) as IrBinding[], type: UNKNOWN, span: call.span }
   return [...before, ...bounds, { kind: "eval", value: invoke, span: call.span }]
 }
 
@@ -1041,8 +1058,8 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
     const name = arg.param.name.toUpperCase()
     const param = inouts.find((p) => p.name.toUpperCase() === name)
     if (param !== undefined) {
-      const target = bindInOut(lw, arg, param, holding(instance, [...bound.values()]), layout.body ?? [], layout.name)
-      if (target === undefined) return undefined
+      const target = bindInOut(lw, arg, param, holding(instance, [...bound.values()]), layout.body ?? [], layout.name, undefined)
+      if (target === undefined || isInFrame(target)) return undefined
       bound.set(name, target)
       continue
     }
