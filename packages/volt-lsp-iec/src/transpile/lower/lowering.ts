@@ -151,6 +151,9 @@ export class Lowering {
   readonly anyInputs = new Set<string>()
   /** Each ANY input whose call site named a variable, to the hidden VAR_IN_OUT bound to it — what `pValue` is. */
   readonly anyTargets = new Map<string, number>()
+  /** What `__POUNAME()` answers here, in SOURCE casing: the POU's name, or `POU.Member` inside a METHOD or ACTION
+   *  (conformance `cp_pouname_operator`: 'FB_CP_named', 'FB_CP_named.Inner', 'FB_CP_named.Marked'). */
+  displayName = ""
   /** The PROGRAM instances (global slots) this body reads or calls, and those of every body it calls. In Rust a program
    *  runs moved out of `Programs`, so a program whose run reaches its own instance would read a stand-in: refused. */
   readonly touched = new Set<number>()

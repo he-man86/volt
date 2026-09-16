@@ -47,6 +47,7 @@ import { CROSS_OBJECT_TWO_TESTS } from "./cross-object-two.js"
 import { CROSS_OBJECT_THREE_TESTS } from "./cross-object-three.js"
 import { CROSS_OBJECT_FOUR_TESTS } from "./cross-object-four.js"
 import { CORPUS_TYPE_TESTS } from "./corpus-types.js"
+import { CORPUS_PRAGMA_TESTS } from "./corpus-pragmas.js"
 
 export interface CategoryGroup {
   name: string
@@ -59,6 +60,7 @@ export const CATEGORIES: readonly CategoryGroup[] = [
   { name: "cross-object-three", tests: CROSS_OBJECT_THREE_TESTS },
   { name: "cross-object-four", tests: CROSS_OBJECT_FOUR_TESTS },
   { name: "corpus-types", tests: CORPUS_TYPE_TESTS },
+  { name: "corpus-pragmas", tests: CORPUS_PRAGMA_TESTS },
   { name: "pragma", tests: PRAGMA_TESTS },
   { name: "pragma-tc", tests: PRAGMA_TC_TESTS },
   { name: "lifecycle", tests: LIFECYCLE_TESTS },

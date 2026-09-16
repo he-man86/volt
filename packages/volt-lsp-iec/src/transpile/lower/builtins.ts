@@ -64,7 +64,14 @@ export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>): 
   // `X_TO_Y` / `TO_Y` — `types/parseConversionName`, the one parser: both names elementary and spelled as CODESYS
   // spells them. A project function called `GO_TO_START` is an ordinary call, and `TIME_OF_DAY_TO_UDINT` is no
   // conversion at all (it is not defined — this used to read it as one).
-  if (name === "SIZEOF") return sizeOf(lw, e)
+  if (name === "SIZEOF" || name === "XSIZEOF") return sizeOf(lw, e)
+  // `__POUNAME()` — the POU's name, or `POU.Member` inside a METHOD or ACTION, as a sizeless STRING (conformance
+  // `cp_pouname_operator`: 'FB_CP_named', 'FB_CP_named.Inner', 'FB_CP_named.Marked'; the corpus writes it 304 times).
+  if (name === "__POUNAME") {
+    if (e.args.length !== 0) return lw.bail("call-arity", "__POUNAME takes no argument", e.span)
+    if (lw.displayName === "") return lw.bail("expr-call", "__POUNAME where the POU has no name", e.span)
+    return { kind: "const", value: lw.displayName, type: withStringCapacity(elementaryRef("STRING")), span: e.span }
+  }
   // lowered as an assignment's whole value, or as an IF condition's leading operand — taken just before the IF, read here
   // (`queryCondition`); anywhere else — a right operand a short-circuit may skip, inside another expression — the timing
   // of its store is not modelled

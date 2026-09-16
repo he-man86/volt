@@ -3,7 +3,7 @@
  */
 import type { Expr } from "../../syntax/index.js"
 import { lookup } from "../../symbols/index.js"
-import { elementaryRef, resolveNamedType, type Type } from "../../types/index.js"
+import { elementaryRef, elementaryType, resolveNamedType, type Type } from "../../types/index.js"
 import { type IrExpr, peelArray, type Place } from "../ir/index.js"
 import { baseOf, type Lowering } from "./lowering.js"
 import { storageOf } from "./storage.js"
@@ -64,6 +64,12 @@ export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "fu
   if (pending !== undefined && (baseOf(pending.unit) !== undefined || pending.unit.varSections.some((s) => s.sectionKind === "VAR_IN_OUT"))) return undefined
   const decl = t.kind === "struct" ? lookup(lw.project, t.name)?.symbol.ast : undefined
   if (decl?.kind === "type_decl" && decl.body.kind === "struct" && decl.body.extends !== undefined) return undefined
+  // `{attribute 'pack_mode' := '1'}` lays the struct out with NO alignment padding: a BOOL then a DINT is 5, where the
+  // aligned form is 8 (conformance `cp_declaration_pragmas`). Only mode 1 is measured; any other value is refused
+  // rather than guessed, and a struct with none keeps the aligned layout.
+  const attributes = decl === undefined ? undefined : lw.shared.attributes.get(decl)
+  const packed = attributes?.has("pack_mode") === true
+  if (packed && attributes?.has("pack_mode=1") !== true) return undefined
   // A METHOD's VAR_INST is storage in the instance, laid out as a field only once the method lowers — where it sits is not
   // measured, and a SIZEOF taken before and after that call would differ. Refused while any method of the FB declares one.
   for (let s = t.kind === "function_block" ? t.scope : undefined; s !== undefined; s = s.baseScope)
@@ -92,10 +98,10 @@ export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "fu
     bitsUsed = 0
     const b = byteSize(lw, field.type)
     if (b === undefined) return undefined
-    offset = alignUp(offset, b.align)
+    if (!packed) offset = alignUp(offset, b.align)
     offsets.set(field.name.toUpperCase(), offset)
     offset += b.size
-    if (b.align > align) align = b.align
+    if (!packed && b.align > align) align = b.align
   }
   return { size: alignUp(offset, align), align, ...(isFb ? {} : { offsets }) }
 }
@@ -131,9 +137,15 @@ export function byteOffset(lw: Lowering, place: Place): bigint | undefined {
 export function sizeOf(lw: Lowering, e: Extract<Expr, { kind: "call" }>): IrExpr | undefined {
   const arg = e.args[0]?.value
   if (e.args.length !== 1 || arg === undefined || e.args[0]!.param !== undefined) return lw.bail("call-arity", "SIZEOF takes one argument", e.span)
+  // XSIZEOF is SIZEOF: the same byte count, and this already answers with the pointer-width integer it returns
+  // (conformance `cp_xsizeof`: XSIZEOF and SIZEOF agree on a variable, an array and a type).
   const named = arg.kind === "ident_expr" && !lw.holds(arg.name) ? lookup(lw.scope, arg.name)?.symbol : undefined
+  // `SIZEOF(DINT)` / `XSIZEOF(DINT)` — an ELEMENTARY type name, which resolves to no symbol at all and so fell through
+  // to `lowerPlace` and its "does not resolve" (conformance `cp_xsizeof`: XSIZEOF(DINT) is 4).
+  const elementary = arg.kind === "ident_expr" && !lw.holds(arg.name) && named === undefined ? elementaryType(arg.name) : undefined
   let type: Type
-  if (named?.kind === "type" || named?.kind === "function_block") type = storageOf(lw, resolveNamedType(named.name, lw.project))
+  if (elementary !== undefined) type = elementaryRef(elementary.name)
+  else if (named?.kind === "type" || named?.kind === "function_block") type = storageOf(lw, resolveNamedType(named.name, lw.project))
   else {
     const place = lowerPlace(lw, arg)
     if (place === undefined) return undefined

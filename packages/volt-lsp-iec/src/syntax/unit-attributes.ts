@@ -21,7 +21,7 @@ export function declarationAttributes(parseResult: ParseResult, source: string):
     const decl = section?.decls.find((d) => d.span.start >= token.span.end)
     if (decl === undefined) continue
     const names = out.get(decl) ?? new Set<string>()
-    names.add(name!.toLowerCase())
+    addAttribute(names, token.text, name!)
     out.set(decl, names)
   }
   return out
@@ -38,7 +38,7 @@ export function memberAttributes(parseResult: ParseResult, source: string): Map<
     const unit = name === undefined ? undefined : parseResult.units.find((u) => u.span.end >= token.span.end)
     if (unit === undefined || !members.has(unit)) continue
     const names = out.get(unit) ?? new Set<string>()
-    names.add(name!.toLowerCase())
+    addAttribute(names, token.text, name!)
     out.set(unit, names)
   }
   return out
@@ -62,8 +62,16 @@ export function unitAttributes(parseResult: ParseResult, source: string): Map<To
     if (unit === undefined) continue
     const pou = ownerOf.get(unit) ?? unit
     const names = out.get(pou) ?? new Set<string>()
-    names.add(name!.toLowerCase())
+    addAttribute(names, token.text, name!)
     out.set(pou, names)
   }
   return out
+}
+
+/** The name, and — when the pragma carries one — `name=value` beside it, so a consumer that needs the VALUE has it
+ *  while every `.has(name)` check keeps answering. `{attribute 'pack_mode' := '1'}` adds `pack_mode` and `pack_mode=1`. */
+export function addAttribute(into: Set<string>, pragma: string, name: string): void {
+  into.add(name.toLowerCase())
+  const value = /:=\s*'([^']*)'/.exec(pragma)?.[1]
+  if (value !== undefined) into.add(`${name.toLowerCase()}=${value.toLowerCase()}`)
 }

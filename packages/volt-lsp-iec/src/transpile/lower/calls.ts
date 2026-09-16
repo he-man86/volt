@@ -187,8 +187,9 @@ function anyInputsOf(lw: Lowering): Map<string, ReadonlySet<number>> {
 }
 
 /** The lowering a routine body is lowered in: the frame's fields (when it runs on an instance) plus per-call locals. */
-function routineLowering(lw: Lowering, scope: Scope, frame: FbType | undefined, codeOwner: Scope | undefined, key: string): Lowering {
+function routineLowering(lw: Lowering, scope: Scope, frame: FbType | undefined, codeOwner: Scope | undefined, key: string, displayName = key): Lowering {
   const r = new Lowering(scope, lw.project, lw.shared)
+  r.displayName = displayName
   touchesOf(lw).set(key, r.touched)
   lw.shared.routineLowerings.set(key, r)
   const layout = frame === undefined ? undefined : lw.layouts.get(frame.name.toUpperCase())
@@ -345,7 +346,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     if (kept === undefined) return undefined
 
     const key = name.toUpperCase()
-    const r = routineLowering(lw, scope, frame, frame === undefined ? undefined : sym.owner, key)
+    const r = routineLowering(lw, scope, frame, frame === undefined ? undefined : sym.owner, key, name)
     for (const [own, field] of kept.inst) r.byName.set(own, r.byName.get(field)!)
     for (const [own, global] of kept.stat) r.statics.set(own, lw.shared.globals.byName.get(global)!)
     let result: number | undefined
@@ -459,7 +460,7 @@ export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol,
     const parsed = parseActive(part.body)
     if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${name}'s body did not parse`, span)
     const key = name.toUpperCase()
-    const r = routineLowering(lw, scope, frame, sym.owner, key)
+    const r = routineLowering(lw, scope, frame, sym.owner, key, name)
     const type = storageOf(r, r.resolve(ast.dataType))
     r.localByName.set(sym.name.toUpperCase(), 0)
     r.localSlots.push({ name: sym.name, type, section: accessor === "get" ? "VAR" : "VAR_INPUT", init: defaultValueOf(type) })

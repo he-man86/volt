@@ -36,7 +36,9 @@ END_METHOD
 `
   const parseResult = parseSource(source)
   const byName = new Map([...memberAttributes(parseResult, source)].map(([unit, names]) => ["name" in unit ? unit.name.text : unit.kind, [...names]]))
-  expect([...byName]).toEqual([["AfterInit", ["call_after_global_init_slot"]]])
+  // the set holds the NAME, and `name=value` beside it where the pragma carries one (`addAttribute`), so a consumer
+  // that needs the value has it — `pack_mode=1` is a different struct layout from `pack_mode=2`
+  expect([...byName]).toEqual([["AfterInit", ["call_after_global_init_slot", "call_after_global_init_slot=50000"]]])
 })
 
 // The transpiler refuses an FB the compiler treats specially (`instance-path`, `call_after_*`), and the AST keeps no
@@ -60,7 +62,7 @@ END_FUNCTION_BLOCK
 `
   const parseResult = parseSource(source)
   const byName = new Map([...unitAttributes(parseResult, source)].map(([unit, names]) => ["name" in unit ? unit.name.text : unit.kind, [...names].sort()]))
-  expect(byName.get("FB_A")).toEqual(["call_after_global_init_slot", "instance-path", "reflection"])
+  expect(byName.get("FB_A")).toEqual(["call_after_global_init_slot", "call_after_global_init_slot=50000", "instance-path", "reflection"])
   expect(byName.has("FB_B")).toBe(false)
   expect(byName.has("AfterInit")).toBe(false)
 })

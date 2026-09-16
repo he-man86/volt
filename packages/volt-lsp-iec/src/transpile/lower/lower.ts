@@ -76,6 +76,7 @@ export function lowerUnit(
 
   const lowering = new Lowering(scope, project, newShared(attributes, unit.name.text))
   lowering.isRoot = true
+  lowering.displayName = unit.name.text
   lowering.frameContext = `POU:${unit.name.text.toUpperCase()}`
   let body: IrStmt[]
   // A PROGRAM with METHODs or ACTIONs runs them on its one instance (conformance `fbcall_program_own_members`), so it
