@@ -473,13 +473,25 @@ symbols exist in the table under their own names but under no namespace, and eve
 `place-not-local` / `enum-value` / `expr-call`. Reach of the names that fail this way: 134 + 133 (the `enumErrorSeverity`
 folds) · 105 `L_LA` · 93 `L_IMHP` · 86 `stu` · 73 `CmpApp` · 25 `PACK_ML` · 21 `L_MC1P` · 9 `TICKS`.
 
-- [ ] **Read the `.library` manifests and bind each library's symbols under its NAMESPACE.** The highest-leverage
-      item in this change and not a runtime: a manifest reader (`LIBRARY`/`NAMESPACE`/`RESOLUTION`, three lines of
-      regex), a folder → namespace map, and `ns.Name` resolving against that folder's symbols. It needs the manifests
-      threaded to `buildSymbolTable` — they are not source, so they are not in `SOURCE_EXTENSIONS` and no crawl carries
-      them today (the LSP server's, the corpus harness's, `lowerSource`'s `libraries`). Do it before the language list:
-      it is what makes most of the 190 mixed POUs reachable at all, and it fixes the LSP too, where a qualified
-      library name resolves to nothing.
+- [x] **Read the `.library` manifests and bind each library's symbols under its NAMESPACE.** DONE 2026-09-16
+      (`symbols/library-namespace.ts`): the manifest is parsed whole — LIBRARY (the title other manifests name it by),
+      NAMESPACE, DEPENDENCIES — and each library gets a `namespace` scope over the units it materialized, its
+      dependencies' included (which is what makes `L_IE1P.L_IE1P_SeverityLevel` resolve: that enum belongs to
+      `L_IE1P_ApplicationErrorsTypes`, a dependency of the `L_IE1P` library). The binding is ADDITIVE and shares the
+      very same scopes, so every bare name still resolves as before. Threaded through `WorkspaceRefs.libraryManifests`
+      → `buildSymbolTable(files, manifests)` → the server's store, the corpus harnesses and `lowerSource`.
+      The namespace symbol DECLARES the manifest file, so `isLibrarySymbol` is true for it and every check that already
+      skips a library type skips the namespace — a library's member set is incomplete by construction. Without that the
+      member check fired 9 false positives the moment `L_OEEA_Lib` began resolving; the corpus gate caught it.
+      Then the values: `enumConstant` resolves a `Ns.Enum.Value` base, and an enum value's written initializer folds a
+      `TO_*` conversion at the target's width — pro2193's `enumErrorSeverity` is `TO_USINT(L_IE1P.…)` throughout.
+      **`enum-value` 134 → 0 reach**; `layout-union` 61 → 20 (the union-of-pointers work); POUs 52 → 53.
+**Measured again after it landed (2026-09-16).** Of 251 blocked POUs, 9 are blocked ONLY by a library, 161 are mixed,
+81 have no library blocker at all — so the ceiling with no library BODIES is still 44.1% (134/304), and the ordered
+language list below reaches ~40% of it. The namespace was never the ceiling; it was the thing standing between the
+language work and the POUs it applies to, and the refusals it left say what they are: `L_LA is a namespace, which has
+no frame slot yet` is a call into a library with no body, not an unresolved name.
+
 - [ ] **Then** what is left of the library half: a call into a library FUNCTION or FB, whose BODY really is absent
       (`L_MC1P_ModuloCycle`, `StrConcatA`, `SysTimeRtcGet`) — design §8's stub mechanism, so a POU that calls one is
       still testable. `plc-library-runtime` covers Standard/Standard64 only and names none of these vendor libraries.
