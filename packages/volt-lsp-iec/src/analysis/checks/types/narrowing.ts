@@ -17,18 +17,18 @@ import {
 } from "../../../types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
-import type { DiagnosticItem } from "../../diagnostic-item.js"
+import { pushForDeclaration, type DiagnosticItem } from "../../diagnostic-item.js"
 import { conversionArgError, conversionWarning, narrowingPairError } from "../../rules.js"
 
 export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[]): void {
   // A declaration's untyped integer literal the target cannot hold warns like an assignment (gap 13): `value : INT :=
   // 40000` is "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT'" (conformance `overflow_int_above_max`).
-  for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {
+  for (const { decl, unit } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (decl.init === undefined || decl.init.kind === "aggregate_init") continue
     const lhs = resolveTypeExpr(decl.type, ctx.project)
     const literal = literalCheckType(decl.init, lhs)
     const diag = literal === undefined ? undefined : conversionWarning(lhs, literal, decl.init, ctx.messages)
-    if (diag !== undefined) out.push(diag)
+    if (diag !== undefined) pushForDeclaration(out, unit, diag)
   }
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkStatements(statements, (s) => {

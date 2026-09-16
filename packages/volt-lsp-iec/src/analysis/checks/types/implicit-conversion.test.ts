@@ -46,7 +46,11 @@ test("a REAL literal beyond REAL's range is an LREAL — the only real literal t
   // Why missed: a literal's warning type was measured for integers only (conformance `cc_real_init_max`, `_tiny`,
   // `_sci_fraction`; `real_to_string_digits`).
   const msgs = conv("big : REAL := 3.4028235E38; mid : REAL := 1.5E8; tiny : REAL := 2.5E-10;", "").map((d) => d.message)
-  expect(msgs).toEqual(["Implicit conversion from 'LREAL' to 'REAL': Possible loss of information"])
+  // twice, because it is an FB DECLARATION's initializer — see `pushForDeclaration`
+  expect(msgs).toEqual([
+    "Implicit conversion from 'LREAL' to 'REAL': Possible loss of information",
+    "Implicit conversion from 'LREAL' to 'REAL': Possible loss of information",
+  ])
 })
 
 test("a typed literal sum folds into the narrowest type of its signedness that holds it", () => {
@@ -107,8 +111,11 @@ test("an untyped integer literal the target cannot hold warns as its literal typ
   expect(msgs("i : INT;", "i := 40000;")).toEqual(["Implicit conversion from unsigned Type 'UINT' to signed Type 'INT' : Possible change of sign"])
   expect(msgs("d : DINT;", "d := 3000000000;")).toEqual(["Implicit conversion from unsigned Type 'UDINT' to signed Type 'DINT' : Possible change of sign"])
   expect(msgs("us : USINT;", "us := -1;")).toEqual(["Implicit conversion from signed Type 'SINT' to unsigned Type 'USINT' : Possible change of sign"])
-  // a declaration's initializer too
-  expect(msgs("u : UINT := -5;", "")).toEqual(["Implicit conversion from signed Type 'SINT' to unsigned Type 'UINT' : Possible change of sign"])
+  // a declaration's initializer too — and an FB's is reported TWICE, as the IDE does (`pushForDeclaration`)
+  expect(msgs("u : UINT := -5;", "")).toEqual([
+    "Implicit conversion from signed Type 'SINT' to unsigned Type 'UINT' : Possible change of sign",
+    "Implicit conversion from signed Type 'SINT' to unsigned Type 'UINT' : Possible change of sign",
+  ])
   // silent: the target holds the value (a small literal into an unsigned or a bit string warns nothing), or it is an error
   expect(msgs("us : USINT; w : WORD; b : BYTE; si : SINT; r : REAL;", "us := 5; w := 5; b := 0; si := 127; r := 5; b := 300;")).toEqual([])
 })

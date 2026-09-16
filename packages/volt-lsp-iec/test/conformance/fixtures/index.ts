@@ -55,6 +55,7 @@ import { CHECK_COVERAGE_THREE_TESTS } from "./check-coverage-three.js"
 import { CHECK_COVERAGE_FOUR_TESTS } from "./check-coverage-four.js"
 import { CHECK_COVERAGE_FIVE_TESTS } from "./check-coverage-five.js"
 import { CHECK_COVERAGE_SIX_TESTS } from "./check-coverage-six.js"
+import { INITIALIZER_REPEAT_TESTS } from "./initializer-repeat.js"
 
 export interface CategoryGroup {
   name: string
@@ -75,6 +76,7 @@ export const CATEGORIES: readonly CategoryGroup[] = [
   { name: "check-coverage-four", tests: CHECK_COVERAGE_FOUR_TESTS },
   { name: "check-coverage-five", tests: CHECK_COVERAGE_FIVE_TESTS },
   { name: "check-coverage-six", tests: CHECK_COVERAGE_SIX_TESTS },
+  { name: "initializer-repeat", tests: INITIALIZER_REPEAT_TESTS },
   { name: "pragma", tests: PRAGMA_TESTS },
   { name: "pragma-tc", tests: PRAGMA_TC_TESTS },
   { name: "lifecycle", tests: LIFECYCLE_TESTS },

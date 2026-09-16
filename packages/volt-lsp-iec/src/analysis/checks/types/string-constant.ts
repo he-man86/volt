@@ -10,10 +10,10 @@ import { decodeStringLiteral, renderTypeExpr } from "../../../syntax/index.js"
 import { constEval } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachDecl } from "../../../symbols/index.js"
-import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { pushForDeclaration, SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
+  for (const { decl, scope, unit } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (decl.type.kind !== "string_type" || decl.type.length === undefined) continue
     const init = decl.init
     if (init === undefined || init.kind !== "literal" || typeof init.value !== "string") continue
@@ -23,7 +23,7 @@ export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): v
     // `cc_wstring_init_too_long_2`/`_7`: `'"a...'`, `'"abc...'`); it was skipped, so every over-long one went unreported.
     const decoded = decodeStringLiteral(init.value, decl.type.wide)
     if (typeof size !== "bigint" || decoded === undefined || BigInt(decoded.length) <= size) continue
-    out.push({
+    pushForDeclaration(out, unit, {
       // a WARNING, recorded twice (`cc_string_plain_init_too_long`, `cc_string_escape_init_too_long`) — the documentation
       // catalog this check was written from said error
       severity: "warning",

@@ -51,7 +51,7 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // offline; the subset (no-FP) gate stays green on them.
   // 253 → 255 (2026-09-14): gap 13 — untyped integer literals typed as CODESYS/TwinCAT type them (`overflow_*`).
   // 255 → 256: consolidate-lsp-structure A7 — the network-text jump-label check no longer fires on TwinCAT.
-  { vendor: "twincat", filename: "twincat.build.json", floor: 256 },
+  { vendor: "twincat", filename: "twincat.build.json", floor: 260 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (coverage.test.ts), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -73,7 +73,11 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // 521 → 734 (2026-09-16): the fixture programme — 138 new fixtures across the cross-object, corpus-mined and
   // check-coverage batches, and the eleven LSP defects they found. The last jump, 717 → 734, is the IDE's parse-error
   // CASCADE after a reserved name, which no fixture could agree without.
-  { vendor: "codesys", filename: "codesys.build.json", floor: 734 },
+  // 734 → 755 (2026-09-16): how often a DECLARATION'S INITIALIZER warning repeats. The IDE reports one twice — once
+  // for the type, once for the instance initialisation it generates — and the LSP now does the same (measured with
+  // `initializer-repeat.ts`: no instance 0, one instance 2, two instances 2, nested 2, PROGRAM 1; so it is per-type,
+  // not per-instance). The goal is the IDE's answer, not a tidier one.
+  { vendor: "codesys", filename: "codesys.build.json", floor: 755 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
@@ -122,6 +126,11 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     //   `cc6_loop_cannot_exit` — C0266 is CONFIGURABLE too, and the recording project has it OFF: the IDE warns only
     //                            about the sign change in `FOR small : SINT := 1 TO 200`, which the LSP matches.
     "cc6_loop_cannot_exit",
+    //   `ir_initializer_warning_no_instance` — the IDE compiles only what the entry point REACHES, so a POU nobody
+    //                            instantiates gets no diagnostics at all. An editor cannot work that way: it has to
+    //                            answer about the file in front of you before anything instantiates it. The fixture
+    //                            stays because the 0 it records is what proves the FB count is not per-declaration.
+    "ir_initializer_warning_no_instance",
   ]),
 }
 
@@ -193,14 +202,6 @@ function runLsp(testIdx: number, vendor: Vendor): string[] {
   return msgs.sort()
 }
 
-/**
- * A note the residue script turned up (2026-09-16), so it is not rediscovered: about 20 fixtures differ from the IDE in
- * neither a missing message nor an extra one but in HOW OFTEN one repeats. A warning on a DECLARATION'S INITIALIZER —
- * "String constant '…' too long", "Implicit conversion from …" — is reported TWICE by the IDE when the POU is
- * instantiated, once for the type and once for the instance. The LSP reports it once, at the declaration, which is
- * what an editor should show; matching the IDE would mean counting instantiations from another file and underlining
- * the same declaration twice. The LSP is right here and these fixtures cannot reach exact agreement.
- */
 function ideMsgs(ds: readonly RecordedDiagnostic[]): string[] {
   return ds
     .filter((d) => d.severity === "error" || d.severity === "warning")
