@@ -15,6 +15,8 @@ import {
 } from "../../types/index.js"
 import type { IrBuiltinName, IrExpr } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
+import { PLATFORM_INTEGERS } from "./lowering.js"
+import { isBit } from "../ir/index.js"
 import { convert } from "./convert.js"
 import { withStringCapacity } from "./storage.js"
 import { boundOf, lowerPlace } from "./places.js"
@@ -89,7 +91,11 @@ export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>): 
     const loaded: IrExpr = { kind: "load", place, type: place.type, span: arg.span }
     return { kind: "binary", op: "ne", left: loaded, right: { kind: "const", value: 0n, type: place.type, span: e.span }, type: elementaryRef("BOOL"), span: e.span }
   }
-  const conv = name === undefined ? undefined : parseConversionName(name)
+  // `__XINT_TO_DINT` and its family: the pointer-width types are the target's own width, so the conversion NAME carries
+  // one too (the corpus writes `__XWORD` 963 times). `parseConversionName` reads elementary names only, so the prefix is
+  // resolved to what the platform makes it before the split (conformance `ct_pointer_width_types`).
+  const platform = name === undefined ? undefined : /^(__U?X(?:INT|WORD))_TO_/i.exec(name)?.[1]
+  const conv = name === undefined ? undefined : parseConversionName(platform === undefined ? name : name.replace(platform, PLATFORM_INTEGERS[platform.toUpperCase()]!))
   if (conv !== undefined) return lowerConversion(lw, e, conv.from && elementaryRef(conv.from.name), elementaryRef(conv.to.name))
   if (name !== undefined && STANDARD_STRING_FUNCTIONS.has(name)) return lowerStandardString(lw, e, name)
   const arity = name === undefined ? undefined : BUILTIN_ARITY[name]
@@ -217,6 +223,18 @@ export function lowerStandardString(lw: Lowering, e: Extract<Expr, { kind: "call
  */
 export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>, from: Type | undefined, to: Type): IrExpr | undefined {
   const scalar = (t: Type): boolean => ["bool", "int", "bitstring", "real", "time", "date"].includes(elemOf(t)?.family ?? "")
+  // `BOOL_TO_BIT` and `BIT_TO_BOOL` change nothing: a BIT holds a BOOLEAN and is one bit only in the LAYOUT (`isBit`,
+  // design §9). Typed as the 1-bit bit string it is declared as, each printed a comparison against a Rust `bool`
+  // (conformance `ct_bit_fields`).
+  const boolLike = (t: Type | undefined): boolean => t !== undefined && (isBit(t) || elemOf(t)?.family === "bool")
+  if (boolLike(to) && (from === undefined || boolLike(from))) {
+    const only = e.args[0]
+    if (e.args.length !== 1 || only?.value === undefined || only.param !== undefined || only.output)
+      return lw.bail("call-arity", "a conversion takes exactly one positional argument", e.span)
+    const arg = lowerExpr(lw, only.value, elementaryRef("BOOL"))
+    if (arg === undefined) return undefined
+    return boolLike(arg.type) ? arg : convert(arg, elementaryRef("BOOL"))
+  }
   // STRING conversions (design §18): to STRING from an integer, a bit string, BOOL or TIME; from STRING to an integer,
   // REAL or LREAL. REAL_TO_STRING has no single digit rule and stays refused; parsing into a bit string is unmeasured.
   // The result is a sizeless STRING (80) — no text these produce is longer.
@@ -230,6 +248,17 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   // `xo3_string_wide_conversions`: a WSTRING(10) into a STRING(4) is 'abcd', a STRING(6) into a WSTRING(2) is "he").
   // Both sides are ASCII by construction — a non-ASCII literal is already refused — so nothing is re-encoded.
   const wideConversion = isString(to) && isString(from) && elemOf(to)?.name !== elemOf(from ?? UNKNOWN)?.name
+  // `TO_STRING(v)` names no source, so `from` is undefined and the text rules below had nothing to test — the catalog
+  // only ever wrote `X_TO_STRING`, while the corpus writes the bare form 132 times. The argument's own type is the
+  // source (conformance `ct_bare_to_conversions`).
+  if (from === undefined && isString(to)) {
+    const only = e.args[0]
+    if (e.args.length !== 1 || only?.value === undefined || only.param !== undefined || only.output)
+      return lw.bail("call-arity", "a conversion takes exactly one positional argument", e.span)
+    const arg = lowerExpr(lw, only.value)
+    if (arg === undefined) return undefined
+    return lowerConversion(lw, e, arg.type, to)
+  }
   if (wideConversion || (isString(to) && elemOf(to)?.name === "STRING" && hasText(from)) || (isString(from) && elemOf(from ?? UNKNOWN)?.name === "STRING" && parses(to))) {
     const only = e.args[0]
     if (e.args.length !== 1 || only?.value === undefined || only.param !== undefined || only.output)

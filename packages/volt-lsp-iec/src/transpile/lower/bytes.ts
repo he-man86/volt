@@ -73,8 +73,23 @@ export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "fu
   let offset = isFb ? 8n : 0n
   let align = isFb ? 8n : 1n
   const offsets = new Map<string, bigint>()
+  // Consecutive BIT fields PACK, eight to a byte; anything else ends the run, and a BIT after one starts a fresh byte.
+  // Measured (conformance `ct_bit_packing_sizes`): one BIT is 1 and eight are 1, nine are 2, a BYTE then a BIT is 2, a
+  // BIT then an INT is 4 (the bit takes its byte, the INT aligns to 2), and BIT·BYTE·BIT is 3 — the second bit does not
+  // go back into the first byte. A BOOL is a whole byte either way, so two BOOLs are 2. It was refused outright.
+  let bitsUsed = 0
   for (const field of layout.fields) {
     if (field.section === "temp" || field.section === "VAR_TEMP" || field.section === "VAR_STAT") continue
+    if (field.type.kind === "elementary" && field.type.elem.name === "BIT") {
+      // the byte a run of bits sits in is taken once, at the first of them
+      if (bitsUsed === 0) {
+        offsets.set(field.name.toUpperCase(), offset)
+        offset += 1n
+      } else offsets.set(field.name.toUpperCase(), offset - 1n)
+      bitsUsed = (bitsUsed + 1) % 8
+      continue
+    }
+    bitsUsed = 0
     const b = byteSize(lw, field.type)
     if (b === undefined) return undefined
     offset = alignUp(offset, b.align)

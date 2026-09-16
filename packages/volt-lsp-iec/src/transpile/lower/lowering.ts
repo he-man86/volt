@@ -272,8 +272,9 @@ export class Lowering {
 
 }
 
-/** CODESYS's pointer-width integer types, as the 64-bit simulator holds them (conformance `type_codesys_*`). */
-const PLATFORM_INTEGERS: Readonly<Record<string, string>> = { __XINT: "LINT", __UXINT: "ULINT", __XWORD: "LWORD" }
+/** CODESYS's pointer-width integer types, as the 64-bit simulator holds them (conformance `type_codesys_*`,
+ *  `ct_pointer_width_types`: `__XINT` reads back LINT#-5, `__XWORD` LWORD#255, SIZEOF 8 for both). */
+export const PLATFORM_INTEGERS: Readonly<Record<string, string>> = { __XINT: "LINT", __UXINT: "ULINT", __XWORD: "LWORD" }
 
 export const ZERO_SPAN: Span ={ start: 0, end: 0, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
 

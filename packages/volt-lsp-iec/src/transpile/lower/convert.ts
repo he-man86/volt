@@ -3,13 +3,20 @@
  */
 import type { Span } from "../../syntax/index.js"
 import { elemOf, type Type } from "../../types/index.js"
-import type { IrBinOp, IrExpr, IrValue } from "../ir/index.js"
+import { isBit, type IrBinOp, type IrExpr, type IrValue } from "../ir/index.js"
 
 /** Wrap in an explicit conversion when the types differ — a backend never widens on its own. Two STRINGs of different
  *  capacity differ too: the conversion is where a longer string is truncated into a shorter one. */
 export function convert(e: IrExpr, to: Type): IrExpr {
   const from = elemOf(e.type)
   const target = elemOf(to)
+  // A BIT holds a BOOLEAN (`isBit`, design §9) — it is one bit only in the LAYOUT. So a BIT and a BOOL are the same
+  // value and neither `BOOL_TO_BIT` nor a plain store between them converts anything; typed as the 1-bit bit string it
+  // is declared as, every crossing printed `!= 0` against a Rust `bool` (conformance `ct_bit_fields`).
+  if (isBit(e.type) || isBit(to)) {
+    const bool = (t: Type) => isBit(t) || elemOf(t)?.family === "bool"
+    if (bool(e.type) && bool(to)) return e
+  }
   // A constant lands at the target's width even when context already typed it so: `si := 128` types the literal SINT
   // on the way in, and this returned it unchanged below — the emitter printed `128i8`, which rustc rejects.
   if (e.kind === "const" && target !== undefined && from?.name === target.name && typeof e.value === "bigint")
