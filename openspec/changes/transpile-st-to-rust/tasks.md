@@ -399,6 +399,43 @@ taken apart by construct before anything is built — record first, then build, 
 - [ ] A multi-target handle for stored POINTER/REFERENCE (`pointer-targets`).
 - [ ] REFERENCE/POINTER inputs of a routine as borrows for the call — and interface inputs (`itf_function_input`).
 
+## The fixture programme — the corpus is the LAST check, not the specification (user, 2026-09-16)
+
+"the fixtures should cover all things that are possible in the test corpus. the test corpus are only as a last check."
+So a construct real projects use belongs in a FIXTURE, where it is recorded from the IDE and replayed by the LSP and
+both transpiler backends, rather than merely compiled once. Two measurements drive it, and both are scripts:
+
+- **`bun run scripts/corpus-census.ts`** — every construct in the four corpus projects against every construct in the
+  fixtures. It read **97** the corpus had and the fixtures lacked; after the `corpus-*` batches it reads what is left,
+  which is library FB instances and library functions — not language.
+- **the untriggered checks** — of the 85 diagnostic codes the analysis can emit, **56** were never produced by any
+  fixture (2026-09-16), so their message had never been compared with the IDE's. `check-coverage-two.ts` took the
+  first twelve; **41** are left.
+
+91 fixtures added in eight batches (705 → 796). What they found, each recorded first and fixed:
+
+| found | where |
+|---|---|
+| the semantic pass HUNG on `A EXTENDS B` / `B EXTENDS A` | LSP — an unguarded chain walk |
+| `circular-inheritance` saw only a DIRECT self-cycle | LSP |
+| `duplicate-inherited-variable` reported an FB duplicating itself | LSP |
+| `ANY_TO_INT` and its family were "Identifier not defined" | LSP — 72 corpus uses |
+| `chosen(…)` on a `REFERENCE TO` an FB was "not callable" | LSP |
+| the language recorder never pushed a fixture's DEPENDENCIES | the recorder — 27 recordings were fallout |
+| the `AT` overlap check refused the ordinary word-addressed pattern | transpiler — measured, it is word-addressed |
+| calling through a `REFERENCE TO` an FB, an ARRAY of interfaces, an FB in a STRUCT field, a PROPERTY through `SUPER^` | transpiler |
+| `WSTRING`↔`STRING`, `__POUNAME`, `XSIZEOF`, `MOVE`, `pack_mode`, BIT packing, a direct address as a place | transpiler |
+| a STRING `VAR_IN_OUT` printed the slot's capacity, so the Rust would not compile | emitter |
+
+Three checks emit a message CODESYS does not (`call-recursion`, `method-referenced-without-parens`,
+`var-in-interface`) — each recorded in `KNOWN_DIVERGENCES` with what the IDE says instead. Deleting a check on one
+measurement is a decision, not a cleanup.
+
+**Two things every new fixture needs**, both learned the hard way: its POU must be INSTANTIATED in PLC_PRG (CODESYS
+compiles only what the entry point reaches — twelve fixtures recorded empty until they were), and a name that is a
+standard function or a keyword is not a variable (`add`, `by`, `of`, `r` each cost a recording round; the LSP was right
+every time).
+
 ## The fixtures — every standard language feature the conformance suite describes (user ask 2026-09-16)
 
 `test/conformance/fixtures/` is the specification: 528 cases, each recorded from CODESYS SP21 and replayed through the
