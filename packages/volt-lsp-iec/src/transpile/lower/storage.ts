@@ -179,14 +179,24 @@ export function addressPlace(lw: Lowering, text: string, span: Span): Place | un
   return { slot: lw.shared.globals.slots.length - 1, path: [], type, span, root: "global" }
 }
 
-/** The overlap bookkeeping `bindAddress` keeps, for an address with no variable on it. */
-function reserveAddress(lw: Lowering, text: string, m: RegExpExecArray, name: string, span: Span): boolean {
+/**
+ * The bits an address covers, MEASURED: the simulator addresses a word by its WORD index, not its byte — `%QW5` and
+ * `%QW6` written 16#1111 and 16#2222 read back as themselves, and `%QW2` beside `%QB2` leaves the byte at 0
+ * (conformance `ca_adjacent_word_addresses`). Both were refused as overlaps while this tried the byte interpretation
+ * too, which is the pattern every real project writes — the corpus has `%IW5` next to `%IW6` and `%QW2` next to `%QB2`.
+ * ponytail: a project that turns BYTE addressing on is not modelled, and nothing Volt reads says which one it is.
+ */
+export function addressBits(m: RegExpExecArray): { area: string; bits: [number, number] } {
   const n = Number(m[3])
   const width = { X: 0, B: 1, W: 2, D: 4, L: 8 }[m[2]!.toUpperCase() as "X" | "B" | "W" | "D" | "L"]
   const bit = n * 8 + Number(m[4] ?? 0)
-  const bits: [number, number][] = width === 0 ? [[bit, bit + 1], [bit, bit + 1]] : [[n * 8, (n + width) * 8], [n * width * 8, (n + 1) * width * 8]]
-  const area = m[1]!.toUpperCase()
-  const clash = lw.shared.addressed.find((x) => x.area === area && x.bits.some(([from, to], mode) => from < bits[mode]![1] && bits[mode]![0] < to))
+  return { area: m[1]!.toUpperCase(), bits: width === 0 ? [bit, bit + 1] : [n * width * 8, (n + 1) * width * 8] }
+}
+
+/** The overlap bookkeeping `bindAddress` keeps, for an address with no variable on it. */
+function reserveAddress(lw: Lowering, text: string, m: RegExpExecArray, name: string, span: Span): boolean {
+  const { area, bits } = addressBits(m)
+  const clash = lw.shared.addressed.find((x) => x.area === area && x.bits[0] < bits[1] && bits[0] < x.bits[1])
   if (clash !== undefined) {
     lw.bail("var-at", `${text} overlaps ${clash.name}, which plain storage would not alias`, span)
     return false
@@ -205,13 +215,8 @@ function bindAddress(lw: Lowering, decl: VarDecl): boolean {
   if (m === null || (m[2]!.toUpperCase() === "X") !== (m[4] !== undefined)) return refuse("an address that is incomplete, or of a shape not modelled")
   if (lw.routineMode) return refuse("an address inside a METHOD or FUNCTION")
   if (decl.names.length > 1) return refuse("several variables on one address")
-  const n = Number(m[3])
-  const width = { X: 0, B: 1, W: 2, D: 4, L: 8 }[m[2]!.toUpperCase() as "X" | "B" | "W" | "D" | "L"]
-  // [byte addressing, word addressing]: `%MW10` is bytes 10–11 under the one and 20–21 under the other; a bit is either
-  const bit = n * 8 + Number(m[4] ?? 0)
-  const bits: [number, number][] = width === 0 ? [[bit, bit + 1], [bit, bit + 1]] : [[n * 8, (n + width) * 8], [n * width * 8, (n + 1) * width * 8]]
-  const area = m[1]!.toUpperCase()
-  const clash = lw.shared.addressed.find((x) => x.area === area && x.bits.some(([from, to], mode) => from < bits[mode]![1] && bits[mode]![0] < to))
+  const { area, bits } = addressBits(m)
+  const clash = lw.shared.addressed.find((x) => x.area === area && x.bits[0] < bits[1] && bits[0] < x.bits[1])
   if (clash !== undefined) return refuse(`it overlaps ${clash.name}, which plain storage would not alias`)
   lw.shared.addressed.push({ area, bits, name: decl.names[0]!.text, owner: lw.globalMode ? "GLOBAL" : lw.frameContext })
   return true

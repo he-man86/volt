@@ -35,6 +35,28 @@ END_FUNCTION_BLOCK
 `,
     "inst : FB_CA_image;", "inst();", 2),
 
+  // The corpus declares `%IW5` and `%IW6` side by side, and `%QW2` beside `%QB2` — patterns that ALIAS under byte
+  // addressing and do not under word addressing, and those projects compile. Which one the simulator uses decides
+  // whether Volt's overlap refusal is protecting anything or just refusing the ordinary case. Measured here.
+  fb("ca_adjacent_word_addresses", "FB_CA_adjacent", "two adjacent `AT %IW`/`%QW` variables, and a `%QW` beside a `%QB` — whether writing one is seen by the other",
+    `FUNCTION_BLOCK FB_CA_adjacent
+VAR
+	firstWord AT %QW5 : WORD;
+	secondWord AT %QW6 : WORD;
+	overlapping AT %QW2 : WORD;
+	maybeInside AT %QB2 : BYTE;
+	seenSecond : WORD;
+	seenByte : BYTE;
+END_VAR
+firstWord := 16#1111;
+secondWord := 16#2222;
+seenSecond := secondWord;
+overlapping := 16#ABCD;
+seenByte := maybeInside;
+END_FUNCTION_BLOCK
+`,
+    "inst : FB_CA_adjacent;", "inst();"),
+
   fb("ca_bitstring_date_conversions", "FB_CA_stamps", "DWORD_TO_DT and the rest of the bit-string-to-date crossings, each from a known count of seconds",
     `FUNCTION_BLOCK FB_CA_stamps
 VAR

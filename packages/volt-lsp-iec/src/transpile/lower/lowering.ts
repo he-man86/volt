@@ -59,7 +59,9 @@ export interface Shared {
   dispatches: ((root: Lowering) => boolean)[]
   /** Every variable bound AT an address: its area, its bit range under byte and under word addressing, and the frame that
    *  declares it (`storage.ts` `bindAddress`). */
-  addressed: { area: string; bits: readonly (readonly [number, number])[]; name: string; owner: string }[]
+  /** Each `AT` address and each bare one, as the bit range it covers — one interpretation, the measured one
+   *  (`addressBits`). */
+  addressed: { area: string; bits: readonly [number, number]; name: string; owner: string }[]
   /** Each routine's lowering, by key — whose `lends` a call of the routine must fill. */
   routineLowerings: Map<string, Lowering>
   /** Every call of an FB with VAR_IN_OUT, its instance and binding keyed — what a METHOD called from outside the FB's run
