@@ -37,4 +37,5 @@ it serves `volt.bridge.codesys.<pid>` — pass `VOLT_PIPE=volt.bridge.codesys.<p
 | `parser-completeness.ts` | parser-recovery evidence over the corpus |
 | `lower-completeness.ts` | transpiler coverage over the corpus — what each construct would unblock, ranked |
 | `corpus-census.ts` | what the CORPUS contains that the FIXTURES do not — the work list for new fixtures |
+| `agreement-residue.ts` | why each fixture does NOT agree with the IDE — the work list for closing the gap |
 | `check-layering.ts` | the `bun run lint` gate — fails on an illegal upward layer import |

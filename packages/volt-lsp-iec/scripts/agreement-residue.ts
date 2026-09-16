@@ -1,4 +1,14 @@
-/** Why each fixture does NOT agree exactly with the IDE: missing messages, extra ones, or no recording at all. */
+/**
+ * Why each fixture does NOT agree exactly with the IDE — the work list for closing the agreement gap.
+ *
+ *   bun run scripts/agreement-residue.ts
+ *
+ * `replay.test.ts` reports ONE number (exact agreement) and fails only on a false positive, so a fixture that is
+ * merely INCOMPLETE — the LSP right about everything it says and silent about the rest — is invisible in it. This
+ * buckets every disagreement into missing-only / extra-only / both / no-recording, then ranks the IDE messages the LSP
+ * most often misses. It is how the parse-error cascade was found: 109 of 126 disagreements were missing-only, and the
+ * missing messages were overwhelmingly one shape.
+ */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { ALL_TESTS } from "../test/conformance/fixtures/index.js"

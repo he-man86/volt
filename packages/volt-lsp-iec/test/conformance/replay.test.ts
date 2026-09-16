@@ -70,7 +70,10 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // assignment's inner store, an over-long WSTRING, a REAL literal beyond REAL, a typed literal sum; 37 `cc_*` probes.
   // 503 → 509: the six memory-model fixtures (transpile-st-to-rust design §9).
   // 509 → 521: the twelve call fixtures (`fb-call.ts`, transpile-st-to-rust phase 3).
-  { vendor: "codesys", filename: "codesys.build.json", floor: 521 },
+  // 521 → 734 (2026-09-16): the fixture programme — 138 new fixtures across the cross-object, corpus-mined and
+  // check-coverage batches, and the eleven LSP defects they found. The last jump, 717 → 734, is the IDE's parse-error
+  // CASCADE after a reserved name, which no fixture could agree without.
+  { vendor: "codesys", filename: "codesys.build.json", floor: 734 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
