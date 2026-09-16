@@ -62,14 +62,18 @@ for (const t of ALL_TESTS) {
   // invents unresolved-name findings that the replay does not have (`op_sys_queryinterface`).
   const own = new Set(fixtures.map((f) => f.name))
   const files = [
-    ...fixtures.map((f) => ({ uri: `${f.pouName}.st`, parseResult: parseSource(f.source), source: f.source })),
-    { uri: "plc_prg.prg", parseResult: parseSource(plc), source: plc },
-    ...crossDecls.filter((d) => !own.has(d.name)),
-    ...std,
+    ...fixtures.map((f) => ({ name: f.name, uri: `${f.pouName}.st`, parseResult: parseSource(f.source), source: f.source })),
+    { name: `${t.name}__plcprg`, uri: "plc_prg.prg", parseResult: parseSource(plc), source: plc },
+    ...crossDecls.filter((d) => !own.has(d.name)).map((d) => ({ ...d, name: `${d.name}__decl` })),
+    ...std.map((l) => ({ ...l, name: "__std" })),
   ]
   const project = buildSymbolTable(files)
   const lsp: string[] = []
-  for (const f of files.slice(0, fixtures.length + 1))
+  // Only the fixture's OWN file and its PLC_PRG are ANALYZED — a dependency is in the project to resolve against,
+  // not to be diagnosed, exactly as `replay.test.ts` does it. Analyzing them too attributed one fixture's findings
+  // to another (`interface_with_property_impl` inherited the interface fixture's accessor-less property).
+  const analyzed = files.filter((f) => f.name === t.name || f.name === `${t.name}__plcprg`)
+  for (const f of analyzed)
     for (const d of computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }))
       if (d.severity === "error" || d.severity === "warning") lsp.push(`[${d.severity}] ${comparable(d.message)}`)
   // Graphical bodies: the semantic pass skips them, so the replay runs the network-text checks too. Without this the

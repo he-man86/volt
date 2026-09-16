@@ -15,12 +15,12 @@ import { bodies, forEachDecl } from "../../../symbols/index.js"
 import { pushForDeclaration, SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): void {
-  for (const { decl, scope, unit } of forEachDecl(ctx.parseResult, ctx.project)) {
+  for (const { decl, scope, section, unit } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (decl.type.kind !== "string_type" || decl.type.length === undefined) continue
     const size = constEval(decl.type.length, scope)
     if (typeof size !== "bigint") continue
     const diag = tooLong(decl.init, decl.type.wide === true, Number(size), renderTypeExpr(decl.type), ctx.messages)
-    if (diag !== undefined) pushForDeclaration(out, unit, diag)
+    if (diag !== undefined) pushForDeclaration(out, unit, section, diag)
   }
   // An assignment's target is the same destination: `eight : STRING(8); eight := 'seventeen';` warns exactly as the
   // declaration form does (conformance `xo4_string_constant_too_long`, ten capacities across STRING and WSTRING).

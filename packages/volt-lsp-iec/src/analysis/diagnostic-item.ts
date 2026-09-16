@@ -23,8 +23,17 @@ export const SOURCE = "volt-lsp-iec"
  * instance 2, TWO instances still 2, an instance nested in another FB 2, a PROGRAM 1. So it is not per-instance; an
  * FB's declaration is simply checked twice, once for the type and once for the instance initialisation the compiler
  * generates, and a PROGRAM has only the one. Around 20 fixtures differed from the IDE in nothing but this count.
+ *
+ * A VAR CONSTANT is the exception, and it follows from that same explanation: a constant is folded at compile time,
+ * not stored on the instance, so there is no instance initialisation to check it a second time (conformance
+ * `co_any_to_conversions`, whose `cLimit : DINT := 16#80000000` in an FB warns exactly once).
  */
-export function pushForDeclaration(out: DiagnosticItem[], owner: { kind: string }, diagnostic: DiagnosticItem): void {
+export function pushForDeclaration(
+  out: DiagnosticItem[],
+  owner: { kind: string },
+  section: { constant?: boolean },
+  diagnostic: DiagnosticItem,
+): void {
   out.push(diagnostic)
-  if (owner.kind === "function_block") out.push(diagnostic)
+  if (owner.kind === "function_block" && section.constant !== true) out.push(diagnostic)
 }

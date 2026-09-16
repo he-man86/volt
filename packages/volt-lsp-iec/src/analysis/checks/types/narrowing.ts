@@ -23,12 +23,12 @@ import { conversionArgError, conversionWarning, narrowingPairError } from "../..
 export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[]): void {
   // A declaration's untyped integer literal the target cannot hold warns like an assignment (gap 13): `value : INT :=
   // 40000` is "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT'" (conformance `overflow_int_above_max`).
-  for (const { decl, unit } of forEachDecl(ctx.parseResult, ctx.project)) {
+  for (const { decl, section, unit } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (decl.init === undefined || decl.init.kind === "aggregate_init") continue
     const lhs = resolveTypeExpr(decl.type, ctx.project)
     const literal = literalCheckType(decl.init, lhs)
     const diag = literal === undefined ? undefined : conversionWarning(lhs, literal, decl.init, ctx.messages)
-    if (diag !== undefined) pushForDeclaration(out, unit, diag)
+    if (diag !== undefined) pushForDeclaration(out, unit, section, diag)
   }
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkStatements(statements, (s) => {
