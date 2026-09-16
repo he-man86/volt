@@ -17,12 +17,18 @@ const flagged = (vars: string, body: string, vendor: "codesys" | "twincat" = "co
 }
 
 const CUT = (literal: string) => [`';' expected instead of '${literal}'`, `Expression expected instead of '${literal}'`]
+/** In a BODY the compiler also names the token, and then re-reads the orphaned unit as a statement of its own. */
+const IN_BODY = (literal: string, unit: string) => [
+  ...CUT(literal),
+  `Unexpected token '${literal}' found`,
+  `The code '${unit};\n' has no effect. Is this the intent?`,
+]
 
 test("a TIME literal with US or NS is rejected at the literal — in a body and in a declaration", () => {
-  expect(flagged("t1 : TIME;", "t1 := T#1500US;")).toEqual(CUT("T#1500"))
-  expect(flagged("t1 : TIME;", "t1 := T#5NS;")).toEqual(CUT("T#5"))
-  expect(flagged("t1 : TIME;", "t1 := T#1S500US;")).toEqual(CUT("T#1S500"))
-  // as an initializer, CODESYS also fails the initial value
+  expect(flagged("t1 : TIME;", "t1 := T#1500US;")).toEqual(IN_BODY("T#1500", "US"))
+  expect(flagged("t1 : TIME;", "t1 := T#5NS;")).toEqual(IN_BODY("T#5", "NS"))
+  expect(flagged("t1 : TIME;", "t1 := T#1S500US;")).toEqual(IN_BODY("T#1S500", "US"))
+  // as an initializer, CODESYS fails the initial value instead — there is no orphaned statement in a declaration
   expect(flagged("fine : TIME := T#1500US;", "")).toEqual([...CUT("T#1500"), "Cannot convert type 'Unknown type: '!!!'ERROR'!!!'' to type 'TIME'"])
 })
 

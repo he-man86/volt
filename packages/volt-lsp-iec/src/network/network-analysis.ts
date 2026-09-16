@@ -28,7 +28,9 @@ import {
   walkExpr,
   walkStatements,
 } from "../syntax/index.js"
-import { inferExprType, resolveCallee } from "../types/index.js"
+import { inferExprType, renderType, resolveCallee } from "../types/index.js"
+import { compilerExprText } from "../analysis/expr-echo.js"
+import { isHole, reported } from "../analysis/hole.js"
 import {
   assignmentPairError,
   narrowingPairError,
@@ -73,6 +75,7 @@ export function computeNetworkTextDiagnostics(
       checkUndeclared(network.statements, scope, project, references, messages, out)
       checkPins(network.statements, scope, project, messages, out)
       checkMetadataPlacement(network, out)
+      checkHoles(network.statements, scope, project, messages, out) // LAST — it reads what the others found
     }
 
     // Labels are resolved across the WHOLE BODY, not per network — see checkLabels.
@@ -459,6 +462,43 @@ function operandExprs(statements: readonly NetworkTextStatement[]): Expr[] {
     }
   }
   return out
+}
+
+/**
+ * network-unknown-source: a sink whose SOURCE the compiler could not type carries the hole to the destination,
+ * exactly as an ST assignment does (conformance `cc_vg_undeclared`, `cc_vg_unknown_member`). `analysis/hole` holds
+ * the one definition of "could not type", and it reads the evidence the earlier checks left in `out` — so this runs
+ * LAST, after `checkUndeclared`, for the same reason `unknown-source` is the last ST check.
+ */
+function checkHoles(
+  statements: readonly NetworkTextStatement[],
+  scope: Scope,
+  project: Scope,
+  messages: Messages,
+  out: DiagnosticItem[],
+): void {
+  const seen = reported(out)
+  const pair = (target: Expr, value: Expr): void => {
+    if (!isHole(value, scope, project, seen)) return
+    const dest = inferExprType(target, scope, project)
+    if (dest.kind === "unknown") return
+    out.push({
+      severity: "error",
+      span: value.span,
+      source: SOURCE,
+      code: "network-unknown-source",
+      message: messages.cannotConvert(messages.unknownType(compilerExprText(value)), renderType(dest)),
+    })
+  }
+  for (const s of networkStatements(statements)) {
+    if (s.kind === "sink") {
+      if (s.target !== undefined && s.value !== undefined && !isBoxOutput(s.value) && !isModifierValue(s.value)) pair(s.target, s.value)
+    } else if (s.kind === "execute" && s.ok) {
+      walkStatements(s.statements, (st) => {
+        if (st.kind === "assign" && st.op === undefined && !isBoxOutput(st.value)) pair(st.target, st.value)
+      })
+    }
+  }
 }
 
 /** Sink pair type-checks (assignment mismatch + narrowing), recursing into EN/ENO + EXECUTE boxes. */
