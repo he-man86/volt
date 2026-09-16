@@ -183,11 +183,14 @@ export function integerLiteralType(value: bigint): ElementaryType | undefined {
  */
 export function parseConversionName(name: string): { from?: ElementaryType; to: ElementaryType } | undefined {
   // case-insensitive, as every ST name is — `int_to_real` is `INT_TO_REAL` (the test caught a missing `i` here)
-  const m = /^(?:([A-Za-z]+)_)?TO_([A-Za-z]+)$/i.exec(name)
+  const m = /^(?:([A-Za-z]+(?:_[A-Za-z]+)?)_)?TO_([A-Za-z]+)$/i.exec(name)
   if (m === null) return undefined
   const to = ELEMENTARY_TYPES.get(m[2]!.toUpperCase())
   if (to === undefined) return undefined
   if (m[1] === undefined) return { to }
+  // `ANY_TO_INT` names no concrete source — the ANY families stand for "whatever the argument is", exactly as the bare
+  // `TO_INT` does, and the corpus writes them 72 times. Unknown here, every one of them was an undefined identifier.
+  if (ANY_FAMILIES.has(m[1].toUpperCase())) return { to }
   const from = ELEMENTARY_TYPES.get(m[1].toUpperCase())
   return from === undefined ? undefined : { from, to }
 }

@@ -65,6 +65,14 @@ export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>): 
   // spells them. A project function called `GO_TO_START` is an ordinary call, and `TIME_OF_DAY_TO_UDINT` is no
   // conversion at all (it is not defined — this used to read it as one).
   if (name === "SIZEOF" || name === "XSIZEOF") return sizeOf(lw, e)
+  // `MOVE(v)` is v — the IEC assignment operator, which the corpus writes around a variable, a constant and a variable
+  // AT a direct address (conformance `co_move_operator`).
+  if (name === "MOVE") {
+    const only = e.args[0]
+    if (e.args.length !== 1 || only?.value === undefined || only.param !== undefined || only.output)
+      return lw.bail("call-arity", "MOVE takes exactly one positional argument", e.span)
+    return lowerExpr(lw, only.value)
+  }
   // `__POUNAME()` — the POU's name, or `POU.Member` inside a METHOD or ACTION, as a sizeless STRING (conformance
   // `cp_pouname_operator`: 'FB_CP_named', 'FB_CP_named.Inner', 'FB_CP_named.Marked'; the corpus writes it 304 times).
   if (name === "__POUNAME") {
