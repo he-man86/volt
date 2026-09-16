@@ -81,7 +81,7 @@ import { checkUnresolvedIdentifiers } from "./checks/names/unresolved-identifier
 import { checkAmbiguousGlobal } from "./checks/names/ambiguous-global.js"
 import { checkTypeAsValue } from "./checks/names/type-as-value.js"
 import { checkReservedKeyword } from "./checks/names/reserved-keyword.js"
-import { checkIlOperatorName } from "./checks/names/il-operator-name.js"
+import { checkRefusedName } from "./checks/names/refused-name.js"
 import { checkUnsupportedOperator } from "./checks/types/unsupported-operator.js"
 import { checkTimeLiteralUnit } from "./checks/types/time-literal-unit.js"
 import { checkVarSectionPlacement } from "./checks/declarations/var-section-placement.js"
@@ -173,7 +173,7 @@ const CHECKS: readonly Check[] = [
   checkAmbiguousGlobal,
   checkTypeAsValue,
   checkReservedKeyword,
-  checkIlOperatorName,
+  checkRefusedName,
   // declarations/
   checkVarSectionPlacement,
   checkInoutInitializer,
@@ -206,7 +206,7 @@ const CODESYS_ONLY: ReadonlySet<Check> = new Set<Check>([
   checkAbstractAssign, // live /build (2026-07-11): TwinCAT accepts this — no such rule
   checkAbstractOutputDefault, // live /build: TwinCAT silently accepts a VAR_OUTPUT default here
   checkReservedKeyword, // a CODESYS forward-compat warning; TwinCAT accepts CHAR/WCHAR as names (verified live)
-  checkIlOperatorName, // TwinCAT unmeasured
+  checkRefusedName, // TwinCAT unmeasured
   checkTimeLiteralUnit, // TwinCAT unmeasured
   checkUnsupportedOperator, // TwinCAT unmeasured
 ])
