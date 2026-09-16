@@ -78,7 +78,7 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // for the type, once for the instance initialisation it generates — and the LSP now does the same (measured with
   // `initializer-repeat.ts`: no instance 0, one instance 2, two instances 2, nested 2, PROGRAM 1; so it is per-type,
   // not per-instance). The goal is the IDE's answer, not a tidier one.
-  { vendor: "codesys", filename: "codesys.build.json", floor: 772 },
+  { vendor: "codesys", filename: "codesys.build.json", floor: 776 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
@@ -100,16 +100,10 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   // Three checks the LSP emits that CODESYS does NOT — found by giving the untriggered checks their first fixtures
   // (2026-09-16). Each is recorded here with what the IDE says INSTEAD, because deleting a check on one measurement
   // is a decision, not a cleanup: each may still be right on TwinCAT, or in a shape this fixture does not reach.
-  //   `cc2_call_recursion`   — the LSP says "Call Recursion: F_C2_loop -> F_C2_loop"; CODESYS says the name is not
-  //                            callable there at all ("Program name, function or function block instance expected
-  //                            instead of 'F_C2_loop'") plus the conversion error that follows.
-  //   `cc2_type_name_…`      — the LSP says "METHOD 'Value' referenced without parentheses '()'"; CODESYS says
-  //                            "Cannot convert type 'VALUE' to type 'INT'". (Its other error, the type name used as a
-  //                            value, the LSP matches exactly.)
-  //   `cc2_var_in_interface` — the LSP says "Variable declarations are not allowed in interfaces"; CODESYS BUILDS it,
-  //                            reporting nothing.
-  //   `cc5_no_op_statement`  — the IDE echoes the statement with the line ending its own copy has, which the bridge
-  //                            wrote as CRLF; the fixture's source is LF. A difference of storage, not of behaviour.
+  // Four of them are GONE (2026-09-16): each was an LSP message neither compiler emits in ANY recording, and the goal
+  // is the IDE's answer, not a better one. `cc2_call_recursion` and `cc2_type_name_…` now say what CODESYS says;
+  // `cc2_var_in_interface`'s rule is deleted (SP21 builds it clean); `cc5_no_op_statement` was a storage convention
+  // (CRLF vs LF) and is normalized in `comparable()`.
   //   `cc5_pointer_not_convertible` — C0033 is CONFIGURABLE. The recording project has it as an ERROR; the replay
   //                            resolves no project settings, so it is a warning here. Configuration, not behaviour.
   //   `cc5_new_in_expression` — the recording device has no memory configured for dynamic creation, so the IDE
@@ -117,10 +111,6 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //   `cc5_deprecated_functionblock_keyword` — the IDE does not report the spelling at all: it parses `FUNCTIONBLOCK`
   //                            as something else and reports "Unknown type". Both LSP messages are Volt's own.
   codesys: new Set<string>([
-    "cc2_call_recursion",
-    "cc2_type_name_and_method_without_parens",
-    "cc2_var_in_interface",
-    "cc5_no_op_statement",
     "cc5_pointer_not_convertible",
     "cc5_new_in_expression",
     "cc5_deprecated_functionblock_keyword",

@@ -1,6 +1,9 @@
 /**
- * recursive-call (C0224 · calls/). A FUNCTION whose body calls itself — recursion, which IEC forbids for a
- * POU not marked `{attribute 'recursive'}`. CODESYS: "Call Recursion: F -> F".
+ * recursive-call (calls/). A FUNCTION whose body calls itself — recursion, which IEC forbids for a POU not marked
+ * `{attribute 'recursive'}`. CODESYS does NOT phrase this as recursion: it refuses the NAME at the call site,
+ * "Program name, function or function block instance expected instead of 'F'", and the call then has no type, so the
+ * conversion error follows (conformance `cc2_call_recursion`, recorded 2026-09-16). The LSP said "Call Recursion:
+ * F -> F", a sentence neither compiler emits in any recording — it came from the documentation catalog.
  *
  * Scope: DIRECT self-recursion of a FUNCTION only (the documented `POU -> POU` case). A function call is an
  * unambiguous `Name(...)` in the body (a bare `Name := …` is the return-value assignment, not a call), so a
@@ -19,18 +22,15 @@ export function checkRecursiveCall(ctx: CheckContext, out: DiagnosticItem[]): vo
   for (const { unit, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     if (unit.kind !== "function") continue
     const self = unit.name.text.toLowerCase()
-    let found = false
     walkAllExprs(statements, (e) => {
-      if (found || e.kind !== "call" || e.callee.kind !== "ident_expr") return
-      if (e.callee.name.toLowerCase() === self) found = true
-    })
-    if (found)
+      if (e.kind !== "call" || e.callee.kind !== "ident_expr" || e.callee.name.toLowerCase() !== self) return
       out.push({
         severity: "error",
-        span: unit.name.span,
+        span: e.callee.span,
         source: SOURCE,
         code: "call-recursion",
-        message: ctx.messages.callRecursion(`${unit.name.text} -> ${unit.name.text}`),
+        message: ctx.messages.callTargetExpected(e.callee.name),
       })
+    })
   }
 }

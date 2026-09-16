@@ -1,6 +1,7 @@
 /**
- * recursive-call (C0224): a FUNCTION that calls itself is flagged; a return-value assignment and a call to a
- * different function are not.
+ * recursive-call: a FUNCTION that calls itself is flagged; a return-value assignment and a call to a different
+ * function are not. CODESYS does not phrase it as recursion — it refuses the NAME at the call site (conformance
+ * `cc2_call_recursion`); "Call Recursion: F -> F" came from the documentation catalog and no build ever emits it.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"
@@ -17,7 +18,7 @@ const rc = (src: string): string[] => {
 
 test("a self-calling FUNCTION is flagged", () => {
   expect(rc(`FUNCTION Fib : INT\nVAR_INPUT n : INT; END_VAR\nFib := Fib(n - 1);\nEND_FUNCTION`)).toEqual([
-    "Call Recursion: Fib -> Fib",
+    "Program name, function or function block instance expected instead of 'Fib'",
   ])
 })
 

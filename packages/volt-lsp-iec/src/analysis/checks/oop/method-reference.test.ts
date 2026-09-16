@@ -1,5 +1,7 @@
 /**
- * method-reference (C0130): a method member used as a value without `()` is flagged; a proper call is not.
+ * method-reference: a method member used as a value without `()` is flagged; a proper call is not. CODESYS does not
+ * describe the missing parentheses — it names the method as a TYPE it cannot convert (conformance
+ * `cc2_type_name_and_method_without_parens`); the parenthesis wording came from the documentation catalog.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"
@@ -24,7 +26,7 @@ END_PROGRAM`
 }
 
 test("a method referenced as a value without parens is flagged", () => {
-  expect(mr(`y := f.METH1;`)).toEqual(["METHOD 'METH1' referenced without parentheses '()'"])
+  expect(mr(`y := f.METH1;`)).toEqual(["Cannot convert type 'METH1' to type 'INT'"])
 })
 
 test("a proper method call is not flagged", () => {

@@ -3,13 +3,12 @@
  *   C0096 multiple-inheritance      — an FB `EXTENDS A, B` names more than one base (single inheritance only).
  *   C0182 return-type-not-allowed   — a return type on a POU that isn't a FUNCTION/METHOD (e.g. `PROGRAM P : BOOL`).
  *   C0421 interface-implements       — an INTERFACE using `IMPLEMENTS` where interface inheritance needs `EXTENDS`.
- *   C0149 var-in-interface           — a VAR section placed directly in an INTERFACE body (signatures only).
  *   C0144 inheritance-not-allowed    — `EXTENDS` on an enum/alias DUT (inheritance is FB/interface/struct only).
  *   C0542 union-inheritance          — `EXTENDS` on a UNION DUT (unions cannot inherit).
  *   C0145 function-implements        — `IMPLEMENTS` on a FUNCTION (only FBs implement interfaces).
  *
  * Each reads a field the parser only sets in the illegal case (`extendsExtra` / program `returnType` /
- * `implementsMisused` / `strayVarSections` / `extendsMisused`), so the check is a pure presence test — zero-FP
+ * `implementsMisused` / `extendsMisused`), so the check is a pure presence test — zero-FP
  * by construction (the corpus, which compiles clean, never sets them).
  */
 import type { CheckContext } from "../../diagnostics.js"
@@ -43,18 +42,9 @@ export function checkHeaderRules(ctx: CheckContext, out: DiagnosticItem[]): void
         message: ctx.messages.interfaceImplementsMisused(),
       })
     }
-    // Independent of the above (an interface can misuse IMPLEMENTS *and* declare VARs) — flag each stray section.
-    if (unit.kind === "interface" && unit.strayVarSections !== undefined) {
-      for (const section of unit.strayVarSections) {
-        out.push({
-          severity: "error",
-          span: section.span,
-          source: SOURCE,
-          code: "var-in-interface",
-          message: ctx.messages.varInInterface(),
-        })
-      }
-    }
+    // NOT here: C0149 var-in-interface, a VAR section declared directly in an INTERFACE. The catalog says it is an
+    // error and CODESYS SP21 BUILDS IT, reporting nothing at all (conformance `cc2_var_in_interface`, 2026-09-16) —
+    // the parser still records `strayVarSections`, which navigation and completion read.
     if (unit.kind === "function" && unit.implementsMisused !== undefined) {
       out.push({
         severity: "error",

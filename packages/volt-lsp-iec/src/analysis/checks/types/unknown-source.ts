@@ -31,17 +31,25 @@ import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
  * The names the compiler refuses OUTRIGHT, so that nothing built on one has a type either, however well the LSP
  * resolves it: THIS/SUPER out of context, and a VAR_EXTERNAL the project has no global for (which is dropped).
  */
-const REFUSED_OUTRIGHT: ReadonlySet<string> = new Set(["this-not-allowed", "super-not-allowed", "unresolved-identifier"])
+const REFUSED_OUTRIGHT: ReadonlySet<string> = new Set([
+  "this-not-allowed", "super-not-allowed", "unresolved-identifier", "call-recursion",
+])
 
 /** The checks whose finding means the expression has NO TYPE, which is the IDE's own reason for a hole. */
 const RESOLUTION_FAILURE: ReadonlySet<string> = new Set([
-  "unresolved-identifier", "unknown-member", "deref-non-pointer", "indexing-non-array", "this-not-allowed", "super-not-allowed",
+  "unresolved-identifier", "unknown-member", "deref-non-pointer", "indexing-non-array", "this-not-allowed",
+  "super-not-allowed", "call-recursion",
 ])
 
 export function checkUnknownSource(ctx: CheckContext, out: DiagnosticItem[]): void {
   const explained = out.filter((d) => RESOLUTION_FAILURE.has(d.code)).map((d) => d.span)
   /** Only where an earlier check already named the resolution failure — see the header. */
   const isExplained = (e: Expr): boolean => explained.some((s) => s.start >= e.span.start && s.end <= e.span.end)
+  /** The type an operation meets at, for the compiler's typed echo of a bare integer literal inside it. */
+  const metType = (scope: Parameters<typeof inferExprType>[1]) => (e: Expr): string | undefined => {
+    const t = inferExprType(e, scope, ctx.project)
+    return t.kind === "elementary" ? t.name : undefined
+  }
   const push = (message: string, e: Expr): void => {
     out.push({ severity: "error", span: e.span, source: SOURCE, code: "unknown-source", message })
   }
@@ -52,24 +60,28 @@ export function checkUnknownSource(ctx: CheckContext, out: DiagnosticItem[]): vo
   const hole = (e: Expr, scope: Parameters<typeof inferExprType>[1]): boolean =>
     isExplained(e) &&
     (inferExprType(e, scope, ctx.project).kind === "unknown" ||
-      // a CALL is exempt: its result is the callee's declared return type, which the compiler knows however badly
-      // an argument resolved (`f(undefinedName)` converts fine)
-      (e.kind !== "call" && refused.some((s) => s.start >= e.span.start && s.end <= e.span.end)))
+      // For a CALL only the CALLEE counts: the result is the callee's declared return type, which the compiler knows
+      // however badly an ARGUMENT resolved (`f(undefinedName)` converts fine) — but a callee it refuses outright, as
+      // it refuses a function calling itself, leaves the call with no type (conformance `cc2_call_recursion`).
+      refused.some((sp) => {
+        const within = e.kind === "call" ? e.callee.span : e.span
+        return sp.start >= within.start && sp.end <= within.end
+      }))
 
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkStatements(statements, (s) => {
       if (s.kind === "assign" && s.op === undefined) {
         const target = inferExprType(s.target, scope, ctx.project)
         // a hole on the LEFT is not a conversion at all — there is nothing to convert INTO, and the IDE says so
-        if (hole(s.target, scope)) push(ctx.messages.notAssignmentTarget(compilerExprText(s.target)), s.target)
+        if (hole(s.target, scope)) push(ctx.messages.notAssignmentTarget(compilerExprText(s.target, metType(scope))), s.target)
         else if (target.kind !== "unknown" && hole(s.value, scope))
-          push(ctx.messages.cannotConvert(ctx.messages.unknownType(compilerExprText(s.value)), renderType(target)), s.value)
+          push(ctx.messages.cannotConvert(ctx.messages.unknownType(compilerExprText(s.value, metType(scope))), renderType(target)), s.value)
       }
       for (const e of stmtExprs(s))
         walkExpr(e, (x) => {
-          if (x.kind === "member" && hole(x.base, scope)) push(ctx.messages.notStructuredVariable(compilerExprText(x.base)), x.base)
+          if (x.kind === "member" && hole(x.base, scope)) push(ctx.messages.notStructuredVariable(compilerExprText(x.base, metType(scope))), x.base)
           if (x.kind !== "binary") return
-          for (const operand of [x.left, x.right]) if (hole(operand, scope)) push(ctx.messages.unknownType(compilerExprText(operand)), operand)
+          for (const operand of [x.left, x.right]) if (hole(operand, scope)) push(ctx.messages.unknownType(compilerExprText(operand, metType(scope))), operand)
         })
     })
   }

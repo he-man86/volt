@@ -60,9 +60,9 @@ test("a hole on the LEFT is not a conversion — and a member read off one has n
 test("a VAR_EXTERNAL with no global is DROPPED, so its uses carry the hole", () => {
   // Why missed: the dangling declaration was reported and then the name went on resolving, so six of the ten errors
   // CODESYS gives for one such name were missing (conformance `cc2_constant_and_external`).
-  const src = `FUNCTION_BLOCK F\nVAR_EXTERNAL\ngNoSuch : INT;\nEND_VAR\nVAR\nn : INT;\nEND_VAR\nn := gNoSuch + 1;\nEND_FUNCTION_BLOCK`
+  const src = `FUNCTION_BLOCK F\nVAR_EXTERNAL\ngNoSuch : INT;\nEND_VAR\nVAR\nn : INT;\nm : INT;\nEND_VAR\nn := gNoSuch + m;\nEND_FUNCTION_BLOCK`
   expect(msgs(src).sort()).toEqual([
-    "Cannot convert type 'Unknown type: '(gNoSuch + 1)'' to type 'INT'",
+    "Cannot convert type 'Unknown type: '(gNoSuch + m)'' to type 'INT'",
     "Unknown type: 'gNoSuch'",
   ])
 })

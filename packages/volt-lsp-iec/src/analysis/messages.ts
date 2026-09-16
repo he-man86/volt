@@ -164,8 +164,6 @@ export interface Messages {
   inOutTypeMismatch(argType: string, paramType: string, param: string): string
   /** A property read in a context where it has no get accessor (C0143). verified both vendors. */
   propertyLacksGetter(name: string): string
-  /** A method referenced as a value without a call `()` (C0130). Semantic-alias: IDE errors under a different code (live-confirmed) — real detection. */
-  methodReferencedWithoutParens(name: string): string
   /** A literal constant whose value can't be represented by its own/inferred type (C0001). verified both vendors. */
   constantTooLarge(value: string, type: string): string
   /** A dot-bit-access index past the accessed variable's bit width (C0003). verified both vendors. */
@@ -296,8 +294,6 @@ export interface Messages {
   returnTypeNotAllowed(): string
   /** An interface using IMPLEMENTS where interface inheritance needs EXTENDS (C0421). verified both vendors. */
   interfaceImplementsMisused(): string
-  /** A VAR section declared directly in an INTERFACE body — signatures only (C0149). Bridge-blocked: the push is rejected before the IDE compiles it (live-confirmed). */
-  varInInterface(): string
   /** `EXTENDS` on an enum/alias DUT — inheritance is only legal on FB/interface/struct (C0144). Bridge-blocked: the push is rejected before the IDE compiles it (live-confirmed). */
   inheritanceNotAllowed(): string
   /** `EXTENDS` on a UNION DUT — unions cannot inherit (C0542). verified both vendors. */
@@ -310,8 +306,6 @@ export interface Messages {
   duplicateInheritedVariable(name: string, fb: string, base: string): string
   /** An FB/struct that (transitively) contains an instance of itself as a member (C0101). verified both vendors. */
   dataRecursion(path: string): string
-  /** A FUNCTION that calls itself (recursion, without the `recursive` attribute) (C0224). Semantic-alias: IDE errors as a type/resolution error (live-confirmed) — real detection. */
-  callRecursion(path: string): string
   /** An enum member initialized with a value whose type can't convert to the enum's (integer) base (C0124). verified both vendors. */
   enumInitNotConvertible(fromType: string, enumName: string): string
   /** A `CONSTANT` variable declared without an initial value (C0228). verified both vendors. */
@@ -495,7 +489,6 @@ export function messagesFor(vendor: Vendor): Messages {
         ? `Type '${argType}' is not equal to type '${paramType}' of VAR_IN_OUT '${param}'`
         : `Type '${argType}' is not equal to type '${paramType}' of VAR_IN_OUT respectively REFERENCE '${param}'`,
     propertyLacksGetter: (name) => `The property '${name}' cannot be used in this context because it lacks the get accessor`,
-    methodReferencedWithoutParens: (name) => `METHOD '${name}' referenced without parentheses '()'`,
     // Docs wording (13-error-messages #C0001); byte-identical on both vendors until a live recording locks it.
     constantTooLarge: (value, type) => `Constant '${value}' too large for type '${type}'`,
     invalidBitNumber: (value, variable) => `'${value}' is no valid bit number for '${variable}'`,
@@ -583,7 +576,6 @@ export function messagesFor(vendor: Vendor): Messages {
       tc
         ? `Use Keyword EXTENDS for inheritance of Interfaces instead of IMPLEMENTS.`
         : `Use keyword EXTENDS for inheritance of interfaces instead of IMPLEMENTS`,
-    varInInterface: () => `Variable declarations are not allowed in interfaces`,
     inheritanceNotAllowed: () => `Inheritance only allowed in function blocks, Interfaces and Structures`,
     unionInheritance: (name) => `Inheritance is not intended for data type "UNION": ${name}`,
     functionImplements: () => `Interfaces can only be implemented by function blocks`,
@@ -591,7 +583,6 @@ export function messagesFor(vendor: Vendor): Messages {
     duplicateInheritedVariable: (name, fb, base) =>
       `Duplicate definition of variable '${name}' in function block '${fb}' and in base '${base}'`,
     dataRecursion: (path) => (tc ? `Data Recursion: ${path}` : `Data recursion: ${path}`),
-    callRecursion: (path) => `Call Recursion: ${path}`,
     enumInitNotConvertible: (fromType, enumName) => `Cannot convert type '${fromType}' to type '${enumName}'`,
     constantNoInitialValue: (name) => `No initial value for constant variable '${name}'`,
     noInitForExternal: (name) => `No initial value allowed for VAR_EXTERNAL ${name}`,
