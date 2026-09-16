@@ -406,8 +406,14 @@ class Printer {
         const from = e.value.type.kind === "elementary" ? e.value.type.elem.family : undefined
         const to = e.type.kind === "elementary" ? e.type.elem.family : undefined
         const target = rustType(e.type)
-        // STRING → STRING of another capacity: the copy that truncates (never across widths — that does not compile)
-        if (to === "string" && from === "string") return `${value}.to::<${stringType(e.type).capacity}>()`
+        // STRING → STRING: the copy that truncates at the target's capacity, and across the two WIDTHS one code unit
+        // per code unit (conformance `xo3_string_wide_conversions`).
+        if (to === "string" && from === "string") {
+          const target = stringType(e.type)
+          const source = stringType(e.value.type)
+          const how = target.name === source.name ? "to" : target.name === "IecString" ? "narrow" : "widen"
+          return `${value}.${how}::<${target.capacity}>()`
+        }
         if (to === "string") {
           const source = e.value.type.kind === "elementary" ? e.value.type.name : ""
           const text =

@@ -1175,6 +1175,21 @@ END_PROGRAM
     expect([runner.get("d.getRuns"), runner.get("d.setRuns"), runner.get("outside")]).toEqual([3n, 1n, 82n])
   })
 
+  // `WSTRING_TO_STRING` / `STRING_TO_WSTRING` were `conversion-type` — every STRING conversion was to or from a NUMBER.
+  // Recorded first (conformance `xo3_string_wide_conversions`): one code unit per code unit, truncated at the TARGET's
+  // capacity, both ways. Every unit the model holds is ASCII (a non-ASCII literal is refused), so nothing is re-encoded.
+  test("WSTRING and STRING convert one code unit per code unit, truncated at the target's capacity", () => {
+    const runner = run(
+      ir(
+        "PROGRAM P\nVAR\n\twide : WSTRING(10) := \"abcdefghij\";\n\tnarrow : STRING(4);\n\troomy : STRING(20);\n\tback : WSTRING(3);\n\tshort : STRING(6) := 'hello';\n\twidened : WSTRING(2);\n\tsameText : BOOL;\nEND_VAR\n" +
+          "narrow := WSTRING_TO_STRING(wide);\nroomy := WSTRING_TO_STRING(wide);\nback := STRING_TO_WSTRING(roomy);\nwidened := STRING_TO_WSTRING(short);\nsameText := roomy = 'abcdefghij';\nEND_PROGRAM\n",
+        "P",
+      ),
+    )
+    runner.scan()
+    expect(["narrow", "roomy", "back", "widened", "sameText"].map((v) => runner.get(v))).toEqual(["abcd", "abcdefghij", "abc", "he", true])
+  })
+
   test("lowering never throws, whatever it is handed", () => {
     for (const src of ["", "PROGRAM P END_PROGRAM", wrap("iCount := ptr^;", "iCount : INT;\n  ptr : POINTER TO INT;")])
       expect(() => lowerSource(src)).not.toThrow()

@@ -226,7 +226,11 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   // DATE, DT and TOD print as their literal, zero-padded, a TOD's milliseconds only when non-zero (`temporal_conversions`)
   const hasText = (t: Type | undefined): boolean => isInt(t, true) || (t !== undefined && ["BOOL", "TIME", "DATE", "DT", "TOD"].includes(elemOf(t)?.name ?? ""))
   const parses = (t: Type): boolean => isInt(t) || elemOf(t)?.family === "real"
-  if ((isString(to) && elemOf(to)?.name === "STRING" && hasText(from)) || (isString(from) && elemOf(from ?? UNKNOWN)?.name === "STRING" && parses(to))) {
+  // STRING <-> WSTRING: one code unit per code unit, truncated at the target's capacity (conformance
+  // `xo3_string_wide_conversions`: a WSTRING(10) into a STRING(4) is 'abcd', a STRING(6) into a WSTRING(2) is "he").
+  // Both sides are ASCII by construction — a non-ASCII literal is already refused — so nothing is re-encoded.
+  const wideConversion = isString(to) && isString(from) && elemOf(to)?.name !== elemOf(from ?? UNKNOWN)?.name
+  if (wideConversion || (isString(to) && elemOf(to)?.name === "STRING" && hasText(from)) || (isString(from) && elemOf(from ?? UNKNOWN)?.name === "STRING" && parses(to))) {
     const only = e.args[0]
     if (e.args.length !== 1 || only?.value === undefined || only.param !== undefined || only.output)
       return lw.bail("call-arity", "a conversion takes exactly one positional argument", e.span)

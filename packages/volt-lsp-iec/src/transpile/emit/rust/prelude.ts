@@ -21,6 +21,15 @@ impl<T: Copy + Default, const N: usize> IecStr<T, N> {
     pub fn units(&self) -> &[T] { &self.units[..self.len] }
     pub fn to<const M: usize>(&self) -> IecStr<T, M> { IecStr::<T, M>::lit(self.units()) }
 }
+// WSTRING <-> STRING: one code unit per code unit, truncated at the TARGET's capacity — measured both ways
+// (conformance xo3_string_wide_conversions: a WSTRING(10) into a STRING(4) is 'abcd', a STRING(6) into a WSTRING(2)
+// is "he"). Every unit the model can hold is ASCII (a non-ASCII literal is refused), so the cast is exact.
+impl<const N: usize> IecStr<u16, N> {
+    pub fn narrow<const M: usize>(&self) -> IecStr<u8, M> { let mut out = IecStr::<u8, M>::new(); for &u in self.units() { if out.len == M { break } out.units[out.len] = u as u8; out.len += 1; } out }
+}
+impl<const N: usize> IecStr<u8, N> {
+    pub fn widen<const M: usize>(&self) -> IecStr<u16, M> { let mut out = IecStr::<u16, M>::new(); for &u in self.units() { if out.len == M { break } out.units[out.len] = u as u16; out.len += 1; } out }
+}
 impl<T: Copy + Default, const N: usize> Default for IecStr<T, N> { fn default() -> Self { Self::new() } }
 impl<T: Copy + PartialEq, const N: usize, const M: usize> PartialEq<IecStr<T, M>> for IecStr<T, N> { fn eq(&self, other: &IecStr<T, M>) -> bool { self.units[..self.len] == other.units[..other.len] } }
 impl<T: Copy + PartialOrd, const N: usize, const M: usize> PartialOrd<IecStr<T, M>> for IecStr<T, N> { fn partial_cmp(&self, other: &IecStr<T, M>) -> Option<std::cmp::Ordering> { self.units[..self.len].partial_cmp(&other.units[..other.len]) } }
