@@ -41,3 +41,20 @@ test("a var typed as an UNKNOWN (library) FB is NOT flagged — the conservative
   const ds = one("PROGRAM PLC_PRG\nVAR\n inst : L_IE1P_ReadActualSeverity;\nEND_VAR\ninst(xEnable := TRUE);\nEND_PROGRAM").filter((d) => d.code === "non-callable-call")
   expect(ds).toEqual([])
 })
+
+// A REFERENCE TO an FB IS callable, both as a body call and for its METHODs — measured (conformance
+// `xo_reference_to_fb_call`: `chosen REF= right`, then `chosen(throttle := 7)` and `chosen.Boost()` build and RUN,
+// leaving `right.revs` at 214 and `left` untouched). `pointer`/`reference` were in the non-callable set outright, so
+// every such call was a false positive. Why missed: no fixture ever called through one — the REFERENCE TO cases all
+// pinned a declaration or a read.
+test("a REFERENCE TO / POINTER TO an FB is callable; one to a plain value is not", () => {
+  const withEngine = (body: string) => [
+    { uri: "P.prg", src: `PROGRAM PLC_PRG\nVAR\n inst : FB_Engine;\n ref : REFERENCE TO FB_Engine;\n ptr : POINTER TO FB_Engine;\n num : REFERENCE TO INT;\nEND_VAR\n${body}\nEND_PROGRAM` },
+    { uri: "FB.fb", src: "FUNCTION_BLOCK FB_Engine\nVAR_INPUT\n throttle : INT;\nEND_VAR\nEND_FUNCTION_BLOCK" },
+  ]
+  const codes = (body: string) => diag(withEngine(body)).filter((d) => d.code === "invalid-call-target").map((d) => d.message)
+  expect(codes("ref REF= inst;\nref(throttle := 7);")).toEqual([])
+  expect(codes("ptr := ADR(inst);\nptr^(throttle := 7);")).toEqual([])
+  // a reference to something that is not callable still is not
+  expect(codes("num(1);")).toEqual(["Program name, function or function block instance expected instead of 'num'"])
+})

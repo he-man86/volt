@@ -32,7 +32,9 @@ const ONLY = process.env.RECORD_ONLY ? new Set(process.env.RECORD_ONLY.split(","
 
 const build = JSON.parse(readFileSync(join(RECORDINGS, "codesys.build.json"), "utf8")).tests as Record<string, { buildSuccess: boolean }>
 const cases = ALL_TESTS.filter((t) => !t.recorderSkip && (ONLY === undefined || ONLY.has(t.name)))
-  .filter((t) => t.source === "" || build[t.name]?.buildSuccess === true)
+  // A case the BUILD recording says does not build is skipped; one it does not mention is NEW, and unknown is not
+  // known-bad — sending it is how a fixture written today gets its values without a bridge round-trip first.
+  .filter((t) => t.source === "" || build[t.name]?.buildSuccess !== false)
   .map((t) => ({
     name: t.name,
     units: withDependencies(t, ALL_TESTS).flatMap(fixtureUnits),

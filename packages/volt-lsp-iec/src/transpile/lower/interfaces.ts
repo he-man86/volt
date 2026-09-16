@@ -87,7 +87,20 @@ function tagOf(lw: Lowering, place: Place, fb: FbType, span: Span): number | und
  * instance reached by fields and constant indices, `FB:<type>.<field>`, the key the FB's own body uses, so what every
  * caller stores into `inst.shape` is what the body dispatches on.
  */
-function interfaceKey(lw: Lowering, place: Place): string | undefined {
+/**
+ * An ARRAY of interfaces is keyed by the ARRAY, not the element (conformance `xo_interface_array_dispatch`: two
+ * implementations stored into `ops[1]` and `ops[2]`, then called as `ops[i].Apply(…)` in a FOR loop). Every element
+ * shares one held-set, which is exact: the dispatch is on the TAG the element holds at runtime, and the key only decides
+ * which arms exist — an arm no element ever holds is dead, never wrong. A runtime index has no key of its own anyway.
+ */
+const elementOfArray = (place: Place): Place => {
+  let path = place.path
+  while (path.at(-1)?.kind === "index") path = path.slice(0, -1)
+  return path === place.path ? place : { ...place, path }
+}
+
+function interfaceKey(lw: Lowering, written: Place): string | undefined {
+  const place = elementOfArray(written)
   const own = pointerKey(lw, place)
   if (own !== undefined) return own
   const last = place.path.at(-1)
@@ -113,8 +126,8 @@ function heldBy(lw: Lowering, key: string) {
  * The instances an interface variable READ holds — one of this frame's own variables (`pointerKey`). Another instance's
  * interface field (`x1.mine`) holds tags of that instance's frame, which would name the reader's own fields: refused.
  */
-function heldAt(lw: Lowering, place: Place, span: Span) {
-  const key = pointerKey(lw, place)
+function heldAt(lw: Lowering, read: Place, span: Span) {
+  const key = pointerKey(lw, elementOfArray(read))
   if (key === undefined) return lw.bail("interface-place", "an interface read somewhere this does not track — another instance's field, an element, an in-out, a dereference", span)
   return { key, held: heldBy(lw, key) }
 }

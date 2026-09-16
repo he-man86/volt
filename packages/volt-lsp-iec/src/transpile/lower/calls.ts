@@ -46,7 +46,7 @@ import { callsNothing, type InFrame, inFramePlace, isInFrame, specializeRoutine 
 import { convert } from "./convert.js"
 import { declareInOuts, declareOpenBounds, declareVars, storageOf, tempResets } from "./storage.js"
 import { boundOf, lowerPlace } from "./places.js"
-import { refuseConstantWrite, sameStorage, through } from "./pointers.js"
+import { pointeePlace, refuseConstantWrite, sameStorage, through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 import { lowerBlock } from "./statements.js"
 import { interfaceArgument, interfaceCall, interfacePropertyGet, interfacePropertySet, storeInterface } from "./interfaces.js"
@@ -63,6 +63,17 @@ const thisPlace = (type: FbType, span: Span): Place => ({ slot: 0, path: [], typ
 /** What a call already holds: its instance, each in-out bound to a place, and the place each copy is written back to. The
  *  SUPER^ and FB body calls passed only the places, so `SUPER^(a := n, b := n)` copied n twice (review of the copy-back). */
 // an in-frame binding lends nothing — it is a path into the instance, which is held already
+/**
+ * The FB instance a call runs on: the place itself, or — for a REFERENCE TO or POINTER TO an FB — the one it points at
+ * (conformance `xo_reference_to_fb_call`: `chosen REF= right`, then `chosen(throttle := 7)` and `chosen.Boost()` both run
+ * on `right`, which ends at 214 while `left` stays 0). Without this a reference to an FB was `stmt-call_stmt` for the
+ * body call and `call-method` for the METHOD — the place resolved, but only its own type was looked at.
+ */
+function instancePlace(lw: Lowering, place: Place, span: Span): Place | undefined {
+  if (place.type.kind !== "reference" && place.type.kind !== "pointer") return place
+  return storageOf(lw, place.type.target).kind === "function_block" ? pointeePlace(lw, place, undefined, span) : place
+}
+
 const holding = (instance: Place | undefined, bindings: readonly (IrBinding | InFrame | undefined)[]): Place[] => [
   ...(instance === undefined ? [] : [instance]),
   ...bindings.flatMap((b) => (b === undefined || isInFrame(b) ? [] : "kind" in b ? (b.back === undefined ? [] : [b.back]) : [b])),
@@ -686,7 +697,8 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     routine = calledRoutine(lw, sym, frame, call.span, `SUPER_${sym.owner.name}_${sym.name}`, call)
     instance = thisPlace(frame, callee.base.span)
   } else if (callee.kind === "member") {
-    const base = lowerPlace(lw, callee.base)
+    const named = lowerPlace(lw, callee.base)
+    const base = named === undefined ? undefined : instancePlace(lw, named, call.span)
     if (base === undefined) return undefined
     // through an interface: the method of whichever instance it holds (conformance `itf_call_dispatches_on_instance`)
     if (base.type.kind === "interface") return interfaceCall(lw, base, call, callee.member.name)
@@ -1089,7 +1101,8 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
       const value = lowerInvoke(lw, call)
       return value && [{ kind: "eval", value, span: call.span }]
     }
-    const base = lowerPlace(lw, callee.base)
+    const named = lowerPlace(lw, callee.base)
+    const base = named === undefined ? undefined : instancePlace(lw, named, call.span)
     if (base === undefined) return undefined
     const layout = base.type.kind === "function_block" ? lw.layouts.get(base.type.name.toUpperCase()) : undefined
     // `inst.M(…)` / `inst.A()` — anything that is not an instance held in a field is a METHOD or ACTION
@@ -1098,7 +1111,8 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
       return value && [{ kind: "eval", value, span: call.span }]
     }
   }
-  const instance = lowerPlace(lw, callee)
+  const named = lowerPlace(lw, callee)
+  const instance = named === undefined ? undefined : instancePlace(lw, named, call.span)
   if (instance === undefined) return undefined
   if (instance.type.kind !== "function_block") return lw.bail("stmt-call_stmt", "a call of something that is not an FB instance", call.span)
   if (inGlobals(lw, instance)) return lw.bail("call-global-instance", `${instance.type.name} is called on an instance declared in a GVL`, call.span)

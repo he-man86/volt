@@ -1108,6 +1108,40 @@ END_PROGRAM
     expect(noManifest.diagnostics.map((d) => d.code)).toContain("enum-value")
   })
 
+  // Found by the cross-object fixture batch (2026-09-16), each a construct the single-object catalog never held.
+  // `xo_reference_to_fb_call`: a REFERENCE TO an FB is called, and its METHOD run, on what it points at — the place
+  // resolved, but every call path looked at the reference's OWN type (`stmt-call_stmt`, then `call-method`).
+  test("a REFERENCE TO an FB is called, and its METHOD run, on the instance it points at", () => {
+    const source =
+      "PROGRAM P\nVAR u : FB_U; END_VAR\nu();\nEND_PROGRAM\n" +
+      "FUNCTION_BLOCK FB_Engine\nVAR_INPUT throttle : INT; END_VAR\nVAR revs : INT; END_VAR\nrevs := revs + throttle;\nEND_FUNCTION_BLOCK\n" +
+      "METHOD Boost : INT\nrevs := revs + 100;\nBoost := revs;\nEND_METHOD\n" +
+      "FUNCTION_BLOCK FB_U\nVAR left : FB_Engine; right : FB_Engine; chosen : REFERENCE TO FB_Engine; boosted : INT; END_VAR\n" +
+      "chosen REF= right;\nchosen(throttle := 7);\nboosted := chosen.Boost();\nEND_FUNCTION_BLOCK\n"
+    const runner = run(ir(source, "P"))
+    runner.scan()
+    runner.scan()
+    // two scans of 7 then +100, all on `right`; `left` is never touched (conformance `xo_reference_to_fb_call`: 214)
+    expect([runner.get("u.right.revs"), runner.get("u.boosted"), runner.get("u.left.revs")]).toEqual([214n, 214n, 0n])
+  })
+
+  // `xo_interface_array_dispatch`: an ARRAY of interfaces, written per element and called through a runtime index.
+  // An interface place was keyed by the variable or an FB field only, so an ELEMENT had no key (`interface-place`).
+  test("an ARRAY of interfaces holds one instance per element and dispatches on the tag the element holds", () => {
+    const source =
+      "PROGRAM P\nVAR a : FB_Add; d : FB_Dbl; ops : ARRAY[1..2] OF ITF_Op; i : INT; total : INT; END_VAR\n" +
+      "ops[1] := a;\nops[2] := d;\ntotal := 1;\nFOR i := 1 TO 2 DO\n\ttotal := ops[i].Apply(value := total);\nEND_FOR\nEND_PROGRAM\n" +
+      "INTERFACE ITF_Op\nMETHOD Apply : INT\nVAR_INPUT value : INT; END_VAR\nEND_METHOD\nEND_INTERFACE\n" +
+      "FUNCTION_BLOCK FB_Add IMPLEMENTS ITF_Op\nVAR calls : INT; END_VAR\nEND_FUNCTION_BLOCK\n" +
+      "METHOD Apply : INT\nVAR_INPUT value : INT; END_VAR\ncalls := calls + 1;\nApply := value + 10;\nEND_METHOD\n" +
+      "FUNCTION_BLOCK FB_Dbl IMPLEMENTS ITF_Op\nVAR calls : INT; END_VAR\nEND_FUNCTION_BLOCK\n" +
+      "METHOD Apply : INT\nVAR_INPUT value : INT; END_VAR\ncalls := calls + 1;\nApply := value * 2;\nEND_METHOD\n"
+    const runner = run(ir(source, "P"))
+    runner.scan()
+    // 1 -> the adder's 11 -> the doubler's 22, each implementation called once (conformance `xo_interface_array_dispatch`)
+    expect([runner.get("total"), runner.get("a.calls"), runner.get("d.calls")]).toEqual([22n, 1n, 1n])
+  })
+
   test("lowering never throws, whatever it is handed", () => {
     for (const src of ["", "PROGRAM P END_PROGRAM", wrap("iCount := ptr^;", "iCount : INT;\n  ptr : POINTER TO INT;")])
       expect(() => lowerSource(src)).not.toThrow()

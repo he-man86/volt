@@ -35,7 +35,12 @@ export function checkNonCallableCall(ctx: CheckContext, out: DiagnosticItem[]): 
         return
       }
       // A value whose type is a KNOWN non-callable kind → C0035. An unknown/library/FB type → skip (zero-FP).
-      if (NON_CALLABLE_TYPE.has(inferExprType(e.callee, scope, ctx.project).kind))
+      // A REFERENCE TO an FB IS callable — `chosen REF= inst; chosen(throttle := 7)` builds and runs (conformance
+      // `xo_reference_to_fb_call`) — so a reference or a pointer is judged by what it points AT, not by being one.
+      // *Why missed:* no fixture ever called through one; every REFERENCE TO case pinned a declaration or a read.
+      const type = inferExprType(e.callee, scope, ctx.project)
+      const target = type.kind === "pointer" || type.kind === "reference" ? type.target : type
+      if (NON_CALLABLE_TYPE.has(target.kind))
         out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "invalid-call-target", message: ctx.messages.callTargetExpected(calleeName(e.callee)) })
     })
   }

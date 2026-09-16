@@ -42,6 +42,7 @@ import { INTERFACE_CALL_TESTS } from "./interface-calls.js"
 import { DECLARATION_LIFETIME_TESTS } from "./declaration-lifetimes.js"
 import { INOUT_CONSTANT_TESTS } from "./inout-constant.js"
 import { CALL_SHAPE_TESTS } from "./call-shapes.js"
+import { CROSS_OBJECT_TESTS } from "./cross-object.js"
 
 export interface CategoryGroup {
   name: string
@@ -49,6 +50,7 @@ export interface CategoryGroup {
 }
 
 export const CATEGORIES: readonly CategoryGroup[] = [
+  { name: "cross-object", tests: CROSS_OBJECT_TESTS },
   { name: "pragma", tests: PRAGMA_TESTS },
   { name: "pragma-tc", tests: PRAGMA_TC_TESTS },
   { name: "lifecycle", tests: LIFECYCLE_TESTS },
