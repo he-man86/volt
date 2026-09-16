@@ -67,6 +67,15 @@ export function rustType(t: Type): string {
 function inoutType(slot: { type: Type; readOnly?: boolean }, name: string): { param: string; generics: string[] } {
   const t = slot.type
   const borrow = slot.readOnly === true ? "&" : "&mut "
+  // A STRING VAR_IN_OUT binds a string of ANY capacity — `VAR_IN_OUT text : STRING` takes a STRING(12) (conformance
+  // `xo4_inout_constant_chain`), and lowering has already given the sizeless one its 80, so the declared number cannot
+  // be told from a bound one here. The parameter is generic over the capacity, which is what the interpreter does by
+  // binding the caller's place. ponytail: a store into a SIZED string in-out then truncates at the CALLER's capacity,
+  // not the callee's — unmeasured, and the interpreter has always done the same, so the two backends agree.
+  if (t.kind === "elementary" && t.elem.family === "string") {
+    const n = `N_${name.toUpperCase()}`
+    return { param: `${name}: ${borrow}${stringType(t).name}<${n}>`, generics: [`const ${n}: usize`] }
+  }
   if (t.kind !== "array" || t.bounds !== undefined) return { param: `${name}: ${borrow}${rustType(t)}`, generics: [] }
   const generics = t.dims.slice(1).map((_, d) => `N_${name.toUpperCase()}_${d + 2}`)
   const inner = generics.reduceRight((element, n) => `[${element}; ${n}]`, rustType(t.element))
@@ -541,7 +550,13 @@ class Printer {
         const field = this.place(s.target, slots)
         const bit = s.target.path.at(-1)
         if (bit?.kind !== "bit") {
-          this.push(`${field} = ${this.expr(s.value, slots)};`, indent, s.span)
+          // A string stored INTO a place whose capacity is a GENERIC — a STRING VAR_IN_OUT (`inoutType`) — cannot name
+          // that capacity, in a turbofish or in a literal's own type, so the copy into it is left for Rust to infer
+          // from the target. Harmless where the capacity is a number: `to()` is the same truncating copy.
+          const into = s.target.type
+          const value = this.expr(s.value, slots)
+          const copied = into.kind === "elementary" && into.elem.family === "string" ? `${value}.to()` : value
+          this.push(`${field} = ${copied};`, indent, s.span)
           return
         }
         // a typed one — `1i16 << 15` is -32768, exactly the two's complement bit the IDE sets. The place is named once,
