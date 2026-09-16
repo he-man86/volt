@@ -84,10 +84,23 @@ export function lowerUnit(
   const asInstance = unit.kind === "function_block" || ownMembers
   if (asInstance) body = rootInstance(lowering, unit)
   else {
-    // A PROGRAM's VAR_IN_OUT is the caller's variable, bound for a call — it lowered as a field the POU owned (review
-    // 2026-09-15). Refused, as a root FB's is (`root-inout`).
-    const inout = unit.varSections.find((s) => s.sectionKind === "VAR_IN_OUT")
-    if (inout !== undefined) return { diagnostics: [{ code: "root-inout", message: `${unit.name.text} has VAR_IN_OUT, which only a caller binds`, span: inout.span }] }
+    // A PROGRAM's VAR_IN_OUT is the caller's variable — and a root has no caller, so the harness owns it, as a root FB's
+    // in-outs are owned beside its instance (`rootInstance`). `declareVars` gives it an ordinary slot. Only an `ARRAY[*]`
+    // stays refused: its size comes from the caller's array, and there is none.
+    const open = unit.varSections
+      .filter((s) => s.sectionKind === "VAR_IN_OUT")
+      .flatMap((s) => s.decls)
+      .find((d) => openDims(lowering.resolve(d.type)) > 0)
+    if (open !== undefined)
+      return {
+        diagnostics: [
+          {
+            code: "root-inout",
+            message: `${unit.name.text} has the ARRAY[*] VAR_IN_OUT ${open.names.map((n) => n.text).join(", ")}, whose size only a caller's array gives`,
+            span: open.span,
+          },
+        ],
+      }
     declareVars(lowering, unit.varSections)
     const parsed = parseActive(unit.body)
     if (!parsed.ok)
@@ -435,18 +448,28 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
  * An FB lowered on its own runs as what it only ever is — an instance: the POU holds one, named as the FB, and each scan
  * calls it. Its body then sees THIS^, its bases' fields, SUPER^ and its own methods exactly as a called instance's does
  * (phase 3½). It was lowered as if it were a PROGRAM, where none of those exist, so every derived FB the corpus holds
- * stopped at its `SUPER^()` (128 of them). An FB with VAR_IN_OUT is refused: only a caller binds one.
+ * stopped at its `SUPER^()` (128 of them).
+ *
+ * Its VAR_IN_OUT is the CALLER's variable, and a root has no caller — so the harness is the caller: one variable per
+ * in-out, owned by the POU frame beside the instance and bound to every scan's call. That is the same binding a real
+ * caller makes (the recorded semantics are unchanged: the callee reads and writes the caller's storage), and it is what
+ * a test needs — write the variable, run a scan, read it back. An `ARRAY[*]` has no size to own, so it stays refused.
  */
 function rootInstance(lw: Lowering, unit: Extract<TopLevel, { kind: "function_block" | "program" }>): IrStmt[] {
   const type = storageOf(lw, resolveNamedType(unit.name.text, lw.project))
   const layout = type.kind === "function_block" ? calledLayout(lw, type.name, unit.span) : undefined
   if (layout === undefined) return []
-  if ((layout.inouts ?? []).length > 0) {
-    lw.bail("root-inout", `${unit.name.text} has VAR_IN_OUT, which only a caller binds`, unit.span)
+  const open = (layout.inouts ?? []).find((s) => openDims(s.type) > 0)
+  if (open !== undefined) {
+    lw.bail("root-inout", `${unit.name.text} has the ARRAY[*] VAR_IN_OUT ${open.name}, whose size only a caller's array gives`, unit.span)
     return []
   }
+  const inouts: Place[] = (layout.inouts ?? []).map((slot) => {
+    lw.slot({ ...unit.name, text: slot.name }, slot.type, "VAR")
+    return { slot: lw.frame.length - 1, path: [], type: slot.type, span: unit.span }
+  })
   lw.slot(unit.name, type, "VAR")
-  return [{ kind: "call", instance: { slot: lw.frame.length - 1, path: [], type, span: unit.span }, fb: layout.name, inouts: [], span: unit.span }]
+  return [{ kind: "call", instance: { slot: lw.frame.length - 1, path: [], type, span: unit.span }, fb: layout.name, inouts, span: unit.span }]
 }
 
 /** A referenced library's materialized declaration file — `uri` must keep its `Library Manager/<library>/` path. */

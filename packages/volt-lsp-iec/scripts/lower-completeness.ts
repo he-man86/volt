@@ -47,8 +47,8 @@ let declOnlyLowered = 0
 let separateBodies = 0
 let slots = 0
 let statements = 0
-/** blocking code → how many statement-bearing POUs it stopped, and where. */
-const blockers = new Map<string, { pous: number; examples: string[] }>()
+/** blocking code → how many statement-bearing POUs it stopped, how many it stopped ALONE, and where. */
+const blockers = new Map<string, { pous: number; sole: number; examples: string[] }>()
 
 // One symbol table per corpus PROJECT, as the IDE compiles it. A table per FILE made every type and global declared in
 // another file unresolvable: it reported 16 `type-unknown` POUs where 7 are real, and hid 6 `case-label` blockers
@@ -99,9 +99,13 @@ for (const projectDir of projects) {
       if (!hasCode) continue // a declaration-only POU's blockers are not the work list
       // One POU counts once per DISTINCT blocking construct — otherwise a loop body with 40 calls would
       // drown out a construct that blocks 40 different projects.
-      for (const code of new Set(diagnostics.map((d) => d.code))) {
-        const entry = blockers.get(code) ?? { pous: 0, examples: [] }
+      const codes = new Set(diagnostics.map((d) => d.code))
+      for (const code of codes) {
+        const entry = blockers.get(code) ?? { pous: 0, sole: 0, examples: [] }
         entry.pous++
+        // Most blocked POUs are blocked by SEVERAL constructs, so `pous` is reach, not gain: clearing the construct
+        // that reaches the most POUs can lower none of them. `sole` is what building it would actually add today.
+        if (codes.size === 1) entry.sole++
         if (entry.examples.length < 3) entry.examples.push(relative(CORPUS, file))
         blockers.set(code, entry)
       }
@@ -126,10 +130,11 @@ console.log(`  blocked:         ${withCode - withCodeLowered} (${pct(withCode - 
 console.log(`declaration-only:  ${declOnly} (lowered ${declOnlyLowered}) — real, but they execute nothing`)
 console.log(`METHOD/ACTION:     ${separateBodies} bodies not reachable yet (they share their FB's frame)`)
 console.log("")
-console.log("what would unblock the most POUs-with-a-body, most first:")
-const ranked = [...blockers].sort((a, b) => b[1].pous - a[1].pous).slice(0, top)
+console.log("blocked POUs-with-a-body per construct — `reach` stopped by it, `sole` it is the ONLY blocker of:")
+const ranked = [...blockers].sort((a, b) => b[1].sole - a[1].sole || b[1].pous - a[1].pous).slice(0, top)
 const width = Math.max(4, ...ranked.map(([code]) => code.length))
-for (const [code, { pous: n, examples }] of ranked)
+console.log(`  ${"construct".padEnd(width)}  reach   pct   sole  example`)
+for (const [code, { pous: n, sole, examples }] of ranked)
   console.log(
-    `  ${code.padEnd(width)}  ${String(n).padStart(5)}  ${pct(n, withCode).padStart(5)}%  ${examples[0] ?? ""}`,
+    `  ${code.padEnd(width)}  ${String(n).padStart(5)}  ${pct(n, withCode).padStart(5)}%  ${String(sole).padStart(4)}  ${examples[0] ?? ""}`,
   )

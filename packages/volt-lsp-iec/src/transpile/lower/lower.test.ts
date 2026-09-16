@@ -89,7 +89,7 @@ test("a call through an interface runs the instance it holds — a store later i
 // as plain storage — which the simulator agrees with (conformance `operand_hw_address_marker`) — even where its address
 // aliases another variable's, or one FB field's address is shared by several instances. Why missed: no running fixture
 // declares any of these; the declaration fixtures only prove they compile, and the one AT case holds two apart.
-test("an AT variable is plain storage unless its address aliases another; a root PROGRAM's VAR_IN_OUT is refused", () => {
+test("an AT variable is plain storage unless its address aliases another; a root PROGRAM owns its VAR_IN_OUT", () => {
   const codes = (source: string) => lowerSource(source, "P").diagnostics.map((d) => d.code)
   const runner = run(ir("PROGRAM P\nVAR flag AT %MX0.0 : BOOL; reg AT %MW10 : WORD; END_VAR\nreg := reg + 1;\nflag := reg = 1;\nEND_PROGRAM\n", "P"))
   runner.scan()
@@ -100,7 +100,13 @@ test("an AT variable is plain storage unless its address aliases another; a root
   const fb = "FUNCTION_BLOCK FB_At\nVAR q AT %QW4 : WORD; END_VAR\nq := q + 1;\nEND_FUNCTION_BLOCK\n"
   expect(codes(`PROGRAM P\nVAR one : FB_At; END_VAR\none();\nEND_PROGRAM\n${fb}`)).toEqual([])
   expect(codes(`PROGRAM P\nVAR one : FB_At; two : FB_At; END_VAR\none();\ntwo();\nEND_PROGRAM\n${fb}`)).toEqual(["var-at-instances"])
-  expect(codes("PROGRAM P\nVAR_IN_OUT shared : INT; END_VAR\nshared := shared + 1;\nEND_PROGRAM\n")).toEqual(["root-inout"])
+  // a root PROGRAM's VAR_IN_OUT: no caller, so the harness owns it — an ordinary variable a test writes and reads
+  const root = run(ir("PROGRAM P\nVAR_IN_OUT shared : INT; END_VAR\nshared := shared + 1;\nEND_PROGRAM\n", "P"))
+  root.scan()
+  root.scan()
+  expect(root.get("shared")).toEqual(2n)
+  // an ARRAY[*] stays refused: its size is the caller's array's, and there is none
+  expect(codes("PROGRAM P\nVAR_IN_OUT many : ARRAY[*] OF INT; END_VAR\nmany[0] := 1;\nEND_PROGRAM\n")).toEqual(["root-inout"])
 })
 
 // Review 2026-09-15 (declarations), recorded first (conformance `life_*`). An FB body's VAR_STAT was a field of each
@@ -1169,10 +1175,21 @@ END_PROGRAM
     )
     expect(diagnostics.map((d) => d.code)).toEqual(["attr-init-unreached"])
   })
-
-  test("an FB with VAR_IN_OUT lowered on its own is refused — only a caller binds its in-out", () => {
-    const { diagnostics } = lowerSource("FUNCTION_BLOCK FB_Io\nVAR_IN_OUT v : INT; END_VAR\nv := v + 1;\nEND_FUNCTION_BLOCK\n", "FB_Io")
-    expect(diagnostics.map((d) => d.code)).toEqual(["root-inout"])
+  // An FB lowered on its own has no caller, so the harness is one: each in-out gets a variable beside the instance, bound
+  // to every scan's call. The oracle for it is the CALLED shape, which is recorded — so the root must give the same values.
+  test("an FB with VAR_IN_OUT lowered on its own runs on harness-owned in-outs, as a caller's binding does", () => {
+    const fb = "FUNCTION_BLOCK FB_Io\nVAR_IN_OUT v : INT; END_VAR\nVAR n : INT; END_VAR\nn := n + 1;\nv := v + n;\nEND_FUNCTION_BLOCK\n"
+    const root = run(ir(fb, "FB_Io"))
+    const called = run(ir(`PROGRAM P\nVAR v : INT; inst : FB_Io; END_VAR\ninst(v := v);\nEND_PROGRAM\n${fb}`, "P"))
+    for (let scan = 0; scan < 3; scan++) {
+      root.scan()
+      called.scan()
+      expect(root.get("v")).toEqual(called.get("v"))
+    }
+    expect(root.get("v")).toEqual(6n)
+    // an ARRAY[*] stays refused: only a caller's array gives it a size
+    const open = lowerSource("FUNCTION_BLOCK FB_Open\nVAR_IN_OUT many : ARRAY[*] OF INT; END_VAR\nmany[0] := 1;\nEND_FUNCTION_BLOCK\n", "FB_Open")
+    expect(open.diagnostics.map((d) => d.code)).toEqual(["root-inout"])
   })
 
   test("an initializer that does not fold is reported, never silently dropped", () => {
