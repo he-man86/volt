@@ -1,4 +1,17 @@
-/** What the CORPUS contains that the FIXTURE catalog does not. Both sides counted the same way, off the same parser. */
+/**
+ * What the CORPUS contains that the FIXTURE catalog does not — the work list for new fixtures.
+ *
+ *   bun run scripts/corpus-census.ts
+ *
+ * The corpus is the LAST check, not the specification (user, 2026-09-16): a construct real projects use belongs in a
+ * fixture, where it is recorded from the IDE and replayed by the LSP and both transpiler backends, rather than merely
+ * compiled once. This walks both sides with the same parser and the same coarse feature keys — a statement or expression
+ * kind, an operator, a literal kind, a called ALL-CAPS name, a declared type or section, an `{attribute '…'}` — and
+ * prints what only the corpus has, then what the corpus writes often and the fixtures barely.
+ *
+ * The keys are deliberately coarse, so a gap names a CONSTRUCT and not a spelling. A name it reports that turns out to
+ * be a library FB instance (`TON1`, `R_TRIG1`) is not a language gap; everything else is.
+ */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, extname } from "node:path"
 import { parseSource, parseStatements, isGraphicalBody, type ParseResult } from "../src/syntax/index.js"

@@ -36,4 +36,5 @@ it serves `volt.bridge.codesys.<pid>` — pass `VOLT_PIPE=volt.bridge.codesys.<p
 | `probe-projectsettings-effect.ts` | proves a project's `.projectsettings` actually SUPPRESSES diagnostics (per-code delta, settings on vs off) |
 | `parser-completeness.ts` | parser-recovery evidence over the corpus |
 | `lower-completeness.ts` | transpiler coverage over the corpus — what each construct would unblock, ranked |
+| `corpus-census.ts` | what the CORPUS contains that the FIXTURES do not — the work list for new fixtures |
 | `check-layering.ts` | the `bun run lint` gate — fails on an illegal upward layer import |
