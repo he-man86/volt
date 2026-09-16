@@ -65,7 +65,9 @@ export function checkDataRecursion(ctx: CheckContext, out: DiagnosticItem[]): vo
       span: name.span,
       source: SOURCE,
       code: "data-recursion",
-      message: ctx.messages.dataRecursion(cycle.map((k) => graph.get(k)!.display).join(" -> ")),
+      // the IDE prints the type UPPER-CASED, whatever the declaration wrote (conformance `cc4_data_recursion`:
+      // "Data recursion: DUT_C4_NODE -> DUT_C4_NODE")
+      message: ctx.messages.dataRecursion(cycle.map((k) => graph.get(k)!.display.toUpperCase()).join(" -> ")),
     })
   }
 }

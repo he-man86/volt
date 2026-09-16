@@ -12,7 +12,12 @@
 
 // Attribute names accepted after `{attribute '…'}` (CODESYS + shared), plus alias spellings.
 const CODESYS_ATTRIBUTES: readonly string[] = [
+  // `abstract` and `deprecated` were missing, so every use warned "The attribute … is unknown and will be ignored" —
+  // a false positive the IDE never emits, and on `abstract` it also hid the IDE's own "The ABSTRACT keyword is
+  // missing" (conformance `cc4_not_instantiable`, `cc4_obsolete_and_deprecated`).
+  "abstract",
   "analysis",
+  "deprecated",
   "call_after_global_init_slot",
   "call_after_init",
   "call_after_online_change_slot",

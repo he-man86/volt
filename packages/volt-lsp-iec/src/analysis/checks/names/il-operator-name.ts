@@ -20,6 +20,7 @@ import { stmtExprs, walkExpr, walkStatements, type Span } from "../../../syntax/
 import { bodies, forEachDecl } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { elementaryType } from "../../../types/index.js"
 
 const IL_OPERATOR_NAMES: ReadonlySet<string> = new Set([
   "r", "s", "ld", "ldn", "st", "stn", "ret", "retc", "retcn", "jmpc", "jmpcn", "cal", "calcn", "andn", "orn", "xorn",
@@ -30,7 +31,20 @@ export function checkIlOperatorName(ctx: CheckContext, out: DiagnosticItem[]): v
     if (!IL_OPERATOR_NAMES.has(text.toLowerCase())) return
     out.push({ severity: "error", span, source: SOURCE, code: "il-operator-name", message: ctx.messages.unexpectedToken(text) })
   }
-  for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) for (const name of decl.names) flag(name.text, name.span)
+  // An elementary TYPE name is reserved the same way, and fails the same way: `bit : BOOL;` is
+  // `Unexpected token 'bit' found`, echoing the name as written, and so is `byte : INT;` (conformance
+  // `cc4_type_name_bit_as_variable`, `cc4_type_name_byte_as_variable`). The lexer reads a type name the parser does not
+  // treat as a keyword — BIT and BYTE among them — as an identifier, so the declaration was accepted. DECLARATIONS
+  // only: a type name in an expression is `type-as-value`'s, which has its own recorded wording.
+  const reservedType = (text: string, span: Span): void => {
+    if (elementaryType(text) === undefined || IL_OPERATOR_NAMES.has(text.toLowerCase())) return
+    out.push({ severity: "error", span, source: SOURCE, code: "il-operator-name", message: ctx.messages.unexpectedToken(text) })
+  }
+  for (const { decl } of forEachDecl(ctx.parseResult, ctx.project))
+    for (const name of decl.names) {
+      flag(name.text, name.span)
+      reservedType(name.text, name.span)
+    }
   // Bare identifiers only: `S=`/`R=` are operator tokens, and a member name (`fb.S`) was not measured.
   for (const { statements } of bodies(ctx.parseResult.units, ctx.project))
     walkStatements(statements, (s) => {
