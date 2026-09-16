@@ -21,8 +21,18 @@ export function checkInheritedVariable(ctx: CheckContext, out: DiagnosticItem[])
     if (scope?.baseScope === undefined) continue
 
     // Map every inherited variable name → the nearest base FB that declares it (project bases only).
+    // The walk is cycle-guarded: `A EXTENDS B` and `B EXTENDS A` both bind, and this looped forever on them — the
+    // whole semantic pass HUNG, which in the editor is every diagnostic stopping until the file is fixed. Every other
+    // chain walk here already carries the guard (`lookupInChain`, `hasUnresolvedBase`); this one did not.
+    // Why missed: no fixture declared a cycle, and real projects do not contain one (conformance
+    // `cc2_circular_inheritance`).
     const inherited = new Map<string, string>()
-    for (let base: Scope | undefined = scope.baseScope; base !== undefined; base = base.baseScope) {
+    // seeded with the FB ITSELF: in a cycle its own scope is reached again as a "base", and every one of its variables
+    // was then reported as duplicating itself ("in function block 'FB_C2_circleA' and in base 'FB_C2_circleA'").
+    // A cycle is `circular-inheritance`'s to report, and it does.
+    const walked = new Set<Scope>([scope])
+    for (let base: Scope | undefined = scope.baseScope; base !== undefined && !walked.has(base); base = base.baseScope) {
+      walked.add(base)
       const baseSym = lookup(ctx.project, base.name)?.symbol
       if (baseSym !== undefined && isLibrarySymbol(baseSym)) break // library base → vars may be hidden; stop
       for (const [name, syms] of base.symbols) if (isVar(syms) && !inherited.has(name)) inherited.set(name, base.name)

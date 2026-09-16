@@ -89,7 +89,18 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   // NOT divergences any more: the check reads the slot and emits the COMPILER'S wording for it
   // (`Expression expected instead of '?'` for an operand/pin/instance, `The assignment target is not
   // specified.` for a coil target), so they match on text like every other fixture.
-  codesys: new Set<string>(),
+  // Three checks the LSP emits that CODESYS does NOT — found by giving the untriggered checks their first fixtures
+  // (2026-09-16). Each is recorded here with what the IDE says INSTEAD, because deleting a check on one measurement
+  // is a decision, not a cleanup: each may still be right on TwinCAT, or in a shape this fixture does not reach.
+  //   `cc2_call_recursion`   — the LSP says "Call Recursion: F_C2_loop -> F_C2_loop"; CODESYS says the name is not
+  //                            callable there at all ("Program name, function or function block instance expected
+  //                            instead of 'F_C2_loop'") plus the conversion error that follows.
+  //   `cc2_type_name_…`      — the LSP says "METHOD 'Value' referenced without parentheses '()'"; CODESYS says
+  //                            "Cannot convert type 'VALUE' to type 'INT'". (Its other error, the type name used as a
+  //                            value, the LSP matches exactly.)
+  //   `cc2_var_in_interface` — the LSP says "Variable declarations are not allowed in interfaces"; CODESYS BUILDS it,
+  //                            reporting nothing.
+  codesys: new Set<string>(["cc2_call_recursion", "cc2_type_name_and_method_without_parens", "cc2_var_in_interface"]),
 }
 
 // Cross-fixture declaration context: every fixture's interfaces/DUTs/GVLs and FBs (with their standalone

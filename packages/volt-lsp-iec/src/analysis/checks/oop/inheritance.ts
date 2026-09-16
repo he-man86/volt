@@ -15,7 +15,23 @@ import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { nameResolves } from "../../resolution.js"
 
+/** The EXTENDS chain from `start` back to `start`, or undefined when it ends or leaves the project. */
+function cycleFrom(start: string, ctx: CheckContext): string[] | undefined {
+  const declared = new Map<string, string>()
+  for (const u of ctx.parseResult.units) if (u.kind === "function_block" && u.extends !== undefined) declared.set(u.name.text.toUpperCase(), u.extends.text)
+  const path: string[] = [start]
+  const seen = new Set([start.toUpperCase()])
+  for (let next = declared.get(start.toUpperCase()); next !== undefined; next = declared.get(next.toUpperCase())) {
+    if (next.toUpperCase() === start.toUpperCase()) return path
+    if (seen.has(next.toUpperCase())) return undefined // a cycle that does not include `start` — its own FB reports it
+    seen.add(next.toUpperCase())
+    path.push(next)
+  }
+  return undefined
+}
+
 export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void {
+  const reported = new Set<string>()
   for (const unit of ctx.parseResult.units) {
     if (unit.kind !== "function_block") continue
     // A library-provided FB's own EXTENDS/IMPLEMENTS is the library's concern — its base may be another
@@ -24,14 +40,23 @@ export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void
     if (sym !== undefined && isLibrarySymbol(sym)) continue
     const scope = scopeForUnit(ctx.project, unit) ?? ctx.project
     if (unit.extends !== undefined) {
-      if (unit.extends.text === unit.name.text) {
+      // An INDIRECT cycle too — `A EXTENDS B` with `B EXTENDS A` — which CODESYS reports as the whole path
+      // (conformance `cc2_circular_inheritance`: "FB_C2_circleA -> FB_C2_circleB -> FB_C2_circleA"). Only the direct
+      // self-cycle was found, so an indirect one fell through to the checks below and came out as nonsense: a
+      // duplicate-variable error naming the FB as its OWN base. Reported ONCE per cycle, at the first FB of it in this
+      // file, as the IDE reports it once for the chain it compiled.
+      const cycle = cycleFrom(unit.name.text, ctx)
+      if (cycle !== undefined && !reported.has(cycle[0]!.toUpperCase())) {
+        for (const name of cycle) reported.add(name.toUpperCase())
         out.push({
           severity: "error",
           span: unit.extends.span,
           source: SOURCE,
           code: "circular-inheritance",
-          message: ctx.messages.circularInheritance(`${unit.name.text} -> ${unit.name.text}`),
+          message: ctx.messages.circularInheritance([...cycle, cycle[0]!].join(" -> ")),
         })
+      } else if (cycle !== undefined) {
+        continue
       } else if (!nameResolves(unit.extends.text, scope, ctx.project, ctx.references)) {
         out.push({
           severity: "error",
