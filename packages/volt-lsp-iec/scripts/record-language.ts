@@ -5,7 +5,8 @@
  *   VOLT_VENDOR=codesys VOLT_VENDOR=codesys bun run scripts/record-language.ts        # CODESYS
  *   VOLT_VENDOR=twincat VOLT_VENDOR=tc       bun run scripts/record-language.ts        # TwinCAT
  *
- * Each fixture is recorded ISOLATED (push its unit(s) → instantiate in PLC_PRG → build → capture → restore),
+ * Each fixture is recorded ISOLATED (push its unit(s) AND every fixture it depends on → instantiate in PLC_PRG →
+ * build → capture → restore),
  * so no cross-fixture batch short-circuit can drop diagnostics. Multi-unit fixtures (e.g. a struct + FB) are
  * SPLIT into one bridge item per top-level unit (see splitItems). Writes to `expected-<vendor>.new.json` by
  * default (non-destructive) + auto-diffs vs committed; `--write` adopts it; `RECORD_ONLY=a,b` records just
@@ -15,6 +16,7 @@
 import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
+import { withDependencies } from "../test/conformance/support/fixture-units.js"
 import { parseSource } from "../src/syntax/index.js"
 import { plcPrgSource } from "../test/conformance/support/plc-prg.js"
 import { call } from "./bridge.js"
@@ -82,7 +84,11 @@ let done = 0
 const ONLY = process.env.RECORD_ONLY ? new Set(process.env.RECORD_ONLY.split(",")) : undefined
 for (const t of ALL_TESTS) {
   if (t.recorderSkip || (ONLY && !ONLY.has(t.name))) continue
-  const items = splitItems(t.source, t.pouName)
+  // A fixture may use what ANOTHER fixture declares — a DUT it holds, a GVL it reads through VAR_EXTERNAL, a base FB —
+  // exactly as the replay's cross-fixture project lets it. Those must be in the IDE too, or the build records nothing
+  // but the fallout of their absence ("Unknown type: 'DUT_XO_tally'"), which is not the fixture's ground truth at all.
+  // `withDependencies` names them, dependencies first, as the execution recorder already does.
+  const items = [...new Map(withDependencies(t, ALL_TESTS).flatMap((f) => splitItems(f.source, f.pouName)).map((it) => [it.wire, it])).values()]
   try {
     await pushOps(items.map((it) => ({ op: "set", name: it.wire, toFolder: plcFolder, sourceText: it.src, ifVersion: null })))
     if (t.plcPrgVar !== undefined || t.plcPrgBody !== undefined) {

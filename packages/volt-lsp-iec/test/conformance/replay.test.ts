@@ -187,6 +187,10 @@ for (const { vendor, filename, floor } of RECORDINGS) {
       const ide = ideMsgs(rec.diagnostics)
       const ideSet = new Set(ide)
       for (const m of lsp) if (!ideSet.has(m)) falsePositives.push(`${test.name}: LSP-only ${m}`)
+      // A fixture the LSP deliberately does not answer yet — the reason, with its date, is on the fixture — claims no
+      // agreement. Its FALSE POSITIVES are still checked, just above: a deferral says "we do not emit this", never
+      // "anything we emit here is fine".
+      if (test.deferred?.lsp !== undefined) continue
       if (lsp.length === ide.length && lsp.every((m, k) => m === ide[k])) agree += 1
     }
 
