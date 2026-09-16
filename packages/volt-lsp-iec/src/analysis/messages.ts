@@ -50,6 +50,8 @@ export interface Messages {
   cannotConvert(from: string, to: string): string
   /** An expression the compiler could not type, as it names it in a message (C0032 family). CODESYS SP21. */
   unknownType(expr: string): string
+  /** A member read off something with no members — `'THIS^' is no structured variable` (C0037). CODESYS SP21. */
+  notStructuredVariable(base: string): string
   /** Implicit narrowing (`LREAL`→`REAL`): CODESYS capitalizes "Possible", TwinCAT lowercases it; no period. */
   narrowing(fromType: string, toType: string): string
   /** A same-width signed↔unsigned conversion — WARNING "change of sign". `sign` is "signed"/"unsigned". */
@@ -535,6 +537,7 @@ export function messagesFor(vendor: Vendor): Messages {
     // (both vendors, live-verified) — not a distinct "possibly not convertible" phrasing.
     pointerNotConvertible: (from, to) => `Cannot convert type '${from}' to type '${to}'`,
     notAssignmentTarget: (target) => `'${target}' is no valid assignment target`,
+    notStructuredVariable: (base) => `'${base}' is no structured variable`,
     referenceAssignTarget: () => (tc ? `Reference assign is only allowed to variables of Reference type` : `Reference assign is only allowed to variables of reference type`),
     noEnclosingLoop: () => `No enclosing loop of which to exit`,
     multipleAssignmentNew: () => `Multiple assignments are not allowed for operator '__New'.`,

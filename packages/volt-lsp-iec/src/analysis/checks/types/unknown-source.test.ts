@@ -44,3 +44,25 @@ test("an inference GAP is not a hole — only a name that does not resolve is", 
 test("TwinCAT is unmeasured, so the check stays silent there", () => {
   expect(msgs(fb("y : INT;", "y := nope;"), "twincat")).toEqual([])
 })
+
+test("a hole on the LEFT is not a conversion — and a member read off one has no structure", () => {
+  // `THIS^.x` in a PROGRAM: the LSP resolves it to that program's `x`, the compiler refuses the whole expression
+  // (conformance `fbcall_this_in_program`).
+  const prg = `PROGRAM P\nVAR\nx : INT;\nEND_VAR\nTHIS^.x := THIS^.x + 3;\nEND_PROGRAM`
+  expect(msgs(prg).sort()).toEqual([
+    "'THIS^' is no structured variable",
+    "'THIS^' is no structured variable",
+    "'THIS^.x' is no valid assignment target",
+    "Unknown type: 'THIS^.x'",
+  ])
+})
+
+test("a VAR_EXTERNAL with no global is DROPPED, so its uses carry the hole", () => {
+  // Why missed: the dangling declaration was reported and then the name went on resolving, so six of the ten errors
+  // CODESYS gives for one such name were missing (conformance `cc2_constant_and_external`).
+  const src = `FUNCTION_BLOCK F\nVAR_EXTERNAL\ngNoSuch : INT;\nEND_VAR\nVAR\nn : INT;\nEND_VAR\nn := gNoSuch + 1;\nEND_FUNCTION_BLOCK`
+  expect(msgs(src).sort()).toEqual([
+    "Cannot convert type 'Unknown type: '(gNoSuch + 1)'' to type 'INT'",
+    "Unknown type: 'gNoSuch'",
+  ])
+})

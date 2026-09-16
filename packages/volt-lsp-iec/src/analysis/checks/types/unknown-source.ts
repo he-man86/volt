@@ -27,6 +27,12 @@ import { inferExprType, renderType } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
+/**
+ * The names the compiler refuses OUTRIGHT, so that nothing built on one has a type either, however well the LSP
+ * resolves it: THIS/SUPER out of context, and a VAR_EXTERNAL the project has no global for (which is dropped).
+ */
+const REFUSED_OUTRIGHT: ReadonlySet<string> = new Set(["this-not-allowed", "super-not-allowed", "unresolved-identifier"])
+
 /** The checks whose finding means the expression has NO TYPE, which is the IDE's own reason for a hole. */
 const RESOLUTION_FAILURE: ReadonlySet<string> = new Set([
   "unresolved-identifier", "unknown-member", "deref-non-pointer", "indexing-non-array", "this-not-allowed", "super-not-allowed",
@@ -42,21 +48,26 @@ export function checkUnknownSource(ctx: CheckContext, out: DiagnosticItem[]): vo
   // THIS and SUPER where they are not allowed are refused OUTRIGHT, so nothing built on one has a type either —
   // the LSP resolves `THIS^.x` in a PROGRAM to that program's `x`, and the IDE answers `Unknown type: 'THIS^.x'`
   // (conformance `fbcall_this_in_program`). Every other hole is one the inference already sees.
-  const refused = out.filter((d) => d.code === "this-not-allowed" || d.code === "super-not-allowed").map((d) => d.span)
+  const refused = out.filter((d) => REFUSED_OUTRIGHT.has(d.code)).map((d) => d.span)
   const hole = (e: Expr, scope: Parameters<typeof inferExprType>[1]): boolean =>
     isExplained(e) &&
-    (inferExprType(e, scope, ctx.project).kind === "unknown" || refused.some((s) => s.start >= e.span.start && s.end <= e.span.end))
+    (inferExprType(e, scope, ctx.project).kind === "unknown" ||
+      // a CALL is exempt: its result is the callee's declared return type, which the compiler knows however badly
+      // an argument resolved (`f(undefinedName)` converts fine)
+      (e.kind !== "call" && refused.some((s) => s.start >= e.span.start && s.end <= e.span.end)))
 
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkStatements(statements, (s) => {
       if (s.kind === "assign" && s.op === undefined) {
         const target = inferExprType(s.target, scope, ctx.project)
-        // a hole on the LEFT has no "to type" to name, and the IDE reports it as a bare `Unknown type:` instead
-        if (target.kind !== "unknown" && !hole(s.target, scope) && hole(s.value, scope))
+        // a hole on the LEFT is not a conversion at all — there is nothing to convert INTO, and the IDE says so
+        if (hole(s.target, scope)) push(ctx.messages.notAssignmentTarget(compilerExprText(s.target)), s.target)
+        else if (target.kind !== "unknown" && hole(s.value, scope))
           push(ctx.messages.cannotConvert(ctx.messages.unknownType(compilerExprText(s.value)), renderType(target)), s.value)
       }
       for (const e of stmtExprs(s))
         walkExpr(e, (x) => {
+          if (x.kind === "member" && hole(x.base, scope)) push(ctx.messages.notStructuredVariable(compilerExprText(x.base)), x.base)
           if (x.kind !== "binary") return
           for (const operand of [x.left, x.right]) if (hole(operand, scope)) push(ctx.messages.unknownType(compilerExprText(operand)), operand)
         })
