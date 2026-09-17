@@ -25,6 +25,7 @@ import {
   isGraphicalBody,
   memberAttributes,
   parseSource,
+  parseStatements,
   unitAttributes,
   type TopLevel,
 } from "../../src/syntax/index.js"
@@ -49,9 +50,19 @@ const walk = (d: string): string[] => {
 const isRunnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "function_block" }> =>
   u.kind === "program" || u.kind === "function_block"
 
-/** Every `{file, unit}` whose lowering threw, with the error — empty is the only acceptable answer. */
-function throwsOverCorpus(): string[] {
+/**
+ * THE DOCUMENTED REACH, from `src/transpile/index.ts`. When a change moves these, update BOTH — the number in
+ * `index.ts` is the contract a reader sees, and this is what keeps it true. They are exact rather than a floor
+ * on purpose: a floor lets the documented figure rot quietly upward while still "passing".
+ */
+const DOCUMENTED_BODIES = 304
+const DOCUMENTED_LOWERED = 55
+
+/** One walk, two questions: did anything throw, and how much of the corpus does this backend actually reach. */
+function overCorpus(): { failures: string[]; bodies: number; lowered: number } {
   const failures: string[] = []
+  let bodies = 0
+  let lowered = 0
   const projects = readdirSync(CORPUS).filter((name) => statSync(join(CORPUS, name)).isDirectory())
   for (const projectDir of projects) {
     const files = walk(join(CORPUS, projectDir)).flatMap((file) => {
@@ -80,8 +91,13 @@ function throwsOverCorpus(): string[] {
         const scope = scopeForUnit(project, unit)
         if (scope === undefined) continue
         if (isGraphicalBody(unit.body)) continue // a graphical body is not ST; the network pipeline owns it
+        // the reach denominator is a body with STATEMENTS — a declaration-only POU lowers trivially and
+        // executes nothing, so counting it would flatter the figure
+        const hasCode = parseStatements(unit.body).statements.length > 0
+        if (hasCode) bodies++
         try {
-          lowerUnit(unit, scope, project, attributes)
+          const { pou } = lowerUnit(unit, scope, project, attributes)
+          if (hasCode && pou !== undefined) lowered++
         } catch (error) {
           const name = "name" in unit && unit.name !== undefined ? String((unit.name as { text: string }).text) : "?"
           failures.push(`${relative(CORPUS, file)} :: ${name} — ${(error as Error).message}`)
@@ -89,19 +105,27 @@ function throwsOverCorpus(): string[] {
       }
     }
   }
-  return failures
+  return { failures, bodies, lowered }
 }
 
-describe("lowering is TOTAL — the contract src/transpile/index.ts states", () => {
-  test(
-    "no POU in the 4-project corpus makes lowering throw",
-    () => {
-      const failures = throwsOverCorpus()
-      // the whole list, not a count: a throw names the input that caused it, which is the fix
-      expect(failures).toEqual([])
-    },
-    240_000,
-  )
+describe("the contracts src/transpile/index.ts states, measured over the corpus", () => {
+  // One walk of 29k files, shared by both assertions and done on first use — a `beforeAll` has its own
+  // timeout that an 80-second sweep quietly blows, and the failure it produces names no test.
+  let cached: { failures: string[]; bodies: number; lowered: number } | undefined
+  const result = (): { failures: string[]; bodies: number; lowered: number } => (cached ??= overCorpus())
+
+  test("TOTALITY — no POU in the corpus makes lowering throw", () => {
+    // the whole list, not a count: a throw names the input that caused it, which is the fix
+    expect(result().failures).toEqual([])
+  }, 240_000)
+
+  test("REACH — the subset index.ts documents is the subset that is measured", () => {
+    // If this fails after a deliberate coverage change, update BOTH this constant and the paragraph in
+    // `src/transpile/index.ts`. The documented reach is a contract a reader relies on; a plan for this very
+    // component once justified itself with a figure 470x the real one, which is what this exists to prevent.
+    const { bodies, lowered } = result()
+    expect({ bodies, lowered }).toEqual({ bodies: DOCUMENTED_BODIES, lowered: DOCUMENTED_LOWERED })
+  }, 240_000)
 })
 
 /**

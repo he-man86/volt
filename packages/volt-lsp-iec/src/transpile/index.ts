@@ -19,6 +19,24 @@
  *       not measured yet — compiles, but its behaviour is unrecorded, so it is not guessed: REAL_TO_STRING's digits,
  *                          a WSTRING's named escapes (`string-escape`, `conversion-type`).
  *     `scripts/lower-completeness.ts` counts both; each shrinks only by building the construct or recording a case.
+ *
+ * **The reach contract: a STATED SUBSET, and it is small.** The input contract above says which programs are
+ * *defined*; this says which are *reached*. Measured 2026-09-17 over the 6-project corpus (29,359 files) and
+ * enforced by `test/conformance/lowering-totality.test.ts`, which fails if these numbers rot:
+ *
+ *   - top-level PROGRAM / FUNCTION_BLOCK bodies: **55 of 304 lower (18.1%)**
+ *   - METHOD / ACTION bodies: **56,629, none reachable** — they share their FB's frame, which lowering does not
+ *     model yet, and they are not even in the 304 denominator
+ *   - so of every executable body in the corpus, about **0.10%**
+ *
+ * Real PLC logic lives in methods and actions. This backend therefore executes a SUBSET — enough for the
+ * conformance oracle and for a POU written to be tested, not enough to run a real project — and that is a
+ * statement of fact rather than a roadmap. Growing it belongs to `openspec/changes/transpile-st-to-rust`;
+ * making the subset trustworthy belongs to `production-grade-transpiler`.
+ *
+ * The number is written down because the alternative was demonstrated: a plan for this component justified its
+ * centrepiece with "26,175 corpus files" and the measurement was 55 POUs — the same order of error as claiming a
+ * test suite covers a codebase when it covers one directory.
  */
 export * from "./ir/index.js"
 export * from "./lower/index.js"
