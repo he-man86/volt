@@ -565,6 +565,10 @@ class Printer {
             // through f64 and back, the same path the interpreter takes — `f32::ln` is a different float32 routine
             return `((${args[0]} as f64).${RUST_MATH[e.name]}() as ${rustType(e.type)})`
         }
+        // A BUILTIN THIS DOES NOT PRINT MUST STOP HERE. The inner switch had no default, so an unhandled name fell
+        // OUT of it and straight into `case "unary"` below — which reads `e.operand`, a field a builtin node does
+        // not have. The result was `undefined` spliced into the emitted Rust, for a name nobody had noticed adding.
+        throw new Error(`emit: no Rust for the builtin ${e.name}`)
       }
       case "unary": {
         const operand = this.expr(e.operand, slots)

@@ -502,8 +502,12 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
     const first = parseResult.errors[0]!
     return { diagnostics: [lowerDiagnostic("parse", first.message, first.span)] }
   }
-  const manifests = libraries.flatMap((l) => parseLibraryManifest(l.uri, l.source) ?? [])
-  const declarations = libraries.filter((l) => parseLibraryManifest(l.uri, l.source) === undefined)
+  // ONE parse per library file, not two: this called `parseLibraryManifest` over every file to collect the manifests
+  // and then over every file again to find the ones that are not manifests, so each file was parsed twice to answer
+  // the same question.
+  const parsedManifests = libraries.map((l) => ({ file: l, manifest: parseLibraryManifest(l.uri, l.source) }))
+  const manifests = parsedManifests.flatMap((l) => l.manifest ?? [])
+  const declarations = parsedManifests.filter((l) => l.manifest === undefined).map((l) => l.file)
   // A DECLARATION FILE THAT DOES NOT PARSE IS REPORTED, not built on. The main source's errors return above; a
   // library's or a GVL's were dropped, and the half-parsed file went into the symbol table anyway — so the failure
   // resurfaced downstream wearing someone else's name. A GVL whose `gN : INT := 7` is missing its semicolon reported

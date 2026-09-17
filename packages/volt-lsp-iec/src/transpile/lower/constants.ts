@@ -154,8 +154,7 @@ export function foldConstant(lw: Lowering, e: Expr): IrValue | undefined {
   // an enum value is a constant too — a CASE label `E_Mode.Busy:` or `Busy:`
   const enumValue = (e.kind === "ident_expr" && lw.holds(e.name)) || (e.kind !== "ident_expr" && e.kind !== "member") ? undefined : enumConstant(lw, e)
   if (enumValue?.kind === "const") return enumValue.value
-  const v = constEval(e, lw.scope)
-  return v === undefined ? undefined : v
+  return constEval(e, lw.scope)
 }
 
 /**

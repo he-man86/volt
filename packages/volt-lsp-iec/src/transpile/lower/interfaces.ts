@@ -163,14 +163,22 @@ function tagsOf(lw: Lowering, key: string, seen: ReadonlySet<string> = new Set()
   return tags
 }
 
-/** A finisher: run for each tag the variable may hold that it has not seen, reporting into the root lowering. */
+/**
+ * A finisher: run for each tag the variable may hold that it has not seen, reporting into the root lowering.
+ *
+ * A tag is revisited when its `foreign` flag ESCALATES. `seen` was a set of tags alone, so a tag first reached
+ * through a local store was never looked at again — and `foreign` is exactly what `dispatch` refuses on
+ * (`interface-instance-relative`). A foreign store lowered later could not re-open the question, so the refusal was
+ * silently skipped and the code it guards against was emitted. Both callers build one arm per tag and now say so,
+ * because a revisit must be able to refuse without adding a second arm for the same tag.
+ */
 function onEachTag(lw: Lowering, key: string, each: (tag: number, root: Lowering, foreign: boolean) => void): void {
-  const seen = new Set<number>()
+  const seen = new Map<number, boolean>()
   lw.shared.dispatches.push((root) => {
     const before = lw.diagnostics.length
-    const fresh = [...tagsOf(lw, key)].filter(([tag]) => !seen.has(tag))
+    const fresh = [...tagsOf(lw, key)].filter(([tag, foreign]) => !seen.has(tag) || (foreign && seen.get(tag) === false))
     for (const [tag, foreign] of fresh) {
-      seen.add(tag)
+      seen.set(tag, foreign || (seen.get(tag) ?? false))
       each(tag, root, foreign)
     }
     if (lw !== root) root.diagnostics.push(...lw.diagnostics.slice(before))
@@ -230,7 +238,8 @@ function dispatch(lw: Lowering, ref: Place, type: Type, arm: (instance: Place, f
     const place = lendPlace(root, lw, tag, span)
     if (place === undefined) return
     const call = arm(place, lw.shared.instances[tag - 1]!.fb)
-    if (call !== undefined) arms.push({ tag: BigInt(tag), call })
+    // one arm per tag — a revisit (an escalated `foreign`) is here to refuse, not to add a second
+    if (call !== undefined && !arms.some((a) => a.tag === BigInt(tag))) arms.push({ tag: BigInt(tag), call })
   })
   return { kind: "dispatch", tag: { kind: "load", place: ref, type: ref.type, span }, arms, type, span }
 }
@@ -354,6 +363,8 @@ function queryInto(lw: Lowering, target: Place, v: Extract<Expr, { kind: "call" 
   ]
   const arms: IrArm[] = []
   onEachTag(lw, source.key, (tag) => {
+    // one arm per tag, as in `dispatch` — a revisited tag must not add a second label for the same value
+    if (arms.some((a) => a.labels.some((l) => l.lo === BigInt(tag)))) return
     if (implementsInterface(lw, lw.shared.instances[tag - 1]!.fb.name, wanted))
       arms.push({ labels: [{ lo: BigInt(tag), hi: BigInt(tag) }], body: outcome(BigInt(tag), true), span })
   })
