@@ -205,6 +205,13 @@ export function fit(v: Val, type: Type): Val {
  * integer rounds half AWAY from zero (2.5 → 3, -2.5 → -3) — this used to truncate — and `fit` then wraps an
  * out-of-range result (REAL_TO_INT(40000.0) is -25536); BOOL → numeric is 1/0; numeric → BOOL is "not zero".
  */
+/** A type's elementary name, for a message — `unknown` where it has none. */
+const elemName = (t: Type): string => (t.kind === "elementary" ? t.elem.name : t.kind)
+
+/** An integer target — the only thing a STRING has a measured conversion to, besides REAL. */
+const isInt = (t: Type): boolean =>
+  t.kind === "elementary" && (t.elem.family === "int" || t.elem.family === "bitstring")
+
 export function coerce(v: Val, to: Type, from: Type): Val {
   if (to.kind !== "elementary") return v
   const family = to.elem.family
@@ -224,6 +231,19 @@ export function coerce(v: Val, to: Type, from: Type): Val {
     return m === null ? 0 : Number(m[1])
   }
   if (typeof v === "string") {
+    // …AND ONLY FOR AN INTEGER TARGET. This was a catch-all: any string reaching any non-REAL target was parsed
+    // for leading digits, so a BOOL or a TIME target got a digit parse nobody had measured. Lowering refuses
+    // those conversions today (`conversion-type`, "not measured yet"), which is what kept the guess latent — but
+    // a guess in the ORACLE is the worst place for one, because every other backend is graded against it.
+    //
+    // It is not a hypothetical. `cc6_string_to_bool_and_time` asked CODESYS on 2026-09-17 and the answer is
+    // nothing like a digit parse: STRING_TO_BOOL('TRUE') and ('true') are TRUE, ('True') is FALSE, ('1') is
+    // FALSE, (' TRUE') and ('TRUEX') are TRUE — a prefix match against exactly two spellings, case-uniform. The
+    // digit parse would have answered TRUE for '1' and FALSE for 'TRUE'. Both measurements are in
+    // `codesys.run.json`; implementing them is coverage work and belongs to `transpile-st-to-rust`.
+    //
+    // So: refuse rather than invent. Unreachable today, and if lowering ever lets one through, this says which.
+    if (!isInt(to)) throw new TypeError(`no measured conversion from a STRING to ${elemName(to)}`)
     const m = /^[ \t]*([+-]?)(\d*)/.exec(v)!
     const magnitude = BigInt(m[2] || "0")
     return m[1] === "-" ? -magnitude : magnitude

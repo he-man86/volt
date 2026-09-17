@@ -260,4 +260,48 @@ METHOD Shape : INT
 Shape := 1;
 END_METHOD
 `),
+
+  // ─── what does a STRING convert to, for the targets nobody measured? ───────────────────────────────────────
+  // `interp/values.ts` coerce() has a catch-all: any STRING reaching a non-REAL target is parsed for leading
+  // digits. That is measured for STRING -> integer (`string_conversions*`), and for BOOL and TIME it is a guess
+  // that reached a user as a value. A guess in the ORACLE is the worst place for one, so this asks.
+  fb("cc6_string_to_bool_and_time", "FB_C6_strConv", "STRING converted to BOOL and to TIME — the targets coerce() guesses at",
+    `FUNCTION_BLOCK FB_C6_strConv
+VAR
+	sTrue : STRING := 'TRUE';
+	sFalse : STRING := 'FALSE';
+	sOne : STRING := '1';
+	sZero : STRING := '0';
+	sJunk : STRING := 'abc';
+	sLower : STRING := 'true';
+	sMixed : STRING := 'True';
+	sPadded : STRING := ' TRUE';
+	sSuffix : STRING := 'TRUEX';
+	bFromTrue : BOOL;
+	bFromFalse : BOOL;
+	bFromOne : BOOL;
+	bFromZero : BOOL;
+	bFromJunk : BOOL;
+	bFromLower : BOOL;
+	bFromMixed : BOOL;
+	bFromPadded : BOOL;
+	bFromSuffix : BOOL;
+	sTime : STRING := 'T#1s';
+	sPlain : STRING := '1500';
+	tFromTime : TIME;
+	tFromPlain : TIME;
+END_VAR
+bFromTrue := STRING_TO_BOOL(sTrue);
+bFromFalse := STRING_TO_BOOL(sFalse);
+bFromOne := STRING_TO_BOOL(sOne);
+bFromZero := STRING_TO_BOOL(sZero);
+bFromJunk := STRING_TO_BOOL(sJunk);
+bFromLower := STRING_TO_BOOL(sLower);
+bFromMixed := STRING_TO_BOOL(sMixed);
+bFromPadded := STRING_TO_BOOL(sPadded);
+bFromSuffix := STRING_TO_BOOL(sSuffix);
+tFromTime := STRING_TO_TIME(sTime);
+tFromPlain := STRING_TO_TIME(sPlain);
+END_FUNCTION_BLOCK
+`),
 ]
