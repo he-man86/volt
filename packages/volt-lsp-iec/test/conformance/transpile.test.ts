@@ -349,7 +349,19 @@ describe.skipIf(skipRustSuite())("differential execution — emitted Rust vs COD
       const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
       await Bun.write(file, `${emitted.code}\n${main}`)
       // ST has no dynamic memory, so the Rust needs no `unsafe` — forbidden, so a case needing it fails rather than builds
-      const build = Bun.spawn([rustc!, "--edition", "2021", "-A", "warnings", "-F", "unsafe_code", "-o", exe, file], { stderr: "pipe" })
+      // DENY warnings, with the same three exceptions the crate check makes plus one of its own. This used to be
+      // `-A warnings`, which meant 600+ emitted programs were compiled with no lint checking at all while the
+      // crate check applied real lints to about fifteen — one policy per harness, and the larger one denied
+      // nothing. Measured when it was flipped: 2 of 625 failed, and BOTH were faithful emissions of correct ST
+      // rather than emitter defects (a statement after RETURN, and a SINT loop bound of 127 that rustc reads as
+      // a tautology), which is why those two lints are named here instead of the flip being abandoned.
+      //   dead_code / unused_parens — as the crate check: generated code is not read for style.
+      //   unused_comparisons — a FOR bound AT its type's maximum is a comparison rustc can prove
+      //     (`for_at_type_max`: `i <= 127i8` for a SINT). The comparison is necessary and the loop needs it.
+      const build = Bun.spawn(
+        [rustc!, "--edition", "2021", "-D", "warnings", "-A", "dead_code", "-A", "unused_parens", "-A", "unused_comparisons", "-F", "unsafe_code", "-o", exe, file],
+        { stderr: "pipe" },
+      )
       if ((await build.exited) !== 0)
         return void runs.set(c.name, {
           exit: -1,

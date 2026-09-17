@@ -125,6 +125,34 @@ const RUST_KEYWORDS: ReadonlySet<string> = new Set(
  * bare `snake` was the field name, so a variable named `loop` emitted `pub loop: i16` and `aB` beside `a_b` emitted
  * two `a_b` fields — neither compiles, and no oracle case held such a name (transpiler review 2026-09-14).
  */
+/** Does any block in this body put a statement AFTER a `return`? Only then is the dead tail the ST's own doing,
+ *  and only then does that routine get `#[allow(unreachable_code)]`. */
+function hasStatementAfterReturn(body: readonly IrStmt[]): boolean {
+  const inBlock = (stmts: readonly IrStmt[]): boolean => {
+    for (let i = 0; i < stmts.length; i++) {
+      const s = stmts[i]!
+      if (s.kind === "return" && i < stmts.length - 1) return true
+      for (const nested of nestedBlocks(s)) if (inBlock(nested)) return true
+    }
+    return false
+  }
+  return inBlock(body)
+}
+
+/** Every statement list a statement holds. */
+function nestedBlocks(s: IrStmt): readonly (readonly IrStmt[])[] {
+  switch (s.kind) {
+    case "if":
+      return [s.then, s.else]
+    case "switch":
+      return [...s.arms.map((a) => a.body), s.else]
+    case "loop":
+      return [s.init, s.body, s.step]
+    default:
+      return []
+  }
+}
+
 export function fieldNames(slots: IrPou["slots"], reserved: readonly string[] = []): string[] {
   const used = new Set<string>(reserved)
   return slots.map((slot) => {
@@ -728,8 +756,23 @@ function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[],
   const result = routine.result === undefined ? undefined : localNames[routine.result]!
   const returns = routine.result === undefined ? "" : ` -> ${rustType(routine.locals[routine.result]!.type)}`
   p.push("", 0)
-  // generated locals may go unread or unwritten, and a body that ends in `return` leaves the tail unreachable
-  p.push("#[allow(unused_mut, unused_variables, unused_assignments, unreachable_code, non_snake_case)]", indent)
+  // THE ALLOW LIST IS THE GATE'S BLIND SPOT, so it is only as wide as it has to be. Every generated function
+  // used to carry `unreachable_code` and `non_snake_case` as well, which made `-D warnings` deny almost
+  // nothing — and `unreachable_code` is the class the emitter has ALREADY paid for once (see the note at the
+  // `panic!` arm: it made the match `!`-typed). Measured by dropping each in turn against the crate check and
+  // against CamelCase ST: both come off clean — `rustName` already snake-cases every identifier, and the
+  // struct carries its own `non_camel_case_types`.
+  //
+  // The three that stay are structural, not stylistic. Generated code binds what a body might not read
+  // (`unused_variables`), takes `mut` it might not need (`unused_mut`), and initialises a slot a body then
+  // overwrites (`unused_assignments`) — each verified load-bearing by the same experiment.
+  // …and `unreachable_code` PER ROUTINE, only where the ST itself put a statement after a RETURN. That is legal
+  // ST and CODESYS compiles it (`xo4_return_in_every_routine`), so emitting the dead tail is FAITHFUL and the
+  // warning is rustc noticing something true about the SOURCE rather than about the emitter. Kept narrow so the
+  // lint still bites everywhere else, which is the whole reason the blanket allow came off.
+  const allows = ["unused_mut", "unused_variables", "unused_assignments"]
+  if (hasStatementAfterReturn(routine.body)) allows.push("unreachable_code")
+  p.push(`#[allow(${allows.join(", ")})]`, indent)
   p.push(`pub fn ${routineFnName(routine)}${genericList(typed)}(${params.join(", ")})${returns} {`, indent)
   for (const [i, slot] of routine.locals.entries())
     if (!routine.inputs.includes(i)) p.push(`let mut ${localNames[i]}: ${rustType(slot.type)} = ${p.initOf(slot.type, slot.init)};`, indent + 1)
