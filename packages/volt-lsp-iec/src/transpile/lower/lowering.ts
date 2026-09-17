@@ -71,9 +71,16 @@ export interface Shared {
   /** The FBs whose SUPER^ call binds a base in-out to a place other than that in-out passed on — what `lastBinding`
    *  refuses, as what the instance then holds is not recorded. */
   superRebinds: Set<string>
+  /** Every top-level unit that came from a LIBRARY file rather than from project source — what `isBodylessLibrary`
+   *  asks, so a signature with no statements is refused instead of lowering to a routine that does nothing. */
+  libraryUnits: ReadonlySet<object>
 }
 
-export function newShared(attributes: ReadonlyMap<object, ReadonlySet<string>> = new Map(), root = ""): Shared {
+export function newShared(
+  attributes: ReadonlyMap<object, ReadonlySet<string>> = new Map(),
+  root = "",
+  libraryUnits: ReadonlySet<object> = new Set(),
+): Shared {
   return {
     layouts: new Map(),
     bodies: new Map(),
@@ -90,6 +97,7 @@ export function newShared(attributes: ReadonlyMap<object, ReadonlySet<string>> =
     routineLowerings: new Map(),
     bodyCalls: [],
     superRebinds: new Set(),
+    libraryUnits,
   }
 }
 

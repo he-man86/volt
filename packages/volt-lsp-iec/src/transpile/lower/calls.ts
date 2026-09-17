@@ -323,6 +323,26 @@ function anyArgumentTypes(lw: Lowering, sym: RoutineSymbol, call: Extract<Expr, 
 }
 
 /**
+ * A LIBRARY CALLABLE DECLARED WITHOUT A BODY — refused, not lowered to a routine that does nothing.
+ *
+ * Libraries reach lowering as DECLARATION files: signatures and VAR sections, no statements, because the vendor compiles
+ * the implementation and Volt never sees it. `parseActive` answers an empty statement list for that, and an empty
+ * routine lowers cleanly — so `t1(IN := TRUE)` would run nothing and `t1.Q` would read FALSE forever. That is an
+ * INVENTED meaning rather than a missing one, and it is the same hazard `lowerUnit` already refuses for a graphical
+ * body, for the same stated reason.
+ *
+ * An empty body is legal IEC, so emptiness alone is not the discriminator — PROVENANCE is. A POU written in the project
+ * with no statements genuinely does nothing and must still lower; a library declaration with no statements is one we
+ * cannot implement yet. A vendored library that ships real source has statements and is untouched by this.
+ *
+ * The standard FUNCTIONs (`CONCAT`, `LEFT`, `LEN`, …) never reach here: they are lowered as builtins and answer the
+ * vendor's values, which is why refusing the declarations does not take them with it.
+ */
+function isBodylessLibrary(lw: Lowering, ast: object, statements: readonly unknown[]): boolean {
+  return statements.length === 0 && lw.shared.libraryUnits.has(ast)
+}
+
+/**
  * A METHOD or ACTION run on an instance of `frame`, or a FUNCTION — lowered once per frame, in the instance's fields plus
  * per-call locals. `as` names a routine that is not the one the frame resolves by name (`SUPER^.M()`).
  */
@@ -342,6 +362,8 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     if (isGraphicalBody(ast.body)) return lw.bail("graphical-body", `${name} has a graphical body`, span)
     const parsed = parseActive(ast.body)
     if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${name}'s body did not parse`, span)
+    if (isBodylessLibrary(lw, ast, parsed.statements))
+      return lw.bail("call-library", `${name} is a library declaration without a body`, span)
     const kept = keptVariables(lw, sym, sections, frame, span)
     if (kept === undefined) return undefined
 
@@ -459,6 +481,8 @@ export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol,
     if (isGraphicalBody(part.body)) return lw.bail("graphical-body", `${name} has a graphical body`, span)
     const parsed = parseActive(part.body)
     if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${name}'s body did not parse`, span)
+    if (isBodylessLibrary(lw, ast, parsed.statements))
+      return lw.bail("call-library", `${name} is a library declaration without a body`, span)
     const key = name.toUpperCase()
     const r = routineLowering(lw, scope, frame, sym.owner, key, name)
     const type = storageOf(r, r.resolve(ast.dataType))
@@ -564,6 +588,8 @@ function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: Span): I
     if (isGraphicalBody(unit.body)) return lw.bail("graphical-body", `${unit.name.text} has a graphical body`, span)
     const parsed = parseActive(unit.body)
     if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${unit.name.text}'s body did not parse`, span)
+    if (isBodylessLibrary(lw, unit, parsed.statements))
+      return lw.bail("call-library", `${unit.name.text} is a library declaration without a body`, span)
     const key = name.toUpperCase()
     const r = routineLowering(lw, base.lowering.scope, frame, base.lowering.codeOwner, key)
     declareInOuts(r, inOutSections(chain))
@@ -749,7 +775,11 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     instance = thisPlace(frame, callee.span)
   } else if (callee.kind === "ident_expr") {
     const sym = lookup(lw.scope, callee.name)?.symbol
-    if (sym?.kind !== "function" || libraryOf(sym) !== undefined) return lw.bail("expr-call", `${callee.name} is not a project FUNCTION`, call.span)
+    if (sym?.kind !== "function") return lw.bail("expr-call", `${callee.name} is not a project FUNCTION`, call.span)
+    // A LIBRARY FUNCTION says so, rather than being filed under the generic call gap: its body is the vendor's, exactly
+    // as a library FB's is. The Standard string functions never reach here — `lowerStandardString` claims them first,
+    // which is why gating this does not take CONCAT/LEFT/LEN with it.
+    if (libraryOf(sym) !== undefined) return lw.bail("call-library", `${callee.name} is a library FUNCTION — libraries are not implemented yet`, call.span)
     routine = calledRoutine(lw, sym, undefined, call.span, sym.name, call)
   } else return lw.bail("expr-call", "a call of an expression", call.span)
   if (routine === undefined) return undefined
@@ -981,6 +1011,8 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
   if (isGraphicalBody(unit.body)) return lw.fail(pending, "graphical-body", `${name} has a graphical body`, span)
   const parsed = parseActive(unit.body)
   if (!parsed.ok) return lw.fail(pending, "parse", parsed.firstError ?? `${name}'s body did not parse`, span)
+  if (isBodylessLibrary(lw, unit, parsed.statements))
+    return lw.fail(pending, "call-library", `${name} is a library declaration without a body`, span)
   const nested = pending.lowering
   const before = nested.diagnostics.length
   declareInOuts(nested, inOutSections(chain))
@@ -1153,7 +1185,26 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
   const named = lowerPlace(lw, callee)
   const instance = named === undefined ? undefined : instancePlace(lw, named, call.span)
   if (instance === undefined) return undefined
-  if (instance.type.kind !== "function_block") return lw.bail("stmt-call_stmt", "a call of something that is not an FB instance", call.span)
+  if (instance.type.kind !== "function_block") {
+    // AN UNRESOLVED TYPE IS ITS OWN ANSWER, not "not an FB instance".
+    //
+    // `t1 : TON` types as `unknown` because the standard library's FBs are declarations without bodies — the
+    // vendor compiles them, and `TON.fb` in the fixture project holds its VAR sections and nothing else. Calling
+    // one was reported as "a call of something that is not an FB instance", which is false (it IS an instance)
+    // and which piled the whole class into `stmt-call_stmt`, the bucket `lower-completeness` ranks work by.
+    //
+    // 308 corpus files declare a TON, TOF, CTU, R_TRIG or F_TRIG. Reporting them as a generic statement gap said
+    // the work was somewhere it is not; saying the TYPE is unresolved says where it is. Loading the declarations
+    // would be worse than either: the call would lower against an empty body and `t1.Q` would be FALSE forever,
+    // which is an invented meaning rather than a missing one.
+    if (instance.type.kind === "unknown")
+      return lw.bail(
+        "call-library",
+        `the type of ${callee.kind === "ident_expr" ? callee.name : "this instance"} is not declared in the project — a library FB's body is the vendor's, not something source lowering can reach`,
+        call.span,
+      )
+    return lw.bail("stmt-call_stmt", "a call of something that is not an FB instance", call.span)
+  }
   if (inGlobals(lw, instance)) return lw.bail("call-global-instance", `${instance.type.name} is called on an instance declared in a GVL`, call.span)
   // An FB instance inside a PROGRAM, called from outside it (`callshape_program_instance_from_outside`): the program is
   // moved out of `Programs` for the call, as for its own. It was refused (`prg.p.inst.call(g, prg)` borrows `Programs`

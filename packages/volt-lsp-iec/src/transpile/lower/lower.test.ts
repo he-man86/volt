@@ -1512,3 +1512,51 @@ test("a duration CONSTANT divided by an integer VARIABLE computes in the duratio
   // and the comparison lowers at all, which it did not
   expect(p.get("b")).toBe(false)
 })
+
+/**
+ * A LIBRARY CALLABLE WITHOUT A BODY IS REFUSED — libraries are not implemented yet, and a signature is not an
+ * implementation.
+ *
+ * A library reaches lowering as a DECLARATION file: the vendor compiles the body and Volt never sees it. `parseActive`
+ * answers an empty statement list for that, which lowered to a routine that ran nothing — so `t1(IN := TRUE)` was a
+ * no-op and `t1.Q` read FALSE forever, an INVENTED meaning rather than a missing one. 308 corpus files declare a TON,
+ * TOF, CTU, R_TRIG or F_TRIG.
+ *
+ * An empty body is legal IEC, so emptiness alone cannot be the discriminator — PROVENANCE is, and the three cases below
+ * pin all of it: a bodyless LIBRARY unit refuses, a library shipping REAL SOURCE still lowers, and a PROJECT POU with an
+ * empty body still lowers and does nothing. The standard FUNCTIONs (`CONCAT`, `LEFT`, `LEN`, …) are unaffected because
+ * they lower as builtins and never reach a routine (`standard-functions` covers their values).
+ */
+describe("a library declaration without a body", () => {
+  const BODYLESS_FB = { uri: "file:///p/Library Manager/MyLib/VendorFB.fb", source: "FUNCTION_BLOCK VendorFB\nVAR_INPUT\n\tIN : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tQ : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n" }
+  const SOURCED_FB = { uri: "file:///p/Library Manager/MyLib/RealFB.fb", source: "FUNCTION_BLOCK RealFB\nVAR_INPUT\n\tIN : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tQ : BOOL;\nEND_VAR\nQ := IN;\nEND_FUNCTION_BLOCK\n" }
+  const BODYLESS_FN = { uri: "file:///p/Library Manager/MyLib/VendorCalc.fun", source: "FUNCTION VendorCalc : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nEND_FUNCTION\n" }
+
+  test("an FB call is refused rather than run as a no-op", () => {
+    const r = lowerSource("PROGRAM PLC_PRG\nVAR\n\tf : VendorFB;\n\tq : BOOL;\nEND_VAR\nf(IN := TRUE);\nq := f.Q;\nEND_PROGRAM\n", "PLC_PRG", [BODYLESS_FB])
+    expect(r.pou).toBeUndefined()
+    expect(r.diagnostics.map((d) => d.code)).toContain("call-library")
+  })
+
+  test("a FUNCTION call is refused rather than answering the result's default", () => {
+    const r = lowerSource("PROGRAM PLC_PRG\nVAR\n\tn : INT;\nEND_VAR\nn := VendorCalc(7);\nEND_PROGRAM\n", "PLC_PRG", [BODYLESS_FN])
+    expect(r.pou).toBeUndefined()
+    expect(r.diagnostics.map((d) => d.code)).toContain("call-library")
+  })
+
+  test("a library that ships real source still lowers", () => {
+    const r = lowerSource("PROGRAM PLC_PRG\nVAR\n\tf : RealFB;\n\tq : BOOL;\nEND_VAR\nf(IN := TRUE);\nq := f.Q;\nEND_PROGRAM\n", "PLC_PRG", [SOURCED_FB])
+    expect(r.diagnostics).toEqual([])
+    const p = run(r.pou!)
+    p.scan()
+    expect(p.get("q")).toBe(true)
+  })
+
+  test("a POU of the project's own with an empty body still lowers, and does nothing", () => {
+    const r = lowerSource("FUNCTION_BLOCK Idle\nVAR_OUTPUT\n\tQ : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROGRAM PLC_PRG\nVAR\n\tf : Idle;\n\tq : BOOL;\nEND_VAR\nf();\nq := f.Q;\nEND_PROGRAM\n", "PLC_PRG")
+    expect(r.diagnostics).toEqual([])
+    const p = run(r.pou!)
+    p.scan()
+    expect(p.get("q")).toBe(false)
+  })
+})

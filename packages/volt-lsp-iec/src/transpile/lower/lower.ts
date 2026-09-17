@@ -34,7 +34,7 @@ import {
   type TopLevel,
   unitAttributes,
 } from "../../syntax/index.js"
-import { buildSymbolTable, lookup, lookupMember, parseLibraryManifest, type Scope, scopeForUnit, type Symbol } from "../../symbols/index.js"
+import { buildSymbolTable, lookup, lookupMember, parseLibraryManifest, type Scope, scopeForUnit, type Symbol, isLibrarySymbol } from "../../symbols/index.js"
 import { convert, stored, valueAs } from "./convert.js"
 import { foldConstant } from "./constants.js"
 import { lowerPlace } from "./places.js"
@@ -64,6 +64,8 @@ export function lowerUnit(
   project: Scope,
   /** Each POU's `{attribute '…'}` names (`syntax/unitAttributes`), for the ones lowering must refuse. */
   attributes: ReadonlyMap<object, ReadonlySet<string>> = new Map(),
+  /** The units that came from LIBRARY files — a bodyless one of these is refused (`isBodylessLibrary`). */
+  libraryUnits: ReadonlySet<object> = new Set(),
 ): LoweredPou {
   if (unit.kind !== "program" && unit.kind !== "function_block")
     return { diagnostics: [lowerDiagnostic("unit-kind", `${unit.kind} is not lowered yet`, unit.span)] }
@@ -74,7 +76,7 @@ export function lowerUnit(
   if (isGraphicalBody(unit.body))
     return { diagnostics: [lowerDiagnostic("graphical-body", "a graphical body is not lowered here", unit.span)] }
 
-  const lowering = new Lowering(scope, project, newShared(attributes, unit.name.text))
+  const lowering = new Lowering(scope, project, newShared(attributes, unit.name.text, libraryUnits))
   lowering.isRoot = true
   lowering.displayName = unit.name.text
   lowering.frameContext = `POU:${unit.name.text.toUpperCase()}`
@@ -513,5 +515,10 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
   const attributes = new Map<object, Set<string>>(
     files.flatMap((f) => [...unitAttributes(f.parseResult, f.source), ...memberAttributes(f.parseResult, f.source), ...declarationAttributes(f.parseResult, f.source)]),
   )
-  return lowerUnit(unit, scope, project, attributes)
+  // Which units' bodies are the VENDOR's. The `libraries` channel is not the discriminator — it carries a project's
+  // other files too (a GVL, sibling POUs), and `fb_init_before_slot_method_sibling` puts real FBs in a GVL through it.
+  // `isLibrarySymbol` is: a referenced library is materialized under `Library Manager/<library>/`, which is what
+  // `LibraryFile.uri` is documented to keep, and it is the same predicate the analyzer gates error-checking on.
+  const libraryUnits = new Set(files.filter((f) => isLibrarySymbol(f)).flatMap((f) => f.parseResult.units))
+  return lowerUnit(unit, scope, project, attributes, libraryUnits)
 }
