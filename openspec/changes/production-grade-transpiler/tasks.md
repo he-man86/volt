@@ -1,136 +1,139 @@
 # Tasks
 
-Every defect gets a **failing test first**, then the fix. Where a task rests on a claim about CODESYS, it is
-measured live against SP21 and the fixture records the measurement.
+**Findings are referenced by TITLE, never by number.** The first draft numbered them independently of
+`findings.md` and almost every reference pointed at the wrong defect, including two that swapped a high with a
+low. A title cannot silently repoint.
 
-`findings.md` has the full table with file:line. `T01`–`T43` below refer to it.
+Rules throughout: a failing test before every fix; a claim about CODESYS is measured live against SP21 and the
+fixture records the measurement; every gate states its CI cost.
 
 ---
 
-## Phase 0 — make the gates real · BLOCKS EVERYTHING ELSE
+## Phase 0 — state the contract, then gate it
 
-Nothing below Phase 0 is verifiable by anyone but the engineer who writes it until Phase 0 lands.
-
-- [ ] **0.1 rustc in CI.** Add a Rust toolchain to the `test` job. Measured today: 3,627 assertions with
-      `rustc` on PATH vs 2,423 without — ~1,200 emitter assertions never run in CI.
-- [ ] **0.2 Fail loudly when rustc is missing.** `describe.skipIf(rustc === null)` silently drops the
-      emitter half. Keep the skip for local convenience, but make the suite PRINT what it skipped and make
-      CI set `VOLT_REQUIRE_RUSTC=1`, under which a missing toolchain is an error rather than a skip.
-- [ ] **0.3 The B↔C gate (design D1).** Every corpus POU that lowers runs in `interp/` and as emitted Rust
-      with the same inputs; every reachable place must agree. No CODESYS required.
-- [ ] **0.4 The totality gate (design D2).** Lower every corpus file and every conformance fixture; assert
-      nothing throws. Diagnostics may say anything.
-- [ ] **0.5 The "it compiles" gate.** `rustc --emit=metadata -D warnings` over every lowered corpus POU, not
-      only the recorded ones. T34 (the FOR-limit defect) is reachable from ordinary ST and no recorded case
-      catches it.
-- [ ] **0.6 Coverage measurement.** Which IR node kinds and which `lower/` branches are never exercised by
-      any test. Publish the number; it is the honest denominator for everything that follows.
-- [ ] **0.7 Colocated test files** for `lower/calls.ts` (1,245 lines, none today) and the five-file memory
-      model (1,075 lines, none today).
-
-**Exit:** CI runs the emitter; B↔C, totality and compile gates are green and wired into `ci.yml`; the
-coverage number is published in the change.
+- [x] **0.1 rustc in CI** — `273a3da2f1`. 3,627 vs 2,423 assertions; the emitter now runs on every push.
+- [x] **0.2 A missing toolchain is fatal in CI** — `273a3da2f1`. `VOLT_REQUIRE_RUSTC=1`; the skip stays for
+      local use but prints what it dropped.
+- [x] **0.4 The totality gate** — `825346dd3e`. ~29k corpus files, ~80s, in the conformance tier. Plus targeted
+      cases for the two violations the corpus cannot reach, asserting the DIAGNOSTIC and not just the absence of
+      a throw.
+- [ ] **0.8 Write the subset into `index.ts` as the contract, and gate it.** Today it describes an input
+      contract and is silent on reach. Measured: 55 of 304 top-level bodies (18.1%); 56,629 METHOD/ACTION bodies
+      unreachable; ~0.10% of all executable bodies. State it with the date, and add a test that re-measures and
+      fails when the doc and the number disagree — the shape `coverage.test.ts` already uses.
+- [ ] **0.9 A refusal-code registry and the three-way taxonomy (D5).** `LowerDiagnostic.code` becomes a union
+      drawn from one `LOWER_CODES` catalogue; the templated `slot-${kind}` is enumerated or folded; every
+      diagnostic carries `kind: "invalid" | "not-modelled" | "not-measured"`, which `index.ts` already asserts
+      as the taxonomy and nothing carries. **Blocks 4.1.**
+- [ ] **0.10 A termination and allocation contract both backends obey.** `interp.ts:43` caps loops at 1,000,000
+      and throws; the emitter has no counterpart, so the same POU fails loud in B and hangs forever in C. Decide
+      the cap once (in the IR or in lowering, the move already chosen for `IrBuiltin`) and make both print it.
+      Give every gate a per-case wall-clock timeout.
+- [ ] **0.11 Declare the emitted surface.** A user's harness reaches in by name. `fieldNames` dedupes by FRAME
+      POSITION, so declaring a new VAR ahead of an existing one renames the existing one's Rust field — an
+      unrelated ST edit silently breaks hand-written test code. Say which names are contract (`scan`, `new`, the
+      POU struct, `Globals`/`Programs`) and which are derived; if fields are contract, key the dedupe on the
+      variable's identity, not its index.
+- [ ] **0.6 Coverage measurement, on three axes.** (a) IR node kinds and `lower/` branches never exercised;
+      (b) refusal codes with no fixture (needs 0.9); (c) **the construct index** — the standard function and
+      standard-FB table from the CODESYS reference this package embeds, each entry resolving to a fixture or an
+      explicit "not covered". This is IEC-as-index, which the first draft wrongly excluded along with
+      IEC-as-oracle.
+- [ ] **0.5 Make `-D warnings` mean something.** Every generated function carries
+      `#[allow(unused_mut, unused_variables, unused_assignments, unreachable_code, non_snake_case)]`
+      (`emit.ts:721`), so the gate denies almost nothing — and `unreachable_code` is the class of a defect the
+      emitter has already paid for. Narrow to per-item allows with a justification each; unify the lint flags
+      between the crate check and the execution harness.
+- [ ] **0.3 The B↔C gate, generator-driven (D1).** Needs 0.9, 0.10 and the three specifications in D1 —
+      inputs, place enumeration, comparison domain (bit-exact reals, a NaN rule, pointer and string handling).
+      The 55 corpus POUs are the regression set; the generator is the case source.
+- [ ] **0.7 Colocated tests for `lower/calls.ts` and the memory model** — after 0.6 says which branches are
+      uncovered, so the tests are aimed rather than assumed.
 
 ---
 
 ## Phase 1 — the 11 high-severity defects
 
-Ordered by blast radius, interpreter before emitter (design D3).
+Interpreter before emitter (D3). Titles are from `findings.md`.
 
-- [ ] **1.1 (T07) `interp` — `coerce`'s STRING branch is a catch-all** that answers for BOOL and TIME
-      targets by parsing digits. A fallback *in the oracle*; fix first.
-- [ ] **1.2 (T06) `ir` — `IrBuiltin` does not define argument evaluation.** interp evaluates every argument,
-      the emitter does not. Decide it in the IR, then make both backends obey. A B↔C divergence.
-- [ ] **1.3 (T01) `calls` — an `ANY` argument bypasses every `bindInOut` guard.** A global, a PROGRAM
-      member, a bit or a `VAR_IN_OUT CONSTANT` binds with no diagnostic; the interpreter *writes through a
-      constant in-out*. Verified by hand. Route it through `through()` + the global/bit refusals.
-- [ ] **1.4 (T08) `oop` — an `ANY VAR_INPUT` through an interface gets the argument's VALUE where the
-      routine expects its SIZE.**
-- [ ] **1.5 (T09) `memory` — lowering throws `RangeError`** on a pointer stepped over a zero-size element.
-      Direct violation of the totality contract; 0.4 must catch it.
-- [ ] **1.6 (T34) `exprs` — a FOR limit is never converted to the counter's type.** Verified by hand:
-      `i16 <= i32`, E0308, zero diagnostics.
-- [ ] **1.7 (T35) `exprs` — a duration CONSTANT times/divided by an integer variable** is retyped to DINT
-      before the duration rule runs.
-- [ ] **1.8 (T02) `emit-rust` — a negative constant prints unparenthesized**, so `-1i32.max(x)` parses as
-      `-(1i32.max(x))`.
-- [ ] **1.9 (T03, T04) `emit-rust` — generated bindings shadow user locals.** The MOD expansion binds `a`
-      and `d`; the bit-assign expansion binds `v`. Adopt one reserved prefix for every generated binding and
-      gate it.
-- [ ] **1.10 (T05) `emit-rust` — `routineFnName` has no uniqueness pass**, so two routines that snake alike
-      collide.
-
-**Exit:** all 11 have a failing-then-passing test; the B↔C gate is green; no recorded case regressed.
+- [x] *"The MOD expansion binds `a` and `d`, shadowing locals of those names"* + *"The bit-assign expansion binds
+      `v`"* — `1a81fe3ca5`. Reserved `__` prefix; the invariant tested is "no `let` shadows a parameter", which
+      is narrower and right where "every `let` carries `__`" was wrong.
+- [ ] *"coerce's STRING branch is a catch-all: it answers for BOOL and TIME targets by parsing digits"* — a
+      fallback in the oracle. **First.**
+- [ ] *"IrBuiltin says nothing about argument evaluation, and interp evaluates every arg while the Rust emitter
+      evaluates…"* — decide in the IR, then both obey. B↔C.
+- [ ] *"An ANY argument's place is bound as a hidden VAR_IN_OUT without any of bindInOut's guards"* — verified by
+      hand: a global emits E0499; the interpreter writes through a `VAR_IN_OUT CONSTANT`. (One guard *is*
+      applied — the alias check — so the finding's "any of" overstates by one; the fix is unchanged.)
+- [ ] *"An ANY VAR_INPUT called through an interface gets the argument's VALUE where the routine expects its
+      SIZE"*.
+- [ ] *"Lowering throws (RangeError) when a pointer is stepped over an element whose byte size is 0"* — **done**
+      in `825346dd3e` under 0.4; listed here because it is a Phase 1 defect by severity.
+- [ ] *"A FOR loop's limit is never converted to the counter's type, so the emitted Rust does not compile"* —
+      verified by hand: `i16 <= i32`, E0308, zero diagnostics.
+- [ ] *"A duration CONSTANT times/divided by an integer variable is retyped to DINT before the duration rule
+      runs"*.
+- [ ] *"A negative constant is printed unparenthesized, so `-1i32.max(x)` becomes `-(1i32.max(x))`"* — **prove
+      reachability first**; the critique flags it as scheduled high with no demonstrated trigger.
+- [ ] *"`routineFnName` has no uniqueness pass, so two routines that snake alike collide"*.
 
 ---
 
-## Phase 2 — the 13 medium defects
+## Phase 2 — the 13 medium defects, and one the review missed
 
-- [ ] **2.1 (T18) `interp` — an array element of a type with a declared initial value starts at the type's
-      zero**, not that initial value.
-- [ ] **2.2 (T22) `interp` — a math domain error returns NaN and keeps running**, where the same evidence
-      made division by zero throw. Decide once, apply to both.
-- [ ] **2.3 (T16) `emit-rust` — `REAL → integer` saturates above `i64` where interp wraps.** B↔C.
-- [ ] **2.4 (T14) `driver` — `lowerSource` swallows parse errors in library and GVL files.** (D4)
-- [ ] **2.5 (T25) `memory` — a REFERENCE is never dereferenced for a field or index step**, and the refusal
-      names the wrong construct. Mis-classified, not unbuilt (D6).
-- [ ] **2.6 (T12) `calls` — a PROPERTY through a `REFERENCE TO` an FB is not resolved.** Same shape as 2.5:
-      `instancePlace` already solves it one call away.
-- [ ] **2.7 (T26) `memory` — `pack_mode` is never read for a FUNCTION_BLOCK**, so a packed FB silently gets
-      the aligned size. Measure against SP21 before fixing.
-- [ ] **2.8 (T27) `oop` — `instanceRelative` treats the root FB's own frame as multi-instance.**
-- [ ] **2.9 (T13) `driver` — a PROGRAM whose only own member is a PROPERTY is not lowered as an instance**,
-      and the refusal is mis-classified.
-- [ ] **2.10 (T24) `ir` — `holdsCall` does not count the `call` node**, so the `fb-init-program` refusal
-      misses an `FB_Init` that calls.
-- [ ] **2.11 (T21) `exprs` — a date literal outside JS `Date`'s range throws out of lowering.** Totality.
-- [ ] **2.12 (T15) `driver` — the documented refusal taxonomy names two constructs that are now lowered.**
-- [ ] **2.13 (T20) `exprs` — `lowerFor`'s doc block states the opposite of the code** and of the comment ten
-      lines below it.
+- [ ] **The standard FBs.** 271 corpus files declare `TON`/`TOF`/`CTU`/`R_TRIG`/`F_TRIG`; **zero execution
+      fixtures cover them**, and the refusal misattributes them into `stmt-call_stmt`/`expr-member`. Give the
+      class its own honest code, and decide in D6 whether a scan-cycle time model is in the contract. This is
+      the largest misattribution in the tree and the review did not name it.
+- [ ] *"an array element of a type with a declared initial value starts at the type's zero"* — the critique
+      notes the **emitter does the same thing**, so fixing interp alone converts a shared bug into a B↔C
+      divergence. Fix both.
+- [ ] *"a math domain error returns NaN and keeps running"* — decide once, apply to both backends.
+- [ ] *"REAL → integer saturates above i64 range where the interpreter wraps"* — B↔C.
+- [ ] *"lowerSource swallows parse errors in library and GVL files"* (D4).
+- [ ] *"A REFERENCE is never dereferenced for a field or index step"* — mis-classified, not unbuilt.
+- [ ] *"A PROPERTY through a REFERENCE TO an FB is not resolved"* — same shape; `instancePlace` solves it.
+- [ ] *"`pack_mode` is never read for a FUNCTION_BLOCK"* — measure against SP21 before fixing.
+- [ ] *"instanceRelative treats the root FB's own frame as multi-instance"*.
+- [ ] *"A PROGRAM whose only own member is a PROPERTY is not lowered as an instance"*.
+- [ ] *"holdsCall does not count the `call` node"*.
+- [ ] *"A date literal outside JS Date's range throws out of lowering"* — **done** in `825346dd3e`.
+- [ ] *"The documented refusal taxonomy names two constructs that are now lowered"* — folds into 0.9.
+- [ ] *"lowerFor's doc block states the opposite of the code"*.
 
 ---
 
-## Phase 3 — the 19 low / cleanup items
+## Phase 3 — the 18 low / cleanup items
 
-Cheap, and they are how the next reviewer is misled. Group and land together.
+**Split behaviour from text**, which the first draft grouped together: a doc fix and a semantic change must not
+land in one commit.
 
-- [ ] **3.1 Merge rules spelled twice (D5)** — T29 positional-parameter order; T38 the direct-address rule
-      (regex + shape check + overlap bookkeeping); T39 `storage.ts` vs `bytes.ts` on `VAR_TEMP`.
-- [ ] **3.2 Remove the remaining silent fallbacks (D4)** — T42 the two specializer fallbacks; T31
-      `rootInstance` returning an empty body with no diagnostic; T37 shift/rotate widths falling back to 32.
-- [ ] **3.3 Delete dead code** — T36 `impl Default for IecStr`; T33 the `builtin` case falling through into
-      `case "unary"`; T40 `foldConstant`'s no-op ternary.
-- [ ] **3.4 Fix doc-versus-code contradictions** — T28, T30, T32, T41, T43, and the stacked doc comments on
-      `Shared.addressed` and `writeBack`.
-- [ ] **3.5 (T17) `interp` — unary neg on a REAL computed as `0 - x`**, so `-0.0` becomes `+0.0` and
-      disagrees with the emitted Rust. B↔C.
-- [ ] **3.6 (T19) `driver` — every library file's manifest is parsed twice.**
-- [ ] **3.7 (T23) `oop` — `inFramePlace` rejects a `THIS^`-rooted in-out target** although `named()` handles
-      one.
-- [ ] **3.8 (T11) `oop` — `onEachTag` remembers a tag but not the foreign flag it was seen with.**
+- [ ] **3a behaviour** — *"unary neg on a REAL is computed as 0 - x"* (B↔C); the two specializer fallbacks;
+      `rootInstance`'s empty body; the shift/rotate width fallback; *"inFramePlace rejects a THIS^-rooted in-out
+      target"*; *"onEachTag remembers a tag but not the foreign flag"*.
+- [ ] **3b duplication (D5)** — the positional-parameter order derived twice; the direct-address rule spelled
+      three ways; `storage.ts` vs `bytes.ts` on `VAR_TEMP`.
+- [ ] **3c dead code** — `impl Default for IecStr`; the `builtin` case falling into `case "unary"`;
+      `foldConstant`'s no-op ternary; the doubly-parsed library manifest.
+- [ ] **3d documentation** — the stacked doc comments on `Shared.addressed` (found twice, by two slices) and
+      `writeBack`; the "one file per concern" map missing four files; `ADR(u.member)`'s message saying write
+      where it means read.
 
 ---
 
-## Phase 4 — hardening past what the review could see
+## Phase 4 — hardening
 
-- [ ] **4.1 Randomized differential testing.** Generate ST *inside the input contract* and compare interp
-      against emitted Rust (the B↔C property needs no CODESYS, so it can run at volume). Seeded and
-      reproducible; a failing seed becomes a committed fixture.
-- [ ] **4.2 A fixture for every refusal code.** Each `LowerDiagnostic` code needs at least one case proving
-      it fires where intended — a refusal nothing reaches is indistinguishable from one that is wrong.
-- [ ] **4.3 The memory model under property tests.** Layout, `ADR`/`^` round-trip, UNION overlay,
-      byte-level access. 1,075 lines with no colocated test today.
-- [ ] **4.4 Resolve the one UNCERTAIN finding** — `MAX`/`MIN`/`LIMIT` over STRING lower and interpret but
-      emit Rust that does not compile. Needs a live SP21 measurement of what CODESYS does with them first.
-- [ ] **4.5 Source-map correctness gate.** The emitter ships a source map; nothing currently tests that a
-      mapped position lands on the statement it claims.
+- [ ] **4.1 A fixture for every refusal code** — implementable only after 0.9 gives an enumerable set.
+- [ ] **4.2 The memory model under property tests** — layout, `ADR`/`^` round-trip, UNION overlay, byte access.
+- [ ] **4.3 Source-map correctness** — the emitter ships one and nothing tests that a mapped position lands on
+      the statement it claims.
+- [ ] **4.4 The one UNCERTAIN finding** — `MAX`/`MIN`/`LIMIT` over STRING lower and interpret but emit Rust that
+      does not compile. Needs a live SP21 measurement of what CODESYS does first.
 
 ---
 
-## Out of scope, deliberately (D6)
+## Out of scope (D6)
 
-- IEC 61131-3 / PLCopen conformance — wrong oracle, would introduce bugs.
-- New lowering coverage (`lower-completeness` buckets) — belongs to `transpile-st-to-rust`. The two
-  mis-classified items (2.5, 2.6) are fixed here because they are already-solved resolution, not new work.
-- Performance — nothing measured slow.
-- A second backend.
+IEC **as an oracle** · new lowering coverage, including the 56,629 METHOD/ACTION bodies · the delivery surface
+(project-level emission, a `volt` verb, a published API) — a separate change · performance.
