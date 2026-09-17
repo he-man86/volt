@@ -115,13 +115,28 @@ export function refuseOpenArray(lw: Lowering, place: Place, span: Span): boolean
   return true
 }
 
+/**
+ * A REFERENCE IS IMPLICITLY DEREFERENCED — `r.x` MEANS `r^.x`, and `r[1]` means `r^[1]`.
+ *
+ * That is the whole difference between `REFERENCE TO` and `POINTER TO` in IEC: a pointer needs a written `^`, a
+ * reference never does. `lowerPlace` applied its field and index steps to the reference variable itself, which is
+ * neither a struct nor an array — so `r.x` reported "member access is not lowered yet" and `r[1]` reported "an index on
+ * something that is not a sized array". Both read as unbuilt machinery; in fact `pointeePlace` already resolves exactly
+ * this (a REFERENCE records its target through `storePointer`, same as a pointer), and a scalar `a := r` already
+ * worked. Only the step was missing.
+ */
+function throughReference(lw: Lowering, place: Place | undefined, span: Span): Place | undefined {
+  if (place === undefined || place.type.kind !== "reference") return place
+  return pointeePlace(lw, place, undefined, span)
+}
+
 export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): Place | undefined {
   if (e.kind === "member") {
     if (/^\d+$/.test(e.member.name)) return bitPlace(lw, e, notAMember)
     if (e.base.kind === "ident_expr" && !lw.holds(e.base.name) && lookup(lw.scope, e.base.name)?.symbol.kind === "gvl_block" && !listVariableShadows(lw, e.base.name, e.member.name))
       return qualifiedGlobal(lw, e.base.name, e.member.name, e.span)
     // a struct's field or an instance's variable: one `field` step on the base place (design §9)
-    const base = lowerPlace(lw, e.base, notAMember)
+    const base = throughReference(lw, lowerPlace(lw, e.base, notAMember), e.base.span)
     if (base === undefined) return undefined
     const layout = base.type.kind === "struct" || base.type.kind === "function_block" ? lw.layouts.get(base.type.name.toUpperCase()) : undefined
     const field = layout?.fields.find((f) => f.name.toUpperCase() === e.member.name.toUpperCase())
@@ -130,7 +145,7 @@ export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): P
   }
   if (e.kind === "index") {
     // one `index` step per dimension, each carrying the bounds a backend normalises by
-    let place = lowerPlace(lw, e.base, notAMember)
+    let place = throughReference(lw, lowerPlace(lw, e.base, notAMember), e.base.span)
     // `p[i]` on a pointer: i elements past the one it points at (conformance `mem_pointer_index_struct_array`)
     if (place !== undefined && place.type.kind === "pointer") {
       if (e.indices.length !== 1) return lw.bail("pointer-index", "a pointer indexed in more than one dimension", e.span)

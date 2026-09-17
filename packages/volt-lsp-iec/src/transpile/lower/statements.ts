@@ -182,8 +182,17 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
 }
 
 /**
- * FOR → the one loop shape. IEC evaluates the limit and the step ONCE, before the first iteration, so both
- * go into temp slots; re-reading them each pass would be a different program.
+ * FOR → the one loop shape.
+ *
+ * THE LIMIT AND THE STEP ARE RE-READ ON EVERY PASS, not evaluated once before the first. This doc block said the
+ * opposite — "IEC evaluates the limit and the step ONCE, before the first iteration, so both go into temp slots" —
+ * which is what the code did until it was measured, and it was wrong: `callshape_for_bounds_changed_in_body` sets the
+ * limit to 4 and the step to 3 inside the body and CODESYS runs 2 passes, ending at 7. A temp taken once cannot
+ * produce that. A PROPERTY read or METHOD call in the limit therefore runs on every test too
+ * (`callshape_for_limit_call`: 4 runs for 3 passes, the shape the corpus's `fbModuleManager.baseModulesCount` has).
+ *
+ * What IS refused, below, is the case where the number of runs is not recorded: a call in the STEP, or a call in a
+ * limit that a runtime step tests on both arms.
  */
 export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): IrStmt | undefined {
   const control = lowerPlace(lw, s.controlVar)

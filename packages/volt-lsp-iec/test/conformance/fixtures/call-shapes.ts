@@ -1028,4 +1028,39 @@ END_METHOD
 `,
     "user : FB_CS_user22;",
     "user();"),
+  // ─── A REFERENCE IS IMPLICITLY DEREFERENCED ────────────────────────────────────────────────────────
+  // `r.x` means `r^.x` and `r[1]` means `r^[1]` — the whole difference between REFERENCE TO and POINTER TO. Lowering
+  // applied the field and index step to the reference VARIABLE, so both were refused (`expr-member`, `place-shape`)
+  // while a scalar `a := r` worked; a PROPERTY through one was refused the same way, one layer up. `xo_reference_to_fb_call`
+  // already records the body call and the METHOD through a reference — these record the remaining three steps.
+  {
+    name: "xo_reference_field_step",
+    pouName: "FB_LANG_xo_reference_field_step",
+    kind: "function_block" as const,
+    feature: "a field read and written through a REFERENCE TO a struct — r.x means r^.x",
+    fromDoc: "reference-deref",
+    plcPrgVar: "inst_xo_reference_field_step : FB_LANG_xo_reference_field_step;",
+    plcPrgBody: "inst_xo_reference_field_step();",
+    source: "TYPE DUT_LANG_reference_field_step :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK FB_LANG_xo_reference_field_step\nVAR\n\tp : DUT_LANG_reference_field_step;\n\tr : REFERENCE TO DUT_LANG_reference_field_step;\n\treadBack : INT;\n\twrittenBack : INT;\nEND_VAR\np.x := 5;\nr REF= p;\nreadBack := r.x;\nr.x := 8;\nwrittenBack := p.x;\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "xo_reference_index_step",
+    pouName: "FB_LANG_xo_reference_index_step",
+    kind: "function_block" as const,
+    feature: "an element read and written through a REFERENCE TO an array — r[1] means r^[1]",
+    fromDoc: "reference-deref",
+    plcPrgVar: "inst_xo_reference_index_step : FB_LANG_xo_reference_index_step;",
+    plcPrgBody: "inst_xo_reference_index_step();",
+    source: "FUNCTION_BLOCK FB_LANG_xo_reference_index_step\nVAR\n\tarr : ARRAY[0..2] OF INT;\n\tr : REFERENCE TO ARRAY[0..2] OF INT;\n\treadBack : INT;\n\twrittenBack : INT;\nEND_VAR\narr[1] := 9;\nr REF= arr;\nreadBack := r[1];\nr[2] := 6;\nwrittenBack := arr[2];\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "xo_reference_property",
+    pouName: "FB_LANG_xo_reference_property",
+    kind: "function_block" as const,
+    feature: "a PROPERTY read and written through a REFERENCE TO an FB — the accessor runs on the instance pointed at",
+    fromDoc: "reference-deref",
+    plcPrgVar: "inst_xo_reference_property : FB_LANG_xo_reference_property;",
+    plcPrgBody: "inst_xo_reference_property();",
+    source: "FUNCTION_BLOCK FB_LANG_reference_property_target\nVAR\n\tside : INT := 3;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY Size : INT\nGET\nSize := side;\nEND_GET\nSET\nside := Size;\nEND_SET\nEND_PROPERTY\n\nFUNCTION_BLOCK FB_LANG_xo_reference_property\nVAR\n\tc : FB_LANG_reference_property_target;\n\tr : REFERENCE TO FB_LANG_reference_property_target;\n\treadBack : INT;\n\twrittenBack : INT;\nEND_VAR\nr REF= c;\nreadBack := r.Size;\nr.Size := 7;\nwrittenBack := c.Size;\nEND_FUNCTION_BLOCK\n",
+  },
 ]

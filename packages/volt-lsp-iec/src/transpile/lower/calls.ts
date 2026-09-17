@@ -521,9 +521,17 @@ function propertyAccess(lw: Lowering, e: Expr): { instance: Place; frame: FbType
     return sym?.kind === "property" ? { instance: thisPlace(frame, e.span), frame, sym } : null
   }
   if (e.kind !== "member" || /^\d+$/.test(e.member.name)) return null
-  const seen = inferExprType(e.base, lw.scope, lw.project)
+  // A PROPERTY THROUGH A REFERENCE TO (or POINTER TO) AN FB runs on the instance it points at — the same rule
+  // `instancePlace` already applies to a body call and a METHOD, and the same shape as `xo_reference_to_fb_call`.
+  // This path looked only at the reference's OWN type, in both of the places it asks: the inferred type was
+  // `reference`, never `function_block`, so `r.Size` was not recognised as a property at all and fell through to the
+  // generic member path (`expr-member` reading it, `place-shape` writing it).
+  const written = inferExprType(e.base, lw.scope, lw.project)
+  const seen = written.kind === "reference" || written.kind === "pointer" ? storageOf(lw, written.target) : written
   if (seen.kind !== "function_block" || seen.scope === undefined || lookupMember(seen.scope, e.member.name)?.kind !== "property") return null
-  const instance = lowerPlace(lw, e.base)
+  const resolved = lowerPlace(lw, e.base)
+  if (resolved === undefined) return undefined
+  const instance = instancePlace(lw, resolved, e.base.span)
   if (instance === undefined) return undefined
   if (instance.type.kind !== "function_block" || instance.type.scope === undefined) return null
   if (inGlobals(lw, instance)) return lw.bail("call-global-instance", `${e.member.name} is read or written on an instance declared in a GVL`, e.span)

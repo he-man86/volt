@@ -85,7 +85,12 @@ export function holdsCall(node: unknown): boolean {
   if (Array.isArray(node)) return node.some(holdsCall)
   if (node === null || typeof node !== "object") return false
   const kind = (node as { kind?: string }).kind
-  if (kind === "invoke" || kind === "dispatch") return true
+  // `call` BELONGS HERE: running an FB instance's body is a call, as much as an `invoke` of a FUNCTION or METHOD and a
+  // `dispatch` through an interface. Leaving it out made `fb-init-program` blind to the plainest case it exists to
+  // refuse — a PROGRAM whose FB_Init runs another FB's body lowered with no diagnostic at all, while the same FB_Init
+  // calling a METHOD was refused. The expression callers (a FOR limit or step, an invoke's inputs) are unaffected: a
+  // `call` is a statement and never appears inside one.
+  if (kind === "invoke" || kind === "dispatch" || kind === "call") return true
   return Object.entries(node).some(([key, child]) => key !== "type" && key !== "span" && key !== "of" && holdsCall(child))
 }
 

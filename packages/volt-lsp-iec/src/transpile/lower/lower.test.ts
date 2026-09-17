@@ -1635,3 +1635,61 @@ describe("a library or GVL file that does not parse", () => {
     expect(p.get("a")).toBe(7n)
   })
 })
+
+/**
+ * A REFERENCE IS IMPLICITLY DEREFERENCED — `r.x` MEANS `r^.x`, and `r[1]` means `r^[1]`.
+ *
+ * That is the whole difference between `REFERENCE TO` and `POINTER TO` in IEC: a pointer needs a written `^`, a
+ * reference never does. `lowerPlace` applied its field and index steps to the reference VARIABLE, which is neither a
+ * struct nor an array, so `r.x` said "member access is not lowered yet" and `r[1]` said "an index on something that is
+ * not a sized array". Both read as unbuilt machinery. In fact `pointeePlace` already resolved exactly this — a
+ * REFERENCE records its target through `storePointer` as a pointer does, and a scalar `a := r` already worked. Only
+ * the step was missing, which is why the review filed this as MIS-CLASSIFIED rather than unbuilt.
+ *
+ * The PROPERTY case is the same shape one layer up: `propertyAccess` asked the reference's OWN type twice — the
+ * inferred type was `reference`, never `function_block` — so `r.Size` was not recognised as a property at all and fell
+ * through to the generic member path. `instancePlace` was already the answer; it was simply never called here, though
+ * a body call and a METHOD through the same reference had used it since `xo_reference_to_fb_call`.
+ */
+describe("a reference is stepped THROUGH, not stepped on", () => {
+  const readsBack = (source: string, want: bigint): void => {
+    const r = lowerSource(source, "PLC_PRG")
+    expect(r.diagnostics).toEqual([])
+    const p = run(r.pou!)
+    p.scan()
+    expect(p.get("a")).toBe(want)
+  }
+
+  test("a field is read through a REFERENCE TO a struct", () => readsBack("TYPE Pt : STRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tp : Pt;\n\tr : REFERENCE TO Pt;\n\ta : INT;\nEND_VAR\np.x := 5;\nr REF= p;\na := r.x;\nEND_PROGRAM\n", 5n))
+  test("a field is written through a REFERENCE TO a struct", () => readsBack("TYPE Pt : STRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tp : Pt;\n\tr : REFERENCE TO Pt;\n\ta : INT;\nEND_VAR\nr REF= p;\nr.x := 8;\na := p.x;\nEND_PROGRAM\n", 8n))
+  test("an element is read through a REFERENCE TO an array", () => readsBack("PROGRAM PLC_PRG\nVAR\n\tarr : ARRAY[0..2] OF INT;\n\tr : REFERENCE TO ARRAY[0..2] OF INT;\n\ta : INT;\nEND_VAR\narr[1] := 9;\nr REF= arr;\na := r[1];\nEND_PROGRAM\n", 9n))
+  test("an element is written through a REFERENCE TO an array", () => readsBack("PROGRAM PLC_PRG\nVAR\n\tarr : ARRAY[0..2] OF INT;\n\tr : REFERENCE TO ARRAY[0..2] OF INT;\n\ta : INT;\nEND_VAR\nr REF= arr;\nr[2] := 6;\na := arr[2];\nEND_PROGRAM\n", 6n))
+  test("a PROPERTY is read through a REFERENCE TO an FB", () => readsBack("FUNCTION_BLOCK FB_C\nVAR\n\tside : INT := 3;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY Size : INT\nGET\nSize := side;\nEND_GET\nSET\nside := Size;\nEND_SET\nEND_PROPERTY\n\nPROGRAM PLC_PRG\nVAR\n\tc : FB_C;\n\tr : REFERENCE TO FB_C;\n\ta : INT;\nEND_VAR\nr REF= c;\na := r.Size;\nEND_PROGRAM\n", 3n))
+  test("a PROPERTY is written through a REFERENCE TO an FB", () => readsBack("FUNCTION_BLOCK FB_C\nVAR\n\tside : INT := 3;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY Size : INT\nGET\nSize := side;\nEND_GET\nSET\nside := Size;\nEND_SET\nEND_PROPERTY\n\nPROGRAM PLC_PRG\nVAR\n\tc : FB_C;\n\tr : REFERENCE TO FB_C;\n\ta : INT;\nEND_VAR\nr REF= c;\nr.Size := 7;\na := c.Size;\nEND_PROGRAM\n", 7n))
+  test("and a POINTER still reaches the property through its written ^", () => readsBack("FUNCTION_BLOCK FB_C\nVAR\n\tside : INT := 3;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY Size : INT\nGET\nSize := side;\nEND_GET\nSET\nside := Size;\nEND_SET\nEND_PROPERTY\n\nPROGRAM PLC_PRG\nVAR\n\tc : FB_C;\n\tq : POINTER TO FB_C;\n\ta : INT;\nEND_VAR\nq := ADR(c);\na := q^.Size;\nEND_PROGRAM\n", 3n))
+})
+
+/**
+ * RUNNING AN FB'S BODY IS A CALL — `holdsCall` counts the `call` node.
+ *
+ * It counted `invoke` (a FUNCTION or METHOD) and `dispatch` (through an interface) but not `call` (an FB instance's
+ * body). That made `fb-init-program` blind to the plainest case it exists to refuse: whether a PROGRAM's FB_Init runs
+ * at all is not recorded, so one that calls anything is refused — yet a PROGRAM whose FB_Init ran another FB's BODY
+ * lowered with no diagnostic, while the identical FB_Init calling a METHOD was refused.
+ *
+ * The expression callers are unaffected — a FOR limit or step, an invoke's inputs — because a `call` is a statement
+ * and never appears inside an expression.
+ */
+describe("an FB body call counts as a call", () => {
+  test("a PROGRAM whose FB_Init runs another FB's body is refused", () => {
+    const r = lowerSource("FUNCTION_BLOCK FB_Inner\nVAR_OUTPUT\n\tq : INT;\nEND_VAR\nq := q + 1;\nEND_FUNCTION_BLOCK\n\nPROGRAM P\nVAR\n\tinner : FB_Inner;\n\tseen : INT;\nEND_VAR\nseen := inner.q;\nEND_PROGRAM\n\nMETHOD FB_Init : BOOL\nVAR_INPUT\n\tbInitRetains : BOOL;\n\tbInCopyCode : BOOL;\nEND_VAR\ninner();\nEND_METHOD\n", "P")
+    expect(r.pou).toBeUndefined()
+    expect(r.diagnostics.map((d) => d.code)).toContain("fb-init-program")
+  })
+
+  test("and one whose FB_Init touches only its own variables still lowers", () => {
+    const r = lowerSource("PROGRAM P\nVAR\n\tn : INT;\n\tseen : INT;\nEND_VAR\nseen := n;\nEND_PROGRAM\n\nMETHOD FB_Init : BOOL\nVAR_INPUT\n\tbInitRetains : BOOL;\n\tbInCopyCode : BOOL;\nEND_VAR\nn := 5;\nEND_METHOD\n", "P")
+    expect(r.diagnostics).toEqual([])
+    expect(r.pou).toBeDefined()
+  })
+})
