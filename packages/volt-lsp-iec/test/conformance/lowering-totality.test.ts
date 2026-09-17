@@ -56,7 +56,7 @@ const isRunnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "fu
  * on purpose: a floor lets the documented figure rot quietly upward while still "passing".
  */
 const DOCUMENTED_BODIES = 304
-const DOCUMENTED_LOWERED = 55
+const DOCUMENTED_LOWERED = 46
 
 /** One walk, two questions: did anything throw, and how much of the corpus does this backend actually reach. */
 function overCorpus(): { failures: string[]; bodies: number; lowered: number } {

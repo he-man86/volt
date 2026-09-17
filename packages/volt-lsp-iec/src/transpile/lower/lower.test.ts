@@ -1095,9 +1095,13 @@ END_PROGRAM
       { uri: `${LIB}/LibSeverity.library`, source: "LIBRARY LibSeverity\nNAMESPACE LSEV\nRESOLUTION LibSeverity, 1.0.0.0 (Acme)\n" },
       { uri: `${LIB}/E_SEVERITY.enum`, source: "TYPE E_Severity :\n(\n\tLow := 2,\n\tHigh := 30\n);\nEND_TYPE\n" },
     ]
+    // `level` states its own start. E_Local's first enumerator is Quiet = 2, and where a variable of such an enum
+    // starts is unmeasured (`refuseUnmeasuredEnumDefault`) — a question this test is not about. What it measures is
+    // that a library NAMESPACE's values fold, which needs no opinion about defaults: a variable with an initializer
+    // never takes the type's.
     const source =
       "TYPE E_Local :\n(\n\tQuiet := TO_USINT(LSEV.E_Severity.Low),\n\tLoud := TO_USINT(LSEV.E_Severity.High)\n) USINT;\nEND_TYPE\n" +
-      "PROGRAM P\nVAR level : E_Local; n : USINT; END_VAR\nlevel := E_Local.Loud;\nn := TO_USINT(level) + TO_USINT(E_Local.Quiet);\nEND_PROGRAM\n"
+      "PROGRAM P\nVAR level : E_Local := E_Local.Quiet; n : USINT; END_VAR\nlevel := E_Local.Loud;\nn := TO_USINT(level) + TO_USINT(E_Local.Quiet);\nEND_PROGRAM\n"
     const { pou, diagnostics } = lowerSource(source, "P", libraries)
     expect(diagnostics).toEqual([])
     const runner = run(pou!)
@@ -1558,5 +1562,48 @@ describe("a library declaration without a body", () => {
     const p = run(r.pou!)
     p.scan()
     expect(p.get("q")).toBe(false)
+  })
+})
+
+/**
+ * AN ENUM WHOSE FIRST ENUMERATOR IS NOT 0 IS REFUSED, not started at 0.
+ *
+ * A variable of an enum starts at its FIRST enumerator. Lowering started every enum at 0 — which for
+ * `(Reverse := -1, Neutral := 0)` or `(DEVICE := 101, …)` is not even a value of the type. 446 corpus enum types
+ * declare a non-zero first enumerator, 21 of them in project source, and 15 corpus BODIES were lowering on that
+ * wrong start (pro2193's `L_IMHP_ComponentType` = 101, `PlcDataType` = 23, `enumRecipeCommandResult` = 257).
+ *
+ * Nothing measured it: every enum fixture starts at 0 and assigns explicitly before reading. So this is refused on
+ * exactly the grounds the type-level default (`TYPE E : (A, B) := B`) already was — a guess is worse than a gap —
+ * and `type_enum_default_*` record the answer. Refusing cost 9 of 55 lowering bodies, which is reach that had been
+ * bought with a wrong value.
+ */
+describe("an enum's default", () => {
+  test("a non-zero first enumerator is refused rather than started at 0", () => {
+    const r = lowerSource("TYPE Mode : (Idle := 3, Busy := 4);\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tm : Mode;\n\ta : INT;\nEND_VAR\na := m;\nEND_PROGRAM\n", "PLC_PRG")
+    expect(r.pou).toBeUndefined()
+    expect(r.diagnostics.map((d) => d.code)).toContain("enum-default")
+  })
+
+  test("a negative first enumerator is refused too — bakon-nano's sState starts at -1", () => {
+    const r = lowerSource("TYPE Dir : (Reverse := -1, Neutral := 0, Forward := 1);\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\td : Dir;\n\ta : INT;\nEND_VAR\na := d;\nEND_PROGRAM\n", "PLC_PRG")
+    expect(r.pou).toBeUndefined()
+    expect(r.diagnostics.map((d) => d.code)).toContain("enum-default")
+  })
+
+  test("a first enumerator written as 0 still lowers, and starts there", () => {
+    const r = lowerSource("TYPE Mode : (Idle := 0, Busy := 1);\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tm : Mode;\n\ta : INT;\nEND_VAR\na := m;\nEND_PROGRAM\n", "PLC_PRG")
+    expect(r.diagnostics).toEqual([])
+    const p = run(r.pou!)
+    p.scan()
+    expect(p.get("a")).toBe(0n)
+  })
+
+  test("an enum with no written values still lowers — the implicit first is 0", () => {
+    const r = lowerSource("TYPE Mode : (Idle, Busy);\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tm : Mode;\n\ta : INT;\nEND_VAR\na := m;\nEND_PROGRAM\n", "PLC_PRG")
+    expect(r.diagnostics).toEqual([])
+    const p = run(r.pou!)
+    p.scan()
+    expect(p.get("a")).toBe(0n)
   })
 })

@@ -25,11 +25,38 @@ import { withStringCapacity } from "./storage.js"
 export function enumStorage(lw: Lowering, t: Extract<Type, { kind: "enum" }>): Type {
   const sym = t.name === "(implicit)" ? undefined : lookup(lw.project, t.name)?.symbol
   const body = sym?.kind === "type" ? (sym.ast as TypeDecl).body : undefined
-  // `TYPE E : (A, B) := B` starts every E at B; a variable started at 0 regardless (transpiler review 2026-09-15). The
-  // type's default is not measured, so such an enum is refused rather than started at a guess.
-  if (body?.kind === "enum" && body.init !== undefined) lw.bail("enum-default", `${t.name} declares a default value, not modelled yet`, sym!.span)
   if (body?.kind === "enum" && body.baseType !== undefined) return withStringCapacity(lw.resolve(body.baseType, lw.project))
   return elementaryRef("INT")
+}
+
+/**
+ * WHERE AN UNINITIALIZED VARIABLE OF AN ENUM STARTS — refused while it is unmeasured, rather than guessed at 0.
+ *
+ * Two shapes say the start is not 0: an explicit type-level default (`TYPE E : (A, B) := B` starts every E at B), and a
+ * FIRST ENUMERATOR that is not 0 (`(Reverse := -1, Neutral := 0)` starts at -1), because a variable of an enum starts at
+ * its first enumerator. Lowering started every enum at 0 — for the second shape, a value the type does not even have.
+ * 446 corpus enum types declare a non-zero first enumerator, 21 of them in project source, and 15 corpus BODIES were
+ * lowering on that wrong start (pro2193's `L_IMHP_ComponentType` = DEVICE = 101, `PlcDataType` = 23,
+ * `enumRecipeCommandResult` = 257). Nothing measures it: every enum fixture starts at 0 and assigns before reading, so
+ * `type_enum_default_*` were added to record the answer.
+ *
+ * ASKED ONLY OF A VARIABLE THAT TAKES THE DEFAULT (`declareVars`, no initializer) — never of a folded VALUE, and
+ * never of a variable that states its own start. `E_Severity.Low` is a constant the
+ * declaration states outright — reading it needs no opinion about where a variable of that type would start — and a
+ * library is exactly where non-zero enums live (425 of the 446). Asking this in `enumStorage`, which both paths share,
+ * refused a program that only ever names the library's values.
+ */
+export function refuseUnmeasuredEnumDefault(lw: Lowering, t: Type): void {
+  if (t.kind === "array") return refuseUnmeasuredEnumDefault(lw, t.element)
+  if (t.kind !== "enum" || t.name === "(implicit)") return
+  const sym = lookup(lw.project, t.name)?.symbol
+  const body = sym?.kind === "type" ? (sym.ast as TypeDecl).body : undefined
+  if (body?.kind !== "enum") return
+  if (body.init !== undefined) return lw.bail("enum-default", `${t.name} declares a default value, not modelled yet`, sym!.span)
+  const first = body.values[0]
+  const written = first?.value === undefined ? undefined : enumValueOf(lw, first.value, 0)
+  if (typeof written === "bigint" && written !== 0n)
+    lw.bail("enum-default", `${t.name} starts at ${first!.name.text} (${written}), not 0 — not measured yet`, sym!.span)
 }
 
 /**

@@ -157,6 +157,74 @@ END_TYPE
 `,
   },
 
+  // ─── ENUM DEFAULTS — what an uninitialized enum variable starts at ──────────────────────────────────
+  // A variable of an enum starts at its FIRST enumerator, so `(Reverse := -1, Neutral := 0)` starts at -1; lowering
+  // started every enum at 0, which for that shape is not even a value of the type. 446 corpus enum types declare a
+  // non-zero first enumerator, 21 of them in project source. NOTHING measured it — every enum fixture above starts at
+  // 0 and assigns explicitly — so `enumStorage` refuses the shape (`enum-default`) rather than guessing. These record
+  // the answer: the plain case, a negative first, the implicit baseline, a 0 that is NOT first, the type-level
+  // default, and the inline enum that never reaches the named-type path.
+  {
+    name: "type_enum_default_first_nonzero",
+    pouName: "FB_LANG_type_enum_default_first_nonzero",
+    kind: "function_block" as const,
+    feature: "a variable of an ENUM whose first enumerator is not 0 — what does it start at?",
+    fromDoc: "06-data-types.md",
+    plcPrgVar: "inst_type_enum_default_first_nonzero : FB_LANG_type_enum_default_first_nonzero;",
+    plcPrgBody: "inst_type_enum_default_first_nonzero();",
+    source: "TYPE DUT_LANG_enum_default_first_nonzero :\n(\n\tForward := 1,\n\tReverse := 2\n);\nEND_TYPE\n\nFUNCTION_BLOCK FB_LANG_type_enum_default_first_nonzero\nVAR\n\te : DUT_LANG_enum_default_first_nonzero;\n\tx : DINT;\nEND_VAR\nx := e;\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "type_enum_default_first_negative",
+    pouName: "FB_LANG_type_enum_default_first_negative",
+    kind: "function_block" as const,
+    feature: "a variable of an ENUM whose first enumerator is negative (bakon-nano sState := -1)",
+    fromDoc: "06-data-types.md",
+    plcPrgVar: "inst_type_enum_default_first_negative : FB_LANG_type_enum_default_first_negative;",
+    plcPrgBody: "inst_type_enum_default_first_negative();",
+    source: "TYPE DUT_LANG_enum_default_first_negative :\n(\n\tReverse := -1,\n\tNeutral := 0,\n\tForward := 1\n);\nEND_TYPE\n\nFUNCTION_BLOCK FB_LANG_type_enum_default_first_negative\nVAR\n\te : DUT_LANG_enum_default_first_negative;\n\tx : DINT;\nEND_VAR\nx := e;\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "type_enum_default_first_implicit_zero",
+    pouName: "FB_LANG_type_enum_default_first_implicit_zero",
+    kind: "function_block" as const,
+    feature: "a variable of an ENUM with no written values — the baseline the three above are read against",
+    fromDoc: "06-data-types.md",
+    plcPrgVar: "inst_type_enum_default_first_implicit_zero : FB_LANG_type_enum_default_first_implicit_zero;",
+    plcPrgBody: "inst_type_enum_default_first_implicit_zero();",
+    source: "TYPE DUT_LANG_enum_default_first_implicit_zero :\n(\n\tIdle,\n\tBusy\n);\nEND_TYPE\n\nFUNCTION_BLOCK FB_LANG_type_enum_default_first_implicit_zero\nVAR\n\te : DUT_LANG_enum_default_first_implicit_zero;\n\tx : DINT;\nEND_VAR\nx := e;\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "type_enum_default_gap_then_zero",
+    pouName: "FB_LANG_type_enum_default_gap_then_zero",
+    kind: "function_block" as const,
+    feature: "an ENUM whose FIRST enumerator is non-zero but which HAS a 0 member later — is the default the first, or 0?",
+    fromDoc: "06-data-types.md",
+    plcPrgVar: "inst_type_enum_default_gap_then_zero : FB_LANG_type_enum_default_gap_then_zero;",
+    plcPrgBody: "inst_type_enum_default_gap_then_zero();",
+    source: "TYPE DUT_LANG_enum_default_gap_then_zero :\n(\n\tHigh := 10,\n\tNone := 0\n);\nEND_TYPE\n\nFUNCTION_BLOCK FB_LANG_type_enum_default_gap_then_zero\nVAR\n\te : DUT_LANG_enum_default_gap_then_zero;\n\tx : DINT;\nEND_VAR\nx := e;\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "type_enum_type_level_default",
+    pouName: "FB_LANG_enum_type_level_default",
+    kind: "function_block" as const,
+    feature: "an ENUM declaring a type-level default (`TYPE E : (A, B) := B`) — where does a variable start?",
+    fromDoc: "06-data-types.md",
+    plcPrgVar: "inst_enum_type_level_default : FB_LANG_enum_type_level_default;",
+    plcPrgBody: "inst_enum_type_level_default();",
+    source: "TYPE DUT_LANG_enum_type_level_default :\n(\n\tIdle := 0,\n\tBusy := 1\n) := Busy;\nEND_TYPE\n\nFUNCTION_BLOCK FB_LANG_enum_type_level_default\nVAR\n\te : DUT_LANG_enum_type_level_default;\n\tx : DINT;\nEND_VAR\nx := e;\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "type_enum_inline_default_first_nonzero",
+    pouName: "FB_LANG_enum_inline_default_first_nonzero",
+    kind: "function_block" as const,
+    feature: "an INLINE enum whose first enumerator is not 0 — the same default question, off the named-type path",
+    fromDoc: "06-data-types.md",
+    plcPrgVar: "inst_enum_inline_default : FB_LANG_enum_inline_default_first_nonzero;",
+    plcPrgBody: "inst_enum_inline_default();",
+    source: "FUNCTION_BLOCK FB_LANG_enum_inline_default_first_nonzero\nVAR\n\te : (Forward := 1, Reverse := 2);\n\tx : DINT;\nEND_VAR\nx := e;\nEND_FUNCTION_BLOCK\n",
+  },
+
   // ─── ALIAS ──────────────────────────────────────────────────────────
 
   {
