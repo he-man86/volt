@@ -48,12 +48,28 @@ import type { LanguageTest } from "./types.js"
  */
 const SAMPLE = 120
 
-const seedFor = (path: string): number => {
-  // a small deterministic value per path — stable across runs and across the two backends
+const pathHash = (path: string): number => {
   let h = 0
   for (const ch of path) h = (h * 31 + ch.charCodeAt(0)) | 0
-  return Math.abs(h) % 97
+  return Math.abs(h)
 }
+
+const seedFor = (path: string): number => pathHash(path) % 97
+
+/**
+ * A REAL's seed spans MAGNITUDES, not just 0..96.
+ *
+ * Every seed was a small integer, and seeding OVERWRITES a declared initial value — so `probe_real_to_int_range`,
+ * whose whole subject is what `LREAL_TO_DINT` does above the i64 range, declared `1.0E19` and then compared the two
+ * backends on 43. The probe could not fail for the reason it exists, and that is why this gate never caught the
+ * divergence its own header describes finding by hand.
+ *
+ * The ladder keeps the small values (most bodies want an ordinary number) and adds the edges where the two backends
+ * are known to part: past i64, far past it, and a fraction that rounds half away from zero. Chosen by the same path
+ * hash, so it stays deterministic and reviewable in a diff.
+ */
+const REAL_SEEDS: readonly number[] = [0, 1, 2.5, -2.5, 42, 1e19, -1e19, 1e30, -1e30]
+const realSeedFor = (path: string): number => REAL_SEEDS[pathHash(path) % REAL_SEEDS.length]!
 
 interface Case {
   name: string
@@ -133,7 +149,7 @@ function interpreterOutcome(c: Case): Outcome {
       if (kind === undefined) continue
       const n = seedFor(p.path)
       try {
-        runner.set(p.path, kind === "bool" ? n % 2 === 1 : kind === "real" ? n / 4 : BigInt(n))
+        runner.set(p.path, kind === "bool" ? n % 2 === 1 : kind === "real" ? realSeedFor(p.path) : BigInt(n))
       } catch {
         // not settable through this path (an alias, a read-only place) — it is still read below
       }
@@ -170,7 +186,14 @@ function rustProgram(c: Case): string {
     const n = seedFor(p.path)
     const root = p.global ? "g" : "p"
     const value =
-      kind === "bool" ? (n % 2 === 1 ? "true" : "false") : kind === "real" ? `(${n} as f64 / 4.0) as _` : `${n} as _`
+      kind === "bool"
+        ? n % 2 === 1
+          ? "true"
+          : "false"
+        : kind === "real"
+          ? // the SAME ladder value the interpreter is handed, printed so Rust reads it as the f64 it is
+            `(${realSeedFor(p.path).toExponential()}f64) as _`
+          : `${n} as _`
     seeds.push(`    ${root}.${p.expr} = ${value};`)
   }
   const prints = c.paths.map((p) => {
@@ -237,10 +260,11 @@ const PROBES: ReadonlyArray<{ name: string; source: string; why: string }> = [
   },
   {
     name: "probe_real_to_int_range",
-    why: "`REAL → integer` saturates in Rust above the i64 range and wraps in the interpreter",
+    why: "`REAL → integer` saturates in Rust above the i64 range and wraps in the interpreter — 1.0E19 is barely past i64::MAX, 1.0E30 is far past it, and the two answer differently there",
     source:
-      "PROGRAM PLC_PRG\nVAR\n\tbig : LREAL := 1.0E19;\n\tneg : LREAL := -1.0E19;\n\ta : DINT;\n\tb : DINT;\n\tc : LINT;\n\td : LINT;\nEND_VAR\n" +
-      "a := LREAL_TO_DINT(big);\nb := LREAL_TO_DINT(neg);\nc := LREAL_TO_LINT(big);\nd := LREAL_TO_LINT(neg);\nEND_PROGRAM\n",
+      "PROGRAM PLC_PRG\nVAR\n\tbig : LREAL := 1.0E19;\n\tneg : LREAL := -1.0E19;\n\thuge : LREAL := 1.0E30;\n\tnhuge : LREAL := -1.0E30;\n\ta : DINT;\n\tb : DINT;\n\tc : LINT;\n\td : LINT;\n\te : DINT;\n\tf : DINT;\n\tg : LINT;\n\th : LINT;\nEND_VAR\n" +
+      "a := LREAL_TO_DINT(big);\nb := LREAL_TO_DINT(neg);\nc := LREAL_TO_LINT(big);\nd := LREAL_TO_LINT(neg);\n" +
+      "e := LREAL_TO_DINT(huge);\nf := LREAL_TO_DINT(nhuge);\ng := LREAL_TO_LINT(huge);\nh := LREAL_TO_LINT(nhuge);\nEND_PROGRAM\n",
   },
   {
     name: "probe_runaway_loop",

@@ -221,7 +221,14 @@ describe("emit/rust", () => {
     const code = rust(
       "PROGRAM P\nVAR x : REAL; i : INT; b : BOOL; n : INT; y : REAL; d : DINT; END_VAR\ni := REAL_TO_INT(x); b := INT_TO_BOOL(n); y := BOOL_TO_REAL(b); d := TRUNC(x); i := DINT_TO_SINT(300);\nEND_PROGRAM\n",
     )
-    expect(code).toContain("((self.x.round() as i64) as i16)") // rounds, then wraps through i64
+    // Rounds, then WRAPS through i64 — which is what this always claimed and what it did not do. A bare
+    // `as i64` SATURATES (f64 1.0E30 gives i64::MAX), so past the register the emitted code answered something
+    // the interpreter never would; `real_to_int_out_of_range` records the vendor wrapping
+    // (`LREAL_TO_DINT(3.0E9)` = -1294967296). In-range values still cast straight across: reducing them modulo
+    // 2^64 first is not just slower, it is wrong, because 2^64 - 1 is not representable and -0.5 came back 0.
+    expect(code).toContain("let __c = self.x.round()")
+    expect(code).toContain("__c as i64")
+    expect(code).toContain("rem_euclid(18446744073709551616.0)")
     expect(code).toContain("(self.n != 0)")
     expect(code).toContain("((self.b as u8) as f32)")
     // TRUNC out of DINT range is i32::MIN (measured), so it is range-checked, not pushed through a wrapping i64

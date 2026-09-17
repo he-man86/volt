@@ -478,7 +478,20 @@ class Printer {
         if (from === "string") return `(iec_parse_${to === "real" ? "real" : "int"}(${value}.units()) as ${target})`
         if (to === "bool") return from === "bool" ? value : from === "real" ? `(${value} != 0.0)` : `(${value} != 0)`
         if (from === "bool") return to === "real" ? `((${value} as u8) as ${target})` : `(${value} as ${target})`
-        if (from === "real" && to !== "real") return `((${value}.round() as i64) as ${target})`
+        // REAL -> INTEGER WRAPS, as CODESYS does and as the interpreter already did. Rust's `as` SATURATES
+        // (f64 -> i64 gives i64::MAX), which is a different answer for every value past the register, so the two
+        // backends disagreed in silence. `real_to_int_out_of_range` records the vendor: `LREAL_TO_DINT(3.0E9)` is
+        // -1294967296, the plain wrap — NOT i32::MIN. (`TRUNC` is the one that gives the minimum, which is why it
+        // has its own rule above; the two are genuinely different operations and must not be unified.)
+        //
+        // Reducing modulo 2^64 BEFORE the cast is what makes the wrap total: for a magnitude past i64 the float is
+        // already a multiple of a large power of two, so the remainder is exact and no precision is invented.
+        if (from === "real" && to !== "real") {
+          // The IN-RANGE cast first, and not only as a fast path: `rem_euclid` on a small negative is catastrophic,
+          // because 2^64 - 1 is not representable and rounds back to 2^64 — so -0.5 came out 0 instead of -1. Past
+          // i64 the float is already a multiple of a large power of two, and there the remainder is exact.
+          return `({ let __c = ${value}.round(); if __c >= -9223372036854775808.0 && __c < 9223372036854775808.0 { __c as i64 } else { let __m = __c.rem_euclid(18446744073709551616.0); if __m >= 9223372036854775808.0 { (__m - 18446744073709551616.0) as i64 } else { __m as i64 } } } as ${target})`
+        }
         return `(${value} as ${target})`
       }
       case "builtin": {

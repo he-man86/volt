@@ -81,9 +81,14 @@ export function lowerUnit(
   lowering.displayName = unit.name.text
   lowering.frameContext = `POU:${unit.name.text.toUpperCase()}`
   let body: IrStmt[]
-  // A PROGRAM with METHODs or ACTIONs runs them on its one instance (conformance `fbcall_program_own_members`), so it
-  // lowers as one, as an FB does — its bare `M()` was `call-this`, having no instance to run on. Others keep their slots.
-  const ownMembers = unit.kind === "program" && [...scope.symbols.values()].flat().some((s) => s.kind === "method" || s.kind === "action")
+  // A PROGRAM with METHODs, ACTIONs or PROPERTIES runs them on its one instance (conformance `fbcall_program_own_members`),
+  // so it lowers as one, as an FB does — its bare `M()` was `call-this`, having no instance to run on. Others keep their
+  // slots. A PROPERTY counts for exactly the reason a METHOD does: its accessor is a routine that runs on the instance.
+  // Leaving it out meant a PROGRAM whose ONLY own member is a property was not an instance, and reading that property
+  // from its body reported `place-not-local` — while adding any METHOD beside it made the same program lower.
+  const ownMembers =
+    unit.kind === "program" &&
+    [...scope.symbols.values()].flat().some((s) => s.kind === "method" || s.kind === "action" || s.kind === "property")
   const asInstance = unit.kind === "function_block" || ownMembers
   if (asInstance) body = rootInstance(lowering, unit)
   else {
