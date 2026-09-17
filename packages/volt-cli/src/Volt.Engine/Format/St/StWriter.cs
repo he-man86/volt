@@ -31,9 +31,12 @@ public static class StWriter
 
         // NOT trimmed: the reader already dropped the ONE blank line this join re-inserts, so a newline still
         // leading the body is the engineer's and has to survive the round trip.
+        // The MARKER, always — see ImplementationMarker. An empty body gets it too: the line records where the
+        // DECLARATION ends, which is a fact about the declaration and not about whether code follows it.
         var impl = item.Body ?? "";
+        if (ImplementationMarker.AppliesTo(item.Kind)) sb.Append('\n').Append(ImplementationMarker.Text);
         if (impl.Length > 0)
-            sb.Append('\n').Append('\n').Append(impl);
+            sb.Append('\n').Append(impl);
 
         // `Ordinal`, and it must stay Ordinal — this is a SORT, not a lookup.
         //
@@ -50,13 +53,13 @@ public static class StWriter
 
         if (item.Kind == ItemKind.Kinds.Interface)
         {
-            foreach (var c in children) { sb.Append('\n').Append('\n'); sb.Append(AssembleChild(c)); }
+            foreach (var c in children) { sb.Append('\n').Append('\n'); sb.Append(AssembleChild(c, item.Kind)); }
             sb.Append('\n').Append('\n').Append(EndKeyword(item.Kind));
         }
         else
         {
             sb.Append('\n').Append('\n').Append(EndKeyword(item.Kind));
-            foreach (var c in children) { sb.Append('\n').Append('\n'); sb.Append(AssembleChild(c)); }
+            foreach (var c in children) { sb.Append('\n').Append('\n'); sb.Append(AssembleChild(c, item.Kind)); }
         }
 
         sb.Append('\n');
@@ -87,10 +90,10 @@ public static class StWriter
         _ => 3,
     };
 
-    private static string AssembleChild(Member child)
+    private static string AssembleChild(Member child, string ownerKind)
     {
         if (child.Kind is ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)
-            return AssembleProperty(child);
+            return AssembleProperty(child, ownerKind);
         var decl = child.Declaration.TrimEnd('\n');
         var impl = PrependFolder(child.Folder, child.Body ?? "");
         var end = child.Kind switch
@@ -101,22 +104,27 @@ public static class StWriter
             _ => throw new BridgeException(BridgeErrorCodes.InvalidCodeHeader,
                 $"No END keyword for POU child kind '{child.Kind}'"),
         };
-        return impl.Length == 0 ? $"{decl}\n{end}" : $"{decl}\n{impl}\n{end}";
+        if (!ImplementationMarker.AppliesTo(child.Kind) || !ImplementationMarker.AppliesTo(ownerKind))
+            return impl.Length == 0 ? $"{decl}\n{end}" : $"{decl}\n{impl}\n{end}";
+        var marker = ImplementationMarker.Text;
+        return impl.Length == 0 ? $"{decl}\n{marker}\n{end}" : $"{decl}\n{marker}\n{impl}\n{end}";
     }
 
-    private static string AssembleProperty(Member child)
+    private static string AssembleProperty(Member child, string ownerKind)
     {
+        // An INTERFACE property's accessors are signatures — no body, so no boundary to mark.
+        var marked = ImplementationMarker.AppliesTo(child.Kind) && ImplementationMarker.AppliesTo(ownerKind);
         var parts = new List<string> { child.Declaration.TrimEnd('\n') };
         if (!string.IsNullOrEmpty(child.Folder)) parts.Add($"%FOLDER {child.Folder}");
         // Presence is the object. This used to re-derive it from two nullable fields — the same rule the reader
         // applied, spelled a second time, which is exactly the kind of duplication ItemContent exists to remove.
-        if (child.Getter is { } get) parts.Add(AssembleAccessor("GET", get.Declaration, get.Body));
-        if (child.Setter is { } set) parts.Add(AssembleAccessor("SET", set.Declaration, set.Body));
+        if (child.Getter is { } get) parts.Add(AssembleAccessor("GET", get.Declaration, get.Body, marked));
+        if (child.Setter is { } set) parts.Add(AssembleAccessor("SET", set.Declaration, set.Body, marked));
         parts.Add("END_PROPERTY");
         return string.Join("\n", parts);
     }
 
-    private static string AssembleAccessor(string keyword, string? decl, string? impl)
+    private static string AssembleAccessor(string keyword, string? decl, string? impl, bool marked)
     {
         // NOT trimmed. `AccessorDeclaration.Keep` already dropped the trailing newlines this join would
         // double, and a LEADING newline is the engineer's blank line - six accessors in pro2193 hold one.
@@ -125,6 +133,7 @@ public static class StWriter
         var i = impl ?? "";
         var lines = new List<string> { keyword };
         if (d.Length > 0) lines.Add(d);
+        if (marked) lines.Add(ImplementationMarker.Text);   // an accessor splits the same way, so it is marked the same way
         if (i.Length > 0) lines.Add(i);
         lines.Add($"END_{keyword}");
         return string.Join("\n", lines);

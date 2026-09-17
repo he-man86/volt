@@ -330,6 +330,16 @@ public static class StReader
 		return (d.ToString().TrimEnd('\n'), impl.TrimEnd('\n'));
 	}
 
+	/// <summary>Split at the marker line: everything above it is the declaration, everything below the
+	/// implementation, and the marker itself belongs to neither. No trivia is classified and no keyword is
+	/// looked for — that is the whole point of it (see <see cref="ImplementationMarker"/>).</summary>
+	private static (string decl, string impl) SplitAtMarker(IList<string> lines, int markerIdx)
+	{
+		var decl = string.Join("\n", SliceLines(lines, 0, markerIdx - 1));
+		var impl = string.Join("\n", SliceLines(lines, markerIdx + 1, lines.Count - 1));
+		return (decl.TrimEnd('\n'), impl.TrimEnd('\n'));
+	}
+
 	private static (string decl, string impl) SplitDeclImpl(IList<string> pouLines, string kind)
 	{
 		if (kind == ItemKind.Kinds.Interface)
@@ -342,6 +352,11 @@ public static class StReader
 		// the IMPLEMENTATION in full, INCLUDING its own VAR_TEMP block. Split BEFORE that marker so the
 		// network text's VAR_TEMP is never mistaken for a POU declaration var (the END_VAR scan below would pull it
 		// into the decl, writing temp vars into the POU and corrupting it on push).
+		// THE MARKER DECIDES. Everything below it is the legacy inference, kept only until every workspace has
+		// been re-pulled; `MigrateLayout` is what rewrites a file to carry one.
+		int marked = ImplementationMarker.IndexIn(pouLines);
+		if (marked >= 0) return SplitAtMarker(pouLines, marked);
+
 		int gfx = FirstMarkerLine(pouLines, includeFolder: false);
 		if (gfx >= 0) return SplitAtLine(pouLines, gfx);
 
@@ -601,7 +616,10 @@ public static class StReader
 		// mean "no such accessor" and would delete it on push).
 		if (accLines.Count <= 1) return new Accessor("", "");
 		var inner = SliceLines(accLines, 1, accLines.Count - 2);
-		var (decl, impl) = SplitAtLine(inner, DeclarationEnd(inner, LastCodeLine(inner, "END_VAR") + 1));
+		int marked = ImplementationMarker.IndexIn(inner);
+		var (decl, impl) = marked >= 0
+			? SplitAtMarker(inner, marked)
+			: SplitAtLine(inner, DeclarationEnd(inner, LastCodeLine(inner, "END_VAR") + 1));
 		return new Accessor(decl, impl);
 	}
 
@@ -610,6 +628,9 @@ public static class StReader
 		// Same guard as the root POU, plus %FOLDER: a child's impl is everything from the first
 		// %FOLDER/graphical marker (its network-text body — incl. VAR_TEMP — and the %FOLDER directive that
 		// PeelFolderDirective will strip). Real VAR sections stay in the decl before it.
+		int marked = ImplementationMarker.IndexIn(innerLines);
+		if (marked >= 0) return SplitAtMarker(innerLines, marked);
+
 		int gfx = FirstMarkerLine(innerLines, includeFolder: true);
 		if (gfx >= 0) return SplitAtLine(innerLines, gfx);
 

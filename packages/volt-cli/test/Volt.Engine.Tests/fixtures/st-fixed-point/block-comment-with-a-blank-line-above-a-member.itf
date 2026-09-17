@@ -1,6 +1,7 @@
 // Modules that react to EStop and Stop events from the machine
 INTERFACE IModuleBase
 EXTENDS IAbleToRegister, __SYSTEM.IQueryInterface
+(* @volt-implementation *)
 
 (* Command to reset the module in case of E-Stop
 

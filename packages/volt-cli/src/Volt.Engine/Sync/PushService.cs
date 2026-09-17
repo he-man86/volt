@@ -579,7 +579,10 @@ public static class PushService
                                         IReadOnlyDictionary<string, string> pushedDeclarations,
                                         string? ifVersion = null)
     {
-        var split = StReader.Read(src, existing is null ? ItemKind.KindForWireName(name) : null);
+        // ALWAYS the wire kind, create or update. It was create-only at first, which left every UPDATE still
+        // taking the kind from the header — and an update that disagrees is a RE-TYPE, which the guard below
+        // catches with a better message but only AFTER the reader has already believed the text.
+        var split = StReader.Read(src, ItemKind.KindForWireName(name));
 
 
         // Children (method/action/property) are keyed by name, so two children sharing a name would silently

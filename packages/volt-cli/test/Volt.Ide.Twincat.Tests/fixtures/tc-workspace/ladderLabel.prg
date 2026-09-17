@@ -2,7 +2,7 @@ PROGRAM ladderLabel
 VAR
 	coil: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD LABEL: testLabel
   coil := ;
 END_NETWORK

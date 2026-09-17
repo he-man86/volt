@@ -2,12 +2,13 @@ FUNCTION_BLOCK Machine
 VAR
 	step	: INT;
 END_VAR
-
+(* @volt-implementation *)
 ;
 
 END_FUNCTION_BLOCK
 
 ACTION Reset
+(* @volt-implementation *)
 // Put every axis back to its home position before the next batch.
 step := 0;
 END_ACTION

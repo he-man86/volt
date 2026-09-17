@@ -3,7 +3,7 @@
 FUNCTION_BLOCK PUBLIC Cylinder_52Valve_InvertedFB
 EXTENDS Cylinder_52ValveFB
 IMPLEMENTS IActuator
-
+(* @volt-implementation *)
 // Execute base cylinder fb
 SUPER^();
 
@@ -11,5 +11,6 @@ END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
 // Set the alarm messages (inverted)
+(* @volt-implementation *)
 SetSensorOutAlarm(inputIn XOR NOT Output.Map());
 END_METHOD

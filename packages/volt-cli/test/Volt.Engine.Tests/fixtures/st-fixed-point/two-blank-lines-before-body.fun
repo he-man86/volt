@@ -6,7 +6,7 @@ END_VAR
 VAR
 	X	: REAL;
 END_VAR
-
+(* @volt-implementation *)
 
 (*
 version 1.5	25. oct. 2008

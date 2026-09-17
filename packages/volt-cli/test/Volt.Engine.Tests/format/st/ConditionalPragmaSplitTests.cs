@@ -24,9 +24,12 @@ public class ConditionalPragmaSplitTests
     private static string DeclOf(string st) => StReader.Read(st).Members.Single().Declaration;
     private static string BodyOf(string st) => StReader.Read(st).Members.Single().Body;
 
+    // Carries the marker, because that is now what a pulled file looks like — and it is the marker, not the
+    // directive rule below, that keeps the block whole. The `IsDirectivePragma` exception still exists for files
+    // written before markers; these tests pin BOTH paths.
     private const string MethodWithConditional =
-        "FUNCTION_BLOCK FB\nVAR\n\tiCounter : INT;\nEND_VAR\n\nEND_FUNCTION_BLOCK\n\n" +
-        "METHOD Run\n{define MY_FLAG}\n{IF defined (MY_FLAG)}\niCounter := 42;\n{ELSE}\nbroken_xyz;\n{END_IF}\nEND_METHOD\n";
+        "FUNCTION_BLOCK FB\nVAR\n\tiCounter : INT;\nEND_VAR\n(* @volt-implementation *)\n\nEND_FUNCTION_BLOCK\n\n" +
+        "METHOD Run\n(* @volt-implementation *)\n{define MY_FLAG}\n{IF defined (MY_FLAG)}\niCounter := 42;\n{ELSE}\nbroken_xyz;\n{END_IF}\nEND_METHOD\n";
 
     [Fact]
     public void A_conditional_block_is_never_split_across_the_boundary()

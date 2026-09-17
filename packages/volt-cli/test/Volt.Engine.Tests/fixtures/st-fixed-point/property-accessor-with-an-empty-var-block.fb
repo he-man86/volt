@@ -2,7 +2,7 @@ FUNCTION_BLOCK DrawerMagazineFB
 VAR
 	active	: IDrawer;
 END_VAR
-
+(* @volt-implementation *)
 ;
 
 END_FUNCTION_BLOCK
@@ -14,6 +14,7 @@ VAR
 END_VAR
 
 // Determine the active and inactive drawer
+(* @volt-implementation *)
 ActiveDrawerItf := active;
 END_GET
 END_PROPERTY
