@@ -526,8 +526,15 @@ class Printer {
         if (e.op === "and" || e.op === "or" || e.op === "xor") return `(${l} ${e.op === "and" ? "&" : e.op === "or" ? "|" : "^"} ${r})`
         const wrapping = WRAPPING[e.op]
         const isReal = e.type.kind === "elementary" && e.type.elem.family === "real"
-        // MOD by zero is 0, measured (`mod_by_zero`), where Rust's `%` panics; each operand is evaluated once, left first
-        if (e.op === "mod" && !isReal) return `({ let a = ${l}; let d = ${r}; if d == 0 { 0 } else { a.wrapping_rem(d) } })`
+        // MOD by zero is 0, measured (`mod_by_zero`), where Rust's `%` panics; each operand is evaluated once, left first.
+        //
+        // THE BINDINGS CARRY THE RESERVED PREFIX, and that is not cosmetic. They were `a` and `d`, and a routine's
+        // parameters are Rust LOCALS: in `FUNCTION F : INT VAR_INPUT a : INT; b : INT; END_VAR F := b MOD a;` the
+        // emitted `let a = b` SHADOWED the parameter `a`, so the very next binding — `let d = a` — read the left
+        // operand instead of the right, and `7 MOD 3` compiled to `7 % 7` = 0 where the interpreter answers 1.
+        // A silent wrong answer, and one no recorded case caught because no fixture names a parameter `a`.
+        if (e.op === "mod" && !isReal)
+          return `({ let __mod_l = ${l}; let __mod_r = ${r}; if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } })`
         if (wrapping !== undefined && !isReal) return `${l}.wrapping_${wrapping}(${r})`
         const plain = e.op === "add" ? "+" : e.op === "sub" ? "-" : e.op === "mul" ? "*" : e.op === "div" ? "/" : "%"
         return `(${l} ${plain} ${r})`
@@ -563,7 +570,13 @@ class Printer {
         // through one `&mut`: printed on both sides, an index holding a call ran that call twice (transpiler review
         // 2026-09-15). The value first, as a plain `place = value` evaluates it.
         const one = `(1${rustType(bit.of)} << ${bit.index})`
-        this.push(`{ let v = ${this.expr(s.value, slots)}; let w = &mut ${field}; *w = if v { *w | ${one} } else { *w & !${one} }; }`, indent, s.span)
+        // reserved prefix, for the reason the MOD expansion above spells out: `v` and `w` are ordinary IEC
+        // identifiers, and a routine's parameters and VAR_TEMPs are Rust locals in the same scope as this block
+        this.push(
+          `{ let __bit_v = ${this.expr(s.value, slots)}; let __bit_w = &mut ${field}; *__bit_w = if __bit_v { *__bit_w | ${one} } else { *__bit_w & !${one} }; }`,
+          indent,
+          s.span,
+        )
         return
       }
       case "if": {

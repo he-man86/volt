@@ -169,7 +169,11 @@ describe("emit/rust", () => {
     expect(diagnostics).toEqual([])
     const code = emitRust(pou!).code
     // the operands promoted to DINT first (MOD is a lifted operator), then the guard; the result narrowed back to INT
-    expect(code).toContain("self.m = (({ let a = (self.a as i32); let d = (self.z as i32); if d == 0 { 0 } else { a.wrapping_rem(d) } }) as i16);")
+    // the bindings carry the reserved prefix — they used to be `a` and `d`, which shadowed a parameter of
+    // those names and made `7 MOD 3` compile to `7 % 7`; see the hygiene describe below
+    expect(code).toContain(
+      "self.m = (({ let __mod_l = (self.a as i32); let __mod_r = (self.z as i32); if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } }) as i16);",
+    )
     expect(code).toContain("self.w = ((!(self.a as u16)) as i32);")
   })
 
@@ -243,7 +247,9 @@ describe("emit/rust", () => {
     expect(code).toContain("self.b.rotate_left((self.n as u32))") // the BYTE's own width
     expect(code).toContain("(((self.w >> 3) & 1) != 0)")
     // the place named once (review 2026-09-15: printed on both sides, a call in its index ran twice)
-    expect(code).toContain("{ let v = self.x; let w = &mut self.i; *w = if v { *w | (1i16 << 15) } else { *w & !(1i16 << 15) }; }")
+    expect(code).toContain(
+      "{ let __bit_v = self.x; let __bit_w = &mut self.i; *__bit_w = if __bit_v { *__bit_w | (1i16 << 15) } else { *__bit_w & !(1i16 << 15) }; }",
+    )
     expect(code).toContain("_ => ") // out-of-range K picks the last input
   })
 
@@ -303,6 +309,71 @@ test("a PROGRAM's METHOD takes its arguments before the program is moved out of 
   const line = emitRust(pou!).code.split("\n").find((l) => l.includes("__program.bump"))!
   expect(line.indexOf("let __arg_0 = ")).toBeGreaterThanOrEqual(0)
   expect(line.indexOf("let __arg_0 = ")).toBeLessThan(line.indexOf("std::mem::replace"))
+})
+
+/**
+ * A GENERATED BINDING MUST NOT BE NAMEABLE IN ST — a routine's parameters and VAR_TEMPs are Rust LOCALS, in the
+ * same scope as whatever the emitter expands inline.
+ *
+ * The MOD expansion bound `a` and `d`. In `FUNCTION F : INT VAR_INPUT a : INT; b : INT; END_VAR F := b MOD a;`
+ * the emitted `let a = b` SHADOWED the parameter, so the next line — `let d = a` — read the LEFT operand where
+ * the right was meant, and `7 MOD 3` compiled to `7 % 7` = **0** while the interpreter answered 1. A silent
+ * wrong answer, in the backend that is the actual deliverable.
+ *
+ * No recorded case caught it because no fixture happens to name a parameter `a`, and no *compile* check could:
+ * the wrong program is perfectly valid Rust. So the test is on the emitted TEXT, and it is about the rule
+ * rather than the instance — every binding the emitter invents carries `__`, which CODESYS reserves.
+ */
+describe("emit/rust — generated bindings cannot collide with an ST name", () => {
+  const MOD_IN_FUNCTION =
+    "FUNCTION F_mod : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;\nEND_VAR\nF_mod := b MOD a;\nEND_FUNCTION\n\n" +
+    "PROGRAM PLC_PRG\nVAR\n\tr : INT;\nEND_VAR\nr := F_mod(a := 3, b := 7);\nEND_PROGRAM\n"
+
+  test("MOD does not shadow a parameter named like its own temporaries", () => {
+    const line = rust(MOD_IN_FUNCTION)
+      .split("\n")
+      .find((l) => l.includes("wrapping_rem"))!
+    expect(line).toBeDefined()
+    // the right operand must still read the PARAMETER `a`, not a binding introduced one statement earlier
+    expect(line).not.toMatch(/let a = /)
+    expect(line).not.toMatch(/let d = /)
+    expect(line).toContain("__mod_l")
+    expect(line).toContain("__mod_r")
+  })
+
+  test("a bit assignment does not shadow locals named v or w", () => {
+    const line = rust("PROGRAM P\nVAR\n\tv : BOOL := TRUE;\n\tw : WORD;\nEND_VAR\nw.2 := v;\nEND_PROGRAM\n")
+      .split("\n")
+      .find((l) => l.includes("__bit_"))!
+    expect(line).toBeDefined()
+    expect(line).not.toMatch(/let v = /)
+    expect(line).not.toMatch(/let w = /)
+  })
+
+  test("no `let` in a routine shadows one of that routine's parameters", () => {
+    // THE PRECISE RULE, and the first attempt at it was wrong in a way worth recording: "every `let` carries
+    // `__`" is too strong, because the emitter legitimately binds a FUNCTION's return variable and its VAR_TEMPs
+    // under their own ST names — those bindings ARE the ST variable, which is the point of them. What must never
+    // happen is a binding that hides a PARAMETER, because a parameter is the one local the body did not declare
+    // and cannot see being taken away.
+    const src =
+      "FUNCTION F_all : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;\n\tv : BOOL;\nEND_VAR\nVAR\n\tw : WORD;\nEND_VAR\n" +
+      "w.1 := v;\nF_all := b MOD a;\nEND_FUNCTION\n\nPROGRAM PLC_PRG\nVAR\n\tr : INT;\nEND_VAR\n" +
+      "r := F_all(a := 3, b := 7, v := TRUE);\nEND_PROGRAM\n"
+
+    const shadowed: string[] = []
+    for (const fn of rust(src).split(/(?=pub fn )/)) {
+      const signature = /pub fn [a-z_0-9]+\(([^)]*)\)/.exec(fn)
+      if (signature === null) continue
+      const params = signature[1]!
+        .split(",")
+        .map((p) => /(?:mut )?([A-Za-z_][A-Za-z0-9_]*)\s*:/.exec(p.trim())?.[1])
+        .filter((n): n is string => n !== undefined)
+      for (const m of fn.matchAll(/\blet (?:mut )?([A-Za-z_][A-Za-z0-9_]*)/g))
+        if (params.includes(m[1]!)) shadowed.push(`${signature[0]} shadows ${m[1]!}`)
+    }
+    expect(shadowed).toEqual([])
+  })
 })
 
 // `rustc` alone, no cargo and no crate — a golden-text test proves the shape, this proves the Rust is real.
