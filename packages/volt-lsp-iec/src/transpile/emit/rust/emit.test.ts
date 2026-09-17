@@ -5,6 +5,8 @@ import { join } from "node:path"
 import { emitRust, rustType, snake } from "./emit.js"
 import { lowerSource } from "../../lower/index.js"
 import { RUSTC, skipRustSuite } from "../../../../test/conformance/support/rustc.js"
+import { LOOP_CAP_MESSAGE, LOOP_ITERATION_CAP } from "../../ir/index.js"
+import { load } from "../../index.js"
 
 function rust(src: string): string {
   const { pou, diagnostics } = lowerSource(src)
@@ -309,6 +311,48 @@ test("a PROGRAM's METHOD takes its arguments before the program is moved out of 
   const line = emitRust(pou!).code.split("\n").find((l) => l.includes("__program.bump"))!
   expect(line.indexOf("let __arg_0 = ")).toBeGreaterThanOrEqual(0)
   expect(line.indexOf("let __arg_0 = ")).toBeLessThan(line.indexOf("std::mem::replace"))
+})
+
+/**
+ * THE ITERATION CAP IS A SHARED CONTRACT, not an interpreter convenience.
+ *
+ * It lived in `interp/` as a private constant, so it was the one rule in the transpiler that one backend obeyed
+ * and the other had never heard of: a runaway loop threw after a million iterations in the interpreter and ran
+ * FOREVER in the emitted Rust. Measured on `WHILE go DO n := n + 1; END_WHILE` — interpreter "loop exceeded the
+ * iteration cap", compiled Rust no termination at all.
+ *
+ * That direction is the bad one. The emitted Rust is what a user runs under `cargo test`, where a hang is
+ * indistinguishable from a slow suite until CI gives up with no output to show for it.
+ *
+ * The cap and its wording now come from `ir/` — the IR carries the semantics, so neither backend can drift.
+ */
+describe("emit/rust — the iteration cap both backends share", () => {
+  test("every loop carries the guard, with the IR's own cap and message", () => {
+    const code = rust("PROGRAM P\nVAR\n\tn : INT;\n\tgo : BOOL := TRUE;\nEND_VAR\nWHILE go DO\n\tn := n + 1;\nEND_WHILE\nEND_PROGRAM\n")
+    expect(code).toContain("let mut __iter_1: u64 = 0;")
+    expect(code).toContain(`if __iter_1 > ${LOOP_ITERATION_CAP} { panic!(${JSON.stringify(LOOP_CAP_MESSAGE)}); }`)
+  })
+
+  test("each loop in a POU gets its own counter", () => {
+    // one shared counter would make a second loop inherit the first one's count and trip early
+    const code = rust(
+      "PROGRAM P\nVAR\n\ti : INT;\n\tj : INT;\n\tn : INT;\nEND_VAR\n" +
+        "FOR i := 1 TO 3 DO n := n + 1; END_FOR\nFOR j := 1 TO 3 DO n := n + 1; END_FOR\nEND_PROGRAM\n",
+    )
+    expect(code).toContain("let mut __iter_1: u64 = 0;")
+    expect(code).toContain("let mut __iter_2: u64 = 0;")
+  })
+
+  test("the interpreter enforces the SAME cap and message", () => {
+    // the point of the shared constant: this assertion and the emitted text above cannot drift apart
+    let thrown = "no throw"
+    try {
+      load("PROGRAM P\nVAR\n\tn : INT;\n\tgo : BOOL := TRUE;\nEND_VAR\nWHILE go DO\n\tn := n + 1;\nEND_WHILE\nEND_PROGRAM\n", "P").scan()
+    } catch (error) {
+      thrown = (error as Error).message
+    }
+    expect(thrown).toBe(LOOP_CAP_MESSAGE)
+  })
 })
 
 /**

@@ -18,6 +18,8 @@ import {
   type IrStmt,
   peelArray,
   type Place,
+  LOOP_CAP_MESSAGE,
+  LOOP_ITERATION_CAP,
 } from "../ir/index.js"
 import type { Type } from "../../types/index.js"
 import {
@@ -39,8 +41,7 @@ export type { Val } from "./values.js"
 
 type Signal = "none" | "break" | "continue" | "return"
 
-/** A runaway loop is a bug in the POU, not a budget to raise — fail loud instead of hanging a test run. */
-const MAX_ITERATIONS = 1_000_000
+// the cap and its wording come from the IR, so the two backends cannot drift apart on either — see ir.ts
 
 /** Where a value lives: a container (a frame, a record, an array) and the key into it. */
 type Cell = { container: Record<string | number, Val>; key: string | number }
@@ -325,7 +326,7 @@ class Machine {
       case "loop": {
         this.block(s.init)
         for (let n = 0; ; n++) {
-          if (n > MAX_ITERATIONS) throw new RangeError("loop exceeded the iteration cap")
+          if (n > LOOP_ITERATION_CAP) throw new RangeError(LOOP_CAP_MESSAGE)
           if (s.test !== undefined && !s.test.atEnd && !bool(this.expr(s.test.cond))) break
           const sig = this.block(s.body)
           if (sig === "break") break

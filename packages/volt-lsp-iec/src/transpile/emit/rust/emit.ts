@@ -18,7 +18,7 @@
  * diagnostics use — there is no second table of type sizes here.
  */
 import type { IrBinding, IrExpr, IrInit, IrLayout, IrMathName, IrPou, IrRoutine, IrStmt, IrValue, Place } from "../../ir/index.js"
-import { defaultValueOf, elementOf, holdsCall, isBit, peelArray } from "../../ir/index.js"
+import { defaultValueOf, elementOf, holdsCall, isBit, LOOP_CAP_MESSAGE, LOOP_ITERATION_CAP, peelArray } from "../../ir/index.js"
 import type { Span } from "../../../syntax/index.js"
 import type { Type } from "../../../types/index.js"
 import { STRING_PRELUDE } from "./prelude.js"
@@ -613,8 +613,19 @@ class Printer {
         // unlabeled `break` may not sit directly in a labeled block.
         const frame = { n: ++this.loopCount, exits: false, continues: false }
         for (const init of s.init) this.stmt(init, slots, indent)
+        // THE ITERATION CAP, the same one the interpreter enforces (ir.ts). Without it the two backends disagreed
+        // about a runaway loop in the worst possible direction: the interpreter threw, the emitted Rust ran
+        // forever — and the emitted Rust is what a user runs under `cargo test`, where a hang looks like a slow
+        // suite until CI gives up with nothing to show. The counter carries the reserved prefix for the reason
+        // the MOD expansion does.
+        this.push(`let mut __iter_${frame.n}: u64 = 0;`, indent, s.span)
         const loopLine = this.lines.length
         this.push(`'loop_${frame.n}: loop {`, indent, s.span)
+        this.push(`__iter_${frame.n} += 1;`, indent + 1)
+        this.push(
+          `if __iter_${frame.n} > ${LOOP_ITERATION_CAP} { panic!(${JSON.stringify(LOOP_CAP_MESSAGE)}); }`,
+          indent + 1,
+        )
         if (s.test !== undefined && !s.test.atEnd)
           this.push(`if !${this.expr(s.test.cond, slots)} { break; }`, indent + 1)
         const bodyLine = this.lines.length

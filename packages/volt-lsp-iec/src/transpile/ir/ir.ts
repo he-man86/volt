@@ -18,6 +18,25 @@
  * The IR is a typed tree, not SSA: the targets are source languages, not machine code.
  */
 import type { Span, VarSectionKind } from "../../syntax/index.js"
+
+/**
+ * THE ITERATION CAP — a loop that runs longer than this is a bug in the POU, and BOTH backends must say so.
+ *
+ * It lives in the IR because it is semantics, and the IR carries the semantics (decision 2 above). It used to
+ * live in `interp/` alone as a private constant, which made it the only rule in the transpiler that one backend
+ * obeyed and the other had never heard of: the interpreter threw after a million iterations, the emitted Rust
+ * ran forever. Same IR, same program, one fails loud and one hangs — and hanging is the worse half, because the
+ * emitted Rust is what a user runs under `cargo test`, where a hang is indistinguishable from a slow suite
+ * until CI times out with nothing to show.
+ *
+ * Not a budget to raise. A PLC scan is bounded by the cycle it runs in; a POU that needs a million iterations
+ * of one loop is not going to work on the hardware either.
+ */
+export const LOOP_ITERATION_CAP = 1_000_000
+
+/** What both backends say when a loop passes {@link LOOP_ITERATION_CAP} — one message, so a divergence in the
+ *  failure is as visible as a divergence in a value. */
+export const LOOP_CAP_MESSAGE = "loop exceeded the iteration cap"
 import type { Type } from "../../types/index.js"
 
 // ─── values ──────────────────────────────────────────────────────────────────
