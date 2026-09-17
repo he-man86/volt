@@ -64,17 +64,28 @@ public static class StReader
 	/// Split one canonical workspace source item (ST text) into the vendor-neutral primitives the
 	/// push path writes through <c>IIdeDriver</c>.
 	/// </summary>
-	public static ItemContent Read(string sourceText)
+	/// <param name="expectedKind">The kind the WIRE NAME says this item is (<see cref="ItemKind.KindForWireName"/>).
+	/// When given it DECIDES, and a header that disagrees is refused rather than followed — see the class remark.
+	/// Null only where no wire name exists (the format's own round-trip, and tests).</param>
+	public static ItemContent Read(string sourceText, string? expectedKind = null)
 	{
 		if (string.IsNullOrWhiteSpace(sourceText))
 			throw new BridgeException(BridgeErrorCodes.InvalidSt, "Empty ST source");
 
 		var lines = NormalizeLines(sourceText);
 
-		// 1. Identify the outer POU kind (uses the existing CodeHelper
-		// logic which handles pragmas + comments above the keyword; it
-		// also validates the header).
-		var kind = CodeHelper.ParseCodeHeader(sourceText);
+		// 1. The kind. THE EXTENSION IS THE KIND — it is on the wire name and `KindForWireName` reads it off,
+		// so the header is CHECKED against it rather than consulted for it. Taking the kind from the text let a
+		// push rename the object: `KindTest.fb` whose text said `PROGRAM` was accepted and produced
+		// `KindTest.prg` (measured on live SP21, 2026-09-17), and since the wire is keyed by the FULL name the
+		// next `ifVersion` then named an item that no longer existed.
+		var declared = CodeHelper.ParseCodeHeader(sourceText);
+		if (expectedKind != null && !string.Equals(declared, expectedKind, System.StringComparison.Ordinal))
+			throw new BridgeException(BridgeErrorCodes.InvalidSt,
+				$"the item's extension says '{expectedKind}' and its text declares a '{declared}'. The extension is " +
+				"the kind — rename the file to match the code, or change the code to match the file. (Writing it " +
+				"anyway would silently replace the item with one of the other kind, under a different name.)");
+		var kind = expectedKind ?? declared;
 
 		// 2. Branch on kind: composite POUs have children, simple
 		// ones (gvl / dut) are single text blobs.

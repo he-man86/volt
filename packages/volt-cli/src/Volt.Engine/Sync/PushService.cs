@@ -118,7 +118,14 @@ public static class PushService
             try
             {
                 if (IsTask(set.Name)) TaskDescriptorFormat.Gate(text);
-                else ValidateSourceOrThrow(text, WillCreate(walk, itemCache, Materializer.Bare(set.Name)));
+                else
+                {
+                    var creating = WillCreate(walk, itemCache, Materializer.Bare(set.Name));
+                    // Only a CREATE compares the extension with the text. An UPDATE that disagrees is a RE-TYPE,
+                    // and `ItemKindIsNotRewritable` refuses it with the better message — it can name what the
+                    // object actually is, which a create has nothing to ask.
+                    ValidateSourceOrThrow(text, creating, creating ? ItemKind.KindForWireName(set.Name) : null);
+                }
             }
             catch (Exception ex) { return Reject(op, ex); }
         }
@@ -514,9 +521,9 @@ public static class PushService
     /// touching the IDE. This is the batch PRE-FLIGHT's worker (<see cref="Handle"/>): running it over every
     /// op before the first write is what makes a push all-or-nothing for the class of refusal that is
     /// decidable from the text alone, which is the class a real push fails on.</summary>
-    private static void ValidateSourceOrThrow(string src, bool isCreate)
+    private static void ValidateSourceOrThrow(string src, bool isCreate, string? wireKind = null)
     {
-        var split = StReader.Read(src);                       // throws InvalidSt on a malformed document
+        var split = StReader.Read(src, wireKind);            // throws InvalidSt on a malformed document, or a kind the name contradicts
         // …and every graphical body it carries, root and members alike: network text that does not parse is the
         // most common way an edit is refused, and it is knowable before anything is mutated.
         //
@@ -572,7 +579,7 @@ public static class PushService
                                         IReadOnlyDictionary<string, string> pushedDeclarations,
                                         string? ifVersion = null)
     {
-        var split = StReader.Read(src);
+        var split = StReader.Read(src, existing is null ? ItemKind.KindForWireName(name) : null);
 
 
         // Children (method/action/property) are keyed by name, so two children sharing a name would silently
