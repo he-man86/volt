@@ -199,22 +199,8 @@ internal sealed partial class TcObjectModel
                     continue;
                 }
                 if (string.IsNullOrEmpty(text)) continue;
-                var regex = new Regex(
-                    @"^(.+?)(?:\((\d+)(?:,(\d+))?\))?\s*:\s*(error|warning|message)\s*:\s*(.+)$",
-                    RegexOptions.IgnoreCase | RegexOptions.Multiline);
-                foreach (Match m in regex.Matches(text))
+                foreach (var diagnostic in ParsePaneText(text))
                 {
-                    int lineNum = 0, colNum = 0;
-                    if (m.Groups[2].Success) int.TryParse(m.Groups[2].Value, out lineNum);
-                    if (m.Groups[3].Success) int.TryParse(m.Groups[3].Value, out colNum);
-                    var diagnostic = new BridgeDiagnostic
-                    {
-                        // "message" is TwinCAT's word for informational; Severity.Of maps it.
-                        Severity = Volt.Contracts.Severity.Of(m.Groups[4].Value),
-                        Message = m.Groups[5].Value.Trim(),
-                        Line = lineNum,
-                        Column = colNum,
-                    };
                     // ONE ENTRY PER DIAGNOSTIC, however many panes carry it. A PLC build writes the same error
                     // to Visual Studio's own Build pane AND to TwinCAT's, so now that every pane is read the
                     // same error arrives twice; the engineer would see it twice in the Problems list. Keyed on
@@ -245,5 +231,71 @@ internal sealed partial class TcObjectModel
             });
         }
         return result;
+    }
+
+    /// <summary>One Output pane's text, parsed into diagnostics. Pure, so it is tested offline.</summary>
+    /// <remarks>
+    /// A line matches only if it is shaped `file(line,col) : error|warning|message : text`, which is a compiler's
+    /// output and not a window's chrome — that shape IS the pane filter, which is why no pane is selected by name.
+    ///
+    /// A MESSAGE MAY SPAN LINES, and cutting it at the first one is data corruption the wire then carries. CODESYS
+    /// quotes source text back at you — `The code '.size;&lt;newline&gt;' has no effect. Is this the intent?` — and
+    /// `.` does not match a newline, so the recorded TwinCAT message was `The code '.size;`, no closing quote
+    /// (found from the LSP conformance recordings, 2026-09-17). Continuation is recognised by an UNBALANCED QUOTE
+    /// rather than by "the next line is not a diagnostic": the pane is full of build chrome, and appending that to
+    /// the previous message would corrupt far more than the break does.
+    /// </remarks>
+    internal static IReadOnlyList<BridgeDiagnostic> ParsePaneText(string text)
+    {
+        var parsed = new List<BridgeDiagnostic>();
+        var regex = new Regex(
+            @"^(.+?)(?:\((\d+)(?:,(\d+))?\))?\s*:\s*(error|warning|message)\s*:\s*(.+)$",
+            RegexOptions.IgnoreCase | RegexOptions.Multiline);
+        foreach (Match m in regex.Matches(text))
+        {
+            int lineNum = 0, colNum = 0;
+            if (m.Groups[2].Success) int.TryParse(m.Groups[2].Value, out lineNum);
+            if (m.Groups[3].Success) int.TryParse(m.Groups[3].Value, out colNum);
+            parsed.Add(new BridgeDiagnostic
+            {
+                // "message" is TwinCAT's word for informational; Severity.Of maps it.
+                Severity = Volt.Contracts.Severity.Of(m.Groups[4].Value),
+                Message = WithContinuation(text, m).Trim(),
+                Line = lineNum,
+                Column = colNum,
+            });
+        }
+        return parsed;
+    }
+
+    /// <summary>
+    /// The matched message plus the lines its unterminated quote continues onto, with the BREAKS AS THE PANE WROTE
+    /// THEM — the compiler is quoting source text, and `The code '.size;&lt;CRLF&gt;'` is what it means to say.
+    /// </summary>
+    private static string WithContinuation(string text, Match m)
+    {
+        // `$` matches before the `\n`, so the capture keeps the `\r` of a CRLF pane; the real break is re-read below.
+        var message = m.Groups[5].Value.TrimEnd('\r');
+        int at = m.Index + m.Length;
+        if (at > 0 && text[at - 1] == '\r') at--; // greedy `.+` swallowed the CR; the break starts there
+        while (CountQuotes(message) % 2 != 0 && at < text.Length)
+        {
+            int lineStart = at;
+            if (text[at] == '\r') at++;
+            if (at < text.Length && text[at] == '\n') at++;
+            if (at == lineStart) break; // not at a line break — nothing more to join
+            int end = text.IndexOf('\n', at);
+            if (end < 0) end = text.Length;
+            message += text.Substring(lineStart, at - lineStart) + text.Substring(at, end - at).TrimEnd('\r');
+            at = end;
+        }
+        return message;
+    }
+
+    private static int CountQuotes(string s)
+    {
+        int n = 0;
+        foreach (var c in s) if (c == '\'') n++;
+        return n;
     }
 }
