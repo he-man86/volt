@@ -491,7 +491,18 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
   }
   const manifests = libraries.flatMap((l) => parseLibraryManifest(l.uri, l.source) ?? [])
   const declarations = libraries.filter((l) => parseLibraryManifest(l.uri, l.source) === undefined)
-  const files = [{ uri, parseResult, source }, ...declarations.map((l) => ({ uri: l.uri, parseResult: parseSource(l.source), source: l.source }))]
+  // A DECLARATION FILE THAT DOES NOT PARSE IS REPORTED, not built on. The main source's errors return above; a
+  // library's or a GVL's were dropped, and the half-parsed file went into the symbol table anyway — so the failure
+  // resurfaced downstream wearing someone else's name. A GVL whose `gN : INT := 7` is missing its semicolon reported
+  // `aggregate-init: an aggregate initializer of a shape lowering does not recognise` and `place-not-local: gN is a
+  // gvl_var, which has no frame slot yet`, neither of which is true and neither of which names the file.
+  const parsedDeclarations = declarations.map((l) => ({ uri: l.uri, parseResult: parseSource(l.source), source: l.source }))
+  const unparsed = parsedDeclarations.find((f) => f.parseResult.errors.length > 0)
+  if (unparsed !== undefined) {
+    const first = unparsed.parseResult.errors[0]!
+    return { diagnostics: [lowerDiagnostic("parse", `${unparsed.uri} did not parse: ${first.message}`, first.span)] }
+  }
+  const files = [{ uri, parseResult, source }, ...parsedDeclarations]
   const project = buildSymbolTable(files, manifests)
   const runnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "function_block" }> =>
     u.kind === "program" || u.kind === "function_block"
