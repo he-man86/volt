@@ -1468,3 +1468,21 @@ describe("an ANY argument passes the guards every lent place passes", () => {
     ).toEqual([])
   })
 })
+
+/**
+ * AN ANY INPUT THROUGH AN INTERFACE IS REFUSED, not answered wrongly.
+ *
+ * A direct call lowers a SPECIAL variant for an `ANY`/`ANY_*` VAR_INPUT: the input is a hidden DINT the call
+ * fills with the argument's BYTE SIZE, and the argument is lent separately (conformance
+ * `state_any_input_sizes`). `interfaceCall` lowered its arguments against the INTERFACE declaration and
+ * resolved each arm WITHOUT the call expression — which is what selects that variant — so the plain routine
+ * ran and the argument's VALUE was handed to an input expecting its SIZE: `Take(v := big)` with
+ * `big : LREAL := 42.0` passed 42 where the body reads `v.diSize` and 8 is the answer.
+ *
+ * Filling the size per dispatch arm is coverage work. Being wrong about it was not.
+ */
+test("an ANY input through an interface is refused rather than given the argument value", () => {
+  const r = lowerSource("INTERFACE I_X\nMETHOD Take : DINT\nVAR_INPUT\n\tv : ANY;\nEND_VAR\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION_BLOCK FB_A IMPLEMENTS I_X\nEND_FUNCTION_BLOCK\n\nMETHOD Take : DINT\nVAR_INPUT\n\tv : ANY;\nEND_VAR\nTake := v.diSize;\nEND_METHOD\n\nPROGRAM PLC_PRG\nVAR\n\tsq : FB_A;\n\tr : I_X;\n\tn : DINT;\n\tbig : LREAL := 42.0;\nEND_VAR\nr := sq;\nn := r.Take(v := big);\nEND_PROGRAM\n", "PLC_PRG")
+  expect(r.pou).toBeUndefined()
+  expect(r.diagnostics.map((d) => d.code)).toContain("interface-any-input")
+})

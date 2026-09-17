@@ -29,7 +29,7 @@
  */
 import type { Expr, Interface, Span, Statement } from "../../syntax/index.js"
 import { lookup, lookupMember } from "../../symbols/index.js"
-import { elementaryRef, inferExprType, type Type, UNKNOWN } from "../../types/index.js"
+import { ANY_FAMILIES, elementaryRef, inferExprType, type Type, UNKNOWN } from "../../types/index.js"
 import { type IrArm, type IrCall, type IrDispatch, type IrExpr, type IrInvoke, type IrStmt, peelArray, type Place } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 import { convert } from "./convert.js"
@@ -248,6 +248,25 @@ export function interfaceCall(lw: Lowering, ref: Place, call: Extract<Expr, { ki
     if (param === undefined || arg.output || arg.value === undefined) return lw.bail("call-param", `an argument ${name} of ${itf} does not take`, arg.span)
     const type = storageOf(lw, lw.resolve(param.type, lw.project))
     if (type.kind === "interface") return lw.bail("interface-input", "an interface passed as an input — not built yet", arg.span)
+    // AN ANY INPUT THROUGH AN INTERFACE IS REFUSED, not passed.
+    //
+    // A direct call to a routine with an `ANY`/`ANY_*` VAR_INPUT lowers a SPECIAL variant: the input is a hidden
+    // DINT the call fills with the argument's BYTE SIZE, and the argument itself is lent separately as a hidden
+    // VAR_IN_OUT (conformance `state_any_input_sizes`). This path lowers its arguments against the INTERFACE's
+    // declaration and resolves each arm with `methodOf(lw, fb, name, call.span)` — without the `call`, which is
+    // what selects that variant — so the PLAIN routine was lowered and the argument's VALUE went to an input
+    // expecting its SIZE. `Take(v := big)` with `big : LREAL := 42.0` passed 42 where the body reads `v.diSize`
+    // and 8 is the answer.
+    //
+    // Making it work means filling the size and lending the place PER ARM, which is real work and not this
+    // change's (D6: coverage belongs to `transpile-st-to-rust`). The refusal is the difference between a gap
+    // and a wrong answer.
+    if (param.type.kind === "named_type" && ANY_FAMILIES.has(param.type.name.text.toUpperCase()))
+      return lw.bail(
+        "interface-any-input",
+        `${name} takes an ANY input through an interface — the size an ANY input needs is not filled per arm`,
+        arg.span,
+      )
     const value = lw.inArgument(() => lowerExpr(lw, arg.value!, type))
     if (value === undefined) return undefined
     inputs.set(param.name, convert(value, type))

@@ -85,6 +85,7 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "inout-constant-write": "unclassified",
   "interface-call-shape": "unclassified",
   "interface-context": "unclassified",
+  "interface-any-input": "not-modelled",
   "interface-input": "unclassified",
   "interface-instance": "unclassified",
   "interface-instance-relative": "unclassified",
