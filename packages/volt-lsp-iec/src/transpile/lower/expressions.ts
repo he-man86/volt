@@ -184,6 +184,22 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
       // BEFORE the constant retyping below: `dt + T#1S` would otherwise stamp the 1000-ms literal as a DT — 1000 s.
       const calendar = calendarArithmetic(op, left, right, e.span)
       if (calendar !== undefined) return calendar
+      // A duration × or ÷ an integer (and an integer × a duration) computes in the duration's type: `T#1S * 3` is
+      // T#3S and `T#1S / 4` is T#250MS (conformance `time_multiply_divide`). A duration has no widening rank, so
+      // without this `commonType` would find no common type.
+      //
+      // BEFORE THE CONSTANT RETYPING BELOW, for the same reason `calendarArithmetic` is: when the DURATION is the
+      // constant and the integer is a variable, `adopt` had already stamped the TIME constant with the promoted
+      // INTEGER type, so `isDuration(left.type)` was false and the expression computed in signed DINT.
+      // `t := T#49D17H2M47S295MS / n` with `n : INT := 2` gave 0 in both backends where CODESYS answers
+      // 2147483647, and `(T#1S * n) > t` was refused `type-unknown` while the identical expression with the
+      // duration in a VARIABLE lowered. The two backends agreed with each other and both differed from the
+      // vendor — which is why only a measurement could find it.
+      const isDuration = (t: Type): boolean => elemOf(t)?.family === "time"
+      const isIntegral = (t: Type): boolean => isIntegerType(elemOf(t)?.name ?? "")
+      if ((op === "mul" || op === "div") && isDuration(left.type) && isIntegral(right.type)) right = convert(right, left.type)
+      else if (op === "mul" && isIntegral(left.type) && isDuration(right.type)) left = convert(left, right.type)
+
       // Arithmetic and comparison happen in the PROMOTED type (see `promoteForRuntime`), so a literal beside a narrow
       // variable takes that type too — else `si + 1000` would wrap the 1000 into SINT before promoting.
       const lift = LIFTED.has(op) ? promoteForRuntime : (t: Type): Type => t
@@ -197,13 +213,6 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
         if (elemOf(left.type)?.family === "int") left = retype(left, elementaryRef("LINT"))
         if (elemOf(right.type)?.family === "int") right = retype(right, elementaryRef("LINT"))
       }
-      // A duration × or ÷ an integer (and an integer × a duration) computes in the duration's type: `T#1S * 3` is
-      // T#3S and `T#1S / 4` is T#250MS (conformance `time_multiply_divide`). A duration has no widening rank, so
-      // without this `commonType` would find no common type.
-      const isDuration = (t: Type): boolean => elemOf(t)?.family === "time"
-      const isIntegral = (t: Type): boolean => isIntegerType(elemOf(t)?.name ?? "")
-      if ((op === "mul" || op === "div") && isDuration(left.type) && isIntegral(right.type)) right = convert(right, left.type)
-      else if (op === "mul" && isIntegral(left.type) && isDuration(right.type)) left = convert(left, right.type)
       const meet = commonType(left.type, right.type)
       if (meet === UNKNOWN) return lw.bail("type-unknown", `the operands of ${e.op} have no common type`, e.span)
       const operands = lift(meet)

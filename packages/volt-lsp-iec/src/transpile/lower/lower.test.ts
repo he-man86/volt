@@ -1486,3 +1486,29 @@ test("an ANY input through an interface is refused rather than given the argumen
   expect(r.pou).toBeUndefined()
   expect(r.diagnostics.map((d) => d.code)).toContain("interface-any-input")
 })
+
+/**
+ * A DURATION CONSTANT BESIDE AN INTEGER VARIABLE computes in the DURATION's type.
+ *
+ * The rule existed and ran too late. `adopt` retypes a constant to its variable neighbour's promoted type
+ * first, so when the DURATION was the constant, the TIME literal had already been stamped with the promoted
+ * INTEGER type by the time `isDuration(left.type)` was asked — and the expression computed in signed DINT.
+ *
+ *   t := T#49D17H2M47S295MS / n   with n : INT := 2   gave 0, where CODESYS answers 2147483647
+ *   b := (T#1S * n) > u           was refused `type-unknown`, while the same expression with the duration in
+ *                                 a VARIABLE lowered
+ *
+ * Both backends agreed with each other and both differed from the vendor, so only a measurement could find it —
+ * and `calendarArithmetic` already sits above the retyping with a comment about the identical hazard
+ * (`dt + T#1S` stamping a 1000-ms literal as a DT). The duration rule now sits beside it.
+ */
+test("a duration CONSTANT divided by an integer VARIABLE computes in the duration's type", () => {
+  const r = lowerSource("PROGRAM PLC_PRG\nVAR\n\tn : INT := 2;\n\tt : TIME;\n\tb : BOOL;\n\tu : TIME := T#4S;\nEND_VAR\nt := T#49D17H2M47S295MS / n;\nb := (T#1S * n) > u;\nEND_PROGRAM\n", "PLC_PRG")
+  expect(r.diagnostics).toEqual([])
+  const p = run(r.pou!)
+  p.scan()
+  // T#49D17H2M47S295MS is TIME's maximum in milliseconds; halved and back is the vendor's own answer
+  expect(p.get("t")).toBe(2147483647n)
+  // and the comparison lowers at all, which it did not
+  expect(p.get("b")).toBe(false)
+})
