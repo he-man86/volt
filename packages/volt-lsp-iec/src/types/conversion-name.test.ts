@@ -38,3 +38,16 @@ test("a spelled-out conversion name is an undefined identifier, as CODESYS repor
 test("a conversion's source mismatch prints the types as CODESYS prints them", () => {
   expect(diagnostics("i : INT; u : UDINT;", "u := TOD_TO_UDINT(i);")).toContain("Cannot convert type 'INT' to type 'TIME_OF_DAY'")
 })
+
+test("an ANY family spelled WITHOUT its underscore is still a conversion", () => {
+  // CODESYS writes `ANYNUM_TO_WORD`; the type group is spelled `ANY_NUM`. Read only as the latter, all 80 corpus
+  // uses were undefined identifiers — and the corpus gate could not see it: there the argument is
+  // namespace-qualified, and a library-qualified reference is skipped whole (conformance `cs_anynum_to_conversions`).
+  expect(parseConversionName("ANYNUM_TO_WORD")?.to.name).toBe("WORD")
+  expect(parseConversionName("ANYINT_TO_REAL")?.to.name).toBe("REAL")
+  expect(parseConversionName("ANYNUM_TO_WORD")?.from).toBeUndefined() // names no concrete source
+  // the underscored spelling keeps working, and a name that is neither is still refused
+  expect(parseConversionName("ANY_TO_DWORD")?.to.name).toBe("DWORD")
+  expect(parseConversionName("TIME_OF_DAY_TO_UDINT")).toBeUndefined() // CODESYS has no such function
+  expect(parseConversionName("NOTATYPE_TO_INT")).toBeUndefined()
+})

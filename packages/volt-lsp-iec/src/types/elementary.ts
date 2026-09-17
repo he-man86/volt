@@ -149,6 +149,16 @@ export const ANY_FAMILIES: ReadonlyMap<string, TypeFamily[]> = new Map([
 ])
 
 /**
+ * The ANY families as a CONVERSION FUNCTION spells them, which is not how the type group is spelled: CODESYS
+ * writes `ANYNUM_TO_WORD`, no underscore, and the corpus does so 80 times. Read only as `ANY_NUM`, every one of
+ * them was an undefined identifier — and the corpus gate could not see it, because there the argument is
+ * namespace-qualified (`CS.CANOPEN_KERNEL_ERROR.…`) and a library-qualified reference is skipped whole.
+ */
+const ANY_CONVERSION_PREFIXES: ReadonlySet<string> = new Set(
+  [...ANY_FAMILIES.keys()].flatMap((name) => [name, name.replace(/_/g, "")]),
+)
+
+/**
  * True when `t` is in the `ANY_*` type group `group`, by family as ANY_FAMILIES lists it (`ANY` holds everything). The one
  * home of those lists — checks used to spell `["int", "bitstring", "real"]` and `STRING || WSTRING` out themselves
  * (consolidate-lsp-structure B2). BIT is `bitstring`, so it is in ANY_INT and ANY_NUM.
@@ -190,7 +200,7 @@ export function parseConversionName(name: string): { from?: ElementaryType; to: 
   if (m[1] === undefined) return { to }
   // `ANY_TO_INT` names no concrete source — the ANY families stand for "whatever the argument is", exactly as the bare
   // `TO_INT` does, and the corpus writes them 72 times. Unknown here, every one of them was an undefined identifier.
-  if (ANY_FAMILIES.has(m[1].toUpperCase())) return { to }
+  if (ANY_CONVERSION_PREFIXES.has(m[1].toUpperCase())) return { to }
   const from = ELEMENTARY_TYPES.get(m[1].toUpperCase())
   return from === undefined ? undefined : { from, to }
 }
