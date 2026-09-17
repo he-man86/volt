@@ -204,10 +204,30 @@ describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
     }
     // A FIXTURE written to BUILD can fault when it runs — `use_pointer_deref_struct_field` writes through a pointer its FB
     // body never set, and the simulator stops the application (the recorder times out, as SQRT(-1) does). There is no value
-    // to compare, so it is a counted todo naming the fault. A fixture that does not COMPILE in the simulator is not this:
-    // the bridge built it, so the loader is wrong, and it fails below.
+    // to compare, so it is a counted todo naming the fault.
     if (c.source !== "" && rec.error !== undefined && !rec.error.startsWith("does not compile")) {
       test.todo(`${c.name} — does not run in CODESYS: ${rec.error}`, () => {})
+      continue
+    }
+    // A fixture that does not COMPILE in the simulator is NOT that, and it is not a transpiler result either: the
+    // BUILD recording says the bridge built this same source, so the two loaders disagree about what the fixture is.
+    // It is a real failure and it stays one — but it used to arrive as `expect(rec.error).toBeUndefined()` twelve
+    // lines below, which reports "expected undefined, received 'does not compile: …'" and names neither the cause
+    // nor the fix. The known cause: `record:exec` writes declaration and implementation text STRAIGHT into a POU,
+    // so a body that is not ST cannot survive the trip — network text reaches the compiler as the literal
+    // `NETWORK 0 FBD` and is answered "';' expected instead of 'FBD'". Those fixtures carry `execSkip` and are
+    // never sent; one arriving here is one that slipped past it.
+    if (rec.error?.startsWith("does not compile") === true) {
+      test(`${c.name} (the simulator refused what the bridge built)`, () => {
+        throw new Error(
+          `${c.name}: the BUILD recording says this source compiles, but \`record:exec\` could not load it:\n` +
+            `  ${rec.error}\n` +
+            `The exec recorder writes declaration and implementation text directly into a POU, so a body that is ` +
+            `not ST (a network-text body, i.e. FBD/LD) cannot reach the compiler intact. Either give the fixture ` +
+            `an \`execSkip\` saying why it has no execution ground truth to have, or teach the recorder to load ` +
+            `this shape.`,
+        )
+      })
       continue
     }
     // A FIXTURE whose constructs do not lower yet is a counted todo naming its blocker. An execution case must lower.

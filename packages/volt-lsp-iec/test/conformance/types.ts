@@ -49,17 +49,19 @@ export interface LanguageTest {
    */
   recorderSkip?: boolean
   /**
-   * Skip this test in the EXECUTION recorder (`record:exec`) only — the reason, which is always a fact about
-   * the fixture and never about the recorder being unfinished. Its BUILD recording is still taken and the LSP
-   * still replays it; the only thing withheld is a set of variable values after N scans.
+   * Skip this test in the EXECUTION recorder (`record:exec`) only — with the reason, in the reason's own words.
+   * The BUILD recording is still taken and the LSP still replays it; the only thing withheld is a set of
+   * variable values after N scans. Distinct from `recorderSkip`, which withholds a fixture from BOTH recorders
+   * and marks it lsp-only.
    *
-   * Two things genuinely have none. A body in NETWORK TEXT is not ST — it is Volt's own textual form for a
-   * graphical body, so the runscript (which writes declaration and implementation text straight into a POU)
-   * hands CODESYS `NETWORK 0 FBD` and is told "';' expected instead of 'FBD'". And a loop that CANNOT EXIT
-   * never finishes its scan, so the done flag the recorder waits on cannot rise — which is the fixture working
-   * as designed, not a timeout to tune.
-   *
-   * Distinct from `recorderSkip`, which withholds the fixture from BOTH recorders and marks it lsp-only.
+   * **This must never stand in for a recorder that is merely unfinished.** A reason here is either
+   *   NOTHING TO MEASURE — a loop that cannot exit never completes its scan, so the done flag cannot rise and
+   *     no values exist to read. That is the fixture working as designed.
+   *   NOTHING TO COMPARE — the execution oracle exists to check the ST transpiler, and the transpiler's input
+   *     contract is "code CODESYS compiles" (`src/transpile/index.ts`): ST. A graphical body has no lowering,
+   *     so a recording of one would have no consumer.
+   * Anything else — a shape the recorder COULD load and something downstream WOULD use — is a gap to close, and
+   * writing a confident sentence here instead is how it stops being visible.
    */
   execSkip?: string
   /** Optional human note explaining why we expect what we expect. */

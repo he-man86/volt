@@ -26,12 +26,20 @@ import type { LanguageTest } from "../types.js"
 
 const doc = "network-text.md"
 
-/** Why none of these reach the EXECUTION recorder. It writes a fixture's declaration and implementation text
- *  straight into a POU, and a `NETWORK 0 FBD` body is not ST — it is Volt's own textual form for a graphical
- *  body, which only the BRIDGE knows how to turn into something CODESYS can hold. Sent as ST, the compiler
- *  answers "';' expected instead of 'FBD'". That is a fact about the format, not a gap in the recorder, so it
- *  is stated once here rather than on twenty fixtures. The BUILD recording is still taken. */
-const NOT_ST = "a network-text body is not ST — the exec runscript writes implementation text into a POU"
+/** Why none of these reach the EXECUTION recorder — and the reason is SCOPE, not difficulty.
+ *
+ *  That oracle exists to check the ST transpiler, whose input contract is "code CODESYS compiles"
+ *  (`src/transpile/index.ts`) — ST. There is no graphical lowering in `src/transpile/` and none planned here, so
+ *  a recording of a network's variable values would have no consumer.
+ *
+ *  It is worth being exact about this, because the mechanical symptom invites a more flattering explanation.
+ *  `record:exec` writes declaration and implementation text straight into a POU, so `NETWORK 0 FBD` reaches the
+ *  compiler verbatim and is answered "';' expected instead of 'FBD'". That LOOKS like an unfinished recorder —
+ *  and the ground truth is in fact obtainable, since the BRIDGE turns network text into a real graphical body
+ *  and that is how the BUILD recording of these very fixtures was taken. So the honest reason is not "it cannot
+ *  be measured"; it is "nothing would read it". If a graphical lowering is ever built, this line is what has to
+ *  change first. */
+const NOT_ST = "the exec oracle checks the ST transpiler, which has no graphical lowering — nothing would read it"
 
 /** A graphical FB, instantiated in PLC_PRG — an uninstantiated POU is dead code CODESYS never compiles. */
 function ng(name: string, pouName: string, feature: string, source: string, fromDoc = doc, note?: string): LanguageTest {
