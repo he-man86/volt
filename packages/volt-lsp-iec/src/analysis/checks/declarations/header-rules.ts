@@ -57,8 +57,10 @@ export function checkHeaderRules(ctx: CheckContext, out: DiagnosticItem[]): void
       })
     }
     // NOT here: C0149 var-in-interface, a VAR section declared directly in an INTERFACE. The catalog says it is an
-    // error and CODESYS SP21 BUILDS IT, reporting nothing at all (conformance `cc2_var_in_interface`, 2026-09-16) —
-    // the parser still records `strayVarSections`, which navigation and completion read.
+    // error and CODESYS SP21 BUILDS IT, reporting nothing at all (conformance `cc2_var_in_interface`, 2026-09-16).
+    // The parser still records `strayVarSections`, and NOTHING reads it today — it is kept rather than deleted
+    // because the build being clean raises a question nobody has measured: whether an FB implementing such an
+    // interface INHERITS those variables. `itf_var_section_inherited` asks it.
     if (unit.kind === "function" && unit.implementsMisused !== undefined) {
       out.push({
         severity: "error",

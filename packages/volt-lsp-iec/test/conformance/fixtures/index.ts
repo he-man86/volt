@@ -13,6 +13,7 @@ import { CONVERSION_TESTS } from "./conversion.js"
 import { DATA_TYPE_TESTS } from "./data-type.js"
 import { IDENTIFIER_TESTS } from "./identifier.js"
 import { CORPUS_STANDARD_TESTS } from "./corpus-standard.js"
+import { IL_CALC_SHAPE_TESTS, INTERFACE_VAR_TESTS } from "./il-calc-shapes.js"
 import { NETWORK_GRAPHICAL_TESTS } from "./network-graphical.js"
 import { NETWORK_UNRESOLVED_TESTS } from "./network-unresolved.js"
 import { INIT_SLOT_TESTS } from "./init-slot.js"
@@ -86,6 +87,8 @@ export const CATEGORIES: readonly CategoryGroup[] = [
   { name: "network-unresolved", tests: NETWORK_UNRESOLVED_TESTS },
   { name: "network-graphical", tests: NETWORK_GRAPHICAL_TESTS },
   { name: "corpus-standard", tests: CORPUS_STANDARD_TESTS },
+  { name: "il-calc-shapes", tests: IL_CALC_SHAPE_TESTS },
+  { name: "interface-var", tests: INTERFACE_VAR_TESTS },
   { name: "init-slot", tests: INIT_SLOT_TESTS },
   { name: "shadowing", tests: SHADOWING_TESTS },
   { name: "conversion", tests: CONVERSION_TESTS },

@@ -70,7 +70,6 @@ export const CODESYS_CODE_MAP: Readonly<Record<string, readonly [code: string, u
   "property-lacks-getter": ["C0143", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0143.html"],
   "inheritance-not-allowed": ["C0144", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0144.html"],
   "function-implements": ["C0145", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0145.html"],
-  "var-in-interface": ["C0149", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0149.html"],
   "array-bound-non-const": ["C0161", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0161.html"],
   "array-init-count-non-const": ["C0162", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0162.html"],
   "misplaced-var-config": ["C0168", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0168.html"],
