@@ -4,6 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { emitRust, rustType, snake } from "./emit.js"
 import { lowerSource } from "../../lower/index.js"
+import { RUSTC, skipRustSuite } from "../../../../test/conformance/support/rustc.js"
 
 function rust(src: string): string {
   const { pou, diagnostics } = lowerSource(src)
@@ -307,9 +308,9 @@ test("a PROGRAM's METHOD takes its arguments before the program is moved out of 
 // `rustc` alone, no cargo and no crate — a golden-text test proves the shape, this proves the Rust is real.
 // Skipped where rustc is absent so `bun test` stays toolchain-free; CI on a Rust-equipped runner still runs it.
 
-const rustc = Bun.which("rustc")
+const rustc = RUSTC
 
-describe.skipIf(rustc === null)("emit/rust — compiles", () => {
+describe.skipIf(skipRustSuite())("emit/rust — compiles", () => {
   test("the emitted crate builds clean under rustc", async () => {
     const sources = [
       COUNTER,

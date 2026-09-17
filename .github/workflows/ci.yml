@@ -63,13 +63,22 @@ jobs:
   #     offline C# tests are the `volt-cli` job below.
   #   • lsp-iec's `test` is the OFFLINE suite (src + conformance); the heavy real-project corpus is `test:corpus`,
   #     a local ratchet (known-incomplete precision work — it DISCOVERS FPs, it doesn't gate).
+  #   • the transpiler's EMITTED RUST needs a Rust toolchain. Without one, `transpile.test.ts` and
+  #     `emit/rust/emit.test.ts` skip their whole differential half — measured 2026-09-17: 3,627 assertions
+  #     with rustc on PATH, 2,423 without, so ~1,200 assertions covering the EMITTER (the actual deliverable)
+  #     ran on one engineer's machine and nowhere else. That is why `VOLT_REQUIRE_RUSTC` exists: here a
+  #     missing toolchain is an ERROR, not a quiet skip.
   test:
     runs-on: ubuntu-latest
+    env:
+      VOLT_REQUIRE_RUSTC: "1" # a missing toolchain fails the job instead of silently dropping the emitter suite
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
+      - name: Rust toolchain (the emitted-Rust differential runs against it)
+        run: rustup toolchain install stable --profile minimal --no-self-update && rustup default stable
       - run: bun install --frozen-lockfile
       - name: Volt package suites (lsp-iec offline + control)
         run: bun run --filter='*' test

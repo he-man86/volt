@@ -30,6 +30,7 @@ import { ALL_TESTS } from "./fixtures/index.js"
 import { withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
 import { STANDARD_LIBRARY as LIBRARIES } from "./support/standard-library.js"
+import { RUSTC as rustc, skipRustSuite } from "./support/rustc.js"
 import type { LanguageTest } from "./types.js"
 
 interface Recorded {
@@ -297,9 +298,7 @@ describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
 // does not compile or panics cannot take the others down; and a DEBUG build on purpose, where an arithmetic
 // overflow panics — a panic is a divergence, not noise. Skipped where rustc is absent, like emit.test.ts.
 
-const rustc = Bun.which("rustc")
-
-describe.skipIf(rustc === null)("differential execution — emitted Rust vs CODESYS 3.5.21.40", () => {
+describe.skipIf(skipRustSuite())("differential execution — emitted Rust vs CODESYS 3.5.21.40", () => {
   const recorded = CASES.filter(
     (c) =>
       recording.tests[c.name]?.values !== undefined &&
