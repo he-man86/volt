@@ -629,3 +629,35 @@ describe("emit/rust — a FOR whose limit is a different type", () => {
     expect(rust("PROGRAM P\nVAR\n\ti : INT;\n\thi : INT := 5;\n\tn : INT;\nEND_VAR\nFOR i := 1 TO hi DO\n\tn := n + 1;\nEND_FOR\nEND_PROGRAM\n")).toContain("if !(self.i <= self.hi) { break; }")
   })
 })
+
+/**
+ * TWO ROUTINES THAT SNAKE ALIKE GET DIFFERENT Rust NAMES.
+ *
+ * `snake` is not injective and ST member names need not differ by more than punctuation: a METHOD `DoIt` and a
+ * METHOD `Do_It` in one FB are two distinct members that both snake to `do_it`, and the emitter printed TWO
+ * `pub fn do_it` into one impl block — E0592 — with zero lowering diagnostics, on ST CODESYS compiles.
+ *
+ * It could not have been fixed where it lived: a per-routine name function sees one routine and cannot know what
+ * else claimed the name. The names are computed once per POU, and the CALL SITES read the same map as the
+ * definitions — a dedupe only one of the two knows about is a worse bug than the collision.
+ */
+describe("emit/rust — routine names are unique within an impl block", () => {
+  test("DoIt and Do_It become do_it and do_it_2, and the calls follow", () => {
+    const code = rust("FUNCTION_BLOCK FB_Names\nVAR\n\tn : INT;\nEND_VAR\nn := DoIt() + Do_It();\nEND_FUNCTION_BLOCK\n\nMETHOD DoIt : INT\nDoIt := 1;\nEND_METHOD\n\nMETHOD Do_It : INT\nDo_It := 2;\nEND_METHOD\n\nPROGRAM PLC_PRG\nVAR\n\tinst : FB_Names;\nEND_VAR\ninst();\nEND_PROGRAM\n")
+    expect(code).toContain("pub fn do_it(&mut self)")
+    expect(code).toContain("pub fn do_it_2(&mut self)")
+    // the call site must agree with the definition, not re-derive the name
+    expect(code).toContain("self.do_it()")
+    expect(code).toContain("self.do_it_2()")
+  })
+
+  test("the same name in a DIFFERENT FB is not renamed — the scope is the impl block", () => {
+    // PROGRAM FIRST: `rust()` lowers the first runnable unit, so with an FB first the second FB is never
+    // reached and this would assert against a tree that has only one of them (the Composites case above notes
+    // the same trap).
+    const code = rust("PROGRAM PLC_PRG\nVAR\n\ta : FB_A;\n\tb : FB_B;\nEND_VAR\na();\nb();\nEND_PROGRAM\n\nFUNCTION_BLOCK FB_A\nVAR\n\tn : INT;\nEND_VAR\nn := DoIt();\nEND_FUNCTION_BLOCK\n\nMETHOD DoIt : INT\nDoIt := 1;\nEND_METHOD\n\nFUNCTION_BLOCK FB_B\nVAR\n\tm : INT;\nEND_VAR\nm := DoIt();\nEND_FUNCTION_BLOCK\n\nMETHOD DoIt : INT\nDoIt := 2;\nEND_METHOD\n")
+    // one `do_it` per impl block, so neither gains a suffix
+    expect([...code.matchAll(/pub fn do_it\b/g)]).toHaveLength(2)
+    expect(code).not.toContain("do_it_2")
+  })
+})

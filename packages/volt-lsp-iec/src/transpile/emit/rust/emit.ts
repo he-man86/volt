@@ -244,6 +244,8 @@ class Printer {
     private fields: readonly string[],
     private readonly layouts: ReadonlyMap<string, { layout: IrLayout; fields: readonly string[] }>,
     private readonly routines: ReadonlyMap<string, IrRoutine>,
+    /** Every routine's Rust fn name, deduped once — see `routineFnNames`. Read by the definition AND the calls. */
+    readonly fnNames: ReadonlyMap<string, string>,
     /** Each global slot's Rust access (`g.g_shared`, `prg.prg_writer`), and the slots — `IrPou.globals`' order. */
     private readonly globals: { access: readonly string[]; slots: IrPou["slots"] },
     /** The program reaches GVL variables — every generated call is handed `g`. */
@@ -403,7 +405,7 @@ class Printer {
         const inputs = e.inputs.map((a, k) => (hoisted ? `__arg_${k}` : this.expr(a, slots)))
         // the inputs, the in-outs, then each instance lent to the routine (design §24)
         const args = [...this.globalsArg, ...inputs, ...e.inouts.map((b, i) => this.lend(b, i, routine.inouts[i]!, slots)), ...(e.lent ?? []).map((l) => this.lendMut(l, slots))].join(", ")
-        const fn = routineFnName(routine)
+        const fn = this.fnNames.get(routine.key)!
         // a METHOD of a PROGRAM's one instance runs moved out of `Programs`, as the program's call does (`prg` is handed in)
         const moved = onProgram ? this.movedOut(e.instance!, slots) : undefined
         const call =
@@ -730,10 +732,42 @@ interface Frame {
   selfType?: Type
 }
 
-/** A routine's Rust fn name: snake_case, a keyword or a name the emitter generates itself (`new`, `call`, `scan`) suffixed `_`. */
-function routineFnName(routine: IrRoutine): string {
+/** A routine's Rust fn name BEFORE deduping: snake_case, with a keyword or a name the emitter generates itself
+ *  (`new`, `call`, `scan`) suffixed `_`. */
+function baseFnName(routine: IrRoutine): string {
   const snaked = snake(routine.name.slice(routine.name.lastIndexOf(".") + 1))
   return RUST_KEYWORDS.has(snaked) || ["new", "call", "scan"].includes(snaked) ? `${snaked}_` : snaked
+}
+
+/**
+ * EVERY ROUTINE'S Rust fn name, deduped across the whole POU — one map, computed once, so the definition and
+ * every call site read the SAME answer.
+ *
+ * `snake` is not injective and ST member names do not have to differ by more than punctuation: a METHOD `DoIt`
+ * and a METHOD `Do_It` in one FB are two distinct members that both snake to `do_it`, and the emitter printed
+ * TWO `pub fn do_it` into one impl block — E0592, with zero lowering diagnostics, on ST CODESYS compiles. It
+ * could not have been fixed inside the old per-routine function, which sees one routine and cannot know what
+ * else claimed the name.
+ *
+ * Deduped in ROUTINE ORDER (`pou.routines`, which is declaration order), because a suffix that moves when an
+ * unrelated member is added is the `fieldNames` hazard one file over — a rename nobody asked for, in generated
+ * code somebody may be reading.
+ */
+function routineFnNames(routines: readonly IrRoutine[]): ReadonlyMap<string, string> {
+  const out = new Map<string, string>()
+  // scoped per impl block: two FBs may each have a `do_it` and never collide
+  const used = new Map<string, Set<string>>()
+  for (const routine of routines) {
+    const scope = routine.fb?.toUpperCase() ?? (routine.kind === "function" ? "(functions)" : "(program)")
+    const taken = used.get(scope) ?? new Set<string>()
+    used.set(scope, taken)
+    const base = baseFnName(routine)
+    let name = base
+    for (let n = 2; taken.has(name); n++) name = `${base}_${n}`
+    taken.add(name)
+    out.set(routine.key, name)
+  }
+  return out
 }
 
 /**
@@ -776,7 +810,7 @@ function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[],
   const allows = ["unused_mut", "unused_variables", "unused_assignments"]
   if (hasStatementAfterReturn(routine.body)) allows.push("unreachable_code")
   p.push(`#[allow(${allows.join(", ")})]`, indent)
-  p.push(`pub fn ${routineFnName(routine)}${genericList(typed)}(${params.join(", ")})${returns} {`, indent)
+  p.push(`pub fn ${p.fnNames.get(routine.key)!}${genericList(typed)}(${params.join(", ")})${returns} {`, indent)
   for (const [i, slot] of routine.locals.entries())
     if (!routine.inputs.includes(i)) p.push(`let mut ${localNames[i]}: ${rustType(slot.type)} = ${p.initOf(slot.type, slot.init)};`, indent + 1)
   const frame: Frame = {
@@ -850,7 +884,7 @@ export function emitRust(pou: IrPou): Emitted {
   const access = pou.globals.map((s) =>
     s.section === "program" ? `prg.${programNames[programs.indexOf(s)]}` : `g.${variableNames[variables.indexOf(s)]}`,
   )
-  const p = new Printer(fields, layouts, new Map(pou.routines.map((r) => [r.key, r])), { access, slots: pou.globals }, usesGlobals, usesPrograms)
+  const p = new Printer(fields, layouts, new Map(pou.routines.map((r) => [r.key, r])), routineFnNames(pou.routines), { access, slots: pou.globals }, usesGlobals, usesPrograms)
   const name = rustName(pou.name)
   // every generated body is handed the globals as `g`, so no parameter or local of its own may take that name
   const globalsParam = p.globalsParams
