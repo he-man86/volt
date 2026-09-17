@@ -52,7 +52,7 @@ fixture records the measurement; every gate states its CI cost.
 
 ---
 
-## Phase 1 — the 11 high-severity defects
+## Phase 1 — the 11 high-severity defects · **COMPLETE**
 
 Interpreter before emitter (D3). Titles are from `findings.md`.
 
@@ -63,25 +63,24 @@ Interpreter before emitter (D3). Titles are from `findings.md`.
       fallback in the oracle. **First.** · `52b6216708`
 - [x] *"IrBuiltin says nothing about argument evaluation, and interp evaluates every arg while the Rust emitter
       evaluates…"* — decide in the IR, then both obey. B↔C. · `5db030d04c`
-- [ ] *"An ANY argument's place is bound as a hidden VAR_IN_OUT without any of bindInOut's guards"* — verified by
+- [x] *"An ANY argument's place is bound as a hidden VAR_IN_OUT without any of bindInOut's guards"* — verified by
       hand: a global emits E0499; the interpreter writes through a `VAR_IN_OUT CONSTANT`. (One guard *is*
-      applied — the alias check — so the finding's "any of" overstates by one; the fix is unchanged.)
-- [ ] *"An ANY VAR_INPUT called through an interface gets the argument's VALUE where the routine expects its
-      SIZE"*.
+      applied — the alias check — so the finding's "any of" overstates by one; the fix is unchanged.) · `59b71e1288`
+- [x] *"An ANY VAR_INPUT called through an interface gets the argument's VALUE where the routine expects its
+      SIZE"*. · `909f44ef3c`
 - [x] *"Lowering throws (RangeError) when a pointer is stepped over an element whose byte size is 0"* — **done**
       in `825346dd3e` under 0.4; listed here because it is a Phase 1 defect by severity. · `825346dd3e`
-- [ ] *"A FOR loop's limit is never converted to the counter's type, so the emitted Rust does not compile"* —
-      verified by hand: `i16 <= i32`, E0308, zero diagnostics.
-- [ ] *"A duration CONSTANT times/divided by an integer variable is retyped to DINT before the duration rule
-      runs"*.
-- [ ] *"A negative constant is printed unparenthesized, so `-1i32.max(x)` becomes `-(1i32.max(x))`"* — **prove
-      reachability first**; the critique flags it as scheduled high with no demonstrated trigger.
-- [ ] *"`routineFnName` has no uniqueness pass, so two routines that snake alike collide"*.
+- [x] *"A FOR loop's limit is never converted to the counter's type, so the emitted Rust does not compile"* —
+      verified by hand: `i16 <= i32`, E0308, zero diagnostics. · `04b9ddd7ba`
+- [x] *"A duration CONSTANT times/divided by an integer variable is retyped to DINT before the duration rule
+      runs"*. · `ebc0212492`
+- [x] *"A negative constant is printed unparenthesized, so `-1i32.max(x)` becomes `-(1i32.max(x))`"* — **prove
+      reachability first**; the critique flags it as scheduled high with no demonstrated trigger. · `8dcb78aef9 — reachability proven first`
+- [x] *"`routineFnName` has no uniqueness pass, so two routines that snake alike collide"*.
 
 ---
 
-## Phase 2 — the 13 medium defects, and one the review missed
-
+## Phase 2 — the 13 medium defects, and one the review missed · `84697fa324`
 - [ ] **The standard FBs.** 271 corpus files declare `TON`/`TOF`/`CTU`/`R_TRIG`/`F_TRIG`; **zero execution
       fixtures cover them**, and the refusal misattributes them into `stmt-call_stmt`/`expr-member`. Give the
       class its own honest code, and decide in D6 whether a scan-cycle time model is in the contract. This is
