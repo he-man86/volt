@@ -11,7 +11,9 @@
  * SPLIT into one bridge item per top-level unit (see splitItems). Writes to `expected-<vendor>.new.json` by
  * default (non-destructive) + auto-diffs vs committed; `--write` adopts it; `RECORD_ONLY=a,b` records just
  * those and MERGES them into the committed file. Only error+warning severities are kept (info dropped).
- * NOTE: graphical (VG) bodies can't be recorded — the bridge stores them as PlcOpen XML, not pushable text.
+ * Graphical (FBD/LD) bodies ARE recordable — the note here used to say they were not ("the bridge stores them as
+ * PlcOpen XML, not pushable text"), which stopped being true when network text became the transport. That stale
+ * sentence is why the graphical fixtures went unmeasured for so long; `network-graphical.ts` exists because of it.
  */
 import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"

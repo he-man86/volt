@@ -12,6 +12,7 @@ import { CONDITIONAL_PRAGMA_TESTS } from "./conditional-pragma.js"
 import { CONVERSION_TESTS } from "./conversion.js"
 import { DATA_TYPE_TESTS } from "./data-type.js"
 import { IDENTIFIER_TESTS } from "./identifier.js"
+import { NETWORK_GRAPHICAL_TESTS } from "./network-graphical.js"
 import { NETWORK_UNRESOLVED_TESTS } from "./network-unresolved.js"
 import { INIT_SLOT_TESTS } from "./init-slot.js"
 import { IMPLICIT_CHECK_TESTS } from "./implicit-checks.js"
@@ -82,6 +83,7 @@ export const CATEGORIES: readonly CategoryGroup[] = [
   { name: "lifecycle", tests: LIFECYCLE_TESTS },
   { name: "identifier", tests: IDENTIFIER_TESTS },
   { name: "network-unresolved", tests: NETWORK_UNRESOLVED_TESTS },
+  { name: "network-graphical", tests: NETWORK_GRAPHICAL_TESTS },
   { name: "init-slot", tests: INIT_SLOT_TESTS },
   { name: "shadowing", tests: SHADOWING_TESTS },
   { name: "conversion", tests: CONVERSION_TESTS },
