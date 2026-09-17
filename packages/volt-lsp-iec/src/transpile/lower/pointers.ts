@@ -55,7 +55,11 @@ export function recordTarget(lw: Lowering, key: string, target: PointerTarget, s
 export function addressOf(lw: Lowering, x: Expr, pointerType: Type, span: Span): { value: IrExpr; target: PointerTarget } | undefined {
   if (pointerType.kind !== "pointer" && pointerType.kind !== "reference") return lw.bail("pointer-shape", "an address stored into something that is not a pointer", span)
   const place = lowerPlace(lw, x)
-  if (place === undefined || refuseUnionWrite(lw, place, span)) return undefined
+  // TAKING AN ADDRESS IS A READ. The shared refusal's default message says "a write into a UNION member", which is
+  // not what `ADR(u.member)` or `REF= u.member` does — and a message that describes the wrong operation sends the
+  // reader looking for an assignment that is not there.
+  if (place === undefined || refuseUnionWrite(lw, place, span, "the address of a UNION member, whose overlay a pointer would not follow"))
+    return undefined
   if (place.guard !== undefined || place.path.some((s) => s.kind === "bit"))
     return lw.bail("pointer-shape", "the address of a dereference or a bit", span)
   const last = place.path.at(-1)

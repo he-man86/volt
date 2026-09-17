@@ -58,10 +58,9 @@ export interface Shared {
   interfaces: Map<string, { tags: Map<number, boolean>; from: { key: string; only?: string; foreign: boolean }[] }>
   /** Each call through an interface, finished once the POU has lowered (`finishInterfaces`) — true when it reached more. */
   dispatches: ((root: Lowering) => boolean)[]
-  /** Every variable bound AT an address: its area, its bit range under byte and under word addressing, and the frame that
+  /** Every variable bound AT an address, and every bare address, as the BIT RANGE it covers — one interpretation, the
+   *  measured one (`addressBits`): its area, its range under byte and under word addressing, and the frame that
    *  declares it (`storage.ts` `bindAddress`). */
-  /** Each `AT` address and each bare one, as the bit range it covers — one interpretation, the measured one
-   *  (`addressBits`). */
   addressed: { area: string; bits: readonly [number, number]; name: string; owner: string }[]
   /** Each routine's lowering, by key — whose `lends` a call of the routine must fill. */
   routineLowerings: Map<string, Lowering>

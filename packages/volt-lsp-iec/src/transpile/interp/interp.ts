@@ -96,8 +96,9 @@ class Machine {
     return routine.result === undefined ? false : locals[routine.result]!
   }
 
-  /** A VAR_IN_OUT binding: the caller's place itself — or, lent to a VAR_IN_OUT CONSTANT, a cell holding a copy of a value. */
-  /** A copy lent for a call and marked `back` is written to its place once the call returns (`bindInOut`). */
+  /** A copy lent for a call and marked `back` is written to its place once the call returns (`bindInOut`) — the case
+   *  where a VAR_IN_OUT was given a CONSTANT, so the binding is a cell holding a copy rather than the caller's place.
+   *  (The first line of this was `bind`'s doc, left stacked above `writeBack`.) */
   private writeBack(bindings: readonly import("../ir/index.js").IrBinding[], cells: readonly Cell[]): void {
     bindings.forEach((b, i) => {
       if ("kind" in b && b.back !== undefined) this.write(b.back, (cells[i]!.container as Record<string | number, Val>)[cells[i]!.key]!)

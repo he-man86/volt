@@ -21,6 +21,8 @@
  *   expressions.ts  operators and their promotion                      builtins.ts   value functions, strings
  *   statements.ts   assignment, IF, CASE, loops                        calls.ts      FB bodies, routines, in-outs
  *   pointers.ts     POINTER / REFERENCE (design §9 form 1)             bytes.ts      SIZEOF, ADR differences
+ *   interfaces.ts   interface variables, tags and dispatch              unions.ts     UNION overlay and its copies
+ *   bindings.ts     which binding a call makes, for a later METHOD      specialize.ts one routine copy per in-frame binding
  */
 import {
   type CallArg,

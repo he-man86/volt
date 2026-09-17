@@ -39,9 +39,9 @@ export function unionOf(lw: Lowering, place: Place): { union: Place; member: str
 }
 
 /** A place that is, or is inside, a union member — refused, for a write that cannot be followed by the copy. */
-export function refuseUnionWrite(lw: Lowering, place: Place, span: Span): boolean {
+export function refuseUnionWrite(lw: Lowering, place: Place, span: Span, what = "a write into a UNION member other than a plain `:=`"): boolean {
   if (unionOf(lw, place) === undefined) return false
-  lw.bail("union-write", "a write into a UNION member other than a plain `:=`", span)
+  lw.bail("union-write", what, span)
   return true
 }
 
