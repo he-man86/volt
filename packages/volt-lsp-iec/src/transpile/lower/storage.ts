@@ -164,13 +164,29 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[]): void
 }
 
 /**
- * `AT %I…/%Q…/%M…` (conformance `operand_hw_address_marker`): in the simulator an address is plain storage — nothing drives
- * an input, a marker reads back what was written — so the variable stays an ordinary slot, the process image a transpiled
- * test writes and reads. What plain storage cannot hold is the ALIASING an address brings (review 2026-09-15), so that is
- * refused: two variables whose addresses overlap — under byte addressing and under word addressing alike, as which one
- * the project uses is not read — several names on one address, an incomplete `%I*` (mapped elsewhere), an address in a
- * METHOD or FUNCTION. An FB field's address shared by the FB's several instances is refused once the POU has lowered.
+ * THE ONE SPELLING OF A DIRECT ADDRESS — `%` area, width, index, and a bit only on an `X`. Undefined for anything else,
+ * which each caller reports in its own words.
+ *
+ * The regex and that shape rule were written out twice, and the overlap bookkeeping below a third time in its own
+ * shape, so the rule for what an address IS lived in three places that could drift apart while every test still passed.
  */
+function parseAddress(text: string): RegExpExecArray | undefined {
+  const m = /^%([IQM])([XBWDL])(\d+)(?:\.(\d+))?$/i.exec(text)
+  return m === null || (m[2]!.toUpperCase() === "X") !== (m[4] !== undefined) ? undefined : m
+}
+
+/** The name an address would alias, or undefined when it is free — the one overlap rule, under both interpretations. */
+function addressClash(lw: Lowering, m: RegExpExecArray): string | undefined {
+  const { area, bits } = addressBits(m)
+  return lw.shared.addressed.find((x) => x.area === area && x.bits[0] < bits[1] && bits[0] < x.bits[1])?.name
+}
+
+/** That address, recorded as taken by `name`. */
+function claimAddress(lw: Lowering, m: RegExpExecArray, name: string, owner: string): void {
+  const { area, bits } = addressBits(m)
+  lw.shared.addressed.push({ area, bits, name, owner })
+}
+
 /**
  * A DIRECT ADDRESS written as an EXPRESSION — `x := %IB8`, `%MW30 := %MW30 + 1` — which the corpus does 8 times and no
  * variable names. It is the same plain storage an `AT` variable is (conformance `ca_direct_address_expression`: `%MW30`
@@ -179,9 +195,8 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[]): void
  * two addresses that would overlap are refused, as two `AT` variables on overlapping addresses already are.
  */
 export function addressPlace(lw: Lowering, text: string, span: Span): Place | undefined {
-  const m = /^%([IQM])([XBWDL])(\d+)(?:\.(\d+))?$/i.exec(text)
-  if (m === null || (m[2]!.toUpperCase() === "X") !== (m[4] !== undefined))
-    return lw.bail("var-at", `${text}: an address that is incomplete, or of a shape not modelled`, span)
+  const m = parseAddress(text)
+  if (m === undefined) return lw.bail("var-at", `${text}: an address that is incomplete, or of a shape not modelled`, span)
   const key = text.toUpperCase()
   const known = lw.shared.globals.byName.get(key)
   const width = m[2]!.toUpperCase() as "X" | "B" | "W" | "D" | "L"
@@ -209,30 +224,36 @@ export function addressBits(m: RegExpExecArray): { area: string; bits: [number, 
 
 /** The overlap bookkeeping `bindAddress` keeps, for an address with no variable on it. */
 function reserveAddress(lw: Lowering, text: string, m: RegExpExecArray, name: string, span: Span): boolean {
-  const { area, bits } = addressBits(m)
-  const clash = lw.shared.addressed.find((x) => x.area === area && x.bits[0] < bits[1] && bits[0] < x.bits[1])
+  const clash = addressClash(lw, m)
   if (clash !== undefined) {
-    lw.bail("var-at", `${text} overlaps ${clash.name}, which plain storage would not alias`, span)
+    lw.bail("var-at", `${text} overlaps ${clash}, which plain storage would not alias`, span)
     return false
   }
-  lw.shared.addressed.push({ area, bits, name, owner: "GLOBAL" })
+  claimAddress(lw, m, name, "GLOBAL")
   return true
 }
 
+/**
+ * `AT %I…/%Q…/%M…` (conformance `operand_hw_address_marker`): in the simulator an address is plain storage — nothing drives
+ * an input, a marker reads back what was written — so the variable stays an ordinary slot, the process image a transpiled
+ * test writes and reads. What plain storage cannot hold is the ALIASING an address brings (review 2026-09-15), so that is
+ * refused: two variables whose addresses overlap — under byte addressing and under word addressing alike, as which one
+ * the project uses is not read — several names on one address, an incomplete `%I*` (mapped elsewhere), an address in a
+ * METHOD or FUNCTION. An FB field's address shared by the FB's several instances is refused once the POU has lowered.
+ */
 function bindAddress(lw: Lowering, decl: VarDecl): boolean {
   const text = decl.at!.tokens.map((t) => t.text).join("")
   const refuse = (why: string): boolean => {
     lw.bail("var-at", `${decl.names.map((n) => n.text).join(", ")} AT ${text}: ${why}`, decl.span)
     return false
   }
-  const m = /^%([IQM])([XBWDL])(\d+)(?:\.(\d+))?$/i.exec(text)
-  if (m === null || (m[2]!.toUpperCase() === "X") !== (m[4] !== undefined)) return refuse("an address that is incomplete, or of a shape not modelled")
+  const m = parseAddress(text)
+  if (m === undefined) return refuse("an address that is incomplete, or of a shape not modelled")
   if (lw.routineMode) return refuse("an address inside a METHOD or FUNCTION")
   if (decl.names.length > 1) return refuse("several variables on one address")
-  const { area, bits } = addressBits(m)
-  const clash = lw.shared.addressed.find((x) => x.area === area && x.bits[0] < bits[1] && bits[0] < x.bits[1])
-  if (clash !== undefined) return refuse(`it overlaps ${clash.name}, which plain storage would not alias`)
-  lw.shared.addressed.push({ area, bits, name: decl.names[0]!.text, owner: lw.globalMode ? "GLOBAL" : lw.frameContext })
+  const clash = addressClash(lw, m)
+  if (clash !== undefined) return refuse(`it overlaps ${clash}, which plain storage would not alias`)
+  claimAddress(lw, m, decl.names[0]!.text, lw.globalMode ? "GLOBAL" : lw.frameContext)
   return true
 }
 
