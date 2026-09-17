@@ -7,7 +7,7 @@ import { DEFAULT_STRING_LENGTH, elementaryRef, resolveNamedType, type Type } fro
 import { defaultValueOf, elementOf, type IrInit, type IrStmt, type IrValue, type Place } from "../ir/index.js"
 import { baseOf, boundName, Lowering, openDims, ZERO_SPAN } from "./lowering.js"
 import { stored, valueAs } from "./convert.js"
-import { calendarOf, durationOf, enumStorage, foldConstant, stringLiteralText, typedRealOf } from "./constants.js"
+import { calendarOf, durationOf, enumStorage, foldConstant, stringLiteralText, TEMPORAL_LITERAL_KINDS, typedRealOf } from "./constants.js"
 import { overlayBytes } from "./unions.js"
 
 /** The FB variable sections that are an instance's storage. VAR_IN_OUT is not: it aliases the caller's variable. Nor is
@@ -232,6 +232,9 @@ function bindAddress(lw: Lowering, decl: VarDecl): boolean {
  */
 function scalarInit(lw: Lowering, e: Expr, type: Type): IrValue | undefined {
   const temporal = e.kind === "literal" ? (durationOf(e) ?? calendarOf(e) ?? typedRealOf(e)) : undefined
+  // same rule as `lowerExpr`: a temporal literal that did not convert is reported, not passed to the string path
+  if (temporal === undefined && e.kind === "literal" && TEMPORAL_LITERAL_KINDS.has(e.literalKind))
+    return lw.bail("bad-literal", `${e.literalKind} literal outside the representable range: ${e.text}`, e.span)
   const text = e.kind === "literal" && typeof e.value === "string" ? stringLiteralText(lw, e) : undefined
   if (text === null) return undefined
   const folded = temporal?.value ?? text ?? foldConstant(lw, e)

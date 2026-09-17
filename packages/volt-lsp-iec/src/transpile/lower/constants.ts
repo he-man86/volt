@@ -149,6 +149,15 @@ export function durationOf(e: Extract<Expr, { kind: "literal" }>): { value: bigi
  * 1; DT#2106-02-07-06:28:15 plus a second wraps to the epoch), TOD counts MILLISECONDS since midnight in 32 bits, and
  * LDATE / LDT / LTOD count NANOSECONDS in 64. The AST keeps the text (`"1970-01-02"`) and the prefix decides the type.
  */
+/** The literal kinds `durationOf` / `calendarOf` / `typedRealOf` are responsible for.
+ *
+ *  A literal of one of these kinds whose conversion returns `undefined` must be REPORTED, never handed on: the
+ *  next branch in both call sites tests `typeof value === "string"`, and a date literal's AST value IS the
+ *  string `"300000-01-01"`, so a failed conversion silently became a STRING constant. That is the other half of
+ *  the totality contract — "never a throw AND never an invented meaning" — and it is the half that does not
+ *  announce itself. */
+export const TEMPORAL_LITERAL_KINDS: ReadonlySet<string> = new Set(["date", "datetime", "tod", "duration"])
+
 export function calendarOf(e: Extract<Expr, { kind: "literal" }>): { value: bigint; type: Type } | undefined {
   const text = e.value
   if (typeof text !== "string" || !["date", "datetime", "tod"].includes(e.literalKind)) return undefined
@@ -188,7 +197,14 @@ export function calendarNanoseconds(kind: "date" | "datetime" | "tod", text: str
   }
   const d = /^(\d+)-(\d+)-(\d+)(?:-(\d+):(\d+):(\d+)(?:\.(\d+))?)?$/.exec(text)
   if (d === null) return undefined
-  const days = BigInt(Date.UTC(Number(d[1]), Number(d[2]) - 1, Number(d[3])) / 86_400_000)
+  // `Date.UTC` answers NaN past its own range (about year 275760), and `BigInt(NaN)` THROWS — which broke the
+  // totality contract that everything downstream rests on: `D#300000-01-01` came out of `lowerSource` as a bare
+  // `RangeError: Not an integer`, with no diagnostic and no position. Answering `undefined` is all that is
+  // needed, because this function already returns it for a malformed literal and the caller already reports
+  // that — the machinery was there, the NaN just walked past it.
+  const utc = Date.UTC(Number(d[1]), Number(d[2]) - 1, Number(d[3]))
+  if (!Number.isFinite(utc)) return undefined
+  const days = BigInt(utc / 86_400_000)
   const midnight = days * 86_400n * 1_000_000_000n
   return kind === "date" || d[4] === undefined ? midnight : midnight + clock(d[4], d[5]!, d[6]!, d[7])
 }

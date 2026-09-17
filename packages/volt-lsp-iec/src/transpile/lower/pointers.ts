@@ -115,6 +115,13 @@ export function pointerValue(lw: Lowering, e: Expr, pointerType: Type): { value:
   const bytes = lowerExpr(lw, stepped.right)
   const size = target.element === undefined ? undefined : byteSize(lw, target.element.type)?.size
   if (bytes === undefined) return undefined
+  // `size === 0n` is guarded SEPARATELY from `undefined`, and it is reachable: `byteSize` answers 0 for a
+  // struct with no laid-out fields (`fieldBytes` starts at offset 0, align 1, so `alignUp(0n, 1n)` is 0) and for
+  // an array of length 0 (`element.size * 0n`). `% 0n` and `/ 0n` both throw RangeError on BigInt, so
+  // `p + 4` over an `ARRAY[0..2] OF <empty struct>` came out of lowering as "0 is an invalid divisor value" —
+  // a throw where the contract promises a coded diagnostic.
+  if (size === 0n)
+    return lw.bail("pointer-step", "a pointer stepped over an element type that occupies no bytes", e.span)
   if (bytes.kind !== "const" || typeof bytes.value !== "bigint" || size === undefined || bytes.value % size !== 0n)
     return lw.bail("pointer-step", "a pointer stepped by something other than whole elements of its array", e.span)
   const step: IrExpr = { kind: "const", value: bytes.value / size, type: pointerType, span: stepped.right.span }

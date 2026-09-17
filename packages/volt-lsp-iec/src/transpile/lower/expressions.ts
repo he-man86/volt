@@ -19,6 +19,7 @@ import type { Lowering } from "./lowering.js"
 import { adopt, convert, retype } from "./convert.js"
 import {
   calendarOf,
+  TEMPORAL_LITERAL_KINDS,
   contextLiteralType,
   durationOf,
   enumConstant,
@@ -84,6 +85,11 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
       if (v === undefined) return lw.bail("bad-literal", `malformed literal ${e.text}`, e.span)
       const typed = durationOf(e) ?? calendarOf(e) ?? typedRealOf(e)
       if (typed !== undefined) return { kind: "const", value: typed.value, type: typed.type, span: e.span }
+      // A temporal literal that did not convert is REPORTED here and goes no further. Falling through let
+      // `D#300000-01-01` reach the string branch below — a date literal's AST value is the string
+      // "300000-01-01" — and become a STRING constant with no diagnostic.
+      if (TEMPORAL_LITERAL_KINDS.has(e.literalKind))
+        return lw.bail("bad-literal", `${e.literalKind} literal outside the representable range: ${e.text}`, e.span)
       if (typeof v === "string") {
         const text = stringLiteralText(lw, e)
         if (text === null) return undefined

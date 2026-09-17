@@ -1,0 +1,163 @@
+/**
+ * LOWERING IS TOTAL — the contract, as a gate.
+ *
+ * `src/transpile/index.ts` states it: lowering "stays total: invalid input still ends in a `LowerDiagnostic`
+ * under a generic code, never a throw and never an invented meaning." Everything downstream is built on that.
+ * `lower-completeness.ts` walks the whole corpus and would crash if it were violated — but it is a SCRIPT, run
+ * by hand, and nothing ran it on a schedule. A property this load-bearing needs a test.
+ *
+ * WHY IT LIVES IN THE CONFORMANCE TIER THOUGH IT WALKS THE CORPUS. `test/corpus/` is deliberately out of CI:
+ * it is a RATCHET that discovers precision gaps, carries known-incomplete numbers, and is not expected to be
+ * green. This is the opposite kind of thing — a hard invariant with one right answer — so it belongs where the
+ * gates are. The cost is ~80s over 29k files, which is what a contract worth stating is worth checking.
+ *
+ * WHAT IT DOES NOT PROVE. The corpus is real customer code, so it contains what engineers write, not what an
+ * adversary would. Two throws found by review (2026-09-17) are NOT reachable from it — a pointer stepped over a
+ * zero-size element, and a date literal outside JS `Date`'s range — and they get their own targeted cases where
+ * they are fixed. A corpus pass is evidence, not proof.
+ */
+import { describe, expect, test } from "bun:test"
+import { lowerSource } from "../../src/transpile/lower/index.js"
+import { readdirSync, readFileSync, statSync } from "node:fs"
+import { extname, join, relative } from "node:path"
+import {
+  declarationAttributes,
+  isGraphicalBody,
+  memberAttributes,
+  parseSource,
+  unitAttributes,
+  type TopLevel,
+} from "../../src/syntax/index.js"
+import { buildSymbolTable, scopeForUnit } from "../../src/symbols/index.js"
+import { lowerUnit } from "../../src/transpile/index.js"
+import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
+import { scanLibraryManifests } from "../../src/workspace-refs.js"
+
+const CORPUS = join(import.meta.dir, "..", "..", "test-corpus")
+
+const walk = (d: string): string[] => {
+  const out: string[] = []
+  for (const name of readdirSync(d)) {
+    const p = join(d, name)
+    if (statSync(p).isDirectory()) out.push(...walk(p))
+    else if (SOURCE_EXTENSION_SET.has(extname(p).toLowerCase())) out.push(p)
+  }
+  return out
+}
+
+// the same set `lower-completeness.ts` counts, so the gate and the ratchet walk identical ground
+const isRunnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "function_block" }> =>
+  u.kind === "program" || u.kind === "function_block"
+
+/** Every `{file, unit}` whose lowering threw, with the error — empty is the only acceptable answer. */
+function throwsOverCorpus(): string[] {
+  const failures: string[] = []
+  const projects = readdirSync(CORPUS).filter((name) => statSync(join(CORPUS, name)).isDirectory())
+  for (const projectDir of projects) {
+    const files = walk(join(CORPUS, projectDir)).flatMap((file) => {
+      const source = readFileSync(file, "utf8")
+      try {
+        const parseResult = parseSource(source)
+        // a parse gap is `parser-completeness`'s to report, not this gate's
+        return parseResult.errors.length > 0 ? [] : [{ file, source, parseResult }]
+      } catch {
+        return []
+      }
+    })
+    const project = buildSymbolTable(
+      files.map(({ file, source, parseResult }) => ({ uri: file, parseResult, source })),
+      scanLibraryManifests(join(CORPUS, projectDir)),
+    )
+    const attributes = new Map<object, Set<string>>(
+      files.flatMap(({ source, parseResult }) => [
+        ...unitAttributes(parseResult, source),
+        ...memberAttributes(parseResult, source),
+        ...declarationAttributes(parseResult, source),
+      ]),
+    )
+    for (const { file, parseResult } of files) {
+      for (const unit of parseResult.units.filter(isRunnable)) {
+        const scope = scopeForUnit(project, unit)
+        if (scope === undefined) continue
+        if (isGraphicalBody(unit.body)) continue // a graphical body is not ST; the network pipeline owns it
+        try {
+          lowerUnit(unit, scope, project, attributes)
+        } catch (error) {
+          const name = "name" in unit && unit.name !== undefined ? String((unit.name as { text: string }).text) : "?"
+          failures.push(`${relative(CORPUS, file)} :: ${name} — ${(error as Error).message}`)
+        }
+      }
+    }
+  }
+  return failures
+}
+
+describe("lowering is TOTAL — the contract src/transpile/index.ts states", () => {
+  test(
+    "no POU in the 4-project corpus makes lowering throw",
+    () => {
+      const failures = throwsOverCorpus()
+      // the whole list, not a count: a throw names the input that caused it, which is the fix
+      expect(failures).toEqual([])
+    },
+    240_000,
+  )
+})
+
+/**
+ * THE SHAPES THE CORPUS DOES NOT CONTAIN.
+ *
+ * Both were found by review (2026-09-17) and reproduced by hand, and neither is reachable from 29k files of
+ * real customer code — which is the point of having them here as well as the corpus sweep. Real engineers do
+ * not write a year 300000, and they do not step a pointer over a struct with no fields; a transpiler other
+ * people depend on meets both anyway, and the contract says how: a coded diagnostic, not a crash.
+ *
+ * Each asserts BOTH halves of that contract — that it does not throw, AND that it does not quietly mean
+ * something else. The second half is not decoration: the first fix for the date literal returned `undefined`,
+ * which fell through to the string branch (a date literal's AST value IS the string "300000-01-01") and turned
+ * `D#300000-01-01` into a STRING constant with no diagnostic at all. Trading a loud crash for a silent wrong
+ * answer is a worse bug than the one being fixed, and only an assertion about the DIAGNOSTIC catches it.
+ */
+describe("the shapes the corpus cannot reach", () => {
+  const lowered = (pou: string, src: string): { codes: string[]; threw: string | null } => {
+    try {
+      return { codes: lowerSource(src, pou, []).diagnostics.map((d) => d.code), threw: null }
+    } catch (error) {
+      return { codes: [], threw: (error as Error).message }
+    }
+  }
+
+  test("a date literal past JS Date's range is reported, not thrown, and is not silently a string", () => {
+    // `Date.UTC` answers NaN past about year 275760 and `BigInt(NaN)` throws
+    for (const src of [
+      "PROGRAM P\nVAR\n\td : DATE;\nEND_VAR\nd := D#300000-01-01;\nEND_PROGRAM\n",
+      "PROGRAM P\nVAR\n\td : DATE := D#300000-01-01;\nEND_VAR\nEND_PROGRAM\n", // the initializer path is a second site
+    ]) {
+      const r = lowered("P", src)
+      expect(r.threw).toBeNull()
+      expect(r.codes).toEqual(["bad-literal"])
+    }
+  })
+
+  test("a pointer stepped over an element occupying no bytes is reported, not divided by", () => {
+    // `byteSize` legitimately answers 0 for a struct with no laid-out fields; `% 0n` throws on BigInt
+    const r = lowered(
+      "Q",
+      "TYPE EMPTY : STRUCT END_STRUCT END_TYPE\n\nPROGRAM Q\nVAR\n\tarr : ARRAY[0..2] OF EMPTY;\n" +
+        "\tp : POINTER TO EMPTY;\n\tq : POINTER TO EMPTY;\nEND_VAR\np := ADR(arr[0]);\nq := p + 4;\nEND_PROGRAM\n",
+    )
+    expect(r.threw).toBeNull()
+    expect(r.codes).toContain("pointer-step")
+  })
+
+  test("the ordinary temporal literals still lower, so the refusal did not widen", () => {
+    expect(lowered("R", "PROGRAM R\nVAR\n\td : DATE := D#2026-09-17;\nEND_VAR\nd := D#2000-01-01;\nEND_PROGRAM\n")).toEqual({
+      codes: [],
+      threw: null,
+    })
+    expect(lowered("T", "PROGRAM T\nVAR\n\tt : TIME := T#1S;\nEND_VAR\nt := T#2M3S;\nEND_PROGRAM\n")).toEqual({
+      codes: [],
+      threw: null,
+    })
+  })
+})
