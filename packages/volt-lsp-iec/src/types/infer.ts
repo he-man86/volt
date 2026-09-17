@@ -59,10 +59,26 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
     case "call":
       return callReturnType(expr, scope, project)
     case "unary": {
-      // NOT and + keep the operand's type (NOT on WORD is a bitwise complement, not BOOL). Unary MINUS does not — see
-      // `checkedNegationType`. This comment used to say "NOT/-/+ preserve the operand's type", written from recollection.
+      // `+` keeps the operand's type; unary MINUS does not (see `checkedNegationType`); and NOT keeps it EXCEPT on a
+      // signed integer, where the result is the UNSIGNED type of the same width.
+      //
+      // That last part is the same fact the sign-change warning already states — "AND, OR, XOR and NOT meet in the
+      // UNSIGNED integer of the width" (`checks/types/narrowing.ts`) — and it was applied to the OPERAND and not to
+      // the RESULT, so only half of what CODESYS reports could be reproduced. Measured on `not_result_width`, with
+      // `i5 : INT`: `NOT i5` into a DINT or an LREAL is silent (a UINT widens into either without a sign change),
+      // and into an INT it warns "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT'". Three
+      // assignments of the same expression, two answers — which only makes sense if the expression is UINT.
+      //
+      // A BOOL operand is a logical NOT and keeps BOOL; an already-unsigned operand keeps its own type. Both fall out
+      // of the guard rather than needing a case.
       const operand = inferExprType(expr.operand, scope, project)
-      return expr.op === "-" ? checkedNegationType(operand) : operand
+      if (expr.op === "-") return checkedNegationType(operand)
+      if (expr.op === "NOT") {
+        const e = operand.kind === "elementary" ? operand.elem : undefined
+        if (e !== undefined && e.family === "int" && e.signed === true && e.bits !== undefined)
+          return elementaryTypeRef(elementaryType(e.bits === 8 ? "USINT" : e.bits === 16 ? "UINT" : e.bits === 32 ? "UDINT" : "ULINT")!)
+      }
+      return operand
     }
     case "binary":
       return binaryResultType(expr, scope, project)

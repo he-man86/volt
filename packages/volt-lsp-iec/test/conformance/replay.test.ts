@@ -84,7 +84,9 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // IDE side read `Unknown type: 'FB_NG_arith'`, which is PLC_PRG failing to find an FB that was never
   // created. Rewritten with the canonical body the refusal prints verbatim, eight now build CLEAN and the
   // ninth records real errors. No LSP change was involved in any of it.
-  { vendor: "codesys", filename: "codesys.build.json", floor: 857 },
+    // 857 -> 859: `NOT` on a signed integer types as the UNSIGNED integer of its width (the result side of a
+  // rule the operand side already had), and an ARRAY OF STRING(n) checks its elements.
+  { vendor: "codesys", filename: "codesys.build.json", floor: 859 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence

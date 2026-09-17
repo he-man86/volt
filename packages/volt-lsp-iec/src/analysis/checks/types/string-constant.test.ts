@@ -15,6 +15,39 @@ const sc = (decls: string): string[] => {
     .map((d) => d.message)
 }
 
+/** AN ARRAY OF SIZED STRINGS IS THE SAME DESTINATION, ONCE PER ELEMENT.
+ *
+ * `array_initializers` recorded "String constant ''...' too long for destination type 'STRING(4)'" and the LSP
+ * emitted nothing: the declaration loop asked for `decl.type.kind === "string_type"`, and an
+ * `ARRAY[0..2] OF STRING(4)` is an `array_type` whose ELEMENT carries the size. Every element of every array of
+ * strings in a project was unchecked. */
+test("an over-length element of an ARRAY OF STRING(n) is flagged, and a fitting one is not", () => {
+  expect(sc(`  texts : ARRAY[0..2] OF STRING(4) := ['a', 'bcdef'];`)).toEqual([
+    "String constant ''...' too long for destination type 'STRING(4)'",
+  ])
+  expect(sc(`  texts : ARRAY[0..2] OF STRING(8) := ['a', 'bcdef'];`)).toEqual([])
+})
+
+test("every over-length element is reported, in source order", () => {
+  // the printed prefix follows the same rule as a scalar destination (STRING(2) prints two characters of the
+  // literal AS WRITTEN, so the opening quote and one letter) — it is not special-cased for arrays
+  expect(sc(`  texts : ARRAY[0..2] OF STRING(2) := ['abc', 'ok', 'defg'];`)).toEqual([
+    "String constant ''a...' too long for destination type 'STRING(2)'",
+    "String constant ''d...' too long for destination type 'STRING(2)'",
+  ])
+})
+
+test("a repeat count and a nested dimension are unwrapped to the values they hold", () => {
+  // `3('abcde')` is one constant repeated — the count cannot change whether it fits, so it is reported once.
+  expect(sc(`  texts : ARRAY[0..2] OF STRING(4) := [3('abcde')];`)).toEqual([
+    "String constant ''...' too long for destination type 'STRING(4)'",
+  ])
+  // a 2-D array initialises with nested lists
+  expect(sc(`  grid : ARRAY[0..1, 0..1] OF STRING(4) := [['ok', 'toolong'], ['ok', 'ok']];`)).toEqual([
+    "String constant ''...' too long for destination type 'STRING(4)'",
+  ])
+})
+
 test("an over-length string literal is flagged", () => {
   expect(sc(`  str : STRING(4) := '12345';`)).toEqual(["String constant ''...' too long for destination type 'STRING(4)'"])
 })

@@ -3,11 +3,15 @@
  * whether that destination is a declaration's initializer (`str : STRING(4) := '12345'`) or an assignment's target
  * (`str := '12345';`).
  *
+ * An `ARRAY … OF STRING(n)` is the same destination once per element: `texts : ARRAY[0..2] OF STRING(4) :=
+ * ['a', 'bcdef']` warns about `'bcdef'` and nothing else (conformance `array_initializers`). The element type
+ * carries the size, so the only new part is walking the aggregate.
+ *
  * Zero-FP: the length compared is the DECODED character count — IEC `$` escapes (`$T` tab, `$$`, `$0D` hex, …)
  * are one character each, so `STRING(1) := '$T'` is fine. Only a sized destination with a const-foldable length
  * and a string-literal source fires, on a strict over-length; a sizeless `STRING` is skipped.
  */
-import { decodeStringLiteral, renderTypeExpr, walkStatements, type Expr, type Initializer } from "../../../syntax/index.js"
+import { decodeStringLiteral, renderTypeExpr, walkStatements, type AggregateElement, type Expr, type Initializer } from "../../../syntax/index.js"
 import { constEval, inferExprType, type Type } from "../../../types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
@@ -16,10 +20,23 @@ import { pushForDeclaration, SOURCE, type DiagnosticItem } from "../../diagnosti
 
 export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl, scope, section, unit } of forEachDecl(ctx.parseResult, ctx.project)) {
-    if (decl.type.kind !== "string_type" || decl.type.length === undefined) continue
-    const size = constEval(decl.type.length, scope)
+    // The sized string a declaration stores into — its own type, or an array's ELEMENT type.
+    const sized = decl.type.kind === "array_type" ? decl.type.element : decl.type
+    if (sized.kind !== "string_type" || sized.length === undefined) continue
+    const size = constEval(sized.length, scope)
     if (typeof size !== "bigint") continue
-    const diag = tooLong(decl.init, decl.type.wide === true, Number(size), renderTypeExpr(decl.type), ctx.messages)
+    const wide = sized.wide === true
+    const rendered = renderTypeExpr(sized)
+    if (decl.type.kind === "array_type") {
+      // One destination per element, in source order. `repeat` (`3('abc')`) wraps its value and is unwrapped —
+      // the count does not change whether the constant fits; `unparsed` is skipped, as everywhere else here.
+      for (const value of aggregateValues(decl.init)) {
+        const diag = tooLong(value, wide, Number(size), rendered, ctx.messages)
+        if (diag !== undefined) pushForDeclaration(out, unit, section, diag)
+      }
+      continue
+    }
+    const diag = tooLong(decl.init, wide, Number(size), rendered, ctx.messages)
     if (diag !== undefined) pushForDeclaration(out, unit, section, diag)
   }
   // An assignment's target is the same destination: `eight : STRING(8); eight := 'seventeen';` warns exactly as the
@@ -40,6 +57,21 @@ export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): v
       })
     })
   }
+}
+
+/** Every scalar value an array initializer holds, flattened — nested `[…]` for a multi-dimensional array, and
+ *  `n(<value>)` repeats unwrapped to the value they repeat. A `field` element belongs to a struct and is not
+ *  reached from an array; `unparsed` is the parser's conservative skip signal and stays skipped. */
+function aggregateValues(init: Initializer | undefined): Expr[] {
+  if (init === undefined || init.kind !== "aggregate_init") return []
+  const out: Expr[] = []
+  const walk = (el: AggregateElement): void => {
+    if (el.kind === "value") out.push(el.expr)
+    else if (el.kind === "nested") for (const e of el.init.elements) walk(e)
+    else if (el.kind === "repeat" || el.kind === "field") walk(el.value)
+  }
+  for (const el of init.elements) walk(el)
+  return out
 }
 
 /** The warning for one literal → sized-string destination pair, or undefined when it fits (or is not a literal). */
