@@ -225,6 +225,20 @@ export interface IrCopy {
 /** The value functions. A name here is ONE fixed meaning, measured against the vendor — not a call to resolve.
  *  `trunc` is TRUNC/TRUNC_INT: toward zero, into its node's DINT/INT `type` — the one conversion that does not
  *  round, so it cannot be a `convert`. */
+/**
+ * **EVERY ARGUMENT IS EVALUATED, ALL OF THEM, BEFORE THE BUILTIN RUNS.** The IR said nothing about this and the
+ * two backends answered differently: `interp/` evaluates the whole argument list up front, while the emitter
+ * printed `sel` as `if c { b } else { a }` — Rust text, so the unselected arm was never evaluated. An argument
+ * with a side effect therefore meant two things, which is the shape of divergence this IR exists to prevent
+ * (decision 2: the IR carries the semantics; a backend that has to DECIDE something means the lowering was
+ * incomplete).
+ *
+ * Eager is chosen because it is what the reference backend already does, so writing it down costs nothing and
+ * makes the pair agree by construction. It is NOT measured against CODESYS: an argument with a side effect
+ * needs a call in an expression, which lowering refuses today (`expr-call`, 75 corpus POUs). When that lowers,
+ * a fixture should ask the vendor — and if the answer is lazy, it is this line that changes, once, rather than
+ * one backend drifting from the other again.
+ */
 export type IrBuiltinName =
   | "max"
   | "min"

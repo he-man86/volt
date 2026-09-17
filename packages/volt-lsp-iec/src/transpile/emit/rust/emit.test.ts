@@ -209,7 +209,9 @@ describe("emit/rust", () => {
     expect(code).not.toContain("clamp")
     expect(code).toContain(".max(")
     expect(code).toContain(".min(")
-    expect(code).toContain("(if self.g {")
+    // SEL binds both arms before branching, so an argument with a side effect is evaluated exactly once on
+    // either side — the IR states eager evaluation and both backends obey it
+    expect(code).toContain("let __sel_c = self.g; let __sel_f = 1i64; let __sel_t = 2i64; if __sel_c")
   })
 
   test("conversions print CODESYS's rules, not a bare `as` — which truncates, saturates, and has no bool", () => {

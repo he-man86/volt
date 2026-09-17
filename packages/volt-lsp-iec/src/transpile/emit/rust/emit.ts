@@ -477,8 +477,11 @@ class Printer {
           // `limit_inverted_bounds`). MIN(MAX(IN, MN), MX) is exactly the measured behaviour.
           case "limit":
             return `${args[1]}.max(${args[0]}).min(${args[2]})`
+          // EAGER, as the IR states: the arms are bound BEFORE the branch, so both are evaluated exactly once
+          // like every other argument list. Printed as `if c { b } else { a }` the unselected arm was never
+          // evaluated, and an argument with a side effect meant one thing here and another in the interpreter.
           case "sel":
-            return `(if ${args[0]} { ${args[2]} } else { ${args[1]} })`
+            return `({ let __sel_c = ${args[0]}; let __sel_f = ${args[1]}; let __sel_t = ${args[2]}; if __sel_c { __sel_t } else { __sel_f } })`
           // Toward zero into an i32 whose out-of-range (and NaN) answer is i32::MIN — CODESYS's TRUNC(3.0E9) is
           // -2147483648, not a wrap and not Rust's saturating `as` — then `as` wraps that into INT for TRUNC_INT.
           case "trunc":
