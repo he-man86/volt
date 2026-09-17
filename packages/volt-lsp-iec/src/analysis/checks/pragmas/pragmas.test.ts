@@ -193,3 +193,38 @@ test("an UNQUOTED attribute value is no value at all — the compiler reads the 
 // on it was a false positive — the recording was STALE. Re-recorded 2026-09-17 against a recorder that no longer
 // drops the pragmas written ABOVE a POU, with their arrival confirmed by reading the item back out of the IDE:
 // the compiler says nothing at all.
+
+/** `{attribute 'abstract'}` is the OLD spelling; SP21 wants the keyword and warns when it finds one without the
+ *  other. It is a METHOD rule, and that took two fixtures to establish: the same attribute on a FUNCTION_BLOCK
+ *  records nothing (`cc6_abstract_attribute_on_fb`), on a METHOD it warns (`cc6_abstract_attribute_on_method`).
+ *  `cc4_not_instantiable` carries it on BOTH and records one warning, so it could never say which — which is why
+ *  the halves were measured separately. */
+function abstractWarnings(src: string): string[] {
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "abstract-keyword-missing")
+    .map((d) => d.message)
+}
+
+const FB = "FUNCTION_BLOCK F\nVAR\n\tn : INT;\nEND_VAR\nn := 1;\nEND_FUNCTION_BLOCK\n"
+
+test("the abstract ATTRIBUTE on a method without the keyword warns", () => {
+  expect(abstractWarnings(FB + "\n{attribute 'abstract'}\nMETHOD Shape : INT\nShape := 1;\nEND_METHOD\n")).toEqual([
+    "The ABSTRACT keyword is missing",
+  ])
+})
+
+test("the same attribute on a FUNCTION_BLOCK is silent — measured, not assumed", () => {
+  expect(abstractWarnings("{attribute 'abstract'}\n" + FB)).toEqual([])
+})
+
+test("a method carrying the KEYWORD as well is silent", () => {
+  expect(
+    abstractWarnings(FB + "\n{attribute 'abstract'}\nMETHOD ABSTRACT Shape : INT\nEND_METHOD\n"),
+  ).toEqual([])
+})
+
+test("a method with neither the attribute nor the keyword is silent", () => {
+  expect(abstractWarnings(FB + "\nMETHOD Shape : INT\nShape := 1;\nEND_METHOD\n")).toEqual([])
+})

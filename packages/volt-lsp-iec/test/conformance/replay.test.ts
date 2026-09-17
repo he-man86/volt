@@ -86,7 +86,10 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // ninth records real errors. No LSP change was involved in any of it.
     // 857 -> 859: `NOT` on a signed integer types as the UNSIGNED integer of its width (the result side of a
   // rule the operand side already had), and an ARRAY OF STRING(n) checks its elements.
-  { vendor: "codesys", filename: "codesys.build.json", floor: 859 },
+  // 859 -> 862: the abstract ATTRIBUTE on a method without the ABSTRACT keyword warns; two probe fixtures
+  // (`cc6_abstract_attribute_on_fb` / `_on_method`) established it is a METHOD rule, which `cc4_not_instantiable`
+  // could not say because it carries the attribute on both and records one warning.
+  { vendor: "codesys", filename: "codesys.build.json", floor: 862 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
@@ -127,7 +130,25 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                            reports that instead and never reaches the nesting rule.
   //   `cc5_deprecated_functionblock_keyword` — the IDE does not report the spelling at all: it parses `FUNCTIONBLOCK`
   //                            as something else and reports "Unknown type". Both LSP messages are Volt's own.
+  //   `sn_dut_mismatch_used` — THE RECORDING IS OF A PROJECT BUILD; A DIAGNOSTIC IS PER FILE. The fixture is an FB
+  //                            holding `held : DUT_SN_signature`, and its recorded error — "The name used in the
+  //                            signature is not identical to the object name" — is about the DUT, which is a
+  //                            DIFFERENT OBJECT in a different file. `record:language` builds the fixture with
+  //                            `withDependencies` and collects everything the build says, so the error lands under
+  //                            this fixture's name; the LSP computes diagnostics for the file it is given, where
+  //                            there is nothing wrong.
+  //                            Analysing the dependencies too was tried and does close this one — and costs more
+  //                            than it pays: `interface_with_property_impl` then reports the interface's
+  //                            accessorless property, which CODESYS does NOT record, because that fixture sets no
+  //                            `plcPrgVar` so nothing is instantiated and nothing is compiled. One gained, one
+  //                            lost, plus a TwinCAT ratchet point. The rule "an implemented interface property is
+  //                            silent" was written to explain it and is WRONG: `interface_with_property` has the
+  //                            same interface AND an implementer in the project and still records the warning —
+  //                            it instantiates the FB and reads the property, and the other does not.
+  //                            What actually separates every one of these is REACHABILITY, which a per-file
+  //                            analysis does not have and should not guess at.
   codesys: new Set<string>([
+    "sn_dut_mismatch_used",
     "cc5_pointer_not_convertible",
     "cc5_new_in_expression",
     //   C0149, three fixtures, one cause — the compiler only looks at what it REACHES:

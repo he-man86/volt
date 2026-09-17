@@ -23,6 +23,28 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
     .filter((t) => t.kind === "pragma")
     .map((t) => ({ span: t.span, text: t.text, ...parsePragma(t.text) }))
 
+  // `{attribute 'abstract'}` ON A METHOD, WITHOUT THE KEYWORD — "The ABSTRACT keyword is missing" (a warning).
+  //
+  // The attribute is the OLD spelling; SP21 wants `METHOD ABSTRACT Shape : INT` and says so when it finds one
+  // without the other. It is a METHOD rule and not a POU one, which took two fixtures to establish: the same
+  // attribute on a FUNCTION_BLOCK records NOTHING (`cc6_abstract_attribute_on_fb`), on a METHOD it warns
+  // (`cc6_abstract_attribute_on_method`). `cc4_not_instantiable` carries it on both and records one warning, so
+  // it could never say which — measuring the halves separately is what answered it.
+  const units = [...ctx.parseResult.units].sort((a, b) => a.span.start - b.span.start)
+  for (const p of pragmas) {
+    if (p.attributeName?.toLowerCase() !== "abstract") continue
+    // the pragma decorates the next unit that opens after it
+    const owner = units.find((u) => u.span.start >= p.span.end)
+    if (owner?.kind !== "method" || owner.abstract === true) continue
+    out.push({
+      severity: "warning",
+      span: owner.name.span,
+      source: SOURCE,
+      code: "abstract-keyword-missing",
+      message: ctx.messages.abstractKeywordMissing(),
+    })
+  }
+
   // C0051 — a `hasattribute(pou: X, <attr>)` conditional-compile operand whose attribute is unquoted. The
   // attribute must be a single-byte string literal ('MyAttribute'); a bare identifier is an error. Verified live
   // CODESYS 3.5.21. Narrow + FP-safe: fires only on the hasattribute form with a non-quoted last argument.

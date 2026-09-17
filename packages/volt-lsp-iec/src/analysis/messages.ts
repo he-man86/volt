@@ -284,6 +284,7 @@ export interface Messages {
   referenceAssignWriteAccess(): string
   /** A `hasattribute(...)` conditional-pragma whose attribute operand is unquoted — C0051. verified live CODESYS; TC pending. */
   attributeValueString(found: string): string
+  abstractKeywordMissing(): string
   /** A function block that EXTENDS itself (C0091). verified both vendors. */
   circularInheritance(chain: string): string
   /** An `EXTENDS` base class that resolves to no definition (C0090). verified both vendors. */
@@ -589,6 +590,7 @@ export function messagesFor(vendor: Vendor): Messages {
       `The name '${name.toUpperCase()}' is a reserved keyword in the IEC61131-3 standard. An error will be reported in future versions.`,
     referenceAssignWriteAccess: () => `Reference assign needs variable with write access`,
     attributeValueString: (found) => `Single byte string expected for an attribute value instead of '${found}'`,
+    abstractKeywordMissing: () => `The ABSTRACT keyword is missing`,
     circularInheritance: (chain) => `Recursion in base function block list: ${chain}`,
     baseClassNotFound: (name) => `No definition found for base class '${name}'`,
     interfaceNotFound: (name) => `No definition found for interface '${name}'`,

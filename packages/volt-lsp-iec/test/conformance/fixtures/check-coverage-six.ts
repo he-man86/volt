@@ -225,4 +225,39 @@ bound REF= 314;
 n := 1;
 END_FUNCTION_BLOCK
 `),
+
+  // ─── which object does "The ABSTRACT keyword is missing" belong to? ────────────────────────────────────────
+  // `cc4_not_instantiable` puts `{attribute 'abstract'}` on an FB AND on a method and records ONE warning, so it
+  // cannot say which. These two split the question.
+  fb("cc6_abstract_attribute_on_fb", "FB_C6_absAttrUser", "an FB carrying {attribute 'abstract'} but not the ABSTRACT keyword",
+    `{attribute 'abstract'}
+FUNCTION_BLOCK FB_C6_absAttr
+VAR
+	n : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_C6_absAttrUser
+VAR
+	held : FB_C6_absAttr;
+	n : INT;
+END_VAR
+held();
+n := held.n;
+END_FUNCTION_BLOCK
+`),
+
+  fb("cc6_abstract_attribute_on_method", "FB_C6_absMethod", "a METHOD carrying {attribute 'abstract'} but not the ABSTRACT keyword",
+    `FUNCTION_BLOCK FB_C6_absMethod
+VAR
+	n : INT;
+END_VAR
+n := Shape();
+END_FUNCTION_BLOCK
+
+{attribute 'abstract'}
+METHOD Shape : INT
+Shape := 1;
+END_METHOD
+`),
 ]
