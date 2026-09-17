@@ -336,3 +336,30 @@ test("a literal whose narrowest type MATCHES the parameter stays silent", () => 
       .filter((d) => d.code === "in-out-type-mismatch"),
   ).toEqual([])
 })
+
+test("a FUNCTION's inputs WITHOUT a default are required — the count is a range when defaults exist", () => {
+  // Too-few is not diagnosed in general (an FB retains its inputs between calls), but a function has no instance
+  // to retain anything (conformance `callshape_function_input_no_default`).
+  const call = (args: string) => {
+    const src = `FUNCTION F_c : INT\nVAR_INPUT\nbaseValue : INT := 5;\nextra : INT;\nEND_VAR\nF_c := baseValue + extra;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_u\nVAR\nn : INT;\nEND_VAR\nn := F_c(${args});\nEND_FUNCTION_BLOCK`
+    const parseResult = parseSource(src)
+    const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "function-argument-count")
+      .map((d) => d.message)
+  }
+  // the argument passed is the DEFAULTED one, so the required `extra` is still missing — a count alone would pass
+  expect(call("baseValue := 7")).toEqual(["Function 'F_c' requires at least '1' and maximum '2' inputs"])
+  expect(call("extra := 7")).toEqual([])
+  expect(call("baseValue := 7, extra := 1")).toEqual([])
+})
+
+test("an FB's inputs are NOT required — they are retained between calls", () => {
+  const src = `FUNCTION_BLOCK FB_w\nVAR_INPUT\nneeded : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nFUNCTION_BLOCK FB_u\nVAR\nw : FB_w;\nEND_VAR\nw();\nEND_FUNCTION_BLOCK`
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  expect(
+    computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "function-argument-count"),
+  ).toEqual([])
+})

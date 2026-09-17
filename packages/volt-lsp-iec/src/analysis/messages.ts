@@ -143,6 +143,8 @@ export interface Messages {
   arrayIndexOutOfBounds(index: string, lo: string, hi: string): string
   /** A FUNCTION/METHOD called with the wrong number of inputs (C0040). verified both vendors. */
   functionRequiresInputs(callee: string, count: number): string
+  /** The same rule when some inputs have DEFAULTS, so the count is a range (CODESYS SP21). */
+  functionRequiresInputRange(callee: string, min: number, max: number): string
   /** An FB call with a positional argument past its last input — no input to assign it to (C0044). verified both vendors. */
   inputAssignmentMissing(param: string, callee: string): string
   /** A `name := value` naming no input of the callee (C0037). verified both vendors. */
@@ -490,6 +492,7 @@ export function messagesFor(vendor: Vendor): Messages {
       `The constant index '${index}' is not within the range from '${lo}' to '${hi}'`,
     // Call-argument wording is PROVISIONAL — no live-bridge recording yet (like arrayIndexOutOfBounds was).
     functionRequiresInputs: (callee, count) => `Function '${callee}' requires exactly '${count}' inputs`,
+    functionRequiresInputRange: (callee, min, max) => `Function '${callee}' requires at least '${min}' and maximum '${max}' inputs`,
     inputAssignmentMissing: (param, callee) => `Assignment to input missing for parameter '${param}' in call of '${callee}'`,
     unknownNamedArgument: (name, callee) => `'${name}' is no input of '${callee}'`,
     callResultAccess: () =>

@@ -138,6 +138,34 @@ function checkCall(
     if (param !== undefined) inOutChecks(arg.value, param, callee.sym.name, scope, ctx, out)
   }
 
+  // (4b) a FUNCTION's inputs WITHOUT a default are REQUIRED. Too-few is not diagnosed in general — an FB's inputs
+  // are retained between calls, so leaving one out is normal — but a function has no instance to retain anything,
+  // and CODESYS says so with the count as a RANGE when defaults exist: "requires at least '1' and maximum '2'
+  // inputs" (conformance `callshape_function_input_no_default`). The trigger is the missing REQUIRED input, not the
+  // count: that fixture passes one argument, which is inside the range, and is still an error because the one it
+  // passed is the defaulted one.
+  if (callee.complete && callee.sym.kind === "function" && !(positional.length > 0 && named.length > 0)) {
+    const bound = new Set<string>(named.map((a) => a.param!.name.toLowerCase()))
+    positional.forEach((_, i) => {
+      const p = callee.positional[i]
+      if (p !== undefined) bound.add(p.name.text.toLowerCase())
+    })
+    const required = callee.params.filter((p) => !p.hasDefault)
+    if (required.some((p) => !bound.has(p.name.text.toLowerCase()))) {
+      const max = callee.params.length
+      out.push({
+        severity: "error",
+        span: callSpan,
+        source: SOURCE,
+        code: "function-argument-count",
+        message:
+          required.length === max
+            ? ctx.messages.functionRequiresInputs(callee.sym.name, max)
+            : ctx.messages.functionRequiresInputRange(callee.sym.name, required.length, max),
+      })
+    }
+  }
+
   // (5) missing VAR_IN_OUT (C0039): a VAR_IN_OUT has no storage, so it MUST be bound at every call. Compute
   // which params the args cover — positional args cover `positional[i]` by index (all-positional only), named
   // args cover by name — and flag any VAR_IN_OUT left uncovered. Complete chains only; a MIXED named+positional
@@ -174,7 +202,18 @@ function inOutChecks(
   // VAR_IN_OUT CONSTANT (conformance `inout_const_*`): a STRING literal or STRING constant binds; an integer literal or
   // constant does not, in the section's own wording. It was reported in the plain VAR_IN_OUT wording — a false positive on
   // the STRING forms, the wrong message on the rest. Other types are not measured and stay silent (zero-FP).
-  if (param.constant) {
+  // An EXPRESSION is not an lvalue at all, whatever the parameter's constancy: `F(value := plainVar + 1)` is
+  // "needs variable with write access as input" even for a VAR_IN_OUT CONSTANT, where a LITERAL gets that
+  // section's own wording instead (conformance `inout_const_expression_2` against `inout_const_*`).
+  if (value.kind === "binary" || value.kind === "unary" || value.kind === "paren") {
+    out.push({
+      severity: "error",
+      span: value.span,
+      source: SOURCE,
+      code: "in-out-needs-writable",
+      message: ctx.messages.inOutNeedsWritable(param.name.text, callee),
+    })
+  } else if (param.constant) {
     const argType = constancyOf(value, scope) === "constant" ? inferExprType(value, scope, ctx.project) : undefined
     // an untyped integer literal infers no type (its width is its context's), so it is recognised by its kind
     const integer = (value.kind === "literal" && value.literalKind === "int") || (argType?.kind === "elementary" && argType.elem.family === "int")
