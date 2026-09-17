@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Collections.Generic;
 using System.Text;
-using System.Text.RegularExpressions;
 
 using Volt.Contracts;
 using Volt.Engine;
@@ -516,62 +515,120 @@ public static class StReader
 		$"no '{ImplementationMarker.Text}' line in this {what} — the text does not say where its declaration " +
 		"ends. Run `volt pull` once to rewrite the workspace in the current format.");
 
-	// ─── Signature parsing helpers (METHOD/ACTION/PROPERTY headers) ──
+	// ─── Signature parsing (METHOD/ACTION/PROPERTY headers) ─────────
 
 	/// <summary>The access/abstractness keywords a member signature may carry between its keyword and its name.
 	///
-	/// <para>Spelled ONCE. It used to be written out in both parsers below, and they had already drifted: the
-	/// property pattern allowed <c>?</c> over four keywords where the method pattern allowed <c>*</c> over six,
-	/// so `PROPERTY PUBLIC ABSTRACT Ready : INT` — ordinary CODESYS, and a file Volt itself had written — threw
-	/// <c>InvalidSt</c> from inside the write, mid-batch. A constant cannot drift from itself.</para>
-	///
-	/// <para>They stay TWO patterns, deliberately. A method's <c>: type</c> is optional and a property's is
-	/// mandatory, and merging them would have to make one of those wrong.</para></summary>
-	private const string Modifiers = @"(?:(?:PUBLIC|PRIVATE|PROTECTED|INTERNAL|FINAL|ABSTRACT)\s+)*";
+	/// <para>Spelled ONCE. It used to be written out in two regexes, and they had already drifted: the property
+	/// pattern allowed <c>?</c> over four keywords where the method pattern allowed <c>*</c> over six, so
+	/// `PROPERTY PUBLIC ABSTRACT Ready : INT` — ordinary CODESYS, and a file Volt itself had written — threw
+	/// <c>InvalidSt</c> from inside the write, mid-batch. A set cannot drift from itself.</para></summary>
+	private static readonly HashSet<string> Modifiers =
+		new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+		{ "PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "FINAL", "ABSTRACT" };
 
-	/// <summary>Name + (methods only) return type off the signature line. The access-modifier group is
-	/// matched but not captured into a field — nothing on the write path tells the IDE a member's
-	/// visibility on create, so an extracted modifier would have no reader.</summary>
+	/// <summary>Read a member's NAME and (where it has one) its TYPE off its signature line.
+	///
+	/// <para><b>This is the only text in a declaration Volt still reads, and it cannot be removed the way the
+	/// others were.</b> The kind comes from the wire name's extension and the decl/impl boundary is stated by
+	/// <see cref="ImplementationMarker"/> — both because a FILE carries them. A method is not a file: it lives
+	/// inside its POU's, exactly as a method lives inside its class in every other language, so its signature
+	/// line is the only place its name exists. There is no second source for it to disagree with, which is what
+	/// made the kind dangerous and makes this safe.</para>
+	///
+	/// <para><b>It was two regexes and is now neither</b>, for two reasons that both bite in production:
+	/// <c>\w</c> is UNICODE in .NET, so `METHOD Ünit` matched and `Ünit` became a member name on the wire that
+	/// CODESYS will not create; and <c>RegexOptions.IgnoreCase</c> without <c>CultureInvariant</c> folds `I`
+	/// against the CURRENT culture, so under tr-TR the keyword `ACTION` stops matching itself. Neither hazard
+	/// has a spelling in a pattern that is still readable. Four words and a colon do not need one.</para></summary>
+	/// <param name="keyword">The keyword the line must open with — the caller already knows it from the block it
+	/// is standing in, so this CHECKS rather than discovers, the same way <c>Read</c> checks the header kind.</param>
+	private static (string name, string? type) ParseSignature(string sig, string keyword)
+	{
+		// COMMENTS OFF FIRST. An engineer documents a member on its signature line — `METHOD INTERNAL
+		// _mStrConcatA //Concats string to sContent` — and CODESYS stores it exactly there. The old patterns
+		// anchored at `$`, so anything trailing failed the match outright: Volt PULLED such an FB and then refused
+		// its own text, which means the POU could be pulled and never pushed back. Found by sweeping a real
+		// customer project; 207 of pro2193's method signatures carry one.
+		//
+		// `CodeHelper.WithoutComments` is the one definition of "the code on this line" — re-implementing the
+		// strip here is how the two would drift.
+		var clean = CodeHelper.WithoutComments(sig).Trim();
+
+		// A TRAILING SEMICOLON is real, not slop: `METHOD PRIVATE CheckValidRefs : BOOL;` and
+		// `PROPERTY Results : ARRAY[0..GVL_Constants.MaxRejectReasonsCamera] OF BOOL;` are both pro2193, as
+		// CODESYS wrote them. It is punctuation, not part of the type.
+		if (clean.EndsWith(";", StringComparison.Ordinal))
+			clean = clean.Substring(0, clean.Length - 1).TrimEnd();
+
+		// The type is everything after the FIRST colon, taken WHOLE and unexamined: no IEC type name contains a
+		// colon, and `ARRAY[0..N] OF BOOL` must arrive intact. Volt does not need to understand it — the IDE does,
+		// and it is the IDE that refuses a type that is wrong.
+		string? type = null;
+		var colon = clean.IndexOf(':');
+		if (colon >= 0)
+		{
+			type = clean.Substring(colon + 1).Trim();
+			clean = clean.Substring(0, colon);
+			if (type.Length == 0) throw BadSignature(sig, keyword, "nothing follows the ':'");
+		}
+
+		// KEYWORD [modifier …] NAME — the name is last because everything between is a modifier, and a word
+		// there that is NOT one is a malformed line, not a second name to pick from.
+		var words = clean.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+		if (words.Length < 2 || !string.Equals(words[0], keyword, StringComparison.OrdinalIgnoreCase))
+			throw BadSignature(sig, keyword, $"it does not begin with '{keyword}' and a name");
+		for (var i = 1; i < words.Length - 1; i++)
+			if (!Modifiers.Contains(words[i]))
+				throw BadSignature(sig, keyword, $"'{words[i]}' is not an access modifier");
+
+		var name = words[words.Length - 1];
+		if (!IsIdentifier(name))
+			throw BadSignature(sig, keyword, $"'{Truncate(name, 40)}' is not a valid IEC identifier");
+		return (name, type);
+	}
+
+	/// <summary>An IEC 61131-3 identifier: an ASCII letter or underscore, then letters, digits and underscores.
+	/// <para>ASCII deliberately. This name becomes the member's identity — it is what
+	/// <c>IIdeDriver.CreateChild</c> is asked for — so accepting one the vendor will refuse only moves the
+	/// failure to the middle of a write. <c>\w</c>, which the pattern here used to be, accepts every Unicode
+	/// letter and every connector punctuation mark.</para></summary>
+	private static bool IsIdentifier(string s)
+	{
+		if (s.Length == 0) return false;
+		if (!IsAsciiLetter(s[0]) && s[0] != '_') return false;
+		for (var i = 1; i < s.Length; i++)
+			if (!IsAsciiLetter(s[i]) && (s[i] < '0' || s[i] > '9') && s[i] != '_') return false;
+		return true;
+	}
+
+	private static bool IsAsciiLetter(char c) => (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+
+	/// <summary>The refusal. It names the line AND what is wrong with it — a member signature is something the
+	/// engineer typed, so "Cannot parse" alone sends them looking at the whole file.</summary>
+	private static BridgeException BadSignature(string sig, string keyword, string why) =>
+		new BridgeException(BridgeErrorCodes.InvalidSt,
+			$"Cannot parse {keyword} signature: {why} — {Truncate(sig.Trim(), 80)}");
+
 	private static (string name, string? returnType) ParseMethodOrActionSignature(string sig, string kind)
 	{
-		// COMMENTS OFF FIRST. An engineer documents a method on its signature line — `METHOD INTERNAL _mStrConcatA
-		// //Concats string to sContent` — and CODESYS stores it exactly there. Every pattern below anchors at `$`,
-		// so anything trailing failed the match outright: Volt PULLED such an FB and then refused its own text,
-		// which means the POU could be pulled and never pushed back. Found by sweeping a real customer project.
-		//
-		// `CodeHelper.CodeOn` is the one definition of "the code on this line" and already handles `//` and
-		// `(* … *)`; re-implementing the strip here is how the two would drift.
-		var clean = CodeHelper.WithoutComments(sig);
-		if (kind == ItemKind.Kinds.Method)
-		{
-			var m = Regex.Match(clean, $@"^METHOD\s+{Modifiers}(\w+)(?:\s*:\s*(.+?))?\s*;?\s*$",
-				RegexOptions.IgnoreCase);
-			if (!m.Success)
-				throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Cannot parse METHOD signature: {Truncate(sig, 80)}");
-			var name = m.Groups[1].Value;
-			var rt  = m.Groups[2].Success ? m.Groups[2].Value.Trim() : null;
-			return (name, rt);
-		}
-		// action
-		var ma = Regex.Match(clean, @"^ACTION\s+(\w+)\s*$", RegexOptions.IgnoreCase);
-		if (!ma.Success)
-			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Cannot parse ACTION signature: {Truncate(sig, 80)}");
-		return (ma.Groups[1].Value, null);
+		if (kind == ItemKind.Kinds.Method) return ParseSignature(sig, "METHOD");
+
+		// AN ACTION HAS NO RETURN TYPE — it is a named body sharing the POU's variables. A `:` on the line is a
+		// method signature under the wrong keyword, and taking the name and dropping the rest would write it as
+		// an action the IDE then cannot call.
+		var (name, type) = ParseSignature(sig, "ACTION");
+		if (type != null) throw BadSignature(sig, "ACTION", "an action has no return type");
+		return (name, null);
 	}
 
 	private static (string name, string dataType) ParsePropertySignature(string sig)
 	{
-		// COMMENTS OFF FIRST, exactly as the METHOD parser does — and for a sharper reason than symmetry. This
-		// matched the RAW line, so `PROPERTY Ready : BOOL // the ready flag` yielded a DATA TYPE of
-		// `BOOL // the ready flag`, which `PushService.CreateSeed` hands to TwinCAT as the property's type; and
-		// a leading `(* … *)` threw `InvalidSt` mid-push. No corpus property carries a comment today while 207
-		// method signatures do, so this is the same habit arriving at the one parser that could not take it.
-		var m = Regex.Match(CodeHelper.WithoutComments(sig),
-			$@"^PROPERTY\s+{Modifiers}(\w+)\s*:\s*(.+?)\s*;?\s*$",
-			RegexOptions.IgnoreCase);
-		if (!m.Success)
-			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Cannot parse PROPERTY signature: {Truncate(sig, 80)}");
-		return (m.Groups[1].Value, m.Groups[2].Value.Trim());
+		// A PROPERTY's type is MANDATORY where a method's is optional — the one real difference between the two
+		// lines, and the reason they were ever two patterns.
+		var (name, type) = ParseSignature(sig, "PROPERTY");
+		if (type == null) throw BadSignature(sig, "PROPERTY", "a property must declare a type");
+		return (name, type);
 	}
 
 	/// <summary>Peel a leading `%FOLDER &lt;path&gt;` Volt directive out of a child body/decl into the
