@@ -15,9 +15,14 @@
  *   - Lowering stays total: invalid input still ends in a `LowerDiagnostic` under a generic code (`binary-op`,
  *     `call-arity`, `bad-literal`), never a throw and never an invented meaning.
  *   - Every other refusal is about VALID code, and is one of two kinds:
- *       not modelled yet — understood, not built: `stmt-call_stmt`, `aggregate-init`, `REF=`, a runtime FOR step;
+ *       not modelled yet — understood, not built: `stmt-call_stmt`, `aggregate-init`, `call-library` (a referenced
+ *                          library's body is the vendor's, and a declaration file holds none);
  *       not measured yet — compiles, but its behaviour is unrecorded, so it is not guessed: REAL_TO_STRING's digits,
- *                          a WSTRING's named escapes (`string-escape`, `conversion-type`).
+ *                          a WSTRING's named escapes (`string-escape`, `conversion-type`), where a variable of an
+ *                          enum whose first enumerator is not 0 starts (`enum-default`).
+ *     This list said `REF=` and a runtime FOR step were unbuilt; BOTH lower — `r REF= n` since references record a
+ *     target like pointers, and a runtime step since the test takes the limit from below or above on two arms
+ *     (`callshape_for_runtime_step`). A stale refusal list is worse than none: it is read as a map of the work left.
  *     `scripts/lower-completeness.ts` counts both; each shrinks only by building the construct or recording a case.
  *
  * **The reach contract: a STATED SUBSET, and it is small.** The input contract above says which programs are
