@@ -84,7 +84,8 @@ n := F_C6_taking(values := list);
 END_FUNCTION_BLOCK
 `),
 
-  fb("cc6_loop_cannot_exit", "FB_C6_endless", "a FOR whose control variable's RANGE cannot reach the limit",
+  {
+    ...fb("cc6_loop_cannot_exit", "FB_C6_endless", "a FOR whose control variable's RANGE cannot reach the limit",
     `FUNCTION_BLOCK FB_C6_endless
 VAR
 	small : SINT;
@@ -95,6 +96,9 @@ FOR small := 1 TO 200 BY 1 DO
 END_FOR
 END_FUNCTION_BLOCK
 `),
+    execSkip:
+      "a loop that cannot exit never completes its scan, so the done flag the recorder waits on cannot rise — the fixture working as designed",
+  },
 
   fb("cc6_property_lacks_getter", "FB_C6_setOnlyUser", "a SET-only PROPERTY read through an instance",
     `FUNCTION_BLOCK FB_C6_setOnly

@@ -31,7 +31,7 @@ const RECORDINGS = join(import.meta.dir, "..", "test", "conformance", "recording
 const ONLY = process.env.RECORD_ONLY ? new Set(process.env.RECORD_ONLY.split(",")) : undefined
 
 const build = JSON.parse(readFileSync(join(RECORDINGS, "codesys.build.json"), "utf8")).tests as Record<string, { buildSuccess: boolean }>
-const cases = ALL_TESTS.filter((t) => !t.recorderSkip && (ONLY === undefined || ONLY.has(t.name)))
+const cases = ALL_TESTS.filter((t) => !t.recorderSkip && !t.execSkip && (ONLY === undefined || ONLY.has(t.name)))
   // A case the BUILD recording says does not build is skipped; one it does not mention is NEW, and unknown is not
   // known-bad — sending it is how a fixture written today gets its values without a bridge round-trip first.
   .filter((t) => t.source === "" || build[t.name]?.buildSuccess !== false)
@@ -44,6 +44,10 @@ const cases = ALL_TESTS.filter((t) => !t.recorderSkip && (ONLY === undefined || 
     names: runPaths(t, ALL_TESTS),
   }))
   .filter((c) => c.names.length > 0)
+const skipped = ALL_TESTS.filter((t) => t.execSkip)
+if (skipped.length > 0)
+	console.log(`not sent (${skipped.length} with no execution ground truth to have): ` +
+		skipped.map((t) => `${t.name} — ${t.execSkip}`).join("; "))
 if (ONLY !== undefined) {
   const missing = [...ONLY].filter((n) => !cases.some((c) => c.name === n))
   if (missing.length > 0) console.warn(`not recorded (no build success, or nothing to read): ${missing.join(", ")}`)

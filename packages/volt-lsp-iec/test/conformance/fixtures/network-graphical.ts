@@ -26,6 +26,13 @@ import type { LanguageTest } from "../types.js"
 
 const doc = "network-text.md"
 
+/** Why none of these reach the EXECUTION recorder. It writes a fixture's declaration and implementation text
+ *  straight into a POU, and a `NETWORK 0 FBD` body is not ST — it is Volt's own textual form for a graphical
+ *  body, which only the BRIDGE knows how to turn into something CODESYS can hold. Sent as ST, the compiler
+ *  answers "';' expected instead of 'FBD'". That is a fact about the format, not a gap in the recorder, so it
+ *  is stated once here rather than on twenty fixtures. The BUILD recording is still taken. */
+const NOT_ST = "a network-text body is not ST — the exec runscript writes implementation text into a POU"
+
 /** A graphical FB, instantiated in PLC_PRG — an uninstantiated POU is dead code CODESYS never compiles. */
 function ng(name: string, pouName: string, feature: string, source: string, fromDoc = doc, note?: string): LanguageTest {
   return {
@@ -38,6 +45,7 @@ function ng(name: string, pouName: string, feature: string, source: string, from
     source,
     plcPrgVar: `inst : ${pouName};`,
     plcPrgBody: "inst();",
+    execSkip: NOT_ST,
   }
 }
 

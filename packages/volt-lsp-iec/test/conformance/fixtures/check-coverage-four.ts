@@ -64,7 +64,8 @@ leaving();
 END_FUNCTION_BLOCK
 `),
 
-  fb("cc4_loop_exit_constant", "FB_C4_loops", "a FOR whose bounds cannot advance, and a WHILE whose condition is a constant",
+  {
+    ...fb("cc4_loop_exit_constant", "FB_C4_loops", "a FOR whose bounds cannot advance, and a WHILE whose condition is a constant",
     `FUNCTION_BLOCK FB_C4_loops
 VAR
 	i : INT;
@@ -82,6 +83,9 @@ UNTIL FALSE
 END_REPEAT
 END_FUNCTION_BLOCK
 `),
+    execSkip:
+      "a loop that cannot exit never completes its scan, so the done flag the recorder waits on cannot rise — the fixture working as designed",
+  },
 
   // `ambiguous-global` has no fixture yet on purpose: it needs TWO GVLs declaring one name, and a GVL in this catalog
   // is visible to every other fixture — a first attempt declared `gShared`, which `var_external_gvl` already declares,

@@ -48,6 +48,20 @@ export interface LanguageTest {
    * skips the `lspFlagged === ideFlagged` cross-check.
    */
   recorderSkip?: boolean
+  /**
+   * Skip this test in the EXECUTION recorder (`record:exec`) only — the reason, which is always a fact about
+   * the fixture and never about the recorder being unfinished. Its BUILD recording is still taken and the LSP
+   * still replays it; the only thing withheld is a set of variable values after N scans.
+   *
+   * Two things genuinely have none. A body in NETWORK TEXT is not ST — it is Volt's own textual form for a
+   * graphical body, so the runscript (which writes declaration and implementation text straight into a POU)
+   * hands CODESYS `NETWORK 0 FBD` and is told "';' expected instead of 'FBD'". And a loop that CANNOT EXIT
+   * never finishes its scan, so the done flag the recorder waits on cannot rise — which is the fixture working
+   * as designed, not a timeout to tune.
+   *
+   * Distinct from `recorderSkip`, which withholds the fixture from BOTH recorders and marks it lsp-only.
+   */
+  execSkip?: string
   /** Optional human note explaining why we expect what we expect. */
   note?: string
   /** Scan cycles a run records after (`recordings/codesys.run.json`). Default 1. */
