@@ -41,6 +41,7 @@ export const CODESYS_CODE_MAP: Readonly<Record<string, readonly [code: string, u
   "unexpected-struct-init": ["C0076", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0076.html"],
   "fb-not-instantiated": ["C0080", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0080.html"],
   "orphan-conditional-pragma": ["C0081", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0081.html"],
+  "var-in-interface": ["C0149", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0149.html"],
   "interface-not-found": ["C0086", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0086.html"],
   "missing-interface-implementation": ["C0087", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0087.html"],
   "override-mismatch-interface": ["C0089", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0089.html"],

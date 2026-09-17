@@ -536,8 +536,8 @@ export interface Interface {
   extends?: Identifier[]
   /** An IMPLEMENTS list illegally used on an interface (should be EXTENDS) — drives C0421. */
   implementsMisused?: Identifier[]
-  /** VAR sections declared directly in the interface body. NOT an error — CODESYS SP21 builds one clean, so the
-   *  C0149 this used to drive is gone; whether an implementing FB inherits them is unmeasured. */
+  /** VAR sections illegally placed directly in the interface body (interfaces declare signatures only) — drives
+   *  C0149, which fires once an FB IMPLEMENTS the interface (an interface nobody implements is never compiled). */
   strayVarSections?: VarSection[]
   methods: InterfaceMethod[]
   properties: InterfaceProperty[]

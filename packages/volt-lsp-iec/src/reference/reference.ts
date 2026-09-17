@@ -79,6 +79,13 @@ const OPERATORS: ReadonlyArray<ReferenceEntry> = [
   ref("ACOS", "operator", "Arc cosine."),
   ref("ATAN", "operator", "Arc tangent."),
   // system operators (CODESYS `__`-prefixed intrinsics + friends)
+  // The instruction-list CONDITIONAL CALL, which CODESYS's ST parser also knows — `calc : INT;` is not an
+  // undefined name there, it is a `CALC` whose `(` is missing ("'(' expected instead of ':'", then "Second
+  // parameter of conditional call must be a valid call statement"). Every sibling operator (`cal`, `calcn`,
+  // `jmpc`) is refused as a plain name and `refused-name` covers those; `calc` alone is parsed, so it belongs
+  // here instead — listing it stops the LSP calling it undefined, which was a false positive on all four
+  // `ilc_calc_*` fixtures. It is NOT usable: even `CALC(cond, call)` fails to compile (`ilc_calc_called_properly`).
+  ref("CALC", "operator", "Instruction-list conditional call. CODESYS parses it in ST but compiles no form of it."),
   ref("__NEW", "operator", "Dynamic allocation. `__NEW(TYPE)`."),
   ref("__DELETE", "operator", "Free a `__NEW` allocation."),
   ref("__ISVALIDREF", "operator", "True if a REFERENCE TO is bound."),

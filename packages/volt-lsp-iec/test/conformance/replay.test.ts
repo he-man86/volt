@@ -78,7 +78,7 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // for the type, once for the instance initialisation it generates — and the LSP now does the same (measured with
   // `initializer-repeat.ts`: no instance 0, one instance 2, two instances 2, nested 2, PROGRAM 1; so it is per-type,
   // not per-instance). The goal is the IDE's answer, not a tidier one.
-  { vendor: "codesys", filename: "codesys.build.json", floor: 820 },
+  { vendor: "codesys", filename: "codesys.build.json", floor: 840 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
@@ -122,6 +122,17 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   codesys: new Set<string>([
     "cc5_pointer_not_convertible",
     "cc5_new_in_expression",
+    //   C0149, three fixtures, one cause — the compiler only looks at what it REACHES:
+    //   `cc2_var_in_interface`, `itf_var_section_declaration` — an interface NOBODY IMPLEMENTS is never compiled,
+    //                            so its VAR section draws no error. This is why the rule was wrongly deleted on
+    //                            2026-09-16: a clean build on an unreferenced POU was read as "not an error".
+    //                            `itf_var_section_inherited` adds an implementer and the error appears.
+    //   `itf_var_section_inherited` — CODESYS reports the interface error and STOPS, never type-checking the FB
+    //                            body, so `held` is never called undefined. An editor cannot stop: the body is
+    //                            in front of the engineer and `held` is genuinely not there.
+    "cc2_var_in_interface",
+    "itf_var_section_declaration",
+    "itf_var_section_inherited",
     //   `op_sys_new_delete` — the same device fact: the recording project configures no dynamic memory, so every
     //                            __NEW reports that instead of anything about the code.
     "op_sys_new_delete",

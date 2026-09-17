@@ -188,24 +188,8 @@ test("an UNQUOTED attribute value is no value at all — the compiler reads the 
   expect(msgs).toEqual(["SymbolConfig: Invalid value '' for attribute 'symbol'. Should be one of: none, read, write, readwrite"])
 })
 
-test("an attribute that belongs on a VARIABLE, placed on a POU header, is ignored and says so", () => {
-  const src = `{attribute 'pingroup' := 'inputs'}\nFUNCTION_BLOCK F\nVAR_INPUT\niA : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
-  expect(
-    computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
-      .filter((d) => d.code === "unknown-attribute")
-      .map((d) => d.message),
-  ).toEqual(["The attribute 'pingroup' can only be added to variable declarations. It will be ignored here."])
-  // on a variable, where it belongs, it is silent
-  const ok = `FUNCTION_BLOCK F\nVAR_INPUT\n{attribute 'pingroup' := 'inputs'}\niA : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const okParse = parseSource(ok)
-  expect(
-    computeSemanticDiagnostics({
-      parseResult: okParse,
-      source: ok,
-      project: buildSymbolTable([{ uri: "F.fb", parseResult: okParse, source: ok }]),
-      config: resolveConfig({ vendor: "codesys" }),
-    }).filter((d) => d.code === "unknown-attribute"),
-  ).toEqual([])
-})
+// NOT tested, because CODESYS does not do it: "The attribute 'pingroup' can only be added to variable
+// declarations." The committed recording for `pragma_conflicting_pair` carried that warning, and the rule built
+// on it was a false positive — the recording was STALE. Re-recorded 2026-09-17 against a recorder that no longer
+// drops the pragmas written ABOVE a POU, with their arrival confirmed by reading the item back out of the IDE:
+// the compiler says nothing at all.

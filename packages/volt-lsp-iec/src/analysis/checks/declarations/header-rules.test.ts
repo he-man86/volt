@@ -37,10 +37,15 @@ test("C0421: an INTERFACE using IMPLEMENTS is flagged; EXTENDS is fine", () => {
   expect(msgs(`INTERFACE ITF_1 EXTENDS ITF\nEND_INTERFACE`, "interface-implements")).toEqual([])
 })
 
-test("C0149 is NOT reported: CODESYS builds a VAR section inside an INTERFACE", () => {
-  // The catalog calls it an error. SP21 compiles it and says nothing at all (conformance `cc2_var_in_interface`,
-  // 2026-09-16), so the rule is gone — the parser still records the section for navigation and completion.
-  expect(msgs(`INTERFACE ITF\nVAR_INPUT\n  i : INT;\nEND_VAR\nEND_INTERFACE`, "var-in-interface")).toEqual([])
+test("C0149: a VAR section inside an INTERFACE is flagged; a method-only interface is fine", () => {
+  // Deleted on 2026-09-16 because `cc2_var_in_interface` builds clean, RESTORED on 2026-09-17 because that
+  // fixture proves nothing: its interface is implemented by nobody, so CODESYS never looks inside it. Add an
+  // implementer (`itf_var_section_inherited`) and the compiler says exactly this. The lesson is reachability,
+  // not wording — a clean build on an unreferenced POU is not evidence that a rule is wrong.
+  expect(msgs(`INTERFACE ITF\nVAR_INPUT\n  i : INT;\nEND_VAR\nEND_INTERFACE`, "var-in-interface")).toEqual([
+    "Variable declarations are not allowed in interfaces",
+  ])
+  expect(msgs(`INTERFACE ITF\nMETHOD M : BOOL\nEND_METHOD\nEND_INTERFACE`, "var-in-interface")).toEqual([])
 })
 
 test("C0144: EXTENDS on an enum/alias DUT is flagged; a struct EXTENDS is fine", () => {

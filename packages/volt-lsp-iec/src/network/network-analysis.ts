@@ -69,12 +69,18 @@ export function computeNetworkTextDiagnostics(
     checkUnresolvedBoxes(body, messages, out, voidCallTargets)
 
     for (const [network, scope] of analysis.networkScopes) {
+      // A network's FORMAT still has to be right whether or not it is disabled — it round-trips either way — so
+      // the metadata check runs first and unconditionally.
+      checkMetadataPlacement(network, out)
+      // …but a DISABLED network is not compiled, so nothing inside it can be a compile error. The flag was parsed
+      // and then read by nobody, which made every disabled network's contents a source of false positives:
+      // `ng_network_disabled` puts an undeclared name in one and CODESYS reports nothing at all.
+      if (network.disabled) continue
       checkStatements(network.statements, scope, project, messages, out)
       checkBinaryOps(network.statements, scope, project, messages, out)
       checkConversionArgs(network.statements, scope, project, messages, out)
       checkUndeclared(network.statements, scope, project, references, messages, out)
       checkPins(network.statements, scope, project, messages, out)
-      checkMetadataPlacement(network, out)
       checkHoles(network.statements, scope, project, messages, out) // LAST — it reads what the others found
     }
 

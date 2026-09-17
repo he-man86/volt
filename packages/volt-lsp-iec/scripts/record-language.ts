@@ -40,12 +40,32 @@ function splitItems(source: string, pouName: string, gvlNames?: readonly string[
   // span.end excludes its END_xxx keyword, and this also folds trailing member units into their POU.
   const tops = parseSource(source).units.filter((u) => TOP.has(u.kind))
   const lists = tops.filter((u) => u.kind === "global_var_list")
+  // …starting at the PRAGMAS written above it, not at the keyword. A unit's span begins at `FUNCTION_BLOCK`, so
+  // slicing from there dropped `{attribute 'pingroup' := …}` on the way to the IDE, and the fixture then recorded
+  // a build of code it does not contain — `pragma_conflicting_pair` lost the very warning it exists for.
+  const starts = tops.map((u) => pragmaStart(source, u.span.start))
   return tops.map((u, i) => ({
     // a VAR_GLOBAL block names nothing in its text — the fixture's pouName is its object's name, or its entry in
     // `gvlNames` where the fixture holds more than one list
     wire: `${u.kind === "global_var_list" ? (gvlNames?.[lists.indexOf(u)] ?? pouName) : (u as any).name.text}.${unitExt(u)}`,
-    src: source.slice(u.span.start, i + 1 < tops.length ? tops[i + 1]!.span.start : source.length).trimEnd() + "\n",
+    src: source.slice(starts[i]!, i + 1 < tops.length ? starts[i + 1]! : source.length).trimEnd() + "\n",
   }))
+}
+
+/** Walk back over the pragma lines decorating a unit, so the pushed item carries the attributes written above it. */
+function pragmaStart(source: string, unitStart: number): number {
+  let at = unitStart
+  for (;;) {
+    const lineStart = source.lastIndexOf("\n", at - 1) + 1
+    if (lineStart >= at) break // already at a line start with nothing above
+    const prevEnd = lineStart - 1
+    if (prevEnd <= 0) break
+    const prevStart = source.lastIndexOf("\n", prevEnd - 1) + 1
+    const line = source.slice(prevStart, prevEnd).trim()
+    if (!line.startsWith("{") || !line.endsWith("}")) break
+    at = prevStart
+  }
+  return at
 }
 
 const WRITE = process.argv.includes("--write")

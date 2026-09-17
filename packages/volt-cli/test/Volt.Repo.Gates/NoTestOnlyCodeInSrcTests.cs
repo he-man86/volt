@@ -60,6 +60,11 @@ public class NoTestOnlyCodeInSrcTests
                      "workers get reaped otherwise only runs behind a spawned process. Its production caller is " +
                      "ListPids, in the same file",
 
+        ["ParsePaneText"] = "the Output-pane PARSE, split out for the same reason as ChooseBridgePipe: the only " +
+                            "way to reach it in production is a COM walk over live Visual Studio panes, so the " +
+                            "rule that turns pane text into diagnostics could not be exercised at all. Its " +
+                            "production caller is GetBuildDiagnostics, in the same file",
+
         // Deliberate reference implementations. `FastImport_tree_matches_hash_object_plus_BuildTree` asserts the
         // fast-import path produces a byte-identical tree SHA to plumbing git — so these exist to be the OTHER
         // answer in a differential test, and a differential test with one implementation is not one.

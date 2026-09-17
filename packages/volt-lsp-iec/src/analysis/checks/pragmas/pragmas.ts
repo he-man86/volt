@@ -7,8 +7,8 @@
  *   - MESSAGE pragmas: `{warning 'msg'}` / `{error 'msg'}` surface the author's compile-time message
  *     verbatim at matching severity (both compilers emit these when reached).
  *   - C0351 unknown `{attribute '<name>'}` (CODESYS-only) — a toggleable warning, only as complete as the catalog.
- *   - a KNOWN attribute given a value outside its published set, or placed where it means nothing (`pingroup` on a
- *     POU header). Both CODESYS-only, both only for attributes whose rules are published and closed.
+ *   - a KNOWN attribute given a value outside its published set. CODESYS-only, and only for attributes whose
+ *     legal values are published and CLOSED.
  *
  * Pragmas are lexer trivia (stripped from the parsed body), so re-lex the source for `pragma` tokens.
  * ponytail: no `{IF}` predicate evaluation — a message pragma inside a false branch is still surfaced;
@@ -74,9 +74,6 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
   // an unknown attribute on a `TYPE …` (verified live: a bogus attribute on a built, referenced DUT emits nothing,
   // whereas the same on a POU variable warns C0351). Firing here false-positived on `qualified_oly`/`strit` typos.
   const isDut = ctx.parseResult.units.length > 0 && ctx.parseResult.units.every((u) => u.kind === "type_decl")
-  // A pragma inside a VAR section decorates the declaration that follows it; one outside decorates the POU.
-  const varRanges = ctx.parseResult.units.flatMap((u) => ("varSections" in u ? u.varSections.map((v) => v.span) : []))
-  const inVarSection = (at: number): boolean => varRanges.some((r) => at >= r.start && at <= r.end)
   /**
    * `{attribute 'hide'}` on the SAME declaration silences the value check: a hidden variable is not monitored, so
    * the compiler never validates how it would be displayed. Measured — `monitoring_encoding` warns about 'UTF8' and
@@ -118,18 +115,11 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
         })
         continue
       }
-      // An attribute that belongs to a VARIABLE, placed on a POU header instead — the compiler ignores it and says
-      // so (conformance `pragma_conflicting_pair`).
-      if (p.attributeName !== undefined && VARIABLE_ONLY.has(p.attributeName.toLowerCase()) && !inVarSection(p.span.start)) {
-        out.push({
-          severity: "warning",
-          span: p.span,
-          source: SOURCE,
-          code: "unknown-attribute",
-          message: ctx.messages.attributeOnlyOnVariables(p.attributeName),
-        })
-        continue
-      }
+      // NOT here: "The attribute 'pingroup' can only be added to variable declarations." The committed recording
+      // for `pragma_conflicting_pair` carried that warning and this reported it — but the recording was STALE.
+      // Re-recorded 2026-09-17 against a recorder that no longer drops the pragmas written above a POU (it used
+      // to slice from the `FUNCTION_BLOCK` keyword), with the arrival confirmed by reading the item back out of
+      // the IDE: CODESYS says nothing. An LSP-only message is a false positive whatever the catalog says.
       // C0351 — an unknown attribute NAME (only as complete as the catalog).
       if (p.attributeName === undefined || isKnownAttribute(p.attributeName)) continue
       out.push({
@@ -155,8 +145,6 @@ const CLOSED_VALUE_SETS: Record<string, readonly string[]> = {
   monitoring_encoding: ["UTF-8", "UnicodeCharacter"],
 }
 
-/** Attributes that only mean something on a VARIABLE declaration; on a POU header the compiler ignores them. */
-const VARIABLE_ONLY: ReadonlySet<string> = new Set(["pingroup"])
 
 function orphan(ctx: CheckContext, p: { span: DiagnosticItem["span"]; directive: string }): DiagnosticItem {
   return {

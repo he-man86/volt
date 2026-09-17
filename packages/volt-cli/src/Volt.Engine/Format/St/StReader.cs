@@ -370,11 +370,36 @@ public static class StReader
 			// written at all. Swept into the declaration it left an empty body, and a POU holding a read-only
 			// child stopped being editable.
 			if (BodyMarker.Is(lines[i])) break;
+			// A conditional-compile or define DIRECTIVE is trivia by spelling and CODE by meaning: `{IF defined(X)}`
+			// guards what follows and is closed by an `{END_IF}` further down, in the body. Swept into the
+			// declaration it left the opener on one side of the boundary and its closer on the other, and CODESYS
+			// said so — "This code is not supported in declaration part", "Unexpected End-of-file found: 'ELSIF',
+			// 'ELSE' or 'END_IF' expected", "'ELSE' found without matching 'if'". A text round-trip cannot see it:
+			// the two halves are re-joined on read. (See ConditionalPragmaSplitTests.)
+			if (IsDirectivePragma(lines[i])) break;                        // the body starts here
 			if (!ctx.InsideTrivia) break;                                  // real code — the body starts here
 			if (lines[i].Trim().Length > 0) end = i + 1;                   // a comment or pragma — declaration
 		}
 		return end;
 	}
+
+	/// <summary>A pragma that DIRECTS compilation rather than documenting a declaration: the conditional family
+	/// (<c>{IF}</c>, <c>{ELSIF}</c>, <c>{ELSE}</c>, <c>{END_IF}</c>) and <c>{define}</c>/<c>{undefine}</c>, which
+	/// act on the code after them. An <c>{attribute …}</c> decorates what follows and is NOT one of these — it
+	/// stays declaration trivia, which is the rule this narrows rather than replaces.</summary>
+	private static bool IsDirectivePragma(string line)
+	{
+		var t = line.TrimStart();
+		if (t.Length < 2 || t[0] != '{') return false;
+		var word = t.Substring(1).TrimStart();
+		foreach (var d in DirectivePragmas)
+			if (word.StartsWith(d, System.StringComparison.OrdinalIgnoreCase) &&
+			    (word.Length == d.Length || !char.IsLetterOrDigit(word[d.Length]) && word[d.Length] != '_'))
+				return true;
+		return false;
+	}
+
+	private static readonly string[] DirectivePragmas = { "IF", "ELSIF", "ELSE", "END_IF", "define", "undefine" };
 
 	/// <summary>The line after a POU header that has NO var section — and the header LEGALLY WRAPS.
 	///
