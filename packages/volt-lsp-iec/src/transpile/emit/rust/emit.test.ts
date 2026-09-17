@@ -75,8 +75,11 @@ describe("emit/rust", () => {
     expect(code).toContain("self.inc.call(&mut self.n);")
     expect(code).toContain("self.ok = self.inc.done;")
     // the stored value, not the literal as written — `40000i16` and `128i8` do not compile
-    expect(code).toContain("big: -25536i16,")
-    expect(code).toContain("self.si = -128i8;")
+    // PARENTHESIZED: in Rust a method call binds tighter than unary minus, so every negative constant is
+    // wrapped — see `literal`. The type MINIMUMS still compile this way (`(-128i8)` keeps Rust's own
+    // special case for `-128i8`, verified against rustc for all four widths).
+    expect(code).toContain("big: (-25536i16),")
+    expect(code).toContain("self.si = (-128i8);")
   })
 
   test("a METHOD is an fn in its FB's impl and a FUNCTION a free fn — inputs by value, locals `let mut` per call", () => {
@@ -659,5 +662,34 @@ describe("emit/rust — routine names are unique within an impl block", () => {
     // one `do_it` per impl block, so neither gains a suffix
     expect([...code.matchAll(/pub fn do_it\b/g)]).toHaveLength(2)
     expect(code).not.toContain("do_it_2")
+  })
+})
+
+/**
+ * A NEGATIVE CONSTANT AS THE RECEIVER OF A METHOD — the `-1.abs()` trap, and it was reachable.
+ *
+ * In Rust a method call binds TIGHTER than unary minus, and the emitter makes a constant the receiver of a
+ * method in a dozen places (`wrapping_*`, `max`/`min`, `limit`, `abs`, the shifts and rotates, `round`,
+ * `clone`, the string helpers). A bare `-1i32` let the sign escape every one of them:
+ *
+ *   MAX(E_Sign.Neg, x)  with Neg := -1 and x := 5  ->  `-1i32.max((self.x as i32))`
+ *
+ * which Rust reads as `-(1.max(5))` = -5 where the interpreter and CODESYS answer 5. A silent wrong answer from
+ * an ordinary negative enum value, and no recorded case caught it.
+ *
+ * Fixed in `literal` rather than at the dozen receivers, because that is the version a thirteenth receiver
+ * cannot defeat. The type MINIMUMS still compile parenthesized — `(-128i8)` keeps Rust's own special case for
+ * `-128i8`, checked against rustc for i8/i16/i32/i64.
+ */
+describe("emit/rust — a negative constant keeps its sign inside a method call", () => {
+  test("the sign cannot escape the receiver position", () => {
+    const code = rust("TYPE E_Sign : (Neg := -1, Zero := 0); END_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tx : INT := 5;\n\ty : INT;\n\tz : INT;\n\tmn : SINT := -128;\nEND_VAR\ny := MAX(E_Sign.Neg, x);\nz := ABS(-1);\nEND_PROGRAM\n")
+    expect(code).toContain("(-1i32).max(")
+    // and nowhere does a bare negative constant sit directly before a `.`
+    expect(code).not.toMatch(/[^(\w]-\d+[iuf]\d+\./)
+  })
+
+  test("a type minimum is still emitted as Rust accepts it", () => {
+    expect(rust("TYPE E_Sign : (Neg := -1, Zero := 0); END_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tx : INT := 5;\n\ty : INT;\n\tz : INT;\n\tmn : SINT := -128;\nEND_VAR\ny := MAX(E_Sign.Neg, x);\nz := ABS(-1);\nEND_PROGRAM\n")).toContain("mn: (-128i8),")
   })
 })

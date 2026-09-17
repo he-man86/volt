@@ -197,7 +197,19 @@ function unitsLiteral(text: string, t: Type): string {
 function literal(v: IrValue, t: Type): string {
   if (typeof v === "boolean") return v ? "true" : "false"
   if (typeof v === "string") return `${stringPath(t)}::lit(${unitsLiteral(v, t)})`
-  return `${v}${t.kind === "elementary" ? rustType(t) : ""}`.replace(/^(-?\d+)(f\d\d)$/, "$1.0$2")
+  const text = `${v}${t.kind === "elementary" ? rustType(t) : ""}`.replace(/^(-?\d+)(f\d\d)$/, "$1.0$2")
+  // A NEGATIVE CONSTANT IS PARENTHESIZED, because in Rust a method call binds TIGHTER than unary minus — the
+  // classic `-1.abs()` trap. The emitter makes a constant the RECEIVER of a method in a dozen places
+  // (`wrapping_*`, `max`/`min`, `limit`, `abs`, the shifts and rotates, `round`, `clone`, the string helpers),
+  // and in every one of them a bare `-1i32` let the sign escape the call:
+  //
+  //   MAX(E_Sign.Neg, x)  with Neg := -1 and x := 5  ->  `-1i32.max((self.x as i32))`
+  //
+  // which Rust reads as `-(1.max(5))` = -5 where the interpreter and CODESYS answer 5. A silent wrong answer,
+  // reachable from an ordinary negative enum value, and no recorded case caught it. Parenthesizing HERE fixes
+  // every receiver position at once rather than at each of the dozen call sites, which is the only version of
+  // this fix that a thirteenth call site cannot defeat.
+  return text.startsWith("-") ? `(${text})` : text
 }
 
 /** The one-argument math functions → their `f64` method. LOG is base 10 in IEC. */
