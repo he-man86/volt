@@ -18,6 +18,7 @@
  * The IR is a typed tree, not SSA: the targets are source languages, not machine code.
  */
 import type { Span, VarSectionKind } from "../../syntax/index.js"
+import type { LowerCodeKind } from "./codes.js"
 
 /**
  * THE ITERATION CAP — a loop that runs longer than this is a bug in the POU, and BOTH backends must say so.
@@ -487,6 +488,16 @@ export interface IrPou {
 export interface LowerDiagnostic {
   /** Stable slug for the blocking construct — what the coverage report groups by. */
   code: string
+  /**
+   * WHAT THE REFUSAL ASKS OF THE PERSON WHO HIT IT — `invalid` (fix your ST), `not-modelled` (valid, not built
+   * yet), `not-measured` (valid and compiles, behaviour unrecorded so it is not guessed).
+   *
+   * `index.ts` declares this three-way split as the whole refusal taxonomy and nothing carried it, so every
+   * refusal reached a user as an undifferentiated slug — and those three ask for completely different things.
+   * It is resolved from `ir/codes.ts` inside `bail`/`fail` rather than passed at each call site, because a
+   * field 98 call sites each have to remember is a field that will disagree with itself.
+   */
+  kind: LowerCodeKind
   message: string
   span: Span
 }

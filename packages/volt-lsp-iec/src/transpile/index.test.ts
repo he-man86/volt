@@ -12,6 +12,10 @@ describe("transpile — public surface", () => {
       // first, so they head the list.
       "LOOP_CAP_MESSAGE",
       "LOOP_ITERATION_CAP",
+      // the refusal registry: the codes, the templated families, the resolver and the factory. Surface on
+      // purpose — `kind` answers "is this my bug or yours?", and a consumer that renders a refusal needs it.
+      "LOWER_CODES",
+      "LOWER_CODE_PREFIXES",
       "defaultValueOf",
       "elementOf",
       "emitRust",
@@ -19,6 +23,8 @@ describe("transpile — public surface", () => {
       "holdsCall",
       "isBit",
       "load",
+      "lowerCodeKind",
+      "lowerDiagnostic",
       "lowerSource",
       "lowerUnit",
       "peelArray",

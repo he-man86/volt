@@ -16,6 +16,7 @@ import {
   type IrValue,
   type LowerDiagnostic,
   type Place,
+  lowerCodeKind,
 } from "../ir/index.js"
 
 /** An FB whose storage is laid out and whose body is lowered at its first call, in the lowering that declared its fields. */
@@ -223,7 +224,11 @@ export class Lowering {
   }
 
   bail(code: string, message: string, span: Span): undefined {
-    this.diagnostics.push({ code, message, span })
+    // THE TAXONOMY IS RESOLVED HERE, not at the call site. 98 literal codes and six templated families reach
+    // this one method, so one lookup keeps every refusal classified consistently; a field each call site had to
+    // remember is a field that ends up disagreeing with itself. An unregistered code answers "unclassified"
+    // and `ir/codes.test.ts` fails on it by name — total, as lowering must be, and loud, as the registry is.
+    this.diagnostics.push({ code, kind: lowerCodeKind(code) ?? "unclassified", message, span })
     return undefined
   }
 

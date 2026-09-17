@@ -39,7 +39,7 @@ import { convert, stored, valueAs } from "./convert.js"
 import { foldConstant } from "./constants.js"
 import { lowerPlace } from "./places.js"
 import { resolveNamedType, type Type, UNKNOWN } from "../../types/index.js"
-import { defaultValueOf, holdsCall, type IrExpr, type IrInit, type IrPou, type IrRoutine, type IrSlot, type IrStmt, type LoweredPou, peelArray, type Place } from "../ir/index.js"
+import { defaultValueOf, holdsCall, type IrExpr, type IrInit, type IrPou, type IrRoutine, type IrSlot, type IrStmt, type LoweredPou, peelArray, type Place, lowerDiagnostic } from "../ir/index.js"
 import { baseOf, Lowering, newShared, openDims } from "./lowering.js"
 import { declareVars, storageOf, tempResets } from "./storage.js"
 import { lowerBlock } from "./statements.js"
@@ -66,13 +66,13 @@ export function lowerUnit(
   attributes: ReadonlyMap<object, ReadonlySet<string>> = new Map(),
 ): LoweredPou {
   if (unit.kind !== "program" && unit.kind !== "function_block")
-    return { diagnostics: [{ code: "unit-kind", message: `${unit.kind} is not lowered yet`, span: unit.span }] }
+    return { diagnostics: [lowerDiagnostic("unit-kind", `${unit.kind} is not lowered yet`, unit.span)] }
 
   // A graphical body holds no statements, so `parseActive` returns an empty list rather than an error —
   // which would lower to a POU that "succeeds" and does nothing. Refuse it explicitly; FBD/LD reach the
   // backend through network text, not through here.
   if (isGraphicalBody(unit.body))
-    return { diagnostics: [{ code: "graphical-body", message: "a graphical body is not lowered here", span: unit.span }] }
+    return { diagnostics: [lowerDiagnostic("graphical-body", "a graphical body is not lowered here", unit.span)] }
 
   const lowering = new Lowering(scope, project, newShared(attributes, unit.name.text))
   lowering.isRoot = true
@@ -95,17 +95,17 @@ export function lowerUnit(
     if (open !== undefined)
       return {
         diagnostics: [
-          {
-            code: "root-inout",
-            message: `${unit.name.text} has the ARRAY[*] VAR_IN_OUT ${open.names.map((n) => n.text).join(", ")}, whose size only a caller's array gives`,
-            span: open.span,
-          },
+          lowerDiagnostic(
+            "root-inout",
+            `${unit.name.text} has the ARRAY[*] VAR_IN_OUT ${open.names.map((n) => n.text).join(", ")}, whose size only a caller's array gives`,
+            open.span,
+          ),
         ],
       }
     declareVars(lowering, unit.varSections)
     const parsed = parseActive(unit.body)
     if (!parsed.ok)
-      return { diagnostics: [{ code: "parse", message: parsed.firstError ?? "body did not parse", span: unit.span }] }
+      return { diagnostics: [lowerDiagnostic("parse", parsed.firstError ?? "body did not parse", unit.span)] }
     // its VAR_TEMP starts over on every scan (conformance `life_program_var_temp_runs`)
     body = [...(tempResets(lowering, unit.varSections, unit.span) ?? []), ...lowerBlock(lowering, parsed.statements)]
   }
@@ -122,7 +122,7 @@ export function lowerUnit(
   const routines = [...lowering.routines.values()].flatMap((r) => (r.state === "lowered" ? [r.routine] : []))
   const sharedAddress = addressSharedByInstances(lowering, [...lowering.frame, ...lowering.globals, ...routines.flatMap((r) => r.locals)])
   if (sharedAddress !== undefined)
-    return { diagnostics: [{ code: "var-at-instances", message: `${sharedAddress} binds a variable AT an address and has several instances, which would share it`, span: unit.span }] }
+    return { diagnostics: [lowerDiagnostic("var-at-instances", `${sharedAddress} binds a variable AT an address and has several instances, which would share it`, unit.span)] }
   const unrepresentable = [
     ...lowering.frame,
     ...layouts.flatMap((l) => [...l.fields, ...(l.inouts ?? [])]),
@@ -131,7 +131,7 @@ export function lowerUnit(
   ].find((s) => !representable(s.type))
   if (unrepresentable !== undefined) {
     const kind = unrepresentable.type.kind
-    return { diagnostics: [{ code: `slot-${kind}`, message: `${unrepresentable.name} is a ${kind} variable, which has no runtime representation yet`, span: unit.span }] }
+    return { diagnostics: [lowerDiagnostic(`slot-${kind}`, `${unrepresentable.name} is a ${kind} variable, which has no runtime representation yet`, unit.span)] }
   }
 
   // an FB's own struct already carries its name, so the POU that holds one instance of it is named apart
@@ -485,7 +485,7 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
   const parseResult = parseSource(source)
   if (parseResult.errors.length > 0) {
     const first = parseResult.errors[0]!
-    return { diagnostics: [{ code: "parse", message: first.message, span: first.span }] }
+    return { diagnostics: [lowerDiagnostic("parse", first.message, first.span)] }
   }
   const manifests = libraries.flatMap((l) => parseLibraryManifest(l.uri, l.source) ?? [])
   const declarations = libraries.filter((l) => parseLibraryManifest(l.uri, l.source) === undefined)
@@ -498,11 +498,15 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
     .find((u) => name === undefined || u.name.text.toUpperCase() === name.toUpperCase())
   if (unit === undefined) {
     const span = parseResult.units[0]?.span ?? { start: 0, end: 0, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
-    return { diagnostics: [{ code: "no-unit", message: `no PROGRAM or FUNCTION_BLOCK${name === undefined ? "" : ` named ${name}`}`, span }] }
+    return {
+      diagnostics: [
+        lowerDiagnostic("no-unit", `no PROGRAM or FUNCTION_BLOCK${name === undefined ? "" : ` named ${name}`}`, span),
+      ],
+    }
   }
   const scope = scopeForUnit(project, unit)
   if (scope === undefined)
-    return { diagnostics: [{ code: "no-scope", message: `${unit.name.text} did not bind`, span: unit.span }] }
+    return { diagnostics: [lowerDiagnostic("no-scope", `${unit.name.text} did not bind`, unit.span)] }
   // Every file's `{attribute …}`s: a GVL's or a library's unit carries its own. Only the main source's were read, so the
   // call_after_global_init_slot method of an FB in `fb_init_before_slot_method_sibling`'s GVL file never ran (seen 0, 7
   // recorded) — and any other attribute outside the main source was silently unread.
