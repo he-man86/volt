@@ -30,7 +30,7 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class CreateOrderTests
 {
-    private static string Prg(string name) => $"PROGRAM {name}\nVAR\nEND_VAR\n\nn := 0;\n\nEND_PROGRAM\n";
+    private static string Prg(string name) => $"PROGRAM {name}\nVAR\nEND_VAR\n(* @volt-implementation *)\nn := 0;\n\nEND_PROGRAM\n";
 
     private static SetItemOp Set(string wireName, string folder) =>
         new() { Name = wireName, ToFolder = folder, SourceText = Prg(Materializer.Bare(wireName)), IfVersion = null };

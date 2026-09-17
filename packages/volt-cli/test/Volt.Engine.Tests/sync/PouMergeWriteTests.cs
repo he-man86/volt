@@ -28,8 +28,8 @@ public class PouMergeWriteTests
     private static string Source(string body, string childBody, string? childFolder = null)
     {
         var folder = childFolder is null ? "" : $"%FOLDER {childFolder}\n";
-        return $"FUNCTION_BLOCK FB_Test\nVAR\n\tn : INT;\nEND_VAR\n\n{body}\n\nEND_FUNCTION_BLOCK\n\n" +
-               $"METHOD DoIt : BOOL\n{folder}{childBody}\nEND_METHOD\n";
+        return $"FUNCTION_BLOCK FB_Test\nVAR\n\tn : INT;\nEND_VAR\n(* @volt-implementation *)\n{body}\nEND_FUNCTION_BLOCK\n\n" +
+               $"METHOD DoIt : BOOL\n(* @volt-implementation *)\n{folder}{childBody}\nEND_METHOD\n";
     }
 
     private static PushResponse Push(FakeIde ide, string src)
@@ -96,9 +96,9 @@ public class PouMergeWriteTests
             new FakeIde.Item("Two", ItemKind.PlcMethod, "", false, "METHOD Two : BOOL", "Two := TRUE;", null, null));
 
         var refs = RefsService.Handle(ide);
-        var src = "FUNCTION_BLOCK FB_Two\nVAR\n\tn : INT;\nEND_VAR\n\nn := 2;\n\nEND_FUNCTION_BLOCK\n"
-                + "\nMETHOD One : BOOL\n%FOLDER Helpers\nOne := TRUE;\nEND_METHOD\n"
-                + "\nMETHOD Two : BOOL\n%FOLDER Helpers/Inner\nTwo := TRUE;\nEND_METHOD\n";
+        var src = "FUNCTION_BLOCK FB_Two\nVAR\n\tn : INT;\nEND_VAR\n(* @volt-implementation *)\nn := 2;\n\nEND_FUNCTION_BLOCK\n"
+                + "\nMETHOD One : BOOL\n(* @volt-implementation *)\n%FOLDER Helpers\nOne := TRUE;\nEND_METHOD\n"
+                + "\nMETHOD Two : BOOL\n(* @volt-implementation *)\n%FOLDER Helpers/Inner\nTwo := TRUE;\nEND_METHOD\n";
         var resp = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
@@ -144,8 +144,8 @@ public class PouMergeWriteTests
         PushOp(ide, new SetItemOp
         {
             Name = "FB_New.fb",
-            SourceText = "FUNCTION_BLOCK FB_New\nVAR\n\tn : INT;\nEND_VAR\n\nn := 1;\n\nEND_FUNCTION_BLOCK\n\n"
-                       + "METHOD First : BOOL\nFirst := TRUE;\nEND_METHOD\n\nMETHOD Second : BOOL\nSecond := FALSE;\nEND_METHOD\n",
+            SourceText = "FUNCTION_BLOCK FB_New\nVAR\n\tn : INT;\nEND_VAR\n(* @volt-implementation *)\nn := 1;\n\nEND_FUNCTION_BLOCK\n\n"
+                       + "METHOD First : BOOL\n(* @volt-implementation *)\nFirst := TRUE;\nEND_METHOD\n\nMETHOD Second : BOOL\n(* @volt-implementation *)\nSecond := FALSE;\nEND_METHOD\n",
         });
 
         // One CreateChild per member, then ONE content write. The members used to arrive inside the
@@ -168,7 +168,7 @@ public class PouMergeWriteTests
     public void A_create_establishes_the_body_language_over_the_seed_CreateChild_laid_down()
     {
         var ide = new FakeIde();
-        PushOp(ide, new SetItemOp { Name = "VG_New.prg", SourceText = "PROGRAM VG_New\nVAR\n  c : BOOL;\n  y : BOOL;\nEND_VAR\n\nNETWORK 1 LD\n  y := c;\nEND_NETWORK\n\nEND_PROGRAM\n" });
+        PushOp(ide, new SetItemOp { Name = "VG_New.prg", SourceText = "PROGRAM VG_New\nVAR\n  c : BOOL;\n  y : BOOL;\nEND_VAR\n\n(* @volt-implementation *)\nNETWORK 1 LD\n  y := c;\nEND_NETWORK\n\nEND_PROGRAM\n" });
 
         Assert.Contains("NETWORK 1 LD", FakeIde.AllText(ide.WrittenContent["VG_New"]));
     }
@@ -257,8 +257,8 @@ public class PouMergeWriteTests
             new FakeIde.Item("Ready", ItemKind.PlcProp, "", false, "PROPERTY Ready : INT", null, null, null));
 
         var refs = RefsService.Handle(ide);
-        var src = "FUNCTION_BLOCK FB_K\nVAR\n\tx : INT;\nEND_VAR\n\nx := 1;\n\nEND_FUNCTION_BLOCK\n"
-                + "\nMETHOD Ready : INT\nReady := x;\nEND_METHOD\n";
+        var src = "FUNCTION_BLOCK FB_K\nVAR\n\tx : INT;\nEND_VAR\n(* @volt-implementation *)\nx := 1;\n\nEND_FUNCTION_BLOCK\n"
+                + "\nMETHOD Ready : INT\n(* @volt-implementation *)\nReady := x;\nEND_METHOD\n";
         var resp = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
@@ -284,8 +284,8 @@ public class PouMergeWriteTests
             new FakeIde.Item("Gone", ItemKind.PlcMethod, "", false, "METHOD Gone : BOOL", "Gone := TRUE;", null, null));
 
         var refs = RefsService.Handle(ide);
-        var src = "FUNCTION_BLOCK FB_D\nVAR\n\tx : INT;\nEND_VAR\n\nx := 1;\n\nEND_FUNCTION_BLOCK\n"
-                + "\nMETHOD Fresh : BOOL\nFresh := TRUE;\nEND_METHOD\n";
+        var src = "FUNCTION_BLOCK FB_D\nVAR\n\tx : INT;\nEND_VAR\n(* @volt-implementation *)\nx := 1;\n\nEND_FUNCTION_BLOCK\n"
+                + "\nMETHOD Fresh : BOOL\n(* @volt-implementation *)\nFresh := TRUE;\nEND_METHOD\n";
         var resp = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,

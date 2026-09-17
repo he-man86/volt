@@ -60,7 +60,7 @@ public class CreateUnauthorableBodyTests
     {
         var ide = Empty();
 
-        var resp = Create(ide, $"{Decl}\n\n{Marker(language)}\n\nEND_FUNCTION_BLOCK\n");
+        var resp = Create(ide, $"{Decl}\n(* @volt-implementation *)\n{Marker(language)}\n\nEND_FUNCTION_BLOCK\n");
 
         Assert.False(resp.Accepted);
         Assert.Contains(resp.Conflicts ?? [], c => c.Reason.Contains(language) && c.Reason.Contains("cannot author"));
@@ -75,7 +75,7 @@ public class CreateUnauthorableBodyTests
         var ide = Empty();
 
         var resp = Create(ide,
-            $"{Decl}\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\nEND_VAR\n{Marker("CFC")}\nEND_METHOD\n");
+            $"{Decl}\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\nEND_VAR\n(* @volt-implementation *)\n{Marker("CFC")}\nEND_METHOD\n");
 
         Assert.False(resp.Accepted);
         Assert.Contains(resp.Conflicts ?? [], c => c.Reason.Contains("'M'") && c.Reason.Contains("CFC"));
@@ -88,7 +88,7 @@ public class CreateUnauthorableBodyTests
     {
         var ide = Empty();
 
-        var resp = Create(ide, $"{Decl}\n\nx := 1;\n\nEND_FUNCTION_BLOCK\n");
+        var resp = Create(ide, $"{Decl}\n(* @volt-implementation *)\nx := 1;\n\nEND_FUNCTION_BLOCK\n");
 
         // `Conflicts` is null on an accepted push, so the message has to survive that to be readable when it isn't.
         Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? []).Select(c => c.Reason)));

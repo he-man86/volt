@@ -89,7 +89,7 @@ public class ChildDirectiveTests
         // to: the decl/impl split scanned for the LAST END_VAR, which is the network text VAR_TEMP's — so push
         // wrote temp vars into the POU and corrupted it, breaking every later read.)
         var st = "PROGRAM POU\nVAR\n  out1 : BOOL;\n  R_TRIG_0 : R_TRIG;\nEND_VAR\n\n" +
-                 "NETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    g1 : BOOL;\n  END_VAR\n" +
+                 "(* @volt-implementation *)\nNETWORK 0 FBD\n  VAR_TEMP\n    i1 : BOOL;\n    g1 : BOOL;\n  END_VAR\n" +
                  "  i1 := a;\n  g1 := (i1 AND i1);\n  out1 := g1;\nEND_NETWORK\n\nEND_PROGRAM\n";
         var s = StReader.Read(st);
         Assert.Contains("PROGRAM POU", s.Declaration);

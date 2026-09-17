@@ -193,12 +193,13 @@ public class InterfaceRoundTripTests
             "FUNCTION_BLOCK FB_Doc",
             "VAR",
             "END_VAR",
-            "",
+            ImplementationMarker.Text,
             "END_FUNCTION_BLOCK",
             "",
             signature,
             "VAR_INPUT",
             "END_VAR",
+            ImplementationMarker.Text,
             "END_METHOD");
 
         var split = StReader.Read(src);

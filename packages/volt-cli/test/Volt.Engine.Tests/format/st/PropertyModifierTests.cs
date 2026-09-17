@@ -29,11 +29,11 @@ public class PropertyModifierTests
 
     private static string FbWithProperty(string header) =>
         "FUNCTION_BLOCK FB_P\n" +
-        "VAR\n\tx : INT;\nEND_VAR\n\n" +
+        "VAR\n\tx : INT;\nEND_VAR\n(* @volt-implementation *)\n" +
         "x := x + 1;\n" +
         "END_FUNCTION_BLOCK\n" +
         $"\n{header}\n" +
-        "GET\n\tReady := x;\nEND_GET\n" +
+        "GET\n(* @volt-implementation *)\n\tReady := x;\nEND_GET\n" +
         "END_PROPERTY\n";
 
     /// <summary>Every modifier combination the METHOD parser already accepts, applied to a PROPERTY.</summary>

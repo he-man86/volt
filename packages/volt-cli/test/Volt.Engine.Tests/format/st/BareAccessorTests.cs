@@ -23,7 +23,7 @@ public class BareAccessorTests
     private static Member OnlyChild(string src) =>
         StReader.Read(src).Members.Single();
 
-    private const string Fb = "FUNCTION_BLOCK K\nVAR\nEND_VAR\n\nEND_FUNCTION_BLOCK\n\n";
+    private const string Fb = "FUNCTION_BLOCK K\nVAR\nEND_VAR\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK\n\n";
 
     [Theory]
     [InlineData("GET")]
@@ -53,7 +53,7 @@ public class BareAccessorTests
     [Fact]
     public void The_block_form_still_carries_its_body()
     {
-        var child = OnlyChild(Fb + "PROPERTY P : INT\nGET\nP := 1;\nEND_GET\nEND_PROPERTY\n");
+        var child = OnlyChild(Fb + "PROPERTY P : INT\nGET\n(* @volt-implementation *)\nP := 1;\nEND_GET\nEND_PROPERTY\n");
 
         Assert.Equal("P := 1;", child.Getter!.Body.Trim());
         Assert.Null(child.Setter);                 // absent stays absent

@@ -64,7 +64,7 @@ public class SameBareNameVersionTests
                 {
                     Name = "CM_Carrier.fb",
                     ToFolder = "02_ControlModules/CM_Carrier",
-                    SourceText = "FUNCTION_BLOCK CM_Carrier\nVAR\n\tnStep : INT;\nEND_VAR\n\nnStep := 2;\nEND_FUNCTION_BLOCK\n",
+                    SourceText = "FUNCTION_BLOCK CM_Carrier\nVAR\n\tnStep : INT;\nEND_VAR\n(* @volt-implementation *)\nnStep := 2;\nEND_FUNCTION_BLOCK\n",
                     IfVersion = refs.Items["CM_Carrier.fb"],
                 },
             },
@@ -95,7 +95,7 @@ public class SameBareNameVersionTests
                 {
                     Name = "CM_Carrier.fb",
                     ToFolder = "02_ControlModules/CM_Carrier",
-                    SourceText = "FUNCTION_BLOCK CM_Carrier\nVAR\nEND_VAR\n\nnStep := 3;\nEND_FUNCTION_BLOCK\n",
+                    SourceText = "FUNCTION_BLOCK CM_Carrier\nVAR\nEND_VAR\n(* @volt-implementation *)\nnStep := 3;\nEND_FUNCTION_BLOCK\n",
                     IfVersion = "stale0000deadbeef",
                 },
             },

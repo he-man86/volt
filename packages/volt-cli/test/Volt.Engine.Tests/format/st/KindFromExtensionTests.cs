@@ -22,8 +22,8 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class KindFromExtensionTests
 {
-    private const string ProgramText = "PROGRAM KindTest\nVAR\n\tn : INT;\nEND_VAR\nn := n + 1;\nEND_PROGRAM";
-    private const string FbText = "FUNCTION_BLOCK KindTest\nVAR\n\tn : INT;\nEND_VAR\nn := n + 1;\nEND_FUNCTION_BLOCK";
+    private const string ProgramText = "PROGRAM KindTest\nVAR\n\tn : INT;\nEND_VAR\n(* @volt-implementation *)\nn := n + 1;\nEND_PROGRAM";
+    private const string FbText = "FUNCTION_BLOCK KindTest\nVAR\n\tn : INT;\nEND_VAR\n(* @volt-implementation *)\nn := n + 1;\nEND_FUNCTION_BLOCK";
 
     [Fact]
     public void The_wire_name_decides_the_kind_not_the_text()

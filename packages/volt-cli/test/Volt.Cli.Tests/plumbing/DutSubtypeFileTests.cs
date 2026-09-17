@@ -102,7 +102,7 @@ public class DutSubtypeFileTests
     [Fact]
     public void A_non_dut_kind_is_untouched_by_any_of_this()
     {
-        var fb = new FetchedItem { Name = "FB_Motor.fb", Folder = "POUs", SourceText = "FUNCTION_BLOCK FB_Motor\nEND_FUNCTION_BLOCK" };
+        var fb = new FetchedItem { Name = "FB_Motor.fb", Folder = "POUs", SourceText = "FUNCTION_BLOCK FB_Motor\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK" };
         Assert.Equal("POUs/FB_Motor.fb", Assert.Single(Materialize.MaterializeItem(fb)).Path);
         Assert.Equal("FB_Motor.fb", Materialize.PathToItem("POUs/FB_Motor.fb")!.Value.Name);
     }

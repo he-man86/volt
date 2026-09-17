@@ -98,7 +98,7 @@ public class PullCommandTests
             var pristine = File.ReadAllText(PrgPath(root));
             File.WriteAllText(PrgPath(root), pristine.Replace("x := 1;", "x := 999;"));
             var stray = Path.Combine(root, "src", "Scratch.prg"); // an untracked file is local work too
-            File.WriteAllText(stray, "PROGRAM Scratch\nEND_PROGRAM");
+            File.WriteAllText(stray, "PROGRAM Scratch\n(* @volt-implementation *)\nEND_PROGRAM");
 
             var plain = Commands.Pull(root, client);            // a NORMAL pull preserves local work...
             Assert.Equal("ok", plain.Kind);

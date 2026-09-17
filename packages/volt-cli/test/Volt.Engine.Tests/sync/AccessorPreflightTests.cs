@@ -37,13 +37,13 @@ public class AccessorPreflightTests
     private const string NonCanonical = "NETWORK 0 FBD\n  LET i1 := a;\n  out := i1;\nEND_NETWORK";
 
     private static string Fb(string name, string accessorBody) =>
-        $"FUNCTION_BLOCK {name}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n\nEND_FUNCTION_BLOCK\n\n" +
-        $"PROPERTY Ready : BOOL\nGET\n{accessorBody}\nEND_GET\nEND_PROPERTY\n";
+        $"FUNCTION_BLOCK {name}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK\n\n" +
+        $"PROPERTY Ready : BOOL\nGET\n(* @volt-implementation *)\n{accessorBody}\nEND_GET\nEND_PROPERTY\n";
 
-    private static string Prg(string name) => $"PROGRAM {name}\nVAR\nEND_VAR\n\nn := 0;\n\nEND_PROGRAM\n";
+    private static string Prg(string name) => $"PROGRAM {name}\nVAR\nEND_VAR\n(* @volt-implementation *)\nn := 0;\n\nEND_PROGRAM\n";
 
     /// <summary>A POU whose body Volt cannot author — what a CFC POU materializes as in the workspace.</summary>
-    private const string Cfc = "FUNCTION_BLOCK FB_Cfc\n\n(* @volt-graphical: CFC *)\n\nEND_FUNCTION_BLOCK\n";
+    private const string Cfc = "FUNCTION_BLOCK FB_Cfc\n(* @volt-implementation *)\n(* @volt-graphical: CFC *)\n\nEND_FUNCTION_BLOCK\n";
 
     private static PushResponse Push(FakeIde ide, params PushOp[] ops)
     {
@@ -92,8 +92,8 @@ public class AccessorPreflightTests
     public void A_non_canonical_SET_body_is_refused_before_the_first_write()
     {
         var ide = new FakeIde();
-        var src = "FUNCTION_BLOCK FB_Axis\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n\nEND_FUNCTION_BLOCK\n\n" +
-                  $"PROPERTY Ready : BOOL\nSET\n{NonCanonical}\nEND_SET\nEND_PROPERTY\n";
+        var src = "FUNCTION_BLOCK FB_Axis\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK\n\n" +
+                  $"PROPERTY Ready : BOOL\nSET\n(* @volt-implementation *)\n{NonCanonical}\nEND_SET\nEND_PROPERTY\n";
 
         var res = Push(ide, Set("First.prg", Prg("First")), Set("FB_Axis.fb", src));
 

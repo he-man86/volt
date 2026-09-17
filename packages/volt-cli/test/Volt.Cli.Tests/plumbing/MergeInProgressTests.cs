@@ -47,19 +47,19 @@ public class MergeInProgressTests
         var file = Path.Combine(root, "src", "FB_A.fb");
         Directory.CreateDirectory(Path.GetDirectoryName(file)!);
 
-        File.WriteAllText(file, "FUNCTION_BLOCK FB_A\nbase\nEND_FUNCTION_BLOCK\n");
+        File.WriteAllText(file, "FUNCTION_BLOCK FB_A\n(* @volt-implementation *)\nbase\nEND_FUNCTION_BLOCK\n");
         Git.StageSrc(root); Git.CommitAll(root, "base");
         var baseCommit = Git.HeadCommit(root)!;
 
         // their side
         Git_(root, "checkout", "-q", "-b", "theirs");
-        File.WriteAllText(file, "FUNCTION_BLOCK FB_A\nTHEIRS\nEND_FUNCTION_BLOCK\n");
+        File.WriteAllText(file, "FUNCTION_BLOCK FB_A\n(* @volt-implementation *)\nTHEIRS\nEND_FUNCTION_BLOCK\n");
         Git.StageSrc(root); Git.CommitAll(root, "theirs");
 
         // our side
         Git_(root, "checkout", "-q", baseCommit);
         Git_(root, "checkout", "-q", "-B", "ours");
-        File.WriteAllText(file, "FUNCTION_BLOCK FB_A\nOURS\nEND_FUNCTION_BLOCK\n");
+        File.WriteAllText(file, "FUNCTION_BLOCK FB_A\n(* @volt-implementation *)\nOURS\nEND_FUNCTION_BLOCK\n");
         Git.StageSrc(root); Git.CommitAll(root, "ours");
 
         Git_(root, "merge", "--no-commit", "theirs");

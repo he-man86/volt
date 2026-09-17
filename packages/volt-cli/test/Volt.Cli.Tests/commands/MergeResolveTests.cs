@@ -47,7 +47,7 @@ public class MergeResolveTests
         Git.GitInit(root);
         var file = Path.Combine(root, "src", "FB_A.fb");
         Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-        File.WriteAllText(file, "FUNCTION_BLOCK FB_A\nbase\nEND_FUNCTION_BLOCK\n");
+        File.WriteAllText(file, "FUNCTION_BLOCK FB_A\n(* @volt-implementation *)\nbase\nEND_FUNCTION_BLOCK\n");
         Git.StageSrc(root); Git.CommitAll(root, "base");
         var base_ = Git.HeadCommit(root)!;
 
@@ -58,7 +58,7 @@ public class MergeResolveTests
 
         Git_(root, "checkout", "-q", base_);
         Git_(root, "checkout", "-q", "-B", "ours");
-        File.WriteAllText(file, "FUNCTION_BLOCK FB_A\nOURS EDIT\nEND_FUNCTION_BLOCK\n");
+        File.WriteAllText(file, "FUNCTION_BLOCK FB_A\n(* @volt-implementation *)\nOURS EDIT\nEND_FUNCTION_BLOCK\n");
         Git.StageSrc(root); Git.CommitAll(root, "ours edits it");
 
         Git_(root, "merge", "--no-commit", "theirs");

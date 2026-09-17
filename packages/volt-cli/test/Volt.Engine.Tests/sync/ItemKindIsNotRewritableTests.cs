@@ -47,7 +47,7 @@ public class ItemKindIsNotRewritableTests
     public void Declaring_a_function_block_a_program_is_refused()
     {
         var ide = WithFunctionBlock();
-        var resp = Push(ide, "K.fb", "PROGRAM K\nVAR\n\tx : INT;\nEND_VAR\n\nx := 1;\n\nEND_PROGRAM\n");
+        var resp = Push(ide, "K.fb", "PROGRAM K\nVAR\n\tx : INT;\nEND_VAR\n(* @volt-implementation *)\nx := 1;\n\nEND_PROGRAM\n");
 
         Assert.False(resp.Accepted);
         Assert.Contains("cannot change what it IS", resp.Conflicts![0].Reason);
@@ -70,7 +70,7 @@ public class ItemKindIsNotRewritableTests
     {
         // The guard must cost nothing to the case it is not about.
         var ide = WithFunctionBlock();
-        var resp = Push(ide, "K.fb", "FUNCTION_BLOCK K\nVAR\n\tx : INT;\nEND_VAR\n\nx := 2;\n\nEND_FUNCTION_BLOCK\n");
+        var resp = Push(ide, "K.fb", "FUNCTION_BLOCK K\nVAR\n\tx : INT;\nEND_VAR\n(* @volt-implementation *)\nx := 2;\n\nEND_FUNCTION_BLOCK\n");
 
         Assert.True(resp.Accepted);
         Assert.Contains(ide.Recorded, r => r.StartsWith("writecontent:"));

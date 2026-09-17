@@ -44,7 +44,7 @@ public class QuotepathTests
         {
             var full = Path.Combine(root, rel.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(full)!);
-            File.WriteAllText(full, "FUNCTION_BLOCK X\nEND_FUNCTION_BLOCK\n");
+            File.WriteAllText(full, "FUNCTION_BLOCK X\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK\n");
         }
         Git.StageSrc(root);
         Git.CommitAll(root, "seed");

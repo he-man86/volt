@@ -57,7 +57,7 @@ public class GraphicalChildGuardTests
                 {
                     Name = Name,
                     IfVersion = refs.Items[Name],
-                    SourceText = $"{PouDecl}\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\nEND_VAR\n{body}\nEND_METHOD\n",
+                    SourceText = $"{PouDecl}\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\nEND_VAR\n(* @volt-implementation *)\n{body}\nEND_METHOD\n",
                 },
             },
         });

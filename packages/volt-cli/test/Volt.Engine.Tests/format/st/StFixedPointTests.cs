@@ -137,9 +137,9 @@ public class StFixedPointTests
     public void A_property_signatures_trailing_comment_is_not_part_of_its_type()
     {
         var item = StReader.Read(
-            "FUNCTION_BLOCK Machine\nVAR\nEND_VAR\n\n;\n\nEND_FUNCTION_BLOCK\n\n" +
+            "FUNCTION_BLOCK Machine\nVAR\nEND_VAR\n(* @volt-implementation *)\n;\n\nEND_FUNCTION_BLOCK\n\n" +
             "PROPERTY PUBLIC Ready : BOOL\t// TRUE once every axis has homed\n" +
-            "GET\nReady := TRUE;\nEND_GET\n" +
+            "GET\n(* @volt-implementation *)\nReady := TRUE;\nEND_GET\n" +
             "END_PROPERTY\n");
 
         var ready = item.Members.Single(m => m.Name == "Ready");
@@ -176,7 +176,7 @@ public class StFixedPointTests
         const string text =
             "FUNCTION_BLOCK Machine\nVAR\n\tstep\t: INT;\nEND_VAR\n" +
             "// this comment sits against END_VAR, with no blank line under it\n" +
-            "step := 0;\n\nEND_FUNCTION_BLOCK\n";
+            "(* @volt-implementation *)\nstep := 0;\n\nEND_FUNCTION_BLOCK\n";
 
         Assert.Equal(text, StWriter.Write(StReader.Read(text)));
     }

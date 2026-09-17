@@ -38,7 +38,7 @@ public class RenameBeforeWriteTests
 
     /// <summary>A body that parses as graphical and then fails validation — the network is never closed.</summary>
     private const string MalformedBody =
-        "PROGRAM FB_Renamed\nVAR\nEND_VAR\n\nNETWORK 0 LD\n  out := (a AND b);\nEND_PROGRAM\n";
+        "PROGRAM FB_Renamed\nVAR\nEND_VAR\n\n(* @volt-implementation *)\nNETWORK 0 LD\n  out := (a AND b);\nEND_PROGRAM\n";
 
     [Fact]
     public void A_rename_whose_edit_is_refused_does_not_rename()
@@ -92,7 +92,7 @@ public class RenameBeforeWriteTests
                 {
                     Name = "FB_Old.prg",
                     ToName = "FB_New",
-                    SourceText = "PROGRAM FB_New\nVAR\nEND_VAR\n\ny := 2;\nEND_PROGRAM\n",
+                    SourceText = "PROGRAM FB_New\nVAR\nEND_VAR\n(* @volt-implementation *)\ny := 2;\nEND_PROGRAM\n",
                     IfVersion = refs.Items["FB_Old.prg"],
                 },
             },

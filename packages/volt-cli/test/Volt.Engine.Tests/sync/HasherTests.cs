@@ -17,8 +17,8 @@ public class HasherTests
     [Fact]
     public void Same_content_same_version()
     {
-        var a = Hasher.ComputeItemVersion("POUs", "PROGRAM P\nVAR\nEND_VAR\n\nx := 1;\nEND_PROGRAM\n");
-        var b = Hasher.ComputeItemVersion("POUs", "PROGRAM P\nVAR\nEND_VAR\n\nx := 1;\nEND_PROGRAM\n");
+        var a = Hasher.ComputeItemVersion("POUs", "PROGRAM P\nVAR\nEND_VAR\n(* @volt-implementation *)\nx := 1;\nEND_PROGRAM\n");
+        var b = Hasher.ComputeItemVersion("POUs", "PROGRAM P\nVAR\nEND_VAR\n(* @volt-implementation *)\nx := 1;\nEND_PROGRAM\n");
         Assert.Equal(a, b);
     }
 
@@ -108,7 +108,7 @@ public class HasherTests
     [Fact]
     public void Moving_an_item_changes_its_version()
     {
-        const string text = "PROGRAM P\nVAR\nEND_VAR\n\nx := 1;\nEND_PROGRAM\n";
+        const string text = "PROGRAM P\nVAR\nEND_VAR\n(* @volt-implementation *)\nx := 1;\nEND_PROGRAM\n";
         Assert.NotEqual(Hasher.ComputeItemVersion("POUs", text),
                         Hasher.ComputeItemVersion("POUs/Motion", text));
     }
@@ -119,7 +119,7 @@ public class HasherTests
     [Fact]
     public void The_root_folder_and_a_named_folder_hash_differently()
     {
-        const string text = "PROGRAM P\nVAR\nEND_VAR\nEND_PROGRAM\n";
+        const string text = "PROGRAM P\nVAR\nEND_VAR\n(* @volt-implementation *)\nEND_PROGRAM\n";
         Assert.NotEqual(Hasher.ComputeItemVersion("", text), Hasher.ComputeItemVersion("POUs", text));
     }
 }

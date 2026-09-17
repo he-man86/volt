@@ -29,7 +29,7 @@ public class StReaderTriviaBoundaryTests
 
     private const string Fb =
         "FUNCTION_BLOCK FB_P\n" +
-        "VAR\n\tx : INT;\nEND_VAR\n\n" +
+        "VAR\n\tx : INT;\nEND_VAR\n(* @volt-implementation *)\n" +
         "x := x + 1;\n" +
         "END_FUNCTION_BLOCK\n";
 
@@ -40,9 +40,11 @@ public class StReaderTriviaBoundaryTests
         var src = Fb +
             "\nPROPERTY P : INT\n" +
             "GET\n" +
+            "(* @volt-implementation *)\n" +
             "\tP := x;\n" +
             "(* restore *) END_GET\n" +
             "SET\n" +
+            "(* @volt-implementation *)\n" +
             "\tx := P;\n" +
             "END_SET\n" +
             "END_PROPERTY\n";
@@ -56,9 +58,10 @@ public class StReaderTriviaBoundaryTests
     }
 
     /// <summary>And the general rule the accessor case is one instance of: a structural keyword is still
-    /// structural when a closed comment precedes it on the same line. <c>END_VAR</c> is the one that decides
-    /// where a member's declaration stops and its code begins, so missing it silently moves lines across that
-    /// boundary.</summary>
+    /// structural when a closed comment precedes it on the same line.
+    /// <para>The boundary itself is no longer at stake — the marker states it — but the STRUCTURE scan still
+    /// reads these keywords, and a member whose <c>END_VAR</c> is missed drags the marker below it out of the
+    /// block it belongs to.</para></summary>
     [Fact]
     public void A_method_whose_END_VAR_carries_a_leading_comment_splits_correctly()
     {
@@ -67,6 +70,7 @@ public class StReaderTriviaBoundaryTests
             "VAR_INPUT\n" +
             "\td : INT;\n" +
             "(* end of inputs *) END_VAR\n" +
+            "(* @volt-implementation *)\n" +
             "M := d * 2;\n" +
             "END_METHOD\n";
 
@@ -90,6 +94,7 @@ public class StReaderTriviaBoundaryTests
     {
         var src = Fb +
             "\nACTION A\n" +
+            "(* @volt-implementation *)\n" +
             "\tx := 1;\n" +
             "\tx := 2;\n" +
             "END_ACTION\n";

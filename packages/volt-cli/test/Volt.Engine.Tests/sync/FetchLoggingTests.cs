@@ -33,7 +33,7 @@ public class FetchLoggingTests
         var orphan = new LibSignature("SOMEFB", "cmpeventmgr implementation, 3.5 (system)", "FunctionBlock",
             new LibVar[0], new LibVar[0], new LibVar[0], new LibVar[0], null, null);
         var ide = new FakeIde(
-            FakeIde.Item.TextualPou("User", "FUNCTION_BLOCK User\nEND_FUNCTION_BLOCK", ""),
+            FakeIde.Item.TextualPou("User", "FUNCTION_BLOCK User\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK", ""),
             FakeIde.Item.Library("CAA Types", "LIBRARY CAA Types\nNAMESPACE CAA\nRESOLUTION caatypes\n", "Library Manager"))
         { LibSignatures = new[] { orphan } };
 

@@ -12,7 +12,7 @@ namespace Volt.Engine.Tests;
 public class FetchExclusionTests
 {
     private static FakeIde.Item Pou(string name) =>
-        FakeIde.Item.TextualPou(name, $"FUNCTION_BLOCK {name}\nEND_FUNCTION_BLOCK\n", "");
+        FakeIde.Item.TextualPou(name, $"FUNCTION_BLOCK {name}\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK\n", "");
 
     /// <summary>Dead (uncalled) project POUs are ordinary source — the bridge always returns them. Reachability
     /// is the LSP's job, so there is no fetch flag and no compiled-POU dependency to drop them.</summary>
@@ -50,7 +50,7 @@ public class FetchExclusionTests
             new Volt.Engine.Library.LibVar[0], new Volt.Engine.Library.LibVar[0],
             new Volt.Engine.Library.LibVar[0], new Volt.Engine.Library.LibVar[0], null, null, "__XWORD");
         var ide = new FakeIde(
-            FakeIde.Item.TextualPou("User", "FUNCTION_BLOCK User\nVAR h : HANDLE; END_VAR\nEND_FUNCTION_BLOCK", ""),
+            FakeIde.Item.TextualPou("User", "FUNCTION_BLOCK User\n(* @volt-implementation *)\nVAR h : HANDLE; END_VAR\nEND_FUNCTION_BLOCK", ""),
             FakeIde.Item.Library("CAA Types", manifest, "Library Manager"))
         { LibSignatures = new[] { handle } };
 
@@ -71,7 +71,7 @@ public class FetchExclusionTests
             new Volt.Engine.Library.LibVar[0], new Volt.Engine.Library.LibVar[0],
             new Volt.Engine.Library.LibVar[0], new Volt.Engine.Library.LibVar[0], null, null);
         var ide = new FakeIde(
-            FakeIde.Item.TextualPou("User", "FUNCTION_BLOCK User\nEND_FUNCTION_BLOCK", ""),
+            FakeIde.Item.TextualPou("User", "FUNCTION_BLOCK User\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK", ""),
             FakeIde.Item.Library("CAA Types", manifest, "Library Manager"))
         { LibSignatures = new[] { orphan } };
 

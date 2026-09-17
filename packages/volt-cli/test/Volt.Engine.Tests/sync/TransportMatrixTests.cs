@@ -22,9 +22,9 @@ namespace Volt.Engine.Tests;
 public class TransportMatrixTests
 {
     // ── the kinds, and a minimal valid canonical source for each ────────────────────────────────────
-    private const string FbSrc  = "FUNCTION_BLOCK K\nVAR\n\tn : INT;\nEND_VAR\n\nn := 1;\n\nEND_FUNCTION_BLOCK\n";
-    private const string PrgSrc = "PROGRAM K\nVAR\n\tn : INT;\nEND_VAR\n\nn := 1;\n\nEND_PROGRAM\n";
-    private const string FunSrc = "FUNCTION K : INT\nVAR\n\tn : INT;\nEND_VAR\n\nK := 1;\n\nEND_FUNCTION\n";
+    private const string FbSrc  = "FUNCTION_BLOCK K\nVAR\n\tn : INT;\nEND_VAR\n(* @volt-implementation *)\nn := 1;\n\nEND_FUNCTION_BLOCK\n";
+    private const string PrgSrc = "PROGRAM K\nVAR\n\tn : INT;\nEND_VAR\n(* @volt-implementation *)\nn := 1;\n\nEND_PROGRAM\n";
+    private const string FunSrc = "FUNCTION K : INT\nVAR\n\tn : INT;\nEND_VAR\n(* @volt-implementation *)\nK := 1;\n\nEND_FUNCTION\n";
     private const string ItfSrc = "INTERFACE K\n\nMETHOD M : BOOL\nEND_METHOD\n\nEND_INTERFACE\n";
     private const string DutSrc = "TYPE K :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n";
     private const string GvlSrc = "VAR_GLOBAL\n\tn : INT;\nEND_VAR\n";
@@ -164,9 +164,9 @@ public class TransportMatrixTests
         var recorded = Apply(ide, new SetItemOp
         {
             Name = "K.fb",
-            SourceText = "FUNCTION_BLOCK K\nVAR\n\tn : INT;\nEND_VAR\n\nn := 1;\n\nEND_FUNCTION_BLOCK\n\n"
-                       + "METHOD A : BOOL\nA := TRUE;\nEND_METHOD\n\nMETHOD B : BOOL\nB := TRUE;\nEND_METHOD\n\n"
-                       + "ACTION Act\nn := 1;\nEND_ACTION\n",
+            SourceText = "FUNCTION_BLOCK K\nVAR\n\tn : INT;\nEND_VAR\n(* @volt-implementation *)\nn := 1;\n\nEND_FUNCTION_BLOCK\n\n"
+                       + "METHOD A : BOOL\n(* @volt-implementation *)\nA := TRUE;\nEND_METHOD\n\nMETHOD B : BOOL\n(* @volt-implementation *)\nB := TRUE;\nEND_METHOD\n\n"
+                       + "ACTION Act\n(* @volt-implementation *)\nn := 1;\nEND_ACTION\n",
         });
 
         Assert.Equal(new[] { "create:K", "create:A", "create:B", "create:Act", "writecontent:K" },
@@ -207,8 +207,8 @@ public class TransportMatrixTests
     public void No_per_child_or_accessor_interaction_survives_a_write(int code, string ext, string src, string[] onUpdate, string[] onCreate)
     {
         _ = (onUpdate, onCreate);
-        var withMembers = src.Replace("END_FUNCTION_BLOCK\n", "END_FUNCTION_BLOCK\n\nMETHOD M : BOOL\nM := TRUE;\nEND_METHOD\n")
-                             .Replace("END_PROGRAM\n", "END_PROGRAM\n\nACTION A\nn := 1;\nEND_ACTION\n")
+        var withMembers = src.Replace("END_FUNCTION_BLOCK\n", "END_FUNCTION_BLOCK\n\nMETHOD M : BOOL\n(* @volt-implementation *)\nM := TRUE;\nEND_METHOD\n")
+                             .Replace("END_PROGRAM\n", "END_PROGRAM\n\nACTION A\n(* @volt-implementation *)\nn := 1;\nEND_ACTION\n")
                              .Replace("END_FUNCTION\n", "END_FUNCTION\n");
         // The members must ALREADY exist, or the create below is the engine legitimately adding them.
         var declared = new List<(string, int)>();
@@ -271,9 +271,9 @@ public class TransportMatrixTests
         {
             Name = "K.fb",
             IfVersion = refs.Items["K.fb"],
-            SourceText = "FUNCTION_BLOCK K\nVAR\nEND_VAR\n\nEND_FUNCTION_BLOCK\n\n"
-                       + "METHOD A : BOOL\nA := FALSE;\nEND_METHOD\n\nMETHOD B : BOOL\nB := TRUE;\nEND_METHOD\n\n"
-                       + "METHOD C : BOOL\nC := TRUE;\nEND_METHOD\n",
+            SourceText = "FUNCTION_BLOCK K\nVAR\nEND_VAR\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK\n\n"
+                       + "METHOD A : BOOL\n(* @volt-implementation *)\nA := FALSE;\nEND_METHOD\n\nMETHOD B : BOOL\n(* @volt-implementation *)\nB := TRUE;\nEND_METHOD\n\n"
+                       + "METHOD C : BOOL\n(* @volt-implementation *)\nC := TRUE;\nEND_METHOD\n",
         });
 
         Assert.Equal(new[] { "writecontent:K" }, recorded.ToArray());
@@ -301,8 +301,8 @@ public class TransportMatrixTests
             {
                 Name = "K.fb",
                 IfVersion = refs.Items["K.fb"],
-                SourceText = "FUNCTION_BLOCK K\nVAR\nEND_VAR\n\nEND_FUNCTION_BLOCK\n\n"
-                           + "METHOD M : BOOL\n%FOLDER Nested/Deep\nM := TRUE;\nEND_METHOD\n",
+                SourceText = "FUNCTION_BLOCK K\nVAR\nEND_VAR\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK\n\n"
+                           + "METHOD M : BOOL\n(* @volt-implementation *)\n%FOLDER Nested/Deep\nM := TRUE;\nEND_METHOD\n",
             } },
         });
 

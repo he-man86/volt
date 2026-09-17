@@ -38,7 +38,7 @@ namespace Volt.Engine.Tests;
 public class CreateRollbackTests
 {
     private const string Decl = "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR";
-    private const string Source = Decl + "\n\nn := 1;\n\nEND_FUNCTION_BLOCK\n";
+    private const string Source = Decl + "\n(* @volt-implementation *)\nn := 1;\n\nEND_FUNCTION_BLOCK\n";
 
     /// <summary>A fake that creates happily and refuses every content write — the shape of the live failure,
     /// where the refusal can only come from the vendor's own import.</summary>

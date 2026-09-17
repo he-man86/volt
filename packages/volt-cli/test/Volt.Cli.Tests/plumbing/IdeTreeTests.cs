@@ -121,12 +121,12 @@ public class IdeTreeTests
             var tree = IdeTree.BuildVoltIdeTree(gitDir, head, null,
                 new List<MaterializedFile>
                 {
-                    new("Plc Logic/Application/010 PC01/pgPC01.prg", "PROGRAM pgPC01\nEND_PROGRAM\n"),
+                    new("Plc Logic/Application/010 PC01/pgPC01.prg", "PROGRAM pgPC01\n(* @volt-implementation *)\nEND_PROGRAM\n"),
                     new("Global Vars/GVL Constants.gvl", "VAR_GLOBAL CONSTANT\nEND_VAR\n"),
                 },
                 Array.Empty<string>(), librariesRefreshed: false);
 
-            Assert.Equal("PROGRAM pgPC01\nEND_PROGRAM\n", Blob(root, tree, "src/Plc Logic/Application/010 PC01/pgPC01.prg"));
+            Assert.Equal("PROGRAM pgPC01\n(* @volt-implementation *)\nEND_PROGRAM\n", Blob(root, tree, "src/Plc Logic/Application/010 PC01/pgPC01.prg"));
             Assert.Equal("VAR_GLOBAL CONSTANT\nEND_VAR\n", Blob(root, tree, "src/Global Vars/GVL Constants.gvl"));
         }
         finally { TestUtil.ForceDelete(root); }

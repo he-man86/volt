@@ -55,7 +55,7 @@ public class PushDeclarationTransportTests
     /// terminator. Assembled here rather than inlined per case so a malformed source fails as a REJECTED PUSH
     /// (which names the reason) rather than as a missing dictionary key three frames away.</summary>
     private static string Source(string decl, string body, string? terminator) =>
-        terminator is null ? decl + "\n" : decl + "\n\n" + body + "\n\n" + terminator + "\n";
+        terminator is null ? decl + "\n" : decl + "\n(* @volt-implementation *)\n" + body + "\n\n" + terminator + "\n";
 
     /// <summary>The same declaration with one variable added — the ONLY difference in the push.</summary>
     private static string PlusOneVar(string decl) =>
