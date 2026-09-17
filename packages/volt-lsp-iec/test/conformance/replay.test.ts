@@ -78,7 +78,7 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // for the type, once for the instance initialisation it generates — and the LSP now does the same (measured with
   // `initializer-repeat.ts`: no instance 0, one instance 2, two instances 2, nested 2, PROGRAM 1; so it is per-type,
   // not per-instance). The goal is the IDE's answer, not a tidier one.
-  { vendor: "codesys", filename: "codesys.build.json", floor: 819 },
+  { vendor: "codesys", filename: "codesys.build.json", floor: 820 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
@@ -96,7 +96,12 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                       closing quote, where CODESYS stores the whole sentence including the line break it quotes.
   //                       The message is cut at that break on the way out of the TwinCAT driver — a BRIDGE bug to
   //                       fix and re-record, not something for the LSP to match.
-  twincat: new Set<string>(["op_sys_varinfo"]),
+  //   `operand_uchar_literal` — `UCHAR#'A'` is a CODESYS extension TwinCAT does not have: it parse-cascades on the
+  //                       prefix (five errors), where CODESYS types the literal UDINT. The LSP's parser accepts the
+  //                       extension for both, so it types the literal and TwinCAT sees a message it never emits.
+  //                       The fix is a TwinCAT-only rejection of the prefix, in the shape `analysis/resync` already
+  //                       models — TwinCAT work, deferred until CODESYS is finished.
+  twincat: new Set<string>(["op_sys_varinfo", "operand_uchar_literal"]),
   // The `???` fixtures were here while the LSP answered every position with ONE invented sentence. They are
   // NOT divergences any more: the check reads the slot and emits the COMPILER'S wording for it
   // (`Expression expected instead of '?'` for an operand/pin/instance, `The assignment target is not

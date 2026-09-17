@@ -354,6 +354,10 @@ export function literalType(lit: Literal): Type {
     case "typed": {
       // `BYTE#170` / `INT#5` → the type prefix. `16#FF` (numeric base) has no type prefix → skip.
       const prefix = lit.prefix ?? ""
+      // A CHARACTER literal is the exception: `UCHAR#'A'` is a character CODE, and CODESYS types it UDINT rather
+      // than by its prefix — `bChar : BYTE := UCHAR#'A'` is "Cannot convert type 'UDINT' to type 'BYTE'"
+      // (conformance `operand_uchar_literal`). Only UCHAR is measured; another char prefix keeps its own name.
+      if (/^UCHAR$/i.test(prefix)) return elementaryRef("UDINT")
       return /^[A-Za-z_]/.test(prefix) ? elementaryRef(prefix) : UNKNOWN
     }
     default:
