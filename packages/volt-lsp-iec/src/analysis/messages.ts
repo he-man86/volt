@@ -294,6 +294,8 @@ export interface Messages {
   cannotCallObjectOfType(kind: string): string
   /** A VAR section declared directly in an INTERFACE (C0149). CODESYS SP21. */
   varInInterface(): string
+  /** A POU whose signature names something other than its object (CODESYS SP21, measured 2026-09-17). */
+  signatureNameMismatch(): string
   /**
    * A subrange as the target of an ASSIGNMENT, which CODESYS spells with a typed LOWER bound — `INT (INT#1..100)`
    * — where its own DECLARATION form says `INT (1..100)`. TwinCAT says the bare form in both. Recorded, not chosen
@@ -592,6 +594,7 @@ export function messagesFor(vendor: Vendor): Messages {
     interfaceNotFound: (name) => `No definition found for interface '${name}'`,
     cannotCallObjectOfType: (kind) => `Cannot call object of type '${kind}'`,
     varInInterface: () => `Variable declarations are not allowed in interfaces`,
+    signatureNameMismatch: () => `The name used in the signature is not identical to the object name`,
     subrangeAssignTarget: (base, lo, hi) => `${base} (${tc ? lo : `INT#${lo}`}..${hi})`,
     invalidEnumInitialisation: (value) => `${value} is no valid initialisation for an enumeration`,
     invalidAttributeValue: (value, attribute, allowed) =>

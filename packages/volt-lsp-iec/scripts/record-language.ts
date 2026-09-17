@@ -35,7 +35,12 @@ function unitExt(u: any): string {
   }
   return { function_block: "fb", program: "prg", function: "fun", interface: "itf", global_var_list: "gvl", namespace: "namespace" }[u.kind as string] ?? "fb"
 }
-function splitItems(source: string, pouName: string, gvlNames?: readonly string[]): { wire: string; src: string }[] {
+/** The wire extension for a FIXTURE's declared kind — the identity it states, not the one the parser infers. */
+function extForKind(kind: string): string {
+  return { function_block: "fb", program: "prg", function: "fun", interface: "itf", gvl: "gvl", dut: "dut", namespace: "namespace" }[kind] ?? "fb"
+}
+
+function splitItems(source: string, pouName: string, gvlNames?: readonly string[], kind?: string): { wire: string; src: string }[] {
   // Each item spans from a top-level unit's start to the NEXT top-level unit's start (or EOF) — a unit's own
   // span.end excludes its END_xxx keyword, and this also folds trailing member units into their POU.
   const tops = parseSource(source).units.filter((u) => TOP.has(u.kind))
@@ -44,10 +49,21 @@ function splitItems(source: string, pouName: string, gvlNames?: readonly string[
   // slicing from there dropped `{attribute 'pingroup' := …}` on the way to the IDE, and the fixture then recorded
   // a build of code it does not contain — `pragma_conflicting_pair` lost the very warning it exists for.
   const starts = tops.map((u) => pragmaStart(source, u.span.start))
+  // THE ITEM'S NAME IS THE FIXTURE'S, NOT THE DECLARATION'S. CODESYS keeps the two apart — an object called one
+  // thing may hold a signature calling itself another, and says so only at build time ("The name used in the
+  // signature is not identical to the object name", measured 2026-09-17). Reading the name out of the parsed
+  // signature therefore CORRECTED that mismatch on the way in, which made the one case worth recording
+  // unrecordable. A fixture packing several items inline still needs a name for the others, and only the parse
+  // has one — but the single-item case, which is every real workspace file, now comes from the fixture.
+  const single = tops.length === 1 && kind !== undefined
   return tops.map((u, i) => ({
     // a VAR_GLOBAL block names nothing in its text — the fixture's pouName is its object's name, or its entry in
     // `gvlNames` where the fixture holds more than one list
-    wire: `${u.kind === "global_var_list" ? (gvlNames?.[lists.indexOf(u)] ?? pouName) : (u as any).name.text}.${unitExt(u)}`,
+    wire: single
+      // a DUT keeps the sub-kind extension the parse gives it (struct/enum/union/alias) — the fixture's `dut`
+      // says nothing about WHICH, and that spelling is what every existing DUT recording used
+      ? `${u.kind === "global_var_list" ? (gvlNames?.[0] ?? pouName) : pouName}.${u.kind === "type_decl" ? unitExt(u) : extForKind(kind)}`
+      : `${u.kind === "global_var_list" ? (gvlNames?.[lists.indexOf(u)] ?? pouName) : (u as any).name.text}.${unitExt(u)}`,
     src: source.slice(starts[i]!, i + 1 < tops.length ? starts[i + 1]! : source.length).trimEnd() + "\n",
   }))
 }
@@ -112,7 +128,7 @@ for (const t of ALL_TESTS) {
   // exactly as the replay's cross-fixture project lets it. Those must be in the IDE too, or the build records nothing
   // but the fallout of their absence ("Unknown type: 'DUT_XO_tally'"), which is not the fixture's ground truth at all.
   // `withDependencies` names them, dependencies first, as the execution recorder already does.
-  const items = [...new Map(withDependencies(t, ALL_TESTS).flatMap((f) => splitItems(f.source, f.pouName, f.gvlNames)).map((it) => [it.wire, it])).values()]
+  const items = [...new Map(withDependencies(t, ALL_TESTS).flatMap((f) => splitItems(f.source, f.pouName, f.gvlNames, f.kind)).map((it) => [it.wire, it])).values()]
   try {
     await pushOps(items.map((it) => ({ op: "set", name: it.wire, toFolder: plcFolder, sourceText: it.src, ifVersion: null })))
     if (t.plcPrgVar !== undefined || t.plcPrgBody !== undefined) {

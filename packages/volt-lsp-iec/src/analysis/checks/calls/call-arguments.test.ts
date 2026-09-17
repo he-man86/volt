@@ -11,7 +11,16 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 /** All diagnostic codes emitted across the given source units (project built from all of them). */
 function codes(...sources: string[]): string[] {
-  const files = sources.map((source, i) => ({ uri: `u${i}.fb`, source, parseResult: parseSource(source) }))
+  // Named after the POU each source declares, as a workspace is: one item, one file, and the file carries the
+  // object's name. An arbitrary `u0.fb` is a real CODESYS error ("The name used in the signature is not identical
+  // to the object name"), which `signature-name` now reports — so a harness that invents file names accuses its
+  // own fixtures.
+  const files = sources.map((source, i) => {
+    const parseResult = parseSource(source)
+    const first = parseResult.units.find((u) => "name" in u) as { name?: { text: string } } | undefined
+    const ext = source.trimStart().startsWith("PROGRAM") ? "prg" : source.trimStart().startsWith("FUNCTION ") ? "fun" : "fb"
+    return { uri: `${first?.name?.text ?? `u${i}`}.${ext}`, source, parseResult }
+  })
   const project = buildSymbolTable(files)
   const config = resolveConfig({ vendor: "codesys" })
   return files.flatMap((f) =>

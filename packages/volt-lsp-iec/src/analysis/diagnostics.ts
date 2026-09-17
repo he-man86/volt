@@ -83,6 +83,7 @@ import { checkTypeAsValue } from "./checks/names/type-as-value.js"
 import { checkReservedKeyword } from "./checks/names/reserved-keyword.js"
 import { checkRefusedName } from "./checks/names/refused-name.js"
 import { checkUnknownSource } from "./checks/types/unknown-source.js"
+import { checkSignatureName } from "./checks/declarations/signature-name.js"
 import { checkUnsupportedOperator } from "./checks/types/unsupported-operator.js"
 import { checkTimeLiteralUnit } from "./checks/types/time-literal-unit.js"
 import { checkVarSectionPlacement } from "./checks/declarations/var-section-placement.js"
@@ -194,6 +195,7 @@ const CHECKS: readonly Check[] = [
   // syntax/ — surfaces every parser-recorded syntax error (declaration structure + statement bodies), held to
   // the corpus + conformance zero-FP gate (a parse error on clean code is a grammar gap to fix, never a shipped
   // FP). See change `resilient-st-parse-errors`.
+  checkSignatureName,
   checkParseErrors,
   // LAST: it reports only where an earlier check already explained the hole (see its header).
   checkUnknownSource,
@@ -213,6 +215,7 @@ const CODESYS_ONLY: ReadonlySet<Check> = new Set<Check>([
   checkTimeLiteralUnit, // TwinCAT unmeasured
   checkUnsupportedOperator, // TwinCAT unmeasured
   checkUnknownSource, // TwinCAT unmeasured
+  checkSignatureName, // TwinCAT unmeasured (the rule is structural and likely shared — likely is not measured)
 ])
 
 export interface DiagnosticsArgs {

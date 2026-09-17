@@ -8,13 +8,14 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"
 import { buildSymbolTable } from "../../../symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { uriFor } from "../../test-uri.js"
 
 const cs = (arms: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src =
     `PROGRAM PLC_PRG\nVAR\n  i : INT;\n  a : INT := 2;\nEND_VAR\nVAR CONSTANT\n  K : INT := 7;\nEND_VAR\n` +
     `CASE i OF\n${arms}\nEND_CASE\nEND_PROGRAM`
   const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }])
+  const project = buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }])
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.severity === "error")
     .map((d) => d.message)
@@ -46,7 +47,7 @@ test("an empty CASE arm is an error (C0426, live-verified); comma is the legal f
 test("C0218: enum-member labels stay quiet (the 207-FP case)", () => {
   const src = `FUNCTION_BLOCK F\nVAR\n  st : (A, B, C);\n  n : INT;\nEND_VAR\nCASE st OF\n  A: n:=1;\n  B: n:=2;\n  C: n:=3;\nEND_CASE\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const project = buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }])
   const msgs = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "case-label-non-const")
     .map((d) => d.message)

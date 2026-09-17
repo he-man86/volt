@@ -78,7 +78,7 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // for the type, once for the instance initialisation it generates — and the LSP now does the same (measured with
   // `initializer-repeat.ts`: no instance 0, one instance 2, two instances 2, nested 2, PROGRAM 1; so it is per-type,
   // not per-instance). The goal is the IDE's answer, not a tidier one.
-  { vendor: "codesys", filename: "codesys.build.json", floor: 840 },
+  { vendor: "codesys", filename: "codesys.build.json", floor: 848 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
@@ -133,6 +133,10 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     "cc2_var_in_interface",
     "itf_var_section_declaration",
     "itf_var_section_inherited",
+    //   `sn_dut_mismatch` — a DUT whose type name disagrees with its object, REFERENCED BY NOBODY. The same
+    //                            reachability rule, and `sn_dut_mismatch_used` is the proof it is only that: add
+    //                            one FB that declares a variable of the type and CODESYS reports the mismatch.
+    "sn_dut_mismatch",
     //   `op_sys_new_delete` — the same device fact: the recording project configures no dynamic memory, so every
     //                            __NEW reports that instead of anything about the code.
     "op_sys_new_delete",
@@ -171,7 +175,10 @@ const CROSS_DECLS = PARSED.map((p) => ({
 const PLC_PRGS = ALL_TESTS.map((t) => {
   if (t.plcPrgVar === undefined && t.plcPrgBody === undefined) return undefined
   const source = plcPrgSource(t)
-  return { uri: `file:///conformance/${t.name}__plcprg.fb`, source, parseResult: parseSource(source) }
+  // A DIRECTORY per fixture, so the file's BASE NAME is the object's name — `PLC_PRG.prg`, as a workspace has it.
+  // It used to be `<fixture>__plcprg.fb`, which made every synthesized PLC_PRG look like a POU whose signature
+  // disagrees with its object name (`signature-name`), and that is a real CODESYS error, not a harness detail.
+  return { uri: `file:///conformance/${t.name}/PLC_PRG.prg`, source, parseResult: parseSource(source) }
 })
 
 function extFor(kind: string): string {
