@@ -2,7 +2,7 @@
  * Statements → IR: assignment and its chains and latches, IF, CASE, the three loops, and call statements.
  */
 import type { Statement, StatementList } from "../../syntax/index.js"
-import { elementaryRef } from "../../types/index.js"
+import { elementaryRef, commonType} from "../../types/index.js"
 import type { IrArm, IrExpr, IrStmt, IrValue } from "../ir/index.js"
 import { holdsCall } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
@@ -205,8 +205,20 @@ export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): 
   // — guessing `<=` would run a negative step zero times.
   const stepExpr: IrExpr = step === undefined ? convert(by!, control.type) : { kind: "const", value: step, type: control.type, span: s.by?.span ?? s.span }
   const bool = elementaryRef("BOOL")
-  const current: IrExpr = { kind: "load", place: control, type: control.type, span: s.controlVar.span }
-  const limit = convert(to, to.type)
+  // THE TEST MEETS THE PAIR IN THE COMMON TYPE, like every other comparison.
+  //
+  // This was `convert(to, to.type)` — a no-op — so the limit kept its own type and the counter kept its own,
+  // and the emitted test compared them AS THEY WERE: `FOR i := 1 TO hi` with `i : INT` and `hi : DINT` printed
+  // `self.i <= self.hi`, which is `i16 <= i32` and which rustc rejects with E0308. Zero diagnostics, on ordinary
+  // ST that CODESYS compiles.
+  //
+  // `commonType` rather than `control.type`, and the difference is not cosmetic: narrowing the LIMIT into the
+  // counter's type would wrap a limit the counter cannot hold (a DINT 100000 into an INT is -31072, and the loop
+  // would run zero times instead of until the counter wraps). Promoting is what `commonType` already encodes for
+  // binary operands, measured — the signed type at equal width, the wider rank otherwise.
+  const compareIn = commonType(control.type, to.type)
+  const current: IrExpr = convert({ kind: "load", place: control, type: control.type, span: s.controlVar.span }, compareIn)
+  const limit = convert(to, compareIn)
   const binary = (op: "le" | "ge" | "lt" | "and" | "or", left: IrExpr, right: IrExpr): IrExpr => ({ kind: "binary", op, left, right, type: bool, span: s.span })
   const zero: IrExpr = { kind: "const", value: 0n, type: control.type, span: s.span }
   // an unsigned control variable's step cannot be negative: its loop only counts up (and `0u16 <= step` is a rustc lint)

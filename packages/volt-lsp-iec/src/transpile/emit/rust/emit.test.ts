@@ -606,3 +606,26 @@ describe.skipIf(skipRustSuite())("emit/rust — compiles", () => {
     expect(proc.exitCode).toBe(0)
   }, 60_000)
 })
+
+/**
+ * A FOR LIMIT OF A DIFFERENT TYPE FROM THE COUNTER — the test meets the pair, as every other comparison does.
+ *
+ * The limit was converted to its OWN type (a no-op), so the emitted test compared the two as they were:
+ * `FOR i := 1 TO hi` with `i : INT` and `hi : DINT` printed `self.i <= self.hi` — `i16 <= i32`, which rustc
+ * rejects with E0308 — and lowering reported nothing. Ordinary ST that CODESYS compiles, and no recorded case
+ * caught it because no fixture mixes the two widths.
+ *
+ * It PROMOTES rather than narrows, and that is the load-bearing half: narrowing the LIMIT into the counter's
+ * type would wrap a limit the counter cannot hold (a DINT 100000 into an INT is -31072, and the loop would run
+ * zero times instead of until the counter wraps). `commonType` is the promotion the binary operators already
+ * use, measured.
+ */
+describe("emit/rust — a FOR whose limit is a different type", () => {
+  test("the counter is promoted to the common type, so the comparison is same-typed", () => {
+    expect(rust("PROGRAM P\nVAR\n\ti : INT;\n\thi : DINT := 5;\n\tn : INT;\nEND_VAR\nFOR i := 1 TO hi DO\n\tn := n + 1;\nEND_FOR\nEND_PROGRAM\n")).toContain("if !((self.i as i32) <= self.hi) { break; }")
+  })
+
+  test("a same-typed limit is left alone — no needless cast", () => {
+    expect(rust("PROGRAM P\nVAR\n\ti : INT;\n\thi : INT := 5;\n\tn : INT;\nEND_VAR\nFOR i := 1 TO hi DO\n\tn := n + 1;\nEND_FOR\nEND_PROGRAM\n")).toContain("if !(self.i <= self.hi) { break; }")
+  })
+})
