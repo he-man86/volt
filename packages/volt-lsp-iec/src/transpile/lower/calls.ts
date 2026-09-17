@@ -297,17 +297,37 @@ const typeKey = (t: Type): string => (t.kind === "elementary" ? `${t.name}${t.le
  * WITHOUT lowering it, since it is what decides which variant of the routine to lower. An argument that is not a place
  * (an expression, a literal) simply has no entry: the routine is then the plain one, whose `pValue` is refused.
  */
+/**
+ * THE POSITIONAL PARAMETER ORDER of a routine, derived ONCE from its declaration: every VAR_INPUT, VAR_IN_OUT and
+ * VAR_OUTPUT name in the order written, which is what an argument with no `param :=` binds to.
+ *
+ * Two places built this from the same AST with the same filter — the ANY-variant pass and `positionalOf` — so a change
+ * to either (a section admitted, an order) would have left them disagreeing about what `f(a, b)` means, in a way
+ * nothing compares.
+ */
+function positionalParameters(sections: readonly VarSection[]): {
+  name: string
+  output: boolean
+  sectionKind: VarSection["sectionKind"]
+  type: VarSection["decls"][number]["type"]
+}[] {
+  return sections
+    .filter((s) => s.sectionKind === "VAR_INPUT" || s.sectionKind === "VAR_IN_OUT" || s.sectionKind === "VAR_OUTPUT")
+    .flatMap((s) =>
+      s.decls.flatMap((d) => d.names.map((n) => ({ name: n.text, output: s.sectionKind === "VAR_OUTPUT", sectionKind: s.sectionKind, type: d.type }))),
+    )
+}
+
 function anyArgumentTypes(lw: Lowering, sym: RoutineSymbol, call: Extract<Expr, { kind: "call" }>): Map<string, Type> {
   const ast = sym.ast as Extract<TopLevel, { kind: "method" | "action" | "function" }>
   const sections = ast.kind === "action" ? [] : ast.varSections
-  const any = new Set<string>()
-  const declared: string[] = []
-  for (const section of sections.filter((s) => s.sectionKind === "VAR_INPUT" || s.sectionKind === "VAR_IN_OUT" || s.sectionKind === "VAR_OUTPUT"))
-    for (const decl of section.decls)
-      for (const n of decl.names) {
-        declared.push(n.text.toUpperCase())
-        if (section.sectionKind === "VAR_INPUT" && decl.type.kind === "named_type" && ANY_FAMILIES.has(decl.type.name.text.toUpperCase())) any.add(n.text.toUpperCase())
-      }
+  const parameters = positionalParameters(sections)
+  const declared = parameters.map((prm) => prm.name.toUpperCase())
+  const any = new Set(
+    parameters
+      .filter((prm) => prm.sectionKind === "VAR_INPUT" && prm.type.kind === "named_type" && ANY_FAMILIES.has(prm.type.name.text.toUpperCase()))
+      .map((prm) => prm.name.toUpperCase()),
+  )
   const out = new Map<string, Type>()
   if (any.size === 0) return out
   for (const [position, arg] of call.args.entries()) {
@@ -398,9 +418,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     anyInputsOf(lw).set(key, new Set(inputs.filter((i) => r.anyInputs.has(r.localSlots[i]!.name.toUpperCase()))))
     positionalOf(lw).set(
       key,
-      sections
-        .filter((s) => s.sectionKind === "VAR_INPUT" || s.sectionKind === "VAR_IN_OUT" || s.sectionKind === "VAR_OUTPUT")
-        .flatMap((s) => s.decls.flatMap((d) => d.names.map((n) => ({ name: n.text, output: s.sectionKind === "VAR_OUTPUT" })))),
+      positionalParameters(sections).map(({ name, output }) => ({ name, output })),
     )
     declareVars(r, sections.filter((s) => s.sectionKind === "VAR" || s.sectionKind === "VAR_TEMP"))
     declareInOuts(r, sections.filter((s) => s.sectionKind === "VAR_IN_OUT"))

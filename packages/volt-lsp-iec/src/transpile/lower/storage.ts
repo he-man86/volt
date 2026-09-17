@@ -10,8 +10,17 @@ import { stored, valueAs } from "./convert.js"
 import { calendarOf, durationOf, enumStorage, foldConstant, refuseUnmeasuredEnumDefault, stringLiteralText, TEMPORAL_LITERAL_KINDS, typedRealOf } from "./constants.js"
 import { overlayBytes } from "./unions.js"
 
-/** The FB variable sections that are an instance's storage. VAR_IN_OUT is not: it aliases the caller's variable. Nor is
- *  VAR_STAT, shared by every instance (`declareStatics`); VAR_TEMP is, started over on each run (`tempResets`). */
+/**
+ * The FB variable sections that get a FRAME SLOT. VAR_IN_OUT does not: it aliases the caller's variable. Nor does
+ * VAR_STAT, which is shared by every instance (`declareStatics`). VAR_TEMP does, and is started over on each run
+ * (`tempResets`).
+ *
+ * A FRAME SLOT IS NOT THE SAME AS A BYTE IN THE INSTANCE, and this said "an instance's storage", which reads as if it
+ * were. `bytes.ts` skips VAR_TEMP and VAR_STAT when it lays an instance out, and says the opposite in its own words —
+ * the two files were read as contradicting each other. They do not: a temp lives in the frame so the body can use it,
+ * and is absent from the layout SIZEOF reports. **What CODESYS answers for SIZEOF of an FB holding a VAR_TEMP is not
+ * measured** — `mem_sizeof_fb_with_temp` and `mem_sizeof_fb_with_stat` record it against a baseline that has neither.
+ */
 export const INSTANCE_STORAGE: ReadonlySet<string> = new Set(["VAR", "VAR_INPUT", "VAR_OUTPUT", "VAR_TEMP"])
 
 /** A slot's string type with its capacity stated: a sizeless STRING or WSTRING holds `DEFAULT_STRING_LENGTH`. */

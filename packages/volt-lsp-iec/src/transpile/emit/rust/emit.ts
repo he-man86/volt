@@ -490,7 +490,9 @@ class Printer {
           // The IN-RANGE cast first, and not only as a fast path: `rem_euclid` on a small negative is catastrophic,
           // because 2^64 - 1 is not representable and rounds back to 2^64 — so -0.5 came out 0 instead of -1. Past
           // i64 the float is already a multiple of a large power of two, and there the remainder is exact.
-          return `({ let __c = ${value}.round(); if __c >= -9223372036854775808.0 && __c < 9223372036854775808.0 { __c as i64 } else { let __m = __c.rem_euclid(18446744073709551616.0); if __m >= 9223372036854775808.0 { (__m - 18446744073709551616.0) as i64 } else { __m as i64 } } } as ${target})`
+          // The NaN arm panics rather than answering 0, matching the interpreter — see `coerce`. It costs nothing on
+          // the in-range path, which is the only one an ordinary program takes.
+          return `({ let __c = ${value}.round(); if __c >= -9223372036854775808.0 && __c < 9223372036854775808.0 { __c as i64 } else if __c.is_nan() { panic!("a NaN converted to an integer is not measured") } else { let __m = __c.rem_euclid(18446744073709551616.0); if __m >= 9223372036854775808.0 { (__m - 18446744073709551616.0) as i64 } else { __m as i64 } } } as ${target})`
         }
         return `(${value} as ${target})`
       }

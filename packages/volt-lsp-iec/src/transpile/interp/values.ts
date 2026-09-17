@@ -253,7 +253,14 @@ export function coerce(v: Val, to: Type, from: Type): Val {
   if (family === "real") return typeof n === "bigint" ? Number(n) : n
   // Math.round alone rounds -2.5 to -2 (half toward +infinity); on the magnitude it is half away from zero.
   // REAL → TIME rounds the same way: REAL_TO_TIME(2.5) is 3ms (conformance `temporal_conversions`)
-  if (typeof n === "number" && (to.elem.rank !== undefined || family === "time")) return BigInt(Math.sign(n) * Math.round(Math.abs(n)))
+  if (typeof n === "number" && (to.elem.rank !== undefined || family === "time")) {
+    // A NaN REACHING AN INTEGER FAULTS, in BOTH backends, because nothing measures what the vendor answers. It threw
+    // here already — `BigInt(NaN)` does — while the emitted Rust quietly produced 0, so the two disagreed about a
+    // whole class of program in silence. Faulting loudly in both is the honest state until `real_to_dint_nan`
+    // records the real one; inventing 0 would put a guess in the oracle every other backend is graded against.
+    if (Number.isNaN(n)) throw new TypeError(`a NaN converted to ${elemName(to)} — what CODESYS answers is not measured`)
+    return BigInt(Math.sign(n) * Math.round(Math.abs(n)))
+  }
   return n
 }
 

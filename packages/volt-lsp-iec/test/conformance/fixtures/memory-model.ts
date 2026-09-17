@@ -138,4 +138,38 @@ p^ := 99;
 END_FUNCTION_BLOCK
 `,
   },
+  // ─── DOES A VAR_TEMP OR VAR_STAT TAKE ROOM IN THE INSTANCE? ────────────────────────────────────────
+  // `storage.ts` gives both a FRAME SLOT while `bytes.ts` skips both when it lays an instance out, and the two files
+  // described that in words that read as a contradiction. Nothing measured which the vendor agrees with, and SIZEOF
+  // is the question that tells: the baseline holds one DINT, and the other two add a temp and a static to it.
+  {
+    name: "mem_sizeof_fb_baseline_one_dint",
+    pouName: "FB_MEM_fb_baseline_one_dint",
+    kind: "function_block" as const,
+    feature: "SIZEOF an FB with one DINT and no temp or static — the baseline",
+    fromDoc: doc,
+    plcPrgVar: "inst_fb_baseline_one_dint : FB_MEM_fb_baseline_one_dint; sz_fb_baseline_one_dint : ULINT;",
+    plcPrgBody: "sz_fb_baseline_one_dint := SIZEOF(inst_fb_baseline_one_dint);",
+    source: "FUNCTION_BLOCK FB_MEM_fb_baseline_one_dint\nVAR\n\tkept : DINT;\nEND_VAR\nkept := kept + 1;\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "mem_sizeof_fb_with_temp",
+    pouName: "FB_MEM_fb_with_temp",
+    kind: "function_block" as const,
+    feature: "SIZEOF an FB that also declares a VAR_TEMP — is the temp in the instance?",
+    fromDoc: doc,
+    plcPrgVar: "inst_fb_with_temp : FB_MEM_fb_with_temp; sz_fb_with_temp : ULINT;",
+    plcPrgBody: "sz_fb_with_temp := SIZEOF(inst_fb_with_temp);",
+    source: "FUNCTION_BLOCK FB_MEM_fb_with_temp\nVAR\n\tkept : DINT;\nEND_VAR\nVAR_TEMP\n\tscratch : LREAL;\nEND_VAR\nkept := kept + 1;\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "mem_sizeof_fb_with_stat",
+    pouName: "FB_MEM_fb_with_stat",
+    kind: "function_block" as const,
+    feature: "SIZEOF an FB that also declares a VAR_STAT — is the static in the instance?",
+    fromDoc: doc,
+    plcPrgVar: "inst_fb_with_stat : FB_MEM_fb_with_stat; sz_fb_with_stat : ULINT;",
+    plcPrgBody: "sz_fb_with_stat := SIZEOF(inst_fb_with_stat);",
+    source: "FUNCTION_BLOCK FB_MEM_fb_with_stat\nVAR\n\tkept : DINT;\nEND_VAR\nVAR_STAT\n\tshared : LREAL;\nEND_VAR\nkept := kept + 1;\nEND_FUNCTION_BLOCK\n",
+  },
 ]
