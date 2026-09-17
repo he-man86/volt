@@ -202,11 +202,35 @@ describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
       test.todo(`${c.name} — deferred: ${c.deferred.transpile}`, () => {})
       continue
     }
-    // A FIXTURE written to BUILD can fault when it runs — `use_pointer_deref_struct_field` writes through a pointer its FB
-    // body never set, and the simulator stops the application (the recorder times out, as SQRT(-1) does). There is no value
-    // to compare, so it is a counted todo naming the fault.
+    // A FIXTURE WRITTEN TO BUILD CAN FAULT WHEN IT RUNS — `use_pointer_deref_struct_field` writes through a pointer
+    // its FB body never set, `cc_div_udint_dint` divides by a zero-initialised DINT — and the simulator STOPS THE
+    // APPLICATION, which reaches the recorder as a timeout or a done flag that never rose.
+    //
+    // There is no value to compare, and that used to make this a counted `todo`: the case was named and then never
+    // run. But "no value to compare" is not "nothing to check". CODESYS's answer here is REFUSAL, and refusal is a
+    // behaviour the transpiler has to match — the failure this guards against is the interpreter quietly returning
+    // a number for `p^` on a null pointer or for `a / 0`, which would be a silent divergence on exactly the inputs
+    // where being wrong is worst. Six fixtures were sitting in that blind spot.
+    //
+    // EITHER refusal counts, and the two are not ranked. Four of the six throw at run time (division by zero, a
+    // call through an interface holding no instance); two never lower at all (`pointer-order` — a dereference of a
+    // pointer no address was stored into), which catches it a stage EARLIER than CODESYS does. Asserting the
+    // disjunction keeps this green when a construct graduates from "cannot lower" to "lowers, then faults", which
+    // is progress and not a regression; what it will never let through is a completed scan.
     if (c.source !== "" && rec.error !== undefined && !rec.error.startsWith("does not compile")) {
-      test.todo(`${c.name} — does not run in CODESYS: ${rec.error}`, () => {})
+      test(`${c.name} — faults in CODESYS (${rec.error.slice(0, 40)}), and must fault here too`, () => {
+        const lowered = lowering(c)
+        if (lowered.pou === undefined) {
+          // Refused before it could run — a stricter refusal, still a refusal. It must SAY why: a lowering that
+          // produced neither a POU nor a diagnostic would be this test passing on an empty result.
+          expect(lowered.diagnostics.length).toBeGreaterThan(0)
+          return
+        }
+        expect(() => {
+          const pou = run(lowered.pou!)
+          for (let i = 0; i < (c.cycles ?? 1); i++) pou.scan()
+        }).toThrow()
+      })
       continue
     }
     // A fixture that does not COMPILE in the simulator is NOT that, and it is not a transpiler result either: the
