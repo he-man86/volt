@@ -490,7 +490,7 @@ public static class StReader
 		// An INTERFACE's accessors are signatures — no body, so no marker and nothing to split.
 		if (!marked) return new Accessor(string.Join("\n", inner).TrimEnd('\n'), "");
 		int at = ImplementationMarker.IndexIn(inner);
-		if (at < 0) throw Unmarked("a property accessor");
+		if (at < 0) throw Unmarked("property accessor");
 		var (decl, impl) = SplitAtMarker(inner, at);
 		return new Accessor(decl, impl);
 	}

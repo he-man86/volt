@@ -41,7 +41,7 @@ const git = (cwd: string, ...args: string[]): void => {
 
 // A FB whose one interesting line (the initial value) is what each side changes — so the two edits collide on the
 // SAME line and git can't auto-merge (a real conflict, not a clean 3-way).
-const fb = (name: string, v: number): string => `FUNCTION_BLOCK ${name}\nVAR\n\tval : INT := ${v};\nEND_VAR\nEND_FUNCTION_BLOCK`
+const fb = (name: string, v: number): string => `FUNCTION_BLOCK ${name}\nVAR\n\tval : INT := ${v};\nEND_VAR\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK`
 
 /** The on-disk src file for an item id (its src-relative path is also the tool ref path). */
 function srcFileOf(root: string, itemId: string): { abs: string; rel: string } {

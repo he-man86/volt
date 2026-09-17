@@ -44,7 +44,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const name = id("pf_en")
 		const full = fid("pf_en", "prg")
 		const src =
-			`PROGRAM ${name}\nVAR\n\tgo : BOOL;\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n\n` +
+			`PROGRAM ${name}\nVAR\n\tgo : BOOL;\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n(* @volt-implementation *)\n` +
 			// The EN/ENO form is ONE LINE — `IF en THEN <result>; END_IF` (network-text.md §6).
 			`NETWORK 0 FBD\n  LET en1 := go;\n  IF en1 THEN out := (a AND b); END_IF\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
@@ -84,8 +84,8 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const name = id("pf_fn")
 		const full = fid("pf_fn", "prg")
 		const src =
-			`PROGRAM ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tout : INT;\nEND_VAR\n\n` +
-			`NETWORK 0 FBD\n  out := MAX(a, b);\nEND_NETWORK\n\n` +
+			`PROGRAM ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tout : INT;\nEND_VAR\n` +
+			`(* @volt-implementation *)\nNETWORK 0 FBD\n  out := MAX(a, b);\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
@@ -107,8 +107,8 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const name = id("pf_pins")
 		const full = fid("pf_pins", "prg")
 		const src =
-			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\tgo : BOOL;\n\tpt : TIME;\nEND_VAR\n\n` +
-			`NETWORK 0 FBD\n  t1(IN := go, PT := pt);\nEND_NETWORK\n\n` +
+			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\tgo : BOOL;\n\tpt : TIME;\nEND_VAR\n` +
+			`(* @volt-implementation *)\nNETWORK 0 FBD\n  t1(IN := go, PT := pt);\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		// Create, then edit the PULLED text rather than re-stating the body. The IDE decides its own network
@@ -142,8 +142,8 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const name = id("pf_neg")
 		const full = fid("pf_neg", "prg")
 		const src =
-			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n\n` +
-			`NETWORK 0 LD\n  out := (NOT a AND b);\nEND_NETWORK\n\n` +
+			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
+			`(* @volt-implementation *)\nNETWORK 0 LD\n  out := (NOT a AND b);\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
@@ -163,8 +163,8 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const name = id("pf_set")
 		const full = fid("pf_set", "prg")
 		const src =
-			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n\n` +
-			`NETWORK 0 LD\n  out S= a;\nEND_NETWORK\n\n` +
+			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
+			`(* @volt-implementation *)\nNETWORK 0 LD\n  out S= a;\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
@@ -182,8 +182,8 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const name = id("pf_fix")
 		const full = fid("pf_fix", "prg")
 		const src =
-			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n\n` +
-			`NETWORK 0 LD\n  out S= (NOT a AND b);\nEND_NETWORK\n\n` +
+			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
+			`(* @volt-implementation *)\nNETWORK 0 LD\n  out S= (NOT a AND b);\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		const once = await roundTrip(full, src)
@@ -217,10 +217,10 @@ VAR
 	r : BOOL;
 	s : BOOL;
 END_VAR
-
 ` +
 			// Two fan-outs, in two networks, so the test sees both the edited one and its untouched neighbour.
-			`NETWORK 0 FBD
+			`(* @volt-implementation *)
+NETWORK 0 FBD
   LET g0 := (a AND b);
   p := g0;
   q := g0;
@@ -274,10 +274,10 @@ VAR
 	pt : TIME;
 	done : BOOL;
 END_VAR
-
 ` +
 			// Canonical form puts NO blank line between networks — the push gate refuses otherwise, and says so.
-			`NETWORK 0 FBD
+			`(* @volt-implementation *)
+NETWORK 0 FBD
   t1(IN := go, PT := pt);
 END_NETWORK
 ` +

@@ -51,7 +51,7 @@ function sources(lang: string) {
 	const withMember = (n: string, member: string) =>
 		// The parent's OWN body is ST on purpose. A member's language is independent of its parent's, and an
 		// all-graphical document would still pass while the splice wrote the member's body into the parent's.
-		`FUNCTION_BLOCK ${n}\n${VARS}\n\nout := a;\nEND_FUNCTION_BLOCK\n${member}`
+		`FUNCTION_BLOCK ${n}\n${VARS}\n(* @volt-implementation *)\nout := a;\nEND_FUNCTION_BLOCK\n${member}`
 
 	/** A member whose body CALLS AN FB INSTANCE DECLARED ONE LEVEL UP — `t1 : TON` is in the owner's VAR
 	 *  block, never the member's, which is where a stateful instance has to live.
@@ -63,23 +63,23 @@ function sources(lang: string) {
 	 *  instance that is not declared in this POU", advice pointing at work already done. An ACTION is the
 	 *  starkest case: it has no declaration at all. */
 	const withFbCall = (n: string, member: string) =>
-		`FUNCTION_BLOCK ${n}\n${VARS}\n\nout := a;\nEND_FUNCTION_BLOCK\n${member}`
+		`FUNCTION_BLOCK ${n}\n${VARS}\n(* @volt-implementation *)\nout := a;\nEND_FUNCTION_BLOCK\n${member}`
 	return {
-		fb: (n: string) => `FUNCTION_BLOCK ${n}\n${VARS}\n\n${net("out")}\nEND_FUNCTION_BLOCK\n`,
-		prg: (n: string) => `PROGRAM ${n}\n${VARS}\n\n${net("out")}\nEND_PROGRAM\n`,
+		fb: (n: string) => `FUNCTION_BLOCK ${n}\n${VARS}\n(* @volt-implementation *)\n${net("out")}\nEND_FUNCTION_BLOCK\n`,
+		prg: (n: string) => `PROGRAM ${n}\n${VARS}\n(* @volt-implementation *)\n${net("out")}\nEND_PROGRAM\n`,
 		// A FUNCTION's coil is its RETURN variable — the function's own name. BOOL return so a coil can drive it.
-		fun: (n: string) => `FUNCTION ${n} : BOOL\nVAR_INPUT\n\ta : BOOL;\n\tb : BOOL;\nEND_VAR\n\n${net(n)}\nEND_FUNCTION\n`,
-		method: (n: string) => withMember(n, `\nMETHOD M_G : BOOL\nVAR_INPUT\n\tp : BOOL;\nEND_VAR\n${net("M_G", "a", "p")}\nEND_METHOD\n`),
+		fun: (n: string) => `FUNCTION ${n} : BOOL\nVAR_INPUT\n\ta : BOOL;\n\tb : BOOL;\nEND_VAR\n(* @volt-implementation *)\n${net(n)}\nEND_FUNCTION\n`,
+		method: (n: string) => withMember(n, `\nMETHOD M_G : BOOL\nVAR_INPUT\n\tp : BOOL;\nEND_VAR\n(* @volt-implementation *)\n${net("M_G", "a", "p")}\nEND_METHOD\n`),
 		// the FB call reaches the OWNER's VAR block for `t1`
 		methodFbCall: (n: string) =>
-			withFbCall(n, `\nMETHOD M_C : BOOL\n${callNet(lang)}\nEND_METHOD\n`),
+			withFbCall(n, `\nMETHOD M_C : BOOL\n(* @volt-implementation *)\n${callNet(lang)}\nEND_METHOD\n`),
 		actionFbCall: (n: string) =>
-			withFbCall(n, `\nACTION A_C\n${callNet(lang)}\nEND_ACTION\n`),
-		action: (n: string) => withMember(n, `\nACTION A_G\n${net("out")}\nEND_ACTION\n`),
+			withFbCall(n, `\nACTION A_C\n(* @volt-implementation *)\n${callNet(lang)}\nEND_ACTION\n`),
+		action: (n: string) => withMember(n, `\nACTION A_G\n(* @volt-implementation *)\n${net("out")}\nEND_ACTION\n`),
 		// Both accessors graphical, and they are NOT symmetric: a GET's coil is the property itself, a SET's is
 		// driven BY it. Writing one and asserting the other is how an accessor bug hides.
 		property: (n: string) =>
-			withMember(n, `\nPROPERTY P_G : BOOL\nGET\n${net("P_G")}\nEND_GET\nSET\n${net("out", "P_G", "a")}\nEND_SET\nEND_PROPERTY\n`),
+			withMember(n, `\nPROPERTY P_G : BOOL\nGET\n(* @volt-implementation *)\n${net("P_G")}\nEND_GET\nSET\n(* @volt-implementation *)\n${net("out", "P_G", "a")}\nEND_SET\nEND_PROPERTY\n`),
 	}
 }
 

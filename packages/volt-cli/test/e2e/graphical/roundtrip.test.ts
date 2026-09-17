@@ -20,7 +20,7 @@ VAR
 \tb : BOOL;
 \tout : BOOL;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 FBD
   out := NOT (a AND b);
 END_NETWORK
@@ -36,7 +36,7 @@ VAR
 \tb : BOOL;
 \tout : BOOL;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD
   out := (a AND b);
 END_NETWORK
@@ -60,7 +60,7 @@ VAR
 \tb : BOOL;
 \tout : BOOL;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD
   out := (NOT a AND b);
 END_NETWORK
@@ -76,7 +76,7 @@ VAR
 \tc : BOOL;
 \tout : BOOL;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD
   out := (a AND b AND c);
 END_NETWORK
@@ -92,7 +92,7 @@ VAR
 \tq : BOOL;
 \tr : BOOL;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD
   q := a;
   r := b;
@@ -107,7 +107,7 @@ VAR
 \ta : BOOL;
 \tout : BOOL;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD
   out S= a;
 END_NETWORK
@@ -126,7 +126,7 @@ VAR
 \tbRun : BOOL := TRUE;
 \tiResult : INT;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 FBD
   LET en1 := bRun;
   IF en1 THEN
@@ -155,7 +155,7 @@ function emptyExecuteProgram(name: string) {
 VAR
 	bRun : BOOL := TRUE;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 FBD
   LET en1 := bRun;
   IF en1 THEN
@@ -178,7 +178,7 @@ VAR
 \tb : BOOL;
 \tout : BOOL;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD
   out := (a AND b);
 END_NETWORK
@@ -442,7 +442,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		expect(before.sourceText).toMatch(/NETWORK\s+\d+\s+FBD\b/)
 
 		const r1 = await bridge.refs()
-		const stSrc = `PROGRAM ${name}\nVAR\n\tx : BOOL;\nEND_VAR\n\nx := TRUE;\nEND_PROGRAM\n`
+		const stSrc = `PROGRAM ${name}\nVAR\n\tx : BOOL;\nEND_VAR\n(* @volt-implementation *)\nx := TRUE;\nEND_PROGRAM\n`
 		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "set", name: fullName, sourceText: stSrc, ifVersion: r1.items[before.name] }] })
 		expect(r.accepted).toBe(false)
 		// Clear, actionable reason — and it names BOTH languages. It used to assert the word "graphical", which

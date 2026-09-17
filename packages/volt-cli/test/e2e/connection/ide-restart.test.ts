@@ -97,7 +97,7 @@ describe.skipIf(!ENABLED)(`ide-restart / close + reopen the IDE mid-connection (
 		}
 		expect(up).toBe(true)
 
-		await createItem(name, "FUNCTION_BLOCK VltE2E_restart_survives\nVAR\n\tkeep : INT := 99;\nEND_VAR\nEND_FUNCTION_BLOCK")
+		await createItem(name, "FUNCTION_BLOCK VltE2E_restart_survives\nVAR\n\tkeep : INT := 99;\nEND_VAR\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK")
 
 		// Now the real test: kill it AFTER the item is saved, reopen, and the item must still be there.
 		killIde(bound.project!)

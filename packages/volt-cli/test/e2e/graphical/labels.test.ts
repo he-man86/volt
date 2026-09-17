@@ -47,8 +47,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 		// Two networks, the second LABELLED. No jump yet - the label alone must survive, because it is the half
 		// that lives on the network object rather than in the statements.
 		const src =
-			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n\n` +
-			`NETWORK 0 FBD\n  out1 := (a AND b);\nEND_NETWORK\n` +
+			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
+			`(* @volt-implementation *)\nNETWORK 0 FBD\n  out1 := (a AND b);\nEND_NETWORK\n` +
 			`NETWORK 1 FBD LABEL: Done\n  out2 := (a OR b);\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
@@ -84,8 +84,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 		const before = await problems()
 
 		const src =
-			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n\n` +
-			`NETWORK 0 FBD\n  IF a THEN JMP Done; END_IF\nEND_NETWORK\n` +
+			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
+			`(* @volt-implementation *)\nNETWORK 0 FBD\n  IF a THEN JMP Done; END_IF\nEND_NETWORK\n` +
 			`NETWORK 1 FBD LABEL: Done\n  out := (a OR b);\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
@@ -125,8 +125,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 		const before = await problems()
 
 		const src =
-			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n\n` +
-			`NETWORK 0 FBD\n  IF a THEN RETURN; END_IF\nEND_NETWORK\n` +
+			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
+			`(* @volt-implementation *)\nNETWORK 0 FBD\n  IF a THEN RETURN; END_IF\nEND_NETWORK\n` +
 			`NETWORK 1 FBD\n  out := (a AND b);\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
@@ -167,8 +167,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 		await clean(item)
 
 		const src =
-			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n\n` +
-			`NETWORK 0 FBD\n  out := (a AND b);\nEND_NETWORK\n` +
+			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
+			`(* @volt-implementation *)\nNETWORK 0 FBD\n  out := (a AND b);\nEND_NETWORK\n` +
 			`NETWORK 1 FBD\n  RETURN;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
@@ -191,8 +191,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 		await clean(item)
 
 		const src =
-			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n\n` +
-			`NETWORK 0 FBD\n  JMP Done;\nEND_NETWORK\n` +
+			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
+			`(* @volt-implementation *)\nNETWORK 0 FBD\n  JMP Done;\nEND_NETWORK\n` +
 			`NETWORK 1 FBD LABEL: Done\n  out := (a AND b);\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])

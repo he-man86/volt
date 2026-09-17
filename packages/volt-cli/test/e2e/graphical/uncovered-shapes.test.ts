@@ -42,7 +42,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 
 	/** A program wrapper, so each case is only its networks. */
 	const prg = (name: string, networks: string, vars = "\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n") =>
-		`PROGRAM ${name}\nVAR\n${vars}END_VAR\n\n${networks}\nEND_PROGRAM\n`
+		`PROGRAM ${name}\n(* @volt-implementation *)\nVAR\n${vars}END_VAR\n\n${networks}\nEND_PROGRAM\n`
 
 	/** The diagnostics a body ADDS. Counted as a delta, because the fixture project reports its own. */
 	const added = async (before: any[]): Promise<string[]> => {

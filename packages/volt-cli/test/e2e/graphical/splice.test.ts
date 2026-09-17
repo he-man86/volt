@@ -27,7 +27,7 @@ VAR
 \tout1 : BOOL;
 \tout2 : BOOL;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 FBD
   out1 := (a AND b);
 END_NETWORK
@@ -93,7 +93,7 @@ VAR
 \tout1 : BOOL;
 \tout2 : BOOL;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 FBD
   out1 := (a AND b);
 END_NETWORK

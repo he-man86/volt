@@ -42,7 +42,7 @@ function stOfSameKind(fullName: string): string {
 	const [bare, ext] = [fullName.split(".")[0]!, fullName.split(".").pop()!]
 	const kw = ext === "prg" ? "PROGRAM" : ext === "fun" ? "FUNCTION" : "FUNCTION_BLOCK"
 	const head = kw === "FUNCTION" ? `${kw} ${bare} : INT` : `${kw} ${bare}`
-	return `${head}\nVAR\n\tnHacked : INT;\nEND_VAR\n\nnHacked := 1;\nEND_${kw}\n`
+	return `${head}\nVAR\n\tnHacked : INT;\nEND_VAR\n(* @volt-implementation *)\nnHacked := 1;\nEND_${kw}\n`
 }
 
 describe(`graphical / unsupported bodies are never overwritten (${BASE})`, () => {

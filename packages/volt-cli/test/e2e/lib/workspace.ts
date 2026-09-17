@@ -152,7 +152,7 @@ async function plcRoot(): Promise<string> {
 	// No standard main program (a library project): probe by creating a throwaway at the root, reading its
 	// resolved folder, then deleting it.
 	const probe = fid("__plcroot_probe__")
-	await pushOps([{ op: "set", name: probe, toFolder: "", sourceText: "FUNCTION_BLOCK X\nEND_FUNCTION_BLOCK", ifVersion: null }])
+	await pushOps([{ op: "set", name: probe, toFolder: "", sourceText: "FUNCTION_BLOCK X\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK", ifVersion: null }])
 	const root = (await fetchItem(probe)).folder ?? ""
 	await removeItem(probe)
 	return (_plcRoot = root)

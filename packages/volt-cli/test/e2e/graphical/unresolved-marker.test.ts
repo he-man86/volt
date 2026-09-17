@@ -47,7 +47,7 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 		const name = id(slug)
 		const item = fid(slug, "prg")
 		await clean(item)
-		const src = `PROGRAM ${name}\nVAR\n${vars}END_VAR\n\n${body}\nEND_PROGRAM\n`
+		const src = `PROGRAM ${name}\n(* @volt-implementation *)\nVAR\n${vars}END_VAR\n\n${body}\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 

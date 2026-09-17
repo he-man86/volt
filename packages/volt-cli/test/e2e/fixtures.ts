@@ -5,11 +5,17 @@
  * `%FOLDER <path>` directive at the top of the child body.
  */
 
+/** The line that says where a declaration ends — see `Volt.Engine/Format/St/ImplementationMarker.cs`.
+ *  Every builder below that has an implementation emits it, because that is what a pulled file looks like
+ *  and a push without it is refused. A GVL, a DUT and an INTERFACE carry none: they have no implementation
+ *  to separate. */
+export const MARK = "(* @volt-implementation *)"
+
 // ── top-level kinds ───────────────────────────────────────────────────────────
 export const fb = (name: string, opts: { vars?: string; body?: string; children?: string } = {}) =>
-	`FUNCTION_BLOCK ${name}\n${opts.vars ?? "VAR\n\tx : INT;\nEND_VAR"}\n\n${opts.body ?? "x := x + 1;"}\nEND_FUNCTION_BLOCK\n${opts.children ?? ""}`
-export const func = (name: string) => `FUNCTION ${name} : BOOL\nVAR_INPUT\n\ta : INT;\nEND_VAR\n\n${name} := a > 0;\nEND_FUNCTION\n`
-export const prog = (name: string, body = "n := n + 1;") => `PROGRAM ${name}\nVAR\n\tn : INT;\nEND_VAR\n\n${body}\nEND_PROGRAM\n`
+	`FUNCTION_BLOCK ${name}\n${opts.vars ?? "VAR\n\tx : INT;\nEND_VAR"}\n${MARK}\n${opts.body ?? "x := x + 1;"}\nEND_FUNCTION_BLOCK\n${opts.children ?? ""}`
+export const func = (name: string) => `FUNCTION ${name} : BOOL\nVAR_INPUT\n\ta : INT;\nEND_VAR\n${MARK}\n${name} := a > 0;\nEND_FUNCTION\n`
+export const prog = (name: string, body = "n := n + 1;") => `PROGRAM ${name}\nVAR\n\tn : INT;\nEND_VAR\n${MARK}\n${body}\nEND_PROGRAM\n`
 export const iface = (name: string, members = "") => `INTERFACE ${name}\n${members}END_INTERFACE\n`
 export const gvl = (name: string) => `VAR_GLOBAL\n\t${name}_g : INT := 7;\nEND_VAR\n`
 export const structDut = (name: string) => `TYPE ${name} :\nSTRUCT\n\ta : INT;\n\tb : BOOL;\nEND_STRUCT\nEND_TYPE\n`
@@ -18,10 +24,10 @@ export const unionDut = (name: string) => `TYPE ${name} :\nUNION\n\ti : INT;\n\t
 export const aliasDut = (name: string) => `TYPE ${name} : DWORD;\nEND_TYPE\n`
 
 // ── POU children ──────────────────────────────────────────────────────────────
-export const METHOD = (n: string, body?: string) => `\nMETHOD ${n} : INT\nVAR_INPUT\n\td : INT;\nEND_VAR\n${body ?? `${n} := d;`}\nEND_METHOD\n`
-export const ACTION = (n: string, body = "x := 1;") => `\nACTION ${n}\n${body}\nEND_ACTION\n`
+export const METHOD = (n: string, body?: string) => `\nMETHOD ${n} : INT\nVAR_INPUT\n\td : INT;\nEND_VAR\n${MARK}\n${body ?? `${n} := d;`}\nEND_METHOD\n`
+export const ACTION = (n: string, body = "x := 1;") => `\nACTION ${n}\n${MARK}\n${body}\nEND_ACTION\n`
 export const PROPERTY = (n: string, get = true, set = true) =>
-	`\nPROPERTY ${n} : INT\n` + (get ? `GET\n\t${n} := x;\nEND_GET\n` : "") + (set ? `SET\n\tx := ${n};\nEND_SET\n` : "") + `END_PROPERTY\n`
+	`\nPROPERTY ${n} : INT\n` + (get ? `GET\n${MARK}\n\t${n} := x;\nEND_GET\n` : "") + (set ? `SET\n${MARK}\n\tx := ${n};\nEND_SET\n` : "") + `END_PROPERTY\n`
 
 /** An INTERFACE property: same shape, BODILESS accessors. In IEC 61131-3 an interface declares the signature and
  *  implementers supply the code, so `GET\n\tReady := x;\nEND_GET` is not interface source at all. The interface

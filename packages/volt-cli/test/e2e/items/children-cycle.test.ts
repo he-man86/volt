@@ -82,11 +82,11 @@ describe(`lifecycle / children (${BASE})`, () => {
 
 	it("children in sub-folders (incl. a name with a space) round-trip", async () => {
 		const name = id("ch_subfolder"), wire = fid("ch_subfolder")
-		const children = `\nACTION A1\n%FOLDER Group One\nx := 1;\nEND_ACTION\n` + `\nACTION B1\n%FOLDER Group Two\nx := 2;\nEND_ACTION\n`
+		const children = `\nACTION A1\n(* @volt-implementation *)\n%FOLDER Group One\nx := 1;\nEND_ACTION\n` + `\nACTION B1\n(* @volt-implementation *)\n%FOLDER Group Two\nx := 2;\nEND_ACTION\n`
 		await createItem(wire, fb(name, { children }))
 		await ensureCompiles(name)
 		const s = await fetchSource(wire)
-		expect(s).toMatch(/ACTION A1\s+%FOLDER Group One/)
-		expect(s).toMatch(/ACTION B1\s+%FOLDER Group Two/)
+		expect(s).toMatch(/ACTION A1\n\(\* @volt-implementation \*\)\n%FOLDER Group One/)
+		expect(s).toMatch(/ACTION B1\n\(\* @volt-implementation \*\)\n%FOLDER Group Two/)
 	})
 })

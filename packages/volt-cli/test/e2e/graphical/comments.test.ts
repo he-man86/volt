@@ -34,8 +34,8 @@ describe(`graphical / titles and comments (${BASE})`, () => {
 		// A title on the header, a two-line comment inside, and a second network with NEITHER - so a body that
 		// mixes annotated and bare networks is covered in one go.
 		const src =
-			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n\n` +
-			`NETWORK 0 FBD TITLE: "the interlock"\n` +
+			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
+			`(* @volt-implementation *)\nNETWORK 0 FBD TITLE: "the interlock"\n` +
 			`  // holds the drive off while the guard is open\n` +
 			`  // second line of the same comment\n` +
 			`  out1 := (a AND b);\n` +
