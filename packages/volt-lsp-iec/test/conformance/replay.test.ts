@@ -78,7 +78,13 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // for the type, once for the instance initialisation it generates — and the LSP now does the same (measured with
   // `initializer-repeat.ts`: no instance 0, one instance 2, two instances 2, nested 2, PROGRAM 1; so it is per-type,
   // not per-instance). The goal is the IDE's answer, not a tidier one.
-  { vendor: "codesys", filename: "codesys.build.json", floor: 848 },
+  // 849 -> 857 (2026-09-17): NINE ng_* fixtures whose recorded "ground truth" was of a project they never
+  // entered. Their network text was not a round-trip fixed point, the bridge refused the push with
+  // NETWORK_NOT_CANONICAL, and the recorder (then) logged a warning and wrote down the build anyway — so the
+  // IDE side read `Unknown type: 'FB_NG_arith'`, which is PLC_PRG failing to find an FB that was never
+  // created. Rewritten with the canonical body the refusal prints verbatim, eight now build CLEAN and the
+  // ninth records real errors. No LSP change was involved in any of it.
+  { vendor: "codesys", filename: "codesys.build.json", floor: 857 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
@@ -242,6 +248,7 @@ for (const { vendor, filename, floor } of RECORDINGS) {
 
     let agree = 0
     const falsePositives: string[] = []
+    const disagreed: { name: string; lsp: string[]; ide: string[] }[] = []
     for (let i = 0; i < ALL_TESTS.length; i++) {
       const test = ALL_TESTS[i] as (typeof ALL_TESTS)[number]
       const rec = expected.tests[test.name]
@@ -255,6 +262,26 @@ for (const { vendor, filename, floor } of RECORDINGS) {
       // "anything we emit here is fine".
       if (test.deferred?.lsp !== undefined) continue
       if (lsp.length === ide.length && lsp.every((m, k) => m === ide[k])) agree += 1
+      else disagreed.push({ name: test.name, lsp, ide })
+    }
+
+    // `VOLT_REPLAY_REPORT=1 bun test test/conformance/replay.test.ts` — every fixture that is not exact agreement,
+    // with both sides printed. The ratchet says HOW MANY are left; closing them needs to know WHICH, and grepping a
+    // 890-entry recording by hand is how a session goes missing.
+    if (process.env.VOLT_REPLAY_REPORT === "1") {
+      // eslint-disable-next-line no-console
+      console.log(`\n[${vendor}] ${disagreed.length} fixture(s) not in exact agreement:`)
+      for (const d of disagreed) {
+        const ideSet = new Set(d.ide)
+        const lspSet = new Set(d.lsp)
+        // eslint-disable-next-line no-console
+        console.log(
+          `\n  ${d.name}\n` +
+            d.ide.map((m) => `    IDE  ${lspSet.has(m) ? " " : "-"} ${m}`).join("\n") +
+            (d.ide.length > 0 ? "\n" : "") +
+            d.lsp.map((m) => `    LSP  ${ideSet.has(m) ? " " : "+"} ${m}`).join("\n"),
+        )
+      }
     }
 
     it("emits NO false positives (every LSP message is a real IDE message)", () => {

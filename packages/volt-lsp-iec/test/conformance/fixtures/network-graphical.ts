@@ -104,7 +104,6 @@ END_VAR
 NETWORK 0 FBD
   sum := (x + y + z);
 END_NETWORK
-
 NETWORK 1 FBD
   rest := (x MOD y);
 END_NETWORK
@@ -124,7 +123,6 @@ END_VAR
 NETWORK 0 FBD
   below := (x < y);
 END_NETWORK
-
 NETWORK 1 FBD
   same := (x = y);
 END_NETWORK
@@ -216,7 +214,6 @@ END_VAR
 NETWORK 0 LD
   up := clk RISING;
 END_NETWORK
-
 NETWORK 1 LD
   down := clk FALLING;
 END_NETWORK
@@ -300,7 +297,8 @@ END_VAR
 
 NETWORK 0 FBD
   LET en1 := go;
-  IF en1 THEN LET g1 := (b OR c); END_IF
+  IF en1 THEN (b OR c); END_IF
+  LET g1 := en1;
   out := g1;
   out3 := g1;
 END_NETWORK
@@ -319,11 +317,11 @@ END_VAR
 NETWORK 0 FBD
   LET en1 := bRun;
   IF en1 THEN
-EXECUTE
+  EXECUTE
 IF bStart THEN
 \ttarget := 40 + 2;
 END_IF
-END_EXECUTE
+  END_EXECUTE
   END_IF
 END_NETWORK
 
@@ -343,7 +341,6 @@ NETWORK 0 LD
   out := TRUE;
   JMP Onwards;
 END_NETWORK
-
 NETWORK 1 LD LABEL: Onwards
   after := TRUE;
 END_NETWORK
@@ -363,16 +360,13 @@ END_VAR
 NETWORK 0 LD
   IF cond THEN JMP Tail; END_IF
 END_NETWORK
-
 NETWORK 1 LD
   IF cond THEN RETURN; END_IF
 END_NETWORK
-
 NETWORK 2 LD LABEL: Tail
   done := TRUE;
   RETURN;
 END_NETWORK
-
 NETWORK 3 LD
   later := TRUE;
 END_NETWORK
@@ -408,7 +402,6 @@ END_VAR
 NETWORK 0 FBD DISABLED
   out := nothingDeclaredWithThisName;
 END_NETWORK
-
 NETWORK 1 FBD
   live := a;
 END_NETWORK
@@ -426,10 +419,9 @@ VAR
 \tfromLd : BOOL;
 END_VAR
 
-NETWORK 0 FBD
+NETWORK 0 LD
   fromFbd := (a AND b);
 END_NETWORK
-
 NETWORK 1 LD
   fromLd := (a OR b);
 END_NETWORK
