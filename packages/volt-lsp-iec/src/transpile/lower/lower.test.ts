@@ -1425,3 +1425,46 @@ describe("lower — STRING (design §18)", () => {
     }
   })
 })
+
+/**
+ * AN ANY ARGUMENT IS LENT LIKE ANY OTHER VAR_IN_OUT, so it passes the same guards.
+ *
+ * It passed NONE of them. `lowerInvoke` lowered the argument with a bare `lowerPlace` and stored it for binding,
+ * skipping `through` (which dereferences a REFERENCE and refuses a write through a VAR_IN_OUT CONSTANT) and the
+ * bit and global refusals that every other lent place meets. Measured 2026-09-17: a GVL variable given to an
+ * `ANY_INT` input lowered with ZERO diagnostics and emitted `f(g, …, &mut g.g_val)` — `g` and a field of `g` in
+ * one argument list, which rustc rejects with E0499 — while the SAME variable on a plain VAR_IN_OUT was
+ * correctly refused. The guards now live in one function with two callers.
+ */
+describe("an ANY argument passes the guards every lent place passes", () => {
+  const ANY_FN =
+    "FUNCTION F_any : BOOL\nVAR_INPUT\n\tpValue : ANY_INT;\n\tstep : INT;\nEND_VAR\nF_any := TRUE;\nEND_FUNCTION\n"
+  const codes = (src: string): string[] => lowerSource(src, "PLC_PRG").diagnostics.map((d) => d.code)
+
+  test("a GLOBAL given to an ANY input is refused, as it is on a plain VAR_IN_OUT", () => {
+    expect(
+      codes(
+        `VAR_GLOBAL\n\tgVal : DINT;\nEND_VAR\n\n${ANY_FN}\nPROGRAM PLC_PRG\nVAR\n\tdone : BOOL;\nEND_VAR\n` +
+          "done := F_any(pValue := gVal, step := 5);\nEND_PROGRAM\n",
+      ),
+    ).toContain("call-inout-global")
+  })
+
+  test("a BIT given to an ANY input is refused, not silently widened to its whole word", () => {
+    expect(
+      codes(
+        `${ANY_FN}\nPROGRAM PLC_PRG\nVAR\n\tw : WORD;\n\tdone : BOOL;\nEND_VAR\n` +
+          "done := F_any(pValue := w.3, step := 5);\nEND_PROGRAM\n",
+      ),
+    ).toContain("call-inout-bit")
+  })
+
+  test("an ordinary local still lowers — the guards did not widen into a refusal of everything", () => {
+    expect(
+      codes(
+        `${ANY_FN}\nPROGRAM PLC_PRG\nVAR\n\tn : DINT;\n\tdone : BOOL;\nEND_VAR\n` +
+          "done := F_any(pValue := n, step := 5);\nEND_PROGRAM\n",
+      ),
+    ).toEqual([])
+  })
+})

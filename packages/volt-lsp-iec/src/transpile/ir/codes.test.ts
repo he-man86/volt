@@ -67,6 +67,6 @@ describe("the refusal registry covers what lowering emits", () => {
    */
   test("the unclassified count only goes down", () => {
     const unclassified = Object.values(LOWER_CODES).filter((k) => k === "unclassified").length
-    expect(unclassified).toBeLessThanOrEqual(86)
+    expect(unclassified).toBeLessThanOrEqual(84)
   })
 })

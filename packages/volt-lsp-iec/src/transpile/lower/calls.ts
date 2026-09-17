@@ -645,11 +645,27 @@ function bindInOut(lw: Lowering, arg: CallArg, param: IrSlot, held: readonly Pla
       return { kind: "copy", value: { kind: "load", place: target, type: target.type, span: arg.span }, type: param.type, back: target, span: arg.span }
     return lw.bail("call-inout-alias", `${param.name} is bound to a variable the call already holds`, arg.span)
   }
-  if (target.path.some((s) => s.kind === "bit")) return lw.bail("call-inout-bit", `${param.name} is bound to a bit`, arg.span)
-  if (target.root === "global") return lw.bail("call-inout-global", `${param.name} is bound to a global variable`, arg.span)
+  if (lendGuards(lw, target, param.name, arg.span) === undefined) return undefined
   const composite = (t: Type): string | undefined => (t.kind === "function_block" || t.kind === "struct" ? t.name.toUpperCase() : undefined)
   if (composite(param.type) !== undefined && composite(param.type) !== composite(target.type))
     return lw.bail("call-inout-derived", `${param.name} is bound to a ${target.type.kind === "function_block" || target.type.kind === "struct" ? target.type.name : target.type.kind}, not its own type`, arg.span)
+  return target
+}
+
+/**
+ * THE GUARDS EVERY LENT PLACE MUST PASS — a bit, and a global.
+ *
+ * Both were spelled inline at the end of `bindInOut` and nowhere else, which is how the ANY-argument path came
+ * to lend a place that had passed NEITHER. An `ANY_INT` input given a global emitted `f(g, …, &mut g.g_val)` —
+ * `g` and a field of `g` in one argument list, E0499 — with no diagnostic at all, while the SAME variable on a
+ * plain VAR_IN_OUT was correctly refused `call-inout-global`. A bit fared worse: `w.3` bound the whole WORD to a
+ * `&mut bool` and the bit step was dropped silently.
+ *
+ * One function, two callers, so a third path cannot skip them by being written somewhere else.
+ */
+function lendGuards(lw: Lowering, target: Place, name: string, span: Span): Place | undefined {
+  if (target.path.some((s) => s.kind === "bit")) return lw.bail("call-inout-bit", `${name} is bound to a bit`, span)
+  if (target.root === "global") return lw.bail("call-inout-global", `${name} is bound to a global variable`, span)
   return target
 }
 
@@ -792,7 +808,16 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     if (k < 0) return lw.bail("call-param", `${arg.param!.name} is not an input of ${routine.name}`, arg.span)
     if (anyInputsOf(lw).get(routine.key)?.has(routine.inputs[k]!)) {
       // an ANY argument: the routine sees its size — SIZEOF's layout (conformance `state_any_input_sizes`) — of a variable
-      const place = lw.inArgument(() => lowerPlace(lw, arg.value!))
+      // An ANY argument is lent as a hidden VAR_IN_OUT, so it passes what every other lent place passes:
+      // `through` (which dereferences a REFERENCE and refuses a write through a VAR_IN_OUT CONSTANT) and then
+      // the bit and global guards. It used to pass none of them — measured 2026-09-17, a GVL variable given to
+      // an ANY_INT input lowered with ZERO diagnostics and emitted Rust that rustc rejects with E0499, and a
+      // caller's `VAR_IN_OUT CONSTANT` was WRITTEN by the interpreter.
+      const raw = lw.inArgument(() => lowerPlace(lw, arg.value!))
+      if (raw === undefined) return undefined
+      const viaRef = through(lw, raw, arg.span)
+      if (viaRef === undefined) return undefined
+      const place = lendGuards(lw, viaRef, arg.param!.name, arg.span)
       if (place === undefined) return undefined
       const size = byteSize(lw, place.type)
       if (size === undefined) return lw.bail("any-input", "an ANY argument whose byte size is not measured", arg.span)
