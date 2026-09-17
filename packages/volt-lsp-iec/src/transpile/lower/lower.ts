@@ -465,7 +465,15 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
  */
 function rootInstance(lw: Lowering, unit: Extract<TopLevel, { kind: "function_block" | "program" }>): IrStmt[] {
   const type = storageOf(lw, resolveNamedType(unit.name.text, lw.project))
-  const layout = type.kind === "function_block" ? calledLayout(lw, type.name, unit.span) : undefined
+  // A POU THAT SUCCEEDS AND DOES NOTHING IS THE ONE OUTCOME THIS FILE REFUSES EVERYWHERE ELSE. An empty body was
+  // returned with no diagnostic when the unit resolved to something that is not an FB — which cannot happen for a
+  // PROGRAM or FUNCTION_BLOCK that bound, so it is a lowering bug, and it was reported as a clean run.
+  // `calledLayout` bails for itself; only the non-FB arm was silent.
+  if (type.kind !== "function_block") {
+    lw.bail("root-type", `${unit.name.text} resolves to a ${type.kind}, not a function block lowering can instance`, unit.span)
+    return []
+  }
+  const layout = calledLayout(lw, type.name, unit.span)
   if (layout === undefined) return []
   const open = (layout.inouts ?? []).find((s) => openDims(s.type) > 0)
   if (open !== undefined) {

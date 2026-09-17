@@ -210,12 +210,15 @@ class Machine {
             const inRange = Number.isFinite(t) && t >= -2147483648 && t <= 2147483647
             return fit(inRange ? BigInt(t) : -2147483648n, e.type)
           }
+          // THE WIDTH IS THE NODE'S, and lowering always types these — a shift or rotate is built from a promoted
+          // operand, so a non-elementary type here is a lowering bug, not a 32-bit value. Defaulting to 32 gave a
+          // BYTE or a LWORD the wrong mask and the wrong wrap, silently and only for the case that never happens.
           case "shl":
           case "shr": {
             // x86's count mask: SHL(DWORD 1, 33) is 2 and a count of -1 shifts by 31 (conformance `shift_count_*`,
             // `shift_negative_count`). The value is already promoted, and a bigint `>>` is arithmetic on a negative —
             // SHR(SINT -128, 1) is -64, as measured.
-            const bits = e.type.kind === "elementary" ? e.type.elem.bits : 32
+            const bits = widthOf(e.type, e.name)
             const count = BigInt(Number(num(args[1]!)) & (bits - 1))
             const value = num(args[0]!) as bigint
             return fit(e.name === "shl" ? value << count : value >> count, e.type)
@@ -223,7 +226,7 @@ class Machine {
           case "rol":
           case "ror": {
             // in the value's own width, count modulo that width — ROL(BYTE 129, 9) is 3 (conformance `rotate_*`)
-            const bits = e.type.kind === "elementary" ? e.type.elem.bits : 32
+            const bits = widthOf(e.type, e.name)
             const width = BigInt(bits)
             const left = BigInt(((Number(num(args[1]!)) % bits) + bits) % bits)
             const by = e.name === "rol" ? left : (width - left) % width
@@ -269,7 +272,14 @@ class Machine {
         }
       }
       case "unary": {
-        if (e.op === "neg") return fit(arith("sub", 0n, this.expr(e.operand)), e.type)
+        // A REAL IS NEGATED, not subtracted from zero. IEEE-754 says -(0.0) is -0.0 while 0.0 - 0.0 is +0.0, so
+        // computing it as a subtraction silently dropped the sign — where the emitter prints `-x` and keeps it.
+        // An INTEGER keeps the subtraction: that is what wraps at the width's minimum, matching `wrapping_neg`
+        // (`unary_minus_at_the_edge`, a DINT at its minimum, which Rust's own `-` panics on in a debug build).
+        if (e.op === "neg") {
+          const operand = this.expr(e.operand)
+          return typeof operand === "number" ? fit(-operand, e.type) : fit(arith("sub", 0n, operand), e.type)
+        }
         const v = this.expr(e.operand)
         return typeof v === "bigint" ? fit(~v, e.type) : !bool(v)
       }
@@ -361,6 +371,13 @@ class Machine {
         return "return"
     }
   }
+}
+
+/** A shift or rotate happens in the NODE'''s width. Lowering always types these from a promoted operand, so anything
+ *  else is a lowering bug — reported as one rather than silently treated as 32 bits. */
+function widthOf(type: Type, op: string): number {
+  if (type.kind !== "elementary") throw new TypeError(`${op.toUpperCase()} on a ${type.kind}, which lowering should have typed`)
+  return type.elem.bits
 }
 
 export interface Runner {

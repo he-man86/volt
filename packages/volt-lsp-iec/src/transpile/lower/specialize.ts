@@ -85,10 +85,24 @@ function mapPlaces<T>(node: T, f: (p: Place) => Place): T {
   return (isPlace(node) ? f(out as unknown as Place) : out) as unknown as T
 }
 
-/** A specialized routine's suffix — the parameter and the path it stands for, so two call sites binding the same place
- *  share one copy and two binding different places get two. */
-const suffixOf = (slot: IrSlot, place: Place): string =>
-  `${slot.name}_${String(place.slot)}${place.path.map((s) => (s.kind === "field" ? `_${s.name}` : s.kind === "index" && s.index.kind === "const" ? `_${String(s.index.value)}` : "_?")).join("")}`
+/**
+ * A specialized routine's suffix — the parameter and the path it stands for, so two call sites binding the same place
+ * share one copy and two binding different places get two.
+ *
+ * `undefined` when a step cannot be NAMED, which today means an index that is not a constant. It used to render as
+ * `"_?"`, and that is the whole defect: `arr[i]` and `arr[j]` produced the SAME suffix, so the same key, so the second
+ * call site silently reused a body specialized for the first one's place. The suffix IS the identity here — a step it
+ * cannot distinguish must stop the specialization, not blur into it.
+ */
+const suffixOf = (slot: IrSlot, place: Place): string | undefined => {
+  const steps: string[] = []
+  for (const step of place.path) {
+    if (step.kind === "field") steps.push(`_${step.name}`)
+    else if (step.kind === "index" && step.index.kind === "const") steps.push(`_${String(step.index.value)}`)
+    else return undefined
+  }
+  return `${slot.name}_${String(place.slot)}${steps.join("")}`
+}
 
 /**
  * Specialize `routine` on every in-frame binding among `bindings`, registering the copy under its own key. Returns the
@@ -102,7 +116,11 @@ export function specializeRoutine(
   const substituted = new Map<number, Place>()
   for (const [i, b] of bindings.entries()) if (isInFrame(b)) substituted.set(i, b.place)
   if (substituted.size === 0) return undefined
-  const suffix = [...substituted].map(([i, place]) => suffixOf(routine.inouts[i]!, place)).join("__")
+  const parts = [...substituted].map(([i, place]) => suffixOf(routine.inouts[i]!, place))
+  // A place this cannot name is not specialized AT ALL — the caller lends it instead, which is always correct and
+  // merely less direct. Naming it `_?` shared one body between two different places.
+  if (parts.some((part) => part === undefined)) return undefined
+  const suffix = parts.join("__")
   const key = `${routine.key}#${suffix.toUpperCase()}`
   const kept = routine.inouts.map((_, i) => i).filter((i) => !substituted.has(i))
   const inouts = kept.map((i) => bindings[i] as IrBinding | undefined)
@@ -112,7 +130,13 @@ export function specializeRoutine(
   const rewrite = (p: Place): Place => {
     if (p.root !== "inout") return p
     const into = substituted.get(p.slot)
-    if (into === undefined) return { ...p, slot: index.get(p.slot) ?? p.slot }
+    if (into === undefined) {
+      // Every in-out that was NOT substituted is in `kept`, so `index` has it. `?? p.slot` silently kept the OLD
+      // number against a list this call has already shortened, which would read a different parameter.
+      const now = index.get(p.slot)
+      if (now === undefined) throw new Error(`specialize: in-out slot ${p.slot} of ${routine.name} is neither substituted nor kept`)
+      return { ...p, slot: now }
+    }
     return { slot: into.slot, path: [...into.path, ...p.path], type: p.type, span: p.span, ...(p.guard === undefined ? {} : { guard: p.guard }) }
   }
   const special: IrRoutine = {

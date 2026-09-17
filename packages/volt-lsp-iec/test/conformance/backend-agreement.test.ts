@@ -256,7 +256,7 @@ const PROBES: ReadonlyArray<{ name: string; source: string; why: string }> = [
   {
     name: "probe_negative_zero",
     why: "unary negation of a REAL was `0 - x` in the interpreter, so `-0.0` came out `+0.0` — invisible under `==`",
-    source: "PROGRAM PLC_PRG\nVAR\n\tz : REAL := 0.0;\n\tnz : REAL;\n\tlz : LREAL := 0.0;\n\tnlz : LREAL;\nEND_VAR\nnz := -z;\nnlz := -lz;\nEND_PROGRAM\n",
+    source: "PROGRAM PLC_PRG\nVAR\n\tz : REAL := 0.0;\n\tnz : REAL;\n\tlz : LREAL := 0.0;\n\tnlz : LREAL;\nEND_VAR\nnz := -(z - z);\nnlz := -(lz - lz);\nEND_PROGRAM\n",
   },
   {
     name: "probe_real_to_int_range",
