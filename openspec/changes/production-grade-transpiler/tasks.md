@@ -17,18 +17,18 @@ fixture records the measurement; every gate states its CI cost.
 - [x] **0.4 The totality gate** — `825346dd3e`. ~29k corpus files, ~80s, in the conformance tier. Plus targeted
       cases for the two violations the corpus cannot reach, asserting the DIAGNOSTIC and not just the absence of
       a throw.
-- [ ] **0.8 Write the subset into `index.ts` as the contract, and gate it.** Today it describes an input
+- [x] **0.8 Write the subset into `index.ts` as the contract, and gate it.** Today it describes an input
       contract and is silent on reach. Measured: 55 of 304 top-level bodies (18.1%); 56,629 METHOD/ACTION bodies
       unreachable; ~0.10% of all executable bodies. State it with the date, and add a test that re-measures and
-      fails when the doc and the number disagree — the shape `coverage.test.ts` already uses.
-- [ ] **0.9 A refusal-code registry and the three-way taxonomy (D5).** `LowerDiagnostic.code` becomes a union
+      fails when the doc and the number disagree — the shape `coverage.test.ts` already uses. · `e20ce78c5c`
+- [x] **0.9 A refusal-code registry and the three-way taxonomy (D5).** `LowerDiagnostic.code` becomes a union
       drawn from one `LOWER_CODES` catalogue; the templated `slot-${kind}` is enumerated or folded; every
       diagnostic carries `kind: "invalid" | "not-modelled" | "not-measured"`, which `index.ts` already asserts
-      as the taxonomy and nothing carries. **Blocks 4.1.**
-- [ ] **0.10 A termination and allocation contract both backends obey.** `interp.ts:43` caps loops at 1,000,000
+      as the taxonomy and nothing carries. **Blocks 4.1.** · `61b57d15f9`
+- [x] **0.10 A termination and allocation contract both backends obey.** `interp.ts:43` caps loops at 1,000,000
       and throws; the emitter has no counterpart, so the same POU fails loud in B and hangs forever in C. Decide
       the cap once (in the IR or in lowering, the move already chosen for `IrBuiltin`) and make both print it.
-      Give every gate a per-case wall-clock timeout.
+      Give every gate a per-case wall-clock timeout. · `8a327c8754`
 - [ ] **0.11 Declare the emitted surface.** A user's harness reaches in by name. `fieldNames` dedupes by FRAME
       POSITION, so declaring a new VAR ahead of an existing one renames the existing one's Rust field — an
       unrelated ST edit silently breaks hand-written test code. Say which names are contract (`scan`, `new`, the
@@ -39,14 +39,14 @@ fixture records the measurement; every gate states its CI cost.
       standard-FB table from the CODESYS reference this package embeds, each entry resolving to a fixture or an
       explicit "not covered". This is IEC-as-index, which the first draft wrongly excluded along with
       IEC-as-oracle.
-- [ ] **0.5 Make `-D warnings` mean something.** Every generated function carries
+- [x] **0.5 Make `-D warnings` mean something.** Every generated function carries
       `#[allow(unused_mut, unused_variables, unused_assignments, unreachable_code, non_snake_case)]`
       (`emit.ts:721`), so the gate denies almost nothing — and `unreachable_code` is the class of a defect the
       emitter has already paid for. Narrow to per-item allows with a justification each; unify the lint flags
-      between the crate check and the execution harness.
-- [ ] **0.3 The B↔C gate, generator-driven (D1).** Needs 0.9, 0.10 and the three specifications in D1 —
+      between the crate check and the execution harness. · `a94552274e`
+- [x] **0.3 The B↔C gate, generator-driven (D1).** Needs 0.9, 0.10 and the three specifications in D1 —
       inputs, place enumeration, comparison domain (bit-exact reals, a NaN rule, pointer and string handling).
-      The 55 corpus POUs are the regression set; the generator is the case source.
+      The 55 corpus POUs are the regression set; the generator is the case source. · `f9baac3aff — sweep + 6 probes; the generator is still owed`
 - [ ] **0.7 Colocated tests for `lower/calls.ts` and the memory model** — after 0.6 says which branches are
       uncovered, so the tests are aimed rather than assumed.
 
@@ -59,17 +59,17 @@ Interpreter before emitter (D3). Titles are from `findings.md`.
 - [x] *"The MOD expansion binds `a` and `d`, shadowing locals of those names"* + *"The bit-assign expansion binds
       `v`"* — `1a81fe3ca5`. Reserved `__` prefix; the invariant tested is "no `let` shadows a parameter", which
       is narrower and right where "every `let` carries `__`" was wrong.
-- [ ] *"coerce's STRING branch is a catch-all: it answers for BOOL and TIME targets by parsing digits"* — a
-      fallback in the oracle. **First.**
-- [ ] *"IrBuiltin says nothing about argument evaluation, and interp evaluates every arg while the Rust emitter
-      evaluates…"* — decide in the IR, then both obey. B↔C.
+- [x] *"coerce's STRING branch is a catch-all: it answers for BOOL and TIME targets by parsing digits"* — a
+      fallback in the oracle. **First.** · `52b6216708`
+- [x] *"IrBuiltin says nothing about argument evaluation, and interp evaluates every arg while the Rust emitter
+      evaluates…"* — decide in the IR, then both obey. B↔C. · `5db030d04c`
 - [ ] *"An ANY argument's place is bound as a hidden VAR_IN_OUT without any of bindInOut's guards"* — verified by
       hand: a global emits E0499; the interpreter writes through a `VAR_IN_OUT CONSTANT`. (One guard *is*
       applied — the alias check — so the finding's "any of" overstates by one; the fix is unchanged.)
 - [ ] *"An ANY VAR_INPUT called through an interface gets the argument's VALUE where the routine expects its
       SIZE"*.
-- [ ] *"Lowering throws (RangeError) when a pointer is stepped over an element whose byte size is 0"* — **done**
-      in `825346dd3e` under 0.4; listed here because it is a Phase 1 defect by severity.
+- [x] *"Lowering throws (RangeError) when a pointer is stepped over an element whose byte size is 0"* — **done**
+      in `825346dd3e` under 0.4; listed here because it is a Phase 1 defect by severity. · `825346dd3e`
 - [ ] *"A FOR loop's limit is never converted to the counter's type, so the emitted Rust does not compile"* —
       verified by hand: `i16 <= i32`, E0308, zero diagnostics.
 - [ ] *"A duration CONSTANT times/divided by an integer variable is retyped to DINT before the duration rule
@@ -98,7 +98,7 @@ Interpreter before emitter (D3). Titles are from `findings.md`.
 - [ ] *"instanceRelative treats the root FB's own frame as multi-instance"*.
 - [ ] *"A PROGRAM whose only own member is a PROPERTY is not lowered as an instance"*.
 - [ ] *"holdsCall does not count the `call` node"*.
-- [ ] *"A date literal outside JS Date's range throws out of lowering"* — **done** in `825346dd3e`.
+- [x] *"A date literal outside JS Date's range throws out of lowering"* — **done** in `825346dd3e`. · `825346dd3e`
 - [ ] *"The documented refusal taxonomy names two constructs that are now lowered"* — folds into 0.9.
 - [ ] *"lowerFor's doc block states the opposite of the code"*.
 
