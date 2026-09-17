@@ -1925,9 +1925,9 @@
     "category": "missing method call parens",
     "cause": "A method of an instance is referenced by name without the trailing '()' call parentheses.",
     "message": "object '<object name>' referenced without parentheses '()'",
-    "repro": "FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\nMETHOD METH1 : INT\nMETH1 := 1;\nEND_METHOD\nPROGRAM PLC_PRG\nVAR f : FB; y : INT;\nEND_VAR\ny := f.METH1;\nEND_PROGRAM",
+    "repro": "FUNCTION_BLOCK FB_C2_named\nEND_FUNCTION_BLOCK\n\nMETHOD Value : INT\nValue := 3;\nEND_METHOD\n\nFUNCTION_BLOCK FB_C2_names\nVAR\n\tother : FB_C2_named;\n\tm : INT;\nEND_VAR\nm := other.Value;\nEND_FUNCTION_BLOCK\n",
     "expect": [
-      "METHOD 'METH1' referenced without parentheses '()'"
+      "Cannot convert type 'VALUE' to type 'INT'"
     ],
     "status": "implemented",
     "ourCheck": "checkMethodReference",
@@ -1944,7 +1944,8 @@
     ],
     "twincatActual": [
       "Cannot convert type 'METH1' to type 'INT'"
-    ]
+    ],
+    "measured": "cc2_type_name_and_method_without_parens — the documented wording, \"object '<name>' referenced without parentheses '()'\", appears in NONE of the recorded fixtures; reading a method without its parentheses is reported as a conversion from the METHOD to the target type."
   },
   {
     "code": "C0131",
@@ -3252,9 +3253,9 @@
     "category": "recursive call",
     "cause": "A POU (function or program) calls itself directly or indirectly, causing infinite recursion.",
     "message": "Call Recursion: <recursion>",
-    "repro": "FUNCTION Fib : INT\nVAR_INPUT n : INT;\nEND_VAR\nFib := Fib(n - 1);\nEND_FUNCTION",
+    "repro": "FUNCTION F_C2_loop : INT\nVAR_INPUT\n\tdepth : INT;\nEND_VAR\nF_C2_loop := F_C2_loop(depth := depth - 1);\nEND_FUNCTION\n",
     "expect": [
-      "Call Recursion: Fib -> Fib"
+      "Program name, function or function block instance expected instead of 'F_C2_loop'"
     ],
     "status": "implemented",
     "ourCheck": "checkRecursiveCall",
@@ -3273,7 +3274,8 @@
     "twincatActual": [
       "Cannot convert type 'Unknown type: 'Fib((n - INT#1))'' to type 'INT'",
       "Program name, function or function block instance expected instead of 'Fib'"
-    ]
+    ],
+    "measured": "cc2_call_recursion — the documented wording, \"Call Recursion: <recursion>\", is never printed for a self-recursive CALL; the compiler reports the name as uncallable, plus a conversion from the unresolved call expression. (\"Data recursion: X -> X\" IS printed, for a recursive TYPE — a different code, and the likely source of the confusion.)"
   },
   {
     "code": "C0225",

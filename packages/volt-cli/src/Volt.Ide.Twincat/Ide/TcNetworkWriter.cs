@@ -578,7 +578,13 @@ internal static class TcNetworkWriter
         {
             if (slots[i] is not { } slot) continue;
             var name = Box.FormalAt(names, i);
-            var pin = b.Outputs.FirstOrDefault(o => string.Equals(o.Formal, name, StringComparison.Ordinal));
+            // ORDINAL-IGNORE-CASE, like the TYPE compare twelve lines up and like every other name match in the
+            // engine. A formal pin is an IEC identifier, so `t1(IN := go, ET => el)` and `... et => el` name the
+            // SAME pin and both are legal network text. Compared Ordinally, the lower-case spelling matched no
+            // slot, and the branch below reads "a wired slot the model does not name" as a DELETION — so an edit
+            // that changed nothing about the pin was routed to the full rebuild path on the strength of a
+            // capital letter.
+            var pin = b.Outputs.FirstOrDefault(o => string.Equals(o.Formal, name, StringComparison.OrdinalIgnoreCase));
             if (pin is null)
             {
                 // A SLOT THE MODEL DOES NOT NAME, WHICH THE ARCHIVE HAS WIRED, IS A DELETION - and leaving

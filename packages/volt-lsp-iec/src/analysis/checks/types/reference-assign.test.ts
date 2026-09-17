@@ -24,12 +24,22 @@ test("C0140: REF= to a non-reference target is flagged; a reference target is fi
   expect(c0140(`r REF= i;`)).toEqual([])
 })
 
-// The literal half of this was WRONG, and the IDE said so the first time a fixture asked it (conformance
-// `cc3_reference_assign`): `bound REF= 7` is "Cannot convert type 'SINT' to type 'REFERENCE TO INT'", a type error,
-// and C0141 fired beside it as a false positive. C0141 is about a named CONSTANT, which has no write access.
-test("C0141: REF= RHS needs write access — a named CONSTANT errors, a literal is the TYPE's business", () => {
+// WHICH ERROR A LITERAL GETS DEPENDS ON ITS OWN TYPE, and it took two live measurements to see it.
+//
+// The first (`cc3_reference_assign`) found `bound REF= 7` is "Cannot convert type 'SINT' to type 'REFERENCE TO
+// INT'" — a type error, with C0141 firing beside it as a false positive. The conclusion drawn was "a literal is
+// the type's business", full stop, and this line asserted it with 314.
+//
+// The second (`cc6_reference_assign_literal`) asked the compiler about 314 itself: "Reference assign needs
+// variable with write access". Same reference type, opposite answer. An untyped integer literal takes the
+// smallest type that holds it — 7 is SINT, 314 is INT — and `REF=` wants that type to BE the referenced one.
+// 7 is inside INT's range and is still refused; 314 equals INT and gets through to the write-access rule.
+//
+// One measurement generalised to a rule it did not cover. Both cases are pinned here now.
+test("C0141: REF= RHS needs write access — a named CONSTANT, and a literal whose type ALREADY matches", () => {
   expect(c0141(`r REF= K;`)).toEqual(["Reference assign needs variable with write access"]) // VAR CONSTANT
-  expect(c0141(`r REF= 314;`)).toEqual([]) // a literal — CODESYS reports the conversion instead
+  expect(c0141(`r REF= 314;`)).toEqual(["Reference assign needs variable with write access"]) // INT, = the referenced type
+  expect(c0141(`r REF= 7;`)).toEqual([]) // SINT ≠ INT — the conversion error below is what fires
 })
 
 test("C0141: `REF= 0` (null idiom) and `REF= <writable var>` are valid", () => {

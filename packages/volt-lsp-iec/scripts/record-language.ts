@@ -22,6 +22,7 @@ import { withDependencies } from "../test/conformance/support/fixture-units.js"
 import { parseSource } from "../src/syntax/index.js"
 import { plcPrgSource } from "../test/conformance/support/plc-prg.js"
 import { call } from "./bridge.js"
+import { markImplementations } from "../test/conformance/support/mark-implementations.js"
 
 // The bridge stores ONE item per top-level unit. A multi-unit fixture (e.g. a struct + an FB that uses it,
 // for unknown-member) must therefore be pushed as SEPARATE items — else the splitter mangles all but the
@@ -64,7 +65,10 @@ function splitItems(source: string, pouName: string, gvlNames?: readonly string[
       // says nothing about WHICH, and that spelling is what every existing DUT recording used
       ? `${u.kind === "global_var_list" ? (gvlNames?.[0] ?? pouName) : pouName}.${u.kind === "type_decl" ? unitExt(u) : extForKind(kind)}`
       : `${u.kind === "global_var_list" ? (gvlNames?.[lists.indexOf(u)] ?? pouName) : (u as any).name.text}.${unitExt(u)}`,
-    src: source.slice(starts[i]!, i + 1 < tops.length ? starts[i + 1]! : source.length).trimEnd() + "\n",
+    // MARKED on the way out. A push without `(* @volt-implementation *)` is refused, and the marker goes
+    // where the PARSER says the body starts — see mark-implementations.ts. Leaving it off recorded a
+    // fixture the IDE never received as `buildSuccess: true`.
+    src: markImplementations(source.slice(starts[i]!, i + 1 < tops.length ? starts[i + 1]! : source.length).trimEnd() + "\n"),
   }))
 }
 
@@ -92,7 +96,18 @@ const VENDOR = process.env.VOLT_VENDOR ?? (health.platform === "twincat" ? "tc" 
 
 async function pushOps(ops: unknown[]): Promise<void> {
   const r = await call("push", { expectedProjectVersion: (await call("refs")).projectVersion, ops })
-  if (!r.accepted) console.warn("  push rejected:", JSON.stringify(r.conflicts ?? r).slice(0, 160))
+  // A REJECTED PUSH IS FATAL, not a warning. This used to log and carry on, and the next thing the recorder
+  // does is BUILD and write down the result — of a project the fixture never reached. Measured: pushing
+  // `cc6_reference_assign_literal` was rejected outright and the recorder wrote
+  // `{"buildSuccess": true, "diagnostics": []}`, i.e. "this fixture compiles clean", about source the IDE had
+  // never seen. That is the reachability trap the whole suite is built to avoid — a clean build on something
+  // that is not there is not weak evidence, it is no evidence — and it arrives as GREEN, which is the one
+  // colour nobody re-checks.
+  if (!r.accepted)
+    throw new Error(
+      `push rejected, so nothing below this line would describe the fixture:\n  ` +
+        JSON.stringify(r.conflicts ?? r),
+    )
 }
 async function fetchItem(name: string): Promise<any> {
   const f = await call("fetch", { knownItems: {}, onlyItems: [name] })
@@ -132,7 +147,9 @@ for (const t of ALL_TESTS) {
   try {
     await pushOps(items.map((it) => ({ op: "set", name: it.wire, toFolder: plcFolder, sourceText: it.src, ifVersion: null })))
     if (t.plcPrgVar !== undefined || t.plcPrgBody !== undefined) {
-      await setPlcPrg(plcPrgSource(t))
+      // MARKED, like every other pushed unit. `plcOriginal` at the restore below is NOT marked here:
+      // it came back from a fetch, so it already carries the marker StWriter emitted.
+      await setPlcPrg(markImplementations(plcPrgSource(t)))
     }
     const started = performance.now()
     const r = await call("build", { buildType: "incremental" })

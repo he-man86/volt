@@ -221,6 +221,50 @@ public class CodesysNetworkReaderTests
         Assert.Null(target.Comment);
     }
 
+    /// <summary>…AND AN OPERAND'S OWN COMMENT IS NOT ONE EITHER, when it merely begins the same way.
+    ///
+    /// <para>The filter had been narrowed to operands, which fixed the network title. It still matched a bare
+    /// <c>Constant_</c> prefix, so an operand commented <c>Constant_Torque</c> — an ordinary thing to write
+    /// beside a constant — read back as null and was erased from the project on the next push.</para>
+    ///
+    /// <para>The sentinel has a shape: <c>Constant_&lt;Member&gt;_Serialization_Value</c>. Matching it costs
+    /// nothing (a third member's placeholder is still caught) and stops the filter eating text an engineer
+    /// typed. Between leaking vendor noise into a file, which is visible, and deleting a comment, which is
+    /// not, only one is recoverable.</para></summary>
+    [Theory]
+    [InlineData("Constant_Torque")]
+    [InlineData("Constant_Speed_Setpoint")]
+    [InlineData("Constant_")]
+    [InlineData("Constant_Serialization_Value_but_not_really")]
+    public void An_operand_comment_that_only_LOOKS_like_the_sentinel_survives(string comment)
+    {
+        var assign = new Nwl.BoxTreeAssign();
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", SymbolComment = comment });
+
+        var read = CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0);
+
+        var target = Assert.IsType<Assign>(read.Trees.Single()).Targets.Single();
+        Assert.Equal(comment, target.Comment);
+    }
+
+    /// <summary>A placeholder for a member nobody has measured yet still goes — it is the SHAPE that is
+    /// recognised, so the narrowing did not cost the filter its reach.</summary>
+    [Fact]
+    public void An_unmeasured_third_sentinel_is_still_dropped()
+    {
+        var assign = new Nwl.BoxTreeAssign();
+        assign.Outputs.List.Add(new Nwl.Operand
+        {
+            OperandExpr = "out",
+            SymbolComment = "Constant_SomeNewMember_Serialization_Value",
+        });
+
+        var read = CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0);
+
+        var target = Assert.IsType<Assign>(read.Trees.Single()).Targets.Single();
+        Assert.Null(target.Comment);
+    }
+
     /// <summary>A NETWORK THAT CANNOT SAY HOW MANY ITEMS IT HAS IS A BROKEN OBJECT MODEL, NOT AN EMPTY BODY.
     ///
     /// <para><c>NwlInterop.Int</c> answered 0 for an absent member, and 0 is the loop bound for reading every

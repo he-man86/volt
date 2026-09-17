@@ -382,10 +382,22 @@ namespace Volt.Ide.Codesys
         /// <c>Constant_SymbolComment_Serialization_Value</c>) and both are OPERAND members, so a network title
         /// was never in scope.</para>
         ///
-        /// <para>Still a PREFIX test rather than the two exact strings: the placeholders are generated per member
-        /// by the archive layer, so a third would follow the same shape and matching whole strings would let it
-        /// through into an engineer's file. The narrowing that matters is WHICH members are tested.</para></summary>
-        private static string? CleanOperandField(string? s) =>
-            s != null && s.StartsWith("Constant_", StringComparison.Ordinal) ? null : Clean(s);
+        /// <para>The test is the placeholder's SHAPE, not its prefix. The two measured strings are
+        /// <c>Constant_Address_Serialization_Value</c> and <c>Constant_SymbolComment_Serialization_Value</c> —
+        /// the archive layer generates one per member, so a third would be <c>Constant_&lt;Member&gt;_Serialization_Value</c>
+        /// and is caught. A bare <c>Constant_</c> prefix also caught <c>Constant_Torque</c>, which is an ordinary
+        /// thing for an engineer to call a value and an ordinary thing to write in the comment beside it — erased
+        /// on read, and erased from the project on the next push, with nothing in git to show for it.</para>
+        ///
+        /// <para>The asymmetry is deliberate: letting an unknown third sentinel through puts vendor noise in a
+        /// file, where it is visible and fixable. Erasing a comment that matched a guess destroys the engineer's
+        /// text silently. When only one of two failures is recoverable, the test errs toward that one.</para></summary>
+        private static string? CleanOperandField(string? s) => IsArchiveSentinel(s) ? null : Clean(s);
+
+        /// <summary>The archive layer's per-member placeholder — <c>Constant_&lt;Member&gt;_Serialization_Value</c>.</summary>
+        private static bool IsArchiveSentinel(string? s) =>
+            s != null
+            && s.StartsWith("Constant_", StringComparison.Ordinal)
+            && s.EndsWith("_Serialization_Value", StringComparison.Ordinal);
     }
 }

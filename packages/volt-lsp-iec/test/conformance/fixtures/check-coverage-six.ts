@@ -210,4 +210,19 @@ bound REF= cFixed;
 n := 1;
 END_FUNCTION_BLOCK
 `),
+
+  // The catalog marks C0141 `implemented` and asserts the CODESYS DOCUMENTATION's wording — "Reference assign
+  // needs variable with write access" — for a repro whose right side is a LITERAL. That message IS measured, but
+  // on `cc6_reference_assign_constant` above, where the right side is a named CONSTANT. Those are different
+  // shapes and a doc string is a lead, not a measurement. This asks the compiler which one it is.
+  fb("cc6_reference_assign_literal", "FB_C6_refLiteral", "REF= whose right side is a LITERAL, not a named constant",
+    `FUNCTION_BLOCK FB_C6_refLiteral
+VAR
+	bound : REFERENCE TO INT;
+	n : INT;
+END_VAR
+bound REF= 314;
+n := 1;
+END_FUNCTION_BLOCK
+`),
 ]
