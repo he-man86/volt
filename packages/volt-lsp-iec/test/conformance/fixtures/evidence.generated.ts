@@ -6,8 +6,8 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1220
- *   refused       322
+ *   confirmed    1229
+ *   refused       331
  *   not-lowered    25
  *   lsp-gap        30
  *   diverges        4
@@ -1095,6 +1095,24 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   pin_presentation_order_outputs: "confirmed",
   pin_presentation_order_wildcard: "confirmed",
   pingroup: "confirmed",
+  plat_uxint_at_max: "confirmed",
+  plat_uxint_into_dint: "refused",
+  plat_uxint_into_lint: "confirmed",
+  plat_uxint_into_string: "refused",
+  plat_uxint_meet_dint: "refused",
+  plat_uxint_sizeof: "confirmed",
+  plat_xint_at_max: "confirmed",
+  plat_xint_into_dint: "refused",
+  plat_xint_into_lint: "confirmed",
+  plat_xint_into_string: "refused",
+  plat_xint_meet_dint: "refused",
+  plat_xint_sizeof: "confirmed",
+  plat_xword_at_max: "confirmed",
+  plat_xword_into_dint: "refused",
+  plat_xword_into_lint: "confirmed",
+  plat_xword_into_string: "refused",
+  plat_xword_meet_dint: "refused",
+  plat_xword_sizeof: "confirmed",
   power_operator_rejected: "refused",
   pragma_conflict_hide_plus_monitoring: "refused",
   pragma_conflicting_pair: "confirmed",

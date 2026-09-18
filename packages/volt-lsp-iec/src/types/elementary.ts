@@ -112,10 +112,34 @@ export const ELEM_ALIASES: ReadonlyMap<string, string> = new Map([
   ["LTIME_OF_DAY", "LTOD"],
 ])
 
+/**
+ * THE PLATFORM-PORTABLE INTEGERS, which are a different kind of alias: the COMPILER resolves them by target width,
+ * and by the time it prints a message the alias is gone. They are in the vendor's Elementary group and were missing
+ * from this table entirely, so `elementaryType("__XINT")` was undefined and every check gating on `checkable()` said
+ * nothing about them.
+ *
+ * Measured on the exec oracle (`types/platform-integers.ts`, 2026-09-19) — every message names the resolved type and
+ * `SIZEOF` is 8 for all three:
+ *
+ *   __XINT   -> LINT     `a : __XINT` into a DINT is "Cannot convert type 'LINT' to type 'DINT'"
+ *   __UXINT  -> ULINT
+ *   __XWORD  -> LWORD    and `__XWORD + DINT` is LINT, exactly as the measured meet lattice says
+ *
+ * THAT IS A 64-BIT TARGET. On a 32-bit one they resolve to DINT/UDINT/DWORD, and Volt has no such device to record
+ * against — so this is the answer for every target we can measure, and a 32-bit project is an unrecorded case rather
+ * than a wrong one. Kept out of `ELEM_ALIASES` on purpose: that map's inverse drives `elementaryDisplayName`, and
+ * these must never print as themselves.
+ */
+const PLATFORM_ALIASES: ReadonlyMap<string, string> = new Map([
+  ["__XINT", "LINT"],
+  ["__UXINT", "ULINT"],
+  ["__XWORD", "LWORD"],
+])
+
 /** Canonical short-form name for an elementary type (resolves the aliases above). Upper-cases. */
 export function canonicalElem(name: string): string {
   const u = name.toUpperCase()
-  return ELEM_ALIASES.get(u) ?? u
+  return ELEM_ALIASES.get(u) ?? PLATFORM_ALIASES.get(u) ?? u
 }
 
 /** Canonical short form → the full name, the inverse of ELEM_ALIASES (so the two cannot drift apart). */

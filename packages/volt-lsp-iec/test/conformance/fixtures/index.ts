@@ -14,6 +14,7 @@ import { CONVERSION_TESTS } from "./conversions/conversion.js"
 import { REAL_TO_INTEGER_LADDER_TESTS } from "./conversions/real-to-integer-ladder.js"
 import { REAL_TO_INTEGER_TESTS } from "./conversions/real-to-integer.js"
 import { DATA_TYPE_TESTS } from "./types/data-type.js"
+import { PLATFORM_INTEGER_TESTS } from "./types/platform-integers.js"
 import { PRIMITIVE_BOUNDS_TESTS } from "./types/primitive-bounds.js"
 import { ARITHMETIC_EDGE_TESTS } from "./operators/arithmetic-edges.js"
 import { BITWISE_TESTS } from "./operators/bitwise.js"
@@ -119,6 +120,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "data-type", tests: DATA_TYPE_TESTS },
   { name: "primitive-default", tests: PRIMITIVE_DEFAULT_TESTS },
   { name: "primitive-bounds", tests: PRIMITIVE_BOUNDS_TESTS },
+  { name: "platform-integers", tests: PLATFORM_INTEGER_TESTS },
   { name: "real-overflow", tests: REAL_OVERFLOW_TESTS },
   { name: "math-domain", tests: MATH_DOMAIN_TESTS },
   { name: "arithmetic-edges", tests: ARITHMETIC_EDGE_TESTS },
