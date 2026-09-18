@@ -268,6 +268,7 @@ END_METHOD
   },
   {
     name: "real_to_dint_runtime_below",
+    deferred: { transpile: "2026-09-18: the RUNTIME value matches the constant one exactly (-2147483648 where the model says 0), so it is NOT compile-time folding — the sign asymmetry is genuine runtime behaviour. See real_to_dint_below_range." },
     pouName: "FB_LANG_real_to_dint_runtime_below",
     kind: "function_block" as const,
     feature: "LREAL -1.0E30 to DINT, built at RUN TIME - the point the model does not explain",

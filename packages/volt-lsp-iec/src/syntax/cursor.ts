@@ -275,9 +275,12 @@ export class Cursor {
  * The error for "a name belongs here and this isn't one".
  *
  * A reserved word in name position is CODESYS's **C0009**, not its C0189: `Limit : INT;` — `LIMIT` is a
- * standard FUNCTION, so it is reserved — reports `Unexpected token 'LIMIT' found`. Confirmed live against
- * CODESYS SP21, 2026-09-03 (in a VAR section; STRUCT/UNION assume the same parser, unverified).
- * Only the keyword case has that evidence; punct/EOF keep the "expected instead of" form.
+ * standard FUNCTION, so it is reserved — reports `Unexpected token 'Limit' found`.
+ *
+ * THE SPELLING IS THE SOURCE'S, not the keyword's. A 2026-09-03 note here recorded this as `'LIMIT'`, and that was
+ * wrong: `echo_mixed_case_function_name` and its three siblings asked CODESYS on 2026-09-18 with the same word in
+ * four spellings, and it echoed each one back unchanged. Only the keyword case has that evidence; punct/EOF keep the
+ * "expected instead of" form.
  */
 function nameExpected(t: Token): string {
   return t.kind === "keyword"
@@ -288,7 +291,11 @@ function nameExpected(t: Token): string {
 // CODESYS/TwinCAT render the offending token bare-quoted (`'x'`, `';'`, `'TO'`) and EOF as "end of POU".
 function describeToken(t: Token): string {
   if (t.kind === "eof") return "end of POU"
-  if (t.kind === "keyword") return `'${t.keyword ?? t.text}'`
+  // AS WRITTEN. CODESYS echoes the token exactly as it is typed, asked directly with the same word in four
+  // spellings (`echo_*_case_*`, recorded 2026-09-18): `Limit` -> `'Limit'`, `limit` -> `'limit'`, `Lt` -> `'Lt'`,
+  // `LT` -> `'LT'`. Printing the canonical keyword made every mention that was not already upper-case disagree on
+  // wording alone.
+  if (t.kind === "keyword") return `'${t.text}'`
   if (t.kind === "identifier") return `'${t.text}'`
   if (t.kind === "punct") return `'${t.text}'`
   return `'${t.text.length > 20 ? `${t.text.slice(0, 20)}…` : t.text}'`

@@ -172,7 +172,10 @@ test("a stray token after a scalar initializer is a parse error, worded as CODES
 
 test("a reserved word as a variable name is reported on the name, not the section header", () => {
   const src = "PROGRAM P\nVAR\n  Limit : INT;\n  Ok : BOOL;\nEND_VAR\nOk := TRUE;\nEND_PROGRAM\n"
-  expect(messages(src)).toEqual(["Unexpected token 'LIMIT' found"])
+  // `'Limit'`, not `'LIMIT'`: CODESYS echoes the token as WRITTEN. This asserted the canonical spelling on a
+  // 2026-09-03 note that `echo_mixed_case_function_name` disproved on 2026-09-18, asking with the same word in four
+  // spellings and getting each one back unchanged.
+  expect(messages(src)).toEqual(["Unexpected token 'Limit' found"])
   const err = parseSource(src).errors[0]!
   expect(src.slice(err.span.start, err.span.end)).toBe("Limit")
   // recovery continues the section: the following decl and END_VAR are still parsed
@@ -181,10 +184,11 @@ test("a reserved word as a variable name is reported on the name, not the sectio
 })
 
 test("same for a STRUCT and a UNION field", () => {
+  // as written, like every other echoed token — see the VAR case above
   expect(messages("TYPE T :\nSTRUCT\n  Limit : INT;\nEND_STRUCT\nEND_TYPE\n")).toEqual([
-    "Unexpected token 'LIMIT' found",
+    "Unexpected token 'Limit' found",
   ])
-  expect(messages("TYPE U :\nUNION\n  Min : INT;\nEND_UNION\nEND_TYPE\n")).toEqual(["Unexpected token 'MIN' found"])
+  expect(messages("TYPE U :\nUNION\n  Min : INT;\nEND_UNION\nEND_TYPE\n")).toEqual(["Unexpected token 'Min' found"])
 })
 
 test("a genuinely unterminated section still blames the header, with no cascade", () => {

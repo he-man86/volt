@@ -190,7 +190,22 @@ export function logic(op: "and" | "or" | "xor", a: Val, b: Val): Val {
 export function fit(v: Val, type: Type): Val {
   if (type.kind !== "elementary") return v
   const { family, bits, signed } = type.elem
-  if (family === "real") return bits === 32 && typeof v === "number" ? Math.fround(v) : v
+  if (family === "real") {
+    // AN INFINITY STOPS THE TASK; a NaN does not. Measured on CODESYS 3.5.21.40, 2026-09-18, and the split is clean:
+    //
+    //   SQRT(-1) -> REAL#NaN, the scan completes      `domain_sqrt_negative`
+    //   LN(-1)   -> REAL#NaN, the scan completes      `domain_ln_negative`
+    //   LN(0)    -> the done flag never rose          `domain_ln_zero`
+    //   1.0 / 0  -> the operation timed out           `domain_divide_real_by_zero`
+    //
+    // Both of the ones that die produce an infinity and both survivors produce a NaN, so the rule is the VALUE, not
+    // the operation. That matters for a PLC: returning `Infinity` and carrying on is not a rounding difference from
+    // the vendor, it is a program that keeps running where the real one has stopped. No recording holds an infinite
+    // value — the only non-numeric REAL any of them prints is `REAL#NaN` — which is what this rule predicts.
+    if (typeof v === "number" && !Number.isFinite(v) && !Number.isNaN(v))
+      throw new RangeError("a REAL operation produced an infinity, which stops the task on CODESYS")
+    return bits === 32 && typeof v === "number" ? Math.fround(v) : v
+  }
   // a STRING(n) keeps its first n characters — `STRING(5) := 'abcdefgh'` is 'abcde' (conformance `string_*`)
   if (family === "string") return typeof v === "string" && type.length !== undefined ? v.slice(0, type.length) : v
   // a duration or date wraps like the integer it is: TIME and TOD are 32-bit milliseconds, DATE and DT 32-bit seconds,

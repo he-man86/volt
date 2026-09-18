@@ -6,12 +6,12 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed     622
- *   refused       201
- *   not-lowered    20
- *   unasked        65
- *   lsp-gap        34
- *   diverges        3
+ *   confirmed     632
+ *   refused       194
+ *   not-lowered    21
+ *   unasked        59
+ *   lsp-gap        35
+ *   diverges        4
  *   unaskable      22
  */
 import type { LanguageTest } from "../types.js"
@@ -415,18 +415,18 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   displaymode_invalid_value: "refused",
   division_and_mod_signs: "confirmed",
   division_with_a_real_operand: "confirmed",
-  domain_divide_real_by_zero: "refused",
-  domain_ln_negative: "refused",
-  domain_ln_zero: "refused",
-  domain_nan_propagates: "refused",
-  domain_sqrt_negative: "refused",
+  domain_divide_real_by_zero: "unasked",
+  domain_ln_negative: "confirmed",
+  domain_ln_zero: "unasked",
+  domain_nan_propagates: "confirmed",
+  domain_sqrt_negative: "confirmed",
   dt_minus_time: "confirmed",
   dt_plus_fractional_time: "confirmed",
   duplicate_declaration: "refused",
-  echo_lower_case_function_name: "unasked",
-  echo_mixed_case_function_name: "unasked",
-  echo_mixed_case_il_operator: "unasked",
-  echo_upper_case_il_operator: "unasked",
+  echo_lower_case_function_name: "refused",
+  echo_mixed_case_function_name: "refused",
+  echo_mixed_case_il_operator: "refused",
+  echo_upper_case_il_operator: "refused",
   enable_dynamic_creation: "confirmed",
   err_c0001_const_too_large: "refused",
   err_c0003_bad_bit_index: "refused",
@@ -712,14 +712,14 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   real_to_dint_above_range: "confirmed",
   real_to_dint_below_range: "diverges",
   real_to_dint_nan: "confirmed",
-  real_to_dint_runtime_above: "unasked",
-  real_to_dint_runtime_below: "unasked",
-  real_to_dint_runtime_in_range: "unasked",
+  real_to_dint_runtime_above: "confirmed",
+  real_to_dint_runtime_below: "diverges",
+  real_to_dint_runtime_in_range: "confirmed",
   real_to_int_at_range: "confirmed",
   real_to_int_out_of_range: "confirmed",
   real_to_int_rounding: "confirmed",
   real_to_lint_above_range: "confirmed",
-  real_to_lint_runtime_above: "unasked",
+  real_to_lint_runtime_above: "confirmed",
   real_to_string_digits: "not-lowered",
   reflection: "confirmed",
   refuse_adr_difference: "not-lowered",
@@ -731,7 +731,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   refuse_interface_any_input: "not-lowered",
   refuse_method_no_result: "lsp-gap",
   refuse_pointer_two_targets: "not-lowered",
-  refuse_sizeof_interface: "refused",
+  refuse_sizeof_interface: "not-lowered",
   refuse_super_without_base: "lsp-gap",
   refuse_var_temp_struct: "unasked",
   region_basic: "confirmed",
@@ -784,7 +784,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   string_arithmetic_rejected: "refused",
   string_assign_truncation: "confirmed",
   string_compare: "confirmed",
-  string_compare_operators: "lsp-gap",
+  string_compare_operators: "confirmed",
   string_concat: "confirmed",
   string_conversions: "confirmed",
   string_conversions_formats: "confirmed",
@@ -885,9 +885,9 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   typed_literal_real_prefix: "confirmed",
   unary_minus_at_the_edge: "confirmed",
   unary_minus_on_bool: "lsp-gap",
-  unary_minus_on_string: "refused",
+  unary_minus_on_string: "lsp-gap",
   unary_minus_on_time: "lsp-gap",
-  unary_not_on_string: "refused",
+  unary_not_on_string: "lsp-gap",
   unknown_attribute_typo: "refused",
   unresolved_identifier_in_body: "refused",
   unsigned_underflow: "confirmed",
@@ -933,9 +933,9 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   xo_interface_array_dispatch: "confirmed",
   xo_mode_enum: "unasked",
   xo_open_array_through_method: "confirmed",
-  xo_reference_field_step: "refused",
-  xo_reference_index_step: "refused",
-  xo_reference_property: "refused",
+  xo_reference_field_step: "confirmed",
+  xo_reference_index_step: "confirmed",
+  xo_reference_property: "confirmed",
   xo_reference_to_fb_call: "confirmed",
   xo_string_built_across_objects: "confirmed",
   xo_tally_struct: "unasked",

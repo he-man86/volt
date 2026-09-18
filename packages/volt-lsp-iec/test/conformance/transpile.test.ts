@@ -157,6 +157,10 @@ function ideValue(raw: string, enums: ReadonlyMap<string, bigint> = new Map()): 
     for (const [, count, u] of duration[2]!.matchAll(/(\d+)(ms|us|ns|d|h|m|s)/g)) ns += BigInt(count!) * unit[u!]!
     return duration[1] === "LTIME" ? ns : ns / 1_000_000n
   }
+  // A NaN prints as `REAL#NaN` — the only non-numeric REAL spelling in any recording (checked across both, 2026-09-18).
+  // It reached here as an unrecognised form, which is this function refusing to guess rather than a defect.
+  const notANumber = /^L?REAL#NaN$/.exec(raw)
+  if (notANumber !== null) return Number.NaN
   const m = /^([A-Z]+)#(-?[0-9.eE+-]+)$/.exec(raw)
   if (m === null) throw new Error(`unrecognised IDE value ${JSON.stringify(raw)}`)
   const [, type, literal] = m as unknown as [string, string, string]

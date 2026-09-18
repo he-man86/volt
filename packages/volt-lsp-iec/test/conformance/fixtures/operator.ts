@@ -775,7 +775,6 @@ END_METHOD
   },
   {
     name: "string_compare_operators",
-    refused: "Unexpected token 'isLess' found",
     pouName: "FB_LANG_string_compare_operators",
     kind: "function_block" as const,
     feature: "the comparison OPERATORS on STRINGs — a different question from MAX",
@@ -826,7 +825,8 @@ END_METHOD
   },
   {
     name: "operator_call_form_comparison",
-    refused: "Unexpected token 'isGreater' found",
+    deferred: { lsp: "2026-09-18: no LSP error for the CALL FORM of a comparison operator — GT(a, b) is IL, not ST" },
+    refused: "';' expected instead of 'GT'",
     pouName: "FB_LANG_operator_call_form_comparison",
     kind: "function_block" as const,
     feature: "GT/LT/LE/GE/EQ/NE written as CALLS rather than symbols",

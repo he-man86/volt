@@ -185,7 +185,6 @@ END_METHOD
   },
   {
     name: "refuse_sizeof_interface",
-    refused: "Unexpected token 'held' found",
     pouName: "FB_LANG_refuse_sizeof_interface",
     kind: "function_block" as const,
     feature: "SIZEOF an INTERFACE variable — `sizeof-unmeasured`; what does a reference to an instance measure?",
@@ -202,7 +201,8 @@ END_METHOD
   // whether the vendor accepts the expression is unrecorded.
   {
     name: "unary_minus_on_string",
-    refused: "Unexpected token 'text' found",
+    deferred: { lsp: "2026-09-18: no LSP error for unary minus on a STRING — CODESYS says Cannot convert type INT to type STRING" },
+    refused: "Cannot convert type 'INT' to type 'STRING'",
     pouName: "FB_LANG_unary_minus_on_string",
     kind: "function_block" as const,
     feature: "unary minus on a STRING — a type error, or something?",
@@ -213,7 +213,8 @@ END_METHOD
   },
   {
     name: "unary_not_on_string",
-    refused: "Unexpected token 'text' found",
+    deferred: { lsp: "2026-09-18: no LSP error for NOT on a STRING — CODESYS says Cannot convert type STRING to type ANY_BIT" },
+    refused: "Cannot convert type 'STRING' to type 'ANY_BIT'",
     pouName: "FB_LANG_unary_not_on_string",
     kind: "function_block" as const,
     feature: "NOT on a STRING",

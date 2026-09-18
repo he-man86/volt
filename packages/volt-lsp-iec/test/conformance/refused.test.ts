@@ -29,7 +29,7 @@ describe("every source CODESYS refuses is an LSP error (codesys)", () => {
   test(`the LSP backlog: ${deferred.length} refusals CODESYS makes and the LSP does not`, () => {
     console.log(`  [refused] ${deferred.length} awaiting an LSP check: ${deferred.map((c) => c.name).join(", ")}`)
     // a ceiling, so a new unchecked refusal has to be looked at rather than absorbed
-    expect(deferred.length).toBeLessThanOrEqual(18)
+    expect(deferred.length).toBeLessThanOrEqual(19)
   })
 
   for (const c of ALL_TESTS.filter((x) => x.refused !== undefined && x.deferred?.lsp === undefined)) {
