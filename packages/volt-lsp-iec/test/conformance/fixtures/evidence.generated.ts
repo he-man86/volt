@@ -6,10 +6,10 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed     632
+ *   confirmed     640
  *   refused       194
- *   not-lowered    21
- *   unasked        59
+ *   not-lowered    23
+ *   unasked        49
  *   lsp-gap        35
  *   diverges        4
  *   unaskable      22
@@ -65,7 +65,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   callshape_inout_binding_order: "confirmed",
   callshape_inout_in_method_after_call: "confirmed",
   callshape_inout_in_method_from_body: "confirmed",
-  callshape_inout_method_before_binding: "unasked",
+  callshape_inout_method_before_binding: "confirmed",
   callshape_inout_method_in_later_cycle: "confirmed",
   callshape_inout_nested_index_before_call: "confirmed",
   callshape_inout_override_from_base_body: "confirmed",
@@ -106,7 +106,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   cc_conv_spelled_target_into_tod: "refused",
   cc_decl_init_trailing_ident: "refused",
   cc_decl_init_trailing_int: "refused",
-  cc_div_udint_dint: "unasked",
+  cc_div_udint_dint: "confirmed",
   cc_enum_arg_into_sint: "refused",
   cc_enum_arg_into_uint: "confirmed",
   cc_enum_compare_two_enum_values: "confirmed",
@@ -162,7 +162,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   cc_fp_op_xor: "confirmed",
   cc_fp_overflow_expr: "confirmed",
   cc_fp_overflow_untyped: "confirmed",
-  cc_fp_ptr_deref: "unasked",
+  cc_fp_ptr_deref: "not-lowered",
   cc_fp_real_plus_int: "confirmed",
   cc_fp_set_reset: "confirmed",
   cc_fp_set_reset_chain: "confirmed",
@@ -324,8 +324,8 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   cc5_pointer_not_convertible: "lsp-gap",
   cc5_reserved_keyword_names: "confirmed",
   cc5_type_invoked_directly: "refused",
-  cc6_abstract_attribute_on_fb: "unasked",
-  cc6_abstract_attribute_on_method: "unasked",
+  cc6_abstract_attribute_on_fb: "confirmed",
+  cc6_abstract_attribute_on_method: "confirmed",
   cc6_ambiguous_global: "confirmed",
   cc6_ambiguous_gvl_one: "unasked",
   cc6_ambiguous_gvl_two: "unasked",
@@ -415,9 +415,9 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   displaymode_invalid_value: "refused",
   division_and_mod_signs: "confirmed",
   division_with_a_real_operand: "confirmed",
-  domain_divide_real_by_zero: "unasked",
+  domain_divide_real_by_zero: "confirmed",
   domain_ln_negative: "confirmed",
-  domain_ln_zero: "unasked",
+  domain_ln_zero: "confirmed",
   domain_nan_propagates: "confirmed",
   domain_sqrt_negative: "confirmed",
   dt_minus_time: "confirmed",
@@ -485,8 +485,8 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   ilc_calc_other_type: "lsp-gap",
   ilc_calc_used_not_declared: "lsp-gap",
   implicit_check_bounds: "confirmed",
-  implicit_check_div_dint_real: "unasked",
-  implicit_check_div_int_operands: "unasked",
+  implicit_check_div_dint_real: "confirmed",
+  implicit_check_div_int_operands: "confirmed",
   implicit_check_mod: "confirmed",
   implicit_lreal_to_real: "confirmed",
   info_message: "confirmed",
@@ -902,7 +902,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   use_function_call_with_arg: "confirmed",
   use_gvl_field_access: "unasked",
   use_method_array_param: "confirmed",
-  use_pointer_deref_struct_field: "unasked",
+  use_pointer_deref_struct_field: "not-lowered",
   use_self_method_call: "confirmed",
   use_struct_inner: "unasked",
   use_struct_member_access: "confirmed",

@@ -193,20 +193,41 @@ try:
         raise Exception("no ancestor of the application accepted set_simulation_mode")
     log("simulation on: %s" % dev.get_name())
 
+    def dump(tests):
+        with open(OUT, "w") as f:
+            json.dump({
+                "recorded": {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "ide": "CODESYS 3.5.21.40 simulation"},
+                "tests": tests,
+            }, f, indent=2, sort_keys=True)
+
+    # A CASE THAT FAULTS THE RUNTIME POISONS THE ONES AFTER IT. Measured 2026-09-18: in two separate batches the first
+    # case whose scan never completed was followed by every remaining case timing out in `oa.start()` - including cases
+    # that answer fine on their own. Re-running the same four cases in isolation swapped which error each one reported,
+    # so an error recorded after a fault is not evidence of anything.
+    #
+    # A SUCCESS cannot be contaminated - it read real values out of a running program - so successes are always kept.
+    # An error after a fault is DROPPED rather than written: the case stays unrecorded, which is the truth, and a later
+    # run measures it properly. The alternative, stopping the batch, throws away every good case that follows.
     tests = {}
+    faulted = None
     for c in cases:
         try:
-            tests[c["name"]] = run_case(app, prg, c)
+            r = run_case(app, prg, c)
         except Exception as e:
-            tests[c["name"]] = {"error": str(e)}
+            r = {"error": str(e)}
             log(traceback.format_exc())
-        log("%s: %r" % (c["name"], tests[c["name"]]))
-
-    with open(OUT, "w") as f:
-        json.dump({
-            "recorded": {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "ide": "CODESYS 3.5.21.40 simulation"},
-            "tests": tests,
-        }, f, indent=2, sort_keys=True)
+        log("%s: %r" % (c["name"], r))
+        if "error" in r and faulted is not None:
+            log("%s: DROPPED - %s faulted the runtime earlier in this batch, so this error is not evidence" % (c["name"], faulted))
+            continue
+        if "error" in r and not r["error"].startswith(("does not compile", "not loadable")):
+            faulted = c["name"]
+        tests[c["name"]] = r
+        # AFTER EVERY CASE, not at the end. A case can wedge the runtime badly enough that the IDE stops answering and
+        # the harness kills the whole process on its hang guard - at which point a single write at the end has recorded
+        # nothing, and every case that DID answer is measured and thrown away. Measured 2026-09-18: two good answers
+        # lost to a third case that hung `oa.start()`.
+        dump(tests)
     log("wrote %s" % OUT)
 except Exception:
     log(traceback.format_exc())

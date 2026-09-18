@@ -35,8 +35,11 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // source AND so do we, while only checking the vendor; 16 fixtures were counted as evidence while the LSP accepted
   // them silently (`cc_reserved_name_s_string` and its neighbours). The rating asks both sides now.
   "lsp-gap": 35,
-  "not-lowered": 21,
-  unasked: 140,
+  // 21 -> 23 by RECLASSIFICATION, not regression: `cc_fp_ptr_deref` and `use_pointer_deref_struct_field` were rated
+  // `unasked` while their recordings sat there saying the vendor's scan never completed. A vendor fault is an answer.
+  "not-lowered": 23,
+  // 140 -> 49. The slack was there for fixtures written ahead of a recording session; the sessions happened.
+  unasked: 49,
 }
 
 describe("how well each fixture is evidenced", () => {

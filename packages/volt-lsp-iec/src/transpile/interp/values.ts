@@ -195,8 +195,11 @@ export function fit(v: Val, type: Type): Val {
     //
     //   SQRT(-1) -> REAL#NaN, the scan completes      `domain_sqrt_negative`
     //   LN(-1)   -> REAL#NaN, the scan completes      `domain_ln_negative`
-    //   LN(0)    -> the done flag never rose          `domain_ln_zero`
-    //   1.0 / 0  -> the operation timed out           `domain_divide_real_by_zero`
+    //   LN(0)    -> the scan never completes          `domain_ln_zero`
+    //   1.0 / 0  -> the scan never completes          `domain_divide_real_by_zero`
+    //
+    // "never completes" is the stable half. HOW it fails to complete is not: across runs the same case reports either
+    // a stalled done flag or a timed-out start, depending on what ran before it. Only the completion is evidence.
     //
     // Both of the ones that die produce an infinity and both survivors produce a NaN, so the rule is the VALUE, not
     // the operation. That matters for a PLC: returning `Infinity` and carrying on is not a rounding difference from

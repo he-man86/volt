@@ -109,7 +109,13 @@ export function rateFixture(t: LanguageTest, all: readonly LanguageTest[]): Evid
   // check, and parse CLEANLY here — rated as evidence when they were silent gaps.
   if (rec?.error?.startsWith("does not compile") === true || build?.buildSuccess === false || t.refused !== undefined)
     return lspReportsAnError(t, all) ? "refused" : "lsp-gap"
-  if (rec?.values === undefined) return "unasked"
+  // THE VENDOR STOPPING IS AN ANSWER. A recording whose error is not a compile failure is one the IDE built, logged
+  // into and ran — and whose scan never completed: `LN(0)`, `1.0 / 0`, an integer divide by zero, a deref of an
+  // unbound pointer. Reading that as "never asked" threw away the very measurements the infinity rule in
+  // `interp/values.ts` is built on. The agreement here is inverted: we CONFIRM by faulting too, and DIVERGE by
+  // finishing a scan the vendor could not.
+  const vendorStops = rec?.error !== undefined
+  if (rec?.values === undefined && !vendorStops) return "unasked"
 
   // The vendor ran it. Do WE? That is the only thing left to decide here.
   const { source, libraries } = sourceOf(t, all)
@@ -127,7 +133,8 @@ export function rateFixture(t: LanguageTest, all: readonly LanguageTest[]): Evid
     const p = run(pou)
     for (let i = 0; i < (t.cycles ?? 1); i++) p.scan()
   } catch {
-    return "diverges" // the vendor completed the scan and we faulted
+    // A fault is the RIGHT answer when the vendor could not finish the scan either, and the wrong one otherwise.
+    return vendorStops ? "confirmed" : "diverges"
   }
-  return "confirmed"
+  return vendorStops ? "diverges" : "confirmed"
 }
