@@ -286,6 +286,12 @@ const PROBES: ReadonlyArray<{ name: string; source: string; why: string }> = [
     source: "PROGRAM PLC_PRG\nVAR\n\tn : DINT;\n\tgo : BOOL := TRUE;\nEND_VAR\nWHILE go DO\n\tn := n + 1;\nEND_WHILE\nEND_PROGRAM\n",
   },
   {
+    name: "probe_real_infinity_faults",
+    why: "an infinite REAL STOPS the task on CODESYS (domain_ln_zero, domain_divide_real_by_zero) — the interpreter faults, and the emitted Rust must fault too rather than carrying an `inf` forward. Dividing by `zero - zero`, not `zero`: a seeded variable is not the zero this is about",
+    source:
+      "PROGRAM PLC_PRG\nVAR\n\tzero : LREAL;\n\tout : LREAL;\nEND_VAR\nout := 1.0 / (zero - zero);\nEND_PROGRAM\n",
+  },
+  {
     name: "probe_integer_edges",
     why: "wrapping at every width, in both directions — the arithmetic both backends must round-trip identically",
     source:

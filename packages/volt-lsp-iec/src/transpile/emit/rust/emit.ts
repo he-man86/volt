@@ -607,7 +607,11 @@ class Printer {
           return `({ let __mod_l = ${l}; let __mod_r = ${r}; if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } })`
         if (wrapping !== undefined && !isReal) return `${l}.wrapping_${wrapping}(${r})`
         const plain = e.op === "add" ? "+" : e.op === "sub" ? "-" : e.op === "mul" ? "*" : e.op === "div" ? "/" : "%"
-        return `(${l} ${plain} ${r})`
+        // AN INFINITE RESULT STOPS THE TASK, as it does on CODESYS and as `fit` does in the interpreter — see
+        // `values.ts`. Rust's `/` answers `inf` and carries on, so without this the two backends part company on
+        // every program that divides by zero: one stops, the other keeps running with an infinity in a variable.
+        // A NaN is untouched; the vendor completes the scan for those (`domain_sqrt_negative`).
+        return isReal ? `iec_finite(${l} ${plain} ${r})` : `(${l} ${plain} ${r})`
       }
     }
   }
@@ -1030,6 +1034,16 @@ export function emitRust(pou: IrPou): Emitted {
   if (p.code.includes("iec_deref(")) {
     p.push("", 0)
     p.push('fn iec_deref(at: usize) { if at == 0 { panic!("dereference of a null pointer"); } }', 0)
+  }
+  // The emitted twin of `fit`'s infinity check: an infinity stops the task on CODESYS, a NaN does not. Gated on its
+  // OWN use, not on `iec_deref`'s — a program can divide by zero without ever dereferencing a pointer, and attaching
+  // it to the wrong condition left `iec_finite` undefined in every program that does.
+  if (p.code.includes("iec_finite(")) {
+    p.push("", 0)
+    p.push(
+      'fn iec_finite<T: Copy + Into<f64>>(v: T) -> T { let f: f64 = v.into(); if f.is_infinite() { panic!("a REAL operation produced an infinity, which stops the task on CODESYS"); } v }',
+      0,
+    )
   }
 
   // Only a program that holds a string gets the string type — every other output stays exactly what it was.
