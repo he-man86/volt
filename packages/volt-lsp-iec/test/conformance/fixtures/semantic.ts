@@ -185,14 +185,14 @@ END_METHOD
   },
   {
     name: "refuse_sizeof_interface",
-    refused: "Unexpected token 'r' found",
+    refused: "Unexpected token 'held' found",
     pouName: "FB_LANG_refuse_sizeof_interface",
     kind: "function_block" as const,
     feature: "SIZEOF an INTERFACE variable — `sizeof-unmeasured`; what does a reference to an instance measure?",
     fromDoc: "05-operands.md",
     plcPrgVar: "inst_refuse_sizeof_interface : FB_LANG_refuse_sizeof_interface;",
     plcPrgBody: "inst_refuse_sizeof_interface();",
-    source: "INTERFACE I_LANG_sizeof\nMETHOD M : INT\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION_BLOCK FB_LANG_refuse_sizeof_interface\nVAR\n\tr : I_LANG_sizeof;\n\tn : ULINT;\nEND_VAR\nn := SIZEOF(r);\nEND_FUNCTION_BLOCK\n",
+    source: "INTERFACE I_LANG_sizeof\nMETHOD M : INT\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION_BLOCK FB_LANG_refuse_sizeof_interface\nVAR\n\theld : I_LANG_sizeof;\n\tn : ULINT;\nEND_VAR\nn := SIZEOF(held);\nEND_FUNCTION_BLOCK\n",
   },
   // ─── A UNARY OPERATOR ON A TYPE THAT IS NOT A NUMBER ───────────────────────────────────────────────
   // `-s` on a STRING, `NOT s` on a STRING and `-b` on a BOOL all LOWERED and then threw inside the interpreter
@@ -202,25 +202,25 @@ END_METHOD
   // whether the vendor accepts the expression is unrecorded.
   {
     name: "unary_minus_on_string",
-    refused: "Unexpected token 's' found",
+    refused: "Unexpected token 'text' found",
     pouName: "FB_LANG_unary_minus_on_string",
     kind: "function_block" as const,
     feature: "unary minus on a STRING — a type error, or something?",
     fromDoc: "03-operators.md",
     plcPrgVar: "inst_unary_minus_on_string : FB_LANG_unary_minus_on_string;",
     plcPrgBody: "inst_unary_minus_on_string();",
-    source: "FUNCTION_BLOCK FB_LANG_unary_minus_on_string\nVAR\n\ts : STRING := 'abc';\n\tout : STRING;\nEND_VAR\nout := -s;\nEND_FUNCTION_BLOCK\n",
+    source: "FUNCTION_BLOCK FB_LANG_unary_minus_on_string\nVAR\n\ttext : STRING := 'abc';\n\tout : STRING;\nEND_VAR\nout := -text;\nEND_FUNCTION_BLOCK\n",
   },
   {
     name: "unary_not_on_string",
-    refused: "Unexpected token 's' found",
+    refused: "Unexpected token 'text' found",
     pouName: "FB_LANG_unary_not_on_string",
     kind: "function_block" as const,
     feature: "NOT on a STRING",
     fromDoc: "03-operators.md",
     plcPrgVar: "inst_unary_not_on_string : FB_LANG_unary_not_on_string;",
     plcPrgBody: "inst_unary_not_on_string();",
-    source: "FUNCTION_BLOCK FB_LANG_unary_not_on_string\nVAR\n\ts : STRING := 'abc';\n\tout : STRING;\nEND_VAR\nout := NOT s;\nEND_FUNCTION_BLOCK\n",
+    source: "FUNCTION_BLOCK FB_LANG_unary_not_on_string\nVAR\n\ttext : STRING := 'abc';\n\tout : STRING;\nEND_VAR\nout := NOT text;\nEND_FUNCTION_BLOCK\n",
   },
   {
     name: "unary_minus_on_bool",

@@ -100,10 +100,11 @@ Interpreter before emitter (D3). Titles are from `findings.md`.
       `(Reverse := -1, …)` that is not a value of the type. Refused while unmeasured, six fixtures added to
       record it, reach 55 -> 46. Narrowed to a variable that actually TAKES the default, since 425 of the 446
       non-zero enums are in libraries named only for their values. · `f89ef399c7`
-- [~] *"a math domain error returns NaN and keeps running"* — measured in the interpreter: SQRT(-1) = NaN,
-      LN(0) = -inf, LN(-1) = NaN, 1.0/0.0 = inf, i.e. IEEE-754. Plausible but **unmeasured on the vendor**, so
-      five fixtures now record it (`overflow_domain_*`, incl. NaN propagation and NaN comparison). Decide when
-      the recording lands — a guess in the oracle is the worst place for one. · `bbab6eb5be`
+- [~] *"a math domain error returns NaN and keeps running"* — the fixtures existed and **measured nothing**:
+      `domain_sqrt_negative` and its four neighbours all named a variable `r`, which CODESYS reserves as the IL
+      RESET operator, so every one recorded `Unexpected token 'r' found` instead of an answer. Renamed and
+      re-recorded 2026-09-18. The same bug hit eight more fixtures (`s`, `lt`, `gt`) — see the reserved-name note
+      below, which is the general lesson.
 - [x] *"REAL → integer saturates above i64 range where the interpreter wraps"* — real, live, and INVISIBLE to the
       probe built for it: seeds were 0..96 and overwrite declared initial values, so the probe compared the two
       backends on 43 instead of 1.0E19. A magnitude-spanning seed ladder exposed three divergences at once.
@@ -117,10 +118,12 @@ Interpreter before emitter (D3). Titles are from `findings.md`.
       already resolved it and a scalar `a := r` already worked; only the step was missing. · `0032fde376`
 - [x] *"A PROPERTY through a REFERENCE TO an FB is not resolved"* — `instancePlace` solved it, exactly as the
       review said; `propertyAccess` asked the reference's OWN type in both places it asks. · `0032fde376`
-- [~] *"`pack_mode` is never read for a FUNCTION_BLOCK"* — the measurement is now WAITING rather than missing:
-      `mem_fb_pack_mode_*` compare the same FB with and without the attribute, plus a STRUCT control. Note the
-      existing `cc4_pack_mode_not_allowed` is named for a belief its own recording contradicts — CODESYS built
-      pack_mode on an FB with no diagnostics. Needs a live SP21 `record:exec`.
+- [x] *"`pack_mode` is never read for a FUNCTION_BLOCK"* — **measured and fixed.** `mem_fb_pack_mode_*` recorded
+      on CODESYS 3.5.21.40, 2026-09-18: the same FB is SIZEOF **16** aligned and **13** with
+      `{attribute 'pack_mode' := '1'}`, so the attribute DOES reach an FB. `fieldBytes` read the declaration only
+      for a struct, and a packed layout must not be rounded up at the end either — invisible for a struct, whose
+      align is 1, and the reason the FB stayed at 16. Note `cc4_pack_mode_not_allowed` is named for a belief its
+      own recording contradicts: CODESYS builds pack_mode on an FB with no diagnostics.
 - [ ] *"instanceRelative treats the root FB's own frame as multi-instance"* — **structurally real, no reaching case
       found.** The asymmetry is in the code: the root POU's harness frame is `POU:NAME` (`lower.ts`) while the root
       FB's OWN frame is `FB:NAME` (`buildLayout`), so `instanceRelative` reads the root FB's own fields as another
