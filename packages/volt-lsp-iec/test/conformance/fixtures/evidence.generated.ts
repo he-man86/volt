@@ -6,10 +6,10 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed     654
+ *   confirmed     672
  *   refused       194
  *   not-lowered    23
- *   unasked        35
+ *   unasked        17
  *   lsp-gap        35
  *   diverges        4
  *   unaskable      22
@@ -813,25 +813,25 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   subsequent: "refused",
   suppress_warning: "confirmed",
   suppress_warning_multi: "confirmed",
-  tc_call_after_output_update: "unasked",
-  tc_context_id: "unasked",
-  tc_context_name: "unasked",
-  tc_display_scale: "unasked",
-  tc_encoding: "unasked",
-  tc_global_data_type: "unasked",
-  tc_hide_sub_items: "unasked",
-  tc_ignore_persistent: "unasked",
-  tc_init_on_reset: "unasked",
-  tc_init_symbol: "unasked",
-  tc_link_to: "unasked",
-  tc_link_to_oso: "unasked",
+  tc_call_after_output_update: "confirmed",
+  tc_context_id: "confirmed",
+  tc_context_name: "confirmed",
+  tc_display_scale: "confirmed",
+  tc_encoding: "confirmed",
+  tc_global_data_type: "confirmed",
+  tc_hide_sub_items: "confirmed",
+  tc_ignore_persistent: "confirmed",
+  tc_init_on_reset: "confirmed",
+  tc_init_symbol: "confirmed",
+  tc_link_to: "confirmed",
+  tc_link_to_oso: "confirmed",
   tc_nc_axis: "unasked",
-  tc_no_symbol: "unasked",
-  tc_persistent: "unasked",
-  tc_retain: "unasked",
-  tc_rpc_enable: "unasked",
-  tc_swap_dword: "unasked",
-  tc_swap_word: "unasked",
+  tc_no_symbol: "confirmed",
+  tc_persistent: "confirmed",
+  tc_retain: "confirmed",
+  tc_rpc_enable: "confirmed",
+  tc_swap_dword: "confirmed",
+  tc_swap_word: "confirmed",
   tc2_gvl_var_names: "confirmed",
   temporal_conversions: "confirmed",
   text_message: "confirmed",

@@ -10,11 +10,11 @@
  * records that TC accepts it (`expectTcAccepts: true`) — the same evidence
  * standard the `__`-operators already meet.
  *
- * All are `recordIsolated` (one push+build each) and self-contained — no
- * PLC_PRG instantiation needed: an attribute is validated when its POU's
- * declaration compiles, independent of task reachability, and every case
- * here is expected to compile clean (so the dead-code path records the same
- * `buildSuccess: true, diagnostics: []` either way).
+ * All are `recordIsolated` (one push+build each). The BUILD recording needs no PLC_PRG instantiation — an attribute
+ * is validated when its POU's declaration compiles, independent of task reachability — but each fixture declares one
+ * anyway, because the EXECUTION recorder reads `PLC_PRG.<path>` and had nothing to read. What that measures is worth
+ * having: CODESYS ignores an attribute it does not know, and the instance proves it leaves the INITIALIZATION alone
+ * too, which is the only thing about a Beckhoff pragma the transpiler can get wrong on this vendor.
  *
  * Source of the attribute list: Beckhoff InfoSys "Attribute pragmas".
  */
@@ -31,6 +31,7 @@ function varAttr(slug: string, attr: string, varDecl: string, note?: string): La
     feature: `{attribute '${attr}'} on a variable is a TwinCAT-only Tc attribute`,
     fromDoc: "07-pragmas.md#tc-attributes",
     ...(note ? { note } : {}),
+    plcPrgVar: `inst : ${pou};`,
     source: `FUNCTION_BLOCK ${pou}\nVAR\n\t{attribute '${attr}'}\n\t${varDecl}\nEND_VAR\n\nEND_FUNCTION_BLOCK\n`,
   }
 }
@@ -44,6 +45,8 @@ function methodAttr(slug: string, attr: string): LanguageTest {
     kind: "function_block",
     feature: `{attribute '${attr}'} on a method is a TwinCAT-only Tc attribute`,
     fromDoc: "07-pragmas.md#tc-attributes",
+    plcPrgVar: `inst : ${pou};\n	done : BOOL;`,
+    plcPrgBody: "done := inst.DoRpc();",
     source:
       `FUNCTION_BLOCK ${pou}\nVAR\nEND_VAR\n\nEND_FUNCTION_BLOCK\n\n` +
       `{attribute '${attr}'}\nMETHOD DoRpc : BOOL\nVAR_INPUT\nEND_VAR\nDoRpc := TRUE;\nEND_METHOD\n`,
@@ -59,6 +62,7 @@ function structAttr(slug: string, attr: string): LanguageTest {
     kind: "dut",
     feature: `{attribute '${attr}'} on a DUT is a TwinCAT-only Tc attribute`,
     fromDoc: "07-pragmas.md#tc-attributes",
+    plcPrgVar: `inst : ${dut};`,
     source: `{attribute '${attr}'}\nTYPE ${dut} :\nSTRUCT\n\ta : INT;\n\tb : INT;\nEND_STRUCT\nEND_TYPE\n`,
   }
 }
