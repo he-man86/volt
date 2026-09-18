@@ -67,7 +67,7 @@ export interface CategoryGroup {
   tests: readonly LanguageTest[]
 }
 
-export const CATEGORIES: readonly CategoryGroup[] = [
+const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "cross-object", tests: CROSS_OBJECT_TESTS },
   { name: "cross-object-two", tests: CROSS_OBJECT_TWO_TESTS },
   { name: "cross-object-three", tests: CROSS_OBJECT_THREE_TESTS },
@@ -139,11 +139,19 @@ export const CATEGORIES: readonly CategoryGroup[] = [
  *
  * The rating is derived — from the recordings and the fixture's own flags — so it is generated into
  * `evidence.generated.ts` and merged HERE rather than written into each entry: 458 of these fixtures come from
- * factory helpers or template-literal names, where a per-entry field cannot reach. Merging makes `t.evidence`
- * present on all of them, and `confidence.test.ts` recomputes every value so it cannot go stale.
+ * factory helpers or template-literal names, where a per-entry field cannot reach. `confidence.test.ts` recomputes
+ * every value so it cannot go stale.
  *
- * A fixture's OWN `evidence`, if one is ever written by hand, is left alone — the generated value only fills a gap.
+ * MERGED ONTO THE CATEGORIES, not onto a flattened copy. Both `CATEGORIES` and `ALL_TESTS` are exported and hold the
+ * same fixtures; merging into only one gave two views that disagreed, and a per-category report read every rating as
+ * absent. A fixture's OWN `evidence`, if one is ever written by hand, is left alone — the generated value only fills
+ * a gap.
  */
-export const ALL_TESTS: readonly LanguageTest[] = CATEGORIES.flatMap((c) => c.tests).map((t) =>
-  t.evidence === undefined && FIXTURE_EVIDENCE[t.name] !== undefined ? { ...t, evidence: FIXTURE_EVIDENCE[t.name] } : t,
-)
+export const CATEGORIES: readonly CategoryGroup[] = RAW_CATEGORIES.map((c) => ({
+  ...c,
+  tests: c.tests.map((t) =>
+    t.evidence === undefined && FIXTURE_EVIDENCE[t.name] !== undefined ? { ...t, evidence: FIXTURE_EVIDENCE[t.name] } : t,
+  ),
+}))
+
+export const ALL_TESTS: readonly LanguageTest[] = CATEGORIES.flatMap((c) => c.tests)
