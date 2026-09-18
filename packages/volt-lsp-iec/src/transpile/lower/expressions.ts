@@ -138,7 +138,11 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
       // implicit signed-to-unsigned store) and `cc_neg_byte_into_byte` fails on the STORE — "Cannot convert type
       // '''INT''' to type '''BYTE'''" — which means the negation itself was fine and produced an INT. Excluding bitstrings
       // here refused two fixtures the vendor compiles.
-      const negatable = family === "int" || family === "real" || family === "time" || family === "bitstring"
+      // NOT a TIME. `unary_minus_on_time` asked CODESYS on 2026-09-18 and it does not compile: "Cannot convert type
+      // 'DINT' to type 'TIME' | Cannot convert type 'TIME' to type 'DINT'". Negating a duration was admitted here on
+      // the reasoning that a duration is arithmetic on its milliseconds, and the vendor simply does not allow it —
+      // which is why the fixture was written rather than the reasoning trusted.
+      const negatable = family === "int" || family === "real" || family === "bitstring"
       const invertible = family === "bool" || family === "bitstring" || family === "int"
       if (e.op === "-" && !negatable)
         return lw.bail("unary-op", `unary minus on a ${operand.type.kind === "elementary" ? operand.type.name : operand.type.kind}`, e.span)

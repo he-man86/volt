@@ -7,7 +7,7 @@ import { DEFAULT_STRING_LENGTH, elemOf, elementaryRef, resolveNamedType, type Ty
 import { defaultValueOf, elementOf, type IrInit, type IrStmt, type IrValue, type Place } from "../ir/index.js"
 import { baseOf, boundName, Lowering, openDims, ZERO_SPAN } from "./lowering.js"
 import { stored, valueAs } from "./convert.js"
-import { calendarOf, durationOf, enumStorage, foldConstant, refuseUnmeasuredEnumDefault, stringLiteralText, TEMPORAL_LITERAL_KINDS, typedRealOf } from "./constants.js"
+import { calendarOf, durationOf, enumDefault, enumStorage, inlineEnumDefault, foldConstant, stringLiteralText, TEMPORAL_LITERAL_KINDS, typedRealOf } from "./constants.js"
 import { overlayBytes } from "./unions.js"
 
 /**
@@ -169,12 +169,19 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[]): void
       // (conformance `type_dut_alias_with_init`, 43 after `x := x + 1`). It started at 0 — `resolve` sees through the
       // alias to INT and the alias's initializer went with it.
       const decl = { ...written, init: written.init ?? aliasInit(lw, written.type) }
-      // ONLY a variable that takes the TYPE's default asks where that default is — and for some enums the answer is
-      // unmeasured (`refuseUnmeasuredEnumDefault`). A variable WITH an initializer never asks; neither does folding a
-      // VALUE of the same enum, which is a constant its declaration states. Both matter: 425 of the 446 corpus enums
-      // that start non-zero are in libraries, named for their values by code that declares no variable of them.
-      if (decl.init === undefined) refuseUnmeasuredEnumDefault(lw, lw.resolve(written.type))
-      const init = decl.init === undefined ? undefined : decl.init.kind === "aggregate_init" ? aggregateInit(lw, decl.init, type) : scalarInit(lw, decl.init, type)
+      // ONLY a variable that takes the TYPE's default asks where that default is, and for an ENUM that is not always
+      // zero — `enumDefault` carries the measured rule. A variable WITH an initializer never asks; neither does
+      // folding a VALUE of the same enum, which is a constant its declaration states.
+      const enumStart =
+        decl.init === undefined ? (enumDefault(lw, lw.resolve(written.type)) ?? inlineEnumDefault(lw, written.type)) : undefined
+      const init =
+        decl.init === undefined
+          ? enumStart === undefined
+            ? undefined
+            : stored(enumStart, type)
+          : decl.init.kind === "aggregate_init"
+            ? aggregateInit(lw, decl.init, type)
+            : scalarInit(lw, decl.init, type)
       if (decl.init !== undefined && init === undefined) continue
       for (const name of decl.names) {
         // A NAME DECLARED TWICE IS INVALID INPUT, and must end in a diagnostic here rather than a throw later.

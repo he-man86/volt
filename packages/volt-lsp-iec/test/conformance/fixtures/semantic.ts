@@ -119,6 +119,8 @@ END_METHOD
   // COMPILES is a gap with a name. Only a recording tells them apart.
   {
     name: "refuse_method_no_result",
+    deferred: { lsp: "2026-09-18: no LSP error for a METHOD with no return type used as a value" },
+    refused: "Cannot convert type 'Unknown type: 'm.NoRet()'' to type 'INT'",
     pouName: "FB_LANG_refuse_method_no_result",
     kind: "function_block" as const,
     feature: "a METHOD with no return type used as a VALUE — `call-no-result`",
@@ -129,6 +131,8 @@ END_METHOD
   },
   {
     name: "refuse_inout_bound_to_bit",
+    deferred: { lsp: "2026-09-18: no LSP error for a VAR_IN_OUT bound to a BIT" },
+    refused: "Type 'BIT' is not equal to type 'BOOL' of VAR_IN_OUT respectively REFERENCE 'io'",
     pouName: "FB_LANG_refuse_inout_bound_to_bit",
     kind: "function_block" as const,
     feature: "a VAR_IN_OUT bound to a BIT of a word — `call-inout-bit`; a bit is not a place with an address",
@@ -159,6 +163,8 @@ END_METHOD
   },
   {
     name: "refuse_super_without_base",
+    deferred: { lsp: "2026-09-18: no LSP error for SUPER^ in an FB that extends nothing" },
+    refused: "Program name, function or function block instance expected instead of 'SUPER^'",
     pouName: "FB_LANG_refuse_super_without_base",
     kind: "function_block" as const,
     feature: "SUPER^() in an FB that EXTENDS nothing — `call-super`",
@@ -179,6 +185,7 @@ END_METHOD
   },
   {
     name: "refuse_sizeof_interface",
+    refused: "Unexpected token 'r' found",
     pouName: "FB_LANG_refuse_sizeof_interface",
     kind: "function_block" as const,
     feature: "SIZEOF an INTERFACE variable — `sizeof-unmeasured`; what does a reference to an instance measure?",
@@ -195,6 +202,7 @@ END_METHOD
   // whether the vendor accepts the expression is unrecorded.
   {
     name: "unary_minus_on_string",
+    refused: "Unexpected token 's' found",
     pouName: "FB_LANG_unary_minus_on_string",
     kind: "function_block" as const,
     feature: "unary minus on a STRING — a type error, or something?",
@@ -205,6 +213,7 @@ END_METHOD
   },
   {
     name: "unary_not_on_string",
+    refused: "Unexpected token 's' found",
     pouName: "FB_LANG_unary_not_on_string",
     kind: "function_block" as const,
     feature: "NOT on a STRING",
@@ -215,6 +224,8 @@ END_METHOD
   },
   {
     name: "unary_minus_on_bool",
+    deferred: { lsp: "2026-09-18: no LSP error for unary minus on a BOOL" },
+    refused: "Cannot convert type 'INT' to type 'BOOL'",
     pouName: "FB_LANG_unary_minus_on_bool",
     kind: "function_block" as const,
     feature: "unary minus on a BOOL",
@@ -225,6 +236,8 @@ END_METHOD
   },
   {
     name: "unary_minus_on_time",
+    deferred: { lsp: "2026-09-18: no LSP error for unary minus on a TIME" },
+    refused: "Cannot convert type 'DINT' to type 'TIME'",
     pouName: "FB_LANG_unary_minus_on_time",
     kind: "function_block" as const,
     feature: "unary minus on a TIME — accepted? and does it wrap, TIME being unsigned 32-bit ms?",
@@ -240,6 +253,8 @@ END_METHOD
   // lowering it is the defect; if CODESYS compiles it, the answer it gives is what we must match.
   {
     name: "accepts_output_into_other_type",
+    deferred: { lsp: "2026-09-18: no LSP error for a VAR_OUTPUT read into a variable of another type" },
+    refused: "Cannot convert type 'INT' to type 'STRING'",
     pouName: "FB_LANG_accepts_output_into_other_type",
     kind: "function_block" as const,
     feature: "an INT VAR_OUTPUT read out into a STRING variable — `call-output-type` exists, and this does not trigger it",
@@ -295,6 +310,8 @@ END_METHOD
   },
   {
     name: "refuse_fb_called_positionally",
+    deferred: { lsp: "2026-09-18: no LSP error for an FB body call with a positional argument" },
+    refused: "Assignment to input missing for parameter '5' in call of 'FB_LANG_POSITIONAL_TARGET'",
     pouName: "FB_LANG_refuse_fb_called_positionally",
     kind: "function_block" as const,
     feature: "an FB BODY call with a positional argument — `call-positional`; does the vendor take it?",

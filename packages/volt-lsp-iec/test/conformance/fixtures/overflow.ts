@@ -145,6 +145,7 @@ END_METHOD
   // fixing one alone converts a shared bug into a B<->C divergence, which is why these were filed together.
   {
     name: "domain_sqrt_negative",
+    refused: "Unexpected token 'r' found",
     pouName: "FB_LANG_domain_sqrt_negative",
     kind: "function_block" as const,
     feature: "SQRT of a negative — NaN, an error, or a stopped task?",
@@ -155,6 +156,7 @@ END_METHOD
   },
   {
     name: "domain_ln_zero",
+    refused: "Unexpected token 'r' found",
     pouName: "FB_LANG_domain_ln_zero",
     kind: "function_block" as const,
     feature: "LN(0) — -inf, an error, or a stopped task?",
@@ -165,6 +167,7 @@ END_METHOD
   },
   {
     name: "domain_ln_negative",
+    refused: "Unexpected token 'r' found",
     pouName: "FB_LANG_domain_ln_negative",
     kind: "function_block" as const,
     feature: "LN of a negative — NaN, an error, or a stopped task?",
@@ -175,6 +178,7 @@ END_METHOD
   },
   {
     name: "domain_divide_real_by_zero",
+    refused: "Unexpected token 'r' found",
     pouName: "FB_LANG_domain_divide_real_by_zero",
     kind: "function_block" as const,
     feature: "a REAL divided by a REAL zero — inf, an error, or a stopped task?",
@@ -185,6 +189,7 @@ END_METHOD
   },
   {
     name: "domain_nan_propagates",
+    refused: "Unexpected token 'r' found",
     pouName: "FB_LANG_domain_nan_propagates",
     kind: "function_block" as const,
     feature: "does a NaN survive further arithmetic, and what does comparing it say?",
@@ -205,6 +210,7 @@ END_METHOD
   },
   {
     name: "real_to_dint_below_range",
+    deferred: { transpile: "2026-09-18: LREAL_TO_DINT(-1.0E30) records -2147483648 where the measured model (to a 64-bit register, indefinite on overflow, then wrap) says 0 - the model the other four points fit, including LREAL_TO_DINT(1.0E30) = 0 with only the SIGN different. One conversion cannot give both, so one of the two is likely folded at compile time; real_to_dint_runtime_* are written to tell them apart." },
     pouName: "FB_LANG_real_to_dint_below_range",
     kind: "function_block" as const,
     feature: "LREAL -1.0E30 to DINT — saturate, wrap, or something else?",
@@ -242,5 +248,57 @@ END_METHOD
     plcPrgVar: "fb_real_to_dint_nan : FB_LANG_real_to_dint_nan;",
     plcPrgBody: "fb_real_to_dint_nan();",
     source: "FUNCTION_BLOCK FB_LANG_real_to_dint_nan\nVAR\n\tx : REAL := -1.0;\n\tn : DINT;\nEND_VAR\nn := REAL_TO_DINT(SQRT(x));\nEND_FUNCTION_BLOCK\n",
+  },
+  // ─── IS THE CONVERSION FOLDED, OR RUN? ─────────────────────────────────────────────────────────────
+  // The four recorded points fit one model — REAL to integer goes through a 64-bit register whose out-of-range and
+  // NaN answer is i64::MIN, and the result then wraps into the target:
+  //     LREAL_TO_DINT(3.0E9) = -1294967296 · LREAL_TO_DINT(1.0E30) = 0 · LREAL_TO_LINT(1.0E30) = i64::MIN ·
+  //     REAL_TO_DINT(NaN) = 0
+  // The fifth does not: LREAL_TO_DINT(-1.0E30) records -2147483648, where the model says 0 — and the only difference
+  // from the 1.0E30 case that DOES fit is the sign. One conversion cannot answer both, so the likeliest reading is
+  // that one of them is folded at compile time from its initializer.
+  //
+  // These put the SAME magnitudes behind arithmetic no compiler folds: the value is built from a variable at run time
+  // (`grow` is 1.0 at entry, so each product is the same number the initializer would have given). If the runtime
+  // answers differ from the recorded ones, the split is real and the model holds for execution.
+  {
+    name: "real_to_dint_runtime_above",
+    pouName: "FB_LANG_real_to_dint_runtime_above",
+    kind: "function_block" as const,
+    feature: "LREAL 1.0E30 to DINT, built at RUN TIME - same magnitude as real_to_dint_above_range",
+    fromDoc: "runtime-domain",
+    plcPrgVar: "fb_real_to_dint_runtime_above : FB_LANG_real_to_dint_runtime_above;",
+    plcPrgBody: "fb_real_to_dint_runtime_above();",
+    source: "FUNCTION_BLOCK FB_LANG_real_to_dint_runtime_above\nVAR\n\tgrow : LREAL := 1.0;\n\tbig : LREAL;\n\tn : DINT;\nEND_VAR\nbig := 1.0E15 * 1.0E15 * grow;\nn := LREAL_TO_DINT(big);\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "real_to_dint_runtime_below",
+    pouName: "FB_LANG_real_to_dint_runtime_below",
+    kind: "function_block" as const,
+    feature: "LREAL -1.0E30 to DINT, built at RUN TIME - the point the model does not explain",
+    fromDoc: "runtime-domain",
+    plcPrgVar: "fb_real_to_dint_runtime_below : FB_LANG_real_to_dint_runtime_below;",
+    plcPrgBody: "fb_real_to_dint_runtime_below();",
+    source: "FUNCTION_BLOCK FB_LANG_real_to_dint_runtime_below\nVAR\n\tgrow : LREAL := 1.0;\n\tbig : LREAL;\n\tn : DINT;\nEND_VAR\nbig := -1.0E15 * 1.0E15 * grow;\nn := LREAL_TO_DINT(big);\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "real_to_lint_runtime_above",
+    pouName: "FB_LANG_real_to_lint_runtime_above",
+    kind: "function_block" as const,
+    feature: "LREAL 1.0E30 to LINT, built at RUN TIME",
+    fromDoc: "runtime-domain",
+    plcPrgVar: "fb_real_to_lint_runtime_above : FB_LANG_real_to_lint_runtime_above;",
+    plcPrgBody: "fb_real_to_lint_runtime_above();",
+    source: "FUNCTION_BLOCK FB_LANG_real_to_lint_runtime_above\nVAR\n\tgrow : LREAL := 1.0;\n\tbig : LREAL;\n\tn : LINT;\nEND_VAR\nbig := 1.0E15 * 1.0E15 * grow;\nn := LREAL_TO_LINT(big);\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "real_to_dint_runtime_in_range",
+    pouName: "FB_LANG_real_to_dint_runtime_in_range",
+    kind: "function_block" as const,
+    feature: "LREAL 3.0E9 to DINT, built at RUN TIME - the in-range control, recorded as a wrap",
+    fromDoc: "runtime-domain",
+    plcPrgVar: "fb_real_to_dint_runtime_in_range : FB_LANG_real_to_dint_runtime_in_range;",
+    plcPrgBody: "fb_real_to_dint_runtime_in_range();",
+    source: "FUNCTION_BLOCK FB_LANG_real_to_dint_runtime_in_range\nVAR\n\tgrow : LREAL := 1.0;\n\tmid : LREAL;\n\tn : DINT;\nEND_VAR\nmid := 3.0E9 * grow;\nn := LREAL_TO_DINT(mid);\nEND_FUNCTION_BLOCK\n",
   },
 ]

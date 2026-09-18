@@ -76,7 +76,22 @@ interface Case {
   pou: IrPou
   paths: { path: string; type: Type; global: boolean; expr: string }[]
   cycles: number
+  /**
+   * The source calls a TRANSCENDENTAL (`EXPT`, `SQRT`, `LN`, `SIN`, …), so its REAL results compare within a few ULP
+   * rather than bit-exactly.
+   *
+   * Not a softening of the rule that motivated this gate — `-0.0` is still caught, and every other value is still
+   * compared bit for bit. It is that `Math.pow` and Rust's `powf` are different libm implementations, and at extreme
+   * magnitudes they legitimately disagree in the last bits: the seed ladder feeds `EXPT` a base of 1.0E19, and
+   * 1.0E19^8 comes back 9.999999999999998e151 here and 1e152 there. Neither is wrong, no recording covers that input,
+   * and the fixture's OWN value (2^8 = 256) is exact in both. Demanding bit-equality of a transcendental across two
+   * libms is demanding something neither backend promises.
+   */
+  transcendental: boolean
 }
+
+/** The one-argument math functions and EXPT — `IrMathName` plus `expt`, as the vendor spells them in ST. */
+const TRANSCENDENTAL = /\b(EXPT|SQRT|LN|LOG|EXP|SIN|COS|TAN|ASIN|ACOS|ATAN)\s*\(/i
 
 function prepare(t: LanguageTest): Case | undefined {
   const fixtures = withDependencies(t, ALL_TESTS).filter((f) => f.source !== "")
@@ -84,6 +99,7 @@ function prepare(t: LanguageTest): Case | undefined {
   const rest = [...fixtures.filter((f) => f.kind !== "gvl").map((f) => f.source), plcPrgSource(t)].join("\n")
   const { pou } = lowerSource(rest, "PLC_PRG", [...LIBRARIES, ...gvls])
   if (pou === undefined) return undefined
+  const transcendental = TRANSCENDENTAL.test(rest)
   const paths: Case["paths"] = []
   for (const path of runPaths(t, ALL_TESTS)) {
     try {
@@ -93,7 +109,7 @@ function prepare(t: LanguageTest): Case | undefined {
       // a path the emitter cannot address is not a divergence — it is outside this gate's reach
     }
   }
-  return paths.length === 0 ? undefined : { name: t.name, pou, paths, cycles: t.cycles ?? 1 }
+  return paths.length === 0 ? undefined : { name: t.name, pou, paths, cycles: t.cycles ?? 1, transcendental }
 }
 
 /** Seedable = a scalar both backends can be handed a literal for. Strings and composites are READ, not seeded. */
@@ -294,7 +310,7 @@ function prepareProbe(name: string, source: string): Case | undefined {
       // not addressable from outside — not this gate's business
     }
   }
-  return paths.length === 0 ? undefined : { name, pou, paths, cycles: 1 }
+  return paths.length === 0 ? undefined : { name, pou, paths, cycles: 1, transcendental: TRANSCENDENTAL.test(source) }
 }
 
 /** Run one case through both backends and return the divergences — the whole comparison, in one place. */
@@ -331,9 +347,21 @@ async function compareCase(c: Case, dir: string): Promise<{ divergences: string[
     const want = b.values.get(path)
     if (want === undefined) continue
     compared++
-    if (want !== got) divergences.push(`${c.name}: ${path} — interp ${want}, rust ${got}`)
+    if (want !== got && !(c.transcendental && withinUlp(want, got))) divergences.push(`${c.name}: ${path} — interp ${want}, rust ${got}`)
   }
   return { divergences, compared, faultedBoth: false }
+}
+
+/**
+ * Two renderings of a REAL that differ only in the last few bits — the tolerance a TRANSCENDENTAL gets, and nothing
+ * else does. Both sides are the decimal of a 64-bit pattern (`bitsOf`), so "a few ULP" is a small difference in that
+ * integer. Four, which covers the `EXPT` case at 1.0E19^8 and is far too tight to hide a real defect: `-0.0` and
+ * `+0.0` are 2^63 apart, and the REAL-to-integer divergences this gate found were whole values apart.
+ */
+function withinUlp(a: string, b: string): boolean {
+  if (!/^-?\d+$/.test(a) || !/^-?\d+$/.test(b)) return false
+  const gap = BigInt(a) - BigInt(b)
+  return (gap < 0n ? -gap : gap) <= 4n
 }
 
 describe.skipIf(skipRustSuite())("the probes — every divergence that was real, as a regression test", () => {
@@ -418,7 +446,9 @@ describe.skipIf(skipRustSuite())("the two backends agree with each other, withou
             const want = b.values.get(path)
             if (want === undefined) continue
             compared++
-            if (want !== got) divergences.push(`${c.name}: ${path} — interp ${want}, rust ${got}`)
+            // the same rule the probe comparison applies — a transcendental's last bits are two libms', not a defect
+            if (want !== got && !(c.transcendental && withinUlp(want, got)))
+              divergences.push(`${c.name}: ${path} — interp ${want}, rust ${got}`)
           }
         }
       } finally {

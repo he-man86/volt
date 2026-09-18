@@ -62,7 +62,13 @@ export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "fu
   if (layout === undefined || lw.shared.unions.has(t.name.toUpperCase())) return undefined
   const pending = lw.bodies.get(t.name.toUpperCase())
   if (pending !== undefined && (baseOf(pending.unit) !== undefined || pending.unit.varSections.some((s) => s.sectionKind === "VAR_IN_OUT"))) return undefined
-  const decl = t.kind === "struct" ? lookup(lw.project, t.name)?.symbol.ast : undefined
+  // THE DECLARATION OF EITHER KIND. This read it only for a STRUCT, so `pack_mode` on a FUNCTION_BLOCK was never
+  // seen — the review filed it as "never read for a FUNCTION_BLOCK" and `mem_fb_pack_mode_*` measured it on
+  // 2026-09-18: the same FB is SIZEOF 16 aligned and **13** with `{attribute '''pack_mode''' := '''1'''}`, so the
+  // attribute reaches an FB and removes the padding exactly as it does in a struct. The 8-byte instance header stays.
+  // For an FB the attribute is keyed by the UNIT the parser produced, which is `PendingBody.unit` — the symbol's
+  // `ast` is a different node and finds nothing.
+  const decl = t.kind === "struct" ? lookup(lw.project, t.name)?.symbol.ast : pending?.unit
   if (decl?.kind === "type_decl" && decl.body.kind === "struct" && decl.body.extends !== undefined) return undefined
   // `{attribute 'pack_mode' := '1'}` lays the struct out with NO alignment padding: a BOOL then a DINT is 5, where the
   // aligned form is 8 (conformance `cp_declaration_pragmas`). Only mode 1 is measured; any other value is refused
@@ -103,7 +109,9 @@ export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "fu
     offset += b.size
     if (!packed && b.align > align) align = b.align
   }
-  return { size: alignUp(offset, align), align, ...(isFb ? {} : { offsets }) }
+  // A PACKED layout is not rounded up at the end either. For a struct this was invisible — `align` stays 1 there, so
+  // the round-up did nothing — but an FB's starts at 8 for its header, which turned the measured 13 back into 16.
+  return { size: packed ? offset : alignUp(offset, align), align: packed ? 1n : align, ...(isFb ? {} : { offsets }) }
 }
 
 /** A place's byte offset from the start of its root variable — through struct fields and constant indices only. */

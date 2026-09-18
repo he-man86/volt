@@ -23,7 +23,7 @@ import {
   type VarSection,
 } from "../../syntax/index.js"
 import { childScopesByName, findChildScope, libraryOf, lookup, lookupMember, type Scope } from "../../symbols/index.js"
-import { ANY_FAMILIES, elementaryRef, inferExprType, type Type, UNKNOWN } from "../../types/index.js"
+import { ANY_FAMILIES, elemOf, elementaryRef, inferExprType, type Type, UNKNOWN } from "../../types/index.js"
 import { byteSize } from "./bytes.js"
 import {
   defaultValueOf,
@@ -1267,6 +1267,18 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
       const written = lowerPlace(lw, arg.value)
       const target = written === undefined ? undefined : through(lw, written, arg.span)
       if (target === undefined) return undefined
+      // AN OUTPUT IS READ INTO A VARIABLE OF ITS OWN TYPE. `accepts_output_into_other_type` asked CODESYS on
+      // 2026-09-18: `w(o => text)` with an INT output and a STRING variable does not compile, "Cannot convert type
+      // 'INT' to type 'STRING'". The ROUTINE call path has checked this since `call-output-type`; the FB BODY call
+      // path never did, so the same mistake lowered here and `convert` quietly made something of it.
+      // The FAMILIES must match, not the exact type. CODESYS makes the implicit widening — `sum => wide` with an INT
+      // output and a DINT variable is ordinary and recorded (`fbcall_*`) — and refuses a crossing between families:
+      // `accepts_output_into_other_type` records "Cannot convert type 'INT' to type 'STRING'". An exact-equality
+      // check here refused the widening too.
+      const outFamily = elemOf(field.type)?.family
+      const intoFamily = elemOf(target.type)?.family
+      if (outFamily !== undefined && intoFamily !== undefined && outFamily !== intoFamily)
+        return lw.bail("call-output-type", `${field.name} is read into a variable of another type`, arg.span)
       const value: IrExpr = { kind: "load", place: member, type: field.type, span: arg.span }
       after.push({ kind: "assign", target, value: convert(value, target.type), span: arg.span })
     } else {

@@ -1035,6 +1035,7 @@ END_METHOD
   // already records the body call and the METHOD through a reference — these record the remaining three steps.
   {
     name: "xo_reference_field_step",
+    refused: "Unexpected token 'r' found",
     pouName: "FB_LANG_xo_reference_field_step",
     kind: "function_block" as const,
     feature: "a field read and written through a REFERENCE TO a struct — r.x means r^.x",
@@ -1045,6 +1046,7 @@ END_METHOD
   },
   {
     name: "xo_reference_index_step",
+    refused: "Unexpected token 'r' found",
     pouName: "FB_LANG_xo_reference_index_step",
     kind: "function_block" as const,
     feature: "an element read and written through a REFERENCE TO an array — r[1] means r^[1]",
@@ -1055,6 +1057,7 @@ END_METHOD
   },
   {
     name: "xo_reference_property",
+    refused: "Unexpected token 'r' found",
     pouName: "FB_LANG_xo_reference_property",
     kind: "function_block" as const,
     feature: "a PROPERTY read and written through a REFERENCE TO an FB — the accessor runs on the instance pointed at",

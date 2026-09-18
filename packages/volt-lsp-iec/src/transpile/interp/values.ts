@@ -254,12 +254,26 @@ export function coerce(v: Val, to: Type, from: Type): Val {
   // Math.round alone rounds -2.5 to -2 (half toward +infinity); on the magnitude it is half away from zero.
   // REAL → TIME rounds the same way: REAL_TO_TIME(2.5) is 3ms (conformance `temporal_conversions`)
   if (typeof n === "number" && (to.elem.rank !== undefined || family === "time")) {
-    // A NaN REACHING AN INTEGER FAULTS, in BOTH backends, because nothing measures what the vendor answers. It threw
-    // here already — `BigInt(NaN)` does — while the emitted Rust quietly produced 0, so the two disagreed about a
-    // whole class of program in silence. Faulting loudly in both is the honest state until `real_to_dint_nan`
-    // records the real one; inventing 0 would put a guess in the oracle every other backend is graded against.
-    if (Number.isNaN(n)) throw new TypeError(`a NaN converted to ${elemName(to)} — what CODESYS answers is not measured`)
-    return BigInt(Math.sign(n) * Math.round(Math.abs(n)))
+    // REAL -> INTEGER GOES THROUGH A 64-BIT REGISTER, and `fit` then wraps into the declared type. Out of that
+    // register's range — NaN included — the value is x86's "integer indefinite", i64::MIN. Measured on CODESYS
+    // 3.5.21.40 (2026-09-18) and this explains four of the five points:
+    //
+    //   LREAL_TO_DINT(3.0E9)   = -1294967296   in range, wrapped narrow      (`real_to_int_out_of_range`)
+    //   LREAL_TO_DINT(1.0E30)  = 0             i64::MIN, its low 32 bits     (`real_to_dint_above_range`)
+    //   LREAL_TO_LINT(1.0E30)  = i64::MIN      the register itself           (`real_to_lint_above_range`)
+    //   REAL_TO_DINT(NaN)      = 0             i64::MIN, its low 32 bits     (`real_to_dint_nan`)
+    //
+    // THE FIFTH DOES NOT FIT: `LREAL_TO_DINT(-1.0E30)` records -2147483648, where this model says 0
+    // (`real_to_dint_below_range`). Both magnitudes are out of range and only the SIGN differs, so a single
+    // conversion cannot produce both — the likeliest reading is that one of them is folded at compile time.
+    // `real_to_dint_runtime_*` put the same magnitudes behind arithmetic the compiler cannot fold; until those are
+    // recorded, the model that explains four points is used rather than a rule invented to explain five.
+    const INDEFINITE = -(2n ** 63n)
+    if (Number.isNaN(n)) return INDEFINITE
+    const rounded = Math.sign(n) * Math.round(Math.abs(n))
+    if (!Number.isFinite(rounded)) return INDEFINITE
+    const value = BigInt(rounded)
+    return value < INDEFINITE || value > 2n ** 63n - 1n ? INDEFINITE : value
   }
   return n
 }

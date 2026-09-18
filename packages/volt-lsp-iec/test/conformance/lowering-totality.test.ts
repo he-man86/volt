@@ -61,7 +61,7 @@ const isRunnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "fu
  * on purpose: a floor lets the documented figure rot quietly upward while still "passing".
  */
 const DOCUMENTED_BODIES = 304
-const DOCUMENTED_LOWERED = 46
+const DOCUMENTED_LOWERED = 55
 
 /**
  * HOW MANY REGISTERED REFUSAL CODES ANY REAL PROGRAM ACTUALLY PRODUCES.

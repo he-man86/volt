@@ -30,33 +30,56 @@ export function enumStorage(lw: Lowering, t: Extract<Type, { kind: "enum" }>): T
 }
 
 /**
- * WHERE AN UNINITIALIZED VARIABLE OF AN ENUM STARTS — refused while it is unmeasured, rather than guessed at 0.
+ * WHERE AN UNINITIALIZED VARIABLE OF AN ENUM STARTS — measured on CODESYS 3.5.21.40, 2026-09-18.
  *
- * Two shapes say the start is not 0: an explicit type-level default (`TYPE E : (A, B) := B` starts every E at B), and a
- * FIRST ENUMERATOR that is not 0 (`(Reverse := -1, Neutral := 0)` starts at -1), because a variable of an enum starts at
- * its first enumerator. Lowering started every enum at 0 — for the second shape, a value the type does not even have.
- * 446 corpus enum types declare a non-zero first enumerator, 21 of them in project source, and 15 corpus BODIES were
- * lowering on that wrong start (pro2193's `L_IMHP_ComponentType` = DEVICE = 101, `PlcDataType` = 23,
- * `enumRecipeCommandResult` = 257). Nothing measures it: every enum fixture starts at 0 and assigns before reading, so
- * `type_enum_default_*` were added to record the answer.
+ * **Zero if zero is one of the values; otherwise the FIRST enumerator.** Neither half was guessable:
  *
- * ASKED ONLY OF A VARIABLE THAT TAKES THE DEFAULT (`declareVars`, no initializer) — never of a folded VALUE, and
- * never of a variable that states its own start. `E_Severity.Low` is a constant the
- * declaration states outright — reading it needs no opinion about where a variable of that type would start — and a
- * library is exactly where non-zero enums live (425 of the 446). Asking this in `enumStorage`, which both paths share,
- * refused a program that only ever names the library's values.
+ *   (Forward := 1, Reverse := 2)              -> 1   `type_enum_default_first_nonzero`
+ *   (Reverse := -1, Neutral := 0, Forward := 1) -> 0   `type_enum_default_first_negative`   (Neutral, NOT first)
+ *   (High := 10, None := 0)                   -> 0   `type_enum_default_gap_then_zero`     (None, NOT first)
+ *   (Idle, Busy)                              -> 0   `type_enum_default_first_implicit_zero`
+ *
+ * So the storage is zero-initialised like everything else, and the vendor only moves off zero when zero would not be
+ * a value of the type at all. This was refused while unmeasured — rightly: lowering used to start EVERY enum at 0,
+ * which for the middle two is correct and for the first is a value the type does not have. 446 corpus enum types
+ * declare a non-zero first enumerator, 21 of them in project source.
  */
-export function refuseUnmeasuredEnumDefault(lw: Lowering, t: Type): void {
-  if (t.kind === "array") return refuseUnmeasuredEnumDefault(lw, t.element)
-  if (t.kind !== "enum" || t.name === "(implicit)") return
+export function enumDefault(lw: Lowering, t: Type): bigint | undefined {
+  if (t.kind !== "enum" || t.name === "(implicit)") return undefined
   const sym = lookup(lw.project, t.name)?.symbol
   const body = sym?.kind === "type" ? (sym.ast as TypeDecl).body : undefined
-  if (body?.kind !== "enum") return
-  if (body.init !== undefined) return lw.bail("enum-default", `${t.name} declares a default value, not modelled yet`, sym!.span)
-  const first = body.values[0]
-  const written = first?.value === undefined ? undefined : enumValueOf(lw, first.value, 0)
-  if (typeof written === "bigint" && written !== 0n)
-    lw.bail("enum-default", `${t.name} starts at ${first!.name.text} (${written}), not 0 — not measured yet`, sym!.span)
+  return body?.kind === "enum" ? defaultOfValues(lw, body.values, body.init) : undefined
+}
+
+/**
+ * The same rule for an INLINE enum — `e : (Forward := 1, Reverse := 2)` — whose values live on the DECLARATION and
+ * never reach a named type, so `enumDefault` cannot see them. Measured the same way
+ * (`type_enum_inline_default_first_nonzero`, recorded 1).
+ */
+export function inlineEnumDefault(lw: Lowering, type: { kind: string; values?: readonly { name: { text: string }; value?: Expr }[] }): bigint | undefined {
+  return type.kind === "implicit_enum_type" && type.values !== undefined ? defaultOfValues(lw, type.values, undefined) : undefined
+}
+
+/** Zero when zero is one of the values, else the FIRST — or the member a type-level `:= Name` default names. */
+function defaultOfValues(lw: Lowering, values: readonly { name: { text: string }; value?: Expr }[], init: { kind: string; name?: string } | undefined): bigint | undefined {
+  let next = 0n
+  let first: bigint | undefined
+  let hasZero = false
+  const byName = new Map<string, bigint>()
+  for (const v of values) {
+    const written = v.value === undefined ? undefined : enumValueOf(lw, v.value, 0)
+    if (v.value !== undefined && typeof written !== "bigint") return undefined // a value that does not fold
+    const value = typeof written === "bigint" ? written : next
+    if (first === undefined) first = value
+    if (value === 0n) hasZero = true
+    byName.set(v.name.text.toUpperCase(), value)
+    next = value + 1n
+  }
+  // A TYPE-LEVEL default names one of its own members: `TYPE E : (Idle, Busy) := Busy` starts every E at Busy
+  // (`type_enum_type_level_default`, recorded 1). Read from the value list rather than resolved as an expression —
+  // the name is a member of THIS enum, and a bare one does not resolve in the declaring scope.
+  if (init !== undefined) return init.kind === "ident_expr" && init.name !== undefined ? byName.get(init.name.toUpperCase()) : undefined
+  return hasZero ? 0n : first
 }
 
 /**

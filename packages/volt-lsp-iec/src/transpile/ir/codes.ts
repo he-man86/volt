@@ -74,7 +74,6 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "call-target": "unclassified",
   "case-label": "unclassified",
   "conversion-type": "not-measured",
-  "enum-default": "unclassified",
   "enum-value": "unclassified",
   "expr-call": "unclassified",
   "fb-init-argument": "unclassified",

@@ -29,10 +29,7 @@
  * *defined*; this says which are *reached*. Measured 2026-09-17 over the 6-project corpus (29,359 files) and
  * enforced by `test/conformance/lowering-totality.test.ts`, which fails if these numbers rot:
  *
- *   - top-level PROGRAM / FUNCTION_BLOCK bodies: **46 of 304 lower (15.1%)**
- *     (was 55: an enum whose FIRST enumerator is not 0 is now refused rather than started at 0, a value the type
- *     does not have — pro2193 has 15 such bodies, its `L_IMHP_ComponentType` starting at DEVICE = 101. Guessing
- *     there was reach bought with a wrong answer; `type_enum_default_*` record the real one.)
+ *   - top-level PROGRAM / FUNCTION_BLOCK bodies: **55 of 304 lower (18.1%)**
  *   - METHOD / ACTION bodies: **56,629, none reachable** — they share their FB's frame, which lowering does not
  *     model yet, and they are not even in the 304 denominator
  *   - so of every executable body in the corpus, about **0.10%**

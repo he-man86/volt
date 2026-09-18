@@ -236,7 +236,8 @@ describe("emit/rust", () => {
     // 2^64 first is not just slower, it is wrong, because 2^64 - 1 is not representable and -0.5 came back 0.
     expect(code).toContain("let __c = self.x.round()")
     expect(code).toContain("__c as i64")
-    expect(code).toContain("rem_euclid(18446744073709551616.0)")
+    // the out-of-range arm is the 64-bit register's indefinite value, not a modular reduction — see `coerce`
+    expect(code).toContain("i64::MIN")
     expect(code).toContain("(self.n != 0)")
     expect(code).toContain("((self.b as u8) as f32)")
     // TRUNC out of DINT range is i32::MIN (measured), so it is range-checked, not pushed through a wrapping i64

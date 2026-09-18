@@ -775,6 +775,8 @@ END_METHOD
   },
   {
     name: "string_compare_operators",
+    deferred: { lsp: "2026-09-18: no LSP error for a variable named `lt` — LT is a reserved operator name" },
+    refused: "Unexpected token 'lt' found",
     pouName: "FB_LANG_string_compare_operators",
     kind: "function_block" as const,
     feature: "the comparison OPERATORS on STRINGs — a different question from MAX",
@@ -801,6 +803,8 @@ END_METHOD
   // ask the question the symbol form cannot: ADD and MUL are EXTENSIBLE in IEC, so what does `ADD(a, b, c)` do?
   {
     name: "operator_call_form_arithmetic",
+    deferred: { lsp: "2026-09-18: no LSP error for `ADD(a, b)` — the call form of an operator is IL, not ST" },
+    refused: "';' expected instead of 'ADD'",
     pouName: "FB_LANG_operator_call_form_arithmetic",
     kind: "function_block" as const,
     feature: "ADD/SUB/MUL/DIV written as CALLS rather than symbols — accepted, and the same answers?",
@@ -811,6 +815,8 @@ END_METHOD
   },
   {
     name: "operator_call_form_extensible",
+    deferred: { lsp: "2026-09-18: no LSP error for as operator_call_form_arithmetic" },
+    refused: "';' expected instead of 'ADD'",
     pouName: "FB_LANG_operator_call_form_extensible",
     kind: "function_block" as const,
     feature: "ADD and MUL are EXTENSIBLE — what does a THIRD argument do?",
@@ -821,6 +827,8 @@ END_METHOD
   },
   {
     name: "operator_call_form_comparison",
+    deferred: { lsp: "2026-09-18: no LSP error for a variable named `gt` — GT is a reserved operator name" },
+    refused: "Unexpected token 'gt' found",
     pouName: "FB_LANG_operator_call_form_comparison",
     kind: "function_block" as const,
     feature: "GT/LT/LE/GE/EQ/NE written as CALLS rather than symbols",

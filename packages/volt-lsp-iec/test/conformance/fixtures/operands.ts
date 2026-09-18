@@ -146,6 +146,8 @@ END_METHOD
   // needs no lowering at all.
   {
     name: "operand_indexof",
+    deferred: { lsp: "2026-09-18: no LSP error for INDEXOF, which SP21 removed outright — the vendor says to use ADR instead" },
+    refused: "The operator INDEXOF is no longer supported. Use ADR instead. ADR on a POU name returns a pointer to a pointer to the function code.",
     pouName: "FB_LANG_operand_indexof",
     kind: "function_block" as const,
     feature: "INDEXOF(<POU>) — accepted, and what does it answer?",
@@ -156,6 +158,8 @@ END_METHOD
   },
   {
     name: "operand_bitadr",
+    deferred: { lsp: "2026-09-18: no LSP error for BITADR on a BIT, which the vendor rejects" },
+    refused: "Operation 'BitAdr' is not possible on type 'BIT'",
     pouName: "FB_LANG_operand_bitadr",
     kind: "function_block" as const,
     feature: "BITADR(<bit-var>) — the bit address of a bit-addressed variable",
@@ -166,6 +170,8 @@ END_METHOD
   },
   {
     name: "operand_querypointer",
+    deferred: { lsp: "2026-09-18: no LSP error for __QUERYPOINTER on a pointer rather than an interface reference" },
+    refused: "First operand of __QueryPointer must be an interface reference or the instance of a function block",
     pouName: "FB_LANG_operand_querypointer",
     kind: "function_block" as const,
     feature: "__QUERYPOINTER — the runtime cast to POINTER TO, beside __QUERYINTERFACE which IS lowered",
@@ -176,6 +182,8 @@ END_METHOD
   },
   {
     name: "operand_position",
+    deferred: { lsp: "2026-09-18: no LSP error for __POSITION outside an implicit-parameter pragma" },
+    refused: "';' expected instead of end of POU",
     pouName: "FB_LANG_operand_position",
     kind: "function_block" as const,
     feature: "__POSITION — the source position the implicit-parameter pragma uses",
@@ -186,6 +194,8 @@ END_METHOD
   },
   {
     name: "operand_compare_and_swap",
+    deferred: { lsp: "2026-09-18: no LSP error for __COMPARE_AND_SWAP on a value rather than a POINTER TO" },
+    refused: "Cannot convert type 'DINT' to type 'POINTER TO LWORD'",
     pouName: "FB_LANG_operand_compare_and_swap",
     kind: "function_block" as const,
     feature: "__COMPARE_AND_SWAP — an atomic, whose meaning under a single-task simulator is the question",
@@ -196,6 +206,8 @@ END_METHOD
   },
   {
     name: "operand_xadd",
+    deferred: { lsp: "2026-09-18: no LSP error for __XADD on a value rather than a POINTER TO" },
+    refused: "Cannot convert type 'DINT' to type 'POINTER TO DINT'",
     pouName: "FB_LANG_operand_xadd",
     kind: "function_block" as const,
     feature: "__XADD — atomic exchange-and-add",
@@ -206,6 +218,8 @@ END_METHOD
   },
   {
     name: "operand_test_and_set",
+    deferred: { lsp: "2026-09-18: no LSP error for TEST_AND_SET on a DWORD rather than a BOOL" },
+    refused: "Cannot convert type 'DWORD' to type 'BOOL'",
     pouName: "FB_LANG_operand_test_and_set",
     kind: "function_block" as const,
     feature: "TEST_AND_SET — atomic test-and-set",

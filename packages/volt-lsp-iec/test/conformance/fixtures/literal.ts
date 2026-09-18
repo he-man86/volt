@@ -261,6 +261,7 @@ END_METHOD
   // e-acute, so the answer to LEN() also says whether a STRING counts BYTES or characters.
   {
     name: "string_non_ascii_bytes",
+    deferred: { transpile: "2026-09-18: as string_high_byte_escape - the vendor's STRING is UTF-8 and LEN counts bytes." },
     pouName: "FB_LANG_string_non_ascii_bytes",
     kind: "function_block" as const,
     feature: "a STRING literal holding non-ASCII bytes ($C3$A9) — accepted, and does LEN count bytes or characters?",
@@ -271,6 +272,7 @@ END_METHOD
   },
   {
     name: "string_high_byte_escape",
+    deferred: { transpile: "2026-09-18: CODESYS records LEN('$FF') = 2 and LEN('caf$C3$A9') = 7 - so a STRING holds UTF-8 and LEN counts BYTES, where this stores one character per escape and counts characters. Real, and a whole encoding model rather than a patch." },
     pouName: "FB_LANG_string_high_byte_escape",
     kind: "function_block" as const,
     feature: "a single byte past 7F in a STRING ($FF) — stored as itself?",
@@ -281,6 +283,7 @@ END_METHOD
   },
   {
     name: "wstring_non_ascii",
+    refused: "Cannot convert type 'WSTRING' to type 'STRING(255)'",
     pouName: "FB_LANG_wstring_non_ascii",
     kind: "function_block" as const,
     feature: "a WSTRING holding a non-ASCII code unit ($00E9) — one unit, and what does LEN say?",
@@ -291,6 +294,7 @@ END_METHOD
   },
   {
     name: "wstring_surrogate_pair",
+    refused: "Cannot convert type 'WSTRING' to type 'STRING(255)'",
     pouName: "FB_LANG_wstring_surrogate_pair",
     kind: "function_block" as const,
     feature: "a WSTRING holding a character past the BMP, written as a SURROGATE PAIR — one character or two units?",

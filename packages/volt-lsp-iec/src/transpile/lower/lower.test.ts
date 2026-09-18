@@ -1289,9 +1289,15 @@ END_PROGRAM
 
   // Transpiler review 2026-09-15. Why missed: the enum fixtures number values and store them; none declares the TYPE's
   // own default (`:= B` after the list), which no code read.
-  test("an enum type with a default value is refused — a variable of it would start at 0", () => {
-    const { diagnostics } = lowerSource("PROGRAM P\nVAR m : E_D; END_VAR\nm := m;\nEND_PROGRAM\nTYPE E_D : (Idle, Busy) := Busy; END_TYPE\n", "P")
-    expect(diagnostics.map((d) => d.code)).toContain("enum-default")
+  test("an enum type with a default value starts every variable AT that member", () => {
+    // Was "refused — a variable of it would start at 0", which was the honest state while nothing measured it.
+    // `type_enum_type_level_default` asked CODESYS on 2026-09-18: `TYPE E : (Idle := 0, Busy := 1) := Busy` starts at
+    // Busy, recorded 1. So the refusal is gone and the rule is the vendor's.
+    const r = lowerSource("TYPE E : (Idle := 0, Busy := 1) := Busy;\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\te : E;\n\tx : DINT;\nEND_VAR\nx := e;\nEND_PROGRAM\n", "PLC_PRG")
+    expect(r.diagnostics).toEqual([])
+    const p = run(r.pou!)
+    p.scan()
+    expect(p.get("x")).toBe(1n)
   })
 
   // Phase 3½: every METHOD call resolves against the instance's own type — which holds only while an instance is never
@@ -1578,33 +1584,51 @@ describe("a library declaration without a body", () => {
  * and `type_enum_default_*` record the answer. Refusing cost 9 of 55 lowering bodies, which is reach that had been
  * bought with a wrong value.
  */
+/**
+ * WHERE AN UNINITIALIZED ENUM VARIABLE STARTS — measured on CODESYS 3.5.21.40, 2026-09-18.
+ *
+ * **Zero if zero is one of the values; otherwise the FIRST enumerator.** Neither half was guessable, and the shape
+ * that decides it is the one nobody writes down: an enum whose members STRADDLE zero starts at the member that IS
+ * zero, even when another is declared first.
+ *
+ * Lowering used to start every enum at 0, which for `(Forward := 1, Reverse := 2)` is a value the type does not have;
+ * then it refused the shape while unmeasured, which cost 9 of 55 corpus bodies. `type_enum_default_*` ended both.
+ */
 describe("an enum's default", () => {
-  test("a non-zero first enumerator is refused rather than started at 0", () => {
-    const r = lowerSource("TYPE Mode : (Idle := 3, Busy := 4);\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tm : Mode;\n\ta : INT;\nEND_VAR\na := m;\nEND_PROGRAM\n", "PLC_PRG")
-    expect(r.pou).toBeUndefined()
-    expect(r.diagnostics.map((d) => d.code)).toContain("enum-default")
-  })
-
-  test("a negative first enumerator is refused too — bakon-nano's sState starts at -1", () => {
-    const r = lowerSource("TYPE Dir : (Reverse := -1, Neutral := 0, Forward := 1);\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\td : Dir;\n\ta : INT;\nEND_VAR\na := d;\nEND_PROGRAM\n", "PLC_PRG")
-    expect(r.pou).toBeUndefined()
-    expect(r.diagnostics.map((d) => d.code)).toContain("enum-default")
-  })
-
-  test("a first enumerator written as 0 still lowers, and starts there", () => {
-    const r = lowerSource("TYPE Mode : (Idle := 0, Busy := 1);\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tm : Mode;\n\ta : INT;\nEND_VAR\na := m;\nEND_PROGRAM\n", "PLC_PRG")
+  test("no member is zero — the FIRST enumerator", () => {
+    const r = lowerSource("TYPE Mode : (Forward := 1, Reverse := 2);\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tm : Mode;\n\tx : DINT;\nEND_VAR\nx := m;\nEND_PROGRAM\n", "PLC_PRG")
     expect(r.diagnostics).toEqual([])
     const p = run(r.pou!)
     p.scan()
-    expect(p.get("a")).toBe(0n)
+    expect(p.get("x")).toBe(1n)
   })
-
-  test("an enum with no written values still lowers — the implicit first is 0", () => {
-    const r = lowerSource("TYPE Mode : (Idle, Busy);\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tm : Mode;\n\ta : INT;\nEND_VAR\na := m;\nEND_PROGRAM\n", "PLC_PRG")
+  test("a member IS zero — zero, even though another is declared first", () => {
+    const r = lowerSource("TYPE Dir : (Reverse := -1, Neutral := 0, Forward := 1);\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\td : Dir;\n\tx : DINT;\nEND_VAR\nx := d;\nEND_PROGRAM\n", "PLC_PRG")
     expect(r.diagnostics).toEqual([])
     const p = run(r.pou!)
     p.scan()
-    expect(p.get("a")).toBe(0n)
+    expect(p.get("x")).toBe(0n)
+  })
+  test("a zero that is declared LAST still wins", () => {
+    const r = lowerSource("TYPE Level : (High := 10, None := 0);\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tl : Level;\n\tx : DINT;\nEND_VAR\nx := l;\nEND_PROGRAM\n", "PLC_PRG")
+    expect(r.diagnostics).toEqual([])
+    const p = run(r.pou!)
+    p.scan()
+    expect(p.get("x")).toBe(0n)
+  })
+  test("an enum with no written values starts at zero", () => {
+    const r = lowerSource("TYPE Mode : (Idle, Busy);\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tm : Mode;\n\tx : DINT;\nEND_VAR\nx := m;\nEND_PROGRAM\n", "PLC_PRG")
+    expect(r.diagnostics).toEqual([])
+    const p = run(r.pou!)
+    p.scan()
+    expect(p.get("x")).toBe(0n)
+  })
+  test("an INLINE enum follows the same rule", () => {
+    const r = lowerSource("PROGRAM PLC_PRG\nVAR\n\tm : (Forward := 1, Reverse := 2);\n\tx : DINT;\nEND_VAR\nx := m;\nEND_PROGRAM\n", "PLC_PRG")
+    expect(r.diagnostics).toEqual([])
+    const p = run(r.pou!)
+    p.scan()
+    expect(p.get("x")).toBe(1n)
   })
 })
 
