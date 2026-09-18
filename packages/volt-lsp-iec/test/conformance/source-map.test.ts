@@ -9,11 +9,12 @@
  *
  * **It holds for a single-file program** — no span out of bounds, no blank slice, no mapping onto a lone delimiter.
  *
- * **It has NO FILE IDENTITY**, which makes it wrong for a program of more than one file. A mapping is a line and a
- * span, and nothing says WHICH source the span indexes; a body lowered from a GVL or a library declaration maps to an
- * offset in THAT file, which a consumer will slice out of the main one. Ten mappings do this today and every one is in
- * a program with another file — `fb_init_before_slot_method_sibling` maps to offset 200 of a 137-character source.
- * There is no reading of that which is not a bug, and nothing said so before this file.
+ * **It had NO FILE IDENTITY**, which made it wrong for a program of more than one file: a mapping was a line and a
+ * span, with nothing saying WHICH source the span indexed, so a body lowered from a GVL or a library declaration
+ * mapped to an offset in THAT file which a consumer would slice out of the main one. Ten mappings did this —
+ * `fb_init_before_slot_method_sibling` mapped to offset 200 of a 137-character source. Each mapping now carries the
+ * `uri` of the file its span indexes (`IrRoutine.uri`, `IrLayout.bodyUri`), and the test below holds it there: a span
+ * outside the main source must NAME its file, and one with no `uri` must be inside the main source.
  *
  * ONE-TO-MANY IS NOT A DEFECT, and the gate must not treat it as one: a PROPERTY assignment lowers to a setter, a
  * `__QUERYINTERFACE` to a whole `match`, and `x := y := z` to several assignments. All of those legitimately map many
@@ -28,12 +29,7 @@ import { withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
 import { STANDARD_LIBRARY } from "./support/standard-library.js"
 
-/**
- * Mappings whose span indexes a file that is NOT the main source — the missing file identity, pinned so it cannot
- * grow. It is a ceiling rather than an expectation of zero: closing it means carrying a URI on every span, which is a
- * change to the IR, not to this gate.
- */
-const CROSS_FILE_MAPPINGS = 10
+
 
 /** Mapped assignments whose Rust line does not name the ST target because lowering RENAMED it — the classes are
  *  listed at the test. A ceiling, so a new renaming class has to be looked at rather than absorbed. */
@@ -43,7 +39,7 @@ interface Program {
   name: string
   source: string
   multiFile: boolean
-  map: readonly { line: number; span: { start: number; end: number; startLine: number } }[]
+  map: readonly { line: number; span: { start: number; end: number; startLine: number }; uri?: string }[]
   rustLines: readonly string[]
 }
 
@@ -129,12 +125,19 @@ describe("the source map", () => {
     expect(checked - named).toBeLessThanOrEqual(RENAMED_TARGETS)
   })
 
-  test("CROSS-FILE — a span with no file identity is counted, and does not grow", () => {
-    const crossFile: string[] = []
-    for (const p of all().filter((x) => x.multiFile))
-      for (const { span } of p.map)
-        if (span.start < 0 || span.end > p.source.length || span.start >= span.end) crossFile.push(`${p.name}: [${span.start},${span.end}) of ${p.source.length}`)
-    console.log(`  [source-map] ${crossFile.length} mappings index a file that is not the main source`)
-    expect(crossFile.length).toBeLessThanOrEqual(CROSS_FILE_MAPPINGS)
+  test("CROSS-FILE — a span outside the main source NAMES the file it belongs to", () => {
+    // The property that makes the map usable: either the span is inside the main source, or it says which file it is
+    // not from. A mapping that is neither sends a consumer to read the wrong text, or past the end of the file.
+    const blind: string[] = []
+    let named = 0
+    for (const p of all())
+      for (const { span, uri } of p.map) {
+        const outside = span.start < 0 || span.end > p.source.length || span.start >= span.end
+        if (!outside) continue
+        if (uri === undefined || uri === "transpile://source") blind.push(`${p.name}: [${span.start},${span.end}) of ${p.source.length}, uri ${String(uri)}`)
+        else named++
+      }
+    console.log(`  [source-map] ${named} mappings index another file, and every one names it`)
+    expect(blind).toEqual([])
   })
 })

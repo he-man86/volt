@@ -470,7 +470,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
       lw.diagnostics.push(...r.diagnostics)
       return undefined
     }
-    return { name, key, kind: ast.kind, ...(frame === undefined ? {} : { fb: frame.name }), locals: r.localSlots, inputs, inouts: r.inoutSlots, ...(result === undefined ? {} : { result }), body, lent: r.lends }
+    return { name, key, kind: ast.kind, uri: sym.uri, ...(frame === undefined ? {} : { fb: frame.name }), locals: r.localSlots, inputs, inouts: r.inoutSlots, ...(result === undefined ? {} : { result }), body, lent: r.lends }
   })
 }
 
@@ -513,7 +513,7 @@ export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol,
       return undefined
     }
     const shape = accessor === "get" ? { inputs: [], result: 0 } : { inputs: [0] }
-    return { name, key, kind: "method", fb: frame.name, locals: r.localSlots, inouts: [], ...shape, body, lent: r.lends }
+    return { name, key, kind: "method", fb: frame.name, uri: sym.uri, locals: r.localSlots, inouts: [], ...shape, body, lent: r.lends }
   })
 }
 
@@ -1057,7 +1057,8 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
   }
   pending.state = "lowered"
   for (const slot of nested.touched) lw.touched.add(slot)
-  const called: IrLayout = { ...layout, body, inouts: nested.inoutSlots, lent: nested.lends }
+  // the file this body was written in travels with it, so the emitter can name it on every mapping
+  const called: IrLayout = { ...layout, body, inouts: nested.inoutSlots, lent: nested.lends, ...(pending.uri === undefined ? {} : { bodyUri: pending.uri }) }
   lw.layouts.set(key, called)
   return called
 }

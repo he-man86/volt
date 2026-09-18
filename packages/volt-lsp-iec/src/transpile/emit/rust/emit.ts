@@ -27,7 +27,10 @@ import { STRING_PRELUDE } from "./prelude.js"
 export interface Emitted {
   code: string
   /** 1-based emitted line → the ST span it came from. */
-  sourceMap: readonly { line: number; span: Span }[]
+  /** Each emitted line that maps back to ST: the Rust line (1-based), the span, and the FILE the span indexes.
+   *  `uri` is undefined for the POU's own body, which is the main source — a routine lowered from a GVL or a library
+   *  declaration names its own file, because a span alone cannot say which source it belongs to. */
+  sourceMap: readonly { line: number; span: Span; uri?: string }[]
   /** The program reaches GVL variables: `scan` takes `g: &mut Globals` (`Globals::new()` builds it). */
   usesGlobals: boolean
   /** The program calls PROGRAMs: `scan` takes `prg: &mut Programs` (`Programs::new()`), after `g`. */
@@ -241,7 +244,9 @@ const INFIX: Readonly<Record<string, string>> = {
 
 class Printer {
   private readonly lines: string[] = []
-  readonly sourceMap: { line: number; span: Span }[] = []
+  readonly sourceMap: { line: number; span: Span; uri?: string }[] = []
+  /** The file whose spans `push` is currently recording — set around each routine (`printRoutine`). */
+  sourceUri: string | undefined = undefined
 
   /** The enclosing IR loops, innermost last — each one's number names its `'loop_N` and `'body_N` labels, and the flags
    *  say whether an EXIT or a CONTINUE used them (an unused label is a rustc warning, and the crate builds with none). */
@@ -391,7 +396,7 @@ class Printer {
 
   push(text: string, indent: number, span?: Span): void {
     this.lines.push(`${"    ".repeat(indent)}${text}`)
-    if (span !== undefined) this.sourceMap.push({ line: this.lines.length, span })
+    if (span !== undefined) this.sourceMap.push({ line: this.lines.length, span, ...(this.sourceUri === undefined ? {} : { uri: this.sourceUri }) })
   }
 
   get code(): string {
@@ -807,6 +812,11 @@ function routineFnNames(routines: readonly IrRoutine[]): ReadonlyMap<string, str
  * result local is handed back.
  */
 function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[], fieldSlots: IrPou["slots"], indent: number): void {
+  // Every span this routine emits indexes the routine's OWN file, which need not be the main source — a body lowered
+  // from a GVL or a library declaration maps to an offset in that file, and a consumer slicing the main one reads the
+  // wrong text (or past its end). Restored after, so the POU's own body is not tagged with the last routine's file.
+  const outer = p.sourceUri
+  p.sourceUri = routine.uri
   // `g` and `prg`, as far as the program has them, are every body's first parameters — no local may take those names
   const names = fieldNames([...routine.locals, ...routine.inouts], p.globalsArg)
   const localNames = names.slice(0, routine.locals.length)
@@ -855,6 +865,8 @@ function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[],
   p.inFrame(fields, frame, () => p.block(routine.body, fieldSlots, indent + 1))
   if (result !== undefined) p.push(result, indent + 1)
   p.push("}", indent)
+  p.sourceUri = outer
+
 }
 
 /**
@@ -969,7 +981,11 @@ export function emitRust(pou: IrPou): Emitted {
       if (globalsParam.length > 0 || inouts.length > 0 || lentParams.length > 0) p.push("#[allow(unused_variables)]", 1)
       p.push(`pub fn call${genericList(typed)}(&mut self${params}) {`, 1)
       const selfType: Type = { kind: "function_block", name: layout.name }
+      // this body's spans index the file it was WRITTEN in, which need not be the main source (an FB declared in a GVL)
+      const outerBodyUri = p.sourceUri
+      p.sourceUri = layout.bodyUri
       p.inFrame(names, { inoutNames, inoutSlots: inouts, localNames: [], localSlots: [], selfType }, () => p.block(layout.body!, layout.fields, 2))
+      p.sourceUri = outerBodyUri
       p.push("}", 1)
     }
     for (const routine of pou.routines.filter((r) => r.fb?.toUpperCase() === layout.name.toUpperCase())) printRoutine(p, routine, names, layout.fields, 1)

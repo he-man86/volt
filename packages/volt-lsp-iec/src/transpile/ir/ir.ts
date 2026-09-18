@@ -447,6 +447,8 @@ export interface IrLayout {
   fields: readonly IrSlot[]
   /** An FB's body, once a call reached it — its places index `fields`, or `inouts` when marked. */
   body?: readonly IrStmt[]
+  /** The FILE that body was written in, for the source map — an FB declared in a GVL is not the main source. */
+  bodyUri?: string
   /** An FB's VAR_IN_OUT parameters, in declaration order. */
   inouts?: readonly IrSlot[]
   /** An FB's VAR_STAT (its bases' included): not fields — one global each, which every instance shares (conformance
@@ -468,6 +470,9 @@ export interface IrRoutine {
   kind: "method" | "action" | "function"
   /** The FB whose instance a METHOD or ACTION runs on. */
   fb?: string
+  /** The FILE this routine's body was written in — what a source-map entry from it indexes. A routine can come from a
+   *  GVL or a library declaration rather than the main source, and a span alone cannot say which. */
+  uri?: string
   /** Per-call storage, each starting at its `init` on every call: the result slot (first, when there is one), the
    *  VAR_INPUT, the VAR and VAR_TEMP, and lowering's temps. */
   locals: readonly IrSlot[]

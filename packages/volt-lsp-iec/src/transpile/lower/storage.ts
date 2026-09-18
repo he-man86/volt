@@ -90,7 +90,7 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
     declareOpenBounds(nested, ast.varSections.filter((s) => s.sectionKind === "VAR_IN_OUT"), "VAR")
     for (const section of ast.varSections.filter((s) => s.sectionKind === "VAR_STAT")) declareStatics(lw, nested, t.name, section, statics)
     nested.displayName = ast.name.text
-    lw.bodies.set(t.name.toUpperCase(), { lowering: nested, unit: ast, state: "pending" })
+    lw.bodies.set(t.name.toUpperCase(), { lowering: nested, unit: ast, state: "pending", ...(sym?.uri === undefined ? {} : { uri: sym.uri }) })
   } else {
     lw.bail(`layout-${t.kind}`, `${t.name} has no declaration lowering can lay out`, sym?.span ?? ZERO_SPAN)
     return

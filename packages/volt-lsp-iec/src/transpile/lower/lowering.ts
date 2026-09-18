@@ -23,6 +23,8 @@ import {
 export interface PendingBody {
   lowering: Lowering
   unit: Extract<TopLevel, { kind: "function_block" | "program" }>
+  /** The FILE the unit was written in — carried so a source-map entry from this body names its own source. */
+  uri?: string
   /** `lowering` while its body lowers: reached again then, the body calls itself (through a program, say) — refused */
   state: "pending" | "lowering" | "lowered" | "failed"
 }
