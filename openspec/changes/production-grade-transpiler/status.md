@@ -60,3 +60,83 @@ fixture that proved something.** The `refused` rating cannot tell them apart, an
 `src/transpile/index.ts` states it: **56,629 METHOD/ACTION bodies are unreachable**, so about **0.10%** of every
 executable body in the corpus lowers. Real PLC logic lives in methods and actions. That work is out of scope here
 (D6) and is the natural next change.
+
+---
+
+# Second recording session — 2026-09-18
+
+## `unasked` is zero
+
+Every one of the 967 fixtures has now been put to a real CODESYS. It was 140 when the ceiling was first written and
+59 at the start of this session, and the important part is what those 59 turned out to be: **only ten had never been
+asked. The other forty-nine were SKIPPED BY THE RECORDER** because they declared nothing PLC_PRG could read — a DUT,
+a GVL, an INTERFACE, an FB whose only members are VAR_TEMP. `runPaths` found no path, `record-exec.ts` filtered the
+case out, and the fixture sat rated "unasked" as though the question were open. It was not open. It was never put.
+
+That distinction is the session's main lesson, and it is the same one the thirteen reserved-name fixtures taught:
+**a fixture that never reached the compiler looks exactly like a fixture whose answer is pending.** The rating could
+not tell them apart either.
+
+The fix was in three parts, each cheap:
+
+1. a DUT or GVL fixture declares an instance (or copies its global into one) — the recorder reads `PLC_PRG.<path>`,
+   so that is all it took;
+2. `pragma-tc.ts`'s three helpers instantiate, which put all eighteen Beckhoff pragmas through CODESYS;
+3. `record-exec.ts` no longer filters on `names.length > 0` — a case with nothing to read still answers *does it
+   compile, and does the scan finish*.
+
+## What the vendor said that we did not know
+
+| fixture | answer |
+|---|---|
+| `DUT_XO_mode`, `DUT_X2_grade` | the ZERO enumerator, confirming the measured enum-default rule on two more shapes |
+| `DUT_X3_counter` | `UDINT#100` — a type-level `:= 100` survives into an instance |
+| eighteen `Tc*` pragmas | inert on CODESYS: `TcRetain` still starts at 0, a `TcRpcEnable` method runs and returns TRUE |
+| `itf_var_section_declaration` | an INTERFACE with a VAR section **compiles** |
+| `sn_interface_mismatch`, `sn_dut_mismatch` | a declared name unlike the POU's is **not an error** |
+| `refuse_var_temp_struct` | **compiles** — `var-temp-composite` is our refusal, not the vendor's |
+| `refuse_inout_not_given` | `VAR_IN_OUT 'io' must be assigned in call of 'FB_LANG_inoutmissing_target'` |
+| `type_codesys_vector` | `vec4[0]`…`vec4[3]` — four elements, indices from zero |
+
+## Product bugs this exposed
+
+- **`__VECTOR[4] OF REAL` had neither bounds nor open dims.** The count was stored as `upper` with no `lower`, and
+  `ArrayDim` holds indices. `resolve.ts` needs both ends to fold and produced an unbounded array; `openDims` needs
+  both absent and said it was not open. Its size, its index checks and its members were all working from nothing.
+  Now written out as `ARRAY[0..size-1]`, as the comment beside it already claimed. The vendor confirmed it.
+- **The emitted Rust did not stop on an infinity** while the interpreter did — `cf6dcf1366` taught one backend and
+  not the other. Real arithmetic is wrapped in `iec_finite` now.
+- **A vendor fault was rated `unasked`.** "The IDE built it, ran it, and the scan never completed" is an answer, and
+  the rater threw away the very measurements the infinity rule is built on. It agrees by faulting too now.
+
+## Recorder bugs this exposed
+
+- **It wrote the JSON once, at the end.** A case that wedges the runtime gets the process killed on its hang guard,
+  so two measured answers were lost to a third case that hung `oa.start()`. It dumps after every case.
+- **An error recorded after a fault is not evidence.** In two batches the first case whose scan never completed was
+  followed by every remaining case timing out — including cases that answer fine alone, and re-running the same four
+  in isolation SWAPPED which error each reported. Successes cannot be contaminated and are kept; an error after a
+  fault is dropped and the case stays unrecorded, which is the truth. Verified against five known-good cases: there
+  is no position effect, the fault really does spread.
+- This mattered directly: the infinity rule's two cases had sat at positions 3 and 4 of their batch. Re-measured at
+  positions 1 and 2 — **it holds**, and only the quoted error STRINGS were run-order artifacts.
+
+## Where the numbers stand
+
+```
+confirmed    681      refused      195      not-lowered   25
+lsp-gap       35      diverges      4       unaskable     27      unasked  0
+```
+
+The vendor has answered **905 of 967**. Of the **685 we both execute, we match 681 — 99.4%**.
+
+## What is next
+
+1. **`not-lowered` is now the honest reach number**, and it is what D6 is about. The blockers the corpus reports:
+   `value-string-order` 4 · `expr-call` 2 · one each of `expr-assign_expr`, `attr-instance-path`, `stmt-expr_stmt`,
+   `conversion-type`, `var-temp-composite`, `pointer-targets`, `sizeof-unmeasured`, `call-inout-alias`,
+   `for-bound-call`, `adr-offset`, `interface-any-input`, `slot-unknown`.
+2. **35 `lsp-gap`** — the vendor rejects a source and we do not. Sixteen are the reserved IL operators, still blocked
+   on the parse-error cascade (`docs/reserved-il-operators.md`).
+3. **4 `diverges`** — unchanged, each with its measurement recorded above.
+4. **The METHOD/ACTION bodies** (D6) still govern everything: ~0.10% of executable bodies in the corpus lower.
