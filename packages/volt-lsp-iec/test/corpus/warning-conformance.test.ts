@@ -19,7 +19,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { extname, join } from "node:path"
 import { DiagnosticSeverity } from "vscode-languageserver-protocol"
 import { messagesFor, resolveConfig, type Vendor } from "../../src/analysis/index.js"
-import { WorkspaceStore } from "../../src/server/workspace-store.js"
+import { projectDiagnostics } from "./support/diagnostics.js"
 import { documentDiagnostics } from "../../src/server/diagnostics.js"
 import { loadTaskRoots, loadWorkspaceRefs, scanWorkspace } from "../../src/workspace-refs.js"
 import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
@@ -62,18 +62,13 @@ const norm = (m: string): string =>
  *
  * Going through the server's function is both less code and more coverage — the same conclusion as there. */
 function lspWarnings(dir: string): Set<string> {
-  const store = new WorkspaceStore(
-    resolveConfig({ vendor: VENDOR, diagnostics: scanWorkspace(dir).projectDiagnostics }),
+  // The pass itself lives in `support/diagnostics.ts` and is shared with `build-conformance.test.ts`, which ran the
+  // identical code and kept the other severity.
+  return new Set(
+    projectDiagnostics(dir, VENDOR)
+      .filter((d) => d.severity === DiagnosticSeverity.Warning)
+      .map((d) => norm(d.message)),
   )
-  store.workspaceRefs = loadWorkspaceRefs(dir)
-  store.taskRoots = loadTaskRoots(dir)
-  store.seedDisk(walk(dir).map((uri) => ({ uri, source: readFileSync(uri, "utf8") })))
-
-  const out = new Set<string>()
-  for (const d of store.workspace())
-    for (const diag of documentDiagnostics(store, messagesFor(VENDOR), d))
-      if (diag.severity === DiagnosticSeverity.Warning) out.add(norm(diag.message))
-  return out
 }
 
 interface Recording {

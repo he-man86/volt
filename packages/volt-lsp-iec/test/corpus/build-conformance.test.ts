@@ -16,7 +16,7 @@ import { extname, join } from "node:path"
 import { DiagnosticSeverity } from "vscode-languageserver-protocol"
 import { messagesFor, resolveConfig, type Vendor } from "../../src/analysis/index.js"
 import { loadTaskRoots, loadWorkspaceRefs, scanWorkspace } from "../../src/workspace-refs.js"
-import { WorkspaceStore } from "../../src/server/workspace-store.js"
+import { projectDiagnostics } from "./support/diagnostics.js"
 import { documentDiagnostics } from "../../src/server/diagnostics.js"
 import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
 
@@ -97,19 +97,11 @@ function walk(dir: string): string[] {
  * phantom error.
  */
 function lspMessages(dir: string): string[] {
-  const store = new WorkspaceStore(
-    resolveConfig({ vendor: VENDOR, diagnostics: scanWorkspace(dir).projectDiagnostics }),
-  )
-  store.workspaceRefs = loadWorkspaceRefs(dir)
-  store.taskRoots = loadTaskRoots(dir)
-  store.seedDisk(walk(dir).map((uri) => ({ uri, source: readFileSync(uri, "utf8") })))
-
-  const messages: string[] = []
-  for (const d of store.workspace())
-    for (const diag of documentDiagnostics(store, messagesFor(VENDOR), d))
-      if (diag.severity === DiagnosticSeverity.Error || diag.severity === DiagnosticSeverity.Warning)
-        messages.push(diag.message)
-  return messages
+  // The pass itself lives in `support/diagnostics.ts` and is shared with `warning-conformance.test.ts`, which ran the
+  // identical code and kept the other severity. See that file for why `corpus.test.ts` is not a caller.
+  return projectDiagnostics(dir, VENDOR)
+    .filter((d) => d.severity === DiagnosticSeverity.Error || d.severity === DiagnosticSeverity.Warning)
+    .map((d) => d.message)
 }
 
 const projects = existsSync(CORPUS_ROOT)
