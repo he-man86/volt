@@ -6,13 +6,12 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed     675
+ *   confirmed     681
  *   refused       195
- *   not-lowered    24
- *   unasked         8
+ *   not-lowered    25
  *   lsp-gap        35
  *   diverges        4
- *   unaskable      26
+ *   unaskable      27
  */
 import type { LanguageTest } from "../types.js"
 
@@ -525,7 +524,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   integer_narrowing: "confirmed",
   interface_empty: "confirmed",
   interface_empty_impl: "confirmed",
-  interface_extends_another: "unasked",
+  interface_extends_another: "confirmed",
   interface_extends_another_impl: "unaskable",
   interface_method_with_return_type: "confirmed",
   interface_method_with_return_type_impl: "confirmed",
@@ -549,7 +548,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   itf_method_input_passed_on: "confirmed",
   itf_property_through_interface: "confirmed",
   itf_queryinterface_success_and_failure: "confirmed",
-  itf_var_section_declaration: "unasked",
+  itf_var_section_declaration: "confirmed",
   itf_var_section_inherited: "refused",
   keyword_null_pointer_init: "confirmed",
   keyword_this_dereference: "confirmed",
@@ -560,7 +559,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   limit_basic: "confirmed",
   limit_inverted_bounds: "confirmed",
   linkalways: "confirmed",
-  linkalways_with_unused_pou: "unasked",
+  linkalways_with_unused_pou: "confirmed",
   literal_binary: "confirmed",
   literal_date: "confirmed",
   literal_hex: "confirmed",
@@ -761,13 +760,13 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   signed_unsigned_comparison: "confirmed",
   signed_unsigned_conversion: "confirmed",
   sn_case_differs_only: "confirmed",
-  sn_dut_mismatch: "unasked",
+  sn_dut_mismatch: "confirmed",
   sn_dut_mismatch_used: "lsp-gap",
   sn_fb_matches: "confirmed",
   sn_fb_mismatch: "lsp-gap",
   sn_function_matches: "confirmed",
   sn_function_mismatch: "lsp-gap",
-  sn_interface_mismatch: "unasked",
+  sn_interface_mismatch: "confirmed",
   sn_interface_mismatch_used: "confirmed",
   sn_program_mismatch: "lsp-gap",
   sqrt_precision: "confirmed",
@@ -825,7 +824,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   tc_init_symbol: "confirmed",
   tc_link_to: "confirmed",
   tc_link_to_oso: "confirmed",
-  tc_nc_axis: "unasked",
+  tc_nc_axis: "unaskable",
   tc_no_symbol: "confirmed",
   tc_persistent: "confirmed",
   tc_retain: "confirmed",
@@ -851,7 +850,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   type_array_of_int: "confirmed",
   type_codesys_uxint: "confirmed",
   type_codesys_vector: "confirmed",
-  type_codesys_version: "unasked",
+  type_codesys_version: "not-lowered",
   type_codesys_xint: "confirmed",
   type_codesys_xword: "confirmed",
   type_deref_non_pointer: "refused",
@@ -908,7 +907,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   use_struct_member_access: "confirmed",
   use_struct_nested_member: "confirmed",
   use_this_member_in_method: "confirmed",
-  var_config_address_binding: "unasked",
+  var_config_address_binding: "confirmed",
   var_external_consumer: "confirmed",
   var_external_gvl: "confirmed",
   var_inline_enum_decl: "confirmed",

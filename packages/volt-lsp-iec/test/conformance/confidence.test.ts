@@ -34,17 +34,18 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 18 -> 34 because the MEASUREMENT changed, not because gaps appeared. `refused` claimed the vendor rejects a
   // source AND so do we, while only checking the vendor; 16 fixtures were counted as evidence while the LSP accepted
   // them silently (`cc_reserved_name_s_string` and its neighbours). The rating asks both sides now.
-  "lsp-gap": 35,
-  // 21 -> 23 by RECLASSIFICATION, not regression: `cc_fp_ptr_deref` and `use_pointer_deref_struct_field` were rated
-  // `unasked` while their recordings sat there saying the vendor's scan never completed. A vendor fault is an answer.
-  // 23 -> 24: `refuse_var_temp_struct` was finally ASKED, and CODESYS compiles it. `var-temp-composite` is our own
-  // refusal, not the vendor's, which is exactly what `not-lowered` is for.
-  "not-lowered": 24,
-  // 140 -> 9. The slack was there for fixtures written ahead of a recording session; the sessions happened. Most of
-  // the drop since is fixtures that had nothing READABLE rather than nothing to ask: a DUT or a GVL declares no
-  // PLC_PRG variable, so the recorder had no path to read even though the vendor had plenty to say about what it
-  // initializes the type to. They declare an instance now, or copy the global into one.
-  unasked: 9,
+  // 35 -> 36: `tc_nc_axis` reached a compiler for the first time and came back "Unknown type: 'AXIS_REF'", which the
+  // LSP does not say.
+  "lsp-gap": 36,
+  // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
+  // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
+  "not-lowered": 25,
+  // ZERO. Every fixture has been put to a real CODESYS. It was 140 while fixtures were written ahead of the recording
+  // sessions, and the last 59 fell in two groups: some the vendor had genuinely never seen, and more that were
+  // SKIPPED BY THE RECORDER because they declared nothing readable — a DUT, a GVL, an INTERFACE, an FB whose only
+  // members are VAR_TEMP. Those were never unanswerable; they were unasked, which is a different thing and a worse
+  // one. A fixture added from here starts at 0 and gets recorded, or it says in `execSkip` why it cannot be.
+  unasked: 0,
 }
 
 describe("how well each fixture is evidenced", () => {

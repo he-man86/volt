@@ -43,7 +43,11 @@ const cases = ALL_TESTS.filter((t) => !t.recorderSkip && !t.execSkip && (ONLY ==
     cycles: t.cycles ?? 1,
     names: runPaths(t, ALL_TESTS),
   }))
-  .filter((c) => c.names.length > 0)
+// NOT filtered on `names.length > 0`. A fixture with nothing to read still answers the question underneath every
+// other one — DOES IT COMPILE, AND DOES THE SCAN FINISH — and dropping it meant an INTERFACE, a VAR_CONFIG or an FB
+// whose only members are VAR_TEMP had never reached a compiler at all. The runscript reads the cycle counter first
+// and the fixture's own paths after, so an empty list is a perfectly good case: it comes back `{cycles, values: {}}`,
+// or with the vendor's refusal.
 const skipped = ALL_TESTS.filter((t) => t.execSkip)
 if (skipped.length > 0)
 	console.log(`not sent (${skipped.length} with no execution ground truth to have): ` +

@@ -93,12 +93,22 @@ export const PRAGMA_TC_TESTS: readonly LanguageTest[] = [
     "bIn : BOOL;",
     "One-side-only variant of TcLinkTo; same unresolved-link caveat.",
   ),
-  varAttr(
-    "tc_nc_axis",
-    "TcNcAxis' := '0",
-    "axis : AXIS_REF;",
-    "AXIS_REF comes from Tc2_MC2; if the recording project doesn't reference it the build fails on the TYPE, not the attribute — swap the type or add the lib if so.",
-  ),
+  {
+    ...varAttr(
+      "tc_nc_axis",
+      "TcNcAxis' := '0",
+      "axis : AXIS_REF;",
+      "AXIS_REF comes from Tc2_MC2. Both BUILD recordings compile it, so the bridge's CODESYS project references a library that supplies the type.",
+    ),
+    // THE TWO CODESYS PROJECTS ARE NOT THE SAME PROJECT. `codesys.build.json` says this compiles; the exec oracle runs
+    // against `volt-cli/test/fixtures/CodesysTestProject.project`, which references no motion library, and answers
+    // "Unknown type: 'AXIS_REF'". That is a fact about the fixture project, not about the attribute, and recording it
+    // as a refusal would be recording the wrong thing. Closing it means adding the library reference to the committed
+    // project — which changes the environment every other recording was taken in, so it is a deliberate change of its
+    // own, not a fix to make in passing.
+    execSkip:
+      "the exec-oracle project (CodesysTestProject.project) references no motion library, so AXIS_REF is unknown there — a gap in the RECORDING PROJECT, closable by adding the reference, not by changing the fixture",
+  },
 
   // ── method-top ──────────────────────────────────────────────────────────
   methodAttr("tc_rpc_enable", "TcRpcEnable"),
