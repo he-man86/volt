@@ -17,8 +17,17 @@
 
 ## Phase 2 — operators
 
-- [ ] Unary: **DONE** — `fixtures/unary-operand.ts`, 35 probes, 2 product bugs. Fold it into the tree as the
-      worked example.
+**`operations.md` is the checklist** — every operation there is, with what each has been asked.
+
+- [x] Unary `-` and `NOT` — `operators/unary-operand.ts`, 35 probes, 2 product bugs.
+- [x] Every primitive's default — `types/primitive-default.ts`, 29.
+- [x] Every numeric primitive's edges — `types/primitive-bounds.ts`, 64.
+- [x] Every integer type over its edge at run time, and `/`, `MOD`, `MIN / -1` — `operators/arithmetic-edges.ts`, 64.
+- [x] The mixed-type meet for `+` and `/` — `operators/mixed-type.ts`, 70 pairs.
+- [x] REAL overflow and the ten math functions' domain edges — `operators/real-overflow.ts`, `math-domain.ts`.
+- [ ] The same 35 pairs for `-`, `*` and `MOD`.
+- [ ] Comparison: `= <> < > <= >=` per type, across signedness and width, on a REAL and on a NaN.
+- [ ] Bitwise: `AND OR XOR` per type; `SHL SHR ROL ROR`, including a shift at or past the width.
 - [ ] Binary: operator × left type × right type. The same wrong-destination trick names the result type.
       `commonType` in `arith.ts` is the model under test.
 - [ ] Comparison across mixed signedness and width — `same_width_mixed_sign_order` exists; its neighbours do not.
