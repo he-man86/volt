@@ -125,6 +125,25 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
       if (e.op !== "-" && e.op !== "NOT") return lw.bail("unary-op", `unary ${e.op}`, e.span)
       const operand = lowerExpr(lw, e.operand, expected)
       if (operand === undefined) return undefined
+      // THE OPERAND HAS TO BE A TYPE THE OPERATOR HAS A MEANING FOR. It was not checked, so `-s` on a STRING, `NOT s`
+      // on a STRING and `-b` on a BOOL all lowered CLEANLY and then threw inside the interpreter ("expected a number,
+      // got string") — where the rule for this component is that invalid input ends in a LowerDiagnostic and never a
+      // throw. The emitted Rust would have been worse: no diagnostic, and a cast that means whatever it means.
+      //
+      // CODESYS rejects all three, so nothing legal is lost. `-` takes a number or a duration (negating a TIME is
+      // arithmetic on its milliseconds); `NOT` takes a BOOL or a bit string, which is the set the branch below
+      // already assumes when it picks a width.
+      const family = elemOf(operand.type)?.family
+      // A BITSTRING NEGATES. The recordings say so outright: `cc_neg_word_into_word` BUILDS (warning only, about the
+      // implicit signed-to-unsigned store) and `cc_neg_byte_into_byte` fails on the STORE — "Cannot convert type
+      // '''INT''' to type '''BYTE'''" — which means the negation itself was fine and produced an INT. Excluding bitstrings
+      // here refused two fixtures the vendor compiles.
+      const negatable = family === "int" || family === "real" || family === "time" || family === "bitstring"
+      const invertible = family === "bool" || family === "bitstring" || family === "int"
+      if (e.op === "-" && !negatable)
+        return lw.bail("unary-op", `unary minus on a ${operand.type.kind === "elementary" ? operand.type.name : operand.type.kind}`, e.span)
+      if (e.op === "NOT" && !invertible)
+        return lw.bail("unary-op", `NOT on a ${operand.type.kind === "elementary" ? operand.type.name : operand.type.kind}`, e.span)
       // `NOT x` is not promoted — `NOT u255` with `u255 : USINT` into a DINT is 0 — and on a SIGNED integer it is the bit
       // string of its width: NOT of INT 5 into a DINT is 65530, of SINT 0 into an INT 255, of DINT 0 into a LINT
       // 4294967295, and back into an INT it is -6 (conformance `not_result_width`, `cc_not_int_into_dint`). It kept the
