@@ -178,7 +178,12 @@ export function binaryOpError(e: BinaryExpr, scope: Scope, project: Scope, messa
   if (a === undefined || b === undefined) return undefined
   if (e.op === "MOD") {
     if (isIntegerType(a) && isIntegerType(b)) return undefined
-    return binaryDiag(e, messages.modNotDefined(!isIntegerType(a) ? a : b))
+    // THE VENDOR ALWAYS NAMES `REAL`, never `LREAL`. Measured across the whole meet grid (`operators/mixed-type.ts`,
+    // 2026-09-19): every floating operand, either side and either width, is "MOD is not defined for REAL". We named
+    // the operand's own type, which reads more precise and is not what the compiler says — and parity is the goal,
+    // so the more informative message is the wrong one. Non-floating operands keep their own name.
+    const offending = !isIntegerType(a) ? a : b
+    return binaryDiag(e, messages.modNotDefined(offending === "LREAL" ? "REAL" : offending))
   }
   // arithmetic
   if (isNumericType(a) && isNumericType(b)) return undefined
