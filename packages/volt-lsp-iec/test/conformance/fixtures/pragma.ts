@@ -3,11 +3,11 @@
  *
  * Each entry is a small, self-contained TwinCAT-pushable POU that
  * exercises ONE documented pragma. Used by:
- *   - `language.test.ts` — replays committed TC ground truth, runs
+ *   - `replay.test.ts` — replays the committed build recording, runs
  *     LSP diagnostics on each `source`, compares the two sides
- *   - `record-language.ts` (CLI) — pushes each `source` to a live
- *     TwinCAT project, runs `volt build`, records the resulting TC
- *     diagnostics into `expected-tc.json`
+ *   - `scripts/record-language.ts` — pushes each `source` through a live
+ *     bridge, builds it, and records the compiler's diagnostics into
+ *     `recordings/<vendor>.build.json`
  *
  * Catalog principles:
  * - Self-contained: every test is a single FB / GVL with the
