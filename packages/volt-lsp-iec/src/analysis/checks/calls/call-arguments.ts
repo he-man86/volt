@@ -97,7 +97,7 @@ function checkCall(
   // (3) named arguments — an unknown name is flagged (complete callees only); a known VAR_INPUT name's value
   // is type-checked. A name is known if it's a declared param OR (FB instance) a member reached through the
   // scope + EXTENDS chain — that also covers a PROPERTY, a valid named-arg target that isn't a var section.
-  // `p => out` binds an output, not an input value, so it is never type-checked here.
+  // `p => out` binds an OUTPUT, and it is checked in the opposite direction — see the `arg.output` branch below.
   for (const arg of named) {
     const name = arg.param!.name.toLowerCase()
     const known =
@@ -115,7 +115,17 @@ function checkCall(
       })
       continue
     }
-    if (!arg.output && arg.value !== undefined) {
+    if (arg.output) {
+      // `w(o => text)` — the OUTPUT flows INTO the target, so the direction is the reverse of an input's: the
+      // output's declared type is the source and the bound variable is the destination. CODESYS reports it as a
+      // plain conversion, "Cannot convert type 'INT' to type 'STRING'" (conformance
+      // `accepts_output_into_other_type`); the transpiler already refuses the same shape (`call-output-type`).
+      const sym = callee.scope === undefined ? undefined : lookupMember(callee.scope, name)
+      if (arg.value !== undefined && sym?.varSection === "VAR_OUTPUT" && sym.typeExpr !== undefined)
+        outputTypeError(sym.typeExpr, arg.value, scope, ctx, out)
+      continue
+    }
+    if (arg.value !== undefined) {
       const param = callee.params.find((p) => p.name.text.toLowerCase() === name)
       if (param !== undefined) argTypeError(arg.value, param.type, scope, ctx, out)
     }
@@ -257,6 +267,32 @@ function argumentType(value: Expr, scope: Scope, ctx: CheckContext): Type {
   if (value.kind !== "literal" || value.literalKind !== "int" || typeof value.value !== "bigint") return inferred
   const narrowest = integerLiteralType(value.value)
   return narrowest === undefined ? inferred : elementaryTypeRef(narrowest)
+}
+
+/**
+ * An output binding's target must be able to hold the output. Conservative in the same way `argTypeError` is: both
+ * sides must be a checkable category, and it reuses the same wording and the same `isAssignable` engine, only with
+ * source and destination the other way round. No conversion WARNING here — a narrowing output binding has not been
+ * measured, and inventing one would be a message the vendor may not print.
+ */
+function outputTypeError(
+  outputType: Parameters<typeof resolveTypeExpr>[0],
+  target: Expr,
+  scope: Scope,
+  ctx: CheckContext,
+  out: DiagnosticItem[],
+): void {
+  const src = checkable(resolveTypeExpr(outputType, ctx.project))
+  if (src === undefined) return
+  const dst = checkableType(target, scope, ctx.project)
+  if (dst === undefined || isAssignable(dst, src)) return
+  out.push({
+    severity: "error",
+    span: target.span,
+    source: SOURCE,
+    code: "call-argument-type",
+    message: ctx.messages.cannotConvert(compilerTypeName(src), compilerTypeName(dst)),
+  })
 }
 
 /** Flag an argument whose checkable type is not assignment-compatible with its parameter's declared type. */

@@ -14,6 +14,7 @@ export const KNOWN_UNMAPPED = new Set([
   "external-non-input-write",
   "non-callable-call",
   "subrange-out-of-range",
+  "unary-operand-type",
   "unterminated-conditional-pragma",
 
   // NETWORK-TEXT SEMANTIC CHECKS. These are NOT unmapped for want of a code — three of the four have an EXACT

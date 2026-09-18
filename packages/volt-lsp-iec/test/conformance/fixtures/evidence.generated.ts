@@ -7,9 +7,9 @@
  *
  * At the last regeneration:
  *   confirmed     681
- *   refused       195
+ *   refused       235
  *   not-lowered    25
- *   lsp-gap        35
+ *   lsp-gap        30
  *   diverges        4
  *   unaskable      27
  */
@@ -21,7 +21,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   accepts_interface_in_array: "confirmed",
   accepts_method_var_output: "confirmed",
   accepts_output_bound_twice: "confirmed",
-  accepts_output_into_other_type: "lsp-gap",
+  accepts_output_into_other_type: "refused",
   accepts_partial_access: "confirmed",
   all_constant_division_in_real_context: "confirmed",
   ampersand_operator_rejected: "refused",
@@ -883,13 +883,48 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   typed_literal_constant_fold: "confirmed",
   typed_literal_real_prefix: "confirmed",
   unary_minus_at_the_edge: "confirmed",
-  unary_minus_on_bool: "lsp-gap",
-  unary_minus_on_string: "lsp-gap",
-  unary_minus_on_time: "lsp-gap",
-  unary_not_on_string: "lsp-gap",
+  unary_minus_on_bool: "refused",
+  unary_minus_on_string: "refused",
+  unary_minus_on_time: "refused",
+  unary_not_on_string: "refused",
   unknown_attribute_typo: "refused",
   unresolved_identifier_in_body: "refused",
   unsigned_underflow: "confirmed",
+  uop_neg_byte: "refused",
+  uop_neg_date: "refused",
+  uop_neg_dint: "refused",
+  uop_neg_dt: "refused",
+  uop_neg_dword: "refused",
+  uop_neg_int: "refused",
+  uop_neg_lint: "refused",
+  uop_neg_lreal: "refused",
+  uop_neg_ltime: "refused",
+  uop_neg_lword: "refused",
+  uop_neg_real: "refused",
+  uop_neg_sint: "refused",
+  uop_neg_string_into_int: "refused",
+  uop_neg_time_into_string: "refused",
+  uop_neg_tod: "refused",
+  uop_neg_udint: "refused",
+  uop_neg_uint: "refused",
+  uop_neg_ulint: "refused",
+  uop_neg_usint: "refused",
+  uop_neg_word: "refused",
+  uop_neg_wstring: "refused",
+  uop_not_bool: "refused",
+  uop_not_byte: "refused",
+  uop_not_date: "refused",
+  uop_not_dint: "refused",
+  uop_not_dword: "refused",
+  uop_not_int: "refused",
+  uop_not_lint: "refused",
+  uop_not_lword: "refused",
+  uop_not_real: "refused",
+  uop_not_sint: "refused",
+  uop_not_time: "refused",
+  uop_not_udint: "refused",
+  uop_not_word: "refused",
+  uop_not_wstring: "refused",
   use_array_indexed_method_call: "confirmed",
   use_fb_callable: "confirmed",
   use_fb_method_call_named_args: "confirmed",

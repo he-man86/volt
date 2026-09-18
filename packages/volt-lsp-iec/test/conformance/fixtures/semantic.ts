@@ -202,7 +202,6 @@ END_METHOD
   // whether the vendor accepts the expression is unrecorded.
   {
     name: "unary_minus_on_string",
-    deferred: { lsp: "2026-09-18: no LSP error for unary minus on a STRING — CODESYS says Cannot convert type INT to type STRING" },
     refused: "Cannot convert type 'INT' to type 'STRING'",
     pouName: "FB_LANG_unary_minus_on_string",
     kind: "function_block" as const,
@@ -214,7 +213,6 @@ END_METHOD
   },
   {
     name: "unary_not_on_string",
-    deferred: { lsp: "2026-09-18: no LSP error for NOT on a STRING — CODESYS says Cannot convert type STRING to type ANY_BIT" },
     refused: "Cannot convert type 'STRING' to type 'ANY_BIT'",
     pouName: "FB_LANG_unary_not_on_string",
     kind: "function_block" as const,
@@ -226,7 +224,6 @@ END_METHOD
   },
   {
     name: "unary_minus_on_bool",
-    deferred: { lsp: "2026-09-18: no LSP error for unary minus on a BOOL" },
     refused: "Cannot convert type 'INT' to type 'BOOL'",
     pouName: "FB_LANG_unary_minus_on_bool",
     kind: "function_block" as const,
@@ -238,7 +235,6 @@ END_METHOD
   },
   {
     name: "unary_minus_on_time",
-    deferred: { lsp: "2026-09-18: no LSP error for unary minus on a TIME" },
     refused: "Cannot convert type 'DINT' to type 'TIME'",
     pouName: "FB_LANG_unary_minus_on_time",
     kind: "function_block" as const,
@@ -255,7 +251,6 @@ END_METHOD
   // lowering it is the defect; if CODESYS compiles it, the answer it gives is what we must match.
   {
     name: "accepts_output_into_other_type",
-    deferred: { lsp: "2026-09-18: no LSP error for a VAR_OUTPUT read into a variable of another type" },
     refused: "Cannot convert type 'INT' to type 'STRING'",
     pouName: "FB_LANG_accepts_output_into_other_type",
     kind: "function_block" as const,

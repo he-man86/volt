@@ -84,6 +84,7 @@ import { checkReservedKeyword } from "./checks/names/reserved-keyword.js"
 import { checkRefusedName } from "./checks/names/refused-name.js"
 import { checkUnknownSource } from "./checks/types/unknown-source.js"
 import { checkSignatureName } from "./checks/declarations/signature-name.js"
+import { checkUnaryOperand } from "./checks/types/unary-operand.js"
 import { checkUnsupportedOperator } from "./checks/types/unsupported-operator.js"
 import { checkTimeLiteralUnit } from "./checks/types/time-literal-unit.js"
 import { checkVarSectionPlacement } from "./checks/declarations/var-section-placement.js"
@@ -132,6 +133,7 @@ const CHECKS: readonly Check[] = [
   checkReferenceAssign,
   checkDataRecursion,
   checkEnumInit,
+  checkUnaryOperand,
   checkUnsupportedOperator,
   checkTimeLiteralUnit,
   // flow/
@@ -213,6 +215,7 @@ const CODESYS_ONLY: ReadonlySet<Check> = new Set<Check>([
   checkReservedKeyword, // a CODESYS forward-compat warning; TwinCAT accepts CHAR/WCHAR as names (verified live)
   checkRefusedName, // TwinCAT unmeasured
   checkTimeLiteralUnit, // TwinCAT unmeasured
+  checkUnaryOperand, // TwinCAT unmeasured
   checkUnsupportedOperator, // TwinCAT unmeasured
   checkUnknownSource, // TwinCAT unmeasured
   checkSignatureName, // TwinCAT unmeasured (the rule is structural and likely shared — likely is not measured)

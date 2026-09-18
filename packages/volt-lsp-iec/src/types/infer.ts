@@ -74,9 +74,14 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       const operand = inferExprType(expr.operand, scope, project)
       if (expr.op === "-") return checkedNegationType(operand)
       if (expr.op === "NOT") {
+        // THE UNSIGNED INTEGER OF THE OPERAND'S WIDTH — for a bit string and a duration too, not only a signed
+        // integer. Measured one type at a time (`uop_not_*`): `NOT BYTE` is USINT, `NOT WORD` is UINT, `NOT DWORD`
+        // and `NOT TIME` and `NOT DATE` are UDINT, `NOT LWORD` is ULINT. BOOL is a logical NOT and stays BOOL; a
+        // REAL or a STRING passes through and is reported against ANY_BIT instead.
         const e = operand.kind === "elementary" ? operand.elem : undefined
-        if (e !== undefined && e.family === "int" && e.signed === true && e.bits !== undefined)
-          return elementaryTypeRef(elementaryType(e.bits === 8 ? "USINT" : e.bits === 16 ? "UINT" : e.bits === 32 ? "UDINT" : "ULINT")!)
+        const widthed = e !== undefined && e.family !== "bool" && e.family !== "real" && e.family !== "string"
+        if (widthed && e.bits !== undefined)
+          return elementaryTypeRef(elementaryType(e.bits <= 8 ? "USINT" : e.bits <= 16 ? "UINT" : e.bits <= 32 ? "UDINT" : "ULINT")!)
       }
       return operand
     }

@@ -54,8 +54,13 @@ export function promoteForRuntime(t: Type): Type {
 export function checkedNegationType(t: Type): Type {
   if (t.kind !== "elementary") return t
   const e = elementaryType(t.name)
-  if (e === undefined || e.rank === undefined || (e.family !== "int" && e.family !== "bitstring")) return t
-  if (e.bits > 32 && !e.signed) return UNKNOWN
+  if (e === undefined || e.family === "real") return t
+  // THE SIGNED INTEGER OF THE OPERAND'S WIDTH, FLOOR 16 BITS — for EVERY elementary type, not just the numeric ones.
+  // Measured one type at a time on 2026-09-18 (`uop_neg_*`, which assign into a deliberately wrong destination so the
+  // compiler has to name what it inferred). It negates first and complains second: `-aString` is
+  // "Cannot convert type 'STRING' to type 'INT'", `-aTime` is DINT, `-anLTime` is LINT, `-aBool` is INT. Two rules
+  // were wrong here: `rank === undefined` sent every non-numeric back unchanged, and a 64-bit UNSIGNED operand
+  // answered `UNKNOWN` when `-ULINT` and `-LWORD` are plainly LINT.
   return elementaryRef(e.bits <= 16 ? "INT" : e.bits <= 32 ? "DINT" : "LINT")
 }
 

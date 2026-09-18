@@ -32,6 +32,7 @@ import { RANGE_BOUNDS_TESTS } from "./range-bounds.js"
 import { PRAGMA_TESTS } from "./pragma.js"
 import { PRAGMA_TC_TESTS } from "./pragma-tc.js"
 import { SEMANTIC_TESTS } from "./semantic.js"
+import { UNARY_OPERAND_TESTS } from "./unary-operand.js"
 import { SHADOWING_TESTS } from "./shadowing.js"
 import { USAGE_PATTERN_TESTS } from "./usage-pattern.js"
 import { VARIABLE_SECTION_TESTS } from "./variable-section.js"
@@ -96,6 +97,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "shadowing", tests: SHADOWING_TESTS },
   { name: "conversion", tests: CONVERSION_TESTS },
   { name: "semantic", tests: SEMANTIC_TESTS },
+  { name: "unary-operand", tests: UNARY_OPERAND_TESTS },
   { name: "conditional-pragma", tests: CONDITIONAL_PRAGMA_TESTS },
   { name: "operator", tests: OPERATOR_TESTS },
   { name: "literal", tests: LITERAL_TESTS },

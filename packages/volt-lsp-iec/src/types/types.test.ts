@@ -183,8 +183,20 @@ test("infer: unary minus is typed as the signed type of the operand's width, at 
   expect(neg("UDINT")).toMatchObject({ kind: "elementary", name: "DINT" })
   expect(neg("INT")).toMatchObject({ kind: "elementary", name: "INT" })
   expect(neg("LINT")).toMatchObject({ kind: "elementary", name: "LINT" })
-  expect(neg("ULINT")).toEqual(UNKNOWN) // 64-bit unsigned was not measured: silence, not a guess
-  expect(inferExpr("", "VAR\n w : WORD;\nEND_VAR", "NOT w")).toMatchObject({ kind: "elementary", name: "WORD" })
+  // BOTH OF THESE SAID "not measured". They are now — `fixtures/unary-operand.ts` asks every elementary type one at a
+  // time, and `-ULINT` is LINT (the silence was itself a guess) while `NOT WORD` is UINT, not WORD.
+  expect(neg("ULINT")).toMatchObject({ kind: "elementary", name: "LINT" })
+  expect(neg("LWORD")).toMatchObject({ kind: "elementary", name: "LINT" })
+  expect(neg("TIME")).toMatchObject({ kind: "elementary", name: "DINT" })
+  expect(neg("LTIME")).toMatchObject({ kind: "elementary", name: "LINT" })
+  expect(neg("BOOL")).toMatchObject({ kind: "elementary", name: "INT" })
+  expect(neg("REAL")).toMatchObject({ kind: "elementary", name: "REAL" })
+  const not = (type: string) => inferExpr("", `VAR\n a : ${type};\nEND_VAR`, "NOT a")
+  expect(not("WORD")).toMatchObject({ kind: "elementary", name: "UINT" })
+  expect(not("BYTE")).toMatchObject({ kind: "elementary", name: "USINT" })
+  expect(not("LWORD")).toMatchObject({ kind: "elementary", name: "ULINT" })
+  expect(not("TIME")).toMatchObject({ kind: "elementary", name: "UDINT" })
+  expect(not("BOOL")).toMatchObject({ kind: "elementary", name: "BOOL" })
 })
 
 test("infer: EXPT is REAL only when BOTH arguments are REAL (measured) — never a fixed LREAL", () => {
