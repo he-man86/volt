@@ -172,4 +172,42 @@ END_FUNCTION_BLOCK
     plcPrgBody: "sz_fb_with_stat := SIZEOF(inst_fb_with_stat);",
     source: "FUNCTION_BLOCK FB_MEM_fb_with_stat\nVAR\n\tkept : DINT;\nEND_VAR\nVAR_STAT\n\tshared : LREAL;\nEND_VAR\nkept := kept + 1;\nEND_FUNCTION_BLOCK\n",
   },
+  // ─── DOES pack_mode DO ANYTHING ON A FUNCTION_BLOCK? ───────────────────────────────────────────────
+  // `fieldBytes` reads `{attribute 'pack_mode' := '1'}` only for a STRUCT; for an FB it is ignored, and the review
+  // filed that as "never read for a FUNCTION_BLOCK". Whether that is WRONG is unmeasured, and the one recording that
+  // touches it says more than the fixture's own title does: `cc4_pack_mode_not_allowed` is named for the belief that
+  // only a STRUCT takes the attribute, and CODESYS BUILT IT with no diagnostics at all. So the vendor accepts it on an
+  // FB; the open question is whether it PACKS. These answer it by size — the same FB with and without the attribute,
+  // holding fields whose alignment padding is visible (a BOOL then a DINT is 5 packed and 8 aligned, plus whatever
+  // header an instance carries).
+  {
+    name: "mem_fb_pack_mode_aligned_baseline",
+    pouName: "FB_MEM_fb_pack_mode_aligned_baseline",
+    kind: "function_block" as const,
+    feature: "SIZEOF an FB with padding-visible fields and NO pack_mode — the baseline",
+    fromDoc: doc,
+    plcPrgVar: "inst_fb_pack_mode_aligned_baseline : FB_MEM_fb_pack_mode_aligned_baseline; sz_fb_pack_mode_aligned_baseline : ULINT;",
+    plcPrgBody: "sz_fb_pack_mode_aligned_baseline := SIZEOF(inst_fb_pack_mode_aligned_baseline);",
+    source: "FUNCTION_BLOCK FB_MEM_fb_pack_mode_aligned_baseline\nVAR\n\tflag : BOOL;\n\twide : DINT;\nEND_VAR\nwide := wide + 1;\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "mem_fb_pack_mode_one",
+    pouName: "FB_MEM_fb_pack_mode_one",
+    kind: "function_block" as const,
+    feature: "SIZEOF the SAME FB with {attribute 'pack_mode' := '1'} — does the attribute reach an FB?",
+    fromDoc: doc,
+    plcPrgVar: "inst_fb_pack_mode_one : FB_MEM_fb_pack_mode_one; sz_fb_pack_mode_one : ULINT;",
+    plcPrgBody: "sz_fb_pack_mode_one := SIZEOF(inst_fb_pack_mode_one);",
+    source: "{attribute 'pack_mode' := '1'}\nFUNCTION_BLOCK FB_MEM_fb_pack_mode_one\nVAR\n\tflag : BOOL;\n\twide : DINT;\nEND_VAR\nwide := wide + 1;\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "mem_fb_pack_mode_struct_control",
+    pouName: "FB_MEM_fb_pack_mode_struct_control",
+    kind: "function_block" as const,
+    feature: "the same two fields in a STRUCT with pack_mode := 1 — the control, where the attribute IS read today",
+    fromDoc: doc,
+    plcPrgVar: "inst_fb_pack_mode_struct_control : FB_MEM_fb_pack_mode_struct_control; sz_fb_pack_mode_struct_control : ULINT;",
+    plcPrgBody: "sz_fb_pack_mode_struct_control := SIZEOF(inst_fb_pack_mode_struct_control);",
+    source: "{attribute 'pack_mode' := '1'}\nTYPE DUT_MEM_packed :\nSTRUCT\n\tflag : BOOL;\n\twide : DINT;\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK FB_MEM_fb_pack_mode_struct_control\nVAR\n\theld : DUT_MEM_packed;\nEND_VAR\nheld.wide := held.wide + 1;\nEND_FUNCTION_BLOCK\n",
+  },
 ]
