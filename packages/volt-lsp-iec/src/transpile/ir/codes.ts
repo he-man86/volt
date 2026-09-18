@@ -132,6 +132,7 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "string-non-ascii": "not-measured",
   "wstring-surrogate": "not-measured",
   "value-string-order": "not-measured",
+  "layout-recursive": "invalid",
   "union-write": "unclassified",
   "unit-kind": "unclassified",
   "var-at": "unclassified",

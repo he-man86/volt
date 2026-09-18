@@ -41,7 +41,24 @@ export function storageOf(lw: Lowering, t: Type): Type {
   const sym = lookup(lw.project, t.name)?.symbol
   const name = sym?.name ?? t.name
   const key = name.toUpperCase()
-  if (!lw.layouts.has(key)) buildLayout(lw, { ...t, name }, sym)
+  // A TYPE THAT CONTAINS ITSELF HAS NO SIZE, and saying so beats running out of stack. `FUNCTION_BLOCK FB_R VAR r :
+  // FB_R; END_VAR` — or any longer cycle through a struct — sent `storageOf` and `buildLayout` into each other until
+  // the process died with a RangeError, where the rule for this component is that invalid input ends in a
+  // LowerDiagnostic and never a throw. CODESYS rejects the shape too, so nothing is lost by refusing it; what was
+  // lost was the difference between "refused" and "crashed". The corpus has no self-referential type, which is why
+  // `TOTALITY` never saw it — found by aiming at `calls.ts`'s uncovered refusals (0.7).
+  if (lw.shared.building.has(key)) {
+    lw.bail("layout-recursive", `${name} contains itself, so it has no size`, sym?.span ?? ZERO_SPAN)
+    return { ...t, name }
+  }
+  if (!lw.layouts.has(key)) {
+    lw.shared.building.add(key)
+    try {
+      buildLayout(lw, { ...t, name }, sym)
+    } finally {
+      lw.shared.building.delete(key)
+    }
+  }
   return { ...t, name }
 }
 
