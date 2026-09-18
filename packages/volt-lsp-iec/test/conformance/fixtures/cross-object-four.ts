@@ -98,6 +98,7 @@ END_FUNCTION_BLOCK
   // ─── a GVL of an ARRAY of structs, written from two objects ────────────────
   {
     name: "xo4_slot_struct",
+    plcPrgVar: "x4Slot : DUT_X4_slot;",
     pouName: "DUT_X4_slot",
     kind: "dut",
     feature: "the struct the shared array holds",

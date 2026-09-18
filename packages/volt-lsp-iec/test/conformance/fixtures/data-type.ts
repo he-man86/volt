@@ -38,6 +38,7 @@ END_TYPE
   // each as its own item, and the replay resolves the reference via the cross-test decl set.
   {
     name: "type_dut_struct_base",
+    plcPrgVar: "structBase : DUT_LANG_struct_base;",
     pouName: "DUT_LANG_struct_base",
     kind: "dut",
     feature: "STRUCT base record — extended by type_dut_struct_extends",
@@ -71,6 +72,7 @@ END_TYPE
 
   {
     name: "type_dut_struct_inner",
+    plcPrgVar: "structInner : DUT_LANG_struct_inner;",
     pouName: "DUT_LANG_struct_inner",
     kind: "dut",
     feature: "STRUCT inner record — nested inside type_dut_struct_nested",

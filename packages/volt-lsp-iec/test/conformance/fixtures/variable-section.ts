@@ -206,6 +206,8 @@ END_VAR
 
   {
     name: "var_external_gvl",
+    plcPrgVar: "gvlShared : INT;",
+    plcPrgBody: "gvlShared := GVL_LANG_var_external_target.gShared;",
     pouName: "GVL_LANG_var_external_target",
     kind: "gvl",
     feature: "GVL providing a global symbol that var_external_consumer imports — pair test",

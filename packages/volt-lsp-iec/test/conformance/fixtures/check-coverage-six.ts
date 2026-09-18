@@ -31,6 +31,8 @@ function fb(name: string, pouName: string, feature: string, source: string): Lan
 export const CHECK_COVERAGE_SIX_TESTS: readonly LanguageTest[] = [
   {
     name: "cc6_ambiguous_gvl_one",
+    plcPrgVar: "gvlFirst : INT;",
+    plcPrgBody: "gvlFirst := GVL_C6_first.gTwiceDeclared;",
     pouName: "GVL_C6_first",
     kind: "gvl",
     feature: "the first of two GVLs declaring one name",
@@ -42,6 +44,8 @@ END_VAR
   },
   {
     name: "cc6_ambiguous_gvl_two",
+    plcPrgVar: "gvlSecond : INT;",
+    plcPrgBody: "gvlSecond := GVL_C6_second.gTwiceDeclared;",
     pouName: "GVL_C6_second",
     kind: "gvl",
     feature: "the second of two GVLs declaring one name",
@@ -175,6 +179,8 @@ END_FUNCTION_BLOCK
 
   {
     name: "cc6_callable_gvl",
+    plcPrgVar: "gvlInside : INT;",
+    plcPrgBody: "gvlInside := GVL_C6_called.gInside;",
     pouName: "GVL_C6_called",
     kind: "gvl",
     feature: "the GVL a caller tries to invoke",

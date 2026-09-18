@@ -107,6 +107,8 @@ export const PRAGMA_TC_TESTS: readonly LanguageTest[] = [
   // ── gvl-top ─────────────────────────────────────────────────────────────
   {
     name: "tc2_gvl_var_names",
+    plcPrgVar: "gvlTc2 : INT;",
+    plcPrgBody: "gvlTc2 := GVL_LANG_tc2_gvl_var_names.gVal;",
     pouName: "GVL_LANG_tc2_gvl_var_names",
     kind: "gvl",
     feature: "{attribute 'Tc2GvlVarNames'} on a GVL is a TwinCAT-only Tc attribute",

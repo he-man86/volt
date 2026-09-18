@@ -196,6 +196,7 @@ END_TYPE
   // Inner/outer are SEPARATE DUT items (CODESYS is one-DUT-per-item — see type_dut_struct_nested).
   {
     name: "use_struct_inner",
+    plcPrgVar: "useStructInner : DUT_LANG_use_struct_inner;",
     pouName: "DUT_LANG_use_struct_inner",
     kind: "dut",
     feature: "STRUCT inner record — nested inside use_struct_nested_member",
@@ -232,8 +233,8 @@ END_TYPE
     kind: "gvl",
     feature: "GVL field accessed via qualified dot-notation",
     fromDoc: "usage-pattern",
-    plcPrgVar: undefined,
-    plcPrgBody: "GVL_LANG_use_field_access.gValue := 99;",
+    plcPrgVar: "gvlFieldRead : INT;",
+    plcPrgBody: "GVL_LANG_use_field_access.gValue := 99; gvlFieldRead := GVL_LANG_use_field_access.gValue;",
     source: `{attribute 'qualified_only'}
 VAR_GLOBAL
 	gValue : INT;

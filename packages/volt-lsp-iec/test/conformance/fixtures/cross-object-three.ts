@@ -151,6 +151,7 @@ END_ACTION
   // ─── an ALIAS type and a SUBRANGE declared in their own objects ─────────────
   {
     name: "xo3_alias_type",
+    plcPrgVar: "x3Counter : DUT_X3_counter;",
     pouName: "DUT_X3_counter",
     kind: "dut",
     feature: "an ALIAS type with its own initial value, in its own object",

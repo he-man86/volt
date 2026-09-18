@@ -354,6 +354,7 @@ END_ACTION
   // ─── a CASE with ranges and a comma list over an enum from another object ───
   {
     name: "xo2_grade_enum",
+    plcPrgVar: "x2Grade : DUT_X2_grade;",
     pouName: "DUT_X2_grade",
     kind: "dut",
     feature: "an enum with gaps in its values, in its own object",

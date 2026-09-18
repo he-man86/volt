@@ -38,8 +38,11 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 21 -> 23 by RECLASSIFICATION, not regression: `cc_fp_ptr_deref` and `use_pointer_deref_struct_field` were rated
   // `unasked` while their recordings sat there saying the vendor's scan never completed. A vendor fault is an answer.
   "not-lowered": 23,
-  // 140 -> 49. The slack was there for fixtures written ahead of a recording session; the sessions happened.
-  unasked: 49,
+  // 140 -> 35. The slack was there for fixtures written ahead of a recording session; the sessions happened. Most of
+  // the drop since is fixtures that had nothing READABLE rather than nothing to ask: a DUT or a GVL declares no
+  // PLC_PRG variable, so the recorder had no path to read even though the vendor had plenty to say about what it
+  // initializes the type to. They declare an instance now, or copy the global into one.
+  unasked: 35,
 }
 
 describe("how well each fixture is evidenced", () => {
