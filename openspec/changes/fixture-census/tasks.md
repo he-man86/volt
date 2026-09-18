@@ -2,9 +2,13 @@
 
 ## Phase 0 — the machinery
 
-- [ ] `scripts/fixture-census.ts` — reads `ALL_TESTS` + the topic definitions and prints `topic / subtopic / case`
-      with each cell's status (answered / skipped-with-reason / EMPTY).
-- [ ] `test/conformance/census.test.ts` — every defined cell is closed. Red until it is.
+- [x] The topic tree — `test/conformance/support/census.ts`. Cells derived from the LANGUAGE (the elementary-type
+      table, the operator table, the vendor's reference), never from the fixtures, so a question nobody thought of
+      still has a node.
+- [x] `test/conformance/census.test.ts` — every defined cell has a fixture AND an answer, plus the report and a
+      ratchet on the cell count. 552 cells closed across types / operators / conversions.
+- [x] `PLANNED` lists the twelve topics with NO cells defined at all, so an unmeasured topic is printed rather than
+      silently absent. A topic in neither list is the failure the whole file exists to prevent.
 - [ ] Place the existing 1,002 fixtures into the tree. Fixtures that fit no cell are LISTED, not deleted: either
       the tree is missing a topic, or the fixture is asking something nobody wrote down.
 
