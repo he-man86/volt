@@ -7,10 +7,10 @@
  *
  * At the last regeneration:
  *   confirmed     622
- *   refused       217
+ *   refused       201
  *   not-lowered    20
- *   unasked        61
- *   lsp-gap        18
+ *   unasked        65
+ *   lsp-gap        34
  *   diverges        3
  *   unaskable      22
  */
@@ -175,7 +175,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   cc_ge_udint_dint: "confirmed",
   cc_il_name_andn: "refused",
   cc_il_name_cal: "refused",
-  cc_il_name_calc: "refused",
+  cc_il_name_calc: "lsp-gap",
   cc_il_name_calcn: "refused",
   cc_il_name_jmpc: "refused",
   cc_il_name_jmpcn: "refused",
@@ -321,7 +321,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   cc5_new_in_expression: "refused",
   cc5_no_op_statement: "not-lowered",
   cc5_non_instantiable: "refused",
-  cc5_pointer_not_convertible: "refused",
+  cc5_pointer_not_convertible: "lsp-gap",
   cc5_reserved_keyword_names: "confirmed",
   cc5_type_invoked_directly: "refused",
   cc6_abstract_attribute_on_fb: "unasked",
@@ -380,7 +380,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   cp_pouname_operator: "confirmed",
   cp_symbol_and_monitoring: "confirmed",
   cp_xsizeof: "confirmed",
-  cs_anynum_to_conversions: "refused",
+  cs_anynum_to_conversions: "lsp-gap",
   cs_array_four_dimensions: "confirmed",
   cs_clock_reads: "not-lowered",
   cs_spelled_narrowing_conversions: "confirmed",
@@ -423,6 +423,10 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   dt_minus_time: "confirmed",
   dt_plus_fractional_time: "confirmed",
   duplicate_declaration: "refused",
+  echo_lower_case_function_name: "unasked",
+  echo_mixed_case_function_name: "unasked",
+  echo_mixed_case_il_operator: "unasked",
+  echo_upper_case_il_operator: "unasked",
   enable_dynamic_creation: "confirmed",
   err_c0001_const_too_large: "refused",
   err_c0003_bad_bit_index: "refused",
@@ -439,7 +443,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   fb_init_argument_from_global: "confirmed",
   fb_init_argument_from_variable: "confirmed",
   fb_init_argument_in_program_with_method: "confirmed",
-  fb_init_argument_left_out: "refused",
+  fb_init_argument_left_out: "lsp-gap",
   fb_init_base_and_derived: "confirmed",
   fb_init_before_slot_method_nested: "confirmed",
   fb_init_before_slot_method_sibling: "confirmed",
@@ -476,10 +480,10 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   identifier_backtick_keyword_escape: "confirmed",
   identifier_consecutive_underscores: "refused",
   identifier_double_underscore: "refused",
-  ilc_calc_called_properly: "refused",
-  ilc_calc_declared_unused: "refused",
-  ilc_calc_other_type: "refused",
-  ilc_calc_used_not_declared: "refused",
+  ilc_calc_called_properly: "lsp-gap",
+  ilc_calc_declared_unused: "lsp-gap",
+  ilc_calc_other_type: "lsp-gap",
+  ilc_calc_used_not_declared: "lsp-gap",
   implicit_check_bounds: "confirmed",
   implicit_check_div_dint_real: "unasked",
   implicit_check_div_int_operands: "unasked",
@@ -602,8 +606,8 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   network_unnamed_input_pin: "refused",
   network_unnamed_instance: "refused",
   network_unnamed_target_behind_enable: "refused",
-  network_unnamed_target_of_valued_call: "refused",
-  network_unnamed_target_of_void_call: "refused",
+  network_unnamed_target_of_valued_call: "lsp-gap",
+  network_unnamed_target_of_void_call: "lsp-gap",
   ng_box_output_arrow: "unaskable",
   ng_coil_storage: "unaskable",
   ng_conditional_jump_and_return: "unaskable",
@@ -665,9 +669,9 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   op_sel_bool_picker: "confirmed",
   op_shift_left: "confirmed",
   op_shift_right: "confirmed",
-  op_sys_currenttask: "refused",
+  op_sys_currenttask: "lsp-gap",
   op_sys_isvalidref: "confirmed",
-  op_sys_new_delete: "refused",
+  op_sys_new_delete: "lsp-gap",
   op_sys_queryinterface: "refused",
   op_sys_try_catch: "refused",
   op_sys_varinfo: "refused",
@@ -758,14 +762,14 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   signed_unsigned_conversion: "confirmed",
   sn_case_differs_only: "confirmed",
   sn_dut_mismatch: "unasked",
-  sn_dut_mismatch_used: "refused",
+  sn_dut_mismatch_used: "lsp-gap",
   sn_fb_matches: "confirmed",
-  sn_fb_mismatch: "refused",
+  sn_fb_mismatch: "lsp-gap",
   sn_function_matches: "confirmed",
-  sn_function_mismatch: "refused",
+  sn_function_mismatch: "lsp-gap",
   sn_interface_mismatch: "unasked",
   sn_interface_mismatch_used: "confirmed",
-  sn_program_mismatch: "refused",
+  sn_program_mismatch: "lsp-gap",
   sqrt_precision: "confirmed",
   standard_len_wstring_rejected: "refused",
   state_any_input_sizes: "confirmed",

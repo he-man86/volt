@@ -13,9 +13,14 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { computeSemanticDiagnostics, messagesFor, resolveConfig } from "../../../src/analysis/index.js"
+import { computeNetworkTextDiagnostics } from "../../../src/network/index.js"
+import { parseSource } from "../../../src/syntax/index.js"
+import { buildSymbolTable } from "../../../src/symbols/index.js"
 import { lowerSource } from "../../../src/transpile/lower/index.js"
 import { run } from "../../../src/transpile/interp/index.js"
 import { assembleFixture } from "./fixture-units.js"
+import { plcPrgSource } from "./plc-prg.js"
 import { STANDARD_LIBRARY } from "./standard-library.js"
 import type { LanguageTest } from "../types.js"
 
@@ -48,14 +53,62 @@ function sourceOf(t: LanguageTest, all: readonly LanguageTest[]): { source: stri
   return { source, libraries: [...STANDARD_LIBRARY, ...gvls] }
 }
 
+/**
+ * Does the LSP report an ERROR for this source?
+ *
+ * Three things a naive version got wrong, each of which turned a covered fixture into a phantom gap:
+ *
+ *   PARSE ERRORS COUNT. A reserved word in name position is reported by `cursor.ts` with CODESYS's own wording, not
+ *   by a semantic check. Reading only semantic diagnostics sees half of what the LSP says.
+ *
+ *   NETWORK TEXT HAS ITS OWN PASS. `computeSemanticDiagnostics` SKIPS a graphical body; `computeNetworkTextDiagnostics`
+ *   is what reads it (`replay.test.ts` runs both for exactly this reason). Without it, eleven network fixtures read as
+ *   gaps when the LSP flags every one.
+ *
+ *   THE URI IS PART OF THE INPUT. A signature-name check compares the declared name against the FILE's, so a fixture
+ *   analysed under a made-up filename cannot trigger it. The uri is built the way `replay.test.ts` builds it.
+ *
+ * It asks only WHETHER the LSP objects, never whether the message matches — `refused.test.ts` owns the wording,
+ * against the vendor's own text. Conflating the two would make this either too strict (a wording drift becomes a gap)
+ * or unable to run at all, since most fixtures carry no `refused` fragment to compare.
+ */
+function lspReportsAnError(t: LanguageTest, all: readonly LanguageTest[]): boolean {
+  const { source, gvls } = assembleFixture(t, all)
+  const own = { uri: `file:///conformance/${t.pouName}.${extFor(t.kind)}`, source, parseResult: parseSource(source) }
+  const plcText = plcPrgSource(t)
+  const plc = { uri: `file:///conformance/${t.name}/PLC_PRG.prg`, source: plcText, parseResult: parseSource(plcText) }
+  const files = [own, plc, ...gvls.map((g) => ({ uri: g.uri, source: g.source, parseResult: parseSource(g.source) }))]
+  if (files.some((f) => f.parseResult.errors.length > 0)) return true
+
+  const project = buildSymbolTable([...files, ...libraryFiles()])
+  const config = resolveConfig({ vendor: "codesys" })
+  const semantic = files.flatMap((f) =>
+    computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }),
+  )
+  const network = computeNetworkTextDiagnostics(own, project, messagesFor("codesys"))
+  return [...semantic, ...network].some((d) => d.severity === "error")
+}
+
+/** The file extension a fixture's kind materializes as — one object per file, as the wire keys them. */
+function extFor(kind: LanguageTest["kind"]): string {
+  return kind === "function_block" ? "fb" : kind === "function" ? "fun" : kind === "program" ? "prg" : kind === "gvl" ? "gvl" : kind === "interface" ? "itf" : "dut"
+}
+
+let libraries: { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }[] | undefined
+const libraryFiles = (): NonNullable<typeof libraries> => (libraries ??= STANDARD_LIBRARY.map((l) => ({ ...l, parseResult: parseSource(l.source) })))
+
 export function rateFixture(t: LanguageTest, all: readonly LanguageTest[]): Evidence {
   if (t.execSkip !== undefined || t.recorderSkip === true) return "unaskable"
   if (t.deferred?.lsp !== undefined) return "lsp-gap"
 
   const rec = runRec[t.name]
   const build = buildRec[t.name]
-  // A vendor REFUSAL is an answer, and either recording can carry it.
-  if (rec?.error?.startsWith("does not compile") === true || build?.buildSuccess === false || t.refused !== undefined) return "refused"
+  // A vendor REFUSAL is an answer, and either recording can carry it — but `refused` claims WE refuse it too, so it
+  // has to be asked rather than assumed. It was assumed, and that was an overclaim: `cc_reserved_name_s_string`,
+  // `cc_il_name_ld` and their neighbours are rejected by CODESYS, carry no `refused` marker for `refused.test.ts` to
+  // check, and parse CLEANLY here — rated as evidence when they were silent gaps.
+  if (rec?.error?.startsWith("does not compile") === true || build?.buildSuccess === false || t.refused !== undefined)
+    return lspReportsAnError(t, all) ? "refused" : "lsp-gap"
   if (rec?.values === undefined) return "unasked"
 
   // The vendor ran it. Do WE? That is the only thing left to decide here.

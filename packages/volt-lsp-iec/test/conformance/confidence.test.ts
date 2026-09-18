@@ -31,7 +31,10 @@ const computed = (): Map<string, Evidence> => (cached ??= new Map(ALL_TESTS.map(
  */
 const CEILINGS: Partial<Record<Evidence, number>> = {
   diverges: 3,
-  "lsp-gap": 18,
+  // 18 -> 34 because the MEASUREMENT changed, not because gaps appeared. `refused` claimed the vendor rejects a
+  // source AND so do we, while only checking the vendor; 16 fixtures were counted as evidence while the LSP accepted
+  // them silently (`cc_reserved_name_s_string` and its neighbours). The rating asks both sides now.
+  "lsp-gap": 34,
   "not-lowered": 20,
   unasked: 140,
 }

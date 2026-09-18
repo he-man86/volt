@@ -84,4 +84,57 @@ END_FUNCTION_BLOCK
       "`TYPE` := 1;\n" +
       "END_METHOD\n",
   },
+  // ─── HOW DOES CODESYS SPELL THE TOKEN IT ECHOES? ───────────────────────────────────────────────────
+  // Two dated live confirmations disagree, and the rule between them decides our wording for every
+  // `Unexpected token 'x' found`:
+  //
+  //   `Limit : INT;`  -> `Unexpected token 'LIMIT' found`   UPPERCASED   (cursor.ts, confirmed 2026-09-03)
+  //   `lt : BOOL;`    -> `Unexpected token 'lt' found`      AS WRITTEN   (string_compare_operators, 2026-09-18)
+  //
+  // Both are in the tree; neither is wrong on its face. The plausible reading is that a standard FUNCTION name is
+  // echoed canonically while an IL operator is echoed as typed — but that is a guess, and printing the wrong one
+  // makes every such message disagree on wording alone. Changing `describeToken` to echo the source text was tried
+  // and reverted: it fixed `lt` and broke `LIMIT`, which is a trade, not an answer.
+  //
+  // These ask directly, with the SAME word in three spellings, so the answer cannot be read two ways.
+  {
+    name: "echo_mixed_case_function_name",
+    pouName: "FB_LANG_echo_mixed_case_function_name",
+    kind: "function_block" as const,
+    feature: "a standard FUNCTION name as a variable, written MIXED case — is it echoed as typed or canonicalised?",
+    fromDoc: "08-identifiers.md",
+    plcPrgVar: "inst_echo_mixed_case_function_name : FB_LANG_echo_mixed_case_function_name;",
+    plcPrgBody: "inst_echo_mixed_case_function_name();",
+    source: "FUNCTION_BLOCK FB_LANG_echo_mixed_case_function_name\nVAR\n\tLimit : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "echo_lower_case_function_name",
+    pouName: "FB_LANG_echo_lower_case_function_name",
+    kind: "function_block" as const,
+    feature: "the same name in lower case — the control for echo_mixed_case_function_name",
+    fromDoc: "08-identifiers.md",
+    plcPrgVar: "inst_echo_lower_case_function_name : FB_LANG_echo_lower_case_function_name;",
+    plcPrgBody: "inst_echo_lower_case_function_name();",
+    source: "FUNCTION_BLOCK FB_LANG_echo_lower_case_function_name\nVAR\n\tlimit : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "echo_upper_case_il_operator",
+    pouName: "FB_LANG_echo_upper_case_il_operator",
+    kind: "function_block" as const,
+    feature: "an IL operator as a variable in UPPER case — the mirror of the lower-case `lt` already recorded",
+    fromDoc: "08-identifiers.md",
+    plcPrgVar: "inst_echo_upper_case_il_operator : FB_LANG_echo_upper_case_il_operator;",
+    plcPrgBody: "inst_echo_upper_case_il_operator();",
+    source: "FUNCTION_BLOCK FB_LANG_echo_upper_case_il_operator\nVAR\n\tLT : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "echo_mixed_case_il_operator",
+    pouName: "FB_LANG_echo_mixed_case_il_operator",
+    kind: "function_block" as const,
+    feature: "an IL operator in MIXED case — the case that separates as-typed from canonical",
+    fromDoc: "08-identifiers.md",
+    plcPrgVar: "inst_echo_mixed_case_il_operator : FB_LANG_echo_mixed_case_il_operator;",
+    plcPrgBody: "inst_echo_mixed_case_il_operator();",
+    source: "FUNCTION_BLOCK FB_LANG_echo_mixed_case_il_operator\nVAR\n\tLt : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n",
+  },
 ]

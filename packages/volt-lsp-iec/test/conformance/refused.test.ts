@@ -4,6 +4,11 @@
  * The class fix for the LSP gaps the transpiler work keeps exposing (tasks.md "Found along the way"): the conformance
  * replay fails only on a false POSITIVE, so a construct the compiler rejects and the LSP silently accepts could stay
  * unnoticed forever. Here it is a failing row. The wording must match too — the fragment is CODESYS's own text.
+ *
+ * PARSE ERRORS COUNT. This collected only SEMANTIC diagnostics, so a refusal the PARSER catches read as a gap — and
+ * a reserved word in name position is exactly that: `lt : BOOL;` is reported `Unexpected token 'LT' found`, CODESYS's
+ * own wording, by `cursor.ts` rather than by a check. Two fixtures were filed as LSP gaps on that basis and were
+ * never gaps at all. A gate that cannot see half of what the LSP reports will invent work; this one now reads both.
  */
 import { describe, expect, test } from "bun:test"
 import { parseSource } from "../../src/syntax/index.js"
@@ -34,10 +39,13 @@ describe("every source CODESYS refuses is an LSP error (codesys)", () => {
       const files = [plcPrgSource(c), c.source].map((source, i) => ({ uri: i === 0 ? "PLC_PRG.prg" : `${c.pouName}.src`, source, parseResult: parseSource(source) }))
       const project = buildSymbolTable([...files, ...libraries])
       const config = resolveConfig({ vendor: "codesys" })
-      const errors = files
-        .flatMap((f) => computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }))
-        .filter((d) => d.severity === "error")
-        .map((d) => d.message)
+      const errors = [
+        ...files.flatMap((f) => f.parseResult.errors.map((e) => e.message)),
+        ...files
+          .flatMap((f) => computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }))
+          .filter((d) => d.severity === "error")
+          .map((d) => d.message),
+      ]
       expect(errors).toContainEqual(expect.stringContaining(c.refused!))
     })
   }
