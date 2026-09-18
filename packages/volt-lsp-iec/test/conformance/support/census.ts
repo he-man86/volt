@@ -149,6 +149,24 @@ export const CELLS: readonly Cell[] = [
   ),
   ...cells(
     "conversions",
+    "every integer type into both floating widths, where the mantissa runs out",
+    INTEGERS.flatMap((src) =>
+      ["real", "lreal"].flatMap((r) =>
+        (src.range!.min < 0n ? ["max", "min"] : ["max"]).map((e) => `i2r_${lower(src.name)}_to_${r}_${e}`),
+      ),
+    ),
+  ),
+  ...cells(
+    "conversions",
+    "which way a conversion rounds, and that TRUNC does not",
+    ["real", "lreal"].flatMap((r) =>
+      ["half_pos_0", "half_pos_1", "half_pos_2", "half_pos_3", "half_neg_0", "half_neg_1", "half_neg_2", "half_neg_3", "below_half", "above_half", "neg_below_half", "neg_above_half"].flatMap(
+        (v) => [`round_${r}_to_int_${v}`, `round_${r}_trunc_${v}`],
+      ),
+    ),
+  ),
+  ...cells(
+    "conversions",
     "the magnitude ladder that settles where wrapping stops",
     ["int", "dint", "lint"].flatMap((d) =>
       Array.from({ length: 12 }, (_, i) => i).flatMap((i) => [
@@ -166,9 +184,7 @@ export const CELLS: readonly Cell[] = [
  * `openspec/changes/fixture-census/operations.md` is the long form, with why each one matters.
  */
 export const PLANNED: readonly string[] = [
-  "conversions / integer to REAL, and the precision a 64-bit source loses",
   "conversions / TIME, DATE and STRING across families",
-  "conversions / TRUNC and the rounding direction, per type",
   "declarations / VAR section x type category x initializer form",
   "declarations / RETAIN, PERSISTENT, CONSTANT and direct addresses",
   "calls / callee kind x argument form",

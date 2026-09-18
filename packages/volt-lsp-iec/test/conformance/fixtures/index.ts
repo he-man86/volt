@@ -12,6 +12,7 @@ import { ADVANCED_TYPE_TESTS } from "./types/advanced-type.js"
 import { CONDITIONAL_PRAGMA_TESTS } from "./pragmas/conditional-pragma.js"
 import { CONVERSION_TESTS } from "./conversions/conversion.js"
 import { INTEGER_TO_INTEGER_TESTS } from "./conversions/integer-to-integer.js"
+import { INTEGER_TO_REAL_TESTS } from "./conversions/integer-to-real.js"
 import { REAL_TO_INTEGER_LADDER_TESTS } from "./conversions/real-to-integer-ladder.js"
 import { REAL_TO_INTEGER_TESTS } from "./conversions/real-to-integer.js"
 import { DATA_TYPE_TESTS } from "./types/data-type.js"
@@ -111,6 +112,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "real-to-integer", tests: REAL_TO_INTEGER_TESTS },
   { name: "real-to-integer-ladder", tests: REAL_TO_INTEGER_LADDER_TESTS },
   { name: "integer-to-integer", tests: INTEGER_TO_INTEGER_TESTS },
+  { name: "integer-to-real", tests: INTEGER_TO_REAL_TESTS },
   { name: "semantic", tests: SEMANTIC_TESTS },
   { name: "unary-operand", tests: UNARY_OPERAND_TESTS },
   { name: "conditional-pragma", tests: CONDITIONAL_PRAGMA_TESTS },

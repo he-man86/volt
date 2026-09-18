@@ -347,8 +347,10 @@ export function coerce(v: Val, to: Type, from: Type): Val {
     const I32_MIN = -(2n ** 31n)
     const wide = to.elem.bits >= 64
     if (Number.isNaN(n)) return wide ? I64_MIN : 0n
-    // ROUNDS, half away from zero — `Math.round` alone takes -2.5 to -2. REAL_TO_TIME(2.5) is 3ms
-    // (conformance `temporal_conversions`).
+    // ROUNDS, HALF AWAY FROM ZERO — `Math.round` alone takes -2.5 to -2. That rule was sourced from one value,
+    // `REAL_TO_TIME(2.5) = 3ms`, which banker's rounding fits equally well. `conversions/integer-to-real.ts` asks
+    // eight halves either side: 0.5 -> 1, 2.5 -> 3, -0.5 -> -1, -2.5 -> -3. Half to even would answer 0 and 2, so it
+    // is ruled out rather than merely unlikely. `TRUNC` is toward zero and genuinely differs — TRUNC(-0.5) is 0.
     const rounded = Math.sign(n) * Math.round(Math.abs(n))
     if (!Number.isFinite(rounded)) return wide ? I64_MIN : rounded > 0 ? 0n : I32_MIN
     const value = BigInt(rounded)
