@@ -6,7 +6,7 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed     681
+ *   confirmed     714
  *   refused       235
  *   not-lowered    25
  *   lsp-gap        30
@@ -705,6 +705,39 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   pragma_conflict_hide_plus_monitoring: "refused",
   pragma_conflicting_pair: "confirmed",
   pragma_unknown_directive: "confirmed",
+  prim_default_bit: "confirmed",
+  prim_default_bool: "confirmed",
+  prim_default_byte: "confirmed",
+  prim_default_date: "confirmed",
+  prim_default_date_and_time: "confirmed",
+  prim_default_dint: "confirmed",
+  prim_default_dt: "confirmed",
+  prim_default_dword: "confirmed",
+  prim_default_int: "confirmed",
+  prim_default_ldate: "confirmed",
+  prim_default_ldate_and_time: "confirmed",
+  prim_default_ldt: "confirmed",
+  prim_default_lint: "confirmed",
+  prim_default_lreal: "confirmed",
+  prim_default_ltime: "confirmed",
+  prim_default_ltime_of_day: "confirmed",
+  prim_default_ltod: "confirmed",
+  prim_default_lword: "confirmed",
+  prim_default_real: "confirmed",
+  prim_default_sint: "confirmed",
+  prim_default_string: "confirmed",
+  prim_default_time: "confirmed",
+  prim_default_time_of_day: "confirmed",
+  prim_default_tod: "confirmed",
+  prim_default_udint: "confirmed",
+  prim_default_uint: "confirmed",
+  prim_default_ulint: "confirmed",
+  prim_default_usint: "confirmed",
+  prim_default_word: "confirmed",
+  prim_default_wstring: "confirmed",
+  prim_default_x_uxint: "confirmed",
+  prim_default_x_xint: "confirmed",
+  prim_default_x_xword: "confirmed",
   real_lreal_precision: "confirmed",
   real_precision: "confirmed",
   real_to_bool: "confirmed",

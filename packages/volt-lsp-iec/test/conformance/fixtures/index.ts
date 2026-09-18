@@ -12,6 +12,7 @@ import { ADVANCED_TYPE_TESTS } from "./types/advanced-type.js"
 import { CONDITIONAL_PRAGMA_TESTS } from "./pragmas/conditional-pragma.js"
 import { CONVERSION_TESTS } from "./conversions/conversion.js"
 import { DATA_TYPE_TESTS } from "./types/data-type.js"
+import { PRIMITIVE_DEFAULT_TESTS } from "./types/primitive-default.js"
 import { IDENTIFIER_TESTS } from "./declarations/identifier.js"
 import { CORPUS_STANDARD_TESTS } from "./semantics/corpus-standard.js"
 import { IL_CALC_SHAPE_TESTS, INTERFACE_VAR_TESTS } from "./calls/il-calc-shapes.js"
@@ -105,6 +106,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "oop", tests: OOP_TESTS },
   { name: "advanced-type", tests: ADVANCED_TYPE_TESTS },
   { name: "data-type", tests: DATA_TYPE_TESTS },
+  { name: "primitive-default", tests: PRIMITIVE_DEFAULT_TESTS },
   { name: "variable-section", tests: VARIABLE_SECTION_TESTS },
   { name: "keyword", tests: KEYWORD_TESTS },
   { name: "operands", tests: OPERANDS_TESTS },
