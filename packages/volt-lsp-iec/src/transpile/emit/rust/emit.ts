@@ -617,7 +617,11 @@ class Printer {
         // A silent wrong answer, and one no recorded case caught because no fixture names a parameter `a`.
         if (e.op === "mod" && !isReal)
           return `({ let __mod_l = ${l}; let __mod_r = ${r}; if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } })`
-        if (wrapping !== undefined && !isReal) return `${l}.wrapping_${wrapping}(${r})`
+        // INTEGER DIVISION IS NOT WRAPPING. `wrapping_div` returns the minimum for `MIN / -1` and carries on, and
+        // CODESYS STOPS THE TASK there (`arithedge_dint_div_min_by_minus_one`, `arithedge_lint_*`). Plain `/` panics
+        // on exactly the two cases the vendor stops on — a zero divisor and that one overflow — so it is both the
+        // simpler emission and the correct one. `+`, `-` and `*` really do wrap and keep their helpers.
+        if (wrapping !== undefined && !isReal && e.op !== "div") return `${l}.wrapping_${wrapping}(${r})`
         const plain = e.op === "add" ? "+" : e.op === "sub" ? "-" : e.op === "mul" ? "*" : e.op === "div" ? "/" : "%"
         // A REAL DIVISION BY ZERO STOPS THE TASK, and nothing else about an infinity does. This wrapped EVERY real
         // operation in a finiteness check, on the reading that an infinite RESULT is what stops it; `real-overflow.ts`

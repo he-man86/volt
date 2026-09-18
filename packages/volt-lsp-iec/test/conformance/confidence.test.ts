@@ -43,6 +43,9 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   "not-lowered": 25,
+  // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
+  // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
+  // them questions with answers.
   // ZERO. Every fixture has been put to a real CODESYS. It was 140 while fixtures were written ahead of the recording
   // sessions, and the last 59 fell in two groups: some the vendor had genuinely never seen, and more that were
   // SKIPPED BY THE RECORDER because they declared nothing readable — a DUT, a GVL, an INTERFACE, an FB whose only

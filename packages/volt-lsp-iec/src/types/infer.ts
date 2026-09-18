@@ -19,7 +19,7 @@ import type {
   TypeExpr,
   VarSection,
 } from "../syntax/index.js"
-import { checkedNegationType, exptResultType, temporalResultType } from "./arith.js"
+import { checkedMeetType, checkedNegationType, exptResultType, temporalResultType } from "./arith.js"
 import { canonicalElem, elementaryType, integerLiteralType, parseConversionName, REAL_LITERAL_TYPE } from "./elementary.js"
 import { resolveNamedType, resolveTypeExpr } from "./resolve.js"
 import { elementaryRef, elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
@@ -400,7 +400,13 @@ function binaryResultType(e: BinaryExpr, scope: Scope, project: Scope): Type {
     if (temporal !== undefined) return elementaryRef(temporal)
     const folded = e.op === "+" ? typedLiteralSum(e, l, r) : undefined
     if (folded !== undefined) return folded
-    // Conservative: commit only when both operands are the same elementary type.
+    // THE MEASURED MEET, not "same type or nothing". This committed only when both operands were the SAME elementary
+    // type, so every mixed expression inferred UNKNOWN — and an UNKNOWN source is assignable to anything, which meant
+    // no check downstream could see it. `out := a + b` with `out : STRING` was silent for all seventy pairs in
+    // `fixtures/operators/mixed-type.ts` while `out := a` was reported. `checkedMeetType` is the vendor's own answer
+    // and still returns undefined for the pairs nothing recorded, which keeps the silence exactly where it was earned.
+    const meet = checkedMeetType(l, r)
+    if (meet !== undefined) return meet
     if (canonicalElem(l.name) === canonicalElem(r.name)) return l
   }
   return UNKNOWN

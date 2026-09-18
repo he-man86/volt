@@ -305,7 +305,7 @@ class Machine {
           case "xor":
             return logic(e.op, l, r)
           default:
-            return fit(arith(e.op, l, r), e.type)
+            return fit(arith(e.op, l, r, e.type), e.type)
         }
       }
     }

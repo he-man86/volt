@@ -7,7 +7,7 @@
  *     conformance fixtures. `-sint` computes in DINT but is reported as INT.
  * `exptResultType` and `temporalResultType` are the same in both views.
  */
-import { canonicalElem, elementaryType, isDatetime, isDuration } from "./elementary.js"
+import { canonicalElem, elementaryType, isDatetime, isDuration, type ElementaryType } from "./elementary.js"
 import { elementaryRef, elemOf, UNKNOWN, type Type } from "./type.js"
 
 /**
@@ -28,6 +28,46 @@ export function commonType(a: Type, b: Type): Type {
   // (`signed_unsigned_comparison`). This let the left operand win, so `u > d` compared in UDINT.
   if (ea.rank === eb.rank) return eb.signed && !ea.signed ? b : a
   return ea.rank > eb.rank ? a : b
+}
+
+/**
+ * THE CHECKED MEET OF TWO OPERANDS — the type the COMPILER'S MESSAGE names for `a <op> b`, which is not the type the
+ * operation computes in. `arithmeticWidth` below is the run-time story (anything under 32 bits computes in DINT);
+ * this is what CODESYS calls the result when it has to name it.
+ *
+ * Measured pair by pair, 2026-09-18 — `fixtures/operators/mixed-type.ts` assigns `a <op> b` into a STRING so the
+ * compiler must name what it arrived at. Seventy pairs, and they reduce to two lines:
+ *
+ *   A REAL WINS AS IT IS.          LINT + REAL is REAL, not LREAL, even though a LINT has more bits than a REAL has
+ *                                  mantissa. DINT + LREAL is LREAL. REAL + LREAL is LREAL.
+ *   OTHERWISE IT IS AN INTEGER     of the widest operand's width, SIGNED if either operand is signed. Never a bit
+ *                                  string and never a BOOL: `BYTE + BYTE` is USINT, `BYTE + WORD` is UINT,
+ *                                  `DWORD + SINT` is DINT — one narrow signed operand makes the whole thing signed —
+ *                                  and `BOOL + INT` is INT.
+ *
+ * `BYTE + BYTE` being USINT is the one nobody would have guessed, and it is why this cannot be "same type wins".
+ *
+ * Returns undefined for every pair the recordings do not cover — two BOOLs, a duration, a date, a string — because a
+ * meet inferred there would be this function's opinion rather than the vendor's.
+ */
+export function checkedMeetType(a: Type, b: Type): Type | undefined {
+  const ea = elemOf(a)
+  const eb = elemOf(b)
+  if (ea === undefined || eb === undefined) return undefined
+  const known = (e: ElementaryType): boolean =>
+    e.family === "int" || e.family === "bitstring" || e.family === "real" || e.family === "bool"
+  if (!known(ea) || !known(eb)) return undefined
+  if (ea.family === "real" || eb.family === "real") {
+    if (ea.family === "real" && eb.family === "real") return ea.bits >= eb.bits ? a : b
+    return ea.family === "real" ? a : b
+  }
+  // A pair of BOOLs is not measured — `TRUE + TRUE` was never asked — so it keeps the old silence.
+  if (ea.family === "bool" && eb.family === "bool") return undefined
+  const bits = Math.max(ea.bits, eb.bits)
+  const signed = ea.signed === true || eb.signed === true
+  const order = signed ? ["SINT", "INT", "DINT", "LINT"] : ["USINT", "UINT", "UDINT", "ULINT"]
+  const name = bits <= 8 ? order[0] : bits <= 16 ? order[1] : bits <= 32 ? order[2] : order[3]
+  return elementaryRef(name!)
 }
 
 /**

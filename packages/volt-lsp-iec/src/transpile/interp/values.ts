@@ -11,7 +11,7 @@ import {
   type IrValue,
   peelArray,
 } from "../ir/index.js"
-import type { Type } from "../../types/index.js"
+import { elemOf, type Type } from "../../types/index.js"
 import { isBit } from "../ir/index.js"
 
 /** A runtime value. Integers, durations and dates stay `bigint` in their type's unit (so `/` truncates like IEC does);
@@ -157,7 +157,7 @@ export function ord(op: "lt" | "le" | "gt" | "ge", a: Val, b: Val): boolean {
   return op === "lt" ? a < b : op === "le" ? a <= b : op === "gt" ? a > b : a >= b
 }
 
-export function arith(op: string, a: Val, b: Val): Val {
+export function arith(op: string, a: Val, b: Val, type?: Type): Val {
   const l = num(a)
   const r = num(b)
   if (typeof l === "bigint" && typeof r === "bigint") {
@@ -165,6 +165,23 @@ export function arith(op: string, a: Val, b: Val): Val {
     // the dividend's sign regardless (conformance `mod_by_zero`, `cc_mod_udint_dint`)
     if (op === "div" && r === 0n) throw new RangeError("division by zero")
     if (op === "mod" && r === 0n) return 0n
+    // A DIVISION WHOSE RESULT DOES NOT FIT THE COMPUTATION WIDTH STOPS THE TASK — `MIN / -1`, and nothing else can
+    // reach it. This is the CPU's divide-overflow trap, not a wrap, and the measurements say exactly that
+    // (`arithedge_*_div_min_by_minus_one`, 2026-09-18):
+    //
+    //   SINT  -128 / -1                 ->  SINT#-128       an 8-bit operand computes in DINT, where 128 fits,
+    //   INT   -32768 / -1               ->  INT#-32768      so the division succeeds and only the STORE wraps
+    //   DINT  -2147483648 / -1          ->  STOPS           computed in DINT: 2147483648 does not fit
+    //   LINT  -9223372036854775808 / -1 ->  STOPS           computed in LINT: same
+    //
+    // So the width that matters is the one the operation COMPUTES in — `e.type`, the promoted type — and not the
+    // slot's. Every other overflow in this function wraps on store and none of them trap.
+    const elem = type !== undefined ? elemOf(type) : undefined
+    if (op === "div" && elem?.signed === true && elem.bits !== undefined) {
+      const quotient = l / r
+      if (BigInt.asIntN(elem.bits, quotient) !== quotient)
+        throw new RangeError("a division overflowed its type, which stops the task on CODESYS")
+    }
     switch (op) {
       case "add":
         return l + r
