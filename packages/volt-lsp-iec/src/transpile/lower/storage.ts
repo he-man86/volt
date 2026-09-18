@@ -3,7 +3,7 @@
  */
 import type { AggregateElement, AggregateInit, Expr, Initializer, Span, TypeDecl, TypeExpr, VarDecl, VarSection } from "../../syntax/index.js"
 import { lookup } from "../../symbols/index.js"
-import { DEFAULT_STRING_LENGTH, elementaryRef, resolveNamedType, type Type } from "../../types/index.js"
+import { DEFAULT_STRING_LENGTH, elemOf, elementaryRef, resolveNamedType, type Type } from "../../types/index.js"
 import { defaultValueOf, elementOf, type IrInit, type IrStmt, type IrValue, type Place } from "../ir/index.js"
 import { baseOf, boundName, Lowering, openDims, ZERO_SPAN } from "./lowering.js"
 import { stored, valueAs } from "./convert.js"
@@ -176,7 +176,18 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[]): void
       if (decl.init === undefined) refuseUnmeasuredEnumDefault(lw, lw.resolve(written.type))
       const init = decl.init === undefined ? undefined : decl.init.kind === "aggregate_init" ? aggregateInit(lw, decl.init, type) : scalarInit(lw, decl.init, type)
       if (decl.init !== undefined && init === undefined) continue
-      for (const name of decl.names) lw.slot(name, type, sec.sectionKind, init)
+      for (const name of decl.names) {
+        // A NAME DECLARED TWICE IS INVALID INPUT, and must end in a diagnostic here rather than a throw later.
+        // CODESYS rejects it outright — "A local variable named 'iCounter' is already defined", "Duplicate definition
+        // of variable 'shared' in function block" (`duplicate_declaration`, `cc2_duplicate_inherited_variable`) — but
+        // lowering accepted it and left the two slots to the EMITTER, which either renamed one silently or, since the
+        // emitted surface became a contract, threw. Neither is this component's rule: invalid input ends in a
+        // LowerDiagnostic. An INHERITED name is the same fact one scope up, which is why the check reads the frame
+        // rather than the section.
+        if (lw.declared(name.text))
+          lw.bail("var-duplicate", `${name.text} is declared more than once`, decl.span)
+        else lw.slot(name, type, sec.sectionKind, init)
+      }
     }
 }
 
@@ -291,6 +302,11 @@ function scalarInit(lw: Lowering, e: Expr, type: Type): IrValue | undefined {
   if (text === null) return undefined
   const folded = temporal?.value ?? text ?? foldConstant(lw, e)
   if (folded === undefined) return lw.bail("init-not-constant", "an initial value that is not a compile-time constant", e.span)
+  // The DECLARATION half of the same rule the assignment path states: a STRING does not implicitly become a number.
+  // `cc_init_string_into_int` is `i : INT := '''abc'''`, which CODESYS rejects, and which reached the emitter as a
+  // sizeless string and threw there.
+  if (typeof folded === "string" && elemOf(type)?.family !== undefined && elemOf(type)!.family !== "string")
+    return lw.bail("assign-string", `a STRING initial value on a ${type.kind === "elementary" ? type.name : type.kind}`, e.span)
   return stored(valueAs(folded, type), type)
 }
 

@@ -262,6 +262,13 @@ export class Lowering {
     return this.slots.length - 1
   }
 
+  /** Whether this frame already has a variable of that name — the same three places `slot` writes to. */
+  declared(name: string): boolean {
+    const key = name.toUpperCase()
+    if (this.globalMode) return this.shared.globals.byName.has(`${this.globalPrefix}${name}`.toUpperCase())
+    return this.routineMode ? this.localByName.has(key) : this.byName.has(key)
+  }
+
   slot(name: Identifier, type: Type, section: VarSection["sectionKind"], init?: IrInit): void {
     if (this.globalMode) {
       this.shared.globals.byName.set(`${this.globalPrefix}${name.text}`.toUpperCase(), this.shared.globals.slots.length)

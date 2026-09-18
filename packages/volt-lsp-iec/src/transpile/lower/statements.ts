@@ -2,7 +2,7 @@
  * Statements → IR: assignment and its chains and latches, IF, CASE, the three loops, and call statements.
  */
 import type { Statement, StatementList } from "../../syntax/index.js"
-import { elementaryRef, commonType} from "../../types/index.js"
+import { elementaryRef, commonType, elemOf } from "../../types/index.js"
 import type { IrArm, IrExpr, IrStmt, IrValue } from "../ir/index.js"
 import { holdsCall } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
@@ -109,6 +109,18 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
       }
       const value = lowerExpr(lw, s.value, target.type)
       if (value === undefined) return undefined
+      // A STRING DOES NOT IMPLICITLY BECOME A NUMBER. CODESYS rejects `i := 'a$Tb'` outright — "Cannot convert type
+      // 'STRING(INT#4)' to type 'INT'" (`literal_string_to_int_assignment`, `cc_init_string_into_int`,
+      // `cc_string_escape_literal_into_int`) — but this lowered it, and the EMITTER then threw ("no Rust mapping for a
+      // string type without a capacity") while the interpreter parsed leading digits. Invalid input has to end in a
+      // diagnostic here; an emitter throw is not one, and two backends disagreeing about invalid input is worse.
+      //
+      // Only the IMPLICIT store is refused. `STRING_TO_INT('123')` is an explicit conversion and stays, which is the
+      // whole difference CODESYS draws.
+      const valueFamily = elemOf(value.type)?.family
+      const targetFamily = elemOf(target.type)?.family
+      if (valueFamily === "string" && targetFamily !== undefined && targetFamily !== "string")
+        return lw.bail("assign-string", `a STRING stored into a ${target.type.kind === "elementary" ? target.type.name : target.type.kind}, which is not a conversion the vendor makes implicitly`, s.span)
       const store: IrStmt = { kind: "assign", target, value: convert(value, target.type), span: s.span }
       // a UNION member's store, then its bytes into the members it overlays
       const copies = unionCopies(lw, target, s.span)

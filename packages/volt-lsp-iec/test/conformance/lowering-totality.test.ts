@@ -74,7 +74,7 @@ const DOCUMENTED_LOWERED = 46
  * FLOOR, not an exact figure — a new fixture may legitimately reach one more — but it only ever goes up, so a
  * refactor that quietly makes a refusal unreachable fails here.
  */
-const REACHED_CODES = 73
+const REACHED_CODES = 80
 
 /** One walk, two questions: did anything throw, and how much of the corpus does this backend actually reach. */
 function overCorpus(): { failures: string[]; bodies: number; lowered: number; codes: Set<string> } {
