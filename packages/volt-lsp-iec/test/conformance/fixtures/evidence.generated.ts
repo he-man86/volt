@@ -6,13 +6,13 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed     672
- *   refused       194
- *   not-lowered    23
- *   unasked        17
+ *   confirmed     674
+ *   refused       195
+ *   not-lowered    24
+ *   unasked         9
  *   lsp-gap        35
  *   diverges        4
- *   unaskable      22
+ *   unaskable      26
  */
 import type { LanguageTest } from "../types.js"
 
@@ -526,14 +526,14 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   interface_empty: "confirmed",
   interface_empty_impl: "confirmed",
   interface_extends_another: "unasked",
-  interface_extends_another_impl: "unasked",
+  interface_extends_another_impl: "unaskable",
   interface_method_with_return_type: "confirmed",
-  interface_method_with_return_type_impl: "unasked",
+  interface_method_with_return_type_impl: "confirmed",
   interface_missing_implementation: "refused",
   interface_with_method: "confirmed",
   interface_with_method_impl: "confirmed",
   interface_with_property: "confirmed",
-  interface_with_property_impl: "unasked",
+  interface_with_property_impl: "confirmed",
   io_function_block: "confirmed",
   ir_initializer_warning_in_program: "confirmed",
   ir_initializer_warning_nested_instance: "confirmed",
@@ -637,7 +637,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   noinit: "refused",
   not_result_width: "confirmed",
   numeric_to_bool: "confirmed",
-  oop_abstract_fb: "unasked",
+  oop_abstract_fb: "unaskable",
   oop_abstract_instantiated: "refused",
   oop_action_block: "confirmed",
   oop_base: "confirmed",
@@ -727,13 +727,13 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   refuse_for_step_calls: "not-lowered",
   refuse_inout_aliases_receiver: "not-lowered",
   refuse_inout_bound_to_bit: "lsp-gap",
-  refuse_inout_not_given: "unasked",
+  refuse_inout_not_given: "refused",
   refuse_interface_any_input: "not-lowered",
   refuse_method_no_result: "lsp-gap",
   refuse_pointer_two_targets: "not-lowered",
   refuse_sizeof_interface: "not-lowered",
   refuse_super_without_base: "lsp-gap",
-  refuse_var_temp_struct: "unasked",
+  refuse_var_temp_struct: "not-lowered",
   region_basic: "confirmed",
   region_pragma_basic: "confirmed",
   region_pragma_nested: "confirmed",
@@ -809,7 +809,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   subrange_assign_const_out: "refused",
   subrange_init_above_range: "refused",
   subrange_init_below_range: "refused",
-  subrange_init_in_range: "unasked",
+  subrange_init_in_range: "unaskable",
   subsequent: "refused",
   suppress_warning: "confirmed",
   suppress_warning_multi: "confirmed",
@@ -867,7 +867,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   type_dut_struct_nested: "confirmed",
   type_dut_struct_simple: "confirmed",
   type_dut_struct_with_bit_fields: "confirmed",
-  type_dut_subrange: "unasked",
+  type_dut_subrange: "unaskable",
   type_dut_union: "confirmed",
   type_enum_default_first_implicit_zero: "confirmed",
   type_enum_default_first_negative: "confirmed",

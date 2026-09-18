@@ -15,6 +15,7 @@ export const RANGE_BOUNDS_TESTS: readonly LanguageTest[] = [
   // ─── Subrange: constant initializer vs declared bounds ──────────────
   {
     name: "subrange_init_in_range",
+    execSkip: "the online read refuses a subrange (\"Type 'Subrange' is not a literal type.\", measured 2026-09-14) - there is no value the IDE will hand back",
     pouName: "FB_LANG_subrange_init_in_range",
     kind: "function_block",
     feature: "INT(1..100) initialized to 50 — inside the subrange (baseline: accepted)",

@@ -131,6 +131,7 @@ END_INTERFACE
 
   {
     name: "interface_extends_another_impl",
+    execSkip: "the FB declares no variable of its own - only the inherited method - so PLC_PRG has no member to read; `interface_extends_another` instantiates it and is the fixture that gets an answer",
     pouName: "FB_LANG_iea_impl",
     kind: "function_block",
     feature: "FB that IMPLEMENTS an interface which EXTENDS another (must provide all methods)",
@@ -169,8 +170,8 @@ END_INTERFACE
     kind: "function_block",
     feature: "FB implementing an interface whose method has a return type",
     fromDoc: "10-keywords.md",
-    plcPrgVar: undefined,
-    plcPrgBody: undefined,
+    plcPrgVar: "mriImpl : FB_LANG_method_returns_impl;\n\tmriCount : INT;",
+    plcPrgBody: "mriCount := mriImpl.GetCount();",
     source: `FUNCTION_BLOCK FB_LANG_method_returns_impl IMPLEMENTS ITF_LANG_method_returns
 VAR
 	iCount : INT := 7;
@@ -209,8 +210,8 @@ END_INTERFACE
       "FB implementing an interface property (GET-only) — TC rejects because property accessors require both GET and SET when the interface contract is symmetric",
     fromDoc: "10-keywords.md",
     note: "DISCOVERY (verified live 2026-05-30): TC errors with 'no implementation for method __SETVALUE defined in interface' even when only GET is needed by the consumer. A complete property impl must define both GET and SET — covered by the existing `oop_property_get_set` tests elsewhere. Catalog entry kept as a known-quirk record.",
-    plcPrgVar: undefined,
-    plcPrgBody: undefined,
+    plcPrgVar: "wpImpl : FB_LANG_with_property_impl;\n\twpValue : INT;",
+    plcPrgBody: "wpValue := wpImpl.Value;",
     source: `FUNCTION_BLOCK FB_LANG_with_property_impl IMPLEMENTS ITF_LANG_with_property
 VAR
 	iValueBacking : INT := 11;

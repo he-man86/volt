@@ -37,12 +37,14 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   "lsp-gap": 35,
   // 21 -> 23 by RECLASSIFICATION, not regression: `cc_fp_ptr_deref` and `use_pointer_deref_struct_field` were rated
   // `unasked` while their recordings sat there saying the vendor's scan never completed. A vendor fault is an answer.
-  "not-lowered": 23,
-  // 140 -> 17. The slack was there for fixtures written ahead of a recording session; the sessions happened. Most of
+  // 23 -> 24: `refuse_var_temp_struct` was finally ASKED, and CODESYS compiles it. `var-temp-composite` is our own
+  // refusal, not the vendor's, which is exactly what `not-lowered` is for.
+  "not-lowered": 24,
+  // 140 -> 9. The slack was there for fixtures written ahead of a recording session; the sessions happened. Most of
   // the drop since is fixtures that had nothing READABLE rather than nothing to ask: a DUT or a GVL declares no
   // PLC_PRG variable, so the recorder had no path to read even though the vendor had plenty to say about what it
   // initializes the type to. They declare an instance now, or copy the global into one.
-  unasked: 17,
+  unasked: 9,
 }
 
 describe("how well each fixture is evidenced", () => {

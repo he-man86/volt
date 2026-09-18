@@ -278,6 +278,7 @@ END_TYPE
 
   {
     name: "type_dut_subrange",
+    execSkip: "the online read refuses a subrange: \"Type 'Subrange' is not a literal type.\" (measured 2026-09-14) — there is no value the IDE will hand back",
     pouName: "DUT_LANG_subrange",
     kind: "dut",
     feature: "SUBRANGE — INT constrained to 0..100",

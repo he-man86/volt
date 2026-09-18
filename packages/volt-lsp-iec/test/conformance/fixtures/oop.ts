@@ -116,6 +116,7 @@ END_FUNCTION_BLOCK
 
   {
     name: "oop_abstract_fb",
+    execSkip: "an ABSTRACT function block cannot be instantiated, so PLC_PRG has no member to read - the fixture working as designed",
     pouName: "FB_LANG_oop_abstract_fb",
     kind: "function_block",
     feature: "ABSTRACT FB — can't be directly instantiated",
