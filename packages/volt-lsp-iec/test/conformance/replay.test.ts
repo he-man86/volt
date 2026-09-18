@@ -20,7 +20,7 @@ import { describe, expect, it } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { parseSource } from "../../src/syntax/index.js"
-import { buildSymbolTable } from "../../src/symbols/index.js"
+import { bindFile, buildSymbolTable, linkExtends, unbindFile, type Scope } from "../../src/symbols/index.js"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig, type Vendor } from "../../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../../src/network/index.js"
 import { plcPrgSource } from "./support/plc-prg.js"
@@ -228,15 +228,54 @@ function extFor(kind: string): string {
 const CODESYS_STANDARD = STANDARD_LIBRARY.map((l) => ({ ...l, parseResult: parseSource(l.source) }))
 
 /** Every error+warning message the LSP emits for a fixture (incl. parse errors + PLC_PRG usage). */
+/**
+ * ONE PROJECT PER VENDOR, EDITED IN PLACE — not one rebuilt per fixture.
+ *
+ * This used to call `buildSymbolTable` with `CROSS_DECLS.filter((_, i) => i !== testIdx)`: every fixture's
+ * declarations except its own, bound from scratch, once per fixture. That is O(n^2) in the fixture count — at 1453
+ * fixtures it is 2.1 million file-binds per vendor — and it timed out the moment a census sweep pushed n up by half.
+ * The census will push it much further, so the shape had to change rather than the budget.
+ *
+ * The exclusion was only ever there because `CROSS_DECLS[i]` and `own` are the same file: binding both would declare
+ * every fixture's own types twice. `unbindFile` takes that one file out by URI and `bindFile` puts it back, so the
+ * project each fixture sees is EXACTLY what it saw before — every other fixture's declarations, plus its own units
+ * with their programs, plus the standard library.
+ */
+const SHARED = new Map<Vendor, Scope>()
+function sharedProject(vendor: Vendor): Scope {
+  let project = SHARED.get(vendor)
+  if (project === undefined) {
+    project = buildSymbolTable([...CROSS_DECLS, ...(vendor === "codesys" ? CODESYS_STANDARD : [])])
+    SHARED.set(vendor, project)
+  }
+  return project
+}
+
 function runLsp(testIdx: number, vendor: Vendor): string[] {
   const own = PARSED[testIdx] as (typeof PARSED)[number]
   const plc = PLC_PRGS[testIdx]
-  const project = buildSymbolTable([
-    { uri: own.uri, parseResult: own.parseResult, source: own.source },
-    ...(plc ? [{ uri: plc.uri, parseResult: plc.parseResult, source: plc.source }] : []),
-    ...CROSS_DECLS.filter((_, i) => i !== testIdx),
-    ...(vendor === "codesys" ? CODESYS_STANDARD : []),
-  ])
+  const project = sharedProject(vendor)
+  // swap this fixture's declaration-only copy for its real one, run, then put it back
+  unbindFile(project, own.uri)
+  bindFile(project, { uri: own.uri, parseResult: own.parseResult, source: own.source })
+  if (plc) bindFile(project, { uri: plc.uri, parseResult: plc.parseResult, source: plc.source })
+  linkExtends(project)
+  try {
+    return diagnose(own, plc, project, vendor)
+  } finally {
+    unbindFile(project, own.uri)
+    if (plc) unbindFile(project, plc.uri)
+    bindFile(project, CROSS_DECLS[testIdx]!)
+    linkExtends(project)
+  }
+}
+
+function diagnose(
+  own: (typeof PARSED)[number],
+  plc: (typeof PLC_PRGS)[number],
+  project: Scope,
+  vendor: Vendor,
+): string[] {
   const config = resolveConfig({ vendor })
   const diags = computeSemanticDiagnostics({ parseResult: own.parseResult, source: own.source, project, config })
   if (plc) {

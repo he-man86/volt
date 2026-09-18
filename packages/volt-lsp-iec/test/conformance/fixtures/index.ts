@@ -11,6 +11,8 @@ import { FIXTURE_EVIDENCE } from "./evidence.generated.js"
 import { ADVANCED_TYPE_TESTS } from "./types/advanced-type.js"
 import { CONDITIONAL_PRAGMA_TESTS } from "./pragmas/conditional-pragma.js"
 import { CONVERSION_TESTS } from "./conversions/conversion.js"
+import { REAL_TO_INTEGER_LADDER_TESTS } from "./conversions/real-to-integer-ladder.js"
+import { REAL_TO_INTEGER_TESTS } from "./conversions/real-to-integer.js"
 import { DATA_TYPE_TESTS } from "./types/data-type.js"
 import { PRIMITIVE_BOUNDS_TESTS } from "./types/primitive-bounds.js"
 import { ARITHMETIC_EDGE_TESTS } from "./operators/arithmetic-edges.js"
@@ -102,6 +104,8 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "init-slot", tests: INIT_SLOT_TESTS },
   { name: "shadowing", tests: SHADOWING_TESTS },
   { name: "conversion", tests: CONVERSION_TESTS },
+  { name: "real-to-integer", tests: REAL_TO_INTEGER_TESTS },
+  { name: "real-to-integer-ladder", tests: REAL_TO_INTEGER_LADDER_TESTS },
   { name: "semantic", tests: SEMANTIC_TESTS },
   { name: "unary-operand", tests: UNARY_OPERAND_TESTS },
   { name: "conditional-pragma", tests: CONDITIONAL_PRAGMA_TESTS },

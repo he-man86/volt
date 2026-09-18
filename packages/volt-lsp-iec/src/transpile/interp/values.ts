@@ -323,26 +323,39 @@ export function coerce(v: Val, to: Type, from: Type): Val {
   // Math.round alone rounds -2.5 to -2 (half toward +infinity); on the magnitude it is half away from zero.
   // REAL → TIME rounds the same way: REAL_TO_TIME(2.5) is 3ms (conformance `temporal_conversions`)
   if (typeof n === "number" && (to.elem.rank !== undefined || family === "time")) {
-    // REAL -> INTEGER GOES THROUGH A 64-BIT REGISTER, and `fit` then wraps into the declared type. Out of that
-    // register's range — NaN included — the value is x86's "integer indefinite", i64::MIN. Measured on CODESYS
-    // 3.5.21.40 (2026-09-18) and this explains four of the five points:
+    // REAL -> INTEGER, MEASURED IN FULL. `conversions/real-to-integer.ts` asks both real types against all twelve
+    // integer destinations with five out-of-range value classes, and `real-to-integer-ladder.ts` walks a magnitude
+    // ladder on BOTH signs past every interesting threshold. 192 cells, and this reproduces every one.
     //
-    //   LREAL_TO_DINT(3.0E9)   = -1294967296   in range, wrapped narrow      (`real_to_int_out_of_range`)
-    //   LREAL_TO_DINT(1.0E30)  = 0             i64::MIN, its low 32 bits     (`real_to_dint_above_range`)
-    //   LREAL_TO_LINT(1.0E30)  = i64::MIN      the register itself           (`real_to_lint_above_range`)
-    //   REAL_TO_DINT(NaN)      = 0             i64::MIN, its low 32 bits     (`real_to_dint_nan`)
+    // THE CONVERSION HAPPENS AT THE DESTINATION'S REGISTER WIDTH — 64-bit for a 64-bit destination, 32-bit for
+    // everything else, which then wraps into the declared type in `fit`. That is the fact four points could not
+    // show, and it is why `real_to_dint_below_range` sat unexplained: `LREAL_TO_DINT(-1.0E30)` is -2147483648
+    // because the 32-BIT register's indefinite is 0x80000000, while `LREAL_TO_LINT(-1.0E30)` is the 64-bit one.
     //
-    // THE FIFTH DOES NOT FIT: `LREAL_TO_DINT(-1.0E30)` records -2147483648, where this model says 0
-    // (`real_to_dint_below_range`). Both magnitudes are out of range and only the SIGN differs, so a single
-    // conversion cannot produce both — the likeliest reading is that one of them is folded at compile time.
-    // `real_to_dint_runtime_*` put the same magnitudes behind arithmetic the compiler cannot fold; until those are
-    // recorded, the model that explains four points is used rather than a rule invented to explain five.
-    const INDEFINITE = -(2n ** 63n)
-    if (Number.isNaN(n)) return INDEFINITE
+    //   64-BIT DESTINATION                        32-BIT AND NARROWER
+    //   NaN                    -> i64::MIN        NaN                     -> 0
+    //   v >= 2^64              -> i64::MIN        v >= 2^63               -> 0
+    //   v <  -2^63             -> i64::MIN        v <  -2^31              -> -2^31
+    //   otherwise              -> wrap to i64     otherwise               -> wrap to i32
+    //
+    // The asymmetry between the two directions is the measurement's, not a simplification. Going UP a 32-bit
+    // destination wraps all the way to 2^63 (LREAL_TO_DINT of 2^33 is 408, of 9.22E18 is -1024); going DOWN it
+    // stops at -2^31 and answers 0x80000000 for everything below (-3.0E9 and -1.0E30 give the same -2147483648).
+    // Which is not a shape a single hardware instruction produces, so no mechanism is claimed here — only the
+    // table, which every one of the 192 recordings agrees with.
+    const I64_MIN = -(2n ** 63n)
+    const I32_MIN = -(2n ** 31n)
+    const wide = to.elem.bits >= 64
+    if (Number.isNaN(n)) return wide ? I64_MIN : 0n
+    // ROUNDS, half away from zero — `Math.round` alone takes -2.5 to -2. REAL_TO_TIME(2.5) is 3ms
+    // (conformance `temporal_conversions`).
     const rounded = Math.sign(n) * Math.round(Math.abs(n))
-    if (!Number.isFinite(rounded)) return INDEFINITE
+    if (!Number.isFinite(rounded)) return wide ? I64_MIN : rounded > 0 ? 0n : I32_MIN
     const value = BigInt(rounded)
-    return value < INDEFINITE || value > 2n ** 63n - 1n ? INDEFINITE : value
+    if (wide) return value >= 2n ** 64n || value < I64_MIN ? I64_MIN : BigInt.asIntN(64, value)
+    if (value < I32_MIN) return I32_MIN
+    if (value >= 2n ** 63n) return 0n
+    return BigInt.asIntN(32, value)
   }
   return n
 }

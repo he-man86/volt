@@ -502,11 +502,14 @@ class Printer {
         if (from === "string") return `(iec_parse_${to === "real" ? "real" : "int"}(${value}.units()) as ${target})`
         if (to === "bool") return from === "bool" ? value : from === "real" ? `(${value} != 0.0)` : `(${value} != 0)`
         if (from === "bool") return to === "real" ? `((${value} as u8) as ${target})` : `(${value} as ${target})`
-        // REAL -> INTEGER goes through a 64-BIT REGISTER and wraps into the target — see `coerce` in the
-        // interpreter for the four measured points this reproduces, and the fifth it does not. Rust's own `as`
-        // SATURATES, which is none of them.
+        // REAL -> INTEGER IS DONE AT THE DESTINATION'S REGISTER WIDTH, then wrapped into the target — the emitted
+        // twin of `coerce` in the interpreter, where the 192 measured cells are set out. This went through a 64-bit
+        // register for every destination, which is the one thing four measurements could not distinguish: a 32-bit
+        // destination has its OWN indefinite, 0x80000000, and that is why `LREAL_TO_DINT(-1.0E30)` is -2147483648
+        // and not 0. Rust's own `as` saturates, which is neither.
         if (from === "real" && to !== "real") {
-          return `({ let __c = ${value}.round(); if __c >= -9223372036854775808.0 && __c < 9223372036854775808.0 { __c as i64 } else { i64::MIN } } as ${target})`
+          const wide = e.type.kind === "elementary" && e.type.elem.bits >= 64
+          return `(${wide ? "iec_r2i64" : "iec_r2i32"}(${value} as f64) as ${target})`
         }
         return `(${value} as ${target})`
       }
@@ -1055,6 +1058,26 @@ export function emitRust(pou: IrPou): Emitted {
   // The emitted twin of `arith`'s zero-divisor check. Gated on its OWN use, not on `iec_deref`'s — a program can
   // divide by zero without ever dereferencing a pointer, and attaching it to the wrong condition left the helper
   // undefined in every program that does.
+  // The two halves of the measured REAL -> INTEGER table. See `coerce` in `interp/values.ts`.
+  if (p.code.includes("iec_r2i64(")) {
+    p.push("", 0)
+    p.push("fn iec_r2i64(v: f64) -> i64 {", 0)
+    p.push("let c = if v < 0.0 { -((-v).round()) } else { v.round() };", 1)
+    p.push("if c.is_nan() || c >= 18446744073709551616.0 || c < -9223372036854775808.0 { return i64::MIN; }", 1)
+    p.push("if c >= 9223372036854775808.0 { return (c as u64) as i64; }", 1)
+    p.push("c as i64", 1)
+    p.push("}", 0)
+  }
+  if (p.code.includes("iec_r2i32(")) {
+    p.push("", 0)
+    p.push("fn iec_r2i32(v: f64) -> i32 {", 0)
+    p.push("let c = if v < 0.0 { -((-v).round()) } else { v.round() };", 1)
+    p.push("if c.is_nan() { return 0; }", 1)
+    p.push("if c < -2147483648.0 { return i32::MIN; }", 1)
+    p.push("if c >= 9223372036854775808.0 { return 0; }", 1)
+    p.push("(c as i64) as i32", 1)
+    p.push("}", 0)
+  }
   if (p.code.includes("iec_log(")) {
     p.push("", 0)
     p.push('fn iec_log(x: f64) -> f64 { if x == 0.0 { panic!("the logarithm of zero stops the task on CODESYS"); } x }', 0)

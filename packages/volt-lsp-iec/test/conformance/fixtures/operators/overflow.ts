@@ -204,11 +204,14 @@ END_METHOD
     source: "FUNCTION_BLOCK FB_LANG_real_to_dint_above_range\nVAR\n\tf : LREAL := 1.0E30;\n\tn : DINT;\nEND_VAR\nn := LREAL_TO_DINT(f);\nEND_FUNCTION_BLOCK\n",
   },
   {
+    // RESOLVED 2026-09-18. It was parked for a day as "one conversion cannot give both". It can: the conversion
+    // happens at the DESTINATION'S register width, so a DINT gets the 32-bit indefinite 0x80000000 while a LINT
+    // gets the 64-bit one — and going UP the same destination wraps all the way to 2^63. Four points could not
+    // show that; `conversions/real-to-integer.ts` and its ladder took 192, and every cell fits.
     name: "real_to_dint_below_range",
-    deferred: { transpile: "2026-09-18: LREAL_TO_DINT(-1.0E30) records -2147483648 where the measured model (to a 64-bit register, indefinite on overflow, then wrap) says 0 - the model the other four points fit, including LREAL_TO_DINT(1.0E30) = 0 with only the SIGN different. One conversion cannot give both, so one of the two is likely folded at compile time; real_to_dint_runtime_* are written to tell them apart." },
     pouName: "FB_LANG_real_to_dint_below_range",
     kind: "function_block" as const,
-    feature: "LREAL -1.0E30 to DINT — saturate, wrap, or something else?",
+    feature: "LREAL -1.0E30 to DINT — the 32-bit register's indefinite, 0x80000000",
     fromDoc: "runtime-domain",
     plcPrgVar: "fb_real_to_dint_below_range : FB_LANG_real_to_dint_below_range;",
     plcPrgBody: "fb_real_to_dint_below_range();",
@@ -268,10 +271,9 @@ END_METHOD
   },
   {
     name: "real_to_dint_runtime_below",
-    deferred: { transpile: "2026-09-18: the RUNTIME value matches the constant one exactly (-2147483648 where the model says 0), so it is NOT compile-time folding — the sign asymmetry is genuine runtime behaviour. See real_to_dint_below_range." },
     pouName: "FB_LANG_real_to_dint_runtime_below",
     kind: "function_block" as const,
-    feature: "LREAL -1.0E30 to DINT, built at RUN TIME - the point the model does not explain",
+    feature: "LREAL -1.0E30 to DINT built at RUN TIME — the same answer as the constant, which is the point",
     fromDoc: "runtime-domain",
     plcPrgVar: "fb_real_to_dint_runtime_below : FB_LANG_real_to_dint_runtime_below;",
     plcPrgBody: "fb_real_to_dint_runtime_below();",

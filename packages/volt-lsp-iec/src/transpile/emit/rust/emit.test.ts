@@ -229,15 +229,13 @@ describe("emit/rust", () => {
     const code = rust(
       "PROGRAM P\nVAR x : REAL; i : INT; b : BOOL; n : INT; y : REAL; d : DINT; END_VAR\ni := REAL_TO_INT(x); b := INT_TO_BOOL(n); y := BOOL_TO_REAL(b); d := TRUNC(x); i := DINT_TO_SINT(300);\nEND_PROGRAM\n",
     )
-    // Rounds, then WRAPS through i64 — which is what this always claimed and what it did not do. A bare
-    // `as i64` SATURATES (f64 1.0E30 gives i64::MAX), so past the register the emitted code answered something
-    // the interpreter never would; `real_to_int_out_of_range` records the vendor wrapping
-    // (`LREAL_TO_DINT(3.0E9)` = -1294967296). In-range values still cast straight across: reducing them modulo
-    // 2^64 first is not just slower, it is wrong, because 2^64 - 1 is not representable and -0.5 came back 0.
-    expect(code).toContain("let __c = self.x.round()")
-    expect(code).toContain("__c as i64")
-    // the out-of-range arm is the 64-bit register's indefinite value, not a modular reduction — see `coerce`
-    expect(code).toContain("i64::MIN")
+    // REAL -> INTEGER goes through the DESTINATION'S register width, not always a 64-bit one. That was the shape
+    // this pinned — `let __c = x.round()` and a single i64 arm — and it could not produce `LREAL_TO_DINT(-1.0E30)`
+    // = -2147483648, which is the 32-BIT indefinite. `conversions/real-to-integer{,-ladder}.ts` measured 192 cells
+    // and `iec_r2i32` / `iec_r2i64` are the table; an INT destination takes the 32-bit half.
+    expect(code).toContain("(iec_r2i32(self.x as f64) as i16)")
+    expect(code).toContain("if c < -2147483648.0 { return i32::MIN; }")
+    expect(code).toContain("if c >= 9223372036854775808.0 { return 0; }")
     expect(code).toContain("(self.n != 0)")
     expect(code).toContain("((self.b as u8) as f32)")
     // TRUNC out of DINT range is i32::MIN (measured), so it is range-checked, not pushed through a wrapping i64
