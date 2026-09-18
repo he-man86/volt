@@ -30,17 +30,25 @@ END_PROGRAM
 `
 
 describe("emit/rust", () => {
-  test("field names are Rust: a keyword gets `_`, and two names that snake_case alike stay two fields", () => {
+  test("field names are Rust: a keyword gets `_`, and two names that snake_case alike are REFUSED", () => {
     // `pub loop: i16` and two `a_b` fields were emitted, and neither compiles (transpiler review 2026-09-14)
     const keywords = rust("PROGRAM P\nVAR\n  loop : INT;\n  match : BOOL;\nEND_VAR\nloop := 1;\nEND_PROGRAM\n")
     expect(keywords).toContain("pub loop_: i16,")
     expect(keywords).toContain("pub match_: bool,")
     expect(keywords).toContain("self.loop_ = 1i16;")
-    const collide = rust("PROGRAM P\nVAR\n  aB : INT;\n  a_b : INT;\nEND_VAR\naB := 1;\na_b := 2;\nEND_PROGRAM\n")
-    expect(collide).toContain("pub a_b: i16,")
-    expect(collide).toContain("pub a_b_2: i16,")
-    expect(collide).toContain("self.a_b = 1i16;")
-    expect(collide).toContain("self.a_b_2 = 2i16;")
+
+    // THE PREMISE IS UNCHANGED — two ST names that snake alike must never become one broken field. What changed is
+    // the RESOLUTION. They used to become `a_b` and `a_b_2`, numbered by FRAME POSITION, which made the emitted
+    // surface unstable: the first slot with a given snake name keeps it, so declaring a new VAR ahead of an existing
+    // one would rename the EXISTING one's field and break a harness that reads `p.a_b` over an unrelated ST edit. A
+    // field IS part of the emitted surface (`emit/rust/index.ts` states it), so it may not move under a user.
+    //
+    // Refused rather than renumbered because the collision does not happen: ZERO of the 784 POUs the fixtures build
+    // take a suffix, so this costs nothing real, while the rename it prevents would hit ordinary code. A routine's
+    // LOCALS are still renumbered — they are `let` bindings inside a generated fn that nothing outside reads.
+    expect(() => rust("PROGRAM P\nVAR\n  aB : INT;\n  a_b : INT;\nEND_VAR\naB := 1;\na_b := 2;\nEND_PROGRAM\n")).toThrow(
+      /both become the Rust field/,
+    )
   })
 
   test("a slot without an initial value starts at its type's zero — and a WSTRING's is a WSTRING", () => {

@@ -156,11 +156,22 @@ function nestedBlocks(s: IrStmt): readonly (readonly IrStmt[])[] {
   }
 }
 
-export function fieldNames(slots: IrPou["slots"], reserved: readonly string[] = []): string[] {
+export function fieldNames(slots: IrPou["slots"], reserved: readonly string[] = [], internal = false): string[] {
   const used = new Set<string>(reserved)
   return slots.map((slot) => {
     const snaked = snake(slot.name)
     const base = RUST_KEYWORDS.has(snaked) ? `${snaked}_` : snaked
+    // A CONTRACT NAME IS NOT RENUMBERED. The dedupe below numbers by FRAME POSITION, so the FIRST slot with a given
+    // snake name keeps it and later ones take `_2`, `_3` — which means declaring a new VAR ahead of an existing one
+    // would rename the EXISTING one's Rust field, and a harness written against `p.my_val` breaks on an ST edit that
+    // has nothing to do with it. A field is part of the emitted surface (`emit/rust/index.ts`), so it cannot move
+    // under a user like that.
+    //
+    // Two distinct ST names snaking to one Rust name is genuinely ambiguous, and it does not happen: ZERO of the 784
+    // POUs the fixtures build take a suffix. So it is refused rather than silently resolved — a loud stop on a shape
+    // nobody writes beats a quiet rename on a shape everybody does.
+    if (!internal && used.has(base))
+      throw new Error(`emit: ${slot.name} and another variable both become the Rust field \`${base}\`, which the emitted surface cannot distinguish`)
     let name = base
     for (let n = 2; used.has(name); n++) name = `${base}_${n}`
     used.add(name)
@@ -818,7 +829,9 @@ function printRoutine(p: Printer, routine: IrRoutine, fields: readonly string[],
   const outer = p.sourceUri
   p.sourceUri = routine.uri
   // `g` and `prg`, as far as the program has them, are every body's first parameters — no local may take those names
-  const names = fieldNames([...routine.locals, ...routine.inouts], p.globalsArg)
+  // INTERNAL: a routine's locals and in-outs are `let` bindings inside a generated fn. Nothing outside reads them, and
+  // they legitimately collide with the `g` / `prg` parameters, so these may be renumbered.
+  const names = fieldNames([...routine.locals, ...routine.inouts], p.globalsArg, true)
   const localNames = names.slice(0, routine.locals.length)
   const inoutNames = names.slice(routine.locals.length)
   const typed = routine.inouts.map((slot, i) => inoutType(slot, inoutNames[i]!))
@@ -972,7 +985,7 @@ export function emitRust(pou: IrPou): Emitted {
     p.push("}", 1)
     if (layout.body !== undefined) {
       const inouts = layout.inouts ?? []
-      const inoutNames = fieldNames(inouts, reserved)
+      const inoutNames = fieldNames(inouts, reserved, true) // parameters of a generated fn, not a surface a user reads
       const lentParams = (layout.lent ?? []).map((l, i) => `__lent_${i}: &mut ${rustType(l.type)}`)
       const typed = inouts.map((slot, i) => inoutType(slot, inoutNames[i]!))
       const params = [...globalsParam, ...typed.map((t) => t.param), ...lentParams].map((param) => `, ${param}`).join("")
