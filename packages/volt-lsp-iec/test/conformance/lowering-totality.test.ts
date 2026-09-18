@@ -35,7 +35,7 @@ import { scanLibraryManifests } from "../../src/workspace-refs.js"
 import { LOWER_CODES, LOWER_CODE_PREFIXES } from "../../src/transpile/ir/codes.js"
 import { lowerSource } from "../../src/transpile/lower/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
-import { withDependencies } from "./support/fixture-units.js"
+import { assembleFixture, withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
 import { STANDARD_LIBRARY } from "./support/standard-library.js"
 
@@ -155,9 +155,7 @@ describe("the contracts src/transpile/index.ts states, measured over the corpus"
     // the fixtures too: many refusals need a shape the corpus does not happen to contain
     for (const t of ALL_TESTS) {
       // assembled exactly as `backend-agreement` does it, so both gates read the same program from a fixture
-      const fixtures = withDependencies(t, ALL_TESTS).filter((f) => f.source !== "")
-      const gvls = fixtures.filter((f) => f.kind === "gvl").map((f) => ({ uri: `${f.pouName}.gvl`, source: f.source }))
-      const source = [...fixtures.filter((f) => f.kind !== "gvl").map((f) => f.source), plcPrgSource(t)].join("\n")
+      const { source: source, gvls } = assembleFixture(t, ALL_TESTS)
       try {
         for (const d of lowerSource(source, "PLC_PRG", [...STANDARD_LIBRARY, ...gvls]).diagnostics ?? []) produced.add(d.code)
       } catch {

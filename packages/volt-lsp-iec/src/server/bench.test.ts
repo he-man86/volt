@@ -15,12 +15,12 @@ import { test, expect } from "bun:test"
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs"
 import { extname, join } from "node:path"
 import { pathToFileURL } from "node:url"
-import { WorkspaceStore } from "../../src/server/workspace-store.js"
-import { documentDiagnostics } from "../../src/server/diagnostics.js"
-import { messagesFor, resolveConfig } from "../../src/analysis/index.js"
-import { definition, offsetFromPosition } from "../../src/services/index.js"
-import { loadWorkspaceRefs, loadTaskRoots } from "../../src/workspace-refs.js"
-import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
+import { WorkspaceStore } from "./workspace-store.js"
+import { documentDiagnostics } from "./diagnostics.js"
+import { messagesFor, resolveConfig } from "../analysis/index.js"
+import { definition, offsetFromPosition } from "../services/index.js"
+import { loadWorkspaceRefs, loadTaskRoots } from "../workspace-refs.js"
+import { SOURCE_EXTENSION_SET } from "../source-extensions.js"
 
 const CORPUS_ROOT = join(import.meta.dir, "..", "..", "test-corpus")
 const ITERATIONS = 40

@@ -54,18 +54,11 @@ import {
   type CallHierarchyItem,
   type TypeHierarchyItem,
 } from "vscode-languageserver-protocol/node"
-import { runServer } from "./server.js"
+import { connectToServer } from "./harness.js"
 
-/** A client connection wired to an in-process server over two pipes. */
-function connect(vendor: "codesys" | "twincat" = "codesys") {
-  const c2s = new PassThrough()
-  const s2c = new PassThrough()
-  runServer(c2s, s2c, vendor) // server reads c2s, writes s2c
-  const client = createProtocolConnection(new StreamMessageReader(s2c), new StreamMessageWriter(c2s))
-  client.onRequest(RegistrationRequest.type, () => {}) // ack the file-watcher dynamic registration
-  client.listen()
-  return client
-}
+/** A client connection wired to an in-process server over two pipes — `harness.ts` owns the setup, and the typed
+ *  `harness()` built on it is what the wire-behaviour tests beside this file use. */
+const connect = connectToServer
 
 const SRC = `FUNCTION_BLOCK F
 VAR

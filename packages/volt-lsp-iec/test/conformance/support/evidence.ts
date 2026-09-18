@@ -15,8 +15,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { lowerSource } from "../../../src/transpile/lower/index.js"
 import { run } from "../../../src/transpile/interp/index.js"
-import { withDependencies } from "./fixture-units.js"
-import { plcPrgSource } from "./plc-prg.js"
+import { assembleFixture } from "./fixture-units.js"
 import { STANDARD_LIBRARY } from "./standard-library.js"
 import type { LanguageTest } from "../types.js"
 
@@ -43,14 +42,10 @@ const buildRec = JSON.parse(readFileSync(join(RECORDINGS, "codesys.build.json"),
   { buildSuccess?: boolean }
 >
 
-/** The fixture assembled the way every gate assembles it: its dependencies, its GVLs as libraries, then PLC_PRG. */
+/** The fixture as one program, plus the libraries it lowers against — `assembleFixture` is the shared assembly. */
 function sourceOf(t: LanguageTest, all: readonly LanguageTest[]): { source: string; libraries: { uri: string; source: string }[] } {
-  const fixtures = withDependencies(t, all).filter((f) => f.source !== "")
-  const gvls = fixtures.filter((f) => f.kind === "gvl").map((f) => ({ uri: `${f.pouName}.gvl`, source: f.source }))
-  return {
-    source: [...fixtures.filter((f) => f.kind !== "gvl").map((f) => f.source), plcPrgSource(t)].join("\n"),
-    libraries: [...STANDARD_LIBRARY, ...gvls],
-  }
+  const { source, gvls } = assembleFixture(t, all)
+  return { source, libraries: [...STANDARD_LIBRARY, ...gvls] }
 }
 
 export function rateFixture(t: LanguageTest, all: readonly LanguageTest[]): Evidence {

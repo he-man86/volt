@@ -27,7 +27,7 @@ import {
   type LoweredPou,
 } from "../../src/transpile/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
-import { withDependencies } from "./support/fixture-units.js"
+import { assembleFixture, withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
 import { STANDARD_LIBRARY as LIBRARIES } from "./support/standard-library.js"
 import { RUSTC as rustc, skipRustSuite } from "./support/rustc.js"
@@ -65,9 +65,7 @@ function lowering(c: LanguageTest): LoweredPou {
   if (lowered === undefined) {
     // A GVL is an object of its own, named by its pouName — `GVL_Name.var` reaches it only under that name, which a file
     // gives it. Folded into the one source, every list was named `source`, and no qualified access could resolve.
-    const fixtures = withDependencies(c, ALL_TESTS).filter((f) => f.source !== "")
-    const gvls = fixtures.filter((f) => f.kind === "gvl").map((f) => ({ uri: `${f.pouName}.gvl`, source: f.source }))
-    const rest = [...fixtures.filter((f) => f.kind !== "gvl").map((f) => f.source), plcPrgSource(c)].join("\n")
+    const { source: rest, gvls } = assembleFixture(c, ALL_TESTS)
     lowered = lowerSource(rest, "PLC_PRG", [...LIBRARIES, ...gvls])
     loweredCache.set(c.name, lowered)
   }

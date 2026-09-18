@@ -31,7 +31,7 @@ import { join } from "node:path"
 import { lowerSource, rustAccess, run, type IrPou } from "../../src/transpile/index.js"
 import type { Type } from "../../src/types/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
-import { withDependencies } from "./support/fixture-units.js"
+import { assembleFixture, withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
 import { runPaths } from "./support/run-paths.js"
 import { RUSTC as rustc, skipRustSuite } from "./support/rustc.js"
@@ -94,9 +94,7 @@ interface Case {
 const TRANSCENDENTAL = /\b(EXPT|SQRT|LN|LOG|EXP|SIN|COS|TAN|ASIN|ACOS|ATAN)\s*\(/i
 
 function prepare(t: LanguageTest): Case | undefined {
-  const fixtures = withDependencies(t, ALL_TESTS).filter((f) => f.source !== "")
-  const gvls = fixtures.filter((f) => f.kind === "gvl").map((f) => ({ uri: `${f.pouName}.gvl`, source: f.source }))
-  const rest = [...fixtures.filter((f) => f.kind !== "gvl").map((f) => f.source), plcPrgSource(t)].join("\n")
+  const { source: rest, gvls } = assembleFixture(t, ALL_TESTS)
   const { pou } = lowerSource(rest, "PLC_PRG", [...LIBRARIES, ...gvls])
   if (pou === undefined) return undefined
   const transcendental = TRANSCENDENTAL.test(rest)

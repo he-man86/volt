@@ -32,13 +32,14 @@
     "dev": "tsc -p tsconfig.build.json --watch",
     "typecheck": "tsc --noEmit",
     "lint": "bun run scripts/check-layering.ts",
-    "test": "bun test src test/conformance test/lsp",
+    "test": "bun test",
     "test:corpus": "bun test test/corpus",
     "record:language": "bun run scripts/record-language.ts",
     "record:exec": "bun run scripts/record-exec.ts",
     "refresh:corpus": "bun run scripts/refresh-corpus.ts",
     "audit:check": "bun run scripts/audit-check.ts",
-    "rate:fixtures": "bun run scripts/rate-fixtures.ts"
+    "rate:fixtures": "bun run scripts/rate-fixtures.ts",
+    "bench": "LSP_BENCH=1 bun test src/server/bench.test.ts"
   },
   "devDependencies": {
     "@tsconfig/node22": "catalog:",

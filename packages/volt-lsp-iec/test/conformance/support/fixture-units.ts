@@ -271,3 +271,27 @@ function pragmasBefore(source: string, from: number, to: number): string {
   const found = gap.match(/\{[^}]*\}/g)
   return found === null ? "" : found.join("\n") + "\n"
 }
+
+/**
+ * A FIXTURE AS ONE PROGRAM: the ST every gate lowers, and the libraries it lowers against.
+ *
+ * Six files spelled these three lines out themselves — `backend-agreement`, `transpile`, `lowering-totality`,
+ * `ir-coverage`, `source-map` and `evidence` — byte for byte, which is the shape a rule takes just before the
+ * copies start to differ. They are load-bearing lines: a gate that assembles a fixture differently is measuring a
+ * different program than the gate beside it, and every conclusion drawn by comparing their numbers would be wrong.
+ *
+ * A GVL is not concatenated into the source. It is lowered as a LIBRARY FILE, because a `VAR_GLOBAL` block belongs
+ * to its own object on the wire and `lowerSource` reads globals from the files it is handed, not from the main text.
+ * `plcPrgSource` goes last: it is what makes the fixture's POU reachable, and CODESYS only compiles what the
+ * application reaches.
+ */
+export function assembleFixture(
+  t: LanguageTest,
+  all: readonly LanguageTest[],
+): { source: string; gvls: { uri: string; source: string }[] } {
+  const fixtures = withDependencies(t, all).filter((f) => f.source !== "")
+  return {
+    source: [...fixtures.filter((f) => f.kind !== "gvl").map((f) => f.source), plcPrgSource(t)].join("\n"),
+    gvls: fixtures.filter((f) => f.kind === "gvl").map((f) => ({ uri: `${f.pouName}.gvl`, source: f.source })),
+  }
+}

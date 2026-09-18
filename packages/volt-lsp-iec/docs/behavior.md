@@ -194,7 +194,7 @@ pull suppresses every push for that client.
 A diagnostic from a semantic check SHALL expose the CODESYS `Cnnnn` it mirrors as its LSP `code`, with a
 `codeDescription` link to that code's docs. Codes with no catalog mapping — graphical `NETWORK_*`, raw parse errors
 (no code), and the handful of semantic slugs not yet mapped to a `Cnnnn` (tracked as `KNOWN_UNMAPPED` in
-`test/lsp/diagnostic-codes.ts`; shrink that set, don't grow it) — MAY fall back to their internal slug. No two
+`src/server/diagnostic-codes.ts`; shrink that set, don't grow it) — MAY fall back to their internal slug. No two
 diagnostics on one document SHALL share the same `(range, code)`.
 
 #### Scenario: A diagnostic shows the recognizable code, once

@@ -7,9 +7,9 @@
  * invariant — but the resolvable content must match exactly).
  */
 import { test, expect } from "bun:test"
-import { buildSymbolTable, type Scope } from "../../src/symbols/index.js"
-import { resolveConfig } from "../../src/analysis/index.js"
-import { WorkspaceStore } from "../../src/server/workspace-store.js"
+import { buildSymbolTable, type Scope } from "../symbols/index.js"
+import { resolveConfig } from "./index.js"
+import { WorkspaceStore } from "../server/workspace-store.js"
 
 /** Order-insensitive structural key for a scope tree. baseScope is a pointer into a top-level child, so it's
  *  keyed by its identity (name+span), not recursed, to avoid cycles. */

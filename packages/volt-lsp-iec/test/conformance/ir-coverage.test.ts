@@ -22,7 +22,7 @@ import type { IrPou, IrRoutine, IrStmt } from "../../src/transpile/ir/index.js"
 import { scanLibraryManifests } from "../../src/workspace-refs.js"
 import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
 import { ALL_TESTS } from "./fixtures/index.js"
-import { withDependencies } from "./support/fixture-units.js"
+import { assembleFixture, withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
 import { STANDARD_LIBRARY } from "./support/standard-library.js"
 
@@ -84,9 +84,7 @@ function census(): { kinds: Set<string>; builtins: Set<string> } {
   const builtins = new Set<string>()
 
   for (const t of ALL_TESTS) {
-    const fixtures = withDependencies(t, ALL_TESTS).filter((f) => f.source !== "")
-    const gvls = fixtures.filter((f) => f.kind === "gvl").map((f) => ({ uri: `${f.pouName}.gvl`, source: f.source }))
-    const source = [...fixtures.filter((f) => f.kind !== "gvl").map((f) => f.source), plcPrgSource(t)].join("\n")
+    const { source: source, gvls } = assembleFixture(t, ALL_TESTS)
     try {
       const { pou } = lowerSource(source, "PLC_PRG", [...STANDARD_LIBRARY, ...gvls])
       if (pou !== undefined) fromPou(pou, kinds, builtins)

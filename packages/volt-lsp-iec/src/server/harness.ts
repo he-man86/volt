@@ -11,6 +11,7 @@
 import { PassThrough } from "node:stream"
 import {
   createProtocolConnection,
+  type ProtocolConnection,
   DiagnosticRefreshRequest,
   DidChangeConfigurationNotification,
   DidChangeTextDocumentNotification,
@@ -27,7 +28,7 @@ import {
   type Diagnostic,
   type InitializeResult,
 } from "vscode-languageserver-protocol/node"
-import { runServer } from "../../src/server/server.js"
+import { runServer } from "./server.js"
 
 /** Capability presets keyed to the delivery channel a client selects. */
 export const CAPS = {
@@ -63,25 +64,44 @@ export interface Harness {
   dispose(): void
 }
 
-export function harness(vendor: "codesys" | "twincat" = "codesys"): Harness {
+/**
+ * A CLIENT CONNECTED TO AN IN-PROCESS SERVER over two pipes — the five lines every server test needs.
+ *
+ * `server.test.ts` had its own copy as a local `connect()`, which is the shape a setup takes right before the two
+ * drift: an ack the server starts expecting, or a stream option, lands in one and not the other, and the tests that
+ * miss it fail for a reason that has nothing to do with what they assert. `harness()` builds its typed API on top of
+ * this; `server.test.ts` drives the raw connection. Both start here.
+ */
+export function connectToServer(
+  vendor: "codesys" | "twincat" = "codesys",
+  /** Register handlers HERE, not after the call: a handler added once the connection is listening can miss a
+   *  notification the server already sent — which for `publishDiagnostics` is the very thing under test. */
+  register?: (client: ProtocolConnection) => void,
+): ProtocolConnection {
   const c2s = new PassThrough()
   const s2c = new PassThrough()
   runServer(c2s, s2c, vendor) // server reads c2s, writes s2c
   const client = createProtocolConnection(new StreamMessageReader(s2c), new StreamMessageWriter(c2s))
+  client.onRequest(RegistrationRequest.type, () => {}) // ack the file-watcher dynamic registration
+  register?.(client)
+  client.listen()
+  return client
+}
 
+export function harness(vendor: "codesys" | "twincat" = "codesys"): Harness {
   const lastPush = new Map<string, Diagnostic[]>()
   const pushes = new Map<string, number>()
   let refreshes = 0
 
-  client.onNotification(PublishDiagnosticsNotification.type, (p) => {
-    lastPush.set(p.uri, p.diagnostics)
-    pushes.set(p.uri, (pushes.get(p.uri) ?? 0) + 1)
+  const client = connectToServer(vendor, (c) => {
+    c.onNotification(PublishDiagnosticsNotification.type, (p) => {
+      lastPush.set(p.uri, p.diagnostics)
+      pushes.set(p.uri, (pushes.get(p.uri) ?? 0) + 1)
+    })
+    c.onRequest(DiagnosticRefreshRequest.type, () => {
+      refreshes += 1
+    })
   })
-  client.onRequest(RegistrationRequest.type, () => {}) // ack file-watcher dynamic registration
-  client.onRequest(DiagnosticRefreshRequest.type, () => {
-    refreshes += 1
-  })
-  client.listen()
 
   // The server processes notifications in order; a round-trip request after a notification guarantees the
   // notification's side effects (a push) have run before we assert. `pull` doubles as that barrier.

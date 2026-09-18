@@ -25,7 +25,7 @@ import {
 import { loadWorkspaceRefs, loadTaskRoots } from "../../src/workspace-refs.js"
 import { WorkspaceStore } from "../../src/server/workspace-store.js"
 import { documentDiagnostics } from "../../src/server/diagnostics.js"
-import { allowedCode } from "../lsp/diagnostic-codes.js"
+import { allowedCode } from "../../src/server/diagnostic-codes.js"
 import { formatDocument } from "../../src/services/index.js"
 import { parseNetworkText, computeNetworkTextDiagnostics } from "../../src/network/index.js"
 import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
@@ -158,7 +158,7 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
 
   // Diagnostic-identity invariants over the FULL LSP wire path (documentDiagnostics — the exact bytes a
   // client receives), folded into the corpus so every real file is checked, not just synthetic cases:
-  //   1. every code is a Cnnnn / NETWORK_* / parse (no code) / KNOWN_UNMAPPED (see test/lsp/diagnostic-codes.ts)
+  //   1. every code is a Cnnnn / NETWORK_* / parse (no code) / KNOWN_UNMAPPED (see src/server/diagnostic-codes.ts)
   //   2. no two diagnostics on one document share (range, code) — the duplicate PR #86 fixed can't recur
   test("every corpus diagnostic has a valid code identity and no (range,code) duplicates", () => {
     const messages = messagesFor("codesys")

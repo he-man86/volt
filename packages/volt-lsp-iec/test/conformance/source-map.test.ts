@@ -25,7 +25,7 @@ import { describe, expect, test } from "bun:test"
 import { emitRust } from "../../src/transpile/emit/rust/index.js"
 import { lowerSource } from "../../src/transpile/lower/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
-import { withDependencies } from "./support/fixture-units.js"
+import { assembleFixture, withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
 import { STANDARD_LIBRARY } from "./support/standard-library.js"
 
@@ -46,9 +46,7 @@ interface Program {
 function programs(): Program[] {
   const out: Program[] = []
   for (const t of ALL_TESTS) {
-    const fixtures = withDependencies(t, ALL_TESTS).filter((f) => f.source !== "")
-    const gvls = fixtures.filter((f) => f.kind === "gvl").map((f) => ({ uri: `${f.pouName}.gvl`, source: f.source }))
-    const source = [...fixtures.filter((f) => f.kind !== "gvl").map((f) => f.source), plcPrgSource(t)].join("\n")
+    const { source: source, gvls } = assembleFixture(t, ALL_TESTS)
     let pou
     try {
       pou = lowerSource(source, "PLC_PRG", [...STANDARD_LIBRARY, ...gvls]).pou
