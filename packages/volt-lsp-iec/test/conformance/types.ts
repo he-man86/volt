@@ -1,21 +1,33 @@
 /**
- * Shared types for the language-conformance test catalog.
+ * THE FIXTURE — one question put to the vendor, and everything known about the answer.
  *
- * Each per-category file (pragma-tests.ts, lifecycle-tests.ts, …)
- * imports `LanguageTest` from here, so the shape stays in ONE place
- * even when the catalog is sliced across many files.
+ * A fixture is not a test. It is a piece of ST plus enough context to put it to a real CODESYS, and the suite's
+ * gates are the CONSUMERS of what comes back. Reading one entry should tell you what it asks, what the vendor said,
+ * and how far we are from matching it — which is why the flags below carry reasons rather than booleans.
+ *
+ * WHO CONSUMES A FIXTURE:
+ *   `scripts/record-language.ts`  pushes the source through a live bridge and records the compiler's diagnostics
+ *                                into `recordings/<vendor>.build.json`.
+ *   `scripts/record-exec.ts`      runs it in CODESYS simulation and records variable values into
+ *                                `recordings/codesys.run.json`. Self-launching; not a bridge op.
+ *   `replay.test.ts`              the LSP's diagnostics against the BUILD recording — the precision gate.
+ *   `transpile.test.ts`           the interpreter AND the emitted Rust against the RUN recording — the value gate,
+ *                                 and the only place values are compared.
+ *   `backend-agreement.test.ts`   the two backends against EACH OTHER, where no recording reaches.
+ *   `refused.test.ts`             every source CODESYS rejects must be an LSP error too.
+ *   `confidence.test.ts`          rates each fixture by how well it is evidenced, and holds `evidence` honest.
+ *
+ * THE ORACLE IS CODESYS. TwinCAT has its own build recording and is compared where it differs, but the execution
+ * oracle — the one that decides what a program MEANS — is CODESYS 3.5.21.40 (SP21). See `exec-oracle-recorder`.
  */
 
-/**
- * One conformance test entry. The recorder uses it to push the source
- * to TwinCAT + record the compiler's response; the replay test uses
- * it to run the LSP's semantic diagnostics on the same source and
- * compare against the recorded TC outcome.
- */
+/** One conformance fixture: the source, how to reach it from PLC_PRG, and what is known about the vendor's answer. */
 export interface LanguageTest {
-  /** Unique slug; identifies the test in reports and the expected-tc.json map. */
+  /** Unique slug — the key in every recording, and the name a gate reports. */
   name: string
-  /** TwinCAT POU name as it appears in the project tree. Must start with a `LANG_`-prefixed identifier (FB_LANG_*, GVL_LANG_*, DUT_LANG_*, ITF_LANG_*) so the recorder's cleanup sweep catches it. */
+  /** The POU name as it appears in the IDE's project tree. Must start with a `LANG_`-prefixed identifier
+   *  (`FB_LANG_*`, `GVL_LANG_*`, `DUT_LANG_*`, `ITF_LANG_*`) so the recorder's cleanup sweep catches it — a fixture
+   *  named otherwise is left behind in the project and the next run inherits it. */
   pouName: string
   /** Item kind on the bridge. Every writable source kind materializes as one kind-named file (`.fb`/`.prg`/`.fun`/`.itf`/`.gvl`, and a DUT under its subtype `.struct`/`.enum`/`.union`/`.alias`). */
   kind: "function_block" | "function" | "program" | "gvl" | "dut" | "interface"
@@ -73,6 +85,29 @@ export interface LanguageTest {
   refused?: string
   /** A consumer that deliberately does not check this case yet — the reason, with its date. */
   deferred?: { lsp?: string; transpile?: string }
+  /**
+   * HOW WELL THIS FIXTURE IS EVIDENCED — written by `bun run rate:fixtures`, checked by `confidence.test.ts`.
+   *
+   * GENERATED, like a lockfile: it is derived from the recordings and the flags below, so it is never edited by
+   * hand and never trusted on its own. The gate recomputes every rating and fails if a stored one disagrees, which
+   * is what lets it sit here without going stale — a fixture whose evidence changed but whose file did not is
+   * exactly the rot this would otherwise introduce.
+   *
+   * It is here because a fixture should be readable ALONE. The recordings are one 300 KB JSON keyed by name; asking
+   * "is this one actually confirmed?" used to mean opening it.
+   *
+   *   `confirmed`    the vendor RAN it, we run it, and `transpile.test.ts` asserts its values in both backends.
+   *   `refused`      the vendor REJECTS the source and so do we — a confirmed negative, and how the input contract
+   *                  is pinned. `refused` (the field) carries the vendor's own words.
+   *   `not-lowered`  the vendor ran it and lowering refuses, saying why. A COVERAGE gap, not a wrong answer.
+   *   `diverges`     the vendor answered, we execute it, and we do not match. `deferred.transpile` says what was
+   *                  measured and why it is not matched yet. The only rating that means something is WRONG.
+   *   `lsp-gap`      CODESYS refuses it, we know, and the LSP does not say so yet (`deferred.lsp`).
+   *   `unasked`      no recording. The fixture states a question nobody has put to CODESYS; it proves nothing yet,
+   *                  and this is the normal state of a fixture written before the next `record:exec`.
+   *   `unaskable`    `execSkip` / `recorderSkip` — there is no execution ground truth to have.
+   */
+  evidence?: "confirmed" | "refused" | "not-lowered" | "diverges" | "lsp-gap" | "unasked" | "unaskable"
   /**
    * The object NAME of each VAR_GLOBAL block in `source`, in order. A GVL names nothing in its own text, so one is
    * named after `pouName` — which is fine for a fixture with a single list and wrong for one with two, where both

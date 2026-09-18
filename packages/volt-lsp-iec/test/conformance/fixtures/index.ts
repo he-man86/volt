@@ -7,6 +7,7 @@
  * import + add one row to the `CATEGORIES` array below.
  */
 import type { LanguageTest } from "../types.js"
+import { FIXTURE_EVIDENCE } from "./evidence.generated.js"
 import { ADVANCED_TYPE_TESTS } from "./advanced-type.js"
 import { CONDITIONAL_PRAGMA_TESTS } from "./conditional-pragma.js"
 import { CONVERSION_TESTS } from "./conversion.js"
@@ -133,4 +134,16 @@ export const CATEGORIES: readonly CategoryGroup[] = [
   { name: "implicit-checks", tests: IMPLICIT_CHECK_TESTS },
 ]
 
-export const ALL_TESTS: readonly LanguageTest[] = CATEGORIES.flatMap((c) => c.tests)
+/**
+ * Every fixture, each carrying its EVIDENCE rating.
+ *
+ * The rating is derived — from the recordings and the fixture's own flags — so it is generated into
+ * `evidence.generated.ts` and merged HERE rather than written into each entry: 458 of these fixtures come from
+ * factory helpers or template-literal names, where a per-entry field cannot reach. Merging makes `t.evidence`
+ * present on all of them, and `confidence.test.ts` recomputes every value so it cannot go stale.
+ *
+ * A fixture's OWN `evidence`, if one is ever written by hand, is left alone — the generated value only fills a gap.
+ */
+export const ALL_TESTS: readonly LanguageTest[] = CATEGORIES.flatMap((c) => c.tests).map((t) =>
+  t.evidence === undefined && FIXTURE_EVIDENCE[t.name] !== undefined ? { ...t, evidence: FIXTURE_EVIDENCE[t.name] } : t,
+)
