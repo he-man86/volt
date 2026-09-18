@@ -24,21 +24,11 @@ const REFERENCE = join(import.meta.dir, "..", "..", "docs", "codesys-reference",
  * of naming them is that a reader can see the shape of what is missing rather than a number.
  */
 const NOT_COVERED: Readonly<Record<string, string>> = {
-  // NOTE: the ten operator CALL forms (ADD, SUB, MUL, DIV, GT, LT, LE, GE, EQ, NE) are NOT here. They are refused by
-  // lowering — measured 2026-09-18, a generic `expr-call` for all ten — but `operator_call_form_*` exercise them, so
-  // they are covered in this index's sense: someone has looked, and the vendor's answers will be recorded. Refused
-  // and unexamined are different states, and only the second one belongs in this list.
-
-  // Constructs with no fixture at all.
-  INDEXOF: "not lowered; no fixture",
-  BITADR: "not lowered; no fixture — a bit address is not a place the memory model has",
-  __QUERYPOINTER: "not lowered; `__QUERYINTERFACE` is, and they are separate operators",
-  __POSITION: "not lowered; no fixture",
-  __COMPARE_AND_SWAP: "an atomic — no fixture, and its meaning under a single-task simulator is unclear",
-  __XADD: "an atomic — as __COMPARE_AND_SWAP",
-  __POOL: "memory-pool allocation — out of the memory model (design §9)",
-  TEST_AND_SET: "an atomic — as __COMPARE_AND_SWAP",
-  INI: "initialises an FB instance's retains; the lifecycle model does not have it",
+  // NOTE on the operator CALL forms (ADD, SUB, MUL, DIV, GT, LT, LE, GE, EQ, NE) and the eight operands added
+  // 2026-09-18: they are NOT here. Lowering refuses them — a generic `expr-call` for the call forms — but
+  // `operator_call_form_*` and `operand_*` exercise them, so the vendor's answers will be recorded and they are
+  // covered in this index's sense. Refused and UNEXAMINED are different states, and only the second belongs here.
+  __POOL: "disambiguates the POUs view from the Devices view, so exercising it needs a device tree a single-source fixture has no way to build (see 09-shadowing.md)",
 }
 
 /** Every `| \`NAME\` |` row of the reference's operator tables — the vendor's own closed list. */

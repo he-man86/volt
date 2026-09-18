@@ -253,4 +253,50 @@ iValue := 'oops';
 END_METHOD
 `,
   },
+  // ─── CHARACTERS OUTSIDE THE MEASURED SET ───────────────────────────────────────────────────────────
+  // `string-non-ascii` and `wstring-surrogate` were registered as `not-measured` only once the registry gate was
+  // widened to see a code written as a TERNARY — before that the corpus emitted them and the registry knew neither.
+  // Nothing records what CODESYS stores for a character past ASCII, so lowering refuses both; these ask. Written with
+  // `$` hex escapes, which are ST's own spelling and keep this file pure ASCII — `$C3$A9` is the UTF-8 for an
+  // e-acute, so the answer to LEN() also says whether a STRING counts BYTES or characters.
+  {
+    name: "string_non_ascii_bytes",
+    pouName: "FB_LANG_string_non_ascii_bytes",
+    kind: "function_block" as const,
+    feature: "a STRING literal holding non-ASCII bytes ($C3$A9) — accepted, and does LEN count bytes or characters?",
+    fromDoc: "06-data-types.md",
+    plcPrgVar: "inst_string_non_ascii_bytes : FB_LANG_string_non_ascii_bytes;",
+    plcPrgBody: "inst_string_non_ascii_bytes();",
+    source: "FUNCTION_BLOCK FB_LANG_string_non_ascii_bytes\nVAR\n\ttext : STRING := 'caf$C3$A9';\n\tlength : INT;\n\tfirstByte : BYTE;\nEND_VAR\nlength := LEN(text);\nfirstByte := text[0];\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "string_high_byte_escape",
+    pouName: "FB_LANG_string_high_byte_escape",
+    kind: "function_block" as const,
+    feature: "a single byte past 7F in a STRING ($FF) — stored as itself?",
+    fromDoc: "06-data-types.md",
+    plcPrgVar: "inst_string_high_byte_escape : FB_LANG_string_high_byte_escape;",
+    plcPrgBody: "inst_string_high_byte_escape();",
+    source: "FUNCTION_BLOCK FB_LANG_string_high_byte_escape\nVAR\n\ttext : STRING := '$FF';\n\tlength : INT;\nEND_VAR\nlength := LEN(text);\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "wstring_non_ascii",
+    pouName: "FB_LANG_wstring_non_ascii",
+    kind: "function_block" as const,
+    feature: "a WSTRING holding a non-ASCII code unit ($00E9) — one unit, and what does LEN say?",
+    fromDoc: "06-data-types.md",
+    plcPrgVar: "inst_wstring_non_ascii : FB_LANG_wstring_non_ascii;",
+    plcPrgBody: "inst_wstring_non_ascii();",
+    source: "FUNCTION_BLOCK FB_LANG_wstring_non_ascii\nVAR\n\ttext : WSTRING := \"caf$00E9\";\n\tlength : INT;\nEND_VAR\nlength := LEN(text);\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "wstring_surrogate_pair",
+    pouName: "FB_LANG_wstring_surrogate_pair",
+    kind: "function_block" as const,
+    feature: "a WSTRING holding a character past the BMP, written as a SURROGATE PAIR — one character or two units?",
+    fromDoc: "06-data-types.md",
+    plcPrgVar: "inst_wstring_surrogate_pair : FB_LANG_wstring_surrogate_pair;",
+    plcPrgBody: "inst_wstring_surrogate_pair();",
+    source: "FUNCTION_BLOCK FB_LANG_wstring_surrogate_pair\nVAR\n\ttext : WSTRING := \"a$D83D$DE00b\";\n\tlength : INT;\nEND_VAR\nlength := LEN(text);\nEND_FUNCTION_BLOCK\n",
+  },
 ]
