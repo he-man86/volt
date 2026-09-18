@@ -34,6 +34,19 @@ const INTEGERS = RANGED.filter((t) => t.name !== "BOOL" && t.name !== "BIT")
 /** The destinations a real converts into. */
 const REAL_DESTS = INTEGERS
 
+/** The operand pairs the meet is asked of — kept here so the cell list and `operators/mixed-type.ts` cannot drift. */
+const MEET_PAIRS: readonly [string, string][] = [
+  ["SINT", "USINT"], ["INT", "UINT"], ["DINT", "UDINT"], ["LINT", "ULINT"],
+  ["USINT", "SINT"], ["UINT", "INT"], ["UDINT", "DINT"], ["ULINT", "LINT"],
+  ["BYTE", "SINT"], ["WORD", "INT"], ["DWORD", "DINT"], ["LWORD", "LINT"],
+  ["BYTE", "USINT"], ["WORD", "UINT"],
+  ["SINT", "DINT"], ["DINT", "SINT"], ["INT", "LINT"], ["USINT", "LINT"], ["ULINT", "SINT"],
+  ["INT", "REAL"], ["REAL", "INT"], ["DINT", "LREAL"], ["LINT", "REAL"], ["ULINT", "LREAL"],
+  ["REAL", "LREAL"], ["LREAL", "REAL"],
+  ["BYTE", "WORD"], ["WORD", "DWORD"], ["BYTE", "LWORD"], ["BYTE", "BYTE"],
+  ["BYTE", "DINT"], ["DWORD", "SINT"], ["DWORD", "USINT"], ["DWORD", "REAL"], ["BOOL", "INT"],
+]
+
 function cells(topic: string, subtopic: string, slugs: readonly string[]): Cell[] {
   return slugs.map((slug) => ({ topic, subtopic, slug }))
 }
@@ -106,6 +119,14 @@ export const CELLS: readonly Cell[] = [
     ),
   ),
 
+  ...cells(
+    "operators",
+    "the meet of two different operand types, all five arithmetic operators",
+    MEET_PAIRS.flatMap(([l, r]) =>
+      ["plus", "minus", "times", "div", "mod"].map((op) => `meet_${lower(l)}_${op}_${lower(r)}`),
+    ),
+  ),
+
   // ── conversions ──────────────────────────────────────────────────────────────────────────────
   ...cells(
     "conversions",
@@ -114,6 +135,16 @@ export const CELLS: readonly Cell[] = [
       REAL_DESTS.flatMap((d) =>
         ["above_max", "below_min", "nan", "pos_inf", "neg_inf"].map((k) => `r2i_${r}_to_${lower(d.name)}_${k}`),
       ),
+    ),
+  ),
+  ...cells(
+    "conversions",
+    "every ordered pair of integer types, carrying a value the destination may not hold",
+    INTEGERS.flatMap((src) =>
+      INTEGERS.filter((d) => d.name !== src.name).flatMap((dst) => {
+        const base = [`i2i_${lower(src.name)}_to_${lower(dst.name)}_from_max`]
+        return src.range!.min < 0n ? [...base, `i2i_${lower(src.name)}_to_${lower(dst.name)}_from_min`] : base
+      }),
     ),
   ),
   ...cells(
@@ -135,8 +166,6 @@ export const CELLS: readonly Cell[] = [
  * `openspec/changes/fixture-census/operations.md` is the long form, with why each one matters.
  */
 export const PLANNED: readonly string[] = [
-  "operators / mixed-type `-`, `*` and `MOD` (the meet is measured for `+` and `/` only)",
-  "conversions / integer to integer, every ordered pair",
   "conversions / integer to REAL, and the precision a 64-bit source loses",
   "conversions / TIME, DATE and STRING across families",
   "conversions / TRUNC and the rounding direction, per type",
