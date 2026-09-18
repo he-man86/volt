@@ -6,10 +6,10 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed     674
+ *   confirmed     675
  *   refused       195
  *   not-lowered    24
- *   unasked         9
+ *   unasked         8
  *   lsp-gap        35
  *   diverges        4
  *   unaskable      26
@@ -850,7 +850,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   type_array_2d: "confirmed",
   type_array_of_int: "confirmed",
   type_codesys_uxint: "confirmed",
-  type_codesys_vector: "unasked",
+  type_codesys_vector: "confirmed",
   type_codesys_version: "unasked",
   type_codesys_xint: "confirmed",
   type_codesys_xword: "confirmed",

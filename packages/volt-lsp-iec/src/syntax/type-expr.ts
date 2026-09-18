@@ -119,10 +119,18 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
     c.expectKeyword("OF", "after __VECTOR size")
     const element = parseTypeExpression(c)
     if (element === undefined) return undefined
+    // `[4]` IS A COUNT, AND `ArrayDim` HOLDS INDICES. Storing the count as `upper` with no `lower` left a `__VECTOR`
+    // resolving to an array with neither bounds nor open dims (`resolve.ts` needs both ends to fold) — a third state
+    // nothing downstream models, so its size, its index checks and its members were all working from nothing. The
+    // comment above already said what it is: `ARRAY[0..size-1]`, written out so `constEval` folds it like any other.
+    const zero: Expr = { kind: "literal", literalKind: "int", text: "0", value: 0n, span: idTok.span }
+    const one: Expr = { kind: "literal", literalKind: "int", text: "1", value: 1n, span: idTok.span }
     const dim: ArrayDim = {
       kind: "array_dim",
       dynamic: false,
-      ...(size !== undefined ? { upper: size } : {}),
+      ...(size !== undefined
+        ? { lower: zero, upper: { kind: "binary", op: "-", left: size, right: one, span: size.span } as Expr }
+        : {}),
       span: size?.span ?? idTok.span,
     }
     return { kind: "array_type", dims: [dim], element, span: joinSpans(idTok.span, element.span) }
