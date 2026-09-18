@@ -17,7 +17,6 @@
  * they are fixed. A corpus pass is evidence, not proof.
  */
 import { describe, expect, test } from "bun:test"
-import { lowerSource } from "../../src/transpile/lower/index.js"
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { extname, join, relative } from "node:path"
 import {
@@ -33,6 +32,12 @@ import { buildSymbolTable, scopeForUnit } from "../../src/symbols/index.js"
 import { lowerUnit } from "../../src/transpile/index.js"
 import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
 import { scanLibraryManifests } from "../../src/workspace-refs.js"
+import { LOWER_CODES, LOWER_CODE_PREFIXES } from "../../src/transpile/ir/codes.js"
+import { lowerSource } from "../../src/transpile/lower/index.js"
+import { ALL_TESTS } from "./fixtures/index.js"
+import { withDependencies } from "./support/fixture-units.js"
+import { plcPrgSource } from "./support/plc-prg.js"
+import { STANDARD_LIBRARY } from "./support/standard-library.js"
 
 const CORPUS = join(import.meta.dir, "..", "..", "test-corpus")
 
@@ -58,9 +63,23 @@ const isRunnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "fu
 const DOCUMENTED_BODIES = 304
 const DOCUMENTED_LOWERED = 46
 
+/**
+ * HOW MANY REGISTERED REFUSAL CODES ANY REAL PROGRAM ACTUALLY PRODUCES.
+ *
+ * `codes.test.ts` gates the registry STATICALLY — it greps `lower/` for the slugs and checks each resolves. That
+ * proves a code is WRITTEN, not that it can be REACHED, and those are different claims: a refusal nothing can
+ * produce is either dead code or a construct no test covers, and the registry cannot tell them apart.
+ *
+ * This walks the conformance fixtures and the whole corpus and records every code that actually comes out. It is a
+ * FLOOR, not an exact figure — a new fixture may legitimately reach one more — but it only ever goes up, so a
+ * refactor that quietly makes a refusal unreachable fails here.
+ */
+const REACHED_CODES = 63
+
 /** One walk, two questions: did anything throw, and how much of the corpus does this backend actually reach. */
-function overCorpus(): { failures: string[]; bodies: number; lowered: number } {
+function overCorpus(): { failures: string[]; bodies: number; lowered: number; codes: Set<string> } {
   const failures: string[] = []
+  const codes = new Set<string>()
   let bodies = 0
   let lowered = 0
   const projects = readdirSync(CORPUS).filter((name) => statSync(join(CORPUS, name)).isDirectory())
@@ -96,8 +115,9 @@ function overCorpus(): { failures: string[]; bodies: number; lowered: number } {
         const hasCode = parseStatements(unit.body).statements.length > 0
         if (hasCode) bodies++
         try {
-          const { pou } = lowerUnit(unit, scope, project, attributes)
+          const { pou, diagnostics } = lowerUnit(unit, scope, project, attributes)
           if (hasCode && pou !== undefined) lowered++
+          for (const d of diagnostics ?? []) codes.add(d.code)
         } catch (error) {
           const name = "name" in unit && unit.name !== undefined ? String((unit.name as { text: string }).text) : "?"
           failures.push(`${relative(CORPUS, file)} :: ${name} — ${(error as Error).message}`)
@@ -105,14 +125,14 @@ function overCorpus(): { failures: string[]; bodies: number; lowered: number } {
       }
     }
   }
-  return { failures, bodies, lowered }
+  return { failures, bodies, lowered, codes }
 }
 
 describe("the contracts src/transpile/index.ts states, measured over the corpus", () => {
   // One walk of 29k files, shared by both assertions and done on first use — a `beforeAll` has its own
   // timeout that an 80-second sweep quietly blows, and the failure it produces names no test.
-  let cached: { failures: string[]; bodies: number; lowered: number } | undefined
-  const result = (): { failures: string[]; bodies: number; lowered: number } => (cached ??= overCorpus())
+  let cached: { failures: string[]; bodies: number; lowered: number; codes: Set<string> } | undefined
+  const result = (): { failures: string[]; bodies: number; lowered: number; codes: Set<string> } => (cached ??= overCorpus())
 
   test("TOTALITY — no POU in the corpus makes lowering throw", () => {
     // the whole list, not a count: a throw names the input that caused it, which is the fix
@@ -125,6 +145,36 @@ describe("the contracts src/transpile/index.ts states, measured over the corpus"
     // component once justified itself with a figure 470x the real one, which is what this exists to prevent.
     const { bodies, lowered } = result()
     expect({ bodies, lowered }).toEqual({ bodies: DOCUMENTED_BODIES, lowered: DOCUMENTED_LOWERED })
+  })
+
+  test("REFUSAL REACH — a registered code that no real program produces is reported", () => {
+    const registered = Object.keys(LOWER_CODES)
+    const families = LOWER_CODE_PREFIXES.map((p) => p.prefix)
+    const produced = new Set(result().codes)
+
+    // the fixtures too: many refusals need a shape the corpus does not happen to contain
+    for (const t of ALL_TESTS) {
+      // assembled exactly as `backend-agreement` does it, so both gates read the same program from a fixture
+      const fixtures = withDependencies(t, ALL_TESTS).filter((f) => f.source !== "")
+      const gvls = fixtures.filter((f) => f.kind === "gvl").map((f) => ({ uri: `${f.pouName}.gvl`, source: f.source }))
+      const source = [...fixtures.filter((f) => f.kind !== "gvl").map((f) => f.source), plcPrgSource(t)].join("\n")
+      try {
+        for (const d of lowerSource(source, "PLC_PRG", [...STANDARD_LIBRARY, ...gvls]).diagnostics ?? []) produced.add(d.code)
+      } catch {
+        // a fixture that throws is `TOTALITY`'s to report, not this one's
+      }
+    }
+
+    // NOTHING may produce a code the registry does not know — the dynamic form of `codes.test.ts`'s static gate,
+    // and the one that would have caught `string-non-ascii` (written as a ternary, so the grep never saw it).
+    const unregistered = [...produced].filter((c) => !registered.includes(c) && !families.some((f) => c.startsWith(f)))
+    expect(unregistered).toEqual([])
+
+    const reached = registered.filter((c) => produced.has(c))
+    const unreached = registered.filter((c) => !produced.has(c))
+    console.log(`  [refusals] ${reached.length} of ${registered.length} registered codes are produced by a real program`)
+    console.log(`  [refusals] ${unreached.length} are not: ${unreached.slice(0, 8).join(", ")}${unreached.length > 8 ? ", …" : ""}`)
+    expect(reached.length).toBeGreaterThanOrEqual(REACHED_CODES)
   }, 240_000)
 })
 

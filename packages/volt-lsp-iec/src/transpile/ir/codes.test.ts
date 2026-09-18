@@ -18,13 +18,22 @@ import { LOWER_CODES, LOWER_CODE_PREFIXES, lowerCodeKind } from "./codes.js"
 
 const LOWER_DIR = join(import.meta.dir, "..", "lower")
 
-/** Every literal code that appears in a `bail(…)` / `fail(…)` / `code:` position under `lower/`. */
+/**
+ * Every literal code that appears in a `bail(…)` / `fail(…)` / `code:` position under `lower/`.
+ *
+ * The code ARGUMENT is read whole, not just a literal sitting immediately after the paren, because it does not have
+ * to be one: `bail(wide ? "wstring-surrogate" : "string-non-ascii", …)` is two codes, and a pattern anchored at `(`
+ * saw neither. Both were unregistered, and this gate — whose entire job is to catch that — passed. A computed code is
+ * exactly the kind that gets forgotten, so it is the kind this must read.
+ */
 function emittedCodes(): string[] {
   const found = new Set<string>()
   for (const name of readdirSync(LOWER_DIR)) {
     if (!name.endsWith(".ts") || name.endsWith(".test.ts")) continue
     const src = readFileSync(join(LOWER_DIR, name), "utf8")
-    for (const m of src.matchAll(/(?:bail|fail|lowerDiagnostic)\(\s*(?:pending,\s*)?"([a-z0-9_-]+)"/g)) found.add(m[1]!)
+    // the first argument of each call, up to the comma that ends it — then every quoted slug inside it
+    for (const m of src.matchAll(/(?:bail|fail|lowerDiagnostic)\(\s*(?:pending,\s*)?([^,\n]*)/g))
+      for (const lit of m[1]!.matchAll(/"([a-z0-9_-]+)"/g)) found.add(lit[1]!)
     for (const m of src.matchAll(/code:\s*"([a-z0-9_-]+)"/g)) found.add(m[1]!)
   }
   return [...found].sort()

@@ -127,6 +127,10 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "this-in-program": "unclassified",
   "type-unknown": "unclassified",
   "unary-op": "unclassified",
+  // A character outside the measured set. Both of these reach a user through a STRING literal, and both were
+  // UNREGISTERED: they are written as a ternary inside one `bail`, which the registry gate could not see.
+  "string-non-ascii": "not-measured",
+  "wstring-surrogate": "not-measured",
   "union-write": "unclassified",
   "unit-kind": "unclassified",
   "var-at": "unclassified",
