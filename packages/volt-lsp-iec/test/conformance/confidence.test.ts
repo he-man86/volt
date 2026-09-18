@@ -30,7 +30,10 @@ const computed = (): Map<string, Evidence> => (cached ??= new Map(ALL_TESTS.map(
  * that mean something is missing or wrong cannot grow quietly.
  */
 const CEILINGS: Partial<Record<Evidence, number>> = {
-  diverges: 4,
+  // 4 -> 6: `mathdom_sin_large` and `mathdom_cos_large`. The vendor's argument reduction for a huge angle is not
+  // libm's and the answers differ in the fourth decimal — the same divergence `op_math_trig` already records, found
+  // again because `operators/math-domain.ts` asked every function's edges instead of the four somebody thought of.
+  diverges: 6,
   // 18 -> 34 because the MEASUREMENT changed, not because gaps appeared. `refused` claimed the vendor rejects a
   // source AND so do we, while only checking the vendor; 16 fixtures were counted as evidence while the LSP accepted
   // them silently (`cc_reserved_name_s_string` and its neighbours). The rating asks both sides now.

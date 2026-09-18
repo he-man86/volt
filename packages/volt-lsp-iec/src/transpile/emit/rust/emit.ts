@@ -211,6 +211,14 @@ function unitsLiteral(text: string, t: Type): string {
 function literal(v: IrValue, t: Type): string {
   if (typeof v === "boolean") return v ? "true" : "false"
   if (typeof v === "string") return `${stringPath(t)}::lit(${unitsLiteral(v, t)})`
+  // A REAL CONSTANT TOO BIG FOR ITS WIDTH IS AN INFINITY, not a compile error. `x : REAL := 3.5E38` is accepted by
+  // CODESYS and holds `REAL#Infinity` (`bound_real_above_max`), while Rust refuses `3.5e38f32` outright —
+  // "the literal does not fit into the type `f32` and will be converted to `f32::INFINITY`", denied by default. So
+  // the conversion Rust is warning about is exactly the one the vendor performs: write it out.
+  if (typeof v === "number" && !Number.isFinite(v) && !Number.isNaN(v))
+    return `(${v < 0 ? "-" : ""}${t.kind === "elementary" ? rustType(t) : "f64"}::INFINITY)`
+  if (typeof v === "number" && t.kind === "elementary" && t.elem.bits === 32 && t.elem.family === "real" && !Number.isFinite(Math.fround(v)))
+    return `(${v < 0 ? "-" : ""}f32::INFINITY)`
   const text = `${v}${t.kind === "elementary" ? rustType(t) : ""}`.replace(/^(-?\d+)(f\d\d)$/, "$1.0$2")
   // A NEGATIVE CONSTANT IS PARENTHESIZED, because in Rust a method call binds TIGHTER than unary minus — the
   // classic `-1.abs()` trap. The emitter makes a constant the RECEIVER of a method in a dozen places
@@ -560,9 +568,13 @@ class Printer {
             const call = `iec_${e.name}(${passed.join(", ")})`
             return e.name === "len" || e.name === "find" ? `(${call} as ${rustType(e.type)})` : `${stringPath(e.type)}::lit(&${call})`
           }
-          case "sqrt":
+          // The emitted twin of `MATH`'s `logarithm` guard: `LN(0)` and `LOG(0)` stop the task on CODESYS, and Rust
+          // answers `-inf` and carries on. Nothing else in this group stops anything — `EXP(1000)` is an infinity
+          // and runs. Measured in `operators/math-domain.ts`.
           case "ln":
           case "log":
+            return `(iec_log((${args[0]} as f64)).${RUST_MATH[e.name]}() as ${rustType(e.type)})`
+          case "sqrt":
           case "exp":
           case "sin":
           case "cos":
@@ -607,11 +619,12 @@ class Printer {
           return `({ let __mod_l = ${l}; let __mod_r = ${r}; if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } })`
         if (wrapping !== undefined && !isReal) return `${l}.wrapping_${wrapping}(${r})`
         const plain = e.op === "add" ? "+" : e.op === "sub" ? "-" : e.op === "mul" ? "*" : e.op === "div" ? "/" : "%"
-        // AN INFINITE RESULT STOPS THE TASK, as it does on CODESYS and as `fit` does in the interpreter — see
-        // `values.ts`. Rust's `/` answers `inf` and carries on, so without this the two backends part company on
-        // every program that divides by zero: one stops, the other keeps running with an infinity in a variable.
-        // A NaN is untouched; the vendor completes the scan for those (`domain_sqrt_negative`).
-        return isReal ? `iec_finite(${l} ${plain} ${r})` : `(${l} ${plain} ${r})`
+        // A REAL DIVISION BY ZERO STOPS THE TASK, and nothing else about an infinity does. This wrapped EVERY real
+        // operation in a finiteness check, on the reading that an infinite RESULT is what stops it; `real-overflow.ts`
+        // measured `1.0E38 / 1.0E-38` overflowing to `REAL#Infinity` with the scan completing, so the result was
+        // never the rule. Rust's `f32`/`f64` division answers `inf` for a zero divisor instead of panicking the way
+        // integer division does, so the divisor is checked explicitly — the emitted twin of `arith` in `values.ts`.
+        return isReal && e.op === "div" ? `iec_div(${l}, ${r})` : `(${l} ${plain} ${r})`
       }
     }
   }
@@ -1035,13 +1048,17 @@ export function emitRust(pou: IrPou): Emitted {
     p.push("", 0)
     p.push('fn iec_deref(at: usize) { if at == 0 { panic!("dereference of a null pointer"); } }', 0)
   }
-  // The emitted twin of `fit`'s infinity check: an infinity stops the task on CODESYS, a NaN does not. Gated on its
-  // OWN use, not on `iec_deref`'s — a program can divide by zero without ever dereferencing a pointer, and attaching
-  // it to the wrong condition left `iec_finite` undefined in every program that does.
-  if (p.code.includes("iec_finite(")) {
+  // The emitted twin of `arith`'s zero-divisor check. Gated on its OWN use, not on `iec_deref`'s — a program can
+  // divide by zero without ever dereferencing a pointer, and attaching it to the wrong condition left the helper
+  // undefined in every program that does.
+  if (p.code.includes("iec_log(")) {
+    p.push("", 0)
+    p.push('fn iec_log(x: f64) -> f64 { if x == 0.0 { panic!("the logarithm of zero stops the task on CODESYS"); } x }', 0)
+  }
+  if (p.code.includes("iec_div(")) {
     p.push("", 0)
     p.push(
-      'fn iec_finite<T: Copy + Into<f64>>(v: T) -> T { let f: f64 = v.into(); if f.is_infinite() { panic!("a REAL operation produced an infinity, which stops the task on CODESYS"); } v }',
+      'fn iec_div<T: Copy + PartialEq + Default + std::ops::Div<Output = T>>(a: T, b: T) -> T { if b == T::default() { panic!("division by zero"); } a / b }',
       0,
     )
   }

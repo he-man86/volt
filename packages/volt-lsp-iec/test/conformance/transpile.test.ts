@@ -43,6 +43,10 @@ interface Recorded {
 const recording = JSON.parse(readFileSync(join(import.meta.dir, "recordings", "codesys.run.json"), "utf8")) as {
   tests: Record<string, Recorded>
 }
+/** The BUILD recording — read ONLY to tell a loader disagreement from an ordinary vendor refusal. See below. */
+const buildRecording = JSON.parse(readFileSync(join(import.meta.dir, "recordings", "codesys.build.json"), "utf8")) as {
+  tests: Record<string, { buildSuccess?: boolean }>
+}
 
 /**
  * The cases with transpiler lowering held above this floor — execution cases and fixtures together. Raise it when more
@@ -161,6 +165,11 @@ function ideValue(raw: string, enums: ReadonlyMap<string, bigint> = new Map()): 
   // It reached here as an unrecognised form, which is this function refusing to guess rather than a defect.
   const notANumber = /^L?REAL#NaN$/.exec(raw)
   if (notANumber !== null) return Number.NaN
+  // `REAL#Infinity` and `REAL#-Infinity`. The comment above once said NaN was the only non-numeric REAL spelling in
+  // any recording; `bound_real_above_max` and `realovf_multiply_to_infinity` falsified that the day they were
+  // written. An infinity is an ordinary value to this vendor — see `interp/values.ts`.
+  const infinite = /^L?REAL#(-?)Infinity$/.exec(raw)
+  if (infinite !== null) return infinite[1] === "-" ? -Infinity : Infinity
   const m = /^([A-Z]+)#(-?[0-9.eE+-]+)$/.exec(raw)
   if (m === null) throw new Error(`unrecognised IDE value ${JSON.stringify(raw)}`)
   const [, type, literal] = m as unknown as [string, string, string]
@@ -188,6 +197,7 @@ function asDisplayed(raw: string, value: IrValue): IrValue {
 
 describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
   let lowered = 0
+  let vendorRefused = 0
   const blockers = new Map<string, number>()
   for (const c of CASES) {
     const rec = recording.tests[c.name]
@@ -244,7 +254,13 @@ describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
     // so a body that is not ST cannot survive the trip — network text reaches the compiler as the literal
     // `NETWORK 0 FBD` and is answered "';' expected instead of 'FBD'". Those fixtures carry `execSkip` and are
     // never sent; one arriving here is one that slipped past it.
-    if (rec.error?.startsWith("does not compile") === true) {
+    // ...AND ONLY WHEN THE BUILD RECORDING ACTUALLY SAYS SO. This read the paragraph above as its premise without
+    // ever checking it: for a fixture with NO build recording — every newly written one — nobody had claimed the
+    // bridge built anything, and a plain vendor refusal was reported as two loaders disagreeing. Sixteen boundary
+    // fixtures arrived that way the day they were written, each carrying a perfectly good answer
+    // ("Cannot convert type 'INT' to type 'SINT'"). A refusal is evidence; `refused.test.ts` owns whether the LSP
+    // agrees with its wording.
+    if (rec.error?.startsWith("does not compile") === true && buildRecording.tests[c.name]?.buildSuccess === true) {
       test(`${c.name} (the simulator refused what the bridge built)`, () => {
         throw new Error(
           `${c.name}: the BUILD recording says this source compiles, but \`record:exec\` could not load it:\n` +
@@ -255,6 +271,15 @@ describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
             `this shape.`,
         )
       })
+      continue
+    }
+    // CODESYS REFUSES TO COMPILE IT, and no build recording says otherwise — so this is the fixture's ANSWER, not a
+    // disagreement and not a transpiler result. The transpiler's input contract is "code CODESYS compiles"
+    // (`transpile/index.ts`), so it owes nothing for a source the vendor rejects; `refused.test.ts` owns whether the
+    // LSP reports the same refusal, against the vendor's own wording. Counted rather than dropped, so a fixture
+    // cannot go quiet here by becoming uncompilable.
+    if (rec.error?.startsWith("does not compile") === true) {
+      vendorRefused += 1
       continue
     }
     // A FIXTURE whose constructs do not lower yet is a counted todo naming its blocker. An execution case must lower.
@@ -290,6 +315,8 @@ describe("differential execution — interp vs CODESYS 3.5.21.40", () => {
     console.log(
       `  [transpile] ${lowered} of ${CASES.length} cases lower; what blocks the rest: ${summary.join(" · ") || "nothing"}`,
     )
+    // eslint-disable-next-line no-console
+    console.log(`  [transpile] ${vendorRefused} more the VENDOR refuses to compile — not this gate's to answer, see \`refused.test.ts\``)
     expect(lowered).toBeGreaterThanOrEqual(LOWERED_FLOOR)
   })
 })
@@ -400,8 +427,12 @@ describe.skipIf(skipRustSuite())("differential execution — emitted Rust vs COD
           if ((type.kind === "elementary" && type.elem.family === "bool") || isBit(type)) return [k, raw === "true"]
           if (type.kind === "elementary" && type.elem.family === "string")
             return [k, String.fromCharCode(...(JSON.parse(raw) as number[]))]
-          if (type.kind === "elementary" && type.elem.family === "real")
-            return [k, type.elem.bits === 32 ? Math.fround(Number(raw)) : Number(raw)]
+          if (type.kind === "elementary" && type.elem.family === "real") {
+            // RUST SPELLS AN INFINITY `inf`, and `Number("inf")` is NaN — so an overflow read back as a NaN and
+            // every real-overflow fixture reported the wrong divergence. `Number` handles `NaN` itself.
+            const n = raw === "inf" ? Infinity : raw === "-inf" ? -Infinity : Number(raw)
+            return [k, type.elem.bits === 32 ? Math.fround(n) : n]
+          }
           return [k, asDisplayed(rec.values![k]!, BigInt(raw))]
         }),
       )

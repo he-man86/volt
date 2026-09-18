@@ -12,6 +12,9 @@ import { ADVANCED_TYPE_TESTS } from "./types/advanced-type.js"
 import { CONDITIONAL_PRAGMA_TESTS } from "./pragmas/conditional-pragma.js"
 import { CONVERSION_TESTS } from "./conversions/conversion.js"
 import { DATA_TYPE_TESTS } from "./types/data-type.js"
+import { PRIMITIVE_BOUNDS_TESTS } from "./types/primitive-bounds.js"
+import { MATH_DOMAIN_TESTS } from "./operators/math-domain.js"
+import { REAL_OVERFLOW_TESTS } from "./operators/real-overflow.js"
 import { PRIMITIVE_DEFAULT_TESTS } from "./types/primitive-default.js"
 import { IDENTIFIER_TESTS } from "./declarations/identifier.js"
 import { CORPUS_STANDARD_TESTS } from "./semantics/corpus-standard.js"
@@ -107,6 +110,9 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "advanced-type", tests: ADVANCED_TYPE_TESTS },
   { name: "data-type", tests: DATA_TYPE_TESTS },
   { name: "primitive-default", tests: PRIMITIVE_DEFAULT_TESTS },
+  { name: "primitive-bounds", tests: PRIMITIVE_BOUNDS_TESTS },
+  { name: "real-overflow", tests: REAL_OVERFLOW_TESTS },
+  { name: "math-domain", tests: MATH_DOMAIN_TESTS },
   { name: "variable-section", tests: VARIABLE_SECTION_TESTS },
   { name: "keyword", tests: KEYWORD_TESTS },
   { name: "operands", tests: OPERANDS_TESTS },

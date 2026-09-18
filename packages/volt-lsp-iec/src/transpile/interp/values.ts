@@ -12,17 +12,39 @@ import {
   peelArray,
 } from "../ir/index.js"
 import type { Type } from "../../types/index.js"
+import { isBit } from "../ir/index.js"
 
 /** A runtime value. Integers, durations and dates stay `bigint` in their type's unit (so `/` truncates like IEC does);
  *  REAL is `number`; STRING and WSTRING are `string`; a struct or FB instance is a record keyed by its fields'
  *  upper-cased names, and an array a JavaScript array (index 0 is the dimension's lower bound). */
 export type Val = IrValue | Val[] | { [field: string]: Val }
 
-/** The one-argument math functions. LOG is base 10 in IEC. */
+/**
+ * The one-argument math functions. LOG is base 10 in IEC.
+ *
+ * A LOGARITHM OF ZERO STOPS THE TASK, and nothing else in this table stops anything. Measured across all ten
+ * functions' domain edges (`operators/math-domain.ts`, 2026-09-18) — the whole rest of the table completes:
+ *
+ *   SQRT(-1) ASIN(2) ACOS(-2) LN(-1) LOG(-1) SIN(inf)   ->  NaN
+ *   EXP(1000) SQRT(inf) LN(inf)                         ->  Infinity
+ *   EXP(-1000)                                          ->  0
+ *   TAN(pi/2)                                           ->  1.6331239353195370E16, finite
+ *   LN(0) LOG(0)                                        ->  THE SCAN NEVER COMPLETES
+ *
+ * Which makes exactly two things stop a CODESYS task: dividing by zero (`arith`) and this. Both are the machine's
+ * divide-by-zero, and neither is "the result was infinite" — `EXP(1000)` is infinite and runs.
+ */
+const logarithm =
+  (f: (x: number) => number) =>
+  (x: number): number => {
+    if (x === 0) throw new RangeError("the logarithm of zero stops the task on CODESYS")
+    return f(x)
+  }
+
 export const MATH: Readonly<Record<IrMathName, (x: number) => number>> = {
   sqrt: Math.sqrt,
-  ln: Math.log,
-  log: Math.log10,
+  ln: logarithm(Math.log),
+  log: logarithm(Math.log10),
   exp: Math.exp,
   sin: Math.sin,
   cos: Math.cos,
@@ -158,6 +180,11 @@ export function arith(op: string, a: Val, b: Val): Val {
   }
   const x = Number(l)
   const y = Number(r)
+  // A REAL DIVISION BY ZERO STOPS THE TASK TOO — IEEE would answer an infinity and carry on, and the vendor does
+  // not: `realovf_divide_by_computed_zero` never finishes its scan while `realovf_divide_small_by_smaller`, which
+  // overflows to the same infinity without a zero divisor, finishes fine. The divisor is what matters, not the
+  // result. `-0.0 === 0` in JS, so a negative zero divisor is caught by the same test.
+  if (op === "div" && y === 0) throw new RangeError("division by zero")
   switch (op) {
     case "add":
       return x + y
@@ -191,24 +218,31 @@ export function fit(v: Val, type: Type): Val {
   if (type.kind !== "elementary") return v
   const { family, bits, signed } = type.elem
   if (family === "real") {
-    // AN INFINITY STOPS THE TASK; a NaN does not. Measured on CODESYS 3.5.21.40, 2026-09-18, and the split is clean:
+    // AN INFINITY IS AN ORDINARY VALUE. This used to throw here, on the reading that an infinity stops the task and
+    // a NaN does not — which fitted the four domain measurements and was still WRONG, because both of the cases that
+    // stopped were divisions by zero:
     //
-    //   SQRT(-1) -> REAL#NaN, the scan completes      `domain_sqrt_negative`
-    //   LN(-1)   -> REAL#NaN, the scan completes      `domain_ln_negative`
-    //   LN(0)    -> the scan never completes          `domain_ln_zero`
-    //   1.0 / 0  -> the scan never completes          `domain_divide_real_by_zero`
+    //   SQRT(-1) -> REAL#NaN, completes    LN(-1) -> REAL#NaN, completes
+    //   LN(0)    -> stops                  1.0/0  -> stops
     //
-    // "never completes" is the stable half. HOW it fails to complete is not: across runs the same case reports either
-    // a stalled done flag or a timed-out start, depending on what ran before it. Only the completion is evidence.
+    // `operators/real-overflow.ts` separated the two readings and the answer is not the value (2026-09-18):
     //
-    // Both of the ones that die produce an infinity and both survivors produce a NaN, so the rule is the VALUE, not
-    // the operation. That matters for a PLC: returning `Infinity` and carrying on is not a rounding difference from
-    // the vendor, it is a program that keeps running where the real one has stopped. No recording holds an infinite
-    // value — the only non-numeric REAL any of them prints is `REAL#NaN` — which is what this rule predicts.
-    if (typeof v === "number" && !Number.isFinite(v) && !Number.isNaN(v))
-      throw new RangeError("a REAL operation produced an infinity, which stops the task on CODESYS")
+    //   big * big        -> REAL#Infinity, completes        3.0E38 squared
+    //   big + big        -> REAL#Infinity, completes
+    //   1.0E38 / 1.0E-38 -> REAL#Infinity, completes        a DIVISION that overflows, divisor NOT zero
+    //   num / (num-num)  -> stops                           divisor IS zero
+    //   inf * 0.0        -> REAL#NaN,      completes        and the infinity is readable a statement later
+    //
+    // So a REAL variable can hold `REAL#Infinity` — `bound_real_above_max` holds one from a mere declaration — and
+    // what stops the task is DIVIDING BY ZERO, exactly as it is for integers. That rule lives in `arith`.
     return bits === 32 && typeof v === "number" ? Math.fround(v) : v
   }
+  // A BIT HOLDS A BOOLEAN. It is `bitstring` in the type table because it is one bit of LAYOUT, and everything else
+  // already knew better — `defaultValueOf` starts it `false` and the emitter maps it to Rust `bool` — but an
+  // explicit initializer took the integer path below and stored `0n`, so `x : BIT := 0` read back as 0 where CODESYS
+  // says FALSE (`bound_bit_at_min` / `_at_max`, 2026-09-18; and `:= -1` or `:= 2` is refused outright, "Cannot
+  // convert type 'SINT' to type 'BIT'"). The default value was right only because nothing converted it.
+  if (isBit(type)) return typeof v === "bigint" ? v !== 0n : v
   // a STRING(n) keeps its first n characters — `STRING(5) := 'abcdefgh'` is 'abcde' (conformance `string_*`)
   if (family === "string") return typeof v === "string" && type.length !== undefined ? v.slice(0, type.length) : v
   // a duration or date wraps like the integer it is: TIME and TOD are 32-bit milliseconds, DATE and DT 32-bit seconds,

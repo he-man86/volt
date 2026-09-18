@@ -57,7 +57,10 @@ export function valueAs(v: IrValue, to: Type): IrValue {
   const target = elemOf(to)
   if (target === undefined) return v
   if (target.family === "real" && typeof v === "bigint") return Number(v)
-  if (target.family === "bool" && typeof v === "bigint") return v !== 0n
+  // A BIT holds a BOOLEAN, and it is `bitstring` in the type table only because it is one bit of LAYOUT. Without
+  // `isBit` here, `x : BIT := 0` stored `0n` and the emitted Rust printed an integer into a `bool` field
+  // (`bound_bit_at_min` / `_at_max`, measured 2026-09-18 — CODESYS reads them back FALSE and TRUE).
+  if ((target.family === "bool" || isBit(to)) && typeof v === "bigint") return v !== 0n
   if (target.family !== "real" && typeof v === "number" && Number.isInteger(v)) return valueAs(BigInt(v), to)
   return v
 }

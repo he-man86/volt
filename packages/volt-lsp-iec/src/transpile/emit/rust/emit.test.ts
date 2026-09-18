@@ -250,7 +250,11 @@ describe("emit/rust", () => {
     const code = rust(
       "PROGRAM P\nVAR x : REAL; y : REAL; i : INT; j : DINT; u : ULINT; v : ULINT; END_VAR\ny := LN(x); j := ABS(i); y := ABS(x); v := ABS(u);\nEND_PROGRAM\n",
     )
-    expect(code).toContain("((self.x as f64).ln() as f32)")
+    // LN GOES THROUGH `iec_log` — `LN(0)` and `LOG(0)` stop the task on CODESYS and Rust answers `-inf` and carries
+    // on (`operators/math-domain.ts`, which asked every math function's domain edges). The `as f64` / `as f32` trip
+    // this test is really about is unchanged.
+    expect(code).toContain("(iec_log((self.x as f64)).ln() as f32)")
+    expect(code).toContain('panic!("the logarithm of zero stops the task on CODESYS")')
     expect(code).toContain("(self.i as i32).wrapping_abs()") // promoted to DINT; `abs` would panic on the minimum
     expect(code).toContain("self.x.abs()")
     expect(code).toContain("self.v = self.u;") // u64 has no `abs`
