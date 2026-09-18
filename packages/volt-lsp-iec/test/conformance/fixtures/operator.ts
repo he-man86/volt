@@ -737,4 +737,60 @@ bFound := __QUERYINTERFACE(THIS^, ITF_LANG_with_method);
 END_METHOD
 `,
   },
+  // ─── HOW DOES THE VENDOR ORDER TWO STRINGS? ────────────────────────────────────────────────────────
+  // MAX/MIN/LIMIT over a STRING lowered, and the interpreter compared the text (`MAX('abc','abd')` = 'abd') while the
+  // emitted Rust printed `.max()` on an `IecStr`, which has PartialOrd but not Ord — so that program did not COMPILE
+  // (E0599). Both halves were wrong to ship: nothing records what CODESYS orders two strings by, or whether it accepts
+  // the call at all. Refused as `value-string-order` until these answer it. `>` and `<` on strings are recorded too,
+  // since an order for those and an order for MAX need not be the same thing.
+  {
+    name: "string_max",
+    pouName: "FB_LANG_string_max",
+    kind: "function_block" as const,
+    feature: "MAX over two STRINGs — does it compile, and which one wins?",
+    fromDoc: "string-order",
+    plcPrgVar: "inst_string_max : FB_LANG_string_max;",
+    plcPrgBody: "inst_string_max();",
+    source: "FUNCTION_BLOCK FB_LANG_string_max\nVAR\n\ta : STRING := 'abc';\n\tb : STRING := 'abd';\n\tout : STRING;\nEND_VAR\nout := MAX(a, b);\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "string_min",
+    pouName: "FB_LANG_string_min",
+    kind: "function_block" as const,
+    feature: "MIN over two STRINGs",
+    fromDoc: "string-order",
+    plcPrgVar: "inst_string_min : FB_LANG_string_min;",
+    plcPrgBody: "inst_string_min();",
+    source: "FUNCTION_BLOCK FB_LANG_string_min\nVAR\n\ta : STRING := 'abc';\n\tb : STRING := 'abd';\n\tout : STRING;\nEND_VAR\nout := MIN(a, b);\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "string_limit",
+    pouName: "FB_LANG_string_limit",
+    kind: "function_block" as const,
+    feature: "LIMIT over three STRINGs",
+    fromDoc: "string-order",
+    plcPrgVar: "inst_string_limit : FB_LANG_string_limit;",
+    plcPrgBody: "inst_string_limit();",
+    source: "FUNCTION_BLOCK FB_LANG_string_limit\nVAR\n\tmn : STRING := 'a';\n\tin_ : STRING := 'b';\n\tmx : STRING := 'c';\n\tout : STRING;\nEND_VAR\nout := LIMIT(mn, in_, mx);\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "string_compare_operators",
+    pouName: "FB_LANG_string_compare_operators",
+    kind: "function_block" as const,
+    feature: "the comparison OPERATORS on STRINGs — a different question from MAX",
+    fromDoc: "string-order",
+    plcPrgVar: "inst_string_compare_operators : FB_LANG_string_compare_operators;",
+    plcPrgBody: "inst_string_compare_operators();",
+    source: "FUNCTION_BLOCK FB_LANG_string_compare_operators\nVAR\n\ta : STRING := 'abc';\n\tb : STRING := 'abd';\n\tlt : BOOL;\n\tgt : BOOL;\n\teq : BOOL;\n\tshorter : STRING := 'ab';\n\tshortLt : BOOL;\nEND_VAR\nlt := a < b;\ngt := a > b;\neq := a = b;\nshortLt := shorter < a;\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "string_max_differing_case",
+    pouName: "FB_LANG_string_max_differing_case",
+    kind: "function_block" as const,
+    feature: "MAX over STRINGs differing only in CASE — is the order case-sensitive?",
+    fromDoc: "string-order",
+    plcPrgVar: "inst_string_max_differing_case : FB_LANG_string_max_differing_case;",
+    plcPrgBody: "inst_string_max_differing_case();",
+    source: "FUNCTION_BLOCK FB_LANG_string_max_differing_case\nVAR\n\tupper : STRING := 'ABC';\n\tlower : STRING := 'abc';\n\tout : STRING;\nEND_VAR\nout := MAX(upper, lower);\nEND_FUNCTION_BLOCK\n",
+  },
 ]

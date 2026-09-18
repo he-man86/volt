@@ -1693,3 +1693,42 @@ describe("an FB body call counts as a call", () => {
     expect(r.pou).toBeDefined()
   })
 })
+
+/**
+ * MAX / MIN / LIMIT OVER A STRING IS REFUSED — one backend was guessing and the other would not build.
+ *
+ * It lowered, and the interpreter compared the text (`MAX('abc','abd')` gave 'abd') while the emitted Rust printed
+ * `.max()` on an `IecStr`, which has `PartialOrd` but not `Ord` — so the crate failed with E0599. That is the worst
+ * shape a divergence can take, and the guess is the more dangerous half: nothing records what CODESYS orders two
+ * STRINGs by, or whether it accepts the call at all. `operator_string_*` record it.
+ *
+ * SEL is untouched: it PICKS an operand rather than comparing them, so it needs no order.
+ */
+describe("a value function over a STRING", () => {
+  const refuse = (source: string): string[] => lowerSource(source, "PLC_PRG").diagnostics.map((d) => d.code)
+
+  test("MAX over a STRING is refused rather than ordered", () => {
+    expect(refuse("PROGRAM PLC_PRG\nVAR\n\ts : STRING;\nEND_VAR\ns := MAX('abc','abd');\nEND_PROGRAM\n")).toContain("value-string-order")
+  })
+
+  test("MIN and LIMIT too", () => {
+    expect(refuse("PROGRAM PLC_PRG\nVAR\n\ts : STRING;\nEND_VAR\ns := MIN('abc','abd');\nEND_PROGRAM\n")).toContain("value-string-order")
+    expect(refuse("PROGRAM PLC_PRG\nVAR\n\ts : STRING;\nEND_VAR\ns := LIMIT('a','b','c');\nEND_PROGRAM\n")).toContain("value-string-order")
+  })
+
+  test("SEL over a STRING still lowers — it picks, it does not order", () => {
+    const r = lowerSource("PROGRAM PLC_PRG\nVAR\n\ts : STRING;\nEND_VAR\ns := SEL(TRUE,'a','b');\nEND_PROGRAM\n", "PLC_PRG")
+    expect(r.diagnostics).toEqual([])
+    const p = run(r.pou!)
+    p.scan()
+    expect(p.get("s")).toBe("b")
+  })
+
+  test("and MAX over numbers is untouched", () => {
+    const r = lowerSource("PROGRAM PLC_PRG\nVAR\n\tn : INT;\nEND_VAR\nn := MAX(1,5,3);\nEND_PROGRAM\n", "PLC_PRG")
+    expect(r.diagnostics).toEqual([])
+    const p = run(r.pou!)
+    p.scan()
+    expect(p.get("n")).toBe(5n)
+  })
+})

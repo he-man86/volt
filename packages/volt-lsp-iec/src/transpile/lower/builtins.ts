@@ -197,6 +197,13 @@ export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>): 
   }
   const type = meetOperands(lw, operands, e.span)
   if (type === undefined) return undefined
+  // MAX / MIN / LIMIT OVER A STRING IS REFUSED, not answered. It lowered and the interpreter compared the text —
+  // `MAX('abc','abd')` gave 'abd' — while the emitted Rust printed `.max()` on an `IecStr`, which has `PartialOrd`
+  // but not `Ord`, so the program DID NOT COMPILE (E0599). One backend guessing and the other failing to build is the
+  // worst shape a divergence can take, and the guess is the more dangerous half: what CODESYS orders two STRINGs by is
+  // not recorded anywhere. `SEL` is untouched — it picks an operand rather than comparing them, so it needs no order.
+  if (name !== "SEL" && elemOf(type)?.family === "string")
+    return lw.bail("value-string-order", `${name} over a STRING — how the vendor orders two strings is not measured`, e.span)
   const args = operands.map((o) => convert(o, type))
   const lower = name.toLowerCase() as IrBuiltinName
   return { kind: "builtin", name: lower, args: selector === undefined ? args : [selector, ...args], type, span: e.span }
