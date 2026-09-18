@@ -793,4 +793,40 @@ END_METHOD
     plcPrgBody: "inst_string_max_differing_case();",
     source: "FUNCTION_BLOCK FB_LANG_string_max_differing_case\nVAR\n\tupper : STRING := 'ABC';\n\tlower : STRING := 'abc';\n\tout : STRING;\nEND_VAR\nout := MAX(upper, lower);\nEND_FUNCTION_BLOCK\n",
   },
+  // ─── THE FUNCTION-CALL SPELLING OF AN OPERATOR ─────────────────────────────────────────────────────
+  // `03-operators.md` gives ADD, SUB, MUL, DIV, GT, LT, LE, GE, EQ and NE their own pages: CODESYS accepts `ADD(a, b)`
+  // as well as `a + b`. Lowering takes the SYMBOL form only, so every call form is refused as a generic `expr-call`
+  // (measured 2026-09-18, all ten). Implementing it is coverage work and out of this change's scope — these record
+  // what the vendor answers, so that work has an acceptance test waiting rather than starting from a guess. They also
+  // ask the question the symbol form cannot: ADD and MUL are EXTENSIBLE in IEC, so what does `ADD(a, b, c)` do?
+  {
+    name: "operator_call_form_arithmetic",
+    pouName: "FB_LANG_operator_call_form_arithmetic",
+    kind: "function_block" as const,
+    feature: "ADD/SUB/MUL/DIV written as CALLS rather than symbols — accepted, and the same answers?",
+    fromDoc: "03-operators.md",
+    plcPrgVar: "inst_operator_call_form_arithmetic : FB_LANG_operator_call_form_arithmetic;",
+    plcPrgBody: "inst_operator_call_form_arithmetic();",
+    source: "FUNCTION_BLOCK FB_LANG_operator_call_form_arithmetic\nVAR\n\ta : INT := 12;\n\tb : INT := 4;\n\tadded : INT;\n\tsubbed : INT;\n\tmultiplied : INT;\n\tdivided : INT;\nEND_VAR\nadded := ADD(a, b);\nsubbed := SUB(a, b);\nmultiplied := MUL(a, b);\ndivided := DIV(a, b);\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "operator_call_form_extensible",
+    pouName: "FB_LANG_operator_call_form_extensible",
+    kind: "function_block" as const,
+    feature: "ADD and MUL are EXTENSIBLE — what does a THIRD argument do?",
+    fromDoc: "03-operators.md",
+    plcPrgVar: "inst_operator_call_form_extensible : FB_LANG_operator_call_form_extensible;",
+    plcPrgBody: "inst_operator_call_form_extensible();",
+    source: "FUNCTION_BLOCK FB_LANG_operator_call_form_extensible\nVAR\n\ta : INT := 2;\n\tb : INT := 3;\n\tc : INT := 4;\n\tadded3 : INT;\n\tmultiplied3 : INT;\nEND_VAR\nadded3 := ADD(a, b, c);\nmultiplied3 := MUL(a, b, c);\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "operator_call_form_comparison",
+    pouName: "FB_LANG_operator_call_form_comparison",
+    kind: "function_block" as const,
+    feature: "GT/LT/LE/GE/EQ/NE written as CALLS rather than symbols",
+    fromDoc: "03-operators.md",
+    plcPrgVar: "inst_operator_call_form_comparison : FB_LANG_operator_call_form_comparison;",
+    plcPrgBody: "inst_operator_call_form_comparison();",
+    source: "FUNCTION_BLOCK FB_LANG_operator_call_form_comparison\nVAR\n\ta : INT := 12;\n\tb : INT := 4;\n\tgt : BOOL;\n\tlt : BOOL;\n\tle : BOOL;\n\tge : BOOL;\n\teq : BOOL;\n\tne : BOOL;\nEND_VAR\ngt := GT(a, b);\nlt := LT(a, b);\nle := LE(a, b);\nge := GE(a, b);\neq := EQ(a, b);\nne := NE(a, b);\nEND_FUNCTION_BLOCK\n",
+  },
 ]
