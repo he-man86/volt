@@ -15,6 +15,11 @@
  * adversary would. Two throws found by review (2026-09-17) are NOT reachable from it — a pointer stepped over a
  * zero-size element, and a date literal outside JS `Date`'s range — and they get their own targeted cases where
  * they are fixed. A corpus pass is evidence, not proof.
+ *
+ * ONE WALK, SEVERAL QUESTIONS. Walking the corpus costs about a minute, and `ir-coverage.test.ts` used to walk it a
+ * second time to ask which IR the suite builds — the same files, the same symbol tables, the same `lowerUnit` call,
+ * for a different tally. Both tallies ride this walk now. Two walks is not only slow: under load the second one blew
+ * its own 240s timeout while passing in 66s alone, which reads as a failure in whatever test happened to be running.
  */
 import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync, statSync } from "node:fs"
@@ -34,6 +39,7 @@ import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
 import { scanLibraryManifests } from "../../src/workspace-refs.js"
 import { LOWER_CODES, LOWER_CODE_PREFIXES } from "../../src/transpile/ir/codes.js"
 import { lowerSource } from "../../src/transpile/lower/index.js"
+import type { IrPou, IrRoutine, IrStmt } from "../../src/transpile/ir/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 import { assembleFixture, withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
@@ -60,6 +66,23 @@ const isRunnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "fu
  * `index.ts` is the contract a reader sees, and this is what keeps it true. They are exact rather than a floor
  * on purpose: a floor lets the documented figure rot quietly upward while still "passing".
  */
+/** Every node kind the IR defines — `IrExpr` and `IrStmt`, from `ir.ts`. Kept by hand so ADDING one shows up here. */
+const EXPR_KINDS = ["const", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch"] as const
+const STMT_KINDS = ["assign", "if", "switch", "loop", "break", "continue", "return", "call", "eval"] as const
+const BUILTINS = [
+  "max", "min", "limit", "sel", "trunc", "abs", "expt", "shl", "shr", "rol", "ror", "mux",
+  "sqrt", "ln", "log", "exp", "sin", "cos", "tan", "asin", "acos", "atan",
+  "len", "left", "right", "mid", "concat", "insert", "delete", "replace", "find",
+] as const
+
+/**
+ * Floors, measured 2026-09-18: EVERY node kind and EVERY builtin is built by something. That is the good outcome and
+ * it is worth pinning at full — there is no arm of either backend's `switch` that no test has ever reached.
+ */
+const COVERED_EXPR_KINDS = 8
+const COVERED_STMT_KINDS = 9
+const COVERED_BUILTINS = 31
+
 const DOCUMENTED_BODIES = 304
 const DOCUMENTED_LOWERED = 55
 
@@ -76,10 +99,35 @@ const DOCUMENTED_LOWERED = 55
  */
 const REACHED_CODES = 80
 
-/** One walk, two questions: did anything throw, and how much of the corpus does this backend actually reach. */
-function overCorpus(): { failures: string[]; bodies: number; lowered: number; codes: Set<string> } {
+/** Every `kind` and every builtin `name` anywhere in a value, however nested. */
+function collect(node: unknown, kinds: Set<string>, builtins: Set<string>): void {
+  if (Array.isArray(node)) {
+    for (const child of node) collect(child, kinds, builtins)
+    return
+  }
+  if (node === null || typeof node !== "object") return
+  const record = node as Record<string, unknown>
+  if (typeof record.kind === "string") kinds.add(record.kind)
+  if (record.kind === "builtin" && typeof record.name === "string") builtins.add(record.name)
+  for (const [key, child] of Object.entries(record)) {
+    if (key === "type" || key === "span") continue // a Type has its own `kind`, which is not an IR node's
+    collect(child, kinds, builtins)
+  }
+}
+
+function fromPou(pou: IrPou, kinds: Set<string>, builtins: Set<string>): void {
+  collect(pou.body as readonly IrStmt[], kinds, builtins)
+  collect((pou.init ?? []) as readonly IrStmt[], kinds, builtins)
+  for (const r of (pou.routines ?? []) as readonly IrRoutine[]) collect(r.body, kinds, builtins)
+  for (const l of pou.layouts ?? []) collect(l.body ?? [], kinds, builtins)
+}
+
+/** ONE walk, every question: did anything throw, how much is reached, which refusals fire, and which IR is built. */
+function overCorpus(): { failures: string[]; bodies: number; lowered: number; codes: Set<string>; kinds: Set<string>; builtins: Set<string> } {
   const failures: string[] = []
   const codes = new Set<string>()
+  const kinds = new Set<string>()
+  const builtins = new Set<string>()
   let bodies = 0
   let lowered = 0
   const projects = readdirSync(CORPUS).filter((name) => statSync(join(CORPUS, name)).isDirectory())
@@ -118,6 +166,7 @@ function overCorpus(): { failures: string[]; bodies: number; lowered: number; co
           const { pou, diagnostics } = lowerUnit(unit, scope, project, attributes)
           if (hasCode && pou !== undefined) lowered++
           for (const d of diagnostics ?? []) codes.add(d.code)
+          if (pou !== undefined) fromPou(pou, kinds, builtins)
         } catch (error) {
           const name = "name" in unit && unit.name !== undefined ? String((unit.name as { text: string }).text) : "?"
           failures.push(`${relative(CORPUS, file)} :: ${name} — ${(error as Error).message}`)
@@ -125,14 +174,14 @@ function overCorpus(): { failures: string[]; bodies: number; lowered: number; co
       }
     }
   }
-  return { failures, bodies, lowered, codes }
+  return { failures, bodies, lowered, codes, kinds, builtins }
 }
 
 describe("the contracts src/transpile/index.ts states, measured over the corpus", () => {
   // One walk of 29k files, shared by both assertions and done on first use — a `beforeAll` has its own
   // timeout that an 80-second sweep quietly blows, and the failure it produces names no test.
-  let cached: { failures: string[]; bodies: number; lowered: number; codes: Set<string> } | undefined
-  const result = (): { failures: string[]; bodies: number; lowered: number; codes: Set<string> } => (cached ??= overCorpus())
+  let cached: ReturnType<typeof overCorpus> | undefined
+  const result = (): ReturnType<typeof overCorpus> => (cached ??= overCorpus())
 
   test("TOTALITY — no POU in the corpus makes lowering throw", () => {
     // the whole list, not a count: a throw names the input that caused it, which is the fix
@@ -174,6 +223,51 @@ describe("the contracts src/transpile/index.ts states, measured over the corpus"
     console.log(`  [refusals] ${unreached.length} are not: ${unreached.slice(0, 8).join(", ")}${unreached.length > 8 ? ", …" : ""}`)
     expect(reached.length).toBeGreaterThanOrEqual(REACHED_CODES)
   }, 240_000)
+
+  /**
+   * The corpus walk's IR, plus the FIXTURES'. Both are needed and neither is enough: `dispatch` (a call through an
+   * interface), `break` and `continue` appear in fixtures the corpus has no equivalent of, and the corpus reaches
+   * shapes no fixture was written for. Memoized, so the fixtures are lowered once for all three tests below.
+   */
+  let irCache: { kinds: Set<string>; builtins: Set<string> } | undefined
+  const builtIr = (): { kinds: Set<string>; builtins: Set<string> } => {
+    if (irCache !== undefined) return irCache
+    const kinds = new Set(result().kinds)
+    const builtins = new Set(result().builtins)
+    for (const t of ALL_TESTS) {
+      const { source, gvls } = assembleFixture(t, ALL_TESTS)
+      try {
+        const { pou } = lowerSource(source, "PLC_PRG", [...STANDARD_LIBRARY, ...gvls])
+        if (pou !== undefined) fromPou(pou, kinds, builtins)
+      } catch {
+        // a fixture that throws is `TOTALITY`'s to report, not this one's
+      }
+    }
+    irCache = { kinds, builtins }
+    return irCache
+  }
+
+  test("EXPRESSION kinds — an arm no test reaches is an arm free to be wrong", () => {
+    const { kinds } = builtIr()
+    const missing = EXPR_KINDS.filter((k) => !kinds.has(k))
+    console.log(`  [ir] expressions ${EXPR_KINDS.length - missing.length}/${EXPR_KINDS.length}${missing.length ? ` — never built: ${missing.join(", ")}` : ""}`)
+    expect(EXPR_KINDS.length - missing.length).toBeGreaterThanOrEqual(COVERED_EXPR_KINDS)
+  }, 240_000)
+
+  test("STATEMENT kinds", () => {
+    const { kinds } = builtIr()
+    const missing = STMT_KINDS.filter((k) => !kinds.has(k))
+    console.log(`  [ir] statements ${STMT_KINDS.length - missing.length}/${STMT_KINDS.length}${missing.length ? ` — never built: ${missing.join(", ")}` : ""}`)
+    expect(STMT_KINDS.length - missing.length).toBeGreaterThanOrEqual(COVERED_STMT_KINDS)
+  }, 240_000)
+
+  test("BUILTINS — each is a switch arm in BOTH backends", () => {
+    const { builtins } = builtIr()
+    const missing = BUILTINS.filter((b) => !builtins.has(b))
+    console.log(`  [ir] builtins ${BUILTINS.length - missing.length}/${BUILTINS.length}${missing.length ? ` — never built: ${missing.join(", ")}` : ""}`)
+    expect(BUILTINS.length - missing.length).toBeGreaterThanOrEqual(COVERED_BUILTINS)
+  }, 240_000)
+
 })
 
 /**
