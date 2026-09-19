@@ -6,9 +6,9 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1837
+ *   confirmed    1864
  *   refused       509
- *   not-lowered    75
+ *   not-lowered    80
  *   lsp-gap         2
  *   diverges        3
  *   unaskable      32
@@ -616,6 +616,38 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   cc6_reference_assign_literal: "refused",
   cc6_retain_in_method: "refused",
   cc6_string_to_bool_and_time: "not-lowered",
+  cfold_abs: "confirmed",
+  cfold_any_to_dint_high: "confirmed",
+  cfold_argument_declared_first: "not-lowered",
+  cfold_bool_to_int: "confirmed",
+  cfold_call_plus_constant: "confirmed",
+  cfold_dint_to_real: "confirmed",
+  cfold_expt: "confirmed",
+  cfold_global_list: "confirmed",
+  cfold_int_to_byte_over: "confirmed",
+  cfold_int_to_sint_over: "confirmed",
+  cfold_limit: "confirmed",
+  cfold_min_max: "confirmed",
+  cfold_mux: "confirmed",
+  cfold_nested_calls: "confirmed",
+  cfold_non_constant_argument: "not-lowered",
+  cfold_paren_shl_or: "confirmed",
+  cfold_real_to_int_half: "confirmed",
+  cfold_real_to_int_negative_half: "confirmed",
+  cfold_real_to_int_out: "confirmed",
+  cfold_rol: "confirmed",
+  cfold_ror: "confirmed",
+  cfold_sel: "confirmed",
+  cfold_shl: "confirmed",
+  cfold_shr: "confirmed",
+  cfold_sizeof_type: "confirmed",
+  cfold_sizeof_var: "not-lowered",
+  cfold_sqrt: "confirmed",
+  cfold_time_to_dint: "confirmed",
+  cfold_trunc: "confirmed",
+  cfold_uint_to_dword: "confirmed",
+  cfold_user_function: "not-lowered",
+  cfold_user_function_reads_global: "not-lowered",
   cg_argument_order: "confirmed",
   cg_fb_inout_counts: "confirmed",
   cg_fb_mixed: "refused",

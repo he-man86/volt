@@ -236,6 +236,22 @@ export class Lowering {
     return this.bail(code, message, span)
   }
 
+  /**
+   * Run a lowering that is allowed to FAIL without saying so — used where a refusal is a question, not an answer.
+   * A declaration's initial value asks "is this expression constant?" by lowering it; when it is not, the caller
+   * has its own refusal to report (`init-not-constant`), and the half-dozen diagnostics the attempt produced on
+   * the way are noise about a path nobody took.
+   *
+   * Any slot or temp the attempt declared STAYS declared — this rolls back what was SAID, not what was built —
+   * which is why it is only for an expression that either folds to a value or is discarded whole.
+   */
+  quietly<T>(attempt: () => T): T {
+    const mark = this.diagnostics.length
+    const result = attempt()
+    this.diagnostics.length = mark
+    return result
+  }
+
   bail(code: string, message: string, span: Span): undefined {
     // THE TAXONOMY IS RESOLVED HERE, not at the call site. 98 literal codes and six templated families reach
     // this one method, so one lookup keeps every refusal classified consistently; a field each call site had to

@@ -12,7 +12,7 @@ import {
   peelArray,
 } from "../ir/index.js"
 import { elemOf, type Type } from "../../types/index.js"
-import { isBit } from "../ir/index.js"
+import { isBit } from "./ir.js"
 
 /** A runtime value. Integers, durations and dates stay `bigint` in their type's unit (so `/` truncates like IEC does);
  *  REAL is `number`; STRING and WSTRING are `string`; a struct or FB instance is a record keyed by its fields'

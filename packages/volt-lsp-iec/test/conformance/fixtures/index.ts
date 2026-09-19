@@ -43,6 +43,7 @@ import { KEYWORD_TESTS } from "./declarations/keyword.js"
 import { LIFECYCLE_TESTS } from "./oop/lifecycle.js"
 import { LITERAL_TESTS } from "./types/literal.js"
 import { OOP_TESTS } from "./oop/oop.js"
+import { CONSTANT_FOLDING_TESTS } from "./declarations/constant-folding.js"
 import { OPERANDS_TESTS } from "./operators/operands.js"
 import { STRING_ORDER_TESTS } from "./strings/ordering.js"
 import { SYSTEM_OPERAND_TESTS } from "./operators/system-operands.js"
@@ -153,6 +154,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "section-semantics", tests: SECTION_SEMANTICS_TESTS },
   { name: "addresses", tests: ADDRESS_TESTS },
   { name: "keyword", tests: KEYWORD_TESTS },
+  { name: "constant-folding", tests: CONSTANT_FOLDING_TESTS },
   { name: "operands", tests: OPERANDS_TESTS },
   { name: "string-ordering", tests: STRING_ORDER_TESTS },
   { name: "system-operands", tests: SYSTEM_OPERAND_TESTS },

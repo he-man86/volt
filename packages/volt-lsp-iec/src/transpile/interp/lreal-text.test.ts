@@ -4,7 +4,7 @@
  * the one that fails FIRST, in milliseconds, when the formatter drifts.
  */
 import { test, expect } from "bun:test"
-import { lrealText } from "./values.js"
+import { lrealText } from "../ir/values.js"
 
 test("fifteen significant digits, trailing zeros stripped, never fewer than one decimal", () => {
   expect(lrealText(0)).toBe("0.0")

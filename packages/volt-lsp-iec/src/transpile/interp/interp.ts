@@ -36,8 +36,9 @@ import {
   ord,
   STRING_FUNCTIONS,
   type Val,
-} from "./values.js"
-export type { Val } from "./values.js"
+} from "../ir/values.js"
+import { binaryValue, builtinValue, unaryValue } from "../ir/evaluate.js"
+export type { Val } from "../ir/values.js"
 
 type Signal = "none" | "break" | "continue" | "return"
 
@@ -190,126 +191,19 @@ class Machine {
       }
       case "convert":
         return fit(coerce(this.expr(e.value), e.type, e.value.type), e.type)
-      case "builtin": {
-        const args = e.args.map((a) => this.expr(a))
-        const pick = (op: "lt" | "gt"): Val => args.reduce((best, v) => (ord(op, v, best) ? v : best))
-        switch (e.name) {
-          case "max":
-            return fit(pick("gt"), e.type)
-          case "min":
-            return fit(pick("lt"), e.type)
-          case "limit": {
-            // MIN(MAX(IN, MN), MX) — measured; with MN > MX that is MX for every IN
-            const [mn, value, mx] = args as [Val, Val, Val]
-            const raised = ord("gt", value, mn) ? value : mn
-            return fit(ord("lt", raised, mx) ? raised : mx, e.type)
-          }
-          case "sel":
-            return fit(bool(args[0]!) ? args[2]! : args[1]!, e.type)
-          case "trunc": {
-            // Toward zero into a DINT whose out-of-range answer is DINT's MINIMUM — x86's "integer indefinite":
-            // TRUNC(3.0E9) is -2147483648, where LREAL_TO_DINT(3.0E9) wraps to -1294967296 (conformance
-            // `trunc_out_of_range`). TRUNC_INT then wraps that DINT into INT, as `fit` does for every integer.
-            const t = Math.trunc(Number(num(args[0]!)))
-            const inRange = Number.isFinite(t) && t >= -2147483648 && t <= 2147483647
-            return fit(inRange ? BigInt(t) : -2147483648n, e.type)
-          }
-          // THE WIDTH IS THE NODE'S, and lowering always types these — a shift or rotate is built from a promoted
-          // operand, so a non-elementary type here is a lowering bug, not a 32-bit value. Defaulting to 32 gave a
-          // BYTE or a LWORD the wrong mask and the wrong wrap, silently and only for the case that never happens.
-          case "shl":
-          case "shr": {
-            // x86's count mask: SHL(DWORD 1, 33) is 2 and a count of -1 shifts by 31 (conformance `shift_count_*`,
-            // `shift_negative_count`). The value is already promoted, and a bigint `>>` is arithmetic on a negative —
-            // SHR(SINT -128, 1) is -64, as measured.
-            const bits = widthOf(e.type, e.name)
-            const count = BigInt(Number(num(args[1]!)) & (bits - 1))
-            const value = num(args[0]!) as bigint
-            return fit(e.name === "shl" ? value << count : value >> count, e.type)
-          }
-          case "rol":
-          case "ror": {
-            // in the value's own width, count modulo that width — ROL(BYTE 129, 9) is 3 (conformance `rotate_*`)
-            const bits = widthOf(e.type, e.name)
-            const width = BigInt(bits)
-            const left = BigInt(((Number(num(args[1]!)) % bits) + bits) % bits)
-            const by = e.name === "rol" ? left : (width - left) % width
-            const unsigned = BigInt.asUintN(bits, num(args[0]!) as bigint)
-            return fit(BigInt.asUintN(bits, (unsigned << by) | (unsigned >> ((width - by) % width))), e.type)
-          }
-          case "mux": {
-            // an out-of-range K — negative included — picks the LAST input (conformance `mux_out_of_range`)
-            const k = Number(num(args[0]!))
-            const inputs = args.slice(1)
-            return fit(k >= 0 && k < inputs.length ? inputs[k]! : inputs[inputs.length - 1]!, e.type)
-          }
-          case "expt":
-            // float64, narrowed by `fit` when lowering typed it REAL (both arguments REAL) — matches CODESYS's digits
-            return fit(Math.pow(Number(num(args[0]!)), Number(num(args[1]!))), e.type)
-          case "abs": {
-            // in the promoted type lowering chose; `fit` wraps a signed minimum back to itself
-            const v = args[0]!
-            return fit(typeof v === "bigint" ? (v < 0n ? -v : v) : Math.abs(Number(v)), e.type)
-          }
-          case "len":
-          case "left":
-          case "right":
-          case "mid":
-          case "concat":
-          case "insert":
-          case "delete":
-          case "replace":
-          case "find":
-            return fit(STRING_FUNCTIONS[e.name](args), e.type)
-          case "sqrt":
-          case "ln":
-          case "log":
-          case "exp":
-          case "sin":
-          case "cos":
-          case "tan":
-          case "asin":
-          case "acos":
-          case "atan":
-            // computed in float64, then `fit` narrows a REAL to float32 — the oracle checks this matches CODESYS's digits
-            return fit(MATH[e.name](Number(num(args[0]!))), e.type)
-        }
-      }
-      case "unary": {
-        // A REAL IS NEGATED, not subtracted from zero. IEEE-754 says -(0.0) is -0.0 while 0.0 - 0.0 is +0.0, so
-        // computing it as a subtraction silently dropped the sign — where the emitter prints `-x` and keeps it.
-        // An INTEGER keeps the subtraction: that is what wraps at the width's minimum, matching `wrapping_neg`
-        // (`unary_minus_at_the_edge`, a DINT at its minimum, which Rust's own `-` panics on in a debug build).
-        if (e.op === "neg") {
-          const operand = this.expr(e.operand)
-          return typeof operand === "number" ? fit(-operand, e.type) : fit(arith("sub", 0n, operand), e.type)
-        }
-        const v = this.expr(e.operand)
-        return typeof v === "bigint" ? fit(~v, e.type) : !bool(v)
-      }
+      // The three node kinds whose meaning needs no storage live in `ir/evaluate.ts`, because lowering evaluates
+      // them too when it folds a declaration's initial value — one table, so a folded value and a computed one
+      // cannot disagree.
+      case "builtin":
+        return builtinValue(e.name, e.args.map((a) => this.expr(a)), e.type)
+      case "unary":
+        return unaryValue(e.op, this.expr(e.operand), e.type)
       case "binary": {
-        // The short-circuit forms must not evaluate the right side — the only reason they are distinct nodes.
+        // The short-circuit forms must not evaluate the right side — the only reason they are distinct nodes,
+        // and the one part of a binary that belongs to whoever does the evaluating.
         if (e.op === "and_then") return bool(this.expr(e.left)) && bool(this.expr(e.right))
         if (e.op === "or_else") return bool(this.expr(e.left)) || bool(this.expr(e.right))
-        const l = this.expr(e.left)
-        const r = this.expr(e.right)
-        switch (e.op) {
-          case "eq":
-            return eq(l, r)
-          case "ne":
-            return !eq(l, r)
-          case "lt":
-          case "le":
-          case "gt":
-          case "ge":
-            return ord(e.op, l, r)
-          case "and":
-          case "or":
-          case "xor":
-            return logic(e.op, l, r)
-          default:
-            return fit(arith(e.op, l, r, e.type), e.type)
-        }
+        return binaryValue(e.op, this.expr(e.left), this.expr(e.right), e.type)
       }
     }
   }

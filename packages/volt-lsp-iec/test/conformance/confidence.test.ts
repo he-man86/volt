@@ -82,7 +82,15 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // significant digits beside four that print seven at the same magnitudes, and four fractions round their
   // seventh digit where rounding the value does not (1/3 is '0.3333334', 1/9 prints eight digits and stops).
   // Its 35 cells refuse on purpose, with 70 measurements written down rather than a rule invented from them.
-  "not-lowered": 75,
+  // 75 -> 80. `declarations/constant-folding.ts` asked 31 cells about what an initial value may hold; 26 of them
+  // now lower (a conversion, a shift, SIZEOF of a type, MIN/MAX/SEL/MUX/ABS/TRUNC/EXPT/SQRT, nested and
+  // parenthesised). The five here are the ones that are NOT constants and say so:
+  //   `cfold_user_function`, `cfold_user_function_reads_global`  a user FUNCTION runs, and sees an initialized global
+  //   `cfold_argument_declared_first`, `cfold_non_constant_argument`  initializers run in DECLARATION ORDER
+  //   `cfold_sizeof_var`  SIZEOF of a variable declared LATER — constant to the vendor, and our fold needs the slot
+  // The first four are one finding: a CODESYS initializer is an initialisation SEQUENCE, not a fold. Modelling
+  // that is the next increment, and these are its acceptance tests.
+  "not-lowered": 80,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

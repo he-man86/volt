@@ -9,6 +9,10 @@ import { baseOf, boundName, Lowering, openDims, ZERO_SPAN } from "./lowering.js"
 import { stored, valueAs } from "./convert.js"
 import { calendarOf, durationOf, enumDefault, enumStorage, inlineEnumDefault, foldConstant, stringLiteralText, TEMPORAL_LITERAL_KINDS, typedRealOf } from "./constants.js"
 import { overlayBytes } from "./unions.js"
+// A folded initial value and the same expression at run time go through ONE implementation, so they cannot
+// disagree — `ir/` is the folder lowering and the backends share, which is why it lives there.
+import { constantValue } from "../ir/evaluate.js"
+import { lowerExpr } from "./expressions.js"
 
 /**
  * The FB variable sections that get a FRAME SLOT. VAR_IN_OUT does not: it aliases the caller's variable. Nor does
@@ -323,6 +327,50 @@ function bindAddress(lw: Lowering, decl: VarDecl): boolean {
  * does it fold strings: every `s : STRING := 'abc'` started empty (conformance `string_*`). An initializer that does not
  * fold is REPORTED — it used to be dropped, so the slot silently started at its default.
  */
+/**
+ * AN INITIAL VALUE THAT IS A CALL — the shape the corpus writes 1084 times and the highest-reach refusal there was.
+ *
+ * `constEval` folds a literal, a name, an enum member, a unary and a binary, and returns undefined for a CALL. Five
+ * real projects write `ANY_TO_DINT(16#80000000)`, `(SHL(UINT_TO_DWORD(x), 16) OR 16#1)`, `SIZEOF(T)` and their
+ * neighbours in a declaration, so `init-not-constant` stopped 200 of the 304 POUs that have a body.
+ *
+ * Measured before implementing (`declarations/constant-folding.ts`, 29 probes): CODESYS folds EVERY one of them —
+ * the conversions, the shifts and rotates, MIN/MAX/LIMIT/SEL/MUX, ABS, TRUNC, EXPT, SQRT, SIZEOF, nested and
+ * parenthesised — and folds them to exactly what the same expression computes at RUN TIME. `ANY_TO_DINT(16#80000000)`
+ * is -2147483648, `INT_TO_BYTE(300)` is 44, `REAL_TO_DINT(3.0E9)` is -1294967296, `REAL_TO_INT(2.5)` is 3.
+ *
+ * So the value is not folded a second way here: the expression is LOWERED, and `ir/evaluate.ts` answers it with
+ * the same three switches the interpreter runs. A tree that needs storage — a name, a call to a user FUNCTION, a
+ * dereference — is not constant and is rejected there rather than guessed at.
+ *
+ * WHAT STAYS REFUSED, AND IS NOT A CONSTANT AT ALL. Two more probes show CODESYS's initializers are an
+ * initialisation SEQUENCE rather than a fold: `other : INT := -7; i : INT := ABS(other);` gives i = 7, the same
+ * pair written the other way round gives 0, and a user FUNCTION reading a global returns 42 for a global that
+ * starts at 41 — so they run in DECLARATION ORDER, after the globals, with arbitrary code. Modelling that is a
+ * different change; this one takes the half that really is constant.
+ */
+function foldedCall(lw: Lowering, e: Expr, type: Type): IrValue | undefined {
+  if (!holdsCall(e)) return undefined
+  const lowered = lw.quietly(() => lowerExpr(lw, e, type))
+  return lowered === undefined ? undefined : (constantValue(lowered) as IrValue | undefined)
+}
+
+/** Only try the lowering path for an expression that actually HOLDS a call — everything else `constEval` covers. */
+function holdsCall(e: Expr): boolean {
+  switch (e.kind) {
+    case "call":
+      return true
+    case "paren":
+      return holdsCall(e.inner)
+    case "unary":
+      return holdsCall(e.operand)
+    case "binary":
+      return holdsCall(e.left) || holdsCall(e.right)
+    default:
+      return false
+  }
+}
+
 function scalarInit(lw: Lowering, e: Expr, type: Type): IrValue | undefined {
   const temporal = e.kind === "literal" ? (durationOf(e) ?? calendarOf(e) ?? typedRealOf(e)) : undefined
   // same rule as `lowerExpr`: a temporal literal that did not convert is reported, not passed to the string path
@@ -330,7 +378,7 @@ function scalarInit(lw: Lowering, e: Expr, type: Type): IrValue | undefined {
     return lw.bail("bad-literal", `${e.literalKind} literal outside the representable range: ${e.text}`, e.span)
   const text = e.kind === "literal" && typeof e.value === "string" ? stringLiteralText(lw, e) : undefined
   if (text === null) return undefined
-  const folded = temporal?.value ?? text ?? foldConstant(lw, e)
+  const folded = temporal?.value ?? text ?? foldConstant(lw, e) ?? foldedCall(lw, e, type)
   if (folded === undefined) return lw.bail("init-not-constant", "an initial value that is not a compile-time constant", e.span)
   // The DECLARATION half of the same rule the assignment path states: a STRING does not implicitly become a number.
   // `cc_init_string_into_int` is `i : INT := '''abc'''`, which CODESYS rejects, and which reached the emitter as a
