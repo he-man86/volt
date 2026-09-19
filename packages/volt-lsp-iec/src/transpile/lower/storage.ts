@@ -170,7 +170,16 @@ export function tempResets(lw: Lowering, sections: readonly VarSection[], span: 
   return resets
 }
 
-export function declareVars(lw: Lowering, sections: readonly VarSection[]): void {
+/**
+ * `deferInit`: an initializer that is not a constant becomes an INIT-STEP statement instead of a refusal.
+ *
+ * Only the POU'S OWN FRAME asks for it, because only the POU's own init step can run one. This function is also
+ * how a LAYOUT's fields and a ROUTINE's locals are declared, and neither has an init step of its own: an FB
+ * instance's field initializer runs per instance, which is the same machinery the FB_Init calls use and a larger
+ * change than this. Defaulting to `false` is what keeps those refusing rather than silently taking the default —
+ * which is the bug the refusal was added for.
+ */
+export function declareVars(lw: Lowering, sections: readonly VarSection[], deferInit = false): void {
   // a VAR_EXTERNAL declares no storage: its name is the global's (`globalPlace`) — a slot here would be a local copy
   for (const sec of sections.filter((s) => s.sectionKind !== "VAR_EXTERNAL"))
     for (const written of sec.decls) {
@@ -185,7 +194,7 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[]): void
       // folding a VALUE of the same enum, which is a constant its declaration states.
       const enumStart =
         decl.init === undefined ? (enumDefault(lw, lw.resolve(written.type)) ?? inlineEnumDefault(lw, written.type)) : undefined
-      const init =
+      const attempt = (): IrInit | undefined =>
         decl.init === undefined
           ? enumStart === undefined
             ? undefined
@@ -193,7 +202,17 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[]): void
           : decl.init.kind === "aggregate_init"
             ? aggregateInit(lw, decl.init, type)
             : scalarInit(lw, decl.init, type)
-      if (decl.init !== undefined && init === undefined) continue
+      // AN INITIAL VALUE THAT IS NOT CONSTANT IS NOT A REFUSAL — it is the INIT STEP's. The slot takes its default
+      // and the expression is queued in declaration order (`Lowering.pendingInits`), which is what `ADR(x)`, `THIS`
+      // and a call to a user FUNCTION are. So the attempt to make it a constant VALUE is made quietly: its refusal
+      // is a question here, not an answer, and the init step reports whatever it cannot lower in its own words.
+      //
+      // A GLOBAL or a ROUTINE's local is not deferred: the init step walks the POU's frame, and whether either
+      // would run there is not measured.
+      const deferrable = deferInit && decl.init !== undefined && runnableInit(decl.init) && !lw.globalMode && !lw.routineMode
+      const init = deferrable ? lw.quietly(attempt) : attempt()
+      const deferred = deferrable && init === undefined
+      if (!deferred && decl.init !== undefined && init === undefined) continue
       for (const name of decl.names) {
         // A NAME DECLARED TWICE IS INVALID INPUT, and must end in a diagnostic here rather than a throw later.
         // CODESYS rejects it outright — "A local variable named 'iCounter' is already defined", "Duplicate definition
@@ -202,9 +221,12 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[]): void
         // emitted surface became a contract, threw. Neither is this component's rule: invalid input ends in a
         // LowerDiagnostic. An INHERITED name is the same fact one scope up, which is why the check reads the frame
         // rather than the section.
-        if (lw.declared(name.text))
-          lw.bail("var-duplicate", `${name.text} is declared more than once`, decl.span)
-        else lw.slot(name, type, sec.sectionKind, init)
+        if (lw.declared(name.text)) lw.bail("var-duplicate", `${name.text} is declared more than once`, decl.span)
+        else {
+          const slot = lw.frame.length
+          lw.slot(name, type, sec.sectionKind, deferred ? undefined : init)
+          if (deferred) lw.pendingInits.push({ name, type, expr: decl.init as Expr, span: decl.span, slot })
+        }
       }
     }
 }
@@ -353,6 +375,17 @@ function foldedCall(lw: Lowering, e: Expr, type: Type): IrValue | undefined {
   if (!holdsCall(e)) return undefined
   const lowered = lw.quietly(() => lowerExpr(lw, e, type))
   return lowered === undefined ? undefined : (constantValue(lowered) as IrValue | undefined)
+}
+
+/**
+ * An initializer the INIT STEP can run — an ordinary expression, not an aggregate.
+ *
+ * An aggregate (`(a := 1, b := 2)`, `[1, 2, 3]`) is a structured initial VALUE, applied where the slot is declared;
+ * it has its own path and its own refusals. Everything else is an expression, and `scalarInit` has already tried
+ * to fold it — so reaching here means it needs the frame, which is exactly what the init step has.
+ */
+function runnableInit(init: Initializer): init is Expr {
+  return init.kind !== "aggregate_init"
 }
 
 /** Only try the lowering path for an expression that actually HOLDS a call — everything else `constEval` covers. */

@@ -2,7 +2,7 @@
  * The state one POU's lowering shares — the frame being built, the layouts, bodies and routines its calls reach, the
  * globals — and the primitives every construct uses: report (`bail`), declare a slot, make a temp, resolve a type.
  */
-import type { Identifier, Span, TopLevel, TypeExpr, VarSection } from "../../syntax/index.js"
+import type { Expr, Identifier, Span, TopLevel, TypeExpr, VarSection } from "../../syntax/index.js"
 import type { Scope } from "../../symbols/index.js"
 import { elementaryRef, resolveTypeExpr, type Type } from "../../types/index.js"
 import {
@@ -13,6 +13,7 @@ import {
   type IrLayout,
   type IrRoutine,
   type IrSlot,
+  type IrStmt,
   type IrValue,
   type LowerDiagnostic,
   type Place,
@@ -245,6 +246,25 @@ export class Lowering {
    * Any slot or temp the attempt declared STAYS declared — this rolls back what was SAID, not what was built —
    * which is why it is only for an expression that either folds to a value or is discarded whole.
    */
+  /**
+   * A declaration whose initial value is NOT a constant — the slot takes its default and this runs in the init step.
+   *
+   * A CODESYS initializer is an initialisation SEQUENCE, measured on SP21 (`declarations/init-sequence.ts`): it runs
+   * ONCE before the first scan, after the globals, in strict DECLARATION ORDER, and the expression may be anything —
+   * `ADR(x)`, `THIS`, a struct member, a global, a call to a user FUNCTION. Declaration order is not decoration:
+   * `other : INT := -7; i : INT := ABS(other);` gives 7 and the same pair written the other way round gives 0,
+   * because `other` is still at its default when the earlier initializer reads it. Keeping these in the order they
+   * were declared is what reproduces that, so nothing else has to.
+   *
+   * The EXPRESSION is kept, not a lowered value: it is lowered once every slot exists, so an initializer may name a
+   * variable declared after it — which `ADR(x)` does 180 times in the corpus.
+   */
+  readonly pendingInits: { name: Identifier; type: Type; expr: Expr; span: Span; slot: number }[] = []
+
+  /** `pendingInits` lowered — built BEFORE the body, so a pointer the init step fills is known to be filled when
+   *  the body dereferences it (`shared.pointers`), and consumed by the init step at the end. */
+  declaredInits: IrStmt[] = []
+
   quietly<T>(attempt: () => T): T {
     const mark = this.diagnostics.length
     const result = attempt()

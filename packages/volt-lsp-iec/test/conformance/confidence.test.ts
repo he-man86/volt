@@ -90,7 +90,11 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   //   `cfold_sizeof_var`  SIZEOF of a variable declared LATER — constant to the vendor, and our fold needs the slot
   // The first four are one finding: a CODESYS initializer is an initialisation SEQUENCE, not a fold. Modelling
   // that is the next increment, and these are its acceptance tests.
-  "not-lowered": 80,
+  // 80 -> 88. `declarations/init-sequence.ts` asked 16 more cells about the initialisation SEQUENCE, and the eight
+  // that stay here are the ones an FB INSTANCE'S fields raise: an instance's initializers run per instance, which
+  // is the FB_Init machinery rather than the POU's init step, so `declareVars` only defers for the POU's own frame.
+  // Deferring in a layout would take the DEFAULT silently, which is the bug the refusal was added for.
+  "not-lowered": 88,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

@@ -6,12 +6,12 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1864
+ *   confirmed    1871
  *   refused       509
- *   not-lowered    80
+ *   not-lowered    88
  *   lsp-gap         2
  *   diverges        3
- *   unaskable      32
+ *   unaskable      33
  */
 import type { LanguageTest } from "../types.js"
 
@@ -1279,6 +1279,22 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   init_slot_reserved_device_object: "confirmed",
   init_slot_user_early: "confirmed",
   init_struct_by_field: "confirmed",
+  initprg_adr_of_earlier: "confirmed",
+  initprg_adr_of_later: "confirmed",
+  initprg_reads_earlier: "confirmed",
+  initprg_reads_later: "unaskable",
+  initprg_runs_once: "confirmed",
+  initprg_user_function: "confirmed",
+  initseq_adr_of_earlier: "not-lowered",
+  initseq_adr_of_later: "not-lowered",
+  initseq_after_fb_init: "not-lowered",
+  initseq_fb_init_declared_last: "not-lowered",
+  initseq_global_list: "confirmed",
+  initseq_member_of_struct: "not-lowered",
+  initseq_reads_global: "not-lowered",
+  initseq_runs_once_or_every_scan: "not-lowered",
+  initseq_struct_type: "confirmed",
+  initseq_this: "not-lowered",
   inout_const_adr_11: "confirmed",
   inout_const_bound_forms_1: "refused",
   inout_const_expression_2: "refused",

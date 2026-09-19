@@ -1366,11 +1366,27 @@ END_PROGRAM
     expect(open.diagnostics.map((d) => d.code)).toEqual(["root-inout"])
   })
 
-  test("an initializer that does not fold is reported, never silently dropped", () => {
-    // It was dropped: the slot started at its default with no diagnostic — which is how every STRING slot lost its
-    // initial value (constEval folds no strings) while each string case still "lowered".
-    const { diagnostics } = lowerSource(wrap("iCount := 1;", "iCount : INT;\n  other : INT := iCount;"))
-    expect(diagnostics.map((d) => d.code)).toEqual(["init-not-constant"])
+  test("an initializer that does not fold RUNS, in declaration order — and is never silently dropped", () => {
+    // It was dropped once: the slot started at its default with no diagnostic — which is how every STRING slot
+    // lost its initial value (constEval folds no strings) while each string case still "lowered". It was then
+    // REFUSED, which this test asserted.
+    //
+    // Both were wrong about the same thing. A CODESYS initializer is an initialisation SEQUENCE, measured on SP21
+    // (`declarations/init-sequence.ts`): it runs ONCE before the first scan, after the globals, in declaration
+    // order, and may be any expression. So `other : INT := iCount` with `iCount` declared BEFORE it is ordinary —
+    // it reads `iCount`'s default, because the body has not run yet.
+    const ran = lowerSource(wrap("iCount := 1;", "iCount : INT;\n  other : INT := iCount;"))
+    expect(ran.diagnostics).toEqual([])
+    const p = run(ran.pou!)
+    p.scan()
+    expect(p.get("other")).toBe(0n) // the init step read the DEFAULT, not the 1 the body writes
+    expect(p.get("iCount")).toBe(1n)
+
+    // What IS still reported: reading a declaration that comes LATER, whose own initializer has not run.
+    // `i : INT := ABS(other); other : INT := -7;` is 0 on SP21, and a constant initializer is the slot's starting
+    // value here rather than a statement — so this would answer 7. Refused rather than guessed.
+    const later = lowerSource(wrap(";", "i : INT := ABS(other);\n  other : INT := -7;"))
+    expect(later.diagnostics.map((d) => d.code)).toEqual(["init-reads-later"])
   })
 })
 

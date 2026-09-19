@@ -40,6 +40,7 @@ import { buildSymbolTable, lookup, lookupMember, parseLibraryManifest, type Scop
 import { convert, stored, valueAs } from "./convert.js"
 import { foldConstant } from "./constants.js"
 import { lowerPlace } from "./places.js"
+import { lowerStmt } from "./statements.js"
 import { resolveNamedType, type Type, UNKNOWN } from "../../types/index.js"
 import { defaultValueOf, holdsCall, type IrExpr, type IrInit, type IrPou, type IrRoutine, type IrSlot, type IrStmt, type LoweredPou, peelArray, type Place, lowerDiagnostic } from "../ir/index.js"
 import { baseOf, Lowering, newShared, openDims } from "./lowering.js"
@@ -111,7 +112,14 @@ export function lowerUnit(
           ),
         ],
       }
-    declareVars(lowering, unit.varSections)
+    // the POU's own frame is the one place an initializer that is not a constant can become an init-step statement
+    declareVars(lowering, unit.varSections, true)
+    // Lowered HERE, before the body, though they RUN in the init step: `p : POINTER TO INT := ADR(x)` stores an
+    // address, and the body's `p^` is only allowed because that store is known (`shared.pointers`). The statements
+    // are kept for `initStep` to place; only the order they are BUILT in moves.
+    const declared = declaredInitStatements(lowering)
+    if (declared === undefined) return { diagnostics: lowering.diagnostics }
+    lowering.declaredInits = declared
     const parsed = parseActive(unit.body)
     if (!parsed.ok)
       return { diagnostics: [lowerDiagnostic("parse", parsed.firstError ?? "body did not parse", unit.span)] }
@@ -184,6 +192,91 @@ const INIT_ATTRIBUTE = "call_after_global_init_slot"
  * does not reach — an array element, a global, a routine's local — is refused: whether and when it would run is not
  * measured. Neither is the order between instances; the frame's is taken, as no recorded case can tell them apart.
  */
+/**
+ * THE DECLARATIONS WHOSE INITIAL VALUE RUNS — `Lowering.pendingInits`, lowered now that every slot exists, as
+ * assignments in DECLARATION ORDER.
+ *
+ * Measured on SP21 (`declarations/init-sequence.ts`): an initializer runs ONCE before the first scan, after the
+ * globals, in declaration order, and may be any expression. Order is what makes the values right without a rule of
+ * its own — `i : INT := ABS(other)` reads `other`'s DEFAULT when `other` is declared after it (measured 0) and its
+ * initialized value when declared before (measured 7), which is what emitting them in order does.
+ *
+ * REFUSED: an initializer that READS AN FB INSTANCE'S member. A sibling instance's `FB_Init` also runs in this
+ * step, and it runs at ITS OWN declaration's position — `seen : INT := holder.started` is 5 with `holder` declared
+ * first and 0 with it declared last (`initseq_after_fb_init`, `initseq_fb_init_declared_last`). These statements go
+ * in as one block after the FB_Init calls, so only the first of those two would come out right; a construct is
+ * either supported or reported, never half. Interleaving the two by declaration position is what would lift it.
+ */
+function declaredInitStatements(lw: Lowering): IrStmt[] | undefined {
+  const out: IrStmt[] = []
+  for (const pending of lw.pendingInits) {
+    // Built as the ASSIGNMENT it is, through the statement path, so everything an assignment knows applies —
+    // `ADR(x)` into a pointer, `REF=`, a string's capacity. Lowering the value as a bare expression refused
+    // `p : POINTER TO INT := ADR(x)` as `expr-call`, which is the corpus's third-largest blocking shape.
+    const lowered = lowerStmt(lw, {
+      kind: "assign",
+      target: { kind: "ident_expr", name: pending.name.text, span: pending.name.span },
+      value: pending.expr,
+      span: pending.span,
+    })
+    if (lowered === undefined) return undefined
+    const assigned = Array.isArray(lowered) ? lowered : [lowered]
+    // A LATER DECLARATION'S VALUE IS NOT THERE YET, and a constant one is not either. `i : INT := ABS(other);
+    // other : INT := -7;` is 0 on SP21 (`cfold_non_constant_argument`) — the whole sequence runs in declaration
+    // order, so `other` still holds its DEFAULT. Here a constant initializer is the slot's starting value rather
+    // than a statement, so an earlier initializer would read -7 and answer 7. Refused until the constants are
+    // sequenced too, which is the same change that would interleave the FB_Init calls.
+    const values = assigned.flatMap((a) => (a.kind === "assign" ? [a.value] : []))
+    const later = values.reduce<string | undefined>((f, v) => f ?? readsSlot(lw, v, (slot) => slot >= pending.slot), undefined)
+    if (later !== undefined)
+      return lw.bail(
+        "init-reads-later",
+        `${pending.name.text}'s initial value reads ${later}, which is declared after it and has not been initialized yet`,
+        pending.span,
+      )
+    const instance = values.reduce<string | undefined>(
+      (f, v) => f ?? readsSlot(lw, v, (slot) => lw.frame[slot]?.type.kind === "function_block", true),
+      undefined,
+    )
+    if (instance !== undefined)
+      return lw.bail(
+        "init-reads-instance",
+        `${pending.name.text}'s initial value reads ${instance}, an instance whose own FB_Init runs at its declaration's position`,
+        pending.span,
+      )
+    out.push(...assigned)
+  }
+  return out
+}
+
+/**
+ * The name of the first slot this expression LOADS that `matches` — or undefined. `intoMember` asks only about a
+ * load that reaches INSIDE the slot (`holder.started`), which is what distinguishes reading an instance's field
+ * from holding the instance itself.
+ *
+ * `ADR(x)` is deliberately not a load of `x`: it takes an ADDRESS, which is the same whenever it is taken, and the
+ * corpus writes it 180 times.
+ */
+function readsSlot(lw: Lowering, e: IrExpr, matches: (slot: number) => boolean, intoMember = false): string | undefined {
+  switch (e.kind) {
+    case "load": {
+      const inside = e.place.path !== undefined && e.place.path.length > 0
+      if (intoMember && !inside) return undefined
+      return matches(e.place.slot) ? (lw.frame[e.place.slot]?.name ?? "a later declaration") : undefined
+    }
+    case "convert":
+      return readsSlot(lw, e.value, matches, intoMember)
+    case "unary":
+      return readsSlot(lw, e.operand, matches, intoMember)
+    case "binary":
+      return readsSlot(lw, e.left, matches, intoMember) ?? readsSlot(lw, e.right, matches, intoMember)
+    case "builtin":
+      return e.args.reduce<string | undefined>((found, a) => found ?? readsSlot(lw, a, matches, intoMember), undefined)
+    default:
+      return undefined
+  }
+}
+
 function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   type Fb = Extract<Type, { kind: "function_block" }>
   const initMethod = (fb: Fb) => {
@@ -451,7 +544,7 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   // a global an FB_Init argument reads while an FB_Init of this init step writes globals: which value arrives is not recorded
   if (globalArguments.size > 0 && writesGlobal(fbInitCalls))
     return lw.bail("fb-init-argument", "an FB_Init argument reads a global while an FB_Init writes globals — which value arrives is not recorded", span)
-  return [...out, ...fbInitCalls, ...reapplied, ...slotCalls]
+  return [...out, ...fbInitCalls, ...reapplied, ...lw.declaredInits, ...slotCalls]
 }
 
 /**
