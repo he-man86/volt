@@ -1,7 +1,7 @@
 /**
  * WHEN DOES AN INFINITE REAL STOP THE TASK? — separating two explanations that fit the same four measurements.
  *
- * `interp/values.ts` says an infinity stops the scan and a NaN does not, from these:
+ * `ir/values.ts` says an infinity stops the scan and a NaN does not, from these:
  *
  *     SQRT(-1) -> REAL#NaN, completes        LN(-1) -> REAL#NaN, completes
  *     LN(0)    -> never completes            1.0/0  -> never completes

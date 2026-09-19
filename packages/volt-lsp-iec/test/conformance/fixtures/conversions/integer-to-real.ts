@@ -11,7 +11,7 @@
  * default and "the compiler emits a hardware convert" is a guess, not a measurement — `loss_dint_to_real` is the one
  * fixture that ever touched this and it checks a WARNING, not a value.
  *
- * WHICH WAY A CONVERSION ROUNDS is stated in `interp/values.ts` as "half away from zero", sourced from
+ * WHICH WAY A CONVERSION ROUNDS is stated in `ir/values.ts` as "half away from zero", sourced from
  * `REAL_TO_TIME(2.5) = 3ms`. One value, one direction, one function — and the alternative that fits it equally well
  * is banker's rounding, which differs at 0.5 and 2.5 and agrees at 1.5. So: 0.5, 1.5, 2.5, 3.5 and their negatives,
  * through both `<REAL>_TO_INT` and `TRUNC`, which should NOT agree — truncation is toward zero by definition, and if

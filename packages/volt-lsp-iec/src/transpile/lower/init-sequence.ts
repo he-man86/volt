@@ -16,7 +16,8 @@
  * Built EARLY — while the layout is, before any body lowers — because a body may dereference a pointer this step
  * fills, and `pointer-order` only allows that once the store is known (`shared.pointers`).
  */
-import type { IrExpr, IrStmt } from "../ir/index.js"
+import { peelArray, type IrExpr, type IrInvoke, type IrStmt, type Place } from "../ir/index.js"
+import type { Type } from "../../types/index.js"
 import type { Lowering } from "./lowering.js"
 import { lowerStmt } from "./statements.js"
 
@@ -46,7 +47,7 @@ export function buildInitSequence(lw: Lowering): IrStmt[] | undefined {
     // order, so `i : INT := ABS(other); other : INT := -7;` is 0 on SP21 (`cfold_non_constant_argument`). Here a
     // constant initializer is the slot's STARTING VALUE rather than a statement, so an earlier initializer would
     // read -7 and answer 7. Refused until the constants are sequenced too.
-    const later = values.reduce<string | undefined>((f, v) => f ?? readsSlot(lw, v, (slot) => slot >= pending.slot), undefined)
+    const later = values.reduce<string | undefined>((f, v) => f ?? reads(lw, v, laterThan(lw, pending.slot)), undefined)
     if (later !== undefined)
       return lw.bail(
         "init-reads-later",
@@ -58,10 +59,7 @@ export function buildInitSequence(lw: Lowering): IrStmt[] | undefined {
     // is 5 with `holder` declared first and 0 with it declared last (`initseq_after_fb_init`,
     // `initseq_fb_init_declared_last`). These statements go in as one block relative to the FB_Init calls, so only
     // the first of those two would come out right. Interleaving the two by declaration position is what lifts it.
-    const instance = values.reduce<string | undefined>(
-      (f, v) => f ?? readsSlot(lw, v, (slot) => lw.frame[slot]?.type.kind === "function_block", true),
-      undefined,
-    )
+    const instance = values.reduce<string | undefined>((f, v) => f ?? reads(lw, v, insideInstance(lw)), undefined)
     if (instance !== undefined)
       return lw.bail(
         "init-reads-instance",
@@ -75,31 +73,97 @@ export function buildInitSequence(lw: Lowering): IrStmt[] | undefined {
 }
 
 /**
- * The name of the first slot of THIS FRAME the expression loads that `matches` — or undefined. A place with a
- * `root` is somebody else's storage (a global, an in-out, a routine's local) and is not this frame's slot at all,
- * which is what made a `VAR_EXTERNAL` read look like a later declaration.
+ * The first place the expression READS for which `onPlace` gives a name — or undefined. Every expression that can
+ * hold a read is walked: a call's inputs, its in-out bindings and the instance it runs on, and the index
+ * expressions inside a place (`arr[k]` reads `k` too). Each of those was a hole, and each let a guard through.
  *
- * `intoMember` asks only about a load that reaches INSIDE the slot (`holder.started`), which is what separates
- * reading an instance's field from holding the instance itself. And `ADR(x)` is deliberately not a load of `x`: it
- * takes an ADDRESS, which is the same whenever it is taken.
+ * `ADR(x)` is deliberately NOT a read of `x`: it takes an ADDRESS, which is the same whenever it is taken, and the
+ * corpus writes it 180 times.
  */
-function readsSlot(lw: Lowering, e: IrExpr, matches: (slot: number) => boolean, intoMember = false): string | undefined {
+function reads(lw: Lowering, e: IrExpr, onPlace: (place: Place) => string | undefined): string | undefined {
+  const walk = (x: IrExpr): string | undefined => reads(lw, x, onPlace)
+  const first = (xs: readonly IrExpr[]): string | undefined => xs.reduce<string | undefined>((f, x) => f ?? walk(x), undefined)
   switch (e.kind) {
-    case "load": {
-      if (e.place.root !== undefined) return undefined
-      const inside = e.place.path.length > 0
-      if (intoMember && !inside) return undefined
-      return matches(e.place.slot) ? (lw.frame[e.place.slot]?.name ?? "a later declaration") : undefined
-    }
+    case "load":
+      return readsPlace(lw, e.place, onPlace)
     case "convert":
-      return readsSlot(lw, e.value, matches, intoMember)
+      return walk(e.value)
     case "unary":
-      return readsSlot(lw, e.operand, matches, intoMember)
+      return walk(e.operand)
     case "binary":
-      return readsSlot(lw, e.left, matches, intoMember) ?? readsSlot(lw, e.right, matches, intoMember)
+      return walk(e.left) ?? walk(e.right)
     case "builtin":
-      return e.args.reduce<string | undefined>((found, a) => found ?? readsSlot(lw, a, matches, intoMember), undefined)
+      return first(e.args)
+    case "invoke":
+      return readsInvoke(lw, e, onPlace)
+    case "dispatch":
+      return walk(e.tag) ?? e.arms.reduce<string | undefined>((f, a) => f ?? readsInvoke(lw, a.call, onPlace), undefined)
     default:
       return undefined
   }
 }
+
+/** Everything a call reads: its inputs, its in-out bindings (a place, or a copy of an expression) and its instance. */
+function readsInvoke(lw: Lowering, e: IrInvoke, onPlace: (place: Place) => string | undefined): string | undefined {
+  const inputs = e.inputs.reduce<string | undefined>((f, x) => f ?? reads(lw, x, onPlace), undefined)
+  if (inputs !== undefined) return inputs
+  const bound = e.inouts.reduce<string | undefined>(
+    (f, io) => f ?? ("kind" in io && io.kind === "copy" ? reads(lw, io.value, onPlace) : readsPlace(lw, io as Place, onPlace)),
+    undefined,
+  )
+  if (bound !== undefined) return bound
+  return e.instance === undefined ? undefined : readsPlace(lw, e.instance, onPlace)
+}
+
+function readsPlace(lw: Lowering, place: Place, onPlace: (place: Place) => string | undefined): string | undefined {
+  for (const access of place.path)
+    if (access.kind === "index") {
+      const inside = reads(lw, access.index, onPlace)
+      if (inside !== undefined) return inside
+    }
+  if (place.guard !== undefined) {
+    const through = readsPlace(lw, place.guard, onPlace)
+    if (through !== undefined) return through
+  }
+  return onPlace(place)
+}
+
+/**
+ * A place that is THIS FRAME's slot at index `slot` or later. A place with a `root` is somebody else's storage — a
+ * global, an in-out, a routine's local — and is not this frame's slot at all, which is what made a `VAR_EXTERNAL`
+ * read look like a later declaration.
+ */
+const laterThan =
+  (lw: Lowering, slot: number) =>
+  (place: Place): string | undefined =>
+    place.root === undefined && place.slot >= slot ? (lw.frame[place.slot]?.name ?? "a later declaration") : undefined
+
+/**
+ * A place that reads INSIDE a function block instance — at any depth, not only one held directly in the frame.
+ * `holder : T_H; seen : INT := holder.inner.started` reaches an FB through a STRUCT field and slipped past a check
+ * that only looked at the root slot's kind.
+ */
+const insideInstance =
+  (lw: Lowering) =>
+  (place: Place): string | undefined => {
+    if (place.root !== undefined) return undefined
+    const slot = lw.frame[place.slot]
+    if (slot === undefined) return undefined
+    let type: Type | undefined = slot.type
+    let name = slot.name
+    for (const access of place.path) {
+      if (type === undefined) return undefined
+      if (type.kind === "function_block") return name
+      if (access.kind === "index") {
+        type = peelArray(type)?.element
+        continue
+      }
+      // a BIT access reaches into an integer, never into an instance
+      if (access.kind !== "field" || type.kind !== "struct") return undefined
+      type = (lw.layouts.get(type.name.toUpperCase())?.fields ?? []).find(
+        (f) => f.name.toUpperCase() === access.name.toUpperCase(),
+      )?.type
+      name = `${name}.${access.name}`
+    }
+    return undefined
+  }

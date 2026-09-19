@@ -1076,7 +1076,7 @@ export function emitRust(pou: IrPou): Emitted {
   // The emitted twin of `arith`'s zero-divisor check. Gated on its OWN use, not on `iec_deref`'s — a program can
   // divide by zero without ever dereferencing a pointer, and attaching it to the wrong condition left the helper
   // undefined in every program that does.
-  // The two halves of the measured REAL -> INTEGER table. See `coerce` in `interp/values.ts`.
+  // The two halves of the measured REAL -> INTEGER table. See `coerce` in `ir/values.ts`.
   if (p.code.includes("iec_r2i64(")) {
     p.push("", 0)
     p.push("fn iec_r2i64(v: f64) -> i64 {", 0)

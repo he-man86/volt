@@ -4,7 +4,7 @@
  * Neither had ever been asked per type. `AND`, `OR` and `XOR` appear in fixtures as BOOL logic and in a handful of
  * bit-string cases; `SHL`, `SHR`, `ROL` and `ROR` appear at all only in passing. The interesting cells are:
  *
- *   THE SAME OPERATOR ON A BOOL AND ON AN INTEGER. `logic` in `interp/values.ts` branches on the operand type —
+ *   THE SAME OPERATOR ON A BOOL AND ON AN INTEGER. `logic` in `ir/values.ts` branches on the operand type —
  *   boolean on BOOLs, bitwise on integers — which is right for IEC and worth having recorded per type rather than
  *   per branch.
  *

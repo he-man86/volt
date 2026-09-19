@@ -183,28 +183,18 @@ function addressSharedByInstances(lw: Lowering, slots: readonly { type: Type }[]
 
 const INIT_ATTRIBUTE = "call_after_global_init_slot"
 
-/**
- * The init step: each instance's `call_after_global_init_slot` METHOD, run once before the first scan (conformance
- * `state_call_after_global_init_counts` — once per instance, however many scans follow). Instances are found through the
- * frame, nested instances and struct fields included, and the method is resolved by the instance's own type. One the walk
- * does not reach — an array element, a global, a routine's local — is refused: whether and when it would run is not
- * measured. Neither is the order between instances; the frame's is taken, as no recorded case can tell them apart.
- */
-/**
- * THE DECLARATIONS WHOSE INITIAL VALUE RUNS — `Lowering.pendingInits`, lowered now that every slot exists, as
- * assignments in DECLARATION ORDER.
- *
- * Measured on SP21 (`declarations/init-sequence.ts`): an initializer runs ONCE before the first scan, after the
- * globals, in declaration order, and may be any expression. Order is what makes the values right without a rule of
- * its own — `i : INT := ABS(other)` reads `other`'s DEFAULT when `other` is declared after it (measured 0) and its
- * initialized value when declared before (measured 7), which is what emitting them in order does.
- *
- * REFUSED: an initializer that READS AN FB INSTANCE'S member. A sibling instance's `FB_Init` also runs in this
- * step, and it runs at ITS OWN declaration's position — `seen : INT := holder.started` is 5 with `holder` declared
- * first and 0 with it declared last (`initseq_after_fb_init`, `initseq_fb_init_declared_last`). These statements go
- * in as one block after the FB_Init calls, so only the first of those two would come out right; a construct is
- * either supported or reported, never half. Interleaving the two by declaration position is what would lift it.
- */
+/** An FB's EXTENDS chain, BASE FIRST — the order its fields are laid out in, and its FB_Inits run in. */
+function extendsChain(lw: Lowering, fb: string): string[] {
+  const chain: string[] = []
+  for (let name: string | undefined = fb; name !== undefined; ) {
+    if (chain.includes(name)) break // a cycle is somebody else's diagnostic; not looping here is this one's job
+    chain.unshift(name)
+    const unit: TopLevel | undefined = lw.bodies.get(name.toUpperCase())?.unit
+    name = unit !== undefined && unit.kind === "function_block" ? unit.extends?.text : undefined
+  }
+  return chain
+}
+
 /**
  * The implicit routine that runs ONE FB type's non-constant field initializers on an instance — its key, or
  * `undefined` when the type has none, or `null` when one of them cannot lower.
@@ -212,8 +202,9 @@ const INIT_ATTRIBUTE = "call_after_global_init_slot"
  * Built once per type and cached in `lw.routines` beside the real METHODs, because that is exactly what it is: a
  * body that runs on an instance. `IrInvoke` binds the instance, so nothing has to rewrite places per instance.
  */
-function instanceInitRoutine(lw: Lowering, fb: string, nested: Lowering, span: Span): string | undefined | null {
-  if (nested.pendingInits.length === 0) return undefined
+function instanceInitRoutine(lw: Lowering, fb: string, span: Span): string | undefined | null {
+  const nested = lw.bodies.get(fb.toUpperCase())?.lowering
+  if (nested === undefined || nested.pendingInits.length === 0) return undefined
   const key = `${fb.toUpperCase()}.__INIT`
   const cached = lw.routines.get(key)
   if (cached?.state === "failed") return null
@@ -234,6 +225,13 @@ function instanceInitRoutine(lw: Lowering, fb: string, nested: Lowering, span: S
   return key
 }
 
+/**
+ * The init step: each instance's `call_after_global_init_slot` METHOD, run once before the first scan (conformance
+ * `state_call_after_global_init_counts` — once per instance, however many scans follow). Instances are found through the
+ * frame, nested instances and struct fields included, and the method is resolved by the instance's own type. One the walk
+ * does not reach — an array element, a global, a routine's local — is refused: whether and when it would run is not
+ * measured. Neither is the order between instances; the frame's is taken, as no recorded case can tell them apart.
+ */
 function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   type Fb = Extract<Type, { kind: "function_block" }>
   const initMethod = (fb: Fb) => {
@@ -356,8 +354,10 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
       (initMethod(t) !== undefined ||
         pathFields(t).length > 0 ||
         fbInits(t).length > 0 ||
-        // a field whose initial value RUNS — the walk has to reach the instance to run it there
-        (lw.bodies.get(t.name.toUpperCase())?.lowering.pendingInits.length ?? 0) > 0)
+        // A field whose initial value RUNS — the walk has to reach the instance to run it there. The whole EXTENDS
+        // chain, for the same reason the invoke below walks it: a DERIVED FB whose own fields all fold still has to
+        // be reached, or its base's initializers never run on it and the field silently keeps its default.
+        extendsChain(lw, t.name).some((name) => (lw.bodies.get(name.toUpperCase())?.lowering.pendingInits.length ?? 0) > 0))
     const result = own || (lw.layouts.get(key)?.fields ?? []).some((f) => reaches(f.type))
     known.set(key, result)
     return result
@@ -476,14 +476,27 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     // THE INSTANCE'S OWN FIELD INITIALIZERS, run HERE rather than baked into the layout — measured per instance and
     // in declaration order (`declarations/init-sequence.ts`). Lowered once per FB TYPE into an implicit routine,
     // because a routine is already the thing that runs a body on an instance; `invoke` binds this one.
-    const initRoutine = instanceInitRoutine(lw, t.name, nested, span)
-    if (initRoutine === null) return false
-    if (initRoutine !== undefined)
-      mine.push({
-        kind: "eval",
-        value: { kind: "invoke", routine: initRoutine, instance: place, inputs: [], inouts: [], type: UNKNOWN, span },
-        span,
-      })
+    //
+    // FUNCTION BLOCKS ONLY, and the whole EXTENDS chain, BASE FIRST. Both halves were wrong and both were silent:
+    //   - a STRUCT has no entry in `lw.bodies`, so a `?? declaring` fallback handed this the DECLARING POU's
+    //     lowering and built `STRUCT.__INIT` out of the POU's own pending inits, whose slot indices index the POU's
+    //     frame. It wrote into an unrelated struct field, ran the statement twice, and where the index was out of
+    //     range it threw out of the interpreter;
+    //   - a DERIVED FB got only its own, so a base's `p : POINTER TO INT := ADR(m)` left `d.p` at 0 with no
+    //     diagnostic — the exact "silently started at its default" failure `init-not-constant` exists to prevent.
+    // The base's statements are valid on a derived instance because `inherit` pushes the base's fields FIRST, at the
+    // same indices they have in the base's own frame.
+    if (t.kind === "function_block")
+      for (const type of extendsChain(lw, t.name)) {
+        const routine = instanceInitRoutine(lw, type, span)
+        if (routine === null) return false
+        if (routine !== undefined)
+          mine.push({
+            kind: "eval",
+            value: { kind: "invoke", routine, instance: place, inputs: [], inouts: [], type: UNKNOWN, span },
+            span,
+          })
+      }
     const layoutFields = (lw.layouts.get(t.name.toUpperCase())?.fields ?? []) as IrSlot[]
     // every instance of the layout sees its initializers as declared: the first one's clearInit emptied them for the next,
     // which then started from 0 where the 9 is re-applied (review of the fixture batch)

@@ -351,14 +351,6 @@ function bindAddress(lw: Lowering, decl: VarDecl): boolean {
 }
 
 /**
- * A scalar initial value, folded and stored at the slot's type — undefined, reported, when it does not fold.
- * The folded value takes the SLOT's type: `x : REAL := 7 / 2` folds to the integer 3 and is stored as REAL 3 (left as-is,
- * a REAL slot started life holding a bigint). `constEval` folds only numbers and booleans — a duration or date literal
- * came back undefined, so every `t : TIME := T#1S` slot silently started at 0: they fold here, in their type's unit. Nor
- * does it fold strings: every `s : STRING := 'abc'` started empty (conformance `string_*`). An initializer that does not
- * fold is REPORTED — it used to be dropped, so the slot silently started at its default.
- */
-/**
  * AN INITIAL VALUE THAT IS A CALL — the shape the corpus writes 1084 times and the highest-reach refusal there was.
  *
  * `constEval` folds a literal, a name, an enum member, a unary and a binary, and returns undefined for a CALL. Five
@@ -413,6 +405,14 @@ function holdsCall(e: Expr): boolean {
   }
 }
 
+/**
+ * A scalar initial value, folded and stored at the slot's type — undefined, reported, when it does not fold.
+ * The folded value takes the SLOT's type: `x : REAL := 7 / 2` folds to the integer 3 and is stored as REAL 3 (left as-is,
+ * a REAL slot started life holding a bigint). `constEval` folds only numbers and booleans — a duration or date literal
+ * came back undefined, so every `t : TIME := T#1S` slot silently started at 0: they fold here, in their type's unit. Nor
+ * does it fold strings: every `s : STRING := 'abc'` started empty (conformance `string_*`). An initializer that does not
+ * fold is REPORTED — it used to be dropped, so the slot silently started at its default.
+ */
 function scalarInit(lw: Lowering, e: Expr, type: Type): IrValue | undefined {
   const temporal = e.kind === "literal" ? (durationOf(e) ?? calendarOf(e) ?? typedRealOf(e)) : undefined
   // same rule as `lowerExpr`: a temporal literal that did not convert is reported, not passed to the string path

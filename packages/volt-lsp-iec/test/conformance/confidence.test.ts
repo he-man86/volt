@@ -40,7 +40,7 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // at or above 0x80 answers 2, and no reading that gives 3 there leaves `$81` at 2. Deferred rather than fitted.
   // 5 -> 3. `$80` is RESOLVED too, by widening the probe: `$hh` is a WINDOWS-1252 byte, not the code point U+00XX,
   // and sixteen cells across 0x80..0x9F follow that codepage exactly. What is left is one family — CODESYS's trig
-  // is the x87 FPU, whose 66-bit argument reduction and few-ULP kernel are named at `interp/values.ts` and
+  // is the x87 FPU, whose 66-bit argument reduction and few-ULP kernel are named at `ir/values.ts` and
   // deliberately not emulated.
   diverges: 3,
   // 18 -> 34 because the MEASUREMENT changed, not because gaps appeared. `refused` claimed the vendor rejects a

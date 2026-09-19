@@ -167,7 +167,7 @@ function ideValue(raw: string, enums: ReadonlyMap<string, bigint> = new Map()): 
   if (notANumber !== null) return Number.NaN
   // `REAL#Infinity` and `REAL#-Infinity`. The comment above once said NaN was the only non-numeric REAL spelling in
   // any recording; `bound_real_above_max` and `realovf_multiply_to_infinity` falsified that the day they were
-  // written. An infinity is an ordinary value to this vendor — see `interp/values.ts`.
+  // written. An infinity is an ordinary value to this vendor — see `ir/values.ts`.
   const infinite = /^L?REAL#(-?)Infinity$/.exec(raw)
   if (infinite !== null) return infinite[1] === "-" ? -Infinity : Infinity
   const m = /^([A-Z]+)#(-?[0-9.eE+-]+)$/.exec(raw)

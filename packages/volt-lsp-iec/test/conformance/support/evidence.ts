@@ -143,7 +143,7 @@ export function rateFixture(t: LanguageTest, all: readonly LanguageTest[]): Evid
   // THE VENDOR STOPPING IS AN ANSWER. A recording whose error is not a compile failure is one the IDE built, logged
   // into and ran — and whose scan never completed: `LN(0)`, `1.0 / 0`, an integer divide by zero, a deref of an
   // unbound pointer. Reading that as "never asked" threw away the very measurements the infinity rule in
-  // `interp/values.ts` is built on. The agreement here is inverted: we CONFIRM by faulting too, and DIVERGE by
+  // `ir/values.ts` is built on. The agreement here is inverted: we CONFIRM by faulting too, and DIVERGE by
   // finishing a scan the vendor could not.
   const vendorStops = rec?.error !== undefined
   if (rec?.values === undefined && !vendorStops) return "unasked"

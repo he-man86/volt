@@ -238,15 +238,6 @@ export class Lowering {
   }
 
   /**
-   * Run a lowering that is allowed to FAIL without saying so — used where a refusal is a question, not an answer.
-   * A declaration's initial value asks "is this expression constant?" by lowering it; when it is not, the caller
-   * has its own refusal to report (`init-not-constant`), and the half-dozen diagnostics the attempt produced on
-   * the way are noise about a path nobody took.
-   *
-   * Any slot or temp the attempt declared STAYS declared — this rolls back what was SAID, not what was built —
-   * which is why it is only for an expression that either folds to a value or is discarded whole.
-   */
-  /**
    * A declaration whose initial value is NOT a constant — the slot takes its default and this runs in the init step.
    *
    * A CODESYS initializer is an initialisation SEQUENCE, measured on SP21 (`declarations/init-sequence.ts`): it runs
@@ -266,6 +257,15 @@ export class Lowering {
    *  undefined means the build failed or is in progress. */
   initSequence?: { statements: IrStmt[] | undefined }
 
+  /**
+   * Run a lowering that is allowed to FAIL without saying so — used where a refusal is a question, not an answer.
+   * A declaration's initial value asks "is this expression constant?" by lowering it; when it is not, the caller
+   * has its own refusal to report (`init-not-constant`), and the half-dozen diagnostics the attempt produced on
+   * the way are noise about a path nobody took.
+   *
+   * Any slot or temp the attempt declared STAYS declared — this rolls back what was SAID, not what was built —
+   * which is why it is only for an expression that either folds to a value or is discarded whole.
+   */
   quietly<T>(attempt: () => T): T {
     const mark = this.diagnostics.length
     const result = attempt()

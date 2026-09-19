@@ -2,7 +2,7 @@
  * THE STANDARD STRING FUNCTIONS AT THEIR EDGES — position 0, position past the end, a negative count, an empty
  * string, and a result too long for where it is going.
  *
- * `interp/values.ts` states the rules and sources them from `string_*` and `string_positions_*`: positions are
+ * `ir/values.ts` states the rules and sources them from `string_*` and `string_positions_*`: positions are
  * 1-based, a count clamps to the string, `LEFT('abc', 5)` is 'abc' and `LEFT('abc', -1)` is '', `MID` and `DELETE`
  * select nothing below position 1 or at a length of zero or less, `INSERT` at 0 prepends. That is a real set of
  * measurements — and it is one or two cases per function, chosen by whoever wrote them.

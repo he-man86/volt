@@ -21,9 +21,16 @@ import { arith, bool, coerce, eq, fit, logic, MATH, num, ord, STRING_FUNCTIONS, 
 /** A shift or rotate happens in the NODE's width. Lowering always types these from a promoted operand, so anything
  *  else is a lowering bug — reported as one rather than silently treated as 32 bits. */
 function widthOf(type: Type, op: string): number {
-  if (type.kind !== "elementary") throw new TypeError(`${op.toUpperCase()} on a ${type.kind}, which lowering should have typed`)
+  if (type.kind !== "elementary") throw new LoweringBug(`${op.toUpperCase()} on a ${type.kind}, which lowering should have typed`)
   return type.elem.bits
 }
+
+/**
+ * A throw that means LOWERING IS WRONG, not that the program faulted — kept apart from an ordinary fault because
+ * `constantValue` catches those. Caught there too, it would turn "lowering should have typed this" back into
+ * "not a compile-time constant", which is the silence the throw exists to break.
+ */
+export class LoweringBug extends TypeError {}
 
 /** A builtin over ALREADY-EVALUATED arguments. */
 export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Type): Val {
@@ -153,11 +160,14 @@ export function binaryValue(op: string, l: Val, r: Val, type: Type): Val {
  * constant, and they are REJECTED rather than guessed at.
  *
  * A fold that FAULTS is not a value either — `1 / 0` in an initializer is the vendor's business, not a silent zero.
+ * A `LoweringBug` is neither and is re-thrown: swallowing it would restore the silence it exists to break.
  */
 export function constantValue(e: IrExpr): Val | undefined {
   try {
     return evaluate(e)
-  } catch {
+  } catch (error) {
+    // a FAULT is not a value — `1 / 0` in an initializer is the vendor's business. A LoweringBug is not a fault.
+    if (error instanceof LoweringBug) throw error
     return undefined
   }
 }
