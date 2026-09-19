@@ -391,6 +391,8 @@ export interface Messages {
   /** A token where an expression must start: `Expression expected instead of 'T#1500'` — a TIME literal cut at a `US`
    *  unit (conformance `cc_time_*`). Recorded on CODESYS SP21; unmeasured on TwinCAT. */
   expressionExpectedInsteadOf(token: string): string
+  /** `__NEW` of an FB/struct that lacks `{attribute 'enable_dynamic_creation'}` (CODESYS-measured). */
+  dynamicCreationPragma(): string
   /** `CALC` is the IL conditional call; its second parameter must be a call statement (CODESYS-measured). */
   conditionalCallSecondParameter(): string
   /** The parser wanted an opening parenthesis — `CALC` without one (CODESYS-measured). */
@@ -441,6 +443,9 @@ export function messagesFor(vendor: Vendor): Messages {
     unexpectedToken: (token) => `Unexpected token '${token}' found`,
     semicolonExpectedInsteadOf: (token) => `';' expected instead of '${token}'`,
     expressionExpectedInsteadOf: (token) => `Expression expected instead of '${token}'`,
+    // CODESYS SP21, measured with the pragma as the only variable (`newdel_without_pragma` / `newdel_with_pragma`).
+    dynamicCreationPragma: () =>
+      "A function block or structure needs the pragma '{attribute 'enable_dynamic_creation'}' to be created with __NEW",
     // CODESYS SP21, measured in all five `CALC` shapes (`cc_il_name_calc`, `ilc_calc_*`).
     conditionalCallSecondParameter: () => "Second parameter of conditional call must be a valid call statement",
     parenExpectedInsteadOf: (token) => `'(' expected instead of '${token}'`,

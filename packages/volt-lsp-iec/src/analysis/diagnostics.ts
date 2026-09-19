@@ -70,6 +70,7 @@ import { checkExternalNonInputWrite } from "./checks/oop/external-write.js"
 import { checkInoutExternalAccess } from "./checks/oop/inout-external-access.js"
 import { checkInoutOwnAccess } from "./checks/oop/inout-own-access.js"
 import { checkConditionalCall } from "./checks/names/conditional-call.js"
+import { checkDynamicCreation } from "./checks/declarations/dynamic-creation.js"
 import { checkFbInitInout } from "./checks/oop/fb-init-inout.js"
 import { checkFbInitInstantiation } from "./checks/oop/fb-init-instantiation.js"
 import { checkAbstractAssign } from "./checks/oop/abstract-assign.js"
@@ -188,6 +189,7 @@ const CHECKS: readonly Check[] = [
   checkInoutExternalAccess,
   checkInoutOwnAccess,
   checkConditionalCall,
+  checkDynamicCreation,
   checkFbInitInout,
   checkFbInitInstantiation,
   checkAbstractAssign,

@@ -692,6 +692,12 @@ END_METHOD
 
   {
     name: "op_sys_new_delete",
+    // The BUILD recording here reports "needs the pragma '{attribute 'enable_dynamic_creation'}'" for a source
+    // that HAS that pragma. `newdel_in_method_with_pragma` is the same source recorded through the EXECUTION
+    // oracle and is clean, so the attribute line did not survive whatever wrote this one — a stale or mangled
+    // recording, not a language fact. The `newdel_*` family measures the rule properly; this stays as the
+    // evidence that the two recorders disagree, and is not asked again until the build recorder is re-run.
+    recorderSkip: true,
     pouName: "FB_LANG_op_sys_new_delete",
     kind: "function_block",
     feature: "__NEW / __DELETE — dynamic allocation under `{attribute 'enable_dynamic_creation'}`",

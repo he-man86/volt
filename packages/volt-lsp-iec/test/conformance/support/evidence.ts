@@ -96,6 +96,22 @@ function lspReportsAnError(t: LanguageTest, all: readonly LanguageTest[]): boole
 }
 
 /**
+ * THE RECORDING PROJECT'S OWN SETTINGS, which are not a language answer. `__NEW` needs the APPLICATION to define a
+ * dynamic-memory pool and the exec-oracle project defines none, so every `__NEW` fixture comes back refused for a
+ * reason no LSP can see — the same shape as `tc_nc_axis`, where the project references no motion library. When
+ * that is the WHOLE refusal the fixture is unaskable HERE; when the vendor also said something about the language
+ * (`newdel_without_pragma`), the refusal stands and is checked.
+ *
+ * Closable by configuring the project, not by changing a fixture or a check.
+ */
+const PROJECT_CONFIGURATION: readonly RegExp[] = [/^No memory for dynamic object creation defined for application /]
+
+function onlyProjectConfiguration(error: string): boolean {
+  const lines = error.replace(/^does not compile: /, "").split(" | ")
+  return lines.length > 0 && lines.every((line) => PROJECT_CONFIGURATION.some((p) => p.test(line)))
+}
+
+/**
  * Checks whose SEVERITY the project decides, not the language. C0033 (`dw := ptr`) is configurable in CODESYS: the
  * recording project has it as an error, this LSP ships the vendor's default — a warning — and the MESSAGE is
  * identical either way (`cc5_pointer_not_convertible`). Reading severity alone filed that as a silent gap when the
@@ -117,6 +133,7 @@ export function rateFixture(t: LanguageTest, all: readonly LanguageTest[]): Evid
 
   const rec = runRec[t.name]
   const build = buildRec[t.name]
+  if (rec?.error !== undefined && onlyProjectConfiguration(rec.error)) return "unaskable"
   // A vendor REFUSAL is an answer, and either recording can carry it — but `refused` claims WE refuse it too, so it
   // has to be asked rather than assumed. It was assumed, and that was an overclaim: `cc_reserved_name_s_string`,
   // `cc_il_name_ld` and their neighbours are rejected by CODESYS, carry no `refused` marker for `refused.test.ts` to

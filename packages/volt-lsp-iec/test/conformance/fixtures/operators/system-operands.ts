@@ -82,4 +82,129 @@ const currentTask: LanguageTest[] = [
   ),
 ]
 
-export const SYSTEM_OPERAND_TESTS: readonly LanguageTest[] = [...position, ...currentTask]
+
+
+/**
+ * `__NEW` AND THE `enable_dynamic_creation` PRAGMA — is the recorded refusal the LANGUAGE or the PROJECT?
+ *
+ * `op_sys_new_delete` carries the pragma and CODESYS still answered:
+ *
+ *   No memory for dynamic object creation defined for application 'Device.Application'
+ *   A function block or structure needs the pragma '{attribute 'enable_dynamic_creation'}' to be created with __NEW
+ *   No memory for dynamic object creation defined for application 'Device.Application'
+ *
+ * The first is an APPLICATION SETTING — the recording project defines no dynamic-memory pool — and the second
+ * contradicts the fixture, which has the pragma. One of three things is true and the pair below tells them apart:
+ * the pragma never reaches the compiler (a recorder fault), the pragma is irrelevant while the pool is missing,
+ * or it genuinely must sit somewhere else. The probe holds everything constant but the pragma.
+ */
+const dynamicCreation: LanguageTest[] = [
+  {
+    name: "newdel_without_pragma",
+    pouName: "FB_LANG_newdel_without_pragma",
+    kind: "function_block" as const,
+    feature: "__NEW on an FB that does NOT carry {attribute 'enable_dynamic_creation'}",
+    fromDoc: "03-operators.md",
+    plcPrgVar: "inst : FB_LANG_newdel_without_pragma;",
+    plcPrgBody: "inst();",
+    source: `FUNCTION_BLOCK FB_LANG_newdel_without_pragma
+VAR
+\tpInst : POINTER TO FB_LANG_newdel_without_pragma;
+END_VAR
+pInst := __NEW(FB_LANG_newdel_without_pragma);
+IF pInst <> 0 THEN
+\t__DELETE(pInst);
+END_IF
+END_FUNCTION_BLOCK
+`,
+  },
+  {
+    name: "newdel_with_pragma",
+    pouName: "FB_LANG_newdel_with_pragma",
+    kind: "function_block" as const,
+    feature: "the same __NEW, with the pragma — and in the FB BODY, so no METHOD unit can mislay it",
+    fromDoc: "03-operators.md",
+    plcPrgVar: "inst : FB_LANG_newdel_with_pragma;",
+    plcPrgBody: "inst();",
+    source: `{attribute 'enable_dynamic_creation'}
+FUNCTION_BLOCK FB_LANG_newdel_with_pragma
+VAR
+\tpInst : POINTER TO FB_LANG_newdel_with_pragma;
+END_VAR
+pInst := __NEW(FB_LANG_newdel_with_pragma);
+IF pInst <> 0 THEN
+\t__DELETE(pInst);
+END_IF
+END_FUNCTION_BLOCK
+`,
+  },
+  {
+    name: "newdel_with_pragma_has_method",
+    pouName: "FB_LANG_newdel_with_pragma_has_method",
+    kind: "function_block" as const,
+    feature: "pragma + a METHOD, but __NEW called from the BODY — which of the two made `op_sys_new_delete` differ?",
+    fromDoc: "03-operators.md",
+    plcPrgVar: "inst : FB_LANG_newdel_with_pragma_has_method;",
+    plcPrgBody: "inst();",
+    source: `{attribute 'enable_dynamic_creation'}
+FUNCTION_BLOCK FB_LANG_newdel_with_pragma_has_method
+VAR
+	pInst : POINTER TO FB_LANG_newdel_with_pragma_has_method;
+	n : INT;
+END_VAR
+pInst := __NEW(FB_LANG_newdel_with_pragma_has_method);
+IF pInst <> 0 THEN
+	__DELETE(pInst);
+END_IF
+END_FUNCTION_BLOCK
+
+METHOD Touch
+n := n + 1;
+END_METHOD
+`,
+  },
+  {
+    name: "newdel_in_method_with_pragma",
+    pouName: "FB_LANG_newdel_in_method_with_pragma",
+    kind: "function_block" as const,
+    feature: "pragma, and __NEW inside a METHOD that nothing calls — is it the METHOD, or being reached?",
+    fromDoc: "03-operators.md",
+    plcPrgVar: "inst : FB_LANG_newdel_in_method_with_pragma;",
+    plcPrgBody: "inst();",
+    source: `{attribute 'enable_dynamic_creation'}
+FUNCTION_BLOCK FB_LANG_newdel_in_method_with_pragma
+VAR
+	pInst : POINTER TO FB_LANG_newdel_in_method_with_pragma;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD Alloc
+pInst := __NEW(FB_LANG_newdel_in_method_with_pragma);
+IF pInst <> 0 THEN
+	__DELETE(pInst);
+END_IF
+END_METHOD
+`,
+  },
+  {
+    name: "newdel_elementary",
+    pouName: "FB_LANG_newdel_elementary",
+    kind: "function_block" as const,
+    feature: "__NEW of an ELEMENTARY type, which no pragma can carry — the control for the pool message",
+    fromDoc: "03-operators.md",
+    plcPrgVar: "inst : FB_LANG_newdel_elementary;",
+    plcPrgBody: "inst();",
+    source: `FUNCTION_BLOCK FB_LANG_newdel_elementary
+VAR
+\tp : POINTER TO INT;
+END_VAR
+p := __NEW(INT);
+IF p <> 0 THEN
+\t__DELETE(p);
+END_IF
+END_FUNCTION_BLOCK
+`,
+  },
+]
+
+export const SYSTEM_OPERAND_TESTS: readonly LanguageTest[] = [...position, ...currentTask, ...dynamicCreation]

@@ -7,11 +7,11 @@
  *
  * At the last regeneration:
  *   confirmed    1763
- *   refused       508
+ *   refused       509
  *   not-lowered    55
- *   lsp-gap         3
+ *   lsp-gap         2
  *   diverges        5
- *   unaskable      27
+ *   unaskable      32
  */
 import type { LanguageTest } from "../types.js"
 
@@ -1460,6 +1460,11 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   network_unnamed_target_behind_enable: "refused",
   network_unnamed_target_of_valued_call: "lsp-gap",
   network_unnamed_target_of_void_call: "lsp-gap",
+  newdel_elementary: "unaskable",
+  newdel_in_method_with_pragma: "unaskable",
+  newdel_with_pragma: "unaskable",
+  newdel_with_pragma_has_method: "unaskable",
+  newdel_without_pragma: "refused",
   ng_box_output_arrow: "unaskable",
   ng_coil_storage: "unaskable",
   ng_conditional_jump_and_return: "unaskable",
@@ -1523,7 +1528,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   op_shift_right: "confirmed",
   op_sys_currenttask: "refused",
   op_sys_isvalidref: "confirmed",
-  op_sys_new_delete: "lsp-gap",
+  op_sys_new_delete: "unaskable",
   op_sys_queryinterface: "refused",
   op_sys_try_catch: "refused",
   op_sys_varinfo: "refused",
