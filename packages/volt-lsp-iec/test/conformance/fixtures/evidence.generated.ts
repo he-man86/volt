@@ -6,9 +6,9 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1643
+ *   confirmed    1658
  *   refused       448
- *   not-lowered    27
+ *   not-lowered    48
  *   lsp-gap        30
  *   diverges        4
  *   unaskable      27
@@ -773,6 +773,42 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   fbcall_state_across_calls: "confirmed",
   fbcall_this_in_program: "refused",
   fbcall_two_instances: "confirmed",
+  fmt_lreal_infinity: "not-lowered",
+  fmt_lreal_large_whole: "not-lowered",
+  fmt_lreal_many_decimals: "not-lowered",
+  fmt_lreal_more_digits_than_a_real_holds: "not-lowered",
+  fmt_lreal_nan: "not-lowered",
+  fmt_lreal_negative: "not-lowered",
+  fmt_lreal_one_decimal: "not-lowered",
+  fmt_lreal_very_large: "not-lowered",
+  fmt_lreal_very_small: "not-lowered",
+  fmt_lreal_whole: "not-lowered",
+  fmt_lreal_zero: "not-lowered",
+  fmt_ltime_every_component: "confirmed",
+  fmt_ltime_one_day: "confirmed",
+  fmt_ltime_one_hour: "confirmed",
+  fmt_ltime_one_microsecond: "confirmed",
+  fmt_ltime_one_millisecond: "confirmed",
+  fmt_ltime_one_minute: "confirmed",
+  fmt_ltime_one_nanosecond: "confirmed",
+  fmt_ltime_one_second: "confirmed",
+  fmt_ltime_the_one_already_measured: "confirmed",
+  fmt_ltime_zero: "confirmed",
+  fmt_real_infinity: "not-lowered",
+  fmt_real_large_whole: "not-lowered",
+  fmt_real_many_decimals: "not-lowered",
+  fmt_real_more_digits_than_a_real_holds: "not-lowered",
+  fmt_real_nan: "not-lowered",
+  fmt_real_negative: "not-lowered",
+  fmt_real_one_decimal: "not-lowered",
+  fmt_real_very_large: "not-lowered",
+  fmt_real_very_small: "not-lowered",
+  fmt_real_whole: "not-lowered",
+  fmt_real_zero: "not-lowered",
+  fmt_time_every_component: "confirmed",
+  fmt_time_one_millisecond: "confirmed",
+  fmt_time_one_second: "confirmed",
+  fmt_time_zero: "confirmed",
   for_at_type_max: "confirmed",
   for_negative_step: "confirmed",
   generic_to_conversion: "confirmed",
@@ -2095,7 +2131,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   xf_ldt_to_tod: "confirmed",
   xf_ltime_to_dint: "confirmed",
   xf_ltime_to_lint: "confirmed",
-  xf_ltime_to_string: "not-lowered",
+  xf_ltime_to_string: "confirmed",
   xf_ltime_to_time: "confirmed",
   xf_ltime_to_udint: "confirmed",
   xf_ltime_to_ulint: "confirmed",

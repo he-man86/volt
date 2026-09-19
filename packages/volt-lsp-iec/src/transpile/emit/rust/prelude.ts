@@ -49,6 +49,9 @@ fn iec_replace(a: &[u8], b: &[u8], l: i64, p: i64) -> Vec<u8> { iec_insert(&iec_
 fn iec_find(a: &[u8], b: &[u8]) -> i64 { if b.is_empty() { return 0; } a.windows(b.len()).position(|w| w == b).map_or(0, |i| i as i64 + 1) }
 // TIME → STRING: T# and each non-zero component, largest first — 'T#1d2h', 'T#1s500ms', and 'T#0ms' for zero.
 fn iec_time_text(ms: i64) -> String { let mut rest = ms; let mut out = String::new(); for (unit, suffix) in [(86_400_000i64, "d"), (3_600_000, "h"), (60_000, "m"), (1000, "s"), (1, "ms")] { let n = rest / unit; rest %= unit; if n != 0 { out.push_str(&format!("{}{}", n, suffix)); } } if out.is_empty() { out.push_str("0ms"); } format!("T#{}", out) }
+// LTIME as text: a TIME's shape with the LTIME# prefix and three units below a millisecond, and the zero case names
+// the SMALLEST unit. Mirrors ltimeText in the interpreter; every component boundary measured.
+fn iec_ltime_text(ns: i64) -> String { let mut rest = ns; let mut out = String::new(); for (unit, suffix) in [(86_400_000_000_000i64, "d"), (3_600_000_000_000, "h"), (60_000_000_000, "m"), (1_000_000_000, "s"), (1_000_000, "ms"), (1000, "us"), (1, "ns")] { let n = rest / unit; rest %= unit; if n != 0 { out.push_str(&format!("{}{}", n, suffix)); } } if out.is_empty() { out.push_str("0ns"); } format!("LTIME#{}", out) }
 // DATE, DT (seconds since 1970) and TOD (milliseconds) → STRING, as their literal zero-padded; a TOD's milliseconds only when
 // non-zero — 'D#2026-05-09', 'DT#2026-05-29-12:30:45', 'TOD#07:05:03.250', 'TOD#23:59:59'. The civil date is Hinnant's
 // days-from-civil inverse, mirrored line for line by the interpreter's civilDate.

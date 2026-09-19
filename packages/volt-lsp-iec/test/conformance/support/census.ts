@@ -166,6 +166,22 @@ export const CELLS: readonly Cell[] = [
     ],
   ),
 
+  ...cells(
+    "conversions",
+    "the exact text a value converts to",
+    [
+      ...["real", "lreal"].flatMap((t) =>
+        ["zero", "whole", "one_decimal", "many_decimals", "negative", "large_whole", "very_large", "very_small", "more_digits_than_a_real_holds", "nan", "infinity"].map(
+          (k) => `fmt_${t}_${k}`,
+        ),
+      ),
+      ...["zero", "one_nanosecond", "one_microsecond", "one_millisecond", "one_second", "one_minute", "one_hour", "one_day", "every_component", "the_one_already_measured"].map(
+        (k) => `fmt_ltime_${k}`,
+      ),
+      ...["zero", "one_millisecond", "one_second", "every_component"].map((k) => `fmt_time_${k}`),
+    ],
+  ),
+
   // ── strings ──────────────────────────────────────────────────────────────────────────────────
   ...cells("strings", "LEN, CONCAT and FIND at their edges", [
     "str_len_empty", "str_len_five", "str_len_after_truncation",

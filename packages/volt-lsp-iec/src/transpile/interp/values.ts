@@ -124,14 +124,41 @@ export function calendarText(name: "DATE" | "DT" | "TOD", v: bigint): string {
 }
 
 export function timeText(ms: bigint): string {
-  let rest = ms
+  return durationText(ms, "T", [[86_400_000n, "d"], [3_600_000n, "h"], [60_000n, "m"], [1000n, "s"], [1n, "ms"]])
+}
+
+/**
+ * AN LTIME'S TEXT — the same shape as a TIME's with the `LTIME#` prefix and three more units below a millisecond.
+ * Measured at every component boundary (`conversions/to-string-format.ts`, 2026-09-19):
+ *
+ *   LTIME#0NS -> 'LTIME#0ns'     LTIME#1US -> 'LTIME#1us'
+ *   LTIME#1D2H3M4S5MS6US7NS -> 'LTIME#1d2h3m4s5ms6us7ns'
+ *
+ * so the zero case names the SMALLEST unit, exactly as a TIME's names milliseconds. Mirrored by the emitter's
+ * `iec_ltime_text`.
+ */
+export function ltimeText(ns: bigint): string {
+  return durationText(ns, "LTIME", [
+    [86_400_000_000_000n, "d"],
+    [3_600_000_000_000n, "h"],
+    [60_000_000_000n, "m"],
+    [1_000_000_000n, "s"],
+    [1_000_000n, "ms"],
+    [1000n, "us"],
+    [1n, "ns"],
+  ])
+}
+
+/** The shared body: each non-zero component largest first, and the smallest unit's name when every one is zero. */
+function durationText(total: bigint, prefix: string, units: readonly (readonly [bigint, string])[]): string {
+  let rest = total
   let out = ""
-  for (const [unit, suffix] of [[86_400_000n, "d"], [3_600_000n, "h"], [60_000n, "m"], [1000n, "s"], [1n, "ms"]] as const) {
+  for (const [unit, suffix] of units) {
     const n = rest / unit
     rest %= unit
     if (n !== 0n) out += `${n}${suffix}`
   }
-  return `T#${out || "0ms"}`
+  return `${prefix}#${out || `0${units[units.length - 1]![1]}`}`
 }
 
 /** `n` as a count within `s`: at least 0, at most its length. */
@@ -300,6 +327,7 @@ export function coerce(v: Val, to: Type, from: Type): Val {
     if (typeof v === "boolean") return v ? "TRUE" : "FALSE"
     const source = from.kind === "elementary" ? from.name : ""
     if (source === "TIME") return timeText(v as bigint)
+    if (source === "LTIME") return ltimeText(v as bigint)
     return source === "DATE" || source === "DT" || source === "TOD" ? calendarText(source, v as bigint) : String(v)
   }
   if (typeof v === "string" && family === "real") {

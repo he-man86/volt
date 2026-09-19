@@ -264,7 +264,10 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
     t !== undefined && (elemOf(t)?.family === "int" || (orBits && elemOf(t)?.family === "bitstring"))
   const isString = (t: Type | undefined): boolean => t !== undefined && elemOf(t)?.family === "string"
   // DATE, DT and TOD print as their literal, zero-padded, a TOD's milliseconds only when non-zero (`temporal_conversions`)
-  const hasText = (t: Type | undefined): boolean => isInt(t, true) || (t !== undefined && ["BOOL", "TIME", "DATE", "DT", "TOD"].includes(elemOf(t)?.name ?? ""))
+  // LTIME joins the list: its text is a TIME's with the `LTIME#` prefix and three units below a millisecond, and
+  // every component boundary is measured (`conversions/to-string-format.ts`). REAL and LREAL deliberately do NOT —
+  // see the note where the refusal is raised.
+  const hasText = (t: Type | undefined): boolean => isInt(t, true) || (t !== undefined && ["BOOL", "TIME", "LTIME", "DATE", "DT", "TOD"].includes(elemOf(t)?.name ?? ""))
   const parses = (t: Type): boolean => isInt(t) || elemOf(t)?.family === "real"
   // STRING <-> WSTRING: one code unit per code unit, truncated at the target's capacity (conformance
   // `xo3_string_wide_conversions`: a WSTRING(10) into a STRING(4) is 'abcd', a STRING(6) into a WSTRING(2) is "he").
@@ -307,6 +310,23 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   // REAL/LREAL→TIME rounds half away from zero (2.5 is 3ms). Any other pair — BOOL, DT/TOD → REAL, DATE→TOD — is refused.
   const real = (name: string) => name === "REAL" || name === "LREAL"
   const pair = `${fromName}>${toName}`
+  // REAL_TO_STRING AND LREAL_TO_STRING ARE MEASURED AND STILL REFUSED, which is a different thing from unmeasured.
+  // `conversions/to-string-format.ts` recorded eleven shapes of each and the formatter is intricate enough that
+  // eleven do not determine it:
+  //
+  //   REAL   3.14159265 -> '3.141593'    seven significant digits
+  //          123456789  -> '1.2345679E08'   UPPERCASE E, exponent padded to two digits
+  //          1.0E20     -> '1E20'        no trailing '.0' in exponent form
+  //   LREAL  3.14159265 -> '3.14159265'  fifteen or so
+  //          123456789  -> '123456789.0'   no exponent at the same magnitude
+  //          1.0E20     -> '1.0e20'      LOWERCASE e, and a trailing '.0'
+  //
+  // The two widths do not even agree on the case of the exponent or where plain notation stops. Reproducing that
+  // from eleven points would be inventing the rest of it, and the prelude mirrors these line for line — so a guess
+  // here is a silent divergence between the backends, not a rough edge. The table above is what a format sweep
+  // would extend.
+  if (toName === "STRING" && real(fromName))
+    return lw.bail("conversion-type", `${fromName}_TO_STRING's exact format is measured but not reproduced`, e.span)
   const span = e.span
   const udint = elementaryRef("UDINT")
   const n = (value: bigint): IrExpr => ({ kind: "const", value, type: udint, span })

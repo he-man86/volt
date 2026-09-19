@@ -49,7 +49,14 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // left are `LTIME_TO_STRING` and `REAL_TO_STRING`, whose FORMAT is a fact one recording cannot generalize — one
   // duration does not show whether an LTIME prints `us` and `ns` components, and one REAL does not show how many
   // digits. They are refused honestly until a format sweep asks properly.
-  "not-lowered": 27,
+  // 27 -> 49. `conversions/to-string-format.ts` recorded eleven shapes each of `REAL_TO_STRING` and
+  // `LREAL_TO_STRING`, and the two widths do not agree on the case of the exponent (`1.2345679E08` against
+  // `1.0e20`), on where plain notation stops, or on how many digits survive. Reproducing that from eleven points
+  // would be inventing the rest of it, and the prelude mirrors these line for line — a guess is a silent divergence
+  // between the backends, not a rough edge. 22 fixtures refuse on purpose, and the table in `lower/builtins.ts` is
+  // what a proper format sweep would extend. `LTIME_TO_STRING` from the same sweep IS implemented: its boundaries
+  // are all measured and it is a TIME's format with three more units.
+  "not-lowered": 49,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

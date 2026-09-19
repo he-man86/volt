@@ -494,7 +494,7 @@ class Printer {
           const text =
             from === "bool"
               ? `(if ${value} { "TRUE" } else { "FALSE" })`
-              : ["TIME", "DATE", "DT", "TOD"].includes(source)
+              : ["TIME", "LTIME", "DATE", "DT", "TOD"].includes(source)
                 ? `iec_${source.toLowerCase()}_text(${value} as i64)`
                 : `format!("{}", ${value})`
           return `${stringPath(e.type)}::lit(${text}.as_bytes())`
