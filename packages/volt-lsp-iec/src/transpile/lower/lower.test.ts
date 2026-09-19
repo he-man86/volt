@@ -1738,13 +1738,39 @@ describe("an FB body call counts as a call", () => {
 describe("a value function over a STRING", () => {
   const refuse = (source: string): string[] => lowerSource(source, "PLC_PRG").diagnostics.map((d) => d.code)
 
-  test("MAX over a STRING is refused rather than ordered", () => {
-    expect(refuse("PROGRAM PLC_PRG\nVAR\n\tsv : STRING;\nEND_VAR\nsv := MAX('abc','abd');\nEND_PROGRAM\n")).toContain("value-string-order")
+  /** The one string the program computes, run. */
+  const value = (body: string): unknown => {
+    const r = lowerSource(`PROGRAM PLC_PRG
+VAR
+	sv : STRING;
+END_VAR
+${body}
+END_PROGRAM
+`, "PLC_PRG")
+    expect(r.diagnostics).toEqual([])
+    const p = run(r.pou!)
+    p.scan()
+    return p.get("sv")
+  }
+
+  // CODESYS compares two STRINGs BYTE BY BYTE, UNSIGNED, a prefix losing to what it is a prefix of — six pairs,
+  // each asked of MAX, MIN and the operators at once (conformance `strord_*`, 2026-09-19). These were refused as
+  // `value-string-order` until that was measured.
+  test("MAX and MIN over a STRING order it the way the vendor does", () => {
+    expect(value("sv := MAX('abc','abd');")).toBe("abd")
+    expect(value("sv := MIN('abc','abd');")).toBe("abc")
+    expect(value("sv := MAX('abc','ABC');")).toBe("abc") // lower case wins — the bytes are unsigned
+    expect(value("sv := MAX('ab','abc');")).toBe("abc") // a prefix loses
+    expect(value("sv := MAX('','a');")).toBe("a")
+    expect(value("sv := MAX('b','abc');")).toBe("b") // the FIRST byte decides, not the length
+    expect(value("sv := MAX('$FF','a');")).toBe(String.fromCharCode(0xc3, 0xbf)) // UNSIGNED: 0xC3 beats 'a'
+    expect(value("sv := MAX('abc','abc');")).toBe("abc")
   })
 
-  test("MIN and LIMIT too", () => {
-    expect(refuse("PROGRAM PLC_PRG\nVAR\n\tsv : STRING;\nEND_VAR\nsv := MIN('abc','abd');\nEND_PROGRAM\n")).toContain("value-string-order")
-    expect(refuse("PROGRAM PLC_PRG\nVAR\n\tsv : STRING;\nEND_VAR\nsv := LIMIT('a','b','c');\nEND_PROGRAM\n")).toContain("value-string-order")
+  test("LIMIT over a STRING is MIN(MAX(IN, MN), MX), as it is for a number", () => {
+    expect(value("sv := LIMIT('a','b','c');")).toBe("b")
+    expect(value("sv := LIMIT('b','a','c');")).toBe("b")
+    expect(value("sv := LIMIT('a','z','c');")).toBe("c")
   })
 
   test("SEL over a STRING still lowers — it picks, it does not order", () => {

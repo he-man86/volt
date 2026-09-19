@@ -18,6 +18,11 @@ export function commonType(a: Type, b: Type): Type {
   const ea = elemOf(a)
   const eb = elemOf(b)
   if (ea === undefined || eb === undefined) return UNKNOWN
+  // TWO STRINGS MEET AT THE WIDER CAPACITY, not at the left one. `MAX(aStringOf2, aStringOf8)` answers 'abc' and
+  // `LEN` says 3 whichever operand is written first (conformance `strord_capacity_shorter_first`, `_longer_first`),
+  // so keeping the left type cut the answer back to two characters — a wrong value, not a refusal.
+  if (ea.name === eb.name && ea.family === "string" && a.kind === "elementary" && b.kind === "elementary")
+    return (a.length ?? 0) >= (b.length ?? 0) ? a : b
   if (ea.name === eb.name) return a
   if (ea.rank === undefined || eb.rank === undefined) return UNKNOWN
   // REAL absorbs any integer; otherwise the wider rank wins.

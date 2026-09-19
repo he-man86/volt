@@ -6,9 +6,9 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1781
+ *   confirmed    1793
  *   refused       509
- *   not-lowered    55
+ *   not-lowered    51
  *   lsp-gap         2
  *   diverges        3
  *   unaskable      32
@@ -2088,15 +2088,23 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   string_input_truncation: "confirmed",
   string_insert_delete_replace_find: "confirmed",
   string_len_left_right_mid: "confirmed",
-  string_limit: "not-lowered",
-  string_max: "not-lowered",
-  string_max_differing_case: "not-lowered",
-  string_min: "not-lowered",
+  string_limit: "confirmed",
+  string_max: "confirmed",
+  string_max_differing_case: "confirmed",
+  string_min: "confirmed",
   string_non_ascii_bytes: "not-lowered",
   string_positions_high: "confirmed",
   string_positions_low: "confirmed",
   string_to_real_parse: "confirmed",
   string_wstring_mixing: "refused",
+  strord_capacity_longer_first: "confirmed",
+  strord_capacity_shorter_first: "confirmed",
+  strord_empty: "confirmed",
+  strord_equal: "confirmed",
+  strord_high_byte: "confirmed",
+  strord_length_vs_first: "confirmed",
+  strord_prefix: "confirmed",
+  strord_two_high: "confirmed",
   subrange_assign_const_out: "refused",
   subrange_init_above_range: "refused",
   subrange_init_below_range: "refused",

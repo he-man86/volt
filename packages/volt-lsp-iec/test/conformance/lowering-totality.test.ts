@@ -102,7 +102,10 @@ const DOCUMENTED_LOWERED = 55
 // behaves exactly as a scalar does (an ARRAY in VAR_TEMP counts 1 after three scans, a VAR one counts 3). The code
 // is gone from the registry, so both totals drop by one. The floor only ever goes UP for a code that stops being
 // produced; it comes down only when a code stops existing.
-const REACHED_CODES = 79
+// 79 -> 78 for the same reason again: `value-string-order` refused MAX/MIN/LIMIT over a STRING because nothing
+// recorded what the vendor orders two strings by. `strings/ordering.ts` recorded it — UNSIGNED, byte by byte, a
+// prefix losing — so the refusal is retired and both totals drop by one.
+const REACHED_CODES = 78
 
 /** Every `kind` and every builtin `name` anywhere in a value, however nested. */
 function collect(node: unknown, kinds: Set<string>, builtins: Set<string>): void {

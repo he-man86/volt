@@ -195,6 +195,11 @@ function byteString(text: string): string {
   return `b"${out}"`
 }
 
+/** True for a STRING or WSTRING type — the operands that need `iec_max`/`iec_min` rather than `Ord`. */
+function isString(t: Type): boolean {
+  return t.kind === "elementary" && (t.name === "STRING" || t.name === "WSTRING")
+}
+
 /** A string type's `IecString::<N>` / `IecWString::<N>` — the path its constructors are called through. */
 function stringPath(t: Type): string {
   const s = stringType(t)
@@ -520,13 +525,20 @@ class Printer {
       case "builtin": {
         const args = e.args.map((a) => this.expr(a, slots))
         switch (e.name) {
+          // A STRING has no `Ord`, only the cross-length `PartialOrd` the prelude defines, so `.max()` does not
+          // resolve on one (E0599 — the error that had MAX over a STRING refused in the first place). `iec_max`
+          // and `iec_min` need only that `PartialOrd`, and pick the same operand the interpreter's `ord` does.
           case "max":
           case "min":
-            return args.reduce((acc, a) => `${acc}.${e.name}(${a})`)
+            return isString(e.type)
+              ? args.reduce((acc, a) => `iec_${e.name}(${acc}, ${a})`)
+              : args.reduce((acc, a) => `${acc}.${e.name}(${a})`)
           // NOT `clamp`: Rust's panics when MN > MX, and CODESYS answers that case with MX for every IN (conformance
           // `limit_inverted_bounds`). MIN(MAX(IN, MN), MX) is exactly the measured behaviour.
           case "limit":
-            return `${args[1]}.max(${args[0]}).min(${args[2]})`
+            return isString(e.type)
+              ? `iec_min(iec_max(${args[1]}, ${args[0]}), ${args[2]})`
+              : `${args[1]}.max(${args[0]}).min(${args[2]})`
           // EAGER, as the IR states: the arms are bound BEFORE the branch, so both are evaluated exactly once
           // like every other argument list. Printed as `if c { b } else { a }` the unselected arm was never
           // evaluated, and an argument with a side effect meant one thing here and another in the interpreter.

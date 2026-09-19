@@ -44,6 +44,7 @@ import { LIFECYCLE_TESTS } from "./oop/lifecycle.js"
 import { LITERAL_TESTS } from "./types/literal.js"
 import { OOP_TESTS } from "./oop/oop.js"
 import { OPERANDS_TESTS } from "./operators/operands.js"
+import { STRING_ORDER_TESTS } from "./strings/ordering.js"
 import { SYSTEM_OPERAND_TESTS } from "./operators/system-operands.js"
 import { OPERATOR_TESTS } from "./operators/operator.js"
 import { OVERFLOW_TESTS } from "./operators/overflow.js"
@@ -153,6 +154,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "addresses", tests: ADDRESS_TESTS },
   { name: "keyword", tests: KEYWORD_TESTS },
   { name: "operands", tests: OPERANDS_TESTS },
+  { name: "string-ordering", tests: STRING_ORDER_TESTS },
   { name: "system-operands", tests: SYSTEM_OPERAND_TESTS },
   { name: "usage-pattern", tests: USAGE_PATTERN_TESTS },
   // ── Theoretical-gap catalog (coverage-matrix.md rows D3/D9/D10 …) — awaiting oracle recording ──

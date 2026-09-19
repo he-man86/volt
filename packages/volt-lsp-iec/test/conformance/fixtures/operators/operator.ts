@@ -752,8 +752,10 @@ END_METHOD
   // MAX/MIN/LIMIT over a STRING lowered, and the interpreter compared the text (`MAX('abc','abd')` = 'abd') while the
   // emitted Rust printed `.max()` on an `IecStr`, which has PartialOrd but not Ord — so that program did not COMPILE
   // (E0599). Both halves were wrong to ship: nothing records what CODESYS orders two strings by, or whether it accepts
-  // the call at all. Refused as `value-string-order` until these answer it. `>` and `<` on strings are recorded too,
-  // since an order for those and an order for MAX need not be the same thing.
+  // the call at all. Refused as `value-string-order` until these answered it. `>` and `<` on strings are recorded too,
+  // since an order for those and an order for MAX need not be the same thing — and they turned out to agree.
+  // ANSWERED 2026-09-19 by `strings/ordering.ts`, which asks the six pairs these four leave open; the refusal and
+  // its registry entry are both gone.
   {
     name: "string_max",
     pouName: "FB_LANG_string_max",

@@ -130,7 +130,6 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   // UNREGISTERED: they are written as a ternary inside one `bail`, which the registry gate could not see.
   "string-non-ascii": "not-measured",
   "wstring-surrogate": "not-measured",
-  "value-string-order": "not-measured",
   "layout-recursive": "invalid",
   "var-duplicate": "invalid",
   "assign-string": "invalid",

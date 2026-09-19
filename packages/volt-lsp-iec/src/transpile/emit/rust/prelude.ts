@@ -33,6 +33,13 @@ impl<const N: usize> IecStr<u8, N> {
 impl<T: Copy + PartialEq, const N: usize, const M: usize> PartialEq<IecStr<T, M>> for IecStr<T, N> { fn eq(&self, other: &IecStr<T, M>) -> bool { self.units[..self.len] == other.units[..other.len] } }
 impl<T: Copy + PartialOrd, const N: usize, const M: usize> PartialOrd<IecStr<T, M>> for IecStr<T, N> { fn partial_cmp(&self, other: &IecStr<T, M>) -> Option<std::cmp::Ordering> { self.units[..self.len].partial_cmp(&other.units[..other.len]) } }
 impl<T: Copy + Into<u32>, const N: usize> std::fmt::Debug for IecStr<T, N> { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { let text: String = self.units[..self.len].iter().map(|&u| char::from_u32(u.into()).unwrap_or('\\u{fffd}')).collect(); write!(f, "{:?}", text) } }
+// MAX / MIN OVER A STRING. Rust's .max() comes from Ord, and an IecStr has only the cross-length PartialOrd
+// above, so these take its place — and they pick the same operand the interpreter does: the LATER one only when
+// it is strictly greater, so two equal strings answer with the first. CODESYS compares byte by byte, UNSIGNED,
+// a prefix losing to what it is a prefix of (conformance strord_prefix, strord_high_byte and their four
+// neighbours), which is exactly what that PartialOrd does over a byte slice.
+fn iec_max<T: PartialOrd>(a: T, b: T) -> T { if b > a { b } else { a } }
+fn iec_min<T: PartialOrd>(a: T, b: T) -> T { if b < a { b } else { a } }
 // The Standard string functions — line for line the interpreter's STRING_FUNCTIONS: 1-based, clamped positions.
 fn iec_count(n: i64, s: &[u8]) -> usize { (n.max(0) as usize).min(s.len()) }
 fn iec_span(s: &[u8], start: usize, length: usize) -> &[u8] { let start = start.min(s.len()); &s[start..(start + length).min(s.len())] }
