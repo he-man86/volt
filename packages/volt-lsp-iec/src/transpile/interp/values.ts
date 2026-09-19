@@ -75,9 +75,17 @@ export const STRING_FUNCTIONS: Readonly<Record<IrStringName, (args: readonly Val
     return at < 0 || at > (a as string).length ? a : (a as string).slice(0, at) + (b as string) + (a as string).slice(at)
   },
   delete: ([s, l, p]) => {
-    if (Number(p) < 1 || Number(l) <= 0) return s
-    const start = Math.min(Number(p) - 1, (s as string).length)
-    return (s as string).slice(0, start) + (s as string).slice(start + span(s as string, start, Number(l)).length)
+    // POSITION 0 IS NOT "DO NOTHING". The start index is `p - 1` and it may be NEGATIVE; what gets deleted is the
+    // part of the range [start, start + l) that lands inside the string. `DELETE('abcde', 2, 0)` is 'bcde' — the
+    // range [-1, 1) meets the string only at index 0, so one character goes (measured `str_delete_at_zero`,
+    // 2026-09-19). The old rule returned the string untouched below position 1, which is what `str_replace_at_zero`
+    // got wrong too, since REPLACE is a DELETE and an INSERT.
+    if (Number(l) <= 0) return s
+    const raw = Number(p) - 1
+    const start = Math.max(raw, 0)
+    const drop = Number(l) + Math.min(raw, 0) // the part of the count falling before the string is simply lost
+    if (drop <= 0 || start >= (s as string).length) return s
+    return (s as string).slice(0, start) + (s as string).slice(start + span(s as string, start, drop).length)
   },
   replace: ([a, b, l, p]) => STRING_FUNCTIONS.insert([STRING_FUNCTIONS.delete([a, l, p]), b, BigInt(Math.max(Number(p) - 1, 0))]),
   find: ([a, b]) => ((b as string) === "" ? 0n : BigInt((a as string).indexOf(b as string) + 1)),

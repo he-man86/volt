@@ -42,7 +42,9 @@ fn iec_right(s: &[u8], n: i64) -> Vec<u8> { s[s.len() - iec_count(n, s)..].to_ve
 fn iec_mid(s: &[u8], l: i64, p: i64) -> Vec<u8> { if p < 1 || l <= 0 { return Vec::new(); } iec_span(s, (p - 1) as usize, l as usize).to_vec() }
 fn iec_concat(a: &[u8], b: &[u8]) -> Vec<u8> { [a, b].concat() }
 fn iec_insert(a: &[u8], b: &[u8], p: i64) -> Vec<u8> { if p < 0 || p as usize > a.len() { return a.to_vec(); } let p = p as usize; [&a[..p], b, &a[p..]].concat() }
-fn iec_delete(s: &[u8], l: i64, p: i64) -> Vec<u8> { if p < 1 || l <= 0 { return s.to_vec(); } let start = ((p - 1) as usize).min(s.len()); let end = start + iec_span(s, start, l as usize).len(); [&s[..start], &s[end..]].concat() }
+// POSITION 0 IS NOT "do nothing" - the start index is p - 1 and may be NEGATIVE, and what goes is the part of
+// [start, start + l) that lands inside the string. Mirrors the interpreter's delete; measured str_delete_at_zero.
+fn iec_delete(s: &[u8], l: i64, p: i64) -> Vec<u8> { if l <= 0 { return s.to_vec(); } let raw = p - 1; let start = raw.max(0) as usize; let drop = l + raw.min(0); if drop <= 0 || start >= s.len() { return s.to_vec(); } let end = start + iec_span(s, start, drop as usize).len(); [&s[..start], &s[end..]].concat() }
 fn iec_replace(a: &[u8], b: &[u8], l: i64, p: i64) -> Vec<u8> { iec_insert(&iec_delete(a, l, p), b, (p - 1).max(0)) }
 fn iec_find(a: &[u8], b: &[u8]) -> i64 { if b.is_empty() { return 0; } a.windows(b.len()).position(|w| w == b).map_or(0, |i| i as i64 + 1) }
 // TIME → STRING: T# and each non-zero component, largest first — 'T#1d2h', 'T#1s500ms', and 'T#0ms' for zero.

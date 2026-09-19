@@ -145,6 +145,29 @@ export const CELLS: readonly Cell[] = [
     "sel_sel_false", "sel_sel_true", "sel_mux_0", "sel_mux_1", "sel_mux_2", "sel_mux_3", "sel_mux_7",
   ]),
 
+  // ── strings ──────────────────────────────────────────────────────────────────────────────────
+  ...cells("strings", "LEN, CONCAT and FIND at their edges", [
+    "str_len_empty", "str_len_five", "str_len_after_truncation",
+    "str_concat_both", "str_concat_empty_left", "str_concat_into_short",
+    "str_find_present", "str_find_absent", "str_find_empty_needle", "str_find_longer_needle",
+  ]),
+  ...cells(
+    "strings",
+    "LEFT and RIGHT at every count that means something",
+    ["zero", "one", "exactly_the_length", "past_the_end", "negative"].flatMap((c) => [`str_left_${c}`, `str_right_${c}`]),
+  ),
+  ...cells(
+    "strings",
+    "MID, DELETE, INSERT and REPLACE at every position",
+    ["at_zero", "at_one", "at_the_last", "past_the_end"].flatMap((p) => [
+      `str_mid_${p}`, `str_mid_len0_${p}`, `str_mid_lenneg_${p}`,
+      `str_delete_${p}`, `str_insert_${p}`, `str_replace_${p}`,
+    ]),
+  ),
+  ...cells("strings", "assignment into a STRING(n) at each length", [
+    "str_assign_into_shorter", "str_assign_into_exact", "str_assign_into_longer",
+  ]),
+
   // ── conversions ──────────────────────────────────────────────────────────────────────────────
   ...cells(
     "conversions",
@@ -206,7 +229,6 @@ export const PLANNED: readonly string[] = [
   "declarations / VAR section x type category x initializer form",
   "declarations / RETAIN, PERSISTENT, CONSTANT and direct addresses",
   "calls / callee kind x argument form",
-  "strings / LEN, LEFT, RIGHT, MID, CONCAT, INSERT, DELETE, REPLACE and FIND at their edges",
   "strings / STRING(n) truncation, escapes and non-ASCII",
   "statements / every statement kind at its edges",
 ]
