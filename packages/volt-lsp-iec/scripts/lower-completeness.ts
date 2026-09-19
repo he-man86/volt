@@ -11,6 +11,7 @@
  *
  * Usage: `bun run scripts/lower-completeness.ts [--top N] [--code <slug>]`
  *   --code lists the files blocked by one construct — the fixtures to work from when you go implement it.
+ *   --sole with --code narrows that to the POUs it is the ONLY blocker of: what building it would lower today.
  *   --why  lists the distinct MESSAGES behind one construct — which shape to build first.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
@@ -25,6 +26,8 @@ const CORPUS = join(import.meta.dir, "..", "test-corpus")
 const args = process.argv.slice(2)
 const top = Number(args[args.indexOf("--top") + 1]) || 20
 const only = args.includes("--code") ? args[args.indexOf("--code") + 1] : undefined
+/** --sole: with --code, list only the POUs this construct is the ONLY blocker of — what building it would add. */
+const soleOnly = args.includes("--sole")
 /** --why <code>: the distinct MESSAGES behind one code, most POUs first — which construct to build, not just where. */
 const why = args.includes("--why") ? args[args.indexOf("--why") + 1] : undefined
 const reasons = new Map<string, number>()
@@ -53,7 +56,7 @@ let separateBodies = 0
 let slots = 0
 let statements = 0
 /** blocking code → how many statement-bearing POUs it stopped, how many it stopped ALONE, and where. */
-const blockers = new Map<string, { pous: number; sole: number; examples: string[] }>()
+const blockers = new Map<string, { pous: number; sole: number; examples: string[]; soleFiles: string[] }>()
 
 // One symbol table per corpus PROJECT, as the IDE compiles it. A table per FILE made every type and global declared in
 // another file unresolvable: it reported 16 `type-unknown` POUs where 7 are real, and hid 6 `case-label` blockers
@@ -112,11 +115,14 @@ for (const projectDir of projects) {
         for (const m of new Set(diagnostics.filter((d) => d.code === why).map((d) => d.message)))
           reasons.set(m, (reasons.get(m) ?? 0) + 1)
       for (const code of codes) {
-        const entry = blockers.get(code) ?? { pous: 0, sole: 0, examples: [] }
+        const entry = blockers.get(code) ?? { pous: 0, sole: 0, examples: [], soleFiles: [] }
         entry.pous++
         // Most blocked POUs are blocked by SEVERAL constructs, so `pous` is reach, not gain: clearing the construct
         // that reaches the most POUs can lower none of them. `sole` is what building it would actually add today.
-        if (codes.size === 1) entry.sole++
+        if (codes.size === 1) {
+          entry.sole++
+          entry.soleFiles.push(relative(CORPUS, file))
+        }
         if (entry.examples.length < 3) entry.examples.push(relative(CORPUS, file))
         blockers.set(code, entry)
       }
@@ -134,6 +140,13 @@ if (why !== undefined) {
 
 if (only !== undefined) {
   const entry = blockers.get(only)
+  // `--sole` is the ACTIONABLE list: the POUs this construct is the ONLY blocker of, so building it lowers them
+  // today. `reach` counts POUs it stops among others, which is a prerequisite count and not a gain.
+  if (soleOnly) {
+    console.log(entry === undefined ? `no POU is blocked by \`${only}\`` : `${only}: ${entry.sole} POU(s) it is the ONLY blocker of`)
+    for (const f of entry?.soleFiles ?? []) console.log(`  ${f}`)
+    process.exit(0)
+  }
   console.log(entry === undefined ? `no POU is blocked by \`${only}\`` : `${only}: ${entry.pous} POUs, e.g.`)
   for (const e of entry?.examples ?? []) console.log(`  ${e}`)
   process.exit(0)
