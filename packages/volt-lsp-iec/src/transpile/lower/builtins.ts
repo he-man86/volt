@@ -310,16 +310,49 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   const span = e.span
   const udint = elementaryRef("UDINT")
   const n = (value: bigint): IrExpr => ({ kind: "const", value, type: udint, span })
-  if (pair === "DT>DATE" || pair === "DT>TOD") {
-    const seconds = convert(source, udint)
-    const inDay: IrExpr = { kind: "binary", op: "mod", left: seconds, right: n(86400n), type: udint, span }
-    const count: IrExpr =
-      pair === "DT>DATE"
-        ? { kind: "binary", op: "sub", left: seconds, right: inDay, type: udint, span }
-        : { kind: "binary", op: "mul", left: inDay, right: n(1000n), type: udint, span }
+  // THE WHOLE DATE FAMILY CONVERTS THROUGH AN ABSOLUTE INSTANT. `DT>DATE` and `DT>TOD` were special-cased here and
+  // the other 28 pairs were refused as "not measured yet"; `conversions/cross-family.ts` measured all thirty on
+  // 2026-09-19 and they are one rule:
+  //
+  //   the source's count is an instant in ITS tick unit -> re-express in the DESTINATION's tick
+  //   -> keep the part the destination HAS: whole days for DATE/LDATE, the part within the day for TOD/LTOD,
+  //      the entire instant for DT/LDT
+  //
+  //   DATE 2026-05-09 -> TOD   is 0:0:0          midnight has no time of day
+  //   TOD  07:05:03.250 -> DT  is 1970-1-1-7:5:3 the epoch day, and DT counts SECONDS so the .250 is gone
+  //   TOD  07:05:03.250 -> LDT is …7:5:3.250000000   LDT counts nanoseconds, so it survives
+  //
+  // The ticks are the table's own (`elementary.ts` `tickNs`), and because every pair is a power-of-ten ratio the
+  // instant never has to be materialized in nanoseconds — which matters, since seconds-since-epoch times 1e9
+  // overflows 32 bits.
+  const fromElem = elemOf(source.type)
+  const toElem = elemOf(to)
+  // A DURATION CONVERTS THE SAME WAY, minus the day part — a TIME has no calendar, so there is nothing to mask.
+  // `TIME_TO_LTIME(T#1S500MS)` is LTIME#1s500ms and `LTIME_TO_TIME` the reverse: milliseconds and nanoseconds are
+  // the same instant in different units, not a reinterpretation of the same number.
+  const tickFamily = fromElem?.family === "date" || fromElem?.family === "time"
+  if (fromElem !== undefined && toElem !== undefined && tickFamily && fromElem.family === toElem.family && fromName !== toName) {
+    const fromTick = fromElem.tickNs!
+    const toTick = toElem.tickNs!
+    // ALWAYS 64 BITS, even for two 32-bit types. `DT_TO_TOD` re-expresses seconds-since-epoch as milliseconds
+    // before taking the part within the day, and that intermediate is 1.78e12 — four hundred times what a UDINT
+    // holds. The old special case dodged it by masking in SECONDS first, which only works because those two ticks
+    // are a factor of 1000 apart; at 64 bits the rule needs no such ordering.
+    const work = elementaryRef("ULINT")
+    const w = (value: bigint): IrExpr => ({ kind: "const", value, type: work, span })
+    let count: IrExpr = convert(source, work)
+    if (fromTick > toTick) count = { kind: "binary", op: "mul", left: count, right: w(fromTick / toTick), type: work, span }
+    else if (toTick > fromTick) count = { kind: "binary", op: "div", left: count, right: w(toTick / fromTick), type: work, span }
+    const dayTicks = 86_400_000_000_000n / toTick
+    const part = DATE_PART[toName] ?? "all" // a duration has no calendar part to keep
+    if (part !== "all") {
+      const inDay: IrExpr = { kind: "binary", op: "mod", left: count, right: w(dayTicks), type: work, span }
+      count = part === "inDay" ? inDay : { kind: "binary", op: "sub", left: count, right: inDay, type: work, span }
+    }
     return { kind: "convert", value: count, type: to, span }
   }
   const temporal = (t: Type): boolean => ["time", "date"].includes(elemOf(t)?.family ?? "")
+  void udint
   const fromTemporal = temporal(source.type)
   const toTemporal = temporal(to)
   const integral = (name: string): boolean => !real(name) && name !== "BOOL"
@@ -331,6 +364,20 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   if ((fromTemporal || toTemporal) && fromName !== toName && !measured)
     return lw.bail("conversion-type", `${fromName}_TO_${toName} is not measured yet`, e.span)
   return fromName === toName ? source : { kind: "convert", value: source, type: to, span: e.span }
+}
+
+/** Which part of an instant each date type CARRIES — measured, see the conversion rule above. */
+const DATE_PART: Readonly<Record<string, "day" | "inDay" | "all">> = {
+  DATE: "day",
+  LDATE: "day",
+  TOD: "inDay",
+  TIME_OF_DAY: "inDay",
+  LTOD: "inDay",
+  LTIME_OF_DAY: "inDay",
+  DT: "all",
+  DATE_AND_TIME: "all",
+  LDT: "all",
+  LDATE_AND_TIME: "all",
 }
 
 /** The one type a list of operands meets at — a binary operator's rule, over N operands: variables decide, a

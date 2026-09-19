@@ -145,6 +145,27 @@ export const CELLS: readonly Cell[] = [
     "sel_sel_false", "sel_sel_true", "sel_mux_0", "sel_mux_1", "sel_mux_2", "sel_mux_3", "sel_mux_7",
   ]),
 
+  ...cells(
+    "conversions",
+    "across the isolated families — durations, dates, text and truth",
+    [
+      ...["dint", "udint", "dword", "lint", "ulint", "lword", "int", "uint"].map((d) => `xf_time_to_${d}`),
+      ...["dint", "udint", "lint", "ulint"].map((d) => `xf_ltime_to_${d}`),
+      "xf_time_to_ltime", "xf_ltime_to_time", "xf_dint_to_time", "xf_dint_to_ltime",
+      ...["date", "dt", "tod", "ldate", "ldt", "ltod"].flatMap((a) =>
+        ["date", "dt", "tod", "ldate", "ldt", "ltod"].filter((b) => b !== a).map((b) => `xf_${a}_to_${b}`),
+      ),
+      "xf_time_to_string", "xf_time_zero_to_string", "xf_ltime_to_string", "xf_date_to_string",
+      "xf_dt_to_string", "xf_tod_to_string", "xf_tod_round_to_string", "xf_dint_to_string",
+      "xf_real_to_string", "xf_bool_to_string",
+      ...["plain", "negative", "empty", "not_a_number", "trailing_rubbish", "leading_spaces", "far_too_large"].flatMap(
+        (k) => [`xf_string_to_int_${k}`, `xf_string_to_real_${k}`],
+      ),
+      "xf_int_to_bool_zero", "xf_int_to_bool_one", "xf_int_to_bool_two", "xf_int_to_bool_negative",
+      "xf_bool_to_int_true", "xf_bool_to_real_true",
+    ],
+  ),
+
   // ── strings ──────────────────────────────────────────────────────────────────────────────────
   ...cells("strings", "LEN, CONCAT and FIND at their edges", [
     "str_len_empty", "str_len_five", "str_len_after_truncation",
@@ -225,7 +246,6 @@ export const CELLS: readonly Cell[] = [
  * `openspec/changes/fixture-census/operations.md` is the long form, with why each one matters.
  */
 export const PLANNED: readonly string[] = [
-  "conversions / TIME, DATE and STRING across families",
   "declarations / VAR section x type category x initializer form",
   "declarations / RETAIN, PERSISTENT, CONSTANT and direct addresses",
   "calls / callee kind x argument form",

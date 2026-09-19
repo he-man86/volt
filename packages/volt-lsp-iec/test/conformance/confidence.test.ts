@@ -44,7 +44,12 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   "lsp-gap": 36,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
-  "not-lowered": 25,
+  // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
+  // transpiler refused; 33 are implemented now (the whole date family plus TIME<->LTIME, one tick rule). The two
+  // left are `LTIME_TO_STRING` and `REAL_TO_STRING`, whose FORMAT is a fact one recording cannot generalize — one
+  // duration does not show whether an LTIME prints `us` and `ns` components, and one REAL does not show how many
+  // digits. They are refused honestly until a format sweep asks properly.
+  "not-lowered": 27,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
