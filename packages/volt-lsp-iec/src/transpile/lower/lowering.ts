@@ -261,9 +261,10 @@ export class Lowering {
    */
   readonly pendingInits: { name: Identifier; type: Type; expr: Expr; span: Span; slot: number }[] = []
 
-  /** `pendingInits` lowered — built BEFORE the body, so a pointer the init step fills is known to be filled when
-   *  the body dereferences it (`shared.pointers`), and consumed by the init step at the end. */
-  declaredInits: IrStmt[] = []
+  /** `pendingInits` lowered, memoized — built BEFORE any body, so a pointer this step fills is known to be filled
+   *  when a body dereferences it (`shared.pointers`), and consumed by the init step at the end. `statements`
+   *  undefined means the build failed or is in progress. */
+  initSequence?: { statements: IrStmt[] | undefined }
 
   quietly<T>(attempt: () => T): T {
     const mark = this.diagnostics.length

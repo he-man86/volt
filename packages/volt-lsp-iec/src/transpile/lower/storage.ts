@@ -9,6 +9,7 @@ import { baseOf, boundName, Lowering, openDims, ZERO_SPAN } from "./lowering.js"
 import { stored, valueAs } from "./convert.js"
 import { calendarOf, durationOf, enumDefault, enumStorage, inlineEnumDefault, foldConstant, stringLiteralText, TEMPORAL_LITERAL_KINDS, typedRealOf } from "./constants.js"
 import { overlayBytes } from "./unions.js"
+import { buildInitSequence } from "./init-sequence.js"
 // A folded initial value and the same expression at run time go through ONE implementation, so they cannot
 // disagree — `ir/` is the folder lowering and the backends share, which is why it lives there.
 import { constantValue } from "../ir/evaluate.js"
@@ -106,12 +107,20 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
     // runs once per instance before the first scan; `call_after_init`'s and `call_after_online_change_slot`'s did not run
     // at all in a started application (measured).
     base(baseOf(ast)?.text)
-    declareVars(nested, ast.varSections.filter((s) => INSTANCE_STORAGE.has(s.sectionKind)))
+    // An instance's field may have an initial value that is not a constant — `p : POINTER TO X := ADR(y)` and
+    // `THIS` are how the corpus writes 300 of them. Deferred like a POU's own (`declareVars`'s third argument):
+    // the field takes its default and `initStep` runs the expression PER INSTANCE, which is what the measured
+    // declaration-order rule needs (`declarations/init-sequence.ts`).
+    declareVars(nested, ast.varSections.filter((s) => INSTANCE_STORAGE.has(s.sectionKind)), true)
     // an `ARRAY[*]` in-out's bounds are the instance's: each call stores them, and the body reads them there
     declareOpenBounds(nested, ast.varSections.filter((s) => s.sectionKind === "VAR_IN_OUT"), "VAR")
     for (const section of ast.varSections.filter((s) => s.sectionKind === "VAR_STAT")) declareStatics(lw, nested, t.name, section, statics)
     nested.displayName = ast.name.text
     lw.bodies.set(t.name.toUpperCase(), { lowering: nested, unit: ast, state: "pending", ...(sym?.uri === undefined ? {} : { uri: sym.uri }) })
+    // Built HERE, though it RUNS in the init step: a field initializer may store an address (`p : POINTER TO X :=
+    // ADR(y)`), and a body that dereferences that pointer is only allowed to once the store is known. The body
+    // lowers later — on the first call — so this has to come first.
+    buildInitSequence(nested)
   } else {
     lw.bail(`layout-${t.kind}`, `${t.name} has no declaration lowering can lay out`, sym?.span ?? ZERO_SPAN)
     return

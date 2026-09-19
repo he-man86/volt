@@ -40,7 +40,7 @@ import { buildSymbolTable, lookup, lookupMember, parseLibraryManifest, type Scop
 import { convert, stored, valueAs } from "./convert.js"
 import { foldConstant } from "./constants.js"
 import { lowerPlace } from "./places.js"
-import { lowerStmt } from "./statements.js"
+import { buildInitSequence } from "./init-sequence.js"
 import { resolveNamedType, type Type, UNKNOWN } from "../../types/index.js"
 import { defaultValueOf, holdsCall, type IrExpr, type IrInit, type IrPou, type IrRoutine, type IrSlot, type IrStmt, type LoweredPou, peelArray, type Place, lowerDiagnostic } from "../ir/index.js"
 import { baseOf, Lowering, newShared, openDims } from "./lowering.js"
@@ -117,9 +117,7 @@ export function lowerUnit(
     // Lowered HERE, before the body, though they RUN in the init step: `p : POINTER TO INT := ADR(x)` stores an
     // address, and the body's `p^` is only allowed because that store is known (`shared.pointers`). The statements
     // are kept for `initStep` to place; only the order they are BUILT in moves.
-    const declared = declaredInitStatements(lowering)
-    if (declared === undefined) return { diagnostics: lowering.diagnostics }
-    lowering.declaredInits = declared
+    if (buildInitSequence(lowering) === undefined) return { diagnostics: lowering.diagnostics }
     const parsed = parseActive(unit.body)
     if (!parsed.ok)
       return { diagnostics: [lowerDiagnostic("parse", parsed.firstError ?? "body did not parse", unit.span)] }
@@ -207,74 +205,33 @@ const INIT_ATTRIBUTE = "call_after_global_init_slot"
  * in as one block after the FB_Init calls, so only the first of those two would come out right; a construct is
  * either supported or reported, never half. Interleaving the two by declaration position is what would lift it.
  */
-function declaredInitStatements(lw: Lowering): IrStmt[] | undefined {
-  const out: IrStmt[] = []
-  for (const pending of lw.pendingInits) {
-    // Built as the ASSIGNMENT it is, through the statement path, so everything an assignment knows applies —
-    // `ADR(x)` into a pointer, `REF=`, a string's capacity. Lowering the value as a bare expression refused
-    // `p : POINTER TO INT := ADR(x)` as `expr-call`, which is the corpus's third-largest blocking shape.
-    const lowered = lowerStmt(lw, {
-      kind: "assign",
-      target: { kind: "ident_expr", name: pending.name.text, span: pending.name.span },
-      value: pending.expr,
-      span: pending.span,
-    })
-    if (lowered === undefined) return undefined
-    const assigned = Array.isArray(lowered) ? lowered : [lowered]
-    // A LATER DECLARATION'S VALUE IS NOT THERE YET, and a constant one is not either. `i : INT := ABS(other);
-    // other : INT := -7;` is 0 on SP21 (`cfold_non_constant_argument`) — the whole sequence runs in declaration
-    // order, so `other` still holds its DEFAULT. Here a constant initializer is the slot's starting value rather
-    // than a statement, so an earlier initializer would read -7 and answer 7. Refused until the constants are
-    // sequenced too, which is the same change that would interleave the FB_Init calls.
-    const values = assigned.flatMap((a) => (a.kind === "assign" ? [a.value] : []))
-    const later = values.reduce<string | undefined>((f, v) => f ?? readsSlot(lw, v, (slot) => slot >= pending.slot), undefined)
-    if (later !== undefined)
-      return lw.bail(
-        "init-reads-later",
-        `${pending.name.text}'s initial value reads ${later}, which is declared after it and has not been initialized yet`,
-        pending.span,
-      )
-    const instance = values.reduce<string | undefined>(
-      (f, v) => f ?? readsSlot(lw, v, (slot) => lw.frame[slot]?.type.kind === "function_block", true),
-      undefined,
-    )
-    if (instance !== undefined)
-      return lw.bail(
-        "init-reads-instance",
-        `${pending.name.text}'s initial value reads ${instance}, an instance whose own FB_Init runs at its declaration's position`,
-        pending.span,
-      )
-    out.push(...assigned)
-  }
-  return out
-}
-
 /**
- * The name of the first slot this expression LOADS that `matches` — or undefined. `intoMember` asks only about a
- * load that reaches INSIDE the slot (`holder.started`), which is what distinguishes reading an instance's field
- * from holding the instance itself.
+ * The implicit routine that runs ONE FB type's non-constant field initializers on an instance — its key, or
+ * `undefined` when the type has none, or `null` when one of them cannot lower.
  *
- * `ADR(x)` is deliberately not a load of `x`: it takes an ADDRESS, which is the same whenever it is taken, and the
- * corpus writes it 180 times.
+ * Built once per type and cached in `lw.routines` beside the real METHODs, because that is exactly what it is: a
+ * body that runs on an instance. `IrInvoke` binds the instance, so nothing has to rewrite places per instance.
  */
-function readsSlot(lw: Lowering, e: IrExpr, matches: (slot: number) => boolean, intoMember = false): string | undefined {
-  switch (e.kind) {
-    case "load": {
-      const inside = e.place.path !== undefined && e.place.path.length > 0
-      if (intoMember && !inside) return undefined
-      return matches(e.place.slot) ? (lw.frame[e.place.slot]?.name ?? "a later declaration") : undefined
-    }
-    case "convert":
-      return readsSlot(lw, e.value, matches, intoMember)
-    case "unary":
-      return readsSlot(lw, e.operand, matches, intoMember)
-    case "binary":
-      return readsSlot(lw, e.left, matches, intoMember) ?? readsSlot(lw, e.right, matches, intoMember)
-    case "builtin":
-      return e.args.reduce<string | undefined>((found, a) => found ?? readsSlot(lw, a, matches, intoMember), undefined)
-    default:
-      return undefined
+function instanceInitRoutine(lw: Lowering, fb: string, nested: Lowering, span: Span): string | undefined | null {
+  if (nested.pendingInits.length === 0) return undefined
+  const key = `${fb.toUpperCase()}.__INIT`
+  const cached = lw.routines.get(key)
+  if (cached?.state === "failed") return null
+  if (cached?.state === "lowered") return key
+  // `nested`'s diagnostics were drained into `lw` when the layout was built, so only what THIS lowering adds is new
+  const before = nested.diagnostics.length
+  const body = buildInitSequence(nested)
+  lw.diagnostics.push(...nested.diagnostics.slice(before))
+  if (body === undefined) {
+    lw.routines.set(key, { state: "failed" })
+    return null
   }
+  lw.routines.set(key, {
+    state: "lowered",
+    // no per-call storage: a temp one of these needs is a field of the instance, as every FB body's temps are
+    routine: { name: `${fb}.__init`, key, kind: "method", fb, locals: [], inputs: [], inouts: [], body },
+  })
+  return key
 }
 
 function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
@@ -394,7 +351,13 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     const key = t.name.toUpperCase()
     if (known.has(key)) return known.get(key)!
     known.set(key, false)
-    const own = t.kind === "function_block" && (initMethod(t) !== undefined || pathFields(t).length > 0 || fbInits(t).length > 0)
+    const own =
+      t.kind === "function_block" &&
+      (initMethod(t) !== undefined ||
+        pathFields(t).length > 0 ||
+        fbInits(t).length > 0 ||
+        // a field whose initial value RUNS — the walk has to reach the instance to run it there
+        (lw.bodies.get(t.name.toUpperCase())?.lowering.pendingInits.length ?? 0) > 0)
     const result = own || (lw.layouts.get(key)?.fields ?? []).some((f) => reaches(f.type))
     known.set(key, result)
     return result
@@ -510,6 +473,17 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     }
     const owner = lookup(lw.project, t.name)?.symbol.ast as TopLevel | undefined
     const nested = lw.bodies.get(t.name.toUpperCase())?.lowering ?? declaring
+    // THE INSTANCE'S OWN FIELD INITIALIZERS, run HERE rather than baked into the layout — measured per instance and
+    // in declaration order (`declarations/init-sequence.ts`). Lowered once per FB TYPE into an implicit routine,
+    // because a routine is already the thing that runs a body on an instance; `invoke` binds this one.
+    const initRoutine = instanceInitRoutine(lw, t.name, nested, span)
+    if (initRoutine === null) return false
+    if (initRoutine !== undefined)
+      mine.push({
+        kind: "eval",
+        value: { kind: "invoke", routine: initRoutine, instance: place, inputs: [], inouts: [], type: UNKNOWN, span },
+        span,
+      })
     const layoutFields = (lw.layouts.get(t.name.toUpperCase())?.fields ?? []) as IrSlot[]
     // every instance of the layout sees its initializers as declared: the first one's clearInit emptied them for the next,
     // which then started from 0 where the 9 is re-applied (review of the fixture batch)
@@ -544,7 +518,7 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   // a global an FB_Init argument reads while an FB_Init of this init step writes globals: which value arrives is not recorded
   if (globalArguments.size > 0 && writesGlobal(fbInitCalls))
     return lw.bail("fb-init-argument", "an FB_Init argument reads a global while an FB_Init writes globals — which value arrives is not recorded", span)
-  return [...out, ...fbInitCalls, ...reapplied, ...lw.declaredInits, ...slotCalls]
+  return [...out, ...fbInitCalls, ...reapplied, ...(lw.initSequence?.statements ?? []), ...slotCalls]
 }
 
 /**

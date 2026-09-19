@@ -94,7 +94,11 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // that stay here are the ones an FB INSTANCE'S fields raise: an instance's initializers run per instance, which
   // is the FB_Init machinery rather than the POU's init step, so `declareVars` only defers for the POU's own frame.
   // Deferring in a layout would take the DEFAULT silently, which is the bug the refusal was added for.
-  "not-lowered": 88,
+  // 88 -> 79. An FB INSTANCE'S field initializers run too now, as an implicit per-type routine `initStep` invokes
+  // at each instance — which is what a routine already is, a body that runs on an instance. Built while the
+  // LAYOUT is, before any body: a field may store an address (`p : POINTER TO X := ADR(y)`) and a body may only
+  // dereference that pointer once the store is known.
+  "not-lowered": 79,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

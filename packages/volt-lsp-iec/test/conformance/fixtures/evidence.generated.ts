@@ -6,9 +6,9 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1871
+ *   confirmed    1880
  *   refused       509
- *   not-lowered    88
+ *   not-lowered    79
  *   lsp-gap         2
  *   diverges        3
  *   unaskable      33
@@ -618,7 +618,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   cc6_string_to_bool_and_time: "not-lowered",
   cfold_abs: "confirmed",
   cfold_any_to_dint_high: "confirmed",
-  cfold_argument_declared_first: "not-lowered",
+  cfold_argument_declared_first: "confirmed",
   cfold_bool_to_int: "confirmed",
   cfold_call_plus_constant: "confirmed",
   cfold_dint_to_real: "confirmed",
@@ -641,13 +641,13 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   cfold_shl: "confirmed",
   cfold_shr: "confirmed",
   cfold_sizeof_type: "confirmed",
-  cfold_sizeof_var: "not-lowered",
+  cfold_sizeof_var: "confirmed",
   cfold_sqrt: "confirmed",
   cfold_time_to_dint: "confirmed",
   cfold_trunc: "confirmed",
   cfold_uint_to_dword: "confirmed",
-  cfold_user_function: "not-lowered",
-  cfold_user_function_reads_global: "not-lowered",
+  cfold_user_function: "confirmed",
+  cfold_user_function_reads_global: "confirmed",
   cg_argument_order: "confirmed",
   cg_fb_inout_counts: "confirmed",
   cg_fb_mixed: "refused",
@@ -1285,14 +1285,14 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   initprg_reads_later: "unaskable",
   initprg_runs_once: "confirmed",
   initprg_user_function: "confirmed",
-  initseq_adr_of_earlier: "not-lowered",
-  initseq_adr_of_later: "not-lowered",
+  initseq_adr_of_earlier: "confirmed",
+  initseq_adr_of_later: "confirmed",
   initseq_after_fb_init: "not-lowered",
   initseq_fb_init_declared_last: "not-lowered",
   initseq_global_list: "confirmed",
-  initseq_member_of_struct: "not-lowered",
-  initseq_reads_global: "not-lowered",
-  initseq_runs_once_or_every_scan: "not-lowered",
+  initseq_member_of_struct: "confirmed",
+  initseq_reads_global: "confirmed",
+  initseq_runs_once_or_every_scan: "confirmed",
   initseq_struct_type: "confirmed",
   initseq_this: "not-lowered",
   inout_const_adr_11: "confirmed",
