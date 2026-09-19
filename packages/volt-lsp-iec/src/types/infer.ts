@@ -227,7 +227,16 @@ function calleeInfo(
         if (sec.sectionKind === "VAR_INPUT") params.push({ name: id, type: d.type, hasDefault: d.init !== undefined })
       }
   }
-  return { sym, params, positional, positionalArity: positional.length, paramNames, scope, complete }
+  // AN FB TAKES NO POSITIONAL ARGUMENTS AT ALL. Not "as many as it has inputs" — none. `target(1, 2, mark)` on an FB
+  // with two VAR_INPUTs is three separate "Assignment to input missing for parameter" errors, one per argument, and
+  // `target(5)` on an FB with one input is the same (`calls/call-grid.ts` and `refuse_fb_called_positionally`,
+  // measured 2026-09-19). A FUNCTION and a METHOD take them positionally, named, mixed and in any named order.
+  //
+  // This said `positional.length` for every callee kind, so an FB's positional call looked legal up to its input
+  // count and only an EXCESS argument was reported — which is why `refuse_fb_called_positionally` sat as an
+  // lsp-gap. `positional` itself keeps every parameter: it is what the VAR_IN_OUT and writability checks bind by.
+  const arity = sym.kind === "function_block" ? 0 : positional.length
+  return { sym, params, positional, positionalArity: arity, paramNames, scope, complete }
 }
 
 /** The member scope of a scoped type (enum, struct, FB, interface), or undefined. Completion kept a copy. */

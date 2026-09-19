@@ -70,17 +70,38 @@ function checkCall(
   // Vendor-mirrored wording: a FUNCTION/METHOD reports the exact input count it requires (C0040); an FB reports
   // the 1-based position of the arg that has no input to bind to (C0044).
   if (callee.complete && positional.length > callee.positionalArity) {
-    const excess = positional[callee.positionalArity]
     const isFb = callee.sym.kind === "function_block"
-    out.push({
-      severity: "error",
-      span: excess.span,
-      source: SOURCE,
-      code: isFb ? "input-assignment-missing" : "function-argument-count",
-      message: isFb
-        ? ctx.messages.inputAssignmentMissing(String(callee.positionalArity + 1), callee.sym.name)
-        : ctx.messages.functionRequiresInputs(callee.sym.name, callee.positionalArity),
-    })
+    if (isFb) {
+      // ONE MESSAGE PER POSITIONAL ARGUMENT, each naming THAT ARGUMENT'S SOURCE TEXT, and the callee UPPER-CASED.
+      // All three were wrong and the third is the vendor's own inconsistency, not ours: this message upper-cases the
+      // FB's name where the VAR_IN_OUT one two hundred lines below keeps the declared case — `refuse_inout_not_given`
+      // records 'FB_LANG_inoutmissing_target' in the same breath.
+      //
+      // Measured on `calls/call-grid.ts` (2026-09-19): `target(1, 2, mark)` on an FB is three errors naming '1',
+      // '2' and 'mark' — so the parameter is the argument as WRITTEN, not its position, which was only ever right
+      // by coincidence when somebody passed the number 1 first. `refuse_fb_called_positionally` passes `5` in the
+      // first slot and the vendor says '5'.
+      for (const arg of positional)
+        out.push({
+          severity: "error",
+          span: arg.span,
+          source: SOURCE,
+          code: "input-assignment-missing",
+          message: ctx.messages.inputAssignmentMissing(
+            ctx.source.slice(arg.span.start, arg.span.end).trim(),
+            callee.sym.name.toUpperCase(),
+          ),
+        })
+    } else {
+      const excess = positional[callee.positionalArity]!
+      out.push({
+        severity: "error",
+        span: excess.span,
+        source: SOURCE,
+        code: "function-argument-count",
+        message: ctx.messages.functionRequiresInputs(callee.sym.name, callee.positionalArity),
+      })
+    }
   }
 
   // (2) positional type-check — only on all-positional calls (mixed calls can't bind by index), and only

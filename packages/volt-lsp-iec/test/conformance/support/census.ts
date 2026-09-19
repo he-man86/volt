@@ -220,6 +220,19 @@ export const CELLS: readonly Cell[] = [
     "decl_temp_array_counts", "decl_var_array_counts",
   ]),
 
+  // ── calls ────────────────────────────────────────────────────────────────────────────────────
+  ...cells("calls", "an FB, every argument form", [
+    "cg_fb_positional", "cg_fb_named", "cg_fb_mixed", "cg_fb_output_bound",
+    "cg_fb_omitted_input", "cg_fb_inout_counts",
+  ]),
+  ...cells("calls", "a FUNCTION, a METHOD and a PROPERTY", [
+    "cg_fun_positional", "cg_fun_named", "cg_fun_mixed", "cg_fun_named_reversed",
+    "cg_method_positional", "cg_method_named", "cg_property_after_calls",
+  ]),
+  ...cells("calls", "when an argument is evaluated and when an in-out is bound", [
+    "cg_argument_order", "cg_inout_bound_after_write", "cg_instance_state_over_scans",
+  ]),
+
   // ── conversions ──────────────────────────────────────────────────────────────────────────────
   ...cells(
     "conversions",
@@ -278,7 +291,6 @@ export const CELLS: readonly Cell[] = [
  */
 export const PLANNED: readonly string[] = [
   "declarations / RETAIN, PERSISTENT, CONSTANT and direct addresses",
-  "calls / callee kind x argument form",
   "strings / STRING(n) truncation, escapes and non-ASCII",
   "statements / every statement kind at its edges",
 ]

@@ -6,10 +6,10 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1681
- *   refused       448
+ *   confirmed    1695
+ *   refused       451
  *   not-lowered    47
- *   lsp-gap        30
+ *   lsp-gap        29
  *   diverges        4
  *   unaskable      27
  */
@@ -586,6 +586,22 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   cc6_reference_assign_literal: "refused",
   cc6_retain_in_method: "refused",
   cc6_string_to_bool_and_time: "not-lowered",
+  cg_argument_order: "confirmed",
+  cg_fb_inout_counts: "confirmed",
+  cg_fb_mixed: "refused",
+  cg_fb_named: "confirmed",
+  cg_fb_omitted_input: "confirmed",
+  cg_fb_output_bound: "confirmed",
+  cg_fb_positional: "refused",
+  cg_fun_mixed: "confirmed",
+  cg_fun_named: "confirmed",
+  cg_fun_named_reversed: "confirmed",
+  cg_fun_positional: "confirmed",
+  cg_inout_bound_after_write: "confirmed",
+  cg_instance_state_over_scans: "confirmed",
+  cg_method_named: "confirmed",
+  cg_method_positional: "confirmed",
+  cg_property_after_calls: "confirmed",
   cmp_inf_number_eq: "confirmed",
   cmp_inf_number_ge: "confirmed",
   cmp_inf_number_gt: "confirmed",
@@ -1737,7 +1753,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   realovf_times_zero_after_infinity: "confirmed",
   reflection: "confirmed",
   refuse_adr_difference: "not-lowered",
-  refuse_fb_called_positionally: "lsp-gap",
+  refuse_fb_called_positionally: "refused",
   refuse_for_step_calls: "not-lowered",
   refuse_inout_aliases_receiver: "not-lowered",
   refuse_inout_bound_to_bit: "lsp-gap",

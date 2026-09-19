@@ -338,13 +338,23 @@ describe.skipIf(skipRustSuite())("differential execution — emitted Rust vs COD
 
   beforeAll(async () => {
     const dir = await mkdtemp(join(tmpdir(), "volt-exec-rust-"))
+    // BOUNDED CONCURRENCY, not `Promise.all` over every case. Each case spawns `rustc`, and at 2253 fixtures that
+    // was 2253 compilers at once — which is not parallelism, it is thrashing, and it pushed this past its own hang
+    // guard as the census sweeps landed. One per core keeps every core busy and the scheduler out of it.
+    //
+    // The guard stays 180s and stays a HANG guard: it is not the budget that changed, it is the shape.
+    const lanes = Math.max(1, navigator.hardwareConcurrency - 1)
+    let next = 0
     await Promise.all(
       // each case its own try: one that throws while being prepared fails as itself, not as every Rust case at once
-      recorded.map(async (c) => {
-        try {
-          await prepare(c)
-        } catch (error) {
-          runs.set(c.name, { exit: -1, stdout: "", stderr: `could not be prepared: ${(error as Error).message}` })
+      Array.from({ length: Math.min(lanes, recorded.length) }, async () => {
+        for (let i = next++; i < recorded.length; i = next++) {
+          const c = recorded[i]!
+          try {
+            await prepare(c)
+          } catch (error) {
+            runs.set(c.name, { exit: -1, stdout: "", stderr: `could not be prepared: ${(error as Error).message}` })
+          }
         }
       }),
     )

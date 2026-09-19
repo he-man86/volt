@@ -307,7 +307,6 @@ END_METHOD
   },
   {
     name: "refuse_fb_called_positionally",
-    deferred: { lsp: "2026-09-18: no LSP error for an FB body call with a positional argument" },
     refused: "Assignment to input missing for parameter '5' in call of 'FB_LANG_POSITIONAL_TARGET'",
     pouName: "FB_LANG_refuse_fb_called_positionally",
     kind: "function_block" as const,

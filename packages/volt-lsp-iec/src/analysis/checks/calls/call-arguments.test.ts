@@ -55,7 +55,9 @@ test("gap 9: a library FUNCTION's arguments are checked — Standard's LEN given
 test("4.1 a wrong argument type is flagged (INT input called with STRING)", () => {
   expect(codes(FB_ONE_INPUT, caller(`fb(n := sText);`))).toContain("call-argument-type")
   // ...and positionally, on an all-positional call.
-  expect(codes(FB_ONE_INPUT, caller(`fb(sText);`))).toContain("call-argument-type")
+  // NAMED, because an FB takes no positional argument at all — measured, see `calls/call-grid.ts`. The point of
+  // this test is the TYPE, and a positional call now stops at `input-assignment-missing` before reaching it.
+  expect(codes(FB_ONE_INPUT, caller(`fb(n := sText);`))).toContain("call-argument-type")
 })
 
 test("4.2 too many positional arguments is flagged", () => {
@@ -142,11 +144,13 @@ test("4.3e C0201: a VAR_IN_OUT bound to a non-identical type is flagged; the sam
   expect(msgs(fb, call(`inst(Variable := i);`))).toEqual([])
 })
 
-test("4.4 a mixed named+positional call does not type-check the trailing positional", () => {
-  // `sText` (STRING) would mismatch `b : INT` IF bound by index — but a mixed call must not bind positionally.
+test("4.4 a mixed named+positional call reports the POSITIONAL half, and still does not bind it by index", () => {
+  // `sText` (STRING) would mismatch `b : INT` IF bound by index, and it must still not be. What changed is that the
+  // positional argument is no longer silent: CODESYS refuses an FB positional argument outright, mixed or not
+  // (`cg_fb_mixed`, measured 2026-09-19), so the call reports it rather than quietly binding nothing.
   const c = codes(FB_TWO_INPUTS, caller(`fb(a := 1, sText);`))
+  expect(c).toContain("input-assignment-missing")
   expect(c).not.toContain("call-argument-type")
-  expect(c).not.toContain("input-assignment-missing")
   expect(c).not.toContain("unknown-named-argument")
 })
 
@@ -163,7 +167,8 @@ test("4.6 an unresolved callee yields no call-argument diagnostic (zero-FP)", ()
 
 test("4.5b a correct FB call is clean", () => {
   expect(codes(FB_TWO_INPUTS, caller(`fb(a := 1, b := 2);`))).not.toContain("call-argument-type")
-  expect(codes(FB_TWO_INPUTS, caller(`fb(1, 2);`))).toEqual([]) // all-positional, in range, right types
+  // An all-positional FB call is NOT clean — it is two errors, one per argument, whatever the types are.
+  expect(codes(FB_TWO_INPUTS, caller(`fb(1, 2);`))).toEqual(["input-assignment-missing", "input-assignment-missing"])
 })
 
 test("4.7 a property accessor body is now diagnosed (R1 iterator covers accessors)", () => {
@@ -206,9 +211,11 @@ test("gap: too-many is flagged on an INHERITING FB (params walk the EXTENDS chai
   const derived = `FUNCTION_BLOCK FB_D EXTENDS FB_B\nVAR_INPUT d : INT; END_VAR\nEND_FUNCTION_BLOCK`
   const call = `PROGRAM P\nVAR fb : FB_D; END_VAR\nfb(1, 2, 3);\nEND_PROGRAM`
   expect(codes(base, derived, call)).toContain("input-assignment-missing")
-  // ...and the legal 2-arg call is clean (inherited `b` is a real slot).
-  const ok = `PROGRAM P\nVAR fb : FB_D; END_VAR\nfb(1, 2);\nEND_PROGRAM`
-  expect(codes(base, derived, ok)).not.toContain("input-assignment-missing")
+  // ...and so is the 2-arg call, now that an FB takes no positional argument at all. What this test still proves is
+  // that the check does not BAIL on an FB with a base — it used to, and then nothing was reported. The named form
+  // is the clean one, and the inherited `b` being nameable is what shows the EXTENDS chain was walked.
+  const named = `PROGRAM P\nVAR fb : FB_D; END_VAR\nfb(b := 1, d := 2);\nEND_PROGRAM`
+  expect(codes(base, derived, named)).not.toContain("input-assignment-missing")
 })
 
 test("gap: a VAR_OUTPUT is not counted as a positional slot (FB call)", () => {
@@ -277,15 +284,22 @@ fb(u := i);
 END_PROGRAM`
   expect(codes(fb, call)).toContain("sign-change-conversion")
 
-  // ...positionally too, and it is a WARNING rather than the call-argument-type ERROR.
+  // ...and it stays a WARNING rather than the call-argument-type ERROR. This used to ask the same thing of a
+  // POSITIONAL call; an FB has no positional form, so the second shape is a FUNCTION, which does.
+  const fn = `FUNCTION FUN_U : INT
+VAR_INPUT
+	u : UINT;
+END_VAR
+FUN_U := 0;
+END_FUNCTION`
   const positional = `PROGRAM P
 VAR
-	fb : FB_U;
 	i : INT;
+	r : INT;
 END_VAR
-fb(i);
+r := FUN_U(i);
 END_PROGRAM`
-  const cs = codes(fb, positional)
+  const cs = codes(fn, positional)
   expect(cs).toContain("sign-change-conversion")
   expect(cs).not.toContain("call-argument-type")
 })
