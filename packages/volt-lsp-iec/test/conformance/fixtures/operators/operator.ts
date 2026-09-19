@@ -801,7 +801,6 @@ END_METHOD
   // ask the question the symbol form cannot: ADD and MUL are EXTENSIBLE in IEC, so what does `ADD(a, b, c)` do?
   {
     name: "operator_call_form_arithmetic",
-    deferred: { lsp: "2026-09-18: no LSP error for `ADD(a, b)` — the call form of an operator is IL, not ST" },
     refused: "';' expected instead of 'ADD'",
     pouName: "FB_LANG_operator_call_form_arithmetic",
     kind: "function_block" as const,
@@ -813,7 +812,6 @@ END_METHOD
   },
   {
     name: "operator_call_form_extensible",
-    deferred: { lsp: "2026-09-18: no LSP error for as operator_call_form_arithmetic" },
     refused: "';' expected instead of 'ADD'",
     pouName: "FB_LANG_operator_call_form_extensible",
     kind: "function_block" as const,
@@ -825,7 +823,6 @@ END_METHOD
   },
   {
     name: "operator_call_form_comparison",
-    deferred: { lsp: "2026-09-18: no LSP error for the CALL FORM of a comparison operator — GT(a, b) is IL, not ST" },
     refused: "';' expected instead of 'GT'",
     pouName: "FB_LANG_operator_call_form_comparison",
     kind: "function_block" as const,

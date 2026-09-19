@@ -7,9 +7,9 @@
  *
  * At the last regeneration:
  *   confirmed    1763
- *   refused       478
+ *   refused       485
  *   not-lowered    55
- *   lsp-gap        21
+ *   lsp-gap        14
  *   diverges        5
  *   unaskable      27
  */
@@ -1540,9 +1540,9 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   operand_test_and_set: "refused",
   operand_uchar_literal: "refused",
   operand_xadd: "refused",
-  operator_call_form_arithmetic: "lsp-gap",
-  operator_call_form_comparison: "lsp-gap",
-  operator_call_form_extensible: "lsp-gap",
+  operator_call_form_arithmetic: "refused",
+  operator_call_form_comparison: "refused",
+  operator_call_form_extensible: "refused",
   overflow_byte_above_max: "refused",
   overflow_int_above_max: "confirmed",
   overflow_int_at_max: "confirmed",
@@ -1961,14 +1961,14 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   signed_unsigned_conversion: "confirmed",
   sn_case_differs_only: "confirmed",
   sn_dut_mismatch: "confirmed",
-  sn_dut_mismatch_used: "lsp-gap",
+  sn_dut_mismatch_used: "refused",
   sn_fb_matches: "confirmed",
-  sn_fb_mismatch: "lsp-gap",
+  sn_fb_mismatch: "refused",
   sn_function_matches: "confirmed",
-  sn_function_mismatch: "lsp-gap",
+  sn_function_mismatch: "refused",
   sn_interface_mismatch: "confirmed",
   sn_interface_mismatch_used: "confirmed",
-  sn_program_mismatch: "lsp-gap",
+  sn_program_mismatch: "refused",
   sqrt_precision: "confirmed",
   standard_len_wstring_rejected: "refused",
   state_any_input_sizes: "confirmed",

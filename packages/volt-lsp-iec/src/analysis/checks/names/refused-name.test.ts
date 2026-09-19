@@ -115,3 +115,30 @@ test("a type name a call uses is NOT refused — as an argument or as the callee
   const d = diagnose(program("n : UDINT; t : LTIME;", "t := LTIME();\nn := XSIZEOF(DINT);"))
   expect(d.filter((x) => x.code === "refused-name")).toEqual([])
 })
+
+test("an IL operator's CALL FORM is refused — `ADD(a, b)` is not ST", () => {
+  // `added := ADD(a, b);` is eleven IDE errors and was silent here: ADD lexes as a keyword, and the expression
+  // parser accepts any non-operator keyword as a name (`LTIME()`), so the call parsed clean
+  // (conformance `operator_call_form_arithmetic`, `_comparison`, `_extensible`).
+  const msgs = diagnose(program("a : INT; b : INT; added : INT;", "added := ADD(a, b);"))
+    .filter((d) => d.code === "refused-name")
+    .map((d) => d.message)
+  expect(msgs).toEqual([
+    "Expression expected instead of 'ADD'",
+    "';' expected instead of 'ADD'",
+    "Unexpected token 'ADD' found",
+    "';' expected instead of '('",
+    "Unexpected token '(' found",
+    "';' expected instead of 'a'", // a VARIABLE in the resync gets this line alone — it could start a statement
+    "';' expected instead of ','",
+    "Unexpected token ',' found",
+    "';' expected instead of 'b'",
+    "';' expected instead of ')'",
+    "Unexpected token ')' found",
+  ])
+  // all ten, and only as the CALLEE the arg/callee exclusion would otherwise wave through
+  for (const op of ["SUB", "MUL", "DIV", "GT", "LT", "LE", "GE", "EQ", "NE"])
+    expect(diagnose(program("a : INT; b : INT; r1 : INT;", `r1 := ${op}(a, b);`)).map((d) => d.message)).toContain(
+      `Expression expected instead of '${op}'`,
+    )
+})

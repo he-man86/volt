@@ -19,7 +19,7 @@ import { parseSource } from "../../../src/syntax/index.js"
 import { buildSymbolTable } from "../../../src/symbols/index.js"
 import { lowerSource } from "../../../src/transpile/lower/index.js"
 import { run } from "../../../src/transpile/interp/index.js"
-import { assembleFixture } from "./fixture-units.js"
+import { assembleFixture, withDependencies } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
 import { STANDARD_LIBRARY } from "./standard-library.js"
 import type { LanguageTest } from "../types.js"
@@ -73,11 +73,17 @@ function sourceOf(t: LanguageTest, all: readonly LanguageTest[]): { source: stri
  * or unable to run at all, since most fixtures carry no `refused` fragment to compare.
  */
 function lspReportsAnError(t: LanguageTest, all: readonly LanguageTest[]): boolean {
-  const { source, gvls } = assembleFixture(t, all)
-  const own = { uri: `file:///conformance/${t.pouName}.${extFor(t.kind)}`, source, parseResult: parseSource(source) }
+  // ONE ITEM, ONE FILE — the layout the protocol guarantees and `replay.test.ts` replays. `assembleFixture` is the
+  // TRANSPILER's assembly: it concatenates every dependency AND the synthesized PLC_PRG into a single source. Read
+  // as a file, that source holds two top-level POUs, which is exactly the shape `signature-name` treats as a fixture
+  // packing its dependencies inline — so it stayed silent and four measured refusals read as `lsp-gap`.
+  const own = { uri: `file:///conformance/${t.pouName}.${extFor(t.kind)}`, source: t.source, parseResult: parseSource(t.source) }
+  const deps = withDependencies(t, all)
+    .filter((f) => f.name !== t.name && f.source !== "")
+    .map((f) => ({ uri: `file:///conformance/${f.pouName}.${extFor(f.kind)}`, source: f.source, parseResult: parseSource(f.source) }))
   const plcText = plcPrgSource(t)
   const plc = { uri: `file:///conformance/${t.name}/PLC_PRG.prg`, source: plcText, parseResult: parseSource(plcText) }
-  const files = [own, plc, ...gvls.map((g) => ({ uri: g.uri, source: g.source, parseResult: parseSource(g.source) }))]
+  const files = [own, plc, ...deps]
   if (files.some((f) => f.parseResult.errors.length > 0)) return true
 
   const project = buildSymbolTable([...files, ...libraryFiles()])

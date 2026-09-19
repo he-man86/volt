@@ -61,3 +61,16 @@ Two fixes worth having, both landed on their own merits:
 
 And the test sources were renamed: 29 files declared `r`, `s`, `st` or `ld` as variables, which is ST the LSP itself
 now reports. They were tests written against a language that does not exist.
+
+## The arithmetic and comparison operators are a different question — the CALL FORM
+
+`ADD`, `SUB`, `MUL`, `DIV`, `GT`, `LT`, `LE`, `GE`, `EQ` and `NE` are ST keywords, so they were never on the list
+above. But `added := ADD(a, b);` is IL, and CODESYS refuses it where it accepts `a + b` — eleven errors per
+statement, measured 2026-09-19 (`operator_call_form_arithmetic`, `_comparison`, `_extensible`). They parsed clean
+here because the expression parser accepts any non-operator keyword as a name, which is what lets `LTIME()` work.
+
+`refused-name.ts` now reports them from `ST_OPERATOR_CALLS`, as a **callee** — the one position the type-name
+exclusion beside it deliberately waves through.
+
+That work also fixed the resync cascade: a token that could START a statement gets `';' expected instead of 'x'`
+and nothing else. Only a keyword or punctuation is also echoed as `Unexpected token 'x' found`.

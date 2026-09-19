@@ -17,7 +17,8 @@
  *
  * Not here: `CALC` — CODESYS parses `calc : INT;` as a conditional call and says other things ("Second parameter of
  * conditional call must be a valid call statement" …), unmodelled. The comparison and arithmetic IL operators (`LT`,
- * `ADD` …) are ST keywords already.
+ * `ADD` …) are ST keywords, so a DECLARATION of one is the parser's business — but their CALL FORM is refused here
+ * (`ST_OPERATOR_CALLS`).
  *
  * CODESYS-only: TwinCAT is unmeasured, and a guess there would be a new false positive.
  */
@@ -29,6 +30,19 @@ import { elementaryType } from "../../../types/index.js"
 
 const IL_OPERATOR_NAMES: ReadonlySet<string> = new Set([
   "r", "s", "ld", "ldn", "st", "stn", "ret", "retc", "retcn", "jmpc", "jmpcn", "cal", "calcn", "andn", "orn", "xorn",
+])
+
+/**
+ * The IL operators that have an ST KEYWORD of the same name — `added := ADD(a, b)` is Instruction List, and CODESYS
+ * refuses it where it would accept `a + b`. All ten measured on SP21 (`operator_call_form_arithmetic`,
+ * `_comparison`, `_extensible`), each the same triple the other refused names get.
+ *
+ * They need their own set because they are refused AS A CALLEE, which `callArgumentNames` exempts for the type names
+ * beside them (`LTIME()` reads the clock). DECLARATIONS are not here: `ADD` is in the keyword table, so
+ * `add : INT;` is the parser's broken-declaration cascade, not this.
+ */
+const ST_OPERATOR_CALLS: ReadonlySet<string> = new Set([
+  "add", "sub", "mul", "div", "gt", "lt", "le", "ge", "eq", "ne",
 ])
 
 export function checkRefusedName(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -49,7 +63,9 @@ export function checkRefusedName(ctx: CheckContext, out: DiagnosticItem[]): void
       const args = callArgumentNames(s)
       for (const e of stmtExprs(s))
         walkExpr(e, (x) => {
-          if (x.kind !== "ident_expr" || !isRefusedInBody(x.name) || args.has(x.span.start)) return
+          if (x.kind !== "ident_expr") return
+          const operatorCall = ST_OPERATOR_CALLS.has(x.name.toLowerCase())
+          if (!operatorCall && (!isRefusedInBody(x.name) || args.has(x.span.start))) return
           // Where the statement STARTS the parser is still looking for a target, so it reports the name and resyncs;
           // anywhere else it was looking for an OPERAND, and says so first (`n := byte;` — three errors on `byte`).
           if (x.span.start === s.span.start) report(x.name, x.span)
@@ -98,7 +114,15 @@ function cascadeAfter(ctx: CheckContext, out: DiagnosticItem[], from: number): v
     if (isTrivia(token.kind)) continue
     if (token.text === ";") return
     const span = { ...token.span, start: token.span.start + from, end: token.span.end + from }
-    for (const message of [ctx.messages.semicolonExpectedInsteadOf(token.text), ctx.messages.unexpectedToken(token.text)])
+    // A token that could START a statement gets the `';' expected` line and NOTHING else; anything else is also
+    // echoed back as "Unexpected token". Measured across every recorded cascade: the variables `a`, `b` and `c` are
+    // alone (`operator_call_form_*`, `ampersand_operator_rejected`) while `INT` and `BOOL` are paired
+    // (`echo_lower_case_function_name`, `echo_mixed_case_il_operator`). An ELEMENTARY TYPE NAME is a keyword to
+    // CODESYS even though this lexer reads it as an identifier, which is what `isRefusedInBody` already knows.
+    const ordinaryName = token.kind === "identifier" && !isRefusedInBody(token.text)
+    const messages = [ctx.messages.semicolonExpectedInsteadOf(token.text)]
+    if (!ordinaryName) messages.push(ctx.messages.unexpectedToken(token.text))
+    for (const message of messages)
       out.push({ severity: "error", span, source: SOURCE, code: "refused-name", message })
   }
 }
