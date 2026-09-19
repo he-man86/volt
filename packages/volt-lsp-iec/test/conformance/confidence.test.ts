@@ -38,14 +38,22 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 4 -> 5. `string_high_byte_escape` is RESOLVED — a STRING holds UTF-8 bytes and `literal-value.ts` stores them
   // — and `strings/escapes.ts` added `$80`, the one cell nothing explains: LEN answers 3 where every other escape
   // at or above 0x80 answers 2, and no reading that gives 3 there leaves `$81` at 2. Deferred rather than fitted.
-  // What is left is two families: trig argument reduction for a huge angle, and that one byte.
-  diverges: 5,
+  // 5 -> 3. `$80` is RESOLVED too, by widening the probe: `$hh` is a WINDOWS-1252 byte, not the code point U+00XX,
+  // and sixteen cells across 0x80..0x9F follow that codepage exactly. What is left is one family — CODESYS's trig
+  // is the x87 FPU, whose 66-bit argument reduction and few-ULP kernel are named at `interp/values.ts` and
+  // deliberately not emulated.
+  diverges: 3,
   // 18 -> 34 because the MEASUREMENT changed, not because gaps appeared. `refused` claimed the vendor rejects a
   // source AND so do we, while only checking the vendor; 16 fixtures were counted as evidence while the LSP accepted
   // them silently (`cc_reserved_name_s_string` and its neighbours). The rating asks both sides now.
   // 35 -> 36: `tc_nc_axis` reached a compiler for the first time and came back "Unknown type: 'AXIS_REF'", which the
   // LSP does not say.
-  "lsp-gap": 36,
+  // 36 -> 2, over a run of measurements rather than one change: the signature-name family (a harness fault — the
+  // rating was reading the TRANSPILER's assembly, two POUs in one file), the operator call forms, `__POSITION` and
+  // `__CURRENTTASK`, the `CALC` family, `ANYNUM_TO_*`, `FB_Init`'s arguments, `__QUERYPOINTER`'s first operand and
+  // `__NEW`'s pragma. The two left are the `???` target over a call, where the fixture and the corpus disagree
+  // because the compiler never reads network text — see `network/network-analysis.ts`.
+  "lsp-gap": 2,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -67,7 +75,14 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 53 -> 55: `atomic_xadd_pointer` and `atomic_cas_pointer` — the two probes the vendor ACCEPTS. They take the
   // address of a local and pass it to an atomic, which `pointer-targets` refuses; the interesting half (what the
   // operators demand of a non-pointer) is measured and implemented.
-  "not-lowered": 55,
+  // 55 -> 75, and the whole rise is ONE formatter told apart from another. A format sweep of 70 more cells
+  // determined `LREAL_TO_STRING` completely (fifteen significant digits, fixed while the exponent is 0..13,
+  // lowercase `e`) — it is implemented in both backends and its 35 cells are `confirmed`. `REAL_TO_STRING` is a
+  // DIFFERENT formatter and the same sweep showed it is not derivable: two of its exponential cells print eight
+  // significant digits beside four that print seven at the same magnitudes, and four fractions round their
+  // seventh digit where rounding the value does not (1/3 is '0.3333334', 1/9 prints eight digits and stops).
+  // Its 35 cells refuse on purpose, with 70 measurements written down rather than a rule invented from them.
+  "not-lowered": 75,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

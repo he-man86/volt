@@ -272,7 +272,7 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   // LTIME joins the list: its text is a TIME's with the `LTIME#` prefix and three units below a millisecond, and
   // every component boundary is measured (`conversions/to-string-format.ts`). REAL and LREAL deliberately do NOT —
   // see the note where the refusal is raised.
-  const hasText = (t: Type | undefined): boolean => isInt(t, true) || (t !== undefined && ["BOOL", "TIME", "LTIME", "DATE", "DT", "TOD"].includes(elemOf(t)?.name ?? ""))
+  const hasText = (t: Type | undefined): boolean => isInt(t, true) || (t !== undefined && ["BOOL", "TIME", "LTIME", "DATE", "DT", "TOD", "LREAL"].includes(elemOf(t)?.name ?? ""))
   const parses = (t: Type): boolean => isInt(t) || elemOf(t)?.family === "real"
   // STRING <-> WSTRING: one code unit per code unit, truncated at the target's capacity (conformance
   // `xo3_string_wide_conversions`: a WSTRING(10) into a STRING(4) is 'abcd', a STRING(6) into a WSTRING(2) is "he").
@@ -298,6 +298,25 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
     const type = withStringCapacity(to)
     return { kind: "convert", value: convert(arg, withStringCapacity(from!)), type, span: e.span }
   }
+  // LREAL_TO_STRING IS IMPLEMENTED AND REAL_TO_STRING IS NOT, and the sweep that separated them is the reason.
+  // Both were refused on eleven cells each; 68 more (`conversions/to-string-format.ts`, 2026-09-19) determine one
+  // formatter completely and leave the other with two cells no rule explains.
+  //
+  //   LREAL  fifteen significant digits, trailing zeros stripped, FIXED while the decimal exponent is 0..13 and
+  //          exponential otherwise, lowercase `e`, no sign and no padding. 26 of 26 cells follow it, including
+  //          the boundaries either side (1E13 is '10000000000000.0', 1E14 is '1.0e14', 0.1 is '1.0e-1').
+  //
+  //   REAL   seven significant digits, UPPERCASE E, exponent padded to two digits, no '.0' on an exponential
+  //          mantissa, fixed from 1E-4 up to just below 1E8 — and then two cells that print EIGHT digits
+  //          (`1.2345679E08`, `1.2345679E-08`) beside four that print seven at the same magnitudes, and four
+  //          fractions whose seventh digit is not what rounding the value to seven gives (1/3 is '0.3333334',
+  //          1/7 is '0.1428572', while 1/9 and 1/11 print eight digits and stop). Those are not a rounding mode;
+  //          they are a formatter doing something the outputs do not reveal.
+  //
+  // So the LREAL side is lowered and the REAL side stays refused. The prelude mirrors the interpreter line for
+  // line, so a guess here would be a silent divergence between the two backends, not a rough edge in one.
+  if (isString(to) && elemOf(to)?.name === "STRING" && elemOf(from ?? UNKNOWN)?.name === "REAL")
+    return lw.bail("conversion-type", "REAL_TO_STRING prints seven digits except where it prints eight — 70 cells and no rule", e.span)
   if (!scalar(to) || (from !== undefined && !scalar(from)))
     return lw.bail("conversion-type", "this STRING conversion is not measured yet", e.span)
   const only = e.args[0]
@@ -315,23 +334,6 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   // REAL/LREAL→TIME rounds half away from zero (2.5 is 3ms). Any other pair — BOOL, DT/TOD → REAL, DATE→TOD — is refused.
   const real = (name: string) => name === "REAL" || name === "LREAL"
   const pair = `${fromName}>${toName}`
-  // REAL_TO_STRING AND LREAL_TO_STRING ARE MEASURED AND STILL REFUSED, which is a different thing from unmeasured.
-  // `conversions/to-string-format.ts` recorded eleven shapes of each and the formatter is intricate enough that
-  // eleven do not determine it:
-  //
-  //   REAL   3.14159265 -> '3.141593'    seven significant digits
-  //          123456789  -> '1.2345679E08'   UPPERCASE E, exponent padded to two digits
-  //          1.0E20     -> '1E20'        no trailing '.0' in exponent form
-  //   LREAL  3.14159265 -> '3.14159265'  fifteen or so
-  //          123456789  -> '123456789.0'   no exponent at the same magnitude
-  //          1.0E20     -> '1.0e20'      LOWERCASE e, and a trailing '.0'
-  //
-  // The two widths do not even agree on the case of the exponent or where plain notation stops. Reproducing that
-  // from eleven points would be inventing the rest of it, and the prelude mirrors these line for line — so a guess
-  // here is a silent divergence between the backends, not a rough edge. The table above is what a format sweep
-  // would extend.
-  if (toName === "STRING" && real(fromName))
-    return lw.bail("conversion-type", `${fromName}_TO_STRING's exact format is measured but not reproduced`, e.span)
   const span = e.span
   const udint = elementaryRef("UDINT")
   const n = (value: bigint): IrExpr => ({ kind: "const", value, type: udint, span })

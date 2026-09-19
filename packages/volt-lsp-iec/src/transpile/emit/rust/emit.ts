@@ -505,7 +505,9 @@ class Printer {
               ? `(if ${value} { "TRUE" } else { "FALSE" })`
               : ["TIME", "LTIME", "DATE", "DT", "TOD"].includes(source)
                 ? `iec_${source.toLowerCase()}_text(${value} as i64)`
-                : `format!("{}", ${value})`
+                : source === "LREAL"
+                  ? `iec_lreal_text(${value})`
+                  : `format!("{}", ${value})`
           return `${stringPath(e.type)}::lit(${text}.as_bytes())`
         }
         if (from === "string") return `(iec_parse_${to === "real" ? "real" : "int"}(${value}.units()) as ${target})`

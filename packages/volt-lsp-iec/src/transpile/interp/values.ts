@@ -335,6 +335,43 @@ const elemName = (t: Type): string => (t.kind === "elementary" ? t.elem.name : t
 const isInt = (t: Type): boolean =>
   t.kind === "elementary" && (t.elem.family === "int" || t.elem.family === "bitstring")
 
+/**
+ * `LREAL_TO_STRING` — FIFTEEN significant digits, trailing zeros stripped but never the last decimal, FIXED while
+ * the value's decimal exponent is 0..13 and EXPONENTIAL otherwise, with a lowercase `e` and an exponent carrying
+ * neither a sign nor padding. Every one of 26 measured cells follows it (`conversions/to-string-format.ts`,
+ * 2026-09-19):
+ *
+ *   0 -> '0.0'      1 -> '1.0'      1.5 -> '1.5'       -2.25 -> '-2.25'    123456789 -> '123456789.0'
+ *   1/3 -> '3.33333333333333e-1'    2/3 -> '6.66666666666667e-1'           0.1 -> '1.0e-1'
+ *   1E13 -> '10000000000000.0'      1E14 -> '1.0e14'   1E20 -> '1.0e20'    1.23456789012345E20 kept whole
+ *   a NaN -> '#NaN'                 an infinity -> '#Inf', and '-#Inf' when it is negative
+ *
+ * `REAL_TO_STRING` is NOT this function and is still refused — see the note at the refusal. The widths do not
+ * share a formatter: a REAL writes an UPPERCASE E, pads the exponent to two digits, drops the mantissa's '.0',
+ * stays in fixed notation down to 1E-4 where an LREAL leaves it at 1, and prints seven digits where two of its
+ * measured cells print eight. Reusing this one for it would be a guess with 60 measurements against it.
+ */
+export function lrealText(v: number): string {
+  if (Number.isNaN(v)) return "#NaN"
+  if (!Number.isFinite(v)) return v < 0 ? "-#Inf" : "#Inf"
+  if (v === 0) return "0.0"
+  const sign = v < 0 ? "-" : ""
+  // `toExponential(14)` rounds to 15 significant digits FIRST, so the exponent that decides the notation is the
+  // one the printed digits have — 9.999999999999999 belongs with 1E1, not with the 9s it started as.
+  const [mantissa, exponentText] = Math.abs(v).toExponential(14).split("e")
+  const digits = mantissa!.replace(".", "")
+  const exponent = Number(exponentText)
+  if (exponent < 0 || exponent > 13) return `${sign}${trim(digits.slice(0, 1), digits.slice(1))}e${exponent}`
+  const point = exponent + 1
+  return `${sign}${trim(digits.slice(0, point).padEnd(point, "0"), digits.slice(point))}`
+}
+
+/** The whole part and the fraction, with the fraction's trailing zeros gone and at least one digit left. */
+function trim(whole: string, fraction: string): string {
+  const kept = fraction.replace(/0+$/, "")
+  return `${whole}.${kept === "" ? "0" : kept}`
+}
+
 export function coerce(v: Val, to: Type, from: Type): Val {
   if (to.kind !== "elementary") return v
   const family = to.elem.family
@@ -347,6 +384,7 @@ export function coerce(v: Val, to: Type, from: Type): Val {
     const source = from.kind === "elementary" ? from.name : ""
     if (source === "TIME") return timeText(v as bigint)
     if (source === "LTIME") return ltimeText(v as bigint)
+    if (source === "LREAL") return lrealText(v as number)
     return source === "DATE" || source === "DT" || source === "TOD" ? calendarText(source, v as bigint) : String(v)
   }
   if (typeof v === "string" && family === "real") {

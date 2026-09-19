@@ -40,6 +40,32 @@ impl<T: Copy + Into<u32>, const N: usize> std::fmt::Debug for IecStr<T, N> { fn 
 // neighbours), which is exactly what that PartialOrd does over a byte slice.
 fn iec_max<T: PartialOrd>(a: T, b: T) -> T { if b > a { b } else { a } }
 fn iec_min<T: PartialOrd>(a: T, b: T) -> T { if b < a { b } else { a } }
+// LREAL_TO_STRING - fifteen significant digits, trailing zeros stripped but never the last decimal, FIXED while
+// the decimal exponent is 0..13 and exponential otherwise, lowercase e with no sign and no padding. Mirrors
+// lrealText in the interpreter; 26 cells measured, and REAL_TO_STRING is a DIFFERENT formatter that is still
+// refused by lowering (see the note there).
+fn iec_lreal_text(v: f64) -> String {
+    if v.is_nan() { return String::from("#NaN"); }
+    if v.is_infinite() { return String::from(if v < 0.0 { "-#Inf" } else { "#Inf" }); }
+    if v == 0.0 { return String::from("0.0"); }
+    let sign = if v < 0.0 { "-" } else { "" };
+    // Round to fifteen significant digits FIRST, so the exponent deciding the notation is the printed one.
+    let text = format!("{:.*e}", 14, v.abs());
+    let (mantissa, exponent) = text.split_once('e').unwrap();
+    let digits: String = mantissa.chars().filter(|c| *c != '.').collect();
+    let exponent: i32 = exponent.parse().unwrap();
+    let trim = |whole: &str, fraction: &str| -> String {
+        let kept = fraction.trim_end_matches('0');
+        format!("{}.{}", whole, if kept.is_empty() { "0" } else { kept })
+    };
+    if exponent < 0 || exponent > 13 {
+        return format!("{}{}e{}", sign, trim(&digits[..1], &digits[1..]), exponent);
+    }
+    let point = (exponent + 1) as usize;
+    let mut whole = digits[..point.min(digits.len())].to_string();
+    while whole.len() < point { whole.push('0'); }
+    format!("{}{}", sign, trim(&whole, if point < digits.len() { &digits[point..] } else { "" }))
+}
 // The Standard string functions — line for line the interpreter's STRING_FUNCTIONS: 1-based, clamped positions.
 fn iec_count(n: i64, s: &[u8]) -> usize { (n.max(0) as usize).min(s.len()) }
 fn iec_span(s: &[u8], start: usize, length: usize) -> &[u8] { let start = start.min(s.len()); &s[start..(start + length).min(s.len())] }
