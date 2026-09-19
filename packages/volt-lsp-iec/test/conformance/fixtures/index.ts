@@ -20,6 +20,7 @@ import { PLATFORM_INTEGER_TESTS } from "./types/platform-integers.js"
 import { PRIMITIVE_BOUNDS_TESTS } from "./types/primitive-bounds.js"
 import { ARITHMETIC_EDGE_TESTS } from "./operators/arithmetic-edges.js"
 import { BITWISE_TESTS } from "./operators/bitwise.js"
+import { SELECTION_TESTS } from "./operators/selection.js"
 import { COMPARISON_TESTS } from "./operators/comparison.js"
 import { MIXED_TYPE_TESTS } from "./operators/mixed-type.js"
 import { MATH_DOMAIN_TESTS } from "./operators/math-domain.js"
@@ -130,6 +131,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "arithmetic-edges", tests: ARITHMETIC_EDGE_TESTS },
   { name: "comparison", tests: COMPARISON_TESTS },
   { name: "bitwise", tests: BITWISE_TESTS },
+  { name: "selection", tests: SELECTION_TESTS },
   { name: "mixed-type", tests: MIXED_TYPE_TESTS },
   { name: "variable-section", tests: VARIABLE_SECTION_TESTS },
   { name: "keyword", tests: KEYWORD_TESTS },

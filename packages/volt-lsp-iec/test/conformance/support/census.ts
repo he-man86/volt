@@ -127,6 +127,24 @@ export const CELLS: readonly Cell[] = [
     ),
   ),
 
+  ...cells(
+    "operators",
+    "MIN and MAX per type, and across two",
+    [
+      ...INTEGERS.flatMap((t) => [`sel_min_${lower(t.name)}`, `sel_max_${lower(t.name)}`]),
+      ...([["INT", "UINT"], ["DINT", "UDINT"], ["SINT", "DINT"], ["INT", "REAL"], ["LINT", "REAL"], ["BYTE", "SINT"]] as [string, string][]).flatMap(
+        ([l, r]) => [`sel_min_${lower(l)}_${lower(r)}`, `sel_max_${lower(l)}_${lower(r)}`],
+      ),
+    ],
+  ),
+  ...cells("operators", "LIMIT, including bounds the wrong way round", [
+    "sel_limit_below", "sel_limit_inside", "sel_limit_above",
+    "sel_limit_inverted_below", "sel_limit_inverted_between", "sel_limit_inverted_above",
+  ]),
+  ...cells("operators", "SEL both ways, and MUX past its last input", [
+    "sel_sel_false", "sel_sel_true", "sel_mux_0", "sel_mux_1", "sel_mux_2", "sel_mux_3", "sel_mux_7",
+  ]),
+
   // ── conversions ──────────────────────────────────────────────────────────────────────────────
   ...cells(
     "conversions",
@@ -188,7 +206,6 @@ export const PLANNED: readonly string[] = [
   "declarations / VAR section x type category x initializer form",
   "declarations / RETAIN, PERSISTENT, CONSTANT and direct addresses",
   "calls / callee kind x argument form",
-  "selection / MIN, MAX, LIMIT, SEL and MUX, per type and mixed",
   "strings / LEN, LEFT, RIGHT, MID, CONCAT, INSERT, DELETE, REPLACE and FIND at their edges",
   "strings / STRING(n) truncation, escapes and non-ASCII",
   "statements / every statement kind at its edges",

@@ -452,11 +452,27 @@ function exptType(call: CallExpr, scope: Scope, project: Scope): Type {
   return exptResultType(asType(kinds[0]!), asType(kinds[1]!))
 }
 
+/** The value functions whose result is the meet of their arguments — measured for these two only. */
+const SELECTS_BY_MEET: ReadonlySet<string> = new Set(["MIN", "MAX"])
+
 function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
   // A project function/method wins (user code can shadow a built-in name).
   const sym = resolveMemberChain(call.callee, scope, project)
   if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project)
   if (call.callee.kind === "ident_expr" && call.callee.name.toUpperCase() === "EXPT") return exptType(call, scope, project)
+  // MIN AND MAX RETURN THE MEET OF THEIR ARGUMENTS, the same one a binary operator's operands reach. They are
+  // extensible and type-dependent, so the reference catalog models no return type for them and they inferred
+  // UNKNOWN — which is assignable to anything, so no check downstream could see a `MIN(anInt, aUint)` at all.
+  // Measured on all six mixed pairs (`operators/selection.ts`, 2026-09-19): MIN(INT, UINT) is INT, MIN(DINT, UDINT)
+  // is DINT, MIN(BYTE, SINT) is SINT, MIN(LINT, REAL) is REAL — `checkedMeetType` exactly.
+  //
+  // LIMIT, SEL and MUX are deliberately NOT here. They plainly meet their value arguments too, and nothing has
+  // recorded them across two types, so they keep the silence they have earned.
+  if (call.callee.kind === "ident_expr" && SELECTS_BY_MEET.has(call.callee.name.toUpperCase())) {
+    const types = call.args.map((a) => (a.value === undefined ? UNKNOWN : inferExprType(a.value, scope, project)))
+    if (types.length === 0 || types.some((t) => t.kind !== "elementary")) return UNKNOWN
+    return types.reduce((acc, t) => checkedMeetType(acc, t) ?? UNKNOWN)
+  }
   // Otherwise a built-in call: a conversion `<X>_TO_<Y>`/`TO_<Y>` yields elementary `<Y>`; an operator with a
   // FIXED modeled return type yields that. Flows a built-in's result into downstream checks — e.g.
   // `REAL_TO_DINT(EXPT(…))` needs EXPT's type to see an implicit LREAL→REAL narrowing on the argument.
