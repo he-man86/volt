@@ -268,6 +268,8 @@ export interface Messages {
   thisNotAllowed(): string
   /** `SUPER` used in a POU where it is not valid (C0122). verified both vendors. */
   superNotAllowed(): string
+  /** `SUPER^` in a function block that EXTENDS nothing — there is no base to name. */
+  superWithoutBase(): string
   /** A `VAR_OUTPUT` declared as `REFERENCE TO` (C0222). verified both vendors. */
   outputCantBeReference(): string
   /** A variable declared with the type of a FUNCTION POU, which can't be instantiated (C0177). verified both vendors. */
@@ -580,6 +582,9 @@ export function messagesFor(vendor: Vendor): Messages {
     retainNotAllowedHere: () => (tc ? `'RETAIN' or 'PERSISTENT' not allowed in this place` : `RETAIN or PERSISTENT not allowed in this place`),
     thisNotAllowed: () => (tc ? `Expression 'THIS' is not allowed in this context` : `Expression THIS is not allowed in this context`),
     superNotAllowed: () => (tc ? `Expression 'SUPER' is not allowed in this context` : `Expression SUPER is not allowed in this context`),
+    // Measured on CODESYS (`refuse_super_without_base`): the compiler does not say "there is no base", it says the
+    // thing in call position is not callable — because with nothing to extend, `SUPER^` names nothing at all.
+    superWithoutBase: () => `Program name, function or function block instance expected instead of 'SUPER^'`,
     outputCantBeReference: () => (tc ? `Outputs can't be of type 'REFERENCE TO'` : `Outputs can't be of type REFERENCE TO`),
     notInstantiable: (typeName) => `'${typeName}' is of type FUNCTION and cannot be instantiated`,
     pouObsolete: (name, message) => `POU '${name}' has been marked as obsolete: ${message}`,

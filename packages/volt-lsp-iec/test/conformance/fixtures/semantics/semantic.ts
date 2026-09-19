@@ -162,7 +162,6 @@ END_METHOD
   },
   {
     name: "refuse_super_without_base",
-    deferred: { lsp: "2026-09-18: no LSP error for SUPER^ in an FB that extends nothing" },
     refused: "Program name, function or function block instance expected instead of 'SUPER^'",
     pouName: "FB_LANG_refuse_super_without_base",
     kind: "function_block" as const,

@@ -14,6 +14,7 @@ export const KNOWN_UNMAPPED = new Set([
   "external-non-input-write",
   "non-callable-call",
   "subrange-out-of-range",
+  "super-without-base",
   "unary-operand-type",
   "unterminated-conditional-pragma",
 
