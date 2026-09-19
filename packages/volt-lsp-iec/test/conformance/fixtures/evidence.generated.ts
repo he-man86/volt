@@ -6,11 +6,11 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1763
+ *   confirmed    1781
  *   refused       509
  *   not-lowered    55
  *   lsp-gap         2
- *   diverges        5
+ *   diverges        3
  *   unaskable      32
  */
 import type { LanguageTest } from "../types.js"
@@ -807,8 +807,16 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   esc_around_hex_41: "confirmed",
   esc_around_hex_7e: "confirmed",
   esc_around_hex_7f: "confirmed",
-  esc_around_hex_80: "diverges",
+  esc_around_hex_80: "confirmed",
   esc_around_hex_81: "confirmed",
+  esc_around_hex_83: "confirmed",
+  esc_around_hex_8a: "confirmed",
+  esc_around_hex_8d: "confirmed",
+  esc_around_hex_92: "confirmed",
+  esc_around_hex_99: "confirmed",
+  esc_around_hex_9b: "confirmed",
+  esc_around_hex_9d: "confirmed",
+  esc_around_hex_9f: "confirmed",
   esc_around_hex_a9: "confirmed",
   esc_around_hex_c3: "confirmed",
   esc_around_hex_ff: "confirmed",
@@ -824,8 +832,16 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   esc_len_hex_41: "confirmed",
   esc_len_hex_7e: "confirmed",
   esc_len_hex_7f: "confirmed",
-  esc_len_hex_80: "diverges",
+  esc_len_hex_80: "confirmed",
   esc_len_hex_81: "confirmed",
+  esc_len_hex_83: "confirmed",
+  esc_len_hex_8a: "confirmed",
+  esc_len_hex_8d: "confirmed",
+  esc_len_hex_92: "confirmed",
+  esc_len_hex_99: "confirmed",
+  esc_len_hex_9b: "confirmed",
+  esc_len_hex_9d: "confirmed",
+  esc_len_hex_9f: "confirmed",
   esc_len_hex_a9: "confirmed",
   esc_len_hex_c3: "confirmed",
   esc_len_hex_ff: "confirmed",

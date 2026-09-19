@@ -27,7 +27,6 @@ function probe(slug: string, decl: string, expr: string, outType: string, featur
   const pou = `FB_LANG_${slug}`
   return {
     name: slug,
-    ...(slug.endsWith("hex_80") ? { deferred: { transpile: EIGHTY } } : {}),
     pouName: pou,
     kind: "function_block" as const,
     feature,
@@ -55,15 +54,23 @@ const named: LanguageTest[] = NAMED.flatMap(([esc, slug]) => [
 ])
 
 /** The hex forms, walking across the point where the two readings part. */
-const HEX: readonly string[] = ["41", "7E", "7F", "80", "81", "A9", "C3", "FF"]
+// 0x80..0x9F is where WINDOWS-1252 stops agreeing with Latin-1, so that is where these sit: `83` and `8A` and
+// `9F` are defined there and encode as TWO UTF-8 bytes, `92`/`99`/`9B` as THREE, and `8D`/`9D` are undefined in
+// the codepage at all. If the answers follow that table, `$hh` is a CP1252 byte; if they do not, `$80` stays the
+// unexplained cell it was.
+const HEX: readonly string[] = ["41", "7E", "7F", "80", "81", "83", "8A", "8D", "92", "99", "9B", "9D", "9F", "A9", "C3", "FF"]
 
 /**
- * `$80` IS THE ONE CELL NOTHING EXPLAINS. Every other escape at or above 0x80 is TWO bytes, which is exactly the
- * UTF-8 encoding of U+00XX — `$81`, `$A9`, `$C3` and `$FF` all agree. `$80` answers THREE. U+0080 encodes as C2 80,
- * which is two; three bytes is what a replacement character (EF BF BD) costs, so the shape of a guess is visible and
- * it does not survive `$81` being two. Recorded and deferred rather than fitted.
+ * `$80` WAS THE CELL NOTHING EXPLAINED, and widening the probe explained it. Read as the code point U+00XX every
+ * escape at or above 0x80 should be two UTF-8 bytes, and `$81`, `$A9`, `$C3`, `$FF` were — while `$80` answered
+ * THREE. Eight more cells across 0x80..0x9F, the range WINDOWS-1252 does not share with Latin-1, settle it:
+ *
+ *   $83 $8A $9F   2   ƒ Š Ÿ — defined in the codepage, and below U+0800
+ *   $92 $99 $9B   3   ' ™ › — defined, and above it
+ *   $8D $9D       2   UNDEFINED in the codepage, so they stay U+008D / U+009D
+ *
+ * `$hh` is a CP1252 byte the compiler decodes and stores as UTF-8. Sixteen cells, sixteen agreements.
  */
-const EIGHTY = "2026-09-19: LEN answers 3 for `$80` where every other escape at or above 0x80 answers 2 — the UTF-8 encoding of U+0080 is two bytes (C2 80), and no reading that gives 3 here leaves `$81` at 2. Measured, unexplained, and not bent to fit."
 
 const hex: LanguageTest[] = HEX.flatMap((code) => [
   probe(`esc_len_hex_${code.toLowerCase()}`, `v : STRING := '$${code}';`, "LEN(v)", "INT", `LEN of a string holding only $${code}`),
