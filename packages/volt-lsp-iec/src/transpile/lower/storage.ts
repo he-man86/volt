@@ -192,7 +192,9 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
   // a VAR_EXTERNAL declares no storage: its name is the global's (`globalPlace`) — a slot here would be a local copy
   for (const sec of sections.filter((s) => s.sectionKind !== "VAR_EXTERNAL"))
     for (const written of sec.decls) {
-      if (written.at !== undefined && !bindAddress(lw, written)) continue
+      // A refused ADDRESS is the same cascade as a refused initializer: the name is still DECLARED, and skipping
+      // the slot only makes every later use report `place-not-local` about the wrong thing.
+      if (written.at !== undefined) bindAddress(lw, written)
       const type = storageOf(lw, lw.resolve(written.type))
       // A variable with no initializer of its own starts at its ALIAS type's: `TYPE T : INT := 42;` makes `x : T` 42
       // (conformance `type_dut_alias_with_init`, 43 after `x := x + 1`). It started at 0 — `resolve` sees through the
@@ -221,7 +223,17 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
       const deferrable = deferInit && decl.init !== undefined && runnableInit(decl.init) && !lw.globalMode && !lw.routineMode
       const init = deferrable ? lw.quietly(attempt) : attempt()
       const deferred = deferrable && init === undefined
-      if (!deferred && decl.init !== undefined && init === undefined) continue
+      // A DECLARATION THAT FAILED STILL DECLARES ITS NAME. Skipping the slot made every later USE report a second
+      // diagnostic naming the wrong thing — `place-not-local: timeLastStateTransition is a var, which has no frame
+      // slot yet`, 32 times, where the one real refusal was its initializer. The coverage report counts blockers
+      // per POU, so a cascade does not just read badly: it puts the POU under the wrong construct and makes the
+      // work list say to go fix the symptom.
+      //
+      // Nothing is at risk from the slot existing. The refusal is already recorded, and `lowerUnit` returns
+      // diagnostics rather than a POU whenever any exist — so this changes what is REPORTED, never what is built.
+      // The LSP made this same fix for its own cascade (`ParseResult.failedDeclarations`, so `unresolved-identifier`
+      // stays quiet about a name whose declaration could not parse).
+      const failed = !deferred && decl.init !== undefined && init === undefined
       for (const name of decl.names) {
         // A NAME DECLARED TWICE IS INVALID INPUT, and must end in a diagnostic here rather than a throw later.
         // CODESYS rejects it outright — "A local variable named 'iCounter' is already defined", "Duplicate definition
@@ -233,7 +245,7 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
         if (lw.declared(name.text)) lw.bail("var-duplicate", `${name.text} is declared more than once`, decl.span)
         else {
           const slot = lw.frame.length
-          lw.slot(name, type, sec.sectionKind, deferred ? undefined : init)
+          lw.slot(name, type, sec.sectionKind, deferred || failed ? undefined : init)
           if (deferred) lw.pendingInits.push({ name, type, expr: decl.init as Expr, span: decl.span, slot })
         }
       }
