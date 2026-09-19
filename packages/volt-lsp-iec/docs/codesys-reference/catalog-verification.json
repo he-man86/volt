@@ -20,7 +20,7 @@
       "code": "C0002",
       "outcome": "mismatch",
       "lsp": [
-        "')' expected instead of ';'"
+        "',' or ')' expected instead of ';'"
       ],
       "actual": []
     },

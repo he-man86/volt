@@ -31,8 +31,9 @@
     "message": "'<operator 1>' or '<operator 2>' expected instead of '<tag>'",
     "repro": "PROGRAM P\nVAR x:INT;\nEND_VAR\nx := foo(1;\nEND_PROGRAM",
     "expect": [
-      "')' expected instead of ';'"
+      "',' or ')' expected instead of ';'"
     ],
+    "note": "The expectation was the LSP's own wording, not the vendor's — C0002 is the TWO-token message this entry's own `message` template spells out, and a call's argument list can still take a comma. Corrected 2026-09-19 against a live SP21 recording (conformance `sysop_position_as_argument`).",
     "status": "implemented",
     "ourCheck": "syntax/parse-errors",
     "ourCode": "syntax-error",
