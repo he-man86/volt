@@ -6,9 +6,9 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1756
+ *   confirmed    1763
  *   refused       455
- *   not-lowered    47
+ *   not-lowered    53
  *   lsp-gap        29
  *   diverges        5
  *   unaskable      27
@@ -23,6 +23,19 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   accepts_output_bound_twice: "confirmed",
   accepts_output_into_other_type: "refused",
   accepts_partial_access: "confirmed",
+  addr_bit_inside_byte: "not-lowered",
+  addr_bit_seven: "not-lowered",
+  addr_byte_inside_word_high: "not-lowered",
+  addr_byte_inside_word_low: "not-lowered",
+  addr_constant_from_constant: "confirmed",
+  addr_ix_read: "confirmed",
+  addr_mb_roundtrip: "confirmed",
+  addr_md_roundtrip: "confirmed",
+  addr_mw_roundtrip: "confirmed",
+  addr_mx_roundtrip: "confirmed",
+  addr_qx_roundtrip: "confirmed",
+  addr_same_word_twice: "not-lowered",
+  addr_word_inside_dword: "not-lowered",
   all_constant_division_in_real_context: "confirmed",
   ampersand_operator_rejected: "refused",
   arithedge_byte_add_over: "confirmed",

@@ -218,6 +218,22 @@ function parseAddress(text: string): RegExpExecArray | undefined {
 }
 
 /** The name an address would alias, or undefined when it is free — the one overlap rule, under both interpretations. */
+/**
+ * TWO ADDRESSES THAT OVERLAP ARE ONE STORAGE, and the vendor aliases them. This refuses the overlap instead, which
+ * is a REACH gap and not a wrong answer — the whole model is measured now (`declarations/addresses.ts`, 2026-09-19)
+ * and waiting for a byte-addressable marker area to hold it:
+ *
+ *   %MW4 := 16#1234   ->   %MB8 is 16#34 and %MB9 is 16#12      LITTLE-ENDIAN
+ *   %MD16 := 16#12345678 -> %MW32 is 16#5678                    and the numbering is in UNITS, not bytes:
+ *                                                               word 4 IS bytes 8-9, dword 16 IS words 32-33
+ *   %MB12 := 1        ->   %MX12.0 is TRUE                      bit 0 is the least significant
+ *   %MB12 := 128      ->   %MX12.7 is TRUE
+ *   two WORDs at %MW2 ->   writing one shows in the other
+ *
+ * Implementing it means each area becoming a byte array with every addressed variable a VIEW into it (offset,
+ * width, little-endian) rather than a slot of its own — a new storage kind in the IR and in both backends. Six
+ * fixtures sit at `not-lowered` until then, which is the honest rating: the vendor runs them and we refuse.
+ */
 function addressClash(lw: Lowering, m: RegExpExecArray): string | undefined {
   const { area, bits } = addressBits(m)
   return lw.shared.addressed.find((x) => x.area === area && x.bits[0] < bits[1] && bits[0] < x.bits[1])?.name
@@ -268,7 +284,7 @@ export function addressBits(m: RegExpExecArray): { area: string; bits: [number, 
 function reserveAddress(lw: Lowering, text: string, m: RegExpExecArray, name: string, span: Span): boolean {
   const clash = addressClash(lw, m)
   if (clash !== undefined) {
-    lw.bail("var-at", `${text} overlaps ${clash}, which plain storage would not alias`, span)
+    lw.bail("var-at", `${text} overlaps ${clash} — the vendor aliases them and this has no byte-addressable area to do it in`, span)
     return false
   }
   claimAddress(lw, m, name, "GLOBAL")
@@ -294,7 +310,7 @@ function bindAddress(lw: Lowering, decl: VarDecl): boolean {
   if (lw.routineMode) return refuse("an address inside a METHOD or FUNCTION")
   if (decl.names.length > 1) return refuse("several variables on one address")
   const clash = addressClash(lw, m)
-  if (clash !== undefined) return refuse(`it overlaps ${clash}, which plain storage would not alias`)
+  if (clash !== undefined) return refuse(`it overlaps ${clash} — the vendor aliases them and this has no byte-addressable area to do it in`)
   claimAddress(lw, m, decl.names[0]!.text, lw.globalMode ? "GLOBAL" : lw.frameContext)
   return true
 }

@@ -54,6 +54,7 @@ import { STATEMENT_EDGE_TESTS } from "./semantics/statement-edges.js"
 import { UNARY_OPERAND_TESTS } from "./operators/unary-operand.js"
 import { SHADOWING_TESTS } from "./declarations/shadowing.js"
 import { USAGE_PATTERN_TESTS } from "./cross-object/usage-pattern.js"
+import { ADDRESS_TESTS } from "./declarations/addresses.js"
 import { SECTION_SEMANTICS_TESTS } from "./declarations/section-semantics.js"
 import { VARIABLE_SECTION_TESTS } from "./declarations/variable-section.js"
 import { CHECK_COVERAGE_TESTS } from "./batches/check-coverage.js"
@@ -147,6 +148,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "mixed-type", tests: MIXED_TYPE_TESTS },
   { name: "variable-section", tests: VARIABLE_SECTION_TESTS },
   { name: "section-semantics", tests: SECTION_SEMANTICS_TESTS },
+  { name: "addresses", tests: ADDRESS_TESTS },
   { name: "keyword", tests: KEYWORD_TESTS },
   { name: "operands", tests: OPERANDS_TESTS },
   { name: "usage-pattern", tests: USAGE_PATTERN_TESTS },

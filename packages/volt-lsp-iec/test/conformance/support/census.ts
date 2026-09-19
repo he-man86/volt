@@ -262,6 +262,15 @@ export const CELLS: readonly Cell[] = [
     "cg_argument_order", "cg_inout_bound_after_write", "cg_instance_state_over_scans",
   ]),
 
+  ...cells("declarations", "a variable AT a direct address", [
+    "addr_mx_roundtrip", "addr_mb_roundtrip", "addr_mw_roundtrip", "addr_md_roundtrip",
+    "addr_qx_roundtrip", "addr_ix_read",
+  ]),
+  ...cells("declarations", "two names on one storage, and the byte order that follows", [
+    "addr_same_word_twice", "addr_byte_inside_word_low", "addr_byte_inside_word_high",
+    "addr_bit_inside_byte", "addr_bit_seven", "addr_word_inside_dword",
+  ]),
+
   // ── conversions ──────────────────────────────────────────────────────────────────────────────
   ...cells(
     "conversions",
@@ -319,7 +328,6 @@ export const CELLS: readonly Cell[] = [
  * `openspec/changes/fixture-census/operations.md` is the long form, with why each one matters.
  */
 export const PLANNED: readonly string[] = [
-  "declarations / RETAIN, PERSISTENT, CONSTANT and direct addresses",
 ]
 
 /** A cell is CLOSED when its fixture exists and the vendor has answered it. */
