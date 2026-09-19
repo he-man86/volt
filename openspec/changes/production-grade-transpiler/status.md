@@ -1,10 +1,29 @@
-# Status — after the first CODESYS recording session
+# Status — the recording sessions, in order
 
-**42 of 44 plan tasks done.** The close-out (`close-out.md`) describes the change as delivered; this records what
-the recording session that followed it added, corrected, and opened.
+> **THIS FILE IS A LOG, and its later sections are the older ones.** The live numbers live in
+> `openspec/changes/fixture-census/status.md`; this records what each CODESYS recording session
+> added, corrected and opened, and the sections below are kept as written so a reading that turned
+> out to be wrong stays visible next to the measurement that corrected it.
 
-Suite: **2490 pass, 0 fail**. Fixtures: **967**, of which 622 confirmed, 201 refused, 20 not-lowered, 65 unasked,
-34 lsp-gap, 3 diverges, 22 unaskable. Of the 625 both sides execute, **99.5% match**.
+## Where it stands (2026-09-19, evening)
+
+```
+2458 fixtures   confirmed 1837   refused 509   not-lowered 75   lsp-gap 2   diverges 3   unaskable 32
+                unasked 0        agreement 866 codesys / 266 twincat        corpus: zero false positives
+```
+
+**Every item in the "Open" table below is now closed**, each by a sweep rather than by a reading:
+
+| was open | what settled it |
+|---|---|
+| `real_to_dint_below_range` | 192 cells: REAL → integer happens at the DESTINATION'S register width, so a DINT gets the 32-bit indefinite and a LINT the 64-bit one. Four points could not show that. |
+| token echo wording | `echo_*_case_*` asked the same word in four spellings and CODESYS echoed each back unchanged — **the spelling is the SOURCE's**. The 2026-09-03 note claiming `'LIMIT'` was wrong. |
+| the 16 reserved IL operators | They were **already reserved**, by `checks/names/refused-name.ts`, at the declaration and at every use. Adding them to the keyword table was tried and cost 14 fixtures; `docs/reserved-il-operators.md` records why the table is the wrong mechanism. `CALC` is the seventeenth and a different thing — the IL conditional call. |
+| `instanceRelative` | STILL no reaching case. The asymmetry is real in `lower/interfaces.ts`; three attempts lowered correctly or hit an earlier refusal. It is the one item here that is not closed. |
+| STRING is UTF-8 | Closed twice over. A STRING holds UTF-8 BYTES and `literal-value.ts` stores them — and `$hh` turned out to be a **Windows-1252** byte rather than the code point U+00XX, which is what made `$80` answer LEN 3 where every other high escape answers 2. Sixteen cells across 0x80..0x9F follow the codepage exactly. |
+
+**D6 still governs everything.** 56,629 METHOD/ACTION bodies are unreachable, so ~0.10% of every executable body in
+the corpus lowers. That has not moved and is still the natural next change.
 
 ---
 
