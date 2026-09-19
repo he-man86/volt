@@ -377,6 +377,11 @@ for (const { vendor, filename, floor } of RECORDINGS) {
  */
 describe("LSP vs the simulator run (every fixture CODESYS built and ran)", () => {
   const ran = JSON.parse(readFileSync(join(import.meta.dir, "recordings", "codesys.run.json"), "utf8")).tests as Record<string, { error?: string }>
+  // AN EXPLICIT BUDGET, because the default 5s is not one. This runs the whole analyzer over every fixture and the
+  // cost is LINEAR in how many there are — about 3ms each, and the census sweeps took the suite from 967 fixtures to
+  // 2332 in a day. It timed out twice on the way and both times it was a real quadratic term in the harness, now
+  // gone: a symbol table rebuilt per fixture from every other fixture's declarations, and `linkExtends` walking
+  // every child twice per fixture. What is left is the work the gate exists to do.
   it("emits NO error on a fixture the IDE compiled and executed", () => {
     const falsePositives: string[] = []
     for (const [i, test] of ALL_TESTS.entries()) {
@@ -386,5 +391,5 @@ describe("LSP vs the simulator run (every fixture CODESYS built and ran)", () =>
       for (const m of runLsp(i, "codesys")) if (m.startsWith("[error]")) falsePositives.push(`${test.name}: ${m}`)
     }
     expect(falsePositives).toEqual([])
-  })
+  }, 60_000)
 })

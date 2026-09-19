@@ -25,6 +25,7 @@ import {
 import { loadWorkspaceRefs, loadTaskRoots } from "../../src/workspace-refs.js"
 import { WorkspaceStore } from "../../src/server/workspace-store.js"
 import { documentDiagnostics } from "../../src/server/diagnostics.js"
+import { projectDocuments } from "./support/diagnostics.js"
 import { allowedCode } from "../../src/server/diagnostic-codes.js"
 import { formatDocument } from "../../src/services/index.js"
 import { parseNetworkText, computeNetworkTextDiagnostics } from "../../src/network/index.js"
@@ -167,15 +168,12 @@ describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)"
     for (const project of readdirSync(CORPUS_ROOT)) {
       const dir = join(CORPUS_ROOT, project)
       if (!statSync(dir).isDirectory()) continue
-      const projFiles = walk(dir)
-      if (projFiles.length === 0) continue
-      const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }))
-      store.workspaceRefs = loadWorkspaceRefs(dir)
-      store.taskRoots = loadTaskRoots(dir)
-      store.seedDisk(projFiles.map((p) => ({ uri: p, source: readFileSync(p, "utf8") })))
-      for (const d of store.workspace()) {
+      // The SHARED pass — this used to build a third `WorkspaceStore` over the same projects, with a config that
+      // left out the project's own diagnostic settings for no stated reason. See `support/diagnostics.ts`.
+      for (const { uri, diagnostics } of projectDocuments(dir, "codesys")) {
+        const d = { uri }
         const seen = new Set<string>()
-        for (const diag of documentDiagnostics(store, messages, d)) {
+        for (const diag of diagnostics) {
           if (!allowedCode(diag.code)) offenders.push(`${project}${d.uri.slice(dir.length)} [${String(diag.code)}]`)
           const r = diag.range
           const key = `${r.start.line}:${r.start.character}-${r.end.line}:${r.end.character}|${String(diag.code)}`

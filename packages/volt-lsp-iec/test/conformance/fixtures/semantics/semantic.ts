@@ -119,7 +119,6 @@ END_METHOD
   // COMPILES is a gap with a name. Only a recording tells them apart.
   {
     name: "refuse_method_no_result",
-    deferred: { lsp: "2026-09-18: no LSP error for a METHOD with no return type used as a value" },
     refused: "Cannot convert type 'Unknown type: 'm.NoRet()'' to type 'INT'",
     pouName: "FB_LANG_refuse_method_no_result",
     kind: "function_block" as const,
@@ -131,7 +130,6 @@ END_METHOD
   },
   {
     name: "refuse_inout_bound_to_bit",
-    deferred: { lsp: "2026-09-18: no LSP error for a VAR_IN_OUT bound to a BIT" },
     refused: "Type 'BIT' is not equal to type 'BOOL' of VAR_IN_OUT respectively REFERENCE 'io'",
     pouName: "FB_LANG_refuse_inout_bound_to_bit",
     kind: "function_block" as const,

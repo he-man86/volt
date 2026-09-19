@@ -7,9 +7,9 @@
  *
  * At the last regeneration:
  *   confirmed    1763
- *   refused       455
+ *   refused       457
  *   not-lowered    53
- *   lsp-gap        29
+ *   lsp-gap        27
  *   diverges        5
  *   unaskable      27
  */
@@ -1811,10 +1811,10 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   refuse_fb_called_positionally: "refused",
   refuse_for_step_calls: "not-lowered",
   refuse_inout_aliases_receiver: "not-lowered",
-  refuse_inout_bound_to_bit: "lsp-gap",
+  refuse_inout_bound_to_bit: "refused",
   refuse_inout_not_given: "refused",
   refuse_interface_any_input: "not-lowered",
-  refuse_method_no_result: "lsp-gap",
+  refuse_method_no_result: "refused",
   refuse_pointer_two_targets: "not-lowered",
   refuse_sizeof_interface: "not-lowered",
   refuse_super_without_base: "lsp-gap",

@@ -21,6 +21,7 @@ import { walkAllExprs, type CallArg, type Expr, type Span } from "../../../synta
 import { bodies, isLibrarySymbol, lookupMember, type Scope } from "../../../symbols/index.js"
 import {
   constancyOf,
+  elementaryType,
   elementaryTypeRef,
   inferExprType,
   integerLiteralType,
@@ -263,7 +264,15 @@ function inOutChecks(
   // C0201 — a VAR_IN_OUT is by-reference, so the argument's type must be IDENTICAL (not merely assignable).
   // Conservative: both sides KNOWN elementary and differently-named (aliases resolve, so INT≡an INT alias).
   const pt = resolveTypeExpr(param.type, ctx.project)
-  const at = argumentType(value, scope, ctx)
+  // A BIT ACCESS BOUND BY REFERENCE IS A `BIT`, and the vendor names it: `k(io := w.3)` against a
+  // `VAR_IN_OUT io : BOOL` is "Type 'BIT' is not equal to type 'BOOL' of VAR_IN_OUT respectively REFERENCE 'io'"
+  // (`refuse_inout_bound_to_bit`, measured). A numeric member is always a bit access (`checks/types/bit-number.ts`).
+  //
+  // ONLY HERE, and that is not timidity. Inferring BIT for every bit access was tried and the corpus gate refused
+  // it on four real projects: a bit access is a perfectly good assignment TARGET and a perfectly good BOOL source,
+  // and typing it BIT made both of those errors. What is special about a VAR_IN_OUT is that it binds by REFERENCE,
+  // where no conversion is allowed and the storage's own type is what counts.
+  const at = isBitAccess(value) ? elementaryTypeRef(elementaryType("BIT")!) : argumentType(value, scope, ctx)
   if (pt.kind === "elementary" && at.kind === "elementary" && !isSameType(pt, at)) {
     out.push({
       severity: "error",
@@ -273,6 +282,11 @@ function inOutChecks(
       message: ctx.messages.inOutTypeMismatch(at.name, pt.name, param.name.text),
     })
   }
+}
+
+/** `w.3` — a numeric member is always a bit access, never a field. */
+function isBitAccess(e: Expr): boolean {
+  return e.kind === "member" && /^\d+$/.test(e.member.name)
 }
 
 /**
