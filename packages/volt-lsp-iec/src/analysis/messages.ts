@@ -270,6 +270,8 @@ export interface Messages {
   superNotAllowed(): string
   /** `SUPER^` in a function block that EXTENDS nothing — there is no base to name. */
   superWithoutBase(): string
+  /** `INDEXOF`, which SP21 removed outright. */
+  indexofRemoved(): string
   /** A `VAR_OUTPUT` declared as `REFERENCE TO` (C0222). verified both vendors. */
   outputCantBeReference(): string
   /** A variable declared with the type of a FUNCTION POU, which can't be instantiated (C0177). verified both vendors. */
@@ -585,6 +587,8 @@ export function messagesFor(vendor: Vendor): Messages {
     // Measured on CODESYS (`refuse_super_without_base`): the compiler does not say "there is no base", it says the
     // thing in call position is not callable — because with nothing to extend, `SUPER^` names nothing at all.
     superWithoutBase: () => `Program name, function or function block instance expected instead of 'SUPER^'`,
+    indexofRemoved: () =>
+      `The operator INDEXOF is no longer supported. Use ADR instead. ADR on a POU name returns a pointer to a pointer to the function code.`,
     outputCantBeReference: () => (tc ? `Outputs can't be of type 'REFERENCE TO'` : `Outputs can't be of type REFERENCE TO`),
     notInstantiable: (typeName) => `'${typeName}' is of type FUNCTION and cannot be instantiated`,
     pouObsolete: (name, message) => `POU '${name}' has been marked as obsolete: ${message}`,

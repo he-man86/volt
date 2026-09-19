@@ -7,9 +7,9 @@
  *
  * At the last regeneration:
  *   confirmed    1763
- *   refused       458
- *   not-lowered    53
- *   lsp-gap        26
+ *   refused       478
+ *   not-lowered    55
+ *   lsp-gap        21
  *   diverges        5
  *   unaskable      27
  */
@@ -109,6 +109,23 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   array_initializers: "confirmed",
   assign_chained_mixed: "confirmed",
   assign_chained_plain: "confirmed",
+  atomic_bitadr_on_bool: "refused",
+  atomic_bitadr_on_word: "refused",
+  atomic_cas_dint: "refused",
+  atomic_cas_lint: "refused",
+  atomic_cas_lword: "refused",
+  atomic_cas_pointer: "not-lowered",
+  atomic_indexof_variable: "refused",
+  atomic_tas_bool: "refused",
+  atomic_tas_byte: "refused",
+  atomic_tas_dint: "refused",
+  atomic_tas_dword: "refused",
+  atomic_xadd_dint: "refused",
+  atomic_xadd_dword: "refused",
+  atomic_xadd_int: "refused",
+  atomic_xadd_lint: "refused",
+  atomic_xadd_lword: "refused",
+  atomic_xadd_pointer: "not-lowered",
   bit_access_read: "confirmed",
   bit_access_write: "confirmed",
   bit_and_bool: "confirmed",
@@ -1512,17 +1529,17 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   op_sys_varinfo: "refused",
   operand_bit_access_byte: "confirmed",
   operand_bit_assign_word: "confirmed",
-  operand_bitadr: "lsp-gap",
-  operand_compare_and_swap: "lsp-gap",
+  operand_bitadr: "refused",
+  operand_compare_and_swap: "refused",
   operand_hw_address_marker: "confirmed",
-  operand_indexof: "lsp-gap",
+  operand_indexof: "refused",
   operand_ini_deprecated: "not-lowered",
   operand_partial_word_in_dword: "confirmed",
   operand_position: "lsp-gap",
   operand_querypointer: "lsp-gap",
-  operand_test_and_set: "lsp-gap",
+  operand_test_and_set: "refused",
   operand_uchar_literal: "refused",
-  operand_xadd: "lsp-gap",
+  operand_xadd: "refused",
   operator_call_form_arithmetic: "lsp-gap",
   operator_call_form_comparison: "lsp-gap",
   operator_call_form_extensible: "lsp-gap",

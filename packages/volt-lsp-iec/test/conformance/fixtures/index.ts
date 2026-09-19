@@ -68,6 +68,7 @@ import { INITIALIZER_TESTS } from "./declarations/initializers.js"
 import { INTERFACE_CALL_TESTS } from "./calls/interface-calls.js"
 import { DECLARATION_LIFETIME_TESTS } from "./declarations/declaration-lifetimes.js"
 import { INOUT_CONSTANT_TESTS } from "./calls/inout-constant.js"
+import { ATOMIC_OPERAND_TESTS } from "./calls/atomic-operands.js"
 import { CALL_GRID_TESTS } from "./calls/call-grid.js"
 import { CALL_SHAPE_TESTS } from "./calls/call-shapes.js"
 import { CROSS_OBJECT_TESTS } from "./cross-object/cross-object.js"
@@ -176,6 +177,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "inout-constant", tests: INOUT_CONSTANT_TESTS },
   { name: "call-shapes", tests: CALL_SHAPE_TESTS },
   { name: "call-grid", tests: CALL_GRID_TESTS },
+  { name: "atomic-operands", tests: ATOMIC_OPERAND_TESTS },
   // ── implicit check functions a project defines (CheckBounds, CheckDiv…): what CODESYS calls, with what ──
   { name: "implicit-checks", tests: IMPLICIT_CHECK_TESTS },
 ]

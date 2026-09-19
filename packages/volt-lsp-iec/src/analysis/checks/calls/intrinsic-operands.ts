@@ -18,6 +18,7 @@ import { inferExprType, inTypeGroup } from "../../../types/index.js"
 import type { Span } from "../../../syntax/index.js"
 import { forEachExpr, lookup } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
+import { compilerTypeName } from "../../messages.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 /** Math operators requiring an ANY_NUM operand — a non-numeric argument is C0072. */
@@ -62,6 +63,31 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
         const t = inferExprType(arg, scope, ctx.project)
         if (t.kind === "elementary" && t.name === "BIT") push(out, "warning", arg.span, "adr-on-bit", ctx.messages.adrOnBit()) // C0355
       }
+    }
+    // THE ATOMICS WANT A POINTER, AND A FIXED ONE. `__XADD` names `POINTER TO DINT` whatever it was handed and
+    // `__COMPARE_AND_SWAP` names `POINTER TO LWORD` — measured across five and three operand types respectively
+    // (`calls/atomic-operands.ts`, 2026-09-19). The single `operand_xadd` recording used a DINT, which made the
+    // pointer look derived from the operand; it is not.
+    const ATOMIC_POINTER: Readonly<Record<string, string>> = { __XADD: "DINT", __COMPARE_AND_SWAP: "LWORD" }
+    const wants = ATOMIC_POINTER[name]
+    if (wants !== undefined) {
+      const t = inferExprType(arg, scope, ctx.project)
+      if (t.kind !== "pointer" && t.kind !== "unknown")
+        push(out, "error", arg.span, "call-argument-type", ctx.messages.cannotConvert(compilerTypeName(t), `POINTER TO ${wants}`))
+    }
+    // INDEXOF WAS REMOVED IN SP21 and says so, whether it is handed a POU name or a variable (`operand_indexof`,
+    // `atomic_indexof_variable`). It is not an operand rule — the operator is simply gone.
+    if (name === "INDEXOF") push(out, "error", e.callee.span, "indexof-removed", ctx.messages.indexofRemoved())
+    // BITADR IS REFUSED ON EVERY TYPE MEASURED — a BIT, a WORD and a BOOL, three different families, and nothing
+    // recorded it succeeding. Same wording as C0072, with the vendor's own camel spelling of the name.
+    if (name === "BITADR") {
+      // A BIT ACCESS is the shape the original fixture uses — `BITADR(w.3)` — and it infers UNKNOWN, so the type
+      // is named here. Same fact as the VAR_IN_OUT identity check: a numeric member is always a bit access.
+      const bit = arg.kind === "member" && /^\d+$/.test(arg.member.name)
+      const t = bit ? undefined : inferExprType(arg, scope, ctx.project)
+      const named = bit ? "BIT" : t?.kind === "elementary" ? t.name : undefined
+      if (named !== undefined)
+        push(out, "error", arg.span, "operator-not-possible", ctx.messages.operatorNotPossible("BitAdr", named))
     }
     if (name === "__DELETE") {
       const t = inferExprType(arg, scope, ctx.project)

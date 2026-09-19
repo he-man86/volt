@@ -99,10 +99,16 @@ const OPERATORS: ReadonlyArray<ReferenceEntry> = [
   ref("__POSITION", "operator", "Source position intrinsic."),
   ref("__POUNAME", "operator", "Enclosing POU name intrinsic."),
   ref("__CURRENTTASK", "operator", "Currently executing task."),
-  ref("__COMPARE_AND_SWAP", "operator", "Atomic compare-and-swap."),
-  ref("__XADD", "operator", "Atomic exchange-and-add."),
+  // RETURN TYPES, measured (`calls/atomic-operands.ts`, 2026-09-19). Without one each of these inferred UNKNOWN,
+  // which is assignable to anything, so nothing downstream could see a wrong destination.
+  { ...ref("__COMPARE_AND_SWAP", "operator", "Atomic compare-and-swap."), returnType: "BOOL" },
+  // `__XADD(anInt, 5)` into an INT is "Cannot convert type 'DINT' to type 'INT'" — the result is a DINT whatever
+  // the operand was.
+  { ...ref("__XADD", "operator", "Atomic exchange-and-add."), returnType: "DINT" },
   ref("__POOL", "operator", "Memory-pool intrinsic (CODESYS)."),
-  ref("TEST_AND_SET", "operator", "Atomic test-and-set."),
+  // A DWORD, and the operand does not change it: `TEST_AND_SET(aBool)` into a BOOL is still "Cannot convert type
+  // 'DWORD' to type 'BOOL'". The one fixture that recorded this read as an OPERAND rule and is not one.
+  { ...ref("TEST_AND_SET", "operator", "Atomic test-and-set."), returnType: "DWORD" },
   ref("INI", "operator", "Initialize an FB instance."),
 ]
 

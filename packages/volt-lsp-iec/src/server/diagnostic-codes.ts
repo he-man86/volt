@@ -13,6 +13,7 @@ export const KNOWN_UNMAPPED = new Set([
   "conversion-source-mismatch",
   "external-non-input-write",
   "non-callable-call",
+  "indexof-removed",
   "subrange-out-of-range",
   "super-without-base",
   "unary-operand-type",

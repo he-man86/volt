@@ -146,7 +146,6 @@ END_METHOD
   // needs no lowering at all.
   {
     name: "operand_indexof",
-    deferred: { lsp: "2026-09-18: no LSP error for INDEXOF, which SP21 removed outright — the vendor says to use ADR instead" },
     refused: "The operator INDEXOF is no longer supported. Use ADR instead. ADR on a POU name returns a pointer to a pointer to the function code.",
     pouName: "FB_LANG_operand_indexof",
     kind: "function_block" as const,
@@ -158,7 +157,6 @@ END_METHOD
   },
   {
     name: "operand_bitadr",
-    deferred: { lsp: "2026-09-18: no LSP error for BITADR on a BIT, which the vendor rejects" },
     refused: "Operation 'BitAdr' is not possible on type 'BIT'",
     pouName: "FB_LANG_operand_bitadr",
     kind: "function_block" as const,
@@ -194,7 +192,6 @@ END_METHOD
   },
   {
     name: "operand_compare_and_swap",
-    deferred: { lsp: "2026-09-18: no LSP error for __COMPARE_AND_SWAP on a value rather than a POINTER TO" },
     refused: "Cannot convert type 'DINT' to type 'POINTER TO LWORD'",
     pouName: "FB_LANG_operand_compare_and_swap",
     kind: "function_block" as const,
@@ -206,7 +203,6 @@ END_METHOD
   },
   {
     name: "operand_xadd",
-    deferred: { lsp: "2026-09-18: no LSP error for __XADD on a value rather than a POINTER TO" },
     refused: "Cannot convert type 'DINT' to type 'POINTER TO DINT'",
     pouName: "FB_LANG_operand_xadd",
     kind: "function_block" as const,
@@ -218,7 +214,6 @@ END_METHOD
   },
   {
     name: "operand_test_and_set",
-    deferred: { lsp: "2026-09-18: no LSP error for TEST_AND_SET on a DWORD rather than a BOOL" },
     refused: "Cannot convert type 'DWORD' to type 'BOOL'",
     pouName: "FB_LANG_operand_test_and_set",
     kind: "function_block" as const,

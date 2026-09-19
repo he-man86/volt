@@ -64,7 +64,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // byte-addressable area to do in. The whole model is measured at the refusal in `lower/storage.ts` (little-endian,
   // addresses numbered in UNITS, bit 0 the least significant) and waiting for that area. `not-lowered` is the honest
   // rating for it: the vendor runs them and we refuse.
-  "not-lowered": 53,
+  // 53 -> 55: `atomic_xadd_pointer` and `atomic_cas_pointer` — the two probes the vendor ACCEPTS. They take the
+  // address of a local and pass it to an atomic, which `pointer-targets` refuses; the interesting half (what the
+  // operators demand of a non-pointer) is measured and implemented.
+  "not-lowered": 55,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
