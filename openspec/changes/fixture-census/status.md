@@ -90,4 +90,8 @@ What else is in the 75:
 ## What is left that is NOT a census topic
 
 - **`batches/`** — six files named after the batch they arrived in. Should shrink to nothing.
-- **D6, the METHOD/ACTION bodies** — still governs everything at ~0.10% of corpus bodies lowering.
+- **D6, the METHOD/ACTION bodies** — still governs everything, but the number was wrong and is now measured:
+  **543 of 56,629 are REACHED**, not none. A routine lowers when a POU that lowers calls it, and that mechanism
+  has always existed; only **14** of the 543 come from a POU that RUNS, the rest being lifecycle methods reached
+  from declaration-only POUs. So D6 is not a missing mechanism — it is the same 55-of-304 problem, stated once.
+  Corrected in `src/transpile/index.ts` and gated by `lowering-totality.test.ts` (2026-09-19).
