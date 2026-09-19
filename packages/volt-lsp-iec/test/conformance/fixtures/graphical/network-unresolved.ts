@@ -182,7 +182,11 @@ END_FUNCTION_BLOCK
       "the vendor's own. ANSWERED: all four are false positives. The compiler answers about the SOURCE over " +
       "any real call, so the target message is one it never emits here — and voidness is not the line, as " +
       "`network_unnamed_target_of_valued_call` shows. `Mach1_MIDS` is LIVE (`General.prg:29` calls it and " +
-      "`general` is a task root), so the excluded-from-build reading this fixture tested is WRONG.",
+      "`general` is a task root), so the excluded-from-build reading this fixture tested is WRONG. " +
+      "RESOLVED 2026-09-19: the compiler never reads network text — the recorder pushes this through the BRIDGE, " +
+      "which writes PlcOpen XML. So this measures the XML the bridge makes of a `???`; lenze-mid measures the XML " +
+      "its author drew, an unconnected output pin, which is legal. The gap is `volt-cli` round-trip fidelity, not " +
+      "an LSP check, and the LSP stays silent so it does not flag the vendor's own drawing.",
     plcPrgBody: "PRG_LANG_network_unnamed_void_caller();",
     source: `PROGRAM PRG_LANG_network_unnamed_void_callee
 VAR
@@ -218,7 +222,8 @@ END_PROGRAM
       "`??? := NOT(a)` is an OPERATOR and errors on the target, `??? := <PROGRAM>()` returns NOTHING and errors " +
       "on the source. A valued call is a call with a value, so either answer is credible and only the compiler " +
       "settles it. Same unconnected enable as the corpus and as the `_behind_enable` fixture, so the enable is " +
-      "held constant and the CALL is the only thing that varies.",
+      "held constant and the CALL is the only thing that varies. Answered with its void twin, below, and for " +
+      "the same reason: this is the BRIDGE's XML for a `???`, not the XML a real project carries.",
     plcPrgVar: "fb_nvc : FB_LANG_network_unnamed_valued_call;",
     plcPrgBody: "fb_nvc();",
     source: `FUNCTION FUN_LANG_network_unnamed_valued : BOOL

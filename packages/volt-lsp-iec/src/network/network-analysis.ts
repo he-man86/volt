@@ -338,6 +338,13 @@ function checkUnresolvedBoxes(
     // them: they were never errors. `Mach1_MIDS` IS live — `General.prg:29` calls it and `general` is a task
     // root — so this is not the excluded-from-build gap it was briefly taken for.
     //
+    // WHY THE FIXTURE AND THE CORPUS CAN BOTH BE RIGHT, which took a while to see. CODESYS never reads network
+    // text: the recorder pushes the fixture through the BRIDGE, which writes PlcOpen XML, and the compiler reads
+    // that. So the fixture's answer is about the XML the bridge makes of a `???`, and lenze-mid's clean build is
+    // about the XML its author actually drew — an unconnected output pin, which is legal. The two differ, and
+    // that difference is a ROUND-TRIP fidelity question for `volt-cli`, not a rule this analysis can hold: the
+    // marker is Volt's own word for "nothing is connected here", and flagging it would flag the vendor's drawing.
+    //
     // Nothing is emitted in its place: of the compiler's two messages one names an implicit temp whose number
     // cannot be known (the same reason the instance case emits a subset), and the other belongs to an
     // assignment-source rule that does not exist yet and would have to fire for a plain `x := VoidProg()` too.
