@@ -124,7 +124,9 @@ Interpreter before emitter (D3). Titles are from `findings.md`.
       for a struct, and a packed layout must not be rounded up at the end either — invisible for a struct, whose
       align is 1, and the reason the FB stayed at 16. Note `cc4_pack_mode_not_allowed` is named for a belief its
       own recording contradicts: CODESYS builds pack_mode on an FB with no diagnostics.
-- [ ] *"instanceRelative treats the root FB's own frame as multi-instance"* — **structurally real, no reaching case
+- [x] CARRIED to `transpile-st-to-rust` on archive (2026-09-19) — it needs a fixture that REACHES the refusal, which
+      is lowering work, not this change's.
+      *"instanceRelative treats the root FB's own frame as multi-instance"* — **structurally real, no reaching case
       found.** The asymmetry is in the code: the root POU's harness frame is `POU:NAME` (`lower.ts`) while the root
       FB's OWN frame is `FB:NAME` (`buildLayout`), so `instanceRelative` reads the root FB's own fields as another
       instance's. But three attempts to reach the refusal all failed — an interface holding the root's own field and

@@ -59,7 +59,9 @@
       and `ampersand_operator_rejected` — the compiler resumes after the bad token and reports the rest of the line
       again (a parse-recovery cascade); and an FB's over-long initializer, which the build reports TWICE — as it does
       for every STRING one already recorded.
-- [ ] 5.3 TwinCAT build pass for the program cases when the TwinCAT worker is available; the replay tolerates unrecorded
+- [x] 5.3 CARRIED to `transpile-st-to-rust` on archive (2026-09-19) — the suite is unified and the CODESYS data is
+      complete; the second vendor's recording is recording work that outlives this change.
+      TwinCAT build pass for the program cases when the TwinCAT worker is available; the replay tolerates unrecorded
       cases until then. PARKED (user, 2026-09-14) — the CODESYS data is complete. Tried once: `ide.ps1 up -Vendor twincat`
       attaches workers to two XAE windows, both "no project selected"; `connect {project: "TwinCAT Project13"}` binds
       it (worker log: "select: bound", "DEGRADED cleared") and one `refs` answers, then the recorder's `refs` is refused

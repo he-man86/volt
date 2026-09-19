@@ -845,3 +845,21 @@ ever wanted, SP21's Core `IOnlineApplication` has a real `SingleCycle()` that th
 - Running a real project end to end. Third-party libraries ship compiled; see design §8.
 - Replacing the IDE compiler. The IDE stays authoritative for type-checking and codegen.
 - Shipping the emitted Rust as a product. It is a test target until a decision says otherwise.
+
+## Carried over when `production-grade-transpiler` and `unify-conformance-suite` were archived (2026-09-19)
+
+Both changes closed with one task each that nothing in them could finish. They are lowering and recording work, so
+they live here rather than in an archived folder nobody reads.
+
+- [ ] **`instanceRelative` treats the root FB's own frame as multi-instance** — structurally real, NO REACHING CASE.
+      The asymmetry is in the code: the root POU's harness frame is `POU:NAME` (`lower.ts`) while the root FB's OWN
+      frame is `FB:NAME` (`buildLayout`), so `instanceRelative` (`lower/interfaces.ts`) reads the root FB's own
+      fields as another instance's. Three attempts to reach the refusal all lowered correctly or hit an earlier one:
+      an interface holding the root's own field and dispatching, the same lent through a VAR_IN_OUT (refused earlier
+      by `interface-place`), and lending the root's own instance into another instance's METHOD. Behaviour was not
+      changed on the strength of a reading — a fixture that REACHES it is the prerequisite.
+- [ ] **A TwinCAT build pass for the program cases**, so the replay stops tolerating unrecorded cases on that vendor.
+      PARKED (user, 2026-09-14) — the CODESYS data is complete and this is the second vendor's half. Tried once:
+      `ide.ps1 up -Vendor twincat` attaches workers to two XAE windows, both "no project selected"; `connect
+      {project: "TwinCAT Project13"}` binds it (worker log: "select: bound", "DEGRADED cleared") and one `refs`
+      answers, then the recorder's `refs` is refused PLC_DISCONNECTED with no deselect in the log. Not diagnosed.
