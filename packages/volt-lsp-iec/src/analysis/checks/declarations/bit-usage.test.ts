@@ -34,5 +34,5 @@ test("C0205/C0206: POINTER TO BIT and ARRAY OF BIT are flagged anywhere", () => 
 })
 
 test("a BIT struct field stays quiet (structs allow BIT)", () => {
-  expect(errs(`TYPE S : STRUCT b:BIT; END_STRUCT END_TYPE`)).toEqual([])
+  expect(errs(`TYPE sv : STRUCT b:BIT; END_STRUCT END_TYPE`)).toEqual([])
 })

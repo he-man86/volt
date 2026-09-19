@@ -63,7 +63,7 @@ test("a constant from a library file resolves as non-variable under a live `%20`
 })
 
 test("an enum member is constant (inline enum), an unresolved name is unknown", () => {
-  const src = `FUNCTION_BLOCK F\nVAR\n  st : (A, B, C);\n  n : INT;\nEND_VAR\nCASE st OF\n  A: n := Missing;\nEND_CASE\nEND_FUNCTION_BLOCK`
+  const src = `FUNCTION_BLOCK F\nVAR\n  stv : (A, B, C);\n  n : INT;\nEND_VAR\nCASE stv OF\n  A: n := Missing;\nEND_CASE\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src)
   const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
   for (const { scope, statements } of bodies(pr.units, project)) {

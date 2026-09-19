@@ -92,7 +92,7 @@ test("array dims are structured; ARRAY[*] is dynamic", () => {
 })
 
 test("string length is a structured expression", () => {
-  const t = firstDecl("FUNCTION_BLOCK F\nVAR\n s : STRING(80);\nEND_VAR\nEND_FUNCTION_BLOCK").type as StringType
+  const t = firstDecl("FUNCTION_BLOCK F\nVAR\n sv : STRING(80);\nEND_VAR\nEND_FUNCTION_BLOCK").type as StringType
   expect(t.kind).toBe("string_type")
   expect(t.wide).toBe(false)
   expect((t.length as Literal).value).toBe(80n)
@@ -128,7 +128,7 @@ test("statement tree: assignment with valued literal", () => {
 test("statement tree: IF / CASE / FOR parse fully", () => {
   expect(stmts("IF a THEN b := 1; ELSIF c THEN b := 2; ELSE b := 3; END_IF").ok).toBe(true)
   expect(stmts("CASE x OF 1: y := 1; 2..4: y := 2; ELSE y := 0; END_CASE").ok).toBe(true)
-  expect(stmts("FOR i := 0 TO 10 BY 2 DO s := s + i; END_FOR").ok).toBe(true)
+  expect(stmts("FOR i := 0 TO 10 BY 2 DO sv := sv + i; END_FOR").ok).toBe(true)
 })
 
 test("error-tolerant: a malformed unit records an error, never throws", () => {

@@ -158,12 +158,12 @@ describe("emit/rust", () => {
     // Why missed (transpiler review 2026-09-15): a VAR_IN_OUT argument printed `&mut <place>` with no check, where the
     // interpreter checks the guard when it binds — and no test bound one through a reference or a pointer.
     const { pou, diagnostics } = lowerSource(
-      "PROGRAM Bind\nVAR n : INT; r : REFERENCE TO INT; adder : FB_Add; END_VAR\nr REF= n;\nadder(v := r);\nEND_PROGRAM\nFUNCTION_BLOCK FB_Add\nVAR_IN_OUT v : INT; END_VAR\nv := v + 1;\nEND_FUNCTION_BLOCK\n",
+      "PROGRAM Bind\nVAR n : INT; rv : REFERENCE TO INT; adder : FB_Add; END_VAR\nrv REF= n;\nadder(v := rv);\nEND_PROGRAM\nFUNCTION_BLOCK FB_Add\nVAR_IN_OUT v : INT; END_VAR\nv := v + 1;\nEND_FUNCTION_BLOCK\n",
       "Bind",
     )
     expect(diagnostics).toEqual([])
     const code = emitRust(pou!).code
-    expect(code).toContain("iec_deref(self.r);")
+    expect(code).toContain("iec_deref(self.rv);")
     expect(code).toContain("self.adder.call(&mut self.n);")
   })
 
@@ -394,7 +394,7 @@ describe("emit/rust — the iteration cap both backends share", () => {
 describe("emit/rust — generated bindings cannot collide with an ST name", () => {
   const MOD_IN_FUNCTION =
     "FUNCTION F_mod : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;\nEND_VAR\nF_mod := b MOD a;\nEND_FUNCTION\n\n" +
-    "PROGRAM PLC_PRG\nVAR\n\tr : INT;\nEND_VAR\nr := F_mod(a := 3, b := 7);\nEND_PROGRAM\n"
+    "PROGRAM PLC_PRG\nVAR\n\trv : INT;\nEND_VAR\nrv := F_mod(a := 3, b := 7);\nEND_PROGRAM\n"
 
   test("MOD does not shadow a parameter named like its own temporaries", () => {
     const line = rust(MOD_IN_FUNCTION)
@@ -425,8 +425,8 @@ describe("emit/rust — generated bindings cannot collide with an ST name", () =
     // and cannot see being taken away.
     const src =
       "FUNCTION F_all : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;\n\tv : BOOL;\nEND_VAR\nVAR\n\tw : WORD;\nEND_VAR\n" +
-      "w.1 := v;\nF_all := b MOD a;\nEND_FUNCTION\n\nPROGRAM PLC_PRG\nVAR\n\tr : INT;\nEND_VAR\n" +
-      "r := F_all(a := 3, b := 7, v := TRUE);\nEND_PROGRAM\n"
+      "w.1 := v;\nF_all := b MOD a;\nEND_FUNCTION\n\nPROGRAM PLC_PRG\nVAR\n\trv : INT;\nEND_VAR\n" +
+      "rv := F_all(a := 3, b := 7, v := TRUE);\nEND_PROGRAM\n"
 
     const shadowed: string[] = []
     for (const fn of rust(src).split(/(?=pub fn )/)) {
@@ -453,7 +453,7 @@ describe.skipIf(skipRustSuite())("emit/rust — compiles", () => {
     const sources = [
       COUNTER,
       "PROGRAM Loops\nVAR i : INT; n : INT; w : INT; END_VAR\nFOR i := 1 TO 3 DO n := n + i; END_FOR\nWHILE w < 3 DO w := w + 1; END_WHILE\nREPEAT n := n - 1; UNTIL n <= 0 END_REPEAT\nEND_PROGRAM\n",
-      "PROGRAM Branch\nVAR m : INT; n : INT; r : REAL; ok : BOOL; END_VAR\nCASE m OF\n 1: n := 0;\n 2..4: n := 1;\nELSE\n n := 9;\nEND_CASE\nok := (m > 0) AND_THEN (n < 10);\nr := m / 2;\nEND_PROGRAM\n",
+      "PROGRAM Branch\nVAR m : INT; n : INT; rv : REAL; ok : BOOL; END_VAR\nCASE m OF\n 1: n := 0;\n 2..4: n := 1;\nELSE\n n := 9;\nEND_CASE\nok := (m > 0) AND_THEN (n < 10);\nrv := m / 2;\nEND_PROGRAM\n",
       // Two temps of each kind in ONE POU. Temps were named by purpose alone, so this made two identical struct
       // fields — and no source here ever held more than one temp, so the crate check could not see it.
       "PROGRAM Temps\nVAR i : INT; j : INT; n : INT; a : BOOL; b : BOOL; c : BOOL; END_VAR\nFOR i := 1 TO 3 DO n := n + i; END_FOR\nFOR j := 1 TO 2 DO n := n - j; END_FOR\na S= b R= c;\nb S= a R= c;\nEND_PROGRAM\n",
@@ -481,7 +481,7 @@ describe.skipIf(skipRustSuite())("emit/rust — compiles", () => {
       "PROGRAM Lent\nVAR title : STRING(12) := 'hello world'; wide : WSTRING(4) := \"ab\"; n : INT; m : INT; k : INT; END_VAR\nn := F_Width(text := title);\nm := F_Width(text := 'abc');\nk := F_Units(text := wide);\nEND_PROGRAM\nFUNCTION F_Width : INT\nVAR_IN_OUT CONSTANT text : STRING; END_VAR\nF_Width := LEN(text);\nEND_FUNCTION\nFUNCTION F_Units : INT\nVAR_IN_OUT text : WSTRING; END_VAR\nF_Units := 1;\ntext := \"zz\";\nEND_FUNCTION\n",
       // Pointers and references (phase 3 step 6b): a pointer to a variable, to array elements stepped by SIZEOF, a method
       // through a pointer to an instance, a reference bound with REF= and read and written, a null comparison.
-      "PROGRAM Pointers\nVAR iValue : INT := 7; pInt : POINTER TO INT; arr : ARRAY[0..4] OF T_P; p : POINTER TO T_P; q : POINTER TO T_P; inst : FB_P; pInst : POINTER TO FB_P; target : INT; r : REFERENCE TO INT; ok : BOOL; n : INT; END_VAR\npInt := ADR(iValue);\nn := pInt^;\np := ADR(arr[1]);\nq := p + SIZEOF(T_P);\np[2].x := q^.x;\npInst := ADR(inst);\npInst^.Bump();\nr REF= target;\nr := r + 1;\nok := __ISVALIDREF(r) AND (pInt <> 0);\nEND_PROGRAM\nTYPE T_P : STRUCT x : INT; y : REAL; END_STRUCT END_TYPE\nFUNCTION_BLOCK FB_P\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Bump\nn := n + 1;\nEND_METHOD\n",
+      "PROGRAM Pointers\nVAR iValue : INT := 7; pInt : POINTER TO INT; arr : ARRAY[0..4] OF T_P; p : POINTER TO T_P; q : POINTER TO T_P; inst : FB_P; pInst : POINTER TO FB_P; target : INT; rv : REFERENCE TO INT; ok : BOOL; n : INT; END_VAR\npInt := ADR(iValue);\nn := pInt^;\np := ADR(arr[1]);\nq := p + SIZEOF(T_P);\np[2].x := q^.x;\npInst := ADR(inst);\npInst^.Bump();\nrv REF= target;\nrv := rv + 1;\nok := __ISVALIDREF(rv) AND (pInt <> 0);\nEND_PROGRAM\nTYPE T_P : STRUCT x : INT; y : REAL; END_STRUCT END_TYPE\nFUNCTION_BLOCK FB_P\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Bump\nn := n + 1;\nEND_METHOD\n",
       "PROGRAM RoutineCalls\nVAR inst : FB_R; got : INT; sink : INT; END_VAR\ngot := inst.Sum(upto := 4) + F_Twice(3);\ninst.Reset();\ninst.Store(dest := sink);\nEND_PROGRAM\nFUNCTION_BLOCK FB_R\nVAR total : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Sum : INT\nVAR_INPUT upto : INT; END_VAR\nVAR i : INT; END_VAR\nFOR i := 1 TO upto DO\n  Sum := Sum + i;\n  IF Sum > 100 THEN RETURN; END_IF\nEND_FOR\ntotal := Sum;\nEND_METHOD\nACTION Reset\ntotal := 0;\nEND_ACTION\nMETHOD Store\nVAR_IN_OUT dest : INT; END_VAR\ndest := total;\nEND_METHOD\nFUNCTION F_Twice : INT\nVAR_INPUT x : INT; END_VAR\nF_Twice := x * 2;\nEND_FUNCTION\n",
       // Routine state (phase 3½): a METHOD's VAR_INST as a field and VAR_STAT as a global, a PROPERTY set from its own
       // getter through a temp (never a call inside the setter's arguments), and an argument left empty.
@@ -513,7 +513,7 @@ describe.skipIf(skipRustSuite())("emit/rust — compiles", () => {
       "PROGRAM Lending\nVAR sq : FB_LSq; meter : FB_LMeter; outer : FB_LOuter; got : INT; END_VAR\nmeter(shape := sq, measured => got);\nouter.Measure(shape := sq);\nEND_PROGRAM\nINTERFACE I_LShape\nMETHOD Area : INT\nEND_METHOD\nEND_INTERFACE\nFUNCTION_BLOCK FB_LSq IMPLEMENTS I_LShape\nVAR side : INT := 3; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := side * side;\nEND_METHOD\nFUNCTION_BLOCK FB_LMeter\nVAR_INPUT shape : I_LShape; END_VAR\nVAR_OUTPUT measured : INT; END_VAR\nIF shape <> 0 THEN\n  measured := shape.Area();\nEND_IF\nEND_FUNCTION_BLOCK\nFUNCTION F_LTen : INT\nVAR_INPUT shape : I_LShape; END_VAR\nF_LTen := shape.Area() * 10;\nEND_FUNCTION\nFUNCTION_BLOCK FB_LOuter\nVAR inner : FB_LMeter; END_VAR\nVAR_OUTPUT via : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Measure\nVAR_INPUT shape : I_LShape; END_VAR\nvia := F_LTen(shape := shape);\ninner(shape := shape);\nEND_METHOD\n",
       // Review of that batch: THIS^ lent to a FUNCTION's interface input (`&mut *self`, it was `&mut self`, E0596), and a
       // parent handing its own child its own field, per instance.
-      "PROGRAM LendThis\nVAR o : FB_LTo; p1 : FB_LTp; p2 : FB_LTp; END_VAR\no();\np1(k := 2);\np2(k := 3);\nEND_PROGRAM\nINTERFACE I_LT\nMETHOD Area : INT\nEND_METHOD\nEND_INTERFACE\nFUNCTION_BLOCK FB_LTo IMPLEMENTS I_LT\nVAR k : INT; END_VAR\nk := F_LT(shape := THIS^);\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := 4;\nEND_METHOD\nFUNCTION F_LT : INT\nVAR_INPUT shape : I_LT; END_VAR\nF_LT := shape.Area();\nEND_FUNCTION\nFUNCTION_BLOCK FB_LTs IMPLEMENTS I_LT\nVAR_INPUT side : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := side * side;\nEND_METHOD\nFUNCTION_BLOCK FB_LTm\nVAR_INPUT shape : I_LT; END_VAR\nVAR_OUTPUT got : INT; END_VAR\nIF shape <> 0 THEN\n  got := shape.Area();\nEND_IF\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_LTp\nVAR_INPUT k : INT; END_VAR\nVAR s : FB_LTs; m : FB_LTm; END_VAR\ns(side := k);\nm(shape := s);\nEND_FUNCTION_BLOCK\n",
+      "PROGRAM LendThis\nVAR o : FB_LTo; p1 : FB_LTp; p2 : FB_LTp; END_VAR\no();\np1(k := 2);\np2(k := 3);\nEND_PROGRAM\nINTERFACE I_LT\nMETHOD Area : INT\nEND_METHOD\nEND_INTERFACE\nFUNCTION_BLOCK FB_LTo IMPLEMENTS I_LT\nVAR k : INT; END_VAR\nk := F_LT(shape := THIS^);\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := 4;\nEND_METHOD\nFUNCTION F_LT : INT\nVAR_INPUT shape : I_LT; END_VAR\nF_LT := shape.Area();\nEND_FUNCTION\nFUNCTION_BLOCK FB_LTs IMPLEMENTS I_LT\nVAR_INPUT side : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := side * side;\nEND_METHOD\nFUNCTION_BLOCK FB_LTm\nVAR_INPUT shape : I_LT; END_VAR\nVAR_OUTPUT got : INT; END_VAR\nIF shape <> 0 THEN\n  got := shape.Area();\nEND_IF\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_LTp\nVAR_INPUT k : INT; END_VAR\nVAR sv : FB_LTs; m : FB_LTm; END_VAR\nsv(side := k);\nm(shape := sv);\nEND_FUNCTION_BLOCK\n",
       // A FOR step decided at run time (the direction tested with it), and a bound from the POU's own VAR CONSTANT.
       // An unsigned counter's runtime step: `0u16 <= step` was printed, a rustc lint this crate denies (review of batch 3a).
       "PROGRAM ForStep\nVAR CONSTANT count : INT := 3; END_VAR\nVAR arr : ARRAY[1..count] OF INT; i : INT; step : INT := 2; n : INT; u : UINT; stride : UINT := 2; END_VAR\nFOR i := 1 TO 5 BY step DO\n  n := n + arr[count];\nEND_FOR\nFOR u := 1 TO 5 BY stride DO\n  n := n + 1;\nEND_FOR\nEND_PROGRAM\n",

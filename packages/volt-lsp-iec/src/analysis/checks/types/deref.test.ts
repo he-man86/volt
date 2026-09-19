@@ -40,7 +40,7 @@ test("dereferencing a POINTER is not flagged (the legal case)", () => {
 })
 
 test("dereferencing a REFERENCE is not flagged", () => {
-  expect(deref(fb(`VAR r : REFERENCE TO INT; i : INT; END_VAR\ni := r^;`))).toEqual([])
+  expect(deref(fb(`VAR rv : REFERENCE TO INT; i : INT; END_VAR\ni := rv^;`))).toEqual([])
 })
 
 test("THIS^ is not flagged (deref folds to the FB itself)", () => {

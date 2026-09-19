@@ -28,13 +28,13 @@ test("a variable typed with an obsolete FB is flagged, byte-identical to CODESYS
 })
 
 test("a direct call to an obsolete FUNCTION is flagged", () => {
-  const d = obs(`FUNCTION_BLOCK Use\nVAR\n  r : INT;\nEND_VAR\nr := OldFn();\nEND_FUNCTION_BLOCK`)
+  const d = obs(`FUNCTION_BLOCK Use\nVAR\n  rv : INT;\nEND_VAR\nrv := OldFn();\nEND_FUNCTION_BLOCK`)
   expect(d).toHaveLength(1)
   expect(d[0]?.message).toBe("POU 'OldFn' has been marked as obsolete: gone in v2")
 })
 
 test("a non-obsolete type/call is not flagged", () => {
-  expect(obs(`FUNCTION_BLOCK Use\nVAR\n  inst : FreshFB;\n  r : INT;\nEND_VAR\nr := FreshFn();\nEND_FUNCTION_BLOCK`)).toEqual([])
+  expect(obs(`FUNCTION_BLOCK Use\nVAR\n  inst : FreshFB;\n  rv : INT;\nEND_VAR\nrv := FreshFn();\nEND_FUNCTION_BLOCK`)).toEqual([])
 })
 
 test("case-insensitive: obsolete match ignores identifier casing (IEC)", () => {

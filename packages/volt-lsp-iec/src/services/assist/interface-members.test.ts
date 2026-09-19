@@ -21,10 +21,10 @@ END_INTERFACE
 PROGRAM PLC_PRG
 VAR
     drv : IDrive;
-    r : BOOL;
+    rv : BOOL;
     n : INT;
 END_VAR
-r := drv.Spin(10);
+rv := drv.Spin(10);
 n := drv.Pos;
 END_PROGRAM`
 

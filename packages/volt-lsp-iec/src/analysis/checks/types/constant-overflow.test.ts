@@ -9,7 +9,7 @@ import { buildSymbolTable } from "../../../symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const overflow = (body: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
-  const src = `PROGRAM PLC_PRG\nVAR\n  i : INT;\n  r : LREAL;\nEND_VAR\n${body}\nEND_PROGRAM`
+  const src = `PROGRAM PLC_PRG\nVAR\n  i : INT;\n  rv : LREAL;\nEND_VAR\n${body}\nEND_PROGRAM`
   const parseResult = parseSource(src)
   const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
@@ -22,7 +22,7 @@ test("the three documented cases (typed / ANY_INT / ANY_REAL)", () => {
   expect(overflow(`i := 12345678912345566991923939292939911;`)).toEqual([
     "Constant '12345678912345566991923939292939911' too large for type 'ANY_INT'",
   ])
-  expect(overflow(`r := 10E500;`)).toEqual(["Constant '10E500' too large for type 'ANY_REAL'"])
+  expect(overflow(`rv := 10E500;`)).toEqual(["Constant '10E500' too large for type 'ANY_REAL'"])
 })
 
 test("a typed literal past a narrower prefix names that prefix", () => {
@@ -31,7 +31,7 @@ test("a typed literal past a narrower prefix names that prefix", () => {
 })
 
 test("a typed REAL literal past REAL magnitude names REAL", () => {
-  expect(overflow(`r := REAL#1E40;`)).toEqual(["Constant 'REAL#1E40' too large for type 'REAL'"])
+  expect(overflow(`rv := REAL#1E40;`)).toEqual(["Constant 'REAL#1E40' too large for type 'REAL'"])
 })
 
 test("variable initializers are checked too", () => {
@@ -47,7 +47,7 @@ test("variable initializers are checked too", () => {
 test("representable constants stay quiet (0-FP)", () => {
   expect(overflow(`i := INT#123;`)).toEqual([]) // fits INT
   expect(overflow(`i := 999;`)).toEqual([]) // fits DINT — not this check's error (C0032 at most)
-  expect(overflow(`r := 1E38;`)).toEqual([]) // fits LREAL
+  expect(overflow(`rv := 1E38;`)).toEqual([]) // fits LREAL
   expect(overflow(`i := 18446744073709551615;`)).toEqual([]) // exactly ULINT max
 })
 

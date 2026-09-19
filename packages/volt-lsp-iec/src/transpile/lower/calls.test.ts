@@ -34,7 +34,7 @@ const valueOf = (source: string, path: string, name = "PLC_PRG"): unknown => {
 
 describe("a type that contains itself", () => {
   /**
-   * FOUND BY AIMING HERE (2026-09-18). `FUNCTION_BLOCK FB_R VAR r : FB_R; END_VAR` sent `storageOf` and
+   * FOUND BY AIMING HERE (2026-09-18). `FUNCTION_BLOCK FB_R VAR rv : FB_R; END_VAR` sent `storageOf` and
    * `buildLayout` into each other until the process died with a RangeError — where this component's stated rule is
    * that invalid input ends in a LowerDiagnostic and NEVER a throw. The corpus holds no self-referential type, which
    * is exactly why `TOTALITY` never saw it: that gate walks real projects, and no real project contains this.

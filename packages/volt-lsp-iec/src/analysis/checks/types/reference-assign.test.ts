@@ -9,7 +9,7 @@ import { buildSymbolTable } from "../../../symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const codes = (body: string, code: string): string[] => {
-  const src = `FUNCTION_BLOCK F\nVAR r : REFERENCE TO INT; i : INT;\nEND_VAR\nVAR CONSTANT K : INT := 7;\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
+  const src = `FUNCTION_BLOCK F\nVAR rv : REFERENCE TO INT; i : INT;\nEND_VAR\nVAR CONSTANT K : INT := 7;\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src)
   const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -37,14 +37,14 @@ test("C0140: REF= to a non-reference target is flagged; a reference target is fi
 //
 // One measurement generalised to a rule it did not cover. Both cases are pinned here now.
 test("C0141: REF= RHS needs write access — a named CONSTANT, and a literal whose type ALREADY matches", () => {
-  expect(c0141(`r REF= K;`)).toEqual(["Reference assign needs variable with write access"]) // VAR CONSTANT
-  expect(c0141(`r REF= 314;`)).toEqual(["Reference assign needs variable with write access"]) // INT, = the referenced type
-  expect(c0141(`r REF= 7;`)).toEqual([]) // SINT ≠ INT — the conversion error below is what fires
+  expect(c0141(`rv REF= K;`)).toEqual(["Reference assign needs variable with write access"]) // VAR CONSTANT
+  expect(c0141(`rv REF= 314;`)).toEqual(["Reference assign needs variable with write access"]) // INT, = the referenced type
+  expect(c0141(`rv REF= 7;`)).toEqual([]) // SINT ≠ INT — the conversion error below is what fires
 })
 
 test("C0141: `REF= 0` (null idiom) and `REF= <writable var>` are valid", () => {
-  expect(c0141(`r REF= 0;`)).toEqual([]) // null-out a reference
-  expect(c0141(`r REF= i;`)).toEqual([]) // writable variable
+  expect(c0141(`rv REF= 0;`)).toEqual([]) // null-out a reference
+  expect(c0141(`rv REF= i;`)).toEqual([]) // writable variable
 })
 
 test("a LITERAL on the right of REF= is a TYPE error, not the write-access one", () => {

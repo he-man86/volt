@@ -18,7 +18,7 @@ const fb = (b: string) => `FUNCTION_BLOCK F\n${b}\nEND_FUNCTION_BLOCK`
 
 test("an arg that can't feed the SRC type is flagged (byte-identical wording)", () => {
   // INT_TO_REAL expects an INT source; a REAL arg can't narrow into INT.
-  expect(conv(fb(`VAR r : REAL; x : REAL; END_VAR\nx := INT_TO_REAL(r);`))).toEqual([
+  expect(conv(fb(`VAR rv : REAL; x : REAL; END_VAR\nx := INT_TO_REAL(rv);`))).toEqual([
     "Cannot convert type 'REAL' to type 'INT'",
   ])
 })
@@ -30,5 +30,5 @@ test("an arg that WIDENS into the SRC type is accepted", () => {
 
 test("only a single elementary positional arg is checked — everything else skips", () => {
   // a member/complex arg the check can't type → skip; and `TO_STRING` isn't the `SRC_TO_DST` shape.
-  expect(conv(fb(`VAR s : STRING; i : INT; END_VAR\ns := TO_STRING(i);`))).toEqual([])
+  expect(conv(fb(`VAR sv : STRING; i : INT; END_VAR\nsv := TO_STRING(i);`))).toEqual([])
 })

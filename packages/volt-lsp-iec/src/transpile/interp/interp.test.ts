@@ -68,11 +68,11 @@ END_PROGRAM
 PROGRAM P
 VAR
   w : INT;
-  r : INT;
+  rv : INT;
   e : INT;
 END_VAR
 WHILE w < 4 DO w := w + 1; END_WHILE
-REPEAT r := r + 1; UNTIL r >= 4 END_REPEAT
+REPEAT rv := rv + 1; UNTIL rv >= 4 END_REPEAT
 WHILE TRUE DO
   e := e + 1;
   IF e = 2 THEN EXIT; END_IF
@@ -80,7 +80,7 @@ END_WHILE
 END_PROGRAM
 `)
     pou.scan()
-    expect([pou.get("w"), pou.get("r"), pou.get("e")]).toEqual([4n, 4n, 2n])
+    expect([pou.get("w"), pou.get("rv"), pou.get("e")]).toEqual([4n, 4n, 2n])
   })
 
   test("REPEAT always runs its body once, even when the condition already holds", () => {
@@ -1148,11 +1148,11 @@ END_PROGRAM
 
   test("a value set from outside is stored as the slot's type holds it", () => {
     // `set` wrote the raw value, so a test could plant 300 in a SINT — a value no program on the PLC can produce
-    const pou = load("PROGRAM P\nVAR si : SINT; r : REAL; five : STRING(5); END_VAR\nsi := si;\nEND_PROGRAM\n")
+    const pou = load("PROGRAM P\nVAR si : SINT; rv : REAL; five : STRING(5); END_VAR\nsi := si;\nEND_PROGRAM\n")
     pou.set("si", 300n)
-    pou.set("r", 0.1)
+    pou.set("rv", 0.1)
     pou.set("five", "abcdefgh")
-    expect([pou.get("si"), pou.get("r"), pou.get("five")]).toEqual([44n, Math.fround(0.1), "abcde"])
+    expect([pou.get("si"), pou.get("rv"), pou.get("five")]).toEqual([44n, Math.fround(0.1), "abcde"])
   })
 
   test("an unlowerable POU is refused at load, not run half-way", () => {

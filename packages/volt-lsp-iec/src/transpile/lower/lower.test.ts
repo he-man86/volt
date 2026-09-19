@@ -210,13 +210,13 @@ test("an interface naming an instance's own field stays with that instance: cros
   expect(codes(`PROGRAM P\nVAR x1 : FB_X; x2 : FB_X; END_VAR\nx1(k := 3);\nx2(k := 5, shape := x1.mine);\nEND_PROGRAM\n${shapes}${holder}`)).toContain("interface-place")
   const parent =
     "FUNCTION_BLOCK FB_M\nVAR_INPUT shape : I_S; END_VAR\nVAR_OUTPUT got : INT; END_VAR\nIF shape <> 0 THEN\n  got := shape.Area();\nEND_IF\nEND_FUNCTION_BLOCK\n" +
-    "FUNCTION_BLOCK FB_O\nVAR_INPUT k : INT; END_VAR\nVAR s : FB_S; m : FB_M; END_VAR\ns(side := k);\nm(shape := s);\nEND_FUNCTION_BLOCK\n"
+    "FUNCTION_BLOCK FB_O\nVAR_INPUT k : INT; END_VAR\nVAR sv : FB_S; m : FB_M; END_VAR\nsv(side := k);\nm(shape := sv);\nEND_FUNCTION_BLOCK\n"
   const runner = run(ir(`PROGRAM P\nVAR o1 : FB_O; o2 : FB_O; END_VAR\no1(k := 3);\no2(k := 5);\nEND_PROGRAM\n${shapes}${parent}`, "P"))
   runner.scan()
   expect([runner.get("o1.m.got"), runner.get("o2.m.got")]).toEqual([9n, 25n])
   const meter =
-    "FUNCTION_BLOCK FB_Meter\nVAR_INPUT shape : I_S; END_VAR\nVAR_OUTPUT measured : INT; END_VAR\nIF shape <> 0 THEN\n  measured := shape.Area();\nEND_IF\nEND_FUNCTION_BLOCK\nMETHOD SetShape\nVAR_INPUT s : I_S; END_VAR\nshape := s;\nEND_METHOD\n" +
-    "FUNCTION_BLOCK FB_H\nVAR_INPUT k : INT; END_VAR\nVAR sq : FB_S; END_VAR\nsq(side := k);\nEND_FUNCTION_BLOCK\nMETHOD Give\nVAR_IN_OUT m : FB_Meter; END_VAR\nm.SetShape(s := sq);\nEND_METHOD\nMETHOD Use : INT\nVAR_IN_OUT m : FB_Meter; END_VAR\nm();\nUse := m.measured;\nEND_METHOD\n"
+    "FUNCTION_BLOCK FB_Meter\nVAR_INPUT shape : I_S; END_VAR\nVAR_OUTPUT measured : INT; END_VAR\nIF shape <> 0 THEN\n  measured := shape.Area();\nEND_IF\nEND_FUNCTION_BLOCK\nMETHOD SetShape\nVAR_INPUT sv : I_S; END_VAR\nshape := sv;\nEND_METHOD\n" +
+    "FUNCTION_BLOCK FB_H\nVAR_INPUT k : INT; END_VAR\nVAR sq : FB_S; END_VAR\nsq(side := k);\nEND_FUNCTION_BLOCK\nMETHOD Give\nVAR_IN_OUT m : FB_Meter; END_VAR\nm.SetShape(sv := sq);\nEND_METHOD\nMETHOD Use : INT\nVAR_IN_OUT m : FB_Meter; END_VAR\nm();\nUse := m.measured;\nEND_METHOD\n"
   expect(codes(`PROGRAM P\nVAR meter : FB_Meter; a : FB_H; b : FB_H; n : INT; END_VAR\na(k := 3);\nb(k := 5);\na.Give(m := meter);\nn := b.Use(m := meter);\nEND_PROGRAM\n${shapes}${meter}`)).toContain("interface-instance-relative")
   // an FB type given an interface input from two frames (a limitation), and an instance lent to a call on itself
   expect(codes(`PROGRAM P\nVAR sq : FB_S; m : FB_M; o : FB_O; END_VAR\nsq(side := 2);\nm(shape := sq);\no(k := 4);\nEND_PROGRAM\n${shapes}${parent}`)).toContain("interface-context")
@@ -290,9 +290,9 @@ test("review of the call shapes: a child's METHOD, a METHOD naming no in-out, fo
   // an interface METHOD's STRING(N) folds N where it is declared — it took the CALLER's own `N`, cutting the text to 3
   const consts = [{ uri: "file:///project/Consts.gvl", source: "VAR_GLOBAL CONSTANT\n  N : INT := 10;\nEND_VAR\n" }]
   const keeper =
-    "INTERFACE I_P\nMETHOD Put : BOOL\nVAR_INPUT s : STRING(N); END_VAR\nEND_METHOD\nEND_INTERFACE\n" +
-    "FUNCTION_BLOCK FB_P IMPLEMENTS I_P\nVAR kept : STRING(20); END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Put : BOOL\nVAR_INPUT s : STRING(N); END_VAR\nkept := s;\nPut := TRUE;\nEND_METHOD\n"
-  const put = lowerSource(`PROGRAM P\nVAR CONSTANT N : INT := 3; END_VAR\nVAR fb : FB_P; r : I_P; ok : BOOL; END_VAR\nr := fb;\nok := r.Put(s := 'abcdefgh');\nEND_PROGRAM\n${keeper}`, "P", consts)
+    "INTERFACE I_P\nMETHOD Put : BOOL\nVAR_INPUT sv : STRING(N); END_VAR\nEND_METHOD\nEND_INTERFACE\n" +
+    "FUNCTION_BLOCK FB_P IMPLEMENTS I_P\nVAR kept : STRING(20); END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Put : BOOL\nVAR_INPUT sv : STRING(N); END_VAR\nkept := sv;\nPut := TRUE;\nEND_METHOD\n"
+  const put = lowerSource(`PROGRAM P\nVAR CONSTANT N : INT := 3; END_VAR\nVAR fb : FB_P; rv : I_P; ok : BOOL; END_VAR\nrv := fb;\nok := rv.Put(sv := 'abcdefgh');\nEND_PROGRAM\n${keeper}`, "P", consts)
   expect(put.diagnostics).toEqual([])
   const putRun = run(put.pou!)
   putRun.scan()
@@ -776,7 +776,7 @@ test("review of ARRAY[*]: whole values, addresses, unions, SUPER^ rebinding, MET
   const codes = (source: string) => lowerSource(source, "P").diagnostics.map((d) => d.code)
   const union = "TYPE U_W :\nUNION\n\tword : WORD;\n\tbytes : ARRAY[1..2] OF BYTE;\nEND_UNION\nEND_TYPE\n"
   const program = (body: string) =>
-    `PROGRAM P\nVAR row : ARRAY[2..5] OF INT; words : ARRAY[0..1] OF U_W; r : INT; END_VAR\nr := F(numbers := row, us := words);\nEND_PROGRAM\n` +
+    `PROGRAM P\nVAR row : ARRAY[2..5] OF INT; words : ARRAY[0..1] OF U_W; rv : INT; END_VAR\nrv := F(numbers := row, us := words);\nEND_PROGRAM\n` +
     `FUNCTION F : INT\nVAR_IN_OUT numbers : ARRAY[*] OF INT; us : ARRAY[*] OF U_W; END_VAR\nVAR tmp : ARRAY[2..5] OF INT; p : POINTER TO INT; END_VAR\n${body}\nEND_FUNCTION\n` +
     `FUNCTION G : INT\nVAR_INPUT whole : ARRAY[2..5] OF INT; END_VAR\nG := whole[2];\nEND_FUNCTION\n${union}`
   // the recorded uses still lower
@@ -798,7 +798,7 @@ test("review of ARRAY[*]: whole values, addresses, unions, SUPER^ rebinding, MET
   // a METHOD reading its FB's open in-out: which bounds it sees is not recorded
   expect(codes("PROGRAM P\nVAR m : FB_M; g : ARRAY[1..3] OF INT; END_VAR\nm(data := g);\nEND_PROGRAM\nFUNCTION_BLOCK FB_M\nVAR_IN_OUT data : ARRAY[*] OF INT; END_VAR\nVAR top : DINT; END_VAR\nPeek();\nEND_FUNCTION_BLOCK\nMETHOD Peek\ntop := UPPER_BOUND(data, 1);\nEND_METHOD\n")).toContain("array-bound")
   // a VAR_IN_OUT CONSTANT lent as a copy carries no bounds
-  expect(codes("PROGRAM P\nVAR s : FB_S; n : DINT; END_VAR\nn := s.Sum(v := s.arr);\nEND_PROGRAM\nFUNCTION_BLOCK FB_S\nVAR arr : ARRAY[1..3] OF INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Sum : DINT\nVAR_IN_OUT CONSTANT v : ARRAY[*] OF INT; END_VAR\nSum := v[1];\nEND_METHOD\n")).toContain("call-open-array")
+  expect(codes("PROGRAM P\nVAR sv : FB_S; n : DINT; END_VAR\nn := sv.Sum(v := sv.arr);\nEND_PROGRAM\nFUNCTION_BLOCK FB_S\nVAR arr : ARRAY[1..3] OF INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Sum : DINT\nVAR_IN_OUT CONSTANT v : ARRAY[*] OF INT; END_VAR\nSum := v[1];\nEND_METHOD\n")).toContain("call-open-array")
 })
 
 /** Lower and require success — most tests are about the SHAPE, not the failure path. */
@@ -1222,11 +1222,11 @@ END_PROGRAM
   // the index LAST, and every one used the pointer's own target type — no test named a place with an index inside its
   // path, or a byte-sized pointer over a wider variable.
   test("an address is refused when an index before its last step is read at run time, or its type is not the pointer's", () => {
-    const decls = "TYPE T_S : STRUCT x : INT; END_STRUCT END_TYPE\nPROGRAM P\nVAR arr : ARRAY[1..3] OF T_S; grid : ARRAY[1..3] OF ARRAY[1..3] OF INT; i : INT := 1; j : INT := 2; n : INT; p : POINTER TO INT; pb : POINTER TO BYTE; r : REFERENCE TO INT; END_VAR\n"
+    const decls = "TYPE T_S : STRUCT x : INT; END_STRUCT END_TYPE\nPROGRAM P\nVAR arr : ARRAY[1..3] OF T_S; grid : ARRAY[1..3] OF ARRAY[1..3] OF INT; i : INT := 1; j : INT := 2; n : INT; p : POINTER TO INT; pb : POINTER TO BYTE; rv : REFERENCE TO INT; END_VAR\n"
     const code = (body: string) => lowerSource(`${decls}${body}\nEND_PROGRAM\n`, "P").diagnostics.map((d) => d.code)
     expect(code("p := ADR(arr[i].x);")).toEqual(["pointer-runtime-index"])
     expect(code("p := ADR(grid[i][j]);")).toEqual(["pointer-runtime-index"])
-    expect(code("r REF= arr[i].x;")).toEqual(["pointer-runtime-index"])
+    expect(code("rv REF= arr[i].x;")).toEqual(["pointer-runtime-index"])
     expect(code("pb := ADR(n);")).toEqual(["pointer-type"])
     // still lowered: a constant index before the last step, and a runtime index as the last step
     expect(code("p := ADR(arr[2].x); n := p^;")).toEqual([])
@@ -1262,12 +1262,12 @@ END_PROGRAM
     // a copy would be stale), by substituting the path into the instance (conformance `callshape_own_field_inout_read_by_name`).
     const self = (store: string) =>
       `FUNCTION_BLOCK FB_S\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Store\nVAR_IN_OUT dest : INT; END_VAR\n${store}\nEND_METHOD\nMETHOD Outer\nTHIS^.Store(dest := n);\nEND_METHOD\n`
-    const through = run(ir(`PROGRAM P\nVAR s : FB_S; END_VAR\ns.Outer();\nEND_PROGRAM\n${self("dest := 1;")}`, "P"))
+    const through = run(ir(`PROGRAM P\nVAR sv : FB_S; END_VAR\nsv.Outer();\nEND_PROGRAM\n${self("dest := 1;")}`, "P"))
     through.scan()
-    expect(through.get("s.n")).toEqual(1n)
-    const byName = run(ir(`PROGRAM P\nVAR s : FB_S; END_VAR\ns.Outer();\nEND_PROGRAM\n${self("dest := n + 1;")}`, "P"))
+    expect(through.get("sv.n")).toEqual(1n)
+    const byName = run(ir(`PROGRAM P\nVAR sv : FB_S; END_VAR\nsv.Outer();\nEND_PROGRAM\n${self("dest := n + 1;")}`, "P"))
     byName.scan()
-    expect(byName.get("s.n")).toEqual(1n)
+    expect(byName.get("sv.n")).toEqual(1n)
   })
 
   // Transpiler review 2026-09-15. Why missed: every call test passed constants or variables as arguments; the crate check
@@ -1499,7 +1499,7 @@ describe("an ANY argument passes the guards every lent place passes", () => {
  * Filling the size per dispatch arm is coverage work. Being wrong about it was not.
  */
 test("an ANY input through an interface is refused rather than given the argument value", () => {
-  const r = lowerSource("INTERFACE I_X\nMETHOD Take : DINT\nVAR_INPUT\n\tv : ANY;\nEND_VAR\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION_BLOCK FB_A IMPLEMENTS I_X\nEND_FUNCTION_BLOCK\n\nMETHOD Take : DINT\nVAR_INPUT\n\tv : ANY;\nEND_VAR\nTake := v.diSize;\nEND_METHOD\n\nPROGRAM PLC_PRG\nVAR\n\tsq : FB_A;\n\tr : I_X;\n\tn : DINT;\n\tbig : LREAL := 42.0;\nEND_VAR\nr := sq;\nn := r.Take(v := big);\nEND_PROGRAM\n", "PLC_PRG")
+  const r = lowerSource("INTERFACE I_X\nMETHOD Take : DINT\nVAR_INPUT\n\tv : ANY;\nEND_VAR\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION_BLOCK FB_A IMPLEMENTS I_X\nEND_FUNCTION_BLOCK\n\nMETHOD Take : DINT\nVAR_INPUT\n\tv : ANY;\nEND_VAR\nTake := v.diSize;\nEND_METHOD\n\nPROGRAM PLC_PRG\nVAR\n\tsq : FB_A;\n\trv : I_X;\n\tn : DINT;\n\tbig : LREAL := 42.0;\nEND_VAR\nrv := sq;\nn := rv.Take(v := big);\nEND_PROGRAM\n", "PLC_PRG")
   expect(r.pou).toBeUndefined()
   expect(r.diagnostics.map((d) => d.code)).toContain("interface-any-input")
 })
@@ -1674,7 +1674,7 @@ describe("a library or GVL file that does not parse", () => {
  * reference never does. `lowerPlace` applied its field and index steps to the reference VARIABLE, which is neither a
  * struct nor an array, so `r.x` said "member access is not lowered yet" and `r[1]` said "an index on something that is
  * not a sized array". Both read as unbuilt machinery. In fact `pointeePlace` already resolved exactly this — a
- * REFERENCE records its target through `storePointer` as a pointer does, and a scalar `a := r` already worked. Only
+ * REFERENCE records its target through `storePointer` as a pointer does, and a scalar `a := rv` already worked. Only
  * the step was missing, which is why the review filed this as MIS-CLASSIFIED rather than unbuilt.
  *
  * The PROPERTY case is the same shape one layer up: `propertyAccess` asked the reference's OWN type twice — the
@@ -1691,12 +1691,12 @@ describe("a reference is stepped THROUGH, not stepped on", () => {
     expect(p.get("a")).toBe(want)
   }
 
-  test("a field is read through a REFERENCE TO a struct", () => readsBack("TYPE Pt : STRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tp : Pt;\n\tr : REFERENCE TO Pt;\n\ta : INT;\nEND_VAR\np.x := 5;\nr REF= p;\na := r.x;\nEND_PROGRAM\n", 5n))
-  test("a field is written through a REFERENCE TO a struct", () => readsBack("TYPE Pt : STRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tp : Pt;\n\tr : REFERENCE TO Pt;\n\ta : INT;\nEND_VAR\nr REF= p;\nr.x := 8;\na := p.x;\nEND_PROGRAM\n", 8n))
-  test("an element is read through a REFERENCE TO an array", () => readsBack("PROGRAM PLC_PRG\nVAR\n\tarr : ARRAY[0..2] OF INT;\n\tr : REFERENCE TO ARRAY[0..2] OF INT;\n\ta : INT;\nEND_VAR\narr[1] := 9;\nr REF= arr;\na := r[1];\nEND_PROGRAM\n", 9n))
-  test("an element is written through a REFERENCE TO an array", () => readsBack("PROGRAM PLC_PRG\nVAR\n\tarr : ARRAY[0..2] OF INT;\n\tr : REFERENCE TO ARRAY[0..2] OF INT;\n\ta : INT;\nEND_VAR\nr REF= arr;\nr[2] := 6;\na := arr[2];\nEND_PROGRAM\n", 6n))
-  test("a PROPERTY is read through a REFERENCE TO an FB", () => readsBack("FUNCTION_BLOCK FB_C\nVAR\n\tside : INT := 3;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY Size : INT\nGET\nSize := side;\nEND_GET\nSET\nside := Size;\nEND_SET\nEND_PROPERTY\n\nPROGRAM PLC_PRG\nVAR\n\tc : FB_C;\n\tr : REFERENCE TO FB_C;\n\ta : INT;\nEND_VAR\nr REF= c;\na := r.Size;\nEND_PROGRAM\n", 3n))
-  test("a PROPERTY is written through a REFERENCE TO an FB", () => readsBack("FUNCTION_BLOCK FB_C\nVAR\n\tside : INT := 3;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY Size : INT\nGET\nSize := side;\nEND_GET\nSET\nside := Size;\nEND_SET\nEND_PROPERTY\n\nPROGRAM PLC_PRG\nVAR\n\tc : FB_C;\n\tr : REFERENCE TO FB_C;\n\ta : INT;\nEND_VAR\nr REF= c;\nr.Size := 7;\na := c.Size;\nEND_PROGRAM\n", 7n))
+  test("a field is read through a REFERENCE TO a struct", () => readsBack("TYPE Pt : STRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tp : Pt;\n\trv : REFERENCE TO Pt;\n\ta : INT;\nEND_VAR\np.x := 5;\nrv REF= p;\na := rv.x;\nEND_PROGRAM\n", 5n))
+  test("a field is written through a REFERENCE TO a struct", () => readsBack("TYPE Pt : STRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tp : Pt;\n\trv : REFERENCE TO Pt;\n\ta : INT;\nEND_VAR\nrv REF= p;\nrv.x := 8;\na := p.x;\nEND_PROGRAM\n", 8n))
+  test("an element is read through a REFERENCE TO an array", () => readsBack("PROGRAM PLC_PRG\nVAR\n\tarr : ARRAY[0..2] OF INT;\n\trv : REFERENCE TO ARRAY[0..2] OF INT;\n\ta : INT;\nEND_VAR\narr[1] := 9;\nrv REF= arr;\na := rv[1];\nEND_PROGRAM\n", 9n))
+  test("an element is written through a REFERENCE TO an array", () => readsBack("PROGRAM PLC_PRG\nVAR\n\tarr : ARRAY[0..2] OF INT;\n\trv : REFERENCE TO ARRAY[0..2] OF INT;\n\ta : INT;\nEND_VAR\nrv REF= arr;\nrv[2] := 6;\na := arr[2];\nEND_PROGRAM\n", 6n))
+  test("a PROPERTY is read through a REFERENCE TO an FB", () => readsBack("FUNCTION_BLOCK FB_C\nVAR\n\tside : INT := 3;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY Size : INT\nGET\nSize := side;\nEND_GET\nSET\nside := Size;\nEND_SET\nEND_PROPERTY\n\nPROGRAM PLC_PRG\nVAR\n\tc : FB_C;\n\trv : REFERENCE TO FB_C;\n\ta : INT;\nEND_VAR\nrv REF= c;\na := rv.Size;\nEND_PROGRAM\n", 3n))
+  test("a PROPERTY is written through a REFERENCE TO an FB", () => readsBack("FUNCTION_BLOCK FB_C\nVAR\n\tside : INT := 3;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY Size : INT\nGET\nSize := side;\nEND_GET\nSET\nside := Size;\nEND_SET\nEND_PROPERTY\n\nPROGRAM PLC_PRG\nVAR\n\tc : FB_C;\n\trv : REFERENCE TO FB_C;\n\ta : INT;\nEND_VAR\nrv REF= c;\nrv.Size := 7;\na := c.Size;\nEND_PROGRAM\n", 7n))
   test("and a POINTER still reaches the property through its written ^", () => readsBack("FUNCTION_BLOCK FB_C\nVAR\n\tside : INT := 3;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY Size : INT\nGET\nSize := side;\nEND_GET\nSET\nside := Size;\nEND_SET\nEND_PROPERTY\n\nPROGRAM PLC_PRG\nVAR\n\tc : FB_C;\n\tq : POINTER TO FB_C;\n\ta : INT;\nEND_VAR\nq := ADR(c);\na := q^.Size;\nEND_PROGRAM\n", 3n))
 })
 
@@ -1739,20 +1739,20 @@ describe("a value function over a STRING", () => {
   const refuse = (source: string): string[] => lowerSource(source, "PLC_PRG").diagnostics.map((d) => d.code)
 
   test("MAX over a STRING is refused rather than ordered", () => {
-    expect(refuse("PROGRAM PLC_PRG\nVAR\n\ts : STRING;\nEND_VAR\ns := MAX('abc','abd');\nEND_PROGRAM\n")).toContain("value-string-order")
+    expect(refuse("PROGRAM PLC_PRG\nVAR\n\tsv : STRING;\nEND_VAR\nsv := MAX('abc','abd');\nEND_PROGRAM\n")).toContain("value-string-order")
   })
 
   test("MIN and LIMIT too", () => {
-    expect(refuse("PROGRAM PLC_PRG\nVAR\n\ts : STRING;\nEND_VAR\ns := MIN('abc','abd');\nEND_PROGRAM\n")).toContain("value-string-order")
-    expect(refuse("PROGRAM PLC_PRG\nVAR\n\ts : STRING;\nEND_VAR\ns := LIMIT('a','b','c');\nEND_PROGRAM\n")).toContain("value-string-order")
+    expect(refuse("PROGRAM PLC_PRG\nVAR\n\tsv : STRING;\nEND_VAR\nsv := MIN('abc','abd');\nEND_PROGRAM\n")).toContain("value-string-order")
+    expect(refuse("PROGRAM PLC_PRG\nVAR\n\tsv : STRING;\nEND_VAR\nsv := LIMIT('a','b','c');\nEND_PROGRAM\n")).toContain("value-string-order")
   })
 
   test("SEL over a STRING still lowers — it picks, it does not order", () => {
-    const r = lowerSource("PROGRAM PLC_PRG\nVAR\n\ts : STRING;\nEND_VAR\ns := SEL(TRUE,'a','b');\nEND_PROGRAM\n", "PLC_PRG")
+    const r = lowerSource("PROGRAM PLC_PRG\nVAR\n\tsv : STRING;\nEND_VAR\nsv := SEL(TRUE,'a','b');\nEND_PROGRAM\n", "PLC_PRG")
     expect(r.diagnostics).toEqual([])
     const p = run(r.pou!)
     p.scan()
-    expect(p.get("s")).toBe("b")
+    expect(p.get("sv")).toBe("b")
   })
 
   test("and MAX over numbers is untouched", () => {

@@ -9,7 +9,7 @@ import { parseSource, parseStatements, lex } from "./index.js"
 const SAMPLES = [
   `FUNCTION_BLOCK FB EXTENDS Base VAR n : INT(0..9) := 3; a : ARRAY[0..2] OF REAL; END_VAR n := n + 1; END_FUNCTION_BLOCK`,
   `TYPE E : (A := 0, B, C) DINT; END_TYPE`,
-  `PROGRAM P VAR s : STRING(80); END_VAR IF s = '' THEN RETURN; END_IF END_PROGRAM`,
+  `PROGRAM P VAR sv : STRING(80); END_VAR IF sv = '' THEN RETURN; END_IF END_PROGRAM`,
   `INTERFACE I METHOD M : BOOL VAR_INPUT x : INT; END_VAR END_METHOD END_INTERFACE`,
 ]
 

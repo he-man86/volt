@@ -45,7 +45,7 @@ test("an empty CASE arm is an error (C0426, live-verified); comma is the legal f
 })
 
 test("C0218: enum-member labels stay quiet (the 207-FP case)", () => {
-  const src = `FUNCTION_BLOCK F\nVAR\n  st : (A, B, C);\n  n : INT;\nEND_VAR\nCASE st OF\n  A: n:=1;\n  B: n:=2;\n  C: n:=3;\nEND_CASE\nEND_FUNCTION_BLOCK`
+  const src = `FUNCTION_BLOCK F\nVAR\n  stv : (A, B, C);\n  n : INT;\nEND_VAR\nCASE stv OF\n  A: n:=1;\n  B: n:=2;\n  C: n:=3;\nEND_CASE\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src)
   const project = buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }])
   const msgs = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })

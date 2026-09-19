@@ -51,7 +51,7 @@ test("clean code produces no diagnostics (no false positives)", () => {
 
 // The active IDE is used because CODESYS and TwinCAT diverge — same input, different wording.
 test("vendor-keyed wording: narrowing LREAL→REAL", () => {
-  const src = `FUNCTION_BLOCK F\nVAR\n r : REAL; l : LREAL;\nEND_VAR\nr := l;\nEND_FUNCTION_BLOCK`
+  const src = `FUNCTION_BLOCK F\nVAR\n rv : REAL; l : LREAL;\nEND_VAR\nrv := l;\nEND_FUNCTION_BLOCK`
   expect(diag(src, "codesys")[0]?.message).toBe(
     "Implicit conversion from 'LREAL' to 'REAL': Possible loss of information",
   )

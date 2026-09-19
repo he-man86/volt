@@ -173,7 +173,7 @@ test("4.5b a correct FB call is clean", () => {
 
 test("4.7 a property accessor body is now diagnosed (R1 iterator covers accessors)", () => {
   // The GET body has an INT := STRING mismatch. The old analysis getBody() skipped accessor bodies entirely.
-  const prop = `PROPERTY Prop : INT\nGET\nVAR i : INT; s : STRING; END_VAR\ni := s;\nEND_GET\nEND_PROPERTY`
+  const prop = `PROPERTY Prop : INT\nGET\nVAR i : INT; sv : STRING; END_VAR\ni := sv;\nEND_GET\nEND_PROPERTY`
   expect(codes(prop)).toContain("assignment-type-mismatch")
 })
 
@@ -200,7 +200,7 @@ test("regression: positional type-check skips when VAR_IN_OUT/OUTPUT interleave 
   // `io` (VAR_IN_OUT) is positional slot 0, `a : INT` is slot 1. params (VAR_INPUT-only) = [a], so a naive
   // params[0] check would compare the STRING io-arg against a:INT → false call-argument-type.
   const fn = `FUNCTION F : INT\nVAR_IN_OUT io : STRING; END_VAR\nVAR_INPUT a : INT; END_VAR\nF := a;\nEND_FUNCTION`
-  const call = `PROGRAM P\nVAR s : STRING; END_VAR\nF(s, 5);\nEND_PROGRAM`
+  const call = `PROGRAM P\nVAR sv : STRING; END_VAR\nF(sv, 5);\nEND_PROGRAM`
   expect(codes(fn, call)).not.toContain("call-argument-type")
 })
 
@@ -230,7 +230,7 @@ test("regression: a PROPERTY is a valid named-argument target (not flagged unkno
   // A property (`p => var`) binds like an output but isn't a var-section param; the member-scope lookup
   // must recognize it. Previously the paramNames-only check false-flagged it as an unknown named argument.
   const fb = `FUNCTION_BLOCK FB_T\nVAR_INPUT n : INT; END_VAR\nEND_FUNCTION_BLOCK\nPROPERTY Elapsed : REAL\nGET\nElapsed := 1.0;\nEND_GET\nEND_PROPERTY`
-  const call = `PROGRAM P\nVAR fb : FB_T; r : REAL; END_VAR\nfb(n := 1, Elapsed => r);\nEND_PROGRAM`
+  const call = `PROGRAM P\nVAR fb : FB_T; rv : REAL; END_VAR\nfb(n := 1, Elapsed => rv);\nEND_PROGRAM`
   expect(codes(fb, call)).not.toContain("unknown-named-argument")
 })
 
@@ -238,8 +238,8 @@ test("regression: a qualified-enum argument is resolved (shared checkableType ha
   // Passing an enum value to a STRING input is a genuine mismatch. The check must SEE `E_A.X` as an enum
   // (not skip it): the old local enumValueRef only handled bare idents, so `E_A.X` slipped through untyped.
   const enumA = `TYPE E_A : (X, Y); END_TYPE`
-  const fb = `FUNCTION_BLOCK FB_T\nVAR_INPUT s : STRING; END_VAR\nEND_FUNCTION_BLOCK`
-  const call = `PROGRAM P\nVAR fb : FB_T; END_VAR\nfb(s := E_A.X);\nEND_PROGRAM`
+  const fb = `FUNCTION_BLOCK FB_T\nVAR_INPUT sv : STRING; END_VAR\nEND_FUNCTION_BLOCK`
+  const call = `PROGRAM P\nVAR fb : FB_T; END_VAR\nfb(sv := E_A.X);\nEND_PROGRAM`
   expect(codes(enumA, fb, call)).toContain("call-argument-type")
 })
 
@@ -295,9 +295,9 @@ END_FUNCTION`
   const positional = `PROGRAM P
 VAR
 	i : INT;
-	r : INT;
+	rv : INT;
 END_VAR
-r := FUN_U(i);
+rv := FUN_U(i);
 END_PROGRAM`
   const cs = codes(fn, positional)
   expect(cs).toContain("sign-change-conversion")
@@ -307,7 +307,7 @@ END_PROGRAM`
 test("4.10 a narrowing argument (LREAL into a REAL input) warns as loss of information", () => {
   const fb = `FUNCTION_BLOCK FB_R
 VAR_INPUT
-	r : REAL;
+	rv : REAL;
 END_VAR
 END_FUNCTION_BLOCK`
   const call = `PROGRAM P
@@ -315,7 +315,7 @@ VAR
 	fb : FB_R;
 	l : LREAL;
 END_VAR
-fb(r := l);
+fb(rv := l);
 END_PROGRAM`
   expect(codes(fb, call)).toContain("narrowing-conversion")
 })

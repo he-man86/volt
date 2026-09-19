@@ -13,7 +13,7 @@ const byCode =
   (decls: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
     const src =
       `PROGRAM PLC_PRG\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM\n` +
-      `TYPE MyArr : ARRAY[0..2] OF INT; END_TYPE\nTYPE S : STRUCT a : INT; END_STRUCT END_TYPE\n` +
+      `TYPE MyArr : ARRAY[0..2] OF INT; END_TYPE\nTYPE sv : STRUCT a : INT; END_STRUCT END_TYPE\n` +
       `TYPE HUE : (RED, GREEN, BLUE); END_TYPE`
     const pr = parseSource(src)
     const project = buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }])
@@ -37,7 +37,7 @@ test("an array literal on an array (direct or aliased) stays quiet (0-FP)", () =
 })
 
 test("a STRUCT(...) initializer on a struct is not an array literal (0-FP)", () => {
-  expect(init(`  s : S := STRUCT(a := 1);`)).toEqual([]) // aggregate_init but token is STRUCT, not '['
+  expect(init(`  sv : sv := STRUCT(a := 1);`)).toEqual([]) // aggregate_init but token is STRUCT, not '['
 })
 
 test("an unresolved declared type is skipped (0-FP)", () => {
@@ -63,8 +63,8 @@ test("C0232: a flat scalar where a nested array is expected", () => {
 })
 
 test("C0233: a scalar where a struct-init list is expected (enums excepted)", () => {
-  expect(element(`  v : ARRAY[0..2] OF S := [1,2,3];`)).toEqual(["Initialisation list for S expected"])
-  expect(element(`  v : ARRAY[0..2] OF S := [(a:=1),(a:=2),(a:=3)];`)).toEqual([]) // struct inits — OK
+  expect(element(`  v : ARRAY[0..2] OF sv := [1,2,3];`)).toEqual(["Initialisation list for sv expected"])
+  expect(element(`  v : ARRAY[0..2] OF sv := [(a:=1),(a:=2),(a:=3)];`)).toEqual([]) // struct inits — OK
   expect(element(`  v : ARRAY[0..2] OF HUE := [0,1,2];`)).toEqual([]) // enum accepts integer literals — not flagged
 })
 

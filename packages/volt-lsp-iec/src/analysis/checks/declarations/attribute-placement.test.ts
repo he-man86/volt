@@ -40,7 +40,7 @@ END_METHOD`
 })
 
 test("pack_mode on a struct (its legal home) is not flagged", () => {
-  expect(msgs(`{attribute 'pack_mode' := '1'}\nTYPE S : STRUCT\n a : BYTE;\nEND_STRUCT\nEND_TYPE`)).toEqual([])
+  expect(msgs(`{attribute 'pack_mode' := '1'}\nTYPE sv : STRUCT\n a : BYTE;\nEND_STRUCT\nEND_TYPE`)).toEqual([])
 })
 
 test("a different attribute on a FUNCTION is not flagged", () => {

@@ -41,7 +41,7 @@ export function storageOf(lw: Lowering, t: Type): Type {
   const sym = lookup(lw.project, t.name)?.symbol
   const name = sym?.name ?? t.name
   const key = name.toUpperCase()
-  // A TYPE THAT CONTAINS ITSELF HAS NO SIZE, and saying so beats running out of stack. `FUNCTION_BLOCK FB_R VAR r :
+  // A TYPE THAT CONTAINS ITSELF HAS NO SIZE, and saying so beats running out of stack. `FUNCTION_BLOCK FB_R VAR rv :
   // FB_R; END_VAR` — or any longer cycle through a struct — sent `storageOf` and `buildLayout` into each other until
   // the process died with a RangeError, where the rule for this component is that invalid input ends in a
   // LowerDiagnostic and never a throw. CODESYS rejects the shape too, so nothing is lost by refusing it; what was

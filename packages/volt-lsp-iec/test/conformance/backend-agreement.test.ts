@@ -258,7 +258,7 @@ const PROBES: ReadonlyArray<{ name: string; source: string; why: string }> = [
     why: "the MOD expansion bound `a`/`d` and shadowed a FUNCTION parameter — `7 MOD 3` compiled to `7 % 7` = 0",
     source:
       "FUNCTION F_pmod : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;\nEND_VAR\nF_pmod := b MOD a;\nEND_FUNCTION\n\n" +
-      "PROGRAM PLC_PRG\nVAR\n\tr : INT;\n\tr2 : INT;\nEND_VAR\nr := F_pmod(a := 3, b := 7);\nr2 := F_pmod(a := 5, b := 23);\nEND_PROGRAM\n",
+      "PROGRAM PLC_PRG\nVAR\n\trv : INT;\n\tr2 : INT;\nEND_VAR\nrv := F_pmod(a := 3, b := 7);\nr2 := F_pmod(a := 5, b := 23);\nEND_PROGRAM\n",
   },
   {
     name: "probe_bit_assign_shadow",

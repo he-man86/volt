@@ -382,9 +382,9 @@ const vgByCode = (src: string, code: string): number => vgDiags(src).filter((d) 
 // network text sink pair checks mirror ST via the shared helpers (assignment already tested above).
 test("network text: a narrowing sink (LREAL→REAL coil) warns like ST", () => {
   const src = `FUNCTION_BLOCK F
-VAR r : REAL; l : LREAL; END_VAR
+VAR rv : REAL; l : LREAL; END_VAR
 NETWORK 0 LD
-r := l;
+rv := l;
 END_NETWORK
 END_FUNCTION_BLOCK`
   const d = vgDiags(src).find((x) => x.code === "narrowing-conversion")

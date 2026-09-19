@@ -9,7 +9,7 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 const run =
   (code: string) =>
   (body: string): string[] => {
-    const src = `FUNCTION_BLOCK F\nVAR\n i:INT; pt:POINTER TO INT; b:BIT; s:STRING; r:REAL;\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
+    const src = `FUNCTION_BLOCK F\nVAR\n i:INT; pt:POINTER TO INT; b:BIT; sv:STRING; rv:REAL;\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
     const pr = parseSource(src)
     const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
     return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -42,9 +42,9 @@ test("C0070: INI of a non-instance is flagged; INI of an FB instance is not", ()
 
 test("C0072: a math operator on a non-numeric type is flagged; on a numeric type is not", () => {
   const op = run("operator-not-possible")
-  expect(op(`r := ABS(s);`)).toEqual(["Operation 'Abs' is not possible on type 'STRING'"])
-  expect(op(`r := SQRT(s);`)).toEqual(["Operation 'Sqrt' is not possible on type 'STRING'"])
-  expect(op(`r := ABS(i);`)).toEqual([])
+  expect(op(`rv := ABS(sv);`)).toEqual(["Operation 'Abs' is not possible on type 'STRING'"])
+  expect(op(`rv := SQRT(sv);`)).toEqual(["Operation 'Sqrt' is not possible on type 'STRING'"])
+  expect(op(`rv := ABS(i);`)).toEqual([])
 })
 
 test("C0240/C0241: __QueryPointer operands of the wrong kind are flagged; valid ones are not", () => {

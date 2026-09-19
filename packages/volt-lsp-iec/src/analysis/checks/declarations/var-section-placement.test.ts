@@ -39,10 +39,10 @@ test("C0175: a VAR RETAIN block in a FUNCTION is flagged; in an FB it is fine", 
       .filter((d) => d.code === "retain-not-allowed")
       .map((d) => d.message)
   }
-  expect(run(`FUNCTION FN : INT\nVAR RETAIN r : INT; END_VAR\nEND_FUNCTION`)).toEqual([
+  expect(run(`FUNCTION FN : INT\nVAR RETAIN rv : INT; END_VAR\nEND_FUNCTION`)).toEqual([
     "RETAIN or PERSISTENT not allowed in this place",
   ])
-  expect(run(`FUNCTION_BLOCK F\nVAR RETAIN r : INT; END_VAR\nEND_FUNCTION_BLOCK`)).toEqual([])
+  expect(run(`FUNCTION_BLOCK F\nVAR RETAIN rv : INT; END_VAR\nEND_FUNCTION_BLOCK`)).toEqual([])
 })
 
 test("C0168: a VAR_CONFIG block in a POU is flagged with its own message", () => {

@@ -16,7 +16,7 @@ const rec = (src: string): string[] => {
 }
 
 test("a direct self-member is flagged", () => {
-  expect(rec(`FUNCTION_BLOCK FB1\nVAR s : FB1; END_VAR\nEND_FUNCTION_BLOCK`)).toEqual(["Data recursion: FB1 -> FB1"])
+  expect(rec(`FUNCTION_BLOCK FB1\nVAR sv : FB1; END_VAR\nEND_FUNCTION_BLOCK`)).toEqual(["Data recursion: FB1 -> FB1"])
 })
 
 test("an indirect cycle is flagged (each participating unit reports its own path)", () => {
@@ -32,6 +32,6 @@ test("a POINTER TO self does not nest — not flagged; an ARRAY OF self does", (
 })
 
 test("a self-referential struct is flagged; a non-recursive one is not", () => {
-  expect(rec(`TYPE S :\nSTRUCT\nself : S;\nEND_STRUCT\nEND_TYPE`)).toEqual(["Data recursion: S -> S"])
-  expect(rec(`TYPE S :\nSTRUCT\nn : INT;\nEND_STRUCT\nEND_TYPE`)).toEqual([])
+  expect(rec(`TYPE sv :\nSTRUCT\nself : sv;\nEND_STRUCT\nEND_TYPE`)).toEqual(["Data recursion: SV -> SV"])
+  expect(rec(`TYPE sv :\nSTRUCT\nn : INT;\nEND_STRUCT\nEND_TYPE`)).toEqual([])
 })

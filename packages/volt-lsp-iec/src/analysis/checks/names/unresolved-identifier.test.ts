@@ -41,11 +41,11 @@ test("THIS and SUPER (OOP self/base pointers) are not flagged", () => {
 
 // Gap found via corpus: TRUNC / TRUNC_INT are standard functions the catalog was missing.
 test("TRUNC and TRUNC_INT (standard functions) are not flagged", () => {
-  expect(unresolved(fb(`VAR r : REAL; i : INT; END_VAR\ni := TRUNC(r);\ni := TRUNC_INT(r);`))).toEqual([])
+  expect(unresolved(fb(`VAR rv : REAL; i : INT; END_VAR\ni := TRUNC(rv);\ni := TRUNC_INT(rv);`))).toEqual([])
 })
 
 test("a conversion call (INT_TO_REAL) is not flagged", () => {
-  expect(unresolved(fb(`VAR r : REAL; i : INT; END_VAR\nr := INT_TO_REAL(i);`))).toEqual([])
+  expect(unresolved(fb(`VAR rv : REAL; i : INT; END_VAR\nrv := INT_TO_REAL(i);`))).toEqual([])
 })
 
 test("a __-prefixed system operator is not flagged", () => {
@@ -57,7 +57,7 @@ test("a built-in operator (SEL) is not flagged", () => {
 })
 
 test("a bare-accessible enum member (non-qualified_only) is not flagged", () => {
-  const src = `TYPE E : (Idle, Running); END_TYPE\nFUNCTION_BLOCK F\nVAR s : E; END_VAR\ns := Running;\nEND_FUNCTION_BLOCK`
+  const src = `TYPE E : (Idle, Running); END_TYPE\nFUNCTION_BLOCK F\nVAR sv : E; END_VAR\nsv := Running;\nEND_FUNCTION_BLOCK`
   expect(unresolved(src)).toEqual([])
 })
 
@@ -76,8 +76,8 @@ const enumUse = (enumDut: string, consumer: string): string[] => {
     .filter((d) => d.code === "unresolved-identifier")
     .map((d) => d.message)
 }
-const bare = fb(`VAR s : E; END_VAR\ns := Running;`)
-const qual = fb(`VAR s : E; END_VAR\ns := E.Running;`)
+const bare = fb(`VAR sv : E; END_VAR\nsv := Running;`)
+const qual = fb(`VAR sv : E; END_VAR\nsv := E.Running;`)
 
 test("qualified_only enum: BARE member access is flagged, but QUALIFIED resolves", () => {
   const dut = `{attribute 'qualified_only'}\nTYPE E : (Idle, Running); END_TYPE`

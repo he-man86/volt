@@ -15,8 +15,8 @@ const out = (src: string): string[] => {
 }
 
 test("a REFERENCE TO output is flagged; a REFERENCE TO local var is fine", () => {
-  expect(out(`FUNCTION_BLOCK F\nVAR_OUTPUT r : REFERENCE TO INT;\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual([
+  expect(out(`FUNCTION_BLOCK F\nVAR_OUTPUT rv : REFERENCE TO INT;\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual([
     "Outputs can't be of type REFERENCE TO",
   ])
-  expect(out(`FUNCTION_BLOCK F\nVAR r : REFERENCE TO INT;\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual([])
+  expect(out(`FUNCTION_BLOCK F\nVAR rv : REFERENCE TO INT;\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual([])
 })
