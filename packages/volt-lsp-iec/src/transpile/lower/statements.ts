@@ -188,6 +188,23 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
       return { kind: "continue", span: s.span }
     case "return":
       return { kind: "return", span: s.span }
+    // `__TRY` IS MEASURED AND NOT YET LOWERED, which is a different thing from unmeasured — the model is complete
+    // and written down here so whoever builds it is not asked to guess. Measured on SP21
+    // (`semantics/try-catch.ts`, 2026-09-19), and it CHANGES THE FAULT MODEL for the code inside the block:
+    //
+    //   no fault              the body runs, the catch is skipped, __FINALLY runs, and so does what follows __ENDTRY
+    //   a divide by zero      the catch RUNS, its operand receives 258, the faulting statement did not complete,
+    //                         and THE SCAN FINISHES — outside a __TRY the same division ends the application
+    //   LN of a run-time 0    the same, with 338
+    //   __FINALLY             runs either way
+    //   nested                the INNER block catches; the outer never sees it
+    //
+    // `__CATCH`'s operand is an EXISTING variable of `__SYSTEM.ExceptionCode` that receives the code — pro2193
+    // declares `ARRAY[0..50] OF __SYSTEM.ExceptionCode` for exactly this and wraps every top-level call in one.
+    //
+    // What it needs: an IR statement carrying the three blocks and the catch place, a `try` in the interpreter, and
+    // a Rust form — the emitter's faults are `panic!`, so `catch_unwind` or a `Result`-shaped rewrite is the open
+    // design question. Six corpus POUs are blocked by this, three of them by nothing else.
     default:
       return lw.bail(`stmt-${s.kind}`, `${s.kind} is not lowered yet`, s.span)
   }

@@ -8,7 +8,7 @@
  * At the last regeneration:
  *   confirmed    1880
  *   refused       509
- *   not-lowered    79
+ *   not-lowered    87
  *   lsp-gap         2
  *   diverges        3
  *   unaskable      33
@@ -2272,6 +2272,14 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   trunc_beyond_dint: "confirmed",
   trunc_functions: "confirmed",
   trunc_out_of_range: "confirmed",
+  try_catch_only_on_fault: "not-lowered",
+  try_divide_by_zero: "not-lowered",
+  try_finally_no_fault: "not-lowered",
+  try_finally_on_fault: "not-lowered",
+  try_log_of_zero: "not-lowered",
+  try_nested: "not-lowered",
+  try_no_fault: "not-lowered",
+  try_one_line: "not-lowered",
   type_any_function_input: "confirmed",
   type_any_int_function_input: "confirmed",
   type_array_2d: "confirmed",

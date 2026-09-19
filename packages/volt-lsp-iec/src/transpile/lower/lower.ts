@@ -428,7 +428,22 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
             const read = recordedArgument(expr, declaring.frame.findIndex((f) => f.name.toUpperCase() === held.name.toUpperCase()), declaring, holder)
             if (read !== undefined) input = convert({ kind: "load", place: read, type: read.type, span }, slot.type)
           }
-          if (input === undefined) return lw.bail("fb-init-argument", `${t.name}'s FB_Init input ${slot.name} is given nothing lowering can pass`, span) ?? false
+          // A ROOT has no caller, so nothing supplies this — and that is not a gap in lowering. CODESYS refuses the
+          // bare declaration too: an FB whose FB_Init takes an extra input cannot be instantiated without it
+          // ("Specified 'FB_Init' method requires exactly 1 inputs", conformance `fb_init_argument_left_out`). The
+          // two corpus POUs this blocks are library FBs whose BASE takes `invert`; every real instance of them
+          // passes it, and lowering one as a root is asking for a shape the vendor does not run either.
+          if (input === undefined)
+            return (
+              lw.bail(
+                "fb-init-argument",
+                `${t.name}'s FB_Init input ${slot.name} is given nothing lowering can pass` +
+                  (declaring === lw && place.path.length === 0 && lw.isRoot && args.length === 0
+                    ? " — it is the ROOT, which has no caller, and the vendor refuses this declaration too"
+                    : ""),
+                span,
+              ) ?? false
+            )
           inputs.push(input)
         }
         if (programReentrant(lw, routine, place))

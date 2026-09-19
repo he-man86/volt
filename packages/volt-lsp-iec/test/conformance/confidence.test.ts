@@ -98,7 +98,12 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // at each instance — which is what a routine already is, a body that runs on an instance. Built while the
   // LAYOUT is, before any body: a field may store an address (`p : POINTER TO X := ADR(y)`) and a body may only
   // dereference that pointer once the store is known.
-  "not-lowered": 79,
+  // 79 -> 87. `semantics/try-catch.ts` measured `__TRY`/`__CATCH`/`__FINALLY`/`__ENDTRY` — the one construct that
+  // CHANGES the fault model: a divide by zero inside one is caught (code 258), the logarithm of a run-time zero
+  // too (338), and THE SCAN FINISHES where the same fault outside ends the application. Eight cells, complete and
+  // deliberately not lowered: the model is written at the refusal in `lower/statements.ts` so the implementation
+  // is not asked to guess, and the open design question is the Rust form (the emitter's faults are `panic!`).
+  "not-lowered": 87,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

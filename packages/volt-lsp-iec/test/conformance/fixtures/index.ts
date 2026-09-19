@@ -44,6 +44,7 @@ import { LIFECYCLE_TESTS } from "./oop/lifecycle.js"
 import { LITERAL_TESTS } from "./types/literal.js"
 import { OOP_TESTS } from "./oop/oop.js"
 import { CONSTANT_FOLDING_TESTS } from "./declarations/constant-folding.js"
+import { TRY_CATCH_TESTS } from "./semantics/try-catch.js"
 import { INIT_SEQUENCE_TESTS } from "./declarations/init-sequence.js"
 import { OPERANDS_TESTS } from "./operators/operands.js"
 import { STRING_ORDER_TESTS } from "./strings/ordering.js"
@@ -156,6 +157,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "addresses", tests: ADDRESS_TESTS },
   { name: "keyword", tests: KEYWORD_TESTS },
   { name: "constant-folding", tests: CONSTANT_FOLDING_TESTS },
+  { name: "try-catch", tests: TRY_CATCH_TESTS },
   { name: "init-sequence", tests: INIT_SEQUENCE_TESTS },
   { name: "operands", tests: OPERANDS_TESTS },
   { name: "string-ordering", tests: STRING_ORDER_TESTS },
