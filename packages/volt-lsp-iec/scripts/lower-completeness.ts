@@ -51,6 +51,10 @@ const isRunnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "fu
 let withCode = 0
 let withCodeLowered = 0
 let declOnly = 0
+/** The METHOD/ACTION bodies a lowering POU actually LOWERS, by `<project>:<routine key>` — "reached", as against
+ *  the `separateBodies` count of every one that exists. They were reported as none, and they are not none. */
+const reachedRoutines = new Set<string>()
+const reachedFromRunning = new Set<string>()
 let declOnlyLowered = 0
 let separateBodies = 0
 let slots = 0
@@ -85,8 +89,9 @@ for (const projectDir of projects) {
     ]),
   )
   for (const { file, parseResult } of files) {
-    // Where the code actually lives: a METHOD/ACTION body belongs to its FB's frame, which lowering does not
-    // reach yet. Counted so the number is visible rather than quietly excluded.
+    // Where the code actually lives: a METHOD/ACTION body belongs to its FB's frame. Counted so the number is
+    // visible rather than quietly excluded — and counted AGAINST `reachedRoutines`, because "not reachable yet"
+    // was wrong: a routine lowers when a lowering POU calls it, and 444 of these do.
     separateBodies += parseResult.units.filter(
       (u) => (u.kind === "method" || u.kind === "action") && !isGraphicalBody(u.body) && u.body.tokens.length > 0,
     ).length
@@ -100,6 +105,10 @@ for (const projectDir of projects) {
 
       const { pou, diagnostics } = lowerUnit(unit, scope, project, attributes)
       if (pou !== undefined) {
+        for (const routine of pou.routines) {
+          reachedRoutines.add(`${file}:${routine.key}`)
+          if (hasCode) reachedFromRunning.add(`${file}:${routine.key}`)
+        }
         if (hasCode) {
           withCodeLowered++
           slots += pou.slots.length
@@ -158,7 +167,10 @@ console.log(
 )
 console.log(`  blocked:         ${withCode - withCodeLowered} (${pct(withCode - withCodeLowered, withCode)}%)`)
 console.log(`declaration-only:  ${declOnly} (lowered ${declOnlyLowered}) — real, but they execute nothing`)
-console.log(`METHOD/ACTION:     ${separateBodies} bodies not reachable yet (they share their FB's frame)`)
+console.log(
+  `METHOD/ACTION:     ${separateBodies} bodies, ${reachedRoutines.size} REACHED ` +
+    `(${reachedFromRunning.size} from a POU that RUNS; the rest are lifecycle — FB_Init and init-slot methods)`,
+)
 console.log("")
 console.log("blocked POUs-with-a-body per construct — `reach` stopped by it, `sole` it is the ONLY blocker of:")
 const ranked = [...blockers].sort((a, b) => b[1].sole - a[1].sole || b[1].pous - a[1].pous).slice(0, top)

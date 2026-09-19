@@ -85,6 +85,14 @@ const COVERED_BUILTINS = 31
 
 const DOCUMENTED_BODIES = 304
 const DOCUMENTED_LOWERED = 55
+/**
+ * The METHOD/ACTION half of the same contract, measured 2026-09-19. `index.ts` said **none reachable** and that
+ * was never true: a routine lowers when a POU that lowers calls it, and 543 do. Only 14 come from a POU that RUNS
+ * — the rest are lifecycle methods (`FB_Init`, `call_after_global_init_slot`) reached from declaration-only POUs,
+ * which is why the claim survived: nobody counted the half that was not zero.
+ */
+const DOCUMENTED_ROUTINES = 543
+const DOCUMENTED_ROUTINES_FROM_RUNNING = 14
 
 /**
  * HOW MANY REGISTERED REFUSAL CODES ANY REAL PROGRAM ACTUALLY PRODUCES.
@@ -131,13 +139,26 @@ function fromPou(pou: IrPou, kinds: Set<string>, builtins: Set<string>): void {
 }
 
 /** ONE walk, every question: did anything throw, how much is reached, which refusals fire, and which IR is built. */
-function overCorpus(): { failures: string[]; bodies: number; lowered: number; codes: Set<string>; kinds: Set<string>; builtins: Set<string> } {
+function overCorpus(): {
+  failures: string[]
+  bodies: number
+  lowered: number
+  routines: number
+  routinesFromRunning: number
+  codes: Set<string>
+  kinds: Set<string>
+  builtins: Set<string>
+} {
   const failures: string[] = []
   const codes = new Set<string>()
   const kinds = new Set<string>()
   const builtins = new Set<string>()
   let bodies = 0
   let lowered = 0
+  /** The METHOD/ACTION bodies a lowering POU actually LOWERS, and the subset reached from one that RUNS. The
+   *  contract said "none reachable" until this measured it; a routine lowers when a lowering POU calls it. */
+  const routines = new Set<string>()
+  const routinesFromRunning = new Set<string>()
   const projects = readdirSync(CORPUS).filter((name) => statSync(join(CORPUS, name)).isDirectory())
   for (const projectDir of projects) {
     const files = walk(join(CORPUS, projectDir)).flatMap((file) => {
@@ -173,6 +194,10 @@ function overCorpus(): { failures: string[]; bodies: number; lowered: number; co
         try {
           const { pou, diagnostics } = lowerUnit(unit, scope, project, attributes)
           if (hasCode && pou !== undefined) lowered++
+          for (const r of pou?.routines ?? []) {
+            routines.add(`${file}:${r.key}`)
+            if (hasCode) routinesFromRunning.add(`${file}:${r.key}`)
+          }
           for (const d of diagnostics ?? []) codes.add(d.code)
           if (pou !== undefined) fromPou(pou, kinds, builtins)
         } catch (error) {
@@ -182,7 +207,7 @@ function overCorpus(): { failures: string[]; bodies: number; lowered: number; co
       }
     }
   }
-  return { failures, bodies, lowered, codes, kinds, builtins }
+  return { failures, bodies, lowered, routines: routines.size, routinesFromRunning: routinesFromRunning.size, codes, kinds, builtins }
 }
 
 describe("the contracts src/transpile/index.ts states, measured over the corpus", () => {
@@ -200,8 +225,13 @@ describe("the contracts src/transpile/index.ts states, measured over the corpus"
     // If this fails after a deliberate coverage change, update BOTH this constant and the paragraph in
     // `src/transpile/index.ts`. The documented reach is a contract a reader relies on; a plan for this very
     // component once justified itself with a figure 470x the real one, which is what this exists to prevent.
-    const { bodies, lowered } = result()
-    expect({ bodies, lowered }).toEqual({ bodies: DOCUMENTED_BODIES, lowered: DOCUMENTED_LOWERED })
+    const { bodies, lowered, routines, routinesFromRunning } = result()
+    expect({ bodies, lowered, routines, routinesFromRunning }).toEqual({
+      bodies: DOCUMENTED_BODIES,
+      lowered: DOCUMENTED_LOWERED,
+      routines: DOCUMENTED_ROUTINES,
+      routinesFromRunning: DOCUMENTED_ROUTINES_FROM_RUNNING,
+    })
   })
 
   test("REFUSAL REACH — a registered code that no real program produces is reported", () => {
