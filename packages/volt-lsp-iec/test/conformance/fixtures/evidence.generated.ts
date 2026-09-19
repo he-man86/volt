@@ -6,11 +6,11 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1695
- *   refused       451
+ *   confirmed    1732
+ *   refused       455
  *   not-lowered    47
  *   lsp-gap        29
- *   diverges        4
+ *   diverges        5
  *   unaskable      27
  */
 import type { LanguageTest } from "../types.js"
@@ -772,6 +772,48 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   err_c0003_bad_bit_index: "refused",
   err_c0116_duplicate_label: "refused",
   error_message: "refused",
+  esc_around_carriage_return: "confirmed",
+  esc_around_dollar: "confirmed",
+  esc_around_hex_41: "confirmed",
+  esc_around_hex_7e: "confirmed",
+  esc_around_hex_7f: "confirmed",
+  esc_around_hex_80: "diverges",
+  esc_around_hex_81: "confirmed",
+  esc_around_hex_a9: "confirmed",
+  esc_around_hex_c3: "confirmed",
+  esc_around_hex_ff: "confirmed",
+  esc_around_line_feed: "confirmed",
+  esc_around_newline: "confirmed",
+  esc_around_page: "confirmed",
+  esc_around_quote: "confirmed",
+  esc_around_tab: "confirmed",
+  esc_fits_exactly: "confirmed",
+  esc_high_only_one: "confirmed",
+  esc_len_carriage_return: "confirmed",
+  esc_len_dollar: "confirmed",
+  esc_len_hex_41: "confirmed",
+  esc_len_hex_7e: "confirmed",
+  esc_len_hex_7f: "confirmed",
+  esc_len_hex_80: "diverges",
+  esc_len_hex_81: "confirmed",
+  esc_len_hex_a9: "confirmed",
+  esc_len_hex_c3: "confirmed",
+  esc_len_hex_ff: "confirmed",
+  esc_len_line_feed: "confirmed",
+  esc_len_newline: "confirmed",
+  esc_len_page: "confirmed",
+  esc_len_quote: "confirmed",
+  esc_len_tab: "confirmed",
+  esc_mixed: "confirmed",
+  esc_truncated_ascii: "confirmed",
+  esc_truncated_high: "confirmed",
+  esc_two_high: "confirmed",
+  esc_utf8_pair: "confirmed",
+  esc_utf8_pair_around: "confirmed",
+  esc_wstring_ascii: "refused",
+  esc_wstring_hex_41: "refused",
+  esc_wstring_hex_ff: "refused",
+  esc_wstring_pair: "refused",
   estimated_stack_usage: "confirmed",
   exp_log_precision: "confirmed",
   expt_mixed_width: "confirmed",
@@ -1967,7 +2009,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   string_edge_positions: "confirmed",
   string_escapes: "confirmed",
   string_escapes_named: "confirmed",
-  string_high_byte_escape: "diverges",
+  string_high_byte_escape: "confirmed",
   string_input_truncation: "confirmed",
   string_insert_delete_replace_find: "confirmed",
   string_len_left_right_mid: "confirmed",

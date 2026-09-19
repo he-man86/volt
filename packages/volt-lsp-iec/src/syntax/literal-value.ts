@@ -31,7 +31,20 @@ export function decodeStringLiteral(raw: string, wide = false): string | undefin
     const digits = wide ? 4 : 2
     const hex = raw.slice(i + 1, i + 1 + digits)
     if (hex.length === digits && /^[0-9A-Fa-f]+$/.test(hex)) {
-      out += String.fromCharCode(parseInt(hex, 16))
+      const code = parseInt(hex, 16)
+      // A STRING HOLDS UTF-8 BYTES, and `$XX` names the CODE POINT U+00XX — so anything above U+007F is stored as
+      // the two bytes that encode it, and `LEN` counts two. Measured across the whole escape table
+      // (`strings/escapes.ts`, 2026-09-19): `$41`..`$7F` are 1, and `$81`, `$A9`, `$C3`, `$FF` are all 2. `$C3$A9`
+      // is FOUR, not two — the pair is not read back as the single UTF-8 'é' it would spell, but as two code
+      // points that each encode to two bytes. This was one character per escape, which is what
+      // `string_high_byte_escape` has recorded as a divergence since it was written.
+      //
+      // The bytes are kept as one JS char each, so `.length` IS the byte count and `slice` cuts on byte
+      // boundaries — the same model the emitter already has in `&[u8]`.
+      //
+      // `$80` alone answers THREE and nothing here explains it; `esc_len_hex_80` and `esc_around_hex_80` carry that
+      // measurement and a `deferred.transpile` saying so, rather than a rule bent to fit one cell.
+      out += wide || code < 0x80 ? String.fromCharCode(code) : utf8Bytes(code)
       i += digits
       continue
     }
@@ -41,6 +54,11 @@ export function decodeStringLiteral(raw: string, wide = false): string | undefin
     out += decoded
   }
   return out
+}
+
+/** A code point's UTF-8 bytes, one JS char each — U+0080..U+07FF is the two-byte form, which is every `$XX`. */
+function utf8Bytes(code: number): string {
+  return String.fromCharCode(0xc0 | (code >> 6), 0x80 | (code & 0x3f))
 }
 
 export function parseLiteralValue(kind: LiteralKind, text: string): ParsedLiteral {

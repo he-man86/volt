@@ -201,6 +201,20 @@ export const CELLS: readonly Cell[] = [
       `str_delete_${p}`, `str_insert_${p}`, `str_replace_${p}`,
     ]),
   ),
+  ...cells(
+    "strings",
+    "every escape form, and what LEN counts once one is not ASCII",
+    [
+      ...["dollar", "quote", "line_feed", "newline", "page", "carriage_return", "tab"].flatMap((k) => [
+        `esc_len_${k}`,
+        `esc_around_${k}`,
+      ]),
+      ...["41", "7e", "7f", "80", "81", "a9", "c3", "ff"].flatMap((h) => [`esc_len_hex_${h}`, `esc_around_hex_${h}`]),
+      "esc_utf8_pair", "esc_utf8_pair_around", "esc_two_high", "esc_mixed",
+      "esc_fits_exactly", "esc_truncated_ascii", "esc_truncated_high", "esc_high_only_one",
+      "esc_wstring_ascii", "esc_wstring_hex_41", "esc_wstring_hex_ff", "esc_wstring_pair",
+    ],
+  ),
   ...cells("strings", "assignment into a STRING(n) at each length", [
     "str_assign_into_shorter", "str_assign_into_exact", "str_assign_into_longer",
   ]),
@@ -291,7 +305,6 @@ export const CELLS: readonly Cell[] = [
  */
 export const PLANNED: readonly string[] = [
   "declarations / RETAIN, PERSISTENT, CONSTANT and direct addresses",
-  "strings / STRING(n) truncation, escapes and non-ASCII",
   "statements / every statement kind at its edges",
 ]
 

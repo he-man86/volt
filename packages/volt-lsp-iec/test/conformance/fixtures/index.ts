@@ -23,6 +23,7 @@ import { PRIMITIVE_BOUNDS_TESTS } from "./types/primitive-bounds.js"
 import { ARITHMETIC_EDGE_TESTS } from "./operators/arithmetic-edges.js"
 import { BITWISE_TESTS } from "./operators/bitwise.js"
 import { SELECTION_TESTS } from "./operators/selection.js"
+import { ESCAPE_TESTS } from "./strings/escapes.js"
 import { STRING_EDGE_TESTS } from "./strings/string-edges.js"
 import { COMPARISON_TESTS } from "./operators/comparison.js"
 import { MIXED_TYPE_TESTS } from "./operators/mixed-type.js"
@@ -140,6 +141,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "bitwise", tests: BITWISE_TESTS },
   { name: "selection", tests: SELECTION_TESTS },
   { name: "string-edges", tests: STRING_EDGE_TESTS },
+  { name: "escapes", tests: ESCAPE_TESTS },
   { name: "mixed-type", tests: MIXED_TYPE_TESTS },
   { name: "variable-section", tests: VARIABLE_SECTION_TESTS },
   { name: "section-semantics", tests: SECTION_SEMANTICS_TESTS },

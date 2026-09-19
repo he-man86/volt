@@ -185,6 +185,15 @@ function ideValue(raw: string, enums: ReadonlyMap<string, bigint> = new Map()): 
  * the cases' own `*Units` variables (`TOD_TO_UDINT(…)`), which display losslessly.
  */
 function asDisplayed(raw: string, value: IrValue): IrValue {
+  // A STRING IS STORED AS UTF-8 BYTES AND DISPLAYED AS TEXT. `strings/escapes.ts` measured both halves: `LEN('a$FFb')`
+  // is 4, so the bytes are what the value IS, and the IDE reads it back as `'aÿb'`, so decoding is what the DISPLAY
+  // does. We hold the bytes one JS char each (`literal-value.ts`), which is the right model and the wrong thing to
+  // compare against the IDE's text — so it is decoded here, in the one place that owns the vendor's display format.
+  // ...a NARROW string only. A WSTRING is UTF-16 code units, not UTF-8 bytes, and the IDE tells them apart by the
+  // quote it displays: `'abc'` for a STRING, `"abc"` for a WSTRING (`prim_default_string` beside
+  // `prim_default_wstring`). Decoding a WSTRING here mangled `wstring_basic` and `wstring_code_units`.
+  if (typeof value === "string" && raw.startsWith("'"))
+    return new TextDecoder().decode(Uint8Array.from(value, (ch) => ch.charCodeAt(0) & 0xff))
   if (typeof value !== "bigint") return value
   const floorTo = (v: bigint, step: bigint): bigint => v - (((v % step) + step) % step)
   if (raw.startsWith("TIME_OF_DAY#")) return ((value % 86_400_000n) + 86_400_000n) % 86_400_000n
@@ -435,8 +444,15 @@ describe.skipIf(skipRustSuite())("differential execution — emitted Rust vs COD
           const { type } = rustAccess(pou, k)
           const raw = printed.get(k)!
           if ((type.kind === "elementary" && type.elem.family === "bool") || isBit(type)) return [k, raw === "true"]
+          // The Rust side prints a STRING as its BYTES, which is what it holds — decoded as UTF-8 for the same
+          // reason `asDisplayed` decodes the interpreter's: the IDE shows text, the value is bytes.
           if (type.kind === "elementary" && type.elem.family === "string")
-            return [k, String.fromCharCode(...(JSON.parse(raw) as number[]))]
+            return [
+              k,
+              type.elem.bits === 8
+                ? new TextDecoder().decode(Uint8Array.from(JSON.parse(raw) as number[]))
+                : String.fromCharCode(...(JSON.parse(raw) as number[])), // a WSTRING is UTF-16 code units
+            ]
           if (type.kind === "elementary" && type.elem.family === "real") {
             // RUST SPELLS AN INFINITY `inf`, and `Number("inf")` is NaN — so an overflow read back as a NaN and
             // every real-overflow fixture reported the wrong divergence. `Number` handles `NaN` itself.

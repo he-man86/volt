@@ -35,7 +35,11 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // LINT gets the 64-bit one. Four points could not show that, and it had been parked as unexplainable.
   // What is left is two families, both about a vendor routine rather than a rule: trig argument reduction for a huge
   // angle (`op_math_trig`, `mathdom_sin_large`, `mathdom_cos_large`) and STRING being UTF-8 bytes.
-  diverges: 4,
+  // 4 -> 5. `string_high_byte_escape` is RESOLVED — a STRING holds UTF-8 bytes and `literal-value.ts` stores them
+  // — and `strings/escapes.ts` added `$80`, the one cell nothing explains: LEN answers 3 where every other escape
+  // at or above 0x80 answers 2, and no reading that gives 3 there leaves `$81` at 2. Deferred rather than fitted.
+  // What is left is two families: trig argument reduction for a huge angle, and that one byte.
+  diverges: 5,
   // 18 -> 34 because the MEASUREMENT changed, not because gaps appeared. `refused` claimed the vendor rejects a
   // source AND so do we, while only checking the vendor; 16 fixtures were counted as evidence while the LSP accepted
   // them silently (`cc_reserved_name_s_string` and its neighbours). The rating asks both sides now.

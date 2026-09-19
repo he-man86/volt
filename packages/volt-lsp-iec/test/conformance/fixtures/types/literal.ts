@@ -271,8 +271,10 @@ END_METHOD
     source: "FUNCTION_BLOCK FB_LANG_string_non_ascii_bytes\nVAR\n\ttext : STRING := 'caf$C3$A9';\n\tlength : INT;\n\tfirstByte : BYTE;\nEND_VAR\nlength := LEN(text);\nfirstByte := text[0];\nEND_FUNCTION_BLOCK\n",
   },
   {
+    // RESOLVED 2026-09-19. The reading was right and the evidence was one fixture: `strings/escapes.ts` walked the
+    // whole escape table and every form at or above 0x80 is two bytes, which is the UTF-8 encoding of U+00XX.
+    // `literal-value.ts` stores those bytes now, one JS char each, so LEN counts them and a slice cuts on a byte.
     name: "string_high_byte_escape",
-    deferred: { transpile: "2026-09-18: CODESYS records LEN('$FF') = 2 and LEN('caf$C3$A9') = 7 - so a STRING holds UTF-8 and LEN counts BYTES, where this stores one character per escape and counts characters. Real, and a whole encoding model rather than a patch." },
     pouName: "FB_LANG_string_high_byte_escape",
     kind: "function_block" as const,
     feature: "a single byte past 7F in a STRING ($FF) — stored as itself?",
