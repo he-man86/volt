@@ -7,9 +7,9 @@
  *
  * At the last regeneration:
  *   confirmed    1763
- *   refused       485
+ *   refused       488
  *   not-lowered    55
- *   lsp-gap        14
+ *   lsp-gap        11
  *   diverges        5
  *   unaskable      27
  */
@@ -728,7 +728,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   cp_pouname_operator: "confirmed",
   cp_symbol_and_monitoring: "confirmed",
   cp_xsizeof: "confirmed",
-  cs_anynum_to_conversions: "lsp-gap",
+  cs_anynum_to_conversions: "refused",
   cs_array_four_dimensions: "confirmed",
   cs_clock_reads: "not-lowered",
   cs_spelled_narrowing_conversions: "confirmed",
@@ -855,7 +855,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   fb_init_argument_from_global: "confirmed",
   fb_init_argument_from_variable: "confirmed",
   fb_init_argument_in_program_with_method: "confirmed",
-  fb_init_argument_left_out: "lsp-gap",
+  fb_init_argument_left_out: "refused",
   fb_init_base_and_derived: "confirmed",
   fb_init_before_slot_method_nested: "confirmed",
   fb_init_before_slot_method_sibling: "confirmed",
@@ -1536,7 +1536,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   operand_ini_deprecated: "not-lowered",
   operand_partial_word_in_dword: "confirmed",
   operand_position: "lsp-gap",
-  operand_querypointer: "lsp-gap",
+  operand_querypointer: "refused",
   operand_test_and_set: "refused",
   operand_uchar_literal: "refused",
   operand_xadd: "refused",

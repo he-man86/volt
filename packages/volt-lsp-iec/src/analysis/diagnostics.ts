@@ -70,6 +70,7 @@ import { checkExternalNonInputWrite } from "./checks/oop/external-write.js"
 import { checkInoutExternalAccess } from "./checks/oop/inout-external-access.js"
 import { checkInoutOwnAccess } from "./checks/oop/inout-own-access.js"
 import { checkFbInitInout } from "./checks/oop/fb-init-inout.js"
+import { checkFbInitInstantiation } from "./checks/oop/fb-init-instantiation.js"
 import { checkAbstractAssign } from "./checks/oop/abstract-assign.js"
 import { checkLifecycleSignatures } from "./checks/oop/lifecycle.js"
 import { checkAbstractInstantiation } from "./checks/oop/abstract-instantiation.js"
@@ -186,6 +187,7 @@ const CHECKS: readonly Check[] = [
   checkInoutExternalAccess,
   checkInoutOwnAccess,
   checkFbInitInout,
+  checkFbInitInstantiation,
   checkAbstractAssign,
   checkLifecycleSignatures,
   checkAbstractInstantiation,

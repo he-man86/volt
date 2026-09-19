@@ -168,7 +168,6 @@ END_METHOD
   },
   {
     name: "operand_querypointer",
-    deferred: { lsp: "2026-09-18: no LSP error for __QUERYPOINTER on a pointer rather than an interface reference" },
     refused: "First operand of __QueryPointer must be an interface reference or the instance of a function block",
     pouName: "FB_LANG_operand_querypointer",
     kind: "function_block" as const,

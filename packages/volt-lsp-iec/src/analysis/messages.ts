@@ -376,6 +376,8 @@ export interface Messages {
   inoutOwnAccess(param: string, fb: string, context: string): string
   /** Inline FB-init field targets a VAR_IN_OUT (only inputs are assignable at declaration) (C0179). verified both vendors. */
   fbInitNoOutput(id: string, fb: string): string
+  /** An FB whose FB_Init takes extra inputs, instantiated without them. CODESYS-measured; TwinCAT unasked. */
+  fbInitInstantiation(fb: string, inputs: number, syntax: string): string
   /** Calling a GVL block — not callable (C0036). Verified live: the GVL case renders the type as 'VAR_GLOBAL'. */
   cannotCallType(type: string): string
   /** Calling a plain value (a scalar/struct var) — CODESYS asks for a program/function/FB instead (C0035). */
@@ -425,6 +427,9 @@ export function messagesFor(vendor: Vendor): Messages {
       `Access to VAR_IN_OUT '${param}' declared in '${fb}' from external context '${context}'${tc ? "." : ""}`,
     // CODESYS-verified (2026-07-11 live): the IDE reports the inline-init VAR_IN_OUT field as "is no input of".
     fbInitNoOutput: (id, fb) => `'${id}' is no input of '${fb}'`,
+    // CODESYS SP21, measured (`fb_init_argument_left_out`). "1 inputs" is the vendor's own wording, unpluralized.
+    fbInitInstantiation: (fb, inputs, syntax) =>
+      `No matching 'FB_Init' method found for instantiation of ${fb}. Specified 'FB_Init' method requires exactly ${inputs} inputs. Check syntax '${syntax}'`,
     cannotCallType: (type) => `Cannot call object of type '${type}'`,
     callTargetExpected: (name) => `Program name, function or function block instance expected instead of '${name}'`,
     unexpectedToken: (token) => `Unexpected token '${token}' found`,

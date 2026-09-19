@@ -100,10 +100,16 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
         push(out, "error", e.callee.span, "ini-needs-instance", ctx.messages.iniNeedsInstance()) // C0070
     }
     if (name === "__QUERYPOINTER") {
-      // Conservative: fire only when an operand is a KNOWN ELEMENTARY (unambiguously wrong) — an interface ref /
-      // FB instance reads as function_block, a valid pointer as pointer; a reference/struct/unknown is skipped.
+      // Conservative: fire only where the operand is UNAMBIGUOUSLY wrong — an interface ref / FB instance reads as
+      // function_block; a reference/struct/unknown is skipped.
+      //
+      // A POINTER is wrong in the FIRST position and right in the second, which is the whole shape of the operator:
+      // `__QUERYPOINTER(src, dst)` casts an interface reference INTO a pointer. Reading "a valid pointer" as valid
+      // for either operand is what left `operand_querypointer` silent (measured: `POINTER TO INT` first operand,
+      // "First operand of __QueryPointer must be an interface reference or the instance of a function block").
       const first = e.args[0]?.value
-      if (first !== undefined && inferExprType(first, scope, ctx.project).kind === "elementary")
+      const firstKind = first === undefined ? undefined : inferExprType(first, scope, ctx.project).kind
+      if (first !== undefined && (firstKind === "elementary" || firstKind === "pointer"))
         push(out, "error", first.span, "query-pointer-operand", ctx.messages.queryPointerFirst()) // C0240
       const second = e.args[1]?.value
       if (second !== undefined && inferExprType(second, scope, ctx.project).kind === "elementary")

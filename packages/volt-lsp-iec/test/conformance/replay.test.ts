@@ -89,7 +89,10 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // 859 -> 862: the abstract ATTRIBUTE on a method without the ABSTRACT keyword warns; two probe fixtures
   // (`cc6_abstract_attribute_on_fb` / `_on_method`) established it is a METHOD rule, which `cc4_not_instantiable`
   // could not say because it carries the attribute on both and records one warning.
-  { vendor: "codesys", filename: "codesys.build.json", floor: 862 },
+  // 862 -> 865: `ANYNUM_TO_*` is not a CODESYS function (it was accepted on the strength of 80 corpus uses, every
+  // one inside a materialized library file), and an FB whose `FB_Init` takes extra inputs must be given them at
+  // the declaration.
+  { vendor: "codesys", filename: "codesys.build.json", floor: 865 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence

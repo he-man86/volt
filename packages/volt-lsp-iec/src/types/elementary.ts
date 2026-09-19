@@ -173,14 +173,17 @@ export const ANY_FAMILIES: ReadonlyMap<string, TypeFamily[]> = new Map([
 ])
 
 /**
- * The ANY families as a CONVERSION FUNCTION spells them, which is not how the type group is spelled: CODESYS
- * writes `ANYNUM_TO_WORD`, no underscore, and the corpus does so 80 times. Read only as `ANY_NUM`, every one of
- * them was an undefined identifier — and the corpus gate could not see it, because there the argument is
- * namespace-qualified (`CS.CANOPEN_KERNEL_ERROR.…`) and a library-qualified reference is skipped whole.
+ * The ANY families as a CONVERSION FUNCTION spells them — `ANY_TO_DWORD`, exactly as the type group is spelled.
+ *
+ * The UNDERSCORELESS spelling (`ANYNUM_TO_WORD`) was accepted here for a while, because the corpus writes it 80
+ * times. It was measured on SP21 and CODESYS has no such function (`cs_anynum_to_conversions`):
+ *
+ *   Identifier 'ANYNUM_TO_WORD' not defined
+ *
+ * All 80 corpus uses sit inside materialized `Library Manager/` files — CAA CiA405's own enum initializers, not
+ * user code — so they were never evidence that the compiler accepts it in a POU. A count is not a measurement.
  */
-const ANY_CONVERSION_PREFIXES: ReadonlySet<string> = new Set(
-  [...ANY_FAMILIES.keys()].flatMap((name) => [name, name.replace(/_/g, "")]),
-)
+const ANY_CONVERSION_PREFIXES: ReadonlySet<string> = new Set(ANY_FAMILIES.keys())
 
 /**
  * True when `t` is in the `ANY_*` type group `group`, by family as ANY_FAMILIES lists it (`ANY` holds everything). The one
