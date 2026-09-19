@@ -582,6 +582,17 @@ export interface ParseError {
 export interface ParseResult {
   units: TopLevel[]
   errors: ParseError[]
+  /**
+   * NAMES A DECLARATION TRIED TO DECLARE AND COULD NOT, lower-cased — so the semantic pass can stay quiet about
+   * every later use of one.
+   *
+   * A declaration that fails to parse binds nothing, and then every mention of the name downstream is undefined
+   * and each is reported. CODESYS stops at the parse error. That cascade is the whole reason the sixteen reserved
+   * IL operator names are not in the keyword table: adding them cost 44 LSP-only messages against 16 real misses
+   * (`docs/reserved-il-operators.md`). It is not specific to them — ANY malformed declaration does it, and the only
+   * reason it has been invisible is that no fixture had a malformed declaration AND a later use of the name.
+   */
+  failedDeclarations: string[]
 }
 
 /**

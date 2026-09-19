@@ -120,8 +120,15 @@ export function parseVarSection(c: Cursor): VarSection | undefined {
 function parseVarDecl(c: Cursor): VarDecl | undefined {
   // `expectName` (not `expectIdent`): soft keywords like SET/GET/OVERRIDE are legal variable names — the
   // Standard `RS` FB literally declares `SET : BOOL`, and CODESYS accepts it.
+  // The token that could not be a name is REMEMBERED, not just reported: a declaration that fails binds nothing,
+  // and without this every later mention of the name is "not defined" where CODESYS stops at the parse error.
+  // See `ParseResult.failedDeclarations`.
+  const failing = c.peek()
   const firstName = c.expectName("at start of var declaration")
-  if (firstName === undefined) return undefined
+  if (firstName === undefined) {
+    c.declarationFailed(failing)
+    return undefined
+  }
   const names: Identifier[] = [readMaybeQualifiedName(c, firstName)]
 
   while (c.eatPunct(",") !== undefined) {

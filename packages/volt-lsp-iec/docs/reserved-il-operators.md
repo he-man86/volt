@@ -35,7 +35,43 @@ The declaration never binds, so every later use of the name is undefined, and ea
 the parse error. An LSP-only message is a false positive (`lsp-parity-not-better`), and 44 of them is a far larger
 regression than the 16 misses they would fix.
 
-## What has to land first
+## What has landed, and what the blocker actually is now
+
+**2026-09-19.** Two of the three obstacles are gone, and the third is not the one this document named.
+
+**The cascade is fixed.** `ParseResult.failedDeclarations` records the names a declaration tried to declare and
+could not, and `unresolved-identifier` stays quiet about them — which also silences "'cal' is no valid assignment
+target", since that comes from `unknown-source` and only fires once an earlier check has EXPLAINED the hole. Adding
+the sixteen now produces **no LSP-only messages at all**: the false-positive gate passes. That was the 44.
+
+**`LD` IS THE LADDER LANGUAGE.** `NETWORK 0 LD` names the sublanguage in a network-text header, and the header's
+parser required an `identifier` token — so the moment `LD` became a keyword every LD network fell through to
+`UNKNOWN` and took its whole body with it, taking TwinCAT agreement down with it too. The language word is
+contextual, exactly as `GET`/`SET` are names in ST, and the parser accepts a keyword there now.
+
+**What stops it now is the vendor's own parse recovery.** For `VAR ld : INT; END_VAR  ld := 1;` CODESYS emits TEN
+messages and we emit SIX of them — every one correct, none extra:
+
+```
+IDE  Unexpected token 'ld' found        x2      LSP  same
+IDE  ';' expected instead of ':='               LSP  same
+IDE  Unexpected token ':=' found                LSP  same
+IDE  ';' expected instead of '1'                LSP  same
+IDE  Unexpected token '1' found                 LSP  same
+IDE  ';' expected instead of ':'                LSP  MISSING
+IDE  Unexpected token ':' found                 LSP  MISSING
+IDE  ';' expected instead of 'INT'              LSP  MISSING
+IDE  Unexpected token 'INT' found               LSP  MISSING
+```
+
+The four missing ones are all from the DECLARATION: CODESYS reports the `:` and the `INT` after the bad name as
+unexpected in their own right, where our declaration parser reports the name once and resyncs to the `;`.
+
+So the remaining work is to match that recovery, and the fixtures already say exactly what it must produce. Until
+then the keyword addition stays out: it trades sixteen real misses for fourteen fixtures that stop being exact
+agreement, and `replay.test.ts`'s ratchet is the guard against making that trade by accident.
+
+## What had to land first (as written 2026-09-18)
 
 **Semantic diagnostics must not cascade from a name whose DECLARATION failed to parse.** That is worth doing on its
 own account — it is not specific to IL operators. Any malformed declaration produces the same noise today, and the

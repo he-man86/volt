@@ -42,7 +42,7 @@ const crossDecls = ALL_TESTS.filter((t) => t.source !== "").map((t) => {
     name: t.name,
     uri: `${t.pouName}__decl.st`,
     source: t.source,
-    parseResult: { units: parsed.units.filter((u) => u.kind !== "program"), errors: [] },
+    parseResult: { units: parsed.units.filter((u) => u.kind !== "program"), errors: [], failedDeclarations: [] },
   }
 })
 

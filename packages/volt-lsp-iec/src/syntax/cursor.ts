@@ -19,8 +19,20 @@ export class Cursor {
 
   constructor(private readonly tokens: readonly Token[]) {}
 
+  private readonly failedDeclarations: string[] = []
+
   getErrors(): ParseError[] {
     return this.errors
+  }
+
+  /** The names a declaration could not declare — see `ParseResult.failedDeclarations` for why they are kept. */
+  getFailedDeclarations(): string[] {
+    return this.failedDeclarations
+  }
+
+  /** Record that a declaration failed on this token, so the semantic pass stays quiet about the name. */
+  declarationFailed(t: Token): void {
+    this.failedDeclarations.push(t.text.toLowerCase())
   }
 
   pushError(message: string, span: Span): void {

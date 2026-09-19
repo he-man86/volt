@@ -63,7 +63,7 @@ export function parse(tokens: readonly Token[]): ParseResult {
     }
   }
 
-  return { units, errors: c.getErrors() }
+  return { units, errors: c.getErrors(), failedDeclarations: c.getFailedDeclarations() }
 }
 
 const TOP_LEVEL_DISPATCH: readonly Keyword[] = [

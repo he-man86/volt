@@ -27,6 +27,14 @@ import { unresolvedInExprs, unresolvedMembers } from "../../resolution.js"
 const CONDITIONAL_PRAGMA_RE = /^\{\s*(?:IF|ELSIF|ELSE|END_IF)\b/i
 
 export function checkUnresolvedIdentifiers(ctx: CheckContext, out: DiagnosticItem[]): void {
+  // A NAME WHOSE DECLARATION FAILED TO PARSE IS NOT UNDEFINED — it is unparsed, and the parse error already said so.
+  // CODESYS stops there; we would go on to report every later use, one "not defined" apiece. That cascade is the
+  // whole reason the sixteen reserved IL operator names are not in the keyword table: adding them cost 44 LSP-only
+  // messages against the 16 real misses they fix (`docs/reserved-il-operators.md`).
+  //
+  // Suppressing it HERE covers the second message too. "'cal' is no valid assignment target" comes from
+  // `unknown-source`, which reports a hole only once an earlier check has EXPLAINED it — and this is that check.
+  const unparsed = new Set(ctx.parseResult.failedDeclarations)
   for (const { body, scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     if (bodyHasConditionalPragma(body)) continue
     walkStatements(statements, (stmt) => {
@@ -34,6 +42,7 @@ export function checkUnresolvedIdentifiers(ctx: CheckContext, out: DiagnosticIte
       const callees = new Set<number>()
       for (const e of exprs) walkExpr(e, (x) => { if (x.kind === "call" && x.callee.kind === "ident_expr") callees.add(x.callee.span.start) })
       for (const ref of unresolvedInExprs(exprs, scope, ctx.project, ctx.references)) {
+        if (unparsed.has(ref.name.toLowerCase())) continue
         out.push({
           severity: "error",
           span: ref.span,

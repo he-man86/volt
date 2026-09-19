@@ -82,7 +82,12 @@ function parseNetwork(
   }
   let language: NetworkLanguage = "UNKNOWN"
   const langTok = toks[i]
-  const mapped = langTok?.kind === "identifier" ? LANGUAGES[langTok.text.toUpperCase()] : undefined
+  // A KEYWORD TOKEN COUNTS HERE TOO. `LD` is the Ladder language in a network header and an IL operator in ST, and
+  // the ST lexer reserves it (`docs/reserved-il-operators.md`) — so requiring an `identifier` made every
+  // `NETWORK 0 LD` fall through to UNKNOWN the moment the sixteen names were added, which took the whole body with
+  // it. The language word is contextual, exactly as `GET`/`SET` are names in ST.
+  const mapped =
+    langTok?.kind === "identifier" || langTok?.kind === "keyword" ? LANGUAGES[langTok.text.toUpperCase()] : undefined
   if (mapped !== undefined) {
     language = mapped
     i++

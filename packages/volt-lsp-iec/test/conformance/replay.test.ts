@@ -197,6 +197,9 @@ const CROSS_DECLS = PARSED.map((p) => ({
   parseResult: {
     units: p.parseResult.units.filter((u) => u.kind !== "program"),
     errors: [],
+    // The declaration-only copy parses the SAME source, so it fails on the same names; keeping them means a fixture
+    // whose declaration cannot parse stays as quiet here as it is anywhere else.
+    failedDeclarations: p.parseResult.failedDeclarations,
   },
 }))
 // The recorder builds each fixture with a PLC_PRG that instantiates + uses it; usage-only diagnostics
