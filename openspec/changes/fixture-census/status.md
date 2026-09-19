@@ -1,21 +1,21 @@
-# Status — 2026-09-19
+# Status — 2026-09-19 (evening)
 
 ## Where it stands
 
 ```
-2237 fixtures        confirmed 1681 (75.1%)   refused 448 (20.0%)
-                     not-lowered 47           lsp-gap 30    diverges 4    unaskable 27
+2458 fixtures        confirmed 1837 (74.7%)   refused 509 (20.7%)
+                     not-lowered 75           lsp-gap 2     diverges 3    unaskable 32
                      unasked 0
 
-the vendor has ANSWERED 2180 of 2237 (97.5%)
-of the 1685 we both EXECUTE, we match 1681 — 99.8%
+the vendor has ANSWERED 2424 of 2458 (98.6%)
+of the 1840 we both EXECUTE, we match 1837 — 99.8%
 
-census: 1213 cells closed across types / operators / conversions / declarations / strings
-        4 topics still have no cells defined at all
+agreement (exact message-for-message on the build recordings): 866 codesys / 266 twincat
+corpus: zero false positives on five real projects
 ```
 
-The suite was 967 fixtures when this change was written. It is 2237 now, and every one has been put to a real
-CODESYS — `unasked: 0` has held since the day it was reached.
+The suite was 967 fixtures when this change was written and 2237 this morning. Every one has been put to a real
+CODESYS; `unasked: 0` has held since the day it was reached.
 
 ## The sweeps, and what each found
 
@@ -34,36 +34,60 @@ CODESYS — `unasked: 0` has held since the day it was reached.
 | selection functions | 49 | **MIN and MAX inferred `unknown`**; MUX clamps past its last input |
 | string edges | 47 | **DELETE at position 0 removes a character** |
 | cross-family conversions | 76 | **28 date conversions were refused as "not measured"; now one tick rule** |
-| to-string formats | 36 | LTIME implemented; REAL's format measured and deliberately NOT reproduced |
 | section semantics | 22 | **a composite VAR_TEMP starts over too** — `var-temp-composite` retired |
 | platform integers | 18 | **`__XINT` / `__UXINT` / `__XWORD` were missing from the type system entirely** |
+| the atomic operators | 15 | **every one-sample reading was wrong** — `__XADD` wants a FIXED `POINTER TO DINT` |
+| hex string escapes | 16 | **`$hh` is a WINDOWS-1252 byte**, not the code point U+00XX — `$80` explained |
+| `__POSITION` / `__CURRENTTASK` | 12 | **`__POSITION` is a call whose missing parentheses eat the next token** |
+| `CALC` | 5 | **it is the IL conditional call, which is why it was never a reserved NAME** |
+| `__NEW` and its pragma | 5 | the pragma is the only variable; the recording that said otherwise was our own |
+| string ordering | 8 | unsigned, byte by byte, a prefix losing — **and two strings meet at the WIDER capacity** |
+| to-string formats | 106 | **LREAL's formatter is exact; REAL's is not derivable from seventy cells** |
 
-**Sixteen product bugs, in sweeps that mostly confirmed what we already did.** The ones in bold changed behaviour.
+**Twenty-odd product bugs, in sweeps that mostly confirmed what we already did.** The ones in bold changed behaviour.
 
-## What the census cost, twice
+## `lsp-gap` 36 → 2
 
-The replay gate timed out twice, and both times it was a real O(n²) in the harness rather than a budget:
+It came down over one run of measurements, and one of them was a fault in the GATE rather than the product:
 
-1. it rebuilt a symbol table per fixture from every OTHER fixture's declarations — 2.1M file-binds per vendor;
-2. after that was fixed, `linkExtends` still walked every child TWICE per fixture.
+- **the signature-name family** — `lspReportsAnError` was analysing the TRANSPILER's assembly, which concatenates
+  every dependency and the synthesized PLC_PRG into one source. Read as a file that is two top-level POUs, which
+  `signature-name` correctly ignores, so four measured refusals read as phantom gaps. It builds the file set the
+  way a workspace has it now: one item, one file.
+- the operator CALL FORMS (`ADD(a, b)` is Instruction List), `__POSITION`, `__CURRENTTASK`, the `CALC` family,
+  `ANYNUM_TO_*` (not a CODESYS function — the 80 corpus uses are all inside materialized library files),
+  `FB_Init`'s declaration arguments, `__QUERYPOINTER`'s first operand, `__NEW`'s pragma.
+- `cc5_pointer_not_convertible` was never a gap: C0033's severity is the PROJECT's, and the message agrees.
 
-Both are gone and both agreement counts are unchanged to the fixture, which is what makes the fix safe to believe.
-Separately, `build-conformance` and `warning-conformance` ran byte-identical analysis and each threw the other's
-half away — 68s of a 523s suite.
+**The two left are the same decision.** `??? := <call>()` is refused by the compiler and carried four times by
+lenze-mid in a project that builds clean. Both are right: the compiler never reads network text — the recorder
+pushes a fixture through the BRIDGE, which writes PlcOpen XML — so the fixture measures the XML the bridge makes of
+a `???` and the corpus measures the XML its author drew. The fidelity question belongs to `volt-cli`.
 
-## The four topics with no cells
+## `diverges` 5 → 3, and the three are one cause
 
-- **calls / callee kind × argument form** — the biggest remaining `not-lowered` cluster lives here.
-- **strings / STRING(n) truncation, escapes and non-ASCII** — where `string_high_byte_escape` still diverges.
-- **declarations / RETAIN, PERSISTENT, CONSTANT and direct addresses** — the parts a scan cannot see.
-- **statements / every statement kind at its edges.**
+CODESYS computes trig with the **x87 FPU**. Computing the same arguments to 300 bits shows both halves of it: near a
+zero of COS the correctly rounded answer is ours and CODESYS is a few ULPs out (the hardware kernel), and for a huge
+angle it reduces with FSIN's 66-BIT approximation of pi — reducing 1.0E18 by `round(pi * 2^64) / 2^64` reproduces
+its COS to all seventeen digits. Only the reduction could be emulated; the kernel could not, and doing half would
+close two fixtures and leave the third while making every program's trig depend on emulated hardware.
+
+## `not-lowered` 47 → 75, which is the number going the right way
+
+The rise is one formatter being told apart from another. `LREAL_TO_STRING` is now exact in both backends — fifteen
+significant digits, fixed while the decimal exponent is 0..13, lowercase `e` — and its 35 cells are `confirmed`.
+`REAL_TO_STRING` is a DIFFERENT formatter and seventy cells show it is not derivable: two exponential cells print
+eight significant digits beside four printing seven at the same magnitudes, and four fractions round their seventh
+digit where rounding the value does not. Its 35 cells refuse on purpose.
+
+What else is in the 75:
+- **6 address ALIASING** — two names on one storage. The model is measured at the refusal in `lower/storage.ts`
+  (little-endian, addresses numbered in UNITS, bit 0 the least significant) and waits on a byte-addressable area.
+- **3 instance-path** — needs the project tree (`Device/Plc Logic/Application`), which a source is not in.
+- the rest are individual: two pointer derefs, `SIZEOF` of an interface, a FOR step holding a call, an ANY input
+  through an interface, and the three atomics whose POINTER form `pointer-targets` refuses.
 
 ## What is left that is NOT a census topic
 
-- **30 `lsp-gap`** — the vendor rejects a source and we do not. Sixteen are the reserved IL operators, still blocked
-  on the parse-error cascade (`docs/reserved-il-operators.md`).
-- **47 `not-lowered`** — 22 are the REAL-to-text format, refused on purpose with the table in `lower/builtins.ts`.
-- **4 `diverges`** — two vendor ROUTINES, not two rules we have wrong: trig argument reduction for a huge angle,
-  and STRING being UTF-8 bytes.
 - **`batches/`** — six files named after the batch they arrived in. Should shrink to nothing.
 - **D6, the METHOD/ACTION bodies** — still governs everything at ~0.10% of corpus bodies lowering.
