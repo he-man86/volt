@@ -7,9 +7,9 @@
  *
  * At the last regeneration:
  *   confirmed    1763
- *   refused       503
+ *   refused       508
  *   not-lowered    55
- *   lsp-gap         8
+ *   lsp-gap         3
  *   diverges        5
  *   unaskable      27
  */
@@ -451,7 +451,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   cc_ge_udint_dint: "confirmed",
   cc_il_name_andn: "refused",
   cc_il_name_cal: "refused",
-  cc_il_name_calc: "lsp-gap",
+  cc_il_name_calc: "refused",
   cc_il_name_calcn: "refused",
   cc_il_name_jmpc: "refused",
   cc_il_name_jmpcn: "refused",
@@ -1136,10 +1136,10 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   identifier_backtick_keyword_escape: "confirmed",
   identifier_consecutive_underscores: "refused",
   identifier_double_underscore: "refused",
-  ilc_calc_called_properly: "lsp-gap",
-  ilc_calc_declared_unused: "lsp-gap",
-  ilc_calc_other_type: "lsp-gap",
-  ilc_calc_used_not_declared: "lsp-gap",
+  ilc_calc_called_properly: "refused",
+  ilc_calc_declared_unused: "refused",
+  ilc_calc_other_type: "refused",
+  ilc_calc_used_not_declared: "refused",
   implicit_check_bounds: "confirmed",
   implicit_check_div_dint_real: "confirmed",
   implicit_check_div_int_operands: "confirmed",

@@ -11,8 +11,11 @@ own committed recording:
 | `CAL` `CALCN` `JMPC` `JMPCN` | `cc_il_name_cal` … | `Unexpected token 'cal'` |
 | `RET` `RETC` `RETCN` | `cc_il_name_ret` … | `Unexpected token 'ret'` |
 
-`CALC` is **not** on this list: `cc_il_name_calc` records a different error entirely, so nothing proves it. A keyword
-added without proof rejects code the vendor accepts, which for this LSP is worse than the miss it would fix.
+`CALC` is **not** on this list, and now there is a reason rather than an absence of one. It alone of the sixteen
+PARSES as something: CODESYS reads `CALC ( <condition> , <call statement> )`, the instruction-list conditional call.
+Five shapes were measured on 2026-09-19 (`cc_il_name_calc`, `ilc_calc_*`) and all five answer *Second parameter of
+conditional call must be a valid call statement*, so `checks/names/conditional-call.ts` owns it — a different
+mechanism from the `Unexpected token` family above, which is exactly what the missing proof was about.
 
 **This is not about supporting IL.** Volt does not implement Instruction List and does not intend to. It is about
 ST: `r : BOOL;` is a compiler error, and an LSP that accepts it silently has the gap running the worst way.

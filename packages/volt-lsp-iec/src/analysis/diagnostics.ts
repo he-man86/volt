@@ -69,6 +69,7 @@ import { checkNonCallableCall } from "./checks/calls/non-callable-call.js"
 import { checkExternalNonInputWrite } from "./checks/oop/external-write.js"
 import { checkInoutExternalAccess } from "./checks/oop/inout-external-access.js"
 import { checkInoutOwnAccess } from "./checks/oop/inout-own-access.js"
+import { checkConditionalCall } from "./checks/names/conditional-call.js"
 import { checkFbInitInout } from "./checks/oop/fb-init-inout.js"
 import { checkFbInitInstantiation } from "./checks/oop/fb-init-instantiation.js"
 import { checkAbstractAssign } from "./checks/oop/abstract-assign.js"
@@ -186,6 +187,7 @@ const CHECKS: readonly Check[] = [
   checkExternalNonInputWrite,
   checkInoutExternalAccess,
   checkInoutOwnAccess,
+  checkConditionalCall,
   checkFbInitInout,
   checkFbInitInstantiation,
   checkAbstractAssign,

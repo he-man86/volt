@@ -391,6 +391,12 @@ export interface Messages {
   /** A token where an expression must start: `Expression expected instead of 'T#1500'` — a TIME literal cut at a `US`
    *  unit (conformance `cc_time_*`). Recorded on CODESYS SP21; unmeasured on TwinCAT. */
   expressionExpectedInsteadOf(token: string): string
+  /** `CALC` is the IL conditional call; its second parameter must be a call statement (CODESYS-measured). */
+  conditionalCallSecondParameter(): string
+  /** The parser wanted an opening parenthesis — `CALC` without one (CODESYS-measured). */
+  parenExpectedInsteadOf(token: string): string
+  /** A statement where a declaration belongs, which is what a bad `calc : INT;` leaves behind. */
+  notSupportedInDeclaration(): string
   /** What a DECLARATION wanted after a name — the doubled comma is the compiler's own (CODESYS SP21). */
   commaAtOrColonExpected(token: string): string
 }
@@ -435,6 +441,10 @@ export function messagesFor(vendor: Vendor): Messages {
     unexpectedToken: (token) => `Unexpected token '${token}' found`,
     semicolonExpectedInsteadOf: (token) => `';' expected instead of '${token}'`,
     expressionExpectedInsteadOf: (token) => `Expression expected instead of '${token}'`,
+    // CODESYS SP21, measured in all five `CALC` shapes (`cc_il_name_calc`, `ilc_calc_*`).
+    conditionalCallSecondParameter: () => "Second parameter of conditional call must be a valid call statement",
+    parenExpectedInsteadOf: (token) => `'(' expected instead of '${token}'`,
+    notSupportedInDeclaration: () => "This code is not supported in declaration part",
     commaAtOrColonExpected: (token) => `',, AT or :' expected instead of '${token}'`,
     lifecycle: (method) => {
       if (method === "FB_Init") {
