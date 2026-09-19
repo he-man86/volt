@@ -18,7 +18,7 @@
  */
 import type { Keyword, Token } from "./tokens.js"
 import { type Identifier, type VarDecl, type VarSection, type VarSectionKind } from "./ast.js"
-import { Cursor } from "./cursor.js"
+import { Cursor, reportBrokenDeclaration } from "./cursor.js"
 import { bodySpanFromTokens, identFromToken, joinSpans } from "./util.js"
 import { parseTypeExpression } from "./type-expr.js"
 import { collectInitTokens, initializerFromTokens, parseExprFromTokens } from "./expression.js"
@@ -105,10 +105,16 @@ export function parseVarSection(c: Cursor): VarSection | undefined {
     // an unterminated section. Fall through: `parseVarDecl` reports it on the name and recovers to the `;`.
     if (c.atDeclListEnd()) break
     const decl = parseVarDecl(c)
-    if (decl !== undefined) {
+    if (decl !== undefined && decl !== "bad-name") {
       section.decls.push(decl)
     } else {
-      // Recovery — skip to ';' or END_VAR
+      // A BAD NAME resyncs the VENDOR'S way. `expectName` leaves the offending name UNCONSUMED and has already
+      // reported it, so the name is taken here and the rest of the declaration reported token by token. Any OTHER
+      // failure keeps the quiet recovery: `x : INT := 5 abc;` is ONE message on CODESYS, not a cascade.
+      if (decl === "bad-name") {
+        c.consume()
+        reportBrokenDeclaration(c, ["END_VAR"])
+      }
       if (!c.recoverTo({ keywords: ["END_VAR"], puncts: [";"] })) break
       c.eatPunct(";") // consume the ';' anchor if that's what we landed on
     }
@@ -117,7 +123,13 @@ export function parseVarSection(c: Cursor): VarSection | undefined {
   return section
 }
 
-function parseVarDecl(c: Cursor): VarDecl | undefined {
+/**
+ * A BAD NAME is a different failure from a bad anything-else, and the vendor treats them differently: `Limit : INT;`
+ * with `Limit` reserved is five messages, while `x : INT := 5 abc;` is ONE. So the caller has to know which it was.
+ */
+type DeclFailure = "bad-name"
+
+function parseVarDecl(c: Cursor): VarDecl | DeclFailure | undefined {
   // `expectName` (not `expectIdent`): soft keywords like SET/GET/OVERRIDE are legal variable names — the
   // Standard `RS` FB literally declares `SET : BOOL`, and CODESYS accepts it.
   // The token that could not be a name is REMEMBERED, not just reported: a declaration that fails binds nothing,
@@ -127,7 +139,7 @@ function parseVarDecl(c: Cursor): VarDecl | undefined {
   const firstName = c.expectName("at start of var declaration")
   if (firstName === undefined) {
     c.declarationFailed(failing)
-    return undefined
+    return "bad-name"
   }
   const names: Identifier[] = [readMaybeQualifiedName(c, firstName)]
 

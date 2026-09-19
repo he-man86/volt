@@ -294,6 +294,35 @@ export class Cursor {
  * four spellings, and it echoed each one back unchanged. Only the keyword case has that evidence; punct/EOF keep the
  * "expected instead of" form.
  */
+/**
+ * RESYNC A BROKEN DECLARATION THE WAY THE VENDOR DOES — complaining about every token in the way rather than
+ * skipping in silence. For `VAR Limit : INT;`, where `Limit` is a reserved standard-function name, CODESYS says
+ *
+ *   Unexpected token 'Limit' found         the name — `nameExpected`, already ours
+ *   ';' expected instead of ':'            a PAIR for the `:`
+ *   Unexpected token ':' found
+ *   ';' expected instead of 'INT'          and a pair for the `INT`
+ *   Unexpected token 'INT' found
+ *
+ * which is the same shape the STATEMENT parser already produces for the body half of such a fixture. The
+ * declaration half reported the name and recovered quietly — four messages short every time (`cc_il_name_cal`
+ * records all ten for a declaration AND a use).
+ *
+ * Only for a BAD NAME. `x : INT := 5 abc;` is ONE message on CODESYS (`cc_decl_init_trailing_ident`) and keeps the
+ * quiet recovery; see the caller.
+ */
+export function reportBrokenDeclaration(c: Cursor, stop: readonly Keyword[]): void {
+  for (;;) {
+    const t = c.peek()
+    if (t.kind === "eof") return
+    if (t.kind === "punct" && t.text === ";") return
+    if (t.kind === "keyword" && t.keyword !== undefined && stop.includes(t.keyword)) return
+    c.pushError(`';' expected instead of ${describeToken(t)}`, t.span)
+    c.pushError(`Unexpected token ${describeToken(t)} found`, t.span)
+    c.consume()
+  }
+}
+
 function nameExpected(t: Token): string {
   return t.kind === "keyword"
     ? `Unexpected token ${describeToken(t)} found`

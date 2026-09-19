@@ -67,9 +67,18 @@ IDE  Unexpected token 'INT' found               LSP  MISSING
 The four missing ones are all from the DECLARATION: CODESYS reports the `:` and the `INT` after the bad name as
 unexpected in their own right, where our declaration parser reports the name once and resyncs to the `;`.
 
-So the remaining work is to match that recovery, and the fixtures already say exactly what it must produce. Until
-then the keyword addition stays out: it trades sixteen real misses for fourteen fixtures that stop being exact
-agreement, and `replay.test.ts`'s ratchet is the guard against making that trade by accident.
+**That recovery is fixed too** (`reportBrokenDeclaration`). With all three in place the sixteen were added and
+measured: **agreement stays at 863 CODESYS and 265 TwinCAT — no regression at all.** The conformance tier is green
+with them in.
+
+**What stopped it landing is the unit tests.** Thirty-seven src test files declare `r`, twenty-nine declare `s`,
+twenty declare `st`, four declare `ld` — as variable names, in embedded ST that CODESYS would reject. They are
+tests written against a language that does not exist, and they all have to be renamed first. A mechanical rename
+over string literals was tried and over-matched (it renamed TypeScript identifiers inside template literals);
+doing it properly means going file by file, which is its own change rather than a step in this one.
+
+So the order is now: **rename the test sources, then add the sixteen.** Everything else is done, and the addition
+itself is the one-line change to `KEYWORDS` this document always said it was.
 
 ## What had to land first (as written 2026-09-18)
 

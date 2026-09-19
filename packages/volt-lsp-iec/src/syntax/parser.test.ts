@@ -175,7 +175,16 @@ test("a reserved word as a variable name is reported on the name, not the sectio
   // `'Limit'`, not `'LIMIT'`: CODESYS echoes the token as WRITTEN. This asserted the canonical spelling on a
   // 2026-09-03 note that `echo_mixed_case_function_name` disproved on 2026-09-18, asking with the same word in four
   // spellings and getting each one back unchanged.
-  expect(messages(src)).toEqual(["Unexpected token 'Limit' found"])
+  // …and the REST of the broken declaration is reported too, a pair per token to the `;`, which is what CODESYS
+  // does: `cc_il_name_cal` records exactly this shape — the name, then `':'` and then the type. It used to report
+  // the name and resync in silence, four messages short of the vendor on every such declaration.
+  expect(messages(src)).toEqual([
+    "Unexpected token 'Limit' found",
+    "';' expected instead of ':'",
+    "Unexpected token ':' found",
+    "';' expected instead of 'INT'",
+    "Unexpected token 'INT' found",
+  ])
   const err = parseSource(src).errors[0]!
   expect(src.slice(err.span.start, err.span.end)).toBe("Limit")
   // recovery continues the section: the following decl and END_VAR are still parsed
