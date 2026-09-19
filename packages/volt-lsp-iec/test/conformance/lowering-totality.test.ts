@@ -97,7 +97,12 @@ const DOCUMENTED_LOWERED = 55
  * FLOOR, not an exact figure — a new fixture may legitimately reach one more — but it only ever goes up, so a
  * refactor that quietly makes a refusal unreachable fails here.
  */
-const REACHED_CODES = 80
+// 80 -> 79 because a refusal was RETIRED, not because one became unreachable: `var-temp-composite` refused a
+// composite VAR_TEMP as "starting it over is not built", and `declarations/section-semantics.ts` measured that it
+// behaves exactly as a scalar does (an ARRAY in VAR_TEMP counts 1 after three scans, a VAR one counts 3). The code
+// is gone from the registry, so both totals drop by one. The floor only ever goes UP for a code that stops being
+// produced; it comes down only when a code stops existing.
+const REACHED_CODES = 79
 
 /** Every `kind` and every builtin `name` anywhere in a value, however nested. */
 function collect(node: unknown, kinds: Set<string>, builtins: Set<string>): void {

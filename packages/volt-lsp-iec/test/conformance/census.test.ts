@@ -45,6 +45,6 @@ describe("the topic census", () => {
     /* eslint-enable no-console */
     // The ratchet: cells only ever get added. A drop means a family stopped generating, which the two tests above
     // name precisely — this one keeps the total from drifting down quietly while both of them stay green.
-    expect(CELLS.length).toBeGreaterThanOrEqual(1191)
+    expect(CELLS.length).toBeGreaterThanOrEqual(1213)
   })
 })

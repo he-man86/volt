@@ -4,7 +4,7 @@
 import type { AggregateElement, AggregateInit, Expr, Initializer, Span, TypeDecl, TypeExpr, VarDecl, VarSection } from "../../syntax/index.js"
 import { lookup } from "../../symbols/index.js"
 import { DEFAULT_STRING_LENGTH, elemOf, elementaryRef, resolveNamedType, type Type } from "../../types/index.js"
-import { defaultValueOf, elementOf, type IrInit, type IrStmt, type IrValue, type Place } from "../ir/index.js"
+import { defaultValueOf, elementOf, type IrExpr, type IrInit, type IrStmt, type IrValue, type Place } from "../ir/index.js"
 import { baseOf, boundName, Lowering, openDims, ZERO_SPAN } from "./lowering.js"
 import { stored, valueAs } from "./convert.js"
 import { calendarOf, durationOf, enumDefault, enumStorage, inlineEnumDefault, foldConstant, stringLiteralText, TEMPORAL_LITERAL_KINDS, typedRealOf } from "./constants.js"
@@ -153,8 +153,15 @@ export function tempResets(lw: Lowering, sections: readonly VarSection[], span: 
       const index = lw.byName.get(name.text.toUpperCase())
       if (index === undefined) continue // refused where it was declared
       const slot = lw.slots[index]!
-      if (slot.type.kind !== "elementary") return lw.bail("var-temp-composite", `${name.text} is a ${slot.type.kind} VAR_TEMP — starting it over is not built`, decl.span)
-      resets.push({ kind: "assign", target: { slot: index, path: [], type: slot.type, span }, value: { kind: "const", value: slot.init as IrValue, type: slot.type, span }, span })
+      // A COMPOSITE RESETS TOO, to a fresh value of its type. Measured: an ARRAY in VAR_TEMP counts 1 after three
+      // scans where the same ARRAY in VAR counts 3, and a STRING the same (`decl_temp_array_counts`,
+      // `decl_temp_string_counts`) — so a composite behaves exactly as a scalar does and was refused only because
+      // an `IrConst` cannot carry an aggregate initializer. `IrFresh` can.
+      const value: IrExpr =
+        slot.type.kind === "elementary"
+          ? { kind: "const", value: slot.init as IrValue, type: slot.type, span }
+          : { kind: "fresh", init: slot.init, type: slot.type, span }
+      resets.push({ kind: "assign", target: { slot: index, path: [], type: slot.type, span }, value, span })
     }
   return resets
 }

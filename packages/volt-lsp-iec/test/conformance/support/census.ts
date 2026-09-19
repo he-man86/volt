@@ -205,6 +205,21 @@ export const CELLS: readonly Cell[] = [
     "str_assign_into_shorter", "str_assign_into_exact", "str_assign_into_longer",
   ]),
 
+  // ── declarations ──────────────────────────────────────────────────────────────────────────────
+  ...cells(
+    "declarations",
+    "what each VAR section does over three scans",
+    ["plain", "temp", "stat", "input", "output", "retain", "persistent", "retain_persistent"].flatMap((k) => [
+      `decl_${k}_counts`,
+      `decl_${k}_initialized`,
+    ]),
+  ),
+  ...cells("declarations", "a CONSTANT, and a composite that has to start over", [
+    "decl_constant_reads", "decl_constant_in_expression",
+    "decl_temp_string_counts", "decl_var_string_counts",
+    "decl_temp_array_counts", "decl_var_array_counts",
+  ]),
+
   // ── conversions ──────────────────────────────────────────────────────────────────────────────
   ...cells(
     "conversions",
@@ -262,7 +277,6 @@ export const CELLS: readonly Cell[] = [
  * `openspec/changes/fixture-census/operations.md` is the long form, with why each one matters.
  */
 export const PLANNED: readonly string[] = [
-  "declarations / VAR section x type category x initializer form",
   "declarations / RETAIN, PERSISTENT, CONSTANT and direct addresses",
   "calls / callee kind x argument form",
   "strings / STRING(n) truncation, escapes and non-ASCII",

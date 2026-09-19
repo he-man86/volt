@@ -251,23 +251,32 @@ function sharedProject(vendor: Vendor): Scope {
   return project
 }
 
+/** The swap left in place by the previous call, undone lazily at the start of the next. */
+let pending: { project: Scope; idx: number; plcUri: string | undefined } | undefined
+function restore(): void {
+  if (pending === undefined) return
+  unbindFile(pending.project, PARSED[pending.idx]!.uri)
+  if (pending.plcUri !== undefined) unbindFile(pending.project, pending.plcUri)
+  bindFile(pending.project, CROSS_DECLS[pending.idx]!)
+  pending = undefined
+}
+
 function runLsp(testIdx: number, vendor: Vendor): string[] {
   const own = PARSED[testIdx] as (typeof PARSED)[number]
   const plc = PLC_PRGS[testIdx]
   const project = sharedProject(vendor)
   // swap this fixture's declaration-only copy for its real one, run, then put it back
+  // ONE `linkExtends` PER FIXTURE, not two. It walks every child in the project, so at two per fixture it is the
+  // O(n^2) term all over again — which is what pushed this back over the 5s hang guard once the census sweeps added
+  // another eight hundred fixtures. The restore does not link: the project is left bound-but-unlinked, and the NEXT
+  // fixture's link fixes it before anything reads it. Nothing runs in between.
+  restore()
   unbindFile(project, own.uri)
   bindFile(project, { uri: own.uri, parseResult: own.parseResult, source: own.source })
   if (plc) bindFile(project, { uri: plc.uri, parseResult: plc.parseResult, source: plc.source })
   linkExtends(project)
-  try {
-    return diagnose(own, plc, project, vendor)
-  } finally {
-    unbindFile(project, own.uri)
-    if (plc) unbindFile(project, plc.uri)
-    bindFile(project, CROSS_DECLS[testIdx]!)
-    linkExtends(project)
-  }
+  pending = { project, idx: testIdx, plcUri: plc?.uri }
+  return diagnose(own, plc, project, vendor)
 }
 
 function diagnose(

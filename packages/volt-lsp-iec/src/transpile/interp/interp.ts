@@ -174,6 +174,9 @@ class Machine {
     switch (e.kind) {
       case "const":
         return fit(e.value, e.type)
+      // A fresh composite — what a VAR_TEMP struct or array is reset to at the top of each call.
+      case "fresh":
+        return instantiate(e.type, e.init, this.layouts)
       case "load":
         return this.read(e.place)
       case "invoke":

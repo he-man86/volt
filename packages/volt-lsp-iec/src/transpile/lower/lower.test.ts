@@ -128,7 +128,14 @@ test("an FB's VAR_STAT is shared by every instance; a VAR_TEMP starts over on ev
   expect(["first.counter", "second.counter", "first.seen", "second.seen", "first.peeked"].map((v) => runner.get(v))).toEqual([4n, 4n, 3n, 4n, 4n])
   // every temp at its initial value plus the one increment of its run — the root's, the derived body's, the base's
   expect(["runs", "first.seenBase", "second.seenBase"].map((v) => runner.get(v))).toEqual([3n, 11n, 11n])
-  expect(lowerSource("PROGRAM P\nVAR_TEMP pair : ARRAY[0..1] OF INT; END_VAR\npair[0] := 1;\nEND_PROGRAM\n", "P").diagnostics.map((d) => d.code)).toEqual(["var-temp-composite"])
+  // A COMPOSITE VAR_TEMP RESETS TOO, and is no longer refused. `decl_temp_array_counts` counts 1 after three scans
+  // where `decl_var_array_counts` counts 3 — the same split the scalars show — so the behaviour was never in doubt,
+  // only the IR to express it, which `IrFresh` now does.
+  const tempArray = lowerSource("PROGRAM P\nVAR_TEMP pair : ARRAY[0..1] OF INT; END_VAR\npair[0] := pair[0] + 1;\nEND_PROGRAM\n", "P")
+  expect(tempArray.diagnostics.map((d) => d.code)).toEqual([])
+  const fresh = run(tempArray.pou!)
+  for (let i = 0; i < 3; i++) fresh.scan()
+  expect(fresh.get("pair[0]")).toBe(1n)
 })
 
 // VAR_IN_OUT CONSTANT (conformance `inout_const_*`): bound like a plain VAR_IN_OUT, so a STRING literal and a METHOD's

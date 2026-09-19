@@ -158,7 +158,7 @@ export type IrBinOp =
 
 export type IrUnOp = "neg" | "not"
 
-export type IrExpr = IrConst | IrLoad | IrBinary | IrUnary | IrConvert | IrBuiltin | IrInvoke | IrDispatch
+export type IrExpr = IrConst | IrFresh | IrLoad | IrBinary | IrUnary | IrConvert | IrBuiltin | IrInvoke | IrDispatch
 
 /**
  * A call through an interface variable (design §22): the variable holds which instance it names — 0 for none, else the
@@ -286,6 +286,23 @@ export interface IrBuiltin {
 export interface IrConst {
   kind: "const"
   value: IrValue
+  type: Type
+  span: Span
+}
+/**
+ * A FRESH VALUE OF A COMPOSITE TYPE — what a `VAR_TEMP` struct or array is reset to at the top of every call.
+ *
+ * An elementary VAR_TEMP resets with an ordinary `const`, and that is all `tempResets` could emit, so a composite
+ * one was refused ("starting it over is not built"). `conversions`… no: `declarations/section-semantics.ts` measured
+ * what it should be — an ARRAY in VAR_TEMP counts 1 after three scans where the same ARRAY in VAR counts 3, exactly
+ * as the scalars do — so the behaviour was never in doubt, only the IR to express it.
+ *
+ * Both backends already had the function: `instantiate` in the interpreter and `initOf` in the emitter. This node is
+ * the thing that lets `tempResets` reach them.
+ */
+export interface IrFresh {
+  kind: "fresh"
+  init: IrInit
   type: Type
   span: Span
 }

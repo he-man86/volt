@@ -6,9 +6,9 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1658
+ *   confirmed    1681
  *   refused       448
- *   not-lowered    48
+ *   not-lowered    47
  *   lsp-gap        30
  *   diverges        4
  *   unaskable      27
@@ -710,6 +710,28 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   date_plus_time: "confirmed",
   date_representation: "confirmed",
   date_width_wrap: "confirmed",
+  decl_constant_in_expression: "confirmed",
+  decl_constant_reads: "confirmed",
+  decl_input_counts: "confirmed",
+  decl_input_initialized: "confirmed",
+  decl_output_counts: "confirmed",
+  decl_output_initialized: "confirmed",
+  decl_persistent_counts: "confirmed",
+  decl_persistent_initialized: "confirmed",
+  decl_plain_counts: "confirmed",
+  decl_plain_initialized: "confirmed",
+  decl_retain_counts: "confirmed",
+  decl_retain_initialized: "confirmed",
+  decl_retain_persistent_counts: "confirmed",
+  decl_retain_persistent_initialized: "confirmed",
+  decl_stat_counts: "confirmed",
+  decl_stat_initialized: "confirmed",
+  decl_temp_array_counts: "confirmed",
+  decl_temp_counts: "confirmed",
+  decl_temp_initialized: "confirmed",
+  decl_temp_string_counts: "confirmed",
+  decl_var_array_counts: "confirmed",
+  decl_var_string_counts: "confirmed",
   deref_on_array_type: "refused",
   displaymode_bin: "refused",
   displaymode_dec: "refused",
@@ -1725,7 +1747,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   refuse_pointer_two_targets: "not-lowered",
   refuse_sizeof_interface: "not-lowered",
   refuse_super_without_base: "lsp-gap",
-  refuse_var_temp_struct: "not-lowered",
+  refuse_var_temp_struct: "confirmed",
   region_basic: "confirmed",
   region_pragma_basic: "confirmed",
   region_pragma_nested: "confirmed",

@@ -138,7 +138,6 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "unit-kind": "unclassified",
   "var-at": "unclassified",
   "var-at-instances": "unclassified",
-  "var-temp-composite": "unclassified",
 }
 
 /** Templated families — `expr-${kind}` and friends expand over AST kinds, so they cannot be enumerated. */
