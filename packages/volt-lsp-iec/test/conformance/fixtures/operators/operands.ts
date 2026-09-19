@@ -179,11 +179,14 @@ END_METHOD
   },
   {
     name: "operand_position",
-    deferred: { lsp: "2026-09-18: no LSP error for __POSITION outside an implicit-parameter pragma" },
     refused: "';' expected instead of end of POU",
     pouName: "FB_LANG_operand_position",
     kind: "function_block" as const,
     feature: "__POSITION — the source position the implicit-parameter pragma uses",
+    note:
+      "The FIRST of the seven `sysop_position_*` probes and the one that showed the message describes nothing: " +
+      "CODESYS names the token AFTER `__POSITION`, never `__POSITION` itself. It is a STRING-returning call whose " +
+      "parentheses the compiler eats a token in place of.",
     fromDoc: "03-operators.md",
     plcPrgVar: "inst_operand_position : FB_LANG_operand_position;",
     plcPrgBody: "inst_operand_position();",

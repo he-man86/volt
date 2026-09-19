@@ -34,6 +34,11 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
     case "ident_expr": {
       // THIS denotes the enclosing FB instance — resolve to its member scope so `THIS^.field` navigates.
       if (expr.name.toUpperCase() === "THIS") return thisType(scope)
+      // `__POSITION` HAS A VALUE WITHOUT ITS PARENTHESES. Every other intrinsic named bare is a reference to a
+      // function and has no type; this one is the source position, and CODESYS types it even where the statement
+      // around it is broken — `here : DINT := __POSITION;` answers "Cannot convert type 'STRING(INT#13)' to type
+      // 'DINT'" (`sysop_position_initializer`). The LENGTH is the position text's own and cannot be known offline.
+      if (expr.name.toUpperCase() === "__POSITION") return elementaryRef("STRING")
       const sym = lookup(scope, expr.name)?.symbol ?? resolveBareEnumMember(project, expr.name)
       if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project)
       const value = sym === undefined ? undefined : enumValueType(sym, project)

@@ -7,9 +7,9 @@
  *
  * At the last regeneration:
  *   confirmed    1763
- *   refused       488
+ *   refused       503
  *   not-lowered    55
- *   lsp-gap        11
+ *   lsp-gap         8
  *   diverges        5
  *   unaskable      27
  */
@@ -597,7 +597,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   cc5_new_in_expression: "refused",
   cc5_no_op_statement: "not-lowered",
   cc5_non_instantiable: "refused",
-  cc5_pointer_not_convertible: "lsp-gap",
+  cc5_pointer_not_convertible: "refused",
   cc5_reserved_keyword_names: "confirmed",
   cc5_type_invoked_directly: "refused",
   cc6_abstract_attribute_on_fb: "confirmed",
@@ -1521,7 +1521,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   op_sel_bool_picker: "confirmed",
   op_shift_left: "confirmed",
   op_shift_right: "confirmed",
-  op_sys_currenttask: "lsp-gap",
+  op_sys_currenttask: "refused",
   op_sys_isvalidref: "confirmed",
   op_sys_new_delete: "lsp-gap",
   op_sys_queryinterface: "refused",
@@ -1535,7 +1535,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   operand_indexof: "refused",
   operand_ini_deprecated: "not-lowered",
   operand_partial_word_in_dword: "confirmed",
-  operand_position: "lsp-gap",
+  operand_position: "refused",
   operand_querypointer: "refused",
   operand_test_and_set: "refused",
   operand_uchar_literal: "refused",
@@ -2083,6 +2083,18 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   subsequent: "refused",
   suppress_warning: "confirmed",
   suppress_warning_multi: "confirmed",
+  sysop_currenttask_bare_statement: "refused",
+  sysop_currenttask_call_form: "refused",
+  sysop_currenttask_deref_member: "refused",
+  sysop_currenttask_in_body: "refused",
+  sysop_currenttask_then_statement: "refused",
+  sysop_position_as_argument: "refused",
+  sysop_position_bare_statement: "refused",
+  sysop_position_call_form: "refused",
+  sysop_position_in_expression: "refused",
+  sysop_position_in_method: "refused",
+  sysop_position_initializer: "refused",
+  sysop_position_then_statement: "refused",
   tc_call_after_output_update: "confirmed",
   tc_context_id: "confirmed",
   tc_context_name: "confirmed",

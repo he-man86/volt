@@ -16,7 +16,7 @@
  */
 import type { Span } from "./span.js"
 import type { Token } from "./tokens.js"
-import { Cursor } from "./cursor.js"
+import { Cursor, describeToken } from "./cursor.js"
 import type {
   AggregateElement,
   AggregateForm,
@@ -244,8 +244,14 @@ function parseCall(cur: Cursor, callee: Expr): CallExpr | undefined {
       break
     }
   }
-  const close = cur.expectPunct(")", "closing call arguments")
-  if (close === undefined) return undefined
+  // A CALL's argument list can still take a COMMA here, and CODESYS says so: `',' or ')' expected instead of ';'`
+  // (`sysop_position_as_argument`), not the bare `')' expected` a plain `expectPunct` would give.
+  const close = cur.eatPunct(")")
+  if (close === undefined) {
+    const next = cur.peek()
+    cur.pushError(`',' or ')' expected instead of ${describeToken(next)}`, next.span)
+    return undefined
+  }
   return { kind: "call", callee, args, span: merge(callee.span, close.span) }
 }
 
@@ -278,6 +284,8 @@ function parseCallArg(cur: Cursor): CallArg | undefined {
   return { kind: "call_arg", output: false, value, span: value.span }
 }
 
+const isOpenParen = (t: Token): boolean => t.kind === "punct" && t.text === "("
+
 function parsePrimary(cur: Cursor): Expr | undefined {
   const t = cur.peek()
   const lk = LIT_KIND[t.kind]
@@ -297,6 +305,32 @@ function parsePrimary(cur: Cursor): Expr | undefined {
   // standard functions/operators lexed as keywords (`ADR`, `SIZEOF`, `SEL`, …).
   if (t.kind === "keyword" && t.keyword !== undefined && !OPERATOR_KEYWORDS.has(t.keyword)) {
     cur.consume()
+    // `__POSITION` IS A CALL, AND WITHOUT ITS PARENTHESES THE COMPILER EATS THE NEXT TOKEN. Seven positions were
+    // recorded on SP21 (`sysop_position_*`) and every answer follows from that one rule:
+    //
+    //   here := __POSITION();     the call form — STRING(INT#23) into a DINT, and NOTHING else is wrong
+    //   here := __POSITION;       eats the `;`  -> "';' expected instead of end of POU"
+    //   here := __POSITION; …     eats the `;`  -> "';' expected instead of 'after'" (the next statement's name)
+    //   here := __POSITION + 1;   eats the `+`  -> "';' expected instead of '1'"
+    //   here := ABS(__POSITION);  eats the `)`  -> "',' or ')' expected instead of ';'"
+    //
+    // Modelling it as "an unknown operand" fits none of them: the compiler never names `__POSITION`, it names
+    // whatever stands after it. Emulating the bite makes the ordinary statement parser say the vendor's words.
+    if (t.keyword === "__POSITION" && !isOpenParen(cur.peek())) cur.consume()
+    // `__CURRENTTASK` IS REFUSED IN ST, AND ALWAYS WITH THE SAME TWO WORDS. Six positions were recorded on SP21
+    // (`op_sys_currenttask`, `sysop_currenttask_*`) — a method, an FB body, a bare statement, the call form, a
+    // dereference-and-read, and one with a statement after it — and every one answers:
+    //
+    //   ';' expected instead of end of POU
+    //   Expression expected instead of ''
+    //
+    // Both name the END of the input whatever stood in the way, so the compiler runs off the end of the POU on
+    // this token and nothing after it is read. The parse CONTINUES here rather than doing that: the two messages
+    // are the whole answer, and swallowing the rest of the unit would invent a cascade CODESYS does not report.
+    if (t.keyword === "__CURRENTTASK") {
+      cur.pushError("';' expected instead of end of POU", t.span)
+      cur.pushError("Expression expected instead of ''", t.span)
+    }
     return { kind: "ident_expr", name: t.text, span: t.span }
   }
   if (t.kind === "punct" && t.text === "(") {

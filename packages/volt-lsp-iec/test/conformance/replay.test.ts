@@ -52,7 +52,8 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // offline; the subset (no-FP) gate stays green on them.
   // 253 → 255 (2026-09-14): gap 13 — untyped integer literals typed as CODESYS/TwinCAT type them (`overflow_*`).
   // 255 → 256: consolidate-lsp-structure A7 — the network-text jump-label check no longer fires on TwinCAT.
-  { vendor: "twincat", filename: "twincat.build.json", floor: 265 },
+    // 265 -> 266: `__CURRENTTASK` is refused, and TwinCAT refuses it too (the fixture records both).
+  { vendor: "twincat", filename: "twincat.build.json", floor: 266 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (coverage.test.ts), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -92,7 +93,8 @@ const RECORDINGS: ReadonlyArray<{ vendor: Vendor; filename: string; floor: numbe
   // 862 -> 865: `ANYNUM_TO_*` is not a CODESYS function (it was accepted on the strength of 80 corpus uses, every
   // one inside a materialized library file), and an FB whose `FB_Init` takes extra inputs must be given them at
   // the declaration.
-  { vendor: "codesys", filename: "codesys.build.json", floor: 865 },
+  // 865 -> 866: `__CURRENTTASK`, whose two messages are the same in all six positions measured.
+  { vendor: "codesys", filename: "codesys.build.json", floor: 866 },
 ]
 
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence

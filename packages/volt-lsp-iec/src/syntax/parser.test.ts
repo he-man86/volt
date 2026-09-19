@@ -229,3 +229,33 @@ test("a soft keyword as a positional argument is still an expression, not a para
   expect(call.args[0]!.param).toBeUndefined()
   expect(call.args[0]!.value?.kind).toBe("ident_expr")
 })
+
+/**
+ * `__POSITION` AND `__CURRENTTASK` — the two system operands CODESYS refuses in ST, each measured in the positions
+ * that tell the shapes apart (conformance `operand_position`, `op_sys_currenttask`, `sysop_*`).
+ */
+const bodyErrors = (body: string): string[] => stmts(body).errors.map((e) => e.message)
+
+test("__POSITION eats the token after it, so the compiler complains about whatever stood there", () => {
+  expect(bodyErrors("here := __POSITION;")).toEqual(["';' expected instead of end of POU"])
+  expect(bodyErrors("here := __POSITION;\nafter := 7;")).toEqual(["';' expected instead of 'after'"])
+  expect(bodyErrors("here := __POSITION + 1;")).toEqual(["';' expected instead of '1'", "Unexpected token '1' found"])
+  expect(bodyErrors("here := ABS(__POSITION);")).toEqual(["',' or ')' expected instead of ';'"])
+  // its PARENTHESES are not eaten — the call form is the one that parses, and only its TYPE is then wrong
+  expect(bodyErrors("here := __POSITION();")).toEqual([])
+  // at the head of a statement it is named itself, once, with no resync cascade
+  expect(bodyErrors("__POSITION;\nhere := 1;")).toEqual(["Unexpected token '__POSITION' found"])
+})
+
+test("__CURRENTTASK answers the same two words wherever it stands", () => {
+  const refusal = ["';' expected instead of end of POU", "Expression expected instead of ''"]
+  for (const body of ["here := __CURRENTTASK;", "here := __CURRENTTASK();", "__CURRENTTASK;", "here := __CURRENTTASK;\nafter := 7;"])
+    expect(bodyErrors(body)).toEqual(refusal)
+})
+
+test("a missing statement `;` echoes the offending token back unless it could start a statement", () => {
+  // measured (`sysop_position_*`): a variable name gets the one line, a literal gets the pair, EOF gets the one line
+  expect(bodyErrors("here := 1 after := 7;")).toEqual(["';' expected instead of 'after'"])
+  expect(bodyErrors("here := 1 1;")).toEqual(["';' expected instead of '1'", "Unexpected token '1' found"])
+  expect(bodyErrors("here := 1")).toEqual(["';' expected instead of end of POU"])
+})

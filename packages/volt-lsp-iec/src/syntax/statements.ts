@@ -14,8 +14,8 @@
  * (task 3.2), never modeled as nodes this phase.
  */
 import type { Span } from "./span.js"
-import type { Keyword } from "./tokens.js"
-import { Cursor } from "./cursor.js"
+import type { Keyword, Token } from "./tokens.js"
+import { Cursor, describeToken } from "./cursor.js"
 import { identFromToken, skipFolderDirective } from "./util.js"
 import { mergeSpans as merge, parseAssignable, parseExpression } from "./expression.js"
 import type { BodySpan, CaseArm, CaseLabel, Expr, IfBranch, ParseError, Statement, StatementList } from "./ast.js"
@@ -178,6 +178,16 @@ function assignOpOf(t: { kind: string; text: string }): "S=" | "R=" | "REF=" | u
 }
 
 function parseExprOrAssign(cur: Cursor): Statement | undefined {
+  // `__POSITION` WHERE A STATEMENT STARTS IS JUST AN UNEXPECTED TOKEN. In an expression the compiler eats the token
+  // after it and complains about whatever follows (see `parsePrimary`); at the head of a statement it names the
+  // operator itself and stops — one message, no cascade (`sysop_position_bare_statement`).
+  const head = cur.peek()
+  if (head.kind === "keyword" && head.keyword === "__POSITION") {
+    cur.pushError(`Unexpected token '${head.text}' found`, head.span)
+    while (cur.peek().kind !== "eof" && !(cur.peek().kind === "punct" && cur.peek().text === ";")) cur.consume()
+    cur.eatPunct(";")
+    return undefined
+  }
   const expr = parseExpression(cur)
   if (expr === undefined) return undefined
   // Assignment operators: plain `:=` plus the IEC set/reset/reference forms `S=` / `R=` / `REF=`.
@@ -200,7 +210,7 @@ function parseExprOrAssign(cur: Cursor): Statement | undefined {
       value = parseExpression(cur)
       if (value === undefined) return undefined
     }
-    const semi = cur.expectPunct(";", "after assignment")
+    const semi = expectStatementSemicolon(cur)
     if (semi === undefined) return undefined
     return {
       kind: "assign",
@@ -211,7 +221,7 @@ function parseExprOrAssign(cur: Cursor): Statement | undefined {
       span: merge(expr.span, semi.span),
     }
   }
-  const semi = cur.expectPunct(";", "after statement")
+  const semi = expectStatementSemicolon(cur)
   if (semi === undefined) return undefined
   if (expr.kind === "call") return { kind: "call_stmt", call: expr, span: merge(expr.span, semi.span) }
   // A bare expression terminated by `;` — a no-op read CODESYS tolerates (e.g. `fb.Status.Flag;`,
@@ -411,4 +421,23 @@ function parseRepeat(cur: Cursor): Statement | undefined {
   const end = cur.expectKeyword("END_REPEAT", "closing REPEAT") // missing closer: record, keep the parsed body
   cur.eatPunct(";")
   return { kind: "repeat", body, until, span: merge(kw.span, end?.span ?? kw.span) }
+}
+
+/**
+ * The `;` a statement must end with — and, when it is missing, the SECOND message the vendor adds.
+ *
+ * CODESYS echoes the offending token back as `Unexpected token 'x' found` unless it is something that could START
+ * the next statement. A variable name gets `';' expected instead of 'after'` and nothing else; a literal, an
+ * operator or a keyword gets the pair (`sysop_position_in_expression`: `';' expected instead of '1'` AND
+ * `Unexpected token '1' found`). End of input gets the single line too — there is no token to echo.
+ *
+ * A DECLARATION's initializer does NOT do this: `x : INT := 5 6;` is one message (`cc_decl_init_trailing_int`),
+ * which is why this lives here and not in `Cursor.expectPunct`.
+ */
+function expectStatementSemicolon(cur: Cursor): Token | undefined {
+  const next = cur.peek()
+  const semi = cur.expectPunct(";", "after statement")
+  if (semi === undefined && next.kind !== "identifier" && next.kind !== "eof")
+    cur.pushError(`Unexpected token ${describeToken(next)} found`, next.span)
+  return semi
 }

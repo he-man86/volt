@@ -330,7 +330,7 @@ function nameExpected(t: Token): string {
 }
 
 // CODESYS/TwinCAT render the offending token bare-quoted (`'x'`, `';'`, `'TO'`) and EOF as "end of POU".
-function describeToken(t: Token): string {
+export function describeToken(t: Token): string {
   if (t.kind === "eof") return "end of POU"
   // AS WRITTEN. CODESYS echoes the token exactly as it is typed, asked directly with the same word in four
   // spellings (`echo_*_case_*`, recorded 2026-09-18): `Limit` -> `'Limit'`, `limit` -> `'limit'`, `Lt` -> `'Lt'`,

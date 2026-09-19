@@ -96,7 +96,10 @@ const OPERATORS: ReadonlyArray<ReferenceEntry> = [
   ref("__FINALLY", "operator", "Exception-handling finally."),
   ref("__ENDTRY", "operator", "Exception-handling block end."),
   ref("__VARINFO", "operator", "Reflection info for a variable."),
-  ref("__POSITION", "operator", "Source position intrinsic."),
+  // A STRING, and the CALL form is the only one that works: `here := __POSITION();` into a DINT is
+  // "Cannot convert type 'STRING(INT#23)' to type 'DINT'" (`sysop_position_call_form`). The length is the
+  // position text's own and cannot be known offline, so the plain STRING is what is claimed.
+  { ...ref("__POSITION", "operator", "Source position intrinsic."), returnType: "STRING" },
   ref("__POUNAME", "operator", "Enclosing POU name intrinsic."),
   ref("__CURRENTTASK", "operator", "Currently executing task."),
   // RETURN TYPES, measured (`calls/atomic-operands.ts`, 2026-09-19). Without one each of these inferred UNKNOWN,

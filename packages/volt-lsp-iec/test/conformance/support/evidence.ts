@@ -92,8 +92,16 @@ function lspReportsAnError(t: LanguageTest, all: readonly LanguageTest[]): boole
     computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }),
   )
   const network = computeNetworkTextDiagnostics(own, project, messagesFor("codesys"))
-  return [...semantic, ...network].some((d) => d.severity === "error")
+  return [...semantic, ...network].some((d) => d.severity === "error" || CONFIGURABLE_SEVERITY.has(d.code))
 }
+
+/**
+ * Checks whose SEVERITY the project decides, not the language. C0033 (`dw := ptr`) is configurable in CODESYS: the
+ * recording project has it as an error, this LSP ships the vendor's default — a warning — and the MESSAGE is
+ * identical either way (`cc5_pointer_not_convertible`). Reading severity alone filed that as a silent gap when the
+ * LSP objects in the vendor's own words; the two differ by configuration, not by behaviour.
+ */
+const CONFIGURABLE_SEVERITY: ReadonlySet<string> = new Set(["pointer-not-convertible"])
 
 /** The file extension a fixture's kind materializes as — one object per file, as the wire keys them. */
 function extFor(kind: LanguageTest["kind"]): string {
