@@ -474,8 +474,13 @@ END_METHOD
     // Measured 2026-09-14, once method calls lowered: COS(1.5708) is -3.6732051033465756E-06 in CODESYS and
     // -3.673205103346574e-6 from the IEEE libm the interpreter and Rust use — about four ULPs apart (one ULP there is
     // 2^-71), near a zero of COS. SIN and TAN agreed, as do `trig_precision`'s angles — but deferring the case takes its SIN
-    // and TAN out of the gate too. Matching the controller's own trig routine bit for bit is not modelled.
-    deferred: { transpile: "COS near π/2 differs from CODESYS in the last ULP — its trig routine is not modelled" },
+    // and TAN out of the gate too.
+    //
+    // NAMED 2026-09-19: the exact value to 300 bits is -3.6732051033465738e-6, so THIS side is correctly rounded
+    // and CODESYS is the one a few ULPs out — its trig is the x87 FPU's. 1.5708 is below pi and reduces to
+    // itself, so what shows here is the hardware KERNEL, not the 66-bit argument reduction that explains
+    // `mathdom_sin_large`. See `transpile/interp/values.ts`.
+    deferred: { transpile: "COS near π/2 differs from CODESYS by a few ULPs — the x87 kernel's own error, not modelled" },
     plcPrgVar: "fb_trig : FB_LANG_op_math_trig;",
     plcPrgBody: "fb_trig.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_op_math_trig

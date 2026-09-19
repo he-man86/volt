@@ -45,9 +45,12 @@
  * the earlier "an infinity stops the task" reading for good. Together with division by zero (`operators/
  * real-overflow.ts`), that is the entire list of ways a CODESYS task stops on a number.
  *
- * `sin_large` and `cos_large` DIVERGE: the vendor's argument reduction for a huge angle is not libm's, and the two
- * answers differ in the fourth decimal (SIN(1.0E18) is -0.9928161040530035 there and -0.9929693207404051 here).
- * That is the same divergence `op_math_trig` records; both carry `deferred.transpile` saying so.
+ * `sin_large` and `cos_large` DIVERGE, and it is now known WHY: CODESYS computes trig with the x87 FPU, whose
+ * argument reduction uses a 66-BIT approximation of pi. Reducing 1.0E18 by `round(pi * 2^64) / 2^64` reproduces
+ * its COS to all seventeen digits and its SIN to sixteen, where an exact reduction (libm's, and ours) gives
+ * 0.11837199021871073 against its 0.11965025504785125. Same hardware as `op_math_trig`, different half of it:
+ * that one is below pi and reduces to itself, so its difference is the KERNEL's few-ULP error, not the reduction.
+ * See `interp/values.ts` for why neither is emulated.
  */
 import type { LanguageTest } from "../../types.js"
 
@@ -94,8 +97,8 @@ export const MATH_DOMAIN_TESTS: readonly LanguageTest[] = [
 
   // ── TAN at the pole, and the three with no domain edge, as the baseline
   domain("mathdom_tan_at_pole", "1.5707963267948966", "TAN(seed)", "TAN at pi/2, where the true value is infinite"),
-  { ...domain("mathdom_sin_large", "1.0E18", "SIN(seed)", "SIN of a very large angle — no edge, asked for the baseline"), deferred: { transpile: "2026-09-18: the vendor's argument reduction for a huge angle is not libm's — SIN(1.0E18) is -0.9928161040530035 on CODESYS and -0.9929693207404051 here. Same family as `op_math_trig`." } },
-  { ...domain("mathdom_cos_large", "1.0E18", "COS(seed)", "COS of a very large angle"), deferred: { transpile: "2026-09-18: the vendor's argument reduction for a huge angle is not libm's — COS(1.0E18) is 0.11965025504785125 on CODESYS and 0.11837199021871073 here. Same family as `op_math_trig`." } },
+  { ...domain("mathdom_sin_large", "1.0E18", "SIN(seed)", "SIN of a very large angle — no edge, asked for the baseline"), deferred: { transpile: "2026-09-19: CODESYS reduces a huge angle with the x87 FPU's 66-bit pi, not an exact one — SIN(1.0E18) is -0.9928161040530035 there and -0.9929693207404051 here. Reproducible, deliberately not emulated (`interp/values.ts`)." } },
+  { ...domain("mathdom_cos_large", "1.0E18", "COS(seed)", "COS of a very large angle"), deferred: { transpile: "2026-09-19: CODESYS reduces a huge angle with the x87 FPU's 66-bit pi — reducing by round(pi * 2^64) / 2^64 reproduces its 0.11965025504785125 to all seventeen digits, against 0.11837199021871073 from an exact reduction. Deliberately not emulated (`interp/values.ts`)." } },
   domain("mathdom_atan_large", "1.0E18", "ATAN(seed)", "ATAN of a very large argument — approaches pi/2"),
 
   // ── and what the functions do with a NaN and an infinity they are HANDED, now that both are known to exist

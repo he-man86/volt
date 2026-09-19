@@ -41,6 +41,25 @@ const logarithm =
     return f(x)
   }
 
+/**
+ * CODESYS'S TRIG IS THE x87 FPU, AND THAT IS WHY THREE FIXTURES DIVERGE. Identified 2026-09-19 by computing the
+ * same arguments to 300 bits:
+ *
+ *   COS(1.5708)    exact -3.6732051033465738e-6   here -3.673205103346574e-6   CODESYS -3.6732051033465756e-6
+ *   COS(1.0E18)    exact  0.11837199021871073     here  the same               CODESYS  0.11965025504785125
+ *
+ * So near a zero of COS the CORRECTLY ROUNDED answer is this one and CODESYS is a few ULPs out — the hardware
+ * kernel's own error. And for a huge angle CODESYS reduces the argument with FSIN's 66-BIT approximation of pi
+ * rather than an exact one: reducing 1.0E18 by `round(pi * 2^64) / 2^64` reproduces its COS to all seventeen
+ * digits and its SIN to sixteen.
+ *
+ * NOT emulated, and the reason is that only HALF of it can be. The reduction is reproducible — u128 arithmetic
+ * would do it in the emitted Rust as BigInt would here — but the kernel that runs after it is a hardware
+ * polynomial, and matching `COS(1.5708)` needs that, not the reduction (1.5708 is below pi, so nothing is
+ * reduced). Doing the half that is possible would close `mathdom_sin_large` and `mathdom_cos_large` and leave
+ * `op_math_trig` exactly as it is, while making every other program's trig depend on emulated hardware. The
+ * three stay recorded as divergences, now with a cause rather than a shrug.
+ */
 export const MATH: Readonly<Record<IrMathName, (x: number) => number>> = {
   sqrt: Math.sqrt,
   ln: logarithm(Math.log),
