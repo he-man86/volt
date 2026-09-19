@@ -104,8 +104,16 @@ Every row: record oracle cases FIRST, then implement, then green in both backend
       Bugs, each with why no test caught it (§18): every string slot started EMPTY (`declare` silently dropped an
       unfoldable initializer — now `init-not-constant`, 22 corpus POUs that were silently wrong); `String` moved out of
       `self`; `STRING(n)`'s length was never resolved; the recorder mangled non-ASCII in both directions. Open:
-      - **REAL_TO_STRING / LREAL_TO_STRING — stays REFUSED (user decision 2026-09-14)**: no one digit rule fits the
-        samples (§18). The recorded case `real_to_string_digits` is `deferred`, not red;
+      - **LREAL_TO_STRING — DONE 2026-09-19.** The 2026-09-14 decision ("no one digit rule fits the samples") was
+        right about both and true of only one. A sweep of 70 more cells determined the LREAL formatter completely —
+        fifteen significant digits, trailing zeros stripped, FIXED while the decimal exponent is 0..13 and
+        exponential otherwise with a lowercase `e` — and it is implemented in the interpreter and mirrored in the
+        prelude, with all 35 of its cells `confirmed` in both backends;
+      - **REAL_TO_STRING — stays REFUSED**, now with the evidence rather than the impression. It is a DIFFERENT
+        formatter (uppercase E, exponent padded to two digits, no `.0` on an exponential mantissa, fixed down to
+        1E-4) and 70 cells show it is not derivable: two exponential cells print EIGHT significant digits beside
+        four printing seven at the same magnitudes, and four fractions round their seventh digit where rounding the
+        value does not — 1/3 is `'0.3333334'`, 1/7 is `'0.1428572'`, while 1/9 and 1/11 print eight and stop;
       - (done) WSTRING is UTF-16 units — `wstring_code_units`, recorded once the recorder stopped mangling non-ASCII;
       - Standard64's W-functions — PARKED with the rest of the Standard-library work (user, 2026-09-14).
 
