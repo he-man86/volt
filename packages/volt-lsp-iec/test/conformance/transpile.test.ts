@@ -404,10 +404,13 @@ describe.skipIf(skipRustSuite())("differential execution — emitted Rust vs COD
       // rather than emitter defects (a statement after RETURN, and a SINT loop bound of 127 that rustc reads as
       // a tautology), which is why those two lints are named here instead of the flip being abandoned.
       //   dead_code / unused_parens — as the crate check: generated code is not read for style.
+      //   unreachable_code — a statement after RETURN or EXIT is a real ST program CODESYS compiles, and
+      //     `stmt_return_midway` and `stmt_exit_inner` exist to ask what it does. Rust is right that the line
+      //     cannot run; that IS the measurement.
       //   unused_comparisons — a FOR bound AT its type's maximum is a comparison rustc can prove
       //     (`for_at_type_max`: `i <= 127i8` for a SINT). The comparison is necessary and the loop needs it.
       const build = Bun.spawn(
-        [rustc!, "--edition", "2021", "-D", "warnings", "-A", "dead_code", "-A", "unused_parens", "-A", "unused_comparisons", "-F", "unsafe_code", "-o", exe, file],
+        [rustc!, "--edition", "2021", "-D", "warnings", "-A", "dead_code", "-A", "unused_parens", "-A", "unused_comparisons", "-A", "unreachable_code", "-F", "unsafe_code", "-o", exe, file],
         { stderr: "pipe" },
       )
       if ((await build.exited) !== 0)

@@ -6,7 +6,7 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1732
+ *   confirmed    1756
  *   refused       455
  *   not-lowered    47
  *   lsp-gap        29
@@ -1950,6 +1950,30 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   state_routine_outputs: "confirmed",
   state_var_inst_two_instances: "confirmed",
   state_var_stat_two_instances: "confirmed",
+  stmt_case_boundary_high: "confirmed",
+  stmt_case_boundary_low: "confirmed",
+  stmt_case_matched: "confirmed",
+  stmt_case_multi_label: "confirmed",
+  stmt_case_no_match_no_else: "confirmed",
+  stmt_case_no_match_with_else: "confirmed",
+  stmt_case_range: "confirmed",
+  stmt_continue_skips: "confirmed",
+  stmt_elsif_second: "confirmed",
+  stmt_exit_inner: "confirmed",
+  stmt_for_bound_changed: "confirmed",
+  stmt_for_negative_step: "confirmed",
+  stmt_for_runs: "confirmed",
+  stmt_for_step_two: "confirmed",
+  stmt_for_variable_after: "confirmed",
+  stmt_for_variable_after_zero: "confirmed",
+  stmt_for_zero_times: "confirmed",
+  stmt_if_not_taken: "confirmed",
+  stmt_if_taken: "confirmed",
+  stmt_repeat_once: "confirmed",
+  stmt_return_in_loop: "confirmed",
+  stmt_return_midway: "confirmed",
+  stmt_while_counts: "confirmed",
+  stmt_while_never: "confirmed",
   str_assign_into_exact: "confirmed",
   str_assign_into_longer: "confirmed",
   str_assign_into_shorter: "confirmed",

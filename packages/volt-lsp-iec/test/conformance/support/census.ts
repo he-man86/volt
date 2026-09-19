@@ -182,6 +182,21 @@ export const CELLS: readonly Cell[] = [
     ],
   ),
 
+  // ── statements ────────────────────────────────────────────────────────────────────────────────
+  ...cells("statements", "loops at their edges", [
+    "stmt_for_runs", "stmt_for_zero_times", "stmt_for_variable_after", "stmt_for_variable_after_zero",
+    "stmt_for_negative_step", "stmt_for_step_two", "stmt_for_bound_changed",
+    "stmt_while_never", "stmt_while_counts", "stmt_repeat_once",
+  ]),
+  ...cells("statements", "EXIT, CONTINUE and RETURN", [
+    "stmt_exit_inner", "stmt_continue_skips", "stmt_return_midway", "stmt_return_in_loop",
+  ]),
+  ...cells("statements", "IF, ELSIF and every CASE shape", [
+    "stmt_if_taken", "stmt_if_not_taken", "stmt_elsif_second",
+    "stmt_case_matched", "stmt_case_no_match_with_else", "stmt_case_no_match_no_else",
+    "stmt_case_range", "stmt_case_multi_label", "stmt_case_boundary_low", "stmt_case_boundary_high",
+  ]),
+
   // ── strings ──────────────────────────────────────────────────────────────────────────────────
   ...cells("strings", "LEN, CONCAT and FIND at their edges", [
     "str_len_empty", "str_len_five", "str_len_after_truncation",
@@ -305,7 +320,6 @@ export const CELLS: readonly Cell[] = [
  */
 export const PLANNED: readonly string[] = [
   "declarations / RETAIN, PERSISTENT, CONSTANT and direct addresses",
-  "statements / every statement kind at its edges",
 ]
 
 /** A cell is CLOSED when its fixture exists and the vendor has answered it. */

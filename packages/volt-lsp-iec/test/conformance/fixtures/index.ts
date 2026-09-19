@@ -50,6 +50,7 @@ import { RANGE_BOUNDS_TESTS } from "./types/range-bounds.js"
 import { PRAGMA_TESTS } from "./pragmas/pragma.js"
 import { PRAGMA_TC_TESTS } from "./pragmas/pragma-tc.js"
 import { SEMANTIC_TESTS } from "./semantics/semantic.js"
+import { STATEMENT_EDGE_TESTS } from "./semantics/statement-edges.js"
 import { UNARY_OPERAND_TESTS } from "./operators/unary-operand.js"
 import { SHADOWING_TESTS } from "./declarations/shadowing.js"
 import { USAGE_PATTERN_TESTS } from "./cross-object/usage-pattern.js"
@@ -123,6 +124,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "cross-family", tests: CROSS_FAMILY_TESTS },
   { name: "to-string-format", tests: TO_STRING_FORMAT_TESTS },
   { name: "semantic", tests: SEMANTIC_TESTS },
+  { name: "statement-edges", tests: STATEMENT_EDGE_TESTS },
   { name: "unary-operand", tests: UNARY_OPERAND_TESTS },
   { name: "conditional-pragma", tests: CONDITIONAL_PRAGMA_TESTS },
   { name: "operator", tests: OPERATOR_TESTS },
