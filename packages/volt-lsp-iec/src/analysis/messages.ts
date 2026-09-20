@@ -339,8 +339,6 @@ export interface Messages {
   noInitForExternal(name: string): string
   /** A `VAR_EXTERNAL` with no matching `VAR_GLOBAL` anywhere (C0237). CODESYS-verified. */
   externalNoGlobal(name: string): string
-  /** The deprecated `FUNCTIONBLOCK` keyword (use `FUNCTION_BLOCK`) (C0098). Bridge-blocked: the push is rejected (unrecognized header) before compile (live-confirmed). */
-  deprecatedFunctionBlock(): string
   /** A VAR_IN_OUT variable referenced in another declaration's initializer (C0441). verified both vendors. */
   inoutInInitializer(): string
   /** A composite-typed input parameter (e.g. an array) declared with a default value (C0525). verified both vendors. */
@@ -660,7 +658,6 @@ export function messagesFor(vendor: Vendor): Messages {
     noInitForExternal: (name) => `No initial value allowed for VAR_EXTERNAL ${name}`,
     // CODESYS-verified (2026-07-11 live): no quotes around the name.
     externalNoGlobal: (name) => `No global definition found for VAR_EXTERNAL ${name}`,
-    deprecatedFunctionBlock: () => `The keyword "FUNCTIONBLOCK" is no longer supported. Use "FUNCTION_BLOCK" instead.`,
     inoutInInitializer: () => `Access to uninitialized VAR_IN_OUT variable`,
     noDefaultForType: (typeName) => `The type ${typeName} cannot have a default value in this context`,
     enumComparison: (left, right) => `Comparison of one enumeration type (${left}) with another (${right})`,

@@ -1521,18 +1521,16 @@
     "cause": "The obsolete keyword FUNCTIONBLOCK (without underscore) is used instead of FUNCTION_BLOCK.",
     "message": "The keyword \"FUNCTIONBLOCK\" is no longer supported. Use \"FUNCTION_BLOCK\" instead.",
     "repro": "FUNCTIONBLOCK FB\nVAR\nEND_VAR\nEND_FUNCTION_BLOCK",
-    "expect": [
-      "The keyword \"FUNCTIONBLOCK\" is no longer supported. Use \"FUNCTION_BLOCK\" instead."
-    ],
-    "status": "implemented",
-    "ourCheck": "deprecated-keyword",
-    "ourCode": "deprecated-functionblock",
+    "expect": [],
+    "status": "ide-only",
+    "ourCheck": null,
+    "ourCode": null,
     "lint": null,
     "verified": {
       "codesys": false,
       "twincat": false
     },
-    "note": "Offline-correct (re-lex token-pair scan; burn-in + corpus + conformance clean). Live-verify is BLOCKED by the harness: `FUNCTIONBLOCK` lexes as an identifier so splitRepro can't identify the deprecated FB as a pushable unit, so the IDE builds nothing and stays silent. Would need the verifier to push the raw source as a typed FB item.",
+    "note": "MEASURED 2026-09-20 AND NOT EMITTED BY EITHER LIVE COMPILER. The conformance fixture `cc5_deprecated_functionblock_keyword` pushes this exact source to CODESYS SP21 and to TwinCAT: both say \"Unknown type: 'FB_C5_oldKeyword'\" and complain where the missing FB is instantiated, and neither says anything about the spelling. The C0098 check (`deprecated-keyword`, ourCode `deprecated-functionblock`) is DELETED — it was offline-correct against this catalog and invented a message no compiler emits, which is the one thing the LSP must not do. The docs keep the code; we no longer claim it.",
     "fix": null,
     "codesysActual": [],
     "twincatActual": []

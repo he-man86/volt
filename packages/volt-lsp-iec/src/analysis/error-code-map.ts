@@ -50,7 +50,6 @@ export const CODESYS_CODE_MAP: Readonly<Record<string, readonly [code: string, u
   "override-mismatch-base": ["C0094", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0094.html"],
   "multiple-inheritance": ["C0096", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0096.html"],
   "duplicate-inherited-variable": ["C0097", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0097.html"],
-  "deprecated-functionblock": ["C0098", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0098.html"],
   "data-recursion": ["C0101", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0101.html"],
   "jump-invalid-destination": ["C0114", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0114.html"],
   "jump-label-duplicate": ["C0116", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0116.html"],
