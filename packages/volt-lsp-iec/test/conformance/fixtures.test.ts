@@ -820,7 +820,9 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // in an expression.
   // 2240 -> 2241: the last contaminated row. An apostrophe is a quote, so "Outputs can't be of type
   // 'REFERENCE TO'" carries three and the driver joined the build summary onto it.
-  { vendor: "twincat", floor: 2241 },
+  // 2241 -> 2242: `op_sys_varinfo` left `KNOWN_DIVERGENCES` — it was masked as a TwinCAT divergence while
+  // the real fault was the same line-joining bug, and the two vendors record it identically now.
+  { vendor: "twincat", floor: 2242 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -978,8 +980,6 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                       INDEX where the type belongs. CODESYS names the type and the LSP matches CODESYS;
   //                       reproducing this one would be copying a vendor defect, not reaching parity.
   twincat: new Set<string>([
-    "op_sys_varinfo",
-    "operand_uchar_literal",
     "cc2_var_in_interface",
     "itf_var_section_declaration",
     "itf_var_section_inherited",

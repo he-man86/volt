@@ -17,10 +17,15 @@
 
 ## The recording
 
-- [ ] Finish the full run (1190/2530 at the last checkpoint) with one worker and the connector stopped.
-- [ ] Verify the result before adopting: zero cross-fixture references (a diagnostic naming a POU that belongs to
-      another fixture), and a fixture count that matches `ALL_TESTS` minus `recorderSkip`.
-- [ ] Adopt with `--write`.
+- [x] Finish the full run with one worker and the connector stopped. Done twice: once as recorded, and then
+      again from scratch once the target turned out to be wrong (below). 2524 fixtures, ~2h45 per run.
+- [x] Verify the result before adopting (`scripts/check-recording.ts twincat`): zero cross-fixture references,
+      zero dropped rows, every fixture accounted for.
+- [x] Adopt. The checker gained a third question while it was at it — **which TARGET was this recorded on?** —
+      because the answer is in the recording itself: `__XINT` is as wide as the target's pointer and
+      `plat_xint_into_string` names that width in its own error message. A recording that is not 64-bit is
+      refused, and that is the only durable guard: the platform is one click in a toolbar and lives in an
+      uncommitted `.suo`.
 
 ## Serve a COPY, not the committed fixture
 
@@ -37,12 +42,20 @@
 
 ## What the recording is FOR
 
-- [ ] Raise the TwinCAT replay floor from 266 to what the fresh recording supports, with the jump explained in
-      the same style as the CODESYS floor's history.
-- [ ] Re-check every `KNOWN_DIVERGENCES.twincat` entry against the fresh data. Today there are two
-      (`op_sys_varinfo`, `operand_uchar_literal`) and both cite measurements from before 2250 fixtures existed.
-      One of them (`op_sys_varinfo`) is recorded as a BRIDGE truncation bug to fix and re-record, not an LSP
-      divergence — so it is a product task hiding in a mask.
+- [x] Raise the TwinCAT replay floor from 266 to what the fresh recording supports. **266 -> 2241** over the
+      day, in the steps the `FLOORS` comment records; the backlog of LSP-only messages went **79 -> 3**.
+- [ ] Raise it again where the LSP now UNDER-reports: TwinCAT warns about a sign crossing in a COMPARISON where
+      CODESYS does not (13 `cmp_sign_*` cells, measured on both). Those are misses, not false positives, so no
+      gate is red — they are simply 13 agreement points sitting on the table.
+- [ ] The `__TRY` family is a new miss and a deliberate one: on `TwinCAT RT (x64)` the device's code generator
+      does not support structured exception handling, so nine fixtures that built clean on ARM now record
+      "The codegenerator for the current device does not support structured exception handling." Comparing two
+      vendors needs ONE target; this is what that costs.
+- [ ] Re-check every `KNOWN_DIVERGENCES.twincat` entry against the fresh data. It is eight now, and six of them
+      were checked against the fresh recording the day they were added. The two older ones are not:
+      `operand_uchar_literal` is closed in principle by the dialect work (the prefix is CODESYS's) and needs
+      re-measuring, and `op_sys_varinfo` is recorded as a BRIDGE truncation bug to fix and re-record — a product
+      task hiding in a mask, and the apostrophe fix may already have closed it.
 - [ ] Report the vendor comparison as a number the suite can quote: on the overlap it is currently 96.1% identical
       verdicts. Decide whether that belongs in `fixtures.test.ts`'s report or in a script.
 
@@ -70,31 +83,36 @@
       - **The choice leaves no trace in git**: it lives in an uncommitted `.suo`. So the guard goes where the
         evidence is — `check-recording.ts` now reads the target's pointer width back out of the recording
         (`plat_xint_into_string` names it in its own error) and refuses to adopt one that is not 64-bit.
-- [ ] **The atomics (13 entries) — measured, and they split three ways.** One re-record on x64 separated them:
-      - `INDEXOF` (2): both vendors removed it and both say so, differing in nothing but capitalisation.
-        Closed as a wording entry in `messages.ts`, which is where vendor differences are data.
-      - `__COMPARE_AND_SWAP` (4): TwinCAT does not have it — "Identifier '__COMPARE_AND_SWAP' not defined".
-      - `__XADD` (5): TwinCAT HAS it with a different signature. Ours (CODESYS's) takes `POINTER TO DINT`;
-        TwinCAT's takes the DINT itself, which is why `atomic_xadd_dint` now builds CLEAN there while CODESYS
-        refuses it. The ARM internal errors were hiding this — on x64 the front end gets far enough to answer.
-      The last two need a VENDOR-KEYED INTRINSIC VOCABULARY, and that is a design decision, not a table edit:
-      `__POSITION` and friends are LEXER keywords today (`syntax/tokens.ts`), and the parser bakes in CODESYS's
-      token-eating behaviour for them. Making the vocabulary vendor-keyed means `parseSource` takes a vendor,
-      which every caller and both conformance harnesses would feel. Worth doing — it is the honest model, and it
-      would make TwinCAT's "Identifier 'X' not defined" fall out for free instead of being suppressed — but it
-      is a change to propose, not to slip in under a triage item.
-- [ ] **`__POSITION` (7 TwinCAT + 2 CODESYS) — measured, still open.** CODESYS types it as a sized string
-      LITERAL (`STRING(INT#23)` in a body, `STRING(INT#13)` in a declaration); the LSP says plain `STRING`, so
-      the CODESYS cells are false positives too. `scripts/probe-position-length.ts` (new) pins the size with
-      twelve probes: **CONSTANT + digits(line) + digits(column)**, CONSTANT = 21 in an implementation and 11 in
-      a declaration, POU name irrelevant. That is enough to reproduce the message and NOT enough to ship: 21 and
-      11 are unexplained, and a magic number with a provenance note is not a measurement. The simulator can read
-      the actual string (`record:exec` records VALUES) — that is the next step. The TwinCAT half is the
-      vocabulary question above.
-
-- [ ] The remaining ~60, by family: the atomics, `__POSITION`, the unnamed network-text target, IL-operator
-      casing, and the individually-named rest. Each wants the same treatment — ask whether the vendors really
-      differ before teaching the LSP that they do.
+- [x] **The atomics (13 entries) — closed, and they split three ways.** The x64 re-record separated them:
+      - `INDEXOF` (2): both vendors removed it and both say so, differing in nothing but capitalisation. A
+        wording entry in `messages.ts`, which is where vendor differences are data.
+      - `__COMPARE_AND_SWAP` (4): TwinCAT does not have it, and now neither does the LSP's TwinCAT dialect.
+      - `__XADD` (7): the two signatures are MIRROR IMAGES. CODESYS takes the counter's ADDRESS and refuses the
+        counter; TwinCAT takes the counter and refuses the address, and hands back the operand's own type where
+        CODESYS always returns DINT. Six operand types each, on both recordings. The ARM code-generator crash
+        had been hiding all of it.
+- [x] **`__POSITION`, and the vocabulary question behind it (15 entries).** `__POSITION`, `__POUNAME`,
+      `__COMPARE_AND_SWAP`, `__VECTOR` and the `UCHAR#`/`LDATE#`/`LDT#`/`LTOD#` literal prefixes are CODESYS's
+      alone — measured by putting every `__`-prefixed keyword and `<prefix>#` form in the fixtures to both
+      compilers, with the present ones listed beside the absent ones in `syntax/tokens.ts`.
+      - The LSP reserved them for both vendors, so on TwinCAT it TYPED names that compiler has never heard of.
+      - `lex`/`parseSource` take a dialect now, and the PROJECT SCOPE carries it, because name resolution and
+        type inference already receive that scope. No check grew a vendor branch.
+      - What it does NOT close: the two CODESYS cells. CODESYS types `__POSITION` as a sized string LITERAL
+        (`STRING(INT#23)` in a body, `STRING(INT#13)` in a declaration) and the LSP says plain `STRING`.
+        `scripts/probe-position-length.ts` pins the size with twelve probes — CONSTANT + digits(line) +
+        digits(column), 21 in an implementation and 11 in a declaration, POU name irrelevant — which is enough
+        to reproduce the message and not enough to ship: 21 and 11 are unexplained. The simulator can read the
+        actual string (`record:exec` records VALUES); that is the next step.
+- [x] **Everything else that was never a vendor difference.** Nine string-constant cells where TwinCAT's own
+      recording carries the exception its message builder throws below STRING(3); six fixtures that are
+      reachability, a project setting or a vendor defect and moved to `KNOWN_DIVERGENCES` with their evidence;
+      C0098, a rule NEITHER vendor has, deleted; `MOD` on a BOOL, which both vendors take as arithmetic.
+- [ ] **The last three.** `cc3_reference_assign` (TwinCAT reverses the conversion direction — ONE cell, and a
+      rule built on one cell is a guess; it wants a fixture family the way `cc_enum_arg_into_*` got one),
+      `cc5_deprecated_functionblock_keyword` (the parser's own `unexpected identifier … at file scope`, where
+      both vendors say nothing about the header and complain where the missing FB is USED), and
+      `ldate_ltod_ldt` (after an unknown literal prefix the two parsers resync differently).
 
 ## The transport decision
 
