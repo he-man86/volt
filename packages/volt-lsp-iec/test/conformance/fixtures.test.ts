@@ -834,7 +834,11 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // signed operand converts going in and the result converts coming back out — three warnings for
   // `out := a AND b` with LINT operands, which the LSP answered with silence because it typed the result
   // LINT and saw no conversion at all.
-  { vendor: "twincat", floor: 2317 },
+  // 2317 -> 2346, and the same rule again from the other end: ARITHMETIC MEETS ITS OPERANDS and converts both
+  // into the meet. `aUlint MOD aSint` meets at LINT and the ULINT operand warns; `aLint + aReal` meets at REAL
+  // and the LINT operand warns about the mantissa. Neither pair is the same WIDTH, which is all the check used
+  // to look at, so it had no rule to name a whole family of conversions with.
+  { vendor: "twincat", floor: 2346 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -888,7 +892,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // `'Line 1, Column 1 (Impl)'` and `'Line 5 (Decl)'` — the text behind the two sizes the type carries.
   // 2424 -> 2436: the same bitwise model. It is the first CODESYS gain today that is the LSP learning a RULE
   // rather than a vendor difference being taken out of one.
-  { vendor: "codesys", floor: 2436 },
+  // 2436 -> 2465: the meet-based operand rule, the same twenty-nine fixtures as on TwinCAT.
+  { vendor: "codesys", floor: 2465 },
 ]
 
 /**

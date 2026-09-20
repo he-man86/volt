@@ -6,7 +6,8 @@
  */
 import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../syntax/index.js"
 import { bodies, forEachDecl, type Scope } from "../../../symbols/index.js"
-import {
+import {
+  checkedMeetType,
   elementaryType,
   elementaryTypeRef,
   inferExprType,
@@ -93,6 +94,15 @@ function operandSignWarnings(x: Expr, scope: Scope, project: Scope, messages: Me
   }
   if (rule === undefined || pair === undefined) return []
   const [left, right] = pair
+  // ARITHMETIC MEETS ITS OPERANDS AND CONVERTS BOTH INTO THE MEET, and a conversion that loses information or
+  // crosses sign warns wherever it happens. `aUlint MOD aSint` meets at LINT and the ULINT operand warns
+  // (`meet_ulint_mod_sint`); `aLint + aReal` meets at REAL and the LINT operand warns about the mantissa
+  // (`meet_lint_plus_real`). Neither pair is the SAME WIDTH, which is all this check used to look at — so it
+  // saw a family of conversions it had no rule to name.
+  if (rule === "signed") {
+    const meetWarnings = meetOperandWarnings(left, right, scope, project, messages)
+    if (meetWarnings !== undefined) return meetWarnings
+  }
   const lt = inferExprType(left, scope, project)
   const rt = inferExprType(right, scope, project)
   const l = integral(literalCheckType(left, rt) ?? (isIntLiteral(left) ? rt : lt))
@@ -113,6 +123,28 @@ function operandSignWarnings(x: Expr, scope: Scope, project: Scope, messages: Me
   const [signed, unsigned, unsignedAt] = l.signed ? [l, r, right] : [r, l, left]
   const w = conversionWarning(elementaryTypeRef(signed), elementaryTypeRef(unsigned), unsignedAt, messages)
   return w === undefined ? [] : [w]
+}
+
+/**
+ * Both operands converted into their MEET, or undefined when the pair has no measured meet (the vendor never
+ * answered for it, and silence is what that earns). An untyped integer literal takes the other operand's type
+ * and converts nowhere, which is why `sn AND 255` warns once rather than twice.
+ */
+function meetOperandWarnings(
+  left: Expr,
+  right: Expr,
+  scope: Scope,
+  project: Scope,
+  messages: Messages,
+): DiagnosticItem[] | undefined {
+  const lt = inferExprType(left, scope, project)
+  const rt = inferExprType(right, scope, project)
+  if (lt.kind !== "elementary" || rt.kind !== "elementary") return undefined
+  const meet = checkedMeetType(lt, rt)
+  if (meet === undefined || meet.kind !== "elementary") return undefined
+  const each = (t: Type, at: Expr): DiagnosticItem | undefined =>
+    isIntLiteral(at) ? undefined : conversionWarning(meet, t, at, messages)
+  return [each(lt, left), each(rt, right)].filter((d): d is DiagnosticItem => d !== undefined)
 }
 
 function integral(t: Type): (ElementaryType & { signed: boolean }) | undefined {

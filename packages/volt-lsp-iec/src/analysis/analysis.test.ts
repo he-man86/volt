@@ -193,6 +193,31 @@ out := a AND b;
 END_FUNCTION_BLOCK`
   expect(diag(un, "codesys")).toEqual([])
 })
+// ARITHMETIC MEETS ITS OPERANDS, and both convert into the meet — which is where a conversion can lose
+// information without either operand being the destination (`meet_ulint_mod_sint`, `meet_lint_plus_real`).
+test("both operands convert into an arithmetic meet", () => {
+  const src = `FUNCTION_BLOCK F
+VAR
+ a : LINT;
+ b : REAL;
+ out : REAL;
+END_VAR
+out := a + b;
+END_FUNCTION_BLOCK`
+  expect(diag(src, "codesys").map((d) => d.message)).toEqual([
+    "Implicit conversion from 'LINT' to 'REAL': Possible loss of information",
+  ])
+  // …and a meet nothing recorded stays silent rather than guessing
+  const t = `FUNCTION_BLOCK F
+VAR
+ a : TIME;
+ b : TIME;
+ out : TIME;
+END_VAR
+out := a + b;
+END_FUNCTION_BLOCK`
+  expect(diag(t, "codesys")).toEqual([])
+})
 test("vendor-keyed wording: ABSTRACT instantiation", () => {
   const src = `FUNCTION_BLOCK ABSTRACT FB_A\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK F\nVAR\n x : FB_A;\nEND_VAR\nEND_FUNCTION_BLOCK`
   expect(diag(src, "codesys").find((d) => d.code === "abstract-instantiation")?.message).toBe(
