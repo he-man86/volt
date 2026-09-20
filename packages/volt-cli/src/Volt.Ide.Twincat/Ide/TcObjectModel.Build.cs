@@ -280,6 +280,19 @@ internal sealed partial class TcObjectModel
         if (at > 0 && text[at - 1] == '\r') at--; // greedy `.+` swallowed the CR; the break starts there
         while (CountQuotes(message) % 2 != 0 && at < text.Length)
         {
+            // AN ODD QUOTE COUNT IS NOT PROOF THE MESSAGE IS UNFINISHED. It quotes SOURCE at you, and ST source
+            // is full of string literals: "String constant ''...' too long for destination type 'STRING(4)'"
+            // carries FIVE quotes, because the constant it names is itself `''`. The loop then looked for a
+            // closing quote that never comes and joined line after line — the error list's own path echo, then
+            // the whole build log — into one "message".
+            //
+            // Measured 2026-09-20 over the TwinCAT conformance recording: 24 diagnostics carried build chrome
+            // this way, and it made TwinCAT look like it disagreed with the LSP about a family of string
+            // warnings it reports identically. The remark above chose the unbalanced quote OVER "the next line
+            // is not a diagnostic" — but the two are not alternatives, and without the second this one runs
+            // away. A continuation is SOURCE TEXT; a line that is itself a diagnostic, or the build's own
+            // chrome, is not, whatever the quotes say.
+            if (IsNotContinuation(text, at)) break;
             int lineStart = at;
             if (text[at] == '\r') at++;
             if (at < text.Length && text[at] == '\n') at++;
@@ -291,6 +304,35 @@ internal sealed partial class TcObjectModel
         }
         return message;
     }
+
+    /// <summary>Is the line starting at <paramref name="at"/> something a message can never continue INTO
+    /// - a diagnostic of its own, or the build's own chrome? Checked on the line as the pane wrote it,
+    /// prefix and all.</summary>
+    private static bool IsNotContinuation(string text, int at)
+    {
+        int start = at;
+        while (start < text.Length && (text[start] == '\r' || text[start] == '\n')) start++;
+        int end = text.IndexOf('\n', start);
+        if (end < 0) end = text.Length;
+        var line = text.Substring(start, end - start).TrimEnd('\r');
+        if (line.Length == 0) return false;
+        // its own diagnostic - the same shape the top-level regex matches
+        if (Regex.IsMatch(line, @"^.+?(?:\(\d+(?:,\d+)?\))?\s*:\s*(error|warning|message)\s*:\s*", RegexOptions.IgnoreCase))
+            return true;
+        // the build's own running commentary, which no compiler message continues into
+        foreach (var chrome in BuildChrome)
+            if (line.IndexOf(chrome, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        return false;
+    }
+
+    /// <summary>Lines TwinCAT's build writes about itself. Substrings, because each carries a pane prefix and
+    /// a trailing count that differ per build.</summary>
+    private static readonly string[] BuildChrome =
+    {
+        "------ Build started", "Build complete", "Build FAILED", "Build succeeded",
+        "Size of generated code", "Size of global data", "Total allocated memory size",
+        "Generate TMC information", "Import symbol", "ready for download",
+    };
 
     private static int CountQuotes(string s)
     {

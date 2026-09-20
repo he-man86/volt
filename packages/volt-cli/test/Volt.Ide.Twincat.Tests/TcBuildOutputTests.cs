@@ -48,6 +48,34 @@ public class TcBuildOutputTests
         Assert.Equal("Identifier 'b' not defined", parsed[1].Message);
     }
 
+    /// <summary>
+    /// A COMPLETE MESSAGE CAN HAVE AN ODD NUMBER OF QUOTES, and the continuation heuristic must not read that as
+    /// unterminated. It quotes SOURCE at you, and ST source is full of string literals: "String constant ''...'
+    /// too long for destination type 'STRING(4)'" carries five quotes because the constant it names is itself
+    /// `''`. The unbalanced-quote rule then joined line after line looking for a closing quote that never comes,
+    /// swallowing the error list's own path echo and then the whole build log into one "message".
+    ///
+    /// Measured 2026-09-20 over the TwinCAT conformance recording: 24 diagnostics across ~24 fixtures carried
+    /// build chrome this way, which made TwinCAT look like it disagreed with the LSP on a family of string
+    /// warnings it actually reports identically.
+    /// </summary>
+    [Fact]
+    public void AnOddQuoteCountInACompleteMessageDoesNotSwallowTheBuildLog()
+    {
+        var parsed = TcObjectModel.ParsePaneText(
+            "1>C:\\p\\MAIN.TcPOU(3,1) : warning : String constant ''...' too long for destination type 'STRING(4)'\r\n" +
+            "1>C:\\p\\MAIN.TcPOU(3) : warning: String constant ''...' too long for destination type 'STRING(4)'\r\n" +
+            "1>Size of generated code: 69708 bytes\r\n" +
+            "1>Build complete -- 0 errors, 2 warnings : ready for download!\r\n");
+        Assert.Equal(2, parsed.Count);
+        foreach (var d in parsed)
+        {
+            Assert.DoesNotContain("Size of generated code", d.Message);
+            Assert.DoesNotContain("Build complete", d.Message);
+            Assert.DoesNotContain(".TcPOU", d.Message);
+        }
+    }
+
     [Fact]
     public void AnUnclosedQuoteAtTheEndOfThePaneDoesNotHang()
     {
