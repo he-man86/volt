@@ -27,7 +27,7 @@ export const KNOWN_UNMAPPED = new Set([
   //   network-undefined-label       -> C0117  No such label '<label>' within the scope of the 'JMP' statement
   //
   // What blocks them is the MAP'S SHAPE, not the catalog: `CODESYS_CODE_MAP` is derived from the catalog's
-  // `ourCode` field and asserted equal to it (error-catalog.test.ts), which makes it ONE SLUG PER `Cnnnn` — and
+  // `ourCode` field and asserted equal to it (catalog.test.ts), which makes it ONE SLUG PER `Cnnnn` — and
   // each of those three codes is already claimed by the ST check these share their resolution logic with
   // (`unresolved-identifier`, `unknown-member`, `jump-label-undefined`). The network checks keep their own slug
   // deliberately: a slug is also the CONFIG SWITCH, and merging them would make "turn off identifier checking in

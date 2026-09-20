@@ -44,4 +44,4 @@ export function errorCatalog(): ErrorCode[] {
 
 // The runtime slug→(code,url) lookup (`codesysCodeFor`) lives in the generated `error-code-map.ts`, NOT here:
 // this module embeds the full 230KB test catalog and is test-only, so the running LSP must not import it.
-// A drift test (`error-catalog.test.ts`) keeps that generated map in sync with this catalog.
+// A drift test (`catalog.test.ts`) keeps that generated map in sync with this catalog.

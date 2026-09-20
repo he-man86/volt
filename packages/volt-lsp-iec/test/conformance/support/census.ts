@@ -7,7 +7,7 @@
  * happen to have would reproduce exactly the blind spots this exists to find.
  *
  * Each entry names the slugs it expects. The families that fill them generate their slugs from the same axes, so a
- * cell and its fixture cannot drift apart without one of them going missing — and `census.test.ts` says which.
+ * cell and its fixture cannot drift apart without one of them going missing — and `suite.test.ts` says which.
  *
  * `PLANNED` is the other half, and the more honest one: topics whose cells are NOT enumerated yet. They are listed
  * by name so the report can say how much of the language is still unmeasured, instead of a green tick meaning

@@ -1,7 +1,7 @@
 // The LSP's OWN slug→(CODESYS code, docs URL) map — the authoritative RUNTIME source, engineered here in the
 // LSP, NOT derived from any test file. Emitting a diagnostic stamps the recognizable `Cnnnn` + docs link from
 // this table. `docs/codesys-reference/error-catalog.json` is a separate TEST fixture; a consistency test
-// (error-catalog.test.ts) asserts the two agree, so a newly-mapped code can't be added to one and forgotten
+// (catalog.test.ts) asserts the two agree, so a newly-mapped code can't be added to one and forgotten
 // in the other. When adding a check that mirrors a CODESYS code, add its row here.
 
 /** slug (our diagnostic `code`) → [CODESYS `Cnnnn`, docs URL]. When a slug covers several codes, its primary one. */

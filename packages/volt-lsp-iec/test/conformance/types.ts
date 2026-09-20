@@ -13,7 +13,7 @@
  *   `replay.test.ts`              the LSP's diagnostics against the BUILD recording — the precision gate.
  *   `transpile.test.ts`           the interpreter AND the emitted Rust against the RUN recording — the value gate,
  *                                 and the only place values are compared.
- *   `backend-agreement.test.ts`   the two backends against EACH OTHER, where no recording reaches.
+ *   `backends.test.ts`   the two backends against EACH OTHER, where no recording reaches.
  *   `refused.test.ts`             every source CODESYS rejects must be an LSP error too.
  *   `confidence.test.ts`          rates each fixture by how well it is evidenced, and holds `evidence` honest.
  *

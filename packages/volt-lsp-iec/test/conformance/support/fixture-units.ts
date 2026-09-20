@@ -275,7 +275,7 @@ function pragmasBefore(source: string, from: number, to: number): string {
 /**
  * A FIXTURE AS ONE PROGRAM: the ST every gate lowers, and the libraries it lowers against.
  *
- * Six files spelled these three lines out themselves — `backend-agreement`, `transpile`, `lowering-totality`,
+ * Six files spelled these three lines out themselves — `backends`, `transpile`, `lowering-totality`,
  * `ir-coverage`, `source-map` and `evidence` — byte for byte, which is the shape a rule takes just before the
  * copies start to differ. They are load-bearing lines: a gate that assembles a fixture differently is measuring a
  * different program than the gate beside it, and every conclusion drawn by comparing their numbers would be wrong.
