@@ -827,7 +827,10 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 2242 -> 2255: the LSP was UNDER-reporting, which costs agreement without ever making a gate red. A sign
   // crossing in a comparison has a 32-bit floor and the floor is CODESYS's — TwinCAT warns at SINT/USINT and
   // INT/UINT too, in all twelve of those cells.
-  { vendor: "twincat", floor: 2255 },
+  // 2255 -> 2305 on ONE rule, and not a rule about any check: TwinCAT never says the same thing twice on
+  // one LINE. 111 of 2541 CODESYS fixtures carry a message repeated on a single line and ZERO TwinCAT ones
+  // do, so the collapse happens once, where the diagnostics leave the analyzer.
+  { vendor: "twincat", floor: 2305 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.

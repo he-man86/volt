@@ -275,7 +275,35 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
     if (state === "off") continue
     result.push(it.severity === state ? it : { ...it, severity: state })
   }
-  return result
+  return config.vendor === "twincat" ? dedupePerLine(result, args.source) : result
+}
+
+/**
+ * TWINCAT NEVER SAYS THE SAME THING TWICE ON ONE LINE, and CODESYS does it all the time.
+ *
+ * Measured over both recordings (2026-09-20): 111 of 2541 CODESYS fixtures carry a message repeated on the SAME
+ * line — `out := a AND b` with signed operands warns once per operand, at two spans on one statement — and the
+ * number of TwinCAT fixtures that do is ZERO. It is not a rule about bitwise operators or about any one check:
+ * it is what TwinCAT's error list does with what its compiler produces, so it belongs here, once, rather than as
+ * a count branch inside every check that can fire twice.
+ */
+function dedupePerLine(items: readonly DiagnosticItem[], source: string): DiagnosticItem[] {
+  const seen = new Set<string>()
+  const out: DiagnosticItem[] = []
+  for (const it of items) {
+    const key = `${lineOf(source, it.span.start)}\u0000${it.message}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(it)
+  }
+  return out
+}
+
+/** The 0-based line an offset falls on — counted, because a span carries offsets and nothing else. */
+function lineOf(source: string, offset: number): number {
+  let line = 0
+  for (let i = 0; i < offset && i < source.length; i++) if (source.charCodeAt(i) === 10) line++
+  return line
 }
 
 /** Per-check wall time (ms) under `PROFILE_CHECKS=1`, printed slowest first when the process exits. The corpus and

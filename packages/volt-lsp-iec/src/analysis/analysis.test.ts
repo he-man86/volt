@@ -152,6 +152,19 @@ test("a narrow comparison warns on TwinCAT only", () => {
     "Implicit conversion from unsigned Type 'UDINT' to signed Type 'DINT' : possible change of sign",
   ])
 })
+// TWINCAT NEVER SAYS THE SAME THING TWICE ON ONE LINE. CODESYS does — an over-long string constant in a
+// declaration warns once for the declaration and once for the initialization, at two spans on one line, and 111
+// of 2541 CODESYS fixtures carry a repeat like that where ZERO TwinCAT fixtures do (both recordings 2026-09-20).
+test("TwinCAT collapses a message repeated on one line", () => {
+  const src = `FUNCTION_BLOCK F
+VAR
+ two : STRING(4) := 'abcdef';
+END_VAR
+END_FUNCTION_BLOCK`
+  const msg = "String constant ''...' too long for destination type 'STRING(4)'"
+  expect(diag(src, "codesys").map((d) => d.message)).toEqual([msg, msg])
+  expect(diag(src, "twincat").map((d) => d.message)).toEqual([msg])
+})
 test("vendor-keyed wording: ABSTRACT instantiation", () => {
   const src = `FUNCTION_BLOCK ABSTRACT FB_A\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK F\nVAR\n x : FB_A;\nEND_VAR\nEND_FUNCTION_BLOCK`
   expect(diag(src, "codesys").find((d) => d.code === "abstract-instantiation")?.message).toBe(
