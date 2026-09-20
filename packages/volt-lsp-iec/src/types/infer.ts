@@ -409,6 +409,20 @@ export function literalType(lit: Literal): Type {
 
 const COMPARISON_OPS: ReadonlySet<string> = new Set(["=", "<>", "<", ">", "<=", ">="])
 
+const BITWISE_OPS: ReadonlySet<string> = new Set(["AND", "OR", "XOR"])
+
+/** The unsigned integer both operands convert to, or undefined when the pair is not two same-width integers. */
+function unsignedBitwiseResult(l: Type, r: Type): Type | undefined {
+  const a = l.kind === "elementary" ? l.elem : undefined
+  const b = r.kind === "elementary" ? r.elem : undefined
+  if (a === undefined || b === undefined || a.bits !== b.bits) return undefined
+  if (a.family !== "int" || b.family !== "int") return undefined
+  if (a.signed !== true && b.signed !== true) return undefined
+  const name = a.bits === 8 ? "USINT" : a.bits === 16 ? "UINT" : a.bits === 32 ? "UDINT" : a.bits === 64 ? "ULINT" : undefined
+  const elem = name === undefined ? undefined : elementaryType(name)
+  return elem === undefined ? undefined : elementaryTypeRef(elem)
+}
+
 function binaryResultType(e: BinaryExpr, scope: Scope, project: Scope): Type {
   if (COMPARISON_OPS.has(e.op)) return elementaryRef("BOOL")
   const l = inferExprType(e.left, scope, project)
@@ -423,6 +437,13 @@ function binaryResultType(e: BinaryExpr, scope: Scope, project: Scope): Type {
     // no check downstream could see it. `out := a + b` with `out : STRING` was silent for all seventy pairs in
     // `fixtures/operators/mixed-type.ts` while `out := a` was reported. `checkedMeetType` is the vendor's own answer
     // and still returns undefined for the pairs nothing recorded, which keeps the silence exactly where it was earned.
+    // AND/OR/XOR COMPUTE IN THE UNSIGNED INTEGER OF THE OPERANDS' WIDTH. `out := a AND b` with LINT operands
+    // is three warnings on CODESYS — one per operand going in, and one for the result coming back out into a
+    // signed destination (`bit_{and,or,xor}_{sint,int,dint,lint}`). The result type is what carries the third:
+    // typing it LINT made the assignment look clean. BOOL operands are boolean logic and keep their type; a bit
+    // string is already unsigned and answers the same either way.
+    const bitwise = BITWISE_OPS.has(e.op) ? unsignedBitwiseResult(l, r) : undefined
+    if (bitwise !== undefined) return bitwise
     const meet = checkedMeetType(l, r)
     if (meet !== undefined) return meet
     if (canonicalElem(l.name) === canonicalElem(r.name)) return l

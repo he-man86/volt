@@ -830,7 +830,11 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 2255 -> 2305 on ONE rule, and not a rule about any check: TwinCAT never says the same thing twice on
   // one LINE. 111 of 2541 CODESYS fixtures carry a message repeated on a single line and ZERO TwinCAT ones
   // do, so the collapse happens once, where the diagnostics leave the analyzer.
-  { vendor: "twincat", floor: 2305 },
+  // 2305 -> 2317: a BITWISE operator computes in the UNSIGNED integer of its operands' width, so every
+  // signed operand converts going in and the result converts coming back out — three warnings for
+  // `out := a AND b` with LINT operands, which the LSP answered with silence because it typed the result
+  // LINT and saw no conversion at all.
+  { vendor: "twincat", floor: 2317 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -882,7 +886,9 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // silent on exactly that one, which is a hypothesis, not a measurement — four more unsigned targets make it one.
   // 2423 -> 2424: `sysop_position_value`, which asks what `__POSITION` actually EVALUATES to. It answers
   // `'Line 1, Column 1 (Impl)'` and `'Line 5 (Decl)'` — the text behind the two sizes the type carries.
-  { vendor: "codesys", floor: 2424 },
+  // 2424 -> 2436: the same bitwise model. It is the first CODESYS gain today that is the LSP learning a RULE
+  // rather than a vendor difference being taken out of one.
+  { vendor: "codesys", floor: 2436 },
 ]
 
 /**

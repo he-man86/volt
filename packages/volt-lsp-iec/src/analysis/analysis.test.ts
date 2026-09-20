@@ -165,6 +165,34 @@ END_FUNCTION_BLOCK`
   expect(diag(src, "codesys").map((d) => d.message)).toEqual([msg, msg])
   expect(diag(src, "twincat").map((d) => d.message)).toEqual([msg])
 })
+// A BITWISE OPERATOR COMPUTES IN THE UNSIGNED INTEGER OF ITS WIDTH. `out := a AND b` with LINT operands is three
+// warnings on CODESYS — one per operand going in, one for the result coming back out — and the LSP answered with
+// silence, because it typed the result LINT and saw no conversion (`bit_{and,or,xor}_{sint,int,dint,lint}`).
+test("a bitwise operator on signed operands converts, both ways", () => {
+  const src = `FUNCTION_BLOCK F
+VAR
+ a : LINT;
+ b : LINT;
+ out : LINT;
+END_VAR
+out := a AND b;
+END_FUNCTION_BLOCK`
+  const inward = "Implicit conversion from signed Type 'LINT' to unsigned Type 'ULINT' : Possible change of sign"
+  const outward = "Implicit conversion from unsigned Type 'ULINT' to signed Type 'LINT' : Possible change of sign"
+  expect(diag(src, "codesys").map((d) => d.message).sort()).toEqual([inward, inward, outward].sort())
+  // …and TwinCAT collapses the two identical ones onto their shared line
+  expect(diag(src, "twincat").map((d) => d.message).length).toBe(2)
+  // an UNSIGNED pair converts nowhere and stays silent
+  const un = `FUNCTION_BLOCK F
+VAR
+ a : ULINT;
+ b : ULINT;
+ out : ULINT;
+END_VAR
+out := a AND b;
+END_FUNCTION_BLOCK`
+  expect(diag(un, "codesys")).toEqual([])
+})
 test("vendor-keyed wording: ABSTRACT instantiation", () => {
   const src = `FUNCTION_BLOCK ABSTRACT FB_A\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK F\nVAR\n x : FB_A;\nEND_VAR\nEND_FUNCTION_BLOCK`
   expect(diag(src, "codesys").find((d) => d.code === "abstract-instantiation")?.message).toBe(

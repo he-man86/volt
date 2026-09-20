@@ -46,11 +46,12 @@ export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[
       }
       for (const e of stmtExprs(s))
         walkExpr(e, (x) => {
-          const diag =
+          const one =
             conversionArgError(x, scope, ctx.project, ctx.messages) ??
-            negationOperandWarning(x, scope, ctx.project, ctx.messages) ??
-            operandSignWarning(x, scope, ctx.project, ctx.messages)
-          if (diag !== undefined) out.push(diag)
+            negationOperandWarning(x, scope, ctx.project, ctx.messages)
+          if (one !== undefined) out.push(one)
+          // …and a BITWISE operator can put a conversion on BOTH of its operands, so this one answers with a list.
+          else out.push(...operandSignWarnings(x, scope, ctx.project, ctx.messages))
         })
     })
   }
@@ -75,10 +76,11 @@ export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[
  * An untyped integer literal takes the other operand's type when it fits it (`un XOR 1` is silent, `sn AND 255` warns).
  * ponytail: the shifts, EXPT and the other generic functions are unmeasured and stay silent — probe before adding one.
  */
-function operandSignWarning(x: Expr, scope: Scope, project: Scope, messages: Messages): DiagnosticItem | undefined {
+function operandSignWarnings(x: Expr, scope: Scope, project: Scope, messages: Messages): DiagnosticItem[] {
   if (x.kind === "unary" && x.op === "NOT") {
     const t = integral(inferExprType(x.operand, scope, project))
-    return t?.signed === true ? conversionWarning(unsignedOfWidth(t.bits), elementaryTypeRef(t), x.operand, messages) : undefined
+    const w = t?.signed === true ? conversionWarning(unsignedOfWidth(t.bits), elementaryTypeRef(t), x.operand, messages) : undefined
+    return w === undefined ? [] : [w]
   }
   let rule: "signed" | "unsigned" | "signed-wide" | undefined
   let pair: readonly [Expr, Expr] | undefined
@@ -89,20 +91,28 @@ function operandSignWarning(x: Expr, scope: Scope, project: Scope, messages: Mes
     const [a, b] = [x.args[0]!.value, x.args[1]!.value]
     if (a !== undefined && b !== undefined) [rule, pair] = ["signed", [a, b]]
   }
-  if (rule === undefined || pair === undefined) return undefined
+  if (rule === undefined || pair === undefined) return []
   const [left, right] = pair
   const lt = inferExprType(left, scope, project)
   const rt = inferExprType(right, scope, project)
   const l = integral(literalCheckType(left, rt) ?? (isIntLiteral(left) ? rt : lt))
   const r = integral(literalCheckType(right, lt) ?? (isIntLiteral(right) ? lt : rt))
-  if (l === undefined || r === undefined || l.bits !== r.bits || l.signed === r.signed) return undefined
-  // THE 32-BIT FLOOR IS CODESYS'S. Both vendors warn about a sign crossing in a comparison at DINT/UDINT and
-  // LINT/ULINT; at SINT/USINT and INT/UINT only TwinCAT does — all 24 `cmp_sign_*` cells, six operators at four
-  // widths, on both recordings (2026-09-20).
-  if (rule === "signed-wide" && l.bits < 32 && project.dialect !== "twincat") return undefined
-  const [signed, unsigned, signedAt, unsignedAt] = l.signed ? [l, r, left, right] : [r, l, right, left]
-  if (rule === "unsigned") return conversionWarning(unsignedOfWidth(signed.bits), elementaryTypeRef(signed), signedAt, messages)
-  return conversionWarning(elementaryTypeRef(signed), elementaryTypeRef(unsigned), unsignedAt, messages)
+  if (l === undefined || r === undefined || l.bits !== r.bits) return []
+  // A BITWISE OPERATOR COMPUTES IN THE UNSIGNED INTEGER OF THE WIDTH, so EVERY signed operand converts on the way
+  // in — two warnings for `aLint AND bLint`, at two spans on one line, and then a third from the assignment when
+  // the result goes back into a signed destination (`bit_{and,or,xor}_{sint,int,dint,lint}`, three each on CODESYS).
+  // An untyped literal takes the other operand's type and is not one of the conversions: `sn AND 255` warns ONCE
+  // (`cc_bitwise_sint_and_literal`).
+  if (rule === "unsigned") {
+    const each = ([t, at]: readonly [typeof l, Expr]): DiagnosticItem | undefined =>
+      t.signed && !isIntLiteral(at) ? conversionWarning(unsignedOfWidth(t.bits), elementaryTypeRef(t), at, messages) : undefined
+    return [each([l, left]), each([r, right])].filter((d): d is DiagnosticItem => d !== undefined)
+  }
+  if (l.signed === r.signed) return []
+  if (rule === "signed-wide" && l.bits < 32 && project.dialect !== "twincat") return []
+  const [signed, unsigned, unsignedAt] = l.signed ? [l, r, right] : [r, l, left]
+  const w = conversionWarning(elementaryTypeRef(signed), elementaryTypeRef(unsigned), unsignedAt, messages)
+  return w === undefined ? [] : [w]
 }
 
 function integral(t: Type): (ElementaryType & { signed: boolean }) | undefined {
