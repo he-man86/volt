@@ -35,8 +35,8 @@ export class Cursor {
     this.failedDeclarations.push(t.text.toLowerCase())
   }
 
-  pushError(message: string, span: Span): void {
-    this.errors.push({ message, span })
+  pushError(message: string, span: Span, unexpectedToken?: string): void {
+    this.errors.push(unexpectedToken === undefined ? { message, span } : { message, span, unexpectedToken })
   }
 
   /** Current meaningful token (skipping trivia). Never returns undefined; EOF is the sentinel. */
@@ -140,7 +140,7 @@ export class Cursor {
     const t = this.eatIdent()
     if (t === undefined) {
       const next = this.peek()
-      this.pushError(nameExpected(next), next.span)
+      this.pushError(nameExpected(next), next.span, unexpectedTokenOf(next))
     }
     return t
   }
@@ -156,7 +156,7 @@ export class Cursor {
     if (t.kind === "identifier" || (t.kind === "keyword" && Cursor.SOFT_NAME_KEYWORDS.has(t.keyword ?? ""))) {
       return this.consume()
     }
-    this.pushError(nameExpected(t), t.span)
+    this.pushError(nameExpected(t), t.span, unexpectedTokenOf(t))
     return undefined
   }
 
@@ -318,9 +318,14 @@ export function reportBrokenDeclaration(c: Cursor, stop: readonly Keyword[]): vo
     if (t.kind === "punct" && t.text === ";") return
     if (t.kind === "keyword" && t.keyword !== undefined && stop.includes(t.keyword)) return
     c.pushError(`';' expected instead of ${describeToken(t)}`, t.span)
-    c.pushError(`Unexpected token ${describeToken(t)} found`, t.span)
+    c.pushError(`Unexpected token ${describeToken(t)} found`, t.span, t.text)
     c.consume()
   }
+}
+
+/** The token, when `nameExpected` words it as the "Unexpected token" shape — see `ParseError.unexpectedToken`. */
+function unexpectedTokenOf(t: Token): string | undefined {
+  return t.kind === "keyword" ? t.text : undefined
 }
 
 function nameExpected(t: Token): string {

@@ -135,6 +135,20 @@ test("an unresolved box as an ASSIGNMENT TARGET gets the TARGET message", () => 
   expect(got[0]!.message).toBe(TARGET_MSG)
 })
 
+// BOTH VENDORS REPORT THESE, and they disagree on nothing but capitalisation and a full stop (recorded on
+// both, `network_unnamed_*`, 2026-09-20). The wording is data in `messagesFor`, so the check itself does not
+// branch — this is the test that the branch is in the table and not in the code.
+test("the vendors word the unresolved-box messages differently", () => {
+  const tc = (src: string): string[] =>
+    computeNetworkTextDiagnostics(doc(src), project(doc(src)), messagesFor("twincat"))
+      .filter((d) => d.code === "NETWORK_UNRESOLVED_BOX")
+      .map((d) => d.message)
+      .sort()
+  expect(tc(wrap("NETWORK 0 FBD\n  ??? := a;\nEND_NETWORK"))).toEqual(["Assignment target not specified"])
+  expect(tc(wrap("NETWORK 0 FBD\n  out := (??? AND a);\nEND_NETWORK"))).toEqual(
+    [OPERAND_MSG, "Unexpected Token '?' found"].sort(),
+  )
+})
 test("a coil's STORAGE operator marks a target as surely as `:=`", () => {
   // `S=`/`R=` are the coil-kind spelling, so they end a target just like `:=` - reading only `:=` would send
   // a SET coil down the operand arm and print the wrong compiler message.

@@ -54,6 +54,25 @@ for (const t of ALL_TESTS) {
 }
 const ALL_POUS = new Set([...OWN.values()].flatMap((s) => [...s]))
 
+/**
+ * WHICH TARGET WAS THIS RECORDED ON? — read out of the recording, because nothing else says.
+ *
+ * `__XINT` is as wide as the target's pointer, so `plat_xint_into_string` names that width in its own error
+ * message. Both oracles are meant to be 64-bit: the CODESYS device is `CODESYS Control Win V3 x64`, and the
+ * TwinCAT project is meant to be on `TwinCAT RT (x64)`.
+ *
+ * On 2026-09-20 it was not. The TwinCAT fixture solution's active platform was `TwinCAT CE7 (ARMV7)` — 32-bit,
+ * and nothing in the repo records the choice, because it lives in an uncommitted `.suo` (its sibling fixture
+ * project was on x64 at the same time). Every width in that recording came back 32-bit and read as a vendor
+ * difference, which is what put nine `plat_*` fixtures on the TwinCAT triage backlog; `__XADD` went further and
+ * reported `Internal Error (ARM): RiscFrontEnd: Unknown operator`, a code generator the fixtures never meant to
+ * exercise. The platform is one click in a toolbar dropdown and leaves no trace in git, so the only durable
+ * guard is this one: the recording states its own target, and a recording is not fit to adopt on another.
+ */
+function targetWidth(t: Record<string, Row>): string {
+  const m = t["plat_xint_into_string"]?.diagnostics?.[0]?.message.match(/Cannot convert type '(\w+)'/)
+  return m?.[1] ?? "unknown"
+}
 function verify(vendor: string): number {
   const stem = `${vendor}.build`
   const fresh = `${stem}.new.json`
@@ -63,6 +82,9 @@ function verify(vendor: string): number {
   }
   const t = load(fresh)
   const committed = existsSync(join(RECORDINGS, `${stem}.json`)) ? load(`${stem}.json`) : {}
+  const width = targetWidth(t)
+  const wrongTarget = width !== "LINT"
+  console.log(`target: __XINT is ${width} — ${wrongTarget ? "NOT the 64-bit oracle, do not adopt" : "a 64-bit target, as intended"}`)
   const ok = Object.values(t).filter((r) => r.buildSuccess).length
   console.log(`${fresh}: ${Object.keys(t).length} fixtures, ${ok} build clean, ${Object.keys(t).length - ok} with diagnostics`)
 
@@ -93,7 +115,7 @@ function verify(vendor: string): number {
   console.log(`\nfixtures with no row in this run: ${missing.length}`)
   for (const m of missing.slice(0, 15)) console.log(`   ${m.name}`)
 
-  const bad = leaks.length + dropped.filter((n) => ALL_TESTS.find((x) => x.name === n)?.recorderSkip !== true && ALL_TESTS.some((x) => x.name === n)).length
+  const bad = (wrongTarget ? 1 : 0) + leaks.length + dropped.filter((n) => ALL_TESTS.find((x) => x.name === n)?.recorderSkip !== true && ALL_TESTS.some((x) => x.name === n)).length
   console.log(`\n${bad === 0 ? "OK to adopt (--write)" : "DO NOT ADOPT until each line above has a reason"}`)
   return bad === 0 ? 0 : 1
 }
@@ -114,6 +136,7 @@ function diff(): number {
     if (JSON.stringify(msgs(cs[n]!)) === JSON.stringify(msgs(tc[n]!))) sameMsgs++
   }
   console.log(`codesys ${Object.keys(cs).length}   twincat ${Object.keys(tc).length}   both ${both.length}`)
+  console.log(`target width: codesys __XINT=${targetWidth(cs)}  twincat __XINT=${targetWidth(tc)}`)
   console.log(`\nsame build verdict : ${sameVerdict}/${both.length} (${((100 * sameVerdict) / Math.max(1, both.length)).toFixed(1)}%)`)
   console.log(`  identical messages: ${sameMsgs}`)
   console.log(`  differing wording : ${sameVerdict - sameMsgs}`)

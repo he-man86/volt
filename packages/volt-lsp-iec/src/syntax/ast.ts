@@ -587,6 +587,15 @@ export interface GlobalVarList {
 export interface ParseError {
   message: string
   span: Span
+  /**
+   * THE TOKEN THIS IS THE "Unexpected token" ERROR ABOUT — set only for that one shape, and only so the
+   * analysis layer can word it per vendor (CODESYS "token", TwinCAT "Token"; measured 2026-09-20 on `echo_*`
+   * and every reserved-name cascade). The parser stays vendor-blind: it carries the FACT and `message` keeps a
+   * readable default, and `checkParseErrors` — which knows the vendor — renders the final wording. Without
+   * this the only other way to reach TwinCAT's spelling is a vendor-aware parser, which is a much larger
+   * change than one capital letter is worth.
+   */
+  unexpectedToken?: string
 }
 export interface ParseResult {
   units: TopLevel[]

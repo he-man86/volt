@@ -183,7 +183,7 @@ function parseExprOrAssign(cur: Cursor): Statement | undefined {
   // operator itself and stops — one message, no cascade (`sysop_position_bare_statement`).
   const head = cur.peek()
   if (head.kind === "keyword" && head.keyword === "__POSITION") {
-    cur.pushError(`Unexpected token '${head.text}' found`, head.span)
+    cur.pushError(`Unexpected token '${head.text}' found`, head.span, head.text)
     while (cur.peek().kind !== "eof" && !(cur.peek().kind === "punct" && cur.peek().text === ";")) cur.consume()
     cur.eatPunct(";")
     return undefined

@@ -796,7 +796,13 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // this: 96.1% identical build verdicts. CODESYS is now the UNDER-measured vendor at 866 — its recording still
   // covers only 893 fixtures, and re-recording it is the obvious next move.
   // 2200 -> 2203: the TwinCAT driver stopped gluing its build log onto three string-warning messages.
-  { vendor: "twincat", floor: 2203 },
+  // 2203 -> 2220 (2026-09-20). Five wording differences, measured on both recordings and now data in
+  // `messages.ts`: TwinCAT capitalises "Unexpected Token", drops the article and the full stop from
+  // "Assignment target not specified", upper-cases the names in a recursion chain, and never words a
+  // function's input count as a range. Plus two rules TwinCAT does not have at all (the ABSTRACT-keyword
+  // warning) and `INDEXOF`, which both vendors removed and word differently. No check changed its mind about
+  // anything — the LSP says what it said, in the vendor's spelling.
+  { vendor: "twincat", floor: 2220 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -840,7 +846,11 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 866 -> 2412 (2026-09-20). Like TwinCAT's jump the same day, this is COVERAGE and not precision: the CODESYS
   // recording covered 893 of 2530 fixtures — it had not been re-recorded since 2026-09-17, before the last of the
   // census sweeps — so two thirds of the suite could not agree because there was nothing to agree WITH.
-  { vendor: "codesys", floor: 2412 },
+  // 2412 -> 2418: six new fixtures, not six fixes. `cc_string_prefix_len_*` now sweeps EVERY capacity from 1
+  // to 10 instead of four of them, and the sweep confirms the prefix rule the LSP already implements
+  // (`n - 3`, and `n` when there is nothing to subtract from) against the "length mod 3" guess the old
+  // comment carried from three data points.
+  { vendor: "codesys", floor: 2418 },
 ]
 
 /**
@@ -912,23 +922,18 @@ const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
   "atomic_cas_dint",
   "atomic_cas_lint",
   "atomic_cas_lword",
-  "atomic_indexof_variable",
   "atomic_xadd_dint",
   "atomic_xadd_dword",
   "atomic_xadd_int",
   "atomic_xadd_lint",
   "atomic_xadd_lword",
-  "callshape_function_input_no_default",
   "cc2_base_and_interface_not_found",
-  "cc2_circular_inheritance",
   "cc2_var_in_interface",
   "cc3_pointer_conversions",
   "cc3_reference_assign",
-  "cc4_not_instantiable",
   "cc4_output_reference_type",
   "cc5_deprecated_functionblock_keyword",
   "cc5_new_in_expression",
-  "cc6_abstract_attribute_on_method",
   "cc6_loop_cannot_exit",
   "cc_enum_arg_into_uint",
   "cc_ldate_literal_into_date",
@@ -941,34 +946,20 @@ const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
   "cc_string_plain_long_init_too_long",
   "cc_string_prefix_len_1",
   "cc_wstring_init_too_long_2",
-  "echo_lower_case_function_name",
-  "echo_mixed_case_function_name",
-  "echo_mixed_case_il_operator",
-  "echo_upper_case_il_operator",
   "esc_high_only_one",
   "ir_initializer_warning_no_instance",
   "itf_var_section_declaration",
   "itf_var_section_inherited",
   "meet_bool_mod_int",
-  "network_unnamed_assignment_target",
-  "network_unnamed_group_operand",
-  "network_unnamed_input_pin",
-  "network_unnamed_instance",
-  "network_unnamed_target_behind_enable",
   "operand_compare_and_swap",
-  "operand_indexof",
   "operand_position",
   "operand_xadd",
   "plat_uxint_into_dint",
   "plat_uxint_into_lint",
-  "plat_uxint_into_string",
   "plat_uxint_meet_dint",
   "plat_xint_into_dint",
-  "plat_xint_into_string",
-  "plat_xint_meet_dint",
   "plat_xword_into_dint",
   "plat_xword_into_lint",
-  "plat_xword_into_string",
   "plat_xword_meet_dint",
   "sysop_position_as_argument",
   "sysop_position_bare_statement",

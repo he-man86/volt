@@ -21,8 +21,12 @@ import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkParseErrors(ctx: CheckContext, out: DiagnosticItem[]): void {
+  // The parser has no vendor, so one shape it produces arrives as a FACT (`unexpectedToken`) rather than as
+  // final text: both compilers report it, and they capitalise it differently (CODESYS "token", TwinCAT
+  // "Token" — `echo_*`, measured on both recordings 2026-09-20). Worded here, where the vendor is known.
   const emit = (e: ParseError): void => {
-    out.push({ severity: "error", span: e.span, source: SOURCE, code: "syntax-error", message: e.message })
+    const message = e.unexpectedToken === undefined ? e.message : ctx.messages.unexpectedToken(e.unexpectedToken)
+    out.push({ severity: "error", span: e.span, source: SOURCE, code: "syntax-error", message })
   }
   // Declaration structure — recorded on the top-level parse cursor (unit headers, VAR sections, type decls).
   for (const e of ctx.parseResult.errors) emit(e)

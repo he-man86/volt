@@ -199,10 +199,10 @@ test("an UNQUOTED attribute value is no value at all — the compiler reads the 
  *  records nothing (`cc6_abstract_attribute_on_fb`), on a METHOD it warns (`cc6_abstract_attribute_on_method`).
  *  `cc4_not_instantiable` carries it on BOTH and records one warning, so it could never say which — which is why
  *  the halves were measured separately. */
-function abstractWarnings(src: string): string[] {
+function abstractWarnings(src: string, vendor: "codesys" | "twincat" = "codesys"): string[] {
   const parseResult = parseSource(src)
   const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "abstract-keyword-missing")
     .map((d) => d.message)
 }
@@ -215,6 +215,13 @@ test("the abstract ATTRIBUTE on a method without the keyword warns", () => {
   ])
 })
 
+// TwinCAT never deprecated the spelling and builds both fixtures clean (`cc4_not_instantiable`,
+// `cc6_abstract_attribute_on_method`, recorded 2026-09-20), so on TwinCAT this is a false positive.
+test("the warning is CODESYS-only", () => {
+  const src = FB + "\n{attribute 'abstract'}\nMETHOD Shape : INT\nShape := 1;\nEND_METHOD\n"
+  expect(abstractWarnings(src, "codesys")).toEqual(["The ABSTRACT keyword is missing"])
+  expect(abstractWarnings(src, "twincat")).toEqual([])
+})
 test("the same attribute on a FUNCTION_BLOCK is silent — measured, not assumed", () => {
   expect(abstractWarnings("{attribute 'abstract'}\n" + FB)).toEqual([])
 })

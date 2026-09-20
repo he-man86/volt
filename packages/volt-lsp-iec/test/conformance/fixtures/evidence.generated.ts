@@ -6,7 +6,7 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1892
+ *   confirmed    1898
  *   refused       510
  *   not-lowered    89
  *   lsp-gap         3
@@ -528,9 +528,15 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   cc_string_plain_long_init_too_long: "confirmed",
   cc_string_plus_string: "refused",
   cc_string_prefix_len_1: "confirmed",
+  cc_string_prefix_len_10: "confirmed",
+  cc_string_prefix_len_2: "confirmed",
+  cc_string_prefix_len_3: "confirmed",
+  cc_string_prefix_len_4: "confirmed",
   cc_string_prefix_len_5: "confirmed",
   cc_string_prefix_len_6: "confirmed",
   cc_string_prefix_len_7: "confirmed",
+  cc_string_prefix_len_8: "confirmed",
+  cc_string_prefix_len_9: "confirmed",
   cc_string_times_int: "refused",
   cc_sub_udint_dint: "confirmed",
   cc_time_microsecond_literal: "refused",

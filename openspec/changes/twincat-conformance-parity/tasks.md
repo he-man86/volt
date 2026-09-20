@@ -53,22 +53,45 @@
       quotes is ST source full of string literals. It swallowed the error list's path echo and the build log, so a
       family of warnings TwinCAT reports IDENTICALLY read as divergence. Backlog 79 -> 69, agreement 2200 -> 2203.
       The cheapest vendor difference to close is the one that was never real.
-- [ ] **The platform-width family (9 entries) — INVESTIGATED, deliberately not "fixed".**
-      `__XINT`/`__UXINT`/`__XWORD` resolve by TARGET WIDTH. CODESYS records LINT/ULINT/LWORD, TwinCAT records
-      DINT/UDINT/DWORD, consistently across all 18 `plat_*` cells, and the LSP hardcodes the 64-bit half. Both
-      `elementary.ts` and the fixture family say "Volt has no 32-bit device to record against" — **that premise is
-      now false** and both notes are corrected.
-      - It is NOT a vendor property and must not become a vendor branch: TwinCAT ships x64 runtimes, CODESYS ships
-        32-bit PLCs. Keying on vendor would be right for these two fixture projects and wrong in principle.
-      - The decider is the DEVICE. The exec oracle's is `CODESYS Control Win V3 x64` and says so in its NAME; the
-        TwinCAT project carries no marker and takes the 32-bit default. Only 1 of the 6 corpus projects has a
-        device name carrying bitness, so the width is usually not discoverable as things stand.
-      - Exposure today is NIL and measured: all 1833 corpus uses (`__XWORD` 1570, `__UXINT` 193, `__XINT` 70) are
-        inside `Library Manager/`, which the server skips. The 9 TwinCAT false positives are the whole cost.
-      - The fix is one rule with no vendor branch: take the width from the project's target, and say NOTHING when
-        it is not knowable. It needs a way to know the target, which is `device-tree-exposure` work, and it trades
-        ~9 agreement points for removing a class of false positive. That trade is a decision, not a cleanup, which
-        is why this task is open rather than done.
+- [x] **The platform-width family (11 entries) — CLOSED, and not in the LSP.**
+      `__XINT`/`__UXINT`/`__XWORD` are as wide as the target's pointer. The CODESYS recording said LINT/ULINT/
+      LWORD, the TwinCAT one said DINT/UDINT/DWORD across all 18 `plat_*` cells, and the LSP hardcodes the
+      64-bit answer — so it read as a vendor difference and put nine fixtures on the backlog.
+      - **It was the fixture project's target platform.** The TwinCAT solution's active configuration was
+        `TwinCAT CE7 (ARMV7)` — 32-bit ARM, a Windows CE device nobody meant to measure. Proof, three ways: the
+        DTE reported it, `_Boot/TwinCAT CE7 (ARMV7)` is the only boot folder in the project, and the recording
+        itself carried `Internal Error (ARM): RiscFrontEnd: Unknown operator` on the `__XADD` fixtures. Its
+        sibling fixture project was on `TwinCAT RT (x64)` at the same time, so this was not a default — it was
+        one click in a toolbar dropdown, made once, months ago.
+      - Switched to `TwinCAT RT (x64)` and re-recorded: TwinCAT answers **LINT/ULINT/LWORD**, identical to
+        CODESYS. Eleven entries leave the backlog and the LSP does not change. It never was a vendor property —
+        TwinCAT ships x64 runtimes and CODESYS ships 32-bit PLCs — and a vendor branch would have been right
+        for these two projects and wrong in principle.
+      - **The choice leaves no trace in git**: it lives in an uncommitted `.suo`. So the guard goes where the
+        evidence is — `check-recording.ts` now reads the target's pointer width back out of the recording
+        (`plat_xint_into_string` names it in its own error) and refuses to adopt one that is not 64-bit.
+- [ ] **The atomics (13 entries) — measured, and they split three ways.** One re-record on x64 separated them:
+      - `INDEXOF` (2): both vendors removed it and both say so, differing in nothing but capitalisation.
+        Closed as a wording entry in `messages.ts`, which is where vendor differences are data.
+      - `__COMPARE_AND_SWAP` (4): TwinCAT does not have it — "Identifier '__COMPARE_AND_SWAP' not defined".
+      - `__XADD` (5): TwinCAT HAS it with a different signature. Ours (CODESYS's) takes `POINTER TO DINT`;
+        TwinCAT's takes the DINT itself, which is why `atomic_xadd_dint` now builds CLEAN there while CODESYS
+        refuses it. The ARM internal errors were hiding this — on x64 the front end gets far enough to answer.
+      The last two need a VENDOR-KEYED INTRINSIC VOCABULARY, and that is a design decision, not a table edit:
+      `__POSITION` and friends are LEXER keywords today (`syntax/tokens.ts`), and the parser bakes in CODESYS's
+      token-eating behaviour for them. Making the vocabulary vendor-keyed means `parseSource` takes a vendor,
+      which every caller and both conformance harnesses would feel. Worth doing — it is the honest model, and it
+      would make TwinCAT's "Identifier 'X' not defined" fall out for free instead of being suppressed — but it
+      is a change to propose, not to slip in under a triage item.
+- [ ] **`__POSITION` (7 TwinCAT + 2 CODESYS) — measured, still open.** CODESYS types it as a sized string
+      LITERAL (`STRING(INT#23)` in a body, `STRING(INT#13)` in a declaration); the LSP says plain `STRING`, so
+      the CODESYS cells are false positives too. `scripts/probe-position-length.ts` (new) pins the size with
+      twelve probes: **CONSTANT + digits(line) + digits(column)**, CONSTANT = 21 in an implementation and 11 in
+      a declaration, POU name irrelevant. That is enough to reproduce the message and NOT enough to ship: 21 and
+      11 are unexplained, and a magic number with a provenance note is not a measurement. The simulator can read
+      the actual string (`record:exec` records VALUES) — that is the next step. The TwinCAT half is the
+      vocabulary question above.
+
 - [ ] The remaining ~60, by family: the atomics, `__POSITION`, the unnamed network-text target, IL-operator
       casing, and the individually-named rest. Each wants the same treatment — ask whether the vendors really
       differ before teaching the LSP that they do.

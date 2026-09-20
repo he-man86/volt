@@ -6,10 +6,10 @@ import { parseSource } from "../../../syntax/index.js"
 import { buildSymbolTable } from "../../../symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
-const codes = (src: string): { code: string; message: string }[] => {
+const codes = (src: string, vendor: "codesys" | "twincat" = "codesys"): { code: string; message: string }[] => {
   const pr = parseSource(src)
   const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-  return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map(
+  return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) }).map(
     (d) => ({ code: d.code, message: d.message }),
   )
 }
@@ -22,6 +22,14 @@ test("C0091: an FB extending itself is flagged (cycle, not not-found)", () => {
   expect(codes(`FUNCTION_BLOCK FB EXTENDS FB\nEND_FUNCTION_BLOCK`).some((d) => d.code === "base-class-not-found")).toBe(false)
 })
 
+// The chain is the one thing the vendors word differently: TwinCAT upper-cases every name in it, CODESYS
+// echoes them as declared (`cc2_circular_inheritance`, both recordings 2026-09-20).
+test("C0091: TwinCAT upper-cases the names in the chain", () => {
+  const src = `FUNCTION_BLOCK FB_circleA EXTENDS FB_circleA\nEND_FUNCTION_BLOCK`
+  const of = (v: "codesys" | "twincat") => codes(src, v).filter((d) => d.code === "circular-inheritance").map((d) => d.message)
+  expect(of("codesys")).toEqual(["Recursion in base function block list: FB_circleA -> FB_circleA"])
+  expect(of("twincat")).toEqual(["Recursion in base function block list: FB_CIRCLEA -> FB_CIRCLEA"])
+})
 test("C0090: an EXTENDS base that resolves nowhere is flagged TWICE; a resolved base is not", () => {
   // the definition it could not find, and the TYPE the FB therefore does not have — an unresolved INTERFACE gets
   // only the first (conformance `cc2_base_and_interface_not_found`)

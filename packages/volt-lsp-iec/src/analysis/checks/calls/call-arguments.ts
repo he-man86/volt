@@ -190,8 +190,12 @@ function checkCall(
         span: callSpan,
         source: SOURCE,
         code: "function-argument-count",
+        // TWINCAT NEVER WORDS IT AS A RANGE: it says "requires exactly '2' inputs" where CODESYS says "at
+        // least '1' and maximum '2'", counting ALL the inputs either way (`callshape_function_input_no_default`
+        // and `callshape_input_left_out`, its recording 2026-09-20). Whether a default also stops being
+        // OPTIONAL there is a different question and not measured: this changes the wording, not the trigger.
         message:
-          required.length === max
+          required.length === max || ctx.config.vendor === "twincat"
             ? ctx.messages.functionRequiresInputs(callee.sym.name, max)
             : ctx.messages.functionRequiresInputRange(callee.sym.name, required.length, max),
       })

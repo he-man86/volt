@@ -30,8 +30,11 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
   // attribute on a FUNCTION_BLOCK records NOTHING (`cc6_abstract_attribute_on_fb`), on a METHOD it warns
   // (`cc6_abstract_attribute_on_method`). `cc4_not_instantiable` carries it on both and records one warning, so
   // it could never say which — measuring the halves separately is what answered it.
+  // CODESYS ONLY, measured: TwinCAT builds both fixtures CLEAN (`cc4_not_instantiable`,
+  // `cc6_abstract_attribute_on_method`, its recording 2026-09-20). It warns about a spelling Beckhoff never
+  // deprecated, so it is one rule of several in this check rather than a check to move into CODESYS_ONLY.
   const units = [...ctx.parseResult.units].sort((a, b) => a.span.start - b.span.start)
-  for (const p of pragmas) {
+  for (const p of ctx.config.vendor === "codesys" ? pragmas : []) {
     if (p.attributeName?.toLowerCase() !== "abstract") continue
     // the pragma decorates the next unit that opens after it
     const owner = units.find((u) => u.span.start >= p.span.end)

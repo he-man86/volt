@@ -377,6 +377,19 @@ test("a FUNCTION's inputs WITHOUT a default are required — the count is a rang
   expect(call("baseValue := 7, extra := 1")).toEqual([])
 })
 
+// TwinCAT reports the same missing input and never words it as a range — "requires exactly '2' inputs",
+// counting all of them (`callshape_function_input_no_default`, its recording 2026-09-20).
+test("the range wording is CODESYS's; TwinCAT says exactly", () => {
+  const src = `FUNCTION F_c : INT\nVAR_INPUT\nbaseValue : INT := 5;\nextra : INT;\nEND_VAR\nF_c := baseValue + extra;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_u\nVAR\nn : INT;\nEND_VAR\nn := F_c(baseValue := 7);\nEND_FUNCTION_BLOCK`
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const of = (vendor: "codesys" | "twincat") =>
+    computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
+      .filter((d) => d.code === "function-argument-count")
+      .map((d) => d.message)
+  expect(of("codesys")).toEqual(["Function 'F_c' requires at least '1' and maximum '2' inputs"])
+  expect(of("twincat")).toEqual(["Function 'F_c' requires exactly '2' inputs"])
+})
 test("an FB's inputs are NOT required — they are retained between calls", () => {
   const src = `FUNCTION_BLOCK FB_w\nVAR_INPUT\nneeded : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nFUNCTION_BLOCK FB_u\nVAR\nw : FB_w;\nEND_VAR\nw();\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src)

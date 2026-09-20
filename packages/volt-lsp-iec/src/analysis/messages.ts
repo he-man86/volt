@@ -440,7 +440,9 @@ export function messagesFor(vendor: Vendor): Messages {
       `No matching 'FB_Init' method found for instantiation of ${fb}. Specified 'FB_Init' method requires exactly ${inputs} inputs. Check syntax '${syntax}'`,
     cannotCallType: (type) => `Cannot call object of type '${type}'`,
     callTargetExpected: (name) => `Program name, function or function block instance expected instead of '${name}'`,
-    unexpectedToken: (token) => `Unexpected token '${token}' found`,
+    // The same finding, capitalised differently: CODESYS "token", TwinCAT "Token". Measured on both
+    // recordings 2026-09-20 (`echo_*`, and every reserved-name cascade).
+    unexpectedToken: (token) => `Unexpected ${tc ? "Token" : "token"} '${token}' found`,
     semicolonExpectedInsteadOf: (token) => `';' expected instead of '${token}'`,
     expressionExpectedInsteadOf: (token) => `Expression expected instead of '${token}'`,
     // CODESYS SP21, measured with the pragma as the only variable (`newdel_without_pragma` / `newdel_with_pragma`).
@@ -477,11 +479,12 @@ export function messagesFor(vendor: Vendor): Messages {
     // PROVISIONAL doc wording (C0582) — unverifiable: the object tree refuses the duplicate at create, before any build.
     duplicateMethod: (name) =>
       `There is another method with the name '${name}'. Use the Attribute {attribute 'overloaded'} if you want to define overloaded methods.`,
-    // Both MEASURED on live CODESYS SP21; unverified on TwinCAT (see the interface docs), so the CODESYS
-    // wording stands for both rather than a guessed TC spelling.
+    // MEASURED on both vendors now (`network_unnamed_*`, 2026-09-20) — this note used to say TwinCAT was
+    // unverified and the CODESYS wording stood for both. It does not: they agree on the operand message
+    // word for word, and disagree on the other two in nothing but capitalisation and a full stop.
     unresolvedOperand: () => "Expression expected instead of '?'",
-    unresolvedOperandToken: () => "Unexpected token '?' found",
-    unresolvedAssignTarget: () => "The assignment target is not specified.",
+    unresolvedOperandToken: () => (tc ? "Unexpected Token '?' found" : "Unexpected token '?' found"),
+    unresolvedAssignTarget: () => (tc ? "Assignment target not specified" : "The assignment target is not specified."),
     undefinedIdentifier: (name) => `Identifier '${name}' not defined`,
     // Live-verified both vendors (2026-07-11): CODESYS capital "Ambiguous", TwinCAT lowercase "ambiguous".
     ambiguousGlobalName: (name) => `${tc ? "ambiguous" : "Ambiguous"} use of name '${name}'`,
@@ -607,8 +610,12 @@ export function messagesFor(vendor: Vendor): Messages {
     // Measured on CODESYS (`refuse_super_without_base`): the compiler does not say "there is no base", it says the
     // thing in call position is not callable — because with nothing to extend, `SUPER^` names nothing at all.
     superWithoutBase: () => `Program name, function or function block instance expected instead of 'SUPER^'`,
+    // Both vendors removed it and both say so; they disagree on nothing but capitalisation (`atomic_indexof_variable`,
+    // `operand_indexof`, measured on both recordings 2026-09-20).
     indexofRemoved: () =>
-      `The operator INDEXOF is no longer supported. Use ADR instead. ADR on a POU name returns a pointer to a pointer to the function code.`,
+      tc
+        ? `the operator 'INDEXOF' is no longer supported. Use ADR instead. ADR on a POU-Name returns a Pointer to a Pointer to the function code.`
+        : `The operator INDEXOF is no longer supported. Use ADR instead. ADR on a POU name returns a pointer to a pointer to the function code.`,
     outputCantBeReference: () => (tc ? `Outputs can't be of type 'REFERENCE TO'` : `Outputs can't be of type REFERENCE TO`),
     notInstantiable: (typeName) => `'${typeName}' is of type FUNCTION and cannot be instantiated`,
     pouObsolete: (name, message) => `POU '${name}' has been marked as obsolete: ${message}`,
@@ -620,7 +627,9 @@ export function messagesFor(vendor: Vendor): Messages {
     referenceAssignWriteAccess: () => `Reference assign needs variable with write access`,
     attributeValueString: (found) => `Single byte string expected for an attribute value instead of '${found}'`,
     abstractKeywordMissing: () => `The ABSTRACT keyword is missing`,
-    circularInheritance: (chain) => `Recursion in base function block list: ${chain}`,
+    // TwinCAT UPPER-CASES the names in the chain, CODESYS echoes them as declared — the only difference between
+    // the two recordings of `cc2_circular_inheritance` (2026-09-20).
+    circularInheritance: (chain) => `Recursion in base function block list: ${tc ? chain.toUpperCase() : chain}`,
     baseClassNotFound: (name) => `No definition found for base class '${name}'`,
     interfaceNotFound: (name) => `No definition found for interface '${name}'`,
     cannotCallObjectOfType: (kind) => `Cannot call object of type '${kind}'`,

@@ -70,6 +70,13 @@ test("vendor-keyed wording: MOD on REAL", () => {
   )
 })
 
+// A reserved IL operator used as a name: both vendors echo the token back, and capitalise the word
+// differently while they do it (conformance `echo_*`, both recordings 2026-09-20).
+test("vendor-keyed wording: the echoed unexpected token", () => {
+  const src = `FUNCTION_BLOCK F\nVAR\n LT : BOOL;\n ok : BOOL;\nEND_VAR\nok := TRUE;\nEND_FUNCTION_BLOCK`
+  expect(diag(src, "codesys").map((d) => d.message)).toContain("Unexpected token 'LT' found")
+  expect(diag(src, "twincat").map((d) => d.message)).toContain("Unexpected Token 'LT' found")
+})
 test("vendor-keyed wording: ABSTRACT instantiation", () => {
   const src = `FUNCTION_BLOCK ABSTRACT FB_A\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK F\nVAR\n x : FB_A;\nEND_VAR\nEND_FUNCTION_BLOCK`
   expect(diag(src, "codesys").find((d) => d.code === "abstract-instantiation")?.message).toBe(

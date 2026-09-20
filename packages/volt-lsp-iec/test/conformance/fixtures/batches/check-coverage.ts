@@ -298,7 +298,18 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
   // Recorded: the message shows a prefix of the literal AS WRITTEN (opening quote included), and its length follows the
   // destination, not the content — STRING(2) took 2 characters every time, STRING(4) 1, STRING(3) 0 ("length mod 3"
   // fits, from three lengths only). One literal into four more lengths; mod 3 predicts 1, 2, 0, 1.
-  ...([1, 5, 6, 7] as const).map((n) =>
+  //
+  // MOD 3 IS DEAD (2026-09-20). The sweep below runs every capacity from 1 to 10 and CODESYS prints prefixes of
+  // 1, 2, 0, 1, 2, 3, 4, 5, 6 characters for 1..9 — i.e. `n - 3`, and `n` itself for the two capacities too small
+  // to subtract from. That is the rule `messages.stringConstantTooLong` already implements, inferred from the
+  // three points above; seven more points say it was inferred right. STRING(10) is an exact fit and silent.
+  // …and then the family answered a question it was not asked. TwinCAT does not warn AT ALL when the
+  // destination is STRING(1) or STRING(2) — silent on all eight of the small-destination fixtures above and on
+  // `cc_string_prefix_len_1`, while agreeing with CODESYS word for word from STRING(3) up. One literal into
+  // EVERY capacity from 1 to 10 turns that from an observation across differently-worded fixtures into a
+  // controlled sweep with one variable: 10 is an exact fit and must be silent on both, so the sweep also says
+  // where the warning STOPS rather than only where TwinCAT starts.
+  ...([1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const).map((n) =>
     fb(`cc_string_prefix_len_${n}`, `'abcdefghij' into STRING(${n}) → how much of it is printed?`, `s${n} : STRING(${n}) := 'abcdefghij';`),
   ),
   // consolidate-lsp-structure A8 — `this-super-context.ts` compares `THIS`/`SUPER` exactly, so a lower-case `this` or
