@@ -296,7 +296,10 @@ sta.SetApartmentState(ApartmentState.STA);
 sta.Start();
 
 using var host = new BridgePipeHost(driver, pipe);
-// The bind is synchronous (PipeServer.Start), so a name collision or an ACL denial faults HERE. Die with the reason
+// The bind is synchronous (PipeServer.Start), so an ACL denial — or ANOTHER BRIDGE ALREADY SERVING THIS NAME —
+// faults HERE. The second of those is new: a name collision did NOT fault until `PipeServer` started taking a
+// named mutex for it, because a second server on a live pipe name is just another instance of the same pipe and
+// Windows splits clients between them (see the long note there, and what it cost on 2026-09-20). Die with the reason
 // in the log and a non-zero exit — the supervisor logs the exit and restarts — instead of printing a tidy "serving"
 // line over a pipe nothing is listening on. CODESYS's PipeHost.Start has the symmetric catch arm.
 try { host.Start(); }

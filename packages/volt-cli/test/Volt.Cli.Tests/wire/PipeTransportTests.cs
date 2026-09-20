@@ -344,4 +344,32 @@ public class PipeTransportTests
     private static bool AnyServing(string pipe) =>
         new PipeClient(pipe).Call("health").GetProperty("projects").EnumerateArray()
             .Any(p => p.TryGetProperty("status", out var s) && s.GetString() != "idle");
+
+    /// <summary>
+    /// ONE SERVER PER PIPE NAME. Windows does not enforce this: a second <c>NamedPipeServerStream</c> on a live
+    /// name is another INSTANCE of the same pipe (the accept loop needs several, so the count cannot be capped at
+    /// one), and the OS then hands each client connection to whichever instance is waiting. Two bridges answer
+    /// the same name and a single client is split across both at random.
+    ///
+    /// Measured 2026-09-20 on TwinCAT, where `ide.ps1` and the connector tray each launched a worker on
+    /// `volt.bridge.twincat.46264` from DIFFERENT builds: `connect` answered ok from one and the next `refs`
+    /// answered PLC_DISCONNECTED from the other. Both comments that should have caught it asserted a name
+    /// collision would fault at the bind — it never did, which is why nothing guarded it.
+    /// </summary>
+    [Fact]
+    public void A_second_server_on_a_live_pipe_name_is_refused()
+    {
+        var pipe = "volt.test." + Guid.NewGuid().ToString("N");
+        using var first = new BridgePipeHost(new FakeIde(Array.Empty<FakeIde.Item>()), pipe);
+        first.Start();
+
+        using var second = new BridgePipeHost(new FakeIde(Array.Empty<FakeIde.Item>()), pipe);
+        var ex = Assert.ThrowsAny<Exception>(() => second.Start());
+        Assert.Contains("already served", ex.Message);
+
+        // and the name comes BACK, so a restart after a clean stop is not blocked by our own guard
+        first.Stop();
+        using var third = new BridgePipeHost(new FakeIde(Array.Empty<FakeIde.Item>()), pipe);
+        third.Start();
+    }
 }

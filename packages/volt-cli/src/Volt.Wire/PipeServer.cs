@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipes;
 using System.Text;
@@ -25,6 +26,13 @@ public sealed class PipeServer : IDisposable
     private readonly string _pipeName;
     private readonly PipeDispatch _dispatch;
     private volatile bool _running;
+    /// <summary>Held for as long as this process serves <see cref="_pipeName"/> — see <see cref="Start"/>.</summary>
+    private Mutex? _single;
+
+    /// <summary>The names served by THIS process. The cross-process mutex cannot cover them: mutex ownership is
+    /// re-entrant for the owning THREAD, so two hosts started on one thread both acquire it and the second
+    /// sails through. Caught by the test that pins this, which necessarily runs both in one process.</summary>
+    private static readonly HashSet<string> Served = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
     public PipeServer(string pipeName, PipeDispatch dispatch)
     {
@@ -35,11 +43,38 @@ public sealed class PipeServer : IDisposable
     public void Start()
     {
         if (_running) return;
+
+        // ONE SERVER PER NAME, AND WINDOWS WILL NOT ENFORCE IT. Both this comment and the one in
+        // `Volt.Ide.Twincat/Program.cs` used to say a "name collision" faults at the bind below. It does not: a
+        // second `NamedPipeServerStream` on a live name is another INSTANCE of the same pipe (we pass
+        // `MaxAllowedServerInstances`, and must — the accept loop arms a fresh instance per connection). Both
+        // processes then "serve" the name and the OS hands each client to whichever instance happens to be
+        // waiting, so calls from ONE client are split across two bridges at random.
+        //
+        // Measured 2026-09-20 on TwinCAT: `ide.ps1` built a fresh worker and launched it, the connector tray
+        // launched its own from an 11-day-old build, and both served `volt.bridge.twincat.46264`. `connect`
+        // answered `{ok:true}` from one and the very next `refs` answered PLC_DISCONNECTED from the other —
+        // for ten minutes that reads as a bridge bug in the vendor driver, which is where the debugging goes.
+        // A recording taken in that state is served by a coin flip; `live-tc-snapshot-was-stale-bridge` is what
+        // that costs when nobody notices.
+        //
+        // A MUTEX, not a probe-then-bind: two workers starting together would both probe an unserved pipe and
+        // both proceed. `WaitOne(0)` is atomic, which is the whole point.
+        // IN-PROCESS FIRST, for the reason on `Served`.
+        lock (Served)
+        {
+            if (!Served.Add(_pipeName))
+                throw new IOException(
+                    $"pipe '{_pipeName}' is already served by this process — refusing a second server on the same name.");
+        }
+        try { TakeName(); }
+        catch { lock (Served) { Served.Remove(_pipeName); } throw; }
+
         // Bind the FIRST pipe instance HERE, synchronously, and let the failure reach the caller. Created inside the
-        // accept thread instead (as it was), a name collision or an ACL denial killed the loop with nobody watching
-        // while the caller reported success — CODESYS's PipeHost.Start returned "Volt bridge started on pipe …" into
-        // the IDE message window and wrote "bridge ready" to the log, over a pipe nothing was listening on. Both hosts
-        // already have a catch arm around this call; the reason now reaches it.
+        // accept thread instead (as it was), an ACL denial killed the loop with nobody watching while the caller
+        // reported success — CODESYS's PipeHost.Start returned "Volt bridge started on pipe …" into the IDE message
+        // window and wrote "bridge ready" to the log, over a pipe nothing was listening on. Both hosts already have
+        // a catch arm around this call; the reason now reaches it.
         var first = new NamedPipeServerStream(_pipeName, PipeDirection.InOut,
             NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
         _running = true;
@@ -50,12 +85,55 @@ public sealed class PipeServer : IDisposable
     {
         if (!_running) return;
         _running = false;
+        ReleaseName();
         // Wake the blocking WaitForConnection so the loop sees !_running and exits.
         try { using var nudge = new NamedPipeClientStream(".", _pipeName, PipeDirection.InOut); nudge.Connect(200); }
         catch { /* nothing listening / already gone */ }
     }
 
-    public void Dispose() => Stop();
+    // Stop() early-returns when the accept loop already cleared _running (it does so when arming an instance
+    // fails), so the name would stay held by a server that is no longer listening. Releasing here too makes
+    // disposal the one path that always frees it; ReleaseName is idempotent.
+    public void Dispose() { Stop(); ReleaseName(); }
+
+    /// <summary>Claim the name ACROSS processes. Throws when another process already serves it.</summary>
+    private void TakeName()
+    {
+        _single = new Mutex(initiallyOwned: false, MutexName(_pipeName));
+        bool owned;
+        // An ABANDONED mutex means the previous server died without releasing — we DO own it now, and taking over
+        // is right: that is the crashed-worker-restarts case, which must not be mistaken for a live collision.
+        try { owned = _single.WaitOne(TimeSpan.Zero, exitContext: false); }
+        catch (AbandonedMutexException) { owned = true; }
+        if (owned) return;
+        _single.Dispose();
+        _single = null;
+        throw new IOException(
+            $"pipe '{_pipeName}' is already served by another process — refusing to start a second server on " +
+            "the same name, because the OS would split clients between them at random. Stop the other bridge " +
+            "(the connector tray spawns one per IDE) and retry.");
+    }
+
+    /// <summary>The single-instance name for a pipe. `Local\` — per logon session, which is the scope the
+    /// collision happens in: the connector tray and a dev script run as the same user, in the same session.</summary>
+    private static string MutexName(string pipe) => $@"Local\volt-pipe-{pipe}";
+
+    /// <summary>Give the name back. Idempotent, and tolerant of not owning it — a server that never acquired
+    /// (or already released) must not turn teardown into an exception.
+    /// <para>A <see cref="Mutex"/> is THREAD-AFFINE: only the thread that took it may release it, and
+    /// <see cref="Stop"/> is routinely called from another one, in which case the release below throws and is
+    /// swallowed. That is not a leak — the OS drops the handle when the process exits, and the next server sees
+    /// it ABANDONED and takes over, which <see cref="Start"/> handles. The real guarantee is therefore
+    /// PER-PROCESS, which is exactly the scope of the problem: two BRIDGES, not two threads.</para></summary>
+    private void ReleaseName()
+    {
+        lock (Served) { Served.Remove(_pipeName); }
+        var held = Interlocked.Exchange(ref _single, null);
+        if (held is null) return;
+        try { held.ReleaseMutex(); }
+        catch (ApplicationException) { /* not the owning thread, or already released */ }
+        held.Dispose();
+    }
 
     // <paramref name="first"/> is the instance Start() already bound — its failure was the caller's to see. Every
     // later instance is armed here, and failing to arm one ENDS the loop: record it (this fires at most once per
