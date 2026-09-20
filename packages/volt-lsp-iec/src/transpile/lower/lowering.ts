@@ -250,7 +250,7 @@ export class Lowering {
    * The EXPRESSION is kept, not a lowered value: it is lowered once every slot exists, so an initializer may name a
    * variable declared after it — which `ADR(x)` does 180 times in the corpus.
    */
-  readonly pendingInits: { name: Identifier; type: Type; expr: Expr; span: Span; slot: number }[] = []
+  readonly pendingInits: { name: Identifier; type: Type; expr: Expr; span: Span; slot: number; op?: "REF=" }[] = []
 
   /** `pendingInits` lowered, memoized — built BEFORE any body, so a pointer this step fills is known to be filled
    *  when a body dereferences it (`shared.pointers`), and consumed by the init step at the end. `statements`

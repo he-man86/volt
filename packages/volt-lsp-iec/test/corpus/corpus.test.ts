@@ -502,14 +502,18 @@ test("an embedded source snippet compares equal however it was spaced", () => {
  * `index.ts` is the contract a reader sees, and this is what keeps it true. They are exact rather than a floor on
  * purpose: a floor lets the documented figure rot quietly upward while still "passing".
  */
-const REACH = { bodies: 304, lowered: 55 }
+// 55 -> 56 and 543/14 -> 549/20 on 2026-09-20: a declaration-level `REF=` (`r : REFERENCE TO T REF= x`) now binds
+// its target. The parser accepted the operator and did not record WHICH one it was, so every such declaration
+// reached lowering as a plain assignment and every read of the reference was refused `pointer-order` — 72 corpus
+// POUs stopped hitting that refusal at all (reach 177 -> 105).
+const REACH = { bodies: 304, lowered: 56 }
 /**
  * The METHOD/ACTION half of the same contract, measured 2026-09-19. `index.ts` said **none reachable** and that was
  * never true: a routine lowers when a POU that lowers calls it, and 543 do. Only 14 come from a POU that RUNS —
  * the rest are lifecycle methods (`FB_Init`, `call_after_global_init_slot`) reached from declaration-only POUs,
  * which is why the claim survived: nobody counted the half that was not zero.
  */
-const ROUTINES = { routines: 543, routinesFromRunning: 14 }
+const ROUTINES = { routines: 549, routinesFromRunning: 20 }
 
 /** Every node kind the IR defines — `IrExpr` and `IrStmt`, from `ir.ts`. Kept by hand so ADDING one shows up here. */
 const EXPR_KINDS = ["const", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch"] as const

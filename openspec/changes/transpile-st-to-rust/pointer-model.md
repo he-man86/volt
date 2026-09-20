@@ -170,6 +170,42 @@ the work it is waiting on.
 **D5 — a ROOT with an unsupplied pointer input is refused, and says why.** Same as `fb-init-argument`: a root has
 no caller, and CODESYS does not run these either. Not a gap; a harness limit that should say so in its message.
 
+## 7b. What the histogram found, which §8 did not plan for
+
+**Measured 2026-09-20.** `pointer-order`'s message named no variable, so its 177 POUs were one undifferentiated
+pile and `--why` could not tell the forms apart. Naming the pointer and its section turned it into a histogram:
+
+| shape | POU-hits | the form it needs |
+|---|---|---|
+| a pointer **field** | 263 | 3 — the handle |
+| a pointer **variable** | 232 | 1 or 3 |
+| a pointer **input** | 91 | **2 — §8 step 1** |
+| a routine local | 46 | — |
+| an in-out | 8 | — |
+
+Two things follow. **§8 ordered by cost, not by prize** — step 1 (form 2) is the third-largest class, and the
+histogram says so; that is a fair trade for "needs no new IR", but it should be stated rather than implied.
+
+And the largest single line — 141 POUs, all reaching `ONTIME.fb`'s `refSeconds` — **was not a memory-model
+problem at all.** It is `refSeconds : REFERENCE TO UDINT REF= udiSeconds`, a reference bound at its DECLARATION.
+The parser wrote `c.eatPunct(":=") ?? c.eatPunct("REF=")`: it accepted either operator and recorded neither, so
+every such declaration reached every consumer as an ordinary assignment. Lowering bound no target and refused
+each read; form 1 already handles this exactly, and had simply never been given the target. Recording the
+operator (`VarDecl.initOp`) took **`pointer-order` from 177 POUs to 105**, lowered POUs 55 → 56, and reached
+routines 543 → 549 (14 → 20 from a POU that runs).
+
+The same dropped operator was corrupting source. `print.ts` emitted `:=` for every declaration initializer, so
+FORMATTING a file rewrote `r : REFERENCE TO T REF= x` into `r : REFERENCE TO T := x` — a bind silently turned
+into a store through an unbound reference, in the one component whose contract is that it does not change
+meaning. It was invisible while the AST dropped the operator: the corpus round-trip gate compared two ASTs that
+had both forgotten it, and failed on three real files the moment `initOp` existed.
+
+**Still unmeasured, and deliberately not guessed at:** every conformance fixture binds with a STATEMENT
+(`ref_ REF= p;`). The DECLARATION form has no vendor recording. What is implemented composes two measured facts —
+the statement bind, and initializers running once in declaration order before the first scan — rather than
+inventing a third, and the src tests pin read, write, survival across scans and per-instance independence. It
+wants its own fixture family before it is called measured.
+
 ## 8. Order of work
 
 Sized by what each step unblocks, smallest first — and the first two need no new IR:

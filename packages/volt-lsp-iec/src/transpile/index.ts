@@ -27,16 +27,17 @@
  *
  * **The reach contract: a STATED SUBSET, and it is small.** The input contract above says which programs are
  * *defined*; this says which are *reached*. Measured 2026-09-19 over the 6-project corpus (29,359 files) and
- * enforced by `test/corpus/corpus.test.ts`, which fails if these numbers rot:
+ * enforced by `test/corpus/corpus.test.ts`, which fails if these numbers rot (last moved 2026-09-20, when a
+ * declaration-level `REF=` started binding its target — see below):
  *
- *   - top-level PROGRAM / FUNCTION_BLOCK bodies: **55 of 304 lower (18.1%)**
- *   - METHOD / ACTION bodies: **56,629, of which 543 are REACHED** — a routine lowers when a POU that lowers
- *     calls it, and they are not in the 304 denominator. Only **14** of those come from a POU that RUNS; the
+ *   - top-level PROGRAM / FUNCTION_BLOCK bodies: **56 of 304 lower (18.4%)**
+ *   - METHOD / ACTION bodies: **56,629, of which 549 are REACHED** — a routine lowers when a POU that lowers
+ *     calls it, and they are not in the 304 denominator. Only **20** of those come from a POU that RUNS; the
  *     rest are lifecycle methods (`FB_Init`, `call_after_global_init_slot`) reached from declaration-only POUs.
  *     This said "none reachable" until it was measured on 2026-09-19 — it was never none.
  *   - so of every executable body in the corpus, about **1.0%**, and of the ones a running body reaches, 0.12%
  *
- * Real PLC logic lives in methods and actions, and almost none of THAT is reached: 14 routine bodies out of
+ * Real PLC logic lives in methods and actions, and almost none of THAT is reached: 20 routine bodies out of
  * 56,629 are called from a POU that runs. This backend therefore executes a SUBSET — enough for the conformance
  * oracle and for a POU written to be tested, not enough to run a real project — and that is a statement of fact
  * rather than a roadmap. Growing it belongs to `openspec/changes/transpile-st-to-rust`;

@@ -115,7 +115,7 @@ export function pointerValue(lw: Lowering, e: Expr, pointerType: Type): { value:
   // the COPY path reaches it first: the corpus writes `start1 := adr_bit0_Of_Byte` and only then `start1^`, so a
   // guard on the dereference alone never sees the input (see `unsuppliedInput`)
   if (target === undefined)
-    return unsuppliedInput(lw, source, e.span) ?? lw.bail("pointer-order", "a pointer copied before any address was stored into it", e.span)
+    return unsuppliedInput(lw, source, e.span) ?? lw.bail("pointer-order", `${describePointer(lw, source)} copied before any address was stored into it`, e.span)
   const loaded: IrExpr = { kind: "load", place: source, type: source.type, span: operand.span }
   if (stepped === undefined) return { value: convert(loaded, pointerType), target }
   // measured: `p + SIZEOF(T)` is the next element (conformance `mem_pointer_index_struct_array`) — a step of whole elements
@@ -148,6 +148,28 @@ export function pointerValue(lw: Lowering, e: Expr, pointerType: Type): { value:
   return { value: binaryOf(stepped.op === "+" ? "add" : "sub", loaded, step, pointerType, e.span), target }
 }
 
+/**
+ * A pointer place as "<what it is> <name>" — the section is what decides which form of design §9 it needs, so a
+ * refusal that omits it cannot be counted by shape. `--why pointer-order` returns one line per distinct message,
+ * which is exactly the histogram this makes useful.
+ */
+function describePointer(lw: Lowering, pointer: Place): string {
+  if (pointer.root !== undefined) return `a ${pointer.root} pointer`
+  const slot = lw.frame[pointer.slot]
+  if (slot === undefined) return "a pointer"
+  const where =
+    slot.section === "VAR_INPUT"
+      ? "the pointer input"
+      : slot.section === "VAR_IN_OUT"
+        ? "the pointer in-out"
+        : slot.section === "VAR_OUTPUT"
+          ? "the pointer output"
+          : pointer.path.length > 0
+            ? "the pointer field"
+            : "the pointer variable"
+  const name = pointer.path.reduce((n, a) => (a.kind === "field" ? `${n}.${a.name}` : n), slot.name)
+  return `${where} ${name}`
+}
 /**
  * A POINTER INPUT NOBODY SUPPLIED, because this POU is the ROOT — the same shape as `fb-init-argument`, and the
  * same answer.
@@ -188,7 +210,11 @@ function unsuppliedInput(lw: Lowering, pointer: Place, span: Span): undefined {
 export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undefined, span: Span): Place | undefined {
   const key = pointerKey(lw, pointer)
   const target = key === undefined ? undefined : lw.shared.pointers.get(key)
-  if (target === undefined) return unsuppliedInput(lw, pointer, span) ?? lw.bail("pointer-order", "a dereference of a pointer no address was stored into before it", span)
+  // THE MESSAGE NAMES THE POINTER AND WHERE IT LIVES. It named neither, which made the 177 POUs it blocks one
+  // undifferentiated pile — and the sections are the whole question: a VAR_INPUT is design §9 form 2 (bind it to
+  // the caller's place), a field or a local with several stores is form 3 (the tagged handle), and they are
+  // different work. `--why pointer-order` could not tell them apart.
+  if (target === undefined) return unsuppliedInput(lw, pointer, span) ?? lw.bail("pointer-order", `${describePointer(lw, pointer)} dereferenced before any address was stored into it`, span)
   if (target.scopedTo !== undefined && (target.scopedTo !== lw || !lw.boundPointers.has(key!)))
     return lw.bail("pointer-outlives", "a pointer into a VAR_IN_OUT dereferenced outside the run of the body that stored it", span)
   if (target.element === undefined) {

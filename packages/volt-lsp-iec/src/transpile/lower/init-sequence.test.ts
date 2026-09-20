@@ -143,3 +143,40 @@ test("and the folds that must keep working, do", () => {
   expect(value("w : DWORD := (SHL(UINT_TO_DWORD(3), 16) OR 16#1);", "w")).toBe(196609n)
   expect(value("n : UDINT := SIZEOF(DINT);", "n")).toBe(4n)
 })
+
+/**
+ * A DECLARATION'S `REF=` BINDS, and the parser used to forget which operator introduced the initializer.
+ *
+ * `c.eatPunct(":=") ?? c.eatPunct("REF=")` accepted both and recorded neither, so `r : REFERENCE TO UDINT REF= v`
+ * arrived at lowering as an ordinary assignment: no target was recorded, and every later read of `r` was refused
+ * `pointer-order`. That was the single largest line in its histogram — 141 corpus POUs, all of them reaching
+ * `ONTIME.fb`'s `refSeconds`. Recording `initOp` took `pointer-order`'s reach from 177 POUs to 105.
+ *
+ * The statement form (`r REF= v;`) was always measured and always worked; only the DECLARATION form was lost. So
+ * what is asserted here is that the two agree — and the values, not merely that it lowers.
+ */
+test("a REFERENCE bound at its declaration reads and writes its target, per instance, across scans", () => {
+  const r = lower("", "v : UDINT := 7;\n\tref : REFERENCE TO UDINT REF= v;\n\tseen : UDINT;", "seen := ref;\nref := ref + 1;")
+  expect(r.diagnostics).toEqual([])
+  const p = run(r.pou!)
+  p.scan()
+  p.scan()
+  // `seen := ref` READ through it (7 on the first scan, 8 on the second), and `ref := ref + 1` WROTE through it
+  // into `v` — twice, so the binding survived the scan boundary.
+  //
+  // NOT asserted: `p.get("ref")`. Form 1 ERASES the reference (pointer-model.md §2) — its slot holds 1, the
+  // non-null marker, not the pointee. Asserting the target's value there was a claim about monitoring that this
+  // model does not make; `get` reads the reference's own storage.
+  expect([p.get("v"), p.get("seen")]).toEqual([9n, 8n])
+})
+
+test("a REFERENCE field bound at its declaration is per INSTANCE, not shared", () => {
+  const src =
+    `PROGRAM PLC_PRG\nVAR a : FB_R; b : FB_R; END_VAR\na();\na();\nb();\nEND_PROGRAM\n\n` +
+    `FUNCTION_BLOCK FB_R\nVAR n : UDINT := 0; r : REFERENCE TO UDINT REF= n; END_VAR\nr := r + 1;\nEND_FUNCTION_BLOCK\n`
+  const r = lowerSource(src, "PLC_PRG")
+  expect(r.diagnostics).toEqual([])
+  const p = run(r.pou!)
+  p.scan()
+  expect([p.get("a.n"), p.get("b.n")]).toEqual([2n, 1n])
+})

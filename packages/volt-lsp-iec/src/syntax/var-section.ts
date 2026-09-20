@@ -193,6 +193,9 @@ function parseVarDecl(c: Cursor): VarDecl | DeclFailure | undefined {
   let init: VarDecl["init"]
   const hasBracketInit = c.peek().kind === "punct" && c.peek().text === "["
   const assign = hasBracketInit ? undefined : (c.eatPunct(":=") ?? c.eatPunct("REF="))
+  // WHICH one it was is kept: a REFERENCE binds its target with `REF=`, and dropping the operator made that
+  // declaration indistinguishable from an assignment to whatever the reference points at.
+  const initOp = assign?.text === "REF=" ? ("REF=" as const) : undefined
   if (hasBracketInit || assign !== undefined) {
     const initTokens = collectInitTokens(c)
     init = initializerFromTokens(initTokens)
@@ -208,6 +211,7 @@ function parseVarDecl(c: Cursor): VarDecl | DeclFailure | undefined {
     names,
     type,
     ...(init !== undefined ? { init } : {}),
+    ...(initOp !== undefined ? { initOp } : {}),
     ...(at !== undefined ? { at } : {}),
     span: joinSpans(firstName.span, endSpan),
   }

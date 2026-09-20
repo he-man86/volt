@@ -182,7 +182,11 @@ function printVarDecl(decl: VarDecl): string {
           .join("")
           .trim()}`
       : ""
-  const init = decl.init !== undefined ? ` := ${initText(decl.init)}` : ""
+  // THE OPERATOR THE SOURCE USED, not `:=` for everything. A REFERENCE binds its target with `REF=`, and printing
+  // `:=` there changes a bind into a store through an unbound reference — a silent rewrite of the engineer's
+  // meaning, in a formatter whose whole contract is that it does not change meaning. It was invisible while the
+  // AST dropped the operator; the corpus round-trip gate caught it on three files the moment it was recorded.
+  const init = decl.init !== undefined ? ` ${decl.initOp ?? ":="} ${initText(decl.init)}` : ""
   return `${names}${at} : ${renderTypeExpr(decl.type)}${init};`
 }
 

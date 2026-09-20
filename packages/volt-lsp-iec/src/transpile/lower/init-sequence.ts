@@ -37,6 +37,9 @@ export function buildInitSequence(lw: Lowering): IrStmt[] | undefined {
       kind: "assign",
       target: { kind: "ident_expr", name: pending.name.text, span: pending.name.span },
       value: pending.expr,
+      // `REF=` from the DECLARATION, carried through `pendingInits` — `bindReference` is what records the
+      // reference`s target, and an assign with no `op` is a store through a reference nothing bound.
+      ...(pending.op !== undefined ? { op: pending.op } : {}),
       span: pending.span,
     })
     if (lowered === undefined) return undefined

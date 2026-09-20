@@ -229,8 +229,11 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
       // would run there is not measured.
       // `deferInit` is the caller saying it HAS an init step. A layout's fields and a routine's locals do not, so
       // deferring there would queue a statement nothing ever emits — the slot silently at its default again.
+      // A `REF=` INITIALIZER IS NEVER A CONSTANT. It names a place to bind, not a value to fold, so the constant
+      // path would answer "not a compile-time constant" about a declaration that is perfectly ordinary.
+      const binds = decl.initOp === "REF="
       const deferrable =
-        deferInit && decl.init !== undefined && runnableInit(decl.init) && !lw.globalMode && !lw.routineMode && !foldsToConstant(lw, decl.init)
+        deferInit && decl.init !== undefined && runnableInit(decl.init) && !lw.globalMode && !lw.routineMode && (binds || !foldsToConstant(lw, decl.init))
       const before = lw.diagnostics.length
       const init = deferrable ? undefined : attempt()
       const deferred = deferrable
@@ -264,7 +267,11 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
         else {
           const slot = lw.frame.length
           lw.slot(name, type, sec.sectionKind, deferred || failed ? undefined : init)
-          if (deferred) lw.pendingInits.push({ name, type, expr: decl.init as Expr, span: decl.span, slot })
+          // THE OPERATOR TRAVELS WITH THE VALUE. `r : REFERENCE TO T REF= x` is a BIND, not an assignment, and
+          // the init sequence lowers these through `lowerStmt` — which reads `op` to decide. Dropping it here
+          // made the bind a store through an unbound reference.
+          if (deferred)
+            lw.pendingInits.push({ name, type, expr: decl.init as Expr, span: decl.span, slot, ...(decl.initOp !== undefined ? { op: decl.initOp } : {}) })
         }
       }
     }

@@ -187,3 +187,23 @@ test("on-type formatting: a newline inside a block indents to its depth", () => 
   // outside any block → no indent edit
   expect(formatOnType(doc, { line: 0, character: 0 }, "\n")).toEqual([])
 })
+
+/**
+ * A DECLARATION'S OPERATOR IS PART OF ITS MEANING. `r : REFERENCE TO T REF= x` BINDS the reference to `x`;
+ * `r : REFERENCE TO T := x` stores `x` through a reference nothing bound. The printer emitted `:=` for both,
+ * because the AST recorded neither — so formatting a real file silently rewrote the engineer's bind.
+ *
+ * It went unnoticed for as long as the operator was dropped at parse time: with nothing to compare, the corpus
+ * round-trip gate (`parse(format(x)) ≡ parse(x)`) saw two identical ASTs. Recording `initOp` on 2026-09-20 made
+ * it fail on three real files immediately.
+ */
+test("formatting keeps a declaration's REF=, which is a bind and not an assignment", () => {
+  const src = `PROGRAM P\nVAR\n\tv : UDINT := 7;\n\tr : REFERENCE TO UDINT REF= v;\nEND_VAR\nr := 1;\nEND_PROGRAM\n`
+  const out = formatDocument({ uri: "u", source: src, parseResult: parseSource(src) })
+  expect(out).toContain("REFERENCE TO UDINT REF= v")
+  expect(out).not.toContain("REFERENCE TO UDINT := v")
+  // and the ordinary initializer is untouched
+  expect(out).toContain("v : UDINT := 7")
+  // the round-trip the corpus gate makes over every file
+  expect(normalize(parseSource(out).units)).toEqual(normalize(parseSource(src).units))
+})

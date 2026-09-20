@@ -440,6 +440,15 @@ export interface VarDecl {
   names: Identifier[] // `a, b, c : INT;`
   type: TypeExpr
   init?: Initializer // scalar → Expr, aggregate → AggregateInit (was opaque BodySpan)
+  /**
+   * WHICH OPERATOR introduced `init` — `REF=` for a reference bind, undefined for `:=`.
+   *
+   * The parser accepted both and recorded neither, so `r : REFERENCE TO UDINT REF= v` reached every consumer as
+   * an ordinary assignment. Lowering then bound no target and refused every read of `r` as `pointer-order` — the
+   * single largest line in that refusal's histogram (141 corpus POUs, `ONTIME.fb`'s `refSeconds`). The
+   * information was in the source and the AST dropped it.
+   */
+  initOp?: "REF="
   at?: BodySpan // `AT %IX0.0` — opaque address
   span: Span
 }
