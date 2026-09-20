@@ -824,7 +824,10 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 'REFERENCE TO'" carries three and the driver joined the build summary onto it.
   // 2241 -> 2242: `op_sys_varinfo` left `KNOWN_DIVERGENCES` — it was masked as a TwinCAT divergence while
   // the real fault was the same line-joining bug, and the two vendors record it identically now.
-  { vendor: "twincat", floor: 2242 },
+  // 2242 -> 2255: the LSP was UNDER-reporting, which costs agreement without ever making a gate red. A sign
+  // crossing in a comparison has a 32-bit floor and the floor is CODESYS's — TwinCAT warns at SINT/USINT and
+  // INT/UINT too, in all twelve of those cells.
+  { vendor: "twincat", floor: 2255 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.

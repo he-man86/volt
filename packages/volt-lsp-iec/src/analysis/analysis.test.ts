@@ -132,6 +132,26 @@ test("a sign change at an ARGUMENT warns on CODESYS only", () => {
   ])
   expect(diag(src, "twincat").map((d) => d.message)).toEqual([])
 })
+// A SIGN CROSSING IN A COMPARISON HAS A 32-BIT FLOOR, and the floor is CODESYS's. Both warn at DINT/UDINT and
+// LINT/ULINT; at SINT/USINT and INT/UINT only TwinCAT does (all 24 `cmp_sign_*` cells, six operators at four
+// widths, both recordings 2026-09-20).
+test("a narrow comparison warns on TwinCAT only", () => {
+  const cmp = (t: string, u: string) =>
+    `FUNCTION_BLOCK F\nVAR\n si : ${t};\n un : ${u};\n ok : BOOL;\nEND_VAR\nok := si > un;\nEND_FUNCTION_BLOCK`
+  const of = (src: string, v: Vendor) => diag(src, v).map((d) => d.message)
+
+  expect(of(cmp("INT", "UINT"), "codesys")).toEqual([])
+  expect(of(cmp("INT", "UINT"), "twincat")).toEqual([
+    "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT' : possible change of sign",
+  ])
+  // …and at 32 bits they agree, down to the capital on "Possible"
+  expect(of(cmp("DINT", "UDINT"), "codesys")).toEqual([
+    "Implicit conversion from unsigned Type 'UDINT' to signed Type 'DINT' : Possible change of sign",
+  ])
+  expect(of(cmp("DINT", "UDINT"), "twincat")).toEqual([
+    "Implicit conversion from unsigned Type 'UDINT' to signed Type 'DINT' : possible change of sign",
+  ])
+})
 test("vendor-keyed wording: ABSTRACT instantiation", () => {
   const src = `FUNCTION_BLOCK ABSTRACT FB_A\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK F\nVAR\n x : FB_A;\nEND_VAR\nEND_FUNCTION_BLOCK`
   expect(diag(src, "codesys").find((d) => d.code === "abstract-instantiation")?.message).toBe(

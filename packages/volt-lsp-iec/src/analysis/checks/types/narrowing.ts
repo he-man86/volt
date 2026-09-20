@@ -96,7 +96,10 @@ function operandSignWarning(x: Expr, scope: Scope, project: Scope, messages: Mes
   const l = integral(literalCheckType(left, rt) ?? (isIntLiteral(left) ? rt : lt))
   const r = integral(literalCheckType(right, lt) ?? (isIntLiteral(right) ? lt : rt))
   if (l === undefined || r === undefined || l.bits !== r.bits || l.signed === r.signed) return undefined
-  if (rule === "signed-wide" && l.bits < 32) return undefined
+  // THE 32-BIT FLOOR IS CODESYS'S. Both vendors warn about a sign crossing in a comparison at DINT/UDINT and
+  // LINT/ULINT; at SINT/USINT and INT/UINT only TwinCAT does — all 24 `cmp_sign_*` cells, six operators at four
+  // widths, on both recordings (2026-09-20).
+  if (rule === "signed-wide" && l.bits < 32 && project.dialect !== "twincat") return undefined
   const [signed, unsigned, signedAt, unsignedAt] = l.signed ? [l, r, left, right] : [r, l, right, left]
   if (rule === "unsigned") return conversionWarning(unsignedOfWidth(signed.bits), elementaryTypeRef(signed), signedAt, messages)
   return conversionWarning(elementaryTypeRef(signed), elementaryTypeRef(unsigned), unsignedAt, messages)
