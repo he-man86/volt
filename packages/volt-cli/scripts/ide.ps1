@@ -104,11 +104,26 @@ function Save-Pids([string]$path, [int[]]$new) {
 # Has a worker ATTACHED to this XAE? The worker announces it in its own durable log, and that line is the
 # first moment it can answer an op — the pipe is bound well before it (see Up-Twincat). Matching on the xae pid
 # is what keeps a previous run's line from answering for this one.
-function Test-TwincatAttached([int]$xaePid) {
+# Has the worker WE spawned attached? Two things make that harder than grepping for the line:
+#
+#   THE LOG IS SHARED AND DAY-LONG. `twincat-<date>.log` is written by every worker - ours, the connector's, and
+#   every one from earlier today. A bare grep answers YES for somebody else's worker, and for our own previous
+#   run against a reused pid. That is how `up` printed "worker attached" on 2026-09-20 while the worker it had
+#   launched sat DEGRADED and the connector's 11-day-old one was actually serving the pipe.
+#
+#   SO: the line must be NEWER than the worker we started, and that worker must still be alive.
+function Test-TwincatAttached([int]$xaePid, [System.Diagnostics.Process]$worker, [datetime]$since) {
+    if ($worker -and $worker.HasExited) { return $false }
     $log = Join-Path $env:LOCALAPPDATA "Volt\logs\twincat-$(Get-Date -Format yyyy-MM-dd).log"
     if (-not (Test-Path $log)) { return $false }
-    $hit = Select-String -Path $log -Pattern "attached to TwinCAT.*xae pid $xaePid\)" -SimpleMatch:$false -ErrorAction SilentlyContinue
-    return ($null -ne $hit)
+    $hits = Select-String -Path $log -Pattern "attached to TwinCAT.*xae pid $xaePid\)" -ErrorAction SilentlyContinue
+    foreach ($h in $hits) {
+        if ($h.Line -match '^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})') {
+            $t = [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', $null)
+            if ($t -ge $since.AddSeconds(-2)) { return $true }
+        }
+    }
+    return $false
 }
 
 function Build-Bridge([string]$vendor) {
@@ -236,10 +251,11 @@ function Up-Twincat {
         for ($attempt = 1; $attempt -le 10 -and -not $ready; $attempt++) {
             Write-Host "attaching a worker to XAE $procId (attempt $attempt)..."
             # One worker per XAE window, exactly as the connector spawns them.
+            $spawnedAt = Get-Date
             $w = Start-Process -FilePath $worker -ArgumentList "--xae-pid", "$procId" -WindowStyle Hidden -PassThru
             for ($i = 0; $i -lt 12; $i++) {
                 Start-Sleep -Seconds 5
-                if (Test-TwincatAttached $procId) { $ready = $true; break }
+                if (Test-TwincatAttached $procId $w $spawnedAt) { $ready = $true; break }
                 if ($w.HasExited) { break }   # died outright (no XAE, name collision) — respawn rather than wait out the window
             }
             if (-not $ready) { Stop-Process -Id $w.Id -Force -ErrorAction SilentlyContinue }
