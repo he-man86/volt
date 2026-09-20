@@ -8,7 +8,7 @@
  * At the last regeneration:
  *   confirmed    1901
  *   refused       511
- *   not-lowered    89
+ *   not-lowered    90
  *   lsp-gap         3
  *   diverges        3
  *   unaskable      33
@@ -2266,6 +2266,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   sysop_position_in_method: "refused",
   sysop_position_initializer: "refused",
   sysop_position_then_statement: "refused",
+  sysop_position_value: "not-lowered",
   tc_call_after_output_update: "confirmed",
   tc_context_id: "confirmed",
   tc_context_name: "confirmed",

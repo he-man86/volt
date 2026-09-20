@@ -61,6 +61,24 @@ const position: LanguageTest[] = [
   probe("sysop_position_as_argument", "\there : DINT;", "here := ABS(__POSITION);", "__POSITION as a call ARGUMENT — an unknown operand would be named here"),
   probe("sysop_position_initializer", "\there : DINT := __POSITION;", "here := here;", "__POSITION as a declaration INITIALIZER, the position it is documented for"),
   probe("sysop_position_bare_statement", "\there : DINT;", "__POSITION;\nhere := 1;", "__POSITION as a whole statement"),
+  // WHAT DOES IT EVALUATE TO? Every probe above measures the TYPE, and the type carries a length nobody could
+  // explain: CODESYS answers `STRING(INT#23)` for the call form and `STRING(INT#13)` for the initializer. A
+  // build cannot say more; a RUN can, because the simulator reads VALUES — and this one did (2026-09-20):
+  //
+  //     posBody    'Line 1, Column 1 (Impl)'      the call form, first statement
+  //     posIndent  'Line 2, Column 11 (Impl)'     the same statement indented ten spaces
+  //     posDecl    'Line 5 (Decl)'                a declaration initializer, and NO column at all
+  //
+  // 21 characters of fixed text plus the digits in an implementation, 12 plus the digits in a declaration, the
+  // LINE counted inside the POU's own part and the COLUMN belonging to the STATEMENT rather than the operator.
+  // The declaration form is written `__POSITION()` here on purpose: without the parentheses it eats its own
+  // semicolon and the VAR section never closes — which is what `sysop_position_initializer` above records.
+  probe(
+    "sysop_position_value",
+    "\tposBody : STRING(80);\n\tposIndent : STRING(80);\n\tposDecl : STRING(80) := __POSITION();",
+    "posBody := __POSITION();\n          posIndent := __POSITION();",
+    "__POSITION's actual TEXT in both positions — the one question the build oracle cannot answer",
+  ),
   methodProbe("sysop_position_in_method", "\there : DINT;", "here := __POSITION;", "__POSITION in a METHOD rather than an FB body — the terminator the samples differed on"),
 ]
 

@@ -723,7 +723,9 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // and `refdecl_rebound_in_method` (rebound from a METHOD, and the new target SURVIVES to the next scan: seen=20).
   // Two targets is design §9 form 3, the tagged handle, which is not built — so these are refused honestly, and
   // they are the first measured acceptance tests form 3 has.
-  "not-lowered": 89,
+  // 89 -> 90. `sysop_position_value` reads `__POSITION`'s actual TEXT out of the simulator — the one question a
+  // build cannot answer — and the transpiler has no business lowering a CODESYS source-position intrinsic.
+  "not-lowered": 90,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
@@ -872,7 +874,9 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // comment carried from three data points.
   // 2419 -> 2423: four more `cc_enum_arg_into_*` cells. The family asked one unsigned target and TwinCAT was
   // silent on exactly that one, which is a hypothesis, not a measurement — four more unsigned targets make it one.
-  { vendor: "codesys", floor: 2423 },
+  // 2423 -> 2424: `sysop_position_value`, which asks what `__POSITION` actually EVALUATES to. It answers
+  // `'Line 1, Column 1 (Impl)'` and `'Line 5 (Decl)'` — the text behind the two sizes the type carries.
+  { vendor: "codesys", floor: 2424 },
 ]
 
 /**

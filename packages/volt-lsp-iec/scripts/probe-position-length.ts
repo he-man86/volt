@@ -26,12 +26,22 @@
  * neither is whether the code sits in a method or an FB body. (The declaration form's column never moved: it
  * follows the declared NAME, not the initializer — `here` is at column 2 in every one of those probes.)
  *
- * TWO THINGS THIS DOES NOT ANSWER, and both are why the LSP is not taught the formula off the back of it:
- *   - What the text IS. 21 + "(1,1)" fits `Device.Application(1,1)` exactly, and 11 fits nothing obvious; a
- *     constant nobody can explain is not a measurement, it is a magic number with a provenance note. The
- *     simulator CAN answer it — `record:exec` reads variable VALUES — and that is the next step, not this one.
- *   - Which token the position points at in the body form. Every probe there moved the whole statement, so
- *     `here` and `__POSITION` moved together.
+ * AND THE TEXT ITSELF, read out of the SIMULATOR a few hours later (`sysop_position_value`, `record:exec`):
+ *
+ *     implementation   'Line 1, Column 1 (Impl)'      23 = 21 + digits(line) + digits(column)
+ *                      'Line 2, Column 11 (Impl)'     24  — the same statement indented ten spaces
+ *     declaration      'Line 5 (Decl)'                13 = 12 + digits(line), and NO column at all
+ *
+ * So both constants are explained, and so is every probe below. `Line `+`, Column `+` (Impl)` is 21 characters;
+ * `Line `+` (Decl)` is 12. The LINE is counted inside the POU's own part (the header is declaration line 1, the
+ * first statement is implementation line 1) and the COLUMN is the STATEMENT'S, not the operator's — probe J,
+ * which pushed only the initializer out to column 101 and measured nothing, was asking about a number the
+ * declaration form does not carry.
+ *
+ * WHAT THE LSP STILL DOES NOT KNOW is where a POU's implementation starts and which statement encloses an
+ * expression. Both are derivable from the source it already has, and neither is tracked today, so the two
+ * CODESYS cells (`sysop_position_call_form`, `sysop_position_initializer`) stay on the backlog with the whole
+ * rule written down rather than with a fitted constant implemented.
  *
  * It did answer one thing nobody asked: BLANK LINES AT THE START OF AN IMPLEMENTATION ARE DROPPED on the way
  * in. The first attempt at the line probes padded with empty lines and measured no change at all; the same
