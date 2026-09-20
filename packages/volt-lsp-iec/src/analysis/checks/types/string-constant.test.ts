@@ -6,15 +6,29 @@ import { parseSource } from "../../../syntax/index.js"
 import { buildSymbolTable } from "../../../symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
-const sc = (decls: string): string[] => {
+const sc = (decls: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM P\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM`
   const pr = parseSource(src)
   const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
-  return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "string-constant-too-long")
     .map((d) => d.message)
 }
 
+// TWINCAT HAS NO WARNING TO AGREE WITH BELOW STRING(3). The message prints a prefix of `size - 3` characters,
+// and with nothing to subtract from TwinCAT's builder throws where CODESYS falls back to `size`:
+// `xo4_string_constant_too_long` records `Internal error in _IStatement: one := 'ab';` and
+// `Exception text: System.ArgumentOutOfRangeException: Length cannot be less than zero.`, while the isolated
+// fixtures at those capacities record nothing at all (both recordings, 2026-09-20).
+test("below STRING(3) the warning is CODESYS's alone — TwinCAT faults instead of printing it", () => {
+  expect(sc(`  two : STRING(2) := 'abcdef';`)).toEqual(["String constant ''a...' too long for destination type 'STRING(2)'"])
+  expect(sc(`  two : STRING(2) := 'abcdef';`, "twincat")).toEqual([])
+  expect(sc(`  one : STRING(1) := 'ab';`, "twincat")).toEqual([])
+  // …and from STRING(3) up the two agree word for word
+  expect(sc(`  three : STRING(3) := 'abcdef';`, "twincat")).toEqual([
+    "String constant '...' too long for destination type 'STRING(3)'",
+  ])
+})
 /** AN ARRAY OF SIZED STRINGS IS THE SAME DESTINATION, ONCE PER ELEMENT.
  *
  * `array_initializers` recorded "String constant ''...' too long for destination type 'STRING(4)'" and the LSP

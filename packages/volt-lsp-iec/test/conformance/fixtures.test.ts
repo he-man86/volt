@@ -802,7 +802,10 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // function's input count as a range. Plus two rules TwinCAT does not have at all (the ABSTRACT-keyword
   // warning) and `INDEXOF`, which both vendors removed and word differently. No check changed its mind about
   // anything — the LSP says what it said, in the vendor's spelling.
-  { vendor: "twincat", floor: 2220 },
+  // 2220 -> 2229. Nine string-constant cells, closed by TwinCAT's own exception text: below STRING(3) the
+  // prefix it prints would have a negative length, and its message builder throws where CODESYS falls back.
+  // One more: TwinCAT names an unresolved base class and stops, where CODESYS adds the type it therefore lacks.
+  { vendor: "twincat", floor: 2229 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -927,29 +930,14 @@ const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
   "atomic_xadd_int",
   "atomic_xadd_lint",
   "atomic_xadd_lword",
-  "cc2_base_and_interface_not_found",
-  "cc2_var_in_interface",
-  "cc3_pointer_conversions",
   "cc3_reference_assign",
   "cc4_output_reference_type",
   "cc5_deprecated_functionblock_keyword",
   "cc5_new_in_expression",
-  "cc6_loop_cannot_exit",
   "cc_enum_arg_into_uint",
   "cc_ldate_literal_into_date",
   "cc_ldt_literal_into_dt",
   "cc_ltod_literal_into_tod",
-  "cc_string_escape_first_too_long",
-  "cc_string_escape_last_too_long",
-  "cc_string_escape_middle_too_long",
-  "cc_string_hex_escape_too_long",
-  "cc_string_plain_long_init_too_long",
-  "cc_string_prefix_len_1",
-  "cc_wstring_init_too_long_2",
-  "esc_high_only_one",
-  "ir_initializer_warning_no_instance",
-  "itf_var_section_declaration",
-  "itf_var_section_inherited",
   "meet_bool_mod_int",
   "operand_compare_and_swap",
   "operand_position",
@@ -968,7 +956,6 @@ const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
   "sysop_position_in_method",
   "sysop_position_initializer",
   "sysop_position_then_statement",
-  "xo4_string_constant_too_long",
 ])
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
  *  is confirmed against a recording (not a not-yet-ported check — those are tracked by the ratchet). */
@@ -990,7 +977,28 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                       extension for both, so it types the literal and TwinCAT sees a message it never emits.
   //                       The fix is a TwinCAT-only rejection of the prefix, in the shape `analysis/resync` already
   //                       models — TwinCAT work, deferred until CODESYS is finished.
-  twincat: new Set<string>(["op_sys_varinfo", "operand_uchar_literal"]),
+  //   THE SAME FIVE REASONS CODESYS ALREADY HAS, now checked against TwinCAT's own recording rather than
+  //   assumed from its twin (2026-09-20). Each was on the triage backlog as if it were a false positive:
+  //   `cc2_var_in_interface`, `itf_var_section_declaration`, `ir_initializer_warning_no_instance` — TwinCAT
+  //                       builds all three CLEAN, exactly as CODESYS does, because nothing instantiates the
+  //                       POU and an uncompiled POU has no diagnostics. An editor cannot work that way.
+  //   `itf_var_section_inherited` — both vendors report the interface error and STOP, never type-checking the
+  //                       body that uses the member the interface could not declare.
+  //   `cc6_loop_cannot_exit` — C0266 is configurable and is OFF in both recording projects: each records only
+  //                       the sign-change warning in `FOR small : SINT := 1 TO 200`, which the LSP matches.
+  //   `cc3_pointer_conversions` — TwinCAT prints `Variable of type '1' requires exactly 1 Index`, with the
+  //                       INDEX where the type belongs. CODESYS names the type and the LSP matches CODESYS;
+  //                       reproducing this one would be copying a vendor defect, not reaching parity.
+  twincat: new Set<string>([
+    "op_sys_varinfo",
+    "operand_uchar_literal",
+    "cc2_var_in_interface",
+    "itf_var_section_declaration",
+    "itf_var_section_inherited",
+    "cc6_loop_cannot_exit",
+    "ir_initializer_warning_no_instance",
+    "cc3_pointer_conversions",
+  ]),
   // The `???` fixtures were here while the LSP answered every position with ONE invented sentence. They are
   // NOT divergences any more: the check reads the slot and emits the COMPILER'S wording for it
   // (`Expression expected instead of '?'` for an operand/pin/instance, `The assignment target is not

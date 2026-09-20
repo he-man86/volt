@@ -13,7 +13,6 @@
  */
 import { decodeStringLiteral, renderTypeExpr, walkStatements, type AggregateElement, type Expr, type Initializer } from "../../../syntax/index.js"
 import { constEval, inferExprType, type Type } from "../../../types/index.js"
-import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { bodies, forEachDecl } from "../../../symbols/index.js"
 import { pushForDeclaration, SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
@@ -31,12 +30,12 @@ export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): v
       // One destination per element, in source order. `repeat` (`3('abc')`) wraps its value and is unwrapped —
       // the count does not change whether the constant fits; `unparsed` is skipped, as everywhere else here.
       for (const value of aggregateValues(decl.init)) {
-        const diag = tooLong(value, wide, Number(size), rendered, ctx.messages)
+        const diag = tooLong(value, wide, Number(size), rendered, ctx)
         if (diag !== undefined) pushForDeclaration(out, unit, section, diag)
       }
       continue
     }
-    const diag = tooLong(decl.init, wide, Number(size), rendered, ctx.messages)
+    const diag = tooLong(decl.init, wide, Number(size), rendered, ctx)
     if (diag !== undefined) pushForDeclaration(out, unit, section, diag)
   }
   // An assignment's target is the same destination: `eight : STRING(8); eight := 'seventeen';` warns exactly as the
@@ -52,7 +51,7 @@ export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): v
         const dest = inferExprType(place, scope, ctx.project)
         if (dest.kind !== "elementary" || dest.length === undefined) return
         if (dest.name !== "STRING" && dest.name !== "WSTRING") return
-        const diag = tooLong(places[i + 1] ?? s.value, dest.name === "WSTRING", dest.length, renderType(dest), ctx.messages)
+        const diag = tooLong(places[i + 1] ?? s.value, dest.name === "WSTRING", dest.length, renderType(dest), ctx)
         if (diag !== undefined) out.push(diag)
       })
     })
@@ -75,13 +74,21 @@ function aggregateValues(init: Initializer | undefined): Expr[] {
 }
 
 /** The warning for one literal → sized-string destination pair, or undefined when it fits (or is not a literal). */
-function tooLong(value: Initializer | Expr | undefined, wide: boolean, size: number, type: string, messages: Messages): DiagnosticItem | undefined {
+function tooLong(value: Initializer | Expr | undefined, wide: boolean, size: number, type: string, ctx: CheckContext): DiagnosticItem | undefined {
   if (value === undefined || value.kind !== "literal" || typeof value.value !== "string") return undefined
   // the shared decoder's length — an escape it does not know has no measured length, so nothing is reported. A WSTRING
   // counts UTF-16 code units and prints its prefix by the same rule (conformance `wstring_code_units`,
   // `cc_wstring_init_too_long_2`/`_7`: `'"a...'`, `'"abc...'`).
   const decoded = decodeStringLiteral(value.value, wide)
   if (decoded === undefined || decoded.length <= size) return undefined
+  // TWINCAT CANNOT PRINT THIS ONE BELOW STRING(3), and says so itself. The message shows a prefix of
+  // `size - 3` characters; with nothing to subtract from, CODESYS falls back to `size` and TwinCAT's builder
+  // throws — `xo4_string_constant_too_long` records, verbatim, `Internal error in _IStatement: one := 'ab';`
+  // followed by `Exception text: System.ArgumentOutOfRangeException: Length cannot be less than zero.`, and
+  // the isolated fixtures at those capacities record NOTHING AT ALL (`cc_string_prefix_len_1`/`_2`,
+  // `cc_wstring_init_too_long_2`, all four `cc_string_escape_*_too_long`, `esc_high_only_one`). So there is no
+  // warning to agree with: the LSP stays quiet rather than inventing one or reproducing a stack trace.
+  if (ctx.config.vendor === "twincat" && size < 3) return undefined
   return {
     // a WARNING, recorded twice (`cc_string_plain_init_too_long`, `cc_string_escape_init_too_long`) — the documentation
     // catalog this check was written from said error
@@ -90,7 +97,7 @@ function tooLong(value: Initializer | Expr | undefined, wide: boolean, size: num
     source: SOURCE,
     code: "string-constant-too-long",
     // the literal as written (quotes and escapes included) — the compiler prints a prefix of that text, not the value
-    message: messages.stringConstantTooLong(value.text, size, type),
+    message: ctx.messages.stringConstantTooLong(value.text, size, type),
   }
 }
 

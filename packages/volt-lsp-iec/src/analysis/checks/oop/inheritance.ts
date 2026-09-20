@@ -63,7 +63,10 @@ export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void
       } else if (!nameResolves(unit.extends.text, scope, ctx.project, ctx.references)) {
         // Two errors for a base: the definition it could not find, and the TYPE it therefore does not have. An
         // unresolved INTERFACE gets only the first (conformance `cc2_base_and_interface_not_found`).
-        for (const message of [ctx.messages.baseClassNotFound(unit.extends.text), ctx.messages.unknownType(unit.extends.text)])
+        // TWINCAT REPORTS ONLY THE FIRST — same fixture, its recording 2026-09-20: it says the base class is
+        // not found and stops, where CODESYS goes on to say the FB therefore has no type.
+        const both = [ctx.messages.baseClassNotFound(unit.extends.text), ctx.messages.unknownType(unit.extends.text)]
+        for (const message of ctx.config.vendor === "twincat" ? both.slice(0, 1) : both)
           out.push({ severity: "error", span: unit.extends.span, source: SOURCE, code: "base-class-not-found", message })
       }
     }

@@ -24,6 +24,17 @@ test("C0091: an FB extending itself is flagged (cycle, not not-found)", () => {
 
 // The chain is the one thing the vendors word differently: TwinCAT upper-cases every name in it, CODESYS
 // echoes them as declared (`cc2_circular_inheritance`, both recordings 2026-09-20).
+// TwinCAT says the base is not found and stops; CODESYS goes on to say the FB therefore has no type
+// (`cc2_base_and_interface_not_found`, both recordings 2026-09-20).
+test("C0090: the second message is CODESYS's alone", () => {
+  const src = `FUNCTION_BLOCK FB EXTENDS UnknownBase\nEND_FUNCTION_BLOCK`
+  const of = (v: "codesys" | "twincat") => codes(src, v).filter((d) => d.code === "base-class-not-found").map((d) => d.message)
+  expect(of("codesys")).toEqual([
+    "No definition found for base class 'UnknownBase'",
+    "Unknown type: 'UnknownBase'",
+  ])
+  expect(of("twincat")).toEqual(["No definition found for base class 'UnknownBase'"])
+})
 test("C0091: TwinCAT upper-cases the names in the chain", () => {
   const src = `FUNCTION_BLOCK FB_circleA EXTENDS FB_circleA\nEND_FUNCTION_BLOCK`
   const of = (v: "codesys" | "twincat") => codes(src, v).filter((d) => d.code === "circular-inheritance").map((d) => d.message)
