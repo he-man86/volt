@@ -7,7 +7,7 @@ import { DEFAULT_STRING_LENGTH, elemOf, elementaryRef, resolveNamedType, type Ty
 import { defaultValueOf, elementOf, type IrExpr, type IrInit, type IrStmt, type IrValue, type Place } from "../ir/index.js"
 import { baseOf, boundName, Lowering, openDims, ZERO_SPAN } from "./lowering.js"
 import { stored, valueAs } from "./convert.js"
-import { calendarOf, durationOf, enumDefault, enumStorage, inlineEnumDefault, foldConstant, stringLiteralText, TEMPORAL_LITERAL_KINDS, typedRealOf } from "./constants.js"
+import { calendarOf, durationOf, enumDefault, enumStorage, foldsToConstant, inlineEnumDefault, foldConstant, stringLiteralText, TEMPORAL_LITERAL_KINDS, typedRealOf } from "./constants.js"
 import { overlayBytes } from "./unions.js"
 import { buildInitSequence } from "./init-sequence.js"
 // A folded initial value and the same expression at run time go through ONE implementation, so they cannot
@@ -193,7 +193,9 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
   for (const sec of sections.filter((s) => s.sectionKind !== "VAR_EXTERNAL"))
     for (const written of sec.decls) {
       // A refused ADDRESS is the same cascade as a refused initializer: the name is still DECLARED, and skipping
-      // the slot only makes every later use report `place-not-local` about the wrong thing.
+      // the slot only makes every later use report `place-not-local` about the wrong thing. Under a quiet attempt
+      // it is skipped for the reason above — a hardware-mapped variable left as ordinary storage, un-diagnosed,
+      // is worse than the cascade.
       if (written.at !== undefined) bindAddress(lw, written)
       const type = storageOf(lw, lw.resolve(written.type))
       // A variable with no initializer of its own starts at its ALIAS type's: `TYPE T : INT := 42;` makes `x : T` 42
@@ -215,24 +217,30 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
             : scalarInit(lw, decl.init, type)
       // AN INITIAL VALUE THAT IS NOT CONSTANT IS NOT A REFUSAL — it is the INIT STEP's. The slot takes its default
       // and the expression is queued in declaration order (`Lowering.pendingInits`), which is what `ADR(x)`, `THIS`
-      // and a call to a user FUNCTION are. So the attempt to make it a constant VALUE is made quietly: its refusal
-      // is a question here, not an answer, and the init step reports whatever it cannot lower in its own words.
+      // and a call to a user FUNCTION are.
+      //
+      // WHICH IT IS, IS DECIDED BEFORE ANYTHING IS BUILT. `foldsToConstant` reads the AST and the scope; it lowers
+      // nothing. The first version instead ATTEMPTED the fold and treated its failure as "defer", which meant
+      // lowering speculatively and discarding the diagnostics — and lowering MEMOIZES, so the discarded refusal
+      // left a half-built global or layout in the cache that nothing would ever re-report. That is gone: every
+      // path here either folds and reports, or defers without trying.
       //
       // A GLOBAL or a ROUTINE's local is not deferred: the init step walks the POU's frame, and whether either
       // would run there is not measured.
-      const deferrable = deferInit && decl.init !== undefined && runnableInit(decl.init) && !lw.globalMode && !lw.routineMode
-      const init = deferrable ? lw.quietly(attempt) : attempt()
-      const deferred = deferrable && init === undefined
+      // `deferInit` is the caller saying it HAS an init step. A layout's fields and a routine's locals do not, so
+      // deferring there would queue a statement nothing ever emits — the slot silently at its default again.
+      const deferrable =
+        deferInit && decl.init !== undefined && runnableInit(decl.init) && !lw.globalMode && !lw.routineMode && !foldsToConstant(lw, decl.init)
+      const init = deferrable ? undefined : attempt()
+      const deferred = deferrable
       // A DECLARATION THAT FAILED STILL DECLARES ITS NAME. Skipping the slot made every later USE report a second
-      // diagnostic naming the wrong thing — `place-not-local: timeLastStateTransition is a var, which has no frame
-      // slot yet`, 32 times, where the one real refusal was its initializer. The coverage report counts blockers
-      // per POU, so a cascade does not just read badly: it puts the POU under the wrong construct and makes the
-      // work list say to go fix the symptom.
+      // diagnostic naming the wrong thing — one real refusal, then N `place-not-local` about a name that is right
+      // there in the source. The coverage report counts blockers PER POU, so a cascade files the POU under the
+      // wrong construct, and the work list is how the next thing to build gets chosen.
       //
-      // Nothing is at risk from the slot existing. The refusal is already recorded, and `lowerUnit` returns
-      // diagnostics rather than a POU whenever any exist — so this changes what is REPORTED, never what is built.
-      // The LSP made this same fix for its own cascade (`ParseResult.failedDeclarations`, so `unresolved-identifier`
-      // stays quiet about a name whose declaration could not parse).
+      // Nothing is at risk from the slot existing: the refusal IS recorded — nothing discards diagnostics any more
+      // — and `lowerUnit` returns diagnostics rather than a POU whenever any exist. The LSP made this same fix for
+      // its own cascade (`ParseResult.failedDeclarations`).
       const failed = !deferred && decl.init !== undefined && init === undefined
       for (const name of decl.names) {
         // A NAME DECLARED TWICE IS INVALID INPUT, and must end in a diagnostic here rather than a throw later.
@@ -386,7 +394,7 @@ function bindAddress(lw: Lowering, decl: VarDecl): boolean {
  */
 function foldedCall(lw: Lowering, e: Expr, type: Type): IrValue | undefined {
   if (!holdsCall(e)) return undefined
-  const lowered = lw.quietly(() => lowerExpr(lw, e, type))
+  const lowered = lowerExpr(lw, e, type)
   return lowered === undefined ? undefined : (constantValue(lowered) as IrValue | undefined)
 }
 

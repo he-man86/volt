@@ -68,3 +68,60 @@ test("and the ordinary shapes still lower", () => {
   expect(codes("", "x : INT := 5;\n\tp : POINTER TO INT := ADR(x);")).toEqual([])
   expect(codes(`TYPE T_P :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n\n`, "cfg : T_P := (n := 9);\n\tcopied : INT := cfg.n;")).toEqual([])
 })
+
+/**
+ * THE SPECULATION BUG, and why the mechanism that caused it is gone.
+ *
+ * The first version of the deferral decided "constant or not" by ATTEMPTING the fold and treating its failure as
+ * "defer" — which meant lowering speculatively and discarding the diagnostics (`Lowering.quietly`). Lowering
+ * MEMOIZES: `globalPlace` caches a global, `storageOf` caches a layout. Discarding the refusal left the half-built
+ * entity in the cache, and the next reference hit the cache and never re-reported. A POU lowered CLEAN with a
+ * global silently at 0.
+ *
+ * `foldsToConstant` answers the same question from the AST and the scope, so nothing is lowered speculatively and
+ * `quietly` no longer exists. These are the shapes that reached it.
+ */
+const F_GET = "FUNCTION F_Get : INT\nF_Get := 41;\nEND_FUNCTION\n\n"
+
+test("a GLOBAL whose initializer is refused is reported, not cached at its default", () => {
+  // `SHL(gBad, 2)` is what used to trigger the speculative lowering that declared `gBad` and threw its refusal away
+  const r = lowerSource(
+    `${F_GET}VAR_GLOBAL\n\tgBad : INT := F_Get();\nEND_VAR\n\nPROGRAM PLC_PRG\nVAR\n\tx : INT := SHL(gBad, 2);\n\ty : INT;\nEND_VAR\ny := gBad;\nEND_PROGRAM\n`,
+    "PLC_PRG",
+  )
+  expect(r.diagnostics.map((d) => d.code)).toContain("init-not-constant")
+  expect(r.pou).toBeUndefined()
+})
+
+test("a STRUCT FIELD whose initializer is refused is reported too — and never deferred", () => {
+  // A layout has no init step, so deferring a field would queue a statement nothing emits: the same silent default.
+  const r = lowerSource(
+    `${F_GET}TYPE T_S :\nSTRUCT\n\ta : INT := F_Get();\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tn : INT := SHL(INT#1, SIZEOF(T_S));\n\ts : T_S;\n\tout : INT;\nEND_VAR\nout := s.a;\nEND_PROGRAM\n`,
+    "PLC_PRG",
+  )
+  expect(r.diagnostics.map((d) => d.code)).toContain("init-not-constant")
+  expect(r.pou).toBeUndefined()
+})
+
+test("a global AT an address lowering does not model keeps its refusal", () => {
+  // otherwise a hardware-mapped variable is silently modelled as ordinary storage
+  const r = lowerSource(
+    "VAR_GLOBAL\n\tgB AT %MQ8 : BYTE := 2;\nEND_VAR\n\nPROGRAM PLC_PRG\nVAR\n\tx : BYTE := SHL(gB, 2);\n\tz : BYTE;\nEND_VAR\nz := gB;\nEND_PROGRAM\n",
+    "PLC_PRG",
+  )
+  expect(r.diagnostics.map((d) => d.code)).toContain("var-at")
+  expect(r.pou).toBeUndefined()
+})
+
+test("and the folds that must keep working, do", () => {
+  const value = (decls: string, read: string): unknown => {
+    const r = lowerSource(`PROGRAM PLC_PRG\nVAR\n\t${decls}\nEND_VAR\n;\nEND_PROGRAM\n`, "PLC_PRG")
+    expect(r.diagnostics).toEqual([])
+    const p = run(r.pou!)
+    p.scan()
+    return p.get(read)
+  }
+  expect(value("d : DINT := ANY_TO_DINT(16#80000000);", "d")).toBe(-2147483648n)
+  expect(value("w : DWORD := (SHL(UINT_TO_DWORD(3), 16) OR 16#1);", "w")).toBe(196609n)
+  expect(value("n : UDINT := SIZEOF(DINT);", "n")).toBe(4n)
+})

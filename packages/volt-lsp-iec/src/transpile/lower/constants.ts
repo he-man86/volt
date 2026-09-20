@@ -9,6 +9,7 @@ import {
   elemOf,
   integerLiteralType,
   literalType,
+  parseConversionName,
   REAL_LITERAL_TYPE,
   type Type,
   UNKNOWN,
@@ -17,6 +18,7 @@ import type { IrExpr, IrValue } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 import { stored } from "./convert.js"
 import { withStringCapacity } from "./storage.js"
+import { BUILTIN_ARITY } from "./builtins.js"
 
 /**
  * An enum is stored as its base type: the one written after the value list (`) BYTE`), else INT — how a project enum
@@ -171,6 +173,51 @@ function convertedConstant(lw: Lowering, e: Expr, depth: number): bigint | undef
   if (elem === undefined || !(elem.family === "int" || elem.family === "bitstring")) return undefined
   const value = enumValueOf(lw, written, depth + 1)
   return typeof value === "bigint" ? (stored(value, target) as bigint) : undefined
+}
+
+/**
+ * IS THIS EXPRESSION A COMPILE-TIME CONSTANT? Answered from the AST and the scope — no lowering, nothing built.
+ *
+ * It exists because the first version of this asked the question by LOWERING the expression and seeing whether a
+ * constant came out, which meant lowering speculatively and throwing the diagnostics away. That is unsound, and
+ * not in a way a caller can defend against: lowering MEMOIZES — a layout into `shared.layouts`, a global into
+ * `shared.globals` — so discarding the diagnostic left the half-built entity in place, and the next reference hit
+ * the cache and never re-reported. A POU lowered CLEAN with a global silently at 0 instead of 41.
+ *
+ * So the speculation is gone rather than guarded. Every caller now knows BEFORE it starts whether to fold or to
+ * defer, and whatever lowering then says is reported.
+ *
+ * A call is constant only when the callee is a CONVERSION or one of the pure value functions — measured to fold on
+ * SP21, all of them (`declarations/constant-folding.ts`). `ADR`, `THIS` and a user FUNCTION are not: CODESYS runs
+ * those, in declaration order, which is the init step's business (`init-sequence.ts`).
+ */
+export function foldsToConstant(lw: Lowering, e: Expr): boolean {
+  switch (e.kind) {
+    case "literal":
+      return true
+    case "paren":
+      return foldsToConstant(lw, e.inner)
+    case "unary":
+      return foldsToConstant(lw, e.operand)
+    case "binary":
+      return foldsToConstant(lw, e.left) && foldsToConstant(lw, e.right)
+    // a named CONSTANT or an enum member — `foldConstant` is itself pure (symbol lookups and `constEval`)
+    case "ident_expr":
+    case "member":
+      return foldConstant(lw, e) !== undefined
+    case "call": {
+      if (e.callee.kind !== "ident_expr" || !isConstantCallee(e.callee.name)) return false
+      return e.args.every((a) => !a.output && a.param === undefined && a.value !== undefined && foldsToConstant(lw, a.value))
+    }
+    default:
+      return false
+  }
+}
+
+/** The callees whose result is decided at compile time: a conversion, `SIZEOF`, and the pure value functions. */
+function isConstantCallee(name: string): boolean {
+  const upper = name.toUpperCase()
+  return upper === "SIZEOF" || upper === "XSIZEOF" || BUILTIN_ARITY[upper] !== undefined || parseConversionName(upper) !== undefined
 }
 
 export function foldConstant(lw: Lowering, e: Expr): IrValue | undefined {
