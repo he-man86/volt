@@ -197,7 +197,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
  *
  * The rating is derived — from the recordings and the fixture's own flags — so it is generated into
  * `evidence.generated.ts` and merged HERE rather than written into each entry: 458 of these fixtures come from
- * factory helpers or template-literal names, where a per-entry field cannot reach. `confidence.test.ts` recomputes
+ * factory helpers or template-literal names, where a per-entry field cannot reach. `fixtures.test.ts` recomputes
  * every value so it cannot go stale.
  *
  * MERGED ONTO THE CATEGORIES, not onto a flattened copy. Both `CATEGORIES` and `ALL_TESTS` are exported and hold the

@@ -152,7 +152,7 @@ reports a comfortable percentage while nothing real runs.
 
 Diagnostics match CODESYS and TwinCAT byte-for-byte, guaranteed by construction. `test/conformance/`:
 `catalog/` (one fixture per rule) → `record.ts` (push each to the live bridge, build, capture the compiler's
-exact diagnostics) → `recordings/` (the committed oracle truth) → `replay.test.ts` (offline; asserts the
+exact diagnostics) → `recordings/` (the committed oracle truth) → `fixtures.test.ts` (offline; asserts the
 message set is byte-identical per vendor — the single criterion; a `KNOWN_DIVERGENCES` ledger is the only
 opt-out). `test/corpus/` is the real-project ratchet (a miss ⇒ add a fixture, never a threshold tweak); unit
 tests co-locate with each module; `test/conformance/` also runs the transpiler (interpreter + emitted Rust) against the simulator's recording. The loop: corpus miss → catalog fixture →

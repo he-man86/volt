@@ -5,7 +5,7 @@
  *   bun run scripts/agreement-residue.ts --detail   every incomplete fixture and what it misses
  *   bun run scripts/agreement-residue.ts <name>…    one fixture's source beside both sides in full
  *
- * `replay.test.ts` reports ONE number (exact agreement) and fails only on a false positive, so a fixture that is
+ * `fixtures.test.ts` reports ONE number (exact agreement) and fails only on a false positive, so a fixture that is
  * merely INCOMPLETE — the LSP right about everything it says and silent about the rest — is invisible in it. This
  * buckets every disagreement into missing-only / extra-only / both / no-recording, then ranks the IDE messages the LSP
  * most often misses. It is how the parse-error cascade was found: 109 of 126 disagreements were missing-only, and the
@@ -57,7 +57,7 @@ for (const t of ALL_TESTS) {
   const ide = rec.diagnostics.filter((d) => d.severity === "error" || d.severity === "warning").map((d) => `[${d.severity}] ${comparable(d.message)}`).sort()
   const fixtures = withDependencies(t, ALL_TESTS).filter((f) => f.source !== "")
   const plc = plcPrgSource(t)
-  // Every OTHER fixture's declarations are in scope too, exactly as `replay.test.ts` builds them (its `CROSS_DECLS`):
+  // Every OTHER fixture's declarations are in scope too, exactly as `fixtures.test.ts` builds them (its `CROSS_DECLS`):
   // one recording project holds them all, so a name another fixture declares resolves here. Without them this script
   // invents unresolved-name findings that the replay does not have (`op_sys_queryinterface`).
   const own = new Set(fixtures.map((f) => f.name))
@@ -70,7 +70,7 @@ for (const t of ALL_TESTS) {
   const project = buildSymbolTable(files)
   const lsp: string[] = []
   // Only the fixture's OWN file and its PLC_PRG are ANALYZED — a dependency is in the project to resolve against,
-  // not to be diagnosed, exactly as `replay.test.ts` does it. Analyzing them too attributed one fixture's findings
+  // not to be diagnosed, exactly as `fixtures.test.ts` does it. Analyzing them too attributed one fixture's findings
   // to another (`interface_with_property_impl` inherited the interface fixture's accessor-less property).
   const analyzed = files.filter((f) => f.name === t.name || f.name === `${t.name}__plcprg`)
   for (const f of analyzed)

@@ -9,9 +9,12 @@
 - [x] Move the three one-off regressions out of `lowering-totality.test.ts` into `src/transpile/lower/`
       (date literal past JS `Date`'s range; pointer step over a zero-byte element; the temporal literals that
       prove that refusal did not widen).
-- [ ] `fixtures.test.ts` — one driver, one row per evidence rating, replacing `replay` + `refused` + `transpile` +
-      `confidence`. Every comment moves with its assertion; the two ratchets (per-vendor agreement, per-rating
-      ceilings) keep their recorded history.
+- [x] `fixtures.test.ts` — one driver, one row per evidence rating, replacing `replay` + `refused` + `transpile` +
+      `confidence`. Every comment moved with its assertion; both ratchets keep their recorded history. Three things
+      the merge found, none visible to the four separate files: `lsp-gap` has TWO sources and only one is declared
+      (the table's totality check caught the two measured ones); eleven `not-lowered` refusals read as unregistered
+      because the check read `LOWER_CODES` instead of `lowerCodeKind`, which knows the templated families; and the
+      rustc hang guard had grown into its constant (1857 cases in 179s against 180s) — it is proportional now.
 - [ ] `corpus.test.ts` — one walk, two questions: no false positive, totality + reach.
 - [x] Rename `backend-agreement` → `backends`, `memory-model.property` → `properties`, `census` +
       `construct-coverage` → `suite` (merged — one file, three authorities), `error-catalog` → `catalog`.

@@ -10,12 +10,15 @@
  *                                into `recordings/<vendor>.build.json`.
  *   `scripts/record-exec.ts`      runs it in CODESYS simulation and records variable values into
  *                                `recordings/codesys.run.json`. Self-launching; not a bridge op.
- *   `replay.test.ts`              the LSP's diagnostics against the BUILD recording — the precision gate.
- *   `transpile.test.ts`           the interpreter AND the emitted Rust against the RUN recording — the value gate,
- *                                 and the only place values are compared.
- *   `backends.test.ts`   the two backends against EACH OTHER, where no recording reaches.
- *   `refused.test.ts`             every source CODESYS rejects must be an LSP error too.
- *   `confidence.test.ts`          rates each fixture by how well it is evidenced, and holds `evidence` honest.
+ *   `fixtures.test.ts`           ONE gate over all of it, driven by the fixture's `evidence` rating: the LSP's
+ *                                diagnostics against the BUILD recording (the precision ratchet), the interpreter
+ *                                AND the emitted Rust against the RUN recording (the only place values are
+ *                                compared), every source CODESYS rejects as an LSP error too, and the rating
+ *                                itself recomputed so a stored one cannot go stale. It was four files that each
+ *                                re-selected their own subset, so a fixture in a state nobody had thought of was
+ *                                covered by none of them.
+ *   `backends.test.ts`           the two backends against EACH OTHER, where no recording reaches.
+ *   `suite.test.ts`              whether enough is being ASKED — the census, the grammar and the vendor's index.
  *
  * THE ORACLE IS CODESYS. TwinCAT has its own build recording and is compared where it differs, but the execution
  * oracle — the one that decides what a program MEANS — is CODESYS 3.5.21.40 (SP21). See `exec-oracle-recorder`.
@@ -81,12 +84,12 @@ export interface LanguageTest {
   /** Scan cycles a run records after (`recordings/codesys.run.json`). Default 1. */
   cycles?: number
   /** CODESYS refuses the source, with a fragment of its error text: outside the transpiler's input contract, and an LSP
-   *  error that must be present (`refused.test.ts`). */
+   *  error that must be present (`fixtures.test.ts`, the `refused` row). */
   refused?: string
   /** A consumer that deliberately does not check this case yet — the reason, with its date. */
   deferred?: { lsp?: string; transpile?: string }
   /**
-   * HOW WELL THIS FIXTURE IS EVIDENCED — written by `bun run rate:fixtures`, checked by `confidence.test.ts`.
+   * HOW WELL THIS FIXTURE IS EVIDENCED — written by `bun run rate:fixtures`, checked by `fixtures.test.ts`.
    *
    * GENERATED, like a lockfile: it is derived from the recordings and the flags below, so it is never edited by
    * hand and never trusted on its own. The gate recomputes every rating and fails if a stored one disagrees, which
@@ -96,7 +99,7 @@ export interface LanguageTest {
    * It is here because a fixture should be readable ALONE. The recordings are one 300 KB JSON keyed by name; asking
    * "is this one actually confirmed?" used to mean opening it.
    *
-   *   `confirmed`    the vendor RAN it, we run it, and `transpile.test.ts` asserts its values in both backends.
+   *   `confirmed`    the vendor RAN it, we run it, and the `confirmed` row asserts its values in both backends.
    *   `refused`      the vendor REJECTS the source and so do we — a confirmed negative, and how the input contract
    *                  is pinned. `refused` (the field) carries the vendor's own words.
    *   `not-lowered`  the vendor ran it and lowering refuses, saying why. A COVERAGE gap, not a wrong answer.

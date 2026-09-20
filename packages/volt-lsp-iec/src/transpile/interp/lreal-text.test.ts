@@ -1,6 +1,6 @@
 /**
  * `LREAL_TO_STRING` — every cell measured on CODESYS SP21 (conformance `fmt_lreal_*`, 2026-09-19). The emitter's
- * `iec_lreal_text` mirrors this line for line, and `transpile.test.ts` grades both against the recording; this is
+ * `iec_lreal_text` mirrors this line for line, and `fixtures.test.ts` grades both against the recording; this is
  * the one that fails FIRST, in milliseconds, when the formatter drifts.
  */
 import { test, expect } from "bun:test"

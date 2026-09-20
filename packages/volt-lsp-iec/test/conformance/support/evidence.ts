@@ -1,11 +1,11 @@
 /**
  * HOW WELL A FIXTURE IS EVIDENCED — the one implementation, used by the generator and by the gate.
  *
- * `scripts/rate-fixtures.ts` writes the answer into each fixture's `evidence`; `confidence.test.ts` recomputes it and
+ * `scripts/rate-fixtures.ts` writes the answer into each fixture's `evidence`; `fixtures.test.ts` recomputes it and
  * fails if a stored one disagrees. Both call THIS, so a generated file and the gate that checks it can never be
  * measuring different things — which is the only way storing derived data in source is safe.
  *
- * **It does not compare values, and that is deliberate.** `transpile.test.ts` owns value equality, in both backends,
+ * **It does not compare values, and that is deliberate.** `fixtures.test.ts` owns value equality, in both backends,
  * using the vendor's own display formats (`ideValue` reads `DUT_X.Running`, `TIME#1s1ns`, `'a$Tb'`). A first version
  * re-implemented that comparison here and reported 97 false divergences on a green suite. So `confirmed` means "the
  * vendor answered, we execute it, and the gate that owns equality is asserting it" — a statement about WHERE THE
@@ -62,18 +62,18 @@ function sourceOf(t: LanguageTest, all: readonly LanguageTest[]): { source: stri
  *   by a semantic check. Reading only semantic diagnostics sees half of what the LSP says.
  *
  *   NETWORK TEXT HAS ITS OWN PASS. `computeSemanticDiagnostics` SKIPS a graphical body; `computeNetworkTextDiagnostics`
- *   is what reads it (`replay.test.ts` runs both for exactly this reason). Without it, eleven network fixtures read as
+ *   is what reads it (`fixtures.test.ts` runs both for exactly this reason). Without it, eleven network fixtures read as
  *   gaps when the LSP flags every one.
  *
  *   THE URI IS PART OF THE INPUT. A signature-name check compares the declared name against the FILE's, so a fixture
- *   analysed under a made-up filename cannot trigger it. The uri is built the way `replay.test.ts` builds it.
+ *   analysed under a made-up filename cannot trigger it. The uri is built the way `fixtures.test.ts` builds it.
  *
- * It asks only WHETHER the LSP objects, never whether the message matches — `refused.test.ts` owns the wording,
- * against the vendor's own text. Conflating the two would make this either too strict (a wording drift becomes a gap)
- * or unable to run at all, since most fixtures carry no `refused` fragment to compare.
+ * `lspReportsAnError` asks only WHETHER the LSP objects; `lspErrors` returns the same messages for the fixtures that
+ * carry the vendor's own text to compare against. They are the same walk on purpose — the wording check used to build
+ * its own two-file project, which is the very assembly the third note above says defeats `signature-name`.
  */
-function lspReportsAnError(t: LanguageTest, all: readonly LanguageTest[]): boolean {
-  // ONE ITEM, ONE FILE — the layout the protocol guarantees and `replay.test.ts` replays. `assembleFixture` is the
+export function lspErrors(t: LanguageTest, all: readonly LanguageTest[]): string[] {
+  // ONE ITEM, ONE FILE — the layout the protocol guarantees and `fixtures.test.ts` replays. `assembleFixture` is the
   // TRANSPILER's assembly: it concatenates every dependency AND the synthesized PLC_PRG into a single source. Read
   // as a file, that source holds two top-level POUs, which is exactly the shape `signature-name` treats as a fixture
   // packing its dependencies inline — so it stayed silent and four measured refusals read as `lsp-gap`.
@@ -84,15 +84,23 @@ function lspReportsAnError(t: LanguageTest, all: readonly LanguageTest[]): boole
   const plcText = plcPrgSource(t)
   const plc = { uri: `file:///conformance/${t.name}/PLC_PRG.prg`, source: plcText, parseResult: parseSource(plcText) }
   const files = [own, plc, ...deps]
-  if (files.some((f) => f.parseResult.errors.length > 0)) return true
-
   const project = buildSymbolTable([...files, ...libraryFiles()])
   const config = resolveConfig({ vendor: "codesys" })
   const semantic = files.flatMap((f) =>
     computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }),
   )
   const network = computeNetworkTextDiagnostics(own, project, messagesFor("codesys"))
-  return [...semantic, ...network].some((d) => d.severity === "error" || CONFIGURABLE_SEVERITY.has(d.code))
+  return [
+    ...files.flatMap((f) => f.parseResult.errors.map((e) => e.message)),
+    ...[...semantic, ...network]
+      .filter((d) => d.severity === "error" || CONFIGURABLE_SEVERITY.has(d.code))
+      .map((d) => d.message),
+  ]
+}
+
+/** Whether the LSP objects at all — a parse error counts, and so does a check the PROJECT could configure louder. */
+function lspReportsAnError(t: LanguageTest, all: readonly LanguageTest[]): boolean {
+  return lspErrors(t, all).length > 0
 }
 
 /**
@@ -136,7 +144,7 @@ export function rateFixture(t: LanguageTest, all: readonly LanguageTest[]): Evid
   if (rec?.error !== undefined && onlyProjectConfiguration(rec.error)) return "unaskable"
   // A vendor REFUSAL is an answer, and either recording can carry it — but `refused` claims WE refuse it too, so it
   // has to be asked rather than assumed. It was assumed, and that was an overclaim: `cc_reserved_name_s_string`,
-  // `cc_il_name_ld` and their neighbours are rejected by CODESYS, carry no `refused` marker for `refused.test.ts` to
+  // `cc_il_name_ld` and their neighbours are rejected by CODESYS, carry no `refused` marker for `fixtures.test.ts` to
   // check, and parse CLEANLY here — rated as evidence when they were silent gaps.
   if (rec?.error?.startsWith("does not compile") === true || build?.buildSuccess === false || t.refused !== undefined)
     return lspReportsAnError(t, all) ? "refused" : "lsp-gap"

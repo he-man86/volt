@@ -12,7 +12,7 @@
  *     re-implementation of it.
  *
  * Ground truth: test-corpus/<project>/expected-build.<vendor>.json (errors+warnings, by record-corpus-build.ts).
- * Compared on the NORMALIZED message set (whitespace-collapsed), like replay.test.ts — so wording must match.
+ * Compared on the NORMALIZED message set (whitespace-collapsed), like fixtures.test.ts — so wording must match.
  */
 import { test, expect } from "bun:test"
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"

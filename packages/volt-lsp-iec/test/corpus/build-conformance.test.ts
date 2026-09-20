@@ -2,12 +2,12 @@
  * Corpus build-conformance — the REAL oracle: every error-severity diagnostic the LSP emits on a corpus
  * project must be one the IDE's own build also emitted. This replaces the `corpus.test.ts` "zero errors"
  * assumption (which wrongly treated the projects as clean — they are NOT; see the C0371 demotion) with a
- * ground-truth comparison, exactly like `replay.test.ts` does per-fixture, but over whole projects.
+ * ground-truth comparison, exactly like `fixtures.test.ts` does per-fixture, but over whole projects.
  *
  * Ground truth lives in `test-corpus/<project>/expected-build.<vendor>.json`, captured by
  * `scripts/record-corpus-build.ts` from a LIVE build (needs the real project loaded in the IDE). Until a
  * project is recorded, its gate SKIPS — the comparison can't run without the compiler's answer. The message
- * set is the criterion (matching replay.test.ts), so an LSP detection with wording the IDE doesn't use reads
+ * set is the criterion (matching fixtures.test.ts), so an LSP detection with wording the IDE doesn't use reads
  * as a false positive until reconciled — which is the point: it forces parity and catches invented errors.
  */
 import { describe, expect, test } from "bun:test"

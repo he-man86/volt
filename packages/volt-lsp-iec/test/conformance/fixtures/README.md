@@ -40,5 +40,5 @@ moving one is a small, safe commit, and nothing here is deleted for being redund
 5. A fixture that declares nothing `PLC_PRG` can read is **silently skipped by the recorder** — give it a
    `plcPrgVar`, or say in `execSkip` why it cannot be asked.
 
-`evidence.generated.ts` is written by `scripts/rate-fixtures.ts` and checked by `confidence.test.ts`; never edit it
+`evidence.generated.ts` is written by `scripts/rate-fixtures.ts` and checked by `fixtures.test.ts`; never edit it
 by hand.

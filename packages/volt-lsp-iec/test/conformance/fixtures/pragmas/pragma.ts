@@ -3,7 +3,7 @@
  *
  * Each entry is a small, self-contained TwinCAT-pushable POU that
  * exercises ONE documented pragma. Used by:
- *   - `replay.test.ts` — replays the committed build recording, runs
+ *   - `fixtures.test.ts` — replays the committed build recording, runs
  *     LSP diagnostics on each `source`, compares the two sides
  *   - `scripts/record-language.ts` — pushes each `source` through a live
  *     bridge, builds it, and records the compiler's diagnostics into

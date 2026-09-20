@@ -9,7 +9,7 @@
  *   3. PROJECT=lenze-mid VOLT_VENDOR=codesys bun run scripts/record-corpus-build.ts
  *
  * Writes test-corpus/<PROJECT>/expected-build.<vendor>.json = every error+warning the FULL build emitted.
- * The comparison is project-level (message set), matching replay.test.ts — so our wording must match the IDE's
+ * The comparison is project-level (message set), matching fixtures.test.ts — so our wording must match the IDE's
  * for a real detection to count (a wording delta reads as an FP until reconciled, which is the point).
  */
 import { writeFileSync, existsSync } from "node:fs"

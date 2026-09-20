@@ -1,6 +1,6 @@
 /**
  * Execution cases — each is ONE program, run for `cycles` scan cycles both in CODESYS's simulator (`bun run record:exec`)
- * and through the transpiler (transpile.test.ts), and every variable must agree. They are conformance fixtures: the
+ * and through the transpiler (fixtures.test.ts), and every variable must agree. They are conformance fixtures: the
  * program IS PLC_PRG (`plcPrgVar`/`plcPrgBody`, no units of its own), which is exactly what both recorders build — so
  * the LSP replay checks the same source once it has a build recording (unify-conformance-suite).
  *

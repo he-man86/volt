@@ -3,7 +3,7 @@
  *
  * These plug the error-code catalog (`docs/codesys-reference/error-catalog.json`, `test/catalog/error-codes.ts`)
  * into the LIVE-IDE conformance gate: the recorder pushes each to CODESYS + TwinCAT and
- * `replay.test.ts` requires the LSP's message set to equal the recorded compiler set, byte-for-byte, per vendor.
+ * `fixtures.test.ts` requires the LSP's message set to equal the recorded compiler set, byte-for-byte, per vendor.
  * That is how each `Cnnnn` wording is locked (and any docs-vs-live drift settled).
  *
  * Each fixture is authored well-formed and harness-shaped (a `FB_LANG_`-prefixed POU + a PLC_PRG instantiation
