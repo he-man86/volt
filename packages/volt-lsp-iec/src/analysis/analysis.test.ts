@@ -102,6 +102,36 @@ test("a CODESYS-only operator is an undefined identifier on TwinCAT", () => {
   ])
 })
 
+// THE TWO `__XADD`s ARE MIRROR IMAGES. CODESYS takes the ADDRESS of the counter and refuses the counter;
+// TwinCAT takes the counter and refuses the address, and hands back the operand's own type where CODESYS
+// always returns DINT (`atomic_xadd_*`, six operand types on both recordings, 2026-09-20).
+test("__XADD: CODESYS wants the pointer, TwinCAT wants the value", () => {
+  const call = (decl: string, arg: string) =>
+    `FUNCTION_BLOCK F\nVAR\n${decl}\n res : DINT;\nEND_VAR\nres := __XADD(${arg}, 1);\nEND_FUNCTION_BLOCK`
+  const of = (src: string, v: Vendor) => diag(src, v).map((d) => d.message)
+
+  const value = call(' n : DINT;', 'n')
+  expect(of(value, "codesys")).toEqual(["Cannot convert type 'DINT' to type 'POINTER TO DINT'"])
+  expect(of(value, "twincat")).toEqual([])
+
+  const pointer = call(' p : POINTER TO DINT;', 'p')
+  expect(of(pointer, "codesys")).toEqual([])
+  expect(of(pointer, "twincat")).toEqual(["Cannot convert type 'POINTER TO DINT' to type 'DINT'"])
+
+  // the RESULT follows the operand on TwinCAT: a DINT counter into an INT is a conversion there, not here
+  const intRes = `FUNCTION_BLOCK F\nVAR\n n : INT;\n res : INT;\nEND_VAR\nres := __XADD(n, 1);\nEND_FUNCTION_BLOCK`
+  expect(of(intRes, "twincat")).toEqual([])
+})
+
+// A SIGN CROSSING AT AN ARGUMENT IS CODESYS'S WARNING ALONE — TwinCAT warns for every assignment and for none
+// of these (`cc_enum_arg_into_{uint,udint,word,dword}` and `atomic_xadd_{dword,lword}`, 2026-09-20).
+test("a sign change at an ARGUMENT warns on CODESYS only", () => {
+  const src = `FUNCTION F_u : INT\nVAR_INPUT\n u : UINT;\nEND_VAR\nF_u := 1;\nEND_FUNCTION\n\nFUNCTION_BLOCK F\nVAR\n si : INT;\n out : INT;\nEND_VAR\nout := F_u(si);\nEND_FUNCTION_BLOCK`
+  expect(diag(src, "codesys").map((d) => d.message)).toEqual([
+    "Implicit conversion from signed Type 'INT' to unsigned Type 'UINT' : Possible change of sign",
+  ])
+  expect(diag(src, "twincat").map((d) => d.message)).toEqual([])
+})
 test("vendor-keyed wording: ABSTRACT instantiation", () => {
   const src = `FUNCTION_BLOCK ABSTRACT FB_A\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK F\nVAR\n x : FB_A;\nEND_VAR\nEND_FUNCTION_BLOCK`
   expect(diag(src, "codesys").find((d) => d.code === "abstract-instantiation")?.message).toBe(

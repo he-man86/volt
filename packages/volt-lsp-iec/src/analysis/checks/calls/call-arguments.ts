@@ -351,8 +351,14 @@ function argTypeError(
     // both assignable, so this returned early and a call site never produced the warning an identical plain
     // assignment does — measured on the lenze-mid corpus, where the build's one "change of sign" warning had no
     // counterpart from us. Same relation, same wording, same codes: `narrowing.ts` owns the mapping.
+    // …ON CODESYS. TwinCAT warns about a sign crossing in every ASSIGNMENT and in none of these: six cells,
+    // two different sources and five target types — `cc_enum_arg_into_{uint,udint,word,dword}` (an enum into
+    // an unsigned input) and `atomic_xadd_{dword,lword}` (a DINT into one) — all silent there while CODESYS
+    // warns, with its recording of the same fixtures to compare against (2026-09-20). A NARROWING at an
+    // argument is not covered by that measurement and keeps firing for both.
     const warning = conversionWarning(target, arg, value, ctx.messages)
-    if (warning !== undefined) out.push(warning)
+    if (warning !== undefined && !(ctx.config.vendor === "twincat" && warning.code === "sign-change-conversion"))
+      out.push(warning)
     return
   }
   out.push({

@@ -212,6 +212,10 @@ const CHECKS: readonly Check[] = [
  * (consolidate-lsp-structure C6). A rule gate INSIDE a check (one message of several) stays in that check.
  */
 const CODESYS_ONLY: ReadonlySet<Check> = new Set<Check>([
+  // live /build (2026-09-20): TwinCAT compiles `IF (p := __NEW(T)) = 0` CLEAN (`cc5_new_in_expression`). On
+  // CODESYS the rule is still UNMEASURED — that project's device configures no dynamic memory, so every __NEW
+  // reports THAT instead and the nesting rule is never reached (it is in `KNOWN_DIVERGENCES.codesys` for it).
+  checkNewInExpression,
   checkAttributePlacement, // live /build: TwinCAT silently accepts pack_mode on a FUNCTION/METHOD
   checkInputDefault, // live /build: TwinCAT silently accepts an array default on a FUNCTION input
   checkAbstractAssign, // live /build (2026-07-11): TwinCAT accepts this — no such rule

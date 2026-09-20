@@ -14,7 +14,7 @@
  * operator name is UNSHADOWED (a project/library symbol of the same name skips) and the argument's type is a
  * KNOWN non-numeric elementary (not ANY_NUM = int/bitstring/real).
  */
-import { inferExprType, inTypeGroup } from "../../../types/index.js"
+import { elementaryType, elementaryTypeRef, inferExprType, inTypeGroup, isAssignable } from "../../../types/index.js"
 import { CODESYS_ONLY_KEYWORDS, type Span } from "../../../syntax/index.js"
 import { forEachExpr, lookup } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
@@ -70,12 +70,26 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
     // pointer look derived from the operand; it is not.
     // TwinCAT has `__XADD` (with a signature of its own) and NO `__COMPARE_AND_SWAP` — it answers "Identifier
     // '__COMPARE_AND_SWAP' not defined" — so an operand rule for a name the dialect lacks is an invented error.
+    // THE TWO VENDORS' `__XADD` ARE MIRROR IMAGES, and six operand types each say so (`calls/atomic-operands.ts`,
+    // both recordings 2026-09-20, TwinCAT on x64): CODESYS takes the ADDRESS and refuses a DINT — "Cannot convert
+    // type 'DINT' to type 'POINTER TO DINT'" — while TwinCAT takes the DINT ITSELF and refuses the pointer,
+    // "Cannot convert type 'POINTER TO DINT' to type 'DINT'". INT and DWORD pass there (widening, and a sign
+    // crossing TwinCAT does not warn about at an argument); LINT and LWORD do not.
     const ATOMIC_POINTER: Readonly<Record<string, string>> = { __XADD: "DINT", __COMPARE_AND_SWAP: "LWORD" }
-    const wants = CODESYS_ONLY_KEYWORDS.has(name) && ctx.project.dialect === "twincat" ? undefined : ATOMIC_POINTER[name]
+    const tc = ctx.project.dialect === "twincat"
+    const wants = CODESYS_ONLY_KEYWORDS.has(name) && tc ? undefined : ATOMIC_POINTER[name]
     if (wants !== undefined) {
       const t = inferExprType(arg, scope, ctx.project)
-      if (t.kind !== "pointer" && t.kind !== "unknown")
-        push(out, "error", arg.span, "call-argument-type", ctx.messages.cannotConvert(compilerTypeName(t), `POINTER TO ${wants}`))
+      const target = elementaryTypeRef(elementaryType(wants)!)
+      const bad = tc ? t.kind !== "unknown" && (t.kind !== "elementary" || !isAssignable(target, t)) : t.kind !== "pointer" && t.kind !== "unknown"
+      if (bad)
+        push(
+          out,
+          "error",
+          arg.span,
+          "call-argument-type",
+          ctx.messages.cannotConvert(compilerTypeName(t), tc ? wants : `POINTER TO ${wants}`),
+        )
     }
     // INDEXOF WAS REMOVED IN SP21 and says so, whether it is handed a POU name or a variable (`operand_indexof`,
     // `atomic_indexof_variable`). It is not an operand rule — the operator is simply gone.

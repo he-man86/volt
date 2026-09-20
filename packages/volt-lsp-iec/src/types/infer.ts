@@ -23,6 +23,7 @@ import { checkedMeetType, checkedNegationType, exptResultType, temporalResultTyp
 import { canonicalElem, elementaryType, integerLiteralType, parseConversionName, REAL_LITERAL_TYPE } from "./elementary.js"
 import { resolveNamedType, resolveTypeExpr } from "./resolve.js"
 import { elementaryRef, elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
+import { isAssignable } from "./compat.js"
 // Inherent cycle: type inference resolves references via the reference catalog, which itself depends on the type system (bidirectional by design). Function-body import, no init hazard.
 import { lookupReference } from "../reference/index.js"
 import { CODESYS_ONLY_KEYWORDS } from "../syntax/index.js"
@@ -489,6 +490,17 @@ function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
     const types = call.args.map((a) => (a.value === undefined ? UNKNOWN : inferExprType(a.value, scope, project)))
     if (types.length === 0 || types.some((t) => t.kind !== "elementary")) return UNKNOWN
     return types.reduce((acc, t) => checkedMeetType(acc, t) ?? UNKNOWN)
+  }
+  // TWINCAT'S `__XADD` HANDS BACK WHAT IT WAS GIVEN, where CODESYS's is always a DINT. The same six operand
+  // types that pinned the ARGUMENT also pin the result: `res : INT := __XADD(anInt, 1)` builds clean on
+  // TwinCAT and is "Cannot convert type 'DINT' to type 'INT'" on CODESYS, and a DWORD operand warns about a
+  // sign change on CODESYS alone (`atomic_xadd_int`, `atomic_xadd_dword`, both recordings 2026-09-20).
+  if (project.dialect === "twincat" && call.callee.kind === "ident_expr" && call.callee.name.toUpperCase() === "__XADD") {
+    // …and an operand it REFUSES yields no usable result: `__XADD(pDint, 1)` is one error about the pointer on
+    // TwinCAT (`atomic_xadd_pointer`), not that error plus a conversion complaint about what it returned.
+    const first = call.args[0]?.value
+    const t = first === undefined ? UNKNOWN : inferExprType(first, scope, project)
+    return t.kind === "elementary" && isAssignable(elementaryRef("DINT"), t) ? t : UNKNOWN
   }
   // Otherwise a built-in call: a conversion `<X>_TO_<Y>`/`TO_<Y>` yields elementary `<Y>`; an operator with a
   // FIXED modeled return type yields that. Flows a built-in's result into downstream checks — e.g.

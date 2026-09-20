@@ -811,7 +811,14 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // exactly what TwinCAT says about them. Fifteen fixtures stopped inventing a type for a name the compiler has
   // never heard of; `ldate_ltod_ldt` is the one that arrived, where the two parsers resync differently after an
   // unknown prefix.
-  { vendor: "twincat", floor: 2230 },
+  // 2230 -> 2240, and the backlog 19 -> 4, on the day the TwinCAT recording was finally made against the RIGHT
+  // TARGET. The fixture solution had been building for `TwinCAT CE7 (ARMV7)`; on `TwinCAT RT (x64)` the
+  // platform-width family answers LINT/ULINT/LWORD exactly as CODESYS does, and `__XADD` stops reporting an ARM
+  // code-generator crash and states its signature — the mirror image of CODESYS's, taking the counter where
+  // CODESYS takes its address, and returning the operand's own type where CODESYS returns DINT. Six operand
+  // types each. Plus two rules measured as CODESYS's alone: a sign crossing at an ARGUMENT, and `__NEW` nested
+  // in an expression.
+  { vendor: "twincat", floor: 2240 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -865,49 +872,56 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
 ]
 
 /**
- * THE TWINCAT TRIAGE BACKLOG — fixtures where the LSP says something TwinCAT does not, dated 2026-09-20.
+ * THE TWINCAT TRIAGE BACKLOG — fixtures where the LSP says something TwinCAT does not. FOUR, as of the end of
+ * 2026-09-20, from 79 that morning.
  *
  * These are NOT excused. `lsp-parity-not-better` is the rule: an LSP-only message is a false positive until a
- * recording says otherwise. They are here because they all arrived at once, from one event, and pretending to
- * have 79 individual reasons would be worse than admitting to none.
+ * recording says otherwise. A fixture that legitimately cannot match — reachability, a project setting, a
+ * vendor's own defect — belongs in `KNOWN_DIVERGENCES` with its evidence, and several moved there today.
  *
- * THE EVENT: TwinCAT's ground truth went from 280 fixtures (recorded 2026-07-07) to 2524. The no-false-positive
- * gate was green before because 90% of the suite had no TwinCAT data to contradict it — silence read as
- * agreement. None of this is a regression; it is the first honest look.
+ * HOW THE 79 WENT. Almost none of it was the LSP being wrong about ST, and none of it was closed by teaching
+ * a check to branch on the vendor:
  *
- * They fall into families, and the families are the unit of work — one recording answers a whole column:
+ *   ~24  THE RECORDING WAS WRONG. TwinCAT's driver joined lines onto a message while its quote count was odd,
+ *        and a complete message can have an odd count, because what it quotes is ST source full of string
+ *        literals. A family of warnings TwinCAT reports IDENTICALLY read as divergence.
+ *   ~18  THE PROJECT WAS ON THE WRONG TARGET. The fixture solution's active platform was `TwinCAT CE7 (ARMV7)`
+ *        — 32-bit ARM — so `__XINT` measured DINT where the CODESYS oracle says LINT, and `__XADD` returned
+ *        `Internal Error (ARM): RiscFrontEnd: Unknown operator` instead of an answer. Re-recorded on
+ *        `TwinCAT RT (x64)`; `check-recording.ts` now refuses to adopt a recording that is not 64-bit.
+ *   ~15  THE VOCABULARY IS VENDOR DATA. `__POSITION`, `__POUNAME`, `__COMPARE_AND_SWAP`, `__VECTOR` and the
+ *        `UCHAR#`/`LDATE#`/`LDT#`/`LTOD#` prefixes are CODESYS's alone, so the LSP was typing names TwinCAT
+ *        has never heard of. They lex as identifiers there now, and resolve nowhere, which is what TwinCAT
+ *        says about them.
+ *   ~10  THE WORDING. Capitalisation and punctuation, measured on both sides and now data in `messages.ts`:
+ *        "Unexpected Token", "Assignment target not specified", an upper-cased recursion chain, an input
+ *        count TwinCAT never words as a range, and `INDEXOF`, which both vendors removed and word differently.
+ *    ~9  A MESSAGE TWINCAT CANNOT PRINT. Below STRING(3) the prefix in "String constant '…' too long" would
+ *        have a negative length; TwinCAT's builder throws where CODESYS falls back, and says so in the
+ *        recording (`System.ArgumentOutOfRangeException: Length cannot be less than zero`).
+ *    ~6  RULES TWINCAT DOES NOT HAVE, each measured on its own fixtures: the ABSTRACT-keyword warning, the
+ *        second message for an unresolved base class, a sign crossing at an ARGUMENT (it warns for every
+ *        assignment and none of these), and `__NEW` nested in an expression.
+ *     1  A RULE NEITHER VENDOR HAS: C0098, the deprecated `FUNCTIONBLOCK` spelling. Deleted.
  *
- *   ~11  a STRING/WSTRING constant too long for its destination (`cc_string_*`, `cc_wstring_*`, `xo4_string*`,
- *        `ir_initializer_*`). CODESYS warns; this TwinCAT appears not to.
- *   ~9   the `__` atomic operators (`atomic_*`, `operand_xadd`, `operand_compare_and_swap`, `operand_indexof`).
- *   11   the platform-width types (`plat_xint_*`, `plat_uxint_*`, `plat_xword_*`) — TRIAGED 2026-09-20, and the
- *        guess above was wrong: TwinCAT accepts all three spellings and resolves them, just to the other width.
- *        `__XINT`/`__UXINT`/`__XWORD` follow the TARGET: CODESYS records LINT/ULINT/LWORD (its device is named
- *        `CODESYS Control Win V3 x64`), TwinCAT records DINT/UDINT/DWORD (32-bit default, no marker), across
- *        all 18 `plat_*` cells. The LSP hardcodes the 64-bit half, so it is exactly right on one and exactly
- *        wrong on the other. NOT a vendor property — TwinCAT ships x64 runtimes and CODESYS ships 32-bit PLCs,
- *        so a vendor branch would be right for these two projects and wrong in principle. The fix is one rule:
- *        take the width from the project's target, and say NOTHING when it is not knowable. That needs a way to
- *        know the target, so it is a decision rather than a cleanup — see the openspec change. Exposure today
- *        is nil and measured: all 1833 corpus uses live under `Library Manager/`, which the server skips.
- *   ~7   `__POSITION` (`sysop_position_*`, `operand_position`).
- *   ~5   the unnamed network-text target (`network_unnamed_*`), which the compiler never reads at all.
- *   ~4   IL-operator and function-name CASING (`echo_*`).
- *   the rest are individual, and several already have a documented CODESYS twin in KNOWN_DIVERGENCES for a
- *   REACHABILITY reason (`cc2_var_in_interface`, `itf_var_section_*`, `cc6_loop_cannot_exit`,
- *   `ir_initializer_warning_no_instance`) — the same reasoning is likely to apply, and must be checked rather
- *   than assumed.
+ * WHAT IS LEFT, and why each is still open rather than excused:
  *
- * 79 -> 69 on the day it was written, by fixing a BRIDGE bug rather than the LSP. TwinCAT's driver joined
- * following lines onto a message while its quote count was odd — and a complete message can have an odd count,
- * because what it quotes is ST source full of string literals. It swallowed the error list's path echo and the
- * build log, so a family of string warnings TwinCAT reports IDENTICALLY to CODESYS read as a vendor divergence.
- * Ten entries left this list without a line of LSP changing. Prefer that: the cheapest vendor difference to
- * close is the one that was never real.
+ *   cc3_reference_assign      TwinCAT reverses the conversion direction for a reference assign — "Cannot
+ *                             convert type 'REFERENCE TO INT' to type 'SINT'" where CODESYS says the same
+ *                             pair the other way round. ONE cell; a rule built on one cell is a guess.
+ *   cc4_output_reference_type The message is identical and the RECORDING is contaminated: "Outputs can't be
+ *                             of type 'REFERENCE TO'" has three quotes (the contraction plus the pair), so
+ *                             the odd-count rule swallowed the build summary. Fixed in the driver; needs a
+ *                             worker rebuild and a re-record of this one row.
+ *   cc5_deprecated_functionblock_keyword  The parser's own `unexpected identifier 'FUNCTIONBLOCK' at file
+ *                             scope`, which is Volt's wording, where both vendors say nothing about the
+ *                             header and complain where the missing FB is USED.
+ *   ldate_ltod_ldt            Arrived with the vocabulary fix: after an unknown literal prefix the two
+ *                             parsers resync differently and ours says three things more.
  *
  * THE RULE HERE IS THAT IT ONLY SHRINKS. A fixture not in this list may not emit an LSP-only message, and a
- * fixture that stops emitting one must leave the list — both are asserted below, so this cannot quietly grow and
- * cannot quietly rot. Triage is tracked in `openspec/changes/twincat-conformance-parity`.
+ * fixture that stops emitting one must leave the list — both are asserted below, so this cannot quietly grow
+ * and cannot quietly rot. Triage is tracked in `openspec/changes/twincat-conformance-parity`.
  */
 /**
  * THE CODESYS TRIAGE BACKLOG, dated 2026-09-20 — and it is THREE, where TwinCAT's is 79.
@@ -929,25 +943,10 @@ const CODESYS_TRIAGE: ReadonlySet<string> = new Set([
 ])
 
 const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
-  "atomic_xadd_dint",
-  "atomic_xadd_dword",
-  "atomic_xadd_int",
-  "atomic_xadd_lint",
-  "atomic_xadd_lword",
   "cc3_reference_assign",
   "cc4_output_reference_type",
   "cc5_deprecated_functionblock_keyword",
-  "cc5_new_in_expression",
-  "cc_enum_arg_into_uint",
   "ldate_ltod_ldt",
-  "operand_xadd",
-  "plat_uxint_into_dint",
-  "plat_uxint_into_lint",
-  "plat_uxint_meet_dint",
-  "plat_xint_into_dint",
-  "plat_xword_into_dint",
-  "plat_xword_into_lint",
-  "plat_xword_meet_dint",
 ])
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
  *  is confirmed against a recording (not a not-yet-ported check — those are tracked by the ratchet). */
