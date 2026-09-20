@@ -206,6 +206,50 @@ the statement bind, and initializers running once in declaration order before th
 inventing a third, and the src tests pin read, write, survival across scans and per-instance independence. It
 wants its own fixture family before it is called measured.
 
+## 7c. Re-measured after the `REF=` fix — and §8's step 3 is NOT the biggest item
+
+**Measured 2026-09-20, after the declaration-`REF=` fix landed.** That fix alone took `pointer-order` from 177
+POUs to 105 and collapsed the "pointer variable" column, so the histogram §7b used to order the work no longer
+describes the corpus:
+
+| shape | §7b (before) | now | the form it needs |
+|---|---|---|---|
+| a pointer **field** | 263 | **263** | — see below |
+| a pointer **variable** | 232 | **90** | mostly RESOLVED by the `REF=` fix |
+| a pointer **input** | 91 | 87 | 2 — §8 step 1 |
+| a routine local | 46 | 46 | — |
+| an in-out | 8 | 8 | — |
+
+**The field column is now 53% of what is left, and 220 of its 263 are ONE shape in ONE POU.** `pro2193`'s
+`Increment` is a PROGRAM whose METHODs take an `ANY_INT` and write through a UNION of pointers:
+
+```
+uInput.p1_Byte := input.pValue;            // store into one member
+CASE input.diSize OF
+  1: uInput.p1_Sint^ := uInput.p1_Sint^ + …  // read back through another
+```
+
+**It is not form 3, and it is not the union.** Both were checked by reproducing the shape in isolation: a union
+of pointers already resolves to ONE key (`pointerKey`, measured by `state_any_int_pointer_increment`), and
+storing into one member and dereferencing another lowers today. What refuses it is `pointer-outlives`:
+`recordTarget` allows a pointer that holds an in-out-rooted address only when the body is an FB's OWN
+(`frameContext` starts `FB:`) and is NOT a routine — and here the holder is a PROGRAM's field written from a
+METHOD.
+
+That refusal is honest rather than wrong: the field outlives the call that supplied the address, so the next call
+rebinds and CODESYS would follow a stale one. The conformance fixture that measures this shape
+(`state_any_int_pointer_increment`, `confirmed`) declares its union as a FUNCTION LOCAL, which has no such
+lifetime — so what is measured is the easy half.
+
+**So the next measurement is a lifetime question, not a mechanism.** Does a pointer field written from an ANY
+input's `pValue` in a METHOD hold anything meaningful after that method returns? `scopedTo` already models
+"exact on the run that stored it" for an FB body; extending it to a ROUTINE's run is the shape of the answer, and
+the fixture above is one `VAR` away from asking it.
+
+**What §8 should say instead.** Step 1 (form 2, the pointer input) is 87 POU-hits and needs no IR. Step 3 (form 3,
+the tagged handle) is worth far less than §7b implied now that the variable column has collapsed — the genuinely
+multi-target locals are a small part of the remaining 90. The 220-hit item is neither.
+
 ## 8. Order of work
 
 Sized by what each step unblocks, smallest first — and the first two need no new IR:
