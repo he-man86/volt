@@ -2,7 +2,7 @@
  * LOWERING IS TOTAL FOR SHAPES THE CORPUS DOES NOT CONTAIN.
  *
  * `src/transpile/index.ts` states the contract: invalid input ends in a `LowerDiagnostic`, never a throw and never
- * an invented meaning. `test/conformance/lowering-totality.test.ts` gates that over 29k files of real customer
+ * an invented meaning. `test/corpus/corpus.test.ts` gates that over 29k files of real customer
  * code — which is evidence, not proof. Real engineers do not write a year 300000 and do not step a pointer over a
  * struct with no fields; a transpiler other people depend on meets both anyway. These live here, beside the code
  * that answers them, rather than in the corpus gate that cannot reach them.

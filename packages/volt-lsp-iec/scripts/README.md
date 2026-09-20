@@ -19,7 +19,7 @@ it serves `volt.bridge.codesys.<pid>` — pass `VOLT_PIPE=volt.bridge.codesys.<p
 | File | Produces / does |
 |---|---|
 | `record-language.ts` | conformance recordings → `test/conformance/recordings/` |
-| `record-corpus-build.ts` | a corpus project's real IDE build snapshot → `build-conformance.test.ts` oracle |
+| `record-corpus-build.ts` | a corpus project's real IDE build snapshot → `corpus.test.ts` oracle |
 | `refresh-corpus.ts` | refreshes a `test-corpus/<name>/` project via `volt pull` |
 | `verify-catalog.ts` | verifies implemented C-code wording vs the IDE → `error-catalog.json` verified flags |
 | `record-gaps.ts` | probes unverified compiler-warning gap codes for their real trigger/wording |

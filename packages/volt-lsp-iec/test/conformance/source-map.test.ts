@@ -51,7 +51,7 @@ function programs(): Program[] {
     try {
       pou = lowerSource(source, "PLC_PRG", [...STANDARD_LIBRARY, ...gvls]).pou
     } catch {
-      continue // a lowering throw is `lowering-totality`'s to report
+      continue // a lowering throw is `corpus`'s to report
     }
     if (pou === undefined) continue
     try {

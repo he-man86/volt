@@ -15,8 +15,13 @@
       (the table's totality check caught the two measured ones); eleven `not-lowered` refusals read as unregistered
       because the check read `LOWER_CODES` instead of `lowerCodeKind`, which knows the templated families; and the
       rustc hang guard had grown into its constant (1857 cases in 179s against 180s) — it is proportional now.
-- [ ] `corpus.test.ts` — one walk, two questions: no false positive, totality + reach.
+- [x] `corpus.test.ts` — one walk, THREE questions (the LSP can read it, it invents nothing, lowering is total),
+      replacing `corpus` + `build-conformance` + `warning-conformance` + `lowering-totality`. The parse was being
+      done four times over, and five times within the first file alone. Two normalizers were comparing the same
+      messages — measured across all five recorded projects, they agree exactly, so the stricter one survives.
 - [x] Rename `backend-agreement` → `backends`, `memory-model.property` → `properties`, `census` +
       `construct-coverage` → `suite` (merged — one file, three authorities), `error-catalog` → `catalog`.
-- [ ] A `test/README.md` naming the four concerns and which file owns each.
+- [x] A `test/README.md` naming the four concerns and which file owns each — plus TESTING.md's tier detail,
+      which listed three files that no longer exist and one (`coverage.test.ts`) that never did, and twice
+      repeated the "a corpus project compiles clean" premise the build oracle exists to correct.
 - [ ] Verify no measured fact was lost: a diff of the removed files' prose against the new ones.

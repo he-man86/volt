@@ -1,46 +1,76 @@
 /**
- * Real-project corpus gate for the syntax layer (A.3). Runs over this package's committed
- * 5-project corpus (`test-corpus/`, moved here from the legacy package). Two hard gates:
- *   1. Every ST-source file parses with ZERO declaration errors.
- *   2. Every ST (non-graphical) POU body materializes fully into the statement tree.
- * Graphical (FBD/LD) bodies — a `NETWORK …` token stream — are layer F's job, not ST.
+ * THE CORPUS — 29,359 files of real customer code, and the three things they can tell us that no fixture can.
  *
- * Note: the format-roundtrip half of the A.3 gate (`parse(format(x)) ≡ parse(x)`) lands
- * with the formatter (E.3); the fuzz gate lives in fuzz.test.ts.
+ * A fixture is a question somebody thought to ask. This is the other half: code nobody wrote for a test, which
+ * therefore contains what engineers actually write rather than what an adversary would. It is the ONLY input that
+ * can find a gap nobody has imagined, and the only one that cannot answer what anything MEANS — there is no oracle
+ * here except the IDE's own recorded build.
+ *
+ * THREE QUESTIONS, ONE WALK:
+ *
+ *   1. THE LSP CAN READ IT      every file parses, every ST body materializes into statements, every graphical
+ *                               body parses as network text, the binder links EXTENDS across files, and the
+ *                               formatter round-trips (`parse(format(x)) ≡ parse(x)`).
+ *   2. THE LSP INVENTS NOTHING  every error and warning it emits is one the IDE's own build also emitted; every
+ *                               code is a valid identity; no document carries a duplicate (range, code).
+ *   3. LOWERING IS TOTAL        nothing throws — `src/transpile/index.ts` states that invalid input ends in a
+ *                               `LowerDiagnostic`, never a throw and never an invented meaning — and the reach
+ *                               figures that contract quotes are what is measured.
+ *
+ * WHY ONE FILE. This was four (`corpus`, `build-conformance`, `warning-conformance`, `lowering-totality`) and they
+ * walked the corpus four times, the first of them five times within itself — a fresh `parseSource` of all 29k files
+ * per assertion. The parse is now done ONCE per project and every question asked of it; only the heavy LSP
+ * diagnostic pass was already shared (`support/diagnostics.ts`), and it still is.
+ *
+ * WHAT THE CORPUS CANNOT PROVE. It contains no invalid code and only the constructs its authors happened to use, so
+ * a pass here is EVIDENCE, not proof. Two throws found by review are unreachable from it and are pinned beside the
+ * code that answers them (`src/transpile/lower/totality.test.ts`); whether enough is being ASKED at all is
+ * `test/conformance/suite.test.ts`.
+ *
+ * MEMORY, deliberately. The walk holds ONE project's parse results at a time and accumulates only counts and
+ * failure strings. Holding all 29k at once is what a naive "parse everything first" would do.
  */
 import { describe, expect, test } from "bun:test"
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
-import { extname, join } from "node:path"
-import { isTrivia, parseSource, parseStatements, type BodySpan, type TopLevel } from "../../src/syntax/index.js"
-import { buildSymbolTable } from "../../src/symbols/index.js"
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
+import { extname, join, relative } from "node:path"
+import { DiagnosticSeverity } from "vscode-languageserver-protocol"
 import {
-  computeSemanticDiagnostics,
-  deadPous,
-  deadMemberSpans,
-  inDeadMember,
-  messagesFor,
-  ownerPou,
-  resolveConfig,
-} from "../../src/analysis/index.js"
-import { loadWorkspaceRefs, loadTaskRoots } from "../../src/workspace-refs.js"
-import { WorkspaceStore } from "../../src/server/workspace-store.js"
-import { documentDiagnostics } from "../../src/server/diagnostics.js"
-import { projectDocuments } from "./support/diagnostics.js"
+  declarationAttributes,
+  isGraphicalBody,
+  isTrivia,
+  memberAttributes,
+  parseSource,
+  parseStatements,
+  unitAttributes,
+  type BodySpan,
+  type TopLevel,
+} from "../../src/syntax/index.js"
+import { buildSymbolTable, scopeForUnit } from "../../src/symbols/index.js"
+import { lowerUnit } from "../../src/transpile/index.js"
+import { LOWER_CODES, LOWER_CODE_PREFIXES } from "../../src/transpile/ir/codes.js"
+import type { IrPou, IrRoutine, IrStmt } from "../../src/transpile/ir/index.js"
 import { allowedCode } from "../../src/server/diagnostic-codes.js"
 import { formatDocument } from "../../src/services/index.js"
-import { parseNetworkText, computeNetworkTextDiagnostics } from "../../src/network/index.js"
+import { parseNetworkText } from "../../src/network/index.js"
 import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
 import { scanLibraryManifests } from "../../src/workspace-refs.js"
+import { projectDocuments } from "./support/diagnostics.js"
+import { ALL_TESTS } from "../conformance/fixtures/index.js"
+import { assembleFixture } from "../conformance/support/fixture-units.js"
+import { STANDARD_LIBRARY } from "../conformance/support/standard-library.js"
+import { lowerSource } from "../../src/transpile/lower/index.js"
 
-const CORPUS_ROOT = join(import.meta.dir, "..", "..", "test-corpus")
+const CORPUS = join(import.meta.dir, "..", "..", "test-corpus")
+const hasCorpus = existsSync(CORPUS)
 
-// Per-test budget for the full-corpus passes (O(files × checks)). Kept at 120s: this budget was adequate
-// until `checkDataRecursion` regressed to rebuilding the whole-project composition graph per file (O(files ×
-// project size) — it silently pushed the diagnostic passes past 120s and TIMED OUT, which read as a spurious
-// failure while `scripts/corpus-fp.ts` — no timeout — stayed green. Root-caused + fixed (the graph is now
-// memoized per project); a full pass is back to ~30s, so 120s holds with headroom. If it times out again,
-// suspect a new O(n²) — profile per check (PROFILE_CHECKS=1) rather than raising this.
+// Per-pass budget. Kept at 120s: this was adequate until `checkDataRecursion` regressed to rebuilding the whole
+// project composition graph per file (O(files × project size)) — it pushed the diagnostic passes past 120s and
+// TIMED OUT, which read as a spurious failure while `scripts/corpus-fp.ts` (no timeout) stayed green. Root-caused
+// and fixed (the graph is memoized per project). If it times out again, suspect a new O(n²) and profile per check
+// (PROFILE_CHECKS=1) rather than raising this.
 const CORPUS_TIMEOUT = 120_000
+/** The lowering walk is the slow one — 29k files parsed, bound and lowered. Measured ~80s. */
+const LOWERING_TIMEOUT = 240_000
 
 function walk(dir: string): string[] {
   const out: string[] = []
@@ -51,6 +81,11 @@ function walk(dir: string): string[] {
   }
   return out
 }
+
+const projectDirs = (): string[] =>
+  hasCorpus ? readdirSync(CORPUS).filter((p) => statSync(join(CORPUS, p)).isDirectory()) : []
+
+// ─── question 1 + 3: one parse of every file, every question asked of it ─────────────────────────────────────
 
 /** Every declaration body held by a unit (POU body + property accessors + nested namespace units). */
 function bodiesOf(u: TopLevel): BodySpan[] {
@@ -73,139 +108,6 @@ function isGraphical(body: BodySpan): boolean {
   return first !== undefined && first.text.toUpperCase() === "NETWORK"
 }
 
-const hasCorpus = existsSync(CORPUS_ROOT)
-
-describe.skipIf(!hasCorpus)("real-project corpus (referenced from volt-lsp-iec)", () => {
-  const files = hasCorpus ? walk(CORPUS_ROOT) : []
-
-  test("corpus is present and non-trivial", () => {
-    expect(files.length).toBeGreaterThanOrEqual(1500)
-  })
-
-  test("every ST-source file parses with zero declaration errors", () => {
-    const failures: string[] = []
-    for (const f of files) {
-      const errs = parseSource(readFileSync(f, "utf8")).errors
-      if (errs.length > 0) failures.push(`${f}: ${errs[0]?.message}`)
-    }
-    expect(failures).toEqual([])
-  }, CORPUS_TIMEOUT)
-
-  test("every ST body materializes fully into the statement tree (100%)", () => {
-    let bodies = 0
-    const failures: string[] = []
-    for (const f of files) {
-      for (const u of parseSource(readFileSync(f, "utf8")).units) {
-        for (const body of bodiesOf(u)) {
-          if (body.tokens.length === 0 || isGraphical(body)) continue
-          bodies += 1
-          const bp = parseStatements(body)
-          if (!bp.ok) failures.push(`${f}: ${bp.firstError}`)
-        }
-      }
-    }
-    expect(bodies).toBeGreaterThan(2000)
-    expect(failures).toEqual([])
-  }, CORPUS_TIMEOUT)
-
-  // Layer F (F.2): every graphical (network text) body in the corpus is valid IDE-exported FBD/LD, so the network-text parser
-  // must find its networks and emit ZERO structural errors (NETWORK_PARSE / NETWORK_NOT_CLOSED). Duplicate
-  // name/network warnings aren't structural parse failures and aren't counted here.
-  test("network-text parser: zero structural errors across every graphical corpus body", () => {
-    let vgBodies = 0
-    const failures: string[] = []
-    const STRUCTURAL = new Set(["NETWORK_PARSE", "NETWORK_NOT_CLOSED"])
-    for (const f of files) {
-      for (const u of parseSource(readFileSync(f, "utf8")).units) {
-        for (const body of bodiesOf(u)) {
-          if (body.tokens.length === 0 || !isGraphical(body)) continue
-          vgBodies += 1
-          const vg = parseNetworkText(body)
-          if (vg.networks.length === 0) failures.push(`${f}: no networks parsed`)
-          for (const d of vg.diagnostics)
-            if (STRUCTURAL.has(d.code)) failures.push(`${f} [${d.code}] ${d.message}`)
-        }
-      }
-    }
-    expect(vgBodies).toBeGreaterThan(0)
-    expect(failures).toEqual([])
-  }, CORPUS_TIMEOUT)
-
-  // Layer B: the binder must survive real workspace input at scale, per project (cross-indexed),
-  // link EXTENDS bases, and never throw.
-  test("binder ingests each corpus project and links EXTENDS bases", () => {
-    let totalBases = 0
-    for (const project of readdirSync(CORPUS_ROOT)) {
-      const dir = join(CORPUS_ROOT, project)
-      if (!statSync(dir).isDirectory()) continue
-      const inputs = walk(dir).map((uri) => ({ uri, parseResult: parseSource(readFileSync(uri, "utf8")), source: "" }))
-      const scope = buildSymbolTable(inputs, scanLibraryManifests(dir))
-      expect(scope.children.length).toBeGreaterThan(0)
-      totalBases += scope.children.filter((c) => c.baseScope !== undefined).length
-    }
-    // Real PLC projects use inheritance — some EXTENDS must have resolved across files.
-    expect(totalBases).toBeGreaterThan(0)
-  }, CORPUS_TIMEOUT)
-
-  // RETIRED — superseded by `build-conformance.test.ts`, the ground-truth oracle (LSP errors+warnings ⊆ the
-  // real IDE build, per project). Two tests lived here and both encoded the FALSE "corpus compiles clean"
-  // premise ([[corpus-not-clean-build-oracle]]): (1) "zero error-severity false positives" — the projects are
-  // NOT clean (they carry real build errors/warnings and typo'd attributes), and it lacked the library-file
-  // gate the server applies, so it flagged precompiled-library patterns; (2) "pragma catalog covers every
-  // attribute (0 hits)" — real projects legitimately contain attribute TYPOS (`noe`/`qualified_oly`/`strit`),
-  // which SHOULD hit. build-conformance subsumes both: an LSP diagnostic the build never emitted (a catalog-gap
-  // FP, or a spurious error) shows up there as a false positive, with the whitespace/truncation/library-gate
-  // handling those blanket assertions never had.
-
-  // Diagnostic-identity invariants over the FULL LSP wire path (documentDiagnostics — the exact bytes a
-  // client receives), folded into the corpus so every real file is checked, not just synthetic cases:
-  //   1. every code is a Cnnnn / NETWORK_* / parse (no code) / KNOWN_UNMAPPED (see src/server/diagnostic-codes.ts)
-  //   2. no two diagnostics on one document share (range, code) — the duplicate PR #86 fixed can't recur
-  test("every corpus diagnostic has a valid code identity and no (range,code) duplicates", () => {
-    const messages = messagesFor("codesys")
-    const offenders: string[] = []
-    const dupes: string[] = []
-    for (const project of readdirSync(CORPUS_ROOT)) {
-      const dir = join(CORPUS_ROOT, project)
-      if (!statSync(dir).isDirectory()) continue
-      // The SHARED pass — this used to build a third `WorkspaceStore` over the same projects, with a config that
-      // left out the project's own diagnostic settings for no stated reason. See `support/diagnostics.ts`.
-      for (const { uri, diagnostics } of projectDocuments(dir, "codesys")) {
-        const d = { uri }
-        const seen = new Set<string>()
-        for (const diag of diagnostics) {
-          if (!allowedCode(diag.code)) offenders.push(`${project}${d.uri.slice(dir.length)} [${String(diag.code)}]`)
-          const r = diag.range
-          const key = `${r.start.line}:${r.start.character}-${r.end.line}:${r.end.character}|${String(diag.code)}`
-          if (seen.has(key)) dupes.push(`${project}${d.uri.slice(dir.length)} ${key}`)
-          seen.add(key)
-        }
-      }
-    }
-    expect(offenders).toEqual([])
-    expect(dupes).toEqual([])
-  }, CORPUS_TIMEOUT) // heavy: full LSP diagnostic pass over every corpus file
-
-  // A.3 format-roundtrip gate: `parse(format(x)) ≡ parse(x)` across the whole corpus. Formatting must
-  // re-emit valid ST that re-parses to an EQUIVALENT AST (span/token-free, body statements embedded,
-  // object-key-order-insensitive). Proves the formatter never changes meaning.
-  test("formatter round-trips every corpus file (parse(format(x)) ≡ parse(x))", () => {
-    const failures: string[] = []
-    for (const f of files) {
-      const source = readFileSync(f, "utf8")
-      const parseResult = parseSource(source)
-      const formatted = formatDocument({ uri: f, source, parseResult })
-      const reparsed = parseSource(formatted)
-      if (reparsed.errors.length > 0) {
-        failures.push(`${f}: formatted output has parse errors`)
-      } else if (astKey(parseResult.units) !== astKey(reparsed.units)) {
-        failures.push(`${f}: AST changed after formatting`)
-      }
-    }
-    expect(failures).toEqual([])
-  }, CORPUS_TIMEOUT)
-})
-
 /** A span/token-free, key-sorted, body-statement-embedded string key for AST equivalence. */
 function astKey(value: unknown): string {
   const norm = (x: unknown): unknown => {
@@ -224,3 +126,462 @@ function astKey(value: unknown): string {
   }
   return JSON.stringify(norm(value))
 }
+
+/** Every `kind` and every builtin `name` anywhere in a value, however nested. */
+function collect(node: unknown, kinds: Set<string>, builtins: Set<string>): void {
+  if (Array.isArray(node)) {
+    for (const child of node) collect(child, kinds, builtins)
+    return
+  }
+  if (node === null || typeof node !== "object") return
+  const record = node as Record<string, unknown>
+  if (typeof record.kind === "string") kinds.add(record.kind)
+  if (record.kind === "builtin" && typeof record.name === "string") builtins.add(record.name)
+  for (const [key, child] of Object.entries(record)) {
+    if (key === "type" || key === "span") continue // a Type has its own `kind`, which is not an IR node's
+    collect(child, kinds, builtins)
+  }
+}
+
+function fromPou(pou: IrPou, kinds: Set<string>, builtins: Set<string>): void {
+  collect(pou.body as readonly IrStmt[], kinds, builtins)
+  collect((pou.init ?? []) as readonly IrStmt[], kinds, builtins)
+  for (const r of (pou.routines ?? []) as readonly IrRoutine[]) collect(r.body, kinds, builtins)
+  for (const l of pou.layouts ?? []) collect(l.body ?? [], kinds, builtins)
+}
+
+// the same set `lower-completeness.ts` counts, so the gate and the ratchet walk identical ground
+const isRunnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "function_block" }> =>
+  u.kind === "program" || u.kind === "function_block"
+
+interface Pass {
+  files: number
+  /** question 1 */
+  parseFailures: string[]
+  stBodies: number
+  materializeFailures: string[]
+  graphicalBodies: number
+  networkFailures: string[]
+  formatFailures: string[]
+  extendsBases: number
+  /** question 3 */
+  bodies: number
+  lowered: number
+  routines: number
+  routinesFromRunning: number
+  throws: string[]
+  codes: Set<string>
+  kinds: Set<string>
+  builtins: Set<string>
+}
+
+/**
+ * ONE WALK. Each project's files are parsed once, then every question is asked of that one parse before the next
+ * project is read. Done on first use rather than in a `beforeAll`: a `beforeAll` has its own timeout that an
+ * 80-second sweep quietly blows, and the failure it produces names no test.
+ */
+let cached: Pass | undefined
+function pass(): Pass {
+  if (cached !== undefined) return cached
+  const p: Pass = {
+    files: 0,
+    parseFailures: [],
+    stBodies: 0,
+    materializeFailures: [],
+    graphicalBodies: 0,
+    networkFailures: [],
+    formatFailures: [],
+    extendsBases: 0,
+    bodies: 0,
+    lowered: 0,
+    routines: 0,
+    routinesFromRunning: 0,
+    throws: [],
+    codes: new Set(),
+    kinds: new Set(),
+    builtins: new Set(),
+  }
+  const STRUCTURAL = new Set(["NETWORK_PARSE", "NETWORK_NOT_CLOSED"])
+  /** The METHOD/ACTION bodies a lowering POU actually LOWERS, and the subset reached from one that RUNS. The
+   *  contract said "none reachable" until this measured it; a routine lowers when a lowering POU calls it. */
+  const routines = new Set<string>()
+  const routinesFromRunning = new Set<string>()
+
+  for (const projectName of projectDirs()) {
+    const dir = join(CORPUS, projectName)
+    const parsed = walk(dir).map((file) => {
+      const source = readFileSync(file, "utf8")
+      return { file, source, parseResult: parseSource(source) }
+    })
+    p.files += parsed.length
+
+    for (const { file, source, parseResult } of parsed) {
+      // ── every file parses with zero declaration errors ──
+      if (parseResult.errors.length > 0) p.parseFailures.push(`${file}: ${parseResult.errors[0]?.message}`)
+
+      // ── every ST body materializes; every graphical body parses as network text ──
+      for (const u of parseResult.units)
+        for (const body of bodiesOf(u)) {
+          if (body.tokens.length === 0) continue
+          if (isGraphical(body)) {
+            // Layer F: every graphical body in the corpus is valid IDE-exported FBD/LD, so the network-text parser
+            // must find its networks and emit ZERO structural errors. Duplicate name/network warnings are not
+            // structural parse failures and are not counted.
+            p.graphicalBodies += 1
+            const vg = parseNetworkText(body)
+            if (vg.networks.length === 0) p.networkFailures.push(`${file}: no networks parsed`)
+            for (const d of vg.diagnostics) if (STRUCTURAL.has(d.code)) p.networkFailures.push(`${file} [${d.code}] ${d.message}`)
+            continue
+          }
+          p.stBodies += 1
+          const bp = parseStatements(body)
+          if (!bp.ok) p.materializeFailures.push(`${file}: ${bp.firstError}`)
+        }
+
+      // ── the formatter re-emits valid ST that re-parses to an EQUIVALENT AST ──
+      // Proves the formatter never changes meaning (span/token-free, body statements embedded, key-order-insensitive).
+      const formatted = formatDocument({ uri: file, source, parseResult })
+      const reparsed = parseSource(formatted)
+      if (reparsed.errors.length > 0) p.formatFailures.push(`${file}: formatted output has parse errors`)
+      else if (astKey(parseResult.units) !== astKey(reparsed.units)) p.formatFailures.push(`${file}: AST changed after formatting`)
+    }
+
+    // ── ONE symbol table, two questions: the binder links EXTENDS across files, and lowering runs against it ──
+    // Built from the files that PARSED. A parse gap is question 1's to report, not lowering's — a unit built from
+    // a broken parse would fail there for a reason that has nothing to do with the transpiler. While question 1 is
+    // green this is every file, so the binder sees exactly what it always did; if it ever is not, question 1 fails
+    // first and names the file.
+    const clean = parsed.filter((x) => x.parseResult.errors.length === 0)
+    const lowerProject = buildSymbolTable(
+      clean.map(({ file, source, parseResult }) => ({ uri: file, parseResult, source })),
+      scanLibraryManifests(dir),
+    )
+    p.extendsBases += lowerProject.children.filter((c) => c.baseScope !== undefined).length
+    const attributes = new Map<object, Set<string>>(
+      clean.flatMap(({ source, parseResult }) => [
+        ...unitAttributes(parseResult, source),
+        ...memberAttributes(parseResult, source),
+        ...declarationAttributes(parseResult, source),
+      ]),
+    )
+    for (const { file, parseResult } of clean)
+      for (const unit of parseResult.units.filter(isRunnable)) {
+        const scope = scopeForUnit(lowerProject, unit)
+        if (scope === undefined) continue
+        if (isGraphicalBody(unit.body)) continue // a graphical body is not ST; the network pipeline owns it
+        // the reach denominator is a body with STATEMENTS — a declaration-only POU lowers trivially and executes
+        // nothing, so counting it would flatter the figure
+        const hasCode = parseStatements(unit.body).statements.length > 0
+        if (hasCode) p.bodies++
+        try {
+          const { pou, diagnostics } = lowerUnit(unit, scope, lowerProject, attributes)
+          if (hasCode && pou !== undefined) p.lowered++
+          for (const r of pou?.routines ?? []) {
+            routines.add(`${file}:${r.key}`)
+            if (hasCode) routinesFromRunning.add(`${file}:${r.key}`)
+          }
+          for (const d of diagnostics ?? []) p.codes.add(d.code)
+          if (pou !== undefined) fromPou(pou, p.kinds, p.builtins)
+        } catch (error) {
+          const name = "name" in unit && unit.name !== undefined ? String((unit.name as { text: string }).text) : "?"
+          p.throws.push(`${relative(CORPUS, file)} :: ${name} — ${(error as Error).message}`)
+        }
+      }
+  }
+  p.routines = routines.size
+  p.routinesFromRunning = routinesFromRunning.size
+  cached = p
+  return p
+}
+
+// ─── question 1: the LSP can read it ─────────────────────────────────────────────────────────────────────────
+
+describe.skipIf(!hasCorpus)("1. the LSP can read real code", () => {
+  test("the corpus is present and non-trivial", () => {
+    expect(pass().files).toBeGreaterThanOrEqual(1500)
+  }, LOWERING_TIMEOUT)
+
+  test("every ST-source file parses with zero declaration errors", () => {
+    expect(pass().parseFailures).toEqual([])
+  }, LOWERING_TIMEOUT)
+
+  test("every ST body materializes fully into the statement tree (100%)", () => {
+    expect(pass().stBodies).toBeGreaterThan(2000)
+    expect(pass().materializeFailures).toEqual([])
+  }, LOWERING_TIMEOUT)
+
+  test("the network-text parser finds every graphical body's networks, with no structural error", () => {
+    expect(pass().graphicalBodies).toBeGreaterThan(0)
+    expect(pass().networkFailures).toEqual([])
+  }, LOWERING_TIMEOUT)
+
+  test("the binder links EXTENDS bases across files", () => {
+    // Real PLC projects use inheritance — some EXTENDS must have resolved across files.
+    expect(pass().extendsBases).toBeGreaterThan(0)
+  }, LOWERING_TIMEOUT)
+
+  test("the formatter round-trips every file (parse(format(x)) ≡ parse(x))", () => {
+    expect(pass().formatFailures).toEqual([])
+  }, LOWERING_TIMEOUT)
+})
+
+// ─── question 2: the LSP invents nothing ─────────────────────────────────────────────────────────────────────
+
+/**
+ * THE REAL ORACLE. Ground truth is `test-corpus/<project>/expected-build.<vendor>.json`, captured by
+ * `scripts/record-corpus-build.ts` from a LIVE build. Until a project is recorded its gate SKIPS — the comparison
+ * cannot run without the compiler's answer.
+ *
+ * This replaced a "zero errors on the corpus" assumption that was simply false: the projects are NOT clean, they
+ * carry real build errors, warnings and typo'd attributes ([[corpus-not-clean-build-oracle]]). Two old assertions
+ * encoded that false premise and both are subsumed here — a catalog-gap FP or a spurious error shows up as a false
+ * positive, with the whitespace and library-gate handling those blanket assertions never had.
+ *
+ * BOTH SEVERITIES, BOTH DIRECTIONS. An LSP warning the build never emitted is as much a false positive as a
+ * phantom error — that is how C0371 sat mislabelled as a deferred error while CODESYS warned on it 1300+ times.
+ * The MISSING direction (a build warning we do not emit) is REPORTED, not failed: the LSP is deliberately a
+ * curated subset of the compiler, not a re-implementation of it.
+ */
+
+/**
+ * ONE NORMALIZER, and it is the stricter of the two this merge found.
+ *
+ * Several diagnostics EMBED the offending source line (C0139 "The code '<line>' has no effect"). The LSP keeps the
+ * source whitespace (tabs between tokens), the IDE strips it — so the SAME warning renders differently
+ * (`InPosition\t\t;` vs `InPosition;`). Collapsing whitespace, and treating whitespace ADJACENT to `;` as
+ * insignificant, makes the identity the semantic content rather than the formatting.
+ *
+ * `build-conformance.test.ts` used `m.replace(/\s+/g, "")` — strip EVERY space — and `warning-conformance.test.ts`
+ * used this one, on the same messages, in two gates that compared overlapping sets. Stripping all whitespace is
+ * strictly more permissive: it makes `a b` and `ab` the same message. Measured across all five recorded projects
+ * on 2026-09-20 the two agree exactly (0 false positives either way), so the stricter one is what survives.
+ */
+const norm = (m: string): string =>
+  m
+    .replace(/\s+/g, " ")
+    .replace(/\s*;\s*/g, ";")
+    .trim()
+
+/** The LSP messages the build did NOT emit — the false positives. Normalized message-set ⊆. */
+export function buildFalsePositives(lspMessages: readonly string[], buildMessages: Iterable<string>): string[] {
+  const build = new Set<string>([...buildMessages].map(norm))
+  return lspMessages.filter((m) => !build.has(norm(m)))
+}
+
+interface BuildRecording {
+  recorded?: { at: string; vendor: string; buildSuccess?: boolean; count: number }
+  diagnostics: { severity: string; message: string; line: number }[]
+}
+
+// CODESYS truncates its message list at 100 warnings (emits a "More than 100 warnings occured" marker). Past that
+// point the build is an INCOMPLETE oracle: an LSP warning absent from it may be a real one that was cut, not a
+// false positive — so the ⊆ check is unsound and the project must be re-recorded with the cap raised.
+const isTruncated = (msgs: readonly string[]): boolean => msgs.some((m) => /More than \d+ warnings/i.test(m))
+
+// Per-project compiler-warning settings come from the project's own `.projectsettings`, which `volt pull`
+// materializes from the IDE's Compiler Warnings dialog — the same file the running server reads. This used to be a
+// hand-kept table (pro2193 and lenze-mid, both "C0371 off, confirmed by its owner"), which was true and
+// unmaintainable: it had to be rediscovered per project and could not be checked against anything.
+
+describe.skipIf(!hasCorpus)("2. the LSP invents nothing", () => {
+  for (const project of projectDirs()) {
+    const dir = join(CORPUS, project)
+    const recPath = join(dir, "expected-build.codesys.json")
+    const has = existsSync(recPath)
+
+    test.skipIf(!has)(`${project}: every LSP error and warning is a real CODESYS build diagnostic`, () => {
+      const rec = JSON.parse(readFileSync(recPath, "utf8")) as BuildRecording
+      const buildMsgs = rec.diagnostics.map((d) => d.message)
+      // A truncated recording can't distinguish a real FP from a cut warning. Fail with an actionable message so
+      // the project gets re-recorded past the cap, rather than silently green-lighting or red-flagging noise.
+      if (isTruncated(buildMsgs))
+        throw new Error(
+          `${project}: build recording is TRUNCATED at CODESYS's 100-warning cap — re-record with the cap raised (Compiler Warnings → max) before this gate is meaningful.`,
+        )
+
+      const ours = projectDocuments(dir, "codesys")
+        .flatMap((d) => d.diagnostics)
+        .filter((d) => d.severity === DiagnosticSeverity.Error || d.severity === DiagnosticSeverity.Warning)
+        .map((d) => d.message)
+
+      // THE COVERAGE REPORT, warnings only — informational. A build that did not compile clean never reaches the
+      // warning (typify) phase, so its warning set is incomplete; awa-palletizer carries 129 library-not-found
+      // errors. Reported either way, because the list of warnings still to implement is the actionable half.
+      const buildWarnings = new Set(rec.diagnostics.filter((d) => d.severity === "warning").map((d) => norm(d.message)))
+      const ourWarnings = new Set(
+        projectDocuments(dir, "codesys")
+          .flatMap((d) => d.diagnostics)
+          .filter((d) => d.severity === DiagnosticSeverity.Warning)
+          .map((d) => norm(d.message)),
+      )
+      const missing = [...buildWarnings].filter((m) => !ourWarnings.has(m))
+      const buildFailed = rec.recorded?.buildSuccess === false || rec.diagnostics.some((d) => d.severity === "error")
+      console.log(
+        `  [corpus] ${project} — warnings ours:${ourWarnings.size} build:${buildWarnings.size} · missing(coverage):${missing.length}${buildFailed ? " · BUILD-FAILED" : ""}`,
+      )
+      if (missing.length > 0) console.log(`  [corpus]   MISSING (build warns, we don't):`, missing.slice(0, 8))
+
+      // THE HARD GATE. `buildFailed` does not excuse it: an ERROR we emit that the build never did is a false
+      // positive whatever phase the build stopped in. The warning half above is what an incomplete build weakens,
+      // and that half is a report rather than an assertion.
+      expect(buildFalsePositives(ours, buildMsgs)).toEqual([])
+    }, CORPUS_TIMEOUT)
+  }
+
+  /**
+   * Diagnostic-identity invariants over the FULL LSP wire path (`documentDiagnostics` — the exact bytes a client
+   * receives), folded into the corpus so every real file is checked rather than synthetic cases:
+   *   1. every code is a Cnnnn / NETWORK_* / parse (no code) / KNOWN_UNMAPPED (see `server/diagnostic-codes.ts`)
+   *   2. no two diagnostics on one document share (range, code) — the duplicate PR #86 fixed cannot recur
+   */
+  test("every diagnostic has a valid code identity, and no document repeats a (range, code)", () => {
+    const offenders: string[] = []
+    const dupes: string[] = []
+    for (const project of projectDirs()) {
+      const dir = join(CORPUS, project)
+      for (const { uri, diagnostics } of projectDocuments(dir, "codesys")) {
+        const seen = new Set<string>()
+        for (const diag of diagnostics) {
+          if (!allowedCode(diag.code)) offenders.push(`${project}${uri.slice(dir.length)} [${String(diag.code)}]`)
+          const r = diag.range
+          const key = `${r.start.line}:${r.start.character}-${r.end.line}:${r.end.character}|${String(diag.code)}`
+          if (seen.has(key)) dupes.push(`${project}${uri.slice(dir.length)} ${key}`)
+          seen.add(key)
+        }
+      }
+    }
+    expect(offenders).toEqual([])
+    expect(dupes).toEqual([])
+  }, CORPUS_TIMEOUT)
+})
+
+// The comparison logic is pure and is verified whether or not any recording exists yet.
+test("buildFalsePositives: an LSP message absent from the build is a false positive; a present one is not", () => {
+  const build = ["'x' is no input of 'FB'", "Cannot convert type 'INT' to type 'BOOL'"]
+  expect(buildFalsePositives(["'x' is no input of 'FB'"], build)).toEqual([])
+  expect(buildFalsePositives(["No such label 'A'…"], build)).toEqual(["No such label 'A'…"]) // C0371-class: caught
+  expect(buildFalsePositives([], build)).toEqual([])
+})
+
+test("an embedded source snippet compares equal however it was spaced", () => {
+  const build = ["The code 'x.Status.InPosition;' has no effect. Is this the intent?"]
+  const lsp = ["The code 'x.Status.InPosition\t\t\t\t\t;' has no effect. Is this the intent?"] // tabs from source
+  expect(buildFalsePositives(lsp, build)).toEqual([])
+  expect(norm("The code 'a.b\t\t\t;' has\n no effect")).toBe("The code 'a.b;' has no effect")
+  expect(norm("The code 'a.b;\r\n' has no effect")).toBe("The code 'a.b;' has no effect")
+})
+
+// ─── question 3: lowering is total ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * THE DOCUMENTED REACH, from `src/transpile/index.ts`. When a change moves these, update BOTH — the number in
+ * `index.ts` is the contract a reader sees, and this is what keeps it true. They are exact rather than a floor on
+ * purpose: a floor lets the documented figure rot quietly upward while still "passing".
+ */
+const REACH = { bodies: 304, lowered: 55 }
+/**
+ * The METHOD/ACTION half of the same contract, measured 2026-09-19. `index.ts` said **none reachable** and that was
+ * never true: a routine lowers when a POU that lowers calls it, and 543 do. Only 14 come from a POU that RUNS —
+ * the rest are lifecycle methods (`FB_Init`, `call_after_global_init_slot`) reached from declaration-only POUs,
+ * which is why the claim survived: nobody counted the half that was not zero.
+ */
+const ROUTINES = { routines: 543, routinesFromRunning: 14 }
+
+/** Every node kind the IR defines — `IrExpr` and `IrStmt`, from `ir.ts`. Kept by hand so ADDING one shows up here. */
+const EXPR_KINDS = ["const", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch"] as const
+const STMT_KINDS = ["assign", "if", "switch", "loop", "break", "continue", "return", "call", "eval"] as const
+const BUILTINS = [
+  "max", "min", "limit", "sel", "trunc", "abs", "expt", "shl", "shr", "rol", "ror", "mux",
+  "sqrt", "ln", "log", "exp", "sin", "cos", "tan", "asin", "acos", "atan",
+  "len", "left", "right", "mid", "concat", "insert", "delete", "replace", "find",
+] as const
+
+/**
+ * Floors, measured 2026-09-18: EVERY node kind and EVERY builtin is built by something. That is the good outcome
+ * and it is worth pinning at full — there is no arm of either backend's `switch` that no test has ever reached.
+ */
+const COVERED_EXPR_KINDS = 8
+const COVERED_STMT_KINDS = 9
+const COVERED_BUILTINS = 31
+
+/**
+ * HOW MANY REGISTERED REFUSAL CODES ANY REAL PROGRAM ACTUALLY PRODUCES.
+ *
+ * `codes.test.ts` gates the registry STATICALLY — it greps `lower/` for the slugs and checks each resolves. That
+ * proves a code is WRITTEN, not that it can be REACHED, and those are different claims: a refusal nothing can
+ * produce is either dead code or a construct no test covers, and the registry cannot tell them apart.
+ *
+ * This walks the conformance fixtures and the whole corpus and records every code that actually comes out. It is a
+ * FLOOR, not an exact figure — a new fixture may legitimately reach one more — but it only ever goes up, so a
+ * refactor that quietly makes a refusal unreachable fails here.
+ */
+// 80 -> 79 because a refusal was RETIRED, not because one became unreachable: `var-temp-composite` refused a
+// composite VAR_TEMP as "starting it over is not built", and `declarations/section-semantics.ts` measured that it
+// behaves exactly as a scalar does (an ARRAY in VAR_TEMP counts 1 after three scans, a VAR one counts 3). The code
+// is gone from the registry, so both totals drop by one. The floor only ever goes UP for a code that stops being
+// produced; it comes down only when a code stops existing.
+// 79 -> 78 for the same reason again: `value-string-order` refused MAX/MIN/LIMIT over a STRING because nothing
+// recorded what the vendor orders two strings by. `strings/ordering.ts` recorded it — UNSIGNED, byte by byte, a
+// prefix losing — so the refusal is retired and both totals drop by one.
+const REACHED_CODES = 78
+
+describe.skipIf(!hasCorpus)("3. lowering is total, and its documented reach is measured", () => {
+  test("NOTHING THROWS — invalid input ends in a LowerDiagnostic, never an exception", () => {
+    expect(pass().throws).toEqual([])
+  }, LOWERING_TIMEOUT)
+
+  test(`REACH — the figures src/transpile/index.ts quotes are what the corpus measures`, () => {
+    const p = pass()
+    console.log(`  [lowering] ${p.lowered}/${p.bodies} POUs with a body lower; ${p.routines} routines, ${p.routinesFromRunning} of them from a POU that runs`)
+    // If this fails after a deliberate coverage change, update BOTH these constants and the paragraph in
+    // `src/transpile/index.ts`. The documented reach is a contract a reader relies on; a plan for this very
+    // component once justified itself with a figure 470x the real one, which is what this exists to prevent.
+    expect({ bodies: p.bodies, lowered: p.lowered }).toEqual(REACH)
+    expect({ routines: p.routines, routinesFromRunning: p.routinesFromRunning }).toEqual(ROUTINES)
+  }, LOWERING_TIMEOUT)
+
+  test("REFUSAL REACH — a registered code that no real program produces is reported", () => {
+    const registered = Object.keys(LOWER_CODES)
+    const families = LOWER_CODE_PREFIXES.map((x) => x.prefix)
+    const produced = new Set(pass().codes)
+
+    // the fixtures too: many refusals need a shape the corpus does not happen to contain
+    for (const t of ALL_TESTS) {
+      // assembled exactly as `backends` does it, so both gates read the same program from a fixture
+      const { source, gvls } = assembleFixture(t, ALL_TESTS)
+      try {
+        for (const d of lowerSource(source, "PLC_PRG", [...STANDARD_LIBRARY, ...gvls]).diagnostics ?? []) produced.add(d.code)
+      } catch {
+        // a throw is question 3's first assertion, not this one's
+      }
+    }
+
+    const reached = registered.filter((c) => produced.has(c) || families.some((f) => c.startsWith(f)))
+    const never = registered.filter((c) => !reached.includes(c))
+    console.log(`  [refusals] ${reached.length} of ${registered.length} registered codes are produced by a real program`)
+    console.log(`  [refusals] ${never.length} are not: ${never.slice(0, 8).join(", ")}${never.length > 8 ? ", …" : ""}`)
+    expect(reached.length).toBeGreaterThanOrEqual(REACHED_CODES)
+  }, LOWERING_TIMEOUT)
+
+  test("IR COVERAGE — every node kind and every builtin the IR defines is built by something", () => {
+    const p = pass()
+    for (const t of ALL_TESTS) {
+      const { source, gvls } = assembleFixture(t, ALL_TESTS)
+      try {
+        const { pou } = lowerSource(source, "PLC_PRG", [...STANDARD_LIBRARY, ...gvls])
+        if (pou !== undefined) fromPou(pou, p.kinds, p.builtins)
+      } catch {
+        // as above
+      }
+    }
+    const missingExprs = EXPR_KINDS.filter((k) => !p.kinds.has(k))
+    const missingStmts = STMT_KINDS.filter((k) => !p.kinds.has(k))
+    const missingBuiltins = BUILTINS.filter((b) => !p.builtins.has(b))
+    console.log(`  [ir] expressions ${EXPR_KINDS.length - missingExprs.length}/${EXPR_KINDS.length}${missingExprs.length ? ` — never built: ${missingExprs.join(", ")}` : ""}`)
+    console.log(`  [ir] statements ${STMT_KINDS.length - missingStmts.length}/${STMT_KINDS.length}${missingStmts.length ? ` — never built: ${missingStmts.join(", ")}` : ""}`)
+    console.log(`  [ir] builtins ${BUILTINS.length - missingBuiltins.length}/${BUILTINS.length}${missingBuiltins.length ? ` — never built: ${missingBuiltins.join(", ")}` : ""}`)
+    expect(EXPR_KINDS.length - missingExprs.length).toBeGreaterThanOrEqual(COVERED_EXPR_KINDS)
+    expect(STMT_KINDS.length - missingStmts.length).toBeGreaterThanOrEqual(COVERED_STMT_KINDS)
+    expect(BUILTINS.length - missingBuiltins.length).toBeGreaterThanOrEqual(COVERED_BUILTINS)
+  }, LOWERING_TIMEOUT)
+})

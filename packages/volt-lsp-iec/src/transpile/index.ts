@@ -27,7 +27,7 @@
  *
  * **The reach contract: a STATED SUBSET, and it is small.** The input contract above says which programs are
  * *defined*; this says which are *reached*. Measured 2026-09-19 over the 6-project corpus (29,359 files) and
- * enforced by `test/conformance/lowering-totality.test.ts`, which fails if these numbers rot:
+ * enforced by `test/corpus/corpus.test.ts`, which fails if these numbers rot:
  *
  *   - top-level PROGRAM / FUNCTION_BLOCK bodies: **55 of 304 lower (18.1%)**
  *   - METHOD / ACTION bodies: **56,629, of which 543 are REACHED** — a routine lowers when a POU that lowers
