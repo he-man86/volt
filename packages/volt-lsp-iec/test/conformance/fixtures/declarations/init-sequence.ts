@@ -83,6 +83,12 @@ const inProgramFrame: LanguageTest[] = [
     ...inProgram("initprg_user_function", "iu : INT := FUN_LANG_initprg_double(3);", ";", "a user FUNCTION in a PROGRAM's initializer"),
     // the file is named after the unit its SOURCE declares — `signature-name` compares the two, and correctly
     pouName: "FUN_LANG_initprg_double",
+    // ...AND SO IS ITS KIND. `inProgram` sets `kind: "program"` because that is where the DECLARATIONS go, but
+    // this cell overrides `source` to a FUNCTION, and `kind` is what the wire extension comes from. The two
+    // disagreed, so every push of this fixture was refused: "the item's extension says 'program' and its text
+    // declares a 'function'". It recorded on CODESYS only because that recording predates the guard; TwinCAT
+    // refused it outright on 2026-09-20, which is how it was found.
+    kind: "function" as const,
     source: "FUNCTION FUN_LANG_initprg_double : INT\nVAR_INPUT\n\tn : INT;\nEND_VAR\nFUN_LANG_initprg_double := n * 2;\nEND_FUNCTION\n",
   },
 ]
