@@ -428,19 +428,21 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
             const read = recordedArgument(expr, declaring.frame.findIndex((f) => f.name.toUpperCase() === held.name.toUpperCase()), declaring, holder)
             if (read !== undefined) input = convert({ kind: "load", place: read, type: read.type, span }, slot.type)
           }
-          // A ROOT has no caller, so nothing supplies this — and that is not a gap in lowering. CODESYS refuses the
-          // bare declaration too: an FB whose FB_Init takes an extra input cannot be instantiated without it
-          // ("Specified 'FB_Init' method requires exactly 1 inputs", conformance `fb_init_argument_left_out`). The
-          // two corpus POUs this blocks are library FBs whose BASE takes `invert`; every real instance of them
-          // passes it, and lowering one as a root is asking for a shape the vendor does not run either.
+          // NO ARGUMENT AT ALL IS NOT A GAP IN LOWERING — the vendor refuses that declaration too: an FB whose
+          // FB_Init takes an extra input cannot be instantiated without one ("Specified 'FB_Init' method requires
+          // exactly 1 inputs", conformance `fb_init_argument_left_out`, and `checks/oop/fb-init-instantiation.ts`
+          // reports it). The two corpus POUs this blocks are library FBs whose BASE takes `invert`; every real
+          // instance passes it, and the ones lowering sees are declared bare.
+          //
+          // The note said "it is the ROOT" and was guarded by `lw.isRoot`, which is set on the one lowering that
+          // reaches this and so discriminated nothing — an ordinary `inst : FB_Need;` inside a PROGRAM got the
+          // same claim. It says what is true of both instead, which is the half that matters for triage.
           if (input === undefined)
             return (
               lw.bail(
                 "fb-init-argument",
                 `${t.name}'s FB_Init input ${slot.name} is given nothing lowering can pass` +
-                  (declaring === lw && place.path.length === 0 && lw.isRoot && args.length === 0
-                    ? " — it is the ROOT, which has no caller, and the vendor refuses this declaration too"
-                    : ""),
+                  (args.length === 0 ? " — it is declared with no argument at all, which the vendor refuses too" : ""),
                 span,
               ) ?? false
             )
