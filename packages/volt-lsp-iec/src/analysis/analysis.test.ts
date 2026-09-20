@@ -77,6 +77,17 @@ test("vendor-keyed wording: the echoed unexpected token", () => {
   expect(diag(src, "codesys").map((d) => d.message)).toContain("Unexpected token 'LT' found")
   expect(diag(src, "twincat").map((d) => d.message)).toContain("Unexpected Token 'LT' found")
 })
+
+// A BOOL OPERAND IS NOT A MOD REFUSAL. Both vendors take `aBool MOD anInt` as arithmetic and complain about the
+// conversion, exactly as they do for + - * / (`meet_bool_*_int`, both recordings 2026-09-20); the LSP used to
+// answer MOD with a rule neither compiler has.
+test("MOD on a BOOL is the conversion message, not a refusal", () => {
+  const src = `FUNCTION_BLOCK F\nVAR\n flag : BOOL; i : INT; out : INT;\nEND_VAR\nout := flag MOD i;\nEND_FUNCTION_BLOCK`
+  const message = "Cannot convert type 'BOOL' to type 'INT'"
+  expect(diag(src, "codesys").find((d) => d.code === "binary-op-type-mismatch")?.message).toBe(message)
+  expect(diag(src, "twincat").find((d) => d.code === "binary-op-type-mismatch")?.message).toBe(message)
+})
+
 test("vendor-keyed wording: ABSTRACT instantiation", () => {
   const src = `FUNCTION_BLOCK ABSTRACT FB_A\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK F\nVAR\n x : FB_A;\nEND_VAR\nEND_FUNCTION_BLOCK`
   expect(diag(src, "codesys").find((d) => d.code === "abstract-instantiation")?.message).toBe(

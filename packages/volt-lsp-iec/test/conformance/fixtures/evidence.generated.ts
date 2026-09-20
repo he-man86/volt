@@ -6,8 +6,8 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1898
- *   refused       510
+ *   confirmed    1901
+ *   refused       511
  *   not-lowered    89
  *   lsp-gap         3
  *   diverges        3
@@ -383,8 +383,12 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   cc_decl_init_trailing_ident: "refused",
   cc_decl_init_trailing_int: "refused",
   cc_div_udint_dint: "confirmed",
+  cc_enum_arg_into_dword: "confirmed",
   cc_enum_arg_into_sint: "refused",
+  cc_enum_arg_into_udint: "confirmed",
   cc_enum_arg_into_uint: "confirmed",
+  cc_enum_arg_into_usint: "refused",
+  cc_enum_arg_into_word: "confirmed",
   cc_enum_compare_two_enum_values: "confirmed",
   cc_enum_compare_two_enums: "confirmed",
   cc_enum_into_byte: "refused",

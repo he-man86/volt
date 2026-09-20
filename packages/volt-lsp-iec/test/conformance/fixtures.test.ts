@@ -805,7 +805,7 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 2220 -> 2229. Nine string-constant cells, closed by TwinCAT's own exception text: below STRING(3) the
   // prefix it prints would have a negative length, and its message builder throws where CODESYS falls back.
   // One more: TwinCAT names an unresolved base class and stops, where CODESYS adds the type it therefore lacks.
-  { vendor: "twincat", floor: 2229 },
+  { vendor: "twincat", floor: 2230 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -853,7 +853,9 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // to 10 instead of four of them, and the sweep confirms the prefix rule the LSP already implements
   // (`n - 3`, and `n` when there is nothing to subtract from) against the "length mod 3" guess the old
   // comment carried from three data points.
-  { vendor: "codesys", floor: 2418 },
+  // 2419 -> 2423: four more `cc_enum_arg_into_*` cells. The family asked one unsigned target and TwinCAT was
+  // silent on exactly that one, which is a hypothesis, not a measurement — four more unsigned targets make it one.
+  { vendor: "codesys", floor: 2423 },
 ]
 
 /**
@@ -916,7 +918,6 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
  *   sysop_position_initializer  same rule in two positions, so one measurement closes both.
  */
 const CODESYS_TRIAGE: ReadonlySet<string> = new Set([
-  "meet_bool_mod_int",
   "sysop_position_call_form",
   "sysop_position_initializer",
 ])
@@ -938,7 +939,6 @@ const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
   "cc_ldate_literal_into_date",
   "cc_ldt_literal_into_dt",
   "cc_ltod_literal_into_tod",
-  "meet_bool_mod_int",
   "operand_compare_and_swap",
   "operand_position",
   "operand_xadd",

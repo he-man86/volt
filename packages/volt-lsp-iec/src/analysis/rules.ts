@@ -176,6 +176,12 @@ export function binaryOpError(e: BinaryExpr, scope: Scope, project: Scope, messa
   const a = elemName(e.left, scope, project)
   const b = elemName(e.right, scope, project)
   if (a === undefined || b === undefined) return undefined
+  // A BOOL OPERAND IS THE SAME ANSWER FOR ALL FIVE OPERATORS, MOD INCLUDED. Both vendors take `aBool MOD anInt`
+  // as arithmetic — the meet is SINT and the complaint is the conversion, "Cannot convert type 'BOOL' to type
+  // 'INT'" — where the LSP said "MOD is not defined for BOOL", a rule neither compiler has
+  // (`meet_bool_{plus,minus,times,div,mod}_int`, identical on both recordings 2026-09-20). This lives ABOVE the
+  // MOD branch because BOOL is not an integer type and would otherwise be caught by it first.
+  if (a === "BOOL" || b === "BOOL") return binaryDiag(e, messages.cannotConvert("BOOL", a === "BOOL" ? b : a))
   if (e.op === "MOD") {
     if (isIntegerType(a) && isIntegerType(b)) return undefined
     // THE VENDOR ALWAYS NAMES `REAL`, never `LREAL`. Measured across the whole meet grid (`operators/mixed-type.ts`,
@@ -187,7 +193,6 @@ export function binaryOpError(e: BinaryExpr, scope: Scope, project: Scope, messa
   }
   // arithmetic
   if (isNumericType(a) && isNumericType(b)) return undefined
-  if (a === "BOOL" || b === "BOOL") return binaryDiag(e, messages.cannotConvert("BOOL", a === "BOOL" ? b : a))
   // A string operand (gap 11, conformance `cc_string_*`): on the LEFT it must become a number — "Cannot convert type
   // 'STRING' to type 'ANY_NUM'", for + - * / and for WSTRING alike; on the RIGHT of a number it must become THAT
   // number's type — `i + str` is "Cannot convert type 'STRING' to type 'INT'". One message either way.

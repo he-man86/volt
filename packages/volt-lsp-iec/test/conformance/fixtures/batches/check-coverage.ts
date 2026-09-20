@@ -231,7 +231,11 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
   // consolidate-lsp-structure B6 — call arguments and comparisons typed enum values with their own copy of the enum
   // lookup, which the INT rule above never reached. Does an ARGUMENT convert like an assignment, and what does comparing
   // two different enums (variables and values) say? A differently-cased name of the SAME enum must stay silent.
-  ...["SINT", "UINT"].map((target) => {
+  // …and the ARGUMENT position is where the two vendors part. CODESYS warns about the sign change there exactly as
+  // it does for an assignment; TwinCAT warns for every assignment and is SILENT for `cc_enum_arg_into_uint` — one
+  // cell, because UINT was the only unsigned target asked. Four more unsigned targets, so the rule is measured
+  // across a family instead of inferred from a single case (2026-09-20).
+  ...["SINT", "UINT", "USINT", "UDINT", "WORD", "DWORD"].map((target) => {
     const t = target.toLowerCase()
     return {
       name: `cc_enum_arg_into_${t}`,
