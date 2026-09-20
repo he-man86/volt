@@ -795,7 +795,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // old gap was questions TwinCAT had never been asked. Measured on the 406 both vendors had answered before
   // this: 96.1% identical build verdicts. CODESYS is now the UNDER-measured vendor at 866 — its recording still
   // covers only 893 fixtures, and re-recording it is the obvious next move.
-  { vendor: "twincat", floor: 2200 },
+  // 2200 -> 2203: the TwinCAT driver stopped gluing its build log onto three string-warning messages.
+  { vendor: "twincat", floor: 2203 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -868,6 +869,13 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
  *   `ir_initializer_warning_no_instance`) — the same reasoning is likely to apply, and must be checked rather
  *   than assumed.
  *
+ * 79 -> 69 on the day it was written, by fixing a BRIDGE bug rather than the LSP. TwinCAT's driver joined
+ * following lines onto a message while its quote count was odd — and a complete message can have an odd count,
+ * because what it quotes is ST source full of string literals. It swallowed the error list's path echo and the
+ * build log, so a family of string warnings TwinCAT reports IDENTICALLY to CODESYS read as a vendor divergence.
+ * Ten entries left this list without a line of LSP changing. Prefer that: the cheapest vendor difference to
+ * close is the one that was never real.
+ *
  * THE RULE HERE IS THAT IT ONLY SHRINKS. A fixture not in this list may not emit an LSP-only message, and a
  * fixture that stops emitting one must leave the list — both are asserted below, so this cannot quietly grow and
  * cannot quietly rot. Triage is tracked in `openspec/changes/twincat-conformance-parity`.
@@ -893,7 +901,6 @@ const CODESYS_TRIAGE: ReadonlySet<string> = new Set([
 ])
 
 const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
-  "array_initializers",
   "atomic_cas_dint",
   "atomic_cas_lint",
   "atomic_cas_lword",
@@ -923,23 +930,15 @@ const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
   "cc_string_escape_last_too_long",
   "cc_string_escape_middle_too_long",
   "cc_string_hex_escape_too_long",
-  "cc_string_plain_init_too_long",
   "cc_string_plain_long_init_too_long",
   "cc_string_prefix_len_1",
-  "cc_string_prefix_len_5",
-  "cc_string_prefix_len_6",
-  "cc_string_prefix_len_7",
   "cc_wstring_init_too_long_2",
   "echo_lower_case_function_name",
   "echo_mixed_case_function_name",
   "echo_mixed_case_il_operator",
   "echo_upper_case_il_operator",
   "esc_high_only_one",
-  "ir_initializer_warning_in_program",
-  "ir_initializer_warning_nested_instance",
   "ir_initializer_warning_no_instance",
-  "ir_initializer_warning_one_instance",
-  "ir_initializer_warning_two_instances",
   "itf_var_section_declaration",
   "itf_var_section_inherited",
   "meet_bool_mod_int",
@@ -970,7 +969,6 @@ const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
   "sysop_position_in_method",
   "sysop_position_initializer",
   "sysop_position_then_statement",
-  "xo4_array_of_strings",
   "xo4_string_constant_too_long",
 ])
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
