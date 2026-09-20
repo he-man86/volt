@@ -559,6 +559,13 @@ question (native Rust + a TS mirror, or an ST shim) is settled alongside, so bui
 
 ## 9. The memory model — decided: three forms in safe Rust (the first analysis kept above the decision)
 
+> **FINISHED IN `pointer-model.md` (2026-09-20).** This section chose the three forms and said "measure before
+> building it"; only form 1 was ever built. That document is the measurement — a PARSE-based census, where the one
+> below was a text search — and it corrects two numbers here: pointer arithmetic is **88**, not the 0/3 recorded
+> below, and **16 null tests on 10 variables** disqualify form 1 for those. It also finds that neither missing form
+> needs a new mechanism: form 2 is `VAR_IN_OUT`'s binding and form 3 is the interface tag with a place instead of a
+> call. Read it for the decisions and the order of work; this section stays for the reasoning that led here.
+
 `Place` is `{ slot, path }` with `path` empty. Two ways forward:
 
 | | slot + path | byte-addressed image |

@@ -404,7 +404,12 @@ taken apart by construct before anything is built — record first, then build, 
       instance through `&` (E0596 → recorded, lent `&mut`); ADR refused in unrecorded wording (→ recorded, allowed);
       `(own)` skipping the alias check; missing negative tests. Open: the copy rule refuses callees that write fields or
       outputs that cannot reach the lent variable (coverage only, never a wrong result).
-- [ ] A multi-target handle for stored POINTER/REFERENCE (`pointer-targets`).
+- [ ] A multi-target handle for stored POINTER/REFERENCE (`pointer-targets`) — **designed 2026-09-20, see
+      `pointer-model.md`**, which sizes it (<=30 parameters + 13 multi-target locals), finds it is the INTERFACE
+      tag with a place instead of a call, and puts two measurements before it: whether a `REFERENCE TO` field bound
+      by a METHOD survives to the next scan, and what `__ISVALIDREF` answers for one never bound.
+- [ ] **Form 2 first** (`pointer-model.md` §8): a pointer PARAMETER the callee does not keep lowers as an in-out
+      binding — 62 of the 99 parameters, no IR change and no emitter change.
 - [ ] REFERENCE/POINTER inputs of a routine as borrows for the call — and interface inputs (`itf_function_input`).
 
 ## The fixture programme — the corpus is the LAST check, not the specification (user, 2026-09-16)
