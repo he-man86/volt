@@ -705,7 +705,12 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // too (338), and THE SCAN FINISHES where the same fault outside ends the application. Eight cells, complete and
   // deliberately not lowered: the model is written at the refusal in `lower/statements.ts` so the implementation
   // is not asked to guess, and the open design question is the Rust form (the emitter's faults are `panic!`).
-  "not-lowered": 87,
+  // 87 -> 89. `declarations/reference-binding.ts` asked what a reference bound at its DECLARATION does, and two of
+  // its sixteen cells rebind afterwards — `refdecl_rebound_by_statement` (declaration bind, then `ref_ REF= other`)
+  // and `refdecl_rebound_in_method` (rebound from a METHOD, and the new target SURVIVES to the next scan: seen=20).
+  // Two targets is design §9 form 3, the tagged handle, which is not built — so these are refused honestly, and
+  // they are the first measured acceptance tests form 3 has.
+  "not-lowered": 89,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

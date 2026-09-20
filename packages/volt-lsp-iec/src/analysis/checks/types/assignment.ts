@@ -4,12 +4,12 @@
  * shared with the network-text sink check; conservative — a side that isn't elementary or enum skips, so a
  * struct/FB/composite/library type never false-positives.
  */
-import { walkStatements } from "../../../syntax/index.js"
-import { bodies, forEachDecl } from "../../../symbols/index.js"
-import { literalErrorType, renderType, resolveTypeExpr } from "../../../types/index.js"
+import { renderTypeExpr, walkStatements } from "../../../syntax/index.js"
+import { bodies, forEachDecl, lookup } from "../../../symbols/index.js"
+import { isAssignable, literalErrorType, renderType, resolveTypeExpr } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
-import { assignmentPairError, checkable, storeConversionError } from "../../rules.js"
+import { assignmentPairError, checkable, checkableType, storeConversionError } from "../../rules.js"
 
 /** The target kinds that take an aggregate initializer and refuse a scalar literal. */
 const COMPOSITE: ReadonlySet<string> = new Set(["struct", "function_block"])
@@ -28,6 +28,38 @@ export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): 
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (decl.init === undefined || decl.init.kind === "aggregate_init") continue
     const resolved = resolveTypeExpr(decl.type, ctx.project)
+    // A REFERENCE DECLARATION BINDS, and the compiler type-checks what it binds TO. This check skipped it: a
+    // reference is not `checkable` and not in COMPOSITE, so `ref_ : REFERENCE TO INT REF= aString` and
+    // `REF= somethingUndeclared` both passed in silence while CODESYS refuses them (`refdecl_target_wrong_type`,
+    // `refdecl_target_undeclared` — "Cannot convert type 'STRING' to type 'REFERENCE TO INT'"). The TARGET is
+    // what converts, and the message names the REFERENCE type, which is what `renderTypeExpr` prints.
+    if (resolved.kind === "reference") {
+      const target = checkable(resolved.target)
+      const rhs = target === undefined ? undefined : checkableType(decl.init, scope, ctx.project)
+      // A NAME THAT RESOLVES TO NOTHING types as `undefined`, which is indistinguishable here from "a type this
+      // check does not model" — so it is asked of the SCOPE instead. CODESYS answers the undeclared case with two
+      // messages ("Identifier 'nope' not defined", then the conversion); this emits the conversion half, in the
+      // shape `struct-init.ts` already uses for the same situation (`refdecl_target_undeclared`).
+      if (target !== undefined && rhs === undefined && decl.init.kind === "ident_expr" && lookup(scope, decl.init.name) === undefined) {
+        out.push({
+          severity: "error",
+          span: decl.init.span,
+          source: SOURCE,
+          code: "assignment-type-mismatch",
+          message: ctx.messages.cannotConvert(ctx.messages.unknownType(decl.init.name), renderTypeExpr(decl.type)),
+        })
+        continue
+      }
+      if (target !== undefined && rhs !== undefined && !isAssignable(target, rhs))
+        out.push({
+          severity: "error",
+          span: decl.init.span,
+          source: SOURCE,
+          code: "assignment-type-mismatch",
+          message: ctx.messages.cannotConvert(renderType(rhs), renderTypeExpr(decl.type)),
+        })
+      continue
+    }
     const lhs = checkable(resolved)
     if (lhs === undefined) {
       // A composite target takes an AGGREGATE initializer (skipped above) and refuses a scalar LITERAL, which the

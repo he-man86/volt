@@ -101,3 +101,26 @@ test("an LTIME literal into an LTIME is clean — typed TIME, it was a false pos
   expect(mismatches("lt1 : LTIME;", "lt1 := LTIME#1S;")).toEqual([])
   expect(mismatches("t1 : TIME;", "t1 := T#1S;")).toEqual([])
 })
+
+/**
+ * A REFERENCE DECLARATION BINDS, and the compiler type-checks what it binds TO. This check skipped it entirely: a
+ * reference is neither `checkable` nor COMPOSITE, so both shapes below passed in silence.
+ *
+ * The expectations are CODESYS's own, recorded 2026-09-20 (`declarations/reference-binding.ts`):
+ *   `refdecl_target_wrong_type`  Cannot convert type 'STRING' to type 'REFERENCE TO INT'
+ *   `refdecl_target_undeclared`  Identifier 'nope' not defined | Cannot convert type 'Unknown type: 'nope'' to …
+ *
+ * The VALID bind must stay silent, which is the half that matters: this check runs over 29k corpus files, and a
+ * reference bound correctly is the overwhelmingly common case.
+ */
+test("a reference declaration type-checks its target, and a valid bind stays silent", () => {
+  const decl = (init: string) => `\tv : INT;\n\ts : STRING;\n\tref_ : REFERENCE TO INT ${init};`
+  expect(mismatches(decl("REF= v"), ";")).toEqual([])
+  expect(mismatches(decl(":= v"), ";")).toEqual([]) // both spellings bind, and both are legal
+  expect(mismatches(decl("REF= s"), ";")).toEqual(["Cannot convert type 'STRING' to type 'REFERENCE TO INT'"])
+  expect(mismatches(decl("REF= nope"), ";")).toEqual([
+    "Cannot convert type 'Unknown type: 'nope'' to type 'REFERENCE TO INT'",
+  ])
+  // a reference with NO initializer is ordinary, and must not be reported
+  expect(mismatches("\tref_ : REFERENCE TO INT;", ";")).toEqual([])
+})

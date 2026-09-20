@@ -6,9 +6,9 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1880
- *   refused       509
- *   not-lowered    87
+ *   confirmed    1892
+ *   refused       511
+ *   not-lowered    89
  *   lsp-gap         2
  *   diverges        3
  *   unaskable      33
@@ -1960,6 +1960,22 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   realovf_lreal_multiply_to_infinity: "confirmed",
   realovf_multiply_to_infinity: "confirmed",
   realovf_times_zero_after_infinity: "confirmed",
+  refdecl_assign_spelling: "confirmed",
+  refdecl_assign_spelling_write: "confirmed",
+  refdecl_fb_field: "confirmed",
+  refdecl_isvalidref: "confirmed",
+  refdecl_program_local: "confirmed",
+  refdecl_rebound_by_statement: "not-lowered",
+  refdecl_rebound_in_method: "not-lowered",
+  refdecl_survives_scans: "confirmed",
+  refdecl_target_after: "confirmed",
+  refdecl_target_before: "confirmed",
+  refdecl_target_undeclared: "refused",
+  refdecl_target_wrong_type: "refused",
+  refdecl_to_array: "confirmed",
+  refdecl_to_fb: "confirmed",
+  refdecl_to_struct: "confirmed",
+  refdecl_two_instances: "confirmed",
   reflection: "confirmed",
   refuse_adr_difference: "not-lowered",
   refuse_fb_called_positionally: "refused",

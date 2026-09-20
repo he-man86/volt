@@ -229,9 +229,17 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
       // would run there is not measured.
       // `deferInit` is the caller saying it HAS an init step. A layout's fields and a routine's locals do not, so
       // deferring there would queue a statement nothing ever emits — the slot silently at its default again.
-      // A `REF=` INITIALIZER IS NEVER A CONSTANT. It names a place to bind, not a value to fold, so the constant
+      // A REFERENCE DECLARATION BINDS, WHICHEVER OPERATOR WAS WRITTEN — measured, not assumed.
+      //
+      // The first version keyed this on `initOp === "REF="` alone. `declarations/reference-binding.ts` then asked
+      // CODESYS what `ref_ : REFERENCE TO INT := v` does, and it BINDS: `refdecl_assign_spelling_write` writes 41
+      // through it and reads `v = 41` back. Keying on the operator would have refused a declaration the vendor
+      // accepts. The TYPE is what decides; `initOp` survives only so the formatter can print back the spelling
+      // the engineer wrote.
+      //
+      // And it is never a constant either way: it names a place to bind, not a value to fold, so the constant
       // path would answer "not a compile-time constant" about a declaration that is perfectly ordinary.
-      const binds = decl.initOp === "REF="
+      const binds = type.kind === "reference" || decl.initOp === "REF="
       const deferrable =
         deferInit && decl.init !== undefined && runnableInit(decl.init) && !lw.globalMode && !lw.routineMode && (binds || !foldsToConstant(lw, decl.init))
       const before = lw.diagnostics.length
@@ -267,11 +275,11 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
         else {
           const slot = lw.frame.length
           lw.slot(name, type, sec.sectionKind, deferred || failed ? undefined : init)
-          // THE OPERATOR TRAVELS WITH THE VALUE. `r : REFERENCE TO T REF= x` is a BIND, not an assignment, and
-          // the init sequence lowers these through `lowerStmt` — which reads `op` to decide. Dropping it here
-          // made the bind a store through an unbound reference.
+          // THE BIND TRAVELS WITH THE VALUE. A reference declaration is a BIND, not an assignment, and the init
+          // sequence lowers these through `lowerStmt` — which reads `op` to decide. Dropping it made the bind a
+          // store through an unbound reference.
           if (deferred)
-            lw.pendingInits.push({ name, type, expr: decl.init as Expr, span: decl.span, slot, ...(decl.initOp !== undefined ? { op: decl.initOp } : {}) })
+            lw.pendingInits.push({ name, type, expr: decl.init as Expr, span: decl.span, slot, ...(binds ? { op: "REF=" as const } : {}) })
         }
       }
     }

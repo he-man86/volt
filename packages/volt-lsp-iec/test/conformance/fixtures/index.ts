@@ -46,6 +46,7 @@ import { OOP_TESTS } from "./oop/oop.js"
 import { CONSTANT_FOLDING_TESTS } from "./declarations/constant-folding.js"
 import { TRY_CATCH_TESTS } from "./semantics/try-catch.js"
 import { INIT_SEQUENCE_TESTS } from "./declarations/init-sequence.js"
+import { REFERENCE_BINDING_TESTS } from "./declarations/reference-binding.js"
 import { OPERANDS_TESTS } from "./operators/operands.js"
 import { STRING_ORDER_TESTS } from "./strings/ordering.js"
 import { SYSTEM_OPERAND_TESTS } from "./operators/system-operands.js"
@@ -159,6 +160,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "constant-folding", tests: CONSTANT_FOLDING_TESTS },
   { name: "try-catch", tests: TRY_CATCH_TESTS },
   { name: "init-sequence", tests: INIT_SEQUENCE_TESTS },
+  { name: "reference-binding", tests: REFERENCE_BINDING_TESTS },
   { name: "operands", tests: OPERANDS_TESTS },
   { name: "string-ordering", tests: STRING_ORDER_TESTS },
   { name: "system-operands", tests: SYSTEM_OPERAND_TESTS },

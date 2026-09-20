@@ -33,7 +33,11 @@ import { STANDARD_LIBRARY } from "./support/standard-library.js"
 
 /** Mapped assignments whose Rust line does not name the ST target because lowering RENAMED it — the classes are
  *  listed at the test. A ceiling, so a new renaming class has to be looked at rather than absorbed. */
-const RENAMED_TARGETS = 27
+// 27 -> 30 (2026-09-20), ONE new class and it was checked rather than absorbed: a REFERENCE is erased to its
+// target (design §9 form 1), so `ref_ := 41` on `ref_ : REFERENCE TO INT REF= v` emits a line naming `v`. The
+// three come from `declarations/reference-binding.ts` — verified by unregistering that family, which returns the
+// count to 27. The rename is the model working; a reference that still named itself would mean it had not erased.
+const RENAMED_TARGETS = 30
 
 interface Program {
   name: string
@@ -103,7 +107,8 @@ describe("the source map", () => {
     //   - `x := y := z` becomes several assignments through a chain temp;
     //   - `latch S= cond` becomes `self.latch = true`;
     //   - a VAR_IN_OUT parameter takes the CALLER's field name when `specializeRoutine` substitutes it, so
-    //     `target := target + amount` is `self.counter = …` — the rename is the specialization working.
+    //     `target := target + amount` is `self.counter = …` — the rename is the specialization working;
+    //   - a REFERENCE bound at its declaration is ERASED to its target, so `ref_ := 41` is `self.v = 41`.
     // So this is a ratchet, not a demand for zero: a NEW unnamed mapping is a new renaming class, and worth reading
     // before it is admitted.
     const squash = (s: string): string => s.toLowerCase().replace(/_/g, "")

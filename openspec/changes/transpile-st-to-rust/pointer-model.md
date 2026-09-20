@@ -235,9 +235,15 @@ Sized by what each step unblocks, smallest first — and the first two need no n
 
 And two this census adds:
 
-- **What `__ISVALIDREF` answers for a reference that was never bound** — D3 assumes FALSE and a null deref that
-  stops the task, which the recorder has seen for a null *write* but not for `__ISVALIDREF`.
-- **Whether a `REFERENCE TO` field bound by a METHOD survives to the next scan** — the whole of form 3 assumes it
-  does, because `MapperBase` is written as though it does, and nothing has asked.
+- ~~**What `__ISVALIDREF` answers for a reference that was never bound**~~ — **MEASURED 2026-09-20**, and D3 was
+  right: `refdecl_isvalidref` answers TRUE for a reference bound at its declaration and **FALSE** for one never
+  bound.
+- ~~**Whether a `REFERENCE TO` field bound by a METHOD survives to the next scan**~~ — **MEASURED 2026-09-20**: it
+  does. `refdecl_rebound_in_method` rebinds from a METHOD on the first scan and reads the NEW target's value (20)
+  on the third. The assumption form 3 rests on is now a recording rather than a reading of `MapperBase`.
+
+Both fell out of `declarations/reference-binding.ts`, which was written for the declaration-bind question and
+answered these on the way. **Step 3 is no longer blocked on §9.** What it still needs is the two element-step
+measurements above.
 
 None of 1–2 in §8 depends on these. Step 3 does, and should not start before them.

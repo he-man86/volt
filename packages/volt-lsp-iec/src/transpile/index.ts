@@ -31,7 +31,7 @@
  * declaration-level `REF=` started binding its target — see below):
  *
  *   - top-level PROGRAM / FUNCTION_BLOCK bodies: **56 of 304 lower (18.4%)**
- *   - METHOD / ACTION bodies: **56,629, of which 549 are REACHED** — a routine lowers when a POU that lowers
+ *   - METHOD / ACTION bodies: **56,629, of which 558 are REACHED** — a routine lowers when a POU that lowers
  *     calls it, and they are not in the 304 denominator. Only **20** of those come from a POU that RUNS; the
  *     rest are lifecycle methods (`FB_Init`, `call_after_global_init_slot`) reached from declaration-only POUs.
  *     This said "none reachable" until it was measured on 2026-09-19 — it was never none.

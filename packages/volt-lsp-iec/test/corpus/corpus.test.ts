@@ -513,7 +513,10 @@ const REACH = { bodies: 304, lowered: 56 }
  * the rest are lifecycle methods (`FB_Init`, `call_after_global_init_slot`) reached from declaration-only POUs,
  * which is why the claim survived: nobody counted the half that was not zero.
  */
-const ROUTINES = { routines: 549, routinesFromRunning: 20 }
+// 549 -> 558 the same day: `declarations/reference-binding.ts` measured that CODESYS binds a reference declared
+// with `:=` exactly as it binds one declared with `REF=` (`refdecl_assign_spelling_write` writes 41 through it
+// and reads it back from the target), so the TYPE decides rather than the operator — and nine more routines lower.
+const ROUTINES = { routines: 558, routinesFromRunning: 20 }
 
 /** Every node kind the IR defines — `IrExpr` and `IrStmt`, from `ir.ts`. Kept by hand so ADDING one shows up here. */
 const EXPR_KINDS = ["const", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch"] as const
