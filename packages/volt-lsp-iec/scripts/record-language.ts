@@ -101,8 +101,35 @@ const WRITE = process.argv.includes("--write")
 const health = await call("health")
 const VENDOR = process.env.VOLT_VENDOR ?? (health.platform === "twincat" ? "tc" : "codesys")
 
+/**
+ * `refs`, WITH THE ONE RECOVERY A LONG RUN NEEDS.
+ *
+ * The worker can be replaced under a running recording — `ide.ps1` retries its attach, the connector spawns its
+ * own, a crashed one is restarted — and the replacement comes up with NO PROJECT SELECTED. `refs` then answers
+ * without `items`, and every caller here read `.items[...]` straight off it: a bare
+ * `TypeError: undefined is not an object`, forty fixtures in, naming a line that is not the problem. That is how
+ * today's second TwinCAT run ended.
+ *
+ * So: say what happened, re-`connect` ONCE (which is the actual repair — the session lost its selection, not its
+ * pipe), and fail loudly if that does not fix it. A recorder that guesses past this writes down a build of a
+ * project the fixture never reached, which is the trap `pushOps` below is already written against.
+ */
+let selected: string | undefined
+async function refs(): Promise<any> {
+  const first = await call("refs").catch((e: Error) => ({ __error: e.message }) as any)
+  if (first?.items !== undefined) return first
+  if (selected === undefined)
+    throw new Error(`refs returned no items and no project is known to re-select: ${first?.__error ?? JSON.stringify(first)}`)
+  console.warn(`  bridge lost its project selection — re-connecting to '${selected}'`)
+  await call("connect", { project: selected })
+  const second = await call("refs")
+  if (second?.items === undefined)
+    throw new Error("refs still returned no items after re-connecting — the bridge is not serving this project")
+  return second
+}
+
 async function pushOps(ops: unknown[]): Promise<void> {
-  const r = await call("push", { expectedProjectVersion: (await call("refs")).projectVersion, ops })
+  const r = await call("push", { expectedProjectVersion: (await refs()).projectVersion, ops })
   // A REJECTED PUSH IS FATAL, not a warning. This used to log and carry on, and the next thing the recorder
   // does is BUILD and write down the result — of a project the fixture never reached. Measured: pushing
   // `cc6_reference_assign_literal` was rejected outright and the recorder wrote
@@ -120,10 +147,12 @@ async function fetchItem(name: string): Promise<any> {
   const f = await call("fetch", { knownItems: {}, onlyItems: [name] })
   return (f.changed ?? []).find((i: any) => i.name === name)
 }
-const version = async (name: string): Promise<string | null> => (await call("refs")).items[name] ?? null
+const version = async (name: string): Promise<string | null> => (await refs()).items[name] ?? null
 
 // Resolve PLC_PRG (CODESYS) / MAIN (TwinCAT) + its folder; save the original body for restore.
-const refs0 = await call("refs")
+selected = (health.projects ?? []).map((p: any) => p.project).find((n: any) => typeof n === "string")
+if (selected !== undefined) await call("connect", { project: selected })
+const refs0 = await refs()
 const plcName: string =
   ["PLC_PRG.prg", "MAIN.prg"].find((n) => refs0.items[n]) ??
   (() => {
