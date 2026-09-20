@@ -160,7 +160,67 @@ const plcName: string =
   })()
 const plcItem0 = await fetchItem(plcName)
 const plcFolder = plcItem0.folder ?? ""
-const plcOriginal: string = plcItem0.sourceText
+
+/**
+ * PLC_PRG, AS IT MUST BE BETWEEN FIXTURES — not merely as it happens to be right now.
+ *
+ * `plcOriginal` is what every fixture is restored to, and it was read straight off the LIVE PLC_PRG at startup.
+ * That is only correct if the previous run finished. A run that was KILLED — a crash, Ctrl-C, the OOM killer —
+ * dies between `setPlcPrg(fixture)` and the restore, leaving PLC_PRG DECLARING that fixture's instance. The next
+ * run then adopts that as the pristine text and writes it back after every fixture, for the whole run.
+ *
+ * What that produces is not a crash but a plausible lie. Measured 2026-09-20: a killed run left
+ * `inst : FB_LANG_bound_lint_at_min;` in PLC_PRG, and fixtures that compile the whole project — `linkalways_with
+ * _unused_pou` by name, plus `sn_dut_mismatch`, `itf_var_section_declaration`, `oop_abstract_fb` and others —
+ * recorded `Unknown type: 'FB_LANG_bound_lint_at_min'` as if it were their own answer. Six bad rows in 1190:
+ * rare enough to read as a real vendor divergence rather than as damage.
+ *
+ * So the pristine text is DERIVED, not observed: `plcPrgSource({})` is the same template every fixture is built
+ * from, with no declarations and no body. If the live PLC_PRG differs, say so and use the derived one.
+ */
+// MARKED, like every other unit this pushes — the wire refuses a program whose text does not say where its
+// declaration ends ("no '(* @volt-implementation *)' line"). Caught immediately by `pushOps`, which is the guard
+// doing its job rather than a surprise.
+const plcPristine = markImplementations(plcPrgSource({}))
+const plcLive: string = plcItem0.sourceText
+const plcOriginal: string = plcPristine
+if (plcLive.replace(/\s+/g, "") !== plcPristine.replace(/\s+/g, "")) {
+  console.warn(
+    "PLC_PRG is not pristine — an earlier run was killed mid-fixture and left its instantiation behind:\n" +
+      `${plcLive.trim()}` +
+      "\nrestoring the empty template before recording.",
+  )
+  await pushOps([{ op: "set", name: plcName, toFolder: null, sourceText: plcPristine, ifVersion: await version(plcName) }])
+}
+
+/**
+ * SWEEP WHAT A KILLED RUN LEFT BEHIND, before recording anything.
+ *
+ * Each fixture is pushed in, built and then deleted in a `finally`. That covers a fixture that FAILS; it does
+ * not cover the recorder being KILLED — a crash, a Ctrl-C, the OOM killer — which leaves that fixture's POUs in
+ * the project for every later run to trip over.
+ *
+ * They are not inert. Most fixtures only compile what PLC_PRG reaches, so an orphan is invisible; but a fixture
+ * that forces the whole project to compile sees it, and writes down diagnostics about a POU that has nothing to
+ * do with it. Measured 2026-09-20: two killed runs left orphans, and six later fixtures recorded
+ * `Unknown type: 'FB_XO_adder'` and friends — `linkalways_with_unused_pou` (which forces exactly that compile),
+ * `itf_var_section_declaration`, `sn_dut_mismatch`, `sn_interface_mismatch`, `interface_extends_another_impl`,
+ * `oop_abstract_fb`. Six bad rows in 1190, which is the worst kind of wrong: rare enough to look like a real
+ * vendor divergence.
+ *
+ * The sweep is keyed on the fixtures' OWN names, so it can never delete a project POU that merely looks fixture-ish.
+*/
+const fixtureItems = new Set(
+  ALL_TESTS.flatMap((t) => [
+    `${t.pouName}.${extForKind(t.kind)}`,
+    ...(t.gvlNames ?? []).map((g) => `${g}.gvl`),
+  ]),
+)
+const orphans = Object.keys(refs0.items).filter((n) => fixtureItems.has(n))
+if (orphans.length > 0) {
+  console.log(`sweeping ${orphans.length} orphan(s) left by an earlier killed run: ${orphans.join(', ')}`)
+  for (const n of orphans) await pushOps([{ op: "deleteItem", name: n, ifVersion: await version(n) }])
+}
 
 async function setPlcPrg(src: string): Promise<void> {
   // An UPDATE omits placement: `toFolder: ""` is the TREE ROOT, not "unchanged", so restating it here
