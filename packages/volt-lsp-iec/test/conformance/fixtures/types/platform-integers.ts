@@ -19,6 +19,17 @@
  *
  * Whatever comes back is a fact about a 64-bit target. A 32-bit one is a different recording and Volt has no such
  * device — which is itself worth knowing before the type table pretends otherwise.
+ *
+ * THE 32-BIT RECORDING EXISTS NOW (2026-09-20). The TwinCAT fixture project is one, and the full re-record
+ * against it answers every cell of this grid the other way — `__XINT` -> DINT, `__UXINT` -> UDINT, `__XWORD` ->
+ * DWORD, consistently across all 18. That is the measurement this file was written to be unable to make, so the
+ * grid has done its job: the types resolve by TARGET WIDTH and both widths are now recorded.
+ *
+ * It also shows what the family cannot settle. The two recordings differ because the two PROJECTS differ, not
+ * because the vendors do — the CODESYS device is `CODESYS Control Win V3 x64` and says so in its name, the
+ * TwinCAT one carries no marker and takes the 32-bit default. A third recording on a 64-bit TwinCAT target would
+ * be the proof, and nobody has one. Until then the fixtures are evidence that the width follows the device, and
+ * NOT evidence about which vendor does what.
  */
 import type { LanguageTest } from "../../types.js"
 

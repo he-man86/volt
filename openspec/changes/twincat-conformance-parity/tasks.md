@@ -46,6 +46,33 @@
 - [ ] Report the vendor comparison as a number the suite can quote: on the overlap it is currently 96.1% identical
       verdicts. Decide whether that belongs in `fixtures.test.ts`'s report or in a script.
 
+## Closing the triage backlogs — one family at a time, root cause first
+
+- [x] **The string-constant family (10 entries).** Closed WITHOUT touching the LSP: TwinCAT's driver joined lines
+      onto a message while its quote count was odd, and a complete message can have an odd count because what it
+      quotes is ST source full of string literals. It swallowed the error list's path echo and the build log, so a
+      family of warnings TwinCAT reports IDENTICALLY read as divergence. Backlog 79 -> 69, agreement 2200 -> 2203.
+      The cheapest vendor difference to close is the one that was never real.
+- [ ] **The platform-width family (9 entries) — INVESTIGATED, deliberately not "fixed".**
+      `__XINT`/`__UXINT`/`__XWORD` resolve by TARGET WIDTH. CODESYS records LINT/ULINT/LWORD, TwinCAT records
+      DINT/UDINT/DWORD, consistently across all 18 `plat_*` cells, and the LSP hardcodes the 64-bit half. Both
+      `elementary.ts` and the fixture family say "Volt has no 32-bit device to record against" — **that premise is
+      now false** and both notes are corrected.
+      - It is NOT a vendor property and must not become a vendor branch: TwinCAT ships x64 runtimes, CODESYS ships
+        32-bit PLCs. Keying on vendor would be right for these two fixture projects and wrong in principle.
+      - The decider is the DEVICE. The exec oracle's is `CODESYS Control Win V3 x64` and says so in its NAME; the
+        TwinCAT project carries no marker and takes the 32-bit default. Only 1 of the 6 corpus projects has a
+        device name carrying bitness, so the width is usually not discoverable as things stand.
+      - Exposure today is NIL and measured: all 1833 corpus uses (`__XWORD` 1570, `__UXINT` 193, `__XINT` 70) are
+        inside `Library Manager/`, which the server skips. The 9 TwinCAT false positives are the whole cost.
+      - The fix is one rule with no vendor branch: take the width from the project's target, and say NOTHING when
+        it is not knowable. It needs a way to know the target, which is `device-tree-exposure` work, and it trades
+        ~9 agreement points for removing a class of false positive. That trade is a decision, not a cleanup, which
+        is why this task is open rather than done.
+- [ ] The remaining ~60, by family: the atomics, `__POSITION`, the unnamed network-text target, IL-operator
+      casing, and the individually-named rest. Each wants the same treatment — ask whether the vendors really
+      differ before teaching the LSP that they do.
+
 ## The transport decision
 
 - [ ] Measure `volt push` + `volt build` per fixture against the raw-wire path (~3s/fixture) on a batch of ~50.

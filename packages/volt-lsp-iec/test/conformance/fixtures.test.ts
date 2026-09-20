@@ -859,8 +859,16 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
  *   ~11  a STRING/WSTRING constant too long for its destination (`cc_string_*`, `cc_wstring_*`, `xo4_string*`,
  *        `ir_initializer_*`). CODESYS warns; this TwinCAT appears not to.
  *   ~9   the `__` atomic operators (`atomic_*`, `operand_xadd`, `operand_compare_and_swap`, `operand_indexof`).
- *   ~9   the platform-width types (`plat_xint_*`, `plat_uxint_*`, `plat_xword_*`) — __XINT/__UXINT/__XWORD are
- *        CODESYS spellings, so TwinCAT may reject the fixture before it reaches the rule under test.
+ *   11   the platform-width types (`plat_xint_*`, `plat_uxint_*`, `plat_xword_*`) — TRIAGED 2026-09-20, and the
+ *        guess above was wrong: TwinCAT accepts all three spellings and resolves them, just to the other width.
+ *        `__XINT`/`__UXINT`/`__XWORD` follow the TARGET: CODESYS records LINT/ULINT/LWORD (its device is named
+ *        `CODESYS Control Win V3 x64`), TwinCAT records DINT/UDINT/DWORD (32-bit default, no marker), across
+ *        all 18 `plat_*` cells. The LSP hardcodes the 64-bit half, so it is exactly right on one and exactly
+ *        wrong on the other. NOT a vendor property — TwinCAT ships x64 runtimes and CODESYS ships 32-bit PLCs,
+ *        so a vendor branch would be right for these two projects and wrong in principle. The fix is one rule:
+ *        take the width from the project's target, and say NOTHING when it is not knowable. That needs a way to
+ *        know the target, so it is a decision rather than a cleanup — see the openspec change. Exposure today
+ *        is nil and measured: all 1833 corpus uses live under `Library Manager/`, which the server skips.
  *   ~7   `__POSITION` (`sysop_position_*`, `operand_position`).
  *   ~5   the unnamed network-text target (`network_unnamed_*`), which the compiler never reads at all.
  *   ~4   IL-operator and function-name CASING (`echo_*`).

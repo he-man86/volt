@@ -125,10 +125,33 @@ export const ELEM_ALIASES: ReadonlyMap<string, string> = new Map([
  *   __UXINT  -> ULINT
  *   __XWORD  -> LWORD    and `__XWORD + DINT` is LINT, exactly as the measured meet lattice says
  *
- * THAT IS A 64-BIT TARGET. On a 32-bit one they resolve to DINT/UDINT/DWORD, and Volt has no such device to record
- * against — so this is the answer for every target we can measure, and a 32-bit project is an unrecorded case rather
- * than a wrong one. Kept out of `ELEM_ALIASES` on purpose: that map's inverse drives `elementaryDisplayName`, and
- * these must never print as themselves.
+ * THAT IS A 64-BIT TARGET, AND THE TABLE BELOW ASSERTS IT UNCONDITIONALLY. This said "Volt has no such device to
+ * record against, so a 32-bit project is an unrecorded case rather than a wrong one". **That premise is false as
+ * of 2026-09-20**: the TwinCAT fixture project is a 32-bit target, and re-recording the whole suite against it
+ * measured exactly the predicted other half —
+ *
+ *   __XINT -> DINT, __UXINT -> UDINT, __XWORD -> DWORD
+ *
+ * across all 18 `plat_*` cells, consistently. So the width is a property of the TARGET, it is now measured on
+ * both sides, and this table is right for one of them and wrong for the other.
+ *
+ * IT IS NOT A VENDOR PROPERTY, and must not become a vendor branch. TwinCAT ships x64 runtimes and CODESYS ships
+ * 32-bit PLCs; keying it on the vendor would be right for these two fixture projects and wrong in principle. What
+ * decides it is the DEVICE: the exec oracle's is `CODESYS Control Win V3 x64` and says so in its name, while the
+ * TwinCAT project carries no marker at all and takes TwinCAT's 32-bit default.
+ *
+ * LEFT AS IS, DELIBERATELY, because the alternative is a guess of a different shape. Declining to resolve them
+ * would silence a message that is CORRECT on every 64-bit project, and the LSP analyses files without a device in
+ * reach — the conformance replay has no workspace at all. Exposure today is nil and measured: all 1833 uses in
+ * the corpus (`__XWORD` 1570, `__UXINT` 193, `__XINT` 70) are inside `Library Manager/`, which the server skips,
+ * so no corpus file is analysed against this assumption. The 9 `plat_*` false positives against TwinCAT are the
+ * whole of the damage, and they are on the triage list with this note rather than papered over.
+ *
+ * The fix, when it comes, is to take the width from the project's target and to say NOTHING when that is not
+ * knowable — one rule, no vendor branch. `openspec/changes/twincat-conformance-parity` carries the decision.
+ *
+ * Kept out of `ELEM_ALIASES` on purpose: that map's inverse drives `elementaryDisplayName`, and these must never
+ * print as themselves.
  */
 const PLATFORM_ALIASES: ReadonlyMap<string, string> = new Map([
   ["__XINT", "LINT"],
