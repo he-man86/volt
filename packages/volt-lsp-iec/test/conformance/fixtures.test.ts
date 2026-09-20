@@ -818,7 +818,9 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // CODESYS takes its address, and returning the operand's own type where CODESYS returns DINT. Six operand
   // types each. Plus two rules measured as CODESYS's alone: a sign crossing at an ARGUMENT, and `__NEW` nested
   // in an expression.
-  { vendor: "twincat", floor: 2240 },
+  // 2240 -> 2241: the last contaminated row. An apostrophe is a quote, so "Outputs can't be of type
+  // 'REFERENCE TO'" carries three and the driver joined the build summary onto it.
+  { vendor: "twincat", floor: 2241 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -872,7 +874,7 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
 ]
 
 /**
- * THE TWINCAT TRIAGE BACKLOG — fixtures where the LSP says something TwinCAT does not. FOUR, as of the end of
+ * THE TWINCAT TRIAGE BACKLOG — fixtures where the LSP says something TwinCAT does not. THREE, as of the end of
  * 2026-09-20, from 79 that morning.
  *
  * These are NOT excused. `lsp-parity-not-better` is the rule: an LSP-only message is a false positive until a
@@ -882,7 +884,7 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
  * HOW THE 79 WENT. Almost none of it was the LSP being wrong about ST, and none of it was closed by teaching
  * a check to branch on the vendor:
  *
- *   ~24  THE RECORDING WAS WRONG. TwinCAT's driver joined lines onto a message while its quote count was odd,
+ *   ~25  THE RECORDING WAS WRONG. TwinCAT's driver joined lines onto a message while its quote count was odd,
  *        and a complete message can have an odd count, because what it quotes is ST source full of string
  *        literals. A family of warnings TwinCAT reports IDENTICALLY read as divergence.
  *   ~18  THE PROJECT WAS ON THE WRONG TARGET. The fixture solution's active platform was `TwinCAT CE7 (ARMV7)`
@@ -909,10 +911,6 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
  *   cc3_reference_assign      TwinCAT reverses the conversion direction for a reference assign — "Cannot
  *                             convert type 'REFERENCE TO INT' to type 'SINT'" where CODESYS says the same
  *                             pair the other way round. ONE cell; a rule built on one cell is a guess.
- *   cc4_output_reference_type The message is identical and the RECORDING is contaminated: "Outputs can't be
- *                             of type 'REFERENCE TO'" has three quotes (the contraction plus the pair), so
- *                             the odd-count rule swallowed the build summary. Fixed in the driver; needs a
- *                             worker rebuild and a re-record of this one row.
  *   cc5_deprecated_functionblock_keyword  The parser's own `unexpected identifier 'FUNCTIONBLOCK' at file
  *                             scope`, which is Volt's wording, where both vendors say nothing about the
  *                             header and complain where the missing FB is USED.
@@ -944,7 +942,6 @@ const CODESYS_TRIAGE: ReadonlySet<string> = new Set([
 
 const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
   "cc3_reference_assign",
-  "cc4_output_reference_type",
   "cc5_deprecated_functionblock_keyword",
   "ldate_ltod_ldt",
 ])

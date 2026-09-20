@@ -330,6 +330,11 @@ internal sealed partial class TcObjectModel
     private static readonly string[] BuildChrome =
     {
         "------ Build started", "Build complete", "Build FAILED", "Build succeeded",
+        // "Compile complete -- 1 errors, 0 warnings" is the one that got through: the message above it is
+        // "Outputs can't be of type 'REFERENCE TO'", whose apostrophe makes THREE quotes, so the odd-count rule
+        // read it as unfinished and swallowed the summary line into the diagnostic (conformance
+        // `cc4_output_reference_type`, recorded 2026-09-20 - the only contaminated row left in 2524).
+        "Compile complete",
         "Size of generated code", "Size of global data", "Total allocated memory size",
         "Generate TMC information", "Import symbol", "ready for download",
     };

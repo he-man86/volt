@@ -49,6 +49,22 @@ public class TcBuildOutputTests
     }
 
     /// <summary>
+    /// AND AN APOSTROPHE IS A QUOTE. "Outputs can't be of type 'REFERENCE TO'" carries THREE of them - the
+    /// contraction plus the pair around the type - so the odd-count rule read the message as unfinished and joined
+    /// the build's summary line onto it. One row in 2524, and the last contaminated one: the chrome list held every
+    /// other line the build writes about itself and not "Compile complete" (`cc4_output_reference_type`, 2026-09-20).
+    /// </summary>
+    [Fact]
+    public void AnApostropheDoesNotSwallowTheCompileSummary()
+    {
+        var parsed = TcObjectModel.ParsePaneText(
+            "1>C:\\p\\MAIN.TcPOU(2,1) : error : Outputs can't be of type 'REFERENCE TO'\r\n" +
+            "1>Compile complete -- 1 errors, 0 warnings\r\n");
+        var one = Assert.Single(parsed);
+        Assert.Equal("Outputs can't be of type 'REFERENCE TO'", one.Message);
+    }
+
+    /// <summary>
     /// A COMPLETE MESSAGE CAN HAVE AN ODD NUMBER OF QUOTES, and the continuation heuristic must not read that as
     /// unterminated. It quotes SOURCE at you, and ST source is full of string literals: "String constant ''...'
     /// too long for destination type 'STRING(4)'" carries five quotes because the constant it names is itself
