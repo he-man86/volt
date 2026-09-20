@@ -22,6 +22,12 @@
  * per assertion. The parse is now done ONCE per project and every question asked of it; only the heavy LSP
  * diagnostic pass was already shared (`support/diagnostics.ts`), and it still is.
  *
+ * It was five, and the fifth is the reason this rule is written down. `ir-coverage.test.ts` walked the corpus a
+ * SECOND time to ask which IR the suite builds — the same files, the same symbol tables, the same `lowerUnit`
+ * call, for a different tally. Two walks is not only slow: under load the second one blew its own 240s timeout
+ * while passing in 66s alone, which reads as a failure in whatever test happened to be running. It was folded
+ * into `lowering-totality`'s walk, and that walk is now folded into this one.
+ *
  * WHAT THE CORPUS CANNOT PROVE. It contains no invalid code and only the constructs its authors happened to use, so
  * a pass here is EVIDENCE, not proof. Two throws found by review are unreachable from it and are pinned beside the
  * code that answers them (`src/transpile/lower/totality.test.ts`); whether enough is being ASKED at all is
@@ -392,11 +398,13 @@ describe.skipIf(!hasCorpus)("2. the LSP invents nothing", () => {
     test.skipIf(!has)(`${project}: every LSP error and warning is a real CODESYS build diagnostic`, () => {
       const rec = JSON.parse(readFileSync(recPath, "utf8")) as BuildRecording
       const buildMsgs = rec.diagnostics.map((d) => d.message)
-      // A truncated recording can't distinguish a real FP from a cut warning. Fail with an actionable message so
-      // the project gets re-recorded past the cap, rather than silently green-lighting or red-flagging noise.
+      // A TRUNCATED recording is reported, not thrown. `build-conformance.test.ts` threw here — and that is right
+      // when the whole gate depends on completeness, which it no longer does: the ERROR half below is sound
+      // against a truncated recording (the cap is on WARNINGS), so throwing would refuse to check the half that
+      // still works. What truncation costs is the warning half, and that is what `complete` below withholds.
       if (isTruncated(buildMsgs))
-        throw new Error(
-          `${project}: build recording is TRUNCATED at CODESYS's 100-warning cap — re-record with the cap raised (Compiler Warnings → max) before this gate is meaningful.`,
+        console.log(
+          `  [corpus]   ${project}: build recording is TRUNCATED at CODESYS's 100-warning cap — re-record with the cap raised (Compiler Warnings → max) to gate warnings here.`,
         )
 
       const ours = projectDocuments(dir, "codesys")
@@ -421,10 +429,26 @@ describe.skipIf(!hasCorpus)("2. the LSP invents nothing", () => {
       )
       if (missing.length > 0) console.log(`  [corpus]   MISSING (build warns, we don't):`, missing.slice(0, 8))
 
-      // THE HARD GATE. `buildFailed` does not excuse it: an ERROR we emit that the build never did is a false
-      // positive whatever phase the build stopped in. The warning half above is what an incomplete build weakens,
-      // and that half is a report rather than an assertion.
-      expect(buildFalsePositives(ours, buildMsgs)).toEqual([])
+      // THE HARD GATE, and WHICH SEVERITIES it covers depends on whether the build is a complete oracle.
+      //
+      // An ERROR we emit that the build never emitted is a false positive whatever phase the build stopped in —
+      // that half is always gated. A WARNING is different: a build that did not compile clean never reaches the
+      // warning (typify) phase, and a capped one cut its list at 100, so in both cases a warning of ours absent
+      // from the recording may be a REAL warning the build never got to rather than an invention.
+      //
+      // `build-conformance.test.ts` gated both severities unconditionally and `warning-conformance.test.ts`
+      // skipped the warning half exactly here; merging them is what made the disagreement visible. The sound
+      // one wins. It changes nothing today — awa-palletizer is the only build-failed project and the LSP emits
+      // no warning on it — but the unsound version fails falsely the first time that stops being true.
+      const complete = !buildFailed && !isTruncated(buildMsgs)
+      const gated = complete
+        ? ours
+        : projectDocuments(dir, "codesys")
+            .flatMap((d) => d.diagnostics)
+            .filter((d) => d.severity === DiagnosticSeverity.Error)
+            .map((d) => d.message)
+      if (!complete) console.log(`  [corpus]   warning FPs UNCONFIRMED here — the build is an incomplete oracle`)
+      expect(buildFalsePositives(gated, buildMsgs)).toEqual([])
     }, CORPUS_TIMEOUT)
   }
 

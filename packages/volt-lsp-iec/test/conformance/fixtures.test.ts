@@ -454,6 +454,11 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
  * as LSP gaps on that basis and were never gaps at all.
  *
  * And the vendor's own answer is re-asserted: a fixture cannot quietly stop being refused.
+ *
+ * NOTHING ELSE IS OWED. The transpiler's input contract is "code CODESYS compiles" (`src/transpile/index.ts`),
+ * so a source the vendor rejects is outside it — there is no value to produce and no lowering to demand. That is
+ * why a refused fixture is an answer rather than a gap, and why it is COUNTED rather than dropped: a fixture
+ * cannot go quiet here by becoming uncompilable.
  */
 describe("refused — the vendor rejects it, in words we repeat", () => {
   for (const c of rated("refused").filter((x) => x.refused !== undefined)) {
@@ -1066,6 +1071,12 @@ for (const { vendor, floor } of FLOORS) {
  *
  * Errors only — a build that succeeds still emits warnings, and which ones is what the ratchet above is for. Weaker
  * than that check (it cannot see a diagnostic the LSP MISSES) and needs nothing but the run recording.
+ *
+ * AN EXPLICIT BUDGET, because the default 5s is not one. This runs the whole analyzer over every fixture and the
+ * cost is LINEAR in how many there are — about 3ms each, and the census sweeps took the suite from 967 fixtures
+ * to 2332 in a day. It timed out twice on the way and both times it was a real quadratic term in the harness, now
+ * gone: a symbol table rebuilt per fixture from every other fixture's declarations, and `linkExtends` walking
+ * every child twice per fixture. What is left is the work the gate exists to do.
  */
 test("the LSP emits NO error on a fixture the simulator built and executed", () => {
   const falsePositives: string[] = []
