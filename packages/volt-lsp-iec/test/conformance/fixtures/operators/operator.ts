@@ -736,15 +736,31 @@ END_METHOD
     note: "DISCOVERY (verified live 2026-05-29): TC rejects __QUERYINTERFACE. CODESYS-only; TC has its own runtime-interface query primitives in TwinCAT.SystemBase.",
     plcPrgVar: "fb_qi : FB_LANG_op_sys_queryinterface;",
     plcPrgBody: "fb_qi.Query();",
-    source: `FUNCTION_BLOCK FB_LANG_op_sys_queryinterface
+    // THE INTERFACE IS DECLARED HERE, and that is the whole point of this edit. It used to name
+    // `ITF_LANG_with_method`, which another fixture declares — and `withDependencies` scans a fixture's
+    // DECLARATIONS, not its method BODIES, so the interface was never pushed alongside it. Every recording of
+    // this fixture therefore said `Unknown type: 'ITF_LANG_with_method'`: it has never measured
+    // `__QUERYINTERFACE` at all, on either vendor. Found 2026-09-20 by the cross-fixture check in
+    // `scripts/check-recording.ts`.
+    source: `INTERFACE ITF_LANG_qi_target
+
+METHOD Ping
+END_METHOD
+
+END_INTERFACE
+
+FUNCTION_BLOCK FB_LANG_op_sys_queryinterface IMPLEMENTS ITF_LANG_qi_target
 VAR
 	bFound : BOOL;
 END_VAR
 
 END_FUNCTION_BLOCK
 
+METHOD Ping
+END_METHOD
+
 METHOD Query
-bFound := __QUERYINTERFACE(THIS^, ITF_LANG_with_method);
+bFound := __QUERYINTERFACE(THIS^, ITF_LANG_qi_target);
 END_METHOD
 `,
   },

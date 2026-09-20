@@ -542,6 +542,13 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     // text at all — see `network/network-analysis.ts`.
     "network_unnamed_target_of_void_call",
     "network_unnamed_target_of_valued_call",
+    // `__QUERYINTERFACE`, measured for the first time on 2026-09-20. The fixture had always named an interface
+    // another fixture declares, in a METHOD BODY — which `withDependencies` does not scan — so it was never
+    // pushed and the vendor only ever answered `Unknown type`. Given its own interface, CODESYS refuses it with
+    // three specific errors (the FB must extend `__System.IQueryInterface`; the operand must be an INSTANCE, not
+    // a type) and the LSP says nothing about any of them. A real gap, newly visible because the question is now
+    // real.
+    "op_sys_queryinterface",
   ])
 
   test("each is either written down on the fixture or a known measured silence", () => {
@@ -655,7 +662,13 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // `__CURRENTTASK`, the `CALC` family, `ANYNUM_TO_*`, `FB_Init`'s arguments, `__QUERYPOINTER`'s first operand and
   // `__NEW`'s pragma. The two left are the `???` target over a call, where the fixture and the corpus disagree
   // because the compiler never reads network text — see `network/network-analysis.ts`.
-  "lsp-gap": 2,
+  // 2 -> 3. `op_sys_queryinterface` is a gap this session CREATED, by making the fixture ask a real question:
+  // its method body named an interface ANOTHER fixture declares, and `withDependencies` scans declarations
+  // rather than bodies, so the interface was never pushed and every recording said `Unknown type`. It has never
+  // measured `__QUERYINTERFACE` on either vendor. Given its own interface it now records CODESYS's real answer
+  // (the FB must extend `__System.IQueryInterface`, and the operand must be an instance rather than a type),
+  // and the LSP says nothing about any of it.
+  "lsp-gap": 3,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -823,7 +836,10 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // one inside a materialized library file), and an FB whose `FB_Init` takes extra inputs must be given them at
   // the declaration.
   // 865 -> 866: `__CURRENTTASK`, whose two messages are the same in all six positions measured.
-  { vendor: "codesys", floor: 866 },
+  // 866 -> 2412 (2026-09-20). Like TwinCAT's jump the same day, this is COVERAGE and not precision: the CODESYS
+  // recording covered 893 of 2530 fixtures — it had not been re-recorded since 2026-09-17, before the last of the
+  // census sweeps — so two thirds of the suite could not agree because there was nothing to agree WITH.
+  { vendor: "codesys", floor: 2412 },
 ]
 
 /**
@@ -856,6 +872,26 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
  * fixture that stops emitting one must leave the list — both are asserted below, so this cannot quietly grow and
  * cannot quietly rot. Triage is tracked in `openspec/changes/twincat-conformance-parity`.
  */
+/**
+ * THE CODESYS TRIAGE BACKLOG, dated 2026-09-20 — and it is THREE, where TwinCAT's is 79.
+ *
+ * Same event, same reason it was invisible: the CODESYS recording covered 893 of 2530 fixtures until today, so
+ * this gate was green on two thirds of the suite by having nothing to contradict it. That it comes back with 3
+ * rather than 79 is the honest measure of how much more this LSP has been developed against CODESYS.
+ *
+ * Each is a real LSP-only message — an invented error, by `lsp-parity-not-better` — and small enough to name:
+ *
+ *   meet_bool_mod_int        the LSP says "MOD is not defined for BOOL"; CODESYS compiles it. The meet-type
+ *                            table refuses a pair the vendor accepts.
+ *   sysop_position_call_form  `__POSITION` typed as STRING where the destination is DINT. Both cells are the
+ *   sysop_position_initializer  same rule in two positions, so one measurement closes both.
+ */
+const CODESYS_TRIAGE: ReadonlySet<string> = new Set([
+  "meet_bool_mod_int",
+  "sysop_position_call_form",
+  "sysop_position_initializer",
+])
+
 const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
   "array_initializers",
   "atomic_cas_dint",
@@ -1185,15 +1221,13 @@ for (const { vendor, floor } of FLOORS) {
 
     test("emits NO false positives (every LSP message is a real IDE message)", () => {
       // CODESYS is a hard zero. TwinCAT has a dated triage list (see `TWINCAT_TRIAGE`) that may only shrink.
-      const triaged = vendor === "twincat" ? TWINCAT_TRIAGE : new Set<string>()
+      const triaged = vendor === "twincat" ? TWINCAT_TRIAGE : CODESYS_TRIAGE
       const unexcused = falsePositives.filter((f) => !triaged.has(f.slice(0, f.indexOf(":"))))
       expect(unexcused).toEqual([])
       // ...and an entry that no longer fires must LEAVE the list, or the list becomes a place things go to hide.
-      if (vendor === "twincat") {
-        const firing = new Set(falsePositives.map((f) => f.slice(0, f.indexOf(":"))))
-        console.log(`  [twincat] LSP-only on ${firing.size} fixture(s) — the triage backlog`)
-        expect([...triaged].filter((n) => !firing.has(n))).toEqual([])
-      }
+      const firing = new Set(falsePositives.map((f) => f.slice(0, f.indexOf(":"))))
+      console.log(`  [${vendor}] LSP-only on ${firing.size} fixture(s) — the triage backlog`)
+      expect([...triaged].filter((n) => !firing.has(n))).toEqual([])
     })
 
     test(`agreement does not regress (>= ${floor})`, () => {

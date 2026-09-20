@@ -7,9 +7,9 @@
  *
  * At the last regeneration:
  *   confirmed    1892
- *   refused       511
+ *   refused       510
  *   not-lowered    89
- *   lsp-gap         2
+ *   lsp-gap         3
  *   diverges        3
  *   unaskable      33
  */
@@ -1661,7 +1661,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   op_sys_currenttask: "refused",
   op_sys_isvalidref: "confirmed",
   op_sys_new_delete: "unaskable",
-  op_sys_queryinterface: "refused",
+  op_sys_queryinterface: "lsp-gap",
   op_sys_try_catch: "refused",
   op_sys_varinfo: "refused",
   operand_bit_access_byte: "confirmed",
