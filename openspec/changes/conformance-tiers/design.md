@@ -42,16 +42,16 @@ own file precisely so it can be run alone.
 
 ## 2. `corpus.test.ts` — real code, no recordings
 
-One walk over 29,359 files, three questions:
+One walk over 29,359 files, two questions:
 
 - **no false positive** — every error-severity diagnostic is one the recorded IDE build also emitted
   (today's `corpus/build-conformance.test.ts` + `warning-conformance.test.ts`);
 - **totality** — no POU makes lowering throw, and the documented reach figures are what is measured
   (today's `lowering-totality.test.ts`, minus its three regressions);
-- **self-consistency** — the new gate: a POU that lowers with no diagnostics has not silently dropped a
-  declaration's initial value.
+*(A third question — self-consistency — was specified here and removed after being built and measured; it is not a
+corpus question. See "The new gate, concretely" below.)*
 
-**Why these three together:** they are one expensive walk. Splitting them means walking the corpus three times,
+**Why these together:** they are one expensive walk. Splitting them means walking the corpus three times,
 which is the reason `build-conformance` and `warning-conformance` already share theirs.
 
 ## 3. `backends.test.ts` — B against C
@@ -82,9 +82,12 @@ pointer stepped over a zero-byte element, and the temporal literals that prove t
 regression about one function belongs in that module's own test file, which is the repo's stated policy
 (`lsp-test-policy-corpus-finds-src-acks`). They move to `src/transpile/lower/`.
 
-## The new gate, concretely
+## The new gate, concretely — and why it is not a gate
 
-Inside concern 2's existing walk, for each unit that lowers with no diagnostics:
+**This was specified as a corpus check and built as one. The corpus proved it wrong.** Recorded here because the
+reasoning is the deliverable, not the code that was thrown away.
+
+The specified check was:
 
 ```
 for each slot in pou.slots (and each field of each layout):
@@ -94,18 +97,52 @@ for each slot in pou.slots (and each field of each layout):
           OR pou.init contains an assignment whose target is that slot
 ```
 
-**What it catches:** a refusal discarded before it reached the output; a deferred initializer queued into a
-lowering with no init step; a base class's initializers never run on a derived instance. Three of the four
-defects that prompted this.
+It was implemented over all three storages (frame, globals, layouts) and run over the corpus: **386 findings on
+3,051 clean-lowering POUs, and every one inspected was a false positive.** The first, `libDI.tOnDelay`, is
+`tOnDelay : TIME := T#0MS` — an initializer whose value IS the type's default. The check cannot tell that from a
+dropped one, because *the two produce the identical slot*.
 
-**What it does not catch:** a wrong value written into a field whose declaration had NO initializer — the fourth
-defect, where a struct was given another POU's init routine. That needs a different invariant (roughly: every
-statement in the init step writes a place rooted in the instance it runs on), which is follow-on work and is named
-here so the gap is not mistaken for coverage.
+The escape hatch made it worse rather than better. To let a legitimate `:= 0` pass, the check re-derives the
+initializer's value with `types/constEval` — **a second evaluator**, which does not answer for a duration literal
+and so reports a bug wherever it merely stays silent. `ir/evaluate.ts` already names this trap in its own header:
+CODESYS folds an initializer to exactly what the expression computes at run time, and *"exactly" is a claim a
+second implementation cannot keep*. The gate was about to re-introduce the disagreement that file exists to
+prevent, and call the disagreement a defect.
 
-**Why it is sound:** it compares the product against its own input, so it needs no vendor and cannot go stale. A
-deferred initializer passes because the value IS assigned — the slot's default is the state before the init step
-runs, which is the measured semantics (`declarations/init-sequence.ts`).
+**So the invariant is not checkable downstream.** A slot at its default is indistinguishable from a slot
+initialized to its default — by construction, in the IR, permanently. No corpus walk recovers information the
+representation does not carry.
+
+### What replaced it
+
+The silence is created at one line, so it is closed at one line. `lower/storage.ts` computed whether an
+initializer failed to lower and then *dropped the fact*, under a comment asserting a refusal had been recorded.
+Nothing enforced that assertion, and all four defects were that assertion being false. It now enforces it:
+
+```ts
+if (decl.init !== undefined && !deferred && init === undefined && lw.diagnostics.length === before)
+  lw.bail("init-dropped", `${…}'s initial value did not lower and nothing said why`, decl.span)
+```
+
+**Why this is the root and the gate was the patch:** the gate detects the symptom in one consumer (a corpus POU)
+long after the information needed to judge it is gone. The guard makes the state unrepresentable at the only
+place it can arise, for every caller — frame, global, layout field, routine local — at once, and it needs no
+oracle, no second evaluator and no corpus.
+
+**Evidence, 2026-09-20.** Fires on 0 of 2,291 fixtures and 0 of 6,985 corpus POUs: every path that drops an
+initializer today is already paired with a refusal, which is what the guard asserts. That it fires at all was
+verified by injection — with `scalarInit`'s `init-not-constant` bail removed, a struct field initialized from a
+non-constant reported `init-dropped` instead of lowering clean with the field at 0, which is defect shape 2
+exactly. `init-sequence.test.ts` pins the other direction (an initializer that legitimately is the default must
+not trip it); the four original shapes are already pinned there as regressions.
+
+**What neither catches:** a wrong value written into a field whose declaration had NO initializer — the fourth
+defect, where a struct was given another POU's init routine. That is a different invariant (roughly: every
+statement in the init step writes a place rooted in the instance it runs on), it remains follow-on work, and it
+is named here so the gap is not mistaken for coverage.
+
+**Consequence for concern 2.** `corpus.test.ts` asks two questions, not three: no false positive, and totality +
+reach. Self-consistency is not a corpus question and never was.
 
 ## Order
 

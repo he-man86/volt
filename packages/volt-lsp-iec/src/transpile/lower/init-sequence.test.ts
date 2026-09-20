@@ -103,6 +103,24 @@ test("a STRUCT FIELD whose initializer is refused is reported too — and never 
   expect(r.pou).toBeUndefined()
 })
 
+/**
+ * THE BACKSTOP FOR THE FIFTH. All four defects above were one shape — an initializer that produced nothing while
+ * the POU lowered clean — and each was fixed where it arose. `init-dropped` closes the shape itself: `declareVars`
+ * now refuses when an initializer lowers to undefined and no diagnostic was recorded, so a future path that forgets
+ * to speak fails loud instead of defaulting silently.
+ *
+ * It fires on no fixture (2291) and no corpus POU (6985), which is the point — every current path is paired with a
+ * refusal. Reaching it needs a bail removed, verified by injection on 2026-09-20 with `scalarInit`'s
+ * `init-not-constant` deleted: the struct-field case below reported `init-dropped` instead of lowering clean.
+ * So what is pinned here is the other direction — that it does NOT fire on an initializer that legitimately
+ * produces the default, which is what would turn the backstop into a wall.
+ */
+test("an initializer that IS the type's default is not mistaken for a dropped one", () => {
+  const r = lower("", "a : INT := 0;\n\tb : TIME := T#0MS;\n\tc : BOOL := FALSE;\n\td : STRING := '';")
+  expect(r.diagnostics).toEqual([])
+  expect(r.pou!.slots.filter((x) => ["a", "b", "c", "d"].includes(x.name)).length).toBe(4)
+})
+
 test("a global AT an address lowering does not model keeps its refusal", () => {
   // otherwise a hardware-mapped variable is silently modelled as ordinary storage
   const r = lowerSource(

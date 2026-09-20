@@ -86,6 +86,9 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "init-reads-instance": "not-measured",
   // An initial value that reads a LATER declaration, whose own initializer has not run — measured as the default.
   "init-reads-later": "not-measured",
+  // A BACKSTOP, not a construct: an initializer that lowered to nothing and reported nothing. It names a lowering
+  // bug rather than a language feature, so a program producing it is a defect to fix here, not a gap to build.
+  "init-dropped": "unclassified",
   "init-not-constant": "unclassified",
   "inout-constant-write": "unclassified",
   "interface-call-shape": "unclassified",

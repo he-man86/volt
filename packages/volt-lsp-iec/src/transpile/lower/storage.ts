@@ -231,8 +231,18 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
       // deferring there would queue a statement nothing ever emits — the slot silently at its default again.
       const deferrable =
         deferInit && decl.init !== undefined && runnableInit(decl.init) && !lw.globalMode && !lw.routineMode && !foldsToConstant(lw, decl.init)
+      const before = lw.diagnostics.length
       const init = deferrable ? undefined : attempt()
       const deferred = deferrable
+      // A DROPPED INITIALIZER MUST HAVE SAID SO. `attempt()` answering undefined means the declaration's initial
+      // value did not become the slot's — and the ONLY acceptable version of that is a refusal the caller can see.
+      // The comment below used to assert this ("the refusal IS recorded"); nothing enforced it, and four separate
+      // defects were that assertion being false: a global left at 0 instead of 41, a struct field and a derived
+      // FB's base fields left at their defaults, each in a POU that lowered clean. The outcome is silent by
+      // construction — a slot at its default is indistinguishable from a slot initialized TO its default — so it
+      // cannot be caught downstream by comparing values, only prevented here by making the drop speak.
+      if (decl.init !== undefined && !deferred && init === undefined && lw.diagnostics.length === before)
+        lw.bail("init-dropped", `${decl.names[0]?.text ?? "a variable"}'s initial value did not lower and nothing said why`, decl.span)
       // A DECLARATION THAT FAILED STILL DECLARES ITS NAME. Skipping the slot made every later USE report a second
       // diagnostic naming the wrong thing — one real refusal, then N `place-not-local` about a name that is right
       // there in the source. The coverage report counts blockers PER POU, so a cascade files the POU under the
