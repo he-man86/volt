@@ -118,6 +118,10 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "pointer-place": "unclassified",
   "pointer-runtime-index": "unclassified",
   "pointer-shape": "unclassified",
+  // Not a construct and not a gap: the POU being lowered is the ROOT, so its `POINTER TO T` VAR_INPUT has no
+  // caller to fill it. A harness limit, exactly like `fb-init-argument` — kept apart from `pointer-order` so the
+  // work list does not count it as a pointer the model cannot follow (pointer-model.md D5).
+  "pointer-root-input": "not-measured",
   "pointer-step": "unclassified",
   "pointer-targets": "unclassified",
   "pointer-type": "unclassified",

@@ -112,7 +112,10 @@ export function pointerValue(lw: Lowering, e: Expr, pointerType: Type): { value:
   if (source === undefined) return undefined
   const key = source.type.kind === "pointer" ? pointerKey(lw, source) : undefined
   const target = key === undefined ? undefined : lw.shared.pointers.get(key)
-  if (target === undefined) return lw.bail("pointer-order", "a pointer copied before any address was stored into it", e.span)
+  // the COPY path reaches it first: the corpus writes `start1 := adr_bit0_Of_Byte` and only then `start1^`, so a
+  // guard on the dereference alone never sees the input (see `unsuppliedInput`)
+  if (target === undefined)
+    return unsuppliedInput(lw, source, e.span) ?? lw.bail("pointer-order", "a pointer copied before any address was stored into it", e.span)
   const loaded: IrExpr = { kind: "load", place: source, type: source.type, span: operand.span }
   if (stepped === undefined) return { value: convert(loaded, pointerType), target }
   // measured: `p + SIZEOF(T)` is the next element (conformance `mem_pointer_index_struct_array`) — a step of whole elements
@@ -126,17 +129,66 @@ export function pointerValue(lw: Lowering, e: Expr, pointerType: Type): { value:
   // a throw where the contract promises a coded diagnostic.
   if (size === 0n)
     return lw.bail("pointer-step", "a pointer stepped over an element type that occupies no bytes", e.span)
-  if (bytes.kind !== "const" || typeof bytes.value !== "bigint" || size === undefined || bytes.value % size !== 0n)
+  // WHAT THE STEP IS WAITING ON, named exactly — the two cases are different work and this said the same thing
+  // about both. A pointer whose target is an ARRAY ELEMENT can be stepped, and a step that is not a whole
+  // multiple of the element is the message below. A pointer to a SINGLE variable has no element to step: walking
+  // it needs the byte-addressable view design.md §9 names as its edge, and saying "not whole elements of its
+  // array" about it names an array that does not exist. Measured (pointer-model.md §3): 88 stepped uses in the
+  // corpus, almost all of them two FBs walking a byte's bits (`adr_bit0_Of_Byte + 1 … + 7`) — every one of those
+  // is this case, not the other, and reading the old message would send a reader to look for the array.
+  if (target.element === undefined || size === undefined)
+    return lw.bail(
+      "pointer-step",
+      "a pointer to a single variable stepped by bytes, which needs the byte-addressable view (design §9)",
+      e.span,
+    )
+  if (bytes.kind !== "const" || typeof bytes.value !== "bigint" || bytes.value % size !== 0n)
     return lw.bail("pointer-step", "a pointer stepped by something other than whole elements of its array", e.span)
   const step: IrExpr = { kind: "const", value: bytes.value / size, type: pointerType, span: stepped.right.span }
   return { value: binaryOf(stepped.op === "+" ? "add" : "sub", loaded, step, pointerType, e.span), target }
 }
 
+/**
+ * A POINTER INPUT NOBODY SUPPLIED, because this POU is the ROOT — the same shape as `fb-init-argument`, and the
+ * same answer.
+ *
+ * A `POINTER TO T` in VAR_INPUT gets its value from the caller. The root has no caller: the harness asked for THIS
+ * POU, so the input is whatever its declaration says, which for a pointer is nothing. Dereferencing it is not a
+ * construct lowering fails to model — there is no address to model — so reporting `pointer-order` filed it under a
+ * real blocker and inflated that blocker's count.
+ *
+ * Measured 2026-09-20 over the corpus: SEVEN POUs, not the two pointer-model.md §6 predicted — the two it names
+ * (`Bools_To_Byte`, `Byte_To_Bools`) plus five more of the same shape. It also took `pointer-order` from 5 sole
+ * to 3, which is what §6 wanted the work list to say: building the tagged handle unlocks three POUs, not five.
+ *
+ * THE MESSAGE DOES NOT SAY "the vendor does not run this either", though §6 does. That is true of the two §6
+ * checked — `Bools_To_Byte` is declared once (`test_IW132` in `General.prg`) and never called — and it was NOT
+ * checked for the other five. What is true of all seven is the harness fact: lowered as the ROOT, this input has
+ * no caller. A message states what it knows.
+ */
+function unsuppliedInput(lw: Lowering, pointer: Place, span: Span): undefined {
+  // `lw.isRoot` is NOT the test, and using it found nothing. It is set on the harness lowering `lowerUnit`
+  // makes, and for a FUNCTION_BLOCK that lowering only holds a frame that CALLS the FB — the body runs in the
+  // nested lowering `calledLayout` builds, where `isRoot` is false. What identifies that body is that it
+  // belongs to the POU the harness asked for, which `Shared.root` names.
+  //
+  // ROUTINEMODE IS EXCLUDED and the exclusion is load-bearing: a METHOD of the root FB also has VAR_INPUTs,
+  // and those ARE supplied — by whoever calls the method. Only the POU's own entry body has inputs nobody fills.
+  if (pointer.root !== undefined || lw.routineMode) return undefined
+  if (lw.shared.root === "" || lw.displayName !== lw.shared.root) return undefined
+  const slot = lw.frame[pointer.slot]
+  if (slot?.section !== "VAR_INPUT") return undefined
+  return lw.bail(
+    "pointer-root-input",
+    `${slot.name} is a pointer INPUT of the POU being lowered, which has no caller to supply it — there is no address to follow`,
+    span,
+  )
+}
 /** The place a pointer or reference points at, through `extra` more elements — its one target, guarded by it. */
 export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undefined, span: Span): Place | undefined {
   const key = pointerKey(lw, pointer)
   const target = key === undefined ? undefined : lw.shared.pointers.get(key)
-  if (target === undefined) return lw.bail("pointer-order", "a dereference of a pointer no address was stored into before it", span)
+  if (target === undefined) return unsuppliedInput(lw, pointer, span) ?? lw.bail("pointer-order", "a dereference of a pointer no address was stored into before it", span)
   if (target.scopedTo !== undefined && (target.scopedTo !== lw || !lw.boundPointers.has(key!)))
     return lw.bail("pointer-outlives", "a pointer into a VAR_IN_OUT dereferenced outside the run of the body that stored it", span)
   if (target.element === undefined) {

@@ -124,10 +124,25 @@ They are not one class, and only one of the two classes is a memory-model proble
 |---|---|
 | `MapperBase`, `MapperOutputs` | **form 3.** A `REFERENCE TO` FB field, bound by a METHOD (`THIS^.sliceInfo REF= sliceInfo`), `__ISVALIDREF`-tested, then dereferenced. The archetype. |
 | `EjectorCorePullerFB` | the same, inherited — its own body is `SUPER^()`. |
-| `Bools_To_Byte`, `Byte_To_Bools` | **not a memory-model problem.** Their `POINTER TO BOOL` input is filled by nobody: the only declaration of one in the corpus is never called. Lowering them as a ROOT asks what a root does with an unsupplied pointer input — the same question `fb-init-argument` raises about an unsupplied `FB_Init` argument, and the same answer: the vendor does not run this either. |
+| `Bools_To_Byte`, `Byte_To_Bools` | **not a memory-model problem.** Their `POINTER TO BOOL` input is filled by nobody: the only declaration of one in the corpus is never called (`test_IW132` in `General.prg`, declared and never called). Lowering them as a ROOT asks what a root does with an unsupplied pointer input — the same question `fb-init-argument` raises about an unsupplied `FB_Init` argument, and the same answer: the vendor does not run this either. |
 
 **So form 3 is worth three of the five, and the other two are a harness question.** That is a smaller prize than
 `sole: 5` suggests, and saying so is the point of measuring.
+
+> **BUILT AND MEASURED, 2026-09-20 — and the shape is more common than this section predicted.** `pointer-root-input`
+> (D5) now separates the harness case from the model case, and the work list says `pointer-order` **sole: 3**, exactly
+> as predicted. But the new code reaches **SEVEN** POUs, not two: the two named here plus five more of the same shape.
+> The prediction was right about the prize and wrong about the size of the class.
+>
+> One claim did not survive into the message. This section says "the vendor does not run this either", which was
+> checked for these two and not for the other five, so the refusal states only what is true of all seven — lowered as
+> the ROOT, the input has no caller. The dead-code fact stays here, where it is scoped to the POUs it was checked on.
+>
+> The implementation also corrected a wrong assumption of its own: `Lowering.isRoot` is NOT how you tell. It is set on
+> the harness lowering `lowerUnit` builds, and for a FUNCTION_BLOCK that lowering only holds a frame that CALLS the
+> FB — the body runs in a nested lowering where `isRoot` is false, so a guard on it fired on nothing. `Shared.root`
+> names the POU the harness asked for, and that is the test. `routineMode` is excluded: a METHOD's `VAR_INPUT` IS
+> supplied, by whoever calls the method.
 
 ## 7. Decisions
 
@@ -161,7 +176,14 @@ Sized by what each step unblocks, smallest first — and the first two need no n
 
 1. **Form 2 for a pointer parameter the callee does not keep** (62 declarations). Lower the parameter as an in-out
    binding and every `p^` as the bound place. No IR change, no emitter change.
-2. **D5's message**, and `pointer-step`'s (D4). Minutes, and they stop two classes being mistaken for gaps.
+2. ~~**D5's message**, and `pointer-step`'s (D4). Minutes, and they stop two classes being mistaken for gaps.~~
+   **DONE 2026-09-20.** D5 became its own code (`pointer-root-input`) rather than a reworded `pointer-order`, for the
+   reason `fb-init-argument` has one: the coverage report counts blockers per POU, so leaving it under `pointer-order`
+   files a harness limit under a real construct. D4 split the two stepped-pointer messages — `size === undefined` means
+   there is no element to step at all, and saying "not whole elements of its array" about it names an array that does
+   not exist. **D4's new message is currently unreachable from the corpus** (`pointer-step` blocks 0 POUs: every
+   stepped use sits in a POU an earlier refusal already stops), so it is pinned by a src test rather than by the
+   corpus — it starts mattering when steps 1 and 3 clear the blockers in front of it.
 3. **Form 3, the tagged handle** (≤30 parameters + 13 multi-target locals). Reuses `shared.interfaces`' tracking
    shape; new IR is a select-over-arms for a PLACE, which is `IrDispatch` without the call.
 4. **`__ISVALIDREF`** falls out of 3 — it is the tag compared to 0.

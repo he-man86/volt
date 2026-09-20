@@ -606,7 +606,17 @@ describe("the table is total", () => {
       .map(([t, rating]) => `${t.name}: stored ${t.evidence ?? "(none)"}, computed ${rating}`)
     if (stale.length > 0) console.log("  [fixtures] run `bun run rate:fixtures`")
     expect(stale).toEqual([])
-  })
+    // A BUDGET PROPORTIONAL TO THE WORK, because this had none — it ran on bun's 5s default, which is a default
+    // and not a decision. `rateFixture` lowers AND runs every fixture, so the cost is linear in how many there
+    // are: measured 2026-09-20, 2514 fixtures in ~6.0s, or 2.4ms each. Under full-suite load that tipped over 5s
+    // and failed as a timeout, which reads as a hang rather than as "there are more fixtures now" — the same
+    // shape as the rustc guard above, and the same fix.
+    //
+    // Checked for the quadratic first, because this suite has had two: `withDependencies` calls
+    // `declarationIndex(all)` per fixture, which LOOKS like O(n) per call. It is memoized on the identity of
+    // `all`, and `parsed` caches per fixture, so the walk is O(its own dependencies). There is no hidden term —
+    // this is the work the gate exists to do.
+  }, Math.max(30_000, ALL_TESTS.length * 10))
 
   test("the ratings with no row say why", () => {
     const handled = new Set<Evidence>(["confirmed", "refused", "not-lowered", "diverges", "lsp-gap", "unaskable"])

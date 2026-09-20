@@ -43,6 +43,48 @@ test("a pointer into a VAR_IN_OUT dereferences in the run that stored it; before
   expect(lowerSource(fb("IF flag THEN p := ADR(io.y); END_IF\np^ := 99;"), "P").diagnostics.map((d) => d.code)).toEqual(["pointer-outlives"])
 })
 
+/**
+ * THE TWO REFUSALS pointer-model.md D4 and D5 asked for, both of which were a MESSAGE problem rather than a
+ * missing capability — each was reported under a code that named the wrong thing, which is how a work list gets
+ * pointed at work that does not exist.
+ */
+
+test("a pointer INPUT of the POU being lowered says nobody supplies it, rather than blaming the pointer order", () => {
+  // The corpus shape, exactly: `Bools_To_Byte` copies its `POINTER TO BOOL` input into a local and dereferences
+  // THAT, so a guard on the dereference alone never sees the input. Measured 2026-09-20: two of the five POUs
+  // `pointer-order` alone stopped were this, and neither is a gap — a root has no caller, and the vendor does
+  // not run them either (the only declaration of one in the corpus is never called).
+  const fb =
+    `FUNCTION_BLOCK FB_Root\n` +
+    `VAR_INPUT pIn : POINTER TO BOOL; END_VAR\n` +
+    `VAR copy : POINTER TO BOOL; out : BOOL; END_VAR\n` +
+    `copy := pIn;\nout := copy^;\nEND_FUNCTION_BLOCK\n`
+  expect(lowerSource(fb, "FB_Root").diagnostics.map((d) => d.code)[0]).toBe("pointer-root-input")
+
+  // ...and a CALLED FB is not that: its caller supplies the input, so the ordinary refusal stands. Without this
+  // the new code would swallow every uninitialized-pointer case in the corpus rather than the two it is for.
+  const called =
+    `PROGRAM P\nVAR inst : FB_Root; b : BOOL; END_VAR\ninst(pIn := ADR(b));\nEND_PROGRAM\n\n` + fb
+  expect(lowerSource(called, "P").diagnostics.map((d) => d.code)).not.toContain("pointer-root-input")
+})
+
+test("a stepped pointer names the byte view when there is no array, and the element rule when there is", () => {
+  // `size === undefined` meant "no element to step at all" and was reported as "not whole elements of its ARRAY",
+  // which names an array that does not exist. Measured (pointer-model.md §3): 88 stepped uses in the corpus,
+  // almost all of them walking a byte's bits through a pointer to a single BOOL — every one is this case.
+  const single =
+    `PROGRAM P\nVAR b : BOOL; p : POINTER TO BOOL; q : POINTER TO BOOL; END_VAR\n` +
+    `p := ADR(b);\nq := p + 1;\nEND_PROGRAM\n`
+  const one = lowerSource(single, "P").diagnostics.find((d) => d.code === "pointer-step")
+  expect(one?.message).toContain("byte-addressable view")
+
+  // an ARRAY element stepped by a non-multiple keeps the rule it actually broke
+  const arr =
+    `PROGRAM P\nVAR xs : ARRAY[0..3] OF DINT; p : POINTER TO DINT; q : POINTER TO DINT; END_VAR\n` +
+    `p := ADR(xs[0]);\nq := p + 3;\nEND_PROGRAM\n`
+  const two = lowerSource(arr, "P").diagnostics.find((d) => d.code === "pointer-step")
+  expect(two?.message).toContain("whole elements of its array")
+})
 // UNION (conformance `type_dut_union`, little-endian overlay): it had no layout at all (`layout-struct`).
 test("a UNION member's store shows through every member it overlays; a write the copy cannot follow is refused", () => {
   const union = (body: string, member = "wide : DWORD;") =>
