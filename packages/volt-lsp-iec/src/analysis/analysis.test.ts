@@ -4,8 +4,8 @@ import { buildSymbolTable } from "../symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig, type DiagnosticItem, type Vendor } from "./index.js"
 
 function diag(src: string, vendor: Vendor): DiagnosticItem[] {
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const parseResult = parseSource(src, vendor)
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
 }
 
@@ -86,6 +86,20 @@ test("MOD on a BOOL is the conversion message, not a refusal", () => {
   const message = "Cannot convert type 'BOOL' to type 'INT'"
   expect(diag(src, "codesys").find((d) => d.code === "binary-op-type-mismatch")?.message).toBe(message)
   expect(diag(src, "twincat").find((d) => d.code === "binary-op-type-mismatch")?.message).toBe(message)
+})
+
+// THE VOCABULARY IS THE VENDOR'S TOO, not just the wording. `__POSITION` is a CODESYS operator with a value;
+// TwinCAT has no such name and says so — "Identifier '__POSITION' not defined" — so it must not be TYPED there
+// either, or the LSP invents a conversion error about a STRING that does not exist (`sysop_position_*`, both
+// recordings 2026-09-20).
+test("a CODESYS-only operator is an undefined identifier on TwinCAT", () => {
+  const src = `FUNCTION_BLOCK F\nVAR\n here : DINT;\nEND_VAR\nhere := __POSITION();\nEND_FUNCTION_BLOCK`
+  expect(diag(src, "codesys").map((d) => d.message)).toEqual(["Cannot convert type 'STRING' to type 'DINT'"])
+  // …and both of TwinCAT's own messages for it, in its own recording of `sysop_position_call_form`
+  expect(diag(src, "twincat").map((d) => d.message)).toEqual([
+    "Identifier '__POSITION' not defined",
+    "Program name, function or function block instance expected instead of '__POSITION'",
+  ])
 })
 
 test("vendor-keyed wording: ABSTRACT instantiation", () => {

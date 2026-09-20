@@ -13,6 +13,7 @@
  */
 import type {
   Action,
+  Dialect,
   EnumValue,
   InterfaceMethod,
   InterfaceProperty,
@@ -96,6 +97,13 @@ export interface Scope {
   baseScope?: Scope
   /** For an `enum`/`gvl` scope carrying `{attribute 'qualified_only'}`: members are NOT bare-accessible. */
   qualifiedOnly?: boolean
+  /**
+   * PROJECT ROOT ONLY: whose ST this project is. The vocabulary differs between the vendors — `__POSITION`,
+   * `__POUNAME`, `__COMPARE_AND_SWAP` and `__VECTOR` are CODESYS's alone — and name resolution and type
+   * inference both need to know, which is why it rides on the scope they already receive rather than
+   * becoming a parameter on every path that reaches them. Undefined means CODESYS, the superset.
+   */
+  dialect?: Dialect
   /** For a TOP-LEVEL project child only: the URI of the file that contributed it. Set by `bindFile`, read
    *  by `unbindFile` to surgically drop one file's scopes on an incremental re-index. Undefined elsewhere. */
   defUri?: string

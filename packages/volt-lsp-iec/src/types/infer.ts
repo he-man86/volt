@@ -25,6 +25,7 @@ import { resolveNamedType, resolveTypeExpr } from "./resolve.js"
 import { elementaryRef, elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
 // Inherent cycle: type inference resolves references via the reference catalog, which itself depends on the type system (bidirectional by design). Function-body import, no init hazard.
 import { lookupReference } from "../reference/index.js"
+import { CODESYS_ONLY_KEYWORDS } from "../syntax/index.js"
 
 /** Infer the type of an ST expression. `unknown` on any unresolved sub-part (conservative). */
 export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
@@ -38,7 +39,9 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       // function and has no type; this one is the source position, and CODESYS types it even where the statement
       // around it is broken — `here : DINT := __POSITION;` answers "Cannot convert type 'STRING(INT#13)' to type
       // 'DINT'" (`sysop_position_initializer`). The LENGTH is the position text's own and cannot be known offline.
-      if (expr.name.toUpperCase() === "__POSITION") return elementaryRef("STRING")
+      // …on CODESYS. TwinCAT has no `__POSITION` at all and answers "Identifier '__POSITION' not defined",
+      // so there the name is an ordinary identifier that resolves nowhere (`syntax/tokens.ts`).
+      if (expr.name.toUpperCase() === "__POSITION" && project.dialect !== "twincat") return elementaryRef("STRING")
       const sym = lookup(scope, expr.name)?.symbol ?? resolveBareEnumMember(project, expr.name)
       if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project)
       const value = sym === undefined ? undefined : enumValueType(sym, project)
@@ -491,7 +494,13 @@ function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
   // FIXED modeled return type yields that. Flows a built-in's result into downstream checks — e.g.
   // `REAL_TO_DINT(EXPT(…))` needs EXPT's type to see an implicit LREAL→REAL narrowing on the argument.
   if (call.callee.kind === "ident_expr") {
-    const modeled = parseConversionName(call.callee.name)?.to.name ?? lookupReference(call.callee.name)?.returnType
+    // …and an operator the project's dialect does not have models NOTHING: on TwinCAT `__POSITION()` is a
+    // call to a name nothing declares, not a STRING (`syntax/tokens.ts`).
+    const known =
+      project.dialect === "twincat" && CODESYS_ONLY_KEYWORDS.has(call.callee.name.toUpperCase())
+        ? undefined
+        : lookupReference(call.callee.name)?.returnType
+    const modeled = parseConversionName(call.callee.name)?.to.name ?? known
     if (modeled !== undefined) {
       const elem = elementaryType(modeled)
       if (elem !== undefined) return elementaryTypeRef(elem)

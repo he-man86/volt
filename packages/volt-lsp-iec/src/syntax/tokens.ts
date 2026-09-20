@@ -234,6 +234,42 @@ export type Keyword =
   | "END_NAMESPACE"
 
 /** All keyword strings — used by the lexer to build the lookup map. */
+/**
+ * WHOSE ST IS THIS? The two vendors' vocabularies are not the same, and the difference is in the LEXER, not in
+ * a check: a word CODESYS reserves is an ordinary identifier on TwinCAT, and a literal prefix it does not have
+ * cascades as a parse error. Everything else about parsing is shared.
+ */
+export type Dialect = "codesys" | "twincat"
+
+/**
+ * The CODESYS extensions TwinCAT does NOT have — measured, one fixture family at a time, by asking both
+ * compilers the same source (2026-09-20):
+ *
+ *   `__POSITION`, `__POUNAME`, `__COMPARE_AND_SWAP`  TwinCAT answers "Identifier '<name>' not defined"
+ *   `__VECTOR`                                        "Type definition expected instead of '__VECTOR'"
+ *   `UCHAR#`, `LDATE#`, `LDT#`, `LTOD#`               the prefix cascades: "Unexpected Token 'LDATE#' found"
+ *
+ * And the ones it DOES have, listed because absence of evidence is not what this set is for: `__TRY`/`__CATCH`/
+ * `__FINALLY`/`__ENDTRY`, `__NEW`/`__DELETE`, `__CURRENTTASK`, `__ISVALIDREF`, `__QUERYINTERFACE`,
+ * `__QUERYPOINTER`, `__VARINFO`, `__SYSTEM`, `__XADD`, `__XINT`/`__UXINT`/`__XWORD`, and `LTIME#` — all
+ * recorded on both, all agreeing.
+ */
+export const CODESYS_ONLY_KEYWORDS: ReadonlySet<string> = new Set([
+  "__POSITION",
+  "__POUNAME",
+  "__COMPARE_AND_SWAP",
+  "__VECTOR",
+])
+
+/** The `<prefix>#<value>` literal forms only CODESYS has — same measurement, same day. */
+export const CODESYS_ONLY_LITERAL_PREFIXES: ReadonlySet<string> = new Set([
+  "UCHAR",
+  "LDATE",
+  "LDT",
+  "LDATE_AND_TIME",
+  "LTOD",
+  "LTIME_OF_DAY",
+])
 export const ALL_KEYWORDS: readonly Keyword[] = [
   "FUNCTION_BLOCK",
   "END_FUNCTION_BLOCK",

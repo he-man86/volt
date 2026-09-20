@@ -28,7 +28,7 @@ import type {
   VarSection,
   VarSectionKind,
 } from "../syntax/index.js"
-import { lex } from "../syntax/index.js"
+import { lex, type Dialect } from "../syntax/index.js"
 import { createProjectScope, defineSymbol, makeScope, type Scope, type SymbolKind } from "./symbol.js"
 import { bindLibraryNamespaces, type LibraryManifest } from "./library-namespace.js"
 
@@ -56,8 +56,13 @@ function hasQualifiedOnly(source: string): boolean {
 /** Build one project scope from a set of parsed files, then link EXTENDS bases across all of them.
  *  `manifests` are the referenced libraries' `.library` files (`parseLibraryManifest`), each binding its own
  *  units under the NAMESPACE the source qualifies them with. */
-export function buildSymbolTable(files: readonly SymbolTableInput[], manifests: readonly LibraryManifest[] = []): Scope {
+export function buildSymbolTable(
+  files: readonly SymbolTableInput[],
+  manifests: readonly LibraryManifest[] = [],
+  dialect: Dialect = "codesys",
+): Scope {
   const project = createProjectScope()
+  project.dialect = dialect
   for (const file of files) bindFile(project, file)
   linkExtends(project)
   bindLibraryNamespaces(project, manifests)

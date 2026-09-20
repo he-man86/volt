@@ -12,7 +12,7 @@
  * `TYPE_CLASS`), a built-in in the reference catalog, a referenced-library namespace or device-tree instance,
  * a bare-accessible enum member, or anything in the given scope (parent chain + EXTENDS bases).
  */
-import { walkExpr, type Expr, type MemberExpr, type Span } from "../syntax/index.js"
+import { CODESYS_ONLY_KEYWORDS, walkExpr, type Expr, type MemberExpr, type Span } from "../syntax/index.js"
 import { lookupReference } from "../reference/index.js"
 import { hasUnresolvedBase, isLibrarySymbol, lookup, lookupLocal, lookupMember, resolveBareEnumMember, type Scope } from "../symbols/index.js"
 import { inferExprType, parseConversionName } from "../types/index.js"
@@ -86,7 +86,11 @@ function collectBareRefs(e: Expr, emit: (ref: BareRef) => void): void {
  *  every project enum is the check's hot spot. Reordering cut this check from ~88ms → ~2ms on a large project. */
 export function nameResolves(name: string, scope: Scope, project: Scope, references: WorkspaceRefs): boolean {
   const lower = name.toLowerCase()
-  if (name.startsWith("__")) return true // reserved system operator (`__NEW`, `__ISVALIDREF`, …)
+  // A reserved system operator (`__NEW`, `__ISVALIDREF`, …) — EXCEPT the four TwinCAT does not have, where
+  // the name is an ordinary identifier that resolves nowhere, and TwinCAT says so: "Identifier
+  // '__POSITION' not defined" (`syntax/tokens.ts` carries the measurement).
+  if (name.startsWith("__"))
+    return !(project.dialect === "twincat" && CODESYS_ONLY_KEYWORDS.has(name.toUpperCase()))
   // A conversion operator — an implicit token, not a symbol. Only a name CODESYS defines: this matched any `…_TO_…` shape,
   // so `TIME_OF_DAY_TO_UDINT` (not defined) and a project name like `GO_TO_START` were never flagged (consolidate A4).
   if (parseConversionName(name) !== undefined) return true

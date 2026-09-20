@@ -87,7 +87,7 @@ export class WorkspaceStore {
     const hit = this.cache.get(key)
     if (hit !== undefined && hit.version === td.version) return hit.doc
     const source = td.getText()
-    const doc: Document = { uri: td.uri, source, parseResult: parseSource(source) }
+    const doc: Document = { uri: td.uri, source, parseResult: parseSource(source, this.config.vendor) }
     this.cache.set(key, { version: td.version, doc })
     return doc
   }
@@ -253,7 +253,7 @@ export class WorkspaceStore {
   seedDisk(files: readonly { uri: string; source: string }[]): void {
     this.disk.clear()
     for (const f of files)
-      this.disk.set(normalizeKey(f.uri), { uri: f.uri, source: f.source, parseResult: parseSource(f.source) })
+      this.disk.set(normalizeKey(f.uri), { uri: f.uri, source: f.source, parseResult: parseSource(f.source, this.config.vendor) })
     this.projectScope = undefined
     this.boundDocs.clear()
     this.cachedDead = undefined // wholesale reseed ⇒ the dead caches + their snapshot are stale

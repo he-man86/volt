@@ -15,7 +15,7 @@
  * KNOWN non-numeric elementary (not ANY_NUM = int/bitstring/real).
  */
 import { inferExprType, inTypeGroup } from "../../../types/index.js"
-import type { Span } from "../../../syntax/index.js"
+import { CODESYS_ONLY_KEYWORDS, type Span } from "../../../syntax/index.js"
 import { forEachExpr, lookup } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { compilerTypeName } from "../../messages.js"
@@ -68,8 +68,10 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
     // `__COMPARE_AND_SWAP` names `POINTER TO LWORD` — measured across five and three operand types respectively
     // (`calls/atomic-operands.ts`, 2026-09-19). The single `operand_xadd` recording used a DINT, which made the
     // pointer look derived from the operand; it is not.
+    // TwinCAT has `__XADD` (with a signature of its own) and NO `__COMPARE_AND_SWAP` — it answers "Identifier
+    // '__COMPARE_AND_SWAP' not defined" — so an operand rule for a name the dialect lacks is an invented error.
     const ATOMIC_POINTER: Readonly<Record<string, string>> = { __XADD: "DINT", __COMPARE_AND_SWAP: "LWORD" }
-    const wants = ATOMIC_POINTER[name]
+    const wants = CODESYS_ONLY_KEYWORDS.has(name) && ctx.project.dialect === "twincat" ? undefined : ATOMIC_POINTER[name]
     if (wants !== undefined) {
       const t = inferExprType(arg, scope, ctx.project)
       if (t.kind !== "pointer" && t.kind !== "unknown")

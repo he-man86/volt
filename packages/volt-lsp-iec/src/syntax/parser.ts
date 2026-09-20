@@ -19,7 +19,7 @@
  * next dispatch keyword.
  */
 import { lex } from "./lexer.js"
-import type { Keyword, Token } from "./tokens.js"
+import type { Dialect, Keyword, Token } from "./tokens.js"
 import type { ParseResult, TopLevel } from "./ast.js"
 import { Cursor } from "./cursor.js"
 import { parseAction } from "./units/action.js"
@@ -34,9 +34,9 @@ import { parseProperty } from "./units/property.js"
 import { parseTypeDecl } from "./units/type-decl.js"
 import { describeToken, skipFolderDirective } from "./util.js"
 
-/** Convenience wrapper — parse source text directly. */
-export function parseSource(src: string): ParseResult {
-  return parse(lex(src))
+/** Convenience wrapper — parse source text directly. `dialect` is the lexer's vocabulary; see `lex`. */
+export function parseSource(src: string, dialect: Dialect = "codesys"): ParseResult {
+  return parse(lex(src, dialect))
 }
 
 /** Parse a stream of tokens into one or more top-level units. */

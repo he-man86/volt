@@ -12,8 +12,11 @@
 import { spanFromOffsets, type Span } from "./span.js"
 import {
   ALL_KEYWORDS,
+  CODESYS_ONLY_KEYWORDS,
+  CODESYS_ONLY_LITERAL_PREFIXES,
   MULTI_CHAR_PUNCT,
   SINGLE_CHAR_PUNCT,
+  type Dialect,
   type Keyword,
   type Token,
   type TokenKind,
@@ -50,7 +53,13 @@ const TYPED_PREFIXES = new Set([
   "WCHAR",
 ])
 
-export function lex(src: string): Token[] {
+/**
+ * `dialect` decides only the VOCABULARY — which words are reserved and which `<prefix>#` forms are literals
+ * (see `CODESYS_ONLY_KEYWORDS`). Everything else is shared, and CODESYS is the default because it is the
+ * superset: a TwinCAT project read as CODESYS reserves a handful of words it should not.
+ */
+export function lex(src: string, dialect: Dialect = "codesys"): Token[] {
+  const tc = dialect === "twincat"
   const tokens: Token[] = []
   let pos = 0
   const len = src.length
@@ -194,6 +203,14 @@ export function lex(src: string): Token[] {
 
       // Check for #-suffixed literal forms: T#10ms, DATE#…,
       // TOD#…, DT#…, INT#42, …
+      // A PREFIX TWINCAT DOES NOT HAVE IS STILL ONE TOKEN THERE, `#` included: its own errors quote `LDATE#`
+      // whole ("Unexpected Token 'LDATE#' found"), then the date's pieces separately. Lexing it as an
+      // identifier plus a stray `#` cascades differently and the difference is visible in every message.
+      if (peek() === "#" && tc && CODESYS_ONLY_LITERAL_PREFIXES.has(upper)) {
+        advance(1)
+        emit("identifier", startPos, startLine, startCol)
+        continue
+      }
       if (peek() === "#") {
         if (TIME_PREFIXES.has(upper)) {
           advance(1)
@@ -252,7 +269,7 @@ export function lex(src: string): Token[] {
         continue
       }
 
-      const keyword = KEYWORD_MAP.get(upper)
+      const keyword = tc && CODESYS_ONLY_KEYWORDS.has(upper) ? undefined : KEYWORD_MAP.get(upper)
       if (keyword !== undefined) {
         emit("keyword", startPos, startLine, startCol, { keyword })
       } else {

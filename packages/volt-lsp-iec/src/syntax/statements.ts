@@ -438,6 +438,6 @@ function expectStatementSemicolon(cur: Cursor): Token | undefined {
   const next = cur.peek()
   const semi = cur.expectPunct(";", "after statement")
   if (semi === undefined && next.kind !== "identifier" && next.kind !== "eof")
-    cur.pushError(`Unexpected token ${describeToken(next)} found`, next.span)
+    cur.pushError(`Unexpected token ${describeToken(next)} found`, next.span, next.text)
   return semi
 }

@@ -34,7 +34,7 @@ import { readFileSync } from "node:fs"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { decodeStringLiteral, parseSource } from "../../src/syntax/index.js"
+import { CODESYS_ONLY_KEYWORDS, CODESYS_ONLY_LITERAL_PREFIXES, decodeStringLiteral, parseSource } from "../../src/syntax/index.js"
 import { bindFile, buildSymbolTable, linkExtends, unbindFile, type Scope } from "../../src/symbols/index.js"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig, type Vendor } from "../../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../../src/network/index.js"
@@ -805,6 +805,12 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 2220 -> 2229. Nine string-constant cells, closed by TwinCAT's own exception text: below STRING(3) the
   // prefix it prints would have a negative length, and its message builder throws where CODESYS falls back.
   // One more: TwinCAT names an unresolved base class and stops, where CODESYS adds the type it therefore lacks.
+  // 2229 -> 2230, and the backlog 33 -> 19, which is the number that moved: THE VOCABULARY IS VENDOR DATA TOO.
+  // `__POSITION`, `__POUNAME`, `__COMPARE_AND_SWAP`, `__VECTOR` and the `UCHAR#`/`LDATE#`/`LDT#`/`LTOD#` literal
+  // prefixes are CODESYS's alone, so on TwinCAT they lex as ordinary identifiers that resolve nowhere — which is
+  // exactly what TwinCAT says about them. Fifteen fixtures stopped inventing a type for a name the compiler has
+  // never heard of; `ldate_ltod_ldt` is the one that arrived, where the two parsers resync differently after an
+  // unknown prefix.
   { vendor: "twincat", floor: 2230 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
@@ -923,9 +929,6 @@ const CODESYS_TRIAGE: ReadonlySet<string> = new Set([
 ])
 
 const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
-  "atomic_cas_dint",
-  "atomic_cas_lint",
-  "atomic_cas_lword",
   "atomic_xadd_dint",
   "atomic_xadd_dword",
   "atomic_xadd_int",
@@ -936,11 +939,7 @@ const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
   "cc5_deprecated_functionblock_keyword",
   "cc5_new_in_expression",
   "cc_enum_arg_into_uint",
-  "cc_ldate_literal_into_date",
-  "cc_ldt_literal_into_dt",
-  "cc_ltod_literal_into_tod",
-  "operand_compare_and_swap",
-  "operand_position",
+  "ldate_ltod_ldt",
   "operand_xadd",
   "plat_uxint_into_dint",
   "plat_uxint_into_lint",
@@ -949,13 +948,6 @@ const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
   "plat_xword_into_dint",
   "plat_xword_into_lint",
   "plat_xword_meet_dint",
-  "sysop_position_as_argument",
-  "sysop_position_bare_statement",
-  "sysop_position_call_form",
-  "sysop_position_in_expression",
-  "sysop_position_in_method",
-  "sysop_position_initializer",
-  "sysop_position_then_statement",
 ])
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
  *  is confirmed against a recording (not a not-yet-ported check — those are tracked by the ratchet). */
@@ -1110,6 +1102,32 @@ const PLC_PRGS = ALL_TESTS.map((t) => {
 const CODESYS_STANDARD = STANDARD_LIBRARY.map((l) => ({ ...l, parseResult: parseSource(l.source) }))
 
 /**
+ * THE SAME SOURCE, LEXED AS THE OTHER VENDOR — for the handful of fixtures where that can differ at all.
+ *
+ * `__POSITION`, `__POUNAME`, `__COMPARE_AND_SWAP`, `__VECTOR` and the `UCHAR#`/`LDATE#`/`LDT#`/`LTOD#` literal
+ * prefixes are CODESYS's alone (`syntax/tokens.ts`, measured on both recordings). For every other source the
+ * two dialects produce identical tokens, so this re-parses only what contains one of them — exactly, by name,
+ * not by a heuristic. Parsing all 2540 fixtures twice would be correct and would also double the harness's
+ * setup for about thirty files.
+ */
+const DIALECT_SENSITIVE = new RegExp(
+  `(?<![A-Za-z0-9_])(${[...CODESYS_ONLY_KEYWORDS].join("|")}|(${[...CODESYS_ONLY_LITERAL_PREFIXES].join("|")})#)`,
+  "i",
+)
+const TC_PARSE = new Map<string, { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }>()
+function asVendor<T extends { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }>(
+  doc: T,
+  vendor: Vendor,
+): T | { uri: string; source: string; parseResult: ReturnType<typeof parseSource> } {
+  if (vendor !== "twincat" || !DIALECT_SENSITIVE.test(doc.source)) return doc
+  let hit = TC_PARSE.get(doc.uri)
+  if (hit === undefined) {
+    hit = { uri: doc.uri, source: doc.source, parseResult: parseSource(doc.source, "twincat") }
+    TC_PARSE.set(doc.uri, hit)
+  }
+  return hit
+}
+/**
  * ONE PROJECT PER VENDOR, EDITED IN PLACE — not one rebuilt per fixture.
  *
  * This used to call `buildSymbolTable` with `CROSS_DECLS.filter((_, i) => i !== testIdx)`: every fixture's
@@ -1126,7 +1144,7 @@ const SHARED = new Map<Vendor, Scope>()
 function sharedProject(vendor: Vendor): Scope {
   let project = SHARED.get(vendor)
   if (project === undefined) {
-    project = buildSymbolTable([...CROSS_DECLS, ...(vendor === "codesys" ? CODESYS_STANDARD : [])])
+    project = buildSymbolTable([...CROSS_DECLS, ...(vendor === "codesys" ? CODESYS_STANDARD : [])], [], vendor)
     SHARED.set(vendor, project)
   }
   return project
@@ -1144,8 +1162,9 @@ function restore(): void {
 
 /** Every error+warning message the LSP emits for a fixture (incl. parse errors + PLC_PRG usage). */
 function runLsp(testIdx: number, vendor: Vendor): string[] {
-  const own = PARSED[testIdx] as (typeof PARSED)[number]
-  const plc = PLC_PRGS[testIdx]
+  const own = asVendor(PARSED[testIdx] as (typeof PARSED)[number], vendor)
+  const plc0 = PLC_PRGS[testIdx]
+  const plc = plc0 === undefined ? undefined : asVendor(plc0, vendor)
   const project = sharedProject(vendor)
   // swap this fixture's declaration-only copy for its real one, run, then put it back
   // ONE `linkExtends` PER FIXTURE, not two. It walks every child in the project, so at two per fixture it is the

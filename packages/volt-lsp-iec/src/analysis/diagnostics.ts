@@ -247,7 +247,7 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
     config,
     messages: messagesFor(config.vendor),
     references: args.references ?? EMPTY_WORKSPACE_REFS,
-    tokens: () => (tokenCache ??= lex(args.source)),
+    tokens: () => (tokenCache ??= lex(args.source, config.vendor)),
   }
   const out: DiagnosticItem[] = []
   const active = config.vendor === "codesys" ? CHECKS : CHECKS.filter((check) => !CODESYS_ONLY.has(check))
