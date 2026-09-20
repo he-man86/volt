@@ -33,3 +33,8 @@ tsconfig.tsbuildinfo
 # `.~u` is the open-by-<user@host> lock CODESYS writes beside the project and removes on a clean close.
 packages/volt-cli/test/*.opt
 packages/volt-cli/test/*.~u
+
+# the recorder writes `<vendor>.build.new.json` beside the committed recording as its non-destructive
+# output (and its every-25-fixtures checkpoint). It is a working file, byte-for-byte the size of the
+# recording itself, and `--write` or a copy is what adopts it — it is never the thing under review.
+packages/volt-lsp-iec/test/conformance/recordings/*.new.json
