@@ -246,4 +246,7 @@ Both fell out of `declarations/reference-binding.ts`, which was written for the 
 answered these on the way. **Step 3 is no longer blocked on §9.** What it still needs is the two element-step
 measurements above.
 
-None of 1–2 in §8 depends on these. Step 3 does, and should not start before them.
+None of 1–2 in §8 depends on these. **Step 3 no longer waits on the two struck out above** — both are measured.
+What it still wants is the two element-step measurements at the top of this section, which are about `p[i]` and a
+non-trivial stride rather than about references; form 3 can start, and should record those before the element
+step is built on top of it.

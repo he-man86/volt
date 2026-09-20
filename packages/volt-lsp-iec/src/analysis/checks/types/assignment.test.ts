@@ -114,13 +114,38 @@ test("an LTIME literal into an LTIME is clean — typed TIME, it was a false pos
  * reference bound correctly is the overwhelmingly common case.
  */
 test("a reference declaration type-checks its target, and a valid bind stays silent", () => {
-  const decl = (init: string) => `\tv : INT;\n\ts : STRING;\n\tref_ : REFERENCE TO INT ${init};`
+  const decl = (init: string) => `\tv : INT;\n\ts : STRING;\n\td : DINT;\n\tref_ : REFERENCE TO INT ${init};`
   expect(mismatches(decl("REF= v"), ";")).toEqual([])
   expect(mismatches(decl(":= v"), ";")).toEqual([]) // both spellings bind, and both are legal
   expect(mismatches(decl("REF= s"), ";")).toEqual(["Cannot convert type 'STRING' to type 'REFERENCE TO INT'"])
   expect(mismatches(decl("REF= nope"), ";")).toEqual([
     "Cannot convert type 'Unknown type: 'nope'' to type 'REFERENCE TO INT'",
   ])
+  // EXACT TYPE, not assignability — the rule `checks/types/reference-assign.ts` measured for the statement form
+  // (`cc3_reference_assign`). Using `isAssignable` made this inconsistent with itself: it flagged a DINT and
+  // stayed silent on a SINT, though CODESYS refuses both.
+  expect(mismatches(decl("REF= d"), ";")).toEqual(["Cannot convert type 'DINT' to type 'REFERENCE TO INT'"])
   // a reference with NO initializer is ordinary, and must not be reported
   expect(mismatches("\tref_ : REFERENCE TO INT;", ";")).toEqual([])
+})
+
+/**
+ * THE NAMES A BARE `lookup` WOULD CALL UNDECLARED. `analysis/resolution.ts` owns that question and excuses a long
+ * list: a member inherited from an EXTENDS base that did not materialize, `SUPER`, a library namespace, a device
+ * instance, a bare enum member. The first cut of the reference check asked `lookup` directly and reported
+ * "Unknown type" for every one of them — a false positive on real code the corpus happens not to contain in this
+ * shape, which is why a review caught it and the corpus gate did not.
+ */
+test("a reference bound to a name only the shared resolution oracle can excuse is not reported", () => {
+  const fb = (decls: string, header = "FUNCTION_BLOCK FB_Derived EXTENDS FB_Missing") =>
+    `${header}\nVAR\n${decls}\nEND_VAR\n;\nEND_FUNCTION_BLOCK`
+  const codes = (src: string): string[] => {
+    const parseResult = parseSource(src)
+    const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "assignment-type-mismatch")
+      .map((d) => d.message)
+  }
+  // the base is not in the project, so `baseVar` COULD be its member — the oracle skips, and so must this
+  expect(codes(fb("\tref_ : REFERENCE TO INT REF= baseVar;"))).toEqual([])
 })
