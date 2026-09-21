@@ -409,6 +409,9 @@ export function literalType(lit: Literal): Type {
 
 const COMPARISON_OPS: ReadonlySet<string> = new Set(["=", "<>", "<", ">", "<=", ">="])
 
+/** The one-argument math functions whose result IS their argument's real type (measured — see the call site). */
+const MATH_ARG_TYPED: ReadonlySet<string> = new Set(["SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"])
+
 const BITWISE_OPS: ReadonlySet<string> = new Set(["AND", "OR", "XOR"])
 
 /** The unsigned integer both operands convert to, or undefined when the pair is not two same-width integers. */
@@ -522,6 +525,20 @@ function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
     const first = call.args[0]?.value
     const t = first === undefined ? UNKNOWN : inferExprType(first, scope, project)
     return t.kind === "elementary" && isAssignable(elementaryRef("DINT"), t) ? t : UNKNOWN
+  }
+  // A ONE-ARGUMENT MATH FUNCTION HANDS BACK THE REAL IT WAS GIVEN. All ten, both ways (`mathret_*`, 2026-09-21):
+  // `rv : REAL := SQRT(aReal)` is silent and `SQRT(anLreal)` warns about the mantissa, and the same for LN,
+  // LOG, EXP, SIN, COS, TAN, ASIN, ACOS and ATAN. The catalog models no return type for any of them, so the
+  // LSP said nothing about a narrowing the compiler reports twice — `cfold_sqrt` is an untyped real literal,
+  // which is an LREAL, going into a REAL. EXPT is the same rule with two arguments (`exptResultType`).
+  if (call.callee.kind === "ident_expr" && MATH_ARG_TYPED.has(call.callee.name.toUpperCase()) && call.args.length === 1) {
+    const arg = call.args[0]?.value
+    const t = arg === undefined ? UNKNOWN : inferExprType(arg, scope, project)
+    if (t.kind === "elementary" && t.elem.family === "real") return t
+    // An UNTYPED real literal has no standalone type here — it takes one from its context — and its context in a
+    // call is the function, which reads it as the default: `SQRT(16.0)` is an LREAL, which is why
+    // `rv : REAL := SQRT(16.0)` warns (`cfold_sqrt`, `cfold_expt`). An untyped INTEGER argument is unmeasured.
+    if (arg?.kind === "literal" && arg.literalKind === "real") return elementaryRef(REAL_LITERAL_TYPE)
   }
   // Otherwise a built-in call: a conversion `<X>_TO_<Y>`/`TO_<Y>` yields elementary `<Y>`; an operator with a
   // FIXED modeled return type yields that. Flows a built-in's result into downstream checks — e.g.

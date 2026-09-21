@@ -19,16 +19,19 @@ import {
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { pushForDeclaration, type DiagnosticItem } from "../../diagnostic-item.js"
-import { conversionArgError, conversionWarning, narrowingPairError } from "../../rules.js"
+import { checkableType, conversionArgError, conversionWarning, narrowingPairError } from "../../rules.js"
 
 export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[]): void {
   // A declaration's untyped integer literal the target cannot hold warns like an assignment (gap 13): `value : INT :=
   // 40000` is "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT'" (conformance `overflow_int_above_max`).
-  for (const { decl, section, unit } of forEachDecl(ctx.parseResult, ctx.project)) {
+  for (const { decl, section, unit, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (decl.init === undefined || decl.init.kind === "aggregate_init") continue
     const lhs = resolveTypeExpr(decl.type, ctx.project)
-    const literal = literalCheckType(decl.init, lhs)
-    const diag = literal === undefined ? undefined : conversionWarning(lhs, literal, decl.init, ctx.messages)
+    // …and an initializer that is not a literal converts too. `rv : REAL := SQRT(16.0)` is an LREAL going into a
+    // REAL and CODESYS warns about it twice (`cfold_sqrt`, `cfold_expt`); this only ever asked
+    // `literalCheckType`, so any initializer with a shape — a call, a member read, an expression — was silent.
+    const src = literalCheckType(decl.init, lhs) ?? checkableType(decl.init, scope, ctx.project)
+    const diag = src === undefined ? undefined : conversionWarning(lhs, src, decl.init, ctx.messages)
     if (diag !== undefined) pushForDeclaration(out, unit, section, diag)
   }
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {

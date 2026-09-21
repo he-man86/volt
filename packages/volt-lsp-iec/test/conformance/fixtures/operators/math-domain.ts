@@ -71,6 +71,8 @@ function domain(slug: string, seed: string, arg: string, feature: string): Langu
   }
 }
 
+const MATH_FUNCTIONS = ["SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"] as const
+
 export const MATH_DOMAIN_TESTS: readonly LanguageTest[] = [
   // ── the pole at zero. `LN(0)` is the measurement the whole question hangs on; LOG is its base-10 twin and had
   //    never been asked, so there was no way to know whether the rule was about LN or about the pole.
@@ -105,4 +107,30 @@ export const MATH_DOMAIN_TESTS: readonly LanguageTest[] = [
   domain("mathdom_sqrt_of_infinity", "1.0E308", "SQRT(seed * seed)", "SQRT of an infinity produced by an overflow"),
   domain("mathdom_ln_of_infinity", "1.0E308", "LN(seed * seed)", "LN of an infinity"),
   domain("mathdom_sin_of_infinity", "1.0E308", "SIN(seed * seed)", "SIN of an infinity — undefined, so NaN or a stop"),
+
+  // ── AND WHAT TYPE DOES EACH ONE RETURN? `cfold_sqrt` is `rv : REAL := SQRT(16.0)` and CODESYS warns twice
+  //    about an LREAL losing information, so SQRT of an untyped real literal is LREAL. That is one data point
+  //    for one function, and the catalog models no return type for any of them — which is why the LSP says
+  //    nothing about a narrowing that the compiler reports. EXPT is the one that IS measured, and it is not
+  //    always LREAL: `REAL when both arguments are REAL` (`types/arith.ts`). So ask all ten, with a REAL
+  //    argument and with an LREAL one, and let the pair say whether the result follows the argument.
+  ...MATH_FUNCTIONS.flatMap((fn) => [returns(fn, "REAL"), returns(fn, "LREAL")]),
 ]
+
+/** `rv : REAL := <fn>(arg)` — silent when the result is a REAL, a narrowing warning when it is an LREAL. */
+function returns(fn: string, argType: "REAL" | "LREAL"): LanguageTest {
+  const slug = `mathret_${fn.toLowerCase()}_${argType.toLowerCase()}`
+  const pou = `FB_LANG_${slug}`
+  return {
+    name: slug,
+    pouName: pou,
+    kind: "function_block" as const,
+    feature: `the type ${fn} returns for a ${argType} argument — REAL, or LREAL narrowing into one?`,
+    fromDoc: "05-operators.md",
+    plcPrgVar: `inst : ${pou};`,
+    plcPrgBody: "inst();",
+    source:
+      `FUNCTION_BLOCK ${pou}\nVAR\n\targ : ${argType} := 0.5;\n\trv : REAL;\nEND_VAR\n` +
+      `rv := ${fn}(arg);\nEND_FUNCTION_BLOCK\n`,
+  }
+}

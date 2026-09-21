@@ -246,6 +246,27 @@ END_VAR
 END_FUNCTION_BLOCK`
   expect(diag(lt, "twincat")).toEqual([])
 })
+// A ONE-ARGUMENT MATH FUNCTION HANDS BACK THE REAL IT WAS GIVEN — all ten, both ways (`mathret_*`, 2026-09-21).
+test("SQRT returns its argument's real type", () => {
+  const call = (argType: string) => `FUNCTION_BLOCK F
+VAR
+ arg : ${argType} := 0.5;
+ rv : REAL;
+END_VAR
+rv := SQRT(arg);
+END_FUNCTION_BLOCK`
+  expect(diag(call("REAL"), "codesys")).toEqual([])
+  expect(diag(call("LREAL"), "codesys").map((d) => d.message)).toEqual([
+    "Implicit conversion from 'LREAL' to 'REAL': Possible loss of information",
+  ])
+  // an untyped real literal is an LREAL, which is why `rv : REAL := SQRT(16.0)` warns at all
+  const folded = `FUNCTION_BLOCK F
+VAR
+ rv : REAL := SQRT(16.0);
+END_VAR
+END_FUNCTION_BLOCK`
+  expect(diag(folded, "codesys").length).toBeGreaterThan(0)
+})
 test("vendor-keyed wording: ABSTRACT instantiation", () => {
   const src = `FUNCTION_BLOCK ABSTRACT FB_A\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK F\nVAR\n x : FB_A;\nEND_VAR\nEND_FUNCTION_BLOCK`
   expect(diag(src, "codesys").find((d) => d.code === "abstract-instantiation")?.message).toBe(

@@ -6,7 +6,7 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1901
+ *   confirmed    1921
  *   refused       511
  *   not-lowered    90
  *   lsp-gap         3
@@ -1397,6 +1397,26 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   mathdom_sqrt_of_infinity: "confirmed",
   mathdom_sqrt_zero: "confirmed",
   mathdom_tan_at_pole: "confirmed",
+  mathret_acos_lreal: "confirmed",
+  mathret_acos_real: "confirmed",
+  mathret_asin_lreal: "confirmed",
+  mathret_asin_real: "confirmed",
+  mathret_atan_lreal: "confirmed",
+  mathret_atan_real: "confirmed",
+  mathret_cos_lreal: "confirmed",
+  mathret_cos_real: "confirmed",
+  mathret_exp_lreal: "confirmed",
+  mathret_exp_real: "confirmed",
+  mathret_ln_lreal: "confirmed",
+  mathret_ln_real: "confirmed",
+  mathret_log_lreal: "confirmed",
+  mathret_log_real: "confirmed",
+  mathret_sin_lreal: "confirmed",
+  mathret_sin_real: "confirmed",
+  mathret_sqrt_lreal: "confirmed",
+  mathret_sqrt_real: "confirmed",
+  mathret_tan_lreal: "confirmed",
+  mathret_tan_real: "confirmed",
   max_extensible: "confirmed",
   max_min_basic: "confirmed",
   max_mixed_int_real: "confirmed",

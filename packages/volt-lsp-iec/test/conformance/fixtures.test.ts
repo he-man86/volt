@@ -848,7 +848,9 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 2424 -> 2426: three more gates that rested on the same stale premise. TwinCAT HAS the dynamic-creation
   // rule (it calls the pragma an attribute), the conditional-call rule (it hyphenates call-statement) and
   // the FB_init one (it stops at the name, with no input count and no suggested syntax).
-  { vendor: "twincat", floor: 2426 },
+  // 2426 -> 2446: the twenty `mathret_*` cells, recorded on both vendors and agreeing on both.
+  // 2446 -> 2447: a declaration's initializer converts even when it is not a literal.
+  { vendor: "twincat", floor: 2447 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -903,7 +905,13 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 2424 -> 2436: the same bitwise model. It is the first CODESYS gain today that is the LSP learning a RULE
   // rather than a vendor difference being taken out of one.
   // 2436 -> 2465: the meet-based operand rule, the same twenty-nine fixtures as on TwinCAT.
-  { vendor: "codesys", floor: 2465 },
+  // 2465 -> 2485: A ONE-ARGUMENT MATH FUNCTION HANDS BACK THE REAL IT WAS GIVEN. All ten, both ways: the
+  // catalog modelled no return type for any of them, so the LSP said nothing about a narrowing the compiler
+  // reports twice. `cfold_sqrt` was the one data point, and one point cannot tell "SQRT is LREAL" from "SQRT
+  // follows its argument, and an untyped real literal is an LREAL". Twenty cells can.
+  // 2485 -> 2486: `cfold_sqrt` — the initializer check only ever asked `literalCheckType`, so an initializer
+  // with a SHAPE (a call, a member read, an expression) converted in silence.
+  { vendor: "codesys", floor: 2486 },
 ]
 
 /**
