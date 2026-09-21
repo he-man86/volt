@@ -117,7 +117,7 @@
 ## After the backlog: the agreement number itself
 
 The false-positive gate went to three on TwinCAT and two on CODESYS, and then the interesting number was the other
-one — how much of what each vendor SAYS the LSP says back. It was 2203 / 2412 that morning and is **2447 / 2486 of
+one — how much of what each vendor SAYS the LSP says back. It was 2203 / 2412 that morning and is **2450 / 2489 of
 2561** now. None of it came from inventing rules: every step is a measurement the recordings already held.
 
 - [x] **TwinCAT never says the same thing twice on one LINE.** 111 of 2541 CODESYS fixtures carry a message
@@ -145,6 +145,10 @@ one — how much of what each vendor SAYS the LSP says back. It was 2203 / 2412 
       (`VAR_PERSISTENT` with no persistent list in the application) were sitting in the residue as if the LSP owed
       them a message. It cannot know any of them. The VAR_PERSISTENT five are the clearest case: TwinCAT's project
       HAS such a list and records nothing for the same source.
+- [x] **A name in a resync cascade is a statement.** `added := ADD(a, b)` is Instruction List, and a VARIABLE in
+      the cascade that follows is not echoed back as an unexpected token — it could start a statement, and once
+      the compiler supplies the `;` it was asking for that is what it becomes. Twelve "has no effect" warnings per
+      fixture that the LSP was not making, with all eleven errors around them already matching.
 - [ ] **What is left is mostly parse-recovery shape.** After an unknown literal prefix TwinCAT reports a pair per
       token until the `;` where the LSP reports one pair and resyncs (~15 fixtures); the IL-operator CALL forms
       (`GT(a, b)`) cascade to 78 messages on CODESYS. Both are the parser's recovery, not a rule, and matching them
