@@ -11,12 +11,20 @@
  */
 import { walkStatements } from "../../../syntax/index.js"
 import { bodies } from "../../../symbols/index.js"
-import { inferExprType, renderType } from "../../../types/index.js"
+import { inferExprType, renderType, type ElementaryTypeRef } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
-// Integer types wide enough to hold a pointer — TwinCAT accepts a pointer assigned to these silently.
-const POINTER_SIZED = new Set(["DWORD", "LWORD", "UDINT", "ULINT"])
+/**
+ * Is this integer wide enough to hold a pointer — the targets TwinCAT accepts a pointer assigned to silently?
+ *
+ * DERIVED, not listed. It was `new Set(["DWORD", "LWORD", "UDINT", "ULINT"])`, which B2 named and told to derive
+ * and only half of which was done. The 32-bit rows are there because the recorded target is 64-bit and CODESYS
+ * accepts the narrower pair too; what the list cannot express is the target width itself, which
+ * `types/elementary` already documents as the one place that assumption has to be fixed.
+ */
+const pointerSized = (t: ElementaryTypeRef): boolean =>
+  !t.elem.signed && (t.elem.family === "int" || t.elem.family === "bitstring") && t.elem.bits >= 32
 
 export function checkPointerConversion(ctx: CheckContext, out: DiagnosticItem[]): void {
   const tc = ctx.config.vendor === "twincat"
@@ -27,7 +35,7 @@ export function checkPointerConversion(ctx: CheckContext, out: DiagnosticItem[])
       if (rhs.kind !== "pointer") return
       const lhs = inferExprType(s.target, scope, ctx.project)
       if (lhs.kind !== "elementary") return
-      if (tc && POINTER_SIZED.has(lhs.name)) return // TwinCAT: pointer-sized target is fine
+      if (tc && pointerSized(lhs)) return // TwinCAT: pointer-sized target is fine
       out.push({
         // C0033 is CONFIGURABLE, so the filter forces the project's own state and this severity is not what ships.
         // The recording project has it as an ERROR; the replay resolves no project settings, so the two differ by

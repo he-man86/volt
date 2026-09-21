@@ -309,11 +309,11 @@ export class Lowering {
   /** `where` is the scope the declaration belongs to — this one by default; a type declared by another POU (an
    *  interface's METHOD, a library FUNCTION, a DUT) folds in the project's, never in whichever scope is calling it. */
   resolve(t: TypeExpr, where: Scope = this.scope): Type {
-    // CODESYS's pointer-width integers take the target's width: 64 bits on the recorded simulator — `__XINT` reads back as
-    // LINT#42, `__UXINT` ULINT, `__XWORD` LWORD (conformance `type_codesys_*`). ponytail: a 32-bit target is not modelled.
-    const platform = t.kind === "named_type" ? PLATFORM_INTEGERS[t.name.text.toUpperCase()] : undefined
+    // NO PLATFORM BRANCH HERE. It short-circuited `__XINT`/`__UXINT`/`__XWORD` to LINT/ULINT/LWORD from a local
+    // copy of the alias table — and `resolveTypeExpr` already does exactly that, through `elementaryType` →
+    // `canonicalElem`, which reads the one home. Two tables for one fact, and the redundant one is the copy.
     // bounds and capacities fold where the variable is declared — its own VAR CONSTANT included
-    return platform !== undefined ? elementaryRef(platform) : resolveTypeExpr(t, this.project, 0, where)
+    return resolveTypeExpr(t, this.project, 0, where)
   }
 
   // ─── places ────────────────────────────────────────────────────────────────
@@ -323,10 +323,6 @@ export class Lowering {
   // ─── statements ────────────────────────────────────────────────────────────
 
 }
-
-/** CODESYS's pointer-width integer types, as the 64-bit simulator holds them (conformance `type_codesys_*`,
- *  `ct_pointer_width_types`: `__XINT` reads back LINT#-5, `__XWORD` LWORD#255, SIZEOF 8 for both). */
-export const PLATFORM_INTEGERS: Readonly<Record<string, string>> = { __XINT: "LINT", __UXINT: "ULINT", __XWORD: "LWORD" }
 
 export const ZERO_SPAN: Span ={ start: 0, end: 0, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
 

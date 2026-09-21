@@ -11,6 +11,8 @@ import {
   elementaryType,
   elementaryTypeRef,
   inferExprType,
+  integerOfWidth,
+  isIntegerType,
   literalCheckType,
   resolveTypeExpr,
   type ElementaryType,
@@ -159,17 +161,19 @@ function meetOperandWarnings(
   return [each(lt, left), each(rt, right)].filter((d): d is DiagnosticItem => d !== undefined)
 }
 
+/** The operand as an integer, with `signed` made total — `isIntegerType` owns WHICH types those are (it is the
+ *  rule that excludes BIT), so a change to that policy reaches here instead of stopping at a restatement. */
 function integral(t: Type): (ElementaryType & { signed: boolean }) | undefined {
   const e = t.kind === "elementary" ? t.elem : undefined
-  return e !== undefined && e.rank !== undefined && (e.family === "int" || e.family === "bitstring") ? { ...e, signed: e.signed === true } : undefined
+  return e !== undefined && isIntegerType(e.name) ? { ...e, signed: e.signed === true } : undefined
 }
 
 const ARITHMETIC: ReadonlySet<string> = new Set(["+", "-", "*", "/", "MOD"])
 const BITWISE: ReadonlySet<string> = new Set(["AND", "OR", "XOR"])
 const COMPARISON: ReadonlySet<string> = new Set(["=", "<>", "<", ">", "<=", ">="])
 
-const unsignedOfWidth = (bits: number): Type =>
-  elementaryTypeRef(elementaryType(bits === 8 ? "USINT" : bits === 16 ? "UINT" : bits === 32 ? "UDINT" : "ULINT")!)
+// the ladder is `types/arith`'s; this was a second copy of it, written with `===` where the one home uses `<=`
+const unsignedOfWidth = (bits: number): Type => elementaryTypeRef(integerOfWidth(bits, false))
 
 const isIntLiteral = (e: Expr): boolean =>
   (e.kind === "literal" && e.literalKind === "int") || (e.kind === "unary" && e.op === "-" && e.operand.kind === "literal" && e.operand.literalKind === "int")

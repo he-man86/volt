@@ -73,7 +73,13 @@ export function valueAs(v: IrValue, to: Type): IrValue {
  */
 export function stored(v: IrValue, to: Type): IrValue {
   const target = elemOf(to)
-  if (typeof v !== "bigint" || target === undefined || target.rank === undefined) return v
+  if (typeof v !== "bigint" || target === undefined) return v
+  // `isBit`, NOT `rank === undefined`, which is what this used to say. Only BIT is an int/bit-string family with
+  // no rank — but so is every TIME and DATE, so the rank guard returned first and made the `"time"`/`"date"`
+  // entries one line below UNREACHABLE. The other copy of this rule (`fit`, `ir/values.ts`) has no such guard
+  // and does wrap them, so an over-range TIME initializer wrapped in the interpreter and printed as an
+  // out-of-range `u32` literal from the emitter — two backends, one program, two answers.
+  if (isBit(to)) return v
   if (!["int", "bitstring", "time", "date"].includes(target.family)) return v
   return target.signed ? BigInt.asIntN(target.bits, v) : BigInt.asUintN(target.bits, v)
 }

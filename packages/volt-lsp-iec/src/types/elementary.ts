@@ -169,7 +169,7 @@ export const CODESYS_ONLY_TYPES: ReadonlySet<string> = new Set([
  * Kept out of `ELEM_ALIASES` on purpose: that map's inverse drives `elementaryDisplayName`, and these must never
  * print as themselves.
  */
-const PLATFORM_ALIASES: ReadonlyMap<string, string> = new Map([
+export const PLATFORM_ALIASES: ReadonlyMap<string, string> = new Map([
   ["__XINT", "LINT"],
   ["__UXINT", "ULINT"],
   ["__XWORD", "LWORD"],

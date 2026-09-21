@@ -6,6 +6,7 @@ import { findChildScope, lookup, lookupMember, resolveBareEnumMember } from "../
 import {
   constEval,
   elementaryRef,
+  elementaryTypeRef,
   elemOf,
   integerLiteralType,
   literalType,
@@ -166,11 +167,16 @@ function enumValueOf(lw: Lowering, e: Expr, depth: number): bigint | number | bo
 function convertedConstant(lw: Lowering, e: Expr, depth: number): bigint | undefined {
   if (e.kind !== "call" || e.callee.kind !== "ident_expr" || e.args.length !== 1) return undefined
   const written = e.args[0]?.value
-  const name = /^(?:[A-Za-z]+_)?TO_([A-Za-z]+)$/.exec(e.callee.name)?.[1]?.toUpperCase()
-  if (written === undefined || name === undefined) return undefined
-  const target = elementaryRef(name)
-  const elem = target.kind === "elementary" ? elemOf(target) : undefined
-  if (elem === undefined || !(elem.family === "int" || elem.family === "bitstring")) return undefined
+  // THE ONE PARSER, not a seventh. This read the name with its own `/^(?:[A-Za-z]+_)?TO_([A-Za-z]+)$/` — in a
+  // file that imports `parseConversionName` and uses it two functions below — and disagreed with it twice: no
+  // `i` flag, so a lower-case `int_to_byte(5)` was not a conversion at all where ST is case-insensitive; and no
+  // check on the SOURCE, so a project function named `FOO_TO_INT(5)` folded as though it converted, silently
+  // yielding its argument. `parseConversionName` rejects both (`GO_TO_START` is the case its own doc names).
+  const conversion = parseConversionName(e.callee.name)
+  if (written === undefined || conversion === undefined) return undefined
+  const elem = conversion.to
+  if (!(elem.family === "int" || elem.family === "bitstring")) return undefined
+  const target = elementaryTypeRef(elem)
   const value = enumValueOf(lw, written, depth + 1)
   return typeof value === "bigint" ? (stored(value, target) as bigint) : undefined
 }

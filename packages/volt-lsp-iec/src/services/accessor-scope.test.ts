@@ -13,6 +13,9 @@ import { buildSymbolTable } from "../symbols/index.js"
 import { resolveAt } from "./shared/resolve-at.js"
 import { signatureHelp } from "./assist/signature-help.js"
 import { inlayHints } from "./assist/inlay-hints.js"
+import { completion } from "./assist/completion.js"
+import { scopeAtOffset } from "./shared/resolve-at.js"
+import { lookup } from "../symbols/index.js"
 
 function setup(src: string) {
   const parseResult = parseSource(src)
@@ -80,4 +83,29 @@ inst(1, 2);
 END_PROGRAM`
   const { doc, project } = setup(src)
   expect(inlayHints(doc, project, 0, src.length).map((h) => h.label)).toEqual(["first:", "second:"])
+})
+
+// …AND SO DO THE TWO THAT READ IT THROUGH `scopeAtOffset`. The A5 fix landed for the three above and left that
+// function a one-line delegate to `unitScopeAtOffset`, which resolves a unit and stops — so completion and
+// semantic tokens kept answering with the UNIT scope. Found by a review of the change, not by these tests:
+// completing inside the GET offered 31 items and `localGet` was not one of them.
+test("completion inside a property getter offers the accessor's own locals", () => {
+	const { doc, project } = setup(ACCESSOR)
+	const at = ACCESSOR.indexOf("Prop := localGet;") + "Prop := local".length
+	const labels = completion(doc, project, at).map((c) => c.label)
+	expect(labels).toContain("localGet")
+	expect(labels).toContain("helperGet")
+	// the FB's own field is still visible — the accessor scope layers over the unit's, it does not replace it
+	expect(labels).toContain("backing")
+})
+
+test("semantic tokens resolve an accessor local rather than falling to the unit scope", () => {
+	const { doc, project } = setup(ACCESSOR)
+	// `scopeAtOffset` is what semantic tokens ask; assert the scope directly, since the token TYPE for a local
+	// and for a field can coincide and would not show the difference.
+	const inside = scopeAtOffset(doc, project, ACCESSOR.indexOf("localGet := helperGet") + 2)
+	expect(lookup(inside, "localGet")?.symbol.name).toBe("localGet")
+	// outside any body, the unit scope is still the answer
+	const outside = scopeAtOffset(doc, project, ACCESSOR.indexOf("backing : INT"))
+	expect(lookup(outside, "localGet")).toBeUndefined()
 })

@@ -51,8 +51,18 @@ export function resolveAt(doc: Document, project: Scope, offset: number): Symbol
   return undefined
 }
 
-/** The scope of the innermost unit containing the offset (project scope as the fallback). */
+/**
+ * The scope a CURSOR sits in — a property accessor's own when the offset is inside one, the unit's otherwise.
+ *
+ * <p>This was a one-line delegate to `unitScopeAtOffset`, which resolves a unit and stops. That is right for the
+ * DECLARATION path above (a cursor on a type name is not inside any body) and wrong here: an accessor's locals
+ * live in a child scope keyed by the body span, which is exactly what `bodiesAt` finds and this did not. The A5
+ * fix landed for `resolveAt`, `signatureHelp` and inlay hints, and the two consumers of THIS function —
+ * completion and semantic tokens — kept the old answer. Measured: completing inside a GET that declares
+ * `localGet` offered 31 items and `localGet` was not among them.</p>
+ */
 export function scopeAtOffset(doc: Document, project: Scope, offset: number): Scope {
+  for (const b of bodiesAt(doc.parseResult.units, project, offset)) return b.scope
   return unitScopeAtOffset(doc.parseResult, project, offset)
 }
 

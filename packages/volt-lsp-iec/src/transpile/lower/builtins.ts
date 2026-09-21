@@ -6,6 +6,7 @@ import { libraryOf, lookup } from "../../symbols/index.js"
 import {
   commonType,
   elementaryRef,
+  PLATFORM_ALIASES,
   elemOf,
   exptResultType,
   parseConversionName,
@@ -15,7 +16,7 @@ import {
 } from "../../types/index.js"
 import type { IrBuiltinName, IrExpr } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
-import { PLATFORM_INTEGERS } from "./lowering.js"
+
 import { isBit } from "../ir/index.js"
 import { convert } from "./convert.js"
 import { withStringCapacity } from "./storage.js"
@@ -108,9 +109,10 @@ export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>): 
   }
   // `__XINT_TO_DINT` and its family: the pointer-width types are the target's own width, so the conversion NAME carries
   // one too (the corpus writes `__XWORD` 963 times). `parseConversionName` reads elementary names only, so the prefix is
-  // resolved to what the platform makes it before the split (conformance `ct_pointer_width_types`).
+  // resolved to what the platform makes it before the split (conformance `ct_pointer_width_types`). The names come from
+  // `PLATFORM_ALIASES` — the ONE home — rather than a third spelling of the same three rows, which is what this read.
   const platform = name === undefined ? undefined : /^(__U?X(?:INT|WORD))_TO_/i.exec(name)?.[1]
-  const conv = name === undefined ? undefined : parseConversionName(platform === undefined ? name : name.replace(platform, PLATFORM_INTEGERS[platform.toUpperCase()]!))
+  const conv = name === undefined ? undefined : parseConversionName(platform === undefined ? name : name.replace(platform, PLATFORM_ALIASES.get(platform.toUpperCase())!))
   if (conv !== undefined) return lowerConversion(lw, e, conv.from && elementaryRef(conv.from.name), elementaryRef(conv.to.name))
   if (name !== undefined && STANDARD_STRING_FUNCTIONS.has(name)) return lowerStandardString(lw, e, name)
   const arity = name === undefined ? undefined : BUILTIN_ARITY[name]

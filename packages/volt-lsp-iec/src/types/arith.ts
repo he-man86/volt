@@ -68,11 +68,17 @@ export function checkedMeetType(a: Type, b: Type): Type | undefined {
   }
   // A pair of BOOLs is not measured — `TRUE + TRUE` was never asked — so it keeps the old silence.
   if (ea.family === "bool" && eb.family === "bool") return undefined
-  const bits = Math.max(ea.bits, eb.bits)
-  const signed = ea.signed === true || eb.signed === true
+  return elementaryRef(integerOfWidth(Math.max(ea.bits, eb.bits), ea.signed === true || eb.signed === true).name)
+}
+
+/**
+ * THE INTEGER LADDER: the narrowest {signed, unsigned} type that holds `bits`. One home, because it was written
+ * twice with two shapes — here with `<=` and in `checks/types/narrowing` with `===` — which agree on the four
+ * widths the table has and would not on a fifth.
+ */
+export function integerOfWidth(bits: number, signed: boolean): ElementaryType {
   const order = signed ? ["SINT", "INT", "DINT", "LINT"] : ["USINT", "UINT", "UDINT", "ULINT"]
-  const name = bits <= 8 ? order[0] : bits <= 16 ? order[1] : bits <= 32 ? order[2] : order[3]
-  return elementaryRef(name!)
+  return elementaryType(bits <= 8 ? order[0]! : bits <= 16 ? order[1]! : bits <= 32 ? order[2]! : order[3]!)!
 }
 
 /**
