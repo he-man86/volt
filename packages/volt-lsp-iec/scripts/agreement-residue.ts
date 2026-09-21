@@ -15,6 +15,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
 import { withDependencies } from "../test/conformance/support/fixture-units.js"
+import { KNOWN_DIVERGENCES } from "../test/conformance/support/divergences.js"
 import { plcPrgSource } from "../test/conformance/support/plc-prg.js"
 import { STANDARD_LIBRARY } from "../test/conformance/support/standard-library.js"
 import { parseSource } from "../src/syntax/index.js"
@@ -51,6 +52,10 @@ const crossDecls = ALL_TESTS.filter((t) => t.source !== "").map((t) => {
 
 for (const t of ALL_TESTS) {
   if (t.source === "") continue
+  // A DOCUMENTED divergence is not a work item. Skipping them is what keeps this a WORK LIST: they are device
+  // and application facts (no dynamic-memory pool, no structured exception handling on that code generator, no
+  // VAR_PERSISTENT list) and reachability, and an editor can know none of them.
+  if (KNOWN_DIVERGENCES[vendor].has(t.name)) continue
   if (only.length > 0 && !only.includes(t.name)) continue
   const rec = build[t.name]
   if (rec === undefined) {
