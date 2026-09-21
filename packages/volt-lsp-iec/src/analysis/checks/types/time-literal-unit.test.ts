@@ -37,6 +37,9 @@ test("an LTIME literal keeps its microseconds, and a TIME literal with milliseco
   expect(flagged("t1 : TIME;", "t1 := T#1S500MS;")).toEqual([])
 })
 
-test("TwinCAT is unmeasured — nothing reported there", () => {
-  expect(flagged("t1 : TIME;", "t1 := T#1500US;", "twincat")).toEqual([])
+// TWINCAT MEASURED, 2026-09-20: `cc_time_microsecond_literal_in_body` and `cc_time_seconds_then_microseconds`
+// record the same five messages on both vendors — the literal ends at the unit, and what is left of it stands
+// alone as a statement with no effect.
+test("TwinCAT ends the literal at the unit too", () => {
+  expect(flagged("t1 : TIME;", "t1 := T#1500US;", "twincat").length).toBeGreaterThan(0)
 })

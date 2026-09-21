@@ -41,8 +41,10 @@ test("an inference GAP is not a hole — only a name that does not resolve is", 
   expect(msgs(fb("grid : ARRAY[1..2, 1..2] OF INT; taken : INT;", "taken := grid[1];"))).toEqual([])
 })
 
-test("TwinCAT is unmeasured, so the check stays silent there", () => {
-  expect(msgs(fb("y : INT;", "y := nope;"), "twincat")).toEqual([])
+// TWINCAT MEASURED, 2026-09-20: `cc2_constant_and_external` records all ten of these messages on BOTH vendors,
+// in the same order, and `cc_unknown_member` the same pair. The "unmeasured" note predates its recording.
+test("TwinCAT loses a type the same way", () => {
+  expect(msgs(fb("y : INT;", "y := nope;"), "twincat").length).toBeGreaterThan(0)
 })
 
 test("a hole on the LEFT is not a conversion — and a member read off one has no structure", () => {

@@ -43,7 +43,10 @@ test("the operators CODESYS does have are not flagged", () => {
   expect(unsupported("a : BOOL; b : BOOL; c : BOOL;", "c := a AND b;\nc := a XOR b;\nc := a AND_THEN b;")).toEqual([])
 })
 
-test("CODESYS-only — TwinCAT is unmeasured and may accept either, so it stays silent there", () => {
-  expect(unsupported("x : REAL;", "x := 2.0 ** 3.0;", "twincat")).toEqual([])
-  expect(unsupported("a : BOOL; b : BOOL; c : BOOL;", "c := a & b;", "twincat")).toEqual([])
+// TWINCAT MEASURED, 2026-09-20: it has neither operator either. `power_operator_rejected` and
+// `ampersand_operator_rejected` record the same two messages on both vendors — "';' expected instead of '**'"
+// and the echoed token — so "may accept either" was a guess, and the recording says no.
+test("TwinCAT has neither operator either", () => {
+  expect(unsupported("x : REAL;", "x := 2.0 ** 3.0;", "twincat").length).toBeGreaterThan(0)
+  expect(unsupported("a : BOOL; b : BOOL; c : BOOL;", "c := a & b;", "twincat").length).toBeGreaterThan(0)
 })

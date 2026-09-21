@@ -840,7 +840,12 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // to look at, so it had no rule to name a whole family of conversions with.
   // 2346 -> 2351: the 64-bit DATE types are CODESYS's as well — TwinCAT has LTIME and has no LDATE, LTOD or
   // LDT, so a declaration is "Unknown type" there and `DATE_TO_LDATE` is an identifier nothing defines.
-  { vendor: "twincat", floor: 2351 },
+  // 2351 -> 2424 on SEVENTY-THREE fixtures, by deleting placeholders. Six checks were gated to CODESYS with
+  // the note "TwinCAT unmeasured" — written when TwinCAT's recording covered 280 fixtures. It covers 2524
+  // now and every one of the six AGREES: an IL operator used as a name cascades identically on both, down
+  // to the ten messages and their order. The single false positive they exposed was the reachability case
+  // CODESYS already had documented, measured on TwinCAT and filed beside it.
+  { vendor: "twincat", floor: 2424 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1009,6 +1014,12 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     "cc6_loop_cannot_exit",
     "ir_initializer_warning_no_instance",
     "cc3_pointer_conversions",
+    //   `sn_dut_mismatch` — the same reachability rule as CODESYS's entry of the same name, and now measured on
+    //                       TwinCAT rather than inherited from it: a DUT whose type name disagrees with its
+    //                       object and that NOBODY references records nothing on either vendor, while
+    //                       `sn_dut_mismatch_used` — one FB declaring a variable of the type — records it on
+    //                       both. An editor answers about the file in front of it.
+    "sn_dut_mismatch",
   ]),
   // The `???` fixtures were here while the LSP answered every position with ONE invented sentence. They are
   // NOT divergences any more: the check reads the slot and emits the COMPILER'S wording for it

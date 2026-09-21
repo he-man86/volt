@@ -212,6 +212,16 @@ const CHECKS: readonly Check[] = [
 /**
  * The checks that run for CODESYS only — one list, where each used to open with its own `if (vendor !== "codesys") return`
  * (consolidate-lsp-structure C6). A rule gate INSIDE a check (one message of several) stays in that check.
+ *
+ * SIX OF THESE WERE NOT VENDOR DIFFERENCES AT ALL. `checkRefusedName`, `checkTimeLiteralUnit`,
+ * `checkUnaryOperand`, `checkUnsupportedOperator`, `checkUnknownSource` and `checkSignatureName` each sat here
+ * with the note "TwinCAT unmeasured" — a placeholder from when TwinCAT's recording covered 280 fixtures. It
+ * covers 2524 now, and every one of them AGREES: an IL operator used as a name cascades identically on both,
+ * down to the ten messages and their order. Un-gating the six is worth 73 fixtures (2351 -> 2424) and one
+ * false positive, which turned out to be the same reachability case CODESYS already has documented.
+ *
+ * The note on each entry below is what keeps that from happening again: it says what was MEASURED, not what
+ * was assumed. A check with nothing measured behind it does not belong here — it belongs in a recording.
  */
 const CODESYS_ONLY: ReadonlySet<Check> = new Set<Check>([
   // live /build (2026-09-20): TwinCAT compiles `IF (p := __NEW(T)) = 0` CLEAN (`cc5_new_in_expression`). On
@@ -223,12 +233,6 @@ const CODESYS_ONLY: ReadonlySet<Check> = new Set<Check>([
   checkAbstractAssign, // live /build (2026-07-11): TwinCAT accepts this — no such rule
   checkAbstractOutputDefault, // live /build: TwinCAT silently accepts a VAR_OUTPUT default here
   checkReservedKeyword, // a CODESYS forward-compat warning; TwinCAT accepts CHAR/WCHAR as names (verified live)
-  checkRefusedName, // TwinCAT unmeasured
-  checkTimeLiteralUnit, // TwinCAT unmeasured
-  checkUnaryOperand, // TwinCAT unmeasured
-  checkUnsupportedOperator, // TwinCAT unmeasured
-  checkUnknownSource, // TwinCAT unmeasured
-  checkSignatureName, // TwinCAT unmeasured (the rule is structural and likely shared — likely is not measured)
 ])
 
 export interface DiagnosticsArgs {

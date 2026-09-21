@@ -95,10 +95,13 @@ test("MOD on a BOOL is the conversion message, not a refusal", () => {
 test("a CODESYS-only operator is an undefined identifier on TwinCAT", () => {
   const src = `FUNCTION_BLOCK F\nVAR\n here : DINT;\nEND_VAR\nhere := __POSITION();\nEND_FUNCTION_BLOCK`
   expect(diag(src, "codesys").map((d) => d.message)).toEqual(["Cannot convert type 'STRING' to type 'DINT'"])
-  // …and both of TwinCAT's own messages for it, in its own recording of `sysop_position_call_form`
+  // …and all THREE of TwinCAT's own messages for it, in the order its recording of `sysop_position_call_form`
+  // carries them — the third arrived when `checkUnknownSource` stopped being gated to CODESYS on a premise that
+  // was only ever "unmeasured".
   expect(diag(src, "twincat").map((d) => d.message)).toEqual([
     "Identifier '__POSITION' not defined",
     "Program name, function or function block instance expected instead of '__POSITION'",
+    "Cannot convert type 'Unknown type: '__POSITION()'' to type 'DINT'",
   ])
 })
 

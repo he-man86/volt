@@ -39,6 +39,9 @@ test("a file packing SEVERAL items is not a workspace file, so it is skipped", (
   expect(at("FB_One.fb", `FUNCTION_BLOCK FB_One\nEND_FUNCTION_BLOCK\n\nFUNCTION_BLOCK FB_Two\nEND_FUNCTION_BLOCK`)).toEqual([])
 })
 
-test("TwinCAT is unmeasured, so the check stays silent there", () => {
-  expect(at("FB_Object.fb", `FUNCTION_BLOCK FB_Signature\nEND_FUNCTION_BLOCK`, "twincat")).toEqual([])
+// TWINCAT MEASURED, 2026-09-20: `sn_dut_mismatch_used` — a DUT whose type name disagrees with its object, with
+// one FB declaring a variable of it — records this message on BOTH vendors, word for word. (Unreferenced, it
+// records on neither: that is reachability, and it is in `KNOWN_DIVERGENCES` on both sides.)
+test("TwinCAT reports it too", () => {
+  expect(at("FB_Object.fb", `FUNCTION_BLOCK FB_Signature\nEND_FUNCTION_BLOCK`, "twincat")).toEqual(MISMATCH)
 })

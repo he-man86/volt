@@ -77,9 +77,19 @@ test("names that merely contain an operator are ordinary identifiers, and CALC i
   expect(flagged("calc : INT;")).toEqual([])
 })
 
-test("CODESYS-only — TwinCAT is unmeasured, so it stays silent there", () => {
-  expect(flagged("r : INT;", "twincat")).toEqual([])
-  expect(flagged("ld : INT;", "twincat")).toEqual([])
+// TWINCAT MEASURED, 2026-09-20: it refuses the IL-operator names exactly as CODESYS does — the same ten-message
+// cascade in the same order, differing in the one word its error list capitalises (`cc_il_name_*`, eighteen
+// fixtures). This check was gated to CODESYS with the note "TwinCAT unmeasured", written when TwinCAT's recording
+// covered 280 fixtures; it covers 2524 now.
+test("TwinCAT refuses the same names, in its own spelling", () => {
+  expect(flagged("r : INT;", "twincat").map((d) => d.message)).toEqual([
+    "Unexpected Token 'r' found",
+    "';' expected instead of ':'",
+    "Unexpected Token ':' found",
+    "';' expected instead of 'INT'",
+    "Unexpected Token 'INT' found",
+  ])
+  expect(flagged("ld : INT;", "twincat").map((d) => d.message)[0]).toBe("Unexpected Token 'ld' found")
 })
 
 test("an identifier holding consecutive underscores is refused — the compiler reserves them", () => {
