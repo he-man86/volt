@@ -1,13 +1,14 @@
 /**
  * The kind-named writable-source extensions Volt materializes on disk — POUs (`.fb`/`.prg`/`.fun`),
  * interface (`.itf`), every DUT (`.struct`/`.enum`/`.union`/`.alias`), and GVL (`.gvl`). This is the LSP-side single source of truth
- * for "is this a Volt source file", shared by the workspace crawl, the running server, vendor detection,
- * the corpus tests, and the maintenance scripts — so the set is defined once, not copied per consumer.
+ * for "is this a Volt source file", shared by the workspace crawl, the running server, the corpus tests and
+ * the maintenance scripts — so the set is defined once, not copied per consumer.
  *
  * Read-only graphical bodies (`.cfc`/`.sfc`) and reference manifests (`.library`/`.device`/…) are NOT
- * here — they are not writable source. Kept as a dependency-free leaf so lightweight consumers
- * (`detect-vendor`, used by `volt init` and the VS Code extension) don't transitively load the analysis
- * layer. The bridge/CLI own the on-disk layout (`ItemKind.ExtFor` in `volt-cli`); this mirrors its
+ * here — they are not writable source. Kept as a dependency-free leaf so a lightweight consumer does not
+ * transitively load the analysis layer. (It named `detect-vendor` as the consumer that needed that; that
+ * module is gone — see `consolidate-lsp-structure` C8 — and the property is still worth keeping.)
+ * The bridge/CLI own the on-disk layout (`ItemKind.ExtFor` in `volt-cli`); this mirrors its
  * writable-source rows and is cross-checked against every other copy by `scripts/check-wiring.ts`.
  */
 export const SOURCE_EXTENSIONS: readonly string[] = [

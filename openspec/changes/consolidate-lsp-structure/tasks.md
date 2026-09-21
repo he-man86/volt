@@ -152,7 +152,7 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
 - [x] C7 `test/support/project.ts`: `diagnose`, `codesOf`, `docSetup`, `libraryFile`; migrate the 76 check tests + 5
       service tests. SKIPPED 2026-09-14 (user decision): a mass rewrite of test helpers finds no bugs and risks moving a
       test's premise.
-- [ ] C8 Dead code: `isNumeric`, `isEnumIsolated`, `networkScopeAt`, `CHECK_TIMING`, `activeVendor`, `stBodies`,
+- [x] C8 Dead code: `isNumeric`, `isEnumIsolated`, `networkScopeAt`, `CHECK_TIMING`, `activeVendor`, `stBodies`,
       `resolveAnywhere` export, test-only exports; decide `detectVendor`/`installCorpus`; `reference/error-codes.ts` to test.
       PARTLY DONE 2026-09-14: the named symbols are gone; `CHECK_TIMING` was a gap, not dead — collected, never printed
       — and now prints under PROFILE_CHECKS=1. The dead `isEnumIsolated` disagreed with `compat` (enum into REAL), so it
@@ -166,25 +166,53 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       `scripts/catalog-status.ts` read it). Open, for the user: `detectVendor` and `installCorpus` are exported from the
       package entry but nothing in the repo calls them — a public-API decision, not dead code to delete unasked. Not done:
       a sweep for exports only tests use needs a dead-export scanner; none is installed.
-      RE-CHECKED 2026-09-21: both are still exported from `src/index.ts` and still called by nothing in the repo
-      (the only other hits are `dist/`, which is the build echoing them back). The question has not changed and
-      neither has the answer — it is still the user's.
-- [ ] C9 Split monoliths: `lower.ts` (frame · expr · calls table · literals), `server.ts` `runServer`,
+      CLOSED 2026-09-21, both halves.
+      - **The scanner exists**: `scripts/dead-exports.ts`. 712 exports across 197 files; 89 "nobody" (almost all
+        union members used by the union declared beside them — the `export` is redundant, the type is not) and
+        31 test/script-only (the Rust emitter's helpers, the server harness, IR nodes a test builds fixtures
+        from). Nothing rotten. It is deliberately TEXTUAL and over-counts, because a tool whose output is a
+        deletion list should miss something dead before it accuses something live.
+      - **`detectVendor` and `installCorpus` are DELETED** (465 lines), and the review the user asked for is why
+        the deletion was not the whole job — both were stale in their CALLERS, not in their code:
+        - `detect-vendor.ts` named two callers. `volt init (@volt/git)` is a package that no longer exists. The
+          other was `volt.iec.vendor: "auto"`, which is the VS Code DEFAULT and whose description promised a
+          workspace scan — while `lsp.ts` resolved anything that was not `"twincat"` to `--codesys`. **A TwinCAT
+          workspace on the default got the CODESYS dialect**, and that stopped being cosmetic this week: since
+          `project.dialect` reaches the checks, the wrong vendor is wrong answers rather than wrong labels.
+          `auto` now resolves from the BINDING — `volt init --vendor` wrote it, `.git/volt/config.json` holds it,
+          the extension already read it for the panel — which is a better answer than the scan it promised.
+        - `init.ts` wrote `.claude/skills/st-reference/` (SKILL.md + a 948K corpus) into the user's project, and
+          was the live half of a feature whose other half went missing when volt-git's `volt init` was absorbed
+          into the C# CLI. Three other places still assumed it worked and are removed with it: `build-payload.ts`
+          shipped `docs/` into the payload *for it*, `check-wiring.ts` asserted `dist/src/init.js` was BUILT (a
+          check that the installer exists, never that anything calls it) and told the user to ask for the skill,
+          and the VS Code `volt.openReference` command offered "run `volt init` to scaffold it". Removed on the
+          user's decision 2026-09-21, and it is the direction CLAUDE.md points anyway: Volt installs into no
+          agent, so the reference reaches one the way everything else does — the LSP on PATH.
+          `packages/volt-lsp-iec/docs/` stays; it is the repo's own reference and several scripts read it.
+- [x] C9 Split monoliths: `lower.ts` (frame · expr · calls table · literals), `server.ts` `runServer`,
       `network-analysis.ts` → `network/checks/`; `interp` values module.
-      RE-MEASURED 2026-09-21, and the premise wants re-judging before the work: `lower.ts` is **651** lines,
-      `network-analysis.ts` **609**, `server.ts` **604**, `interp.ts` **359**. Nothing here is a monolith at those
-      sizes — the splitting happened as the code grew, sideways (`lower/` is nine files now, `calls.ts` the largest
-      at 1360). What is left is a NAMING question, not a size one: whether `lower.ts` should keep the frame and the
-      expression dispatcher in one place. Decide it on a reading, not on a line count.
-- [ ] C10 Placement: `network/text` to a syntax-tier folder, `reference/error-code-map.ts` next to `analysis/config`,
+      **CLOSED 2026-09-21 as measured-and-declined** (user decision). The premise no longer holds: `lower.ts` is
+      **651** lines, `network-analysis.ts` **609**, `server.ts` **604**, `interp.ts` **359**. Nothing here is a
+      monolith at those sizes — the splitting happened anyway, sideways, as the code grew (`lower/` is nine files
+      now, `calls.ts` the largest at 1360). What would be left is a naming preference, and a refactor with no
+      measured problem behind it is how a working file acquires a bug. Reopen it against a reading that hurts,
+      not a line count.
+- [x] C10 Placement: `network/text` to a syntax-tier folder, `reference/error-code-map.ts` next to `analysis/config`,
       `reachability.ts` incremental half to `server/`, top-level app files to `src/workspace/`. PARTLY DONE 2026-09-14:
       `src/network-text/` (the layering lint's special case is gone — the folder is its layer), `analysis/error-code-map.ts`,
       `server/dead-code-equivalence.ts` (`deadNameUniverse`, `reachDeadEquivalent` — only the workspace store caches).
       Open, for the user: the top-level app files. `init.ts` finds its package root as `..` from `import.meta.url`, with a
       Bun-binary fallback — a move changes that path and only the install gate proves it; and `detectVendor` /
       `installCorpus` (C8) may not stay at all. `scripts/check-wiring.ts` also reads `src/source-extensions.ts` by path.
-      RE-CHECKED 2026-09-21: `src/network-text/` holds the parser and the AST and is its own layer, as claimed —
-      and the MOVE had left `src/network/text/` behind as an empty directory, which git does not track and so
-      nothing ever reported. Removed. `reachability.ts` is still whole in `analysis/` (344 lines) with only the
-      incremental cache split out to `server/dead-code-equivalence.ts`; the top-level app files have not moved and
-      the reason above is why.
+      **CLOSED 2026-09-21 as measured-and-declined** (user decision), after one real find:
+      - `src/network-text/` holds the parser and the AST and is its own layer, as claimed — and the MOVE had left
+        `src/network/text/` behind as an EMPTY DIRECTORY. Git does not track those, so nothing ever reported it
+        and no check could have. Removed.
+      - `reachability.ts` is still whole in `analysis/` (344 lines) with only the incremental cache split out to
+        `server/dead-code-equivalence.ts`. Fine where it is.
+      - The top-level app files do not move. The blocker named above is real — `init.ts` resolved its package root
+        from `import.meta.url` and only the install gate proves a move — and two of the four files it was about
+        (`init.ts`, `detect-vendor.ts`) are now DELETED by C8, so the item is mostly moot. What is left is
+        `source-extensions.ts`, which `scripts/check-wiring.ts` reads BY PATH, and `workspace-refs.ts`. Moving two
+        files to earn a folder name is not worth re-proving the installer over.

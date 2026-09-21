@@ -280,7 +280,7 @@
             "auto"
           ],
           "default": "auto",
-          "description": "Which vendor's ST dialect this project targets. `auto` scans the workspace for vendor signals (.TcPOU, Tc-prefix pragmas → twincat; .project, OSCAT → codesys). Affects hover/completion filtering and the wrong-vendor-pragma diagnostic."
+          "description": "Which vendor's ST dialect this project targets. `auto` takes it from the workspace binding written by `volt init --vendor`, falling back to codesys when the workspace is not bound. Decides which names resolve, which rules run and how each message is worded — a change needs an editor reload."
         },
         "volt.iec.diagnostics.deadCode": {
           "type": "boolean",
@@ -649,11 +649,6 @@
       {
         "command": "volt.lsp.showInfo",
         "title": "Volt: Show Language Server Info",
-        "category": "Volt"
-      },
-      {
-        "command": "volt.openReference",
-        "title": "Volt: Open CODESYS Language Reference",
         "category": "Volt"
       }
     ],

@@ -2,6 +2,7 @@ import * as vscode from "vscode"
 import { join, dirname } from "node:path"
 import { existsSync } from "node:fs"
 import { LanguageClient, type LanguageClientOptions, type ServerOptions, TransportKind, DidChangeConfigurationNotification } from "vscode-languageclient/node"
+import { readBridgeVendor } from "@volt/control"
 
 // Every writable PLC source item is one kind-named file (.fb/.prg/.fun/.itf/.gvl, and a DUT under its
 // subtype .struct/.enum/.union/.alias) carrying Structured Text. A network-text (FBD/LD) body is detected by content (a leading
@@ -134,11 +135,22 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<vscode
 	// extension — so extension version == server version, and the resolved module PATH names the exact folder.
 	const extVersion = (context.extension.packageJSON as { version?: string }).version ?? "unknown"
 
-	// The server is stdio-only and needs `--stdio` plus a vendor flag (it defaults to codesys, so
-	// `auto`/`codesys` both pass --codesys). Run it via the editor's own runtime with
+	// The server is stdio-only and needs `--stdio` plus a vendor flag. Run it via the editor's own runtime with
 	// ELECTRON_RUN_AS_NODE=1 — the same proven pattern volt-control's cli.ts uses to run bundled JS
 	// under VS Code / Cursor / Windsurf / Electron with no external node (execing a raw .js is wrong).
-	const vendor = cfg.get<"codesys" | "twincat" | "auto">("vendor", "auto")
+	//
+	// `auto` IS THE DEFAULT AND IT USED TO MEAN CODESYS. This read `vendor === "twincat" ? --twincat :
+	// --codesys`, so a TwinCAT workspace on the default setting got the CODESYS dialect — while the setting's
+	// own description promised a workspace scan. That was cosmetic once and is not any more: `project.dialect`
+	// now decides which names resolve and which messages are worded which way, so the wrong vendor is wrong
+	// answers, not just wrong labels.
+	//
+	// It resolves from the BINDING, which is a better answer than the filesystem scan the description promised:
+	// `volt init --vendor` wrote it, `.git/volt/config.json` holds it, and this extension already reads it for
+	// the panel. An unbound workspace has no IDE to be wrong about, so it falls back to codesys as before.
+	const configured = cfg.get<"codesys" | "twincat" | "auto">("vendor", "auto")
+	const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+	const vendor = configured !== "auto" ? configured : ((root !== undefined ? readBridgeVendor(root) : undefined) ?? "codesys")
 	const serverOptions: ServerOptions = {
 		command: process.execPath,
 		// `--server-version` gives the server its true identity: running under the editor's node it executes the

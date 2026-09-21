@@ -118,12 +118,13 @@ if (process.env.VOLT_VERSION) {
   }
 }
 
-// Ship the language-reference corpus beside the binaries. `bun --compile` only embeds imported JS, not this
-// fs-read docs tree, so `volt init`'s installCorpus reads it from `resources/volt/docs` (init.ts resolves
-// `dirname(process.execPath)/../docs` when the package layout isn't present). Without this, `volt init` warns
-// "Source corpus not found at B:\~BUN\docs\codesys-reference" and skips the ST language-reference skill.
-cpSync(resolve(repo, "packages/volt-lsp-iec/docs"), resolve(out, "docs"), { recursive: true })
-console.log("  ✓ docs corpus → dist/volt/docs")
+// NO DOCS CORPUS IN THE PAYLOAD. It was shipped beside the binaries for one reader — `volt init`'s
+// `installCorpus`, which wrote the ST language reference into `.claude/skills/st-reference/` in the user's
+// project. That installer's caller was volt-git's `volt init`; the C# CLI that absorbed it never called it, so
+// the feature had been shipped-but-dead for some time and the payload was carrying 948K for nobody. Removed
+// with it (`consolidate-lsp-structure` C8), which is also the direction CLAUDE.md points: Volt writes into no
+// other vendor's configuration, and the reference reaches an agent the way everything else does — the LSP on
+// PATH. `packages/volt-lsp-iec/docs/` stays: it is the repo's own reference and several scripts read it.
 
 // Build the VS Code extension (.vsix) so the installer can sideload it into VS Code / Windsurf / Cursor.
 console.log("• volt-vscode extension (.vsix)")

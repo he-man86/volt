@@ -51,13 +51,11 @@ console.log("Volt wiring check");
 console.log("=".repeat(40));
 
 console.log("\nAgent-facing surface");
-// The st-reference skill is GENERATED into a consumer project by `volt init`
-// (see packages/volt-lsp-iec/src/init.ts) — it is not committed in this repo, so
-// assert the installer that produces it is built rather than a committed file.
-check("volt-lsp-iec skill installer built (dist/src/init.js)", () =>
-	existsSync(join(REPO_ROOT, "packages/volt-lsp-iec/dist/src/init.js"))
-		|| "not built — run: bun run --cwd packages/volt-lsp-iec build"
-);
+// THERE IS NO SKILL INSTALLER TO CHECK, and the check that used to be here is the reason to say so: it asserted
+// `dist/src/init.js` was BUILT — that the installer exists — and never that anything called it. Nothing had,
+// since volt-git's `volt init` was absorbed into the C# CLI. A check that can only fail when a file is missing
+// cannot notice a feature with no caller. Removed with the installer (`consolidate-lsp-structure` C8); the
+// agent-facing surface is `volt` + `volt-lsp-iec` on PATH, which the rows below are about.
 
 console.log("\nBuilt binaries");
 // The `volt` PLC CLI is now the .NET binary (packages/volt-cli) — built + tested by the `volt-cli` CI job on
@@ -364,8 +362,7 @@ function citationsOfUnmeasured(): string[] {
 console.log("\nManual verification — an AI agent (any host):");
 console.log("  1. Open a PLC workspace in the agent with `volt` on PATH.");
 console.log("  2. Ask: 'run volt status' → the agent shells out to volt; output appears inline.");
-console.log("  3. Ask: 'load the st-reference skill' → the agent reads .claude/skills/st-reference.");
-console.log("  4. Hosts that register the LSP (the VS Code family via the extension, Claude Code via its plugin)");
+console.log("  3. Hosts that register the LSP (the VS Code family via the extension, Claude Code via its plugin)");
 console.log("     should show 'volt-lsp-iec' diagnostics on a .fb with a syntax error.");
 console.log("\nManual verification — VS Code (with `volt-vscode` extension loaded):");
 console.log("  1. code --extensionDevelopmentPath=packages/volt-vscode <your-workspace>");

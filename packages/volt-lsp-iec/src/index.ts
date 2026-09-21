@@ -15,12 +15,9 @@ export * from "./reference/index.js"
 export * from "./network/index.js"
 export * from "./server/index.js"
 
-// Workspace init + vendor detection — the cross-package surface volt-git's `volt init` consumes
-// (`installCorpus` + `DetectedVendor`). Not part of the layer stack; self-contained fs utilities.
-export { detectVendor } from "./detect-vendor.js"
-export type { DetectedVendor } from "./detect-vendor.js"
-export { runInit as installCorpus } from "./init.js"
-export type { InitOptions as InstallCorpusOptions, InitResult as InstallCorpusResult } from "./init.js"
+// THERE IS NO WORKSPACE-INIT SURFACE HERE ANY MORE. `installCorpus` and `detectVendor` were exported for
+// volt-git's `volt init`, a package that was absorbed into the C# CLI — which never called either. See
+// `openspec/changes/consolidate-lsp-structure` C8 for what each was and why it went.
 
 // Workspace reference-file scan — library namespaces + device instances the unresolved-identifier
 // check skips. FS I/O; sits above the pure analysis layer (server + tests load it, pass it to diagnostics).
