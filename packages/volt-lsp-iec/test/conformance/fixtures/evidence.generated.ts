@@ -11,7 +11,7 @@
  *   not-lowered    90
  *   lsp-gap         3
  *   diverges        3
- *   unaskable      33
+ *   unaskable      36
  */
 import type { LanguageTest } from "../types.js"
 
@@ -1637,6 +1637,9 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   network_unnamed_target_of_void_call: "lsp-gap",
   newdel_elementary: "unaskable",
   newdel_in_method_with_pragma: "unaskable",
+  newdel_struct_with_pragma: "unaskable",
+  newdel_target_with_pragma: "unaskable",
+  newdel_target_without_pragma: "unaskable",
   newdel_with_pragma: "unaskable",
   newdel_with_pragma_has_method: "unaskable",
   newdel_without_pragma: "refused",

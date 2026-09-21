@@ -204,6 +204,94 @@ END_IF
 END_METHOD
 `,
   },
+  // THE SELF-REFERENCE, ASKED SEPARATELY. Every fixture above creates an instance of ITSELF, which is a second
+  // variable nobody held constant: "the pragma is not honoured" and "an FB cannot __NEW itself" both fit them.
+  // These three hold the pragma fixed and move the TARGET instead. (2026-09-21: the pragma reaching the compiler
+  // is no longer one of the possibilities — pushed above `FUNCTION_BLOCK` into a live TwinCAT and fetched back,
+  // it round-trips byte-identically, so it is in the declaration the vendor compiles.)
+  {
+    name: "newdel_target_with_pragma",
+    execSkip:
+      "the exec-oracle project defines no dynamic-memory pool either, so this builds no further there than it does in the recording project — the same wall its five siblings hit, and the reason they are rated unaskable",
+    pouName: "FB_LANG_newdel_target",
+    kind: "function_block" as const,
+    feature: "an FB carrying the pragma, created by a DIFFERENT FB — the pragma held fixed, the self-reference removed",
+    fromDoc: "03-operators.md",
+    plcPrgVar: "inst : FB_LANG_newdel_maker;",
+    plcPrgBody: "inst();",
+    source: `{attribute 'enable_dynamic_creation'}
+FUNCTION_BLOCK FB_LANG_newdel_target
+VAR
+	n : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_LANG_newdel_maker
+VAR
+	p : POINTER TO FB_LANG_newdel_target;
+END_VAR
+p := __NEW(FB_LANG_newdel_target);
+IF p <> 0 THEN
+	__DELETE(p);
+END_IF
+END_FUNCTION_BLOCK
+`,
+  },
+  {
+    name: "newdel_target_without_pragma",
+    execSkip:
+      "the exec-oracle project defines no dynamic-memory pool either, so this builds no further there than it does in the recording project — the same wall its five siblings hit, and the reason they are rated unaskable",
+    pouName: "FB_LANG_newdel_bare_maker",
+    kind: "function_block" as const,
+    feature: "the same two POUs with the pragma REMOVED — the control that makes the pair readable",
+    fromDoc: "03-operators.md",
+    plcPrgVar: "inst : FB_LANG_newdel_bare_maker;",
+    plcPrgBody: "inst();",
+    source: `FUNCTION_BLOCK FB_LANG_newdel_bare_target
+VAR
+	n : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_LANG_newdel_bare_maker
+VAR
+	p : POINTER TO FB_LANG_newdel_bare_target;
+END_VAR
+p := __NEW(FB_LANG_newdel_bare_target);
+IF p <> 0 THEN
+	__DELETE(p);
+END_IF
+END_FUNCTION_BLOCK
+`,
+  },
+  {
+    name: "newdel_struct_with_pragma",
+    execSkip:
+      "the exec-oracle project defines no dynamic-memory pool either, so this builds no further there than it does in the recording project — the same wall its five siblings hit, and the reason they are rated unaskable",
+    pouName: "FB_LANG_newdel_struct_maker",
+    kind: "function_block" as const,
+    feature: "a STRUCT carrying the pragma — the message names structures too, and no struct has been asked",
+    fromDoc: "03-operators.md",
+    plcPrgVar: "inst : FB_LANG_newdel_struct_maker;",
+    plcPrgBody: "inst();",
+    source: `{attribute 'enable_dynamic_creation'}
+TYPE DUT_LANG_newdel_struct :
+STRUCT
+	n : INT;
+END_STRUCT
+END_TYPE
+
+FUNCTION_BLOCK FB_LANG_newdel_struct_maker
+VAR
+	p : POINTER TO DUT_LANG_newdel_struct;
+END_VAR
+p := __NEW(DUT_LANG_newdel_struct);
+IF p <> 0 THEN
+	__DELETE(p);
+END_IF
+END_FUNCTION_BLOCK
+`,
+  },
   {
     name: "newdel_elementary",
     pouName: "FB_LANG_newdel_elementary",

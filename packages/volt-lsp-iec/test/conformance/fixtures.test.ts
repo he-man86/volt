@@ -869,7 +869,13 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // months ("Tc2_Standard, a different materialization — not added for it") and nobody costed the sentence.
   // Sharing CODESYS's materialization adds ZERO false positives, which is the gate that makes it a
   // measurement rather than a guess.
-  { vendor: "twincat", floor: 2496 },
+  // 2496 -> 2497: `__NEW` again, and this time the answer was that there is no answer to have. TwinCAT
+  // prints the attribute message with the attribute PRESENT, in every position, for a self-reference, for a
+  // different FB and for a STRUCT alike, and with the attribute removed nothing changes. CODESYS prints
+  // "No memory for dynamic object creation" on either side of the same message, so the pragma rule is
+  // plainly never reached on either project. Five TwinCAT cells joined the divergence list with that
+  // evidence; the one that moved is the new control, which agrees.
+  { vendor: "twincat", floor: 2497 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.

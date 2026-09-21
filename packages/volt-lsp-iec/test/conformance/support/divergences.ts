@@ -138,6 +138,29 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     "try_catch_only_on_fault",
     "try_nested",
     "try_one_line",
+    //   THE `newdel_*` FIXTURES THAT CARRY THE PRAGMA — the same APPLICATION fact as CODESYS's five, reached
+    //   the long way because TwinCAT does not name it. CODESYS prints "No memory for dynamic object creation
+    //   defined for application 'Device.Application'" on either side of the pragma message, so the pragma rule
+    //   is plainly never reached; TwinCAT prints the attribute message ALONE and reads, wrongly, like a vendor
+    //   that ignores the attribute.
+    //
+    //   Settled 2026-09-21 by removing every other variable rather than by argument. (a) The pragma REACHES the
+    //   compiler: pushed above `FUNCTION_BLOCK` into a live TwinCAT and fetched back it round-trips
+    //   byte-identically. (b) It is not the SELF-REFERENCE every earlier fixture happened to carry —
+    //   `newdel_target_with_pragma` has one FB create a different one and answers the same. (c) It is not FBs
+    //   only — `newdel_struct_with_pragma` answers the same for a STRUCT. (d) With the pragma REMOVED from the
+    //   same two POUs (`newdel_target_without_pragma`) the answer does not change. The attribute moves nothing
+    //   on this project, in any position, for any target.
+    //
+    //   So the message is downstream of the missing pool on BOTH vendors, and only one of them says so. The
+    //   LSP keeps the documented rule (the pragma silences it), which these projects cannot test either way.
+    //   `newdel_without_pragma`, `newdel_target_without_pragma` and `newdel_elementary` are NOT here: they
+    //   agree, because the LSP reaches the same answer by the rule it does have.
+    "newdel_with_pragma",
+    "newdel_with_pragma_has_method",
+    "newdel_in_method_with_pragma",
+    "newdel_target_with_pragma",
+    "newdel_struct_with_pragma",
   ]),
   // The `???` fixtures were here while the LSP answered every position with ONE invented sentence. They are
   // NOT divergences any more: the check reads the slot and emits the COMPILER'S wording for it
@@ -203,6 +226,12 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     "newdel_with_pragma_has_method",
     "newdel_in_method_with_pragma",
     "newdel_elementary",
+    //   …and the three probes added 2026-09-21 to take the last variables out of it — a DIFFERENT FB as the
+    //   target, a STRUCT as the target, and the same pair with the pragma removed. All three answer exactly
+    //   what the five above answer, on both vendors. The pool is the only thing being reported.
+    "newdel_target_with_pragma",
+    "newdel_target_without_pragma",
+    "newdel_struct_with_pragma",
     //   THE VAR_PERSISTENT FAMILY — an APPLICATION fact of the same kind: "No VAR_PERSISTENT list is part of the
     //   application to enter instance path for variable PLC_PRG.inst.n" is about what the application is
     //   configured with, not about the declaration. TwinCAT's project HAS such a list and records nothing for the
