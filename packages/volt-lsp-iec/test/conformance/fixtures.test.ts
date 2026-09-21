@@ -894,7 +894,13 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // RESULT conversion with the operand half unnoticed. Four new cells close it: `-BOOL` asked into a STRING,
   // where the operand message cannot hide behind the result's, and `NOT` on TOD, DT and LTIME. Every one
   // reports, on both vendors, at its operand's own width.
-  { vendor: "twincat", floor: 2513 },
+  // 2513 -> 2516: two dialect rules and a gate that named the wrong kind. TwinCAT refuses LOWER_BOUND/
+  // UPPER_BOUND on an array with FIXED bounds where CODESYS folds them (the `ARRAY[*]` cells compile clean on
+  // both, which is what makes it a rule rather than a coincidence). A DEFAULT does not make an input optional
+  // there either — leaving out the one that HAS an initial value is "requires exactly '2' inputs". And the
+  // required-inputs check was gated to `function` while the METHOD form had never been asked: asked, both
+  // vendors answer with the same message, naming the method.
+  { vendor: "twincat", floor: 2516 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -969,7 +975,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 2521 -> 2523: the two new partial-access widths, which CODESYS compiles clean and now says so.
   // 2523 -> 2526: the same two, on the vendor where `__POSITION` resolves and only the plain unknown name bites.
   // 2526 -> 2533: the same rule, the same seven cells.
-  { vendor: "codesys", floor: 2533 },
+  // 2533 -> 2534: the METHOD half of the required-inputs rule, which CODESYS words as a range like a FUNCTION's.
+  { vendor: "codesys", floor: 2534 },
 ]
 
 

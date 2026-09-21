@@ -176,13 +176,19 @@ function checkCall(
   // inputs" (conformance `callshape_function_input_no_default`). The trigger is the missing REQUIRED input, not the
   // count: that fixture passes one argument, which is inside the range, and is still an error because the one it
   // passed is the defaulted one.
-  if (callee.complete && callee.sym.kind === "function" && !(positional.length > 0 && named.length > 0)) {
+  // …AND A METHOD'S, identically. This was gated to `function` and the METHOD form had never been asked on its
+  // own; `callshape_method_input_no_default` asks it and both vendors answer with the FUNCTION message, naming the
+  // method: "Function 'Blend' requires at least '1' and maximum '2' inputs" on CODESYS, "exactly '2'" on TwinCAT.
+  if (callee.complete && (callee.sym.kind === "function" || callee.sym.kind === "method") && !(positional.length > 0 && named.length > 0)) {
     const bound = new Set<string>(named.map((a) => a.param!.name.toLowerCase()))
     positional.forEach((_, i) => {
       const p = callee.positional[i]
       if (p !== undefined) bound.add(p.name.text.toLowerCase())
     })
-    const required = callee.params.filter((p) => !p.hasDefault)
+    // A DEFAULT DOES NOT MAKE AN INPUT OPTIONAL ON TWINCAT — the question the wording note below called "a
+    // different question and not measured". `callshape_input_left_out` measures it: leaving out the DEFAULTED
+    // input alone is silent on CODESYS and "requires exactly '2' inputs" there, for a METHOD and a FUNCTION both.
+    const required = ctx.config.vendor === "twincat" ? callee.params : callee.params.filter((p) => !p.hasDefault)
     if (required.some((p) => !bound.has(p.name.text.toLowerCase()))) {
       const max = callee.params.length
       out.push({

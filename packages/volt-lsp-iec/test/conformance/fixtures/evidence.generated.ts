@@ -7,7 +7,7 @@
  *
  * At the last regeneration:
  *   confirmed    1925
- *   refused       529
+ *   refused       530
  *   not-lowered    90
  *   lsp-gap         4
  *   diverges        3
@@ -350,6 +350,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   callshape_inout_sub_instance_field: "confirmed",
   callshape_inout_super_method_from_override: "confirmed",
   callshape_input_left_out: "confirmed",
+  callshape_method_input_no_default: "refused",
   callshape_method_on_program: "confirmed",
   callshape_output_index_before_call: "confirmed",
   callshape_own_field_inout_read_by_name: "confirmed",

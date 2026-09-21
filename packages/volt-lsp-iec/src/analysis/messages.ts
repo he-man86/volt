@@ -120,6 +120,8 @@ export interface Messages {
   /** A partial access (`d.%W0`) read as an ordinary member access, which is what TwinCAT does — it has no such
    *  operand form, so the `%` is a component name and the WIDTH+INDEX is a statement of its own. */
   percentNotAMember(base: string): string
+  /** `LOWER_BOUND`/`UPPER_BOUND` on an array whose bounds are FIXED — a TwinCAT rule; CODESYS folds them. */
+  boundsNeedVariableLength(): string
   /** Instantiating an ABSTRACT FB: "Function block" (CODESYS) vs "Functionblock" (TwinCAT, one word). */
   abstractInstantiation(fb: string): string
   /** Value-assigning to an abstract-FB target (C0511). The message names the FB TYPE. CODESYS-verified. */
@@ -509,6 +511,9 @@ export function messagesFor(vendor: Vendor): Messages {
     // NOT `notAMember('%', base)`: that one names a TYPE and upper-cases it on TwinCAT, and this names the
     // VARIABLE, which stays as written — `'%' is no component of 'dwSource'` (four widths, twincat 2026-09-21).
     percentNotAMember: (base) => `'%' is no component of '${base}'`,
+    // TwinCAT alone: `LOWER_BOUND(grid, 1)` on an `ARRAY[-1..1, 3..9]` is refused there and folded by CODESYS
+    // (`callshape_bounds_of_sized_array`, and `callshape_array_star_*` clean on both, 2026-09-20).
+    boundsNeedVariableLength: () => "The Operators LOWER_BOUND and UPPER_BOUND are only supported for arrays of variable length",
     abstractInstantiation: (fb) =>
       `${tc ? "Functionblock" : "Function block"} ${fb} is ABSTRACT and cannot be instantiated`,
     // CODESYS-verified (2026-07-11 live): names the FB TYPE, no "The"/quotes/period. TwinCAT PROVISIONAL

@@ -56,6 +56,16 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
       if (t.kind === "elementary" && !inTypeGroup("ANY_NUM", t.elem))
         push(out, "error", arg.span, "operator-not-possible", ctx.messages.operatorNotPossible(titleCase(name), t.name)) // C0072
     }
+    // THE ARRAY BOUNDS OPERATORS WANT A VARIABLE-LENGTH ARRAY — on TwinCAT. `LOWER_BOUND(grid, 1)` where `grid`
+    // is `ARRAY[-1..1, 3..9] OF INT` is refused there and folded by CODESYS, which is a real difference and not a
+    // wording one: the same operators on an `ARRAY[*]` in-out compile clean on BOTH
+    // (`callshape_bounds_of_sized_array` against `callshape_array_star_bounds` / `_bound_width`, 2026-09-20).
+    // Gated on a FULLY-KNOWN array so an unresolved or library-typed argument never fires.
+    if ((name === "LOWER_BOUND" || name === "UPPER_BOUND") && ctx.project.dialect === "twincat") {
+      const t = inferExprType(arg, scope, ctx.project)
+      if (t.kind === "array" && t.dims.length > 0 && t.dims.every((d) => !d.dynamic))
+        push(out, "error", e.callee.span, "bounds-fixed-array", ctx.messages.boundsNeedVariableLength())
+    }
     if (name === "ADR") {
       if (arg.kind === "literal") {
         push(out, "error", arg.span, "invalid-adr-operand", ctx.messages.invalidAdrOperand(text(ctx.source, arg.span))) // C0131

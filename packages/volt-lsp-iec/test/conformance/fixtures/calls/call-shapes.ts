@@ -515,6 +515,32 @@ END_FUNCTION
     // only an input WITH an initial value may be left out of a METHOD call, so this case leaves out only that one.
     "calculator : FB_CS_calc6; allGiven : INT; baseLeftOut : INT; functionLeftOut : INT;",
     "allGiven := calculator.Combine(baseValue := 2, extra := 3);\nbaseLeftOut := calculator.Combine(extra := 4);\nfunctionLeftOut := F_CS_combine6(extra := 1);"),
+  // THE METHOD HALF OF THE SAME QUESTION. `callshape_function_input_no_default` asks a FUNCTION called without an
+  // input that has no initial value; the METHOD form was never asked on its own, and the two checks in the LSP are
+  // gated differently (`callee.sym.kind === "function"`). It matters now because `callshape_input_left_out` shows
+  // TwinCAT complaining about the METHOD too — while leaving out the DEFAULTED input, which CODESYS allows.
+  fb("callshape_method_input_no_default", "FB_CS_user18", "a METHOD called without an input that has NO initial value",
+    `FUNCTION_BLOCK FB_CS_holder18
+END_FUNCTION_BLOCK
+
+METHOD Blend : INT
+VAR_INPUT
+	baseValue : INT := 5;
+	extra : INT;
+END_VAR
+Blend := baseValue * 10 + extra;
+END_METHOD
+
+FUNCTION_BLOCK FB_CS_user18
+VAR
+	holder : FB_CS_holder18;
+	blended : INT;
+END_VAR
+blended := holder.Blend(baseValue := 2);
+END_FUNCTION_BLOCK
+`,
+    "user18 : FB_CS_user18;",
+    "user18();"),
   // Recorded: it does not compile either — "Function 'F_CS_combine11' requires at least '1' and maximum '2' inputs". A
   // FUNCTION and a METHOD alike may leave out only an input that has an initial value.
   fb("callshape_function_input_no_default", "FB_CS_user11", "a FUNCTION called without an input that has no initial value — does it compile, and what does the input hold",

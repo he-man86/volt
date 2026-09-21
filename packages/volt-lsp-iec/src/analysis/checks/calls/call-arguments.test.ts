@@ -402,3 +402,67 @@ test("an FB's inputs are NOT required — they are retained between calls", () =
       .filter((d) => d.code === "function-argument-count"),
   ).toEqual([])
 })
+
+// A METHOD IS A FUNCTION FOR THIS RULE, on both vendors — the gate said `function` and the method form had never
+// been asked on its own (`callshape_method_input_no_default`, both recordings 2026-09-21). Both name the METHOD.
+test("a METHOD's inputs without a default are required too", () => {
+  const src =
+    `FUNCTION_BLOCK FB_h
+END_FUNCTION_BLOCK
+
+METHOD Blend : INT
+VAR_INPUT
+	baseValue : INT := 5;
+	extra : INT;
+END_VAR
+Blend := baseValue * 10 + extra;
+END_METHOD
+
+` +
+    `FUNCTION_BLOCK FB_u
+VAR
+	h : FB_h;
+	n : INT;
+END_VAR
+n := h.Blend(baseValue := 2);
+END_FUNCTION_BLOCK`
+  const of = (vendor: "codesys" | "twincat") => {
+    const parseResult = parseSource(src, vendor)
+    const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
+      .filter((d) => d.code === "function-argument-count")
+      .map((d) => d.message)
+  }
+  expect(of("codesys")).toEqual(["Function 'Blend' requires at least '1' and maximum '2' inputs"])
+  expect(of("twincat")).toEqual(["Function 'Blend' requires exactly '2' inputs"])
+})
+
+// AND A DEFAULT STOPS BEING OPTIONAL ON TWINCAT. Leaving out the input that HAS an initial value compiles on
+// CODESYS and does not there (`callshape_input_left_out`, both recordings 2026-09-20).
+test("on TwinCAT an input with a default is still required", () => {
+  const src =
+    `FUNCTION F_c : INT
+VAR_INPUT
+	baseValue : INT := 5;
+	extra : INT;
+END_VAR
+F_c := baseValue + extra;
+END_FUNCTION
+
+` +
+    `FUNCTION_BLOCK FB_u
+VAR
+	n : INT;
+END_VAR
+n := F_c(extra := 1);
+END_FUNCTION_BLOCK`
+  const of = (vendor: "codesys" | "twincat") => {
+    const parseResult = parseSource(src, vendor)
+    const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
+      .filter((d) => d.code === "function-argument-count")
+      .map((d) => d.message)
+  }
+  expect(of("codesys")).toEqual([])
+  expect(of("twincat")).toEqual(["Function 'F_c' requires exactly '2' inputs"])
+})

@@ -66,8 +66,22 @@ import type { Vendor } from "../../../src/analysis/index.js"
  *
  *   meet_bool_mod_int        the LSP says "MOD is not defined for BOOL"; CODESYS compiles it. The meet-type
  *                            table refuses a pair the vendor accepts.
- *   sysop_position_call_form  `__POSITION` typed as STRING where the destination is DINT. Both cells are the
- *   sysop_position_initializer  same rule in two positions, so one measurement closes both.
+ *   sysop_position_call_form  `__POSITION` typed as plain STRING where CODESYS names a SIZED one —
+ *   sysop_position_initializer  "Cannot convert type 'STRING(INT#23)' to type 'DINT'" in an implementation and
+ *                             `STRING(INT#13)` in a declaration.
+ *
+ * THE MEASUREMENT IS NO LONGER WHAT IS MISSING. `scripts/probe-position-length.ts` pinned the model with twelve
+ * probes and the simulator then handed over the text itself: the length is `21 + digits(line) + digits(column)`
+ * in an implementation and `12 + digits(line)` in a declaration, with the line counted inside the POU's OWN part
+ * (its header is declaration line 1, its first statement is implementation line 1) and the column being the
+ * STATEMENT'S, not the operator's. Every one of the twelve fits, and so do both cells here.
+ *
+ * WHAT IS MISSING IS A SEAM. `rules.rhsDisplay` is where a sized string type is rendered, and it is handed the
+ * expression and its type — not the source text (for the line's indent), nor the unit (for the END_VAR the
+ * implementation starts after). Closing this means threading both down, or hanging the position on the AST node
+ * at parse time. Two fixtures is a thin reason to do either, and an implementation that gets the declaration
+ * form right and guesses the column would be worse than the honest silence: it would be a WRONG number where
+ * this is merely an unsized one.
  */
 export const CODESYS_TRIAGE: ReadonlySet<string> = new Set([
   "sysop_position_call_form",
