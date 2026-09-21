@@ -1023,6 +1023,20 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     //                       `sn_dut_mismatch_used` — one FB declaring a variable of the type — records it on
     //                       both. An editor answers about the file in front of it.
     "sn_dut_mismatch",
+    //   THE `__TRY` FAMILY — a DEVICE fact, and the price of recording both vendors on one target. On
+    //   `TwinCAT RT (x64)` the code generator answers "The codegenerator for the current device does not
+    //   support structured exception handling." for all nine, where the same source built clean on the ARM CE7
+    //   target the project used to carry. It is the same shape as CODESYS's `op_sys_new_delete`: a property of
+    //   the configured device, which an editor cannot know and must not guess at.
+    "op_sys_try_catch",
+    "try_no_fault",
+    "try_divide_by_zero",
+    "try_log_of_zero",
+    "try_finally_no_fault",
+    "try_finally_on_fault",
+    "try_catch_only_on_fault",
+    "try_nested",
+    "try_one_line",
   ]),
   // The `???` fixtures were here while the LSP answered every position with ONE invented sentence. They are
   // NOT divergences any more: the check reads the slot and emits the COMPILER'S wording for it
@@ -1080,6 +1094,14 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     //   `op_sys_new_delete` — the same device fact: the recording project configures no dynamic memory, so every
     //                            __NEW reports that instead of anything about the code.
     "op_sys_new_delete",
+    //   …and the four fixtures beside it that reach the same wall. `__NEW` is answered by the application's
+    //   memory configuration before anything about the code is considered, so the pragma rule this suite is
+    //   really asking about is never reached on THIS recording project.
+    "newdel_without_pragma",
+    "newdel_with_pragma",
+    "newdel_with_pragma_has_method",
+    "newdel_in_method_with_pragma",
+    "newdel_elementary",
     "cc5_deprecated_functionblock_keyword",
     //   `cc6_loop_cannot_exit` — C0266 is CONFIGURABLE too, and the recording project has it OFF: the IDE warns only
     //                            about the sign change in `FOR small : SINT := 1 TO 200`, which the LSP matches.
