@@ -238,6 +238,18 @@ export type Keyword =
  * WHOSE ST IS THIS? The two vendors' vocabularies are not the same, and the difference is in the LEXER, not in
  * a check: a word CODESYS reserves is an ordinary identifier on TwinCAT, and a literal prefix it does not have
  * cascades as a parse error. Everything else about parsing is shared.
+ *
+ * WHERE IT HAS TO BE READ, because a table consulted without it answers for the wrong vendor:
+ *   `lex` / `parseSource`      the keywords and the `<prefix>#` literal forms (here)
+ *   `types/resolve`            `CODESYS_ONLY_TYPES` — LDATE/LTOD/LDT are not types on TwinCAT
+ *   `types/infer`              what an operator RETURNS (`__POSITION`, `__XADD`)
+ *   `analysis/resolution`      whether a name resolves at all, conversions included
+ *   `checks/names/refused-name`  which names the parser refuses — the elementary table again
+ *   `checks/calls/intrinsic-operands`, `checks/types/narrowing`  operand rules keyed on the vocabulary
+ *
+ * That list is not decoration: `refused-name` read the elementary table with no dialect for a day after the rest
+ * had it, and reported a legal TwinCAT declaration (`ldate : INT;`) as a refused name with a ten-message cascade
+ * behind it. A check that consults a shared table and NOT this is the shape of the next one.
  */
 export type Dialect = "codesys" | "twincat"
 
