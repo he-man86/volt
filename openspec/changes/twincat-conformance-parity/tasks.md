@@ -34,11 +34,10 @@
       tracked files. It was swept into a commit today and had to be amended out, which is exactly what
       [[never-git-add-all-during-e2e]] is about. Copied out of the repo under the system temp dir and served
       by `.sln` path; the repo fixture is untouched from here.
-- [ ] **Make that the default.** `-Fixture 13|14|both` serves committed projects IN PLACE and the scratch path is
-      opt-in behind a full `.sln` path — which is backwards, since in-place is the option that can damage the
-      repo. `13`/`14` should copy to a work directory first and serve the copy; a caller who genuinely wants the
-      committed tree can say so. The same applies to the CODESYS fixture (`CodesysTestProject.project`), which
-      `record-exec.py` already copies for exactly this reason — the pattern exists, it is just not used here.
+- [x] **Made that the default** (2026-09-21). `ide.ps1` copies the selected fixture under the temp dir and serves
+      the copy, on BOTH vendors, refreshed on every `up` so it is the committed fixture every time. `-InPlace` is
+      the opt-out, for when the changes are the point. It is the pattern `record-exec.py` already used, now where
+      every live-IDE session goes through it.
 
 ## What the recording is FOR
 
