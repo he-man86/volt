@@ -13,6 +13,7 @@
  * a bare-accessible enum member, or anything in the given scope (parent chain + EXTENDS bases).
  */
 import { CODESYS_ONLY_KEYWORDS, walkExpr, type Expr, type MemberExpr, type Span } from "../syntax/index.js"
+import { CODESYS_ONLY_TYPES } from "../types/index.js"
 import { lookupReference } from "../reference/index.js"
 import { hasUnresolvedBase, isLibrarySymbol, lookup, lookupLocal, lookupMember, resolveBareEnumMember, type Scope } from "../symbols/index.js"
 import { inferExprType, parseConversionName } from "../types/index.js"
@@ -93,7 +94,10 @@ export function nameResolves(name: string, scope: Scope, project: Scope, referen
     return !(project.dialect === "twincat" && CODESYS_ONLY_KEYWORDS.has(name.toUpperCase()))
   // A conversion operator — an implicit token, not a symbol. Only a name CODESYS defines: this matched any `…_TO_…` shape,
   // so `TIME_OF_DAY_TO_UDINT` (not defined) and a project name like `GO_TO_START` were never flagged (consolidate A4).
-  if (parseConversionName(name) !== undefined) return true
+  // …and a conversion is only as real as the TYPES it names: `DATE_TO_LDATE` is a CODESYS operator because LDATE is
+  // a CODESYS type, and TwinCAT answers "Identifier 'DATE_TO_LDATE' not defined" (`types/elementary.ts`).
+  if (parseConversionName(name) !== undefined)
+    return !(project.dialect === "twincat" && name.toUpperCase().split("_TO_").some((part) => CODESYS_ONLY_TYPES.has(part)))
   if (COMPILER_PROVIDED_IMPLICITS.has(lower)) return true
   if (lookupReference(name) !== undefined) return true // built-in operator / std function / std FB / type
   if (references.libraryNamespaces.has(lower)) return true // referenced-library namespace root

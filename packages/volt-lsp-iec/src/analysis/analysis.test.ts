@@ -218,6 +218,31 @@ out := a + b;
 END_FUNCTION_BLOCK`
   expect(diag(t, "codesys")).toEqual([])
 })
+// THE 64-BIT DATE TYPES ARE CODESYS'S TOO. TwinCAT has LTIME and has no LDATE/LTOD/LDT: it answers "Unknown
+// type" for the declaration and "Identifier not defined" for the conversions that would carry them (39 messages
+// across 13 fixtures in its recording, none in CODESYS's).
+test("a CODESYS-only TYPE is unknown on TwinCAT, and so are its conversions", () => {
+  const src = `FUNCTION_BLOCK F
+VAR
+ d : DATE;
+ l : LDATE;
+END_VAR
+l := DATE_TO_LDATE(d);
+END_FUNCTION_BLOCK`
+  expect(diag(src, "codesys")).toEqual([])
+  expect(diag(src, "twincat").map((d) => d.message)).toEqual([
+    "Identifier 'DATE_TO_LDATE' not defined",
+    "Program name, function or function block instance expected instead of 'DATE_TO_LDATE'",
+    "Unknown type: 'LDATE'",
+  ])
+  // …and LTIME, which TwinCAT does have, stays a type on both
+  const lt = `FUNCTION_BLOCK F
+VAR
+ t : LTIME;
+END_VAR
+END_FUNCTION_BLOCK`
+  expect(diag(lt, "twincat")).toEqual([])
+})
 test("vendor-keyed wording: ABSTRACT instantiation", () => {
   const src = `FUNCTION_BLOCK ABSTRACT FB_A\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK F\nVAR\n x : FB_A;\nEND_VAR\nEND_FUNCTION_BLOCK`
   expect(diag(src, "codesys").find((d) => d.code === "abstract-instantiation")?.message).toBe(

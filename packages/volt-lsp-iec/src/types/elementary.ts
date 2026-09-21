@@ -113,6 +113,22 @@ export const ELEM_ALIASES: ReadonlyMap<string, string> = new Map([
 ])
 
 /**
+ * THE 64-BIT DATE TYPES ARE CODESYS'S ALONE. TwinCAT has `LTIME` and does NOT have `LDATE`, `LTOD`/
+ * `LTIME_OF_DAY` or `LDT`/`LDATE_AND_TIME`: it answers "Unknown type: 'LDATE'" for a declaration, and
+ * "Identifier 'DATE_TO_LDATE' not defined" for the conversions that would carry them (39 messages across 13
+ * fixtures in its recording, and none in CODESYS's — 2026-09-20).
+ *
+ * Kept here rather than in `syntax/tokens.ts` with the CODESYS-only KEYWORDS, because these are type NAMES:
+ * the lexer is right to treat them the same either way, and it is resolution that has to refuse them.
+ */
+export const CODESYS_ONLY_TYPES: ReadonlySet<string> = new Set([
+  "LDATE",
+  "LTOD",
+  "LTIME_OF_DAY",
+  "LDT",
+  "LDATE_AND_TIME",
+])
+/**
  * THE PLATFORM-PORTABLE INTEGERS, which are a different kind of alias: the COMPILER resolves them by target width,
  * and by the time it prints a message the alias is gone. They are in the vendor's Elementary group and were missing
  * from this table entirely, so `elementaryType("__XINT")` was undefined and every check gating on `checkable()` said

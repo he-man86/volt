@@ -23,12 +23,15 @@ import { computeSemanticDiagnostics, messagesFor, resolveConfig } from "../src/a
 import { computeNetworkTextDiagnostics } from "../src/network/index.js"
 import { comparable } from "../test/conformance/support/compare-message.js"
 
-const build = JSON.parse(readFileSync(join(import.meta.dir, "..", "test", "conformance", "recordings", "codesys.build.json"), "utf8")).tests as Record<
-  string,
-  { diagnostics: { severity: string; message: string }[] }
->
-const config = resolveConfig({ vendor: "codesys" })
-const std = STANDARD_LIBRARY.map((l) => ({ uri: l.uri, parseResult: parseSource(l.source), source: l.source }))
+// WHICH VENDOR? `VOLT_VENDOR=twincat` picks the other recording AND the other dialect — since the vocabulary,
+// the wording and one collapse rule all differ, reading TwinCAT's residue through a CODESYS analysis would invent
+// differences that are not there.
+const vendor = process.env.VOLT_VENDOR === "twincat" ? ("twincat" as const) : ("codesys" as const)
+const build = JSON.parse(
+  readFileSync(join(import.meta.dir, "..", "test", "conformance", "recordings", `${vendor}.build.json`), "utf8"),
+).tests as Record<string, { diagnostics: { severity: string; message: string }[] }>
+const config = resolveConfig({ vendor })
+const std = STANDARD_LIBRARY.map((l) => ({ uri: l.uri, parseResult: parseSource(l.source, vendor), source: l.source }))
 const buckets = new Map<string, string[]>()
 const add = (k: string, name: string) => buckets.set(k, [...(buckets.get(k) ?? []), name])
 const missingMessages = new Map<string, number>()
@@ -37,7 +40,7 @@ const perFixture: [name: string, missing: string[], extra: string[]][] = []
 const only = process.argv.slice(2).filter((a) => !a.startsWith("--"))
 /** Each fixture as a DECLARATION source for the others — programs dropped, as the replay drops them. */
 const crossDecls = ALL_TESTS.filter((t) => t.source !== "").map((t) => {
-  const parsed = parseSource(t.source)
+  const parsed = parseSource(t.source, vendor)
   return {
     name: t.name,
     uri: `${t.pouName}__decl.st`,
@@ -63,11 +66,11 @@ for (const t of ALL_TESTS) {
   const own = new Set(fixtures.map((f) => f.name))
   const files = [
     ...fixtures.map((f) => ({ name: f.name, uri: `${f.pouName}.st`, parseResult: parseSource(f.source), source: f.source })),
-    { name: `${t.name}__plcprg`, uri: "plc_prg.prg", parseResult: parseSource(plc), source: plc },
+    { name: `${t.name}__plcprg`, uri: "plc_prg.prg", parseResult: parseSource(plc, vendor), source: plc },
     ...crossDecls.filter((d) => !own.has(d.name)).map((d) => ({ ...d, name: `${d.name}__decl` })),
     ...std.map((l) => ({ ...l, name: "__std" })),
   ]
-  const project = buildSymbolTable(files)
+  const project = buildSymbolTable(files, [], vendor)
   const lsp: string[] = []
   // Only the fixture's OWN file and its PLC_PRG are ANALYZED — a dependency is in the project to resolve against,
   // not to be diagnosed, exactly as `fixtures.test.ts` does it. Analyzing them too attributed one fixture's findings

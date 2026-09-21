@@ -7,7 +7,7 @@ import type { Scope } from "../symbols/index.js"
 import { findChildScope, isLibrarySymbol, lookupLocal } from "../symbols/index.js"
 import type { Span, TypeDecl, TypeExpr } from "../syntax/index.js"
 import { constEval } from "./const-eval.js"
-import { elementaryType } from "./elementary.js"
+import { CODESYS_ONLY_TYPES, elementaryType } from "./elementary.js"
 import { elementaryRef, elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
 
 const MAX_ALIAS_DEPTH = 10
@@ -87,7 +87,9 @@ export function typeToTypeExpr(t: Type, span: Span): TypeExpr | undefined {
 
 /** Resolve a bare type name (elementary built-in, or a project-declared FB/enum/struct/alias). */
 export function resolveNamedType(name: string, project: Scope, depth = 0): Type {
-  const elem = elementaryType(name)
+  // …unless the project's dialect does not have it: `LDATE`/`LTOD`/`LDT` are CODESYS's (see
+  // `CODESYS_ONLY_TYPES`), and on TwinCAT the name reaches the symbol lookup like any other unknown one.
+  const elem = project.dialect === "twincat" && CODESYS_ONLY_TYPES.has(name.toUpperCase()) ? undefined : elementaryType(name)
   if (elem !== undefined) return elementaryTypeRef(elem)
 
   const syms = lookupLocal(project, name)

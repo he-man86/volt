@@ -838,7 +838,9 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // into the meet. `aUlint MOD aSint` meets at LINT and the ULINT operand warns; `aLint + aReal` meets at REAL
   // and the LINT operand warns about the mantissa. Neither pair is the same WIDTH, which is all the check used
   // to look at, so it had no rule to name a whole family of conversions with.
-  { vendor: "twincat", floor: 2346 },
+  // 2346 -> 2351: the 64-bit DATE types are CODESYS's as well — TwinCAT has LTIME and has no LDATE, LTOD or
+  // LDT, so a declaration is "Unknown type" there and `DATE_TO_LDATE` is an identifier nothing defines.
+  { vendor: "twincat", floor: 2351 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
