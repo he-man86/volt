@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Volt.Engine.Format.Task;
 using Volt.Engine.Item;
 
@@ -78,4 +79,22 @@ public interface ICodeStore
     /// renders a different `.task` shape entirely and REFUSES rather than guess at one nobody has
     /// measured.</para></summary>
     void WriteTask(ItemRef task, TaskSettings settings);
+
+    /// <summary>Throw exactly what <see cref="WriteContent"/> would throw, for the reasons this driver can
+    /// decide WITHOUT touching the IDE. Called by the push PRE-FLIGHT, before any op has been applied.
+    ///
+    /// <para><b>Why the engine cannot do this itself.</b> Its own pre-flight covers everything decidable from
+    /// the source text alone — a malformed document, network text that does not parse or is not canonical — and
+    /// that is vendor-neutral by construction. What it cannot cover is a shape one VENDOR cannot express:
+    /// TwinCAT's PLCopen writer refuses an unconditional jump or return, an Execute box, and a box output pin
+    /// wired straight to a variable, and it refuses them from a pure function of the parsed body. Being pure is
+    /// the whole point — it was being called from inside the write, so a push whose second item carried one left
+    /// the first item in the project and told the caller it had failed.</para>
+    ///
+    /// <para><see cref="DriverBase"/> refuses nothing, which is the honest answer for a driver whose refusals
+    /// genuinely need the live objects: a pre-flight that guesses is worse than one that declines to. (It lives
+    /// there rather than as a default interface member because this engine still targets net48 for the CODESYS
+    /// host, which has no such thing.)</para></summary>
+    void ValidateSource(string wireName, string sourceText,
+                        IReadOnlyDictionary<string, string> pushedDeclarations);
 }

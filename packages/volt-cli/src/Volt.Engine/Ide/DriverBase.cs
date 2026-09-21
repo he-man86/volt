@@ -21,6 +21,13 @@ namespace Volt.Engine.Ide;
 /// read + throttle + overlay); a vendor no longer returns a <see cref="HealthResponse"/> at all.</para></summary>
 public abstract class DriverBase : IIdeSession
 {
+    /// <summary>The push pre-flight, defaulting to REFUSE NOTHING — see <c>ICodeStore.ValidateSource</c>. A
+    /// driver whose refusals need the live project leaves it alone rather than guessing at them here; TwinCAT
+    /// overrides it, because its PLCopen writer decides several of them from the parsed body alone.</summary>
+    public virtual void ValidateSource(string wireName, string sourceText,
+                                       System.Collections.Generic.IReadOnlyDictionary<string, string> pushedDeclarations)
+    { }
+
 
 
     private volatile bool _isDegraded;

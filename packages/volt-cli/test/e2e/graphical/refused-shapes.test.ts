@@ -15,18 +15,17 @@
  *       or it is refused with a reason that names the shape. The refusal message for the output-pin case says
  *       the importer would lower the wire to a separate assignment — an accepted push that came back reshaped
  *       would be the data-loss bug the refusal exists to prevent, and only a live IDE can tell the two apart.</li>
- *   <li><b>A refused push SAYS what it wrote.</b> `PushService` validates everything decidable from the source
- *       text before touching the IDE, and says plainly that this does not cover a refusal only the vendor can
- *       raise mid-write. The output-pin case is one: it pushes two items, the first lands, the second is
- *       refused. That is survivable precisely because the refusal names it — "1 of 2 item(s) were already
- *       written to the IDE before this one failed" — and the unsurvivable version is the SILENT one, where a
- *       caller is told nothing happened and half of it did. This asserts the naming.</li>
+ *   <li><b>A refused push writes NOTHING.</b> This was FALSE when the suite was written: the output-pin case
+ *       pushes two items, and it wrote the first, refused the second, and told the caller the push had failed.
+ *       `PushService` validated everything decidable from the source text before touching the IDE and said
+ *       plainly that this could not cover a refusal only the vendor raises — but every refusal here comes from
+ *       a PURE function of the parsed body, so it was reachable all along. `ICodeStore.ValidateSource` runs the
+ *       driver's own writer in the pre-flight now, and this is what proves it against a live IDE.</li>
  * </ol>
  *
- * <p>The stronger property — a refused push writes NOTHING — is the gap this suite is here to hold open, as the
- * `todo` below. Closing it means the driver can answer "would you take this body?" without writing it, which is
- * a new seam through the vendor boundary and a decision rather than a fix. Until then a partial write is stated
- * rather than prevented, and the difference between those two is the whole reason to test it.</p>
+ * <p>On a CREATE, which is what these push. An UPDATE rewrites only the networks that CHANGED, so a body may
+ * legitimately carry a shape the whole-body writer refuses — an Execute box the engineer drew, in a network the
+ * edit does not touch — and validating the whole body there would refuse an edit that works.</p>
  *
  * <p>The table below records which shapes are refused TODAY, per vendor. When a driver learns one, this suite
  * FAILS — "took it, take it off the list" — which is the prompt to delete the entry, not a regression. It is the
@@ -205,16 +204,14 @@ describe(`graphical / shapes a driver refuses (${BASE})`, () => {
 				expect(refused, `${shape.what} was REFUSED on ${VENDOR}, which the table does not expect:\n${JSON.stringify(r.conflicts)}`).toBe(true)
 				// The reason is the whole value of a refusal: a bare rejection tells an engineer to try again.
 				expect(JSON.stringify(r.conflicts ?? []).length, `${shape.what} was refused with no reason`).toBeGreaterThan(40)
-				// …and whatever DID land is named. A silent partial write is the dangerous one: the caller is told
-				// the push failed, acts on that, and half of it is in the project.
+				// …AND NOTHING LANDED. The refusals here are decided by the driver's PLCopen writer, which is a pure
+				// function of the parsed body — so `ICodeStore.ValidateSource` runs it in the push PRE-FLIGHT and the
+				// whole family is refused before the first write. Until that existed, this shape wrote
+				// `VltRefSplit.fun` and then refused `VltRefArrow.fb`: a push the caller was told had failed, with
+				// half of it in the project.
 				const after = await versions()
 				const added = Object.keys(after).filter((n) => before[n] === undefined)
-				if (added.length > 0)
-					expect(
-						JSON.stringify(r.conflicts ?? []),
-						`a refused push wrote ${added.join(", ")} and did not say so`,
-					).toContain("already written")
-				await remove(names)
+				expect(added, `a REFUSED push wrote ${added.join(", ")} to the project anyway`).toEqual([])
 				return
 			}
 
@@ -225,9 +222,4 @@ describe(`graphical / shapes a driver refuses (${BASE})`, () => {
 		})
 	}
 
-	// THE GAP, held open where it will be read. Today `VltRefSplit.fun` lands and `VltRefArrow.fb` is refused,
-	// and the refusal says so; the property worth having is that neither lands. It needs the driver to answer
-	// "would you take this body?" without writing it — a pre-flight through the vendor boundary, which
-	// `PushService` documents as the one class its own pre-flight cannot cover.
-	it.todo("a refused push writes nothing at all — needs a vendor pre-flight seam", () => {})
 })

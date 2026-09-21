@@ -101,6 +101,28 @@ public class TcPlcOpenWriterTests
             .Descendants(tc6 + "body").Single().Elements().Single();
     }
 
+    // -- the push PRE-FLIGHT: refused before anything is written -------------------------------------
+
+    /// <summary>THE REFUSALS ARE PURE, AND THE PUSH USES THAT NOW.
+    ///
+    /// <para>Every shape this writer rejects is decided from the parsed body — no IDE, no project, no live
+    /// objects. It was nevertheless only ever reached from INSIDE a write, so a push whose second item
+    /// carried one wrote the first item and then failed: the caller was told the push was refused and half
+    /// of it was in the project. `BeckhoffDriver.ValidateSource` runs this same serialization in
+    /// `PushService`'s pre-flight, and this is the proof it throws there for the same reasons.</para>
+    ///
+    /// <para>The live half is `volt-cli/test/e2e/graphical/refused-shapes.test.ts`, which pushes each shape
+    /// at a real TwinCAT and asserts nothing lands.</para></summary>
+    [Theory]
+    [InlineData("JMP Onwards;", "unconditional jump")]
+    [InlineData("RETURN;", "unconditional return")]
+    public void APreflightRefusesWhatTheWriterCannotExpress(string statement, string expected)
+    {
+        var text = $"NETWORK 0 LD\n  {statement}\nEND_NETWORK\n";
+        var ex = Assert.ThrowsAny<Exception>(() => Lower(NetworkTextReader.Parse(text)));
+        Assert.Contains(expected, ex.Message);
+    }
+
     // -- routing: which door does a push take? ------------------------------------------------------
 
     /// <summary>WHAT COUNTS AS "THE IDE HAS NO BODY YET" — and the first answer was wrong.

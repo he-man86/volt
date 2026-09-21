@@ -187,9 +187,14 @@ importer and **none of them has been put to the IDE**: they are the driver's rul
 exactly like "Volt does not" from outside. So the suite carries a table of which shapes are refused where, and
 **fails when a driver learns one** - "took it, take it off the list" - which is the only thing that keeps a
 list of known gaps honest. It asserts two properties that hold whichever way each one goes: an accepted push
-round-trips BYTE-IDENTICAL, and a refused push that wrote anything SAYS so. The stronger property (a refusal
-writes nothing at all) is a `todo` there, because it needs a pre-flight through the vendor boundary -
-`PushService` documents that as the one class its own pre-flight cannot cover.
+round-trips BYTE-IDENTICAL, and a refused push writes NOTHING.
+
+That second one was false when the suite was written - the output-pin case pushed two items, wrote the first
+and refused the second - and it is what made the fix findable. The refusals come from TwinCAT's PLCopen
+writer, which is a pure function of the parsed body, so `ICodeStore.ValidateSource` now runs it in
+`PushService`'s pre-flight and the whole family is refused before the first write. On a CREATE only: an update
+rewrites just the networks that CHANGED, so a body may legitimately carry a shape the whole-body writer refuses
+in a network the edit does not touch.
 
 These four are also the only LSP conformance fixtures with no TwinCAT recording, which is how the asymmetry
 surfaced: the recorder cannot push them either.

@@ -161,6 +161,40 @@ one — how much of what each vendor SAYS the LSP says back. It was 2203 / 2412 
       down) is the work list. The next one worth taking is whichever family a recording can settle, not whichever
       is largest.
 
+## What the recorder could not push — and the CLI bug behind it
+
+- [x] **Five fixtures have no TwinCAT recording, because `volt push` refuses them.** An unconditional `JMP`, an
+      unconditional `RETURN`, an `EXECUTE` box, and a box output pin wired straight to a variable. They are
+      marked on the fixtures (`vendorRefuses`) as where the ground truth is missing and why — worded as VOLT'S
+      refusal, because "TwinCAT cannot" reads exactly like "Volt does not" from outside.
+- [x] **Held as a live ratchet instead of a note**: `volt-cli/test/e2e/graphical/refused-shapes.test.ts` pushes
+      all four at a real IDE on both vendors and fails when a driver learns one — "took it, take it off the
+      list". CODESYS takes all four and round-trips them byte-identical; TwinCAT refuses all four.
+- [x] **And it found a real CLI bug the first time it ran.** The output-pin case pushes two items: the first
+      LANDED, the second was refused, and the caller was told the push had failed. `PushService` validates
+      everything decidable from the source text before touching the IDE and said plainly that this could not
+      cover a refusal only the vendor raises — but every one of these comes from a PURE function of the parsed
+      body, so it was reachable all along. `ICodeStore.ValidateSource` now runs the driver's own writer in the
+      pre-flight; on a CREATE only, because an update rewrites just the networks that CHANGED and a body may
+      legitimately carry a shape the whole-body writer refuses in a network the edit does not touch.
+- [x] **"Still unmeasured" was wrong, and checking cost one read of `DIALECT.md`.** C20 already holds the live
+      XAE measurement for every one of these, dated 2026-09-05/06. An unconditional jump or return is rejected
+      by the importer with `Value cannot be null. Parameter name: source`, and the IDENTICAL document carrying a
+      `connectionPointIn` imports and round-trips — the connection is the only difference between the two. An
+      `<outVariable>` wired by `formalParameter="ET"` is accepted and the formal parameter IGNORED:
+      `t1(IN := a, PT := pt, ET => el)` comes back as `el := t1(IN := a, PT := pt)`, the variable on the box's
+      unnamed RESULT, which for a TON assigns a BOOL to a TIME variable. An `EXECUTE` block imports as a plain
+      box whose type name is the string `EXECUTE`, with the ST gone entirely. The doubt was mine; the
+      measurements were on disk the whole time.
+- [x] **And the shapes EXIST in TwinCAT — which is what makes the fixtures worth having.** The Execute box was
+      drawn by hand in XAE (`test/Volt.Ide.Twincat.Tests/fixtures/tc-pou/execute-box.TcPOU`), Volt reads it, and
+      its ST edits in place on a live XAE. So the honest sentence is never "TwinCAT cannot take them" but "Volt
+      has no CREATE route", which is what every message says.
+- [ ] **What is left is a fixture, not a question.** The five want a TwinCAT recording, and the way in is the
+      one `execute-box.TcPOU` took: draw the shape in XAE by hand, pull it, record the build. Nothing measured
+      suggests the refusal lifts — the create route is closed on evidence, and re-opening it means costing out
+      the in-proc host (DIALECT N12).
+
 ## The transport decision — MEASURED, and the answer is no
 
 - [x] Measure `volt push` + `volt build` per fixture against the raw-wire path. **The CLI is not a transport for

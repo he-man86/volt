@@ -47,7 +47,16 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 		const name = id(slug)
 		const item = fid(slug, "prg")
 		await clean(item)
-		const src = `PROGRAM ${name}\n(* @volt-implementation *)\nVAR\n${vars}END_VAR\n\n${body}\nEND_PROGRAM\n`
+		// THE MARKER GOES AFTER `END_VAR`, and it took this suite's two failures to notice it was not.
+		//
+		// `(* @volt-implementation *)` says where the DECLARATION ends, so putting it above `VAR` made the whole
+		// `VAR … END_VAR … NETWORK …` blob the implementation — stored VERBATIM as ST, because a body that does
+		// not start with `NETWORK` is not network text. It round-tripped byte-identically for exactly that
+		// reason: nothing graphical ever ran. Seven of these assertions were proving that a text blob survives a
+		// push, and the two that failed were the only honest signal in the file — they asked for a graphical
+		// refusal from a body the graphical path never saw. Every other suite in this folder already writes it
+		// the right way (`create-shapes`, `fanout`, `comments`, `graphical-kinds`).
+		const src = `PROGRAM ${name}\nVAR\n${vars}END_VAR\n(* @volt-implementation *)\n${body}\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 

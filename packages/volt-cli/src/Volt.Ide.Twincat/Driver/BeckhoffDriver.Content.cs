@@ -41,6 +41,52 @@ public sealed partial class BeckhoffDriver
         return new ItemContent(KindOf(item), declaration.TrimEnd('\n'), body, members);
     }
 
+    /// <summary>The push PRE-FLIGHT: refuse a body this driver could not write, before anything is written.
+    ///
+    /// <para><b>Every refusal it raises is already pure.</b> `TcPlcOpenWriter` turns a parsed body into a
+    /// document and throws on the shapes TwinCAT's importer will not take — an unconditional jump or return,
+    /// an Execute box, a box output pin wired straight to a variable — and it does that before the IDE is
+    /// touched at all. It was simply being reached from inside the write, so a two-item push carrying one of
+    /// them wrote the first item, refused the second, and told the caller the push had failed. Running the same
+    /// serialization here costs one throwaway document per graphical body and moves the whole family in front
+    /// of the first write.</para>
+    ///
+    /// <para>It deliberately stops there. The IMPORT that follows in a real write can still fail on something
+    /// only the live project knows, and pretending otherwise here would be a pre-flight that lies.</para></summary>
+    public override void ValidateSource(string wireName, string sourceText,
+                               IReadOnlyDictionary<string, string> pushedDeclarations)
+    {
+        var split = StReader.Read(sourceText, null);
+        foreach (var (body, declaration) in BodiesOf(split))
+        {
+            if (body is not { } text || !NetworkText.Is(text)) continue;
+            var model = NetworkTextReader.Parse(text);
+            // The name is the scratch POU's, and nothing reads it back — only whether the writer throws.
+            TcPlcOpenWriter.WriteProject("VoltPreflight", model, declaration,
+                                         n => DeclarationOfName(pushedDeclarations, n));
+        }
+    }
+
+    /// <summary>Every body a document carries, WITH THE DECLARATION IT RESOLVES AGAINST — the POU's own, each
+    /// member's, and a property's accessors, which have no body of their own and are the half a `m.Body` walk
+    /// silently skips.
+    ///
+    /// <para>The pairing is <see cref="Scope"/>'s, and pairing it wrong is a pre-flight that invents refusals:
+    /// a method's `t1(IN := a)` resolves `t1` in the METHOD's VAR block first and the POU's after, so handing
+    /// the writer only the POU's declaration would refuse a body the write itself takes — the one failure a
+    /// pre-flight must never have.</para></summary>
+    private static IEnumerable<(string? Body, string? Declaration)> BodiesOf(ItemContent split)
+    {
+        yield return (split.Body, split.Declaration);
+        foreach (var m in split.Members)
+        {
+            var scope = Scope(m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, split.Declaration);
+            yield return (m.Body, scope);
+            yield return (m.Getter?.Body, Scope(m.Getter?.Declaration, scope));
+            yield return (m.Setter?.Body, Scope(m.Setter?.Declaration, scope));
+        }
+    }
+
     public void WriteContent(ItemRef item, ItemContent content,
                              IReadOnlyDictionary<string, string> pushedDeclarations)
     {

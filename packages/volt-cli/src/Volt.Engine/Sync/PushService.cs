@@ -82,9 +82,13 @@ public static class PushService
         // nothing before it; hoisting it here subsumed that guard, so the local copy is gone rather than left
         // as a call that can no longer throw.
         //
-        // What this does NOT make atomic is a refusal that only the VENDOR can raise mid-write (a type the
-        // driver cannot resolve, a body the IDE rejects). Those stay possible, and the rejection below says so
-        // rather than implying nothing happened.
+        // The driver is asked too (`ICodeStore.ValidateSource`), for the refusals it can decide from the text
+        // without touching the IDE — TwinCAT's PLCopen writer refuses several body shapes from a pure function
+        // of the parsed model, and those used to fire from inside the write with earlier ops already landed.
+        //
+        // What this still does NOT make atomic is a refusal that genuinely needs the LIVE project: a type the
+        // driver cannot resolve, a body the IDE itself rejects on import. Those stay possible, and the rejection
+        // below says so rather than implying nothing happened.
         var applied = new List<(string Action, string Name)>();  // what each op did, for the write receipt in the log
         var opTotal = request.Ops.Count;
 
@@ -125,6 +129,20 @@ public static class PushService
                     // and `ItemKindIsNotRewritable` refuses it with the better message — it can name what the
                     // object actually is, which a create has nothing to ask.
                     ValidateSourceOrThrow(text, creating, creating ? ItemKind.KindForWireName(set.Name) : null);
+                    // …and what only the DRIVER can decide without writing. This is the class the comment above
+                    // used to name as out of reach — a body one vendor's format cannot express — and it is out
+                    // of reach only for the ENGINE: TwinCAT's PLCopen writer is a pure function of the parsed
+                    // body, so asking it here costs one throwaway serialization and moves a whole family of
+                    // refusals in front of the first write. Proved live in
+                    // `test/e2e/graphical/refused-shapes.test.ts`, which used to watch a two-item push write the
+                    // first and refuse the second.
+                    //
+                    // A CREATE ONLY, and the asymmetry is the vendor's own: an update rewrites just the
+                    // networks that CHANGED, so a body can legitimately carry a shape the whole-body writer
+                    // refuses — an Execute box the engineer drew in the IDE, in a network this edit does not
+                    // touch. Validating the whole body on an update would refuse that edit, which is a worse
+                    // failure than the partial write this is here to stop.
+                    if (creating) ide.ValidateSource(set.Name, text, pushedDeclarations);
                 }
             }
             catch (Exception ex) { return Reject(op, ex); }
