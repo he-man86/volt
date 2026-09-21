@@ -246,6 +246,16 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     "newdel_target_with_pragma",
     "newdel_target_without_pragma",
     "newdel_struct_with_pragma",
+    //   THE `__…ImpVar<n>` CELLS — a name no offline analyzer can produce. A graphical body whose sink has no
+    //   name makes the compiler invent a variable for it, and the name carries a COUNTER over the POU's own
+    //   implicit variables: `__FB_NG_en__ImpVar18`, `__FB_NG_enwire__ImpVar20`,
+    //   `__FB_LANG_network_unnamed_target_en__ImpVar15`. Both messages in each of these three quote that name,
+    //   so matching them would mean reproducing the numbering of a pass the LSP does not have and does not
+    //   want — it creates no implicit variables at all. The SHAPE is already reported: the unnamed sink draws
+    //   the compiler's own "The assignment target is not specified." from `network-analysis`.
+    "network_unnamed_target_behind_enable",
+    "ng_en_eno_sink",
+    "ng_en_eno_named_wire",
     //   THE VAR_PERSISTENT FAMILY — an APPLICATION fact of the same kind: "No VAR_PERSISTENT list is part of the
     //   application to enter instance path for variable PLC_PRG.inst.n" is about what the application is
     //   configured with, not about the declaration. TwinCAT's project HAS such a list and records nothing for the

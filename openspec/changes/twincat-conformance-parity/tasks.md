@@ -176,11 +176,33 @@ one — how much of what each vendor SAYS the LSP says back. It was 2203 / 2412 
       NOTHING on either vendor — not for a self-reference, not for a different FB, not for a STRUCT, and not by
       its absence. CODESYS names the missing memory pool beside the message and TwinCAT does not, which is the
       only difference between them. Five TwinCAT cells joined the divergence list with that evidence.
-- [ ] **What is left is a long tail on both vendors** — 31 CODESYS fixtures and 46 TwinCAT ones (2523 and 2501 of
-      2579), with no cluster bigger than six. The biggest is TwinCAT's ABANDONED VAR BLOCK: a declaration that
-      fails to parse loses the REST of the declaration part, so `'END_VAR' expected instead of ''` lands at its
-      end and every later variable is undefined in the body. `agreement-residue.ts` is the work list, and it and
-      the harness must keep building the SAME project — that is what went wrong above.
+- [x] **A DECLARATION IS NOT A DEAD ZONE, and four checks were treating it as one.** They walked BODIES and
+      stopped at the `:=` of a declaration, so a whole class of message was missing wherever a project puts an
+      expression in an initializer: an undefined NAME there (`n : DINT := nope;`), the HOLE that name leaves,
+      and every conversion INSIDE the initializer (`i : DINT := REAL_TO_DINT(EXPT(2, 10))` converts nothing at
+      the store and everything at the argument). One rule came with them — a `__` name the compiler does not
+      know is a PARSE refusal there, not an undefined identifier — and four probes were needed to tell that
+      apart from "an initializer must fold", which it is not: a sibling VARIABLE initializes one just fine.
+      - The corpus caught the one false positive: `{attribute 'qualified_only'}` governs access from OUTSIDE the
+        list, and `lookup` dropped such a symbol at every level INCLUDING its own. That never mattered while the
+        check walked bodies, because a GVL has no body.
+- [x] **Three more families, each closed by asking the cells nobody had asked.** `TEST_AND_SET` takes a DWORD by
+      ADDRESS and eleven operand types turn four cells into one sentence (the operand converts as an assignment
+      would, and the temporary that produces has no address). A UNARY operator converts its operand and says so
+      — two rows of that rule had been written down as "nothing" because the operand half was read as the result
+      conversion. Partial access `.%X`/`.%B`/`.%W`/`.%D` is a CODESYS extension at every width, and asking `.%X`
+      handed the transpiler the measurement it had been bailing on.
+- [x] **And two TwinCAT rules a note had already guessed at.** `LOWER_BOUND`/`UPPER_BOUND` need a
+      variable-length array there; a DEFAULT does not make an input optional there. The second was written in
+      `call-arguments` as "a different question and not measured" — `callshape_input_left_out` had been
+      measuring it the whole time.
+- [ ] **What is left is a long tail on both vendors** — 22 CODESYS fixtures and 36 TwinCAT ones (2545 and 2528
+      of 2595), with no cluster bigger than six. The biggest is TwinCAT's ABANDONED VAR BLOCK: a declaration
+      that fails to parse loses the REST of the declaration part, so `'END_VAR' expected instead of ''` lands at
+      its end and every later variable is undefined in the body. Beside it sits the `calc` family, which is the
+      same recovery on both vendors and whose subset is documented as deliberate in `conditional-call.ts`.
+      `agreement-residue.ts` is the work list, and it and the harness must keep building the SAME project —
+      that is what went wrong above.
 
 ## What the recorder could not push — and the CLI bug behind it
 
