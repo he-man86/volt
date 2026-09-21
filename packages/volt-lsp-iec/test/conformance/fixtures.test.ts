@@ -1110,6 +1110,16 @@ const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     "newdel_with_pragma_has_method",
     "newdel_in_method_with_pragma",
     "newdel_elementary",
+    //   THE VAR_PERSISTENT FAMILY — an APPLICATION fact of the same kind: "No VAR_PERSISTENT list is part of the
+    //   application to enter instance path for variable PLC_PRG.inst.n" is about what the application is
+    //   configured with, not about the declaration. TwinCAT's project HAS such a list and records nothing for the
+    //   same five fixtures, which is the clearest proof it is configuration: same source, two projects, two
+    //   answers.
+    "var_persistent",
+    "decl_persistent_counts",
+    "decl_persistent_initialized",
+    "decl_retain_persistent_counts",
+    "decl_retain_persistent_initialized",
     "cc5_deprecated_functionblock_keyword",
     //   `cc6_loop_cannot_exit` — C0266 is CONFIGURABLE too, and the recording project has it OFF: the IDE warns only
     //                            about the sign change in `FOR small : SINT := 1 TO 200`, which the LSP matches.

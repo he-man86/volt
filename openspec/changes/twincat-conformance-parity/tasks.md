@@ -114,6 +114,42 @@
       both vendors say nothing about the header and complain where the missing FB is USED), and
       `ldate_ltod_ldt` (after an unknown literal prefix the two parsers resync differently).
 
+## After the backlog: the agreement number itself
+
+The false-positive gate went to three on TwinCAT and two on CODESYS, and then the interesting number was the other
+one — how much of what each vendor SAYS the LSP says back. It was 2203 / 2412 that morning and is **2447 / 2486 of
+2561** now. None of it came from inventing rules: every step is a measurement the recordings already held.
+
+- [x] **TwinCAT never says the same thing twice on one LINE.** 111 of 2541 CODESYS fixtures carry a message
+      repeated on a single line; the number of TwinCAT fixtures that do is ZERO. Not a rule about any check — it
+      is what its error list does — so it collapses once, where the diagnostics leave the analyzer. FIFTY
+      fixtures, and no check changed.
+- [x] **Six checks were gated on "TwinCAT unmeasured"** — a note written when TwinCAT's recording covered 280
+      fixtures. Un-gated: 73 more. An IL operator used as a name cascades identically on both, down to the ten
+      messages and their order; `**` and `&` are refused by both, which "may accept either" had guessed away.
+      Three more followed (dynamic creation, conditional call, FB_init), each a WORDING difference and nothing else.
+- [x] **A bitwise operator computes in the unsigned integer of its width**, so both operands convert in and the
+      result converts back out — three warnings on CODESYS for `out := a AND b` with LINT operands, where the LSP
+      said nothing because it typed the result LINT. Twelve fixtures on each vendor.
+- [x] **Arithmetic meets its operands, and both convert into the meet.** `aUlint MOD aSint` meets at LINT and the
+      ULINT operand crosses sign; `aLint + aReal` meets at REAL and the LINT operand loses mantissa. The check had
+      only ever looked at SAME-WIDTH pairs. 29 fixtures on each vendor.
+- [x] **A one-argument math function hands back the real it was given** (`mathret_*`, twenty new cells, all ten
+      functions both ways). The catalog modelled no return type for any of them, so every narrowing through one was
+      silent — and a declaration's initializer was only checked when it was a LITERAL, so an initializer with a
+      SHAPE converted without a word either.
+- [x] **The 32-bit floor on a comparison's sign warning is CODESYS's**, not a shared rule: TwinCAT warns at
+      SINT/USINT and INT/UINT too. Thirteen fixtures the LSP was UNDER-reporting, which never makes a gate red.
+- [x] **File the device and application facts where they belong.** Nine TwinCAT fixtures (`__TRY` on an x64 device
+      with no structured exception handling), five CODESYS ones (`__NEW` with no dynamic-memory pool) and five more
+      (`VAR_PERSISTENT` with no persistent list in the application) were sitting in the residue as if the LSP owed
+      them a message. It cannot know any of them. The VAR_PERSISTENT five are the clearest case: TwinCAT's project
+      HAS such a list and records nothing for the same source.
+- [ ] **What is left is mostly parse-recovery shape.** After an unknown literal prefix TwinCAT reports a pair per
+      token until the `;` where the LSP reports one pair and resyncs (~15 fixtures); the IL-operator CALL forms
+      (`GT(a, b)`) cascade to 78 messages on CODESYS. Both are the parser's recovery, not a rule, and matching them
+      would mean a vendor-shaped parser. Measure whether that is worth it before writing any of it.
+
 ## The transport decision
 
 - [ ] Measure `volt push` + `volt build` per fixture against the raw-wire path (~3s/fixture) on a batch of ~50.
