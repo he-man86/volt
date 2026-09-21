@@ -43,20 +43,21 @@
 
 - [x] Raise the TwinCAT replay floor from 266 to what the fresh recording supports. **266 -> 2241** over the
       day, in the steps the `FLOORS` comment records; the backlog of LSP-only messages went **79 -> 3**.
-- [ ] Raise it again where the LSP now UNDER-reports: TwinCAT warns about a sign crossing in a COMPARISON where
-      CODESYS does not (13 `cmp_sign_*` cells, measured on both). Those are misses, not false positives, so no
-      gate is red — they are simply 13 agreement points sitting on the table.
-- [ ] The `__TRY` family is a new miss and a deliberate one: on `TwinCAT RT (x64)` the device's code generator
-      does not support structured exception handling, so nine fixtures that built clean on ARM now record
-      "The codegenerator for the current device does not support structured exception handling." Comparing two
-      vendors needs ONE target; this is what that costs.
-- [ ] Re-check every `KNOWN_DIVERGENCES.twincat` entry against the fresh data. It is eight now, and six of them
-      were checked against the fresh recording the day they were added. The two older ones are not:
-      `operand_uchar_literal` is closed in principle by the dialect work (the prefix is CODESYS's) and needs
-      re-measuring, and `op_sys_varinfo` is recorded as a BRIDGE truncation bug to fix and re-record — a product
-      task hiding in a mask, and the apostrophe fix may already have closed it.
-- [ ] Report the vendor comparison as a number the suite can quote: on the overlap it is currently 96.1% identical
-      verdicts. Decide whether that belongs in `fixtures.test.ts`'s report or in a script.
+- [x] Raise it again where the LSP UNDER-reports. The 32-bit floor on a comparison's sign warning turned out to
+      be CODESYS's alone — TwinCAT warns at SINT/USINT and INT/UINT too, in all twelve of those cells. Misses like
+      that never make a gate red, which is exactly why they sit unnoticed.
+- [x] The `__TRY` family is a new miss and a deliberate one: on `TwinCAT RT (x64)` the device's code generator
+      does not support structured exception handling, so nine fixtures that built clean on ARM now record it.
+      Comparing two vendors needs ONE target; this is what that costs. Filed in `KNOWN_DIVERGENCES.twincat` beside
+      CODESYS's `__NEW`-with-no-memory family, because both are DEVICE facts an editor cannot know.
+- [x] Re-check every `KNOWN_DIVERGENCES.twincat` entry against the fresh data. Both of the older ones were
+      masks and both are GONE: `op_sys_varinfo` was listed as a TwinCAT divergence when the real fault was the
+      line-joining bug — the two vendors record it identically now and it agrees exactly — and
+      `operand_uchar_literal` is no longer excused either, because with `UCHAR#` absent from the TwinCAT dialect
+      the LSP emits a strict SUBSET of what TwinCAT says. What is left there is a miss in plain sight.
+- [x] Report the vendor comparison as a number: `scripts/check-recording.ts --diff` prints it — same verdict on
+      2464 of 2524, with identical wording on 2264 of those — and it belongs in a script rather than the suite,
+      because it is a question about the RECORDINGS and not about the LSP.
 
 ## Closing the triage backlogs — one family at a time, root cause first
 
@@ -166,8 +167,9 @@ one — how much of what each vendor SAYS the LSP says back. It was 2203 / 2412 
 
 ## Known-stale things this touched
 
-- [ ] `scripts/record-language.ts` said it "speaks the raw HTTP wire" — there is no HTTP wire and has not been
-      since the move to named pipes. FIXED in passing; listed so the class is visible.
-- [ ] The `live-tc-snapshot-was-stale-bridge` memory referenced `bun run diff:vendors` (`scripts/diff-vendors.ts`)
-      as the tool for comparing the two recordings. It does not exist. Either write it or drop the reference —
-      the comparison is worth having as a script rather than an ad-hoc query each time.
+- [x] `scripts/record-language.ts` said it "speaks the raw HTTP wire" — there is no HTTP wire and has not been
+      since the move to named pipes. Fixed, and its header now also answers WHY it is not the `volt` CLI.
+- [x] The `live-tc-snapshot-was-stale-bridge` memory referenced `bun run diff:vendors` (`scripts/diff-vendors.ts`),
+      which does not exist. Written instead as `scripts/check-recording.ts --diff`, which compares the two
+      recordings on the build VERDICT and on whitespace-normalised message sets — raw text equality would measure
+      spelling, which is the one thing the two vendors are known to differ on.
