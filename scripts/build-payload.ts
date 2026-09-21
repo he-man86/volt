@@ -10,7 +10,7 @@
  * Output:
  *   dist/volt/bin/           volt[.exe] (the PLC CLI) + volt-lsp-iec[.exe] (the Structured Text LSP) + runtime
  *   dist/volt/connector/     VoltConnector.exe + the pipe workers + the CODESYS in-proc DLL (needs dotnet)
- *   dist/volt/docs/, volt-vscode.vsix
+ *   volt-vscode.vsix
  */
 import { spawnSync } from "node:child_process"
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"

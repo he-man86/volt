@@ -9,7 +9,7 @@
  *   bun scripts/build-installer.ts --upload        # also publish the GitHub release (the update feed) via gh
  *
  * Pipeline: build-payload.ts (CLI+LSP+connector+.vsix) → electron-builder --dir (the branded Electron app) →
- * assemble the payload (connector at root; bin/ docs/ desktop/ + .vsix as siblings)
+ * assemble the payload (connector at root; bin/ desktop/ + .vsix as siblings)
  * → ISCC compiles installer/Volt.iss over it → Volt-win-Setup.exe.
  */
 import { spawnSync } from "node:child_process"
@@ -122,7 +122,7 @@ const iscc = [
   }
 }
 
-// 1. The Volt payload (CLI + LSP + connector + docs).
+// 1. The Volt payload (CLI + LSP + connector).
 //
 // EXPORT the version first. `version` above falls back to version.ts for a LOCAL build, but build-payload.ts
 // and build-cli.ps1 both read `process.env.VOLT_VERSION` and default to "(dev)"/1.0.0.0 when it is unset — so a
@@ -131,7 +131,12 @@ const iscc = [
 // because CI sets the variable. One line, and the local build now matches the release build.
 process.env.VOLT_VERSION = version
 if (!skipDist) run("bun", ["scripts/build-payload.ts"])
-for (const dir of ["bin", "connector", "docs"]) {
+// NO `docs` HERE ANY MORE, and the way it survived is the lesson. `build-payload.ts` stopped producing
+// `dist/volt/docs` when the skill installer that read it was deleted, and this loop still REQUIRED the folder —
+// so `bun run build:installer` exits 1 on a CLEAN checkout while a developer's machine stays green on the folder
+// an earlier build left behind. Nothing local could fail, and `release.yml` runs this on every push to dev.
+// Found by review rather than by a build, which is the argument for reviewing a deletion's blast radius.
+for (const dir of ["bin", "connector"]) {
   if (!existsSync(resolve(payload, dir))) {
     console.error(`✗ dist/volt/${dir} missing — run without --skip-dist (the connector needs dotnet)`)
     process.exit(1)
@@ -183,13 +188,12 @@ if (!existsSync(voltExe)) {
   process.exit(1)
 }
 
-// 3. Assemble the installer payload (Inno's StageDir): connector at root; bin/ docs/ desktop/ as siblings.
+// 3. Assemble the installer payload (Inno's StageDir): connector at root; bin/ desktop/ as siblings.
 console.log("• assembling the installer payload")
 rmSync(stage, { recursive: true, force: true })
 mkdirSync(stage, { recursive: true })
 cpSync(resolve(payload, "connector"), stage, { recursive: true }) // → root (VoltConnector.exe + files)
 cpSync(resolve(payload, "bin"), resolve(stage, "bin"), { recursive: true })
-cpSync(resolve(payload, "docs"), resolve(stage, "docs"), { recursive: true })
 cpSync(unpacked, resolve(stage, "desktop"), { recursive: true })
 // No version.txt is shipped: every binary carries its version stamped in (FileVersion for the .NET exes, a
 // compile-time define for the bun-built LSP), so a sidecar file could only drift from the binary — which is the

@@ -28,8 +28,9 @@ const RANK: Record<string, number> = {
   analysis: 4,
   services: 5,
   network: 6,
-  // the top-level app modules (workspace-refs, detect-vendor, init, source-extensions): file I/O over the analysis
-  // stack, consumed by the server
+  // the top-level app modules (workspace-refs, source-extensions): file I/O over the analysis stack,
+  // consumed by the server. It named `detect-vendor` and `init` too until they were deleted
+  // (`consolidate-lsp-structure` C8) — a rank comment is a list of files and rots like one.
   workspace: 6.5,
   server: 7,
 }

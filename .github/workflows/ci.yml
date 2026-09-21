@@ -53,6 +53,13 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
       - run: bunx oxlint packages/volt-cli packages/volt-control packages/volt-desktop packages/volt-lsp-iec packages/volt-vscode scripts
+      # …and every package's OWN lint script, which oxlint is not. volt-lsp-iec's is the LAYERING check —
+      # the one that ranks every folder under src/ and fails on an upward import. It was repaired by
+      # `consolidate-lsp-structure` (its bug 8: the lint named folders that no longer existed, so src/network
+      # had never been checked) and then ran in no gate at all: not this job, which calls oxlint directly,
+      # not the test job, which runs each package's `test`, and not the pre-push hook. A repaired guard that
+      # nothing invokes is the same as the broken one it replaced.
+      - run: bun run --filter='*' lint
 
   # Every Volt package's own unit suite, each run in its package dir (`--filter` sets the cwd, so the repo-root
   # `bun test` guard is never hit). `--filter='*' test` covers volt-lsp-iec + volt-control automatically — add a

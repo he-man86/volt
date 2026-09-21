@@ -21,7 +21,7 @@ That's the whole surface. Everything else here is a **step** of one of those, or
 
 DEV BUILD — every push to `dev` (`release.yml`):
 ```
-build-payload.ts        →  dist/volt/     binaries + docs + .vsix + connector
+build-payload.ts        →  dist/volt/     binaries + .vsix + connector
       ↓ (called by)
 build-installer.ts      →  dist/release/Volt-win-Setup.exe   (+ electron-builder, + ISCC)
       ↓
