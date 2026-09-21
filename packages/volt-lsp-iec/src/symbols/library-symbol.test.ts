@@ -1,4 +1,9 @@
-import { isLibrarySymbol } from "../../symbols/index.js"
+/**
+ * `isLibrarySymbol` — the guard that identifies a referenced-library symbol. It lived in
+ * `analysis/checks/_shared.test.ts`, named after a module C3 deleted and two folders from its subject, which
+ * is how a test file outlives the thing it was named for. Its sibling `libraryOf` is tested in `symbols.test`.
+ */
+import { isLibrarySymbol } from "./index.js"
 import { test, expect } from "bun:test"
 
 // The guard identifies referenced-library symbols (skipped by member/section checks — library signatures are

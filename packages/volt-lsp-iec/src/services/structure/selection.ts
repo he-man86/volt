@@ -60,6 +60,12 @@ function collectExpr(e: Expr, offset: number, out: Span[]): void {
   for (const c of exprChildren(e)) collectExpr(c, offset, out)
 }
 
+/**
+ * INCLUSIVE AT BOTH ENDS, which is why it is not `syntax/spanContains` — that one is end-EXCLUSIVE ("as a cursor
+ * sits") and is right for "which body or scope am I in". Selection expands OUTWARD from a cursor, so a cursor
+ * resting immediately after a token must still select that token; end-exclusive would jump to the parent at
+ * every closing character. The difference is deliberate and was unwritten, which reads the same as an oversight.
+ */
 function contains(span: Span, offset: number): boolean {
   return offset >= span.start && offset <= span.end
 }

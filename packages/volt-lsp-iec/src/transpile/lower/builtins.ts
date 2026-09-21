@@ -9,6 +9,7 @@ import {
   PLATFORM_ALIASES,
   elemOf,
   exptResultType,
+  isTemporal,
   parseConversionName,
   promoteForRuntime,
   type Type,
@@ -274,7 +275,12 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   // LTIME joins the list: its text is a TIME's with the `LTIME#` prefix and three units below a millisecond, and
   // every component boundary is measured (`conversions/to-string-format.ts`). REAL and LREAL deliberately do NOT —
   // see the note where the refusal is raised.
-  const hasText = (t: Type | undefined): boolean => isInt(t, true) || (t !== undefined && ["BOOL", "TIME", "LTIME", "DATE", "DT", "TOD", "LREAL"].includes(elemOf(t)?.name ?? ""))
+  // the temporal half is `types/isTemporal` — the Rust emitter dispatches on the SAME predicate, so a type added
+  // to the table reaches both sites or neither. BOOL and LREAL are named because each has its own renderer.
+  const hasText = (t: Type | undefined): boolean => {
+    const name = t === undefined ? undefined : elemOf(t)?.name
+    return isInt(t, true) || (name !== undefined && (name === "BOOL" || name === "LREAL" || isTemporal(name)))
+  }
   const parses = (t: Type): boolean => isInt(t) || elemOf(t)?.family === "real"
   // STRING <-> WSTRING: one code unit per code unit, truncated at the target's capacity (conformance
   // `xo3_string_wide_conversions`: a WSTRING(10) into a STRING(4) is 'abcd', a STRING(6) into a WSTRING(2) is "he").

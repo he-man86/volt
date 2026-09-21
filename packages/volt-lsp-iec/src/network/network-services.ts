@@ -15,6 +15,7 @@ import {
   type Expr,
   exprAtOffset,
   graphicalBodies,
+  spanContains,
   type IdentExpr,
   memberAtOffset,
   type Statement,
@@ -130,7 +131,7 @@ export function allReferences(docs: Iterable<Document>, project: Scope, target: 
   const all = [...docs] // iterated twice (ST pass, then network text pass)
   const out = findReferences(all, project, target)
   for (const doc of all) {
-    for (const body of vgBodies(doc)) {
+    for (const body of graphicalBodies(doc.parseResult.units)) {
       const analysis = analyzeNetworkText(body.unit, body.body, project, doc.uri)
       for (const [network, scope] of analysis.networkScopes) {
         const stmts = operandStatements(network.statements)
@@ -202,11 +203,6 @@ export function renameAnywhere(
   return { changes }
 }
 
-/** Every network-text body (with its unit) in a document. */
-function vgBodies(doc: Document): { unit: TopLevel; body: BodySpan }[] {
-  return [...graphicalBodies(doc.parseResult.units)]
-}
-
 // ─── resolution ──────────────────────────────────────────────────────────────
 
 /** The symbol a network text cursor points at: a `LET` wire (at its def or a use) or a POU/global via the operand. */
@@ -270,8 +266,9 @@ function operandStatements(statements: readonly NetworkTextStatement[]): Stateme
   return out
 }
 
-/** The graphical body (with its unit) containing the offset, or undefined. */
+/** The graphical body (with its unit) containing the offset, or undefined. `spanContains` is the one home of
+ *  "start inclusive, end exclusive, as a cursor sits" — this open-coded it, character for character. */
 function vgBodyAt(doc: Document, offset: number): { unit: TopLevel; body: BodySpan } | undefined {
-  for (const b of graphicalBodies(doc.parseResult.units)) if (offset >= b.body.span.start && offset < b.body.span.end) return b
+  for (const b of graphicalBodies(doc.parseResult.units)) if (spanContains(b.body.span, offset)) return b
   return undefined
 }

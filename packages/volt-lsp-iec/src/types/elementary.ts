@@ -310,6 +310,20 @@ export function isDuration(name: string): boolean {
   return elementaryType(name)?.family === "time"
 }
 
+/**
+ * A DURATION OR A DATE — the elementary types whose text is a LITERAL (`T#1s500ms`, `DT#2024-01-01-12:00:00`)
+ * rather than a number, so `TO_STRING` renders them through the prelude's own formatter.
+ *
+ * <p>One home because the two halves of that rule were two hardcoded lists in different folders: the transpiler's
+ * admission gate said `["BOOL", "TIME", "LTIME", "DATE", "DT", "TOD", "LREAL"]` and the Rust emitter's dispatch
+ * said `["TIME", "LTIME", "DATE", "DT", "TOD"]`, agreeing by luck. They fail in opposite directions and only one
+ * of them says so: a name admitted but not dispatched falls to an unguarded `format!` and prints the underlying
+ * integer, with no diagnostic anywhere.</p>
+ */
+export function isTemporal(name: string): boolean {
+  return isDuration(name) || isDatetime(name)
+}
+
 /** A name the resolver treats as a known primitive (was `type-resolver.ELEMENTARY_TYPES`): an elementary
  *  type, an `ANY_*` generic, or the bare `POINTER` keyword. */
 export function isKnownPrimitive(name: string): boolean {

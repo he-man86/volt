@@ -18,7 +18,7 @@
  * namespace exactly as they already do through the project.
  */
 import type { Namespace, Span } from "../syntax/index.js"
-import { defineSymbol, makeScope, type Scope, type Symbol } from "./symbol.js"
+import { defineSymbol, libraryOf, makeScope, type Scope, type Symbol } from "./symbol.js"
 import { findChildScope } from "./scope-nav.js"
 
 export interface LibraryManifest {
@@ -64,8 +64,16 @@ export function bindLibraryNamespaces(project: Scope, manifests: readonly Librar
   for (const manifest of manifests) {
     const { namespace } = manifest
     if (findChildScope(project, namespace) !== undefined) continue
-    const folders = [manifest, ...manifest.dependencies.flatMap((d) => byTitle.get(d.toLowerCase()) ?? [])].map((m) => `/library manager/${m.folder.toLowerCase()}/`)
-    const mine = (uri: string | undefined): boolean => uri !== undefined && folders.some((f) => normalize(uri).includes(f))
+    // WHICH LIBRARY A FILE BELONGS TO IS `libraryOf`'s QUESTION, and this had its own answer to it: a
+    // `/library manager/<folder>/` substring on a whole-path-lowercased URI. Three normalizers for one fact —
+    // `isLibrarySymbol`, `libraryOf` and this — with this one requiring a LEADING separator the other two do
+    // not, so a repo-relative `Library Manager/Standard/LEN.fun` was a library symbol to both of them and not
+    // to this. Live URIs all carry a separator, which is why nothing broke; the disagreement was real anyway.
+    const folders = new Set([manifest, ...manifest.dependencies.flatMap((d) => byTitle.get(d.toLowerCase()) ?? [])].map((m) => m.folder.toLowerCase()))
+    const mine = (uri: string | undefined): boolean => {
+      const lib = uri === undefined ? undefined : libraryOf({ uri })
+      return lib !== undefined && folders.has(lib.toLowerCase())
+    }
     const scopes = project.children.filter((child) => mine(child.defUri))
     const symbols = new Map<string, Symbol[]>()
     for (const [key, syms] of project.symbols) {

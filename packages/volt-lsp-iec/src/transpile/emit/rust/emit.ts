@@ -20,7 +20,7 @@
 import type { IrBinding, IrExpr, IrInit, IrLayout, IrMathName, IrPou, IrRoutine, IrStmt, IrValue, Place } from "../../ir/index.js"
 import { defaultValueOf, elementOf, holdsCall, isBit, LOOP_CAP_MESSAGE, LOOP_ITERATION_CAP, peelArray } from "../../ir/index.js"
 import type { Span } from "../../../syntax/index.js"
-import type { Type } from "../../../types/index.js"
+import { isTemporal, type Type } from "../../../types/index.js"
 import { STRING_PRELUDE } from "./prelude.js"
 
 /** Emitted Rust, plus the line→ST mapping a panic or a failed assertion is reported through. */
@@ -503,7 +503,7 @@ class Printer {
           const text =
             from === "bool"
               ? `(if ${value} { "TRUE" } else { "FALSE" })`
-              : ["TIME", "LTIME", "DATE", "DT", "TOD"].includes(source)
+              : isTemporal(source)
                 ? `iec_${source.toLowerCase()}_text(${value} as i64)`
                 : source === "LREAL"
                   ? `iec_lreal_text(${value})`
