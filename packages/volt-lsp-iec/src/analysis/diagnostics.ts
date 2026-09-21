@@ -241,6 +241,25 @@ const CODESYS_ONLY: ReadonlySet<Check> = new Set<Check>([
   checkReservedKeyword, // a CODESYS forward-compat warning; TwinCAT accepts CHAR/WCHAR as names (verified live)
 ])
 
+/**
+ * …and the checks that run for TWINCAT only, which the set above could not express.
+ *
+ * <p>It was one-directional, so a check whose rule is TwinCAT's had nowhere to go and went back to the shape C6
+ * removed: `checkPartialAccess` opened with `if (ctx.config.vendor !== "twincat") return` while sitting in the
+ * registry as though it were vendor-neutral, so the list reported one thing and the code did another. Both
+ * directions exist in the recordings — CODESYS has rules TwinCAT lacks and TwinCAT has rules CODESYS lacks —
+ * so the table has both, and an early return inside a check is once again a rule gate rather than a vendor one.</p>
+ */
+const TWINCAT_ONLY: ReadonlySet<Check> = new Set<Check>([
+  // `dwSource.%W1` is a CODESYS extension: TwinCAT reads the `.` as an ordinary member access, finds `%` where a
+  // component name belongs and leaves the width+index standing as its own statement (both recordings, all four
+  // widths, 2026-09-21 — the `ARRAY[*]` cells beside it compile clean on both, which is what makes it a rule).
+  checkPartialAccess,
+  // NOT `checkDialectType`, which looks like a sibling and is not: its rule lives in `dialectMissingType`, a
+  // helper `unknown-source` also calls, so the vendor question has to be answered there anyway. Listing it here
+  // as well would be two gates for one fact — which is the thing this table exists to stop.
+])
+
 export interface DiagnosticsArgs {
   parseResult: ParseResult
   source: string
@@ -278,7 +297,11 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
     tokens: () => (tokenCache ??= lex(args.source, config.vendor)),
   }
   const out: DiagnosticItem[] = []
-  const active = config.vendor === "codesys" ? CHECKS : CHECKS.filter((check) => !CODESYS_ONLY.has(check))
+  // ONE PLACE DECIDES WHICH CHECKS RUN FOR WHICH VENDOR, in both directions. A check that opens with its own
+  // whole-body `if (vendor !== …) return` is the shape C6 removed, and it grew back the moment a rule ran the
+  // other way — so the registry stays the only answer to "does this check apply here?".
+  const excluded = config.vendor === "codesys" ? TWINCAT_ONLY : CODESYS_ONLY
+  const active = CHECKS.filter((check) => !excluded.has(check))
   if (CHECK_TIMING !== undefined) {
     for (const check of active) {
       const t = Number(process.hrtime.bigint())

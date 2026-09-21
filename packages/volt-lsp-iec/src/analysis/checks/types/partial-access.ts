@@ -23,8 +23,9 @@ import { leftoverStatement } from "../../resync.js"
 /** `%X3` / `%B0` / `%W1` / `%D1` — the member name the parser builds for a partial access. */
 const PARTIAL = /^%([XBWD])(\d+)$/i
 
+// TwinCAT-only, and the REGISTRY says so (`TWINCAT_ONLY` in `analysis/diagnostics`) rather than an early
+// return here — which is the shape C6 replaced and which this check had grown back.
 export function checkPartialAccess(ctx: CheckContext, out: DiagnosticItem[]): void {
-  if (ctx.config.vendor !== "twincat") return
   for (const { statements } of bodies(ctx.parseResult.units, ctx.project))
     walkStatements(statements, (s) => {
       for (const e of stmtExprs(s))

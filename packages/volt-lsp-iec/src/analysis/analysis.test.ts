@@ -1,4 +1,5 @@
 import { test, expect } from "bun:test"
+import { readdirSync, readFileSync } from "node:fs"
 import { parseSource } from "../syntax/index.js"
 import { buildSymbolTable } from "../symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig, type DiagnosticItem, type Vendor } from "./index.js"
@@ -330,4 +331,28 @@ test("message pragmas surface the author's text at matching severity", () => {
   const src = `{warning 'deliberate'}\nFUNCTION_BLOCK F\nEND_FUNCTION_BLOCK`
   const d = diag(src, "codesys").find((x) => x.code === "message-pragma-warning")
   expect(d).toMatchObject({ severity: "warning", message: "deliberate" })
+})
+
+// NO CHECK GATES ITSELF ON THE VENDOR. That is what C6 replaced — eight checks each opening with their own
+// `if (vendor !== …) return` — with one registry, and the shape grew back the moment a rule ran the OTHER way:
+// `partial-access` was TwinCAT-only, the set could only express CODESYS-only, so the gate went back inside the
+// check while the registry listed it as vendor-neutral. Nothing noticed, because nothing looked.
+//
+// A whole-BODY early return is the thing being forbidden; a gate around ONE message inside a check is a rule
+// gate and stays. The difference is positional, so that is what this reads: the first statement of the exported
+// check function. Found by a review of `consolidate-lsp-structure`.
+test("no check opens with a whole-body vendor early return — the registry decides that", () => {
+  const dir = new URL("./checks/", import.meta.url)
+  const files = Array.from(readdirSync(dir, { recursive: true, encoding: "utf8" }))
+    .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"))
+    .map((f) => new URL(f.split("\\").join("/"), dir))
+  const offenders: string[] = []
+  for (const file of files) {
+    const text = readFileSync(file, "utf8")
+    // the exported check, then whatever its first statement is
+    const m = /export function check\w+\([^)]*\)[^{]*\{\r?\n\s*(.+)/.exec(text)
+    if (m !== undefined && m !== null && /^if \(.*\b(vendor|dialect)\b.*\)\s*return\s*$/.test(m[1]!.trim()))
+      offenders.push(`${file.pathname.split("/").pop()}: ${m[1]!.trim()}`)
+  }
+  expect(offenders).toEqual([])
 })

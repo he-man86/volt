@@ -2,6 +2,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../syntax/index.js"
 import { buildSymbolTable } from "../symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig, projectDiagnosticsFrom, CONFIGURABLE_CHECKS } from "./index.js"
+import { CODESYS_CODE_MAP } from "./error-code-map.js"
 
 /**
  * CODESYS's "Compiler warnings" dialog model: each configurable code is a 3-state control (off / warning /
@@ -108,4 +109,22 @@ test("codes the project leaves alone keep their default", () => {
   const resolved = resolveConfig({ vendor: "codesys", diagnostics: projectDiagnosticsFrom("Disabled warnings: C0371") })
   expect(resolved.diagnostics["no-op-statement"]).toBe("warning")
   expect(resolved.diagnostics["inout-own-access"]).toBe("off")
+})
+
+// THE SAME SLUG→Cnnnn MAPPING IS WRITTEN TWICE, and nothing linked them. `CONFIGURABLE_CHECKS[].c` is what the
+// compiler-warnings dialog keys on; `CODESYS_CODE_MAP` is what a diagnostic is STAMPED with, and its own header
+// calls itself "the authoritative RUNTIME source … NOT derived from any test file". Both are hand-kept, both
+// name the same codes, and the only consistency test in the package compares `CODESYS_CODE_MAP` against the
+// catalog fixture — `w.c` was read by no test at all. All 21 rows agree today; the failure this guards is
+// prospective, which is the only kind a second table has. Found by a review of `consolidate-lsp-structure`.
+test("the two slug→Cnnnn tables agree on every configurable code", () => {
+	const disagree: string[] = []
+	for (const w of CONFIGURABLE_CHECKS) {
+		const stamped = CODESYS_CODE_MAP[w.code]?.[0]
+		if (stamped === undefined) continue // a control with no stamped code is not this test's business
+		// `c` is occasionally a pair (`C0195/C0196` — one control, two compiler codes); the stamp is one of them
+		const declared = w.c.split("/").map((c) => c.trim().toUpperCase())
+		if (!declared.includes(stamped.toUpperCase())) disagree.push(`${w.code}: dialog ${w.c}, stamped ${stamped}`)
+	}
+	expect(disagree).toEqual([])
 })

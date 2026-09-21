@@ -786,3 +786,24 @@ VAR_INPUT x : BOOL; END_VAR
 END_FUNCTION_BLOCK`
   expect(vgDiags(src).map((d) => d.code)).toContain("network-unknown-pin")
 })
+
+// A VENDOR THAT SAYS NOTHING NEEDS A TEST THAT SAYS SO. TwinCAT does not flag a network-text JMP to a missing
+// label (measured live 2026-07-07) and the LSP did, which is a false positive by `lsp-parity-not-better`. The fix
+// is data — `messages.networkJumpLabelUndefined` is `undefined` on TwinCAT and `network-analysis` pushes nothing
+// when it is — but every helper above hard-codes `messagesFor("codesys")`, and `cc_vg_undefined_label` carries
+// `vendorRefuses: twincat`, so it has no recording either. Reintroducing the bug left the whole offline network
+// and conformance tier green: 4223 tests, 0 failures. Found by a review of `consolidate-lsp-structure`.
+test("network text: TwinCAT says nothing about an undefined JMP label, and CODESYS does", () => {
+  const src = `FUNCTION_BLOCK F
+VAR out : BOOL; END_VAR
+NETWORK 0 LD
+out := TRUE;
+JMP Nowhere;
+END_NETWORK
+END_FUNCTION_BLOCK`
+  const d = doc(src)
+  const of = (vendor: "codesys" | "twincat") =>
+    computeNetworkTextDiagnostics(d, project(d), messagesFor(vendor)).filter((x) => x.code === "network-undefined-label")
+  expect(of("codesys")).toHaveLength(1)
+  expect(of("twincat")).toEqual([])
+})
