@@ -140,18 +140,43 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       `syntax/print.ts` (`renderTypeExpr`, `exprText`, `dimText`; `types/render` keeps `renderType`), `syntax/span`
       `spanContains`, `syntax/token-at` `tokenAtOffset` (tests moved with them), `isSelfRef` in `ast-walk` (A-phase), and
       `networkStatements` (now `network-text/ast.ts`) replacing the seven EN/ENO recursions. Not done, on purpose: the formatter's
-      statement printer has no second copy to merge; `nameKey` no longer exists and `sameName` has one home
-      (`types/compat`); `collectBareRefs` is gone; and tokens on `ParseResult` waits for a profile that asks for it.
+      statement printer has no second copy to merge; `nameKey` no longer exists; and tokens on `ParseResult` waits
+      for a profile that asks for it.
+      TWO SENTENCES HERE WERE NOT TRUE, corrected 2026-09-21 after a review checked them against the code:
+      - "`collectBareRefs` is gone" — it is alive in `analysis/resolution.ts`, a per-kind `Expr` recursion in a
+        file that imports `walkExpr` on the line above it. `git log -S` shows nothing ever removed it, so the
+        sentence was never true under any reading. Its own doc declares the mirror deliberate ("Mirrors
+        ast-walk's traversal minus those"), which is the defensible part; the close-out was the wrong part.
+      - "`sameName` has one home (`types/compat`)" — there are two, answering different questions at different
+        layers: `types/compat`'s is module-private and compares TYPE names, `interp`'s is exported and strips the
+        backticks CODESYS quotes a reserved name with. A name collision, not one concept twice — but the sentence
+        claimed otherwise, and the interp copy landed the same day the sentence was written.
 - [x] C5 `libraryOf(uri)` in symbols; `lower.ts` Standard gate uses it; drop the `_shared.ts:95` shim. DONE 2026-09-14:
       `symbols/libraryOf` (with `%20` normalized, test `symbols.test.ts`); the shim went with `_shared.ts` in C3.
 - [x] C6 Declarative vendor gating in the check list (8 early returns, `activeVendor`), rule gates in a `config.ts` table.
-      DONE 2026-09-14: `diagnostics.ts` `CODESYS_ONLY` lists the eight CODESYS-only checks with each reason; their early
-      returns are gone, and `activeVendor` went in C8. Not done: the six gates INSIDE a check (one message of several —
+      DONE 2026-09-14: `diagnostics.ts` `CODESYS_ONLY` lists the CODESYS-only checks with each reason; their early
+      returns are gone, and `activeVendor` went in C8. (It said "the eight"; the list held twelve at one point and
+      holds SIX now — six placeholder entries were un-gated once TwinCAT's recording grew from 280 fixtures to
+      2524. A count in prose beside a list that moves is a fact with a shelf life.)
+      AND IT GREW BACK, found by a review 2026-09-21 and fixed the same day. The set was one-directional, so a
+      rule running the OTHER way had nowhere to go: `checkPartialAccess` is TwinCAT-only, opened with its own
+      `if (ctx.config.vendor !== "twincat") return`, and sat in the registry as though it were vendor-neutral —
+      the list reporting one thing and the code doing another. There is a `TWINCAT_ONLY` set now, one filter
+      reads both, and a test reads the FIRST STATEMENT of every exported check and fails on a whole-body vendor
+      early return. The positional distinction is the real one: a gate around a single message is a rule gate and
+      stays. Nothing had noticed for the same reason as always — nothing was looking.
+      Not done: the six gates INSIDE a check (one message of several —
       const-context, statement-rules, header-rules, pragmas, lifecycle, pointer-conversion) stay beside the rule they
       gate; a table would separate each condition from the code it qualifies.
 - [x] C7 `test/support/project.ts`: `diagnose`, `codesOf`, `docSetup`, `libraryFile`; migrate the 76 check tests + 5
       service tests. SKIPPED 2026-09-14 (user decision): a mass rewrite of test helpers finds no bugs and risks moving a
       test's premise.
+      THE REASON DID NOT SURVIVE THE WEEK, recorded here rather than quietly dropped. "A mass rewrite of test
+      helpers finds no bugs" was refuted on 2026-09-21: the duplicated per-test binding hid a wrong-dialect
+      project in TWENTY-NINE colocated tests, each asking `resolveConfig` for TwinCAT and binding the symbol table
+      as CODESYS, so none of them could fail for any shape the dialect decides. The DECISION still stands — the
+      class can no longer hide, because `computeSemanticDiagnostics` throws on that disagreement — but it stands
+      on the guard, not on the reason originally given.
 - [x] C8 Dead code: `isNumeric`, `isEnumIsolated`, `networkScopeAt`, `CHECK_TIMING`, `activeVendor`, `stBodies`,
       `resolveAnywhere` export, test-only exports; decide `detectVendor`/`installCorpus`; `reference/error-codes.ts` to test.
       PARTLY DONE 2026-09-14: the named symbols are gone; `CHECK_TIMING` was a gap, not dead — collected, never printed
