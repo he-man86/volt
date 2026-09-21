@@ -32,7 +32,7 @@ file that makes that checkable rather than a claim is `accessor-census.log`.
 | | |
 |---|---|
 | `build-cli.ps1` | publish `volt.exe`, the pipe workers and the connector bundle |
-| `ide.ps1` | serve a committed FIXTURE over the pipe on EITHER vendor — `up` / `down` / `pipe` / `logs`, `-Vendor codesys\|twincat`. Builds the bridge first, waits for the pipe with `-Wait`, and prints its name. CODESYS runs the shipped `start_volt_codesys.py` in-proc; TwinCAT gets a `VoltBridgeTwincat --xae-pid` worker, which this spawns so the tier does not depend on the tray. |
+| `ide.ps1` | serve a COPY of a committed fixture over the pipe on EITHER vendor (the IDE writes what it has open, so the copy is the default and `-InPlace` is the opt-out) — `up` / `down` / `pipe` / `logs`, `-Vendor codesys\|twincat`. Builds the bridge first, waits for the pipe with `-Wait`, and prints its name. CODESYS runs the shipped `start_volt_codesys.py` in-proc; TwinCAT gets a `VoltBridgeTwincat --xae-pid` worker, which this spawns so the tier does not depend on the tray. |
 | `corpus-migration.ts` | the migration finder: pull a corpus, push it into an empty project, pull again, compare |
 | `e2e-graphical-coverage.ts` | which network-text constructs the live suite actually PUSHES — a report, not a gate. 20 of 25 today. |
 | `start_volt_codesys.py` | **shipped** — the in-IDE host; CODESYS's own message loop answers the pipe, so the IDE stays clickable |

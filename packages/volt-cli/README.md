@@ -58,7 +58,8 @@ pwsh scripts/build-cli.ps1                           # publish volt.exe + pipe w
 ```
 
 Live-IDE dev loop, one script for both vendors: `pwsh scripts/ide.ps1 up -Vendor codesys|twincat [-Wait]`
-(`down` / `pipe` / `logs` alongside). It builds the bridge, opens a committed fixture, gets the bridge serving
+(`down` / `pipe` / `logs` alongside). It builds the bridge, opens a COPY of a committed fixture — the IDE saves
+what it has open, so serving the repo's own tree means tracked files changing under you — gets the bridge serving
 - in-proc through the SHIPPED host on CODESYS, a spawned `--xae-pid` worker on TwinCAT - and with `-Wait`
 prints the pipe name. Then `bun run test:e2e:codesys` or `test:e2e:twincat`.
 

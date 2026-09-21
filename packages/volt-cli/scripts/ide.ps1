@@ -26,7 +26,12 @@
 .PARAMETER Vendor  codesys | twincat
 .PARAMETER Fixture Vendor-interpreted selector for WHICH committed fixture to serve:
                      codesys — a .project path (default: test/fixtures/CodesysTestProject.project)
-                     twincat — "13" | "14" | "both" (default), or a .sln path for a scratch copy
+                     twincat — "13" | "14" | "both" (default), or a .sln path
+.PARAMETER InPlace Serve the committed tree ITSELF instead of a copy. The default is a copy under the system
+                   temp dir, because THE IDE WRITES THE PROJECT IT HAS OPEN: every recording and every e2e run
+                   saves the fixture back to disk, and pointed at the repo that is tracked files changing under
+                   you. One such run was swept into a commit before anyone noticed, which is what
+                   `never-git-add-all-during-e2e` is about. Use this only when the changes are the POINT.
 .PARAMETER Instance Suffix so several can run at once (per-instance pid file). Each IDE serves its own
                     `volt.bridge.<vendor>.<pid>`, so instances never collide on the wire.
 .PARAMETER NoBuild  Skip the pre-launch bridge build (fast re-launch when you KNOW the binary is current).
@@ -44,6 +49,7 @@ param(
     [Parameter(Mandatory = $true)] [ValidateSet("codesys", "twincat")] [string]$Vendor,
     [string]$Fixture = "",
     [string]$Instance = "",
+    [switch]$InPlace,
     [switch]$NoBuild,
     [switch]$Wait
 )
@@ -148,6 +154,31 @@ function Wait-ForPipe([string]$vendor, [int[]]$before) {
     throw "$vendor IDE launched but no NEW pipe after 10 minutes - see: ide.ps1 logs -Vendor $vendor"
 }
 
+# ── serve a COPY ───────────────────────────────────────────────────────────────────────────────────────────
+
+<#
+.SYNOPSIS Copy a fixture out of the repo and return the copy's path (or the original under -InPlace).
+.DESCRIPTION A CODESYS project is one file; a TwinCAT solution is a tree, so the whole folder travels. The copy
+is refreshed on every `up`, so it is the committed fixture every time — a stale scratch tree is its own bug.
+#>
+function Copy-FixtureOut([string]$path, [string]$vendor) {
+    if ($InPlace) { return $path }
+    $work = Join-Path ([System.IO.Path]::GetTempPath()) "volt-ide-$vendor"
+    if ($path -like "*.sln") {
+        # `<fixtures>\<name>\<name>.sln`: the solution FOLDER is the unit that travels, PLC projects and all.
+        $srcDir = Split-Path -Parent $path
+        $dst = Join-Path $work (Split-Path -Leaf $srcDir)
+        if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
+        New-Item -ItemType Directory -Force -Path $work | Out-Null
+        Copy-Item $srcDir $dst -Recurse -Force
+        return Join-Path $dst (Split-Path -Leaf $path)
+    }
+    New-Item -ItemType Directory -Force -Path $work | Out-Null
+    $dst = Join-Path $work (Split-Path -Leaf $path)
+    Copy-Item $path $dst -Force
+    return $dst
+}
+
 # ── codesys: in-proc host ──────────────────────────────────────────────────────────────────────────────────
 
 function Up-Codesys {
@@ -159,6 +190,7 @@ function Up-Codesys {
 
     if (-not (Test-Path $exe))     { throw "CODESYS.exe not found: $exe" }
     if (-not (Test-Path $project)) { throw "Fixture project not found: $project" }
+    $project = Copy-FixtureOut $project "codesys"
     Build-Bridge "codesys"
     if (-not (Test-Path $dll))     { throw "Bridge DLL missing (build Volt.Ide.Codesys): $dll" }
 
@@ -215,6 +247,8 @@ function Up-Twincat {
     # one identity and the tier wedges on a `select`. That is not hypothetical — it is what happens when these
     # fixtures are opened while an engineer already has the same project open. Say so BEFORE launching, because
     # after the hang it reads as a bridge bug.
+    foreach ($k in @($open.Keys)) { $open[$k] = Copy-FixtureOut $open[$k] "twincat" }
+
     $already = @(Get-Process TcXaeShell -ErrorAction SilentlyContinue | ForEach-Object { $_.MainWindowTitle })
     foreach ($k in $open.Keys) {
         $name = [System.IO.Path]::GetFileNameWithoutExtension($open[$k])
