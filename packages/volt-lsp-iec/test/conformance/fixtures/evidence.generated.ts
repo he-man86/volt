@@ -6,8 +6,8 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1925
- *   refused       537
+ *   confirmed    1935
+ *   refused       538
  *   not-lowered    90
  *   lsp-gap         4
  *   diverges        3
@@ -509,6 +509,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   cc_max_usint_sint: "confirmed",
   cc_mod_udint_dint: "confirmed",
   cc_mul_udint_dint: "confirmed",
+  cc_named_arg_non_input: "refused",
   cc_ne_udint_dint: "confirmed",
   cc_neg_byte_into_byte: "refused",
   cc_neg_sint_into_sint: "refused",
@@ -1422,24 +1423,34 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   mathdom_sqrt_of_infinity: "confirmed",
   mathdom_sqrt_zero: "confirmed",
   mathdom_tan_at_pole: "confirmed",
+  mathret_acos_int: "confirmed",
   mathret_acos_lreal: "confirmed",
   mathret_acos_real: "confirmed",
+  mathret_asin_int: "confirmed",
   mathret_asin_lreal: "confirmed",
   mathret_asin_real: "confirmed",
+  mathret_atan_int: "confirmed",
   mathret_atan_lreal: "confirmed",
   mathret_atan_real: "confirmed",
+  mathret_cos_int: "confirmed",
   mathret_cos_lreal: "confirmed",
   mathret_cos_real: "confirmed",
+  mathret_exp_int: "confirmed",
   mathret_exp_lreal: "confirmed",
   mathret_exp_real: "confirmed",
+  mathret_ln_int: "confirmed",
   mathret_ln_lreal: "confirmed",
   mathret_ln_real: "confirmed",
+  mathret_log_int: "confirmed",
   mathret_log_lreal: "confirmed",
   mathret_log_real: "confirmed",
+  mathret_sin_int: "confirmed",
   mathret_sin_lreal: "confirmed",
   mathret_sin_real: "confirmed",
+  mathret_sqrt_int: "confirmed",
   mathret_sqrt_lreal: "confirmed",
   mathret_sqrt_real: "confirmed",
+  mathret_tan_int: "confirmed",
   mathret_tan_lreal: "confirmed",
   mathret_tan_real: "confirmed",
   max_extensible: "confirmed",

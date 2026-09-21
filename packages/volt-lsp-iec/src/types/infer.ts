@@ -535,10 +535,16 @@ function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
     const arg = call.args[0]?.value
     const t = arg === undefined ? UNKNOWN : inferExprType(arg, scope, project)
     if (t.kind === "elementary" && t.elem.family === "real") return t
-    // An UNTYPED real literal has no standalone type here — it takes one from its context — and its context in a
-    // call is the function, which reads it as the default: `SQRT(16.0)` is an LREAL, which is why
-    // `rv : REAL := SQRT(16.0)` warns (`cfold_sqrt`, `cfold_expt`). An untyped INTEGER argument is unmeasured.
-    if (arg?.kind === "literal" && arg.literalKind === "real") return elementaryRef(REAL_LITERAL_TYPE)
+    // ANYTHING THAT IS NOT A REAL COMES BACK LREAL. An untyped real literal has no standalone type here — it
+    // takes one from its context, and its context in a call is the function, which reads it as the default:
+    // `SQRT(16.0)` is an LREAL, which is why `rv : REAL := SQRT(16.0)` warns (`cfold_sqrt`, `cfold_expt`).
+    //
+    // An INTEGER argument said "unmeasured" here for as long as this branch existed, and lowering meanwhile
+    // typed it LREAL (`lower/builtins.ts`, from `sqrt_precision`) — one rule, two implementations, and they
+    // disagreed, so `outR : REAL := SQRT(anInt)` warned in the transpiler and was silent in the LSP. Measured
+    // 2026-09-21 on both live IDEs, all ten functions with an INT argument (`mathret_*_int`): every one is
+    // "Implicit conversion from 'LREAL' to 'REAL'". So the rule is the argument's own REAL type, or LREAL.
+    if (t.kind !== "unknown" || arg?.kind === "literal") return elementaryRef(REAL_LITERAL_TYPE)
   }
   // Otherwise a built-in call: a conversion `<X>_TO_<Y>`/`TO_<Y>` yields elementary `<Y>`; an operator with a
   // FIXED modeled return type yields that. Flows a built-in's result into downstream checks — e.g.

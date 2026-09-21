@@ -911,7 +911,17 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // only what the STORE converts, so `i : DINT := REAL_TO_DINT(EXPT(2, 10))` was silent — nothing converts at
   // the store and everything converts at the ARGUMENT. And `unknown-source` walked bodies, so a hole in an
   // initializer was named as an undefined identifier and never carried into the declared type.
-  { vendor: "twincat", floor: 2528 },
+  // 2528 -> 2538: ONE RULE, TWO IMPLEMENTATIONS, AND THEY DISAGREED — found by a review of
+  // `consolidate-lsp-structure`, which is the change about exactly this. A one-argument math function's result
+  // is its argument's REAL type, and lowering typed a non-real argument LREAL while inference said nothing at
+  // all, its own comment recording the integer case as "unmeasured". Ten cells measured it: `SQRT(anInt)` into
+  // a REAL warns on both vendors, as do LN, LOG, EXP, SIN, COS, TAN, ASIN, ACOS and ATAN.
+  // 2538 -> 2539: WHICH NAMES MAY A CALL BIND — one question with two answers in one package. The ST check
+  // asked `lookupMember` unfiltered, so a plain `VAR loc : INT` bound silently; the network-text check beside
+  // it already restricted to the pin sections and properties. Both vendors say the ST side was wrong. The
+  // same cell settled the CASING too: a call site upper-cases the callee, a member WRITE keeps its case, and
+  // only the network check knew.
+  { vendor: "twincat", floor: 2539 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -989,7 +999,9 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 2533 -> 2534: the METHOD half of the required-inputs rule, which CODESYS words as a range like a FUNCTION's.
   // 2534 -> 2544: the same eleven cells.
   // 2544 -> 2545: the same two, on the vendor that records `cfold_expt`.
-  { vendor: "codesys", floor: 2545 },
+  // 2545 -> 2555: the same ten cells.
+  // 2555 -> 2556: the same cell.
+  { vendor: "codesys", floor: 2556 },
 ]
 
 

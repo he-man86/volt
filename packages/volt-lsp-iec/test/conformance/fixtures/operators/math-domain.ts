@@ -114,11 +114,15 @@ export const MATH_DOMAIN_TESTS: readonly LanguageTest[] = [
   //    nothing about a narrowing that the compiler reports. EXPT is the one that IS measured, and it is not
   //    always LREAL: `REAL when both arguments are REAL` (`types/arith.ts`). So ask all ten, with a REAL
   //    argument and with an LREAL one, and let the pair say whether the result follows the argument.
-  ...MATH_FUNCTIONS.flatMap((fn) => [returns(fn, "REAL"), returns(fn, "LREAL")]),
+  //    …AND WITH AN INTEGER ARGUMENT, which the first pass left out and the inference branch recorded in a
+  //    comment as "unmeasured" — so the LSP says nothing where lowering types the result LREAL. An INT is where
+  //    the two implementations of this rule could disagree without either looking obviously wrong, which is
+  //    exactly the cell worth asking.
+  ...MATH_FUNCTIONS.flatMap((fn) => [returns(fn, "REAL"), returns(fn, "LREAL"), returns(fn, "INT")]),
 ]
 
 /** `rv : REAL := <fn>(arg)` — silent when the result is a REAL, a narrowing warning when it is an LREAL. */
-function returns(fn: string, argType: "REAL" | "LREAL"): LanguageTest {
+function returns(fn: string, argType: "REAL" | "LREAL" | "INT"): LanguageTest {
   const slug = `mathret_${fn.toLowerCase()}_${argType.toLowerCase()}`
   const pou = `FB_LANG_${slug}`
   return {
@@ -130,7 +134,7 @@ function returns(fn: string, argType: "REAL" | "LREAL"): LanguageTest {
     plcPrgVar: `inst : ${pou};`,
     plcPrgBody: "inst();",
     source:
-      `FUNCTION_BLOCK ${pou}\nVAR\n\targ : ${argType} := 0.5;\n\trv : REAL;\nEND_VAR\n` +
+      `FUNCTION_BLOCK ${pou}\nVAR\n\targ : ${argType} := ${argType === "INT" ? "2" : "0.5"};\n\trv : REAL;\nEND_VAR\n` +
       `rv := ${fn}(arg);\nEND_FUNCTION_BLOCK\n`,
   }
 }

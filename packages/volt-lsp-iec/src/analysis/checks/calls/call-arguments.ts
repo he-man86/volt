@@ -36,6 +36,7 @@ import type { CheckContext } from "../../diagnostics.js"
 import { compilerTypeName } from "../../messages.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { checkable, checkableType, conversionWarning } from "../../rules.js"
+import { bindableMember } from "../../resolution.js"
 
 export function checkCallArguments(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -117,13 +118,18 @@ function checkCall(
   }
 
   // (3) named arguments — an unknown name is flagged (complete callees only); a known VAR_INPUT name's value
-  // is type-checked. A name is known if it's a declared param OR (FB instance) a member reached through the
-  // scope + EXTENDS chain — that also covers a PROPERTY, a valid named-arg target that isn't a var section.
-  // `p => out` binds an OUTPUT, and it is checked in the opposite direction — see the `arg.output` branch below.
+  // is type-checked. A name is known if it's a declared param OR (FB instance) a member a call may BIND —
+  // an input, an output, an in-out or a property. `p => out` binds an OUTPUT, and it is checked in the opposite
+  // direction — see the `arg.output` branch below.
+  //
+  // This asked `lookupMember` unfiltered, so ANY member counted and `inst(loc := 5)` on a plain `VAR loc : INT`
+  // was accepted in silence — while the network-text check beside it already restricted to the pin sections.
+  // One question, two answers in one package; `bindableMember` is now the one home, and both vendors say the
+  // ST side was the wrong one (`cc_named_arg_non_input`).
   for (const arg of named) {
     const name = arg.param!.name.toLowerCase()
     const known =
-      callee.paramNames.has(name) || (callee.scope !== undefined && lookupMember(callee.scope, name) !== undefined)
+      callee.paramNames.has(name) || (callee.scope !== undefined && bindableMember(callee.scope, name) !== undefined)
     if (callee.complete && !known) {
       // An output binding (`name => target`) that names no output → C0038; an input `name := value` → C0037.
       out.push({
@@ -131,9 +137,14 @@ function checkCall(
         span: arg.param!.span,
         source: SOURCE,
         code: arg.output ? "unknown-named-output" : "unknown-named-argument",
+        // UPPER-CASED, as every recorded message from a CALL site is: `'loc' is no input of
+        // 'FB_LANG_NAMED_ARG_HOLDER'` (`cc_named_arg_non_input`, `cc_vg_unknown_pin`, and the FUNCTION case in
+        // `network_unnamed_target_of_valued_call`). A member WRITE from outside keeps the declared case —
+        // `'iSecret' is no input of 'FB_LANG_hide_var'` — which is `external-write`'s `noInput`, not this. Same
+        // sentence, two sites, and the vendors case them differently; the network check already knew.
         message: arg.output
-          ? ctx.messages.unknownNamedOutput(arg.param!.name, callee.sym.name)
-          : ctx.messages.unknownNamedArgument(arg.param!.name, callee.sym.name),
+          ? ctx.messages.unknownNamedOutput(arg.param!.name, callee.sym.name.toUpperCase())
+          : ctx.messages.unknownNamedArgument(arg.param!.name, callee.sym.name.toUpperCase()),
       })
       continue
     }

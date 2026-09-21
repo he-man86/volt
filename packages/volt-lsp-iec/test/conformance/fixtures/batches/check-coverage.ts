@@ -200,6 +200,29 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
   // "Expression expected instead of '__POSITION'" — where the SAME name in a BODY is an ordinary undefined
   // identifier. That is either a rule about `__`-prefixed names or a rule about every name a declaration
   // initializer cannot fold, and those are different rules. Four cells tell them apart.
+  // WHICH NAMES MAY A CALL BIND? `call-arguments` asks `lookupMember`, unfiltered, so ANY member of the FB's
+  // scope counts — a plain `VAR loc : INT` included. The NETWORK-text check beside it restricts to the pin
+  // sections and properties, so the same question has two answers in one package. Neither had been asked of a
+  // compiler, so this asks it: an input binds, a property binds, a plain VAR must not.
+  {
+    name: "cc_named_arg_non_input",
+    pouName: "FB_LANG_named_arg_holder",
+    kind: "function_block" as const,
+    feature: "a named argument naming a plain VAR of the callee — an input, a property and a local, side by side",
+    fromDoc: "check-coverage",
+    plcPrgVar: "holder : FB_LANG_named_arg_holder; n : INT;",
+    plcPrgBody: "holder(loc := 5);",
+    source: `FUNCTION_BLOCK FB_LANG_named_arg_holder
+VAR_INPUT
+	inp : INT;
+END_VAR
+VAR
+	loc : INT;
+END_VAR
+loc := inp;
+END_FUNCTION_BLOCK
+`,
+  },
   fb("cc_decl_init_unknown_name", "`n : DINT := nope;` — a name nothing declares", "n : DINT := nope;"),
   fb("cc_decl_init_sibling_var", "`n : DINT := other;` — a name that IS declared, beside it, and is not constant", "other : DINT;\n\tn : DINT := other;"),
   fb("cc_decl_init_own_constant", "a plain literal initializer, the control that says the shape itself is fine", "n : DINT := 7;"),

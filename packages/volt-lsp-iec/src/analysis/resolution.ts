@@ -15,7 +15,7 @@
 import { CODESYS_ONLY_KEYWORDS, renderTypeExpr, walkExpr, type Expr, type MemberExpr, type Span, type TypeExpr } from "../syntax/index.js"
 import { CODESYS_ONLY_TYPES } from "../types/index.js"
 import { lookupReference } from "../reference/index.js"
-import { hasUnresolvedBase, isLibrarySymbol, lookup, lookupLocal, lookupMember, resolveBareEnumMember, type Scope } from "../symbols/index.js"
+import { hasUnresolvedBase, isLibrarySymbol, lookup, lookupLocal, lookupMember, resolveBareEnumMember, type Scope, type Symbol } from "../symbols/index.js"
 import { inferExprType, parseConversionName } from "../types/index.js"
 import type { WorkspaceRefs } from "./config.js"
 
@@ -141,6 +141,26 @@ export function unresolvedInExprs(
 export function refusedSystemNames(exprs: Iterable<Expr>, scope: Scope, project: Scope, references: WorkspaceRefs): BareRef[] {
   return unresolvedInExprs(exprs, scope, project, references).filter((r) => r.name.startsWith("__"))
 }
+
+/**
+ * CAN A CALL BIND THIS NAME? An FB's INPUTS, OUTPUTS and IN-OUTS can, and so can a PROPERTY; nothing else can.
+ *
+ * <p>One home because the question had two answers in one package. `checks/calls/call-arguments` asked
+ * `lookupMember` UNFILTERED — so any member of the callee's scope counted, a plain `VAR loc : INT` included, and
+ * `inst(loc := 5)` was accepted in silence. The network-text check beside it already restricted to the pin
+ * sections and properties. Measured 2026-09-21 on both live IDEs (`cc_named_arg_non_input`): both answer
+ * "'loc' is no input of 'FB_LANG_NAMED_ARG_HOLDER'", so the ST side was the one that was wrong.</p>
+ *
+ * <p>EN/ENO are deliberately NOT here: they are graphical-editor implicits with no ST call syntax, which is why
+ * the network check seeds them and this does not. That difference is a language fact, not a second opinion.</p>
+ */
+export function bindableMember(scope: Scope, name: string): Symbol | undefined {
+  const sym = lookupMember(scope, name)
+  if (sym === undefined) return undefined
+  return sym.kind === "property" || BINDABLE_SECTIONS.has(sym.varSection ?? "") ? sym : undefined
+}
+
+const BINDABLE_SECTIONS: ReadonlySet<string> = new Set(["VAR_INPUT", "VAR_OUTPUT", "VAR_IN_OUT"])
 
 export interface MemberRef {
   member: string

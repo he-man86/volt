@@ -466,3 +466,38 @@ END_FUNCTION_BLOCK`
   expect(of("codesys")).toEqual([])
   expect(of("twincat")).toEqual(["Function 'F_c' requires exactly '2' inputs"])
 })
+
+// WHICH NAMES MAY A CALL BIND — inputs, outputs, in-outs and properties, and nothing else. This asked
+// `lookupMember` unfiltered, so ANY member counted and `inst(loc := 5)` on a plain `VAR loc : INT` was accepted
+// in silence, while the network-text check beside it already restricted to the pin sections. Both vendors say
+// the ST side was the wrong one (`cc_named_arg_non_input`, 2026-09-21).
+test("a named argument may bind a pin or a property, never a plain VAR", () => {
+	const fb = (members: string) => `FUNCTION_BLOCK FB_T\n${members}\nEND_FUNCTION_BLOCK`
+	const call = (b: string) => `PROGRAM P\nVAR\n\tfb : FB_T;\n\tn : INT;\nEND_VAR\n${b}\nEND_PROGRAM`
+	const PINS = "VAR_INPUT\n\tinp : INT;\nEND_VAR\nVAR_OUTPUT\n\toutp : INT;\nEND_VAR\nVAR\n\tloc : INT;\nEND_VAR"
+	expect(codes(fb(PINS), call("fb(inp := 1);"))).not.toContain("unknown-named-argument")
+	expect(codes(fb(PINS), call("fb(outp => n);"))).not.toContain("unknown-named-output")
+	expect(codes(fb(PINS), call("fb(loc := 5);"))).toContain("unknown-named-argument")
+	// an IN-OUT binds too, and a name nothing declares is still the same error
+	expect(codes(fb("VAR_IN_OUT\n\tio : INT;\nEND_VAR"), call("fb(io := n);"))).not.toContain("unknown-named-argument")
+	expect(codes(fb(PINS), call("fb(nope := 1);"))).toContain("unknown-named-argument")
+})
+
+// …AND A CALL SITE UPPER-CASES THE CALLEE. A member WRITE from outside keeps the declared case
+// (`'iSecret' is no input of 'FB_LANG_hide_var'`); a named argument does not
+// (`'loc' is no input of 'FB_LANG_NAMED_ARG_HOLDER'`). One sentence, two sites, cased differently by the vendor.
+test("the callee is upper-cased at a call site, as both vendors print it", () => {
+	const src = `FUNCTION_BLOCK FB_Mixed\nVAR\n\tloc : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
+	const caller = `PROGRAM P\nVAR\n\tfb : FB_Mixed;\nEND_VAR\nfb(loc := 5);\nEND_PROGRAM`
+	const files = [src, caller].map((source, i) => {
+		const parseResult = parseSource(source, "codesys")
+		return { uri: i === 0 ? "FB_Mixed.fb" : "P.prg", source, parseResult }
+	})
+	const project = buildSymbolTable(files, [], "codesys")
+	const messages = files.flatMap((f) =>
+		computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) })
+			.filter((d) => d.code === "unknown-named-argument")
+			.map((d) => d.message),
+	)
+	expect(messages).toEqual(["'loc' is no input of 'FB_MIXED'"])
+})
