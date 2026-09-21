@@ -7,7 +7,7 @@
  *
  * At the last regeneration:
  *   confirmed    1925
- *   refused       525
+ *   refused       529
  *   not-lowered    90
  *   lsp-gap         4
  *   diverges        3
@@ -2395,6 +2395,7 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   unknown_attribute_typo: "refused",
   unresolved_identifier_in_body: "refused",
   unsigned_underflow: "confirmed",
+  uop_neg_bool: "refused",
   uop_neg_byte: "refused",
   uop_neg_date: "refused",
   uop_neg_dint: "refused",
@@ -2420,13 +2421,16 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   uop_not_byte: "refused",
   uop_not_date: "refused",
   uop_not_dint: "refused",
+  uop_not_dt: "refused",
   uop_not_dword: "refused",
   uop_not_int: "refused",
   uop_not_lint: "refused",
+  uop_not_ltime: "refused",
   uop_not_lword: "refused",
   uop_not_real: "refused",
   uop_not_sint: "refused",
   uop_not_time: "refused",
+  uop_not_tod: "refused",
   uop_not_udint: "refused",
   uop_not_word: "refused",
   uop_not_wstring: "refused",

@@ -8,14 +8,23 @@
  *
  *   -aTime    Cannot convert type 'TIME' to type 'DINT'                 (and LTIME -> LINT, DATE/TOD/DT -> DINT)
  *   -aString  Cannot convert type 'STRING' to type 'INT'                (and WSTRING -> INT)
- *   -aBool    nothing — a BOOL converts to INT silently
+ *   -aBool    Cannot convert type 'BOOL' to type 'INT'
  *   -anInt    nothing — every integer, bit string and real is already fine
  *   NOT aReal Cannot convert type 'REAL' to type 'ANY_BIT'
  *   NOT aStr  Cannot convert type 'STRING' to type 'ANY_BIT'            (and WSTRING)
- *   NOT aTime nothing beyond the UDINT it produces — a duration IS a bit pattern to this operator
+ *   NOT aTime Cannot convert type 'TIME' to type 'UDINT'                (and LTIME -> ULINT, DATE/TOD/DT -> UDINT)
+ *   NOT aBool nothing — `NOT BOOL` is BOOL, which is already the type it computes in
  *
- * The asymmetry is the measurement's, not a simplification: `-` names the concrete type it wanted and `NOT` names the
- * generic `ANY_BIT`, and a TIME is acceptable to one and not the other. CODESYS-only; TwinCAT is unmeasured.
+ * <p>TWO OF THOSE ROWS SAID "NOTHING" UNTIL 2026-09-21, and they were the summary's error rather than the
+ * recording's: `unary_minus_on_bool` has carried "Cannot convert type 'BOOL' to type 'INT'" all along, and
+ * `uop_not_time` has carried the TIME one — both were read as the RESULT conversion and the operand half went
+ * unnoticed. Four probes close the family properly: `uop_neg_bool` asks minus-on-a-BOOL into a STRING, where the
+ * operand message cannot hide behind the result's, and `uop_not_tod`/`_dt`/`_ltime` extend NOT across the rest of
+ * the date types. Every one reports, on both vendors, at the width its operand has.</p>
+ *
+ * <p>So the rule is ONE rule — a unary operator converts its operand into the type it computes in, and says so —
+ * and the only asymmetry left is the TARGET it names: `-` and `NOT` both name the concrete integer, except that
+ * `NOT` on a REAL or a STRING names the generic `ANY_BIT`, because there is no integer it could produce.</p>
  */
 import { stmtExprs, walkExpr, walkStatements } from "../../../syntax/index.js"
 import { bodies } from "../../../symbols/index.js"
@@ -24,10 +33,12 @@ import type { CheckContext } from "../../diagnostics.js"
 import { compilerTypeName } from "../../messages.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
-/** Families `-` will not convert silently. BOOL is absent on purpose: it is measured to convert without a word. */
-const MINUS_REJECTS: ReadonlySet<string> = new Set(["time", "date", "string"])
-/** Families `NOT` will not take. A duration is absent: `NOT aTime` is a UDINT and no complaint. */
-const NOT_REJECTS: ReadonlySet<string> = new Set(["real", "string"])
+/** Families `-` converts LOUDLY. Integers, bit strings and reals are already what it computes in. */
+const MINUS_REPORTS: ReadonlySet<string> = new Set(["bool", "time", "date", "string"])
+/** Families `NOT` converts loudly. BOOL is absent: `NOT BOOL` is BOOL, so there is no conversion to report. */
+const NOT_REPORTS: ReadonlySet<string> = new Set(["real", "string", "time", "date"])
+/** …and the two it cannot produce an integer FROM, which it names by the generic family instead. */
+const ANY_BIT_FAMILIES: ReadonlySet<string> = new Set(["real", "string"])
 
 export function checkUnaryOperand(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project))
@@ -38,10 +49,12 @@ export function checkUnaryOperand(ctx: CheckContext, out: DiagnosticItem[]): voi
           const operand = inferExprType(x.operand, scope, ctx.project)
           const elem = elemOf(operand)
           if (elem === undefined) return // unresolved or composite → skip (zero-FP)
-          const rejects = x.op === "-" ? MINUS_REJECTS : NOT_REJECTS
-          if (!rejects.has(elem.family)) return
-          // `-` names what it wanted, which is whatever the expression's own type came out as; `NOT` names ANY_BIT.
-          const target = x.op === "NOT" ? "ANY_BIT" : compilerTypeName(inferExprType(x, scope, ctx.project))
+          const reports = x.op === "-" ? MINUS_REPORTS : NOT_REPORTS
+          if (!reports.has(elem.family)) return
+          // Both name the type the operator computes in — the expression's own type — except that `NOT` on a REAL
+          // or a STRING has no integer to name and says `ANY_BIT`.
+          const target =
+            x.op === "NOT" && ANY_BIT_FAMILIES.has(elem.family) ? "ANY_BIT" : compilerTypeName(inferExprType(x, scope, ctx.project))
           out.push({
             severity: "error",
             span: x.span,

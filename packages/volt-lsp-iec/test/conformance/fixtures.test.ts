@@ -888,7 +888,13 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // above it: a `__` name the compiler does not know is a PARSE refusal there, not an undefined identifier
   // — three messages, both vendors, and four probes to tell that apart from "an initializer must fold"
   // (a sibling VARIABLE initializes one just fine).
-  { vendor: "twincat", floor: 2506 },
+  // 2506 -> 2513: A UNARY OPERATOR CONVERTS ITS OPERAND, and two rows of that rule had been written down as
+  // "nothing". They were the summary's error, not the recording's — `unary_minus_on_bool` has carried
+  // "Cannot convert type 'BOOL' to type 'INT'" all along and `uop_not_time` the TIME one, both read as the
+  // RESULT conversion with the operand half unnoticed. Four new cells close it: `-BOOL` asked into a STRING,
+  // where the operand message cannot hide behind the result's, and `NOT` on TOD, DT and LTIME. Every one
+  // reports, on both vendors, at its operand's own width.
+  { vendor: "twincat", floor: 2513 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -962,7 +968,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // do not — and twelve of the thirteen agreed the moment they were recorded.
   // 2521 -> 2523: the two new partial-access widths, which CODESYS compiles clean and now says so.
   // 2523 -> 2526: the same two, on the vendor where `__POSITION` resolves and only the plain unknown name bites.
-  { vendor: "codesys", floor: 2526 },
+  // 2526 -> 2533: the same rule, the same seven cells.
+  { vendor: "codesys", floor: 2533 },
 ]
 
 

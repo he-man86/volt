@@ -129,4 +129,14 @@ export const UNARY_OPERAND_TESTS: readonly LanguageTest[] = [
   not("time", "x : TIME := T#2S;", "Cannot convert type 'UDINT' to type 'STRING'"),
   not("date", "x : DATE := D#2024-01-01;", "Cannot convert type 'UDINT' to type 'STRING'"),
   not("wstring", "x : WSTRING := \"ab\";", "Cannot convert type 'WSTRING' to type 'STRING'"),
+  // THE THREE DATE TYPES `NOT` HAD NOT BEEN ASKED. `not_time` and `not_date` both report the operand's own trip
+  // into the unsigned integer ("Cannot convert type 'TIME' to type 'UDINT'"), which is the half the summary above
+  // reads as absent — so either the rule covers every date-ish type or TIME and DATE are two exceptions. TOD and
+  // DT are 32-bit like them; LTIME is 64-bit, which is where a width rule would show.
+  not("tod", "x : TOD := TOD#12:00:00;", "Cannot convert type 'UDINT' to type 'STRING'"),
+  not("dt", "x : DT := DT#2024-01-01-12:00:00;", "Cannot convert type 'UDINT' to type 'STRING'"),
+  not("ltime", "x : LTIME := LTIME#2S;", "Cannot convert type 'ULINT' to type 'STRING'"),
+  // …and UNARY MINUS on a BOOL, which `unary_minus_on_bool` answers into a BOOL destination — the one place the
+  // operand conversion could hide behind the result conversion. Asked into a STRING it cannot.
+  neg("bool", "x : BOOL := TRUE;", "Cannot convert type 'INT' to type 'STRING'"),
 ]
