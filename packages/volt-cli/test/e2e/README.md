@@ -180,6 +180,20 @@ regenerate a fixture project, these two POUs must survive** — without them the
 skipping, which is deliberate: silently losing the only live coverage of a data-loss guard is the failure mode
 worth being noisy about.
 
+**`graphical/refused-shapes.test.ts` runs on both, and expects a DIFFERENT verdict from each.** Four bodies -
+an unconditional `JMP`, an unconditional `RETURN`, an `EXECUTE` box, and a box output pin wired straight to a
+variable - push clean to CODESYS and are refused by the TwinCAT driver. Every refusal blames TwinCAT's PLCopen
+importer and **none of them has been put to the IDE**: they are the driver's rules, and "TwinCAT cannot" reads
+exactly like "Volt does not" from outside. So the suite carries a table of which shapes are refused where, and
+**fails when a driver learns one** - "took it, take it off the list" - which is the only thing that keeps a
+list of known gaps honest. It asserts two properties that hold whichever way each one goes: an accepted push
+round-trips BYTE-IDENTICAL, and a refused push that wrote anything SAYS so. The stronger property (a refusal
+writes nothing at all) is a `todo` there, because it needs a pre-flight through the vendor boundary -
+`PushService` documents that as the one class its own pre-flight cannot cover.
+
+These four are also the only LSP conformance fixtures with no TwinCAT recording, which is how the asymmetry
+surfaced: the recorder cannot push them either.
+
 ## Not a suite: the corpus-migration GAP FINDER
 
 `scripts/corpus-migration.ts` pushes a real customer project (the `volt-lsp-iec/test-corpus/` harvests) into an

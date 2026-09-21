@@ -54,7 +54,27 @@ function ng(name: string, pouName: string, feature: string, source: string, from
     plcPrgVar: `inst : ${pouName};`,
     plcPrgBody: "inst();",
     execSkip: NOT_ST,
+    ...(TWINCAT_REFUSES[name] === undefined ? {} : { vendorRefuses: { vendor: "twincat" as const, reason: TWINCAT_REFUSES[name]! } }),
   }
+}
+
+/**
+ * The bodies VOLT'S TWINCAT DRIVER refuses, in its own words — which blame TwinCAT's PLCopen importer, and none
+ * of which has been put to the IDE. `volt push` comes
+ * back rejected, so these have CODESYS ground truth and none here — and the recorder, the checker and the work
+ * list all need to know that rather than counting them as a recording somebody forgot to take — and
+ * `volt-cli`'s `test/e2e/graphical/refused-shapes.test.ts` holds the same four shapes as a ratchet against a
+ * LIVE IDE, so the day the driver learns one this list is what has to change.
+ */
+const TWINCAT_REFUSES: Record<string, string | undefined> = {
+  ng_box_output_arrow:
+    "TwinCAT's PLCopen importer honours a box output pin wired straight to a variable and then lowers it to a SEPARATE assignment, so the body that came back would not be the one pushed — `volt push` refuses rather than writing a body the IDE would silently change (measured 2026-09-21).",
+  ng_execute_box:
+    "an Execute box is a TwinCAT construct Volt cannot express as PLCopen; the IDE has to draw it (measured 2026-09-21).",
+  ng_label_jmp_resolved:
+    "TwinCAT's PLCopen importer requires a jump to be wired to a condition and rejects an unconditional one (measured 2026-09-21).",
+  ng_conditional_jump_and_return:
+    "TwinCAT's PLCopen importer requires a return to be wired to a condition and rejects the unconditional one beside them (measured 2026-09-21).",
 }
 
 export const NETWORK_GRAPHICAL_TESTS: readonly LanguageTest[] = [

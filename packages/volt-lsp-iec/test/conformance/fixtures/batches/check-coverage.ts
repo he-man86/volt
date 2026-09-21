@@ -108,6 +108,9 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
   },
   {
     name: "cc_vg_undefined_label",
+    // TwinCAT's PLCopen importer requires a jump to be wired to a condition and rejects this unconditional
+    // one, so `volt push` refuses it and there is no TwinCAT ground truth to have (measured 2026-09-21).
+    vendorRefuses: { vendor: "twincat" as const, reason: "TwinCAT's PLCopen importer requires a jump to be wired to a condition and rejects an unconditional one (measured 2026-09-21)." },
     pouName: "FB_LANG_cc_vg_label",
     kind: "function_block",
     feature: "network text: a JMP to a missing label → compiler error",

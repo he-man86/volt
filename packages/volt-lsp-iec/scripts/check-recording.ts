@@ -111,7 +111,9 @@ function verify(vendor: string): number {
   }
 
   // 3. EVERY FIXTURE ACCOUNTED FOR.
-  const missing = ALL_TESTS.filter((x) => !x.recorderSkip && t[x.name] === undefined)
+  const missing = ALL_TESTS.filter(
+    (x) => !x.recorderSkip && x.vendorRefuses?.vendor !== vendor && t[x.name] === undefined,
+  )
   console.log(`\nfixtures with no row in this run: ${missing.length}`)
   for (const m of missing.slice(0, 15)) console.log(`   ${m.name}`)
 
