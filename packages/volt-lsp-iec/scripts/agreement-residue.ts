@@ -70,7 +70,7 @@ for (const t of ALL_TESTS) {
   // invents unresolved-name findings that the replay does not have (`op_sys_queryinterface`).
   const own = new Set(fixtures.map((f) => f.name))
   const files = [
-    ...fixtures.map((f) => ({ name: f.name, uri: `${f.pouName}.st`, parseResult: parseSource(f.source), source: f.source })),
+    ...fixtures.map((f) => ({ name: f.name, uri: `${f.pouName}.st`, parseResult: parseSource(f.source, vendor), source: f.source })),
     { name: `${t.name}__plcprg`, uri: "plc_prg.prg", parseResult: parseSource(plc, vendor), source: plc },
     ...crossDecls.filter((d) => !own.has(d.name)).map((d) => ({ ...d, name: `${d.name}__decl` })),
     ...std.map((l) => ({ ...l, name: "__std" })),
@@ -88,7 +88,7 @@ for (const t of ALL_TESTS) {
   // script reports every NETWORK fixture as answering nothing.
   const ownFile = files[0]
   if (ownFile !== undefined)
-    for (const d of computeNetworkTextDiagnostics({ uri: ownFile.uri, source: ownFile.source, parseResult: ownFile.parseResult }, project, messagesFor("codesys")))
+    for (const d of computeNetworkTextDiagnostics({ uri: ownFile.uri, source: ownFile.source, parseResult: ownFile.parseResult }, project, messagesFor(vendor)))
       if (d.severity === "error" || d.severity === "warning") lsp.push(`[${d.severity}] ${comparable(d.message)}`)
   lsp.sort()
   if (only.length > 0) {
