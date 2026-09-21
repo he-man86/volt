@@ -900,7 +900,14 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // there either — leaving out the one that HAS an initial value is "requires exactly '2' inputs". And the
   // required-inputs check was gated to `function` while the METHOD form had never been asked: asked, both
   // vendors answer with the same message, naming the method.
-  { vendor: "twincat", floor: 2516 },
+  // 2516 -> 2526: `TEST_AND_SET` TAKES A DWORD BY ADDRESS, and four cells could only say that in outline. Seven
+  // more operand types turn it into one sentence: the operand converts into a DWORD exactly as an assignment
+  // would convert it, so DWORD and UDINT make no temporary and say nothing, a legal conversion makes one and
+  // "'BYTE_TO_DWORD(flag)' is not allowed as operand for ADR" is the address being refused, a SIGNED operand
+  // adds the sign-change warning the same conversion carries anywhere else, and a type with no conversion at
+  // all (BOOL, REAL, STRING, LWORD) reports the conversion instead. Identical on both vendors, and written
+  // through the shared assignment rules so an operand nobody probed answers the way `x : DWORD := flag` does.
+  { vendor: "twincat", floor: 2526 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -976,7 +983,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 2523 -> 2526: the same two, on the vendor where `__POSITION` resolves and only the plain unknown name bites.
   // 2526 -> 2533: the same rule, the same seven cells.
   // 2533 -> 2534: the METHOD half of the required-inputs rule, which CODESYS words as a range like a FUNCTION's.
-  { vendor: "codesys", floor: 2534 },
+  // 2534 -> 2544: the same eleven cells.
+  { vendor: "codesys", floor: 2544 },
 ]
 
 

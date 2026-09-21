@@ -85,3 +85,40 @@ test("C0022/C0023: wrong intrinsic-operator operand count is flagged; correct ar
   expect(arity(`i := SEL(i > 0, i, i);`)).toEqual([]) // SEL exactly 3
   expect(arity(`i := MUX(i, i, i);`)).toEqual([]) // MUX >= 3
 })
+
+// TEST_AND_SET TAKES A DWORD BY ADDRESS, and the operand converts into one exactly as an assignment would —
+// eleven operand types, identical on both vendors (`atomic_tas_*`, 2026-09-21).
+test("TEST_AND_SET: the three answers a non-DWORD operand gets", () => {
+  const tas = (decl: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
+    const src = `FUNCTION_BLOCK F
+VAR
+	flag : ${decl};
+	was : BOOL;
+END_VAR
+was := TEST_AND_SET(flag);
+END_FUNCTION_BLOCK`
+    const pr = parseSource(src, vendor)
+    const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
+    return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+      .filter((d) => d.code === "test-and-set-operand" || d.code === "sign-change-conversion")
+      .map((d) => d.message)
+  }
+  // 32 bits unsigned IS the representation — no temporary, nothing to say
+  expect(tas("DWORD")).toEqual([])
+  expect(tas("UDINT")).toEqual([])
+  // a legal conversion produces a TEMPORARY, and a temporary has no address
+  expect(tas("BYTE")).toEqual(["'BYTE_TO_DWORD(flag)' is not allowed as operand for ADR"])
+  expect(tas("WORD")).toEqual(["'WORD_TO_DWORD(flag)' is not allowed as operand for ADR"])
+  // …and a SIGNED operand carries the warning that conversion would carry anywhere else
+  expect(tas("DINT")).toEqual([
+    "'DINT_TO_DWORD(flag)' is not allowed as operand for ADR",
+    "Implicit conversion from signed Type 'DINT' to unsigned Type 'DWORD' : Possible change of sign",
+  ])
+  // no conversion to refuse an address for — the conversion itself is what is reported
+  for (const t of ["BOOL", "REAL", "LWORD", "STRING"]) expect(tas(t)).toEqual([`Cannot convert type '${t}' to type 'DWORD'`])
+  // TwinCAT answers the same, down to its own lower-case "possible"
+  expect(tas("DINT", "twincat")).toEqual([
+    "'DINT_TO_DWORD(flag)' is not allowed as operand for ADR",
+    "Implicit conversion from signed Type 'DINT' to unsigned Type 'DWORD' : possible change of sign",
+  ])
+})

@@ -7,7 +7,7 @@
  *
  * At the last regeneration:
  *   confirmed    1925
- *   refused       530
+ *   refused       537
  *   not-lowered    90
  *   lsp-gap         4
  *   diverges        3
@@ -120,6 +120,13 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   atomic_tas_byte: "refused",
   atomic_tas_dint: "refused",
   atomic_tas_dword: "refused",
+  atomic_tas_int: "refused",
+  atomic_tas_lword: "refused",
+  atomic_tas_real: "refused",
+  atomic_tas_string: "refused",
+  atomic_tas_udint: "refused",
+  atomic_tas_usint: "refused",
+  atomic_tas_word: "refused",
   atomic_xadd_dint: "refused",
   atomic_xadd_dword: "refused",
   atomic_xadd_int: "refused",

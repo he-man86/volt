@@ -86,9 +86,18 @@ const cas: LanguageTest[] = [
   ),
 ]
 
-/** `TEST_AND_SET` — a BOOL for every operand type, or something width-dependent? */
+/**
+ * `TEST_AND_SET` — a BOOL for every operand type, or something width-dependent?
+ *
+ * <p>AND WHAT IT DOES WITH A NON-DWORD, which the first four cells answer only in outline: it INSERTS the
+ * conversion and then cannot take that temporary's address — "'DINT_TO_DWORD(flag)' is not allowed as operand
+ * for ADR" — while a BOOL, which has no implicit conversion to DWORD at all, reports the conversion instead.
+ * Seven more widths say whether that split is "convertible or not" or something narrower: WORD and LWORD sit
+ * either side of DWORD, INT/UDINT cross the sign the other way from DINT, and REAL and STRING are the two that
+ * should reach the BOOL branch if the rule is about convertibility.</p>
+ */
 const tas: LanguageTest[] = [
-  ...["DWORD", "DINT", "BYTE"].map((t) =>
+  ...["DWORD", "DINT", "BYTE", "WORD", "LWORD", "INT", "UDINT", "USINT", "REAL", "STRING"].map((t) =>
     probe(
       `atomic_tas_${t.toLowerCase()}`,
       `\tflag : ${t};\n\twas : BOOL;`,

@@ -15,6 +15,7 @@
  * KNOWN non-numeric elementary (not ANY_NUM = int/bitstring/real).
  */
 import { elementaryType, elementaryTypeRef, inferExprType, inTypeGroup, isAssignable } from "../../../types/index.js"
+import { conversionWarning, storeConversionError } from "../../rules.js"
 import { CODESYS_ONLY_KEYWORDS, type Span } from "../../../syntax/index.js"
 import { forEachExpr, lookup } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
@@ -65,6 +66,31 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
       const t = inferExprType(arg, scope, ctx.project)
       if (t.kind === "array" && t.dims.length > 0 && t.dims.every((d) => !d.dynamic))
         push(out, "error", e.callee.span, "bounds-fixed-array", ctx.messages.boundsNeedVariableLength())
+    }
+    // `TEST_AND_SET` TAKES A DWORD BY ADDRESS, and the operand is converted into one exactly as an assignment
+    // would convert it. Eleven operand types, identical on both vendors (`calls/atomic-operands.ts`, 2026-09-21),
+    // and they fall into three:
+    //
+    //   DWORD, UDINT        nothing — 32 bits unsigned is already the representation, so no temporary is made
+    //   BYTE/WORD/USINT     "'BYTE_TO_DWORD(flag)' is not allowed as operand for ADR" — the conversion is legal,
+    //   INT/DINT            and its RESULT is a temporary, which has no address. A signed operand also carries
+    //                       the sign-change warning the same conversion would carry in an assignment.
+    //   BOOL/REAL/STRING    "Cannot convert type 'BOOL' to type 'DWORD'" — there is no conversion to refuse an
+    //   LWORD               address for, so the conversion itself is what is reported.
+    //
+    // Written as that one sentence rather than a table: the refusal and the warning both come from the shared
+    // assignment rules, so a type nobody probed answers the way the compilers answer it for `x : DWORD := flag`.
+    if (name === "TEST_AND_SET" && lookup(scope, e.callee.name) === undefined) {
+      const dword = elementaryTypeRef(elementaryType("DWORD")!)
+      const refused = storeConversionError(dword, arg, arg.span, scope, ctx.project, ctx.messages)
+      const t = inferExprType(arg, scope, ctx.project)
+      const elem = t.kind === "elementary" ? t.elem : undefined
+      if (refused !== undefined) out.push({ ...refused, code: "test-and-set-operand" })
+      else if (elem !== undefined && !(elem.bits === 32 && !elem.signed)) {
+        push(out, "error", arg.span, "test-and-set-operand", ctx.messages.invalidAdrOperand(`${elem.name}_TO_DWORD(${text(ctx.source, arg.span)})`))
+        const warn = conversionWarning(dword, t, arg, ctx.messages)
+        if (warn !== undefined) out.push(warn)
+      }
     }
     if (name === "ADR") {
       if (arg.kind === "literal") {
