@@ -149,12 +149,20 @@ one — how much of what each vendor SAYS the LSP says back. It was 2203 / 2412 
       (`GT(a, b)`) cascade to 78 messages on CODESYS. Both are the parser's recovery, not a rule, and matching them
       would mean a vendor-shaped parser. Measure whether that is worth it before writing any of it.
 
-## The transport decision
+## The transport decision — MEASURED, and the answer is no
 
-- [ ] Measure `volt push` + `volt build` per fixture against the raw-wire path (~3s/fixture) on a batch of ~50.
-- [ ] If it is within a small factor, replace the recorder's hand-rolled client with the CLI. It was the common
-      factor in two of today's failures, and `CLAUDE.md` argues the tier should drive the IDE the way a user
-      does. If it is not, write down the number and why the bespoke client stays.
+- [x] Measure `volt push` + `volt build` per fixture against the raw-wire path. **The CLI is not a transport for
+      this job, and the timing was never the reason.** `volt --version` is ~98 ms of process start and `volt build`
+      reaches its first check in ~180 ms — costs that would add perhaps eight minutes to a 2524-fixture run, next
+      to the ~3.9 s/fixture the run already takes. Cheap enough to be irrelevant.
+- [x] What stops it is the MODEL. `volt build` answers "not a Volt workspace — run `volt init` first", because the
+      CLI's verbs operate on a git WORKSPACE bound to the IDE: `push` reconciles a whole tree through a git merge.
+      The recorder needs the opposite shape — set ONE item, build, read the diagnostics, delete the item, restore
+      PLC_PRG, 2524 times, with no tree and nothing committed. Driving that through the CLI would mean creating
+      and resetting a workspace per fixture to express a single wire call.
+- [x] So the hand-rolled client stays, and the reason is written where it will be read: it is not duplication of
+      the CLI, it is the wire without the workspace. (`scripts/bridge.ts` speaks the same named-pipe protocol the
+      CLI does — the PROTOCOL is shared, which is the part that matters.)
 
 ## Known-stale things this touched
 

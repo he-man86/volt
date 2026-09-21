@@ -21,6 +21,13 @@
  * Graphical (FBD/LD) bodies ARE recordable — the note here used to say they were not ("the bridge stores them as
  * PlcOpen XML, not pushable text"), which stopped being true when network text became the transport. That stale
  * sentence is why the graphical fixtures went unmeasured for so long; `network-graphical.ts` exists because of it.
+ *
+ * WHY NOT THE `volt` CLI, asked and measured 2026-09-21: not the timing (process start is ~98 ms and a command
+ * reaches the bridge in ~180 ms, against the ~3.9 s a fixture already takes) but the MODEL. The CLI's verbs
+ * operate on a git WORKSPACE bound to the IDE — `volt build` answers "not a Volt workspace" without one, and
+ * `push` reconciles a whole tree through a git merge. This needs the opposite shape: set ONE item, build, read,
+ * delete, restore PLC_PRG, 2524 times, with no tree and nothing committed. Same named-pipe PROTOCOL, no
+ * workspace — which is the part worth sharing and the part that is shared.
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
