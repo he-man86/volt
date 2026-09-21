@@ -195,6 +195,24 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
   //          stayed silent). What does CODESYS say for the general case?
   fb("cc_decl_init_trailing_ident", "`x : INT := 5 abc;` → compiler error", "x : INT := 5 abc;"),
   fb("cc_decl_init_trailing_int", "`x : INT := 5 6;` → compiler error", "x : INT := 5 6;"),
+  // WHAT MAY STAND IN AN INITIALIZER AT ALL, asked because `sysop_position_initializer` answers something
+  // stronger than "the name is undefined": TwinCAT refuses `here : DINT := __POSITION;` at the PARSER —
+  // "Expression expected instead of '__POSITION'" — where the SAME name in a BODY is an ordinary undefined
+  // identifier. That is either a rule about `__`-prefixed names or a rule about every name a declaration
+  // initializer cannot fold, and those are different rules. Four cells tell them apart.
+  fb("cc_decl_init_unknown_name", "`n : DINT := nope;` — a name nothing declares", "n : DINT := nope;"),
+  fb("cc_decl_init_sibling_var", "`n : DINT := other;` — a name that IS declared, beside it, and is not constant", "other : DINT;\n\tn : DINT := other;"),
+  fb("cc_decl_init_own_constant", "a plain literal initializer, the control that says the shape itself is fine", "n : DINT := 7;"),
+  {
+    ...fb("cc_decl_init_dunder_unknown", "`n : DINT := __NO_SUCH_THING;` — a `__` name NEITHER vendor has", "n : DINT := __NO_SUCH_THING;"),
+    // DELIBERATELY UNANSWERED (2026-09-21), and this cell is what makes the silence visible. `nameResolves`
+    // treats EVERY `__` name as resolved unless the dialect table names it as missing — a blanket that exists
+    // so an unlisted system operator is never a false positive, and the reference catalog is not complete
+    // enough to drop it. So `system-initializer` fires for `__POSITION` on TwinCAT, where the table HAS a
+    // verdict, and stays quiet here, where it does not. Closing it means completing the `__` catalog on both
+    // vendors first; until then this records what both compilers say and the LSP does not.
+    deferred: { lsp: "`nameResolves` accepts any unlisted `__` name; completing the operator catalog is the prerequisite (2026-09-21)" },
+  },
   fb("cc_ltime_literal_into_time", "an LTIME literal into a TIME → ?", "t1 : TIME;", "t1 := LTIME#1S;"),
   fb("cc_fp_ltime_literal_into_ltime", "an LTIME literal into an LTIME → accepted", "lt1 : LTIME;", "lt1 := LTIME#1S;"),
   // consolidate-lsp-structure A14 — CODESYS rejects IL operator names as identifiers (`lt`, `ld`, found by the execution

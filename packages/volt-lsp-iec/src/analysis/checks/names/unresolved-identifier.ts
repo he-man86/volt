@@ -18,7 +18,7 @@
  * false-positive on stripped-branch references.
  */
 import { stmtExprs, walkExpr, walkStatements, type BodySpan } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
+import { bodies, forEachDecl, lookupLocal } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { unresolvedInExprs, unresolvedMembers } from "../../resolution.js"
@@ -69,6 +69,30 @@ export function checkUnresolvedIdentifiers(ctx: CheckContext, out: DiagnosticIte
         })
       }
     })
+  }
+
+  // AND IN A DECLARATION'S INITIALIZER, which this walked past because it walked BODIES. An initializer is not a
+  // constant-only place — `other : DINT; n : DINT := other;` compiles on both vendors — so a name is as real there
+  // as in a statement, and `n : DINT := nope;` is "Identifier 'nope' not defined" on both
+  // (`cc_decl_init_unknown_name`, `cc_decl_init_sibling_var`, 2026-09-21).
+  for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
+    // an AGGREGATE initializer is a different shape with its own element list, and `struct-init`/`array-init`
+    // own it — this is the plain-expression case only
+    if (decl.init === undefined || decl.init.kind === "aggregate_init") continue
+    for (const ref of unresolvedInExprs([decl.init], scope, ctx.project, ctx.references)) {
+      if (unparsed.has(ref.name.toLowerCase())) continue
+      // …but a `__` name is the compilers' own namespace, and one they do not know never reaches name resolution
+      // here at all — it is a PARSE refusal. `checks/declarations/system-initializer` owns it.
+      if (ref.name.startsWith("__")) continue
+      // …and a name declared in THIS VERY SCOPE resolves bare even under `{attribute 'qualified_only'}`. That
+      // attribute governs access from OUTSIDE the list, and `lookup` drops such a symbol at every level
+      // including its own — which never mattered while this walked bodies, because a GVL has no body. The one
+      // place a reference can sit INSIDE a qualified-only list is an initializer, and real projects write them:
+      // `MaxProductsInMould : UINT := MaxMouldLevels * MaxProductsInX * MaxProductsInY;` in pro2193's
+      // `GVL_Constants`, which CODESYS compiles. Ten false positives on the first corpus run.
+      if (lookupLocal(scope, ref.name).length > 0) continue
+      out.push({ severity: "error", span: ref.span, source: SOURCE, code: "unresolved-identifier", message: ctx.messages.undefinedIdentifier(ref.name) })
+    }
   }
 }
 

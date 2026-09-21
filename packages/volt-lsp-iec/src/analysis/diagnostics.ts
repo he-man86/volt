@@ -70,6 +70,7 @@ import { checkInoutExternalAccess } from "./checks/oop/inout-external-access.js"
 import { checkInoutOwnAccess } from "./checks/oop/inout-own-access.js"
 import { checkConditionalCall } from "./checks/names/conditional-call.js"
 import { checkDialectType } from "./checks/declarations/dialect-type.js"
+import { checkSystemInitializer } from "./checks/declarations/system-initializer.js"
 import { checkDynamicCreation } from "./checks/declarations/dynamic-creation.js"
 import { checkFbInitInout } from "./checks/oop/fb-init-inout.js"
 import { checkFbInitInstantiation } from "./checks/oop/fb-init-instantiation.js"
@@ -193,6 +194,7 @@ const CHECKS: readonly Check[] = [
   checkInoutOwnAccess,
   checkConditionalCall,
   checkDialectType,
+  checkSystemInitializer,
   checkDynamicCreation,
   checkFbInitInout,
   checkFbInitInstantiation,

@@ -669,7 +669,11 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // measured `__QUERYINTERFACE` on either vendor. Given its own interface it now records CODESYS's real answer
   // (the FB must extend `__System.IQueryInterface`, and the operand must be an instance rather than a type),
   // and the LSP says nothing about any of it.
-  "lsp-gap": 3,
+  // 3 -> 4. `cc_decl_init_dunder_unknown` is another gap a fixture CREATED by asking properly: both vendors
+  // refuse an unknown `__` name in a declaration initializer at the PARSER, and `nameResolves` accepts every
+  // unlisted `__` name on purpose — the blanket that keeps an unlisted system operator from false-positiving.
+  // `system-initializer` answers the half the dialect table HAS a verdict for; this is the half it does not.
+  "lsp-gap": 4,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -879,7 +883,12 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // member access, finds `%` where a component name belongs and leaves the width+index standing as a statement
   // of its own — three messages, and the same three at all four widths. `.%W`/`.%B` had been recorded since
   // 2026-05-29 and `.%X`/`.%D` were asserted in a note beside them; asked properly they answer identically.
-  { vendor: "twincat", floor: 2501 },
+  // 2501 -> 2506: A DECLARATION INITIALIZER IS NOT A BODY, and the name check only ever walked bodies, so
+  // `n : DINT := nope;` said nothing where both vendors say "Identifier 'nope' not defined". Plus the rule
+  // above it: a `__` name the compiler does not know is a PARSE refusal there, not an undefined identifier
+  // — three messages, both vendors, and four probes to tell that apart from "an initializer must fold"
+  // (a sibling VARIABLE initializes one just fine).
+  { vendor: "twincat", floor: 2506 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -952,7 +961,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // `$20AC`, `a$0041b`, the named escapes and both `WSTRING(n)` forms all compile, `$41`/`$FF`/`$C3$A9`/`$004`
   // do not — and twelve of the thirteen agreed the moment they were recorded.
   // 2521 -> 2523: the two new partial-access widths, which CODESYS compiles clean and now says so.
-  { vendor: "codesys", floor: 2523 },
+  // 2523 -> 2526: the same two, on the vendor where `__POSITION` resolves and only the plain unknown name bites.
+  { vendor: "codesys", floor: 2526 },
 ]
 
 

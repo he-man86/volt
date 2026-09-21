@@ -6,10 +6,10 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1923
- *   refused       524
+ *   confirmed    1925
+ *   refused       525
  *   not-lowered    90
- *   lsp-gap         3
+ *   lsp-gap         4
  *   diverges        3
  *   unaskable      36
  */
@@ -380,8 +380,12 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   cc_conv_spelled_source_ok: "refused",
   cc_conv_spelled_target_into_int: "refused",
   cc_conv_spelled_target_into_tod: "refused",
+  cc_decl_init_dunder_unknown: "lsp-gap",
+  cc_decl_init_own_constant: "confirmed",
+  cc_decl_init_sibling_var: "confirmed",
   cc_decl_init_trailing_ident: "refused",
   cc_decl_init_trailing_int: "refused",
+  cc_decl_init_unknown_name: "refused",
   cc_div_udint_dint: "confirmed",
   cc_enum_arg_into_dword: "confirmed",
   cc_enum_arg_into_sint: "refused",
