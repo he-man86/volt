@@ -926,7 +926,12 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 2485 -> 2486: `cfold_sqrt` — the initializer check only ever asked `literalCheckType`, so an initializer
   // with a SHAPE (a call, a member read, an expression) converted in silence.
   // 2486 -> 2489: the same three, on CODESYS.
-  { vendor: "codesys", floor: 2489 },
+  // 2489 -> 2505: SEVENTEEN `tc_*` fixtures, and the catalog was the bug. `{attribute 'TcRetain'}` is a real
+  // attribute to TwinCAT and an unknown one to CODESYS, which says so -- but both families sat in ONE flat set,
+  // so every `Tc*` name was known to both and the LSP answered silence where CODESYS warns. Sixteen warn; the
+  // seventeenth is `Tc2GvlVarNames` above a `VAR_GLOBAL`, which CODESYS says nothing about for a reason that is
+  // not the name at all -- the attribute pass does not run on a GVL file, exactly as it does not on a DUT.
+  { vendor: "codesys", floor: 2505 },
 ]
 
 

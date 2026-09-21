@@ -101,7 +101,12 @@ export interface Scope {
    * PROJECT ROOT ONLY: whose ST this project is. The vocabulary differs between the vendors — `__POSITION`,
    * `__POUNAME`, `__COMPARE_AND_SWAP` and `__VECTOR` are CODESYS's alone — and name resolution and type
    * inference both need to know, which is why it rides on the scope they already receive rather than
-   * becoming a parameter on every path that reaches them. Undefined means CODESYS, the superset.
+   * becoming a parameter on every path that reaches them.
+   *
+   * <p>REQUIRED, and it used to read "undefined means CODESYS, the superset". That is the shape of default this
+   * repo does not keep: the SERVER never passed a dialect to `buildSymbolTable`, so a TwinCAT workspace analysed
+   * as CODESYS and no one could see it. `computeSemanticDiagnostics` now refuses a project whose dialect does not
+   * match the vendor it was asked about.</p>
    */
   dialect?: Dialect
   /** For a TOP-LEVEL project child only: the URI of the file that contributed it. Set by `bindFile`, read
@@ -118,8 +123,15 @@ export interface Scope {
   _spanIndex?: Map<Span, Scope>
 }
 
-export function createProjectScope(): Scope {
-  return { kind: "project", name: "(project)", symbols: new Map(), children: [] }
+export function createProjectScope(dialect: Dialect): Scope {
+  return { kind: "project", name: "(project)", symbols: new Map(), children: [], dialect }
+}
+
+/** The dialect of a bound PROJECT ROOT. Throws rather than guessing: every caller here has the project scope
+ *  `buildSymbolTable` returned, and a scope without one is a scope that never went through it. */
+export function dialectOf(project: Scope): Dialect {
+  if (project.dialect === undefined) throw new Error("scope carries no dialect — it is not a bound project root")
+  return project.dialect
 }
 
 /**

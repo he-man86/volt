@@ -61,8 +61,7 @@ export function buildSymbolTable(
   manifests: readonly LibraryManifest[] = [],
   dialect: Dialect = "codesys",
 ): Scope {
-  const project = createProjectScope()
-  project.dialect = dialect
+  const project = createProjectScope(dialect)
   for (const file of files) bindFile(project, file)
   linkExtends(project)
   bindLibraryNamespaces(project, manifests)

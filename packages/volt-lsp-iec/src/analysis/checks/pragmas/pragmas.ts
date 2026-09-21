@@ -95,10 +95,14 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
 
   // Unknown `{attribute '<name>'}` — C0351, a toggleable warning (only as complete as the catalog). CODESYS-only:
   // live /build confirmed TwinCAT compiles an unknown attribute clean (no diagnostic), so firing it there would FP.
-  // ALSO skipped on a DUT (type_decl) file: CODESYS does not run the attribute-check pass on a type declaration —
-  // an unknown attribute on a `TYPE …` (verified live: a bogus attribute on a built, referenced DUT emits nothing,
-  // whereas the same on a POU variable warns C0351). Firing here false-positived on `qualified_oly`/`strit` typos.
-  const isDut = ctx.parseResult.units.length > 0 && ctx.parseResult.units.every((u) => u.kind === "type_decl")
+  // ALSO skipped on a file that declares no POU: CODESYS does not run the attribute-check pass on a type
+  // declaration or a global variable list. Verified live for a DUT (a bogus attribute on a built, referenced
+  // DUT emits nothing, whereas the same on a POU variable warns C0351); firing there false-positived on
+  // `qualified_oly`/`strit` typos. The GVL half arrived with the `tc_*` family — `{attribute 'Tc2GvlVarNames'}`
+  // above a `VAR_GLOBAL` is the one of the seventeen CODESYS says NOTHING about, and it is not about the name:
+  // the pass never looks at the file.
+  const NO_ATTRIBUTE_PASS: ReadonlySet<string> = new Set(["type_decl", "global_var_list"])
+  const isDut = ctx.parseResult.units.length > 0 && ctx.parseResult.units.every((u) => NO_ATTRIBUTE_PASS.has(u.kind))
   /**
    * `{attribute 'hide'}` on the SAME declaration silences the value check: a hidden variable is not monitored, so
    * the compiler never validates how it would be displayed. Measured — `monitoring_encoding` warns about 'UTF8' and
@@ -146,7 +150,7 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
       // to slice from the `FUNCTION_BLOCK` keyword), with the arrival confirmed by reading the item back out of
       // the IDE: CODESYS says nothing. An LSP-only message is a false positive whatever the catalog says.
       // C0351 — an unknown attribute NAME (only as complete as the catalog).
-      if (p.attributeName === undefined || isKnownAttribute(p.attributeName)) continue
+      if (p.attributeName === undefined || isKnownAttribute(p.attributeName, ctx.config.vendor)) continue
       out.push({
         severity: "warning",
         span: p.span,

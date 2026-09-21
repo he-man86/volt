@@ -8,23 +8,24 @@
  * back to scope completion. Upgrade to full-chain resolution when a case needs it.
  */
 import { CompletionItemKind, type CompletionItem } from "vscode-languageserver-protocol"
-import { findChildScope, lookup, type Scope, type Symbol, type SymbolKind } from "../../symbols/index.js"
+import { dialectOf, findChildScope, lookup, type Scope, type Symbol, type SymbolKind } from "../../symbols/index.js"
 import { memberScopeOf, resolveTypeExpr } from "../../types/index.js"
-import { KNOWN_ATTRIBUTE_NAMES, pragmaHelp } from "../../reference/index.js"
+import { attributeNames, pragmaHelp } from "../../reference/index.js"
 import { humanKind, scopeAtOffset } from "../shared/index.js"
-import type { Document } from "../../syntax/index.js"
+import type { Dialect, Document } from "../../syntax/index.js"
 
 export function completion(doc: Document, project: Scope, offset: number): CompletionItem[] {
-  const attrs = attributeCompletions(doc.source, offset)
+  const attrs = attributeCompletions(doc.source, offset, dialectOf(project))
   if (attrs !== undefined) return attrs
   return completionAtScope(scopeAtOffset(doc, project, offset), project, doc.source, offset)
 }
 
-/** Inside `{attribute '<partial>'}` → the known attribute names (the `unknown-attribute` catalog as an oracle). */
-function attributeCompletions(src: string, offset: number): CompletionItem[] | undefined {
+/** Inside `{attribute '<partial>'}` → the DIALECT's attribute names (the `unknown-attribute` catalog as an
+ *  oracle — so a CODESYS project is never offered a `Tc*` name its own compiler warns about). */
+function attributeCompletions(src: string, offset: number, dialect: Dialect): CompletionItem[] | undefined {
   const open = src.lastIndexOf("{", offset - 1)
   if (open === -1 || !/^\{\s*attribute\s+'[^'}]*$/i.test(src.slice(open, offset))) return undefined
-  return KNOWN_ATTRIBUTE_NAMES.map((name) => ({
+  return attributeNames(dialect).map((name) => ({
     label: name,
     kind: CompletionItemKind.EnumMember,
     ...(pragmaHelp(name) !== undefined ? { detail: pragmaHelp(name) } : {}),

@@ -5,13 +5,13 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"
 import { buildSymbolTable } from "../../../symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { computeSemanticDiagnostics, resolveConfig, type Vendor } from "../../index.js"
 
 /** unknown-attribute diagnostics for one source, with the C0351 warning toggled. */
-function attrs(src: string, enabled: boolean) {
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
-  const config = resolveConfig({ vendor: "codesys", diagnostics: { "unknown-attribute": enabled ? "warning" : "off" } })
+function attrs(src: string, enabled: boolean, vendor: Vendor = "codesys") {
+  const parseResult = parseSource(src, vendor)
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+  const config = resolveConfig({ vendor, diagnostics: { "unknown-attribute": enabled ? "warning" : "off" } })
   return computeSemanticDiagnostics({ parseResult, source: src, project, config }).filter(
     (d) => d.code === "unknown-attribute",
   )
@@ -30,12 +30,23 @@ test("a known attribute is not flagged", () => {
   expect(attrs(withAttr("qualified_only"), true)).toEqual([])
   expect(attrs(withAttr("strict"), true)).toEqual([]) // enum type-safety attr — recognized, so not flagged
   expect(attrs(withAttr("no_explicit_call"), true)).toEqual([]) // corpus-found catalog gap, now covered
-  expect(attrs(withAttr("TcRetain"), true)).toEqual([]) // TwinCAT family, case-insensitive
 })
 
 test("alias spellings of a known attribute are recognized (not flagged)", () => {
   // Guards the alias-folding in the catalog — dropping one would false-positive on valid code.
-  for (const a of ["no_init", "no-init", "TcLinkToOSO", "tc_no_symbol"]) expect(attrs(withAttr(a), true)).toEqual([])
+  for (const a of ["no_init", "no-init"]) expect(attrs(withAttr(a), true)).toEqual([])
+})
+
+// A `Tc*` ATTRIBUTE IS TWINCAT'S, AND CODESYS SAYS SO. Both families sat in one flat set, so every `Tc*` name was
+// "known" on both vendors and this file asserted that as correct. Sixteen `tc_*` fixtures recorded the opposite:
+// CODESYS warns on each of them and TwinCAT is silent (recordings 2026-09-20).
+test("a Tc* attribute is known to TwinCAT and unknown to CODESYS", () => {
+  for (const a of ["TcRetain", "TcLinkToOSO", "tc_no_symbol"]) {
+    expect(attrs(withAttr(a), true, "twincat")).toEqual([])
+    expect(attrs(withAttr(a), true).map((d) => d.message)).toEqual([
+      `The attribute ${a} is unknown and will be ignored by the  compiler.`,
+    ])
+  }
 })
 
 // CODESYS quirk (verified live: a bogus attribute on a built+referenced DUT emits nothing, unlike the same on a
@@ -46,6 +57,15 @@ test("an unknown attribute on a DUT (type_decl) is NOT flagged — POU still is"
   expect(attrs(dut("qualifid_only"), true)).toEqual([]) // DUT → skipped (matches CODESYS)
   expect(attrs(dut("totally_bogus"), true)).toEqual([]) // any unknown attr on a DUT → skipped
   expect(attrs(withAttr("qualifid_only"), true)).toHaveLength(1) // same typo on a POU → still flagged
+
+  // …and a GVL file the same way. `{attribute 'Tc2GvlVarNames'}` above a `VAR_GLOBAL` is the ONE of the
+  // seventeen `tc_*` fixtures CODESYS says nothing about, which is not about the name: the pass never runs here.
+  const gvl = (a: string) => `{attribute '${a}'}
+VAR_GLOBAL
+gVal : INT;
+END_VAR`
+  expect(attrs(gvl("Tc2GvlVarNames"), true)).toEqual([])
+  expect(attrs(gvl("totally_bogus"), true)).toEqual([])
 })
 
 test("the C0351 warning can be turned OFF (toggle) — then a typo is not flagged", () => {

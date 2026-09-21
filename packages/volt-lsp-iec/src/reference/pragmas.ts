@@ -10,6 +10,8 @@
  * companions). Add the rich `PragmaEntry` shape back when hover/completion or conflict checks need it.
  */
 
+import type { Dialect } from "../syntax/index.js"
+
 // Attribute names accepted after `{attribute '…'}` (CODESYS + shared), plus alias spellings.
 const CODESYS_ATTRIBUTES: readonly string[] = [
   // `abstract` and `deprecated` were missing, so every use warned "The attribute … is unknown and will be ignored" —
@@ -100,14 +102,30 @@ const TWINCAT_ATTRIBUTES: readonly string[] = [
   "tcswapword",
 ]
 
-const KNOWN_ATTRIBUTES: ReadonlySet<string> = new Set([...CODESYS_ATTRIBUTES, ...TWINCAT_ATTRIBUTES])
+/**
+ * WHOSE ATTRIBUTE IS IT? One flat set held both families, and that is the one thing this catalog must not do:
+ * `{attribute 'TcRetain'}` is a real attribute to TwinCAT and an unknown one to CODESYS, which says so —
+ * "The attribute TcRetain is unknown and will be ignored by the  compiler." Sixteen `tc_*` fixtures recorded
+ * exactly that warning on CODESYS and silence on TwinCAT (2026-09-20), and the LSP answered silence to both
+ * because the merged set made every `Tc*` name known everywhere.
+ *
+ * The reverse does not hold, and is deliberately not asserted: TwinCAT emits NOTHING for an attribute it does
+ * not know (the `unknown-attribute` check is CODESYS-only for that reason), so a CODESYS name there is simply
+ * not a question anyone can answer.
+ */
+const KNOWN_BY_DIALECT: Readonly<Record<Dialect, ReadonlySet<string>>> = {
+  codesys: new Set(CODESYS_ATTRIBUTES),
+  twincat: new Set([...CODESYS_ATTRIBUTES, ...TWINCAT_ATTRIBUTES]),
+}
 
-/** All recognized `{attribute '…'}` names (CODESYS + TwinCAT, alias spellings included) — for completion. */
-export const KNOWN_ATTRIBUTE_NAMES: readonly string[] = [...CODESYS_ATTRIBUTES, ...TWINCAT_ATTRIBUTES]
+/** The `{attribute '…'}` names to OFFER — the dialect's own, so CODESYS is never offered a name it warns about. */
+export function attributeNames(dialect: Dialect): readonly string[] {
+  return dialect === "twincat" ? [...CODESYS_ATTRIBUTES, ...TWINCAT_ATTRIBUTES] : CODESYS_ATTRIBUTES
+}
 
-/** True when `name` is a recognized `{attribute '…'}` attribute (case-insensitive). */
-export function isKnownAttribute(name: string): boolean {
-  return KNOWN_ATTRIBUTES.has(name.toLowerCase())
+/** True when `name` is an attribute THIS DIALECT recognizes (case-insensitive). */
+export function isKnownAttribute(name: string, dialect: Dialect): boolean {
+  return KNOWN_BY_DIALECT[dialect].has(name.toLowerCase())
 }
 
 /**
@@ -134,10 +152,11 @@ const DIRECTIVES: Readonly<Record<string, string>> = {
   text: "Author-defined compile-time text (hint-level).",
 }
 
-/** A one-line description for a pragma directive or `{attribute '…'}` name — powers pragma hover. */
+/** A one-line description for a pragma directive or `{attribute '…'}` name — powers pragma hover. Hover says
+ *  what a name IS, not whether this compiler takes it, so it answers for either dialect. */
 export function pragmaHelp(word: string): string | undefined {
   const w = word.toLowerCase()
   if (w in DIRECTIVES) return DIRECTIVES[w]
-  if (KNOWN_ATTRIBUTES.has(w)) return `Recognized \`{attribute '${word}'}\` compiler attribute.`
+  if (KNOWN_BY_DIALECT.twincat.has(w)) return `Recognized \`{attribute '${word}'}\` compiler attribute.`
   return undefined
 }
