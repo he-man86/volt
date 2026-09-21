@@ -22,8 +22,8 @@
 import { compilerExprText } from "../../expr-echo.js"
 import { isHole, reported } from "../../hole.js"
 import { dialectMissingType } from "../../resolution.js"
-import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../syntax/index.js"
-import { bodies, lookup } from "../../../symbols/index.js"
+import { renderTypeExpr, stmtExprs, walkExpr, walkStatements, type Expr } from "../../../syntax/index.js"
+import { bodies, forEachDecl, lookup } from "../../../symbols/index.js"
 import { inferExprType, renderType } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
@@ -59,6 +59,17 @@ export function checkUnknownSource(ctx: CheckContext, out: DiagnosticItem[]): vo
     if (t.kind !== "unknown") return renderType(t)
     if (target.kind !== "ident_expr") return undefined
     return dialectMissingType(ctx.project, lookup(scope, target.name)?.symbol.typeExpr)
+  }
+
+  // A DECLARATION'S INITIALIZER CARRIES A HOLE THE SAME WAY an assignment does — `n : DINT := nope;` is
+  // "Identifier 'nope' not defined" AND "Cannot convert type 'Unknown type: 'nope'' to type 'DINT'" on both
+  // vendors (`cc_decl_init_unknown_name`, 2026-09-21). There is no TARGET expression to be a hole here: the
+  // declared type is written down, so only the source half applies.
+  for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
+    if (decl.init === undefined || decl.init.kind === "aggregate_init") continue
+    const into = renderTypeExpr(decl.type)
+    if (hole(decl.init, scope))
+      push(ctx.messages.cannotConvert(ctx.messages.unknownType(compilerExprText(decl.init, metType(scope))), into), decl.init)
   }
 
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {

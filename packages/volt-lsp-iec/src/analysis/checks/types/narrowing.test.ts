@@ -22,3 +22,23 @@ test("a VAR CONSTANT initializer warns ONCE in an FB, where a plain VAR warns tw
   expect(run("VAR CONSTANT")).toHaveLength(1)
   expect(run("VAR")).toHaveLength(2)
 })
+
+// THE CONVERSIONS INSIDE AN INITIALIZER, which is the body arm's question asked in the other place. The store
+// here converts nothing — a DINT into a DINT — and the ARGUMENT converts everything: `EXPT` answers LREAL and
+// `REAL_TO_DINT` wants a REAL (`cfold_expt`, `cfold_sqrt`, both recordings 2026-09-21).
+test("a conversion ARGUMENT inside an initializer warns, and twice like any declaration", () => {
+  const src = `FUNCTION_BLOCK F
+VAR
+	i : DINT := REAL_TO_DINT(EXPT(2, 10));
+END_VAR
+END_FUNCTION_BLOCK`
+  const pr = parseSource(src, "codesys")
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }], [], "codesys")
+  const messages = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "narrowing-conversion")
+    .map((d) => d.message)
+  expect(messages).toEqual([
+    "Implicit conversion from 'LREAL' to 'REAL': Possible loss of information",
+    "Implicit conversion from 'LREAL' to 'REAL': Possible loss of information",
+  ])
+})

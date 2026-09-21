@@ -907,7 +907,11 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // adds the sign-change warning the same conversion carries anywhere else, and a type with no conversion at
   // all (BOOL, REAL, STRING, LWORD) reports the conversion instead. Identical on both vendors, and written
   // through the shared assignment rules so an operand nobody probed answers the way `x : DWORD := flag` does.
-  { vendor: "twincat", floor: 2526 },
+  // 2526 -> 2528: A DECLARATION'S INITIALIZER IS A PLACE EXPRESSIONS LIVE, twice over. The narrowing check asked
+  // only what the STORE converts, so `i : DINT := REAL_TO_DINT(EXPT(2, 10))` was silent — nothing converts at
+  // the store and everything converts at the ARGUMENT. And `unknown-source` walked bodies, so a hole in an
+  // initializer was named as an undefined identifier and never carried into the declared type.
+  { vendor: "twincat", floor: 2528 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -984,7 +988,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 2526 -> 2533: the same rule, the same seven cells.
   // 2533 -> 2534: the METHOD half of the required-inputs rule, which CODESYS words as a range like a FUNCTION's.
   // 2534 -> 2544: the same eleven cells.
-  { vendor: "codesys", floor: 2544 },
+  // 2544 -> 2545: the same two, on the vendor that records `cfold_expt`.
+  { vendor: "codesys", floor: 2545 },
 ]
 
 

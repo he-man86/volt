@@ -99,3 +99,22 @@ out : ${t};`, `out := ${fn}(v);`)
 ${xf("LDATE", "DATE_TO_LDATE")}`
   expect(msgs(shimmed, "twincat")).toEqual(["Cannot convert type 'Unknown type: 'DATE_TO_LDATE(v)'' to type 'ULINT'"])
 })
+
+// A DECLARATION'S INITIALIZER CARRIES A HOLE THE SAME WAY an assignment does, and this check walked bodies only
+// (`cc_decl_init_unknown_name`, both recordings 2026-09-21).
+test("a hole in an initializer converts into the DECLARED type", () => {
+  expect(msgs(`FUNCTION_BLOCK F
+VAR
+	n : DINT := nope;
+END_VAR
+END_FUNCTION_BLOCK`)).toEqual([
+    "Cannot convert type 'Unknown type: 'nope'' to type 'DINT'",
+  ])
+  // a name that DOES resolve is not a hole — an initializer may name a sibling variable
+  expect(msgs(`FUNCTION_BLOCK F
+VAR
+	other : DINT;
+	n : DINT := other;
+END_VAR
+END_FUNCTION_BLOCK`)).toEqual([])
+})

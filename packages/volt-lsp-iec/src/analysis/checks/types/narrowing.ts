@@ -33,6 +33,15 @@ export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[
     const src = literalCheckType(decl.init, lhs) ?? checkableType(decl.init, scope, ctx.project)
     const diag = src === undefined ? undefined : conversionWarning(lhs, src, decl.init, ctx.messages)
     if (diag !== undefined) pushForDeclaration(out, unit, section, diag)
+    // …and the conversions INSIDE the initializer, which are the body arm's question asked in the other place.
+    // `i : DINT := REAL_TO_DINT(EXPT(2, 10))` converts nothing at the STORE — it is a DINT going into a DINT —
+    // and everything at the ARGUMENT: `EXPT` answers LREAL and `REAL_TO_DINT` wants a REAL (`cfold_expt`,
+    // `cfold_sqrt`). Only the store was asked here, so an initializer with a shape inside it was silent.
+    walkExpr(decl.init, (x) => {
+      const one = conversionArgError(x, scope, ctx.project, ctx.messages) ?? negationOperandWarning(x, scope, ctx.project, ctx.messages)
+      for (const d of one !== undefined ? [one] : operandSignWarnings(x, scope, ctx.project, ctx.messages))
+        pushForDeclaration(out, unit, section, d)
+    })
   }
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkStatements(statements, (s) => {
