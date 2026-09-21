@@ -16,7 +16,8 @@
  *   - never a library FB (no scope to read `FB_Init` from), and never one whose `FB_Init` is inherited — the
  *     measured case declares it on the FB itself, and a base's is a separate question.
  *
- * CODESYS-only: TwinCAT is unmeasured.
+ * BOTH VENDORS, measured 2026-09-20 (`fb_init_argument_left_out`): TwinCAT reports it and STOPS at the name —
+ * "No matching FB_init method found for instantiation of X", with no input count and no suggested syntax.
  */
 import { renderTypeExpr, varInputParams, type Method } from "../../../syntax/index.js"
 import { forEachDecl, isLibrarySymbol, lookupLocal } from "../../../symbols/index.js"
@@ -28,7 +29,7 @@ import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 const IMPLICIT_INPUTS = 2
 
 export function checkFbInitInstantiation(ctx: CheckContext, out: DiagnosticItem[]): void {
-  if (ctx.config.vendor !== "codesys") return
+
   for (const { section, decl } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (section.sectionKind === "VAR_IN_OUT" || section.sectionKind === "VAR_EXTERNAL") continue
     if (decl.type.kind !== "named_type" || decl.type.initArgs !== undefined) continue

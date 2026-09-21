@@ -845,7 +845,10 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // now and every one of the six AGREES: an IL operator used as a name cascades identically on both, down
   // to the ten messages and their order. The single false positive they exposed was the reachability case
   // CODESYS already had documented, measured on TwinCAT and filed beside it.
-  { vendor: "twincat", floor: 2424 },
+  // 2424 -> 2426: three more gates that rested on the same stale premise. TwinCAT HAS the dynamic-creation
+  // rule (it calls the pragma an attribute), the conditional-call rule (it hyphenates call-statement) and
+  // the FB_init one (it stops at the name, with no input count and no suggested syntax).
+  { vendor: "twincat", floor: 2426 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.

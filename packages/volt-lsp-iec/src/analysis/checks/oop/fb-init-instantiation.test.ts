@@ -62,6 +62,10 @@ test("a declaration that constructs nothing is not an instantiation", () => {
   expect(diagnose(`FUNCTION F_Use : INT\nVAR_IN_OUT\n\tbound : FB_Needs;\nEND_VAR\nVAR\n\tp : POINTER TO FB_Needs;\nEND_VAR\nF_Use := 0;\nEND_FUNCTION\n`)).toEqual([])
 })
 
-test("CODESYS-only — TwinCAT is unmeasured", () => {
-  expect(diagnose(program("\tplain : FB_Needs;"), "twincat")).toEqual([])
+// measured 2026-09-20 (`fb_init_argument_left_out`): TwinCAT reports it and stops at the name — no input
+// count, no suggested syntax, and `FB_init` unquoted.
+test("TwinCAT reports it, and stops at the name", () => {
+  expect(diagnose(program("\tplain : FB_Needs;"), "twincat")).toEqual([
+    "No matching FB_init method found for instantiation of FB_Needs",
+  ])
 })

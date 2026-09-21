@@ -17,7 +17,10 @@
  * is the fact.
  *
  * `CALC` is why `refused-name.ts` stops at fifteen names: it alone of the IL operators parses as something, so
- * the `Unexpected token` family does not describe it. CODESYS-only — TwinCAT is unmeasured.
+ * the `Unexpected token` family does not describe it.
+ *
+ * BOTH VENDORS, measured 2026-09-20 (`cc_il_name_calc`, `ilc_calc_*`): TwinCAT reports the same two things,
+ * hyphenating "call-statement" and capitalising "Declaration part".
  */
 import { stmtExprs, walkExpr, walkStatements } from "../../../syntax/index.js"
 import { bodies, forEachDecl } from "../../../symbols/index.js"
@@ -27,7 +30,7 @@ import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 const isCalc = (name: string): boolean => name.toUpperCase() === "CALC"
 
 export function checkConditionalCall(ctx: CheckContext, out: DiagnosticItem[]): void {
-  if (ctx.config.vendor !== "codesys") return
+
   const push = (message: string, span: { start: number; end: number }): void => {
     out.push({ severity: "error", span: span as DiagnosticItem["span"], source: SOURCE, code: "conditional-call", message })
   }

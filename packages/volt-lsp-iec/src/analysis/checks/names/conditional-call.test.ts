@@ -39,7 +39,8 @@ test("written the way the parser wants it, the SECOND parameter must be a call",
   expect(diagnose("\tflag : BOOL;\n\tt : TON;", "CALC(flag, t());")).toEqual([])
 })
 
-test("a name that merely starts with it is an ordinary identifier, and TwinCAT is unmeasured", () => {
+test("a name that merely starts with it is an ordinary identifier; TwinCAT hyphenates the rest", () => {
   expect(diagnose("\tcalcTotal : INT;", "calcTotal := 1;")).toEqual([])
-  expect(diagnose("\tcalc : INT;\n\tn : INT;", "n := 1;", "twincat")).toEqual([])
+  // measured 2026-09-20 (`cc_il_name_calc`): the same two messages, "call-statement" and "Declaration part"
+  expect(diagnose("\tcalc : INT;\n\tn : INT;", "n := 1;", "twincat").length).toBeGreaterThan(0)
 })

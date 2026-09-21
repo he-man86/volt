@@ -35,7 +35,10 @@ test("the things that looked like variables and are not", () => {
   expect(diagnose(fb("", "q := __NEW(INT);"))).toEqual([])
 })
 
-test("a type declared in ANOTHER file is unchecked, and TwinCAT is unmeasured", () => {
+test("a type declared in ANOTHER file is unchecked, and TwinCAT says it in its own words", () => {
   expect(diagnose("PROGRAM PLC_PRG\nVAR\n\tp : POINTER TO FB_Elsewhere;\nEND_VAR\np := __NEW(FB_Elsewhere);\nEND_PROGRAM\n")).toEqual([])
-  expect(diagnose(fb("", "p := __NEW(FB_A);"), "twincat")).toEqual([])
+  // measured 2026-09-20 (`newdel_without_pragma`): the rule is TwinCAT's too, and it calls it an ATTRIBUTE
+  expect(diagnose(fb("", "p := __NEW(FB_A);"), "twincat")).toEqual([
+    "A Functionblock or Structure needs the attribute '{attribute 'enable_dynamic_creation'}' to be created with __NEW",
+  ])
 })

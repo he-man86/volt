@@ -13,8 +13,10 @@
  * can only be read from a source this check HOLDS. A project-wide attribute index would close it — the binder does
  * this for `qualified_only` — and until one exists, `__NEW` of an FB declared in another file is unchecked.
  *
- * CODESYS-only: TwinCAT is unmeasured, and the fixture note there says the attribute is TwinCAT's documented
- * opt-in as well — "documented" is not "measured".
+ * BOTH VENDORS, measured 2026-09-20: TwinCAT has the rule and words it differently — "A Functionblock or
+ * Structure needs the ATTRIBUTE …" where CODESYS says "A function block or structure needs the PRAGMA …"
+ * (`newdel_without_pragma`, `newdel_with_pragma`). It was CODESYS-only on the grounds that TwinCAT's opt-in was
+ * "documented, not measured"; it is measured now, and the wording is data in `messages.ts` like every other.
  */
 import { forEachExpr } from "../../../symbols/index.js"
 import { unitAttributes, type TopLevel } from "../../../syntax/index.js"
@@ -24,7 +26,7 @@ import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 const ATTRIBUTE = "enable_dynamic_creation"
 
 export function checkDynamicCreation(ctx: CheckContext, out: DiagnosticItem[]): void {
-  if (ctx.config.vendor !== "codesys") return
+
   let attributes: Map<TopLevel, Set<string>> | undefined
   forEachExpr(ctx.parseResult, ctx.project, (e) => {
     if (e.kind !== "call" || e.callee.kind !== "ident_expr" || e.callee.name.toUpperCase() !== "__NEW") return

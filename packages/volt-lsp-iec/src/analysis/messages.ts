@@ -434,8 +434,12 @@ export function messagesFor(vendor: Vendor): Messages {
     // CODESYS-verified (2026-07-11 live): the IDE reports the inline-init VAR_IN_OUT field as "is no input of".
     fbInitNoOutput: (id, fb) => `'${id}' is no input of '${fb}'`,
     // CODESYS SP21, measured (`fb_init_argument_left_out`). "1 inputs" is the vendor's own wording, unpluralized.
+    // TwinCAT names the method `FB_init` unquoted and STOPS: no input count, no suggested syntax
+    // (`fb_init_argument_left_out`, both recordings 2026-09-20).
     fbInitInstantiation: (fb, inputs, syntax) =>
-      `No matching 'FB_Init' method found for instantiation of ${fb}. Specified 'FB_Init' method requires exactly ${inputs} inputs. Check syntax '${syntax}'`,
+      tc
+        ? `No matching FB_init method found for instantiation of ${fb}`
+        : `No matching 'FB_Init' method found for instantiation of ${fb}. Specified 'FB_Init' method requires exactly ${inputs} inputs. Check syntax '${syntax}'`,
     cannotCallType: (type) => `Cannot call object of type '${type}'`,
     callTargetExpected: (name) => `Program name, function or function block instance expected instead of '${name}'`,
     // The same finding, capitalised differently: CODESYS "token", TwinCAT "Token". Measured on both
@@ -444,12 +448,21 @@ export function messagesFor(vendor: Vendor): Messages {
     semicolonExpectedInsteadOf: (token) => `';' expected instead of '${token}'`,
     expressionExpectedInsteadOf: (token) => `Expression expected instead of '${token}'`,
     // CODESYS SP21, measured with the pragma as the only variable (`newdel_without_pragma` / `newdel_with_pragma`).
+    // Both vendors have the rule and word it differently: TwinCAT writes "Functionblock or Structure" and calls
+    // it an ATTRIBUTE where CODESYS calls it a pragma (`newdel_without_pragma`, both recordings 2026-09-20).
     dynamicCreationPragma: () =>
-      "A function block or structure needs the pragma '{attribute 'enable_dynamic_creation'}' to be created with __NEW",
+      tc
+        ? "A Functionblock or Structure needs the attribute '{attribute 'enable_dynamic_creation'}' to be created with __NEW"
+        : "A function block or structure needs the pragma '{attribute 'enable_dynamic_creation'}' to be created with __NEW",
     // CODESYS SP21, measured in all five `CALC` shapes (`cc_il_name_calc`, `ilc_calc_*`).
-    conditionalCallSecondParameter: () => "Second parameter of conditional call must be a valid call statement",
+    // TwinCAT hyphenates "call-statement" and capitalises "Declaration part" (`cc_il_name_calc`, `ilc_calc_*`,
+    // both recordings 2026-09-20).
+    conditionalCallSecondParameter: () =>
+      tc
+        ? "Second parameter of conditional call must be a valid call-statement"
+        : "Second parameter of conditional call must be a valid call statement",
     parenExpectedInsteadOf: (token) => `'(' expected instead of '${token}'`,
-    notSupportedInDeclaration: () => "This code is not supported in declaration part",
+    notSupportedInDeclaration: () => (tc ? "This code is not supported in Declaration part" : "This code is not supported in declaration part"),
     commaAtOrColonExpected: (token) => `',, AT or :' expected instead of '${token}'`,
     lifecycle: (method) => {
       if (method === "FB_Init") {
