@@ -27,8 +27,9 @@
 import { isTrivia, lex, stmtExprs, walkExpr, walkStatements, type Span } from "../../../syntax/index.js"
 import { bodies, forEachDecl } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
+import type { Vendor } from "../../config.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
-import { elementaryType } from "../../../types/index.js"
+import { CODESYS_ONLY_TYPES, elementaryType } from "../../../types/index.js"
 
 const IL_OPERATOR_NAMES: ReadonlySet<string> = new Set([
   "r", "s", "ld", "ldn", "st", "stn", "ret", "retc", "retcn", "jmpc", "jmpcn", "cal", "calcn", "andn", "orn", "xorn",
@@ -52,22 +53,27 @@ export function checkRefusedName(ctx: CheckContext, out: DiagnosticItem[]): void
     out.push({ severity: "error", span, source: SOURCE, code: "refused-name", message })
   }
   /** At a DECLARATION, and where a statement STARTS: the name, then the resync to the next `;`. */
-  const report = (text: string, span: Span): void => {
+  const report = (text: string, span: Span, inDeclaration = false): void => {
     push(ctx.messages.unexpectedToken(text), span)
-    cascadeAfter(ctx, out, span.end)
+    cascadeAfter(ctx, out, span.end, inDeclaration)
   }
   for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {
-    for (const name of decl.names) if (isRefused(name.text)) report(name.text, name.span)
+    for (const name of decl.names) if (isRefused(name.text, ctx.config.vendor)) report(name.text, name.span, true)
   }
 
   // AN UNKNOWN LITERAL PREFIX IS FOUND BY SCANNING THE SOURCE, not by walking the AST, because there is no AST
   // to walk: `v := LDT#2026-05-09-07:05:03;` leaves the statement list EMPTY — the parser gives up at the stray
   // `2026` and the body yields nothing at all. The prefix is unambiguous in raw tokens (an identifier ending in
   // `#`, a shape no valid source produces), which is the same reason `cascadeAfter` re-lexes rather than walking.
+  // …once each. A cascade runs to the next `;`, so a second prefix in the SAME statement has already been
+  // reported by the first one's resync — reporting it again adds a message for a position the parser never
+  // reaches, out of order (`v := LDT#1 + LTOD#2;`).
+  let reportedTo = -1
   for (const token of ctx.tokens()) {
-    if (token.kind !== "identifier" || !isUnknownPrefix(token.text)) continue
+    if (token.kind !== "identifier" || !isUnknownPrefix(token.text) || token.span.start < reportedTo) continue
     push(ctx.messages.expressionExpectedInsteadOf(token.text), token.span)
     cascadeAfter(ctx, out, token.span.start)
+    reportedTo = cascadeEnd(ctx.source, token.span.start)
   }
 
   // Bare identifiers only: `S=`/`R=` are operator tokens, and a member name (`fb.S`) was not measured.
@@ -78,7 +84,7 @@ export function checkRefusedName(ctx: CheckContext, out: DiagnosticItem[]): void
         walkExpr(e, (x) => {
           if (x.kind !== "ident_expr") return
           const operatorCall = ST_OPERATOR_CALLS.has(x.name.toLowerCase())
-          if (!operatorCall && (!isRefusedInBody(x.name) || args.has(x.span.start))) return
+          if (!operatorCall && (!isRefusedInBody(x.name, ctx.config.vendor) || args.has(x.span.start))) return
           // Where the statement STARTS the parser is still looking for a target, so it reports the name and resyncs;
           // anywhere else it was looking for an OPERAND, and says so first (`n := byte;` — three errors on `byte`).
           if (x.span.start === s.span.start) report(x.name, x.span)
@@ -91,13 +97,22 @@ export function checkRefusedName(ctx: CheckContext, out: DiagnosticItem[]): void
 }
 
 /** The name families the parser refuses at a DECLARATION. */
-function isRefused(text: string): boolean {
-  return isRefusedInBody(text) || text.includes("__")
+function isRefused(text: string, vendor: Vendor): boolean {
+  return isRefusedInBody(text, vendor) || text.includes("__")
 }
 
-/** Those of them a USE is refused for too — a compiler operator (`__NEW`) is spelled with underscores and is legal. */
-function isRefusedInBody(text: string): boolean {
-  return IL_OPERATOR_NAMES.has(text.toLowerCase()) || elementaryType(text) !== undefined || isUnknownPrefix(text)
+/**
+ * Those of them a USE is refused for too — a compiler operator (`__NEW`) is spelled with underscores and is legal.
+ *
+ * THE TYPE NAMES ARE ONLY RESERVED WHERE THE TYPE EXISTS. `ldate : INT;` is a legal TwinCAT declaration, because
+ * TwinCAT has no `LDATE` (`types/elementary.ts`), and reading the shared elementary table here reported it as a
+ * refused name and then cascaded ten messages over a file that compiles. `resolveNamedType` got this gate when the
+ * types became dialect data; this call site was missed, and nothing caught it because the check had been
+ * CODESYS-only until the same day.
+ */
+function isRefusedInBody(text: string, vendor: Vendor): boolean {
+  const reservedType = elementaryType(text) !== undefined && !(vendor === "twincat" && CODESYS_ONLY_TYPES.has(text.toUpperCase()))
+  return IL_OPERATOR_NAMES.has(text.toLowerCase()) || reservedType || isUnknownPrefix(text)
 }
 
 /**
@@ -127,6 +142,12 @@ function callArgumentNames(s: Parameters<typeof stmtExprs>[0]): ReadonlySet<numb
   return spans
 }
 
+/** Where a cascade from `at` stops — the `;` it resyncs to, or the end of the source. */
+function cascadeEnd(source: string, at: number): number {
+  const semi = source.indexOf(";", at)
+  return semi < 0 ? source.length : semi
+}
+
 /** The line ending the FILE uses. */
 const eol = (source: string): string => (source.includes("\r\n") ? "\r\n" : "\n")
 
@@ -136,7 +157,7 @@ const eol = (source: string): string => (source.includes("\r\n") ? "\r\n" : "\n"
  * order (conformance `cc_reserved_name_r`, `cc4_type_name_bit_as_variable` — `bit : BOOL;` is five errors, not one).
  * Only the first was emitted here, so 22 fixtures whose every IDE error is part of such a cascade could never agree.
  */
-function cascadeAfter(ctx: CheckContext, out: DiagnosticItem[], from: number): void {
+function cascadeAfter(ctx: CheckContext, out: DiagnosticItem[], from: number, inDeclaration = false): void {
   // WITH THE PROJECT'S DIALECT. Re-lexing as CODESYS reads `LDATE#2026-05-09` as ONE date literal, so the cascade
   // quoted a token TwinCAT never saw — the vocabulary has to be the same on the second pass as on the first.
   for (const token of lex(ctx.source.slice(from), ctx.config.vendor)) {
@@ -148,7 +169,7 @@ function cascadeAfter(ctx: CheckContext, out: DiagnosticItem[], from: number): v
     // alone (`operator_call_form_*`, `ampersand_operator_rejected`) while `INT` and `BOOL` are paired
     // (`echo_lower_case_function_name`, `echo_mixed_case_il_operator`). An ELEMENTARY TYPE NAME is a keyword to
     // CODESYS even though this lexer reads it as an identifier, which is what `isRefusedInBody` already knows.
-    const ordinaryName = token.kind === "identifier" && !isRefusedInBody(token.text)
+    const ordinaryName = token.kind === "identifier" && !isRefusedInBody(token.text, ctx.config.vendor)
     const messages: { severity: "error" | "warning"; message: string }[] = [
       { severity: "error", message: ctx.messages.semicolonExpectedInsteadOf(token.text) },
     ]
@@ -159,7 +180,13 @@ function cascadeAfter(ctx: CheckContext, out: DiagnosticItem[], from: number): v
     // identically on both vendors (`operator_call_form_arithmetic`, `_comparison`: twelve of these each).
     // The break is the FILE's own: the vendors write CRLF and quote CRLF, and an editor should quote what is
     // actually there. (The conformance comparison normalizes it, so this choice is about the editor.)
-    else messages.push({ severity: "warning", message: ctx.messages.codeHasNoEffect(`${token.text};${eol(ctx.source)}`) })
+    //
+    // IN A DECLARATION IT IS NOT A STATEMENT AT ALL, so it does not get this. Every recorded declaration cascade
+    // ends in a keyword or an elementary type name and so never reached the branch — but `s : ST_Foo;` (a project
+    // type after an IL-operator name) does, and the declaration part is where the compilers say "This code is not
+    // supported in Declaration part" instead. Unmeasured is not a licence to invent the body's answer.
+    else if (!inDeclaration)
+      messages.push({ severity: "warning", message: ctx.messages.codeHasNoEffect(`${token.text};${eol(ctx.source)}`) })
     for (const m of messages)
       out.push({ severity: m.severity, span, source: SOURCE, code: "refused-name", message: m.message })
   }

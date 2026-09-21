@@ -27,7 +27,14 @@ import { comparable } from "../test/conformance/support/compare-message.js"
 // WHICH VENDOR? `VOLT_VENDOR=twincat` picks the other recording AND the other dialect — since the vocabulary,
 // the wording and one collapse rule all differ, reading TwinCAT's residue through a CODESYS analysis would invent
 // differences that are not there.
-const vendor = process.env.VOLT_VENDOR === "twincat" ? ("twincat" as const) : ("codesys" as const)
+const asked = process.env.VOLT_VENDOR
+// NO FALLBACK. `VOLT_VENDOR=TwinCAT` reading the CODESYS recording through the CODESYS dialect would print a
+// residue list for the wrong vendor and say nothing about it — a wrong answer is worse than no answer.
+if (asked !== undefined && asked !== "twincat" && asked !== "codesys") {
+  console.error(`VOLT_VENDOR="${asked}" is not a vendor — use "codesys" or "twincat"`)
+  process.exit(1)
+}
+const vendor = asked === "twincat" ? ("twincat" as const) : ("codesys" as const)
 const build = JSON.parse(
   readFileSync(join(import.meta.dir, "..", "test", "conformance", "recordings", `${vendor}.build.json`), "utf8"),
 ).tests as Record<string, { diagnostics: { severity: string; message: string }[] }>

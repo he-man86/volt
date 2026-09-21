@@ -163,7 +163,10 @@ is refreshed on every `up`, so it is the committed fixture every time — a stal
 #>
 function Copy-FixtureOut([string]$path, [string]$vendor) {
     if ($InPlace) { return $path }
-    $work = Join-Path ([System.IO.Path]::GetTempPath()) "volt-ide-$vendor"
+    # PER INSTANCE. `-Instance` exists so several can run at once, and a work dir keyed on the vendor alone means
+    # the second `up` deletes the solution tree the first one's IDE has OPEN (a partial delete, then a copy into
+    # the wreckage) — or overwrites the .project file it is holding. The pipe is already per-pid; so is this.
+    $work = Join-Path ([System.IO.Path]::GetTempPath()) ("volt-ide-$vendor" + $(if ($Instance) { "-$Instance" } else { "" }))
     if ($path -like "*.sln") {
         # `<fixtures>\<name>\<name>.sln`: the solution FOLDER is the unit that travels, PLC projects and all.
         $srcDir = Split-Path -Parent $path
@@ -189,7 +192,7 @@ function Up-Codesys {
     $project = if ($Fixture) { $Fixture } else { Join-Path $FIXTURES "CodesysTestProject.project" }
 
     if (-not (Test-Path $exe))     { throw "CODESYS.exe not found: $exe" }
-    if (-not (Test-Path $project)) { throw "Fixture project not found: $project" }
+    if (-not (Test-Path $project)) { throw "Fixture project not found: $project" }   # the CALLER's path, before the copy
     $project = Copy-FixtureOut $project "codesys"
     Build-Bridge "codesys"
     if (-not (Test-Path $dll))     { throw "Bridge DLL missing (build Volt.Ide.Codesys): $dll" }
@@ -247,7 +250,12 @@ function Up-Twincat {
     # one identity and the tier wedges on a `select`. That is not hypothetical — it is what happens when these
     # fixtures are opened while an engineer already has the same project open. Say so BEFORE launching, because
     # after the hang it reads as a bridge bug.
-    foreach ($k in @($open.Keys)) { $open[$k] = Copy-FixtureOut $open[$k] "twincat" }
+    # Validate what the CALLER named, then copy: checking after would test the copy and report a temp path the
+    # user never typed, behind a raw Copy-Item failure.
+    foreach ($k in @($open.Keys)) {
+        if (-not (Test-Path $open[$k])) { throw "solution missing: $($open[$k])" }
+        $open[$k] = Copy-FixtureOut $open[$k] "twincat"
+    }
 
     $already = @(Get-Process TcXaeShell -ErrorAction SilentlyContinue | ForEach-Object { $_.MainWindowTitle })
     foreach ($k in $open.Keys) {
@@ -260,7 +268,6 @@ function Up-Twincat {
     $launched = @()
     foreach ($k in $open.Keys) {
         $sln = $open[$k]
-        if (-not (Test-Path $sln)) { throw "solution missing: $sln" }
         $p = Start-Process -FilePath $ide -ArgumentList ('"{0}"' -f (Resolve-Path $sln).Path) -PassThru
         $launched += $p.Id
         Write-Host "opened $([System.IO.Path]::GetFileNameWithoutExtension($sln)) (TcXaeShell pid $($p.Id))"

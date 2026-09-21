@@ -96,8 +96,14 @@ export function nameResolves(name: string, scope: Scope, project: Scope, referen
   // so `TIME_OF_DAY_TO_UDINT` (not defined) and a project name like `GO_TO_START` were never flagged (consolidate A4).
   // …and a conversion is only as real as the TYPES it names: `DATE_TO_LDATE` is a CODESYS operator because LDATE is
   // a CODESYS type, and TwinCAT answers "Identifier 'DATE_TO_LDATE' not defined" (`types/elementary.ts`).
-  if (parseConversionName(name) !== undefined)
-    return !(project.dialect === "twincat" && name.toUpperCase().split("_TO_").some((part) => CODESYS_ONLY_TYPES.has(part)))
+  const conversion = parseConversionName(name)
+  if (conversion !== undefined) {
+    // ASK THE PARSED CONVERSION, not the spelling. Splitting on `_TO_` misses the `TO_<Y>` shape entirely — it has
+    // no leading underscore — so `TO_LDATE` stayed resolved on TwinCAT while `DATE_TO_LDATE` did not, which is the
+    // same operator named two ways.
+    const involved = [conversion.to.name, conversion.from?.name]
+    return !(project.dialect === "twincat" && involved.some((n) => n !== undefined && CODESYS_ONLY_TYPES.has(n.toUpperCase())))
+  }
   if (COMPILER_PROVIDED_IMPLICITS.has(lower)) return true
   if (lookupReference(name) !== undefined) return true // built-in operator / std function / std FB / type
   if (references.libraryNamespaces.has(lower)) return true // referenced-library namespace root

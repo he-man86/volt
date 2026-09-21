@@ -267,6 +267,17 @@ END_VAR
 END_FUNCTION_BLOCK`
   expect(diag(folded, "codesys").length).toBeGreaterThan(0)
 })
+// BOTH SPELLINGS OF A CONVERSION, and a project that declares the type anyway. Found in review: the dialect
+// test split the NAME on `_TO_`, which the `TO_<Y>` shape does not contain, and the declaration check never
+// asked whether the project had declared `LDATE` itself — the shim a port writes.
+test("the CODESYS-only types: both conversion shapes, and a project that declares one", () => {
+  const call = (fn: string) => `FUNCTION_BLOCK F\nVAR\n d : DATE;\n l : LDATE;\nEND_VAR\nl := ${fn}(d);\nEND_FUNCTION_BLOCK`
+  for (const fn of ["DATE_TO_LDATE", "TO_LDATE"])
+    expect(diag(call(fn), "twincat").map((d) => d.message)).toContain(`Identifier '${fn}' not defined`)
+  // a project that declares the type keeps it — `resolveNamedType` resolves it, so the check must not disagree
+  const shim = `TYPE LDATE : ULINT;\nEND_TYPE\n\nFUNCTION_BLOCK F\nVAR\n x : LDATE;\nEND_VAR\nEND_FUNCTION_BLOCK`
+  expect(diag(shim, "twincat")).toEqual([])
+})
 test("vendor-keyed wording: ABSTRACT instantiation", () => {
   const src = `FUNCTION_BLOCK ABSTRACT FB_A\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK F\nVAR\n x : FB_A;\nEND_VAR\nEND_FUNCTION_BLOCK`
   expect(diag(src, "codesys").find((d) => d.code === "abstract-instantiation")?.message).toBe(

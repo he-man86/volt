@@ -127,6 +127,31 @@ test("a type name a call uses is NOT refused — as an argument or as the callee
   expect(d.filter((x) => x.code === "refused-name")).toEqual([])
 })
 
+// A TYPE NAME IS ONLY RESERVED WHERE THE TYPE EXISTS. TwinCAT has no `LDATE`/`LTOD`/`LDT`, so `ldate : INT;`
+// is a legal declaration there — and reading the shared elementary table reported it as a refused name and
+// cascaded ten messages over a file that compiles. Found in review; the check had been CODESYS-only until the
+// day the dialect work landed, which is why no fixture covers it.
+test("a CODESYS-only type name is not a reserved name on TwinCAT", () => {
+  const decl = program("ldate : INT;", "ldate := 1;")
+  expect(diagnose(decl, "twincat").filter((d) => d.code === "refused-name")).toEqual([])
+  // …and the ones TwinCAT DOES have are still refused, on both
+  expect(diagnose(program("ltime : INT;", "ltime := 1;"), "twincat").length).toBeGreaterThan(0)
+  expect(diagnose(decl).length).toBeGreaterThan(0)
+})
+
+// A DECLARATION IS NOT A STATEMENT, so the resync does not say a statement's thing about it. Every recorded
+// declaration cascade ends in a keyword or an elementary type name and so never reached this branch — `s :
+// ST_Foo;` (a project type after an IL-operator name) does, and the compilers say "This code is not supported
+// in Declaration part" there instead. Found in review.
+test("a declaration cascade does not claim the code has no effect", () => {
+  const src = `TYPE ST_Foo :\nSTRUCT\n x : INT;\nEND_STRUCT\nEND_TYPE\n\n${program("s : ST_Foo;")}`
+  expect(diagnose(src).map((d) => d.message)).toEqual([
+    "Unexpected token 's' found",
+    "';' expected instead of ':'",
+    "Unexpected token ':' found",
+    "';' expected instead of 'ST_Foo'",
+  ])
+})
 // AN UNKNOWN LITERAL PREFIX CASCADES LIKE ANY OTHER REFUSED NAME. `LDATE#`/`LDT#`/`LTOD#`/`UCHAR#` are
 // CODESYS's, so on TwinCAT they lex as an identifier ending in `#` and the compiler quotes the prefix WHOLE and
 // then resyncs — a pair per token to the `;` (`xf_ldt_to_*`, `cc_ld*_literal_into_*`, its recording 2026-09-20).
