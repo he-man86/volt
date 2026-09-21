@@ -117,7 +117,7 @@
 ## After the backlog: the agreement number itself
 
 The false-positive gate went to three on TwinCAT and two on CODESYS, and then the interesting number was the other
-one — how much of what each vendor SAYS the LSP says back. It was 2203 / 2412 that morning and is **2450 / 2489 of
+one — how much of what each vendor SAYS the LSP says back. It was 2203 / 2412 that morning and is **2470 / 2489 of
 2561** now. None of it came from inventing rules: every step is a measurement the recordings already held.
 
 - [x] **TwinCAT never says the same thing twice on one LINE.** 111 of 2541 CODESYS fixtures carry a message
@@ -149,10 +149,17 @@ one — how much of what each vendor SAYS the LSP says back. It was 2203 / 2412 
       the cascade that follows is not echoed back as an unexpected token — it could start a statement, and once
       the compiler supplies the `;` it was asking for that is what it becomes. Twelve "has no effect" warnings per
       fixture that the LSP was not making, with all eleven errors around them already matching.
-- [ ] **What is left is mostly parse-recovery shape.** After an unknown literal prefix TwinCAT reports a pair per
-      token until the `;` where the LSP reports one pair and resyncs (~15 fixtures); the IL-operator CALL forms
-      (`GT(a, b)`) cascade to 78 messages on CODESYS. Both are the parser's recovery, not a rule, and matching them
-      would mean a vendor-shaped parser. Measure whether that is worth it before writing any of it.
+- [x] **The parse-recovery shapes were the simple case after all.** They looked like they needed a vendor-shaped
+      parser; they needed the cascade machine that was already here. `cascadeAfter` reports a pair per token up to
+      the `;` — which is what BOTH compilers do after a name they refuse — and an unknown literal prefix is a name
+      they refuse. Twenty fixtures, and the only new code is a token SCAN, because `v := LDT#2026-05-09…` leaves
+      the statement list EMPTY: the parser gives up at the first stray and there is no AST to walk.
+      - It also found a real bug in the cascade: it re-lexed the source WITHOUT the project's dialect, so it read
+        `LDATE#2026-05-09` as one CODESYS date literal and quoted a token TwinCAT never saw.
+- [ ] **What is left is a long tail on both vendors** — 72 CODESYS fixtures and 91 TwinCAT ones, with no cluster
+      bigger than five. `agreement-residue.ts` (either vendor, and honest since it reads the dialect all the way
+      down) is the work list. The next one worth taking is whichever family a recording can settle, not whichever
+      is largest.
 
 ## The transport decision — MEASURED, and the answer is no
 
