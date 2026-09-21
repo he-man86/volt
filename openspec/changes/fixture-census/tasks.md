@@ -62,6 +62,10 @@
       byte-addressable IR storage kind.
 - [ ] `VarSectionKind` × type category × initializer FORM (none, literal, expression, type-level default). The
       sections and the types are each swept; the cross-product with the initializer form is not.
+      - The initializer FORM itself was asked on its own (2026-09-21, four cells, both vendors) and it moved four
+        checks: **an initializer is not a constant-only place** — a sibling VARIABLE initializes one — an unknown
+        name there is an ordinary undefined identifier, and a `__` name the compiler does not know is a PARSE
+        refusal. Every one of those was silent because the checks walked BODIES and stopped at the `:=`.
 
 ## Phase 4 — call shapes
 
@@ -72,10 +76,21 @@
 
 ## Phase 5 — the rest
 
-- [x] Strings — `strings/string-edges.ts` (47), `escapes.ts` (42), `ordering.ts` (8). **DELETE at position 0
+- [x] Strings — `strings/string-edges.ts` (47), `escapes.ts` (71), `ordering.ts` (8). **DELETE at position 0
       removes a character**; `$hh` is a Windows-1252 byte; two strings order unsigned, byte by byte.
+      - `escapes.ts` was 42 and the WIDE half of it was four cells, which recorded a REFUSAL without its rule:
+        "a WSTRING takes no `$` escape" and "a WSTRING escape is four digits" both fit `"$41"`, `"$FF"` and
+        `"$C3$A9"` exactly and disagree about every valid string. Thirteen more separate them (2026-09-21, both
+        vendors) — **the form is four hex digits**, `$00041` is four and then a `1`, the named escapes and both
+        `WSTRING(n)` forms compile.
 - [x] Statements at their edges — `semantics/statement-edges.ts`.
-- [ ] Literals and pragmas — the two topics the census counts thinnest.
+- [x] PRAGMAS, half of the thinnest pair — `{attribute '<name>'}` asked over the whole `Tc*` family
+      (20 cells, 2026-09-21). **The catalog was one flat set**, so `{attribute 'TcRetain'}` was "known" to both
+      vendors and the LSP said nothing where CODESYS says "The attribute TcRetain is unknown and will be ignored
+      by the  compiler." It is dialect data like every other vocabulary table. One cell answers differently for a
+      reason that is not the name: the attribute pass does not run on a GVL file, as it already did not on a DUT.
+- [ ] LITERALS — the other half, and still the thinnest topic. A typed literal of each type into each target, the
+      radix forms, and the `<prefix>#` shapes each vendor does and does not have.
 
 ## Standing rules for every phase
 

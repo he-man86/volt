@@ -166,8 +166,16 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       `scripts/catalog-status.ts` read it). Open, for the user: `detectVendor` and `installCorpus` are exported from the
       package entry but nothing in the repo calls them — a public-API decision, not dead code to delete unasked. Not done:
       a sweep for exports only tests use needs a dead-export scanner; none is installed.
+      RE-CHECKED 2026-09-21: both are still exported from `src/index.ts` and still called by nothing in the repo
+      (the only other hits are `dist/`, which is the build echoing them back). The question has not changed and
+      neither has the answer — it is still the user's.
 - [ ] C9 Split monoliths: `lower.ts` (frame · expr · calls table · literals), `server.ts` `runServer`,
       `network-analysis.ts` → `network/checks/`; `interp` values module.
+      RE-MEASURED 2026-09-21, and the premise wants re-judging before the work: `lower.ts` is **651** lines,
+      `network-analysis.ts` **609**, `server.ts` **604**, `interp.ts` **359**. Nothing here is a monolith at those
+      sizes — the splitting happened as the code grew, sideways (`lower/` is nine files now, `calls.ts` the largest
+      at 1360). What is left is a NAMING question, not a size one: whether `lower.ts` should keep the frame and the
+      expression dispatcher in one place. Decide it on a reading, not on a line count.
 - [ ] C10 Placement: `network/text` to a syntax-tier folder, `reference/error-code-map.ts` next to `analysis/config`,
       `reachability.ts` incremental half to `server/`, top-level app files to `src/workspace/`. PARTLY DONE 2026-09-14:
       `src/network-text/` (the layering lint's special case is gone — the folder is its layer), `analysis/error-code-map.ts`,
@@ -175,3 +183,8 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       Open, for the user: the top-level app files. `init.ts` finds its package root as `..` from `import.meta.url`, with a
       Bun-binary fallback — a move changes that path and only the install gate proves it; and `detectVendor` /
       `installCorpus` (C8) may not stay at all. `scripts/check-wiring.ts` also reads `src/source-extensions.ts` by path.
+      RE-CHECKED 2026-09-21: `src/network-text/` holds the parser and the AST and is its own layer, as claimed —
+      and the MOVE had left `src/network/text/` behind as an empty directory, which git does not track and so
+      nothing ever reported. Removed. `reachability.ts` is still whole in `analysis/` (344 lines) with only the
+      incremental cache split out to `server/dead-code-equivalence.ts`; the top-level app files have not moved and
+      the reason above is why.

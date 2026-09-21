@@ -25,7 +25,7 @@ old standard — whichever cases somebody thought of.
 | 10 | `MIN / -1` | ✅ signed types. Wraps at 8/16 bits, **stops** at 32/64 |
 | 11 | **mixed-type** `+` and `/` — the meet | ✅ `operators/mixed-type.ts` — 70 pairs |
 | 12 | mixed-type **`-`, `*`, `MOD`** | ✅ all five operators, 175 cells — the meet does not depend on which |
-| 13 | unary `-` and `NOT`, per operand type | ✅ `operators/unary-operand.ts` — 35 probes |
+| 13 | unary `-` and `NOT`, per operand type | ✅ `operators/unary-operand.ts` — 39 probes. The last four (2026-09-21) closed it: it is ONE rule — the operator converts its operand into the type it computes in and says so — where two rows had read as exceptions |
 | 14 | **REAL overflow** at run time | ✅ `operators/real-overflow.ts` |
 | 15 | the ten **math functions' domain edges** | ✅ `operators/math-domain.ts` — 21 probes |
 | 16 | `EXPT` / `**` across operand types | partial — REAL when BOTH are REAL, LREAL otherwise, measured |
@@ -62,10 +62,14 @@ old standard — whichever cases somebody thought of.
 | 27 | `MIN MAX LIMIT SEL MUX` per type and mixed | ✅ `operators/selection.ts` — 49 cells; MIN and MAX inferred `unknown` |
 | 28 | `LEN LEFT RIGHT MID CONCAT INSERT DELETE REPLACE FIND` at their edges | ✅ `strings/string-edges.ts` — DELETE at 0 removes a character |
 | 29 | `STRING(n)` truncation, escapes, **non-ASCII** | ✅ `strings/escapes.ts` — `$hh` is a WINDOWS-1252 byte, and the divergence is closed |
+| 30 | the same in a **WSTRING** | ✅ same file, 17 cells (2026-09-21) — the hex escape is FOUR digits there, which the four original cells recorded a refusal for without its rule |
+| 31 | `{attribute '<name>'}` — is a name known to **this** vendor? | ✅ `pragmas/` + the `tc_*` family, 20 cells — one flat catalog made every `Tc*` name known to both, and the attribute pass does not run on a GVL file |
+| 32 | an intrinsic that takes its operand **by address** (`TEST_AND_SET`) | ✅ `calls/atomic-operands.ts` — 11 operand types; the operand converts as an assignment would, and the temporary that makes has no address |
+| 33 | a **declaration initializer's FORM** — literal, sibling variable, unknown name, `__` operator | ✅ `batches/check-coverage.ts`, 4 cells; an initializer is not a constant-only place |
 
 ## What the ✅ rows cost, and what they found
 
-Six sweeps, ~280 fixtures, one sitting — the first of several; the suite is 2458 fixtures now. They found: the fault model was wrong (it is dividing by zero and the
+Six sweeps, ~280 fixtures, one sitting — the first of several; the suite is 2595 fixtures now. They found: the fault model was wrong (it is dividing by zero and the
 logarithm of zero, not "an infinity"); `BIT` was stored as an integer; `__XINT`/`__UXINT`/`__XWORD` are missing from
 the type system; `__VECTOR` had no usable bounds; an overflowing REAL literal is an infinity and not an error;
 unary minus widens an 8-bit operand; `NOT` was implemented for signed integers only; `BYTE + BYTE` is `USINT`;
@@ -79,7 +83,16 @@ closed the two oldest divergences); `MIN` and `MAX` inferred `unknown`; `DELETE`
 `__POSITION` is a call whose missing parentheses eat the next token; and `CALC` is the IL conditional call, not a
 reserved name.
 
-Nine product bugs from six sweeps — and twenty-odd across the whole census, in sweeps that mostly confirmed
+The sweeps of 2026-09-20/21 — run on BOTH vendors, which is new — found: a WSTRING hex escape is four digits;
+`{attribute 'TcRetain'}` is TwinCAT's and CODESYS warns about it; partial access is a CODESYS extension at every
+width; `TEST_AND_SET`'s operand converts as an assignment would; and the `enable_dynamic_creation` pragma moves
+NOTHING on either vendor, because the message is downstream of a memory pool only CODESYS names.
+
+**Three of those were a NOTE beside the measured cells rather than a gap in them** — `.%X`/`.%D` "reject the same
+way", `NOT aTime` "nothing beyond the UDINT it produces", `-aBool` "converts silently". A note written next to
+evidence reads like evidence; asking the cell is what tells them apart, and it is cheap.
+
+Nine product bugs from six sweeps — and thirty-odd across the whole census, in sweeps that mostly confirmed
 what we already did. That rate was the argument for the ❌ rows, and it held: almost every one of them turned up
-something. What is left partial is rows 3, 4, 7 and 16 — an initializer's FORM crossed with the section and the
-type, and `EXPT` across both widths.
+something. What is left partial is rows 3, 4, 7 and 16 — an initializer's TYPE and SECTION crossed with its form
+(the form alone is row 33 now), and `EXPT` across both widths.

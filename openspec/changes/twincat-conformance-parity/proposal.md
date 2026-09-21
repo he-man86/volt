@@ -1,5 +1,26 @@
 # TwinCAT conformance parity — ask TwinCAT the questions CODESYS has already answered
 
+## Where it got to (2026-09-21)
+
+The re-record landed and the ratchet moved **266 -> 2528** on TwinCAT; CODESYS went **866 -> 2545**, of 2595
+fixtures. The LSP-only backlogs are **3 TwinCAT / 2 CODESYS**, from 79 and 3. Everything below is the reasoning
+that got it started; `tasks.md` is the record of what each step measured, and the last section there is the work
+list that is left.
+
+The proposal's last bullet — **decide the recorder's transport** — was decided by measurement and the answer is
+no: the CLI's verbs operate on a git WORKSPACE bound to an IDE, and the recorder needs the opposite shape (set
+ONE item, build, read, delete, restore, 2595 times, with no tree and nothing committed). Same named-pipe
+PROTOCOL, no workspace — which is the part worth sharing and the part that is shared.
+
+The two findings worth carrying out of it are not about TwinCAT at all:
+
+- **The dialect never reached the symbol table in the running server.** `buildSymbolTable`'s dialect defaults to
+  codesys and the server never passed it, so every rule keyed on `project.dialect` was dead in the shipped LSP
+  while the replay — which does pass it — stayed green. `computeSemanticDiagnostics` refuses a mismatch now.
+- **The work list was the optimistic one.** `agreement-residue.ts` loaded the standard library for both vendors
+  and `fixtures.test.ts` loaded it for CODESYS alone, so seventeen fixtures lost agreement to a missing library
+  and the script could not see any of it. A tool that reports on the harness has to build the harness's project.
+
 ## Why
 
 **The TwinCAT "divergence" is mostly unasked questions, and every attempt to measure it has been corrupted.**

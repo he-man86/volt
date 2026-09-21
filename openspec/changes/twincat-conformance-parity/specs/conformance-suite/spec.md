@@ -68,3 +68,33 @@ it possible to commit IDE churn along with real work.
 
 - **WHEN** a tier is asked to serve one of the committed fixture projects
 - **THEN** it copies it to a work directory and serves the copy, leaving the committed tree byte-identical
+
+### Requirement: An analysis is asked about exactly one vendor
+
+Every layer that reads the vendor SHALL be given the same one, and a mismatch SHALL be refused rather than
+resolved.
+
+The vendor reaches an analysis three ways — the PARSE (a keyword on one dialect is an identifier on the other),
+the CONFIG (the wording), and the SYMBOL TABLE (`project.dialect`, which decides that `LDATE` does not resolve on
+TwinCAT). The third defaulted to one vendor and the running server never passed it, so every rule keyed on it was
+dead in the shipped product while the replay — which does pass it — stayed green. A silent winner is what hid
+that, so there is no winner: the two disagreeing has no sensible answer and is a fault.
+
+#### Scenario: a project bound as one vendor is analysed as another
+
+- **WHEN** diagnostics are computed for a project whose dialect differs from the requested vendor
+- **THEN** the call fails, naming both, rather than analysing with either
+
+### Requirement: A tool that reports on the harness builds the harness's project
+
+A script whose output is a work list for the conformance gate SHALL assemble the same project the gate does.
+
+`agreement-residue.ts` gave both vendors the standard library and `fixtures.test.ts` gave it to one, so `LEN`
+resolved nowhere on the other: seventeen fixtures lost agreement to a missing library rather than to a missing
+check, and the work list could not see any of it. A report that is built differently from the thing it reports on
+is not a report — it is a second, quieter opinion.
+
+#### Scenario: the replay project gains or loses a file set
+
+- **WHEN** the conformance harness changes what it binds into the replay project
+- **THEN** every script that reports on that harness binds the same, and says so where the next reader will look

@@ -96,7 +96,9 @@ Every row: record oracle cases FIRST, then implement, then green in both backend
       literal was typed STRING, its initializer never folded, date arithmetic did not lower, and `types/elementary`
       said DT is 64 bits. *Why missed:* no date oracle case. The recorder's TOD/DATE displays are lossy, so the replay
       compares values as displayed and reads stored truth through `*_TO_UDINT`. Ratchet unchanged (6 of 304).
-- [ ] **STRING / WSTRING** — nearly done 2026-09-14; rules in design §18. Green in both backends: capacity on the
+- [x] **STRING / WSTRING** — DONE, with two carve-outs that are DECISIONS rather than remaining work:
+      `REAL_TO_STRING` refuses on 70 cells of evidence, and Standard64's W-functions need a project that
+      references Standard64. 69 of the 72 string fixtures are `confirmed`. Rules in design §18. Green in both backends: capacity on the
       resolved type (sizeless = 80, STRING and WSTRING), truncation on every store, comparison by code unit, every `$`
       escape, the nine Standard string functions as LIBRARY-GATED intrinsics (bound only to `Library Manager/Standard/`,
       signature STRING(255) from the `.fun`, so a longer argument is cut on the way in) with all position edges, and
@@ -198,9 +200,15 @@ All five fixed 2026-09-14 — 22 fixtures in `check-coverage.ts` recorded live o
       checks for statements and declarations. CODESYS agreement 293 → 311, TwinCAT 253 → 255. *Why missed:* the
       constant-overflow check was removed as a false positive (2026-07-07) with the note "CODESYS accepts out-of-range
       untyped literals" — true only when the literal's own type still converts; the error half was never re-homed.
-- [ ] **A declaration's initializer is never type-checked** (gap 14) — the assignment and sign-change checks walked
-      statements only; gap 13 added declarations for the measured literal shape alone. `x : BYTE := someInt;` and every
-      other non-literal initializer stay unchecked until recorded.
+- [x] **A declaration's initializer is never type-checked** (gap 14) — DONE, in two halves and a year apart in
+      spirit. The STORE half closed when `narrowing` stopped asking `literalCheckType` alone, so an initializer with
+      a SHAPE — a call, a member read, an expression — converts like an assignment: `x : BYTE := someInt` is
+      "Cannot convert type 'INT' to type 'BYTE'" and `r : REAL := lr` warns twice, as the compilers report a
+      declaration twice. The INSIDE half closed 2026-09-21: the initializer's own expressions now go through the
+      same argument and operand rules the body arm uses (`i : DINT := REAL_TO_DINT(EXPT(2, 10))` converts nothing
+      at the store and everything at the ARGUMENT), a name there is resolved (`cc_decl_init_unknown_name`), and a
+      hole there is carried into the declared type. Four probes were needed first, because an initializer is NOT a
+      constant-only place and the obvious reading would have been wrong: a sibling VARIABLE initializes one.
 - [x] **The class fix: every source CODESYS refuses is an LSP error** — `test/exec/rejects-lsp.test.ts` runs every exec
       `rejects` case through the LSP and requires CODESYS's own wording. It went red on gaps 9 and 11 before their fixes.
 - [x] **The replay counted every declaration parse error twice** (`replay.test.ts` pushed `parseResult.errors` next to
@@ -492,7 +500,8 @@ Closed 2026-09-16, each recorded first and green in both backends:
 
 ## The plan from here — measured, not ranked by reach (2026-09-16)
 
-**Corpus today: 52 of 304 POUs with a body (17.1%).** The work list above ranked constructs by how many POUs each
+**Corpus today: 56 of 304 POUs with a body (18.4%)** — re-measured 2026-09-21; it read 52 (17.1%) when the
+order below was written, and the order has moved further than the number (see "Re-measured" at the end). The work list above ranked constructs by how many POUs each
 one *reaches*, and that number is misleading: almost every blocked POU is blocked by several constructs at once, so
 the construct with the biggest reach can unlock nothing. `lower-completeness` now prints `sole` beside `reach` — how
 many POUs a construct is the ONLY blocker of — and ranks by it. `init-not-constant` reaches 202 POUs and is the sole
@@ -549,7 +558,8 @@ no frame slot yet` is a call into a library with no body, not an unresolved name
 
 
 **The order, each step `+N` POUs and the running total** (greedy over the library-free set; record first, build, green
-in both backends, as every row above):
+in both backends, as every row above). **This list is the 2026-09-16 measurement and is kept for what it shows about
+the method — the current one is below it.**
 
 - [x] `root-inout` +10 → 52 — an FB's or PROGRAM's in-out is the harness's variable (2026-09-16). `ARRAY[*]` still refused.
 - [ ] `place-not-local` +4 → 56 — the library-free half: a `var` of another scope with no frame slot (`Unit`, `AxisRef`).
@@ -573,6 +583,38 @@ in both backends, as every row above):
 `layout-union` 61 — are mostly the same library-bound POUs seen from different angles, and most of that is the one
 namespace item above. Re-measure this list after it lands: the greedy order is derived from the refusals, so it
 changes when they do.
+
+### Re-measured 2026-09-21 — and the instruction above was the right one
+
+Four steps of the 2026-09-16 order were taken by other work rather than by this list, and the ranking moved more
+than the total did. **`enum-value` is gone from the table entirely** — it was called "+17, the biggest single
+step" and it is now the sole blocker of nothing and the reach of nothing. So is `aggregate-init`, `call-param`,
+`layout-union` and `stmt-call_stmt`. `init-not-constant` still reaches 181 POUs and is the sole blocker of **0**,
+which is the whole point of measuring `sole`: reach is not work.
+
+Today's table, `sole` first — the ONLY blocker of that many POUs:
+
+| construct | reach | sole | |
+|---|---|---|---|
+| `place-not-local` | 189 | **7** | a `var` of another scope with no frame slot — the same head as before |
+| `graphical-body` | 112 | **6** | an FBD/LD body reaching the backend through network text, not `lowerUnit` |
+| `stmt-try` | 6 | **3** | `__TRY`/`__CATCH`; Rust has no exceptions, so decide a strategy or refuse explicitly |
+| `pointer-order` | 105 | 2 | |
+| `conversion-type` | 9 | 2 | |
+| `fb-init-argument` | 2 | 2 | reach 2 and sole 2 — every POU it touches, it is the only thing stopping |
+| `place-shape` · `expr-call` · `call-library` · `type-unknown` · `call-inout-global` | 95 · 78 · 34 · 11 · 4 | 1 each | |
+| `init-not-constant` · `layout-recursive` · `sizeof-unmeasured` · `interface-type` · `call-body` · `pointer-value` · `expr-member` · `interface-value` · `interface-query` | 181 · 154 · 154 · 154 · 140 · 98 · 94 · 80 · 80 | **0** | large reach, no POU of their own |
+
+- [ ] **`place-not-local` (+7 sole)** — still the head of the list, and the four the old order counted have been
+      taken. The library-free half: a `var` of another scope with no frame slot (`Unit`, `AxisRef`).
+- [ ] **`graphical-body` (+6 sole)** — an FBD/LD body through **network text**. Note what this now sits beside:
+      `network-text` is a first-class sublanguage the LSP analyzes, and the conformance suite records graphical
+      fixtures on both vendors, so the input is measured — what is missing is the route into `lowerUnit`.
+- [ ] **`stmt-try` (+3 sole)** — nine `__TRY` fixtures are in `KNOWN_DIVERGENCES.twincat` because the x64 code
+      generator refuses structured exception handling there, which is a DEVICE fact and does not change what this
+      backend must decide.
+- [ ] Then re-measure. `bun run scripts/lower-completeness.ts` prints the table above; the greedy order is
+      derived from the refusals and moves when they do, which is what this section is evidence of.
 
 ## Phase 4 — aliasing
 
@@ -827,6 +869,10 @@ changes when they do.
 - [ ] `type-unknown` (18, 6%) — triage; each is a type the frontend could not resolve.
 
 ## Phase 6 — the standard library
+
+**This phase IS `plc-library-runtime` tier 2**, and tier 1 of that change — the nine pure Standard string
+functions as library-gated intrinsics — is delivered here in the STRING row above. The split is by STATE: a
+function with none is a transpiler intrinsic, an FB with some needs a runtime and a clock.
 
 - [ ] Create the Rust runtime crate. **Not before something needs it** (design §6); location undecided.
 - [ ] `TON`/`TOF`/`TP` — the three that cannot be written in ST at all, since they read a clock the language
