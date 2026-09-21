@@ -198,6 +198,13 @@ here. Rule for every task: a failing test first (a recorded fixture when it is v
       now, `calls.ts` the largest at 1360). What would be left is a naming preference, and a refactor with no
       measured problem behind it is how a working file acquires a bug. Reopen it against a reading that hurts,
       not a line count.
+- [x] C11 THE TWO VENDOR CHANNELS, added 2026-09-21 by the review that asked whether the checks have one way
+      to name a vendor. They have two — `ctx.config.vendor` and `ctx.project.dialect` — and it is not a
+      duplication to remove: `project.dialect` is the SYMBOL TABLE's own binding-time field, read by
+      `types/resolve`, `types/infer` and `analysis/resolution` well outside the checks, where no `CheckContext`
+      exists to offer the other. What makes them undivergeable is the throw in `computeSemanticDiagnostics` when
+      they disagree — the same guard that caught the 29-test hole in C7 above. Inside a check either spelling is
+      correct; outside one, only the dialect is available.
 - [x] C10 Placement: `network/text` to a syntax-tier folder, `reference/error-code-map.ts` next to `analysis/config`,
       `reachability.ts` incremental half to `server/`, top-level app files to `src/workspace/`. PARTLY DONE 2026-09-14:
       `src/network-text/` (the layering lint's special case is gone — the folder is its layer), `analysis/error-code-map.ts`,
