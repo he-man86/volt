@@ -56,8 +56,19 @@ export function checkRefusedName(ctx: CheckContext, out: DiagnosticItem[]): void
     push(ctx.messages.unexpectedToken(text), span)
     cascadeAfter(ctx, out, span.end)
   }
-  for (const { decl } of forEachDecl(ctx.parseResult, ctx.project))
+  for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {
     for (const name of decl.names) if (isRefused(name.text)) report(name.text, name.span)
+  }
+
+  // AN UNKNOWN LITERAL PREFIX IS FOUND BY SCANNING THE SOURCE, not by walking the AST, because there is no AST
+  // to walk: `v := LDT#2026-05-09-07:05:03;` leaves the statement list EMPTY — the parser gives up at the stray
+  // `2026` and the body yields nothing at all. The prefix is unambiguous in raw tokens (an identifier ending in
+  // `#`, a shape no valid source produces), which is the same reason `cascadeAfter` re-lexes rather than walking.
+  for (const token of ctx.tokens()) {
+    if (token.kind !== "identifier" || !isUnknownPrefix(token.text)) continue
+    push(ctx.messages.expressionExpectedInsteadOf(token.text), token.span)
+    cascadeAfter(ctx, out, token.span.start)
+  }
 
   // Bare identifiers only: `S=`/`R=` are operator tokens, and a member name (`fb.S`) was not measured.
   for (const { statements } of bodies(ctx.parseResult.units, ctx.project))
@@ -86,7 +97,18 @@ function isRefused(text: string): boolean {
 
 /** Those of them a USE is refused for too — a compiler operator (`__NEW`) is spelled with underscores and is legal. */
 function isRefusedInBody(text: string): boolean {
-  return IL_OPERATOR_NAMES.has(text.toLowerCase()) || elementaryType(text) !== undefined
+  return IL_OPERATOR_NAMES.has(text.toLowerCase()) || elementaryType(text) !== undefined || isUnknownPrefix(text)
+}
+
+/**
+ * A `<prefix>#` identifier — which only the TwinCAT dialect's lexer produces, for a literal prefix that vendor does
+ * not have (`LDATE#`, `LDT#`, `LTOD#`, `UCHAR#`; see `CODESYS_ONLY_LITERAL_PREFIXES`). TwinCAT quotes the prefix
+ * WHOLE and then resyncs exactly like any other refused name — `v := LDT#2026-05-09-07:05:03;` is "Expression
+ * expected instead of 'LDT#'" and then a pair per token to the `;` (`xf_ldt_to_*`, `cc_ld*_literal_into_*`). On
+ * CODESYS these lex as one `date_lit` token and never reach this, which is why the test is the `#` and not a list.
+ */
+function isUnknownPrefix(text: string): boolean {
+  return text.endsWith("#")
 }
 
 /**
@@ -115,7 +137,9 @@ const eol = (source: string): string => (source.includes("\r\n") ? "\r\n" : "\n"
  * Only the first was emitted here, so 22 fixtures whose every IDE error is part of such a cascade could never agree.
  */
 function cascadeAfter(ctx: CheckContext, out: DiagnosticItem[], from: number): void {
-  for (const token of lex(ctx.source.slice(from))) {
+  // WITH THE PROJECT'S DIALECT. Re-lexing as CODESYS reads `LDATE#2026-05-09` as ONE date literal, so the cascade
+  // quoted a token TwinCAT never saw — the vocabulary has to be the same on the second pass as on the first.
+  for (const token of lex(ctx.source.slice(from), ctx.config.vendor)) {
     if (isTrivia(token.kind)) continue
     if (token.text === ";") return
     const span = { ...token.span, start: token.span.start + from, end: token.span.end + from }

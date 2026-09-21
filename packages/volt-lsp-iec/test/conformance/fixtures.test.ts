@@ -854,7 +854,12 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 2447 -> 2450: an ordinary name in a resync cascade IS a statement once the compiler has supplied the `;` it
   // was asking for, and both vendors then say what they always say about a statement that reads a variable and
   // does nothing with it.
-  { vendor: "twincat", floor: 2450 },
+  // 2450 -> 2470: AN UNKNOWN LITERAL PREFIX CASCADES LIKE ANY OTHER REFUSED NAME, and the cascade machine
+  // was already here — `LDT#` quoted whole, then a pair per token to the `;`. Twenty fixtures, and the only
+  // new code is a token scan: the parser gives up at the first stray, so there is no AST to walk. It also
+  // found that the cascade re-lexed WITHOUT the dialect, which read `LDATE#2026-05-09` as one CODESYS date
+  // literal and quoted a token TwinCAT never saw.
+  { vendor: "twincat", floor: 2470 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.

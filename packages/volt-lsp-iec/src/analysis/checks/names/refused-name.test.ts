@@ -11,8 +11,9 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
 
 function diagnose(src: string, vendor: Vendor = "codesys") {
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+  // the DIALECT too: an unknown literal prefix only exists as a token on the vendor that lacks the literal
+  const parseResult = parseSource(src, vendor)
+  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
 }
 const program = (decl: string, body = "") => `PROGRAM PLC_PRG\nVAR\n  ${decl}\nEND_VAR\n${body}\nEND_PROGRAM`
@@ -126,6 +127,26 @@ test("a type name a call uses is NOT refused — as an argument or as the callee
   expect(d.filter((x) => x.code === "refused-name")).toEqual([])
 })
 
+// AN UNKNOWN LITERAL PREFIX CASCADES LIKE ANY OTHER REFUSED NAME. `LDATE#`/`LDT#`/`LTOD#`/`UCHAR#` are
+// CODESYS's, so on TwinCAT they lex as an identifier ending in `#` and the compiler quotes the prefix WHOLE and
+// then resyncs — a pair per token to the `;` (`xf_ldt_to_*`, `cc_ld*_literal_into_*`, its recording 2026-09-20).
+// It is found by scanning tokens rather than walking the AST because there is no AST: the parser gives up at
+// the first stray and the statement list comes back EMPTY.
+test("an unknown literal prefix is refused on TwinCAT, and cascades", () => {
+  const msgs = diagnose(
+    program("v : LDT;", "v := LDT#2026-05-09-07:05:03;"),
+    "twincat",
+  ).map((d) => d.message)
+  expect(msgs.slice(0, 5)).toEqual([
+    "Expression expected instead of 'LDT#'",
+    "';' expected instead of 'LDT#'",
+    "Unexpected Token 'LDT#' found",
+    "';' expected instead of '2026'",
+    "Unexpected Token '2026' found",
+  ])
+  // …and CODESYS lexes the whole thing as one date literal, so nothing here fires at all
+  expect(diagnose(program("v : LDT;", "v := LDT#2026-05-09-07:05:03;")).filter((d) => d.code === "refused-name")).toEqual([])
+})
 test("an IL operator's CALL FORM is refused — `ADD(a, b)` is not ST", () => {
   // `added := ADD(a, b);` is eleven IDE errors and was silent here: ADD lexes as a keyword, and the expression
   // parser accepts any non-operator keyword as a name (`LTIME()`), so the call parsed clean
