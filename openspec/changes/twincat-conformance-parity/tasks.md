@@ -156,10 +156,31 @@ one — how much of what each vendor SAYS the LSP says back. It was 2203 / 2412 
       the statement list EMPTY: the parser gives up at the first stray and there is no AST to walk.
       - It also found a real bug in the cascade: it re-lexed the source WITHOUT the project's dialect, so it read
         `LDATE#2026-05-09` as one CODESYS date literal and quoted a token TwinCAT never saw.
-- [ ] **What is left is a long tail on both vendors** — 72 CODESYS fixtures and 91 TwinCAT ones, with no cluster
-      bigger than five. `agreement-residue.ts` (either vendor, and honest since it reads the dialect all the way
-      down) is the work list. The next one worth taking is whichever family a recording can settle, not whichever
-      is largest.
+- [x] **THE WORK LIST WAS THE OPTIMISTIC ONE, on TwinCAT.** `agreement-residue.ts` loaded the standard library
+      for both vendors and `fixtures.test.ts` loaded it for CODESYS ALONE — so `LEN` resolved nowhere on TwinCAT,
+      seventeen fixtures lost agreement to a missing library rather than to a missing check, and the script could
+      not see any of it. The harness had carried the reason in a comment for months ("Tc2_Standard, a different
+      materialization — not added for it") and nobody costed the sentence. Sharing CODESYS's materialization adds
+      ZERO false positives, which is what makes it a measurement rather than a guess.
+- [x] **And the dialect never reached the SYMBOL TABLE in the running server.** `buildSymbolTable`'s dialect
+      defaults to codesys and `workspace-store` never passed it, so every rule keyed on `project.dialect` was dead
+      in the shipped LSP while the replay (which does pass it) stayed green. Twenty-nine colocated tests had the
+      same hole from the other side. `computeSemanticDiagnostics` throws when the two disagree now.
+- [x] **Four families closed with a recording each.** (a) The nine `xf_*_to_l*` conversions: an assignment whose
+      source has no type was skipped when the TARGET had none either, and TwinCAT does not fall silent there — it
+      writes the unresolved name out. (b) Seventeen `tc_*` attributes: `{attribute 'TcRetain'}` is TwinCAT's and
+      CODESYS warns about it, where one flat catalog made every `Tc*` name known to both. (c) The WSTRING escape:
+      four cells said `"$41"` is refused and thirteen new ones said WHY — the form is four hex digits. (d) Partial
+      access `.%X`/`.%B`/`.%W`/`.%D`, a CODESYS extension at every width.
+- [x] **One family closed by proving there is nothing to close.** `{attribute 'enable_dynamic_creation'}` moves
+      NOTHING on either vendor — not for a self-reference, not for a different FB, not for a STRUCT, and not by
+      its absence. CODESYS names the missing memory pool beside the message and TwinCAT does not, which is the
+      only difference between them. Five TwinCAT cells joined the divergence list with that evidence.
+- [ ] **What is left is a long tail on both vendors** — 31 CODESYS fixtures and 46 TwinCAT ones (2523 and 2501 of
+      2579), with no cluster bigger than six. The biggest is TwinCAT's ABANDONED VAR BLOCK: a declaration that
+      fails to parse loses the REST of the declaration part, so `'END_VAR' expected instead of ''` lands at its
+      end and every later variable is undefined in the body. `agreement-residue.ts` is the work list, and it and
+      the harness must keep building the SAME project — that is what went wrong above.
 
 ## What the recorder could not push — and the CLI bug behind it
 
