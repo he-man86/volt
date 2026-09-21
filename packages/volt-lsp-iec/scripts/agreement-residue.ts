@@ -39,6 +39,9 @@ const build = JSON.parse(
   readFileSync(join(import.meta.dir, "..", "test", "conformance", "recordings", `${vendor}.build.json`), "utf8"),
 ).tests as Record<string, { diagnostics: { severity: string; message: string }[] }>
 const config = resolveConfig({ vendor })
+// THE SAME PROJECT THE HARNESS BUILDS, or this tool prints a work list for a compiler nobody runs. It did:
+// `fixtures.test.ts` gave the standard library to CODESYS alone, so `LEN` resolved nowhere on TwinCAT and the
+// harness recorded seventeen disagreements this script could not see. Whatever is added to one belongs in both.
 const std = STANDARD_LIBRARY.map((l) => ({ uri: l.uri, parseResult: parseSource(l.source, vendor), source: l.source }))
 const buckets = new Map<string, string[]>()
 const add = (k: string, name: string) => buckets.set(k, [...(buckets.get(k) ?? []), name])

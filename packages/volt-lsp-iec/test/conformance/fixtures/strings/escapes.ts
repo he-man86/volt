@@ -104,12 +104,40 @@ const truncation: LanguageTest[] = [
   probe("esc_high_only_one", "v : STRING(1) := '$FF';", "LEN(v)", "INT", "a STRING(1) given one high byte"),
 ]
 
-/** The same boundary in WSTRING, which is defined to be wide. */
+/**
+ * The same boundary in WSTRING, which is defined to be wide — AND THE WIDTH REACHES THE ESCAPE, which is what the
+ * first four cells missed. `$41` is two hex digits, and all three of them were REFUSED: "Expression expected
+ * instead of '"$41"'", the initializer lost to `!!!'ERROR'!!!`. The plain `"abc"` beside them compiles, so it is
+ * the escape and not the literal.
+ *
+ * IEC spells a WSTRING hex escape with FOUR digits (`$0041`), which nothing here ever asked. So these cells were
+ * evidence of a refusal and not of its RULE — "no `$` in a WSTRING" and "a WSTRING escape is four digits" both
+ * fit them exactly, and they are different rules. The group below asks the difference:
+ *
+ *   two digits     `$41` `$FF` `$C3$A9`   the cells that refused
+ *   four digits    `$0041` `$00FF` `$00E9` `$20AC`   the IEC form, across and above the byte boundary
+ *   odd widths     `$004` `$00041`        three and five, to place the boundary rather than assume it
+ *   named          `$$` `$"` `$N` `$T`    a WSTRING's quote escape is `$"`, not `$'`
+ *   a WSTRING(n)   the truncation question, in the wide type
+ */
 const wide: LanguageTest[] = [
   probe("esc_wstring_ascii", 'v : WSTRING := "abc";', "LEN(v)", "INT", "LEN of a three-character WSTRING"),
   probe("esc_wstring_hex_41", 'v : WSTRING := "$41";', "LEN(v)", "INT", "LEN of a WSTRING holding $41"),
   probe("esc_wstring_hex_ff", 'v : WSTRING := "$FF";', "LEN(v)", "INT", "LEN of a WSTRING holding $FF"),
   probe("esc_wstring_pair", 'v : WSTRING := "$C3$A9";', "LEN(v)", "INT", "LEN of a WSTRING holding $C3$A9"),
+  probe("esc_wstring_hex4_0041", 'v : WSTRING := "$0041";', "LEN(v)", "INT", "the IEC four-digit form of 'A'"),
+  probe("esc_wstring_hex4_00ff", 'v : WSTRING := "$00FF";', "LEN(v)", "INT", "four digits at the byte boundary"),
+  probe("esc_wstring_hex4_00e9", 'v : WSTRING := "$00E9";', "LEN(v)", "INT", "four digits for 'é' — one wide character"),
+  probe("esc_wstring_hex4_20ac", 'v : WSTRING := "$20AC";', "LEN(v)", "INT", "four digits above the byte range — '€'"),
+  probe("esc_wstring_hex4_around", 'v : WSTRING := "a$0041b";', "LEN(v)", "INT", "a four-digit escape between two letters"),
+  probe("esc_wstring_hex3", 'v : WSTRING := "$004";', "LEN(v)", "INT", "THREE digits — one short of the form"),
+  probe("esc_wstring_hex5", 'v : WSTRING := "$00041";', "LEN(v)", "INT", "FIVE digits — one too many, or four and a '1'?"),
+  probe("esc_wstring_dollar", 'v : WSTRING := "$$";', "LEN(v)", "INT", "the escaped dollar, in the wide type"),
+  probe("esc_wstring_dquote", 'v : WSTRING := "$\"";', "LEN(v)", "INT", "a WSTRING escapes the DOUBLE quote, not the single"),
+  probe("esc_wstring_newline", 'v : WSTRING := "$N";', "LEN(v)", "INT", "a named escape in the wide type"),
+  probe("esc_wstring_tab", 'v : WSTRING := "a$Tb";', "LEN(v)", "INT", "a named escape between two letters"),
+  probe("esc_wstring_sized_fits", 'v : WSTRING(3) := "abc";', "LEN(v)", "INT", "a WSTRING(3) holding three characters"),
+  probe("esc_wstring_sized_cut", 'v : WSTRING(3) := "abcde";', "LEN(v)", "INT", "a WSTRING(3) given five — where does the cut land?"),
 ]
 
 export const ESCAPE_TESTS: readonly LanguageTest[] = [...named, ...hex, ...sequences, ...truncation, ...wide]

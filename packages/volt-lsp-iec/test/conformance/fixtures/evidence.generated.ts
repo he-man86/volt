@@ -7,7 +7,7 @@
  *
  * At the last regeneration:
  *   confirmed    1921
- *   refused       511
+ *   refused       524
  *   not-lowered    90
  *   lsp-gap         3
  *   diverges        3
@@ -899,9 +899,22 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   esc_utf8_pair: "confirmed",
   esc_utf8_pair_around: "confirmed",
   esc_wstring_ascii: "refused",
+  esc_wstring_dollar: "refused",
+  esc_wstring_dquote: "refused",
   esc_wstring_hex_41: "refused",
   esc_wstring_hex_ff: "refused",
+  esc_wstring_hex3: "refused",
+  esc_wstring_hex4_0041: "refused",
+  esc_wstring_hex4_00e9: "refused",
+  esc_wstring_hex4_00ff: "refused",
+  esc_wstring_hex4_20ac: "refused",
+  esc_wstring_hex4_around: "refused",
+  esc_wstring_hex5: "refused",
+  esc_wstring_newline: "refused",
   esc_wstring_pair: "refused",
+  esc_wstring_sized_cut: "refused",
+  esc_wstring_sized_fits: "refused",
+  esc_wstring_tab: "refused",
   estimated_stack_usage: "confirmed",
   exp_log_precision: "confirmed",
   expt_mixed_width: "confirmed",

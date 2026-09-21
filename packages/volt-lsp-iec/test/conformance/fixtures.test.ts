@@ -864,7 +864,12 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // that the target is usually a library type the LSP cannot see. TwinCAT does not fall silent there -- it
   // writes the unresolved name out ("... to type 'LDATE'"), so the skip only had to stop covering the
   // names the VENDOR provably lacks, which `dialectMissingType` already decided for the declaration.
-  { vendor: "twincat", floor: 2479 },
+  // 2479 -> 2496: THE REPLAY HAD NO STANDARD LIBRARY ON TWINCAT, so `LEN` resolved nowhere and seventeen
+  // fixtures said nothing where the recording has a real error. The harness had said so in a comment for
+  // months ("Tc2_Standard, a different materialization — not added for it") and nobody costed the sentence.
+  // Sharing CODESYS's materialization adds ZERO false positives, which is the gate that makes it a
+  // measurement rather than a guess.
+  { vendor: "twincat", floor: 2496 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -931,7 +936,12 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // so every `Tc*` name was known to both and the LSP answered silence where CODESYS warns. Sixteen warn; the
   // seventeenth is `Tc2GvlVarNames` above a `VAR_GLOBAL`, which CODESYS says nothing about for a reason that is
   // not the name at all -- the attribute pass does not run on a GVL file, exactly as it does not on a DUT.
-  { vendor: "codesys", floor: 2505 },
+  // 2505 -> 2521: a WSTRING hex escape is FOUR digits, and the four cells that said so were never enough to
+  // say it. They establish a REFUSAL; "a WSTRING takes no `$` escape" and "a WSTRING escape is four digits"
+  // both fit them and disagree about every valid string. Thirteen new cells separate the two — `$0041`,
+  // `$20AC`, `a$0041b`, the named escapes and both `WSTRING(n)` forms all compile, `$41`/`$FF`/`$C3$A9`/`$004`
+  // do not — and twelve of the thirteen agreed the moment they were recorded.
+  { vendor: "codesys", floor: 2521 },
 ]
 
 
@@ -972,10 +982,21 @@ const PLC_PRGS = ALL_TESTS.map((t) => {
   return { uri: `file:///conformance/${t.name}/PLC_PRG.prg`, source, parseResult: parseSource(source) }
 })
 
-// The CODESYS recording project references Standard, as every CODESYS project does, so a fixture calling LEN compiled
-// against that library's declaration: replay against the same materialized files (gap 9, `cc_standard_len_wstring`).
-// TwinCAT's standard library is Tc2_Standard, a different materialization — not added for it.
-const CODESYS_STANDARD = STANDARD_LIBRARY.map((l) => ({ ...l, parseResult: parseSource(l.source) }))
+/**
+ * BOTH recording projects reference a standard library, so a fixture calling `LEN` compiled against its
+ * declaration and the replay has to as well (gap 9, `cc_standard_len_wstring`).
+ *
+ * <p>This was CODESYS-only, on the note "TwinCAT's standard library is Tc2_Standard, a different materialization
+ * — not added for it". True about the materialization and wrong about the consequence: without one, TwinCAT's
+ * replay could not resolve `LEN` at all, so it said NOTHING where the recording has a real error, and SEVENTEEN
+ * fixtures lost agreement to a missing library rather than to a missing check.</p>
+ *
+ * <p>Sharing CODESYS's materialization is a claim about Tc2_Standard, and it is the no-FP gate that makes it
+ * testable rather than a guess: a signature that differs would put an LSP-only message on the board immediately.
+ * Measured 2026-09-21 — agreement 2479 -> 2496 and the false-positive list unchanged at three. A specific
+ * divergence, when one is found, is a reason to materialize Tc2_Standard separately, not to go back to none.</p>
+ */
+const standardLibrary = (vendor: Vendor) => STANDARD_LIBRARY.map((l) => ({ ...l, parseResult: parseSource(l.source, vendor) }))
 
 /**
  * THE SAME SOURCE, LEXED AS THE OTHER VENDOR — for the handful of fixtures where that can differ at all.
@@ -1020,7 +1041,7 @@ const SHARED = new Map<Vendor, Scope>()
 function sharedProject(vendor: Vendor): Scope {
   let project = SHARED.get(vendor)
   if (project === undefined) {
-    project = buildSymbolTable([...CROSS_DECLS, ...(vendor === "codesys" ? CODESYS_STANDARD : [])], [], vendor)
+    project = buildSymbolTable([...CROSS_DECLS, ...standardLibrary(vendor)], [], vendor)
     SHARED.set(vendor, project)
   }
   return project

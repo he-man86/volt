@@ -90,6 +90,7 @@ import { checkSignatureName } from "./checks/declarations/signature-name.js"
 import { checkUnaryOperand } from "./checks/types/unary-operand.js"
 import { checkUnsupportedOperator } from "./checks/types/unsupported-operator.js"
 import { checkTimeLiteralUnit } from "./checks/types/time-literal-unit.js"
+import { checkWstringEscape } from "./checks/types/wstring-escape.js"
 import { checkVarSectionPlacement } from "./checks/declarations/var-section-placement.js"
 import { checkHeaderRules } from "./checks/declarations/header-rules.js"
 import { checkAttributePlacement } from "./checks/declarations/attribute-placement.js"
@@ -139,6 +140,7 @@ const CHECKS: readonly Check[] = [
   checkUnaryOperand,
   checkUnsupportedOperator,
   checkTimeLiteralUnit,
+  checkWstringEscape,
   // flow/
   checkCaseLabels,
   checkStatementRules,
