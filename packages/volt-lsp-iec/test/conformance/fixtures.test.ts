@@ -875,7 +875,11 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // "No memory for dynamic object creation" on either side of the same message, so the pragma rule is
   // plainly never reached on either project. Five TwinCAT cells joined the divergence list with that
   // evidence; the one that moved is the new control, which agrees.
-  { vendor: "twincat", floor: 2497 },
+  // 2497 -> 2501: PARTIAL ACCESS (`dwSource.%W1`) IS A CODESYS EXTENSION. TwinCAT reads the `.` as an ordinary
+  // member access, finds `%` where a component name belongs and leaves the width+index standing as a statement
+  // of its own — three messages, and the same three at all four widths. `.%W`/`.%B` had been recorded since
+  // 2026-05-29 and `.%X`/`.%D` were asserted in a note beside them; asked properly they answer identically.
+  { vendor: "twincat", floor: 2501 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -947,7 +951,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // both fit them and disagree about every valid string. Thirteen new cells separate the two — `$0041`,
   // `$20AC`, `a$0041b`, the named escapes and both `WSTRING(n)` forms all compile, `$41`/`$FF`/`$C3$A9`/`$004`
   // do not — and twelve of the thirteen agreed the moment they were recorded.
-  { vendor: "codesys", floor: 2521 },
+  // 2521 -> 2523: the two new partial-access widths, which CODESYS compiles clean and now says so.
+  { vendor: "codesys", floor: 2523 },
 ]
 
 

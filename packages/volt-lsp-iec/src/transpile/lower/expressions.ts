@@ -256,22 +256,32 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
       }
       const enumValue = e.kind === "member" ? enumConstant(lw, e) : undefined
       if (enumValue !== undefined) return enumValue
-      // `x.%B3` / `.%W1` / `.%D0` — partial access, a byte, word or double word of an unsigned integer counted from the
-      // low end: DWORD 16#DEADBEEF has %W1 16#DEAD and %B3 16#DE (conformance `operand_partial_word_in_dword`). The slice
-      // is the value shifted down and narrowed. `.%X` (a bit), a signed source and a store into a slice are not measured.
+      // `x.%X3` / `.%B3` / `.%W1` / `.%D0` — partial access, a bit, byte, word or double word of an unsigned integer
+      // counted from the low end: DWORD 16#DEADBEEF has %W1 16#DEAD, %B3 16#DE and %X3 TRUE (conformance
+      // `operand_partial_word_in_dword`, `operand_partial_bit_in_dword`, `operand_partial_dword_in_lword`). The slice
+      // is the value shifted down and narrowed. A signed source and a store INTO a slice are still not measured.
       const partial = e.kind === "member" ? /^%([XBWD])(\d+)$/i.exec(e.member.name) : null
       if (e.kind === "member" && partial !== null) {
         const source = lowerExpr(lw, e.base)
         if (source === undefined) return undefined
         const elem = source.type.kind === "elementary" ? source.type.elem : undefined
-        const width = ({ B: 8, W: 16, D: 32 } as Record<string, number>)[partial[1]!.toUpperCase()]
+        const width = ({ X: 1, B: 8, W: 16, D: 32 } as Record<string, number>)[partial[1]!.toUpperCase()]
         const at = Number(partial[2])
         const unsigned = elem !== undefined && (elem.family === "bitstring" || (elem.family === "int" && !elem.signed))
         if (width === undefined || !unsigned || (at + 1) * width > elem.bits)
           return lw.bail("partial-access", `${e.member.name} of a ${source.type.kind === "elementary" ? source.type.name : source.type.kind} is not measured`, e.span)
-        const slice = elementaryRef(({ 8: "BYTE", 16: "WORD", 32: "DWORD" } as Record<number, string>)[width]!)
         const count: IrExpr = { kind: "const", value: BigInt(at * width), type: elementaryRef("INT"), span: e.span }
-        return convert({ kind: "builtin", name: "shr", args: [source, count], type: source.type, span: e.span }, slice)
+        const shifted: IrExpr = { kind: "builtin", name: "shr", args: [source, count], type: source.type, span: e.span }
+        // A BIT is not a one-wide slice of the same shape — there is no 1-bit elementary type to narrow into, and
+        // converting a DWORD to BOOL would ask "is it non-zero" about the WHOLE word. Mask the low bit and compare.
+        if (width === 1) {
+          const one: IrExpr = { kind: "const", value: 1n, type: source.type, span: e.span }
+          const masked: IrExpr = { kind: "binary", op: "and", left: shifted, right: one, type: source.type, span: e.span }
+          const zero: IrExpr = { kind: "const", value: 0n, type: source.type, span: e.span }
+          return { kind: "binary", op: "ne", left: masked, right: zero, type: elementaryRef("BOOL"), span: e.span }
+        }
+        const slice = elementaryRef(({ 8: "BYTE", 16: "WORD", 32: "DWORD" } as Record<number, string>)[width]!)
+        return convert(shifted, slice)
       }
       // `inst.P` / `THIS^.P` on a PROPERTY: its getter, run on the instance
       const property = e.kind === "member" ? lowerPropertyGet(lw, e) : null

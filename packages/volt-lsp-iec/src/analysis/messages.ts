@@ -117,6 +117,9 @@ export interface Messages {
   /** Member access `base.member` where `member` is not declared on the base's (project) type. PROVISIONAL —
    *  no bridge recording yet, so byte-identical wording is locked at the T.1 record pass (like overflow). */
   notAMember(member: string, type: string): string
+  /** A partial access (`d.%W0`) read as an ordinary member access, which is what TwinCAT does — it has no such
+   *  operand form, so the `%` is a component name and the WIDTH+INDEX is a statement of its own. */
+  percentNotAMember(base: string): string
   /** Instantiating an ABSTRACT FB: "Function block" (CODESYS) vs "Functionblock" (TwinCAT, one word). */
   abstractInstantiation(fb: string): string
   /** Value-assigning to an abstract-FB target (C0511). The message names the FB TYPE. CODESYS-verified. */
@@ -503,6 +506,9 @@ export function messagesFor(vendor: Vendor): Messages {
     dereferenceRequiresPointer: () => (tc ? "Dereference requires Pointer" : "Dereference requires a pointer"),
     // Confirmed via live /build: both say "is no component of"; TwinCAT uppercases the type name.
     notAMember: (member, type) => `'${member}' is no component of '${tc ? type.toUpperCase() : type}'`,
+    // NOT `notAMember('%', base)`: that one names a TYPE and upper-cases it on TwinCAT, and this names the
+    // VARIABLE, which stays as written — `'%' is no component of 'dwSource'` (four widths, twincat 2026-09-21).
+    percentNotAMember: (base) => `'%' is no component of '${base}'`,
     abstractInstantiation: (fb) =>
       `${tc ? "Functionblock" : "Function block"} ${fb} is ABSTRACT and cannot be instantiated`,
     // CODESYS-verified (2026-07-11 live): names the FB TYPE, no "The"/quotes/period. TwinCAT PROVISIONAL

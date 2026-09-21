@@ -6,7 +6,7 @@
  * recomputes all of it and fails if anything here is stale. `support/evidence.ts` defines what each rating means.
  *
  * At the last regeneration:
- *   confirmed    1921
+ *   confirmed    1923
  *   refused       524
  *   not-lowered    90
  *   lsp-gap         3
@@ -1717,6 +1717,8 @@ export const FIXTURE_EVIDENCE: Readonly<Record<string, NonNullable<LanguageTest[
   operand_hw_address_marker: "confirmed",
   operand_indexof: "refused",
   operand_ini_deprecated: "not-lowered",
+  operand_partial_bit_in_dword: "confirmed",
+  operand_partial_dword_in_lword: "confirmed",
   operand_partial_word_in_dword: "confirmed",
   operand_position: "refused",
   operand_querypointer: "refused",

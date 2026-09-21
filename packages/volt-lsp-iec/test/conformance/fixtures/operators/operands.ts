@@ -90,6 +90,44 @@ END_METHOD
 `,
   },
 
+  // THE OTHER TWO SIZES, so the family is a family. `.%W` and `.%B` were measured on both vendors and `.%X`
+  // and `.%D` were only ever asserted in a note beside them — which is the shape of a claim that turns out to
+  // have one exception. The syntax is a CODESYS extension either way; this asks all four of it.
+  {
+    name: "operand_partial_bit_in_dword",
+    pouName: "FB_LANG_operand_partial_bit",
+    kind: "function_block",
+    feature: "partial access at BIT width — `.%X<n>`, the one the docs lead with",
+    fromDoc: "05-operands.md",
+    plcPrgVar: "fb_pab : FB_LANG_operand_partial_bit;",
+    plcPrgBody: "fb_pab();",
+    source: `FUNCTION_BLOCK FB_LANG_operand_partial_bit
+VAR
+	dwSource : DWORD := 16#DEADBEEF;
+	bBit : BOOL;
+END_VAR
+bBit := dwSource.%X3;
+END_FUNCTION_BLOCK
+`,
+  },
+  {
+    name: "operand_partial_dword_in_lword",
+    pouName: "FB_LANG_operand_partial_dword",
+    kind: "function_block",
+    feature: "partial access at DWORD width — `.%D<n>` out of an LWORD, the only type wide enough to hold two",
+    fromDoc: "05-operands.md",
+    plcPrgVar: "fb_pad : FB_LANG_operand_partial_dword;",
+    plcPrgBody: "fb_pad();",
+    source: `FUNCTION_BLOCK FB_LANG_operand_partial_dword
+VAR
+	lwSource : LWORD := 16#DEADBEEFCAFEBABE;
+	dwHigh : DWORD;
+END_VAR
+dwHigh := lwSource.%D1;
+END_FUNCTION_BLOCK
+`,
+  },
+
   // ─── Hardware addresses (%I, %Q, %M) ────────────────────────────────
 
   {
