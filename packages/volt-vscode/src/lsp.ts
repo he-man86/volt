@@ -2,7 +2,8 @@ import * as vscode from "vscode"
 import { join, dirname } from "node:path"
 import { existsSync } from "node:fs"
 import { LanguageClient, type LanguageClientOptions, type ServerOptions, TransportKind, DidChangeConfigurationNotification } from "vscode-languageclient/node"
-import { readBridgeVendor } from "@volt/control"
+import { workspaceFolders } from "./workspace.js"
+import { resolveVendor, type ConfiguredVendor } from "./vendor.js"
 
 // Every writable PLC source item is one kind-named file (.fb/.prg/.fun/.itf/.gvl, and a DUT under its
 // subtype .struct/.enum/.union/.alias) carrying Structured Text. A network-text (FBD/LD) body is detected by content (a leading
@@ -139,18 +140,9 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<vscode
 	// ELECTRON_RUN_AS_NODE=1 — the same proven pattern volt-control's cli.ts uses to run bundled JS
 	// under VS Code / Cursor / Windsurf / Electron with no external node (execing a raw .js is wrong).
 	//
-	// `auto` IS THE DEFAULT AND IT USED TO MEAN CODESYS. This read `vendor === "twincat" ? --twincat :
-	// --codesys`, so a TwinCAT workspace on the default setting got the CODESYS dialect — while the setting's
-	// own description promised a workspace scan. That was cosmetic once and is not any more: `project.dialect`
-	// now decides which names resolve and which messages are worded which way, so the wrong vendor is wrong
-	// answers, not just wrong labels.
-	//
-	// It resolves from the BINDING, which is a better answer than the filesystem scan the description promised:
-	// `volt init --vendor` wrote it, `.git/volt/config.json` holds it, and this extension already reads it for
-	// the panel. An unbound workspace has no IDE to be wrong about, so it falls back to codesys as before.
-	const configured = cfg.get<"codesys" | "twincat" | "auto">("vendor", "auto")
-	const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-	const vendor = configured !== "auto" ? configured : ((root !== undefined ? readBridgeVendor(root) : undefined) ?? "codesys")
+	// `auto` is resolved from the workspace BINDING, not from the filesystem scan the setting used to
+	// promise and never performed — see `vendor.ts`, which is where it can be tested.
+	const vendor = resolveVendor(cfg.get<ConfiguredVendor>("vendor", "auto"), workspaceFolders().map((f) => f.uri.fsPath))
 	const serverOptions: ServerOptions = {
 		command: process.execPath,
 		// `--server-version` gives the server its true identity: running under the editor's node it executes the
@@ -193,7 +185,10 @@ export async function startLsp(context: vscode.ExtensionContext): Promise<vscode
 	return [
 		status,
 		// Push the live-togglable config (dead-code + lints) whenever a `volt.iec.*` setting changes, so a
-		// toggle takes effect without a restart. Vendor is fixed at launch (a change needs Volt LSP: Restart).
+		// toggle takes effect without a restart. The VENDOR is not one of them: it is baked into the server's
+		// argv at launch, and `LanguageClient.restart()` re-spawns with the options captured in the constructor
+		// — so "Volt LSP: Restart" does NOT pick up a vendor change, which this comment used to claim. A window
+		// reload does, which is what package.json tells the user.
 		vscode.workspace.onDidChangeConfiguration((e) => {
 			if (e.affectsConfiguration("volt.iec"))
 				void client.sendNotification(DidChangeConfigurationNotification.type, { settings: analysisOptions() })

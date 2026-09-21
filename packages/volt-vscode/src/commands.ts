@@ -3,7 +3,7 @@ import { join } from "node:path"
 import {
 	VoltStatus,
 	pull, push, build, initFromProject, rebind, connectWorkspace, disconnectWorkspace, detectedProjects,
-	mergeContinue, mergeAbort, mergeResolve,
+	mergeContinue, mergeAbort, mergeResolve, readBridgeVendor,
 	describePull, describePush, describeMerge, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
 	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type MergeOutcome, type DetectedProject,
 } from "@volt/control"
@@ -249,9 +249,23 @@ async function doRebindProject(ensureWorkspace: (folder: string) => void, worksp
 		"Rebind",
 	)
 	if (pick !== "Rebind") return
+	const before = readBridgeVendor(workspaceRoot)
 	const r = await rebind(workspaceRoot, project) // config-only re-point — instant, no progress
 	if (!r.ok) { vscode.window.showErrorMessage(`Rebind failed: ${r.message ?? "unknown error"}.`); return }
 	ensureWorkspace(workspaceRoot) // same folder — refresh the views in place
+	// A REBIND CAN CHANGE THE VENDOR, and the LSP took its dialect from this same binding at launch. The views
+	// refresh in place; the server does not — its vendor is in the argv it was spawned with, and even
+	// `LanguageClient.restart()` re-spawns with the options captured in the constructor. So say so, once, and
+	// only when it actually changed: a reload is the user's to choose, and offering it every rebind would train
+	// them to dismiss it. Without this the editor silently analysed CODESYS code with TwinCAT rules, or worse
+	// the other way, until the next window reload.
+	if (before !== undefined && readBridgeVendor(workspaceRoot) !== before) {
+		const reload = await vscode.window.showInformationMessage(
+			`This project is ${project.displayName}'s vendor, not the one this window's language server started with — reload to analyse it with the right dialect.`,
+			"Reload Window",
+		)
+		if (reload === "Reload Window") void vscode.commands.executeCommand("workbench.action.reloadWindow")
+	}
 }
 
 /** Pick a detected project from the connector's list. ALWAYS shown, even for a single project: init binds this
