@@ -139,10 +139,16 @@ test("an IL operator's CALL FORM is refused — `ADD(a, b)` is not ST", () => {
     "Unexpected token 'ADD' found",
     "';' expected instead of '('",
     "Unexpected token '(' found",
-    "';' expected instead of 'a'", // a VARIABLE in the resync gets this line alone — it could start a statement
+    // A VARIABLE in the resync is not echoed back as an unexpected token — it could START a statement, and
+    // once the compiler supplies the `;` it was asking for that is what it becomes: a statement that reads a
+    // variable and does nothing with it. Both vendors then say so, quoting the code they reconstructed
+    // (`operator_call_form_arithmetic`, twelve of these).
+    "';' expected instead of 'a'",
+    "The code 'a;\n' has no effect. Is this the intent?",
     "';' expected instead of ','",
     "Unexpected token ',' found",
     "';' expected instead of 'b'",
+    "The code 'b;\n' has no effect. Is this the intent?",
     "';' expected instead of ')'",
     "Unexpected token ')' found",
   ])

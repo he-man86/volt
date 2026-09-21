@@ -851,7 +851,10 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // the FB_init one (it stops at the name, with no input count and no suggested syntax).
   // 2426 -> 2446: the twenty `mathret_*` cells, recorded on both vendors and agreeing on both.
   // 2446 -> 2447: a declaration's initializer converts even when it is not a literal.
-  { vendor: "twincat", floor: 2447 },
+  // 2447 -> 2450: an ordinary name in a resync cascade IS a statement once the compiler has supplied the `;` it
+  // was asking for, and both vendors then say what they always say about a statement that reads a variable and
+  // does nothing with it.
+  { vendor: "twincat", floor: 2450 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -912,7 +915,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // follows its argument, and an untyped real literal is an LREAL". Twenty cells can.
   // 2485 -> 2486: `cfold_sqrt` — the initializer check only ever asked `literalCheckType`, so an initializer
   // with a SHAPE (a call, a member read, an expression) converted in silence.
-  { vendor: "codesys", floor: 2486 },
+  // 2486 -> 2489: the same three, on CODESYS.
+  { vendor: "codesys", floor: 2489 },
 ]
 
 

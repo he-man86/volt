@@ -20,7 +20,9 @@
  * `ADD` …) are ST keywords, so a DECLARATION of one is the parser's business — but their CALL FORM is refused here
  * (`ST_OPERATOR_CALLS`).
  *
- * CODESYS-only: TwinCAT is unmeasured, and a guess there would be a new false positive.
+ * BOTH VENDORS, measured 2026-09-20: TwinCAT refuses the same names with the same ten-message cascade in
+ * the same order, capitalising the one word its error list capitalises. This was CODESYS-only on a note
+ * written when its recording covered 280 fixtures.
  */
 import { isTrivia, lex, stmtExprs, walkExpr, walkStatements, type Span } from "../../../syntax/index.js"
 import { bodies, forEachDecl } from "../../../symbols/index.js"
@@ -103,6 +105,9 @@ function callArgumentNames(s: Parameters<typeof stmtExprs>[0]): ReadonlySet<numb
   return spans
 }
 
+/** The line ending the FILE uses. */
+const eol = (source: string): string => (source.includes("\r\n") ? "\r\n" : "\n")
+
 /**
  * The IDE's parse-error CASCADE after a bad identifier. CODESYS reports the name, then resyncs by demanding a `;`:
  * for every token up to the next one it emits `';' expected instead of 'T'` and `Unexpected token 'T' found`, in that
@@ -120,9 +125,18 @@ function cascadeAfter(ctx: CheckContext, out: DiagnosticItem[], from: number): v
     // (`echo_lower_case_function_name`, `echo_mixed_case_il_operator`). An ELEMENTARY TYPE NAME is a keyword to
     // CODESYS even though this lexer reads it as an identifier, which is what `isRefusedInBody` already knows.
     const ordinaryName = token.kind === "identifier" && !isRefusedInBody(token.text)
-    const messages = [ctx.messages.semicolonExpectedInsteadOf(token.text)]
-    if (!ordinaryName) messages.push(ctx.messages.unexpectedToken(token.text))
-    for (const message of messages)
-      out.push({ severity: "error", span, source: SOURCE, code: "refused-name", message })
+    const messages: { severity: "error" | "warning"; message: string }[] = [
+      { severity: "error", message: ctx.messages.semicolonExpectedInsteadOf(token.text) },
+    ]
+    if (!ordinaryName) messages.push({ severity: "error", message: ctx.messages.unexpectedToken(token.text) })
+    // …and an ordinary name IS a statement once the compiler has supplied the `;` it was asking for, so it also
+    // says what it always says about a statement that reads a variable and does nothing with it. The code it
+    // quotes is the one it reconstructed — the name, the semicolon it inserted, and a line break — measured
+    // identically on both vendors (`operator_call_form_arithmetic`, `_comparison`: twelve of these each).
+    // The break is the FILE's own: the vendors write CRLF and quote CRLF, and an editor should quote what is
+    // actually there. (The conformance comparison normalizes it, so this choice is about the editor.)
+    else messages.push({ severity: "warning", message: ctx.messages.codeHasNoEffect(`${token.text};${eol(ctx.source)}`) })
+    for (const m of messages)
+      out.push({ severity: m.severity, span, source: SOURCE, code: "refused-name", message: m.message })
   }
 }
