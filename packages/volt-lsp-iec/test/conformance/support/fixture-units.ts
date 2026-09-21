@@ -13,6 +13,7 @@
  * `withDependencies` names those fixtures, so a run loads them first and the transpiler lowers from the same source.
  */
 import {
+  lex,
   parseSource,
   type ParseResult,
   type Span,
@@ -158,6 +159,15 @@ function referencedNames(t: LanguageTest): Set<string> {
       sections(u.setter?.varSections)
     }
   }
+  // …AND EVERY NAME A BODY MENTIONS. The walk above reads DECLARATIONS only, so a fixture that names another
+  // fixture's POU from a method body got it silently left out of the push — `op_sys_queryinterface` spent every
+  // recording answering `Unknown type: 'ITF_LANG_with_method'` instead of measuring `__QUERYINTERFACE`, on either
+  // vendor (found 2026-09-20 by the cross-fixture check in `scripts/check-recording.ts`, and fixed there by
+  // declaring the interface in the fixture itself). Lexing the source over-collects on purpose: only a name
+  // ANOTHER FIXTURE DECLARES becomes a dependency, so a local variable that happens to match nothing costs
+  // nothing. Measured when it was added: zero of 2561 fixtures gain a dependency, so no recording moves — which
+  // is exactly when to close a trap like this.
+  for (const tok of lex(t.source)) if (tok.kind === "identifier") names.add(tok.text.toUpperCase())
   return names
 }
 
