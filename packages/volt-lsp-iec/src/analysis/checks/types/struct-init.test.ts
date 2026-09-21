@@ -11,7 +11,7 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 const init = (decls: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM\nTYPE sv : STRUCT p1 : INT; p2 : INT; END_STRUCT END_TYPE`
   const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }])
+  const project = buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "unexpected-struct-init")
     .map((d) => d.message)
@@ -54,7 +54,7 @@ test("the compiler resolves each FIELD NAME against the POU's scope, where they 
   // `otherWay : INT := (x := 1, y := 2)` were missing (conformance `cc3_unexpected_struct_init`).
   const src = `TYPE DUT_P :\nSTRUCT\nx : INT;\ny : INT;\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK F\nVAR\notherWay : INT := (x := 1, y := 2);\nEND_VAR\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "a.fb", parseResult: pr, source: src }])
+  const project = buildSymbolTable([{ uri: "a.fb", parseResult: pr, source: src }], [], "codesys")
   const msgs = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "unexpected-struct-init")
     .map((d) => d.message)

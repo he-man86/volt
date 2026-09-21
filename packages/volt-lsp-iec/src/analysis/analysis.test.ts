@@ -237,6 +237,11 @@ END_FUNCTION_BLOCK`
     "Identifier 'DATE_TO_LDATE' not defined",
     "Program name, function or function block instance expected instead of 'DATE_TO_LDATE'",
     "Unknown type: 'LDATE'",
+    // …and the ASSIGNMENT into a type TwinCAT does not have, which it reports with the name it could not resolve
+    // written out. The LSP used to stop at an unresolvable target on the reasonable grounds that it was probably
+    // a library it cannot see; `dialectMissingType` is the one case where the vendor is provably as stuck as the
+    // LSP (`xf_*_to_l*`, nine fixtures, twincat 2026-09-20).
+    "Cannot convert type 'Unknown type: 'DATE_TO_LDATE(d)'' to type 'LDATE'",
   ])
   // …and LTIME, which TwinCAT does have, stays a type on both
   const lt = `FUNCTION_BLOCK F

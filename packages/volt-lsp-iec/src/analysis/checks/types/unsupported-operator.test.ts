@@ -12,7 +12,7 @@ import type { Vendor } from "../../config.js"
 function unsupported(decls: string, body: string, vendor: Vendor = "codesys") {
   const src = `PROGRAM PLC_PRG\nVAR\n  ${decls}\nEND_VAR\n${body}\nEND_PROGRAM`
   const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "unsupported-operator")
     .map((d) => d.message)

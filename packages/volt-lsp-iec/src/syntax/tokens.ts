@@ -250,6 +250,12 @@ export type Keyword =
  * That list is not decoration: `refused-name` read the elementary table with no dialect for a day after the rest
  * had it, and reported a legal TwinCAT declaration (`ldate : INT;`) as a refused name with a ten-message cascade
  * behind it. A check that consults a shared table and NOT this is the shape of the next one.
+ *
+ * AND IT HAS TO ARRIVE THREE WAYS, which is the harder half. `parseSource` carries it, `resolveConfig` carries
+ * it, and `buildSymbolTable` carries it onto `project.dialect` — and that third one defaulted to codesys and was
+ * never passed by the SERVER, so every rule keyed on `project.dialect` (rows two and four above) was dead in the
+ * running LSP while the conformance replay, which does pass it, stayed green. `computeSemanticDiagnostics` now
+ * refuses to run when the project's dialect and the config's vendor disagree.
  */
 export type Dialect = "codesys" | "twincat"
 

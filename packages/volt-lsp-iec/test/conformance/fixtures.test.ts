@@ -859,7 +859,12 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // new code is a token scan: the parser gives up at the first stray, so there is no AST to walk. It also
   // found that the cascade re-lexed WITHOUT the dialect, which read `LDATE#2026-05-09` as one CODESYS date
   // literal and quoted a token TwinCAT never saw.
-  { vendor: "twincat", floor: 2470 },
+  // 2470 -> 2479: the NINE `xf_*_to_l*` conversions, and the fix is one guard drawn a shade finer. An
+  // assignment whose source has no type was skipped when the TARGET had none either, on the sound worry
+  // that the target is usually a library type the LSP cannot see. TwinCAT does not fall silent there -- it
+  // writes the unresolved name out ("... to type 'LDATE'"), so the skip only had to stop covering the
+  // names the VENDOR provably lacks, which `dialectMissingType` already decided for the declaration.
+  { vendor: "twincat", floor: 2479 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.

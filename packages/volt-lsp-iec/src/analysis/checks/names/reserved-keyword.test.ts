@@ -11,7 +11,7 @@ import type { DiagnosticState } from "../../config.js"
 function rk(decl: string, state: DiagnosticState = "warning") {
   const src = `PROGRAM PLC_PRG\nVAR\n  ${decl}\nEND_VAR\nEND_PROGRAM`
   const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }], [], "codesys")
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", diagnostics: { "reserved-keyword": state } }) }).filter(
     (d) => d.code === "reserved-keyword",
   )
@@ -42,7 +42,7 @@ test("the C0543 warning can be turned off", () => {
 test("CODESYS-only — TwinCAT accepts CHAR as an identifier silently (verified live)", () => {
   const src = `PROGRAM PLC_PRG\nVAR\n  CHAR : INT;\nEND_VAR\nEND_PROGRAM`
   const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }], [], "twincat")
   const d = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) }).filter(
     (x) => x.code === "reserved-keyword",
   )

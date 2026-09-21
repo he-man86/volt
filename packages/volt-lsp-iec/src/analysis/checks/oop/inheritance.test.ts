@@ -8,7 +8,7 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const codes = (src: string, vendor: "codesys" | "twincat" = "codesys"): { code: string; message: string }[] => {
   const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) }).map(
     (d) => ({ code: d.code, message: d.message }),
   )

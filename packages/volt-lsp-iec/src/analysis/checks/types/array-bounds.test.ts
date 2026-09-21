@@ -11,7 +11,7 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 const oob = (body: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `FUNCTION_BLOCK F\nVAR a : ARRAY[0..2] OF INT; i : INT; END_VAR\n${body}\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "array-index-out-of-bounds")
     .map((d) => d.message)

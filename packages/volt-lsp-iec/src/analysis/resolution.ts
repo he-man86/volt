@@ -12,7 +12,7 @@
  * `TYPE_CLASS`), a built-in in the reference catalog, a referenced-library namespace or device-tree instance,
  * a bare-accessible enum member, or anything in the given scope (parent chain + EXTENDS bases).
  */
-import { CODESYS_ONLY_KEYWORDS, walkExpr, type Expr, type MemberExpr, type Span } from "../syntax/index.js"
+import { CODESYS_ONLY_KEYWORDS, renderTypeExpr, walkExpr, type Expr, type MemberExpr, type Span, type TypeExpr } from "../syntax/index.js"
 import { CODESYS_ONLY_TYPES } from "../types/index.js"
 import { lookupReference } from "../reference/index.js"
 import { hasUnresolvedBase, isLibrarySymbol, lookup, lookupLocal, lookupMember, resolveBareEnumMember, type Scope } from "../symbols/index.js"
@@ -167,4 +167,34 @@ function checkMember(m: MemberExpr, scope: Scope, project: Scope): MemberRef | u
   if (hasUnresolvedBase(t.scope)) return undefined // an unresolved EXTENDS base could hide the member
   if (lookupMember(t.scope, m.member.name) !== undefined) return undefined
   return { member: m.member.name, typeName: t.name, span: m.member.span }
+}
+
+/**
+ * The name this project's DIALECT cannot resolve, spelled as the declaration spelled it — or `undefined` when the
+ * LSP has no standing to say the vendor is stuck.
+ *
+ * <p>This is the library floor drawn precisely. "The LSP cannot resolve it" means almost nothing on its own; the
+ * usual cause is a library the LSP cannot see. What makes these names different is that they are ELEMENTARY, so no
+ * library can supply them and the only thing that could is the project itself — which is why a `TYPE LDATE : ULINT;`
+ * shim takes the name straight back off the list.</p>
+ *
+ * <p>It lives HERE, beside `nameResolves`, because two checks in different groups need the same verdict from
+ * opposite ends — the DECLARATION says "Unknown type: 'LDATE'", and the assignment INTO that variable reports
+ * its conversion with the unresolved name written out ("Cannot convert type 'Unknown type: 'DATE_TO_LDATE(v)''
+ * to type 'LDATE'") — and a check may not import a sibling check. It is also the same fact `nameResolves`
+ * already decides one line up for the CONVERSION named after such a type.</p>
+ *
+ * <p>Keyed on `project.dialect` rather than a passed-in vendor, so there is one answer per project.</p>
+ */
+export function dialectMissingType(project: Scope, t: TypeExpr | undefined): string | undefined {
+  if (project.dialect !== "twincat") return undefined
+  // an ARRAY OF or POINTER TO wrapper is a different shape and is left alone
+  if (t?.kind !== "named_type") return undefined
+  const name = t.name.text
+  if (!CODESYS_ONLY_TYPES.has(name.toUpperCase())) return undefined
+  // …unless the PROJECT declares it. `TYPE LDATE : ULINT; END_TYPE` is exactly the shim a TwinCAT project
+  // porting CODESYS code writes, and `resolveNamedType` resolves it — so without this the two disagree about
+  // the same name, and the one that speaks is the one that is wrong.
+  if (lookupLocal(project, name).length > 0) return undefined
+  return renderTypeExpr(t)
 }

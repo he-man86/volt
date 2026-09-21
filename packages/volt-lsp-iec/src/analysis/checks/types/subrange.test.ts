@@ -14,7 +14,7 @@ test("an ASSIGNMENT out of the subrange is the same error — CODESYS types the 
   const src = `FUNCTION_BLOCK F\nVAR\nvalue : INT(1..100);\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD Set\nvalue := 200;\nEND_METHOD`
   const run = (vendor: "codesys" | "twincat") => {
     const parseResult = parseSource(src)
-    const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+    const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
     return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code === "subrange-out-of-range")
       .map((d) => d.message)
@@ -26,7 +26,7 @@ test("an ASSIGNMENT out of the subrange is the same error — CODESYS types the 
 test("an assignment INSIDE the subrange is silent", () => {
   const src = `FUNCTION_BLOCK F\nVAR\nvalue : INT(1..100);\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD Set\nvalue := 50;\nEND_METHOD`
   const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
   expect(
     computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "subrange-out-of-range"),

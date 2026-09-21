@@ -9,7 +9,7 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 const sc = (decls: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM P\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM`
   const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "string-constant-too-long")
     .map((d) => d.message)
@@ -85,7 +85,7 @@ test("a WSTRING is checked too — UTF-16 code units, the same printed prefix", 
 test("it is a WARNING, and the length is the decoded one", () => {
   const src = `PROGRAM P\nVAR\n  s2 : STRING(2) := 'abc';\n  fits : STRING(3) := 'a$Tb';\nEND_VAR\nEND_PROGRAM`
   const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const found = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "string-constant-too-long")
   expect(found.map((d) => d.severity)).toEqual(["warning"]) // 'abc' into STRING(2); 'a$Tb' is 3 decoded and fits
@@ -109,7 +109,7 @@ test("an ASSIGNMENT's target is the same destination as a declaration's", () => 
   const body = (decls: string, stmts: string): string[] => {
     const src = `PROGRAM P\nVAR\n${decls}\nEND_VAR\n${stmts}\nEND_PROGRAM`
     const pr = parseSource(src)
-    const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+    const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
     return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "string-constant-too-long")
       .map((d) => d.message)

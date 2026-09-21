@@ -10,33 +10,16 @@
  * the conversions that carry them — 39 messages across 13 fixtures in its recording, none in CODESYS's
  * (2026-09-20). The second half falls out of `nameResolves`; this is the first.
  */
-import { renderTypeExpr, type TypeExpr } from "../../../syntax/index.js"
-import { forEachDecl, lookupLocal } from "../../../symbols/index.js"
-import { CODESYS_ONLY_TYPES } from "../../../types/index.js"
+import { forEachDecl } from "../../../symbols/index.js"
+import { dialectMissingType } from "../../resolution.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkDialectType(ctx: CheckContext, out: DiagnosticItem[]): void {
-  if (ctx.config.vendor !== "twincat") return
   for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {
-    const name = namedType(decl.type)
-    if (name === undefined || !CODESYS_ONLY_TYPES.has(name.toUpperCase())) continue
-    // …unless the PROJECT declares it. `TYPE LDATE : ULINT; END_TYPE` is exactly the shim a TwinCAT project
-    // porting CODESYS code writes, and `resolveNamedType` resolves it — so without this the two disagree about
-    // the same name, and the one that speaks is the one that is wrong.
-    if (lookupLocal(ctx.project, name).length > 0) continue
+    const name = dialectMissingType(ctx.project, decl.type)
+    if (name === undefined) continue
     for (const at of decl.names)
-      out.push({
-        severity: "error",
-        span: at.span,
-        source: SOURCE,
-        code: "unknown-type",
-        message: ctx.messages.unknownType(renderTypeExpr(decl.type)),
-      })
+      out.push({ severity: "error", span: at.span, source: SOURCE, code: "unknown-type", message: ctx.messages.unknownType(name) })
   }
-}
-
-/** The type's own name — an ARRAY OF or POINTER TO wrapper is a different shape and is left alone. */
-function namedType(t: TypeExpr | undefined): string | undefined {
-  return t?.kind === "named_type" ? t.name.text : undefined
 }

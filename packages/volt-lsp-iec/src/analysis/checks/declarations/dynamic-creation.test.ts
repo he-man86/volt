@@ -13,7 +13,7 @@ const PRAGMA = "A function block or structure needs the pragma '{attribute 'enab
 
 function diagnose(src: string, vendor: Vendor = "codesys") {
   const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "dynamic-creation-pragma")
     .map((d) => d.message)

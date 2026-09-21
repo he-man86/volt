@@ -11,7 +11,7 @@ import { computeSemanticDiagnostics, resolveConfig, type Vendor } from "../../in
 const conv = (decls: string, body: string, vendor: Vendor = "codesys") => {
   const src = `FUNCTION_BLOCK F\nVAR\n${decls}\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src)
-  const p = buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }])
+  const p = buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project: p, config: resolveConfig({ vendor }) }).filter(
     (d) => d.code === "narrowing-conversion" || d.code === "sign-change-conversion",
   )
@@ -64,7 +64,7 @@ test("an enum value into an unsigned type warns change of sign as a signed INT w
   // `cc_enum_into_dword`; into DINT silent, `cc_enum_into_dint`).
   const src = `TYPE E_Mode :\n(\n\tIdle := 0,\n\tBusy := 1\n);\nEND_TYPE\n\nFUNCTION_BLOCK F\nVAR\n\tu : UINT;\n\tw : DWORD;\n\ti : DINT;\nEND_VAR\nu := E_Mode.Busy;\nw := E_Mode.Busy;\ni := E_Mode.Busy;\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src)
-  const p = buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }])
+  const p = buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }], [], "codesys")
   const messages = computeSemanticDiagnostics({ parseResult: pr, source: src, project: p, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "sign-change-conversion")
     .map((d) => d.message)

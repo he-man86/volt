@@ -14,7 +14,7 @@ import { computeSemanticDiagnostics, resolveConfig, type WorkspaceRefs } from ".
 /** Diagnostics for one FB source, optionally with workspace reference-file names injected. */
 function diag(src: string, references?: WorkspaceRefs) {
   const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }), references })
 }
 
@@ -71,7 +71,7 @@ const enumUse = (enumDut: string, consumer: string): string[] => {
     { uri: "E.enum", parseResult: parseSource(enumDut), source: enumDut },
     { uri: "F.fb", parseResult: parseSource(consumer), source: consumer },
   ]
-  const project = buildSymbolTable(files)
+  const project = buildSymbolTable(files, [], "codesys")
   return computeSemanticDiagnostics({ parseResult: files[1].parseResult, source: consumer, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "unresolved-identifier")
     .map((d) => d.message)
@@ -159,7 +159,7 @@ END_FUNCTION_BLOCK`
   const tc = computeSemanticDiagnostics({
     parseResult: parseSource(src),
     source: src,
-    project: buildSymbolTable([{ uri: "F.fb", parseResult: parseSource(src), source: src }]),
+    project: buildSymbolTable([{ uri: "F.fb", parseResult: parseSource(src), source: src }], [], "twincat"),
     config: resolveConfig({ vendor: "twincat" }),
   })
     .filter((d) => d.code === "unknown-member")
@@ -257,7 +257,7 @@ test("a name that does not resolve and is CALLED is two errors", () => {
   // it is not something you can call (conformance `cc_conv_spelled_source_ok` and its three siblings).
   const src = `FUNCTION_BLOCK F\nVAR\nt : TOD;\nu : UDINT;\nEND_VAR\nu := TIME_OF_DAY_TO_UDINT(t);\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
   const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "unresolved-identifier" || d.code === "invalid-call-target")
     .map((d) => d.message)

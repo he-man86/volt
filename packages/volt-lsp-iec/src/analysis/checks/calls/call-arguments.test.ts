@@ -21,7 +21,7 @@ function codes(...sources: string[]): string[] {
     const ext = source.trimStart().startsWith("PROGRAM") ? "prg" : source.trimStart().startsWith("FUNCTION ") ? "fun" : "fb"
     return { uri: `${first?.name?.text ?? `u${i}`}.${ext}`, source, parseResult }
   })
-  const project = buildSymbolTable(files)
+  const project = buildSymbolTable(files, [], "codesys")
   const config = resolveConfig({ vendor: "codesys" })
   return files.flatMap((f) =>
     computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }).map((d) => d.code),
@@ -45,7 +45,7 @@ test("gap 9: a library FUNCTION's arguments are checked — Standard's LEN given
   }
   const program = "PROGRAM P\nVAR\n\twide : WSTRING;\n\tn : INT;\nEND_VAR\nn := LEN(wide);\nEND_PROGRAM"
   const files = [len, { uri: "P.prg", source: program }].map((f) => ({ ...f, parseResult: parseSource(f.source) }))
-  const project = buildSymbolTable(files)
+  const project = buildSymbolTable(files, [], "codesys")
   const messages = computeSemanticDiagnostics({ parseResult: files[1]!.parseResult, source: program, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "call-argument-type")
     .map((d) => d.message)
@@ -67,7 +67,7 @@ test("4.2 too many positional arguments is flagged", () => {
 test("4.2b too-many wording is vendor-mirrored per callee kind: C0040 (function) vs C0044 (FB)", () => {
   const msgs = (...s: string[]) => {
     const files = s.map((source, i) => ({ uri: `u${i}.fb`, source, parseResult: parseSource(source) }))
-    const project = buildSymbolTable(files)
+    const project = buildSymbolTable(files, [], "codesys")
     return files.flatMap((f) =>
       computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message),
     )
@@ -133,7 +133,7 @@ test("4.3e C0201: a VAR_IN_OUT bound to a non-identical type is flagged; the sam
   const call = (b: string) => `PROGRAM P\nVAR inst : FB; i : INT; bo : BOOL; END_VAR\n${b}\nEND_PROGRAM`
   const msgs = (...s: string[]) => {
     const files = s.map((source, k) => ({ uri: `u${k}.fb`, source, parseResult: parseSource(source) }))
-    const project = buildSymbolTable(files)
+    const project = buildSymbolTable(files, [], "codesys")
     return files.flatMap((f) =>
       computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) })
         .filter((d) => d.code === "in-out-type-mismatch")
@@ -251,7 +251,7 @@ test("an enum VALUE argument converts as INT, like an assignment — into a SINT
   const call = `PROGRAM P\nVAR ok : BOOL; END_VAR\nok := F_Take(E_Mode.Busy);\nEND_PROGRAM`
   const messages = (target: string): string[] => {
     const files = [enumMode, fn(target), call].map((source, i) => ({ uri: `u${i}.fb`, source, parseResult: parseSource(source) }))
-    const project = buildSymbolTable(files)
+    const project = buildSymbolTable(files, [], "codesys")
     return computeSemanticDiagnostics({ parseResult: files[2]!.parseResult, source: call, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "call-argument-type" || d.code === "sign-change-conversion")
       .map((d) => d.message)
@@ -343,7 +343,7 @@ test("a LITERAL bound to a VAR_IN_OUT is typed by its narrowest type for the ide
   // and four fixtures missed this error (conformance `inout_plain_literal_4`, `cc2_in_out_not_assigned`).
   const src = `FUNCTION F_takes : INT\nVAR_IN_OUT\nvalue : INT;\nEND_VAR\nF_takes := value;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_user\nVAR\nn : INT;\nEND_VAR\nn := F_takes(value := 5);\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
   const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "in-out-type-mismatch")
     .map((d) => d.message)
@@ -353,7 +353,7 @@ test("a LITERAL bound to a VAR_IN_OUT is typed by its narrowest type for the ide
 test("a literal whose narrowest type MATCHES the parameter stays silent", () => {
   const src = `FUNCTION F_takes : INT\nVAR_IN_OUT\nvalue : SINT;\nEND_VAR\nF_takes := value;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_user\nVAR\nn : INT;\nEND_VAR\nn := F_takes(value := 5);\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
   expect(
     computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "in-out-type-mismatch"),
@@ -366,7 +366,7 @@ test("a FUNCTION's inputs WITHOUT a default are required — the count is a rang
   const call = (args: string) => {
     const src = `FUNCTION F_c : INT\nVAR_INPUT\nbaseValue : INT := 5;\nextra : INT;\nEND_VAR\nF_c := baseValue + extra;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_u\nVAR\nn : INT;\nEND_VAR\nn := F_c(${args});\nEND_FUNCTION_BLOCK`
     const parseResult = parseSource(src)
-    const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+    const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
     return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "function-argument-count")
       .map((d) => d.message)
@@ -381,19 +381,22 @@ test("a FUNCTION's inputs WITHOUT a default are required — the count is a rang
 // counting all of them (`callshape_function_input_no_default`, its recording 2026-09-20).
 test("the range wording is CODESYS's; TwinCAT says exactly", () => {
   const src = `FUNCTION F_c : INT\nVAR_INPUT\nbaseValue : INT := 5;\nextra : INT;\nEND_VAR\nF_c := baseValue + extra;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_u\nVAR\nn : INT;\nEND_VAR\nn := F_c(baseValue := 7);\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
-  const of = (vendor: "codesys" | "twincat") =>
-    computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
+  // ONE PROJECT PER VENDOR — the parse and the symbol table are both dialect-bound, so sharing them across the
+  // two would be asking TwinCAT's question of a CODESYS-bound project
+  const of = (vendor: "codesys" | "twincat") => {
+    const parseResult = parseSource(src, vendor)
+    const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code === "function-argument-count")
       .map((d) => d.message)
+  }
   expect(of("codesys")).toEqual(["Function 'F_c' requires at least '1' and maximum '2' inputs"])
   expect(of("twincat")).toEqual(["Function 'F_c' requires exactly '2' inputs"])
 })
 test("an FB's inputs are NOT required — they are retained between calls", () => {
   const src = `FUNCTION_BLOCK FB_w\nVAR_INPUT\nneeded : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nFUNCTION_BLOCK FB_u\nVAR\nw : FB_w;\nEND_VAR\nw();\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
   expect(
     computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "function-argument-count"),

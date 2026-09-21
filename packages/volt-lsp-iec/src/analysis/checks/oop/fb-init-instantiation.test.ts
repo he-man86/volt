@@ -36,7 +36,7 @@ function diagnose(plc: string, vendor: Vendor = "codesys") {
     { uri: "file:///c/FB_Plain.fb", source: PLAIN, parseResult: parseSource(PLAIN) },
     { uri: "file:///c/PLC_PRG.prg", source: plc, parseResult: parseSource(plc) },
   ]
-  const project = buildSymbolTable(files)
+  const project = buildSymbolTable(files, [], vendor)
   const f = files[2]!
   return computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "fb-init-argument-missing")

@@ -10,7 +10,7 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 const pc = (body: string, vendor: "codesys" | "twincat" = "codesys"): { message: string; severity: string }[] => {
   const src = `PROGRAM P\nVAR\n ptr:POINTER TO INT; dw:DWORD; i:INT; p2:POINTER TO INT;\nEND_VAR\n${body}\nEND_PROGRAM`
   const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "pointer-not-convertible")
     .map((d) => ({ message: d.message, severity: d.severity }))

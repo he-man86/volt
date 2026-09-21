@@ -16,7 +16,7 @@ const byCode =
       `TYPE MyArr : ARRAY[0..2] OF INT; END_TYPE\nTYPE sv : STRUCT a : INT; END_STRUCT END_TYPE\n` +
       `TYPE HUE : (RED, GREEN, BLUE); END_TYPE`
     const pr = parseSource(src)
-    const project = buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }])
+    const project = buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }], [], vendor)
     return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code === code)
       .map((d) => d.message)

@@ -105,7 +105,9 @@ export class WorkspaceStore {
     if (this.projectScope === undefined) {
       const docs = this.docs()
       // each referenced library's units under the NAMESPACE the source qualifies them with (`bindLibraryNamespaces`)
-      this.projectScope = buildSymbolTable(docs, this.workspaceRefs.libraryManifests)
+      // the VENDOR belongs here as much as it does on the parse above — `project.dialect` is what decides that
+      // `LDATE` does not resolve on TwinCAT, and omitting it left every such branch dead in the running server
+      this.projectScope = buildSymbolTable(docs, this.workspaceRefs.libraryManifests, this.config.vendor)
       this.boundDocs.clear()
       for (const d of docs) this.boundDocs.set(normalizeKey(d.uri), d)
     }

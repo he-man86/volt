@@ -11,7 +11,7 @@ import type { Vendor } from "../../config.js"
 
 const at = (uri: string, source: string, vendor: Vendor = "codesys"): string[] => {
   const parseResult = parseSource(source)
-  const project = buildSymbolTable([{ uri, parseResult, source }])
+  const project = buildSymbolTable([{ uri, parseResult, source }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "signature-name-mismatch")
     .map((d) => d.message)

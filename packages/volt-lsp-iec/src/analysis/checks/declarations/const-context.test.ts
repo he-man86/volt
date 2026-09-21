@@ -12,7 +12,7 @@ const run =
   (body: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
     const src = `PROGRAM P\n${body}\nEND_PROGRAM`
     const pr = parseSource(src)
-    const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+    const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
     return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code === code)
       .map((d) => d.message)

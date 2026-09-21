@@ -9,7 +9,7 @@ import { computeSemanticDiagnostics, resolveConfig, type DiagnosticItem, type Ve
 
 function diag(src: string, vendor: Vendor): DiagnosticItem[] {
   const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
 }
 

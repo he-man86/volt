@@ -247,6 +247,20 @@ export interface DiagnosticsArgs {
 
 export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticItem[] {
   const config = isResolved(args.config) ? args.config : resolveConfig(args.config)
+  // ONE VENDOR PER ANALYSIS, and it has to reach the SYMBOL TABLE too. `buildSymbolTable`'s dialect defaults to
+  // codesys, which is the kind of quiet default this repo does not keep: the SERVER never passed it, so
+  // `project.dialect` was codesys on a TwinCAT workspace and every branch reading it — `resolveNamedType`'s
+  // CODESYS-only elementary types, `resolution.ts`'s cascade gate — was dead in production while the conformance
+  // replay (which does pass it) stayed green. Twenty-nine colocated tests asserted TwinCAT behaviour against a
+  // CODESYS-bound project for the same reason and could not have failed if the dialect mattered.
+  //
+  // Throwing is the point. There is no sensible answer to "which vendor is this?" when the two disagree, and a
+  // silent winner is what hid this for as long as it did.
+  if (args.project.dialect !== config.vendor)
+    throw new Error(
+      `dialect mismatch: the project was bound as '${args.project.dialect}' and the analysis asked for ` +
+        `'${config.vendor}'. Pass the vendor to buildSymbolTable(files, manifests, vendor) as well.`,
+    )
   let tokenCache: readonly Token[] | undefined
   const ctx: CheckContext = {
     parseResult: args.parseResult,
