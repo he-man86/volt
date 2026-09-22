@@ -102,4 +102,29 @@ public class FanOutShapeTests
         Assert.False(assign.Targets[0].Flags?.Set ?? false);
         Assert.True(assign.Targets[1].Flags?.Set ?? false);
     }
+
+    /// <summary>AN ENABLED BOX DRIVING SEVERAL COILS IS ALSO ONE ITEM — the same shape in the sibling method.
+    ///
+    /// <para><c>EnabledAssign</c> has its own multi-target arm and it minted <c>g</c>, so an EN-gated box
+    /// feeding two coils rebuilt as a `Demux` plus two assigns exactly as the plain case did. Found by
+    /// sweeping for the assumption rather than by hitting it, which is the point of the sweep.</para></summary>
+    [Fact]
+    public void An_enabled_box_driving_several_coils_reads_back_as_ONE_item()
+    {
+        var box = new Box("AND", null, CallKind.Operator,
+                          new[] { new Input(null, new Leaf(new Operand("a"), Flags.None), Flags.None),
+                                  new Input(null, new Leaf(new Operand("b"), Flags.None), Flags.None) },
+                          System.Array.Empty<Output>(),
+                          new Leaf(new Operand("en"), Flags.None), null, Flags.None);
+        var body = Body(new Assign(box,
+                                   new[] { new Operand("out1", IsLValue: true), new Operand("out2", IsLValue: true) },
+                                   Flags.None));
+
+        var text = NetworkTextWriter.Write(body);
+        Assert.Contains("LET m", text);
+
+        var back = NetworkTextGate.Validate(text);
+        var assign = Assert.IsType<Assign>(back.Networks.Single().Trees.Single(t => t is Assign));
+        Assert.Equal(new[] { "out1", "out2" }, assign.Targets.Select(t => t.Text));
+    }
 }

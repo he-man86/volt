@@ -361,9 +361,13 @@ public static class NetworkTextWriter
                 Line("IF " + en + " THEN " + Lhs(a.Targets[0]) + " " + AssignOp(a.Targets[0]) + " " + body + "; END_IF");
             else
             {
-                var g = Mint("g", ref _g);
-                Line("IF " + en + " THEN LET " + g + " := " + body + "; END_IF");
-                foreach (var t in a.Targets) Line(Lhs(t) + " " + AssignOp(t) + " " + g + ";");
+                // `m<n>`, for the same reason `Assignment` mints one: this is ONE item driving several coils,
+                // not a fan-out WIRE. Minting `g` here made the reader rebuild it as a `Demux` plus N assigns
+                // — the identical shape change, in the sibling method, found by sweeping for the assumption
+                // rather than by hitting it.
+                var m = Mint("m", ref _m);
+                Line("IF " + en + " THEN LET " + m + " := " + body + "; END_IF");
+                foreach (var t in a.Targets) Line(Lhs(t) + " " + AssignOp(t) + " " + m + ";");
             }
         }
 
