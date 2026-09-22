@@ -304,12 +304,39 @@ with "the call '???' names a function-block instance whose TYPE Volt cannot find
 that instance and no other; a named instance keeps its declaration as the one place its type lives.
 
 ### The `LET` prefix carries the meaning
-`g<n>` is a **fan-out wire**, `i<n>` an **opaque leaf**, `en<n>` an **enable echo** — those are the names
-the writer mints for exactly those three things, and a reader must honour the prefix rather than guess from
-how often the name is used. A `BoxTreeDemux` feeding a single consumer is still an item drawn on the rung,
+`g<n>` is a **fan-out wire**, `m<n>` a **multi-output assignment**, `i<n>` an **opaque leaf**, `en<n>` an
+**enable echo** — those are the names the writer mints for exactly those four things, and a reader must
+honour the prefix rather than guess from how often the name is used. A `BoxTreeDemux` feeding a single consumer is still an item drawn on the rung,
 and an opaque leaf is one `inVariable` rather than the expression its text happens to spell. A name the
 writer did not mint is hand-authored, and there use count is the only signal available: used twice it is a
 wire, or its value would be duplicated into both consumers.
+
+### Multi-output assignment — `LET m := <producer>`
+**One item driving several coils**, which the archive holds as a single `BoxTreeAssign` with several
+`OutputItems`. The producer cannot be repeated inline — that would duplicate its box on the way back in — so
+it is named once and each target references it, **keeping its own operator**:
+
+```
+LET m1 := (a OR b);
+out1 := m1;
+out2 S= m1;          (* a rung whose coils disagree is ordinary *)
+```
+
+**Why it is not `g<n>`.** It used to be, and the two shapes then rendered identically — a real
+`BoxTreeDemux` feeding N assigns spells the same lines. The reader decides by prefix, so every multi-output
+assignment came back a Demux: a rung the engineer drew as ONE item with twenty coils round-tripped into
+twenty-one items. Neither driver could do better than guess and they guessed opposite ways — TwinCAT folded
+every `g` back into one item (flattening real wires), CODESYS built a Demux for every one (inflating real
+items).
+
+Measured before it was spelled (`scripts/probe-nwl-assign-outputs.py`, four real customer projects):
+`Lenze_MID-S100` holds **40** multi-output assignments — one of them a twenty-target rung in `TrayFiller` —
+beside **573** real `BoxTreeDemux`. Both shapes are ordinary in the same project, so a format that cannot
+tell them apart has to guess; this one does not have to.
+
+The fold is conditional: a `m<n>` name is folded only when **every** use is the whole right-hand side of a
+top-level single-target assignment. A name used anywhere else is not the shape the writer mints, and falls
+through to the ordinary wire/inline rules rather than being forced into a fold that would drop a reference.
 
 ### Opaque leaf — `LET i := <text>`
 An `inVariable` whose text is **not a single safe token** — it has whitespace or parentheses (`a + 1`, `NOT x`,

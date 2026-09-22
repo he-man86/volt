@@ -143,7 +143,7 @@ public static class NetworkTextWriter
         private readonly Dictionary<int, string> _names;
         private readonly HashSet<string> _reserved;
         private readonly List<string> _prelude = new();
-        private int _g, _en, _i;
+        private int _g, _en, _i, _m;
 
         public Emitter(StringBuilder sb, Network net, BodyLanguage lang)
         {
@@ -283,14 +283,26 @@ public static class NetworkTextWriter
             if (a.Targets.Count == 0) { Flush(); Line(value + ";"); return; }
             if (a.Targets.Count == 1) { Flush(); Line(Lhs(a.Targets[0]) + " " + AssignOp(a.Targets[0]) + " " + value + ";"); return; }
 
-            // One value, several l-values: name it once rather than repeating the expression, which would
-            // duplicate the producing box on the way back in. EACH TARGET KEEPS ITS OWN OPERATOR — a fan-out
+            // ONE ITEM, SEVERAL L-VALUES — named once rather than repeating the expression, which would
+            // duplicate the producing box on the way back in. EACH TARGET KEEPS ITS OWN OPERATOR: a rung
             // whose coils disagree (one plain, one SET) is ordinary, and the old trailing-word spelling had
             // one modifier for the whole statement, so it could only carry the first coil's storage.
-            var g = Mint("g", ref _g);
+            //
+            // THE NAME IS `m<n>`, NOT `g<n>`, AND THAT IS THE WHOLE POINT. Both shapes used to mint `g`, so
+            // this rendered EXACTLY like a real fan-out wire (a `BoxTreeDemux` feeding N assigns) and the
+            // reader — which decides by PREFIX — turned every one of them back into a Demux. A body the
+            // engineer drew as ONE item with twenty coils came back as twenty-one items.
+            //
+            // Measured before it was spelled (`scripts/probe-nwl-assign-outputs.py`, four real customer
+            // projects): Lenze holds FORTY multi-output assigns — one of them the twenty-target `TrayFiller`
+            // rung — beside 573 real `BoxTreeDemux`. Both shapes are ordinary in the same project, so a format
+            // that cannot tell them apart has to guess, and each driver guessed differently: TwinCAT folded
+            // every `g` back into one item (flattening real wires), CODESYS built a Demux for every one
+            // (inflating real items). Neither was wrong about its own half; the format was wrong to ask.
+            var m = Mint("m", ref _m);
             Flush();
-            Line("LET " + g + " := " + value + ";");
-            foreach (var t in a.Targets) Line(Lhs(t) + " " + AssignOp(t) + " " + g + ";");
+            Line("LET " + m + " := " + value + ";");
+            foreach (var t in a.Targets) Line(Lhs(t) + " " + AssignOp(t) + " " + m + ";");
         }
 
         /// <summary>The left-hand side. A split point is an INTERNAL wire and is introduced with <c>LET</c>;

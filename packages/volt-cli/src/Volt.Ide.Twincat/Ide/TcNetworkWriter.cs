@@ -266,13 +266,20 @@ internal static class TcNetworkWriter
                      | SetText(net, "Comment", model.Comment)
                      | SetBool(net, "OutCommented", model.Disabled);
 
-        // A MULTI-OUTPUT ASSIGNMENT IS ONE ITEM, however the text spells it. Network text cannot repeat a
-        // producer without duplicating its box, so `NetworkTextWriter` hoists N>1 targets into a named wire -
-        // `LET g1 := (a OR b); out1 := g1; out2 := g1;` - which reparses as a Demux definition plus one
-        // assignment each. One archive item becomes three model trees, and comparing raw counts refused a body
-        // NOBODY had changed. The surveyed real project has 258 of these.
+        // THE MODEL IS ALREADY IN THE ARCHIVE'S SHAPE, and it took a format change to make that true.
+        //
+        // A multi-output assignment is ONE item, and network text used to spell it exactly like a real fan-out
+        // WIRE — `LET g1 := (a OR b); out1 := g1; out2 := g1;` — because it cannot repeat a producer without
+        // duplicating its box. Both reparsed as a `Demux` plus one assign each, so one archive item arrived as
+        // three model trees and a raw count refused a body NOBODY had changed. `Unhoist` folded them back, and
+        // it had to GUESS: the same spelling covers a `BoxTreeDemux` the editor drew, which the archive holds
+        // as three items, so folding flattened real wires exactly as often as it repaired real assigns.
+        //
+        // The writer mints `m<n>` for a multi-output assign now and keeps `g<n>` for a wire, so the model says
+        // which shape it is and this compares them directly. Unhoisting here would REFUSE a real fan-out (one
+        // model tree against three archive items) — the mirror of the bug it was added to fix.
         var items = TcArchive.List(net, "NetworkItems");
-        var trees = Unhoist(model.Trees);
+        var trees = model.Trees;
         if (items.Count != trees.Count)
             throw Refuse($"network {model.Order + 1} changes from {items.Count} to {trees.Count} item(s)");
 
@@ -281,11 +288,16 @@ internal static class TcNetworkWriter
         return changed;
     }
 
-    /// <summary>Fold the text's hoisted-wire spelling back into the ONE item the archive holds.
+    /// <summary>HOW MANY INDEPENDENT RUNGS a network holds — a fan-out wire and everything it feeds being ONE.
     ///
-    /// <para>`LET g1 := &lt;producer&gt;; out1 := g1; out2 := g1;` is how network text says "one value, several
-    /// l-values" - it cannot repeat the producer inline without duplicating its box. The archive says the same
-    /// thing as a single item with several outputs, so the two must be compared in the same shape.</para></summary>
+    /// <para>This is the only job left. It used to be two: the same fold also reshaped the model to the
+    /// archive before comparing, which stopped being necessary (and became WRONG) when the text learned to
+    /// tell a multi-output assign from a real wire. Counting is unaffected by that distinction — a `Demux`
+    /// and its consumers are one connected rung either way — which is why this survives and the reshape
+    /// does not.</para>
+    ///
+    /// <para>It matters because TwinCAT's importer builds ONE NETWORK PER CONNECTED COMPONENT (D25), so
+    /// "how many rungs does the model hold" is what says whether a rebuild would split the network.</para></summary>
     private static IReadOnlyList<Node> Unhoist(IReadOnlyList<Node> trees)
     {
         var wires = trees.OfType<Demux>().Where(d => d.Input is not null)

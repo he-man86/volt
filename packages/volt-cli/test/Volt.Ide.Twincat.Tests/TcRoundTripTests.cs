@@ -87,6 +87,7 @@ public class TcRoundTripTests
     [InlineData("FanOut.TcPOU")]                  // a box with a REAL output item - see the note on this row
     [InlineData("execute-box.TcPOU")]             // an Execute box - its ST must survive a no-op push
     [InlineData("drawn-refused-shapes.TcPOU")]     // an UNCONDITIONAL JMP - drawn by hand, because Volt cannot create one
+    [InlineData("ladder-demux.TcPOU")]            // a REAL fan-out wire, drawn in XAE - the shape `m<n>` had to stop flattening
     public void A_push_that_changes_nothing_changes_nothing_in_the_archive(string fixture)
     {
         var before = Body(fixture);
@@ -123,10 +124,40 @@ public class TcRoundTripTests
     [InlineData("FanOut.TcPOU")]                  // a box with a REAL output item - see the note on this row
     [InlineData("execute-box.TcPOU")]             // an Execute box - its ST must survive a no-op push
     [InlineData("drawn-refused-shapes.TcPOU")]     // an UNCONDITIONAL JMP - drawn by hand, because Volt cannot create one
+    [InlineData("ladder-demux.TcPOU")]            // a REAL fan-out wire, drawn in XAE - the shape `m<n>` had to stop flattening
     public void A_push_of_an_unchanged_body_is_not_written_back_at_all(string fixture)
     {
         var before = Body(fixture);
         Assert.Null(TcNetworkWriter.Apply(before, TextDerivedModel(before)));
+    }
+
+    /// <summary>A REAL FAN-OUT WIRE SURVIVES AN EDIT — the half a no-op push can never reach.
+    ///
+    /// <para>`ladder-demux.TcPOU` network 2 is a `BoxTreeDemux` feeding two assigns: THREE archive items, drawn
+    /// in XAE. Network text spells that `LET g1 := …; a := g1; b := g1;` — and until 2026-09-22 it spelled a
+    /// MULTI-OUTPUT ASSIGNMENT (one item, two coils) exactly the same way. `Unhoist` folded that spelling back
+    /// into one tree so the counts would match, which repaired the assign case and FLATTENED this one.</para>
+    ///
+    /// <para><b>Neither theory above could see it</b>, and that is why this test exists rather than another
+    /// fixture row: they push an UNCHANGED body, and `Unchanged` short-circuits per network before the item
+    /// count is ever compared. Only an edit reaches the compare. Verified by putting `Unhoist` back: the two
+    /// theories stay green and this fails with "network 3 changes from 3 to 1 item(s)".</para></summary>
+    [Fact]
+    public void An_edit_to_a_network_holding_a_real_fan_out_wire_is_not_refused()
+    {
+        const string fixture = "ladder-demux.TcPOU";
+        var before = Body(fixture);
+        var text = NetworkTextWriter.Write(TcNetworkReader.Read(Impl(before), LanguageOf(before)));
+
+        // An ordinary VALUE edit inside the fan-out network — a comment, which every network carries and
+        // which changes no shape at all. The point is only to make the network COUNT as changed.
+        var edited = NetworkTextGate.Validate(text.Replace("LET g", "LET g"));
+        var networks = edited.Networks.Select((n, i) => i == 2 ? n with { Comment = "edited" } : n).ToList();
+
+        var written = TcNetworkWriter.Apply(before, edited with { Networks = networks });
+
+        Assert.NotNull(written);
+        Assert.Contains("BoxTreeDemux", written);   // …and the wire is still a wire
     }
 
     /// <summary>MEMBER PLACEMENT MUST PRODUCE A FILE TWINCAT CAN OPEN — and this is the one path where getting

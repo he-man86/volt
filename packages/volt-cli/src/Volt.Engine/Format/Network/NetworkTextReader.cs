@@ -560,8 +560,19 @@ public static class NetworkTextReader
             //
             // A name the writer did not mint is hand-authored, and there the count is still the only signal
             // there is: used twice it must be a wire, or the value would be duplicated into both consumers.
+            // A MULTI-OUTPUT name folds its consumers back into ONE item, so it is neither a wire (which
+            // would build a Demux) nor inlined (which would duplicate the value into each consumer). It is
+            // only folded when EVERY use is the whole right-hand side of a top-level single-target assign —
+            // anything else is not the shape the writer mints, and falls through to the ordinary rules rather
+            // than being forced into a fold that would drop a reference.
+            var merged = new Dictionary<string, Node>(StringComparer.Ordinal);
+            foreach (var kv in _lets)
+                if (MultiOutput.IsMatch(kv.Key) && FoldableConsumers(kv.Key).Count > 1)
+                    merged[kv.Key] = kv.Value;
+
             foreach (var kv in _lets)
             {
+                if (merged.ContainsKey(kv.Key)) continue;
                 var wire = WireName.IsMatch(kv.Key)
                            || (!OpaqueLeaf.IsMatch(kv.Key)
                                && uses.TryGetValue(kv.Key, out var n) && n >= 2);
@@ -578,8 +589,21 @@ public static class NetworkTextReader
             }
 
             var trees = new List<Node>();
+            var foldedAlready = new HashSet<string>(StringComparer.Ordinal);
             foreach (var (let, node) in _stmts)
             {
+                if (let != null && merged.ContainsKey(let)) continue;   // the LET itself carries no item
+                if (ConsumedName(node) is { } mName && merged.ContainsKey(mName))
+                {
+                    // EVERY consumer becomes ONE item, emitted where the FIRST of them stood so the network
+                    // keeps its order. The rest are skipped.
+                    if (!foldedAlready.Add(mName)) continue;
+                    var targets = new List<Operand>();
+                    foreach (var c in FoldableConsumers(mName)) targets.AddRange(((Assign)c).Targets);
+                    trees.Add(new Assign(Resolve(merged[mName], inline, new HashSet<string>(StringComparer.Ordinal)),
+                                         targets, ((Assign)node).Flags));
+                    continue;
+                }
                 if (let != null && inline.ContainsKey(let)) continue;   // substituted into its one consumer
                 var resolved = Resolve(node, inline, new HashSet<string>(StringComparer.Ordinal));
 
@@ -597,6 +621,42 @@ public static class NetworkTextReader
         /// <summary>The opaque-leaf name the writer mints: `i` followed by digits (docs/network-text.md §6).
         /// `g<n>` is a fan-out wire and `en<n>` an enable echo; those are real structure and are parsed.</summary>
         private static readonly Regex OpaqueLeaf = new(@"^i\d+$", RegexOptions.Compiled);
+
+        /// <summary>The name a statement consumes WHOLE — i.e. its right-hand side is nothing but a reference
+        /// to that LET — or null. Anything more (a name inside an expression, a box input) is not a fold
+        /// candidate, because folding would drop the reference rather than move it.</summary>
+        private static string? ConsumedName(Node stmt) =>
+            stmt is Assign { Value: Leaf leaf } a && a.Targets.Count == 1 && !a.Flags.Jump && !a.Flags.Return
+                ? leaf.Operand.Text
+                : null;
+
+        /// <summary>Every statement that consumes <paramref name="name"/> whole, in the order they were
+        /// written — empty when ANY use is something else, which is what makes the fold safe: a name used
+        /// once as a whole right-hand side and once inside an expression is not the writer's shape.</summary>
+        private List<Node> FoldableConsumers(string name)
+        {
+            var consumers = new List<Node>();
+            var seen = 0;
+            foreach (var (let, node) in _stmts)
+            {
+                if (let == name) continue;                       // the definition itself
+                var refs = new Dictionary<string, int>(StringComparer.Ordinal) { [name] = 0 };
+                CountRefs(let is null ? node : _lets[let], refs);
+                seen += refs[name];
+                if (refs[name] == 0) continue;
+                if (let is null && refs[name] == 1 && ConsumedName(node) == name) consumers.Add(node);
+                else return new List<Node>();                    // used somewhere a fold cannot reach
+            }
+            return consumers.Count == seen ? consumers : new List<Node>();
+        }
+
+        /// <summary>The MULTI-OUTPUT name the writer mints: `m` followed by digits.
+        ///
+        /// <para>`LET m1 := v; o1 := m1; o2 S= m1;` is ONE item driving two coils — a `BoxTreeAssign` with two
+        /// `OutputItems`. `LET g1 := v; ...` is a real fan-out WIRE, a `BoxTreeDemux` the editor drew, feeding
+        /// separate assigns. They used to share the `g` spelling, so the reader could not tell them apart and
+        /// turned both into a Demux — a twenty-coil rung came back as twenty-one items.</para></summary>
+        private static readonly Regex MultiOutput = new(@"^m\d+$", RegexOptions.Compiled);
 
         /// <summary>The fan-out wire name the writer mints: `g` followed by digits (docs/network-text.md §5).</summary>
         private static readonly Regex WireName = new(@"^g\d+$", RegexOptions.Compiled);
