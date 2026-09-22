@@ -362,8 +362,23 @@ public static class NetworkTextWriter
 
         private void Goto(Assign a)
         {
+            // THE DESTINATION IS THE TARGET CARRYING THE JUMP BIT, not the first one in the list.
+            //
+            // A jump's flag lives on the TARGET OPERAND as well as on the item (DIALECT C13, and it is the
+            // ONLY place it appears on a jump an engineer drew in CODESYS), and a rung may drive more than one
+            // target — a coil AND a jump off the same wire is an ordinary ladder shape. `Targets[0]` therefore
+            // named whichever the archive happened to list first: measured 2026-09-22 on a hand-drawn XAE body
+            // (`drawn-refused-shapes.TcPOU`) whose rung drives `owrods` (Flags 4) and the coil `out` (Flags 0).
+            // There the jump is first and the output is merely LOSSY; drawn the other way round it renders
+            // `JMP out;` — a jump to a label that does not exist, which is wrong rather than incomplete.
+            //
+            // The remaining loss — the co-driven coil, which this still does not render — is a FORMAT question
+            // (network text has no spelling for a rung whose targets are a mixture) and is tracked in
+            // `openspec/changes/graphical-vendor-parity-map`, task 1. Naming the right destination is correct
+            // on its own and does not wait for it.
+            var destination = a.Targets.FirstOrDefault(t => t.Flags?.Jump == true) ?? a.Targets.FirstOrDefault();
             var action = a.Flags.Jump
-                ? "JMP " + (a.Targets.Count > 0 ? a.Targets[0].Text : "")
+                ? "JMP " + (destination?.Text ?? "")
                 : "RETURN";
             // UNCONDITIONAL when nothing drives it — a null value, or the unconnected terminator the
             // reader builds for exactly this (a rung end nothing drives). Rendering the terminator as a
