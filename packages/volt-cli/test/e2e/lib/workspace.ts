@@ -177,7 +177,23 @@ async function plcRoot(): Promise<string> {
 /** A full wire folder path under the PLC-project root: `plcFolder("POUs/Sub")` → e.g. `Device/Plc Logic/Application/POUs/Sub`. */
 export async function plcFolder(sub = ""): Promise<string> {
 	const root = await plcRoot()
-	return sub ? (root ? `${root}/${sub}` : sub) : root
+	if (!sub) return root
+	if (!root) return sub
+	// NEVER DOUBLE A SEGMENT THE ROOT ALREADY ENDS WITH.
+	//
+	// `plcRoot` is the MAIN program's own folder, and in a project whose main program lives in `POUs` the root
+	// IS `POUs` — so the default `plcFolder(FOLDER)` asked for `POUs/POUs`, a folder no fixture has. TwinCAT
+	// answered `CreateChild failed: Could not find a part of the path ...\POUs\POUs\X.TcPOU`, which names
+	// neither the doubling nor the harness.
+	//
+	// It passed for months on LITTER. Per-test cleanup deletes ITEMS and leaves FOLDERS (D34), so the first run
+	// against a project created `POUs/POUs` on its way to failing, and every run after it found the folder
+	// already there and passed. A fresh `ide.ps1 up` is what exposes it — which is exactly the shape of bug
+	// that reads as "the IDE is flaky": it appears only after the one action that makes everything else clean.
+	//
+	// Asking for "the POUs folder under the PLC root" when the root IS POUs means that folder, not one inside
+	// it, so this is the answer rather than a workaround for one.
+	return root === sub || root.endsWith(`/${sub}`) ? root : `${root}/${sub}`
 }
 
 /**

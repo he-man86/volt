@@ -94,7 +94,7 @@ missing from their file today.
       - A rung driving a coil AND a jump dropped the coil (fixed as a marker, task 1).
 
       STILL OPEN, in the order the evidence ranks them:
-      - **THE FAN-OUT DIVERGENCE IS NOT A DRIVER BUG — it is a FORMAT gap, and both drivers guess, in opposite
+      - **THE FAN-OUT DIVERGENCE — CLOSED 2026-09-22.** `m<n>` is spelled, both shapes round-trip as themselves, and `Unhoist`'s guess is deleted. The investigation that got there, kept because its shape is the lesson: **it is not a driver bug — it is a FORMAT gap, and both drivers guessed, in opposite
         directions.** Reported as a bug (TwinCAT folds to one multi-output `BoxTreeAssign`, CODESYS builds a
         `BoxTreeDemux` plus N assigns). Probed offline 2026-09-22, and the question underneath it has a worse
         answer than the finding: **network text cannot tell the two shapes apart at all.**
@@ -117,9 +117,18 @@ missing from their file today.
         name family beside `g*`/`i*`/`en*` — say `m<n>` for "one item, several targets" — which is small,
         unambiguous and preserves the operators.
 
-        It is not being invented here for the reason this repo keeps re-learning: `UnspellableCoilTests` set the
-        standard — census the shape in real projects BEFORE spelling it — and the census that decides this one
-        cannot be run today. It needs ARCHIVES (the predicate is a `BoxTreeAssign` with more than one entry in
+        **IT WAS THEN CENSUSED AND BUILT.** The standard `UnspellableCoilTests` set — census the shape in real
+        projects BEFORE spelling it — was met: 40 occurrences in Lenze, so the spelling is justified and `m<n>`
+        is what shipped. `Unhoist` lost its reshaping job in the same change and kept only the one that does not
+        depend on the distinction (counting independent rungs for D25) — and removing the reshape was not
+        optional: with the text saying which shape it is, folding REFUSES a real fan-out, one model tree against
+        three archive items, the mirror of the bug it was added to fix.
+
+        That regression was invisible to both identity theories, because they push an UNCHANGED body and
+        `Unchanged` short-circuits per network before the item count is compared. Only an EDIT reaches it, which
+        is why `An_edit_to_a_network_holding_a_real_fan_out_wire_is_not_refused` exists beside the fixture rows.
+
+        Superseded reasoning, from before the projects were found: It needs ARCHIVES (the predicate is a `BoxTreeAssign` with more than one entry in
         `OutputItems`), and the corpora on disk are pulled TEXT written by the very code that cannot express the
         distinction. It also changes the canonical form, so every already-pulled workspace holding a fan-out
         shows a diff on the next pull — a cost worth paying for a shape that occurs, and not for one that does

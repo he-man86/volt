@@ -174,6 +174,14 @@ session that happens to bind `Project14` (17 items, PackML FBs, several graphica
 invites a vendor-performance conclusion the numbers do not support. `ide.ps1 up` opens BOTH, and discovery
 takes the first live pipe — so which project a run measures is not something the run chooses.
 
+**And the suite USED TO PASS ON LITTER, which is the sharpest version of this.** `plcFolder(sub)` builds its
+path from `plcRoot()`, the MAIN program's own folder — so in a project whose main program lives in `POUs`, the
+default `plcFolder("POUs")` asked for `POUs/POUs`. Per-test cleanup deletes ITEMS and leaves FOLDERS (D34), so
+the FIRST run against such a project created that folder on its way to failing and every run after it found
+the folder already there and passed. A fresh `ide.ps1 up` is what exposes it — a bug that appears only after
+the one action that makes everything else clean, and whose symptom names neither the doubling nor the harness.
+Fixed in `plcFolder`; the note is here because the SHAPE recurs.
+
 **It also decides where the PLC ROOT is**, and that failure does not look like a project difference either:
 the harness default folder `POUs` resolved to `POUs/POUs` on one of the two, and FIFTY-EIGHT tests failed with
 `ITcSmTreeItem:CreateChild failed: Could not find a part of the path ...\POUs\POUs\X.TcPOU` — a vendor error
