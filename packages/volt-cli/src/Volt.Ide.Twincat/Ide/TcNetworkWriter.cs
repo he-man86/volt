@@ -505,6 +505,28 @@ internal static class TcNetworkWriter
             case Terminator t when type == "BoxTreeTerminator":
                 return changed | WriteChild(e, "Input", t.Input);
 
+            // AN UNCONDITIONAL JUMP OR RETURN IS THIS ELEMENT SWAP AND NOTHING ELSE — measured 2026-09-22
+            // against a body drawn by hand in a live TcXaeShell, beside the conditional form Volt created on
+            // the same XAE (`fixtures/tc-pou/drawn-refused-shapes.TcPOU`). The ONLY structural difference:
+            //
+            //     CONDITIONAL                            UNCONDITIONAL
+            //       RValue t="BoxTreeOperand"              RValue t="BoxTreeTerminator"
+            //         Operand "cond"                         <n n="Input" />
+            //
+            // Everything else a jump needs is already written in place — `WriteJump` sets the control-flow bit
+            // on the item AND on the destination operand. Until this arm existed the swap fell to `default`
+            // below, the network went to the IDE to be REBUILT, and the rebuild runs `PlcOpenImport`, whose
+            // importer rejects an unconditional jump ("it requires a jump to be wired to a condition"). So the
+            // shape TwinCAT was said to refuse was a shape VOLT's only create door could not state — the IDE
+            // holds it perfectly well, which is what the drawn fixture is.
+            //
+            // <para><b>NO ID IS INVENTED</b>, which is the wall this would otherwise hit (N11: guessing member
+            // contracts wrote twenty unopenable .TcPOU files). The terminator REUSES the id of the element it
+            // replaces. Ids need not be contiguous — the drawn body skips 9, 12, 13 and 28-31 — so the ids
+            // under the replaced subtree simply cease to exist.</para>
+            case Terminator { Input: null } when e.Attribute("t") != null:
+                return SwapToTerminator(e);
+
             default:
                 throw Refuse($"a '{type ?? "?"}' item becomes a {n.GetType().Name.ToLowerInvariant()}");
         }
@@ -862,7 +884,8 @@ internal static class TcNetworkWriter
                          "and the IDE did not write it there");
         v.Value = raw;
         return true;
-    }
+    
+}
 
     /// <summary>Like <see cref="SetString"/>, but a difference in TRAILING WHITESPACE alone is not a change —
     /// the IDE's copy carries the engineer's newline and the model's does not (see the call site).</summary>
@@ -880,4 +903,45 @@ internal static class TcNetworkWriter
     private static bool SetInt(XElement owner, string name, int i) =>
         Set(owner, name, i.ToString(CultureInfo.InvariantCulture),
             TcArchive.Int(owner, name).ToString(CultureInfo.InvariantCulture));
+    /// <summary>The 3S type guid for <c>BoxTreeTerminator</c>, as every real archive that holds one writes it.
+    /// A body Volt created has no terminator and therefore no <c>TypeList</c> entry for one, so the swap adds
+    /// it — the deserializer resolves <c>t="..."</c> through that list.</summary>
+    private const string TerminatorGuid = "{5f9848d3-568d-4cc5-9e31-8e28e9607ff1}";
+
+    /// <summary>Replace an item with an UNCONNECTED TERMINATOR in place, reusing its id.
+    ///
+    /// <para>Only for an element that carries its own <c>t</c>. An element typed by its list's <c>cet</c> is
+    /// one of a HOMOGENEOUS list (N11) and retyping it alone would make the list a mixture — the exact shape
+    /// `TcImporterSplitTests` pins as the one TwinCAT mis-reads.</para></summary>
+    private static bool SwapToTerminator(XElement e)
+    {
+        var id = TcArchive.Int(e, "Id");
+        if (id == 0) throw Refuse("an item becomes unconnected but carries no id to keep");
+
+        e.SetAttributeValue("t", "BoxTreeTerminator");
+        e.RemoveNodes();
+        e.Add(new XElement("n", new XAttribute("n", "Input")),
+              new XElement("o", new XAttribute("n", "Flags"), new XAttribute("t", "Flags"),
+                  new XElement("v", new XAttribute("n", "Flags"), "0"),
+                  new XElement("v", new XAttribute("n", "Fixed"), "false"),
+                  new XElement("v", new XAttribute("n", "Extensible"), "false")),
+              new XElement("v", new XAttribute("n", "Id"), id + "L"));
+
+        RegisterType(e, "BoxTreeTerminator", TerminatorGuid);
+        return true;
+    }
+
+    /// <summary>Name a type in the archive's <c>TypeList</c> if it is not named already, keeping the vendor's
+    /// own alphabetical order so the document still looks like one the IDE wrote.</summary>
+    private static void RegisterType(XElement anywhere, string name, string guid)
+    {
+        var list = anywhere.AncestorsAndSelf().Last().Descendants("TypeList").FirstOrDefault();
+        if (list == null) throw Refuse("the archive names no TypeList, so a new item's type cannot be declared");
+        if (list.Elements("Type").Any(t => (string?)t.Attribute("n") == name)) return;
+
+        var entry = new XElement("Type", new XAttribute("n", name), guid);
+        var after = list.Elements("Type")
+                        .FirstOrDefault(t => string.CompareOrdinal((string?)t.Attribute("n"), name) > 0);
+        if (after != null) after.AddBeforeSelf(entry); else list.Add(entry);
+    }
 }

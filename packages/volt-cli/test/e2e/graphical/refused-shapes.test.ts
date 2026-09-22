@@ -53,7 +53,12 @@ interface Shape {
 const SHAPES: readonly Shape[] = [
 	{
 		what: "an unconditional JMP",
-		refusedBy: ["twincat"],
+		// TOOK IT, TAKEN OFF THE LIST — 2026-09-22. TwinCAT creates this now, and the route is the one the
+		// create path was already built on: `TcPlcOpenWriter` wires the jump to an EMPTY `<inVariable>` so the
+		// importer will build it, then `Stamp` swaps that operand for a `BoxTreeTerminator`, reusing its id.
+		// What made it safe to try was a body DRAWN BY HAND in XAE (`drawn-refused-shapes.TcPOU`): it showed
+		// the shape is one the IDE holds happily, so the refusal was Volt's one door, not the vendor.
+		refusedBy: [],
 		items: [
 			{
 				name: "VltRefJump.fb",
@@ -78,7 +83,7 @@ END_FUNCTION_BLOCK
 	},
 	{
 		what: "an unconditional RETURN beside two conditional ones",
-		refusedBy: ["twincat"],
+		refusedBy: [],   // same swap as the JMP above, same day
 		items: [
 			{
 				name: "VltRefReturn.fb",
@@ -261,6 +266,8 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 		{
 			key: "ejmp",
 			what: "an unconditional JMP",
+			// Editing a conditional jump into an unconditional one is the swap DIRECTLY — no import at all,
+			// because only the RValue element changes. This is what was measured first.
 			vars: BOOLS,
 			nets: ["NETWORK 0 FBD", "  IF a THEN JMP Done; END_IF", "END_NETWORK", "NETWORK 1 FBD LABEL: Done", "  out := a;", "END_NETWORK"],
 			from: "IF a THEN JMP Done; END_IF",

@@ -114,13 +114,45 @@ public class TcPlcOpenWriterTests
     /// <para>The live half is `volt-cli/test/e2e/graphical/refused-shapes.test.ts`, which pushes each shape
     /// at a real TwinCAT and asserts nothing lands.</para></summary>
     [Theory]
-    [InlineData("JMP Onwards;", "unconditional jump")]
-    [InlineData("RETURN;", "unconditional return")]
+    [InlineData("t1(IN := a, PT := pt, ET => el);", "output pin")]
     public void APreflightRefusesWhatTheWriterCannotExpress(string statement, string expected)
     {
         var text = $"NETWORK 0 LD\n  {statement}\nEND_NETWORK\n";
         var ex = Assert.ThrowsAny<Exception>(() => Lower(NetworkTextReader.Parse(text)));
         Assert.Contains(expected, ex.Message);
+    }
+
+    /// <summary>AND THE TWO THAT LEFT THIS LIST — an unconditional `JMP` and an unconditional `RETURN`, which
+    /// the theory above asserted were REFUSED until 2026-09-22.
+    ///
+    /// <para>The premise moved on grounds independent of the code: a body DRAWN BY HAND in a live TcXaeShell
+    /// (<c>drawn-refused-shapes.TcPOU</c>) holds both shapes perfectly well, so "this writer cannot express
+    /// it" was never the same claim as "the vendor cannot hold it". The writer now WIRES an unconditional
+    /// jump to an empty <c>inVariable</c> so the importer will build it, and <c>TcNetworkWriter</c> swaps that
+    /// operand for a <c>BoxTreeTerminator</c> afterwards, reusing its id — the same import-then-stamp the
+    /// create path already used for every modifier PLCopen cannot carry.</para>
+    ///
+    /// <para>So the lowering must not refuse them, and must not leave them UNWIRED either: unwired is exactly
+    /// what TwinCAT rejects, with <c>Value cannot be null. Parameter name: source</c>.</para></summary>
+    [Theory]
+    [InlineData("JMP Onwards;")]
+    [InlineData("RETURN;")]
+    public void An_unconditional_jump_or_return_is_lowered_WIRED_rather_than_refused(string statement)
+    {
+        XNamespace tc6 = "http://www.plcopen.org/xml/tc6_0200";
+        var text = string.Join("\n", "NETWORK 0 LD", "  " + statement, "END_NETWORK", "");
+
+        var body = Lower(NetworkTextReader.Parse(text));
+
+        var control = body.Elements().Single(e => e.Name == tc6 + "jump" || e.Name == tc6 + "return");
+        var wire = control.Element(tc6 + "connectionPointIn")?.Element(tc6 + "connection");
+        Assert.True(wire != null, "an unconditional " + statement + " was lowered UNWIRED, which TwinCAT " +
+                                  "rejects with `Value cannot be null. Parameter name: source`");
+
+        // …and what it is wired TO is the importer's own spelling for an unwired pin: an EMPTY expression.
+        var source = body.Elements(tc6 + "inVariable")
+            .Single(v => (string?)v.Attribute("localId") == (string?)wire!.Attribute("refLocalId"));
+        Assert.Equal("", source.Element(tc6 + "expression")?.Value);
     }
 
     // -- routing: which door does a push take? ------------------------------------------------------

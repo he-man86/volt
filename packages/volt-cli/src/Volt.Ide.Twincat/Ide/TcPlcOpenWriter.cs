@@ -250,30 +250,39 @@ internal static class TcPlcOpenWriter
             // enable. Measured 2026-09-06: `IF en1 THEN out := (a AND b); END_IF` round-trips BYTE-IDENTICAL and
             // the project compiles clean.
             if (box.StCode != null) throw Refuse("contains an Execute box");
-            // AN EMBEDDED OUTPUT PIN CANNOT BE CREATED HERE, and until today it was DROPPED instead.
+            // AN EMBEDDED OUTPUT PIN CANNOT BE CREATED HERE — and BOTH spellings of the document have now
+            // been put to a live XAE, which is what makes this a vendor fact rather than a Volt one.
             //
-            // `t1(IN := a, PT := pt, ET => el)` writes a box's ET pin straight to a variable. This writer emitted
-            // one output pin, `Out1`, and never looked at `box.Outputs` - on the stated grounds that "a
-            // text-derived Box.Outputs is always empty", which stopped being true when the format learned to
-            // spell one. The importer wired nothing, the archive came back with an empty `OutputItems`, the
-            // in-place writer's refusal was swallowed as "nothing to lose", and the push reported success over a
-            // body missing the pin. Measured for a fully RESOLVABLE pin, not just `???`
-            // (`test/e2e/graphical/create-shapes.test.ts`).
+            // `t1(IN := a, PT := pt, ET => el)` writes a box pin straight to a variable. It used to be DROPPED
+            // silently: this emitter declared one output pin, `Out1`, never looked at `box.Outputs`, the
+            // importer wired nothing, the in-place writer's refusal was swallowed as "nothing to lose", and
+            // the push reported success over a body missing the pin — for a fully RESOLVABLE pin, not only
+            // for `???` (`test/e2e/graphical/create-shapes.test.ts`).
             //
-            // Emitting it properly was then measured too: an `<outVariable>` wired to the pin by
-            // `formalParameter` IS honoured - and the importer lowers it to a separate `BoxTreeAssign` item
-            // rather than an output on the box. That is a different body from the one pushed, so accepting it
-            // would rewrite the engineer's text on a create. Editing an embedded output that already exists
-            // still works (`TcNetworkWriter.WriteBoxOutputs`); only creating one is out of reach. DIALECT C20.
+            // ATTEMPT 1 (2026-09-06): an `<outVariable>` wired to the box by `formalParameter="ET"`. Accepted,
+            // and the formal parameter IGNORED — `el` came back on the box's UNNAMED RESULT, which for a TON
+            // assigns a BOOL to a TIME variable.
+            //
+            // ATTEMPT 2 (2026-09-22), because attempt 1 had an obvious hole: the document named a formal
+            // parameter the block did not DECLARE, so ignoring it was the only thing the importer could do.
+            // Declaring the real pins in `<outputVariables>` and wiring the `outVariable` to one of them —
+            // TC6 exactly as written — changes nothing: the importer STILL lowers it to a separate
+            // `BoxTreeAssign`, and the push now fails one layer later ("a 'BoxTreeAssign' item becomes a
+            // box"). So the lowering is the importer's choice, not a consequence of an under-specified
+            // document, and there is no third spelling to try.
+            //
+            // The shape IS legal — a hand-drawn box holds `OutputParam.Names = [Q, ET]` with `OutputItems`
+            // index-aligned and `<n />` in the unwired slot (`drawn-refused-shapes.TcPOU`). Reaching it means
+            // building that slot list, which needs a MINTED id rather than the reused one the terminator swap
+            // gets away with. DIALECT C20.
             if (box.Outputs.Any(o => o.Formal is { Length: > 0 }))
                 throw new NotSupportedException(
                     "TwinCAT: this graphical body writes a box's output pin straight to a variable " +
                     "(`" + box.Type + "(… " + (box.Outputs.First(o => o.Formal is { Length: > 0 }).Formal) +
-                    " => …)`). PLCopen can state it and TwinCAT's importer does honour the wire - but it " +
-                    "lowers it to a SEPARATE assignment rather than an output on the box, so the body that came " +
-                    "back would not be the one pushed. Draw the pin in the IDE and pull it; editing one that " +
-                    "already exists works.");
-
+                    " => …)`). Volt has no way to CREATE that through PLCopen — the importer lowers the wire " +
+                    "to a SEPARATE assignment however the pin is declared, so the body that came back would " +
+                    "not be the one pushed. Draw the pin in the IDE and pull it; editing one that already " +
+                    "exists works.");
             // THE ENABLE IS INPUT SLOT 0, emitted FIRST so the importer places it there — which is where the
             // archive expects it, and what makes the repair in TcNetworkWriter a rename rather than a move.
             long? enFrom = box.Enable != null ? Emit(box.Enable) : null;
@@ -309,10 +318,8 @@ internal static class TcPlcOpenWriter
             }
 
             // ONE output pin, named `Out1` - the name the vendor's own exporter gives an operator's single
-            // unnamed result. A box that names EMBEDDED OUTPUTS (`t1(… ET => el)`) is refused above rather than
-            // lowered here: measured, TwinCAT's importer honours an `outVariable` wired to a named pin by
-            // turning it into a SEPARATE assignment item, not an output on the box, so what came back was a
-            // different body from the one pushed.
+            // unnamed result. A box that names EMBEDDED OUTPUTS is refused above; declaring those pins here
+            // instead was measured and changes nothing (attempt 2 in the note above).
             var outputs = new XElement(Namespaces.Tc6 + "outputVariables",
                 new XElement(Namespaces.Tc6 + "variable",
                     new XAttribute("formalParameter", "Out1"),
@@ -398,16 +405,28 @@ internal static class TcPlcOpenWriter
             // scratch object with `Value cannot be null. Parameter name: source`. The presence of the
             // connection is the only difference between the two, so the importer wants a jump or return
             // WIRED. Refusing says that; letting the vendor's null-reference reach the engineer does not.
-            if (Unconditional(ret.Value)) throw Refuse("contains an unconditional return, which this"
-                + " TwinCAT's PLCopen importer rejects (it requires a return to be wired to a condition)");
-
-            if (ret.Value is { } condition)
-            {
-                var producer = Emit(condition) ?? throw Refuse("returns on a statement");
-                el.Add(new XElement(Namespaces.Tc6 + "connectionPointIn",
-                    new XElement(Namespaces.Tc6 + "connection",
-                        new XAttribute("refLocalId", producer.ToString()))));
-            }
+            // AN UNCONDITIONAL RETURN IS WIRED TO AN EMPTY PIN AND THEN UNWIRED AGAIN — which is the two-step
+            // the create path is BUILT on, not a trick. The import settles STRUCTURE (the IDE resolves what
+            // Volt cannot state), and `Stamp` then writes the detail the document could not carry.
+            //
+            // This refused instead, and the reason it gave was sound as far as it went: the identical document
+            // WITH a `connectionPointIn` imports and round-trips, and without one TwinCAT rejects the whole
+            // scratch object with `Value cannot be null. Parameter name: source`. What was never asked is
+            // whether the wire could be removed AFTERWARDS. It can: measured 2026-09-22 against a live XAE,
+            // swapping the imported `BoxTreeOperand` for a `BoxTreeTerminator` (`TcNetworkWriter`, which reuses
+            // the id of the element it replaces) produces a body that round-trips byte-identical and BUILDS
+            // WITH ZERO ERRORS. The hand-drawn `drawn-refused-shapes.TcPOU` is what said the shape was legal
+            // in the first place — TwinCAT holds it happily; only Volt's one create door could not state it.
+            //
+            // `EmitEmpty` is an `<inVariable>` with an EMPTY expression, already measured as the importer's own
+            // spelling for an unwired pin, so the placeholder is a shape the vendor writes rather than an
+            // invention. Its operand is discarded by the swap.
+            var source = Unconditional(ret.Value)
+                ? EmitEmpty()
+                : Emit(ret.Value!) ?? throw Refuse("returns on a statement");
+            el.Add(new XElement(Namespaces.Tc6 + "connectionPointIn",
+                new XElement(Namespaces.Tc6 + "connection",
+                    new XAttribute("refLocalId", source.ToString()))));
 
             _root.Add(el);
             return null;      // a return produces no value for anything to consume
@@ -423,18 +442,15 @@ internal static class TcPlcOpenWriter
                 new XAttribute("label", jump.Targets[0].Text),
                 Position());
 
-            // Same rule as the return above, and the same measurement: an unconditional jump is rejected by
-            // the importer, a wired one imports and round-trips.
-            if (Unconditional(jump.Value)) throw Refuse("contains an unconditional jump, which this"
-                + " TwinCAT's PLCopen importer rejects (it requires a jump to be wired to a condition)");
-
-            if (jump.Value is { } condition)
-            {
-                var producer = Emit(condition) ?? throw Refuse("jumps on a statement");
-                el.Add(new XElement(Namespaces.Tc6 + "connectionPointIn",
-                    new XElement(Namespaces.Tc6 + "connection",
-                        new XAttribute("refLocalId", producer.ToString()))));
-            }
+            // Same route as the return above, and the same measurement: wire an unconditional jump to an empty
+            // pin so the importer will build it, and let `Stamp` swap that pin for the terminator the model
+            // asked for.
+            var source = Unconditional(jump.Value)
+                ? EmitEmpty()
+                : Emit(jump.Value!) ?? throw Refuse("jumps on a statement");
+            el.Add(new XElement(Namespaces.Tc6 + "connectionPointIn",
+                new XElement(Namespaces.Tc6 + "connection",
+                    new XAttribute("refLocalId", source.ToString()))));
 
             _root.Add(el);
             return null;      // a jump produces no value for anything to consume

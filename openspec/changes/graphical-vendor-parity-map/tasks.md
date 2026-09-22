@@ -90,11 +90,24 @@ missing from their file today.
 
 ## 3. Re-cost the four refusals (C20)
 
-- [ ] **The unconditional JMP and RETURN — the candidate, measured in task 0(a).** Implement the swap in
-      `WriteNode`: a model `Terminator` arriving where the archive holds a `BoxTreeOperand` replaces that
-      element, REUSING its id, and the two target scalars are written as values. Then in order: the offline
-      identity gate (already passing), the swap offline against the drawn fixture, the same edit against a live
-      XAE, and the build. Only then does `refused-shapes.test.ts` lose those two entries.
+- [x] **The unconditional JMP and RETURN — DONE 2026-09-22, and they are CREATED now, not merely editable.**
+      `TcNetworkWriter.SwapToTerminator` replaces an item with an unconnected terminator in place, reusing the
+      id of the element it replaces and declaring `BoxTreeTerminator` in the archive's `TypeList`. Two things
+      then fell out in order:
+      - **The EDIT works directly** — a conditional jump edited into an unconditional one never reaches the
+        importer at all, because only the RValue element changes.
+      - **And so does the CREATE**, by the route the create path was already built on: `TcPlcOpenWriter` wires
+        the jump or return to an EMPTY `<inVariable>` (the importer's own spelling for an unwired pin, already
+        measured), the importer builds it, and `Stamp` swaps that operand for the terminator. The placeholder's
+        operand is discarded by the swap.
+
+      Verified live on TcXaeShell 15.0: created, pulled back BYTE-IDENTICAL, project builds with ZERO errors,
+      and the pulled text re-pushes to itself. `refused-shapes.test.ts` FAILED with "took it, take it off the
+      list" — which is the intended way this reports — and both entries are now `refusedBy: []`.
+
+      **The two scalars from task 0(a) were not load-bearing.** The drawn body has `Fixed=false LValue=true` on
+      the destination operand where Volt writes `Fixed=true LValue=false`, and the IDE built it either way.
+      Measured rather than copied, which is the only reason they are not in the code.
 - [ ] **The box output pin — NOT the same shape of fix, measured in task 0(b).** The pin is positional and an
       imported box carries no signature to position it against. Two routes to cost, and the first is cheap:
       (i) can an edit be made against a box the IDE has RESOLVED — i.e. does the signature fill in once the POU
