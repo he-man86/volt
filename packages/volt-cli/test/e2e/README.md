@@ -152,6 +152,33 @@ diagnostic in the log (`%LOCALAPPDATA%\Volt\logs\twincat-*.log`). If a run flaps
 restart the XAE windows for a clean multi-XAE environment. `library-signature` tests are CODESYS-only
 (`skipIf twincat`): TwinCAT has no signature-extraction surface yet (a tracked parity gap).
 
+### And a WORN project is its own failure mode — measured 2026-09-22
+
+A long session against one served project degrades it, and the degradation does not look like wear. After a
+day of creates, deletes, refused pushes and hand-drawn POUs, the SAME commit gave:
+
+| | worn project | fresh copy |
+|---|---|---|
+| `graphical/` suite | 93 pass, **1 fail**, 540 s | 94 pass, 0 fail, **127 s** |
+| `refs` | ~260 ms | **29 ms** |
+| empty push | ~490 ms (on the 500 ms limit) | **86 ms** |
+
+The failure was a create whose DECLARATION came back empty — a data-loss shape, reproducible, and identical on
+`HEAD` with every local change stashed. That is what makes it worth writing down: it reads exactly like a
+product regression, and the only thing that distinguished it was re-running against a fresh `ide.ps1 up`.
+
+Two practical rules follow. **Suspect the project before the code when a live failure appears without a
+matching change**, and confirm by stashing rather than by reasoning. And **compare like with like**: the
+latency baselines in `stability/latency.test.ts` were recorded on `TwinCAT Project13` (9 items), while a
+session that happens to bind `Project14` (17 items, PackML FBs, several graphical bodies) reads 8x worse and
+invites a vendor-performance conclusion the numbers do not support. `ide.ps1 up` opens BOTH, and discovery
+takes the first live pipe — so which project a run measures is not something the run chooses.
+
+**And it changes what is COVERED, not only what is timed.** The same sweep skips **20** tests on Project13
+and **8** on Project14, because several suites gate on the project being big enough to be meaningful
+(`if (itemCount >= 20)`, a POU with children, a folder two deep). A green run says nothing about which of
+the two it was, so read the SKIP count as part of the result, not as noise.
+
 ## The two suites that are not single-vendor
 
 Every file here drives ONE bridge, chosen by `VOLT_VENDOR`/`VOLT_PIPE` — except two, and both say so on stdout
