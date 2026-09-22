@@ -64,12 +64,13 @@ missing from their file today.
       what made a marker acceptable there, and Lenze's single lone `RETURN` target is why the guard here is
       narrow — a lone jump, a lone return and an ordinary fan-out all still materialize.
 
-- [ ] **Run the census when a corpus pull is next possible**, and if the shape occurs, replace the marker with
-      the target-operator spelling. The archive predicate is exact: a `BoxTreeAssign` whose `OutputItems` hold
-      at least one operand with `Flags & 4` or `Flags & 8` AND at least one without.
-- [ ] **Decide the TEXT FORM** — see above. Whatever is chosen must read back as ONE `BoxTreeAssign` with two
-      output items, not as two items, or the fixed point that makes the round trip safe is gone.
-- [ ] Spell it in `docs/network-text.md` beside the fan-out section, and cover it in `network.test.ts`.
+- [x] **THE CENSUS RAN — 2026-09-22, four real customer projects, and the answer is ZERO.** Not one rung in
+      Lenze, Pro2193, V71_PackML or AWA_Palletizer drives a coil and a jump together
+      (`scripts/probe-nwl-assign-outputs.py`). So the MARKER stays and no text form is built for it: that is the
+      standard `UnspellableCoilTests` set — census first, and a marker is the right answer for a shape that does
+      not occur. It also settles the question the run was for: the marker turns NO real body into a marker.
+- [x] **Decide the TEXT FORM — decided: none, for THIS shape.** See above. (The fan-out shape, measured in the
+      same run, went the other way — 40 occurrences — and its spelling is section 2's open decision.)
 - [ ] **Sweep for the same shape elsewhere.** `Goto` is one place that indexes a target list; find every other
       one that assumes a single target, in both drivers and in the shared writer.
 
