@@ -46,39 +46,72 @@ missing from their file today.
 
 ## 1. THE COIL A PULL DROPS
 
-- [ ] **Reproduce it as a failing test.** The assertion is written and was RED when this change was opened; it
-      is held here rather than committed red, and goes back into `TcDrawnJumpTests` with the fix:
+- [x] **The destination is picked by its FLAG, not by index — DONE 2026-09-22.** `NetworkTextWriter.Goto` read
+      `a.Targets[0]`. The jump bit lives on the TARGET OPERAND as well as on the item (C13), so "which target
+      is the label" has a real answer. In the drawn body the jump happens to be first, so the symptom was only
+      a dropped coil; with the coil first the same code renders `JMP out;` — a jump to a label that does not
+      exist. `JumpDestinationTests` covers both orders and was verified red with the selection put back.
+- [x] **And the dropped coil is now NAMED rather than silent — DONE 2026-09-22, as a marker.** An `Assign`
+      whose targets MIX control flow with ordinary coils has no text form, and `NetworkTextWriter.Unspellable`
+      says so: `LD (a rung driving a coil and a jump together)`. Both drivers already call it, so it lands on
+      both vendors identically.
 
-      ```csharp
-      /// The drawn rung drives TWO outputs from the same terminator: the jump destination `owrods`
-      /// (Flags = 4) and an ordinary coil `out` (Flags = 0). The pulled text mentions only the jump.
-      [Fact]
-      public void A_coil_sharing_a_rung_with_a_jump_is_NOT_dropped_on_read()
-      {
-          var text = PulledText();
-          Assert.True(text.Contains("out"),
-              "the archive's OutputItems holds `owrods` (the jump) AND the coil `out`; the pulled text " +
-              "holds only the jump, so a pull silently drops the coil:\n" + text);
-      }
-      ```
+      **Why a marker and not a spelling.** A spelling that round-trips is perfectly possible — a target
+      operator beside `S=`/`R=` — and it is NOT being guessed at, because the question it turns on is whether
+      the shape occurs in real projects, and that is answerable only from ARCHIVES. The corpora on disk are
+      pulled TEXT, written by the very code that dropped the coil, so they cannot show it. `UnspellableCoilTests`
+      is the precedent in both directions: the coil-modifier census found ZERO in five real projects, which is
+      what made a marker acceptable there, and Lenze's single lone `RETURN` target is why the guard here is
+      narrow — a lone jump, a lone return and an ordinary fan-out all still materialize.
 
-- [ ] **Pick the destination by its FLAG, not by index.** `NetworkTextWriter.Goto` reads `a.Targets[0]`. The
-      jump destination is the target carrying `FlagJump`. With the coil drawn first this renders `JMP out;` —
-      a jump to a label that does not exist, which is wrong rather than merely lossy. Cheap, and correct
-      independently of how the rest is spelled.
-- [ ] **Decide the TEXT FORM for a rung that drives a coil and a jump together**, which is the real work.
-      `Assignment` already spells a fan-out (`LET g1 := v;` then one line per target) — but reading that back
-      builds a `Demux` plus separate assigns, i.e. a DIFFERENT archive, so it breaks the fixed point that makes
-      the round trip safe. Whatever is chosen must read back as ONE `BoxTreeAssign` with two output items.
+- [ ] **Run the census when a corpus pull is next possible**, and if the shape occurs, replace the marker with
+      the target-operator spelling. The archive predicate is exact: a `BoxTreeAssign` whose `OutputItems` hold
+      at least one operand with `Flags & 4` or `Flags & 8` AND at least one without.
+- [ ] **Decide the TEXT FORM** — see above. Whatever is chosen must read back as ONE `BoxTreeAssign` with two
+      output items, not as two items, or the fixed point that makes the round trip safe is gone.
 - [ ] Spell it in `docs/network-text.md` beside the fan-out section, and cover it in `network.test.ts`.
 - [ ] **Sweep for the same shape elsewhere.** `Goto` is one place that indexes a target list; find every other
       one that assumes a single target, in both drivers and in the shared writer.
 
 ## 2. The map
 
-- [ ] **Member for member, both vendors.** `TcNetworkReader` ↔ `CodesysNetworkReader`, `TcNetworkWriter` ↔
-      `CodesysNetworkWriter`, against the ONE shared model (`Volt.Engine/Format/Network`). Output is a table,
-      not prose: for every model node and every archive member, what each side reads, writes, and refuses.
+- [x] **Member for member, both vendors — DONE 2026-09-22**, by a 10-agent differential pass over five
+      dimensions (assignments/coils, control flow, boxes, networks/structure, refusals), each mapped and then
+      ADVERSARIALLY VERIFIED by a second agent whose job was to refute it against the cited lines. Every finding
+      had to cite file:line on BOTH sides and name the test that would catch it.
+
+      **9 confirmed bugs, 9 host gaps, 1 spelling, 2 refuted — and 18 of the 19 survivors had NO test.**
+
+      THE THREE THAT WERE DATA LOSS ARE FIXED (commits below this change):
+      - CODESYS lost whole POUs where TwinCAT showed a marker. Four reader refusals threw a bare
+        `NotSupportedException`, which escapes to `Versioning.SafeVersion` → Unreadable → `FetchService` drops
+        the item from `changed`, `items` AND `folders`. `UnrepresentableBodyException` carries the marker now,
+        both drivers catch it, and a repo gate forbids the bare throw in a network reader.
+      - CODESYS had NO push pre-flight at all, so every refusal inside its writer fired mid-write and a create
+        wrote items 1..N-1 before failing. Proven live, then fixed by an override that runs the SAME
+        `ResolveBoxType` the write does.
+      - A rung driving a coil AND a jump dropped the coil (fixed as a marker, task 1).
+
+      STILL OPEN, in the order the evidence ranks them:
+      - **The FAN-OUT SHAPE DIVERGES.** TwinCAT folds `LET g := v; o1 := g; o2 := g;` back into ONE
+        `BoxTreeAssign` with two `OutputItems` (`Unhoist`); CODESYS has no `Unhoist` and rebuilds it as a
+        `BoxTreeDemux` plus N single-target assigns. Both re-render to byte-identical text, so every gate Volt
+        has is blind to it — the same pushed text lands two different object graphs. Nothing is lost and it
+        compiles; what differs is the shape the engineer sees DRAWN.
+      - **A RETURN's bit never reaches the destination operand on EITHER vendor**, and it cannot be fixed at the
+        writer: `NetworkTextReader` parses `RETURN;` to an `Assign` with ZERO targets, so there is no target to
+        write it to. C13 records the vendor putting it there (live SP21 `ATD_FQI`, `out[0] = '???' flags=Return`).
+        The fix is in the FORMAT, not the drivers — the same place task 1's coil lives.
+      - **`CallType` is read wrongly on BOTH vendors, and the map understated it.** TwinCAT reads any non-null
+        `CallType` as `Operator`; CODESYS excludes only `"None"`. But the drawn archive holds
+        `<v n="CallType" t="Operator">FunctionBlock</v>` — the `t=` is the ENUM TYPE's name and the value is the
+        member — so a TON call reads as an OPERATOR on both. Latent today (nothing consumes an archive-derived
+        `Kind`), and NOT fixed here because the correct rule needs one measurement this repo does not have: what
+        CODESYS's LIVE `CallType` stringifies to for a function-block call. Guessing which value space the two
+        share is precisely the mistake N11 exists to warn about. The probe is a `runscript` read of a live FB
+        box's `CallType`.
+      - **Deleting a network** is applied on CODESYS and refused on TwinCAT before the per-network loop, so a
+        push fails even when every surviving network is a pure value edit. Host gap, tracked below.
 - [ ] **Classify every difference as SPELLING / HOST / VENDOR.** Today all three are worded the same way, which
       is how "TwinCAT's importer rejects an unconditional jump" (true) came to stand for "TwinCAT cannot hold
       one" (false — the fixture in task 0 is one).
