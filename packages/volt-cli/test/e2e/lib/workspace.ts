@@ -193,7 +193,15 @@ export async function plcFolder(sub = ""): Promise<string> {
 	//
 	// Asking for "the POUs folder under the PLC root" when the root IS POUs means that folder, not one inside
 	// it, so this is the answer rather than a workaround for one.
-	return root === sub || root.endsWith(`/${sub}`) ? root : `${root}/${sub}`
+	// MERGE THE OVERLAP: the longest suffix of the root that is also a prefix of `sub`. `POUs` + `POUs` is
+	// `POUs`, and `POUs` + `POUs/Sub` is `POUs/Sub` — the callers that ask for a nested folder spell the whole
+	// path from the PLC project, and a project whose main program already lives in `POUs` would otherwise get
+	// `POUs/POUs/Sub`. An exact-match check was not enough for those.
+	const rootParts = root.split("/").filter(Boolean)
+	const subParts = sub.split("/").filter(Boolean)
+	let overlap = Math.min(rootParts.length, subParts.length)
+	while (overlap > 0 && !rootParts.slice(-overlap).every((p, i) => p === subParts[i])) overlap--
+	return [...rootParts, ...subParts.slice(overlap)].join("/")
 }
 
 /**

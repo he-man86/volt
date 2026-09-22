@@ -279,7 +279,26 @@ internal static class TcNetworkWriter
         // which shape it is and this compares them directly. Unhoisting here would REFUSE a real fan-out (one
         // model tree against three archive items) — the mirror of the bug it was added to fix.
         var items = TcArchive.List(net, "NetworkItems");
-        var trees = model.Trees;
+        IReadOnlyList<Node> trees = model.Trees;
+
+        // …AND `Unhoist` SURVIVES AS A RECONCILIATION FALLBACK, for text written before the spelling existed.
+        //
+        // Every workspace pulled before `m<n>` spells a multi-output assign the way a WIRE is spelled, and that
+        // text is on engineers' disks and in their git history. Read today it builds a `Demux` plus N assigns —
+        // three model trees against the archive's ONE item — so refusing outright would make an existing,
+        // correct file UNPUSHABLE until it was pulled again, with a message about member contracts that
+        // explains none of it.
+        //
+        // So the fold is tried only when the counts DISAGREE and folding makes them agree. That is the whole
+        // difference from what it used to be: it was applied ALWAYS, which is why it flattened real fan-out
+        // wires — a body whose archive genuinely holds three items matches on the first comparison and is never
+        // folded. Old text keeps working, new text is exact, and neither case guesses.
+        if (items.Count != trees.Count)
+        {
+            var folded = Unhoist(trees);
+            if (folded.Count == items.Count) trees = folded;
+        }
+
         if (items.Count != trees.Count)
             throw Refuse($"network {model.Order + 1} changes from {items.Count} to {trees.Count} item(s)");
 

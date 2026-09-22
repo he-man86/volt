@@ -16,7 +16,7 @@
  * wire SURVIVES and that pull → push is a FIXED POINT.
  */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { id, fid, bridge, pushOps, requireHealthy, BASE } from "../harness"
+import { id, fid, bridge, pushOps, requireHealthy, expectVendorDifference, BASE } from "../harness"
 
 describe(`graphical / fan-out (${BASE})`, () => {
 	setDefaultTimeout(120_000)
@@ -48,10 +48,27 @@ describe(`graphical / fan-out (${BASE})`, () => {
 		const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
 		expect(v1).toBeDefined()
 
-		// The wire is THERE: a named LET, and both consumers naming it.
-		expect(v1.sourceText).toMatch(/LET g\d+ := \(a AND b\);/)
-		expect(v1.sourceText).toMatch(/out1 := g\d+;/)
-		expect(v1.sourceText).toMatch(/out2 := g\d+;/)
+		// THE VALUE AND BOTH CONSUMERS ARE THERE ON BOTH VENDORS — and the SHAPE they come back in is not the
+		// same, which nothing could see until network text learned to tell the two apart (2026-09-22).
+		//
+		// A `g<n>` LET is a real fan-out WIRE (a `BoxTreeDemux` the editor draws) and `m<n>` is ONE item driving
+		// several coils. They used to share the `g` spelling, so this assertion passed on both vendors while one
+		// of them was RESHAPING the body: TwinCAT's only create door is `PlcOpenImport`, whose lowering turns a
+		// fan-out into a single assign with two targets — DIALECT D22 recorded exactly that ("fan-out survives
+		// as ONE assign with two targets") and read it as a success, because nothing downstream could tell.
+		//
+		// CODESYS builds live NWL objects and keeps the wire. So this is the same asymmetry as C20 — the shape
+		// is Volt's DOOR on TwinCAT, not the vendor's limit; the IDE holds a Demux perfectly well, and editing
+		// one that already exists works. No logic is lost either way (one value, two coils), which is why it is
+		// named here rather than refused: refusing would make every fan-out body uncreatable on TwinCAT, and
+		// `Lenze_MID-S100` alone holds 573 of them.
+		const wireName = expectVendorDifference("DIALECT D22 / C20 — the PLCopen importer lowers a fan-out wire", {
+			codesys: () => "g",
+			twincat: () => "m",
+		})
+		expect(v1.sourceText).toMatch(new RegExp(String.raw`LET ${wireName}\d+ := \(a AND b\);`))
+		expect(v1.sourceText).toMatch(new RegExp(String.raw`out1 := ${wireName}\d+;`))
+		expect(v1.sourceText).toMatch(new RegExp(String.raw`out2 := ${wireName}\d+;`))
 		// …and the erasure signatures are absent: an empty operand, or a bare statement.
 		expect(v1.sourceText).not.toContain("( AND")
 		expect(v1.sourceText).not.toMatch(/^\s*;\s*$/m)
