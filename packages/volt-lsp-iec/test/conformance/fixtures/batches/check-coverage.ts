@@ -108,9 +108,12 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
   },
   {
     name: "cc_vg_undefined_label",
-    // TwinCAT's PLCopen importer requires a jump to be wired to a condition and rejects this unconditional
+    // RECORDED ON TWINCAT 2026-09-22. This carried a `vendorRefuses` marker because `volt push` could
+    // not create an unconditional jump, so the one sentence this fixture exists to hear — the
+    // compiler's "No such label 'MISSING' within the scope of the JMP statement" — was unhearable on
+    // that vendor. The shape became creatable when the driver learned to wire the jump to an empty
+    // pin and swap the operand for a terminator, and the recording followed the same day.
     // one, so `volt push` refuses it and there is no TwinCAT ground truth to have (measured 2026-09-21).
-    vendorRefuses: { vendor: "twincat" as const, reason: "TwinCAT's PLCopen importer requires a jump to be wired to a condition and rejects an unconditional one (measured 2026-09-21)." },
     pouName: "FB_LANG_cc_vg_label",
     kind: "function_block",
     feature: "network text: a JMP to a missing label → compiler error",

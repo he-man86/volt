@@ -71,8 +71,11 @@ missing from their file today.
       not occur. It also settles the question the run was for: the marker turns NO real body into a marker.
 - [x] **Decide the TEXT FORM — decided: none, for THIS shape.** See above. (The fan-out shape, measured in the
       same run, went the other way — 40 occurrences — and its spelling is section 2's open decision.)
-- [ ] **Sweep for the same shape elsewhere.** `Goto` is one place that indexes a target list; find every other
-      one that assumes a single target, in both drivers and in the shared writer.
+- [x] **Swept — and it found one, which is the argument for sweeping. DONE 2026-09-22.** Three places index a
+      target or output list; two are guarded by a count check and correct. The third was `EnabledAssign`, whose
+      own multi-target arm minted `g` — so an EN-gated box feeding two coils rebuilt as a `Demux` plus two
+      assigns, the identical shape change to the plain case, in the sibling method. Found by looking rather than
+      by hitting it, and covered by `An_enabled_box_driving_several_coils_reads_back_as_ONE_item`.
 
 ## 2. The map
 
@@ -190,14 +193,19 @@ missing from their file today.
       nothing about FREQUENCY — but it does settle that both shapes are real IDE output rather than theoretical,
       which is more than was known. The census that decides the format questions still wants customer archives;
       the predicates are exact and are recorded above.
-- [ ] **Classify every difference as SPELLING / HOST / VENDOR.** Today all three are worded the same way, which
-      is how "TwinCAT's importer rejects an unconditional jump" (true) came to stand for "TwinCAT cannot hold
-      one" (false — the fixture in task 0 is one).
-- [ ] **Re-word every refusal message that blames the vendor for Volt's door.** The user-facing sentence should
-      say what Volt cannot do and what the engineer can do instead; it already says the second half ("Create it
-      in the IDE and pull it").
-- [ ] Fold the result into `DIALECT.md` as a single row per classification rather than four prose rows that
-      each re-argue the same distinction.
+- [x] **Classified — DIALECT C25, DONE 2026-09-22.** SPELLING (same behaviour, different mechanics — in-proc
+      live objects vs an out-of-process archive; EN/ENO is the clean example and is not a gap), HOST (one
+      vendor's ACCESS PATH cannot do it — the big class, and it has ONE cause: `PlcOpenImport` is TwinCAT's only
+      door), VENDOR (a real IDE difference with a measurement). Rarer than it looked: three of the four shapes
+      C20 opened with were HOST, and two of those are now created.
+- [x] **Re-worded, and there was less to do than expected — DONE 2026-09-22.** `TcPlcOpenWriter.Refuse` and
+      `TcNetworkWriter.Refuse` already said "which Volt cannot express as PLCopen" / "which Volt cannot do
+      through the archive", which is HOST-correct. The one that blamed the vendor was the OUTPUT PIN, reworded
+      with the second measurement; the two that blamed it loudest — the unconditional jump and return — are
+      gone, because the shapes are created now. Swept the drivers for "rejects" / "cannot hold" / "does not
+      support" in live messages: none left. The RULE is what C25 carries, so the next one gets caught.
+- [x] Folded into `DIALECT.md` as **C25**, one row carrying the three classes and the rule about MESSAGES that
+      follows from them — instead of four prose rows each re-arguing the distinction.
 
 ## 3. Re-cost the four refusals (C20)
 
@@ -219,28 +227,68 @@ missing from their file today.
       **The two scalars from task 0(a) were not load-bearing.** The drawn body has `Fixed=false LValue=true` on
       the destination operand where Volt writes `Fixed=true LValue=false`, and the IDE built it either way.
       Measured rather than copied, which is the only reason they are not in the code.
-- [ ] **The box output pin — NOT the same shape of fix, measured in task 0(b).** The pin is positional and an
-      imported box carries no signature to position it against. Two routes to cost, and the first is cheap:
-      (i) can an edit be made against a box the IDE has RESOLVED — i.e. does the signature fill in once the POU
-      is opened or built, so the slots exist to write into? (ii) if not, this needs a minted id, which is where
-      N12 stops being a reflex and becomes the answer.
-- [ ] **The Execute box.** `execute-box.TcPOU` exists and its ST edits in place line for line; the boundary is
-      adding a `TextLine`, which needs a minted id (N11). Establish whether an id can be reused here the way the
-      terminator swap reuses one — and if not, this is the one that genuinely wants the in-proc host.
-- [ ] **Write the verdict for each as a DECISION with its measurement**, then shrink `refused-shapes.test.ts` by
-      exactly the ones that moved. The suite failing with "took it, take it off the list" is the intended way
-      this change reports progress.
+- [x] **The box output pin — COSTED, and the verdict is the in-proc host. DECIDED 2026-09-22.**
+      - The pin is POSITIONAL: a drawn box holds `<n />` at slot 0 (unwired `Q`) and the operand at slot 1,
+        index-aligned with `OutputParam.Names = [Q, ET]`. A box VOLT imported has ONE blank slot and
+        `Names = [Out1]` with no type, so an in-place edit cannot even find the ET index.
+      - Route (i) MEASURED AND CLOSED: the signature does NOT fill in. `VltDrawCompare.TcPOU` still reads
+        `Out1` after a full build — and the project compiles with zero errors, because the compiler derives the
+        signature independently of what the archive says. That is also why none of this was ever visible.
+      - Route (ii) is a minted id, so N12 it is. **And the document route is closed on its own evidence**: both
+        spellings have now been put to a live XAE. `formalParameter="ET"` on an `<outVariable>` is ignored
+        (2026-09-06), and DECLARING the real pins in `<outputVariables>` and wiring to one of them — TC6 exactly
+        as written — is ALSO lowered to a separate `BoxTreeAssign` (2026-09-22). There is no third spelling.
+- [x] **The Execute box — COSTED, and it is the one that genuinely wants the in-proc host. DECIDED 2026-09-22.**
+      The terminator swap gets away with no invented id because it REPLACES an element and reuses that element's
+      id. An Execute box has nothing to replace: PLCopen has no element for ST-in-FBD at all, so a create has
+      nothing to import, and the in-place route ends at adding a `TextLine`, which is a NEW element with no
+      predecessor whose id it could take. That is the distinction — reuse is free, minting is N11 — and it is
+      why this one does not follow the jump and return out of C20.
+- [x] **The verdicts are written and the ratchet shrank — DONE.** Of the four shapes C20 opened with, TWO are
+      created now (`refusedBy: []` for the unconditional JMP and RETURN, taken off the list the way the suite
+      demands: it FAILED with "took it, take it off the list" and that is what prompted the edit). The other two
+      are decided above, both on the in-proc host, both with the document routes closed on measurement rather
+      than on caution.
+
+      A FIFTH shape joined C20 in the same pass and it is the one nothing could see: a fan-out WIRE pushed at
+      TwinCAT comes back as a multi-output ASSIGNMENT, because the importer's lowering collapses it. D22 had
+      recorded exactly that and read it as a success — network text spelled both shapes the same way, so no
+      assertion could tell. `m<n>` distinguishes them now and `fanout.test.ts` holds the divergence live.
 
 ## 4. Close the e2e gap these came through
 
-- [ ] **The coverage counter must count what was never TRIED.** `scripts/e2e-graphical-coverage.ts` counted
-      constructs pushed (20 of 25, then 25 of 25) — and every construct it can count is one the writer can
-      state, so the shapes Volt cannot create are invisible to it by construction. It needs a second axis: the
-      constructs the format can READ, which is the superset.
-- [ ] **A hand-drawn fixture for every shape Volt cannot create**, beside `execute-box.TcPOU` and
-      `unconditional-jump.TcPOU`. Each one is drawn once, in XAE, and committed — that is the only way these
-      bodies enter the repo, and each of the two so far found a bug.
-- [ ] **And the conformance recordings that depend on them**: the five fixtures marked `vendorRefuses`
-      (`ng_label_jmp_resolved`, `ng_conditional_jump_and_return`, `ng_execute_box`, `ng_box_output_arrow`,
-      `cc_vg_undefined_label`). If task 3 makes any of them creatable, the recorder takes them the ordinary way
-      and the `vendorRefuses` entry is deleted rather than worked around.
+- [x] **The second axis is in — DONE 2026-09-22, and two attempts at it were wrong first.** Counting "pushed"
+      says nothing about an uncreatable shape, because `refused-shapes.test.ts` pushes every one of them and the
+      push IS the assertion that it is refused. Counting "pushed outside a refusal test" says nothing either —
+      and excluding `uncovered-shapes.test.ts` along with it reported five WORKING constructs as refused, which
+      is precisely the mistake the axis exists to prevent.
+
+      What is knowable statically is narrower and useful: for a shape no driver can build, the only thing that
+      can hold one is a HAND-DRAWN archive, so the report scans `fixtures/tc-pou/*.TcPOU` and says which
+      uncreatable shapes have one and which need somebody in XAE.
+- [x] **Every shape Volt cannot create HAS one — verified by the report above, DONE 2026-09-22.** The list
+      shrank from both ends: the unconditional JMP and RETURN left it by becoming creatable, and the two that
+      remain are held — the output pin by `drawn-refused-shapes.TcPOU` (and `EnoSlot.derived.TcPOU`), the
+      Execute box by `execute-box.TcPOU` (and `ExecuteBox.derived.TcPOU`). Both arrived this way and both found
+      a bug in the hour they arrived, which is the case for drawing the next one rather than a closed chapter.
+- [x] **THREE OF THE FIVE ARE RECORDED — 2026-09-22, and exactly the way this task said they would be.** It
+      read "if task 3 makes any of them creatable, the recorder takes them the ordinary way and the
+      `vendorRefuses` entry is deleted rather than worked around". Task 3 made the unconditional JMP and RETURN
+      creatable, and the recorder took all three without a single change to it:
+
+      ```
+      ng_label_jmp_resolved            buildSuccess: true,  no diagnostics
+      ng_conditional_jump_and_return   buildSuccess: true,  no diagnostics
+      cc_vg_undefined_label            buildSuccess: false, "No such label 'MISSING' within the scope of the JMP statement."
+      ```
+
+      **The third is the one that proves the point.** It exists to make the compiler say that sentence, and
+      nobody could hear it on TwinCAT while the body could not be created — a fixture whose whole purpose was
+      unreachable, counted as "no ground truth to have". Their `vendorRefuses` markers are deleted; conformance
+      is 4157 pass / 0 fail.
+
+- [ ] **The last two need a HUMAN IN XAE**: `ng_execute_box` and `ng_box_output_arrow`. Both are decided in
+      section 3 — the in-proc host (N12) — so no amount of driver work reaches them, and a push test for a body
+      the pusher cannot build is not writable. Somebody draws the two fixture bodies in XAE, pulls them, and the
+      recorder runs the ordinary way, exactly as it just did for the three above. That is the only open item in
+      this change, and it is the one thing in it that is not code.

@@ -59,7 +59,18 @@ function ng(name: string, pouName: string, feature: string, source: string, from
 }
 
 /**
- * The bodies VOLT'S TWINCAT DRIVER refuses, in its own words — which blame TwinCAT's PLCopen importer, and none
+ * The bodies VOLT'S TWINCAT DRIVER refuses, in its own words — DOWN TO TWO, from four.
+ *
+ * <p>The unconditional JMP and the unconditional RETURN left this list on 2026-09-22 by becoming CREATABLE:
+ * `TcPlcOpenWriter` wires them to an empty `<inVariable>` so the importer will build them, and
+ * `TcNetworkWriter` swaps that operand for a `BoxTreeTerminator` afterwards, reusing its id. Both fixtures have
+ * a TwinCAT recording now, and so does `cc_vg_undefined_label` — which is the one that PROVES the point, since
+ * it exists to make the compiler say "No such label 'MISSING' within the scope of the JMP statement", and
+ * nobody could hear that sentence while the body could not be created.</p>
+ *
+ * <p>What made it possible was a body DRAWN BY HAND in XAE. The refusal said the importer rejects an
+ * unconditional jump, which is TRUE, and it was read as "TwinCAT will not hold one", which is FALSE.</p>
+ * — which blame TwinCAT's PLCopen importer, and none
  * of which has been put to the IDE. `volt push` comes
  * back rejected, so these have CODESYS ground truth and none here — and the recorder, the checker and the work
  * list all need to know that rather than counting them as a recording somebody forgot to take — and
@@ -71,10 +82,6 @@ const TWINCAT_REFUSES: Record<string, string | undefined> = {
     "TwinCAT's PLCopen importer honours a box output pin wired straight to a variable and then lowers it to a SEPARATE assignment, so the body that came back would not be the one pushed — `volt push` refuses rather than writing a body the IDE would silently change (measured 2026-09-21).",
   ng_execute_box:
     "an Execute box is a TwinCAT construct Volt cannot express as PLCopen; the IDE has to draw it (measured 2026-09-21).",
-  ng_label_jmp_resolved:
-    "TwinCAT's PLCopen importer requires a jump to be wired to a condition and rejects an unconditional one (measured 2026-09-21).",
-  ng_conditional_jump_and_return:
-    "TwinCAT's PLCopen importer requires a return to be wired to a condition and rejects the unconditional one beside them (measured 2026-09-21).",
 }
 
 export const NETWORK_GRAPHICAL_TESTS: readonly LanguageTest[] = [
