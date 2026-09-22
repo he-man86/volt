@@ -7,7 +7,7 @@ namespace Volt.Ide.Twincat.Tests;
 /// <summary>
 /// AN UNCONDITIONAL JUMP, DRAWN BY HAND IN XAE — the shape Volt cannot create, so no fixture had ever held one.
 ///
-/// <para>`unconditional-jump.TcPOU` was drawn in a live TcXaeShell because `volt push` refuses the shape: the
+/// <para>`drawn-refused-shapes.TcPOU` was drawn in a live TcXaeShell because `volt push` refuses the shape: the
 /// TwinCAT driver's only create door is `PlcOpenImport` (D22), and that importer requires a jump to be wired to
 /// a condition. The CODESYS driver has no such limit because it builds LIVE NWL objects in-process
 /// (`NwlInterop`, `CodesysNetworkWriter`) — N1 says the object model is identical on both vendors, so the gap
@@ -18,7 +18,7 @@ namespace Volt.Ide.Twincat.Tests;
 public class TcDrawnJumpTests
 {
     private static XElement Impl() =>
-        XDocument.Load(Fixtures.Path("tc-pou", "unconditional-jump.TcPOU"), LoadOptions.PreserveWhitespace)
+        XDocument.Load(Fixtures.Path("tc-pou", "drawn-refused-shapes.TcPOU"), LoadOptions.PreserveWhitespace)
             .Descendants("NWL").Single()
             .DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject");
 
