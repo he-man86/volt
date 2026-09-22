@@ -86,6 +86,7 @@ public class TcRoundTripTests
     [InlineData("MultiOutput.derived.TcPOU")]     // one value driving two coils
     [InlineData("FanOut.TcPOU")]                  // a box with a REAL output item - see the note on this row
     [InlineData("execute-box.TcPOU")]             // an Execute box - its ST must survive a no-op push
+    [InlineData("unconditional-jump.TcPOU")]     // an UNCONDITIONAL JMP - drawn by hand, because Volt cannot create one
     public void A_push_that_changes_nothing_changes_nothing_in_the_archive(string fixture)
     {
         var before = Body(fixture);
@@ -121,6 +122,7 @@ public class TcRoundTripTests
     [InlineData("MultiOutput.derived.TcPOU")]     // one value driving two coils
     [InlineData("FanOut.TcPOU")]                  // a box with a REAL output item - see the note on this row
     [InlineData("execute-box.TcPOU")]             // an Execute box - its ST must survive a no-op push
+    [InlineData("unconditional-jump.TcPOU")]     // an UNCONDITIONAL JMP - drawn by hand, because Volt cannot create one
     public void A_push_of_an_unchanged_body_is_not_written_back_at_all(string fixture)
     {
         var before = Body(fixture);
