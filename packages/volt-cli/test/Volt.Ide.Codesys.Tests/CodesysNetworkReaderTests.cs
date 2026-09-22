@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using Volt.Engine.Format.Body;
 using Volt.Engine.Format.Network;
 using Xunit;
 
@@ -651,7 +652,14 @@ public class CodesysNetworkReaderTests
             STSnippet = new Nwl.STSnippet(),   // ProvidesSTSnippet is true; the Snippet aspect is absent
         };
 
-        Assert.Throws<System.NotSupportedException>(
+        // THE TYPE IS THE CONTRACT, not the wording. This asserted a bare `NotSupportedException`, and the
+        // driver above it had no way to tell this refusal from any other — so it did not try, and the throw
+        // reached `Versioning.SafeVersion`, which stamps the item UNREADABLE and drops the whole POU from the
+        // workspace and from git. TwinCAT answered the same body with a marker. The exception now carries the
+        // marker the driver should materialize, and `VendorCapabilityParityTests` holds both drivers to
+        // catching it.
+        var ex = Assert.Throws<UnrepresentableBodyException>(
             () => CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd));
+        Assert.Equal("EXECUTE", ex.Marker);
     }
 }

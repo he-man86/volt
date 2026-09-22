@@ -223,6 +223,41 @@ public class VendorCapabilityParityTests
         return m.Groups[1].Value;
     }
 
+    /// <summary>A BODY NEITHER VENDOR CAN REPRESENT MUST BECOME A MARKER ON BOTH — never a missing POU.
+    ///
+    /// <para>A reader that cannot represent a body throws <c>UnrepresentableBodyException</c>. Unguarded, that
+    /// throw reaches <c>Versioning.SafeVersion</c>, which isolates it by stamping the item UNREADABLE, and
+    /// <c>FetchService</c> then drops the POU from <c>changed</c>, <c>items</c> AND <c>folders</c> — so the
+    /// engineer's file disappears from the workspace and from git on every pull, declaration and every sibling
+    /// method with it, leaving only a count in an "N unreadable" tally.</para>
+    ///
+    /// <para><b>This was one-sided and nothing could see it.</b> TwinCAT pre-empted the refusal with an archive
+    /// pre-scan and returned the marker; CODESYS reads LIVE objects, has no equivalent pre-scan, and let the
+    /// throw out. The same Execute box therefore gave a TwinCAT engineer a POU that says what it holds and a
+    /// CODESYS engineer no POU at all — two different answers to one body, which is exactly what the
+    /// byte-identical-response rule forbids. Found by the vendor differential map, 2026-09-22.</para>
+    ///
+    /// <para>The gate is structural on purpose. The CODESYS driver arm needs LIVE vendor objects to exercise,
+    /// so no offline test can reach it; what CAN be held is that neither driver ever stops answering.</para>
+    /// </summary>
+    [Theory]
+    [InlineData("Volt.Ide.Codesys")]
+    [InlineData("Volt.Ide.Twincat")]
+    public void Every_driver_answers_an_unrepresentable_body_with_a_marker(string vendor)
+        {
+        var dir = Path.Combine(RepoRoot(), "packages", "volt-cli", "src", vendor);
+        var driver = Directory.EnumerateFiles(dir, "*.cs", SearchOption.AllDirectories)
+            .Where(NotBuildOutput)
+            .Select(File.ReadAllText)
+            .ToList();
+
+        Assert.True(
+            driver.Any(t => t.Contains("catch (UnrepresentableBodyException")),
+            vendor + " never catches UnrepresentableBodyException, so a body its reader cannot represent " +
+            "removes the whole POU from the workspace and from git instead of materializing as a marker. " +
+            "Catch it where the body is read and return BodyMarker.For(ex.Marker).");
+        }
+
     private static bool NotBuildOutput(string file) =>
         !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}") &&
         !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}");

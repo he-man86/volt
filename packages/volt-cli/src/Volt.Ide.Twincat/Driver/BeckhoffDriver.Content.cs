@@ -57,33 +57,13 @@ public sealed partial class BeckhoffDriver
                                IReadOnlyDictionary<string, string> pushedDeclarations)
     {
         var split = StReader.Read(sourceText, null);
-        foreach (var (body, declaration) in BodiesOf(split))
+        foreach (var (body, declaration) in SourceScopes.BodiesOf(split))
         {
             if (body is not { } text || !NetworkText.Is(text)) continue;
             var model = NetworkTextReader.Parse(text);
             // The name is the scratch POU's, and nothing reads it back — only whether the writer throws.
             TcPlcOpenWriter.WriteProject("VoltPreflight", model, declaration,
                                          n => DeclarationOfName(pushedDeclarations, n));
-        }
-    }
-
-    /// <summary>Every body a document carries, WITH THE DECLARATION IT RESOLVES AGAINST — the POU's own, each
-    /// member's, and a property's accessors, which have no body of their own and are the half a `m.Body` walk
-    /// silently skips.
-    ///
-    /// <para>The pairing is <see cref="Scope"/>'s, and pairing it wrong is a pre-flight that invents refusals:
-    /// a method's `t1(IN := a)` resolves `t1` in the METHOD's VAR block first and the POU's after, so handing
-    /// the writer only the POU's declaration would refuse a body the write itself takes — the one failure a
-    /// pre-flight must never have.</para></summary>
-    private static IEnumerable<(string? Body, string? Declaration)> BodiesOf(ItemContent split)
-    {
-        yield return (split.Body, split.Declaration);
-        foreach (var m in split.Members)
-        {
-            var scope = Scope(m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, split.Declaration);
-            yield return (m.Body, scope);
-            yield return (m.Getter?.Body, Scope(m.Getter?.Declaration, scope));
-            yield return (m.Setter?.Body, Scope(m.Setter?.Declaration, scope));
         }
     }
 
@@ -147,14 +127,14 @@ public sealed partial class BeckhoffDriver
         {
             var site = byName[m.Name];
             var itf = m.Kind == ItemKind.Kinds.InterfaceProperty;
-            Collect(graphical, new[] { m.Name }, site, m.Body, Scope(m.Declaration, content.Declaration),
+            Collect(graphical, new[] { m.Name }, site, m.Body, SourceScopes.Scope(m.Declaration, content.Declaration),
                     pushedDeclarations);
             Collect(graphical, new[] { m.Name, "Get" },
                     AccessorSite(site, itf ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet),
-                    m.Getter?.Body, Scope(m.Getter?.Declaration, content.Declaration), pushedDeclarations);
+                    m.Getter?.Body, SourceScopes.Scope(m.Getter?.Declaration, content.Declaration), pushedDeclarations);
             Collect(graphical, new[] { m.Name, "Set" },
                     AccessorSite(site, itf ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet),
-                    m.Setter?.Body, Scope(m.Setter?.Declaration, content.Declaration), pushedDeclarations);
+                    m.Setter?.Body, SourceScopes.Scope(m.Setter?.Declaration, content.Declaration), pushedDeclarations);
         }
 
         if (graphical.Count > 0)
@@ -185,22 +165,6 @@ public sealed partial class BeckhoffDriver
 
         WriteOne(item, content.Kind, content.Declaration, content.Body, pushedDeclarations);
     }
-
-    /// <summary>The declarations a graphical body must be resolved against: the member's own FIRST, then
-    /// the POU's.
-    ///
-    /// <para><b>A stateful FB instance lives in the enclosing POU's VAR block, not in the member's.</b> A
-    /// graphical body naming `t1(IN := a)` needs `t1 : TON;` to resolve the call's TYPE, and that
-    /// declaration is one level up — so resolving against the member alone reported `'t1' names a
-    /// function-block instance that is not declared in this POU`, advice pointing at work the engineer had
-    /// already done. An ACTION makes it starker still: it has no declaration at all.</para>
-    ///
-    /// <para>Member first, because the lookup takes the FIRST match and an inner scope must win: a member's
-    /// own `VAR_INPUT p : TON;` shadows a POU-level `p` exactly as IEC says it does.</para></summary>
-    private static string? Scope(string? member, string? owner) =>
-        string.IsNullOrWhiteSpace(member) ? owner
-        : string.IsNullOrWhiteSpace(owner) ? member
-        : member + "\n" + owner;
 
     /// <summary>Resolve one graphical member body and note it for the archive write — or note NOTHING, when
     /// the member's live archive already says exactly this.
@@ -319,7 +283,25 @@ public sealed partial class BeckhoffDriver
             // (`TcNetworkWriter`); this is the READ path, and it can now answer.
             if (TcArchive.HasUnreadableExecuteBox(impl)) return BodyMarker.For("EXECUTE");
 
-            var model = TcNetworkReader.Read(impl, language.Value);
+            // …AND THE CATCH BEHIND IT, because the pre-scan answers ONE question and the reader can refuse for
+            // more than one reason. `HasUnreadableExecuteBox` asks whether a TextDocument is missing; a snippet
+            // that is present and unwalkable for any other reason still reaches `ReadStCode`, and an escaping
+            // throw costs the WHOLE POU — `Versioning.SafeVersion` stamps the item Unreadable and `FetchService`
+            // drops it from `changed`, `items` and `folders`, so the file leaves the workspace and git on every
+            // pull. The pre-scan stays as the precise answer; this is what makes the imprecise cases survivable.
+            //
+            // Both drivers now end an unrepresentable body the same way, and `VendorCapabilityParityTests` holds
+            // them there — CODESYS had no pre-scan at all and lost POUs outright, which is what the vendor
+            // differential map found on 2026-09-22.
+            NetworkBody model;
+            try
+            {
+                model = TcNetworkReader.Read(impl, language.Value);
+            }
+            catch (UnrepresentableBodyException ex)
+            {
+                return BodyMarker.For(ex.Marker);
+            }
 
             // Byte-identical with CODESYS: a coil modifier the text form cannot spell is a MARKER on both
             // vendors, because the model is the same model (DIALECT N1) and the format is the same format.

@@ -37,4 +37,29 @@
         public static bool Is(string? impl) =>
             impl != null && impl.TrimStart().StartsWith(Prefix, System.StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// A BODY THE READER CANNOT REPRESENT — thrown by a vendor reader, and answered with a MARKER.
+    ///
+    /// <para>The distinction this type exists to keep is the difference between an engineer seeing their POU
+    /// and an engineer losing it. A refusal raised deep in a node walk reaches <c>Versioning.SafeVersion</c>,
+    /// which isolates it by stamping the item UNREADABLE — and <c>FetchService</c> then drops that item from
+    /// <c>changed</c>, <c>items</c> AND <c>folders</c>, so the POU disappears from the workspace and from git
+    /// on every pull, with nothing but a count in an "N unreadable" tally. A body Volt cannot represent is
+    /// exactly what the marker is for: the POU appears, says what it holds, and is refused on PUSH.</para>
+    ///
+    /// <para><b>Why a type and not a message match.</b> Both vendor readers already refused an Execute box
+    /// whose ST cannot be read, with near-identical wording, and only the TwinCAT DRIVER pre-empted the throw
+    /// (an archive pre-scan, <c>TcArchive.HasUnreadableExecuteBox</c>). CODESYS reads LIVE objects and has no
+    /// equivalent pre-scan to run, so the same body that gives a TwinCAT engineer a marker removed the whole
+    /// CODESYS POU — declaration, body and every sibling method. Catching a MESSAGE would close that hole and
+    /// re-open it the first time somebody rephrased the sentence.</para>
+    /// </summary>
+    public sealed class UnrepresentableBodyException : System.NotSupportedException
+    {
+        /// <summary>The marker the driver should materialize instead — e.g. <c>EXECUTE</c>.</summary>
+        public string Marker { get; }
+
+        public UnrepresentableBodyException(string marker, string message) : base(message) => Marker = marker;
+    }
 }

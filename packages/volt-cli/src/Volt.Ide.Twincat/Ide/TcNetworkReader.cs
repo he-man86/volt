@@ -188,7 +188,7 @@ internal static class TcNetworkReader
         var doc = TcArchive.Obj(TcArchive.Obj(TcArchive.Obj(e, "STSnippet"), "STSnippet"), "TextDocument");
         var lines = TcArchive.Items(doc, "TextLines");
         if (doc == null)
-            throw new NotSupportedException(
+            throw new Volt.Engine.Format.Body.UnrepresentableBodyException("EXECUTE",
                 "TwinCAT: this network contains an Execute box whose STSnippet/TextDocument this reader could " +
                 "not walk. Volt will not materialize the box without the code it runs — the body would look " +
                 "complete and would not be. Edit this POU in the IDE.");

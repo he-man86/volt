@@ -126,7 +126,31 @@ public sealed partial class CodesysDriver
                 var language = ReadViewMode(impl);
                 if (language is null) return (null, BodyMarker.For("IL"));
 
-                var model = CodesysNetworkReader.Read(impl, language.Value);
+                // A BODY THE READER CANNOT REPRESENT IS A MARKER, NOT A MISSING POU.
+                //
+                // `ReadStCode` refuses an Execute box whose ST cannot be read — correctly: materializing the
+                // box without the code it runs makes the body look complete when it is not. But the refusal is
+                // a THROW deep in the node walk, and unguarded it reaches `Versioning.SafeVersion`, which
+                // isolates it by stamping the item UNREADABLE; `FetchService` then drops the POU from
+                // `changed`, `items` AND `folders`, so the engineer's file disappears from the workspace and
+                // from git on every pull, with only a count in the "N unreadable" tally — declaration, body
+                // and every sibling method with it. That is the identical failure the IL arm above exists to
+                // stop, one arm lower down.
+                //
+                // TwinCAT never had the hole: its driver pre-empts the same refusal with an archive pre-scan
+                // (`TcArchive.HasUnreadableExecuteBox`) and returns the marker. CODESYS reads LIVE objects and
+                // has no equivalent pre-scan to run, so the SAME body gave a TwinCAT engineer a POU that says
+                // what it holds and a CODESYS engineer no POU at all. The two now answer identically, which is
+                // the byte-identical-response rule the wire exists to hold.
+                NetworkBody model;
+                try
+                {
+                    model = CodesysNetworkReader.Read(impl, language.Value);
+                }
+                catch (UnrepresentableBodyException ex)
+                {
+                    return (null, BodyMarker.For(ex.Marker));
+                }
 
                 // A coil modifier the text form cannot spell makes the body a MARKER, never a plain coil. The
                 // silent alternative writes a different machine into the engineer's file; see
@@ -274,6 +298,34 @@ public sealed partial class CodesysDriver
     /// that name" is just as expensive to establish, and the push overlay in front of it means a name that
     /// arrives later in the same push is never reached through here.</para></summary>
     private readonly Dictionary<string, string?> _declarationByName = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The push PRE-FLIGHT: refuse a body this driver could not write, before anything is written.
+    ///
+    /// <para>CODESYS never overrode this, so <c>DriverBase</c> refused nothing and every refusal inside
+    /// <c>CodesysNetworkWriter</c> fired from INSIDE the write. <c>PushService</c> applies a push item by
+    /// item, so a create whose Nth POU called a function-block instance with no resolvable type wrote items
+    /// 1..N-1 into the engineer's live project and then rejected the push — the caller told it failed, half
+    /// of it landed, and the receipt's "already written ... run volt pull" note is the apology. That is the
+    /// `Lenze_MID-S100` shape the pre-flight exists to prevent, and TwinCAT has been covered since
+    /// <c>ICodeStore.ValidateSource</c> landed. Found by the vendor differential map, 2026-09-22.</para>
+    ///
+    /// <para>ONE decision, not two: <c>CodesysNetworkWriter.Validate</c> calls the same
+    /// <c>ResolveBoxType</c> the write does, so the pre-flight cannot start refusing bodies the write would
+    /// take — which is the only failure mode a pre-flight must not have.</para>
+    ///
+    /// <para>CREATE only, like TwinCAT's: an update rewrites just the networks that CHANGED, so a body may
+    /// legitimately carry a shape the whole-body validator refuses in a network the edit does not touch.</para></summary>
+    public override void ValidateSource(string wireName, string sourceText,
+                                        IReadOnlyDictionary<string, string> pushedDeclarations)
+    {
+        var split = StReader.Read(sourceText, null);
+        foreach (var (body, declaration) in SourceScopes.BodiesOf(split))
+        {
+            if (body is not { } text || !NetworkText.Is(text)) continue;
+            CodesysNetworkWriter.Validate(NetworkTextReader.Parse(text), declaration,
+                                          n => DeclarationOfName(pushedDeclarations, n));
+        }
+    }
 
     private string? DeclarationOfName(IReadOnlyDictionary<string, string> pushed, string name)
     {

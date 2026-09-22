@@ -451,17 +451,13 @@ namespace Volt.Ide.Codesys
             ///
             /// <para>An ARCHIVE-derived model already carries the real type (`Type: "TON"`, `Instance: "t1"`),
             /// so resolution runs only when the two are the same string — the text-derived shape.</para></summary>
-            private string BoxTypeOf(Box b)
-            {
-                if (b.Kind != CallKind.FunctionBlock || b.Instance is not { } inst) return b.Type;
-                if (!string.Equals(b.Type, inst.Text, StringComparison.OrdinalIgnoreCase)) return b.Type;
-
-                return StDeclaration.TypeOfCallTarget(_declaration, inst.Text, _declarationOf)
-                    ?? throw new NotSupportedException(
-                           $"CODESYS: the call '{inst.Text}' names a function-block instance whose TYPE Volt " +
-                           "cannot find — not in this POU's declaration, and not by following the name through " +
-                           "the project. Declare it, or edit this network in the IDE.");
-            }
+            // DELEGATES TO A STATIC, so the push PRE-FLIGHT can run the IDENTICAL decision without a live
+            // project. The refusal below is a pure function of the model and the declarations, and it was
+            // only ever reachable from INSIDE the write — so a create-push whose Nth POU called an
+            // unresolvable FB instance wrote items 1..N-1 into the engineer's project and then failed. That
+            // is the shape `PushService` pre-flights against, and TwinCAT already did; see
+            // `CodesysDriver.ValidateSource`.
+            private string BoxTypeOf(Box b) => ResolveBoxType(b, _declaration, _declarationOf);
 
             /// <summary>Name the function-block instance a box calls — by MUTATING the operand the box already
             /// holds, not by replacing it.
@@ -551,5 +547,77 @@ namespace Volt.Ide.Codesys
                 if (f.Falling) NwlInterop.Set(target, "Ftrig", true);
             }
         }
+
+    /// <summary>THE BOX TYPE, RESOLVED FROM THE DECLARATION — and the refusal when it cannot be.
+    ///
+    /// <para>A text-derived model names a function-block call by its INSTANCE (`t1(IN := a)`), so the TYPE
+    /// comes from one line up, in the declaration the same push writes (`t1 : TON;`). An instance that is not
+    /// declared is a body Volt cannot write correctly, and a silently unresolvable box is exactly the failure
+    /// this exists to prevent. An ARCHIVE-derived model already carries the real type, so the resolution runs
+    /// only when the two strings are the same — the text-derived shape.</para>
+    ///
+    /// <para>Static so the push PRE-FLIGHT and the WRITE make one decision rather than two that can drift.</para></summary>
+    internal static string ResolveBoxType(Box b, string? declaration, Func<string, string?> declarationOf)
+    {
+        if (b.Kind != CallKind.FunctionBlock || b.Instance is not { } inst) return b.Type;
+        if (!string.Equals(b.Type, inst.Text, StringComparison.OrdinalIgnoreCase)) return b.Type;
+
+        return StDeclaration.TypeOfCallTarget(declaration, inst.Text, declarationOf)
+            ?? throw new NotSupportedException(
+                   $"CODESYS: the call '{inst.Text}' names a function-block instance whose TYPE Volt " +
+                   "cannot find — not in this POU's declaration, and not by following the name through " +
+                   "the project. Declare it, or edit this network in the IDE.");
     }
+
+    /// <summary>THE PUSH PRE-FLIGHT: every refusal this writer raises that is decidable from the SOURCE TEXT.
+    ///
+    /// <para>It was reachable only from inside the write, and the cost of that is measured: `PushService`
+    /// applies a push item by item, so a create whose Nth POU carried one of these wrote items 1..N-1 into the
+    /// live project and then rejected the push — the caller told it failed, half of it in the project. That is
+    /// the `Lenze_MID-S100` shape `PushService` exists to prevent, and TwinCAT has been pre-flighted since
+    /// `ICodeStore.ValidateSource` landed. CODESYS never overrode it, so `DriverBase` refused nothing.</para>
+    ///
+    /// <para>It stops at what the TEXT decides. The live write can still fail on something only the project
+    /// knows, and pretending otherwise here would be a pre-flight that lies.</para></summary>
+    internal static void Validate(NetworkBody model, string? declaration, Func<string, string?> declarationOf)
+    {
+        foreach (var network in model.Networks)
+            foreach (var tree in network.Trees)
+                ValidateNode(tree, declaration, declarationOf);
+    }
+
+    private static void ValidateNode(Node? n, string? declaration, Func<string, string?> declarationOf)
+    {
+        switch (n)
+        {
+            case null: return;
+
+            case Box b:
+                ResolveBoxType(b, declaration, declarationOf);   // throws when the instance has no type
+                ValidateNode(b.Enable, declaration, declarationOf);
+                foreach (var p in b.Inputs) ValidateNode(p.Value, declaration, declarationOf);
+                return;
+
+            case Assign a: ValidateNode(a.Value, declaration, declarationOf); return;
+            case Demux d: ValidateNode(d.Input, declaration, declarationOf); return;
+            case Terminator t: ValidateNode(t.Input, declaration, declarationOf); return;
+            case Parallel p2:
+                ValidateNode(p2.Input, declaration, declarationOf);
+                foreach (var br in p2.Branches) ValidateNode(br, declaration, declarationOf);
+                return;
+
+            case Leaf: return;
+
+            // THE SAME REFUSAL THE WRITER'S OWN `default` ARM RAISES, moved in front of the first write. A node
+            // kind this validator does not know is one the writer does not know either — the two arms list the
+            // same set, and a new node type has to be added to both or the pre-flight silently stops covering
+            // it. There is no way to share one switch: the writer's arms BUILD vendor objects.
+            default:
+                throw new NotSupportedException(
+                    $"CODESYS: no way to write the graphical node '{n.GetType().Name}' — refusing " +
+                    "rather than writing a body that is not what the source says.");
+        }
+    }
+    }
+
 }

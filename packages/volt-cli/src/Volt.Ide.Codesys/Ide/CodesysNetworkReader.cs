@@ -255,12 +255,12 @@ namespace Volt.Ide.Codesys
         {
             if (!NwlInterop.Flag(n, "ProvidesSTSnippet")) return null;
             var snippet = NwlInterop.Get(n, "STSnippet")
-                          ?? throw new NotSupportedException(
+                          ?? throw new Volt.Engine.Format.Body.UnrepresentableBodyException("EXECUTE",
                               "CODESYS: this network contains an Execute box that reports an ST snippet and has " +
                               "none. Volt will not materialize the box without the code it runs — the body " +
                               "would look complete and would not be. Edit this POU in the IDE.");
             return CodesysObjectModel.TryReadAspectText(snippet, "Snippet")
-                   ?? throw new NotSupportedException(
+                   ?? throw new Volt.Engine.Format.Body.UnrepresentableBodyException("EXECUTE",
                        "CODESYS: this network contains an Execute box whose STSnippet carries no text document. " +
                        "Volt will not materialize the box without the code it runs — the body would look " +
                        "complete and would not be. Edit this POU in the IDE.");
