@@ -163,16 +163,28 @@ function valueForTypedBody(prefix: string, body: string): LiteralValue {
   return parseIntLiteral(body)
 }
 
-const UNIT_NS: Record<string, bigint> = {
-  d: 86_400_000_000_000n,
-  h: 3_600_000_000_000n,
-  m: 60_000_000_000n,
-  s: 1_000_000_000n,
-  ms: 1_000_000n,
-  us: 1_000n,
-  µs: 1_000n,
-  ns: 1n,
-}
+/**
+ * THE DURATION LADDER — every unit a TIME or LTIME names, LARGEST first, in nanoseconds.
+ *
+ * <p>One home, and it sits in `syntax` because that is the lowest layer that needs it: the literal PARSER reads
+ * it here and the transpiler's PRINTERS read it downward (`ir/values`, where `timeText` and `ltimeText` each
+ * carried their own copy — one scaled to milliseconds, one to nanoseconds, agreeing by hand).</p>
+ *
+ * <p>The Rust prelude carries a fourth copy as source TEXT and cannot import this; that one is a mirror, and the
+ * measurements it mirrors are in `conversions/to-string-format.ts`.</p>
+ */
+export const DURATION_UNITS_NS: readonly (readonly [unit: string, ns: bigint])[] = [
+  ["d", 86_400_000_000_000n],
+  ["h", 3_600_000_000_000n],
+  ["m", 60_000_000_000n],
+  ["s", 1_000_000_000n],
+  ["ms", 1_000_000n],
+  ["us", 1_000n],
+  ["ns", 1n],
+]
+
+/** …as a lookup, with the `µs` spelling a source file may use for microseconds. */
+const UNIT_NS: Record<string, bigint> = { ...Object.fromEntries(DURATION_UNITS_NS), "µs": 1_000n }
 
 // ms/us/ns before the single-letter m/s so the greedy alternation matches them first.
 const DURATION_RE = /(\d+(?:\.\d+)?)(ms|us|µs|ns|d|h|m|s)/gi

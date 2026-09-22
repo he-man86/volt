@@ -12,6 +12,7 @@ import {
   peelArray,
 } from "../ir/index.js"
 import { elemOf, type Type } from "../../types/index.js"
+import { DURATION_UNITS_NS } from "../../syntax/index.js"
 import { isBit } from "./ir.js"
 
 /** A runtime value. Integers, durations and dates stay `bigint` in their type's unit (so `/` truncates like IEC does);
@@ -142,8 +143,16 @@ export function calendarText(name: "DATE" | "DT" | "TOD", v: bigint): string {
   return `DT#${date}-${pad(t / 3600n, 2)}:${pad((t / 60n) % 60n, 2)}:${pad(t % 60n, 2)}`
 }
 
+/**
+ * The ladder at one type's own TICK: each unit as a count of ticks, and units finer than the tick dropped — a
+ * TIME counts milliseconds, so it has no `us` or `ns` component, and an LTIME counts nanoseconds and has both.
+ * Both printers had this written out by hand, in two different scales.
+ */
+const ladder = (tickNs: bigint): [bigint, string][] =>
+  DURATION_UNITS_NS.filter(([, ns]) => ns >= tickNs).map(([unit, ns]) => [ns / tickNs, unit])
+
 export function timeText(ms: bigint): string {
-  return durationText(ms, "T", [[86_400_000n, "d"], [3_600_000n, "h"], [60_000n, "m"], [1000n, "s"], [1n, "ms"]])
+  return durationText(ms, "T", ladder(1_000_000n))
 }
 
 /**
@@ -157,15 +166,7 @@ export function timeText(ms: bigint): string {
  * `iec_ltime_text`.
  */
 export function ltimeText(ns: bigint): string {
-  return durationText(ns, "LTIME", [
-    [86_400_000_000_000n, "d"],
-    [3_600_000_000_000n, "h"],
-    [60_000_000_000n, "m"],
-    [1_000_000_000n, "s"],
-    [1_000_000n, "ms"],
-    [1000n, "us"],
-    [1n, "ns"],
-  ])
+  return durationText(ns, "LTIME", ladder(1n))
 }
 
 /** The shared body: each non-zero component largest first, and the smallest unit's name when every one is zero. */
