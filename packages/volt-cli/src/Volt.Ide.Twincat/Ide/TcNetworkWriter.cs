@@ -164,7 +164,25 @@ internal static class TcNetworkWriter
 
         var networks = TcArchive.List(impl, "NetworkList");
         if (networks.Count != body.Networks.Count)
-            throw Refuse($"the number of networks changes ({networks.Count} -> {body.Networks.Count})");
+            // ADDING one needs an archive element Volt will not build (the generic `Refuse` below says why).
+            // DELETING one does not build anything, and is refused for a DIFFERENT reason worth stating: the
+            // networks are paired by POSITION here, and network text RENUMBERS on every pull — `NETWORK 0, 1,
+            // 2` after deleting the second of four is byte-identical to the same text after deleting the
+            // fourth. So the push does not carry which network went, and picking one would be a guess at the
+            // engineer's intent with their logic. CODESYS does not face it: its writer rebuilds every changed
+            // network from the model, so deletion falls out for free and the ambiguity never arises.
+            //
+            // Matching the survivors by CONTENT would resolve it, and is the shape any fix takes. Tracked in
+            // `openspec/changes/graphical-vendor-parity-map`.
+            throw new NotSupportedException(
+                $"TwinCAT: this push changes the number of networks ({networks.Count} -> {body.Networks.Count}). " +
+                (body.Networks.Count < networks.Count
+                    ? "Volt cannot tell WHICH network was removed - network text renumbers its headers on " +
+                      "every pull, so the text after deleting the second of four is identical to the text " +
+                      "after deleting the fourth, and removing the wrong one would delete working logic. " +
+                      "Delete the network in the IDE and pull it."
+                    : "Volt cannot ADD one through the archive: a new network needs elements whose member " +
+                      "contract only the IDE produces. Add it in the IDE and pull it."));
 
         bool changed = false;
         for (int i = 0; i < networks.Count; i++)

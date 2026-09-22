@@ -38,6 +38,15 @@ export function fid(s: string, ext = "fb"): string {
  * 0 failures depending only on how used the project copy was"; on 2026-09-03 four runs gave 4, 1, 2 and 7, while a
  * run from a restored fixture gives 159/1 every time.</p>
  */
+/** The project the bridge is serving, printed ONCE — see the note in `requireHealthy`. */
+let announced = false
+function announceProject(health: any): void {
+	if (announced) return
+	announced = true
+	const project = (health?.projects ?? []).find((p: any) => p?.project)?.project
+	if (project) console.log(`[e2e] serving project: ${project}`)
+}
+
 let swept = false
 async function sweepOnce(): Promise<void> {
 	if (swept) return
@@ -75,6 +84,13 @@ export async function requireHealthy(timeoutMs = 60_000): Promise<void> {
 	while (Date.now() - t0 < timeoutMs) {
 		const h = await bridge.health().catch(() => ({ projects: [] }))
 		if (healthStatus(h) === "healthy") {
+			// SAY WHICH PROJECT, not just which pipe. `ide.ps1 up` opens TWO XAE windows and discovery takes the
+			// first live pipe by name — i.e. by pid string order — so which project a run measures is not
+			// something the run chooses, and the two are not interchangeable. It has cost real time twice: the
+			// latency baselines were recorded on the smaller one and read 8x worse on the larger, and the two
+			// disagree about where the PLC root is, so the default `POUs` folder resolved to `POUs/POUs` and
+			// fifty-eight tests failed with a vendor path error that named neither cause.
+			announceProject(h)
 			await sweepOnce()
 			return
 		}

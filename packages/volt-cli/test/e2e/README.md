@@ -174,6 +174,12 @@ session that happens to bind `Project14` (17 items, PackML FBs, several graphica
 invites a vendor-performance conclusion the numbers do not support. `ide.ps1 up` opens BOTH, and discovery
 takes the first live pipe — so which project a run measures is not something the run chooses.
 
+**It also decides where the PLC ROOT is**, and that failure does not look like a project difference either:
+the harness default folder `POUs` resolved to `POUs/POUs` on one of the two, and FIFTY-EIGHT tests failed with
+`ITcSmTreeItem:CreateChild failed: Could not find a part of the path ...\POUs\POUs\X.TcPOU` — a vendor error
+naming neither the cause nor the project. `requireHealthy` prints `[e2e] serving project: <name>` now, once per
+run, so the first line of any red run says which of the two it was.
+
 **And it changes what is COVERED, not only what is timed.** The same sweep skips **20** tests on Project13
 and **8** on Project14, because several suites gate on the project being big enough to be meaningful
 (`if (itemCount >= 20)`, a POU with children, a folder two deep). A green run says nothing about which of

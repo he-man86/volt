@@ -180,7 +180,31 @@ public class TcNetworkWriterTests
         var grown = model with { Networks = model.Networks.Append(model.Networks[0]).ToList() };
 
         var ex = Assert.Throws<NotSupportedException>(() => TcNetworkWriter.Apply(body, grown));
-        Assert.Contains("number of networks changes (2 -> 3)", ex.Message);
+        Assert.Contains("changes the number of networks (2 -> 3)", ex.Message);
+        // ADDING is refused for the member-contract reason; DELETING is not, and the message says which.
+        Assert.Contains("cannot ADD one through the archive", ex.Message);
+    }
+
+    /// <summary>DELETING a network is refused for a DIFFERENT reason, and saying the wrong one is worse than
+    /// saying nothing: a deletion builds no archive element, so "Volt never builds elements" does not explain
+    /// it and points the engineer at the wrong thing.
+    ///
+    /// <para>The real reason is that the push does not carry WHICH network went. Networks pair by POSITION and
+    /// network text renumbers its headers on every pull, so `NETWORK 0, 1, 2` after deleting the second of four
+    /// is byte-identical to the same text after deleting the fourth — and removing the wrong one deletes
+    /// working logic. CODESYS never faces it: its writer rebuilds every changed network from the model, so
+    /// deletion falls out for free.</para></summary>
+    [Fact]
+    public void Deleting_a_network_is_refused_for_the_AMBIGUITY_not_the_member_contract()
+    {
+        var body = VendorBody();
+        var model = Read(body);
+        var shrunk = model with { Networks = model.Networks.Take(1).ToList() };
+
+        var ex = Assert.Throws<NotSupportedException>(() => TcNetworkWriter.Apply(body, shrunk));
+        Assert.Contains("changes the number of networks (2 -> 1)", ex.Message);
+        Assert.Contains("cannot tell WHICH network was removed", ex.Message);
+        Assert.DoesNotContain("member contract", ex.Message);
     }
 
     [Fact]
@@ -240,7 +264,8 @@ public class TcNetworkWriterTests
         var grown = model with { Networks = model.Networks.Append(model.Networks[0]).ToList() };
 
         var ex = Assert.Throws<NotSupportedException>(() => TcNetworkWriter.Apply(body, grown));
-        Assert.Contains("Make this change in the IDE and pull it.", ex.Message);
+        // The network-count refusal carries its own advice now, per case, rather than the generic sentence.
+        Assert.Contains("Add it in the IDE and pull it.", ex.Message);
     }
 
     // -- helpers -----------------------------------------------------------------------------------

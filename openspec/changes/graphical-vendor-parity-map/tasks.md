@@ -93,11 +93,36 @@ missing from their file today.
       - A rung driving a coil AND a jump dropped the coil (fixed as a marker, task 1).
 
       STILL OPEN, in the order the evidence ranks them:
-      - **The FAN-OUT SHAPE DIVERGES.** TwinCAT folds `LET g := v; o1 := g; o2 := g;` back into ONE
-        `BoxTreeAssign` with two `OutputItems` (`Unhoist`); CODESYS has no `Unhoist` and rebuilds it as a
-        `BoxTreeDemux` plus N single-target assigns. Both re-render to byte-identical text, so every gate Volt
-        has is blind to it — the same pushed text lands two different object graphs. Nothing is lost and it
-        compiles; what differs is the shape the engineer sees DRAWN.
+      - **THE FAN-OUT DIVERGENCE IS NOT A DRIVER BUG — it is a FORMAT gap, and both drivers guess, in opposite
+        directions.** Reported as a bug (TwinCAT folds to one multi-output `BoxTreeAssign`, CODESYS builds a
+        `BoxTreeDemux` plus N assigns). Probed offline 2026-09-22, and the question underneath it has a worse
+        answer than the finding: **network text cannot tell the two shapes apart at all.**
+
+        ```csharp
+        // BOTH of these fail today.
+        Assert.True(Write(MultiOutputAssign()) != Write(DemuxAndTwoAssigns()));   // same text
+        Assert.Equal(2, ReadBack(Write(MultiOutputAssign())).Targets.Count);      // comes back a Demux
+        ```
+
+        `Assignment` renders an N-target assign as `LET g1 := v; o1 := g1; o2 := g1;`, a `Demux` renders as the
+        same thing, and the reader turns any `g<n>` LET into a Demux — by the PREFIX, not the use count. So a
+        multi-output assign cannot survive a round trip on EITHER vendor, and `Unhoist` is not a feature TwinCAT
+        has and CODESYS lacks: it is a REPAIR that guesses the assign shape, and it must therefore flatten a
+        real editor-drawn Demux the same way CODESYS inflates a real multi-output assign. The mirror bug.
+
+        **What is NOT being done, and why.** The fix is a text distinction, and the obvious one — `out1, out2 :=
+        v;` — REGRESSES what the `LET` form exists for: each target keeps its OWN operator, so a fan-out whose
+        coils disagree (`out1 :=`, `out2 S=`) has no comma spelling. The distinction that does work is a second
+        name family beside `g*`/`i*`/`en*` — say `m<n>` for "one item, several targets" — which is small,
+        unambiguous and preserves the operators.
+
+        It is not being invented here for the reason this repo keeps re-learning: `UnspellableCoilTests` set the
+        standard — census the shape in real projects BEFORE spelling it — and the census that decides this one
+        cannot be run today. It needs ARCHIVES (the predicate is a `BoxTreeAssign` with more than one entry in
+        `OutputItems`), and the corpora on disk are pulled TEXT written by the very code that cannot express the
+        distinction. It also changes the canonical form, so every already-pulled workspace holding a fan-out
+        shows a diff on the next pull — a cost worth paying for a shape that occurs, and not for one that does
+        not. Same blocker as the mixed-rung census in task 1, and the same probe closes both.
       - **A RETURN's bit never reaches the destination operand on EITHER vendor**, and it cannot be fixed at the
         writer: `NetworkTextReader` parses `RETURN;` to an `Assign` with ZERO targets, so there is no target to
         write it to. C13 records the vendor putting it there (live SP21 `ATD_FQI`, `out[0] = '???' flags=Return`).
@@ -110,8 +135,26 @@ missing from their file today.
         CODESYS's LIVE `CallType` stringifies to for a function-block call. Guessing which value space the two
         share is precisely the mistake N11 exists to warn about. The probe is a `runscript` read of a live FB
         box's `CallType`.
-      - **Deleting a network** is applied on CODESYS and refused on TwinCAT before the per-network loop, so a
-        push fails even when every surviving network is a pure value edit. Host gap, tracked below.
+      - **Deleting a network** is applied on CODESYS and refused on TwinCAT — and the refusal gave the WRONG
+        REASON, which is the half that was fixed. The generic message says Volt never builds archive elements;
+        a deletion builds nothing, so it explained the refusal by pointing at the wrong thing.
+
+        The real reason is AMBIGUITY, and it is not a small obstacle: networks pair by POSITION, and network
+        text renumbers its headers on every pull — so `NETWORK 0, 1, 2` after deleting the second of four is
+        BYTE-IDENTICAL to the same text after deleting the fourth. The push does not carry which network went,
+        and removing the wrong one deletes working logic. CODESYS never faces it because its writer rebuilds
+        every changed network from the model, so deletion falls out for free.
+
+        The message now says which case it is and why; `Deleting_a_network_is_refused_for_the_AMBIGUITY_not_the_member_contract`
+        pins it. Closing the gap properly means matching the survivors by CONTENT rather than by position —
+        still open, and now stated as a design rather than as a mystery.
+
+      **AND THE CENSUS THAT BLOCKS THE TWO FORMAT DECISIONS HAS A FIRST DATA POINT** (2026-09-22, every archive
+      on disk — 25 distinct `.TcPOU`, 15 `BoxTreeAssign` items): **3 multi-output assigns** and **1 multi-target
+      rung carrying control flow**. A weak sample and fixtures rather than customer projects, so it settles
+      nothing about FREQUENCY — but it does settle that both shapes are real IDE output rather than theoretical,
+      which is more than was known. The census that decides the format questions still wants customer archives;
+      the predicates are exact and are recorded above.
 - [ ] **Classify every difference as SPELLING / HOST / VENDOR.** Today all three are worded the same way, which
       is how "TwinCAT's importer rejects an unconditional jump" (true) came to stand for "TwinCAT cannot hold
       one" (false — the fixture in task 0 is one).
