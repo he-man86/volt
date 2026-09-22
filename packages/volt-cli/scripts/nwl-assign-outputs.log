@@ -1,0 +1,80 @@
+== Lenze_MID-S100_V5_00_602_T51.project
+     tree nodes                                     8133
+     BoxTreeDemux (a real fan-out wire)             573
+     assign targets                                 570
+     BoxTreeAssign                                  479
+     networks                                       373
+       ...all coils (the fan-out question)          40
+     POUs with a NetworkList                        40
+     MULTI-OUTPUT assigns                           40
+
+== Pro2193-94-95-96.project
+     tree nodes                                     34
+     networks                                       3
+     POUs with a NetworkList                        2
+     BoxTreeAssign                                  1
+     assign targets                                 1
+
+== V71_PackML_Hauzer.project
+     tree nodes                                     1159
+     networks                                       39
+     POUs with a NetworkList                        4
+     BoxTreeAssign                                  1
+     assign targets                                 1
+
+== AWA_Palletizer 09.project
+     tree nodes                                     10
+     networks                                       2
+     POUs with a NetworkList                        1
+
+=== TOTAL ACROSS 4 PROJECT(S) ===
+     tree nodes                                     9336
+     BoxTreeDemux (a real fan-out wire)             573
+     assign targets                                 572
+     BoxTreeAssign                                  481
+     networks                                       417
+     POUs with a NetworkList                        47
+       ...all coils (the fan-out question)          40
+     MULTI-OUTPUT assigns                           40
+
+=== EVERY MULTI-TARGET RUNG FOUND (up to 40) ===
+     Lenze_MID-S100_V5_00_602_T51.project Mach1_Drives                 2 targets  all coils          Mach1_Data.Drives.WrappingDevice.Control, Data_Exchange_Motion.FeedForwardWrapper.
+     Lenze_MID-S100_V5_00_602_T51.project Mach1_MIDS                   2 targets  all coils          EtherCAT_Master.xRestart, REQ_RestartComm
+     Lenze_MID-S100_V5_00_602_T51.project Mach1_MIDS                   2 targets  all coils          tBool, tCampulseCigarPresent
+     Lenze_MID-S100_V5_00_602_T51.project Mach1_MIDS                   2 targets  all coils          PneumValveTerminalSMC.Pos6A, LST_InputsOutputs.Q101_2_Enable_GluePump
+     Lenze_MID-S100_V5_00_602_T51.project MainDrive                    3 targets  all coils          tMainDriveRun, oMainDriveRun, Mach1_Safety.Control.RequestAutoSpeed
+     Lenze_MID-S100_V5_00_602_T51.project MainDrive                    3 targets  all coils          tMainDriveJog, oMainDriveJog, Mach1_Safety.Control.RequestManSpeed
+     Lenze_MID-S100_V5_00_602_T51.project AHWF                         2 targets  all coils          Mach1_AuxData.MemWrapperPresentForLeafCa, Mach1_AuxData.MemWrapperDetected_ResetLi
+     Lenze_MID-S100_V5_00_602_T51.project AHWF                         2 targets  all coils          Mach1_AuxData.MemWrapperPresentForLeafCa, Mach1_AuxData.MemWrapperPassedUnderTheSe
+     Lenze_MID-S100_V5_00_602_T51.project AHWF                         2 targets  all coils          Mach1_AuxData.MemWrapperPresentForLeafCa, Mach1_AuxData.MemWrapperPassedUnderTheSe
+     Lenze_MID-S100_V5_00_602_T51.project WSM                          4 targets  all coils          stSupplyWrapper, stWrapperPresent, stNoWrapper, stPhotocellWrapperFault
+     Lenze_MID-S100_V5_00_602_T51.project WSM                          2 targets  all coils          stRestposition, stWrapperPresent
+     Lenze_MID-S100_V5_00_602_T51.project WSM                          5 targets  all coils          stSupplyWrapper, stRestposition, stNoWrapper, stPhotocellWrapperFault, ioManualStartSupply
+     Lenze_MID-S100_V5_00_602_T51.project WSM                          2 targets  all coils          stNoWrapper, stSupplyWrapper
+     Lenze_MID-S100_V5_00_602_T51.project WSM                          2 targets  all coils          stPhotocellWrapperFault, stSupplyWrapper
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   20 targets  all coils          stRestposition, bReturnInfeedConv, stInpushingRow, stDecendTray, stTrayDecended, stTiltInpusher, stReturnInpusher, stLowerInpusher, stMoveElevatorUp, stMoveElevatorDown, stElevatorAtBottom, stOutfeedTray, stTrayFedOut, stElevatorAtTop, stInfeedTray, stLightCurtainInterruptedBeforeStart, stLightCurtainInterruptedDuringInpushing, stTrayFaultOutfeeding, bRecoverFromLightCurtainInterrupted, stSrCigarAtEnd
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   4 targets  all coils          stRestposition, stLowerInpusher, stInfeedTray, stLightCurtainInterruptedBeforeStart
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   2 targets  all coils          stInpushingRow, stRestposition
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   2 targets  all coils          stLightCurtainInterruptedBeforeStart, stInpushingRow
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   5 targets  all coils          stDecendTray, stInpushingRow, stLightCurtainInterruptedDuringInpushing, stSrCigarAtEndBeforeLast, stSrCigarAtEnd
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   3 targets  all coils          stLightCurtainInterruptedDuringInpushing, stInpushingRow, bRecoverFromLightCurtainInterrupted
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   2 targets  all coils          stTrayDecended, stDecendTray
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   3 targets  all coils          stTiltInpusher, stTrayDecended, bReturnInfeedConv
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   2 targets  all coils          stReturnInpusher, stTiltInpusher
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   3 targets  all coils          stLowerInpusher, stReturnInpusher, bRecoverFromLightCurtainInterrupted
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   4 targets  all coils          stMoveElevatorDown, stReturnInpusher, stOutfeedConvFull, stRestposition
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   5 targets  all coils          stElevatorAtBottom, stMoveElevatorDown, stTrayFaultOutfeeding, stElevatorAtTop, bReturnInfeedConv
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   2 targets  all coils          stOutfeedConvFull, stElevatorAtBottom
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   3 targets  all coils          stOutfeedTray, stElevatorAtBottom, bReturnInfeedConv
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   3 targets  all coils          stTrayFaultOutfeeding, stOutfeedTray, bFaultOutfeeding
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   3 targets  all coils          stTrayFedOut, stOutfeedTray, bFaultOutfeeding
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   2 targets  all coils          stMoveElevatorUp, stTrayFedOut
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   2 targets  all coils          stElevatorAtTop, stMoveElevatorUp
+     Lenze_MID-S100_V5_00_602_T51.project TrayFiller                   2 targets  all coils          stInfeedTray, stElevatorAtTop
+     Lenze_MID-S100_V5_00_602_T51.project fc_CamC_CP_UDT               2 targets  all coils          fc_CamC_CP_UDT, ioPulse.Active
+     Lenze_MID-S100_V5_00_602_T51.project GeneralMachineFlags          5 targets  all coils          GenFlags.Warning, GenFlags.MinorAlarm, GenFlags.MajorAlarm, GenFlags.DummyWarning, GenFlags.DisableControl
+     Lenze_MID-S100_V5_00_602_T51.project ServoControl                 4 targets  all coils          STATE_Prehoming, STATE_HomePOSOK, STATE_WaitingForEnable, STATE_Synchronising
+     Lenze_MID-S100_V5_00_602_T51.project ServoControl                 5 targets  all coils          STATE_HomePosNOK, STATE_Prehoming, STATE_HomePOSOK, STATE_WaitingForEnable, STATE_Synchronising
+     Lenze_MID-S100_V5_00_602_T51.project ServoControl                 3 targets  all coils          STATE_HomePOSOK, STATE_HomePosNOK, Man_SetHomePos
+     Lenze_MID-S100_V5_00_602_T51.project ServoControl                 3 targets  all coils          STATE_WaitingForEnable, STATE_HomePOSOK, STATE_Synchronising
+     Lenze_MID-S100_V5_00_602_T51.project ServoControl                 2 targets  all coils          STATE_Synchronising, STATE_WaitingForEnable

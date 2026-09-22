@@ -149,7 +149,32 @@ missing from their file today.
         pins it. Closing the gap properly means matching the survivors by CONTENT rather than by position —
         still open, and now stated as a design rather than as a mystery.
 
-      **AND THE CENSUS THAT BLOCKS THE TWO FORMAT DECISIONS HAS A FIRST DATA POINT** (2026-09-22, every archive
+      **THE CENSUS IS DONE — 2026-09-22, four REAL CUSTOMER PROJECTS through a live CODESYS**
+      (`scripts/probe-nwl-assign-outputs.py`, log committed beside it). It was blocked on "the corpora on disk
+      are pulled text"; the original `.project` files were on this machine all along. Lenze alone: 373 networks,
+      479 `BoxTreeAssign`, 8,133 tree nodes walked.
+
+      **IT ANSWERS THE TWO QUESTIONS IN OPPOSITE DIRECTIONS, which is the useful outcome:**
+
+      - **THE MIXED RUNG: ZERO.** Not one rung anywhere in four projects drives a coil and a jump together. So
+        the MARKER is the right answer and stays — exactly the standard `UnspellableCoilTests` set (census
+        first; a marker is acceptable for a shape that does not occur). It also answers the question that
+        prompted the run: the marker introduced in task 1 turns NO real body into a marker.
+      - **THE MULTI-OUTPUT ASSIGN: FORTY**, all of them in Lenze, all "all coils", one with **20 targets**
+        (`TrayFiller`). Beside 573 `BoxTreeDemux`, so both shapes are ordinary in the same project. The format
+        cannot tell them apart, so every one of those 40 rungs round-trips into a `Demux` — 21 items where the
+        engineer drew 1, on CODESYS. **No data is lost** (all 20 targets survive the text, each keeping its own
+        operator) and it compiles identically; what changes is the shape they see drawn. That is enough to
+        justify the `m<n>` spelling, which is therefore no longer blocked on evidence — only on the decision to
+        change the canonical form, which diffs every already-pulled workspace holding a fan-out.
+
+        And it makes `Unhoist` DELETABLE rather than merely unnecessary: it exists to guess the assign shape
+        back, and with the text saying which shape it is, TwinCAT stops guessing — a repair removed because the
+        format learned to say the thing.
+      - **SPLIT POINTS: ZERO** across all four, confirming C12 and making the one-sided TwinCAT reader (which
+        does not look for them at all) a very low-risk gap.
+
+      Superseded first data point, kept for the record: (2026-09-22, every archive
       on disk — 25 distinct `.TcPOU`, 15 `BoxTreeAssign` items): **3 multi-output assigns** and **1 multi-target
       rung carrying control flow**. A weak sample and fixtures rather than customer projects, so it settles
       nothing about FREQUENCY — but it does settle that both shapes are real IDE output rather than theoretical,
