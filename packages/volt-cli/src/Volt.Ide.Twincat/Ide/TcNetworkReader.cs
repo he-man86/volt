@@ -140,7 +140,8 @@ internal static class TcNetworkReader
                     flags);
 
             default:
-                throw new NotSupportedException(
+                throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
+                    "an item with no network-text form",
                     $"TwinCAT: the graphical item '{TcArchive.TypeOf(e) ?? "?"}' has no network-text form yet. " +
                     "Volt refuses to materialize a body it cannot represent, rather than rendering an " +
                     "approximation an engineer would then push back.");

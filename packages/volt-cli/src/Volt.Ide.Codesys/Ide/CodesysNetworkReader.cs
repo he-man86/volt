@@ -50,8 +50,12 @@ namespace Volt.Ide.Codesys
             // it. (It had a field on the model for a while, which then collided with the text reader's own
             // fan-out encoding and produced two incompatible spellings of the same idea; the model now carries
             // exactly one, the vendor's.)
+            // A MARKER, NOT A VANISHING POU. This threw a bare NotSupportedException, and an unguarded throw
+            // out of the reader reaches `Versioning.SafeVersion`, which stamps the item Unreadable — `FetchService`
+            // then drops it from `changed`, `items` AND `folders`, so the whole POU leaves the workspace and git.
+            // "Volt cannot represent this body" is exactly what the marker is FOR.
             if (NwlInterop.TryCall(net, "GetSplitPoint", 0) is { } sp)
-                throw new NotSupportedException(
+                throw new Volt.Engine.Format.Body.UnrepresentableBodyException("a vendor split point",
                     $"CODESYS: network {order} carries a vendor split point ('{ReadOperand(sp).Text}'), which " +
                     "network text has no form for. Volt refuses to materialize a body it cannot represent " +
                     "rather than render one silently missing it.");
@@ -147,7 +151,8 @@ namespace Volt.Ide.Codesys
                     // BoxTreeMux is the known member of this set and was unused in the surveyed project, so it
                     // has no measured shape and no network-text spelling. Refusing is the only honest answer:
                     // rendering it as anything else would put logic in the workspace that is not in the IDE.
-                    throw new NotSupportedException(
+                    throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
+                        "an item with no network-text form",
                         $"CODESYS: the graphical item '{NwlInterop.TypeName(n)}' has no network-text form yet. " +
                         "Volt refuses to materialize a body it cannot represent, rather than rendering an " +
                         "approximation an engineer would then push back.");

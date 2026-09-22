@@ -258,6 +258,36 @@ public class VendorCapabilityParityTests
             "Catch it where the body is read and return BodyMarker.For(ex.Marker).");
         }
 
+    /// <summary>NO READER MAY REFUSE A BODY IN A WAY THAT REMOVES THE POU.
+    ///
+    /// <para>A network reader refuses when it cannot represent what it found — a split point, an item with no
+    /// text form, an Execute box whose ST will not walk. Every one of those is correct. What is NOT correct is
+    /// the SHAPE of the refusal: a bare <c>NotSupportedException</c> leaves the reader, reaches
+    /// <c>Versioning.SafeVersion</c>, and is isolated by stamping the item Unreadable — and <c>FetchService</c>
+    /// then drops it from <c>changed</c>, <c>items</c> AND <c>folders</c>. The engineer loses the whole POU,
+    /// declaration and every sibling method, from the workspace and from git, on every pull, and gets a number
+    /// in an "N unreadable" tally instead of a file.</para>
+    ///
+    /// <para><c>UnrepresentableBodyException</c> is the same refusal with a marker attached, and both drivers
+    /// catch it — so the POU appears, says what it holds, and is refused on PUSH. The distinction is invisible
+    /// at the throw site, which is why it is gated here rather than left to review: four refusals across the two
+    /// readers were the bare kind, and the one that was NOT was the only one anybody had looked at.</para></summary>
+    [Theory]
+    [InlineData("Volt.Ide.Codesys", "Ide/CodesysNetworkReader.cs")]
+    [InlineData("Volt.Ide.Twincat", "Ide/TcNetworkReader.cs")]
+    public void A_network_reader_never_throws_a_bare_NotSupportedException(string vendor, string relative)
+    {
+        var file = Path.Combine(RepoRoot(), "packages", "volt-cli", "src", vendor,
+                                relative.Replace('/', Path.DirectorySeparatorChar));
+        var source = File.ReadAllText(file);
+
+        Assert.False(
+            source.Contains("throw new NotSupportedException"),
+            relative + " throws a bare NotSupportedException. A reader refusal escapes to Versioning.SafeVersion, " +
+            "which stamps the item Unreadable and removes the whole POU from the workspace and from git. Throw " +
+            "UnrepresentableBodyException with the marker to materialize instead — both drivers catch it.");
+    }
+
     private static bool NotBuildOutput(string file) =>
         !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}") &&
         !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}");

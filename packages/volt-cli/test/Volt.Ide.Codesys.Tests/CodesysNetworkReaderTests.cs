@@ -584,7 +584,14 @@ public class CodesysNetworkReaderTests
         var net = new Nwl.Network().With(assign);
         net.SplitPoint = new Nwl.Operand { OperandExpr = "gSplit" };
 
-        var ex = Assert.Throws<System.NotSupportedException>(() => CodesysNetworkReader.ReadNetwork(net, 0));
+        // AND IT REFUSES AS A MARKER, not as a bare throw. A bare `NotSupportedException` escapes the reader,
+        // reaches `Versioning.SafeVersion`, and is isolated by stamping the item Unreadable — `FetchService`
+        // then drops the POU from `changed`, `items` AND `folders`, so the engineer loses the whole file from
+        // the workspace and from git over one construct in one network. The marker says what the body holds
+        // and keeps the POU; `VendorCapabilityParityTests` gates the distinction, because it is invisible at
+        // the throw site.
+        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.ReadNetwork(net, 0));
+        Assert.Equal("a vendor split point", ex.Marker);
         Assert.Contains("split point", ex.Message);
         Assert.Contains("gSplit", ex.Message);   // the engineer needs to know WHICH one
     }
