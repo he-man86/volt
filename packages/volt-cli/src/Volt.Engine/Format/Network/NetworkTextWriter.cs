@@ -99,12 +99,13 @@ public static class NetworkTextWriter
                 // only a MIXTURE has no form. Lenze's single `RETURN` target (`ATD_FQI`) is a lone one and
                 // keeps working — a guard that refused every control-flow target would have turned a working
                 // ladder POU into a marker.
-                if (a.Targets.Count > 1)
-                {
-                    var control = a.Targets.Count(t => t.Flags is { } cf && (cf.Jump || cf.Return));
-                    if (control > 0 && control < a.Targets.Count)
-                        return "a rung driving a coil and a jump together";
-                }
+                // ANY control-flow target on a MULTI-TARGET rung, not only a mixture of the two kinds.
+                // `Goto` renders exactly ONE destination whatever the list holds, so a rung carrying two jumps
+                // loses the second one just as surely as a rung carrying a jump and a coil loses the coil. The
+                // first spelling of this guard asked for a MIXTURE (`control < Targets.Count`) and let the
+                // two-jump case through — the same silent loss, one predicate away.
+                if (a.Targets.Count > 1 && a.Targets.Any(t => t.Flags is { } cf && (cf.Jump || cf.Return)))
+                    return "a rung driving a coil and a jump together";
                 foreach (var t in a.Targets)
                 {
                     // A coil kind is ONE enum (Flags.CoilFromVendor): none / set / reset / negated, and

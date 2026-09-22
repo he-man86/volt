@@ -120,6 +120,21 @@ public class UnspellableCoilTests
         Assert.Equal("LD (a rung driving a coil and a jump together)", NetworkTextWriter.Unspellable(body));
     }
 
+    /// <summary>AND TWO JUMPS ON ONE RUNG IS THE SAME LOSS — which the first spelling of the guard let
+    /// through, because it asked for a MIXTURE of control flow and coils. <c>Goto</c> renders exactly ONE
+    /// destination whatever the target list holds, so the second jump goes the same way the coil did.</summary>
+    [Fact]
+    public void A_rung_driving_TWO_jumps_is_named_too()
+    {
+        var body = Body(new Assign(new Terminator(null, Flags.None), new[]
+        {
+            new Operand("Onwards", IsLValue: true, Flags: new Flags(Jump: true)),
+            new Operand("Elsewhere", IsLValue: true, Flags: new Flags(Jump: true)),
+        }, new Flags(Jump: true)));
+
+        Assert.Equal("LD (a rung driving a coil and a jump together)", NetworkTextWriter.Unspellable(body));
+    }
+
     /// <summary>NARROW ON PURPOSE. The guard fires on a MIXTURE and nothing else: a lone jump, a lone return
     /// and an ordinary fan-out of two plain coils all still materialize as text. Lenze's single <c>RETURN</c>
     /// target is a lone one, and a guard that refused every control-flow target would have turned that working

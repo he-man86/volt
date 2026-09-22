@@ -188,7 +188,13 @@ internal static class TcPlcOpenWriter
             _ => throw Refuse($"contains a {node.GetType().Name}"),
         };
 
-        /// <summary>PROBE ONLY: an input wired to nothing, spelled as an empty expression.</summary>
+        /// <summary>AN INPUT WIRED TO NOTHING, spelled as the importer's own form: an empty expression.
+        ///
+        /// <para>Said PROBE ONLY, and had not been for some time — the unwired-pin arm above has used it in
+        /// production since `FB(xEnable := , ...)` became creatable, and the unconditional JMP/RETURN route
+        /// uses it now too: the jump is wired to one of these so the importer will BUILD it, and
+        /// <c>TcNetworkWriter</c> swaps the resulting operand for a terminator afterwards. Measured against a
+        /// live XAE both times — `t1(IN := , PT := pt);` round-trips byte-identical, and so does `JMP x;`.</para></summary>
         private long EmitEmpty()
         {
             var id = Id();

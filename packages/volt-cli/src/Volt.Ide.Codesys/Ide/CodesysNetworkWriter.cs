@@ -608,14 +608,16 @@ namespace Volt.Ide.Codesys
 
             case Leaf: return;
 
-            // THE SAME REFUSAL THE WRITER'S OWN `default` ARM RAISES, moved in front of the first write. A node
-            // kind this validator does not know is one the writer does not know either — the two arms list the
-            // same set, and a new node type has to be added to both or the pre-flight silently stops covering
-            // it. There is no way to share one switch: the writer's arms BUILD vendor objects.
+            // A NODE KIND THIS VALIDATOR DOES NOT KNOW IS NOT REFUSED HERE, and the asymmetry is deliberate.
+            //
+            // The writer has its own `default` arm that refuses one, so nothing is written wrongly either way.
+            // What differs is the FAILURE DIRECTION. A pre-flight that under-covers merely lets a refusal
+            // happen later, where it already happened; a pre-flight that OVER-refuses rejects a body the write
+            // would have taken, which is the one failure mode it must not have — and that is exactly what a
+            // refusal here would become the day a node type is added to the writer and forgotten here. The two
+            // switches cannot be shared: the writer's arms BUILD vendor objects.
             default:
-                throw new NotSupportedException(
-                    $"CODESYS: no way to write the graphical node '{n.GetType().Name}' — refusing " +
-                    "rather than writing a body that is not what the source says.");
+                return;
         }
     }
     }

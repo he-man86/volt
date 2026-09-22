@@ -903,6 +903,7 @@ internal static class TcNetworkWriter
     private static bool SetInt(XElement owner, string name, int i) =>
         Set(owner, name, i.ToString(CultureInfo.InvariantCulture),
             TcArchive.Int(owner, name).ToString(CultureInfo.InvariantCulture));
+
     /// <summary>The 3S type guid for <c>BoxTreeTerminator</c>, as every real archive that holds one writes it.
     /// A body Volt created has no terminator and therefore no <c>TypeList</c> entry for one, so the swap adds
     /// it — the deserializer resolves <c>t="..."</c> through that list.</summary>
