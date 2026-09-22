@@ -218,6 +218,46 @@ public sealed record Operand(
 /// <summary>How the box is called. The vendor's <c>BoxTreeBox.CallType</c>.</summary>
 public enum CallKind { Operator, Function, FunctionBlock }
 
+/// <summary>
+/// THE VENDOR'S <c>CallType</c>, DECODED — one rule, because it is ONE ENUM on both vendors (DIALECT N1).
+///
+/// <para><c>_3S.CoDeSys.Core.LanguageModel.Operator</c> is what CODESYS holds live and what a <c>.TcPOU</c>
+/// serializes by member name (<c>&lt;v n="CallType" t="Operator"&gt;FunctionBlock&lt;/v&gt;</c> — the
+/// <c>t=</c> is the ENUM TYPE and the text is the MEMBER). The two drivers each invented their own reading of
+/// it and BOTH got a function-block call wrong:</para>
+/// <code>
+///   TwinCAT   any non-null CallType            -> Operator
+///   CODESYS   any value except "None"          -> Operator
+/// </code>
+/// <para>Neither has a <c>FunctionBlock</c> arm, so a resolved FB call classified as an OPERATOR on both —
+/// latent only because nothing consumes an archive-derived <c>Kind</c> yet.</para>
+///
+/// <para><b>MEASURED, not inferred.</b> The member set comes from the committed archives (<c>And</c> 8,
+/// <c>Or</c> 6, <c>FunctionBlock</c> 5, <c>None</c> 2) and from <c>scripts/nwl-boxoutputs.log</c>, which
+/// records the live CODESYS side: a freshly constructed box reads <c>Operator.None</c> and the SAME box reads
+/// <c>Operator.Move</c> after the IDE resolves it on reload. So <c>None</c> means "not resolved as an
+/// operator", which is why an instance is what distinguishes the two call kinds under it — the reading
+/// CODESYS already had, kept.</para>
+/// </summary>
+public static class CallKinds
+{
+    /// <param name="callType">The enum MEMBER name, or null when the box carries none.</param>
+    /// <param name="hasInstance">Whether the box names a function-block instance.</param>
+    public static CallKind FromVendor(string? callType, bool hasInstance)
+    {
+        if (string.Equals(callType, nameof(CallKind.FunctionBlock), System.StringComparison.OrdinalIgnoreCase))
+            return CallKind.FunctionBlock;
+
+        // An operator names itself — And, Or, Move. `None` is the vendor saying it resolved no operator, and
+        // an absent member is a box the IDE has not resolved at all; both fall through to the instance.
+        if (!string.IsNullOrEmpty(callType) &&
+            !string.Equals(callType, "None", System.StringComparison.OrdinalIgnoreCase))
+            return CallKind.Operator;
+
+        return hasInstance ? CallKind.FunctionBlock : CallKind.Function;
+    }
+}
+
 
 /// <summary>
 /// Item modifiers. These are EXACTLY the vendor's <c>IFlags</c> bit-field —

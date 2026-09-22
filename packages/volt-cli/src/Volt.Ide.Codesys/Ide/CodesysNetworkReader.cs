@@ -346,16 +346,12 @@ namespace Volt.Ide.Codesys
                     Rising: NwlInterop.Flag(f, "Rtrig"),
                     Falling: NwlInterop.Flag(f, "Ftrig"));
 
-        private static CallKind ReadCallKind(object? callType, Operand? instance)
-        {
-            // The vendor derives CallType itself from the box's type name (measured: setting BoxType="AND"
-            // produced CallType=Operator.And unasked), so it is read, never computed. `None` on a box with an
-            // instance is a function-block call.
-            var name = callType?.ToString();
-            if (!string.IsNullOrEmpty(name) && !string.Equals(name, "None", StringComparison.OrdinalIgnoreCase))
-                return CallKind.Operator;
-            return instance is null ? CallKind.Function : CallKind.FunctionBlock;
-        }
+        /// <summary>The vendor derives <c>CallType</c> itself from the box's type name (measured: setting
+        /// <c>BoxType="AND"</c> produced <c>CallType=Operator.And</c> unasked), so it is READ, never computed.
+        /// The decode is <see cref="CallKinds.FromVendor"/> — one rule for one enum, shared with TwinCAT,
+        /// which is what added the <c>FunctionBlock</c> member this side was missing.</summary>
+        private static CallKind ReadCallKind(object? callType, Operand? instance) =>
+            CallKinds.FromVendor(callType?.ToString(), instance is not null);
 
 
         /// <summary>Empty and the vendor's serialization placeholders both mean "not set".

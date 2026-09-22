@@ -332,11 +332,8 @@ internal static class TcNetworkReader
     /// <c>&lt;v n="CallType" t="Operator"&gt;And&lt;/v&gt;</c> - not an object member, which is why looking
     /// for it with <c>Obj</c> found nothing and read every AND box as a function call. An instance means a
     /// function-block call; neither means a stateless function.</summary>
-    private static CallKind CallKindOf(XElement e)
-    {
-        if (TcArchive.Str(e, "CallType") != null) return CallKind.Operator;
-        return InstanceOf(e) == null ? CallKind.Function : CallKind.FunctionBlock;
-    }
+    private static CallKind CallKindOf(XElement e) =>
+        CallKinds.FromVendor(TcArchive.Str(e, "CallType"), InstanceOf(e) != null);
 
     /// <summary>A box's FB instance, or null when it has none.
     ///
