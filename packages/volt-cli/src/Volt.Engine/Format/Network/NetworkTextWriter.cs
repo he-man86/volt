@@ -75,6 +75,36 @@ public static class NetworkTextWriter
         switch (n)
         {
             case Assign a:
+                // A RUNG WHOSE TARGETS ARE A MIXTURE — a jump or return BESIDE an ordinary coil, all driven
+                // by the same wire. The control-flow path (`Goto`) renders the jump and drops every other
+                // target; the assignment path (`Assignment`) renders the coils and has no form for the jump.
+                // Neither is wrong on its own, and between them a coil the engineer can see in their IDE was
+                // simply absent from the pulled file — with the fixed point hiding it, because the text
+                // round-trips to itself and nothing ever asks where the coil went.
+                //
+                // Found 2026-09-22 on a body DRAWN BY HAND in a live XAE
+                // (`Volt.Ide.Twincat.Tests/fixtures/tc-pou/drawn-refused-shapes.TcPOU`): one `BoxTreeAssign`
+                // holding the jump destination `owrods` (Flags 4) and the coil `out` (Flags 0). Volt cannot
+                // CREATE that shape, so no generated fixture had ever contained one.
+                //
+                // A MARKER, not invented syntax — the answer this codebase already gives for "no editable
+                // text form" (CFC, SFC, IL, and the coil modifiers below): the engineer is TOLD, instead of
+                // being handed a body that silently means something else. A spelling that round-trips is
+                // possible (a target operator, beside `S=`/`R=`) and is NOT being guessed at here, because
+                // whether the shape occurs in real projects is a question only an archive census can answer
+                // and the corpora on disk are pulled TEXT — which, being written by the code above, cannot
+                // show the coil it dropped. Tracked in `openspec/changes/graphical-vendor-parity-map`.
+                //
+                // NARROW ON PURPOSE. A lone jump, a lone return and an ordinary fan-out all still render:
+                // only a MIXTURE has no form. Lenze's single `RETURN` target (`ATD_FQI`) is a lone one and
+                // keeps working — a guard that refused every control-flow target would have turned a working
+                // ladder POU into a marker.
+                if (a.Targets.Count > 1)
+                {
+                    var control = a.Targets.Count(t => t.Flags is { } cf && (cf.Jump || cf.Return));
+                    if (control > 0 && control < a.Targets.Count)
+                        return "a rung driving a coil and a jump together";
+                }
                 foreach (var t in a.Targets)
                 {
                     // A coil kind is ONE enum (Flags.CoilFromVendor): none / set / reset / negated, and

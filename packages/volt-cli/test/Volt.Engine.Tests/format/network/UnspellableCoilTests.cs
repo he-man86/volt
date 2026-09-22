@@ -95,4 +95,48 @@ public class UnspellableCoilTests
     {
         Assert.Null(NetworkTextWriter.Unspellable(Body(CoilAssign(Flags.None))));
     }
+
+    /// <summary>A RUNG WHOSE TARGETS ARE A MIXTURE — a jump beside an ordinary coil, both driven by the same
+    /// wire — has no text form either, and used to lose the coil in silence.
+    ///
+    /// <para><c>Goto</c> renders the jump and drops every other target; <c>Assignment</c> renders the coils and
+    /// has no form for the jump. Neither is wrong alone, and between them the coil was absent from the
+    /// engineer's pulled file — with the fixed point hiding it, exactly as this file's header describes for
+    /// the coil modifiers above.</para>
+    ///
+    /// <para>Found on a body DRAWN BY HAND in a live XAE, because Volt cannot CREATE the shape and so no
+    /// generated fixture had ever held one.</para></summary>
+    [Theory]
+    [InlineData(true)]    // the jump listed first, as the drawn body has it
+    [InlineData(false)]   // …and second, where the destination used to be read off index 0 as well
+    public void A_rung_driving_a_coil_AND_a_jump_is_named_rather_than_half_dropped(bool jumpFirst)
+    {
+        var jump = new Operand("Onwards", IsLValue: true, Flags: new Flags(Jump: true));
+        var coil = new Operand("out", IsLValue: true, Flags: Flags.None);
+        var targets = jumpFirst ? new[] { jump, coil } : new[] { coil, jump };
+
+        var body = Body(new Assign(new Terminator(null, Flags.None), targets, new Flags(Jump: true)));
+
+        Assert.Equal("LD (a rung driving a coil and a jump together)", NetworkTextWriter.Unspellable(body));
+    }
+
+    /// <summary>NARROW ON PURPOSE. The guard fires on a MIXTURE and nothing else: a lone jump, a lone return
+    /// and an ordinary fan-out of two plain coils all still materialize as text. Lenze's single <c>RETURN</c>
+    /// target is a lone one, and a guard that refused every control-flow target would have turned that working
+    /// ladder POU into a marker.</summary>
+    [Fact]
+    public void A_lone_jump_a_lone_return_and_a_plain_fan_out_are_not_refused()
+    {
+        var lead = new Terminator(null, Flags.None);
+
+        Assert.Null(NetworkTextWriter.Unspellable(Body(new Assign(lead,
+            new[] { new Operand("Onwards", IsLValue: true, Flags: new Flags(Jump: true)) }, new Flags(Jump: true)))));
+
+        Assert.Null(NetworkTextWriter.Unspellable(Body(new Assign(lead,
+            new[] { new Operand("???", IsLValue: true, Flags: new Flags(Return: true)) }, new Flags(Return: true)))));
+
+        Assert.Null(NetworkTextWriter.Unspellable(Body(new Assign(new Leaf(new Operand("a"), Flags.None),
+            new[] { new Operand("out1", IsLValue: true, Flags: Flags.None),
+                    new Operand("out2", IsLValue: true, Flags: Flags.None) }, Flags.None))));
+    }
 }
