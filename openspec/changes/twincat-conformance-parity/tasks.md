@@ -233,10 +233,32 @@ one — how much of what each vendor SAYS the LSP says back. It was 2203 / 2412 
       drawn by hand in XAE (`test/Volt.Ide.Twincat.Tests/fixtures/tc-pou/execute-box.TcPOU`), Volt reads it, and
       its ST edits in place on a live XAE. So the honest sentence is never "TwinCAT cannot take them" but "Volt
       has no CREATE route", which is what every message says.
-- [ ] **What is left is a fixture, not a question.** The five want a TwinCAT recording, and the way in is the
-      one `execute-box.TcPOU` took: draw the shape in XAE by hand, pull it, record the build. Nothing measured
-      suggests the refusal lifts — the create route is closed on evidence, and re-opening it means costing out
-      the in-proc host (DIALECT N12).
+- [x] **What is left is a fixture, and it needs a HUMAN at the XAE GUI. Closed 2026-09-22 as a decision — but
+      the one open question was measured first, because it was the difference between GUI work and no work.**
+
+      THE QUESTION. The header above says an UPDATE rewrites only the networks that CHANGED, so a body may
+      legitimately carry a shape the whole-body writer refuses. That is true, and it invites a reading that
+      would have closed this item for free: push the legal near-miss, then EDIT the condition off. Two steps,
+      no drawing, and the five recordings follow. If that worked, "TwinCAT cannot create these" would have been
+      false the whole time and the refusals would be Volt's own.
+
+      THE ANSWER, measured live 2026-09-22 against TcXaeShell 15.0, all four shapes: an UPDATE is refused too,
+      each with the IDENTICAL message its create gets. `ResolveBody` edits VALUES in place — flags, comments,
+      titles, operand text — but a SHAPE change hands that one network back to the IDE to REBUILD, and the
+      rebuild goes through the same PLCopen import a create uses. So the importer's limits are not a property
+      of CREATE; they are a property of every route Volt has, and the distinction the header draws is about
+      which NETWORKS get rewritten, not about which shapes are reachable.
+
+      HELD AS A RATCHET, not as this paragraph: `volt-cli/test/e2e/graphical/refused-shapes.test.ts` now pushes
+      the EDIT beside the create, four shapes × two vendors, and CODESYS takes all four edits and round-trips
+      them byte-identical — which is what makes the TwinCAT half a vendor fact rather than a Volt one.
+
+      SO THE REMAINING WORK IS GUI WORK, and it is deliberately not scheduled: five POUs drawn by hand in XAE
+      the way `test/Volt.Ide.Twincat.Tests/fixtures/tc-pou/execute-box.TcPOU` was, plus a recorder that reads a
+      pre-drawn POU instead of pushing one. Until someone does that, the fixtures carry `vendorRefuses`, which
+      is what makes `check-recording.ts` and `agreement-residue.ts` count them as ground truth that is MISSING
+      and WHY — not as a recording somebody forgot to take. Re-opening the programmatic route means costing out
+      the in-proc NWL host (DIALECT N12), which is a change of its own, not a task in this one.
 
 ## The transport decision — MEASURED, and the answer is no
 

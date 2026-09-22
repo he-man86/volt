@@ -37,7 +37,7 @@
  * five are the only fixtures in 2561 with no TwinCAT recording, because the recorder cannot push them.</p>
  */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { VENDOR, BASE, bridge, fetchItem, pushOps, requireHealthy } from "../harness"
+import { VENDOR, BASE, bridge, id, fid, fetchItem, pushOps, removeItem, requireHealthy } from "../harness"
 
 setDefaultTimeout(180_000)
 
@@ -222,4 +222,103 @@ describe(`graphical / shapes a driver refuses (${BASE})`, () => {
 		})
 	}
 
+})
+
+/**
+ * AND THE OTHER DOOR — EDITING a body INTO one of these shapes, which is refused for the SAME reason.
+ *
+ * <p>The header above says an UPDATE rewrites only the networks that CHANGED, so a body may legitimately carry
+ * a shape the whole-body writer refuses. That is true, and it invites a reading that is not: that an engineer
+ * could therefore build one of these shapes in two steps — push the legal near-miss, then edit the condition
+ * off. If that worked it would be a create route, and these five conformance fixtures would have a TwinCAT
+ * recording after all (`twincat-conformance-parity`, "what the recorder could not push").</p>
+ *
+ * <p><b>It does not, and this is the measurement.</b> An in-place edit carries VALUES — flags, comments, titles,
+ * operand text — while a SHAPE change makes `ResolveBody` hand that one network back to the IDE to rebuild, and
+ * the IDE rebuilds it through the same PLCopen import a create uses. So the importer's limits are not a
+ * property of CREATE; they are a property of every route Volt has. Measured live 2026-09-22 against TcXaeShell
+ * 15.0, all four shapes, each refused with the identical message its create gets.</p>
+ *
+ * <p>Which leaves the GUI, or an in-proc NWL host (DIALECT N12), as the only ways these bodies come into
+ * existence — and that is why the fixtures are marked `vendorRefuses` rather than left looking unrecorded.</p>
+ */
+describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
+	beforeAll(async () => {
+		await requireHealthy()
+	})
+
+	const NL = String.fromCharCode(10)
+	const prg = (name: string, vars: readonly string[], nets: readonly string[]) =>
+		["PROGRAM " + name, "VAR", ...vars, "END_VAR", "(* @volt-implementation *)", ...nets, "END_PROGRAM", ""].join(NL)
+
+	const BOOLS = ["\ta : BOOL;", "\tout : BOOL;"]
+
+	/** Each case: a body that pushes CLEAN, and the one-substring edit that puts the refused shape into it. */
+	// `key` names the item, and is SPELLED OUT rather than derived from `what`: two of these read "an
+	// unconditional ..." and any prefix of that collides, so both cases would push over each other under
+	// one name — passing only because they happen to run in sequence and each deletes first.
+	const EDITS: readonly { key: string; what: string; vars: readonly string[]; nets: readonly string[]; from: string; to: string }[] = [
+		{
+			key: "ejmp",
+			what: "an unconditional JMP",
+			vars: BOOLS,
+			nets: ["NETWORK 0 FBD", "  IF a THEN JMP Done; END_IF", "END_NETWORK", "NETWORK 1 FBD LABEL: Done", "  out := a;", "END_NETWORK"],
+			from: "IF a THEN JMP Done; END_IF",
+			to: "JMP Done;",
+		},
+		{
+			key: "eret",
+			what: "an unconditional RETURN",
+			vars: BOOLS,
+			nets: ["NETWORK 0 FBD", "  IF a THEN RETURN; END_IF", "END_NETWORK", "NETWORK 1 FBD", "  out := a;", "END_NETWORK"],
+			from: "IF a THEN RETURN; END_IF",
+			to: "RETURN;",
+		},
+		{
+			key: "earrow",
+			what: "a box output pin wired straight to a variable",
+			vars: ["\tt1 : TON;", "\ta : BOOL;", "\tpt : TIME;", "\tel : TIME;"],
+			nets: ["NETWORK 0 FBD", "  t1(IN := a, PT := pt);", "END_NETWORK"],
+			from: "t1(IN := a, PT := pt)",
+			to: "t1(IN := a, PT := pt, ET => el)",
+		},
+		{
+			key: "eexec",
+			what: "an EXECUTE box",
+			vars: BOOLS,
+			nets: ["NETWORK 0 FBD", "  out := a;", "END_NETWORK"],
+			from: "  out := a;",
+			to: ["  EXECUTE", "    out := a;", "  END_EXECUTE"].join(NL),
+		},
+	]
+
+	for (const c of EDITS) {
+		const item = fid(c.key, "prg")
+
+		it(`${c.what}: an UPDATE is refused too, or the body round-trips`, async () => {
+			await removeItem(item).catch(() => {})
+
+			// The NEAR-MISS must be legal on every vendor — if this fails the case is testing the wrong thing.
+			const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: prg(id(c.key), c.vars, c.nets), ifVersion: null }])
+			expect(created.accepted, `the near-miss body was refused, so the edit proves nothing: ${JSON.stringify(created.conflicts)}`).toBe(true)
+
+			const v1 = await fetchItem(item)
+			const edited = v1.sourceText.replace(c.from, c.to)
+			expect(edited, `the edit matched nothing in the pulled body — the near-miss came back reshaped:\n${v1.sourceText}`).not.toBe(v1.sourceText)
+
+			const r = await pushOps([{ op: "set", name: item, sourceText: edited, ifVersion: v1.version }])
+
+			if (!r.accepted) {
+				// Same ratchet as above: a refusal is only acceptable from a vendor the table already lists, and
+				// only with a reason. The day TwinCAT's edit path learns one of these, this fails.
+				expect(VENDOR, `${c.what} was REFUSED on ${VENDOR}, which the table does not expect`).toBe("twincat")
+				expect(JSON.stringify(r.conflicts ?? []).length, `${c.what} was refused with no reason`).toBeGreaterThan(40)
+				return
+			}
+
+			// Accepted — then it must be the body that was pushed, not one the importer reshaped.
+			expect((await fetchItem(item)).sourceText, `${c.what} was accepted but came back reshaped`).toBe(edited)
+			await removeItem(item).catch(() => {})
+		})
+	}
 })
