@@ -118,6 +118,8 @@ function renderOps(el) {
     .map((m) => {
       const param = m.params?.[0]?.schema
       const result = m.result?.schema
+      const errs = m["x-errorCodes"] || []
+      const outs = m["x-outcomes"] || []
       return `<section class="entry" id="op-${m.name}">
         <header><span class="name">${m.name}</span>
           ${param ? `<span class="pill">takes ${refName(param.$ref || "object")}</span>`
@@ -132,6 +134,12 @@ function renderOps(el) {
             <div><div class="lbl res">result</div>
               ${fieldTable(result, doc) || `<pre>${esc(JSON.stringify(result, null, 2))}</pre>`}</div>
           </div>
+          <div class="lbl err">error frames this op can answer with</div>
+          <p class="codes">${errs.length
+            ? errs.map((e) => `<a class="code" href="#errors">${esc(e)}</a>`).join(" ")
+            : '<span class="lede">none — this op cannot fail.</span>'}</p>
+          ${outs.length ? `<div class="lbl">and how else it can fail</div>
+            <ul class="outcomes">${outs.map((o) => `<li>${md(o)}</li>`).join("")}</ul>` : ""}
         </div>
       </section>`
     })
@@ -217,6 +225,8 @@ const RENDERERS = {
   extensions: renderExtensions,
   driver: renderDriver,
   errors: (el) => renderList(el, window.VOLT.errors),
+  statuses: (el) => renderList(el, window.VOLT.statuses),
+  severities: (el) => renderList(el, window.VOLT.severities),
   "op-names": (el) => renderList(el, window.VOLT.ops),
   vendors: (el) => renderList(el, window.VOLT.vendors),
 }

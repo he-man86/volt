@@ -127,36 +127,19 @@ pwsh scripts/ide.ps1 down</pre>
   suite drives it, because the IDE's own message loop is what answers the pipe.
 </p>
 
-<h2 id="generated">What on these pages is generated</h2>
+<h2 id="generated">Keeping these pages true</h2>
 <p>
-  Every table of facts — the ops, the schemas, the error codes, the item kinds, the driver members — is
-  reflected out of the types the runtime actually uses, and the build <b>fails</b> if the committed artefacts
-  and the code disagree. Prose is written by hand; facts are not. A hand-kept table is a second source of
-  truth, and the one that drifts is always the one nobody runs.
+  Every table of facts here — the ops, their error codes, the schemas, the item kinds, the driver members — is
+  reflected out of the types the runtime uses, and the build <b>fails</b> if a page and the code disagree. So a
+  table on these pages is as current as the code it came from.
 </p>
-<table>
-  <tr><th>artefact</th><th>what it is</th></tr>
-  <tr>
-    <td class="name"><a href="volt-bridge.openrpc.json">volt-bridge.openrpc.json</a></td>
-    <td>The wire as a conformant <a href="https://open-rpc.org">OpenRPC 1.2.6</a> document. <b>This is the file
-      to hand to another project</b> — <code>npx @open-rpc/generator</code> turns it into a typed client, and
-      <a href="https://inspector.open-rpc.org">inspector.open-rpc.org</a> browses it.</td>
-  </tr>
-  <tr>
-    <td class="name">assets/data.js</td>
-    <td>The same document plus the item-kind table, the error codes and the driver members, as
-      <code>window.VOLT</code>. A <code>&lt;script src&gt;</code> rather than a fetch, so these pages open
-      straight from <code>file://</code> with no server.</td>
-  </tr>
-</table>
 <pre># after changing a contract type, an item kind or a driver interface
 VOLT_WRITE_DOCS=1 dotnet test test/Volt.Engine.Tests</pre>
-<div class="note">
-  <b>Why OpenRPC and not OpenAPI.</b> The wire is <code>{op, body}</code> answered with a result or a coded
-  error — JSON-RPC in all but framing — so the JSON-RPC description standard fits without inventing anything.
-  OpenAPI describes HTTP and there is no HTTP here. AsyncAPI would fit too, but models message <i>channels</i>,
-  which is heavier than a request/response wire needs.
-</div>
+<p>
+  <a href="volt-bridge.openrpc.json">volt-bridge.openrpc.json</a> is the same wire as a machine-readable
+  <a href="https://open-rpc.org">OpenRPC</a> document — the file to hand to another project.
+  <code>npx @open-rpc/generator</code> turns it into a typed client.
+</p>
 
 <h2 id="repo">Where the code is</h2>
 <table>

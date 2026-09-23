@@ -35,6 +35,13 @@ window.VOLT = {
         "summary": "Liveness plus the connectable projects, from the driver\u0027s CACHED snapshot \u2014 never marshalled onto the IDE thread. This is the poll path (the connector every few seconds), so it answers while a push or build is running. While paused every row reads idle.",
         "paramStructure": "by-name",
         "params": [],
+        "x-errorCodes": [
+          "INTERNAL_ERROR"
+        ],
+        "x-outcomes": [
+          "Never gated by \u0060disconnect\u0060 \u2014 while paused every row is forced to \u0060idle\u0060, because the list is how the user reconnects.",
+          "Answers from the driver\u0027s cached snapshot, so it cannot report PLC_DISCONNECTED. A bridge serving nothing is the aggregate status \u0060unavailable\u0060 instead."
+        ],
         "result": {
           "name": "result",
           "schema": {
@@ -55,6 +62,15 @@ window.VOLT = {
             }
           }
         ],
+        "x-errorCodes": [
+          "PLC_DISCONNECTED",
+          "INTERNAL_ERROR"
+        ],
+        "x-outcomes": [
+          "PLC_DISCONNECTED here is the POST-condition: the driver attached nothing, or attached something other than the project named. Enforced once in shared code, so both vendors refuse identically.",
+          "A malformed body is a deserialization failure, not BAD_REQUEST \u2014 it reaches the client as INTERNAL_ERROR.",
+          "A REFUSED connect still leaves the bridge RESUMED: the pause flag is cleared before the IDE work, so a \u0060disconnect\u0060 racing a connect wins."
+        ],
         "result": {
           "name": "ok",
           "schema": {
@@ -72,6 +88,10 @@ window.VOLT = {
         "summary": "Pause the bridge: refuse sync until the next connect, tear nothing down. Answers even while a push is running, and that push RUNS TO COMPLETION \u2014 the gate stops the NEXT op, never the current one.",
         "paramStructure": "by-name",
         "params": [],
+        "x-errorCodes": [],
+        "x-outcomes": [
+          "Cannot fail: it sets a flag and answers. It is deliberately not marshalled onto the IDE thread, so it answers even while a push is running \u2014 and that push runs to completion. The gate stops the NEXT op, never the current one."
+        ],
         "result": {
           "name": "ok",
           "schema": {
@@ -97,6 +117,15 @@ window.VOLT = {
             }
           }
         ],
+        "x-errorCodes": [
+          "PLC_DISCONNECTED",
+          "WRONG_PROJECT",
+          "INTERNAL_ERROR"
+        ],
+        "x-outcomes": [
+          "An item whose body will not materialize is NOT an error: it is named in \u0060unreadable\u0060, keeps a stable sentinel version so a pull does not mistake it for deleted, and is logged at Warn.",
+          "A read is retried ONCE through a transient IDE failure that the driver classifies as one. The session is marked degraded meanwhile, which \u0060health\u0060 reports."
+        ],
         "result": {
           "name": "result",
           "schema": {
@@ -117,6 +146,17 @@ window.VOLT = {
             }
           }
         ],
+        "x-errorCodes": [
+          "PLC_DISCONNECTED",
+          "WRONG_PROJECT",
+          "NO_SIDECAR",
+          "INTERNAL_ERROR"
+        ],
+        "x-outcomes": [
+          "NO_SIDECAR is specific to this op: a fetch with neither \u0060knownItems\u0060 nor \u0060onlyItems\u0060 is ambiguous \u2014 it could mean \u0022everything\u0022 or a client that forgot its baseline. Use \u0060init\u0060 for a first pull.",
+          "A walk that could not enumerate a folder SUPPRESSES every deletion and says so at Warn, so \u0060removed\u0060 comes back empty rather than wrong.",
+          "Items that would not materialize are named in \u0060unreadable\u0060, not raised."
+        ],
         "result": {
           "name": "result",
           "schema": {
@@ -129,6 +169,15 @@ window.VOLT = {
         "summary": "A full fetch for a first sync: \u0060fetch\u0060 with \u0060init: true\u0060. Same response shape, no \u0060knownItems\u0060.",
         "paramStructure": "by-name",
         "params": [],
+        "x-errorCodes": [
+          "PLC_DISCONNECTED",
+          "WRONG_PROJECT",
+          "INTERNAL_ERROR"
+        ],
+        "x-outcomes": [
+          "Cannot answer NO_SIDECAR \u2014 it sets \u0060init\u0060 itself, which is the branch that check exempts.",
+          "Takes no body at all, so it carries no identity check either: it can only be PLC_DISCONNECTED on the connected half of the guard."
+        ],
         "result": {
           "name": "result",
           "schema": {
@@ -149,6 +198,17 @@ window.VOLT = {
             }
           }
         ],
+        "x-errorCodes": [
+          "PLC_DISCONNECTED",
+          "WRONG_PROJECT",
+          "INTERNAL_ERROR"
+        ],
+        "x-outcomes": [
+          "MOST PUSH FAILURES ARE NOT ERROR FRAMES. Every exception from the pre-flight and from the apply loop is caught and returned as \u0060accepted:false\u0060 with one conflict. A client MUST check \u0060accepted\u0060.",
+          "A conflict\u0027s \u0060code\u0060 is populated ONLY for a network-text diagnostic (\u0060NETWORK_*\u0060). A refusal that was a coded BridgeException carries its message, but no code.",
+          "A version conflict is also \u0060accepted:false\u0060 \u2014 with \u0060yourVersion\u0060/\u0060currentVersion\u0060 per item, and no code.",
+          "A refusal during APPLY rather than pre-flight leaves the earlier ops WRITTEN, and they are not rolled back. The reason says how many, because a rejection that reads as \u0022nothing happened\u0022 is a lie the user acts on."
+        ],
         "result": {
           "name": "result",
           "schema": {
@@ -168,6 +228,15 @@ window.VOLT = {
               "$ref": "#/components/schemas/BuildRequest"
             }
           }
+        ],
+        "x-errorCodes": [
+          "PLC_DISCONNECTED",
+          "WRONG_PROJECT"
+        ],
+        "x-outcomes": [
+          "The guard sits OUTSIDE the try, deliberately \u2014 otherwise WRONG_PROJECT would be swallowed into a fake \u0022build failed\u0022 diagnostic instead of surfacing as an error frame.",
+          "Everything after it IS caught: a thrown build answers \u0060success:false\u0060 with the message as one error-severity diagnostic. So this op essentially never returns INTERNAL_ERROR.",
+          "\u0060success\u0060 comes from a different vendor SIGNAL on each: CODESYS derives it from the diagnostics, TwinCAT reads the IDE\u0027s own count of failed projects."
         ],
         "result": {
           "name": "result",
@@ -573,6 +642,17 @@ window.VOLT = {
   "vendors": [
     "codesys",
     "twincat"
+  ],
+  "statuses": [
+    "healthy",
+    "degraded",
+    "idle",
+    "unavailable"
+  ],
+  "severities": [
+    "error",
+    "warning",
+    "info"
   ],
   "kinds": [
     {

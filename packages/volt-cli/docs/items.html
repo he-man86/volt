@@ -121,17 +121,17 @@
 </p>
 
 <h2 id="kinds">The kind table</h2>
-<p class="gen">
-  Generated from <code>ItemKind</code>. A row exists because a constant does — codes, wire kinds, extensions
-  and every predicate are read off the same class the walk uses.
+<p class="lede">
+  Codes, wire kinds, extensions and every predicate, read off the same class the walk uses. A row exists
+  because a constant does.
 </p>
 <div data-render="kinds"></div>
 
 <h2 id="extensions">Workspace file extensions</h2>
-<p class="gen">
-  Generated. This is the registry <code>scripts/check-wiring.ts</code> cross-checks every other runtime's copy
-  against — the C# engine, the LSP, volt-control, and four separate places in the VS Code manifest — so a new
-  source kind cannot be added in one place and silently missed in another.
+<p class="lede">
+  The registry <code>scripts/check-wiring.ts</code> cross-checks every other runtime's copy against — the C#
+  engine, the LSP, volt-control, and four separate places in the VS Code manifest — so a new source kind cannot
+  be added in one place and silently missed in another.
 </p>
 <div data-render="extensions"></div>
 <p class="lede">
@@ -150,9 +150,22 @@
 </p>
 <p>
   Codes in the PLC range that are <i>not</i> in the table are genuinely unknown — never seen live, not in the
-  published enum. An unmapped code drops the item from the walk, so the honest way to close a gap is to sweep
-  a project that has the object (persistent GVLs, a parameter manager, CNC/NC, cam or image objects) and read
-  the raw number off it.
+  published enum. <b>An unmapped code drops the item from the walk</b>, which is not a theoretical cost: that
+  is exactly what happened to every TwinCAT-authored DUT while 605–607 were missing.
+</p>
+<h4 id="unknown">What is still unmapped</h4>
+<table>
+  <tr><th>code</th><th>status</th></tr>
+  <tr><td class="name">622 / 624 / 625</td><td>Published names that the live build <b>renumbered</b> — they are 650 / 652 / 653 now, and 625 was reused for text lists. The published enum is not a reliable source for numbers.</td></tr>
+  <tr><td class="name">626, 627, 630</td><td>Not in the published enum, never seen live.</td></tr>
+  <tr><td class="name">634–649</td><td>A sixteen-code gap, never seen. Persistent variables? A parameter manager? Cam or CNC objects?</td></tr>
+  <tr><td class="name">651, 656, 658+</td><td>Never seen.</td></tr>
+</table>
+<p class="lede">
+  To close one: open a project that has the object (persistent GVLs, a parameter manager, CNC/NC, cam or image
+  pools), walk the tree and read the raw <code>TREEITEMTYPE</code> off it. Anything a walk cannot classify is
+  logged as <code>unmapped-kind</code> at Debug with its number — see <a href="logs.html#sync-tally">the drop
+  tallies</a>.
 </p>
 <h3 id="cds">CODESYS — by interface</h3>
 <p>
@@ -166,6 +179,26 @@
   A node with <b>no</b> specific object type — only the base <code>IGenericObject</code>/<code>IObject</code> —
   is treated as a transparent grouping container and recursed into, so nested source is never dropped. That is
   how SoftMotion's "Kinematics" group and the drive "Functions" group behave.
+</p>
+<table>
+  <tr><th>interfaces</th><th>becomes</th></tr>
+  <tr><td class="name">IPOUObject</td><td>program / function / function_block — refined from the declaration text</td></tr>
+  <tr><td class="name">IDUTObject · ITextListEnumerationObject</td><td>dut — the second is a text-list-backed enum, which CODESYS models as its own object kind</td></tr>
+  <tr><td class="name">IGVLObject · INVLObject</td><td>gvl</td></tr>
+  <tr><td class="name">IInterfaceObject</td><td>interface</td></tr>
+  <tr><td class="name">IInterfaceMethodObject · IPOUMethodObject</td><td>interface_method · method</td></tr>
+  <tr><td class="name">IPropertyObject · IInterfacePropertyObject</td><td>property · interface_property</td></tr>
+  <tr><td class="name">IPropertyAccessorObject · IInterfacePropertyAccessorObject</td><td>property_get / property_set — refined by the accessor's name</td></tr>
+  <tr><td class="name">IActionObject · ITransitionObject</td><td>action · transition</td></tr>
+  <tr><td class="name">ILibManObject · IVisualManagerObject · IVisualObject · IRecipeManObject</td><td>library_manager (+ synthetic library refs) · visualization_manager · visualization · recipe_manager</td></tr>
+  <tr><td class="name">IImagePoolObject · IGlobalTextListObject · ITextListObject · ITaskObject</td><td>image_pool · text_list · text_list · task</td></tr>
+  <tr><td class="name">IProjectInfoObject · ITraceObject · IRecipeDefinitionObject · ISymbolConfigObject · IWorkspaceObject</td><td>project_info · trace · recipe · symbol_config · project_settings — the read-only descriptors</td></tr>
+  <tr><td class="name">IApplicationObject · IPlcLogicObject · IDeviceObject · ITaskConfigObject</td><td>recursed, never emitted</td></tr>
+  <tr><td class="name">ITransientObject · IHiddenObject</td><td>skipped</td></tr>
+  <tr><td class="name">IUnknownObject</td><td>CODESYS's own "no plugin loaded" marker. Skipped and <b>not</b> recursed — 20 such nodes on one real project.</td></tr>
+</table>
+<p class="lede">
+  The order is fixed and it matters: several nodes carry more than one of these, and the first match wins.
 </p>
 <p>
   Both drivers emit identical wire kinds, so an item hashes identically regardless of which IDE it came from.

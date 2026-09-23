@@ -115,15 +115,34 @@
   <tr><th>code</th><th>means</th><th>what a client does</th></tr>
   <tr><td class="name">PLC_DISCONNECTED</td><td>No project is bound, or the bridge is paused by <code>disconnect</code>.</td><td>Send <code>connect</code>.</td></tr>
   <tr><td class="name">WRONG_PROJECT</td><td>The bound project is not the one the request named.</td><td>Rebind, or refuse — never merge.</td></tr>
-  <tr><td class="name">BAD_REQUEST</td><td>Unknown <code>op</code>, or a body the host cannot read.</td><td>Fix the caller.</td></tr>
+  <tr><td class="name">BAD_REQUEST</td><td>An unknown <code>op</code>, or a push op the engine cannot route — an empty <code>sourceText</code>, a create with none, an unknown member kind. <b>Not</b> a malformed body: that is a deserialization failure and arrives as <code>INTERNAL_ERROR</code>.</td><td>Fix the caller.</td></tr>
   <tr><td class="name">NOT_FOUND</td><td>The named item does not exist in the project.</td><td>Re-read <code>refs</code>.</td></tr>
-  <tr><td class="name">UNSUPPORTED</td><td>A shape this vendor's driver cannot write. The message says what, and what to do instead.</td><td>Surface it — this is a real limit, not a transient.</td></tr>
+  <tr><td class="name">UNSUPPORTED</td><td>A shape this vendor cannot write, a member kind with no mapping, or a descriptor field the vendor has no counterpart for. The message says what. Also raised on a READ — a CODESYS member whose type code has no kind.</td><td>Surface it: a real limit, not a transient.</td></tr>
   <tr><td class="name">DUPLICATE_CHILD</td><td>A create collided with something already there.</td><td>Rename, or update instead of create.</td></tr>
   <tr><td class="name">INVALID_CODE_HEADER</td><td>The pushed source's header is not one Volt recognises.</td><td>Fix the file.</td></tr>
-  <tr><td class="name">INVALID_ST</td><td>The pushed body failed the ST or <a href="network-text.html">network-text</a> gate.</td><td>Fix the body; the conflict carries a code and a line.</td></tr>
-  <tr><td class="name">NO_SIDECAR</td><td>The workspace has no bound-project record.</td><td>Run <code>volt init</code>.</td></tr>
-  <tr><td class="name">INTERNAL_ERROR</td><td>Anything that was not a coded error. A bug.</td><td>Collect the <a href="logs.html">log</a>.</td></tr>
+  <tr><td class="name">INVALID_ST</td><td>The pushed body failed the ST reader. Raised during a push, so it reaches you as a rejection (below), not as this code.</td><td>Fix the body. A <a href="network-text.html#diagnostics">network-text</a> refusal is the one that also carries a <code>code</code> and a <code>line</code>.</td></tr>
+  <tr><td class="name">NO_SIDECAR</td><td><code>fetch</code> only: the request carried neither <code>knownItems</code> nor <code>onlyItems</code>, so "everything" and "a client that lost its baseline" are indistinguishable.</td><td>Send <code>init</code> for a first pull, or supply a baseline.</td></tr>
+  <tr><td class="name">INTERNAL_ERROR</td><td>Anything thrown that was not an <code>ICodedError</code> — including <b>a body the host could not deserialize</b>. Usually a bug.</td><td>Collect the <a href="logs.html">log</a>; the message is the exception's own.</td></tr>
 </table>
+<h3 id="not-a-code">Where a code does <i>not</i> reach you</h3>
+<p>
+  Three of these codes are raised in places whose exceptions are <b>caught before the wire</b>, which is the
+  single most useful thing to know when a failure does not look like what you expected:
+</p>
+<table>
+  <tr><th>code</th><th>raised in</th><th>what you actually see</th></tr>
+  <tr><td class="name">UNSUPPORTED</td><td>The push pre-flight, the body-format guard, both drivers.</td><td>A push <b>rejection</b> — <code>accepted:false</code>, the message in <code>conflicts[].reason</code>, and <code>conflicts[].code</code> is <b>null</b>.</td></tr>
+  <tr><td class="name">INVALID_ST</td><td>The ST reader.</td><td>Same: a rejection, message only.</td></tr>
+  <tr><td class="name">INVALID_CODE_HEADER</td><td>The ST header helpers.</td><td>Same: a rejection, message only.</td></tr>
+  <tr><td class="name">NOT_FOUND</td><td>The push, and both drivers.</td><td>Same, when it comes from a push. A driver read during <code>fetch</code> is isolated into <code>unreadable</code> instead.</td></tr>
+  <tr><td class="name">DUPLICATE_CHILD</td><td>The push.</td><td>Same: a rejection.</td></tr>
+</table>
+<div class="note">
+  <code>conflicts[].code</code> is populated <b>only</b> for a network-text diagnostic
+  (<code>NETWORK_*</code>) — the conflict is built with the parser exception's code, and a coded
+  <code>BridgeException</code> does not carry one through. So match on <code>code</code> when you have it, and
+  fall back to <code>reason</code> otherwise.
+</div>
 <p>
   A <b>rejected push</b> is not an error frame — it is a normal <code>result</code> with
   <code>accepted: false</code> and a <code>conflicts</code> list, because a version conflict is an expected
@@ -131,31 +150,57 @@
   refusal the parser decided — a stable <code>code</code> and a 1-based <code>line</code>.
 </p>
 
+<h2 id="vocab">The other closed vocabularies</h2>
+<p>
+  Three more sets of strings travel on this wire. Like the error codes they are plain strings, defined once,
+  and a client matches them rather than branching on a type.
+</p>
+<table>
+  <tr><th>field</th><th>values</th><th>meaning</th></tr>
+  <tr>
+    <td class="name">ProjectEntry.status</td><td data-render="statuses"></td>
+    <td>The ROW's full connection state, and the one self-describing field — "is it serving" derives from it
+      (<code>status != idle</code>), so there is no separate flag. <code>idle</code> = detected but not the
+      served one; <code>healthy</code>/<code>degraded</code> = served, channel fine / had recent errors.</td>
+  </tr>
+  <tr>
+    <td class="name">HealthResponse.status</td><td><code>unavailable</code> + the above</td>
+    <td>The BRIDGE-level aggregate. <code>unavailable</code> is a bridge word, never a row value.</td>
+  </tr>
+  <tr>
+    <td class="name">BridgeDiagnostic.severity</td><td data-render="severities"></td>
+    <td>Mapped from the vendor's own severity word by substring, case-insensitively — the inputs are not a
+      closed set. <b>Anything unrecognised becomes <code>info</code></b>, which is the safe direction: inventing
+      an <code>error</code> would fail a build that passed.</td>
+  </tr>
+  <tr>
+    <td class="name">vendor / expectedPlatform</td><td data-render="vendors"></td>
+    <td>The only vendor fact above the seam.</td>
+  </tr>
+</table>
+
 <h2 id="ops">The ops</h2>
-<p class="gen">Generated from the contract types. Every field below is one the host actually serializes.</p>
+<p class="lede">
+  Each card carries the <b>closed set of error frames</b> that op can answer with, and the ways it fails
+  without one — the list to have in front of you when a client gets an answer it did not expect.
+</p>
 <div data-render="ops"></div>
 
 <h2 id="schemas">Schemas</h2>
-<p class="gen">Generated. Each card links from the field tables above.</p>
+<p class="lede">Every type that travels on the wire. The field tables above link here.</p>
 <div data-render="schemas"></div>
 
-<h2 id="using">Using the spec</h2>
+<h2 id="using">Building a client</h2>
 <p>
-  <a href="volt-bridge.openrpc.json">volt-bridge.openrpc.json</a> is a conformant OpenRPC 1.2.6 document, so
-  the ordinary tooling works on it with no Volt-specific step:
+  <a href="volt-bridge.openrpc.json">volt-bridge.openrpc.json</a> describes everything on this page in
+  machine-readable form, so a typed client is one command:
 </p>
-<pre># validate
-npx @open-rpc/schema-utils-js        # validateOpenRPCDocument(doc)
-
-# generate a typed client, in the language you want
-npx @open-rpc/generator
-
-# browse and call it interactively
-https://inspector.open-rpc.org       → paste volt-bridge.openrpc.json</pre>
+<pre>npx @open-rpc/generator                      # a typed client
+https://inspector.open-rpc.org               # browse it interactively</pre>
 <p>
-  The one thing the document cannot express is the framing: OpenRPC describes JSON-RPC, and this wire is
-  newline-delimited <code>{op, body}</code> with a leading progress stream. Everything else — method names,
-  bodies, results, schemas — is exactly what a generated client needs.
+  What the document does <b>not</b> carry is the framing — newline-delimited <code>{op, body}</code> with a
+  leading progress stream — and the per-op error sets above, which ride as <code>x-errorCodes</code>. Generated
+  clients hand you the method signatures; the transport and the failure handling are yours.
 </p>
 
 </main>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -46,6 +46,93 @@ public class DocDataTests
     /// <para>Taken from <c>BridgePipeHost</c>'s dispatch, and it is the ONE thing here that is hand-maintained —
     /// the mapping op → types lives in a switch, not in a type. <see cref="Every_op_constant_is_described"/>
     /// is the guard: add an op to <see cref="Ops"/> without a row here and the build says so.</para></summary>
+    /// <summary>The coded errors an op can answer with as an ERROR FRAME, and the ways it can fail WITHOUT
+    /// one. Traced through <c>BridgePipeHost</c>'s dispatch, <c>OpGuard</c> and each service's own catch arms —
+    /// which is the only way to get it right, because the interesting cases are the ones where a failure is
+    /// DELIBERATELY not an error frame:
+    /// <list type="bullet">
+    /// <item><c>push</c> catches every exception from its pre-flight AND its apply loop and returns a REJECTION
+    /// (<c>accepted:false</c> + <c>conflicts</c>). A caller therefore never sees <c>UNSUPPORTED</c> or
+    /// <c>INVALID_ST</c> as an error CODE from a push — it arrives as a conflict's <c>reason</c>.</item>
+    /// <item><c>build</c> catches everything after the guard and answers <c>success:false</c> with the failure
+    /// as an error-severity diagnostic.</item>
+    /// <item><c>refs</c>/<c>fetch</c>/<c>init</c> version items through <c>Versioning.SafeVersion</c>, which
+    /// isolates a body that will not materialize into the <c>unreadable</c> list rather than failing the walk.</item>
+    /// </list>
+    /// <para>Anything that is not an <c>ICodedError</c> reaches the client as <c>INTERNAL_ERROR</c>
+    /// (<c>PipeServer</c>), which is why every op that runs vendor code lists it.</para></summary>
+    private static readonly Dictionary<string, (string[] Errors, string[] Outcomes)> Outcomes = new()
+    {
+        [Ops.Health] = (new[] { BridgeErrorCodes.InternalError }, new[]
+        {
+            "Never gated by `disconnect` — while paused every row is forced to `idle`, because the list is how "
+            + "the user reconnects.",
+            "Answers from the driver's cached snapshot, so it cannot report PLC_DISCONNECTED. A bridge serving "
+            + "nothing is the aggregate status `unavailable` instead.",
+        }),
+        [Ops.Connect] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.InternalError }, new[]
+        {
+            "PLC_DISCONNECTED here is the POST-condition: the driver attached nothing, or attached something "
+            + "other than the project named. Enforced once in shared code, so both vendors refuse identically.",
+            "A malformed body is a deserialization failure, not BAD_REQUEST — it reaches the client as "
+            + "INTERNAL_ERROR.",
+            "A REFUSED connect still leaves the bridge RESUMED: the pause flag is cleared before the IDE work, "
+            + "so a `disconnect` racing a connect wins.",
+        }),
+        [Ops.Disconnect] = (new string[0], new[]
+        {
+            "Cannot fail: it sets a flag and answers. It is deliberately not marshalled onto the IDE thread, so "
+            + "it answers even while a push is running — and that push runs to completion. The gate stops the "
+            + "NEXT op, never the current one.",
+        }),
+        [Ops.Refs] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
+                              BridgeErrorCodes.InternalError }, new[]
+        {
+            "An item whose body will not materialize is NOT an error: it is named in `unreadable`, keeps a "
+            + "stable sentinel version so a pull does not mistake it for deleted, and is logged at Warn.",
+            "A read is retried ONCE through a transient IDE failure that the driver classifies as one. The "
+            + "session is marked degraded meanwhile, which `health` reports.",
+        }),
+        [Ops.Fetch] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
+                               BridgeErrorCodes.NoSidecar, BridgeErrorCodes.InternalError }, new[]
+        {
+            "NO_SIDECAR is specific to this op: a fetch with neither `knownItems` nor `onlyItems` is ambiguous "
+            + "— it could mean \"everything\" or a client that forgot its baseline. Use `init` for a first pull.",
+            "A walk that could not enumerate a folder SUPPRESSES every deletion and says so at Warn, so "
+            + "`removed` comes back empty rather than wrong.",
+            "Items that would not materialize are named in `unreadable`, not raised.",
+        }),
+        [Ops.Init] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
+                              BridgeErrorCodes.InternalError }, new[]
+        {
+            "Cannot answer NO_SIDECAR — it sets `init` itself, which is the branch that check exempts.",
+            "Takes no body at all, so it carries no identity check either: it can only be PLC_DISCONNECTED on "
+            + "the connected half of the guard.",
+        }),
+        [Ops.Push] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
+                              BridgeErrorCodes.InternalError }, new[]
+        {
+            "MOST PUSH FAILURES ARE NOT ERROR FRAMES. Every exception from the pre-flight and from the apply "
+            + "loop is caught and returned as `accepted:false` with one conflict. A client MUST check `accepted`.",
+            "A conflict's `code` is populated ONLY for a network-text diagnostic (`NETWORK_*`). A refusal that "
+            + "was a coded BridgeException carries its message, but no code.",
+            "A version conflict is also `accepted:false` — with `yourVersion`/`currentVersion` per item, and no "
+            + "code.",
+            "A refusal during APPLY rather than pre-flight leaves the earlier ops WRITTEN, and they are not "
+            + "rolled back. The reason says how many, because a rejection that reads as \"nothing happened\" is "
+            + "a lie the user acts on.",
+        }),
+        [Ops.Build] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject }, new[]
+        {
+            "The guard sits OUTSIDE the try, deliberately — otherwise WRONG_PROJECT would be swallowed into a "
+            + "fake \"build failed\" diagnostic instead of surfacing as an error frame.",
+            "Everything after it IS caught: a thrown build answers `success:false` with the message as one "
+            + "error-severity diagnostic. So this op essentially never returns INTERNAL_ERROR.",
+            "`success` comes from a different vendor SIGNAL on each: CODESYS derives it from the diagnostics, "
+            + "TwinCAT reads the IDE's own count of failed projects.",
+        }),
+    };
+
     private static readonly (string Op, Type? Param, Type? Result, string Summary)[] Methods =
     {
         (Ops.Health, null, typeof(HealthResponse),
@@ -122,6 +209,12 @@ public class DocDataTests
                         ["schema"] = Reference(param, schemas),
                     }),
             };
+            // A specification EXTENSION (`x-`), not OpenRPC's own `errors` field: that one wants JSON-RPC
+            // INTEGER codes and these are strings. Inventing numbers to fit the shape would put a value in the
+            // artefact that no part of this wire ever sends.
+            var (errs, outs) = Outcomes[op];
+            m["x-errorCodes"] = new JsonArray(errs.Select(e => (JsonNode?)e).ToArray());
+            m["x-outcomes"] = new JsonArray(outs.Select(o => (JsonNode?)o).ToArray());
             m["result"] = result is null
                 // `connect` and `disconnect` answer `{ok:true}` — a literal, not a contract type.
                 ? new JsonObject { ["name"] = "ok", ["schema"] = new JsonObject
@@ -396,6 +489,8 @@ public class DocDataTests
         ["errors"] = new JsonArray(Consts(typeof(BridgeErrorCodes)).Select(c => (JsonNode?)c).ToArray()),
         // The wire VALUES only — `Vendors` also carries the display spellings, which are a UI concern.
         ["vendors"] = new JsonArray(Vendors.Codesys, Vendors.Twincat),
+        ["statuses"] = new JsonArray(Consts(typeof(HealthStatus)).Select(c => (JsonNode?)c).ToArray()),
+        ["severities"] = new JsonArray(Consts(typeof(Severity)).Select(c => (JsonNode?)c).ToArray()),
         ["kinds"] = BuildKinds(),
         ["extensions"] = BuildExtensions(),
         ["driver"] = new JsonArray(Facets.Select(f => (JsonNode?)new JsonObject
@@ -457,6 +552,28 @@ public class DocDataTests
     {
         Assert.Equal(OpNames().OrderBy(x => x, StringComparer.Ordinal).ToList(),
                      Methods.Select(m => m.Op).OrderBy(x => x, StringComparer.Ordinal).ToList());
+    }
+
+    /// <summary>EVERY OP DECLARES WHAT IT CAN ANSWER WITH. The whole point of that table is debugging: someone
+    /// staring at a failure wants the CLOSED set of codes the op can produce. An op with no row would silently
+    /// document an empty set, which is worse than no table at all.</summary>
+    [Fact]
+    public void Every_op_declares_its_outcomes()
+    {
+        Assert.Equal(OpNames().OrderBy(x => x, StringComparer.Ordinal).ToList(),
+                     Outcomes.Keys.OrderBy(x => x, StringComparer.Ordinal).ToList());
+    }
+
+    /// <summary>AND EVERY CODE IT NAMES IS A REAL ONE — a typo would document a code no client can ever match
+    /// against, which is the one way a debugging aid makes debugging worse.</summary>
+    [Fact]
+    public void Every_declared_error_code_exists()
+    {
+        var known = new HashSet<string>(Consts(typeof(BridgeErrorCodes)), StringComparer.Ordinal);
+        foreach (var (op, row) in Outcomes)
+            foreach (var code in row.Errors)
+                Assert.True(known.Contains(code),
+                    $"op '{op}' names '{code}', which is not a BridgeErrorCodes value.");
     }
 
     /// <summary>EVERY DRIVER MEMBER IS LISTED. <see cref="IIdeDriver"/> is the layer another project reuses, so
