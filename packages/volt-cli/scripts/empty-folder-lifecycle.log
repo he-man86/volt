@@ -1,0 +1,14 @@
+project: CodesysTestProject.project
+created folder 'VltProbeFolder'
+created POU 'VltProbePou' inside it
+   folder children after create: 1
+removed the POU
+
+=== ANSWER ===
+the folder SURVIVES, empty (children=0)
+so CODESYS does NOT prune it, exactly as TwinCAT does not - and Volt never asks,
+because `deleteItem` names an item and no folder op exists on the wire.
+
+=== IS A FOLDER REMOVABLE AT ALL? ===
+folder.remove() -> OK, so a prune IS expressible through the same API
+folder present after remove(): False
