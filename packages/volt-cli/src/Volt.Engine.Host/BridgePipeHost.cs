@@ -125,8 +125,6 @@ public sealed class BridgePipeHost : IDisposable
                 return RunRead(() => (object)RefsService.Handle(_ide, Body<RefsRequest>(req), f => onProgress(f)));
             case Ops.Fetch:
                 return RunRead(() => (object)FetchService.Handle(_ide, Body<FetchRequest>(req), f => onProgress(f)));
-            case Ops.Init:
-                return RunRead(() => (object)FetchService.Handle(_ide, new FetchRequest { Init = true }, f => onProgress(f)));
             case Ops.Push:
                 return RunOp(() => (object)PushService.Handle(_ide, Body<PushRequest>(req), f => onProgress(f)));
             case Ops.Build:

@@ -46,9 +46,9 @@ public static class Commands
         // instead of instantly, and on a bridge whose live name differs from its cached one the created folder and
         // commit message change. The alternative — folder from the cache, binding rewritten afterwards — leaves a
         // workspace whose folder and README name a different project than its binding, which is the worse half.
-        var progress = new PhaseProgress(onProgress, Ops.Init, 4);
-        progress.Enter(0, "Fetching from IDE"); // label up front — Init's fetch stays silent through its precompile+walk
-        var fetched = bridge.Init(progress.Wrap(0, "Fetching from IDE"));
+        var progress = new PhaseProgress(onProgress, "init", 4);   // the CLI VERB, not a wire op — init is a fetch
+        progress.Enter(0, "Fetching from IDE"); // label up front — the fetch stays silent through its precompile+walk
+        var fetched = bridge.FetchChanges(new FetchRequest { Init = true }, progress.Wrap(0, "Fetching from IDE"));
         // The echo is the LIVE identity OpGuard checked, atomic with the walk it describes. It is nullable so an
         // older bridge can omit it — refuse loud rather than bind the workspace to an empty vendor/name for life.
         if (string.IsNullOrEmpty(fetched.Platform) || string.IsNullOrEmpty(fetched.ProjectName))

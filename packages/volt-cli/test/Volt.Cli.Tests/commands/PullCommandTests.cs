@@ -189,28 +189,57 @@ public class PullCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
-    /// <summary>THE bug: one refusal, two carriers, opposite consequences. <c>BridgeClient.GuardEmptyItems</c> raises
-    /// a <c>BridgeError</c> (PLC_DISCONNECTED) when a walk comes back empty and it cannot confirm an IDE is attached
-    /// — and <c>BridgeError</c> matched no catch in <see cref="Commands"/>, so it escaped `Commands.Pull` entirely
-    /// and landed on Program's top-level handler: message on stderr, exit 1, EMPTY stdout. The sibling carrier for
-    /// the very same code (a <c>PipeCallException</c> from the bridge's own in-op guard) became a clean
-    /// <c>refused</c> result. Under `--json` that split kills the contract — volt-control parses stdout, so one
-    /// situation renders as `{kind:"refused"}` and the indistinguishable other as `{kind:"error"}`. Now both carriers
-    /// land on the same result, which `Program.CmdPull` emits as `{"kind":"refused"}` on stdout with exit 2 (its
-    /// `--json` mapping is `Ok ? 0 : 2`, unchanged by this fix).
-    /// <para>The modelled state is the real one: the bridge is LIVE, so the fetch op's own guard passes and the walk
-    /// legitimately returns zero items, while the CACHED health snapshot the guard re-probes shows nothing serving —
-    /// TwinCAT's ~5s-throttled snapshot in the moment right after a reconnect.</para></summary>
+    /// <summary>A PULL OVER A PARTIAL WALK KEEPS THE FILES AND SAYS THE VIEW IS SHORT.
+    ///
+    /// <para>Two halves, in two places, and it is worth being exact about which does what. The FILES survive
+    /// because `FetchService` suppresses its own `removed` list when the walk was incomplete — the destructive
+    /// path reads `fetched.Removed`, so that is the half that prevents data loss. The client half is what the
+    /// USER is told: `PostStatus` carries the incompleteness, so the status the pull returns declines to derive
+    /// a deletion from absence and names the folder it could not read. Without it a pull that changed nothing
+    /// on disk still reported the engineer's POUs as incoming-REMOVED.</para>
+    ///
+    /// <para>This is also the hazard `BridgeClient.GuardEmptyItems` was standing in for, and it stood in the
+    /// wrong place: it re-probed the CACHED health snapshot after a successful fetch and refused when it showed
+    /// nothing serving — using the staler of two signals to override the op's own LIVE guard, which had already
+    /// passed — and it could not tell an empty project from an unread one either way.</para></summary>
     [Fact]
-    public void Pull_refuses_when_the_bridge_walks_zero_items_it_cannot_confirm()
+    public void A_pull_over_an_unreadable_folder_keeps_the_files_under_it()
     {
-        var ide = new FakeIde() { HealthConnected = true, HealthPlatform = "codesys", HealthProjectName = "Demo", StaleHealthSnapshot = true };
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("A", "PROGRAM A\nVAR\nEND_VAR", "x := 1;"),
+                               FakeIde.Item.TextualPou("Deep", "PROGRAM Deep\nVAR\nEND_VAR", "y := 2;", "Machine"));
         var (root, host, client) = Bound(ide);
         try
         {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var deep = Path.Combine(root, "src", "Machine", "Deep.prg");
+            Assert.True(File.Exists(deep), "the first pull did not write the item this test is about");
+
+            // The engineer's IDE now refuses to enumerate that folder.
+            ide.UnwalkableFolders = new[] { "Machine" };
+
+            var again = Commands.Pull(root, client);
+
+            Assert.Equal("ok", again.Kind);
+            Assert.True(File.Exists(deep), "the pull DELETED an item it merely could not see");
+            Assert.Empty(again.Status!.Incoming.Removed);
+            Assert.Equal(new[] { "Machine" }, again.Status!.UnwalkedFolders);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>And a genuinely EMPTY project still pulls. The old guard refused this outright — "refusing to
+    /// treat an empty project as truth" — which is the right instinct applied to a signal that could not tell
+    /// the two cases apart.</summary>
+    [Fact]
+    public void A_pull_from_an_empty_project_succeeds()
+    {
+        var (root, host, client) = Bound(ConnectedIde());
+        try
+        {
             var r = Commands.Pull(root, client);
-            Assert.Equal("refused", r.Kind);
-            Assert.Contains("refusing to treat an empty project as truth", r.Reason);
+
+            Assert.Equal("ok", r.Kind);
+            Assert.Empty(r.Status!.UnwalkedFolders);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }

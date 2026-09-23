@@ -15,7 +15,8 @@ export const bridge = {
 	fetch: (req: { knownItems?: Record<string, string>; onlyItems?: string[] } = {}): Promise<any> => call("fetch", req),
 	push: (req: { ops: unknown[]; expectedProjectVersion?: string }): Promise<any> => call("push", req),
 	build: (): Promise<any> => call("build", {}),
-	init: (): Promise<any> => call("init"),
+	// `init` was its own op until it turned out to be `fetch { init: true }` with the identity guard missing.
+	init: (): Promise<any> => call("fetch", { init: true }),
 	// The connection-lifecycle ops the CONNECTOR drives (the tray and the two frontends), not the CLI. `disconnect`
 	// is the tray's Disconnect: the bridge refuses sync until the next `connect`, tearing nothing down.
 	connect: (req: { project?: string | null } = {}): Promise<any> => call("connect", req),

@@ -15,7 +15,7 @@
 
 <h1>The wire</h1>
 <p class="lede">
-  Eight ops over a Windows named pipe. This is the parity boundary — both vendors answer identically — and it
+  Seven ops over a Windows named pipe. This is the parity boundary — both vendors answer identically — and it
   is the thing to build a client against.
 </p>
 <p>Ops: <span data-render="op-names"></span></p>
@@ -122,7 +122,7 @@
   <tr><td class="name">INVALID_CODE_HEADER</td><td>The pushed source's header is not one Volt recognises.</td><td>Fix the file.</td></tr>
   <tr><td class="name">INVALID_ST</td><td>The pushed body failed the ST reader. Raised during a push, so it reaches you on <code>conflicts[].code</code> rather than as an error frame.</td><td>Fix the body. A <a href="network-text.html#diagnostics">network-text</a> refusal also carries a <code>line</code>.</td></tr>
   <tr><td class="name">UNREADABLE</td><td>The IDE holds the item but its body could not be materialized, so there is no version to compare against. Every <code>refs</code>/<code>fetch</code> names it in <code>unreadable</code>.</td><td>Fix it in the IDE, or push with <code>force</code> to overwrite it.</td></tr>
-  <tr><td class="name">NO_SIDECAR</td><td><code>fetch</code> only: the request carried neither <code>knownItems</code> nor <code>onlyItems</code>, so "everything" and "a client that lost its baseline" are indistinguishable.</td><td>Send <code>init</code> for a first pull, or supply a baseline.</td></tr>
+  <tr><td class="name">NO_SIDECAR</td><td><code>fetch</code> only: the request carried neither <code>knownItems</code> nor <code>onlyItems</code>, so "everything" and "a client that lost its baseline" are indistinguishable.</td><td>Send <code>init: true</code> for a first pull, or supply a baseline.</td></tr>
   <tr><td class="name">INTERNAL_ERROR</td><td>Anything thrown that was not an <code>ICodedError</code>. Usually a bug.</td><td>Collect the <a href="logs.html">log</a>; the message is the exception's own.</td></tr>
 </table>
 

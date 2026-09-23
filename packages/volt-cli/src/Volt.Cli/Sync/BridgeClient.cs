@@ -31,26 +31,18 @@ public sealed class BridgeClient
     /// <summary>The project snapshot. Pass the workspace's bound identity in <paramref name="req"/> so the bridge
     /// guards it IN the op (WRONG_PROJECT) like every other project-touching op; null asks without an identity —
     /// discovery, and callers that only want the shape back.</summary>
-    public RefsResponse GetRefs(RefsRequest? req = null, Action<ProgressFrame>? onProgress = null)
-    {
-        var refs = De<RefsResponse>(_pipe.Call(Ops.Refs, req, Forward(onProgress)));
-        GuardEmptyItems(refs.Items.Count);
-        return refs;
-    }
+    public RefsResponse GetRefs(RefsRequest? req = null, Action<ProgressFrame>? onProgress = null) =>
+        De<RefsResponse>(_pipe.Call(Ops.Refs, req, Forward(onProgress)));
 
-    public FetchResponse FetchChanges(FetchRequest req, Action<ProgressFrame>? onProgress = null)
-    {
-        var resp = De<FetchResponse>(_pipe.Call(Ops.Fetch, req, Forward(onProgress)));
-        GuardEmptyItems(resp.Items.Count);
-        return resp;
-    }
-
-    public FetchResponse Init(Action<ProgressFrame>? onProgress = null)
-    {
-        var resp = De<FetchResponse>(_pipe.Call(Ops.Init, onProgress: Forward(onProgress)));
-        GuardEmptyItems(resp.Items.Count);
-        return resp;
-    }
+    /// <summary>`fetch`, which is also how a first pull is taken — <c>init: true</c> asks for every item
+    /// regardless of <c>knownItems</c>.
+    ///
+    /// <para>There used to be a separate <c>init</c> OP for that, and it was the same call with one difference:
+    /// the host built its own <c>FetchRequest</c>, so an init could not carry <c>expectedPlatform</c>/
+    /// <c>expectedProjectName</c> and was the one read on this wire with no identity guard. It also labelled its
+    /// own progress frames <c>operation: "fetch"</c>, because underneath it was one.</para></summary>
+    public FetchResponse FetchChanges(FetchRequest req, Action<ProgressFrame>? onProgress = null) =>
+        De<FetchResponse>(_pipe.Call(Ops.Fetch, req, Forward(onProgress)));
 
     public PushResponse PushBatch(PushRequest req, Action<ProgressFrame>? onProgress = null) =>
         De<PushResponse>(_pipe.Call(Ops.Push, req, Forward(onProgress)));
@@ -60,14 +52,4 @@ public sealed class BridgeClient
 
     private Action<JsonElement>? Forward(Action<ProgressFrame>? onProgress) =>
         onProgress is null ? null : e => { var f = De<ProgressFrame>(e); if (f is not null) onProgress(f); };
-
-    private void GuardEmptyItems(int itemCount)
-    {
-        if (itemCount > 0) return;
-        var connected = false;
-        try { connected = GetHealth().Connected; } catch { /* unreachable → treat as not-connected */ }
-        if (!connected)
-            throw new BridgeError(BridgeErrorCodes.PlcDisconnected,
-                "bridge reported zero items and Volt could not confirm an IDE is attached — refusing to treat an empty project as truth (is the project open in the IDE?)");
-    }
 }

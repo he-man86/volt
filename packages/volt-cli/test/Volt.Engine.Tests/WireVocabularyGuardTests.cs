@@ -47,7 +47,7 @@ public class WireVocabularyGuardTests
             new HashSet<string> { "Namespaces.cs" }),
 
         ("op codes (Ops)",
-            new[] { "health", "connect", "disconnect", "refs", "fetch", "init", "push", "build" },
+            new[] { "health", "connect", "disconnect", "refs", "fetch", "push", "build" },
             // Program.cs/Git.cs use the same words as CLI verbs / git subcommands; TcObjectModel uses these as human
             // LOG TAGS in the COM driver; ControlServer's HTTP routes (POST /connect, /disconnect) deliberately match
             // the wire verbs but are a distinct vocabulary (control-plane URLs, not the pipe op); ConsoleServer's

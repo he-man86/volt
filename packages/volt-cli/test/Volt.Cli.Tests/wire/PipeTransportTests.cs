@@ -56,7 +56,7 @@ public class PipeTransportTests
         host.Start();
 
         var progress = new List<JsonElement>();
-        new PipeClient(pipe).Call("init", onProgress: f => progress.Add(f.Clone()));
+        new PipeClient(pipe).Call("fetch", new { init = true }, onProgress: f => progress.Add(f.Clone()));
 
         Assert.NotEmpty(progress);
         Assert.All(progress, p => Assert.False(p.TryGetProperty("phase", out _))); // no separate phase
@@ -90,7 +90,7 @@ public class PipeTransportTests
         host.Start();
 
         // Hold the one IDE thread inside a running op (init blocks in library-extract on the STA worker).
-        var init = Task.Run(() => new PipeClient(pipe).Call("init"));
+        var init = Task.Run(() => new PipeClient(pipe).Call("fetch", new { init = true }));
         Assert.True(entered.Wait(15_000), "init never reached the library-extract step");
 
         // With the IDE thread held, the health poll must still COMPLETE (release hasn't been Set) — served from
@@ -139,7 +139,7 @@ public class PipeTransportTests
         hIdle.Start();
 
         // Hold the BUSY bridge's one IDE thread inside a running op.
-        var op = Task.Run(() => new PipeClient(pBusy).Call("init"));
+        var op = Task.Run(() => new PipeClient(pBusy).Call("fetch", new { init = true }));
         Assert.True(entered.Wait(15_000), "the long op never reached the held step");
 
         // BOTH health polls must COMPLETE while the op is still held (release hasn't been Set yet) — that is the
@@ -276,7 +276,6 @@ public class PipeTransportTests
     [Theory]
     [InlineData("refs")]
     [InlineData("fetch")]
-    [InlineData("init")]
     [InlineData("push")]
     [InlineData("build")]
     public void A_project_op_on_a_not_connected_bridge_is_refused_with_PLC_DISCONNECTED(string op)
@@ -362,7 +361,7 @@ public class PipeTransportTests
 
         new PipeClient(pipe).Call("disconnect");
 
-        foreach (var op in new[] { "refs", "fetch", "init", "push", "build" })
+        foreach (var op in new[] { "refs", "fetch", "push", "build" })
         {
             var ex = Assert.Throws<PipeCallException>(() => new PipeClient(pipe).Call(op, new { }));
             Assert.Equal("PLC_DISCONNECTED", ex.Code);

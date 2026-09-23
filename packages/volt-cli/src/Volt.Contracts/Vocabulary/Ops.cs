@@ -14,7 +14,6 @@ public static class Ops
     public const string Disconnect = "disconnect";
     public const string Refs = "refs";
     public const string Fetch = "fetch";
-    public const string Init = "init";
     public const string Push = "push";
     public const string Build = "build";
 }

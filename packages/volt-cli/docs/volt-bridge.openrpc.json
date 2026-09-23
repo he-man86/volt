@@ -149,29 +149,9 @@
         "INTERNAL_ERROR"
       ],
       "x-outcomes": [
-        "NO_SIDECAR is specific to this op: a fetch with neither \u0060knownItems\u0060 nor \u0060onlyItems\u0060 is ambiguous \u2014 it could mean \u0022everything\u0022 or a client that forgot its baseline. Use \u0060init\u0060 for a first pull.",
+        "NO_SIDECAR is specific to this op: a fetch with neither \u0060knownItems\u0060 nor \u0060onlyItems\u0060 is ambiguous \u2014 it could mean \u0022everything\u0022 or a client that forgot its baseline. Send \u0060init: true\u0060 for a first pull.",
         "A walk that could not enumerate a folder SUPPRESSES every deletion and says so at Warn, so \u0060removed\u0060 comes back empty rather than wrong.",
         "Items that would not materialize are named in \u0060unreadable\u0060, not raised."
-      ],
-      "result": {
-        "name": "result",
-        "schema": {
-          "$ref": "#/components/schemas/FetchResponse"
-        }
-      }
-    },
-    {
-      "name": "init",
-      "summary": "A full fetch for a first sync: \u0060fetch\u0060 with \u0060init: true\u0060. Same response shape, no \u0060knownItems\u0060.",
-      "paramStructure": "by-name",
-      "params": [],
-      "x-errorCodes": [
-        "PLC_DISCONNECTED",
-        "INTERNAL_ERROR"
-      ],
-      "x-outcomes": [
-        "Cannot answer NO_SIDECAR \u2014 it sets \u0060init\u0060 itself, which is the branch that check exempts.",
-        "Takes no body at all, so it carries no identity check either: it can only be PLC_DISCONNECTED on the connected half of the guard."
       ],
       "result": {
         "name": "result",

@@ -97,19 +97,11 @@ public class DocDataTests
                                BridgeErrorCodes.NoSidecar, BridgeErrorCodes.InternalError }, new[]
         {
             "NO_SIDECAR is specific to this op: a fetch with neither `knownItems` nor `onlyItems` is ambiguous "
-            + "— it could mean \"everything\" or a client that forgot its baseline. Use `init` for a first pull.",
+            + "— it could mean \"everything\" or a client that forgot its baseline. Send `init: true` for a "
+            + "first pull.",
             "A walk that could not enumerate a folder SUPPRESSES every deletion and says so at Warn, so "
             + "`removed` comes back empty rather than wrong.",
             "Items that would not materialize are named in `unreadable`, not raised.",
-        }),
-        // NO WRONG_PROJECT: the host builds this request itself (`new FetchRequest { Init = true }`) and never
-        // reads the caller's body, so there is no expectation for the guard to check. The op published a code
-        // it structurally cannot raise, two lines above an outcome that said so.
-        [Ops.Init] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.InternalError }, new[]
-        {
-            "Cannot answer NO_SIDECAR — it sets `init` itself, which is the branch that check exempts.",
-            "Takes no body at all, so it carries no identity check either: it can only be PLC_DISCONNECTED on "
-            + "the connected half of the guard.",
         }),
         [Ops.Push] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
                               BridgeErrorCodes.InternalError }, new[]
@@ -157,8 +149,6 @@ public class DocDataTests
             "Item CONTENT. `knownItems` narrows the answer to what changed; `onlyItems` restricts the walk to a " +
             "named subset. Graphical bodies arrive as network text — the bridge materializes them, so a client " +
             "never sees a vendor's own form."),
-        (Ops.Init, null, typeof(FetchResponse),
-            "A full fetch for a first sync: `fetch` with `init: true`. Same response shape, no `knownItems`."),
         (Ops.Push, typeof(PushRequest), typeof(PushResponse),
             "Apply ops to the IDE. Every text-decidable refusal runs in a PRE-FLIGHT before the first write, so " +
             "a push that cannot land in full lands nothing. `expectedProjectVersion` is the lease; per-item " +
@@ -722,6 +712,26 @@ public class DocDataTests
         4 => "Four", 5 => "Five", 6 => "Six", 7 => "Seven", 8 => "Eight", 9 => "Nine", 10 => "Ten",
         _ => n.ToString(),
     };
+
+    /// <summary>THE OP COUNT IN THE PROSE IS THE OP COUNT IN THE VOCABULARY. Two pages open by stating it, and
+    /// a number in a sentence is the last thing anyone updates when an op is added or removed — deleting `init`
+    /// left "Eight ops" on the page that exists to describe them.</summary>
+    [Theory]
+    [InlineData("wire.html")]
+    [InlineData("index.html")]
+    public void The_op_count_on_the_page_is_the_op_count_on_the_wire(string page)
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
+            root = root.Parent;
+        Assert.NotNull(root);
+        var html = File.ReadAllText(Path.Combine(root!.FullName, "packages", "volt-cli", "docs", page));
+        var n = OpNames().Count();
+
+        Assert.True(html.Contains($"{Spell(n)} ops", StringComparison.Ordinal)
+                 || html.Contains($"{n} ops", StringComparison.Ordinal),
+            $"docs/{page} does not say there are {n} ops, and the wire has {n}.");
+    }
 
     /// <summary>EVERY DRIVER MEMBER IS LISTED. <see cref="IIdeDriver"/> is the layer another project reuses, so
     /// a facet it does not inherit from would be a whole surface missing from the page with nothing to notice
