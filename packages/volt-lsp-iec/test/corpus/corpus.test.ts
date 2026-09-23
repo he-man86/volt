@@ -78,6 +78,23 @@ const CORPUS_TIMEOUT = 120_000
 /** The lowering walk is the slow one — 29k files parsed, bound and lowered. Measured ~80s. */
 const LOWERING_TIMEOUT = 240_000
 
+/**
+ * Every source file under `dir`, IN A DETERMINISTIC ORDER.
+ *
+ * <b>The order is load-bearing and that is not obvious.</b> The symbol table is built from this array, and
+ * lowering reaches a routine through it — so the walk order decides which of two same-named units a reference
+ * binds to, and therefore how many routines lower. Measured: reversing this array moves the corpus figure from
+ * 558 routines to 574, on one machine, over identical bytes.
+ *
+ * `readdirSync` returns whatever the filesystem hands back — alphabetical on NTFS, directory order on ext4 —
+ * so without this the measurement was a property of the DEVELOPER'S DISK. It read 558 on Windows and 582 in
+ * CI, and the exact-figure gate below failed on every Linux run while passing locally, which is the worst
+ * shape a gate can have: green for the person who could fix it.
+ *
+ * Sorted on the path with separators NORMALIZED, because `\` (0x5C) and `/` (0x2F) sort either side of `-`
+ * and `.` — sorting raw paths would have swapped sibling order between the two platforms and left the same
+ * bug with an extra step in front of it.
+ */
 function walk(dir: string): string[] {
   const out: string[] = []
   for (const name of readdirSync(dir)) {
@@ -85,11 +102,17 @@ function walk(dir: string): string[] {
     if (statSync(p).isDirectory()) out.push(...walk(p))
     else if (SOURCE_EXTENSION_SET.has(extname(p).toLowerCase())) out.push(p)
   }
-  return out
+  const key = (p: string) => p.split("\\").join("/")
+  return out.sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0))
 }
 
+/** Sorted for the same reason as `walk`: the projects are walked in this order into one shared tally. */
 const projectDirs = (): string[] =>
-  hasCorpus ? readdirSync(CORPUS).filter((p) => statSync(join(CORPUS, p)).isDirectory()) : []
+  hasCorpus
+    ? readdirSync(CORPUS)
+        .filter((p) => statSync(join(CORPUS, p)).isDirectory())
+        .sort()
+    : []
 
 // ─── question 1 + 3: one parse of every file, every question asked of it ─────────────────────────────────────
 

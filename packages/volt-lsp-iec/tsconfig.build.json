@@ -14,5 +14,11 @@
     "types": ["node"]
   },
   "include": ["src", "test"],
-  "exclude": ["dist", "node_modules", "**/*.test.ts"]
+  // `test/` is in because the `./conformance` package export compiles out of it. `support/` is NOT: those are
+  // test-RUNNER helpers in the same category as a `*.test.ts`, three of them use Bun-only APIs
+  // (`import.meta.dir`, `Bun.spawnSync`), and nothing reachable from `test/conformance/index.ts` imports one.
+  // Compiling them under `types: ["node"]` is what broke `bun run build` — and adding "bun" to the build's
+  // types instead would have emitted a dist/ that calls `Bun` on the one condition (`default`) that exists
+  // precisely for runtimes that are not Bun.
+  "exclude": ["dist", "node_modules", "**/*.test.ts", "test/conformance/support"]
 }
