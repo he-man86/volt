@@ -71,6 +71,14 @@ public interface IIdeSession
     /// writes commit immediately). Called before reading versions and after applying a push.</summary>
     void FlushPendingWrites();
     bool Build();
+
+    /// <summary>The last build's diagnostics, as FRESH objects the caller owns.
+    ///
+    /// <para><c>BuildService.PromoteNames</c> rewrites <see cref="BridgeDiagnostic.Name"/> in place — a driver
+    /// answers with the BARE name its vendor gave (CODESYS resolves <c>IMessage.ObjectGuid</c>, TwinCAT takes
+    /// the stem of the path in its output pane) and only the engine can derive the wire's full `name.kind`. So
+    /// a driver that handed back a cached list would see its own cache promoted, and the NEXT build would find
+    /// full names where it expected bare ones and resolve every one of them to null.</para></summary>
     IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics();
 
     // ── library signatures ──

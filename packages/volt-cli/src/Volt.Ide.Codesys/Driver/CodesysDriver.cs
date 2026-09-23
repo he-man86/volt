@@ -121,16 +121,40 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     public override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures() =>
         _om.ExtractLibrarySignatures();
 
-    public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() =>
-        _om.GetBuildDiagnostics().Select(d =>
+    public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics()
+    {
+        var raw = _om.GetBuildDiagnostics().Cast<Dictionary<string, object?>>().ToList();
+        var names = NamesFor(raw);
+        return raw.Select(m => new BridgeDiagnostic
         {
-            var m = (Dictionary<string, object?>)d;
-            return new BridgeDiagnostic
-            {
-                Severity = m.TryGetValue("severity", out var s) ? s as string ?? Severity.Info : Severity.Info,
-                Message = m.TryGetValue("message", out var msg) ? msg as string ?? "" : "",
-                Line = m.TryGetValue("line", out var l) && l is int li ? li : 0,
-                Column = m.TryGetValue("column", out var c) && c is int ci ? ci : 0,
-            };
+            Severity = m.TryGetValue("severity", out var s) ? s as string ?? Severity.Info : Severity.Info,
+            Message = m.TryGetValue("message", out var msg) ? msg as string ?? "" : "",
+            Line = m.TryGetValue("line", out var l) && l is int li ? li : 0,
+            Column = m.TryGetValue("column", out var c) && c is int ci ? ci : 0,
+            Code = m.TryGetValue("code", out var code) ? code as string : null,
+            // The BARE name — BuildService promotes it to the wire's full `name.kind`. See its PromoteNames.
+            Name = m.TryGetValue("objectGuid", out var g) && g is Guid guid && names.TryGetValue(guid, out var n)
+                ? n : null,
         }).ToList();
+    }
+
+    /// <summary>The bare name of every object a diagnostic points at, by guid.
+    ///
+    /// <para>`IMessage.ObjectGuid` is the only handle CODESYS gives on WHICH object a diagnostic is about, and
+    /// the object model has no guid lookup that does not also need the object's project handle — so the tree
+    /// walk is how a guid becomes a name. It runs only when at least one diagnostic carried a guid, i.e. never
+    /// on a clean build, and a build is seconds where a walk is milliseconds.</para></summary>
+    private Dictionary<Guid, string> NamesFor(List<Dictionary<string, object?>> raw)
+    {
+        var wanted = new HashSet<Guid>(raw.Select(m => m.TryGetValue("objectGuid", out var g) ? g as Guid? : null)
+                                          .Where(g => g is not null).Select(g => g!.Value));
+        var names = new Dictionary<Guid, string>();
+        if (wanted.Count == 0) return names;
+        foreach (var pi in WalkItems().Items)
+        {
+            var guid = _om.GuidOf(pi.Item.Native);
+            if (guid != Guid.Empty && wanted.Contains(guid)) names[guid] = pi.Name;
+        }
+        return names;
+    }
 }

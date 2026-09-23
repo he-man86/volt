@@ -104,4 +104,42 @@ public class TcBuildOutputTests
     {
         Assert.Empty(TcObjectModel.ParsePaneText("1>------ Build started ------\r\n1>Build succeeded.\r\n"));
     }
+
+    /// <summary>THE ITEM THE COMPILER NAMED. Group 1 of the pane regex always held it and the capture was
+    /// dropped, so a diagnostic carried a line number with no file to anchor it to — a client had a position
+    /// and nowhere to put it. The name is BARE here on purpose: `.TcPOU` is one vendor file type covering
+    /// `prg`, `fb` and `func`, so only the declaration (read above this seam) can say which wire kind it is.</summary>
+    [Fact]
+    public void NamesTheItemTheCompilerNamed()
+    {
+        var parsed = TcObjectModel.ParsePaneText(
+            "1>C:\\p\\POUs\\FB_Motor.TcPOU(12,4) : error : 'x' is no component of 'Y'\r\n");
+        Assert.Equal("FB_Motor", Assert.Single(parsed).Name);
+    }
+
+    /// <summary>A PROJECT-level message names no item. MSBuild writes the solution caption where a path would
+    /// go, and calling that a POU would point an editor at a file that does not exist.
+    ///
+    /// <para>A SPACE is the whole test, on purpose: an IEC identifier cannot contain one, so a caption is
+    /// recognisable while a single bare word is NOT -- `1&gt;Build : error : ...` is shaped exactly like a
+    /// project named `Build`. This layer cannot tell them apart and does not try. The engine resolves the name
+    /// against the real tree and drops what matches no item, which is the only place that question can be
+    /// answered (`BuildDiagnosticNameTests.An_unknown_name_never_leaks_through_as_a_bare_one`).</para></summary>
+    [Fact]
+    public void AProjectLevelMessageNamesNothing()
+    {
+        var pane = "1>TwinCAT Project1 : error : the configuration could not be activated\r\n";
+        Assert.Null(Assert.Single(TcObjectModel.ParsePaneText(pane)).Name);
+    }
+
+    /// <summary>The same error in two panes still dedupes, and two errors that differ ONLY by which item they
+    /// are about now both survive — the dedupe key grew a field and must not have lost one.</summary>
+    [Fact]
+    public void TwoItemsWithTheSameErrorBothSurvive()
+    {
+        var parsed = TcObjectModel.ParsePaneText(
+            "1>C:\\p\\A.TcPOU(3,1) : error : Identifier 'a' not defined\r\n" +
+            "1>C:\\p\\B.TcPOU(3,1) : error : Identifier 'a' not defined\r\n");
+        Assert.Equal(new[] { "A", "B" }, parsed.Select(d => d.Name));
+    }
 }

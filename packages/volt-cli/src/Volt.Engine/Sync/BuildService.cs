@@ -5,6 +5,7 @@ using System.Linq;
 
 using Volt.Contracts;
 using Volt.Engine.Ide;
+using Volt.Engine.Item;
 
 namespace Volt.Engine.Sync;
 
@@ -45,6 +46,7 @@ public static class BuildService
             var success = ide.Build();
             sw.Stop();
             var diagnostics = ide.GetBuildDiagnostics().ToList();
+            PromoteNames(ide, diagnostics);
             var errors = diagnostics.Count(d => d.Severity == Severity.Error);
             var warnings = diagnostics.Count(d => d.Severity == Severity.Warning);
             VoltLog.Debug($"build {(success ? "succeeded" : "failed")} ({sw.ElapsedMilliseconds}ms){(errors > 0 || warnings > 0 ? $" — {errors} errors, {warnings} warnings" : "")}");
@@ -70,6 +72,53 @@ public static class BuildService
                 Duration = sw.ElapsedMilliseconds,
                 Diagnostics = new List<BridgeDiagnostic> { new() { Severity = Severity.Error, Message = "Build failed: " + ex.Message } },
             };
+        }
+    }
+
+    /// <summary>Turn each diagnostic's BARE item name into the FULL wire name, or into null.
+    ///
+    /// <para>A driver answers with the name its vendor gave it, which is the bare one — CODESYS resolves
+    /// <c>IMessage.ObjectGuid</c> to a node, TwinCAT takes the stem of the file path in its output pane. Neither
+    /// can produce a wire name, because a wire name is <c>name.kind</c> and the kind of a POU is not in its
+    /// vendor kind code: it comes from the DECLARATION (`PROGRAM`/`FUNCTION_BLOCK`/`FUNCTION`), which only
+    /// materialization reads. So the promotion happens here, above the seam, through the same
+    /// <c>Versioning.SafeVersion(...).Identity</c> every other map on this wire is keyed by.</para>
+    ///
+    /// <para>AMBIGUITY RESOLVES TO NULL, not to a guess. IEC guarantees unique names within a kind, not across
+    /// them: <c>CM_Carrier.fb</c> and <c>CM_Carrier.visualization</c> both exist in real projects, and a bare
+    /// `CM_Carrier` from the vendor names one of them without saying which. Publishing either would point a
+    /// client's editor at the wrong file.</para>
+    ///
+    /// <para>Costs one walk plus a read of the NAMED items only, and only when a diagnostic carried a name at
+    /// all — a clean build walks nothing.</para></summary>
+    private static void PromoteNames(IIdeDriver ide, List<BridgeDiagnostic> diagnostics)
+    {
+        var wanted = new HashSet<string>(
+            diagnostics.Select(d => d.Name).Where(n => !string.IsNullOrEmpty(n))!,
+            StringComparer.OrdinalIgnoreCase);
+        if (wanted.Count == 0) return;
+
+        // null value = the bare name matched more than one item, so it names none of them.
+        var resolved = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pi in ide.WalkItems().Items)
+        {
+            if (!wanted.Contains(pi.Name)) continue;
+            if (ItemKind.Map(pi.KindCode) is not { } kind) continue;
+            var identity = Versioning.SafeVersion(ide, pi.Name, kind, pi.Item, pi.Folder).Identity;
+            if (resolved.TryGetValue(pi.Name, out var seen))
+            {
+                if (!string.Equals(seen, identity, StringComparison.OrdinalIgnoreCase)) resolved[pi.Name] = null;
+            }
+            else resolved[pi.Name] = identity;
+        }
+
+        foreach (var d in diagnostics)
+        {
+            if (d.Name is not { } bare) continue;
+            d.Name = resolved.TryGetValue(bare, out var full) ? full : null;
+            if (d.Name is null)
+                VoltLog.Debug($"build: a diagnostic named '{bare}', which resolves to no single item — " +
+                              "reporting it without a name rather than pointing at the wrong file");
         }
     }
 }

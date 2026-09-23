@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Volt.Engine;
@@ -205,7 +206,7 @@ internal sealed partial class TcObjectModel
                     // to Visual Studio's own Build pane AND to TwinCAT's, so now that every pane is read the
                     // same error arrives twice; the engineer would see it twice in the Problems list. Keyed on
                     // everything the wire carries, so two genuinely different errors on one line both survive.
-                    if (seen.Add($"{diagnostic.Severity}{diagnostic.Line}{diagnostic.Column}{diagnostic.Message}"))
+                    if (seen.Add($"{diagnostic.Name}{diagnostic.Severity}{diagnostic.Line}{diagnostic.Column}{diagnostic.Message}"))
                         result.Add(diagnostic);
                 }
             }
@@ -263,9 +264,36 @@ internal sealed partial class TcObjectModel
                 Message = WithContinuation(text, m).Trim(),
                 Line = lineNum,
                 Column = colNum,
+                // The BARE name -- BuildService promotes it to the wire's full `name.kind`. Group 1 is the file
+                // the compiler named, and it was captured and DROPPED: the diagnostic kept a line number with
+                // nothing to anchor it to, so a client had a position and no file to put it in.
+                Name = BareNameOf(m.Groups[1].Value),
             });
         }
         return parsed;
+    }
+
+    /// <summary>The item a compiler line names, as the IDE's own BARE name — `1&gt;C:\p\MAIN.TcPOU` → `MAIN`.
+    ///
+    /// <para>Null when group 1 holds no file, which is how a PROJECT-level message reports "no item": MSBuild
+    /// writes `1&gt;TwinCAT Project1 : error : ...`, and naming the solution as though it were a POU would be
+    /// worse than naming nothing. The `N&gt;` prefix is MSBuild's project number, not part of the path.</para>
+    ///
+    /// <para>The stem is BARE, and deliberately not turned into a wire name here: `.TcPOU` is one vendor file
+    /// type covering `prg`, `fb` and `func`, so the extension on disk cannot say which kind the wire name
+    /// carries — only the declaration can, and that lives above this seam.</para></summary>
+    private static string? BareNameOf(string captured)
+    {
+        var s = captured.Trim();
+        var arrow = s.IndexOf('>');
+        if (arrow > 0 && s.Substring(0, arrow).All(char.IsDigit)) s = s.Substring(arrow + 1).Trim();
+        var slash = s.LastIndexOfAny(new[] { '\\', '/' });
+        if (slash >= 0) s = s.Substring(slash + 1);
+        var dot = s.LastIndexOf('.');
+        if (dot > 0) s = s.Substring(0, dot);
+        // A PATH is what a compiler names an item with. Anything else — a solution caption, a stray word — is
+        // chrome, and an IEC identifier cannot contain a space, so that is the whole test.
+        return s.Length > 0 && s.IndexOf(' ') < 0 ? s : null;
     }
 
     /// <summary>

@@ -176,8 +176,21 @@ internal static class Program
         var r = Commands.Build(root, bridge, Reporter.Create());
         if (a.Has("--json")) { EmitJson(r); return r.Success ? 0 : 2; }
         Console.WriteLine($"Build {(r.Success ? "succeeded" : "FAILED")} ({r.Duration}ms)");
-        foreach (var d in r.Diagnostics) Console.WriteLine($"  [{d.Severity}] {d.Message}{(d.Line > 0 ? $" (line {d.Line})" : "")}");
+        // NAME FIRST, the way a compiler prints: the item is the only thing that makes a line number usable, and
+        // `volt build` printed neither it nor the vendor's code -- the engineer got prose and a bare line number
+        // that could have belonged to any file in the project.
+        foreach (var d in r.Diagnostics)
+            Console.WriteLine($"  [{d.Severity}] {Where(d)}{(d.Code is { Length: > 0 } c ? c + ": " : "")}{d.Message}");
         return r.Success ? 0 : 2;
+    }
+
+    /// <summary>`FB_Motor.fb:12:4 ` — the location prefix, empty when the diagnostic names no item and has no
+    /// position. Column only alongside a line, because a column without one points nowhere.</summary>
+    private static string Where(Volt.Contracts.BridgeDiagnostic d)
+    {
+        var at = d.Name ?? "";
+        if (d.Line > 0) at += $":{d.Line}" + (d.Column > 0 ? $":{d.Column}" : "");
+        return at.Length > 0 ? at + " " : "";
     }
 
     private static int CmdShow(string root, BridgeClient bridge, Args a)

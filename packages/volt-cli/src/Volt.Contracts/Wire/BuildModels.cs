@@ -50,14 +50,29 @@ public static class Severity
 
 public class BridgeDiagnostic
 {
-    /// <summary>The FULL wire name of the item this diagnostic is about (`FB_Motor.fb`), when the vendor says
-    /// which — null when it is a project-level message.
+    /// <summary>The FULL wire name of the item this diagnostic is about (`FB_Motor.fb`) — null when the vendor
+    /// did not say which, or when it said something this bridge could not resolve to exactly one item.
     ///
     /// <para>Without it a diagnostic carries a <see cref="Line"/> anchored to nothing: a client has a line
     /// number and no file to put it in, so `volt build` can only print prose and an editor cannot place a
-    /// squiggle. TwinCAT's output already identifies the item and the value was parsed and dropped.</para></summary>
+    /// squiggle. BOTH vendors identified the item and both threw it away — CODESYS on `IMessage.ObjectGuid`,
+    /// TwinCAT in the `file(line,col)` its own regex already captured.</para>
+    ///
+    /// <para>FULL or null, never bare: the wire's names are full names (`Versioning.VersionedItem.Identity`),
+    /// and a field that is sometimes one spelling and sometimes the other is worse than an absent one. A bare
+    /// name that matches two items across kinds — `CM_Carrier.fb` and `CM_Carrier.visualization` both exist in
+    /// real projects — resolves to null rather than to a guess.</para></summary>
     [JsonPropertyName("name")]
     public string? Name { get; set; }
+
+    /// <summary>The vendor's own diagnostic number as the IDE renders it (`C0032`) — null when it has none.
+    ///
+    /// <para>Not a <see cref="BridgeErrorCodes"/> value and not comparable to one: those are VOLT's codes for
+    /// why an op was refused, this is the COMPILER's code for what is wrong with the engineer's code. It is the
+    /// only stable handle on a diagnostic — the message text is localized and rewritten between versions, which
+    /// is exactly why the LSP conformance suite matches CODESYS diagnostics by prose today.</para></summary>
+    [JsonPropertyName("code")]
+    public string? Code { get; set; }
 
     [JsonPropertyName("severity")]
     public string Severity { get; set; } = Volt.Contracts.Severity.Info;

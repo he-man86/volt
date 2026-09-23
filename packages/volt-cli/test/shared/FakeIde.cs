@@ -211,8 +211,13 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public IReadOnlyList<string> FaultingNodes { get; init; } = System.Array.Empty<string>();
 
     // ── IProjectTree (only the walk + accessors the services use are real) ──
+
+    /// <summary>How many times the tree was walked — lets a test prove an op that must NOT walk doesn't.</summary>
+    public int WalkCalls;
+
     public WalkResult WalkItems()
     {
+        WalkCalls++;
         var items = _items
             .Where(i => !UnwalkableFolders.Any(f => i.Folder == f || i.Folder.StartsWith(f + "/", StringComparison.Ordinal)))
             .Select(i => new ProjectItem(i.Name, Ref(i.Name), i.KindCode, i.Folder))
@@ -860,7 +865,14 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         if (BuildThrows) throw new InvalidOperationException("the IDE's compiler faulted");
         return BuildSucceeds;
     }
-    public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => BuildDiagnostics;
+    /// <summary>A COPY per call, because that is the contract (see <c>IIdeSession.GetBuildDiagnostics</c>): the
+    /// caller rewrites <c>Name</c> in place, and handing out the test's own list would let one build's promotion
+    /// leak into the next — a fake that hid the very aliasing the contract exists to prevent.</summary>
+    public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() =>
+        BuildDiagnostics.Select(d => new BridgeDiagnostic
+        {
+            Name = d.Name, Code = d.Code, Severity = d.Severity, Message = d.Message, Line = d.Line, Column = d.Column,
+        }).ToList();
 
     /// <summary>Library element signatures the fetch's verbose fold will render + fold under each owning
     /// library's folder(s). Set per-test; empty by default.</summary>

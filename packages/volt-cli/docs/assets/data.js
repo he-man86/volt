@@ -664,6 +664,9 @@ window.VOLT = {
             "name": {
               "type": "string"
             },
+            "code": {
+              "type": "string"
+            },
             "severity": {
               "type": "string"
             },
