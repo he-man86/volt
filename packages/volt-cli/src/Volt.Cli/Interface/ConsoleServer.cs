@@ -50,6 +50,11 @@ public sealed class ConsoleServer : IDisposable
 
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
 
+    /// <summary>The control-plane port this console forwards to — the same override the connector itself
+    /// honours, read in one place so the page and the proxy cannot disagree about where it is.</summary>
+    private static int ControlPort() =>
+        int.TryParse(Environment.GetEnvironmentVariable("VOLT_CONTROL_PORT"), out var p) && p > 0 ? p : 8550;
+
     /// <summary>The CLI verbs that can change a project. Kept here rather than inferred from the verb name so
     /// that adding a verb does not silently add a writable one.</summary>
     private static readonly HashSet<string> MutatingVerbs =
@@ -63,6 +68,10 @@ public sealed class ConsoleServer : IDisposable
     /// tool that can do that to the IDE someone is standing in front of, silently, is not read-only in any
     /// sense that matters. <c>health</c>, <c>refs</c>, <c>fetch</c>, <c>init</c> and <c>build</c> only read
     /// (a build compiles, which the IDE does constantly anyway).</para></summary>
+    /// <summary>How long a spawned verb may take before the console stops it. Generous enough for a real
+    /// build, short enough that a hung panel is a message rather than a wedged request.</summary>
+    private const int RunTimeoutMs = 120_000;
+
     private static readonly HashSet<string> StatefulOps =
         new(StringComparer.Ordinal) { Ops.Push, Ops.Connect, Ops.Disconnect };
 
@@ -97,6 +106,19 @@ public sealed class ConsoleServer : IDisposable
     {
         try
         {
+            // CSRF GUARD, the same one the control plane carries — and this surface needs it MORE, because
+            // `/_api/cli` spawns a process with caller-supplied argv. A cross-origin `fetch` with a plain
+            // content-type is a CORS-safelisted simple request, so there is no preflight to refuse; the Origin
+            // header is what a browser always sends and a first-party caller never does. Without this, any page
+            // the engineer visits while the console runs could enumerate the project and, with --allow-write,
+            // drive a push into the live PLC.
+            var origin = ctx.Request.Headers["Origin"];
+            if (origin != null && !string.Equals(origin, $"http://127.0.0.1:{_port}", StringComparison.OrdinalIgnoreCase))
+            {
+                WriteJson(ctx, 403, new { error = "cross-origin browser requests are not allowed" });
+                return;
+            }
+
             var path = ctx.Request.Url!.AbsolutePath.Trim('/');
             if (path.StartsWith("_api/", StringComparison.Ordinal))
                 await Api(ctx, path.Substring("_api/".Length)).ConfigureAwait(false);
@@ -120,15 +142,21 @@ public sealed class ConsoleServer : IDisposable
     {
         if (route == "meta")
         {
-            WriteJson(ctx, 200, new { allowWrite = _allowWrite, pipe = _pipeOverride, controlPort = 8550 });
+            // The port this console really forwards to, not the default — the live-test tier stands a second
+            // connector on another one, and a page that reports 8550 while talking to 8560 is the exact class
+            // of wrong-information this whole feature exists to remove.
+            WriteJson(ctx, 200, new { allowWrite = _allowWrite, pipe = _pipeOverride, controlPort = ControlPort() });
             return;
         }
         if (route == "bridge") { BridgeCall(ctx); return; }
         if (route == "cli") { CliCall(ctx); return; }
         if (route.StartsWith("connector", StringComparison.Ordinal))
         {
-            await ConnectorCall(ctx, route.Length > "connector".Length ? route.Substring("connector".Length).TrimStart('/') : "")
-                .ConfigureAwait(false);
+            // WITH the query string. `AbsolutePath` drops it, so `?refresh=1` reached the control plane as a
+            // bare path and any parameterised route answered as if nothing had been passed — a wrong answer
+            // with no error, on the surface whose job is to let a reader check the docs against reality.
+            var rest = route.Length > "connector".Length ? route.Substring("connector".Length).TrimStart('/') : "";
+            await ConnectorCall(ctx, rest + (ctx.Request.Url!.Query ?? "")).ConfigureAwait(false);
             return;
         }
         WriteJson(ctx, 404, new { error = $"no console route '{route}'" });
@@ -156,23 +184,27 @@ public sealed class ConsoleServer : IDisposable
             return;
         }
 
-        var pipe = req.Pipe ?? _pipeOverride ?? FirstPipe();
+        var pipe = req.Pipe ?? _pipeOverride;
         if (pipe is null)
         {
-            WriteJson(ctx, 503, new { error = "no bridge pipe found — is an IDE bridge running?" });
-            return;
+            var (found, ambiguity) = FirstPipe();
+            if (ambiguity is not null) { WriteJson(ctx, 409, new { error = ambiguity }); return; }
+            if (found is null)
+            {
+                WriteJson(ctx, 503, new { error = "no bridge pipe found — is an IDE bridge running?" });
+                return;
+            }
+            pipe = found;
         }
 
         var progress = new List<JsonElement>();
         try
         {
+            // The frames are already `JsonElement`s and serialize as themselves — the round trip through
+            // GetRawText + Deserialize that used to sit here allocated and re-parsed the whole payload twice,
+            // which on an `init` of a real project is megabytes, for an identical result.
             var result = new PipeClient(pipe).Call(req.Op, ToBody(req.Body), f => progress.Add(f.Clone()));
-            WriteJson(ctx, 200, new
-            {
-                pipe,
-                progress = progress.Select(p => JsonSerializer.Deserialize<JsonElement>(p.GetRawText())).ToList(),
-                result = JsonSerializer.Deserialize<JsonElement>(result.GetRawText()),
-            });
+            WriteJson(ctx, 200, new { pipe, progress, result });
         }
         catch (PipeCallException e)
         {
@@ -191,14 +223,21 @@ public sealed class ConsoleServer : IDisposable
             ? null
             : JsonSerializer.Deserialize<object>(body.Value.GetRawText());
 
-    private static string? FirstPipe()
+    /// <summary>The one live bridge pipe — or NOTHING, when the answer is not obvious.
+    ///
+    /// <para>This used to probe CODESYS then TwinCAT and return the first hit, so an engineer with both IDEs
+    /// open had every panel silently driving CODESYS from a TwinCAT-bound workspace. The console holds no
+    /// workspace binding to break the tie with, so it does not invent one: several candidates is a question,
+    /// and the honest answer is to name them and ask which, not to pick.</para></summary>
+    private static (string? Pipe, string? Ambiguity) FirstPipe()
     {
-        foreach (var vendor in new[] { Vendors.Codesys, Vendors.Twincat })
-        {
-            var found = PipeDiscovery.List(PipeNames.PrefixForVendor(vendor));
-            if (found.Count > 0) return found[0];
-        }
-        return null;
+        var found = new[] { Vendors.Codesys, Vendors.Twincat }
+            .SelectMany(v => PipeDiscovery.List(PipeNames.PrefixForVendor(v)))
+            .ToList();
+        if (found.Count == 1) return (found[0], null);
+        if (found.Count == 0) return (null, null);
+        return (null, "several bridges are live (" + string.Join(", ", found)
+            + ") — name one in the request's `pipe` field, or start the console with --pipe");
     }
 
     /// <summary>Forward to the connector's control plane. From a PROCESS, which is the point: the control
@@ -212,7 +251,7 @@ public sealed class ConsoleServer : IDisposable
             return;
         }
         var body = new StreamReader(ctx.Request.InputStream, Encoding.UTF8).ReadToEnd();
-        var port = Environment.GetEnvironmentVariable("VOLT_CONTROL_PORT") is { Length: > 0 } p ? p : "8550";
+        var port = ControlPort();
         using var msg = new HttpRequestMessage(new HttpMethod(method), $"http://127.0.0.1:{port}/{rest}");
         if (body.Length > 0) msg.Content = new StringContent(body, Encoding.UTF8, "application/json");
         try
@@ -240,11 +279,24 @@ public sealed class ConsoleServer : IDisposable
         var req = Read<CliBody>(ctx);
         var args = req?.Args ?? new List<string>();
         if (args.Count == 0) { WriteJson(ctx, 400, new { error = "expected { args: [...] }" }); return; }
+        // THE VERB IS NOT args[0]. It is the first POSITIONAL token, because `ParseArgs` routes every
+        // `--`-prefixed token into flags first — so `volt --json push` has verb `push` while args[0] is
+        // `--json`. Gating on args[0] therefore let `--json push`, `--workspace X push` and every other
+        // flag-first spelling walk straight past a read-only console and write to the live PLC. Asked of the
+        // ONE parser rather than re-derived here: a second implementation of "which word is the verb" is
+        // exactly how this hole reappears.
+        var verb = Program.VerbOf(args);
+        if (verb is null)
+        {
+            WriteJson(ctx, 400, new { error = "no verb in that command line" });
+            return;
+        }
+
         // A verb that never returns cannot be a panel. `console` starts a SERVER, so running it from the
-        // console spawns a second one that outlives the request and holds the call open until the timeout —
-        // measured: the panel simply never answered. Named rather than inferred, because "does this verb
-        // return" is not something the argv can be asked.
-        if (args[0] == "console")
+        // console spawns a second one that outlives the request — measured: the panel simply never answered.
+        // The hard timeout below is the general safety net for a verb that hangs; this is the specific one,
+        // named because the message can then say what to do instead.
+        if (verb == "console")
         {
             WriteJson(ctx, 400, new
             {
@@ -253,12 +305,17 @@ public sealed class ConsoleServer : IDisposable
             });
             return;
         }
-        if (MutatingVerbs.Contains(args[0]) && !_allowWrite && !args.Contains("--dry-run"))
+
+        // `--dry-run` only exempts the verbs that IMPLEMENT it. `ParseArgs` drops an unrecognised flag into a
+        // set nothing reads, so `volt init --dry-run` used to pass this gate and then really git-init the
+        // project and pull — a flag the verb ignores was opening the door the gate exists to hold shut.
+        var dryRunnable = verb is "pull" or "push";
+        if (MutatingVerbs.Contains(verb) && !_allowWrite && !(dryRunnable && args.Contains("--dry-run")))
         {
             WriteJson(ctx, 403, new
             {
-                error = $"`volt {args[0]}` can change a project — restart with `volt console --allow-write`, "
-                    + "or add --dry-run where the verb supports it",
+                error = $"`volt {verb}` can change a project — restart with `volt console --allow-write`"
+                    + (dryRunnable ? ", or add --dry-run" : ""),
             });
             return;
         }
@@ -275,17 +332,41 @@ public sealed class ConsoleServer : IDisposable
 
         var sw = Stopwatch.StartNew();
         using var proc = Process.Start(psi)!;
-        var stdout = proc.StandardOutput.ReadToEnd();
-        var stderr = proc.StandardError.ReadToEnd();
-        proc.WaitForExit(120_000);
+
+        // BOTH STREAMS AT ONCE, and never a blocking read. Reading stdout to the end and THEN stderr is the
+        // classic deadlock: a child that fills the stderr pipe buffer blocks on write while the parent is
+        // still waiting on stdout, and neither moves again. `volt build` on a project with many diagnostics
+        // is exactly that shape.
+        var outTask = proc.StandardOutput.ReadToEndAsync();
+        var errTask = proc.StandardError.ReadToEndAsync();
+
+        // AND A REAL DEADLINE. `WaitForExit(120_000)` bounded nothing while the reads above blocked first, so
+        // a verb that never returns held the request and left the child running — `Process.Dispose` closes a
+        // handle, it does not kill. Killing the TREE matters because a verb may itself have spawned something.
+        var finished = proc.WaitForExit(RunTimeoutMs);
+        if (!finished)
+        {
+            try { proc.Kill(entireProcessTree: true); } catch { /* already gone */ }
+            sw.Stop();
+            WriteJson(ctx, 200, new
+            {
+                command = "volt " + string.Join(" ", args),
+                cwd = psi.WorkingDirectory,
+                exitCode = -1,
+                stdout = "",
+                stderr = $"the command did not finish within {RunTimeoutMs / 1000}s and was stopped",
+                ms = sw.ElapsedMilliseconds,
+            });
+            return;
+        }
         sw.Stop();
         WriteJson(ctx, 200, new
         {
             command = "volt " + string.Join(" ", args),
             cwd = psi.WorkingDirectory,
-            exitCode = proc.HasExited ? proc.ExitCode : -1,
-            stdout,
-            stderr,
+            exitCode = proc.ExitCode,
+            stdout = outTask.GetAwaiter().GetResult(),
+            stderr = errTask.GetAwaiter().GetResult(),
             ms = sw.ElapsedMilliseconds,
         });
     }
@@ -325,15 +406,16 @@ public sealed class ConsoleServer : IDisposable
 
     // ── plumbing ────────────────────────────────────────────────────────────────────────────────────
 
+    /// <summary>The request body, or a THROWN JsonException naming what is wrong with it.
+    ///
+    /// <para>This used to swallow a parse failure into <c>null</c>, which the callers then reported as
+    /// "expected { op, body }" — so a misplaced comma in the textarea came back as a message about a field
+    /// that was right there. The outer handler turns the exception into the parser's own words.</para></summary>
     private static T? Read<T>(HttpListenerContext ctx) where T : class
     {
-        try
-        {
-            using var r = new StreamReader(ctx.Request.InputStream, Encoding.UTF8);
-            var s = r.ReadToEnd();
-            return string.IsNullOrWhiteSpace(s) ? null : JsonSerializer.Deserialize<T>(s, Json);
-        }
-        catch { return null; }
+        using var r = new StreamReader(ctx.Request.InputStream, Encoding.UTF8);
+        var s = r.ReadToEnd();
+        return string.IsNullOrWhiteSpace(s) ? null : JsonSerializer.Deserialize<T>(s, Json);
     }
 
     private static void WriteJson(HttpListenerContext ctx, int status, object payload)

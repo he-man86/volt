@@ -201,6 +201,31 @@ internal static class Program
     ///
     /// <para>It is a convenience for someone already in a terminal, not the way the app is meant to be reached —
     /// that is the Start Menu, like any other Windows app.</para></summary>
+    private static int CmdOpen(Args a)
+    {
+        var dir = Path.GetFullPath(a.Operand(0) ?? a.Workspace);   // same shape as CmdInit
+        if (!Directory.Exists(dir))
+        {
+            Console.Error.WriteLine($"no such directory: {dir}");
+            return 1;
+        }
+
+        var gui = DesktopApp.GuiExePath(AppContext.BaseDirectory);
+        if (!File.Exists(gui))
+        {
+            // No fallback to the source tree. A build tree has no `desktop\` sibling, and guessing one would run
+            // a different build than the one this volt.exe shipped with. Name the fix instead.
+            Console.Error.WriteLine(
+                $"no Volt desktop app at {gui} — this volt.exe has no desktop folder beside it, so it is a build tree or "
+                + "a partial install. Install Volt with Volt-win-Setup.exe, then retry.");
+            return 1;
+        }
+
+        using var p = Process.Start(DesktopApp.LaunchInfo(gui, dir));   // never waited on — the GUI outlives this shell
+        Console.WriteLine($"opening Volt on {dir}");
+        return 0;
+    }
+
     /// <summary>Serve the interface console — the documentation for all three surfaces, and a client that can
     /// actually call them.
     ///
@@ -212,7 +237,17 @@ internal static class Program
     /// deliberate act that unlocks `push`, the mutating verbs and every non-GET control-plane route.</para></summary>
     private static int CmdConsole(Args a)
     {
-        var port = int.TryParse(a.Value("--port"), out var p) && p > 0 ? p : 8551;
+        // NO SILENT DEFAULT FOR A VALUE THE OPERATOR TYPED. An unparseable or out-of-range `--port` used to
+        // fall back to 8551, so the console served somewhere other than where the operator believed — on a
+        // port they may have been deliberately avoiding. Absent means "the default"; wrong means wrong.
+        var requested = a.Value("--port");
+        int port;
+        if (requested is null || requested.Length == 0) port = DefaultConsolePort;
+        else if (!int.TryParse(requested, out port) || port < 1 || port > 65535)
+        {
+            Console.Error.WriteLine($"--port '{requested}' is not a port number (1-65535)");
+            return 1;
+        }
         var allowWrite = a.Has("--allow-write");
 
         using var server = new Volt.Cli.Interface.ConsoleServer(
@@ -240,31 +275,6 @@ internal static class Program
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; stop.Set(); };
         stop.Wait();
         Console.WriteLine("console stopped");
-        return 0;
-    }
-
-    private static int CmdOpen(Args a)
-    {
-        var dir = Path.GetFullPath(a.Operand(0) ?? a.Workspace);   // same shape as CmdInit
-        if (!Directory.Exists(dir))
-        {
-            Console.Error.WriteLine($"no such directory: {dir}");
-            return 1;
-        }
-
-        var gui = DesktopApp.GuiExePath(AppContext.BaseDirectory);
-        if (!File.Exists(gui))
-        {
-            // No fallback to the source tree. A build tree has no `desktop\` sibling, and guessing one would run
-            // a different build than the one this volt.exe shipped with. Name the fix instead.
-            Console.Error.WriteLine(
-                $"no Volt desktop app at {gui} — this volt.exe has no desktop folder beside it, so it is a build tree or "
-                + "a partial install. Install Volt with Volt-win-Setup.exe, then retry.");
-            return 1;
-        }
-
-        using var p = Process.Start(DesktopApp.LaunchInfo(gui, dir));   // never waited on — the GUI outlives this shell
-        Console.WriteLine($"opening Volt on {dir}");
         return 0;
     }
 
@@ -315,6 +325,13 @@ internal static class Program
         public string? Operand(int i) => i < Operands.Count ? Operands[i] : null;
     }
 
+    /// <summary>Which verb a command line names — asked of the real parser, never re-derived.
+    ///
+    /// <para>The console gates mutating verbs on this, and `argv[0]` is not the answer: every `--`-prefixed
+    /// token goes to flags first, so `volt --json push` is a PUSH whose first argument is `--json`. A second
+    /// implementation of "which word is the verb" is how a gate silently stops covering half its cases.</para></summary>
+    internal static string? VerbOf(IReadOnlyList<string> argv) => ParseArgs(argv.ToArray()).Verb;
+
     private static Args ParseArgs(string[] argv)
     {
         var a = new Args();
@@ -346,6 +363,10 @@ internal static class Program
         foreach (var p in c.Modified) Console.WriteLine($"  ~ {p}");
         foreach (var p in c.Removed) Console.WriteLine($"  - {p}");
     }
+
+    /// <summary>The console's port when none is given. Not 8550 — that is the connector's, and the console
+    /// talks TO it.</summary>
+    private const int DefaultConsolePort = 8551;
 
     private static int Emit(string text, int code) { Console.WriteLine(text); return code; }
 

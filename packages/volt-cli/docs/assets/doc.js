@@ -35,7 +35,6 @@ const GROUPS = [
   ["Operating", [["logs.html", "Logs & diagnosis"]]],
 ]
 
-const PAGES = GROUPS.flatMap(([, pages]) => pages)
 
 import { consoleMeta, runBanner, panel, bindPanels, callConsole } from "./console.js"
 
@@ -270,12 +269,25 @@ const S = () => window.VOLT_SURFACES ?? { connector: { routes: [] }, cli: { verb
 
 // ── the connector control plane ─────────────────────────────────────────────
 
+/** A sendable body for a documented route, from the shape the description spells. */
+function exampleBody(route) {
+  if (!route.body) return undefined
+  return route.path.endsWith("/sync") ? { interests: [{ vendor: "codesys", projectName: "" }] } : {}
+}
+
 function renderConnectorRoutes(el) {
   const c = S().connector
   el.innerHTML = c.routes
     .map((r, i) => {
       const id = `conn-${i}`
-      const example = r.body ?? ""
+      // PREFILL WHAT THE ROUTE DOCUMENTS. The example body was read, then discarded in favour of `{}` — so
+      // `/session/{id}/sync`, described as THE PRIMARY CALL, offered an empty object and a literal `{id}` in
+      // the path, and Send taught the reader nothing. The one piece of data that makes the panel work was
+      // sitting in an unused variable.
+      const example = exampleBody(r)
+      // `{id}` is a SESSION id on the session routes and a WORKER id on the restart route — the same three
+      // characters naming two different things, so the placeholder says which one to paste.
+      const path = r.path.replace("{id}", r.path.startsWith("/workers") ? "PASTE-A-WORKER-ID" : "PASTE-A-SESSION-ID")
       return `<section class="entry" id="route-${r.method}-${r.path.replace(/[/{}]/g, "_")}">
         <header><span class="name">${r.method} ${esc(r.path)}</span>
           ${r.body ? '<span class="pill">takes a body</span>' : '<span class="pill">no body</span>'}
@@ -287,7 +299,7 @@ function renderConnectorRoutes(el) {
           <table><tr><th>status</th><th>when</th></tr>
             ${r.responses.map((x) => `<tr><td class="num">${x.code}</td><td>${md(x.when)}</td></tr>`).join("")}
           </table>
-          ${panel(id, `Send ${r.method} ${r.path}`, JSON.stringify({ path: r.path, method: r.method, body: example === "" ? undefined : {} }, null, 2))}
+          ${panel(id, `Send ${r.method} ${r.path}`, JSON.stringify({ path, method: r.method, ...(example === undefined ? {} : { body: example }) }, null, 2))}
         </div>
       </section>`
     })
@@ -441,14 +453,44 @@ async function wireTryIt() {
       })
       return res.json()
     },
-    // The CLI: a command line, split the way a shell would — quotes respected so a path can hold a space.
-    cli: async (text) => callConsole("cli", { args: splitArgs(text).slice(1) }),
+    // The CLI: a command line, split the way a shell would. The leading `volt` is dropped only when it IS
+    // the leading token — blindly slicing meant `status --json`, typed without the prefix, sent `["--json"]`
+    // and came back "expected { args }" for a line that reads perfectly.
+    cli: async (text) => {
+      const argv = splitArgs(text)
+      return callConsole("cli", { args: argv[0] === "volt" ? argv.slice(1) : argv })
+    },
   })
 }
 
-/** Split a command line into argv, honouring double quotes. `volt show HEAD "My POU.fb"` is one path. */
+/**
+ * Split a command line into argv, honouring double quotes ANYWHERE in a token.
+ *
+ * The first cut matched `/"[^"]*"|\S+/`, which only sees a quote that starts a token — so
+ * `--project-name="My Project"` split into `--project-name="My` and `Project"`, on the one verb whose
+ * documented flag is a name with spaces. This walks the line instead, so a quote may open mid-token and the
+ * quotes themselves are stripped wherever they were.
+ */
 function splitArgs(line) {
-  return (line.match(/"[^"]*"|\S+/g) ?? []).map((t) => (t.startsWith('"') ? t.slice(1, -1) : t))
+  const out = []
+  let cur = ""
+  let quoted = false
+  let started = false
+  for (const ch of line) {
+    if (ch === '"') {
+      quoted = !quoted
+      started = true
+    } else if (!quoted && /\s/.test(ch)) {
+      if (started) out.push(cur)
+      cur = ""
+      started = false
+    } else {
+      cur += ch
+      started = true
+    }
+  }
+  if (started) out.push(cur)
+  return out
 }
 
 document.addEventListener("DOMContentLoaded", async () => {

@@ -161,12 +161,12 @@ window.VOLT_SURFACES = {
       },
       {
         "name": "rebind",
-        "summary": "Re-point a workspace at a different or renamed project. Config only \u2014 nothing is pulled.",
+        "summary": "Re-point a workspace at a different or renamed project. Writes no PLC code \u2014 it rewrites the workspace binding, so the next pull targets a different project.",
         "args": "",
         "flags": [
           "--project-name \u003Cname\u003E"
         ],
-        "mutates": false
+        "mutates": true
       },
       {
         "name": "pull",

@@ -113,8 +113,13 @@ public class SurfaceDataTests
     {
         new("init", "Bind to the bridge, git-init the project, and take the first pull.", "",
             new[] { "--json" }, true),
-        new("rebind", "Re-point a workspace at a different or renamed project. Config only — nothing is pulled.",
-            "", new[] { "--project-name <name>" }, false),
+        // MUTATES, and the page said otherwise. It writes nothing to the PLC, which is why it read as
+        // read-only — but it rewrites the workspace's binding, so the next `pull` targets a different
+        // project. The console guards it for that reason, and the two disagreeing is what the gate below
+        // now catches: a page that promises "read-only" and a server that answers 403 is worse than either.
+        new("rebind", "Re-point a workspace at a different or renamed project. Writes no PLC code — it "
+            + "rewrites the workspace binding, so the next pull targets a different project.",
+            "", new[] { "--project-name <name>" }, true),
         new("pull", "Fetch the IDE and git-merge it into your branch.", "",
             new[] { "--force", "--dry-run", "--json" }, true),
         new("push", "Workspace to IDE, then fast-forward `volt/ide`.", "",
@@ -262,6 +267,35 @@ public class SurfaceDataTests
 
         // And the port the clients hard-code.
         Assert.Contains("ControlPort = 8550", src, StringComparison.Ordinal);
+    }
+
+    /// <summary>THE PAGE'S "writes" BADGE IS THE SERVER'S ACTUAL GATE.
+    ///
+    /// <para>`ConsoleServer.MutatingVerbs` is what decides whether a verb is refused on a read-only console,
+    /// and the `mutates` flag here is what the page renders as a badge. They were two hand-written lists with
+    /// nothing between them and they had already drifted on the first commit — `rebind` rendered "read-only"
+    /// and answered 403. A user who trusts the badge and gets refused has learnt not to trust the page.</para>
+    ///
+    /// <para>Read out of the source, like the route and verb gates beside it, because the set is a collection
+    /// initializer rather than anything this assembly can reference.</para></summary>
+    [Fact]
+    public void The_writes_badge_matches_the_console_gate()
+    {
+        var src = File.ReadAllText(Path.Combine(CliDir(), "src", "Volt.Cli", "Interface", "ConsoleServer.cs"));
+        var decl = System.Text.RegularExpressions.Regex.Match(
+            src, @"MutatingVerbs\s*=\s*new\((?<args>[^)]*)\)\s*\{(?<body>[^}]*)\}");
+        Assert.True(decl.Success,
+            "ConsoleServer.MutatingVerbs is no longer a collection initializer this gate can read — it is the "
+            + "set that decides whether a live PLC write is refused, so it may not become unreadable.");
+
+        var gated = System.Text.RegularExpressions.Regex.Matches(decl.Groups["body"].Value, "\"(?<v>[a-z-]+)\"")
+            .Select(m => m.Groups["v"].Value)
+            .OrderBy(v => v, StringComparer.Ordinal)
+            .ToList();
+        var badged = Verbs.Where(v => v.Mutates).Select(v => v.Name)
+            .OrderBy(v => v, StringComparer.Ordinal).ToList();
+
+        Assert.Equal(badged, gated);
     }
 
     /// <summary>EVERY CLI VERB IS DESCRIBED. The dispatch is a switch on the verb string, so the arms are read

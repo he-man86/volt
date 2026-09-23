@@ -125,10 +125,13 @@ namespace Volt.Connector
 
         private async Task Handle(HttpListenerContext ctx)
         {
-            // CSRF guard: reject cross-origin browser requests. This HTTP listener is the ONE browser-reachable
-            // surface in the product — the bridge data plane is a named pipe with no origin and no port, so it needs
-            // no such check and has none. First-party callers (the VS Code extension's Node fetch, the desktop app)
-            // never send an `Origin` header.
+            // CSRF guard: reject cross-origin browser requests. First-party callers (the VS Code extension's
+            // Node fetch, the desktop app) never send an `Origin` header.
+            //
+            // This used to say it was the ONE browser-reachable surface in the product. `volt console` is a
+            // second — it serves a page AND exposes `/_api/cli`, which spawns a process — and it carries the
+            // same guard for the same reason. The bridge data plane still needs none: a named pipe has no
+            // origin and no port. If a third appears, it needs this too.
             var origin = ctx.Request.Headers["Origin"];
             if (origin != null && !string.Equals(origin, $"http://127.0.0.1:{_port}", StringComparison.OrdinalIgnoreCase))
             {
