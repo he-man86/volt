@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Volt Bridge</title>
+<style>
+  :root {
+    --bg:#ffffff; --fg:#16181d; --muted:#5d636e; --line:#e3e6ea; --panel:#f7f8fa;
+    --accent:#1c6fd6; --code:#f2f4f7; --req:#b4530a; --res:#1c7a4a; --warn:#9a3412;
+  }
+  :root:not([data-theme="light"]) { }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#14161a; --fg:#e7e9ee; --muted:#9aa3b0; --line:#272b33; --panel:#1a1d23;
+      --accent:#6aa9f0; --code:#1e2229; --req:#e8a15f; --res:#6ccf9a; --warn:#f0a882;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#14161a; --fg:#e7e9ee; --muted:#9aa3b0; --line:#272b33; --panel:#1a1d23;
+    --accent:#6aa9f0; --code:#1e2229; --req:#e8a15f; --res:#6ccf9a; --warn:#f0a882;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--fg);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  a { color:var(--accent); }
+  code, pre { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  code { background:var(--code); padding:1px 5px; border-radius:4px; font-size:13px; }
+  pre { background:var(--code); padding:12px 14px; border-radius:8px; overflow:auto; font-size:12.5px; line-height:1.5; }
+
+  .wrap { display:grid; grid-template-columns:260px minmax(0,1fr); gap:0; min-height:100vh; }
+  nav {
+    border-right:1px solid var(--line); padding:20px 16px; position:sticky; top:0;
+    height:100vh; overflow:auto; background:var(--panel);
+  }
+  nav h1 { font-size:15px; margin:0 0 4px; letter-spacing:.2px; }
+  nav .sub { color:var(--muted); font-size:12px; margin-bottom:18px; }
+  nav h2 { font-size:11px; text-transform:uppercase; letter-spacing:.8px; color:var(--muted);
+           margin:18px 0 6px; font-weight:600; }
+  nav a { display:block; padding:4px 8px; border-radius:6px; text-decoration:none; font-size:13.5px; }
+  nav a:hover { background:var(--code); }
+  nav a.op code { background:none; padding:0; color:var(--accent); font-size:13px; }
+
+  main { padding:28px 34px 80px; max-width:1000px; }
+  h2.sec { font-size:22px; margin:34px 0 10px; padding-top:10px; }
+  h3 { font-size:17px; margin:26px 0 8px; }
+  p { margin:10px 0; }
+  .lede { color:var(--muted); }
+  .card { border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin:14px 0; background:var(--panel); }
+  .op { border:1px solid var(--line); border-radius:10px; margin:16px 0; overflow:hidden; }
+  .op > header { padding:12px 16px; background:var(--panel); border-bottom:1px solid var(--line);
+                 display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .op > header code { font-size:14px; font-weight:600; background:none; padding:0; }
+  .op .body { padding:14px 16px; }
+  .pill { font-size:11px; padding:2px 8px; border-radius:20px; border:1px solid var(--line); color:var(--muted); }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:820px) { .wrap { grid-template-columns:1fr; } nav { position:static; height:auto; }
+                             .cols { grid-template-columns:1fr; } main { padding:20px 16px 60px; } }
+  .lbl { font-size:11px; text-transform:uppercase; letter-spacing:.7px; font-weight:600; margin-bottom:5px; }
+  .lbl.req { color:var(--req); } .lbl.res { color:var(--res); }
+  table { border-collapse:collapse; width:100%; font-size:13.5px; margin:8px 0; }
+  th, td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.6px; }
+  td.name { white-space:nowrap; font-family:ui-monospace,monospace; font-size:12.5px; }
+  .opt { color:var(--muted); font-size:11px; }
+  .warnbox { border-left:3px solid var(--warn); background:var(--code); padding:10px 14px; border-radius:0 8px 8px 0; margin:12px 0; }
+  .mermaid { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; margin:14px 0; text-align:center; }
+  details { margin:8px 0; } summary { cursor:pointer; color:var(--accent); font-size:13.5px; }
+  .theme { position:fixed; top:12px; right:16px; font-size:12px; border:1px solid var(--line);
+           background:var(--panel); color:var(--fg); border-radius:20px; padding:5px 12px; cursor:pointer; }
+</style>
+</head>
+<body>
+<button class="theme" onclick="toggleTheme()">theme</button>
+<div class="wrap">
+  <nav>
+    <h1>Volt Bridge</h1>
+    <div class="sub">One live PLC IDE, over a named pipe.</div>
+    <a href="#overview">Overview</a>
+    <a href="#layers">The two layers</a>
+    <a href="#transport">Transport &amp; framing</a>
+    <a href="#errors">Error codes</a>
+    <h2>Wire ops</h2>
+    <div id="nav-ops"></div>
+    <h2>Schemas</h2>
+    <div id="nav-schemas"></div>
+    <h2>Driver layer</h2>
+    <a href="#driver">IIdeDriver</a>
+    <a href="#session">IIdeSession</a>
+    <a href="#tree">IProjectTree</a>
+    <a href="#store">ICodeStore</a>
+    <h2>Also</h2>
+    <a href="../network-text.md">network text</a>
+    <a href="../ITEM_KINDS.md">item kinds</a>
+    <a href="../debugging-a-bridge-session.md">debugging a session</a>
+  </nav>
+
+  <main>
+    <h2 class="sec" id="overview">Overview</h2>
+    <p class="lede">
+      A <b>bridge</b> exposes one running PLC IDE — CODESYS or TwinCAT — over a Windows named pipe, as JSON.
+      Everything above the pipe is a client: the <code>volt</code> CLI, the connector tray, the VS&nbsp;Code
+      extension, the e2e harness. <b>The pipe is the boundary</b>, and it is the thing to build against.
+    </p>
+    <p>
+      Both vendors serve <b>byte-identical responses for the same project</b>. That is deliberate and gated —
+      a client never learns which vendor it is talking to except by asking, and vendor differences live below
+      the seam as data, never as branches in a caller.
+    </p>
+    <div class="card">
+      <b>This page is generated.</b> The op list, every schema and every field come from
+      <code>volt-bridge.openrpc.json</code>, which is itself produced from the C# contract types by
+      <code>BridgeSpecTests</code> and re-checked on every build. If the wire changes and the document does not,
+      the build fails. <a href="volt-bridge.openrpc.json">Open the spec →</a>
+    </div>
+
+    <h2 class="sec" id="layers">The two layers</h2>
+    <p>
+      There are two surfaces here, and which one you want depends on what you are building. A client that wants
+      <i>a project as text</i> uses the <b>wire</b>. A project that wants <i>to drive an IDE itself</i>
+      implements or consumes the <b>driver interface</b> — the layer below the pipe.
+    </p>
+    <div class="mermaid">
+flowchart TB
+  subgraph clients["clients — anything with a pipe"]
+    CLI["volt CLI<br/>init / pull / push / build"]
+    TRAY["connector tray"]
+    VSC["VS Code extension"]
+    E2E["e2e harness (TS)"]
+  end
+  PIPE(["named pipe<br/>volt.bridge.&lt;vendor&gt;.&lt;pid&gt;"])
+  subgraph host["bridge host"]
+    DISPATCH["BridgePipeHost<br/>op dispatch + STA marshalling"]
+    SVC["services<br/>Refs / Fetch / Push / Build"]
+  end
+  SEAM{{"the vendor seam<br/>IIdeDriver"}}
+  subgraph drivers["drivers"]
+    CDS["Volt.Ide.Codesys<br/>live NWL objects, in-process"]
+    TC["Volt.Ide.Twincat<br/>.TcPOU archive, COM, out-of-process"]
+  end
+  CLI --> PIPE
+  TRAY --> PIPE
+  VSC --> PIPE
+  E2E --> PIPE
+  PIPE --> DISPATCH --> SVC --> SEAM
+  SEAM --> CDS
+  SEAM --> TC
+    </div>
+    <p>
+      Everything shareable lives in <code>Volt.Engine</code> above the seam; only irreducible vendor glue lives
+      in a driver. That is what keeps the two vendors answering identically — the services are the same code.
+    </p>
+
+    <h2 class="sec" id="transport">Transport &amp; framing</h2>
+    <p>
+      One <b>named pipe per live IDE</b>, named <code>volt.bridge.&lt;vendor&gt;.&lt;pid&gt;</code> where the
+      suffix is the IDE's process id. Clients discover <b>by prefix</b>, because the pid changes whenever the IDE
+      restarts — never hard-code a full pipe name.
+    </p>
+    <div class="cols">
+      <div><div class="lbl req">request</div>
+<pre>{ "op": "fetch",
+  "body": { "knownItems": {}, "onlyItems": ["FB_Motor.fb"] } }</pre></div>
+      <div><div class="lbl res">response</div>
+<pre>{ "projectVersion": "…", "changed": [ … ], "items": { … } }
+
+// or
+{ "error": { "code": "PLC_DISCONNECTED", "message": "…" } }</pre></div>
+    </div>
+    <div class="warnbox">
+      <b>Long ops stream progress.</b> <code>refs</code>, <code>fetch</code>, <code>init</code>,
+      <code>push</code> and <code>build</code> emit <code>ProgressFrame</code>s before the final result, so a
+      client can show a bar instead of a spinner. <code>health</code> never does — it answers from a cached
+      snapshot and is the one op that is safe to poll while a push or build is running.
+    </div>
+
+    <h2 class="sec" id="errors">Error codes</h2>
+    <p>Every failure is a coded error, not a message a client has to pattern-match.</p>
+    <table>
+      <tr><th>code</th><th>means</th></tr>
+      <tr><td class="name">PLC_DISCONNECTED</td><td>No project is bound, or the bridge is paused by <code>disconnect</code>. Send <code>connect</code>.</td></tr>
+      <tr><td class="name">WRONG_PROJECT</td><td>The bound project is not the one the request named (<code>expectedProjectName</code>).</td></tr>
+      <tr><td class="name">BAD_REQUEST</td><td>Unknown <code>op</code>, or a body the host cannot read.</td></tr>
+      <tr><td class="name">NOT_FOUND</td><td>The named item does not exist in the project.</td></tr>
+      <tr><td class="name">UNSUPPORTED</td><td>A shape this vendor's driver cannot write — the message says what and what to do instead.</td></tr>
+      <tr><td class="name">DUPLICATE_CHILD</td><td>A create collided with something already there.</td></tr>
+      <tr><td class="name">INVALID_CODE_HEADER</td><td>The pushed source's header is not one Volt recognises.</td></tr>
+      <tr><td class="name">INVALID_ST</td><td>The pushed body failed the ST or network-text gate.</td></tr>
+      <tr><td class="name">NO_SIDECAR</td><td>The workspace has no bound-project record.</td></tr>
+      <tr><td class="name">INTERNAL_ERROR</td><td>Anything else. A bug — the log has the detail.</td></tr>
+    </table>
+
+    <h2 class="sec" id="ops">Wire ops</h2>
+    <div id="ops"></div>
+
+    <h2 class="sec" id="schemas">Schemas</h2>
+    <div id="schemas"></div>
+
+    <h2 class="sec" id="driver">The driver layer — <code>IIdeDriver</code></h2>
+    <p class="lede">
+      This is the layer to reuse if you want to drive a PLC IDE from your own project. It is one interface,
+      composed of three, and a driver is the <i>only</i> place that knows a vendor.
+    </p>
+    <div class="mermaid">
+classDiagram
+  class IIdeDriver
+  class IIdeSession {
+    +bool IsConnected
+    +string Vendor
+    +string ServedProjectName
+    +SelectProject(ConnectRequest)
+    +RunOnStaThread~T~(Func~T~)
+    +Build() bool
+    +GetBuildDiagnostics()
+  }
+  class IProjectTree {
+    +WalkItems() WalkResult
+    +GetTreeRoot() ItemRef
+    +ChildCount(ItemRef) int
+    +ChildAt(ItemRef, int) ItemRef
+    +CreateChild(...) ItemRef
+    +Delete(ItemRef, string)
+    +Rename(ItemRef, string)
+    +Move(ItemRef, ItemRef)
+  }
+  class ICodeStore {
+    +ReadContent(ItemRef) ItemContent
+    +WriteContent(ItemRef, ItemContent, ...)
+    +ReadManifest(ItemRef, string) string
+    +WriteTask(ItemRef, TaskSettings)
+    +ValidateSource(...)
+  }
+  IIdeDriver --|> IIdeSession
+  IIdeDriver --|> IProjectTree
+  IIdeDriver --|> ICodeStore
+    </div>
+    <div class="warnbox">
+      <b>The one rule that matters:</b> <code>ICodeStore</code> speaks <code>ItemContent</code> and nothing above
+      the seam knows a vendor's own representation. A graphical body crosses as <b>network text</b>; the driver
+      converts. Get that boundary right and the rest of the engine is vendor-blind for free.
+    </div>
+
+    <h3 id="session"><code>IIdeSession</code> — is there an IDE, and which project</h3>
+    <table>
+      <tr><th>member</th><th>notes</th></tr>
+      <tr><td class="name">IsConnected</td><td>Is a project bound and servable right now.</td></tr>
+      <tr><td class="name">Vendor</td><td><code>codesys</code> or <code>twincat</code>. The only vendor fact above the seam.</td></tr>
+      <tr><td class="name">ServedProjectName</td><td>What is actually bound — checked after <code>connect</code> so both vendors refuse identically.</td></tr>
+      <tr><td class="name">IdeVersion</td><td>The IDE's own version string.</td></tr>
+      <tr><td class="name">SelectProject(ConnectRequest)</td><td>Bind (or rebind) a project. Empty name = "serve whatever you have".</td></tr>
+      <tr><td class="name">RunOnStaThread&lt;T&gt;</td><td><b>Load-bearing.</b> Both IDE automation surfaces are STA; every IDE-touching op is marshalled through here.</td></tr>
+      <tr><td class="name">IsDegraded / MarkDegraded / ClearDegraded / ShouldMarkDegraded / Recover</td><td>The health state machine — an IDE that went busy or dropped a call is degraded, not dead.</td></tr>
+      <tr><td class="name">BuildHealthResponse()</td><td>The cached snapshot <code>health</code> answers from. Never marshalled.</td></tr>
+      <tr><td class="name">FlushPendingWrites()</td><td>Settle anything buffered before a read or a receipt.</td></tr>
+      <tr><td class="name">Build() / GetBuildDiagnostics()</td><td>Compile, then read the IDE's own diagnostics.</td></tr>
+      <tr><td class="name">ExtractLibrarySignatures()</td><td>Referenced-library signatures, for analysis clients.</td></tr>
+    </table>
+
+    <h3 id="tree"><code>IProjectTree</code> — structure</h3>
+    <table>
+      <tr><th>member</th><th>notes</th></tr>
+      <tr><td class="name">WalkItems()</td><td>Every tracked item, once, with its folder path. The basis of <code>refs</code>/<code>fetch</code>.</td></tr>
+      <tr><td class="name">GetTreeRoot()</td><td>The node folder paths are relative to.</td></tr>
+      <tr><td class="name">ChildCount / ChildAt</td><td>1-based child access. <b>May fault</b> on a subtree the vendor cannot read — callers treat that as a leaf, not a crash.</td></tr>
+      <tr><td class="name">Parent / Name / KindCode</td><td>Node identity. <code>KindCode</code> maps through <code>ItemKind</code>.</td></tr>
+      <tr><td class="name">HandlesSurviveStructureChange</td><td>Whether a create invalidates existing handles. False on TwinCAT — callers re-resolve.</td></tr>
+      <tr><td class="name">CreateChild / Delete / Rename / Move</td><td>Structure writes. A <b>folder is not an entity</b>: it is created on demand from an item's path, and a push prunes the ones it empties (the way git removes a directory once its last file goes).</td></tr>
+    </table>
+
+    <h3 id="store"><code>ICodeStore</code> — content</h3>
+    <table>
+      <tr><th>member</th><th>notes</th></tr>
+      <tr><td class="name">ReadContent(ItemRef)</td><td>Declaration, body and members as <code>ItemContent</code>. Graphical bodies come back as network text; a body with no text form comes back as a marker.</td></tr>
+      <tr><td class="name">WriteContent(...)</td><td>The write, including members. <code>pushedDeclarations</code> lets an item resolve a type another item in the same push declares.</td></tr>
+      <tr><td class="name">ReadManifest(ItemRef, kind)</td><td>Non-source descriptors (libraries, devices, tasks) as text.</td></tr>
+      <tr><td class="name">WriteTask(ItemRef, TaskSettings)</td><td>A task's schedule — the one descriptor that is writable.</td></tr>
+      <tr><td class="name">ValidateSource(...)</td><td><b>The push pre-flight.</b> Every refusal decidable from source text, raised before the first write, so a push that cannot land in full lands nothing.</td></tr>
+    </table>
+
+    <h2 class="sec">Using the spec</h2>
+    <p>The document is plain OpenRPC, so the ordinary tooling works on it with no Volt-specific step:</p>
+<pre># validate
+npx @open-rpc/schema-utils-js   # validateOpenRPCDocument(doc)
+
+# browse / call interactively
+https://inspector.open-rpc.org  → paste volt-bridge.openrpc.json
+
+# generate a typed client
+npx @open-rpc/generator</pre>
+    <p class="lede" style="margin-top:22px">
+      Regenerate after a contract change:
+      <code>VOLT_WRITE_SPEC=1 dotnet test test/Volt.Contracts.Tests</code>
+    </p>
+  </main>
+</div>
+
+<script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs"
+
+const dark = () => document.documentElement.dataset.theme
+  ? document.documentElement.dataset.theme === "dark"
+  : matchMedia("(prefers-color-scheme: dark)").matches
+mermaid.initialize({ startOnLoad: true, theme: dark() ? "dark" : "default", securityLevel: "loose" })
+
+window.toggleTheme = () => {
+  document.documentElement.dataset.theme = dark() ? "light" : "dark"
+  location.reload()
+}
+
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))
+const refName = (s) => String(s).split("/").pop()
+
+function typeOf(schema) {
+  if (!schema) return "—"
+  if (schema.$ref) { const n = refName(schema.$ref); return `<a href="#s-${n}">${n}</a>` }
+  if (schema.type === "array") return `${typeOf(schema.items)}[]`
+  if (schema.type === "object" && schema.additionalProperties)
+    return `map&lt;string, ${typeOf(schema.additionalProperties)}&gt;`
+  if (schema.enum) return schema.enum.map((e) => `<code>${esc(e)}</code>`).join(" | ")
+  return schema.type || "object"
+}
+
+function fieldTable(schema, doc) {
+  const s = schema?.$ref ? doc.components.schemas[refName(schema.$ref)] : schema
+  if (!s?.properties) return ""
+  const req = new Set(s.required || [])
+  const rows = Object.entries(s.properties).map(([k, v]) =>
+    `<tr><td class="name">${esc(k)}${req.has(k) ? "" : ' <span class="opt">optional</span>'}</td>
+         <td>${typeOf(v)}</td></tr>`).join("")
+  return `<table><tr><th>field</th><th>type</th></tr>${rows}</table>`
+}
+
+const res = await fetch("volt-bridge.openrpc.json")
+const doc = await res.json()
+
+document.getElementById("nav-ops").innerHTML = doc.methods
+  .map((m) => `<a class="op" href="#op-${m.name}"><code>${m.name}</code></a>`).join("")
+
+document.getElementById("ops").innerHTML = doc.methods.map((m) => {
+  const param = m.params?.[0]?.schema
+  const result = m.result?.schema
+  return `<section class="op" id="op-${m.name}">
+    <header><code>${m.name}</code>
+      ${param ? `<span class="pill">takes ${typeOf(param).replace(/<[^>]+>/g, "")}</span>` : `<span class="pill">no body</span>`}
+      ${result?.$ref ? `<span class="pill">returns ${refName(result.$ref)}</span>` : ""}
+    </header>
+    <div class="body">
+      <p>${esc(m.summary)}</p>
+      <div class="cols">
+        <div><div class="lbl req">request body</div>${param ? fieldTable(param, doc) : "<p class='lede'>none</p>"}</div>
+        <div><div class="lbl res">result</div>${fieldTable(result, doc) || `<pre>${esc(JSON.stringify(result, null, 2))}</pre>`}</div>
+      </div>
+    </div>
+  </section>`
+}).join("")
+
+const names = Object.keys(doc.components.schemas).sort()
+document.getElementById("nav-schemas").innerHTML = names
+  .map((n) => `<a href="#s-${n}"><code>${n}</code></a>`).join("")
+document.getElementById("schemas").innerHTML = names.map((n) => {
+  const s = doc.components.schemas[n]
+  return `<section class="op" id="s-${n}">
+    <header><code>${n}</code></header>
+    <div class="body">${fieldTable(s, doc) || "<p class='lede'>no fields</p>"}
+      <details><summary>raw JSON Schema</summary><pre>${esc(JSON.stringify(s, null, 2))}</pre></details>
+    </div>
+  </section>`
+}).join("")
+</script>
+</body>
+</html>

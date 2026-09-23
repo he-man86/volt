@@ -1,0 +1,546 @@
+{
+  "openrpc": "1.2.6",
+  "info": {
+    "title": "Volt bridge",
+    "version": "1.0.0",
+    "description": "The wire a Volt bridge serves over a Windows NAMED PIPE \u2014 \u0060volt.bridge.\u003Cvendor\u003E.\u003Cpid\u003E\u0060, one per live IDE. One request object per call: \u0060{ \u0022op\u0022: \u0022\u003Cname\u003E\u0022, \u0022body\u0022: { ... } }\u0060, answered with the method\u0027s result or \u0060{ \u0022error\u0022: { \u0022code\u0022: \u0022...\u0022, \u0022message\u0022: \u0022...\u0022 } }\u0060.\n\nGENERATED from the C# contract types by \u0060BridgeSpecTests\u0060; edit those, not this file."
+  },
+  "servers": [
+    {
+      "name": "named-pipe",
+      "url": "npipe://./pipe/volt.bridge.{vendor}.{pid}",
+      "summary": "One pipe per live IDE. Discover by PREFIX \u2014 the pid suffix changes when the IDE restarts.",
+      "variables": {
+        "vendor": {
+          "default": "codesys",
+          "enum": [
+            "codesys",
+            "twincat"
+          ]
+        },
+        "pid": {
+          "default": "0",
+          "description": "The IDE process id the bridge is attached to."
+        }
+      }
+    }
+  ],
+  "methods": [
+    {
+      "name": "health",
+      "summary": "Liveness plus the connectable projects, from the driver\u0027s CACHED snapshot \u2014 never marshalled onto the IDE thread. This is the poll path (the connector every ~4s), so it answers while a push or build is running. While paused every row reads \u0060idle\u0060.",
+      "paramStructure": "by-name",
+      "params": [],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/HealthResponse"
+        }
+      }
+    },
+    {
+      "name": "connect",
+      "summary": "Bind a project and resume service. An absent or empty \u0060project\u0060 means \u0022serve whatever you have\u0022. Refuses with PLC_DISCONNECTED unless the bridge ends up actually serving the named project \u2014 the post-condition is enforced in shared code so both vendors answer identically.",
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/ConnectRequest"
+          }
+        }
+      ],
+      "result": {
+        "name": "ok",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "disconnect",
+      "summary": "Pause the bridge: refuse sync until the next connect, tear nothing down. Answers even while a push is running, and that push RUNS TO COMPLETION \u2014 the gate stops the NEXT op, never the current one.",
+      "paramStructure": "by-name",
+      "params": [],
+      "result": {
+        "name": "ok",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "refs",
+      "summary": "The version map without any content: every tracked item\u0027s version, its folder, and the aggregate project/structure versions. This is what a client compares against to decide what to fetch.",
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/RefsRequest"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/RefsResponse"
+        }
+      }
+    },
+    {
+      "name": "fetch",
+      "summary": "Item CONTENT. \u0060knownItems\u0060 narrows the answer to what changed; \u0060onlyItems\u0060 restricts the walk to a named subset. Graphical bodies arrive as network text \u2014 the bridge materializes them, so a client never sees a vendor\u0027s own form.",
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/FetchRequest"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/FetchResponse"
+        }
+      }
+    },
+    {
+      "name": "init",
+      "summary": "A full fetch for a first sync: \u0060fetch\u0060 with \u0060init: true\u0060. Same response shape, no \u0060knownItems\u0060.",
+      "paramStructure": "by-name",
+      "params": [],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/FetchResponse"
+        }
+      }
+    },
+    {
+      "name": "push",
+      "summary": "Apply ops to the IDE. Every text-decidable refusal runs in a PRE-FLIGHT before the first write, so a push that cannot land in full lands nothing. \u0060expectedProjectVersion\u0060 is the lease; per-item \u0060ifVersion\u0060 is the optimistic guard.",
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/PushRequest"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/PushResponse"
+        }
+      }
+    },
+    {
+      "name": "build",
+      "summary": "Compile the bound project and return the IDE\u0027s own diagnostics. This is the oracle a client uses to tell its own analysis from the vendor\u0027s.",
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "body",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/BuildRequest"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/BuildResponse"
+        }
+      }
+    }
+  ],
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "projects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectEntry"
+            }
+          }
+        },
+        "required": [
+          "projects"
+        ]
+      },
+      "ProjectEntry": {
+        "type": "object",
+        "properties": {
+          "vendor": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "dirty": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "vendor",
+          "project",
+          "status",
+          "dirty"
+        ]
+      },
+      "ConnectRequest": {
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          }
+        }
+      },
+      "RefsRequest": {
+        "type": "object",
+        "properties": {
+          "expectedPlatform": {
+            "type": "string"
+          },
+          "expectedProjectName": {
+            "type": "string"
+          }
+        }
+      },
+      "RefsResponse": {
+        "type": "object",
+        "properties": {
+          "projectVersion": {
+            "type": "string"
+          },
+          "structureVersion": {
+            "type": "string"
+          },
+          "items": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "folders": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "unreadable": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "projectVersion",
+          "structureVersion",
+          "items",
+          "folders",
+          "unreadable"
+        ]
+      },
+      "FetchRequest": {
+        "type": "object",
+        "properties": {
+          "knownItems": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "onlyItems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "init": {
+            "type": "boolean"
+          },
+          "expectedPlatform": {
+            "type": "string"
+          },
+          "expectedProjectName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "init"
+        ]
+      },
+      "FetchResponse": {
+        "type": "object",
+        "properties": {
+          "projectVersion": {
+            "type": "string"
+          },
+          "structureVersion": {
+            "type": "string"
+          },
+          "changed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FetchedItem"
+            }
+          },
+          "removed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "items": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "folders": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "unreadable": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "librariesRefreshed": {
+            "type": "boolean"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "projectName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "projectVersion",
+          "structureVersion",
+          "changed",
+          "removed",
+          "items",
+          "folders",
+          "unreadable",
+          "librariesRefreshed"
+        ]
+      },
+      "FetchedItem": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "folder": {
+            "type": "string"
+          },
+          "sourceText": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "sourceText",
+          "version"
+        ]
+      },
+      "PushRequest": {
+        "type": "object",
+        "properties": {
+          "ops": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PushOp"
+            }
+          },
+          "expectedProjectVersion": {
+            "type": "string"
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "expectedPlatform": {
+            "type": "string"
+          },
+          "expectedProjectName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ops",
+          "force"
+        ]
+      },
+      "PushOp": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "ifVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "description": "Base of the push-op union. The wire\u0027s \u0060op\u0060 field selects \u0060set\u0060 or \u0060deleteItem\u0060."
+      },
+      "PushResponse": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          },
+          "newProjectVersion": {
+            "type": "string"
+          },
+          "newItems": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "newFolders": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "conflicts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PushConflict"
+            }
+          },
+          "currentProjectVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accepted"
+        ]
+      },
+      "PushConflict": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "yourVersion": {
+            "type": "string"
+          },
+          "currentVersion": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "reason"
+        ]
+      },
+      "BuildRequest": {
+        "type": "object",
+        "properties": {
+          "expectedPlatform": {
+            "type": "string"
+          },
+          "expectedProjectName": {
+            "type": "string"
+          }
+        }
+      },
+      "BuildResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "duration": {
+            "type": "number"
+          },
+          "diagnostics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BridgeDiagnostic"
+            }
+          }
+        },
+        "required": [
+          "success",
+          "duration",
+          "diagnostics"
+        ]
+      },
+      "BridgeDiagnostic": {
+        "type": "object",
+        "properties": {
+          "severity": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer"
+          },
+          "column": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "severity",
+          "message",
+          "line",
+          "column"
+        ]
+      }
+    }
+  }
+}
