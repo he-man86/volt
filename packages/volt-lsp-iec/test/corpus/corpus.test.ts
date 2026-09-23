@@ -345,7 +345,10 @@ function pass(): Pass {
           // element, which is most of them. Only a tie whose candidates DIFFER is a real coin toss.
           const texts = tied.map((c) => readFileSync(c.uri, "utf8").split(String.fromCharCode(13)).join("").trim())
           if (texts.every((t) => t === texts[0])) continue
-          p.ambiguous.push(`${relative(CORPUS, file)} :: ${name}`)
+          // FORWARD SLASHES. `relative` hands back the platform's separator, so pinning the raw string
+          // made this list a Windows artefact — it matched locally and failed every Linux run with the
+          // identical eleven findings spelled differently. The finding is portable; the spelling was not.
+          p.ambiguous.push(`${relative(CORPUS, file).split(String.fromCharCode(92)).join("/")} :: ${name}`)
         }
     }
 
@@ -656,17 +659,17 @@ const REACHED_CODES = 83
  * pair that collides, and the name says where to look.
  */
 const AMBIGUOUS: readonly string[] = [
-  "lenze-mid\\Device\\Plc Logic\\Application\\OEE\\Local\\L_OEEA_MachinePerformance\\OEE_POUs\\L_OEE_Input_IF.fb :: WEEKDAY",
-  "lenze-mid\\Device\\Plc Logic\\Application\\OEE\\Local\\_FirstErrorCapture\\GVL_FirstErrCapture.gvl :: scErrorData_base",
-  "lenze-mid\\Device\\Plc Logic\\Application\\OEE\\ProductionDataInputs.prg :: WEEKDAY",
-  "pro2193\\Device\\Plc Logic\\Application\\01 Main\\HMI.prg :: State",
-  "pro2193\\Device\\Plc Logic\\Application\\01 Main\\HMI_BFU.prg :: State",
-  "pro2193\\Device\\Plc Logic\\Application\\04 Physical Interfaces\\Ethernet\\PNOZMulti2\\PNOZMulti2.prg :: ERROR",
-  "pro2193\\Device\\Plc Logic\\Application\\99 Library\\Function Blocks\\Fanuc FB\\FanucFB.fb :: State",
-  "pro2193\\Device\\Plc Logic\\Application\\99 Library\\Function Blocks\\ProductionStatsFB.fb :: State",
-  "pro2193\\Device\\Plc Logic\\Application\\99 Library\\Programs\\TimeSettings.prg :: GetDateAndTime",
-  "pro2193\\Device\\Plc Logic\\Application\\99 Library\\Programs\\TimeSettings.prg :: SetDateAndTime",
-  "pro2193\\Device\\Plc Logic\\Application\\99 Library\\Programs\\TimeSettings.prg :: SetTimeZoneInformation",
+  "lenze-mid/Device/Plc Logic/Application/OEE/Local/L_OEEA_MachinePerformance/OEE_POUs/L_OEE_Input_IF.fb :: WEEKDAY",
+  "lenze-mid/Device/Plc Logic/Application/OEE/Local/_FirstErrorCapture/GVL_FirstErrCapture.gvl :: scErrorData_base",
+  "lenze-mid/Device/Plc Logic/Application/OEE/ProductionDataInputs.prg :: WEEKDAY",
+  "pro2193/Device/Plc Logic/Application/01 Main/HMI.prg :: State",
+  "pro2193/Device/Plc Logic/Application/01 Main/HMI_BFU.prg :: State",
+  "pro2193/Device/Plc Logic/Application/04 Physical Interfaces/Ethernet/PNOZMulti2/PNOZMulti2.prg :: ERROR",
+  "pro2193/Device/Plc Logic/Application/99 Library/Function Blocks/Fanuc FB/FanucFB.fb :: State",
+  "pro2193/Device/Plc Logic/Application/99 Library/Function Blocks/ProductionStatsFB.fb :: State",
+  "pro2193/Device/Plc Logic/Application/99 Library/Programs/TimeSettings.prg :: GetDateAndTime",
+  "pro2193/Device/Plc Logic/Application/99 Library/Programs/TimeSettings.prg :: SetDateAndTime",
+  "pro2193/Device/Plc Logic/Application/99 Library/Programs/TimeSettings.prg :: SetTimeZoneInformation",
 ]
 
 describe.skipIf(!hasCorpus)("3. lowering is total, and its documented reach is measured", () => {
