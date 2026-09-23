@@ -31,7 +31,7 @@ export function checkArrayInit(ctx: CheckContext, out: DiagnosticItem[]): void {
           "array-init-count-non-const",
           ctx.messages.arrayInitCountNonConst(text(ctx.source, e.count.span)),
         )
-    const t = resolveTypeExpr(decl.type, ctx.project)
+    const t = resolveTypeExpr(decl.type, ctx.project, 0, ctx.project, ctx.uri)
     if (t.kind === "unknown") continue
     if (t.kind !== "array") {
       push(out, init.span, "unexpected-array-init", ctx.messages.unexpectedArrayInit()) // C0074

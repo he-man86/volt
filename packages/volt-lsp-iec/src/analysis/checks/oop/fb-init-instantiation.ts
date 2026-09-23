@@ -33,7 +33,7 @@ export function checkFbInitInstantiation(ctx: CheckContext, out: DiagnosticItem[
   for (const { section, decl } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (section.sectionKind === "VAR_IN_OUT" || section.sectionKind === "VAR_EXTERNAL") continue
     if (decl.type.kind !== "named_type" || decl.type.initArgs !== undefined) continue
-    const type = resolveTypeExpr(decl.type, ctx.project)
+    const type = resolveTypeExpr(decl.type, ctx.project, 0, ctx.project, ctx.uri)
     if (type.kind !== "function_block" || type.scope === undefined) continue
     const init = lookupLocal(type.scope, "FB_Init").find((s) => s.kind === "method")
     if (init === undefined || isLibrarySymbol(init)) continue

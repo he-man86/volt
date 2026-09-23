@@ -284,7 +284,7 @@ function inOutChecks(
   }
   // C0201 — a VAR_IN_OUT is by-reference, so the argument's type must be IDENTICAL (not merely assignable).
   // Conservative: both sides KNOWN elementary and differently-named (aliases resolve, so INT≡an INT alias).
-  const pt = resolveTypeExpr(param.type, ctx.project)
+  const pt = resolveTypeExpr(param.type, ctx.project, 0, ctx.project, ctx.uri)
   // A BIT ACCESS BOUND BY REFERENCE IS A `BIT`, and the vendor names it: `k(io := w.3)` against a
   // `VAR_IN_OUT io : BOOL` is "Type 'BIT' is not equal to type 'BOOL' of VAR_IN_OUT respectively REFERENCE 'io'"
   // (`refuse_inout_bound_to_bit`, measured). A numeric member is always a bit access (`checks/types/bit-number.ts`).
@@ -338,7 +338,7 @@ function outputTypeError(
   ctx: CheckContext,
   out: DiagnosticItem[],
 ): void {
-  const src = checkable(resolveTypeExpr(outputType, ctx.project))
+  const src = checkable(resolveTypeExpr(outputType, ctx.project, 0, ctx.project, ctx.uri))
   if (src === undefined) return
   const dst = checkableType(target, scope, ctx.project)
   if (dst === undefined || isAssignable(dst, src)) return
@@ -359,7 +359,7 @@ function argTypeError(
   ctx: CheckContext,
   out: DiagnosticItem[],
 ): void {
-  const target = checkable(resolveTypeExpr(paramType, ctx.project))
+  const target = checkable(resolveTypeExpr(paramType, ctx.project, 0, ctx.project, ctx.uri))
   if (target === undefined) return
   const arg = checkableType(value, scope, ctx.project)
   if (arg === undefined) return

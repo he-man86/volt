@@ -29,7 +29,7 @@ export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): 
   // SINT, `si : SINT := 100 + 100` silent). Initializers were never type-checked at all (gap 14).
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (decl.init === undefined || decl.init.kind === "aggregate_init") continue
-    const resolved = resolveTypeExpr(decl.type, ctx.project)
+    const resolved = resolveTypeExpr(decl.type, ctx.project, 0, ctx.project, ctx.uri)
     // A REFERENCE DECLARATION BINDS, and the compiler type-checks what it binds TO. This check skipped it: a
     // reference is neither `checkable` nor in COMPOSITE, so `ref_ : REFERENCE TO INT REF= aString` and
     // `REF= somethingUndeclared` both passed in silence while CODESYS refuses them (`refdecl_target_wrong_type`,

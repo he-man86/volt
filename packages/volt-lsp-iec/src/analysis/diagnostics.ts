@@ -107,6 +107,10 @@ export interface CheckContext {
   parseResult: ParseResult
   source: string
   project: Scope
+  /** The document being checked. It is WHO IS ASKING when a type name has more than one candidate — see
+   *  `symbols/precedence.ts`. Undefined only where a caller has no file (a few unit tests), and there the
+   *  answer is the stable uninformed one rather than a different one each run. */
+  uri?: string
   config: ResolvedConfig
   messages: Messages
   /** Workspace reference-file names (library namespaces + device instances) the checks may skip. */
@@ -268,6 +272,8 @@ export interface DiagnosticsArgs {
   config?: ResolvedConfig | AnalysisInitOptions
   /** Workspace reference-file names (computed once per workspace). Defaults to empty. */
   references?: WorkspaceRefs
+  /** The document's URI, so a type name resolves the way it does for the file that wrote it. */
+  uri?: string
 }
 
 export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticItem[] {
@@ -291,6 +297,7 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
     parseResult: args.parseResult,
     source: args.source,
     project: args.project,
+    uri: args.uri,
     config,
     messages: messagesFor(config.vendor),
     references: args.references ?? EMPTY_WORKSPACE_REFS,

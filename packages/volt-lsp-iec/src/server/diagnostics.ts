@@ -70,6 +70,7 @@ export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d
         project: store.project(),
         config: store.config,
         references: store.workspaceRefs,
+        uri: d.uri,
       }).filter((it) => !inDeadMember(it.span, dm))
   return [
     ...items.map(toLspDiagnostic),

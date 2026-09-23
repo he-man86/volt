@@ -17,7 +17,7 @@ export function checkInputDefault(ctx: CheckContext, out: DiagnosticItem[]): voi
       if (section.sectionKind !== "VAR_INPUT") continue
       for (const decl of section.decls) {
         if (decl.init === undefined) continue
-        const type = resolveTypeExpr(decl.type, ctx.project)
+        const type = resolveTypeExpr(decl.type, ctx.project, 0, ctx.project, ctx.uri)
         if (type.kind !== "array") continue // scalars may take a default
         // The IDE does NOT echo the written form, as this read: a declaration spelled `ARRAY[1..3] OF INT` comes back
         // as "ARRAY [1..3] OF INT", with the space `renderType` now writes (conformance

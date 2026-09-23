@@ -20,7 +20,7 @@ export function checkConstantInitializer(ctx: CheckContext, out: DiagnosticItem[
   for (const { section, decl } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (section.constant !== true || !INLINE_CONST_SECTIONS.has(section.sectionKind)) continue
     if (decl.init !== undefined) continue
-    const t = resolveTypeExpr(decl.type, ctx.project).kind
+    const t = resolveTypeExpr(decl.type, ctx.project, 0, ctx.project, ctx.uri).kind
     if (t === "unknown" || t === "function_block" || t === "interface") continue // unresolvable/non-value → skip (zero-FP)
     for (const name of decl.names)
       out.push({

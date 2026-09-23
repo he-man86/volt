@@ -40,4 +40,7 @@ it serves `volt.bridge.codesys.<pid>` — pass `VOLT_PIPE=volt.bridge.codesys.<p
 | `agreement-residue.ts` | why each fixture does NOT agree with the IDE — the work list for closing the gap |
 | `probe-extends-ambiguity.ts` | which `EXTENDS` names have more than one candidate, and whether the candidates DIFFER — the measurement behind the binder's library-visibility rule |
 | `probe-order-dependence.ts` | lowers a corpus project twice, sorted and reversed, and diffs the routines — proves the symbol table no longer depends on the order files are bound |
+| `probe-lowering-refusals.ts` | every POU with code that does NOT lower, and the codes it was refused for — diff before/after a resolver change to attribute a moved figure |
+| `probe-dep-depth.ts` | how deep in the DEPENDENCIES graph an ambiguous reference has to reach (measured: never past depth 1, which is why visibility is direct-only) |
+| `probe-ambiguous-uses.ts` | project declarations naming a type two libraries export, and whether those candidates DIFFER — the measurement behind the corpus ambiguity gate |
 | `check-layering.ts` | the `bun run lint` gate — fails on an illegal upward layer import |

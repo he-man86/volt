@@ -66,9 +66,12 @@ export function parseLibraryManifest(uri: string, source: string): LibraryManife
  * `EXTENDS ETRIG` inside a library means — and the two must agree, or a name would resolve one way through a
  * namespace and another way through inheritance.
  *
- * Direct dependencies only, which is what the corpus needs: every ambiguous `EXTENDS` measured there names a
- * library its extender depends on DIRECTLY. Transitivity is not assumed because nothing has measured that a
- * library sees its dependencies' dependencies unqualified.
+ * DIRECT dependencies only, and that is measured rather than assumed. `scripts/probe-dep-depth.ts` walks the
+ * dependency graph breadth-first for every ambiguous reference in the six corpus projects and reports the
+ * smallest depth at which the asker reaches a candidate: <b>40 at depth 0 (its own library) and 123 at depth
+ * 1 (a declared dependency) — nothing at depth 2 or beyond, and nothing unreachable.</b> So transitivity
+ * would be machinery for a case no real project has shown, and inventing a visibility rule the vendor has not
+ * been observed to follow is how a resolver starts being confidently wrong.
  */
 export function visibleFolders(
   manifests: readonly LibraryManifest[],

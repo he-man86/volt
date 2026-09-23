@@ -50,8 +50,10 @@ import {
   unitAttributes,
   type BodySpan,
   type TopLevel,
+  type TypeExpr,
 } from "../../src/syntax/index.js"
-import { buildSymbolTable, scopeForUnit } from "../../src/symbols/index.js"
+import { buildSymbolTable, isLibrarySymbol, lookupLocal, scopeForUnit } from "../../src/symbols/index.js"
+import { libraryRank } from "../../src/symbols/precedence.js"
 import { lowerUnit } from "../../src/transpile/index.js"
 import { LOWER_CODES, LOWER_CODE_PREFIXES } from "../../src/transpile/ir/codes.js"
 import type { IrPou, IrRoutine, IrStmt } from "../../src/transpile/ir/index.js"
@@ -180,6 +182,35 @@ function fromPou(pou: IrPou, kinds: Set<string>, builtins: Set<string>): void {
 }
 
 // the same set `lower-completeness.ts` counts, so the gate and the ratchet walk identical ground
+/** The symbol kinds that can answer "what type is this name?" — the same set `resolveNamedType` filters to. */
+const TYPE_SYMBOL_KINDS: ReadonlySet<string> = new Set(["function_block", "program", "interface", "type"])
+
+/** Every NAMED type a unit's declarations reach, unwrapping ARRAY OF / POINTER TO / REFERENCE TO, plus its
+ *  `EXTENDS` base. Names only — this asks which NAME was written, not what it resolves to. */
+function namedTypesIn(unit: TopLevel): Set<string> {
+  const out = new Set<string>()
+  const sections = (unit as { varSections?: { decls?: { type?: TypeExpr }[] }[] }).varSections ?? []
+  for (const section of sections)
+    for (const decl of section.decls ?? []) {
+      let t = decl.type
+      for (let i = 0; i < 8 && t !== undefined; i++) {
+        if (t.kind === "named_type") {
+          if (t.name?.text !== undefined && t.name.text !== "") out.add(t.name.text)
+          break
+        }
+        t =
+          t.kind === "array_type"
+            ? t.element
+            : t.kind === "pointer_type" || t.kind === "reference_type"
+              ? t.target
+              : undefined
+      }
+    }
+  const base = (unit as { extends?: { text?: string } }).extends?.text
+  if (base !== undefined && base !== "") out.add(base)
+  return out
+}
+
 const isRunnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "function_block" }> =>
   u.kind === "program" || u.kind === "function_block"
 
@@ -198,6 +229,9 @@ interface Pass {
   lowered: number
   routines: number
   routinesFromRunning: number
+  /** `file :: name` for each PROJECT declaration whose type name has two or more candidates that tie at the
+   *  best precedence rank AND do not hold the same declaration text. */
+  ambiguous: string[]
   throws: string[]
   codes: Set<string>
   kinds: Set<string>
@@ -225,6 +259,7 @@ function pass(): Pass {
     lowered: 0,
     routines: 0,
     routinesFromRunning: 0,
+    ambiguous: [],
     throws: [],
     codes: new Set(),
     kinds: new Set(),
@@ -293,6 +328,27 @@ function pass(): Pass {
         ...declarationAttributes(parseResult, source),
       ]),
     )
+    // ── ambiguity: a PROJECT declaration whose type name several libraries answer to ──────────────────
+    // Same walk, same parse — this file's own rule. Library files are skipped: diagnostics never run on
+    // them, and a library naming its own dependency's type is the ordinary case precedence settles.
+    for (const { file, parseResult } of clean) {
+      if (isLibrarySymbol({ uri: file })) continue
+      for (const unit of parseResult.units)
+        for (const name of namedTypesIn(unit)) {
+          const cands = lookupLocal(lowerProject, name).filter((x) => TYPE_SYMBOL_KINDS.has(x.kind))
+          if (cands.length < 2) continue
+          const ranks = cands.map((c) => libraryRank(lowerProject, c.uri, file))
+          const best = Math.min(...ranks)
+          const tied = cands.filter((_, i) => ranks[i] === best)
+          if (tied.length < 2) continue
+          // A tie between IDENTICAL declarations is not ambiguity — one library re-exporting another's
+          // element, which is most of them. Only a tie whose candidates DIFFER is a real coin toss.
+          const texts = tied.map((c) => readFileSync(c.uri, "utf8").split(String.fromCharCode(13)).join("").trim())
+          if (texts.every((t) => t === texts[0])) continue
+          p.ambiguous.push(`${relative(CORPUS, file)} :: ${name}`)
+        }
+    }
+
     for (const { file, parseResult } of clean)
       for (const unit of parseResult.units.filter(isRunnable)) {
         const scope = scopeForUnit(lowerProject, unit)
@@ -594,6 +650,25 @@ const COVERED_BUILTINS = 31
 // used to — `layout-function_block` where `type-unknown` used to stop them first.
 const REACHED_CODES = 83
 
+/**
+ * The project declarations whose type name has two or more DIFFERING candidates tied at the best rank —
+ * listed rather than counted, because the interesting change is WHICH ones. A new entry is a new library
+ * pair that collides, and the name says where to look.
+ */
+const AMBIGUOUS: readonly string[] = [
+  "lenze-mid\\Device\\Plc Logic\\Application\\OEE\\Local\\L_OEEA_MachinePerformance\\OEE_POUs\\L_OEE_Input_IF.fb :: WEEKDAY",
+  "lenze-mid\\Device\\Plc Logic\\Application\\OEE\\Local\\_FirstErrorCapture\\GVL_FirstErrCapture.gvl :: scErrorData_base",
+  "lenze-mid\\Device\\Plc Logic\\Application\\OEE\\ProductionDataInputs.prg :: WEEKDAY",
+  "pro2193\\Device\\Plc Logic\\Application\\01 Main\\HMI.prg :: State",
+  "pro2193\\Device\\Plc Logic\\Application\\01 Main\\HMI_BFU.prg :: State",
+  "pro2193\\Device\\Plc Logic\\Application\\04 Physical Interfaces\\Ethernet\\PNOZMulti2\\PNOZMulti2.prg :: ERROR",
+  "pro2193\\Device\\Plc Logic\\Application\\99 Library\\Function Blocks\\Fanuc FB\\FanucFB.fb :: State",
+  "pro2193\\Device\\Plc Logic\\Application\\99 Library\\Function Blocks\\ProductionStatsFB.fb :: State",
+  "pro2193\\Device\\Plc Logic\\Application\\99 Library\\Programs\\TimeSettings.prg :: GetDateAndTime",
+  "pro2193\\Device\\Plc Logic\\Application\\99 Library\\Programs\\TimeSettings.prg :: SetDateAndTime",
+  "pro2193\\Device\\Plc Logic\\Application\\99 Library\\Programs\\TimeSettings.prg :: SetTimeZoneInformation",
+]
+
 describe.skipIf(!hasCorpus)("3. lowering is total, and its documented reach is measured", () => {
   test("NOTHING THROWS — invalid input ends in a LowerDiagnostic, never an exception", () => {
     expect(pass().throws).toEqual([])
@@ -607,6 +682,30 @@ describe.skipIf(!hasCorpus)("3. lowering is total, and its documented reach is m
     // component once justified itself with a figure 470x the real one, which is what this exists to prevent.
     expect({ bodies: p.bodies, lowered: p.lowered }).toEqual(REACH)
     expect({ routines: p.routines, routinesFromRunning: p.routinesFromRunning }).toEqual(ROUTINES)
+  }, LOWERING_TIMEOUT)
+
+  /**
+   * AMBIGUITY PRECEDENCE CANNOT SETTLE — pinned, not fixed, and deliberately not a diagnostic.
+   *
+   * A project file can name a type that two referenced libraries both export with DIFFERENT declarations:
+   * `GetDateAndTime` comes from `CAA DTUtility` and from `CAA RTCLK`, and they are not the same function
+   * block. Both are rank 2 for project code (any library it references), so `symbols/precedence.ts` has
+   * nothing left to separate them and falls to the URI tiebreak — a stable answer, not a known-correct one.
+   *
+   * <b>Why a gate and not a warning.</b> Measured over the corpus's 1,142 project files: 3,291 named types
+   * produce 23 ties, and 20 of those are between IDENTICAL declarations — one library re-exporting another's
+   * element, where either choice is right. Reporting all 23 would be 20 false positives, and the 11 that
+   * remain sit in projects that BUILD CLEAN, so the vendor is not objecting either. An LSP-only message is a
+   * false positive by this package's own rule, so the count stays visible to US rather than shown to an
+   * engineer CODESYS never warns.
+   *
+   * If this list grows, a new project has hit a name two libraries answer to differently. Read the entries
+   * before touching the figure.
+   */
+  test("AMBIGUOUS NAMES — the coin tosses precedence cannot settle, pinned", () => {
+    const p = pass()
+    console.log(`  [ambiguity] ${p.ambiguous.length} project declarations name a type two libraries differ on`)
+    expect(p.ambiguous.sort()).toEqual([...AMBIGUOUS])
   }, LOWERING_TIMEOUT)
 
   test("REFUSAL REACH — a registered code that no real program produces is reported", () => {

@@ -22,7 +22,7 @@ import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 export function checkStructInit(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (decl.init === undefined || !isStructInit(decl.init)) continue
-    if (resolveTypeExpr(decl.type, ctx.project).kind !== "elementary") continue
+    if (resolveTypeExpr(decl.type, ctx.project, 0, ctx.project, ctx.uri).kind !== "elementary") continue
     const init = decl.init
     out.push({
       severity: "error",

@@ -17,7 +17,7 @@ import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 export function checkFbInitInout(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (decl.init === undefined) continue
-    const type = resolveTypeExpr(decl.type, ctx.project)
+    const type = resolveTypeExpr(decl.type, ctx.project, 0, ctx.project, ctx.uri)
     if (type.kind !== "function_block" || type.scope === undefined) continue
     for (const { name, span } of initFields(decl.init)) {
       const isInout = lookupLocal(type.scope, name).some((s) => s.varSection === "VAR_IN_OUT")

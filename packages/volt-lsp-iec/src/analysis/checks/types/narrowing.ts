@@ -6,7 +6,8 @@
  */
 import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../syntax/index.js"
 import { bodies, forEachDecl, type Scope } from "../../../symbols/index.js"
-import {
+import {
+
   checkedMeetType,
   elementaryType,
   elementaryTypeRef,
@@ -28,7 +29,7 @@ export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[
   // 40000` is "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT'" (conformance `overflow_int_above_max`).
   for (const { decl, section, unit, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (decl.init === undefined || decl.init.kind === "aggregate_init") continue
-    const lhs = resolveTypeExpr(decl.type, ctx.project)
+    const lhs = resolveTypeExpr(decl.type, ctx.project, 0, ctx.project, ctx.uri)
     // …and an initializer that is not a literal converts too. `rv : REAL := SQRT(16.0)` is an LREAL going into a
     // REAL and CODESYS warns about it twice (`cfold_sqrt`, `cfold_expt`); this only ever asked
     // `literalCheckType`, so any initializer with a shape — a call, a member read, an expression — was silent.
