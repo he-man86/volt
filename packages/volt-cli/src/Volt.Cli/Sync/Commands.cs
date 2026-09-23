@@ -481,8 +481,39 @@ public static class Commands
             return PushResult.Rejected($"the bridge rejected the push:\n{lines}");
         }
 
+        // THE BASELINE GROWS ONLY BY WHAT THIS CLIENT PUSHED.
+        //
+        // The receipt is a fresh FULL snapshot of the project — it has to be, because a native rename rewrites
+        // the bodies of items that are not in the op set, and those items' new versions must be in the baseline
+        // or the next push reports a phantom conflict. But adopting it WHOLESALE claims a version for every item
+        // in the IDE, including ones this workspace has never seen and has no file for.
+        //
+        // That is not hypothetical: `push --force` deliberately sends NO lease (see `expectedProjectVersion`
+        // above), so nothing has established that the client's view covered the project. Any item the engineer
+        // added in the IDE since the last pull is in the receipt, goes into the sidecar at its current version,
+        // and from then on `ComputeIncoming` sees baseline == bridge and reports nothing. The file is missing
+        // from the workspace, permanently and silently — the same shape as the unreadable-item bug, arrived at
+        // from the other side.
+        //
+        // Keeping only names the client ALREADY had or JUST pushed is exact. When a lease WAS quoted and matched
+        // this is a no-op, because a matching lease is precisely the proof that the baseline covered the project.
+        var pushed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var op in ops)
+        {
+            pushed.Add(op.Name);
+            if (op is SetItemOp s && s.ToName is { } renamed) pushed.Add(renamed);
+        }
+        var known = sidecar.Items;
+        var adopted = resp.NewItems!.Where(kv => known.ContainsKey(kv.Key) || pushed.Contains(kv.Key))
+                                    .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
+
         // Point volt/ide AT HEAD — exactly what was pushed. New IDE state comes from the receipt (no follow-up `refs`).
-        Sidecar.SaveIdeRefs(root, new IdeRefs { ProjectVersion = resp.NewProjectVersion!, Items = resp.NewItems!, Folders = resp.NewFolders! });
+        Sidecar.SaveIdeRefs(root, new IdeRefs
+        {
+            ProjectVersion = resp.NewProjectVersion!,
+            Items = adopted,
+            Folders = resp.NewFolders!,
+        });
         Git.UpdateRef(gitDir, IdeTree.Range, Git.HeadCommit(root)!);
 
         var status = StatusModel.BuildStatusData(root, new BridgeSnapshot

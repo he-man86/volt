@@ -264,4 +264,46 @@ public class PushCommandTests
         }
         finally { TestUtil.ForceDelete(root); }
     }
+
+    /// <summary>A FORCED PUSH DOES NOT MAKE THE CLIENT CLAIM ITEMS IT HAS NEVER SEEN.
+    ///
+    /// <para>The push receipt is a fresh FULL snapshot of the project, which it has to be — a native rename
+    /// rewrites the bodies of items outside the op set, and their new versions must reach the baseline or the
+    /// next push reports a phantom conflict. But `push --force` deliberately sends NO lease, so nothing has
+    /// established that the client's view covered the project. An item the engineer added in the IDE since the
+    /// last pull is in that receipt; adopted wholesale it goes into the sidecar at its current version, and from
+    /// then on baseline == bridge, so `volt status` reports nothing and the file is missing from the workspace
+    /// permanently and silently.</para>
+    ///
+    /// <para>Same shape as the unreadable-item bug, reached from the other side: an item that exists in the IDE
+    /// and in no client view, with nothing anywhere saying so.</para></summary>
+    [Fact]
+    public void A_forced_push_does_not_adopt_an_item_the_workspace_never_had()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            // The engineer adds a POU in the IDE. The workspace has never seen it.
+            ide.AddItem(FakeIde.Item.TextualPou("Newcomer", "PROGRAM Newcomer\nVAR\nEND_VAR", "y := 2;"));
+
+            // A local edit, pushed with --force (which sends no lease).
+            var file = Path.Combine(root, "src", "PLC_PRG.prg");
+            File.WriteAllText(file, File.ReadAllText(file).Replace("x := 1;", "x := 42;"));
+            Git.CommitAll(root, "edit");
+            Assert.Equal("ok", Commands.Push(root, client, force: true).Kind);
+
+            // The IDE's own POU must still be waiting to be pulled.
+            var status = Commands.Status(root, client);
+            Assert.Contains("Newcomer.prg", status.Incoming.Added);
+            Assert.False(File.Exists(Path.Combine(root, "src", "Newcomer.prg")));
+
+            // …and pulling it actually brings it in, which is the whole point of not hiding it.
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            Assert.True(File.Exists(Path.Combine(root, "src", "Newcomer.prg")));
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
 }
