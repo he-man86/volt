@@ -115,6 +115,11 @@ public static class StatusModel
         var summary = !initialized ? "not initialized"
             : snap.ProjectMismatch is not null ? "project mismatch — open the bound project in the IDE"
             : merging is not null ? $"merging — {merging.Conflicts.Count} conflict(s)"
+            // COUNTS CANNOT SPEAK FOR AN IDE NOBODY REACHED. Offline means `Items` is empty because we never
+            // asked, not because the project is empty, so `CountSummary` would read the silence as agreement and
+            // print "in sync with the IDE" — the most confident sentence this model has, for the state it knows
+            // least about.
+            : !snap.Online ? $"IDE state unknown — {snap.Detail}"
             : CountSummary(incoming, outgoing);
 
         return new StatusData

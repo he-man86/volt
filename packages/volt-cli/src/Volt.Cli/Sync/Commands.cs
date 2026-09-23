@@ -201,9 +201,16 @@ public static class Commands
             snap = new BridgeSnapshot { Online = false, Detail = ex.Message };
         }
         var data = StatusModel.BuildStatusData(root, snap);
-        // Only a real `refs` can tell us what the IDE has. Say when we didn't ask, so nobody reads the empty
-        // Incoming as "the IDE has no changes for you".
-        data.IncomingStale = localOnly && snap.Online && snap.ProjectMismatch is null;
+        // Only a real `refs` can tell us what the IDE has, so say so whenever one DID NOT RUN OR DID NOT
+        // SUCCEED — not only when we deliberately skipped it.
+        //
+        // This read `localOnly && snap.Online && …`, which is true for exactly one case (`--local` against a
+        // healthy bridge) and FALSE on the one that matters: the catch above turns any failure of `health` or
+        // `refs` — a timeout on a hung IDE, a transport fault mid-walk, a driver exception — into
+        // `Online=false` with an EMPTY item map. `BuildStatusData` then computes an empty Incoming, and with no
+        // local edits the whole thing renders "in sync with the IDE", exit 0, `incomingStale:false`. A status
+        // that could not reach the IDE claimed the IDE had nothing for you, and said it was sure.
+        data.IncomingStale = localOnly || !snap.Online || snap.ProjectMismatch is not null;
         return data;
     }
 

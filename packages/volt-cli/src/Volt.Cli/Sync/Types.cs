@@ -142,16 +142,25 @@ public sealed class InitResult
     public static InitResult Error(string reason) => new() { Kind = ResultKinds.Error, Reason = reason };
 }
 
-/// <summary>The build outcome — success + duration + normalized diagnostics (reuses Core's BridgeDiagnostic).</summary>
+/// <summary>The build outcome: ok{success, duration, diagnostics} | refused{reason}.
+///
+/// <para><b>A REFUSAL IS NOT A FAILED BUILD.</b> This was the one CLI result type with no discriminator, and
+/// `Refuse` manufactured `success:false` plus a synthetic `BridgeDiagnostic` carrying the refusal text. Three
+/// conditions went through it — no workspace binding, WRONG_PROJECT, PLC_DISCONNECTED — and came out
+/// byte-for-byte the shape of a project that compiled and found one error: a severity, a message,
+/// `success:false`, exit 2, with no code and no name to tell them apart. So "the wrong project is open" read as
+/// "your code does not compile", and `volt build --json` handed an agent a fabricated compiler diagnostic.</para>
+///
+/// <para>It was inconsistent with its siblings too: `pull` and `push` map the same two precondition refusals to
+/// exit 1 with the reason on stderr. Exit 2 now means what it means everywhere else — the op ran and the answer
+/// was no.</para></summary>
 public sealed class BuildResult
 {
+    public string Kind { get; set; } = ResultKinds.Ok;
     public bool Success { get; set; }
     public double Duration { get; set; }
     public List<Volt.Contracts.BridgeDiagnostic> Diagnostics { get; set; } = new();
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Reason { get; set; }
 
-    public static BuildResult Refuse(string message) => new()
-    {
-        Success = false,
-        Diagnostics = new() { new() { Severity = "error", Message = message } },
-    };
+    public static BuildResult Refuse(string reason) => new() { Kind = ResultKinds.Refused, Success = false, Reason = reason };
 }

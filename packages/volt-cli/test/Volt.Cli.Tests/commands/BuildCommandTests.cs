@@ -41,11 +41,21 @@ public class BuildCommandTests
             Commands.Pull(root, client);
             var b = Commands.Build(root, client);
             Assert.False(b.Success);
+            // The op RAN; the answer was no. That is `ok` + `success:false` — a REFUSAL is a different Kind, and
+            // telling them apart is the whole point of the discriminator.
+            Assert.Equal(ResultKinds.Ok, b.Kind);
+            Assert.Null(b.Reason);
             Assert.Contains(b.Diagnostics, d => d.Severity == "error" && d.Message.Contains("undeclared"));
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>A REFUSAL IS DISTINGUISHABLE FROM A FAILED BUILD.
+    ///
+    /// <para>This used to assert the opposite — that the refusal arrives as an error-severity DIAGNOSTIC — which
+    /// is what made "the wrong project is open" byte-for-byte identical to "your code does not compile": a
+    /// severity, a message, `success:false`, exit 2, no code, no name. An agent reading `volt build --json` got a
+    /// fabricated compiler diagnostic for a build that never ran.</para></summary>
     [Fact]
     public void Build_refuses_outside_a_workspace()
     {
@@ -53,8 +63,10 @@ public class BuildCommandTests
         try
         {
             var b = Commands.Build(root, new BridgeClient(Pipe()));
-            Assert.False(b.Success);
-            Assert.Contains(b.Diagnostics, d => d.Message.Contains("not a Volt workspace"));
+
+            Assert.Equal(ResultKinds.Refused, b.Kind);
+            Assert.Contains("not a Volt workspace", b.Reason);
+            Assert.Empty(b.Diagnostics);   // nothing compiled, so there is nothing to report about the code
         }
         finally { TestUtil.ForceDelete(root); }
     }

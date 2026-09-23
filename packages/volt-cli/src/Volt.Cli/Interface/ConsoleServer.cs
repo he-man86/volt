@@ -309,8 +309,12 @@ public sealed class ConsoleServer : IDisposable
         // `--dry-run` only exempts the verbs that IMPLEMENT it. `ParseArgs` drops an unrecognised flag into a
         // set nothing reads, so `volt init --dry-run` used to pass this gate and then really git-init the
         // project and pull — a flag the verb ignores was opening the door the gate exists to hold shut.
+        // ASKED OF THE PARSER, like the verb above it. `args.Contains` is a second implementation of "did they
+        // pass this flag", and it answers yes for a `--dry-run` sitting in a VALUE position — `ParseArgs`
+        // consumes the token after `--project-name`/`--port`/`--pipe`/… as that flag's value, so the element is
+        // in `args` and the flag was never passed.
         var dryRunnable = verb is "pull" or "push";
-        if (MutatingVerbs.Contains(verb) && !_allowWrite && !(dryRunnable && args.Contains("--dry-run")))
+        if (MutatingVerbs.Contains(verb) && !_allowWrite && !(dryRunnable && Program.HasFlag(args, "--dry-run")))
         {
             WriteJson(ctx, 403, new
             {

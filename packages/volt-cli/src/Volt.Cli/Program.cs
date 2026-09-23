@@ -81,8 +81,10 @@ internal static class Program
                 _ => Emit(Usage, a.Verb is null ? 0 : 1),
             };
         }
-        catch (TimeoutException) { return Unreachable(); }
-        catch (IOException) { return Unreachable(); }
+        // ONLY the transport's own verdict, raised by `BridgeClient.Call`. These used to be `catch (IOException)`
+        // and `catch (TimeoutException)` around the WHOLE dispatch, which also swallowed every local disk and git
+        // failure into "is the IDE bridge running?" — see BridgeClient.Call.
+        catch (BridgeError e) when (e.Code == BridgeError.UnreachableCode) { return Unreachable(); }
         catch (BridgeError e) { Console.Error.WriteLine(e.Message); return 1; }
         catch (PipeCallException e) { Console.Error.WriteLine(e.Message); return 1; }
         catch (Exception ex) { Console.Error.WriteLine(ex.Message); return 1; }
@@ -210,7 +212,11 @@ internal static class Program
         if (pending > 0 && !a.Has("--json"))
             Console.WriteLine($"note: {pending} local change(s) not pushed — this build reflects the IDE, not your workspace. Run `volt push` first.");
         var r = Commands.Build(root, bridge, Reporter.Create());
-        if (a.Has("--json")) { EmitJson(r); return r.Success ? 0 : 2; }
+        if (a.Has("--json")) { EmitJson(r); return r.Kind == ResultKinds.Refused ? 1 : r.Success ? 0 : 2; }
+        // A REFUSAL EXITS 1 WITH THE REASON ON STDERR, exactly as `pull` and `push` answer the same two
+        // preconditions. It used to print `Build FAILED (0ms)` over a fabricated compiler diagnostic and exit 2,
+        // so "the wrong project is open" was indistinguishable from "your code does not compile".
+        if (r.Kind == ResultKinds.Refused) { Console.Error.WriteLine(r.Reason); return 1; }
         Console.WriteLine($"Build {(r.Success ? "succeeded" : "FAILED")} ({r.Duration}ms)");
         // NAME FIRST, the way a compiler prints: the item is the only thing that makes a line number usable, and
         // `volt build` printed neither it nor the vendor's code -- the engineer got prose and a bare line number
@@ -419,6 +425,20 @@ internal static class Program
     {
         try { return ParseArgs(argv.ToArray()).Verb; }
         catch (ArgError) { return null; }
+    }
+
+    /// <summary>Did this command line pass <paramref name="flag"/> — asked of the real parser, never re-derived.
+    ///
+    /// <para>The console's read-only gate answered this with `args.Contains("--dry-run")`, six lines after
+    /// asking `VerbOf` for the verb and commenting that a second implementation is exactly how such a gate
+    /// silently stops covering its cases. `ParseArgs` consumes the token after a value flag AS that flag's
+    /// value, so `--project-name --dry-run` puts `--dry-run` in `args` as an element while `Has` is false — the
+    /// token is present, the flag was never passed, and a raw `Contains` opened the door. False on a line that
+    /// does not parse: an unparseable request gets the refusal, not the exemption.</para></summary>
+    internal static bool HasFlag(IReadOnlyList<string> argv, string flag)
+    {
+        try { return ParseArgs(argv.ToArray()).Has(flag); }
+        catch (ArgError) { return false; }
     }
 
     private static Args ParseArgs(string[] argv)

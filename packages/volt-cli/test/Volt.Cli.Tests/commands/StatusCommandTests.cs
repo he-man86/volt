@@ -161,4 +161,47 @@ public class StatusCommandTests
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
+
+    /// <summary>A STATUS THAT COULD NOT REACH THE IDE DOES NOT CLAIM THE IDE HAS NOTHING FOR YOU.
+    ///
+    /// <para>`Commands.Status` wraps the whole bridge conversation in one catch that records any failure as
+    /// `Online=false` with an EMPTY item map. `BuildStatusData` then computes an empty Incoming, and with no
+    /// local edits the model rendered "in sync with the IDE" — the most confident sentence it has, for the state
+    /// it knows least about — with `incomingStale:false`, which told every client the emptiness was an
+    /// ANSWER.</para>
+    ///
+    /// <para>`incomingStale` was `localOnly && snap.Online && …`: true for exactly one case, and false on the one
+    /// that matters.</para></summary>
+    [Fact]
+    public void An_unreachable_bridge_is_reported_as_unknown_not_as_in_sync()
+    {
+        var root = TestUtil.NewRepo();
+        try
+        {
+            Config.SaveConfig(root, new WorkspaceConfig { Bridge = new() { Vendor = "codesys" }, Project = new() { Platform = "codesys", ProjectName = "P" }, LinkedAt = "t" });
+
+            // No host is listening on this pipe, so every call fails.
+            var s = Commands.Status(root, new BridgeClient("volt.test.nothing-here-" + System.Guid.NewGuid().ToString("N")));
+
+            Assert.False(s.Online);
+            Assert.True(s.IncomingStale, "an empty Incoming was published as though it were an answer");
+            Assert.DoesNotContain("in sync", s.Summary);
+            Assert.Contains("unknown", s.Summary);
+        }
+        finally { TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>And `--local` still says so — the flag's whole purpose is a status that deliberately did not ask.</summary>
+    [Fact]
+    public void A_local_status_is_stale_too()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("A", "PROGRAM A\nVAR\nEND_VAR", "x := 1;"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.True(Commands.Status(root, client, localOnly: true).IncomingStale);
+            Assert.False(Commands.Status(root, client).IncomingStale);   // a real walk is not stale
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
 }
