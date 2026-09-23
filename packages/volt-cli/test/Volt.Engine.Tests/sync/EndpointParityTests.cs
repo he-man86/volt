@@ -69,7 +69,8 @@ public class EndpointParityTests
         var fetch = FetchService.Handle(ide, new FetchRequest { Init = true }); // what `volt pull` reads
 
         Assert.Equal(refs.ProjectVersion, fetch.ProjectVersion);
-        Assert.Equal(refs.StructureVersion, fetch.StructureVersion);
+        Assert.Equal(refs.Platform, fetch.Platform);
+        Assert.Equal(refs.ProjectName, fetch.ProjectName);
         Assert.Equal(
             refs.Items.OrderBy(kv => kv.Key, System.StringComparer.Ordinal),
             fetch.Items.OrderBy(kv => kv.Key, System.StringComparer.Ordinal)); // same keys AND versions

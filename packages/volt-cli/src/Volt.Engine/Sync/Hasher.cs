@@ -44,15 +44,6 @@ public static class Hasher
         return ComputeSha1Short(sb.ToString());
     }
 
-    /// <summary>Structure version: ordinal-sorted names only (changes when items add/remove/rename).</summary>
-    public static string ComputeStructureVersion(Dictionary<string, string> versions)
-    {
-        var sb = new StringBuilder();
-        foreach (var name in versions.Keys.OrderBy(n => n, System.StringComparer.Ordinal))
-            sb.Append(name).Append('\n');
-        return ComputeSha1Short(sb.ToString());
-    }
-
     private static string ToHex(byte[] bytes)
     {
         var sb = new StringBuilder(bytes.Length * 2);

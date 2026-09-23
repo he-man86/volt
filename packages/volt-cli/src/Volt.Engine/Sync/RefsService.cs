@@ -20,7 +20,7 @@ public static class RefsService
         // `req` (and each of its fields) is optional: a body-less refs checks only connected, exactly as before, so
         // discovery and older clients are unaffected. A BOUND caller no longer has to answer "is the bridge on my
         // project?" for itself from the throttled health cache — refs was the last op that made it do that.
-        OpGuard.RequireBoundProject(ide, req?.ExpectedPlatform, req?.ExpectedProjectName);
+        var bound = OpGuard.RequireBoundProject(ide, req?.ExpectedPlatform, req?.ExpectedProjectName);
 
         var sw = Stopwatch.StartNew();
         var snap = ProjectSnapshot.Walk(ide, onProgress, Ops.Refs);
@@ -33,7 +33,6 @@ public static class RefsService
         return new RefsResponse
         {
             ProjectVersion = snap.ProjectVersion,
-            StructureVersion = snap.StructureVersion,
             UnwalkedFolders = snap.UnwalkedFolders,
             Items = snap.FullVersions,
             Folders = snap.Folders,
@@ -41,6 +40,12 @@ public static class RefsService
             // deliberately absent from `Items` — naming them here is the only way a client can tell the
             // difference between "this project has no such POU" and "Volt could not read it".
             Unreadable = snap.Unreadable,
+            // THE PROJECT THIS WALK IS OF, atomic with the walk. `fetch` has echoed it all along and `refs` did
+            // not, which is backwards for the op `volt status` runs: a caller that asked WITHOUT a binding — the
+            // discovery path, the console, the e2e harness — got a version map with nothing saying what it was a
+            // map OF.
+            Platform = bound.Vendor,
+            ProjectName = bound.ProjectName,
         };
     }
 }

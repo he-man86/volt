@@ -1,6 +1,12 @@
 /**
- * THE HASH SPINE — the three versions the wire publishes (`projectVersion`, `structureVersion`, and one per item)
- * and how they must move.
+ * THE HASH SPINE — the two versions the wire publishes (`projectVersion`, and one per item) and how they must
+ * move.
+ *
+ * <p>There was a third, `structureVersion`: a hash of the item NAMES alone, for a client deciding whether a
+ * cheap refresh was enough. Nothing ever read it — not the CLI, not volt-control, not the extension, not the
+ * connector — and it was blind to the one structural change Volt performs, since a MOVE keeps every name and
+ * only changes a folder. It is deleted rather than fixed; when something actually needs "did the tree shape
+ * change", it can be built with the folder map included.</p>
  *
  * <p>These are what make `volt status` quiet after a no-op and loud after a real edit, so "which of the three
  * changed" IS the contract. Asserting it by hand — `expect(refs2.items[x]).not.toBe(refs1.items[x])` — is how the
@@ -9,11 +15,11 @@
 import { expect } from "bun:test"
 import { bridge } from "./bridge"
 
-export type Snapshot = { project: string; structure: string; items: Record<string, string> }
+export type Snapshot = { project: string; items: Record<string, string> }
 
 export async function snapshot(): Promise<Snapshot> {
 	const r = await bridge.refs()
-	return { project: r.projectVersion, structure: r.structureVersion, items: r.items }
+	return { project: r.projectVersion, items: r.items }
 }
 
 /** An item's version by FULL wire name, or undefined when absent. */
@@ -28,18 +34,17 @@ export function has(s: Snapshot, name: string): boolean {
 /**
  * Assert how one item and BOTH aggregate versions moved between two snapshots.
  *
- * <p>All three every time, deliberately: the interesting failures are the ones where the item moved correctly and
- * an aggregate did not (a content edit that bumps `structureVersion` makes every client re-walk the tree for
- * nothing; a rename that does not bump it leaves them believing the old layout).</p>
+ * <p>Both every time, deliberately: the interesting failure is the one where the item moved correctly and the
+ * aggregate did not — a client is then told "nothing to pull" over a real edit.</p>
  *
  *   item: "new" | "change" | "same" | "gone"
- *   project / structure: true = must change, false = must stay identical
+ *   project: true = must change, false = must stay identical
  */
 export function assertDelta(
 	before: Snapshot,
 	after: Snapshot,
 	name: string,
-	exp: { item: "new" | "change" | "same" | "gone"; project: boolean; structure: boolean },
+	exp: { item: "new" | "change" | "same" | "gone"; project: boolean },
 ): void {
 	switch (exp.item) {
 		case "new":
@@ -60,8 +65,6 @@ export function assertDelta(
 	}
 	if (exp.project) expect(after.project, "projectVersion should have changed").not.toBe(before.project)
 	else expect(after.project, "projectVersion should NOT have changed").toBe(before.project)
-	if (exp.structure) expect(after.structure, "structureVersion should have changed").not.toBe(before.structure)
-	else expect(after.structure, "structureVersion should NOT have changed").toBe(before.structure)
 }
 
 // ── referenced-library artefacts ──────────────────────────────────────────────

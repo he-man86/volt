@@ -59,7 +59,6 @@ internal sealed class ProjectSnapshot
     /// <summary>The aggregate versions over <see cref="Versions"/>, hashed ONCE at the end of the walk — they are
     /// part of the snapshot, not recomputed (and re-sorted) per read.</summary>
     public string ProjectVersion { get; private set; } = "";
-    public string StructureVersion { get; private set; } = "";
 
     /// <summary>The single gate that decides whether an item is TRACKED (counts toward the version maps + the
     /// project/structure hash). Used by <see cref="Walk"/> AND by <c>push</c>'s lease baseline so both hash the
@@ -108,7 +107,6 @@ internal sealed class ProjectSnapshot
             else snap.Unreadable.Add(it.Name);
         }
         snap.ProjectVersion = Hasher.ComputeProjectVersion(snap.Versions);
-        snap.StructureVersion = Hasher.ComputeStructureVersion(snap.Versions);
         return snap;
     }
 }

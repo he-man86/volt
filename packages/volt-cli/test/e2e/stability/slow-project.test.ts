@@ -4,7 +4,7 @@
  * against any real fixture without mutating it, and it's idempotent.
  *
  * What "stable" means here, and what each assertion guards:
- *  - Hash stability: repeated `refs` on an UNCHANGING project return byte-identical projectVersion + structureVersion.
+ *  - Hash stability: repeated `refs` on an UNCHANGING project return a byte-identical projectVersion.
  *    Spurious churn there would bounce `volt status`/pull into false "the IDE changed" every poll.
  *  - Health never serializes behind a long op: while a slow `refs` holds the one IDE thread, `health` still answers
  *    fast and stays `healthy` (the honest-health cache) — a busy IDE must not read as a lost connection.
@@ -20,11 +20,11 @@ import { bridge, healthStatus, BASE } from "../harness"
 // Each heavy op can take ~20s on a large project; give the suite room (override with --timeout too).
 const OP_TIMEOUT = 120_000
 
-let baseline: { project: string; structure: string; count: number }
+let baseline: { project: string; count: number }
 
 beforeAll(async () => {
 	const r = await bridge.refs()
-	baseline = { project: r.projectVersion, structure: r.structureVersion, count: Object.keys(r.items ?? {}).length }
+	baseline = { project: r.projectVersion, count: Object.keys(r.items ?? {}).length }
 	expect(baseline.count).toBeGreaterThan(0) // a real project has items — guards a mis-pointed pipe
 }, OP_TIMEOUT)
 
@@ -33,7 +33,6 @@ test(`${BASE}: repeated refs on an unchanging project are hash-stable`, async ()
 	for (let i = 0; i < 3; i++) {
 		const r = await bridge.refs()
 		expect(r.projectVersion).toBe(baseline.project)
-		expect(r.structureVersion).toBe(baseline.structure)
 		expect(Object.keys(r.items ?? {}).length).toBe(baseline.count)
 	}
 }, OP_TIMEOUT)

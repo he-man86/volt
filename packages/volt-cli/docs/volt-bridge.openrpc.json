@@ -288,9 +288,6 @@
           "projectVersion": {
             "type": "string"
           },
-          "structureVersion": {
-            "type": "string"
-          },
           "items": {
             "type": "object",
             "additionalProperties": {
@@ -314,11 +311,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "platform": {
+            "type": "string"
+          },
+          "projectName": {
+            "type": "string"
           }
         },
         "required": [
           "projectVersion",
-          "structureVersion",
           "items",
           "folders",
           "unreadable",
@@ -357,12 +359,6 @@
       "FetchResponse": {
         "type": "object",
         "properties": {
-          "projectVersion": {
-            "type": "string"
-          },
-          "structureVersion": {
-            "type": "string"
-          },
           "changed": {
             "type": "array",
             "items": {
@@ -374,6 +370,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "librariesRefreshed": {
+            "type": "boolean"
+          },
+          "projectVersion": {
+            "type": "string"
           },
           "items": {
             "type": "object",
@@ -399,9 +401,6 @@
               "type": "string"
             }
           },
-          "librariesRefreshed": {
-            "type": "boolean"
-          },
           "platform": {
             "type": "string"
           },
@@ -410,15 +409,14 @@
           }
         },
         "required": [
-          "projectVersion",
-          "structureVersion",
           "changed",
           "removed",
+          "librariesRefreshed",
+          "projectVersion",
           "items",
           "folders",
           "unreadable",
-          "unwalkedFolders",
-          "librariesRefreshed"
+          "unwalkedFolders"
         ]
       },
       "FetchedItem": {

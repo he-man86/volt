@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace Volt.Contracts;
 
-public class PushRequest
+public class PushRequest : BoundRequest
 {
     [JsonPropertyName("ops")]
     public List<PushOp> Ops { get; set; } = new();
@@ -13,18 +13,13 @@ public class PushRequest
 
     /// <summary>Force: apply unconditionally — skip the per-item optimistic-concurrency (ifVersion) checks so
     /// `push --force` clobbers the live IDE in ONE call (no pre-push <c>refs</c>). The project-level
-    /// <see cref="ExpectedProjectVersion"/> gate still runs when set (that IS the --force-with-lease check).</summary>
+    /// <see cref="ExpectedProjectVersion"/> gate still runs when set (that IS the --force-with-lease check).
+    ///
+    /// <para>The IDENTITY guard (<see cref="BoundRequest.ExpectedPlatform"/>) runs regardless of this flag and
+    /// before the apply, so `push --force` — which nulls the version gate — still cannot clobber the wrong
+    /// IDE.</para></summary>
     [JsonPropertyName("force")]
     public bool Force { get; set; }
-
-    /// <summary>The project this workspace is bound to. The op refuses (WRONG_PROJECT) unless the live bridge is
-    /// serving it — checked BEFORE the apply and regardless of <see cref="Force"/>, so `push --force` (which nulls
-    /// the version gate) still can't clobber the wrong IDE. Null = no identity check (older client).</summary>
-    [JsonPropertyName("expectedPlatform")]
-    public string? ExpectedPlatform { get; set; }
-
-    [JsonPropertyName("expectedProjectName")]
-    public string? ExpectedProjectName { get; set; }
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "op")]

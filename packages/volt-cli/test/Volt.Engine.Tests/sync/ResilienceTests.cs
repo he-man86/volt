@@ -105,6 +105,6 @@ public class ResilienceTests
         var fetch = FetchService.Handle(ide, new FetchRequest { Init = true });
 
         Assert.Equal(refs.ProjectVersion, fetch.ProjectVersion);
-        Assert.Equal(refs.StructureVersion, fetch.StructureVersion);
+        Assert.Equal(refs.Unreadable, fetch.Unreadable);
     }
 }

@@ -3,16 +3,10 @@ using System.Text.Json.Serialization;
 
 namespace Volt.Contracts;
 
-public class BuildRequest
+/// <summary><c>build</c> takes nothing but the bound identity — so `volt build` reports diagnostics for the
+/// project the workspace is bound to, not whatever happens to be open.</summary>
+public class BuildRequest : BoundRequest
 {
-    /// <summary>The project this workspace is bound to. The op refuses (WRONG_PROJECT) unless the live bridge is
-    /// serving it — so `volt build` reports diagnostics for the bound project, not whatever happens to be open.
-    /// Null = no identity check (older client).</summary>
-    [JsonPropertyName("expectedPlatform")]
-    public string? ExpectedPlatform { get; set; }
-
-    [JsonPropertyName("expectedProjectName")]
-    public string? ExpectedProjectName { get; set; }
 }
 
 /// <summary>The wire's diagnostic severity vocabulary — <c>error</c> / <c>warning</c> / <c>info</c>, and the one

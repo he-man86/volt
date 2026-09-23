@@ -59,7 +59,6 @@ describe(`resilience / lifecycle chaos (${BASE})`, () => {
 		expect(await serving()).toBe(true)
 		const after = await snapshot()
 		expect(after.project).toBe(before.project)      // content-derived version didn't move
-		expect(after.structure).toBe(before.structure)
 		expect(after.items).toEqual(before.items)        // every item, same hash — nothing churned or reloaded
 	})
 

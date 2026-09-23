@@ -292,9 +292,6 @@ window.VOLT = {
             "projectVersion": {
               "type": "string"
             },
-            "structureVersion": {
-              "type": "string"
-            },
             "items": {
               "type": "object",
               "additionalProperties": {
@@ -318,11 +315,16 @@ window.VOLT = {
               "items": {
                 "type": "string"
               }
+            },
+            "platform": {
+              "type": "string"
+            },
+            "projectName": {
+              "type": "string"
             }
           },
           "required": [
             "projectVersion",
-            "structureVersion",
             "items",
             "folders",
             "unreadable",
@@ -361,12 +363,6 @@ window.VOLT = {
         "FetchResponse": {
           "type": "object",
           "properties": {
-            "projectVersion": {
-              "type": "string"
-            },
-            "structureVersion": {
-              "type": "string"
-            },
             "changed": {
               "type": "array",
               "items": {
@@ -378,6 +374,12 @@ window.VOLT = {
               "items": {
                 "type": "string"
               }
+            },
+            "librariesRefreshed": {
+              "type": "boolean"
+            },
+            "projectVersion": {
+              "type": "string"
             },
             "items": {
               "type": "object",
@@ -403,9 +405,6 @@ window.VOLT = {
                 "type": "string"
               }
             },
-            "librariesRefreshed": {
-              "type": "boolean"
-            },
             "platform": {
               "type": "string"
             },
@@ -414,15 +413,14 @@ window.VOLT = {
             }
           },
           "required": [
-            "projectVersion",
-            "structureVersion",
             "changed",
             "removed",
+            "librariesRefreshed",
+            "projectVersion",
             "items",
             "folders",
             "unreadable",
-            "unwalkedFolders",
-            "librariesRefreshed"
+            "unwalkedFolders"
           ]
         },
         "FetchedItem": {

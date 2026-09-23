@@ -196,16 +196,21 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 				roundTrip(b, name, fb(bare, { children: METHOD("M") })),
 			])
 			const [ra, rb] = await Promise.all([a.refs(), b.refs()])
-			// `refs` is { projectVersion, structureVersion, items, folders, unreadable } — again asserted, not
-			// assumed. `unreadable` names the items the walk found and could not materialize: they are tracked in
-			// the project hash but deliberately absent from `items`, so without it a POU that failed to read was
-			// simply missing, with no error anywhere (DIALECT C7).
+			// The exact SHAPE of `refs`, asserted rather than assumed — this is the assertion that notices a
+			// field appearing or vanishing on one vendor and not the other.
+			//
+			// `unreadable` names the items the walk found and could not materialize: they are tracked in the
+			// project hash but deliberately absent from `items`, so without it a POU that failed to read was
+			// simply missing, with no error anywhere (DIALECT C7). `unwalkedFolders` is the same idea one level
+			// up — a folder the driver could not enumerate, which makes absence meaningless beneath it.
 			expect(Object.keys(rb).sort()).toEqual([
 				"folders",
 				"items",
+				"platform",
+				"projectName",
 				"projectVersion",
-				"structureVersion",
 				"unreadable",
+				"unwalkedFolders",
 			])
 
 			// …and BOTH vendors report nothing unreadable for the same push — a parity claim in its own right,

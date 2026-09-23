@@ -70,10 +70,9 @@ describe(`endpoints / fetch (${BASE})`, () => {
 		expect(f.removed).toContain(fid("f_ghost"))
 	})
 
-	it("projectVersion + structureVersion match /refs", async () => {
+	it("projectVersion matches /refs", async () => {
 		const f = await bridge.fetch({ knownItems: {} })
 		const r = await bridge.refs()
 		expect(f.projectVersion).toBe(r.projectVersion)
-		expect(f.structureVersion).toBe(r.structureVersion)
 	})
 })

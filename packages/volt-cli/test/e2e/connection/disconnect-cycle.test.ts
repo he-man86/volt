@@ -95,7 +95,6 @@ describe(`lifecycle / disconnect cycle (${BASE})`, () => {
 		const after = await snapshot()
 		const healthAfter = await bridge.health()
 		expect(after.project).toBe(before.project)       // no churn: the project version is content-derived
-		expect(after.structure).toBe(before.structure)
 		expect(after.items).toEqual(before.items)        // every item, same hash
 		expect(healthAfter.projectName).toBe(healthBefore.projectName)
 		// The SAME IDE session, not a re-attach. IdeVersion lives per-instance now (health carries the projects list).

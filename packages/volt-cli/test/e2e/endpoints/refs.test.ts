@@ -10,10 +10,13 @@ describe(`endpoints / refs (${BASE})`, () => {
 	afterEach(async () => { await restorePlcPrg() })
 	afterAll(cleanup)
 
-	it("returns projectVersion + structureVersion + items/folders", async () => {
+	it("returns projectVersion + items/folders + the identity it walked", async () => {
 		const r = await bridge.refs()
 		expect(typeof r.projectVersion).toBe("string")
-		expect(typeof r.structureVersion).toBe("string")
+		// The identity echo: `fetch` has always had it and `refs` did not, which is backwards for the
+		// op `volt status` runs.
+		expect(typeof r.platform).toBe("string")
+		expect(typeof r.projectName).toBe("string")
 
 		// NOT `typeof r.items === "object"` — which is what this said, and `typeof null` is "object", so the
 		// assertion passed for a bridge that returned no maps at all. A project the suite is running against has
@@ -29,7 +32,6 @@ describe(`endpoints / refs (${BASE})`, () => {
 		const a = await bridge.refs()
 		const b = await bridge.refs()
 		expect(a.projectVersion).toBe(b.projectVersion)
-		expect(a.structureVersion).toBe(b.structureVersion)
 	})
 
 	it("the parallel maps are consistent for a created item", async () => {

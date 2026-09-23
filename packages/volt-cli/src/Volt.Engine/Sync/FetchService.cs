@@ -267,7 +267,6 @@ public static class FetchService
         return new FetchResponse
         {
             ProjectVersion = Hasher.ComputeProjectVersion(versions),
-            StructureVersion = Hasher.ComputeStructureVersion(versions),
             Changed = changed,
             Removed = removed,
             Items = fullVersions,
