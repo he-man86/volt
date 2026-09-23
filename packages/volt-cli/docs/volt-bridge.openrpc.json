@@ -554,6 +554,12 @@
               "type": "string"
             }
           },
+          "unwalkedFolders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "conflicts": {
             "type": "array",
             "items": {
@@ -565,7 +571,8 @@
           }
         },
         "required": [
-          "accepted"
+          "accepted",
+          "unwalkedFolders"
         ]
       },
       "PushConflict": {

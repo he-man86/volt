@@ -243,7 +243,10 @@ public static class PushService
         var receipt = ProjectSnapshot.Walk(ide, operation: "push-receipt");
 
         VoltLog.Info($"push {request.Ops.Count} ops — accepted [{FormatApplied(applied)}] ({receipt.FullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
-        return PushResponse.AcceptedResult(receipt.ProjectVersion, receipt.FullVersions, receipt.Folders);
+        // The receipt walk can be SHORT for the same reasons a read walk can, and the client rebuilds its
+        // baseline from it — so it has to be told, exactly as `refs`/`fetch` tell it.
+        return PushResponse.AcceptedResult(receipt.ProjectVersion, receipt.FullVersions, receipt.Folders,
+                                           receipt.UnwalkedFolders);
     }
 
 

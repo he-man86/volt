@@ -39,18 +39,6 @@ public static class IdeTree
         string? SrcRel(string path) => path.StartsWith(Files.SrcDir + "/", StringComparison.Ordinal) ? path.Substring(Files.SrcDir.Length + 1) : null;
         var replaced = new HashSet<string>(ideFiles.Select(f => f.Path));
 
-        // THE SAME ITEM CAN ARRIVE UNDER A DIFFERENT PATH, and `replaced` is keyed by PATH. A DUT is `X.dut` on
-        // the wire and `X.struct`/`X.enum`/`X.union`/`X.alias` on disk, chosen from its declaration
-        // (`Materialize.FileNameFor`) — so an engineer rewriting a STRUCT as an ENUM produces a CHANGED item,
-        // not a removed one: `replaced` holds `X.enum`, `removedNames` is empty, and the old `X.struct` matched
-        // neither. Both files then sat in the workspace, and the stale one still maps to the live item's wire
-        // name — so editing it pushed the old shape back over the new DUT, and deleting it deleted the live one.
-        //
-        // Keyed by the identity the WIRE is keyed by, so it needs no DUT special case and covers any future kind
-        // whose file extension is derived from content rather than from the name.
-        var replacedNames = new HashSet<string>(
-            ideFiles.Select(f => Extensions.FullNameFromPath(f.Path)).Where(n => n is not null)!,
-            StringComparer.OrdinalIgnoreCase);
         // BARE WIRE NAMES ("Foo.fb"), not paths — the fetch reports what the IDE deleted, and an item's identity
         // is its name (the whole wire is keyed that way). `replaced` above IS a path set, which is why only this
         // one needed the distinction spelt out: comparing names against src-relative paths silently matched
@@ -69,6 +57,26 @@ public static class IdeTree
             ? new HashSet<string>(StringComparer.Ordinal)
             : LibraryRoots(Git.ListTree(gitDir, parentIde).Select(e => e.Path));
         bool UnderLibrary(string rel) => IsUnderLibraryRoot(rel, libraryRoots);
+
+        // THE SAME ITEM CAN ARRIVE UNDER A DIFFERENT PATH, and `replaced` is keyed by PATH. A DUT is `X.dut` on
+        // the wire and `X.struct`/`X.enum`/`X.union`/`X.alias` on disk, chosen from its declaration
+        // (`Materialize.FileNameFor`) — so an engineer rewriting a STRUCT as an ENUM produces a CHANGED item,
+        // not a removed one: `replaced` holds `X.enum`, `removedNames` is empty, and the old `X.struct` matched
+        // neither. Both files then sat in the workspace, and the stale one still maps to the live item's wire
+        // name — so editing it pushed the old shape back over the new DUT, and deleting it deleted the live one.
+        //
+        // LIBRARY SIGNATURES ARE EXCLUDED FROM BOTH SIDES. They carry ordinary source extensions and are
+        // PATH-identified, so a name-keyed sweep hits them by accident in BOTH directions — the `removedNames`
+        // sweep beside this one records what that cost ("deleting the project's own ERROR.struct also deleted
+        // Library Manager/CAA/ERROR.struct"). Exempting only the carried file would leave the SOURCE side open:
+        // a refreshed `Library Manager/CAA/ERROR.struct` resolves to the full name `ERROR.dut`, and the
+        // project's own untouched `DUTs/ERROR.struct` shares it — so the guard would drop it from the tree and
+        // the pull's merge would DELETE the engineer's file.
+        var replacedNames = new HashSet<string>(
+            ideFiles.Where(f => !UnderLibrary(f.Path))
+                    .Select(f => Extensions.FullNameFromPath(f.Path))
+                    .Where(n => n is not null)!,
+            StringComparer.OrdinalIgnoreCase);
 
         // When the fetch RE-RENDERED the signatures, `ideFiles` carries the COMPLETE set for every library
         // folder, so a signature the client still holds and this response does not carry is an element that no

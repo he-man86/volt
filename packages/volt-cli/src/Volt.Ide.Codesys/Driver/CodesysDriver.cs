@@ -154,6 +154,9 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         {
             var guid = _om.GuidOf(pi.Item.Native);
             if (guid != Guid.Empty && wanted.Contains(guid)) names[guid] = pi.Name;
+            // STOP once every guid is placed. This runs on the IDE's primary thread, and a failing build on a
+            // real project asks about a handful of items out of hundreds.
+            if (names.Count == wanted.Count) break;
         }
         return names;
     }

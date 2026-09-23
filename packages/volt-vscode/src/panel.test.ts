@@ -21,8 +21,10 @@ const offlineView = { workspaceRoot: "/w", connectionLabel: "CODESYS — MyMachi
 const onlineView = { ...offlineView, health: { label: "Connected", tone: "ok", online: true }, mode: "ready", affordance: { caption: "connected", action: "disconnect" } }
 
 const proj = (over: Record<string, unknown> = {}) => {
-  const base = { id: "codesys::MyMachine:", displayName: "MyMachine", vendor: "codesys" as const, dirty: false, status: "healthy" as const, ...over }
-  return { ...base, projectName: (base as { projectName?: string }).projectName ?? base.displayName }
+  // ONE name. This used to build a `displayName` and backfill `projectName` from it, so after that field was
+  // deleted the fixture kept supplying a value the production code no longer reads it from — these tests would
+  // have passed even if the rename had broken the panel. `Record<string, unknown>` means tsc cannot see it.
+  return { id: "codesys::MyMachine:", projectName: "MyMachine", vendor: "codesys" as const, dirty: false, status: "healthy" as const, ...over }
 }
 
 // The bug this guards: the welcome button is static markdown and can't show WHICH project it binds. This view
@@ -38,11 +40,11 @@ test("unbound + a detected project → indented under a header, a named row that
   // Vendor-blind: the row names the project only — no "· CODESYS" vendor suffix.
   expect(node?.description).toBe("— click to set up")
   expect(node?.command?.command).toBe("volt.initProject")
-  expect(node?.command?.arguments?.[0]).toMatchObject({ displayName: "MyMachine", vendor: "codesys" })
+  expect(node?.command?.arguments?.[0]).toMatchObject({ projectName: "MyMachine", vendor: "codesys" })
 })
 
 test("two detected projects → both nested under the header as a list", () => {
-  const [header] = bridgeRoots([], [proj({ displayName: "P13" }), proj({ displayName: "P14" })], true)
+  const [header] = bridgeRoots([], [proj({ projectName: "P13" }), proj({ projectName: "P14" })], true)
   expect(header?.label).toBe("Detected projects")
   expect(header?.children?.map((c) => c.label)).toEqual(["P13", "P14"])
 })
@@ -87,9 +89,9 @@ test("bound + offline → the matching detected project is a Reconnect row (volt
 })
 
 test("bound + offline + a DIFFERENT-named project → a Rebind row (volt.rebindProject with that project)", () => {
-  const roots = bridgeRoots([offlineView as never], [proj({ displayName: "MyMachine_v2" })], true)
+  const roots = bridgeRoots([offlineView as never], [proj({ projectName: "MyMachine_v2" })], true)
   const rebind = roots.find((n) => n.command?.command === "volt.rebindProject")
-  expect(rebind?.command?.arguments?.[0]).toMatchObject({ displayName: "MyMachine_v2" })
+  expect(rebind?.command?.arguments?.[0]).toMatchObject({ projectName: "MyMachine_v2" })
 })
 
 test("bound + offline + nothing detected → an 'open your project' hint, no connect/rebind action", () => {

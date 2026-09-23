@@ -42,6 +42,11 @@ internal static class Program
     {
         // `volt --version` — the binary's own stamped version, so every Volt binary reports the SAME version (all
         // stamped from one VOLT_VERSION at build) and the connector's Status window can verify they're in sync.
+        // BEFORE the parser, because the parser now REFUSES a flag it does not know and neither of these is a
+        // flag any verb reads. `--help` used to land in `a.Flags` and fall through to the `_` arm with a null
+        // verb, printing Usage and exiting 0; once unknown flags became an error it answered
+        // "unknown flag '--help'" and exit 1 — the one command a confused user is most likely to type.
+        if (args.Any(x => x is "--help" or "-h" or "-?")) return Emit(Usage, 0);
         if (args.Length > 0 && (args[0] == "--version" || args[0] == "-v" || args[0] == "version"))
         {
             Console.WriteLine(ShippedVersion());
@@ -75,8 +80,8 @@ internal static class Program
                 "merge" => CmdMerge(root, a),
                 "open" => CmdOpen(a),
                 "console" => CmdConsole(a),
-                // No "--help" arm: ParseArgs routes every `--`-prefixed token into Flags/Values and never into
-                // positional, so a.Verb can never BE "--help". `volt --help` lands on the `_` arm with Verb null ⇒ 0.
+                // No "--help" arm: `--help` is answered above, before ParseArgs, because the parser refuses
+                // any flag it does not know and `--help` is not one a verb reads.
                 "help" => Emit(Usage, 0),
                 _ => Emit(Usage, a.Verb is null ? 0 : 1),
             };

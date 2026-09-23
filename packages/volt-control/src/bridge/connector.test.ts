@@ -19,7 +19,7 @@ function mockFetch(handler: (url: string, init?: RequestInit) => { ok: boolean; 
 }
 
 const VIEW: ConnectorView = {
-  projects: [{ id: "codesys:::MyMachine:", projectName: "MyMachine", vendor: "codesys", dirty: true, status: "healthy", projectName: "MyMachine" }],
+  projects: [{ id: "codesys:::MyMachine:", vendor: "codesys", dirty: true, status: "healthy", projectName: "MyMachine" }],
 }
 
 
@@ -28,7 +28,7 @@ const boundWorkspace = (vendor: string, projectName: string) => ws({ vendor, pro
 
 // The row's `status` decides connection state (default "healthy"/serving — these fixtures describe live projects
 // unless a test is specifically about a bridge that isn't serving, i.e. "idle").
-const proj = (vendor: string, name: string, projectName?: string, status: "idle" | "healthy" | "degraded" = "healthy") => ({ id: `${vendor}::${name}:`, projectName: name, vendor, dirty: false, status, projectName: projectName ?? name })
+const proj = (vendor: string, name: string, projectName?: string, status: "idle" | "healthy" | "degraded" = "healthy") => ({ id: `${vendor}::${name}:`, vendor, dirty: false, status, projectName: projectName ?? name })
 const projView = (projects: unknown[]): ConnectorView => ({ projects: projects as ConnectorView["projects"] })
 
 // The connection picker's per-project action — replaces the old accept-rename flow: a renamed project is just a
@@ -162,7 +162,7 @@ describe("connector client (the UI's single source of connection status)", () =>
   test("boundStatus treats a missing/idle `status` as not connected, never as connected", async () => {
     const dir = boundWorkspace("codesys", "MachineB")
     try {
-      const highlightFixture = { id: "codesys::MachineB:", projectName: "MachineB", vendor: "codesys", dirty: false, projectName: "MachineB" }
+      const highlightFixture = { id: "codesys::MachineB:", vendor: "codesys", dirty: false, projectName: "MachineB" }
       mockFetch(() => ({ ok: true, json: projView([highlightFixture]) }))
       expect((await boundStatus(dir)).kind).toBe("disconnected")
     } finally {

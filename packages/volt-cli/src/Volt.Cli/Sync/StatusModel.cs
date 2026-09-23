@@ -16,6 +16,16 @@ public sealed class BridgeSnapshot
     /// <summary>Items the bridge FOUND but could not materialize, by bare name. They exist in the IDE and have
     /// no file in the workspace.</summary>
     public List<string> Unreadable { get; set; } = new();
+
+    /// <summary>Did a REFS WALK produce <see cref="Items"/>? False for `volt status --local`, which deliberately
+    /// skips the bridge — and an empty map from "we did not ask" must not be diffed like an empty project.
+    ///
+    /// <para>Without it `--local` reported every tracked item as incoming-REMOVED: the snapshot is built with
+    /// `Online = true` and no mismatch, so `BuildStatusData` took the compute branch, and `complete` was true
+    /// because no folder had FAILED to walk — no walk had happened at all. `volt status --local --porcelain`
+    /// emitted an `iD` line for the entire project, right beside the `# incoming-stale` marker saying the
+    /// answer was not to be trusted.</para></summary>
+    public bool Walked { get; set; } = true;
     public Dictionary<string, string> Folders { get; set; } = new();
     public string ProjectVersion { get; set; } = "";
 }
@@ -58,7 +68,7 @@ public static class StatusModel
         var initialized = Config.ConfigExists(root);
 
         var sidecar = Sidecar.LoadIdeRefs(root);
-        var incoming = snap.Online && snap.ProjectMismatch is null
+        var incoming = snap.Online && snap.ProjectMismatch is null && snap.Walked
             ? ComputeIncoming(snap.Items, sidecar?.Items ?? new Dictionary<string, string>(),
                               complete: snap.UnwalkedFolders.Count == 0)
             : ChangeSet.Empty();

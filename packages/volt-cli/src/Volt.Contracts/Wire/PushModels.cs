@@ -130,6 +130,17 @@ public class PushResponse
     [JsonPropertyName("newFolders")]
     public Dictionary<string, string>? NewFolders { get; set; }
 
+    /// <summary>Folders the RECEIPT walk could not enumerate — normally empty, same meaning as on a read.
+    ///
+    /// <para>The receipt is a full re-walk, so it can be short for exactly the reasons a read can. Without this
+    /// the client had no way to know: it replaced its baseline item map with <see cref="NewItems"/>, so every
+    /// item under an unenumerable folder left the sidecar — undoing, in one push, the overlay the pull path
+    /// installs for precisely this case. The damage lands on the NEXT push: an edit to such a file has no known
+    /// version and goes up as a create (ITEM_EXISTS), a delete is skipped and reported as "nothing to push", and
+    /// a rename throws "has no known IDE version".</para></summary>
+    [JsonPropertyName("unwalkedFolders")]
+    public List<string> UnwalkedFolders { get; set; } = new();
+
     [JsonPropertyName("conflicts")]
     public List<PushConflict>? Conflicts { get; set; }
 
@@ -138,6 +149,11 @@ public class PushResponse
 
     public static PushResponse AcceptedResult(string newProjectVersion, Dictionary<string, string> newItems, Dictionary<string, string> newFolders) =>
         new() { Accepted = true, NewProjectVersion = newProjectVersion, NewItems = newItems, NewFolders = newFolders };
+
+    public static PushResponse AcceptedResult(string newProjectVersion, Dictionary<string, string> newItems,
+                                              Dictionary<string, string> newFolders, List<string> unwalkedFolders) =>
+        new() { Accepted = true, NewProjectVersion = newProjectVersion, NewItems = newItems, NewFolders = newFolders,
+                UnwalkedFolders = unwalkedFolders };
 
     public static PushResponse RejectedResult(List<PushConflict> conflicts, string currentProjectVersion) =>
         new() { Accepted = false, Conflicts = conflicts, CurrentProjectVersion = currentProjectVersion };

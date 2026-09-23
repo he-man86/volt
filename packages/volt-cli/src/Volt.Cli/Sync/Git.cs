@@ -517,7 +517,18 @@ public static class Git
         return stages;
     }
 
-    /// <summary><c>git merge &lt;ref&gt;</c> into the current branch (deterministic identity). Requires a clean tree.</summary>
+    /// <summary>Is a git identity configured for this repo? The merge commits use the ENGINEER'S identity (it is
+    /// their branch and their resolution), which means they need one — where the old fixed `ide &lt;ide@volt.local&gt;`
+    /// env supplied one unconditionally.
+    ///
+    /// <para>That matters for a CLEAN pull on a fresh box, a CI runner or a service account: `AutoCommitSrc`
+    /// commits nothing there, so nothing surfaces the missing identity before the merge, and git refuses with
+    /// "Please tell me who you are" from inside an operation the user did not think of as committing.</para></summary>
+    public static bool HasIdentity(string root) =>
+        Run(new[] { "-C", root, "config", "--get", "user.email" }, allowFail: true).StdOut.Trim().Length > 0 &&
+        Run(new[] { "-C", root, "config", "--get", "user.name" }, allowFail: true).StdOut.Trim().Length > 0;
+
+    /// <summary><c>git merge &lt;ref&gt;</c> into the current branch. Requires a clean tree.</summary>
     public static MergeOutcome GitMerge(string root, string @ref, string message)
     {
         var r = Run(new[] { "-C", root, "merge", "--no-edit", "-m", message, @ref }, allowFail: true);

@@ -204,4 +204,30 @@ public class StatusCommandTests
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
+
+    /// <summary>`--LOCAL` REPORTS NO INCOMING CHANGES, not every item as deleted.
+    ///
+    /// <para>It deliberately skips the bridge, so `Items` is empty — and the snapshot is still built with
+    /// `Online = true` and no mismatch, so `BuildStatusData` took the compute branch anyway. `complete` was true
+    /// (no folder had FAILED to walk; no walk had happened at all), and every baseline name landed in `removed`.
+    /// `volt status --local --porcelain` emitted an `iD` line for the whole project, beside the
+    /// `# incoming-stale` marker saying the answer was not to be trusted.</para></summary>
+    [Fact]
+    public void A_local_status_reports_no_incoming_rather_than_deleting_everything()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("A", "PROGRAM A\nVAR\nEND_VAR", "x := 1;"),
+                               FakeIde.Item.TextualPou("B", "PROGRAM B\nVAR\nEND_VAR", "y := 2;"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);   // seeds the sidecar with both items
+
+            var s = Commands.Status(root, client, localOnly: true);
+
+            Assert.Empty(s.Incoming.Removed);
+            Assert.True(s.IncomingStale);
+            Assert.DoesNotContain("A.prg", s.Incoming.Removed);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
 }

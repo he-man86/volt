@@ -61,12 +61,21 @@ namespace Volt.Connector
         /// <summary>Install/update hook: register start-at-login + a Start Menu "Volt" shortcut to the desktop GUI
         /// (the connector itself auto-starts via the login item, so it needs no shortcut of its own — which is why
         /// the .iss lays down no [Icons]).</summary>
-        public static void Install()
+        /// <param name="claimTheMachine">False for a DEV build: skip the two hooks that point a MACHINE-WIDE
+        /// entry at the running exe. A `dotnet run` out of `bin/` would otherwise repoint the user's login item
+        /// and Start Menu shortcut at a build about to be deleted, and the installed product would stop starting
+        /// at login. The CODESYS scripts are not in that category — they are content published into a visible
+        /// Documents folder, and a dev tray that skipped them would silently activate whatever script an older
+        /// installed build left behind (`CodesysActivation` prefers that path when it exists).</param>
+        public static void Install(bool claimTheMachine = true)
         {
             // No outer catch: each hook already swallows its own failure (and logs it), so a guard here could only
             // ever hide a throw with no line to read.
-            LoginItem.EnsureRegistered();
-            CreateGuiShortcut();
+            if (claimTheMachine)
+            {
+                LoginItem.EnsureRegistered();
+                CreateGuiShortcut();
+            }
             PublishCodesysScript();
         }
 

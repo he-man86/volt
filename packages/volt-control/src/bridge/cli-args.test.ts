@@ -35,7 +35,7 @@ const { pull, push, fetchStatus, rebind, init, build, mergeContinue, mergeAbort,
 const { __resetSessionForTest } = await import("./session.js")
 
 const detected = (over: Partial<DetectedProject>): DetectedProject =>
-  ({ id: "codesys::P:", projectName: "Disp", vendor: "codesys", dirty: false, projectName: "Disp", ...over })
+  ({ id: "codesys::P:", vendor: "codesys", dirty: false, projectName: "Disp", ...over })
 
 // rebind validates the bridge via a session select (POST /session + /sync). Mock that API: `serving` decides whether
 // the /sync view shows the picked project (id "codesys::P:") as serving, which is what gates the config rewrite.
@@ -48,7 +48,7 @@ function stubConnect(serving: boolean): () => void {
       // Echo the declared interests back as serving rows (that's what selectPickedProject checks), so the mock works
       // for whatever project a test picks.
       const interests = init?.body ? (JSON.parse(String(init.body)).interests as { vendor: string; projectName: string }[]) : []
-      const projects = serving ? interests.map((i) => ({ id: `${i.vendor}::${i.projectName}:`, projectName: i.projectName, vendor: i.vendor, dirty: false, status: "healthy", projectName: i.projectName })) : []
+      const projects = serving ? interests.map((i) => ({ id: `${i.vendor}::${i.projectName}:`, vendor: i.vendor, dirty: false, status: "healthy", projectName: i.projectName })) : []
       return { ok: true, status: 200, json: async () => ({ projects }) } as Response
     }
     return { ok: true, status: 200, json: async () => ({}) } as Response
@@ -145,7 +145,7 @@ test("fetchStatus sends --local only in local mode", async () => {
     ({
       ok: true,
       json: async () => ({
-        projects: [{ id: "codesys::P:", projectName: "P", vendor: "codesys", dirty: false, status: "healthy", projectName: "P" }],
+        projects: [{ id: "codesys::P:", vendor: "codesys", dirty: false, status: "healthy", projectName: "P" }],
       }),
     }) as Response) as typeof fetch
   try {

@@ -558,6 +558,12 @@ window.VOLT = {
                 "type": "string"
               }
             },
+            "unwalkedFolders": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "conflicts": {
               "type": "array",
               "items": {
@@ -569,7 +575,8 @@ window.VOLT = {
             }
           },
           "required": [
-            "accepted"
+            "accepted",
+            "unwalkedFolders"
           ]
         },
         "PushConflict": {

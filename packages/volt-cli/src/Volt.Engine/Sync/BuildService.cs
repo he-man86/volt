@@ -95,8 +95,11 @@ public static class BuildService
     /// `CM_Carrier` from the vendor names one of them without saying which. Publishing either would point a
     /// client's editor at the wrong file.</para>
     ///
-    /// <para>Costs one walk plus a read of the NAMED items only, and only when a diagnostic carried a name at
-    /// all — a clean build walks nothing.</para></summary>
+    /// <para>Costs a tree walk plus a read of the NAMED items only, and only when a diagnostic carried a name
+    /// at all — a clean build walks nothing. On CODESYS this is the SECOND walk: the driver has already made
+    /// one to turn `IMessage.ObjectGuid` into a bare name, which it must, because a guid is vendor-specific and
+    /// resolving it below the seam is the whole point of the split. Both are tree walks without reads; the
+    /// expensive part — materializing an item to learn its kind — happens here and only for the named ones.</para></summary>
     private static void PromoteNames(IIdeDriver ide, List<BridgeDiagnostic> diagnostics)
     {
         var wanted = new HashSet<string>(

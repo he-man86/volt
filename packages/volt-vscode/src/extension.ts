@@ -163,7 +163,12 @@ function addWorkspace(folder: vscode.WorkspaceFolder, decorations: VoltDecoratio
 function updateContextKeys(): void {
 	const d = aggregate([...statuses.values()].map((s) => ({ status: s.cached, health: s.health })))
 	const initialized = statuses.size > 0
-	const online = d.severity === "insync" || d.severity === "drift" || d.severity === "degraded"
+	// `partial` IS ONLINE. It means the bridge answered and its view was short — an unreadable item, or a folder
+	// it could not enumerate — which is a reason to warn, never a reason to take Pull/Push/Build away. Adding the
+	// severity without this line left a connected workspace with neither `bridgeOnline` nor `bridgeOffline`, so
+	// every sync affordance vanished AND the Connect welcome did not appear: a bridge that works and no buttons.
+	const online =
+		d.severity === "insync" || d.severity === "drift" || d.severity === "degraded" || d.severity === "partial"
 	void vscode.commands.executeCommand("setContext", "volt.workspaceInitialized", initialized)
 	void vscode.commands.executeCommand("setContext", "volt.bridgeOnline", initialized && online)
 	void vscode.commands.executeCommand("setContext", "volt.bridgeOffline", initialized && (d.severity === "offline" || d.severity === "noproject"))

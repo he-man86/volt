@@ -160,7 +160,10 @@ public static class Commands
             var mismatch = cfg is not null ? Config.ProjectMismatch(cfg, health) : null;
             var detail = online ? $"{health.Platform}/{health.ProjectName ?? "?"}" : (health.Status ?? "offline");
             if (!(online && mismatch is null && !localOnly))
-                snap = new BridgeSnapshot { Online = online, Detail = detail, ProjectMismatch = mismatch };
+                // `Walked = false`: whatever the reason we are here — offline, a mismatch, or a deliberate
+                // `--local` — no refs walk ran, so `Items` is empty because nobody asked and NOT because the
+                // project is. Diffing it against the baseline would report every tracked item as deleted.
+                snap = new BridgeSnapshot { Online = online, Detail = detail, ProjectMismatch = mismatch, Walked = false };
             else if (cfg is null)
                 snap = BuildSnap(online, detail, null, bridge.GetRefs()); // no binding → no identity to guard against
             else
@@ -311,6 +314,16 @@ public static class Commands
         // merge — which can return a CONFLICT. Honouring the button's "cannot be undone" promise literally would be
         // a separate, deliberate change (merge with -X theirs, or reset the branch to volt/ide under force), and the
         // <param name="force"> doc above has to be rewritten with it.
+        // BEFORE anything is written. The merge commit is the engineer's own, so it uses their git identity -
+        // and a box that has never configured one (a fresh install, a CI runner, a service account) would fail
+        // inside `git merge` with "Please tell me who you are", after the fetch and the tree build. Said here,
+        // it costs nothing and names the remedy.
+        if (!Git.HasIdentity(root))
+            return PullResult.Refused(
+                "git has no identity in this repo, and the merge commit is yours - set one first:\n" +
+                "  git config user.name \"Your Name\"\n" +
+                "  git config user.email \"you@example.com\"");
+
         Git.AutoCommitSrc(root);
         var ideFiles = fetched.Changed.SelectMany(Materialize.MaterializeItem).ToList();
         // A PARTIAL WALK MUST NOT SHRINK THE BASELINE. `ReadResponse.UnwalkedFolders` says a client that sees
@@ -323,11 +336,24 @@ public static class Commands
         //
         // Overlaying keeps the unseen entries at the version the last COMPLETE walk gave them, which is the only
         // honest thing to say about an item nobody could look at.
-        var newItems = fetched.UnwalkedFolders.Count > 0 && sidecar is not null
-            ? sidecar.Items.Concat(fetched.Items.Where(kv => true))
-                           .GroupBy(kv => kv.Key, StringComparer.Ordinal)
-                           .ToDictionary(g => g.Key, g => g.Last().Value, StringComparer.Ordinal)
-            : fetched.Items;
+        Dictionary<string, string> newItems;
+        if (fetched.UnwalkedFolders.Count > 0 && sidecar is not null)
+        {
+            // Start from the baseline and let the walk WIN where it saw something — a plain overlay. This was a
+            // Concat/GroupBy/Last that leaned on enumeration order for "fetched wins", which nothing stated.
+            newItems = new Dictionary<string, string>(sidecar.Items, StringComparer.Ordinal);
+            foreach (var kv in fetched.Items) newItems[kv.Key] = kv.Value;
+
+            // …and only for the folders that were actually UNREAD. Keeping every absent baseline name would
+            // also resurrect an item the engineer really deleted from a folder this walk DID read: the one case
+            // where absence is meaningful is the one the overlay must not override.
+            var unread = fetched.UnwalkedFolders;
+            foreach (var name in sidecar.Items.Keys)
+                if (!fetched.Items.ContainsKey(name)
+                    && !(sidecar.Folders.TryGetValue(name, out var folder) && UnderAny(folder, unread)))
+                    newItems.Remove(name);
+        }
+        else newItems = fetched.Items;
         var newSidecar = new IdeRefs { ProjectVersion = fetched.ProjectVersion, Items = newItems, Folders = fetched.Folders };
         var head = Git.HeadCommit(root);
         var parentIde = IdeTree.VoltIdeHead(gitDir);
@@ -378,10 +404,24 @@ public static class Commands
             .Where(rel => !Extensions.IsTrackedPath(rel))
             .ToList();
         if (foreign.Count > 0)
-            return PushResult.Rejected(
-                "unrecognized file extension — these can't sync to the IDE and were NOT pushed. Rename each to its " +
-                "Volt extension (a DUT is .struct/.enum/.union/.alias, by its declaration; POUs .fb/.prg/.fun/.itf; " +
-                "global var list .gvl):\n" + string.Join("\n", foreign.Select(p => "  " + p)));
+        {
+            // A `.gitkeep` IS NAMED SEPARATELY, because "rename it to a Volt extension" is advice nobody can
+            // follow. Older Volt workspaces committed them as folder markers and nothing has written one since
+            // folders stopped being items; the only correct move is to delete it, and until this said so a
+            // legacy workspace had EVERY push refused with a remedy that does not exist.
+            var markers = foreign.Where(p => p.EndsWith("/.gitkeep", StringComparison.Ordinal) || p == ".gitkeep").ToList();
+            var others = foreign.Except(markers, StringComparer.Ordinal).ToList();
+            var parts = new List<string>();
+            if (others.Count > 0)
+                parts.Add("unrecognized file extension - these can't sync to the IDE and were NOT pushed. Rename each " +
+                          "to its Volt extension (a DUT is .struct/.enum/.union/.alias, by its declaration; POUs " +
+                          ".fb/.prg/.fun/.itf; global var list .gvl):\n" + string.Join("\n", others.Select(p => "  " + p)));
+            if (markers.Count > 0)
+                parts.Add("`.gitkeep` files can't sync to the IDE - they were folder markers for an older Volt and " +
+                          "nothing writes them now. Delete them (`git rm`) and push again:\n" +
+                          string.Join("\n", markers.Select(p => "  " + p)));
+            return PushResult.Rejected(string.Join("\n\n", parts));
+        }
 
         // The same refusal `Pull` makes, and for a sharper reason: a push's FIRST act is an auto-commit, and a
         // commit during a merge concludes it. Without this, the natural move after a conflicted pull — push your
@@ -530,9 +570,26 @@ public static class Commands
             pushed.Add(op.Name);
             if (op is SetItemOp s && s.ToName is { } renamed) pushed.Add(renamed);
         }
+        // ONE COMPARER throughout. `pushed` is OrdinalIgnoreCase (IEC names are case-insensitive) and the
+        // sidecar is Ordinal, so a receipt key differing from the baseline only in case was adopted under the
+        // RECEIPT's casing — and the next `ComputeIncoming`, which is Ordinal, then saw two spellings of one
+        // item. The baseline is keyed the way the map that consumes it is keyed.
         var known = sidecar.Items;
         var adopted = resp.NewItems!.Where(kv => known.ContainsKey(kv.Key) || pushed.Contains(kv.Key))
                                     .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
+
+        // …AND A RECEIPT FROM A PARTIAL WALK DOES NOT SHRINK IT. The receipt is a full re-walk and can be short
+        // for the same reasons a read can; replacing the map with it would drop every item under an
+        // unenumerable folder, undoing in one push the overlay the PULL path installs for this exact case.
+        if (resp.UnwalkedFolders.Count > 0)
+            foreach (var kv in known)
+                if (!adopted.ContainsKey(kv.Key)) adopted[kv.Key] = kv.Value;
+
+        // The FOLDER map is filtered the same way. It was written through unfiltered, so after a `--force` push
+        // against an IDE holding items this workspace has never seen, `Items` correctly omitted them while
+        // `Folders` still placed every one — a baseline whose two halves disagreed about which items exist.
+        var adoptedFolders = resp.NewFolders!.Where(kv => adopted.ContainsKey(kv.Key))
+                                             .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
 
         // THE REF FIRST, THEN THE SIDECAR — the order `init` and `pull` already use, and the only one of the two
         // that can heal itself.
@@ -550,7 +607,7 @@ public static class Commands
         {
             ProjectVersion = resp.NewProjectVersion!,
             Items = adopted,
-            Folders = resp.NewFolders!,
+            Folders = adoptedFolders,
         });
 
         var status = StatusModel.BuildStatusData(root, new BridgeSnapshot
@@ -703,6 +760,17 @@ public static class Commands
             return (0, "merge completed");
         }
         return (1, "merge: pass --continue, --abort, or --resolve <path> [--use-ours|--use-theirs]");
+    }
+
+    /// <summary>Is <paramref name="folder"/> one of <paramref name="roots"/>, or inside one? The folder paths the
+    /// walk reports are the same shape the sidecar stores, so this is a prefix test on `/` boundaries.</summary>
+    private static bool UnderAny(string folder, IReadOnlyList<string> roots)
+    {
+        foreach (var r in roots)
+            if (string.Equals(folder, r, StringComparison.Ordinal)
+                || folder.StartsWith(r + "/", StringComparison.Ordinal))
+                return true;
+        return false;
     }
 
     private static BridgeSnapshot BuildSnap(bool online, string detail, ProjectMismatch? mismatch, RefsResponse refs) => new()

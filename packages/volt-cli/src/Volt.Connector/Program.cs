@@ -56,8 +56,8 @@ namespace Volt.Connector
             // user's login item and their Start Menu entry at a build that will be deleted or rebuilt. After that
             // the installed product no longer starts at login and the Start Menu launches nothing. A dev build is
             // exactly the one that must not claim the machine.
-            if (!Updater.IsDev) VoltEnv.Install();
-            else VoltLog.Info("dev build — leaving the login item and Start Menu shortcut alone");
+            VoltEnv.Install(claimTheMachine: !Updater.IsDev);
+            if (Updater.IsDev) VoltLog.Info("dev build — leaving the login item and Start Menu shortcut alone");
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
