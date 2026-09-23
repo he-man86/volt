@@ -324,6 +324,63 @@ public static class PushService
         return byName;
     }
 
+    /// <summary>REFUSE IF THE ITEM MOVED UNDER US — the last-moment check, against the state the IDE is in
+    /// RIGHT NOW rather than the pre-apply walk.
+    ///
+    /// <para>The per-item <c>ifVersion</c> gate runs ONCE, in the walk that precedes the batch, and a real
+    /// push then hashes every item in the project, resolves conflicts and applies every earlier op before
+    /// reaching this one. On TwinCAT the IDE stays interactive the whole time, so an engineer can move, delete
+    /// or edit the very item we are about to write inside that window — and the check meant to protect them
+    /// ran before they touched it.</para>
+    ///
+    /// <para>This narrows the window; nothing here can close it, because nothing can hold the IDE still. What
+    /// it guarantees is that an edit made BEFORE this line is never silently overwritten.</para>
+    ///
+    /// <para>The <see cref="Versioning.Unreadable"/> exemption is correct and load-bearing: you cannot
+    /// re-verify a hash that could never be computed in the first place.</para></summary>
+    private static void RequireUnchanged(string name, string? folder, ItemContent live, string? ifVersion)
+    {
+        if (ifVersion is not { } expected || expected == Versioning.Unreadable) return;
+
+        // NOT `folder ?? ""`. `Hasher.ComputeItemVersion` requires both inputs for a stated reason: an item at
+        // the project ROOT and an item whose folder failed to read would hash identically, so defaulting turns
+        // a failure into "no change". An `ifVersion` only reaches here for an item the walk found, where the
+        // folder is never null - so a null IS a bug, and saying so beats hashing something that merely looks
+        // right.
+        if (folder is null)
+            throw new BridgeException(BridgeErrorCodes.InternalError,
+                $"'{name}': cannot verify the item version without its folder");
+
+        if (Hasher.ComputeItemVersion(folder, StWriter.Write(live)) != expected)
+            throw new BridgeException(BridgeErrorCodes.BadRequest,
+                $"'{name}' changed in the IDE while this push was being applied — refusing to overwrite " +
+                "it. Pull first, then push again.");
+    }
+
+    /// <summary>The same check for a DELETE, which has to read the item to make it — and reads it for that
+    /// reason alone, on an item it is about to destroy. Worth one read: a delete is the single op that cannot
+    /// be undone, so a concurrent edit lost here is lost for good, and the receipt would report the item
+    /// cleanly gone while status said in sync.</summary>
+    private static void RequireUnchangedBeforeDelete(IIdeDriver ide, string name, ItemRef item, string? folder, string? ifVersion)
+    {
+        if (ifVersion is not { } expected || expected == Versioning.Unreadable) return;
+        if (folder is null) return;   // no folder, no comparable hash — the walk could not have produced one either
+
+        // THE SAME BASIS THE WALK USED, not the ST writer. A delete can target ANY addressable item, and a
+        // non-source one — a `.task` — is versioned from its MANIFEST, not from assembled ST. Hashing
+        // `StWriter.Write(ReadContent(...))` for it produces a value the client could never have been given,
+        // so every task delete would be refused as "changed in the IDE". `Versioning.SafeVersion` is the one
+        // place that knows which basis a kind uses, and an unreadable item comes back as the sentinel, which
+        // the caller above has already exempted.
+        var kind = ItemKind.Map(ide.KindCode(item));
+        if (kind is null) return;
+        var now = Versioning.SafeVersion(ide, name, kind, item, folder).Version;
+        if (now != Versioning.Unreadable && now != expected)
+            throw new BridgeException(BridgeErrorCodes.BadRequest,
+                $"'{name}' changed in the IDE while this push was being applied — refusing to delete it. " +
+                "Pull first, then push again.");
+    }
+
     /// <summary>Apply one op and return a short label of what it did (created/updated/renamed/moved/deleted),
     /// used only for the log receipt.</summary>
     private static string ApplyOp(IIdeDriver ide,
@@ -343,6 +400,14 @@ public static class PushService
             case SetItemOp set:
                 return ApplySetItem(ide, name, existing, currentFolder, set, force, pushedDeclarations);
             case DeleteItemOp when existing is { } del:
+                // THE SAME LAST-MOMENT CHECK THE SET ARM DOES, and for a stronger reason: this is the one op
+                // that cannot be undone. The per-item `ifVersion` gate runs once in the pre-apply walk, and a
+                // real push then hashes the whole project, resolves conflicts and applies every earlier op —
+                // on TwinCAT the IDE stays interactive throughout. The caller sent the strongest guard the
+                // wire offers and it was checked against a snapshot stale by the length of the batch, so an
+                // engineer's edit landing in that window was destroyed by the delete, reported as gone, and
+                // status said in sync.
+                RequireUnchangedBeforeDelete(ide, name, del, currentFolder, force ? null : op.IfVersion);
                 // `ide.Name(del)`, NOT the wire `name`: `del` is the already-resolved handle, so this is the item's
                 // ACTUAL IDE name. itemCache resolves case-INSENSITIVELY while the drivers' child scan matches
                 // case-SENSITIVELY, so a case-divergent wire name found the item here and then matched nothing in
@@ -777,23 +842,9 @@ public static class PushService
             //
             // This narrows the window; it cannot close it, because nothing here can hold the IDE still. What it
             // guarantees is that an edit made before this line is never silently overwritten.
-            if (ifVersion is { } expected && expected != Versioning.Unreadable)
-            {
-                // NOT `folder ?? ""`. `Hasher.ComputeItemVersion` requires both inputs for a stated reason: an
-                // item at the project ROOT and an item whose folder failed to read would hash identically, so
-                // defaulting turns a failure into "no change". An `ifVersion` only reaches here on the UPDATE
-                // path, where the folder came from the walk and is never null - so a null IS a bug, and saying
-                // so beats hashing something that merely looks right.
-                if (folder is null)
-                    throw new BridgeException(BridgeErrorCodes.InternalError,
-                        $"'{name}': cannot verify the item version without its folder");
-
-                var now = Hasher.ComputeItemVersion(folder, StWriter.Write(live));
-                if (now != expected)
-                    throw new BridgeException(BridgeErrorCodes.BadRequest,
-                        $"'{name}' changed in the IDE while this push was being applied — refusing to overwrite " +
-                        "it. Pull first, then push again.");
-            }
+            // The content is already in hand (`live`, read one line up for the format guard), so this costs no
+            // extra IDE round trip — the helper takes it rather than reading again.
+            RequireUnchanged(name, folder, live, ifVersion);
 
             BodyFormatGuard.RequireWritable(live, split);
         }

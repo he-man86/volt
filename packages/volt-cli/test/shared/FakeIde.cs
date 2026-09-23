@@ -556,12 +556,32 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// counting is how a regression in that count stays visible without making it a sequence assertion.</summary>
     public int ReadCount { get; private set; }
 
+    /// <summary>Called at the top of every <see cref="ReadContent"/>, so a test can mutate the project
+    /// mid-push and exercise the last-moment guards. See the comment inside.</summary>
+    public Action<FakeIde, ItemRef>? OnReadContent { get; set; }
+
+    /// <summary>Replace one item's implementation text, in place — the engineer's edit, expressed. `Item` is
+    /// an immutable record, so this swaps the record rather than mutating it, which is also what keeps every
+    /// handle (`ItemRef` resolves by NAME here) pointing at the new one.</summary>
+    public void EditImplementation(string bareName, string impl)
+    {
+        var i = _items.FindIndex(x => x.Name == bareName);
+        if (i < 0) throw new InvalidOperationException($"FakeIde has no item '{bareName}'");
+        _items[i] = _items[i] with { Implementation = impl };
+    }
+
     public ItemContent ReadContent(ItemRef item)
     {
         // NOT recorded in `Recorded`, deliberately. That list is asserted as an exact SEQUENCE by the transport
         // matrix, whose subject is which WRITE interactions a push makes — the old fake did not record ReadXml
         // either. Reads are counted instead, so a caller that wants to know the read cost still can.
         ReadCount++;
+        // THE SEAM A RACE NEEDS. A push hashes the project, resolves conflicts and applies every earlier op
+        // before it writes — on a real vendor the IDE stays interactive throughout, so an engineer can edit the
+        // item being written inside that window. Nothing offline can express that without a hook, and the
+        // guards that exist to catch it are therefore untestable without one. Fires on every read; a test that
+        // wants the Nth counts with `ReadCount`.
+        OnReadContent?.Invoke(this, item);
         var it = Find(item);
         if (it.UnreadableReason is { } why)
             throw new InvalidOperationException($"'{it.Name}': {why}");

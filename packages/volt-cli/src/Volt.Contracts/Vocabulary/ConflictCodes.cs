@@ -72,5 +72,6 @@ public static class ConflictCodes
     {
         BridgeErrorCodes.NotFound, BridgeErrorCodes.Unsupported, BridgeErrorCodes.DuplicateChild,
         BridgeErrorCodes.BadRequest, BridgeErrorCodes.InvalidSt, BridgeErrorCodes.InvalidCodeHeader,
+        BridgeErrorCodes.Unreadable,
     };
 }

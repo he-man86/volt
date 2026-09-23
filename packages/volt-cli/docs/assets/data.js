@@ -636,6 +636,7 @@ window.VOLT = {
     "DUPLICATE_CHILD",
     "INVALID_CODE_HEADER",
     "INVALID_ST",
+    "UNREADABLE",
     "INTERNAL_ERROR"
   ],
   "conflictCodes": {
@@ -645,7 +646,8 @@ window.VOLT = {
       "DUPLICATE_CHILD",
       "BAD_REQUEST",
       "INVALID_ST",
-      "INVALID_CODE_HEADER"
+      "INVALID_CODE_HEADER",
+      "UNREADABLE"
     ],
     "network": [
       "NETWORK_NOT_CANONICAL",

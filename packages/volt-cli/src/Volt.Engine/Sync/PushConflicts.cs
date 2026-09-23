@@ -49,7 +49,29 @@ internal static class PushConflicts
             {
                 if (clientVersion == null)            // create
                 {
-                    if (currentVersion != null)
+                    // AN UNREADABLE ITEM IS ITS OWN SITUATION, not a name collision.
+                    //
+                    // The refusal is right — a create must not land on top of an item that is there — but it
+                    // used to describe itself as "it already exists" and quote `UNREADABLE000000`, the
+                    // sentinel `PushService` writes for an item whose body would not materialize. That is a
+                    // dead end for the caller: the item left `items`, so the client had no version and sent
+                    // `ifVersion: null` (a create) for a file it has had all along; no `refs` or `fetch` ever
+                    // hands out the sentinel, so there is no `ifVersion` that would satisfy the guard; and
+                    // `volt pull` reports nothing to pull. The only way out was `--force`, which also
+                    // relocates the item. So say what is true, and NEVER put the sentinel on the wire.
+                    if (currentVersion == Versioning.Unreadable)
+                        conflicts.Add(new PushConflict
+                        {
+                            Name = name,
+                            YourVersion = null,
+                            CurrentVersion = null,
+                            Code = BridgeErrorCodes.Unreadable,
+                            Reason = "the IDE has this item but its body could not be read, so it has no "
+                                + "version to compare against and a push cannot overwrite it safely. It is "
+                                + "named in the `unreadable` list of every refs/fetch. Fix it in the IDE, or "
+                                + "push with --force to overwrite it.",
+                        });
+                    else if (currentVersion != null)
                         conflicts.Add(new PushConflict { Name = name, YourVersion = null, CurrentVersion = currentVersion, Reason = "expected to create new item but it already exists" });
                     else pending[name] = "";          // the new item exists for later ops, under its wire name
                 }

@@ -46,7 +46,7 @@ public sealed class BridgePipeHost : IDisposable
 
     private object Dispatch(PipeRequest req, Action<object> onProgress)
     {
-        if (_paused && !AllowedWhilePaused(req.Op)) throw BridgeException.PlcDisconnected();
+        if (_paused && !AllowedWhilePaused(req.Op)) throw BridgeException.Paused();
         // NOTE: the not-connected precondition for the project ops (refs/fetch/init/push/build) is NOT here — it is
         // each handler's first act, on the marshalled STA thread: RefsService / FetchService / PushService /
         // BuildService all go through OpGuard. That placement is deliberate (see OpGuard): checking INSIDE

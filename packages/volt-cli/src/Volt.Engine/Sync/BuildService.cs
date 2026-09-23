@@ -55,7 +55,12 @@ public static class BuildService
                 Diagnostics = diagnostics,
             };
         }
-        catch (Exception ex)
+        // A CODED ERROR IS NOT A COMPILE DIAGNOSTIC. Everything else here is genuinely "the build failed and
+        // this is why", but a BridgeException is the bridge refusing — a disconnected IDE, a vendor that
+        // cannot do this — and dressing it as an error-severity diagnostic told the caller the PROJECT does
+        // not compile. `success:false` with a fabricated diagnostic is indistinguishable from a real failure,
+        // so a client cannot tell "your code is broken" from "the build could not be attempted".
+        catch (Exception ex) when (ex is not ICodedError)
         {
             sw.Stop();
             VoltLog.Error($"build failed ({sw.ElapsedMilliseconds}ms): {ex.Message}");
