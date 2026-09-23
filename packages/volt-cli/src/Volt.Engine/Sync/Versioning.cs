@@ -37,8 +37,11 @@ public static class Versioning
 
     /// <summary>Resilient version for the AGGREGATE ops (<c>refs</c>, <c>push</c> project-version): a
     /// single unreadable item must never crash the whole batch — it is isolated with the <see cref="Unreadable"/>
-    /// sentinel and still listed/deletable (its <see cref="ItemRef"/> comes from WalkItems, not the read). The
-    /// raw <see cref="Materialize"/> stays no-catch for single-item paths where the failure must surface.</summary>
+    /// sentinel and still listed/deletable (its <see cref="ItemRef"/> comes from WalkItems, not the read).
+    /// <para><see cref="Materialize"/> is deliberately no-catch and this is its ONLY caller. That is not a
+    /// spare seam for "single-item paths where the failure must surface" — the header claimed one and there
+    /// has never been such a path. It is split out so the catch is visible as a choice rather than buried in
+    /// the walk.</para></summary>
     public static VersionedItem SafeVersion(IIdeDriver ide, string name, string kind, ItemRef item, string folder)
     {
         // An unreadable item is a real error — its body did NOT make it into the pull — so surface it at Warn

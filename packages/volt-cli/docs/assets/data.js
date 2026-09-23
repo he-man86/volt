@@ -171,7 +171,6 @@ window.VOLT = {
         "params": [],
         "x-errorCodes": [
           "PLC_DISCONNECTED",
-          "WRONG_PROJECT",
           "INTERNAL_ERROR"
         ],
         "x-outcomes": [
@@ -639,6 +638,26 @@ window.VOLT = {
     "INVALID_ST",
     "INTERNAL_ERROR"
   ],
+  "conflictCodes": {
+    "fromBridge": [
+      "NOT_FOUND",
+      "UNSUPPORTED",
+      "DUPLICATE_CHILD",
+      "BAD_REQUEST",
+      "INVALID_ST",
+      "INVALID_CODE_HEADER"
+    ],
+    "network": [
+      "NETWORK_NOT_CANONICAL",
+      "NETWORK_PARSE",
+      "NETWORK_NOT_CLOSED",
+      "NETWORK_DUPLICATE_NETWORK",
+      "NETWORK_DUPLICATE_NAME",
+      "NETWORK_BAD_EXPRESSION",
+      "NETWORK_UNKNOWN_OPERATOR",
+      "NETWORK_UNSUPPORTED"
+    ]
+  },
   "vendors": [
     "codesys",
     "twincat"

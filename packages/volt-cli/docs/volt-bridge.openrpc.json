@@ -167,7 +167,6 @@
       "params": [],
       "x-errorCodes": [
         "PLC_DISCONNECTED",
-        "WRONG_PROJECT",
         "INTERNAL_ERROR"
       ],
       "x-outcomes": [

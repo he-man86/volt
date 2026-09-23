@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
+using Volt.Contracts;
+
 namespace Volt.Engine.Format.Network;
 
 /// <summary>
@@ -1095,5 +1097,8 @@ public sealed class NetworkTextException : Exception
 {
     public string Code { get; }
     public int? Line { get; set; }   // settable: the Parse loop attaches the line a builder throw came from
-    public NetworkTextException(string message, string code = "NETWORK_PARSE") : base(message) { Code = code; }
+    // The default is the general structural failure, and it is the CONST rather than a literal: these codes
+    // reach clients on `PushConflict.Code`, so they are a published vocabulary (`ConflictCodes.Network`) and
+    // not an implementation detail of this file. A literal default here is how a phantom code got documented.
+    public NetworkTextException(string message, string code = ConflictCodes.NetworkParse) : base(message) { Code = code; }
 }

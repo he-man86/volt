@@ -102,8 +102,10 @@ public class DocDataTests
             + "`removed` comes back empty rather than wrong.",
             "Items that would not materialize are named in `unreadable`, not raised.",
         }),
-        [Ops.Init] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
-                              BridgeErrorCodes.InternalError }, new[]
+        // NO WRONG_PROJECT: the host builds this request itself (`new FetchRequest { Init = true }`) and never
+        // reads the caller's body, so there is no expectation for the guard to check. The op published a code
+        // it structurally cannot raise, two lines above an outcome that said so.
+        [Ops.Init] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.InternalError }, new[]
         {
             "Cannot answer NO_SIDECAR — it sets `init` itself, which is the branch that check exempts.",
             "Takes no body at all, so it carries no identity check either: it can only be PLC_DISCONNECTED on "
@@ -489,6 +491,13 @@ public class DocDataTests
         ["openrpc"] = JsonNode.Parse(spec.ToJsonString()),
         ["ops"] = new JsonArray(OpNames().Select(o => (JsonNode?)o).ToArray()),
         ["errors"] = new JsonArray(Consts(typeof(BridgeErrorCodes)).Select(c => (JsonNode?)c).ToArray()),
+        // THE SECOND VOCABULARY. A push answers refusals as conflicts, so these reach a client on
+        // `PushConflict.code` and never as an error frame — they were observable and undocumented.
+        ["conflictCodes"] = new JsonObject
+        {
+            ["fromBridge"] = new JsonArray(ConflictCodes.FromBridge.Select(c => (JsonNode?)c).ToArray()),
+            ["network"] = new JsonArray(ConflictCodes.Network.Select(c => (JsonNode?)c).ToArray()),
+        },
         // The wire VALUES only — `Vendors` also carries the display spellings, which are a UI concern.
         ["vendors"] = new JsonArray(Vendors.Codesys, Vendors.Twincat),
         ["statuses"] = new JsonArray(Consts(typeof(HealthStatus)).Select(c => (JsonNode?)c).ToArray()),
@@ -576,6 +585,55 @@ public class DocDataTests
             foreach (var code in row.Errors)
                 Assert.True(known.Contains(code),
                     $"op '{op}' names '{code}', which is not a BridgeErrorCodes value.");
+    }
+
+    /// <summary>EVERY CODE IS REACHABLE SOMEWHERE — the converse of the gate above, and the one that was
+    /// missing.
+    ///
+    /// <para>`Every_declared_error_code_exists` checks declared ⊆ enum. Nothing checked enum ⊆ declared, which
+    /// is why six of the ten codes sat in `BridgeErrorCodes` published by no op and looking unreachable: they
+    /// arrive as CONFLICTS, not frames, and there was no place to say so. A code a client can never observe is
+    /// a lie in the enum; a code it can observe and that appears in no document is worse.</para></summary>
+    [Fact]
+    public void Every_error_code_is_reachable_as_a_frame_or_a_conflict()
+    {
+        var asFrame = Outcomes.Values.SelectMany(o => o.Errors).ToHashSet(StringComparer.Ordinal);
+        var asConflict = ConflictCodes.FromBridge.ToHashSet(StringComparer.Ordinal);
+
+        foreach (var code in Consts(typeof(BridgeErrorCodes)))
+            Assert.True(asFrame.Contains(code) || asConflict.Contains(code),
+                $"'{code}' is in BridgeErrorCodes and no op declares it as an error frame, and it is not listed "
+                + "as a conflict code either — so nothing tells a client it exists. Declare it on the op that "
+                + "raises it, add it to ConflictCodes.FromBridge, or delete it.");
+    }
+
+    /// <summary>EVERY NETWORK_* THE ENGINE RAISES IS A PINNED CONST. Contracts holds no Engine reference, so
+    /// the Engine cannot import these — the check runs the other way, over the source, which is also what
+    /// stops the family drifting back into loose literals. A phantom code (`NETWORK_NESTED_EXPR`, cited in a
+    /// DTO comment and existing nowhere) is what this prevents.</summary>
+    [Fact]
+    public void Every_network_conflict_code_is_published()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
+            root = root.Parent;
+        Assert.NotNull(root);
+        var engine = Path.Combine(root!.FullName, "packages", "volt-cli", "src", "Volt.Engine");
+
+        var published = ConflictCodes.Network.ToHashSet(StringComparer.Ordinal);
+        var raised = Directory.EnumerateFiles(engine, "*.cs", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
+                     && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
+            .SelectMany(f => System.Text.RegularExpressions.Regex
+                .Matches(File.ReadAllText(f), "\"(NETWORK_[A-Z_]+)\"")
+                .Select(m => (File: Path.GetFileName(f), Code: m.Groups[1].Value)))
+            .ToList();
+
+        Assert.NotEmpty(raised);   // the regex must see the Engine, or this proves nothing
+        foreach (var (file, code) in raised)
+            Assert.True(published.Contains(code),
+                $"{file} raises '{code}', which is not in ConflictCodes.Network — clients observe these on "
+                + "PushConflict.code, so an unpublished one is a code nobody can look up.");
     }
 
     /// <summary>EVERY DRIVER MEMBER IS LISTED. <see cref="IIdeDriver"/> is the layer another project reuses, so

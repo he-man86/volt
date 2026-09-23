@@ -16,8 +16,14 @@ namespace Volt.Engine.Sync;
 /// <summary><c>/fetch</c>: like <c>/refs</c>, but ships the materialized source for every item whose
 /// version differs from the client's known version.
 ///
-/// Aggregate versions (projectVersion, structureVersion) use bare-name keys — same as /refs and
-/// PushService conflict detection. The wire Items and Changed[].Name use full-name keys.
+/// <b>EVERY key here is the FULL wire name</b> (<c>name.kind</c>) - the aggregate versions included. That is
+/// not a detail: this header used to say the aggregates were keyed by BARE name, and doing that IS the V71
+/// data-loss bug. IEC guarantees unique names within a kind, not across them, so a real project holds
+/// <c>CM_Carrier.fb</c> beside <c>CM_Carrier.visualization</c>; collapsed onto one bare slot the walk order
+/// picks a winner, the loser's version is invisible to <c>projectVersion</c> (a pull reports "nothing to
+/// pull" over a real edit) and the push's <c>ifVersion</c> gate answers with the OTHER item's hash - so that
+/// item can be pulled and never pushed back. The identity is derived in ONE place,
+/// <c>Versioning.VersionedItem.Identity</c>, and every map below keys on it.
 ///
 /// Every walked item is returned as ordinary source — the bridge draws no build-relevance distinction.
 /// Dead (uncalled) code and exclude-from-build objects alike ship as plain files; the LSP decides
@@ -31,8 +37,12 @@ public static class FetchService
 
         var isInit = request.Init;
         var knownItems = request.KnownItems ?? new Dictionary<string, string>();
-        var onlyItems = request.OnlyItems != null && request.OnlyItems.Count > 0
-            ? new HashSet<string>(request.OnlyItems) : null;
+        // `[]` MEANS "THESE ZERO ITEMS", everywhere. It used to collapse to null when empty, which gave the
+        // one value three different readings: the NO_SIDECAR check below saw a non-null list and allowed the
+        // request, the per-item filter saw null and let EVERY item through, and the library gate saw null and
+        // ran the full signature extraction — the slowest work the bridge does. So `{knownItems:{},
+        // onlyItems:[]}` was a full init-weight fetch wearing the clothes of a directed preview.
+        var onlyItems = request.OnlyItems is null ? null : new HashSet<string>(request.OnlyItems);
 
         // A normal fetch without a knownItems baseline is ambiguous — did the client mean "everything" or
         // did it forget to supply a sidecar? The init op (`volt init`) is the first pull instead.
@@ -223,7 +233,15 @@ public static class FetchService
         // could not read. Absence from the response otherwise carries two meanings the wire cannot separate,
         // "this is gone" and "this defeated the reader", and the response already counts the second in its
         // `unreadable` drop tally while describing it as the first.
-        var removed = isInit || !walk.Complete
+        // NOTHING OUTSIDE THE SUBSET IS "REMOVED". `onlyItems` skips items before they reach `fullVersions`,
+        // and `removed` is derived from absence there — so a caller that sent a REAL baseline alongside a
+        // directed fetch was told every item outside its subset had been deleted, and
+        // `IdeTree.BuildVoltIdeTree` acts on that list. The workspace is wiped down to the subset.
+        //
+        // It has never fired only because every caller happens to send an empty or single-entry baseline with
+        // `onlyItems` — the protocol made the dangerous shape look like the ordinary one. Same reasoning as
+        // the incomplete walk on the next line: absence is only evidence of deletion if you looked everywhere.
+        var removed = isInit || !walk.Complete || onlyItems != null
             ? new List<string>()
             : knownItems.Keys
                 .Where(k => !fullVersions.ContainsKey(k) && !unreadableBareNames.Contains(Materializer.Bare(k)))

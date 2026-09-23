@@ -86,8 +86,9 @@ public class PushConflict
     /// instead). Omitted from JSON when null.
     ///
     /// <para><b>Two vocabularies share this field, and that is deliberate.</b> A body the format refuses
-    /// answers with a <c>NETWORK_*</c> diagnostic (and a <see cref="Line"/>); everything else the push refuses
-    /// answers with a <see cref="BridgeErrorCodes"/> value. They cannot collide: the network-text exception
+    /// answers with one of <see cref="ConflictCodes.Network"/> (and a <see cref="Line"/>) — e.g.
+    /// <c>NETWORK_PARSE</c> or <c>NETWORK_NOT_CANONICAL</c>; everything else the push refuses answers with one
+    /// of <see cref="ConflictCodes.FromBridge"/>. They cannot collide: the network-text exception
     /// carries its own code and is NOT an <c>ICodedError</c>, precisely so a <c>NETWORK_*</c> value can never
     /// escape into an error FRAME, whose vocabulary is documented as BridgeErrorCodes alone.</para>
     ///
