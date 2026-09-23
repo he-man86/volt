@@ -13,6 +13,7 @@
   "scripts": {
     "build": "dotnet build Volt.sln -c Release --nologo",
     "build:package": "powershell -File scripts/build-cli.ps1",
+    "console": "bun scripts/console.ts",
     "test": "bun test test/unit",
     "test:e2e": "bun test test/e2e",
     "test:e2e:codesys": "VOLT_VENDOR=codesys bun test test/e2e",

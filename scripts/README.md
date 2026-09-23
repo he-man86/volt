@@ -14,6 +14,7 @@ existing at all.
 | `bun run test:install` | `test-install.ts` | install/uninstall/update ×N on a real machine, asserting after every step |
 | `bun run release [version]` | `release.ts` | PROMOTE a dev build to stable (triggers `promote.yml`) |
 | `bun run check` | `check-wiring.ts` | is everything shipped built + internally consistent? |
+| `bun run console` | `packages/volt-cli/scripts/console.ts` | build the CLI + serve the interface console (the docs, and a client that can call all three surfaces) |
 
 That's the whole surface. Everything else here is a **step** of one of those, or infra.
 

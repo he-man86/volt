@@ -8,6 +8,7 @@
   "scripts": {
     "build": "bun run --filter='*' build",
     "build:installer": "bun scripts/build-installer.ts",
+    "console": "bun --filter @volt/cli console --",
     "release": "bun scripts/release.ts",
     "test:install": "bun scripts/test-install.ts",
     "test:ext": "bun scripts/test-extension.ts",
