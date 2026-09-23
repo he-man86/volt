@@ -187,4 +187,35 @@ public class PushConflictCodeTests
                 $"{what}: refused with a message and no code — a caller can only match the English");
         }
     }
+
+    /// <summary>A DRIVER'S `NotSupportedException` REACHES THE CLIENT AS `UNSUPPORTED`.
+    ///
+    /// <para>Both drivers reach for `NotSupportedException` to mean exactly one thing — this vendor cannot
+    /// express the shape you pushed — at about twenty sites: a graphical body PLCopen has no spelling for, a
+    /// member kind with no mapping, an Execute box, a box output pin wired straight to a variable. None of them
+    /// is an `ICodedError`, so every one arrived as `code: null`: a refusal whose own message says at length
+    /// that the shape can NEVER be written, carrying nothing to tell it apart from "pull and retry".</para>
+    ///
+    /// <para>Found by the LIVE suite, not this one — `create-shapes.test.ts` on TwinCAT — after the offline
+    /// tier had been green through several rounds of exactly this work. The fake has no vendor importer to
+    /// refuse anything, so the whole class was invisible here.</para></summary>
+    [Fact]
+    public void A_vendor_that_cannot_express_the_shape_is_refused_with_UNSUPPORTED()
+    {
+        var ide = new FakeIde
+        {
+            RefuseContentWrite = _ => new NotSupportedException("this vendor cannot draw that"),
+        };
+
+        var res = PushService.Handle(ide, new PushRequest
+        {
+            Ops = new List<PushOp>
+            {
+                new SetItemOp { Name = "Shape.prg", SourceText = Prg("Shape"), IfVersion = null },
+            },
+        });
+
+        Assert.False(res.Accepted);
+        Assert.Equal(BridgeErrorCodes.Unsupported, Assert.Single(res.Conflicts!).Code);
+    }
 }

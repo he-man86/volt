@@ -16,18 +16,33 @@ import { tmpdir } from "node:os"
 import { join, resolve, basename } from "node:path"
 import { requireHealthy, createItem, updateItem, cleanup, fid, id, BASE, VENDOR, currentPipe } from "./harness"
 
-// Point @volt/control at a built volt.exe; skip the suite if none is present (nothing to drive the CLI with). Pick
-// the NEWEST of the candidates — a stale `dist/Cli/volt.exe` (an old shipped build) must not mask a fresh source
-// build, or init fails against the current bridge wire for a reason that isn't the code under test.
-// packages/volt-cli. This was `resolve(dir, "../..", "..")`, which is THREE levels from `test/e2e` and lands on
-// `packages/` — so no `dist/Cli/volt.exe` was ever found, `CLI` stayed undefined, and this entire suite
-// `describe.skipIf`'d itself out of every run since it was written. It reported as 12 skips beside three
-// deliberately opt-in suites, which is exactly where a silent one hides.
+// Point @volt/control at a built volt.exe; skip the suite if none is present (nothing to drive the CLI with).
+//
+// FOUND BY SEARCH, NOT BY A PINNED PATH. The candidates used to be listed literally — `dist/Cli/volt.exe`,
+// `src/Volt.Cli/bin/Release/net8.0/volt.exe`, the Debug twin — with a comment warning that a stale shipped
+// build must not mask a fresh source build. Then the toolchain moved to net10.0, so NEITHER source candidate
+// existed any more and the list silently degraded to the one entry that did: a `dist/Cli/volt.exe` from
+// months earlier. The suite then drove that binary against a current bridge, and `volt init` failed for a
+// reason that had nothing to do with the code under test — the exact failure the comment was written to
+// prevent, arriving through the one input nobody thought of as a version.
+//
+// Walking `bin/` has no version in it to go stale, which is the point.
 const CLI_ROOT = resolve(import.meta.dir, "..", "..")
-const CLI = ["dist/Cli/volt.exe", "src/Volt.Cli/bin/Release/net8.0/volt.exe", "src/Volt.Cli/bin/Debug/net8.0/volt.exe"]
-	.map((p) => join(CLI_ROOT, p))
-	.filter(existsSync)
-	.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0]
+
+function exesUnder(dir: string): string[] {
+	if (!existsSync(dir)) return []
+	const out: string[] = []
+	for (const entry of readdirSync(dir, { withFileTypes: true })) {
+		const p = join(dir, entry.name)
+		if (entry.isDirectory()) out.push(...exesUnder(p))
+		else if (entry.name === "volt.exe") out.push(p)
+	}
+	return out
+}
+
+const CLI = [...exesUnder(join(CLI_ROOT, "src", "Volt.Cli", "bin")), ...exesUnder(join(CLI_ROOT, "dist", "Cli"))].sort(
+	(a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs,
+)[0]
 if (CLI) setBundledCli(CLI)
 
 const git = (cwd: string, ...args: string[]): void => {

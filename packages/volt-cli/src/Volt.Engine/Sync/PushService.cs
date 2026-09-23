@@ -131,7 +131,17 @@ public static class PushService
             // there is no case where both apply. Do NOT "tidy" that by making NetworkTextException an
             // ICodedError — `PipeServer` stamps any ICodedError's code onto an ERROR FRAME, which would let
             // a NETWORK_* value escape into a vocabulary that is documented as BridgeErrorCodes.
-            var code = (ex as ICodedError)?.ErrorCode ?? netEx?.Code;
+            //
+            // A DRIVER'S `NotSupportedException` IS an UNSUPPORTED refusal, and it is mapped here rather than
+            // rewritten at ~20 raise sites. It is the .NET exception whose meaning is exactly this code's — "the
+            // vendor cannot do this" — and both drivers reach for it for precisely that: a graphical shape
+            // PLCopen cannot express, a member kind with no mapping, a body form the writer has no spelling for.
+            // Every one of them arrived as `code: null`, which is how `create-shapes.test.ts` caught this: a
+            // refusal that says at length that the shape can NEVER be written, carrying nothing to distinguish
+            // it from "pull and retry".
+            var code = (ex as ICodedError)?.ErrorCode
+                       ?? netEx?.Code
+                       ?? (ex is NotSupportedException ? BridgeErrorCodes.Unsupported : null);
             VoltLog.Info($"push {opTotal} ops — REJECTED ({op.Name}: {ex.Message}, {applied.Count} already applied) ({sw.ElapsedMilliseconds}ms)");
             // NAME WHAT ALREADY LANDED. The ops before this one are written and are not rolled back (a delete
             // cannot be undone, and a half-undone push is worse than a half-done one), so a rejection that reads
