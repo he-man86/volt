@@ -36,13 +36,25 @@ function currentPage() {
   return (file === "" ? "index" : file).replace(/\.html$/, "")
 }
 
-/** Sidebar: every page, plus the current page's own h2/h3 so a long page is still navigable. */
+/**
+ * Sidebar: every page, plus a table of contents for the current one.
+ *
+ * The TOC includes the GENERATED entries — every op, every schema, every driver facet — not just the
+ * headings. Those are `section.entry` rather than an `h2`, so a nav built from headings alone silently drops
+ * the twenty-odd rows that are the whole reason to open the wire page, and `push` becomes something you
+ * scroll for instead of click. Document order comes free from one querySelectorAll over all three selectors.
+ */
 function buildNav() {
   const here = currentPage()
   const nav = document.querySelector("nav")
-  const sections = [...document.querySelectorAll("main h2, main h3")]
-    .filter((h) => h.id)
-    .map((h) => `<a class="sec ${h.tagName === "H3" ? "sub" : ""}" href="#${h.id}">${esc(h.textContent)}</a>`)
+  const sections = [...document.querySelectorAll("main h2[id], main h3[id], main section.entry[id]")]
+    .map((el) => {
+      if (el.tagName === "SECTION") {
+        const label = el.querySelector("header .name")?.textContent ?? el.id
+        return `<a class="sec sub mono" href="#${el.id}">${esc(label)}</a>`
+      }
+      return `<a class="sec ${el.tagName === "H3" ? "sub" : ""}" href="#${el.id}">${esc(el.textContent)}</a>`
+    })
     .join("")
 
   nav.innerHTML = `
@@ -231,6 +243,49 @@ const RENDERERS = {
   vendors: (el) => renderList(el, window.VOLT.vendors),
 }
 
+/**
+ * Highlight the section being read. With thirty-odd rows on the wire page, a TOC that does not say where you
+ * are is a list of links rather than a map.
+ *
+ * A direct scan rather than an IntersectionObserver: the observer only knows about elements that CROSS its
+ * band, so one fast scroll jumps the whole band and leaves the highlight on whatever was last seen. Asking
+ * "which target is the last one above the fold" answers correctly from any scroll position, including a
+ * mid-page load from a #fragment.
+ */
+function trackPosition() {
+  const links = new Map(
+    [...document.querySelectorAll("nav a.sec")].map((a) => [a.getAttribute("href").slice(1), a]),
+  )
+  const targets = [...links.keys()].map((id) => document.getElementById(id)).filter(Boolean)
+  if (!targets.length) return
+
+  let last = null
+  let queued = false
+
+  const update = () => {
+    queued = false
+    // The last target whose top has passed a quarter of the way down the viewport. Falls back to the first,
+    // so the very top of the page highlights something rather than nothing.
+    const fold = innerHeight * 0.25
+    let here = targets[0]
+    for (const t of targets) {
+      if (t.getBoundingClientRect().top > fold) break
+      here = t
+    }
+    if (here === last) return
+    last = here
+    for (const [id, a] of links) a.classList.toggle("here", id === here.id)
+    links.get(here.id)?.scrollIntoView({ block: "nearest" })
+  }
+
+  addEventListener("scroll", () => {
+    if (queued) return
+    queued = true
+    requestAnimationFrame(update)
+  }, { passive: true })
+  update()
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   // Render the generated blocks BEFORE the nav, so headings they add are in the "on this page" list.
   for (const [name, render] of Object.entries(RENDERERS)) {
@@ -238,6 +293,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (el) render(el)
   }
   buildNav()
+  trackPosition()
   const dark = buildThemeToggle()
   await initMermaid(dark)
 })

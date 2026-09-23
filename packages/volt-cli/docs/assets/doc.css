@@ -89,6 +89,9 @@ nav a.page:hover, nav a.sec:hover { background: var(--code); text-decoration: no
 nav a.page[aria-current] { background: var(--code); font-weight: 600; color: var(--accent); }
 nav a.sec { color: var(--muted); font-size: 13px; padding-left: 8px; }
 nav a.sec.sub { padding-left: 20px; font-size: 12.5px; }
+nav a.sec.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+/* The current section, tracked by the scroll spy — so a long page says where you are. */
+nav a.sec.here { color: var(--accent); background: var(--code); }
 
 main { padding: 30px 36px 100px; max-width: 1020px; }
 
