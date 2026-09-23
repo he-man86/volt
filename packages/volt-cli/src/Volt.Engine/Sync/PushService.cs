@@ -177,7 +177,14 @@ public static class PushService
         // folder the item was in, and a move empties the one it came FROM. `PruneEmptied` then removes only
         // those that are actually empty afterwards, so a folder still holding anything — or one that was
         // already empty before this push, which is the engineer's — is untouched.
-        TreeNav.PruneEmptied(ide, EmptiedFolders(itemCache, request.Ops));
+        // GUARDED, because it runs AFTER every op has landed and been flushed. It is the only step in this
+        // method that is not inside the reject path, and it must not be: a prune is cosmetic, and it calls
+        // into the live vendor (`ChildCount`, `ChildAt`, `Delete`) where a COM fault is an ordinary event —
+        // `ItemLookup` and `BeckhoffDriver` both wrap `ChildCount` for exactly that reason. Letting one throw
+        // out of here would fail a push that FULLY SUCCEEDED: no receipt, so the client never persists the new
+        // baseline, and its next push reports a conflict over changes already in the IDE.
+        try { TreeNav.PruneEmptied(ide, EmptiedFolders(itemCache, request.Ops)); }
+        catch (Exception ex) { VoltLog.Warn($"push: could not prune an emptied folder: {ex.Message}"); }
 
         // The receipt is a FRESH FULL snapshot — the SAME walk /refs uses (ProjectSnapshot), NOT a reuse of the
         // pre-apply versions. A native rename rewrites the bodies of referencing items that are NOT in the op

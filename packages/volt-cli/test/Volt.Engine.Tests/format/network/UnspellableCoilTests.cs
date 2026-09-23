@@ -132,7 +132,9 @@ public class UnspellableCoilTests
             new Operand("Elsewhere", IsLValue: true, Flags: new Flags(Jump: true)),
         }, new Flags(Jump: true)));
 
-        Assert.Equal("LD (a rung driving a coil and a jump together)", NetworkTextWriter.Unspellable(body));
+        // …and it is NAMED for what it is. The message used to say "a coil and a jump together" for this
+        // case too, describing a shape with no coil in it.
+        Assert.Equal("LD (a rung driving several jumps)", NetworkTextWriter.Unspellable(body));
     }
 
     /// <summary>NARROW ON PURPOSE. The guard fires on a MIXTURE and nothing else: a lone jump, a lone return

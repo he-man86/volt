@@ -43,10 +43,14 @@ describe(`lifecycle / emptied folders are pruned (${BASE})`, () => {
 	/**
 	 * Create an item, then take it away — by DELETING it or by MOVING it out. Both empty the folder, and both
 	 * have to prune: a move's origin is emptied exactly as a delete's folder is.
+	 *
+	 * <p>Paths come from `plcFolder(sub)`, which JOINS — `${root}/${sub}` does not survive an EMPTY root, and
+	 * one of the two fixture projects has its main program AT the PLC root. There that produced a leading
+	 * slash and TwinCAT answered `CreateChild failed: Value cannot be null. Parameter name: path`. Which
+	 * project a run binds is not something the run chooses, so both layouts have to work.</p>
 	 */
-	async function emptyBy(how: "delete" | "move", key: string, depth: string): Promise<string> {
-		const root = await plcFolder()
-		const folder = `${root}/${depth}`
+	async function emptyBy(how: "delete" | "move", key: string, sub: string): Promise<string> {
+		const folder = await plcFolder(sub)
 		const name = fid(key)
 
 		const created = await pushOps([
@@ -59,7 +63,7 @@ describe(`lifecycle / emptied folders are pruned (${BASE})`, () => {
 		const away =
 			how === "delete"
 				? [{ op: "deleteItem", name, ifVersion: refs.items[name] }]
-				: [{ op: "set", name, toFolder: root, ifVersion: refs.items[name] }]
+				: [{ op: "set", name, toFolder: await plcFolder(), ifVersion: refs.items[name] }]
 
 		const r = await pushOps(away)
 		expect(r.accepted, `${how} refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
@@ -67,43 +71,32 @@ describe(`lifecycle / emptied folders are pruned (${BASE})`, () => {
 	}
 
 	it("a DELETE that empties a folder is accepted, and the item is gone", async () => {
-		const folder = await emptyBy("delete", "pr_del", "VltPrune/Del")
-		expect(await inhabited(folder)).toBe(false)
+		expect(await inhabited(await emptyBy("delete", "pr_del", "VltPrune/Del"))).toBe(false)
 	})
 
 	it("a MOVE OUT of a folder is accepted, and the item lands in its new folder", async () => {
-		// The origin is emptied exactly as a delete's folder is — the item is simply somewhere else now.
-		const folder = await emptyBy("move", "pr_mov", "VltPrune/Mov")
-		expect(await inhabited(folder)).toBe(false)
+		expect(await inhabited(await emptyBy("move", "pr_mov", "VltPrune/Mov"))).toBe(false)
 	})
 
-	/**
-	 * RULE 2 — RECURSIVE, BECAUSE GIT IS. Emptying `a/b/` removes `a/` too when `b` was all it held. Without the
-	 * ancestor walk the shallow half of the chain survives, which is the litter this exists to stop.
-	 */
+	/** A three-deep chain, which is the recursive case the offline suite asserts the removal of. */
 	it("a push that empties a three-deep chain is accepted", async () => {
-		const root = await plcFolder()
-		const deep = `${root}/VltPruneChain/Mid/Leaf`
+		const deep = await plcFolder("VltPruneChain/Mid/Leaf")
 		const name = fid("pr_chain")
 
 		expect((await pushOps([{ op: "set", name, toFolder: deep, sourceText: fb(id("pr_chain")), ifVersion: null }])).accepted).toBe(true)
 
 		const refs = await bridge.refs()
 		expect((await pushOps([{ op: "deleteItem", name, ifVersion: refs.items[name] }])).accepted).toBe(true)
-
-		// Every level of the chain, not just the one the item was in.
-		expect(await inhabited(`${root}/VltPruneChain`)).toBe(false)
+		expect(await inhabited(await plcFolder("VltPruneChain"))).toBe(false)
 	})
 
 	/**
-	 * RULE 1 — ONLY WHAT THIS PUSH EMPTIED. A folder that still holds something is left alone, which is the
-	 * difference between pruning and deleting the engineer's tree. A sibling in the SAME parent proves both
-	 * halves at once: the emptied child goes, the parent stays because the sibling is still in it.
+	 * A SIBLING IN AN UNTOUCHED FOLDER IS NOT DISTURBED — the live half of "only what this push emptied".
+	 * The wire cannot show that the parent FOLDER survived, but it can show the sibling did.
 	 */
 	it("a sibling in an untouched folder is not disturbed", async () => {
-		const root = await plcFolder()
-		const parent = `${root}/VltPruneKeep`
-		const goes = `${parent}/Goes`
+		const parent = await plcFolder("VltPruneKeep")
+		const goes = await plcFolder("VltPruneKeep/Goes")
 		const stays = fid("pr_stay")
 		const leaves = fid("pr_leave")
 
@@ -115,7 +108,7 @@ describe(`lifecycle / emptied folders are pruned (${BASE})`, () => {
 		const refs = await bridge.refs()
 		expect((await pushOps([{ op: "deleteItem", name: leaves, ifVersion: refs.items[leaves] }])).accepted).toBe(true)
 
-		expect(await inhabited(goes), "the emptied child folder survived").toBe(false)
-		expect(await inhabited(parent), "the parent was pruned while it still held an item").toBe(true)
+		expect(await inhabited(goes), "the emptied child folder still holds an item").toBe(false)
+		expect(await inhabited(parent), "the sibling was removed along with its neighbour").toBe(true)
 	})
 })

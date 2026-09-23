@@ -95,17 +95,22 @@ public static class NetworkTextWriter
                 // and the corpora on disk are pulled TEXT — which, being written by the code above, cannot
                 // show the coil it dropped. Tracked in `openspec/changes/graphical-vendor-parity-map`.
                 //
-                // NARROW ON PURPOSE. A lone jump, a lone return and an ordinary fan-out all still render:
-                // only a MIXTURE has no form. Lenze's single `RETURN` target (`ATD_FQI`) is a lone one and
-                // keeps working — a guard that refused every control-flow target would have turned a working
-                // ladder POU into a marker.
+                // STILL NARROW, and the boundary is the TARGET COUNT rather than the mixture: a LONE jump, a
+                // lone return and an ordinary fan-out of plain coils all render as before. Lenze's single
+                // `RETURN` target (`ATD_FQI`) is a lone one and keeps working — a guard that refused every
+                // control-flow target would have turned a working ladder POU into a marker.
                 // ANY control-flow target on a MULTI-TARGET rung, not only a mixture of the two kinds.
                 // `Goto` renders exactly ONE destination whatever the list holds, so a rung carrying two jumps
                 // loses the second one just as surely as a rung carrying a jump and a coil loses the coil. The
                 // first spelling of this guard asked for a MIXTURE (`control < Targets.Count`) and let the
                 // two-jump case through — the same silent loss, one predicate away.
                 if (a.Targets.Count > 1 && a.Targets.Any(t => t.Flags is { } cf && (cf.Jump || cf.Return)))
-                    return "a rung driving a coil and a jump together";
+                    // NAMES WHAT IS ACTUALLY THERE. This said "a coil and a jump together" for every case,
+                    // including two jumps on one rung — a shape with no coil in it. A message describing the
+                    // wrong construct is the mis-diagnosis C25 exists to prevent.
+                    return a.Targets.All(t => t.Flags is { } af && (af.Jump || af.Return))
+                        ? "a rung driving several jumps"
+                        : "a rung driving a coil and a jump together";
                 foreach (var t in a.Targets)
                 {
                     // A coil kind is ONE enum (Flags.CoilFromVendor): none / set / reset / negated, and

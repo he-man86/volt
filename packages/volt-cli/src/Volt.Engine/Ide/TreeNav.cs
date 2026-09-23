@@ -86,7 +86,7 @@ internal static class TreeNav
     /// <summary>Descend an EXISTING folder path, creating nothing, matching the way the create path matches —
     /// by name, excluding only top-level CRUD kinds. That traverses a container-manager (`POUs`, `DUTs`) as
     /// well as a plain folder, which is what makes a path like <c>POUs/Sub</c> resolvable at all.</summary>
-    internal static ItemRef? DescendExisting(IIdeDriver ide, ItemRef parent, string? folder)
+    private static ItemRef? DescendExisting(IIdeDriver ide, ItemRef parent, string? folder)
     {
         if (string.IsNullOrEmpty(folder)) return parent;
         var node = parent;

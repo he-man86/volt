@@ -573,8 +573,14 @@ internal static class TcNetworkWriter
             // contracts wrote twenty unopenable .TcPOU files). The terminator REUSES the id of the element it
             // replaces. Ids need not be contiguous — the drawn body skips 9, 12, 13 and 28-31 — so the ids
             // under the replaced subtree simply cease to exist.</para>
-            case Terminator { Input: null } when e.Attribute("t") != null:
-                return SwapToTerminator(e);
+            // NARROWED TO THE SHAPE THAT WAS MEASURED: a `BoxTreeOperand` — the element a jump or return
+            // condition occupies. The guard was `e.Attribute("t") != null`, i.e. ANY typed element, so a
+            // `BoxTreeBox` or `BoxTreeAssign` subtree that happened to arrive as an unconnected terminator
+            // (an engineer deleting whatever drove a rung, leaving `?;`) would be wiped and rewritten in
+            // place — discarding every id and unmodelled member under it — instead of falling to `default`
+            // and letting the IDE rebuild that network. Found by review.
+            case Terminator { Input: null } when type == "BoxTreeOperand" && e.Attribute("t") != null:
+                return SwapToTerminator(e, n.Flags);
 
             default:
                 throw Refuse($"a '{type ?? "?"}' item becomes a {n.GetType().Name.ToLowerInvariant()}");
@@ -963,16 +969,19 @@ internal static class TcNetworkWriter
     /// <para>Only for an element that carries its own <c>t</c>. An element typed by its list's <c>cet</c> is
     /// one of a HOMOGENEOUS list (N11) and retyping it alone would make the list a mixture — the exact shape
     /// `TcImporterSplitTests` pins as the one TwinCAT mis-reads.</para></summary>
-    private static bool SwapToTerminator(XElement e)
+    private static bool SwapToTerminator(XElement e, Flags? flags)
     {
         var id = TcArchive.Int(e, "Id");
         if (id == 0) throw Refuse("an item becomes unconnected but carries no id to keep");
 
         e.SetAttributeValue("t", "BoxTreeTerminator");
         e.RemoveNodes();
+        // The MODEL's flag bits, not a hardcoded 0: `WriteNode` computes `WriteFlags(e, n.Flags)` before
+        // reaching this arm, and wiping the element threw that away — the sibling terminator arm preserves
+        // them. A drawn terminator reads 0, which is what this writes when the model says 0.
         e.Add(new XElement("n", new XAttribute("n", "Input")),
               new XElement("o", new XAttribute("n", "Flags"), new XAttribute("t", "Flags"),
-                  new XElement("v", new XAttribute("n", "Flags"), "0"),
+                  new XElement("v", new XAttribute("n", "Flags"), Bits(flags).ToString(CultureInfo.InvariantCulture)),
                   new XElement("v", new XAttribute("n", "Fixed"), "false"),
                   new XElement("v", new XAttribute("n", "Extensible"), "false")),
               new XElement("v", new XAttribute("n", "Id"), id + "L"));

@@ -356,21 +356,6 @@ public sealed partial class CodesysDriver
 
     // ── member write ──────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>The declarations a graphical body must be resolved against: the member's own FIRST, then
-    /// the POU's.
-    ///
-    /// <para><b>A stateful FB instance lives in the enclosing POU's VAR block, not in the member's.</b> A
-    /// graphical body naming `t1(IN := a)` needs `t1 : TON;` to resolve the call's TYPE, and that
-    /// declaration is one level up — so resolving against the member alone reported `'t1' names a
-    /// function-block instance that is not declared in this POU`, advice pointing at work the engineer had
-    /// already done. An ACTION makes it starker still: it has no declaration at all.</para>
-    ///
-    /// <para>Member first, because the lookup takes the FIRST match and an inner scope must win: a member's
-    /// own `VAR_INPUT p : TON;` shadows a POU-level `p` exactly as IEC says it does.</para></summary>
-    private static string? Scope(string? member, string? owner) =>
-        string.IsNullOrWhiteSpace(member) ? owner
-        : string.IsNullOrWhiteSpace(owner) ? member
-        : member + "\n" + owner;
 
     private void WriteMembers(ItemRef pou, IReadOnlyList<Member> members, string? ownerDeclaration,
                               IReadOnlyDictionary<string, string> pushedDeclarations)
@@ -408,7 +393,7 @@ public sealed partial class CodesysDriver
             else
             {
                 _om.WriteSourceText(target.Native, m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, null);
-                CodesysNetworkWriter.Write(_om, target.Native, graph, Scope(m.Declaration, ownerDeclaration),
+                CodesysNetworkWriter.Write(_om, target.Native, graph, SourceScopes.Scope(m.Declaration, ownerDeclaration),
                                        n => DeclarationOfName(pushedDeclarations, n));
             }
 
@@ -509,7 +494,7 @@ public sealed partial class CodesysDriver
             }
 
             _om.WriteSourceText(child.Native, accessor.Declaration, null);
-            CodesysNetworkWriter.Write(_om, child.Native, graph, Scope(accessor.Declaration, ownerDeclaration),
+            CodesysNetworkWriter.Write(_om, child.Native, graph, SourceScopes.Scope(accessor.Declaration, ownerDeclaration),
                                        n => DeclarationOfName(pushedDeclarations, n));
             return;
         }

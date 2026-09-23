@@ -127,4 +127,37 @@ public class FanOutShapeTests
         var assign = Assert.IsType<Assign>(back.Networks.Single().Trees.Single(t => t is Assign));
         Assert.Equal(new[] { "out1", "out2" }, assign.Targets.Select(t => t.Text));
     }
+
+    /// <summary>A FOLDED MULTI-OUTPUT ASSIGN MAY ITSELF BE FED BY A WIRE, and the fold must not lose it.
+    ///
+    /// <para>Every other tree in the reader's `Build` is emitted through `ReferencesToDemux`, which turns a
+    /// reference to a wire NAME back into the `Demux` the archive holds. The fold arm emitted its `Assign`
+    /// directly and skipped that step, so `LET m1 := g3;` kept a bare `Leaf("g3")` where a `Demux` belongs.
+    /// Two consequences, and the second is the serious one: the body is no longer a FIXED POINT, so
+    /// `NetworkTextGate` refuses the text Volt itself just pulled — that POU can be pulled and never pushed
+    /// back — and if it were written, the CODESYS writer would emit an assignment sourced from the undeclared
+    /// symbol `g3`, which is the "POU stops compiling" failure the reader's own prefix-rule comment
+    /// documents.</para>
+    ///
+    /// <para>Not hypothetical: Lenze holds 40 multi-output assigns beside 573 `BoxTreeDemux`, so the two
+    /// meeting in one network is ordinary. Found by review.</para></summary>
+    [Fact]
+    public void A_folded_assign_fed_by_a_WIRE_keeps_the_wire()
+    {
+        var wire = new Demux(3, new Leaf(new Operand("a"), Flags.None), Flags.None);
+        var body = Body(
+            wire,
+            new Assign(wire, new[] { new Operand("single", IsLValue: true) }, Flags.None),
+            new Assign(wire, new[] { new Operand("out1", IsLValue: true), new Operand("out2", IsLValue: true) },
+                       Flags.None));
+
+        var once = NetworkTextWriter.Write(body);
+        var back = NetworkTextGate.Validate(once);
+
+        var folded = back.Networks.Single().Trees.OfType<Assign>().Single(a => a.Targets.Count == 2);
+        Assert.IsType<Demux>(folded.Value);
+
+        // …and therefore still a fixed point, which is what makes a pull -> push round trip safe.
+        Assert.Equal(once, NetworkTextWriter.Write(back));
+    }
 }

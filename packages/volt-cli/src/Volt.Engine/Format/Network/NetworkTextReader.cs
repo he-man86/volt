@@ -600,8 +600,15 @@ public static class NetworkTextReader
                     if (!foldedAlready.Add(mName)) continue;
                     var targets = new List<Operand>();
                     foreach (var c in FoldableConsumers(mName)) targets.AddRange(((Assign)c).Targets);
-                    trees.Add(new Assign(Resolve(merged[mName], inline, new HashSet<string>(StringComparer.Ordinal)),
-                                         targets, ((Assign)node).Flags));
+                    // THROUGH `ReferencesToDemux`, like every other tree here. The folded value may itself be
+                    // fed by a WIRE — `LET g3 := a; single := g3; LET m1 := g3; out1 := m1; out2 := m1;` is an
+                    // ordinary rung — and skipping the conversion left a bare `Leaf("g3")` where the archive
+                    // holds a `Demux`. The body then stopped being a FIXED POINT, so `NetworkTextGate` refused
+                    // the very text Volt had just written: that POU could be pulled and never pushed back.
+                    trees.Add(ReferencesToDemux(
+                        new Assign(Resolve(merged[mName], inline, new HashSet<string>(StringComparer.Ordinal)),
+                                   targets, ((Assign)node).Flags),
+                        wires));
                     continue;
                 }
                 if (let != null && inline.ContainsKey(let)) continue;   // substituted into its one consumer
