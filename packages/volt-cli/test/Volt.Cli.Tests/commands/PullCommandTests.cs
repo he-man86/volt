@@ -256,4 +256,52 @@ public class PullCommandTests
         }
         finally { TestUtil.ForceDelete(root); }
     }
+
+    /// <summary>A PARTIAL PULL DOES NOT SHRINK THE SIDECAR.
+    ///
+    /// <para>`ReadResponse.UnwalkedFolders` says a client seeing it non-empty must conclude nothing from
+    /// absence. Replacing the sidecar's item map with the partial one is exactly that conclusion, a layer past
+    /// the `removed` list the bridge already suppressed — and the damage lands on the next PUSH, not here. With
+    /// `Deep.prg` gone from the baseline, an edit to it has no known version and goes up as a CREATE, refused
+    /// ITEM_EXISTS; a local delete is skipped by the guard lookup and reported as "nothing to push"; a rename
+    /// throws "has no known IDE version" straight past `Commands.Push` to the top-level handler.</para></summary>
+    [Fact]
+    public void A_pull_over_an_unreadable_folder_keeps_the_baseline_entries_under_it()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("A", "PROGRAM A\nVAR\nEND_VAR", "x := 1;"),
+                               FakeIde.Item.TextualPou("Deep", "PROGRAM Deep\nVAR\nEND_VAR", "y := 2;", "Machine"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var before = Sidecar.LoadIdeRefs(root)!.Items;
+            Assert.Contains("Deep.prg", before.Keys);
+
+            ide.UnwalkableFolders = new[] { "Machine" };
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            var after = Sidecar.LoadIdeRefs(root)!.Items;
+            Assert.Contains("Deep.prg", after.Keys);
+            Assert.Equal(before["Deep.prg"], after["Deep.prg"]);   // at the version the last COMPLETE walk gave it
+
+            // …and the push that would have broken now refuses for the RIGHT reason. With the baseline entry
+            // dropped, the edit went up as a CREATE and collided (ITEM_EXISTS) — or, with the folder readable
+            // again, silently relocated the item. Keeping the entry means the push quotes the real version,
+            // the bridge finds the item absent from its own PARTIAL walk, and says so: the item is not gone,
+            // the walk could not see it. Refusing is the right outcome; what changed is that it is legible.
+            var file = Path.Combine(root, "src", "Machine", "Deep.prg");
+            File.WriteAllText(file, File.ReadAllText(file).Replace("y := 2;", "y := 7;"));
+            Git.CommitAll(root, "edit under the unreadable folder");
+
+            var pushed = Commands.Push(root, client);
+            Assert.Equal("rejected", pushed.Kind);
+            Assert.Contains("ITEM_UNVERIFIED", pushed.Reason);
+
+            // And once the folder reads again, the same push lands — nothing was poisoned.
+            ide.UnwalkableFolders = new string[0];
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            Assert.Equal("ok", Commands.Push(root, client).Kind);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
 }

@@ -13,11 +13,13 @@ internal static class PushConflicts
 {
     internal static List<PushConflict> DetectConflicts(
         List<PushOp> ops, string? expectedProjectVersion, bool force,
-        Dictionary<string, string> currentVersions, string currentProjectVersion)
+        Dictionary<string, string> currentVersions, string? currentProjectVersion, bool walkComplete = true)
     {
         var conflicts = new List<PushConflict>();
 
-        // The project-level gate runs regardless of force — it IS the --force-with-lease check.
+        // The project-level gate runs regardless of force — it IS the --force-with-lease check. A null
+        // `currentProjectVersion` means the pre-flight skipped the reads that compute it, which it only does
+        // when no lease was quoted — so this branch cannot see one.
         if (expectedProjectVersion != null && expectedProjectVersion != currentProjectVersion)
             conflicts.Add(new PushConflict
             {
@@ -83,7 +85,7 @@ internal static class PushConflicts
                 }
                 else if (currentVersion != clientVersion)   // update / rename / move guard
                 {
-                    conflicts.Add(VersionMismatch(name, clientVersion, currentVersion));
+                    conflicts.Add(VersionMismatch(name, clientVersion, currentVersion, walkComplete));
                 }
                 else if (set.ToName is { } toName && !string.Equals(Materializer.Bare(toName), bare, StringComparison.OrdinalIgnoreCase))
                 {
@@ -98,8 +100,18 @@ internal static class PushConflicts
                 // also covers the UNREADABLE-sentinel force-delete of an accepted-but-unenumerable item (absent
                 // from /refs → currentVersion null here, but Apply still finds and removes it via ide.Lookup).
                 // Only a version MISMATCH on a still-PRESENT item is a real conflict.
-                if (currentVersion != null && clientVersion != null && currentVersion != clientVersion)
-                    conflicts.Add(VersionMismatch(name, clientVersion, currentVersion));
+                //
+                // …AND ALL OF THAT DEPENDS ON THE WALK HAVING SEEN EVERYTHING. From a PARTIAL walk, absence is
+                // not "already gone", and this rule turns it into one: the item falls through as a no-op
+                // success, so the `ifVersion` guard never runs — and `Apply` then finds the item anyway through
+                // `ItemLookup.Find` and destroys it. The one op that cannot be undone, carried out without the
+                // check that exists to stop exactly that, on an item nobody could read. A client that supplied
+                // a version asked to be guarded; when the guard cannot run, the answer is no.
+                if (currentVersion == null && !walkComplete && clientVersion != null
+                    && clientVersion != Versioning.Unreadable)
+                    conflicts.Add(VersionMismatch(name, clientVersion, null, walkComplete));
+                else if (currentVersion != null && clientVersion != null && currentVersion != clientVersion)
+                    conflicts.Add(VersionMismatch(name, clientVersion, currentVersion, walkComplete));
                 else pending.Remove(key);
             }
         }
@@ -113,8 +125,27 @@ internal static class PushConflicts
     /// item, merge and push again; a missing one means there is nothing to merge with, because the item the
     /// client holds a version for is gone from the IDE. Both used to answer `code: null` and an English
     /// sentence, so the e2e suite matched the sentence and the CLI printed it unbranched.</para></summary>
-    private static PushConflict VersionMismatch(string name, string? clientVersion, string? currentVersion) =>
-        new() { Name = name, YourVersion = clientVersion, CurrentVersion = currentVersion,
-                Code = currentVersion == null ? ConflictCodes.ItemMissing : ConflictCodes.StaleItemVersion,
-                Reason = currentVersion == null ? "expected item to exist but it doesn't" : "item changed since you fetched its version" };
+    private static PushConflict VersionMismatch(
+        string name, string? clientVersion, string? currentVersion, bool walkComplete)
+    {
+        // ABSENT FROM A PARTIAL WALK IS NOT GONE. `ItemMissing` says "the item is no longer there", which
+        // invites the client to recreate it — and under `force` that is the move it would make, on an item that
+        // is almost certainly still sitting in the IDE under a folder this walk could not enumerate. The
+        // impaired thing is the BRIDGE, and the two situations read as opposite news to whoever acts on them.
+        if (currentVersion == null && !walkComplete)
+            return new PushConflict
+            {
+                Name = name, YourVersion = clientVersion, CurrentVersion = null,
+                Code = ConflictCodes.ItemUnverified,
+                Reason = "this push could not read the folder this item is in, so it refuses to touch it — "
+                       + "absence from a partial walk is not proof the item is gone. See `unwalkedFolders` on "
+                       + "refs/fetch, and fix what stops the IDE enumerating it.",
+            };
+        return new PushConflict
+        {
+            Name = name, YourVersion = clientVersion, CurrentVersion = currentVersion,
+            Code = currentVersion == null ? ConflictCodes.ItemMissing : ConflictCodes.StaleItemVersion,
+            Reason = currentVersion == null ? "expected item to exist but it doesn't" : "item changed since you fetched its version",
+        };
+    }
 }

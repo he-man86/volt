@@ -74,14 +74,18 @@ public static class PushService
             if (ProjectSnapshot.IsTracked(it.KindCode)) gatedVersions[v.Identity] = version;
         }
 
-        // Empty when the walk skipped the reads — and unread in that case, because the only thing that consumes
-        // it is the lease comparison, which is exactly the branch that turns the reads back on.
-        var currentProjectVersion = needVersions ? Hasher.ComputeProjectVersion(gatedVersions) : "";
-        var conflicts = PushConflicts.DetectConflicts(request.Ops, request.ExpectedProjectVersion, request.Force, currentVersions, currentProjectVersion);
+        // Null when the walk skipped the reads. NOT the empty string: this value is published as
+        // `PushResponse.currentProjectVersion` on EVERY rejection, including one raised mid-apply long after
+        // the gate, so a `--force` push refused by a NETWORK_* body or an UNSUPPORTED shape would have handed
+        // the client `""` where it had always had the real hash. `RejectAt` computes it on demand instead —
+        // a rejection is not the hot path, and paying for it there costs nothing a successful push notices.
+        string? currentProjectVersion = needVersions ? Hasher.ComputeProjectVersion(gatedVersions) : null;
+        var conflicts = PushConflicts.DetectConflicts(request.Ops, request.ExpectedProjectVersion, request.Force,
+                                                      currentVersions, currentProjectVersion, walk.Complete);
         if (conflicts.Count > 0)
         {
             VoltLog.Info($"push {request.Ops.Count} ops — REJECTED ({conflicts.Count} conflicts: {string.Join(", ", conflicts.Take(5).Select(c => c.Name))}{(conflicts.Count > 5 ? "..." : "")}) ({sw.ElapsedMilliseconds}ms)");
-            return PushResponse.RejectedResult(conflicts, currentProjectVersion);
+            return PushResponse.RejectedResult(conflicts, currentProjectVersion!);   // a gate conflict means a lease ran
         }
 
         var pushedDeclarations = DeclarationsIn(request.Ops);
@@ -152,9 +156,13 @@ public static class PushService
                 : $"{ex.Message} — NOTE: {applied.Count} of {opTotal} item(s) were already written to the IDE " +
                   "before this one failed, and are not rolled back. Run `volt pull` to take them into the " +
                   "workspace, then push again.";
+            // COMPUTED ON DEMAND when the pre-flight skipped it. A `--force` push with no lease never builds
+            // the version map, and this rejection publishes `currentProjectVersion` to the client regardless —
+            // so without this it handed back `""` where it had always given the real hash. A rejection is not
+            // the hot path; a successful push never reaches this line.
             return PushResponse.RejectedResult(
                 new List<PushConflict> { new() { Name = op.Name, Reason = reason, Code = code, Line = netEx?.Line } },
-                currentProjectVersion);
+                currentProjectVersion ?? ProjectSnapshot.Walk(ide, operation: "push-reject").ProjectVersion);
         }
 
         foreach (var op in request.Ops)
@@ -432,7 +440,15 @@ public static class PushService
                 // wire offers and it was checked against a snapshot stale by the length of the batch, so an
                 // engineer's edit landing in that window was destroyed by the delete, reported as gone, and
                 // status said in sync.
-                RequireUnchangedBeforeDelete(ide, name, del, currentFolder, force ? null : op.IfVersion);
+                // `inCache ? … : null`, NOT `currentFolder`. That variable collapses "the item is at the
+                // project ROOT" and "this push never saw the item in its walk, so it has no idea where it is"
+                // onto the same empty string — harmless for the set arm, which is about to write a folder
+                // anyway, and wrong here: the guard hashes the item's CURRENT folder into the version it
+                // compares, so an item resolved by `ItemLookup.Find` (the walk skipped its subtree) would be
+                // hashed against the root, never match, and be refused with a message blaming a concurrent
+                // edit that never happened. Null is the honest answer and the guard already stands down on it.
+                RequireUnchangedBeforeDelete(ide, name, del, inCache ? cached.Folder : null,
+                                             force ? null : op.IfVersion);
                 // `ide.Name(del)`, NOT the wire `name`: `del` is the already-resolved handle, so this is the item's
                 // ACTUAL IDE name. itemCache resolves case-INSENSITIVELY while the drivers' child scan matches
                 // case-SENSITIVELY, so a case-divergent wire name found the item here and then matched nothing in

@@ -8,8 +8,8 @@ using Volt.Engine.Item;
 
 namespace Volt.Engine.Sync;
 
-/// <summary><c>refs</c>: the project snapshot — the aggregate versions (<c>projectVersion</c>,
-/// <c>structureVersion</c>) plus the per-item version map and the folder map, for every tracked item.
+/// <summary><c>refs</c>: the project snapshot — the aggregate <c>projectVersion</c> plus the per-item version
+/// map and the folder map, for every tracked item.
 /// It comes from the ONE walk (<c>ProjectSnapshot</c>) the <c>push</c> receipt also uses, so the two can
 /// never drift. No source bodies — that is <c>fetch</c>.</summary>
 public static class RefsService

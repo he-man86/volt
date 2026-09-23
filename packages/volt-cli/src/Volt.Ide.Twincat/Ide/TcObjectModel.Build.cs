@@ -287,12 +287,20 @@ internal sealed partial class TcObjectModel
         var s = captured.Trim();
         var arrow = s.IndexOf('>');
         if (arrow > 0 && s.Substring(0, arrow).All(char.IsDigit)) s = s.Substring(arrow + 1).Trim();
+
+        // A PATH IS WHAT A COMPILER NAMES AN ITEM WITH, and requiring one is a POSITIVE test: the field has to
+        // look like a file before anything is read out of it. The test used to be the ABSENCE of a space, on the
+        // grounds that an IEC identifier cannot contain one — which rejects `1>TwinCAT Project1 : error : ...`
+        // and lets through every project whose name happens to have none (`1>Untitled1`, `1>PLC`). Those came
+        // back as item names, and the engine resolves a name against the tree, so a project-level error landed
+        // on whatever POU happened to share the caption and pointed an editor at the wrong file.
         var slash = s.LastIndexOfAny(new[] { '\\', '/' });
-        if (slash >= 0) s = s.Substring(slash + 1);
+        if (slash < 0) return null;
+        s = s.Substring(slash + 1);
+
         var dot = s.LastIndexOf('.');
-        if (dot > 0) s = s.Substring(0, dot);
-        // A PATH is what a compiler names an item with. Anything else — a solution caption, a stray word — is
-        // chrome, and an IEC identifier cannot contain a space, so that is the whole test.
+        if (dot <= 0) return null;                      // a path segment with no extension is not a POU file
+        s = s.Substring(0, dot);
         return s.Length > 0 && s.IndexOf(' ') < 0 ? s : null;
     }
 

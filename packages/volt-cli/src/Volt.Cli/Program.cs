@@ -147,6 +147,10 @@ internal static class Program
             void EmitLines(string code, List<string> names) { foreach (var n in names) Console.WriteLine($"{code} {(s.PathByName.TryGetValue(n, out var p) ? p : n)}"); }
             EmitLines("iA", s.Incoming.Added); EmitLines("iM", s.Incoming.Modified); EmitLines("iD", s.Incoming.Removed);
             EmitLines("oA", s.Outgoing.Added); EmitLines("oM", s.Outgoing.Modified); EmitLines("oD", s.Outgoing.Removed);
+            // PORCELAIN GETS THE CAVEAT TOO — and needs it most. A partial walk emits no `iD` lines at all, so a
+            // tool scripting this sees a clean, complete-looking view of a project nothing told it was short.
+            // It goes to stderr, so the lines a caller parses on stdout are unchanged.
+            WarnIfPartial(s);
             return 0;
         }
         if (a.Has("--json"))
@@ -211,13 +215,17 @@ internal static class Program
         return r.Success ? 0 : 2;
     }
 
-    /// <summary>`FB_Motor.fb:12:4 ` — the location prefix, empty when the diagnostic names no item and has no
-    /// position. Column only alongside a line, because a column without one points nowhere.</summary>
+    /// <summary>`FB_Motor.fb:12:4 ` — the location prefix, empty when the diagnostic names neither.
+    ///
+    /// <para>The position rides on the NAME and never appears without it. A project-level diagnostic can carry a
+    /// line with no item (TwinCAT emits both), and printing that alone gave `[error] :12 message` — a
+    /// colon-prefixed number that reads as a truncated path. Column only alongside a line, because a column
+    /// without one points nowhere.</para></summary>
     private static string Where(Volt.Contracts.BridgeDiagnostic d)
     {
-        var at = d.Name ?? "";
-        if (d.Line > 0) at += $":{d.Line}" + (d.Column > 0 ? $":{d.Column}" : "");
-        return at.Length > 0 ? at + " " : "";
+        if (d.Name is not { Length: > 0 } name) return "";
+        var at = d.Line > 0 ? $"{name}:{d.Line}" + (d.Column > 0 ? $":{d.Column}" : "") : name;
+        return at + " ";
     }
 
     private static int CmdShow(string root, BridgeClient bridge, Args a)

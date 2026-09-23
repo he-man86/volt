@@ -98,9 +98,16 @@ public static class StatusModel
 
         string? recommend = null;
         if (merging is not null) recommend = "resolve the conflict, then `volt merge --continue`";
-        else if (snap.Unreadable.Count > 0 || snap.UnwalkedFolders.Count > 0)
-            // ABOVE the change counts on purpose. A partial view is the one state where the counts themselves
-            // cannot be trusted, so "volt pull" would be advice to act on numbers this status knows are short.
+        else if (snap.UnwalkedFolders.Count > 0)
+            // ONLY for an unwalked FOLDER, and above the change counts on purpose: an unenumerable folder makes
+            // absence meaningless, so the counts themselves cannot be trusted and "volt pull" would be advice to
+            // act on numbers this status knows are short.
+            //
+            // An UNREADABLE ITEM is a different situation and used to be folded in here. It is absent from both
+            // the bridge map and the sidecar, so every other item's count is exactly right — and it is a
+            // PERSISTENT condition (one box with a boolean `En` pin, DIALECT C7) that nothing in the workspace
+            // can clear. Treating it the same way meant such a project never said `volt pull` again, with any
+            // number of real items waiting. It still gets its warning; it does not get to eat the next step.
             recommend = "the IDE view is INCOMPLETE — see the notes below before syncing";
         else if (snap.Online && incoming.Count > 0) recommend = "volt pull";
         else if (outgoing.Count > 0) recommend = "volt push";

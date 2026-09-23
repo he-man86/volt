@@ -46,7 +46,13 @@ public static class BuildService
             var success = ide.Build();
             sw.Stop();
             var diagnostics = ide.GetBuildDiagnostics().ToList();
-            PromoteNames(ide, diagnostics);
+            // GUARDED, like `TreeNav.PruneEmptied` in PushService and for the same reason. This walks the live
+            // tree and reads items, where a COM fault is an ordinary event — and it is pure DECORATION. Letting
+            // one throw reach the catch below would turn a build that ran, compiled and produced real
+            // diagnostics into `success:false` plus one fabricated "Build failed" line, discarding every
+            // diagnostic the engineer actually needs. Nameless diagnostics beat no diagnostics.
+            try { PromoteNames(ide, diagnostics); }
+            catch (Exception ex) { VoltLog.Warn($"build: could not name the diagnostics ({ex.Message}) — reporting them without item names"); }
             var errors = diagnostics.Count(d => d.Severity == Severity.Error);
             var warnings = diagnostics.Count(d => d.Severity == Severity.Warning);
             VoltLog.Debug($"build {(success ? "succeeded" : "failed")} ({sw.ElapsedMilliseconds}ms){(errors > 0 || warnings > 0 ? $" — {errors} errors, {warnings} warnings" : "")}");
@@ -98,13 +104,26 @@ public static class BuildService
             StringComparer.OrdinalIgnoreCase);
         if (wanted.Count == 0) return;
 
+        // CLEARED FIRST, assigned last. What the drivers put here is a BARE name, and the field's contract is
+        // FULL or null — so between those two instants the only safe value is null. If the walk below throws
+        // (the caller catches it: naming is decoration, not the build) the diagnostics keep the nulls rather
+        // than escaping with the vendor's spelling still on them.
+        var bare = diagnostics.Select(d => d.Name).ToList();
+        foreach (var d in diagnostics) d.Name = null;
+
         // null value = the bare name matched more than one item, so it names none of them.
         var resolved = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (var pi in ide.WalkItems().Items)
         {
             if (!wanted.Contains(pi.Name)) continue;
             if (ItemKind.Map(pi.KindCode) is not { } kind) continue;
-            var identity = Versioning.SafeVersion(ide, pi.Name, kind, pi.Item, pi.Folder).Identity;
+            // `.Materialized?.FullName`, NOT `.Identity`. Identity falls back to the BARE name for an item that
+            // could not be materialized (`VersionedItem`: `materialized?.FullName ?? bareName`) — and a failing
+            // build is exactly when that item is present, since an unreadable body is the sort of thing a
+            // compiler complains about. Publishing the bare name there would break the one promise this field
+            // makes.
+            if (Versioning.SafeVersion(ide, pi.Name, kind, pi.Item, pi.Folder).Materialized?.FullName is not { } identity)
+                continue;
             if (resolved.TryGetValue(pi.Name, out var seen))
             {
                 if (!string.Equals(seen, identity, StringComparison.OrdinalIgnoreCase)) resolved[pi.Name] = null;
@@ -112,13 +131,13 @@ public static class BuildService
             else resolved[pi.Name] = identity;
         }
 
-        foreach (var d in diagnostics)
+        for (var i = 0; i < diagnostics.Count; i++)
         {
-            if (d.Name is not { } bare) continue;
-            d.Name = resolved.TryGetValue(bare, out var full) ? full : null;
-            if (d.Name is null)
-                VoltLog.Debug($"build: a diagnostic named '{bare}', which resolves to no single item — " +
-                              "reporting it without a name rather than pointing at the wrong file");
+            if (bare[i] is not { } name) continue;
+            diagnostics[i].Name = resolved.TryGetValue(name, out var full) ? full : null;
+            if (diagnostics[i].Name is null)
+                VoltLog.Debug($"build: a diagnostic named '{name}', which resolves to no single readable item — "
+                              + "reporting it without a name rather than pointing at the wrong file");
         }
     }
 }

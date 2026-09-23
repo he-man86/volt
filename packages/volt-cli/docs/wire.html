@@ -146,7 +146,7 @@
 <p>
   A rejected push is not an error frame — it is a normal <code>result</code> with <code>accepted:false</code>
   and a <code>conflicts</code> list, because a version conflict is an expected outcome rather than a failure.
-  Nothing was applied. These four are the gate's own answers, and they are four because the engineer's next
+  Nothing was applied. These five are the gate's own answers, and they are five because the engineer's next
   step is different for each:
 </p>
 <table>
@@ -154,7 +154,8 @@
   <tr><td class="name">STALE_PROJECT_VERSION</td><td>The lease: the project moved between the fetch that produced <code>expectedProjectVersion</code> and this push. Reported on a synthetic row named <code>&lt;project&gt;</code>, which is not an item and cannot collide with one.</td><td>Pull, then push again.</td></tr>
   <tr><td class="name">STALE_ITEM_VERSION</td><td>That item moved since you read its version — the ordinary edit collision. <code>yourVersion</code> and <code>currentVersion</code> are both set.</td><td>Pull that item, merge, push again.</td></tr>
   <tr><td class="name">ITEM_EXISTS</td><td>A create (<code>ifVersion: null</code>) landed on a name the IDE already holds.</td><td>Fetch its version and push an update, or pick another name. <b>Not</b> pull-and-retry.</td></tr>
-  <tr><td class="name">ITEM_MISSING</td><td>You quoted a version for an item that is gone. <code>currentVersion</code> is null.</td><td>Nothing to merge with — create it, or drop the op.</td></tr>
+  <tr><td class="name">ITEM_MISSING</td><td>You quoted a version for an item that is gone. <code>currentVersion</code> is null. Only ever answered from a <b>complete</b> walk.</td><td>Nothing to merge with — create it, or drop the op.</td></tr>
+  <tr><td class="name">ITEM_UNVERIFIED</td><td>The push could not READ the item — the pre-apply walk skipped the folder it lives in, so absence proves nothing. The opposite news to <code>ITEM_MISSING</code>: the item is almost certainly still there and the <i>bridge</i> is what is impaired.</td><td>Fix what stops the IDE enumerating that folder (see <code>unwalkedFolders</code>). Do not recreate the item.</td></tr>
 </table>
 <div class="note">
   <b>Match <code>conflicts[].code</code>, never the message.</b> Three vocabularies share that field and they

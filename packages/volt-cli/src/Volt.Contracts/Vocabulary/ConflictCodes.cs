@@ -84,8 +84,19 @@ public static class ConflictCodes
     public const string ItemExists = "ITEM_EXISTS";
 
     /// <summary>The client quoted a version for an item that is no longer there. Distinct from
-    /// <see cref="StaleItemVersion"/> because the remedy differs: there is nothing to merge with.</summary>
+    /// <see cref="StaleItemVersion"/> because the remedy differs: there is nothing to merge with.
+    ///
+    /// <para>Only ever answered from a COMPLETE walk — see <see cref="ItemUnverified"/>.</para></summary>
     public const string ItemMissing = "ITEM_MISSING";
+
+    /// <summary>The push could not READ the item, so it will not touch it: the pre-apply walk skipped the
+    /// folder it lives in, and absence from a partial walk means nothing.
+    ///
+    /// <para>Split from <see cref="ItemMissing"/> because the two are opposite news. "The item is gone" invites
+    /// the client to recreate it; here the item is almost certainly still there and the BRIDGE is the thing
+    /// that is impaired. Recreating it would be the wrong move, and under <c>force</c> it is the move the
+    /// client would make. The remedy is to fix whatever stops the IDE enumerating that folder.</para></summary>
+    public const string ItemUnverified = "ITEM_UNVERIFIED";
 
     /// <summary>The name the project-level lease conflict is reported under. It is not an item and never
     /// collides with one: a wire name is `name.kind` and `&lt;` cannot appear in an IEC identifier.
@@ -97,7 +108,7 @@ public static class ConflictCodes
     /// <summary>The gate family, for a client that wants "is this the optimistic gate" without listing them.</summary>
     public static readonly string[] Gate =
     {
-        StaleProjectVersion, StaleItemVersion, ItemExists, ItemMissing,
+        StaleProjectVersion, StaleItemVersion, ItemExists, ItemMissing, ItemUnverified,
     };
 
     /// <summary>The <see cref="BridgeErrorCodes"/> values that reach a client as a CONFLICT rather than as an

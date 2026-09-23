@@ -183,6 +183,7 @@ public class DocDataTests
 
     private static JsonObject BuildSpec()
     {
+        Directions.Clear();
         var schemas = new JsonObject();
         var methods = new JsonArray();
 
@@ -271,7 +272,12 @@ public class DocDataTests
         return new JsonObject { ["$ref"] = "#/components/schemas/" + name };
     }
 
-    /// <summary>Which direction each emitted schema was reached from. Reset per generation.</summary>
+    /// <summary>Which direction each emitted schema was reached from, for the duration of ONE generation.
+    ///
+    /// <para>Cleared at the top of <see cref="BuildSpec"/>, which several facts call. It used to say "reset per
+    /// generation" and never was — surviving only because <c>schemas</c> is fresh each time, so the first
+    /// encounter always overwrote the entry. That is an implicit invariant nothing defends: reorder the
+    /// traversal, add a second entry point, or run two of these in parallel, and the gate throws spuriously.</para></summary>
     private static readonly Dictionary<string, bool> Directions = new(StringComparer.Ordinal);
 
     /// <summary>JSON Schema for one contract type, from its properties and their <c>JsonPropertyName</c>s.</summary>

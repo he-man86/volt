@@ -215,9 +215,16 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// <summary>How many times the tree was walked — lets a test prove an op that must NOT walk doesn't.</summary>
     public int WalkCalls;
 
+    /// <summary>Fire before the walk to model a driver whose TREE READ faults — a COM error on `ChildCount`,
+    /// which both shipped drivers guard for because it is an ordinary event on a live IDE. The fake synthesizes
+    /// its tree from a list and so can never fault on its own, which is exactly why a caller that must survive
+    /// one had no way to prove it here.</summary>
+    public Action? OnWalkItems { get; set; }
+
     public WalkResult WalkItems()
     {
         WalkCalls++;
+        OnWalkItems?.Invoke();
         var items = _items
             .Where(i => !UnwalkableFolders.Any(f => i.Folder == f || i.Folder.StartsWith(f + "/", StringComparison.Ordinal)))
             .Select(i => new ProjectItem(i.Name, Ref(i.Name), i.KindCode, i.Folder))

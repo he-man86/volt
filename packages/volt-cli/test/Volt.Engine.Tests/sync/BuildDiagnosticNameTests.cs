@@ -132,4 +132,50 @@ public class BuildDiagnosticNameTests
 
         Assert.Equal(before, ide.WalkCalls);
     }
+
+    /// <summary>AN UNREADABLE ITEM GETS NO NAME, rather than a BARE one.
+    ///
+    /// <para>`Versioning.VersionedItem` sets `Identity = materialized?.FullName ?? bareName`, so an item whose
+    /// body defeats the reader keeps its bare name there — and a FAILING BUILD is exactly when such an item is
+    /// present, since an unreadable body is the sort of thing a compiler complains about. Reading `.Identity`
+    /// published `CM_Carrier` where the field promises `CM_Carrier.fb` or nothing, and a client resolving that
+    /// as a wire name finds no file, or the wrong one.</para></summary>
+    [Fact]
+    public void An_item_that_cannot_be_materialized_gets_no_name()
+    {
+        var ide = new FakeIde(FakeIde.Item.MalformedGraphical("Broken"))
+        {
+            BuildSucceeds = false,
+            BuildDiagnostics = new List<BridgeDiagnostic>
+            {
+                new() { Name = "Broken", Severity = Severity.Error, Message = "the body is unreadable" },
+            },
+        };
+
+        Assert.Null(Assert.Single(Build(ide).Diagnostics).Name);
+    }
+
+    /// <summary>NAMING IS DECORATION AND MUST NOT EAT THE BUILD. It walks the live tree and reads items, where a
+    /// COM fault is an ordinary event — and the catch around the build turns anything uncoded into a single
+    /// fabricated "Build failed" diagnostic, discarding every real one the compiler just produced. A build that
+    /// ran would report as a build that could not run.</summary>
+    [Fact]
+    public void A_fault_while_naming_keeps_the_real_diagnostics()
+    {
+        var ide = new FakeIde(Pou("Boiler", Prog))
+        {
+            BuildSucceeds = false,
+            OnWalkItems = () => throw new System.InvalidOperationException("COM fault reading the tree"),
+            BuildDiagnostics = new List<BridgeDiagnostic>
+            {
+                new() { Name = "Boiler", Severity = Severity.Error, Message = "C0032: cannot convert" },
+            },
+        };
+
+        var res = Build(ide);
+
+        var diagnostic = Assert.Single(res.Diagnostics);
+        Assert.Contains("C0032", diagnostic.Message);   // the compiler's own, not "Build failed: ..."
+        Assert.Null(diagnostic.Name);                   // nameless beats absent
+    }
 }

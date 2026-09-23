@@ -28,13 +28,16 @@ public class PushDeleteGuardTests
     private static string Prg(string name, string body = "n := 0;") =>
         $"PROGRAM {name}\nVAR\nEND_VAR\n(* @volt-implementation *)\n{body}\n\nEND_PROGRAM\n";
 
-    private static FakeIde WithItem(string name)
+    private static FakeIde WithItem(string name, string folder = "")
     {
         var ide = new FakeIde();
         PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
-            Ops = new List<PushOp> { new SetItemOp { Name = $"{name}.prg", SourceText = Prg(name), IfVersion = null } },
+            Ops = new List<PushOp>
+            {
+                new SetItemOp { Name = $"{name}.prg", ToFolder = folder, SourceText = Prg(name), IfVersion = null },
+            },
         });
         return ide;
     }
@@ -109,5 +112,38 @@ public class PushDeleteGuardTests
 
         Assert.True(res.Accepted, res.Conflicts is null ? "" : string.Join(" | ", res.Conflicts.Select(c => c.Reason)));
         Assert.DoesNotContain("Forced.prg", RefsService.Handle(ide).Items.Keys);
+    }
+
+    /// <summary>AN UNKNOWN FOLDER IS NOT THE ROOT FOLDER.
+    ///
+    /// <para>`ApplyOp` computes `currentFolder = inCache ? cached.Folder : ""`, collapsing "this item sits at the
+    /// project root" and "the pre-apply walk never saw this item, so nothing here knows where it is" onto one
+    /// empty string. Harmless for the set arm, which is about to write a folder anyway. Not harmless for the
+    /// delete guard, which hashes the item's CURRENT folder into the version it compares: an item resolved by
+    /// `ItemLookup.Find` because the walk skipped its subtree got hashed against the root, could never match,
+    /// and was refused with a message blaming a concurrent edit that never happened.</para>
+    ///
+    /// <para>Reachable exactly when a folder will not enumerate — the same condition `unwalkedFolders` exists
+    /// for. The guard already stands down on a null folder; it just never got one.</para></summary>
+    [Fact]
+    public void A_delete_of_an_item_the_walk_could_not_see_is_not_blamed_on_a_race()
+    {
+        var ide = WithItem("Hidden", folder: "Machine");
+        var version = RefsService.Handle(ide).Items["Hidden.prg"];
+
+        // The folder stops enumerating: the pre-apply walk misses the item, `ItemLookup.Find` still resolves it.
+        ide.UnwalkableFolders = new[] { "Machine" };
+        // The lease is taken AFTER, so the project gate — which fires first and would correctly refuse a lease
+        // from the complete walk — is satisfied and the delete guard is the only thing left that can refuse.
+        var lease = RefsService.Handle(ide).ProjectVersion;
+
+        var res = Delete(ide, "Hidden.prg", version, lease);
+
+        // Refused is right — a partial walk cannot verify anything. What must NOT happen is the delete guard
+        // inventing a hash mismatch and reporting a concurrent edit.
+        Assert.False(res.Accepted);
+        var conflict = Assert.Single(res.Conflicts!);
+        Assert.Equal(ConflictCodes.ItemUnverified, conflict.Code);
+        Assert.DoesNotContain("while this push was being applied", conflict.Reason);
     }
 }

@@ -9,13 +9,15 @@ public static class Commands
 {
     /// <summary>An op's in-op precondition failure (the bridge guarding "connected + right project") — mapped by
     /// each command to its own clean refusal result instead of a thrown error. Uses the code the wire now carries.
-    /// <para>It takes the bare CODE, not an exception type, because the SAME refusal reaches a command on two
-    /// carriers: <see cref="PipeCallException"/> (the bridge refused the op) and <see cref="BridgeError"/> (the
-    /// client's own <c>GuardEmptyItems</c> refusing an empty walk it could not confirm). Both are caught beside each
-    /// other below, so one code space produces one outcome. <see cref="BridgeResolver.AmbiguousBridge"/> is
-    /// deliberately NOT a member: a resolver refusal is thrown while <c>Bridge()</c> is evaluated as an ARGUMENT in
-    /// Program's dispatch switch, so it can never reach a catch inside a command — the two-open-IDEs case stays a
-    /// stderr error, and listing the code here would be a test that cannot fire.</para></summary>
+    /// <para>It takes the bare CODE rather than an exception type because it is a statement about the code space,
+    /// not about a carrier. Today the only carrier that reaches a command is <see cref="PipeCallException"/>: the
+    /// bridge refused the op. There was a second — <see cref="BridgeError"/>, raised by the client's own
+    /// `GuardEmptyItems` — and when that guard was deleted the three `catch (BridgeError)` arms beside these
+    /// became unreachable and went with it. <see cref="BridgeError"/> survives because
+    /// <see cref="BridgeResolver"/> still raises it, and that one is thrown while <c>Bridge()</c> is evaluated as
+    /// an ARGUMENT in Program's dispatch switch, so it can never reach a catch inside a command — the same reason
+    /// <see cref="BridgeResolver.AmbiguousBridge"/> is deliberately not a member here: listing it would be a test
+    /// that cannot fire.</para></summary>
     private static bool IsPreconditionRefusal(string code) =>
         code == BridgeErrorCodes.WrongProject || code == BridgeErrorCodes.PlcDisconnected;
 
@@ -243,7 +245,6 @@ public static class Commands
             }, progress.Wrap(0, "Fetching from IDE"));
         }
         catch (PipeCallException e) when (IsPreconditionRefusal(e.Code)) { return PullResult.Refused(e.Message); }
-        catch (BridgeError e) when (IsPreconditionRefusal(e.Code)) { return PullResult.Refused(e.Message); }
 
         // Confirm we fetched the bound project BEFORE merging. The bridge enforced the guard server-side and echoes
         // what it walked (confirm it — cheap; Platform is always stamped, so no version-skew fallback is possible).
@@ -300,7 +301,22 @@ public static class Commands
         // <param name="force"> doc above has to be rewritten with it.
         Git.AutoCommitSrc(root);
         var ideFiles = fetched.Changed.SelectMany(Materialize.MaterializeItem).ToList();
-        var newSidecar = new IdeRefs { ProjectVersion = fetched.ProjectVersion, Items = fetched.Items, Folders = fetched.Folders };
+        // A PARTIAL WALK MUST NOT SHRINK THE BASELINE. `ReadResponse.UnwalkedFolders` says a client that sees
+        // it non-empty must not conclude anything from absence — and REPLACING the sidecar's item map is exactly
+        // that conclusion, one layer past the `removed` list this response already suppressed. Every item under
+        // an unreadable folder would leave `ide-refs.json`, and the damage lands on the next PUSH, not here: an
+        // edit to such a file has no known version, so it goes up as a create and is refused ITEM_EXISTS; a
+        // local delete is skipped by the `guardItems.TryGetValue` gate and reported as "nothing to push"; a
+        // rename throws "has no known IDE version" straight past Commands.Push to the top-level handler.
+        //
+        // Overlaying keeps the unseen entries at the version the last COMPLETE walk gave them, which is the only
+        // honest thing to say about an item nobody could look at.
+        var newItems = fetched.UnwalkedFolders.Count > 0 && sidecar is not null
+            ? sidecar.Items.Concat(fetched.Items.Where(kv => true))
+                           .GroupBy(kv => kv.Key, StringComparer.Ordinal)
+                           .ToDictionary(g => g.Key, g => g.Last().Value, StringComparer.Ordinal)
+            : fetched.Items;
+        var newSidecar = new IdeRefs { ProjectVersion = fetched.ProjectVersion, Items = newItems, Folders = fetched.Folders };
         var head = Git.HeadCommit(root);
         var parentIde = IdeTree.VoltIdeHead(gitDir);
 
@@ -466,7 +482,6 @@ public static class Commands
             }, onProgress);
         }
         catch (PipeCallException e) when (IsPreconditionRefusal(e.Code)) { return PushResult.Rejected(e.Message); }
-        catch (BridgeError e) when (IsPreconditionRefusal(e.Code)) { return PushResult.Rejected(e.Message); }
         if (!resp.Accepted)
         {
             if (resp.Conflicts?.Any(c => c.Code == ConflictCodes.StaleProjectVersion) == true)
@@ -545,7 +560,6 @@ public static class Commands
             }, onProgress);
         }
         catch (PipeCallException e) when (IsPreconditionRefusal(e.Code)) { return BuildResult.Refuse(e.Message); }
-        catch (BridgeError e) when (IsPreconditionRefusal(e.Code)) { return BuildResult.Refuse(e.Message); }
         return new BuildResult { Success = r.Success, Duration = r.Duration, Diagnostics = r.Diagnostics };
     }
 

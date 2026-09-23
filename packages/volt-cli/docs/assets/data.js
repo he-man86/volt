@@ -691,7 +691,8 @@ window.VOLT = {
       "STALE_PROJECT_VERSION",
       "STALE_ITEM_VERSION",
       "ITEM_EXISTS",
-      "ITEM_MISSING"
+      "ITEM_MISSING",
+      "ITEM_UNVERIFIED"
     ],
     "fromBridge": [
       "NOT_FOUND",
