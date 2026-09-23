@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The CLI · Volt bridge</title>
+<link rel="stylesheet" href="assets/doc.css">
+<script src="assets/data.js"></script>
+<script src="assets/surfaces.js"></script>
+<script type="module" src="assets/doc.js"></script>
+</head>
+<body>
+<div class="wrap">
+<nav></nav>
+<main>
+
+<h1>The <code>volt</code> CLI</h1>
+<p class="lede">
+  The third surface, and the one most people meet first. It is a <b>client</b> — everything it does, it does
+  by calling the <a href="wire.html">wire</a> and by running <code>git</code>.
+</p>
+
+<h2 id="model">It is git, not a sync tool</h2>
+<p>
+  <code>volt init</code> makes the project root a real git repository, and the live IDE is modelled as a
+  <b>remote-tracking branch</b>: <code>refs/remotes/volt/ide</code>. So <code>pull</code> fetches the IDE and
+  lets <b>native <code>git merge</code></b> do the reconciliation, and <code>push</code> writes to the IDE and
+  fast-forwards that ref. There is no custom three-way merge engine and no <code>.volt/</code> snapshot
+  directory — the history of what the IDE had is <code>git log volt/ide</code>.
+</p>
+<div class="note">
+  <b>Gating the mutating verbs is the HOST's job.</b> <code>init</code>, <code>pull</code>, <code>push</code>
+  and <code>merge</code> write to a live PLC, so an agent should confirm before running them — but that
+  confirmation belongs in the host's own permission system, not in Volt. The CLI annotates; it does not
+  enforce.
+</div>
+
+<h2 id="binding">Finding the bridge</h2>
+<table>
+  <tr><th>in order</th><th>how</th></tr>
+  <tr><td>1</td><td><code>--pipe &lt;name&gt;</code>, or <code>VOLT_PIPE</code> — names one exactly. This is what the tray's shells set, and what the e2e tier uses.</td></tr>
+  <tr><td>2</td><td>The workspace binding's <b>vendor</b> (<code>.git/volt</code>), which names the pipe PREFIX to discover by.</td></tr>
+  <tr><td>3</td><td><code>--vendor codesys|twincat</code> on the command line, for a workspace that has no binding yet.</td></tr>
+</table>
+<p>
+  A bridge that cannot be reached is not a crash: the CLI prints
+  <i>"bridge is not reachable — is the IDE bridge running?"</i> and exits 1. Timeouts and IO failures land
+  there too, deliberately — from a caller's side they are the same condition.
+</p>
+
+<h2 id="verbs">The verbs</h2>
+<p class="lede">
+  Each one can be run below. Verbs marked <b>writes</b> are refused unless the console was started with
+  <code>--allow-write</code>.
+</p>
+<div data-render="cli-verbs"></div>
+
+<h2 id="exit">Exit codes</h2>
+<p>
+  The part <code>--help</code> never tells you, and the part a script actually branches on.
+</p>
+<div data-render="cli-exit"></div>
+<div class="note">
+  <b>There are only two.</b> The reason for a failure is on <b>stderr</b>, not encoded in the code — so a
+  script can tell success from failure and must read the message for anything finer. <code>volt</code> with no
+  verb prints usage and exits <b>0</b>; an unknown verb prints the same usage and exits <b>1</b>.
+</div>
+
+<h2 id="json">Machine-readable output</h2>
+<p>
+  <code>--json</code> on <code>init</code>, <code>pull</code>, <code>push</code>, <code>status</code> and
+  <code>build</code> prints a single JSON object instead of prose — that is the interface for a tool or an
+  agent. <code>status</code> also has <code>--porcelain</code> for the git-shaped short form, and
+  <code>--local</code> to answer without touching the bridge at all.
+</p>
+
+</main>
+</div>
+</body>
+</html>

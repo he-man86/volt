@@ -188,3 +188,32 @@ a.code {
 a.code:hover { border-color: var(--warn); text-decoration: none; }
 ul.outcomes { margin: 4px 0 0; padding-left: 20px; font-size: 13.5px; }
 ul.outcomes li { margin: 5px 0; }
+
+/* ── try-it panels ──────────────────────────────────────────────────────── */
+
+.note.runner { border-left-color: var(--ok); }
+.note.runner.off { border-left-color: var(--no); }
+.note.runner.write { border-left-color: var(--req); }
+
+.pill.warnpill { color: var(--warn); border-color: var(--warn); }
+
+details.try { margin: 14px 0 0; border-top: 1px dashed var(--line); padding-top: 10px; }
+details.try > summary { font-size: 12.5px; }
+.trybody { margin-top: 8px; }
+.tryin {
+  width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px; line-height: 1.5; padding: 9px 11px; resize: vertical;
+  background: var(--code); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 8px;
+}
+.tryrow { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+.trybtn {
+  font: inherit; font-size: 12.5px; padding: 5px 14px; cursor: pointer;
+  border: 1px solid var(--accent); border-radius: 7px;
+  background: var(--accent); color: #fff;
+}
+.trybtn:disabled { opacity: .45; cursor: not-allowed; }
+.trynote { color: var(--muted); font-size: 11.5px; }
+.tryout {
+  margin: 0; max-height: 380px; overflow: auto; white-space: pre-wrap; word-break: break-word;
+}

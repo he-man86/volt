@@ -20,23 +20,48 @@
   wire, and the vendor driver underneath it.
 </p>
 
-<h2 id="two-layers">Two layers, and which one you want</h2>
+<h2 id="surfaces">The surfaces, and which one you want</h2>
 <p>
-  There are two surfaces here and they are documented separately, because they are reused separately.
+  Volt exposes four things, reached four different ways. They are documented separately because they are used
+  separately — and every one of them can be <b>called</b> from these pages, see below.
 </p>
 <table>
-  <tr><th>you want</th><th>use</th><th>page</th></tr>
+  <tr><th>you want</th><th>use</th><th>reached by</th><th>page</th></tr>
   <tr>
     <td>a PLC project as text, out of a running IDE</td>
-    <td class="mono">8 ops over a named pipe</td>
+    <td class="mono">8 ops</td><td class="mono">a named pipe</td>
     <td><a href="wire.html">The wire</a></td>
   </tr>
   <tr>
+    <td>to see or change which bridges are running</td>
+    <td class="mono">5 routes</td><td class="mono">HTTP :8550</td>
+    <td><a href="connector.html">The connector</a></td>
+  </tr>
+  <tr>
+    <td>to sync a workspace from a terminal or a script</td>
+    <td class="mono">11 verbs</td><td class="mono">argv</td>
+    <td><a href="cli.html">The CLI</a></td>
+  </tr>
+  <tr>
     <td>to drive a PLC IDE from your own program</td>
-    <td class="mono">IIdeDriver</td>
+    <td class="mono">IIdeDriver</td><td class="mono">in-process</td>
     <td><a href="driver.html">The driver layer</a></td>
   </tr>
 </table>
+
+<h2 id="console">Calling them, not just reading about them</h2>
+<p>
+  A description is worth what you can check, and none of these three can be exercised from a page: a browser
+  cannot open a named pipe, the connector refuses cross-origin requests by design, and argv is not something a
+  page has. So the <code>volt</code> binary serves these same files from a process that reaches all three:
+</p>
+<pre>volt console                  # read-only — every call runs, nothing can change a project
+volt console --allow-write    # enables push, the mutating verbs, and control-plane writes</pre>
+<p>
+  Every op, route and verb then carries a <b>Send</b> panel with an editable request and the raw answer —
+  including the progress frames a wire op streams, and the <b>exit code</b> a CLI verb returns. Opened as
+  plain files instead, the pages render identically and say plainly that nothing can be called.
+</p>
 <p>
   The wire is the <b>parity boundary</b>: both vendors serve byte-identical responses for the same project, so
   a client never learns which IDE it is talking to except by asking. Everything that could differ is resolved

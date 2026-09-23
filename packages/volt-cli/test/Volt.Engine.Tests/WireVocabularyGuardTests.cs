@@ -50,8 +50,10 @@ public class WireVocabularyGuardTests
             new[] { "health", "connect", "disconnect", "refs", "fetch", "init", "push", "build" },
             // Program.cs/Git.cs use the same words as CLI verbs / git subcommands; TcObjectModel uses these as human
             // LOG TAGS in the COM driver; ControlServer's HTTP routes (POST /connect, /disconnect) deliberately match
-            // the wire verbs but are a distinct vocabulary (control-plane URLs, not the pipe op) — all separate.
-            new HashSet<string> { "Ops.cs", "Program.cs", "Git.cs", "TcObjectModel.cs", "ControlServer.cs" }),
+            // the wire verbs but are a distinct vocabulary (control-plane URLs, not the pipe op); ConsoleServer's
+            // set is the CLI's MUTATING VERBS, which it runs by spawning the binary with that argv — `push` there
+            // is a command a user types, and the overlap exists only because the CLI was named after what it does.
+            new HashSet<string> { "Ops.cs", "Program.cs", "Git.cs", "TcObjectModel.cs", "ControlServer.cs", "ConsoleServer.cs" }),
 
         ("vendor ids (Vendors)",
             new[] { "codesys", "twincat", "CODESYS", "TwinCAT" },

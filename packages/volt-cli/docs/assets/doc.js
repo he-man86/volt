@@ -9,11 +9,15 @@
 const PAGES = [
   ["index.html", "Overview"],
   ["wire.html", "The wire"],
+  ["connector.html", "The connector"],
+  ["cli.html", "The CLI"],
   ["driver.html", "The driver layer"],
   ["items.html", "Items & kinds"],
   ["network-text.html", "Network text"],
   ["logs.html", "Logs & diagnosis"],
 ]
+
+import { consoleMeta, runBanner, panel, bindPanels, callConsole } from "./console.js"
 
 const esc = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c])
@@ -152,6 +156,11 @@ function renderOps(el) {
             : '<span class="lede">none — this op cannot fail.</span>'}</p>
           ${outs.length ? `<div class="lbl">and how else it can fail</div>
             <ul class="outcomes">${outs.map((o) => `<li>${md(o)}</li>`).join("")}</ul>` : ""}
+          ${panel(
+            `op-${m.name}`,
+            `Call ${m.name}`,
+            JSON.stringify({ op: m.name, body: param ? {} : undefined }, null, 2),
+          )}
         </div>
       </section>`
     })
@@ -230,7 +239,97 @@ function renderList(el, values) {
 
 // ── boot ────────────────────────────────────────────────────────────────────
 
+const S = () => window.VOLT_SURFACES ?? { connector: { routes: [] }, cli: { verbs: [] } }
+
+// ── the connector control plane ─────────────────────────────────────────────
+
+function renderConnectorRoutes(el) {
+  const c = S().connector
+  el.innerHTML = c.routes
+    .map((r, i) => {
+      const id = `conn-${i}`
+      const example = r.body ?? ""
+      return `<section class="entry" id="route-${r.method}-${r.path.replace(/[/{}]/g, "_")}">
+        <header><span class="name">${r.method} ${esc(r.path)}</span>
+          ${r.body ? '<span class="pill">takes a body</span>' : '<span class="pill">no body</span>'}
+          <span class="pill">returns ${esc(r.result)}</span>
+        </header>
+        <div class="body">
+          <p>${md(r.summary)}</p>
+          <div class="lbl err">answers</div>
+          <table><tr><th>status</th><th>when</th></tr>
+            ${r.responses.map((x) => `<tr><td class="num">${x.code}</td><td>${md(x.when)}</td></tr>`).join("")}
+          </table>
+          ${panel(id, `Send ${r.method} ${r.path}`, JSON.stringify({ path: r.path, method: r.method, body: example === "" ? undefined : {} }, null, 2))}
+        </div>
+      </section>`
+    })
+    .join("")
+}
+
+function renderConnectorSchemas(el) {
+  const schemas = S().connector.schemas ?? {}
+  el.innerHTML = Object.entries(schemas)
+    .map(
+      ([name, sc]) => `<section class="entry" id="cs-${name}">
+        <header><span class="name">${name}</span></header>
+        <div class="body">
+          ${sc.description ? `<p>${md(sc.description)}</p>` : ""}
+          <table><tr><th>field</th><th>type</th><th>note</th></tr>
+            ${sc.fields.map((f) => `<tr><td class="name">${esc(f.name)}</td><td class="mono">${esc(f.type)}</td><td>${md(f.note)}</td></tr>`).join("")}
+          </table>
+        </div>
+      </section>`,
+    )
+    .join("")
+}
+
+function renderConnectorErrors(el) {
+  const c = S().connector
+  el.innerHTML = `<p class="lede">${md(c.note ?? "")}</p><table>
+    <tr><th>status</th><th>when</th></tr>
+    ${(c.errors ?? []).map((e) => `<tr><td class="num">${e.code}</td><td>${md(e.when)}</td></tr>`).join("")}
+  </table>`
+}
+
+// ── the CLI ─────────────────────────────────────────────────────────────────
+
+function renderCliVerbs(el) {
+  const cli = S().cli
+  el.innerHTML =
+    `<p class="lede">Global flags: ${(cli.globalFlags ?? []).map((f) => `<code>${esc(f)}</code>`).join(" · ")}
+     &nbsp;·&nbsp; <code>${esc(cli.pipeEnv)}</code> names a pipe directly.</p>` +
+    cli.verbs
+      .map((v, i) => {
+        const id = `cli-${i}`
+        const line = `volt ${v.name}${v.args ? " " + v.args : ""}`
+        return `<section class="entry" id="verb-${v.name}">
+        <header><span class="name">volt ${v.name}</span>
+          ${v.args ? `<span class="pill">${esc(v.args)}</span>` : ""}
+          ${v.mutates ? '<span class="pill warnpill">writes</span>' : '<span class="pill">read-only</span>'}
+        </header>
+        <div class="body">
+          <p>${md(v.summary)}</p>
+          ${v.flags.length ? `<div class="lbl">flags</div><p class="codes">${v.flags.map((f) => `<code>${esc(f)}</code>`).join(" ")}</p>` : ""}
+          ${panel(id, `Run ${line}`, line)}
+        </div>
+      </section>`
+      })
+      .join("")
+}
+
+function renderCliExit(el) {
+  el.innerHTML = `<table><tr><th>code</th><th>means</th></tr>
+    ${S().cli.exitCodes.map((e) => `<tr><td class="num">${e.code}</td><td>${md(e.means)}</td></tr>`).join("")}
+  </table>`
+}
+
 const RENDERERS = {
+  "connector-routes": renderConnectorRoutes,
+  "connector-schemas": renderConnectorSchemas,
+  "connector-errors": renderConnectorErrors,
+  "cli-verbs": renderCliVerbs,
+  "cli-exit": renderCliExit,
   ops: renderOps,
   schemas: renderSchemas,
   kinds: renderKinds,
@@ -286,6 +385,43 @@ function trackPosition() {
   update()
 }
 
+/**
+ * Turn the panels on when a console is behind the page, and say so plainly when there is not one. The banner
+ * goes right under the lede, because "can I trust this?" is the first question and the answer changes what
+ * every panel below means.
+ */
+async function wireTryIt() {
+  if (document.querySelector(".try") === null) return
+  const meta = await consoleMeta()
+  const lede = document.querySelector("main .lede")
+  lede?.insertAdjacentHTML("afterend", runBanner(meta))
+  if (meta.absent) {
+    for (const b of document.querySelectorAll(".trybtn")) b.disabled = true
+    return
+  }
+  bindPanels({
+    // The wire: one op, and EVERY frame it answered with.
+    op: async (text) => callConsole("bridge", JSON.parse(text)),
+    // The control plane: the method rides in a header, because the body is the caller's.
+    conn: async (text) => {
+      const req = JSON.parse(text)
+      const res = await fetch(`_api/connector/${String(req.path ?? "").replace(/^\//, "")}`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "X-Volt-Method": req.method ?? "GET" },
+        body: req.body === undefined ? "" : JSON.stringify(req.body),
+      })
+      return res.json()
+    },
+    // The CLI: a command line, split the way a shell would — quotes respected so a path can hold a space.
+    cli: async (text) => callConsole("cli", { args: splitArgs(text).slice(1) }),
+  })
+}
+
+/** Split a command line into argv, honouring double quotes. `volt show HEAD "My POU.fb"` is one path. */
+function splitArgs(line) {
+  return (line.match(/"[^"]*"|\S+/g) ?? []).map((t) => (t.startsWith('"') ? t.slice(1, -1) : t))
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   // Render the generated blocks BEFORE the nav, so headings they add are in the "on this page" list.
   for (const [name, render] of Object.entries(RENDERERS)) {
@@ -296,4 +432,5 @@ document.addEventListener("DOMContentLoaded", async () => {
   trackPosition()
   const dark = buildThemeToggle()
   await initMermaid(dark)
+  await wireTryIt()
 })

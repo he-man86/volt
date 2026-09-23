@@ -9,6 +9,14 @@
          unify-bridge-cli-language task 2.1). -->
   </PropertyGroup>
   <ItemGroup>
+    <!-- THE DOCS RIDE IN THE BINARY. `volt console` serves them, and it has to work from an INSTALLED copy —
+         where there is no repo beside the exe to read them out of. Link-flattened to `docs.<name>` so the
+         resource key is the URL path with dots, which is what ConsoleServer looks one up by. -->
+    <EmbeddedResource Include="..\..\docs\*.html" LogicalName="docs.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\docs\*.json" LogicalName="docs.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\docs\assets\*" LogicalName="docs.assets.%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
     <!-- Sync/ (the git-native client logic) lives in this project; the pipe client + Core's wire DTOs are its deps. -->
     <ProjectReference Include="..\Volt.Contracts\Volt.Contracts.csproj" />
     <ProjectReference Include="..\Volt.Wire\Volt.Wire.csproj" />

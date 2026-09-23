@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The connector · Volt bridge</title>
+<link rel="stylesheet" href="assets/doc.css">
+<script src="assets/data.js"></script>
+<script src="assets/surfaces.js"></script>
+<script type="module" src="assets/doc.js"></script>
+</head>
+<body>
+<div class="wrap">
+<nav></nav>
+<main>
+
+<h1>The connector</h1>
+<p class="lede">
+  The tray supervisor that decides which bridges run. Its control plane is a small <b>HTTP API on
+  localhost:8550</b> — orchestration only; PLC code never travels here, that is the
+  <a href="wire.html">wire</a>.
+</p>
+
+<h2 id="model">Sessions, not commands</h2>
+<p>
+  A client does not tell the connector to start or stop a bridge. It <b>declares which projects it is
+  using</b>, and the connector reconciles the running bridges to the union of every live session's interests.
+  A client that goes away stops renewing, its interests leave the union, and a bridge nothing else wants stops
+  on its own.
+</p>
+<div class="mermaid">
+sequenceDiagram
+  participant C as client (VS Code / desktop)
+  participant K as connector :8550
+  participant B as bridges
+  C->>K: POST /session
+  K-->>C: { sessionId, leaseSeconds }
+  loop while the client is alive
+    C->>K: POST /session/{id}/sync  { interests }
+    K->>B: reconcile to the union of all sessions
+    K-->>C: ConnectorView
+  end
+  C->>K: DELETE /session/{id}
+  K->>B: stop what nothing wants
+</div>
+<div class="note">
+  <b><code>status</code> is the ground truth, not the list.</b> A disconnected bridge <i>stays listed</i> —
+  that is how you reconnect to it. Serving is <code>status != "idle"</code>. Reading "it appears in the list"
+  as "it is connected" is what once let a UI claim a connection against a gated bridge.
+</div>
+
+<h2 id="port">Reaching it</h2>
+<p>
+  Fixed port <b>8550</b>, overridable with <code>VOLT_CONTROL_PORT</code> — which exists for the live-test
+  tier, so an unattended run can stand a second connector beside the engineer's without fighting it.
+  <b>Localhost only</b>, and a request carrying an <code>Origin</code> header is refused <b>403</b>: this is
+  not a public API, and a page in a browser is not a first-party client.
+</p>
+<div class="note">
+  That refusal is why the console below proxies through the <code>volt</code> process instead of calling
+  :8550 from this page. The 403 is the control plane behaving correctly.
+</div>
+
+<h2 id="routes">The routes</h2>
+<p class="lede">Five of them. Each card can be sent against your running connector.</p>
+<div data-render="connector-routes"></div>
+
+<h2 id="shapes">What it answers with</h2>
+<div data-render="connector-schemas"></div>
+
+<h2 id="failures">Failures</h2>
+<div data-render="connector-errors"></div>
+
+</main>
+</div>
+</body>
+</html>

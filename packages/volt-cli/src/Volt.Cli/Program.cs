@@ -69,6 +69,7 @@ internal static class Program
                 "show" => CmdShow(root, Bridge(), a),
                 "merge" => CmdMerge(root, a),
                 "open" => CmdOpen(a),
+                "console" => CmdConsole(a),
                 // No "--help" arm: ParseArgs routes every `--`-prefixed token into Flags/Values and never into
                 // positional, so a.Verb can never BE "--help". `volt --help` lands on the `_` arm with Verb null ⇒ 0.
                 "help" => Emit(Usage, 0),
@@ -200,6 +201,48 @@ internal static class Program
     ///
     /// <para>It is a convenience for someone already in a terminal, not the way the app is meant to be reached —
     /// that is the Start Menu, like any other Windows app.</para></summary>
+    /// <summary>Serve the interface console — the documentation for all three surfaces, and a client that can
+    /// actually call them.
+    ///
+    /// <para>The three are reached three different ways (a named pipe, an HTTP control plane that refuses
+    /// browsers, and argv), so no page can exercise them on its own and a description of them cannot be
+    /// checked by the person reading it. This process can reach all three, so it stands behind the page.</para>
+    ///
+    /// <para><b>Read-only by default.</b> Two of the surfaces write to a live PLC; `--allow-write` is the
+    /// deliberate act that unlocks `push`, the mutating verbs and every non-GET control-plane route.</para></summary>
+    private static int CmdConsole(Args a)
+    {
+        var port = int.TryParse(a.Value("--port"), out var p) && p > 0 ? p : 8551;
+        var allowWrite = a.Has("--allow-write");
+
+        using var server = new Volt.Cli.Interface.ConsoleServer(
+            port, allowWrite, a.Value("--pipe") ?? Environment.GetEnvironmentVariable("VOLT_PIPE"));
+        try { server.Start(); }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"could not serve on 127.0.0.1:{port} — {ex.Message}");
+            return 1;
+        }
+
+        Console.WriteLine($"Volt interface console  {server.Url}");
+        Console.WriteLine(allowWrite
+            ? "  WRITES ENABLED — push, the mutating verbs and control-plane writes will really run"
+            : "  read-only (start with --allow-write to enable push and the mutating verbs)");
+        Console.WriteLine("  Ctrl+C to stop");
+
+        if (!a.Has("--no-open"))
+            try { Process.Start(new ProcessStartInfo(server.Url) { UseShellExecute = true }); }
+            catch { /* a browser is a convenience; the URL is printed above either way */ }
+
+        // Park until interrupted. The server answers on its own threads; this one only waits, so Ctrl+C is a
+        // clean stop rather than a killed listener.
+        using var stop = new System.Threading.ManualResetEventSlim(false);
+        Console.CancelKeyPress += (_, e) => { e.Cancel = true; stop.Set(); };
+        stop.Wait();
+        Console.WriteLine("console stopped");
+        return 0;
+    }
+
     private static int CmdOpen(Args a)
     {
         var dir = Path.GetFullPath(a.Operand(0) ?? a.Workspace);   // same shape as CmdInit
@@ -246,7 +289,7 @@ internal static class Program
     // So the direction that was missing is now MECHANICAL, in `Args.Value` below: reading a flag that is not in
     // this set throws. It cannot be forgotten, and it cannot reach a user as a silent wrong answer.
     private static readonly HashSet<string> ValueFlags =
-        new() { "--workspace", "--vendor", "--resolve", "--force-with-lease", "--project-name", "--pipe" };
+        new() { "--workspace", "--vendor", "--resolve", "--force-with-lease", "--project-name", "--pipe", "--port" };
 
     private sealed class Args
     {
@@ -318,6 +361,8 @@ internal static class Program
         "  show     a file at a ref:  <ref> <path>   (HEAD / VOLTIDE / MERGE_OURS|THEIRS|BASE / BRIDGE / WORKSPACE)\n" +
         "  merge    finish a conflicted pull:  --continue | --abort | --resolve <path> [--use-ours|--use-theirs]\n" +
         "  open     open the Volt desktop app on this workspace              [<dir>]\n" +
+        "  console  serve the interface console: every bridge op, control-plane route and CLI verb,\n" +
+        "           described AND callable        [--port <n>] [--allow-write] [--no-open]\n" +
         "  version  this binary's own stamped version   (also: --version, -v)\n\n" +
         "  flags: --workspace <dir>  --vendor <codesys|twincat>";
 }
