@@ -16,12 +16,11 @@ describe(`endpoints / push (${BASE})`, () => {
 		await ensureCompiles(name)
 		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "set", name: wire, toFolder: await plcFolder(FOLDER), sourceText: fb(name, { body: "x := 5;" }), ifVersion: "wrongversion" }] })
 		expect(r.accepted).toBe(false)
-		// STRUCTURE, NOT THE SENTENCE. A version conflict is not a coded refusal — it is the optimistic gate
-		// doing its job — so what identifies it is the pair of versions, not the wording. This asserted the
-		// exact English until the message was the only thing a caller could match on.
+		// THE CODE, NOT THE SENTENCE. This asserted the exact English, back when the message was the only thing
+		// a caller could match on; the gate's four outcomes now carry four codes, and the versions ride along.
 		const conflict = r.conflicts.find((c: any) => c.name === wire)
 		expect(conflict, `no conflict for ${wire}: ${JSON.stringify(r.conflicts)}`).toBeDefined()
-		expect(conflict.code ?? null).toBeNull()
+		expect(conflict.code).toBe("STALE_ITEM_VERSION")
 		expect(typeof conflict.currentVersion).toBe("string")
 	})
 
@@ -31,13 +30,13 @@ describe(`endpoints / push (${BASE})`, () => {
 		await ensureCompiles(name)
 		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "set", name: wire, toFolder: await plcFolder(FOLDER), sourceText: fb(name), ifVersion: null }] })
 		expect(r.accepted).toBe(false)
-		expect(r.conflicts.some((c: any) => c.name === wire && c.reason === "expected to create new item but it already exists")).toBe(true)
+		expect(r.conflicts.some((c: any) => c.name === wire && c.code === "ITEM_EXISTS")).toBe(true)
 	})
 
 	it("rejects the batch on a wrong expectedProjectVersion (<project> conflict)", async () => {
 		const r = await bridge.push({ expectedProjectVersion: "deadbeef", ops: [] })
 		expect(r.accepted).toBe(false)
-		expect(r.conflicts.some((c: any) => c.name === "<project>" && c.reason === "expected project version does not match current project version")).toBe(true)
+		expect(r.conflicts.some((c: any) => c.name === "<project>" && c.code === "STALE_PROJECT_VERSION")).toBe(true)
 	})
 
 	it("rejects a delete with a wrong ifVersion", async () => {
@@ -46,11 +45,11 @@ describe(`endpoints / push (${BASE})`, () => {
 		await ensureCompiles(name)
 		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "deleteItem", name: wire, ifVersion: "wrongversion" }] })
 		expect(r.accepted).toBe(false)
-		// Same structural shape as the stale-set case above: the gate refused, so there is no code and the two
-		// versions are what say so.
+		// Same shape as the stale-set case above, and the same code: a delete guarded by a version the IDE has
+		// moved past is the same situation as a write guarded by one.
 		const stale = r.conflicts.find((c: any) => c.name === wire)
 		expect(stale, `no conflict for ${wire}: ${JSON.stringify(r.conflicts)}`).toBeDefined()
-		expect(stale.code ?? null).toBeNull()
+		expect(stale.code).toBe("STALE_ITEM_VERSION")
 		expect(typeof stale.currentVersion).toBe("string")
 	})
 

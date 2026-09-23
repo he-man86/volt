@@ -65,6 +65,41 @@ public static class ConflictCodes
         NetworkDuplicateName, NetworkBadExpression, NetworkUnknownOperator, NetworkUnsupported,
     };
 
+    // ── the optimistic-concurrency gate ────────────────────────────────────────────────────────────
+
+    /// <summary>The push's LEASE is stale: the project moved between the fetch that produced
+    /// <c>expectedProjectVersion</c> and this push. Nothing was applied. Carried on the synthetic
+    /// <see cref="ProjectName"/> row.
+    ///
+    /// <para>Remedy: pull, then push again.</para></summary>
+    public const string StaleProjectVersion = "STALE_PROJECT_VERSION";
+
+    /// <summary>The item moved since the client read its version — the ordinary edit-collision. Remedy: pull
+    /// that item, merge, push again.</summary>
+    public const string StaleItemVersion = "STALE_ITEM_VERSION";
+
+    /// <summary>A CREATE (<c>ifVersion: null</c>) landed on a name the IDE already holds. Remedy: fetch the
+    /// item's version and push it as an update, or pick another name — NOT "pull and retry", which is what the
+    /// stale-version codes mean and what a caller reading only the prose could not tell this apart from.</summary>
+    public const string ItemExists = "ITEM_EXISTS";
+
+    /// <summary>The client quoted a version for an item that is no longer there. Distinct from
+    /// <see cref="StaleItemVersion"/> because the remedy differs: there is nothing to merge with.</summary>
+    public const string ItemMissing = "ITEM_MISSING";
+
+    /// <summary>The name the project-level lease conflict is reported under. It is not an item and never
+    /// collides with one: a wire name is `name.kind` and `&lt;` cannot appear in an IEC identifier.
+    ///
+    /// <para>A constant because the CLI branches on it. It was a bare literal in two files, which is one
+    /// rename away from a `volt push` that stops explaining the single most common refusal it gets.</para></summary>
+    public const string ProjectName = "<project>";
+
+    /// <summary>The gate family, for a client that wants "is this the optimistic gate" without listing them.</summary>
+    public static readonly string[] Gate =
+    {
+        StaleProjectVersion, StaleItemVersion, ItemExists, ItemMissing,
+    };
+
     /// <summary>The <see cref="BridgeErrorCodes"/> values that reach a client as a CONFLICT rather than as an
     /// error frame, because the push catches them. Listing them is what makes the enum honest: without this,
     /// six of the ten codes are published by no op and look unreachable.</summary>

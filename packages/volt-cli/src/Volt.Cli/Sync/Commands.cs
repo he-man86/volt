@@ -469,7 +469,7 @@ public static class Commands
         catch (BridgeError e) when (IsPreconditionRefusal(e.Code)) { return PushResult.Rejected(e.Message); }
         if (!resp.Accepted)
         {
-            if (resp.Conflicts?.Any(c => c.Name == "<project>") == true)
+            if (resp.Conflicts?.Any(c => c.Code == ConflictCodes.StaleProjectVersion) == true)
                 return PushResult.Rejected(forceWithLease is not null
                     ? $"--force-with-lease is stale: the IDE is at {resp.CurrentProjectVersion}, not {forceWithLease} — run `volt pull` first"
                     : "the IDE changed since your last sync — run `volt pull` first (or push --force)");

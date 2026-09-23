@@ -714,6 +714,12 @@ window.VOLT = {
     "INTERNAL_ERROR"
   ],
   "conflictCodes": {
+    "gate": [
+      "STALE_PROJECT_VERSION",
+      "STALE_ITEM_VERSION",
+      "ITEM_EXISTS",
+      "ITEM_MISSING"
+    ],
     "fromBridge": [
       "NOT_FOUND",
       "UNSUPPORTED",
@@ -732,7 +738,8 @@ window.VOLT = {
       "NETWORK_BAD_EXPRESSION",
       "NETWORK_UNKNOWN_OPERATOR",
       "NETWORK_UNSUPPORTED"
-    ]
+    ],
+    "projectRow": "\u003Cproject\u003E"
   },
   "vendors": [
     "codesys",

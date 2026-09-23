@@ -520,8 +520,10 @@ public class DocDataTests
         // `PushConflict.code` and never as an error frame — they were observable and undocumented.
         ["conflictCodes"] = new JsonObject
         {
+            ["gate"] = new JsonArray(ConflictCodes.Gate.Select(c => (JsonNode?)c).ToArray()),
             ["fromBridge"] = new JsonArray(ConflictCodes.FromBridge.Select(c => (JsonNode?)c).ToArray()),
             ["network"] = new JsonArray(ConflictCodes.Network.Select(c => (JsonNode?)c).ToArray()),
+            ["projectRow"] = ConflictCodes.ProjectName,
         },
         // The wire VALUES only — `Vendors` also carries the display spellings, which are a UI concern.
         ["vendors"] = new JsonArray(Vendors.Codesys, Vendors.Twincat),
@@ -660,6 +662,66 @@ public class DocDataTests
                 $"{file} raises '{code}', which is not in ConflictCodes.Network — clients observe these on "
                 + "PushConflict.code, so an unpublished one is a code nobody can look up.");
     }
+
+    /// <summary>EVERY GATE CODE IS ACTUALLY PRODUCED. Same direction as the NETWORK check above and for the
+    /// same reason — Contracts holds no Engine reference, so the family can only be checked against the source
+    /// that raises it.
+    ///
+    /// <para>This family is the one most likely to rot into a lie: its four members describe four outcomes of
+    /// ONE function, and deleting a branch there leaves a published code no client will ever see. That is
+    /// exactly the state all four were in before they had codes at all.</para></summary>
+    [Fact]
+    public void Every_gate_conflict_code_is_produced()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
+            root = root.Parent;
+        Assert.NotNull(root);
+        var source = File.ReadAllText(Path.Combine(root!.FullName, "packages", "volt-cli",
+                                                   "src", "Volt.Engine", "Sync", "PushConflicts.cs"));
+
+        foreach (var name in typeof(ConflictCodes).GetFields(BindingFlags.Public | BindingFlags.Static)
+                     .Where(f => f.IsLiteral && f.FieldType == typeof(string))
+                     .Where(f => ConflictCodes.Gate.Contains((string)f.GetRawConstantValue()!))
+                     .Select(f => f.Name))
+            Assert.True(source.Contains($"ConflictCodes.{name}", StringComparison.Ordinal),
+                $"ConflictCodes.{name} is published in the Gate family but PushConflicts.cs never raises it — "
+                + "a code a client can never observe is a lie in the vocabulary.");
+    }
+
+    /// <summary>EVERY CODE HAS A ROW ON THE PAGE. The generated tables cannot go stale; the HAND-WRITTEN ones
+    /// can, and this is the page a client author reads to find out what a code means.
+    ///
+    /// <para>It had gone stale twice over by the time this was written: <c>UNREADABLE</c> had no row at all,
+    /// <c>BAD_REQUEST</c>'s row said a malformed body arrives as <c>INTERNAL_ERROR</c> (it does not any more),
+    /// and the conflict section said "five of these codes" over a list that had grown to seven. Prose about a
+    /// closed vocabulary is exactly the thing a gate should hold, because nobody re-reads it.</para>
+    ///
+    /// <para>Checks PRESENCE, not wording — the explanation is a human's job and pinning it would make a
+    /// clearer sentence a test failure.</para></summary>
+    [Fact]
+    public void Every_code_has_a_row_on_the_wire_page()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
+            root = root.Parent;
+        Assert.NotNull(root);
+        var page = File.ReadAllText(Path.Combine(root!.FullName, "packages", "volt-cli", "docs", "wire.html"));
+
+        foreach (var code in Consts(typeof(BridgeErrorCodes)).Concat(ConflictCodes.Gate))
+            Assert.True(page.Contains($"class=\"name\">{code}<", StringComparison.Ordinal),
+                $"'{code}' has no row in docs/wire.html — a code a client can observe and cannot look up.");
+
+        // The count in the prose is the other half: a sentence that says "five" over seven rows is worse than
+        // no sentence, because it reads as a closed list and the reader stops looking.
+        Assert.Contains($"{Spell(ConflictCodes.FromBridge.Length)} of these codes", page, StringComparison.Ordinal);
+    }
+
+    private static string Spell(int n) => n switch
+    {
+        4 => "Four", 5 => "Five", 6 => "Six", 7 => "Seven", 8 => "Eight", 9 => "Nine", 10 => "Ten",
+        _ => n.ToString(),
+    };
 
     /// <summary>EVERY DRIVER MEMBER IS LISTED. <see cref="IIdeDriver"/> is the layer another project reuses, so
     /// a facet it does not inherit from would be a whole surface missing from the page with nothing to notice

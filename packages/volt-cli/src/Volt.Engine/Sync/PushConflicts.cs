@@ -21,8 +21,9 @@ internal static class PushConflicts
         if (expectedProjectVersion != null && expectedProjectVersion != currentProjectVersion)
             conflicts.Add(new PushConflict
             {
-                Name = "<project>", YourVersion = expectedProjectVersion,
+                Name = ConflictCodes.ProjectName, YourVersion = expectedProjectVersion,
                 CurrentVersion = currentProjectVersion,
+                Code = ConflictCodes.StaleProjectVersion,
                 Reason = "expected project version does not match current project version",
             });
 
@@ -72,7 +73,12 @@ internal static class PushConflicts
                                 + "push with --force to overwrite it.",
                         });
                     else if (currentVersion != null)
-                        conflicts.Add(new PushConflict { Name = name, YourVersion = null, CurrentVersion = currentVersion, Reason = "expected to create new item but it already exists" });
+                        conflicts.Add(new PushConflict
+                        {
+                            Name = name, YourVersion = null, CurrentVersion = currentVersion,
+                            Code = ConflictCodes.ItemExists,
+                            Reason = "expected to create new item but it already exists",
+                        });
                     else pending[name] = "";          // the new item exists for later ops, under its wire name
                 }
                 else if (currentVersion != clientVersion)   // update / rename / move guard
@@ -100,7 +106,15 @@ internal static class PushConflicts
         return conflicts;
     }
 
+    /// <summary>The two ways an <c>ifVersion</c> gate fails, told apart BY CODE and not only by which version
+    /// field happens to be null.
+    ///
+    /// <para>The remedies differ and a caller has to be able to branch on them: a stale version means pull that
+    /// item, merge and push again; a missing one means there is nothing to merge with, because the item the
+    /// client holds a version for is gone from the IDE. Both used to answer `code: null` and an English
+    /// sentence, so the e2e suite matched the sentence and the CLI printed it unbranched.</para></summary>
     private static PushConflict VersionMismatch(string name, string? clientVersion, string? currentVersion) =>
         new() { Name = name, YourVersion = clientVersion, CurrentVersion = currentVersion,
+                Code = currentVersion == null ? ConflictCodes.ItemMissing : ConflictCodes.StaleItemVersion,
                 Reason = currentVersion == null ? "expected item to exist but it doesn't" : "item changed since you fetched its version" };
 }

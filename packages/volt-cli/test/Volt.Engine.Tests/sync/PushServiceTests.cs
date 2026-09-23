@@ -337,7 +337,7 @@ public class PushServiceTests
         var (v, _) = Ver(ide, "PLC_PRG.prg");
         var resp = Push(ide, "not-the-current-pv", new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nn := 7;" });
         Assert.False(resp.Accepted);
-        Assert.Contains(resp.Conflicts!, c => c.Name == "<project>" && c.Reason == "expected project version does not match current project version");
+        Assert.Contains(resp.Conflicts!, c => c.Name == ConflictCodes.ProjectName && c.Code == ConflictCodes.StaleProjectVersion);
     }
 
     // ── multi-op batch atomicity at the service layer (was only proven in the e2e wire suite) ──

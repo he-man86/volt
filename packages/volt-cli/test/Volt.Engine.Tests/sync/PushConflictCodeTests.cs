@@ -37,22 +37,76 @@ public class PushConflictCodeTests
             Ops = ops.ToList(),
         });
 
-    /// <summary>The one conflict a client already had a structured way to recognise — it sets
-    /// `yourVersion`/`currentVersion`. It carries no CODE, and that is deliberate: a version conflict is not a
-    /// coded refusal, it is the optimistic gate doing its job. Pinned so the change above cannot accidentally
-    /// invent a code for it.</summary>
+    /// <summary>THE GATE'S FOUR OUTCOMES ARE FOUR CODES.
+    ///
+    /// <para>They used to be one: `code: null`, told apart only by which version field happened to be null and
+    /// by a synthetic item named `&lt;project&gt;`. So "your lease is stale, pull and retry", "that name is
+    /// taken, pick another" and "the item you hold a version for is gone, there is nothing to merge with" were
+    /// one undifferentiated answer — three different next steps for the engineer, and a caller could only get
+    /// at them by matching English.</para>
+    ///
+    /// <para>An earlier version of this file pinned the OPPOSITE ("a version conflict is not a coded refusal").
+    /// That was a defensible reading of the old doc comment and it is not the design any more.</para></summary>
     [Fact]
-    public void A_version_conflict_is_not_a_coded_refusal()
+    public void A_stale_item_version_says_so()
     {
         var ide = new FakeIde();
         Push(ide, new SetItemOp { Name = "A.prg", SourceText = Prg("A"), IfVersion = null });
 
         var stale = Push(ide, new SetItemOp { Name = "A.prg", SourceText = Prg("A"), IfVersion = "not-the-version" });
 
+        var conflict = Assert.Single(stale.Conflicts!);
+        Assert.False(stale.Accepted);
+        Assert.Equal(ConflictCodes.StaleItemVersion, conflict.Code);
+        Assert.NotNull(conflict.CurrentVersion);      // still structured — the code is in ADDITION, not instead
+    }
+
+    /// <summary>A create that landed on a name the IDE holds. NOT "pull and retry": the remedy is to fetch the
+    /// item's version and push an update, or pick another name.</summary>
+    [Fact]
+    public void A_create_onto_an_existing_name_says_so()
+    {
+        var ide = new FakeIde();
+        Push(ide, new SetItemOp { Name = "A.prg", SourceText = Prg("A"), IfVersion = null });
+
+        var collide = Push(ide, new SetItemOp { Name = "A.prg", SourceText = Prg("A"), IfVersion = null });
+
+        Assert.False(collide.Accepted);
+        Assert.Equal(ConflictCodes.ItemExists, Assert.Single(collide.Conflicts!).Code);
+    }
+
+    /// <summary>A version quoted for an item that is gone. Distinct from a stale version because there is
+    /// nothing to merge with.</summary>
+    [Fact]
+    public void A_version_for_a_missing_item_says_so()
+    {
+        var ide = new FakeIde();
+
+        var gone = Push(ide, new SetItemOp { Name = "Ghost.prg", SourceText = Prg("Ghost"), IfVersion = "some-version" });
+
+        Assert.False(gone.Accepted);
+        var conflict = Assert.Single(gone.Conflicts!);
+        Assert.Equal(ConflictCodes.ItemMissing, conflict.Code);
+        Assert.Null(conflict.CurrentVersion);
+    }
+
+    /// <summary>The LEASE — the project moved under the push. It is reported on a synthetic row whose name is
+    /// pinned in the vocabulary, because the CLI branches on this one to tell the user to pull.</summary>
+    [Fact]
+    public void A_stale_lease_says_so_on_the_project_row()
+    {
+        var ide = new FakeIde();
+
+        var stale = PushService.Handle(ide, new PushRequest
+        {
+            ExpectedProjectVersion = "a-lease-from-another-lifetime",
+            Ops = new List<PushOp> { new SetItemOp { Name = "A.prg", SourceText = Prg("A"), IfVersion = null } },
+        });
+
         Assert.False(stale.Accepted);
         var conflict = Assert.Single(stale.Conflicts!);
-        Assert.Null(conflict.Code);
-        Assert.NotNull(conflict.CurrentVersion);
+        Assert.Equal(ConflictCodes.StaleProjectVersion, conflict.Code);
+        Assert.Equal(ConflictCodes.ProjectName, conflict.Name);
     }
 
     /// <summary>A body the ST reader cannot read is INVALID_ST — raised as a `BridgeException` inside the

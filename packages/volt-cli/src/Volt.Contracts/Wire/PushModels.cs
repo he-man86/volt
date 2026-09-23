@@ -81,23 +81,35 @@ public class PushConflict
     [JsonPropertyName("reason")]
     public string Reason { get; set; } = "";
 
-    /// <summary>The stable code for a REFUSAL — null for a plain version conflict, which is not a refusal but
-    /// the optimistic gate doing its job (it carries <see cref="YourVersion"/>/<see cref="CurrentVersion"/>
-    /// instead). Omitted from JSON when null.
+    /// <summary>The stable code for this conflict. <b>Never null</b> — every conflict the push can produce
+    /// carries one, so a caller branches on the code and never on the prose.
     ///
-    /// <para><b>Two vocabularies share this field, and that is deliberate.</b> A body the format refuses
-    /// answers with one of <see cref="ConflictCodes.Network"/> (and a <see cref="Line"/>) — e.g.
-    /// <c>NETWORK_PARSE</c> or <c>NETWORK_NOT_CANONICAL</c>; everything else the push refuses answers with one
-    /// of <see cref="ConflictCodes.FromBridge"/>. They cannot collide: the network-text exception
-    /// carries its own code and is NOT an <c>ICodedError</c>, precisely so a <c>NETWORK_*</c> value can never
-    /// escape into an error FRAME, whose vocabulary is documented as BridgeErrorCodes alone.</para>
+    /// <para><b>Three vocabularies share this field, and that is deliberate.</b></para>
+    /// <list type="bullet">
+    /// <item><see cref="ConflictCodes.Gate"/> — the optimistic-concurrency gate: a stale lease, a stale item
+    /// version, a create that collided, a version quoted for an item that is gone.</item>
+    /// <item><see cref="ConflictCodes.Network"/> — a graphical body the FBD/LD format refuses. These carry a
+    /// <see cref="Line"/> too.</item>
+    /// <item><see cref="ConflictCodes.FromBridge"/> — everything else the push itself refuses.</item>
+    /// </list>
+    /// <para>They cannot collide: the network-text exception carries its own code and is NOT an
+    /// <c>ICodedError</c>, precisely so a <c>NETWORK_*</c> value can never escape into an error FRAME, whose
+    /// vocabulary is documented as BridgeErrorCodes alone.</para>
     ///
     /// <para>This used to carry the network-text code and nothing else, so every coded refusal a push raised —
     /// NOT_FOUND, UNSUPPORTED, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, INVALID_CODE_HEADER — arrived as a
     /// message with no code. Since a push answers refusals as CONFLICTS rather than error frames, those six
     /// were unobservable anywhere on the wire, and callers matched the English instead: the e2e suite asserted
-    /// on an exact sentence and the CLI printed the prose unbranched. A caller could not separate "pull and
-    /// retry" from "this shape can never be written".</para></summary>
+    /// on an exact sentence and the CLI printed the prose unbranched.</para>
+    ///
+    /// <para>The GATE family is the second half of that. Its four outcomes were all `code: null`, told apart
+    /// only by which version field happened to be null and by a synthetic item named <c>&lt;project&gt;</c> —
+    /// so "your lease is stale, pull and retry", "that name is taken, pick another" and "the item you hold a
+    /// version for is gone, there is nothing to merge with" were one undifferentiated answer. They are three
+    /// different next steps for the engineer.</para>
+    ///
+    /// <para>The property stays nullable because deserializing an older bridge's response must not throw; a
+    /// client reading null is talking to a bridge that predates this.</para></summary>
     [JsonPropertyName("code")]
     public string? Code { get; set; }
 
