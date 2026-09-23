@@ -200,7 +200,7 @@ public class DocDataTests
                     {
                         ["name"] = "body",
                         ["required"] = true,
-                        ["schema"] = Reference(param, schemas),
+                        ["schema"] = Reference(param, schemas, isRequest: true),
                     }),
             };
             // A specification EXTENSION (`x-`), not OpenRPC's own `errors` field: that one wants JSON-RPC
@@ -216,7 +216,7 @@ public class DocDataTests
                         ["type"] = "object",
                         ["properties"] = new JsonObject { ["ok"] = new JsonObject { ["type"] = "boolean" } },
                     } }
-                : new JsonObject { ["name"] = "result", ["schema"] = Reference(result, schemas) };
+                : new JsonObject { ["name"] = "result", ["schema"] = Reference(result, schemas, isRequest: false) };
             methods.Add(m);
         }
 
@@ -249,20 +249,33 @@ public class DocDataTests
         };
     }
 
-    /// <summary>A `$ref` to the type's schema, generating it into <paramref name="schemas"/> on first sight.</summary>
-    private static JsonObject Reference(Type t, JsonObject schemas)
+    /// <summary>A `$ref` to the type's schema, generating it into <paramref name="schemas"/> on first sight.
+    ///
+    /// <para><paramref name="isRequest"/> travels with it because REQUIREDNESS depends on the direction — see
+    /// <see cref="IsOptional"/>. No contract type is used in both directions today, and <see cref="Directions"/>
+    /// is the gate that keeps it that way: a type reached from both would be emitted once, with whichever
+    /// direction got there first.</para></summary>
+    private static JsonObject Reference(Type t, JsonObject schemas, bool isRequest)
     {
         var name = t.Name;
         if (!schemas.ContainsKey(name))
         {
+            Directions[name] = isRequest;
             schemas[name] = new JsonObject();          // placeholder FIRST, so a self-referencing type terminates
-            schemas[name] = SchemaOf(t, schemas);
+            schemas[name] = SchemaOf(t, schemas, isRequest);
         }
+        else if (Directions.TryGetValue(name, out var first) && first != isRequest)
+            throw new InvalidOperationException(
+                $"'{name}' is reached as both a request and a response type. Requiredness differs by direction, "
+                + "so one schema cannot describe both — split the type, or teach this generator to emit two.");
         return new JsonObject { ["$ref"] = "#/components/schemas/" + name };
     }
 
+    /// <summary>Which direction each emitted schema was reached from. Reset per generation.</summary>
+    private static readonly Dictionary<string, bool> Directions = new(StringComparer.Ordinal);
+
     /// <summary>JSON Schema for one contract type, from its properties and their <c>JsonPropertyName</c>s.</summary>
-    private static JsonObject SchemaOf(Type t, JsonObject schemas)
+    private static JsonObject SchemaOf(Type t, JsonObject schemas, bool isRequest)
     {
         var props = new JsonObject();
         var required = new JsonArray();
@@ -272,10 +285,8 @@ public class DocDataTests
         {
             var wireName = p.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name
                            ?? JsonNamingPolicy.CamelCase.ConvertName(p.Name);
-            props[wireName] = TypeSchema(p.PropertyType, schemas);
-            // NULLABLE is the signal for optional, which is how the wire reads it: an ABSENT field means
-            // "unchanged"/"not asked", and that distinction is load-bearing (`toFolder` absent vs `""`).
-            if (!IsOptional(p)) required.Add(wireName);
+            props[wireName] = TypeSchema(p.PropertyType, schemas, isRequest);
+            if (!IsOptional(p, isRequest)) required.Add(wireName);
         }
 
         var schema = new JsonObject { ["type"] = "object", ["properties"] = props };
@@ -305,20 +316,32 @@ public class DocDataTests
             if (!required.Any(r => (string?)r == tag)) required.Add(tag);
             schema["required"] = required;
 
-            schema["oneOf"] = new JsonArray(derived.Select(d => (JsonNode?)Reference(d.DerivedType, schemas)).ToArray());
+            schema["oneOf"] = new JsonArray(derived.Select(d => (JsonNode?)Reference(d.DerivedType, schemas, isRequest)).ToArray());
             schema["description"] = $"A discriminated union: `{tag}` selects "
                 + string.Join(" or ", derived.Select(d => $"`{d.TypeDiscriminator}`")) + ".";
         }
         return schema;
     }
 
-    private static bool IsOptional(PropertyInfo p)
+    /// <summary>Whether a client may OMIT this field — which is not the same question in both directions.
+    ///
+    /// <para>NULLABLE is the signal on both sides: an absent field means "unchanged"/"not asked", and that
+    /// distinction is load-bearing (`toFolder` absent vs `""`).</para>
+    ///
+    /// <para>On a REQUEST a non-nullable VALUE type is optional too, because the deserializer supplies its
+    /// default and absence is the normal way to say it. `fetch` with no `init` is an ordinary incremental fetch
+    /// and `push` with no `force` is an ordinary push — both were marked REQUIRED, so the document told a
+    /// generated client it had to send `init: false` and `force: false` to make a plain call.</para>
+    ///
+    /// <para>On a RESPONSE the same type IS required: `System.Text.Json` writes every property, so `accepted`,
+    /// `duration` and `librariesRefreshed` are always on the wire and a client can rely on them being there.</para></summary>
+    private static bool IsOptional(PropertyInfo p, bool isRequest)
     {
         if (!p.PropertyType.IsValueType) return new NullabilityInfoContext().Create(p).WriteState != NullabilityState.NotNull;
-        return Nullable.GetUnderlyingType(p.PropertyType) != null;
+        return isRequest || Nullable.GetUnderlyingType(p.PropertyType) != null;
     }
 
-    private static JsonNode TypeSchema(Type t, JsonObject schemas)
+    private static JsonNode TypeSchema(Type t, JsonObject schemas, bool isRequest)
     {
         t = Nullable.GetUnderlyingType(t) ?? t;
         if (t == typeof(string)) return new JsonObject { ["type"] = "string" };
@@ -333,16 +356,16 @@ public class DocDataTests
             return new JsonObject
             {
                 ["type"] = "object",
-                ["additionalProperties"] = TypeSchema(t.GetGenericArguments()[1], schemas),
+                ["additionalProperties"] = TypeSchema(t.GetGenericArguments()[1], schemas, isRequest),
             };
 
         if (t != typeof(string) && typeof(IEnumerable).IsAssignableFrom(t))
         {
             var item = t.IsArray ? t.GetElementType()! : t.GetGenericArguments().FirstOrDefault() ?? typeof(object);
-            return new JsonObject { ["type"] = "array", ["items"] = TypeSchema(item, schemas) };
+            return new JsonObject { ["type"] = "array", ["items"] = TypeSchema(item, schemas, isRequest) };
         }
 
-        if (t.IsClass || (t.IsValueType && !t.IsPrimitive)) return Reference(t, schemas);
+        if (t.IsClass || (t.IsValueType && !t.IsPrimitive)) return Reference(t, schemas, isRequest);
         return new JsonObject { };
     }
 

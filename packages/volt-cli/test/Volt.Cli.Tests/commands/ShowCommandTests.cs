@@ -1,6 +1,8 @@
 using System.IO;
 using System.Text;
 using Volt.Cli.Sync;
+using Volt.Contracts;
+using Volt.Wire;
 using Xunit;
 using static Volt.Cli.Tests.CommandHarness;
 
@@ -132,6 +134,32 @@ public class ShowCommandTests
             Assert.Contains("x := 1;", ShowText(root, client, "MERGE_BASE"));
             Assert.Contains("x := 2;", ShowText(root, client, "MERGE_OURS"));
             Assert.Contains("x := 99;", ShowText(root, client, "MERGE_THEIRS"));
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>`volt show BRIDGE` READS THE PROJECT THE WORKSPACE IS BOUND TO, or nothing.
+    ///
+    /// <para>It was the last call in the CLI that asked the live IDE for content without saying which project it
+    /// wanted. With a different project open — a rebind, a second IDE window, the seconds after a reopen — it
+    /// answered with a same-named item from THAT project, and the diff pane rendered it against the workspace as
+    /// though it were the engineer's own drift. Every other read has carried the binding since the guard moved
+    /// in-op; this one did not, and it is the one whose output a human reads as a diff.</para></summary>
+    [Fact]
+    public void Show_BRIDGE_refuses_when_the_ide_is_serving_another_project()
+    {
+        // `Bound` binds the workspace to "Demo"; this IDE is serving something else. The happy path is covered
+        // by the ref matrix at the top of this file.
+        var ide = new FakeIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"))
+        {
+            HealthConnected = true, HealthPlatform = "codesys", HealthProjectName = "SomethingElse",
+        };
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            var ex = Assert.Throws<PipeCallException>(() => Commands.Show(root, client, "BRIDGE", "PLC_PRG.prg"));
+
+            Assert.Equal(BridgeErrorCodes.WrongProject, ex.Code);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }

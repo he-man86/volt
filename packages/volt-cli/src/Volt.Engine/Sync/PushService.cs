@@ -39,6 +39,18 @@ public static class PushService
         // container-managers) so an op never misses one. But the PROJECT-level lease version MUST hash the same
         // gated set /refs/fetch/receipt use (ProjectSnapshot.IsTracked) — else a divergent gate makes the client
         // baseline mismatch the pre-apply hash and every push wrongly reports "pull first".
+        // THE PRE-FLIGHT WALK IS THE SLOW HALF OF A PUSH, and it says so now. `Versioning.SafeVersion`
+        // MATERIALIZES each item — declaration + implementation, assembled to ST — so on a real project this is
+        // a full read before the first write, and it used to run in silence: the client's bar sat on the bare
+        // title until the `applying` phase, which on `Lenze_MID-S100` is most of the wall clock.
+        onProgress?.Invoke(new ProgressFrame { Operation = Ops.Push, Phase = "checking" });
+
+        // ...AND IT IS SKIPPED WHEN NOTHING WILL READ IT. `--force` tells PushConflicts to skip every per-item
+        // `ifVersion` check, so the only consumer left is the project-level LEASE — and that runs only when the
+        // caller quoted one. A plain `push --force` therefore paid for materializing every item in the project
+        // to build two maps that nothing then looked at. The item CACHE is still needed either way: it is what
+        // the apply boundary resolves each op against, and it comes from the walk, not from the read.
+        var needVersions = !request.Force || request.ExpectedProjectVersion != null;
         var currentVersions = new Dictionary<string, string>();
         var gatedVersions = new Dictionary<string, string>();
         var itemCache = new Dictionary<string, (ItemRef Item, string Folder)>(StringComparer.OrdinalIgnoreCase);
@@ -49,19 +61,22 @@ public static class PushService
         {
             var kind = ItemKind.Map(it.KindCode);
             if (kind == null) continue;
+            if (ItemKind.IsAddressableItem(it.KindCode)) itemCache[it.Name] = (it.Item, it.Folder);
+            if (!needVersions) continue;
             // Resilient: a malformed item must not crash the push. It still gets a (sentinel) version and stays
             // in itemCache — its ItemRef comes from WalkItems, not the read — so it remains deletable.
             var v = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder);
             var version = v.Version;
             // Keyed by the item's WIRE IDENTITY (see VersionedItem) — the client can only quote back an identity
-            // it was GIVEN, so the ifVersion gate has to look it up under that same one. `itemCache` below stays
+            // it was GIVEN, so the ifVersion gate has to look it up under that same one. `itemCache` above stays
             // BARE on purpose: that is the IDE's OWN lookup key, one rung below the wire.
             currentVersions[v.Identity] = version;
             if (ProjectSnapshot.IsTracked(it.KindCode)) gatedVersions[v.Identity] = version;
-            if (ItemKind.IsAddressableItem(it.KindCode)) itemCache[it.Name] = (it.Item, it.Folder);
         }
 
-        var currentProjectVersion = Hasher.ComputeProjectVersion(gatedVersions);
+        // Empty when the walk skipped the reads — and unread in that case, because the only thing that consumes
+        // it is the lease comparison, which is exactly the branch that turns the reads back on.
+        var currentProjectVersion = needVersions ? Hasher.ComputeProjectVersion(gatedVersions) : "";
         var conflicts = PushConflicts.DetectConflicts(request.Ops, request.ExpectedProjectVersion, request.Force, currentVersions, currentProjectVersion);
         if (conflicts.Count > 0)
         {

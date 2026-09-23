@@ -19,9 +19,13 @@ public sealed class ProgressFrame
     [JsonPropertyName("phase")]
     public string? Phase { get; set; }
 
-    // Multi-phase operations (pull/init: fetch → write → finalize) set these so a frontend can fold the per-phase
-    // fraction into one monotonic overall bar: (PhaseIndex + Done/Total) / PhaseCount. Null on a single-phase op
-    // (a bare fetch/push/build), where Done/Total alone is the whole bar.
+    // NEVER SET BY THE BRIDGE. A pipe client sees these null on every frame, always: the bridge serves one op
+    // at a time and has no idea it is step 2 of a `volt pull`. They are filled in CLI-side by `PhaseProgress`,
+    // which wraps the bridge's frames as a multi-step VERB runs (pull/init: fetch → write → finalize) so a
+    // frontend can fold the per-phase fraction into one monotonic bar: (PhaseIndex + Done/Total) / PhaseCount.
+    //
+    // They live on the wire type because the CLI re-emits that type to ITS clients rather than defining a second
+    // one. Anyone reading this as a bridge contract will wait for a value that never arrives.
     [JsonPropertyName("phaseIndex")]
     public int? PhaseIndex { get; set; }
 

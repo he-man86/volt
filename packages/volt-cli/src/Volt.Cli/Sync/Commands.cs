@@ -540,7 +540,19 @@ public static class Commands
         {
             var name = Extensions.FullNameFromPath(rel);
             if (name is null) return (null, $"unrecognized path: {rel}", false);
-            var resp = bridge.FetchChanges(new FetchRequest { KnownItems = new() { [name] = "" }, OnlyItems = new() { name } });
+            // THE BOUND IDENTITY, like every other read. This was the last call in the CLI that asked the live
+            // IDE for content without saying which project it wanted — so with the wrong project open, `volt
+            // show BRIDGE` answered with a same-named item from it, and the diff pane rendered that against the
+            // workspace as though it were the engineer's own drift. The binding is optional on the wire for
+            // discovery callers; this one is not a discovery caller.
+            var bound = Config.ConfigExists(root) ? Config.LoadConfig(root).Project : null;
+            var resp = bridge.FetchChanges(new FetchRequest
+            {
+                KnownItems = new() { [name] = "" },
+                OnlyItems = new() { name },
+                ExpectedPlatform = bound?.Platform,
+                ExpectedProjectName = bound?.ProjectName,
+            });
             var item = resp.Changed.FirstOrDefault(i => i.Name == name);
             return item is not null ? (Encoding.UTF8.GetBytes(item.SourceText), null, false) : (null, $"bridge has no item {name}", true);
         }

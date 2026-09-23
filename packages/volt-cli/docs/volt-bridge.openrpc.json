@@ -351,10 +351,7 @@
           "expectedProjectName": {
             "type": "string"
           }
-        },
-        "required": [
-          "init"
-        ]
+        }
       },
       "FetchResponse": {
         "type": "object",
@@ -464,8 +461,7 @@
           }
         },
         "required": [
-          "ops",
-          "force"
+          "ops"
         ]
       },
       "PushOp": {

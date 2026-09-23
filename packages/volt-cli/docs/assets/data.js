@@ -355,10 +355,7 @@ window.VOLT = {
             "expectedProjectName": {
               "type": "string"
             }
-          },
-          "required": [
-            "init"
-          ]
+          }
         },
         "FetchResponse": {
           "type": "object",
@@ -468,8 +465,7 @@ window.VOLT = {
             }
           },
           "required": [
-            "ops",
-            "force"
+            "ops"
           ]
         },
         "PushOp": {
