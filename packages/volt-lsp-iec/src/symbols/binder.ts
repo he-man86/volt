@@ -29,8 +29,13 @@ import type {
   VarSectionKind,
 } from "../syntax/index.js"
 import { lex, type Dialect } from "../syntax/index.js"
-import { createProjectScope, defineSymbol, makeScope, type Scope, type SymbolKind } from "./symbol.js"
-import { bindLibraryNamespaces, type LibraryManifest } from "./library-namespace.js"
+import { createProjectScope, defineSymbol, libraryOf, makeScope, type Scope, type SymbolKind } from "./symbol.js"
+import {
+  bindLibraryNamespaces,
+  manifestsByTitle,
+  visibleFolders,
+  type LibraryManifest,
+} from "./library-namespace.js"
 
 export interface SymbolTableInput {
   /** URI of the source document. "" is allowed for tests that don't track URIs. */
@@ -63,7 +68,7 @@ export function buildSymbolTable(
 ): Scope {
   const project = createProjectScope(dialect)
   for (const file of files) bindFile(project, file)
-  linkExtends(project)
+  linkExtends(project, manifests)
   bindLibraryNamespaces(project, manifests)
   return project
 }
@@ -114,21 +119,123 @@ export function unbindFile(project: Scope, uri: string): void {
 }
 
 /**
- * Post-pass: link each `EXTENDS` scope to its base scope. Separated from the ingest walk because
- * the base may live in a later file — resolution needs the whole project ingested first. Idempotent:
- * resets every base pointer first so an incremental re-link can't leave a link into a removed scope.
+ * Post-pass: link each `EXTENDS` scope to its base scope. Separated from the ingest walk because the base may
+ * live in a later file — resolution needs the whole project ingested first. Idempotent: resets every base
+ * pointer first so an incremental re-link can't leave a link into a removed scope.
+ *
+ * <b>A NAME CAN HAVE SEVERAL CANDIDATES, AND WHICH ONE IS RIGHT DEPENDS ON WHO IS ASKING.</b> This used to be
+ * one `Map.set` per candidate, so the LAST one bound won — and bind order is file order, which is
+ * `readdirSync` order. Measured across the six corpus projects: 343 names have more than one candidate and 19
+ * of those are reached by an `EXTENDS`. They are not harmless duplicates. `ETRIG` is exported by BOTH `CAA
+ * Behaviour Model` (namespace CBM, CAA Technical Workgroup) and `CBML` (Common Behaviour Model, 3S) with
+ * DIFFERENT declarations — `ETRIGTL` carries an `EXTENDS` in one and none in the other — and both libraries
+ * are referenced by the same project. CODESYS tells them apart by NAMESPACE; Volt materializes both into
+ * `Library Manager/<folder>/` under their bare names, so the bare name really is ambiguous here.
+ *
+ * The manifests settle it, and they already carry what is needed. `CAA Device Diagnosis`, `CAA File` and `CAA
+ * Storage` each DEPEND ON `CAA Behaviour Model`, so their `EXTENDS ETRIG` means CBM's. `VisuUtils` depends on
+ * `CBML`, so the same three characters in that file mean a different base class. No positional rule can be
+ * right for both, which is why this resolves by who is asking:
+ *
+ *   0. the asker's OWN library (project source: another project unit)
+ *   1. a library the asker's library DEPENDS ON
+ *   2. any library at all, but only for a PROJECT unit — project code may use anything it references
+ *   3. anything else
+ *
+ * Ties break on the defining URI, so the answer does not depend on bind order at any rank. That matters
+ * beyond determinism: the live server re-links incrementally as files open and change, so a bind-order rule
+ * could hand the same workspace different bases between two keystrokes.
  */
-export function linkExtends(project: Scope): void {
+/**
+ * Put the project scope into a CANONICAL order: by defining URI, then by position within that file.
+ *
+ * <b>Why this is not cosmetic.</b> `project.children` and each `project.symbols` array are in BIND order,
+ * which is the order files were handed to the binder — `readdirSync` order in a batch build, and open/edit
+ * order in the live server. Every lookup that takes the first match therefore inherits it, and a real project
+ * has duplicates for them to disagree about: 343 top-level names in the six corpus projects have more than
+ * one candidate, because two referenced libraries may legitimately export the same bare name.
+ *
+ * Measured: lowering the corpus with the files reversed produced a different set of routines — 588 against
+ * 558 — with no other change. Names resolved to a different library, so a hover, a go-to-definition and the
+ * transpiler's output all depended on the shape of the disk.
+ *
+ * <b>Canonical is not the same as CORRECT</b>, and the difference is worth stating. Sorting makes the answer
+ * the same everywhere; it does not make it the right one when two libraries really do export different types
+ * under one name. That question needs to know WHO is asking, and `linkExtends` below answers it properly for
+ * `EXTENDS` using the manifests' own `DEPENDENCIES`. Lookups that have no asker in hand get determinism here
+ * and nothing more — which is strictly better than what they had, and honest about what is still open.
+ *
+ * It lives in `linkExtends` because every path that mutates the table already re-runs it — `buildSymbolTable`
+ * once at the end, `workspace-store` after each `bindFile`/`unbindFile`. A separate function would be a
+ * second thing to remember, and the first caller to forget it would reintroduce exactly this bug.
+ */
+function canonicalize(project: Scope): void {
+  const at = (u: string | undefined): string => u ?? ""
+  project.children.sort(
+    (a, b) =>
+      (at(a.defUri) < at(b.defUri) ? -1 : at(a.defUri) > at(b.defUri) ? 1 : 0) ||
+      (a.span?.start ?? 0) - (b.span?.start ?? 0),
+  )
+  for (const syms of project.symbols.values())
+    syms.sort(
+      (a, b) =>
+        (at(a.uri) < at(b.uri) ? -1 : at(a.uri) > at(b.uri) ? 1 : 0) ||
+        (a.span?.start ?? 0) - (b.span?.start ?? 0),
+    )
+  // The lazy indices are built off these orders, so they cannot survive a reorder.
+  project._childIndex = undefined
+  project._childIndexLen = undefined
+  project._spanIndex = undefined
+}
+
+export function linkExtends(project: Scope, manifests: readonly LibraryManifest[] = []): void {
+  canonicalize(project)
   for (const c of project.children) c.baseScope = undefined
-  const byName = new Map<string, Scope>()
+
+  const candidates = new Map<string, Scope[]>()
   for (const c of project.children) {
-    if (c.extendsName !== undefined || c.kind === "pou" || c.kind === "interface" || c.kind === "struct")
-      byName.set(c.name.toLowerCase(), c)
+    if (c.extendsName === undefined && c.kind !== "pou" && c.kind !== "interface" && c.kind !== "struct")
+      continue
+    const key = c.name.toLowerCase()
+    const list = candidates.get(key)
+    if (list === undefined) candidates.set(key, [c])
+    else list.push(c)
   }
+
+  // folder (lower) -> the folders that library can see. Built once; empty when a workspace has no manifests,
+  // in which case every library candidate falls to the last rank and the URI tiebreak decides — still
+  // deterministic, just uninformed.
+  const byTitle = manifestsByTitle(manifests)
+  const visible = new Map<string, Set<string>>()
+  for (const m of manifests) visible.set(m.folder.toLowerCase(), visibleFolders(manifests, m, byTitle))
+
+  const folderOf = (c: Scope): string | undefined =>
+    c.defUri === undefined ? undefined : libraryOf({ uri: c.defUri })?.toLowerCase()
+
+  const rank = (candidate: Scope, asker: Scope): number => {
+    const mine = folderOf(asker)
+    const theirs = folderOf(candidate)
+    if (mine === undefined) return theirs === undefined ? 0 : 2
+    if (theirs === undefined) return 3
+    if (theirs === mine) return 0
+    return visible.get(mine)?.has(theirs) === true ? 1 : 3
+  }
+
   for (const c of project.children) {
     if (c.extendsName === undefined) continue
-    const base = byName.get(c.extendsName)
-    if (base !== undefined && base !== c) c.baseScope = base
+    let best: Scope | undefined
+    let bestRank = Number.POSITIVE_INFINITY
+    for (const candidate of candidates.get(c.extendsName) ?? []) {
+      if (candidate === c) continue
+      const r = rank(candidate, c)
+      // Strictly better, or the same rank and an earlier URI — never "the later one", which is the rule this
+      // replaces and the one that made the answer a property of the disk.
+      if (r < bestRank || (r === bestRank && best !== undefined && String(candidate.defUri) < String(best.defUri))) {
+        best = candidate
+        bestRank = r
+      }
+    }
+    if (best !== undefined) c.baseScope = best
   }
 }
 

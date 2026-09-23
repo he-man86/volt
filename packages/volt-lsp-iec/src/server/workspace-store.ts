@@ -143,7 +143,9 @@ export class WorkspaceStore {
     } else {
       this.boundDocs.delete(key)
     }
-    linkExtends(this.projectScope)
+    // WITH the manifests: `linkExtends` resolves an ambiguous base by the asker's library and its
+    // dependencies, and re-linking without them would silently demote every library base to the last rank.
+    linkExtends(this.projectScope, this.workspaceRefs.libraryManifests)
     this.markDeadDirtyIfReachChanged(key, desired)
   }
 

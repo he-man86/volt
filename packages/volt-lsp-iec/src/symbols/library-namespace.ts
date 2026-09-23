@@ -58,9 +58,39 @@ export function parseLibraryManifest(uri: string, source: string): LibraryManife
  * Give each manifest's library a namespace scope over the units it materialized. Call after every file is bound.
  * A namespace a project unit already owns is left alone — the project's own name wins, as it does everywhere else.
  */
+/**
+ * The library folders one library can SEE: itself, plus the folders its `DEPENDENCIES` titles name.
+ *
+ * This is the one definition, and it has two callers for a reason. `bindLibraryNamespaces` needs it to decide
+ * which units a namespace scope covers; `linkExtends` needs the SAME answer to decide which `ETRIG` an
+ * `EXTENDS ETRIG` inside a library means — and the two must agree, or a name would resolve one way through a
+ * namespace and another way through inheritance.
+ *
+ * Direct dependencies only, which is what the corpus needs: every ambiguous `EXTENDS` measured there names a
+ * library its extender depends on DIRECTLY. Transitivity is not assumed because nothing has measured that a
+ * library sees its dependencies' dependencies unqualified.
+ */
+export function visibleFolders(
+  manifests: readonly LibraryManifest[],
+  manifest: LibraryManifest,
+  byTitle: ReadonlyMap<string, LibraryManifest>,
+): Set<string> {
+  return new Set(
+    [manifest, ...manifest.dependencies.flatMap((d) => byTitle.get(d.toLowerCase()) ?? [])].map((m) =>
+      m.folder.toLowerCase(),
+    ),
+  )
+}
+
+/** Manifests keyed by the LIBRARY title other manifests name them by. */
+export const manifestsByTitle = (
+  manifests: readonly LibraryManifest[],
+): Map<string, LibraryManifest> =>
+  new Map(manifests.filter((m) => m.library !== "").map((m) => [m.library.toLowerCase(), m]))
+
 export function bindLibraryNamespaces(project: Scope, manifests: readonly LibraryManifest[]): void {
   let added = false
-  const byTitle = new Map(manifests.filter((m) => m.library !== "").map((m) => [m.library.toLowerCase(), m]))
+  const byTitle = manifestsByTitle(manifests)
   for (const manifest of manifests) {
     const { namespace } = manifest
     if (findChildScope(project, namespace) !== undefined) continue
@@ -69,7 +99,7 @@ export function bindLibraryNamespaces(project: Scope, manifests: readonly Librar
     // `isLibrarySymbol`, `libraryOf` and this — with this one requiring a LEADING separator the other two do
     // not, so a repo-relative `Library Manager/Standard/LEN.fun` was a library symbol to both of them and not
     // to this. Live URIs all carry a separator, which is why nothing broke; the disagreement was real anyway.
-    const folders = new Set([manifest, ...manifest.dependencies.flatMap((d) => byTitle.get(d.toLowerCase()) ?? [])].map((m) => m.folder.toLowerCase()))
+    const folders = visibleFolders(manifests, manifest, byTitle)
     const mine = (uri: string | undefined): boolean => {
       const lib = uri === undefined ? undefined : libraryOf({ uri })
       return lib !== undefined && folders.has(lib.toLowerCase())

@@ -38,4 +38,6 @@ it serves `volt.bridge.codesys.<pid>` — pass `VOLT_PIPE=volt.bridge.codesys.<p
 | `lower-completeness.ts` | transpiler coverage over the corpus — what each construct would unblock, ranked |
 | `corpus-census.ts` | what the CORPUS contains that the FIXTURES do not — the work list for new fixtures |
 | `agreement-residue.ts` | why each fixture does NOT agree with the IDE — the work list for closing the gap |
+| `probe-extends-ambiguity.ts` | which `EXTENDS` names have more than one candidate, and whether the candidates DIFFER — the measurement behind the binder's library-visibility rule |
+| `probe-order-dependence.ts` | lowers a corpus project twice, sorted and reversed, and diffs the routines — proves the symbol table no longer depends on the order files are bound |
 | `check-layering.ts` | the `bun run lint` gate — fails on an illegal upward layer import |
