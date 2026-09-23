@@ -30,6 +30,7 @@ public static class PushService
         var sw = Stopwatch.StartNew();
         ide.FlushPendingWrites();
 
+
         // Pre-apply snapshot: keyed by BARE IDE name because these maps mirror the IDE (which is
         // extension-less). The WIRE carries FULL names on every endpoint; op.Name is converted to bare at
         // the apply boundary via Materializer.Bare. Responses use FULL names (mat.FullName) — like /refs/fetch.
@@ -160,6 +161,24 @@ public static class PushService
 
         ide.FlushPendingWrites();
 
+        // PRUNE THE FOLDERS THIS PUSH EMPTIED — the derivation Volt's git-shaped interface was missing.
+        //
+        // Git has no directory entity either (deleting the last file under `a/b/` records exactly that one
+        // path) and still REMOVES the directory from the working tree, as a consequence of the file going.
+        // Volt kept the IDE folder for ever, while git pruned the workspace side for free — so the two halves
+        // diverged, silently and permanently, because an empty folder is UNREPRESENTABLE on the wire (the
+        // `folders` map is keyed by item) and the next pull can neither see it nor report it as drift.
+        //
+        // Measured on both vendors before this was written: neither prunes on its own, and both expose the
+        // primitive (`scripts/probe-empty-folder-lifecycle.py` for CODESYS; a COM tree walk for TwinCAT, where
+        // `VltFold/New` and `VltFold/Old` both sat at children=0 after a folder rename moved every item out).
+        //
+        // The candidates are the folders items LEFT, read from the PRE-APPLY cache: a delete empties the
+        // folder the item was in, and a move empties the one it came FROM. `PruneEmptied` then removes only
+        // those that are actually empty afterwards, so a folder still holding anything — or one that was
+        // already empty before this push, which is the engineer's — is untouched.
+        TreeNav.PruneEmptied(ide, EmptiedFolders(itemCache, request.Ops));
+
         // The receipt is a FRESH FULL snapshot — the SAME walk /refs uses (ProjectSnapshot), NOT a reuse of the
         // pre-apply versions. A native rename rewrites the bodies of referencing items that are NOT in the op
         // set, so reusing their pre-apply versions would report a stale baseline; the client persists this
@@ -170,6 +189,31 @@ public static class PushService
         return PushResponse.AcceptedResult(receipt.ProjectVersion, receipt.FullVersions, receipt.Folders);
     }
 
+
+    /// <summary>The folders items LEAVE in this push — a delete's folder, and a move's ORIGIN.
+    ///
+    /// <para>Read from the pre-apply cache, because after the ops run the item is no longer there to ask. A
+    /// move's DESTINATION is deliberately absent: it has just gained an item and cannot be empty.</para></summary>
+    private static IEnumerable<string> EmptiedFolders(
+        Dictionary<string, (ItemRef Item, string Folder)> itemCache, IReadOnlyList<PushOp> ops)
+    {
+        foreach (var op in ops)
+        {
+            if (!itemCache.TryGetValue(Materializer.Bare(op.Name), out var cached)) continue;
+            switch (op)
+            {
+                case DeleteItemOp:
+                    yield return cached.Folder;
+                    break;
+                // A move, i.e. a set naming a DIFFERENT folder. `ToFolder` absent means "keep the current
+                // folder" and is not a move — the same distinction `ApplySetItem` draws, and the empty string
+                // is a real destination (the tree root) rather than an absence.
+                case SetItemOp { ToFolder: { } to } when !string.Equals(to, cached.Folder, StringComparison.OrdinalIgnoreCase):
+                    yield return cached.Folder;
+                    break;
+            }
+        }
+    }
 
     /// <summary>The ops, DEEPEST FOLDER FIRST — so a folder's contents are created before an item that shares
     /// the folder's name sits beside it.

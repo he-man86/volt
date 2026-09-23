@@ -249,9 +249,14 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     // A tree node's Native is its full folder path (or a root name); an item's is its bare name. They cannot
     // collide, because an item is only ever addressed by the name it was registered under.
     private bool IsTreeNode(ItemRef r) =>
-        NameOf(r) is { } s && (s == PlcRootName || s == TreeRootName || _folderPaths.Contains(s));
+        NameOf(r) is { } s && (s == PlcRootName || s == TreeRootName || _folderPaths.Contains(s) || _explicitFolders.Contains(s));
 
     private readonly HashSet<string> _folderPaths = new(StringComparer.Ordinal);
+
+    /// <summary>Folders CREATED as folders, which therefore outlive the items that were in them — the state a
+    /// real IDE holds and this fake could not express. Distinct from <see cref="_folderPaths"/>, which is just
+    /// a note of every folder the walk has ever synthesised from an item's path.</summary>
+    private readonly HashSet<string> _explicitFolders = new(StringComparer.Ordinal);
 
     private static string LastSegment(string path)
     {
@@ -278,6 +283,14 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             var next = rest.Split('/')[0];
             var full = basePath.Length == 0 ? next : basePath + "/" + next;
             if (!subFolders.Contains(full)) subFolders.Add(full);
+        }
+        // …plus any folder created AS a folder directly under this node, whether or not anything is in it.
+        foreach (var f in _explicitFolders)
+        {
+            if (basePath.Length > 0 && !f.StartsWith(basePath + "/", StringComparison.Ordinal)) continue;
+            var rest = basePath.Length == 0 ? f : f.Substring(basePath.Length + 1);
+            if (rest.Length == 0 || rest.Contains('/')) continue;   // not an IMMEDIATE child
+            if (!subFolders.Contains(f)) subFolders.Add(f);
         }
         foreach (var f in subFolders) { _folderPaths.Add(f); kids.Add(Ref(f)); }
         return kids;
@@ -351,6 +364,18 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // itself was bitten by (`SameBareNameVersionTests`), and it silently turned a PASSING create-order
         // assertion into a failing one.
         if (kindCode != ItemKind.PlcFolder) CreatedItems.Add(name);
+        // A CREATED FOLDER EXISTS EVEN HOLDING NOTHING, and until this line the fake could not say so.
+        //
+        // `TreeChildren` derives folders from the items IN them ("no folder is invented that holds nothing"),
+        // which is faithful for a walk and useless for a lifecycle: the moment the last item leaves, the fake
+        // forgets the folder ever existed. Both vendors keep it (measured — `probe-empty-folder-lifecycle.py`
+        // and a COM tree walk), so a fake that cannot represent an empty folder makes `PruneEmptied` untestable
+        // by construction: every assertion passes whether the prune runs or not.
+        // The parent's own path, which is "" at either root. Folder refs in this fake are NAMED by their full
+        // path, so this is the whole of it.
+        var parentPath = NameOf(parent) is { } pp && pp != PlcRootName && pp != TreeRootName ? pp : "";
+        if (kindCode == ItemKind.PlcFolder)
+            _explicitFolders.Add(parentPath.Length == 0 ? name : parentPath + "/" + name);
         CreatedParents[name] = NameOf(parent);
         CreatedKinds[name] = kindCode;
         CreatedSeeds[name] = seed;
@@ -360,7 +385,10 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // followed by a read threw "sequence contains no matching element" — which made the single-document
         // CREATE path (CreateChild, then splice the new item's own export) impossible to test here at all.
         if (ItemKind.IsAddressableItem(kindCode) && !_items.Any(i => i.Name == name))
-            _items.Add(new Item(name, kindCode, "", true, DefaultDeclaration(kindCode, name), "", null, null));
+            // WITH ITS FOLDER. This passed "" for every create, so the fake said every item sat at the root —
+            // and `PushService`'s pre-apply cache reads exactly this field to know which folder an item is
+            // LEAVING. With "" there, `PruneEmptied` had no candidate to consider and could not be tested.
+            _items.Add(new Item(name, kindCode, parentPath, true, DefaultDeclaration(kindCode, name), "", null, null));
 
         // A CREATED MEMBER IS FINDABLE UNDER ITS PARENT, and a created FOLDER is not an item. Both halves
         // matter, and only the second used to hold: the fake registered top-level kinds and nothing else, so a
@@ -384,7 +412,13 @@ public sealed class FakeIde : DriverBase, IIdeDriver
                     Children = (owner.Children ?? System.Array.Empty<string>()).Append(name).ToArray(),
                 };
         }
-        return Ref(name);
+        // A FOLDER REF IS NAMED BY ITS FULL PATH here, the way `TreeChildren` names the ones it
+        // synthesises — so returning the bare leaf made the NEXT level compute its parent as `Mid`
+        // rather than `Chain/Mid`, and a folder three deep was registered under a path nothing could
+        // find. Harmless while no test looked below two levels.
+        return kindCode == ItemKind.PlcFolder
+            ? Ref(parentPath.Length == 0 ? name : parentPath + "/" + name)
+            : Ref(name);
     }
 
     /// <summary>The declaration a fresh item comes into the world with — the IDE writes one, and the fake must
@@ -406,6 +440,14 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public void Delete(ItemRef parent, string name)
     {
         Recorded.Add($"delete:{name}");
+        // A FOLDER IS NOT AN ITEM, so it is not in `_items` and the item path below would silently no-op on
+        // one. Deleting a folder is what `PruneEmptied` does, so the fake has to honour it — including the
+        // descendants, which a real IDE removes with it.
+        var parentPath = NameOf(parent) is { } pn && pn != PlcRootName && pn != TreeRootName ? pn + "/" : "";
+        var folderPath = parentPath + name;
+        if (_explicitFolders.Remove(folderPath))
+            _explicitFolders.RemoveWhere(f => f.StartsWith(folderPath + "/", StringComparison.Ordinal));
+
         var victim = FindOrNull(Ref(name));
         if (victim is null) return;
         _items.Remove(victim);
@@ -422,6 +464,18 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public void Move(ItemRef item, ItemRef target)
     {
         Recorded.Add($"move:{NameOf(item)}->{NameOf(target)}");
+
+        // …AND THE ITEM IS ACTUALLY SOMEWHERE ELSE AFTERWARDS. This recorded the call and changed nothing, so
+        // the fake still reported the item in the folder it had LEFT — which reads as a move that worked, and
+        // makes anything downstream of a move untestable. `PruneEmptied` is the case that found it: the origin
+        // never looked empty, so it was never a candidate.
+        var targetPath = NameOf(target) is { } tp && tp != PlcRootName && tp != TreeRootName ? tp : "";
+        // TOP-LEVEL ITEMS ONLY. A POU MEMBER's placement is not a tree folder at all — it is a `FolderPath`
+        // attribute INSIDE the enclosing POU (D4j), reached through `MoveMember`, and rewriting `Folder` on
+        // one makes the member unfindable under its parent.
+        if (FindOrNull(item) is { IsTopLevel: true } moving)
+            _items[_items.IndexOf(moving)] = moving with { Folder = targetPath };
+
         // The vendor that places a member by re-importing its POU leaves every handle into that POU dead. Bumping
         // the generation LAST means this call's own arguments were still valid.
         if (InvalidatesHandlesOnMove) _generation++;

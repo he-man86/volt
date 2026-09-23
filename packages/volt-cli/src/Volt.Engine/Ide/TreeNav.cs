@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
 
@@ -82,6 +83,22 @@ internal static class TreeNav
         FirstChild(ide, parent, c => NameIs(ide, c, name) && ide.KindCode(c) == ItemKind.PlcFolder)
             ?? ide.CreateChild(parent, name, ItemKind.PlcFolder);
 
+    /// <summary>Descend an EXISTING folder path, creating nothing, matching the way the create path matches —
+    /// by name, excluding only top-level CRUD kinds. That traverses a container-manager (`POUs`, `DUTs`) as
+    /// well as a plain folder, which is what makes a path like <c>POUs/Sub</c> resolvable at all.</summary>
+    internal static ItemRef? DescendExisting(IIdeDriver ide, ItemRef parent, string? folder)
+    {
+        if (string.IsNullOrEmpty(folder)) return parent;
+        var node = parent;
+        foreach (var part in FolderPath.Segments(folder))
+        {
+            var next = FirstChild(ide, node, c => NameIs(ide, c, part) && !ItemKind.IsTopLevelCrud(ide.KindCode(c)));
+            if (next is null) return null;
+            node = next.Value;
+        }
+        return node;
+    }
+
     /// <summary>Resolve a folder path WITHOUT creating anything, for a lookup that only wants to READ.
     /// <para><see cref="ResolveFolder"/> is find-OR-CREATE, which is right on a create path and wrong on every
     /// other. Used for a read it made a real empty folder inside the engineer's POU whenever the pushed
@@ -98,6 +115,65 @@ internal static class TreeNav
             node = next.Value;
         }
         return node;
+    }
+
+    /// <summary>REMOVE A FOLDER THAT HAS JUST BEEN EMPTIED, and every ancestor the removal empties in turn.
+    ///
+    /// <para><b>Git is the specification.</b> A directory is not an entity there either — deleting the last
+    /// file under <c>a/b/</c> records exactly that one path — and git still REMOVES the directory from the
+    /// working tree, as a derived consequence of the file going. Volt models its interface on git and was
+    /// missing precisely that derivation: the workspace side is pruned by git for free, while the IDE kept the
+    /// folder for ever. Measured on BOTH vendors (`scripts/probe-empty-folder-lifecycle.py` for CODESYS, a COM
+    /// tree walk for TwinCAT): neither prunes on its own, and both expose the primitive to do it.</para>
+    ///
+    /// <para>It compounds, because an empty folder is UNREPRESENTABLE on the wire — the <c>folders</c> map is
+    /// keyed by item — so the next pull cannot see it, cannot materialize it, and cannot report it as drift.
+    /// The two sides diverge silently and permanently.</para>
+    ///
+    /// <para><b>ONLY WHAT THIS PUSH EMPTIED.</b> The caller passes the folders items actually LEFT, and a
+    /// folder still holding anything is left alone. A folder that was ALREADY empty before the push is the
+    /// engineer's and is not touched — git would not touch it either, having nothing to remove.</para>
+    ///
+    /// <para><b>RECURSIVE, because git is.</b> Emptying <c>a/b/</c> removes <c>a/</c> too when <c>b</c> was
+    /// all it held. Stops at the tree root, which is not a folder and is never removed.</para></summary>
+    internal static void PruneEmptied(IIdeDriver ide, IEnumerable<string> emptiedFolders)
+    {
+        // DEEPEST FIRST, so a child is gone before its parent is asked whether it is empty. Without the sort a
+        // parent is measured while the child it is about to lose is still in it, and the chain stops one level
+        // too early — the shallow half of the litter stays.
+        foreach (var folder in emptiedFolders.Where(f => !string.IsNullOrEmpty(f))
+                                             .Distinct(StringComparer.OrdinalIgnoreCase)
+                                             .OrderByDescending(f => FolderPath.Segments(f).Count()))
+        {
+            var path = folder;
+            while (!string.IsNullOrEmpty(path))
+            {
+                // DESCEND THE WAY THE CREATE PATH DOES, not the way `FindFolder` does. `FindFolder`
+                // demands `PlcFolder` at every segment, and a standard container like `POUs` is a
+                // container-MANAGER — so it failed on the first segment and the prune silently did
+                // nothing against a real IDE while passing against the fake, whose tree is flat.
+                var node = DescendExisting(ide, ide.GetTreeRoot(), path);
+                // Gone already (a deeper pass removed it), not a folder, or still holding something: stop.
+                // …AND ONLY A REAL FOLDER IS EVER REMOVED. The descent is deliberately loose so it can
+                // traverse `POUs`/`DUTs`/`GVLs`, and those are exactly what must never be deleted: they
+                // are the vendor's own containers, not the engineer's folders, and an empty one is the
+                // project's normal state. The strict check moves here, where it is a SAFETY rule rather
+                // than a navigation one.
+                if (node is not { } dir || ide.KindCode(dir) != ItemKind.PlcFolder) break;
+                if (ide.ChildCount(dir) > 0) break;
+
+                var segments = FolderPath.Segments(path).ToList();
+                var parentPath = string.Join("/", segments.Take(segments.Count - 1));
+                var parent = DescendExisting(ide, ide.GetTreeRoot(), parentPath);
+                if (parent is not { } holder) break;
+
+                // The LAST SEGMENT, computed rather than read back with `ide.Name(dir)`. Both answer the
+                // same thing on a real driver, and taking it from the path already in hand means this
+                // does not depend on how a driver chooses to name a folder node.
+                ide.Delete(holder, segments[segments.Count - 1]);
+                path = parentPath;   // …and ask the same question one level up
+            }
+        }
     }
 
     internal static ItemRef? FindChild(IIdeDriver ide, ItemRef parent, string name) =>
