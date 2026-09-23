@@ -38,6 +38,19 @@ public static class IdeTree
 
         string? SrcRel(string path) => path.StartsWith(Files.SrcDir + "/", StringComparison.Ordinal) ? path.Substring(Files.SrcDir.Length + 1) : null;
         var replaced = new HashSet<string>(ideFiles.Select(f => f.Path));
+
+        // THE SAME ITEM CAN ARRIVE UNDER A DIFFERENT PATH, and `replaced` is keyed by PATH. A DUT is `X.dut` on
+        // the wire and `X.struct`/`X.enum`/`X.union`/`X.alias` on disk, chosen from its declaration
+        // (`Materialize.FileNameFor`) — so an engineer rewriting a STRUCT as an ENUM produces a CHANGED item,
+        // not a removed one: `replaced` holds `X.enum`, `removedNames` is empty, and the old `X.struct` matched
+        // neither. Both files then sat in the workspace, and the stale one still maps to the live item's wire
+        // name — so editing it pushed the old shape back over the new DUT, and deleting it deleted the live one.
+        //
+        // Keyed by the identity the WIRE is keyed by, so it needs no DUT special case and covers any future kind
+        // whose file extension is derived from content rather than from the name.
+        var replacedNames = new HashSet<string>(
+            ideFiles.Select(f => Extensions.FullNameFromPath(f.Path)).Where(n => n is not null)!,
+            StringComparer.OrdinalIgnoreCase);
         // BARE WIRE NAMES ("Foo.fb"), not paths — the fetch reports what the IDE deleted, and an item's identity
         // is its name (the whole wire is keyed that way). `replaced` above IS a path set, which is why only this
         // one needed the distinction spelt out: comparing names against src-relative paths silently matched
@@ -78,6 +91,9 @@ public static class IdeTree
             {
                 var rel = SrcRel(e.Path);
                 if (rel is not null && Extensions.IsTrackedPath(rel) && !replaced.Contains(rel)
+                    // A library signature is PATH-identified and shares extensions with real items, so a
+                    // name-keyed sweep would hit one by accident — the same exemption `removedNames` takes.
+                    && !(!UnderLibrary(rel) && Extensions.FullNameFromPath(rel) is { } full && replacedNames.Contains(full))
                     && !(removedNamesSet.Contains(NameOf(rel)) && !UnderLibrary(rel))
                     && !DroppedLibraryFile(rel))
                     AddRef(new IndexEntry(e.Mode, e.Sha, e.Path));

@@ -1,4 +1,6 @@
+using System.IO;
 using Volt.Cli.Sync;
+using static Volt.Cli.Tests.CommandHarness;
 using Volt.Contracts;
 using Volt.Engine.Item;
 using Xunit;
@@ -89,8 +91,9 @@ public class DutSubtypeFileTests
     public void Changing_a_subtype_changes_the_FILE_but_never_the_wire_name()
     {
         // The hazard this guards: the same item, edited from struct to enum, must stay ONE item to the bridge
-        // (so the push is an update) while moving to a new file (so the workspace reads true). The old file is
-        // then absent from the materialized set, which is what makes a pull sweep it.
+        // (so the push is an update) while moving to a new file (so the workspace reads true). That the PULL
+        // then removes the old file is a separate claim and was false for as long as this comment asserted it —
+        // see `A_pull_after_a_subtype_change_leaves_exactly_one_file` below.
         var before = Assert.Single(Materialize.MaterializeItem(Dut("X.dut", Struct)));
         var after = Assert.Single(Materialize.MaterializeItem(Dut("X.dut", Enum)));
 
@@ -105,5 +108,39 @@ public class DutSubtypeFileTests
         var fb = new FetchedItem { Name = "FB_Motor.fb", Folder = "POUs", SourceText = "FUNCTION_BLOCK FB_Motor\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK" };
         Assert.Equal("POUs/FB_Motor.fb", Assert.Single(Materialize.MaterializeItem(fb)).Path);
         Assert.Equal("FB_Motor.fb", Materialize.PathToItem("POUs/FB_Motor.fb")!.Value.Name);
+    }
+
+    /// <summary>AND A PULL LEAVES EXACTLY ONE FILE FOR IT.
+    ///
+    /// <para>The test above ends "the old file is then absent from the materialized set, which is what makes a
+    /// pull sweep it". It does not. `BuildVoltIdeTree` carried a parent-tree file forward unless its PATH was in
+    /// the newly materialized set or its NAME was in `removedNames`, and a subtype change is a CHANGED item, not
+    /// a removed one — so `replaced` held `BUS_INFO.enum`, `removedNames` was empty, and `BUS_INFO.struct`
+    /// matched neither and survived.</para>
+    ///
+    /// <para>What that costs is not a tidiness problem. Both files map to the SAME wire name, so the stale one is
+    /// a live handle on the item: `volt push` after editing it writes the old STRUCT back over the new ENUM, and
+    /// deleting it emits a DeleteItemOp for the item that is still in the IDE.</para></summary>
+    [Fact]
+    public void A_pull_after_a_subtype_change_leaves_exactly_one_file()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("BUS_INFO", Struct, ""));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            Assert.True(File.Exists(Path.Combine(root, "src", "BUS_INFO.struct")));
+
+            // The engineer rewrites it as an enum in the IDE. Same item, same wire name, different subtype.
+            ide.RemoveItem("BUS_INFO");
+            ide.AddItem(FakeIde.Item.TextualPou("BUS_INFO", Enum.Replace("E_Mode", "BUS_INFO"), ""));
+
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            Assert.True(File.Exists(Path.Combine(root, "src", "BUS_INFO.enum")), "the new subtype was not written");
+            Assert.False(File.Exists(Path.Combine(root, "src", "BUS_INFO.struct")),
+                         "the old subtype's file survived — it is a second live handle on the same wire item");
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 }

@@ -63,3 +63,39 @@ test("healthDisplay maps each kind", () => {
   expect(healthDisplay(unreachable)).toMatchObject({ online: false, tone: "error" })
   expect(healthDisplay({ kind: "disconnected", health: { connected: false } }).online).toBe(false)
 })
+
+// A PARTIAL IDE VIEW IS NOT "IN SYNC".
+//
+// Both fields have been on the `--json` contract since the bridge started publishing them, and neither was ever
+// rendered. `volt status` in a terminal warns on stderr; the desktop app and the VS Code panel both come through
+// this aggregate, and both drew the same project as "Connected and in sync with the IDE" — with the missing POU
+// simply absent and nothing anywhere saying so.
+
+test("an unwalked folder outranks drift, because the counts cannot be trusted", () => {
+  const ws: WorkspaceState = {
+    status: status({ incoming: { added: ["A.fb"], modified: [], removed: [] }, unwalkedFolders: ["Machine"] }),
+    health: connected,
+  }
+  const d = aggregate([ws])
+  expect(d.severity).toBe("partial")
+  expect(d.tooltip).toContain("INCOMPLETE")
+})
+
+test("an unreadable item is reported but does not take the actionable step away", () => {
+  // It is absent from BOTH sides of the diff, so every count is exactly right and "pull" is still the advice.
+  const drifting: WorkspaceState = {
+    status: status({ incoming: { added: ["A.fb"], modified: [], removed: [] }, unreadable: ["Broken"] }),
+    health: connected,
+  }
+  expect(aggregate([drifting]).severity).toBe("drift")
+
+  // …but with nothing else to say, it must never read as in sync.
+  const quiet: WorkspaceState = { status: status({ unreadable: ["Broken"] }), health: connected }
+  const d = aggregate([quiet])
+  expect(d.severity).toBe("partial")
+  expect(d.tooltip).toContain("could not be read")
+})
+
+test("a complete view still reads as in sync", () => {
+  expect(aggregate([{ status: status(), health: connected }]).severity).toBe("insync")
+})

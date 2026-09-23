@@ -55,6 +55,7 @@ export type VoltSeverity =
   | "offline"
   | "noproject"
   | "degraded"
+  | "partial"
   | "drift"
   | "insync"
 
@@ -87,6 +88,12 @@ export function aggregate(workspaces: readonly WorkspaceState[]): VoltDisplay {
   let merging = false
   let incoming = 0
   let outgoing = 0
+  // The IDE view is SHORT: the bridge could not enumerate a folder, or could not read an item. Both are on the
+  // `--json` contract and neither was rendered, so the desktop app and the VS Code panel drew a project with an
+  // unreadable POU as "Connected and in sync with the IDE" — the terminal has warned about it since the field
+  // existed, and the two surfaces most people actually look at did not.
+  let unreadable = 0
+  let unwalked = 0
   let conn: "ok" | "offline" | "noproject" | "degraded" = "ok"
 
   for (const w of workspaces) {
@@ -95,6 +102,8 @@ export function aggregate(workspaces: readonly WorkspaceState[]): VoltDisplay {
       if (c.merging !== null) merging = true
       incoming += changeCount(c.incoming)
       outgoing += changeCount(c.outgoing)
+      unreadable += c.unreadable?.length ?? 0
+      unwalked += c.unwalkedFolders?.length ?? 0
     }
     switch (w.health.kind) {
       case "unreachable":
@@ -150,11 +159,36 @@ export function aggregate(workspaces: readonly WorkspaceState[]): VoltDisplay {
       incoming,
       outgoing,
     }
+  // ABOVE drift, and only for an unwalked FOLDER. That is the one state where the counts themselves cannot be
+  // trusted — absence is how a deletion is derived — so offering "pull" would be advice to act on numbers this
+  // view knows are short. An unreadable ITEM invalidates no count (it is absent from both sides of the diff), so
+  // it is reported in the tooltip without taking the actionable step away.
+  if (unwalked > 0)
+    return {
+      severity: "partial",
+      label: "Volt: partial view",
+      tooltip:
+        `${unwalked} folder(s) could not be read, so this view is INCOMPLETE and reports no deletions` +
+        (unreadable > 0 ? `; ${unreadable} item(s) could not be read either` : "") +
+        " — check the IDE before syncing",
+      action: "status",
+      incoming,
+      outgoing,
+    }
   if (incoming > 0 || outgoing > 0)
     return {
       severity: "drift",
       label: `Volt ${outgoing}↑ ${incoming}↓`,
       tooltip: `${outgoing} outgoing, ${incoming} incoming — open the Volt view`,
+      action: "status",
+      incoming,
+      outgoing,
+    }
+  if (unreadable > 0)
+    return {
+      severity: "partial",
+      label: "Volt: unreadable items",
+      tooltip: `${unreadable} item(s) in the IDE could not be read and have no file here — check the IDE`,
       action: "status",
       incoming,
       outgoing,
