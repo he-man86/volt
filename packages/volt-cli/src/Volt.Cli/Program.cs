@@ -48,7 +48,12 @@ internal static class Program
             return 0;
         }
 
-        var a = ParseArgs(args);
+        // OUTSIDE the try below, which maps bridge failures. A command line this CLI will not guess at is not a
+        // bridge problem, and routing it through `Unreachable()` would tell the user to start an IDE.
+        Args a;
+        try { a = ParseArgs(args); }
+        catch (ArgError e) { Console.Error.WriteLine(e.Message); return 1; }
+
         var root = Path.GetFullPath(a.Workspace);
         // Pipe resolution: an explicit --pipe / VOLT_PIPE wins (dev + tests). Otherwise BOTH vendors are discovered
         // per-instance and matched to the bound project (BridgeResolver — no per-vendor branch). Resolved LAZILY so
@@ -335,19 +340,48 @@ internal static class Program
 
     // ── arg parsing ──────────────────────────────────
 
-    // The flags that take a SEPARATE value token (`--flag <v>`); `--flag=<v>` works for anything.
-    //
-    // The set has to agree with the readers in BOTH directions, and it only ever checked one. "Every entry here has
-    // a reader" was enforced by hand — "--limit" and "--timeout" sat here with no consumer, so a `--limit 5` was
-    // silently eaten. The INVERSE was never checked, and it shipped broken: `--project-name` had a reader
-    // (CmdRebind) and no entry, so the value token became a stray operand, `Value` answered null, and EVERY rebind
-    // from the desktop's reconnect list died on "rebind needs --project-name". `--pipe` was one keystroke from the
-    // same fate — it survives only because the one caller happens to send `--pipe=<v>`.
-    //
-    // So the direction that was missing is now MECHANICAL, in `Args.Value` below: reading a flag that is not in
-    // this set throws. It cannot be forgotten, and it cannot reach a user as a silent wrong answer.
+    /// <summary>The flags that take a SEPARATE value token (`--flag <v>`), or an attached one (`--flag=<v>`).
+    ///
+    /// The set has to agree with the readers in BOTH directions, and it only ever checked one. "Every entry here has
+    /// a reader" was enforced by hand — "--limit" and "--timeout" sat here with no consumer, so a `--limit 5` was
+    /// silently eaten. The INVERSE was never checked, and it shipped broken: `--project-name` had a reader
+    /// (CmdRebind) and no entry, so the value token became a stray operand, `Value` answered null, and EVERY rebind
+    /// from the desktop's reconnect list died on "rebind needs --project-name". `--pipe` was one keystroke from the
+    /// same fate — it survives only because the one caller happens to send `--pipe=<v>`.
+    ///
+    /// So the direction that was missing is now MECHANICAL, in `Args.Value` below: reading a flag that is not in
+    /// this set throws. It cannot be forgotten, and it cannot reach a user as a silent wrong answer.</summary>
     private static readonly HashSet<string> ValueFlags =
         new() { "--workspace", "--vendor", "--resolve", "--force-with-lease", "--project-name", "--pipe", "--port" };
+
+    /// <summary>Every BOOLEAN flag the CLI reads. Its only job is to make an unknown one an ERROR.
+    ///
+    /// <para>`ParseArgs` used to end with `else a.Flags.Add(s)`, so any `--`-token it did not recognise was
+    /// accepted, stored, and never read again — and every boolean flag here fails toward the DANGEROUS side when
+    /// that happens. `volt push --dryrun` is not a preview: `Has("--dry-run")` is false, so it writes every
+    /// changed item into the live PLC and prints `pushed N item(s)`, exit 0. The user believes they previewed a
+    /// push and performed one, which is the single thing `--dry-run` exists to prevent.</para>
+    ///
+    /// <para>The repo had already paid for this twice and patched downstream both times — volt-control passing
+    /// `--force` to `pull` (Commands.cs, "the CLI silently ignored the unknown flag and the user got a plain
+    /// pull") and `volt init --dry-run` walking past the console's read-only gate. Both fixes left the line that
+    /// creates the state untouched, so it kept creating it for every flag not yet burned.</para>
+    ///
+    /// <para>This is deliberately NOT per-verb. A global set closes the dangerous class — a flag that does not
+    /// exist — with one list that cannot drift from its readers (`FlagsHaveReaders` in the CLI tests walks the
+    /// source and checks both directions). Rejecting a REAL flag on a verb that ignores it is a different and
+    /// much weaker defect, and it would need a per-verb table this parser has no honest source for.</para></summary>
+    private static readonly HashSet<string> BoolFlags = new()
+    {
+        "--abort", "--allow-write", "--continue", "--dry-run", "--force", "--json",
+        "--local", "--no-open", "--porcelain", "--use-ours", "--use-theirs",
+    };
+
+    /// <summary>A command line this CLI will not guess at. Carries only a message; `Main` prints it and exits 1.</summary>
+    private sealed class ArgError : Exception
+    {
+        public ArgError(string message) : base(message) { }
+    }
 
     private sealed class Args
     {
@@ -378,7 +412,14 @@ internal static class Program
     /// <para>The console gates mutating verbs on this, and `argv[0]` is not the answer: every `--`-prefixed
     /// token goes to flags first, so `volt --json push` is a PUSH whose first argument is `--json`. A second
     /// implementation of "which word is the verb" is how a gate silently stops covering half its cases.</para></summary>
-    internal static string? VerbOf(IReadOnlyList<string> argv) => ParseArgs(argv.ToArray()).Verb;
+    /// <para>Null when the line does not parse at all. The console asks this of ARGV IT WAS GIVEN over HTTP, so
+    /// a throw here would be a 500 on input a user typed; a null lands on the same "unknown verb" refusal as any
+    /// other word it does not recognise, which is the safe answer for a gate.</para>
+    internal static string? VerbOf(IReadOnlyList<string> argv)
+    {
+        try { return ParseArgs(argv.ToArray()).Verb; }
+        catch (ArgError) { return null; }
+    }
 
     private static Args ParseArgs(string[] argv)
     {
@@ -390,9 +431,41 @@ internal static class Program
             if (s.StartsWith("--", StringComparison.Ordinal))
             {
                 var eq = s.IndexOf('=');
-                if (eq >= 0) a.Values[s[..eq]] = s[(eq + 1)..];
-                else if (ValueFlags.Contains(s)) a.Values[s] = i + 1 < argv.Length ? argv[++i] : "";
-                else a.Flags.Add(s);
+                var name = eq >= 0 ? s[..eq] : s;
+
+                if (!ValueFlags.Contains(name) && !BoolFlags.Contains(name))
+                    throw new ArgError($"unknown flag '{name}'. Run `volt help` for the flags each verb takes.");
+
+                if (eq >= 0)
+                {
+                    // `--dry-run=true` USED TO MEAN `--dry-run=true` AND NOTHING ELSE. The `=` arm ran first and
+                    // unconditionally, so an attached value on a BOOLEAN flag landed in `Values` and `Has(...)`
+                    // stayed false — `volt push --dry-run=true` walked past the dry-run return and wrote every
+                    // changed item into the live PLC. Same shape disarmed `--force=true` and `--json=1`. There is
+                    // no reading of `=false` that is safe to guess at either, so this refuses rather than picks.
+                    if (!ValueFlags.Contains(name))
+                        throw new ArgError($"'{name}' does not take a value — write `{name}` on its own.");
+                    a.Values[name] = s[(eq + 1)..];
+                }
+                else if (ValueFlags.Contains(name))
+                {
+                    // A VALUE FLAG AT THE END OF THE LINE IS A TYPO, not an empty string. This answered `""`, and
+                    // every reader invented its own wrong behaviour from it: `volt merge --resolve "$F" --use-theirs`
+                    // with `$F` unset built the pathspec `src/` and `git checkout --theirs -- src/` resolved EVERY
+                    // conflicted file in the workspace to the IDE's side, printing `resolved  using theirs`, exit 0.
+                    // It also walked straight past CmdConsole's own "NO SILENT DEFAULT FOR A VALUE THE OPERATOR
+                    // TYPED" check, which can only see a value it was given.
+                    //
+                    // AND A FLAG IS NEVER A VALUE. Taking the next token unconditionally meant
+                    // `volt merge --resolve --use-theirs` resolved a file literally named `--use-theirs`, and
+                    // `--resolve` followed by anything the harness appends quietly ate that instead. No flag this
+                    // CLI has is a legal value for another, so the next token starting with `--` is always the
+                    // missing-value case wearing a disguise.
+                    if (i + 1 >= argv.Length || argv[i + 1].StartsWith("--", StringComparison.Ordinal))
+                        throw new ArgError($"'{name}' needs a value — `{name} <value>`.");
+                    a.Values[name] = argv[++i];
+                }
+                else a.Flags.Add(name);
             }
             else positional.Add(s);
         }

@@ -134,4 +134,56 @@ public class MergeResolveTests
         }
         finally { try { Directory.Delete(root, true); } catch { } }
     }
+
+    /// <summary>`--RESOLVE` ON A FILE THAT IS NOT CONFLICTED DOES NOT DELETE IT.
+    ///
+    /// <para>`CheckoutSide` asked `UnmergedStages` for the requested side and, finding none, concluded "that side
+    /// deleted the file" and ran `git rm -q -f`. An empty stage set means that OR "this path is not conflicted at
+    /// all" — its own summary says so — and for the second it deleted a file nobody had touched, from the index
+    /// and the working tree, discarding uncommitted edits with it. `Merge` then returned `(0, "resolved X using
+    /// ours")`. The next `volt push` sent a DeleteItemOp and the POU left the live PLC, with no error anywhere in
+    /// the session.</para>
+    ///
+    /// <para>Every case in this file builds `RepoWithModifyDeleteConflict()` first — the one shape where the `rm`
+    /// branch is correct — so the suite could not represent this. Both spellings are covered: no merge at all,
+    /// and a real merge where the named file is simply not one of the conflicted ones.</para></summary>
+    [Fact]
+    public void Resolve_outside_a_merge_refuses_and_keeps_the_file()
+    {
+        var root = TestUtil.NewRepo();
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(root, "src"));
+            var file = Path.Combine(root, "src", "PLC_PRG.prg");
+            File.WriteAllText(file, "PROGRAM PLC_PRG\nVAR\nEND_VAR\n");
+            Git.CommitAll(root, "seed");
+
+            var (code, message) = Commands.Merge(root, resolve: "PLC_PRG.prg", useOurs: true);
+
+            Assert.Equal(1, code);
+            Assert.Contains("no merge in progress", message);
+            Assert.True(File.Exists(file), "a file that was never conflicted was deleted");
+        }
+        finally { TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>And INSIDE a real merge, a path that is not one of the conflicted ones is refused too — the
+    /// likelier spelling, since the engineer is looking at a conflict list when they type it.</summary>
+    [Fact]
+    public void Resolve_of_an_unconflicted_path_inside_a_merge_refuses_and_keeps_the_file()
+    {
+        var root = RepoWithModifyDeleteConflict();
+        try
+        {
+            var bystander = Path.Combine(root, "src", "Bystander.prg");
+            File.WriteAllText(bystander, "PROGRAM Bystander\nVAR\nEND_VAR\n");
+
+            var (code, message) = Commands.Merge(root, resolve: "Bystander.prg", useOurs: true);
+
+            Assert.Equal(1, code);
+            Assert.Contains("not conflicted", message);
+            Assert.True(File.Exists(bystander), "a bystander file was deleted by a resolve aimed elsewhere");
+        }
+        finally { TestUtil.ForceDelete(root); }
+    }
 }

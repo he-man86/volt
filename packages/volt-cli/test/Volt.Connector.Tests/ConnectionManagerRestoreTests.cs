@@ -107,4 +107,35 @@ public class ConnectionManagerRestoreTests : IDisposable
 
         Assert.Empty(src.Unbound); // still held — nobody has actually claimed or released this project
     }
+
+    /// <summary>THE ASSERTION THAT WOULD HAVE CAUGHT IT, and the reason the other four could not.
+    ///
+    /// <para>`State` is a positional record whose `ForceOff` and `Wanted` are adjacent and both
+    /// `IReadOnlyCollection&lt;string&gt;`, so the constructor passed the restored set one slot early and the
+    /// compiler had nothing to say. Every restored project came back FORCE-OFF: excluded from `wanted` forever
+    /// and unbound the moment the startup hold lapsed, so a project used before a connector restart returned
+    /// permanently paused with `volt pull/push` answering PLC_DISCONNECTED.</para>
+    ///
+    /// <para>Every other test in this file passed WITH that bug — the unbinds they watch for were suppressed by
+    /// the grace hold, and the file they read was left alone only because both wanted sets were empty. Nothing
+    /// here looked at the one field that was wrong. This looks at it directly, before any cycle runs, so it
+    /// cannot be satisfied by a downstream accident.</para></summary>
+    [Fact]
+    public void A_restored_project_is_WANTED_not_force_off()
+    {
+        var src = new FakeProjectSource(Vendors.Codesys, Vendors.CodesysDisplay);
+        var p = src.Add("MyMachine", serving: true);
+        SeedWanted(p.Id);
+
+        var cm = new ConnectionManager(new[] { (IProjectSource)src }, wantedFile: _wantedFile);
+
+        Assert.Empty(cm.ForceOffIds);
+    }
+
+    /// <summary>NOT TESTED HERE, and deliberately: that a restored project is still serving AFTER the 20 s
+    /// window closes. `_gateHoldUntil` is `DateTime.UtcNow + GateHold` in the constructor with no seam, and the
+    /// force-off the bug produced is indistinguishable from the correct state until that window lapses — during
+    /// it, the hold suppresses the unbind either way, which is exactly why all four tests above passed with the
+    /// arguments swapped. Adding a clock to `ConnectionManager` to reach it would be a production seam that
+    /// exists for one assertion; the constructor check above pins the same defect at the line that causes it.</summary>
 }

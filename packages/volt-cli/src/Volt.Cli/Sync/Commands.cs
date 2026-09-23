@@ -640,8 +640,15 @@ public static class Commands
                     : $"which side for '{resolve}'? Pass --use-ours (keep your workspace's version) or " +
                       "--use-theirs (take the IDE's).");
 
+            // THE PRECONDITION THE OTHER TWO ARMS HAVE. `--abort` and `--continue` both check `IsMerging`;
+            // this one checked nothing, walked into `CheckoutSide` with a path that has no unmerged entry, and
+            // came back out having `git rm -f`'d it — reporting success. Refusing here names the situation; the
+            // guard inside `CheckoutSide` is what makes it unreachable from any caller.
+            if (!Git.IsMerging(root)) return (1, "no merge in progress — nothing to resolve");
+
             var side = useTheirs ? "theirs" : "ours";
-            Git.CheckoutSide(root, $"{Files.SrcDir}/{resolve}", side);
+            try { Git.CheckoutSide(root, $"{Files.SrcDir}/{resolve}", side); }
+            catch (InvalidOperationException e) { return (1, e.Message); }
             return (0, $"resolved {resolve} using {side}");
         }
         if (cont)

@@ -467,13 +467,27 @@ public static class Git
     public static void CheckoutSide(string root, string repoPath, string side)
     {
         var stage = side == "ours" ? "2" : "3";
-        if (UnmergedStages(root, repoPath).Contains(stage))
+        var stages = UnmergedStages(root, repoPath);
+
+        // AN EMPTY STAGE SET MEANS TWO THINGS, and this read it as one. "That side deleted the file" and "this
+        // path is not conflicted at all" both produce no stages — `UnmergedStages` says so in its own summary —
+        // and the `git rm -f` below is only right for the first. For a path that is merely NOT CONFLICTED it
+        // deleted a file nobody had touched, from the index and the working tree, discarding uncommitted edits
+        // with it, and returned success: `resolved X using ours`, exit 0. The next push then sent a
+        // DeleteItemOp and the POU left the live PLC, with no error anywhere in the session.
+        if (stages.Count == 0)
+            throw new InvalidOperationException(
+                $"'{repoPath}' is not conflicted — there is no side to take. " +
+                "(`volt status` lists what is; a file you already resolved by hand is no longer conflicted.)");
+
+        if (stages.Contains(stage))
         {
             Run(new[] { "-C", root, "checkout", $"--{side}", "--", repoPath });
             Run(new[] { "-C", root, "add", "--", repoPath });
             return;
         }
-        // That side has no stage: it deleted the file. Resolving TO it removes the file and clears the conflict.
+        // The path IS conflicted and this side has no stage: that side deleted the file. Resolving TO it removes
+        // the file and clears the conflict — which is what a modify/delete resolution means.
         Run(new[] { "-C", root, "rm", "-q", "-f", "--", repoPath });
     }
 

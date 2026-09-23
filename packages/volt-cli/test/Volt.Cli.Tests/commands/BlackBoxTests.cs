@@ -264,4 +264,71 @@ public class BlackBoxTests
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
+
+    /// <summary>THE PARSER REFUSES WHAT IT CANNOT HONOUR, because every boolean flag here fails toward the
+    /// DANGEROUS side when it is dropped.
+    ///
+    /// <para>`ParseArgs` had three arms and no fourth that rejected. `--dry-run=true` took the `=` arm into
+    /// `Values`, so `Has("--dry-run")` was false and a push meant as a preview wrote every changed item into the
+    /// live PLC and printed `pushed N item(s)`, exit 0. `--dryrun` took the catch-all arm into a set nothing
+    /// reads, with the same outcome. A value flag at the end of the line became `""`, and
+    /// `volt merge --resolve "$F" --use-theirs` with `$F` unset built the pathspec `src/` — resolving EVERY
+    /// conflicted file to the IDE's side.</para>
+    ///
+    /// <para>Each is asserted by EXIT CODE and by the absence of the side effect, not by the message.</para></summary>
+    [Theory]
+    [InlineData("--dryrun")]                       // misspelled: was swallowed
+    [InlineData("--dry-run=true")]                 // attached value on a boolean: went to Values
+    [InlineData("--force=true")]                   // same shape, worse verb
+    [InlineData("--nonsense")]
+    public void A_flag_the_cli_cannot_honour_is_refused_not_ignored(string flag)
+    {
+        var (root, host, pipe) = Boot(ConnectedIde(Prg()));
+        try
+        {
+            var r = RunVolt(root, pipe, "push", flag);
+
+            Assert.Equal(1, r.Code);
+            Assert.Contains("--", r.Err);                       // it names the flag
+            Assert.DoesNotContain("pushed", r.Out);             // and nothing was pushed
+        }
+        finally { host.Dispose(); }
+    }
+
+    /// <summary>A value flag with nothing after it is a TYPO, not an empty string. `--resolve` is the one that
+    /// cost most: `""` built the pathspec `src/`, which git resolves wholesale.</summary>
+    [Fact]
+    public void A_value_flag_with_no_value_is_refused()
+    {
+        var (root, host, pipe) = Boot(ConnectedIde(Prg()));
+        try
+        {
+            var r = RunVolt(root, pipe, "merge", "--use-theirs", "--resolve");
+
+            Assert.Equal(1, r.Code);
+            Assert.Contains("--resolve", r.Err);
+        }
+        finally { host.Dispose(); }
+    }
+
+    /// <summary>And the flags that DO exist still work — the refusal must not become a wall. One real flag per
+    /// verb that takes one, asserted by the fact that the verb ran at all.</summary>
+    [Theory]
+    [InlineData("status", "--json")]
+    [InlineData("status", "--porcelain")]
+    [InlineData("status", "--local")]
+    [InlineData("push", "--dry-run")]
+    [InlineData("pull", "--dry-run")]
+    public void Every_declared_flag_is_still_accepted(string verb, string flag)
+    {
+        var (root, host, pipe) = Boot(ConnectedIde(Prg()));
+        try
+        {
+            var r = RunVolt(root, pipe, verb, flag);
+
+            Assert.DoesNotContain("unknown flag", r.Err);
+            Assert.DoesNotContain("does not take a value", r.Err);
+        }
+        finally { host.Dispose(); }
+    }
 }

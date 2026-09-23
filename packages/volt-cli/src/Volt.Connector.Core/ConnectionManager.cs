@@ -87,16 +87,24 @@ namespace Volt.Connector
             // ONE read, ONE answer: the hold set and the restored edge set must be the same generation of the file.
             var restored = LoadWanted(_wantedFile);
             _restored = new HashSet<string>(restored, StringComparer.Ordinal);
+            // NAMED, every one of them. `ForceOff` and `Wanted` are adjacent, both
+            // `IReadOnlyCollection<string>`, and mean opposite things — so passing the restored set one slot
+            // early compiled, ran, and inverted the feature: every project restored from disk came back
+            // FORCE-OFF instead of wanted. `Reconciler` then excluded it from `wanted` forever and unbound it
+            // once the startup hold lapsed, so a project you had used before a connector restart came back
+            // permanently paused ("paused from the tray"), `Aggregate()` never green, `volt pull/push`
+            // answering PLC_DISCONNECTED — and nothing but an explicit tray un-pause could clear it. It shipped
+            // with the restore itself, so the 2026-07-28 stranded-bridge fix had never once worked.
             _state = new State(
-                Array.Empty<DetectedProject>(),
-                new Dictionary<string, bool>(),
-                new Dictionary<string, Session>(),
+                Projects: Array.Empty<DetectedProject>(),
+                Serving: new Dictionary<string, bool>(),
+                Sessions: new Dictionary<string, Session>(),
+                ForceOff: Array.Empty<string>(),
                 // `Wanted` is RESTORED from disk, not empty. Gating is edge-triggered ("was wanted, now isn't"), so a
                 // connector that starts blank has no edge for anything it was serving before — and an auto-update
                 // restarts us mid-session. Field incident 2026-07-28: after an update a project sat `healthy` with
                 // every client closed, and nothing could ever gate it again. Restoring the set restores the edge.
-                restored,
-                Array.Empty<string>(),
+                Wanted: restored,
                 AnyReachable: false);
         }
 
@@ -266,7 +274,13 @@ namespace Volt.Connector
             // Anything still unclaimed keeps its hold for the rest of the window.
             if (_restored.Count > 0)
             {
-                var claimed = plan.ToBind.Select(p => p.Id).Concat(s.Wanted).ToList();
+                // `plan.Wanted`, NOT `s.Wanted`. The plan's set is recomputed from the LIVE SESSIONS every cycle,
+                // so it means "a client is asking for this right now" — which is the claim this is looking for.
+                // `s.Wanted` is the PREVIOUS cycle's answer, and on cycle 1 that is the restored set itself: the
+                // hold would discharge against its own input and be gone before it was ever consulted. That was
+                // invisible while the restore was mis-wired into `ForceOff` (s.Wanted was empty then), so the two
+                // bugs hid each other and fixing only the constructor would have left the window a no-op.
+                var claimed = plan.Wanted;
                 if (claimed.Count > 0) _restored.ExceptWith(claimed);
             }
 
@@ -311,12 +325,26 @@ namespace Volt.Connector
                         VoltLog.Warn($"{p.Id} still serving after a disconnect was applied — the bridge did not gate");
             }
 
+            // A HELD PROJECT IS STILL WANTED, in memory and on disk.
+            //
+            // `plan.Wanted` is what the live sessions want, and during the startup window that is empty — the
+            // clients have not re-declared yet, which is the entire reason the hold exists. Publishing it
+            // unchanged would drop every restored id from `_state.Wanted` AND truncate the file, so the
+            // wanted→unwanted EDGE the hold is protecting is destroyed by the same cycle that protects the
+            // bridge. The next pass then has `previouslyWanted` empty, no edge exists, and the project serves
+            // forever with no client — the stranded-bridge incident, reinstated by its own fix. The file matters
+            // independently: a second restart inside the window has only the file to restore from.
+            var stillHeld = _restored.Count > 0 && DateTime.UtcNow < _gateHoldUntil;
+            var effectiveWanted = stillHeld
+                ? (IReadOnlyCollection<string>)plan.Wanted.Concat(_restored).ToHashSet(StringComparer.Ordinal)
+                : plan.Wanted;
+
             // Compare as a SET, not a sequence: both sides are unordered (plan.Wanted is filled in session-enumeration
             // order, _state.Wanted starts life as the array LoadWanted returned), so a sequence compare rewrote the
             // file on the 4s tick every time a session reordered without the desired set changing at all.
-            if (!plan.Wanted.ToHashSet(StringComparer.Ordinal).SetEquals(_state.Wanted))
-                SaveWanted(_wantedFile, plan.Wanted); // so a restart inherits the edge
-            _state = _state with { Wanted = plan.Wanted };
+            if (!effectiveWanted.ToHashSet(StringComparer.Ordinal).SetEquals(_state.Wanted))
+                SaveWanted(_wantedFile, effectiveWanted); // so a restart inherits the edge
+            _state = _state with { Wanted = effectiveWanted };
         }
 
         /// <summary>Scan every source CONCURRENTLY (a slow/hung bridge must not stall the others), merge into the one
