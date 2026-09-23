@@ -619,5 +619,8 @@ public static class Commands
         Items = refs.Items,
         Folders = refs.Folders,
         ProjectVersion = refs.ProjectVersion,
+        // Carried so `ComputeIncoming` can decline to report deletions: with a folder unread, `Items` is a
+        // PARTIAL view and absence proves nothing.
+        UnwalkedFolders = refs.UnwalkedFolders,
     };
 }

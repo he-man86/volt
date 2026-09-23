@@ -332,6 +332,12 @@ window.VOLT = {
               "items": {
                 "type": "string"
               }
+            },
+            "unwalkedFolders": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           "required": [
@@ -339,7 +345,8 @@ window.VOLT = {
             "structureVersion",
             "items",
             "folders",
-            "unreadable"
+            "unreadable",
+            "unwalkedFolders"
           ]
         },
         "FetchRequest": {
@@ -410,6 +417,12 @@ window.VOLT = {
                 "type": "string"
               }
             },
+            "unwalkedFolders": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "librariesRefreshed": {
               "type": "boolean"
             },
@@ -428,6 +441,7 @@ window.VOLT = {
             "items",
             "folders",
             "unreadable",
+            "unwalkedFolders",
             "librariesRefreshed"
           ]
         },
@@ -488,12 +502,66 @@ window.VOLT = {
             },
             "ifVersion": {
               "type": "string"
+            },
+            "op": {
+              "type": "string",
+              "enum": [
+                "set",
+                "deleteItem"
+              ],
+              "description": "Selects which member of the union this object is."
+            }
+          },
+          "required": [
+            "name",
+            "op"
+          ],
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/SetItemOp"
+            },
+            {
+              "$ref": "#/components/schemas/DeleteItemOp"
+            }
+          ],
+          "description": "A discriminated union: \u0060op\u0060 selects \u0060set\u0060 or \u0060deleteItem\u0060."
+        },
+        "SetItemOp": {
+          "type": "object",
+          "properties": {
+            "toName": {
+              "type": "string"
+            },
+            "toFolder": {
+              "type": "string"
+            },
+            "sourceText": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "ifVersion": {
+              "type": "string"
             }
           },
           "required": [
             "name"
-          ],
-          "description": "Base of the push-op union. The wire\u0027s \u0060op\u0060 field selects \u0060set\u0060 or \u0060deleteItem\u0060."
+          ]
+        },
+        "DeleteItemOp": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "ifVersion": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ]
         },
         "PushResponse": {
           "type": "object",
@@ -593,6 +661,9 @@ window.VOLT = {
         "BridgeDiagnostic": {
           "type": "object",
           "properties": {
+            "name": {
+              "type": "string"
+            },
             "severity": {
               "type": "string"
             },

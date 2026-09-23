@@ -34,6 +34,7 @@ public static class RefsService
         {
             ProjectVersion = snap.ProjectVersion,
             StructureVersion = snap.StructureVersion,
+            UnwalkedFolders = snap.UnwalkedFolders,
             Items = snap.FullVersions,
             Folders = snap.Folders,
             // The items the walk found and could not materialize. They are tracked in the version hash above but

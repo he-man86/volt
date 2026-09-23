@@ -291,9 +291,34 @@ public class DocDataTests
         var schema = new JsonObject { ["type"] = "object", ["properties"] = props };
         if (required.Count > 0) schema["required"] = required;
 
-        // A push op is a DISCRIMINATED UNION on the wire — the `op` field picks the subtype.
-        if (t == typeof(PushOp))
-            schema["description"] = "Base of the push-op union. The wire's `op` field selects `set` or `deleteItem`.";
+        // A DISCRIMINATED UNION IS EMITTED, not described in prose.
+        //
+        // This used to write a sentence saying `op` selects `set` or `deleteItem` and emit neither — no
+        // discriminator, no `oneOf`, and no `SetItemOp`/`DeleteItemOp` schema at all. So the document called
+        // "the artefact to hand to another project" described `push`, the only MUTATING op, as taking
+        // `{name, ifVersion}`: no `sourceText`, no `toFolder`, no `toName`. A generated client could read but
+        // not write. The gate did not catch it because it reflects PROPERTIES, and `[JsonDerivedType]` is an
+        // attribute on the type — which is precisely the kind of gap a generator must close itself.
+        var poly = t.GetCustomAttribute<JsonPolymorphicAttribute>();
+        if (poly is not null)
+        {
+            var derived = t.GetCustomAttributes<JsonDerivedTypeAttribute>().ToList();
+            var tag = poly.TypeDiscriminatorPropertyName ?? "$type";
+
+            // The discriminator is a real wire field and is REQUIRED — a body without it does not deserialize.
+            props[tag] = new JsonObject
+            {
+                ["type"] = "string",
+                ["enum"] = new JsonArray(derived.Select(d => (JsonNode?)d.TypeDiscriminator?.ToString()).ToArray()),
+                ["description"] = "Selects which member of the union this object is.",
+            };
+            if (!required.Any(r => (string?)r == tag)) required.Add(tag);
+            schema["required"] = required;
+
+            schema["oneOf"] = new JsonArray(derived.Select(d => (JsonNode?)Reference(d.DerivedType, schemas)).ToArray());
+            schema["description"] = $"A discriminated union: `{tag}` selects "
+                + string.Join(" or ", derived.Select(d => $"`{d.TypeDiscriminator}`")) + ".";
+        }
         return schema;
     }
 

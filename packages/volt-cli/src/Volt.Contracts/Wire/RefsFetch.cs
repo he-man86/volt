@@ -47,6 +47,19 @@ public class RefsResponse
     /// is empty instead of trusting that a project fully materialized.</para></summary>
     [JsonPropertyName("unreadable")]
     public List<string> Unreadable { get; set; } = new();
+
+    /// <summary>Folders the driver could not enumerate — normally empty.
+    ///
+    /// <para><b>A partial walk is not a smaller project.</b> Absence is how a client derives a deletion, so a
+    /// folder that could not be read makes absence meaningless for everything beneath it. `fetch` already
+    /// suppresses its `removed` list when this is non-empty; `refs` could not, because the completeness was
+    /// discarded before it got here — so `volt status` rendered every item under a faulting folder as
+    /// incoming-REMOVED, and a pull persisted a baseline hashed over the partial set.</para>
+    ///
+    /// <para>A client that sees this non-empty should not advance its baseline and must not report
+    /// deletions. It is a caveat on a successful response, not a failure: a partial pull is still useful.</para></summary>
+    [JsonPropertyName("unwalkedFolders")]
+    public List<string> UnwalkedFolders { get; set; } = new();
 }
 
 public class FetchRequest
@@ -127,6 +140,12 @@ public class FetchResponse
     /// is empty instead of trusting that a project fully materialized.</para></summary>
     [JsonPropertyName("unreadable")]
     public List<string> Unreadable { get; set; } = new();
+
+    /// <summary>Folders the driver could not enumerate — see <see cref="RefsResponse.UnwalkedFolders"/>. When
+    /// this is non-empty <see cref="Removed"/> is deliberately empty: absence proves nothing about a subtree
+    /// nobody could read.</summary>
+    [JsonPropertyName("unwalkedFolders")]
+    public List<string> UnwalkedFolders { get; set; } = new();
 
     /// <summary>True when this fetch RE-RENDERED the referenced-library signatures (the precompile ran), so
     /// <c>Changed</c> carries the COMPLETE signature set for every library folder.

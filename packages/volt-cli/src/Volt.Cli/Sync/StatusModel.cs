@@ -8,6 +8,10 @@ public sealed class BridgeSnapshot
     public string Detail { get; set; } = "offline";
     public ProjectMismatch? ProjectMismatch { get; set; }
     public Dictionary<string, string> Items { get; set; } = new();
+
+    /// <summary>Folders the bridge could not enumerate. Non-empty means <see cref="Items"/> is a PARTIAL view
+    /// of the project, so nothing may be concluded from a name's absence.</summary>
+    public List<string> UnwalkedFolders { get; set; } = new();
     public Dictionary<string, string> Folders { get; set; } = new();
     public string ProjectVersion { get; set; } = "";
 }
@@ -17,7 +21,12 @@ public sealed class BridgeSnapshot
 public static class StatusModel
 {
     /// <summary>The IDE-side changeset: the bridge's item→version map diffed against the baseline.</summary>
-    public static ChangeSet ComputeIncoming(IReadOnlyDictionary<string, string> bridge, IReadOnlyDictionary<string, string> baseMap)
+    /// <param name="complete">False when the bridge could not enumerate part of the project. A deletion is
+    /// derived from ABSENCE, so a partial view cannot produce one: every item under a folder that failed to
+    /// read is missing from <paramref name="bridge"/>, present in the baseline, and would be rendered as
+    /// incoming-REMOVED. Status would tell the user the engineer deleted their POUs.</param>
+    public static ChangeSet ComputeIncoming(
+        IReadOnlyDictionary<string, string> bridge, IReadOnlyDictionary<string, string> baseMap, bool complete = true)
     {
         var added = new List<string>();
         var modified = new List<string>();
@@ -27,8 +36,12 @@ public static class StatusModel
             if (!baseMap.ContainsKey(kv.Key)) added.Add(kv.Key);
             else if (baseMap[kv.Key] != kv.Value) modified.Add(kv.Key);
         }
-        foreach (var name in baseMap.Keys)
-            if (!bridge.ContainsKey(name)) removed.Add(name);
+        // ONLY A COMPLETE VIEW MAY REPORT A DELETION. See the parameter's doc: with a folder unread, every
+        // item beneath it is absent from `bridge` and present in the baseline, which reads identically to the
+        // engineer having deleted them.
+        if (complete)
+            foreach (var name in baseMap.Keys)
+                if (!bridge.ContainsKey(name)) removed.Add(name);
         added.Sort(StringComparer.Ordinal);
         modified.Sort(StringComparer.Ordinal);
         removed.Sort(StringComparer.Ordinal);
@@ -42,7 +55,8 @@ public static class StatusModel
 
         var sidecar = Sidecar.LoadIdeRefs(root);
         var incoming = snap.Online && snap.ProjectMismatch is null
-            ? ComputeIncoming(snap.Items, sidecar?.Items ?? new Dictionary<string, string>())
+            ? ComputeIncoming(snap.Items, sidecar?.Items ?? new Dictionary<string, string>(),
+                              complete: snap.UnwalkedFolders.Count == 0)
             : ChangeSet.Empty();
 
         var pathByName = new Dictionary<string, string>();

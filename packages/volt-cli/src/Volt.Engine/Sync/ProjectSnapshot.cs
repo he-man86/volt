@@ -51,6 +51,11 @@ internal sealed class ProjectSnapshot
     /// otherwise, because it is tracked in the version hash but absent from the wire index (DIALECT C7).</summary>
     public List<string> Unreadable { get; } = new List<string>();
 
+    /// <summary>Folders the driver could not enumerate. Non-empty means "there may be items under here this
+    /// walk did not see" — never "these are gone". Everything derived from this snapshot is partial when it
+    /// is non-empty, including both aggregate versions.</summary>
+    public List<string> UnwalkedFolders { get; } = new List<string>();
+
     /// <summary>The aggregate versions over <see cref="Versions"/>, hashed ONCE at the end of the walk — they are
     /// part of the snapshot, not recomputed (and re-sorted) per read.</summary>
     public string ProjectVersion { get; private set; } = "";
@@ -68,9 +73,16 @@ internal sealed class ProjectSnapshot
     public static ProjectSnapshot Walk(IIdeDriver ide, Action<ProgressFrame>? onProgress = null, string operation = Ops.Refs)
     {
         var snap = new ProjectSnapshot();
-        // Only the items: a snapshot answers "what is here and what does it hash to", and nothing derives a
-        // DELETION from it — the removal signal lives in FetchService alone. Completeness would be noise here.
-        var walked = ide.WalkItems().Items;
+        // COMPLETENESS TRAVELS WITH THE ITEMS. This used to take `.Items` and drop the rest one line after the
+        // driver produced it, on the grounds that nothing derives a DELETION from a snapshot. That was true of
+        // `fetch`, which has its own walk and its own suppression — and false of everything else built on this:
+        // `refs` drives `volt status`, which diffs the snapshot against the sidecar and renders every item
+        // under an unenumerable folder as INCOMING-REMOVED. Status told the user the engineer had deleted
+        // their POUs. `init`/`pull` likewise wrote a workspace missing those items and persisted a
+        // projectVersion hashed over the partial set as the IDE baseline.
+        var walk = ide.WalkItems();
+        var walked = walk.Items;
+        snap.UnwalkedFolders.AddRange(walk.UnwalkedFolders);
         var total = walked.Count;
         var done = 0;
         onProgress?.Invoke(new ProgressFrame { Operation = operation, Done = 0, Total = total, Phase = "reading" });

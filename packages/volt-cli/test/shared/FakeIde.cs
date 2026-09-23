@@ -199,7 +199,10 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// one was untestable: `WalkItems()` returned a plain list and a fake has no COM to break. Items under these
     /// folders are still omitted from <c>Items</c>, exactly as a real skipped subtree would be, so a test can
     /// tell the difference between "omitted because gone" and "omitted because unseen".</para></summary>
-    public IReadOnlyList<string> UnwalkableFolders { get; init; } = System.Array.Empty<string>();
+    // SETTABLE, not init-only: a test that wants a folder to BECOME unreadable has to build the project
+    // first and fail the walk afterwards — which is also the real sequence, since a folder does not
+    // usually refuse to enumerate until something goes wrong.
+    public IReadOnlyList<string> UnwalkableFolders { get; set; } = System.Array.Empty<string>();
 
     /// <summary>Tree nodes whose <see cref="ChildCount"/> FAULTS — a COM read failing mid-lookup, without a live
     /// IDE to fail. Distinct from <see cref="UnwalkableFolders"/>, which models a WALK skipping a subtree; this

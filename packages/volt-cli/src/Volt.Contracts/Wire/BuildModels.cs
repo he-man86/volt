@@ -50,6 +50,15 @@ public static class Severity
 
 public class BridgeDiagnostic
 {
+    /// <summary>The FULL wire name of the item this diagnostic is about (`FB_Motor.fb`), when the vendor says
+    /// which — null when it is a project-level message.
+    ///
+    /// <para>Without it a diagnostic carries a <see cref="Line"/> anchored to nothing: a client has a line
+    /// number and no file to put it in, so `volt build` can only print prose and an editor cannot place a
+    /// squiggle. TwinCAT's output already identifies the item and the value was parsed and dropped.</para></summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
     [JsonPropertyName("severity")]
     public string Severity { get; set; } = Volt.Contracts.Severity.Info;
 
