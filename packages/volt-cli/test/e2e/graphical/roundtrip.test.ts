@@ -1,4 +1,4 @@
-﻿/**
+﻿﻿/**
  * Graphical bodies — create, round-trip, and verify FBD/LD programs.
  * CFC/SFC are unsupported (declaration-only, never created) — see BodyCodec.UnsupportedCodec.
  */
@@ -49,7 +49,7 @@ END_PROGRAM
 // (negated) contact, a longer series, multiple coils in one network, and a SET coil.
 // A negated contact sits INLINE. This used to read `LET i1 := NOT a; out := (i1 AND b);`, which the writer
 // hoisted because it tested the RENDERED text ("NOT a" has a space) instead of the operand's own text. Per
-// network-text.md §6, an `i*` name is minted for an OPAQUE LEAF - "arbitrary inlined ST text" - and `a` is a
+// network-text.html#opaque, an `i*` name is minted for an OPAQUE LEAF - "arbitrary inlined ST text" - and `a` is a
 // plain identifier carrying a modifier, so no name was ever due. The spec also says a single-use LET is a
 // textual convenience substituted back on read, so both spellings always meant the same tree; only one of them
 // is what the writer emits, and now it is the one the spec describes.

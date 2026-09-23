@@ -18,7 +18,7 @@ namespace Volt.Repo.Gates;
 /// the other passed every gate, because every gate was asking whether the two AGREE about an item, never
 /// whether they can both DO the same thing to it.</para>
 ///
-/// <para><b>Why that gap is the bad kind.</b> `docs/ITEM_KINDS.md` already lists eighteen vendor-exclusive
+/// <para><b>Why that gap is the bad kind.</b> `docs/items.html` already lists eighteen vendor-exclusive
 /// rows and they are fine: they say a KIND does not exist on that vendor (TwinCAT has parameter lists, CODESYS
 /// has traces), so nothing appears in the workspace and there is nothing to be surprised by. A capability gap
 /// is the opposite — the same file, in both workspaces, behaving differently — and it is invisible until an
@@ -179,8 +179,11 @@ public class VendorCapabilityParityTests
         return null;
     }
 
-    /// <summary>The one-sided kinds are named in `docs/ITEM_KINDS.md`, which is where someone asking "can I edit
-    /// this file?" actually looks — the gate keeps the prose honest rather than replacing it.</summary>
+    /// <summary>The one-sided kinds are named in `docs/items.html`, which is where someone asking "can I edit
+    /// this file?" actually looks — the gate keeps the PROSE honest rather than replacing it.
+    /// <para>The kind TABLE on that page is generated from <c>ItemKind</c>, so every kind is listed there
+    /// whatever this gate does. What is generated is the table, not the sentence saying which vendor can write
+    /// the thing — and that sentence is the one a user needs. So this still checks the page.</para></summary>
     [Fact]
     public void The_kind_table_documents_every_one_sided_capability()
     {
@@ -189,9 +192,9 @@ public class VendorCapabilityParityTests
 
     private static void AssertKindIsDocumented(string kind)
     {
-        var doc = File.ReadAllText(Path.Combine(RepoRoot(), "packages", "volt-cli", "docs", "ITEM_KINDS.md"));
-        Assert.True(doc.Contains($"`{kind}`", StringComparison.Ordinal),
-            $"docs/ITEM_KINDS.md does not mention the '{kind}' kind, whose write support differs per vendor.");
+        var doc = File.ReadAllText(Path.Combine(RepoRoot(), "packages", "volt-cli", "docs", "items.html"));
+        Assert.True(doc.Contains($"<code>{kind}</code>", StringComparison.Ordinal),
+            $"docs/items.html does not name the '{kind}' kind, whose write support differs per vendor.");
     }
 
     // ── reading the declaration out of the engine ────────────────────────────────────────────────────────

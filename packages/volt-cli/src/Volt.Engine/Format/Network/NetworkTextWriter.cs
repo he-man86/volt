@@ -6,7 +6,7 @@ namespace Volt.Engine.Format.Network;
 
 /// <summary>
 /// Renders a <see cref="NetworkBody"/> to network text — the canonical, constrained ST-like dialect specified
-/// in <c>docs/network-text.md</c>. <b>The FORMAT is unchanged by the move to <see cref="NetworkBody"/></b>: it
+/// in <c>docs/network-text.html</c>. <b>The FORMAT is unchanged by the move to <see cref="NetworkBody"/></b>: it
 /// is a product surface (engineers' committed <c>.fb</c> files, and a first-class sublanguage of
 /// <c>volt-lsp-iec</c>), so this is a retarget, not a redesign. <see cref="NetworkTextReader"/> reverses it.
 ///
@@ -260,7 +260,7 @@ public static class NetworkTextWriter
                 case Terminator: Flush(); Line(Unconnected + ";"); break;
 
                 // A fan-out wire's DEFINITION. The vendor holds it as a `BoxTreeDemux` carrying the producer;
-                // the format spells it `LET g<VarId> := <producer>;` (docs/network-text.md §5) and every
+                // the format spells it `LET g<VarId> := <producer>;` (docs/network-text.html#let) and every
                 // reference to it renders as the bare name. Both halves were missing, which is how 573 of these
                 // in one real project came back as `out := ( AND b);` with the wire silently gone.
                 case Demux d when d.Input is not null:
@@ -471,7 +471,7 @@ public static class NetworkTextWriter
 
                 // AN ENABLED BOX AT OPERAND POSITION IS HOISTED, because EN/ENO has no inline form. The
                 // format spells an enable as a statement — `LET en := src; IF en THEN … END_IF` — and a
-                // downstream consumer chains off the echo (docs/network-text.md §EN/ENO, "so a downstream box
+                // downstream consumer chains off the echo (docs/network-text.html#eneno, "so a downstream box
                 // chains off it"). That is exactly this case: the consumer is another box's pin.
                 //
                 // <b>Without this the box VANISHED.</b> `Definition` renders inputs and NAMED outputs; it has
@@ -634,7 +634,7 @@ public static class NetworkTextWriter
 
         // ── helpers ───────────────────────────────────────────────────────────────────────────────
 
-        /// <summary>The operand text for a pin connected to NOTHING: the empty slot (docs/network-text.md §3).
+        /// <summary>The operand text for a pin connected to NOTHING: the empty slot (docs/network-text.html#empty-slot).
         /// Named rather than written as a bare "" so every site that means "no operand" says so, and so this
         /// comment sits where the decision is.</summary>
         private const string Unconnected = "";

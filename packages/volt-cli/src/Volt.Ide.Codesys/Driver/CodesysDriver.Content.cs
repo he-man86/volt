@@ -122,7 +122,7 @@ public sealed partial class CodesysDriver
                 // `changed`, `items` AND `folders` — so one IL-view method inside an ordinary ST function block
                 // removed the ENTIRE POU, declaration and every sibling method with it, from refs and fetch, on
                 // every pull, with only a log warning. IL is unsupported, which is exactly what the marker is
-                // for; ARCHITECTURE.md and network-text.md both already said it materializes as one.
+                // for; ARCHITECTURE.md and docs/network-text.html both already said it materializes as one.
                 var language = ReadViewMode(impl);
                 if (language is null) return (null, BodyMarker.For("IL"));
 

@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Items &amp; kinds · Volt bridge</title>
+<link rel="stylesheet" href="assets/doc.css">
+<script src="assets/data.js"></script>
+<script type="module" src="assets/doc.js"></script>
+</head>
+<body>
+<div class="wrap">
+<nav></nav>
+<main>
+
+<h1>Items &amp; kinds</h1>
+<p class="lede">
+  What a project is made of, what each thing is called on the wire, and which file it becomes. One table,
+  generated from <code>ItemKind</code> — the single source of truth both drivers classify onto.
+</p>
+
+<h2 id="model">The model</h2>
+<p>
+  A project is a tree. A <b>walk</b> flattens it into items, each with a name, a kind code and a folder path.
+  Not every node becomes an item: some are recursed through, some are inlined into their parent, and some are
+  skipped outright.
+</p>
+<table>
+  <tr><th>a node is…</th><th>and then</th></tr>
+  <tr><td><b>emitted</b></td><td>It is an item on the wire, with a version, and it materializes as a file.</td></tr>
+  <tr><td><b>a folder</b></td><td>It becomes a path SEGMENT on the items beneath it. Folders are never items and have no file.</td></tr>
+  <tr><td><b>a container manager</b></td><td>A library / recipe / visualization manager: pure grouping, no content of its own. Recursed exactly like a folder, so a library materializes at <code>Library Manager/&lt;lib&gt;/&lt;lib&gt;.library</code> with no stub beside the folder.</td></tr>
+  <tr><td><b>inlined in a POU</b></td><td>A method, action, property, accessor or transition. It travels inside its POU's single file, as a block the ST layer renders and parses back.</td></tr>
+  <tr><td><b>a recurse-only container</b></td><td>CODESYS's Application / PlcLogic / Device / Task Configuration, and any node carrying no specific object type. Walked through, never emitted.</td></tr>
+  <tr><td><b>skipped</b></td><td>Transient and hidden objects, and CODESYS's own <code>IUnknownObject</code> "no plugin loaded" marker.</td></tr>
+</table>
+
+<h2 id="identity">Names, kinds and extensions</h2>
+<p>
+  <b>The item NAME is the identity, and on the wire it is full</b> — <code>name.kind</code>. IEC guarantees
+  unique names within a kind, not across them: a control module and the visualization that draws it are
+  <code>CM_Carrier.fb</code> and <code>CM_Carrier.visualization</code>, and a real customer project ships two
+  such pairs. Collapsed onto one bare slot, the walk order picked a winner — the FB's version was invisible to
+  the aggregate hash, and the push's <code>ifVersion</code> gate answered with the <i>visualization's</i> hash,
+  which meant the FB could be pulled and never pushed back.
+</p>
+<div class="note">
+  Do <b>not</b> add a duplicate-name guard that throws. Real projects legitimately repeat names across kinds,
+  and throwing breaks <code>refs</code>. The fix is to key the wire's maps by the identity the wire already
+  publishes.
+</div>
+<p>
+  Below the vendor seam the same item is addressed by its <b>bare</b> name — the IDE's own lookup key, which
+  has no extension. Every version and folder map Volt publishes is keyed by the full name and derived in one
+  place; an item that could not be materialized has no full name and keeps its bare one there.
+</p>
+<p>
+  A file's extension carries the <b>kind</b> and nothing else. A body's language is not in the extension: an
+  editable FBD/LD body is the same <code>.fb</code>/<code>.prg</code>/<code>.fun</code> as a textual one — the
+  language rides on the <a href="network-text.html"><code>NETWORK</code> marker</a> in the content — and a
+  CFC/SFC body is that kind's extension too, materialized as a marker comment.
+</p>
+
+<h3 id="dut">The DUT: four codes, one kind, four extensions</h3>
+<p>
+  A DUT is <b>one wire kind</b>. TwinCAT stores four tree codes for it (605 enum / 606 struct / 607 union, and
+  623 which is the generic code <code>CreateChild</code> accepts); CODESYS classifies every
+  <code>IDUTObject</code> onto one and creates with one call. All of them map to <code>dut</code>.
+</p>
+<p>
+  On disk it materializes as <code>.struct</code> / <code>.enum</code> / <code>.union</code> /
+  <code>.alias</code>, derived from the declaration text — which is where the IDE itself derives it, on both
+  read and create. That is a <i>naming</i> choice, not a wire one: the wire identity keeps <code>.dut</code>,
+  because if the subtype were part of it then editing a struct into an enum would present as a delete plus a
+  create of the same underlying object.
+</p>
+<div class="note">
+  <b>This row used to read "not used by Volt".</b> 605/606/607 were therefore unmapped, so every DUT authored
+  in the TwinCAT IDE — the ordinary case — was invisible to <code>refs</code> and <code>fetch</code>. Absent
+  means deleted to a pull.
+</div>
+
+<h3 id="writable">Source, addressable, writable — three different questions</h3>
+<table>
+  <tr><th>flag</th><th>asks</th></tr>
+  <tr><td class="name">ST source</td><td>Is this assembled Structured Text? The LSP parses it; <code>volt init</code> colours it; it is in the four <code>SOURCE_EXTENSIONS</code> manifests.</td></tr>
+  <tr><td class="name">addressable</td><td>Does the wire address it BY NAME at top level? Every source kind, plus the writable reference kinds.</td></tr>
+  <tr><td class="name">a push may write it</td><td>Can a push send it back? True for every source kind — and for <code>.task</code>, which is <b>writable without being source</b>.</td></tr>
+</table>
+<p>
+  Conflating writable with source is what kept the third column from existing. A <code>.task</code> is not
+  structured text, the LSP must not parse it as such — yet its fields are perfectly writable on the vendor,
+  every one a setter measured live.
+</p>
+
+<h3 id="one-sided">Write support that differs per vendor</h3>
+<p>
+  Almost everything is symmetric — the wire is the parity boundary, and both vendors answer identically. The
+  exceptions are listed here, because "can I edit this file?" is the question this page exists to answer and
+  the generated table below cannot carry it.
+</p>
+<table>
+  <tr><th>kind</th><th>CODESYS</th><th>TwinCAT</th><th>why</th></tr>
+  <tr>
+    <td class="name"><code>task</code></td>
+    <td class="yes">writable</td>
+    <td class="yes">writable</td>
+    <td>Both, by routes that share nothing below the format. CODESYS has a live setter per field. TwinCAT
+      assembles the same six fields from <i>two</i> tree items — the PLC task's linked SYSTEM task carries
+      priority and cycle time, the ordered calls are the PLC item's own children — and <b>reads every write
+      back</b>, because that vendor accepts a schedule it has no intention of applying. Three fields have no
+      TwinCAT counterpart (a non-cyclic type, an event, a watchdog) and are <b>refused</b> rather than
+      dropped.</td>
+  </tr>
+</table>
+<p>
+  Which vendor implements which writable kind is <b>declared and gated</b>
+  (<code>test/Volt.Repo.Gates/VendorCapabilityParityTests.cs</code>), so a future one-sided kind cannot arrive
+  unnoticed — and the vendor that lacks a capability has to <i>refuse</i> with <code>UNSUPPORTED</code> rather
+  than accept and do nothing, which is the failure mode a capability gap actually produces in the field.
+</p>
+
+<h2 id="kinds">The kind table</h2>
+<p class="gen">
+  Generated from <code>ItemKind</code>. A row exists because a constant does — codes, wire kinds, extensions
+  and every predicate are read off the same class the walk uses.
+</p>
+<div data-render="kinds"></div>
+
+<h2 id="extensions">Workspace file extensions</h2>
+<p class="gen">
+  Generated. This is the registry <code>scripts/check-wiring.ts</code> cross-checks every other runtime's copy
+  against — the C# engine, the LSP, volt-control, and four separate places in the VS Code manifest — so a new
+  source kind cannot be added in one place and silently missed in another.
+</p>
+<div data-render="extensions"></div>
+<p class="lede">
+  <code>dut</code> is deliberately absent: no path writes a <code>.dut</code> file, so recognising one would
+  advertise a file Volt never produces. It remains the wire kind, which is a different name in a different
+  place.
+</p>
+
+<h2 id="vendors">How each vendor classifies</h2>
+<h3 id="tc">TwinCAT — a numeric enum</h3>
+<p>
+  The codes <b>are</b> TwinCAT's own <code>TREEITEMTYPE</code> (the PLC range), which is why each C# constant
+  is the PascalCase of its official name. The numbers in the table are the <b>live build's</b>, not the
+  published documentation's: Beckhoff renumbered 622/624/625 into the 650s, and 628/629/631/632/633/657 are
+  observed live with no published name at all. Catalogue notes go stale; these were measured.
+</p>
+<p>
+  Codes in the PLC range that are <i>not</i> in the table are genuinely unknown — never seen live, not in the
+  published enum. An unmapped code drops the item from the walk, so the honest way to close a gap is to sweep
+  a project that has the object (persistent GVLs, a parameter manager, CNC/NC, cam or image objects) and read
+  the raw number off it.
+</p>
+<h3 id="cds">CODESYS — by interface</h3>
+<p>
+  CODESYS has no numeric enum; it classifies by which <code>IObject</code> interfaces a node carries, onto the
+  <i>same</i> constants. <code>IPOUObject</code> → program/function/function block (refined from the
+  declaration), <code>IDUTObject</code> → dut, <code>IGVLObject</code>/<code>INVLObject</code> → gvl,
+  <code>IInterfaceObject</code> → interface, and so on down a fixed order. The order matters — several nodes
+  carry more than one interface.
+</p>
+<p>
+  A node with <b>no</b> specific object type — only the base <code>IGenericObject</code>/<code>IObject</code> —
+  is treated as a transparent grouping container and recursed into, so nested source is never dropped. That is
+  how SoftMotion's "Kinematics" group and the drive "Functions" group behave.
+</p>
+<p>
+  Both drivers emit identical wire kinds, so an item hashes identically regardless of which IDE it came from.
+  That is the whole point of a shared code table: parity is a property of the data, not of two implementations
+  agreeing by hand.
+</p>
+
+</main>
+</div>
+</body>
+</html>

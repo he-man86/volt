@@ -91,7 +91,7 @@ export function computeNetworkTextDiagnostics(
 }
 
 /**
- * Network-text operand MODIFIER words (network-text.md §Modifiers), lowercased. Trailing `RISING`/`FALLING`
+ * Network-text operand MODIFIER words (network-text.html#whitespace), lowercased. Trailing `RISING`/`FALLING`
  * (edge) are graphical keywords the lean operand parser leaves in the expression, not identifiers — so the
  * undeclared check must skip them. (`NOT`, the leading modifier, already resolves via the reference catalog's
  * boolean operator.)
@@ -309,7 +309,7 @@ function checkUnresolvedBoxes(
     // WHICH SLOT the marker sits in, decided by the token that FOLLOWS it. An assignment operator there
     // means the marker is the TARGET (`??? := a;`, `??? S= a;`) and the compiler answers semantically;
     // anywhere else it is an operand and the compiler's PARSER answers instead. One token of lookahead is
-    // enough because the grammar is fully parenthesised (docs/network-text.md §4): every operand sits
+    // enough because the grammar is fully parenthesised (docs/network-text.html#grammar): every operand sits
     // between two structural marks, so nothing else can follow a marker that is about to be assigned to.
     // SKIP TRIVIA to reach it: `body.tokens` carries whitespace and comments, so the token at i+3 is the
     // SPACE in `??? := a` rather than the operator. Reading it raw classified every target as an operand.

@@ -112,7 +112,7 @@ public sealed record Box(
     /// <c>Instance='???'</c>. The format names an FB call ONCE — the instance — and the push recovers the type
     /// from the declaration that instance is declared in. <c>???</c> is declared nowhere, so the type was lost
     /// on pull and the push was refused: the POU could be pulled and never pushed back. The type is therefore
-    /// written inline for exactly this instance (<c>??? : TYPE(PIN := …)</c>, docs/network-text.md §6).</para></summary>
+    /// written inline for exactly this instance (<c>??? : TYPE(PIN := …)</c>, docs/network-text.html#unnamed-instance).</para></summary>
     public const string UnnamedInstance = "???";
 
     /// <summary>Whether the box's input slot 0 is the ENABLE WIRE rather than a data pin.

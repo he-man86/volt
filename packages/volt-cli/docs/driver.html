@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The driver layer · Volt bridge</title>
+<link rel="stylesheet" href="assets/doc.css">
+<script src="assets/data.js"></script>
+<script type="module" src="assets/doc.js"></script>
+</head>
+<body>
+<div class="wrap">
+<nav></nav>
+<main>
+
+<h1>The driver layer</h1>
+<p class="lede">
+  <code>IIdeDriver</code> is the whole vendor seam: one interface, composed of three, and the only code in the
+  system that knows what a CODESYS or a TwinCAT is. <b>This is the layer to lift into another project</b> if
+  what you want is to drive a PLC IDE from your own program rather than to speak Volt's wire.
+</p>
+
+<h2 id="shape">What it is</h2>
+<div class="mermaid">
+classDiagram
+  class IIdeDriver {
+    the one type a vendor implements
+  }
+  class IIdeSession {
+    attach · liveness · threading · build
+  }
+  class IProjectTree {
+    walk · create · delete · rename · move
+  }
+  class ICodeStore {
+    read content · write content · manifests
+  }
+  IIdeDriver --|> IIdeSession
+  IIdeDriver --|> IProjectTree
+  IIdeDriver --|> ICodeStore
+</div>
+<p>
+  The three facets stay separate because they answer different questions and fail differently. A tree walk can
+  skip a subtree it cannot enumerate; a content read cannot skip a body. Keeping them apart is what lets each
+  read as a focused contract instead of one forty-member god interface.
+</p>
+
+<h2 id="rule">The one rule that makes it reusable</h2>
+<div class="note">
+  <b><code>ICodeStore</code> speaks <code>ItemContent</code>, and nothing above the seam knows a vendor's own
+  representation.</b> A graphical body crosses as <a href="network-text.html">network text</a>; the driver
+  converts. Get that boundary right and everything above it is vendor-blind for free.
+</div>
+<p>
+  This is not a style preference — it is the correction of a real design failure. The interface used to demand
+  a PLCopen document:
+</p>
+<pre>string  ReadXml(ItemRef item);              // "export this POU as PLCopen XML"
+void    WriteXml(ItemRef item, string xml);
+string? BodyLanguage(ItemRef item);</pre>
+<p>which made a vendor's <i>file format</i> part of the vendor-neutral contract. Three consequences, all real:</p>
+<ul>
+  <li>An IDE with no PLCopen export <b>could not implement the contract at all</b>. TIA Portal is the concrete
+    case: Openness has its own representation and no PLCopen, so a Siemens driver was impossible for a reason
+    that had nothing to do with Siemens.</li>
+  <li>TwinCAT could not adopt its own better transport, because the engine would not accept it — so PLCopen's
+    failures on TwinCAT became Volt's failures.</li>
+  <li>CODESYS could not hand over the typed objects it actually has, and had to serialize a document instead.</li>
+</ul>
+<p>
+  <code>BodyLanguage</code> is gone for the same reason: the language now arrives <i>inside</i> the content. A
+  second round-trip to ask "what language is this" was the transport leaking upward.
+</p>
+
+<h2 id="vocabulary">The vocabulary</h2>
+<p>Five types cross the seam. They are Volt's own, and a driver converts its vendor's forms into them.</p>
+<table>
+  <tr><th>type</th><th>is</th></tr>
+  <tr><td class="name">ItemRef</td><td>An opaque handle to one node in the IDE's tree — a <code>readonly struct</code> wrapping the vendor's native object. The engine never unwraps it.</td></tr>
+  <tr><td class="name">ProjectItem</td><td>What a walk found: <code>(Name, Item, KindCode, Folder)</code>. <code>Name</code> is the stable identity, <code>Folder</code> its path from the tree root.</td></tr>
+  <tr><td class="name">WalkResult</td><td><code>Items</code> plus <code>UnwalkedFolders</code> — and <code>Complete</code>. See below; this is the most easily-missed part of the contract.</td></tr>
+  <tr><td class="name">ItemContent</td><td><code>(Kind, Declaration, Body, Members)</code>. One record for both directions — a read builds it, the ST writer renders it, the ST reader parses it back, a push applies it.</td></tr>
+  <tr><td class="name">Member</td><td>A method, action or property, with its own declaration and body, and a property's <code>Getter</code>/<code>Setter</code>.</td></tr>
+</table>
+
+<h3 id="walkresult">Why <code>WalkResult</code> carries completeness</h3>
+<p>
+  Both drivers skip a subtree they cannot enumerate rather than aborting the whole walk, which is right — a
+  transient COM fault on one folder should not fail a pull. What was missing is that they never told the
+  <i>caller</i>. <code>WalkItems()</code> returned a plain list, and the sync layer derives deletions as "known
+  to the client, absent from this walk" — so one faulting folder reported every item beneath it as deleted, and
+  the pull removed the engineer's files for POUs that were still sitting in the IDE.
+</p>
+<p>
+  <b>If you implement this interface, populate <code>UnwalkedFolders</code>.</b> An entry means "there may be
+  items under here that this walk did not see" — never "these are gone".
+</p>
+
+<h3 id="presence">Presence is the object</h3>
+<p>
+  Three places where <code>null</code> and empty mean different things, each of which cost data before it was
+  spelled out:
+</p>
+<table>
+  <tr><th>value</th><th>null means</th><th>empty means</th></tr>
+  <tr><td class="name">ItemContent.Body</td><td>The item <b>has</b> no body; write nothing.</td><td>Clear the body. TwinCAT skipped empty implementations once, so emptying a body silently kept the old code.</td></tr>
+  <tr><td class="name">Member.Getter / Setter</td><td>The property has no such accessor — and a push <b>removes</b> it.</td><td>An <code>Accessor</code> with an empty body: it exists and has no code (the interface case).</td></tr>
+  <tr><td class="name">SetItemOp.ToFolder</td><td>Keep the current folder.</td><td>A destination: the tree root.</td></tr>
+</table>
+
+<h2 id="threading">Threading, and why it is on the interface</h2>
+<p>
+  Both IDE automation surfaces are single-threaded-apartment. Every IDE-touching operation is marshalled
+  through <code>RunOnStaThread&lt;T&gt;</code>, and that is load-bearing rather than defensive: touching the
+  object model off the IDE's own thread is how you get a hang that looks like a network problem.
+</p>
+<p>
+  <code>DriverBase</code> implements the parts that are identical across vendors — the degraded-state machine,
+  the liveness bracketing around the marshal, the single-flight health probe, and the composition of the whole
+  health response. A vendor supplies only the row snapshot. That last part is deliberate: <code>health</code>'s
+  wire shape used to be composed once per vendor, which is exactly how two vendors come to answer differently.
+</p>
+<p>
+  <code>HandlesSurviveStructureChange</code> is the other threading-adjacent fact worth knowing before you
+  write a driver. On CODESYS a handle survives adding a child; on TwinCAT it does not, because a member is not
+  a separate file there and placing one is a round trip through the enclosing POU's archive, which
+  <i>replaces</i> the item. The reconciler used to assume the worse case for both — 19 full project walks for a
+  POU with 20 members, on a vendor that never needed one.
+</p>
+
+<h2 id="preflight">The pre-flight</h2>
+<p>
+  <code>ValidateSource</code> throws exactly what <code>WriteContent</code> would throw, for the reasons this
+  driver can decide <b>without touching the IDE</b>. The push calls it for every op before it applies the
+  first one.
+</p>
+<p>
+  The engine's own pre-flight already covers everything decidable from the source text — a malformed document,
+  network text that does not parse or is not canonical — and that is vendor-neutral by construction. What it
+  cannot cover is a shape one <i>vendor</i> cannot express. Being pure is the whole point: this was once called
+  from inside the write, so a push whose second item carried such a shape left the first item in the project
+  and told the caller it had failed.
+</p>
+<p>
+  <code>DriverBase</code> refuses nothing by default, which is the honest answer for a driver whose refusals
+  genuinely need the live objects. A pre-flight that guesses is worse than one that declines to.
+</p>
+
+<h2 id="members">The interface, member by member</h2>
+<p class="gen">
+  Generated by reflecting the three interfaces — signatures, nullability and tuple element names as the
+  contract declares them. A member cannot be added to the code and missed here.
+</p>
+<div data-render="driver"></div>
+
+<h2 id="vendors">What the two drivers actually do</h2>
+<table>
+  <tr><th></th><th>CODESYS</th><th>TwinCAT</th></tr>
+  <tr><td>process</td><td><b>In-process</b> — loaded into the IDE (net48), its own message loop answers the pipe.</td><td><b>Out-of-process</b> — a worker attached to one XAE window by pid, over COM.</td></tr>
+  <tr><td>content</td><td>Mutates the live language-model objects.</td><td>Rewrites the item's own archive, and only the networks that changed.</td></tr>
+  <tr><td>create door</td><td>The scripting API, per kind.</td><td><code>PlcOpenImport</code> — the one create door, which is where most <code>UNSUPPORTED</code> refusals come from.</td></tr>
+  <tr><td>move</td><td><code>ScriptObject.Move</code>.</td><td><code>ExportChild</code>/<code>ImportChild</code>: the archive is a zip whose entry name carries the source path, so flattening that name is a move.</td></tr>
+  <tr><td>library signatures</td><td>Reflects the resolved compile context.</td><td>None yet — no equivalent surface has been found.</td></tr>
+  <tr><td>writable descriptors</td><td><code>.task</code>, every field a live setter.</td><td><code>.task</code>, assembled from two tree items and <b>read back after every write</b>, because this vendor accepts a schedule it does not apply.</td></tr>
+</table>
+<p>
+  The measured vendor facts — every one dated, with how it was measured, several recording an earlier
+  conclusion being wrong — live in <code>src/Volt.Engine/Ide/DIALECT.md</code>. Read that before concluding a
+  vendor cannot do something; three separate refusals in this codebase turned out to be conclusions read off
+  Volt's own interface rather than off the vendor.
+</p>
+
+<h2 id="lifting">Lifting this into another project</h2>
+<ol>
+  <li><b>Take <code>Volt.Engine/Ide/</code> and <code>Volt.Engine/Item/</code>.</b> The contract, the
+    vocabulary, <code>DriverBase</code>, and the shared navigation helpers (<code>TreeNav</code>,
+    <code>ItemLookup</code>, <code>SourceScopes</code>). No wire, no sync.</li>
+  <li><b>Take one driver</b> — <code>Volt.Ide.Codesys</code> or <code>Volt.Ide.Twincat</code> — as the worked
+    example of what a vendor implementation costs.</li>
+  <li><b>Decide whether you want <code>Format/</code>.</b> If your project wants bodies as text, yes: that is
+    the ST layer and network text. If it only wants structure, <code>IProjectTree</code> alone is coherent.</li>
+  <li><b>Leave <code>Sync/</code> and <code>Volt.Wire</code> behind</b> unless you want Volt's versioning and
+    push semantics too. They sit above the seam and assume a git-shaped client.</li>
+</ol>
+<p>
+  The dependency that is <i>not</i> optional is <code>Volt.Contracts</code>: the driver contract references
+  <code>ConnectRequest</code>, <code>HealthResponse</code> and <code>BridgeDiagnostic</code>. It is
+  netstandard2.0 with no framework dependency, deliberately, so it loads in an in-process net48 host without
+  fighting the IDE's own assemblies.
+</p>
+
+</main>
+</div>
+</body>
+</html>

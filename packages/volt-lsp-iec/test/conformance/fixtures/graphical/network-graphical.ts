@@ -13,7 +13,7 @@
  * graphical code, which is the failure mode network text is most exposed to (its checks were written against a
  * grammar, not against builds).
  *
- * Each form is spelled from `packages/volt-cli/docs/network-text.md` §6–§7. Where a form has a documented
+ * Each form is spelled from `packages/volt-cli/docs/network-text.html` (statement forms, operators). Where a form has a documented
  * MEASURED history, the fixture says so — `S=`/`R=` especially: a reset coil used to come out as a set coil
  * (the vendors spell it `Negation + Set` on the target), which is silent data corruption in a real project, and
  * nothing in this suite held the compiler's opinion of the three coil kinds until now.
@@ -24,7 +24,7 @@
  */
 import type { LanguageTest } from "../../types.js"
 
-const doc = "network-text.md"
+const doc = "network-text.html"
 
 /** Why none of these reach the EXECUTION recorder — and the reason is SCOPE, not difficulty.
  *

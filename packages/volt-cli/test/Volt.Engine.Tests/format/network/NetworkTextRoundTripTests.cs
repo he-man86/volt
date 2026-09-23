@@ -170,7 +170,7 @@ public class NetworkTextRoundTripTests
 
     /// <summary>A MODIFIER never forces a hoist. The writer used to test the RENDERED operand for inline
     /// safety, and "NOT b" contains a space, so every negated operand at operand position was hoisted to
-    /// `LET i1 := NOT b;`. Per network-text.md §6 an `i*` name is minted for an OPAQUE LEAF - arbitrary
+    /// `LET i1 := NOT b;`. Per network-text.html#opaque an `i*` name is minted for an OPAQUE LEAF - arbitrary
     /// inlined ST - and a modifier is grammar the parser reads inline (Cursor.Operand), so no name was due.
     /// <para>Found by the live splice e2e: an engineer editing a rung to `(a AND NOT b)` had their push
     /// refused by the canonical-form gate, which told them to write Volt's spelling instead.</para></summary>
@@ -218,7 +218,7 @@ public class NetworkTextRoundTripTests
     }
 
     /// <summary>FAN-OUT ROUND-TRIPS. One wire feeding two consumers is the vendor's `BoxTreeDemux`, and the
-    /// format spells it `LET g&lt;VarId&gt; := producer;` with every consumer naming it (network-text.md §5).
+    /// format spells it `LET g&lt;VarId&gt; := producer;` with every consumer naming it (network-text.html#let).
     ///
     /// <para>THE BUG this pins (audit, 2026-08-29): the writer had no `Demux` arm and fell to
     /// `default: return ""`, so a branch off a gate output PULLED as `out := ( AND b);` — the wire silently

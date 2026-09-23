@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Logs &amp; diagnosis · Volt bridge</title>
+<link rel="stylesheet" href="assets/doc.css">
+<script src="assets/data.js"></script>
+<script type="module" src="assets/doc.js"></script>
+</head>
+<body>
+<div class="wrap">
+<nav></nav>
+<main>
+
+<h1>Logs &amp; diagnosis</h1>
+<p class="lede">
+  When something goes missing at a customer site — "my POU isn't in the workspace", "a push didn't land" — the
+  durable log is the first place to look. It answers <i>what</i> the bridge did and <i>why</i> it skipped
+  something, after the fact.
+</p>
+
+<h2 id="where">Where the logs are</h2>
+<pre>%LOCALAPPDATA%\Volt\logs\</pre>
+<p>
+  Per-source, daily-rotated files, pruned after 14 days. One location for every component, and it survives a
+  reboot — unlike <code>%TEMP%</code>, which the OS may clear.
+</p>
+<table>
+  <tr><th>file</th><th>written by</th></tr>
+  <tr><td class="name">codesys-YYYY-MM-DD.log</td><td>The in-process CODESYS bridge.</td></tr>
+  <tr><td class="name">twincat-YYYY-MM-DD.log</td><td>The standalone TwinCAT worker.</td></tr>
+  <tr><td class="name">connector-YYYY-MM-DD.log</td><td>The connector / supervisor. A supervised worker's stdout rides in here too, tagged with its own source.</td></tr>
+</table>
+<p>Every line is <code>[timestamp][source][level] message</code>:</p>
+<pre>[2026-09-23 11:04:18.221][twincat][info] push 3 ops — accepted [created: FooFB.fb] (139 items) (215ms)</pre>
+<p>To collect a session, zip that folder.</p>
+
+<h2 id="levels">Levels, and what is on by default</h2>
+<table>
+  <tr><th>level</th><th>carries</th></tr>
+  <tr><td class="name">error</td><td>A failure, with the exception attached.</td></tr>
+  <tr><td class="name">warn</td><td>Something a human should see: an incomplete walk, an item that would not materialize, a folder prune that failed.</td></tr>
+  <tr><td class="name">info</td><td><b>The default.</b> The connection and status story, and the push receipt.</td></tr>
+  <tr><td class="name">debug</td><td>Per-op mechanics — the fetch/refs tallies and per-item skip names. <b>Off unless you ask.</b></td></tr>
+</table>
+<pre>set VOLT_LOG_DEBUG=1      # then restart the bridge</pre>
+<p>
+  In-process, <code>VoltLog.Level = VoltLogLevel.Debug</code> does the same. The split is deliberate: Info is
+  what a connection did, Debug is how it did it.
+</p>
+
+<h2 id="lines">The lines worth knowing</h2>
+<h3 id="push-receipt">The push receipt — Info</h3>
+<pre>push 3 ops — accepted [created: FooFB.fb; updated: Bar.gvl; deleted: Gone.st] (139 items) (215ms)
+push 1 ops — REJECTED (Bar.gvl: item changed since you fetched its version, 0 already applied) (12ms)</pre>
+<p>
+  An accepted push <b>names exactly what it wrote</b>, grouped by action. A rejected one names the item and the
+  reason, and says how many ops had already been applied — which for a pre-flight refusal is zero, and that is
+  the number to check first when a push half-landed.
+</p>
+
+<h3 id="sync-tally">The fetch and refs tallies — Debug</h3>
+<pre>fetch init: 138 of 138 project items changed, 0 removed, 412 library signatures (skipped: 2 unmapped-kind, 4 lib-unmatched) (2009ms)
+refs: 138 items (140ms)</pre>
+<p>A clean pull has no <code>(skipped: …)</code> clause. The four drop kinds:</p>
+<table>
+  <tr><th>kind</th><th>means</th><th>what to do</th></tr>
+  <tr><td class="name">unmapped-kind</td><td>An IDE item whose kind code is not in the <a href="items.html#kinds">item-kind table</a>.</td><td>Usually benign — but this is exactly how TwinCAT's DUT subtype codes were silently dropped for months. Debug prints the name and the raw code; check it against the table.</td></tr>
+  <tr><td class="name">unreadable</td><td>The item exists and its body could not be read. <b>The body did not reach the pull.</b></td><td>A real error. Logged at <b>Warn</b> with the name and reason, and the names are also on the wire.</td></tr>
+  <tr><td class="name">lib-render-null</td><td>A library sub-signature (a method or property, covered by its parent) or an unknown POU type.</td><td>Benign — the element rides in its parent.</td></tr>
+  <tr><td class="name">lib-unmatched</td><td>A referenced-library element whose owning library matched no <code>.library</code> reference.</td><td>It is <b>not</b> dropped — look under <code>Library Manager/(unresolved)/…</code>.</td></tr>
+</table>
+
+<h3 id="incomplete">The incomplete walk — Warn</h3>
+<pre>fetch: the project walk was INCOMPLETE — 1 folder(s) could not be enumerated (POUs/Machine).
+Deletions are suppressed for this fetch: items under those folders were not seen, which is not
+the same as gone.</pre>
+<p>
+  This is the loudest line the sync layer has, and it deserves to be. Deletion is derived from absence, so a
+  folder the driver could not enumerate makes absence meaningless for everything beneath it. The fetch
+  suppresses deletions entirely rather than reporting them, and says so. Before this existed, a single
+  faulting folder deleted the engineer's files for every POU under it.
+</p>
+
+<h2 id="missing">Diagnosing "my X isn't in the workspace"</h2>
+<ol>
+  <li><b>Check the wire first.</b> <code>fetch</code>'s <code>unreadable</code> list names items the walk found
+    and could not materialize. That is the one failure a client cannot otherwise see — the item still counts
+    toward <code>projectVersion</code>, so it is not reported as deleted, but it has no file. A whole POU once
+    vanished from git silently that way, over a single box whose enable pin read as a boolean.</li>
+  <li><b>Search the log for the name</b> —
+    <code>Select-String -Path codesys-*.log -Pattern 'MyPou'</code>.</li>
+  <li><b>No hit at Info?</b> Turn on Debug and re-pull. The per-item skip lines name each dropped item and its
+    raw kind code.</li>
+  <li><b>Match the kind to the table above.</b> <code>lib-unmatched</code> means it is under
+    <code>(unresolved)</code>; <code>unreadable</code> means the Warn line has the reason; an unmapped kind
+    means the <a href="items.html">kind table</a> has a gap.</li>
+</ol>
+<div class="note">
+  <b>"It was excluded from the build in the IDE" is never the explanation.</b> Exclude-from-build is not
+  modelled: an excluded object syncs as an ordinary file like any other, and there is no such drop kind. That
+  explanation was once in this table, with the verdict "expected; confirms the item was excluded, not lost" —
+  a ready-made way to close a genuine missing-item report as normal.
+</div>
+
+<h2 id="session">When the bridge itself misbehaves</h2>
+<table>
+  <tr><th>symptom</th><th>look at</th></tr>
+  <tr><td>Client finds no pipe.</td><td>Enumerate <code>\\.\pipe\</code> for the vendor prefix. A pipe named for a dead pid means the bridge outlived its IDE — or, more often, that you are looking at a pid that has since died.</td></tr>
+  <tr><td>Two workers, one pipe name.</td><td>Windows will happily split calls between them, and the second serves stale code. Check the worker <b>count</b> is 1 and stop the connector before recording anything.</td></tr>
+  <tr><td>Everything answers <code>PLC_DISCONNECTED</code>.</td><td>Either nothing is bound, or a <code>disconnect</code> paused it. Send <code>connect</code>. <code>health</code> still answers while paused — every row reads idle.</td></tr>
+  <tr><td>An op hangs.</td><td>A modal dialog in the IDE blocks its automation surface completely. Look at the IDE window.</td></tr>
+  <tr><td>Calls fail after working.</td><td>The session is degraded, not dead. The driver's state machine marks it on a dead channel and <code>Recover()</code> re-establishes the binding on the next op. The log says which.</td></tr>
+  <tr><td>Stale behaviour after a code change.</td><td>The TwinCAT worker embeds the XAE pid in its pipe name and does <b>not</b> reload on rebuild — rebuild <i>and</i> restart it.</td></tr>
+</table>
+
+<h2 id="e2e">Driving a bridge from a test</h2>
+<pre>pwsh scripts/ide.ps1 up -Vendor codesys   # serve a committed fixture project
+bun run test:e2e:codesys                  # discovers the live pipe by prefix
+
+pwsh scripts/ide.ps1 up -Vendor twincat
+bun run test:e2e:twincat</pre>
+<p>
+  The suites discover the pipe themselves — <code>volt.bridge.&lt;vendor&gt;.&lt;pid&gt;</code>, one per IDE —
+  so there is nothing to hand them. <code>VOLT_PIPE</code> names one directly when you need that.
+</p>
+<div class="note">
+  <b>Never <code>git add -A</code> while an e2e suite is running.</b> A live IDE saves its fixture project to
+  disk as the suite drives it. Stage explicit paths.
+</div>
+
+</main>
+</div>
+</body>
+</html>

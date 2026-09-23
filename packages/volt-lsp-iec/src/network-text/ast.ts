@@ -1,6 +1,6 @@
 /**
  * Network-text AST — the textual form of an FBD/LD body (Layer F, F.2). A body is network text when its
- * first meaningful token is `NETWORK` (`syntax/isGraphicalBody`). Grammar (network-text.md §4):
+ * first meaningful token is `NETWORK` (`syntax/isGraphicalBody`). Grammar (network-text.html#grammar):
  *   body    = { network }
  *   network = "NETWORK" int LANG [string] ["DISABLED"] , { statement } , "END_NETWORK"
  *   stmt    = wire-def | sink | fb-call | control-flow | comment
@@ -137,7 +137,7 @@ export interface NetworkName {
 }
 
 /**
- * The LSP-ownable subset of the bridge's network text diagnostic codes (network-text-diagnostics.md). The canonical /
+ * The LSP-ownable subset of the bridge's network text diagnostic codes (network-text.html#diagnostics). The canonical /
  * round-trip gate (NETWORK_NOT_CANONICAL, NETWORK_PLCOPEN_DRIFT, NETWORK_LEAF_FANOUT, NETWORK_LEAF_REFERENCES_TEMP) needs
  * the writer + PLCopen and stays the BRIDGE's domain. These four are pure-text structural facts the LSP
  * can surface live. ponytail: messages are PROVISIONAL — no network text recordings yet, so wording is

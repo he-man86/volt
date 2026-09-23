@@ -11,7 +11,7 @@
  * with `volt push` reporting success (`twincat-graphical-create-loss`). Neither shape appears anywhere in
  * `test/e2e`, so 175 passing tests on both vendors said nothing about either.
  *
- * So this counts. Each construct the FORMAT defines (`docs/network-text.md` section 6, plus the network
+ * So this counts. Each construct the FORMAT defines (`docs/network-text.html` (statement forms), plus the network
  * metadata in section 7) against the e2e sources that push it. It is a REPORT, not a gate: a construct with
  * no coverage is a question — "can this be created, and does anyone know?" — and answering it needs a live
  * IDE, not a red CI job.

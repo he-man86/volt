@@ -20,7 +20,7 @@ using System.Linq;
 ///
 /// Numbers are the LIVE build's, not the published doc: Beckhoff renumbered 622/624/625 into the 650s, and
 /// 628/629/631/632/633/657 are observed live with no published name. Full coverage map + per-kind live status:
-/// docs/ITEM_KINDS.md.
+/// docs/items.html.
 /// </summary>
 public static class ItemKind
 {

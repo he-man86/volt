@@ -45,7 +45,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_en", "prg")
 		const src =
 			`PROGRAM ${name}\nVAR\n\tgo : BOOL;\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n(* @volt-implementation *)\n` +
-			// The EN/ENO form is ONE LINE — `IF en THEN <result>; END_IF` (network-text.md §6).
+			// The EN/ENO form is ONE LINE — `IF en THEN <result>; END_IF` (network-text.html#eneno).
 			`NETWORK 0 FBD\n  LET en1 := go;\n  IF en1 THEN out := (a AND b); END_IF\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 

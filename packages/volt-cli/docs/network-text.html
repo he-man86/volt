@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network text · Volt bridge</title>
+<link rel="stylesheet" href="assets/doc.css">
+<script src="assets/data.js"></script>
+<script type="module" src="assets/doc.js"></script>
+</head>
+<body>
+<div class="wrap">
+<nav></nav>
+<main>
+
+<h1>Network text</h1>
+<p class="lede">
+  Volt's own textual language for <b>FBD and LD</b> graphical bodies — a network of boxes and wires rendered as
+  readable, ST-flavoured text. It exists so an agent or a language server can work over a graphical body
+  <i>as text</i>, even though it was drawn in the vendor's editor.
+</p>
+<p>
+  CFC, SFC and IL are <b>not</b> network text and are not bodies in this sense: they materialize as a marker
+  and are refused on push, never flattened to ST. Both vendors produce identical network text for the same
+  logic — the form has no vendor-specific syntax.
+</p>
+
+<h2 id="responsibility">Who owns what</h2>
+<table>
+  <tr><th>the bridge owns</th><th>the LSP owns</th></tr>
+  <tr>
+    <td><b>Format.</b> A push whose network text does not parse, or is not canonical, is refused
+      <i>before it reaches the IDE</i>, with a coded diagnostic. These checks depend only on the text, never
+      on PLC semantics, so they live next to the parser.</td>
+    <td><b>Code correctness.</b> Type checking, undeclared variables, unknown pins, dead labels, hover,
+      completion, navigation. This page is written so that job can be implemented.</td>
+  </tr>
+</table>
+
+<h2 id="split">The declaration/body split</h2>
+<p>
+  A materialized graphical POU is an ordinary ST document. The <b>declaration</b> is normal ST and belongs to
+  the POU; the <b>body</b> is everything from the first <code>NETWORK</code> marker onward, and the reader is
+  handed only that. A graphical POU's declaration is edited in the IDE; a push writes the body.
+</p>
+<pre>PROGRAM Foo
+VAR
+    a : BOOL;
+    out : BOOL;
+END_VAR
+
+NETWORK 0 FBD
+  out := (a AND a);
+END_NETWORK
+END_PROGRAM</pre>
+<p>
+  This matters for type inference: a wire carries <b>no written type</b>, so the LSP infers it from the
+  defining expression and from the declaration it can see — the reader never needs to.
+</p>
+
+<h2 id="principles">Five design rules</h2>
+<ol>
+  <li><b>It reads like real ST.</b> A producer wired to exactly one consumer is <i>inlined</i> into that
+    consumer's expression. Only a producer that fans out gets a name. <code>out := ((a AND b) OR c)</code>, not
+    a four-line node-per-wire transcript.</li>
+  <li><b>Round-trip-exact.</b> <code>write(read(x)) == x</code> is enforced, so there is exactly one canonical
+    text for any body and it never silently reformats or drifts on the next pull.</li>
+  <li><b>Topology-exact, no precedence.</b> Every operator group is fully parenthesised. The parentheses
+    <i>are</i> the wiring, so a parser needs no precedence table.</li>
+  <li><b>The body parses without the declaration.</b> A wire's nature is marked at its definition, with
+    <code>LET</code>. A bare assignment is a sink.</li>
+  <li><b>Wire types are never written.</b> The old form wrote a synthesised type and got it wrong; this one
+    cannot, because there is nothing to get wrong.</li>
+</ol>
+
+<h2 id="lexical">Lexical structure</h2>
+<p>
+  Line-oriented: one statement per line, terminated by an optional <code>;</code>. Leading and trailing
+  whitespace is insignificant, blank lines are ignored. <b>Keywords, operators and modifier words are
+  case-insensitive</b>; identifiers are matched ordinal, because they are real PLC names and must round-trip
+  verbatim. Keywords are recognised on a word boundary, so <code>LETTER</code> and <code>RETURNED</code> are
+  ordinary names.
+</p>
+<table>
+  <tr><th>category</th><th>tokens</th></tr>
+  <tr><td>block</td><td><code>NETWORK</code> … <code>END_NETWORK</code></td></tr>
+  <tr><td>wire</td><td><code>LET</code></td></tr>
+  <tr><td>conditional</td><td><code>IF</code> … <code>THEN</code> … <code>END_IF</code></td></tr>
+  <tr><td>control flow</td><td><code>JMP</code>, <code>RETURN</code></td></tr>
+  <tr><td>ST-in-graphics</td><td><code>EXECUTE</code> … <code>END_EXECUTE</code></td></tr>
+  <tr><td>language tags</td><td><code>FBD</code>, <code>LD</code> — on the header</td></tr>
+  <tr><td>header fields</td><td><code>LABEL:</code> (the jump target), <code>TITLE:</code> (free text), <code>DISABLED</code></td></tr>
+  <tr><td>operators</td><td><code>AND OR XOR + - * / MOD &gt; &lt; &gt;= &lt;= = &lt;&gt;</code></td></tr>
+  <tr><td>modifiers</td><td><code>NOT</code> (leading), <code>RISING</code> / <code>FALLING</code> (trailing)</td></tr>
+  <tr><td>assignment</td><td><code>:=</code> plain coil · <code>S=</code> set coil · <code>R=</code> reset coil — ExST's own operators</td></tr>
+  <tr><td>output pin</td><td><code>NAME =&gt; target</code> inside a call. The <b>unnamed</b> pin is the call's assignment.</td></tr>
+  <tr><td>comment</td><td><code>// …</code> to end of line</td></tr>
+  <tr><td>identifier</td><td><code>[A-Za-z_]\w*</code>, optionally <code>inst.Pin</code>. A member access may carry whitespace around its dot (<code>a .b</code>) — engineers type it, the IDE keeps it, so it is part of the name.</td></tr>
+  <tr><td>literal</td><td>Any ST literal, inlined verbatim: <code>TRUE</code>, <code>42</code>, <code>1.5</code>, <code>T#10ms</code>, <code>'str'</code></td></tr>
+  <tr><td>empty slot</td><td><i>nothing</i>, where an operand belongs — see below</td></tr>
+</table>
+
+<h3 id="empty-slot">The empty slot — a pin connected to nothing</h3>
+<p>An unconnected input is written as <b>nothing at all</b>, in whichever operand position it occupies:</p>
+<pre>( * iRPM * 6)                       // a 3-input MUL box whose first pin is unwired
+ctu(CU := a, RESET := , PV := )     // named pins with nothing on them
+f(, a);   f(a, )                    // positional slots, leading and trailing
+coil := ;                           // a rung nothing drives
+;                                   // an item wired to nothing at all</pre>
+<p>
+  It is a <b>position, not a token</b>, and that is deliberate. A sigil was tried first (<code>?</code>) and
+  withdrawn: CODESYS writes <code>???</code> into a box whose instance is unresolved — a real compile error the
+  engineer needs to see — so <code>?</code> was already content. Volt carries <code>???</code> through verbatim
+  rather than claiming a spelling of its own. Because the grammar is fully parenthesised with no precedence,
+  every operand sits between two structural marks, so hitting the next mark where an operand should have
+  started (end of input, <code>)</code>, <code>,</code>, or an operator) says unambiguously that the pin is
+  wired to nothing.
+</p>
+<p>
+  An <b>operator still needs a right-hand operand</b>: <code>(a AND )</code> is refused. The asymmetry with
+  <code>( * iRPM * 6)</code> is honest rather than tidy — the empty first pin is measured in a real project,
+  the empty right-hand one is not, and Volt refuses shapes it has not seen rather than inferring them.
+</p>
+
+<h3 id="whitespace">Three places whitespace and quoting are content</h3>
+<table>
+  <tr><th>written</th><th>means</th><th>why it is not cosmetic</th></tr>
+  <tr><td class="name">NOT x</td><td>The negation <b>modifier</b> — a dot on the pin.</td><td>A space follows <code>NOT</code>.</td></tr>
+  <tr><td class="name">NOT(x)</td><td>A <b>box</b> named NOT — its own item on the rung.</td><td>The <code>(</code> is adjacent.</td></tr>
+  <tr><td class="name">"he said ""no"""</td><td>A network title containing a quote.</td><td>The quote is <b>doubled</b>. Writing it raw ended the title early and lost the rest.</td></tr>
+  <tr><td class="name">//&nbsp;&nbsp;&nbsp;&nbsp;aligned</td><td>A comment the engineer indented.</td><td>Everything after the one separator space is the comment's text.</td></tr>
+</table>
+<p>
+  <code>DISABLED</code> is a header keyword and is recognised only <i>after</i> the title, never inside it — a
+  network titled <code>TITLE: "DISABLED during commissioning"</code> stays enabled. The optional header fields
+  are <b>named</b> and order-independent, because <code>LABEL</code> and <code>TITLE</code> are two different
+  things and both vendors carry both. The label was a <code>myLabel:</code> line in the body until it was
+  moved: that modelled a property of the network as a statement, and it is now refused with a message naming
+  the header field.
+</p>
+
+<h2 id="grammar">Grammar</h2>
+<pre>program        = declaration , body ;
+declaration    = (* ordinary ST — NOT parsed by NetworkTextReader *) ;
+body           = { network } ;
+
+network        = network-header , { statement } , "END_NETWORK" ;
+network-header = "NETWORK" , integer , language , { header-field } , [ "DISABLED" ] ;
+header-field   = ( "LABEL:" , identifier ) | ( "TITLE:" , title ) ;   (* named; order-independent *)
+title          = '"' , { char - '"' | '""' } , '"' ;          (* a literal quote is DOUBLED *)
+language       = "FBD" | "LD" ;
+
+statement      = wire-def | sink | call-stmt | en-eno-if | execute-box
+               | control-flow | comment | empty-stmt ;
+
+wire-def       = "LET" , name , ":=" , producer , [ ";" ] ;   (* an internal wire *)
+sink           = lvalue , assign-op , operand , [ ";" ] ;     (* an outVariable / coil *)
+assign-op      = ":=" | "S=" | "R=" ;                         (* the coil KIND lives here *)
+call-stmt      = call , [ ";" ] ;                             (* an FB instance, OR a box whose *)
+                                                              (* output goes nowhere: MOVE(g0, iDec); *)
+empty-stmt     = ";" ;                                        (* an item wired to nothing at all *)
+en-eno-if      = "IF" , name , "THEN" , ( wire-def | sink | fb-call ) , [ ";" ] , "END_IF" ;
+execute-box    = [ "IF" , name , "THEN" ] ,
+                 "EXECUTE" , st-text , "END_EXECUTE" ,        (* st-text kept byte-for-byte *)
+                 [ "END_IF" ] ;                               (* present iff the box has a wired EN *)
+control-flow   = jump | return ;                              (* a LABEL is a header field *)
+jump           = "JMP" , name , [ ";" ]
+               | "IF" , operand , "THEN" , "JMP" , name , [ ";" ] , "END_IF" ;
+return         = "RETURN" , [ ";" ]
+               | "IF" , operand , "THEN" , "RETURN" , [ ";" ] , "END_IF" ;
+comment        = "//" , text ;
+
+producer       = group | call ;
+operand        = empty
+               | [ "NOT" ] , core , [ "RISING" | "FALLING" ] ;
+empty          = (* nothing — a pin connected to nothing *) ;
+core           = group | call | member | name | literal ;
+group          = "(" , operand , operator , operand , { operator , operand } , ")" ;
+                 (* exactly ONE operator kind per group; fully parenthesised; no precedence *)
+call           = [ name , ":" ] , name , "(" , [ args ] , ")" ;
+                 (* the leading `name :` is the INSTANCE, written only when it is ??? *)
+member         = name , [ ws ] , "." , [ ws ] , name ;
+
+fb-arg         = name , ":=" , operand ;
+out-arg        = name , "=&gt;" , lvalue ;
+args           = ( operand | out-arg ) , { "," , ( operand | out-arg ) }
+               | ( fb-arg  | out-arg ) , { "," , ( fb-arg  | out-arg ) } ;
+operator       = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
+               | "&gt;" | "&lt;" | "&gt;=" | "&lt;=" | "=" | "&lt;&gt;" ;</pre>
+<p>
+  <code>lvalue</code> is any ST l-value the IDE accepts (a variable, <code>struct.field</code>,
+  <code>array[i]</code>); the bridge treats it as opaque text.
+</p>
+
+<h2 id="model">The model it projects</h2>
+<p>
+  Network text is a 1:1 textual projection of <code>Format/Network/NetworkModel.cs</code> — a body is a list of
+  networks, each holding statement <b>trees</b>. Every record there carries the vendor measurement that shaped
+  it, and it is kept current because the readers and writers compile against it.
+</p>
+<table>
+  <tr><th>node</th><th>is</th></tr>
+  <tr><td class="name">Leaf</td><td>A bare operand in tree position — the vendor's <code>BoxTreeOperand</code>.</td></tr>
+  <tr><td class="name">Assign</td><td>A coil or outVariable. Via its flags it is also <code>JMP</code> and <code>RETURN</code>. It has a list of <i>targets</i>, not one.</td></tr>
+  <tr><td class="name">Box</td><td>A call or operator — <code>BoxTreeBox</code>. Carries its inputs, its output pins, an optional wired <code>Enable</code>, and an optional <code>StCode</code> for an Execute box.</td></tr>
+  <tr><td class="name">Demux</td><td><b>Fan-out</b> — one wire feeding several consumers, keyed by <code>VarId</code>. This is the vendor's own item, not a Volt construct.</td></tr>
+  <tr><td class="name">Parallel</td><td>An LD parallel branch.</td></tr>
+  <tr><td class="name">Terminator</td><td>The end of an LD rung.</td></tr>
+</table>
+<p>
+  A <code>Network</code> also carries <code>Title</code>, <code>Label</code>, <code>Comment</code> and
+  <code>Disabled</code>, all four of which both vendors hold on their own <code>INetwork</code>. They were
+  absent from an earlier model because PLCopen carries none of them — and worse, its export omitted a disabled
+  network entirely, which is how a disabled network could be dropped out of a running program.
+</p>
+<p>
+  <b>Flags ride on the operand, not only on the node.</b> A real assignment target came back as
+  <code>Flags=Negation,Set</code> — a negated set coil, with the modifiers on the <i>target</i>. And those two
+  bits are one enum with four values, not two independent modifiers: <code>Negation+Set</code> is
+  <b>reset</b>. Reading them independently made every reset coil in a project materialize as a plain
+  <code>SET</code> — 128 of them in one project, each one inverted, and nothing in git showed it because the
+  text Volt wrote was self-consistent.
+</p>
+
+<h2 id="let">The four <code>LET</code> families</h2>
+<p>
+  A <code>LET</code> name's <b>prefix carries its meaning</b>. These are the names the writer mints for exactly
+  these four things, and a reader honours the prefix rather than guessing from how often the name is used. A
+  name the writer did not mint is hand-authored, and there use count is the only signal available.
+</p>
+<table>
+  <tr><th>name</th><th>is</th><th>on the vendor</th></tr>
+  <tr><td class="name">g&lt;n&gt;</td><td>A <b>fan-out wire</b> — one producer feeding two or more consumers.</td><td><code>BoxTreeDemux</code>, keyed by <code>VarId</code>. 573 of them in one real ladder project.</td></tr>
+  <tr><td class="name">m&lt;n&gt;</td><td>A <b>multi-output assignment</b> — one item driving several coils.</td><td>A single <code>BoxTreeAssign</code> with several <code>OutputItems</code>. 40 in the same project, one of them a twenty-target rung.</td></tr>
+  <tr><td class="name">i&lt;n&gt;</td><td>An <b>opaque leaf</b> — one <code>inVariable</code> whose text is not a single safe token.</td><td>One <code>BoxTreeOperand</code>, whose text stays text.</td></tr>
+  <tr><td class="name">en&lt;n&gt;</td><td>An <b>enable echo</b> — a box's <code>ENO</code>, which downstream boxes chain off.</td><td>The box's <code>En</code>/<code>Eno</code> properties.</td></tr>
+</table>
+<div class="note">
+  <b><code>g</code> and <code>m</code> were one name once, and it cost fidelity in both directions.</b> A real
+  Demux feeding N assigns and a real multi-output assign spell identical lines, so every multi-output assign
+  came back a Demux — a rung the engineer drew as one item with twenty coils round-tripped into twenty-one
+  items. Neither driver could do better than guess and they guessed opposite ways: TwinCAT folded every
+  <code>g</code> into one item (flattening real wires), CODESYS built a Demux for every one (inflating real
+  items). Both shapes are ordinary in the same project, so a format that cannot tell them apart <i>has</i> to
+  guess.
+</div>
+<p>
+  The <code>m</code> fold is conditional: the name is folded only when <b>every</b> use is the whole
+  right-hand side of a top-level single-target assignment. A name used anywhere else is not the shape the
+  writer mints, and falls through to the ordinary wire/inline rules rather than being forced into a fold that
+  would drop a reference.
+</p>
+
+<h2 id="forms">Statement forms</h2>
+
+<h3 id="wire-def">Wire definition — <code>LET name := producer</code></h3>
+<pre>LET g1 := (a AND b);
+out  := g1;
+out2 := g1;</pre>
+
+<h3 id="sink">Sink — <code>lvalue := operand</code></h3>
+<p>A bare assignment (no <code>LET</code>) is an outVariable or coil. The coil KIND is the operator.</p>
+<pre>out  := (a AND b);
+done := t1.Q;
+latch S= trigger;       // a set coil
+latch R= clear;         // a reset coil</pre>
+
+<h3 id="group">Operator group</h3>
+<p>Fully parenthesised, one operator kind per group, nestable. No precedence.</p>
+<pre>out := ((a AND b) OR c);</pre>
+
+<h3 id="function">Function call</h3>
+<pre>out := MAX(a, b);
+out := LIMIT(lo, x, hi);</pre>
+<p>
+  It may also stand alone as a <b>statement</b>, when the box's output is connected to nothing — an ordinary
+  shape in a ladder, and 34 of one real project's 373 networks:
+</p>
+<pre>MOVE(g0, iDec);</pre>
+
+<h3 id="fb">FB instance call, and output reads</h3>
+<p>
+  A function-block instance is always named (it is stateful) and called as a bare statement; its outputs are
+  read elsewhere as <code>inst.Pin</code>.
+</p>
+<pre>t1(IN := a, PT := pt);
+done := t1.Q;
+et   := t1.ET;</pre>
+
+<h4 id="unnamed-instance">The one instance that carries its own type</h4>
+<p>
+  A call names ONE thing and the push recovers the other from the declaration: <code>t1(IN := a)</code> plus
+  <code>t1 : TON;</code> one line up is the type. <b><code>???</code> is the exception.</b> It is the IDE's own
+  marker for a call box whose instance has not been named — real content, drawn so the engineer sees the
+  compile error — and it is declared nowhere. The box still has a type, so the type is written inline, in ST's
+  own <code>name : TYPE</code> form:
+</p>
+<pre>??? : L_TT1P_FlexCamBase(xEnable := , Axis := );</pre>
+<p>
+  Four such boxes were measured in one real project. Without the inline type the type was dropped on pull and
+  could not be recovered on push, so those POUs could be pulled and <b>never pushed back</b>.
+</p>
+
+<h3 id="eneno">EN/ENO</h3>
+<p>
+  A box with a <i>wired</i> enable renders as an <code>IF</code>. <code>en</code> is the box's enable echo, so
+  a downstream box chains off it. Three result shapes:
+</p>
+<pre>LET en1 := a;
+IF en1 THEN out := (b AND c); END_IF       -- into a SINK: one unmodified output
+
+LET en2 := en1;
+IF en2 THEN LET g1 := (b OR c); END_IF     -- into a NAMED wire: the result fans out
+out  := g1;
+out3 := g1;
+
+LET en3 := a;
+IF en3 THEN t1(IN := x, PT := pt); END_IF  -- gating an FB CALL
+done := t1.Q;</pre>
+<div class="note">
+  The enable comes from the vendor's <code>En</code> <b>pin</b>, not from its <code>EnEno</code> flag. Measured
+  in a real project, <code>EnEno</code> is true on all 1,256 boxes including every plain
+  <code>AND</code>/<code>OR</code>, because it marks that the box <i>supports</i> EN/ENO. Keying on it would
+  wrap every operator in the project in an <code>IF</code>.
+</div>
+
+<h3 id="execute">Execute box — ST inside FBD/LD</h3>
+<p>
+  A CODESYS Execute box is an EN/ENO block whose "call" is raw Structured Text. Its enable is not special — it
+  reuses the ordinary EN/ENO wire and <code>IF</code>. The only new token pair is
+  <code>EXECUTE … END_EXECUTE</code> around the <b>verbatim ST</b>, which may be arbitrarily complex:
+</p>
+<pre>LET en1 := bRun;
+IF en1 THEN
+EXECUTE
+IF bStart THEN
+	target := 40 + 2;   (* the box's own ST, kept byte-for-byte *)
+END_IF
+END_EXECUTE
+END_IF</pre>
+<p>
+  A box with no wired EN renders as a bare <code>EXECUTE … END_EXECUTE</code>. The explicit
+  <code>END_EXECUTE</code> delimiter — rather than "until <code>END_IF</code>" — is what disambiguates the ST's
+  own nested <code>END_IF</code>s. The LSP should treat the span as full ST, not as this grammar.
+</p>
+
+<h3 id="pins">Box output pins</h3>
+<p>
+  A box has output pins of its own, wired to variables. The vendor names them, index-aligned with the slots,
+  and the name decides the spelling — which is IEC's own split, not a Volt convention: a function's RESULT is
+  assigned, its <code>VAR_OUTPUT</code>s use <code>=&gt;</code>.
+</p>
+<pre>dst := MOVE(src);                          -- the UNNAMED pin: the box's result
+fc_MeanValue(20, oMeanValue =&gt; measured);  -- a NAMED pin
+dst := f(src, oErr =&gt; err);                -- both on one box</pre>
+<p>
+  Output pins did not exist in an earlier model and were simply <b>dropped</b>: a box whose output was wired to
+  <code>TempI</code> materialized without it, and <code>TempI</code> was nowhere in the file. 208 wired output
+  pins on 171 boxes across 373 networks. The push side knew — it refused any box carrying outputs, because
+  "network text has no form for them", which was true.
+</p>
+
+<h3 id="opaque">Opaque leaf — <code>LET i := &lt;text&gt;</code></h3>
+<p>
+  An <code>inVariable</code> whose text is not a single safe token — it has whitespace, parentheses or a call
+  (<code>a + 1</code>, <code>NOT x</code>, <code>DINT_TO_REAL(x)</code>) — cannot sit at an operand position
+  without mis-splitting, so it is named and gets its own statement. Its text stays <b>text</b>: parsing it like
+  any other <code>LET</code> turns one leaf into a whole call box.
+</p>
+<pre>LET i1 := NOT b;
+out := (a AND i1);</pre>
+
+<h3 id="control">Control flow</h3>
+<p>
+  A jump target is a <b>header field</b>, not a statement. <code>JMP</code> and <code>RETURN</code> are flags
+  on an assignment node, which is why a rung can drive a coil and a jump at once.
+</p>
+<pre>NETWORK 3 LD LABEL: Retry
+  IF fault THEN JMP Retry; END_IF
+END_NETWORK
+
+NETWORK 4 FBD
+  IF done THEN RETURN; END_IF
+  step := (step + 1);
+END_NETWORK</pre>
+
+<h2 id="operators">Operators</h2>
+<p>
+  One table, shared by the parser and the writer, mapping the operator box type to its infix symbol. A new
+  operator is added in exactly one place.
+</p>
+<table>
+  <tr><th>box type</th><th>symbol</th><th>box type</th><th>symbol</th></tr>
+  <tr><td class="name">OR</td><td class="name">OR</td><td class="name">GT</td><td class="name">&gt;</td></tr>
+  <tr><td class="name">AND</td><td class="name">AND</td><td class="name">LT</td><td class="name">&lt;</td></tr>
+  <tr><td class="name">XOR</td><td class="name">XOR</td><td class="name">GE</td><td class="name">&gt;=</td></tr>
+  <tr><td class="name">ADD</td><td class="name">+</td><td class="name">LE</td><td class="name">&lt;=</td></tr>
+  <tr><td class="name">SUB</td><td class="name">-</td><td class="name">EQ</td><td class="name">=</td></tr>
+  <tr><td class="name">MUL</td><td class="name">*</td><td class="name">NE</td><td class="name">&lt;&gt;</td></tr>
+  <tr><td class="name">DIV</td><td class="name">/</td><td class="name">MOD</td><td class="name">MOD</td></tr>
+</table>
+
+<h2 id="gate">The gate</h2>
+<p>
+  <code>NetworkTextGate.Validate</code> is the pre-write check, and it is <b>pure</b> — no IDE, no vendor, no
+  document. Three steps, in order:
+</p>
+<ol>
+  <li><b>Language.</b> The <code>NETWORK</code> marker names <code>FBD</code> or <code>LD</code>. An unknown
+    language is refused here with a clear message, rather than downstream as a misleading "not writable".</li>
+  <li><b>Parse.</b> The body is structurally valid network text.</li>
+  <li><b>Canonical form.</b> The parser is the exact inverse of the writer, so a body that does not re-emit
+    identically is not canonical — it would drift on the next pull, or silently rename a wire. The diagnostic
+    returns the canonical text to paste, and the line where it first differs.</li>
+</ol>
+<div class="note">
+  <b>Two earlier checks are gone, because the transport no longer needs them.</b> The <i>PLCopen convergence</i>
+  gate required a body to reach a fixed point through a writer/reader pair; it existed because the body was
+  regenerated from a projection on every write. Nothing is regenerated now — CODESYS mutates the live objects
+  and TwinCAT rewrites only the networks that changed — so there is no loop to converge. The <i>leaf fan-out</i>
+  refusal rejected a leaf read more than once in a network, because TwinCAT's importer crashed on a shared one;
+  that shape was expressible only in a graph, and a tree cannot share a node, so it is now
+  <b>unrepresentable</b> rather than refused. That is the clearest single case of a model change removing a
+  class of bug instead of guarding it.
+</div>
+
+<h2 id="diagnostics">Diagnostics</h2>
+<p>
+  Every refusal carries a stable <code>code</code>, a 1-based <code>line</code> and a message. On the wire they
+  arrive as <code>PushConflict.code</code> / <code>.line</code>; the CLI prints
+  <code>name:line [CODE] message</code>.
+</p>
+<table>
+  <tr><th>code</th><th>raised when</th></tr>
+  <tr><td class="name">NETWORK_NOT_CANONICAL</td><td>It parses, but does not re-emit identically — it would drift on the next pull. The message carries the exact canonical form.</td></tr>
+  <tr><td class="name">NETWORK_PARSE</td><td>Any other structural error: a statement before any network, an unexpected <code>END_NETWORK</code>, a leftover legacy <code>VAR_TEMP</code>/<code>END_VAR</code> line, or a bare <code>myLabel:</code> line (the message names the header field it moved to).</td></tr>
+  <tr><td class="name">NETWORK_NOT_CLOSED</td><td>A <code>NETWORK</code> block is missing its <code>END_NETWORK</code>.</td></tr>
+  <tr><td class="name">NETWORK_DUPLICATE_NETWORK</td><td>A network index appears more than once. Their ids would collide and the IDE would merge or corrupt them.</td></tr>
+  <tr><td class="name">NETWORK_DUPLICATE_NAME</td><td>A wire, result or instance name is defined twice in one network. A name introduced with <code>LET</code> <i>is</i> its definition, and two definitions have no single meaning.</td></tr>
+  <tr><td class="name">NETWORK_BAD_EXPRESSION</td><td>A malformed group: partial or unbalanced parens (<code>(a AND b) OR c</code>), mixed operators in one group (<code>(a AND b OR c)</code>), or an operator with no right-hand operand.</td></tr>
+  <tr><td class="name">NETWORK_UNKNOWN_OPERATOR</td><td>The symbol is not in the operator table above.</td></tr>
+  <tr><td class="name">NETWORK_UNSUPPORTED</td><td>Raised by the <b>writer</b>, not the parser: a body whose shape has no spelling — an operator box naming an output pin (the infix form has nowhere to put it), or a box with two unnamed output pins (there is one assignment to give). Both are refused rather than resolved by dropping a pin.</td></tr>
+</table>
+
+<h2 id="examples">Worked examples</h2>
+<pre>-- 1. Simple operator (single-use → inlined)
+NETWORK 0 FBD
+  out := (a AND b);
+END_NETWORK
+
+-- 2. Nested, fully parenthesised
+NETWORK 0 FBD
+  out := ((a AND b) OR c);
+END_NETWORK
+
+-- 3. Fan-out: one producer, two consumers → a g-wire
+NETWORK 0 FBD
+  LET g1 := (a AND b);
+  out  := g1;
+  out2 := g1;
+END_NETWORK
+
+-- 4. One item driving several coils, whose kinds disagree → an m-assign
+NETWORK 0 LD
+  LET m1 := (a OR b);
+  out1 := m1;
+  out2 S= m1;
+END_NETWORK
+
+-- 5. Opaque leaf: a negated operand cannot inline
+NETWORK 0 FBD
+  LET i1 := NOT b;
+  out := (a AND i1);
+END_NETWORK
+
+-- 6. EN/ENO into a sink
+NETWORK 0 FBD
+  LET en1 := a;
+  IF en1 THEN out := (b AND c); END_IF
+END_NETWORK
+
+-- 7. Timer FB: instance call + output reads
+NETWORK 0 FBD
+  t1(IN := start, PT := pt);
+  done := t1.Q;
+  et   := t1.ET;
+END_NETWORK
+
+-- 8. Ladder: a parallel branch (OR) and a series (AND) on one rung
+NETWORK 0 LD
+  out := ((a OR b) AND c);
+END_NETWORK
+
+-- 9. A titled, disabled network
+NETWORK 7 LD TITLE: "Commissioning only" DISABLED
+  bypass := TRUE;
+END_NETWORK
+
+-- 10. Variable feedback (the fed-back read is a leaf, not a graph cycle)
+NETWORK 0 FBD
+  iCount := (1 + iCount);
+END_NETWORK</pre>
+
+<h2 id="lsp">Implementing a language server over it</h2>
+<p>The format is small and regular. Concrete targets per feature:</p>
+<ul>
+  <li><b>Semantic tokens.</b> Distinct classes for keywords, operators, modifier words, <b>wire names</b> (a
+    <code>LET</code> binding), <b>sinks</b> (a bare l-value), <b>FB instances</b>, literals and comments.
+    Colouring wires, sinks and instances differently is what makes a network instantly legible.</li>
+  <li><b>Folding and symbols.</b> Each <code>NETWORK … END_NETWORK</code> is a region; its index plus its
+    optional label is the symbol name. EN/ENO <code>IF</code> blocks fold too.</li>
+  <li><b>Hover.</b> A wire → its inferred type and defining expression; a variable → its declared type from the
+    POU's <code>VAR</code>; an FB instance → its type and pin signature.</li>
+  <li><b>Completion.</b> Declared variables and instances, FB <b>pin names</b> inside <code>inst(… := …)</code>,
+    operators, function names, keywords.</li>
+  <li><b>Diagnostics.</b> Surface the structural codes above <i>as you type</i>, so a push is never refused —
+    plus the code-correctness checks the bridge does not do.</li>
+  <li><b>Definitions and references.</b> A <code>LET</code> wire ↔ its uses (network-scoped, single-assignment);
+    a variable ↔ its declaration; a <code>JMP</code> ↔ its label; an <code>inst.Pin</code> ↔ the call.</li>
+  <li><b>Rename.</b> A <code>LET</code> wire is safe to rename within its network. Renaming a real variable is
+    a declaration-level rename.</li>
+</ul>
+
+<h2 id="implementation">Implementation map</h2>
+<table>
+  <tr><th>file</th><th>role</th></tr>
+  <tr><td class="name">Format/Network/NetworkModel.cs</td><td>The model — every record with the vendor measurement that shaped it.</td></tr>
+  <tr><td class="name">Format/Network/NetworkTextReader.cs</td><td>Text → model. The grammar, the <code>LET</code>/sink dispatch, and a validating gate: anything outside the strict form throws.</td></tr>
+  <tr><td class="name">Format/Network/NetworkTextWriter.cs</td><td>Model → text. The canonical form: inlining, name minting, the folds.</td></tr>
+  <tr><td class="name">Format/Network/NetworkTextGate.cs</td><td><code>Validate</code> — the three checks above.</td></tr>
+  <tr><td class="name">Format/Network/FbdOperators.cs</td><td>The one operator table.</td></tr>
+  <tr><td class="name">test/Volt.Engine.Tests/format/network/</td><td>Round-trip, diagnostic and feature fixtures — a living example corpus.</td></tr>
+</table>
+
+</main>
+</div>
+</body>
+</html>

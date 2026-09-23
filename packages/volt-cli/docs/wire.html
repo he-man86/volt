@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The wire · Volt bridge</title>
+<link rel="stylesheet" href="assets/doc.css">
+<script src="assets/data.js"></script>
+<script type="module" src="assets/doc.js"></script>
+</head>
+<body>
+<div class="wrap">
+<nav></nav>
+<main>
+
+<h1>The wire</h1>
+<p class="lede">
+  Eight ops over a Windows named pipe. This is the parity boundary — both vendors answer identically — and it
+  is the thing to build a client against.
+</p>
+<p>Ops: <span data-render="op-names"></span></p>
+
+<h2 id="framing">Transport &amp; framing</h2>
+<p>
+  One pipe per live IDE: <code>volt.bridge.&lt;vendor&gt;.&lt;pid&gt;</code>, the suffix being the IDE's process
+  id. <b>Clients discover by prefix</b>, because the pid changes on every IDE restart.
+</p>
+<p>
+  The stream is <b>newline-delimited JSON</b> in both directions. A request is one object:
+</p>
+<pre>{ "op": "fetch", "body": { "knownItems": {}, "onlyItems": ["FB_Motor.fb"] } }</pre>
+<p>
+  A response is a run of frames on the same connection: zero or more <code>progress</code> frames, then exactly
+  one terminal <code>result</code> or <code>error</code>. Each frame carries a single key.
+</p>
+<div class="cols">
+  <div><div class="lbl res">success</div>
+<pre>{"progress":{"operation":"fetch","done":40,"total":138}}
+{"progress":{"operation":"fetch","done":138,"total":138}}
+{"result":{"projectVersion":"…","changed":[…],"items":{…}}}</pre></div>
+  <div><div class="lbl req">failure</div>
+<pre>{"error":{"code":"PLC_DISCONNECTED","message":"…"}}</pre></div>
+</div>
+<p>
+  <code>ProgressFrame</code> carries <code>operation</code>, <code>done</code> and an optional
+  <code>total</code> (absent means indeterminate — a build). A multi-phase operation also sets
+  <code>phaseIndex</code>/<code>phaseCount</code>, so a frontend folds the per-phase fraction into one
+  monotonic bar: <code>(phaseIndex + done/total) / phaseCount</code>.
+</p>
+<div class="note">
+  <b><code>health</code> never blocks.</b> It answers from a cached snapshot and is never marshalled onto the
+  IDE thread, so it is the one op that is safe to poll while a push or a build is running. Everything else
+  takes the IDE.
+</div>
+
+<h2 id="identity">Identity, versions and the two gates</h2>
+<p>
+  <b>The item NAME is the identity.</b> <code>refs</code>, <code>fetch</code>'s <code>knownItems</code>, every
+  push op and the one-item-per-file layout are all keyed by it. On the wire that name is <b>full</b> —
+  <code>name.kind</code>, e.g. <code>CM_Carrier.fb</code> — because IEC guarantees unique names <i>within</i> a
+  kind, not across them: a control module and the visualization that draws it are legitimately
+  <code>CM_Carrier.fb</code> and <code>CM_Carrier.visualization</code> in the same project. Below the vendor
+  seam the same item is addressed by its <b>bare</b> name, which is the IDE's own lookup key.
+</p>
+<table>
+  <tr><th>version</th><th>covers</th><th>used by</th></tr>
+  <tr><td class="name">projectVersion</td><td>Every tracked item's content, aggregated.</td><td>The push lease — <code>expectedProjectVersion</code>.</td></tr>
+  <tr><td class="name">structureVersion</td><td>The tree shape: which items exist, and where.</td><td>A client deciding whether a cheap refresh is enough.</td></tr>
+  <tr><td class="name">items[name]</td><td>One item's content.</td><td>The per-item optimistic guard — <code>ifVersion</code>.</td></tr>
+</table>
+<p>
+  A push therefore has two independent gates. <code>expectedProjectVersion</code> is the lease over the whole
+  project (what <code>--force-with-lease</code> means); per-item <code>ifVersion</code> is the optimistic check
+  that the item has not moved under you. <code>force</code> drops the per-item checks and keeps the lease.
+  Separately, <code>expectedProjectName</code>/<code>expectedPlatform</code> are an <b>identity</b> check —
+  they refuse with <code>WRONG_PROJECT</code> regardless of <code>force</code>, so a forced push still cannot
+  clobber the wrong IDE.
+</p>
+
+<h2 id="push-ops">The push op union</h2>
+<p>
+  A push carries an ordered list of ops. The wire's <code>op</code> field is the discriminator, and there are
+  two arms — which is fewer than the verbs they cover.
+</p>
+<table>
+  <tr><th>op</th><th>means</th></tr>
+  <tr>
+    <td class="name">set</td>
+    <td>The item named <code>name</code> should end up as <code>toName ?? name</code>, in
+      <code>toFolder ?? (where it is now)</code>, with <code>sourceText ?? (what it has now)</code>. One op
+      expresses <b>create, update, rename, move</b> and any combination of them, applied atomically.</td>
+  </tr>
+  <tr><td class="name">deleteItem</td><td>Remove the item.</td></tr>
+</table>
+<div class="note">
+  <b>Absent is not empty</b>, and the difference is load-bearing. <code>toFolder: null</code> means "keep the
+  current folder". <code>toFolder: ""</code> is a <i>destination</i> — the tree root, which on CODESYS is the
+  project's own POU pool. Reading empty as absent once made a drag out of the Application report ACCEPTED,
+  move nothing, and put the file back on the next pull.
+</div>
+<p>
+  <b>Folders are not entities.</b> There is no folder op, because Volt models structure the way git does: a
+  folder is the path an item lives in, created on demand from an item's <code>toFolder</code>, and a push
+  <b>prunes the folders it empties</b> — the way git removes a directory once its last file goes. Only folders
+  <i>that push</i> emptied, recursively up the chain, and never a vendor container.
+</p>
+
+<h2 id="errors">Error codes</h2>
+<p>
+  Every failure is a coded error, not a message a client has to pattern-match. The codes are plain strings —
+  nothing in the product branches on them, so a client that wants to react matches the string.
+</p>
+<p data-render="errors"></p>
+<table>
+  <tr><th>code</th><th>means</th><th>what a client does</th></tr>
+  <tr><td class="name">PLC_DISCONNECTED</td><td>No project is bound, or the bridge is paused by <code>disconnect</code>.</td><td>Send <code>connect</code>.</td></tr>
+  <tr><td class="name">WRONG_PROJECT</td><td>The bound project is not the one the request named.</td><td>Rebind, or refuse — never merge.</td></tr>
+  <tr><td class="name">BAD_REQUEST</td><td>Unknown <code>op</code>, or a body the host cannot read.</td><td>Fix the caller.</td></tr>
+  <tr><td class="name">NOT_FOUND</td><td>The named item does not exist in the project.</td><td>Re-read <code>refs</code>.</td></tr>
+  <tr><td class="name">UNSUPPORTED</td><td>A shape this vendor's driver cannot write. The message says what, and what to do instead.</td><td>Surface it — this is a real limit, not a transient.</td></tr>
+  <tr><td class="name">DUPLICATE_CHILD</td><td>A create collided with something already there.</td><td>Rename, or update instead of create.</td></tr>
+  <tr><td class="name">INVALID_CODE_HEADER</td><td>The pushed source's header is not one Volt recognises.</td><td>Fix the file.</td></tr>
+  <tr><td class="name">INVALID_ST</td><td>The pushed body failed the ST or <a href="network-text.html">network-text</a> gate.</td><td>Fix the body; the conflict carries a code and a line.</td></tr>
+  <tr><td class="name">NO_SIDECAR</td><td>The workspace has no bound-project record.</td><td>Run <code>volt init</code>.</td></tr>
+  <tr><td class="name">INTERNAL_ERROR</td><td>Anything that was not a coded error. A bug.</td><td>Collect the <a href="logs.html">log</a>.</td></tr>
+</table>
+<p>
+  A <b>rejected push</b> is not an error frame — it is a normal <code>result</code> with
+  <code>accepted: false</code> and a <code>conflicts</code> list, because a version conflict is an expected
+  outcome rather than a failure. Each conflict carries the item name, both versions, a reason, and — for a
+  refusal the parser decided — a stable <code>code</code> and a 1-based <code>line</code>.
+</p>
+
+<h2 id="ops">The ops</h2>
+<p class="gen">Generated from the contract types. Every field below is one the host actually serializes.</p>
+<div data-render="ops"></div>
+
+<h2 id="schemas">Schemas</h2>
+<p class="gen">Generated. Each card links from the field tables above.</p>
+<div data-render="schemas"></div>
+
+<h2 id="using">Using the spec</h2>
+<p>
+  <a href="volt-bridge.openrpc.json">volt-bridge.openrpc.json</a> is a conformant OpenRPC 1.2.6 document, so
+  the ordinary tooling works on it with no Volt-specific step:
+</p>
+<pre># validate
+npx @open-rpc/schema-utils-js        # validateOpenRPCDocument(doc)
+
+# generate a typed client, in the language you want
+npx @open-rpc/generator
+
+# browse and call it interactively
+https://inspector.open-rpc.org       → paste volt-bridge.openrpc.json</pre>
+<p>
+  The one thing the document cannot express is the framing: OpenRPC describes JSON-RPC, and this wire is
+  newline-delimited <code>{op, body}</code> with a leading progress stream. Everything else — method names,
+  bodies, results, schemas — is exactly what a generated client needs.
+</p>
+
+</main>
+</div>
+</body>
+</html>

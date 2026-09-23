@@ -88,6 +88,6 @@ Volt implements **21 of the ~66** dialog codes. The remaining 45 have no setting
 - [`../volt-control/README.md`](../volt-control/README.md) — the shared TS control layer (`pull`/`push`/`status`/`show`, health, gates, the view-models) the extension calls.
 - [`../volt-cli/README.md`](../volt-cli/README.md) — the `volt` CLI + the in-IDE bridges + the tray connector (one C# solution; absorbed the former `volt-git`/`volt-bridge`). A PATH prerequisite, not bundled here.
 - [`../volt-lsp-iec/README.md`](../volt-lsp-iec/README.md) — the Structured Text **+ VG** language server.
-- [`../volt-cli/docs/network-text.md`](../volt-cli/docs/network-text.md) — the **network text** language spec (the text form of an FBD/LD body).
+- [`../volt-cli/docs/network-text.html`](../volt-cli/docs/network-text.html) — the **network text** language spec (the text form of an FBD/LD body).
 - [`../../openspec/`](../../openspec/) — Volt design, roadmap, and decision log.
 - [`../../CLAUDE.md`](../../CLAUDE.md) — repo-wide guidance and architecture.

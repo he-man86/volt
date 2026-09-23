@@ -7,7 +7,7 @@ namespace Volt.Engine.Format.Network;
 
 /// <summary>
 /// Parses network text into a <see cref="NetworkBody"/> — the inverse of <see cref="NetworkTextWriter"/>, and
-/// a VALIDATING GATE: anything outside the strict form specified in <c>docs/network-text.md</c> throws
+/// a VALIDATING GATE: anything outside the strict form specified in <c>docs/network-text.html</c> throws
 /// <see cref="NetworkTextException"/> and the push is refused. Preventing such input is the LSP's job; this
 /// only checks and errors.
 ///
@@ -625,7 +625,7 @@ public static class NetworkTextReader
                                _disabled, trees);
         }
 
-        /// <summary>The opaque-leaf name the writer mints: `i` followed by digits (docs/network-text.md §6).
+        /// <summary>The opaque-leaf name the writer mints: `i` followed by digits (docs/network-text.html#opaque).
         /// `g<n>` is a fan-out wire and `en<n>` an enable echo; those are real structure and are parsed.</summary>
         private static readonly Regex OpaqueLeaf = new(@"^i\d+$", RegexOptions.Compiled);
 
@@ -665,7 +665,7 @@ public static class NetworkTextReader
         /// turned both into a Demux — a twenty-coil rung came back as twenty-one items.</para></summary>
         private static readonly Regex MultiOutput = new(@"^m\d+$", RegexOptions.Compiled);
 
-        /// <summary>The fan-out wire name the writer mints: `g` followed by digits (docs/network-text.md §5).</summary>
+        /// <summary>The fan-out wire name the writer mints: `g` followed by digits (docs/network-text.html#let).</summary>
         private static readonly Regex WireName = new(@"^g\d+$", RegexOptions.Compiled);
 
         /// <summary>The VarId for a wire name. `g7` carries its own id, so a pull -> push round trip lands the
@@ -805,7 +805,7 @@ public static class NetworkTextReader
     }
 
     /// <summary>A recursive-descent cursor over one operand expression. The grammar is fully parenthesised with
-    /// no precedence (<c>docs/network-text.md</c> §4), so there is no operator-precedence machinery here — the
+    /// no precedence (<c>docs/network-text.html#grammar</c>), so there is no operator-precedence machinery here — the
     /// parentheses carry the topology.</summary>
     private sealed class Cursor
     {

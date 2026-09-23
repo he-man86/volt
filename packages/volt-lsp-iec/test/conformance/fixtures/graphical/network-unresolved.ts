@@ -62,7 +62,7 @@ export const NETWORK_UNRESOLVED_TESTS: readonly LanguageTest[] = [
     pouName: "FB_LANG_network_unnamed_instance",
     kind: "function_block",
     feature: "`???` in a call box's INSTANCE position",
-    fromDoc: "network-text.md#the-one-instance-that-carries-its-own-type",
+    fromDoc: "network-text.html#unnamed-instance",
     note: "The shape Lenze_MID-S100's `MotionControl/POU` holds four of. Network text spells the type inline here (`??? : TYPE(…)`) because `???` is declared nowhere for the push to read it from.",
     plcPrgVar: "fb_nui : FB_LANG_network_unnamed_instance;",
     plcPrgBody: "fb_nui();",
@@ -84,7 +84,7 @@ END_FUNCTION_BLOCK
     pouName: "FB_LANG_network_unnamed_target",
     kind: "function_block",
     feature: "`???` as an assignment TARGET (a coil / outVariable nobody named)",
-    fromDoc: "network-text.md#sink--lvalue--operand",
+    fromDoc: "network-text.html#sink",
     note: "CODESYS answers `The assignment target is not specified.` — a different error from the instance case, which is why both shapes are held here rather than one standing in for the other.",
     plcPrgVar: "fb_nut : FB_LANG_network_unnamed_target;",
     plcPrgBody: "fb_nut();",
@@ -105,7 +105,7 @@ END_FUNCTION_BLOCK
     pouName: "FB_LANG_network_unnamed_target_en",
     kind: "function_block",
     feature: "`???` as an assignment target inside an UNCONNECTED enable",
-    fromDoc: "network-text.md#eneno--let-en--src-if-en-then-result-end_if",
+    fromDoc: "network-text.html#eneno",
     note: "The exact shape the two LIVE Lenze POUs carry, and the reason it is here: an unconnected EN does NOT excuse the marker — the compiler still errors. That rules out 'the rung is not generated' as the explanation for those POUs building clean, leaving exclude-from-build.",
     plcPrgVar: "fb_nute : FB_LANG_network_unnamed_target_en;",
     plcPrgBody: "fb_nute();",
@@ -127,7 +127,7 @@ END_FUNCTION_BLOCK
     pouName: "FB_LANG_network_unnamed_input_pin",
     kind: "function_block",
     feature: "`???` on a NAMED INPUT pin of an FB call",
-    fromDoc: "network-text.md#fb-instance-call--instpin--arg--and-output-read-instpin",
+    fromDoc: "network-text.html#fb",
     note: "The position NO real project has shown us yet — pinned because 'never seen' is not 'cannot happen'. Same two parse errors as an operand: the compiler chokes on the marker text wherever it stands.",
     plcPrgVar: "fb_nip : FB_LANG_network_unnamed_input_pin;",
     plcPrgBody: "fb_nip();",
@@ -149,7 +149,7 @@ END_FUNCTION_BLOCK
     pouName: "FB_LANG_network_unnamed_group_operand",
     kind: "function_block",
     feature: "`???` as an operand inside a group",
-    fromDoc: "network-text.md#operator-group---operand-op-operand-",
+    fromDoc: "network-text.html#group",
     note: "The marker where a plain variable belongs. Grouped with the pin case because the compiler answers both identically — which is itself the finding: position matters for the TARGET case and nowhere else.",
     plcPrgVar: "fb_ngo : FB_LANG_network_unnamed_group_operand;",
     plcPrgBody: "fb_ngo();",
@@ -171,7 +171,7 @@ END_FUNCTION_BLOCK
     pouName: "PRG_LANG_network_unnamed_void_caller",
     kind: "program",
     feature: "`???` as the target of a call that RETURNS NOTHING (a PROGRAM box)",
-    fromDoc: "network-text.md#sink--lvalue--operand",
+    fromDoc: "network-text.html#sink",
     note:
       "THE SHAPE THE CORPUS ACTUALLY CARRIES, and the one the other target fixtures do not reach. " +
       "`network_unnamed_assignment_target` measures `??? := a` and the EN variant `??? := NOT(a)`; both have a " +
@@ -215,7 +215,7 @@ END_PROGRAM
     pouName: "FB_LANG_network_unnamed_valued_call",
     kind: "function_block",
     feature: "`???` as the target of a FUNCTION call that DOES return a value",
-    fromDoc: "network-text.md#sink--lvalue--operand",
+    fromDoc: "network-text.html#sink",
     note:
       "The last unmeasured target shape, and the one lenze-mid's surviving corpus divergence sits on " +
       "(`??? := Alarms_V5_1_100(...)`, a `FUNCTION … : BOOL`). The neighbours bracket it without covering it: " +

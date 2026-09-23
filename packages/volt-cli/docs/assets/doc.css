@@ -1,0 +1,175 @@
+/* Volt bridge docs — one stylesheet for every page. */
+
+:root {
+  --bg: #ffffff;
+  --fg: #16181d;
+  --muted: #5d636e;
+  --line: #e3e6ea;
+  --panel: #f7f8fa;
+  --code: #f1f3f6;
+  --accent: #1c6fd6;
+  --req: #b4530a;
+  --res: #1c7a4a;
+  --warn: #9a3412;
+  --ok: #1c7a4a;
+  --no: #97a0ad;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161a;
+    --fg: #e7e9ee;
+    --muted: #9aa3b0;
+    --line: #272b33;
+    --panel: #1a1d23;
+    --code: #1e2229;
+    --accent: #6aa9f0;
+    --req: #e8a15f;
+    --res: #6ccf9a;
+    --warn: #f0a882;
+    --ok: #6ccf9a;
+    --no: #5d646f;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14161a;
+  --fg: #e7e9ee;
+  --muted: #9aa3b0;
+  --line: #272b33;
+  --panel: #1a1d23;
+  --code: #1e2229;
+  --accent: #6aa9f0;
+  --req: #e8a15f;
+  --res: #6ccf9a;
+  --warn: #f0a882;
+  --ok: #6ccf9a;
+  --no: #5d646f;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.62 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+a { color: var(--accent); }
+a:hover { text-decoration: underline; }
+
+code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+code { background: var(--code); padding: 1px 5px; border-radius: 4px; font-size: 12.8px; }
+pre {
+  background: var(--code); padding: 12px 14px; border-radius: 8px;
+  overflow: auto; font-size: 12.5px; line-height: 1.55; margin: 12px 0;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+
+/* ── layout ─────────────────────────────────────────────────────────────── */
+
+.wrap { display: grid; grid-template-columns: 250px minmax(0, 1fr); min-height: 100vh; }
+
+nav {
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+  padding: 20px 14px 40px;
+  position: sticky; top: 0; height: 100vh; overflow: auto;
+}
+nav .brand { font-size: 15px; font-weight: 600; letter-spacing: .2px; text-decoration: none; color: var(--fg); }
+nav .tag { color: var(--muted); font-size: 12px; margin: 3px 0 16px; }
+nav h2 {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px;
+  color: var(--muted); margin: 18px 0 5px; font-weight: 600;
+}
+nav a.page, nav a.sec {
+  display: block; padding: 4px 8px; border-radius: 6px;
+  text-decoration: none; font-size: 13.5px; color: var(--fg);
+}
+nav a.page:hover, nav a.sec:hover { background: var(--code); text-decoration: none; }
+nav a.page[aria-current] { background: var(--code); font-weight: 600; color: var(--accent); }
+nav a.sec { color: var(--muted); font-size: 13px; padding-left: 8px; }
+nav a.sec.sub { padding-left: 20px; font-size: 12.5px; }
+
+main { padding: 30px 36px 100px; max-width: 1020px; }
+
+h1 { font-size: 27px; margin: 0 0 6px; letter-spacing: -.2px; }
+h1 + .lede { font-size: 16px; margin-top: 0; }
+h2 { font-size: 21px; margin: 40px 0 10px; padding-top: 6px; scroll-margin-top: 16px; }
+h3 { font-size: 16.5px; margin: 26px 0 8px; scroll-margin-top: 16px; }
+h4 { font-size: 14px; margin: 18px 0 6px; }
+p { margin: 11px 0; }
+.lede { color: var(--muted); }
+ul, ol { margin: 11px 0; padding-left: 22px; }
+li { margin: 5px 0; }
+
+@media (max-width: 860px) {
+  .wrap { grid-template-columns: 1fr; }
+  nav { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--line); }
+  main { padding: 20px 16px 60px; }
+  .cols { grid-template-columns: 1fr !important; }
+}
+
+/* ── blocks ─────────────────────────────────────────────────────────────── */
+
+.card {
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px 18px; margin: 16px 0; background: var(--panel);
+}
+.note {
+  border-left: 3px solid var(--warn); background: var(--code);
+  padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 14px 0;
+}
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.lbl {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .8px;
+  font-weight: 600; margin-bottom: 4px; color: var(--muted);
+}
+.lbl.req { color: var(--req); }
+.lbl.res { color: var(--res); }
+
+.entry { border: 1px solid var(--line); border-radius: 10px; margin: 16px 0; overflow: hidden; }
+.entry > header {
+  padding: 11px 16px; background: var(--panel); border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.entry > header .name { font-family: ui-monospace, monospace; font-size: 14px; font-weight: 600; }
+.entry > .body { padding: 14px 16px; }
+.pill {
+  font-size: 10.5px; padding: 2px 8px; border-radius: 20px;
+  border: 1px solid var(--line); color: var(--muted); white-space: nowrap;
+}
+
+table { border-collapse: collapse; width: 100%; font-size: 13.4px; margin: 10px 0; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th {
+  color: var(--muted); font-weight: 600; font-size: 11px;
+  text-transform: uppercase; letter-spacing: .6px; white-space: nowrap;
+}
+td.mono, td.name { font-family: ui-monospace, monospace; font-size: 12.5px; }
+td.name { white-space: nowrap; }
+td.num { text-align: right; font-family: ui-monospace, monospace; font-size: 12.5px; }
+.opt { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; }
+.yes { color: var(--ok); font-weight: 600; }
+.no { color: var(--no); }
+
+.mermaid {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; padding: 16px; margin: 16px 0; text-align: center;
+}
+details { margin: 8px 0; }
+summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+
+.theme {
+  position: fixed; top: 10px; right: 14px; z-index: 5;
+  font-size: 12px; border: 1px solid var(--line); background: var(--panel);
+  color: var(--fg); border-radius: 20px; padding: 5px 12px; cursor: pointer;
+}
+
+.gen {
+  font-size: 12px; color: var(--muted); margin: 6px 0 0;
+}
+.filter {
+  font: inherit; font-size: 13px; padding: 6px 10px; width: 260px;
+  border: 1px solid var(--line); border-radius: 7px;
+  background: var(--bg); color: var(--fg);
+}
