@@ -55,6 +55,17 @@ public sealed class ConsoleServer : IDisposable
     private static readonly HashSet<string> MutatingVerbs =
         new(StringComparer.Ordinal) { "init", "pull", "push", "merge", "rebind" };
 
+    /// <summary>The wire ops that change what the bridge is DOING, not just what it reports.
+    ///
+    /// <para><c>push</c> is the obvious one. <c>disconnect</c> and <c>connect</c> are the ones worth naming:
+    /// neither writes PLC code, but both retarget the bridge the engineer is using — a disconnect pauses sync
+    /// for every client until someone reconnects, and a connect can rebind it to a different project. A review
+    /// tool that can do that to the IDE someone is standing in front of, silently, is not read-only in any
+    /// sense that matters. <c>health</c>, <c>refs</c>, <c>fetch</c>, <c>init</c> and <c>build</c> only read
+    /// (a build compiles, which the IDE does constantly anyway).</para></summary>
+    private static readonly HashSet<string> StatefulOps =
+        new(StringComparer.Ordinal) { Ops.Push, Ops.Connect, Ops.Disconnect };
+
     public ConsoleServer(int port, bool allowWrite, string? pipeOverride)
     {
         _port = port;
@@ -136,9 +147,12 @@ public sealed class ConsoleServer : IDisposable
     {
         var req = Read<BridgeBody>(ctx);
         if (req is null || req.Op.Length == 0) { WriteJson(ctx, 400, new { error = "expected { op, body }" }); return; }
-        if (req.Op == Ops.Push && !_allowWrite)
+        if (StatefulOps.Contains(req.Op) && !_allowWrite)
         {
-            WriteJson(ctx, 403, new { error = "`push` writes to the live IDE — restart with `volt console --allow-write`" });
+            WriteJson(ctx, 403, new
+            {
+                error = $"`{req.Op}` changes what the bridge is doing — restart with `volt console --allow-write`",
+            });
             return;
         }
 
@@ -226,6 +240,19 @@ public sealed class ConsoleServer : IDisposable
         var req = Read<CliBody>(ctx);
         var args = req?.Args ?? new List<string>();
         if (args.Count == 0) { WriteJson(ctx, 400, new { error = "expected { args: [...] }" }); return; }
+        // A verb that never returns cannot be a panel. `console` starts a SERVER, so running it from the
+        // console spawns a second one that outlives the request and holds the call open until the timeout —
+        // measured: the panel simply never answered. Named rather than inferred, because "does this verb
+        // return" is not something the argv can be asked.
+        if (args[0] == "console")
+        {
+            WriteJson(ctx, 400, new
+            {
+                error = "`volt console` starts a server and does not return — that is this page. Run it in a "
+                    + "terminal if you want a second one.",
+            });
+            return;
+        }
         if (MutatingVerbs.Contains(args[0]) && !_allowWrite && !args.Contains("--dry-run"))
         {
             WriteJson(ctx, 403, new

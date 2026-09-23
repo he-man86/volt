@@ -115,11 +115,22 @@ the same as gone.</pre>
   <tr><td>Stale behaviour after a code change.</td><td>The TwinCAT worker embeds the XAE pid in its pipe name and does <b>not</b> reload on rebuild — rebuild <i>and</i> restart it.</td></tr>
 </table>
 
-<h2 id="e2e">Driving a bridge from a test</h2>
-<pre>pwsh scripts/ide.ps1 up -Vendor codesys   # serve a committed fixture project
-bun run test:e2e:codesys                  # discovers the live pipe by prefix
+<h2 id="serving">Serving a bridge yourself</h2>
+<p>
+  One script serves either vendor against a <b>committed fixture project</b> — never the IDE you have open:
+</p>
+<pre>pwsh scripts/ide.ps1 up -Vendor codesys   # or: twincat
+pwsh scripts/ide.ps1 pipe                 # print the pipe it is serving
+pwsh scripts/ide.ps1 logs
+pwsh scripts/ide.ps1 down</pre>
+<p>
+  The vendors differ in exactly one step and the script owns it: CODESYS loads the bridge <b>in-process</b>,
+  TwinCAT needs a separate <code>VoltBridgeTwincat --xae-pid</code> worker. The IDE stays clickable while a
+  suite drives it, because the IDE's own message loop is what answers the pipe.
+</p>
 
-pwsh scripts/ide.ps1 up -Vendor twincat
+<h2 id="e2e">Driving one from a test</h2>
+<pre>bun run test:e2e:codesys                  # discovers the live pipe by prefix
 bun run test:e2e:twincat</pre>
 <p>
   The suites discover the pipe themselves — <code>volt.bridge.&lt;vendor&gt;.&lt;pid&gt;</code>, one per IDE —

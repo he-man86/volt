@@ -40,14 +40,20 @@ export function runBanner(meta) {
        project is refused — restart with <code>volt console --allow-write</code> to enable those.</div>`
 }
 
-/** One collapsible panel: an editable request, a Send button, and the raw answer. */
+/**
+ * One collapsible panel: an editable request, a Send button, and the raw answer.
+ *
+ * The button starts DISABLED and is enabled once the handlers are bound. Binding waits on a fetch and a
+ * dynamic import, so for a moment after load the buttons exist and nothing listens to them — and a click in
+ * that window did exactly nothing, with no way to tell it apart from a call that returned nothing.
+ */
 export function panel(id, label, initial, send) {
   return `<details class="try" id="try-${id}">
     <summary>${esc(label)}</summary>
     <div class="trybody">
       <textarea class="tryin" spellcheck="false" rows="${Math.min(12, initial.split("\n").length + 1)}">${esc(initial)}</textarea>
       <div class="tryrow">
-        <button class="trybtn" data-send="${id}">Send</button>
+        <button class="trybtn" data-send="${id}" disabled>Send</button>
         <span class="trynote" id="note-${id}"></span>
       </div>
       <pre class="tryout" id="out-${id}">—</pre>

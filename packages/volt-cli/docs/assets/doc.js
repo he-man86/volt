@@ -6,16 +6,36 @@
  * hard-codes a wire field, an item kind or a driver member; if it is a fact, it came from the bundle.
  */
 
-const PAGES = [
-  ["index.html", "Overview"],
-  ["wire.html", "The wire"],
-  ["connector.html", "The connector"],
-  ["cli.html", "The CLI"],
-  ["driver.html", "The driver layer"],
-  ["items.html", "Items & kinds"],
-  ["network-text.html", "Network text"],
-  ["logs.html", "Logs & diagnosis"],
+/**
+ * The pages, GROUPED THE WAY A CHANGE TRAVELS — you type a verb, the connector decides which bridge serves
+ * it, the verb sends ops over the wire, the driver puts them into the IDE. Reading top to bottom follows one
+ * edit from a keystroke to the PLC, which is the only ordering that answers "where does my thing go next".
+ *
+ * The formats come after the chain because they are what TRAVELS along it, not a step in it; operating comes
+ * last because it is what you read when the chain misbehaved.
+ */
+const GROUPS = [
+  ["Start here", [["index.html", "Overview"]]],
+  [
+    "The chain",
+    [
+      ["cli.html", "1 · The CLI"],
+      ["connector.html", "2 · The connector"],
+      ["wire.html", "3 · The wire"],
+      ["driver.html", "4 · The driver"],
+    ],
+  ],
+  [
+    "What travels",
+    [
+      ["items.html", "Items & kinds"],
+      ["network-text.html", "Network text"],
+    ],
+  ],
+  ["Operating", [["logs.html", "Logs & diagnosis"]]],
 ]
+
+const PAGES = GROUPS.flatMap(([, pages]) => pages)
 
 import { consoleMeta, runBanner, panel, bindPanels, callConsole } from "./console.js"
 
@@ -64,9 +84,16 @@ function buildNav() {
   nav.innerHTML = `
     <a class="brand" href="index.html">Volt bridge</a>
     <div class="tag">One live PLC IDE, over a named pipe.</div>
-    <h2>Documents</h2>
-    ${PAGES.map(([href, title]) =>
-      `<a class="page" href="${href}"${href.replace(/\.html$/, "") === here ? ' aria-current="page"' : ""}>${title}</a>`).join("")}
+    ${GROUPS.map(
+      ([group, pages]) =>
+        `<h2>${group}</h2>` +
+        pages
+          .map(
+            ([href, title]) =>
+              `<a class="page" href="${href}"${href.replace(/\.html$/, "") === here ? ' aria-current="page"' : ""}>${title}</a>`,
+          )
+          .join(""),
+    ).join("")}
     ${sections ? `<h2>On this page</h2>${sections}` : ""}
     <h2>Artefacts</h2>
     <a class="page" href="volt-bridge.openrpc.json">volt-bridge.openrpc.json</a>`
@@ -399,6 +426,8 @@ async function wireTryIt() {
     for (const b of document.querySelectorAll(".trybtn")) b.disabled = true
     return
   }
+  // Live: hand the buttons over to the handlers now that they exist.
+  for (const b of document.querySelectorAll(".trybtn")) b.disabled = false
   bindPanels({
     // The wire: one op, and EVERY frame it answered with.
     op: async (text) => callConsole("bridge", JSON.parse(text)),
