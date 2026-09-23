@@ -35,6 +35,14 @@ public static class Git
 {
     private const string EmptyTree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
+    /// <summary>The fixed identity + epoch that makes an IDE commit REPRODUCIBLE: the same IDE state must yield
+    /// the same SHA, so `refs/remotes/volt/ide` does not churn on every pull.
+    ///
+    /// <para>It belongs to <see cref="CommitTree"/> and nothing else. It was also on the two commits that land
+    /// on the ENGINEER'S OWN branch — the merge commit `volt pull` creates, and the `--no-edit` commit that
+    /// concludes a conflict the engineer resolved BY HAND — so their own work was attributed to
+    /// `ide &lt;ide@volt.local&gt;` and dated 1970-01-01. Neither needs a reproducible SHA (each is a one-off on a
+    /// branch git already owns), and `AutoCommitSrc` next to them has always used the user's real identity.</para></summary>
     private static readonly Dictionary<string, string> DetEnv = new()
     {
         ["GIT_AUTHOR_NAME"] = "ide",
@@ -454,7 +462,7 @@ public static class Git
     public static void MergeAbort(string root) => Run(new[] { "-C", root, "merge", "--abort" });
 
     /// <summary>Finalize a resolved merge (caller must have checked there are no unmerged paths).</summary>
-    public static void MergeContinue(string root) => Run(new[] { "-C", root, "commit", "--no-edit" }, env: DetEnv);
+    public static void MergeContinue(string root) => Run(new[] { "-C", root, "commit", "--no-edit" });
 
     /// <summary>Resolve one conflicted path by taking a whole side, then stage it.
     /// <para>A side may not EXIST. In a modify/delete conflict the index holds only one of stages 2 (ours) and 3
@@ -512,7 +520,7 @@ public static class Git
     /// <summary><c>git merge &lt;ref&gt;</c> into the current branch (deterministic identity). Requires a clean tree.</summary>
     public static MergeOutcome GitMerge(string root, string @ref, string message)
     {
-        var r = Run(new[] { "-C", root, "merge", "--no-edit", "-m", message, @ref }, env: DetEnv, allowFail: true);
+        var r = Run(new[] { "-C", root, "merge", "--no-edit", "-m", message, @ref }, allowFail: true);
         if (r.Code == 0) return new MergeOutcome(ResultKinds.Clean, Array.Empty<string>());
         var conflicts = UnmergedPaths(root);
         if (conflicts.Count > 0) return new MergeOutcome(ResultKinds.Conflict, conflicts);

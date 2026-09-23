@@ -167,11 +167,14 @@ test("fetchStatus sends --local only in local mode", async () => {
  * nothing checking the translation. Both frontends drive all of these.
  */
 
-test("build passes the workspace and nothing else", async () => {
+// `--json`, like every other action. It did not pass it and returned the raw CliResult, and both shells then
+// read `stderr` — where a build writes nothing, because the diagnostics go to stdout and `runCli` strips the
+// progress frames stderr does carry. A failing build reported "exit 2" and showed none of the errors.
+test("build asks for json, so the shells get diagnostics rather than an exit code", async () => {
   const dir = boundWorkspace()
   try {
     await build(dir)
-    expect(lastArgs).toEqual(["build", "--workspace", dir])
+    expect(lastArgs).toEqual(["build", "--json", "--workspace", dir])
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 

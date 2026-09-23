@@ -216,7 +216,22 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       clearProgress()
       await st.refresh(true)
       void runDiagnostics(shell) // a build can change diagnostics
-      if (r.code !== 0) notify("error", `Build failed: ${firstLine(r.stderr) || `exit ${r.code}`}`)
+      // THE DIAGNOSTICS, which is the entire point of running a build. This read `r.stderr`, where the CLI
+      // writes nothing — every diagnostic goes to stdout, and `runCli` strips the progress frames stderr does
+      // carry — so a failing build said "Build failed: exit 2" and showed the engineer none of the errors.
+      if (r.kind === "refused") notify("info", `volt: ${r.reason}`)
+      else if (r.kind === "error") notify("error", `Build failed: ${r.message}`)
+      else if (!r.success) {
+        const errs = r.diagnostics.filter((d) => d.severity === "error")
+        const first = errs[0] ?? r.diagnostics[0]
+        const where = first?.name ? `${first.name}${first.line ? `:${first.line}` : ""} ` : ""
+        notify(
+          "error",
+          first
+            ? `Build failed (${errs.length} error(s)): ${where}${first.code ? `${first.code}: ` : ""}${first.message}`
+            : "Build failed",
+        )
+      }
     }),
   )
   ipcMain.handle("volt:connect", () =>

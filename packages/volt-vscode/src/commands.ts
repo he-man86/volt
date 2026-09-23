@@ -301,10 +301,29 @@ async function doBuild(workspaceRoot: string): Promise<void> {
 		{ location: vscode.ProgressLocation.Notification, title: "volt build" },
 		(progress) => build(workspaceRoot, { onProgress: progressBridge(progress) }),
 	)
-	output().appendLine(r.stdout)
-	if (r.stderr.length > 0) output().appendLine(r.stderr)
+	// STRUCTURED, not a stdout/stderr dump. `build` used to return the raw CliResult and this printed both
+	// streams; the diagnostics were in there, but a REFUSAL (wrong project, no bridge) was indistinguishable
+	// from a compile error because the CLI gave it the same shape, so "Build reported errors" was shown for an
+	// IDE that never built anything.
+	if (r.kind === "refused") {
+		output().appendLine(`volt: ${r.reason}`)
+		output().show()
+		vscode.window.showWarningMessage(`volt: ${r.reason}`)
+		return
+	}
+	if (r.kind === "error") {
+		output().appendLine(`volt build failed: ${r.message}`)
+		output().show()
+		vscode.window.showErrorMessage(`volt build failed: ${r.message}`)
+		return
+	}
+	for (const d of r.diagnostics) {
+		const where = d.name ? `${d.name}${d.line ? `:${d.line}${d.column ? `:${d.column}` : ""}` : ""} ` : ""
+		output().appendLine(`[${d.severity}] ${where}${d.code ? `${d.code}: ` : ""}${d.message}`)
+	}
+	output().appendLine(`Build ${r.success ? "succeeded" : "FAILED"} (${r.duration}ms)`)
 	output().show()
-	if (r.code !== 0) vscode.window.showWarningMessage("Build reported errors — see the Volt output.")
+	if (!r.success) vscode.window.showWarningMessage("Build reported errors — see the Volt output.")
 }
 
 // ── registration (IDs MUST match package.json contributions) ────────────

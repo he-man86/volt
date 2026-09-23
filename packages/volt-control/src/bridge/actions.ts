@@ -22,7 +22,11 @@ export { shutdownSession } from "./session.js"
 // `status` (on ok) is the resulting drift state the CLI already computed — the caller adopts it into the
 // tracker, so a pull/push is ONE bridge call (the action) with no follow-up `volt status` (/refs).
 export type PullOutcome =
-  | { kind: "ok"; synced: string[]; status?: StatusJson }
+  // `message` is the CLI's own sentence for the three ok paths that have one — a Force Pull that DISCARDED
+  // local work says so, and both "already up to date" arms explain why nothing moved. Without it the ok arm
+  // counted `synced` and, for a discard, announced "Pulled 0 file(s) from the IDE" over work it had just
+  // destroyed. `PushOutcome` below has carried the same field all along; the mirror image did not.
+  | { kind: "ok"; synced: string[]; status?: StatusJson; message?: string }
   | { kind: "refused"; reason: string }
   | { kind: "conflict"; paths: string[]; status?: StatusJson }
   | { kind: "error"; message: string }
@@ -116,9 +120,35 @@ export function push(workspaceRoot: string, opts: { force?: boolean } & Progress
   })
 }
 
-/** `volt build`. Returns the raw CLI result (the caller renders stdout/stderr). */
-export function build(workspaceRoot: string, opts: ProgressOpt = {}): Promise<CliResult> {
-  return runCli(workspaceRoot, ["build", "--workspace", workspaceRoot], opts.onProgress)
+/** The build outcome, mirroring the CLI's `--json` shape. A REFUSAL (no binding, wrong project, no bridge) is
+ *  its own kind — it is not a project that failed to compile, and the CLI stopped conflating the two. */
+export type BuildOutcome =
+  | { kind: "ok"; success: boolean; duration: number; diagnostics: BuildDiagnostic[] }
+  | { kind: "refused"; reason: string }
+  | { kind: "error"; message: string }
+
+export interface BuildDiagnostic {
+  severity: "error" | "warning" | "info"
+  message: string
+  /** Full wire name of the item (`FB_Motor.fb`), or absent for a project-level message. */
+  name?: string
+  /** The vendor's own diagnostic number as the IDE renders it (`C0032`). */
+  code?: string
+  line?: number
+  column?: number
+}
+
+/** `volt build --json`.
+ *
+ *  <p>It did not pass `--json`, and returned the raw `CliResult` for the caller to render. Both shells then read
+ *  `stderr` — and a build writes every diagnostic to STDOUT, while `runCli` sets `VOLT_PROGRESS_JSON=1` and
+ *  strips the progress frames, so `stderr` is the empty string BY CONSTRUCTION. A failing build therefore
+ *  notified "Build failed: exit 2" and showed the engineer none of the errors.</p> */
+export async function build(workspaceRoot: string, opts: ProgressOpt = {}): Promise<BuildOutcome> {
+  const r = await runCli(workspaceRoot, ["build", "--json", "--workspace", workspaceRoot], opts.onProgress)
+  return (
+    parseJson<BuildOutcome>(r.stdout) ?? { kind: "error", message: firstLine(r.stderr) ?? `exit ${r.code}` }
+  )
 }
 
 /** `volt merge --continue` — finish a resolved conflict AND advance the IDE baseline (no "pull again"). Exit 2

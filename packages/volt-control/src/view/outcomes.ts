@@ -81,7 +81,7 @@ export function describeDisconnect(r: { ok: boolean }): OutcomeView {
 export function describePull(outcome: PullOutcome): OutcomeView {
   switch (outcome.kind) {
     case "ok":
-      return { tone: "info", message: `Pulled ${outcome.synced.length} file(s) from the IDE.`, actions: [] }
+      return { tone: "info", message: outcome.message ?? `Pulled ${outcome.synced.length} file(s) from the IDE.`, actions: [] }
     case "error":
       return { tone: "error", message: `volt pull failed: ${outcome.message}`, actions: [] }
     case "refused":

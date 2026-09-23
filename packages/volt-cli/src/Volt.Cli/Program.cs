@@ -124,7 +124,12 @@ internal static class Program
     private static int CmdPull(string root, BridgeClient bridge, Args a)
     {
         var r = Commands.Pull(root, bridge, a.Has("--dry-run"), Reporter.Create(), a.Has("--force"));
-        if (a.Has("--json")) { EmitJson(r); return r.Kind == ResultKinds.Ok ? 0 : 2; }
+        if (a.Has("--json"))
+        {
+            if (r.Status is not null) WarnIfPartial(r.Status);   // stderr — stdout stays the JSON
+            EmitJson(r);
+            return r.Kind == ResultKinds.Ok ? 0 : 2;
+        }
         if (r.Kind == ResultKinds.Refused) { Console.Error.WriteLine(r.Reason); return 1; }
         if (r.Kind == ResultKinds.Conflict)
         {
@@ -151,6 +156,23 @@ internal static class Program
         var s = Commands.Status(root, bridge, a.Has("--local"));
         if (a.Has("--porcelain"))
         {
+            // THE STATE LINES COME FIRST, because four different situations used to look identical to "in sync":
+            // a bridge that is offline, a status that deliberately did not ask (`--local`), a project mismatch,
+            // and a merge in progress. The block emitted only the six change codes and returned 0 whatever had
+            // happened, so a tool scripting this read an empty answer as agreement — the same mistake
+            // `incomingStale` was added to `--json` to prevent, never carried across to the mode that exists
+            // for machines.
+            //
+            // `#` cannot collide with the six two-letter codes, which is what makes this additive: a reader that
+            // ignores unknown lines is unaffected, and one that wants the truth can have it.
+            if (!s.Online) Console.WriteLine($"# offline {s.Detail}");
+            if (s.IncomingStale) Console.WriteLine("# incoming-stale");
+            if (s.ProjectMismatch is { } pm)
+                Console.WriteLine($"# mismatch {pm.ConfiguredAs.Platform}/{pm.ConfiguredAs.ProjectName} {pm.BridgeReports.Platform}/{pm.BridgeReports.ProjectName}");
+            if (s.Merging is { } mg) Console.WriteLine($"# merging {mg.Conflicts.Count}");
+            foreach (var n in s.Unreadable) Console.WriteLine($"# unreadable {n}");
+            foreach (var f in s.UnwalkedFolders) Console.WriteLine($"# unwalked {f}");
+
             void EmitLines(string code, List<string> names) { foreach (var n in names) Console.WriteLine($"{code} {(s.PathByName.TryGetValue(n, out var p) ? p : n)}"); }
             EmitLines("iA", s.Incoming.Added); EmitLines("iM", s.Incoming.Modified); EmitLines("iD", s.Incoming.Removed);
             EmitLines("oA", s.Outgoing.Added); EmitLines("oM", s.Outgoing.Modified); EmitLines("oD", s.Outgoing.Removed);
@@ -164,6 +186,9 @@ internal static class Program
         {
             // Online/Detail/Recommend are the pretty-output-only extras and are [JsonIgnore]'d, so the type
             // serializes to exactly the --json contract — incomingStale INCLUDED (volt-control reads it).
+            // The caveat goes to STDERR, where it cannot disturb the JSON on stdout: a human watching a GUI's
+            // output pane gets it even before that GUI learns to render the fields.
+            WarnIfPartial(s);
             EmitJson(s);
             return 0;
         }
