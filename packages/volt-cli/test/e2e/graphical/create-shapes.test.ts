@@ -103,7 +103,10 @@ describe(`graphical / create shapes (${BASE})`, () => {
 		// worked — for a fully resolvable `ET => el`, not only for the `???` cases that first exposed it.
 		if (VENDOR === "twincat") {
 			expect(created.accepted, "TwinCAT accepted an embedded output pin its importer cannot place").toBe(false)
-			expect(JSON.stringify(created.conflicts)).toContain("output pin straight to a variable")
+			// THE CODE is the contract; the message says which shape and may be reworded. This used to grep the
+			// sentence, because until refusals carried their code there was nothing else to match.
+			expect(created.conflicts[0]?.code, `expected an UNSUPPORTED refusal, got ${JSON.stringify(created.conflicts)}`)
+				.toBe("UNSUPPORTED")
 			return
 		}
 

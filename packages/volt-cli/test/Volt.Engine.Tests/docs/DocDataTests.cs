@@ -114,8 +114,10 @@ public class DocDataTests
         {
             "MOST PUSH FAILURES ARE NOT ERROR FRAMES. Every exception from the pre-flight and from the apply "
             + "loop is caught and returned as `accepted:false` with one conflict. A client MUST check `accepted`.",
-            "A conflict's `code` is populated ONLY for a network-text diagnostic (`NETWORK_*`). A refusal that "
-            + "was a coded BridgeException carries its message, but no code.",
+            "A refusal carries its CODE on the conflict: a `NETWORK_*` diagnostic for a body the format "
+            + "refuses (with a `line`), or a BridgeErrorCodes value for everything else — UNSUPPORTED, "
+            + "NOT_FOUND, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, INVALID_CODE_HEADER. Match the code, "
+            + "never the message.",
             "A version conflict is also `accepted:false` — with `yourVersion`/`currentVersion` per item, and no "
             + "code.",
             "A refusal during APPLY rather than pre-flight leaves the earlier ops WRITTEN, and they are not "

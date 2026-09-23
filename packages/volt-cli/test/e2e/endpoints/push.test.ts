@@ -16,7 +16,13 @@ describe(`endpoints / push (${BASE})`, () => {
 		await ensureCompiles(name)
 		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "set", name: wire, toFolder: await plcFolder(FOLDER), sourceText: fb(name, { body: "x := 5;" }), ifVersion: "wrongversion" }] })
 		expect(r.accepted).toBe(false)
-		expect(r.conflicts.some((c: any) => c.name === wire && c.reason === "item changed since you fetched its version")).toBe(true)
+		// STRUCTURE, NOT THE SENTENCE. A version conflict is not a coded refusal — it is the optimistic gate
+		// doing its job — so what identifies it is the pair of versions, not the wording. This asserted the
+		// exact English until the message was the only thing a caller could match on.
+		const conflict = r.conflicts.find((c: any) => c.name === wire)
+		expect(conflict, `no conflict for ${wire}: ${JSON.stringify(r.conflicts)}`).toBeDefined()
+		expect(conflict.code ?? null).toBeNull()
+		expect(typeof conflict.currentVersion).toBe("string")
 	})
 
 	it("rejects a create (ifVersion=null) when the item already exists", async () => {
@@ -40,7 +46,12 @@ describe(`endpoints / push (${BASE})`, () => {
 		await ensureCompiles(name)
 		const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops: [{ op: "deleteItem", name: wire, ifVersion: "wrongversion" }] })
 		expect(r.accepted).toBe(false)
-		expect(r.conflicts.some((c: any) => c.name === wire && c.reason === "item changed since you fetched its version")).toBe(true)
+		// Same structural shape as the stale-set case above: the gate refused, so there is no code and the two
+		// versions are what say so.
+		const stale = r.conflicts.find((c: any) => c.name === wire)
+		expect(stale, `no conflict for ${wire}: ${JSON.stringify(r.conflicts)}`).toBeDefined()
+		expect(stale.code ?? null).toBeNull()
+		expect(typeof stale.currentVersion).toBe("string")
 	})
 
 	it("accepts an idempotent delete of an item that's already gone (any ifVersion)", async () => {

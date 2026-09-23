@@ -100,6 +100,23 @@ public static class PushService
         PushResponse Reject(PushOp op, Exception ex)
         {
             var netEx = ex as NetworkTextException;
+            // THE CODE THE REFUSAL ALREADY COMPUTED, not just the parser's.
+            //
+            // This read `netEx?.Code` alone, so only a network-text diagnostic kept its code and every
+            // `BridgeException` on this path arrived as `code: null` — NOT_FOUND, UNSUPPORTED,
+            // DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, INVALID_CODE_HEADER. Since a push catches EVERY
+            // exception and returns a rejection rather than an error frame, those six were unreachable as
+            // codes anywhere on the wire: five of the ten `BridgeErrorCodes` values could not be observed by
+            // a client at all. So callers matched the English message instead — the e2e suite asserted on an
+            // exact sentence, and the CLI gave up and printed the prose — which means a caller cannot tell
+            // "pull and retry" from "this shape can never be written".
+            //
+            // The two vocabularies stay disjoint by construction: `BridgeException` implements
+            // `ICodedError`, `NetworkTextException` deliberately does not (it carries its own `Code`), so
+            // there is no case where both apply. Do NOT "tidy" that by making NetworkTextException an
+            // ICodedError — `PipeServer` stamps any ICodedError's code onto an ERROR FRAME, which would let
+            // a NETWORK_* value escape into a vocabulary that is documented as BridgeErrorCodes.
+            var code = (ex as ICodedError)?.ErrorCode ?? netEx?.Code;
             VoltLog.Info($"push {opTotal} ops — REJECTED ({op.Name}: {ex.Message}, {applied.Count} already applied) ({sw.ElapsedMilliseconds}ms)");
             // NAME WHAT ALREADY LANDED. The ops before this one are written and are not rolled back (a delete
             // cannot be undone, and a half-undone push is worse than a half-done one), so a rejection that reads
@@ -111,7 +128,7 @@ public static class PushService
                   "before this one failed, and are not rolled back. Run `volt pull` to take them into the " +
                   "workspace, then push again.";
             return PushResponse.RejectedResult(
-                new List<PushConflict> { new() { Name = op.Name, Reason = reason, Code = netEx?.Code, Line = netEx?.Line } },
+                new List<PushConflict> { new() { Name = op.Name, Reason = reason, Code = code, Line = netEx?.Line } },
                 currentProjectVersion);
         }
 

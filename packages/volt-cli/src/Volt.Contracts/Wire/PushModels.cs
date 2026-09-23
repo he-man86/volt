@@ -81,8 +81,22 @@ public class PushConflict
     [JsonPropertyName("reason")]
     public string Reason { get; set; } = "";
 
-    /// <summary>Stable diagnostic code for a thrown-op error (e.g. NETWORK_NESTED_EXPR, NETWORK_NOT_CANONICAL) — null for
-    /// a plain version conflict. Omitted from JSON when null (WhenWritingNull).</summary>
+    /// <summary>The stable code for a REFUSAL — null for a plain version conflict, which is not a refusal but
+    /// the optimistic gate doing its job (it carries <see cref="YourVersion"/>/<see cref="CurrentVersion"/>
+    /// instead). Omitted from JSON when null.
+    ///
+    /// <para><b>Two vocabularies share this field, and that is deliberate.</b> A body the format refuses
+    /// answers with a <c>NETWORK_*</c> diagnostic (and a <see cref="Line"/>); everything else the push refuses
+    /// answers with a <see cref="BridgeErrorCodes"/> value. They cannot collide: the network-text exception
+    /// carries its own code and is NOT an <c>ICodedError</c>, precisely so a <c>NETWORK_*</c> value can never
+    /// escape into an error FRAME, whose vocabulary is documented as BridgeErrorCodes alone.</para>
+    ///
+    /// <para>This used to carry the network-text code and nothing else, so every coded refusal a push raised —
+    /// NOT_FOUND, UNSUPPORTED, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, INVALID_CODE_HEADER — arrived as a
+    /// message with no code. Since a push answers refusals as CONFLICTS rather than error frames, those six
+    /// were unobservable anywhere on the wire, and callers matched the English instead: the e2e suite asserted
+    /// on an exact sentence and the CLI printed the prose unbranched. A caller could not separate "pull and
+    /// retry" from "this shape can never be written".</para></summary>
     [JsonPropertyName("code")]
     public string? Code { get; set; }
 

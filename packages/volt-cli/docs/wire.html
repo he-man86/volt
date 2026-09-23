@@ -120,28 +120,34 @@
   <tr><td class="name">UNSUPPORTED</td><td>A shape this vendor cannot write, a member kind with no mapping, or a descriptor field the vendor has no counterpart for. The message says what. Also raised on a READ — a CODESYS member whose type code has no kind.</td><td>Surface it: a real limit, not a transient.</td></tr>
   <tr><td class="name">DUPLICATE_CHILD</td><td>A create collided with something already there.</td><td>Rename, or update instead of create.</td></tr>
   <tr><td class="name">INVALID_CODE_HEADER</td><td>The pushed source's header is not one Volt recognises.</td><td>Fix the file.</td></tr>
-  <tr><td class="name">INVALID_ST</td><td>The pushed body failed the ST reader. Raised during a push, so it reaches you as a rejection (below), not as this code.</td><td>Fix the body. A <a href="network-text.html#diagnostics">network-text</a> refusal is the one that also carries a <code>code</code> and a <code>line</code>.</td></tr>
+  <tr><td class="name">INVALID_ST</td><td>The pushed body failed the ST reader. Raised during a push, so it reaches you on <code>conflicts[].code</code> rather than as an error frame.</td><td>Fix the body. A <a href="network-text.html#diagnostics">network-text</a> refusal also carries a <code>line</code>.</td></tr>
   <tr><td class="name">NO_SIDECAR</td><td><code>fetch</code> only: the request carried neither <code>knownItems</code> nor <code>onlyItems</code>, so "everything" and "a client that lost its baseline" are indistinguishable.</td><td>Send <code>init</code> for a first pull, or supply a baseline.</td></tr>
   <tr><td class="name">INTERNAL_ERROR</td><td>Anything thrown that was not an <code>ICodedError</code> — including <b>a body the host could not deserialize</b>. Usually a bug.</td><td>Collect the <a href="logs.html">log</a>; the message is the exception's own.</td></tr>
 </table>
-<h3 id="not-a-code">Where a code does <i>not</i> reach you</h3>
+<h3 id="not-a-code">Where a code arrives as a conflict, not a frame</h3>
 <p>
-  Three of these codes are raised in places whose exceptions are <b>caught before the wire</b>, which is the
-  single most useful thing to know when a failure does not look like what you expected:
+  Five of these codes are raised in places whose exceptions the push <b>catches on purpose</b>. They are not
+  lost — they arrive on the conflict — but they never appear as an error <i>frame</i>, which is the single
+  most useful thing to know when a failure does not look like what you expected:
 </p>
 <table>
-  <tr><th>code</th><th>raised in</th><th>what you actually see</th></tr>
-  <tr><td class="name">UNSUPPORTED</td><td>The push pre-flight, the body-format guard, both drivers.</td><td>A push <b>rejection</b> — <code>accepted:false</code>, the message in <code>conflicts[].reason</code>, and <code>conflicts[].code</code> is <b>null</b>.</td></tr>
-  <tr><td class="name">INVALID_ST</td><td>The ST reader.</td><td>Same: a rejection, message only.</td></tr>
-  <tr><td class="name">INVALID_CODE_HEADER</td><td>The ST header helpers.</td><td>Same: a rejection, message only.</td></tr>
-  <tr><td class="name">NOT_FOUND</td><td>The push, and both drivers.</td><td>Same, when it comes from a push. A driver read during <code>fetch</code> is isolated into <code>unreadable</code> instead.</td></tr>
-  <tr><td class="name">DUPLICATE_CHILD</td><td>The push.</td><td>Same: a rejection.</td></tr>
+  <tr><th>code</th><th>raised in</th><th>reaches you as</th></tr>
+  <tr><td class="name">UNSUPPORTED</td><td>The push pre-flight, the body-format guard, both drivers.</td><td>A push <b>rejection</b> — <code>accepted:false</code>, with the code on <code>conflicts[].code</code>.</td></tr>
+  <tr><td class="name">INVALID_ST</td><td>The ST reader.</td><td>Same.</td></tr>
+  <tr><td class="name">INVALID_CODE_HEADER</td><td>The ST header helpers.</td><td>Same.</td></tr>
+  <tr><td class="name">NOT_FOUND</td><td>The push, and both drivers.</td><td>Same, from a push. A driver read during <code>fetch</code> is isolated into <code>unreadable</code> instead.</td></tr>
+  <tr><td class="name">DUPLICATE_CHILD</td><td>The push.</td><td>Same.</td></tr>
 </table>
 <div class="note">
-  <code>conflicts[].code</code> is populated <b>only</b> for a network-text diagnostic
-  (<code>NETWORK_*</code>) — the conflict is built with the parser exception's code, and a coded
-  <code>BridgeException</code> does not carry one through. So match on <code>code</code> when you have it, and
-  fall back to <code>reason</code> otherwise.
+  <b>Match <code>conflicts[].code</code>, never the message.</b> Two vocabularies share that field and they
+  cannot collide: a body the format refuses answers with a <code>NETWORK_*</code> diagnostic and a
+  <code>line</code>; everything else answers with one of the codes above. A <b>version</b> conflict carries no
+  code at all — it is not a refusal but the optimistic gate doing its job, and it gives you
+  <code>yourVersion</code>/<code>currentVersion</code> instead.
+  <br><br>
+  Until 2026-09, this field held the network-text code and nothing else, so those five arrived as prose. The
+  callers did what callers do: the e2e suite asserted on an exact English sentence, and the CLI printed the
+  message with no branch. If you are reading an older client, that is what you are looking at.
 </div>
 <p>
   A <b>rejected push</b> is not an error frame — it is a normal <code>result</code> with

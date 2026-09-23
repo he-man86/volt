@@ -205,7 +205,7 @@ window.VOLT = {
         ],
         "x-outcomes": [
           "MOST PUSH FAILURES ARE NOT ERROR FRAMES. Every exception from the pre-flight and from the apply loop is caught and returned as \u0060accepted:false\u0060 with one conflict. A client MUST check \u0060accepted\u0060.",
-          "A conflict\u0027s \u0060code\u0060 is populated ONLY for a network-text diagnostic (\u0060NETWORK_*\u0060). A refusal that was a coded BridgeException carries its message, but no code.",
+          "A refusal carries its CODE on the conflict: a \u0060NETWORK_*\u0060 diagnostic for a body the format refuses (with a \u0060line\u0060), or a BridgeErrorCodes value for everything else \u2014 UNSUPPORTED, NOT_FOUND, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, INVALID_CODE_HEADER. Match the code, never the message.",
           "A version conflict is also \u0060accepted:false\u0060 \u2014 with \u0060yourVersion\u0060/\u0060currentVersion\u0060 per item, and no code.",
           "A refusal during APPLY rather than pre-flight leaves the earlier ops WRITTEN, and they are not rolled back. The reason says how many, because a rejection that reads as \u0022nothing happened\u0022 is a lie the user acts on."
         ],

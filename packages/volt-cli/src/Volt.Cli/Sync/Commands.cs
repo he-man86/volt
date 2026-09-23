@@ -465,7 +465,11 @@ public static class Commands
                 return PushResult.Rejected(forceWithLease is not null
                     ? $"--force-with-lease is stale: the IDE is at {resp.CurrentProjectVersion}, not {forceWithLease} — run `volt pull` first"
                     : "the IDE changed since your last sync — run `volt pull` first (or push --force)");
-            var lines = string.Join("\n", (resp.Conflicts ?? new()).Select(c => $"  {c.Name}: {c.Reason}"));
+            // THE CODE, WHERE THERE IS ONE. A refusal now carries it (`PushConflict.Code`), and printing it is
+            // the difference between "something went wrong" and a line an operator or an agent can act on —
+            // UNSUPPORTED will never succeed on a retry, a version conflict will.
+            var lines = string.Join("\n", (resp.Conflicts ?? new()).Select(c =>
+                $"  {c.Name}: {(c.Code is { Length: > 0 } code ? $"[{code}] " : "")}{c.Reason}"));
             return PushResult.Rejected($"the bridge rejected the push:\n{lines}");
         }
 
