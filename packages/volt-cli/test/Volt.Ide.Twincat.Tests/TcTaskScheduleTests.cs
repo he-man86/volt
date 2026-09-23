@@ -105,17 +105,24 @@ public class TcTaskScheduleTests
 
     /// <summary>A field TwinCAT has no way to schedule is REFUSED, not dropped. Dropping it is the silent
     /// divergence this vendor gap was held open to avoid: the file would keep saying `Freewheeling` and the
-    /// machine would keep running a cyclic task.</summary>
+    /// machine would keep running a cyclic task.
+    ///
+    /// <para>AND THE CODE SAYS WHICH KIND OF REFUSAL IT IS. Every case here answered BAD_REQUEST, which tells
+    /// the engineer their file is malformed — for `Freewheeling`, an event source, a watchdog or a `t#4ms`
+    /// interval it is not, and no edit they make can teach this vendor to schedule it. Those are UNSUPPORTED.
+    /// A missing unit really is a bad request: `10` means nothing, and adding `ms` fixes it.</para></summary>
     [Theory]
-    [InlineData("Type:      Freewheeling\nInterval:  10 ms\nPriority:  20\nWatchdog:  off\n", "Freewheeling")]
-    [InlineData("Type:      Cyclic\nInterval:  10 ms\nPriority:  20\nEvent:     E_Stop\nWatchdog:  off\n", "E_Stop")]
-    [InlineData("Type:      Cyclic\nInterval:  10 ms\nPriority:  20\nWatchdog:  10 ms (sensitivity 1)\n", "watchdog")]
-    [InlineData("Type:      Cyclic\nInterval:  t#4ms\nPriority:  20\nWatchdog:  off\n", "t#4ms")]
-    [InlineData("Type:      Cyclic\nInterval:  10\nPriority:  20\nWatchdog:  off\n", "unit")]
-    public void A_field_twincat_cannot_express_is_refused(string body, string mentions)
+    [InlineData("Type:      Freewheeling\nInterval:  10 ms\nPriority:  20\nWatchdog:  off\n", "Freewheeling", BridgeErrorCodes.Unsupported)]
+    [InlineData("Type:      Cyclic\nInterval:  10 ms\nPriority:  20\nEvent:     E_Stop\nWatchdog:  off\n", "E_Stop", BridgeErrorCodes.Unsupported)]
+    [InlineData("Type:      Cyclic\nInterval:  10 ms\nPriority:  20\nWatchdog:  10 ms (sensitivity 1)\n", "watchdog", BridgeErrorCodes.Unsupported)]
+    [InlineData("Type:      Cyclic\nInterval:  t#4ms\nPriority:  20\nWatchdog:  off\n", "t#4ms", BridgeErrorCodes.Unsupported)]
+    [InlineData("Type:      Cyclic\nInterval:  150 ns\nPriority:  20\nWatchdog:  off\n", "100ns ticks", BridgeErrorCodes.Unsupported)]
+    [InlineData("Type:      Cyclic\nInterval:  10\nPriority:  20\nWatchdog:  off\n", "unit", BridgeErrorCodes.BadRequest)]
+    [InlineData("Type:      Cyclic\nInterval:  10 ms\nPriority:  soon\nWatchdog:  off\n", "Priority", BridgeErrorCodes.BadRequest)]
+    public void A_field_twincat_cannot_express_is_refused(string body, string mentions, string code)
     {
         var ex = Assert.Throws<BridgeException>(() => TcTaskSchedule.SysTaskPatch(TaskDescriptorFormat.Read(body)));
-        Assert.Equal(BridgeErrorCodes.BadRequest, ex.ErrorCode);
+        Assert.Equal(code, ex.ErrorCode);
         Assert.Contains(mentions, ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 

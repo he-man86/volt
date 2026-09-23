@@ -57,4 +57,56 @@ public class StatusModelTests
         }
         finally { TestUtil.ForceDelete(root); }
     }
+
+    /// <summary>AN UNREADABLE ITEM REACHES THE USER. It exists in the IDE, it has no file here, and nothing else
+    /// in the status model mentions it — so until the name is carried onto <c>StatusData</c> the only evidence
+    /// is a debug line nobody reads. The bridge has published `unreadable` since one box whose `En` pin read as
+    /// a boolean made a body unreadable and a whole POU vanished from git, silently (DIALECT C7). This is the
+    /// half that makes it observable.
+    ///
+    /// <para>Both partial signals also OUTRANK the ordinary "volt pull": a partial view is exactly the state
+    /// where the counts that advice rests on are the ones that cannot be trusted.</para></summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_partial_view_is_carried_into_the_status_and_outranks_the_usual_advice(bool unreadable)
+    {
+        var root = TestUtil.NewRepo();
+        try
+        {
+            Config.SaveConfig(root, new WorkspaceConfig { Bridge = new() { Vendor = "codesys" }, Project = new() { Platform = "codesys", ProjectName = "P" }, LinkedAt = "t" });
+            var snap = new BridgeSnapshot
+            {
+                Online = true,
+                Items = new() { ["A.fb"] = "h1" },
+                Unreadable = unreadable ? new List<string> { "Broken" } : new List<string>(),
+                UnwalkedFolders = unreadable ? new List<string>() : new List<string> { "Machine" },
+            };
+
+            var s = StatusModel.BuildStatusData(root, snap);
+
+            Assert.Equal(unreadable ? new[] { "Broken" } : System.Array.Empty<string>(), s.Unreadable);
+            Assert.Equal(unreadable ? System.Array.Empty<string>() : new[] { "Machine" }, s.UnwalkedFolders);
+            Assert.Contains("INCOMPLETE", s.Recommend);
+        }
+        finally { TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>A COMPLETE view reports neither, so neither field can become noise a reader learns to skip.</summary>
+    [Fact]
+    public void A_complete_view_reports_neither()
+    {
+        var root = TestUtil.NewRepo();
+        try
+        {
+            Config.SaveConfig(root, new WorkspaceConfig { Bridge = new() { Vendor = "codesys" }, Project = new() { Platform = "codesys", ProjectName = "P" }, LinkedAt = "t" });
+
+            var s = StatusModel.BuildStatusData(root, new BridgeSnapshot { Online = true, Items = new() { ["A.fb"] = "h1" } });
+
+            Assert.Empty(s.Unreadable);
+            Assert.Empty(s.UnwalkedFolders);
+            Assert.DoesNotContain("INCOMPLETE", s.Recommend ?? "");
+        }
+        finally { TestUtil.ForceDelete(root); }
+    }
 }

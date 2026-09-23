@@ -170,8 +170,23 @@ public sealed class BridgePipeHost : IDisposable
         }
     }
 
+    /// <summary>The op's typed body, or an empty one when the caller sent none.
+    ///
+    /// <para>A BODY THE CALLER MIS-TYPED IS THE CALLER'S FAULT. This used to let the JsonException out, and
+    /// <c>PipeServer</c> stamps anything uncoded as INTERNAL_ERROR — so `push {"ops": "all of them"}` told the
+    /// client the BRIDGE had failed, and the five error codes that exist to describe a bad request described
+    /// nothing. It is also the likeliest error a NEW client makes, which is when a wrong answer costs most.</para>
+    ///
+    /// <para>The message names the op and the type, because a client holding the OpenRPC document can look the
+    /// second one up; the exception's own text says which member was wrong.</para></summary>
     private static T Body<T>(PipeRequest req) where T : new()
-        => req.Body.HasValue && req.Body.Value.ValueKind != JsonValueKind.Null
-            ? JsonSerializer.Deserialize<T>(req.Body.Value.GetRawText(), WireJson.Read) ?? new T()
-            : new T();
+    {
+        if (!req.Body.HasValue || req.Body.Value.ValueKind == JsonValueKind.Null) return new T();
+        try { return JsonSerializer.Deserialize<T>(req.Body.Value.GetRawText(), WireJson.Read) ?? new T(); }
+        catch (JsonException ex)
+        {
+            throw new BridgeException(BridgeErrorCodes.BadRequest,
+                $"the body of `{req.Op}` is not a valid {typeof(T).Name}: {ex.Message}");
+        }
+    }
 }

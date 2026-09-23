@@ -250,7 +250,13 @@ public static class Commands
         var bindErr = Config.VerifyFetchedIdentity(cfg, fetched.Platform, fetched.ProjectName);
         if (bindErr is not null) return PullResult.Refused(bindErr);
 
-        var incoming = StatusModel.ComputeIncoming(fetched.Items, sidecar?.Items ?? new Dictionary<string, string>());
+        // `complete:` here for the same reason `BuildStatusData` passes it: a fetch that could not enumerate a
+        // folder returns a PARTIAL item map, and every item under it would otherwise diff as incoming-REMOVED —
+        // a pull that DELETES the engineer's files for POUs still sitting in the IDE. The bridge suppresses its
+        // own `removed` list in that case; this is the client computing the same thing from the same map, and it
+        // has to make the same decision.
+        var incoming = StatusModel.ComputeIncoming(fetched.Items, sidecar?.Items ?? new Dictionary<string, string>(),
+                                                   complete: fetched.UnwalkedFolders.Count == 0);
         var synced = incoming.Added.Concat(incoming.Modified).Concat(incoming.Removed).OrderBy(x => x, StringComparer.Ordinal).ToList();
 
         StatusData PostStatus() => StatusModel.BuildStatusData(root, new BridgeSnapshot
@@ -261,6 +267,8 @@ public static class Commands
             Items = fetched.Items,
             Folders = fetched.Folders,
             ProjectVersion = fetched.ProjectVersion,
+            UnwalkedFolders = fetched.UnwalkedFolders,
+            Unreadable = fetched.Unreadable,
         });
 
         if (dryRun)
@@ -622,5 +630,6 @@ public static class Commands
         // Carried so `ComputeIncoming` can decline to report deletions: with a folder unread, `Items` is a
         // PARTIAL view and absence proves nothing.
         UnwalkedFolders = refs.UnwalkedFolders,
+        Unreadable = refs.Unreadable,
     };
 }

@@ -64,6 +64,21 @@ public sealed class StatusData
     public ChangeSet Outgoing { get; set; } = new();
     public Dictionary<string, string> PathByName { get; set; } = new();
     public ProjectMismatch? ProjectMismatch { get; set; }
+
+    /// <summary>Items the IDE holds that the bridge could not READ, by bare name — normally empty.
+    ///
+    /// <para>They have no file in the workspace and no version in <c>items</c>, so nothing else in this model
+    /// mentions them: an unreadable POU is simply ABSENT, which is indistinguishable from one that was never
+    /// there. It happened to a real project — one box whose <c>En</c> pin read as a boolean made a body
+    /// unreadable and the whole POU vanished from git with no error anywhere (DIALECT C7). The bridge has
+    /// published the names since; no client showed them until now.</para></summary>
+    public List<string> Unreadable { get; set; } = new();
+
+    /// <summary>Folders the bridge could not ENUMERATE — normally empty. Non-empty means the item list is a
+    /// partial view, so <see cref="Incoming"/> reports no deletions and neither should anything downstream:
+    /// absence proves nothing about a subtree nobody could read.</summary>
+    public List<string> UnwalkedFolders { get; set; } = new();
+
     public string Summary { get; set; } = "";
     /// <summary>TRUE when this status skipped the IDE walk (`volt status --local`), so <see cref="Incoming"/> was
     /// not computed. An empty Incoming then means "we didn't ask", NOT "the IDE has nothing for you" — a client

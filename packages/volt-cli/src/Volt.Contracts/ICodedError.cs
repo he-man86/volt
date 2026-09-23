@@ -9,4 +9,19 @@
     {
         string ErrorCode { get; }
     }
+
+    /// <summary>The one coded exception. <c>Volt.Engine</c>'s <c>BridgeException</c> IS one of these (it adds the
+    /// named factories); layers BELOW the Engine — the pipe server itself — throw this directly.
+    ///
+    /// <para>It lives here for the same reason <see cref="ICodedError"/> does: a malformed request frame is
+    /// refused by <c>PipeServer</c>, which cannot see the Engine, and without a coded exception of its own it had
+    /// to let a <c>JsonException</c> fall through to the catch-all — telling a client that mis-spelled its own
+    /// frame that the BRIDGE had failed.</para></summary>
+    public class CodedException : System.Exception, ICodedError
+    {
+        public CodedException(string errorCode, string message, System.Exception? inner = null)
+            : base(message, inner) => ErrorCode = errorCode;
+
+        public string ErrorCode { get; }
+    }
 }

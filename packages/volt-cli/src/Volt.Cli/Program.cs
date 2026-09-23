@@ -126,6 +126,7 @@ internal static class Program
             return 2;
         }
         Console.WriteLine(r.Message ?? $"pulled {r.Synced!.Count} file(s)");
+        if (r.Status is not null) WarnIfPartial(r.Status);
         return 0;
     }
 
@@ -164,9 +165,35 @@ internal static class Program
             foreach (var c in s.Merging.Conflicts) Console.WriteLine($"  ! {c.Path}");
         }
         Console.WriteLine(s.Summary);
+        WarnIfPartial(s);
         if (s.Recommend is not null) Console.WriteLine($"next: {s.Recommend}");
         return 0;
     }
+
+    /// <summary>The two ways the IDE view can be SHORT, printed wherever a status is printed.
+    ///
+    /// <para>Both were on the wire and no client had ever shown either. An unreadable item has no file and no
+    /// version, so it is simply ABSENT from everything else here — indistinguishable from one that was never in
+    /// the project. That is not hypothetical: one box whose `En` pin read as a boolean made a body unreadable
+    /// and the whole POU vanished from git, silently (DIALECT C7). An unenumerable folder is worse, because its
+    /// items are absent AND absence is how a deletion is derived.</para>
+    ///
+    /// <para>Written to stderr: it is a caveat on a successful command, and a caller piping `volt status` is
+    /// reading the item lines, not this.</para></summary>
+    private static void WarnIfPartial(StatusData s)
+    {
+        if (s.Unreadable.Count > 0)
+        {
+            Console.Error.WriteLine($"warning: the IDE holds {s.Unreadable.Count} item(s) volt could not read — they have NO file here:");
+            foreach (var n in s.Unreadable) Console.Error.WriteLine($"  ? {n}");
+        }
+        if (s.UnwalkedFolders.Count > 0)
+        {
+            Console.Error.WriteLine($"warning: {s.UnwalkedFolders.Count} folder(s) could not be read, so this view is PARTIAL and reports no deletions:");
+            foreach (var f in s.UnwalkedFolders) Console.Error.WriteLine($"  ? {f}/");
+        }
+    }
+
 
     private static int CmdBuild(string root, BridgeClient bridge, Args a)
     {

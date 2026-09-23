@@ -63,18 +63,23 @@ internal static class TcTaskSchedule
     }
 
     /// <summary>The `<c>&lt;TaskDef&gt;</c>` patch that applies <paramref name="t"/> to the system task, or throws
-    /// <see cref="BridgeException"/> naming the field TwinCAT cannot express.</summary>
+    /// <see cref="BridgeException"/> naming the field TwinCAT cannot express.
+    ///
+    /// <para>UNSUPPORTED for a setting this VENDOR cannot hold, BAD_REQUEST for a value nobody could read. Every
+    /// refusal here used to be BAD_REQUEST, which told an engineer who had pulled a freewheeling CODESYS task
+    /// that their file was malformed — it is not, and no edit to it can make TwinCAT schedule that task.</para></summary>
     public static string SysTaskPatch(TaskSettings t)
     {
         if (!string.Equals(t.Type, CyclicType, StringComparison.OrdinalIgnoreCase))
-            throw Refuse($"`Type: {t.Type}` — a TwinCAT PLC task is always {CyclicType}.");
+            throw Refuse(BridgeErrorCodes.Unsupported, $"`Type: {t.Type}` — a TwinCAT PLC task is always {CyclicType}.");
         if (!string.IsNullOrEmpty(t.Event))
-            throw Refuse($"`Event: {t.Event}` — a TwinCAT PLC task has no event source.");
+            throw Refuse(BridgeErrorCodes.Unsupported, $"`Event: {t.Event}` — a TwinCAT PLC task has no event source.");
         if (t.Watchdog is not null)
-            throw Refuse("a watchdog — TwinCAT has no per-task watchdog with a time and a sensitivity. " +
+            throw Refuse(BridgeErrorCodes.Unsupported,
+                         "a watchdog — TwinCAT has no per-task watchdog with a time and a sensitivity. " +
                          "Write `Watchdog: off`.");
         if (!long.TryParse(t.Priority, NumberStyles.Integer, CultureInfo.InvariantCulture, out var priority))
-            throw Refuse($"`Priority: {t.Priority}` is not a whole number.");
+            throw Refuse(BridgeErrorCodes.BadRequest, $"`Priority: {t.Priority}` is not a whole number.");
 
         return $"<TreeItem><TaskDef><Priority>{priority}</Priority>" +
                $"<CycleTime>{ToTicks(t.Interval, t.IntervalUnit)}</CycleTime></TaskDef></TreeItem>";
@@ -155,26 +160,50 @@ internal static class TcTaskSchedule
     private static long ToTicks(string value, string unit)
     {
         if (!long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v))
-            throw Refuse($"`Interval: {Volt.Engine.Format.St.Descriptor.Unitize(value, unit)}` — TwinCAT needs a " +
-                         "whole number and a unit, one of `ns`, `µs`/`us`, `ms`, `s` (a TIME literal like `t#4ms` " +
-                         "is CODESYS's spelling and has no TwinCAT equivalent).");
+            // TWO REFUSALS, not one, because the engineer's next move differs. A TIME literal is CODESYS's own
+            // spelling of a perfectly schedulable interval — the file is RIGHT and this vendor has no way to say
+            // it, which is UNSUPPORTED. Anything else is a value nobody can read, which is BAD_REQUEST. They
+            // shared a code and a sentence, so the one remedy printed ("write a whole number and a unit") was
+            // advice the author of a pulled CODESYS task could not act on.
+            throw IsTimeLiteral(value)
+                ? Refuse(BridgeErrorCodes.Unsupported,
+                         $"`Interval: {Volt.Engine.Format.St.Descriptor.Unitize(value, unit)}` — a TIME literal " +
+                         "is CODESYS's spelling and has no TwinCAT equivalent; write it as a whole number and " +
+                         "one of `ns`, `µs`/`us`, `ms`, `s`.")
+                : Refuse(BridgeErrorCodes.BadRequest,
+                         $"`Interval: {Volt.Engine.Format.St.Descriptor.Unitize(value, unit)}` — TwinCAT needs a " +
+                         "whole number and a unit, one of `ns`, `µs`/`us`, `ms`, `s`.");
         return unit.Trim().ToLowerInvariant() switch
         {
             "ns" => Exact(v, 100, unit),
             "µs" or "us" => v * TicksPerUs,
             "ms" => v * TicksPerUs * UsPerMs,
             "s" => v * TicksPerUs * UsPerMs * 1000,
-            _ => throw Refuse($"interval unit '{unit}' — TwinCAT counts in 100ns ticks, so the unit must be " +
+            _ => throw Refuse(BridgeErrorCodes.BadRequest,
+                              $"interval unit '{unit}' — TwinCAT counts in 100ns ticks, so the unit must be " +
                               "`ns`, `µs`/`us`, `ms` or `s`."),
         };
     }
 
+    /// <summary>`t#4ms` / `TIME#500us` — an interval written the way CODESYS writes it.</summary>
+    private static bool IsTimeLiteral(string value)
+    {
+        var v = value.Trim();
+        return v.StartsWith("t#", StringComparison.OrdinalIgnoreCase)
+            || v.StartsWith("time#", StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>Nanoseconds below a whole tick cannot be scheduled, and rounding them would silently re-time
-    /// the task.</summary>
+    /// the task.
+    ///
+    /// <para>UNSUPPORTED, not BAD_REQUEST: `150 ns` is a well-formed interval that CODESYS schedules happily,
+    /// and the only reason it is refused is that TwinCAT's clock counts in 100ns ticks. Nothing about the
+    /// request is wrong, so telling the engineer to fix it sends them to edit a file that is already correct.</para></summary>
     private static long Exact(long ns, long perTick, string unit) =>
         ns % perTick == 0 ? ns / perTick
-            : throw Refuse($"`{ns} {unit}` is not a whole number of 100ns ticks, which is TwinCAT's resolution.");
+            : throw Refuse(BridgeErrorCodes.Unsupported,
+                           $"`{ns} {unit}` is not a whole number of 100ns ticks, which is TwinCAT's resolution.");
 
-    private static BridgeException Refuse(string what) =>
-        new(BridgeErrorCodes.BadRequest, $"TwinCAT cannot schedule {what}");
+    private static BridgeException Refuse(string code, string what) =>
+        new(code, $"TwinCAT cannot schedule {what}");
 }

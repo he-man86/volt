@@ -302,6 +302,45 @@ public class PipeTransportTests
         Assert.Equal("BAD_REQUEST", ex.Code);
     }
 
+    /// <summary>A FRAME THE CALLER MIS-SPELLED IS THE CALLER'S FAULT, and the bridge says so.
+    ///
+    /// <para>`PipeServer` stamps any exception that is not an <c>ICodedError</c> as INTERNAL_ERROR, and a
+    /// <c>JsonException</c> from the envelope parse is not one — so a client that sent a truncated line, or a
+    /// body of the wrong shape, was told the BRIDGE had failed and went looking at the IDE. The five codes that
+    /// exist to describe a bad request described none of it.</para>
+    ///
+    /// <para>Both halves are here because they are refused in two different files: the envelope by
+    /// <c>PipeServer</c> (which cannot see the Engine, hence <c>Volt.Contracts.CodedException</c>) and the body
+    /// by <c>BridgePipeHost.Body&lt;T&gt;</c>.</para></summary>
+    [Fact]
+    public void A_malformed_frame_or_body_is_a_coded_BAD_REQUEST()
+    {
+        var pipe = Pipe();
+        using var host = new BridgePipeHost(new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")), pipe);
+        host.Start();
+
+        Assert.Equal("BAD_REQUEST", RawErrorCode(pipe, @"{""op"":""refs"",""body"":"));
+        Assert.Equal("BAD_REQUEST", RawErrorCode(pipe, @"{""op"":""push"",""body"":{""ops"":4}}"));
+    }
+
+    /// <summary>Send ONE line exactly as given — no serializer between the test and the server, which is the
+    /// whole point of a malformed-input test — and read the error code out of the frame that comes back. Reads
+    /// the raw JSON rather than <c>PipeFrame</c>, which is internal to the wire and stays that way.</summary>
+    private static string RawErrorCode(string pipe, string line)
+    {
+        using var client = new System.IO.Pipes.NamedPipeClientStream(".", pipe, System.IO.Pipes.PipeDirection.InOut);
+        client.Connect(5000);
+        var bytes = System.Text.Encoding.UTF8.GetBytes(line + "\n");
+        client.Write(bytes, 0, bytes.Length);
+        client.Flush();
+        using var reader = new System.IO.StreamReader(client, System.Text.Encoding.UTF8);
+        var raw = reader.ReadLine() ?? throw new Xunit.Sdk.XunitException("the bridge answered nothing to: " + line);
+        using var doc = JsonDocument.Parse(raw);
+        return doc.RootElement.TryGetProperty("error", out var err)
+            ? err.GetProperty("code").GetString()!
+            : throw new Xunit.Sdk.XunitException("expected an error frame, got: " + raw);
+    }
+
     /// <summary>The tray's Disconnect, end to end over the wire. `disconnect` must REFUSE sync without tearing the
     /// host down: the CLI reaches this pipe directly, so this gate is the only thing that makes Disconnect mean
     /// anything. `health` must keep answering while disconnected — with NO serving row (so the UI shows disconnected)

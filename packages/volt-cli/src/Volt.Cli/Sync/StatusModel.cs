@@ -12,6 +12,10 @@ public sealed class BridgeSnapshot
     /// <summary>Folders the bridge could not enumerate. Non-empty means <see cref="Items"/> is a PARTIAL view
     /// of the project, so nothing may be concluded from a name's absence.</summary>
     public List<string> UnwalkedFolders { get; set; } = new();
+
+    /// <summary>Items the bridge FOUND but could not materialize, by bare name. They exist in the IDE and have
+    /// no file in the workspace.</summary>
+    public List<string> Unreadable { get; set; } = new();
     public Dictionary<string, string> Folders { get; set; } = new();
     public string ProjectVersion { get; set; } = "";
 }
@@ -94,6 +98,10 @@ public static class StatusModel
 
         string? recommend = null;
         if (merging is not null) recommend = "resolve the conflict, then `volt merge --continue`";
+        else if (snap.Unreadable.Count > 0 || snap.UnwalkedFolders.Count > 0)
+            // ABOVE the change counts on purpose. A partial view is the one state where the counts themselves
+            // cannot be trusted, so "volt pull" would be advice to act on numbers this status knows are short.
+            recommend = "the IDE view is INCOMPLETE — see the notes below before syncing";
         else if (snap.Online && incoming.Count > 0) recommend = "volt pull";
         else if (outgoing.Count > 0) recommend = "volt push";
 
@@ -110,6 +118,8 @@ public static class StatusModel
             Outgoing = outgoing,
             PathByName = pathByName,
             ProjectMismatch = snap.ProjectMismatch,
+            Unreadable = snap.Unreadable,
+            UnwalkedFolders = snap.UnwalkedFolders,
             Summary = summary,
             Online = snap.Online,
             Detail = snap.Detail,

@@ -188,7 +188,18 @@ public sealed class PipeServer : IDisposable
             {
                 var line = ReadLine(server);
                 if (line == null) return;
-                var req = JsonSerializer.Deserialize<PipeRequest>(line, WireJson.Read) ?? new PipeRequest();
+                // A FRAME THE CALLER MIS-SPELLED IS THE CALLER'S FAULT. This used to let the JsonException reach
+                // the catch below, which stamps anything uncoded as INTERNAL_ERROR — so a client that sent a
+                // truncated line, or a stray blank one, was told the BRIDGE had broken and went looking at the
+                // IDE. BAD_REQUEST points at the frame that was actually wrong.
+                PipeRequest req;
+                try { req = JsonSerializer.Deserialize<PipeRequest>(line, WireJson.Read) ?? new PipeRequest(); }
+                catch (JsonException ex)
+                {
+                    throw new CodedException(BridgeErrorCodes.BadRequest,
+                        $"the request frame is not valid JSON ({ex.Message}). A request is ONE line of " +
+                        "`{\"op\":…,\"body\":…}` — check for an unescaped newline in a string.");
+                }
                 // Per-connection frames are written strictly in order (progress on the op thread, then the result
                 // after the op returns) — no concurrent writer on this stream, so no lock is needed.
                 var result = _dispatch(req, frame => WriteFrame(server, new PipeFrame { Progress = frame }));

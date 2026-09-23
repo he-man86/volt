@@ -6,9 +6,8 @@ namespace Volt.Engine;
 /// <summary>A bridge-side failure with a machine-readable <see cref="ErrorCode"/> the wire carries to the client
 /// (<see cref="ICodedError"/> → <c>PipeServer</c> → <c>PipeError.code</c> → <c>PipeCallException.Code</c>). Codes
 /// are stable strings — <see cref="BridgeErrorCodes"/> holds the set. (No HTTP status: named pipe, not HTTP.)</summary>
-public class BridgeException : Exception, ICodedError
+public class BridgeException : CodedException
 {
-    public string ErrorCode { get; }
 
     /// <summary>The bridge is PAUSED by a `disconnect` — a different situation from "no project is bound",
     /// with the same code because a client's handling is identical: it cannot sync until someone reconnects.
@@ -23,17 +22,11 @@ public class BridgeException : Exception, ICodedError
             + "still open; sync is paused until you do).");
 
     public BridgeException(string errorCode, string message, Exception? inner = null)
-        : base(message, inner)
-    {
-        ErrorCode = errorCode;
-    }
+        : base(errorCode, message, inner) { }
 
     /// <summary>The bridge is up but no IDE project is loaded — every project-touching op rejects with this until
-    /// a project is attached.
-    /// <para>NB the code has a SECOND meaning today: <c>Wire/BridgePipeHost</c> also raises it for the tray's
-    /// deliberate pause gate, where nothing is "waiting for an IDE project" — so this canned message is wrong at
-    /// that call site (and a third message is built inline there). ARCH FOLLOW-UP: give the pause gate its own
-    /// factory with the same code; the message text is on the wire, so that is user-visible, not cosmetic.</para></summary>
+    /// a project is attached. The tray's deliberate PAUSE shares the code and has its own text; see
+    /// <see cref="Paused"/>.
     public static BridgeException PlcDisconnected() =>
         new(BridgeErrorCodes.PlcDisconnected, "Bridge is waiting for an IDE project");
 
