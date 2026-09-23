@@ -90,6 +90,14 @@ namespace Volt.Connector
 
         private static void CreateGuiShortcut()
         {
+            // A LAYOUT THAT CANNOT HOST THE GUI PUBLISHES NO SHORTCUT TO IT. `GuiExe` is a path inside this
+            // connector's own directory; when that layout has no `desktop\Volt.exe` the shortcut was still
+            // written, and the Start Menu gained a "Volt" entry that opens nothing.
+            if (!File.Exists(GuiExe))
+            {
+                VoltLog.Info($"no desktop app at {GuiExe} — not publishing a Start Menu shortcut to it");
+                return;
+            }
             try
             {
                 var t = Type.GetTypeFromProgID("WScript.Shell");

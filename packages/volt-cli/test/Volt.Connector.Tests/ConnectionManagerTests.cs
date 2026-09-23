@@ -73,9 +73,9 @@ public class ConnectionManagerTests
 
         await mgr.RefreshAsync();
 
-        Assert.Equal(new[] { "MachineA", "MachineB" }, mgr.Projects.Select(p => p.DisplayName).OrderBy(x => x));
-        Assert.Equal("codesys", mgr.Projects.Single(p => p.DisplayName == "MachineA").Vendor);
-        Assert.Equal("twincat", mgr.Projects.Single(p => p.DisplayName == "MachineB").Vendor);
+        Assert.Equal(new[] { "MachineA", "MachineB" }, mgr.Projects.Select(p => p.ProjectName).OrderBy(x => x));
+        Assert.Equal("codesys", mgr.Projects.Single(p => p.ProjectName == "MachineA").Vendor);
+        Assert.Equal("twincat", mgr.Projects.Single(p => p.ProjectName == "MachineB").Vendor);
     }
 
     [Fact]
@@ -164,7 +164,7 @@ public class ConnectionManagerTests
         await mgr.RefreshAsync();
 
         Assert.Single(mgr.Projects);
-        Assert.Equal("MachineA", mgr.Projects[0].DisplayName);
+        Assert.Equal("MachineA", mgr.Projects[0].ProjectName);
     }
 
     [Fact]
@@ -178,7 +178,7 @@ public class ConnectionManagerTests
 
         await mgr.RefreshAsync();
 
-        Assert.Equal(new[] { "Line1", "Line2", "MachineA", "MachineB" }, mgr.Projects.Select(p => p.DisplayName).OrderBy(x => x));
+        Assert.Equal(new[] { "Line1", "Line2", "MachineA", "MachineB" }, mgr.Projects.Select(p => p.ProjectName).OrderBy(x => x));
         Assert.Equal(4, mgr.Projects.Select(p => p.Id).Distinct().Count());
         Assert.Equal(2, mgr.Projects.Count(p => p.Vendor == "codesys"));
         Assert.Equal(2, mgr.Projects.Count(p => p.Vendor == "twincat"));
@@ -213,7 +213,7 @@ public class ConnectionManagerTests
 
         await mgr.RefreshAsync();
 
-        Assert.Equal(new[] { "MachineA" }, mgr.Projects.Select(p => p.DisplayName));
+        Assert.Equal(new[] { "MachineA" }, mgr.Projects.Select(p => p.ProjectName));
     }
 
     [Fact]
@@ -270,6 +270,6 @@ public class ConnectionManagerTests
         await Task.WhenAll(Enumerable.Range(0, 12).Select(_ => mgr.RefreshAsync()));
 
         Assert.Equal(2, mgr.Projects.Count);
-        Assert.Equal(new[] { "MachineA", "MachineB" }, mgr.Projects.Select(p => p.DisplayName).OrderBy(n => n));
+        Assert.Equal(new[] { "MachineA", "MachineB" }, mgr.Projects.Select(p => p.ProjectName).OrderBy(n => n));
     }
 }

@@ -304,4 +304,39 @@ public class PullCommandTests
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
+
+    /// <summary>A PULL REPAIRS A MISSING `volt/ide`, rather than declaring victory over it.
+    ///
+    /// <para>The up-to-date short-circuit is keyed on the SIDECAR alone, and the two halves of the baseline are
+    /// written as two separate operations with no recovery between them. A workspace whose ref never landed — a
+    /// crash in that gap, a `.git` restored without it — has a current sidecar and no ref, so every pull said
+    /// "already up to date with the IDE" and returned, while `Outgoing` is diffed against the ref that is not
+    /// there. Nothing ever rebuilt it.</para></summary>
+    [Fact]
+    public void A_pull_rebuilds_the_ide_ref_when_it_is_missing()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("A", "PROGRAM A\nVAR\nEND_VAR", "x := 1;"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var gitDir = Git.ResolveGitDir(root);
+            Assert.NotNull(IdeTree.VoltIdeHead(gitDir));
+
+            // The ref is lost; the sidecar still says the workspace matches the IDE. Deleted through the
+            // filesystem rather than a `Git.DeleteRef` helper — nothing in the product deletes this ref, and
+            // adding a production method for one test is what `NoTestOnlyCodeInSrcTests` exists to catch.
+            var loose = Path.Combine(gitDir, IdeTree.Range.Replace('/', Path.DirectorySeparatorChar));
+            if (File.Exists(loose)) File.Delete(loose);
+            var packed = Path.Combine(gitDir, "packed-refs");
+            if (File.Exists(packed))
+                File.WriteAllLines(packed, File.ReadAllLines(packed).Where(l => !l.Contains(IdeTree.Range)));
+            Assert.Null(IdeTree.VoltIdeHead(gitDir));
+
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            Assert.NotNull(IdeTree.VoltIdeHead(gitDir));
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
 }

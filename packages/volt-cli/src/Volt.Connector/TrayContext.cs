@@ -25,7 +25,11 @@ namespace Volt.Connector
         private readonly System.Windows.Forms.Timer _timer;
         private readonly TwincatFleet _fleet = new(); // probe → reconcile → spawn/reap, all of it in Connector.Core
         private readonly string? _twincatExe = ConnectorSetup.TwincatExe();
-        private int _reconcileTick; // throttles the (subprocess) XAE probe to ~every 3rd tick
+        /// <summary>The XAE fleet's own clock. A wall-clock instant rather than a tick counter, because
+        /// `TickAsync` is called by every client session poll as well as by the tray's timer — see
+        /// <see cref="ReconcileTwincatWorkers"/>.</summary>
+        private DateTime _lastFleetTickUtc = DateTime.MinValue;
+        private static readonly TimeSpan FleetInterval = TimeSpan.FromSeconds(12);
         private readonly ConnectionManager _conn = new(ConnectorSetup.Sources());
         private readonly ControlServer _control;
 
@@ -120,7 +124,7 @@ namespace Volt.Connector
         {
             // The frontends' sessions drive connections now, so "connected" is the set of SERVING projects (not a tray
             // highlight, which no longer exists).
-            var connected = _conn.Projects.Where(p => _conn.IsServingProject(p.Id)).Select(p => p.DisplayName).ToList();
+            var connected = _conn.Projects.Where(p => _conn.IsServingProject(p.Id)).Select(p => p.ProjectName).ToList();
             if (connected.Count > 0) return "connected: " + string.Join(", ", connected);
             var n = _conn.Projects.Count;
             return n > 0 ? $"{n} project(s) detected — connect from the app" : "no project detected";
@@ -141,7 +145,7 @@ namespace Volt.Connector
         // is the list; a bound workspace's status is its own row). The tray's colour is derived internally, not here.
         private ConnectorView Snapshot() => new(
             _conn.Projects.Select(p => new ProjectView(
-                p.Id, p.DisplayName, p.Vendor, p.Dirty,
+                p.Id, p.Vendor, p.Dirty,
                 p.Status, // serving derives from status (!= "idle") on the client
                 p.Attach.Project, p.Pipe, p.IdeVersion)).ToList());
 
@@ -158,10 +162,20 @@ namespace Volt.Connector
         // in Connector.Core where it is testable. The exe guard below is a DUPLICATE of the fleet's own first line and
         // changes nothing observable (without an exe the fleet returns immediately); it is kept only so a no-op pass
         // doesn't advance the cadence counter.
+        /// <summary>Probe the XAE fleet on its OWN clock, not on a shared counter.
+        ///
+        /// <para>This was `if (_reconcileTick++ % 3 != 0) return;` — "~every 3rd tick", which reads as ~12s at
+        /// the tray's 4s timer. But `TickAsync` is not only the timer's: every client session poll calls it, as
+        /// do the tray's force-off toggle and resume-all. So the counter advanced once per POLL, and the XAE
+        /// probe's cadence scaled with the number of open editors — two VS Code windows and the desktop app made
+        /// it ~3× faster than intended, and with none the interval stretched. A COM scan of every running XAE is
+        /// not something to do at a rate nobody chose.</para></summary>
         private async Task ReconcileTwincatWorkers()
         {
             if (string.IsNullOrEmpty(_twincatExe)) return;                 // no worker binary (dev without a build)
-            if (_reconcileTick++ % 3 != 0) return;                         // ~every 3rd tick: XAE churn isn't sub-10s-sensitive
+            var now = DateTime.UtcNow;
+            if (now - _lastFleetTickUtc < FleetInterval) return;
+            _lastFleetTickUtc = now;
             await _fleet.Tick(_twincatExe, TimeSpan.FromSeconds(6));
         }
 
@@ -186,7 +200,13 @@ namespace Volt.Connector
             // every time (a live-test run popped one per declare/drop cycle). If nothing is wanted any more, this is
             // a deliberate disconnect: log it, don't interrupt. Something still wanted but no longer served IS the
             // incident — the IDE closed, the bridge died — and still toasts.
-            var stillWanted = _conn.Projects.Any(p => _conn.IsWantedProject(p.Id));
+            // ASKED OF THE SESSIONS. This was `_conn.Projects.Any(p => _conn.IsWantedProject(p.Id))` — both
+            // operands defined only over DETECTED rows, and `Wanted` is itself built by resolving interests
+            // against those rows. So when the IDE closed or the bridge died, the project left the scan, left
+            // `Wanted` with it, and the answer became "nothing is wanted" — the deliberate-disconnect branch,
+            // for the two incidents the comment above exists to describe. A client still holding an interest is
+            // the signal, whether or not its project is still visible.
+            var stillWanted = _conn.HasLiveInterests();
             if (!stillWanted)
             {
                 VoltLog.Info("bridge disconnected on request (nothing is wanted any more)");
@@ -341,7 +361,7 @@ namespace Volt.Connector
                 // disambiguate two same-NAMED projects — identity is vendor+name, so those collapse into one row
                 // upstream in ConnectionManager; see the name-identity limit in ARCHITECTURE.md.)
                 var multi = _conn.Projects.GroupBy(x => x.Vendor).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet();
-                foreach (var p in _conn.Projects.OrderBy(x => x.Vendor).ThenBy(x => x.DisplayName, StringComparer.OrdinalIgnoreCase))
+                foreach (var p in _conn.Projects.OrderBy(x => x.Vendor).ThenBy(x => x.ProjectName, StringComparer.OrdinalIgnoreCase))
                 {
                     var serving = _conn.IsServingProject(p.Id);
                     var paused = _conn.ForceOffIds.Contains(p.Id);
@@ -350,7 +370,7 @@ namespace Volt.Connector
                     // escape hatch. A serving row can be force-off'd (paused regardless of interest) and a paused row
                     // resumed — those rows are clickable to toggle it. A merely-detected row is status-only (greyed).
                     var tag = paused ? "   ⏸ paused" : serving ? "   ● connected" : "";
-                    var label = $"{_conn.DisplayNameOf(p.Vendor)}{ver} · {p.DisplayName}{(p.Dirty ? " *" : "")}{tag}";
+                    var label = $"{_conn.DisplayNameOf(p.Vendor)}{ver} · {p.ProjectName}{(p.Dirty ? " *" : "")}{tag}";
                     var actionable = serving || paused;
                     var id = p.Id;
                     var row = new ToolStripMenuItem(label, null, actionable ? async (_, _) => await ToggleForceOff(id, !paused) : null)

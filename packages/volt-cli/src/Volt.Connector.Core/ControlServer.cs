@@ -12,16 +12,20 @@ namespace Volt.Connector
     /// <summary>One project the connector detected, flattened for the control plane / any first-party client.
     /// <c>Pipe</c> is the bridge pipe serving it (per-pid for CODESYS) — the shells set it as <c>VOLT_PIPE</c> for
     /// <c>volt init</c>; <c>IdeVersion</c> disambiguates same-named projects across IDE versions. <c>ProjectName</c>
-    /// is the name the workspace BINDING matches on, and on EVERY row it is the same value as <c>DisplayName</c>:
-    /// both come from the one <c>health</c> row field (<c>ProjectEntry.Project</c>), which is the row's identity and
-    /// its <c>connect</c> address. Detection is identity-only on both vendors — it never reaches into PLC
-    /// applications, so there is no TwinCAT "PLC sub-project" variant here.</summary>
+    /// is the name the workspace BINDING matches on AND the name a user is shown — one value, one field.
+    ///
+    /// <para>There was a second field, <c>DisplayName</c>, and it was the same value on every row: both came
+    /// from the one <c>health</c> field (<c>ProjectEntry.Project</c>), which is the row's identity and its
+    /// <c>connect</c> address. The doc beside it, and a volt-control test, described a TwinCAT split — binding
+    /// name versus "PLC sub-project" — that nothing produces: detection is identity-only on both vendors and
+    /// never reaches into PLC applications. A field that is always a copy invites callers to pick the wrong one
+    /// for exactly the case the prose promised it mattered.</para></summary>
     /// <param name="Status">GROUND TRUTH: the row's full connection state — "idle" (detected, not served) | "healthy"
     /// (served, channel OK) | "degraded" (served, recent errors). Clients render connection state from THIS (serving =
     /// <c>status != "idle"</c>), never from the project merely appearing in the list — a disconnected bridge stays
     /// listed (that is how you reconnect), and treating "detected" as "connected" is what let the UI claim a connection
     /// against a gated bridge.</param>
-    public sealed record ProjectView(string Id, string DisplayName, string Vendor, bool Dirty, string Status, string ProjectName, string? Pipe = null, string? IdeVersion = null);
+    public sealed record ProjectView(string Id, string Vendor, bool Dirty, string Status, string ProjectName, string? Pipe = null, string? IdeVersion = null);
 
     /// <summary>The control plane's status snapshot: nothing but the ONE unified, self-describing list of detected
     /// projects across every vendor. Both status use cases read it — the init/connect surface is the list itself;

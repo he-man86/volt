@@ -279,7 +279,7 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       // Pick a PARENT location; `volt init` CREATES a folder named after the IDE project inside it (git-clone
       // semantics) and reports the path back. The picker + button IS the confirmation (no separate dialog).
       const picked = await dialog.showOpenDialog(shell.win, {
-        title: `Create a Volt workspace for “${project.displayName}”`,
+        title: `Create a Volt workspace for “${project.projectName}”`,
         defaultPath: shell.boundRoot && existsSync(shell.boundRoot) ? join(shell.boundRoot, "..") : undefined,
         properties: ["openDirectory", "createDirectory"],
         buttonLabel: "Create here",

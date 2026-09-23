@@ -116,9 +116,23 @@ namespace Volt.Connector
         /// <summary>Is this project's bridge serving it right now — the single signal every surface renders from.</summary>
         public bool IsServingProject(string projectId) => _state.Serving.TryGetValue(projectId, out var s) && s;
 
-        /// <summary>Does any live session still WANT this project? Distinguishes a deliberate disconnect (nobody wants
-        /// it any more) from an incident (still wanted, stopped serving) — see the tray's disconnect notification.</summary>
+        /// <summary>Does any live session still WANT this project? Answers over the DESIRED set, so it is only
+        /// meaningful for a project that is still detected.</summary>
         public bool IsWantedProject(string projectId) => _state.Wanted.Contains(projectId);
+
+        /// <summary>Is any live client still asking for anything at all?
+        ///
+        /// <para>Answered from the SESSIONS, not from the desired set, and that is the whole point. `Wanted` is
+        /// built by resolving each interest against the DETECTED projects, so an interest whose project has
+        /// disappeared resolves to nothing and silently leaves the set — which is exactly the incident case. The
+        /// tray's disconnect notification asked "is anything still wanted?" to tell a deliberate disconnect from
+        /// an IDE that closed or a bridge that died, and for both of those the answer had already become no, so
+        /// the toast could not fire for either situation its own comment named.</para></summary>
+        public bool HasLiveInterests()
+        {
+            var now = DateTime.UtcNow;
+            return _state.Sessions.Values.Any(s => s.ExpiresAt > now && s.Interests.Count > 0);
+        }
 
         /// <summary>Human platform name for a vendor id ("codesys" → "CODESYS").</summary>
         public string DisplayNameOf(string vendor) =>

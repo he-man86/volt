@@ -407,16 +407,16 @@ function reconnectNode(o: ConnectOption): VoltNode {
 	if (o.action === "connect")
 		return {
 			key: `reconnect:${o.project.id}`,
-			label: `Reconnect to ${o.project.displayName}`,
+			label: `Reconnect to ${o.project.projectName}`,
 			tooltip: "Re-point the bridge at this workspace's project and resume syncing.",
 			icon: new vscode.ThemeIcon("plug"),
 			command: { command: "volt.connect", title: "Connect" },
 		}
 	return {
 		key: `rebind:${o.project.id}`,
-		label: o.project.displayName,
+		label: o.project.projectName,
 		description: "rebind",
-		tooltip: `Bind this workspace to "${o.project.displayName}" instead (e.g. after a rename in the IDE). Your local code is untouched — confirms first.`,
+		tooltip: `Bind this workspace to "${o.project.projectName}" instead (e.g. after a rename in the IDE). Your local code is untouched — confirms first.`,
 		icon: new vscode.ThemeIcon("plug"),
 		command: { command: "volt.rebindProject", title: "Rebind", arguments: [o.project] },
 	}
@@ -425,11 +425,11 @@ function reconnectNode(o: ConnectOption): VoltNode {
 function detectedNode(p: DetectedProject): VoltNode {
 	return {
 		key: `detected:${p.id}`,
-		label: p.displayName,
+		label: p.projectName,
 		// "click to set up" sits right after the name, on the row that actually does it. Fires volt.initProject with
 		// THIS project, so clicking sets up exactly what you clicked — no project-picker QuickPick to re-choose it.
 		description: "— click to set up",
-		tooltip: `Set this folder up to sync with "${p.displayName}".\nCreates the git workspace and pulls the project's code — the IDE is not modified.`,
+		tooltip: `Set this folder up to sync with "${p.projectName}".\nCreates the git workspace and pulls the project's code — the IDE is not modified.`,
 		icon: new vscode.ThemeIcon("plug"),
 		command: { command: "volt.initProject", title: "Set up this folder", arguments: [p] },
 	}

@@ -49,7 +49,15 @@ namespace Volt.Connector
             // Self-configure on startup (idempotent, best-effort): create the Start Menu shortcut and register the
             // login item so the tray survives reboots. Runs right after the installer launches us, and every login.
             // (Env — PATH — is written by the installer, not here; see VoltEnv.)
-            VoltEnv.Install();
+            //
+            // NOT FROM A DEV BUILD. This ran unconditionally, and `Install()` writes
+            // `HKCU\…\Run\VoltConnector` = the RUNNING exe's path plus a Start Menu shortcut — so every `dotnet
+            // run` of the connector out of `bin/`, and every second instance the live tier starts, repointed the
+            // user's login item and their Start Menu entry at a build that will be deleted or rebuilt. After that
+            // the installed product no longer starts at login and the Start Menu launches nothing. A dev build is
+            // exactly the one that must not claim the machine.
+            if (!Updater.IsDev) VoltEnv.Install();
+            else VoltLog.Info("dev build — leaving the login item and Start Menu shortcut alone");
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);

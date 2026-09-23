@@ -101,7 +101,7 @@ export async function refreshDetectedProjects(shell: Shell): Promise<void> {
   // update froze the cached list itself — which also feeds the offline reconnect surface and the pipe that
   // rebind/init resolve against.
   //
-  // NOT `displayName`: an id is `vendor + ":" + project name`, so a rename already changes it. NOT `status`:
+  // NOT `projectName`: an id is `vendor + ":" + project name`, so a rename already changes it. NOT `status`:
   // the picker does not draw it. The rule is the fields drawn, and no more.
   const key = detectedKey
   // The first probe always pushes: `shell.connectorUp` seeds UNDEFINED, so it differs from either answer and the

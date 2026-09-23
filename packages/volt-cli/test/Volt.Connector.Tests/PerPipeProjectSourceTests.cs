@@ -59,7 +59,7 @@ public class PerPipeProjectSourceTests
         var projects = (await src.ScanAsync()).Projects;
 
         var p = Assert.Single(projects);
-        Assert.Equal("MyMachine", p.DisplayName);
+        Assert.Equal("MyMachine", p.ProjectName);
         Assert.Equal("codesys", p.Vendor);
         Assert.True(p.Dirty);
         Assert.Equal(new ProjectRef("MyMachine"), p.Attach);
@@ -81,7 +81,7 @@ public class PerPipeProjectSourceTests
 
         var projects = (await src.ScanAsync()).Projects;
 
-        Assert.Equal(new[] { "TwinCAT Project13", "TwinCAT Project14" }, projects.Select(p => p.DisplayName));
+        Assert.Equal(new[] { "TwinCAT Project13", "TwinCAT Project14" }, projects.Select(p => p.ProjectName));
         Assert.Equal(new ProjectRef("TwinCAT Project13"), projects[0].Attach);
         Assert.Equal(new ProjectRef("TwinCAT Project14"), projects[1].Attach);
     }
@@ -116,9 +116,9 @@ public class PerPipeProjectSourceTests
         };
         var src = new PerPipeProjectSource("codesys", "CODESYS", () => wires.Keys.ToList(), pipe => wires[pipe]);
 
-        var projects = (await src.ScanAsync()).Projects.OrderBy(p => p.DisplayName).ToList();
+        var projects = (await src.ScanAsync()).Projects.OrderBy(p => p.ProjectName).ToList();
 
-        Assert.Equal(new[] { "MachineA", "MachineB" }, projects.Select(p => p.DisplayName));
+        Assert.Equal(new[] { "MachineA", "MachineB" }, projects.Select(p => p.ProjectName));
         Assert.Equal("volt.bridge.codesys.111", projects[0].Pipe);
         Assert.Equal("volt.bridge.codesys.222", projects[1].Pipe);
         Assert.NotEqual(projects[0].Id, projects[1].Id); // distinct identities — by name
@@ -210,9 +210,9 @@ public class PerPipeProjectSourceTests
                 { "vendor": "codesys", "version": "3.5", "project": "MyProj", "status": "degraded", "dirty": true } ] }
             """), "codesys", "volt.bridge.codesys");
 
-        var other = Assert.Single(rows, r => r.DisplayName == "Other");
+        var other = Assert.Single(rows, r => r.ProjectName == "Other");
         Assert.False(other.Serving);
-        var served = Assert.Single(rows, r => r.DisplayName == "MyProj");
+        var served = Assert.Single(rows, r => r.ProjectName == "MyProj");
         Assert.True(served.Serving);
         Assert.Equal("degraded", served.Status);
         Assert.True(served.Dirty);

@@ -43,9 +43,19 @@ public static class BridgeResolver
     public static string ChooseBridgePipe(IReadOnlyList<string> pipes, string? boundName, bool isInit,
         Func<string, IReadOnlyList<string>> projectsOf, string vendorLabel)
     {
+        // THE REMEDY IS PER-VENDOR, because the two are not the same product. A CODESYS bridge loads IN-PROC
+        // from a script the user runs, so "open the project" is the whole answer and the tray can offer to do
+        // it. A TwinCAT bridge is a separate `VoltBridgeTwincat` worker that ONLY the connector spawns — with
+        // the tray stopped there is no amount of opening projects that helps. The one message named the remedy
+        // for the vendor that does not need the connector and nothing for the one that cannot work without it,
+        // so a TwinCAT user was told to do the thing they had already done.
         if (pipes.Count == 0)
             throw new BridgeError(BridgeErrorCodes.PlcDisconnected,
-                $"no {vendorLabel} bridge is running — open the project in {vendorLabel} (for CODESYS: tray → “Activate in CODESYS…”), then retry.");
+                string.Equals(vendorLabel, Vendors.TwincatDisplay, StringComparison.OrdinalIgnoreCase)
+                    ? $"no {vendorLabel} bridge is running — start the Volt Connector (it runs the {vendorLabel} "
+                      + "worker; opening the project alone is not enough), then retry."
+                    : $"no {vendorLabel} bridge is running — open the project in {vendorLabel} "
+                      + "(tray → “Activate in CODESYS…”), then retry.");
         if (pipes.Count == 1) return pipes[0];
 
         if (isInit)

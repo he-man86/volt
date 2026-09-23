@@ -21,7 +21,7 @@ public class ConnectionManagerSessionTests
         private static string TempWanted() =>
             System.IO.Path.Combine(System.IO.Path.GetTempPath(), "volt-wanted-" + System.Guid.NewGuid().ToString("N") + ".json");
 
-    private static Interest Want(DetectedProject p) => new(p.Vendor, p.DisplayName);
+    private static Interest Want(DetectedProject p) => new(p.Vendor, p.ProjectName);
 
     [Fact]
     public async Task Sync_declaring_an_interest_resumes_the_project()
@@ -185,6 +185,6 @@ public class ConnectionManagerSessionTests
         await mgr.SetForceOffAsync(a.Id, false);
         await mgr.SyncAsync(sid, new[] { Want(a) });
 
-        Assert.Contains(cds.Bound, p => p.DisplayName == "A"); // resumed once the override cleared
+        Assert.Contains(cds.Bound, p => p.ProjectName == "A"); // resumed once the override cleared
     }
 }

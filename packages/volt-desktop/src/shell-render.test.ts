@@ -117,7 +117,7 @@ test("a project name containing an apostrophe renders as data, not as code", () 
     initialized: false,
       onboarding: "choose-project",
     surface: {
-      create: [{ id: "codesys::Bob's Machine:", displayName: "Bob's Machine", dirty: false, action: "init" }],
+      create: [{ id: "codesys::Bob's Machine:", projectName: "Bob's Machine", dirty: false, action: "init" }],
       primary: [],
       alternates: [],
     },

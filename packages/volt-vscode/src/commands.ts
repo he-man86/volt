@@ -213,7 +213,7 @@ function initFailed(r: { code: number; stderr: string }): boolean {
  *  and with exactly one project detected (the common case) nothing asked first. This is that missing question. */
 async function confirmInit(parent: string, project: DetectedProject): Promise<boolean> {
 	const pick = await vscode.window.showInformationMessage(
-		`Create a Volt workspace for “${project.displayName}”?`,
+		`Create a Volt workspace for “${project.projectName}”?`,
 		{
 			modal: true,
 			detail: `A folder named after the project is created in:\n${parent}\n\nVolt makes it a git repository and pulls the PLC project's code into it, then opens it. Your IDE project is not modified.`,
@@ -244,8 +244,8 @@ async function doInitFromProject(parent: string, project: DetectedProject): Prom
  *  accept-project-rename flow. */
 async function doRebindProject(ensureWorkspace: (folder: string) => void, workspaceRoot: string, project: DetectedProject): Promise<void> {
 	const pick = await vscode.window.showWarningMessage(
-		`Re-point this workspace to “${project.displayName}”?`,
-		{ modal: true, detail: `${workspaceRoot}\n\nOnly the binding changes — your files, git history and the folder name are untouched. Run Pull afterward to bring in “${project.displayName}”'s code.` },
+		`Re-point this workspace to “${project.projectName}”?`,
+		{ modal: true, detail: `${workspaceRoot}\n\nOnly the binding changes — your files, git history and the folder name are untouched. Run Pull afterward to bring in “${project.projectName}”'s code.` },
 		"Rebind",
 	)
 	if (pick !== "Rebind") return
@@ -261,7 +261,7 @@ async function doRebindProject(ensureWorkspace: (folder: string) => void, worksp
 	// the other way, until the next window reload.
 	if (before !== undefined && readBridgeVendor(workspaceRoot) !== before) {
 		const reload = await vscode.window.showInformationMessage(
-			`This project is ${project.displayName}'s vendor, not the one this window's language server started with — reload to analyse it with the right dialect.`,
+			`This project is ${project.projectName}'s vendor, not the one this window's language server started with — reload to analyse it with the right dialect.`,
 			"Reload Window",
 		)
 		if (reload === "Reload Window") void vscode.commands.executeCommand("workbench.action.reloadWindow")
@@ -273,7 +273,7 @@ async function doRebindProject(ensureWorkspace: (folder: string) => void, worksp
  *  the one-project case (the common one) bind silently to something the user never saw named. */
 async function pickProject(projects: DetectedProject[]): Promise<DetectedProject | undefined> {
 	const items = projects.map((p) => ({
-		label: `${p.displayName}${p.dirty ? " *" : ""}`,
+		label: `${p.projectName}${p.dirty ? " *" : ""}`,
 		description: p.ideVersion ?? undefined,
 		project: p,
 	}))

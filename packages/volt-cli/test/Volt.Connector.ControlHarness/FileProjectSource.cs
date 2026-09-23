@@ -48,7 +48,7 @@ sealed class FileProjectSource : IProjectSource
             var mine = rows
                 .Where(r => r.Vendor == Vendor)
                 .Select(r => new DetectedProject(
-                    r.Id, r.DisplayName, r.Vendor, r.Dirty, new ProjectRef(r.ProjectName), r.Pipe, r.IdeVersion,
+                    r.Id, r.ProjectName, r.Vendor, r.Dirty, new ProjectRef(r.ProjectName), r.Pipe, r.IdeVersion,
                     Status(r)))
                 .ToList();
             // Always reachable: the "bridge" is a file. Zero rows here means the scenario has none, not a down pipe.

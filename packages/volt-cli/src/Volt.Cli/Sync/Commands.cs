@@ -296,7 +296,12 @@ public static class Commands
                     ? "already up to date with the IDE — nothing local to discard"
                     : $"discarded {discarded} local change(s); workspace now matches the IDE");
         }
-        else if (sidecar is not null && fetched.ProjectVersion == sidecar.ProjectVersion && synced.Count == 0)
+        // …AND ONLY IF THE REF IS THERE. The short-circuit is keyed on the SIDECAR alone, so a workspace whose
+        // `volt/ide` never got written — the crash window above, a `.git` restored without it — was told
+        // "already up to date" by every pull and never rebuilt the one ref `Outgoing` is measured against. One
+        // pull repairs it now, because falling through builds the tree and updates the ref.
+        else if (sidecar is not null && fetched.ProjectVersion == sidecar.ProjectVersion && synced.Count == 0
+                 && IdeTree.VoltIdeHead(gitDir) is not null)
             return PullResult.Ok(synced, PostStatus(), "already up to date with the IDE");
 
         // Auto-commit-on-pull: commit any local edits, then merge (git won't merge a dirty tree). --force discards
@@ -529,14 +534,24 @@ public static class Commands
         var adopted = resp.NewItems!.Where(kv => known.ContainsKey(kv.Key) || pushed.Contains(kv.Key))
                                     .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
 
+        // THE REF FIRST, THEN THE SIDECAR — the order `init` and `pull` already use, and the only one of the two
+        // that can heal itself.
+        //
+        // These are two writes with no recovery between them, and this one alone ran them the other way round.
+        // A crash in the gap then left the REF behind while the sidecar said current: the ref is what `Outgoing`
+        // is diffed against, so every item just pushed reappeared as an outgoing change, forever — and pull's
+        // up-to-date short-circuit is keyed on the SIDECAR, which was current, so no pull ever repaired it.
+        // With the ref first, the gap leaves the SIDECAR behind instead, and the next pull's incremental fetch
+        // sends the stale `knownItems`, gets the items back and rewrites it.
+        //
         // Point volt/ide AT HEAD — exactly what was pushed. New IDE state comes from the receipt (no follow-up `refs`).
+        Git.UpdateRef(gitDir, IdeTree.Range, Git.HeadCommit(root)!);
         Sidecar.SaveIdeRefs(root, new IdeRefs
         {
             ProjectVersion = resp.NewProjectVersion!,
             Items = adopted,
             Folders = resp.NewFolders!,
         });
-        Git.UpdateRef(gitDir, IdeTree.Range, Git.HeadCommit(root)!);
 
         var status = StatusModel.BuildStatusData(root, new BridgeSnapshot
         {

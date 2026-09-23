@@ -19,7 +19,7 @@ function mockFetch(handler: (url: string, init?: RequestInit) => { ok: boolean; 
 }
 
 const VIEW: ConnectorView = {
-  projects: [{ id: "codesys:::MyMachine:", displayName: "MyMachine", vendor: "codesys", dirty: true, status: "healthy", projectName: "MyMachine" }],
+  projects: [{ id: "codesys:::MyMachine:", projectName: "MyMachine", vendor: "codesys", dirty: true, status: "healthy", projectName: "MyMachine" }],
 }
 
 
@@ -28,7 +28,7 @@ const boundWorkspace = (vendor: string, projectName: string) => ws({ vendor, pro
 
 // The row's `status` decides connection state (default "healthy"/serving — these fixtures describe live projects
 // unless a test is specifically about a bridge that isn't serving, i.e. "idle").
-const proj = (vendor: string, name: string, projectName?: string, status: "idle" | "healthy" | "degraded" = "healthy") => ({ id: `${vendor}::${name}:`, displayName: name, vendor, dirty: false, status, projectName: projectName ?? name })
+const proj = (vendor: string, name: string, projectName?: string, status: "idle" | "healthy" | "degraded" = "healthy") => ({ id: `${vendor}::${name}:`, projectName: name, vendor, dirty: false, status, projectName: projectName ?? name })
 const projView = (projects: unknown[]): ConnectorView => ({ projects: projects as ConnectorView["projects"] })
 
 // The connection picker's per-project action — replaces the old accept-rename flow: a renamed project is just a
@@ -51,14 +51,14 @@ test("connectSurface splits create vs reconnect and puts the matching project fi
   // Unbound → a create surface: every option is a first-time init, no reconnect groups.
   const create = connectSurface(connectOptions([mine, other] as never, undefined))
   expect(create.kind).toBe("create")
-  expect(create.create.map((o) => o.project.displayName)).toEqual(["MyMachine", "OtherRig"])
+  expect(create.create.map((o) => o.project.projectName)).toEqual(["MyMachine", "OtherRig"])
   expect(create.primary.length + create.alternates.length).toBe(0)
 
   // Bound → a reconnect surface: the matching project is primary even when detected AFTER a rebind alternate.
   const reconnect = connectSurface(connectOptions([renamed, mine, other] as never, { vendor: "codesys", projectName: "MyMachine" }))
   expect(reconnect.kind).toBe("reconnect")
-  expect(reconnect.primary.map((o) => o.project.displayName)).toEqual(["MyMachine"])
-  expect(reconnect.alternates.map((o) => o.project.displayName)).toEqual(["MyMachine_v2", "OtherRig"])
+  expect(reconnect.primary.map((o) => o.project.projectName)).toEqual(["MyMachine"])
+  expect(reconnect.alternates.map((o) => o.project.projectName)).toEqual(["MyMachine_v2", "OtherRig"])
   expect(reconnect.create.length).toBe(0)
 })
 
@@ -71,7 +71,7 @@ describe("connector client (the UI's single source of connection status)", () =>
   test("detectedProjects returns the unified project list (use case B)", async () => {
     mockFetch(() => ({ ok: true, json: VIEW }))
     const ps = await detectedProjects()
-    expect(ps.map((p) => `${p.vendor}:${p.displayName}`)).toEqual(["codesys:MyMachine"])
+    expect(ps.map((p) => `${p.vendor}:${p.projectName}`)).toEqual(["codesys:MyMachine"])
   })
 
   test("connector down → empty / undefined, never throws", async () => {
@@ -162,7 +162,7 @@ describe("connector client (the UI's single source of connection status)", () =>
   test("boundStatus treats a missing/idle `status` as not connected, never as connected", async () => {
     const dir = boundWorkspace("codesys", "MachineB")
     try {
-      const highlightFixture = { id: "codesys::MachineB:", displayName: "MachineB", vendor: "codesys", dirty: false, projectName: "MachineB" }
+      const highlightFixture = { id: "codesys::MachineB:", projectName: "MachineB", vendor: "codesys", dirty: false, projectName: "MachineB" }
       mockFetch(() => ({ ok: true, json: projView([highlightFixture]) }))
       expect((await boundStatus(dir)).kind).toBe("disconnected")
     } finally {
@@ -170,13 +170,17 @@ describe("connector client (the UI's single source of connection status)", () =>
     }
   })
 
-  test("boundStatus matches TwinCAT on the binding name (health projectName), NOT the PLC sub-project displayName", async () => {
-    // The binding stores the TwinCAT project name; the detected project's displayName is the PLC sub-project.
+  test("boundStatus matches a TwinCAT row on the binding name", async () => {
+    // There is ONE name on a row, and this is it. The test used to be called "…NOT the PLC sub-project
+    // displayName" and the comment claimed the detected project's name was a PLC sub-project — a distinction
+    // the connector cannot produce: detection is identity-only on both vendors and never reaches into PLC
+    // applications, so `displayName` and `projectName` were the same string on every row. The field is gone;
+    // what this still pins is real — a TwinCAT row is matched on the binding's spelling.
     const dir = boundWorkspace("twincat", "project13")
     try {
       mockFetch(() => ({ ok: true, json: projView([proj("twincat", "Untitled1", "project13")]) }))
       const h = await boundStatus(dir)
-      expect(h.kind).toBe("connected") // would be "disconnected" if we matched displayName === projectName
+      expect(h.kind).toBe("connected")
       if (h.kind === "connected") expect(h.health.projectName).toBe("project13")
     } finally {
       rmSync(dir, { recursive: true, force: true })

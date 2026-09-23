@@ -23,16 +23,19 @@ function controlBase(): string {
 /** One detected project — the vendor-agnostic unit the UI's init/connect surface lists (use case B). */
 export interface DetectedProject {
   id: string
-  displayName: string
   vendor: Vendor
   dirty: boolean
   /** The bridge pipe serving it (per-pid for CODESYS) — the shells set it as VOLT_PIPE for `volt init`. */
   pipe?: string | null
   /** IDE version, shown in the label when a vendor has more than one live instance. */
   ideVersion?: string | null
-  /** The name the workspace BINDING matches on (the vendor's health.ProjectName). Equals `displayName` for
-   *  CODESYS, but for TwinCAT it's the TwinCAT project while `displayName` is the PLC sub-project — so binding
-   *  lookups must use this, not `displayName`. Always present (the connector stamps every row). */
+  /** The name the workspace BINDING matches on AND the name a user is shown — one value, one field. Always
+   *  present (the connector stamps every row).
+   *
+   *  There was a `projectName` beside it, documented as a TwinCAT distinction — binding name vs "PLC
+   *  sub-project" — that the connector cannot produce: every row's two fields came from the one `health` field,
+   *  so they were always the same string. A copy that claims to differ is worse than no copy, because callers
+   *  pick between them for exactly the case the prose promised mattered. */
   projectName: string
   /** GROUND TRUTH: the row's full connection state — "idle" (detected, not the served one), "healthy" (served,
    *  channel OK), "degraded" (served, recent errors). Connection state is read from THIS ({@link isServing}), never
@@ -153,9 +156,9 @@ export async function boundStatus(workspaceRoot: string): Promise<HealthState> {
   const view = await connectorStatus()
   if (view === undefined) return { kind: "unreachable", reason: "Volt Connector not running" }
 
-  // THIS workspace's row, matched on the binding name (projectName === health.ProjectName) — NOT displayName, which
-  // for TwinCAT is the PLC sub-project and would never equal the bound TwinCAT-project name. A config with a vendor
-  // but no bound project (only reachable mid-init) takes the vendor's serving row.
+  // THIS workspace's row, matched on the binding name (projectName === health.ProjectName), which is the row's
+  // one name — see the field doc. A config with a vendor but no bound project (only reachable mid-init) takes
+  // the vendor's serving row.
   const proj = bound
     ? view.projects.find((p) => matchesBinding(p, bound))
     : view.projects.find((p) => p.vendor === vendor && isServing(p)) ?? view.projects.find((p) => p.vendor === vendor)

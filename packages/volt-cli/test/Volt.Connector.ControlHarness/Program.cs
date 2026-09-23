@@ -40,7 +40,7 @@ var conn = new ConnectionManager(
 
 // The unified, self-describing project list — the same projection TrayContext.Snapshot() ships.
 ConnectorView View() => new(conn.Projects
-    .Select(p => new ProjectView(p.Id, p.DisplayName, p.Vendor, p.Dirty, p.Status, p.Attach.Project, p.Pipe, p.IdeVersion))
+    .Select(p => new ProjectView(p.Id, p.Vendor, p.Dirty, p.Status, p.Attach.Project, p.Pipe, p.IdeVersion))
     .ToList());
 
 // The ambient read refreshes UNCONDITIONALLY (the product's 1s staleness floor is a load shield for many polling

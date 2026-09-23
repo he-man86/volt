@@ -18,7 +18,8 @@ namespace Volt.Connector
     /// </summary>
     public sealed record DetectedProject(
         string Id,           // stable selection id, unique across vendors ("codesys:…" / "twincat:…")
-        string DisplayName,  // what the user sees — the project name ("MyMachine")
+        string ProjectName,  // what the user sees AND what a workspace binding matches on ("MyMachine") — one
+                             // value; a separate `DisplayName` was the same string on every row
         string Vendor,       // "codesys" | "twincat" — drives the prefix/logo + connect routing
         bool Dirty,          // unsaved-changes indicator (shown as a dot/asterisk)
         ProjectRef Attach,   // the owning source's bind payload (opaque to the UI)

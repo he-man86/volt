@@ -16,8 +16,6 @@ public sealed record ExtensionDef(string Ext, Access DefaultAccess);
 /// </summary>
 public static class Extensions
 {
-    public const string FolderMarker = ".gitkeep";
-
     private static readonly ExtensionDef[] All =
         ItemKind.FileExtensions.Select(x => new ExtensionDef(x.Ext, x.IsWritable ? Access.Rw : Access.R)).ToArray();
 
@@ -34,18 +32,19 @@ public static class Extensions
         return dot < 0 ? null : GetByExt(baseName.Substring(dot));
     }
 
-    /// <summary>The full filename from a workspace path ("POUs/FB_Motor.fb" → "FB_Motor.fb"). Folder markers
-    /// resolve to the containing folder name. Matches the bridge's wire names (which include extensions).</summary>
+    /// <summary>The full filename from a workspace path ("POUs/FB_Motor.fb" → "FB_Motor.fb"). Matches the
+    /// bridge's wire names (which include extensions).
+    ///
+    /// <para>There was a FOLDER-MARKER arm here that resolved `POUs/.gitkeep` to the folder name `POUs`.
+    /// Nothing has written a `.gitkeep` since folders stopped being items (`Materialize`: "legacy `.gitkeep`
+    /// files are only READ back — never produced here"), and what survived was a trap: `IsTrackedPath` said yes
+    /// while `IsPushable` said no, so a `.gitkeep` an engineer added by hand showed as an outgoing change every
+    /// `volt status` and `volt push` answered "nothing to push", forever. It now falls through to the same
+    /// foreign-file refusal every other unsyncable file in `src/` gets, which says so by name.</para></summary>
     public static string? FullNameFromPath(string relPath)
     {
         var slash = relPath.LastIndexOf('/');
         var baseName = slash >= 0 ? relPath.Substring(slash + 1) : relPath;
-        if (baseName == FolderMarker)
-        {
-            if (slash <= 0) return null;
-            var beforeSlash = relPath.LastIndexOf('/', slash - 1);
-            return relPath.Substring(beforeSlash + 1, slash - (beforeSlash + 1));
-        }
         var dot = baseName.LastIndexOf('.');
         if (dot < 0) return null;
         if (GetByExt(baseName.Substring(dot)) == null) return null;
@@ -67,7 +66,6 @@ public static class Extensions
 
     public static bool IsTrackedPath(string relPath)
     {
-        if (relPath.EndsWith("/" + FolderMarker, StringComparison.Ordinal) || relPath == FolderMarker) return true;
         if (relPath == ".gitattributes") return true;
         return GetByPath(relPath) != null;
     }

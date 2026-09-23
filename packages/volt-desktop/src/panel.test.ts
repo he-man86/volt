@@ -38,7 +38,7 @@ test("shell.html compiles no user text into handlers (project args ride data-*, 
 // projection. Smoke it so the desktop package enters the CI gate and the init surface keeps naming projects.
 const proj = {
   id: "codesys::MyMachine:",
-  displayName: "MyMachine",
+  projectName: "MyMachine",
   vendor: "codesys" as const,
   dirty: false,
   connected: true,
@@ -49,7 +49,7 @@ const proj = {
 test("unbound snapshot carries the detected projects as a create surface (so the init surface can name them)", () => {
   const snap = snapshot({ projects: [proj], status: undefined, connectorUp: true } as never)
   expect(snap.bound).toBe(false)
-  expect(snap.surface.create.map((p) => p.displayName)).toEqual(["MyMachine"])
+  expect(snap.surface.create.map((p) => p.projectName)).toEqual(["MyMachine"])
 })
 
 // The onboarding gap: connector-down vs no-project must be distinguishable, or the panel tells someone with a

@@ -55,7 +55,7 @@ function router(route: (c: Call) => { status?: number; ok?: boolean; json?: unkn
 /** A one-project view; `serving` flips its row between connected and gated. */
 const view = (serving: boolean): ConnectorView => ({
   projects: [
-    { id: "codesys::MyMachine:", displayName: "MyMachine", vendor: "codesys", dirty: false, status: serving ? "healthy" : "idle", projectName: "MyMachine" },
+    { id: "codesys::MyMachine:", projectName: "MyMachine", vendor: "codesys", dirty: false, status: serving ? "healthy" : "idle", projectName: "MyMachine" },
   ],
 })
 
@@ -89,7 +89,7 @@ describe("session client (declarative connection presence)", () => {
     await declareInterest(boundWorkspace("codesys", "MyMachine"))
 
     const v = await connectorStatus()
-    expect(v?.projects[0].displayName).toBe("MyMachine")
+    expect(v?.projects[0].projectName).toBe("MyMachine")
     expect(calls.some((c) => c.method === "GET" && c.url.endsWith("/status"))).toBe(false)
   })
 
@@ -148,7 +148,7 @@ describe("session client (declarative connection presence)", () => {
     // init/rebind select a project as a TEMPORARY interest and hand it to the created workspace root, so a later
     // dropInterest declares the smaller set — the connection is owned by the workspace, never pinned forever.
     const calls = newConnector(true)
-    const project = { id: "codesys::New:", displayName: "New", vendor: "codesys", dirty: false, projectName: "New", status: "healthy" } as DetectedProject
+    const project = { id: "codesys::New:", projectName: "New", vendor: "codesys", dirty: false, projectName: "New", status: "healthy" } as DetectedProject
 
     await selectPickedProject(project) // init's pre-fetch select
     adoptPickedProject(project, "/ws/new") // handed to the workspace init created

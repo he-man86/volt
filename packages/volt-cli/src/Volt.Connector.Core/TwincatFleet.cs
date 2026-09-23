@@ -58,7 +58,7 @@ namespace Volt.Connector
                     : transition);
 
             if (pids == null) return;                                      // probe FAILED (not "no XAE") — leave the fleet as-is
-            var (_, reap) = _policy.Reconcile(pids);
+            var reap = _policy.Reap(pids);
             foreach (var pid in pids)
                 _supervisor.EnsureWorker(new WorkerSpec(WorkerId(pid), probeExe, $"{WorkerCli.XaePid} {pid}"));
             foreach (var pid in reap)

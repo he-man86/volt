@@ -29,7 +29,7 @@ function mockSessionConnector(serving: boolean): void {
     if (u.includes("/session/s1/sync")) {
       lastInterests = (JSON.parse(String(init?.body)) as { interests: unknown }).interests
       const projects: ConnectorView["projects"] = serving
-        ? [{ id: "codesys::MyMachine:", displayName: "MyMachine", vendor: "codesys", dirty: false, connected: true, status: "healthy", projectName: "MyMachine" }]
+        ? [{ id: "codesys::MyMachine:", projectName: "MyMachine", vendor: "codesys", dirty: false, connected: true, status: "healthy", projectName: "MyMachine" }]
         : []
       return { ok: true, status: 200, json: async () => ({ projects }) } as Response
     }

@@ -230,7 +230,7 @@ export async function initFromProject(
     return {
       stdout: "",
       code: 1,
-      stderr: `Couldn't attach “${project.displayName}”. It may have been closed, or — if more than one IDE window is open — the bridge could not switch to the one holding this project. Make sure it's open, then try again.`,
+      stderr: `Couldn't attach “${project.projectName}”. It may have been closed, or — if more than one IDE window is open — the bridge could not switch to the one holding this project. Make sure it's open, then try again.`,
     }
   }
   const r = await init(parent, project.vendor, { ...opts, pipe: project.pipe })
@@ -251,7 +251,7 @@ export async function rebind(workspaceRoot: string, project: DetectedProject): P
     const connected = await selectPickedProject(project)
     if (!connected) {
       await releasePickedProject(project)
-      return { ok: false, message: `Couldn't attach “${project.displayName}” — make sure it's open in your IDE, then try again.` }
+      return { ok: false, message: `Couldn't attach “${project.projectName}” — make sure it's open in your IDE, then try again.` }
     }
     const name = project.projectName
     const r = await runCli(workspaceRoot, ["rebind", "--vendor", project.vendor, "--project-name", name, "--workspace", workspaceRoot])
