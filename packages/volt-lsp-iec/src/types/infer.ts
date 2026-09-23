@@ -44,7 +44,9 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       // so there the name is an ordinary identifier that resolves nowhere (`syntax/tokens.ts`).
       if (expr.name.toUpperCase() === "__POSITION" && project.dialect !== "twincat") return elementaryRef("STRING")
       const sym = lookup(scope, expr.name)?.symbol ?? resolveBareEnumMember(project, expr.name)
-      if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project)
+      // The declaring file is the asker: `v : ETRIG;` written inside CBML means CBML's ETRIG, no matter
+      // which file is reading `v` now.
+      if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, project, sym.uri)
       const value = sym === undefined ? undefined : enumValueType(sym, project)
       if (value !== undefined) return value
       // Static base: the name denotes a GVL/enum/namespace/POU scope (`E_State.Idle`), not a typed var.
@@ -52,7 +54,7 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
     }
     case "member": {
       const sym = resolveMemberChain(expr, scope, project)
-      if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project)
+      if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, project, sym.uri)
       return (sym === undefined ? undefined : enumValueType(sym, project)) ?? UNKNOWN
     }
     case "index": {
@@ -500,7 +502,7 @@ const SELECTS_BY_MEET: ReadonlySet<string> = new Set(["MIN", "MAX"])
 function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
   // A project function/method wins (user code can shadow a built-in name).
   const sym = resolveMemberChain(call.callee, scope, project)
-  if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project)
+  if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, project, sym.uri)
   if (call.callee.kind === "ident_expr" && call.callee.name.toUpperCase() === "EXPT") return exptType(call, scope, project)
   // MIN AND MAX RETURN THE MEET OF THEIR ARGUMENTS, the same one a binary operator's operands reach. They are
   // extensible and type-dependent, so the reference catalog models no return type for them and they inferred

@@ -539,7 +539,19 @@ const REACH = { bodies: 304, lowered: 56 }
 // 549 -> 558 the same day: `declarations/reference-binding.ts` measured that CODESYS binds a reference declared
 // with `:=` exactly as it binds one declared with `REF=` (`refdecl_assign_spelling_write` writes 41 through it
 // and reads it back from the target), so the TYPE decides rather than the operator — and nine more routines lower.
-const ROUTINES = { routines: 558, routinesFromRunning: 20 }
+//
+// 558 -> 582 on 2026-09-23, and this one is a RESOLVER fix rather than a coverage feature. A bare type name can
+// have several candidates — every referenced library materializes its elements under their own names, and two
+// libraries may export the same one — and `resolveNamedType` took the first of them, which meant the first
+// BOUND, which meant `readdirSync` order. Names now resolve against the asking file's own library and that
+// library's declared DEPENDENCIES (`symbols/precedence.ts`), so 24 more routines reach a type that resolves.
+// The same change is why `REACHED_CODES` moves below: a body that gets further produces refusals it could not
+// reach before.
+//
+// Note what did NOT move: 56/304 POUs still lower, and 20 routines still come from one that RUNS. No POU
+// changed verdict — checked per-POU with `scripts/probe-lowering-refusals.ts`, whose diff is entirely
+// `type-unknown` refusals disappearing.
+const ROUTINES = { routines: 582, routinesFromRunning: 20 }
 
 /** Every node kind the IR defines — `IrExpr` and `IrStmt`, from `ir.ts`. Kept by hand so ADDING one shows up here. */
 const EXPR_KINDS = ["const", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch"] as const
@@ -577,7 +589,10 @@ const COVERED_BUILTINS = 31
 // 79 -> 78 for the same reason again: `value-string-order` refused MAX/MIN/LIMIT over a STRING because nothing
 // recorded what the vendor orders two strings by. `strings/ordering.ts` recorded it — UNSIGNED, byte by byte, a
 // prefix losing — so the refusal is retired and both totals drop by one.
-const REACHED_CODES = 78
+// 78 -> 83 on 2026-09-23: the floor going UP, which is the direction it is allowed to move on its own. Names
+// that used to resolve to the wrong candidate now resolve, so bodies get further and reach refusals they never
+// used to — `layout-function_block` where `type-unknown` used to stop them first.
+const REACHED_CODES = 83
 
 describe.skipIf(!hasCorpus)("3. lowering is total, and its documented reach is measured", () => {
   test("NOTHING THROWS — invalid input ends in a LowerDiagnostic, never an exception", () => {

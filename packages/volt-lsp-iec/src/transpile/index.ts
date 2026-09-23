@@ -27,11 +27,11 @@
  *
  * **The reach contract: a STATED SUBSET, and it is small.** The input contract above says which programs are
  * *defined*; this says which are *reached*. Measured 2026-09-19 over the 6-project corpus (29,359 files) and
- * enforced by `test/corpus/corpus.test.ts`, which fails if these numbers rot (last moved 2026-09-20, when a
- * declaration-level `REF=` started binding its target — see below):
+ * enforced by `test/corpus/corpus.test.ts`, which fails if these numbers rot (last moved 2026-09-23, when name
+ * resolution stopped depending on the order files were bound — see below):
  *
  *   - top-level PROGRAM / FUNCTION_BLOCK bodies: **56 of 304 lower (18.4%)**
- *   - METHOD / ACTION bodies: **56,629, of which 558 are REACHED** — a routine lowers when a POU that lowers
+ *   - METHOD / ACTION bodies: **56,629, of which 582 are REACHED** — a routine lowers when a POU that lowers
  *     calls it, and they are not in the 304 denominator. Only **20** of those come from a POU that RUNS; the
  *     rest are lifecycle methods (`FB_Init`, `call_after_global_init_slot`) reached from declaration-only POUs.
  *     This said "none reachable" until it was measured on 2026-09-19 — it was never none.

@@ -14,6 +14,7 @@
  */
 import type { Expr, Span, TopLevel } from "../syntax/index.js"
 import { lookupLocal, type Scope, type Symbol } from "./symbol.js"
+import { pickForAsker } from "./precedence.js"
 
 export interface LookupResult {
   symbol: Symbol
@@ -98,9 +99,20 @@ export function childScopesByName(parent: Scope, name: string): Scope[] {
   return parent._childIndex.get(name.toLowerCase()) ?? []
 }
 
-/** A direct child scope of `parent` by name (case-insensitive) — the qualified-navigation step. */
-export function findChildScope(parent: Scope, name: string): Scope | undefined {
-  return childScopesByName(parent, name)[0]
+/**
+ * A direct child scope of `parent` by name (case-insensitive) — the qualified-navigation step.
+ *
+ * `askerUri` is the file asking. It matters when a name has several candidates, which a project referencing
+ * two libraries that export the same element really does have: see `precedence.ts`. Omitting it still gives a
+ * stable answer (the first by URI) rather than whichever was bound first — but it gives the same answer to
+ * every caller, which is only right when nothing is ambiguous.
+ */
+export function findChildScope(parent: Scope, name: string, askerUri?: string): Scope | undefined {
+  const candidates = childScopesByName(parent, name)
+  if (candidates.length <= 1) return candidates[0]
+  // Ranks are defined against the PROJECT's manifest map; `parent` is the project for every ambiguous case
+  // (its children are the top-level units), and a nested parent simply has no `_libVisible` to consult.
+  return pickForAsker(parent, candidates, (c) => c.defUri, askerUri)
 }
 
 /** Any scope in the project tree by name (case-insensitive), depth-first. */

@@ -116,6 +116,10 @@ export interface Scope {
    *  linear `.find` per lookup is an O(n) tax on the hot inference path. Rebuilt when `children` grows. */
   _childIndex?: Map<string, Scope[]>
   _childIndexLen?: number
+  /** Library folder → the folders that library can SEE (itself + its manifest's DEPENDENCIES). Built by
+   *  `linkExtends` on the PROJECT scope, read by `precedence.ts` to decide which of several same-named
+   *  candidates a reference means. Absent when the workspace has no library manifests. */
+  _libVisible?: Map<string, Set<string>>
   /** Lazy span→scope index for `scopeForUnit` (project root only). Like `_childIndex`, an incremental rebind
    *  must NULL it explicitly — a same-count file swap replaces spans without changing counts, so no length
    *  guard can detect staleness. A stale index makes `scopeForUnit` miss the rebound file's fresh spans and

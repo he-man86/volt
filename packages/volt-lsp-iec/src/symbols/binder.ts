@@ -29,7 +29,8 @@ import type {
   VarSectionKind,
 } from "../syntax/index.js"
 import { lex, type Dialect } from "../syntax/index.js"
-import { createProjectScope, defineSymbol, libraryOf, makeScope, type Scope, type SymbolKind } from "./symbol.js"
+import { createProjectScope, defineSymbol, makeScope, type Scope, type SymbolKind } from "./symbol.js"
+import { pickForAsker } from "./precedence.js"
 import {
   bindLibraryNamespaces,
   manifestsByTitle,
@@ -202,40 +203,22 @@ export function linkExtends(project: Scope, manifests: readonly LibraryManifest[
     else list.push(c)
   }
 
-  // folder (lower) -> the folders that library can see. Built once; empty when a workspace has no manifests,
-  // in which case every library candidate falls to the last rank and the URI tiebreak decides — still
-  // deterministic, just uninformed.
+  // PUBLISHED ON THE PROJECT, not kept local: `EXTENDS` is only one of the lookups that can face several
+  // candidates for one name, and every one of them has to answer the same way. `precedence.ts` reads this.
   const byTitle = manifestsByTitle(manifests)
   const visible = new Map<string, Set<string>>()
   for (const m of manifests) visible.set(m.folder.toLowerCase(), visibleFolders(manifests, m, byTitle))
-
-  const folderOf = (c: Scope): string | undefined =>
-    c.defUri === undefined ? undefined : libraryOf({ uri: c.defUri })?.toLowerCase()
-
-  const rank = (candidate: Scope, asker: Scope): number => {
-    const mine = folderOf(asker)
-    const theirs = folderOf(candidate)
-    if (mine === undefined) return theirs === undefined ? 0 : 2
-    if (theirs === undefined) return 3
-    if (theirs === mine) return 0
-    return visible.get(mine)?.has(theirs) === true ? 1 : 3
-  }
+  project._libVisible = visible.size > 0 ? visible : undefined
 
   for (const c of project.children) {
     if (c.extendsName === undefined) continue
-    let best: Scope | undefined
-    let bestRank = Number.POSITIVE_INFINITY
-    for (const candidate of candidates.get(c.extendsName) ?? []) {
-      if (candidate === c) continue
-      const r = rank(candidate, c)
-      // Strictly better, or the same rank and an earlier URI — never "the later one", which is the rule this
-      // replaces and the one that made the answer a property of the disk.
-      if (r < bestRank || (r === bestRank && best !== undefined && String(candidate.defUri) < String(best.defUri))) {
-        best = candidate
-        bestRank = r
-      }
-    }
-    if (best !== undefined) c.baseScope = best
+    const base = pickForAsker(
+      project,
+      (candidates.get(c.extendsName) ?? []).filter((x) => x !== c),
+      (x) => x.defUri,
+      c.defUri,
+    )
+    if (base !== undefined) c.baseScope = base
   }
 }
 
