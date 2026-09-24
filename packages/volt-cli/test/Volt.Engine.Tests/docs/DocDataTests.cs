@@ -127,6 +127,16 @@ public class DocDataTests
             "`success` comes from a different vendor SIGNAL on each: CODESYS derives it from the diagnostics, "
             + "TwinCAT reads the IDE's own count of failed projects.",
         }),
+        [Ops.Logs] = (new[] { BridgeErrorCodes.BadRequest, BridgeErrorCodes.InternalError }, new[]
+        {
+            "It reads a FILE, so it touches neither the IDE thread nor the connected-project guard. That is the "
+            + "point: the call that matters is the one made BECAUSE a push is stuck, and queueing it behind that "
+            + "push would answer only once the thing it was going to explain had finished.",
+            "Served while PAUSED too — a disconnected bridge is precisely the one whose logs you want.",
+            "No log file yet answers `{text:\"\", files:[]}`. That is a real answer, not an error: a fresh "
+            + "install has nothing to say. A file that EXISTS and cannot be read is INTERNAL_ERROR naming it, "
+            + "because an empty string there would read as \"nothing happened\".",
+        }),
     };
 
     private static readonly (string Op, Type? Param, Type? Result, string Summary)[] Methods =
@@ -156,6 +166,10 @@ public class DocDataTests
         (Ops.Build, typeof(BuildRequest), typeof(BuildResponse),
             "Compile the bound project and return the IDE's own diagnostics. This is the oracle a client uses " +
             "to tell its own analysis from the vendor's."),
+        (Ops.Logs, typeof(LogsRequest), typeof(LogsResponse),
+            "The tail of THIS host's own durable log, newest lines last. \"Why did the bridge do that\" is the " +
+            "first question every support report asks, and the answer sits in a file on a machine the asker may " +
+            "not be able to reach. Never marshalled onto the IDE thread and not gated by disconnect."),
     };
 
     /// <summary>The three facets of <see cref="IIdeDriver"/>, in the order the driver page presents them.</summary>

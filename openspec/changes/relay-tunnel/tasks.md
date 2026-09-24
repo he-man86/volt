@@ -3,6 +3,10 @@
 ## Spike — go/no-go
 
 - [ ] `ClientWebSocket` connects from inside a live CODESYS (IronPython host, net48) to a test WSS endpoint.
+      Script written: `scripts/spike_codesys_websocket.py` — run via Tools -> Scripting -> Execute Script File.
+      Five separately-failing steps (type loads / construct + Bearer header / TLS upgrade / frame round-trip /
+      clean close); writes its verdict to `%LOCALAPPDATA%\Volt\logs\spike-websocket.txt`. **Awaiting a run on a
+      machine with CODESYS.**
 - [ ] Round-trip `refs` / `fetch` / `push` / `build` through a throwaway relay to both vendors; errors arrive coded.
 
 ## Volt.Relay
@@ -16,11 +20,17 @@
 
 ## The `logs` op
 
-- [ ] `Ops.Logs` + `LogsRequest`/`LogsResponse` in `Volt.Contracts`; `WireVocabularyGuardTests` sees them.
-- [ ] `BridgePipeHost` serves it off the IDE thread and past the disconnect gate, like `health`.
-- [ ] Tail logic (newest-first, spills into the previous day, line-boundary cut, `truncated`, shared read) as a
-      pure function over a directory — unit-tested without a host.
-- [ ] Test: `logs` answers while a long op holds the IDE thread (same shape as the `health` pipe test).
+- [x] `Ops.Logs` + `LogsRequest`/`LogsResponse` in `Volt.Contracts`; `WireVocabularyGuardTests` sees them.
+      (`VoltLog.cs` is allowlisted for the op vocabulary: it holds "logs" as the directory name.)
+- [x] `BridgePipeHost` serves it off the IDE thread and past the disconnect gate, like `health`.
+- [x] Tail logic (newest-first, spills into the previous day, line-boundary cut, `truncated`, shared read) as a
+      pure function over a directory — unit-tested without a host. `LogTail.Read`, 14 tests in
+      `Volt.Contracts.Tests/LogTailTests.cs`, including the 00:05 day-spill and reading a file VoltLog is
+      appending to.
+- [x] Test: `logs` answers while a long op holds the IDE thread (same shape as the `health` pipe test).
+      `PipeTransportTests.Logs_answers_while_the_one_IDE_thread_is_busy_with_a_long_op` — its own test rather
+      than an assertion bolted onto the health one, because the two sit in different dispatch arms and a later
+      refactor could marshal one without the other.
 - [ ] Test: the relay token never appears in the log after a tunnel start, reconnect and handshake failure.
 
 ## `refs` lists libraries

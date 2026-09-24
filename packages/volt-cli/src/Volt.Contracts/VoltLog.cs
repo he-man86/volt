@@ -31,6 +31,11 @@ public static class VoltLog
     /// <summary>The durable log directory (<c>%LOCALAPPDATA%\Volt\logs</c>), the one place every component writes.</summary>
     public static string Dir { get { lock (Gate) return _dir; } }
 
+    /// <summary>The source this process logs under — <c>codesys</c>, <c>twincat</c>, <c>connector</c>. Exposed
+    /// for the <c>logs</c> op, which answers for THIS host's files only: the directory holds every component's,
+    /// and interleaving two processes' lines into one apparent story is worse than returning less.</summary>
+    public static string Source => _source;
+
     /// <summary>Minimum level emitted. Default <c>Info</c> — Debug lines are silent unless opted in.</summary>
     public static VoltLogLevel Level
     {

@@ -41,8 +41,11 @@ public sealed class BridgePipeHost : IDisposable
 
     // The ops that stay served while paused — the ones the UI needs to SHOW you're disconnected and get back.
     // `health` carries the connectable-projects list, so it doubles as discovery: it is how the user reconnects.
+    // `logs` joins them, and for the same reason health is here: a disconnected bridge is PRECISELY the one
+    // whose logs you want. Gating the diagnostic behind the state it diagnoses means the answer is available
+    // exactly when it is not needed.
     private static bool AllowedWhilePaused(string? op) =>
-        op == Ops.Health || op == Ops.Connect || op == Ops.Disconnect;
+        op == Ops.Health || op == Ops.Connect || op == Ops.Disconnect || op == Ops.Logs;
 
     private object Dispatch(PipeRequest req, Action<object> onProgress)
     {
@@ -69,6 +72,15 @@ public sealed class BridgePipeHost : IDisposable
                 // derive to "not serving".
                 if (_paused) h.Projects = h.Projects.Select(p => p with { Status = HealthStatus.Idle }).ToList();
                 return h;
+            }
+            case Ops.Logs:
+            {
+                // NEVER marshalled onto the IDE thread — it reads a FILE, and the call that matters is the one
+                // made BECAUSE a push is stuck. Queueing it behind that push would make it answer only once the
+                // thing it was going to explain had finished. Same placement as `health`, same reason.
+                // `Body<T>` already answers an absent body with a default instance and a malformed one with
+                // BAD_REQUEST, so there is nothing to special-case here.
+                return LogTail.Read(VoltLog.Dir, VoltLog.Source, Body<LogsRequest>(req).MaxBytes);
             }
             case Ops.Connect:
                 // Bind the chosen project (retarget/rebind), and un-pause: connecting anything resumes service.

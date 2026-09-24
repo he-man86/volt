@@ -16,4 +16,8 @@ public static class Ops
     public const string Fetch = "fetch";
     public const string Push = "push";
     public const string Build = "build";
+
+    /// <summary>The tail of this host's own durable log. A pipe op rather than a tunnel-only side door: one
+    /// entry point, so the CLI and the connector get it too.</summary>
+    public const string Logs = "logs";
 }
