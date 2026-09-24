@@ -101,24 +101,13 @@ public static class PipeHost
     /// sidecar is still loud — it is named in the log — but it is not fatal.</para></summary>
     private static void StartTunnelIfConfigured()
     {
-        try
-        {
-            var dir = Path.GetDirectoryName(typeof(PipeHost).Assembly.Location);
-            var sidecar = Volt.Relay.RelaySidecar.Load(dir);
-            if (sidecar is null) return;
-
-            _tunnel = new Volt.Relay.RelayTunnel(
-                sidecar,
-                _pipeName,
-                Vendors.Codesys,
-                typeof(PipeHost).Assembly.GetName().Version?.ToString() ?? "0.0.0");
-            _tunnel.Start();
-        }
-        catch (Exception ex)
-        {
-            VoltLog.Error("relay: tunnel did not start: " + ex.Message);
-            _tunnel = null;
-        }
+        _tunnel = Volt.Relay.PipeHostTunnel.StartIfConfigured(
+            Volt.Relay.PipeHostTunnel.DirectoryOf(typeof(PipeHost)),
+            _pipeName,
+            Vendors.Codesys,
+            typeof(PipeHost).Assembly.GetName().Version?.ToString() ?? "0.0.0",
+            m => VoltLog.Info(m),
+            m => VoltLog.Error(m));
     }
 
     public static string Stop()

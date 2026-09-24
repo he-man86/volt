@@ -311,6 +311,18 @@ catch (Exception ex)
 }
 VoltLog.Info($"twincat bridge serving on pipe {pipe} (xae pid {xaePid})");
 
+// The relay tunnel, exactly as CODESYS starts it — same Core helper, so the two vendors cannot drift. This was
+// MISSING here: a downloaded TwinCAT worker served its pipe perfectly and was simply absent from the relay, so
+// the bridge worked on the machine it ran on and the web app could never reach it. Returns null (silently) when
+// this install has no sidecar and no setup code, which is every dev build.
+using var tunnel = Volt.Relay.PipeHostTunnel.StartIfConfigured(
+    Volt.Relay.PipeHostTunnel.DirectoryOf(typeof(BridgePipeHost)),
+    pipe,
+    Vendors.Twincat,
+    typeof(BridgePipeHost).Assembly.GetName().Version?.ToString() ?? "0.0.0",
+    m => VoltLog.Info(m),
+    m => VoltLog.Error(m));
+
 // Keep the process alive (the connector owns its lifecycle and kills it); tear down the STA loop on exit.
 // CancelKeyPress is the ONE reachable shutdown path: ProcessExit fires only once the runtime is ALREADY shutting
 // down, so it can never be what unblocks this Wait, and the connector's TerminateProcess raises no managed event.

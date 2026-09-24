@@ -18,5 +18,6 @@
     <ProjectReference Include="..\Volt.Contracts\Volt.Contracts.csproj" />
     <ProjectReference Include="..\Volt.Engine\Volt.Engine.csproj" />
     <ProjectReference Include="..\Volt.Wire\Volt.Wire.csproj" />
+    <ProjectReference Include="..\Volt.Relay\Volt.Relay.csproj" />
   </ItemGroup>
 </Project>
