@@ -206,8 +206,33 @@ function unsuppliedInput(lw: Lowering, pointer: Place, span: Span): undefined {
     span,
   )
 }
+
+/**
+ * The hidden VAR_IN_OUT a borrowed pointer PARAMETER was given (form 2), when `pointer` names one.
+ *
+ * Only a bare local — a borrow is a parameter of THIS routine, so a path into it, or a pointer living anywhere
+ * else, is a different question and falls through to form 1.
+ */
+function borrowedInOut(lw: Lowering, pointer: Place): Place | undefined {
+  if (pointer.root !== "local" && pointer.root !== undefined) return undefined
+  if (pointer.path.length > 0) return undefined
+  const slot = pointer.root === "local" ? lw.localSlots[pointer.slot] : lw.frame[pointer.slot]
+  if (slot === undefined) return undefined
+  const bound = lw.borrowedPointers.get(slot.name.toUpperCase())
+  if (bound === undefined) return undefined
+  return { slot: bound, path: [], type: lw.inoutSlots[bound]!.type, span: pointer.span, root: "inout" }
+}
+
 /** The place a pointer or reference points at, through `extra` more elements — its one target, guarded by it. */
 export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undefined, span: Span): Place | undefined {
+  // FORM 2 FIRST: a `POINTER TO T` parameter this body only dereferences was declared as a hidden VAR_IN_OUT, and
+  // `p^` IS that binding — there is no address to follow because the caller supplied a place, not a value. No guard
+  // either: an in-out is bound by the call, so it cannot be null the way a stored address can.
+  const borrowed = borrowedInOut(lw, pointer)
+  if (borrowed !== undefined) {
+    if (extra !== undefined) return lw.bail("pointer-index", "an index on a borrowed pointer parameter", span)
+    return { ...borrowed, span }
+  }
   const key = pointerKey(lw, pointer)
   const target = key === undefined ? undefined : lw.shared.pointers.get(key)
   // THE MESSAGE NAMES THE POINTER AND WHERE IT LIVES. It named neither, which made the 177 POUs it blocks one

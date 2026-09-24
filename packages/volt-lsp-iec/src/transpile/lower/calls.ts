@@ -186,6 +186,16 @@ function anyInputsOf(lw: Lowering): Map<string, ReadonlySet<number>> {
   return map
 }
 
+/** Each routine's BORROWED pointer inputs (form 2), by key: the input slot index → the hidden VAR_IN_OUT a call
+ *  binds to whatever the caller took an `ADR` of. `anyInputsOf`'s twin, for the same reason — the call site needs
+ *  a fact the callee's own lowering worked out, and that lowering is gone by the time an argument binds. */
+const borrowedInputs = new WeakMap<object, Map<string, ReadonlyMap<number, number>>>()
+function borrowedInputsOf(lw: Lowering): Map<string, ReadonlyMap<number, number>> {
+  let map = borrowedInputs.get(lw.shared)
+  if (map === undefined) borrowedInputs.set(lw.shared, (map = new Map()))
+  return map
+}
+
 /** The lowering a routine body is lowered in: the frame's fields (when it runs on an instance) plus per-call locals. */
 function routineLowering(lw: Lowering, scope: Scope, frame: FbType | undefined, codeOwner: Scope | undefined, key: string, displayName = key): Lowering {
   const r = new Lowering(scope, lw.project, lw.shared)
@@ -264,6 +274,40 @@ function declareOutputs(lw: Lowering, r: Lowering, sections: readonly VarSection
 }
 
 /**
+ * FORM 2's TEST (`pointer-model.md` §4): which `POINTER TO` parameters this body only DEREFERENCES.
+ *
+ * A parameter's form is decided by the CALLEE, not by the call sites — whether a borrow is sound depends on whether
+ * the callee keeps the pointer past the call, which is a property of its own body. §4 measured it that way over the
+ * corpus's 99 pointer parameters: 62 are used only in the callee's own body.
+ *
+ * The test here is the strict half of that: every occurrence of the name is the BASE OF A `^`. That admits
+ * `p^`, `p^.field` and `p^[i]`, and rejects everything that could let the address outlive the call — storing it
+ * (`held := p`), comparing it, taking `ADR` of it, or handing it on to another callee (`f(q := p)`, a REBORROW,
+ * which is sound and is simply not this step: `ptrparam_passed_on` stays refused and says so).
+ *
+ * Conservative by construction: a name this cannot see through — a call that could reach anything — disqualifies
+ * every parameter, the same way `reachedNames` answers `"all"`.
+ */
+function borrowedPointerNames(r: Lowering, statements: readonly unknown[], candidates: ReadonlySet<string>): Set<string> {
+  const borrowed = new Set(candidates)
+  const walk = (node: unknown, derefBase: boolean): void => {
+    if (node === null || typeof node !== "object") return
+    if (Array.isArray(node)) return void node.forEach((x) => walk(x, false))
+    const n = node as { kind?: string; name?: string; base?: unknown }
+    // the one accepted position: `<name>^`, however the result is then indexed or fielded
+    if (n.kind === "deref") return walk(n.base, true)
+    if (n.kind === "ident_expr") {
+      if (!derefBase) borrowed.delete(n.name!.toUpperCase())
+      return
+    }
+    for (const [key, child] of Object.entries(node)) if (key !== "span") walk(child, false)
+  }
+  walk(statements, false)
+  return borrowed
+}
+
+
+/**
  * The bare names a body reads — or "all" when it calls a METHOD or ACTION of its own instance (`M()`, `THIS^.M()`,
  * `SUPER^()`), which may reach any of the FB's in-outs. ponytail: "all" over-approximates; a call graph would narrow it.
  */
@@ -288,6 +332,34 @@ function reachedNames(r: Lowering, statements: readonly unknown[]): Set<string> 
 
 /** The prefix of the hidden VAR_IN_OUT an ANY input is given where a call names a variable for it. */
 export const ANY_TARGET = "__any_"
+
+/** The prefix of the hidden VAR_IN_OUT a borrowed `POINTER TO` parameter is given (form 2) — `__any_`'s twin. */
+export const BORROWED = "__ptr_"
+
+/** The operand of an `ADR(x)` argument — the place a borrowed pointer parameter binds to. */
+function adrArgument(value: Expr | undefined): Expr | undefined {
+  if (value === undefined) return undefined
+  if (value.kind === "paren") return adrArgument(value.inner)
+  return value.kind === "call" && value.callee.kind === "ident_expr" && value.callee.name.toUpperCase() === "ADR" && value.args.length === 1
+    ? value.args[0]!.value
+    : undefined
+}
+
+/**
+ * The `POINTER TO T` parameters of this routine that form 2 may erase, each with the slot it was declared as.
+ *
+ * Restricted to VAR_INPUT: a VAR_IN_OUT pointer is already a binding, and a VAR/VAR_TEMP pointer is a local whose
+ * target form 1 records. A parameter with no pointee type — `POINTER TO` something unresolved — is left alone.
+ */
+function borrowedPointerSlots(r: Lowering, statements: readonly unknown[]): [string, IrSlot][] {
+  const candidates = new Map<string, IrSlot>()
+  for (const slot of r.localSlots)
+    if (slot.section === "VAR_INPUT" && slot.type.kind === "pointer" && slot.type.target.kind !== "unknown")
+      candidates.set(slot.name.toUpperCase(), slot)
+  if (candidates.size === 0) return []
+  const borrowed = borrowedPointerNames(r, statements, new Set(candidates.keys()))
+  return [...borrowed].map((name) => [name, candidates.get(name)!] as [string, IrSlot])
+}
 
 /** A type as a name, for a routine variant's key — the storage the argument is, not the syntax. */
 const typeKey = (t: Type): string => (t.kind === "elementary" ? `${t.name}${t.length === undefined ? "" : String(t.length)}` : t.kind === "struct" || t.kind === "function_block" ? t.name.toUpperCase() : t.kind)
@@ -427,6 +499,17 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
       r.anyTargets.set(input, r.inoutSlots.length)
       r.inoutSlots.push({ name: `${ANY_TARGET}${input}`, type, section: "VAR_IN_OUT", init: defaultValueOf(type) })
     }
+    // FORM 2: a `POINTER TO T` parameter this body only dereferences becomes a hidden VAR_IN_OUT of T, and every
+    // `p^` becomes the place the CALL binds to it. One lowering serves every call site — which is the whole point,
+    // since `ptrparam_two_targets` calls one routine with two different `ADR` arguments and gets two answers.
+    const borrowedByInput = new Map<number, number>()
+    for (const [name, slot] of borrowedPointerSlots(r, parsed.statements)) {
+      const pointee = (slot.type as Extract<Type, { kind: "pointer" }>).target
+      r.borrowedPointers.set(name, r.inoutSlots.length)
+      borrowedByInput.set(r.localSlots.indexOf(slot), r.inoutSlots.length)
+      r.inoutSlots.push({ name: `${BORROWED}${slot.name}`, type: pointee, section: "VAR_IN_OUT", init: defaultValueOf(pointee) })
+    }
+    borrowedInputsOf(lw).set(key, borrowedByInput)
     const resets = declareOutputs(lw, r, sections.filter((s) => s.sectionKind === "VAR_OUTPUT"), span)
     if (resets === undefined) return undefined
     // The FB's own VAR_IN_OUT a METHOD or ACTION reaches — each a parameter the call binds (`lowerInvoke`). Taken from the
@@ -880,6 +963,31 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
       anyPlaces.set(name!, place)
       inputs[k] = { kind: "const", value: size.size, type: elementaryRef("DINT"), span: arg.span }
       order.push(k)
+      continue
+    }
+    // FORM 2: a borrowed `POINTER TO T` input takes the PLACE the caller took an address of, bound to the hidden
+    // VAR_IN_OUT the callee dereferences. The pointer value itself is never built — that is the erasure — so the
+    // argument has to be an `ADR` of something this can bind, and anything else falls back to form 1's refusal
+    // rather than being guessed at (`ptrparam_passed_on` hands on a pointer PARAMETER and is one of those).
+    const borrowedInOutIndex = borrowedInputsOf(lw).get(routine.key)?.get(routine.inputs[k]!)
+    if (borrowedInOutIndex !== undefined) {
+      const addressed = adrArgument(arg.value)
+      if (addressed === undefined)
+        return lw.bail("pointer-order", `${arg.param!.name} is a borrowed pointer parameter given something other than ADR(...)`, arg.span)
+      // BOUND BY `bindInOut`, exactly as a written VAR_IN_OUT is — not by a hand-rolled walk. It is what refuses two
+      // `&mut` into one place, and what calls `inFramePlace` to re-root a target that lies INSIDE the instance the
+      // callee runs on. Without it `Read(p := ADR(a))` on the FB's own field emitted `self.read(0, &mut self.a)`,
+      // which is E0499 — caught by the generator refusing to write a map it could not stand behind.
+      const param = routine.inouts[borrowedInOutIndex]!
+      const target = bindInOut(lw, { ...arg, value: addressed }, param, held(), routine.body, routine.fb, instance)
+      if (target === undefined) return undefined
+      if (!isInFrame(target) && !("kind" in target) && !sameStorage(target.type, param.type))
+        return lw.bail("pointer-type", `${arg.param!.name} is given the address of a variable of another type than the pointer's`, arg.span)
+      inouts[borrowedInOutIndex] = target
+      // the pointer local itself is never read — every `p^` became the binding — so it carries a value nobody uses
+      inputs[k] = { kind: "const", value: 0n, type: routine.locals[routine.inputs[k]!]!.type, span: arg.span }
+      order.push(k)
+      order.push({ inout: borrowedInOutIndex })
       continue
     }
     const slot = routine.locals[routine.inputs[k]!]!

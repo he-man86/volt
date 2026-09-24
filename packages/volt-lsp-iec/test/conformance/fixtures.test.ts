@@ -917,7 +917,12 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // This number is expected to come back DOWN by eight when step 1 lands, and further as it clears the 105 POUs
   // `pointer-order` stops in the corpus. A ceiling that rises for measurement is not the same as one that rises
   // for a gap, and the eight below are the first kind.
-  "not-lowered": 98,
+  // 98 -> 94. Step 1 landed for a ROUTINE's pointer input — `ptrparam_read`, `_write`, `_two_targets` and
+  // `_method` lower and match CODESYS. The four still here are each a different next piece: the FB half (a
+  // `POINTER TO` input of a FUNCTION_BLOCK is a FIELD the call fills, not a routine parameter, and it is where
+  // the corpus's volume is), the reborrow (`ptrparam_passed_on` hands its parameter on), form 3 (`ptrparam_kept`
+  // stores it), and an input nobody supplies (`ptrparam_unsupplied`, which the vendor faults on).
+  "not-lowered": 94,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

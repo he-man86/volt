@@ -12,9 +12,9 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     1935
+ *     confirmed     1939
  *     refused        538
- *     not-lowered     98
+ *     not-lowered     94
  *     lsp-gap          4
  *     diverges         3
  *     unaskable       36
@@ -24,8 +24,8 @@
  *     arith                  1570     1570
  *     control                  55       55
  *     aggregate                27       27
- *     call                     80       80
- *     indirect                139      139
+ *     call                     83       83
+ *     indirect                140      140
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
  *     none
@@ -1851,12 +1851,12 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   prim_default_x_xword: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   ptrparam_function_block: { evidence: "not-lowered" },
   ptrparam_kept: { evidence: "not-lowered" },
-  ptrparam_method: { evidence: "not-lowered" },
+  ptrparam_method: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   ptrparam_passed_on: { evidence: "not-lowered" },
-  ptrparam_read: { evidence: "not-lowered" },
-  ptrparam_two_targets: { evidence: "not-lowered" },
+  ptrparam_read: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  ptrparam_two_targets: { evidence: "confirmed", tier: "call", rust: "vendor" },
   ptrparam_unsupplied: { evidence: "not-lowered" },
-  ptrparam_write: { evidence: "not-lowered" },
+  ptrparam_write: { evidence: "confirmed", tier: "call", rust: "vendor" },
   r2i_lreal_to_byte_above_max: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   r2i_lreal_to_byte_below_min: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   r2i_lreal_to_byte_nan: { evidence: "confirmed", tier: "arith", rust: "vendor" },

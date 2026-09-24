@@ -168,6 +168,20 @@ export class Lowering {
   readonly anyInputs = new Set<string>()
   /** Each ANY input whose call site named a variable, to the hidden VAR_IN_OUT bound to it — what `pValue` is. */
   readonly anyTargets = new Map<string, number>()
+  /**
+   * FORM 2 (`pointer-model.md` §8 step 1) — each `POINTER TO T` parameter this routine only DEREFERENCES, upper-cased,
+   * to the hidden VAR_IN_OUT the call binds to whatever the caller took an `ADR` of.
+   *
+   * A pointer the callee never keeps is a borrow for the duration of the call, and a borrow is what the IR already
+   * calls a VAR_IN_OUT: the callee addresses it as `root: "inout"`, the caller supplies a place, and the emitter
+   * already prints it `&mut`. So `p^` becomes that place and the pointer value never exists — the same erasure
+   * `anyTargets` above performs for an ANY input, and for the same reason.
+   *
+   * MEASURED FIRST (`memory/pointer-parameters.ts`): the callee's `p^ := 77` changes the CALLER's variable, so it is
+   * a borrow and not a copy; and ONE parameter answers 11 and 22 at two call sites, which is exactly what form 1's
+   * single recorded target per pointer cannot represent.
+   */
+  readonly borrowedPointers = new Map<string, number>()
   /** What `__POUNAME()` answers here, in SOURCE casing: the POU's name, or `POU.Member` inside a METHOD or ACTION
    *  (conformance `cp_pouname_operator`: 'FB_CP_named', 'FB_CP_named.Inner', 'FB_CP_named.Marked'). */
   displayName = ""
