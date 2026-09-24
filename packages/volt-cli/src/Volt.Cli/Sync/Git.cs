@@ -523,10 +523,16 @@ public static class Git
     ///
     /// <para>That matters for a CLEAN pull on a fresh box, a CI runner or a service account: `AutoCommitSrc`
     /// commits nothing there, so nothing surfaces the missing identity before the merge, and git refuses with
-    /// "Please tell me who you are" from inside an operation the user did not think of as committing.</para></summary>
+    /// "Please tell me who you are" from inside an operation the user did not think of as committing.</para>
+    ///
+    /// <para>ASK GIT, do not re-derive its rule. This read `config --get user.email`/`user.name`, which is only
+    /// ONE of the places git looks — `GIT_COMMITTER_NAME`/`_EMAIL` in the environment are equally valid, and
+    /// that is exactly how the test harness supplies an identity. So on CI the commits worked and this said
+    /// they could not: every test that pulls got a refusal, no `src/` was written, and eight tests failed on a
+    /// missing file. `git var GIT_COMMITTER_IDENT` is git answering the question itself — env, local, global
+    /// and system, in git's own precedence, with no second implementation to drift.</para></summary>
     public static bool HasIdentity(string root) =>
-        Run(new[] { "-C", root, "config", "--get", "user.email" }, allowFail: true).StdOut.Trim().Length > 0 &&
-        Run(new[] { "-C", root, "config", "--get", "user.name" }, allowFail: true).StdOut.Trim().Length > 0;
+        Run(new[] { "-C", root, "var", "GIT_COMMITTER_IDENT" }, allowFail: true).Code == 0;
 
     /// <summary><c>git merge &lt;ref&gt;</c> into the current branch. Requires a clean tree.</summary>
     public static MergeOutcome GitMerge(string root, string @ref, string message)
