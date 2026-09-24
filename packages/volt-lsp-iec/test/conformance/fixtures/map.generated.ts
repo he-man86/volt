@@ -22,10 +22,10 @@
  *   tier                     lowered    clean
  *     decl                    424      424
  *     arith                  1570     1570
- *     control                  56       56
+ *     control                  55       55
  *     aggregate                27       27
- *     call                     96       96
- *     indirect                122      122
+ *     call                     80       80
+ *     indirect                139      139
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
  *     none
@@ -37,12 +37,12 @@
  *     clippy::eq_op                             12
  *     clippy::approx_constant                    6
  *     clippy::unnecessary_min_or_max             5
- *     unreachable_code                           2
  *     clippy::manual_clamp                       2
- *     clippy::manual_range_patterns              1
- *     clippy::never_loop                         1
- *     clippy::min_max                            1
+ *     unreachable_code                           2
  *     clippy::absurd_extreme_comparisons         1
+ *     clippy::manual_range_patterns              1
+ *     clippy::min_max                            1
+ *     clippy::never_loop                         1
  *     unused_comparisons                         1
  */
 import type { FixtureMapRow } from "../support/transpile-confidence.js"
@@ -372,7 +372,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   callshape_array_star_two_dims: { evidence: "confirmed", tier: "call", rust: "vendor" },
   callshape_bounds_of_sized_array: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   callshape_for_bounds_changed_in_body: { evidence: "confirmed", tier: "control", rust: "vendor" },
-  callshape_for_limit_call: { evidence: "confirmed", tier: "control", rust: "vendor" },
+  callshape_for_limit_call: { evidence: "confirmed", tier: "call", rust: "vendor" },
   callshape_for_runtime_step: { evidence: "confirmed", tier: "control", rust: "vendor" },
   callshape_function_input_no_default: { evidence: "refused", tier: "call", rust: "compiles" },
   callshape_inout_base_method_from_derived_method: { evidence: "confirmed", tier: "decl", rust: "vendor" },
@@ -386,17 +386,17 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   callshape_inout_override_from_base_body: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   callshape_inout_override_from_outside_base_method: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   callshape_inout_pointer_before_call: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
-  callshape_inout_sub_instance_field: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  callshape_inout_sub_instance_field: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   callshape_inout_super_method_from_override: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   callshape_input_left_out: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   callshape_method_input_no_default: { evidence: "refused", tier: "call", rust: "compiles" },
-  callshape_method_on_program: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  callshape_method_on_program: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   callshape_output_index_before_call: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   callshape_own_field_inout_read_by_name: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   callshape_own_field_two_inouts: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   callshape_positional_arguments: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   callshape_program_instance_from_outside: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
-  callshape_program_instance_property: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  callshape_program_instance_property: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   callshape_property_read_in_arguments: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   callshape_super_own_field_twice: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   callshape_super_own_fields: { evidence: "confirmed", tier: "decl", rust: "vendor" },
@@ -970,7 +970,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   fb_init_and_structured_initializer: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   fb_init_argument_from_global: { evidence: "confirmed", tier: "call", rust: "vendor" },
   fb_init_argument_from_variable: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
-  fb_init_argument_in_program_with_method: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  fb_init_argument_in_program_with_method: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   fb_init_argument_left_out: { evidence: "refused" },
   fb_init_base_and_derived: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   fb_init_before_slot_method_nested: { evidence: "confirmed", tier: "aggregate", rust: "vendor" },
@@ -984,7 +984,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   fb_reinit_canonical: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   fb_reinit_with_params: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   fbcall_action: { evidence: "confirmed", tier: "arith", rust: "vendor" },
-  fbcall_bare_method_call: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  fbcall_bare_method_call: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   fbcall_function_locals: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   fbcall_gvl_qualified: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   fbcall_inout_written_back: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
@@ -1330,14 +1330,14 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   implicit_check_mod: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   implicit_lreal_to_real: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   info_message: { evidence: "confirmed", tier: "arith", rust: "vendor" },
-  inh_base_body_reaches_override: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  inh_base_body_reaches_override: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   inh_call_runs_derived_body: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   inh_empty_derived_body: { evidence: "confirmed", tier: "decl", rust: "vendor" },
-  inh_inherited_method_reaches_override: { evidence: "confirmed", tier: "call", rust: "vendor" },
-  inh_super_call_runs_base_body: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  inh_inherited_method_reaches_override: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
+  inh_super_call_runs_base_body: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   inh_super_call_with_arguments: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
-  inh_super_method_from_body: { evidence: "confirmed", tier: "call", rust: "vendor" },
-  inh_super_method_reaches_override: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  inh_super_method_from_body: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
+  inh_super_method_reaches_override: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   init_array_of_structs: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   init_fb_instance_inputs: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   init_on_onlchange: { evidence: "refused", tier: "decl", rust: "compiles" },
@@ -1372,7 +1372,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   inout_const_fb_variable_10: { evidence: "confirmed", tier: "call", rust: "vendor" },
   inout_const_method_9: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   inout_const_string_constant_8: { evidence: "confirmed", tier: "call", rust: "vendor" },
-  inout_const_string_literal_3: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  inout_const_string_literal_3: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   inout_const_variable_7: { evidence: "confirmed", tier: "call", rust: "vendor" },
   inout_const_write_5: { evidence: "refused" },
   inout_plain_literal_4: { evidence: "refused" },
@@ -1733,7 +1733,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   oop_base: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   oop_extends_simple: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   oop_extends_with_override: { evidence: "confirmed", tier: "arith", rust: "vendor" },
-  oop_extends_with_super: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  oop_extends_with_super: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   oop_final_fb: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   op_arithmetic_bool_plus_int: { evidence: "refused" },
   op_arithmetic_int_plus_dint: { evidence: "confirmed", tier: "arith", rust: "vendor" },
@@ -2497,7 +2497,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   use_gvl_field_access: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   use_method_array_param: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   use_pointer_deref_struct_field: { evidence: "not-lowered" },
-  use_self_method_call: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  use_self_method_call: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   use_struct_inner: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   use_struct_member_access: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   use_struct_nested_member: { evidence: "confirmed", tier: "decl", rust: "vendor" },
@@ -2599,7 +2599,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo_enum_case_across_objects: { evidence: "confirmed", tier: "control", rust: "vendor" },
   xo_function_inout_nested_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   xo_gvl_shared_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
-  xo_inherited_action_from_derived: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  xo_inherited_action_from_derived: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   xo_interface_array_dispatch: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   xo_mode_enum: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   xo_open_array_through_method: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
@@ -2613,7 +2613,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo_two_fbs_one_global: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   xo_union_across_objects: { evidence: "confirmed", tier: "aggregate", rust: "vendor" },
   xo_var_stat_two_holders: { evidence: "confirmed", tier: "call", rust: "vendor" },
-  xo2_actions_base_and_derived: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  xo2_actions_base_and_derived: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   xo2_array_of_instances: { evidence: "confirmed", tier: "call", rust: "vendor" },
   xo2_case_ranges_over_enum: { evidence: "confirmed", tier: "control", rust: "vendor" },
   xo2_fb_instance_as_inout: { evidence: "confirmed", tier: "call", rust: "vendor" },
@@ -2627,7 +2627,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo2_pointer_walk_across_objects: { evidence: "confirmed", tier: "aggregate", rust: "vendor" },
   xo2_property_override_chain: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   xo2_time_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor" },
-  xo3_action_method_action: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  xo3_action_method_action: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   xo3_alias_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor" },
   xo3_alias_type: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   xo3_bit_through_struct: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
@@ -2636,7 +2636,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo3_interface_input_passed_on: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   xo3_limits_gvl: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   xo3_method_local_shadows_field: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
-  xo3_override_calls_override: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  xo3_override_calls_override: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   xo3_string_wide_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   xo3_struct_default_as_input: { evidence: "confirmed", tier: "call", rust: "vendor" },
   xo3_value_functions_across_objects: { evidence: "confirmed", tier: "indirect", rust: "vendor" },

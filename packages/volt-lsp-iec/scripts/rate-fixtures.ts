@@ -39,15 +39,17 @@ import { STANDARD_LIBRARY } from "../test/conformance/support/standard-library.j
 import { EVIDENCE_ORDER, rateFixture, type Evidence } from "../test/conformance/support/evidence.js"
 import {
   ALLOWED,
-  LINT_FLAGS,
+  buildArgv,
   TIERS,
   assertPolicy,
   divergesOf,
-  excusedFindings,
+  correctnessOf,
+  splitFindings,
+  tierOf,
   rejectionIsADefect,
   rendered,
   printRow,
-  transpileHalf,
+
   type FixtureMapRow,
 } from "../test/conformance/support/transpile-confidence.js"
 import { CLIPPY } from "../test/conformance/support/rustc.js"
@@ -99,7 +101,7 @@ await Promise.all(
       const code = emitRust(pou).code
       const file = join(dir, `${t.name}.rs`)
       await Bun.write(file, `${code}\nfn main() {}\n`)
-      const build = Bun.spawn([clippy, "--edition", "2021", "--emit", "metadata", "-o", `${file}.meta`, file, ...LINT_FLAGS], {
+      const build = Bun.spawn(buildArgv(clippy, file, { metadata: `${file}.meta` }), {
         stderr: "pipe",
         stdout: "pipe",
       })
@@ -109,11 +111,15 @@ await Promise.all(
       const built = (await build.exited) === 0
       const stderr = await new Response(build.stderr).text()
       if (!built && rejectionIsADefect(evidence)) rejected.set(t.name, rendered(stderr).slice(0, 600))
-      for (const lint of excusedFindings(stderr, code.split("\n").length)) excused.set(lint, (excused.get(lint) ?? 0) + 1)
+      // ONE pass over the compiler's JSON, both halves out of it
+      const { found, excused: covered } = splitFindings(stderr, code.split("\n").length)
+      for (const lint of covered) excused.set(lint, (excused.get(lint) ?? 0) + 1)
       const diverges = divergesOf(t.name)
       rows.set(t.name, {
         evidence,
-        ...transpileHalf(t, evidence, pou, stderr, code.split("\n").length, built),
+        tier: tierOf(pou, t.pouName),
+        rust: correctnessOf(t.name, evidence, built),
+        ...(found.length > 0 ? { lints: [...new Set(found.map((f) => f.code))].sort() } : {}),
         ...(diverges === undefined ? {} : { diverges }),
       })
     }
@@ -184,7 +190,7 @@ ${
   lintTally.size === 0
     ? " *     none"
     : [...lintTally]
-        .sort((a, b) => b[1] - a[1])
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])) // by name on a tie: the Maps take their order from racing compile lanes
         .map(([lint, n]) => ` *     ${lint.padEnd(38)} ${String(n).padStart(5)}`)
         .join("\n")
 }
@@ -192,7 +198,7 @@ ${
  *   allowed, and how many fixtures each one still excuses — \`support/transpile-confidence.ts\` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
 ${[...excused]
-  .sort((a, b) => b[1] - a[1])
+  .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])) // ditto — `--check` compares the file byte for byte
   .map(([lint, n]) => ` *     ${lint.padEnd(38)} ${String(n).padStart(5)}`)
   .join("\n")}
  */

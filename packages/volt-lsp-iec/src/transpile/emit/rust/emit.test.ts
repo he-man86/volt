@@ -30,6 +30,29 @@ END_PROGRAM
 `
 
 describe("emit/rust", () => {
+
+/**
+ * TWO SHAPES THE SWEEP THAT MADE THE EMITTED RUST READABLE GOT WRONG, neither of which any conformance fixture
+ * reaches — which is why the 5,400-assertion gate stayed green over one of them not compiling at all.
+ */
+test("an array index keeps its parentheses, because `as` binds tighter than the arithmetic in it", () => {
+  // `arr[li / 2]` printed `self.arr[self.li / 2i64 as usize]`, which Rust reads as `self.li / (2i64 as usize)`:
+  // E0277, `cannot divide i64 by usize`. Stripping the printer's parentheses is only safe where nothing binds
+  // tighter than the expression, and a cast does.
+  const code = rust("PROGRAM P\nVAR arr : ARRAY[0..9] OF INT; li : LINT; END_VAR\narr[li / 2] := 1;\nEND_PROGRAM\n")
+  expect(code).toContain("self.arr[(self.li / 2i64) as usize] = 1i16;")
+})
+
+test("a loop test over REALs is negated, not flipped — NaN makes every ordering false", () => {
+  // Flipping `<=` to `>` is negation only over a total order. With a NaN operand both are false, so
+  // `WHILE r <= 10.0` exits at once in the interpreter (`!false`) and never exits in the emitted Rust.
+  const real = rust("PROGRAM P\nVAR r : REAL; n : INT; END_VAR\nWHILE r <= 10.0 DO\n n := n + 1;\n r := r + 1.0;\nEND_WHILE\nEND_PROGRAM\n")
+  expect(real).toContain("if !(self.r <= 10.0f32) { break; }")
+
+  // an integer comparison is a total order, so it still flips — that is what removed 39 `nonminimal_bool`
+  const int = rust("PROGRAM P\nVAR i : INT; END_VAR\nWHILE i <= 10 DO\n i := i + 1;\nEND_WHILE\nEND_PROGRAM\n")
+  expect(int).toContain("if (self.i as i32) > 10i32 { break; }")
+})
   test("field names are Rust: a keyword gets `_`, and two names that snake_case alike are REFUSED", () => {
     // `pub loop: i16` and two `a_b` fields were emitted, and neither compiles (transpiler review 2026-09-14)
     const keywords = rust("PROGRAM P\nVAR\n  loop : INT;\n  match : BOOL;\nEND_VAR\nloop := 1;\nEND_PROGRAM\n")
@@ -149,7 +172,7 @@ describe("emit/rust", () => {
     expect(code).toContain("pub p_int: usize,")
     expect(code).toContain("self.p_int = 1;")
     expect(code).toContain("self.i_copy = { iec_deref(self.p_int); self.i_value };")
-    expect(code).toContain("as usize;") // the element index crosses into the pointer explicitly
+    expect(code).toContain("as usize]") // the element index crosses into the pointer explicitly
     expect(code).toContain("iec_deref(self.pa);") // a write through a pointer is checked on the line before
     expect(code).toContain('fn iec_deref(at: usize) { if at == 0 { panic!("dereference of a null pointer"); } }')
   })

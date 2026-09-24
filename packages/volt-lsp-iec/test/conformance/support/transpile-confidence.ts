@@ -43,9 +43,11 @@ export function tierOf(pou: IrPou, ownPouName: string): Tier {
     if (e === null || typeof e !== "object") return
     const n = e as Record<string, unknown>
     if (typeof n.kind === "string") seen.add(n.kind)
-    for (const k of ["left", "right", "value", "index", "operand", "tag", "of", "base"]) expr(n[k])
-    for (const k of ["args", "elements", "arms"]) if (Array.isArray(n[k])) (n[k] as unknown[]).forEach(expr)
+    for (const k of ["left", "right", "value", "index", "operand", "tag", "of", "base", "cond", "call"]) expr(n[k])
+    for (const k of ["args", "elements", "arms", "inputs", "inouts", "lent"])
+      if (Array.isArray(n[k])) (n[k] as unknown[]).forEach(expr)
     place(n.place)
+    place(n.instance) // an `invoke`'s receiver — a call through a pointer or an in-out is reached only here
   }
   const place = (p: unknown): void => {
     if (p === null || typeof p !== "object") return
@@ -55,14 +57,20 @@ export function tierOf(pou: IrPou, ownPouName: string): Tier {
       seen.add(`place-${String(step.kind)}`)
       expr(step.index)
     }
+    place(n.guard) // a dereference guard is a place of its own, and it is what makes the access indirect
   }
   const stmt = (s: unknown): void => {
     if (s === null || typeof s !== "object") return
     const n = s as Record<string, unknown>
     if (typeof n.kind === "string") seen.add(`stmt-${n.kind}`)
-    for (const k of ["value", "cond", "selector", "test"]) expr(n[k])
+    for (const k of ["value", "cond", "selector"]) expr(n[k])
+    // A LOOP'S TEST IS `{ cond, atEnd }`, not an expression — it has no `kind`, and `cond` is not a key `expr`
+    // recurses through, so `WHILE iface.Ready()` and `WHILE NOT w.3` contributed NOTHING and their fixtures were
+    // filed `control` instead of `indirect`. The sweep walks these bands in order, so a mis-banded fixture is
+    // worked in the wrong pass — in the one table whose stated purpose is to be measured rather than judged.
+    expr((n.test as Record<string, unknown> | undefined)?.cond)
     place(n.target)
-    for (const k of ["then", "else", "body", "init", "step", "arms", "args"])
+    for (const k of ["then", "else", "body", "init", "step", "arms", "args", "inputs", "inouts", "lent"])
       for (const x of (n[k] ?? []) as Record<string, unknown>[]) {
         if (typeof x?.kind === "string") stmt(x)
         else if (Array.isArray(x?.body)) (x.body as unknown[]).forEach(stmt)
@@ -87,9 +95,14 @@ export function tierOf(pou: IrPou, ownPouName: string): Tier {
 }
 
 // ── where the correctness evidence is ────────────────────────────────────────────────────────────────────────
-
-/** Which oracle reached the fixture's EMITTED RUST — not the interpreter, which `evidence` already covers. */
-export type Correctness = "vendor" | "compiles" | "rejected" | "none"
+/**
+ * Which oracle reached the fixture's EMITTED RUST — not the interpreter, which `evidence` already covers.
+ *
+ * THERE IS NO `none`. A fixture that does not lower carries no row half at all — the generator writes no `tier` for it —
+ * so the signal for one is `transpile.tier === undefined`, not a value of this. `none` was in the union and
+ * documented in `types.ts`, and it was unreachable: a reader checking `rust === "none"` wrote dead code.
+ */
+export type Correctness = "vendor" | "compiles" | "rejected"
 
 const RUNS = JSON.parse(readFileSync(join(import.meta.dir, "..", "recordings", "codesys.run.json"), "utf8")).tests as Record<
   string,
@@ -104,16 +117,15 @@ const RUNS = JSON.parse(readFileSync(join(import.meta.dir, "..", "recordings", "
  * deterministic SAMPLE of 120, which is a property of the suite rather than a fact about a fixture — writing it in
  * a per-fixture row would claim evidence that moves when `SAMPLE` moves.
  */
-export function correctnessOf(name: string, evidence: string, lowers: boolean, built = true): Correctness {
-  if (!lowers) return "none"
-  // THE EVIDENCE IS PASSED IN, not read off the fixture. The generator runs before the map it writes is merged, so
-  // `t.evidence` is undefined there — read from the fixture, every row came out `compiles` and not one said
-  // `vendor`, which is the strongest thing this field has to say.
+export function correctnessOf(name: string, evidence: string, built: boolean): Correctness {
+  // BOTH ARGUMENTS ARE REQUIRED, and `built` has no default ON PURPOSE. `compiles` was once ASSUMED: the generator
+  // ran the compiler and threw the exit code away, so every fixture that lowered was written `compiles` — six of
+  // them wrongly, because their emitted Rust does not build (`i : INT := 1.5` emits `1.5i16`). A default of `true`
+  // re-arms exactly that, silently, for the next caller who omits it.
   //
-  // AND `built` IS PASSED IN, because `compiles` was ASSUMED. The generator ran the compiler and threw the exit
-  // code away, so every fixture that lowered was written `compiles` — including 6 whose emitted Rust the compiler
-  // rejects (`i : INT := 1.5` emits `1.5i16`). The one field whose whole job is to say where the evidence is was
-  // claiming evidence nobody had.
+  // THE EVIDENCE IS PASSED IN TOO, rather than read off the fixture: the generator writes the map that
+  // `fixtures/index.ts` merges, so inside it `t.transpile` is the PREVIOUS generation's and `t.evidence` is a
+  // rating this run may be about to change. Reading either there is a read path into its own prior output.
   if (!built) return "rejected"
   return evidence === "confirmed" && RUNS[name]?.values !== undefined ? "vendor" : "compiles"
 }
@@ -194,6 +206,22 @@ export function assertPolicy(): void {
 export const LINT_FLAGS: readonly string[] = ["-W", "warnings", "-W", "clippy::all", "--error-format=json"]
 
 /**
+ * THE ARGV BOTH PRODUCERS BUILD, so the `built` flag the generator writes into a row means what the gate asserts.
+ *
+ * They diverged: the generator omitted `-F unsafe_code` entirely, so it decided `compiles` vs `rejected` under a
+ * weaker configuration than the gate enforces — a fixture emitting `unsafe` would have been written `compiles` and
+ * then failed "the stored oracle matches what the compiler actually did" forever, with the two never agreeing.
+ *
+ * `out` decides the one thing they may still differ on: the value pass links a real executable because it RUNS it,
+ * and everything else stops at `--emit metadata`. That is a deliberate difference and it is the only one.
+ */
+export function buildArgv(compiler: string, file: string, out: { exe: string } | { metadata: string }): string[] {
+  const emit = "exe" in out ? ["-o", out.exe] : ["--emit", "metadata", "-o", out.metadata]
+  // ST has no dynamic memory, so the Rust needs no `unsafe` — forbidden, so a case needing it fails rather than builds
+  return [compiler, "--edition", "2021", ...LINT_FLAGS, "-F", "unsafe_code", ...emit, file]
+}
+
+/**
  * THE ALLOW-LIST IS APPLIED IN THE PARSER, NOT AS `-A` FLAGS. It was flags, which is the obvious way and made the
  * policy unfalsifiable: a lint the compiler was told to allow never reaches the output, so an entry that excuses
  * NOTHING looks exactly like one doing its job. Two of them were (`non_camel_case_types`, `non_snake_case`),
@@ -209,60 +237,70 @@ export interface Finding {
   line: number
 }
 
+/** One diagnostic, as `--error-format=json` writes it. */
+interface Diagnostic {
+  level?: string
+  code?: { code?: string }
+  spans?: { line_start?: number; is_primary?: boolean }[]
+}
+
+/**
+ * WHERE A DIAGNOSTIC IS — the span flagged `is_primary`, NOT `spans[0]`.
+ *
+ * rustc does not guarantee the primary span comes first, and the line decides whether a finding belongs to the
+ * EMITTED code or to the `main` the caller appended. Read off `spans[0]`, a lint whose first span is a secondary
+ * one inside that `main` is computed past `emittedLines` and silently dropped from the fixture's row, and the
+ * inverse is recorded against the emitter. The same index feeds the dead-allow-list-entry refusal.
+ */
+function lineOf(d: Diagnostic): number {
+  return (d.spans?.find((s) => s.is_primary === true) ?? d.spans?.[0])?.line_start ?? 0
+}
+
 /**
  * The findings in a `--error-format=json` stderr, minus the policy. A parser over the compiler's own output rather
  * than over its rendered text, because the rendered form wraps and a lint name can land mid-line.
+/**
+ * Every lint on a fixture's emitted code, split by the policy — ONE pass over the compiler's JSON.
+ *
+ * `found` is what is recorded against the fixture; `excused` is what `ALLOWED` covered, counted so a dead entry is
+ * visible (two of them were: `non_camel_case_types` and `non_snake_case`, written from reasoning and produced by
+ * none of the 2,295 lowered fixtures). They were two functions running the same loop with inverted conditions,
+ * so every fixture's stderr was split and JSON-parsed twice across 2,600 of them.
+ *
+ * FILTERED BY LINE, because both callers compile `emitRust(pou).code` plus a `main` of their own — the gate's
+ * prints the recorded variables, the generator's is empty — and the gate's `println!` calls raise lints that are
+ * the harness's, not the emitter's. That filter is what keeps the two producers measuring the same thing, which
+ * is the whole reason a generated file can be checked at all.
  */
-export function findings(stderr: string): Finding[] {
-  const out: Finding[] = []
+export function splitFindings(stderr: string, emittedLines: number): { found: Finding[]; excused: string[] } {
+  const found: Finding[] = []
+  const excused: string[] = []
   for (const raw of stderr.split("\n")) {
     if (!raw.startsWith("{")) continue
-    let parsed: { level?: string; code?: { code?: string }; spans?: { line_start?: number }[] }
+    let parsed: Diagnostic
     try {
       parsed = JSON.parse(raw)
     } catch {
       continue // a line that is not one JSON diagnostic carries no finding; a real error arrives on its own
     }
     const code = parsed.code?.code
-    if (parsed.level !== "warning" || code === undefined || code in ALLOWED) continue
-    out.push({ code, line: parsed.spans?.[0]?.line_start ?? 0 })
+    if (parsed.level !== "warning" || code === undefined) continue
+    const line = lineOf(parsed)
+    if (line <= 0 || line > emittedLines) continue
+    if (code in ALLOWED) excused.push(code)
+    else found.push({ code, line })
   }
-  return out
+  return { found, excused }
 }
 
-/**
- * The findings that are about the EMITTED CODE, not about whatever the caller appended to it.
- *
- * Both callers compile `emitRust(pou).code` plus a `main` of their own — the gate's prints the recorded variables,
- * the generator's is empty — and the gate's `println!` calls raise lints of their own. Filtering by line keeps the
- * two producers measuring the same thing, which is the whole reason a generated file can be checked at all.
- */
+/** The findings recorded against a fixture — `splitFindings`' first half. */
 export function emittedFindings(stderr: string, emittedLines: number): Finding[] {
-  return findings(stderr).filter((f) => f.line > 0 && f.line <= emittedLines)
+  return splitFindings(stderr, emittedLines).found
 }
 
-/**
- * The lints the policy EXCUSED on this fixture's emitted code — the other half of `emittedFindings`.
- *
- * Counted so a dead allow-list entry is visible. Two of them were written from reasoning rather than measurement
- * (`non_camel_case_types`, `non_snake_case`) and excused nothing at all: the emitter already carries the attribute
- * for the first, and `snake()` makes the second impossible. An entry that excuses nothing is the decoration the
- * block above warns about, and nothing could tell — the rows only ever recorded what was NOT allowed.
- */
+/** The lints `ALLOWED` covered — `splitFindings`' second half, and what the dead-entry refusal counts. */
 export function excusedFindings(stderr: string, emittedLines: number): string[] {
-  const out: string[] = []
-  for (const raw of stderr.split("\n")) {
-    if (!raw.startsWith("{")) continue
-    try {
-      const parsed = JSON.parse(raw) as { level?: string; code?: { code?: string }; spans?: { line_start?: number }[] }
-      const code = parsed.code?.code
-      const at = parsed.spans?.[0]?.line_start ?? 0
-      if (parsed.level === "warning" && code !== undefined && code in ALLOWED && at > 0 && at <= emittedLines) out.push(code)
-    } catch {
-      continue
-    }
-  }
-  return out
+  return splitFindings(stderr, emittedLines).excused
 }
 
 /** A `--error-format=json` stderr as a human would read it — the `rendered` field each diagnostic already carries. */
@@ -313,23 +351,6 @@ export interface FixtureMapRow {
   diverges?: Readonly<Record<string, "triage" | "known">>
 }
 
-/** The transpile half of a row: what came out of the backend, and what the linter says about it. */
-export function transpileHalf(
-  t: LanguageTest,
-  evidence: string,
-  pou: IrPou | undefined,
-  stderr: string,
-  emittedLines: number,
-  built: boolean,
-): Pick<FixtureMapRow, "tier" | "rust" | "lints"> {
-  if (pou === undefined) return {}
-  const lints = [...new Set(emittedFindings(stderr, emittedLines).map((f) => f.code))].sort()
-  return {
-    tier: tierOf(pou, t.pouName),
-    rust: correctnessOf(t.name, evidence, true, built),
-    ...(lints.length > 0 ? { lints } : {}),
-  }
-}
 
 /** Which vendors this fixture is recorded as not matching — derived from the authored sets in `divergences.ts`. */
 export function divergesOf(name: string): FixtureMapRow["diverges"] {

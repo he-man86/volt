@@ -268,6 +268,21 @@ function unparen(text: string): string {
 }
 
 /**
+ * `unparen`, EXCEPT where a bare `{` would be read as the body rather than the scrutinee.
+ *
+ * An `if` condition and a `match` selector are the one position Rust treats specially: `if { … } { … }` and
+ * `match match k { … } { … }` are ambiguous at best. `SEL` prints `({ … })` and `MUX` prints `(match … { … })`,
+ * so an `IF SEL(…)` or a `CASE MUX(…)` reaches exactly that — and no fixture writes one, so the suite would not
+ * have said. Everywhere else a block-like expression unwraps fine, which is why this is not inside `unparen`:
+ * putting it there kept the parentheses on 83 assignment right-hand sides that did not need them.
+ */
+function unparenHead(text: string): string {
+  const inner = text.startsWith("(") ? text.slice(1, -1).trimStart() : ""
+  const blockLike = ["{", "match ", "if ", "unsafe ", "loop ", "while "].some((s) => inner.startsWith(s))
+  return blockLike ? text : unparen(text)
+}
+
+/**
  * `text as target`, or `text` unchanged when it already IS that Rust type — the twin of the identity rule in
  * `convert`, for the casts a BUILTIN adds on top of an argument the IR already typed: `SHL`s `as u32`, the math
  * helpers `as f64`, the string helpers `as i64`. Parenthesized when it does cast, because every one of these
@@ -487,8 +502,12 @@ class Printer {
         // unconditional `as i64` printed `(0i64 as i64) as usize` — a cast to its own type inside parentheses
         // neither rustc nor clippy has any use for.
         const index = castTo(this.expr(step.index, slots), step.index.type, "i64")
+        // NOT `unparen`ed, and that is the whole point: `as` binds TIGHTER than the arithmetic operators, so
+        // stripping the printer's parentheses off `(self.li / 2i64)` leaves `self.li / 2i64 as usize`, which Rust
+        // reads as `self.li / (2i64 as usize)` — E0277, `cannot divide i64 by usize`. `arr[li / 2]` is the reaching
+        // case and no fixture has one, so the suite stayed green over an emission that does not compile.
         // a negative offset wraps to a huge usize, so an index below the lower bound panics like one above the upper
-        text += step.lower === 0n ? `[${unparen(index)} as usize]` : `[(${index} - ${step.lower}i64) as usize]`
+        text += step.lower === 0n ? `[${index} as usize]` : `[(${index} - ${step.lower}i64) as usize]`
         type = elementOf(type)!
       }
     }
@@ -497,9 +516,12 @@ class Printer {
 
   /** A place in a PROGRAM's one instance, as a call on it runs: the program moved out of `Programs` (`program`, of `type`),
    *  and the path from it to the instance (`member`, empty for the program itself). */
-  movedOut(p: Place, slots: IrPou["slots"]): { program: string; type: string; member: string } {
+  /** The PROGRAM's own place and the member path under it — a call runs it moved out of `Programs` and puts it back.
+   *  It used to return the program's TYPE as well, for `std::mem::replace(&mut p, T::new())`; `mem::take` needs no
+   *  stand-in to swap in, so the type went with it. `take` is why the `Default` impl is not optional. */
+  movedOut(p: Place, slots: IrPou["slots"]): { program: string; member: string } {
     const program = this.place({ ...p, path: [] }, slots)
-    return { program, type: rustName((this.globals.slots[p.slot]!.type as { name: string }).name), member: this.place(p, slots).slice(program.length) }
+    return { program, member: this.place(p, slots).slice(program.length) }
   }
 
   push(text: string, indent: number, span?: Span): void {
@@ -516,7 +538,15 @@ class Printer {
     // a comparison flips; `NOT NOT x` is `x`; a constant is the other constant. A REPEAT's test arrives already
     // negated (`UNTIL` is the exit condition), so without the double-negation case every REPEAT printed
     // `if !(!(n > 5)) { break; }` — three of the four `nonminimal_bool` findings left after the first pass.
-    if (e.kind === "binary" && INVERSE[e.op] !== undefined)
+    //
+    // NOT FOR A REAL OPERAND. Flipping an ordering comparison is negation only over a total order, and floats are
+    // not one: with a NaN operand every one of `<`, `<=`, `>`, `>=` is false, so `!(r <= 10.0)` is TRUE and
+    // `r > 10.0` is FALSE. `WHILE r <= 10.0` over a NaN exits at once in the interpreter and never exits in the
+    // emitted Rust — an infinite loop, and a divergence no fixture reaches. `eq`/`ne` are safe (NaN makes `eq`
+    // false and `ne` true, which are still each other's negation), and only the four orderings are excluded.
+    const ordering = e.kind === "binary" && e.op !== "eq" && e.op !== "ne"
+    const overReals = (x: IrExpr): boolean => x.type.kind === "elementary" && x.type.elem.family === "real"
+    if (e.kind === "binary" && INVERSE[e.op] !== undefined && !(ordering && (overReals(e.left) || overReals(e.right))))
       return unparen(this.expr({ ...e, op: INVERSE[e.op] } as IrExpr, slots))
     if (e.kind === "unary" && e.op === "not") return unparen(this.expr(e.operand, slots))
     if (e.kind === "const" && typeof e.value === "boolean") return e.value ? "false" : "true"
@@ -821,7 +851,7 @@ class Printer {
         return
       }
       case "if": {
-        this.push(`if ${unparen(this.expr(s.cond, slots))} {`, indent, s.span)
+        this.push(`if ${unparenHead(this.expr(s.cond, slots))} {`, indent, s.span)
         this.block(s.then, slots, indent + 1)
         if (s.else.length > 0) {
           this.push("} else {", indent)
@@ -831,7 +861,7 @@ class Printer {
         return
       }
       case "switch": {
-        this.push(`match ${unparen(this.expr(s.selector, slots))} {`, indent, s.span)
+        this.push(`match ${unparenHead(this.expr(s.selector, slots))} {`, indent, s.span)
         for (const arm of s.arms) {
           const pattern = arm.labels
             .map((l) => (l.lo === l.hi ? `${l.lo}` : `${l.lo}..=${l.hi}`))

@@ -136,8 +136,9 @@ export interface LanguageTest {
    *
    *   `tier`         the band of the language this fixture's own body reaches, from the lowered IR. The
    *                  simplest-first ladder the emitter sweep walks; `support/transpile-confidence.ts` defines it.
-   *   `correctness`  which oracle reached the emitted RUST — `vendor` when the recording's values came back out of
-   *                  it, `compiles` when it built and no recorded value reaches it, `none` when it does not lower.
+   *   `rust`         which oracle reached the emitted RUST — `vendor` when the recording's values came back out of
+   *                  it, `compiles` when the compiler accepted it and no recorded value reaches it, `rejected`
+   *                  when the compiler refused it. Taken from the compiler's exit status, never inferred.
    *   `lints`        what the Rust linter still says about the emitted code, after a policy that names a reason
    *                  per allowed lint. Empty is the goal; a non-empty list is the work left on that construct.
    *
@@ -145,11 +146,15 @@ export interface LanguageTest {
    *                  `triage` for an open false positive, `known` for a documented mismatch. The membership is
    *                  here so one row answers the whole question; the REASON stays in that file, where prose belongs.
    *
-   * A fixture that does not lower carries no `tier`, `rust` or `lints` — it must not be able to read as clean.
+   * A fixture that does not lower carries no `tier`, `rust` or `lints` at all — that absence IS the signal, and
+   * it must not be able to read as clean.
    */
   transpile?: {
-    tier?: string
-    rust?: "vendor" | "compiles" | "rejected" | "none"
+    /** The literals of `TIERS` in `support/transpile-confidence.ts`, spelled out because importing it here would
+     *  be a cycle — that module imports this one for `LanguageTest`. `fixtures.test.ts` recomputes every value
+     *  with the real `tierOf`, so a drift between the two lists is a red test rather than a silent widening. */
+    tier?: "decl" | "arith" | "control" | "aggregate" | "call" | "indirect"
+    rust?: "vendor" | "compiles" | "rejected"
     lints?: readonly string[]
     diverges?: Readonly<Record<string, "triage" | "known">>
   }

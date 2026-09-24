@@ -51,7 +51,7 @@ import { plcPrgSource } from "./support/plc-prg.js"
 import { STANDARD_LIBRARY } from "./support/standard-library.js"
 import { CLIPPY, RUSTC as rustc, skipLintCheck, skipRustSuite } from "./support/rustc.js"
 import {
-  LINT_FLAGS,
+  buildArgv,
   assertPolicy,
   correctnessOf,
   divergesOf,
@@ -262,6 +262,27 @@ const BY_RATING = new Map<Evidence, LanguageTest[]>(EVIDENCE_ORDER.map((r) => [r
 for (const t of ALL_TESTS) BY_RATING.get(t.evidence as Evidence)?.push(t)
 const rated = (r: Evidence): LanguageTest[] => BY_RATING.get(r) ?? []
 
+/** Every fixture by name — the lint ratchet looked one up per case, which is 1,900 x 2,600 string compares a run. */
+const BY_NAME = new Map<string, LanguageTest>(ALL_TESTS.map((t) => [t.name, t]))
+
+/**
+ * Where a compiled case's lints disagree with its stored row, in EITHER direction — a new one is the emitted Rust
+ * getting worse, a missing one is a row excusing a lint the emitter no longer produces.
+ */
+const lintDrift = (found: Map<string, string[]>): string[] =>
+  [...found]
+    .map(([name, got]) => {
+      const stored = new Set(BY_NAME.get(name)?.transpile?.lints ?? [])
+      const mine = new Set(got)
+      const extra = [...mine].filter((l) => !stored.has(l)).sort()
+      const gone = [...stored].filter((l) => !mine.has(l)).sort()
+      return [name, extra, gone] as const
+    })
+    .filter(([, extra, gone]) => extra.length > 0 || gone.length > 0)
+    .map(([name, extra, gone]) =>
+      `${name}:${extra.length > 0 ? ` now reports ${extra.join(", ")}` : ""}${gone.length > 0 ? ` no longer reports ${gone.join(", ")}` : ""}`,
+    )
+
 /**
  * THE VENDOR RAN IT AND SO DO WE. Two halves, because they fail differently: the interpreter and the emitter print
  * the same IR, so a LOWERING bug shows in both — but an EMITTER bug (a Rust operator that does not mean what the
@@ -392,11 +413,16 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
       // this code, and the printer was emitting 2,722 pairs of parentheses no one would write.
       //
       // BUILT WITH `clippy-driver` WHERE THERE IS ONE — a drop-in for `rustc` that also runs the lints, so the
-      // OPTIMALITY half of the map costs the compile this pass was already paying for. Lint levels are last-wins,
-      // so `-W clippy::all` AFTER `-D warnings` leaves every rustc lint denied (a real emission defect is still a
-      // build failure) while clippy's arrive as warnings to be RECORDED against the fixture.
+      // OPTIMALITY half of the map costs the compile this pass was already paying for.
+      //
+      // NOTHING IS DENIED. `LINT_FLAGS` is `-W warnings -W clippy::all`, warn and not deny, for the reason spelled
+      // out where it is defined: `-D` makes a diagnostic `level: "error"`, so a findings parser reading warnings
+      // sees nothing and every row is written clean while the build fails for a reason no row records. What a
+      // rustc lint used to get from `-D warnings` it gets from the RATCHET below instead — a fixture may report
+      // only the lints its stored row carries — which is the same guarantee per fixture and covers clippy's too.
+      // A real compile ERROR still fails the build here; it is not a lint.
       const build = Bun.spawn(
-        [CLIPPY ?? rustc!, "--edition", "2021", ...LINT_FLAGS, "-F", "unsafe_code", "-o", exe, file],
+        buildArgv(CLIPPY ?? rustc!, file, { exe }),
         { stderr: "pipe" },
       )
       const buildExit = await build.exited
@@ -464,27 +490,21 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
   }
 
   /**
-   * THE LINT RATCHET — the optimality half of `map.generated.ts`, and the reason `-D warnings` moved out of the
-   * build above.
+   * THE LINT ROWS, CHECKED IN BOTH DIRECTIONS — the optimality half of `map.generated.ts`, and what a rustc lint
+   * gets instead of the `-D warnings` that moved out of the build above.
    *
-   * A fixture may report only the lints its stored row already carries. Report one it does not and this fails
-   * naming the fixture and the lint, which is the same guarantee `-D warnings` gave for rustc's lints and now
-   * covers clippy's too — where the emitter's own quality actually shows up.
+   * IT USED TO FAIL ONLY UPWARD, on the reasoning that a fix which removes a finding is the point of the sweep and
+   * should not arrive red. That was wrong in the way one-way ratchets always are: a row that still lists a lint the
+   * emitter no longer produces EXCUSES that lint for that fixture forever, so a later regression reintroducing it
+   * is green. Nothing else reclaimed a stale row — `rate:fixtures --check` is in no CI job.
    *
-   * IT DOES NOT FAIL ON A ROW THAT SHRANK. A fix that removes a finding is the point of the sweep, and failing the
-   * suite on it would mean every improvement arrives red; `bun run rate:fixtures --check` reports those, and the
-   * count in the generated header is what moves.
+   * So it is symmetric, like `the stored rating on every fixture matches the computed one` already is: stored data
+   * must equal computed data, and an improvement is a regeneration rather than an exception.
    */
-  test.skipIf(skipLintCheck())("no case reports a lint its stored row does not carry", () => {
-    const worse = [...lints]
-      .map(([name, found]) => {
-        const stored = new Set(ALL_TESTS.find((t) => t.name === name)?.transpile?.lints ?? [])
-        return [name, [...new Set(found)].filter((l) => !stored.has(l)).sort()] as const
-      })
-      .filter(([, extra]) => extra.length > 0)
-      .map(([name, extra]) => `${name}: ${extra.join(", ")}`)
-    if (worse.length > 0) console.log("  [fixtures] the emitted Rust got worse — or run `bun run rate:fixtures`")
-    expect(worse).toEqual([])
+  test.skipIf(skipLintCheck())("every case's lints are exactly what its stored row carries", () => {
+    const stale = lintDrift(lints)
+    if (stale.length > 0) console.log("  [fixtures] the emitted Rust changed — run `bun run rate:fixtures`")
+    expect(stale).toEqual([])
   })
 })
 
@@ -521,7 +541,7 @@ describe.skipIf(skipRustSuite())("the rest of the lowered fixtures — the emitt
           const file = join(dir, `${c.name}.rs`)
           await Bun.write(file, `${emitted.code}\nfn main() {}\n`)
           const build = Bun.spawn(
-            [CLIPPY ?? rustc!, "--edition", "2021", ...LINT_FLAGS, "-F", "unsafe_code", "--emit", "metadata", "-o", `${file}.meta`, file],
+            buildArgv(CLIPPY ?? rustc!, file, { metadata: `${file}.meta` }),
             { stderr: "pipe", stdout: "pipe" },
           )
           const ok = (await build.exited) === 0
@@ -552,16 +572,10 @@ describe.skipIf(skipRustSuite())("the rest of the lowered fixtures — the emitt
     expect(wrong).toEqual([])
   })
 
-  test.skipIf(skipLintCheck())("no case reports a lint its stored row does not carry", () => {
-    const worse = rest
-      .map((c) => {
-        const stored = new Set(c.transpile?.lints ?? [])
-        return [c.name, [...new Set(built.get(c.name)?.lints ?? [])].filter((l) => !stored.has(l)).sort()] as const
-      })
-      .filter(([, extra]) => extra.length > 0)
-      .map(([name, extra]) => `${name}: ${extra.join(", ")}`)
-    if (worse.length > 0) console.log("  [fixtures] the emitted Rust got worse — or run `bun run rate:fixtures`")
-    expect(worse).toEqual([])
+  test.skipIf(skipLintCheck())("every case's lints are exactly what its stored row carries", () => {
+    const stale = lintDrift(new Map(rest.filter((c) => built.has(c.name)).map((c) => [c.name, built.get(c.name)!.lints])))
+    if (stale.length > 0) console.log("  [fixtures] the emitted Rust changed — run `bun run rate:fixtures`")
+    expect(stale).toEqual([])
   })
 })
 
@@ -771,6 +785,7 @@ describe("the table is total", () => {
       const rust = t.transpile?.rust
       if ((pou === undefined) !== (rust === undefined))
         stale.push(`${t.name}: rust stored ${rust ?? "(none)"}, but it ${pou === undefined ? "does not lower" : "lowers"}`)
+      // `built: true` only so the call is well formed — this compares the `vendor` half, which does not depend on it
       if (rust !== undefined && (rust === "vendor") !== (correctnessOf(t.name, t.evidence ?? "", true) === "vendor"))
         stale.push(`${t.name}: rust stored ${rust}, and the recording says otherwise`)
 
