@@ -77,8 +77,30 @@ namespace Volt.Connector
         private static volatile string? _setupUrl; // that release's Volt-win-Setup.exe download URL
         private static int _applying; // 0/1 guard (Interlocked) so a double-click doesn't download/launch twice
 
-        /// <summary>The installed version, shown in the tray ("(dev)" when not installed via the Setup).</summary>
-        public static string CurrentVersion { get; private set; } = "(dev)";
+        /// <summary>The installed version, shown in the tray ("(dev)" when not installed via the Setup).
+        ///
+        /// <para>READ ON DEMAND, not assigned by <see cref="Start"/>. It used to default to "(dev)" and be
+        /// overwritten inside `Start()`, which made <see cref="IsDev"/> answer TRUE for every caller that ran
+        /// first — and one did: `Program.Main` gates `VoltEnv.Install` on `!IsDev` seven lines before it calls
+        /// `Start()`. So no build, installed or not, registered the login item or the Start Menu shortcut: the
+        /// tray stopped starting at login and the desktop app became unlaunchable except from its own exe.
+        /// `scripts/test-install.ts` asserts that shortcut exists, so the release gate failed with it.</para>
+        ///
+        /// <para>A property that is only correct after some other method has run is an ordering bug waiting to
+        /// happen; reading the stamp on first use removes the ordering from the question entirely.</para></summary>
+        public static string CurrentVersion => _stamped.Value;
+
+        private static readonly Lazy<string> _stamped = new(() =>
+        {
+            // An unstamped local dev publish is .NET's default 1.0.0.0 → "(dev)", no update surface.
+            try
+            {
+                var v = FileVersionInfo.GetVersionInfo(Environment.ProcessPath ?? "").FileVersion?.Trim();
+                if (!string.IsNullOrEmpty(v) && v != "1.0.0.0" && Version.TryParse(v, out _)) return v!;
+            }
+            catch (Exception e) { VoltLog.Warn($"updater: version read failed: {e.Message}"); }
+            return "(dev)";
+        });
 
         /// <summary>True when this is a dev/unstamped build — the version isn't a real X.Y.Z.count (it's "(dev)", or a
         /// binary built without VOLT_VERSION whose FileVersion is .NET's default 1.0.0.0). The UI says "development
@@ -108,14 +130,6 @@ namespace Volt.Connector
             // version.txt any more — it reported what the install MEANT to be, so when a locked file made Inno roll
             // back mid-install it kept claiming the new version while the binaries stayed old, and the tray repeated
             // the claim.) An unstamped local dev publish is 1.0.0.0 → "(dev)", no update surface.
-            try
-            {
-                var stamped = FileVersionInfo.GetVersionInfo(Environment.ProcessPath ?? "").FileVersion?.Trim();
-                if (!string.IsNullOrEmpty(stamped) && stamped != "1.0.0.0" && Version.TryParse(stamped, out _))
-                    CurrentVersion = stamped!;
-            }
-            catch (Exception e) { VoltLog.Warn($"updater: version read failed: {e.Message}"); }
-
             if (!Version.TryParse(CurrentVersion, out _)) return; // "(dev)" / unparseable — no update surface
 
             CleanTempInstallers(); // sweep any Setup.exe a previous update left behind in %TEMP%

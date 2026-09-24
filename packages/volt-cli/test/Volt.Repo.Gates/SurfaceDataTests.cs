@@ -88,8 +88,6 @@ public class SurfaceDataTests
             ["description"] = "One detected project, flattened for any first-party client.",
             ["fields"] = new JsonArray(
                 Field("id", "string", "The row's stable id."),
-                Field("displayName", "string", "What to show. Always equal to `projectName` — both come from the "
-                    + "one health-row field, which is the row's identity AND its `connect` address."),
                 Field("vendor", "string", "`codesys` or `twincat`."),
                 Field("dirty", "boolean", "The workspace has changes the IDE does not."),
                 Field("status", "string", "GROUND TRUTH for connection state: `idle` (detected, not served) · "

@@ -143,9 +143,15 @@ public static class PushService
             // Every one of them arrived as `code: null`, which is how `create-shapes.test.ts` caught this: a
             // refusal that says at length that the shape can NEVER be written, carrying nothing to distinguish
             // it from "pull and retry".
+            //
+            // AND NEVER NULL, because the field is published as never null. Anything that is not a coded error,
+            // a network-text diagnostic or a vendor "cannot" is a fault nobody classified — a COM exception, an
+            // argument error — and INTERNAL_ERROR is exactly what the frame vocabulary calls that. Leaving it
+            // null would make a client that followed the documented contract and branched on `code` fall through
+            // on the one path where ops have ALREADY been written to the PLC.
             var code = (ex as ICodedError)?.ErrorCode
                        ?? netEx?.Code
-                       ?? (ex is NotSupportedException ? BridgeErrorCodes.Unsupported : null);
+                       ?? (ex is NotSupportedException ? BridgeErrorCodes.Unsupported : BridgeErrorCodes.InternalError);
             VoltLog.Info($"push {opTotal} ops — REJECTED ({op.Name}: {ex.Message}, {applied.Count} already applied) ({sw.ElapsedMilliseconds}ms)");
             // NAME WHAT ALREADY LANDED. The ops before this one are written and are not rolled back (a delete
             // cannot be undone, and a half-undone push is worse than a half-done one), so a rejection that reads

@@ -292,6 +292,17 @@ public static class Commands
                 ? "dry run — already up to date with the IDE"
                 : "dry run — these IDE items would be merged in");
 
+        // BEFORE THE FIRST WRITE, and `--force`'s first write is the DISCARD below — not the merge. The guard
+        // sat further down with a comment claiming this, so a Force Pull on a box with no git identity threw the
+        // engineer's uncommitted src/ edits away and THEN refused, reporting a refusal that reads as "nothing
+        // happened". The merge commit is theirs, so it needs their identity; finding that out has to cost
+        // nothing.
+        if (!Git.HasIdentity(root))
+            return PullResult.Refused(
+                "git has no identity in this repo, and the merge commit is yours - set one first:\n" +
+                "  git config user.name \"Your Name\"\n" +
+                "  git config user.email \"you@example.com\"");
+
         // --force discards local work, so it must run even when there is nothing INCOMING: "up to date with the
         // IDE" is exactly the state a user is in when they edit locally and then want their edit thrown away.
         // Short-circuiting first (as the non-force path does) is what made Force Pull look broken.
@@ -319,16 +330,6 @@ public static class Commands
         // merge — which can return a CONFLICT. Honouring the button's "cannot be undone" promise literally would be
         // a separate, deliberate change (merge with -X theirs, or reset the branch to volt/ide under force), and the
         // <param name="force"> doc above has to be rewritten with it.
-        // BEFORE anything is written. The merge commit is the engineer's own, so it uses their git identity -
-        // and a box that has never configured one (a fresh install, a CI runner, a service account) would fail
-        // inside `git merge` with "Please tell me who you are", after the fetch and the tree build. Said here,
-        // it costs nothing and names the remedy.
-        if (!Git.HasIdentity(root))
-            return PullResult.Refused(
-                "git has no identity in this repo, and the merge commit is yours - set one first:\n" +
-                "  git config user.name \"Your Name\"\n" +
-                "  git config user.email \"you@example.com\"");
-
         Git.AutoCommitSrc(root);
         var ideFiles = fetched.Changed.SelectMany(Materialize.MaterializeItem).ToList();
         // A PARTIAL WALK MUST NOT SHRINK THE BASELINE. `ReadResponse.UnwalkedFolders` says a client that sees
@@ -359,7 +360,22 @@ public static class Commands
                     newItems.Remove(name);
         }
         else newItems = fetched.Items;
-        var newSidecar = new IdeRefs { ProjectVersion = fetched.ProjectVersion, Items = newItems, Folders = fetched.Folders };
+
+        // THE FOLDER MAP GETS THE SAME OVERLAY, because the item overlay above is USELESS without it. Written
+        // through as `fetched.Folders`, a preserved item had no folder entry — and the very next partial pull
+        // reads `sidecar.Folders.TryGetValue(name, …)` to decide whether it sits under an unread folder, gets
+        // false, and removes it. The protection lasted one cycle and then did the thing it was preventing.
+        Dictionary<string, string> newFolders;
+        if (fetched.UnwalkedFolders.Count > 0 && sidecar is not null)
+        {
+            newFolders = new Dictionary<string, string>(sidecar.Folders, StringComparer.Ordinal);
+            foreach (var kv in fetched.Folders) newFolders[kv.Key] = kv.Value;
+            foreach (var name in newFolders.Keys.ToList())
+                if (!newItems.ContainsKey(name)) newFolders.Remove(name);   // the two halves name the same items
+        }
+        else newFolders = fetched.Folders;
+
+        var newSidecar = new IdeRefs { ProjectVersion = fetched.ProjectVersion, Items = newItems, Folders = newFolders };
         var head = Git.HeadCommit(root);
         var parentIde = IdeTree.VoltIdeHead(gitDir);
 
@@ -596,6 +612,12 @@ public static class Commands
         var adoptedFolders = resp.NewFolders!.Where(kv => adopted.ContainsKey(kv.Key))
                                              .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
 
+        // …and an item RESTORED from the old baseline keeps the folder it had. The receipt walk never saw it, so
+        // `resp.NewFolders` has no key for it — filtering that alone left an item with no folder, which the next
+        // partial pull drops by the same mechanism, and which `StatusModel` renders as a bare name with no path.
+        foreach (var kv in sidecar.Folders)
+            if (adopted.ContainsKey(kv.Key) && !adoptedFolders.ContainsKey(kv.Key)) adoptedFolders[kv.Key] = kv.Value;
+
         // THE REF FIRST, THEN THE SIDECAR — the order `init` and `pull` already use, and the only one of the two
         // that can heal itself.
         //
@@ -623,6 +645,10 @@ public static class Commands
             Items = resp.NewItems!,
             Folders = resp.NewFolders!,
             ProjectVersion = resp.NewProjectVersion!,
+            // Or `ComputeIncoming` runs `complete: true` over a PARTIAL receipt and reports every item the walk
+            // did not see as an incoming DELETION — handed straight to volt-control, so the GUI announces that
+            // the IDE deleted the engineer's POUs immediately after a successful push.
+            UnwalkedFolders = resp.UnwalkedFolders,
         });
         return PushResult.Ok(ops.Select(o => o.Name).ToList(), status);
     }

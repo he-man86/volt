@@ -130,6 +130,8 @@ public static class StatusModel
             // print "in sync with the IDE" — the most confident sentence this model has, for the state it knows
             // least about.
             : !snap.Online ? $"IDE state unknown — {snap.Detail}"
+            // `--local` deliberately did not ask, so it has no more right to "in sync" than an offline one does.
+            : !snap.Walked ? "local only — the IDE was not asked"
             : CountSummary(incoming, outgoing);
 
         return new StatusData

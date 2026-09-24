@@ -103,11 +103,6 @@ window.VOLT_SURFACES = {
             "note": "The row\u0027s stable id."
           },
           {
-            "name": "displayName",
-            "type": "string",
-            "note": "What to show. Always equal to \u0060projectName\u0060 \u2014 both come from the one health-row field, which is the row\u0027s identity AND its \u0060connect\u0060 address."
-          },
-          {
             "name": "vendor",
             "type": "string",
             "note": "\u0060codesys\u0060 or \u0060twincat\u0060."

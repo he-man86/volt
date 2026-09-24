@@ -1,3 +1,4 @@
+using System.Linq;
 ﻿using Volt.Engine.Library;
 
 namespace Volt.Cli.Sync;
@@ -53,9 +54,14 @@ public static class IdeTree
         // `ERROR.struct` also deleted `Library Manager/CAA/ERROR.struct`, which nothing regenerates until that library's
         // version changes. Removal is keyed by NAME (identity is the item name) and these files have no item, so
         // they are exempt by LOCATION. A library root is any directory holding a `.library` stub.
-        var libraryRoots = parentIde is null
-            ? new HashSet<string>(StringComparer.Ordinal)
-            : LibraryRoots(Git.ListTree(gitDir, parentIde).Select(e => e.Path));
+        // FROM BOTH SIDES. Derived from the PARENT tree alone, a library added in THIS pull is not a library
+        // yet — its folder did not exist last time — so `UnderLibrary` answers false for its freshly rendered
+        // signatures, their full names enter `replacedNames`, and the project's own same-named file is evicted
+        // from the tree and deleted by the merge. That is the collision the comment above describes, reached
+        // through the one door the parent tree cannot see: a reference the engineer just added.
+        var libraryRoots = LibraryRoots(
+            (parentIde is null ? Enumerable.Empty<string>() : Git.ListTree(gitDir, parentIde).Select(e => e.Path))
+                .Concat(ideFiles.Select(f => f.Path)));
         bool UnderLibrary(string rel) => IsUnderLibraryRoot(rel, libraryRoots);
 
         // THE SAME ITEM CAN ARRIVE UNDER A DIFFERENT PATH, and `replaced` is keyed by PATH. A DUT is `X.dut` on
