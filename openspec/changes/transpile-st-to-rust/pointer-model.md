@@ -348,3 +348,34 @@ it simply does not unblock a corpus POU, and this file should not have implied i
       `refdecl_rebound_by_statement` and `refdecl_rebound_in_method` from `reference-binding.ts`.
 - [ ] **`__ISVALIDREF`** — the tag compared to 0, and what `refVacuumHighTime`'s 18 POUs are gated behind.
 - [ ] The reborrow (`ptrparam_passed_on`): a borrow handed to a second callee. Small, and form 2's own leftover.
+
+## Form 3's foreign half — what it needs, measured 2026-09-24
+
+The tagged handle now works for a pointer whose targets are recorded in the body that reads it: reads select
+(`IrSelect`), writes switch, and six fixtures match CODESYS. What is NOT built is the case the corpus actually
+has — an FB's pointer or reference INPUT, where the address comes from a caller.
+
+**It is not form 2.** `ptrparam_input_persists` supplies the input on one call and omits it on the next; the body
+still reads 55 through it. An FB VAR_INPUT is a field, so the address outlives the call by construction.
+
+**And it is not form 3 as built either**, for a reason worth stating precisely: the arms would name variables of
+the CALLER's frame, and the callee's body is lowered ONCE per FB type. `pointerKey` cannot even name the field
+from the caller (`interfaceKey` shows the shape that can — `FB:<Type>.<Field>`), and naming it would not be
+enough: the callee has to REACH what the tag names.
+
+So the foreign half is the `lent` mechanism, applied to a variable instead of an instance:
+
+- a registry of TARGETS with the frame each belongs to — `shared.instances`' twin;
+- `Lowering.lends`, today `{ tag; type: function_block }[]` and printed `__lent_N: &mut <FbType>`, widened to any
+  type, so a plain variable can be lent;
+- `lendPlace`'s walk, to give the callee the place as IT can reach it;
+- the deferred fixed point (`finishInterfaces` / `lendToCallees`), because a store later in the source reaches a
+  read earlier in it on the next scan, and because lending propagates up every call chain.
+
+That is the interface module's size again (~475 lines), and it is what `pointer-order`'s **2 sole-blocked POUs**
+need. The refusal says all of this now: `pointer-foreign`, split from `pointer-order`, whose message —
+"dereferenced before any address was stored into it" — was false here, since the caller stores one.
+
+Acceptance tests already recorded and waiting: `ptrparam_function_block`, `ptrparam_input_persists`,
+`ptrparam_unsupplied` (nothing supplied, and the vendor FAULTS — the "holds nothing" arm), and `ptrparam_kept`,
+which additionally needs a pointer COPIED out of the input into a field.

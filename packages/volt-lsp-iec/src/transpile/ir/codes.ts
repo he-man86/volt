@@ -129,6 +129,11 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   // work list does not count it as a pointer the model cannot follow (pointer-model.md D5). `fb-init-root` is
   // the same split, made 2026-09-24 — this note said "exactly like `fb-init-argument`" while that one still
   // carried both meanings.
+  // Not a construct gap and not unmeasured: the CALLER hands `ADR(x)` to another instance's pointer field, and the
+  // callee cannot reach x — its body is lowered once per FB type, so the target must be LENT per call the way
+  // `interfaces.ts` lends an instance. Form 3's foreign half (`pointer-model.md` §5). Kept apart from
+  // `pointer-order`, whose message — "before any address was stored into it" — was false here: one is stored.
+  "pointer-foreign": "unclassified",
   "pointer-root-input": "not-measured",
   "pointer-step": "unclassified",
   "pointer-targets": "unclassified",

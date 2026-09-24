@@ -202,9 +202,23 @@ function unsuppliedInput(lw: Lowering, pointer: Place, span: Span): undefined {
   // ROUTINEMODE IS EXCLUDED and the exclusion is load-bearing: a METHOD of the root FB also has VAR_INPUTs,
   // and those ARE supplied — by whoever calls the method. Only the POU's own entry body has inputs nobody fills.
   if (pointer.root !== undefined || lw.routineMode) return undefined
-  if (lw.shared.root === "" || lw.displayName !== lw.shared.root) return undefined
   const slot = lw.frame[pointer.slot]
   if (slot?.section !== "VAR_INPUT") return undefined
+  // AN FB'S POINTER INPUT THAT A CALLER DOES FILL — form 3's foreign half, and a different fact from the root's.
+  // The old message said "dereferenced before any address was stored into it", which is FALSE here: the caller
+  // writes one, into this instance's field. What is missing is that the callee cannot REACH what it names. This
+  // body is lowered once per FB TYPE, so a target in the caller's frame has to be LENT per call, the way
+  // `interfaces.ts` lends an instance, and the tag then picks which — `pointer-model.md` §5's "form 3 is the
+  // interface mechanism with a place where the call is", whose lending half is not built.
+  //
+  // It cannot collapse into form 2's borrow either: `ptrparam_input_persists` measures the field KEEPING the
+  // address across a call that omits the argument, so the address outlives the call by construction.
+  if (lw.shared.root === "" || lw.displayName !== lw.shared.root)
+    return lw.bail(
+      "pointer-foreign",
+      `${slot.name} is a pointer INPUT of ${lw.displayName}: an address a caller stores into it names a variable in the CALLER's frame, and reaching one needs it lent per call (form 3's foreign half)`,
+      span,
+    )
   return lw.bail(
     "pointer-root-input",
     `${slot.name} is a pointer INPUT of the POU being lowered, which has no caller to supply it — there is no address to follow`,
