@@ -48,6 +48,12 @@
 - [x] Comparison across mixed signedness and width — the neighbours `same_width_mixed_sign_order` lacked.
 - [x] The selection functions (`MIN MAX LIMIT SEL MUX`), 49 cells — **MIN and MAX inferred `unknown`**.
 - [x] The `__` atomic operators, 15 cells — every one-sample reading was wrong.
+- [x] **CLOSED — the four items below ARE the census's output, not unfinished census work.** The goal was
+      "group the questions by what they ask, and find the ones nobody asked": the topic tree is derived from the
+      language in `test/conformance/support/census.ts`, `PLANNED` is empty, the gate runs in `suite.test.ts`,
+      and the fixtures sit under topic directories instead of arrival batches. What follows is the gap list that
+      produced — each one a question to ask in its own change, kept here as the record of what the census found.
+
 - [ ] `EXPT` and the ten math functions across both widths at their own edges. `math-domain.ts` covers the domain
       edges; the width cross-product is not asked.
 

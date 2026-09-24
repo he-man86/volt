@@ -287,6 +287,12 @@ missing from their file today.
       unreachable, counted as "no ground truth to have". Their `vendorRefuses` markers are deleted; conformance
       is 4157 pass / 0 fail.
 
+- [x] **CLOSED WITH THE LAST TWO OPEN — they need a HUMAN IN XAE, not code.** Everything this change can do
+      is done; what remains is a manual data-capture step, recorded here so it is not mistaken for unfinished
+      engineering. Somebody draws `ng_execute_box` and `ng_box_output_arrow` in XAE, pulls them, and the
+      recorder runs the ordinary way, exactly as it did for the three above. Both are decided by the in-proc
+      host (N12), so no amount of driver work reaches them.
+
 - [ ] **The last two need a HUMAN IN XAE**: `ng_execute_box` and `ng_box_output_arrow`. Both are decided in
       section 3 — the in-proc host (N12) — so no amount of driver work reaches them, and a push test for a body
       the pusher cannot build is not writable. Somebody draws the two fixture bodies in XAE, pulls them, and the

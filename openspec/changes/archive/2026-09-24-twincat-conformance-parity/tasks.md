@@ -108,6 +108,12 @@
       recording carries the exception its message builder throws below STRING(3); six fixtures that are
       reachability, a project setting or a vendor defect and moved to `KNOWN_DIVERGENCES` with their evidence;
       C0098, a rule NEITHER vendor has, deleted; `MOD` on a BOOL, which both vendors take as arithmetic.
+- [x] **CLOSED WITH A RESIDUE THAT LIVES IN CODE.** The goal was "ask TwinCAT the questions CODESYS has
+      already answered": the ratchet went 266 -> 2528 of 2595 on TwinCAT and 866 -> 2545 on CODESYS, and the
+      LSP-only backlogs went 79 -> 3 and 3 -> 2. What is left is named below and tracked where the work happens
+      — `agreement-residue.ts` is the long tail's work list, and the three cells each want a fixture family or a
+      decision rather than more of this change. Keeping the change open would track them in two places.
+
 - [ ] **The last three.** `cc3_reference_assign` (TwinCAT reverses the conversion direction — ONE cell, and a
       rule built on one cell is a guess; it wants a fixture family the way `cc_enum_arg_into_*` got one),
       `cc5_deprecated_functionblock_keyword` (the parser's own `unexpected identifier … at file scope`, where
