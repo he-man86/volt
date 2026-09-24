@@ -914,3 +914,54 @@ they live here rather than in an archived folder nobody reads.
       `ide.ps1 up -Vendor twincat` attaches workers to two XAE windows, both "no project selected"; `connect
       {project: "TwinCAT Project13"}` binds it (worker log: "select: bound", "DEGRADED cleared") and one `refs`
       answers, then the recorder's `refs` is refused PLC_DISCONNECTED with no deselect in the log. Not diagnosed.
+
+## The 90 `not-lowered` fixtures, triaged — measured 2026-09-24
+
+Every fixture CODESYS runs and lowering refuses, grouped by what it is actually waiting for. The counts come from
+lowering all 90 and reading the first diagnostic; `map.generated.ts` carries the per-fixture rows.
+
+### Correctly refused, and nothing to build (51)
+
+- **`conversion-type` × 48 — `REAL_TO_STRING` digits.** Six candidate algorithms measured against the 38 recorded
+  cells: seven significant digits is closest at **33/38**, shortest-round-trip and seven-then-eight both 30/38,
+  an f32-scaled seven 28/38, eight digits 22/38, nine 12/38. The five misses are the five the comment in
+  `lower/builtins.ts` already named. Round-tripping is NOT the discriminator (`3.141593` keeps seven digits and
+  does not round-trip) and double rounding explains 1/7 but not 1/3. A rule right 33 times in 38 is wrong five
+  times in a function whose whole output is text, and both backends share it, so a guess is a silent divergence
+  rather than a rough edge. The scoreboard is recorded at the refusal so it is not re-derived.
+- **`attr-instance-path` × 3.** The instance path needs the project tree (`Device/Plc Logic/Application`), which a
+  single-source fixture is not in. That is a property of the fixture, not a gap in the transpiler.
+
+### Blocked on a measurement against a live CODESYS (13)
+
+- **`stmt-try` × 8 — `__TRY`/`__CATCH`/`__FINALLY`.** The BEHAVIOUR is fully measured and written down: a caught
+  divide by zero gives 258, `LN(0)` gives 338, the faulting statement does not complete, `__FINALLY` runs either
+  way, the inner block catches and the outer never sees it. What is missing is one frontend fact —
+  **`__SYSTEM.ExceptionCode` does not resolve as a type**, so the `__CATCH` operand is `type-unknown` before
+  lowering reaches the statement. The fixtures give its values and that `ANY_TO_DWORD` takes it; they do not give
+  its base type or its enumerators. Read it from a live CODESYS, then build.
+- **`expr-call` × 5** — `TIME`, `INI`, `__POSITION`, `__XADD`, `__COMPARE_AND_SWAP`. Each is a CODESYS compiler
+  operator or system function with no recorded semantics of its own.
+
+### Buildable, nothing unmeasured (12)
+
+- **`var-at` × 6 — overlapping direct addresses.** The addressing is already correct (`%MW4` and `%MB8` share a
+  byte, `%MD16` and `%MW32` share a byte, little-endian both ways, and the recordings agree); only the ALIASING is
+  missing. `lower/unions.ts` is the machinery — one storage seen through several members, by byte arithmetic. The
+  work is giving each overlap group one backing slot and making each `AT` variable a member place into it.
+- **`pointer-targets` × 3 · `pointer-order` × 2 · `pointer-step` × 1** — the multi-target handle, designed in
+  `pointer-model.md` §8 and not built.
+
+### Curiosities, low value (2)
+
+- **`cc5_no_op_statement`** — bare expression statements (`n;`, `pair.x;`, `list[1];`), which CODESYS accepts and
+  which do nothing. Lowering them means either dropping a pure expression or widening `IrEval` past a call.
+- **`cp_inline_assignment`** — an assignment used as an expression (`a := (b := 7)`, recorded a=8 b=7).
+
+### Not a defect: the recorder's `"The operation has timed out."`
+
+24 recordings carry it, and it reads like a harness failure. It is not: `cc_fp_ptr_deref` dereferences an unbound
+pointer and `domain_divide_real_by_zero` divides by zero — the task stops, the done flag never rises, and the read
+times out. `support/evidence.ts` already treats a non-compile error as the vendor stopping, which is right. One
+fixture (`arithedge_uint_div_by_zero`) got the precise wording instead; the other 24 did not, which is a recorder
+message worth sharpening but not a correctness bug.

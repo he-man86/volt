@@ -360,7 +360,20 @@ export function addressBits(m: RegExpExecArray): { area: string; bits: [number, 
   return { area: m[1]!.toUpperCase(), bits: width === 0 ? [bit, bit + 1] : [n * width * 8, (n + 1) * width * 8] }
 }
 
-/** The overlap bookkeeping `bindAddress` keeps, for an address with no variable on it. */
+/**
+ * The overlap bookkeeping `bindAddress` keeps, for an address with no variable on it.
+ *
+ * WHAT THE REFUSAL BELOW IS WAITING FOR, measured 2026-09-24 against the six `addr_*` fixtures that record an
+ * overlap. The ADDRESSING is already right — `addressBits` above puts `%MW4` and `%MB8` on the same byte, `%MD16`
+ * and `%MW32` on the same byte, and the recordings agree, little-endian both times (`w := 16#1234` reads `lo` as
+ * 16#34, `d := 16#12345678` reads the low `w` as 16#5678). Only the ALIASING is missing.
+ *
+ * And the machinery for it exists: `lower/unions.ts` already models one storage seen through several members, by
+ * byte arithmetic rather than a real memory area — `unionCopies` is the write-propagation. Reaching it means giving
+ * each overlapping GROUP one backing slot and making each `AT` variable a member place into it, which is a change
+ * to how addressed storage is allocated rather than a new model. That is the shape of the work; nothing here is
+ * unmeasured.
+ */
 function reserveAddress(lw: Lowering, text: string, m: RegExpExecArray, name: string, span: Span): boolean {
   const clash = addressClash(lw, m)
   if (clash !== undefined) {

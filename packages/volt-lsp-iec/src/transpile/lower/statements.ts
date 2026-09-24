@@ -205,6 +205,12 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
     // What it needs: an IR statement carrying the three blocks and the catch place, a `try` in the interpreter, and
     // a Rust form — the emitter's faults are `panic!`, so `catch_unwind` or a `Result`-shaped rewrite is the open
     // design question. Six corpus POUs are blocked by this, three of them by nothing else.
+    //
+    // AND IT IS BLOCKED ON THE FRONTEND FIRST, measured 2026-09-24: `__SYSTEM.ExceptionCode` — the type every
+    // `__CATCH` operand is declared with — does not resolve, so `ec` is `type-unknown` before lowering reaches the
+    // statement at all. The eight fixtures give its VALUES (258, 338) and that `ANY_TO_DWORD` takes it; they do not
+    // give its base type or its enumerators. Inferring DWORD from two observed values is a guess of exactly the
+    // kind `refused` exists to prevent, so the type has to be READ from a live CODESYS before any of this is built.
     default:
       return lw.bail(`stmt-${s.kind}`, `${s.kind} is not lowered yet`, s.span)
   }

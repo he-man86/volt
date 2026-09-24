@@ -321,8 +321,22 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   //          1/7 is '0.1428572', while 1/9 and 1/11 print eight digits and stop). Those are not a rounding mode;
   //          they are a formatter doing something the outputs do not reveal.
   //
+  // CANDIDATES MEASURED AGAINST THE 38 RECORDED REAL CELLS, 2026-09-24 — so the next reader does not re-run them:
+  //
+  //     33/38  seven significant digits, trailing zeros stripped
+  //     30/38  shortest representation that round-trips to the same f32
+  //     30/38  seven digits, then eight when seven does not round-trip
+  //     28/38  seven digits computed through an f32 scale (x * 10^(6-e), rounded)
+  //     22/38  eight significant digits · 12/38 nine
+  //
+  // Seven digits is the closest and the five it misses are the five the paragraph above names. Round-tripping is
+  // NOT the discriminator: `3.141593` and `1234.568` keep seven digits although neither round-trips, while
+  // `1.2345679E08` takes eight. Nor is double rounding — it explains 1/7 (0.14285714|924 → 0.14285715 → 0.1428572)
+  // and not 1/3 (0.33333334|326 → 0.33333334 → 0.3333333, where CODESYS says 0.3333334).
+  //
   // So the LREAL side is lowered and the REAL side stays refused. The prelude mirrors the interpreter line for
-  // line, so a guess here would be a silent divergence between the two backends, not a rough edge in one.
+  // line, so a guess here would be a silent divergence between the two backends, not a rough edge in one — and a
+  // rule that is right 33 times in 38 is a rule that is WRONG five times, in a function whose whole output is text.
   if (isString(to) && elemOf(to)?.name === "STRING" && elemOf(from ?? UNKNOWN)?.name === "REAL")
     return lw.bail("conversion-type", "REAL_TO_STRING prints seven digits except where it prints eight — 70 cells and no rule", e.span)
   if (!scalar(to) || (from !== undefined && !scalar(from)))
