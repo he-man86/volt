@@ -74,8 +74,6 @@ public class DocDataTests
         {
             "PLC_DISCONNECTED here is the POST-condition: the driver attached nothing, or attached something "
             + "other than the project named. Enforced once in shared code, so both vendors refuse identically.",
-            "A malformed body is a deserialization failure, not BAD_REQUEST — it reaches the client as "
-            + "INTERNAL_ERROR.",
             "A REFUSED connect still leaves the bridge RESUMED: the pause flag is cleared before the IDE work, "
             + "so a `disconnect` racing a connect wins.",
         }),
@@ -112,8 +110,7 @@ public class DocDataTests
             + "refuses (with a `line`), or a BridgeErrorCodes value for everything else — UNSUPPORTED, "
             + "NOT_FOUND, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, INVALID_CODE_HEADER. Match the code, "
             + "never the message.",
-            "A version conflict is also `accepted:false` — with `yourVersion`/`currentVersion` per item, and no "
-            + "code.",
+            "A version conflict is also `accepted:false` — with `yourVersion`/`currentVersion` per item.",
             "A refusal during APPLY rather than pre-flight leaves the earlier ops WRITTEN, and they are not "
             + "rolled back. The reason says how many, because a rejection that reads as \"nothing happened\" is "
             + "a lie the user acts on.",

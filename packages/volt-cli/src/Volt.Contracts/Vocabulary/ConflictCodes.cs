@@ -101,8 +101,8 @@ public static class ConflictCodes
     /// <summary>The name the project-level lease conflict is reported under. It is not an item and never
     /// collides with one: a wire name is `name.kind` and `&lt;` cannot appear in an IEC identifier.
     ///
-    /// <para>A constant because the CLI branches on it. It was a bare literal in two files, which is one
-    /// rename away from a `volt push` that stops explaining the single most common refusal it gets.</para></summary>
+    /// <para>A constant because it was a bare literal in two files. Nothing branches on the NAME — the CLI
+    /// tells a stale lease apart by its CODE (`Commands.cs`, `c.Code == StaleProjectVersion`).</para></summary>
     public const string ProjectName = "<project>";
 
     /// <summary>The gate family, for a client that wants "is this the optimistic gate" without listing them.</summary>
