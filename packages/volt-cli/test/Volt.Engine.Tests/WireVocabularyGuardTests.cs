@@ -47,16 +47,13 @@ public class WireVocabularyGuardTests
             new HashSet<string> { "Namespaces.cs" }),
 
         ("op codes (Ops)",
-            new[] { "health", "connect", "disconnect", "refs", "fetch", "push", "build", "logs" },
+            new[] { "health", "connect", "disconnect", "refs", "fetch", "push", "build" },
             // Program.cs/Git.cs use the same words as CLI verbs / git subcommands; TcObjectModel uses these as human
             // LOG TAGS in the COM driver; ControlServer's HTTP routes (POST /connect, /disconnect) deliberately match
             // the wire verbs but are a distinct vocabulary (control-plane URLs, not the pipe op); ConsoleServer's
             // set is the CLI's MUTATING VERBS, which it runs by spawning the binary with that argv — `push` there
             // is a command a user types, and the overlap exists only because the CLI was named after what it does.
-            // VoltLog.cs holds "logs" as a DIRECTORY name (%LOCALAPPDATA%\Volt\logs) — the folder every
-            // component writes to, which predates the op and is a different vocabulary that happens to share
-            // the word. The op itself is spelled only in Ops.cs.
-            new HashSet<string> { "Ops.cs", "Program.cs", "Git.cs", "TcObjectModel.cs", "ControlServer.cs", "ConsoleServer.cs", "VoltLog.cs" }),
+            new HashSet<string> { "Ops.cs", "Program.cs", "Git.cs", "TcObjectModel.cs", "ControlServer.cs", "ConsoleServer.cs" }),
 
         ("vendor ids (Vendors)",
             new[] { "codesys", "twincat", "CODESYS", "TwinCAT" },

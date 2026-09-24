@@ -109,44 +109,6 @@ public class PipeTransportTests
     }
 
     [Fact]
-    public void Logs_answers_while_the_one_IDE_thread_is_busy_with_a_long_op()
-    {
-        // The reason `logs` exists at all is the call made BECAUSE something is stuck. If it queued behind the
-        // op it was going to explain, it would answer only once that op finished — which is precisely when
-        // nobody needs it any more. Same placement as `health`, same guard, and worth its own test because the
-        // two sit in different dispatch arms and a later refactor could marshal one without the other.
-        var entered = new ManualResetEventSlim(false);
-        var release = new ManualResetEventSlim(false);
-        var ide = new FakeIde(serializeSta: true,
-            FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"))
-        {
-            ExtractEntered = entered,
-            ExtractBlock = release,
-            Projects = new List<ProjectEntry>
-            {
-                new ProjectEntry("codesys", "0", "Proj", "healthy", false),
-            },
-        };
-        var pipe = Pipe();
-        using var host = new BridgePipeHost(ide, pipe);
-        host.Start();
-
-        var init = Task.Run(() => new PipeClient(pipe).Call("fetch", new { init = true }));
-        Assert.True(entered.Wait(15_000), "init never reached the library-extract step");
-
-        // Same bound and same reasoning as the health test above: a liveness/deadlock detector, not a latency
-        // budget. A correct read returns in ms; one that marshalled onto the held STA thread deadlocks.
-        var logs = Task.Run(() => new PipeClient(pipe).Call("logs"));
-        Assert.True(logs.Wait(30_000),
-            "logs HUNG behind the busy IDE thread — it was marshalled instead of just reading a file");
-        Assert.True(logs.Result.TryGetProperty("text", out _), "logs did not carry a text field");
-        Assert.True(logs.Result.TryGetProperty("files", out _), "logs did not carry a files field");
-
-        release.Set();
-        Assert.True(init.Wait(15_000), "init did not complete after release");
-    }
-
-    [Fact]
     public void Health_polls_across_two_bridges_stay_responsive_while_one_IDE_is_busy_with_a_long_op()
     {
         // The PARALLEL-health guarantee for the multi-IDE topology (two live pipes). With ONE IDE thread HELD in a

@@ -222,35 +222,6 @@ window.VOLT = {
             "$ref": "#/components/schemas/BuildResponse"
           }
         }
-      },
-      {
-        "name": "logs",
-        "summary": "The tail of THIS host\u0027s own durable log, newest lines last. \u0022Why did the bridge do that\u0022 is the first question every support report asks, and the answer sits in a file on a machine the asker may not be able to reach. Never marshalled onto the IDE thread and not gated by disconnect.",
-        "paramStructure": "by-name",
-        "params": [
-          {
-            "name": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/LogsRequest"
-            }
-          }
-        ],
-        "x-errorCodes": [
-          "BAD_REQUEST",
-          "INTERNAL_ERROR"
-        ],
-        "x-outcomes": [
-          "It reads a FILE, so it touches neither the IDE thread nor the connected-project guard. That is the point: the call that matters is the one made BECAUSE a push is stuck, and queueing it behind that push would answer only once the thing it was going to explain had finished.",
-          "Served while PAUSED too \u2014 a disconnected bridge is precisely the one whose logs you want.",
-          "No log file yet answers \u0060{text:\u0022\u0022, files:[]}\u0060. That is a real answer, not an error: a fresh install has nothing to say. A file that EXISTS and cannot be read is INTERNAL_ERROR naming it, because an empty string there would read as \u0022nothing happened\u0022."
-        ],
-        "result": {
-          "name": "result",
-          "schema": {
-            "$ref": "#/components/schemas/LogsResponse"
-          }
-        }
       }
     ],
     "components": {
@@ -695,40 +666,6 @@ window.VOLT = {
             "line",
             "column"
           ]
-        },
-        "LogsRequest": {
-          "type": "object",
-          "properties": {
-            "maxBytes": {
-              "type": "integer"
-            }
-          }
-        },
-        "LogsResponse": {
-          "type": "object",
-          "properties": {
-            "source": {
-              "type": "string"
-            },
-            "text": {
-              "type": "string"
-            },
-            "truncated": {
-              "type": "boolean"
-            },
-            "files": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
-          },
-          "required": [
-            "source",
-            "text",
-            "truncated",
-            "files"
-          ]
         }
       }
     }
@@ -740,8 +677,7 @@ window.VOLT = {
     "refs",
     "fetch",
     "push",
-    "build",
-    "logs"
+    "build"
   ],
   "errors": [
     "PLC_DISCONNECTED",
