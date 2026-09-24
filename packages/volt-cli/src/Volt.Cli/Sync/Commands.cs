@@ -157,7 +157,12 @@ public static class Commands
         {
             var health = bridge.GetHealth();
             var online = health.Connected;
-            var mismatch = cfg is not null ? Config.ProjectMismatch(cfg, health) : null;
+            // ONLY WHEN CONNECTED. `ProjectMismatch` compares the binding against `health.Platform`/`ProjectName`,
+            // and an offline health answers those EMPTY — so every offline status reported a mismatch against
+            // "", and `BuildStatusData` checks mismatch BEFORE `!Online`, so the summary said "project mismatch
+            // - open the bound project in the IDE" for a bridge that simply was not running. Adding `# mismatch`
+            // to porcelain is what made it visible; the wrong answer was already there.
+            var mismatch = cfg is not null && online ? Config.ProjectMismatch(cfg, health) : null;
             var detail = online ? $"{health.Platform}/{health.ProjectName ?? "?"}" : (health.Status ?? "offline");
             if (!(online && mismatch is null && !localOnly))
                 // `Walked = false`: whatever the reason we are here — offline, a mismatch, or a deliberate
