@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Globalization;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -80,17 +81,25 @@ namespace Volt.Ide.Codesys
 
         /// <summary>The vendor's own diagnostic number, rendered the way the IDE renders it (`C0032`).
         ///
-        /// <para>`IMessage4.Number` is a nullable int and `Prefix` is the letter; a message with no number (a
-        /// plain informational line) returns null rather than a fabricated code. Only `IMessage4` has these, so
-        /// an older CODESYS that implements just `IMessage` answers null through the same reflective miss —
-        /// which is why this reads the member rather than casting to the interface.</para></summary>
+        /// <para>`IMessage4.Number` carries it and `Prefix` the letter; a message with no number (a plain
+        /// informational line) returns null rather than a fabricated code. Only `IMessage4` has these, so an
+        /// older CODESYS that implements just `IMessage` answers null through the same reflective miss — which
+        /// is why this reads the member rather than casting to the interface.</para>
+        ///
+        /// <para>THE BOXED TYPE IS `uint`, NOT `int`. Measured against the shipped assembly:
+        /// `IMessage4.Number` is `System.Nullable&lt;System.UInt32&gt;`, so a `raw is not int` test rejected
+        /// every real value and this returned null for EVERY CODESYS diagnostic — the `code` field existed on
+        /// the wire and was dead on the vendor it was read from. Converted through `IConvertible` so the exact
+        /// integral width stops mattering: nothing here cares whether it arrives as `uint`, `int` or `short`.</para></summary>
         private static string? MessageCode(object m)
         {
-            if (GetMember(m, "Number") is not { } raw) return null;
-            // Nullable<int> boxes as either null or the bare int, so a non-null box IS the value.
-            if (raw is not int n) return null;
+            if (GetMember(m, "Number") is not { } raw) return null;   // Nullable<T> boxes as null or the bare value
+            if (raw is not IConvertible c) return null;
+            long n;
+            try { n = c.ToInt64(CultureInfo.InvariantCulture); }
+            catch (Exception) { return null; }                        // not a number after all — say nothing
             var prefix = GetMember(m, "Prefix") as string;
-            return string.IsNullOrEmpty(prefix) ? n.ToString() : $"{prefix}{n:0000}";
+            return string.IsNullOrEmpty(prefix) ? n.ToString(CultureInfo.InvariantCulture) : $"{prefix}{n:0000}";
         }
 
         /// <summary>A single error-severity diagnostic standing in for a diagnostic list that could not be read.
