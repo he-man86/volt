@@ -77,6 +77,12 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "enum-value": "unclassified",
   "expr-call": "unclassified",
   "fb-init-argument": "unclassified",
+  // Not a construct and not a gap: `lowerUnit` lowers a POU by synthesizing `inst : ThatPOU;`, and that bare
+  // declaration passes no FB_Init argument — so an FB whose inherited FB_Init takes one can never lower as a
+  // ROOT, however complete the transpiler becomes. The vendor never sees the scaffold; measured 2026-09-24,
+  // every corpus project builds with zero errors. Kept apart from `fb-init-argument` for the reason
+  // `pointer-root-input` is kept apart from `pointer-order` — a harness limit is not a work item.
+  "fb-init-root": "not-measured",
   "fb-init-order": "unclassified",
   "fb-init-program": "unclassified",
   "for-bound-call": "unclassified",
@@ -120,7 +126,9 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "pointer-shape": "unclassified",
   // Not a construct and not a gap: the POU being lowered is the ROOT, so its `POINTER TO T` VAR_INPUT has no
   // caller to fill it. A harness limit, exactly like `fb-init-argument` — kept apart from `pointer-order` so the
-  // work list does not count it as a pointer the model cannot follow (pointer-model.md D5).
+  // work list does not count it as a pointer the model cannot follow (pointer-model.md D5). `fb-init-root` is
+  // the same split, made 2026-09-24 — this note said "exactly like `fb-init-argument`" while that one still
+  // carried both meanings.
   "pointer-root-input": "not-measured",
   "pointer-step": "unclassified",
   "pointer-targets": "unclassified",

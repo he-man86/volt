@@ -431,12 +431,35 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
           // NO ARGUMENT AT ALL IS NOT A GAP IN LOWERING — the vendor refuses that declaration too: an FB whose
           // FB_Init takes an extra input cannot be instantiated without one ("Specified 'FB_Init' method requires
           // exactly 1 inputs", conformance `fb_init_argument_left_out`, and `checks/oop/fb-init-instantiation.ts`
-          // reports it). The two corpus POUs this blocks are library FBs whose BASE takes `invert`; every real
-          // instance passes it, and the ones lowering sees are declared bare.
+          // reports it).
+          //
+          // EXCEPT WHERE THE BARE DECLARATION IS THE HARNESS'S OWN, which is the only place the corpus hits it.
+          // `lowerUnit` lowers a POU by synthesizing `inst : ThatPOU;` and calling it (`rootInstance`), and that
+          // declaration passes nothing — so an FB whose inherited FB_Init takes `invert` can never lower as a
+          // root, however complete the transpiler becomes. Measured 2026-09-24: every corpus project builds with
+          // ZERO errors, so CODESYS accepts the two POUs this was blocking; what it would refuse is Volt's own
+          // scaffold, which it never sees. Filing that under `fb-init-argument` put a harness limit in the work
+          // list with a 100% conversion rate — it reported `reach 2, sole 2`, the best ratio on the board, for
+          // something no amount of lowering can close. Its own code, for the reason `pointer-root-input` has one.
           //
           // The note said "it is the ROOT" and was guarded by `lw.isRoot`, which is set on the one lowering that
           // reaches this and so discriminated nothing — an ordinary `inst : FB_Need;` inside a PROGRAM got the
-          // same claim. It says what is true of both instead, which is the half that matters for triage.
+          // same claim. What discriminates is the instance being the root's own, which is named for the POU.
+          const rootsOwn =
+            lw.isRoot &&
+            place.root === undefined &&
+            place.path.length === 0 &&
+            lw.shared.root !== "" &&
+            lw.frame[place.slot]?.name.toUpperCase() === lw.shared.root.toUpperCase()
+          if (input === undefined && args.length === 0 && rootsOwn)
+            return (
+              lw.bail(
+                "fb-init-root",
+                `${t.name}'s FB_Init input ${slot.name} has no argument in the instance the HARNESS declares — ` +
+                  "lowering a POU on its own synthesizes a bare declaration, and the vendor never sees it",
+                span,
+              ) ?? false
+            )
           if (input === undefined)
             return (
               lw.bail(

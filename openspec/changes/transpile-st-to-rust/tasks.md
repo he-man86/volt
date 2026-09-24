@@ -1001,3 +1001,35 @@ that do not resolve at all (~30, the device tree — see the `device-tree-exposu
 **So the order is:** `plc-library-runtime` first, because it unblocks the head of this list as well as its own;
 then the device-tree half of `place-not-local`; then `graphical-body` (112 reach, sole blocker of 6), which is
 network text reaching the backend rather than anything in this list.
+
+## The work list ranked by what building it ADDS — measured 2026-09-24
+
+`reach` is how many blocked POUs a construct stops; `sole` is how many it is the ONLY blocker of, and `sole` is
+what building it would actually lower. They are very different numbers, and only the second is a plan:
+
+| construct | reach | sole | |
+|---|---:|---:|---|
+| `place-not-local` | 190 | **8** | mostly library NAMESPACES — the `plc-library-runtime` gap |
+| `graphical-body` | 112 | **6** | network text reaching the backend; the exec recorder cannot record one |
+| `stmt-try` | 6 | **3** | measured behaviour, blocked on `__SYSTEM.ExceptionCode`'s type |
+| `pointer-order` | 109 | **2** | form 3, the tagged handle |
+| `conversion-type` | 9 | **2** | `REAL_TO_STRING`'s digits — 33/38 and no rule |
+| `fb-init-root` | 2 | **2** | NOT a work item: a harness limit, see below |
+| `place-shape` · `expr-call` · `call-library` · `call-inout-global` | 95 · 74 · 34 · 4 | 1 each | |
+| everything else (21 more constructs) | up to 181 | **0** | never the only thing in the way |
+
+**Nothing on this list adds more than eight POUs**, and the three largest each wait on something outside the
+transpiler: a library runtime, a recorder that can push network text through the bridge, and one type read off a
+live CODESYS. That is the honest shape of the remaining work, and it is why `reach` alone was misleading —
+`init-not-constant` stops 181 POUs and is the sole blocker of none.
+
+### `fb-init-argument` was reporting a harness limit as the best item on the board
+
+It read `reach 2, sole 2` — a 100% conversion rate, the best ratio here — and no amount of lowering could ever
+close it. `lowerUnit` lowers a POU on its own by synthesizing `inst : ThatPOU;` (`rootInstance`), and that
+declaration passes no FB_Init argument; an FB whose inherited FB_Init takes one therefore cannot lower as a ROOT.
+The vendor never sees that scaffold — **measured: all four corpus projects build with ZERO errors**, so CODESYS
+accepts both POUs this was blocking, while the refusal's own message said "which the vendor refuses too".
+
+Split into `fb-init-root`, for the reason `pointer-root-input` was split out of `pointer-order`: a harness limit
+in the work list wastes the next reader's time, and this one was placed at the top of it.

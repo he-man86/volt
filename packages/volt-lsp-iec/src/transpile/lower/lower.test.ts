@@ -430,6 +430,30 @@ test("FB_Init runs once per instance before the first cycle, with its declared a
   expect(codes("five : FB_Args(startValue := 5); many : ARRAY[1..2] OF FB_Args;")).toContain("attr-init-unreached")
 })
 
+/**
+ * A HARNESS LIMIT IS NOT A WORK ITEM. `lowerUnit` lowers a POU on its own by synthesizing `inst : ThatPOU;`
+ * (`rootInstance`), and that declaration passes no FB_Init argument — so an FB whose FB_Init takes one can never
+ * lower as a ROOT, however complete the transpiler becomes. The vendor never sees that scaffold: measured
+ * 2026-09-24, all four corpus projects build with ZERO errors while this was reporting `reach 2, sole 2` against
+ * them — the best ratio on the work list, for something no amount of lowering can close.
+ *
+ * So it has its own code, for the reason `pointer-root-input` has one. A real bare declaration INSIDE a POU keeps
+ * `fb-init-argument`, which is a genuine refusal the vendor shares.
+ */
+test("an FB_Init argument the ROOT harness cannot pass is its own code, not the construct's", () => {
+  const fb = "FUNCTION_BLOCK FB_NeedsInit\nVAR\n  held : INT;\nEND_VAR\nheld := held + 1;\nEND_FUNCTION_BLOCK\n" +
+    "METHOD FB_Init : BOOL\nVAR_INPUT\n  bInitRetains : BOOL;\n  bInCopyCode : BOOL;\n  startValue : INT;\nEND_VAR\nheld := startValue;\nEND_METHOD\n"
+
+  // lowered ON ITS OWN, the harness declares the instance and has nothing to pass
+  const asRoot = lowerSource(fb, "FB_NeedsInit").diagnostics.map((d) => d.code)
+  expect(asRoot).toContain("fb-init-root")
+  expect(asRoot).not.toContain("fb-init-argument")
+
+  // the same FB declared bare INSIDE a program is the vendor's refusal, and keeps the construct's code
+  const inside = lowerSource(`PROGRAM P\nVAR\n  inst : FB_NeedsInit;\nEND_VAR\ninst();\nEND_PROGRAM\n${fb}`, "P")
+  expect(inside.diagnostics.map((d) => d.code)).toContain("fb-init-argument")
+})
+
 // Recorded after the review of the FB_Init batch found both orders guessed: every FB_Init runs before any
 // call_after_global_init_slot method — a holder's (`fb_init_before_slot_method_nested`: 5) and a sibling's declared
 // earlier (`fb_init_before_slot_method_sibling`: 7) — and a structured initializer on an instance running FB_Init applies
