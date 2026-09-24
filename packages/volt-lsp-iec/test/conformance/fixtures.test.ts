@@ -905,7 +905,19 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // they are the first measured acceptance tests form 3 has.
   // 89 -> 90. `sysop_position_value` reads `__POSITION`'s actual TEXT out of the simulator — the one question a
   // build cannot answer — and the transpiler has no business lowering a CODESYS source-position intrinsic.
-  "not-lowered": 90,
+  // 90 -> 98. `memory/pointer-parameters.ts` — eight fixtures RECORDED BEFORE the thing they measure is built,
+  // which is the order `memory-model.ts` beside them used and the order `fixtures/README.md` asks for. They are
+  // the acceptance tests for `pointer-model.md` §8 step 1: a `POINTER TO` input the callee only dereferences is a
+  // VAR_IN_OUT binding with a `^` on every use. The recordings say the erasure is sound —
+  //   `ptrparam_write`        the callee's `p^ := 77` changes the CALLER's variable, so it is a borrow, not a copy
+  //   `ptrparam_two_targets`  one input, two call sites, two ADR arguments, two answers (11 and 22) — which is
+  //                           precisely what form 1's ONE recorded target per pointer cannot represent
+  //   `ptrparam_kept`         a pointer input stored in a field still reads its target three scans later, so the
+  //                           handle form is real and this is the shape the borrow may NOT swallow
+  // This number is expected to come back DOWN by eight when step 1 lands, and further as it clears the 105 POUs
+  // `pointer-order` stops in the corpus. A ceiling that rises for measurement is not the same as one that rises
+  // for a gap, and the eight below are the first kind.
+  "not-lowered": 98,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

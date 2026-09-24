@@ -67,6 +67,7 @@ import { CHECK_COVERAGE_TESTS } from "./batches/check-coverage.js"
 import { ERROR_CATALOG_TESTS } from "./semantics/error-catalog.js"
 import { EXECUTION_TESTS } from "./semantics/execution.js"
 import { MEMORY_MODEL_TESTS } from "./memory/memory-model.js"
+import { POINTER_PARAMETER_TESTS } from "./memory/pointer-parameters.js"
 import { FB_CALL_TESTS } from "./calls/fb-call.js"
 import { INHERITANCE_TESTS } from "./oop/inheritance.js"
 import { ROUTINE_STATE_TESTS } from "./calls/routine-state.js"
@@ -176,6 +177,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "execution", tests: EXECUTION_TESTS },
   // ── the facts the transpiler's memory model is built on (transpile-st-to-rust design §9) — run in the simulator ──
   { name: "memory-model", tests: MEMORY_MODEL_TESTS },
+  { name: "pointer-parameters", tests: POINTER_PARAMETER_TESTS },
   // ── call semantics: FB instances, methods, actions, functions, a program and a global (phase 3) ──
   { name: "fb-call", tests: FB_CALL_TESTS },
   // ── inheritance: which bodies and methods EXTENDS and SUPER^ run (phase 3½) ──
