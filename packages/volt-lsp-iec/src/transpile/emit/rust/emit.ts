@@ -619,10 +619,14 @@ class Printer {
           const field = this.place(p, slots)
           return isCopy(p.type) ? field : `${field}.clone()`
         }
-        const arms = e.arms.map((a) => `${a.tag} => ${read(a.place)},`).join(" ")
         const nothing = `panic!("dereference of a null pointer")`
-        const typed = e.type.kind === "unknown" ? "()" : rustType(e.type)
-        return `(match ${this.expr(e.tag, slots)} { ${arms} _ => ${e.arms.length === 0 ? `(|| -> ${typed} { ${nothing} })()` : nothing} })`
+        // NO ARM AT ALL IS JUST THE PANIC. A select with no arms is how lowering spells "this tag can only be 0",
+        // and wrapping it in `match tag { _ => … }` is a match on nothing — `clippy::match_single_binding`, plus
+        // the closure `dispatch` needs only because a `!` match cannot be CAST. Here it is assigned, and `!`
+        // coerces to any type on the way in, so the bare `panic!` is both correct and what a reader expects.
+        if (e.arms.length === 0) return nothing
+        const arms = e.arms.map((a) => `${a.tag} => ${read(a.place)},`).join(" ")
+        return `(match ${this.expr(e.tag, slots)} { ${arms} _ => ${nothing} })`
       }
       case "load": {
         const field = this.place(e.place, slots)

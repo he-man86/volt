@@ -289,6 +289,74 @@ END_FUNCTION_BLOCK
   ),
 
   pp(
+    "ptrhandle_write_last_target",
+    "FB_LANG_ptrhandle_write_last",
+    "a WRITE through a pointer given two targets in a row — which variable the store lands in",
+    `FUNCTION_BLOCK FB_LANG_ptrhandle_write_last
+VAR
+	a : INT := 1;
+	b : INT := 2;
+	p : POINTER TO INT;
+END_VAR
+p := ADR(a);
+p := ADR(b);
+p^ := 99;
+END_FUNCTION_BLOCK
+`,
+    "inst : FB_LANG_ptrhandle_write_last;",
+    "inst();",
+  ),
+
+  pp(
+    "ptrhandle_write_either_target",
+    "FB_LANG_ptrhandle_write_either",
+    "a WRITE through a pointer whose target a CONDITION picked — the arm is not decidable in source order",
+    `FUNCTION_BLOCK FB_LANG_ptrhandle_write_either
+VAR
+	a : INT := 1;
+	b : INT := 2;
+	p : POINTER TO INT;
+	pickB : BOOL := TRUE;
+END_VAR
+IF pickB THEN
+	p := ADR(b);
+ELSE
+	p := ADR(a);
+END_IF
+p^ := 99;
+END_FUNCTION_BLOCK
+`,
+    "inst : FB_LANG_ptrhandle_write_either;",
+    "inst();",
+  ),
+
+  pp(
+    "ptrhandle_read_either_target",
+    "FB_LANG_ptrhandle_read_either",
+    "a READ through a pointer whose target a CONDITION picked — the same arm question, on the read side",
+    `FUNCTION_BLOCK FB_LANG_ptrhandle_read_either
+VAR
+	a : INT := 11;
+	b : INT := 22;
+	p : POINTER TO INT;
+	pickB : BOOL := TRUE;
+END_VAR
+VAR_OUTPUT
+	seen : INT;
+END_VAR
+IF pickB THEN
+	p := ADR(b);
+ELSE
+	p := ADR(a);
+END_IF
+seen := p^;
+END_FUNCTION_BLOCK
+`,
+    "inst : FB_LANG_ptrhandle_read_either;",
+    "inst();",
+  ),
+
+  pp(
     "ptrparam_unsupplied",
     "FB_LANG_ptrparam_unsupplied",
     "a POINTER TO input nobody fills, dereferenced — the value is 0 and the deref is what stops the task",

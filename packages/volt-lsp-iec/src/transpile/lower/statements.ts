@@ -1,7 +1,7 @@
 /**
  * Statements → IR: assignment and its chains and latches, IF, CASE, the three loops, and call statements.
  */
-import type { Statement, StatementList } from "../../syntax/index.js"
+import { isSelfRef, type Statement, type StatementList } from "../../syntax/index.js"
 import { elementaryRef, commonType, elemOf } from "../../types/index.js"
 import type { IrArm, IrExpr, IrStmt, IrValue } from "../ir/index.js"
 import { holdsCall } from "../ir/index.js"
@@ -9,11 +9,47 @@ import type { Lowering } from "./lowering.js"
 import { convert } from "./convert.js"
 import { foldConstant } from "./constants.js"
 import { lowerPlace, refuseOpenArray } from "./places.js"
-import { bindReference, pointeePlace, refuseConstantWrite, storePointer, through } from "./pointers.js"
+import { bindReference, nullDeref, pointerArms, pointeePlace, refuseConstantWrite, storePointer, through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 import { lowerCallStatement, lowerPropertySet } from "./calls.js"
 import { refuseUnionWrite, unionCopies } from "./unions.js"
 import { lowerQueryInterface, queryCondition, storeInterface } from "./interfaces.js"
+
+/**
+ * A STORE THROUGH A POINTER OR REFERENCE NAMING SEVERAL VARIABLES (form 3) — the write half of `selectThrough`.
+ *
+ * `null` when this is not that shape, so the caller goes on to the ordinary place; `undefined` when it is and was
+ * refused. The arms are the key's targets at the tag `storePointer` writes, and the else arm FAULTS, because a tag
+ * no arm names is the null dereference the single-target form raises through `iec_deref`.
+ *
+ * ONLY A BARE `p^ :=` so far. A path after the dereference — `p^.field`, `p^[i]` — would have to be appended to
+ * every arm's place, which is the same walk `lowerPlace` does and not one this can reuse yet; it keeps the message
+ * `pointeePlace` gives.
+ */
+function storeThrough(lw: Lowering, s: Extract<Statement, { kind: "assign" }>): IrStmt | undefined | null {
+  const t = s.target
+  if (t.kind !== "deref" || isSelfRef(t)) return null
+  const pointer = lowerPlace(lw, t.base)
+  if (pointer === undefined || (pointer.type.kind !== "pointer" && pointer.type.kind !== "reference")) return null
+  const arms = pointerArms(lw, pointer, s.span)
+  if (arms === undefined) return null
+  const written = arms[0]!.place.type
+  const value = lowerExpr(lw, s.value, written)
+  if (value === undefined) return undefined
+  // THE ELSE ARM FAULTS. A tag no arm names is a null dereference, and a select with NO arms is exactly that in
+  // both backends — read into a temp, so the fault happens where the store would have.
+  return {
+    kind: "switch",
+    selector: { kind: "load", place: pointer, type: pointer.type, span: s.span },
+    arms: arms.map((a) => ({
+      labels: [{ lo: a.tag, hi: a.tag }],
+      body: [{ kind: "assign" as const, target: a.place, value: convert(value, a.place.type), span: s.span }],
+      span: s.span,
+    })),
+    else: [{ kind: "eval", value: nullDeref(pointer, [], written, s.span), span: s.span }],
+    span: s.span,
+  }
+}
 
 export function lowerBlock(lw: Lowering, list: StatementList): IrStmt[] {
   const out: IrStmt[] = []
@@ -78,6 +114,11 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
       if (query !== null) return query
       if (s.chained !== undefined) return lowerChain(lw, s)
       if (s.op === "REF=") return bindReference(lw, s)
+      // FORM 3's WRITE. A pointer naming several variables has no single place to store into, so the assignment is
+      // an `IrSwitch` on its tag with one arm per target — the statement counterpart of the read's `IrSelect`, and
+      // no new IR. Measured: `ptrhandle_write_either_target` picks its target in an IF and the 99 lands in b.
+      const scattered = storeThrough(lw, s)
+      if (scattered !== null) return scattered
       const target = lowerPlace(lw, s.target)
       // an `ARRAY[*]` is never stored whole (it is still BOUND whole to an in-out, which `through` checks, so not there)
       if (target === undefined || refuseOpenArray(lw, target, s.span) || refuseConstantWrite(lw, target, s.span)) return undefined

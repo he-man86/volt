@@ -3,7 +3,7 @@
  */
 import type { Expr, Span, Statement } from "../../syntax/index.js"
 import { elementaryRef, type Type } from "../../types/index.js"
-import { type IrExpr, type IrStmt, peelArray, type Place } from "../ir/index.js"
+import { type IrExpr, type IrSelect, type IrStmt, peelArray, type Place } from "../ir/index.js"
 import type { Lowering, PointerTarget } from "./lowering.js"
 import { binaryOf, cast, convert } from "./convert.js"
 import { storageOf } from "./storage.js"
@@ -298,19 +298,27 @@ export function storePointer(lw: Lowering, target: Place, value: Expr, span: Spa
  * The arms are every target recorded for the key, at the tag `storePointer` writes. `null` is no arm at all, so a
  * deref before any store faults exactly as `iec_deref` makes it fault for the single-target form.
  */
-export function selectThrough(lw: Lowering, pointer: Place, span: Span): IrExpr | undefined {
+export function pointerArms(lw: Lowering, pointer: Place, span: Span): { tag: bigint; place: Place }[] | undefined {
   const key = pointerKey(lw, pointer)
   const targets = key === undefined ? undefined : lw.shared.pointers.get(key)
   if (targets === undefined || targets.length < 2) return undefined
-  if (targets.some((t) => t.scopedTo !== undefined))
-    return lw.bail("pointer-outlives", "a pointer naming several variables, one of them inside a VAR_IN_OUT the call bound", span)
-  return {
-    kind: "select",
-    tag: { kind: "load", place: pointer, type: pointer.type, span },
-    arms: targets.map((t, i) => ({ tag: BigInt(i + 1), place: t.base })),
-    type: targets[0]!.base.type,
-    span,
+  // A target inside a VAR_IN_OUT is exact only while the body that bound it runs (`recordTarget`), and an arm is
+  // selected wherever the tag is read — so the two do not combine yet.
+  if (targets.some((t) => t.scopedTo !== undefined || t.element !== undefined)) {
+    lw.bail("pointer-targets", "a pointer naming several variables, one of them an array element or inside a bound VAR_IN_OUT", span)
+    return undefined
   }
+  return targets.map((t, i) => ({ tag: BigInt(i + 1), place: t.base }))
+}
+
+export function selectThrough(lw: Lowering, pointer: Place, span: Span): IrExpr | undefined {
+  const arms = pointerArms(lw, pointer, span)
+  return arms && nullDeref(pointer, arms, arms[0]!.place.type, span)
+}
+
+/** The select itself — with no arm for a tag of 0, which is what makes a null dereference fault in both backends. */
+export function nullDeref(pointer: Place, arms: readonly { tag: bigint; place: Place }[], type: Type, span: Span): IrSelect {
+  return { kind: "select", tag: { kind: "load", place: pointer, type: pointer.type, span }, arms, type, span }
 }
 
 /** `r REF= x` — the reference's one target, and its value set (conformance `type_reference_to_int`, `op_sys_isvalidref`). */

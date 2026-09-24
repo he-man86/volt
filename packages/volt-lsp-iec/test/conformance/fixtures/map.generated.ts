@@ -12,7 +12,7 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     1942
+ *     confirmed     1945
  *     refused        538
  *     not-lowered     92
  *     lsp-gap          4
@@ -22,7 +22,7 @@
  *   tier                     lowered    clean
  *     decl                    426      426
  *     arith                  1570     1570
- *     control                  55       55
+ *     control                  58       58
  *     aggregate                27       27
  *     call                     83       83
  *     indirect                141      141
@@ -1849,6 +1849,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   prim_default_x_uxint: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   prim_default_x_xint: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   prim_default_x_xword: { evidence: "confirmed", tier: "decl", rust: "vendor" },
+  ptrhandle_read_either_target: { evidence: "confirmed", tier: "control", rust: "vendor" },
+  ptrhandle_write_either_target: { evidence: "confirmed", tier: "control", rust: "vendor" },
+  ptrhandle_write_last_target: { evidence: "confirmed", tier: "control", rust: "vendor" },
   ptrparam_function_block: { evidence: "not-lowered" },
   ptrparam_input_persists: { evidence: "not-lowered" },
   ptrparam_kept: { evidence: "not-lowered" },

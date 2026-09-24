@@ -369,7 +369,7 @@ export type IrStmt = IrAssign | IrIf | IrSwitch | IrLoop | IrBreak | IrContinue 
 /** A METHOD, ACTION or FUNCTION called as a statement — directly or through an interface; its result, if any, is dropped. */
 export interface IrEval {
   kind: "eval"
-  value: IrInvoke | IrDispatch
+  value: IrInvoke | IrDispatch | IrSelect
   span: Span
 }
 
