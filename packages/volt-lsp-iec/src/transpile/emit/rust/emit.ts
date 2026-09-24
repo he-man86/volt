@@ -239,6 +239,67 @@ function literal(v: IrValue, t: Type): string {
   return text.startsWith("-") ? `(${text})` : text
 }
 
+/**
+ * Drop an outer paren pair the position does not need.
+ *
+ * The printer parenthesizes every binary, every cast and every unary, which is the only way a printer with no
+ * precedence table can be correct — and it means a complete expression arrives at a STATEMENT position already
+ * wrapped. `self.q1 = ((self.a as i32) / (self.b as i32));` is what rustc's own `unused_parens` names, and it was
+ * emitted 2,722 times across the conformance fixtures.
+ *
+ * ONLY WHERE THE EXPRESSION STANDS ALONE — an assignment's right-hand side, an `if` condition, a `match` selector.
+ * Never at a RECEIVER: `literal()`'s comment above spells out what `(-1i32).max(x)` costs without its parens, and
+ * the balanced walk below is what keeps `(a + b).to()` — whose first `(` does not close at the end — untouched.
+ */
+function unparen(text: string): string {
+  if (!text.startsWith("(") || !text.endsWith(")")) return text
+  let depth = 0
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    // the emitted Rust carries string literals (`panic!`, byte strings), and a paren inside one is not structure
+    if (c === '"') {
+      while (++i < text.length && text[i] !== '"') if (text[i] === "\\") i++
+      continue
+    }
+    if (c === "(") depth++
+    else if (c === ")" && --depth === 0) return i === text.length - 1 ? unparen(text.slice(1, -1)) : text
+  }
+  return text
+}
+
+/**
+ * `text as target`, or `text` unchanged when it already IS that Rust type — the twin of the identity rule in
+ * `convert`, for the casts a BUILTIN adds on top of an argument the IR already typed: `SHL`s `as u32`, the math
+ * helpers `as f64`, the string helpers `as i64`. Parenthesized when it does cast, because every one of these
+ * lands in a receiver or an argument position.
+ */
+function castTo(text: string, from: Type, target: string): string {
+  return rustType(from) === target ? text : `(${text} as ${target})`
+}
+
+/** The result of an `f64` math routine, narrowed to the IEC type — or left alone when that type IS `f64`. */
+function fromF64(text: string, target: string): string {
+  return target === "f64" ? text : `(${text} as ${target})`
+}
+
+/**
+ * `Default` alongside `new` — deferring to it, never duplicating the initial values.
+ *
+ * A Rust type with a no-argument `new` and no `Default` is what `clippy::new_without_default` names, and it named
+ * all 2,289 structs the fixtures emit. It is not derived (Rust derives `Default` only for arrays up to 32 elements,
+ * which is why `new` builds every value explicitly) and it is not the CONTRACT — `emit/rust/index.ts` says a
+ * harness constructs through `::new()`. This exists so the emitted crate composes the way a Rust programmer expects:
+ * `Default::default()`, `..Default::default()`, and a struct holding one of these deriving its own.
+ */
+function defaultImpl(p: Printer, name: string): void {
+  p.push(`impl Default for ${name} {`, 0)
+  p.push("fn default() -> Self {", 1)
+  p.push("Self::new()", 2)
+  p.push("}", 1)
+  p.push("}", 0)
+  p.push("", 0)
+}
+
 /** The one-argument math functions → their `f64` method. LOG is base 10 in IEC. */
 const RUST_MATH: Readonly<Record<IrMathName, string>> = {
   sqrt: "sqrt",
@@ -265,6 +326,13 @@ const INFIX: Readonly<Record<string, string>> = {
   and_then: "&&",
   or_else: "||",
 }
+
+/**
+ * The comparison a NEGATED one is. A loop test prints as `if !<cond> { break; }`, and a loop's condition is almost
+ * always a comparison — `!(i <= 2)` is what `clippy::nonminimal_bool` names, 39 times across the fixtures, and
+ * `i > 2` is the same test. Flipped HERE, on the IR node, rather than by rewriting the printed text.
+ */
+const INVERSE: Readonly<Record<string, string>> = { eq: "ne", ne: "eq", lt: "ge", le: "gt", gt: "le", ge: "lt" }
 
 class Printer {
   private readonly lines: string[] = []
@@ -402,9 +470,12 @@ class Printer {
         text += `.${entry.fields[i]}`
         type = entry.layout.fields[i]!.type
       } else if (step.kind === "index") {
-        const index = this.expr(step.index, slots)
+        // WIDENED TO i64 ONLY WHEN IT IS NOT ONE. An index is usually already `i64` after lowering, and the
+        // unconditional `as i64` printed `(0i64 as i64) as usize` — a cast to its own type inside parentheses
+        // neither rustc nor clippy has any use for.
+        const index = castTo(this.expr(step.index, slots), step.index.type, "i64")
         // a negative offset wraps to a huge usize, so an index below the lower bound panics like one above the upper
-        text += step.lower === 0n ? `[(${index} as i64) as usize]` : `[((${index} as i64) - ${step.lower}i64) as usize]`
+        text += step.lower === 0n ? `[${unparen(index)} as usize]` : `[(${index} - ${step.lower}i64) as usize]`
         type = elementOf(type)!
       }
     }
@@ -427,6 +498,13 @@ class Printer {
     return `${this.lines.join("\n")}\n`
   }
 
+  /** `NOT e`, as a comparison flipped where it is one — the loop test's `if !<cond> { break; }`. */
+  negated(e: IrExpr, slots: IrPou["slots"]): string {
+    if (e.kind === "binary" && INVERSE[e.op] !== undefined)
+      return unparen(this.expr({ ...e, op: INVERSE[e.op] } as IrExpr, slots))
+    return `!${this.expr(e, slots)}`
+  }
+
   expr(e: IrExpr, slots: IrPou["slots"]): string {
     switch (e.kind) {
       case "const":
@@ -447,7 +525,7 @@ class Printer {
         const inputLets = hoisted
           ? [...(e.order ?? e.inputs.keys())].map((k) => (typeof k === "number" ? `let __arg_${k} = ${this.expr(e.inputs[k]!, slots)};` : `${this.place(k.temp, slots)} = ${this.expr(k.value, slots)};`)).join(" ")
           : ""
-        const inputs = e.inputs.map((a, k) => (hoisted ? `__arg_${k}` : this.expr(a, slots)))
+        const inputs = e.inputs.map((a, k) => (hoisted ? `__arg_${k}` : unparen(this.expr(a, slots))))
         // the inputs, the in-outs, then each instance lent to the routine (design §24)
         const args = [...this.globalsArg, ...inputs, ...e.inouts.map((b, i) => this.lend(b, i, routine.inouts[i]!, slots)), ...(e.lent ?? []).map((l) => this.lendMut(l, slots))].join(", ")
         const fn = this.fnNames.get(routine.key)!
@@ -457,7 +535,7 @@ class Printer {
           e.instance === undefined
             ? `${fn}(${args})`
             : moved !== undefined
-              ? `{ let mut __program = std::mem::replace(&mut ${moved.program}, ${moved.type}::new()); let __result = __program${moved.member}.${fn}(${args}); ${moved.program} = __program; __result }`
+              ? `{ let mut __program = std::mem::take(&mut ${moved.program}); let __result = __program${moved.member}.${fn}(${args}); ${moved.program} = __program; __result }`
               : this.guarded(e.instance, `${this.place(e.instance, slots)}.${fn}(${args})`, slots)
         // a VAR_IN_OUT bound through a dereference is checked before the call, as the interpreter checks it when binding
         const checked = e.inouts.reduce((text, b) => ("kind" in b ? text : this.guarded(b, text, slots)), call)
@@ -467,12 +545,17 @@ class Printer {
         return lets === "" ? checked : `{ ${lets} ${checked} }`
       }
       case "dispatch": {
-        // a call through an interface: its value picks the instance; none — a null interface — panics (design §22). The panic
-        // is a closure of the call's own type: with no arm at all — an interface nothing is ever stored into — a bare
-        // `panic!` made the match `!`, which no cast takes (E0605) and rustc called unreachable (found in a review, 2026-09-15).
+        // a call through an interface: its value picks the instance; none — a null interface — panics (design §22).
+        //
+        // `panic!` IS `!`, which coerces to any type, so the arm needs no help — EXCEPT when there is no other arm.
+        // An interface nothing is ever stored into makes every arm `!`, so the match itself is `!`, which no cast
+        // takes (E0605) and rustc calls unreachable (found in a review, 2026-09-15). A closure of the call's own
+        // type fixes that, and it was applied to EVERY dispatch, which is 19 `clippy::redundant_closure_call`.
         const arms = e.arms.map((a) => `${a.tag} => ${this.expr(a.call, slots)},`).join(" ")
         const typed = e.type.kind === "unknown" ? "()" : rustType(e.type)
-        return `(match ${this.expr(e.tag, slots)} { ${arms} _ => (|| -> ${typed} { panic!("call through an interface that holds no instance") })() })`
+        const nothing = `panic!("call through an interface that holds no instance")`
+        const none = e.arms.length === 0 ? `(|| -> ${typed} { ${nothing} })()` : nothing
+        return `(match ${this.expr(e.tag, slots)} { ${arms} _ => ${none} })`
       }
       case "load": {
         const field = this.place(e.place, slots)
@@ -490,6 +573,12 @@ class Printer {
         const from = e.value.type.kind === "elementary" ? e.value.type.elem.family : undefined
         const to = e.type.kind === "elementary" ? e.type.elem.family : undefined
         const target = rustType(e.type)
+        // A CONVERSION TO THE RUST TYPE THE VALUE ALREADY HAS IS NOTHING. `WORD_TO_UINT` and `UINT_TO_WORD` are both
+        // `u16 as u16`; so is every conversion between an alias and what it aliases. The printer emitted the cast
+        // anyway — 578 of them across the fixtures, which is what `clippy::unnecessary_cast` names. STRING is
+        // excluded because two `IecString`s of different capacity are a real copy, not a cast.
+        if (from !== undefined && to !== undefined && from !== "string" && to !== "string" && rustType(e.value.type) === target)
+          return value
         // STRING → STRING: the copy that truncates at the target's capacity, and across the two WIDTHS one code unit
         // per code unit (conformance `xo3_string_wide_conversions`).
         if (to === "string" && from === "string") {
@@ -520,12 +609,18 @@ class Printer {
         // and not 0. Rust's own `as` saturates, which is neither.
         if (from === "real" && to !== "real") {
           const wide = e.type.kind === "elementary" && e.type.elem.bits >= 64
-          return `(${wide ? "iec_r2i64" : "iec_r2i32"}(${value} as f64) as ${target})`
+          // the helper already RETURNS the register width; casting i32 to i32 is what `unnecessary_cast` names
+          const helper = wide ? "iec_r2i64" : "iec_r2i32"
+          const call = `${helper}(${unparen(castTo(value, e.value.type, "f64"))})`
+          return target === (wide ? "i64" : "i32") ? call : `(${call} as ${target})`
         }
         return `(${value} as ${target})`
       }
       case "builtin": {
         const args = e.args.map((a) => this.expr(a, slots))
+        // ARGUMENT positions need none of the printer's parentheses; `args` keeps them because several of these
+        // builtins use an argument as a RECEIVER, where `(-1i32).abs()` is not `-1i32.abs()`.
+        const argv = args.map(unparen)
         switch (e.name) {
           // A STRING has no `Ord`, only the cross-length `PartialOrd` the prelude defines, so `.max()` does not
           // resolve on one (E0599 — the error that had MAX over a STRING refused in the first place). `iec_max`
@@ -534,40 +629,40 @@ class Printer {
           case "min":
             return isString(e.type)
               ? args.reduce((acc, a) => `iec_${e.name}(${acc}, ${a})`)
-              : args.reduce((acc, a) => `${acc}.${e.name}(${a})`)
+              : args.reduce((acc, a) => `${acc}.${e.name}(${unparen(a)})`)
           // NOT `clamp`: Rust's panics when MN > MX, and CODESYS answers that case with MX for every IN (conformance
           // `limit_inverted_bounds`). MIN(MAX(IN, MN), MX) is exactly the measured behaviour.
           case "limit":
             return isString(e.type)
               ? `iec_min(iec_max(${args[1]}, ${args[0]}), ${args[2]})`
-              : `${args[1]}.max(${args[0]}).min(${args[2]})`
+              : `${args[1]}.max(${argv[0]}).min(${argv[2]})`
           // EAGER, as the IR states: the arms are bound BEFORE the branch, so both are evaluated exactly once
           // like every other argument list. Printed as `if c { b } else { a }` the unselected arm was never
           // evaluated, and an argument with a side effect meant one thing here and another in the interpreter.
           case "sel":
-            return `({ let __sel_c = ${args[0]}; let __sel_f = ${args[1]}; let __sel_t = ${args[2]}; if __sel_c { __sel_t } else { __sel_f } })`
+            return `({ let __sel_c = ${argv[0]}; let __sel_f = ${argv[1]}; let __sel_t = ${argv[2]}; if __sel_c { __sel_t } else { __sel_f } })`
           // Toward zero into an i32 whose out-of-range (and NaN) answer is i32::MIN — CODESYS's TRUNC(3.0E9) is
           // -2147483648, not a wrap and not Rust's saturating `as` — then `as` wraps that into INT for TRUNC_INT.
           case "trunc":
-            return `({ let t = (${args[0]} as f64).trunc(); if t >= -2147483648.0 && t <= 2147483647.0 { t as i32 } else { i32::MIN } } as ${rustType(e.type)})`
+            return `({ let t = ${castTo(args[0]!, e.args[0]!.type, "f64")}.trunc(); if (-2147483648.0..=2147483647.0).contains(&t) { t as i32 } else { i32::MIN } }${rustType(e.type) === "i32" ? "" : ` as ${rustType(e.type)}`})`
           // Rust's own features, each proven to match at the edges (design §13, §14): `wrapping_shl`/`wrapping_shr`
           // mask the count to the width's bits exactly as CODESYS does and shift a signed value arithmetically;
           // `rotate_left`/`rotate_right` take the count modulo the width.
           case "shl":
-            return `${args[0]}.wrapping_shl((${args[1]} as u32))`
+            return `${args[0]}.wrapping_shl(${unparen(castTo(args[1]!, e.args[1]!.type, "u32"))})`
           case "shr":
-            return `${args[0]}.wrapping_shr((${args[1]} as u32))`
+            return `${args[0]}.wrapping_shr(${unparen(castTo(args[1]!, e.args[1]!.type, "u32"))})`
           case "rol":
-            return `${args[0]}.rotate_left((${args[1]} as u32))`
+            return `${args[0]}.rotate_left(${unparen(castTo(args[1]!, e.args[1]!.type, "u32"))})`
           case "ror":
-            return `${args[0]}.rotate_right((${args[1]} as u32))`
+            return `${args[0]}.rotate_right(${unparen(castTo(args[1]!, e.args[1]!.type, "u32"))})`
           case "mux": {
             const [k, ...inputs] = args
             const arms = inputs.map((input, i) => (i === inputs.length - 1 ? `_ => ${input}` : `${i} => ${input}`))
             return `(match ${k} { ${arms.join(", ")} })`
           }
           case "expt":
-            return `((${args[0]} as f64).powf(${args[1]} as f64) as ${rustType(e.type)})`
+            return fromF64(`${castTo(args[0]!, e.args[0]!.type, "f64")}.powf(${unparen(castTo(args[1]!, e.args[1]!.type, "f64"))})`, rustType(e.type))
           case "abs": {
             // `abs` would panic on a signed minimum in a debug build; an unsigned type has no `abs` at all
             const t = e.type.kind === "elementary" ? e.type.elem : undefined
@@ -584,7 +679,7 @@ class Printer {
           case "find": {
             // a STRING argument passes its bytes, an integer one widens to the helpers' i64
             const passed = e.args.map((a, i) =>
-              a.type.kind === "elementary" && a.type.elem.family === "string" ? `${args[i]}.units()` : `(${args[i]} as i64)`,
+              a.type.kind === "elementary" && a.type.elem.family === "string" ? `${args[i]}.units()` : unparen(castTo(args[i]!, a.type, "i64")),
             )
             const call = `iec_${e.name}(${passed.join(", ")})`
             return e.name === "len" || e.name === "find" ? `(${call} as ${rustType(e.type)})` : `${stringPath(e.type)}::lit(&${call})`
@@ -594,7 +689,7 @@ class Printer {
           // and runs. Measured in `operators/math-domain.ts`.
           case "ln":
           case "log":
-            return `(iec_log((${args[0]} as f64)).${RUST_MATH[e.name]}() as ${rustType(e.type)})`
+            return fromF64(`iec_log(${unparen(castTo(args[0]!, e.args[0]!.type, "f64"))}).${RUST_MATH[e.name]}()`, rustType(e.type))
           case "sqrt":
           case "exp":
           case "sin":
@@ -604,7 +699,7 @@ class Printer {
           case "acos":
           case "atan":
             // through f64 and back, the same path the interpreter takes — `f32::ln` is a different float32 routine
-            return `((${args[0]} as f64).${RUST_MATH[e.name]}() as ${rustType(e.type)})`
+            return fromF64(`${castTo(args[0]!, e.args[0]!.type, "f64")}.${RUST_MATH[e.name]}()`, rustType(e.type))
         }
         // A BUILTIN THIS DOES NOT PRINT MUST STOP HERE. The inner switch had no default, so an unhandled name fell
         // OUT of it and straight into `case "unary"` below — which reads `e.operand`, a field a builtin node does
@@ -637,12 +732,13 @@ class Printer {
         // operand instead of the right, and `7 MOD 3` compiled to `7 % 7` = 0 where the interpreter answers 1.
         // A silent wrong answer, and one no recorded case caught because no fixture names a parameter `a`.
         if (e.op === "mod" && !isReal)
-          return `({ let __mod_l = ${l}; let __mod_r = ${r}; if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } })`
+          return `({ let __mod_l = ${unparen(l)}; let __mod_r = ${unparen(r)}; if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } })`
         // INTEGER DIVISION IS NOT WRAPPING. `wrapping_div` returns the minimum for `MIN / -1` and carries on, and
         // CODESYS STOPS THE TASK there (`arithedge_dint_div_min_by_minus_one`, `arithedge_lint_*`). Plain `/` panics
         // on exactly the two cases the vendor stops on — a zero divisor and that one overflow — so it is both the
         // simpler emission and the correct one. `+`, `-` and `*` really do wrap and keep their helpers.
-        if (wrapping !== undefined && !isReal && e.op !== "div") return `${l}.wrapping_${wrapping}(${r})`
+        // the argument of a call needs no parentheses of its own — `wrapping_add((x as i32))` is one pair too many
+        if (wrapping !== undefined && !isReal && e.op !== "div") return `${l}.wrapping_${wrapping}(${unparen(r)})`
         const plain = e.op === "add" ? "+" : e.op === "sub" ? "-" : e.op === "mul" ? "*" : e.op === "div" ? "/" : "%"
         // A REAL DIVISION BY ZERO STOPS THE TASK, and nothing else about an infinity does. This wrapped EVERY real
         // operation in a finiteness check, on the reading that an infinite RESULT is what stops it; `real-overflow.ts`
@@ -675,7 +771,7 @@ class Printer {
           const into = s.target.type
           const value = this.expr(s.value, slots)
           const copied = into.kind === "elementary" && into.elem.family === "string" ? `${value}.to()` : value
-          this.push(`${field} = ${copied};`, indent, s.span)
+          this.push(`${field} = ${unparen(copied)};`, indent, s.span)
           return
         }
         // a typed one — `1i16 << 15` is -32768, exactly the two's complement bit the IDE sets. The place is named once,
@@ -692,7 +788,7 @@ class Printer {
         return
       }
       case "if": {
-        this.push(`if ${this.expr(s.cond, slots)} {`, indent, s.span)
+        this.push(`if ${unparen(this.expr(s.cond, slots))} {`, indent, s.span)
         this.block(s.then, slots, indent + 1)
         if (s.else.length > 0) {
           this.push("} else {", indent)
@@ -702,7 +798,7 @@ class Printer {
         return
       }
       case "switch": {
-        this.push(`match ${this.expr(s.selector, slots)} {`, indent, s.span)
+        this.push(`match ${unparen(this.expr(s.selector, slots))} {`, indent, s.span)
         for (const arm of s.arms) {
           const pattern = arm.labels
             .map((l) => (l.lo === l.hi ? `${l.lo}` : `${l.lo}..=${l.hi}`))
@@ -739,7 +835,7 @@ class Printer {
           indent + 1,
         )
         if (s.test !== undefined && !s.test.atEnd)
-          this.push(`if !${this.expr(s.test.cond, slots)} { break; }`, indent + 1)
+          this.push(`if ${this.negated(s.test.cond, slots)} { break; }`, indent + 1)
         const bodyLine = this.lines.length
         this.push(`'body_${frame.n}: {`, indent + 1)
         this.loops.push(frame)
@@ -750,7 +846,7 @@ class Printer {
         if (!frame.continues) this.lines[bodyLine] = this.lines[bodyLine]!.replace(`'body_${frame.n}: `, "")
         for (const step of s.step) this.stmt(step, slots, indent + 1)
         if (s.test !== undefined && s.test.atEnd)
-          this.push(`if !${this.expr(s.test.cond, slots)} { break; }`, indent + 1)
+          this.push(`if ${this.negated(s.test.cond, slots)} { break; }`, indent + 1)
         this.push("}", indent)
         return
       }
@@ -790,7 +886,7 @@ class Printer {
         if (s.instance.root === "global" && this.globals.slots[s.instance.slot]?.section === "program") {
           // an instance inside the program too (`callshape_program_instance_from_outside`): called on the moved-out value
           const moved = this.movedOut(s.instance, slots)
-          this.push(`{ ${lets}${lets === "" ? "" : " "}let mut program = std::mem::replace(&mut ${moved.program}, ${moved.type}::new()); program${moved.member}.call(${bound}); ${moved.program} = program;${back === "" ? "" : ` ${back}`} }`, indent, s.span)
+          this.push(`{ ${lets}${lets === "" ? "" : " "}let mut program = std::mem::take(&mut ${moved.program}); program${moved.member}.call(${bound}); ${moved.program} = program;${back === "" ? "" : ` ${back}`} }`, indent, s.span)
           return
         }
         this.push(lets === "" && back === "" ? `${instance}.call(${bound});` : `{ ${lets} ${instance}.call(${bound}); ${back} }`, indent, s.span)
@@ -998,6 +1094,7 @@ export function emitRust(pou: IrPou): Emitted {
     p.push("}", 1)
     p.push("}", 0)
     p.push("", 0)
+    defaultImpl(p, struct)
   }
   // One plain struct per DUT and FB the frame holds, each with a `new` at its declared initial values. No `Default`
   // derive — Rust derives it only for arrays up to 32 elements — so every value starts through `new`.
@@ -1036,6 +1133,7 @@ export function emitRust(pou: IrPou): Emitted {
     for (const routine of pou.routines.filter((r) => r.fb?.toUpperCase() === layout.name.toUpperCase())) printRoutine(p, routine, names, layout.fields, 1)
     p.push("}", 0)
     p.push("", 0)
+    defaultImpl(p, rustName(layout.name))
   }
   p.push("#[allow(non_camel_case_types)]", 0)
   p.push("#[derive(Debug, Clone, PartialEq)]", 0)
@@ -1066,6 +1164,8 @@ export function emitRust(pou: IrPou): Emitted {
   p.block(pou.body, pou.slots, 2)
   p.push("}", 1)
   p.push("}", 0)
+  p.push("", 0)
+  defaultImpl(p, name)
   // a FUNCTION has no instance: a free fn beside the structs
   for (const routine of pou.routines.filter((r) => r.kind === "function")) printRoutine(p, routine, [], [], 0)
   // the one check every dereference makes: a null pointer stops the program, as it stops the CODESYS application
@@ -1081,7 +1181,7 @@ export function emitRust(pou: IrPou): Emitted {
     p.push("", 0)
     p.push("fn iec_r2i64(v: f64) -> i64 {", 0)
     p.push("let c = if v < 0.0 { -((-v).round()) } else { v.round() };", 1)
-    p.push("if c.is_nan() || c >= 18446744073709551616.0 || c < -9223372036854775808.0 { return i64::MIN; }", 1)
+    p.push("if c.is_nan() || !(-9223372036854775808.0..18446744073709551616.0).contains(&c) { return i64::MIN; }", 1)
     p.push("if c >= 9223372036854775808.0 { return (c as u64) as i64; }", 1)
     p.push("c as i64", 1)
     p.push("}", 0)

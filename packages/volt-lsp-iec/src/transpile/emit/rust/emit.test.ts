@@ -87,7 +87,7 @@ describe("emit/rust", () => {
     // wrapped — see `literal`. The type MINIMUMS still compile this way (`(-128i8)` keeps Rust's own
     // special case for `-128i8`, verified against rustc for all four widths).
     expect(code).toContain("big: (-25536i16),")
-    expect(code).toContain("self.si = (-128i8);")
+    expect(code).toContain("self.si = -128i8;")
   })
 
   test("a METHOD is an fn in its FB's impl and a FUNCTION a free fn — inputs by value, locals `let mut` per call", () => {
@@ -120,7 +120,7 @@ describe("emit/rust", () => {
     // Every body is handed `g` and `prg`, as any body may call a PROGRAM (conformance `state_program_called_from_fb`); a
     // program runs moved out of `Programs` and back, so the call never borrows `prg` twice. This read
     // `prg.prg_writer.call(g)` while only the POU's own scan could call a program.
-    expect(emitted.code).toContain("{ let mut program = std::mem::replace(&mut prg.prg_writer, PRG_Writer::new()); program.call(g, prg); prg.prg_writer = program; }")
+    expect(emitted.code).toContain("{ let mut program = std::mem::take(&mut prg.prg_writer); program.call(g, prg); prg.prg_writer = program; }")
     expect(emitted.code).toContain("self.seen = g.g_shared;")
     expect(emitted.code).toContain("pub fn call(&mut self, g: &mut Globals, prg: &mut Programs) {")
   })
@@ -149,7 +149,7 @@ describe("emit/rust", () => {
     expect(code).toContain("pub p_int: usize,")
     expect(code).toContain("self.p_int = 1;")
     expect(code).toContain("self.i_copy = { iec_deref(self.p_int); self.i_value };")
-    expect(code).toContain("as usize)") // the element index crosses into the pointer explicitly
+    expect(code).toContain("as usize;") // the element index crosses into the pointer explicitly
     expect(code).toContain("iec_deref(self.pa);") // a write through a pointer is checked on the line before
     expect(code).toContain('fn iec_deref(at: usize) { if at == 0 { panic!("dereference of a null pointer"); } }')
   })
@@ -173,8 +173,8 @@ describe("emit/rust", () => {
     const { pou, diagnostics } = lowerSource("PROGRAM Eager\nVAR a : BOOL; b : BOOL; c : BOOL; d : BOOL; END_VAR\nc := a AND b;\nd := a OR_ELSE b;\nEND_PROGRAM\n", "Eager")
     expect(diagnostics).toEqual([])
     const code = emitRust(pou!).code
-    expect(code).toContain("self.c = (self.a & self.b);")
-    expect(code).toContain("self.d = (self.a || self.b);")
+    expect(code).toContain("self.c = self.a & self.b;")
+    expect(code).toContain("self.d = self.a || self.b;")
   })
 
   test("MOD guards a zero divisor — 0, as measured, where Rust's % panics — and NOT of an INT is a u16", () => {
@@ -185,9 +185,9 @@ describe("emit/rust", () => {
     // the bindings carry the reserved prefix — they used to be `a` and `d`, which shadowed a parameter of
     // those names and made `7 MOD 3` compile to `7 % 7`; see the hygiene describe below
     expect(code).toContain(
-      "self.m = (({ let __mod_l = (self.a as i32); let __mod_r = (self.z as i32); if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } }) as i16);",
+      "self.m = ({ let __mod_l = self.a as i32; let __mod_r = self.z as i32; if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } }) as i16;",
     )
-    expect(code).toContain("self.w = ((!(self.a as u16)) as i32);")
+    expect(code).toContain("self.w = (!(self.a as u16)) as i32;")
   })
 
   test("ST names become snake_case fields", () => {
@@ -212,7 +212,7 @@ describe("emit/rust", () => {
   test("integer negation wraps — Rust's `-` panics on a minimum — while REAL negation stays plain", () => {
     const code = rust("PROGRAM P\nVAR d : DINT; e : DINT; x : REAL; y : REAL; END_VAR\ne := -d; y := -x;\nEND_PROGRAM\n")
     expect(code).toContain("self.d.wrapping_neg()")
-    expect(code).toContain("(-self.x)")
+    expect(code).toContain("self.y = -self.x;")
   })
 
   test("LIMIT prints as max-then-min, never `clamp` — Rust's clamp panics when MN > MX, CODESYS answers it", () => {
@@ -233,11 +233,11 @@ describe("emit/rust", () => {
     // this pinned — `let __c = x.round()` and a single i64 arm — and it could not produce `LREAL_TO_DINT(-1.0E30)`
     // = -2147483648, which is the 32-BIT indefinite. `conversions/real-to-integer{,-ladder}.ts` measured 192 cells
     // and `iec_r2i32` / `iec_r2i64` are the table; an INT destination takes the 32-bit half.
-    expect(code).toContain("(iec_r2i32(self.x as f64) as i16)")
+    expect(code).toContain("self.i = iec_r2i32(self.x as f64) as i16;")
     expect(code).toContain("if c < -2147483648.0 { return i32::MIN; }")
     expect(code).toContain("if c >= 9223372036854775808.0 { return 0; }")
-    expect(code).toContain("(self.n != 0)")
-    expect(code).toContain("((self.b as u8) as f32)")
+    expect(code).toContain("self.b = self.n != 0;")
+    expect(code).toContain("self.y = (self.b as u8) as f32;")
     // TRUNC out of DINT range is i32::MIN (measured), so it is range-checked, not pushed through a wrapping i64
     expect(code).toContain("(self.x as f64).trunc()")
     expect(code).toContain("i32::MIN")
@@ -251,7 +251,7 @@ describe("emit/rust", () => {
     // LN GOES THROUGH `iec_log` — `LN(0)` and `LOG(0)` stop the task on CODESYS and Rust answers `-inf` and carries
     // on (`operators/math-domain.ts`, which asked every math function's domain edges). The `as f64` / `as f32` trip
     // this test is really about is unchanged.
-    expect(code).toContain("(iec_log((self.x as f64)).ln() as f32)")
+    expect(code).toContain("iec_log(self.x as f64).ln() as f32")
     expect(code).toContain('panic!("the logarithm of zero stops the task on CODESYS")')
     expect(code).toContain("(self.i as i32).wrapping_abs()") // promoted to DINT; `abs` would panic on the minimum
     expect(code).toContain("self.x.abs()")
@@ -260,17 +260,17 @@ describe("emit/rust", () => {
 
   test("EXPT is `powf` through f64, narrowed to REAL only when both arguments are REAL", () => {
     const code = rust("PROGRAM P\nVAR x : REAL; y : REAL; n : INT; z : LREAL; END_VAR\ny := EXPT(x, y); z := EXPT(x, n);\nEND_PROGRAM\n")
-    expect(code).toContain("((self.x as f64).powf(self.y as f64) as f32)")
-    expect(code).toContain("(((self.x as f64) as f64).powf((self.n as f64) as f64) as f64)") // one INT: LREAL
+    expect(code).toContain("(self.x as f64).powf(self.y as f64) as f32")
+    expect(code).toContain("self.z = (self.x as f64).powf(self.n as f64);") // one INT: LREAL
   })
 
   test("bit operations print Rust's own wrapping_shl/rotate_left, MUX a match, and bit access one slot's mask", () => {
     const code = rust(
       "PROGRAM P\nVAR b : BYTE; n : INT; w : WORD; x : BOOL; i : INT; k : INT; END_VAR\nw := SHL(b, n); b := ROL(b, n); x := w.3; i.15 := x; i := MUX(k, 1, 2, 3);\nEND_PROGRAM\n",
     )
-    expect(code).toContain("(self.b as i32).wrapping_shl((self.n as u32))") // promoted, then Rust's own mask
-    expect(code).toContain("self.b.rotate_left((self.n as u32))") // the BYTE's own width
-    expect(code).toContain("(((self.w >> 3) & 1) != 0)")
+    expect(code).toContain("(self.b as i32).wrapping_shl(self.n as u32)") // promoted, then Rust's own mask
+    expect(code).toContain("self.b.rotate_left(self.n as u32)") // the BYTE's own width
+    expect(code).toContain("self.x = ((self.w >> 3) & 1) != 0;")
     // the place named once (review 2026-09-15: printed on both sides, a call in its index ran twice)
     expect(code).toContain(
       "{ let __bit_v = self.x; let __bit_w = &mut self.i; *__bit_w = if __bit_v { *__bit_w | (1i16 << 15) } else { *__bit_w & !(1i16 << 15) }; }",
@@ -333,7 +333,7 @@ test("a PROGRAM's METHOD takes its arguments before the program is moved out of 
   expect(diagnostics).toEqual([])
   const line = emitRust(pou!).code.split("\n").find((l) => l.includes("__program.bump"))!
   expect(line.indexOf("let __arg_0 = ")).toBeGreaterThanOrEqual(0)
-  expect(line.indexOf("let __arg_0 = ")).toBeLessThan(line.indexOf("std::mem::replace"))
+  expect(line.indexOf("let __arg_0 = ")).toBeLessThan(line.indexOf("std::mem::take"))
 })
 
 /**
@@ -643,11 +643,11 @@ describe.skipIf(skipRustSuite())("emit/rust — compiles", () => {
  */
 describe("emit/rust — a FOR whose limit is a different type", () => {
   test("the counter is promoted to the common type, so the comparison is same-typed", () => {
-    expect(rust("PROGRAM P\nVAR\n\ti : INT;\n\thi : DINT := 5;\n\tn : INT;\nEND_VAR\nFOR i := 1 TO hi DO\n\tn := n + 1;\nEND_FOR\nEND_PROGRAM\n")).toContain("if !((self.i as i32) <= self.hi) { break; }")
+    expect(rust("PROGRAM P\nVAR\n\ti : INT;\n\thi : DINT := 5;\n\tn : INT;\nEND_VAR\nFOR i := 1 TO hi DO\n\tn := n + 1;\nEND_FOR\nEND_PROGRAM\n")).toContain("if (self.i as i32) > self.hi { break; }")
   })
 
   test("a same-typed limit is left alone — no needless cast", () => {
-    expect(rust("PROGRAM P\nVAR\n\ti : INT;\n\thi : INT := 5;\n\tn : INT;\nEND_VAR\nFOR i := 1 TO hi DO\n\tn := n + 1;\nEND_FOR\nEND_PROGRAM\n")).toContain("if !(self.i <= self.hi) { break; }")
+    expect(rust("PROGRAM P\nVAR\n\ti : INT;\n\thi : INT := 5;\n\tn : INT;\nEND_VAR\nFOR i := 1 TO hi DO\n\tn := n + 1;\nEND_FOR\nEND_PROGRAM\n")).toContain("if self.i > self.hi { break; }")
   })
 })
 

@@ -7,7 +7,7 @@
  * import + add one row to the `CATEGORIES` array below.
  */
 import type { LanguageTest } from "../types.js"
-import { FIXTURE_EVIDENCE } from "./evidence.generated.js"
+import { FIXTURE_MAP } from "./map.generated.js"
 import { ADVANCED_TYPE_TESTS } from "./types/advanced-type.js"
 import { CONDITIONAL_PRAGMA_TESTS } from "./pragmas/conditional-pragma.js"
 import { CONVERSION_TESTS } from "./conversions/conversion.js"
@@ -195,12 +195,18 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
 ]
 
 /**
- * Every fixture, each carrying its EVIDENCE rating.
+ * Every fixture, each carrying EVERYTHING KNOWN ABOUT IT — one row, from one file.
  *
- * The rating is derived — from the recordings and the fixture's own flags — so it is generated into
- * `evidence.generated.ts` and merged HERE rather than written into each entry: 458 of these fixtures come from
- * factory helpers or template-literal names, where a per-entry field cannot reach. `fixtures.test.ts` recomputes
- * every value so it cannot go stale.
+ * All of it is derived — from the recordings, the fixture's own flags, the lowered IR and the Rust linter — so it is
+ * generated into `map.generated.ts` and merged HERE rather than written into each entry: 458 of these fixtures come
+ * from factory helpers or template-literal names, where a per-entry field cannot reach. `fixtures.test.ts`
+ * recomputes every value so none of it can go stale.
+ *
+ * THERE USED TO BE TWO GENERATED MODULES and a plan for a third: `evidence.generated.ts` beside a transpile map
+ * beside the divergence sets. Same question, three files, and a reader asking "what do we know about this fixture?"
+ * opening all of them. They are one row now. What did NOT move is the ground truth: `recordings/*.json` is the
+ * vendor's own answer and only a recorder writes it, and `support/divergences.ts` keeps the paragraph explaining
+ * each divergence — the row carries the membership, that file carries the reason.
  *
  * MERGED ONTO THE CATEGORIES, not onto a flattened copy. Both `CATEGORIES` and `ALL_TESTS` are exported and hold the
  * same fixtures; merging into only one gave two views that disagreed, and a per-category report read every rating as
@@ -209,9 +215,16 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
  */
 export const CATEGORIES: readonly CategoryGroup[] = RAW_CATEGORIES.map((c) => ({
   ...c,
-  tests: c.tests.map((t) =>
-    t.evidence === undefined && FIXTURE_EVIDENCE[t.name] !== undefined ? { ...t, evidence: FIXTURE_EVIDENCE[t.name] } : t,
-  ),
+  tests: c.tests.map((t) => {
+    const row = FIXTURE_MAP[t.name]
+    if (row === undefined) return t
+    const { evidence, ...transpile } = row
+    return {
+      ...t,
+      ...(t.evidence === undefined ? { evidence } : {}),
+      ...(transpile.tier === undefined && transpile.diverges === undefined ? {} : { transpile }),
+    }
+  }),
 }))
 
 export const ALL_TESTS: readonly LanguageTest[] = CATEGORIES.flatMap((c) => c.tests)

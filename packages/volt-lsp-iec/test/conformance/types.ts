@@ -128,6 +128,32 @@ export interface LanguageTest {
    */
   evidence?: "confirmed" | "refused" | "not-lowered" | "diverges" | "lsp-gap" | "unasked" | "unaskable"
   /**
+   * WHAT THIS FIXTURE TRANSPILES TO — written by `bun run rate:fixtures`, checked by `fixtures.test.ts`, generated
+   * for the same reason `evidence` is and merged in `fixtures/index.ts` the same way.
+   *
+   * `evidence` above says how well the fixture is EVIDENCED. This says what came out of the backend and what is
+   * wrong with it — the half nobody could ask about while the emitted Rust was only an oracle:
+   *
+   *   `tier`         the band of the language this fixture's own body reaches, from the lowered IR. The
+   *                  simplest-first ladder the emitter sweep walks; `support/transpile-confidence.ts` defines it.
+   *   `correctness`  which oracle reached the emitted RUST — `vendor` when the recording's values came back out of
+   *                  it, `compiles` when it built and no recorded value reaches it, `none` when it does not lower.
+   *   `lints`        what the Rust linter still says about the emitted code, after a policy that names a reason
+   *                  per allowed lint. Empty is the goal; a non-empty list is the work left on that construct.
+   *
+   *   `diverges`     the vendors whose recording this fixture does not match, from `support/divergences.ts` —
+   *                  `triage` for an open false positive, `known` for a documented mismatch. The membership is
+   *                  here so one row answers the whole question; the REASON stays in that file, where prose belongs.
+   *
+   * A fixture that does not lower carries no `tier`, `rust` or `lints` — it must not be able to read as clean.
+   */
+  transpile?: {
+    tier?: string
+    rust?: "vendor" | "compiles" | "none"
+    lints?: readonly string[]
+    diverges?: Readonly<Record<string, "triage" | "known">>
+  }
+  /**
    * The object NAME of each VAR_GLOBAL block in `source`, in order. A GVL names nothing in its own text, so one is
    * named after `pouName` — which is fine for a fixture with a single list and wrong for one with two, where both
    * objects would collide on the wire. A fixture that needs two lists declaring the SAME global (the only way to

@@ -40,5 +40,7 @@ moving one is a small, safe commit, and nothing here is deleted for being redund
 5. A fixture that declares nothing `PLC_PRG` can read is **silently skipped by the recorder** — give it a
    `plcPrgVar`, or say in `execSkip` why it cannot be asked.
 
-`evidence.generated.ts` is written by `scripts/rate-fixtures.ts` and checked by `fixtures.test.ts`; never edit it
-by hand.
+`map.generated.ts` is written by `scripts/rate-fixtures.ts` and checked by `fixtures.test.ts`; never edit it by
+hand. It is ONE row per fixture and it is the whole answer to *what do we know about this one?* — the evidence
+rating, the tier its ST lowers to, which oracle reached the emitted Rust, what the Rust linter still says about
+that Rust, and which vendors it is recorded as diverging from.

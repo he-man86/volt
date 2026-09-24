@@ -19,9 +19,13 @@
  * nobody had thought of by none, silently. The rating is total over the fixtures, so a row that no rating maps to
  * is a hole this table shows. Four hand-written selections cannot show it.
  *
- * WHAT DRIVES THE ROWS is the STORED rating, not a freshly computed one — `evidence.generated.ts`, written by
- * `bun run rate:fixtures`. That is only safe because the first test below recomputes every rating and fails on a
- * disagreement; derived data committed to source needs exactly that gate and nothing less.
+ * WHAT DRIVES THE ROWS is the STORED rating, not a freshly computed one — `map.generated.ts`, written by
+ * `bun run rate:fixtures`. That is only safe because the tests under "the table is total" recompute every rating
+ * and fail on a disagreement; derived data committed to source needs exactly that gate and nothing less.
+ *
+ * That file carries the OTHER half of each fixture's row too — the tier its ST lowers to, which oracle reached the
+ * emitted Rust, and what the Rust linter still says about that Rust — and this gate owns all of it: the tier and
+ * the oracle are recomputed below, and the lints come out of the compile the Rust block already runs.
  *
  * A RED ROW IS THE PRODUCT BEING WRONG, never the recording. Fix `lower/`, `interp/`, `emit/` or the check —
  * never the expectation.
@@ -45,7 +49,16 @@ import { ALL_TESTS } from "./fixtures/index.js"
 import { assembleFixture, withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
 import { STANDARD_LIBRARY } from "./support/standard-library.js"
-import { RUSTC as rustc, skipRustSuite } from "./support/rustc.js"
+import { CLIPPY, RUSTC as rustc, skipLintCheck, skipRustSuite } from "./support/rustc.js"
+import {
+  LINT_FLAGS,
+  assertPolicy,
+  correctnessOf,
+  divergesOf,
+  emittedFindings,
+  rendered,
+  tierOf,
+} from "./support/transpile-confidence.js"
 import { comparable } from "./support/compare-message.js"
 import { EVIDENCE_ORDER, lspErrors, rateFixture, type Evidence } from "./support/evidence.js"
 import type { LanguageTest } from "./types.js"
@@ -308,6 +321,8 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
   // exist to overlap `rustc` processes, and this keeps them doing only that.
   const recorded = rated("confirmed").filter((c) => RUNS[c.name]?.values !== undefined && lowering(c).pou !== undefined)
   const runs = new Map<string, { exit: number; stdout: string; stderr: string }>()
+  /** What the linter said about each case's EMITTED code — the `lints` half of its row in `map.generated.ts`. */
+  const lints = new Map<string, string[]>()
 
   beforeAll(async () => {
     const started = performance.now()
@@ -363,27 +378,34 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
       const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
       await Bun.write(file, `${emitted.code}\n${main}`)
       // ST has no dynamic memory, so the Rust needs no `unsafe` — forbidden, so a case needing it fails rather than builds
-      // DENY warnings, with the same three exceptions the crate check makes plus one of its own. This used to be
+      //
+      // DENY warnings, with the exceptions `support/transpile-confidence.ts` names and REASONS. This used to be
       // `-A warnings`, which meant 600+ emitted programs were compiled with no lint checking at all while the
       // crate check applied real lints to about fifteen — one policy per harness, and the larger one denied
       // nothing. Measured when it was flipped: 2 of 625 failed, and BOTH were faithful emissions of correct ST
       // rather than emitter defects (a statement after RETURN, and a SINT loop bound of 127 that rustc reads as
-      // a tautology), which is why those two lints are named here instead of the flip being abandoned.
-      //   dead_code / unused_parens — as the crate check: generated code is not read for style.
-      //   unreachable_code — a statement after RETURN or EXIT is a real ST program CODESYS compiles, and
-      //     `stmt_return_midway` and `stmt_exit_inner` exist to ask what it does. Rust is right that the line
-      //     cannot run; that IS the measurement.
-      //   unused_comparisons — a FOR bound AT its type's maximum is a comparison rustc can prove
-      //     (`for_at_type_max`: `i <= 127i8` for a SINT). The comparison is necessary and the loop needs it.
+      // a tautology), which is why those two lints are named there instead of the flip being abandoned.
+      //
+      // `-A unused_parens` USED TO BE ON THAT LIST, under "generated code is not read for style". It is not on it
+      // any more: `emit/rust/index.ts` declares an emitted SURFACE a user's harness reaches into, so somebody reads
+      // this code, and the printer was emitting 2,722 pairs of parentheses no one would write.
+      //
+      // BUILT WITH `clippy-driver` WHERE THERE IS ONE — a drop-in for `rustc` that also runs the lints, so the
+      // OPTIMALITY half of the map costs the compile this pass was already paying for. Lint levels are last-wins,
+      // so `-W clippy::all` AFTER `-D warnings` leaves every rustc lint denied (a real emission defect is still a
+      // build failure) while clippy's arrive as warnings to be RECORDED against the fixture.
       const build = Bun.spawn(
-        [rustc!, "--edition", "2021", "-D", "warnings", "-A", "dead_code", "-A", "unused_parens", "-A", "unused_comparisons", "-A", "unreachable_code", "-F", "unsafe_code", "-o", exe, file],
+        [CLIPPY ?? rustc!, "--edition", "2021", ...LINT_FLAGS, "-F", "unsafe_code", "-o", exe, file],
         { stderr: "pipe" },
       )
-      if ((await build.exited) !== 0)
+      const buildExit = await build.exited
+      const buildErr = await new Response(build.stderr).text()
+      lints.set(c.name, emittedFindings(buildErr, emitted.code.split("\n").length).map((f) => f.code))
+      if (buildExit !== 0)
         return void runs.set(c.name, {
           exit: -1,
           stdout: "",
-          stderr: `does not compile:\n${await new Response(build.stderr).text()}`,
+          stderr: `does not compile:\n${rendered(buildErr)}`,
         })
       const run = Bun.spawn([exe], { stdout: "pipe", stderr: "pipe" })
       const exit = await run.exited
@@ -439,6 +461,30 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
       expect(got).toEqual(want)
     })
   }
+
+  /**
+   * THE LINT RATCHET — the optimality half of `map.generated.ts`, and the reason `-D warnings` moved out of the
+   * build above.
+   *
+   * A fixture may report only the lints its stored row already carries. Report one it does not and this fails
+   * naming the fixture and the lint, which is the same guarantee `-D warnings` gave for rustc's lints and now
+   * covers clippy's too — where the emitter's own quality actually shows up.
+   *
+   * IT DOES NOT FAIL ON A ROW THAT SHRANK. A fix that removes a finding is the point of the sweep, and failing the
+   * suite on it would mean every improvement arrives red; `bun run rate:fixtures --check` reports those, and the
+   * count in the generated header is what moves.
+   */
+  test.skipIf(skipLintCheck())("no case reports a lint its stored row does not carry", () => {
+    const worse = [...lints]
+      .map(([name, found]) => {
+        const stored = new Set(ALL_TESTS.find((t) => t.name === name)?.transpile?.lints ?? [])
+        return [name, [...new Set(found)].filter((l) => !stored.has(l)).sort()] as const
+      })
+      .filter(([, extra]) => extra.length > 0)
+      .map(([name, extra]) => `${name}: ${extra.join(", ")}`)
+    if (worse.length > 0) console.log("  [fixtures] the emitted Rust got worse — or run `bun run rate:fixtures`")
+    expect(worse).toEqual([])
+  })
 })
 
 /**
@@ -625,6 +671,33 @@ describe("the table is total", () => {
     // `all`, and `parsed` caches per fixture, so the walk is O(its own dependencies). There is no hidden term —
     // this is the work the gate exists to do.
   }, Math.max(30_000, ALL_TESTS.length * 10))
+
+  /**
+   * THE OTHER HALF OF THE SAME ROW. `tier` and `rust` are derived from the lowered IR and the recordings — no
+   * compiler — so they are checked for every fixture here rather than inside the Rust block, which only reaches
+   * the cases that have recorded values. `lints` is checked there, because only there is anything compiled.
+   */
+  test("the stored tier and oracle on every fixture match the computed ones", () => {
+    const stale: string[] = []
+    for (const t of ALL_TESTS) {
+      const { pou } = lowering(t)
+      const want =
+        pou === undefined ? undefined : { tier: tierOf(pou, t.pouName), rust: correctnessOf(t.name, t.evidence ?? "", true) }
+      const got = t.transpile === undefined ? undefined : { tier: t.transpile.tier, rust: t.transpile.rust }
+      if (want === undefined && got?.tier === undefined) continue
+      if (want?.tier !== got?.tier || want?.rust !== got?.rust)
+        stale.push(`${t.name}: stored ${got?.tier ?? "(none)"}/${got?.rust ?? "(none)"}, computed ${want?.tier ?? "(none)"}/${want?.rust ?? "(none)"}`)
+      const diverges = divergesOf(t.name)
+      if (JSON.stringify(diverges ?? null) !== JSON.stringify(t.transpile?.diverges ?? null))
+        stale.push(`${t.name}: diverges stored ${JSON.stringify(t.transpile?.diverges)}, computed ${JSON.stringify(diverges)}`)
+    }
+    if (stale.length > 0) console.log("  [fixtures] run `bun run rate:fixtures`")
+    expect(stale).toEqual([])
+  }, Math.max(30_000, ALL_TESTS.length * 10))
+
+  test("every allowed lint states the reason it is Volt's answer rather than a defect", () => {
+    expect(() => assertPolicy()).not.toThrow()
+  })
 
   test("the ratings with no row say why", () => {
     const handled = new Set<Evidence>(["confirmed", "refused", "not-lowered", "diverges", "lsp-gap", "unaskable"])
