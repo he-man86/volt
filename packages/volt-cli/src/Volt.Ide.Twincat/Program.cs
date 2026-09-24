@@ -267,15 +267,57 @@ foreach (var a in args)
         return rc;
     }
 
-// `--xae-pid <pid>`: the ONE XAE window this worker owns. REQUIRED — the worker serves `volt.bridge.twincat.<pid>`
-// and attaches to that window by pid; there is no all-XAE fallback (the connector's supervisor always spawns per pid).
+// `--xae-pid <pid>`: the ONE XAE window this worker owns. The worker serves `volt.bridge.twincat.<pid>` and
+// attaches to that window by pid, so the connector's supervisor always spawns one per pid and passes it.
+//
+// WITHOUT it, this FINDS a window instead of refusing. That difference is the whole double-click story: a user
+// who unzips the download and runs the exe passes no arguments, and this used to print one line to stderr and
+// exit 2 — the console window flashing shut before anyone could read it, which reads as "the bridge is broken".
+// Nobody hands a person a program that only works with an argument they were never told about.
+//
+// It WAITS rather than failing when no XAE is up yet, because the order a user does things in is not ours to
+// choose: starting the bridge before opening the project is at least as natural as the reverse. The previous
+// release worked this way and the lifecycle came with it — the console window IS the bridge, and closing it
+// stops the process. CODESYS needs no equivalent: its bridge lives inside the IDE and goes when the IDE goes.
 int xaePid = 0;
 for (int i = 0; i + 1 < args.Length; i++)
     if (args[i] == WorkerCli.XaePid && int.TryParse(args[i + 1], out var p)) xaePid = p;
 if (xaePid == 0)
 {
-    Console.Error.WriteLine("VoltBridgeTwincat requires --xae-pid <pid> (or --list-xae-pids).");
-    return 2;
+    VoltLog.Info("no --xae-pid given; looking for a TwinCAT XAE window");
+    Console.WriteLine("Looking for TwinCAT XAE... (close this window to stop the bridge)");
+    // Enumerating the ROT is a COM call and must happen on an STA thread, the same as every other one here.
+    var deadline = DateTime.UtcNow.AddMinutes(10);
+    while (xaePid == 0)
+    {
+        var found = new List<int>();
+        var scan = new Thread(() =>
+        {
+            try { ComMessageFilter.Register(); RotInstances.TryEnumeratePids(out var all); found.AddRange(all); }
+            catch (Exception ex) { VoltLog.Warn("XAE scan failed: " + ex.Message); }
+        });
+        scan.SetApartmentState(ApartmentState.STA);
+        scan.Start();
+        scan.Join();
+
+        if (found.Count > 0)
+        {
+            // The FIRST window, and say so when there is more than one. Serving several from one process is the
+            // connector's job (it spawns a worker per pid); silently picking one of three and never mentioning
+            // it is how "the bridge is connected to the wrong project" becomes a ten-minute mystery.
+            xaePid = found[0];
+            if (found.Count > 1)
+                Console.WriteLine($"{found.Count} XAE windows are open; serving pid {xaePid}. Use the tray app to serve all of them.");
+            break;
+        }
+        if (DateTime.UtcNow > deadline)
+        {
+            Console.WriteLine("No TwinCAT XAE window appeared. Open your project in XAE, then run this again.");
+            return 2;
+        }
+        Thread.Sleep(2000);
+    }
+    Console.WriteLine($"Found TwinCAT XAE (pid {xaePid}).");
 }
 var pipe = PipeNames.TwincatInstance(xaePid);
 
@@ -310,6 +352,10 @@ catch (Exception ex)
     return 3;
 }
 VoltLog.Info($"twincat bridge serving on pipe {pipe} (xae pid {xaePid})");
+// Said on the CONSOLE as well as in the log, because for a double-click launch this window is the entire user
+// interface: it is how someone knows the bridge is up, and closing it is how they stop it. Closing a console
+// window terminates its process group, so there is nothing to clean up afterwards and no tray icon to hunt for.
+Console.WriteLine($"Bridge connected to TwinCAT (pid {xaePid}). Close this window to stop it.");
 
 // The relay tunnel, exactly as CODESYS starts it — same Core helper, so the two vendors cannot drift. This was
 // MISSING here: a downloaded TwinCAT worker served its pipe perfectly and was simply absent from the relay, so
@@ -323,7 +369,8 @@ using var tunnel = Volt.Relay.PipeHostTunnel.StartIfConfigured(
     m => VoltLog.Info(m),
     m => VoltLog.Error(m));
 
-// Keep the process alive (the connector owns its lifecycle and kills it); tear down the STA loop on exit.
+// Keep the process alive; tear down the STA loop on exit. Two owners now: the connector, which kills the
+// process it spawned, and a person who closes the window (the OS ends the process group).
 // CancelKeyPress is the ONE reachable shutdown path: ProcessExit fires only once the runtime is ALREADY shutting
 // down, so it can never be what unblocks this Wait, and the connector's TerminateProcess raises no managed event.
 var done = new ManualResetEventSlim(false);
