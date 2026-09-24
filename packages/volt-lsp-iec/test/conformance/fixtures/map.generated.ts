@@ -14,7 +14,7 @@
  *   evidence
  *     confirmed     1939
  *     refused        538
- *     not-lowered     94
+ *     not-lowered     95
  *     lsp-gap          4
  *     diverges         3
  *     unaskable       36
@@ -1850,6 +1850,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   prim_default_x_xint: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   prim_default_x_xword: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   ptrparam_function_block: { evidence: "not-lowered" },
+  ptrparam_input_persists: { evidence: "not-lowered" },
   ptrparam_kept: { evidence: "not-lowered" },
   ptrparam_method: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   ptrparam_passed_on: { evidence: "not-lowered" },

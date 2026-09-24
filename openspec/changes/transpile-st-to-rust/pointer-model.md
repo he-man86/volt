@@ -294,3 +294,57 @@ None of 1–2 in §8 depends on these. **Step 3 no longer waits on the two struc
 What it still wants is the two element-step measurements at the top of this section, which are about `p[i]` and a
 non-trivial stride rather than about references; form 3 can start, and should record those before the element
 step is built on top of it.
+
+## What the pointer census got wrong about REACH — measured 2026-09-24
+
+§8 orders the work "sized by what each step unblocks, smallest first" and puts **form 2 first (62 declarations)**.
+Form 2 is now built for a routine's parameter, and its four acceptance tests match CODESYS. **The corpus did not
+move**: still 56 POUs lowered, `pointer-order` still stopping 109. The ordering is wrong, and here is why.
+
+### An FB's indirect VAR_INPUT is a FIELD, and it PERSISTS
+
+`ptrparam_input_persists` supplies a `POINTER TO INT` input on one call and omits it on the next. The body still
+reads **55** through it. So the address outlives the call by construction — which is §4's own test for a HANDLE
+(`assigned into a name that outlives the call`), whatever the body does with it. Form 2 cannot erase it into a
+borrow unless EVERY call site supplies it, and §4 established that call sites are largely unmeasurable here
+(89 of 99 parameters have none this census can see). **Form 2 reaches a call frame only.**
+
+### And every REACHED blocker is a field, not a frame
+
+Declarations across the corpus, by where the parameter lives:
+
+| | count | |
+|---|---:|---|
+| `POINTER` in a METHOD / FUNCTION | 14,466 | a call frame — form 2 reaches it |
+| `REFERENCE` in a METHOD / FUNCTION | 2,020 | the same, once `REF=` is bound |
+| `POINTER` / `REFERENCE` in a FUNCTION_BLOCK | 753 | a FIELD that persists — form 3 |
+
+The 16,486 frame parameters look decisive and are not: almost all of them are in **declaration-only library
+units**, which execute nothing. What `--why pointer-order` actually names, in POUs that RUN, is the other column:
+
+```
+ 55 x4  uInput.p1_Sint …     a pointer FIELD of a union        form 3
+ 38      a local pointer      several stores                    form 3
+ 20      Drive                a field                           form 3
+ 18 x2  refVacuumHighTime, refReleaseVacuumTime                 form 3
+          — `REFERENCE TO REAL` VAR_INPUTs of `VacuumFB`, commented "Optional", so a caller may omit them
+  9,8,8  psValue, psProperties, psKey                           form 3
+```
+
+`refVacuumHighTime` is the shape in miniature: an FB input, a REFERENCE rather than a pointer, optional, and
+therefore read behind an `__ISVALIDREF`. "May hold nothing" is precisely what the tag models, and §8 step 4 already
+says `__ISVALIDREF` falls out of form 3 as the tag compared to 0.
+
+### So the order is form 3, and form 2 was not wasted
+
+Form 3 is the one mechanism; §5 says forms 1 and 2 are erasures of it, and §9 records that step 3 is no longer
+blocked on any measurement. Form 2 stays because it is correct and it is what a routine parameter should lower to —
+it simply does not unblock a corpus POU, and this file should not have implied it would.
+
+- [ ] **Form 3, the tagged handle** — `shared.interfaces`' tracking shape, with a PLACE where `IrDispatch` has a
+      call. Its acceptance tests are already recorded and sitting at `not-lowered`: `ptrparam_kept` (a stored input
+      read a scan later), `ptrparam_input_persists` (supplied once, omitted after), `ptrparam_function_block`,
+      `ptrparam_unsupplied` (nothing supplied, and the vendor FAULTS — the "holds nothing" arm), plus
+      `refdecl_rebound_by_statement` and `refdecl_rebound_in_method` from `reference-binding.ts`.
+- [ ] **`__ISVALIDREF`** — the tag compared to 0, and what `refVacuumHighTime`'s 18 POUs are gated behind.
+- [ ] The reborrow (`ptrparam_passed_on`): a borrow handed to a second callee. Small, and form 2's own leftover.

@@ -918,11 +918,12 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // `pointer-order` stops in the corpus. A ceiling that rises for measurement is not the same as one that rises
   // for a gap, and the eight below are the first kind.
   // 98 -> 94. Step 1 landed for a ROUTINE's pointer input — `ptrparam_read`, `_write`, `_two_targets` and
-  // `_method` lower and match CODESYS. The four still here are each a different next piece: the FB half (a
-  // `POINTER TO` input of a FUNCTION_BLOCK is a FIELD the call fills, not a routine parameter, and it is where
-  // the corpus's volume is), the reborrow (`ptrparam_passed_on` hands its parameter on), form 3 (`ptrparam_kept`
-  // stores it), and an input nobody supplies (`ptrparam_unsupplied`, which the vendor faults on).
-  "not-lowered": 94,
+  // `_method` lower and match CODESYS.
+  // 94 -> 95. `ptrparam_input_persists`, which answers the question that decides whether form 2 reaches an FB at
+  // all: it does NOT. An FB's VAR_INPUT is a FIELD, and the recording says it keeps its address — supplied on one
+  // call and OMITTED on the next, the body still reads 55 through it. So the address outlives the call by
+  // construction, which is §4's own definition of a HANDLE. The five left are form 3's acceptance tests.
+  "not-lowered": 95,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

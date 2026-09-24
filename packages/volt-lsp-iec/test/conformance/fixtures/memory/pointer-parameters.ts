@@ -19,6 +19,9 @@
  *   ptrparam_kept           the callee STORES it in a field and reads it on a later scan. This one must NOT become
  *                           a borrow; it is what the `≤ 30` handle column counts, and the recording says what the
  *                           vendor does so the refusal can be checked rather than assumed
+ *   ptrparam_input_persists an FB's pointer input supplied on one call and OMITTED on the next. An FB VAR_INPUT is a
+ *                           field, so it may keep the address — which would make it a handle rather than a borrow
+ *                           whatever the body does, and decides whether form 2 reaches an FB at all
  *   ptrparam_unsupplied     a pointer input nobody fills, dereferenced. The value is 0 and the deref faults, which
  *                           is the same "the vendor stops" answer `cc_fp_ptr_deref` records for a local
  *
@@ -250,6 +253,39 @@ END_FUNCTION_BLOCK
     "inst : FB_LANG_ptrparam_kept;",
     "inst();",
     3,
+  ),
+
+  pp(
+    "ptrparam_input_persists",
+    "FB_LANG_ptrparam_input_persists",
+    "an FB's POINTER input supplied on ONE call and omitted on the next — whether a VAR_INPUT field keeps its address",
+    `FUNCTION_BLOCK FB_LANG_ptrhold
+VAR_INPUT
+	p : POINTER TO INT;
+END_VAR
+VAR_OUTPUT
+	seen : INT;
+END_VAR
+seen := p^;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_LANG_ptrparam_input_persists
+VAR
+	value : INT := 55;
+	taker : FB_LANG_ptrhold;
+END_VAR
+VAR_OUTPUT
+	first : INT;
+	second : INT;
+END_VAR
+taker(p := ADR(value));
+first := taker.seen;
+taker();
+second := taker.seen;
+END_FUNCTION_BLOCK
+`,
+    "inst : FB_LANG_ptrparam_input_persists;",
+    "inst();",
   ),
 
   pp(
