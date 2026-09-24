@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Volt.Relay\Volt.Relay.csproj" />
+    <!-- The tunnel is tested against a REAL pipe host and a real engine, not a mock of one: the whole claim
+         being tested is "a tunneled request is an ordinary pipe call", and a mocked pipe would assert that
+         claim against itself. -->
+    <ProjectReference Include="..\..\src\Volt.Engine.Host\Volt.Engine.Host.csproj" />
+    <ProjectReference Include="..\..\src\Volt.Engine\Volt.Engine.csproj" />
+    <ProjectReference Include="..\..\src\Volt.Contracts\Volt.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Volt.Wire\Volt.Wire.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\shared\FakeIde.cs" Link="FakeIde.cs" />
+    <Using Include="Volt.Tests.Shared" />
+  </ItemGroup>
+</Project>

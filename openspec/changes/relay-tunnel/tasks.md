@@ -1,21 +1,38 @@
 # Tasks
 
-## Spike — go/no-go
+## Platform floor (NOT a go/no-go — see below)
 
-- [ ] `ClientWebSocket` connects from inside a live CODESYS (IronPython host, net48) to a test WSS endpoint.
-      Script written: `scripts/spike_codesys_websocket.py` — run via Tools -> Scripting -> Execute Script File.
-      Five separately-failing steps (type loads / construct + Bearer header / TLS upgrade / frame round-trip /
-      clean close); writes its verdict to `%LOCALAPPDATA%\Volt\logs\spike-websocket.txt`. **Awaiting a run on a
-      machine with CODESYS.**
+There was a `ClientWebSocket` go/no-go here. It is removed: `start_volt_codesys.py` only LOADS
+`Volt.Ide.Codesys` (`clr.AddReferenceToFileAndPath` → `PipeHost.Start`), that assembly is `net48`, and
+`ClientWebSocket` ships in `System.dll` on .NET Framework 4.5+. There is nothing to discover. The spike script
+that tested it through IronPython interop was testing a layer production never executes, and could only have
+produced a false negative.
+
+What actually needs deciding, and it is implementation detail rather than a gate:
+
+- [ ] **Windows 8 is the floor.** `ClientWebSocket` on .NET Framework goes through the native WebSocket Protocol
+      Component (`websocket.dll`), which Windows 7 / Server 2008 R2 do not have — it throws
+      `PlatformNotSupportedException` there, and CODESYS 3.5 does run on Win7. Decide: refuse at tunnel start
+      with a clear message naming the OS, or state the floor in the download. Either way the failure must not
+      look like "the relay is down".
+- [ ] **Proxy and TLS are explicit, not inherited by luck.** Set `Options.Proxy` from the system proxy and be
+      deliberate about `ServicePointManager.SecurityProtocol` rather than relying on a machine's registry being
+      sane. A corporate proxy that needs credentials is the likely field failure, and it should be a named
+      error, not a silent reconnect loop.
 - [ ] Round-trip `refs` / `fetch` / `push` / `build` through a throwaway relay to both vendors; errors arrive coded.
 
 ## Volt.Relay
 
 - [x] `packages/volt-cli/docs/relay-protocol.md` — the protocol as in design.md; written before the code.
-- [ ] `src/Volt.Relay` (`netstandard2.0`, refs Contracts + Wire only): handshake, allowlist, per-request
-      `PipeClient`, frame tagging, ping/watchdog, reconnect backoff, sidecar loader.
-- [ ] `test/Volt.Relay.Tests`: against an in-memory relay + `FakeIde` pipe — allowlist refusal, coded errors,
-      progress ordering, concurrent `health` during a long op, reconnect, malformed sidecar fails loud.
+- [x] `src/Volt.Relay` (`netstandard2.0`, refs Contracts + Wire only): handshake, allowlist, per-request
+      `PipeClient`, frame tagging, ping/watchdog, reconnect backoff, sidecar loader. Builds with 0 warnings.
+      The socket is behind `IRelaySocket` so the tests drive the REAL tunnel against an in-memory relay.
+- [x] `test/Volt.Relay.Tests`: against an in-memory relay + a REAL `BridgePipeHost` over a real named pipe —
+      33 tests. `connect`/`disconnect` refused without touching the pipe, coded errors crossing intact,
+      progress strictly before the terminal frame, `health` answering while a fetch holds the IDE thread,
+      exactly one terminal frame per id, a malformed frame not taking the connection down, reconnect after a
+      drop, and 14 sidecar cases (every malformed shape throws and names the file; no message carries a token).
+      Only the socket is faked: mocking the pipe would assert the design's central claim against itself.
 - [ ] `WireVocabularyGuardTests` covers the new assembly (op names only via `Ops`).
 
 ## The `logs` op
