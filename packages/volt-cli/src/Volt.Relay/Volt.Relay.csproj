@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    THE TUNNEL — a bridge dials OUT to a relay and serves pipe ops that arrive over it.
+
+    Protocol: packages/volt-cli/docs/relay-protocol.md. That document is the contract; this is the bridge half.
+
+    References Contracts + Wire ONLY, and that constraint is the design. This assembly is a pipe CLIENT — it
+    reaches the engine the same way the CLI does, through PipeClient, so every guard (OpGuard, the disconnect
+    gate, ifVersion, the op allowlist) applies to a tunneled request without being written twice. A tunnel that
+    could see Volt.Engine would inevitably call into it, and the first guard added to only one of the two entry
+    points is a remote write that skips it.
+
+    netstandard2.0 for the same reason as Volt.Wire: the SAME assembly loads in CODESYS's net48 in-proc host and
+    in the net8 TwinCAT worker.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>Volt.Relay</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Volt.Contracts\Volt.Contracts.csproj" />
+    <ProjectReference Include="..\Volt.Wire\Volt.Wire.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Polyfills.cs" Link="Polyfills.cs" />
+  </ItemGroup>
+</Project>

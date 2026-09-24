@@ -18,6 +18,7 @@ namespace Volt.Ide.Codesys;
 public static class PipeHost
 {
     private static BridgePipeHost? _host;
+    private static Volt.Relay.RelayTunnel? _tunnel;
     private static CodesysDriver? _driver;
     private static string _pipeName = PipeNames.Codesys;
     private static readonly object _gate = new();
@@ -78,9 +79,45 @@ public static class PipeHost
                 return "Volt bridge FAILED to start: " + ex.Message;
             }
 
+            // The tunnel, if this install has one. Started AFTER the pipe is up, because it is a pipe
+            // CLIENT: every request it accepts becomes an ordinary local pipe call, so there is still one
+            // entry point to the engine and every guard sits on it.
+            //
+            // No sidecar file means no tunnel, no socket, and a bridge that behaves exactly as it does
+            // today. That is the default, and it is why this cannot regress a local install.
+            StartTunnelIfConfigured();
+
             var where = _driver.IsConnected ? "connected to IDE" : "no IDE engine";
             VoltLog.Info($"CODESYS bridge ready on {_pipeName} ({where})");
             return $"Volt bridge started on pipe {_pipeName} ({where})";
+        }
+    }
+
+    /// <summary>Start the relay tunnel when this install is configured for one.
+    ///
+    /// <para>Every failure here is logged and swallowed ON PURPOSE. The tunnel is an addition to a bridge
+    /// that already works locally; taking the whole bridge down because a remote relay is unreachable, or
+    /// because someone mistyped a URL, would trade a working local install for a broken one. A malformed
+    /// sidecar is still loud — it is named in the log — but it is not fatal.</para></summary>
+    private static void StartTunnelIfConfigured()
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(typeof(PipeHost).Assembly.Location);
+            var sidecar = Volt.Relay.RelaySidecar.Load(dir);
+            if (sidecar is null) return;
+
+            _tunnel = new Volt.Relay.RelayTunnel(
+                sidecar,
+                _pipeName,
+                Vendors.Codesys,
+                typeof(PipeHost).Assembly.GetName().Version?.ToString() ?? "0.0.0");
+            _tunnel.Start();
+        }
+        catch (Exception ex)
+        {
+            VoltLog.Error("relay: tunnel did not start: " + ex.Message);
+            _tunnel = null;
         }
     }
 
@@ -89,6 +126,9 @@ public static class PipeHost
         lock (_gate)
         {
             if (_host is null) return "Volt bridge was not running";
+            // Before the host: the tunnel's in-flight requests are pipe calls against it.
+            try { _tunnel?.Dispose(); } catch (Exception ex) { VoltLog.Warn("relay: stop failed: " + ex.Message); }
+            _tunnel = null;
             _host.Stop();
             // The in-proc detach. It clears the degraded flag and nothing else — there is nothing to release:
             // CodesysObjectModel registers NO change-event handlers on the singleton ObjectManager, contrary to what
