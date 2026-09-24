@@ -129,10 +129,31 @@ export const ALLOWED: Readonly<Record<string, string>> = {
     "a statement after RETURN or EXIT is a real ST program CODESYS compiles (`stmt_return_midway`, `stmt_exit_inner` exist to ask what it does), and Rust is right that the line cannot run",
   unused_comparisons:
     "a FOR bound AT its type's maximum is a comparison rustc can prove (`for_at_type_max`: `i <= 127i8`) — the comparison is necessary and the loop needs it",
-  non_camel_case_types: "a POU struct is named as the POU is in ST, which `emit/rust/index.ts` states is contract",
-  non_snake_case: "a field is `snake_case` of the ST name, and that is not always snake by Rust's own rule",
+  "clippy::absurd_extreme_comparisons":
+    "the same `for_at_type_max` bound, under clippy's name for it: the loop test prints as the FLIPPED comparison (`i > 127i8`) since that pass, and clippy reads the flipped form where rustc read the original",
+  // NO `non_camel_case_types` / `non_snake_case` HERE. Both were written from reasoning — a POU struct keeps the
+  // ST spelling, a field may not be snake by Rust's rule — and neither fires: the emitter already carries
+  // `#[allow(non_camel_case_types)]` on every struct, and `snake()` makes every field name valid. Measured over
+  // all 2,295 lowered fixtures, both excused nothing. An entry that excuses nothing is the decoration this block
+  // warns about, and the generator now refuses to write a map while one exists.
   "clippy::self_assignment":
     "the ST says `n := n`. `cc3_empty_and_noop` asks what a no-op assignment does, and every `cfold_*` fixture uses one to give the recorder a statement to read — the emission is faithful and the lint is about the fixture, not the printer",
+
+  // ── the fixture asks exactly this. Each names the fixture whose ST produced it; without one, it is a defect. ──
+  "clippy::eq_op":
+    "the ST computes a value FROM a variable and itself, on purpose: `realovf_divide_by_computed_zero` needs a zero the constant folder cannot see (`zero := num - num`), and `mathdom_ln_zero` needs one for `LN(0)`",
+  "clippy::approx_constant":
+    "the fixture's own literal. `narrowing_lreal_to_real` declares `3.14159265358979` to ask what survives LREAL → REAL, and `fmt_lreal_many_decimals` multiplies by `3.14159265` to ask how many digits LREAL_TO_STRING prints",
+  "clippy::min_max":
+    "`limit_inverted_bounds` asks what LIMIT answers when MN > MX, so `.max(100).min(0)` — a chain clippy can prove constant — IS the question. CODESYS answers MX for every IN and `limit` prints MIN(MAX(…)) for exactly that reason",
+  "clippy::unnecessary_min_or_max":
+    "`max_min_basic` and `max_extensible` put LITERALS through MIN/MAX to ask what the operators do with them, so the chain folds; the emission is faithful",
+  "clippy::manual_clamp":
+    "NOT `clamp`, deliberately and with a measurement behind it: Rust's `clamp` PANICS when MN > MX and CODESYS answers MX (`limit_inverted_bounds`). `MIN(MAX(IN, MN), MX)` is the measured behaviour — see the comment at the `limit` case in `emit.ts`",
+  "clippy::never_loop":
+    "`stmt_exit_inner` is a FOR whose body is a bare EXIT — the fixture exists to ask what EXIT does to an inner loop, so a loop that runs once is the question rather than a defect",
+  "clippy::manual_range_patterns":
+    "a CASE arm's labels print as the ST wrote them. `xo2_case_ranges_over_enum` has both `1..3` and `4, 5, 6`, and they emit as `1..=3` and `4 | 5 | 6`; collapsing the second would make the Rust say something the source did not",
 }
 
 /** Fails on an allow-list entry with no reason — the only thing that keeps the policy from decaying into a list. */
@@ -154,14 +175,17 @@ export function assertPolicy(): void {
  * stored row does not carry, which is the same guarantee per fixture and covers clippy's lints too, where
  * `-D warnings` only ever covered rustc's. A real compile ERROR still fails the build — it is not a lint.
  */
-export const LINT_FLAGS: readonly string[] = [
-  "-W",
-  "warnings",
-  "-W",
-  "clippy::all",
-  ...Object.keys(ALLOWED).flatMap((lint) => ["-A", lint]),
-  "--error-format=json",
-]
+export const LINT_FLAGS: readonly string[] = ["-W", "warnings", "-W", "clippy::all", "--error-format=json"]
+
+/**
+ * THE ALLOW-LIST IS APPLIED IN THE PARSER, NOT AS `-A` FLAGS. It was flags, which is the obvious way and made the
+ * policy unfalsifiable: a lint the compiler was told to allow never reaches the output, so an entry that excuses
+ * NOTHING looks exactly like one doing its job. Two of them were (`non_camel_case_types`, `non_snake_case`),
+ * written from reasoning and never produced by any of the 2,295 lowered fixtures.
+ *
+ * Reading every warning and splitting it here costs nothing — the build already emits JSON — and it gives
+ * `excusedFindings` the other half, so the generator can refuse to write a map while an entry excuses nothing.
+ */
 
 /** One finding on a fixture's emitted Rust. */
 export interface Finding {
@@ -199,6 +223,30 @@ export function findings(stderr: string): Finding[] {
  */
 export function emittedFindings(stderr: string, emittedLines: number): Finding[] {
   return findings(stderr).filter((f) => f.line > 0 && f.line <= emittedLines)
+}
+
+/**
+ * The lints the policy EXCUSED on this fixture's emitted code — the other half of `emittedFindings`.
+ *
+ * Counted so a dead allow-list entry is visible. Two of them were written from reasoning rather than measurement
+ * (`non_camel_case_types`, `non_snake_case`) and excused nothing at all: the emitter already carries the attribute
+ * for the first, and `snake()` makes the second impossible. An entry that excuses nothing is the decoration the
+ * block above warns about, and nothing could tell — the rows only ever recorded what was NOT allowed.
+ */
+export function excusedFindings(stderr: string, emittedLines: number): string[] {
+  const out: string[] = []
+  for (const raw of stderr.split("\n")) {
+    if (!raw.startsWith("{")) continue
+    try {
+      const parsed = JSON.parse(raw) as { level?: string; code?: { code?: string }; spans?: { line_start?: number }[] }
+      const code = parsed.code?.code
+      const at = parsed.spans?.[0]?.line_start ?? 0
+      if (parsed.level === "warning" && code !== undefined && code in ALLOWED && at > 0 && at <= emittedLines) out.push(code)
+    } catch {
+      continue
+    }
+  }
+  return out
 }
 
 /** A `--error-format=json` stderr as a human would read it — the `rendered` field each diagnostic already carries. */

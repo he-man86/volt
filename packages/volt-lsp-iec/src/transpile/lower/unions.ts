@@ -93,10 +93,14 @@ export function unionCopies(lw: Lowering, target: Place, span: Span): IrStmt[] |
     for (let n = 0; n < overlap; n++) {
       const src = byteAt(from, n)
       const dst = byteAt(to, n)
-      const byte = binaryOf("mod", binaryOf("div", load(src.place), k(256n ** BigInt(src.shift)), ulint, span), k(256n), ulint, span)
+      // THE SCALE IS 1 FOR THE LOWEST BYTE, and `x / 1` and `x * 1` are the value. `load` has already widened to
+      // ULINT, so dropping the node changes no type — it only stops emitting the `/ 1u64` and `* 1u64` that
+      // `clippy::identity_op` names. Folded HERE rather than in the printer: the interpreter runs the same nodes.
+      const scaled = src.shift === 0 ? load(src.place) : binaryOf("div", load(src.place), k(256n ** BigInt(src.shift)), ulint, span)
+      const byte = binaryOf("mod", scaled, k(256n), ulint, span)
       // the element with that one byte replaced: the bytes below it, the new byte, the bytes above it — none overflows
       const unit = 256n ** BigInt(dst.shift)
-      let value = binaryOf("mul", byte, k(unit), ulint, span)
+      let value = unit === 1n ? byte : binaryOf("mul", byte, k(unit), ulint, span)
       if (dst.shift > 0) value = binaryOf("add", binaryOf("mod", load(dst.place), k(unit), ulint, span), value, ulint, span)
       if (dst.shift + 1 < to.bytes.size) {
         const above = binaryOf("mul", binaryOf("div", load(dst.place), k(unit * 256n), ulint, span), k(unit * 256n), ulint, span)

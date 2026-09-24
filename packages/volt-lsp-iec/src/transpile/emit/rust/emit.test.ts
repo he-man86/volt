@@ -78,7 +78,7 @@ describe("emit/rust", () => {
     expect(diagnostics).toEqual([])
     const code = emitRust(pou!).code
     expect(code).toContain("pub fn call(&mut self, v: &mut i16) {")
-    expect(code).toContain("(*v) = ") // the VAR_IN_OUT parameter, written through
+    expect(code).toContain("*v = ") // the VAR_IN_OUT parameter, written through
     expect(code).toContain("self.inc.by1 = 1i16;")
     expect(code).toContain("self.inc.call(&mut self.n);")
     expect(code).toContain("self.ok = self.inc.done;")

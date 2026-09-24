@@ -43,6 +43,7 @@ import {
   TIERS,
   assertPolicy,
   divergesOf,
+  excusedFindings,
   printRow,
   transpileHalf,
   type FixtureMapRow,
@@ -67,6 +68,8 @@ const clippy = CLIPPY
 
 const dir = mkdtempSync(join(tmpdir(), "volt-fixture-map-"))
 const rows = new Map<string, FixtureMapRow>()
+/** How many fixtures each ALLOWED lint actually excused — an entry that excuses nothing is refused below. */
+const excused = new Map<string, number>()
 const started = performance.now()
 
 // ONE COMPILER PER CORE. Each fixture is its own `clippy-driver`, and spawning 2,600 at once is thrashing rather
@@ -98,6 +101,7 @@ await Promise.all(
       })
       await build.exited
       const stderr = await new Response(build.stderr).text()
+      for (const lint of excusedFindings(stderr, code.split("\n").length)) excused.set(lint, (excused.get(lint) ?? 0) + 1)
       const diverges = divergesOf(t.name)
       rows.set(t.name, {
         evidence,
@@ -108,6 +112,17 @@ await Promise.all(
   }),
 )
 rmSync(dir, { recursive: true, force: true })
+
+// AN ALLOW-LIST ENTRY THAT EXCUSES NOTHING IS DECORATION, and until the allow moved out of the `-A` flags into the
+// parser nothing could tell: a lint the compiler was told to allow never reaches the output either way. Two of them
+// were exactly that. Refusing here is the only place with the measurement to refuse on.
+const dead = Object.keys(ALLOWED).filter((lint) => (excused.get(lint) ?? 0) === 0)
+if (dead.length > 0)
+  throw new Error(
+    `these allowed lints excused nothing across all ${rows.size} fixtures: ${dead.join(", ")}. An entry that ` +
+      "excuses nothing outlives the emission it was written for and nobody can tell — delete it, or name the " +
+      "fixture that still produces it.",
+  )
 
 const evidenceTally = new Map<Evidence, number>()
 const tierTally = new Map<string, { total: number; clean: number }>()
@@ -157,6 +172,13 @@ ${
         .map(([lint, n]) => ` *     ${lint.padEnd(38)} ${String(n).padStart(5)}`)
         .join("\n")
 }
+ *
+ *   allowed, and how many fixtures each one still excuses — \`support/transpile-confidence.ts\` holds the reason
+ *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
+${[...excused]
+  .sort((a, b) => b[1] - a[1])
+  .map(([lint, n]) => ` *     ${lint.padEnd(38)} ${String(n).padStart(5)}`)
+  .join("\n")}
  */
 import type { FixtureMapRow } from "../support/transpile-confidence.js"
 

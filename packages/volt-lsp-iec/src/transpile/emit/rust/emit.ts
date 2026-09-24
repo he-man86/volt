@@ -277,6 +277,13 @@ function castTo(text: string, from: Type, target: string): string {
   return rustType(from) === target ? text : `(${text} as ${target})`
 }
 
+
+/** Whether the emitted Rust for this type is `Copy` — everything the printer emits except a DUT struct and an FB
+ *  instance, both of which derive only `Clone`. An array is `Copy` exactly when its element is. */
+function isCopy(t: Type): boolean {
+  if (t.kind === "array") return isCopy(t.element)
+  return t.kind === "elementary" || t.kind === "pointer" || t.kind === "reference" || t.kind === "interface"
+}
 /** The result of an `f64` math routine, narrowed to the IEC type — or left alone when that type IS `f64`. */
 function fromF64(text: string, target: string): string {
   return target === "f64" ? text : `(${text} as ${target})`
@@ -428,7 +435,8 @@ class Printer {
 
   /** A read through a dereference, checked first: `{ iec_deref(self.p); self.value }` — the null pointer panics. */
   guarded(place: Place, text: string, slots: IrPou["slots"]): string {
-    return place.guard === undefined ? text : `{ iec_deref(${this.place(place.guard, slots)}); ${text} }`
+    // the guarded value is the BLOCK's tail — it stands alone there, so a `(*v)` needs no parentheses of its own
+    return place.guard === undefined ? text : `{ iec_deref(${this.place(place.guard, slots)}); ${unparen(text)} }`
   }
 
   /** A write through a dereference is checked on the line before it. */
@@ -438,11 +446,16 @@ class Printer {
 
   /** A place as a Rust lvalue — `self.inst.q`, `self.arr[(self.i as i64 - 1i64) as usize].x`, `(*v)`, `count` — without a final bit step. */
   place(p: Place, slots: IrPou["slots"]): string {
+    // A BORROW NEEDS NO `*` WHEN A FIELD OR AN INDEX FOLLOWS — Rust auto-derefs through `.x` and `[i]`, so
+    // `(*path).used` is `path.used` and `clippy::explicit_auto_deref` says so. It IS needed when the place is the
+    // whole value (`*v = x`, `*v + 1`) and when a BIT step follows, which shifts the value itself.
+    const through = p.path[0]?.kind === "field" || p.path[0]?.kind === "index"
+    const deref = (name: string): string => (through ? name : `(*${name})`)
     let text =
       p.root === "inout"
-        ? `(*${this.frame.inoutNames[p.slot]})`
+        ? deref(this.frame.inoutNames[p.slot]!)
         : p.root === "lent"
-          ? `(*__lent_${p.slot})`
+          ? deref(`__lent_${p.slot}`)
         : p.root === "local"
           ? this.frame.localNames[p.slot]!
           : p.root === "global"
@@ -500,8 +513,13 @@ class Printer {
 
   /** `NOT e`, as a comparison flipped where it is one — the loop test's `if !<cond> { break; }`. */
   negated(e: IrExpr, slots: IrPou["slots"]): string {
+    // a comparison flips; `NOT NOT x` is `x`; a constant is the other constant. A REPEAT's test arrives already
+    // negated (`UNTIL` is the exit condition), so without the double-negation case every REPEAT printed
+    // `if !(!(n > 5)) { break; }` — three of the four `nonminimal_bool` findings left after the first pass.
     if (e.kind === "binary" && INVERSE[e.op] !== undefined)
       return unparen(this.expr({ ...e, op: INVERSE[e.op] } as IrExpr, slots))
+    if (e.kind === "unary" && e.op === "not") return unparen(this.expr(e.operand, slots))
+    if (e.kind === "const" && typeof e.value === "boolean") return e.value ? "false" : "true"
     return `!${this.expr(e, slots)}`
   }
 
@@ -531,17 +549,23 @@ class Printer {
         const fn = this.fnNames.get(routine.key)!
         // a METHOD of a PROGRAM's one instance runs moved out of `Programs`, as the program's call does (`prg` is handed in)
         const moved = onProgram ? this.movedOut(e.instance!, slots) : undefined
+        // A ROUTINE WITH NO RESULT YIELDS `()`, and binding that is `clippy::let_unit_value`. The binding exists to
+        // hold the value across the copy-back / the move-back, which a `()` needs no help with: the call runs as a
+        // statement and the block's own value is the unit it would have carried.
+        const yields = routine.result !== undefined
         const call =
           e.instance === undefined
             ? `${fn}(${args})`
             : moved !== undefined
-              ? `{ let mut __program = std::mem::take(&mut ${moved.program}); let __result = __program${moved.member}.${fn}(${args}); ${moved.program} = __program; __result }`
+              ? yields
+                ? `{ let mut __program = std::mem::take(&mut ${moved.program}); let __result = __program${moved.member}.${fn}(${args}); ${moved.program} = __program; __result }`
+                : `{ let mut __program = std::mem::take(&mut ${moved.program}); __program${moved.member}.${fn}(${args}); ${moved.program} = __program; }`
               : this.guarded(e.instance, `${this.place(e.instance, slots)}.${fn}(${args})`, slots)
         // a VAR_IN_OUT bound through a dereference is checked before the call, as the interpreter checks it when binding
         const checked = e.inouts.reduce((text, b) => ("kind" in b ? text : this.guarded(b, text, slots)), call)
         const lets = [inputLets, this.lentCopies(e.inouts, slots)].filter((l) => l !== "").join(" ")
         const back = this.copiesBack(e.inouts, slots)
-        if (back !== "") return `{ ${lets} let __back = ${checked}; ${back} __back }`
+        if (back !== "") return yields ? `{ ${lets} let __back = ${checked}; ${back} __back }` : `{ ${lets} ${checked}; ${back} }`
         return lets === "" ? checked : `{ ${lets} ${checked} }`
       }
       case "dispatch": {
@@ -560,10 +584,14 @@ class Printer {
       case "load": {
         const field = this.place(e.place, slots)
         const bit = e.place.path.at(-1)
-        if (bit?.kind === "bit") return this.guarded(e.place, `(((${field} >> ${bit.index}) & 1) != 0)`, slots)
-        // a whole struct, instance or array is copied, never moved out of `self`
-        const copied = e.type.kind === "elementary" || e.type.kind === "pointer" || e.type.kind === "reference" || e.type.kind === "interface"
-        return this.guarded(e.place, copied ? field : `${field}.clone()`, slots)
+        // bit 0 needs no shift — `x >> 0` is `clippy::identity_op`, and the mask alone says the same thing
+        if (bit?.kind === "bit")
+          return this.guarded(e.place, `((${bit.index === 0 ? field : `(${field} >> ${bit.index})`} & 1) != 0)`, slots)
+        // a whole struct, instance or array is copied, never moved out of `self` — but only a struct or an FB
+        // instance needs `.clone()` to do it. Everything else the emitter prints IS `Copy`: the elementary types,
+        // `IecStr` (which derives it), a pointer's `usize`, an interface's tag, and an array of any of those.
+        // `.clone()` on a `Copy` value is `clippy::clone_on_copy` and reads as if something were being deep-copied.
+        return this.guarded(e.place, isCopy(e.type) ? field : `${field}.clone()`, slots)
       }
       case "convert": {
         // The measured rules (design §11), each where Rust's bare `as` means something else: a float → int `as`
@@ -591,15 +619,19 @@ class Printer {
           const source = e.value.type.kind === "elementary" ? e.value.type.name : ""
           const text =
             from === "bool"
-              ? `(if ${value} { "TRUE" } else { "FALSE" })`
+              ? `(if ${unparen(value)} { "TRUE" } else { "FALSE" })`
               : isTemporal(source)
-                ? `iec_${source.toLowerCase()}_text(${value} as i64)`
+                ? `iec_${source.toLowerCase()}_text(${unparen(castTo(value, e.value.type, "i64"))})`
                 : source === "LREAL"
-                  ? `iec_lreal_text(${value})`
-                  : `format!("{}", ${value})`
+                  ? `iec_lreal_text(${unparen(value)})`
+                  : `format!("{}", ${unparen(value)})`
           return `${stringPath(e.type)}::lit(${text}.as_bytes())`
         }
-        if (from === "string") return `(iec_parse_${to === "real" ? "real" : "int"}(${value}.units()) as ${target})`
+        // the parse helpers already RETURN `f64` / `i64`; casting to the same type is `unnecessary_cast`
+        if (from === "string") {
+          const parsed = `iec_parse_${to === "real" ? "real" : "int"}(${value}.units())`
+          return target === (to === "real" ? "f64" : "i64") ? parsed : `(${parsed} as ${target})`
+        }
         if (to === "bool") return from === "bool" ? value : from === "real" ? `(${value} != 0.0)` : `(${value} != 0)`
         if (from === "bool") return to === "real" ? `((${value} as u8) as ${target})` : `(${value} as ${target})`
         // REAL -> INTEGER IS DONE AT THE DESTINATION'S REGISTER WIDTH, then wrapped into the target — the emitted
@@ -657,7 +689,8 @@ class Printer {
           case "ror":
             return `${args[0]}.rotate_right(${unparen(castTo(args[1]!, e.args[1]!.type, "u32"))})`
           case "mux": {
-            const [k, ...inputs] = args
+            // a match ARM stands alone; the printer's parentheses around each one are `unused_parens`
+            const [k, ...inputs] = argv
             const arms = inputs.map((input, i) => (i === inputs.length - 1 ? `_ => ${input}` : `${i} => ${input}`))
             return `(match ${k} { ${arms.join(", ")} })`
           }
@@ -745,7 +778,7 @@ class Printer {
         // measured `1.0E38 / 1.0E-38` overflowing to `REAL#Infinity` with the scan completing, so the result was
         // never the rule. Rust's `f32`/`f64` division answers `inf` for a zero divisor instead of panicking the way
         // integer division does, so the divisor is checked explicitly — the emitted twin of `arith` in `values.ts`.
-        return isReal && e.op === "div" ? `iec_div(${l}, ${r})` : `(${l} ${plain} ${r})`
+        return isReal && e.op === "div" ? `iec_div(${unparen(l)}, ${unparen(r)})` : `(${l} ${plain} ${r})`
       }
     }
   }
@@ -771,7 +804,7 @@ class Printer {
           const into = s.target.type
           const value = this.expr(s.value, slots)
           const copied = into.kind === "elementary" && into.elem.family === "string" ? `${value}.to()` : value
-          this.push(`${field} = ${unparen(copied)};`, indent, s.span)
+          this.push(`${unparen(field)} = ${unparen(copied)};`, indent, s.span)
           return
         }
         // a typed one — `1i16 << 15` is -32768, exactly the two's complement bit the IDE sets. The place is named once,

@@ -41,74 +41,65 @@ Measured over the 2,295 fixtures that lower. Each row is one regeneration of `ma
 | baseline | 4,879 | 5 |
 | parens at statement positions · identity casts · `Default` · the prelude's `parse_real` and exponent guard | 1,358 | 1,270 |
 | redundant helper casts · `mem::take` · `Default` for `IecStr` | 379 | 1,967 |
-| `f64` math results · flipped loop tests · argument positions · the two range guards · the dispatch closure | **99** | **2,214** |
+| `f64` math results · flipped loop tests · argument positions · the two range guards · the dispatch closure | 99 | 2,214 |
+| auto-deref · `Copy` loads · the unit binding · union scales · `NOT NOT` · the to-string path · the eight allows | **0** | **2,295** |
 
-| tier | lowered | clean |
-|---|---:|---:|
-| `decl` | 424 | 423 |
-| `arith` | 1570 | 1511 |
-| `control` | 56 | 49 |
-| `aggregate` | 27 | 26 |
-| `call` | 96 | 90 |
-| `indirect` | 122 | 115 |
+Every tier is clean: `decl` 424 · `arith` 1570 · `control` 56 · `aggregate` 27 · `call` 96 · `indirect` 122.
 
-### Printer-wide — every tier at once
+### The printer — every one of these was a single shared cause
 
-These are not one tier's: the printer emits them wherever the construct appears, so one edit moves every tier.
-Measuring per tier first and then finding a single shared cause is the more expensive order, so they went first.
-
-- [x] **`unused_parens` 2,722 → 36** — the printer parenthesizes every binary, cast and unary, which is how a
+- [x] **`unused_parens` 2,722 → 0** — the printer parenthesizes every binary, cast and unary, which is how a
       printer with no precedence table stays correct, and it means a complete expression arrives at a position that
-      needs none already wrapped. `unparen()` drops one balanced outer pair at an assignment's RHS, an `if`
-      condition, a `match` selector, a call argument, a builtin argument and a `let` binding. Never at a receiver —
-      `literal()`'s own comment says what `(-1i32).max(x)` costs without its parens.
-- [x] **`clippy::unnecessary_cast` 578 → 1** — a cast to the type the value already has. Five places: the identity
+      needs none already wrapped. `unparen()` drops one balanced outer pair where the expression stands alone: an
+      assignment's RHS *and its lvalue*, an `if` condition, a `match` selector and each `match` ARM, every call and
+      builtin argument, a `let` binding, and a guarded block's tail. Never at a receiver — `literal()`'s own comment
+      says what `(-1i32).max(x)` costs without its parens.
+- [x] **`clippy::unnecessary_cast` 578 → 0** — a cast to the type the value already has. Six places: the identity
       rule in `convert`; `castTo()` for the casts a BUILTIN adds on top of an argument the IR already typed; the
-      array index, which widened an `i64` to `i64`; `iec_r2i32`/`iec_r2i64`, which already RETURN the register
-      width; and `fromF64`, since an `f64` math routine's result needs no narrowing to `f64`.
+      array index, which widened an `i64` to `i64`; `iec_r2i32`/`iec_r2i64` and `iec_parse_real`/`iec_parse_int`,
+      which already RETURN the right type; and `fromF64`, since an `f64` math routine needs no narrowing to `f64`.
 - [x] **`clippy::new_without_default` 2,289 → 0** — every emitted struct had a no-argument `new` and no `Default`.
       Not derived (Rust derives `Default` only for arrays up to 32 elements) and `::new()` stays the contract;
-      `impl Default` defers to it so the crate composes the way a Rust programmer expects. Four sites:
-      `Globals`/`Programs`, each DUT and FB layout, the POU struct, and `IecStr` in the prelude.
+      `impl Default` defers to it. Four sites, `IecStr` in the prelude included.
 - [x] **`clippy::possible_missing_else` 834 → 0** — all of them one line: `iec_parse_real` in the prelude, written
       as a single dense line where five `if`s with no `else` read as five missing ones. Written out.
-- [x] **`clippy::manual_range_contains` 363 → 0** — three guards: the prelude's exponent, `TRUNC`'s i32 range, and
-      `iec_r2i64`'s.
-- [x] **`clippy::mem_replace_with_default` 0 → 12 → 0** — INTRODUCED by the `Default` impls, and caught by the
-      ratchet on the next regeneration, which is the ratchet working: `std::mem::replace(&mut p, T::new())` is
-      `std::mem::take(&mut p)` once `T: Default`.
-- [x] **`clippy::nonminimal_bool` 46 → 4** — a loop test prints `if !<cond> { break; }` and a loop condition is
-      almost always a comparison. Flipped on the IR node (`INVERSE`), not by rewriting printed text.
+- [x] **`clippy::manual_range_contains` 363 → 0** — three numeric guards.
+- [x] **`clippy::nonminimal_bool` 46 → 0** — a loop test prints `if !<cond> { break; }`. Flipped on the IR node,
+      not in printed text: a comparison inverts, `NOT NOT x` is `x` (a REPEAT arrives already negated — `UNTIL` is
+      the exit condition), and a constant is the other constant.
 - [x] **`clippy::redundant_closure_call` 28 → 0** — `dispatch`'s null arm wrapped its `panic!` in a closure to give
-      it the match's type. `panic!` is `!` and coerces on its own; the closure is needed only when there is NO
-      other arm, which is the case the comment there was written for.
-- [x] **`clippy::self_assignment` 33 → allowed** — the ST says `n := n`. `cc3_empty_and_noop` asks what a no-op
-      assignment does and every `cfold_*` fixture uses one to give the recorder a statement to read. Verified
-      against the three fixture sources before the entry was written.
+      it the match's type. `panic!` is `!` and coerces on its own; the closure is needed only with NO other arm.
+- [x] **`clippy::mem_replace_with_default` 0 → 12 → 0** — INTRODUCED by the `Default` impls and caught by the
+      ratchet on the next regeneration, which is the ratchet working.
+- [x] **`clippy::explicit_auto_deref` 16 → 0** — a VAR_IN_OUT printed `(*path).used`. Rust auto-derefs through
+      `.x` and `[i]`, so the `*` is only needed when the place is the whole value or a BIT step follows.
+- [x] **`clippy::identity_op` 4 → 0** — the union byte pipeline emitted `/ 1u64` and `* 1u64` for the lowest byte,
+      and bit 0 emitted `>> 0`. The scales are folded in `lower/unions.ts` — the root, and the interpreter runs the
+      same nodes — the shift in the printer, which is where it is introduced.
+- [x] **`clippy::clone_on_copy` 2 → 0** — the `load` case cloned any non-elementary. Only a DUT struct and an FB
+      instance need it; `IecStr`, pointers, interface tags and arrays of those are all `Copy` (`isCopy`).
+- [x] **`clippy::let_unit_value` 2 → 0** — a routine with no result yields `()`, and the binding that carried the
+      value across the copy-back has nothing to carry.
 
-### What is left — 99 findings
+### The allows — eight more, each naming the fixture whose ST produced it
 
-- [ ] **`unused_parens` (36) · `double_parens` (17)** — the last argument and binding positions the sweep has not
-      reached. Locate with `scripts/` the same way the others were found, then one edit each.
-- [ ] **`eq_op` (12) · `approx_constant` (6) · `unnecessary_min_or_max` (3) · `manual_clamp` (2) · `min_max` (1) ·
-      `absurd_extreme_comparisons` (1) · `never_loop` (1) · `manual_range_patterns` (1)** — each is a candidate for
-      *the fixture asks exactly this*: `MIN(x, x)`, a literal 3.14159, a `FOR` that cannot run, and the
-      `MIN(MAX(…))` that `limit` emits ON PURPOSE because Rust's `clamp` panics where CODESYS answers
-      (`limit_inverted_bounds`). Confirm each against its fixture source — as `self_assignment` was — and either
-      allow it with the fixture named or fix the printer. An allow entry that names no fixture is not allowed.
-- [ ] **`explicit_auto_deref` (6)** — a VAR_IN_OUT passed as `&mut *x` where `x` already derefs. Printer.
-- [ ] **`identity_op` (4)** — an array index lowered as `+ 0` for a zero lower bound, or a union byte `* 1`. Fold it.
-- [ ] **`clone_on_copy` (2)** — the `load` case clones any non-elementary; a `Copy` DUT does not need it.
-- [ ] **`let_unit_value` (2) · `nonminimal_bool` (4) · `unnecessary_cast` (1)** — read the emission.
-- [ ] Re-measure and update both tables here.
+- [x] `self_assignment` (33) · `eq_op` (12) · `approx_constant` (6) · `unnecessary_min_or_max` (5) ·
+      `manual_clamp` (2) · `manual_range_patterns` (1) · `never_loop` (1) · `min_max` (1) ·
+      `absurd_extreme_comparisons` (1). Each was read against its fixture's ST first: `zero := num - num` for a zero
+      the folder cannot see, a declared `3.14159265358979`, `LIMIT` with inverted bounds, a FOR whose body is a bare
+      EXIT, a bound at the type's maximum. `manual_clamp` is the one with a measurement behind it — Rust's `clamp`
+      PANICS where CODESYS answers MX.
+- [x] **Two entries deleted for excusing nothing.** `non_camel_case_types` and `non_snake_case` were written from
+      reasoning and produced by none of the 2,295 fixtures. They were invisible because the allow-list was `-A`
+      FLAGS: a lint the compiler is told to allow never reaches the output, so an entry doing nothing looks exactly
+      like one doing its job. The allow moved into the PARSER, the generator counts what each entry excuses, the
+      count is in the generated header, and it REFUSES to write while any entry is at zero.
 
 ## 3. Close-out
 
-- [x] The generated map is committed and the ratchet is green: `VOLT_REQUIRE_RUSTC=1 bun test test/conformance` —
-      4,160 pass, 0 fail, with the emitted Rust compiled by `clippy-driver` and every value still matched against
-      the CODESYS recordings.
+- [x] Every tier clean and the ratchet green: `VOLT_REQUIRE_RUSTC=1 bun test` — the emitted Rust is compiled by
+      `clippy-driver` and every value still matched against the CODESYS recordings.
 - [x] `emit/rust/index.ts`'s surface block says the emitted Rust is LINTED and where the policy lives.
 - [x] CI installs clippy beside the toolchain (`--component clippy`), so the lint half cannot silently skip.
-- [x] `bun test src/transpile` — 236 pass. Nine text assertions moved with the printer; every SEMANTIC token in
-      them (`&` not `&&`, `wrapping_neg`, `iec_r2i32`, the MOD guard, the argument-before-move order) was kept.
-- [x] `VOLT_REQUIRE_RUSTC=1 bun test test/conformance` — the values still come back out of the emitted Rust.
+- [x] Twelve emitter assertions moved with the printer. Every SEMANTIC token in them (`&` not `&&`,
+      `wrapping_neg`, `iec_r2i32`, the MOD guard, the argument-before-move order, the in-out write) was kept.
