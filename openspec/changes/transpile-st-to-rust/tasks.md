@@ -965,3 +965,39 @@ pointer and `domain_divide_real_by_zero` divides by zero — the task stops, the
 times out. `support/evidence.ts` already treats a non-compile error as the vendor stopping, which is right. One
 fixture (`arithedge_uint_div_by_zero`) got the precise wording instead; the other 24 did not, which is a recorder
 message worth sharpening but not a correctness bug.
+
+### Corpus reach, measured the same day — which of the above is worth building
+
+`bun run scripts/lower-completeness.ts` counts blocked POUs-with-a-body (304 of them, 56 lowering). Two results
+change the order above, and one of them contradicts it:
+
+- **`var-at` blocks ZERO real POUs.** It does not appear in the blocker table at all. Building the aliasing would
+  close six fixtures and reach nothing anybody wrote — so "buildable, nothing unmeasured" is true and not a
+  reason to build it. The note at `reserveAddress` says what it would take, and that is where it should stay.
+- **`stmt-try` is the only fixture group with real reach**: 6 POUs, and the SOLE blocker of 3. It is still gated
+  on reading `__SYSTEM.ExceptionCode` from a live CODESYS.
+
+### `place-not-local` is the head of the list, and it is not what this file said it was
+
+This file described it as "a `var` of another scope with no frame slot (`Unit`, `AxisRef`)". Measured with
+`--why place-not-local`, 48 distinct reasons, by POUs-with-a-body affected:
+
+```
+ 128  L_LA is a namespace          68  State is a gvl_var           49  SysTypes does not resolve
+ 105  stu is a namespace           51  RTS_INVALID_HANDLE is a…     28  AxisRef is a var
+  93  CmpApp is a namespace        …                               28  DataBrink is a var
+  37  PACK_ML · 30 L_MC1P · 19 SysTypes · 17 Stu · 10 TICKS · 6 TICKU — all namespaces
+```
+
+**A NAMESPACE is the head, not a var** — roughly 445 of the occurrences are `<Library>.<name>` reaching into a
+referenced library. `AxisRef` and `DataBrink`, the two this file named, are 56 between them. So `place-not-local`'s
+190-POU reach is mostly the SAME gap `call-library` has — "a referenced library's body is the vendor's, and a
+declaration file holds none" — and it is not independently buildable: executing a namespaced library name means
+executing library code, which is what `plc-library-runtime` exists for.
+
+The genuinely local half is the rest: `AxisRef`/`DataBrink` (a var of another scope, 56) and the axis instances
+that do not resolve at all (~30, the device tree — see the `device-tree-exposure` note).
+
+**So the order is:** `plc-library-runtime` first, because it unblocks the head of this list as well as its own;
+then the device-tree half of `place-not-local`; then `graphical-body` (112 reach, sole blocker of 6), which is
+network text reaching the backend rather than anything in this list.
