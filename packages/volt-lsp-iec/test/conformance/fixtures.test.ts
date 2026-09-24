@@ -922,8 +922,13 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 94 -> 95. `ptrparam_input_persists`, which answers the question that decides whether form 2 reaches an FB at
   // all: it does NOT. An FB's VAR_INPUT is a FIELD, and the recording says it keeps its address — supplied on one
   // call and OMITTED on the next, the body still reads 55 through it. So the address outlives the call by
-  // construction, which is §4's own definition of a HANDLE. The five left are form 3's acceptance tests.
-  "not-lowered": 95,
+  // construction, which is §4's own definition of a HANDLE.
+  // 95 -> 92. FORM 3 READS. A pointer or reference naming several variables holds a TAG, and a read selects the
+  // arm it names (`IrSelect` — `IrDispatch` with a place where the call is). `refuse_pointer_two_targets` reads b
+  // after `p := ADR(a); p := ADR(b)`, and both `refdecl_rebound_*` follow a reference rebound after its
+  // declaration, one of them from a METHOD and across a scan. Writing through such a pointer is still refused,
+  // and says so: a place cannot express a select, so the write wants an `IrSwitch` over the arms.
+  "not-lowered": 92,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

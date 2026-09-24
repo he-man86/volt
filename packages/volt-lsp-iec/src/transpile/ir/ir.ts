@@ -158,7 +158,29 @@ export type IrBinOp =
 
 export type IrUnOp = "neg" | "not"
 
-export type IrExpr = IrConst | IrFresh | IrLoad | IrBinary | IrUnary | IrConvert | IrBuiltin | IrInvoke | IrDispatch
+export type IrExpr = IrConst | IrFresh | IrLoad | IrBinary | IrUnary | IrConvert | IrBuiltin | IrInvoke | IrDispatch | IrSelect
+
+/**
+ * A READ THROUGH A POINTER OR REFERENCE THAT MAY NAME SEVERAL VARIABLES (design §9 form 3, `pointer-model.md`).
+ *
+ * `IrDispatch` with a PLACE where the call is, and it is the same mechanism for the same reason: the variable holds a
+ * TAG rather than an address — 0 for none, else the tag lowering gave each target — and the read selects the arm the
+ * tag names. A value no arm names faults, exactly as dereferencing a null pointer stops the CODESYS application.
+ *
+ * Form 1 stays the common case and is an ERASURE of this: one target and no null means the tag can never be anything
+ * else, so the deref lowers to that place directly and no tag is ever built. This node appears only where a pointer
+ * genuinely has more than one target (`refuse_pointer_two_targets`: `p := ADR(a); p := ADR(b); seen := p^` reads 2).
+ *
+ * A WRITE through the same pointer needs no node of its own — it is an `IrSwitch` on the tag whose arms each assign
+ * to one target, which is a statement the IR already has.
+ */
+export interface IrSelect {
+  kind: "select"
+  tag: IrExpr
+  arms: readonly { tag: bigint; place: Place }[]
+  type: Type
+  span: Span
+}
 
 /**
  * A call through an interface variable (design §22): the variable holds which instance it names — 0 for none, else the

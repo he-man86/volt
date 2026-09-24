@@ -48,8 +48,12 @@ export interface Shared {
   globals: { slots: IrSlot[]; byName: Map<string, number> }
   /** The POU being lowered: a PROGRAM that names it is the running frame, not a global instance. */
   root: string
-  /** Each pointer or reference variable's one target, by `pointerKey`. */
-  pointers: Map<string, PointerTarget>
+  /**
+   * Each pointer or reference variable's targets, by `pointerKey`, in the order they were recorded — the TAG a store
+   * writes is the index + 1, and 0 is none. One target is form 1 and the deref erases to that place; several is form 3,
+   * where the read selects on the tag (`IrSelect`).
+   */
+  pointers: Map<string, PointerTarget[]>
   /** The layouts that are a UNION's, by upper-cased name — their members overlay one another (`unions.ts`). */
   unions: Set<string>
   /** Every FB instance stored into an interface, at its tag - 1, with the frame its place indexes (`interfaces.ts`). */

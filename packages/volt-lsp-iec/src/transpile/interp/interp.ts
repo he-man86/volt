@@ -189,6 +189,14 @@ class Machine {
         if (arm === undefined) throw new RangeError("call through an interface that holds no instance")
         return this.invoke(arm.call)
       }
+      case "select": {
+        // a read through a pointer that may name several variables: the tag picks which. None is a null dereference,
+        // which stops the application exactly as `iec_deref` does for the single-target form.
+        const tag = this.expr(e.tag)
+        const arm = e.arms.find((a) => a.tag === tag)
+        if (arm === undefined) throw new RangeError("dereference of a null pointer")
+        return this.read(arm.place)
+      }
       case "convert":
         return fit(coerce(this.expr(e.value), e.type, e.value.type), e.type)
       // The three node kinds whose meaning needs no storage live in `ir/evaluate.ts`, because lowering evaluates

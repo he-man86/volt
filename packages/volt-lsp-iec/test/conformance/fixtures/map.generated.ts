@@ -12,20 +12,20 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     1939
+ *     confirmed     1942
  *     refused        538
- *     not-lowered     95
+ *     not-lowered     92
  *     lsp-gap          4
  *     diverges         3
  *     unaskable       36
  *
  *   tier                     lowered    clean
- *     decl                    424      424
+ *     decl                    426      426
  *     arith                  1570     1570
  *     control                  55       55
  *     aggregate                27       27
  *     call                     83       83
- *     indirect                140      140
+ *     indirect                141      141
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
  *     none
@@ -2077,8 +2077,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   refdecl_fb_field: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   refdecl_isvalidref: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   refdecl_program_local: { evidence: "confirmed", tier: "decl", rust: "vendor" },
-  refdecl_rebound_by_statement: { evidence: "not-lowered" },
-  refdecl_rebound_in_method: { evidence: "not-lowered" },
+  refdecl_rebound_by_statement: { evidence: "confirmed", tier: "decl", rust: "vendor" },
+  refdecl_rebound_in_method: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   refdecl_survives_scans: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   refdecl_target_after: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   refdecl_target_before: { evidence: "confirmed", tier: "decl", rust: "vendor" },
@@ -2097,7 +2097,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   refuse_inout_not_given: { evidence: "refused" },
   refuse_interface_any_input: { evidence: "not-lowered" },
   refuse_method_no_result: { evidence: "refused" },
-  refuse_pointer_two_targets: { evidence: "not-lowered" },
+  refuse_pointer_two_targets: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   refuse_sizeof_interface: { evidence: "not-lowered" },
   refuse_super_without_base: { evidence: "refused" },
   refuse_var_temp_struct: { evidence: "confirmed", tier: "aggregate", rust: "vendor" },

@@ -28,8 +28,8 @@ export function pointerKey(lw: Lowering, p: Place): string | undefined {
   return undefined
 }
 
-/** Record `target` as the pointer's one target — refused when another was recorded, or when the pointer outlives it. */
-export function recordTarget(lw: Lowering, key: string, target: PointerTarget, span: Span): boolean {
+/** Record `target` among the pointer's targets and answer its TAG — undefined when the pointer outlives it. */
+export function recordTarget(lw: Lowering, key: string, target: PointerTarget, span: Span): bigint | undefined {
   // An FB body's own field pointing into its VAR_IN_OUT (conformance `mem_adr_of_inout_member`) names the variable the
   // caller bound for THIS call — exact wherever the body stored it on this run. Read anywhere else (a method, the caller,
   // this body before the store) it would follow the next binding where CODESYS follows the stale address, which is
@@ -39,16 +39,16 @@ export function recordTarget(lw: Lowering, key: string, target: PointerTarget, s
   const outlives = !key.startsWith("ROUTINE:") && (target.base.root === "local" || (target.base.root === "inout" && !scoped))
   if (outlives || (key.startsWith("GLOBAL.") && target.base.root !== "global")) {
     lw.bail("pointer-outlives", "a pointer that outlives the variable it points at", span)
-    return false
+    return undefined
   }
-  const known = lw.shared.pointers.get(key)
-  if (known === undefined) {
-    lw.shared.pointers.set(key, target)
-    return true
-  }
-  if (sameTarget(known, target)) return true
-  lw.bail("pointer-targets", "a pointer that points at more than one variable — the handle form is not built yet", span)
-  return false
+  const known = lw.shared.pointers.get(key) ?? []
+  const at = known.findIndex((t) => sameTarget(t, target))
+  if (at >= 0) return BigInt(at + 1)
+  // A SECOND TARGET IS FORM 3, not a refusal. It was `pointer-targets` — "the handle form is not built yet" — and
+  // the handle is what this is: the store writes a TAG, and a read selects the arm the tag names
+  // (`refuse_pointer_two_targets`: `p := ADR(a); p := ADR(b); seen := p^` reads b, measured).
+  lw.shared.pointers.set(key, [...known, target])
+  return BigInt(known.length + 1)
 }
 
 /** `ADR(x)` or the right side of `REF=` — the pointer's value (1, or element index + 1) and its target. */
@@ -111,7 +111,12 @@ export function pointerValue(lw: Lowering, e: Expr, pointerType: Type): { value:
   const source = lowerPlace(lw, operand)
   if (source === undefined) return undefined
   const key = source.type.kind === "pointer" ? pointerKey(lw, source) : undefined
-  const target = key === undefined ? undefined : lw.shared.pointers.get(key)
+  const targets = key === undefined ? undefined : lw.shared.pointers.get(key)
+  // COPYING a multi-target pointer is not built: the copy would have to carry every arm, and its own reads would
+  // select over them. Form 3 covers the pointer that HOLDS several targets, not yet the one copied from it.
+  if (targets !== undefined && targets.length > 1)
+    return lw.bail("pointer-targets", `${describePointer(lw, source)} names more than one variable and is copied — the copy's own arms are not built`, e.span)
+  const target = targets?.[0]
   // the COPY path reaches it first: the corpus writes `start1 := adr_bit0_Of_Byte` and only then `start1^`, so a
   // guard on the dereference alone never sees the input (see `unsuppliedInput`)
   if (target === undefined)
@@ -234,7 +239,14 @@ export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undef
     return { ...borrowed, span }
   }
   const key = pointerKey(lw, pointer)
-  const target = key === undefined ? undefined : lw.shared.pointers.get(key)
+  const targets = key === undefined ? undefined : lw.shared.pointers.get(key)
+  // ONE TARGET IS FORM 1 AND ERASES: the deref is that place, no tag is ever built, and that is the common case.
+  // Several is form 3, and a PLACE cannot express it — the READ path builds an `IrSelect` before reaching here
+  // (`selectThrough`), so anything still arriving with several targets is a use that has no select form yet: a
+  // write, a call receiver, an `ADR` of the deref, an in-out bound to it.
+  if (targets !== undefined && targets.length > 1)
+    return lw.bail("pointer-targets", `${describePointer(lw, pointer)} names ${targets.length} variables, and this use of it selects no arm — only a READ does so far`, span)
+  const target = targets?.[0]
   // THE MESSAGE NAMES THE POINTER AND WHERE IT LIVES. It named neither, which made the 177 POUs it blocks one
   // undifferentiated pile — and the sections are the whole question: a VAR_INPUT is design §9 form 2 (bind it to
   // the caller's place), a field or a local with several stores is form 3 (the tagged handle), and they are
@@ -260,9 +272,45 @@ export function storePointer(lw: Lowering, target: Place, value: Expr, span: Spa
   if (key === undefined) return lw.bail("pointer-place", "a pointer stored somewhere this does not track", span)
   const stored = pointerValue(lw, value, target.type)
   if (stored === undefined) return undefined
-  if (stored.target !== undefined && !recordTarget(lw, key, stored.target, span)) return undefined
+  let written = stored.value
+  if (stored.target !== undefined) {
+    const tag = recordTarget(lw, key, stored.target, span)
+    if (tag === undefined) return undefined
+    // THE VALUE IS THE TAG once the pointer has more than one target. With one it stays what `addressOf` gave —
+    // 1 for a variable, the element index + 1 for an array — which is form 1's encoding and what `p = 0`,
+    // `__ISVALIDREF` and `p[i]` are all built on. Those two encodings cannot share a variable, so a pointer that
+    // names several ELEMENTS is refused rather than given a tag that its index arithmetic would then read.
+    const targets = lw.shared.pointers.get(key) ?? []
+    if (targets.length > 1) {
+      if (targets.some((t) => t.element !== undefined))
+        return lw.bail("pointer-targets", "a pointer that names several variables, one of them an array element — the value would be both a tag and an index", span)
+      written = { kind: "const", value: tag, type: target.type, span }
+    }
+  }
   if (lw.conditional === 0) lw.boundPointers.add(key)
-  return { kind: "assign", target, value: stored.value, span }
+  return { kind: "assign", target, value: written, span }
+}
+
+/**
+ * A READ through a pointer or reference that names SEVERAL variables (form 3) — the select, or undefined when the
+ * pointer has one target and form 1's erasure applies.
+ *
+ * The arms are every target recorded for the key, at the tag `storePointer` writes. `null` is no arm at all, so a
+ * deref before any store faults exactly as `iec_deref` makes it fault for the single-target form.
+ */
+export function selectThrough(lw: Lowering, pointer: Place, span: Span): IrExpr | undefined {
+  const key = pointerKey(lw, pointer)
+  const targets = key === undefined ? undefined : lw.shared.pointers.get(key)
+  if (targets === undefined || targets.length < 2) return undefined
+  if (targets.some((t) => t.scopedTo !== undefined))
+    return lw.bail("pointer-outlives", "a pointer naming several variables, one of them inside a VAR_IN_OUT the call bound", span)
+  return {
+    kind: "select",
+    tag: { kind: "load", place: pointer, type: pointer.type, span },
+    arms: targets.map((t, i) => ({ tag: BigInt(i + 1), place: t.base })),
+    type: targets[0]!.base.type,
+    span,
+  }
 }
 
 /** `r REF= x` — the reference's one target, and its value set (conformance `type_reference_to_int`, `op_sys_isvalidref`). */
@@ -272,9 +320,18 @@ export function bindReference(lw: Lowering, s: Extract<Statement, { kind: "assig
   const key = target.type.kind === "reference" ? pointerKey(lw, target) : undefined
   if (key === undefined) return lw.bail("assign-op", "REF= into something that is not a tracked reference", s.span)
   const address = addressOf(lw, s.value, target.type, s.span)
-  if (address === undefined || !recordTarget(lw, key, address.target, s.span)) return undefined
+  if (address === undefined) return undefined
+  const tag = recordTarget(lw, key, address.target, s.span)
+  if (tag === undefined) return undefined
+  // THE TAG, once the reference names more than one variable — `storePointer` says why the two encodings cannot
+  // share a slot. A reference rebound after its declaration is the shape this exists for
+  // (`refdecl_rebound_by_statement`: before 1, after 2).
+  const targets = lw.shared.pointers.get(key) ?? []
+  if (targets.length > 1 && targets.some((t) => t.element !== undefined))
+    return lw.bail("pointer-targets", "a reference rebound across an array element and a variable — the value would be both a tag and an index", s.span)
+  const value = targets.length > 1 ? ({ kind: "const", value: tag, type: target.type, span: s.span } as IrExpr) : address.value
   if (lw.conditional === 0) lw.boundPointers.add(key)
-  return { kind: "assign", target, value: address.value, span: s.span }
+  return { kind: "assign", target, value, span: s.span }
 }
 
 /**
@@ -307,6 +364,11 @@ export function refuseConstantWrite(lw: Lowering, place: Place, span: Span): boo
 export function loadValue(lw: Lowering, place: Place, span: Span): IrExpr | undefined {
   if (refuseOpenArray(lw, place, span)) return undefined
   if (place.type.kind === "reference") {
+    // A REFERENCE IS READ WITHOUT A `^`, so this is its deref — and form 3 applies here exactly as it does to a
+    // pointer's. `refdecl_rebound_by_statement` and `refdecl_rebound_in_method` both bind at the declaration and
+    // rebind afterwards, which is two targets and one tag.
+    const selected = selectThrough(lw, place, span)
+    if (selected !== undefined) return selected
     const target = pointeePlace(lw, place, undefined, span)
     return target && { kind: "load", place: target, type: target.type, span }
   }

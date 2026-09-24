@@ -1,7 +1,7 @@
 /**
  * Expressions → IR: operators with their promotion rules, calendar arithmetic, and the dispatch to calls and places.
  */
-import type { Expr, Span } from "../../syntax/index.js"
+import { type Expr, isSelfRef, type Span } from "../../syntax/index.js"
 import {
   commonType,
   elementaryRef,
@@ -27,7 +27,7 @@ import {
   typedRealOf,
 } from "./constants.js"
 import { lowerPlace } from "./places.js"
-import { loadValue } from "./pointers.js"
+import { loadValue, selectThrough } from "./pointers.js"
 import { adrDifference } from "./bytes.js"
 import { lowerBuiltin } from "./builtins.js"
 import { lowerPropertyGet } from "./calls.js"
@@ -115,6 +115,14 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
       return loadValue(lw, place, e.span)
     }
     case "deref": {
+      // FORM 3 FIRST: a pointer naming several variables has no single place to load from, so the READ selects on
+      // its tag. `lowerPlace` below is form 1's erasure and stays the common case — `selectThrough` answers
+      // undefined whenever there is one target, which is nearly always.
+      const pointer = isSelfRef(e) ? undefined : lowerPlace(lw, e.base)
+      if (pointer !== undefined && pointer.type.kind === "pointer") {
+        const selected = selectThrough(lw, pointer, e.span)
+        if (selected !== undefined) return selected
+      }
       const place = lowerPlace(lw, e)
       return place && loadValue(lw, place, e.span)
     }

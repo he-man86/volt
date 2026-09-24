@@ -611,6 +611,19 @@ class Printer {
         const none = e.arms.length === 0 ? `(|| -> ${typed} { ${nothing} })()` : nothing
         return `(match ${this.expr(e.tag, slots)} { ${arms} _ => ${none} })`
       }
+      case "select": {
+        // a read through a pointer that may name several variables (form 3): the tag picks the place. `panic!` for a
+        // tag no arm names, which is the null dereference `iec_deref` raises for the single-target form — and the
+        // same closure trick when there is no arm at all, for the reason the `dispatch` note above gives.
+        const read = (p: Place): string => {
+          const field = this.place(p, slots)
+          return isCopy(p.type) ? field : `${field}.clone()`
+        }
+        const arms = e.arms.map((a) => `${a.tag} => ${read(a.place)},`).join(" ")
+        const nothing = `panic!("dereference of a null pointer")`
+        const typed = e.type.kind === "unknown" ? "()" : rustType(e.type)
+        return `(match ${this.expr(e.tag, slots)} { ${arms} _ => ${e.arms.length === 0 ? `(|| -> ${typed} { ${nothing} })()` : nothing} })`
+      }
       case "load": {
         const field = this.place(e.place, slots)
         const bit = e.place.path.at(-1)
