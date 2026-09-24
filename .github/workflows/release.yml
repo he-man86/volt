@@ -1,5 +1,10 @@
-# Volt's BUILD pipeline: every push to dev publishes a testable installer as a PRERELEASE, versioned
-# X.Y.Z.<commit-count> and tagged, for the DEV channel. The connector's stable updater ignores prereleases; only
+# Volt's BUILD pipeline: ON DEMAND, it publishes a testable installer as a PRERELEASE, versioned
+# X.Y.Z.<commit-count> and tagged, for the DEV channel.
+#
+# It used to run on EVERY push to dev. That made a prerelease per commit — 29 of them in one working day — each
+# a ~7 minute build and a GitHub release nobody asked for, for commits that were mid-thought. A dev build is
+# worth publishing when someone wants to install one; until then the commit is enough. Dispatch this workflow
+# (Actions -> release -> Run workflow) to cut one from the current dev tip. The connector's stable updater ignores prereleases; only
 # VOLT_UPDATE_CHANNEL=dev picks them up, so dev builds never reach stable users.
 #
 # There is NO stable build here and no branches. A RELEASE promotes one of these dev builds to prod — see
@@ -14,9 +19,7 @@
 name: release
 
 on:
-  push:
-    branches: [dev]
-  workflow_dispatch: {} # manual rebuild of the current dev tip's prerelease
+  workflow_dispatch: {} # the only trigger — cut a prerelease from the current dev tip when one is wanted
 
 # Supersede an in-flight build when a newer commit lands on dev.
 concurrency:
