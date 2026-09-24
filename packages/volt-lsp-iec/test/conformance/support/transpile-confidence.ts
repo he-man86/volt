@@ -89,7 +89,7 @@ export function tierOf(pou: IrPou, ownPouName: string): Tier {
 // ── where the correctness evidence is ────────────────────────────────────────────────────────────────────────
 
 /** Which oracle reached the fixture's EMITTED RUST — not the interpreter, which `evidence` already covers. */
-export type Correctness = "vendor" | "compiles" | "none"
+export type Correctness = "vendor" | "compiles" | "rejected" | "none"
 
 const RUNS = JSON.parse(readFileSync(join(import.meta.dir, "..", "recordings", "codesys.run.json"), "utf8")).tests as Record<
   string,
@@ -104,12 +104,28 @@ const RUNS = JSON.parse(readFileSync(join(import.meta.dir, "..", "recordings", "
  * deterministic SAMPLE of 120, which is a property of the suite rather than a fact about a fixture — writing it in
  * a per-fixture row would claim evidence that moves when `SAMPLE` moves.
  */
-export function correctnessOf(name: string, evidence: string, lowers: boolean): Correctness {
+export function correctnessOf(name: string, evidence: string, lowers: boolean, built = true): Correctness {
   if (!lowers) return "none"
   // THE EVIDENCE IS PASSED IN, not read off the fixture. The generator runs before the map it writes is merged, so
   // `t.evidence` is undefined there — read from the fixture, every row came out `compiles` and not one said
   // `vendor`, which is the strongest thing this field has to say.
+  //
+  // AND `built` IS PASSED IN, because `compiles` was ASSUMED. The generator ran the compiler and threw the exit
+  // code away, so every fixture that lowered was written `compiles` — including 6 whose emitted Rust the compiler
+  // rejects (`i : INT := 1.5` emits `1.5i16`). The one field whose whole job is to say where the evidence is was
+  // claiming evidence nobody had.
+  if (!built) return "rejected"
   return evidence === "confirmed" && RUNS[name]?.values !== undefined ? "vendor" : "compiles"
+}
+
+/**
+ * A fixture whose emitted Rust the compiler REJECTS, and whose ST the vendor accepts. That is an emitter defect:
+ * the transpiler's input contract is "code CODESYS compiles" (`src/transpile/index.ts`), so inside the contract the
+ * Rust has to build. Outside it — `refused`, `lsp-gap` — lowering is only total, not meaningful, and a rejected
+ * emission is the honest outcome rather than a bug.
+ */
+export function rejectionIsADefect(evidence: string): boolean {
+  return evidence !== "refused" && evidence !== "lsp-gap"
 }
 
 // ── the lint policy ──────────────────────────────────────────────────────────────────────────────────────────
@@ -304,12 +320,13 @@ export function transpileHalf(
   pou: IrPou | undefined,
   stderr: string,
   emittedLines: number,
+  built: boolean,
 ): Pick<FixtureMapRow, "tier" | "rust" | "lints"> {
   if (pou === undefined) return {}
   const lints = [...new Set(emittedFindings(stderr, emittedLines).map((f) => f.code))].sort()
   return {
     tier: tierOf(pou, t.pouName),
-    rust: correctnessOf(t.name, evidence, true),
+    rust: correctnessOf(t.name, evidence, true, built),
     ...(lints.length > 0 ? { lints } : {}),
   }
 }

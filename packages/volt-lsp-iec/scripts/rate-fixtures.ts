@@ -44,6 +44,8 @@ import {
   assertPolicy,
   divergesOf,
   excusedFindings,
+  rejectionIsADefect,
+  rendered,
   printRow,
   transpileHalf,
   type FixtureMapRow,
@@ -70,6 +72,8 @@ const dir = mkdtempSync(join(tmpdir(), "volt-fixture-map-"))
 const rows = new Map<string, FixtureMapRow>()
 /** How many fixtures each ALLOWED lint actually excused — an entry that excuses nothing is refused below. */
 const excused = new Map<string, number>()
+/** A fixture INSIDE the input contract whose emitted Rust the compiler refused — an emitter defect, refused below. */
+const rejected = new Map<string, string>()
 const started = performance.now()
 
 // ONE COMPILER PER CORE. Each fixture is its own `clippy-driver`, and spawning 2,600 at once is thrashing rather
@@ -99,19 +103,31 @@ await Promise.all(
         stderr: "pipe",
         stdout: "pipe",
       })
-      await build.exited
+      // THE EXIT CODE IS READ. It was discarded, so every fixture that lowered was written `compiles` — six of
+      // them wrongly, because their emitted Rust does not build (`i : INT := 1.5` emits `1.5i16`). All six are
+      // outside the input contract, which makes the EMISSION fine and the CLAIM false.
+      const built = (await build.exited) === 0
       const stderr = await new Response(build.stderr).text()
+      if (!built && rejectionIsADefect(evidence)) rejected.set(t.name, rendered(stderr).slice(0, 600))
       for (const lint of excusedFindings(stderr, code.split("\n").length)) excused.set(lint, (excused.get(lint) ?? 0) + 1)
       const diverges = divergesOf(t.name)
       rows.set(t.name, {
         evidence,
-        ...transpileHalf(t, evidence, pou, stderr, code.split("\n").length),
+        ...transpileHalf(t, evidence, pou, stderr, code.split("\n").length, built),
         ...(diverges === undefined ? {} : { diverges }),
       })
     }
   }),
 )
 rmSync(dir, { recursive: true, force: true })
+
+// AN EMITTED PROGRAM THAT DOES NOT COMPILE, for ST the vendor ACCEPTS, is an emitter defect — and outside the value
+// pass (which reaches only the fixtures that have recorded values) nothing was watching for one.
+if (rejected.size > 0)
+  throw new Error(
+    `the emitted Rust does not compile for ${rejected.size} fixture(s) whose ST CODESYS accepts:\n` +
+      [...rejected].map(([name, why]) => `  ${name}\n${why}`).join("\n"),
+  )
 
 // AN ALLOW-LIST ENTRY THAT EXCUSES NOTHING IS DECORATION, and until the allow moved out of the `-A` flags into the
 // parser nothing could tell: a lint the compiler was told to allow never reaches the output either way. Two of them

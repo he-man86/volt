@@ -41,7 +41,9 @@ inferred from the folder it lives in.
 ### Requirement: every fixture carries which oracle reached its emitted Rust
 
 A fixture that lowers SHALL carry `vendor` when the CODESYS recording's values were reproduced by the compiled
-Rust, and `compiles` when the Rust was accepted by the compiler but no recorded value reaches it.
+Rust, `compiles` when the compiler accepted the Rust and no recorded value reaches it, and `rejected` when the
+compiler refused it. The value SHALL come from the compiler's own exit status and SHALL NOT be inferred from the
+fact that the fixture lowered.
 
 There SHALL be no value claiming the interpreter-versus-Rust comparison, because that gate runs on a fixed sample:
 a per-fixture row may not claim evidence that moves when the sample size moves.
@@ -51,8 +53,32 @@ a per-fixture row may not claim evidence that moves when the sample size moves.
 - **THEN** its oracle is `vendor`
 
 #### Scenario: a fixture with no recorded values
-- **WHEN** no recording names any of a fixture's variables
+- **WHEN** no recording names any of a fixture's variables and the compiler accepts the emitted Rust
 - **THEN** its oracle is `compiles`
+
+#### Scenario: the compiler refuses the emitted Rust
+- **WHEN** the emitted Rust does not build
+- **THEN** its oracle is `rejected`, never `compiles`
+
+### Requirement: emitted Rust that does not build is a defect inside the input contract
+
+The emitted Rust for a fixture whose ST the vendor ACCEPTS SHALL compile, and a failure to compile SHALL fail both
+the generator and the suite. Where the vendor REFUSES the ST, the fixture is outside the transpiler's input
+contract, lowering is total rather than meaningful, and a rejected emission SHALL be recorded rather than fail.
+
+Every fixture that lowers SHALL have its emitted Rust compiled by the suite, not only those with recorded values.
+
+#### Scenario: an in-contract program whose Rust does not build
+- **WHEN** a fixture rated `confirmed` emits Rust the compiler refuses
+- **THEN** the gate fails and names the fixture and the compiler's message
+
+#### Scenario: an out-of-contract program whose Rust does not build
+- **WHEN** a fixture rated `refused` emits Rust the compiler refuses
+- **THEN** its row records `rejected` and nothing fails
+
+#### Scenario: a fixture with no recorded values is still compiled
+- **WHEN** a fixture lowers and no recording names any of its variables
+- **THEN** the suite still compiles its emitted Rust and checks its lint row
 
 ### Requirement: the emitted Rust is linted, and every allowed lint carries its reason
 

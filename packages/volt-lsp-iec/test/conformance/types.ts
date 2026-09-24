@@ -149,7 +149,7 @@ export interface LanguageTest {
    */
   transpile?: {
     tier?: string
-    rust?: "vendor" | "compiles" | "none"
+    rust?: "vendor" | "compiles" | "rejected" | "none"
     lints?: readonly string[]
     diverges?: Readonly<Record<string, "triage" | "known">>
   }

@@ -56,6 +56,7 @@ import {
   correctnessOf,
   divergesOf,
   emittedFindings,
+  rejectionIsADefect,
   rendered,
   tierOf,
 } from "./support/transpile-confidence.js"
@@ -488,6 +489,83 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
 })
 
 /**
+ * THE LOWERED FIXTURES THE VALUE PASS DOES NOT REACH — compiled, not run.
+ *
+ * The block above needs RECORDED VALUES, so it selects `confirmed` fixtures that have them: 1,912 of the 2,295 that
+ * lower. The other 383 emitted Rust that nothing in this suite ever built, and their rows said `rust: "compiles"`
+ * anyway — because the generator ran the compiler and threw the exit code away. **Six of them do not compile.**
+ * All six are outside the input contract (`evidence: refused` — `i : INT := 1.5` emits `1.5i16`), which makes the
+ * EMISSION defensible and the claim false; the map says `rejected` for them now.
+ *
+ * So this exists to make the claim checkable on every push, and to put the 383 under the lint ratchet with the
+ * rest. Compile only — there is nothing recorded to compare — which is why it is its own block and not a widened
+ * selection above: that one's whole shape is print-the-values-and-diff-them.
+ */
+describe.skipIf(skipRustSuite())("the rest of the lowered fixtures — the emitted Rust builds, or says why not", () => {
+  const seen = new Set(rated("confirmed").filter((c) => RUNS[c.name]?.values !== undefined).map((c) => c.name))
+  const rest = ALL_TESTS.filter((t) => !seen.has(t.name) && t.transpile?.tier !== undefined)
+  const built = new Map<string, { ok: boolean; lints: string[]; why: string }>()
+
+  beforeAll(async () => {
+    const started = performance.now()
+    const dir = await mkdtemp(join(tmpdir(), "volt-exec-rust-rest-"))
+    const lanes = Math.max(1, navigator.hardwareConcurrency - 1)
+    let next = 0
+    await Promise.all(
+      Array.from({ length: Math.min(lanes, rest.length) }, async () => {
+        for (let i = next++; i < rest.length; i = next++) {
+          const c = rest[i]!
+          const pou = lowering(c).pou
+          if (pou === undefined) continue
+          const emitted = emitRust(pou)
+          const file = join(dir, `${c.name}.rs`)
+          await Bun.write(file, `${emitted.code}\nfn main() {}\n`)
+          const build = Bun.spawn(
+            [CLIPPY ?? rustc!, "--edition", "2021", ...LINT_FLAGS, "-F", "unsafe_code", "--emit", "metadata", "-o", `${file}.meta`, file],
+            { stderr: "pipe", stdout: "pipe" },
+          )
+          const ok = (await build.exited) === 0
+          const stderr = await new Response(build.stderr).text()
+          const n = emitted.code.split("\n").length
+          built.set(c.name, { ok, lints: emittedFindings(stderr, n).map((f) => f.code), why: ok ? "" : rendered(stderr) })
+        }
+      }),
+    )
+    await rm(dir, { recursive: true, force: true })
+    console.log(`  [rust] ${rest.length} more cases compiled in ${Math.round((performance.now() - started) / 1000)}s`)
+  }, Math.max(120_000, rest.length * 300))
+
+  test("a fixture whose ST CODESYS accepts emits Rust that compiles", () => {
+    const broken = rest
+      .filter((c) => built.get(c.name)?.ok === false && rejectionIsADefect(c.evidence ?? ""))
+      .map((c) => `${c.name} (${c.evidence}):\n${built.get(c.name)!.why}`)
+    expect(broken).toEqual([])
+  })
+
+  test("the stored oracle matches what the compiler actually did", () => {
+    const wrong = rest
+      .filter((c) => built.has(c.name))
+      .map((c) => [c, built.get(c.name)!.ok ? "compiles" : "rejected"] as const)
+      .filter(([c, want]) => c.transpile?.rust !== want)
+      .map(([c, want]) => `${c.name}: stored ${c.transpile?.rust}, compiler says ${want}`)
+    if (wrong.length > 0) console.log("  [fixtures] run `bun run rate:fixtures`")
+    expect(wrong).toEqual([])
+  })
+
+  test.skipIf(skipLintCheck())("no case reports a lint its stored row does not carry", () => {
+    const worse = rest
+      .map((c) => {
+        const stored = new Set(c.transpile?.lints ?? [])
+        return [c.name, [...new Set(built.get(c.name)?.lints ?? [])].filter((l) => !stored.has(l)).sort()] as const
+      })
+      .filter(([, extra]) => extra.length > 0)
+      .map(([name, extra]) => `${name}: ${extra.join(", ")}`)
+    if (worse.length > 0) console.log("  [fixtures] the emitted Rust got worse — or run `bun run rate:fixtures`")
+    expect(worse).toEqual([])
+  })
+})
+
+/**
  * THE VENDOR REFUSES IT AND SO DO WE. The rating already established that the LSP objects — that is what separates
  * `refused` from `lsp-gap`. What is left is the WORDING, for the fixtures that record the vendor's own text.
  *
@@ -681,12 +759,21 @@ describe("the table is total", () => {
     const stale: string[] = []
     for (const t of ALL_TESTS) {
       const { pou } = lowering(t)
-      const want =
-        pou === undefined ? undefined : { tier: tierOf(pou, t.pouName), rust: correctnessOf(t.name, t.evidence ?? "", true) }
-      const got = t.transpile === undefined ? undefined : { tier: t.transpile.tier, rust: t.transpile.rust }
-      if (want === undefined && got?.tier === undefined) continue
-      if (want?.tier !== got?.tier || want?.rust !== got?.rust)
-        stale.push(`${t.name}: stored ${got?.tier ?? "(none)"}/${got?.rust ?? "(none)"}, computed ${want?.tier ?? "(none)"}/${want?.rust ?? "(none)"}`)
+      const tier = pou === undefined ? undefined : tierOf(pou, t.pouName)
+      if (tier !== t.transpile?.tier) stale.push(`${t.name}: tier stored ${t.transpile?.tier ?? "(none)"}, computed ${tier ?? "(none)"}`)
+
+      // `compiles` VS `rejected` IS NOT DECIDED HERE, and asserting it was how this test started failing on the
+      // six rows that are honestly `rejected`: no compiler runs in this block, so it cannot know which one a
+      // fixture earned. The two Rust blocks above compile every lowered fixture and assert exactly that. What is
+      // checkable WITHOUT a compiler is the rest of the claim, and all of it is checked:
+      //   a row exists exactly when the fixture lowers, and
+      //   `vendor` — the strongest thing the field says — is claimed only where a recording holds values.
+      const rust = t.transpile?.rust
+      if ((pou === undefined) !== (rust === undefined))
+        stale.push(`${t.name}: rust stored ${rust ?? "(none)"}, but it ${pou === undefined ? "does not lower" : "lowers"}`)
+      if (rust !== undefined && (rust === "vendor") !== (correctnessOf(t.name, t.evidence ?? "", true) === "vendor"))
+        stale.push(`${t.name}: rust stored ${rust}, and the recording says otherwise`)
+
       const diverges = divergesOf(t.name)
       if (JSON.stringify(diverges ?? null) !== JSON.stringify(t.transpile?.diverges ?? null))
         stale.push(`${t.name}: diverges stored ${JSON.stringify(t.transpile?.diverges)}, computed ${JSON.stringify(diverges)}`)

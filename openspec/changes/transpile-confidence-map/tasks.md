@@ -21,17 +21,26 @@ which files every FB fixture under `call` on a statement no fixture wrote.
 
 ## 1. The map itself
 
-- [ ] `test/conformance/support/transpile-confidence.ts` — ONE implementation, as `evidence.ts` is one:
-  - [ ] `tierOf(pou, ownPouName)` — the band from the IR node kinds the fixture's own body produces.
-  - [ ] `ALLOWED` — the lint policy, one line of reason each. The gate fails on an entry with no reason.
-  - [ ] `rateTranspile(t, all)` — `{ tier, correctness, lints }`.
-- [ ] `test/conformance/types.ts` — `LanguageTest.transpile`, documented as generated like `evidence`.
-- [ ] `test/conformance/fixtures/transpile.generated.ts` — written by `rate:fixtures`, merged in `fixtures/index.ts`.
-- [ ] `scripts/rate-fixtures.ts` — writes both modules; `--check` reports what would change.
-- [ ] `fixtures.test.ts` — the A↔C pass builds with `clippy-driver` instead of `rustc`, collects the JSON
-      diagnostics it already has to read, and fails when a fixture reports a lint its stored row does not carry.
-- [ ] CI: `rustup component add clippy` beside `VOLT_REQUIRE_RUSTC=1`.
-
+- [x] `test/conformance/support/transpile-confidence.ts` — ONE implementation, as `evidence.ts` is one: `tierOf`,
+      `correctnessOf`, `ALLOWED` with a reason per entry, `transpileHalf`, and the findings parser.
+- [x] `test/conformance/types.ts` — `LanguageTest.transpile`, documented as generated like `evidence`.
+- [x] `test/conformance/fixtures/map.generated.ts` — **one file, not two.** The plan said a
+      `transpile.generated.ts` beside `evidence.generated.ts`; they answer the same question about the same
+      fixture, so the evidence module was folded into this one and deleted. `fixtures/index.ts` merges it.
+- [x] `scripts/rate-fixtures.ts` — the single producer. It compiles every fixture now (~50s, not instant), and it
+      REFUSES rather than write a map it cannot stand behind: no clippy on PATH, an allow-list entry that excuses
+      nothing, or a fixture inside the input contract whose Rust does not build.
+- [x] `fixtures.test.ts` — the value pass builds with `clippy-driver`, and the rows are recomputed: `tier`, `rust`
+      and `diverges` for every fixture (no compiler needed), `lints` from the compile that already runs.
+- [x] **A second block for the 383 lowered fixtures the value pass does not reach.** It selects `confirmed`
+      fixtures WITH recorded values, so 383 of the 2,295 that lower were compiled by nothing in the suite — and
+      their rows claimed `rust: "compiles"` on the word of a generator that read the exit code and threw it away.
+      Six of them do not compile. They are compiled here now, the claim is asserted against what the compiler
+      actually did, and they are under the lint ratchet with the rest.
+- [x] **`rejected` is a fourth value of `rust`** — the Rust was emitted and the compiler refused it. Expected
+      outside the input contract (`evidence: refused` — `i : INT := 1.5` emits `1.5i16`, and CODESYS rejects the
+      ST); a hard failure inside it, in both the generator and the suite.
+- [x] CI: `rustup component add clippy` beside `VOLT_REQUIRE_RUSTC=1`.
 ## 2. The sweep — the printer first, then what is left per tier
 
 Measured over the 2,295 fixtures that lower. Each row is one regeneration of `map.generated.ts`:
@@ -103,3 +112,23 @@ Every tier is clean: `decl` 424 · `arith` 1570 · `control` 56 · `aggregate` 2
 - [x] CI installs clippy beside the toolchain (`--component clippy`), so the lint half cannot silently skip.
 - [x] Twelve emitter assertions moved with the printer. Every SEMANTIC token in them (`&` not `&&`,
       `wrapping_neg`, `iec_r2i32`, the MOD guard, the argument-before-move order, the in-out write) was kept.
+
+## 4. What the review of this change itself found
+
+The sweep was declared finished at 0 findings. Reviewing the MAP rather than the emitter turned up three defects in
+this change's own work — worth recording, because two of them were the map claiming evidence nobody had:
+
+- [x] **`rust: "compiles"` was assumed, not measured.** The generator ran the compiler and discarded the exit code,
+      so every fixture that lowered was written `compiles`. Six were wrong: their emitted Rust does not build
+      (`i : INT := 1.5` emits `1.5i16`). All six are `evidence: refused` — CODESYS rejects the ST — so the EMISSION
+      is defensible and only the claim was false. `rejected` is a fourth value now, taken from the exit status, and
+      an in-contract program that fails to build fails the generator AND the suite.
+- [x] **383 lowered fixtures were compiled by nothing in the suite.** The value pass selects `confirmed` fixtures
+      WITH recorded values (1,912 of 2,295), so the rest had neither their compile claim nor their lint row checked
+      on any push — which is where the six hid. They have their own compile-only block now.
+- [x] **The cheap recompute test claimed more than it could know.** It recomputed `rust` with no compiler, so it
+      asserted `compiles` for rows that are honestly `rejected`. It checks what is checkable without one — a row
+      exists exactly when the fixture lowers, and `vendor` is claimed only where a recording holds values — and the
+      two compile blocks own the rest.
+- [x] **Section 1 of this file described a `transpile.generated.ts` that was never built** (the two generated
+      modules became one) and had every box unticked while the work was done. Rewritten to what exists.
