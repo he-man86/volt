@@ -86,6 +86,42 @@ def _prune(root):
         pass
 
 
+def _unblock(path):
+    """Delete the Zone.Identifier stream Windows puts on a file extracted from a DOWNLOADED zip.
+
+    .NET Framework refuses to load an assembly carrying that stream: "An attempt was made to load an assembly
+    from a network location ... you must enable the loadFromRemoteSources switch". The host here is CODESYS.exe,
+    whose app.config we do not own, so the switch is not available to us - the mark has to go instead.
+
+    Reproduced 2026-09-25: the bridge zip is served over https, so every file Explorer's "Extract All" writes is
+    marked. Loading the marked folder fails; deleting the streams makes the identical load succeed. It surfaced
+    as "Could not load file or assembly 'Volt.Wire, Version=1.0.0.0 ... or one of its dependencies" at
+    PipeHost.Start, because the main DLL is staged (a copy drops the stream) while a dependency still resolved
+    from the marked original.
+
+    Deleting an alternate data stream is just os.remove on 'file:stream'. Best-effort by design: a file that has
+    no stream, or that we may not write, raises and is skipped."""
+    try:
+        os.remove(path + ":Zone.Identifier")
+        return True
+    except Exception:
+        return False
+
+
+def _unblock_dir(d):
+    """Unblock every file we might load out of `d`. Returns how many streams were removed (0 is the normal case
+    for an install that was not downloaded, and is not an error)."""
+    removed = 0
+    try:
+        for name in os.listdir(d):
+            if os.path.splitext(name)[1].lower() in _STAGE_EXTS:
+                if _unblock(os.path.join(d, name)):
+                    removed += 1
+    except Exception:
+        pass
+    return removed
+
+
 def _stage(src):
     """Copy the bridge DLL + its sibling deps to a PER-IDE-SESSION temp dir and load from the COPY, so CODESYS
     file-locks the copy — never the install-dir originals. That is what lets Volt UPDATE IN PLACE while CODESYS is
@@ -102,12 +138,19 @@ def _stage(src):
             return dst  # already staged for this session (script re-run) — don't recopy a DLL we hold open
         if not os.path.isdir(dst_dir):
             os.makedirs(dst_dir)
-        for name in os.listdir(src_dir):
-            if os.path.splitext(name)[1].lower() in _STAGE_EXTS:
-                try:
-                    shutil.copy2(os.path.join(src_dir, name), os.path.join(dst_dir, name))
-                except Exception:
-                    pass
+        wanted = [n for n in os.listdir(src_dir) if os.path.splitext(n)[1].lower() in _STAGE_EXTS]
+        for name in wanted:
+            try:
+                shutil.copy2(os.path.join(src_dir, name), os.path.join(dst_dir, name))
+            except Exception:
+                pass
+        # Every wanted file, not just the main DLL. A per-file copy can fail on its own (antivirus holds a
+        # freshly downloaded DLL open), and checking only _DLL_NAME declared success over a half-copied folder -
+        # which then failed later, at PipeHost.Start, naming whichever dependency was missing.
+        missing = [n for n in wanted if not os.path.exists(os.path.join(dst_dir, n))]
+        if missing:
+            print("Volt: staging incomplete (%s); loading from %s instead" % (", ".join(missing), src_dir))
+            return src
         return dst if os.path.exists(dst) else src
     except Exception:
         return src
@@ -121,7 +164,13 @@ try:
         for c in _candidates():
             print("   %s  (exists=%s)" % (c, os.path.exists(c) if c else False))
     else:
+        # BEFORE staging, and on the SOURCE: a copy already drops the stream, but the deps can still resolve
+        # from the original folder, and _stage falls back to it. Unblocking here covers every path.
+        freed = _unblock_dir(os.path.dirname(dll))
+        if freed:
+            print("Volt: unblocked %d downloaded file(s) in %s" % (freed, os.path.dirname(dll)))
         staged = _stage(dll)  # load a per-session COPY so the install-dir DLLs stay unlocked (in-place updates)
+        _unblock_dir(os.path.dirname(staged))
         print("Volt: loading %s" % staged)
         clr.AddReferenceToFileAndPath(staged)
         from Volt.Ide.Codesys import PipeHost
