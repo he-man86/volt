@@ -16,6 +16,10 @@
     <ProjectReference Include="..\..\src\Volt.Ide.Twincat\Volt.Ide.Twincat.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The network text v2 model oracle, shared with the engine suite (test/shared/NextModelOracle.cs). -->
+    <Compile Include="..\shared\NextModelOracle.cs" Link="NextModelOracle.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <!-- The suite's own vendor fixtures, beside the test binary. Without this the loader cannot find them. -->
     <None Include="fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

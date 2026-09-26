@@ -232,6 +232,14 @@ public class NextNetworkTextReaderTests
             Read(Src("out := f(src, => err);")));
 
     /// <summary>Spec, "an operator box in call form".</summary>
+    /// <summary>Found by the model oracle on the Lenze corpus (<c>identPolePosition_FeedforwardWrapper(execute :=
+    /// …)</c>): a pin is named by the <c>:=</c> / <c>=&gt;</c> after it, so a formal spelled like a construct of
+    /// the text is a pin name and never opens the construct.</summary>
+    [Fact]
+    public void A_pin_named_like_a_construct_of_the_text_is_a_pin() =>
+        AssertModel(Body(Top("f", new[] { In(L("a"), "execute"), In(L("b"), "parallel") }, new[] { Out("x", null, "not") })),
+            Read(Src("f(execute := a, parallel := b, not => x);")));
+
     [Fact]
     public void An_operator_box_in_call_form_has_its_BoxType_as_head() =>
         AssertModel(Body(Call("AND", new[] { In(L("a")), In(L("b")) }, new[] { Out("out", 1) }, en: L("go"), main: null, kind: CallKind.Operator)),

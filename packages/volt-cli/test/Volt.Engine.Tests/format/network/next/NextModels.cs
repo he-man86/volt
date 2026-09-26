@@ -55,27 +55,8 @@ internal static class NextModels
 
     /// <summary>The scope a model's text needs to be read back: its FB instances (the declarations would carry
     /// them) plus <paramref name="names"/>.</summary>
-    public static NextNetworkScope ScopeOf(NetworkBody body, params string[] names)
-    {
-        var instances = new Dictionary<string, string>();
-        void Walk(Node? n)
-        {
-            switch (n)
-            {
-                case Box b:
-                    if (b.Instance is { } i && i.Text != Box.UnnamedInstance) instances[i.Text] = b.Type;
-                    Walk(b.Enable);
-                    foreach (var p in b.Inputs) Walk(p.Value);
-                    break;
-                case Assign a: Walk(a.Value); break;
-                case Demux d: Walk(d.Input); break;
-                case Parallel p: Walk(p.Input); foreach (var br in p.Branches) Walk(br); break;
-                case Terminator t: Walk(t.Input); break;
-            }
-        }
-        foreach (var net in body.Networks) foreach (var t in net.Trees) Walk(t);
-        return new NextNetworkScope(names, instances);
-    }
+    public static NextNetworkScope ScopeOf(NetworkBody body, params string[] names) =>
+        new(names, NextModelOracle.Instances(body));
 
     /// <summary>Every model <c>NextNetworkTextWriterTests</c> writes without refusing, by the test that pins it.</summary>
     public static readonly IReadOnlyDictionary<string, NetworkBody> WriterGoldens = BuildGoldens();

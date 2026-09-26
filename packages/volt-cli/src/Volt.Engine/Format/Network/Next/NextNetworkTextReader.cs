@@ -616,7 +616,7 @@ public static class NextNetworkTextReader
         private Node ParseAfterNotParen(Tok not, bool consumed)
         {
             var open = Next();
-            if (Peek().IsSym(")") || Peek().IsSym("=>")) return ParseCall(not, null, null, consumed, null);
+            if (Peek().IsSym(")") || Peek().IsSym("=>") || IsPinName(Peek())) return ParseCall(not, null, null, consumed, null);
             var v = ParseValue(consumed: true, defer: true);
             if (v.Bare is not null && (Peek().IsSym(":=") || Peek().IsSym("=>"))) return ParseCall(not, null, null, consumed, v);
             if (IsOperator(Peek()))
@@ -724,8 +724,12 @@ public static class NextNetworkTextReader
                 return;
             }
 
-            var v = pre ?? ParseValue(consumed: true, defer: true);
-            if (v.Bare is { } name && name.Kind == TokKind.Word && (Peek().IsSym(":=") || Peek().IsSym("=>")))
+            // A pin name is decided by the `:=` / `=>` after it, BEFORE the word is read as a value: read first,
+            // `execute := x` would open an EXECUTE body.
+            Tok? pinName = pre is null
+                ? IsPinName(Peek()) ? Next() : null
+                : pre.Value.Bare is { Kind: TokKind.Word } b && (Peek().IsSym(":=") || Peek().IsSym("=>")) ? b : null;
+            if (pinName is { } name)
             {
                 if (!NextSpelling.Identifier.IsMatch(name.Text))
                     throw Err(name, ConflictCodes.NetworkBadExpression, $"a pin name is an identifier, not '{name.Text}'.");
@@ -752,7 +756,7 @@ public static class NextNetworkTextReader
                 return;
             }
 
-            inputs.Add(new Input(null, Resolve(v, consumed: true), Flags.None));
+            inputs.Add(new Input(null, Resolve(pre ?? ParseValue(consumed: true, defer: true), consumed: true), Flags.None));
         }
 
         /// <summary><c>PARALLEL([MODE := m,] [IN := feed,] b1, b2, …)</c> — the LD <c>BoxTreeParallel</c>, never an
@@ -1008,6 +1012,10 @@ public static class NextNetworkTextReader
         private bool IsEmptyHere(Tok t) =>
             t.IsSym(",") || t.IsSym(")") || t.IsSym(";") || t.Is("THEN") ||
             (IsOperator(t) && !(t.Kind == TokKind.Word && _lx!.PeekChar() == '('));
+
+        /// <summary>Whether the lookahead word is a pin's name: <c>:=</c> or <c>=&gt;</c> follows it. Called only
+        /// on the lookahead token, so the lexer stands right after it.</summary>
+        private bool IsPinName(Tok t) => t.Kind == TokKind.Word && _lx!.PinOperatorFollows();
 
         private int Line(Tok t) => _lx!.LineOf(t.Offset);
 

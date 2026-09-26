@@ -447,6 +447,17 @@ public class NextNetworkTextWriterTests
             Refused(() => Write(new Assign(L("a"), new[] { T("A", jumpBit), T("out") }, Flags.None))).Marker);
     }
 
+    /// <summary>Found by the model oracle (UnspellableCoilTests' return coil): RETURN takes no target, so a
+    /// return whose target names anything but the vendor's constant <c>???</c> is refused, never written as a
+    /// bare RETURN that drops the name.</summary>
+    [Fact]
+    public void A_return_with_a_named_target_goes_to_the_marker()
+    {
+        var returnBit = Flags.None with { Return = true };
+        Assert.Equal("a return with a named target",
+            Refused(() => Write(new Assign(L("a"), new[] { T("out", returnBit) }, Flags.None))).Marker);
+    }
+
     // ── BoxTreeDemux: the VAR_TEMP wire ─────────────────────────────────────────────────────────
 
     /// <summary>Page, "Wires — the one named thing" (Mach1_MIDS network 0).</summary>

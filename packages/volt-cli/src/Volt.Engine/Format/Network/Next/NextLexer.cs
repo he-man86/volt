@@ -194,6 +194,17 @@ internal sealed class NextLexer
         return j < _s.Length ? _s[j] : null;
     }
 
+    /// <summary>Whether <c>:=</c> or <c>=&gt;</c> is next, across layout. Asked right after a word inside an
+    /// argument list: it makes that word a PIN NAME before it is read as a value, so a formal spelled like a
+    /// construct of the text (<c>execute :=</c>, a real pin of Lenze's <c>identPolePosition</c>) is a name and
+    /// never opens the construct.</summary>
+    public bool PinOperatorFollows()
+    {
+        var j = _i;
+        while (j < _s.Length && char.IsWhiteSpace(_s[j])) j++;
+        return j + 1 < _s.Length && ((_s[j] == ':' && _s[j + 1] == '=') || (_s[j] == '=' && _s[j + 1] == '>'));
+    }
+
     /// <summary>The next non-blank character on the current line, or null at its end. Lets the parser see
     /// whether an <c>EXECUTE</c> carries <c>(EN := …)</c> without lexing into its body.</summary>
     public char? PeekOnLine()

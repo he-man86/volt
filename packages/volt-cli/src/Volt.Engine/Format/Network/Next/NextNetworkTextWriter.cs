@@ -248,7 +248,15 @@ public static class NextNetworkTextWriter
                         $"a jump in network {_net.Order} names '{target?.Text}', and JMP takes one label.");
                 action = "JMP " + target.Text;
             }
-            else action = "RETURN";   // RETURN's `???` target is measured constant; the reader rebuilds it.
+            else
+            {
+                // RETURN's `???` target is measured constant, and the reader rebuilds it; any other target text
+                // is a fact `RETURN` has no place for, and writing RETURN would drop it.
+                if (target is not null && target.Text != Box.UnnamedInstance)
+                    throw Unrepresentable("a return with a named target",
+                        $"a return in network {_net.Order} names the target '{target.Text}', and RETURN takes none.");
+                action = "RETURN";
+            }
 
             // Unconditional when nothing drives it. Both a null value and the empty Terminator are read as
             // unconnected here, as v1 did — 0 jumps and 1 conditional RETURN in every corpus leave the vendor's
