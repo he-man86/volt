@@ -162,7 +162,12 @@ internal static class NextSpelling
     /// EN is wired. Keyed on the ENO OUTPUT, never on EN: census 1.6 (DIALECT N16) measured the two independent — an
     /// enabled comparison has EN and no ENO, an FB may declare ENO without EN. ENO is never an <c>=&gt;</c> slot, and
     /// a consumer connected to it is written <c>.ENO</c>.</summary>
-    public static int? EnoSlot(Box b) => b.StCode is not null || b.HasEnoOutput == true ? 0 : null;
+    public static int? EnoSlot(Box b) => EnoSlot(isExecute: b.StCode is not null, hasEnoOutput: b.HasEnoOutput == true);
+
+    /// <summary>The same slot, for a reader that has decided the two facts before it has a <see cref="Box"/> to ask
+    /// about — the call reader places its positional pins around ENO while it is still building the box. Both
+    /// overloads are this one number, so the readers and the writer cannot disagree on where ENO sits.</summary>
+    public static int? EnoSlot(bool isExecute, bool hasEnoOutput) => isExecute || hasEnoOutput ? 0 : null;
 
     /// <summary>Whether a consumer of <paramref name="b"/> is connected to its ENO — the <c>.ENO</c> suffix. The ONE
     /// definition: the writer's suffix, the wire type rule and the test oracle all ask this, so none can drift.</summary>

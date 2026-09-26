@@ -778,7 +778,7 @@ public static class NextNetworkTextReader
             // main output, which the text reads by NextSpelling.MainSlotOfCall — slot 0, or no stored slot for a
             // bit operator — and the writer refuses every box that reading would get wrong.
             var hasEno = NextSpelling.TextHasEno(isExecute: false, hadEn, eno, consumed);
-            int? enoSlot = hasEno ? 0 : null;
+            int? enoSlot = NextSpelling.EnoSlot(isExecute: false, hasEnoOutput: hasEno);
             int? connected = eno ? enoSlot : consumed ? NextSpelling.MainSlotOfCall(type) : null;
             var next = 0;
             var built = new List<Output>();

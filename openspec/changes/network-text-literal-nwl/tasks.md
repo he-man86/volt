@@ -189,7 +189,10 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
 
 - [x] 2.1 A structural `NetworkModel` comparer (the model deliberately has none today). Its one equivalence: absent
       and default `InputParams` names (1.5, review 7.9).
-      *Done (phase 1):* `test/shared/NetworkModelEquality.cs` + `NetworkModelEqualityTests`; the default-formals equivalence is deliberately not built — census 1.5 found no default formals to reconcile.
+      *Done (phase 1):* `test/shared/NetworkModelEquality.cs` + `NetworkModelEqualityTests`, strict with no
+      equivalence. The one equivalence is in the oracle's normalisation, `NextNetworkTextFacts.Carried`, which
+      erases an infix box's formals (absent or `IN<n>`, `NextSpelling.IsInfix`) on both sides — the list of what
+      the text does not carry, kept in one place (review of section 2 corrected a note that said it was not built).
 - [x] 2.2 Property test `Read(Write(m)) ≅ m` over every vendor-read fixture (Codesys reader doubles, `tc-pou/*.TcPOU`)
       and the Lenze-shape InlineData. **Must be red today** on: a `BoxTreeParallel` (reads back as AND/OR), a top-level
       box with a result pin (reads back as `Assign(Box)`).
@@ -277,10 +280,11 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       with the same reserved set; the writer never reorders, and a vendor reference stored before its definition
       goes to the marker (review 7.7); a data-valued producer goes to the marker (1.17).
       *Progress (phase 1):* every misuse has a v2 gate/reader test except a wire named like a global and like an FB member seen from a method — those need the one reserved-name set (3.9).
-      *Done (section 2):* `A_wire_named_like_a_global_or_an_FB_member_seen_from_a_method` — a global `G1` and an owning
-      FB's member `G2` in the scope: refused `NETWORK_DUPLICATE_NAME` on read, renamed by the writer to the lowest
-      free `g<n>`, and that text accepted against the same scope. Building that scope FROM the declarations (globals,
-      the owning FB's members from a method/action) is 3.9's, with its own test.
+      *Review of section 2:* the global and FB-member cases MOVE to 3.9. A test here could only state them as a flat
+      name set — the input `A_wire_named_like_a_variable_in_scope` already uses — so a test named after a global
+      could not fail for a global's reason (`NextNetworkScope` has no notion of one). That duplicate was deleted; the
+      rename-and-accept half is `A_renamed_wire_reads_back_under_its_new_VarId`. What is open is building the scope
+      from the declarations, and 3.9 now names the tests.
 - [x] 2.7 `NetworkKeywordBoundaryTests`: a statement on the line after `NETWORK` that starts `DISABLED :=`,
       `TITLE :=` or `LABEL :=` is a statement, not a header field (the header ends at its newline); a `//` comment
       ends at its newline; header fields out of order are `NETWORK_NOT_CANONICAL`.
@@ -373,7 +377,11 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       working tree to it; a black-box CLI test pushes a hand-wrapped call and asserts the next pull reports nothing.
 - [ ] 3.9 One reserved-name set (review 7.2), built once and used by writer and reader: POU vars, globals, the owning
       FB's members from a method/action, keywords, literals, `PARALLEL`/`R_EDGE`/`F_EDGE`, case-insensitive. Wire
-      names `g<digits>` only; the writer's collision rename takes the lowest free `g<n>`.
+      names `g<digits>` only; the writer's collision rename takes the lowest free `g<n>`. Tests (moved from 2.6,
+      review 7.2), each with the scope BUILT from the declarations, never stated as a name list: a wire named like a
+      GVL global and like the owning FB's member, read in a method and in an action → refused
+      `NETWORK_DUPLICATE_NAME` on read, case-insensitively; the writer renames around each and the reader accepts
+      that text against the same built scope.
 - [ ] 3.10 Model (review 7.3): carry the slot index on `Output` and the connection slot on a consumed `Box`
       (`ReadBoxOutputs` stops dropping null slots); both drivers read and write them; the slot rule reads them.
 - [ ] 3.11 Pull never throws (review 7.4): every writer refusal becomes a marker route; EXECUTE ends at the first line

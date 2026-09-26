@@ -30,8 +30,9 @@ namespace Volt.Tests.Shared;
 /// <item><c>OutputTypes</c> and <c>Demux.Type</c>: a wire's type is compared through the declaration the writer
 /// derives from them, not as model fields (the vendor's Demux has no type; the text's has no stored types).</item>
 /// <item><c>Box.HasEnoOutput</c> where the text does not decide by it (<see cref="NextSpelling.EnoCarried"/>): a
-/// top-level box with no positional <c>=&gt;</c> pin, a box consumed by no stored slot, an Execute box. The ENO
-/// output is the box type's; the text spells it only as <c>.ENO</c> and as the slot positional pins skip.</item>
+/// top-level box with no positional <c>=&gt;</c> pin, a consumed box with no EN and no stored slot (an operator
+/// group), an Execute box. The ENO output is the box type's; the text spells it only as <c>.ENO</c> and as the
+/// slot positional pins skip.</item>
 /// <item>A NAMED output's slot → null: <c>F =&gt; v</c> names the pin, and the pin's slot is the box type's.</item>
 /// <item>Control flow: the Jump/Return bit on the item AND its target (DIALECT C13 — the reader writes both); a
 /// target-less return's target is the vendor's constant <c>???</c>.</item>

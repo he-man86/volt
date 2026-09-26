@@ -17,10 +17,11 @@ namespace Volt.Tests.Shared;
 ///
 /// <para><b>Strict, with no equivalences.</b> Every field of every node is compared, the v2 slot facts included,
 /// and nothing is normalised: <c>Operand.Flags</c> null is not <see cref="Flags.None"/>, an absent formal is not
-/// a default formal. The spec's one sanctioned equivalence — absent vs default <c>InputParams</c> names (task
-/// 2.1, review 7.9) — is deliberately NOT built in: the 2026-09-26 census found no default formals to reconcile
-/// (AND/OR/NOT carry <c>[]</c>, arithmetic/compare/MOVE only <c>['EN']</c>), and an equivalence added before a
-/// fixture needs it is exactly the kind of default that hides a real loss.</para>
+/// a default formal. The spec's one sanctioned equivalence — an infix box's absent vs default <c>InputParams</c>
+/// names (task 2.1, review 7.9) — is not in THIS comparer, which stays strict for every caller: it lives in the
+/// oracle's normalisation, <c>NextNetworkTextFacts.Carried</c>, which erases the formals of a box the text writes
+/// infix (<c>NextSpelling.IsInfix</c> admits only absent or <c>IN&lt;n&gt;</c> formals) on both sides. Keeping it
+/// there puts every fact the text does not carry on one list.</para>
 /// </summary>
 public static class NetworkModelEquality
 {
