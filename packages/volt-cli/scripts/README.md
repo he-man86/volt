@@ -93,7 +93,9 @@ connection compared — and that is ENO only when the box HAS one, DIALECT N16),
 `probe-edge-names-order` (the vendor negates before the edge, on an operand and a box; a Parallel and a wire reference
 hold no flag and a new Parallel is `Sequential`; `R_EDGE`/`F_EDGE` are legal POU names, N17/N18/N20),
 `probe-nwl-labels` + `probe-labels-edge-names.ts` (labels and jumps built on both vendors — held, and what the
-build says, N19; the `.ts` is the TwinCAT half, over the pipe), `probe-st-chained-set` (`a := b S= c;` is legal ST).
+build says, N19; the `.ts` is the TwinCAT half, over the pipe), `probe-st-chained-set` (`a := b S= c;` is legal ST),
+`probe-nwl-oracle-rungs` (the seven lenze-mid rungs the v2 ladder oracle pins, dumped fact by fact — which item is a
+Parallel, which box has an ENO output, which slot a pin is on; `nwl-oracle-rungs.log`, task 2.4).
 `voltprobe.build_messages` / `nwl_new` / `nwl_edit` are the build-and-construct half those share.
 
 **Structure** — `probe-tc-name-collision` (TwinCAT refuses to CREATE a folder whose name an object at that

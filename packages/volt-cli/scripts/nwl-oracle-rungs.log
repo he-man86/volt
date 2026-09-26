@@ -1,0 +1,417 @@
+probe of: Lenze_MID-S100_V5_00_602_T51.project (a copy; the original is never opened)
+
+==============================================================================
+POU Mach1_MIDS  (85 networks)
+==============================================================================
+
+-- NETWORK 0  title='DONE Network 1: Activating/deactivating MID-S/Trayfiller' label='' comment='' OutCommented=False
+  tree[0]: BoxTreeDemux  VarId=0 itemflags=none
+      Input: BoxTreeOperand  Operand = 'TRUE' type='BOOL' flags=none
+  tree[1]: BoxTreeDemux  VarId=1 itemflags=none
+      Input: BoxTreeBox  BoxType='AND' itemflags=none
+          Instance = None type='' flags=none  CallType=And
+          En=None Eno=None EnEno=True MainOutputIndex=None
+          InputParams  Names=[] Types=[]
+          OutputParams Names=[] Types=[]
+          InputFlags = ['none', 'none']
+          in[0]: BoxTreeDemux  VarId=0 itemflags=none
+          in[1]: BoxTreeOperand  Operand = 'Mach1_Safety.Status.Custom_ATF_Disabled' type='BOOL' flags=Negation
+  tree[2]: BoxTreeAssign  itemflags=none
+      RValue: BoxTreeDemux  VarId=1 itemflags=none
+      out[0] = 'Mach1_AuxData.TrayfillerActive' type='BOOL' flags=none
+  tree[3]: BoxTreeAssign  itemflags=none
+      RValue: BoxTreeDemux  VarId=1 itemflags=none
+      out[0] = 'HMI_Var.TrayfillerActive' type='BOOL' flags=none
+  tree[4]: BoxTreeAssign  itemflags=none
+      RValue: BoxTreeBox  BoxType='AND' itemflags=none
+          Instance = None type='' flags=none  CallType=And
+          En=None Eno=None EnEno=True MainOutputIndex=None
+          InputParams  Names=[] Types=[]
+          OutputParams Names=[] Types=[]
+          InputFlags = ['none', 'none']
+          in[0]: BoxTreeDemux  VarId=0 itemflags=none
+          in[1]: BoxTreeOperand  Operand = 'TRUE' type='BOOL' flags=none
+      out[0] = 'Mach1_AuxData.MIDS_Active' type='BOOL' flags=none
+
+-- NETWORK 10  title='' label='' comment='' OutCommented=False
+  tree[0]: BoxTreeAssign  itemflags=none
+      RValue: BoxTreeBox  BoxType='TON' itemflags=none
+          Instance = 'TON_DelayAfterNetworkError' type='TON' flags=none  CallType=FunctionBlock
+          En=False Eno=False EnEno=True MainOutputIndex=0
+          InputParams  Names=['IN', 'PT'] Types=['BOOL', 'TIME']
+          OutputParams Names=['Q'] Types=['BOOL']
+          InputFlags = ['none', 'none']
+          in[0]: BoxTreeBox  BoxType='AND' itemflags=none
+              Instance = None type='' flags=none  CallType=And
+              En=None Eno=None EnEno=True MainOutputIndex=None
+              InputParams  Names=[] Types=[]
+              OutputParams Names=[] Types=[]
+              InputFlags = ['none', 'none']
+              in[0]: BoxTreeOperand  Operand = 'Mach1_Alarms.Alm011' type='BOOL' flags=none
+              in[1]: BoxTreeOperand  Operand = 'Mach1_Alarms.Alm011' type='BOOL' flags=Negation
+          in[1]: BoxTreeOperand  Operand = 'T#10000S' type='TIME' flags=none
+          out[0] = <null>
+      out[0] = 'EtherCAT_Master.xRestart' type='BOOL' flags=none
+      out[1] = 'REQ_RestartComm' type='BOOL' flags=Set
+
+-- NETWORK 13  title='TODO NETWORK 6' label='' comment='' OutCommented=False
+  tree[0]: BoxTreeAssign  itemflags=none
+      RValue: BoxTreeBox  BoxType='AND' itemflags=none
+          Instance = None type='' flags=none  CallType=And
+          En=None Eno=None EnEno=True MainOutputIndex=None
+          InputParams  Names=[] Types=[]
+          OutputParams Names=[] Types=[]
+          InputFlags = ['none', 'none']
+          in[0]: BoxTreeBox  BoxType='MainDrive' itemflags=none
+              Instance = None type='' flags=none  CallType=Function
+              En=True Eno=True EnEno=True MainOutputIndex=0
+              InputParams  Names=['EN'] Types=['BOOL']
+              OutputParams Names=['ENO'] Types=['BOOL']
+              InputFlags = ['none']
+              in[0]: BoxTreeOperand  Operand = 'TRUE' type='BOOL' flags=none
+              out[0] = <null>
+          in[1]: BoxTreeOperand  Operand = 'Mach1.GenFlags.DriveIsRunning' type='BOOL' flags=none
+      out[0] = 'HMI_Var.Mach1.HourCounterRunning' type='BOOL' flags=Set
+
+-- NETWORK 82  title='DONE NETWORK 49: State of the machine' label='' comment='' OutCommented=False
+  tree[0]: BoxTreeDemux  VarId=22 itemflags=none
+      Input: BoxTreeOperand  Operand = 'TRUE' type='BOOL' flags=none
+  tree[1]: BoxTreeAssign  itemflags=none
+      RValue: BoxTreeBox  BoxType='MOVE' itemflags=none
+          Instance = None type='' flags=none  CallType=Move
+          En=True Eno=True EnEno=True MainOutputIndex=0
+          InputParams  Names=['EN'] Types=['BOOL']
+          OutputParams Names=['ENO', ''] Types=['BOOL', '']
+          InputFlags = ['none', 'none']
+          in[0]: BoxTreeBox  BoxType='AND' itemflags=none
+              Instance = None type='' flags=none  CallType=And
+              En=None Eno=None EnEno=True MainOutputIndex=None
+              InputParams  Names=[] Types=[]
+              OutputParams Names=[] Types=[]
+              InputFlags = ['none', 'none']
+              in[0]: BoxTreeDemux  VarId=22 itemflags=none
+              in[1]: BoxTreeBox  BoxType='OR' itemflags=none
+                  Instance = None type='' flags=none  CallType=Or
+                  En=None Eno=None EnEno=True MainOutputIndex=None
+                  InputParams  Names=[] Types=[]
+                  OutputParams Names=[] Types=[]
+                  InputFlags = ['none', 'none']
+                  in[0]: BoxTreeOperand  Operand = 'Mach1.GenFlags.MajorAlarm' type='BOOL' flags=none
+                  in[1]: BoxTreeOperand  Operand = 'Mach1.GenFlags.MinorAlarm' type='BOOL' flags=none
+          in[1]: BoxTreeOperand  Operand = '0' type='INT' flags=none
+          out[0] = <null>
+          out[1] = 'HMI_Var.Mach1.Status' type='WORD' flags=none
+      out[0] = 'tAlarmSL' type='BOOL' flags=none
+  tree[2]: BoxTreeDemux  VarId=23 itemflags=none
+      Input: BoxTreeBox  BoxType='AND' itemflags=none
+          Instance = None type='' flags=none  CallType=And
+          En=None Eno=None EnEno=True MainOutputIndex=None
+          InputParams  Names=[] Types=[]
+          OutputParams Names=[] Types=[]
+          InputFlags = ['none', 'none', 'none']
+          in[0]: BoxTreeDemux  VarId=22 itemflags=none
+          in[1]: BoxTreeOperand  Operand = 'Mach1.GenFlags.MajorAlarm' type='BOOL' flags=Negation
+          in[2]: BoxTreeOperand  Operand = 'Mach1.GenFlags.MinorAlarm' type='BOOL' flags=Negation
+  tree[3]: BoxTreeAssign  itemflags=none
+      RValue: BoxTreeBox  BoxType='MOVE' itemflags=none
+          Instance = None type='' flags=none  CallType=Move
+          En=True Eno=True EnEno=True MainOutputIndex=0
+          InputParams  Names=['EN'] Types=['BOOL']
+          OutputParams Names=['ENO', ''] Types=['BOOL', '']
+          InputFlags = ['none', 'none']
+          in[0]: BoxTreeBox  BoxType='AND' itemflags=none
+              Instance = None type='' flags=none  CallType=And
+              En=None Eno=None EnEno=True MainOutputIndex=None
+              InputParams  Names=[] Types=[]
+              OutputParams Names=[] Types=[]
+              InputFlags = ['none', 'none']
+              in[0]: BoxTreeDemux  VarId=23 itemflags=none
+              in[1]: BoxTreeOperand  Operand = 'Mach1.GenFlags.Warning' type='BOOL' flags=none
+          in[1]: BoxTreeOperand  Operand = '1' type='INT' flags=none
+          out[0] = <null>
+          out[1] = 'HMI_Var.Mach1.Status' type='WORD' flags=none
+      out[0] = 'tWarningSL' type='BOOL' flags=none
+  tree[4]: BoxTreeDemux  VarId=24 itemflags=none
+      Input: BoxTreeBox  BoxType='AND' itemflags=none
+          Instance = None type='' flags=none  CallType=And
+          En=None Eno=None EnEno=True MainOutputIndex=None
+          InputParams  Names=[] Types=[]
+          OutputParams Names=[] Types=[]
+          InputFlags = ['none', 'none']
+          in[0]: BoxTreeDemux  VarId=23 itemflags=none
+          in[1]: BoxTreeOperand  Operand = 'Mach1.GenFlags.Warning' type='BOOL' flags=Negation
+  tree[5]: BoxTreeAssign  itemflags=none
+      RValue: BoxTreeBox  BoxType='MOVE' itemflags=none
+          Instance = None type='' flags=none  CallType=Move
+          En=True Eno=True EnEno=True MainOutputIndex=0
+          InputParams  Names=['EN'] Types=['BOOL']
+          OutputParams Names=['ENO', ''] Types=['BOOL', '']
+          InputFlags = ['none', 'none']
+          in[0]: BoxTreeBox  BoxType='AND' itemflags=none
+              Instance = None type='' flags=none  CallType=And
+              En=None Eno=None EnEno=True MainOutputIndex=None
+              InputParams  Names=[] Types=[]
+              OutputParams Names=[] Types=[]
+              InputFlags = ['none', 'none', 'none']
+              in[0]: BoxTreeDemux  VarId=24 itemflags=none
+              in[1]: BoxTreeOperand  Operand = 'Mach1.GenFlags.RunMan' type='BOOL' flags=Negation
+              in[2]: BoxTreeOperand  Operand = 'Mach1.GenFlags.RunAuto' type='BOOL' flags=Negation
+          in[1]: BoxTreeOperand  Operand = '2' type='INT' flags=none
+          out[0] = <null>
+          out[1] = 'HMI_Var.Mach1.Status' type='WORD' flags=none
+      out[0] = 'tStandbySL' type='BOOL' flags=none
+  tree[6]: BoxTreeAssign  itemflags=none
+      RValue: BoxTreeBox  BoxType='MOVE' itemflags=none
+          Instance = None type='' flags=none  CallType=Move
+          En=True Eno=True EnEno=True MainOutputIndex=0
+          InputParams  Names=['EN'] Types=['BOOL']
+          OutputParams Names=['ENO', ''] Types=['BOOL', '']
+          InputFlags = ['none', 'none']
+          in[0]: BoxTreeBox  BoxType='AND' itemflags=none
+              Instance = None type='' flags=none  CallType=And
+              En=None Eno=None EnEno=True MainOutputIndex=None
+              InputParams  Names=[] Types=[]
+              OutputParams Names=[] Types=[]
+              InputFlags = ['none', 'none']
+              in[0]: BoxTreeDemux  VarId=24 itemflags=none
+              in[1]: BoxTreeBox  BoxType='OR' itemflags=none
+                  Instance = None type='' flags=none  CallType=Or
+                  En=None Eno=None EnEno=True MainOutputIndex=None
+                  InputParams  Names=[] Types=[]
+                  OutputParams Names=[] Types=[]
+                  InputFlags = ['none', 'none']
+                  in[0]: BoxTreeOperand  Operand = 'Mach1.GenFlags.RunMan' type='BOOL' flags=none
+                  in[1]: BoxTreeOperand  Operand = 'Mach1.GenFlags.RunAuto' type='BOOL' flags=none
+          in[1]: BoxTreeOperand  Operand = '3' type='INT' flags=none
+          out[0] = <null>
+          out[1] = 'HMI_Var.Mach1.Status' type='WORD' flags=none
+      out[0] = 'tRunningSL' type='BOOL' flags=none
+
+==============================================================================
+POU TrayFiller  (37 networks)
+==============================================================================
+
+-- NETWORK 1  title='DONE NETWORK 2: Condition: Rest position' label='' comment='' OutCommented=False
+  tree[0]: BoxTreeDemux  VarId=0 itemflags=none
+      Input: BoxTreeBox  BoxType='OR' itemflags=none
+          Instance = None type='' flags=none  CallType=Or
+          En=None Eno=None EnEno=True MainOutputIndex=None
+          InputParams  Names=[] Types=[]
+          OutputParams Names=[] Types=[]
+          InputFlags = ['none', 'none', 'none']
+          in[0]: BoxTreeBox  BoxType='TON' itemflags=none
+              Instance = 'TMR_InpusherDown' type='ton' flags=none  CallType=FunctionBlock
+              En=False Eno=False EnEno=True MainOutputIndex=0
+              InputParams  Names=['IN', 'PT'] Types=['BOOL', 'TIME']
+              OutputParams Names=['Q', 'ET'] Types=['BOOL', 'TIME']
+              InputFlags = ['none', 'none']
+              in[0]: BoxTreeOperand  Operand = 'stLowerInpusher' type='BOOL' flags=none
+              in[1]: BoxTreeOperand  Operand = 'T#500MS' type='TIME' flags=none
+              out[0] = <null>
+              out[1] = '' type='TIME' flags=none
+          in[1]: BoxTreeBox  BoxType='AND' itemflags=none
+              Instance = None type='' flags=none  CallType=And
+              En=None Eno=None EnEno=True MainOutputIndex=None
+              InputParams  Names=[] Types=[]
+              OutputParams Names=[] Types=[]
+              InputFlags = ['none', 'none']
+              in[0]: BoxTreeOperand  Operand = 'stInfeedTray' type='BOOL' flags=none
+              in[1]: BoxTreeOperand  Operand = 'iPsInfeedConvAtElev' type='BOOL' flags=none
+          in[2]: BoxTreeBox  BoxType='AND' itemflags=none
+              Instance = None type='' flags=none  CallType=And
+              En=None Eno=None EnEno=True MainOutputIndex=None
+              InputParams  Names=[] Types=[]
+              OutputParams Names=[] Types=[]
+              InputFlags = ['none', 'none', 'none']
+              in[0]: BoxTreeOperand  Operand = 'stLightCurtainInterruptedBeforeStart' type='BOOL' flags=none
+              in[1]: BoxTreeOperand  Operand = 'iLightCurtainInpusher' type='BOOL' flags=none
+              in[2]: BoxTreeOperand  Operand = 'iGenFlags.StartFlag' type='BOOL' flags=none
+  tree[1]: BoxTreeAssign  itemflags=none
+      RValue: BoxTreeDemux  VarId=0 itemflags=none
+      out[0] = 'stRestposition' type='BOOL' flags=Set
+      out[1] = 'stLowerInpusher' type='BOOL' flags=Negation+Set
+      out[2] = 'stInfeedTray' type='BOOL' flags=Negation+Set
+      out[3] = 'stLightCurtainInterruptedBeforeStart' type='BOOL' flags=Negation+Set
+  tree[2]: BoxTreeAssign  itemflags=none
+      RValue: BoxTreeBox  BoxType='AND' itemflags=none
+          Instance = None type='' flags=none  CallType=And
+          En=None Eno=None EnEno=True MainOutputIndex=None
+          InputParams  Names=[] Types=[]
+          OutputParams Names=[] Types=[]
+          InputFlags = ['none', 'none', 'none']
+          in[0]: BoxTreeDemux  VarId=0 itemflags=none
+          in[1]: BoxTreeOperand  Operand = 'iFcGuardTrayOnElev' type='BOOL' flags=Negation
+          in[2]: BoxTreeOperand  Operand = 'iTestProd' type='BOOL' flags=none
+      out[0] = 'Trayfiller_Data.Alarms.AlmTrayInfeeding' type='BOOL' flags=Set
+
+-- NETWORK 6  title='TODO NETWORK 7: Condition: Decend tray' label='' comment='' OutCommented=False
+  tree[0]: BoxTreeAssign  itemflags=none
+      RValue: BoxTreeBox  BoxType='ADD' itemflags=none
+          Instance = None type='' flags=none  CallType=Add
+          En=True Eno=True EnEno=True MainOutputIndex=0
+          InputParams  Names=['EN'] Types=['BOOL']
+          OutputParams Names=['ENO', ''] Types=['BOOL', 'INT']
+          InputFlags = ['none', 'none', 'none']
+          in[0]: BoxTreeBox  BoxType='AND' itemflags=none
+              Instance = None type='' flags=none  CallType=And
+              En=None Eno=None EnEno=True MainOutputIndex=None
+              InputParams  Names=[] Types=[]
+              OutputParams Names=[] Types=[]
+              InputFlags = ['none', 'none']
+              in[0]: BoxTreeBox  BoxType='OR' itemflags=none
+                  Instance = None type='' flags=none  CallType=Or
+                  En=None Eno=None EnEno=True MainOutputIndex=None
+                  InputParams  Names=[] Types=[]
+                  OutputParams Names=[] Types=[]
+                  InputFlags = ['none', 'none']
+                  in[0]: BoxTreeBox  BoxType='TON' itemflags=none
+                      Instance = 'TMR_DelayDescend' type='ton' flags=none  CallType=FunctionBlock
+                      En=False Eno=False EnEno=True MainOutputIndex=0
+                      InputParams  Names=['IN', 'PT'] Types=['BOOL', 'TIME']
+                      OutputParams Names=['Q', 'ET'] Types=['BOOL', 'TIME']
+                      InputFlags = ['none', 'none']
+                      in[0]: BoxTreeBox  BoxType='AND' itemflags=none
+                          Instance = None type='' flags=none  CallType=And
+                          En=None Eno=None EnEno=True MainOutputIndex=None
+                          InputParams  Names=[] Types=[]
+                          OutputParams Names=[] Types=[]
+                          InputFlags = ['none', 'none', 'none']
+                          in[0]: BoxTreeOperand  Operand = 'stInpushingRow' type='BOOL' flags=none
+                          in[1]: BoxTreeOperand  Operand = 'iLightCurtainInpusher' type='BOOL' flags=none
+                          in[2]: BoxTreeOperand  Operand = 'iEpsInpusher' type='BOOL' flags=none
+                      in[1]: BoxTreeOperand  Operand = 'T#500MS' type='TIME' flags=none
+                      out[0] = <null>
+                      out[1] = '' type='TIME' flags=none
+                  in[1]: BoxTreeBox  BoxType='AND' itemflags=none
+                      Instance = None type='' flags=none  CallType=And
+                      En=None Eno=None EnEno=True MainOutputIndex=None
+                      InputParams  Names=[] Types=[]
+                      OutputParams Names=[] Types=[]
+                      InputFlags = ['none', 'none', 'none']
+                      in[0]: BoxTreeOperand  Operand = 'stLightCurtainInterruptedDuringInpushing' type='BOOL' flags=none
+                      in[1]: BoxTreeOperand  Operand = 'iLightCurtainInpusher' type='BOOL' flags=none
+                      in[2]: BoxTreeOperand  Operand = 'iGenFlags.StartFlag' type='BOOL' flags=none
+              in[1]: BoxTreeOperand  Operand = 'stFaultInpusherBlocked.Q1' type='BOOL' flags=Negation
+          in[1]: BoxTreeOperand  Operand = 'ioActNumberOfRows' type='INT' flags=none
+          in[2]: BoxTreeOperand  Operand = '1' type='INT' flags=none
+          out[0] = <null>
+          out[1] = 'ioActNumberOfRows' type='INT' flags=none
+      out[0] = 'stDecendTray' type='BOOL' flags=Set
+      out[1] = 'stInpushingRow' type='BOOL' flags=Negation+Set
+      out[2] = 'stLightCurtainInterruptedDuringInpushing' type='BOOL' flags=Negation+Set
+      out[3] = 'stSrCigarAtEndBeforeLast' type='BOOL' flags=Negation+Set
+      out[4] = 'stSrCigarAtEnd' type='BOOL' flags=Negation+Set
+
+-- NETWORK 8  title='TODO NETWORK 9: Condition: Tray decend' label='' comment='' OutCommented=False
+  tree[0]: BoxTreeDemux  VarId=2 itemflags=none
+      Input: BoxTreeOperand  Operand = 'True' type='BOOL' flags=none
+  tree[1]: BoxTreeDemux  VarId=3 itemflags=none
+      Input: BoxTreeBox  BoxType='AND' itemflags=none
+          Instance = None type='' flags=none  CallType=And
+          En=None Eno=None EnEno=True MainOutputIndex=None
+          InputParams  Names=[] Types=[]
+          OutputParams Names=[] Types=[]
+          InputFlags = ['none', 'none']
+          in[0]: BoxTreeDemux  VarId=2 itemflags=none
+          in[1]: BoxTreeOperand  Operand = 'True' type='BOOL' flags=none
+  tree[2]: BoxTreeDemux  VarId=4 itemflags=none
+      Input: BoxTreeBox  BoxType='AND' itemflags=none
+          Instance = None type='' flags=none  CallType=And
+          En=None Eno=None EnEno=True MainOutputIndex=None
+          InputParams  Names=[] Types=[]
+          OutputParams Names=[] Types=[]
+          InputFlags = ['none', 'none']
+          in[0]: BoxTreeDemux  VarId=3 itemflags=none
+          in[1]: BoxTreeOperand  Operand = 'iPulseCounterElevator' type='BOOL' flags=none
+  tree[3]: BoxTreeAssign  itemflags=none
+      RValue: BoxTreeBox  BoxType='R_TRIG' itemflags=none
+          Instance = 'stRePulseCounter' type='r_trig' flags=none  CallType=FunctionBlock
+          En=False Eno=False EnEno=True MainOutputIndex=0
+          InputParams  Names=['CLK'] Types=['BOOL']
+          OutputParams Names=['Q'] Types=['BOOL']
+          InputFlags = ['none']
+          in[0]: BoxTreeDemux  VarId=4 itemflags=none
+          out[0] = <null>
+      out[0] = 'tBool' type='BOOL' flags=none
+  tree[4]: BoxTreeAssign  itemflags=none
+      RValue: BoxTreeBox  BoxType='F_TRIG' itemflags=none
+          Instance = 'stFePulseCounter' type='F_TRIG' flags=none  CallType=FunctionBlock
+          En=False Eno=False EnEno=True MainOutputIndex=0
+          InputParams  Names=['CLK'] Types=['BOOL']
+          OutputParams Names=['Q'] Types=['BOOL']
+          InputFlags = ['none']
+          in[0]: BoxTreeDemux  VarId=4 itemflags=none
+          out[0] = <null>
+      out[0] = 'tBool' type='BOOL' flags=Set
+  tree[5]: BoxTreeBox  BoxType='ADD' itemflags=none
+      Instance = None type='' flags=none  CallType=Add
+      En=True Eno=True EnEno=True MainOutputIndex=0
+      InputParams  Names=['EN'] Types=['BOOL']
+      OutputParams Names=['ENO', ''] Types=['BOOL', 'INT']
+      InputFlags = ['none', 'none', 'none']
+      in[0]: BoxTreeBox  BoxType='AND' itemflags=none
+          Instance = None type='' flags=none  CallType=And
+          En=None Eno=None EnEno=True MainOutputIndex=None
+          InputParams  Names=[] Types=[]
+          OutputParams Names=[] Types=[]
+          InputFlags = ['none', 'none', 'none']
+          in[0]: BoxTreeDemux  VarId=3 itemflags=none
+          in[1]: BoxTreeOperand  Operand = 'tBool' type='BOOL' flags=none
+          in[2]: BoxTreeBox  BoxType='OR' itemflags=none
+              Instance = None type='' flags=none  CallType=Or
+              En=None Eno=None EnEno=True MainOutputIndex=None
+              InputParams  Names=[] Types=[]
+              OutputParams Names=[] Types=[]
+              InputFlags = ['none', 'none', 'none']
+              in[0]: BoxTreeOperand  Operand = 'stDecendTray' type='BOOL' flags=none
+              in[1]: BoxTreeOperand  Operand = 'stTrayDecended' type='BOOL' flags=none
+              in[2]: BoxTreeOperand  Operand = 'stTiltInpusher' type='BOOL' flags=none
+      in[1]: BoxTreeOperand  Operand = 'stActHeightElevator' type='INT' flags=none
+      in[2]: BoxTreeOperand  Operand = '5' type='INT' flags=none
+      out[0] = <null>
+      out[1] = 'stActHeightElevator' type='INT' flags=none
+  tree[6]: BoxTreeAssign  itemflags=none
+      RValue: BoxTreeParallel  Mode=BoxShortCircuit itemflags=none
+          Input: BoxTreeBox  BoxType='ADD' itemflags=none
+              Instance = None type='' flags=none  CallType=Add
+              En=True Eno=True EnEno=True MainOutputIndex=0
+              InputParams  Names=['EN'] Types=['BOOL']
+              OutputParams Names=['ENO', ''] Types=['BOOL', 'INT']
+              InputFlags = ['none', 'none', 'none']
+              in[0]: BoxTreeBox  BoxType='MUL' itemflags=none
+                  Instance = None type='' flags=none  CallType=Mul
+                  En=True Eno=True EnEno=True MainOutputIndex=0
+                  InputParams  Names=['EN'] Types=['BOOL']
+                  OutputParams Names=['ENO', ''] Types=['BOOL', 'INT']
+                  InputFlags = ['none', 'none', 'none']
+                  in[0]: BoxTreeBox  BoxType='AND' itemflags=none
+                      Instance = None type='' flags=none  CallType=And
+                      En=None Eno=None EnEno=True MainOutputIndex=None
+                      InputParams  Names=[] Types=[]
+                      OutputParams Names=[] Types=[]
+                      InputFlags = ['none', 'none']
+                      in[0]: BoxTreeDemux  VarId=2 itemflags=none
+                      in[1]: BoxTreeOperand  Operand = 'stDecendTray' type='BOOL' flags=none
+                  in[1]: BoxTreeOperand  Operand = 'ioActNumberOfRows' type='INT' flags=none
+                  in[2]: BoxTreeOperand  Operand = 'iRowHeight' type='INT' flags=none
+                  out[0] = <null>
+                  out[1] = 'tInt' type='INT' flags=none
+              in[1]: BoxTreeOperand  Operand = 'tInt' type='INT' flags=none
+              in[2]: BoxTreeOperand  Operand = 'iInitialDescentValue' type='INT' flags=none
+              out[0] = <null>
+              out[1] = 'tInt' type='INT' flags=none
+          branch[0]: BoxTreeBox  BoxType='GE' itemflags=none
+              Instance = None type='' flags=none  CallType=Ge
+              En=True Eno=False EnEno=True MainOutputIndex=0
+              InputParams  Names=['EN'] Types=['BOOL']
+              OutputParams Names=[''] Types=['BOOL']
+              InputFlags = ['none', 'none', 'none']
+              in[0]: BoxTreeTerminator  itemflags=none
+              in[1]: BoxTreeOperand  Operand = 'stActHeightElevator' type='INT' flags=none
+              in[2]: BoxTreeOperand  Operand = 'tInt' type='INT' flags=none
+              out[0] = <null>
+          branch[1]: BoxTreeOperand  Operand = 'iPsElevatorDown' type='BOOL' flags=none
+      out[0] = 'stTrayDecended' type='BOOL' flags=Set
+      out[1] = 'stDecendTray' type='BOOL' flags=Negation+Set
+
+done

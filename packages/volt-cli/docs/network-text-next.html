@@ -559,29 +559,29 @@ fb(P := `fc_dinttotime(T.Start,2)`);</pre>
 <h2 id="ladder">The ladder oracle — two real rungs</h2>
 <p>
   <code>test-corpus/lenze-mid</code> holds 373 of the corpus's 394 networks, 356 of them LD. It has 54
-  <code>X AND (a OR b)</code> shapes against 17 Parallels, and today's text cannot tell which is which — so <b>no
-  position with that shape has a single "after" spelling until census 1.3</b>. Such positions are shown as
-  <code>‹E›</code> with both candidates. Both rungs also assume census 1.5 (unnamed ADD/MUL/GE/AND slots). The other
-  five oracle rungs are in tasks.md 2.4.
+  <code>X AND (a OR b)</code> shapes against 17 Parallels, and v1 text cannot tell which is which. The two rungs below
+  are spelled from a live dump of the networks themselves (<code>scripts/probe-nwl-oracle-rungs.py</code> →
+  <code>nwl-oracle-rungs.log</code>, task 2.4), not from their v1 text: which item is a Parallel, which box has an ENO
+  output and which slot a pin is on are read off the vendor's objects. All seven oracle rungs of tasks.md 2.4 are
+  pinned as text and model in <code>NextLadderOracleTests</code>.
 </p>
 
 <h3 id="ex-lamps">Mach1_MIDS network 82 — MOVE boxes lighting lamps</h3>
 <pre>NETWORK TITLE: "DONE NETWORK 49: State of the machine"
   VAR_TEMP g22, g23, g24 : BOOL; END_VAR
   g22 := TRUE;
-  tAlarmSL := MOVE(EN := ‹E1›, 0, =&gt; HMI_Var.Mach1.Status).ENO;
+  tAlarmSL := MOVE(EN := (g22 AND (Mach1.GenFlags.MajorAlarm OR Mach1.GenFlags.MinorAlarm)), 0, =&gt; HMI_Var.Mach1.Status).ENO;
   g23 := (g22 AND NOT Mach1.GenFlags.MajorAlarm AND NOT Mach1.GenFlags.MinorAlarm);
   tWarningSL := MOVE(EN := (g23 AND Mach1.GenFlags.Warning), 1, =&gt; HMI_Var.Mach1.Status).ENO;
   g24 := (g23 AND NOT Mach1.GenFlags.Warning);
   tStandbySL := MOVE(EN := (g24 AND NOT Mach1.GenFlags.RunMan AND NOT Mach1.GenFlags.RunAuto), 2, =&gt; HMI_Var.Mach1.Status).ENO;
-  tRunningSL := MOVE(EN := ‹E2›, 3, =&gt; HMI_Var.Mach1.Status).ENO;
+  tRunningSL := MOVE(EN := (g24 AND (Mach1.GenFlags.RunMan OR Mach1.GenFlags.RunAuto)), 3, =&gt; HMI_Var.Mach1.Status).ENO;
 END_NETWORK</pre>
-<table>
-  <tr><th></th><th>if 1.3 finds a Parallel</th><th>if AND/OR boxes</th></tr>
-  <tr><td class="name">‹E1›</td><td class="name">PARALLEL(IN := g22, Mach1.GenFlags.MajorAlarm, Mach1.GenFlags.MinorAlarm)</td><td class="name">(g22 AND (Mach1.GenFlags.MajorAlarm OR Mach1.GenFlags.MinorAlarm))</td></tr>
-  <tr><td class="name">‹E2›</td><td class="name">PARALLEL(IN := g24, Mach1.GenFlags.RunMan, Mach1.GenFlags.RunAuto)</td><td class="name">(g24 AND (Mach1.GenFlags.RunMan OR Mach1.GenFlags.RunAuto))</td></tr>
-</table>
-<p>Today: 15 lines and four invented <code>en</code> names. After: 7 statements for 7 items.</p>
+<p>
+  Today: 15 lines and four invented <code>en</code> names. After: 7 statements for 7 items. Both
+  <code>X AND (a OR b)</code> shapes here are AND/OR boxes — no Parallel. Each MOVE shows EN/ENO
+  (<code>OutputParams.Names = ['ENO', '']</code>): its result pin is slot 1 and its lamp reads the ENO.
+</p>
 
 <h3 id="ex-hard">TrayFiller network 8 — the honest regression</h3>
 <pre>NETWORK TITLE: "TODO NETWORK 9: Condition: Tray decend"
@@ -591,22 +591,19 @@ END_NETWORK</pre>
   g4 := (g3 AND iPulseCounterElevator);
   tBool := stRePulseCounter(CLK := g4);
   tBool S= stFePulseCounter(CLK := g4);
-  ADD(EN := ‹E3›, stActHeightElevator, 5, =&gt; stActHeightElevator);
+  ADD(EN := (g3 AND tBool AND (stDecendTray OR stTrayDecended OR stTiltInpusher)), stActHeightElevator, 5, =&gt; stActHeightElevator);
   stTrayDecended S=
-  stDecendTray R= ‹E4›;
+  stDecendTray R= PARALLEL(IN := ADD(EN := MUL(EN := (g2 AND stDecendTray), ioActNumberOfRows, iRowHeight, =&gt; tInt).ENO, tInt, iInitialDescentValue, =&gt; tInt).ENO, GE(EN := , stActHeightElevator, tInt), iPsElevatorDown);
 END_NETWORK</pre>
-<table>
-  <tr><th></th><th>if 1.3 finds a Parallel</th><th>if AND/OR boxes</th></tr>
-  <tr><td class="name">‹E3›</td><td class="name">PARALLEL(IN := (g3 AND tBool), stDecendTray, stTrayDecended, stTiltInpusher)</td><td class="name">(g3 AND tBool AND (stDecendTray OR stTrayDecended OR stTiltInpusher))</td></tr>
-  <tr><td class="name">‹E4›</td><td class="name">PARALLEL(IN := ADD(EN := MUL(EN := (g2 AND stDecendTray), ioActNumberOfRows, iRowHeight, =&gt; tInt).ENO, tInt, iInitialDescentValue, =&gt; tInt).ENO, GE(EN := , stActHeightElevator, tInt).ENO, iPsElevatorDown)</td><td class="name">(ADD(EN := MUL(…).ENO, tInt, iInitialDescentValue, =&gt; tInt).ENO AND (GE(EN := , stActHeightElevator, tInt).ENO OR iPsElevatorDown))</td></tr>
-</table>
 <div class="note">
-  ‹E4› is probably the Parallel: <code>ParallelRenderTests</code> records this network's ADD chain as the feed of a
-  Parallel. Today's 16 lines become 7 statements for 7 items, and five invented names (en1–en4, m1) go. The text also
-  stops disguising a real bug: today's <code>IF en4 THEN (stActHeightElevator &gt;= tInt); END_IF</code> reads as a
-  comparison gating the rung, but it is GE's <i>ENO</i> that gates it, and its EN is unwired. The cost: the MUL→ADD
-  series reads inside out, like the drawing rather than like three sequential IFs. That is the price of the
-  bijection, concentrated in EN/ENO-chained ladder (46 <code>LET enN := enM</code> links in the corpus).
+  The last rung is the network's one Parallel, fed by the ADD chain; the <code>X AND (a OR b)</code> on the top-level
+  ADD's EN is boxes. Today's 16 lines become 7 statements for 7 items, and five invented names (en1–en4, m1) go. The
+  text also stops disguising what the rung does: today's <code>LET en4 := ; IF en4 THEN (stActHeightElevator &gt;= tInt);
+  END_IF</code> reads as an enable echo gating the rung, but the GE has EN shown and unwired and <b>no ENO output</b>
+  (<code>OutputParams.Names = ['']</code>) — the Parallel's branch is its comparison result, written without a
+  suffix. The cost: the MUL→ADD series reads inside out, like the drawing rather than like three sequential IFs.
+  That is the price of the bijection, concentrated in EN/ENO-chained ladder (46 <code>LET enN := enM</code> links in
+  the corpus).
 </div>
 
 <h2 id="gate">The gate</h2>

@@ -329,12 +329,19 @@ public class NextNetworkTextWriterTests
         Assert.Equal(Body("lamp := MOVE(EN := c, 0, => Status).ENO;"),
             Write(Set(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"), connected: 0, eno: true), T("lamp"))));
 
-    /// <summary>Page, the TrayFiller N8 oracle: <c>GE(EN := , stActHeightElevator, tInt).ENO</c> — an EN shown and
-    /// unwired.</summary>
+    /// <summary>The TrayFiller N8 oracle (<see cref="NextLadderOracleTests"/>): a GE with EN shown and unwired is an
+    /// empty EN pin. This asserted <c>GE(EN := , …).ENO</c>, after the design page; the live dump of that network
+    /// (<c>scripts/nwl-oracle-rungs.log</c>) shows the GE has NO ENO output (<c>OutputParams.Names = ['']</c>) and is
+    /// connected by its result, so the text carries no suffix. A box with EN unwired AND an ENO is written
+    /// <c>.ENO</c> the same way.</summary>
     [Fact]
-    public void An_EN_shown_but_unwired_is_an_empty_EN_pin() =>
-        Assert.Equal(Body("out := GE(EN := , stActHeightElevator, tInt).ENO;"),
-            Write(Set(Call("GE", new[] { In(L("stActHeightElevator")), In(L("tInt")) }, en: Empty, connected: 0, eno: true), T("out"))));
+    public void An_EN_shown_but_unwired_is_an_empty_EN_pin()
+    {
+        Assert.Equal(Body("out := GE(EN := , stActHeightElevator, tInt);"),
+            Write(Set(Call("GE", new[] { In(L("stActHeightElevator")), In(L("tInt")) }, en: Empty, connected: 0, eno: false), T("out"))));
+        Assert.Equal(Body("out := MUL(EN := , a, b).ENO;"),
+            Write(Set(Call("MUL", new[] { In(L("a")), In(L("b")) }, en: Empty, connected: 0, eno: true), T("out"))));
+    }
 
     /// <summary>Spec, "a result pin is not an assign" and "a consumed box without EN keeps its main output".</summary>
     [Fact]

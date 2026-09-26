@@ -108,7 +108,8 @@ internal static class NextModels
         Add("en.chain", Body(Call("GT", new[] { In(L("sensor")), In(L("diff")) }, new[] { Out("out", 1) }, eno: true,
             en: Call("SUB", new[] { In(L("light")), In(L("deviation")) }, new[] { Out("diff", 1) }, en: L("rung"), connected: 0, eno: true))));
         Add("eno.lamp", Body(Set(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"), connected: 0, eno: true), T("lamp"))));
-        Add("eno.unwired-en", Body(Set(Call("GE", new[] { In(L("stActHeightElevator")), In(L("tInt")) }, en: Empty, connected: 0, eno: true), T("out"))));
+        Add("eno.unwired-en", Body(Set(Call("GE", new[] { In(L("stActHeightElevator")), In(L("tInt")) }, en: Empty, connected: 0, eno: false), T("out"))));
+        Add("eno.unwired-en-with-eno", Body(Set(Call("MUL", new[] { In(L("a")), In(L("b")) }, en: Empty, connected: 0, eno: true), T("out"))));
         Add("slots.top-level", Body(Call("MOVE", new[] { In(L("src")) }, new[] { Out("dst", 0) }, eno: false)));
         Add("slots.consumed", Body(Set(Call("f", new[] { In(L("src")) }, new[] { Out("err", 1) }, connected: 0, eno: false), T("out"))));
         Add("slots.passed-over", Body(Set(Call("f", new[] { In(L("src")) }, new[] { Out("b", 2) }, connected: 0, eno: false), T("out"))));

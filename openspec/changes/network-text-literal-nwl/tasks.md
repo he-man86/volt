@@ -202,7 +202,7 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       half: `The_oracle_is_red_on_v1_for_a_Parallel_and_a_result_pin` shows the model comparison failing on v1's
       round trip (the Parallel reads back a box, the result pin an Assign) while v1's text is a fixed point, and the
       same models passing v2; it goes with v1 at the swap.
-- [ ] 2.3 v2 goldens for the SAME NWL shapes the split-only tests pin, red until the swap:
+- [x] 2.3 v2 goldens for the SAME NWL shapes the split-only tests pin, red until the swap:
       `A_modifier_on_an_operand_does_not_force_a_hoisted_LET`, `An_operand_whose_own_text_is_unsafe_is_still_hoisted`,
       the en-chain InlineData (RoundTrip L56-67), `LET g28` single-consumer Demux (L139), the `i1 := DINT_TO_REAL`
       case (L144), `FanOutShapeTests` (chain vs wire), `UnspellableCoilTests` (negated/edge coils and both
@@ -210,10 +210,24 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       `LiteralFanoutBugTests` keeps its requirement: a Demux of a leaf is legal text, but a structurally changed
       TwinCAT network holding one is refused cleanly before it reaches the importer (which crashed on it), until 4.4
       measures the import live.
-- [ ] 2.4 Ladder oracle goldens from lenze-mid: Mach1_MIDS N0, N10, N13, N82; TrayFiller N1, N6, N8 — each pinned as
+      *Done (section 2):* `NextSplitShapeGoldensTests`, keyed by the v1 test each answers — the four modifier
+      statements, the unsafe operand (backticked in place), L56-67 (unwired EN, SideCorrection, the pin-less inner
+      box, the fed Parallel of comparisons), L139 (`g28` with one consumer), L144 (`DINT_TO_REAL` backticked),
+      FanOutShape's chain vs wire (five shapes), a Demux of a literal leaf as legal text, and UnspellableCoil's six
+      marker shapes by name. The enabled comparisons carry the measured fact (EN unwired, no ENO — TrayFiller N8's
+      GE), not v1's `IF en` claim. Green against Next/; the v1 tests are rewritten to them at the swap (3.7). The
+      TwinCAT refusal of a structurally changed leaf-Demux network stays `LiteralFanoutBugTests` until 4.2/4.4.
+- [x] 2.4 Ladder oracle goldens from lenze-mid: Mach1_MIDS N0, N10, N13, N82; TrayFiller N1, N6, N8 — each pinned as
       v2 text AND as a model, red until the swap. Positions with the `X AND (a OR b)` shape are pinned only after 1.3.
       (The design page shows N82 and N8 only.)
       *Progress (phase 1):* Mach1_MIDS N0 and TrayFiller N8 pinned as v2 text + model (`NextNetworkTextWriterTests`); N10, N13, N82, TrayFiller N1, N6 open.
+      *Done (section 2):* all seven in `NextLadderOracleTests`, text and model both ways (writer golden + model
+      oracle + gate). The models are transcribed from a live SP21 dump of those very networks on a copy of the
+      project (`scripts/probe-nwl-oracle-rungs.py` -> `nwl-oracle-rungs.log`), not from their v1 text, which holds
+      none of the v2 facts. It settled the page's two-way positions: only ‹E4› (TrayFiller N8) is a Parallel,
+      ‹E1›–‹E3› are AND/OR boxes; and the GE on ‹E4›'s branch has EN shown, unwired and NO ENO output
+      (`OutputParams.Names = ['']`), so it carries no `.ENO` — phase 1's TrayFiller golden (`GE(EN := , …).ENO`) and
+      the page claimed the ENO. Both corrected (page "The ladder oracle" rewritten to the measured spellings).
 - [x] 2.5 The slot rule (review 7.3), one test each, on the stored connection slot: a top-level box's positional `=>`
       fills slot 0; a consumed box connected by its main output has no suffix and its `=>` pins skip that slot; a
       consumed box connected by ENO says `.ENO` and its `=>` pins start at slot 0; ENO is never an `=>` slot; a
