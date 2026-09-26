@@ -42,11 +42,13 @@ where the vendor nests them, and a name only where the vendor names something.**
   the gate refuses a hand-edited type that disagrees.
 - **Multi-coil assign** → ST chained assignment, one statement: `a := b S= c R= value;`.
 - **Opaque leaf** → backticks in place: `` `fc_dinttotime(x,2)` ``.
-- **EN/ENO** → `EN :=` is an ordinary pin (slot 0; `EN := ,` shown-unwired); a consumed enabled box is suffixed
-  `.ENO`. The `IF en` form, en hoists and echo merges are deleted.
+- **EN/ENO** → `EN :=` is an ordinary pin (slot 0; `EN := ,` shown-unwired); a box consumed through its ENO output
+  is suffixed `.ENO`. EN and ENO are independent (census 1.6): an enabled comparison has no ENO and is consumed
+  without a suffix. The `IF en` form, en hoists and echo merges are deleted.
 - **Result pin** → `MOVE(src, => dst);` (the box's own slot) is distinct from `dst := MOVE(src);` (an Assign).
 - **Output slots** → the model carries each output's slot index and the slot a consumer is connected to; no suffix
-  is the main output (`MainOutputIndex`), `.ENO` is ENO, any other slot is the marker; positional `=> v` pins fill
+  is a main output that is not ENO, `.ENO` is the ENO output (also when it is the main output), any other slot is the
+  marker; positional `=> v` pins fill
   the remaining slots in order; ENO is never an `=>` slot. Call heads are the BoxType verbatim (keywords included) or
   the instance; a non-token instance, target or `=>` target is backticked.
 - **Parallel** → `PARALLEL([IN := feed,] b1, b2, …)`. Ordinary series/parallel contacts stay AND/OR — that is how the
@@ -57,7 +59,9 @@ where the vendor nests them, and a name only where the vendor names something.**
 - **EXECUTE** → `EXECUTE[(EN := c)] … END_EXECUTE;`, with a value form `… END_EXECUTE.ENO` where the box is consumed
   (its only output is ENO, so `.ENO` needs no EN).
 - **Edges** → `R_EDGE(x)` / `F_EDGE(x)`, IEC's edge words, spelling the IFlags bit — not an `R_TRIG` box, which would
-  add an instance the IDE never had. `R_EDGE(NOT x)` is the one order with negation — the vendor negates before it detects the edge (census 1.14).
+  add an instance the IDE never had. `R_EDGE(NOT x)` is the one order with negation — the vendor negates before it
+  detects the edge, on an operand and a box (census 1.14; TwinCAT's order unmeasured, so its driver keeps the marker).
+  A Parallel or a wire reference holds no flag (DIALECT N20), so none is spelled on one.
 - **Terminators** → every statement ends with `;` (`END_IF;`, `END_EXECUTE;`); the empty item is the empty statement
   `;` on its own line; `value;` is a top-level item with no target.
 - **Parentheses are structural** → each pair is one box; `NOT a`/`NOT (a AND b)` are the modifier, `NOT(a)`/

@@ -387,16 +387,6 @@ public class CodesysNetworkReaderTests
         Assert.True(value.Flags.Negated, "the contact's negation lives on its operand and must reach the model");
     }
 
-    /// <summary>A NEGATION ON A BOX INPUT PIN IS REFUSED BY NAME, NOT DROPPED.
-    ///
-    /// <para><b>The regression.</b> CODESYS can keep a negated FBD input on the box's own <c>InputFlags</c>, with the
-    /// operand feeding it unflagged — measured 2026-09-26 (<c>scripts/probe-nwl-census-v2.py</c>): six such pins, three
-    /// in Lenze's <c>call_FirstErrorCapture_FB</c> and three in pro2193's <c>SetAlarm</c>. The reader never read the
-    /// member (it wrote <c>Flags.None</c> on the strength of a TwinCAT-only measurement), so those contacts were
-    /// pulled as PLAIN — inverted logic in git, and a push would have written it back into the PLC without the
-    /// negation. Network text has no spelling for a pin-level flag yet (openspec <c>network-text-literal-nwl</c>
-    /// gives it one), so until then the body goes to the marker: the engineer sees why, and nothing wrong is
-    /// materialized.</para></summary>
     /// <summary>CENSUS 1.4 AND 1.10: a terminator carrying an input occurs in no measured project (0 across five
     /// CODESYS projects), so the model has no field for one. The reader refuses it by name, so the body reaches the
     /// marker — never a dropped input, never a throw of another kind.</summary>
@@ -422,6 +412,36 @@ public class CodesysNetworkReaderTests
         Assert.Equal("an assignment with no value", ex.Marker);
     }
 
+    /// <summary>CENSUS 1.2, the Parallel half: an unfed Parallel has ONE representation, the null feed (5 of 17 in
+    /// Lenze; a feed that is the empty terminator: 0 in five projects, <c>scripts/nwl-census-v2.log</c>). The reader
+    /// refuses the unmeasured one by name, so it reaches the marker instead of a second spelling of "no feed".</summary>
+    [Fact]
+    public void A_Parallel_fed_by_the_empty_terminator_is_refused_by_name()
+    {
+        var par = new Nwl.BoxTreeParallel { Input = new Nwl.BoxTreeTerminator() };
+        par.Trees.Add(Nwl.Leaf("a"));
+        par.Trees.Add(Nwl.Leaf("b"));
+        var assign = new Nwl.BoxTreeAssign { RValue = par };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
+
+        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld));
+        Assert.Equal("a Parallel fed by the empty terminator", ex.Marker);
+    }
+
+    /// <summary>And the one representation of an unfed Parallel reads, with no feed.</summary>
+    [Fact]
+    public void An_unfed_Parallel_reads_with_no_feed()
+    {
+        var par = new Nwl.BoxTreeParallel();
+        par.Trees.Add(Nwl.Leaf("a"));
+        par.Trees.Add(Nwl.Leaf("b"));
+        var assign = new Nwl.BoxTreeAssign { RValue = par };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
+
+        var a = Assert.IsType<Assign>(Assert.Single(CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld).Networks).Trees.Single());
+        Assert.Null(Assert.IsType<Volt.Engine.Format.Network.Parallel>(a.Value).Input);
+    }
+
     /// <summary>The one representation of "unconnected" still reads.</summary>
     [Fact]
     public void An_assignment_fed_by_the_empty_terminator_reads()
@@ -433,6 +453,16 @@ public class CodesysNetworkReaderTests
         Assert.IsType<Terminator>(a.Value);
     }
 
+    /// <summary>A NEGATION ON A BOX INPUT PIN IS REFUSED BY NAME, NOT DROPPED.
+    ///
+    /// <para><b>The regression.</b> CODESYS can keep a negated FBD input on the box's own <c>InputFlags</c>, with the
+    /// operand feeding it unflagged — measured 2026-09-26 (<c>scripts/probe-nwl-census-v2.py</c>): six such pins, three
+    /// in Lenze's <c>call_FirstErrorCapture_FB</c> and three in pro2193's <c>SetAlarm</c>. The reader never read the
+    /// member (it wrote <c>Flags.None</c> on the strength of a TwinCAT-only measurement), so those contacts were
+    /// pulled as PLAIN — inverted logic in git, and a push would have written it back into the PLC without the
+    /// negation. Network text has no spelling for a pin-level flag yet (openspec <c>network-text-literal-nwl</c>
+    /// gives it one), so until then the body goes to the marker: the engineer sees why, and nothing wrong is
+    /// materialized.</para></summary>
     [Fact]
     public void A_negation_on_a_box_input_pin_is_refused_by_name_not_dropped()
     {

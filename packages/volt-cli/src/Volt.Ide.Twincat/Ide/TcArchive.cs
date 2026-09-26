@@ -91,7 +91,6 @@ internal static class TcArchive
     public static XElement? Obj(XElement? owner, string name) =>
         owner?.Elements("o").FirstOrDefault(e => (string?)e.Attribute("n") == name);
 
-    /// <summary>The items of a named list, with nulls (<c>&lt;n/&gt;</c>) dropped.</summary>
     /// <summary>A list WITH ITS HOLES: one entry per SLOT, null where the archive wrote <c>&lt;n /&gt;</c>.
     ///
     /// <para><see cref="List"/> and <see cref="RequireList"/> return <c>Elements("o")</c>, so a null slot
@@ -122,6 +121,7 @@ internal static class TcArchive
         return a == null ? Array.Empty<XElement>() : a.Elements("o").ToList();
     }
 
+    /// <summary>The items of a named list, with nulls (<c>&lt;n/&gt;</c>) dropped.</summary>
     public static IReadOnlyList<XElement> List(XElement? owner, string name)
     {
         var l = owner?.Elements("l2").FirstOrDefault(e => (string?)e.Attribute("n") == name);

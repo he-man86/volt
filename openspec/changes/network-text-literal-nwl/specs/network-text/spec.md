@@ -212,16 +212,20 @@ second as no reference (`The label '…' has not been referenced`).
 
 A box's enable (input slot 0, named EN) SHALL be written as the named pin `EN := value`, with `EN := ,` for an EN
 shown but unwired. The model SHALL carry each output's slot index and, on a consumed box, the slot its consumer is
-connected to. A consumed box connected by its main output (`MainOutputIndex`) SHALL carry no suffix; connected by
-ENO it SHALL be suffixed `.ENO`; connected by any other slot the body SHALL materialize as the unsupported marker.
+connected to. A consumed box connected by its ENO output SHALL be suffixed `.ENO` — and that wins when the ENO output
+is also the main output, as on every box whose outputs start with ENO (MOVE, ADD, calls showing EN/ENO; census 1.6),
+so one model has one text; a consumed box connected by a main output that is not ENO SHALL carry no suffix; connected
+by any other slot the body SHALL materialize as the unsupported marker. Pushed, a consumer written without a suffix
+on a box the IDE gives an ENO main output SHALL be refused, naming the box, as `.ENO` on a box without an ENO output
+is: the text without the suffix states a data output the IDE's box does not have.
 Positional `=> v` pins SHALL fill the remaining output slots in order, skipping the connected one; ENO SHALL never be
 an `=>` slot. The text does not spell WHICH slot is the main output, so it SHALL be read by one rule: slot 0, and no
 stored slot for an AND/OR/XOR/NOT box (the vendor stores no main output index on them — census 1.6); a consumed box the
 rule would misread — its main output another slot, or its connection slot never read — SHALL materialize the body as
 the unsupported marker, never be renumbered. `MainOutputIndex` is compared only where a consumer is connected by it; at
 the top level and behind `.ENO` the text has no position for it and the push takes it from the IDE's box. Census 1.6
-(DIALECT N16: 1,164 consumed boxes, every connection checked against the vendor's PLCopen export) found a consumer
-ALWAYS connected to the box's main output, and that slot is ENO exactly when the box has an ENO output — EN and ENO are
+(DIALECT N16: 1,117 consumed boxes, each paired with its PLCopen export block; 338 connections name a slot and none
+disagrees) found a consumer connected to the box's main output wherever the export says, and that slot is ENO exactly when the box has an ENO output — EN and ENO are
 independent. So `.ENO` SHALL mean "connected to the ENO output", never "the box has EN": an enabled comparison
 (`GT(EN := c, a, b)`: EN wired, one output, no ENO) consumed by its main output SHALL carry no suffix, and `.ENO` on
 a box without EN SHALL be accepted where the box has an ENO output (an Execute box; an FB declaring `ENO`, Lenze
@@ -232,6 +236,11 @@ instance.
 #### Scenario: an enabled box drives a lamp
 - **WHEN** `Assign(Box MOVE{EN: c, IN: 0, result → Status}, [lamp])` is written
 - **THEN** it is `lamp := MOVE(EN := c, 0, => Status).ENO;` and no `LET` or `IF` appears
+
+#### Scenario: ENO is the main output
+- **WHEN** a pulled MOVE box shows EN/ENO (outputs `ENO`, `''`; `MainOutputIndex` 0) and is consumed by `lamp :=`
+- **THEN** it is written with `.ENO`, never without a suffix, and a pushed `lamp := MOVE(EN := c, 0, => Status);` on
+  that box is refused naming `MOVE`
 
 #### Scenario: an enabled comparison consumed by its main output
 - **WHEN** a pulled `GT` box with EN wired to `c` and no ENO output is consumed by `out :=` (census 1.6: 40 such boxes)
@@ -288,11 +297,17 @@ refused with `NETWORK_BAD_EXPRESSION`.
 
 ### Requirement: edges are R_EDGE and F_EDGE flags
 
-A `Rtrig` or `Ftrig` flag on an operand, box, Parallel or wire reference SHALL be written `R_EDGE(x)` or `F_EDGE(x)`,
-and SHALL read back as that flag on `x`, never as a box. With negation the one spelling SHALL be `R_EDGE(NOT x)` /
-`F_EDGE(NOT x)`: the vendor negates the operand before it detects the edge (census 1.14, DIALECT N17 — `Negation+Rtrig`
-ran as `R_EDGE(NOT x)` in simulation), so `NOT R_EDGE(x)` would state other logic and SHALL be refused with
-`NETWORK_BAD_EXPRESSION`. The argument of an edge SHALL carry no modifier but that one `NOT`: any other SHALL be
+A `Rtrig` or `Ftrig` flag on an operand or a box SHALL be written `R_EDGE(x)` or `F_EDGE(x)`, and SHALL read back
+as that flag on `x`, never as a box. With negation the one spelling SHALL be `R_EDGE(NOT x)` / `F_EDGE(NOT x)`: the
+vendor negates before it detects the edge, on an operand and on a box alike (census 1.14, DIALECT N17 —
+`Negation+Rtrig` ran as `R_EDGE(NOT x)` in simulation on both), so `NOT R_EDGE(x)` would state other logic and SHALL
+be refused with `NETWORK_BAD_EXPRESSION`. A Parallel and a wire reference hold NO flag (DIALECT N20: the IDE keeps
+none, and every flag set on one ran as the bare value), so `NOT`, `R_EDGE` or `F_EDGE` applied to `PARALLEL(…)` or to
+a wire name SHALL be refused with `NETWORK_UNSUPPORTED`, and a model carrying such a flag SHALL materialize as the
+marker; the flag belongs on the wire's producer or a branch. The order is measured on CODESYS only: no TwinCAT
+runtime is licensed on the measuring machine, so until TwinCAT's order is measured the TwinCAT driver SHALL
+materialize a body holding a negation with an edge on one node as the marker (DIALECT N17), never write it in the
+CODESYS order. The argument of an edge SHALL carry no modifier but that one `NOT`: any other SHALL be
 refused with `NETWORK_BAD_EXPRESSION`, and nested edges with `NETWORK_UNSUPPORTED`. Rising and falling on one operand SHALL materialize the body as the marker on
 pull.
 
@@ -314,12 +329,16 @@ pull.
 - **WHEN** a pulled operand carries both `Rtrig` and `Ftrig`
 - **THEN** the body materializes as the unsupported marker
 
+#### Scenario: a flag on a wire reference or a Parallel
+- **WHEN** a body contains `out := NOT g3;`, `out := R_EDGE(g3);` or `out := NOT PARALLEL(a, b);`
+- **THEN** it is refused with `NETWORK_UNSUPPORTED`, and a model holding such a flag materializes as the marker
+
 ### Requirement: pull never throws; unmeasured vendor facts go to the marker
 
 Materializing a body SHALL never throw. A shape the writer cannot spell SHALL materialize the body as the existing
 unsupported marker; a push SHALL refuse it by name. This SHALL cover: a flag on an input pin (`Input.Flags`) until the
-pin-flag census names its spelling; a Negation or edge flag on a Demux or Assign item until the item-flag census
-does; a Demux definition below the top level; a flag on an empty slot; operand text containing a backtick; an FB
+pin-flag census names its spelling; a Negation or edge flag on a Demux or Assign item (census 1.1: none; a Demux and
+a Parallel cannot hold one, DIALECT N20); a Demux definition below the top level; a flag on an empty slot; operand text containing a backtick; an FB
 instance the declarations do not name (census 1.12: `SUPER^`), whose call would read back as a function; an EXECUTE
 snippet holding a line whose first word is `END_EXECUTE`. `Input.Flags` SHALL NOT be deleted from the model: census
 1.13 found it populated and load-bearing on CODESYS, and a pin flag has no spelling until the owner decides one. An EXECUTE body SHALL end at the first
@@ -369,8 +388,10 @@ head that is no name SHALL be refused with `NETWORK_UNSUPPORTED` on push, never 
 
 ### Requirement: every NWL item class has a distinct spelling
 
-A `BoxTreeParallel` SHALL be written `PARALLEL([IN := feed,] branches)`, distinct from AND/OR boxes; `IN := ,` SHALL
-be a feed slot wired to nothing and a missing `IN` no feed. A top-level box's own unnamed output pin SHALL be written
+A `BoxTreeParallel` SHALL be written `PARALLEL([IN := feed,] branches)`, distinct from AND/OR boxes; a missing `IN`
+SHALL be the one unfed Parallel. Census 1.2 found every unfed Parallel holding NO feed (5 of 17) and none fed by the
+empty terminator, so that shape SHALL materialize as the marker on pull, and `IN := ,` SHALL be refused with
+`NETWORK_UNSUPPORTED` on push — one representation of "no feed", as the empty terminator is the one of "unconnected". A top-level box's own unnamed output pin SHALL be written
 `=> target` inside the call, distinct from an Assign over the box. `f()` SHALL be a box with no input slot and a lone
 unconnected slot SHALL be written with its formal (`MOVE(IN := )`). `Parallel.Mode` SHALL be written `MODE := m` first
 in the list, and only off its default `BoxShortCircuit` (census 1.3: one `Sequential` in Lenze); an unmeasured mode
@@ -381,9 +402,14 @@ suffixed `.ENO` where consumed; an empty snippet SHALL be written as exactly one
 - **WHEN** a network holding `BoxTreeParallel{Input: g54, Trees: [a, b]}` is pulled, edited elsewhere and pushed to CODESYS
 - **THEN** it is written `PARALLEL(IN := g54, a, b)` and the rebuilt network holds a `BoxTreeParallel`
 
-#### Scenario: an unwired Parallel feed
-- **WHEN** a `BoxTreeParallel` has an Input that is a `BoxTreeTerminator` with no input
-- **THEN** it is written `PARALLEL(IN := , a, b)`, and `PARALLEL(a, b)` reads back as a Parallel with no Input
+#### Scenario: an unfed Parallel
+- **WHEN** a `BoxTreeParallel` has no Input
+- **THEN** it is written `PARALLEL(a, b)` and reads back as a Parallel with no Input
+
+#### Scenario: a Parallel fed by the empty terminator
+- **WHEN** a pulled `BoxTreeParallel` has an Input that is a `BoxTreeTerminator` with no input, or a pushed body holds
+  `PARALLEL(IN := , a, b)`
+- **THEN** the body materializes as the marker on pull, and the push is refused with `NETWORK_UNSUPPORTED`
 
 #### Scenario: zero inputs versus one unwired input
 - **WHEN** a MOVE box has one input slot connected to nothing

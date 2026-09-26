@@ -71,6 +71,20 @@ const cases: Case[] = [
 		],
 	},
 	{
+		label: "a FUNCTION named F_EDGE, called",
+		ops: [
+			set("F_EDGE.fun", `FUNCTION F_EDGE : BOOL\nVAR_INPUT\n\ti : BOOL;\nEND_VAR\n(* @volt-implementation *)\nF_EDGE := i;\n\nEND_FUNCTION\n`),
+			set(`${PREFIX}UseFf.prg`, prg(`${PREFIX}UseFf`, "\tq : BOOL;\n\ta : BOOL;", "q := F_EDGE(a);")),
+		],
+	},
+	{
+		label: "an FB named R_EDGE, instantiated",
+		ops: [
+			set("R_EDGE.fb", `FUNCTION_BLOCK R_EDGE\nVAR_INPUT\n\ti : BOOL;\nEND_VAR\n(* @volt-implementation *)\n;\n\nEND_FUNCTION_BLOCK\n`),
+			set(`${PREFIX}UseRb.prg`, prg(`${PREFIX}UseRb`, "\tinst : R_EDGE;", "inst(i := TRUE);")),
+		],
+	},
+	{
 		label: "an FB named F_EDGE, instantiated",
 		ops: [
 			set("F_EDGE.fb", `FUNCTION_BLOCK F_EDGE\nVAR_INPUT\n\ti : BOOL;\nEND_VAR\n(* @volt-implementation *)\n;\n\nEND_FUNCTION_BLOCK\n`),
@@ -90,6 +104,11 @@ const cases: Case[] = [
 		label: "control: a jump to a label",
 		ops: [set(`${PREFIX}L0.prg`, fbd(`${PREFIX}L0`, [["", JMP("Done")], [" LABEL: Done", "x := a;"]]))],
 		show: `${PREFIX}L0.prg`,
+	},
+	{
+		label: "jump spelled in another case",
+		ops: [set(`${PREFIX}Lc.prg`, fbd(`${PREFIX}Lc`, [["", JMP("DONE")], [" LABEL: Done", "x := a;"]]))],
+		show: `${PREFIX}Lc.prg`,
 	},
 	{
 		label: "one label on two networks, same case",

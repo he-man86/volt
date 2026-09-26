@@ -327,7 +327,8 @@ public static class NextNetworkTextWriter
                     if (!_defined.ContainsKey(d.VarId))
                         throw Unrepresentable("a wire referenced before its definition",
                             $"network {_net.Order} references VarId {d.VarId} before (or without) the item defining it.");
-                    return Modified(_names[d.VarId], d.Flags, "the wire " + _names[d.VarId]);
+                    RefuseUnheldFlags(d.Flags, "a wire reference", $"the wire {_names[d.VarId]} in network {_net.Order}");
+                    return _names[d.VarId];
 
                 case Box b:
                     return Modified(BoxCore(b, consumed: true), b.Flags, $"the '{b.Type}' box");
@@ -337,6 +338,12 @@ public static class NextNetworkTextWriter
                     if (p.Branches.Count == 0)
                         throw Unrepresentable("a Parallel with no branch",
                             $"a Parallel in network {_net.Order} has no branch.");
+                    RefuseUnheldFlags(p.Flags, "a Parallel", $"a Parallel in network {_net.Order}");
+                    // Census 1.2: the unfed Parallel is the null feed; a feed that is the empty terminator occurs in no
+                    // project, so it has no spelling of its own (`IN := ,` would be a second "no feed").
+                    if (p.Input is Terminator)
+                        throw Unrepresentable("a Parallel fed by the empty terminator",
+                            $"a Parallel in network {_net.Order} is fed by an unconnected terminator; an unfed Parallel has no feed.");
                     RefuseTakenConstruct("PARALLEL");
                     if (!NextSpelling.IsMeasuredMode(p.Mode))
                         // Spec: an unmeasured mode is refused. Written by its number it would be text the reader
@@ -347,14 +354,14 @@ public static class NextNetworkTextWriter
                     // Owner decision 2026-09-26: the mode is carried, and written only off its default. Census 1.3:
                     // BoxShortCircuit 16, Sequential 1 — rebuilding that one in the default mode would be silent.
                     if (p.Mode != ParallelMode.BoxShortCircuit) pins.Add("MODE := " + p.Mode);
-                    if (p.Input is not null) pins.Add("IN := " + Value(p.Input));   // `IN := ,` is a feed wired to nothing
+                    if (p.Input is not null) pins.Add("IN := " + Value(p.Input));
                     pins.AddRange(p.Branches.Select(Value));
                     // The same ambiguity a call's lone unconnected slot has: `PARALLEL()` is a Parallel with no
                     // branch, which the reader refuses. Beside a mode or a feed the empty branch is its own position.
                     if (pins.Count == 1 && pins[0].Length == 0)
                         throw Unrepresentable("a lone unconnected Parallel branch",
                             $"a Parallel in network {_net.Order} has one branch, wired to nothing, and no feed; `PARALLEL()` is a Parallel with none.");
-                    return Modified("PARALLEL(" + string.Join(", ", pins) + ")", p.Flags, "a Parallel");
+                    return "PARALLEL(" + string.Join(", ", pins) + ")";
                 }
 
                 case Terminator t:
@@ -608,6 +615,15 @@ public static class NextNetworkTextWriter
             if (f.Set && f.Reset)
                 throw Unrepresentable("a coil both set and reset", $"the coil '{target.Text}' carries both the Set and the Reset bit.");
             return f.Reset ? "R=" : f.Set ? "S=" : ":=";
+        }
+
+        /// <summary>DIALECT N20: a <c>BoxTreeDemux</c> and a <c>BoxTreeParallel</c> hold no flag — the getter hands out
+        /// an object the IDE never stores, so a bit set on it is gone before the commit. A model carrying one states
+        /// logic no IDE runs; it goes to the marker, never to a spelling the push would silently drop.</summary>
+        private static void RefuseUnheldFlags(Flags f, string what, string where)
+        {
+            if (!f.IsNone)
+                throw Unrepresentable("a flag on " + what, $"{where} carries {Describe(f)}, and the IDE holds no flag on {what}.");
         }
 
         private static void RefuseItemFlags(Flags f, string what)

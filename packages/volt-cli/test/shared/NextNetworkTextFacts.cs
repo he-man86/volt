@@ -74,7 +74,7 @@ public static class NextNetworkTextFacts
 
     private static Box BoxOf(Box b)
     {
-        var byMainOutput = b.ConnectedSlot is not null && !NextSpelling.ConnectedByEno(b);
+        var byMainOutput = b.ConnectedSlot is { } c && c != NextSpelling.EnoSlot(b);
         var infix = NextSpelling.IsInfix(b);
         return new Box(
             b.Type,

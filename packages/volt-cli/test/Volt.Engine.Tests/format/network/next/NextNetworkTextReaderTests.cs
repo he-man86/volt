@@ -313,14 +313,12 @@ public class NextNetworkTextReaderTests
         AssertModel(Body(Set(Consumed("MOVE", new[] { In(L("src")) }), Coil("dst"))), Read(Src("dst := MOVE(src);")));
     }
 
-    /// <summary>Spec, "a Parallel is not rebuilt as AND/OR" and "an unwired Parallel feed".</summary>
+    /// <summary>Spec, "a Parallel is not rebuilt as AND/OR" and "an unfed Parallel".</summary>
     [Fact]
-    public void PARALLEL_is_a_Parallel_fed_unfed_or_wired_to_nothing()
+    public void PARALLEL_is_a_Parallel_fed_or_unfed()
     {
         AssertModel(Body(Net(Def(54, L("TRUE"), "BOOL"), Set(new Parallel(Ref(54), new Node[] { L("a"), L("b") }, Flags.None), Coil("out")))),
             Read(Src("VAR_TEMP g54 : BOOL; END_VAR", "g54 := TRUE;", "out := PARALLEL(IN := g54, a, b);")));
-        AssertModel(Body(Set(new Parallel(Empty, new Node[] { L("a"), L("b") }, Flags.None), Coil("out"))),
-            Read(Src("out := PARALLEL(IN := , a, b);")));
         AssertModel(Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, Flags.None), Coil("out"))),
             Read(Src("out := PARALLEL(a, b);")));
         AssertModel(Body(Set(new Parallel(L("f"), new Node[] { L("a"), L("b") }, Flags.None, ParallelMode.Sequential), Coil("out"))),

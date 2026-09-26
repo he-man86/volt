@@ -369,15 +369,6 @@ internal static class TcPlcOpenWriter
             return null;
         }
 
-        /// <summary>A JUMP — TC6's own <c>&lt;jump&gt;</c> element, carrying the destination network's label.
-        ///
-        /// <para>The model spells a jump as an <see cref="Assign"/> with <c>Flags.Jump</c>: the TARGET is the
-        /// destination LABEL (not an l-value) and the value is the optional condition, which is why this cannot
-        /// go through the ordinary assignment arm — emitting an <c>outVariable</c> named <c>Done</c> would land a
-        /// real assignment to an undeclared symbol and stop the POU compiling.</para>
-        ///
-        /// <para>The label itself is not written here. It belongs to the DESTINATION network
-        /// (<c>Network.Label</c>), which the archive writer sets after the import.</para></summary>
         /// <summary>A RETURN — `<return>`, which is `<jump>` without the label, and wired to its condition
         /// the same way.
         ///
@@ -390,23 +381,15 @@ internal static class TcPlcOpenWriter
         /// <para>The importer's behaviour IS the test (D22 is a standing reminder that documented PLCopen
         /// properties are wrong on this install): if it ever stops honouring this, the round-trip in
         /// `test/e2e/graphical/labels.test.ts` fails rather than a comment going stale.</para></summary>
-        /// <summary>Nothing drives this item — no value at all, or the unconnected terminator the reader
-        /// builds for a bare `JMP name;` / `RETURN;`.</summary>
-        private static bool Unconditional(Node? value) => value is null or Terminator;
-
         private long? EmitReturn(Assign ret)
         {
             var el = new XElement(Namespaces.Tc6 + "return",
                 new XAttribute("localId", Id().ToString()),
                 Position());
 
-            // A CONDITIONAL return is wired to its condition. An unconnected TERMINATOR is how the model
-            // spells "nothing drives this", so it means unconditional — and an unconditional one cannot be
-            // IMPORTED here, which is measured rather than assumed: the identical document with a
-            // `connectionPointIn` imports fine and round-trips, and without one TwinCAT rejects the whole
-            // scratch object with `Value cannot be null. Parameter name: source`. The presence of the
-            // connection is the only difference between the two, so the importer wants a jump or return
-            // WIRED. Refusing says that; letting the vendor's null-reference reach the engineer does not.
+            // A CONDITIONAL return is wired to its condition. The empty TERMINATOR is the model's one
+            // spelling of "nothing drives this" (census 1.2), so it means unconditional.
+            //
             // AN UNCONDITIONAL RETURN IS WIRED TO AN EMPTY PIN AND THEN UNWIRED AGAIN — which is the two-step
             // the create path is BUILT on, not a trick. The import settles STRUCTURE (the IDE resolves what
             // Volt cannot state), and `Stamp` then writes the detail the document could not carry.
@@ -423,9 +406,9 @@ internal static class TcPlcOpenWriter
             // `EmitEmpty` is an `<inVariable>` with an EMPTY expression, already measured as the importer's own
             // spelling for an unwired pin, so the placeholder is a shape the vendor writes rather than an
             // invention. Its operand is discarded by the swap.
-            var source = Unconditional(ret.Value)
+            var source = ret.Value is Terminator
                 ? EmitEmpty()
-                : Emit(ret.Value!) ?? throw Refuse("returns on a statement");
+                : Emit(ret.Value) ?? throw Refuse("returns on a statement");
             el.Add(new XElement(Namespaces.Tc6 + "connectionPointIn",
                 new XElement(Namespaces.Tc6 + "connection",
                     new XAttribute("refLocalId", source.ToString()))));
@@ -434,6 +417,15 @@ internal static class TcPlcOpenWriter
             return null;      // a return produces no value for anything to consume
         }
 
+        /// <summary>A JUMP — TC6's own <c>&lt;jump&gt;</c> element, carrying the destination network's label.
+        ///
+        /// <para>The model spells a jump as an <see cref="Assign"/> with <c>Flags.Jump</c>: the TARGET is the
+        /// destination LABEL (not an l-value) and the value is the optional condition, which is why this cannot
+        /// go through the ordinary assignment arm — emitting an <c>outVariable</c> named <c>Done</c> would land a
+        /// real assignment to an undeclared symbol and stop the POU compiling.</para>
+        ///
+        /// <para>The label itself is not written here. It belongs to the DESTINATION network
+        /// (<c>Network.Label</c>), which the archive writer sets after the import.</para></summary>
         private long? EmitJump(Assign jump)
         {
             if (jump.Targets.Count != 1)
@@ -447,9 +439,9 @@ internal static class TcPlcOpenWriter
             // Same route as the return above, and the same measurement: wire an unconditional jump to an empty
             // pin so the importer will build it, and let `Stamp` swap that pin for the terminator the model
             // asked for.
-            var source = Unconditional(jump.Value)
+            var source = jump.Value is Terminator
                 ? EmitEmpty()
-                : Emit(jump.Value!) ?? throw Refuse("jumps on a statement");
+                : Emit(jump.Value) ?? throw Refuse("jumps on a statement");
             el.Add(new XElement(Namespaces.Tc6 + "connectionPointIn",
                 new XElement(Namespaces.Tc6 + "connection",
                     new XAttribute("refLocalId", source.ToString()))));

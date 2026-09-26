@@ -202,12 +202,25 @@ public class NextNetworkTextWriterTests
         var move = Call("MOVE", new[] { In(L("1")) }, new[] { Out("nMode", 1) }, en: L("bStart", Rise));
         Assert.Equal(Body("MOVE(EN := R_EDGE(bStart), 1, => nMode);"), Write(move));
 
-        Assert.Equal(
-            Body("VAR_TEMP g3 : BOOL; END_VAR", "g3 := TRUE;", "out := NOT F_EDGE(g3);"),
-            Write(Net(Def(3, L("TRUE")), Set(Ref(3, Neg with { Falling = true }), T("out")))));
 
         Assert.Equal(Body("lamp := R_EDGE((a AND b));"),
             Write(Set(new Box("AND", null, CallKind.Operator, new[] { In(L("a")), In(L("b")) }, new Output[0], null, null, Rise), T("lamp"))));
+    }
+
+    /// <summary>A FLAG ON A WIRE REFERENCE OR A PARALLEL HAS NO VENDOR FORM, so it goes to the marker by name. Measured
+    /// 2026-09-26 (DIALECT N20, <c>scripts/probe-edge-names-order.py</c>): on <c>BoxTreeDemux</c> and
+    /// <c>BoxTreeParallel</c> the <c>Flags</c> getter hands out an object that is not stored — a bit set on it reads
+    /// back unset before the commit, and neither type serializes one — so the IDE ran every such network as the bare
+    /// value. A pulled body never carries one; a model that does describes logic no IDE can hold.</summary>
+    [Fact]
+    public void A_flag_on_a_wire_reference_or_a_Parallel_goes_to_the_marker()
+    {
+        Assert.Equal("a flag on a wire reference",
+            Refused(() => Write(Net(Def(3, L("TRUE")), Set(Ref(3, Neg with { Falling = true }), T("out"))))).Marker);
+        Assert.Equal("a flag on a wire reference",
+            Refused(() => Write(Net(Def(3, L("TRUE")), Set(Ref(3, Rise), T("out"))))).Marker);
+        Assert.Equal("a flag on a Parallel",
+            Refused(() => Write(Set(new Parallel(null, new Node[] { L("a"), L("b") }, Neg), T("out")))).Marker);
     }
 
     /// <summary>Spec, "negation with an edge": the one order.</summary>
@@ -551,9 +564,9 @@ public class NextNetworkTextWriterTests
 
     // ── BoxTreeParallel ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>Page, "PARALLEL"; spec, "an unwired Parallel feed"; owner decision on Mode.</summary>
+    /// <summary>Page, "PARALLEL"; spec, "an unfed Parallel"; owner decision on Mode.</summary>
     [Fact]
-    public void Parallel_fed_unfed_unwired_and_sequential()
+    public void Parallel_fed_unfed_and_sequential()
     {
         Assert.Equal(
             Body("VAR_TEMP g54 : BOOL; END_VAR", "g54 := TRUE;", "ResetSafetyGuard S= PARALLEL(IN := g54, StartFlag, tResetSafetyGuard);"),
@@ -562,8 +575,10 @@ public class NextNetworkTextWriterTests
                     T("ResetSafetyGuard", Flags.None with { Set = true })))));
         Assert.Equal(Body("out := PARALLEL(a, b);"),
             Write(Set(new Parallel(null, new Node[] { L("a"), L("b") }, Flags.None), T("out"))));
-        Assert.Equal(Body("out := PARALLEL(IN := , a, b);"),
-            Write(Set(new Parallel(Empty, new Node[] { L("a"), L("b") }, Flags.None), T("out"))));
+        // Census 1.2: the unfed Parallel is the null feed (5 of 17); a feed that is the empty terminator occurs in
+        // no project, so it has no spelling of its own and goes to the marker.
+        Assert.Equal("a Parallel fed by the empty terminator",
+            Refused(() => Write(Set(new Parallel(Empty, new Node[] { L("a"), L("b") }, Flags.None), T("out")))).Marker);
         Assert.Equal(Body("out := PARALLEL(MODE := Sequential, IN := f, a, b);"),
             Write(Set(new Parallel(L("f"), new Node[] { L("a"), L("b") }, Flags.None, ParallelMode.Sequential), T("out"))));
     }

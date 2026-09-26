@@ -212,7 +212,11 @@ def walk(n, where, depth, parent):
             trees = list(vp.prop(n, "Trees") or [])
         except Exception:
             pass
-        bump("1.3 parallel Mode=%s fed=%s branches=%d" % (vp.prop(n, "Mode"), inp is not None, len(trees)), where)
+        # 1.2 asks for ONE representation of an unfed Parallel, so the feed is told three ways, not two: no
+        # Input at all (`PARALLEL(a, b)`), an Input that is the empty terminator (`PARALLEL(IN := , a, b)`), a tree.
+        feed = "none" if inp is None else ("empty terminator" if kind(inp).startswith("BoxTreeTerminator")
+                                           and vp.prop(inp, "Input") is None else "tree")
+        bump("1.3 parallel Mode=%s feed=%s branches=%d" % (vp.prop(n, "Mode"), feed, len(trees)), where)
         walk(inp, where, depth + 1, "Parallel.Input")
         for x in trees:
             walk(x, where, depth + 1, "Parallel.branch")

@@ -10,6 +10,10 @@ never dropped, never guessed.
       `NOT(` whitespace rule, which is gone). Until then: marker on pull, refused by name on push (review 7.6).
 - [x] 1.2 `Assign.Value` null vs `Terminator(null)` — keep ONE representation of "unconnected"; the same question for
       `Parallel.Input` null vs `Terminator(null)` (`PARALLEL(a, b)` vs `PARALLEL(IN := , a, b)`, review 7.10).
+      *Parallel half answered in the second pass (review: the first census counted `inp is not None` only):* null 5,
+      the empty terminator 0 across five projects. `PARALLEL(a, b)` is the one unfed form; both readers refuse a
+      Parallel fed by the empty terminator by name and the v2 text refuses `IN := ,` (`A_Parallel_fed_by_the_empty_
+      terminator_is_refused_by_name` on both drivers, `A_Parallel_feed_wired_to_nothing`).
 - [x] 1.3 The 17 Lenze `BoxTreeParallel`s: which of the 54 `X AND (a OR b)` shapes they are, `Mode` values, fed vs
       unfed. Until this lands, no design or golden publishes a single "after" spelling for that shape.
 - [x] 1.4 `BoxTreeTerminator` with an Input: 0 → refused by name like Mux; >0 → a `TERMINATOR(x)` spelling.
@@ -22,6 +26,12 @@ never dropped, never guessed.
       (if so, the "consumed enabled box needs `.ENO`" refusal becomes "no suffix = main output").
       *Done 2026-09-26:* `scripts/probe-nwl-slots.py` -> `nwl-slots.log`, DIALECT N16. It IS: 40 enabled comparison
       boxes are connected by their main output and have no ENO. The refusal is lifted in the spec; 2.5 is reopened.
+      *Re-measured the same day, connection by connection* (review: the first run tallied the two sides apart and
+      paired nothing): side C pairs each NWL box with its export block and compares. Of 374 export connections to a
+      block, 338 are checked and 0 disagree (337 name exactly `MainOutputIndex`, the index-1 call box included; 1 OR
+      box stores no index); 22 name no slot (an LD coil join names the coil — 18 on single-output boxes, 4 on a
+      TON whose index is 0 = `Q`, confirmed by NWL alone); 14 are unpaired (10 type-count mismatches, 4 in a name two
+      objects share). Where ENO is also the main output the spec now says `.ENO` wins.
 - [x] 1.7 Target Negation-only / Rtrig / Ftrig bits across all corpora (archive census, not pulled text). 0 → stay on
       the marker (today: 0 of 576); >0 → propose a spelling with a live constructor build, in its own change.
 - [x] 1.8 Demux definition positions (every sample so far is top-level); a definition nested below the top level, or
@@ -50,14 +60,20 @@ never dropped, never guessed.
       box-to-box pin, read where they land. Found → the pin spelling on the formal (`f(NOT IN1 := x)`,
       `f(R_EDGE(CLK) := x)`), distinct from the value's flag (`f(CLK := R_EDGE(x))`); until then a pulled pin flag
       goes to the marker.
-- [x] 1.14 `R_EDGE` / `F_EDGE` (review 7.12): check neither SP21 nor TwinCAT lets a POU or instance take the names;
+- [ ] 1.14 `R_EDGE` / `F_EDGE` (review 7.12): check neither SP21 nor TwinCAT lets a POU or instance take the names;
       measure the vendor's evaluation order for Negation+Rtrig on one operand (the text's one order is
       `NOT R_EDGE(x)`).
       *Done 2026-09-26 (DIALECT N17, N18):* BOTH vendors let a function, an FB, an instance and a variable be named
       `R_EDGE`/`F_EDGE` (clean builds), so the spec's refusal of such a call stands. The ORDER is the other way round:
       SP21 evaluates `Negation+Rtrig` as `R_EDGE(NOT x)` (run in simulation, `edge-names-order.log`), so the text's
-      `NOT R_EDGE(x)` stated other logic; the spec now spells it `R_EDGE(NOT x)` and 2.11 is reopened. TwinCAT's
-      order is not measured: no Volt path runs a TwinCAT PLC, and N1 is the only evidence it matches.
+      `NOT R_EDGE(x)` stated other logic; the spec now spells it `R_EDGE(NOT x)` and 2.11 is reopened.
+      *Second pass (review):* the names are now measured as the FULL set on each vendor (FUNCTION and FB, each named
+      `R_EDGE` and `F_EDGE`: clean on both). The order is measured on an AND BOX too — the same as the operand. On a
+      Parallel and a wire reference it cannot be: the IDE holds no flag there (DIALECT N20), so the text refuses one
+      (`A_flag_on_a_wire_reference_or_a_Parallel*`). *BLOCKED (TwinCAT order):* running a TwinCAT PLC needs a runtime
+      licence this machine does not have — `C:\TwinCAT.1\Target\License` does not exist and the `UmRT_Default` target
+      holds none; a TC1200 trial licence is issued through XAE's interactive security-code dialog, which no probe can
+      answer. Until measured, the spec sends a TwinCAT Negation+edge on one node to the marker (4.2).
 - [x] 1.15 Labels and jumps, live on both vendors, recording each build message: one LABEL on two networks of a body
       (can the IDE hold it; case-insensitive?); a LABEL on a DISABLED network as a jump target (still a target?); a
       `JMP` inside a DISABLED network; a `JMP` to a label no network carries. The gate refuses only what the IDE
@@ -66,7 +82,8 @@ never dropped, never guessed.
       (5.6's parity targets): `The label 'DONE' is a duplicate` (same case or not); `No such label 'DONE' within
       the scope of the JMP statement` (a disabled network's label is no target; TwinCAT adds a `.`); `The label
       'DONE' has not been referenced` (a JMP in a disabled network is no reference; a warning); `No such label
-      'NOWHERE' ...`. Labels match case-insensitively.
+      'NOWHERE' ...`. Labels match case-insensitively — on CODESYS first, and on TwinCAT in the second pass (review):
+      `JMP DONE` to `LABEL: Done` builds clean (`tc-labels-edge-names.log`, "jump spelled in another case").
 - [ ] 1.16 TwinCAT ladder (review 7.16): the share of wires fed by a leaf in the TwinCAT corpora (lenze-mid: 66 of
       139). If alike, refusing "a Demux of a leaf" on a structural edit blocks about half of rung edits — the reason
       4.4 measures the import first.
@@ -87,6 +104,8 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
 - **1.1** Item flags on Demux/Assign items: **0**. Only operand items carry flags (Negation 359 on Lenze operands, one Rtrig
   in pro2193 `Counters`). → no item-flag spelling; refused by name.
 - **1.2** Unconnected assign: `RValue` null **0**, `Terminator(null)` **3** → Terminator(null) is the one representation.
+  Unfed Parallel (second pass, the probe now tells the feed three ways — `nwl-census-v2.log`): Input null **5**, the
+  empty terminator **0**, a tree 12 → the null feed is the one representation; the terminator feed is refused by name.
 - **1.3** Parallels: **17** — Mode `BoxShortCircuit` 16, **`Sequential` 1** (Lenze MainDrive net1), **unfed 5** → `MODE`
   must be carried (a non-default exists); the unfed form is real.
 - **1.4** Terminator with an Input: **0** → refused by name.
@@ -122,16 +141,18 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
 
 ### Census results — 2026-09-26, second pass (constructed and live measurements)
 
-- **1.6** (`probe-nwl-slots.py`, 1,164 consumed boxes in five projects, each connection checked against the vendor's
-  PLCopen export): the consumer is ALWAYS connected to `MainOutputIndex` (3 call boxes store 1 and are read through
-  output #1), and that slot is ENO exactly when the box's outputs start `ENO`. MOVE/ADD/calls showing EN/ENO are read
+- **1.6** (`probe-nwl-slots.py`, consumed boxes in four projects, each NWL box paired with its PLCopen export block
+  and every connection compared — 338 checked, 0 disagreeing, 22 naming no slot, 14 unpaired; DIALECT N16): the
+  consumer is connected to `MainOutputIndex` wherever the export says (a call box storing 1 is read through output
+  #1), and that slot is ENO exactly when the box's outputs start `ENO`. MOVE/ADD/calls showing EN/ENO are read
   through ENO (66 connections); an enabled COMPARISON (`GT`/`LT`/`LE`/`EQ` with EN, 40 boxes) has one output `''` and is
   read through it (53) — an enabled box connected by its main output, with no ENO; an FB declaring `ENO` as a variable
   without `EN` (Lenze `Dryer`) is read through ENO. `.ENO` means "connected to the ENO output", not "the box has EN".
 - **1.9** chained `:=`/`S=`/`R=` in any mix: clean on SP21.
 - **1.10** `Terminator.Input` and the null `Assign.Value` deleted; readers refuse both by name.
-- **1.14** names: legal on both vendors. Order: SP21 computes `Negation+Rtrig` as `R_EDGE(NOT x)` and
-  `Negation+Ftrig` as `F_EDGE(NOT x)` (simulation, `x = 00110010`).
+- **1.14** names: legal on both vendors, the full set on each. Order: SP21 computes `Negation+Rtrig` as `R_EDGE(NOT x)`
+  and `Negation+Ftrig` as `F_EDGE(NOT x)` (simulation, `x = 00110010`), on an operand and on an AND box alike; a
+  Parallel and a wire reference hold no flag (N20). TwinCAT's order: BLOCKED (no licensed runtime).
 - **1.15** held on both vendors; build messages as in 1.15 above.
 - **1.16** BLOCKED: no real TwinCAT ladder corpus.
 
@@ -167,6 +188,8 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       keys ENO on `Box.Enable`; it must key on the ENO output (`Box.HasEnoSlot` over the output names). The refusals
       "consumed enabled box without `.ENO`" and "`.ENO` on a box without EN" go; `GT(ADD(EN := x, a, b), c)` is the
       case to re-decide (ADD shows ENO, so its consumer reads ENO and the text must say `.ENO`).
+      *And the precedence (review):* where ENO is also the main output (outputs start `ENO`), the writer says `.ENO`;
+      a pushed suffix-less consumer of such a box is refused naming it (spec, "ENO is the main output") — one test.
 - [ ] 2.6 Wire misuse, one test each: undefined, defined with `S=`/`R=`, chained, referenced before definition, not
       `g<digits>`, a second `VAR_TEMP` block, an undeclared `g<digits>` in no scope, a declared type unlike the
       producer's (`NETWORK_BAD_EXPRESSION`); declared or defined twice, a name equal to a declared variable differing
@@ -187,7 +210,7 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       an operator box in call form (`AND(EN := go, a, b, => out);`) parses with its BoxType as head; a backticked
       lvalue and a backticked call head round-trip; `MOVE()` (no input slot) vs `MOVE(IN := )` (one unwired);
       `PARALLEL(IN := , a, b)` vs `PARALLEL(a, b)`.
-      *Progress (phase 1):* covered on v2 (`END_IF;`, the empty item, `value;` forms, the NOT/parentheses table, `((a AND b))`, operator call form, backticks, `MOVE()` vs `MOVE(IN := )`, `PARALLEL(IN := , …)` vs `PARALLEL(…)`) except an explicit `END_EXECUTE` without its `;` → `NETWORK_PARSE` test.
+      *Progress (phase 1):* covered on v2 (`END_IF;`, the empty item, `value;` forms, the NOT/parentheses table, `((a AND b))`, operator call form, backticks, `MOVE()` vs `MOVE(IN := )`, `PARALLEL(…)` as the one unfed form and `PARALLEL(IN := , …)` refused — 1.2) except an explicit `END_EXECUTE` without its `;` → `NETWORK_PARSE` test.
 - [x] 2.9 EXECUTE: the empty body is exactly one empty line between `EXECUTE` and `END_EXECUTE`; the value form
       `… END_EXECUTE.ENO` round-trips.
       *Done (phase 1), on v2:* `Execute_boxes_statement_empty_and_value_forms`, `EXECUTE_bodies_are_verbatim_lines`, and the writer-golden read-back.
@@ -260,9 +283,13 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
 
 - [ ] 4.1 CODESYS: build `BoxTreeParallel` from the model; the unnamed output-slot operand for `=> v`; write each
       Demux's VarId verbatim (unchanged); read `InputFlags` into `Input.Flags` (1.13). Model-built tests for each.
+      `Parallel.Mode` both ways: the reader does not read it today (a Sequential Parallel pulls as BoxShortCircuit),
+      and the writer must SET it — a freshly built `BoxTreeParallel` is `Sequential` (DIALECT N20).
 - [ ] 4.2 TwinCAT: a value edit stays in place. A structurally changed network is imported (D22c/D25/D30/C25/C20);
       until measured live it refuses `PARALLEL`, a Demux of a leaf and a result pin `=> v` with `NETWORK_UNSUPPORTED`,
-      the message naming the network and the reason (review 7.16). Offline tests for each refusal.
+      the message naming the network and the reason (review 7.16). Offline tests for each refusal. Read
+      `Parallel.Mode` (not read today). Until 1.14 measures TwinCAT's evaluation order, a pulled Negation+edge on one
+      node goes to the marker by name (spec, "edges are R_EDGE and F_EDGE flags").
 - [ ] 4.3 TwinCAT: delete `TcNetworkWriter.Unhoist`'s legacy fold; keep the D25 component count; the in-place
       tree-count check holds by construction.
 - [ ] 4.4 Live e2e on both vendors (`pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys|twincat`, then

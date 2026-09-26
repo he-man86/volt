@@ -90,7 +90,6 @@ internal static class NextModels
         Add("not.box", Body(Set(Call("NOT", new[] { In(L("a")) }, main: null), T("out"))));
         Add("not.box-around-group", Body(Set(Call("NOT", new[] { In(Op("AND", L("a"), L("b"))) }, main: null), T("out"))));
         Add("edge.on-en", Body(Call("MOVE", new[] { In(L("1")) }, new[] { Out("nMode", 1) }, en: L("bStart", Rise))));
-        Add("edge.on-wire", Body(Net(Def(3, L("TRUE")), Set(Ref(3, Neg with { Falling = true }), T("out")))));
         Add("edge.on-group", Body(Set(new Box("AND", null, CallKind.Operator, new[] { In(L("a")), In(L("b")) }, new Output[0], null, null, Rise), T("lamp"))));
         Add("edge.negated", Body(Set(L("x", Neg with { Falling = true }), T("out"))));
         Add("call.fb", Body(Fb("t1", new[] { In(L("a"), "IN"), In(L("pt"), "PT") }, new[] { Out("el", 2, "ET") }, "TON")));
@@ -153,7 +152,6 @@ internal static class NextModels
         Add("parallel.fed", Body(Net(Def(54, L("TRUE")),
             Set(new Parallel(Ref(54), new Node[] { L("StartFlag"), L("tResetSafetyGuard") }, Flags.None), T("ResetSafetyGuard", SetBit)))));
         Add("parallel.unfed", Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, Flags.None), T("out"))));
-        Add("parallel.unwired-feed", Body(Set(new Parallel(Empty, new Node[] { L("a"), L("b") }, Flags.None), T("out"))));
         Add("infix.consumed-comparison", Body(Set(Call("GT", new[] { In(L("a")), In(L("b")) }, connected: 0), T("o"))));
         Add("infix.consumed-arithmetic", Body(Set(Call("ADD", new[] { In(L("a")), In(L("b")) }, connected: 0), T("out"))));
         Add("targets.literal", Body(Net(Set(L("a"), T("5")), Set(L("a"), T("16#FF")), Call("F", new[] { In(L("a")) }, new[] { Out("T#1s", 0) }))));

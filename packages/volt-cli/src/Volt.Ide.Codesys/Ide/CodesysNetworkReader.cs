@@ -144,10 +144,21 @@ namespace Volt.Ide.Codesys
                         flags);
 
                 case "BoxTreeParallel":
+                {
+                    var feed = Tree(NwlInterop.Get(n, "Input")) is { } pi ? ReadNode(pi) : null;
+                    // Census 1.2: an unfed Parallel is the NULL feed (5 of 17), and a feed that is the empty
+                    // terminator occurs in no measured project. One "no feed" in the model, so the other is refused
+                    // by name — the marker, never a second spelling nobody has seen the vendor hold.
+                    if (feed is Terminator)
+                        throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
+                            "a Parallel fed by the empty terminator",
+                            "CODESYS: a parallel branch's feed is an unconnected terminator, a shape no measured project " +
+                            "holds (an unfed branch has no feed at all). Edit this network in the IDE.");
                     return new Parallel(
-                        Tree(NwlInterop.Get(n, "Input")) is { } pi ? ReadNode(pi) : null,
+                        feed,
                         NwlInterop.RequireItems(n, "Trees", listMember: "").Select(ReadNode).ToList(),
                         flags);
+                }
 
                 // Census 1.4: a terminator with an INPUT occurs in no measured project, so it has no network-text
                 // spelling and the model no field for it (task 1.10) — refused by name, like Mux below.

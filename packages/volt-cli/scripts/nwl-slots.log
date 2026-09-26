@@ -111,7 +111,7 @@ A LD consumed box, parent=Assign En=True Eno=False MainOutputIndex=0 slots=n slo
 A LD consumed box, parent=Assign En=True Eno=True MainOutputIndex=0 slots=n slot0=ENO                    1   e.g. fc_Visualisation_HMI net8 Alarms_ResetAlarmLogging ['ENO']
 A LD consumed box, parent=Assign En=True Eno=True MainOutputIndex=0 slots=nR slot0=ENO                  15   e.g. Mach1_Drives net27 MOVE ['ENO', '']
 A LD consumed box, parent=Box.input En=False Eno=False MainOutputIndex=0 slots=n slot0=''               52   e.g. Mach1_Drives net8 Alarms_V5_1_100 ['   ']
-A LD consumed box, parent=Box.input En=False Eno=False MainOutputIndex=0 slots=n slot0=Q                16   e.g. Mach1_Drives net6 TON ['Q']
+A LD consumed box, parent=Box.input En=False Eno=False MainOutputIndex=0 slots=n slot0=Q                16   e.g. Mach1_Drives net6 TOF ['Q']
 A LD consumed box, parent=Box.input En=False Eno=False MainOutputIndex=0 slots=n slot0=Q1                1   e.g. TrayFiller net30 RS ['Q1']
 A LD consumed box, parent=Box.input En=False Eno=False MainOutputIndex=0 slots=ne slot0=Q               13   e.g. Mach1_MIDS net19 TON ['Q', 'ET']
 A LD consumed box, parent=Box.input En=False Eno=False MainOutputIndex=0 slots=neReRRRRR slot0=ENO       1   e.g. AHWF net2 WSM ['ENO', 'oVentilationMotor', 'oPositionMotor', 'oWindingMotor', 'oSprayingValve', 'oWaterLevelValve', 'oFaultWaitingForWrapper', 'oFaultNoWrapper', 'oFaultPhotocellWrapper']
@@ -156,4 +156,18 @@ B noEN/noENO-block read by contact via output #0 of 1                           
 B noEN/noENO-block read by contact via output #0 of 2                                                    6   e.g. AHWF TON(Q,ET)->Q
 B noEN/noENO-block read by outVariable via output #0 of 1                                                6   e.g. call_FirstErrorCapture_FB MOVE(Out1)->Out1
 B noEN/noENO-block read by outVariable via output #1 of 6                                                1   e.g. call_FirstErrorCapture_FB L_FECA.L_FirstFASTErrCapture(xBusy,xErrorActive,xFastErrorActive,xUpdateError,xIsWarningInfo,scFirstErrorData)->xErrorActive
+C AGREES: export output #0 = MainOutputIndex, paired by order in its POU                                 4   e.g. SetAlarm netNone AND|(Out1)->Out1
+C AGREES: export output #0 = MainOutputIndex, paired by order in its network                            90   e.g. AHWF net3 ALARMS_V5_1_100|(   )->   
+C AGREES: export output #0 = MainOutputIndex, paired unique in its POU                                  12   e.g. MainDrive netNone TON|MACH1_AUXDATA.IEC_TIMERS.TON_DELAYAFTERDOORSCLOSED(Q,ET)->Q
+C AGREES: export output #0 = MainOutputIndex, paired unique in its network                             230   e.g. AHWF net0 MOVE|(ENO,Out2)->ENO
+C AGREES: export output #1 = MainOutputIndex, paired unique in its POU                                   1   e.g. call_FirstErrorCapture_FB netNone L_FECA.L_FIRSTFASTERRCAPTURE|FBFIRSTERRCAPTURE(xBusy,xErrorActive,xFastErrorActive,xUpdateError,xIsWarningInfo,scFirstErrorData)->xErrorActive
+C connection in a POU whose name two objects share - not paired                                          4   e.g. Recipes
+C connection to a AND block whose key count differs between the sides - not paired                       5   e.g. AHWF net7 AND| nwl=4 export=1
+C connection to a EQ block whose key count differs between the sides - not paired                        3   e.g. call_FirstErrorCapture_FB netNone EQ| nwl=5 export=3
+C connection to a OR block whose key count differs between the sides - not paired                        2   e.g. call_FirstErrorCapture_FB netNone OR| nwl=3 export=2
+C export names no output (an LD join names the coil): MainOutputIndex=0 ('') of 1 output(s)             14   e.g. Mach1_Drives net11 ALARMS_V5_1_100|->Mach1.GenFlags.StopDriveDirect
+C export names no output (an LD join names the coil): MainOutputIndex=0 (Q) of 1 output(s)               4   e.g. Mach1_MIDS net33 R_TRIG|MACH1_AUXDATA.EDGE.OSP_DRYERZEROPOINT->Mach1_AuxData.PreviousCycleHasOutfeedError
+C export names no output (an LD join names the coil): MainOutputIndex=0 (Q) of 2 output(s)               4   e.g. TrayFiller net1 TON|TMR_INPUSHERDOWN->stRestposition
+C network split does not line up (export titles vs NWL) - paired over the whole POU                      3   e.g. MainDrive 4 vs 5
+C operator box (NWL stores no MainOutputIndex), export reads output #0 of 1                              1   e.g. SetAlarm netNone OR|->Out1
 done

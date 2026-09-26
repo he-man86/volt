@@ -162,7 +162,7 @@ internal static class NextSpelling
     public static int? EnoSlot(Box b) => EnoSlot(b.StCode is not null, b.Enable is not null);
 
     /// <summary>Whether a consumer of <paramref name="b"/> is connected to its ENO — the <c>.ENO</c> suffix.</summary>
-    public static bool ConnectedByEno(Box b) => b.ConnectedSlot is { } c && c == EnoSlot(b);
+    private static bool ConnectedByEno(Box b) => b.ConnectedSlot is { } c && c == EnoSlot(b);
 
     /// <summary>The first output slot at or after <paramref name="from"/> a positional <c>=&gt;</c> pin can fill:
     /// ENO and the slot a consumer is connected to are skipped, the rest fill in order. The writer spells a pin by

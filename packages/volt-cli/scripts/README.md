@@ -86,9 +86,12 @@ task being deleted).
 `probe-nwl-coils` (the `Negation`+`Set` bits are ONE enum, correlated against the vendor's own PLCopen export),
 `probe-nwl-coil-modifiers` (576 assignment targets across five real projects: no edge or negated coil occurs),
 `probe-nwl-boxoutputs`, `probe-nwl-execute-compare`, `probe-nwl-execute-create`,
-`probe-nwl-census-v2` (the network text v2 census, openspec `network-text-literal-nwl` section 1),
-`probe-nwl-slots` (a consumer always reads the main output, which is ENO only when the box HAS one, DIALECT N16),
-`probe-edge-names-order` (the vendor negates before the edge; `R_EDGE`/`F_EDGE` are legal POU names, N17/N18),
+`probe-nwl-census-v2` (the network text v2 census, openspec `network-text-literal-nwl` section 1; `nwl-census-v2.log`
+holds the five projects' runs),
+`probe-nwl-slots` (a consumer reads the main output — each NWL box paired with its PLCopen export block and every
+connection compared — and that is ENO only when the box HAS one, DIALECT N16),
+`probe-edge-names-order` (the vendor negates before the edge, on an operand and a box; a Parallel and a wire reference
+hold no flag and a new Parallel is `Sequential`; `R_EDGE`/`F_EDGE` are legal POU names, N17/N18/N20),
 `probe-nwl-labels` + `probe-labels-edge-names.ts` (labels and jumps built on both vendors — held, and what the
 build says, N19; the `.ts` is the TwinCAT half, over the pipe), `probe-st-chained-set` (`a := b S= c;` is legal ST).
 `voltprobe.build_messages` / `nwl_new` / `nwl_edit` are the build-and-construct half those share.

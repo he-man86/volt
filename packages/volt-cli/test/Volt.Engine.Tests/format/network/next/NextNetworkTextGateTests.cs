@@ -282,10 +282,31 @@ public class NextNetworkTextGateTests
     public void Nested_edges() =>
         Refused("NETWORK_UNSUPPORTED", 3, Src("out := R_EDGE(F_EDGE(x));"));
 
+    /// <summary>Spec, "a flag on a wire reference or a Parallel": the IDE holds no flag on a <c>BoxTreeDemux</c> or a
+    /// <c>BoxTreeParallel</c> (DIALECT N20), so the text refuses one by name instead of pushing logic the IDE drops.</summary>
+    [Fact]
+    public void A_flag_on_a_wire_reference_or_a_Parallel()
+    {
+        const string wire = "VAR_TEMP g3 : BOOL; END_VAR";
+        Refused("NETWORK_UNSUPPORTED", 5, Src(wire, "g3 := a;", "out := NOT g3;"));
+        Refused("NETWORK_UNSUPPORTED", 5, Src(wire, "g3 := a;", "out := R_EDGE(g3);"));
+        Refused("NETWORK_UNSUPPORTED", 3, Src("out := NOT PARALLEL(a, b);"));
+        Refused("NETWORK_UNSUPPORTED", 3, Src("out := R_EDGE(PARALLEL(a, b));"));
+        // The flag on the wire's PRODUCER, and on a Parallel's branch, are the vendor's own and stay.
+        Accepted(Src(wire, "g3 := NOT a;", "out := g3;"));
+        Accepted(Src("out := PARALLEL(NOT a, b);"));
+    }
+
     /// <summary>Spec, "a flag on an empty slot".</summary>
     [Fact]
     public void A_flag_on_an_empty_slot() =>
         Refused("NETWORK_UNSUPPORTED", 3, Src("f(NOT , a);"));
+
+    /// <summary>Census 1.2, the Parallel half: an unfed Parallel is <c>PARALLEL(a, b)</c>; a feed wired to nothing
+    /// occurs in no project (0 of 17), so <c>IN := ,</c> is refused by name rather than a second "no feed".</summary>
+    [Fact]
+    public void A_Parallel_feed_wired_to_nothing() =>
+        Assert.Contains("empty terminator", Refused("NETWORK_UNSUPPORTED", 3, Src("out := PARALLEL(IN := , a, b);")).Message);
 
     [Fact]
     public void An_unmeasured_Parallel_mode() =>

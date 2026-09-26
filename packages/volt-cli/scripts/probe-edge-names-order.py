@@ -8,6 +8,11 @@
 #      Measured by RUNNING it: an FBD block whose outputs are such operands, driven through a fixed input
 #      sequence in simulation, compared against every order's truth table.
 #
+#      The text spells the flags the same way on EVERY node that can carry them, so the order is measured on each
+#      kind, not generalised from the leaf: a leaf operand, an AND box, a Parallel, and a Demux (wire) reference.
+#      Each computes x itself (AND(x, y) with y TRUE; PARALLEL(IN := y, x, z) with z FALSE; a wire defined as x),
+#      so its truth table is the leaf's, and the flags are set on the NODE (the box, the Parallel, the reference).
+#
 #   $env:VOLT_PROBE_PROJECT = "<repo>\packages\volt-cli\test\fixtures\CodesysTestProject.project"
 #   Start-Process "C:\Program Files\CODESYS 3.5.21.40\CODESYS\Common\CODESYS.exe" -Wait `
 #     -ArgumentList '--profile="CODESYS V3.5 SP21 Patch 4"', '--noUI', '--runscript="<repo>\packages\volt-cli\scripts\probe-edge-names-order.py"'
@@ -38,6 +43,9 @@ NAME_CASES = [
     ("an FB named R_EDGE, instantiated",
      ("R_EDGE", "fb", "FUNCTION_BLOCK R_EDGE\nVAR_INPUT\n  i : BOOL;\nEND_VAR\n", ";"),
      "  inst : R_EDGE;", "inst(i := TRUE);"),
+    ("an FB named F_EDGE, instantiated",
+     ("F_EDGE", "fb", "FUNCTION_BLOCK F_EDGE\nVAR_INPUT\n  i : BOOL;\nEND_VAR\n", ";"),
+     "  inst : F_EDGE;", "inst(i := TRUE);"),
     ("an instance named R_EDGE", None, "  R_EDGE : TON;", "R_EDGE(IN := TRUE, PT := T#1S);"),
     ("a variable named F_EDGE", None, "  F_EDGE : BOOL;", "F_EDGE := TRUE;"),
     ("the IEC qualifier (x : BOOL R_EDGE)", None, "  q : BOOL;", "q := TRUE;"),
@@ -45,8 +53,11 @@ NAME_CASES = [
 
 # ---- B: order ------------------------------------------------------------------------------------------------
 XS = [False, False, True, True, False, False, True, False]
-OUTS = [("neg_rtrig", ("Negation", "Rtrig")), ("neg_ftrig", ("Negation", "Ftrig")),
-        ("rtrig", ("Rtrig",)), ("ftrig", ("Ftrig",)), ("neg", ("Negation",))]
+FLAGSETS = [("neg_rtrig", ("Negation", "Rtrig")), ("neg_ftrig", ("Negation", "Ftrig")),
+            ("rtrig", ("Rtrig",)), ("ftrig", ("Ftrig",)), ("neg", ("Negation",))]
+KINDS = ["leaf", "box", "par", "wire"]
+# (output name, node kind, flags) - one network each.
+OUTS = [("%s_%s" % (k, o), k, f) for k in KINDS for o, f in FLAGSETS]
 
 
 def edges(seq, rising):
@@ -66,7 +77,7 @@ NX = NOT(XS)
 ORDERS = {
     "NOT R_EDGE(x)": NOT(edges(XS, True)), "R_EDGE(NOT x)": edges(NX, True),
     "NOT F_EDGE(x)": NOT(edges(XS, False)), "F_EDGE(NOT x)": edges(NX, False),
-    "R_EDGE(x)": edges(XS, True), "F_EDGE(x)": edges(XS, False), "NOT x": NX,
+    "R_EDGE(x)": edges(XS, True), "F_EDGE(x)": edges(XS, False), "NOT x": NX, "x (flags ignored)": XS,
 }
 
 
@@ -79,17 +90,59 @@ def order_fb(impl):
     while len(lst) < len(OUTS):
         vp.call(impl, "AppendNetwork", [vp.nwl_new(impl, "Network")])
         lst = vp.prop(impl, "NetworkList")
-    for i, (out, flags) in enumerate(OUTS):
+    for i, (out, kind, flags) in enumerate(OUTS):
         net = lst[i]
         for j in range(int(vp.prop(net, "NetworkItemCount") or 0) - 1, -1, -1):
             vp.call(net, "RemoveNetworkItem", [j])
-        op = vp.nwl_new(net, "Operand", "x")
+
+        def leaf(name):
+            return vp.nwl_new(net, "BoxTreeOperand", vp.nwl_new(net, "Operand", name))
+
+        if kind == "leaf":
+            op = vp.nwl_new(net, "Operand", "x")
+            node, flagged = vp.nwl_new(net, "BoxTreeOperand", op), op
+        elif kind == "box":
+            node = vp.nwl_new(net, "BoxTreeBox")
+            vp.nwl_set(node, "BoxType", "AND")
+            vp.nwl_set(vp.prop(node, "Instance"), "OperandExpr", "")
+            vp.call(node, "AppendInputItem", [leaf("x")])
+            vp.call(node, "AppendInputItem", [leaf("y")])
+            flagged = node
+        elif kind == "par":
+            node = vp.nwl_new(net, "BoxTreeParallel")
+            vp.call(node, "SetInputTree", [0, leaf("y")])
+            vp.call(node, "Append", [leaf("x")])
+            vp.call(node, "Append", [leaf("z")])
+            flagged = node
+        else:
+            # The wire is defined by the network's first item and referenced by the assignment - the shape every
+            # measured Demux has (census 1.8: definitions top level, references nested).
+            dm = vp.nwl_new(net, "BoxTreeDemux")
+            vp.nwl_set(dm, "VarId", 1)
+            vp.call(dm, "SetInputTree", [0, leaf("x")])
+            vp.call(net, "AppendTree", [dm])
+            node = vp.nwl_new(net, "BoxTreeDemux")
+            vp.nwl_set(node, "VarId", 1)
+            flagged = node
         for b in flags:
-            vp.nwl_set(vp.prop(op, "Flags"), b, True)
+            vp.nwl_set(vp.prop(flagged, "Flags"), b, True)
         asg = vp.nwl_new(net, "BoxTreeAssign")
-        vp.nwl_set(asg, "RValue", vp.nwl_new(net, "BoxTreeOperand", op))
+        vp.nwl_set(asg, "RValue", node)
         vp.call(vp.prop(asg, "Outputs"), "AppendOutputItem", [vp.nwl_new(net, "Operand", out)])
         vp.call(net, "AppendTree", [asg])
+
+
+def held_flags(net, kind):
+    """The flags the IDE kept, read back from where they were set."""
+    ok, tree = vp.call(net, "GetTree", [1 if kind == "wire" else 0])
+    rv = vp.prop(tree, "RValue") if ok and tree is not None else None
+    where = vp.prop(rv, "Operand") if kind == "leaf" and rv is not None else rv
+    fl = vp.prop(where, "Flags") if where is not None else None
+    tn = rv.GetType().Name if rv is not None else "?"
+    if kind == "par":
+        # The probe never sets Mode: what a Parallel built from scratch holds is itself a fact (DIALECT N20).
+        tn += " Mode=%s" % vp.prop(rv, "Mode")
+    return [b for b in ("Negation", "Rtrig", "Ftrig") if fl is not None and vp.prop(fl, b)], tn
 
 
 try:
@@ -133,26 +186,23 @@ try:
             made.remove()
 
     log("")
-    log("=== B: Negation + an edge bit on ONE operand - which order does the vendor evaluate? ===")
+    log("=== B: Negation + an edge bit on ONE node - which order does the vendor evaluate? (leaf, box, Parallel, wire) ===")
     fb = app.create_pou(name="FB_EdgeOrder", type=PouType.FunctionBlock, language=ImplementationLanguages.fbd)
-    fb.textual_declaration.replace("FUNCTION_BLOCK FB_EdgeOrder\nVAR_INPUT\n  x : BOOL;\nEND_VAR\nVAR_OUTPUT\n%s\nEND_VAR\n"
-                                   % "\n".join(["  %s : BOOL;" % o for o, _ in OUTS]))
+    fb.textual_declaration.replace("FUNCTION_BLOCK FB_EdgeOrder\nVAR_INPUT\n  x : BOOL;\n  y : BOOL;\n  z : BOOL;\n"
+                                   "END_VAR\nVAR_OUTPUT\n%s\nEND_VAR\n" % "\n".join(["  %s : BOOL;" % o for o, _, _ in OUTS]))
     vp.nwl_edit(objmgr, fb, order_fb)
     back = vp.nwl_read(objmgr, fb)
     for i in range(len(back)):
-        ok, tree = vp.call(back[i], "GetTree", [0])
-        op = vp.prop(vp.prop(tree, "RValue"), "Operand") if ok and tree is not None else None
-        fl = vp.prop(op, "Flags") if op is not None else None
-        held = [b for b in ("Negation", "Rtrig", "Ftrig") if fl is not None and vp.prop(fl, b)]
-        log("   network %d held: %s := x %s" % (i, OUTS[i][0], "+".join(held) or "(no flags)"))
+        held, tn = held_flags(back[i], OUTS[i][1])
+        log("   network %d held: %s := %s %s" % (i, OUTS[i][0], tn, "+".join(held) or "(no flags)"))
     n = len(XS)
-    arrs = "\n".join(["  r_%s : ARRAY[0..%d] OF BOOL;" % (o, n - 1) for o, _ in OUTS])
+    arrs = "\n".join(["  r_%s : ARRAY[0..%d] OF BOOL;" % (o, n - 1) for o, _, _ in OUTS])
     prg.textual_declaration.replace(PRG_DECL % ("  fb : FB_EdgeOrder;\n  i : INT;\n  oracleDone : BOOL;\n"
                                                 "  xs : ARRAY[0..%d] OF BOOL := [%s];\n%s"
                                                 % (n - 1, ", ".join(["TRUE" if v else "FALSE" for v in XS]), arrs)))
     prg.textual_implementation.replace(
-        "IF NOT oracleDone THEN\n  FOR i := 0 TO %d DO\n    fb(x := xs[i]);\n%s  END_FOR\n  oracleDone := TRUE;\nEND_IF\n"
-        % (n - 1, "".join(["    r_%s[i] := fb.%s;\n" % (o, o) for o, _ in OUTS])))
+        "IF NOT oracleDone THEN\n  FOR i := 0 TO %d DO\n    fb(x := xs[i], y := TRUE, z := FALSE);\n%s  END_FOR\n"
+        "  oracleDone := TRUE;\nEND_IF\n" % (n - 1, "".join(["    r_%s[i] := fb.%s;\n" % (o, o) for o, _, _ in OUTS])))
     msgs = vp.build_messages(app, system, Severity)
     log("   build: %s" % ("CLEAN" if not msgs else " | ".join(msgs)))
     dev = app
@@ -169,10 +219,10 @@ try:
     while time.time() - t0 < 30 and not str(oa.read_value("PLC_PRG.oracleDone")).upper().endswith("TRUE"):
         time.sleep(0.05)
     log("   x sequence                  %s" % bits(XS))
-    for o, flags in OUTS:
+    for o, kind, flags in OUTS:
         got = [str(oa.read_value("PLC_PRG.r_%s[%d]" % (o, k))).upper().endswith("TRUE") for k in range(n)]
         match = [name for name, seq in sorted(ORDERS.items()) if seq == got]
-        log("   %-10s %-16s %s  = %s" % (o, "+".join(flags), bits(got), ", ".join(match) or "NO ORDER MATCHES"))
+        log("   %-15s %-16s %s  = %s" % (o, "+".join(flags), bits(got), ", ".join(match) or "NO ORDER MATCHES"))
     log("   (orders: %s)" % "; ".join(["%s=%s" % (k, bits(v)) for k, v in sorted(ORDERS.items())]))
     oa.stop()
     oa.logout()

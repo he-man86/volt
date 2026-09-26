@@ -523,7 +523,7 @@ public static class NextNetworkTextReader
                 var core = n.Is("R_EDGE") || n.Is("F_EDGE")
                     ? ParseEdge(consumed)
                     : Resolve(ParseCore(consumed, defer: false), consumed);
-                return PVal.Of(Mark(WithFlags(core, f => f with { Negated = true }), t.Offset), t);
+                return PVal.Of(Mark(WithFlags(Held(core, t), f => f with { Negated = true }), t.Offset), t);
             }
 
             if (t.Is("R_EDGE") || t.Is("F_EDGE")) return PVal.Of(ParseEdge(consumed), t);
@@ -555,7 +555,7 @@ public static class NextNetworkTextReader
                 throw Err(kw, ConflictCodes.NetworkUnsupported, "a flag on an empty slot: an unconnected position has no text to modify.");
             var core = Resolve(ParseCore(consumed, defer: false), consumed);
             ExpectSym(")", $"{kw.Text.ToUpperInvariant()}(x)");
-            return Mark(WithFlags(core, f => rising ? f with { Rising = true } : f with { Falling = true }), kw.Offset);
+            return Mark(WithFlags(Held(core, kw), f => rising ? f with { Rising = true } : f with { Falling = true }), kw.Offset);
         }
 
         private PVal ParseCore(bool consumed, bool defer)
@@ -820,7 +820,7 @@ public static class NextNetworkTextReader
         }
 
         /// <summary><c>PARALLEL([MODE := m,] [IN := feed,] b1, b2, …)</c> — the LD <c>BoxTreeParallel</c>, never an
-        /// AND/OR box. <c>IN := ,</c> is a feed wired to nothing; no <c>IN</c> is no feed.</summary>
+        /// AND/OR box. No <c>IN</c> is no feed — the one unfed form (census 1.2); <c>IN := ,</c> is refused.</summary>
         private Parallel ParseParallel()
         {
             var kw = Next();
@@ -856,6 +856,9 @@ public static class NextNetworkTextReader
                     {
                         if (sawIn || branches.Count > 0)
                             throw Err(b, ConflictCodes.NetworkBadExpression, "PARALLEL takes IN := before its branches, once.");
+                        if (IsEmptyHere(Peek()))
+                            throw Err(b, ConflictCodes.NetworkUnsupported,
+                                "a Parallel fed by the empty terminator: census 1.2 found none — an unfed Parallel is PARALLEL(a, b), with no IN.");
                         input = Resolve(ParseValue(consumed: true), consumed: true);
                         sawIn = true;
                     }
@@ -1012,12 +1015,22 @@ public static class NextNetworkTextReader
             }
         }
 
+        /// <summary>DIALECT N20: the IDE holds no flag on a wire reference (<c>BoxTreeDemux</c>) or a Parallel — a bit set
+        /// on either is gone before the commit — so <c>NOT g3</c>, <c>R_EDGE(g3)</c> and <c>NOT PARALLEL(…)</c> state logic
+        /// the push would silently drop. Refused by name; a flag on the wire's producer or a branch is the vendor's.</summary>
+        private Node Held(Node core, Tok modifier) => core switch
+        {
+            Demux => throw Err(modifier, ConflictCodes.NetworkUnsupported,
+                $"{modifier.Text.ToUpperInvariant()} on a wire reference: the IDE holds no flag on a wire; put it on the wire's producer."),
+            Parallel => throw Err(modifier, ConflictCodes.NetworkUnsupported,
+                $"{modifier.Text.ToUpperInvariant()} on PARALLEL(…): the IDE holds no flag on a Parallel."),
+            _ => core,
+        };
+
         private static Node WithFlags(Node n, Func<Flags, Flags> f) => n switch
         {
             Leaf l => l with { Flags = f(l.Flags) },
             Box b => b with { Flags = f(b.Flags) },
-            Demux d => d with { Flags = f(d.Flags) },
-            Parallel p => p with { Flags = f(p.Flags) },
             _ => throw new InvalidOperationException($"a modifier on a {n.GetType().Name}"),
         };
 

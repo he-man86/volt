@@ -93,8 +93,11 @@ public class ModelRoundTripOracleTests
     public void V1_test_texts_tally() =>
         NextModelOracle.AssertTally("v1 test texts",
             V1Texts.Value.Read.Select(kv => NextModelOracle.Check(kv.Key, kv.Value)),
-            bodies: 64, networks: 66, refused: new Dictionary<string, int>
+            bodies: 62, networks: 64, refused: new Dictionary<string, int>
             {
+                // v1 spells a negated wire reference (`NOT g3`, LiteralFanoutBug and a Diagnostics case); the IDE
+                // holds no flag on a BoxTreeDemux (DIALECT N20), so such a model states logic no IDE runs.
+                ["a flag on a wire reference"] = 2,
                 // v1 never read which output slot a consumer is connected to (task 3.10 fills it), so a consumed
                 // call has no ConnectedSlot: the text would read one (slot 0), and null is no default.
                 ["a consumed box with no stored connection slot"] = 3,
@@ -121,8 +124,10 @@ public class ModelRoundTripOracleTests
     public void V1_test_models_tally() =>
         NextModelOracle.AssertTally("v1 test models",
             V1BuiltModels.Select(kv => NextModelOracle.Check(kv.Key, kv.Value)),
-            bodies: 15, networks: 15, refused: new Dictionary<string, int>
+            bodies: 14, networks: 14, refused: new Dictionary<string, int>
             {
+                // ParallelRender.A_negated_parallel: the IDE holds no flag on a BoxTreeParallel (DIALECT N20).
+                ["a flag on a Parallel"] = 1,
                 // The v1 tests bury a defining Demux under a Parallel (UnspellableCoil); the vendor defines a wire
                 // at the top level only (census 1.8).
                 ["a Demux definition below the top level"] = 1,

@@ -62,6 +62,26 @@ public class TcDrawnJumpTests
         Assert.Equal("a terminator with an input", ex.Marker);
     }
 
+    /// <summary>CENSUS 1.2, the Parallel half, the parity twin of CODESYS's reader test: an unfed Parallel is the
+    /// null feed, and a Parallel fed by the empty terminator (0 in five projects) is refused by name. The drawn jump's
+    /// empty terminator becomes the feed of a Parallel built around it.</summary>
+    [Fact]
+    public void A_Parallel_fed_by_the_empty_terminator_is_refused_by_name()
+    {
+        var impl = Impl();
+        var rvalues = impl.Descendants("o").Where(o => (string?)o.Attribute("n") == "RValue").ToList();
+        var terminator = rvalues.First(o => (string?)o.Attribute("t") == "BoxTreeTerminator");
+        var feed = new XElement(terminator);
+        feed.SetAttributeValue("n", "Input");
+        var branch = new XElement(rvalues.First(o => (string?)o.Attribute("t") == "BoxTreeOperand"));
+        branch.Attribute("n")!.Remove();
+        terminator.ReplaceWith(new XElement("o", new XAttribute("n", "RValue"), new XAttribute("t", "BoxTreeParallel"),
+            feed, new XElement("l2", new XAttribute("n", "Trees"), branch)));
+
+        var ex = Assert.Throws<Volt.Engine.Format.Body.UnrepresentableBodyException>(() => TcNetworkReader.Read(impl, BodyLanguage.Ld));
+        Assert.Equal("a Parallel fed by the empty terminator", ex.Marker);
+    }
+
     /// <summary>CENSUS 1.2 AND 1.10: "unconnected" is the empty terminator, never a null value, so an assignment
     /// the archive gives no RValue is refused by name.</summary>
     [Fact]

@@ -145,9 +145,10 @@
   <tr><td class="name">Network (Label, Title, Comment, OutCommented)</td><td><code>NETWORK [LABEL: x] [TITLE: "…"] [DISABLED]</code> to the end of its line, <code>//</code> lines, an optional <code>VAR_TEMP</code> wire block, <code>END_NETWORK</code> (<a href="#comments">comments</a>)</td></tr>
   <tr><td class="name">top-level item with no target</td><td><code>value;</code> — a box, leaf, wire reference or PARALLEL whose output goes nowhere; <code>;</code> alone is the empty item</td></tr>
   <tr><td class="name">BoxTreeOperand</td><td>a bare token (<code>a</code>, <code>s.f</code>, <code>T#1S</code>, <code>???</code>), else <code>`text`</code></td></tr>
-  <tr><td class="name">IFlags on an operand, box, Parallel or wire reference</td><td><code>NOT x</code> · <code>R_EDGE(x)</code> · <code>F_EDGE(x)</code> · <code>R_EDGE(NOT x)</code>; on a box <code>NOT (a AND b)</code>, <code>R_EDGE(f(x))</code>, <code>NOT PARALLEL(…)</code>. Rising and falling together: marker</td></tr>
+  <tr><td class="name">IFlags on an operand or box</td><td><code>NOT x</code> · <code>R_EDGE(x)</code> · <code>F_EDGE(x)</code> · <code>R_EDGE(NOT x)</code>; on a box <code>NOT (a AND b)</code>, <code>R_EDGE(f(x))</code>. Rising and falling together: marker</td></tr>
+  <tr><td class="name">IFlags on a Parallel or wire reference</td><td>none: the IDE holds no flag on a <code>BoxTreeParallel</code> or <code>BoxTreeDemux</code> (DIALECT N20 — a bit set on one is gone before the commit, and ran as the bare value). <code>NOT g3</code>, <code>R_EDGE(g3)</code>, <code>NOT PARALLEL(…)</code> are refused with <code>NETWORK_UNSUPPORTED</code>; the flag goes on the wire's producer or a branch</td></tr>
   <tr><td class="name">flags on an input <i>pin</i> (<code>Input.Flags</code>)</td><td>measured populated and load-bearing on CODESYS (census 1.13: 6 pins carry a Negation there only). No spelling yet (owner decision 2026-09-26): the writer refuses a pin flag by name, so a pulled one goes to the marker, never dropped. A spelling — on the formal, forcing named form, <code>f(NOT IN1 := x)</code>, distinct from <code>f(CLK := R_EDGE(x))</code>, the flag on the value, and one for an operator box's unnamed pin — is its own decision</td></tr>
-  <tr><td class="name">flags on a Demux or Assign <i>item</i></td><td>census 1.1. None → the field is deleted. Some → marker until the census names a position distinct from the value's flags</td></tr>
+  <tr><td class="name">flags on a Demux or Assign <i>item</i></td><td>census 1.1: none (a Demux cannot hold one, DIALECT N20). No field of their own (<code>Node.Flags</code>, where an Assign's Jump/Return live); a Negation or edge there is refused by name, so it reaches the marker</td></tr>
   <tr><td class="name">BoxTreeBox</td><td><code>BoxType(pins)</code> · <code>inst(pins)</code> · <code>??? : Type(pins)</code>; infix <code>(a OP b)</code> for an operator box with no EN, no instance, no output pin and absent-or-default formals (<a href="#group">below</a>)</td></tr>
   <tr><td class="name">input slot / output slot</td><td><code>F := v</code> / <code>F =&gt; v</code> when named; <code>v</code> / <code>=&gt; v</code> when not, by the slot rule in <a href="#eneno">EN, ENO and output slots</a></td></tr>
   <tr><td class="name">EN (input slot 0) / ENO</td><td><code>EN := c</code> (<code>EN := ,</code> shown but unwired) / <code>.ENO</code> where the box is consumed</td></tr>
@@ -157,10 +158,10 @@
   <tr><td class="name">Assign with Jump / Return</td><td><code>JMP l;</code> / <code>RETURN;</code>, or <code>IF c THEN JMP l; END_IF;</code> / <code>IF c THEN RETURN; END_IF;</code></td></tr>
   <tr><td class="name">BoxTreeDemux with Input</td><td><code>g3 := tree;</code> with <code>g3</code> declared in the network's <code>VAR_TEMP</code>, top level only; a nested definition or a reference stored before it: marker (census 1.8)</td></tr>
   <tr><td class="name">BoxTreeDemux without Input</td><td>the bare name <code>g3</code></td></tr>
-  <tr><td class="name">BoxTreeParallel</td><td><code>PARALLEL([IN := feed,] b1, b2, …)</code>; <code>IN := ,</code> is a feed slot wired to nothing, no <code>IN</code> is no feed</td></tr>
+  <tr><td class="name">BoxTreeParallel</td><td><code>PARALLEL([IN := feed,] b1, b2, …)</code>; no <code>IN</code> is no feed — the one unfed form (census 1.2: 5 of 17 hold no feed, none a feed that is the empty terminator, so that shape is the marker and <code>IN := ,</code> is refused)</td></tr>
   <tr><td class="name">Parallel.Mode</td><td><code>MODE := Sequential</code>, first in the list, only off the default <code>BoxShortCircuit</code> (census 1.3: 16 BoxShortCircuit, 1 Sequential). Any other mode is unmeasured: refused with <code>NETWORK_UNSUPPORTED</code> on push and the marker on pull, never written as a number</td></tr>
   <tr><td class="name">BoxTreeTerminator(null)</td><td>an empty position: <code>f(a, )</code>, <code>RESET := ,</code>, <code>coil := ;</code>, <code>;</code>. A lone empty slot is named, <code>MOVE(IN := )</code>; <code>f()</code> is a box with no input slot</td></tr>
-  <tr><td class="name">BoxTreeTerminator(Input)</td><td>census 1.4. 0 occurrences → refused by name, like Mux; &gt;0 → <code>TERMINATOR(x)</code></td></tr>
+  <tr><td class="name">BoxTreeTerminator(Input)</td><td>census 1.4: 0 occurrences, so the model has no field for it (task 1.10); both readers refuse one by name ("a terminator with an input"), like Mux</td></tr>
   <tr><td class="name">BoxTreeMux, split points</td><td>none — 0 occurrences; the body is a marker</td></tr>
 </table>
 
@@ -430,13 +431,15 @@ out := NOT((a AND b));</pre>
 
 <h3 id="edge">Edges</h3>
 <pre>MOVE(EN := R_EDGE(bStart), 1, =&gt; nMode);
-out := F_EDGE(NOT g3);
+out := F_EDGE(NOT x);
 lamp := R_EDGE((a AND b));</pre>
 <p>
-  A rising edge on MOVE's EN (the pro2193 ActuatorFB shape); a falling edge of a negated wire reference; an edge on an
-  AND box's output — the outer pair is <code>R_EDGE</code>'s, the inner the group's. The argument carries no modifier but one <code>NOT</code>, which is the operand's negation: the vendor
-  negates first, so <code>R_EDGE(NOT x)</code> is <code>Negation+Rtrig</code> and <code>NOT R_EDGE(x)</code> is refused
-  (census 1.14), while
+  A rising edge on MOVE's EN (the pro2193 ActuatorFB shape); a falling edge of a negated operand; an edge on an
+  AND box's output — the outer pair is <code>R_EDGE</code>'s, the inner the group's. The argument carries no modifier but one <code>NOT</code>, which is the node's own negation: the vendor
+  negates first, on an operand and on a box alike, so <code>R_EDGE(NOT x)</code> is <code>Negation+Rtrig</code> and
+  <code>NOT R_EDGE(x)</code> is refused (census 1.14, DIALECT N17; measured on CODESYS — TwinCAT's order is not, so
+  its driver sends such a body to the marker). A Parallel or a wire reference holds no flag at all (N20):
+  <code>R_EDGE(g3)</code> is refused, and the edge goes on the wire's producer. And
   <code>R_EDGE(NOT(a))</code> is an edge on the NOT <em>box</em> — its pair holds no operator, so it is NOT's argument
   list, as everywhere; nested edges and rising+falling on one operand are refused by name.
 </p>
@@ -457,10 +460,12 @@ GT(EN := SUB(EN := rung, light, deviation, =&gt; diff).ENO, sensor, diff, =&gt; 
 </p>
 <ul>
   <li>ENO is never an <code>=&gt;</code> slot. It is only ever <code>.ENO</code>.</li>
-  <li>A consumed box connected by its main output (<code>MainOutputIndex</code>) has no suffix; connected by ENO it says
-    <code>.ENO</code>. Census 1.6 (DIALECT N16) found no other: over 1,164 consumed boxes the consumer is always
-    connected to the main output, and that slot IS the ENO output exactly when the box has one. Any other connection
-    slot goes to the marker.</li>
+  <li>A consumed box connected by its ENO output says <code>.ENO</code>, and that wins where ENO is also the main
+    output (every box whose outputs start with ENO), so one model has one text; connected by a main output that is not
+    ENO it has no suffix. Census 1.6 (DIALECT N16) found no other: every export connection that names a slot names
+    <code>MainOutputIndex</code> (338 checked, none disagreeing), and that slot IS the ENO output exactly when the box
+    has one. Any other connection slot goes to the marker. A pushed consumer without a suffix on a box the IDE gives an
+    ENO main output is refused, naming the box — the mirror of <code>.ENO</code> on a box with no ENO.</li>
   <li>The text does not say WHICH slot the main output is, so it reads it by rule: slot 0, and for an AND/OR/XOR/NOT
     box (which the vendor stores no main output index for — census 1.6) no stored slot. The rule is the same for a
     group and a call: <code>(a &gt; b)</code> and <code>GT(a, b)</code> read to one box, connected by slot 0, and the
@@ -517,8 +522,8 @@ END_NETWORK</pre>
 <table>
   <tr><th>shape</th><th>Volt</th></tr>
   <tr><td>a <code>JMP</code> to a label no network of the body carries</td><td>accepted; the LSP gives the build's recorded message (census 1.15)</td></tr>
-  <tr><td>one LABEL on two networks of a body</td><td>census 1.15: IDE cannot hold it → <code>NETWORK_DUPLICATE_NAME</code>; it can → accepted, LSP parity</td></tr>
-  <tr><td>a LABEL on a DISABLED network, jumped to</td><td>census 1.15 (is it still a target?) — accepted either way; the LSP follows the build</td></tr>
+  <tr><td>one LABEL on two networks of a body (same case or not)</td><td>accepted: both IDEs hold it (census 1.15, DIALECT N19); the LSP gives the build's <code>The label 'DONE' is a duplicate</code></td></tr>
+  <tr><td>a LABEL on a DISABLED network, jumped to</td><td>accepted: both IDEs hold it, and it is no jump target — the LSP gives the build's <code>No such label 'DONE' within the scope of the JMP statement</code></td></tr>
   <tr><td>a <code>JMP</code> inside a DISABLED network</td><td>accepted: the network is not compiled, and DISABLED is the vendor's own bit</td></tr>
 </table>
 
@@ -625,10 +630,10 @@ END_NETWORK</pre>
   <tr><td class="name">NETWORK_PARSE</td><td>Structural error; a missing <code>;</code>; a <code>//</code> after a statement; leftover v1 text (<code>LET</code>, <code>NETWORK &lt;n&gt; &lt;LANG&gt;</code>), with a message naming a re-pull.</td></tr>
   <tr><td class="name">NETWORK_NOT_CLOSED</td><td>A <code>NETWORK</code> is missing its <code>END_NETWORK</code>.</td></tr>
   <tr><td class="name">NETWORK_NOT_CANONICAL</td><td>It parses, but writes back as different <i>tokens</i> — e.g. <code>AND(a, b)</code> where infix is canonical, header fields out of order. Layout differences are not reported. The message carries the canonical form.</td></tr>
-  <tr><td class="name">NETWORK_DUPLICATE_NAME</td><td>A wire declared or defined twice; a wire name matching a name in scope, case-insensitively; an instance defined twice; a label on two networks, if census 1.15 shows the IDE cannot hold it.</td></tr>
-  <tr><td class="name">NETWORK_BAD_EXPRESSION</td><td>A malformed group; a parenthesis pair that is no box; a wire undefined, undeclared, defined with <code>S=</code>/<code>R=</code>, chained, referenced before its definition, not named <code>g&lt;digits&gt;</code> or typed unlike its producer; <code>.ENO</code> on a box without EN; a consumed enabled box without <code>.ENO</code>; a modifier inside <code>R_EDGE(…)</code>/<code>F_EDGE(…)</code>.</td></tr>
+  <tr><td class="name">NETWORK_DUPLICATE_NAME</td><td>A wire declared or defined twice; a wire name matching a name in scope, case-insensitively; an instance defined twice. (Not a label on two networks: both IDEs hold that, census 1.15 — the LSP reports the build's message.)</td></tr>
+  <tr><td class="name">NETWORK_BAD_EXPRESSION</td><td>A malformed group; a parenthesis pair that is no box; a wire undefined, undeclared, defined with <code>S=</code>/<code>R=</code>, chained, referenced before its definition, not named <code>g&lt;digits&gt;</code> or typed unlike its producer; <code>NOT R_EDGE(x)</code> (the vendor negates first — the one spelling is <code>R_EDGE(NOT x)</code>); a modifier inside an edge other than that one <code>NOT</code>. Push, not the gate, refuses <code>.ENO</code> on a box the IDE gives no ENO output, and a suffix-less consumer of a box whose main output is ENO.</td></tr>
   <tr><td class="name">NETWORK_UNKNOWN_OPERATOR</td><td>The symbol is not in the operator table.</td></tr>
-  <tr><td class="name">NETWORK_UNSUPPORTED</td><td>Operand or target text containing a backtick; a POU or instance named <code>PARALLEL</code>, <code>R_EDGE</code> or <code>F_EDGE</code>; nested edges or rising+falling on one operand; a flag on an empty slot; an unmeasured <code>Parallel.Mode</code> (neither <code>BoxShortCircuit</code> nor <code>Sequential</code>); an FB instance whose text is an expression (<code>`fbs[1]`(…)</code>) or that no declaration names; on TwinCAT, <code>PARALLEL</code>, a Demux of a leaf or a result pin in a structurally changed network — the message names the network and the reason.</td></tr>
+  <tr><td class="name">NETWORK_UNSUPPORTED</td><td>Operand or target text containing a backtick; a POU or instance named <code>PARALLEL</code>, <code>R_EDGE</code> or <code>F_EDGE</code>; nested edges or rising+falling on one operand; a flag on an empty slot, a wire reference or a <code>PARALLEL</code>; an unmeasured <code>Parallel.Mode</code> (neither <code>BoxShortCircuit</code> nor <code>Sequential</code>); an FB instance whose text is an expression (<code>`fbs[1]`(…)</code>) or that no declaration names; on TwinCAT, <code>PARALLEL</code>, a Demux of a leaf or a result pin in a structurally changed network — the message names the network and the reason.</td></tr>
 </table>
 <p>
   <code>NETWORK_DUPLICATE_NETWORK</code> is gone (no order numbers). The writer-side <code>NETWORK_UNSUPPORTED</code>

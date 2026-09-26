@@ -279,8 +279,6 @@ public static class NetworkTextWriter
             // An enabled box feeding an assignment renders as the IF form, with the sink inside it.
             if (a.Value is Box { Enable: not null } eb) { EnabledAssign(a, eb); return; }
 
-            // `?`, not "": a coil with nothing driving it says so, instead of rendering as `x := ;`. One
-            // spelling for "connected to nothing", everywhere it can occur.
             var value = ApplyMods(Render(a.Value, nested: false), a.Flags);
 
             if (a.Targets.Count == 0) { Flush(); Line(value + ";"); return; }
@@ -429,9 +427,9 @@ public static class NetworkTextWriter
             var action = a.Flags.Jump
                 ? "JMP " + (destination?.Text ?? "")
                 : "RETURN";
-            // UNCONDITIONAL when nothing drives it — a null value, or the unconnected terminator the
-            // reader builds for exactly this (a rung end nothing drives). Rendering the terminator as a
-            // condition instead would emit `IF  THEN RETURN; END_IF`, with an empty condition.
+            // UNCONDITIONAL when nothing drives it — the empty terminator, the model's one spelling of a rung
+            // end nothing drives (census 1.2). Rendering it as a condition instead would emit
+            // `IF  THEN RETURN; END_IF`, with an empty condition.
             if (a.Value is Terminator) { Flush(); Line(action + ";"); return; }
             var cond = ApplyMods(Render(a.Value, nested: false), a.Flags with { Jump = false, Return = false });
             Flush();
@@ -535,10 +533,10 @@ public static class NetworkTextWriter
                                                      p.Branches.Select(x => Render(x, nested: true))) + ")";
                     return ApplyMods(rungText is null ? branches : "(" + rungText + " AND " + branches + ")",
                                      p.Flags);
-                // AN UNCONNECTED PIN HAS A SPELLING. These two arms used to return "" — the same silent
+                // AN UNCONNECTED PIN HAS A SPELLING. The terminator arm used to return "" — the same silent
                 // default that the comment below calls "the single line that turned a missing feature into
-                // invisible data loss", three lines above where it says so. A box input wired to nothing is a
-                // `Terminator` with no input, and rendering it as nothing produced text nobody can read back:
+                // invisible data loss". A box input wired to nothing is the empty `Terminator`, and rendering
+                // it as nothing produced text nobody can read back:
                 // `( * iRPM * 6)`, `RESET := , PV := )`, `MOVE(, iDec)`. Measured on a real customer project
                 // (Lenze_MID-S100): 110 of its 373 networks, every one of them pullable and un-pushable.
                 //

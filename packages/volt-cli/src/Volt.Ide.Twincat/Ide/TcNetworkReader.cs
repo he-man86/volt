@@ -136,10 +136,17 @@ internal static class TcNetworkReader
                     flags);
 
             case "BoxTreeParallel":
-                return new Parallel(
-                    TcArchive.Obj(e, "Input") is { } pi ? ReadNode(pi) : null,
-                    TcArchive.List(e, "Trees").Select(ReadNode).ToList(),
-                    flags);
+            {
+                var feed = TcArchive.Obj(e, "Input") is { } pi ? ReadNode(pi) : null;
+                // Census 1.2, the parity twin of CODESYS's reader: an unfed Parallel is the null feed, and a feed
+                // that is the empty terminator occurs in no measured project — refused by name.
+                if (feed is Terminator)
+                    throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
+                        "a Parallel fed by the empty terminator",
+                        "TwinCAT: a parallel branch's feed is an unconnected terminator, a shape no measured project " +
+                        "holds (an unfed branch has no feed at all). Edit this network in the IDE.");
+                return new Parallel(feed, TcArchive.List(e, "Trees").Select(ReadNode).ToList(), flags);
+            }
 
             // Census 1.4: a terminator with an INPUT occurs in no measured project — refused by name (task 1.10),
             // the parity twin of CODESYS's reader.

@@ -151,6 +151,15 @@ internal static class Nwl
         public object? Flags { get; set; } = new Flags();
     }
 
+    /// <summary>An LD parallel branch. <see cref="Input"/> is the feed (null: no feed — the shape census 1.2 found on
+    /// every unfed Parallel), <see cref="Trees"/> the branches, read by enumerating the collection itself.</summary>
+    internal sealed class BoxTreeParallel
+    {
+        public object? Input { get; set; }
+        public List<object> Trees { get; } = new List<object>();
+        public object? Flags { get; set; } = new Flags();
+    }
+
     /// <summary>A call or operator.
     /// <para><see cref="En"/> is <c>object?</c> ON PURPOSE — see the class summary. The vendor puts a BOOLEAN
     /// there when nothing is wired to the EN pin.</para></summary>
