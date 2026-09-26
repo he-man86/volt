@@ -53,6 +53,20 @@ public class NextNetworkTextGateTests
     public void A_statement_without_its_semicolon() =>
         Refused("NETWORK_PARSE", 4, Src("out := a"));
 
+    /// <summary>Task 2.8 / review 7.14: EXECUTE is a statement like IF, and its <c>;</c> is its own — without it the
+    /// body is refused, whether the box stands alone or feeds a consumer, and never read as an empty item either
+    /// way. With it, the <c>;</c> closes the box and creates no item.</summary>
+    [Fact]
+    public void END_EXECUTE_without_its_semicolon()
+    {
+        // Reported where the `;` is missing - at the token found instead, as for `END_IF` above.
+        Refused("NETWORK_PARSE", 6, Fbd + "NETWORK\n  EXECUTE\nx := 1;\n  END_EXECUTE\nEND_NETWORK\n");
+        Refused("NETWORK_PARSE", 6, Fbd + "NETWORK\n  out := EXECUTE\nx := 1;\n  END_EXECUTE.ENO\nEND_NETWORK\n");
+        var ok = Gate(Fbd + "NETWORK\n  EXECUTE\nx := 1;\n  END_EXECUTE;\nEND_NETWORK\n");
+        Assert.True(ok.Ok);
+        Assert.IsType<Box>(Assert.Single(ok.Body!.Networks[0].Trees));
+    }
+
     /// <summary>Spec, "a comment below a statement".</summary>
     [Fact]
     public void A_comment_after_a_statement_is_refused_never_moved()
@@ -151,6 +165,34 @@ public class NextNetworkTextGateTests
     [Fact]
     public void A_wire_named_like_a_variable_in_scope() =>
         Refused("NETWORK_DUPLICATE_NAME", 3, Src("VAR_TEMP g3 : BOOL; END_VAR", "g3 := TRUE;", "out := g3;"), Names("G3"));
+
+    /// <summary>Task 2.6 / review 7.2: the reserved set is EVERY name the body can see, not only the POU's own
+    /// variables — a global (a GVL's <c>G1</c>, visible unqualified) and, in a method or action, the owning FB's
+    /// member (<c>G2</c>). Each is refused by name on read, case-insensitively; the writer renames around each, and
+    /// the reader accepts the renamed wire against the SAME scope. (Collecting the globals and the owning FB's members
+    /// into that scope from the declarations is task 3.9's; here the scope states them.)</summary>
+    [Theory]
+    [InlineData("G1", "a global")]
+    [InlineData("G2", "the owning FB's member seen from a method")]
+    public void A_wire_named_like_a_global_or_an_FB_member_seen_from_a_method(string name, string what)
+    {
+        var scope = Names(name);
+        var wire = name.ToLowerInvariant();
+        var d = Refused("NETWORK_DUPLICATE_NAME", 3, Src($"VAR_TEMP {wire} : BOOL; END_VAR", $"{wire} := TRUE;", $"out := {wire};"), scope);
+        Assert.True(d.Message.Contains(wire), what + ": " + d.Message);
+
+        var id = int.Parse(name.Substring(1));
+        var written = NextNetworkTextWriter.Write(new NetworkBody(BodyLanguage.Fbd, new[]
+        {
+            new Network(0, null, null, null, false, new Node[]
+            {
+                new Demux(id, new Leaf(new Operand("TRUE"), Flags.None)),
+                new Assign(new Demux(id, null), new[] { new Operand("out", IsLValue: true) }, Flags.None),
+            }),
+        }), scope);
+        Assert.Equal(Src("VAR_TEMP g0 : BOOL; END_VAR", "g0 := TRUE;", "out := g0;"), written);
+        Accepted(written, scope);
+    }
 
     [Fact]
     public void A_wire_name_also_used_as_a_name_in_the_network() =>
