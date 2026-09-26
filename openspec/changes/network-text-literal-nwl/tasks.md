@@ -97,11 +97,13 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
 
 ## 2. Oracle red first (tests-are-the-oracle)
 
-- [ ] 2.1 A structural `NetworkModel` comparer (the model deliberately has none today). Its one equivalence: absent
+- [x] 2.1 A structural `NetworkModel` comparer (the model deliberately has none today). Its one equivalence: absent
       and default `InputParams` names (1.5, review 7.9).
+      *Done (phase 1):* `test/shared/NetworkModelEquality.cs` + `NetworkModelEqualityTests`; the default-formals equivalence is deliberately not built — census 1.5 found no default formals to reconcile.
 - [ ] 2.2 Property test `Read(Write(m)) ≅ m` over every vendor-read fixture (Codesys reader doubles, `tc-pou/*.TcPOU`)
       and the Lenze-shape InlineData. **Must be red today** on: a `BoxTreeParallel` (reads back as AND/OR), a top-level
       box with a result pin (reads back as `Assign(Box)`).
+      *Progress (phase 1):* the v2 oracle `Read(Write(m)) ≅ m` runs over every v1 test text and model, the LSP corpus (per body and per network) and the TwinCAT `tc-pou` archives (`ModelRoundTripOracleTests`, `TcModelRoundTripOracleTests`), green or refused by name. Open: the CODESYS reader doubles are not fed to it yet; the "red on v1" half belongs to the swap (3.7).
 - [ ] 2.3 v2 goldens for the SAME NWL shapes the split-only tests pin, red until the swap:
       `A_modifier_on_an_operand_does_not_force_a_hoisted_LET`, `An_operand_whose_own_text_is_unsafe_is_still_hoisted`,
       the en-chain InlineData (RoundTrip L56-67), `LET g28` single-consumer Demux (L139), the `i1 := DINT_TO_REAL`
@@ -113,11 +115,13 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
 - [ ] 2.4 Ladder oracle goldens from lenze-mid: Mach1_MIDS N0, N10, N13, N82; TrayFiller N1, N6, N8 — each pinned as
       v2 text AND as a model, red until the swap. Positions with the `X AND (a OR b)` shape are pinned only after 1.3.
       (The design page shows N82 and N8 only.)
-- [ ] 2.5 The slot rule (review 7.3), one test each, on the stored connection slot: a top-level box's positional `=>`
+      *Progress (phase 1):* Mach1_MIDS N0 and TrayFiller N8 pinned as v2 text + model (`NextNetworkTextWriterTests`); N10, N13, N82, TrayFiller N1, N6 open.
+- [x] 2.5 The slot rule (review 7.3), one test each, on the stored connection slot: a top-level box's positional `=>`
       fills slot 0; a consumed box connected by its main output has no suffix and its `=>` pins skip that slot; a
       consumed box connected by ENO says `.ENO` and its `=>` pins start at slot 0; ENO is never an `=>` slot; a
       connection by any other slot → marker; `.ENO` on a non-Execute box without EN and a consumed enabled box
       without it (`GT(ADD(EN := x, a, b), c)`) are refused; a consumed Execute box without EN writes `.ENO`.
+      *Done (phase 1), on v2:* `NextNetworkTextWriterTests` / `NextNetworkTextReaderTests` / `NextNetworkTextGateTests` slot-rule tests. 1.6 (live semantics) is still open and may change the "consumed enabled box needs `.ENO`" refusal.
 - [ ] 2.6 Wire misuse, one test each: undefined, defined with `S=`/`R=`, chained, referenced before definition, not
       `g<digits>`, a second `VAR_TEMP` block, an undeclared `g<digits>` in no scope, a declared type unlike the
       producer's (`NETWORK_BAD_EXPRESSION`); declared or defined twice, a name equal to a declared variable differing
@@ -125,9 +129,11 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       block across lines accepted; the writer's collision rename to the lowest free `g<n>` read back by the reader
       with the same reserved set; the writer never reorders, and a vendor reference stored before its definition
       goes to the marker (review 7.7); a data-valued producer goes to the marker (1.17).
+      *Progress (phase 1):* every misuse has a v2 gate/reader test except a wire named like a global and like an FB member seen from a method — those need the one reserved-name set (3.9).
 - [ ] 2.7 `NetworkKeywordBoundaryTests`: a statement on the line after `NETWORK` that starts `DISABLED :=`,
       `TITLE :=` or `LABEL :=` is a statement, not a header field (the header ends at its newline); a `//` comment
       ends at its newline; header fields out of order are `NETWORK_NOT_CANONICAL`.
+      *Progress (phase 1):* v2 tests cover a `DISABLED :=` statement after the header, header fields out of order and the `//` newline end; `TITLE :=` / `LABEL :=` statements and the v1 `NetworkKeywordBoundaryTests` rewrite remain (3.7).
 - [ ] 2.8 Terminators and grammar holes (reviews 7.5, 7.10, 7.13, 7.14): `IF a THEN JMP Done; END_IF;` is one item
       with no empty item after it, and without the `;` is `NETWORK_PARSE`; `EXECUTE … END_EXECUTE;` likewise; the empty
       statement `;` on its own line is the empty item; `value;` for a top-level leaf, a wire reference,
@@ -136,26 +142,33 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       an operator box in call form (`AND(EN := go, a, b, => out);`) parses with its BoxType as head; a backticked
       lvalue and a backticked call head round-trip; `MOVE()` (no input slot) vs `MOVE(IN := )` (one unwired);
       `PARALLEL(IN := , a, b)` vs `PARALLEL(a, b)`.
-- [ ] 2.9 EXECUTE: the empty body is exactly one empty line between `EXECUTE` and `END_EXECUTE`; the value form
+      *Progress (phase 1):* covered on v2 (`END_IF;`, the empty item, `value;` forms, the NOT/parentheses table, `((a AND b))`, operator call form, backticks, `MOVE()` vs `MOVE(IN := )`, `PARALLEL(IN := , …)` vs `PARALLEL(…)`) except an explicit `END_EXECUTE` without its `;` → `NETWORK_PARSE` test.
+- [x] 2.9 EXECUTE: the empty body is exactly one empty line between `EXECUTE` and `END_EXECUTE`; the value form
       `… END_EXECUTE.ENO` round-trips.
-- [ ] 2.10 Pull never throws (review 7.4), each a model fed to the writer: operand text with a backtick, a TITLE with a
+      *Done (phase 1), on v2:* `Execute_boxes_statement_empty_and_value_forms`, `EXECUTE_bodies_are_verbatim_lines`, and the writer-golden read-back.
+- [x] 2.10 Pull never throws (review 7.4), each a model fed to the writer: operand text with a backtick, a TITLE with a
       newline, a snippet holding a line whose first word is `END_EXECUTE` → marker, no exception; a snippet holding
       `NetworkState := 1;` round-trips and pushes.
-- [ ] 2.11 Edges (reviews 7.8, 7.12): `R_EDGE(x)`/`F_EDGE(x)` read back as a flag on the operand, never a box;
+      *Done (phase 1), on v2:* backtick in operand text and `END_EXECUTE` snippet line → marker; `NetworkState := 1;` round-trips and passes the gate. Owner decision: a TITLE newline is now spelled with `$N` escapes (round-trips), not the marker.
+- [x] 2.11 Edges (reviews 7.8, 7.12): `R_EDGE(x)`/`F_EDGE(x)` read back as a flag on the operand, never a box;
       `NOT R_EDGE(x)` is Negation+Rtrig; `R_EDGE(NOT x)` → `NETWORK_BAD_EXPRESSION`; `R_EDGE(F_EDGE(x))` and a POU
       named `R_EDGE` → `NETWORK_UNSUPPORTED`; Rtrig+Ftrig on one pulled operand → marker; a flag on an empty slot →
       marker on pull, `NETWORK_UNSUPPORTED` on push.
-- [ ] 2.12 Marker routing for unmeasured facts (reviews 7.1, 7.6): a CODESYS pin flag in `InputFlags`, a flag on a
+      *Done (phase 1), on v2:* `Edges_are_flags_on_their_operand_never_a_box`, `Negation_with_an_edge_is_NOT_outside`, `A_modifier_inside_an_edge`, `Nested_edges`, `A_POU_or_instance_named_like_a_construct`, `Rising_and_falling_on_one_operand_goes_to_the_marker`, `A_flag_on_an_empty_slot(_goes_to_the_marker)`.
+- [x] 2.12 Marker routing for unmeasured facts (reviews 7.1, 7.6): a CODESYS pin flag in `InputFlags`, a flag on a
       Demux item, a flag on an Assign item → marker on pull, the flag never dropped.
+      *Done (phase 1), on the v2 writer:* pin flag, Demux-item and Assign-item flags → marker by name. The CODESYS driver reading `InputFlags` into the model is 4.1.
 - [ ] 2.13 Untested shapes (review 7.17), each a golden text + model: a DISABLED header with and without LABEL, with
       and without a wire block (262 in lenze); an edge on EN (the pro2193 ActuatorFB shape); an LD rising contact;
       `R_EDGE((a AND b))`; an edge on a wire reference; an edge on a `.ENO`; NOT with an edge; edges in PARALLEL
       branches; ENO into a data pin (Lenze `fc_CamC_CP_UDT`); a negated-only coil → marker.
+      *Progress (phase 1):* DISABLED/LABEL headers, an edge on EN, `R_EDGE((a AND b))`, an edge on `.ENO`, NOT with an edge and the negated-only coil are pinned on v2; an LD rising contact, an edge on a wire reference, edges in PARALLEL branches and ENO into a data pin still need their golden.
 - [ ] 2.14 Comments and labels: a multi-line comment with an empty line (`//`), an indented line and a line starting
       `//` round-trips byte-identically; a blank line between `//` lines is layout; a `//` after a statement →
       `NETWORK_PARSE`; a comment on a network with LABEL, TITLE, DISABLED and a wire block writes header, comment,
       block, statements; a DISABLED network with a LABEL that is a jump target round-trips; a `JMP` to a missing
       label passes the gate; a duplicate label (case-differing) follows 1.15.
+      *Progress (phase 1):* comment shape, `//` after a statement, header/comment/block/statement order, a DISABLED labelled jump target and a jump to a missing label are pinned on v2; the duplicate-label case waits on 1.15.
 
 ## 3. The swap (one change, no dual reader)
 
