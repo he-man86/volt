@@ -101,6 +101,13 @@ export interface LanguageTest {
    * The replays compare every other path, and hold these only to having been produced.
    */
   wallClock?: readonly string[]
+  /**
+   * THE CLOCK A TIMER FIXTURE RAN ON — the path of an `ARRAY[1..cycles] OF TIME` the fixture fills with `TIME()` on
+   * every scan (`now[n] := TIME();`). The simulator's clock is real time, so a timer's outputs differ from recording
+   * to recording; recorded beside them, the instants make the run exact: the replay sets the transpiler's `CLOCK` to
+   * scan `i`'s recorded instant before scan `i`, and the timer code runs on exactly what CODESYS saw.
+   */
+  clock?: string
   /** Optional human note explaining why we expect what we expect. */
   note?: string
   /** Scan cycles a run records after (`recordings/codesys.run.json`). Default 1. */

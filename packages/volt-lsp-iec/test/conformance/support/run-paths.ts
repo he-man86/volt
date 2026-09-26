@@ -7,9 +7,11 @@
  * most `MAX_ELEMENTS`), so every path names one elementary value — a composite cannot be read online ("Invalid pointer
  * size.", measured). Left out, each for a reason:
  *   - VAR_TEMP (gone after the call), VAR_IN_OUT and VAR_EXTERNAL (aliases of storage recorded elsewhere);
- *   - a type neither a fixture nor the referenced Standard library declares: its members are nowhere to read, and a guess
- *     would record the wrong list. A Standard FB (TON, CTU, R_TRIG) IS declared — by its materialization, the same
- *     declaration CODESYS compiled — so an instance of one expands like any FB;
+ *   - a type neither a fixture nor a referenced library declares: its members are nowhere to read, and a guess
+ *     would record the wrong list. A library FB (TON, CTU, BLINK) IS declared — by its materialization, the same
+ *     declaration CODESYS compiled — and an instance of one expands to its INTERFACE: inputs and outputs. Its private
+ *     variables are the implementation's, which the library repo writes its own way (and CODESYS may not even keep:
+ *     RTC's `CURTIME` reads back "Set breakpoint in order to watch this variable");
  *   - a SUBRANGE value (`INT(0..100)`, or a DUT that is one): the online read refuses it, "Type 'Subrange' is not a
  *     literal type." (measured 2026-09-14, `type_dut_subrange`, `subrange_init_in_range`).
  */
@@ -19,10 +21,12 @@ import { constEval, elementaryType } from "../../../src/types/index.js"
 import type { LanguageTest } from "../types.js"
 import { withDependencies } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
-import { STANDARD_LIBRARY } from "./standard-library.js"
+import { PROJECT_LIBRARY } from "./project-libraries.js"
 
-/** The Standard library's declarations, parsed once — what a Standard FB instance expands from. */
-const STANDARD_UNITS = STANDARD_LIBRARY.flatMap((f) => parseSource(f.source).units)
+/** Every referenced library's declarations — what an instance of a library FB (TON, BLINK) expands from. */
+const LIBRARY_UNITS = PROJECT_LIBRARY.flatMap((f) => f.parseResult!.units)
+const LIBRARY_UNIT_SET: ReadonlySet<object> = new Set(LIBRARY_UNITS)
+const INTERFACE: ReadonlySet<VarSectionKind> = new Set(["VAR_INPUT", "VAR_OUTPUT"])
 
 const READABLE: ReadonlySet<VarSectionKind> = new Set(["VAR", "VAR_INPUT", "VAR_OUTPUT", "VAR_STAT", "VAR_INST"])
 const MAX_ELEMENTS = 16
@@ -34,7 +38,7 @@ export function runPaths(t: LanguageTest, all: readonly LanguageTest[]): string[
   const plc = parseSource(plcPrgSource(t))
   const project = buildSymbolTable([...parsedFixtures, { uri: "plc_prg", parseResult: plc, source: plcPrgSource(t) }])
   const declared = new Map<string, TopLevel>()
-  for (const u of STANDARD_UNITS) if ("name" in u && u.name !== undefined) declared.set(u.name.text.toUpperCase(), u)
+  for (const u of LIBRARY_UNITS) if ("name" in u && u.name !== undefined) declared.set(u.name.text.toUpperCase(), u)
   // a fixture's own declaration wins over a library's of the same name, as the project's does in CODESYS
   for (const p of parsedFixtures)
     for (const u of p.parseResult.units)
@@ -46,9 +50,9 @@ export function runPaths(t: LanguageTest, all: readonly LanguageTest[]): string[
   expandSections(program.varSections, "", 0)
   return out
 
-  function expandSections(sections: readonly VarSection[], prefix: string, depth: number): void {
+  function expandSections(sections: readonly VarSection[], prefix: string, depth: number, only: ReadonlySet<VarSectionKind> = READABLE): void {
     for (const section of sections) {
-      if (!READABLE.has(section.sectionKind)) continue
+      if (!only.has(section.sectionKind)) continue
       for (const decl of section.decls) for (const name of decl.names) expand(decl.type, `${prefix}${name.text}`, depth)
     }
   }
@@ -56,7 +60,7 @@ export function runPaths(t: LanguageTest, all: readonly LanguageTest[]): string[
   function expandFb(unit: Extract<TopLevel, { kind: "function_block" }>, prefix: string, depth: number): void {
     const base = unit.extends === undefined ? undefined : declared.get(unit.extends.text.toUpperCase())
     if (base?.kind === "function_block" && depth <= MAX_DEPTH) expandFb(base, prefix, depth + 1)
-    expandSections(unit.varSections, prefix, depth + 1)
+    expandSections(unit.varSections, prefix, depth + 1, LIBRARY_UNIT_SET.has(unit) ? INTERFACE : READABLE)
   }
 
   function expand(type: TypeExpr, path: string, depth: number): void {

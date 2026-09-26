@@ -41,7 +41,7 @@ if (!name) {
 	process.exit(1)
 }
 
-const VOLT = join(import.meta.dir, "..", "..", "volt-cli", "src", "Volt.Cli", "bin", "Release", "net8.0", "volt.exe")
+const VOLT = join(import.meta.dir, "..", "..", "volt-cli", "src", "Volt.Cli", "bin", "Release", "net10.0", "volt.exe")
 const corpus = join(import.meta.dir, "..", "test-corpus", name)
 
 // A temp dir OUTSIDE the repo (a `volt init` here would nest a .git inside the monorepo).

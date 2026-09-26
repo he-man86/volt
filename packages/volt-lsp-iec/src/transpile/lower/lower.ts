@@ -36,7 +36,7 @@ import {
   type TopLevel,
   unitAttributes,
 } from "../../syntax/index.js"
-import { buildSymbolTable, lookup, lookupMember, parseLibraryManifest, type LibraryManifest, type Scope, scopeForUnit, type Symbol, isLibrarySymbol } from "../../symbols/index.js"
+import { bindFile, buildSymbolTable, linkExtends, lookup, lookupMember, parseLibraryManifest, unbindFile, type LibraryManifest, type Scope, scopeForUnit, type Symbol, isLibrarySymbol } from "../../symbols/index.js"
 import { convert, stored, valueAs } from "./convert.js"
 import { foldConstant } from "./constants.js"
 import { lowerPlace } from "./places.js"
@@ -661,9 +661,39 @@ export interface ParsedFile {
   parseResult: ReturnType<typeof parseSource>
 }
 
+/**
+ * A PROJECT'S LIBRARIES, BOUND ONCE — for a sweep that lowers many programs against the same references.
+ *
+ * The conformance replay lowers some 2600 programs against the fixture project's 31 libraries (857 files), and bound
+ * them from scratch for every one: 13 ms a program, several times per program across the gates, which is what pushed a
+ * gate past its hang guard. The libraries do not change between programs, so they are bound here once, and
+ * `lowerSource` binds a program's own files ON TOP of them and takes them off again — the same shape the LSP replay
+ * already uses for the fixtures' declarations.
+ *
+ * Exactly the table `prepareProject` would build from all the files together, with one difference: a program unit
+ * named like a library's NAMESPACE no longer hides that namespace, since the namespaces are bound before it.
+ */
+export interface LibraryBase {
+  readonly prepared: LoweringProject
+  readonly manifests: readonly LibraryManifest[]
+}
+
+/** Bind a project's library files — declarations, bodies and `.library` manifests — once. */
+export function libraryBase(libraries: readonly LibraryFile[]): LibraryBase {
+  const manifests = libraries.flatMap((l) => parseLibraryManifest(l.uri, l.source) ?? [])
+  const files = libraries
+    .filter((l) => !l.uri.toLowerCase().endsWith(".library"))
+    .map((l) => ({ uri: l.uri, parseResult: l.parseResult ?? parseSource(l.source), source: l.source }))
+  const unparsed = files.find((f) => f.parseResult.errors.length > 0)
+  if (unparsed !== undefined) throw new Error(`${unparsed.uri} did not parse: ${unparsed.parseResult.errors[0]!.message}`)
+  return { prepared: prepareProject(files, manifests), manifests }
+}
+
 /** Parse, bind and lower one source string, against the files a project would hand in beside it. The test/CLI path.
- *  `uri` places the source in a project tree — where an `instance-path` takes its device and application from. */
-export function lowerSource(source: string, name?: string, libraries: readonly LibraryFile[] = [], uri = "transpile://source"): LoweredPou {
+ *  `uri` places the source in a project tree — where an `instance-path` takes its device and application from.
+ *  `base`, when given, holds the project's libraries already bound (`libraryBase`); `libraries` is then only the
+ *  program's other files — its GVLs and sibling POUs. */
+export function lowerSource(source: string, name?: string, libraries: readonly LibraryFile[] = [], uri = "transpile://source", base?: LibraryBase): LoweredPou {
   const parseResult = parseSource(source)
   if (parseResult.errors.length > 0) {
     const first = parseResult.errors[0]!
@@ -682,7 +712,28 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
     const first = unparsed.parseResult.errors[0]!
     return { diagnostics: [lowerDiagnostic("parse", `${unparsed.uri} did not parse: ${first.message}`, first.span)] }
   }
-  const prepared = prepareProject([{ uri, parseResult, source }, ...parsed], manifests)
+  const own = [{ uri, parseResult, source }, ...parsed]
+  if (base === undefined) return lowerPrepared(parseResult, name, prepareProject(own, manifests))
+  // the program's files bound on the base for this lowering only — and taken off again whatever happens, so the next
+  // program starts from the libraries alone
+  const project = base.prepared.project
+  for (const f of own) bindFile(project, f)
+  linkExtends(project, base.manifests)
+  try {
+    const libraryUnits = own.filter((f) => isLibrarySymbol(f)).flatMap((f) => f.parseResult.units)
+    return lowerPrepared(parseResult, name, {
+      project,
+      attributes: new Map([...base.prepared.attributes, ...own.flatMap(attributesOf)]),
+      libraryUnits: libraryUnits.length === 0 ? base.prepared.libraryUnits : new Set([...base.prepared.libraryUnits, ...libraryUnits]),
+    })
+  } finally {
+    for (const f of own) unbindFile(project, f.uri)
+    linkExtends(project, base.manifests)
+  }
+}
+
+/** Find the program to lower in `parseResult` and lower it against a bound project. */
+function lowerPrepared(parseResult: ReturnType<typeof parseSource>, name: string | undefined, prepared: LoweringProject): LoweredPou {
   const runnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "function_block" }> =>
     u.kind === "program" || u.kind === "function_block"
   const unit = parseResult.units

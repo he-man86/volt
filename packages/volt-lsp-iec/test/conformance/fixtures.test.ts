@@ -42,13 +42,13 @@ import { CODESYS_ONLY_KEYWORDS, CODESYS_ONLY_LITERAL_PREFIXES, decodeStringLiter
 import { bindFile, buildSymbolTable, linkExtends, unbindFile, type Scope } from "../../src/symbols/index.js"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig, type Vendor } from "../../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../../src/network/index.js"
-import { emitRust, isBit, lowerSource, run, rustAccess, type IrValue, type LoweredPou } from "../../src/transpile/index.js"
+import { CLOCK, emitRust, isBit, lowerSource, run, rustAccess, type IrValue, type LoweredPou } from "../../src/transpile/index.js"
 import { lowerCodeKind } from "../../src/transpile/ir/codes.js"
 import { CODESYS_TRIAGE, KNOWN_DIVERGENCES, TWINCAT_TRIAGE } from "./support/divergences.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 import { assembleFixture, withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
-import { STANDARD_LIBRARY, STANDARD_LOWERING, STANDARD_MANIFESTS } from "./support/standard-library.js"
+import { PROJECT_LIBRARY, PROJECT_BASE, PROJECT_MANIFESTS } from "./support/project-libraries.js"
 import { CLIPPY, RUSTC as rustc, skipLintCheck, skipRustSuite } from "./support/rustc.js"
 import {
   buildArgv,
@@ -102,7 +102,7 @@ function lowering(c: LanguageTest): LoweredPou {
     // A GVL is an object of its own, named by its pouName — `GVL_Name.var` reaches it only under that name, which a
     // file gives it. Folded into the one source, every list was named `source`, and no qualified access could resolve.
     const { source, gvls } = assembleFixture(c, ALL_TESTS)
-    lowered = lowerSource(source, "PLC_PRG", [...STANDARD_LOWERING, ...gvls])
+    lowered = lowerSource(source, "PLC_PRG", gvls, undefined, PROJECT_BASE)
     loweredCache.set(c.name, lowered)
   }
   return lowered
@@ -246,13 +246,26 @@ function asDisplayed(raw: string, value: IrValue): IrValue {
 const reproducible = (c: LanguageTest, rec: RunRecorded): [string, string][] =>
   Object.entries(rec.values!).filter(([path]) => !(c.wallClock ?? []).includes(path))
 
+/** The instant scan `i` (from 1) of a CLOCKED fixture saw, in the nanoseconds `CLOCK` counts — or undefined for an
+ *  unclocked one (`LanguageTest.clock`). A clocked fixture whose recording lacks one is a harness fault, thrown. */
+function clockAt(c: LanguageTest, rec: RunRecorded, i: number): bigint | undefined {
+  if (c.clock === undefined) return undefined
+  const raw = rec.values?.[`${c.clock}[${i}]`]
+  if (raw === undefined) throw new Error(`${c.name}: no recorded ${c.clock}[${i}] to run scan ${i} on`)
+  return (ideValue(raw) as bigint) * 1_000_000n // a TIME counts milliseconds
+}
+
 /** The recorded values as the IR holds them, and the interpreter's answers reduced to the same display. */
 function compareInterp(c: LanguageTest, rec: RunRecorded): void {
   const lowered = lowering(c)
   if (lowered.pou === undefined)
     throw new Error(`cannot lower: ${lowered.diagnostics[0]?.message} [${lowered.diagnostics[0]?.code}]`)
   const pou = run(lowered.pou)
-  for (let i = 0; i < (c.cycles ?? 1); i++) pou.scan()
+  for (let i = 1; i <= (c.cycles ?? 1); i++) {
+    const now = clockAt(c, rec, i)
+    if (now !== undefined) pou.set(CLOCK, now)
+    pou.scan()
+  }
   const want = Object.fromEntries(reproducible(c, rec).map(([k, v]) => [k, ideValue(v, enumsOf(c))]))
   const got = Object.fromEntries(Object.keys(want).map((k) => [k, asDisplayed(rec.values![k]!, pou.get(k) as IrValue)]))
   expect(got).toEqual(want)
@@ -400,7 +413,13 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
       const args = [...(emitted.usesGlobals ? ["&mut g"] : []), ...(emitted.usesPrograms ? ["&mut prg"] : [])].join(", ")
       // a POU with an init step (a `call_after_global_init_slot` method) runs it once, before the first scan
       const init = pou.init === undefined ? [] : [`    p.init(${args});`]
-      const scan = [...setup, ...init, `    for _ in 0..${c.cycles ?? 1} { p.scan(${args}); }`].join("\n")
+      // a CLOCKED fixture scans on the instants the recording saw: `CLOCK` assigned before each scan
+      const clock = c.clock === undefined ? undefined : rustAccess(pou, CLOCK).expr
+      const scans =
+        clock === undefined
+          ? [`    for _ in 0..${c.cycles ?? 1} { p.scan(${args}); }`]
+          : Array.from({ length: c.cycles ?? 1 }, (_, i) => `    g.${clock} = ${clockAt(c, RUNS[c.name]!, i + 1)!}; p.scan(${args});`)
+      const scan = [...setup, ...init, ...scans].join("\n")
       const main = `fn main() {\n    let mut p = ${pou.name}::new();\n${scan}\n${prints.join("\n")}\n}\n`
       const file = join(dir, `${c.name}.rs`)
       const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
@@ -1261,7 +1280,7 @@ const PLC_PRGS = ALL_TESTS.map((t) => {
  * Measured 2026-09-21 — agreement 2479 -> 2496 and the false-positive list unchanged at three. A specific
  * divergence, when one is found, is a reason to materialize Tc2_Standard separately, not to go back to none.</p>
  */
-const standardLibrary = (vendor: Vendor) => STANDARD_LIBRARY.map((l) => ({ ...l, parseResult: parseSource(l.source, vendor) }))
+const standardLibrary = (vendor: Vendor) => PROJECT_LIBRARY.map((l) => ({ ...l, parseResult: parseSource(l.source, vendor) }))
 
 /**
  * THE SAME SOURCE, LEXED AS THE OTHER VENDOR — for the handful of fixtures where that can differ at all.
@@ -1306,7 +1325,7 @@ const SHARED = new Map<Vendor, Scope>()
 function sharedProject(vendor: Vendor): Scope {
   let project = SHARED.get(vendor)
   if (project === undefined) {
-    project = buildSymbolTable([...CROSS_DECLS, ...standardLibrary(vendor)], STANDARD_MANIFESTS, vendor)
+    project = buildSymbolTable([...CROSS_DECLS, ...standardLibrary(vendor)], PROJECT_MANIFESTS, vendor)
     SHARED.set(vendor, project)
   }
   return project
@@ -1337,7 +1356,9 @@ function runLsp(testIdx: number, vendor: Vendor): string[] {
   unbindFile(project, own.uri)
   bindFile(project, { uri: own.uri, parseResult: own.parseResult, source: own.source })
   if (plc) bindFile(project, { uri: plc.uri, parseResult: plc.parseResult, source: plc.source })
-  linkExtends(project)
+  // with the MANIFESTS: re-linking without them cleared the library-visibility table the first build published, so
+  // every fixture after the first resolved an ambiguous library name as if no library could see another
+  linkExtends(project, PROJECT_MANIFESTS)
   pending = { project, idx: testIdx, plcUri: plc?.uri }
 
   const config = resolveConfig({ vendor })

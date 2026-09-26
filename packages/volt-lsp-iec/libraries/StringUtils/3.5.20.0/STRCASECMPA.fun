@@ -6,12 +6,17 @@ END_VAR
 VAR
 	i : DINT;
 END_VAR
-(* ignoring case (ASCII), the difference of the first bytes that differ — negative when PBYTE1 orders first, 0 when equal *)
+(* ignoring case (ASCII), how the first bytes that differ order: -1 when PBYTE1's is lower, 1 when higher, 0 when the
+   strings are equal — the sign only (recorded: lib_stu_compare) *)
 IF PBYTE1 = 0 OR PBYTE2 = 0 THEN
 	RETURN;
 END_IF
 WHILE PBYTE1[i] <> 0 AND_THEN CHARTOUPPER(PBYTE1[i]) = CHARTOUPPER(PBYTE2[i]) DO
 	i := i + 1;
 END_WHILE
-STRCASECMPA := BYTE_TO_INT(CHARTOUPPER(PBYTE1[i])) - BYTE_TO_INT(CHARTOUPPER(PBYTE2[i]));
+IF CHARTOUPPER(PBYTE1[i]) < CHARTOUPPER(PBYTE2[i]) THEN
+	STRCASECMPA := -1;
+ELSIF CHARTOUPPER(PBYTE1[i]) > CHARTOUPPER(PBYTE2[i]) THEN
+	STRCASECMPA := 1;
+END_IF
 END_FUNCTION

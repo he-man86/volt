@@ -10,8 +10,9 @@ END_VAR
 VAR
 	STARTTIME : TIME;
 END_VAR
-(* a pulse of PT on IN's rising edge, which IN falling does not cut short; ET holds PT until IN is FALSE again, and
-   ET = 0 is what arms the next pulse *)
+(* a pulse of PT on IN's rising edge, which IN falling does not cut short. Once no pulse runs and IN is FALSE,
+   ET is 0 — in the very scan the pulse runs out, not the one after (recorded: lib_std_tp) — and ET = 0 is what arms
+   the next pulse *)
 IF Q THEN
 	ET := TIME() - STARTTIME;
 	IF ET >= PT THEN
@@ -23,7 +24,8 @@ ELSIF IN THEN
 		STARTTIME := TIME();
 		Q := TRUE;
 	END_IF
-ELSE
+END_IF
+IF NOT IN AND NOT Q THEN
 	ET := TIME#0ms;
 END_IF
 END_FUNCTION_BLOCK

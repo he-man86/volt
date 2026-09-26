@@ -10,13 +10,13 @@ VAR
 	n : DINT;
 	pad : DINT;
 END_VAR
-(* PSTFROM, filled up on the LEFT with BYPADCHAR to the DIBUFFERSIZE - 1 bytes the destination holds, into PSTTO.
-   A source that is already longer does not fit: nothing is written and the answer is FALSE *)
+(* PSTFROM, filled up on the LEFT with BYPADCHAR to DIBUFFERSIZE characters, into PSTTO (recorded: lib_stu_pad —
+   'abc' to 6 is '***abc'). A source that is already longer does not fit: nothing is written and the answer is FALSE *)
 IF PSTFROM = 0 OR PSTTO = 0 THEN
 	RETURN;
 END_IF
 n := STRLENA(PSTFROM);
-pad := DIBUFFERSIZE - 1 - n;
+pad := DIBUFFERSIZE - n;
 IF pad < 0 THEN
 	RETURN;
 END_IF

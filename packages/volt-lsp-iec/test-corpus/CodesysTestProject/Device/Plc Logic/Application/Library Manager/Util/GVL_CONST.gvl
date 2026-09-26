@@ -1,0 +1,3 @@
+VAR_GLOBAL
+	UIBLOCKSIZEENCODED : UINT := REAL_TO_UINT((TextBlockSize.iBlockSize + (TextBlockSize.iBlockSize * 0.35)));
+END_VAR

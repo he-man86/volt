@@ -12,7 +12,7 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     1947
+ *     confirmed     1967
  *     refused        538
  *     not-lowered     90
  *     lsp-gap          4
@@ -24,15 +24,15 @@
  *     arith                  1441     1441
  *     control                  58       58
  *     aggregate                25       25
- *     call                    203      203
- *     indirect                154      154
+ *     call                    216      216
+ *     indirect                161      157
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
- *     none
+ *     clippy::collapsible_if                     4
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile-confidence.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
- *     dead_code                               5473
+ *     dead_code                               5561
  *     clippy::self_assignment                   33
  *     clippy::eq_op                             12
  *     clippy::approx_constant                    6
@@ -1410,6 +1410,26 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   keyword_null_pointer_init: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   keyword_this_dereference: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   ldate_ltod_ldt: { evidence: "confirmed", tier: "arith", rust: "vendor", diverges: { twincat: "triage" } },
+  lib_std_bistables: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  lib_std_counter_ends: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  lib_std_counters: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  lib_std_edges: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  lib_std_rtc: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
+  lib_std_tof: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
+  lib_std_ton: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
+  lib_std_tp: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"] },
+  lib_std_tp_held: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"] },
+  lib_stu_chars: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  lib_stu_compare: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  lib_stu_concat: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  lib_stu_copy: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  lib_stu_find: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  lib_stu_length: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  lib_stu_pad: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  lib_stu_start_end: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  lib_stu_wide: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  lib_util_blink: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"] },
+  lib_util_blink_slow: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"] },
   life_fb_var_stat_instances: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   life_fb_var_temp_calls: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   life_program_var_temp_runs: { evidence: "confirmed", tier: "arith", rust: "vendor" },

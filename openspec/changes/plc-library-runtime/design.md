@@ -100,10 +100,14 @@ compiled library**, kept as a repo the transpiler reads like any other source.
   bound string through the same `s[i]` primitive. It is form 2 with an offset, not a byte-addressable memory: a pointer
   into anything but a string is still refused.
 
-**Not yet recorded:** the function-block bodies are the IEC definitions. Where CODESYS's own blocks decide an edge the
-standard leaves open — a counter at the top of its WORD, TP with a PT of 0, what RTC holds while EN is FALSE — the
-repo asserts its reading and `record:exec` has not been asked. The counters and triggers can be recorded as multi-cycle
-fixtures; the timers need the simulator's clock to be steppable before they can.
+**Recorded (2026-09-26).** The fixture project references Util and StringUtils as placeholders (as a real project does
+— a direct reference is qualified-only), and `fixtures/libraries/library-bodies.ts` asks CODESYS what every element the
+repo writes does at the edges its contract leaves open. Timers run on a RECORDED CLOCK: each fixture stores `TIME()`
+per scan beside the outputs, and the replay sets the transpiler's `CLOCK` to those instants, so a TON matches exactly
+although the simulator runs in real time. Ten bodies matched the first time; eight did not, and CODESYS settled each —
+a compare answers its sign, StrCpyA counts the terminator, a pad fills to the size given, StrCmpStart/EndA miss with -1,
+16#A0 is a space, TP clears ET in the scan a pulse ends with IN low, BLINK starts HIGH and keeps OUT once disabled. All
+20 fixtures now match in both backends.
 
 **Not in scope of this decision.** `Standard` is not what blocks the corpus — the namespaces that do are third-party
 (`L_LA` 128 POUs, `stu` 105, `CmpApp` 93). ST shims fix the library the standard defines, not the libraries a

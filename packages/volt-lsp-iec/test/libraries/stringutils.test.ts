@@ -6,10 +6,9 @@
  * binds for it (`Lowering.cursors`): the caller's string, by its own type, and the pointer's byte offset.
  *
  * Lowered against pro2193's own materialization (StringUtils 3.5.18.0), as a project that references the library
- * lowers it. THESE BODIES ARE READINGS OF THE LIBRARY'S CONTRACT, not recordings: the library ships compiled, with no
- * source to copy, and no fixture project references it yet. Where the contract leaves a choice — the value a compare
- * answers beyond its sign, what a too-small buffer leaves behind — the body names the choice it made, and this test
- * pins it so a recording can overturn it on purpose rather than by accident.
+ * lowers it. The library ships compiled, with no source to follow, so every answer the contract leaves open was ASKED
+ * of CODESYS (`fixtures/libraries/library-bodies.ts`) — a compare answers its sign, StrCpyA counts the terminator, a pad
+ * fills to the size it is given — and this pins the same answers offline.
  */
 import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
@@ -35,20 +34,20 @@ const CASES: readonly [name: string, type: string, body: string, expected: unkno
   ["joined", "STRING(80)", "", "foobar"],
   ["concatTooSmall", "BOOL", "concatTooSmall := StrConcatA(ADR(tail), ADR(tight), 6);", false],
   ["tight", "STRING(80)", "", "foo"],
-  ["copied", "DINT", "copied := StrCpyA(ADR(buffer), 4, ADR(hello));", 3n],
+  ["copied", "DINT", "copied := StrCpyA(ADR(buffer), 4, ADR(hello));", 4n],
   ["buffer", "STRING(10)", "", "hel"],
   ["cmpEqual", "INT", "cmpEqual := StrCmpA(ADR(hello), ADR(hello2));", 0n],
   ["cmpLess", "INT", "cmpLess := StrCmpA(ADR(abc), ADR(abd));", -1n],
-  ["cmpPrefix", "INT", "cmpPrefix := StrCmpA(ADR(abc), ADR(ab));", 99n],
+  ["cmpPrefix", "INT", "cmpPrefix := StrCmpA(ADR(abc), ADR(ab));", 1n],
   ["caseEqual", "INT", "caseEqual := StrCaseCmpA(ADR(abc), ADR(upperAbc));", 0n],
   ["starts", "INT", "starts := StrCmpStartA(ADR(hello), ADR(hel));", 0n],
-  ["notStarts", "INT", "notStarts := StrCmpStartA(ADR(hello), ADR(abc));", 1n],
+  ["notStarts", "INT", "notStarts := StrCmpStartA(ADR(hello), ADR(abc));", -1n],
   ["ends", "INT", "ends := StrCmpEndA(ADR(hello), ADR(llo));", 0n],
   ["caseEnds", "INT", "caseEnds := StrCaseCmpEndA(ADR(hello), ADR(upperLlo));", 0n],
   ["padOk", "BOOL", "padOk := StrPadLeftA(16#2A, ADR(abc), ADR(padded), 6);", true],
-  ["padded", "STRING(10)", "", "**abc"],
+  ["padded", "STRING(10)", "", "***abc"],
   ["padRightOk", "BOOL", "padRightOk := StrPadRightA(16#2E, ADR(abc), ADR(paddedRight), 6);", true],
-  ["paddedRight", "STRING(10)", "", "abc.."],
+  ["paddedRight", "STRING(10)", "", "abc..."],
   ["found", "INT", "found := StrFindA(ADR(hello), ADR(llo), 1);", 3n],
   ["foundLater", "INT", "foundLater := StrFindA(ADR(twice), ADR(ab), 2);", 3n],
   ["notFound", "INT", "notFound := StrFindA(ADR(hello), ADR(abc), 1);", 0n],

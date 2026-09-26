@@ -1,0 +1,2 @@
+TYPE HOUR : UINT (0..23);
+END_TYPE

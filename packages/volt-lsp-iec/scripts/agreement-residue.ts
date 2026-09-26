@@ -17,7 +17,7 @@ import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
 import { withDependencies } from "../test/conformance/support/fixture-units.js"
 import { KNOWN_DIVERGENCES } from "../test/conformance/support/divergences.js"
 import { plcPrgSource } from "../test/conformance/support/plc-prg.js"
-import { STANDARD_LIBRARY, STANDARD_MANIFESTS } from "../test/conformance/support/standard-library.js"
+import { PROJECT_LIBRARY, PROJECT_MANIFESTS } from "../test/conformance/support/project-libraries.js"
 import { parseSource } from "../src/syntax/index.js"
 import { buildSymbolTable } from "../src/symbols/index.js"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig } from "../src/analysis/index.js"
@@ -42,7 +42,7 @@ const config = resolveConfig({ vendor })
 // THE SAME PROJECT THE HARNESS BUILDS, or this tool prints a work list for a compiler nobody runs. It did:
 // `fixtures.test.ts` gave the standard library to CODESYS alone, so `LEN` resolved nowhere on TwinCAT and the
 // harness recorded seventeen disagreements this script could not see. Whatever is added to one belongs in both.
-const std = STANDARD_LIBRARY.map((l) => ({ uri: l.uri, parseResult: parseSource(l.source, vendor), source: l.source }))
+const std = PROJECT_LIBRARY.map((l) => ({ uri: l.uri, parseResult: parseSource(l.source, vendor), source: l.source }))
 const buckets = new Map<string, string[]>()
 const add = (k: string, name: string) => buckets.set(k, [...(buckets.get(k) ?? []), name])
 const missingMessages = new Map<string, number>()
@@ -87,7 +87,7 @@ for (const t of ALL_TESTS) {
     ...crossDecls.filter((d) => !own.has(d.name)).map((d) => ({ ...d, name: `${d.name}__decl` })),
     ...std.map((l) => ({ ...l, name: "__std" })),
   ]
-  const project = buildSymbolTable(files, STANDARD_MANIFESTS, vendor)
+  const project = buildSymbolTable(files, PROJECT_MANIFESTS, vendor)
   const lsp: string[] = []
   // Only the fixture's OWN file and its PLC_PRG are ANALYZED — a dependency is in the project to resolve against,
   // not to be diagnosed, exactly as `fixtures.test.ts` does it. Analyzing them too attributed one fixture's findings

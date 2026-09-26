@@ -1,0 +1,4 @@
+VAR_GLOBAL
+	GC_TZTIMEZONECET : TimeZone := STRUCT(iBias := 60, asgPeriod := [STRUCT(sName := 'CET', dtDate := STRUCT(uiMonth := 10, eWeekday := WEEKDAY.SUNDAY, uiDay := 5, uiHour := 3)), STRUCT(sName := 'CEST', dtDate := STRUCT(uiMonth := 3, eWeekday := WEEKDAY.SUNDAY, uiDay := 5, uiHour := 2), iBias := 60)]);
+	GC_TZTIMEZONEUTC : TimeZone := STRUCT(asgPeriod := [STRUCT(sName := 'UTC')]);
+END_VAR

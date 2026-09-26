@@ -24,6 +24,8 @@ describe("transpile — public surface", () => {
       "fieldNames",
       "holdsCall",
       "isBit",
+      // a project's libraries bound once, which a sweep lowers every program on top of
+      "libraryBase",
       "load",
       "lowerCodeKind",
       "lowerDiagnostic",

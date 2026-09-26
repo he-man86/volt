@@ -32,6 +32,7 @@ import { REAL_OVERFLOW_TESTS } from "./operators/real-overflow.js"
 import { PRIMITIVE_DEFAULT_TESTS } from "./types/primitive-default.js"
 import { IDENTIFIER_TESTS } from "./declarations/identifier.js"
 import { CORPUS_STANDARD_TESTS } from "./semantics/corpus-standard.js"
+import { LIBRARY_BODY_TESTS } from "./libraries/library-bodies.js"
 import { IL_CALC_SHAPE_TESTS, INTERFACE_VAR_TESTS } from "./calls/il-calc-shapes.js"
 import { SIGNATURE_NAME_TESTS } from "./cross-object/signature-name.js"
 import { NETWORK_GRAPHICAL_TESTS } from "./graphical/network-graphical.js"
@@ -100,6 +101,7 @@ export interface CategoryGroup {
 
 const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "cross-object", tests: CROSS_OBJECT_TESTS },
+  { name: "library-bodies", tests: LIBRARY_BODY_TESTS },
   { name: "cross-object-two", tests: CROSS_OBJECT_TWO_TESTS },
   { name: "cross-object-three", tests: CROSS_OBJECT_THREE_TESTS },
   { name: "cross-object-four", tests: CROSS_OBJECT_FOUR_TESTS },

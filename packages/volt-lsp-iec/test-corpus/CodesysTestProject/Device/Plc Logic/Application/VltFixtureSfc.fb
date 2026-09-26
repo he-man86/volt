@@ -5,7 +5,7 @@ VAR_OUTPUT
 END_VAR
 VAR
 END_VAR
-
+(* @volt-implementation *)
 (* @volt-graphical: SFC *)
 
 END_FUNCTION_BLOCK

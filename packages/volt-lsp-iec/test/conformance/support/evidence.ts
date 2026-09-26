@@ -16,12 +16,12 @@ import { join } from "node:path"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig } from "../../../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../../../src/network/index.js"
 import { parseSource } from "../../../src/syntax/index.js"
-import { buildSymbolTable } from "../../../src/symbols/index.js"
+import { bindFile, buildSymbolTable, linkExtends, type Scope, unbindFile } from "../../../src/symbols/index.js"
 import { lowerSource } from "../../../src/transpile/lower/index.js"
 import { run } from "../../../src/transpile/interp/index.js"
 import { assembleFixture, withDependencies } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
-import { STANDARD_LIBRARY, STANDARD_LOWERING, STANDARD_MANIFESTS } from "./standard-library.js"
+import { PROJECT_LIBRARY, PROJECT_BASE, PROJECT_MANIFESTS } from "./project-libraries.js"
 import type { LanguageTest } from "../types.js"
 
 export type Evidence = NonNullable<LanguageTest["evidence"]>
@@ -50,7 +50,7 @@ const buildRec = JSON.parse(readFileSync(join(RECORDINGS, "codesys.build.json"),
 /** The fixture as one program, plus the libraries it lowers against — `assembleFixture` is the shared assembly. */
 function sourceOf(t: LanguageTest, all: readonly LanguageTest[]): { source: string; libraries: { uri: string; source: string }[] } {
   const { source, gvls } = assembleFixture(t, all)
-  return { source, libraries: [...STANDARD_LOWERING, ...gvls] }
+  return { source, libraries: gvls }
 }
 
 /**
@@ -84,7 +84,21 @@ export function lspErrors(t: LanguageTest, all: readonly LanguageTest[]): string
   const plcText = plcPrgSource(t)
   const plc = { uri: `file:///conformance/${t.name}/PLC_PRG.prg`, source: plcText, parseResult: parseSource(plcText) }
   const files = [own, plc, ...deps]
-  const project = buildSymbolTable([...files, ...libraryFiles()], STANDARD_MANIFESTS)
+  // the libraries bound once, this fixture's files on top for the length of the call — as `fixtures.test.ts` does
+  const project = (lspBase ??= buildSymbolTable(libraryFiles(), PROJECT_MANIFESTS))
+  for (const f of files) bindFile(project, f)
+  linkExtends(project, PROJECT_MANIFESTS)
+  try {
+    return diagnosed(own, files, project)
+  } finally {
+    for (const f of files) unbindFile(project, f.uri)
+    linkExtends(project, PROJECT_MANIFESTS)
+  }
+}
+
+let lspBase: Scope | undefined
+
+function diagnosed(own: { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }, files: readonly { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }[], project: Scope): string[] {
   const config = resolveConfig({ vendor: "codesys" })
   const semantic = files.flatMap((f) =>
     computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }),
@@ -133,7 +147,7 @@ function extFor(kind: LanguageTest["kind"]): string {
 }
 
 let libraries: { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }[] | undefined
-const libraryFiles = (): NonNullable<typeof libraries> => (libraries ??= STANDARD_LIBRARY.map((l) => ({ ...l, parseResult: parseSource(l.source) })))
+const libraryFiles = (): NonNullable<typeof libraries> => (libraries ??= PROJECT_LIBRARY.map((l) => ({ ...l, parseResult: l.parseResult! })))
 
 export function rateFixture(t: LanguageTest, all: readonly LanguageTest[]): Evidence {
   if (t.execSkip !== undefined || t.recorderSkip === true) return "unaskable"
@@ -160,7 +174,7 @@ export function rateFixture(t: LanguageTest, all: readonly LanguageTest[]): Evid
   const { source, libraries } = sourceOf(t, all)
   let pou
   try {
-    pou = lowerSource(source, "PLC_PRG", libraries).pou
+    pou = lowerSource(source, "PLC_PRG", libraries, undefined, PROJECT_BASE).pou
   } catch {
     return "diverges" // a THROW is not a refusal — lowering must end in a diagnostic, so this is a defect
   }

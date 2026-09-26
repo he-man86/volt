@@ -6,8 +6,8 @@
  * because BLINK is a library element built from another library's: its phase timer is Standard's TP, so this is
  * also the case where one repo library runs on another.
  *
- * Like Standard's blocks, the body is a reading of the element's contract (OUT alternates between TIMELOW and
- * TIMEHIGH while ENABLE holds), not yet recorded against CODESYS — which phase comes first is this body's choice.
+ * What it does is CODESYS's answer, recorded (`lib_util_blink`, `lib_util_blink_slow`): the HIGH phase first, each
+ * phase flipping in the scan it runs out, and OUT kept as it was once ENABLE falls.
  */
 import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
@@ -44,9 +44,9 @@ function interpreted(pou: IrPou): string[] {
 }
 
 describe("BLINK", () => {
-  test("OUT spends TIMELOW low and TIMEHIGH high, over the harness clock, while ENABLE holds", () => {
-    //                          0        40       100     130     150      200      240      250     300 (ENABLE fell)
-    expect(interpreted(lowered())).toEqual(["false", "false", "true", "true", "false", "false", "false", "true", "false"])
+  test("OUT spends TIMEHIGH high first, then TIMELOW low, and keeps its value once ENABLE falls", () => {
+    //                         0       40      100      130      150      200     240     250      300 (ENABLE fell)
+    expect(interpreted(lowered())).toEqual(["true", "true", "false", "false", "false", "true", "true", "false", "false"])
   })
 
   test("the materialization alone is refused, not run as an empty body", () => {

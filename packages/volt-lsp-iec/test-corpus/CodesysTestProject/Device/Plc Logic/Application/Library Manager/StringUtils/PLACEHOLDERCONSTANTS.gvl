@@ -1,0 +1,6 @@
+VAR_GLOBAL
+	DFMT_FIRST_PLACEHOLDER : EDateTimePlaceholder := EDateTimePlaceholder.DFMT_5_DIGIT_DAY;
+	DFMT_LAST_PLACEHOLDER : EDateTimePlaceholder := EDateTimePlaceholder.DFMT_1_DIGIT_YEAR;
+	TFMT_FIRST_PLACEHOLDER : EDateTimePlaceholder := EDateTimePlaceholder.TFMT_2_DIGIT_HOUR_24_HOUR_CLOCK;
+	TFMT_LAST_PLACEHOLDER : EDateTimePlaceholder := EDateTimePlaceholder.TFMT_1_DIGIT_ZONE_DESIGNATOR;
+END_VAR

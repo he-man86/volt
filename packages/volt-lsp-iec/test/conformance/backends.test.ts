@@ -34,7 +34,7 @@ import { ALL_TESTS } from "./fixtures/index.js"
 import { assembleFixture } from "./support/fixture-units.js"
 import { runPaths } from "./support/run-paths.js"
 import { RUSTC as rustc, skipRustSuite } from "./support/rustc.js"
-import { STANDARD_LOWERING as LIBRARIES } from "./support/standard-library.js"
+import { PROJECT_BASE } from "./support/project-libraries.js"
 import type { LanguageTest } from "./types.js"
 
 /**
@@ -94,7 +94,7 @@ const TRANSCENDENTAL = /\b(EXPT|SQRT|LN|LOG|EXP|SIN|COS|TAN|ASIN|ACOS|ATAN)\s*\(
 
 function prepare(t: LanguageTest): Case | undefined {
   const { source: rest, gvls } = assembleFixture(t, ALL_TESTS)
-  const { pou } = lowerSource(rest, "PLC_PRG", [...LIBRARIES, ...gvls])
+  const { pou } = lowerSource(rest, "PLC_PRG", gvls, undefined, PROJECT_BASE)
   if (pou === undefined) return undefined
   const transcendental = TRANSCENDENTAL.test(rest)
   const paths: Case["paths"] = []
@@ -302,7 +302,7 @@ const PROBES: ReadonlyArray<{ name: string; source: string; why: string }> = [
 
 /** A probe lowered into the same shape the fixture sweep uses. */
 function prepareProbe(name: string, source: string): Case | undefined {
-  const { pou } = lowerSource(source, "PLC_PRG", LIBRARIES)
+  const { pou } = lowerSource(source, "PLC_PRG", [], undefined, PROJECT_BASE)
   if (pou === undefined) return undefined
   const paths: Case["paths"] = []
   for (const slot of pou.slots) {

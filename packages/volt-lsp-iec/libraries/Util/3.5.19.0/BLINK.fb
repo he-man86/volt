@@ -10,17 +10,18 @@ END_VAR
 VAR
 	CLOCK : TP;
 END_VAR
-(* OUT alternates: FALSE for TIMELOW, then TRUE for TIMEHIGH, for as long as ENABLE holds — one TP times each phase,
-   and when it runs out OUT flips and the TP is re-armed with the other phase's length *)
+(* OUT alternates between a TIMEHIGH phase and a TIMELOW phase for as long as ENABLE holds, HIGH FIRST: OUT is TRUE on
+   the very scan ENABLE is. One TP times the running phase; in the scan it runs out — or when none has run yet — OUT
+   flips and the TP is re-armed with the other phase's length. With ENABLE FALSE the block does nothing — OUT keeps what
+   it was (recorded: lib_util_blink, lib_util_blink_slow). ponytail: what re-enabling resumes is unrecorded *)
 IF ENABLE THEN
-	CLOCK(IN := TRUE, PT := SEL(OUT, TIMELOW, TIMEHIGH));
+	IF CLOCK.Q THEN
+		CLOCK(IN := TRUE);
+	END_IF
 	IF NOT CLOCK.Q THEN
 		OUT := NOT OUT;
 		CLOCK(IN := FALSE);
 		CLOCK(IN := TRUE, PT := SEL(OUT, TIMELOW, TIMEHIGH));
 	END_IF
-ELSE
-	OUT := FALSE;
-	CLOCK(IN := FALSE);
 END_IF
 END_FUNCTION_BLOCK

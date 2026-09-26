@@ -3,10 +3,10 @@ VAR_INPUT
 	PSTRING : CharBufferPtr;
 	PPREFIX : CharBufferPtr;
 END_VAR
-(* 0 when PSTRING begins with PPREFIX — the answer a compare gives for equal — and 1 when it does not *)
+(* 0 when PSTRING begins with PPREFIX — the answer a compare gives for equal — and -1 when it does not *)
 IF HELPSTRCMPSTARTA(PSTRING, PPREFIX, FALSE) THEN
 	STRCMPSTARTA := 0;
 ELSE
-	STRCMPSTARTA := 1;
+	STRCMPSTARTA := -1;
 END_IF
 END_FUNCTION

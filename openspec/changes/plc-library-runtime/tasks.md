@@ -34,7 +34,7 @@ unticked long after the code landed — `lowerStandardString` in `transpile/lowe
 - [x] Prerequisite: a simulated clock injected per scan — `TIME()`/`LTIME()` read a `__clock` global the harness sets.
 - [x] **Decision: native Rust crate + TS mirror, or ST shims** (design §5) — ST, and as a repo (design §6).
 - [x] `TON`/`TOF`/`TP`, `CTU`/`CTD`/`CTUD`, `R_TRIG`/`F_TRIG`, `RS`/`SR`, `RTC` — bound by (library, resolved version).
-- [ ] Record the FB bodies against CODESYS — the edges the IEC definition leaves open (design §6, "Not yet recorded").
+- [x] Record the FB bodies against CODESYS (`fixtures/libraries/library-bodies.ts`, timers on the recorded clock).
 - [x] Util's `BLINK` (3.5.19.0 and 3.5.21.0, the versions the corpus resolves) — the Util element real code calls
       most (44 sites); its phase timer is Standard's TP, so it is also one repo library running on another. One more
       corpus POU lowers (54 -> 55).
@@ -48,7 +48,7 @@ unticked long after the code landed — `lowerStandardString` in `transpile/lowe
       carry its string out of the call; the `CharBufferString` family (`StrCmp`, `StrCpy`, `StrFind`, `StrLen`,
       `StrCpyFrom`, `CharacterAtEquals`) and the formatters are classes. `StrMidA`/`StrTrimA`/`StrReplaceA` wait on
       the pro2193 re-pull to be materialized at all.
-- [ ] Record StringUtils against CODESYS: the fixture project has to reference it before `record:exec` can ask.
+- [x] Record StringUtils and Util against CODESYS — the fixture project references both as placeholders now.
 - [ ] Standard64: a fixture project that references it, then `libraries/Standard64/<version>/` — the W-functions,
       `LTON`/`LTOF`/`LTP`, `LCTU`/`LCTD`/`LCTUD`.
 

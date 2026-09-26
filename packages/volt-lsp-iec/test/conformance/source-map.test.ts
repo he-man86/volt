@@ -28,7 +28,7 @@ import { emitRust } from "../../src/transpile/emit/rust/index.js"
 import { lowerSource } from "../../src/transpile/lower/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 import { assembleFixture } from "./support/fixture-units.js"
-import { STANDARD_LOWERING } from "./support/standard-library.js"
+import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 
 
 
@@ -55,14 +55,14 @@ function programs(): Program[] {
     const { source: source, gvls } = assembleFixture(t, ALL_TESTS)
     let pou
     try {
-      pou = lowerSource(source, "PLC_PRG", [...STANDARD_LOWERING, ...gvls]).pou
+      pou = lowerSource(source, "PLC_PRG", gvls, undefined, PROJECT_BASE).pou
     } catch {
       continue // a lowering throw is `corpus`'s to report
     }
     if (pou === undefined) continue
     try {
       const emitted = emitRust(pou)
-      const files = new Map([...STANDARD_LOWERING, ...gvls].map((f) => [f.uri, f.source]))
+      const files = new Map([...PROJECT_LOWERING, ...gvls].map((f) => [f.uri, f.source]))
       const fileOf = (uri: string | undefined) => (uri === undefined || uri === "transpile://source" ? source : files.get(uri))
       out.push({ name: t.name, source, fileOf, map: emitted.sourceMap, rustLines: emitted.code.split("\n") })
     } catch {

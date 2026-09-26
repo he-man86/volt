@@ -2,15 +2,15 @@
  * THE STANDARD LIBRARY AS THE LIBRARY REPO WRITES IT — `libraries/Standard/3.5.18.0`, transpiled like user code.
  *
  * What the nine string functions compute is proved elsewhere, and by the vendor: the recorded `str_*` / `string_*`
- * fixtures lower against this repo (`STANDARD_LOWERING`), so CODESYS is their oracle. This file holds what no
+ * fixtures lower against this repo (`PROJECT_LOWERING`), so CODESYS is their oracle. This file holds what no
  * recording reaches yet:
  *   - the repo writes every element of the library (their interfaces are `repo.test.ts`'s, for every library);
  *   - the repo answers for the version a project RESOLVED, and a version it has not written stays refused;
  *   - the function blocks, which run over many scans and, the timers, over a clock the harness sets.
  *
- * The function-block bodies are the IEC definitions. What CODESYS's own blocks do at the edges they leave open — a
- * counter at the top of its WORD, TP with a PT of 0 — is not recorded yet, so these assert the definitions, not
- * conformance.
+ * CODESYS is the oracle for these bodies — `fixtures/libraries/library-bodies.ts`, recorded against the real
+ * library, replayed on the recorded clock. This file is the fast offline half: the same behaviour, pinned where it is
+ * cheap to run and to read.
  */
 import { describe, expect, test } from "bun:test"
 import { mkdtemp, rm } from "node:fs/promises"
@@ -19,13 +19,13 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { CLOCK, emitRust, lowerSource, run, rustAccess, type Runner } from "../../src/transpile/index.js"
 import { implementationDir, withImplementations } from "../../libraries/index.js"
-import { STANDARD, STANDARD_LOWERING } from "../conformance/support/standard-library.js"
+import { STANDARD, PROJECT_LOWERING } from "../conformance/support/project-libraries.js"
 import { RUSTC as rustc, skipRustSuite } from "../conformance/support/rustc.js"
 
 const REPO = implementationDir("Standard", "3.5.18.0")!
 
 /** A program over the library, lowered against the fixture project's Standard — or the reason it did not lower. */
-function lower(decls: string, body: string, libraries = STANDARD_LOWERING) {
+function lower(decls: string, body: string, libraries = PROJECT_LOWERING) {
   return lowerSource(`PROGRAM PLC_PRG\nVAR\n${decls}END_VAR\n${body}END_PROGRAM\n`, "PLC_PRG", libraries)
 }
 
@@ -50,7 +50,7 @@ describe("the repo", () => {
   })
 
   test("it answers for the version the project resolved, and a version it has not written stays refused", () => {
-    const manifest = STANDARD_LOWERING.find((f) => f.uri.endsWith(".library"))!
+    const manifest = PROJECT_LOWERING.find((f) => f.uri.startsWith(STANDARD) && f.uri.endsWith(".library"))!
     const declarations = readdirSync(STANDARD).map((f) => ({ uri: join(STANDARD, f), source: readFileSync(join(STANDARD, f), "utf8") }))
     const other = declarations.map((f) =>
       f.uri === manifest.uri ? { ...f, source: f.source.replace("Standard, 3.5.18.0", "Standard, 3.5.19.0") } : f,
@@ -136,7 +136,7 @@ describe("the timers, over the clock the harness sets", () => {
     expect(scans(p, [0, 50, 100, 150, 200, 250], ["p.Q", "p.ET"])).toEqual([
       [true, 0n],
       [true, 50n], // IN is already FALSE
-      [false, 100n],
+      [false, 0n], // the pulse ran out with IN low: ET clears in THAT scan (recorded: lib_std_tp)
       [false, 0n],
       [true, 0n], // the next edge
       [true, 50n],
