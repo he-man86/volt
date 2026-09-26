@@ -523,7 +523,9 @@ public sealed partial class BeckhoffDriver
             var applied = TcNetworkWriter.Apply(merged, model, scope) ?? merged;
             return TcNetworkWriter.DropImporterBoxOutputs(applied);
         }
-        catch (NotSupportedException) when (!CarriesDetail(model) && !LostNetworks(built, model))
+        // Never an ENO refusal: after the import it is the answer (the text reads an output the imported box does not
+        // give), not the regrouping this shrugs at.
+        catch (NotSupportedException ex) when (ex is not TcEnoRefusal && !CarriesDetail(model) && !LostNetworks(built, model))
         {
             // Nothing to lose: the body is exactly what was pushed, grouped the way the IDE groups it.
             return TcNetworkWriter.DropImporterBoxOutputs(built);

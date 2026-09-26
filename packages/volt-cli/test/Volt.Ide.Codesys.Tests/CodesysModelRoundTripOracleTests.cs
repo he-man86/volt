@@ -128,6 +128,29 @@ public class CodesysModelRoundTripOracleTests
         foreach (var mode in new[] { Nwl.OperationMode.BoxShortCircuit, Nwl.OperationMode.Sequential })
             Ld("Reader.A_Parallel_reads_its_mode/" + mode, Coil(Parallel(mode, Nwl.Leaf("a"), Nwl.Leaf("b")), Target("out")));
         Ld("Reader.An_assignment_fed_by_the_empty_terminator_reads", Coil(new Nwl.BoxTreeTerminator(), Target("out")));
+        // The pin-flag doubles READ now (task 4.1: InputFlags into Input.Flags) and reach the writer, which has no
+        // spelling for a pin flag (phase-1 decision) — each is refused by that name below, never read back without it.
+        Net("Reader.A_negation_on_a_box_input_pin_is_read_into_the_model_and_the_pull_names_it",
+            new Nwl.Network().With(Coil(new Nwl.BoxTreeBox
+            {
+                BoxType = "AND",
+                InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("xIsWarningInfo") },
+                InputFlags = new object[] { new Nwl.Flags(), new Nwl.Flags { Negation = true } },
+            }, Target("out"))));
+        Fbd("Reader.An_edge_on_a_box_input_pin_is_read_onto_that_pin", new Nwl.BoxTreeBox
+        {
+            BoxType = "TON",
+            InputItemList = new object[] { Nwl.Leaf("start"), Nwl.Leaf("pt") },
+            InputParams = new Nwl.ParamList { Names = new[] { "IN", "PT" }, Types = new[] { "BOOL", "TIME" } },
+            InputFlags = new object[] { new Nwl.Flags { Rtrig = true }, new Nwl.Flags() },
+        });
+        Fbd("Reader.Pin_flags_stay_aligned_past_the_enable", new Nwl.BoxTreeBox
+        {
+            BoxType = "MOVE",
+            InputItemList = new object[] { Nwl.Leaf("rung"), Nwl.Leaf("value") },
+            InputParams = new Nwl.ParamList { Names = new[] { "EN", "" }, Types = new[] { "BOOL", "" } },
+            InputFlags = new object[] { new Nwl.Flags(), new Nwl.Flags { Negation = true } },
+        });
         Fbd("Reader.Empty_pin_flags_read_as_before", new Nwl.BoxTreeBox
         {
             BoxType = "AND",
@@ -243,8 +266,7 @@ public class CodesysModelRoundTripOracleTests
         ["A_flag_on_a_Parallel_is_refused_by_name"] = "refused by the reader",
         ["A_flag_on_a_wire_is_refused_by_name"] = "refused by the reader",
         ["A_Parallel_with_an_unmeasured_mode_is_refused_by_name"] = "refused by the reader",
-        ["A_negation_on_a_box_input_pin_is_refused_by_name_not_dropped"] = "refused by the reader",
-        ["An_edge_on_a_box_input_pin_is_refused_too"] = "refused by the reader",
+        ["A_flag_on_the_enable_pin_is_refused_by_name"] = "refused by the reader: the model has no place for a flag on the enable",
         ["A_negation_or_edge_on_an_Assign_item_is_refused_by_name"] = "refused by the reader",
         ["A_return_coil_renders_as_a_conditional_RETURN"] = "the double of A_return_coil_reads_as_control_flow_not_as_an_assignment_to_the_marker",
         ["A_network_carrying_a_vendor_split_point_is_refused_by_name"] = "refused by the reader",
@@ -280,6 +302,8 @@ public class CodesysModelRoundTripOracleTests
             // Every double round-trips since the reader fills the output slots, the connection slot and whether a box has
             // an ENO output (task 3.10): the one refusal this table held — MOVE's result pin, "a box whose ENO output
             // was not read" — was those facts missing, and its double is now the measured MOVE (`OutputParams ['']`). The
-            // 34th is the data box whose stored output type (`OutputParams.Types`) declares the wire it feeds.
-            bodies: 34, networks: 34, refused: new Dictionary<string, int>());
+            // 34th is the data box whose stored output type (`OutputParams.Types`) declares the wire it feeds. The three
+            // refusals are the pin-flag doubles the reader reads since task 4.1: the text has no spelling for a flag on a
+            // box input pin (phase-1 decision), so the pull names it rather than write the pin without it.
+            bodies: 34, networks: 34, refused: new Dictionary<string, int> { ["a flag on a box input pin"] = 3 });
 }

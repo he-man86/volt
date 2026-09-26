@@ -95,7 +95,9 @@ hold no flag and a new Parallel is `Sequential`; `R_EDGE`/`F_EDGE` are legal POU
 `probe-nwl-labels` + `probe-labels-edge-names.ts` (labels and jumps built on both vendors — held, and what the
 build says, N19; the `.ts` is the TwinCAT half, over the pipe), `probe-st-chained-set` (`a := b S= c;` is legal ST),
 `probe-nwl-oracle-rungs` (the seven lenze-mid rungs the v2 ladder oracle pins, dumped fact by fact — which item is a
-Parallel, which box has an ENO output, which slot a pin is on; `nwl-oracle-rungs.log`, task 2.4).
+Parallel, which box has an ENO output, which slot a pin is on; `nwl-oracle-rungs.log`, task 2.4),
+`probe-nwl-eno-build` (a box VOLT builds is read through ENO exactly when it has EN, whatever output list Volt writes,
+and a consumed enabled comparison does not compile — built and run in simulation, N21, task 4.1).
 `voltprobe.build_messages` / `nwl_new` / `nwl_edit` are the build-and-construct half those share.
 
 **Structure** — `probe-tc-name-collision` (TwinCAT refuses to CREATE a folder whose name an object at that

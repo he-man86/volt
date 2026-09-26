@@ -519,7 +519,7 @@ the text's rule (`NetworkText.HasEnoOutput`) rather than a copy of it; the pull 
 
 ## 4. Drivers
 
-- [ ] 4.1 CODESYS: build `BoxTreeParallel` from the model; the unnamed output-slot operand for `=> v`; write each
+- [x] 4.1 CODESYS: build `BoxTreeParallel` from the model; the unnamed output-slot operand for `=> v`; write each
       Demux's VarId verbatim (unchanged); read `InputFlags` into `Input.Flags` (1.13). Model-built tests for each.
       The push half of 2.5 (spec, "EN is a pin, ENO is spelled"): after building a box, refuse by name `.ENO` on a
       box the IDE gives no ENO output, and a suffix-less consumer (`HasEnoOutput` false) of a box whose main output
@@ -527,7 +527,22 @@ the text's rule (`NetworkText.HasEnoOutput`) rather than a copy of it; the pull 
       `Parallel.Mode` both ways — *done (review of section 1):* the reader reads it and the writer sets it (a freshly
       built `BoxTreeParallel` is `Sequential`, DIALECT N20); no flag is written on a Demux or a Parallel (the model
       has none).
-- [ ] 4.2 TwinCAT: a value edit stays in place. A structurally changed network is imported (D22c/D25/D30/C25/C20);
+      *Done offline (section 4):* `InputFlags` reads into `Input.Flags` (the EN slot's flag has no model place and stays
+      refused by name); the text writer refuses it as before, so a pull still names the pin by its feed
+      (`A_negation_on_a_box_input_pin_is_read_into_the_model_and_the_pull_names_it`, `An_edge_on_a_box_input_pin_is_read_onto_that_pin`,
+      `A_flag_on_the_enable_pin_is_refused_by_name`, `Pin_flags_stay_aligned_past_the_enable`; the oracle tally now
+      refuses 3 by that name). Demux VarId verbatim: `A_wire_is_written_under_the_models_VarId_verbatim`; a model pin
+      flag never reaches a rebuild: `A_pin_flag_in_the_model_is_refused_by_name_not_dropped`. **The ENO refusals rest on
+      a live measurement that corrects this task's premise** (DIALECT N21, `scripts/probe-nwl-eno-build.py` → built and
+      RUN in simulation): the vendor derives no `OutputParams` for a box Volt constructs and `MainOutputIndex` is
+      read-only, so "the IDE's box" cannot be read back from `OutputParams.Names` — the compiler reads a box Volt builds
+      through ENO exactly when it has EN (MOVE, whatever list Volt writes), a consumed enabled comparison does not
+      compile in any form, and ADD without EN carrying ENO is "Missing EN pin". `CodesysNetworkWriter.RefuseUnbuildableEno`
+      refuses those by name before the network is destroyed
+      (`A_consumer_the_built_box_would_read_otherwise_is_refused_by_name_before_anything_is_destroyed`, 4 rows;
+      `A_consumer_the_built_box_reads_as_written_is_built`); `The_ENO_slot_is_written_…`'s two GT rows were exactly the
+      unbuildable shapes and are MOVE/LIMIT rows now; spec scenario "the box CODESYS builds decides by EN" added.
+- [x] 4.2 TwinCAT: a value edit stays in place. A structurally changed network is imported (D22c/D25/D30/C25/C20);
       until measured live it refuses `PARALLEL`, a Demux of a leaf and a result pin `=> v` with `NETWORK_UNSUPPORTED`,
       the message naming the network and the reason (review 7.16). Offline tests for each refusal. Read
       `Parallel.Mode` (done, below). Until 1.14 measures TwinCAT's evaluation order, a pulled Negation+edge on one
@@ -538,8 +553,23 @@ the text's rule (`NetworkText.HasEnoOutput`) rather than a copy of it; the pull 
       *`Parallel.Mode` done (review of section 1):* read by member name, an absent/unknown value refused by name; the
       in-place writer refuses a changed mode (no committed archive holds a Parallel, so the scalar is never authored)
       — reachable only since the no-change gate compares modes (`The_in_place_writer_refuses_a_Parallel_mode_change`).
-- [ ] 4.3 TwinCAT: delete `TcNetworkWriter.Unhoist`'s legacy fold; keep the D25 component count; the in-place
+      *Done (section 4):* `TcUnmeasured.RefuseImport` refuses `PARALLEL`, a wire fed by a leaf and a result pin
+      `=> v` in a changed network with `NETWORK_UNSUPPORTED`, naming the network and the shape, before `resolve` (the
+      import) — and in the PLCopen lowering, so a create and its pre-flight refuse the same way
+      (`TcStructuralEditTests`: the three refusals with a `resolve` that fails the test if reached, a retype that still
+      reaches it, `A_create_holding_an_unmeasured_shape_is_refused_by_the_lowering`, and
+      `A_value_edit_on_a_network_holding_a_Parallel_is_written_in_place`). The ENO refusals are `TcEnoRefusal`, raised
+      by the post-import compare against the imported box's `OutputParam/Names` (`Box.HasEnoSlot`) and never swallowed
+      by the create path's regrouping catch (`A_consumer_without_ENO_on_a_box_the_import_gives_an_ENO_main_output_…`,
+      `ENO_on_a_box_the_import_gives_no_ENO_output_…`). A negation with an edge on one node is the marker on pull
+      ("a negation with an edge", operand and box) and refused on push (`A_negation_with_an_edge_*`).
+- [x] 4.3 TwinCAT: delete `TcNetworkWriter.Unhoist`'s legacy fold; keep the D25 component count; the in-place
       tree-count check holds by construction.
+      *Done (section 4):* `Unhoist` is gone; `Rungs` counts connected components by the wires each top-level item
+      defines or reads, at any depth — the fold joined only `out := g1;`, and census 1.8 found all 434 references
+      nested, so such a network was refused as "would split it" (`TcStructuralEditTests.A_wire_read_inside_its_consumers_is_one_rung_and_reaches_the_importer`,
+      red first; `Two_rungs_sharing_no_wire_are_still_refused_as_a_split`). It only counts, so the in-place item-count
+      check compares the model in its own shape.
 - [ ] 4.4 Live e2e on both vendors (`pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys|twincat`, then
       `bun run test:e2e:codesys` / `test:e2e:twincat`): roundtrip, fanout, real-project-shapes, parity-fixes
       ("editing one operand leaves every wire name alone"), graphical-kinds (mixed ST FB + LD method, accessors),

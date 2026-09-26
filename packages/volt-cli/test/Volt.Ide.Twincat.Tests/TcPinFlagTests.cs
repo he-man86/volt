@@ -8,7 +8,8 @@ namespace Volt.Ide.Twincat.Tests;
 
 /// <summary>
 /// A POPULATED <c>InputFlags</c> ON A TWINCAT BOX IS REFUSED BY NAME — the parity twin of CODESYS's
-/// <c>A_negation_on_a_box_input_pin_is_refused_by_name_not_dropped</c>.
+/// <c>A_negation_on_a_box_input_pin_is_read_into_the_model_and_the_pull_names_it</c> (CODESYS reads the member into
+/// the model since task 4.1; this vendor has never been seen populating it, so the spelling stays unmeasured).
 ///
 /// <para>The reader wrote <c>Flags.None</c> for every pin because the member was null in all 22 archive occurrences
 /// measured. On CODESYS — the same object model (DIALECT N1) — the census of 2026-09-26 found six pins whose negation

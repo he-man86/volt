@@ -45,6 +45,10 @@ internal static class TcPlcOpenWriter
         // boolean node graph an FBD network uses. The ladder-ness is `DefaultViewMode` on the archive, written
         // after the import (TcArchive.WithViewMode).
         var root = new XElement(Namespaces.Tc6 + "FBD");
+        // What the import is not measured for is refused by name first (task 4.2), and so is an edge order TwinCAT
+        // has not been measured to run: a create is an import, and the push's pre-flight runs this very lowering.
+        TcUnmeasured.RefuseEdgeOrder(body);
+        foreach (var network in body.Networks) TcUnmeasured.RefuseImport(network);
 
         // ONE attribute marker for the WHOLE BODY, not one per network — measured, after guessing otherwise.
         // Emitting it per network produced a body TwinCAT imported happily and then could never push back: the
@@ -163,7 +167,8 @@ internal static class TcPlcOpenWriter
             Box box => EmitBox(box),
             Assign assign => EmitAssign(assign),
             Demux demux => EmitDemux(demux),
-            Parallel => throw Refuse("contains a ladder parallel branch"),
+            // Refused by name before any lowering (TcUnmeasured.RefuseImport); reaching this arm is a bug.
+            Parallel => throw new InvalidOperationException("TwinCAT: a Parallel reached the PLCopen lowering past TcUnmeasured.RefuseImport"),
             // AN UNWIRED PIN IS CREATABLE, and this used to refuse it. `FB(xEnable := , Axis := )` — a pin the
             // engineer left connected to nothing — reaches here as a bare Terminator, and the whole body was
             // refused as "contains a ladder rung terminator".

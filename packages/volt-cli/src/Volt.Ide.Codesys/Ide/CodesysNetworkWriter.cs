@@ -86,6 +86,10 @@ namespace Volt.Ide.Codesys
             // the same rule, and it is what stops the losses below from reaching a rung nobody edited.
             if (TreesUnchanged(net, model, language, scope)) return;
 
+            // BEFORE anything is removed: a refusal after the first RemoveNetworkItem would leave the network half
+            // destroyed inside the transaction.
+            foreach (var tree in model.Trees) RefuseUnbuildableEno(tree, consumed: false);
+
             for (int i = NwlInterop.RequireInt(net, "NetworkItemCount") - 1; i >= 0; i--)
                 NwlInterop.Call(net, "RemoveNetworkItem", i);
 
@@ -119,6 +123,67 @@ namespace Volt.Ide.Codesys
             return Render(live with { Title = model.Title, Label = model.Label, Comment = model.Comment, Disabled = model.Disabled }, language, scope)
                 == Render(model, language, scope);
         }
+
+        /// <summary>The comparison operators — the family DIALECT N21 measured (on GT) as not compiling when Volt builds
+        /// one consumed with EN, in any output list Volt can write.</summary>
+        private static readonly HashSet<string> Comparisons = new(StringComparer.OrdinalIgnoreCase) { "GT", "GE", "LT", "LE", "EQ", "NE" };
+
+        /// <summary>
+        /// THE PUSH HALF OF "EN IS A PIN, ENO IS SPELLED" (spec; task 4.1): refuse, naming the box, a consumer the box
+        /// CODESYS builds would read through another output than the text states — or a box it would not build at all.
+        ///
+        /// <para><b>What decides is EN, not the output list.</b> The spec asks for "the IDE's box", and on CODESYS that is
+        /// not something Volt can read back: the vendor derives no <c>OutputParams</c> from the box type (on construction,
+        /// commit or build), and the <c>MainOutputIndex</c> a consumer is read through (N16) is read-only and stays unset
+        /// on a box Volt constructs. Measured by running each shape (DIALECT N21): a consumed enabled MOVE is read through
+        /// its ENO whatever list Volt writes, a consumed enabled comparison does not compile in any list, and an operator
+        /// with no EN carrying an ENO slot is "Missing EN pin". So the text's reading (<see cref="NetworkText.HasEnoOutput"/>)
+        /// is compared with what the built box will do.</para>
+        ///
+        /// <para>Only a CONSUMED box has a consumer to misread; every top-level shape built clean. An Execute box's ENO is
+        /// its type's, and an FB call may declare <c>ENO</c> without EN (Lenze <c>Dryer</c>, N16), so neither is refused
+        /// on the missing EN. A pulled body holding the 40 drawn enabled comparisons still round-trips: the change gate
+        /// above never rebuilds a network whose text is unchanged.</para>
+        /// </summary>
+        private static void RefuseUnbuildableEno(Node n, bool consumed)
+        {
+            switch (n)
+            {
+                case Box b:
+                    if (consumed && b.StCode is null)
+                    {
+                        var readsEno = NetworkText.HasEnoOutput(b, consumed: true);
+                        if (b.Enable is not null && Comparisons.Contains(b.Type))
+                            throw Unbuildable(b, "a consumed enabled comparison: CODESYS does not compile one Volt builds, " +
+                                                 "with or without `.ENO` (its result variable hangs off an output index Volt " +
+                                                 "cannot set, DIALECT N21)");
+                        if (b.Enable is not null && !readsEno)
+                            throw Unbuildable(b, "the text reads its main output (no `.ENO`), and CODESYS reads a box Volt " +
+                                                 "builds with EN through its ENO (DIALECT N21) — the push would feed the " +
+                                                 "consumer the enable, not the data. Write `.ENO` if that is meant");
+                        if (b.Enable is null && readsEno && b.Kind != CallKind.FunctionBlock)
+                            throw Unbuildable(b, "the text reads `.ENO` on a box with no EN, which CODESYS builds with no " +
+                                                 "ENO output (\"Missing EN pin\", DIALECT N21)");
+                    }
+                    if (b.Enable is { } en) RefuseUnbuildableEno(en, consumed: true);
+                    foreach (var p in b.Inputs) RefuseUnbuildableEno(p.Value, consumed: true);
+                    return;
+                case Assign a:
+                    RefuseUnbuildableEno(a.Value, consumed: true);
+                    return;
+                case Demux { Input: { } d }:
+                    RefuseUnbuildableEno(d, consumed: true);
+                    return;
+                case Parallel p:
+                    if (p.Input is { } feed) RefuseUnbuildableEno(feed, consumed: true);
+                    foreach (var branch in p.Branches) RefuseUnbuildableEno(branch, consumed: true);
+                    return;
+            }
+        }
+
+        private static NotSupportedException Unbuildable(Box b, string why) =>
+            new($"CODESYS: the '{b.Type}' box is {why}. Refusing rather than build a network whose consumer reads " +
+                "another output than the text says, or that does not compile. Edit this network in the IDE and pull it.");
 
         private static string Render(Network network, BodyLanguage language, NetworkScope scope) =>
             NetworkTextWriter.Write(new NetworkBody(language, new[] { network }), scope);

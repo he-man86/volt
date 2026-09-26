@@ -264,6 +264,14 @@ instance.
 - **WHEN** a pushed body contains `out := GT(EN := c, a, b).ENO;` and the IDE builds that GT with no ENO output
 - **THEN** the push is refused, naming the box, never connected to another slot
 
+#### Scenario: the box CODESYS builds decides by EN
+- **WHEN** a changed CODESYS network is rebuilt holding `lamp := MOVE(EN := c, 0);`, `out := GT(EN := c, a, b)` with or
+  without `.ENO`, or `out := ADD(a, b).ENO;`
+- **THEN** the push is refused naming the box before the network is destroyed: a box Volt builds is read through ENO
+  exactly when it has EN, whatever output list Volt writes, a consumed enabled comparison does not compile, and ADD
+  without EN has no ENO (DIALECT N21 — `MainOutputIndex` is read-only, so "the IDE's box" is decided by EN, not by an
+  output list read back); an unchanged network holding the 40 drawn comparisons is never rebuilt and round-trips
+
 #### Scenario: a consumed box without EN keeps its main output for its consumer
 - **WHEN** a box `f` without EN is consumed by `out :=` through its main output and its output slot 1 is wired to `err`
 - **THEN** it is written `out := f(src, => err);` and `err` reads back on slot 1

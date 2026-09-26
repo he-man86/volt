@@ -75,7 +75,9 @@ internal static class TcNetworkReader
             case "BoxTreeOperand":
             {
                 var operand = ReadOperand(TcArchive.Obj(e, "Operand"));
-                return new Leaf(operand, operand.Flags ?? flags);
+                var leafFlags = operand.Flags ?? flags;
+                if (TcUnmeasured.NegatedEdge(leafFlags)) throw TcUnmeasured.EdgeOrderOnPull($"the operand '{operand.Text}'");
+                return new Leaf(operand, leafFlags);
             }
 
             case "BoxTreeAssign":
@@ -114,6 +116,9 @@ internal static class TcNetworkReader
 
             case "BoxTreeBox":
             {
+                // The edge order is unmeasured on TwinCAT on a box as on an operand (N17 measured both on CODESYS).
+                if (TcUnmeasured.NegatedEdge(flags))
+                    throw TcUnmeasured.EdgeOrderOnPull($"the '{TcArchive.Str(e, "BoxType")}' box");
                 var connected = consumed ? ConnectedSlot(e) : null;
                 return new Box(
                     TcArchive.Str(e, "BoxType") ?? "",

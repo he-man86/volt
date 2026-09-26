@@ -65,6 +65,7 @@ public class TcInPlaceSilentNoOpTests
     {
         var (before, model) = Edited(fixture, language, from, to);
 
-        Assert.Throws<NotSupportedException>(() => TcText.Apply(before, model));
+        // ThrowsAny: the refusal is the named ENO one (TcEnoRefusal, a NotSupportedException), task 4.2.
+        Assert.ThrowsAny<NotSupportedException>(() => TcText.Apply(before, model));
     }
 }

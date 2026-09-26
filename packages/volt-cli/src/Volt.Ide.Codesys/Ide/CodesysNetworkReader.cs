@@ -206,40 +206,32 @@ namespace Volt.Ide.Codesys
             Strings(NwlInterop.Get(box, "OutputParams"), "Types")?.Select(t => string.IsNullOrWhiteSpace(t) ? null : t).ToList();
 
         /// <summary>
-        /// A MODIFIER ON A BOX INPUT PIN — the vendor's <c>InputFlags</c>, index-aligned with <c>InputItemList</c>
-        /// (the EN slot included) — is refused by name: network text has no spelling for it yet.
+        /// THE MODIFIERS ON A BOX'S INPUT PINS — the vendor's <c>InputFlags</c>, index-aligned with <c>InputItemList</c>
+        /// (the EN slot included) — read into <see cref="Input.Flags"/>, where the model keeps them (task 4.1).
         ///
-        /// <para><b>It used to be dropped.</b> This reader wrote <c>Flags.None</c> for every pin, on the strength of
+        /// <para><b>They used to be dropped.</b> This reader wrote <c>Flags.None</c> for every pin, on the strength of
         /// a TwinCAT measurement ("InputFlags is always null", <c>TcNetworkReader</c>) that was never taken on
         /// CODESYS. On CODESYS the member is populated, and a negated FBD input can live there with the operand
         /// feeding it unflagged — measured 2026-09-26 (<c>scripts/probe-nwl-census-v2.py</c>): six pins, three in
         /// Lenze's <c>call_FirstErrorCapture_FB</c>, three in pro2193's <c>SetAlarm</c>. They were pulled as PLAIN
         /// contacts — inverted logic in git — and a push would have written that back into the PLC.</para>
-        /// <para>Moving the bit onto the operand would round-trip as the same logic but a different vendor item,
-        /// and a pin fed by another box has no operand to move it to; the pin-level spelling belongs to network text
-        /// v2 (openspec <c>network-text-literal-nwl</c>). Until then the marker says what the body holds.</para>
+        ///
+        /// <para>The model holds the fact; the TEXT has no spelling for it yet (owner decision, phase 1), so the text
+        /// writer refuses it by name and the pull materializes the marker — the same answer as before, now decided
+        /// where the spelling lives rather than by the reader throwing away a model it could build. The EN slot is the
+        /// exception: the enable is a <see cref="Node"/>, not an <see cref="Input"/>, so a flag on it has no place in
+        /// the model and is refused here, by the same name.</para>
         /// </summary>
-        private static void RefusePinFlags(object box, IReadOnlyList<object> items, IReadOnlyList<string?> formals)
-        {
-            if (NwlInterop.Get(box, "InputFlags") is not System.Collections.IEnumerable pinFlags) return;
-            var i = 0;
-            foreach (var f in pinFlags)
-            {
-                var flags = ReadFlags(f);
-                if (!flags.IsNone)
-                {
-                    var pin = i < formals.Count && !string.IsNullOrEmpty(formals[i]) ? formals[i] : $"input {i}";
-                    var feed = i < items.Count && Tree(items[i]) is { } t && NwlInterop.TypeName(t) == "BoxTreeOperand"
-                        ? $" fed by '{ReadOperand(NwlInterop.Require(t, "Operand")).Text}'"
-                        : "";
-                    throw new Volt.Engine.Format.Body.UnrepresentableBodyException("a flag on a box input pin",
-                        $"CODESYS: the '{NwlInterop.Text(box, "BoxType")}' box has a {Describe(flags)} on its pin {pin}{feed}, " +
-                        "and network text has no spelling for a modifier on a PIN (only on what feeds it). Volt refuses " +
-                        "to materialize the body rather than pull the input without it.");
-                }
-                i++;
-            }
-        }
+        private static List<Flags> PinFlags(object box) =>
+            NwlInterop.Get(box, "InputFlags") is System.Collections.IEnumerable pinFlags
+                ? pinFlags.Cast<object?>().Select(ReadFlags).ToList()
+                : new List<Flags>();
+
+        private static Volt.Engine.Format.Body.UnrepresentableBodyException PinFlagOnEnable(object box, Flags flags) =>
+            new("a flag on a box input pin",
+                $"CODESYS: the '{NwlInterop.Text(box, "BoxType")}' box has a {Describe(flags)} on its EN pin, and the " +
+                "model has no place for a modifier on the enable (it is a tree, not a pin). Volt refuses to materialize " +
+                "the body rather than pull the enable without it.");
 
         private static string Describe(Flags f) =>
             string.Join(" + ", new[] { f.Negated ? "negation" : null, f.Rising ? "rising edge" : null, f.Falling ? "falling edge" : null,
@@ -259,7 +251,7 @@ namespace Volt.Ide.Codesys
             // then quietly left every pin unnamed. So an FB call pulled as `t1( := a,  := pt)` - text that
             // does not parse, which means such a POU could be pulled and never pushed back.
             var formals = Names(NwlInterop.Get(n, "InputParams"));
-            RefusePinFlags(n, items, formals);
+            var pinFlags = PinFlags(n);
 
             // THE ENABLE IS INPUT SLOT 0, not the `En` member. `Box.HasEnableSlot` holds the measurement and
             // what reading it as a data pin cost; here it is two lines, and they must run BEFORE the pins are
@@ -267,14 +259,18 @@ namespace Volt.Ide.Codesys
             Node? enable = null;
             if (Box.HasEnableSlot(formals) && items.Count > 0)
             {
+                if (pinFlags.Count > 0 && !pinFlags[0].IsNone) throw PinFlagOnEnable(n, pinFlags[0]);
                 enable = ReadNode(items[0], consumed: true);
                 items.RemoveAt(0);
                 formals.RemoveAt(0);
+                if (pinFlags.Count > 0) pinFlags.RemoveAt(0);
             }
 
-            // INDEX-ALIGNED, never length-equal: `Names` may be shorter than the item list (see Box.FormalAt).
+            // INDEX-ALIGNED, never length-equal: `Names` may be shorter than the item list (see Box.FormalAt), and
+            // `InputFlags` may be absent (a null array reads as no flag on any pin).
             var inputs = items
-                .Select((x, i) => new Input(Clean(Box.FormalAt(formals, i)), ReadNode(x, consumed: true), Flags.None))
+                .Select((x, i) => new Input(Clean(Box.FormalAt(formals, i)), ReadNode(x, consumed: true),
+                                            i < pinFlags.Count ? pinFlags[i] : Flags.None))
                 .ToList();
 
             // AN INSTANCE THAT NAMES NOTHING IS NOT AN INSTANCE. The member is PRESENT on every box —

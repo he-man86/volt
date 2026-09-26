@@ -118,7 +118,7 @@ public class TcDrawnJumpTests
     /// the drawn rung's COIL dropped, so the rung is a conditional jump: <c>IF PARALLEL(…) THEN JMP owrods; END_IF;</c>.
     /// A coil beside a jump has no spelling (<see cref="The_drawn_rung_goes_to_the_marker_by_name"/>), so with it the
     /// writer's change gate could not say "unchanged" about a network the text cannot hold.</summary>
-    private static XElement NwlWithParallel(string mode)
+    internal static XElement NwlWithParallel(string mode)
     {
         var nwl = XDocument.Load(Fixtures.Path("tc-pou", "drawn-refused-shapes.TcPOU"), LoadOptions.PreserveWhitespace)
             .Descendants("NWL").Single();

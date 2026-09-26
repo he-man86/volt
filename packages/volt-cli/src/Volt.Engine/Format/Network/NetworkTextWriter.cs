@@ -399,12 +399,14 @@ public static class NetworkTextWriter
         /// consumer is connected to its ENO.</summary>
         private string BoxCore(Box b, bool consumed)
         {
-            foreach (var p in b.Inputs)
-                if (!p.Flags.IsNone)
-                    // Phase-1 decision: a modifier on the PIN (vendor InputFlags) has no spelling yet — the same
-                    // refusal both drivers raise, so the fact reaches the marker instead of the floor.
+            for (var i = 0; i < b.Inputs.Count; i++)
+                if (b.Inputs[i] is { Flags.IsNone: false } p)
+                    // Phase-1 decision: a modifier on the PIN (vendor InputFlags) has no spelling yet, so the fact
+                    // reaches the marker instead of the floor. The message names the pin by what feeds it where it can:
+                    // an engineer finds `xIsWarningInfo` in the diagram, not "input 1".
                     throw Unrepresentable("a flag on a box input pin",
-                        $"the '{b.Type}' box has {Describe(p.Flags)} on its pin {p.Formal ?? "(positional)"}.");
+                        $"the '{b.Type}' box has {Describe(p.Flags)} on its pin {p.Formal ?? $"input {i}"}" +
+                        (p.Value is Leaf feed ? $" fed by '{feed.Operand.Text}'." : "."));
 
             // The text spells the ENO output only by `.ENO`, and reads every other box by one rule
             // (NetworkSpelling.TextHasEno). Where the answer decides the text — the suffix, and the slots positional

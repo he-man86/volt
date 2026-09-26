@@ -480,18 +480,18 @@ public class CodesysCoilFlagTests
     }
 
     /// <summary>THE ENO ECHO IS WRITTEN FOR A BOX THAT HAS AN ENO OUTPUT, and for no other — the model's
-    /// <see cref="Box.HasEnoOutput"/>, not its EN. The two are independent (DIALECT N16, census 1.6: 40 enabled
-    /// comparisons have EN and no ENO), and the text says which: <c>x := GT(EN := c, a, b)</c> reads <c>x</c> off the
-    /// comparison, <c>… .ENO</c> off the ENO. The writer keyed on EN and gave both the same ENO slot, so the first came
-    /// back from the IDE as the second — <c>x</c> fed by ENO, a different program.</summary>
+    /// <see cref="Box.HasEnoOutput"/>, not its EN. The two are independent (DIALECT N16), and the writer once keyed on
+    /// EN and gave every enabled box the same ENO slot. The rows were an enabled GT with and without <c>.ENO</c> until
+    /// DIALECT N21 measured that a consumed enabled comparison Volt builds does not compile in EITHER form (its
+    /// implicit result variable is declared from the <c>MainOutputIndex</c> Volt cannot set) — those two are refusals
+    /// now (below), and these rows are the consumed shapes that build: an enabled MOVE read by its ENO, and a function
+    /// without EN read by its main output.</summary>
     [Theory]
-    [InlineData("x := GT(EN := c, a, b);", false)]
-    [InlineData("x := GT(EN := c, a, b).ENO;", true)]
+    [InlineData("x := MOVE(EN := c, a).ENO;", true)]
+    [InlineData("n := LIMIT(a, b, n);", false)]
     public void The_ENO_slot_is_written_for_the_box_that_has_one_not_for_every_enabled_box(string statement, bool eno)
     {
-        const string declaration = "PROGRAM P\nVAR\n  x : BOOL;\n  c : BOOL;\n  a : INT;\n  b : INT;\nEND_VAR";
-        var scope = NetworkScope.FromDeclarations(declaration, _ => null, () => Array.Empty<string>());
-        var model = NetworkText.Validate("(* @volt-implementation FBD *)\nNETWORK\n  " + statement + "\nEND_NETWORK\n", scope).Networks[0];
+        var (model, scope) = Pushed(statement);
         Assert.Equal(eno, Assert.IsType<Box>(Assert.IsType<Assign>(model.Trees[0]).Value).HasEnoOutput);
 
         var live = Different();
@@ -500,6 +500,105 @@ public class CodesysCoilFlagTests
         var written = Assert.IsType<Nwl.BoxTreeBox>(Assert.IsType<Nwl.BoxTreeAssign>(live.GetTree(live.NetworkItemCount - 1)).RValue);
         Assert.Equal(eno ? new[] { "ENO" } : Array.Empty<string>(), Assert.IsType<Nwl.ParamList>(written.OutputParams).Names);
         Assert.Equal(eno ? 1 : 0, written.Outputs.List.Count);
+    }
+
+    /// <summary>One statement as the push reads it: validated against a declaration, as <c>PushService</c> does.</summary>
+    private static (Network Model, NetworkScope Scope) Pushed(string statement)
+    {
+        const string declaration = "PROGRAM P\nVAR\n  x : BOOL;\n  c : BOOL;\n  a : INT;\n  b : INT;\n  n : INT;\n  lamp : BOOL;\n  sv : INT;\nEND_VAR";
+        var scope = NetworkScope.FromDeclarations(declaration, _ => null, () => Array.Empty<string>());
+        return (NetworkText.Validate("(* @volt-implementation FBD *)\nNETWORK\n  " + statement + "\nEND_NETWORK\n", scope).Networks[0], scope);
+    }
+
+    /// <summary>THE PUSH HALF OF "EN IS A PIN, ENO IS SPELLED" (task 4.1; spec "ENO is the main output", "a box that has
+    /// no ENO output says .ENO"). The text states which output a consumer reads; the box CODESYS builds from Volt's
+    /// object model decides which one it actually reads — by EN, not by the output list Volt writes, which the vendor
+    /// neither derives nor consults (DIALECT N21, run in simulation). Each shape below builds a program other than the
+    /// text, or none, so each is refused naming the box — and refused BEFORE the live network is destroyed, so the
+    /// IDE is left as it was:
+    /// <list type="bullet">
+    /// <item>a consumed enabled MOVE without <c>.ENO</c>: the IDE reads it through ENO (<c>lamp = TRUE</c> over a data
+    /// output of 0), whatever list Volt writes;</item>
+    /// <item>a consumed enabled comparison, with or without <c>.ENO</c>: it does not compile (<c>ImpVar … not
+    /// defined</c>);</item>
+    /// <item><c>.ENO</c> on an operator with no EN: "Missing EN pin".</item>
+    /// </list></summary>
+    [Theory]
+    [InlineData("lamp := MOVE(EN := c, a, => sv);", "MOVE", "`.ENO`")]
+    [InlineData("x := GT(EN := c, a, b);", "GT", "comparison")]
+    [InlineData("x := GT(EN := c, a, b).ENO;", "GT", "comparison")]
+    [InlineData("x := ADD(a, b).ENO;", "ADD", "no EN")]
+    public void A_consumer_the_built_box_would_read_otherwise_is_refused_by_name_before_anything_is_destroyed(
+        string statement, string box, string why)
+    {
+        var (model, scope) = Pushed(statement);
+        var live = Different();
+
+        var ex = Assert.Throws<NotSupportedException>(() =>
+            CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope));
+
+        Assert.Contains($"'{box}'", ex.Message);
+        Assert.Contains(why, ex.Message);
+        var kept = Assert.IsType<Nwl.BoxTreeAssign>(Assert.Single(Enumerable.Range(0, live.NetworkItemCount).Select(live.GetTree)));
+        Assert.Equal("elsewhere", Assert.IsType<Nwl.Operand>(Assert.Single(kept.Outputs.List)).OperandExpr);
+    }
+
+    /// <summary>…and the shapes that DO build are not refused: at the top level every enabled box builds (N21), and an
+    /// FB call may declare <c>ENO</c> without EN (Lenze <c>Dryer</c>, N16), so <c>.ENO</c> on one is the FB's own output.</summary>
+    [Theory]
+    [InlineData("MOVE(EN := c, a, => sv);")]
+    [InlineData("GT(EN := c, a, b, => x);")]
+    [InlineData("lamp := MOVE(EN := c, a, => sv).ENO;")]
+    public void A_consumer_the_built_box_reads_as_written_is_built(string statement)
+    {
+        var (model, scope) = Pushed(statement);
+        var live = Different();
+
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope);
+
+        var built = live.GetTree(live.NetworkItemCount - 1);
+        Assert.False(built is Nwl.BoxTreeAssign { RValue: Nwl.BoxTreeOperand }, "the network was not rebuilt from the push");
+        Assert.Equal(1, live.NetworkItemCount);
+    }
+
+    /// <summary>A WIRE IS WRITTEN UNDER THE VARID THE MODEL CARRIES (task 4.1), definition and every reference: ids are
+    /// network-scoped, and the writer once minted fresh ones from the aspect's allocator, so an edit renumbered every
+    /// fan-out in the network it touched. The id is deliberately not 0 or 1, which a counter would produce too.</summary>
+    [Fact]
+    public void A_wire_is_written_under_the_models_VarId_verbatim()
+    {
+        var (model, scope) = Pushed("VAR_TEMP g28 : BOOL; END_VAR\n  g28 := (x AND lamp);\n  x := g28;\n  lamp := g28;");
+        Assert.Equal(28, Assert.IsType<Demux>(model.Trees[0]).VarId);
+        var live = Different();
+
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope);
+
+        var ids = Enumerable.Range(0, live.NetworkItemCount).Select(live.GetTree)
+            .Select(t => t is Nwl.BoxTreeAssign a ? a.RValue : t).OfType<Nwl.BoxTreeDemux>().Select(d => d.VarId).ToList();
+        Assert.Equal(new[] { 28, 28, 28 }, ids);
+    }
+
+    /// <summary>A MODIFIER ON A BOX INPUT PIN (task 4.1: the reader fills <see cref="Input.Flags"/>) is never written
+    /// without its bit and never dropped: the change gate renders the model through the text writer first, which has no
+    /// spelling for a pin flag (phase-1 decision) and refuses it by name — so such a model reaches no rebuild.</summary>
+    [Fact]
+    public void A_pin_flag_in_the_model_is_refused_by_name_not_dropped()
+    {
+        var model = new Network(0, null, null, null, false, new Node[]
+        {
+            new Assign(new Box("AND", null, CallKind.Operator,
+                           new[] { new Input(null, new Leaf(new Operand("a"), Flags.None), Flags.None),
+                                   new Input(null, new Leaf(new Operand("b"), Flags.None), Flags.None with { Negated = true }) },
+                           System.Array.Empty<Output>(), null, null, Flags.None),
+                       new[] { new Operand("out", IsLValue: true) }, Flags.None),
+        });
+        var live = Different();
+
+        var ex = Assert.Throws<NetworkUnrepresentableException>(() =>
+            CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, ScopeOf(model, BodyLanguage.Fbd)));
+
+        Assert.Equal("a flag on a box input pin", ex.Marker);
+        Assert.Equal(1, live.NetworkItemCount);
     }
 
     /// <summary>A BOX WITH NO INSTANCE CLEARS THE VENDOR'S MARKER, and this is the test that was missing.

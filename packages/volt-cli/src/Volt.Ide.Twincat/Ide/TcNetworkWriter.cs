@@ -63,8 +63,8 @@ internal static class TcNetworkWriter
     /// a `cet` gets that `cet` stamped on it, the moved children keep or gain theirs, and the list`s `cet` is
     /// removed. That is the shape `ladder-demux.TcPOU` shows the vendor writing for a mixed network.</para>
     ///
-    /// <para>How many built networks belong to one model network comes from the MODEL: <see cref="Unhoist"/>
-    /// folds shared-wire trees into one item, so its count is the component count — the same prediction `Apply`
+    /// <para>How many built networks belong to one model network comes from the MODEL: <see cref="Rungs"/>
+    /// counts its connected components — the same prediction `Apply`
     /// already refuses on. If the arithmetic does not land exactly this returns null and changes nothing.</para>
     ///
     /// <para>Construction-free (N11): every element is one the importer built, moved between existing lists, and
@@ -82,7 +82,7 @@ internal static class TcNetworkWriter
         var networks = TcArchive.List(impl, "NetworkList");
         if (networks.Count == body.Networks.Count) return null;          // nothing was split
 
-        var parts = body.Networks.Select(n => Unhoist(n.Trees).Count).ToList();
+        var parts = body.Networks.Select(n => Rungs(n.Trees)).ToList();
         if (parts.Sum() != networks.Count) return null;                  // cannot map built -> model; say nothing
 
         var merged = false;
@@ -163,6 +163,7 @@ internal static class TcNetworkWriter
         // `DefaultViewMode` (`TcArchive.WithViewMode`) — so a marker-only edit would write nothing, report
         // success, and be reverted by the next pull.
         NetworkText.RefuseViewModeChange(BeckhoffDriver.ViewModeOf(impl), body.Language);
+        TcUnmeasured.RefuseEdgeOrder(body);
 
         var networks = TcArchive.List(impl, "NetworkList");
         if (networks.Count != body.Networks.Count)
@@ -200,8 +201,11 @@ internal static class TcNetworkWriter
                 // Fall through: this network's SHAPE changed, so the IDE has to rebuild it.
             }
 
+            // The shapes no one has measured through the import are refused by name before it (task 4.2).
+            TcUnmeasured.RefuseImport(model);
+
             // Only a single-component network can be swapped in without renumbering the ones after it.
-            var parts = Unhoist(model.Trees).Count;
+            var parts = Rungs(model.Trees);
             if (parts != 1)
                 throw Refuse($"changes the shape of network {model.Order + 1}, which holds {parts} independent " +
                              "rungs - the IDE rebuilds one network per connected rung, so re-creating it would " +
@@ -292,37 +296,36 @@ internal static class TcNetworkWriter
         return changed;
     }
 
-    /// <summary>HOW MANY INDEPENDENT RUNGS a network holds — a fan-out wire and everything it feeds being ONE.
+    /// <summary>HOW MANY INDEPENDENT RUNGS a network holds: its top-level items grouped by the wires that connect them.
     ///
-    /// <para>COUNTING is its only job: TwinCAT's importer builds ONE NETWORK PER CONNECTED COMPONENT (D25), so
-    /// "how many rungs does the model hold" is what says whether a rebuild would split the network, and a `Demux`
-    /// and its consumers are one connected rung. It never reshapes a model a write compares — a wire folded into
-    /// one multi-target assign is another program, not the same one in the archive's spelling.</para></summary>
-    private static IReadOnlyList<Node> Unhoist(IReadOnlyList<Node> trees)
+    /// <para>TwinCAT's importer builds ONE NETWORK PER CONNECTED COMPONENT (D25), so this count is what says whether a
+    /// rebuild would split the network. A wire's definition and every item that reads it are one component WHEREVER
+    /// the reference sits. This used to be a legacy fold (<c>Unhoist</c>) that rebuilt v1's <c>LET</c> wires as
+    /// multi-target assigns and counted what was left — and it joined only a wire read DIRECTLY by an assignment
+    /// (<c>out := g1;</c>). Census 1.8 found all 434 real references NESTED (<c>out := (g1 OR c);</c>), so such a
+    /// network counted each consumer as its own rung and its rebuild was refused as "would split it". It only ever
+    /// counts: nothing a write compares is reshaped, so the in-place item-count check holds by construction.</para></summary>
+    private static int Rungs(IReadOnlyList<Node> trees)
     {
-        var wires = trees.OfType<Demux>().Where(d => d.Input is not null)
-                         .ToDictionary(d => d.VarId, d => d.Input!);
-        if (wires.Count == 0) return trees;
+        var root = Enumerable.Range(0, trees.Count).ToArray();
+        int Find(int i) => root[i] == i ? i : root[i] = Find(root[i]);
 
-        var folded = new List<Node>();
-        var consumed = new Dictionary<int, List<Operand>>();
-        foreach (var t in trees)
+        var holder = new Dictionary<int, int>();       // VarId -> the first item that defines or reads it
+        for (var i = 0; i < trees.Count; i++)
+            foreach (var wire in Wires(trees[i]))
+                if (holder.TryGetValue(wire, out var other)) root[Find(i)] = Find(other);
+                else holder[wire] = i;
+
+        return Enumerable.Range(0, trees.Count).Select(Find).Distinct().Count();
+
+        static IEnumerable<int> Wires(Node? n) => n switch
         {
-            if (t is Demux) continue;                                   // the wire's definition
-            if (t is Assign a && a.Value is Demux use && use.Input is null && wires.ContainsKey(use.VarId))
-            {
-                if (!consumed.TryGetValue(use.VarId, out var targets))
-                    consumed[use.VarId] = targets = new List<Operand>();
-                targets.AddRange(a.Targets);
-                continue;
-            }
-            folded.Add(t);
-        }
-
-        // Rebuild each wire as the single multi-target assignment the archive holds.
-        foreach (var kv in consumed)
-            folded.Add(new Assign(wires[kv.Key], kv.Value, Flags.None));
-        return folded.Count == 0 ? trees : folded;
+            Demux d => new[] { d.VarId }.Concat(Wires(d.Input)),
+            Assign a => Wires(a.Value),
+            Box b => Wires(b.Enable).Concat(b.Inputs.SelectMany(p => Wires(p.Value))),
+            Parallel p => Wires(p.Input).Concat(p.Branches.SelectMany(Wires)),
+            _ => Enumerable.Empty<int>(),
+        };
     }
 
     // -- the tree ----------------------------------------------------------------------------------
@@ -405,8 +408,13 @@ internal static class TcNetworkWriter
                 // derivation, so a consumer moved from Q to ENO is refused here — sent to the IDE to rebuild — and
                 // never found "unchanged" by a walk that looks at neither. Where the model states neither (a
                 // top-level box, a fact the text has no position for there), there is nothing to compare.
+                //
+                // Its own exception type (the push half of "EN is a pin, ENO is spelled", task 4.2): in the in-place
+                // pass it is a shape change like any other and routes the network to the IDE to rebuild; after the
+                // rebuild it compares the text with the box the IMPORT built, and then it is the answer — the text
+                // reads an output that box does not have — so the create path must not swallow it as a regrouping.
                 if (b.HasEnoOutput is { } hasEno && hasEno != TcNetworkReader.HasEno(e))
-                    throw Refuse($"box '{b.Type}' {(hasEno ? "gains" : "loses")} its ENO output");
+                    throw new TcEnoRefusal(b.Type, textReadsEno: hasEno);
                 if (b.ConnectedSlot is { } slot && TcNetworkReader.ConnectedSlot(e) != slot)
                     throw Refuse($"the consumer of box '{b.Type}' moves to output slot {slot}");
 
