@@ -388,6 +388,67 @@ public class CodesysNetworkReaderTests
         Assert.True(value.Flags.Negated, "the contact's negation lives on its operand and must reach the model");
     }
 
+    /// <summary>A NEGATION ON A BOX INPUT PIN IS REFUSED BY NAME, NOT DROPPED.
+    ///
+    /// <para><b>The regression.</b> CODESYS can keep a negated FBD input on the box's own <c>InputFlags</c>, with the
+    /// operand feeding it unflagged — measured 2026-09-26 (<c>scripts/probe-nwl-census-v2.py</c>): six such pins, three
+    /// in Lenze's <c>call_FirstErrorCapture_FB</c> and three in pro2193's <c>SetAlarm</c>. The reader never read the
+    /// member (it wrote <c>Flags.None</c> on the strength of a TwinCAT-only measurement), so those contacts were
+    /// pulled as PLAIN — inverted logic in git, and a push would have written it back into the PLC without the
+    /// negation. Network text has no spelling for a pin-level flag yet (openspec <c>network-text-literal-nwl</c>
+    /// gives it one), so until then the body goes to the marker: the engineer sees why, and nothing wrong is
+    /// materialized.</para></summary>
+    [Fact]
+    public void A_negation_on_a_box_input_pin_is_refused_by_name_not_dropped()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "AND",
+            InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("xIsWarningInfo") },
+            InputFlags = new object[] { new Nwl.Flags(), new Nwl.Flags { Negation = true } },
+        };
+        var assign = new Nwl.BoxTreeAssign { RValue = box };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
+
+        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0));
+        Assert.Equal("a flag on a box input pin", ex.Marker);
+        Assert.Contains("AND", ex.Message);             // which box
+        Assert.Contains("xIsWarningInfo", ex.Message);  // which pin, by what feeds it
+    }
+
+    /// <summary>An edge on a pin is the same fact through another bit — the refusal is about WHERE the flag sits.</summary>
+    [Fact]
+    public void An_edge_on_a_box_input_pin_is_refused_too()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "TON",
+            InputItemList = new object[] { Nwl.Leaf("start"), Nwl.Leaf("pt") },
+            InputParams = new Nwl.ParamList { Names = new[] { "IN", "PT" }, Types = new[] { "BOOL", "TIME" } },
+            InputFlags = new object[] { new Nwl.Flags { Rtrig = true }, new Nwl.Flags() },
+        };
+
+        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd));
+        Assert.Equal("a flag on a box input pin", ex.Marker);
+        Assert.Contains("IN", ex.Message);
+    }
+
+    /// <summary>Pin flags that carry nothing are the ordinary case (every box in a real project has the array) and
+    /// must read exactly as before.</summary>
+    [Fact]
+    public void Empty_pin_flags_read_as_before()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "AND",
+            InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b") },
+            InputFlags = new object[] { new Nwl.Flags(), new Nwl.Flags() },
+        };
+
+        var read = Assert.IsType<Box>(CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd).Networks.Single().Trees.Single());
+        Assert.Equal(new[] { "a", "b" }, read.Inputs.Select(i => ((Leaf)i.Value).Operand.Text));
+    }
+
     /// <summary>An edge-triggered contact travels the same way — the fix is about WHERE flags are read, not
     /// about one bit.</summary>
     [Fact]

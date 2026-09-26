@@ -168,6 +168,46 @@ namespace Volt.Ide.Codesys
             return names.Cast<object?>().Select(x => x?.ToString()).ToList();
         }
 
+        /// <summary>
+        /// A MODIFIER ON A BOX INPUT PIN — the vendor's <c>InputFlags</c>, index-aligned with <c>InputItemList</c>
+        /// (the EN slot included) — is refused by name: network text has no spelling for it yet.
+        ///
+        /// <para><b>It used to be dropped.</b> This reader wrote <c>Flags.None</c> for every pin, on the strength of
+        /// a TwinCAT measurement ("InputFlags is always null", <c>TcNetworkReader</c>) that was never taken on
+        /// CODESYS. On CODESYS the member is populated, and a negated FBD input can live there with the operand
+        /// feeding it unflagged — measured 2026-09-26 (<c>scripts/probe-nwl-census-v2.py</c>): six pins, three in
+        /// Lenze's <c>call_FirstErrorCapture_FB</c>, three in pro2193's <c>SetAlarm</c>. They were pulled as PLAIN
+        /// contacts — inverted logic in git — and a push would have written that back into the PLC.</para>
+        /// <para>Moving the bit onto the operand would round-trip as the same logic but a different vendor item,
+        /// and a pin fed by another box has no operand to move it to; the pin-level spelling belongs to network text
+        /// v2 (openspec <c>network-text-literal-nwl</c>). Until then the marker says what the body holds.</para>
+        /// </summary>
+        private static void RefusePinFlags(object box, IReadOnlyList<object> items, IReadOnlyList<string?> formals)
+        {
+            if (NwlInterop.Get(box, "InputFlags") is not System.Collections.IEnumerable pinFlags) return;
+            var i = 0;
+            foreach (var f in pinFlags)
+            {
+                var flags = ReadFlags(f);
+                if (!flags.IsNone)
+                {
+                    var pin = i < formals.Count && !string.IsNullOrEmpty(formals[i]) ? formals[i] : $"input {i}";
+                    var feed = i < items.Count && Tree(items[i]) is { } t && NwlInterop.TypeName(t) == "BoxTreeOperand"
+                        ? $" fed by '{ReadOperand(NwlInterop.Require(t, "Operand")).Text}'"
+                        : "";
+                    throw new Volt.Engine.Format.Body.UnrepresentableBodyException("a flag on a box input pin",
+                        $"CODESYS: the '{NwlInterop.Text(box, "BoxType")}' box has a {Describe(flags)} on its pin {pin}{feed}, " +
+                        "and network text has no spelling for a modifier on a PIN (only on what feeds it). Volt refuses " +
+                        "to materialize the body rather than pull the input without it.");
+                }
+                i++;
+            }
+        }
+
+        private static string Describe(Flags f) =>
+            string.Join(" + ", new[] { f.Negated ? "negation" : null, f.Rising ? "rising edge" : null, f.Falling ? "falling edge" : null,
+                f.Set ? "set" : null, f.Jump ? "jump" : null, f.Return ? "return" : null }.Where(s => s != null));
+
         private static Box ReadBox(object n, Flags flags)
         {
             var items = NwlInterop.RequireItems(n, "InputItemList", listMember: "").ToList();
@@ -182,6 +222,7 @@ namespace Volt.Ide.Codesys
             // then quietly left every pin unnamed. So an FB call pulled as `t1( := a,  := pt)` - text that
             // does not parse, which means such a POU could be pulled and never pushed back.
             var formals = Names(NwlInterop.Get(n, "InputParams"));
+            RefusePinFlags(n, items, formals);
 
             // THE ENABLE IS INPUT SLOT 0, not the `En` member. `Box.HasEnableSlot` holds the measurement and
             // what reading it as a data pin cost; here it is two lines, and they must run BEFORE the pins are

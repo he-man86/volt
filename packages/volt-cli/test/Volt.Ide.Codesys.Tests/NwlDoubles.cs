@@ -180,6 +180,12 @@ internal static class Nwl
         /// does not have.</summary>
         public object? InputParams { get; set; } = new ParamList();
 
+        /// <summary>Per-pin modifiers, index-aligned with <see cref="InputItemList"/> (the EN slot included) — a
+        /// real member on CODESYS, where a negated FBD input can live HERE and nowhere else (measured 2026-09-26,
+        /// `scripts/probe-nwl-census-v2.py`: 6 such pins across Lenze and pro2193, the operand unflagged).
+        /// Null by default, the shape of a box with no pin modifiers.</summary>
+        public object[]? InputFlags { get; set; }
+
         /// <summary>The output side's name list, index-aligned with <see cref="Outputs"/> — present by
         /// default like the vendor's, where an operator box simply has an empty one.</summary>
         public object? OutputParams { get; set; } = new ParamList();

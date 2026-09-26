@@ -235,13 +235,22 @@ internal static class TcNetworkReader
         // one name per input ("a partial list is not something to guess at") and otherwise name nothing — but a
         // shorter `Names` is not a partial list to guess at, it is how an EXTENSIBLE operator says its trailing
         // pins are positional. Requiring equality split one project's boxes in half on that accident.
+        // A POPULATED `InputFlags` IS REFUSED BY NAME. It was null in all 22 occurrences measured here, and this
+        // used to read every pin as `Flags.None` and say "do not fix this". On CODESYS — the same object model
+        // (DIALECT N1) — the member IS populated, and six pins in two real projects keep their negation there ONLY,
+        // with the operand unflagged (census 2026-09-26, `scripts/probe-nwl-census-v2.py`); reading them as None
+        // pulled inverted logic. The populated spelling has never been seen in an archive, so it is not guessed at:
+        // anything but `<n n="InputFlags" />` refuses the body, as CODESYS's `RefusePinFlags` does.
+        var pinFlags = e.Elements().FirstOrDefault(x => (string?)x.Attribute("n") == "InputFlags");
+        if (pinFlags is not null && pinFlags.Name.LocalName != "n")
+            throw new Volt.Engine.Format.Body.UnrepresentableBodyException("a flag on a box input pin",
+                $"TwinCAT: the '{TcArchive.Str(e, "BoxType")}' box carries a populated InputFlags — a modifier on a PIN, " +
+                "which network text has no spelling for (only on what feeds it). Volt refuses to materialize the body " +
+                "rather than pull the input without it.");
+
         return items.Skip(skip)
-            // `Flags.None` IS THE READ, not a stub. The archive has an `InputFlags` member and it is ALWAYS
-            // NULL — `<n n="InputFlags" />` in all 22 occurrences across the committed fixtures and a live
-            // Lenze pull, `NegatedContact.derived.TcPOU` included. A per-pin negation rides the OPERAND
-            // instead (that fixture carries `Flags = 1` on the operand's own Flags), which is also how network
-            // text spells it — `NOT x`, a modifier on the operand, never on the pin. So there is nothing to
-            // read here; do not "fix" this by reading `InputFlags` into it.
+            // `Flags.None` because a pin with a modifier was refused above; a per-pin negation that rides the
+            // OPERAND (`NegatedContact.derived.TcPOU`: `Flags = 1` on the operand's own Flags) is read there.
             .Select((x, i) => new Input(Box.FormalAt(names, i + skip), ReadNode(x), Flags.None))
             .ToList();
     }
