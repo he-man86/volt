@@ -5,7 +5,7 @@ VAR_INPUT
 	s2			: STRING(80);			// String to add
 	bufferSize	: INT;					// bufferSize of s1
 END_VAR
-
+(* @volt-implementation *)
 SAFECONCAT2 := StrConcatA(pstFrom := ADR(s2), pstTo := s1, iBufferSize := bufferSize);
 
 END_FUNCTION

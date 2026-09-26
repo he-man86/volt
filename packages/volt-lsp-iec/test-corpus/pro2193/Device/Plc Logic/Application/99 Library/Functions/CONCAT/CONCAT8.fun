@@ -10,7 +10,7 @@ VAR_INPUT
 	s7	: STRING(255);
 	s8	: STRING(255);
 END_VAR
-
+(* @volt-implementation *)
 Stu.StrCpyA(
 	pBuffer		:= ADR(CONCAT8),
 	iBufferSize	:= 255,

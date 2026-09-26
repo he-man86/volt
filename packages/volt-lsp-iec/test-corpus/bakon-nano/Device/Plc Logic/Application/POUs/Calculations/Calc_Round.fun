@@ -24,7 +24,7 @@ VAR
 	rStepDistX 					: REAL;
 	rStepDistY 					: REAL;
 END_VAR
-
+(* @volt-implementation *)
 	rDiameterTaart	:= g_HMI_RCP_Parameters.rDiameterRound;
 	//nFirstPosFirstTray := g_sCuttingPositionsInfo.index;
 	

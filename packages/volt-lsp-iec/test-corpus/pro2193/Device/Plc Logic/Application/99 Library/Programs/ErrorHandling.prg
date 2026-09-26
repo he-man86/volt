@@ -17,7 +17,7 @@ VAR
 
 	ReadActualError				: ReadActualErrorFB;
 END_VAR
-
+(* @volt-implementation *)
 IF NOT _initialized THEN
 	Initialize();
 	_initialized := TRUE;
@@ -43,6 +43,7 @@ ReadActualError(
 END_PROGRAM
 
 METHOD PROTECTED Initialize
+(* @volt-implementation *)
 // Connect Lenze module handlers to this base module handler
 
 GlobalVars.fbModuleManager.ModuleHandler.SetParent(

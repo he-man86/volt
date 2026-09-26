@@ -11,7 +11,7 @@ VAR_OUTPUT
 	oMainDriveRun: BOOL;
 	oMainDriveJog: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD TITLE: "DONE NETWORK 1: Delay after doors closed"
   Mach1_AuxData.DelayAfterDoorsActuallyClosed := Mach1_AuxData.IEC_TIMERS.TON_DelayAfterDoorsClosed(IN := (Mach1.GenFlags.DelayAfterEmergStop AND Mach1_Safety.Status.AllDoorsActuallyClosed AND Mach1_Safety.Status.DoorsOK), PT := T#150MS);
 END_NETWORK
@@ -22,10 +22,10 @@ NETWORK 1 LD TITLE: "DONE NETWORK 2: Activating main drive"
   Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper R= (g174 AND NOT HMI_Var.Test_Prod);
   LET g175 := (g174 AND Mach1.GenFlags.EnableMainDrive AND Mach1.GenFlags.ConditionsReadyForOperation AND NOT Mach1.GenFlags.StopDriveDirect AND Mach1_AuxData.AllDrivesInLock);
   LET g176 := (g175 AND Mach1.GenFlags.RunAuto);
-  LET g1 := g176;
-  tMainDriveRun := g1;
-  oMainDriveRun := g1;
-  Mach1_Safety.Control.RequestAutoSpeed := g1;
+  LET m1 := g176;
+  tMainDriveRun := m1;
+  oMainDriveRun := m1;
+  Mach1_Safety.Control.RequestAutoSpeed := m1;
   LET en2 := Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper;
   IF en2 THEN (Mach1_Data.AUTOSPEED <= 40); END_IF
   LET en3 := ((g176 AND (NOT Mach1_AuxData.MemLowerSpeedBecauseOfNoWrapper OR en2)) AND NOT HMI_Var.Btn_Cleaning);
@@ -37,10 +37,10 @@ NETWORK 1 LD TITLE: "DONE NETWORK 2: Activating main drive"
   LET en6 := (g176 AND HMI_Var.Btn_Cleaning);
   IF en6 THEN tInt := MOVE(6); END_IF
   LET g177 := (g175 AND Mach1.GenFlags.RunMan);
-  LET g2 := g177;
-  tMainDriveJog := g2;
-  oMainDriveJog := g2;
-  Mach1_Safety.Control.RequestManSpeed := g2;
+  LET m2 := g177;
+  tMainDriveJog := m2;
+  oMainDriveJog := m2;
+  Mach1_Safety.Control.RequestManSpeed := m2;
   LET en7 := g177;
   IF en7 THEN tInt := MOVE(Mach1_Data.MANUALSPEED); END_IF
   RPM_To_DriveSpeed(g174, tInt, oDriveSpeed => Mach1_Data.Drives.MainDrive_VM.Control.DriveMasterSpeed);

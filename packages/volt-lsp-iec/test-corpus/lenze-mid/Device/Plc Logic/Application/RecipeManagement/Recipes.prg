@@ -18,7 +18,7 @@ VAR
 	{attribute 'symbol':='readwrite'}
 	sActiveRecipe: STRING;				// Recommended to make Retain
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 FBD
   L_RecipeManager1(xEnable := TRUE, sDatabaseName := 'Recipes', sRecipeName := sRecipeName, xRecipe_Delete := xDelete, xRecipe_Load := xLoad, xRecipe_Save := xSave, xRecipe_SaveAs := xSaveAs, sActiveRecipe := sActiveRecipe, sRecipeNames => sRecipeNames, dwReturnValue => dwReturnValue);
 END_NETWORK

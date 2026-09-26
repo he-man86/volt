@@ -14,17 +14,19 @@ VAR
 		StatePlacingLabelsDone				:= 200
 	) DINT;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Cyclic
+(* @volt-implementation *)
 State(actState	:= ActState);
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
@@ -33,6 +35,7 @@ END_METHOD
 
 // After a state change, this method is called to execute the current state
 METHOD PROTECTED Execute
+(* @volt-implementation *)
 CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 	enumExchangeSets.Default:
 		Execute_Sequence1();
@@ -48,6 +51,7 @@ END_CASE
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence1
+(* @volt-implementation *)
 CASE ActState OF
 	StateNone:
 		;
@@ -67,6 +71,7 @@ METHOD StartCommand : BOOL
 VAR_INPUT
 	iParameter : INT;
 END_VAR
+(* @volt-implementation *)
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
 END_IF
@@ -88,6 +93,7 @@ END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;

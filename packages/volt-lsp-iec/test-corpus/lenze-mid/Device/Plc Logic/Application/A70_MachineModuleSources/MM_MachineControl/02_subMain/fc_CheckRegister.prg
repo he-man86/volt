@@ -1,7 +1,7 @@
 PROGRAM fc_CheckRegister
 VAR
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD TITLE: "NETWORK 1: Shift CheckRegister"
   fc_ShiftRegister(db_CheckRegister.Positie);
 END_NETWORK

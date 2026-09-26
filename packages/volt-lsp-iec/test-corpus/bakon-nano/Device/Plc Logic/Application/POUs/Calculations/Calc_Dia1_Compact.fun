@@ -102,7 +102,7 @@ VAR
 	bCalcRoundF : BOOL ;
 
 END_VAR
-
+(* @volt-implementation *)
 (* If slab diagonal or triangle *)
 Calc_Dia1_Compact := FALSE;
 bToggle	:= FALSE;

@@ -6,7 +6,7 @@ EXTENDS DigitalSensorFB
 VAR
 	Trigger			: TriggerFB;
 END_VAR
-
+(* @volt-implementation *)
 Trigger.Call(CLK := SensorInput = NOT _isInverted);
 
 END_FUNCTION_BLOCK
@@ -16,6 +16,7 @@ GET
 PUBLIC
 VAR
 END_VAR
+(* @volt-implementation *)
 Falling := Trigger.Q_Falling;
 END_GET
 END_PROPERTY
@@ -25,6 +26,7 @@ GET
 PUBLIC
 VAR
 END_VAR
+(* @volt-implementation *)
 Rising := Trigger.Q_Rising;
 END_GET
 END_PROPERTY

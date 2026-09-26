@@ -54,7 +54,7 @@ VAR
 
 	wCount: WORD;
 END_VAR
-
+(* @volt-implementation *)
 //*********************************************************************************************************	
 //Assignments of user program structure to internal library structures
 //*********************************************************************************************************	
@@ -84,6 +84,7 @@ call_OEE_Input_IF();
 END_PROGRAM
 
 ACTION act_Assign_Errors_01_09
+(* @volt-implementation *)
 
 wCount:=1;
 GVL_FirstErrCapture.ascErrorInfo[wCount].xError:=Mach1_Alarms.Alm001;
@@ -150,6 +151,7 @@ GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='Error in safety system';
 END_ACTION
 
 ACTION act_Assign_Errors_10_19
+(* @volt-implementation *)
 
 wCount:=10;
 GVL_FirstErrCapture.ascErrorInfo[wCount].xError:=Mach1_Alarms.Alm010;
@@ -223,6 +225,7 @@ GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='Selector Manual/Auto ATF'
 END_ACTION
 
 ACTION act_Assign_Errors_20_29
+(* @volt-implementation *)
 
 wCount:=1;
 GVL_FirstErrCapture.ascErrorInfo[wCount].xError:=Mach1_Alarms.Alm020;
@@ -296,6 +299,7 @@ GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='_';
 END_ACTION
 
 ACTION act_Assign_Errors_30_39
+(* @volt-implementation *)
 
 wCount:=1;
 GVL_FirstErrCapture.ascErrorInfo[wCount].xError:=Mach1_Alarms.Alm030;
@@ -369,6 +373,7 @@ GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='_';
 END_ACTION
 
 ACTION act_Assign_Errors_40_49
+(* @volt-implementation *)
 
 wCount:=1;
 GVL_FirstErrCapture.ascErrorInfo[wCount].xError:=Mach1_Alarms.Alm040;
@@ -442,6 +447,7 @@ GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='Dryer opened';
 END_ACTION
 
 ACTION act_Assign_Errors_50_59
+(* @volt-implementation *)
 
 wCount:=1;
 GVL_FirstErrCapture.ascErrorInfo[wCount].xError:=Mach1_Alarms.Alm050;
@@ -515,6 +521,7 @@ GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='Inpusher trayfiller block
 END_ACTION
 
 ACTION act_Assign_Errors_60_69
+(* @volt-implementation *)
 
 wCount:=1;
 GVL_FirstErrCapture.ascErrorInfo[wCount].xError:=Mach1_Alarms.Alm060;
@@ -588,6 +595,7 @@ GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='_';
 END_ACTION
 
 ACTION act_Assign_Errors_70_79
+(* @volt-implementation *)
 
 wCount:=1;
 GVL_FirstErrCapture.ascErrorInfo[wCount].xError:=Mach1_Alarms.Alm070;
@@ -661,6 +669,7 @@ GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='_';
 END_ACTION
 
 ACTION act_Assign_Errors_80_89
+(* @volt-implementation *)
 
 wCount:=1;
 GVL_FirstErrCapture.ascErrorInfo[wCount].xError:=Mach1_Alarms.Alm080;
@@ -734,6 +743,7 @@ GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='Door 7';
 END_ACTION
 
 ACTION act_Assign_Errors_90_100
+(* @volt-implementation *)
 
 wCount:=1;
 GVL_FirstErrCapture.ascErrorInfo[wCount].xError:=Mach1_Alarms.Alm090;
@@ -814,6 +824,7 @@ GVL_FirstErrCapture.ascAddErrorInfo[wCount].sErrDesc:='_';
 END_ACTION
 
 ACTION act_Assign_OEE_Inputs_Constants
+(* @volt-implementation *)
 //*********************************************************************************************************		
 // In this action all OEE application based Input variable has to be assign from the machine program
 //
@@ -869,6 +880,7 @@ GVL_OEE_Var.scMachinedata.scProduction.eOEEPartTargetMode := L_OEEA_Lib.enumOEEP
 END_ACTION
 
 ACTION act_Assign_OEE_Inputs_Production_Data
+(* @volt-implementation *)
 //*********************************************************************************************************		
 // In this action all OEE application based Input variable has to be assign from the machine program
 //
@@ -991,6 +1003,7 @@ GVL_OEE_Var.scMachineData.scProductData.diPartID := GVL_OEE_Var.diUniquePartID;
 END_ACTION
 
 ACTION act_Assign_OEE_Properties
+(* @volt-implementation *)
 //***********************************************************************************************************
 // Set / Reset Properties ; 
 //***********************************************************************************************************
@@ -1006,6 +1019,7 @@ fbOEE_Input_IF.xLaterShiftStartEnableDisable := xLaterShiftStartEnabled;
 END_ACTION
 
 ACTION call_OEE_Input_IF
+(* @volt-implementation *)
 NETWORK 0 FBD
   // //**********************************************************************************************************************************************************
   // // Call up L_OEE_Input_IF for OEE KPI calculation, Downtime & Production state Tracking

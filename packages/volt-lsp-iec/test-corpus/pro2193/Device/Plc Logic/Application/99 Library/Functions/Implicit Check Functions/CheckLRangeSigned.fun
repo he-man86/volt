@@ -3,7 +3,7 @@ FUNCTION CheckLRangeSigned : LINT
 VAR_INPUT
 	value, lower, upper : LINT;
 END_VAR
-
+(* @volt-implementation *)
 IF value >= lower AND value <= upper THEN
 	CheckLRangeSigned := value;
 ELSE

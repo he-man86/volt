@@ -5,6 +5,7 @@ PROGRAM BitLogic
 VAR
 	uInput		: PointerSizesUnion;
 END_VAR
+(* @volt-implementation *)
 
 END_PROGRAM
 
@@ -15,6 +16,7 @@ VAR_INPUT
 END_VAR
 
 // This method uses Brian Kernighan's algorithm. Google it for more info.
+(* @volt-implementation *)
 WHILE in <> 0 DO
 	in			:= in AND (in - 1);		// Subtracting 1 from a number flips all the bits after the rightmost set bit, including the rightmost set bit itself
 	CountByte	:= CountByte + 1;
@@ -28,6 +30,7 @@ VAR_INPUT
 END_VAR
 
 // This method uses Brian Kernighan's algorithm. Google it for more info.
+(* @volt-implementation *)
 WHILE in <> 0 DO
 	in			:= in AND (in - 1);
 	CountDWord	:= CountDWord + 1;
@@ -41,6 +44,7 @@ VAR_INPUT
 END_VAR
 
 // This method uses Brian Kernighan's algorithm. Google it for more info.
+(* @volt-implementation *)
 WHILE in <> 0 DO
 	in			:= in AND (in - 1);
 	CountWord	:= CountWord + 1;
@@ -53,6 +57,7 @@ VAR_INPUT
 	in	: ANY_INT;		// extract bit from this integer
 	N	: USINT(0..63);	// position of bit on the nth position from right (right is lowest bit)
 END_VAR
+(* @volt-implementation *)
 ValidateInput(in.diSize, N);
 
 uInput.p1_Byte := in.pValue;
@@ -73,6 +78,7 @@ VAR_INPUT
 END_VAR
 
 // This is a separate method from Extract(), because ANY_INT cannot be a reference.
+(* @volt-implementation *)
 ExtractFromByte := (SHR(in,	N) AND 16#00000001) > 0;
 END_METHOD
 
@@ -84,6 +90,7 @@ VAR_INPUT
 END_VAR
 
 // This is a separate method from Extract(), because ANY_INT cannot be a reference.
+(* @volt-implementation *)
 ExtractFromDWord := (SHR(in, N) AND 16#00000000_00000000_00000000_00000001) > 0;
 END_METHOD
 
@@ -95,6 +102,7 @@ VAR_INPUT
 END_VAR
 
 // This is a separate method from Extract(), because ANY_INT cannot be a reference.
+(* @volt-implementation *)
 ExtractFromWord := (SHR(in, N) AND 16#00000000_00000001) > 0;
 END_METHOD
 
@@ -105,6 +113,7 @@ VAR_INPUT
 	val	: BOOL;			// The value to set
 	N	: USINT(0..63);	// position of bit on the nth position from right (right is lowest bit)
 END_VAR
+(* @volt-implementation *)
 ValidateInput(in.diSize, N);
 
 uInput.p1_Byte := in.pValue;
@@ -126,6 +135,7 @@ VAR_INPUT
 END_VAR
 
 // This is a separate method from Load(), because ANY_INT cannot be a reference.
+(* @volt-implementation *)
 LoadToByte	:= TO_BYTE(Util.PUTBIT(
 						X	:= in,
 						N	:= N,
@@ -141,6 +151,7 @@ VAR_INPUT
 END_VAR
 
 // This is a separate method from Load(), because ANY_INT cannot be a reference.
+(* @volt-implementation *)
 LoadToDWord	:= Util.PUTBIT(
 						X	:= in,
 						N	:= N,
@@ -156,6 +167,7 @@ VAR_INPUT
 END_VAR
 
 // This is a separate method from Load(), because ANY_INT cannot be a reference.
+(* @volt-implementation *)
 LoadToWord	:= TO_WORD(Util.PUTBIT(
 						X	:= in,
 						N	:= N,
@@ -168,6 +180,7 @@ VAR_INPUT
 	in	: ANY_INT;		// extract bit from this integer
 	N	: USINT(0..63);	// position of bit on the nth position from right (right is lowest bit)
 END_VAR
+(* @volt-implementation *)
 ValidateInput(in.diSize, N);
 
 uInput.p1_Byte := in.pValue;
@@ -185,6 +198,7 @@ VAR_INPUT
 	diSize	: DINT;
 	N		: USINT;
 END_VAR
+(* @volt-implementation *)
 IF diSize = 1 AND N > 7
 OR diSize = 2 AND N > 15
 OR diSize = 4 AND N > 31

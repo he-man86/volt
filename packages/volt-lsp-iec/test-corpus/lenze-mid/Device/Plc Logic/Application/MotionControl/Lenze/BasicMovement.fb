@@ -24,7 +24,7 @@ END_VAR
 VAR_IN_OUT
 	ioSlaveAxis						: AXIS_REF; 
 END_VAR
-
+(* @volt-implementation *)
 
 ReadInputs();
 BasicMotionParameters();
@@ -47,6 +47,7 @@ END_VAR
 VAR
 	
 END_VAR
+(* @volt-implementation *)
 
 R_TRIG_TP(CLK:=TouchProbeSensor , Q=> );
 
@@ -192,6 +193,7 @@ END_METHOD
 METHOD BasicMotionParameters
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 //General
 //ioSlaveAxis.scPar.WindowStandStill:=i_lrWindowStandstill;
 //ioSlaveAxis.scPar.JoggingSetVel:=i_lrJogVel;
@@ -211,6 +213,7 @@ END_VAR
 VAR
 
 END_VAR
+(* @volt-implementation *)
 
 BrakeInterface(
 	Axis:= ioSlaveAxis, 
@@ -234,6 +237,7 @@ END_METHOD
 METHOD ReadInputs 
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 
 //activate internal control
 IF NOT internalControl THEN
@@ -255,6 +259,7 @@ END_VAR
 VAR
 
 END_VAR
+(* @volt-implementation *)
 
 //Max torque on the axis. If the machine doesn't stop due to a programming error, this part ensures that the torque never gets too high. 
 TorqueLimit(											
@@ -304,6 +309,7 @@ END_VAR
 VAR_INST
 
 END_VAR
+(* @volt-implementation *)
 
 
 ioDataExchange.Status.DriveCommAlive				:= ioSlaveAxis.xCommunicationOK;

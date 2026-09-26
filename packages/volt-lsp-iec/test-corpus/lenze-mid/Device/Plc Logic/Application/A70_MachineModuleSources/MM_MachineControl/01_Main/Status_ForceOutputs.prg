@@ -1,7 +1,7 @@
 PROGRAM Status_ForceOutputs
 VAR
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD
   LET g9 := TRUE;
   LET en1 := g9;

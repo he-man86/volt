@@ -11,7 +11,7 @@ VAR
 	rr: REAL;
 	ss: REAL;
 END_VAR
-
+(* @volt-implementation *)
 
 
 

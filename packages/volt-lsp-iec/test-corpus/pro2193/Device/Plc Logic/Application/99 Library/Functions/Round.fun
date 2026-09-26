@@ -18,7 +18,7 @@ this function rounds a real down to n digits behind the comma.
 
 
 *)
-
+(* @volt-implementation *)
 CASE N OF
 	0:	X := 1.0;
 	1:	X := 10.0;

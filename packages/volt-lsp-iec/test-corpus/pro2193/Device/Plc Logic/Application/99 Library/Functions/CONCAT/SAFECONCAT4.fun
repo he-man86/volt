@@ -7,7 +7,7 @@ VAR_INPUT
 	s4			: STRING(80);			// Third string to add
 	bufferSize	: INT;					// bufferSize of s1
 END_VAR
-
+(* @volt-implementation *)
 IF						StrConcatA(pstFrom := ADR(s2), pstTo := s1, iBufferSize := bufferSize) THEN
 	IF					StrConcatA(pstFrom := ADR(s3), pstTo := s1, iBufferSize := bufferSize) THEN
 		SAFECONCAT4 :=	StrConcatA(pstFrom := ADR(s4), pstTo := s1, iBufferSize := bufferSize);

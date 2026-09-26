@@ -7,7 +7,7 @@ VAR
 	CommandLock					: LockFB;		// Internal lock. Lock hardware unit when a command is active
 	ProcessCommandLock			: LockFB;		// External lock from the process. So a process can claim a hardware unit for itself
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 Alarms();	// Handle custom alarms that are not defined in the FB's called in Cyclic()
@@ -15,6 +15,7 @@ Alarms();	// Handle custom alarms that are not defined in the FB's called in Cyc
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
+(* @volt-implementation *)
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
@@ -43,6 +44,7 @@ EStop := Drive.Standstill OR NOT Drive.AxisEnabled;
 EStop := TRUE;
 
  *)
+(* @volt-implementation *)
 CommandLock.ForceRelease();
 ProcessCommandLock.ForceRelease();
 
@@ -51,6 +53,7 @@ END_METHOD
 
 // Force releasing the lock
 METHOD LockForceRelease
+(* @volt-implementation *)
 ProcessCommandLock.ForceRelease();
 END_METHOD
 
@@ -59,6 +62,7 @@ METHOD PUBLIC LockRelease : BOOL
 VAR_INPUT
 	locker		: STRING(80);		// The module that is releasing the lock
 END_VAR
+(* @volt-implementation *)
 LockRelease		:= ProcessCommandLock.Release(locker);
 END_METHOD
 
@@ -67,11 +71,13 @@ METHOD PUBLIC LockRequest : BOOL
 VAR_INPUT
 	locker		: STRING(80);		// The module that is requesting the lock
 END_VAR
+(* @volt-implementation *)
 LockRequest		:= ProcessCommandLock.Request(locker);
 END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 CommandLock.ForceRelease();
 ProcessCommandLock.ForceRelease();
 

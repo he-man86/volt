@@ -22,7 +22,7 @@ VAR CONSTANT
 	rMaxChargingTime		: REAL	:= 1.0;		// Max duration of charger output (in sec.)
 	iMaxCyclesBadCharge		: USINT	:= 3;		// Sound alarm when input check fails for this many cycles.
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 IF T_MaxChargerTime.Set(In := Output.Map(), Pt := rMaxChargingTime) THEN
@@ -34,6 +34,7 @@ rLabelChargedOkTime := NeedChargeTime.Measure(In := Output.Map() AND NOT xCharge
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
+(* @volt-implementation *)
 ChargerFaultAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= textRefId,
@@ -54,6 +55,7 @@ VAR_INPUT
 	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
+(* @volt-implementation *)
 IF plusButtonPushed THEN
 	Set();
 END_IF
@@ -65,11 +67,13 @@ END_METHOD
 
 // Maps the actuator to the physical output
 METHOD Map : BOOL
+(* @volt-implementation *)
 Map := Output.Map();
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD MapAnalogOut : WORD
+(* @volt-implementation *)
 IF xAutoCycleActive OR Output.Map() THEN
 	MapAnalogOut	:= RANGE_TO_WORD(input := rSetPointCharger.value, input_LO := 0.0, input_HI := rSetPointCharger.upperLimit);
 ELSE
@@ -79,6 +83,7 @@ END_METHOD
 
 // Reset the output (=False)
 METHOD Reset
+(* @volt-implementation *)
 // Check if the charger is turned on
 IF Output.Map() THEN
 	// If the input is high when the charger is turned off, the label was charged enough.
@@ -94,6 +99,7 @@ END_METHOD
 
 // Set the output (=True)
 METHOD Set : BOOL
+(* @volt-implementation *)
 IF T_MaxChargerTime.Q THEN
 	RETURN;
 END_IF
@@ -110,6 +116,7 @@ METHOD SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+(* @volt-implementation *)
 IF xValue THEN
 	Set();
 ELSE

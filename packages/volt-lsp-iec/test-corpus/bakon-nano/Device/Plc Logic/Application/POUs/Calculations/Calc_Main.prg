@@ -7,7 +7,7 @@ VAR
 	n : INT;
 	m : INT;
 END_VAR
-
+(* @volt-implementation *)
 IF g_bCalculationStart AND NOT g_bCalculationDone
 THEN
 	Calc_Init();

@@ -22,7 +22,7 @@ VAR
 	) DINT;
 
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -36,6 +36,7 @@ VAR_INST
 	xuUnitVacuum		: WORD;
 	product				: ProductType;
 END_VAR
+(* @volt-implementation *)
 // Xu unit has vacuum high that is needed for this Takeover position
 xuUnitVacuum	:= 0;
 CASE iParameter OF
@@ -86,11 +87,13 @@ END_CASE
 END_METHOD
 
 METHOD PROTECTED Cyclic
+(* @volt-implementation *)
 State(actState	:= ActState);
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
@@ -102,6 +105,7 @@ METHOD PUBLIC ExecuteTransfer : BOOL
 VAR_INPUT
 	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
+(* @volt-implementation *)
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
 END_IF
@@ -127,6 +131,7 @@ VAR_INST
 	result				: ARRAY[1..2] OF BOOL;
 	almostSafe			: BOOL;
 END_VAR
+(* @volt-implementation *)
 CASE ActState OF
 	StateNone:
 		;
@@ -303,6 +308,7 @@ METHOD PUBLIC PrepareTransfer : BOOL
 VAR_INPUT
 	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
+(* @volt-implementation *)
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
 END_IF
@@ -318,6 +324,7 @@ END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
@@ -330,6 +337,7 @@ PROPERTY TransferBusy : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 TransferBusy	:= ActState <> StateNone;
 END_GET
 END_PROPERTY

@@ -14,7 +14,7 @@ VAR_OUTPUT
 	bit7			: BIT;
 	bit8			: BIT;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 IF __ISVALIDREF(sliceInfo) THEN

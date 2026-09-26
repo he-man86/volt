@@ -10,7 +10,7 @@ END_VAR
 VAR
 
 END_VAR
-
+(* @volt-implementation *)
 
 
 

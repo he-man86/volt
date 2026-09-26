@@ -3,7 +3,7 @@ VAR
 	bStartPressed		: BOOL;
 	tonDelayStartButton : TON;
 END_VAR
-
+(* @volt-implementation *)
 (*TODO: IO Direct aan Station IO Hangen*)
 //The quick brown fox jumps over the lazy dog
 

@@ -16,7 +16,7 @@ VAR
 	SMC3_ReinitAxis_4: L_MC1P_ReinitNode;
 	TonRestart : TON;
 END_VAR
-
+(* @volt-implementation *)
 TonRestart(IN:= g_bResetMaster AND g_HMI_MachCommand.CMD.bResetErrorPulse,PT:=T#0S);
 IF TonRestart.Q THEN
 	xECATRestart := TRUE;

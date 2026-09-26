@@ -65,7 +65,7 @@ VAR
 
 	InAutomaticOperationTrigger	: TriggerFB;
 END_VAR
-
+(* @volt-implementation *)
 Initialize();
 PackML();
 Cyclic();
@@ -80,6 +80,7 @@ END_PROGRAM
 // are cleared, or safe correction of an equipment fault before the
 // production may be resumed.
 METHOD PRIVATE Aborted
+(* @volt-implementation *)
 %FOLDER PackML States
 // Wait for user input, e.g. button press
 
@@ -100,6 +101,7 @@ VAR_INST
 	eStopResult		: ARRAY[1..GVL_Constants_BFU.MaxNumberOfModules] OF BOOL;
 	EStopTimeout	: BTON;
 END_VAR
+(* @volt-implementation *)
 %FOLDER PackML States
 // EStop requested
 
@@ -142,6 +144,7 @@ END_IF
 END_METHOD
 
 METHOD PRIVATE Alarms
+(* @volt-implementation *)
 //SetError[1](
 //	moduleHandler	:= ModuleHandler,
 //	textRefId		:= BFU_Errors,
@@ -196,6 +199,7 @@ END_METHOD
 
 // Acting State
 METHOD PRIVATE Clearing
+(* @volt-implementation *)
 %FOLDER PackML States
 // No actions needed here
 
@@ -204,6 +208,7 @@ END_METHOD
 
 // Wait State – A stable state, the SER has achieved a defined set of conditions.
 METHOD PRIVATE Completed
+(* @volt-implementation *)
 %FOLDER PackML States
 BfuButtons.StartCycle.Off();
 Stacklight.Green.Off();
@@ -222,6 +227,7 @@ END_VAR
 VAR_INST
 	completeResult	: ARRAY[1..GVL_Constants_BFU.MaxNumberOfStartableModules] OF BOOL;
 END_VAR
+(* @volt-implementation *)
 %FOLDER PackML States
 // End cycle is requested
 // Wait here for the BFU to finish the last cycle(s)
@@ -273,6 +279,7 @@ VAR_INST
 	ResetError						: L_IE1P.L_IE1P_ResetError;
 
 END_VAR
+(* @volt-implementation *)
 MainAirValve();
 Stacklight();
 WorkingLights();
@@ -459,6 +466,7 @@ END_METHOD
 
 // Acting State - The unit/machine is in a stable acting state - unit/machine is producing.
 METHOD PRIVATE Execute
+(* @volt-implementation *)
 %FOLDER PackML States
 IF OperationMode = SER_OperationModeType.SemiAuto
 THEN
@@ -490,6 +498,7 @@ END_METHOD
 // are cleared, or safe correction of an equipment fault before the
 // production may be resumed.
 METHOD PRIVATE Held
+(* @volt-implementation *)
 %FOLDER PackML States
 // Wait for reset button ????
 
@@ -500,6 +509,7 @@ END_METHOD
 
 // Acting State
 METHOD PRIVATE Holding
+(* @volt-implementation *)
 %FOLDER PackML States
 // An error has occured, or a pause is requested
 // Halt the BFU cycle
@@ -509,6 +519,7 @@ END_METHOD
 
 // Wait State – A stable state, the BFU has achieved a defined set of conditions.
 METHOD PRIVATE Idle
+(* @volt-implementation *)
 %FOLDER PackML States
 currentOperationMode.Start();		// State change to: Starting		<-- Press F12 here
 END_METHOD
@@ -518,6 +529,7 @@ VAR_INST
 	{attribute 'init_on_onlchange'}
 	xInitialized	: BOOL;
 END_VAR
+(* @volt-implementation *)
 IF xInitialized THEN
 	RETURN;
 END_IF
@@ -564,6 +576,7 @@ xInitialized := TRUE;
 END_METHOD
 
 METHOD PRIVATE PackML
+(* @volt-implementation *)
 State(actState := TO_DINT(ActState));
 
 CASE ActState OF
@@ -603,6 +616,7 @@ VAR_INST
 	startCondition	: ARRAY[1..GVL_Constants.MaxNumberOfResettableModules, 1..2] OF BOOL;
 	resetResult		: ARRAY[1..GVL_Constants.MaxNumberOfResettableModules] OF BOOL;
 END_VAR
+(* @volt-implementation *)
 %FOLDER PackML States
 // Homing button was pushed
 // All axes find the zero positions
@@ -711,6 +725,7 @@ VAR_INST
 	startCondition	: ARRAY[1..GVL_Constants.MaxNumberOfStartableModules] OF BOOL;
 	startResult		: ARRAY[1..GVL_Constants.MaxNumberOfStartableModules] OF BOOL;
 END_VAR
+(* @volt-implementation *)
 %FOLDER PackML States
 IF State.Changed THEN
 	BfuButtons.StartCycle.Solid();
@@ -771,6 +786,7 @@ END_METHOD
 
 // Wait State – A stable state, the SER has achieved a defined set of conditions.
 METHOD PRIVATE Stopped
+(* @volt-implementation *)
 %FOLDER PackML States
 // SER is just started up, or moved in manual mode.
 // Wait for 'Home' button
@@ -830,6 +846,7 @@ END_VAR
 VAR_INST
 	stopResult		: ARRAY[1..GVL_Constants.MaxNumberOfModules] OF BOOL;
 END_VAR
+(* @volt-implementation *)
 %FOLDER PackML States
 // Stop requested
 // Wait for standstill
@@ -889,6 +906,7 @@ METHOD PRIVATE Suspended
 VAR_INST
 	Timer:BTON;
 END_VAR
+(* @volt-implementation *)
 %FOLDER PackML States
 IF NOT SER.InAutomaticOperation THEN
 	BfuButtons.EndCycle.Flash();
@@ -914,6 +932,7 @@ END_METHOD
 
 // Acting State
 METHOD PRIVATE Suspending
+(* @volt-implementation *)
 %FOLDER PackML States
 // The SER is not in Automatic operation
 // Halt the BFU cycle
@@ -926,6 +945,7 @@ END_METHOD
 
 // Acting State
 METHOD PRIVATE UnHolding
+(* @volt-implementation *)
 %FOLDER PackML States
 // Resume the BFU cycle.
 // No actions needed here
@@ -935,6 +955,7 @@ END_METHOD
 
 // Acting State
 METHOD PRIVATE UnSuspending
+(* @volt-implementation *)
 %FOLDER PackML States
 // Resume the BFU cycle.
 // No actions needed here
@@ -951,6 +972,7 @@ PROPERTY ActState : PACK_ML.State
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 IF currentOperationMode <> 0 THEN
 	ActState := currentOperationMode.CurrentState;
 ELSE
@@ -966,6 +988,7 @@ PROPERTY PUBLIC InAutomaticOperation : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 InAutomaticOperation := InAutomaticOperationTrigger.xEdge;
 END_GET
 END_PROPERTY
@@ -976,6 +999,7 @@ PROPERTY PUBLIC InAutomaticOperation_Falling : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 InAutomaticOperation_Falling := InAutomaticOperationTrigger.Q_Falling;
 END_GET
 END_PROPERTY
@@ -986,6 +1010,7 @@ PROPERTY PUBLIC InAutomaticOperation_Rising : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 InAutomaticOperation_Rising := InAutomaticOperationTrigger.Q_Rising;
 END_GET
 END_PROPERTY
@@ -997,6 +1022,7 @@ PROPERTY PUBLIC ManualControlEnabled : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ManualControlEnabled	:= NOT GlobalVars.EmergencyStopActive
 						AND ActState = PACK_ML.State.Stopped OR ActState = PACK_ML.State.Idle
 						AND xGatesAreClosed
@@ -1011,11 +1037,13 @@ PROPERTY PUBLIC OperationMode : SER_OperationModeType
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 OperationMode := _operationMode;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _operationMode := OperationMode;
 END_SET
 END_PROPERTY
@@ -1026,6 +1054,7 @@ PROPERTY PUBLIC SemiAutoNextStep : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 IF OperationMode = SER_OperationModeType.SemiAuto
 THEN
 

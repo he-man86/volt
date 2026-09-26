@@ -34,7 +34,7 @@ VAR
 	dLeft			: REAL;
 	dRight			: REAL;
 END_VAR
-
+(* @volt-implementation *)
 
 //Check if the left and right margins make any sense
 IF settings.marginXMax <= settings.marginXMin THEN

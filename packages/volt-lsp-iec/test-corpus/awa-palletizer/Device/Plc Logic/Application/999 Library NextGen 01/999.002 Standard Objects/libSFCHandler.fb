@@ -21,7 +21,7 @@ VAR
 	// Error
 	ALM_Error : L_IE1P_SetErrorSingle;
 END_VAR
-
+(* @volt-implementation *)
 //------------------------------------------------------------------------------------------
 // General object definition.
 //

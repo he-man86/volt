@@ -12,7 +12,7 @@ VAR
 	colorOff		: enumColorList		:= enumColorList.Silver;
 	colorPushed		: enumColorList		:= enumColorList.Black;
 END_VAR
-
+(* @volt-implementation *)
 // Illuminate button while pressed down
 IF button THEN
 	Override();
@@ -43,6 +43,7 @@ SUPER^();
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED CallTrigger
+(* @volt-implementation *)
 Trig_Pushed.Call(CLK := buttonInput OR button);
 END_METHOD
 
@@ -53,6 +54,7 @@ VAR_INPUT
 	colorOff		: enumColorList		:= enumColorList.Silver;
 	colorPushed		: enumColorList		:= enumColorList.Black;
 END_VAR
+(* @volt-implementation *)
 THIS^.colorOn			:= colorOn;
 THIS^.colorOff			:= colorOff;
 THIS^.colorPushed		:= colorPushed;

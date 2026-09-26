@@ -23,7 +23,7 @@ VAR CONSTANT
 	MaxBlowBetweenLabels		: USINT	:= 2;
 	itfVacuums					: ARRAY[1..MaxVacuums] OF IVacuum :=[Vacuum[1]];
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -32,6 +32,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..1] OF SetErrorFB;
 END_VAR
+(* @volt-implementation *)
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= MagazineBase_Errors,
@@ -47,6 +48,7 @@ METHOD PROTECTED Cyclic
 VAR
 	i	: USINT;
 END_VAR
+(* @volt-implementation *)
 CycleTime[1](in := FALSE,	timeElapsed => rTimeActive,		timeMeasurement => );
 CycleTime[2](in := FALSE,	timeElapsed => rTimeIdle,		timeMeasurement => );
 
@@ -75,6 +77,7 @@ END_METHOD
 METHOD PUBLIC DelayBeforeReleaseLabels : BOOL
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Transfer
 IF ActState = enumMagazineState.None
 OR ActState = enumMagazineState.ReadyWithLabels
@@ -94,6 +97,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 ActState := enumMagazineState.None;
 
@@ -110,6 +114,7 @@ END_METHOD
 
 // After a state change, this method is called to execute the current state
 METHOD PUBLIC Execute
+(* @volt-implementation *)
 CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 	ExchangeSets.Default:
 		Execute_Sequence1();
@@ -125,6 +130,7 @@ METHOD PROTECTED Execute_Sequence1
 VAR_INST
 	Timer	: BTON;
 END_VAR
+(* @volt-implementation *)
 IF xEntryActionActive THEN
 	Timer.Reset();
 END_IF
@@ -217,6 +223,7 @@ END_CASE
 END_METHOD
 
 METHOD PROTECTED GetAllLabels : BOOL
+(* @volt-implementation *)
 %FOLDER States
 FOR i := 1 TO MaxVacuums DO
 	Vacuum[i].Set();
@@ -231,6 +238,7 @@ END_METHOD
 METHOD PUBLIC GetNewLabels : BOOL
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 // Ook met labels mag er een nieuw label gehaald worden. Bestaande labels worden afgeblazen.
 
@@ -250,6 +258,7 @@ METHOD PUBLIC MoveToTakeover : BOOL
 VAR_INPUT
 	iParameter : INT;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Transfer
 IF ActState = enumMagazineState.None
 OR ActState = enumMagazineState.ReadyWithLabels
@@ -271,6 +280,7 @@ END_METHOD
 
 {warning 'Add method implementation '}
 METHOD MoveToWaitingPos : BOOL
+(* @volt-implementation *)
 %FOLDER Commands/Supply
 END_METHOD
 
@@ -279,6 +289,7 @@ METHOD PUBLIC ReleaseLabels : BOOL
 VAR_INPUT
 	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Supply
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -298,6 +309,7 @@ END_IF
 END_METHOD
 
 METHOD PROTECTED ReleasingLabels
+(* @volt-implementation *)
 %FOLDER States
 IF iCommandParameter = 0 THEN
 	IF Arrays.Vacuum_ReleaseAll(itfVacuums) THEN
@@ -315,6 +327,7 @@ END_METHOD
 
 // Command to reset the module. Servodrives are homed.
 METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+(* @volt-implementation *)
 %FOLDER Commands
 IF ActState = enumMagazineState.None
 OR ActState = enumMagazineState.ReadyWithLabels
@@ -333,6 +346,7 @@ Reset := xCommandDone;
 END_METHOD
 
 METHOD PROTECTED Resetting_1
+(* @volt-implementation *)
 %FOLDER States
 IF xEntryActionActive THEN
 	FOR i := 1 TO MaxBlowBetweenLabels DO
@@ -348,6 +362,7 @@ END_IF
 END_METHOD
 
 METHOD PROTECTED Resetting_2
+(* @volt-implementation *)
 %FOLDER States
 IF motors.Reset() THEN
 
@@ -360,6 +375,7 @@ END_IF
 END_METHOD
 
 METHOD PUBLIC SetDefaultData
+(* @volt-implementation *)
 %FOLDER Commands
 Data.rPreReleaseLabelsDelay			:= 0.0;
 Data.rPostReleaseLabelsDelay		:= 0.05;
@@ -381,6 +397,7 @@ END_VAR
 VAR
 	i				: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Supply
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -410,6 +427,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 IF  ActState <> enumMagazineState.None
 AND ActState <> enumMagazineState.ReadyWithLabels
@@ -437,6 +455,7 @@ METHOD PUBLIC TransferComplete : BOOL
 VAR_INPUT
 	iParameter : INT := 0;	// Number indicates which transfer is completed
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF ActState = enumMagazineState.None AND NOT xCommandDone THEN
 
@@ -463,12 +482,14 @@ PROPERTY AnotherLabelNeeded : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 AnotherLabelNeeded := _anotherLabelNeeded;
 END_GET
 SET
 PRIVATE
 VAR
 END_VAR
+(* @volt-implementation *)
 _anotherLabelNeeded := AnotherLabelNeeded;
 END_SET
 END_PROPERTY
@@ -480,6 +501,7 @@ PROPERTY ExternalManualControlEnabled : BOOL
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 motors.ExternalManualControlEnabled		:= ExternalManualControlEnabled;
 END_SET
 END_PROPERTY
@@ -491,6 +513,7 @@ PROPERTY HasPayload : enumPayload
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 IF Arrays.Vacuum_All(
 		vacuumArray	:= itfVacuums,
 		condition	:= TRUE,

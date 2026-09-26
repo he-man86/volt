@@ -81,7 +81,7 @@ END_VAR
 VAR
 	iState: INT;
 END_VAR
-
+(* @volt-implementation *)
 // ### LOGIC ###
 {region}
 	IF (xInit) THEN

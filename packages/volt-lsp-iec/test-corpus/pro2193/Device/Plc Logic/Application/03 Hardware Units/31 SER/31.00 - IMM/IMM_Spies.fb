@@ -8,7 +8,7 @@ END_VAR
 VAR
 	_nextCycleHasLabels			: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^(Data := Data);
 
 // Always enable both core-pullers outputs
@@ -40,11 +40,13 @@ PROPERTY PUBLIC NextCycleHasLabels : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 NextCycleHasLabels	:= _nextCycleHasLabels;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _nextCycleHasLabels	:= NextCycleHasLabels;
 END_SET
 END_PROPERTY
@@ -55,6 +57,7 @@ PROPERTY PUBLIC RequestFullMouldOpen : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 // Specific for Spies Pro2193: Corepullers are on fixed side of mould and need to be in back position
 // 2025-11-27: oh nee, toch niet :(
 

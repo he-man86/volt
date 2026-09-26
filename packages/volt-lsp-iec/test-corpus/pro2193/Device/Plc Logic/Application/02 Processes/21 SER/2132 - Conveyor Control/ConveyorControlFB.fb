@@ -33,7 +33,7 @@ VAR CONSTANT
 	// When Z Unit leaves the stack, allow the stack to be moved for this time. (time depends on expected total cycle time)
 	MovingStacksAllowedTime				: REAL	:= 2;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -47,6 +47,7 @@ VAR
 	maxHeight		: UINT;
 	i				: USINT;
 END_VAR
+(* @volt-implementation *)
 // Check status of the top layer of products on the stack
 // Are the last products out of the mould on the stack?
 FOR i := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
@@ -106,6 +107,7 @@ VAR_INST
 	MoveStacksAllowedTime		: BTON;
 	stackHeightResetRequested	: BOOL;
 END_VAR
+(* @volt-implementation *)
 ButtonStartNewStack();
 
 // Handle Stacking height reset request
@@ -173,6 +175,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -185,6 +188,7 @@ END_METHOD
 
 // After a state change, this method is called to execute the current state
 METHOD PROTECTED Execute
+(* @volt-implementation *)
 CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 	enumExchangeSets.Default:
 		Execute_Sequence1();
@@ -203,6 +207,7 @@ METHOD PROTECTED Execute_Sequence1
 VAR_INST
 	result						: ARRAY[1..1] OF BOOL;
 END_VAR
+(* @volt-implementation *)
 State(actState	:= ActState);
 
 CASE ActState OF
@@ -238,6 +243,7 @@ METHOD ShouldStart : BOOL
 VAR_INPUT
 	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 CASE operationMode OF
 	SER_OperationModeType.Production:			ShouldStart := TRUE;
@@ -254,6 +260,7 @@ END_METHOD
 
 // This module will start some operations when the automatic cycle is started on the SER
 METHOD StartCycle : BOOL
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -278,6 +285,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -290,6 +298,7 @@ END_METHOD
 
 // Cycle stop request. Returns true when module finished its active cycle.
 METHOD StopCycle : BOOL
+(* @volt-implementation *)
 %FOLDER Commands
 StopCycle				:= lastProductsPlacedOnStack AND ActState = StateNone;
 END_METHOD

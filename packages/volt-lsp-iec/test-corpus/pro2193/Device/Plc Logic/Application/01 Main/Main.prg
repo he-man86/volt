@@ -3,7 +3,7 @@ VAR
 	StartupTimer	: BTON;
 	taskInfo				: CmpIecTask.Task_Info2;
 END_VAR
-
+(* @volt-implementation *)
 __TRY
 taskInfo	:= TaskGetInfo();
 IF NOT StartupTimer.Set(TRUE, 1) THEN	// Delay before starting program. The first PLC cycle the I/Q is not updated yet.

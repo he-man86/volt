@@ -43,7 +43,7 @@ END_VAR
 VAR CONSTANT
 	NumberOfStatisticSets		: USINT := 3;
 END_VAR
-
+(* @volt-implementation *)
 Initialize();
 
 // Limit the selection from 1 to 3 (because VisiWinNet does not support subrange types)
@@ -103,6 +103,7 @@ VAR
 	productCavityNo		: UINT;
 	refStat				: REFERENCE TO ProductionStatsCavityType;
 END_VAR
+(* @volt-implementation *)
 // Check if cavity number is valid
 IF Product.CavNo < GVL_Constants.CavityStartIndex
 OR Product.CavNo > GVL_Constants.CavityEndIndex
@@ -174,6 +175,7 @@ END_VAR
 VAR
 	di					: DINT;
 END_VAR
+(* @volt-implementation *)
 FOR di := LOWER_BOUND(aProductArray, 1) TO UPPER_BOUND(aProductArray, 1) DO
 	Count(aProductArray[di]);
 END_FOR
@@ -187,6 +189,7 @@ END_VAR
 VAR
 	di1, di2			: DINT;
 END_VAR
+(* @volt-implementation *)
 FOR di1 := LOWER_BOUND(aProductArray, 1) TO UPPER_BOUND(aProductArray, 1) DO
 	FOR di2 := LOWER_BOUND(aProductArray, 2) TO UPPER_BOUND(aProductArray, 2) DO
 		Count(aProductArray[di1, di2]);
@@ -201,6 +204,7 @@ VAR
 	_m		: Util.MINUTE;
 	_s		: Util.SECOND;
 END_VAR
+(* @volt-implementation *)
 strRuntime		:= '';
 
 _d			:= TO_UINT(SelectedStat.TimeAutomatic / UDINT#86400);
@@ -232,6 +236,7 @@ END_METHOD
 METHOD PRIVATE HandleCavityAliasChange : BOOL
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 IF saveSelectedCavityAlias THEN
 	PersistentVars.cavityAliases[GVL_Constants.CavityStartIndex + selectedCavity] := newCavityAlias;
 	JsonBuilder.executeCavityAliasJson := TRUE;
@@ -242,6 +247,7 @@ END_METHOD
 METHOD PRIVATE HandleRejectReasonAliasChange : BOOL
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 IF saveSelectedRejectReasonAlias THEN
 	PersistentVars.rejectReasonDescriptions[selectedRejectReason + 1] := newRejectReasonAlias;
 	JsonBuilder.executeRejectReasonAliasJson := TRUE;
@@ -254,6 +260,7 @@ VAR_INST
 	{attribute 'init_on_onlchange' }
 	initialized	: BOOL;
 END_VAR
+(* @volt-implementation *)
 IF initialized THEN
 	RETURN;
 END_IF
@@ -286,6 +293,7 @@ END_VAR
 VAR
 	refStat				: REFERENCE TO ProductionStatsCavityType;
 END_VAR
+(* @volt-implementation *)
 FOR j := GVL_Constants.CavityStartIndex TO GVL_Constants.CavityEndIndex + 1 DO	// Go over all cavities, and do 1 extra loop for the totals.
 	IF j > GVL_Constants.CavityEndIndex THEN
 		refStat					REF= StatisticsData[usiStatIndex].Total;		// Point reference to total production counter

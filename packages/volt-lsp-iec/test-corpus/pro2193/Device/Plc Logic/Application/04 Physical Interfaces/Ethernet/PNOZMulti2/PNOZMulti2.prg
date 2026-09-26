@@ -109,7 +109,7 @@ VAR CONSTANT
 	uiCommunicationPort		: UINT	:= 9000;					// Send and Receive port
 	udiTimeout				: UDINT	:= 5_000_000;				// time (µs)
 END_VAR
-
+(* @volt-implementation *)
 IF NOT Initialize() THEN
 	RETURN;
 END_IF
@@ -172,6 +172,7 @@ VAR_INST
 //	GeneralDiagAlarm		: SetErrorFB;
 //	GeneralRunAlarm			: SetErrorFB;
 END_VAR
+(* @volt-implementation *)
 eStopMainCabinet(
 	elementId			:= 1,
 	ModuleParent		:= ModuleHandler,
@@ -440,6 +441,7 @@ VAR_INST
 	{attribute 'init_on_onlchange'}
 	initialized	: BOOL;
 END_VAR
+(* @volt-implementation *)
 IF initialized THEN
 	Initialize		:= TRUE;
 	RETURN;
@@ -471,10 +473,12 @@ METHOD PRIVATE ReturnOutputFromNumber : BOOL
 VAR_INPUT
 	outputNumber	: USINT(0..127);
 END_VAR
+(* @volt-implementation *)
 ReturnOutputFromNumber := BitLogic.Extract(dwSafetyPLCStatus[outputNumber / 32], outputNumber MOD 32);
 END_METHOD
 
 METHOD ValidateMessage : BOOL
+(* @volt-implementation *)
 // Check if the read message is valid
 byChecksumReader		:= 0;
 FOR i := 4 TO 39 DO
@@ -499,6 +503,7 @@ END_IF
 END_METHOD
 
 ACTION CreateTelegram
+(* @volt-implementation *)
 FOR i := 0 TO TO_INT(UPPER_BOUND(abyWriteBuffer, 1)) DO
 	abyWriteBuffer[i] := 0;
 END_FOR
@@ -564,6 +569,7 @@ END_FOR
 END_ACTION
 
 ACTION FunctionBlocks
+(* @volt-implementation *)
 (* Implements a TCP Client. To connect to a TCP Server at the endpoint defined with ipAddr and uiPort the input xEnable
 should set to TRUE. While setup the connection xBusy is TRUE but xActive is FALSE. After the connection is established
 xActive and xBusy is TRUE and the hConnection output is valid. After closing the connection from the server side xActive
@@ -622,6 +628,7 @@ ReadActualSeverity(
 END_ACTION
 
 ACTION MapTheOutputs
+(* @volt-implementation *)
 dwSafetyPLCStatus[0] := MEM.PackBytesToDword(
 							byLLByte	:= abyReadBuffer[ 8],		// eth.o0 - 7
 							byLHByte	:= abyReadBuffer[ 9],		// eth.o8 - 15

@@ -13,7 +13,7 @@ VAR_IN_OUT
 	ioVirtualMasterCom: sUDT_VirtualMasterComm_Drive;
 	
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD
   LET g3 := TRUE;
   ioVirtualMasterCom.Control.Enable := (g3 AND ioVirtualMaster.Control.SetDriveEnable);

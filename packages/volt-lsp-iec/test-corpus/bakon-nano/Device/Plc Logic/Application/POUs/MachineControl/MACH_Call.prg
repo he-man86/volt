@@ -1,7 +1,7 @@
 PROGRAM MACH_Call
 VAR
 END_VAR
-
+(* @volt-implementation *)
 (*************************************************************************
  *
  * Application name			: Snijmachine

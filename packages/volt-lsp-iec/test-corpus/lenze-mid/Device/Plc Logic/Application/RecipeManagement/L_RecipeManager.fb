@@ -31,7 +31,7 @@ VAR CONSTANT
 	gc_iSizeRecipesNames 	: INT := 5000;
 	gc_iMaxResultsFinder	: INT := 10;
 END_VAR
-
+(* @volt-implementation *)
 IF xEnable THEN
 	xEnabled := xEnable;
 	//************************************************************************Refresh data

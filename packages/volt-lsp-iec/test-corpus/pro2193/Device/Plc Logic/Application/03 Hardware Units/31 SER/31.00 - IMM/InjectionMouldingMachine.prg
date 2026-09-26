@@ -14,7 +14,7 @@ END_VAR
 VAR RETAIN PERSISTENT
 	{attribute 'symbol' := 'readwrite'}	Data						: IMM_Data;
 END_VAR
-
+(* @volt-implementation *)
 Unit(
 	Data	:= Data);
 

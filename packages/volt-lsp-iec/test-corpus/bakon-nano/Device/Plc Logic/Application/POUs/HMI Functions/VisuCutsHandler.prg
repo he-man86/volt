@@ -21,7 +21,7 @@ VAR
 	
 	sLocalRecipeVar		: sMACH_RCP_Parameters;
 END_VAR
-
+(* @volt-implementation *)
 c_PI := 3.14159265359;
 sLocalRecipeVar := g_HMI_RCP_Parameters_Visu;
 

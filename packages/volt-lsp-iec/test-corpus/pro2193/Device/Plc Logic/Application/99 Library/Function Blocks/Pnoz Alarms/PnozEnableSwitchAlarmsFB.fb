@@ -13,7 +13,7 @@ VAR
 	contactFailedAlarm		: SetErrorFB;
 	errorTestPulseAlarm		: SetErrorFB;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 switchEnabledOut := switchEnabled;

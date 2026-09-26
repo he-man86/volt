@@ -10,7 +10,7 @@ VAR
 	{attribute 'hide'}
 	Trig_Pushed				: TriggerFB;
 END_VAR
-
+(* @volt-implementation *)
 CallTrigger();
 
 IF ButtonPushed THEN
@@ -30,15 +30,18 @@ SUPER^();
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED CallTrigger
+(* @volt-implementation *)
 Trig_Pushed.Call(CLK := buttonInput);
 END_METHOD
 
 METHOD PROTECTED HandlePushed
+(* @volt-implementation *)
 //savedState := State;
 //Solid();
 END_METHOD
 
 METHOD PROTECTED HandleReleased
+(* @volt-implementation *)
 //State := savedState;
 END_METHOD
 
@@ -47,6 +50,7 @@ PROPERTY PUBLIC ButtonPushed : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ButtonPushed := Trig_Pushed.Q_Rising;
 END_GET
 END_PROPERTY
@@ -56,6 +60,7 @@ PROPERTY PUBLIC ButtonReleased : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ButtonReleased := Trig_Pushed.Q_Falling;
 END_GET
 END_PROPERTY

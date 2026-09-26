@@ -34,7 +34,7 @@ VAR
 	timeReg : TOF;
 	timeReg2 : TOF;
 END_VAR
-
+(* @volt-implementation *)
 (* Torque settings *)
 AxisTorquelimit(
 	Axis:= AxisName, 

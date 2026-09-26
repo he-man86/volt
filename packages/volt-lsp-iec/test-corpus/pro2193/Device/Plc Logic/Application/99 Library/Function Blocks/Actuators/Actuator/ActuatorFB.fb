@@ -8,12 +8,13 @@ VAR
 	MeasureOnTime			: ONTIME;
 	TimeOfLastSwitch		: DT;
 END_VAR
-
+(* @volt-implementation *)
 Counters();
 
 END_FUNCTION_BLOCK
 
 METHOD PRIVATE Counters
+(* @volt-implementation *)
 NETWORK 0 FBD
   // Calculate the on-time and the number of switches of the output
   MeasureOnTime(In := output);
@@ -27,16 +28,19 @@ END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC Map : BOOL
+(* @volt-implementation *)
 Map := output;
 END_METHOD
 
 // Reset the output (=False)
 METHOD PUBLIC Reset
+(* @volt-implementation *)
 output := FALSE;
 END_METHOD
 
 // Set the output (=True)
 METHOD PUBLIC Set : BOOL
+(* @volt-implementation *)
 output := TRUE;
 END_METHOD
 
@@ -45,5 +49,6 @@ METHOD PUBLIC SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+(* @volt-implementation *)
 output := xValue;
 END_METHOD

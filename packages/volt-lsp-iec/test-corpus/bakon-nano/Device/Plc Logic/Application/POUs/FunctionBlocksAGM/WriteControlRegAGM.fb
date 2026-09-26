@@ -16,7 +16,7 @@ VAR_INPUT
 	bStopAGM: BOOL;
 	bTestAGM: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 (*de index 2000 het control register wordt beschreven*)
 
 R_TRIG1(CLK:=bStartAGM OR bStopAGM OR bTestAGM);

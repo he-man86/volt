@@ -15,7 +15,7 @@ END_VAR
 VAR
 	sTempPosition		: XYA_Target;
 END_VAR
-
+(* @volt-implementation *)
 
 sTempPosition 			:= defaultXYA;
 sTempPosition.X_Target 	:= I_rX;

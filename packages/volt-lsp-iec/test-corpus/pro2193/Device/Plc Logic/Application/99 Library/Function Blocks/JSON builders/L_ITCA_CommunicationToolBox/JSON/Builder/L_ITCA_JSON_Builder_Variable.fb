@@ -52,7 +52,7 @@ END_VAR
 VAR_TEMP
 	uiPropertyIndex				: UINT;
 END_VAR
-
+(* @volt-implementation *)
 IF xExecute AND NOT xExecute_old THEN
 
 	//Set outputs
@@ -246,6 +246,7 @@ END_VAR
 VAR
 	pByte				: POINTER TO BYTE;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Internal
 pByte := psContent;		// Set pointer to start of string
 
@@ -267,6 +268,7 @@ METHOD INTERNAL _mCheckType_Boolean : BOOL
 VAR_INPUT
 	psContent	: POINTER TO STRING(5);	//Max length is 5 (FALSE/false)
 END_VAR
+(* @volt-implementation *)
 %FOLDER Internal
 //Check for BOOLEAN value (Text or Number)
 IF psContent^ = 'TRUE'
@@ -288,6 +290,7 @@ END_VAR
 VAR
 	pByte				: POINTER TO BYTE;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Internal
 _mCheckType_Number := TRUE;
 
@@ -310,6 +313,7 @@ METHOD INTERNAL _mStrConcatA //Concats string to sContent
 VAR_INPUT
 	sConcat		: STRING(1);
 END_VAR
+(* @volt-implementation *)
 %FOLDER Internal
 //Concat content
 StrConcatA(pstFrom := ADR(sConcat), pstTo := psJSON, iBufferSize := TO_INT(udiJSONStringLength));

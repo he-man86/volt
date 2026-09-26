@@ -9,7 +9,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
-
+(* @volt-implementation *)
 lower		:= LOWER_BOUND(str, 1);
 upper		:= UPPER_BOUND(str, 1);
 

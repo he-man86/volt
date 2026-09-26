@@ -13,7 +13,7 @@ VAR
 	BrakeInterface				: L_MC1P.L_MC1P_BrakeInterface;
 	TriggerHomingStarted		: RisingTriggerFB;
 END_VAR
-
+(* @volt-implementation *)
 IF NOT __ISVALIDREF(AxisRef) THEN
 	ThrowException('The ServoDriveBrakeLogicFB is not connected to an axis!');
 END_IF
@@ -60,6 +60,7 @@ END_VAR
 VAR_INST
 	WriteParameter	: L_MC1P.MC_WriteParameter;
 END_VAR
+(* @volt-implementation *)
 WriteParameter(
 	Axis						:= AxisRef,
 	Execute						:= TRUE,
@@ -90,6 +91,7 @@ END_VAR
 VAR_INST
 	WriteParameter	: L_MC1P.MC_WriteBoolParameter;
 END_VAR
+(* @volt-implementation *)
 WriteParameter(
 	Axis						:= AxisRef,
 	Execute						:= TRUE,
@@ -122,6 +124,7 @@ VAR_INST
 	lrStopDec: LREAL;
 	lrStopJerk: LREAL;
 END_VAR
+(* @volt-implementation *)
 CASE state OF
 0:	// Read / write parameters from drive every 10 seconds..
 	Increment.AnyInt(state, 1, T_Interval.Set(AxisRef.xAxisAvailable, 10));

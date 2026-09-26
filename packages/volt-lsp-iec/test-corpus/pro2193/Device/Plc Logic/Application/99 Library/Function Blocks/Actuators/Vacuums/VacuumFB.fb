@@ -13,7 +13,7 @@ VAR
 	VacuumHighTimer			: BTON;
 	ReleaseVacuumTimer		: BTON;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 // Instantiate the output
@@ -28,6 +28,7 @@ ReleaseVacuumTimer.Set(
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
+(* @volt-implementation *)
 END_METHOD
 
 METHOD PROTECTED ManualControl
@@ -35,6 +36,7 @@ VAR_INPUT
 	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
+(* @volt-implementation *)
 IF plusButtonPushed THEN
 	Set();
 END_IF
@@ -46,6 +48,7 @@ END_METHOD
 
 // Maps the actuator to the physical output
 METHOD Map : BOOL
+(* @volt-implementation *)
 // Disabe mapping when machine is running without vacuums
 IF SER.OperationMode = SER_OperationModeType.SemiAuto
 AND HMI.SemiAutoMode = enumSemiAutoModeType.WithoutVacuums
@@ -61,6 +64,7 @@ END_METHOD
 METHOD Release : BOOL
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 Reset();
 
 Release	:= ReleaseVacuumTimer.Q;
@@ -68,11 +72,13 @@ END_METHOD
 
 // Reset the output (=False)
 METHOD Reset
+(* @volt-implementation *)
 Output.Reset();
 END_METHOD
 
 // Set the output (=True)
 METHOD Set : BOOL
+(* @volt-implementation *)
 Output.Set();
 
 Set := IsHigh;
@@ -83,12 +89,14 @@ METHOD SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+(* @volt-implementation *)
 Output.SetOrReset(xValue);
 END_METHOD
 
 METHOD PROTECTED SetVacuumHighTimer
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 VacuumHighTimer.Set(
 			In := IsTurnedOn,
 			Pt := SEL(__ISVALIDREF(refVacuumHighTime), 0, refVacuumHighTime));
@@ -100,6 +108,7 @@ PROPERTY IsHigh : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 IsHigh	:= VacuumHighTimer.Q;
 END_GET
 END_PROPERTY
@@ -110,6 +119,7 @@ PROPERTY IsTurnedOn : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 IsTurnedOn	:= Output.Map();
 END_GET
 END_PROPERTY

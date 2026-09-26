@@ -2,7 +2,7 @@ PROGRAM HardwareUnits
 VAR
 	sw		: ARRAY[1..20] OF StopwatchFB;
 END_VAR
-
+(* @volt-implementation *)
 __TRY sw[ 1].Start();		InjectionMouldingMachine();		sw[ 1].End();	__CATCH(GVL_Exceptions.aeExceptionCodes[eExceptionCodes.InjectionMouldingMachine])	GVL_Exceptions.xException := TRUE;	GVL_Exceptions.iCounter := GVL_Exceptions.iCounter + 1;		__ENDTRY	// Handle communication with IMM through Euromap
 __TRY sw[ 2].Start();		LabelSuppliers();				sw[ 2].End();	__CATCH(GVL_Exceptions.aeExceptionCodes[eExceptionCodes.LabelSuppliers])			GVL_Exceptions.xException := TRUE;	GVL_Exceptions.iCounter := GVL_Exceptions.iCounter + 1;		__ENDTRY
 __TRY sw[ 3].Start();		CassetteAdjustments();			sw[ 3].End();	__CATCH(GVL_Exceptions.aeExceptionCodes[eExceptionCodes.CassetteAdjustment])		GVL_Exceptions.xException := TRUE;	GVL_Exceptions.iCounter := GVL_Exceptions.iCounter + 1;		__ENDTRY

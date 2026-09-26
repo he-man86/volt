@@ -2,7 +2,7 @@ PROGRAM POU
 VAR
 	L_TS2P_FlexCamState_0: L_TS2P_FlexCamState;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 FBD
   L_TS2P_FlexCamState_0(xEnable := , xEnableOperation := , xResetError := , xQSPApplication := , xAbort := , xJogPos := , xJogNeg := , xHomeExecute := , lrOverride := , scCtrlBasicMotion := , scPar := , Axis := , scAccessPoints := , MasterValues := , xSyncIn := , xCamChangeInstant := , lrSetOffsetPosX := , lrSetOffsetPosY := , lrSetScalingX := , lrSetScalingY := , CamTable1 := , CamTable2 := , CamTable3 := , CamTable4 := , wSetCamTable := , xCamSequencer := );
 END_NETWORK

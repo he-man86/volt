@@ -17,7 +17,7 @@ END_VAR
 VAR_IN_OUT
 	ioAuxOneShot: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD
   LET en1 := ;
   IF en1 THEN (iMachinePosition >= iStartCam); END_IF

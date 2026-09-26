@@ -4,13 +4,14 @@
 FUNCTION_BLOCK PUBLIC Cylinder_52Valve_InvertedFB
 EXTENDS Cylinder_52ValveFB
 IMPLEMENTS IActuator
-
+(* @volt-implementation *)
 // Execute base cylinder fb
 SUPER^();
 
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
+(* @volt-implementation *)
 // Set the alarm messages (inverted)
 SetSensorOutAlarm(	inputIn XOR NOT Output.Map());
 SetSensorInAlarm(	inputOut XOR Output.Map());
@@ -18,6 +19,7 @@ END_METHOD
 
 // The cylinder moves in. Returns true when cylinder is in. (Inverted!)
 METHOD PUBLIC FINAL GoIn : BOOL
+(* @volt-implementation *)
 SUPER^.GoOut();
 
 GoIn := IsIn;
@@ -25,6 +27,7 @@ END_METHOD
 
 // The cylinder moves out. Returns true when cylinder is out. (Inverted!)
 METHOD PUBLIC FINAL GoOut : BOOL
+(* @volt-implementation *)
 SUPER^.GoIn();
 
 GoOut := IsOut;
@@ -32,11 +35,13 @@ END_METHOD
 
 // Reset the output (=True, because inverted!)
 METHOD Reset
+(* @volt-implementation *)
 SUPER^.Set();
 END_METHOD
 
 // Set the output (=False, because inverted!)
 METHOD Set
+(* @volt-implementation *)
 SUPER^.Reset();
 END_METHOD
 
@@ -45,6 +50,7 @@ METHOD SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+(* @volt-implementation *)
 SUPER^.SetOrReset(NOT xValue);
 END_METHOD
 
@@ -53,6 +59,7 @@ PROPERTY IsIn : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 IsIn := SUPER^.IsOut;
 END_GET
 END_PROPERTY
@@ -62,6 +69,7 @@ PROPERTY IsOut : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 IsOut := SUPER^.IsIn;
 END_GET
 END_PROPERTY

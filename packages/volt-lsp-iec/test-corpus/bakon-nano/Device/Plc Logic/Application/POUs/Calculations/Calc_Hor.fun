@@ -50,7 +50,7 @@ VAR
 	nLastPosFirstTray		: INT;
 	nLastWastePosFirstTray	: int;
 END_VAR
-
+(* @volt-implementation *)
 (* Calc_Hor, (mes 0 graden *)
 
 (************************************************************************************************************************************

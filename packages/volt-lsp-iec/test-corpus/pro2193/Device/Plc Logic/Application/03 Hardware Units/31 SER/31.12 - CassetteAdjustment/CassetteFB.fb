@@ -15,7 +15,7 @@ VAR CONSTANT
 	PositiveLimit		: SINT := 40;
 	NegativeLimit		: SINT := -35;
 END_VAR
-
+(* @volt-implementation *)
 Cyclic();
 
 END_FUNCTION_BLOCK
@@ -25,6 +25,7 @@ VAR_INPUT
 	motor		: enumMotorsType;
 	addition	: SINT;
 END_VAR
+(* @volt-implementation *)
 CASE motor OF
 	enumMotorsType.X1:	ActualPositionX1	:= ActualPositionX1	+ addition;
 	enumMotorsType.X2:	ActualPositionX2	:= ActualPositionX2	+ addition;
@@ -36,12 +37,14 @@ METHOD PUBLIC AddToTargetPositions
 VAR_INPUT
 	PositionChanges : CassettePosition;
 END_VAR
+(* @volt-implementation *)
 TargetPositionX1	:= TargetPositionX1 + PositionChanges.X1;
 TargetPositionX2	:= TargetPositionX2 + PositionChanges.X2;
 TargetPositionY		:= TargetPositionY	+ PositionChanges.Y;
 END_METHOD
 
 METHOD PRIVATE CheckLimits
+(* @volt-implementation *)
 %FOLDER Private
 IF HomingState = enumCassetteHomingState.Homed THEN
 	PositiveLimitReachedX1	:= ActualPositionX1 >= PositiveLimit;
@@ -55,6 +58,7 @@ END_IF
 END_METHOD
 
 METHOD PRIVATE Cyclic
+(* @volt-implementation *)
 %FOLDER Private
 CheckLimits();
 END_METHOD
@@ -70,6 +74,7 @@ VAR
 	DirectionForX1,		DirectionForX2,		DirectionForY		: enumDirection;
 	AdjustNeededForX1,	AdjustNeededForX2,	AdjustNeededForY	: BOOL;
 END_VAR
+(* @volt-implementation *)
 // Copy id info to the profile
 GetAdjustmentProfile.Drawer		:= Drawer;
 GetAdjustmentProfile.Cassette	:= Cassette;
@@ -144,6 +149,7 @@ END_IF
 END_METHOD
 
 METHOD PUBLIC NextHomingState
+(* @volt-implementation *)
 CASE HomingState OF
 	enumCassetteHomingState.StopHoming:		HomingState := enumCassetteHomingState.NotHomed;
 	enumCassetteHomingState.StartHoming:	HomingState := enumCassetteHomingState.HomingStep1;
@@ -156,6 +162,7 @@ END_CASE
 END_METHOD
 
 METHOD ResetLimits
+(* @volt-implementation *)
 PositiveLimitReachedX1	:= FALSE;
 PositiveLimitReachedX2	:= FALSE;
 PositiveLimitReachedY	:= FALSE;
@@ -165,6 +172,7 @@ NegativeLimitReachedY	:= FALSE;
 END_METHOD
 
 METHOD StartHoming
+(* @volt-implementation *)
 ResetLimits();
 HomingState := enumCassetteHomingState.StartHoming;
 END_METHOD
@@ -175,11 +183,13 @@ PROPERTY ActualPositionX1 : SINT
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ActualPositionX1 := _ActualPosition.X1;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _ActualPosition.X1	:= ActualPositionX1;
 
 Increment.AnyInt(_SwitchCount[enumMotorsType.X1]);
@@ -192,11 +202,13 @@ PROPERTY ActualPositionX2 : SINT
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ActualPositionX2 := _ActualPosition.X2;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _ActualPosition.X2	:= ActualPositionX2;
 
 Increment.AnyInt(_SwitchCount[enumMotorsType.X2]);
@@ -209,11 +221,13 @@ PROPERTY ActualPositionY : SINT
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ActualPositionY := _ActualPosition.Y;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _ActualPosition.Y	:= ActualPositionY;
 
 Increment.AnyInt(_SwitchCount[enumMotorsType.Y]);
@@ -226,6 +240,7 @@ PROPERTY AdjustmentNeeded : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 AdjustmentNeeded := (		(ActualPositionX1	> TargetPositionX1	AND NOT NegativeLimitReachedX1)
 						OR	(ActualPositionX2	> TargetPositionX2	AND NOT NegativeLimitReachedX2)
 						OR	(ActualPositionY	> TargetPositionY	AND NOT NegativeLimitReachedY)
@@ -242,11 +257,13 @@ PROPERTY HomingState : enumCassetteHomingState
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 HomingState := _HomingState;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _HomingState := HomingState;
 END_SET
 END_PROPERTY
@@ -257,11 +274,13 @@ PROPERTY LastRotateMotor : enumMotorsType
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 LastRotateMotor := _LastRotateMotor;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _LastRotateMotor := LastRotateMotor;
 END_SET
 END_PROPERTY
@@ -272,12 +291,14 @@ PROPERTY NegativeLimitReachedX1 : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 NegativeLimitReachedX1 := _NegativeLimitReached[enumMotorsType.X1] AND HomingState = enumCassetteHomingState.Homed;
 END_GET
 SET
 PRIVATE
 VAR
 END_VAR
+(* @volt-implementation *)
 _NegativeLimitReached[enumMotorsType.X1] := NegativeLimitReachedX1;
 END_SET
 END_PROPERTY
@@ -288,12 +309,14 @@ PROPERTY NegativeLimitReachedX2 : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 NegativeLimitReachedX2 := _NegativeLimitReached[enumMotorsType.X2] AND HomingState = enumCassetteHomingState.Homed;
 END_GET
 SET
 PRIVATE
 VAR
 END_VAR
+(* @volt-implementation *)
 _NegativeLimitReached[enumMotorsType.X2] := NegativeLimitReachedX2;
 END_SET
 END_PROPERTY
@@ -304,12 +327,14 @@ PROPERTY NegativeLimitReachedY : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 NegativeLimitReachedY := _NegativeLimitReached[enumMotorsType.Y] AND HomingState = enumCassetteHomingState.Homed;
 END_GET
 SET
 PRIVATE
 VAR
 END_VAR
+(* @volt-implementation *)
 _NegativeLimitReached[enumMotorsType.Y] := NegativeLimitReachedY;
 END_SET
 END_PROPERTY
@@ -320,12 +345,14 @@ PROPERTY PositiveLimitReachedX1 : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 PositiveLimitReachedX1 := _PositiveLimitReached[enumMotorsType.X1] AND HomingState = enumCassetteHomingState.Homed;
 END_GET
 SET
 PRIVATE
 VAR
 END_VAR
+(* @volt-implementation *)
 _PositiveLimitReached[enumMotorsType.X1] := PositiveLimitReachedX1;
 END_SET
 END_PROPERTY
@@ -336,12 +363,14 @@ PROPERTY PositiveLimitReachedX2 : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 PositiveLimitReachedX2 := _PositiveLimitReached[enumMotorsType.X2] AND HomingState = enumCassetteHomingState.Homed;
 END_GET
 SET
 PRIVATE
 VAR
 END_VAR
+(* @volt-implementation *)
 _PositiveLimitReached[enumMotorsType.X2] := PositiveLimitReachedX2;
 END_SET
 END_PROPERTY
@@ -352,12 +381,14 @@ PROPERTY PositiveLimitReachedY : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 PositiveLimitReachedY := _PositiveLimitReached[enumMotorsType.Y];
 END_GET
 SET
 PRIVATE
 VAR
 END_VAR
+(* @volt-implementation *)
 _PositiveLimitReached[enumMotorsType.Y] := PositiveLimitReachedY;
 END_SET
 END_PROPERTY
@@ -368,11 +399,13 @@ PROPERTY TargetPositionX1 : SINT
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 TargetPositionX1 := _TargetPosition.X1;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _TargetPosition.X1 := TargetPositionX1;
 END_SET
 END_PROPERTY
@@ -383,11 +416,13 @@ PROPERTY TargetPositionX2 : SINT
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 TargetPositionX2 := _TargetPosition.X2;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _TargetPosition.X2 := TargetPositionX2;
 END_SET
 END_PROPERTY
@@ -398,11 +433,13 @@ PROPERTY TargetPositionY : SINT
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 TargetPositionY := _TargetPosition.Y;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _TargetPosition.Y := TargetPositionY;
 END_SET
 END_PROPERTY

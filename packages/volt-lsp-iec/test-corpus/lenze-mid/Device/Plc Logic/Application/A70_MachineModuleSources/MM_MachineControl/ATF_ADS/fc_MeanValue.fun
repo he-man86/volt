@@ -20,7 +20,7 @@ END_VAR
 VAR_IN_OUT
 	ioValues					: ARRAY[0..50] OF INT;	
 END_VAR
-
+(* @volt-implementation *)
 oMeanValue := 0;
 tMean := 0;
 tCountToIndexNumber := iLength - 2; //count from 0 to length -1, but shift is 1 index less -> -2

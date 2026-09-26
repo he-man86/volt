@@ -15,7 +15,7 @@ VAR_IN_OUT
 	Q_bStart_AGM			: BOOL;
 	Q_bTest_AGM				: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 IF NOT I_bCMD_Enable THEN
 	Q_bStart_AGM		:=FALSE;
 ELSE

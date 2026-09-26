@@ -29,7 +29,7 @@ VAR CONSTANT
 	MaxVacuums					: USINT	:= GVL_Constants.ChainProductsForZUnit;
 	NumberOfTakeoverPositions	: USINT	:= 4;
 END_VAR
-
+(* @volt-implementation *)
 FOR i := 1 TO usiNumberOfUnits DO
 	Unit[i](
 		xEnableServoDrive	:= GlobalVars.EnableServoDrives,

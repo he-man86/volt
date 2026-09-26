@@ -37,7 +37,7 @@ VAR CONSTANT
 //	MaxAllowedStackingHeightWhenGateOpens	: INT := 200;	// Stacks higher than 200 mm are pushed over when gate opens.
 	gateLockString				: STRING(14)		:= 'opening_gate';
 END_VAR
-
+(* @volt-implementation *)
 SUPER^(
 	AxisRef				:= AxisRef,
 	DataBrink			:= DataBrink,
@@ -50,6 +50,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..3] OF SetErrorFB;
 END_VAR
+(* @volt-implementation *)
 //SetError[1](
 //	moduleHandler	:= ModuleHandler,
 //	textRefId		:= Conveyor_Errors,
@@ -89,6 +90,7 @@ END_VAR
 VAR
 	i							: USINT;
 END_VAR
+(* @volt-implementation *)
 ReadMachineData(
 	Axis					:= AxisRef,
 	xEnable					:= TRUE,
@@ -171,6 +173,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 moveConveyorAfterEStop			:= TRUE;
 alarmAreaNotFree				:= FALSE;
@@ -184,24 +187,28 @@ END_METHOD
 
 // Gate close button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
 METHOD PUBLIC GateCloseCancelled
+(* @volt-implementation *)
 %FOLDER Commands/Gate Requests
 // Do nothing when gate closes
 END_METHOD
 
 // Gate close button is pushed. Safety gate is requesting to close (trigger signal)
 METHOD PUBLIC GateCloseRequested
+(* @volt-implementation *)
 %FOLDER Commands/Gate Requests
 // Do nothing when gate closes
 END_METHOD
 
 // Gate open button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
 METHOD PUBLIC GateOpenCancelled
+(* @volt-implementation *)
 %FOLDER Commands/Gate Requests
 // Do nothing when gate open is cancelled
 END_METHOD
 
 // Gate open button is pushed. Safety gate is requesting to open (trigger signal)
 METHOD PUBLIC GateOpenRequested
+(* @volt-implementation *)
 %FOLDER Commands/Gate Requests
 IF NOT ProcessCommandLock.Request(gateLockString) THEN
 	RETURN;
@@ -217,6 +224,7 @@ METHOD PUBLIC GetCurrentMaxStackingHeight : UINT
 VAR_INPUT
 	firstStackAfterCycleStart	: BOOL;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Move
 // Optionally use a different stacking height for the first stack.
 IF firstStackAfterCycleStart AND Data.firstCycleStackHeight > 0 THEN
@@ -239,6 +247,7 @@ END_VAR
 VAR
 	i		: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Stacking
 ProductsOnTopOfStack := products;
 
@@ -262,6 +271,7 @@ END_METHOD
 METHOD PUBLIC MoveContinuouslyToggle
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Move
 IF conveyorIsMovingContinuously THEN
 	conveyorIsMovingContinuously	:= FALSE;
@@ -278,6 +288,7 @@ METHOD PUBLIC MoveStep : BOOL
 VAR_INST
 	result						: ARRAY[1..1] OF BOOL;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Move
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -310,6 +321,7 @@ VAR_INST
 	result						: ARRAY[1..1] OF BOOL;
 	Timer						: BTON;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -359,6 +371,7 @@ METHOD PROTECTED ResetStackIndex
 VAR
 	i	: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Methods
 FOR i := MaxPositionsOnConveyor TO 2 BY -1 DO
 	StackStatus[i] := StackStatus[i - 1];
@@ -376,6 +389,7 @@ END_VAR
 VAR
 	i		: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Picking
 FOR i := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
 	IF  StackStatus[MaxPositionsOnConveyor][i].Present
@@ -413,6 +427,7 @@ END_VAR
 VAR
 	i		: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Methods
 FOR i := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
 	IF StackStatus[iStackNo][i].Present THEN
@@ -423,6 +438,7 @@ END_FOR
 END_METHOD
 
 METHOD PRIVATE StartConveyor
+(* @volt-implementation *)
 %FOLDER Methods
 // Increase the alternating stack index by 1 (to create odd / even stacks)
 Increment.Subrange(
@@ -444,6 +460,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 alarmAreaNotFree				:= FALSE;
 
@@ -461,11 +478,13 @@ PROPERTY CurrentStackFull : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 CurrentStackFull := _currentStackFull;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _currentStackFull := CurrentStackFull;
 END_SET
 END_PROPERTY
@@ -477,6 +496,7 @@ PROPERTY PUBLIC CycleLength : LREAL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 CycleLength := SEL(ReadMachineData.xValid, -1, ReadMachineData.lrCycleLength);
 END_GET
 END_PROPERTY
@@ -490,6 +510,7 @@ VAR
 	i	: USINT;
 	j	: USINT;
 END_VAR
+(* @volt-implementation *)
 FOR i := 1 TO MaxPositionsOnConveyor DO
 	FOR j := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
 		IF StackStatus[i][j].Present THEN
@@ -510,6 +531,7 @@ GET
 VAR
 	i	: INT;
 END_VAR
+(* @volt-implementation *)
 
 HighestStackIndex			:= MAX(StackIndex, Data.firstCycleStackHeight);
 
@@ -526,6 +548,7 @@ PROPERTY PUBLIC InSafePosForGate : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 // Current height of stack is lower than max allowed stacking height
 InSafePosForGate	:= (StackIndex * PersistentVars.RecipeVars.productPitch.value) + PersistentVars.RecipeVars.productHeight.value < MaxAllowedStackingHeightWhenGateOpens;
 // Safe when there is no stack
@@ -546,11 +569,13 @@ PROPERTY MovingStacksAllowed : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 MovingStacksAllowed := _movingStacksAllowed;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _movingStacksAllowed := MovingStacksAllowed;
 END_SET
 END_PROPERTY
@@ -562,12 +587,14 @@ PROPERTY ProductsOnTopOfStack : ARRAY[1..GVL_Constants.ZUnitProductsForConveyor]
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ProductsOnTopOfStack := _productsOnTopOfStack;
 END_GET
 SET
 PROTECTED
 VAR
 END_VAR
+(* @volt-implementation *)
 _productsOnTopOfStack := ProductsOnTopOfStack;
 END_SET
 END_PROPERTY
@@ -581,6 +608,7 @@ VAR
 	i			: USINT;
 	maxIndex	: UINT;
 END_VAR
+(* @volt-implementation *)
 FOR i := 1 TO GVL_Constants.ChainProductsForZUnit DO
 	maxIndex := MAX(maxIndex, StackStatus[1][i].numberOfProducts);
 END_FOR
@@ -596,6 +624,7 @@ PROPERTY StackingAllowed : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 StackingAllowed := (Arrays.DigitalSensor_All(AreaFree, TRUE) OR StackIndex > 0 OR HMI.testMachineWithoutConveyors)
 					AND Drive.Standstill
 					AND NOT MovingStacksAllowed
@@ -610,6 +639,7 @@ GET
 VAR
 	i		: USINT;
 END_VAR
+(* @volt-implementation *)
 FOR i := 1 TO GVL_Constants.ZUnitProductsForConveyor DO
 	StacksAreShort[i] := StackIndex > 0 AND StackStatus[1][i].numberOfProducts < StackIndex;
 END_FOR
@@ -621,6 +651,7 @@ PROPERTY PUBLIC Standstill : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 Standstill := Drive.Standstill;
 END_GET
 END_PROPERTY

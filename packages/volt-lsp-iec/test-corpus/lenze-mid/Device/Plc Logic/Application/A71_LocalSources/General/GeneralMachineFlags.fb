@@ -72,7 +72,7 @@ VAR
 	RunAuto: SR;
 
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD TITLE: "NETWORK 2: Startup delay after emergency stop"
   GenFlags.DelayAfterEmergStop := OnDelayAfterEmergencyStop(IN := (NOT iFirstCycle AND iEmergencyUnitOK), PT := iPreDelayAfterEmergStop);
 END_NETWORK
@@ -181,12 +181,12 @@ NETWORK 22 LD TITLE: "DONE NETWORK 24: Only when during a complete CPU cycle the
   GenFlags.MajorAlarmActive := (g185 AND GenFlags.MajorAlarm);
 END_NETWORK
 NETWORK 23 LD TITLE: "DONE NETWORK 25: Reset alarm actions"
-  LET g1 := True;
-  GenFlags.Warning R= g1;
-  GenFlags.MinorAlarm R= g1;
-  GenFlags.MajorAlarm R= g1;
-  GenFlags.DummyWarning R= g1;
-  GenFlags.DisableControl R= g1;
+  LET m1 := True;
+  GenFlags.Warning R= m1;
+  GenFlags.MinorAlarm R= m1;
+  GenFlags.MajorAlarm R= m1;
+  GenFlags.DummyWarning R= m1;
+  GenFlags.DisableControl R= m1;
 END_NETWORK
 NETWORK 24 LD TITLE: "TODO NETWORK 26: SAVE"
 END_NETWORK

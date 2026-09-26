@@ -6,7 +6,7 @@ VAR
 	L_SuspendWatchdog1 : L_SuspendWatchdog;
 	initializeArrays : BOOL := true;
 END_VAR
-
+(* @volt-implementation *)
 
 IF initializeArrays THEN
 	Stack_Init_CuttingPos(IQ_dataArray:=g_aCuttingPositions, IQ_dataArrayInfo := g_sCuttingPositionsInfo);

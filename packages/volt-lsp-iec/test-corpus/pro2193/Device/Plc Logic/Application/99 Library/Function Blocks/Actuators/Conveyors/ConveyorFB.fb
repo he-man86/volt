@@ -15,7 +15,7 @@ VAR
 	beltStarted				: BTON;
 	beltStopped				: BTOF;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 // Instantiate the output
@@ -26,6 +26,7 @@ UpdateTimers();
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
+(* @volt-implementation *)
 NotRunningAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= textRefId,
@@ -42,6 +43,7 @@ VAR_INPUT
 	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
+(* @volt-implementation *)
 IF plusButtonPushed THEN
 	Set();
 END_IF
@@ -53,11 +55,13 @@ END_METHOD
 
 // Maps the actuator to the physical output
 METHOD Map : BOOL
+(* @volt-implementation *)
 Map := Output.Map();
 END_METHOD
 
 // Reset the output (=False)
 METHOD Reset
+(* @volt-implementation *)
 Output.Reset();
 
 UpdateTimers();
@@ -65,6 +69,7 @@ END_METHOD
 
 // Set the output (=True)
 METHOD Set : BOOL
+(* @volt-implementation *)
 Output.Set();
 
 UpdateTimers();
@@ -75,12 +80,14 @@ METHOD SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+(* @volt-implementation *)
 Output.SetOrReset(xValue);
 
 UpdateTimers();
 END_METHOD
 
 METHOD PRIVATE UpdateTimers
+(* @volt-implementation *)
 beltStarted.Set(Output.Map(), profile.rAcc);
 beltStopped.Set(Output.Map(), profile.rDec);
 END_METHOD
@@ -90,6 +97,7 @@ PROPERTY PUBLIC ConveyorState : enumConveyorRunning_State
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 IF NOT beltStopped.Q THEN
 	ConveyorState	:= enumConveyorRunning_State.Standstill;
 ELSIF beltStarted.Q THEN

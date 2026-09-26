@@ -4,7 +4,7 @@ VAR_IN_OUT
 	stats					: ProductionStatsType;
 	JSON					: STRING(25000);
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 IF busy THEN
@@ -22,6 +22,7 @@ METHOD PRIVATE CreateFinalJson : BOOL
 VAR_INST
 	asProperties		: ARRAY[1..GVL_Constants.MaxProductsInMould + 2, 0..1] OF STRING(1000);
 END_VAR
+(* @volt-implementation *)
 CASE chunk OF
 	0:
 		Increment.AnyInt(chunk);
@@ -65,6 +66,7 @@ VAR_INST
 	asProperties		: ARRAY[0..GVL_Constants.MaxRejectReasonsTotal + 3, 0..1] OF STRING(25);
 	i					: UINT;
 END_VAR
+(* @volt-implementation *)
 // Fill data
 asProperties[0, 0]	:= 'P';		asProperties[0, 1] := TO_STRING(stat.Produced);
 asProperties[1, 0]	:= 'S';		asProperties[1, 1] := TO_STRING(stat.Stacked);
@@ -92,6 +94,7 @@ END_VAR
 VAR_INST
 	asProperties		: ARRAY[0..5, 0..1] OF STRING(25);
 END_VAR
+(* @volt-implementation *)
 // Fill data
 asProperties[0, 0]		:= 'N';		asProperties[0, 1]		:= TO_STRING(stats.StatId);
 asProperties[1, 0]		:= 'S';		asProperties[1, 1]		:= TO_STRING(stats.TimeStopped);

@@ -32,7 +32,7 @@ VAR
 	ManualControlIsBlockedWarning			: ARRAY[1..6] OF SetErrorFB;
 
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 Drive(
@@ -118,6 +118,7 @@ ManualControlIsBlockedWarning[6](
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Initialize
+(* @volt-implementation *)
 SUPER^.Initialize();
 
 Drive.config.axisBlockedAlarmMaxTorque	:= 0.5;
@@ -129,6 +130,7 @@ PROPERTY ExternalManualControlEnabled : BOOL
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 externalManualServoControlEnabled := ExternalManualControlEnabled;
 END_SET
 END_PROPERTY

@@ -15,7 +15,7 @@ VAR
 	alarmStackNotDetected		: BOOL;
 	alarmStackDetected			: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -25,6 +25,7 @@ METHOD PUBLIC AddToStack
 VAR_INPUT
 	StackStatus : REFERENCE TO StackStatusType;	// Status of the stack that is being placed
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF StackStatus.Present THEN
 	BufferStackStatus.Initialized		:= TRUE;
@@ -42,6 +43,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..4] OF SetErrorFB;
 END_VAR
+(* @volt-implementation *)
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= BufferRack_Errors,
@@ -87,6 +89,7 @@ SetError[4](
 END_METHOD
 
 METHOD PROTECTED Cyclic
+(* @volt-implementation *)
 IF NOT BufferStackStatus.Present THEN
 	StackIndex := 0;
 END_IF
@@ -113,6 +116,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 ClearProducts.Stack(BufferStackStatus);
 
@@ -124,6 +128,7 @@ METHOD PUBLIC Reset : BOOL	// Returns true when homing done
 VAR_INST
 	localState			: SINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -148,6 +153,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 Stop := SUPER^.Stop();
 END_METHOD
@@ -158,12 +164,14 @@ PROPERTY StackIndex : USINT
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 StackIndex			:= BufferStackIndex;
 END_GET
 SET
 PROTECTED
 VAR
 END_VAR
+(* @volt-implementation *)
 BufferStackIndex	:= StackIndex;
 END_SET
 END_PROPERTY
@@ -173,6 +181,7 @@ PROPERTY PUBLIC StackStatus : REFERENCE TO StackStatusType
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 StackStatus		REF= BufferStackStatus;
 END_GET
 END_PROPERTY

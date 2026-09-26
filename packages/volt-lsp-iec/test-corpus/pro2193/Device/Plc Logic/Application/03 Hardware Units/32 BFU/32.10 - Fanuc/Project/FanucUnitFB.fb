@@ -10,7 +10,7 @@ VAR_IN_OUT
 END_VAR
 VAR
 END_VAR
-
+(* @volt-implementation *)
 SUPER^(
 	Data			:= Data,
 	GripperStatus	:= GripperStatus

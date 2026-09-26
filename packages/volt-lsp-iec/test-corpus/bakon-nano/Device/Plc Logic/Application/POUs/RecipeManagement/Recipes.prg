@@ -33,7 +33,7 @@ VAR
 	sDateAndTIme2: STRING(255);
 	sRecipeNamePar: STRING(255);
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 FBD
   LET en1 := TRUE;
   IF en1 THEN

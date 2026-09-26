@@ -22,7 +22,7 @@ VAR
 	{attribute 'symbol' := 'read'}	Output					: ActuatorFB;
 	NoLabelsAlarm			: SetErrorFB;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 Blinker(
@@ -46,6 +46,7 @@ Output.SetOrReset(Blinker.OUT);
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
+(* @volt-implementation *)
 NoLabelsAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= textRefId,
@@ -63,6 +64,7 @@ VAR_INPUT
 	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
+(* @volt-implementation *)
 IF plusButtonPushed THEN
 	Set();
 END_IF
@@ -74,16 +76,19 @@ END_METHOD
 
 // Maps the actuator to the physical output
 METHOD Map : BOOL
+(* @volt-implementation *)
 Map := Output.Map();
 END_METHOD
 
 // Stop pulsating the output. If the output is active, it will remain high until the TimeHigh timer is elapsed.
 METHOD PUBLIC Reset
+(* @volt-implementation *)
 xMoveAuto := FALSE;
 END_METHOD
 
 // Start pulsating the output.
 METHOD Set : BOOL
+(* @volt-implementation *)
 xMoveAuto := TRUE;
 END_METHOD
 
@@ -92,5 +97,6 @@ METHOD PUBLIC SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+(* @volt-implementation *)
 xMoveAuto := xValue;
 END_METHOD

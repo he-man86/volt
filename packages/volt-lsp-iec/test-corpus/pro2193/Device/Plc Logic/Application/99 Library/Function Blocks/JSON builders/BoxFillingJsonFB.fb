@@ -6,7 +6,7 @@ VAR_IN_OUT
 	teachPosition			: Fanuc_PositionXYZWPR_Type;
 	JSON					: STRING(14000);
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 IF busy THEN
@@ -26,6 +26,7 @@ END_VAR
 VAR_INST
 	asProperties		: ARRAY[0..10, 0..1] OF STRING(10);
 END_VAR
+(* @volt-implementation *)
 // Fill data
 asProperties[0, 0]			:= 'bx';	asProperties[0, 1]			:= TO_STRING(boxSettings.BoxSize.rPosX);
 asProperties[1, 0]			:= 'by';	asProperties[1, 1]			:= TO_STRING(boxSettings.BoxSize.rPosY);
@@ -52,6 +53,7 @@ VAR_INST
 	asProperties		: ARRAY[0..GVL_Constants_BFU.MaxNumberOfStacksInBox, 0..1] OF STRING(280);
 	localJSON			: STRING(14000);
 END_VAR
+(* @volt-implementation *)
 sw.Reset();
 
 CASE chunk OF
@@ -101,6 +103,7 @@ END_VAR
 VAR_INST
 	asProperties		: ARRAY[0..13, 0..1] OF STRING(10);
 END_VAR
+(* @volt-implementation *)
 // Fill data
 asProperties[0, 0]			:= 's';		asProperties[0, 1]			:= TO_STRING(stacks[stack].StackNumber);
 asProperties[1, 0]			:= 'x';		asProperties[1, 1]			:= TO_STRING(stacks[stack].PlacePosition.rPosX);

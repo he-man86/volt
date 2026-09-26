@@ -22,7 +22,7 @@ VAR
 	) DINT;
 
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 // Enable manual control of Z Unit motor when chain is in safe position.
@@ -42,6 +42,7 @@ VAR
 	zUnithasProducts	: ARRAY[1..GVL_Constants.ChainProductsForZUnit] OF BOOL;
 	i, j				: USINT;
 END_VAR
+(* @volt-implementation *)
 zUnithasProducts	:= zUnit.HasProductForTransfer;
 
 // Go from first Z Unit vacuum, to the last. First Z Unit vacuum is the last product on the chain.
@@ -93,11 +94,13 @@ END_FOR
 END_METHOD
 
 METHOD PROTECTED Cyclic
+(* @volt-implementation *)
 State(actState	:= ActState);
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
@@ -109,6 +112,7 @@ METHOD PUBLIC ExecuteTransfer : BOOL
 VAR_INPUT
 	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
+(* @volt-implementation *)
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
 END_IF
@@ -137,6 +141,7 @@ END_VAR
 VAR
 	i					: USINT;
 END_VAR
+(* @volt-implementation *)
 CASE ActState OF
 	StateNone:
 		;
@@ -215,6 +220,7 @@ END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
@@ -227,6 +233,7 @@ PROPERTY TransferBusy : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 TransferBusy	:= ActState <> StateNone;
 END_GET
 END_PROPERTY

@@ -8,7 +8,7 @@ VAR
 	dtDiff : TIME;
 	Result	: UDINT;
 END_VAR
-
+(* @volt-implementation *)
 TON1(IN:=(EtherCAT_Master.wState = L_ETC.L_ETC_STATE.ETC_STATE_OPERATIONAL), Pt:=T#12s);
 g_bOnDelayed:=TON1.Q;
 

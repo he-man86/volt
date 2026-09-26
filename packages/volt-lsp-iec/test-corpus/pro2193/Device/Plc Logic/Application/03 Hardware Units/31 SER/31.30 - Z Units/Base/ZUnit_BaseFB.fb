@@ -17,7 +17,7 @@ END_VAR
 VAR CONSTANT
 	NumberOfTakeoverPositions	: USINT	:= ZUnits.NumberOfTakeoverPositions;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^(
 	AxisRef				:= AxisRef,
 	DataBrink			:= DataBrink,
@@ -36,6 +36,7 @@ END_VAR
 VAR
 	i							: USINT;
 END_VAR
+(* @volt-implementation *)
 ReadMachineData(
 	Axis					:= AxisRef,
 	xEnable					:= TRUE,
@@ -88,6 +89,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 ReadyForTransfer	:= FALSE;
 ReadyForStacking	:= FALSE;
@@ -98,6 +100,7 @@ EStop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.EStop();
 END_METHOD
 
 METHOD PROTECTED Initialize
+(* @volt-implementation *)
 SUPER^.Initialize();
 
 DriveBrakeLogic.config.holdingTorque		:= -6;
@@ -105,6 +108,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode THEN
 	Drive.Halt();
@@ -120,12 +124,14 @@ PROPERTY ReadyForStacking : BOOL;
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ReadyForStacking	:= _readyForStacking;
 END_GET
 SET
 PROTECTED
 VAR
 END_VAR
+(* @volt-implementation *)
 _readyForStacking	:= ReadyForStacking;
 END_SET
 END_PROPERTY
@@ -137,12 +143,14 @@ PROPERTY ReadyForTransfer : BOOL;
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ReadyForTransfer	:= _readyForTransfer;
 END_GET
 SET
 PROTECTED
 VAR
 END_VAR
+(* @volt-implementation *)
 _readyForTransfer	:= ReadyForTransfer;
 END_SET
 END_PROPERTY
@@ -154,6 +162,7 @@ PROPERTY TorqueCorrected : REAL;
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 IF ReadMachineData.xValid AND_THEN ReadMachineData.xOrientation THEN
 	TorqueCorrected	:= Drive.actTorque * -1;
 ELSE

@@ -38,7 +38,7 @@ VAR
 	xDriveA1Enabled					: BOOL;
 	xDriveA2Enabled					: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 
 (****************************************************************************************************************)
 (* INITIALISIRUNG FB																							*)

@@ -6,6 +6,7 @@ IMPLEMENTS ISubject, ISubjectBasePayload
 VAR
 	storedUUID				: STRING(40);
 END_VAR
+(* @volt-implementation *)
 
 END_FUNCTION_BLOCK
 
@@ -13,6 +14,7 @@ METHOD PROTECTED AttachAllowed : BOOL
 VAR_INPUT
 	observer			: IObserver;
 END_VAR
+(* @volt-implementation *)
 IF NOT SUPER^.AttachAllowed(observer) THEN
 	AttachAllowed := FALSE;
 	RETURN;
@@ -49,6 +51,7 @@ METHOD PUBLIC Detach : BOOL
 VAR_INPUT
 	observer			: IObserver;
 END_VAR
+(* @volt-implementation *)
 SUPER^.Detach(observer);
 
 IF HMI.UUIDActiveScreen = '' THEN
@@ -57,6 +60,7 @@ END_IF
 END_METHOD
 
 METHOD PUBLIC Notify
+(* @volt-implementation *)
 //Manual control screen was closed or changed, remove all observers!
 IF storedUUID <> HMI.UUIDActiveScreen THEN
 	IF ObserverCount > 0 THEN

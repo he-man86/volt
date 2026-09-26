@@ -23,7 +23,7 @@ VAR
 	uiIndexQspRamp: UINT;
 	iSlotAxis: INT;
 END_VAR
-
+(* @volt-implementation *)
 //'L_SetIntQspRamp_i700'
 //
 //04.2016

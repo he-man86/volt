@@ -5,7 +5,7 @@ VAR
 	tInt: INT;
 	tBool: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD TITLE: "NETWORK 1: Write setpoint speed in DB"
   // The speed of the trayfiller has to be higher then the speed of the dryer. In this way there is always an empty space at the startpostition of the trayfiller.
   LET en1 := ;

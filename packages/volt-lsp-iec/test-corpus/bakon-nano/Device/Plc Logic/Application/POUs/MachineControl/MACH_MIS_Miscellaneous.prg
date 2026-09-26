@@ -4,7 +4,7 @@ VAR
 	bMinute	: BOOL;
 
 END_VAR
-
+(* @volt-implementation *)
 (* Machine producing hours *)
 TONMinute(IN:=g_sMACH.AUT.bActAutomatic AND NOT bMinute, PT:=T#60s);
 bMinute := TONMinute.Q;

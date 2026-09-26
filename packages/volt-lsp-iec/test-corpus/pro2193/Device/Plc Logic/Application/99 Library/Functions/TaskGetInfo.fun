@@ -6,7 +6,7 @@ VAR
 	handle			: SysTypes.RTS_IEC_HANDLE;
 	pIecTaskInfo	: POINTER TO CmpIecTask.Task_Info2;
 END_VAR
-
+(* @volt-implementation *)
 handle				:= CmpIecTask.IecTaskGetCurrent(ADR(iecResult));			// Function to get own task handle
 
 IF handle = SysTypes.RTS_INVALID_HANDLE THEN RETURN; END_IF

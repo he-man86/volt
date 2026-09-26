@@ -11,6 +11,7 @@ VAR
 	CmdAbortRT     : R_TRIG;
 	CmdAbortDoneRT : R_TRIG;	
 END_VAR
+(* @volt-implementation *)
 
 END_FUNCTION_BLOCK
 
@@ -24,6 +25,7 @@ END_VAR
 VAR_INPUT
 	xForce: BOOL := FALSE;
 END_VAR
+(* @volt-implementation *)
 //
 // HMI input.
 //
@@ -231,60 +233,70 @@ END_VAR
 VAR_IN_OUT
 	myState: strState;
 END_VAR
+(* @volt-implementation *)
 IF myState.xCmdModeAutomatic THEN myState.enMode := enMode.AUTOMATIC; END_IF
 IF myState.xCmdModeManual    THEN myState.enMode := enMode.MANUAL;    END_IF
 IF myState.xCmdModeCleaning  THEN myState.enMode := enMode.CLEANING;  END_IF
 END_METHOD
 
 ACTION Aborted
+(* @volt-implementation *)
 //----------------------------------------------------------------------------------	 
 // Aborted
 //----------------------------------------------------------------------------------
 END_ACTION
 
 ACTION Aborting
+(* @volt-implementation *)
 //----------------------------------------------------------------------------------	 
 // Aborting
 //----------------------------------------------------------------------------------
 END_ACTION
 
 ACTION Executing
+(* @volt-implementation *)
 //-------------------------------------------------------------------------------------
 // Executing
 //-------------------------------------------------------------------------------------
 END_ACTION
 
 ACTION Idle
+(* @volt-implementation *)
 //-------------------------------------------------------------------------------------
 // Idle
 //-------------------------------------------------------------------------------------
 END_ACTION
 
 ACTION Initialize
+(* @volt-implementation *)
 //-------------------------------------------------------------------------------------
 // Initialize
 //-------------------------------------------------------------------------------------
 END_ACTION
 
 ACTION Resetting
+(* @volt-implementation *)
 //-------------------------------------------------------------------------------------
 // Resetting
 //-------------------------------------------------------------------------------------
 END_ACTION
 
 ACTION Starting
+(* @volt-implementation *)
 //-------------------------------------------------------------------------------------
 // Starting
 //-------------------------------------------------------------------------------------
 END_ACTION
 
 ACTION Stopped
+(* @volt-implementation *)
 //-------------------------------------------------------------------------------------
 // Stopped
 //-------------------------------------------------------------------------------------
 END_ACTION
 
 ACTION Stopping
+(* @volt-implementation *)
 //-------------------------------------------------------------------------------------
 // Stopping
 //-------------------------------------------------------------------------------------

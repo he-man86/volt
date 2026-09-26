@@ -24,7 +24,7 @@ END_VAR
 VAR CONSTANT
 	NumberOfTakeoverPositions	: USINT	:= YUnits.NumberOfTakeoverPositions;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^(
 	AxisRef				:= AxisRef,
 	DataBrink			:= DataBrink,
@@ -37,6 +37,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..2] OF SetErrorFB;
 END_VAR
+(* @volt-implementation *)
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= YUnit_Errors,
@@ -75,6 +76,7 @@ END_VAR
 VAR
 	i		: USINT;
 END_VAR
+(* @volt-implementation *)
 // Start the fan on the Y Drive when axis is enabled.
 MotorCooling(
 	manualControlEnabled	:= FALSE);
@@ -133,6 +135,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT Drive.config.virtualMode THEN
 	Drive.Quickstop(TRUE);
@@ -144,6 +147,7 @@ EStop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.EStop();
 END_METHOD
 
 METHOD PROTECTED Initialize
+(* @volt-implementation *)
 SUPER^.Initialize();
 
 Drive.config.maxVelocity				:= 10;
@@ -156,6 +160,7 @@ END_METHOD
 
 // Make the Y drive go to the takeout position inside the mould area
 METHOD PUBLIC MoveInMould : BOOL
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -175,6 +180,7 @@ METHOD PUBLIC MoveToLabelTakeover : BOOL
 VAR_INPUT
 	takeoverPosition		: USINT	:= 0;	// 0: Parameter not in use, 1: Label Takeover pos 1, etc.
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -197,6 +203,7 @@ END_VAR
 VAR_INST
 	monitorDeceleration		: BOOL;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -239,6 +246,7 @@ END_METHOD
 
 // Make the Y drive go to the parking position on start of program
 METHOD PUBLIC MoveToWaiting : BOOL
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -291,6 +299,7 @@ METHOD PUBLIC Reset : BOOL	// Returns true when homing done
 VAR_INST
 	localState			: SINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -324,6 +333,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode THEN
 	Drive.Halt();
@@ -341,6 +351,7 @@ PROPERTY PUBLIC InSafePos : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 InSafePos := xClearMould AND Drive.PosSmallerOrEqual(Data.Waiting.Pos.value);
 END_GET
 END_PROPERTY
@@ -353,6 +364,7 @@ GET
 VAR
 	i	: INT;
 END_VAR
+(* @volt-implementation *)
 InSafePosForXUnits		:= PositionReachedValue(Drive.actPos, Data.Takeout.Pos.value, 10);
 FOR i := 1 TO NumberOfTakeoverPositions DO
 	InSafePosForXUnits	S= PositionReachedValue(Drive.actPos, Data.Takeover[i].Pos.value, 10);
@@ -365,6 +377,7 @@ PROPERTY PUBLIC IsDecelerating : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 IsDecelerating	:= Drive.AxisBasicControl.xDecelerating;
 END_GET
 END_PROPERTY
@@ -378,6 +391,7 @@ GET
 VAR
 	i	: USINT;
 END_VAR
+(* @volt-implementation *)
 IsLabelTakeoutEqual				:= 0;
 FOR i := 1 TO NumberOfTakeoverPositions DO
 	IF ABS(Data.Takeover[i].Pos.value - Data.LabelTakeover.Pos.value) <= 0.001 THEN
@@ -395,6 +409,7 @@ PROPERTY PUBLIC IsOnTakeoutPos : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 IsOnTakeoutPos := NOT xClearMould AND Drive.PosReached(Data.Takeout.Pos.value);
 END_GET
 END_PROPERTY

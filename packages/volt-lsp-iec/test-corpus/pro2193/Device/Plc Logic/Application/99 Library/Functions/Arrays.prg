@@ -2,7 +2,7 @@
 {attribute 'no_explicit_call' := 'Static helper class to do stuff with all kinds of arrays'}
 {attribute 'hide_all_locals'}
 PROGRAM Arrays
-
+(* @volt-implementation *)
 
 // Because arrays are value-type, it's not possible to cast an array of fbs to another type.
 // More info here:
@@ -28,6 +28,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Tests
 lower	:= LOWER_BOUND(actuatorArray, 1);
 upper	:= UPPER_BOUND(actuatorArray, 1);
@@ -57,6 +58,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Tests
 lower	:= LOWER_BOUND(actuatorArray, 1);
 upper	:= UPPER_BOUND(actuatorArray, 1);
@@ -79,6 +81,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Execute methods
 lower	:= LOWER_BOUND(actuatorArray, 1);
 upper	:= UPPER_BOUND(actuatorArray, 1);
@@ -100,6 +103,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Tests
 lower	:= LOWER_BOUND(safeModules, 1);
 upper	:= UPPER_BOUND(safeModules, 1);
@@ -127,6 +131,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Tests
 lower	:= LOWER_BOUND(boolArray, 1);
 upper	:= UPPER_BOUND(boolArray, 1);
@@ -152,6 +157,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Tests
 lower	:= LOWER_BOUND(boolArray, 1);
 upper	:= UPPER_BOUND(boolArray, 1);
@@ -172,6 +178,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Execute methods
 lower	:= LOWER_BOUND(boolArray, 1);
 upper	:= UPPER_BOUND(boolArray, 1);
@@ -189,6 +196,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Execute methods
 lower	:= LOWER_BOUND(boolArray, 1);
 upper	:= UPPER_BOUND(boolArray, 1);
@@ -209,6 +217,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Digital Sensors
 lower	:= LOWER_BOUND(sensorArray, 1);
 upper	:= UPPER_BOUND(sensorArray, 1);
@@ -236,6 +245,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Digital Sensors
 lower	:= LOWER_BOUND(sensorArray, 1);
 upper	:= UPPER_BOUND(sensorArray, 1);
@@ -263,6 +273,7 @@ VAR
 	upper, lower, di	: DINT;
 	counter				: USINT := 0;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Digital Sensors
 lower	:= LOWER_BOUND(sensorArray, 1);
 upper	:= UPPER_BOUND(sensorArray, 1);
@@ -299,6 +310,7 @@ VAR
 	upper, lower, di	: DINT;
 	counter				: USINT := 0;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Digital Sensors
 lower	:= LOWER_BOUND(sensorArray, 1);
 upper	:= UPPER_BOUND(sensorArray, 1);
@@ -328,6 +340,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Positions
 lower					:= LOWER_BOUND(positionArray, 1);
 upper					:= UPPER_BOUND(positionArray, 1);
@@ -346,6 +359,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Positions
 lower					:= LOWER_BOUND(positionArray, 1);
 upper					:= UPPER_BOUND(positionArray, 1);
@@ -368,6 +382,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Tests
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);
@@ -402,6 +417,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Tests
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);
@@ -444,6 +460,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Tests
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);
@@ -483,6 +500,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Tests
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);
@@ -525,6 +543,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Execute methods
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);
@@ -553,6 +572,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Execute methods
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);
@@ -582,6 +602,7 @@ VAR
 	result				: UINT;
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Execute methods
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);
@@ -615,6 +636,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Tests
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);
@@ -659,6 +681,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Execute methods
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);
@@ -687,6 +710,7 @@ END_VAR
 VAR
 	upper, lower, di	: DINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Execute methods
 lower	:= LOWER_BOUND(vacuumArray, 1);
 upper	:= UPPER_BOUND(vacuumArray, 1);

@@ -32,7 +32,7 @@ VAR_INPUT
 	adr_StatusWord12_bit0: POINTER TO BOOL;
 	adr_StatusWord13_bit0: POINTER TO BOOL;
 END_VAR
-
+(* @volt-implementation *)
 len:=15;
 startUDT:=ADR(SafetyStatusUDT_Location);
 

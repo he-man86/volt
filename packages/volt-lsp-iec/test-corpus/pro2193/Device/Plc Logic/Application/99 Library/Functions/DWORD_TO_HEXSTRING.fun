@@ -21,7 +21,7 @@ DWORD_TO_STRINGH converts a DWORD to a String of Hexadecimal represented by '0' 
 The lowest order Character will be on the right and the high order Character on the left.
 
 *)
-
+(* @volt-implementation *)
 pt	:= ADR(DWORD_TO_HEXSTRING) + 8;					// Read output adress to pointer
 pt^	:= 0;											// Write the closing byte (terminator) for the string
 

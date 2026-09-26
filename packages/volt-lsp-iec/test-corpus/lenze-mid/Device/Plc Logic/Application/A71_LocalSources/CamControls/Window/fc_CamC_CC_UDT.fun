@@ -15,7 +15,7 @@ END_VAR
 VAR_IN_OUT
 	ioCamControl	: UDT_CamControl;
 END_VAR
-
+(* @volt-implementation *)
 
 ioCamControl.MachinePos_HMI:=iMachinePosition;
 fc_CamC_CC_Base(

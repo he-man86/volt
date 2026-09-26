@@ -12,7 +12,7 @@ VAR_INPUT
 	bit7			: BIT;
 	bit8			: BIT;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 IF __ISVALIDREF(sliceForced) AND_THEN sliceForced THEN

@@ -13,23 +13,23 @@ END_VAR
 VAR 
 	IDB_WSM: WSM;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD TITLE: "Network 1: Detection of wrapper (set and reset)"
   LET g10 := True;
   Mach1_AuxData.MemWrapperPassedUnderTheSensor S= (g10 AND LST_InputsOutputs.I101_0_Wrapper_present);
-  LET g1 := (g10 AND NOT LST_InputsOutputs.I101_0_Wrapper_present AND Mach1_AuxData.MemWrapperPassedUnderTheSensor);
-  Mach1_AuxData.MemWrapperPresentForLeafCarrier S= g1;
-  Mach1_AuxData.MemWrapperDetected_ResetLimitedSpeed S= g1;
+  LET m1 := (g10 AND NOT LST_InputsOutputs.I101_0_Wrapper_present AND Mach1_AuxData.MemWrapperPassedUnderTheSensor);
+  Mach1_AuxData.MemWrapperPresentForLeafCarrier S= m1;
+  Mach1_AuxData.MemWrapperDetected_ResetLimitedSpeed S= m1;
   LET en1 := g10;
   IF en1 THEN Mach1_AuxData.CamControls.TakeOverCycleStopPulse_CP.Start := MOVE(Mach1_Data.CamControls.TakeOverCycle_C.Stop); END_IF
-  LET g2 := fc_CamC_CP_UDT(en1, HMI_Var.Mach1.Position, Mach1.GenFlags.Rotflag, Mach1_AuxData.CamControls.TakeOverCycleStopPulse_CP);
-  Mach1_AuxData.MemWrapperPresentForLeafCarrier R= g2;
-  Mach1_AuxData.MemWrapperPassedUnderTheSensor R= g2;
+  LET m2 := fc_CamC_CP_UDT(en1, HMI_Var.Mach1.Position, Mach1.GenFlags.Rotflag, Mach1_AuxData.CamControls.TakeOverCycleStopPulse_CP);
+  Mach1_AuxData.MemWrapperPresentForLeafCarrier R= m2;
+  Mach1_AuxData.MemWrapperPassedUnderTheSensor R= m2;
 END_NETWORK
 NETWORK 1 LD
-  LET g1 := R_TrigStartPos(CLK := HMI_Var.HMI_AHWF_StartPos);
-  Mach1_AuxData.MemWrapperPresentForLeafCarrier R= g1;
-  Mach1_AuxData.MemWrapperPassedUnderTheSensor R= g1;
+  LET m1 := R_TrigStartPos(CLK := HMI_Var.HMI_AHWF_StartPos);
+  Mach1_AuxData.MemWrapperPresentForLeafCarrier R= m1;
+  Mach1_AuxData.MemWrapperPassedUnderTheSensor R= m1;
 END_NETWORK
 NETWORK 2 LD TITLE: "Network 2: FB for DTA"
   LET i1 := fc_dinttotime(Mach1_Data.Timers.TimeOutSupplyWrapper,2);

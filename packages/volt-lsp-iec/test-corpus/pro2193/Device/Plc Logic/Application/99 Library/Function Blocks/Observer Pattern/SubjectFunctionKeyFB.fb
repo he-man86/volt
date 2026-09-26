@@ -7,6 +7,7 @@ IMPLEMENTS ISubject, ISubjectFunctionKeyPayload
 VAR
 	_extState		: enumFunctionKeyPayload;	// Private backing field for property
 END_VAR
+(* @volt-implementation *)
 
 END_FUNCTION_BLOCK
 
@@ -16,11 +17,13 @@ PROPERTY ExtState : enumFunctionKeyPayload
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ExtState := _extState;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _extState := ExtState;
 END_SET
 END_PROPERTY

@@ -22,7 +22,7 @@ VAR
 	bCylToEndPos				: BOOL;	(* Memory bit *)
 	bCylToZeroPos				: BOOL;	(* Memory bit *)
 END_VAR
-
+(* @volt-implementation *)
 (*************************************************************************
  * HISTORY																					 
  *************************************************************************

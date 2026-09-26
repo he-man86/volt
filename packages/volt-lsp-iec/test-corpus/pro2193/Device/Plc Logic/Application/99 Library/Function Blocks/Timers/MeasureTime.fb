@@ -10,6 +10,7 @@ VAR
 	TON1			: Standard.TON;
 	rStoredTime		: REAL;		// Dynamic - The currently elapsed time while measuring. Resets when a new measurement starts.
 END_VAR
+(* @volt-implementation *)
 
 END_FUNCTION_BLOCK
 
@@ -18,6 +19,7 @@ METHOD PUBLIC Measure : REAL
 VAR_INPUT
 	In	: BOOL;	// Measure the time the input remains high
 END_VAR
+(* @volt-implementation *)
 IF (In XOR TON1.IN)				// Triggers the first cycle In is true, and the first cycle In is false. Give output.
 OR (In AND TON1.ET > T#1S)		// Output will start running when timer has been running for more than 1 sec.
 THEN
@@ -43,6 +45,7 @@ PROPERTY PUBLIC ElapsedTime : REAL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ElapsedTime := rStoredTime;
 END_GET
 END_PROPERTY

@@ -18,7 +18,7 @@ END_VAR
 VAR_OUTPUT
 	oError	: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 //Init 
 oError := FALSE;
 tLastPositionToCheck := 0;

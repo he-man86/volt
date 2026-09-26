@@ -26,7 +26,7 @@ END_VAR
 VAR_STAT
 	moduleCurrentlyExecuting	: STRING(80);		// For debugging: In case of exception check this string to see what module is currently executing
 END_VAR
-
+(* @volt-implementation *)
 IF NOT _initialized THEN
 	_initialized := TRUE;
 	Initialize();
@@ -43,6 +43,7 @@ Cyclic();	// Do stuff every PLC cycle (like instantiate all fbs needed in the mo
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Cyclic
+(* @volt-implementation *)
 END_METHOD
 
 //FB_Exit must be implemented explicitly. If there is an implementation, then the
@@ -52,6 +53,7 @@ METHOD FB_Exit: BOOL
 VAR_INPUT
 	bInCopyCode: BOOL;  // TRUE: the exit method is called in order to leave the instance which will be copied afterwards (online change).
 END_VAR
+(* @volt-implementation *)
 IF THIS^.ModuleManager <> 0 THEN
 	THIS^.ModuleManager.Unregister(THIS^);
 END_IF
@@ -72,6 +74,7 @@ VAR_INPUT
 	moduleManager	: IModuleManager;				// Give location of module manager (can be different for SER or BFU)
 	moduleParent	: L_IMHP.L_IMHP_IModuleHandler;	// (Optional) Give parent of this module. Use zero to use SER or BFU as parent.
 END_VAR
+(* @volt-implementation *)
 THIS^.ModuleManager		:= moduleManager;
 
 IF moduleManager = 0 THEN
@@ -103,6 +106,7 @@ ModuleHandler.CompType	:= L_IMHP_ComponentType.GeneralMachineModule;
 END_METHOD
 
 METHOD PROTECTED Initialize
+(* @volt-implementation *)
 ModuleHandler.SetParent(
 					ModuleHandlerParent	:= ModuleParent,
 					RelationShip		:= L_IMHP.L_IMHP_RelationshipID.ApplicationView);
@@ -114,6 +118,7 @@ PROPERTY PUBLIC InstanceName : STRING(80)
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 InstanceName := _instanceName;
 END_GET
 END_PROPERTY
@@ -126,6 +131,7 @@ PROPERTY PUBLIC InstanceNo : UINT
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 InstanceNo := _instanceNo;
 END_GET
 END_PROPERTY
@@ -136,6 +142,7 @@ PROPERTY PUBLIC MemoryAddress : STRING(8)
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 {IF defined (IsSimulationMode)}
 	MemoryAddress := DWORD_TO_HEXSTRING(TO_DWORD(ADR(THIS^)));
 {ELSE}

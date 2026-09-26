@@ -7,7 +7,7 @@ VAR
 	// Compare with
 	iCoordSystemId: INT;
 END_VAR
-
+(* @volt-implementation *)
 // Detect when to load the offsets.
 
 IF (UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId > 0) AND (UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId < 4) AND (iCoordSystemId <> UN01_HMI.CoordSystemOffset_HMI.iCoordSystemId) THEN

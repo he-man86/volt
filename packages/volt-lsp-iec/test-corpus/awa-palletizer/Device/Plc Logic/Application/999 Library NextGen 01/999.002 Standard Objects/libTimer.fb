@@ -14,7 +14,7 @@ VAR
 	iState: INT;
 	tTime: TIME;
 END_VAR
-
+(* @volt-implementation *)
 fbIN_RT(CLK := IN);
 
 CASE iState OF

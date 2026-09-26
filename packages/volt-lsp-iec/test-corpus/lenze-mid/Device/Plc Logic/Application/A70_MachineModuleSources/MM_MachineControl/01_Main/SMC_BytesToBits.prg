@@ -1,7 +1,7 @@
 PROGRAM SMC_BytesToBits
 VAR
 END_VAR
-
+(* @volt-implementation *)
 LST_InputsOutputs.SMC_B0.0:= BOOL_TO_BIT( PneumValveTerminalSMC.Pos1A);
 LST_InputsOutputs.SMC_B0.1:= BOOL_TO_BIT( PneumValveTerminalSMC.Pos1B);
 LST_InputsOutputs.SMC_B0.2:= BOOL_TO_BIT( PneumValveTerminalSMC.Pos2A);

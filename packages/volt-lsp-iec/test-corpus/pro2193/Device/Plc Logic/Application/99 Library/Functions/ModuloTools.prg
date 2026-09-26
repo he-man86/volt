@@ -4,6 +4,7 @@
 PROGRAM ModuloTools
 VAR
 END_VAR
+(* @volt-implementation *)
 
 END_PROGRAM
 
@@ -17,6 +18,7 @@ END_VAR
 VAR
 	delta			: REAL;
 END_VAR
+(* @volt-implementation *)
 // Difference of the 2 positions is how far the product has moved on the conveyor
 delta		:= actPos - productPos;
 
@@ -44,6 +46,7 @@ result := ModuloTools.PositionInWindow(
 								setPos		:= targetPos + 1,
 								rollover	:= CycleLength));
 *)
+(* @volt-implementation *)
 // There is no rollover in the window
 IF windowMin <= windowMax THEN
 	PositionInWindow	:= position >= windowMin AND position <= windowMax;
@@ -67,6 +70,7 @@ END_VAR
 VAR
 	delta			: REAL;
 END_VAR
+(* @volt-implementation *)
 // Get the remainder of position / stepDistance. This is how much the position is different.
 delta := TO_REAL( TO_DINT(position * 10) MOD TO_DINT(stepDistance * 10) ) / 10;
 
@@ -103,6 +107,7 @@ rejectSensorValid	:= Data.rejectSensorOffset = 0
 
 alarmActive			:= rejectSensorValid AND NOT sensorRowIsEmpty;
 *)
+(* @volt-implementation *)
 // Get the remainder of position / stepDistance. This is how much the position is different.
 delta := TO_REAL( TO_DINT(position * 10) MOD TO_DINT(stepDistance * 10) ) / 10;
 
@@ -127,6 +132,7 @@ VAR_INPUT
 	rollover		: LREAL;		// Rollover (mm)
 	hysteresis		: REAL	:= 1;	// Max allowed difference
 END_VAR
+(* @volt-implementation *)
 PositionReached	:= PositionInWindow(
 						actPos,
 						rollover,
@@ -143,6 +149,7 @@ END_VAR
 VAR
 	correctedPos	: REAL;
 END_VAR
+(* @volt-implementation *)
 IF rollover < 0.001 THEN	// Exception happens when rollover is zero
 	SetPosition		:= 0.0;
 	RETURN;

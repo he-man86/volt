@@ -30,7 +30,7 @@ END_VAR
 VAR_IN_OUT
 	Axis:AXIS_REF;
 END_VAR
-
+(* @volt-implementation *)
 IF rGearingRatio <> 0 THEN
 	rVelocity:=Axis.scPar.MaxVelocity / ABS(rGearingRatio);
 	rAcceleration:=Axis.scPar.MaxAcceleration   / ABS(rGearingRatio);

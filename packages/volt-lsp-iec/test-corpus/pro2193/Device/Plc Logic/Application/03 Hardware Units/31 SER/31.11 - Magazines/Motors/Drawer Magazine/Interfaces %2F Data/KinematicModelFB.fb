@@ -10,6 +10,7 @@ END_VAR
 VAR CONSTANT
 	Deg90ToRads : LREAL := 1.5707963267949; // Radians value for 90 degrees
 END_VAR
+(* @volt-implementation *)
 
 END_FUNCTION_BLOCK
 
@@ -23,6 +24,7 @@ END_VAR
 VAR_INST
 	actualXPos			: LREAL;
 END_VAR
+(* @volt-implementation *)
 // Implement here: Backward-Trafo / inverse kinematics:
 // Calculate the ACS-Positions according to position of the flange (TCS-Position, defined in MCS)
 
@@ -58,6 +60,7 @@ VAR_INST
 	angleA1			: LREAL;
 	actualXPos		: LREAL;
 END_VAR
+(* @volt-implementation *)
 // Implement here: Forward-Trafo / direct kinematics:
 // Calculate the position of the flange (TCS-Position, defined in MCS) according to ACS-Positions
 
@@ -103,14 +106,17 @@ VAR_IN_OUT
 	alrPosAxes	: ARRAY[1..6] OF LREAL;
 	aiConfiguration	: ARRAY[1..6] OF INT;
 END_VAR
+(* @volt-implementation *)
 // Use this method, if your Backwardtransformation has more than one solution, depending on the actual position of the ACS-Axes
 END_METHOD
 
 METHOD CalculateParameter
+(* @volt-implementation *)
 // Calculate variables depending on user-defined parameters
 END_METHOD
 
 METHOD CheckParameter : BOOL
+(* @volt-implementation *)
 CheckParameter := TRUE;
 END_METHOD
 
@@ -124,4 +130,5 @@ VAR_OUTPUT CONSTANT
 											   L_MC4P_AxisType.unconnected,
 											   L_MC4P_AxisType.unconnected];
 END_VAR
+(* @volt-implementation *)
 END_METHOD

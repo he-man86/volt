@@ -21,7 +21,7 @@ VAR CONSTANT
 	MaxChargers					: USINT	:= XiUnits.MaxChargers;
 	EnableHalfwayPosition		: BOOL	:= TRUE;	// Drive moves to a position when the Y drive moves onto the safety strip
 END_VAR
-
+(* @volt-implementation *)
 SUPER^(
 	AxisRef				:= AxisRef,
 	DataBrink			:= DataBrink,
@@ -34,6 +34,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..2] OF SetErrorFB;
 END_VAR
+(* @volt-implementation *)
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= XiUnit_Errors,
@@ -65,6 +66,7 @@ END_VAR
 VAR
 	i		: USINT;
 END_VAR
+(* @volt-implementation *)
 FOR i := 1 TO MaxChargers DO
 	Data.rSetPointCharger[i].lowerLimit	:= 0.0;
 	Data.rSetPointCharger[i].upperLimit	:= 20.0;	// Upper limit of charger setpoint
@@ -159,6 +161,7 @@ METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 VAR
 	i		: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 FOR i := 1 TO MaxChargers DO
 	Charger[i].Reset();
@@ -177,6 +180,7 @@ METHOD PUBLIC GetLabels : BOOL
 VAR_INPUT
 	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -196,6 +200,7 @@ METHOD PROTECTED Initialize
 VAR
 	i		: USINT;
 END_VAR
+(* @volt-implementation *)
 SUPER^.Initialize();
 
 // Set interfaces to correct vacuum instances
@@ -208,6 +213,7 @@ END_METHOD
 METHOD MoveToHalfway : BOOL
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Shared
 IF NOT EnableHalfwayPosition THEN
 	RETURN;
@@ -233,6 +239,7 @@ END_VAR
 VAR_OUTPUT
 	almostSafe		: BOOL;		// Drive almost arrived in position
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Shared
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -256,6 +263,7 @@ METHOD PUBLIC MoveToTakeover : BOOL
 VAR_INPUT
 	takeoverPosition		: INT;	// 0: invalid, 1: Takeover pos 1, etc.
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Shared
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -284,6 +292,7 @@ END_VAR
 VAR
 	i					: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -370,6 +379,7 @@ VAR_INST
 	localState			: SINT;
 	result				: UINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -405,6 +415,7 @@ METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 VAR
 	i		: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 FOR i := 1 TO MaxChargers DO
 	Charger[i].Reset();
@@ -425,6 +436,7 @@ PROPERTY HasPayload : enumPayload
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 IF Arrays.Vacuum_All(
 		vacuumArray	:= itfVacuums,
 		condition	:= TRUE,
@@ -452,6 +464,7 @@ PROPERTY PUBLIC InSafePos : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 InSafePos := NOT Drive.HomingSensor AND Drive.PosSmallerOrEqual(Data.ParkingPos.value);
 END_GET
 END_PROPERTY

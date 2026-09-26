@@ -19,7 +19,7 @@ VAR
 	T_Timer						: BTON;
 	GateStatus					: enumGateStates;
 END_VAR
-
+(* @volt-implementation *)
 Tr_AcknowledgementRequest(CLK := xAcknowledgement);
 T_SafetyGateRelay.Set(xSafetyGateRelay, 0.5);
 

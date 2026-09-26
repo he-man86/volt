@@ -13,7 +13,7 @@ VAR
 	MeasureMaxTime			: StopwatchFB;
 	vacuumState				: USINT;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 // Onderstaand is een idee van Arnoud
@@ -46,6 +46,7 @@ END_FUNCTION_BLOCK
 METHOD PROTECTED Alarms
 
 // Remember that this method may be replaced by another when deriving from this base FB.
+(* @volt-implementation *)
 NoVacuumAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= textRefId,
@@ -69,12 +70,14 @@ VAR_INPUT
 	itfAddLog		: EdgePcLogging.IAddLog;
 	plcDataType		: PlcDataType;
 END_VAR
+(* @volt-implementation *)
 MeasureMaxTime.SetMonitoring(itfAddLog, plcDataType);
 END_METHOD
 
 METHOD PROTECTED SetVacuumHighTimer
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 VacuumHighTimer.Set(
 			In := input1,
 			Pt := SEL(__ISVALIDREF(refVacuumHighTime), 0, refVacuumHighTime));

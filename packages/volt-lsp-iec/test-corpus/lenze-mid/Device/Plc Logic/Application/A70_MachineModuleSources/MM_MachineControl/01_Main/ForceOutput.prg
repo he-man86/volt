@@ -1,7 +1,7 @@
 PROGRAM ForceOutput
 VAR
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD
   LET g2 := HMI_Var.ForceOutputs;
   LST_InputsOutputs.Q100_0_Pilot_light_Alarm_green_ := (g2 AND LST_InputsOutputs.Serv_QB100.0);

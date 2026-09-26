@@ -72,7 +72,7 @@ VAR_OUTPUT
 	Q_nActLineNumber				: INT;
 	Q_byCounter						: BYTE;
 END_VAR
-
+(* @volt-implementation *)
 MC_MoveAbsoluteZ(
 	Execute:= ,
 	Position:= ,

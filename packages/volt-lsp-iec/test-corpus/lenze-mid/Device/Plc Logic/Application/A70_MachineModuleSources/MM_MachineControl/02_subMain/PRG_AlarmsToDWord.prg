@@ -1,7 +1,7 @@
 PROGRAM PRG_AlarmsToDWord
 VAR
 END_VAR
-
+(* @volt-implementation *)
 dwErrorWord1.0:=Mach1_Alarms.Alm001;
 dwErrorWord1.1:=Mach1_Alarms.Alm002;
 dwErrorWord1.2:=Mach1_Alarms.Alm003;

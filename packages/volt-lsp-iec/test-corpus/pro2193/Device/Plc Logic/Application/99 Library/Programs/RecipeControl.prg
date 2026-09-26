@@ -60,7 +60,7 @@ VAR CONSTANT
 	MetaDataSaveUserVar		: STRING(25) := 'metadata_savedByUser';
 	MetaDataDescVar			: STRING(25) := 'metadata_description';
 END_VAR
-
+(* @volt-implementation *)
 sw.Start();
 __TRY
 taskInfo	:= TaskGetInfo();
@@ -185,6 +185,7 @@ VAR
 	i						: INT;
 	tempFileName			: STRING(80);
 END_VAR
+(* @volt-implementation *)
 FOR i := 1 TO GVL_Constants.RecipeDefinitionsCount DO
 	tempFileName := CONCAT4(AutoSaveRecipeName, ' (', GVL_Constants.AllRecipeDefinitions[i], ')');
 	RecipeHandler.ReadAndSaveAs(
@@ -199,6 +200,7 @@ METHOD PRIVATE DeleteRecipe
 VAR
 
 END_VAR
+(* @volt-implementation *)
 IF Stu.StrIsNullOrEmptyA(ADR(selectedRecipeDefinition)) THEN
 	recipeCommandResult := enumRecipeCommandResult.SelectADefinition;
 	RETURN;
@@ -242,6 +244,7 @@ END_VAR
 VAR
 	saveDateString			: STRING(40);
 END_VAR
+(* @volt-implementation *)
 %FOLDER Refresh recipe data
 // Returns the recipe values from the corresponding recipe
 RecipeHandler.GetRecipeValues(
@@ -280,6 +283,7 @@ METHOD PRIVATE LoadRecipe
 VAR
 
 END_VAR
+(* @volt-implementation *)
 IF Stu.StrIsNullOrEmptyA(ADR(selectedRecipeDefinition)) THEN
 	recipeCommandResult := enumRecipeCommandResult.SelectADefinition;
 	RETURN;
@@ -321,6 +325,7 @@ VAR
 	pRecipeName				: POINTER TO STRING;
 	saveDateString			: STRING(40);
 END_VAR
+(* @volt-implementation *)
 %FOLDER Refresh recipe data
 // Refresh recipes from files every second
 IF NOT Timer.Set(In := TRUE, Pt := 5) THEN
@@ -410,6 +415,7 @@ METHOD PRIVATE RenameRecipe
 VAR
 	searchChar			: STRING(1) := '.';
 END_VAR
+(* @volt-implementation *)
 IF Stu.StrIsNullOrEmptyA(ADR(selectedRecipeDefinition)) THEN
 	recipeCommandResult := enumRecipeCommandResult.SelectADefinition;
 	RETURN;
@@ -459,6 +465,7 @@ METHOD PRIVATE SaveRecipe
 VAR
 
 END_VAR
+(* @volt-implementation *)
 IF Stu.StrIsNullOrEmptyA(ADR(selectedRecipeDefinition)) THEN
 	recipeCommandResult := enumRecipeCommandResult.SelectADefinition;
 	RETURN;
@@ -501,6 +508,7 @@ METHOD PRIVATE SaveRecipeAs
 VAR
 	searchChar			: STRING(1) := '.';
 END_VAR
+(* @volt-implementation *)
 IF Stu.StrIsNullOrEmptyA(ADR(selectedRecipeDefinition)) THEN
 	recipeCommandResult := enumRecipeCommandResult.SelectADefinition;
 	RETURN;

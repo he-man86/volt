@@ -11,7 +11,7 @@ VAR
 	BLINK_0: BLINK;
 	restart1: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD
   LET en1 := TRUE;
   IF en1 THEN GeneralProgramFlags(); END_IF

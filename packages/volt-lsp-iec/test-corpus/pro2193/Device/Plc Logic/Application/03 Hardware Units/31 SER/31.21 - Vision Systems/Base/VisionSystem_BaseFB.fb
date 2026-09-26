@@ -13,7 +13,7 @@ VAR
 	{attribute 'hide'}	_cameraResultReady			: BOOL;				// Private backing field for property
 	_results					: ARRAY[0..GVL_Constants.MaxRejectReasonsCamera] OF BOOL;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -22,6 +22,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..3] OF SetErrorFB;
 END_VAR
+(* @volt-implementation *)
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= VisionSystem_Errors,
@@ -54,17 +55,20 @@ SetError[3](
 END_METHOD
 
 METHOD CancelTakePicture
+(* @volt-implementation *)
 %FOLDER Commands
 CommandLock.ForceRelease();
 END_METHOD
 
 METHOD ABSTRACT TakePicture : enumResultTakePicture
+(* @volt-implementation *)
 %FOLDER Commands
 END_METHOD
 
 PROPERTY PUBLIC ABSTRACT Busy : BOOL
 %FOLDER Properties
 GET
+(* @volt-implementation *)
 END_GET
 END_PROPERTY
 
@@ -75,12 +79,14 @@ PROPERTY CameraResultReady : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 CameraResultReady := _cameraResultReady;
 END_GET
 SET
 PROTECTED
 VAR
 END_VAR
+(* @volt-implementation *)
 _cameraResultReady := CameraResultReady;
 END_SET
 END_PROPERTY
@@ -91,6 +97,7 @@ PROPERTY Results : ARRAY[0..GVL_Constants.MaxRejectReasonsCamera] OF BOOL;
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 Results := _results;
 
 // After reading the results, clear the CameraResultReady bool

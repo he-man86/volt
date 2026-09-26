@@ -4,7 +4,7 @@ VAR
 	bHoldPointOnReq	: BOOL;
 	bHoldPointOnErr3	: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 (*************************************************************************
  *
  * Application name				: Snijmachine

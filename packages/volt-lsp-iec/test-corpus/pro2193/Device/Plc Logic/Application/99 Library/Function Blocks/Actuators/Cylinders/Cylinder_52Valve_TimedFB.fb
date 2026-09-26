@@ -25,7 +25,7 @@ END_VAR
 VAR CONSTANT
 	tAdjustFrequency		: TIME	:= T#2S;
 END_VAR
-
+(* @volt-implementation *)
 // Execute base fb
 SUPER^();
 
@@ -51,6 +51,7 @@ END_FUNCTION_BLOCK
 
 // The cylinder moves in. Returns true when cylinder is in.
 METHOD PUBLIC FINAL GoIn : BOOL
+(* @volt-implementation *)
 Reset();
 
 GoIn := IsIn;
@@ -58,6 +59,7 @@ END_METHOD
 
 // The cylinder moves out. Returns true when cylinder is out.
 METHOD PUBLIC FINAL GoOut : BOOL
+(* @volt-implementation *)
 Set();
 
 GoOut := IsOut;
@@ -68,6 +70,7 @@ VAR_INPUT
 	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
+(* @volt-implementation *)
 IF inAdjustMode THEN
 	SetOrReset(Blinker.OUT);
 ELSIF plusButtonPushed THEN
@@ -79,16 +82,19 @@ END_METHOD
 
 // Maps the actuator to the physical output
 METHOD Map : BOOL
+(* @volt-implementation *)
 Map := Output.Map();
 END_METHOD
 
 // Reset the output (=False)
 METHOD Reset
+(* @volt-implementation *)
 Output.Reset();
 END_METHOD
 
 // Set the output (=True)
 METHOD Set : BOOL
+(* @volt-implementation *)
 Output.Set();
 END_METHOD
 
@@ -97,6 +103,7 @@ METHOD SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+(* @volt-implementation *)
 Output.SetOrReset(xValue);
 END_METHOD
 
@@ -105,6 +112,7 @@ PROPERTY IsIn : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 IsIn := timeGoIn.Q;
 END_GET
 END_PROPERTY
@@ -114,6 +122,7 @@ PROPERTY IsOut : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 IsOut := timeGoOut.Q;
 END_GET
 END_PROPERTY

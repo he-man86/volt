@@ -5,7 +5,7 @@ END_VAR
 VAR
 	pAxisRef_i700: POINTER TO _AXIS_REF_i700;
 END_VAR
-
+(* @volt-implementation *)
 //'L_GetSlot_i700'
 //
 //04.2016

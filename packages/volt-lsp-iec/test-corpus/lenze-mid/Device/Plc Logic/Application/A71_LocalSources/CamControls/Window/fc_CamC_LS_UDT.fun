@@ -11,7 +11,7 @@ END_VAR
 VAR_IN_OUT
 	ioUDTCamControlLS	: UDT_CamControlLS;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD
   LET en1 := ;
   IF en1 THEN ioUDTCamControlLS.MachinePos_HMI := MOVE(iActualPos); END_IF

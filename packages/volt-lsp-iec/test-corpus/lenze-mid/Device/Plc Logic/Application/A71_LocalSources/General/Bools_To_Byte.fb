@@ -12,7 +12,7 @@ END_VAR
 VAR_OUTPUT
 	oByte: BYTE;
 END_VAR
-
+(* @volt-implementation *)
 len:=7;
 oByte:=0;
 

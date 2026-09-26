@@ -27,7 +27,7 @@ END_VAR
 
 // Implicit Enumeration: The implicit enumeration allows for an easy way to declare a new enumeration variable which is valid only within the local POU.
 // https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_datatype_implicit_enumeration-1853150.html
-
+(* @volt-implementation *)
 SUPER^();
 
 IF HeldTrigger.Rising(CLK := HeldTimer.Set(buttonInput, HeldTimeout)) THEN
@@ -45,6 +45,7 @@ METHOD PUBLIC Attach : BOOL
 VAR_INPUT
 	observer			: IObserver;
 END_VAR
+(* @volt-implementation *)
 Attach := Subject.Attach(observer);
 END_METHOD
 
@@ -53,10 +54,12 @@ METHOD PUBLIC Detach : BOOL
 VAR_INPUT
 	observer			: IObserver;
 END_VAR
+(* @volt-implementation *)
 Detach := Subject.Detach(observer);
 END_METHOD
 
 METHOD PROTECTED HandleHeld
+(* @volt-implementation *)
 IF FunctionKeyState = Tapped THEN
 	FunctionKeyState := Held;
 
@@ -75,6 +78,7 @@ END_IF
 END_METHOD
 
 METHOD PROTECTED HandlePushed
+(* @volt-implementation *)
 SUPER^.HandlePushed();
 
 IF FunctionKeyState = Released THEN
@@ -90,6 +94,7 @@ Subject.Notify();
 END_METHOD
 
 METHOD PROTECTED HandleReleased
+(* @volt-implementation *)
 SUPER^.HandleReleased();
 
 
@@ -113,6 +118,7 @@ PROPERTY ObserverCount : UINT
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ObserverCount := Subject.ObserverCount;
 END_GET
 END_PROPERTY

@@ -6,7 +6,7 @@ VAR_OUTPUT
 END_VAR
 VAR
 END_VAR
-
+(* @volt-implementation *)
 SUPER^( ioDataExchange:=ioDataExchange, ioMasterAxis:=ioMasterAxis,ioSlaveAxis:=ioSlaveAxis);
 
 END_FUNCTION_BLOCK
@@ -30,6 +30,7 @@ END_VAR
 VAR
 	
 END_VAR
+(* @volt-implementation *)
 //Selection of the cam. 
 IF Control_Local.SelectBypassCAM THEN 
 	uiSetCamTable := 2;					//Camtable 2 is a zero curve. 

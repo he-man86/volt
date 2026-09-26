@@ -10,7 +10,7 @@ VAR_OUTPUT
 END_VAR
 VAR
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD
   LET en1 := ;
   IF en1 THEN (i_intStartCam < i_intStopCam); END_IF

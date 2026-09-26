@@ -8,6 +8,7 @@ VAR
 	_buttonType		: enumHWButtons;		// Private backing field for property
 	_state			: BOOL;					// Private backing field for property
 END_VAR
+(* @volt-implementation *)
 
 END_FUNCTION_BLOCK
 
@@ -17,11 +18,13 @@ PROPERTY ButtonState : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ButtonState := _state;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _state := ButtonState;
 END_SET
 END_PROPERTY
@@ -31,11 +34,13 @@ PROPERTY ButtonType : enumHWButtons
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ButtonType := _buttonType;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _buttonType := ButtonType;
 END_SET
 END_PROPERTY

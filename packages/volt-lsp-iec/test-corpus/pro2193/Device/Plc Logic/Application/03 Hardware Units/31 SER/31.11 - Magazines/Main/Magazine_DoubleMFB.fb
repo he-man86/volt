@@ -29,7 +29,7 @@ VAR CONSTANT
 	MaxVacuums					: USINT	:= 6;
 	MaxAdditionalVacuums		: USINT := 2;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -41,6 +41,7 @@ END_VAR
 VAR
 	i			: USINT;
 END_VAR
+(* @volt-implementation *)
 FOR i := 1 TO MaxVacuums DO
 	Vacuum[i](
 		moduleHandler			:= ModuleHandler,
@@ -97,6 +98,7 @@ METHOD PUBLIC DelayBeforeReleaseLabels : BOOL
 VAR_INST
 	Timer	: BTON;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Magazine Transfer
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -113,6 +115,7 @@ END_METHOD
 
 // Command to reset the module (ActStatemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 ActState := enumMagazineState.None;
 
@@ -126,24 +129,28 @@ END_METHOD
 
 // Gate close button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
 METHOD PUBLIC GateCloseCancelled
+(* @volt-implementation *)
 %FOLDER Commands/Gate Requests
 // Do nothing when gate closes
 END_METHOD
 
 // Gate close button is pushed. Safety gate is requesting to close (trigger signal)
 METHOD PUBLIC GateCloseRequested
+(* @volt-implementation *)
 %FOLDER Commands/Gate Requests
 // Do nothing when gate closes
 END_METHOD
 
 // Gate open button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
 METHOD PUBLIC GateOpenCancelled
+(* @volt-implementation *)
 %FOLDER Commands/Gate Requests
 motors.Stop();
 END_METHOD
 
 // Gate open button is pushed. Safety gate is requesting to open (trigger signal)
 METHOD PUBLIC GateOpenRequested
+(* @volt-implementation *)
 %FOLDER Commands/Gate Requests
 motors.ProfileHomeToSafePosition();
 motors.StartCommand();
@@ -158,6 +165,7 @@ END_VAR
 VAR_INST
 	localState			: SINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Magazine Supply
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -198,6 +206,7 @@ VAR
 	i	: USINT;
 	j	: USINT	:= 1;
 END_VAR
+(* @volt-implementation *)
 SUPER^.Initialize();
 
 // Set interfaces to correct vacuum instances
@@ -220,6 +229,7 @@ END_METHOD
 
 // Move to a Waiting position.
 METHOD PUBLIC MoveToSafeDistanceAboveDrawer : BOOL
+(* @volt-implementation *)
 %FOLDER Commands/Magazine
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -245,6 +255,7 @@ METHOD PUBLIC MoveToTakeOverPos : BOOL
 VAR_INPUT
 	takeOverPos	: USINT;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Magazine
 IF takeOverPos < 1
 OR takeOverPos > 4
@@ -295,6 +306,7 @@ END_METHOD
 
 // Move to waiting position.
 METHOD PUBLIC MoveToWaitingPos : BOOL
+(* @volt-implementation *)
 %FOLDER Commands/Magazine
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -334,6 +346,7 @@ END_METHOD
 
 //
 METHOD PUBLIC NewLabelsNeededDuringSemiAutoOperation
+(* @volt-implementation *)
 %FOLDER Commands/Magazine Transfer
 ActState := enumMagazineState.LabelsNeededDuringSemiAuto;
 END_METHOD
@@ -343,6 +356,7 @@ METHOD PUBLIC ReleaseAdditionalVacuums : BOOL
 VAR_INPUT
 	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Magazine
 IF vacuumIndex = AllVacuums THEN	// Release all products by resetting all vacuums
 	IF Arrays.Vacuum_ReleaseAll(itfAdditionalVacuums) THEN
@@ -361,6 +375,7 @@ METHOD PUBLIC ReleaseLabels : BOOL
 VAR_INPUT
 	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Magazine
 IF vacuumIndex = AllVacuums THEN	// Release all products by resetting all vacuums
 	IF Arrays.Vacuum_ReleaseAll(itfVacuums) THEN
@@ -380,6 +395,7 @@ VAR_INST
 	localState			: SINT;
 	result				: UINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -414,6 +430,7 @@ METHOD PUBLIC StartAdditionalVacuums : BOOL
 VAR_INPUT
 	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Magazine Supply
 IF vacuumIndex = AllVacuums THEN	// Set all additional vacuums
 	IF Arrays.Vacuum_SetAll(itfAdditionalVacuums) THEN
@@ -438,6 +455,7 @@ END_VAR
 VAR
 	i				: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Magazine Supply
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -470,6 +488,7 @@ END_METHOD
 
 // Command to reset the module (ActStatemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 IF  ActState <> enumMagazineState.ReadyWithLabels
 AND ActState <> enumMagazineState.ReadyWithoutLabels
@@ -492,6 +511,7 @@ METHOD PUBLIC TransferComplete : BOOL
 VAR_INPUT
 	iParameter : INT := 0;	// Number indicates which transfer is completed
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Magazine Transfer
 // Signal the GetNewLabel process that another label is needed to complete the gripper.
 AnotherLabelNeeded := iParameter = 1;
@@ -512,12 +532,14 @@ PROPERTY ActState : enumMagazineState
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ActState := _activeState;
 END_GET
 SET
 PROTECTED
 VAR
 END_VAR
+(* @volt-implementation *)
 _activeState := ActState;
 END_SET
 END_PROPERTY
@@ -529,12 +551,14 @@ PROPERTY AnotherLabelNeeded : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 AnotherLabelNeeded := _anotherLabelNeeded;
 END_GET
 SET
 PRIVATE
 VAR
 END_VAR
+(* @volt-implementation *)
 _anotherLabelNeeded := AnotherLabelNeeded;
 END_SET
 END_PROPERTY
@@ -546,6 +570,7 @@ PROPERTY BlowBetweenLabelsRequest : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 BlowBetweenLabelsRequest := _blowBetweenLabelsRequest;
 END_GET
 END_PROPERTY
@@ -557,6 +582,7 @@ PROPERTY ExternalManualControlEnabled : BOOL
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 motors.ExternalManualControlEnabled		:= ExternalManualControlEnabled;
 END_SET
 END_PROPERTY
@@ -568,6 +594,7 @@ PROPERTY HasPayload : enumPayload
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 IF Arrays.Vacuum_All(
 							vacuumArray	:= itfVacuums,
 							condition	:= TRUE,
@@ -598,6 +625,7 @@ PROPERTY PUBLIC InSafePos : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 InSafePos := motors.InSafePos;
 END_GET
 END_PROPERTY
@@ -609,6 +637,7 @@ PROPERTY PUBLIC InSafePosForGate : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 InSafePosForGate := motors.InPositionAt(MagazineMotors_Positions.middlePosition, 10);
 END_GET
 END_PROPERTY

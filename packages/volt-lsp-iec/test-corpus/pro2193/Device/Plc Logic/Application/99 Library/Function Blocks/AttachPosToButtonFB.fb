@@ -11,7 +11,7 @@ VAR
 	counter		: INT;
 	AttachTimer	: BTON;
 END_VAR
-
+(* @volt-implementation *)
 // Only attach hardware buttons when manual control is enabled.
 manualControlTrigger.Call(CLK := value.manualActive AND SER.ManualControlEnabled);
 
@@ -66,5 +66,6 @@ VAR_INPUT
 
 	drive			: REFERENCE TO ServoDriveFB;
 END_VAR
+(* @volt-implementation *)
 THIS^.Drive REF= drive;
 END_METHOD

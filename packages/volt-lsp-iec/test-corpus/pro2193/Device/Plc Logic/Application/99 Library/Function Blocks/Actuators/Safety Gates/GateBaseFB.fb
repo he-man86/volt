@@ -31,7 +31,7 @@ VAR_STAT
 	// ONLY USE WHEN YOU ARE NEXT TO THE MACHINE AND CAN VISUALLY CHECK IF MACHINE IS EMPTY!
 	acknowledgeAllGates			: BOOL;		// Acknowledge all gates for the machine
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 CASE eState OF
@@ -105,6 +105,7 @@ VAR_INST
 END_VAR
 
 //{warning 'todo: xGateAllowedOpen is 1 cycle laag wanneer ser state = Stopping ... ']}
+(* @volt-implementation *)
 CASE eState OF
 	enumGateStates.Opened:		// Machine OFF and gate open
 		IF T_SafetyGateClosed.Set(In := xSafetyGateClosed, Pt := 0.5) THEN
@@ -161,6 +162,7 @@ END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC MapGate : BOOL
+(* @volt-implementation *)
 MapGate := GateOutput.Map();
 END_METHOD
 
@@ -169,6 +171,7 @@ PROPERTY PUBLIC GateState : enumGateStates
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 GateState := eState;
 END_GET
 END_PROPERTY
@@ -178,6 +181,7 @@ PROPERTY LockButtonPushed : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 LockButtonPushed := ButtonLock.ButtonPushed OR acknowledgeAllGates;
 END_GET
 END_PROPERTY

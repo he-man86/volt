@@ -21,7 +21,7 @@ VAR
 		StateLockDrawer						:= 130
 	) DINT;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -32,6 +32,7 @@ VAR_INST
 	triggerIml					: RisingTriggerFB;
 	buttonChangeDrawerPushed	: BOOL;
 END_VAR
+(* @volt-implementation *)
 State(actState	:= ActState);
 
 ButtonAutoChangeDrawer();
@@ -88,6 +89,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -97,6 +99,7 @@ END_METHOD
 
 // After a state change, this method is called to execute the current state
 METHOD PROTECTED Execute
+(* @volt-implementation *)
 CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 	enumExchangeSets.Default:
 		Execute_Sequence1();
@@ -115,6 +118,7 @@ METHOD PROTECTED Execute_Sequence1
 VAR_INST
 	result				: ARRAY[1..1] OF BOOL;
 END_VAR
+(* @volt-implementation *)
 IF State.Changed THEN
 	Arrays.Bool_Reset(result);
 END_IF
@@ -166,6 +170,7 @@ METHOD ShouldStart : BOOL
 VAR_INPUT
 	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 CASE operationMode OF
 	SER_OperationModeType.Production:			ShouldStart := TRUE;
@@ -184,6 +189,7 @@ END_METHOD
 METHOD StartCycle : BOOL
 VAR
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -200,6 +206,7 @@ END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -209,6 +216,7 @@ END_METHOD
 
 // Cycle stop request. Returns true when module finished its active cycle.
 METHOD StopCycle : BOOL
+(* @volt-implementation *)
 %FOLDER Commands
 StopCycle				:= ActState = StateNone;
 END_METHOD

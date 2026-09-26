@@ -17,7 +17,7 @@ VAR
 	
 	
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD TITLE: "NETWORK 1 : Speed control transport system dryer"
   LET g185 := True;
   LET en1 := g185;

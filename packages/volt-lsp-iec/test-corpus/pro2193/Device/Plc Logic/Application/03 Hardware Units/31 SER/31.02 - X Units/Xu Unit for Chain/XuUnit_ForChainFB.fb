@@ -10,7 +10,7 @@ END_VAR
 VAR CONSTANT
 	rDistanceFromChain	: REAL := 25;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^(
 	Data				:= Data,
 	AxisRef				:= AxisRef,
@@ -24,6 +24,7 @@ END_FUNCTION_BLOCK
 METHOD MoveToInFrontOfChain : BOOL
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT EnableHalfwayPosition THEN
 	RETURN;
@@ -51,6 +52,7 @@ PROPERTY PUBLIC InSafePosForChain : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 // Chain may already rotate when Xu unit is 15 mm back from Takeover pos
 InSafePosForChain := movementInsideMouldActive OR_ELSE Drive.PosSmallerOrEqual(Data.Takeover[1].Pos.value - rDistanceFromChain) OR_ELSE InSafePos;
 

@@ -7,7 +7,7 @@ END_VAR
 VAR
 	feedbackLoopErrorAlarm	: SetErrorFB;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 feedbackLoopErrorAlarm(

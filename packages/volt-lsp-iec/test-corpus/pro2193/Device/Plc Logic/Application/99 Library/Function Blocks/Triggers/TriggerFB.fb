@@ -7,6 +7,7 @@ VAR
 	xFallingEdge	: BOOL;	// The falling edge of the input signal
 	xEdge			: BOOL;	// Memory flag, to detect a change in input
 END_VAR
+(* @volt-implementation *)
 
 END_FUNCTION_BLOCK
 
@@ -15,6 +16,7 @@ METHOD PUBLIC AnyEdge : BOOL
 VAR_INPUT
 	CLK	: BOOL;
 END_VAR
+(* @volt-implementation *)
 Call(CLK);
 AnyEdge := Q_Rising OR Q_Falling;
 END_METHOD
@@ -26,6 +28,7 @@ VAR_INPUT
 END_VAR
 
 // Use this method if you need the trigger output more than once per PLC cycle.
+(* @volt-implementation *)
 xRisingEdge		:= CLK AND NOT xEdge;
 xFallingEdge	:= NOT CLK AND xEdge;
 xEdge			:= CLK;
@@ -36,6 +39,7 @@ METHOD PUBLIC Falling : BOOL
 VAR_INPUT
 	CLK	: BOOL;
 END_VAR
+(* @volt-implementation *)
 Call(CLK);
 Falling := Q_Falling;
 END_METHOD
@@ -45,6 +49,7 @@ METHOD PUBLIC Rising : BOOL
 VAR_INPUT
 	CLK	: BOOL;
 END_VAR
+(* @volt-implementation *)
 Call(CLK);
 Rising := Q_Rising;
 END_METHOD
@@ -54,6 +59,7 @@ PROPERTY PUBLIC Q_Falling : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 Q_Falling := xFallingEdge;
 END_GET
 END_PROPERTY
@@ -65,6 +71,7 @@ PROPERTY PUBLIC Q_Rising : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 Q_Rising := xRisingEdge;
 END_GET
 END_PROPERTY

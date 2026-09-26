@@ -16,5 +16,6 @@ VAR_OUTPUT
 	oPercentage_R : REAL;
 	oPercentage_I : INT;
 END_VAR
+(* @volt-implementation *)
 
 END_FUNCTION

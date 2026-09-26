@@ -28,7 +28,7 @@ VAR
 	{attribute 'symbol' := 'readwrite'}
 	HMI_stRecipeManagercmd	: dutRecipeManagerCmd;
 END_VAR
-
+(* @volt-implementation *)
 GetDateAndTime(
 xExecute:= HMI_stRecipeManagercmd.xSave, 
 dtDateAndTime=> dtDateAndTIme );

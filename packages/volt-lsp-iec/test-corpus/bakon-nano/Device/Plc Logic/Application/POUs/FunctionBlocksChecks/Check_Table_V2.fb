@@ -20,7 +20,7 @@ VAR
 	bFirstCam: BOOL;
 	rPosFirstCam: REAL;
 END_VAR
-
+(* @volt-implementation *)
 rtSensor(CLK := I_bSensor);
 
 IF	I_bStartCheck

@@ -29,7 +29,7 @@ VAR
 	sETCerror			: STRING;
 	diSetState: INT;
 END_VAR
-
+(* @volt-implementation *)
 (* check if master is configured *)
 IF TRUE THEN
 

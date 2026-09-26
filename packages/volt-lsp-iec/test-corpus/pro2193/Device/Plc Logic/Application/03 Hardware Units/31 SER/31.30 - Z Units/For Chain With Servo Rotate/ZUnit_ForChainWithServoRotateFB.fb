@@ -31,7 +31,7 @@ VAR CONSTANT
 	MaxSides					: USINT	:= ZUnits.MaxSides;
 	MaxVacuums					: USINT	:= ZUnits.MaxVacuums;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^(
 	Data				:= Data,
 	AxisRef				:= AxisRef,
@@ -45,6 +45,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..2] OF SetErrorFB;
 END_VAR
+(* @volt-implementation *)
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= ZUnit_Errors,
@@ -74,6 +75,7 @@ END_VAR
 VAR_INST
 	Timer			: BTON;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Stacking
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -102,6 +104,7 @@ VAR_INPUT
 	productNo		: INT(1..TO_INT(GVL_Constants.ChainProductsForZUnit));
 	product			: ProductType;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Transfer
 takeoverPos	:= LIMIT(1, takeoverPos,	NumberOfTakeoverPositions);
 takeoverPos	:= LIMIT(1, takeoverPos,	MaxSides);
@@ -125,6 +128,7 @@ VAR
 	i, j						: USINT;
 	extendsAreIn				: BOOL;
 END_VAR
+(* @volt-implementation *)
 SUPER^.Cyclic();
 
 // Handle ionizing bar
@@ -223,6 +227,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 Arrays.Vacuum_ReleaseAll(itfVacuumsFlat);
 
@@ -250,6 +255,7 @@ END_VAR
 VAR
 	i				: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Transfer
 IF NOT ReadyForTransfer THEN
 	RETURN;
@@ -311,6 +317,7 @@ METHOD PROTECTED Initialize
 VAR
 	i, j	: USINT;
 END_VAR
+(* @volt-implementation *)
 SUPER^.Initialize();
 
 // Set interfaces to correct vacuum instances
@@ -332,6 +339,7 @@ VAR_INST
 	localState			: SINT;
 	rPosition			: REAL;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Stacking
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -403,6 +411,7 @@ END_VAR
 VAR
 	i, j					: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Stacking
 IF NOT ReadyForStacking THEN
 	RETURN;
@@ -471,6 +480,7 @@ END_VAR
 VAR_INST
 	result					: ARRAY[1..3] OF BOOL;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Transfer
 IF NOT ReadyForTransfer THEN
 	RETURN;
@@ -517,6 +527,7 @@ METHOD PUBLIC MoveUp : BOOL
 VAR_INST
 	result					: ARRAY[1..2] OF BOOL;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Stacking
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -557,6 +568,7 @@ VAR_INST
 	rPosition			: REAL;
 	rStartPosition		: REAL;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Stacking
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -610,6 +622,7 @@ VAR
 	takeover		: UINT;
 	product1		: UINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Stacking
 product0	:= product - 1;	// Get zero based product number, needed for modulo calculation.
 
@@ -636,6 +649,7 @@ END_VAR
 VAR
 	i, j				: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -734,6 +748,7 @@ END_VAR
 VAR
 	i				: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Transfer
 IF NOT ReadyForTransfer THEN
 	RETURN;
@@ -760,6 +775,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 // Reset vacuums when products are no longer on the suction cups
 IF Arrays.Vacuum_ResetIfNotHigh(itfVacuumsFlat) = 0 THEN
@@ -777,6 +793,7 @@ END_VAR
 VAR
 	i			: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Transfer
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -845,6 +862,7 @@ PROPERTY HasPayload : enumPayload
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 IF Arrays.Vacuum_All(
 							vacuumArray	:= itfVacuumsFlat,
 							condition	:= TRUE,
@@ -873,6 +891,7 @@ PROPERTY HasProductForTransfer : ARRAY[1..GVL_Constants.ChainProductsForZUnit] O
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 HasProductForTransfer := _hasProductForTransfer[gripperPosition];
 END_GET
 END_PROPERTY
@@ -885,6 +904,7 @@ GET
 VAR
 	i, j	: USINT;
 END_VAR
+(* @volt-implementation *)
 InSafePosForChain := TRUE;
 
 FOR i := 1 TO MaxSides DO
@@ -906,6 +926,7 @@ GET
 VAR
 	i, j : UINT;
 END_VAR
+(* @volt-implementation *)
 // Check if last product out of the mould is on the gripper.
 FOR i := 1 TO MaxSides DO
 	FOR j := 1 TO MaxVacuums DO

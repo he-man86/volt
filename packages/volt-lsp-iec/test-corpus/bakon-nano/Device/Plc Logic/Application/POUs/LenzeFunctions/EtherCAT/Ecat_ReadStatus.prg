@@ -30,7 +30,7 @@ VAR
 	aEssCur						: ARRAY [1..10] OF L_ETC_STATE ;
 	aEssSet						: ARRAY [1..10] OF L_ETC_STATE ;
 END_VAR
-
+(* @volt-implementation *)
 
 	ECatMaster(
 		xReset:= xEcatResetNotifications, 

@@ -34,7 +34,7 @@ VAR_OUTPUT
 	oReverseGuarded		:	BOOL;
 	
 END_VAR
-
+(* @volt-implementation *)
 BaseAdress:=	ADR(AlarmDB);								//start address of AlarmDB
 AlarmNr:=		ADR(iAlm)-BaseAdress;					//determine number of bytes between start of DB and current Alm (Type Bool is stored as 1 byte)
 

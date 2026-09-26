@@ -23,7 +23,7 @@ VAR
 	manualControlEnabled		: BOOL;
 	stopConveyorAfterTimer		: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -34,12 +34,14 @@ VAR_INPUT
 	productNo		: INT(1..TO_INT(GVL_Constants.ChainProductsForReject));
 	product			: ProductType;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 productNo						:= LIMIT(1, productNo,		TO_INT(GVL_Constants.ChainProductsForReject));
 LastProductInShute[productNo]	:= product;
 END_METHOD
 
 METHOD PROTECTED Cyclic
+(* @volt-implementation *)
 Conveyor(
 	moduleHandler			:= ModuleHandler,
 	manualControlEnabled	:= SER.ManualControlEnabled,
@@ -64,6 +66,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 Conveyor.Reset();
 stopConveyorAfterTimer := FALSE;
@@ -76,11 +79,13 @@ METHOD ABSTRACT GetProducts : BOOL
 VAR_INPUT
 	vacuumIndex		: WORD;	// 0: All vacuums, bit 1: Vacuum 1, bit 2: Vacuum 2, etc.
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 END_METHOD
 
 // Start command for the conveyor to move the stacks
 METHOD PUBLIC MoveStep : BOOL
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -100,6 +105,7 @@ METHOD PUBLIC Reset : BOOL	// Returns true when homing done
 VAR_INST
 	localState					: SINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -119,6 +125,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 Conveyor.Reset();
 stopConveyorAfterTimer := FALSE;
@@ -131,6 +138,7 @@ METHOD PUBLIC TransferComplete : BOOL
 VAR_INPUT
 	iParameter : INT := 0;	// Number indicates which transfer is completed
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 Conveyor.Set();
 
@@ -149,11 +157,13 @@ GET
 PROTECTED
 VAR
 END_VAR
+(* @volt-implementation *)
 ExternalManualControlEnabled := manualControlEnabled;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 manualControlEnabled := ExternalManualControlEnabled;
 END_SET
 END_PROPERTY

@@ -19,7 +19,7 @@ VAR
 	firstInd			: INT;
 	lastInd				: INT;
 END_VAR
-
+(* @volt-implementation *)
 
 //Check if the input values are valid
 IF I_lastIndex < I_firstIndex THEN

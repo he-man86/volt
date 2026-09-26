@@ -2,7 +2,7 @@ PROGRAM OutputControl
 VAR
 	tofResetSafety	: TOF;
 END_VAR
-
+(* @volt-implementation *)
                         g_bDQ_LampStart				:= 		g_sMACH.ERR.bPressStartForManual
 								OR	g_sMACH.ERR.bPressStartToCleanInit
 								OR	(g_sMACH.ERR.bPressStartToCut AND NOT g_HMI_MachCommand.bScanMode)

@@ -1,7 +1,7 @@
 PROGRAM MachineStateOEE
 VAR
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD TITLE: "DONE NETWORK 49: State of the machine"
   LET g22 := TRUE;
   LET en1 := (g22 AND (Mach1.GenFlags.MajorAlarm OR Mach1.GenFlags.MinorAlarm));

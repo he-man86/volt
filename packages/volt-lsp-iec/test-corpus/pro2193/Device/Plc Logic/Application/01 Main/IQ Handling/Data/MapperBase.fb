@@ -7,7 +7,7 @@ VAR
 	sliceForced		: REFERENCE TO BOOL;
 	i				: INT;
 END_VAR
-
+(* @volt-implementation *)
 IF __ISVALIDREF(sliceInfo) THEN
 	sliceInfo.sliceName		:= TO_STRING(sliceNumber);
 END_IF
@@ -19,6 +19,7 @@ VAR_INPUT
 	sliceInfo	: REFERENCE TO Slice_Type;
 	sliceForced	: REFERENCE TO BOOL;
 END_VAR
+(* @volt-implementation *)
 THIS^.sliceInfo		REF= sliceInfo;
 THIS^.sliceForced	REF= sliceForced;
 END_METHOD

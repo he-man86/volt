@@ -6,7 +6,7 @@ VAR_OUTPUT
 	Q_dwErrorDetailsAGM	: DWORD;
 	Q_bError					: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 (*************************************************************************
  *
  * Application name			: Snijmachine met ultrasoon generator

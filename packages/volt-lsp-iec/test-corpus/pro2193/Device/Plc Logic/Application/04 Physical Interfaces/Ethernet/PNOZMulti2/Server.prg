@@ -3,7 +3,7 @@ VAR
 	taskInfo				: CmpIecTask.Task_Info2;
 
 END_VAR
-
+(* @volt-implementation *)
 __TRY
 	taskInfo	:= TaskGetInfo();
 

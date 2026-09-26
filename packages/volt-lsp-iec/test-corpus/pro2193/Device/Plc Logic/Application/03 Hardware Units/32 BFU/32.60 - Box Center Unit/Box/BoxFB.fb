@@ -4,7 +4,7 @@ VAR
 	{attribute 'hide'}	_ActualNumberOfLayers	: UINT;
 	{attribute 'hide'}	_maxNumberOfLayers		: UINT;
 END_VAR
-
+(* @volt-implementation *)
 Cyclic();
 
 END_FUNCTION_BLOCK
@@ -13,6 +13,7 @@ METHOD PUBLIC AddItem : BOOL
 VAR_INPUT
 	item		: enumBoxItem;
 END_VAR
+(* @volt-implementation *)
 CASE item OF
 	enumBoxItem.None:
 		AddItem						:= FALSE;
@@ -44,6 +45,7 @@ END_CASE
 END_METHOD
 
 METHOD PUBLIC BoxRemoved
+(* @volt-implementation *)
 ActualNumberOfLayers	:= 0;
 MaxNumberOfLayers		:= 0;
 
@@ -51,6 +53,7 @@ State					:= enumBoxState.None;
 END_METHOD
 
 METHOD PROTECTED Cyclic
+(* @volt-implementation *)
 CASE State OF
 	enumBoxState.None:
 			;
@@ -70,6 +73,7 @@ METHOD PUBLIC InitNewBox
 VAR_INPUT
 	setNumberOfLayers	: UINT;
 END_VAR
+(* @volt-implementation *)
 ActualNumberOfLayers	:= 0;
 MaxNumberOfLayers		:= setNumberOfLayers;
 
@@ -77,6 +81,7 @@ State					:= enumBoxState.ProductsNeeded;	// Always start empty box with product
 END_METHOD
 
 METHOD PUBLIC SetToChangeNeeded : BOOL
+(* @volt-implementation *)
 CASE State OF
 	enumBoxState.ProductsNeeded, enumBoxState.SheetNeeded:
 		State						:= enumBoxState.ChangeNeeded;
@@ -91,12 +96,14 @@ PROPERTY ActualNumberOfLayers : UINT
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ActualNumberOfLayers := _ActualNumberOfLayers;
 END_GET
 SET
 PROTECTED
 VAR
 END_VAR
+(* @volt-implementation *)
 _ActualNumberOfLayers := ActualNumberOfLayers;
 END_SET
 END_PROPERTY
@@ -106,12 +113,14 @@ PROPERTY MaxNumberOfLayers : UINT
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 MaxNumberOfLayers := _maxNumberOfLayers;
 END_GET
 SET
 PROTECTED
 VAR
 END_VAR
+(* @volt-implementation *)
 _maxNumberOfLayers := MaxNumberOfLayers;
 END_SET
 END_PROPERTY
@@ -121,12 +130,14 @@ PROPERTY State : enumBoxState
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 State := _state;
 END_GET
 SET
 PROTECTED
 VAR
 END_VAR
+(* @volt-implementation *)
 _state := State;
 END_SET
 END_PROPERTY

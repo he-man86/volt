@@ -19,7 +19,7 @@ END_VAR
 VAR CONSTANT
 	maxAirValves		: USINT := 5;
 END_VAR
-
+(* @volt-implementation *)
 FOR i := 1 TO maxAirValves DO
 	start[i]	S= EjectorsTrigger.Rising(CLK := InjectionMouldingMachine.Unit.Ejectors.MapEnableForward() OR InjectionMouldingMachine.Unit.CorePullers.MapEnableForward());
 	start[i]	S= NOT SER.InAutomaticOperation AND InjectionMouldingMachine.Unit.MouldIsOpen;

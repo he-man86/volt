@@ -30,7 +30,7 @@ VAR
 	lrS2							: LREAL; 
 	bNew: BOOL:=TRUE;
 END_VAR
-
+(* @volt-implementation *)
 (************************************************)
 (* basic configuration of the robot:			*) 
 (* see picture 1								*)

@@ -34,7 +34,7 @@ VAR
 	TotalRunningTime2			: UDINT;	// Not used
 	TotalNumberOfStarts2		: UDINT;	// Not used
 END_VAR
-
+(* @volt-implementation *)
 HighVacuumPump(
 	moduleHandler				:= moduleHandler,
 	textRefId					:= textRefId,
@@ -92,37 +92,44 @@ xVacuumpumpRunning	:= HighVacuumPump.xVacuumpumpRunning
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
+(* @volt-implementation *)
 END_METHOD
 
 // Maps the actuator to the physical output
 {attribute 'hide'}
 METHOD PUBLIC Map : BOOL
+(* @volt-implementation *)
 // no implementation
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC MapHigh : BOOL
+(* @volt-implementation *)
 MapHigh := HighVacuumPump.Map();
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC MapLow : BOOL
+(* @volt-implementation *)
 MapLow := LowVacuumPump.Map();
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC MapSwitchTanks : BOOL
+(* @volt-implementation *)
 MapSwitchTanks := LowVacuumPump.MapSwitchTanks();
 END_METHOD
 
 // Reset the output (=False)
 METHOD PUBLIC Reset
+(* @volt-implementation *)
 HighVacuumPump.Reset();
 LowVacuumPump.Reset();
 END_METHOD
 
 {attribute 'hide'}
 METHOD PUBLIC Set : BOOL
+(* @volt-implementation *)
 // no implementation
 END_METHOD
 
@@ -131,5 +138,6 @@ METHOD PUBLIC SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+(* @volt-implementation *)
 // no implementation
 END_METHOD

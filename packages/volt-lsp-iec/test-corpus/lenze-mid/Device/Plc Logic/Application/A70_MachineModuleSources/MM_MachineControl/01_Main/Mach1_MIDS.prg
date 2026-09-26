@@ -66,7 +66,7 @@ VAR
 	IDB_Dryer: Dryer;
 	IDB_TrayFiller: TrayFiller;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD TITLE: "DONE Network 1: Activating/deactivating MID-S/Trayfiller"
   LET g0 := TRUE;
   LET g1 := (g0 AND NOT Mach1_Safety.Status.Custom_ATF_Disabled);
@@ -108,9 +108,9 @@ NETWORK 9 LD TITLE: "DONE NETWORK 4 (p3)Major alarms (start-up conditions)"
   Alarms_V5_1_100(Mach1_Alarms, (LST_General.StartUpDelayPLC AND NOT Comm_OK), (Mach1.GenFlags.StartFlag OR NOT LST_General.StartUpDelayPLC OR Comm_OK), Mach1_Alarms.Alm011, Mach1.GenFlags.Warning);
 END_NETWORK
 NETWORK 10 LD
-  LET g1 := TON_DelayAfterNetworkError(IN := (Mach1_Alarms.Alm011 AND NOT Mach1_Alarms.Alm011), PT := T#10000S);
-  EtherCAT_Master.xRestart := g1;
-  REQ_RestartComm S= g1;
+  LET m1 := TON_DelayAfterNetworkError(IN := (Mach1_Alarms.Alm011 AND NOT Mach1_Alarms.Alm011), PT := T#10000S);
+  EtherCAT_Master.xRestart := m1;
+  REQ_RestartComm S= m1;
 END_NETWORK
 NETWORK 11 LD
   ReInitAllNodes(xExecute := REQ_RestartComm, xInitCommunication := TRUE);
@@ -264,9 +264,9 @@ NETWORK 42 LD TITLE: "DONE NETWORK 25: Continuous Glueing"
   Mach1_AuxData.IEC_TIMERS.TON_StopContGluePumping(IN := (g15 AND Mach1_AuxData.MemContinuousGluePumping), PT := T#120S);
 END_NETWORK
 NETWORK 43 LD TITLE: "DONE NETWORK 26: PNV Glue pump 1+2+3"
-  LET g1 := (((fc_CamC_CC_UDT(Mach1.GenFlags.EnablePneumEStop, HMI_Var.Mach1.Position, Mach1_Data.CamControls.GluePump123_C) AND Mach1_AuxData.ShiftRegister.SR_bunch_present_position_1_JL AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND NOT Mach1_AuxData.MemContinuousGluePumping AND NOT Mach1_AuxData.ScreenForOperatorSettingsActivated) OR (Mach1.GenFlags.EnablePneumEStop AND ((LST_General.FF500ms AND Mach1_AuxData.MemContinuousGluePumping) OR (LST_General.FF500ms AND Mach1_AuxData.GlueWeighingCycleStarted)))) AND NOT Mach1_Alarms.Alm011);
-  PneumValveTerminalSMC.Pos6A := g1;
-  LST_InputsOutputs.Q101_2_Enable_GluePump := g1;
+  LET m1 := (((fc_CamC_CC_UDT(Mach1.GenFlags.EnablePneumEStop, HMI_Var.Mach1.Position, Mach1_Data.CamControls.GluePump123_C) AND Mach1_AuxData.ShiftRegister.SR_bunch_present_position_1_JL AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND NOT Mach1_AuxData.MemContinuousGluePumping AND NOT Mach1_AuxData.ScreenForOperatorSettingsActivated) OR (Mach1.GenFlags.EnablePneumEStop AND ((LST_General.FF500ms AND Mach1_AuxData.MemContinuousGluePumping) OR (LST_General.FF500ms AND Mach1_AuxData.GlueWeighingCycleStarted)))) AND NOT Mach1_Alarms.Alm011);
+  PneumValveTerminalSMC.Pos6A := m1;
+  LST_InputsOutputs.Q101_2_Enable_GluePump := m1;
 END_NETWORK
 NETWORK 44 LD TITLE: "DONE NETWORK 27: PNV Glue pump 4"
   PneumValveTerminalSMC.Pos10A := (((fc_CamC_CC_UDT(Mach1.GenFlags.EnablePneumEStop, HMI_Var.Mach1.Position, Mach1_Data.CamControls.GluePump4_C) AND Mach1_AuxData.ShiftRegister.SR_bunch_present_position_1_JL AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND NOT Mach1_AuxData.MemContinuousGluePumping AND NOT Mach1_AuxData.ScreenForOperatorSettingsActivated) OR (Mach1.GenFlags.EnablePneumEStop AND ((LST_General.FF500ms AND Mach1_AuxData.MemContinuousGluePumping) OR (LST_General.FF500ms AND Mach1_AuxData.GlueWeighingCycleStarted)))) AND NOT Mach1_Alarms.Alm011);

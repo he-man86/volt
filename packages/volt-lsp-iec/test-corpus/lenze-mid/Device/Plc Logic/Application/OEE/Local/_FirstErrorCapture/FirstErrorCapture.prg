@@ -53,7 +53,7 @@ END_VAR
 VAR CONSTANT
 	uiMaxError : UINT := 99;		// Max. Numbers of L_SetErrorSingleInfo fb or errors withing the whole PLC Project
 END_VAR
-
+(* @volt-implementation *)
 
 //Assignment of scFirstErrorData := GVL_FirstErrCapture.scFirstErrorData;
 xStructError := L_OEEA_Customizable_CopyStruct(pbySource:= ADR(GVL_FirstErrCapture.asErrorCategory),pbyTarget:=ADR(asErrorCategoryLib),
@@ -64,6 +64,7 @@ call_FirstErrorCapture_FB();
 END_PROGRAM
 
 ACTION call_FirstErrorCapture_FB
+(* @volt-implementation *)
 NETWORK 0 FBD
   // // Example of Create an Trigger; if new good product is created then reset the stored First Error Capture
   // //

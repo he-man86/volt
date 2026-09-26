@@ -6,7 +6,7 @@ VAR_INPUT
 	iGran		: DINT;				// Granularity of the pointer access. This is the size of the biggest non-structured data type in the type the pointer points to. (e.g: 2 for POINTER TO ARRAY[0..9] OF INT)
 	bWrite		: BOOL;				// Indicates read or write access. TRUE = write access.
 END_VAR
-
+(* @volt-implementation *)
 // No standard way of implementation. Fill your own code here
 CheckPointer := ptToTest;
 

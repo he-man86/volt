@@ -22,7 +22,7 @@ END_VAR
 VAR
 	sErrorText 		: STRING(255);	// Error text from the Text list
 END_VAR
-
+(* @volt-implementation *)
 
 CASE wTextRefId OF
 

@@ -5,7 +5,7 @@ VAR
 	tWatchDogTimer			: TON;
 	tStepTimer				: TOF;
 END_VAR
-
+(* @volt-implementation *)
 (*************************************************************************
  *
  * Application name				: Snijmachine

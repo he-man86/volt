@@ -11,7 +11,7 @@ VAR
 	StartupTimer		: BTON;
 	restartingEtherCAT	: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 // Do not call EtherCAT_Master() FB!
 
 EtherCATDiagFB(

@@ -19,7 +19,7 @@ END_VAR
 VAR_IN_OUT
 	ioAxis				: AXIS_REF; 
 END_VAR
-
+(* @volt-implementation *)
 
 CASE iStep OF
 	

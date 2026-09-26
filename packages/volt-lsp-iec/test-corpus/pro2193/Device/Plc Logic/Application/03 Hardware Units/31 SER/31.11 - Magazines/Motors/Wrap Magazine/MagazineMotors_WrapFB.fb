@@ -13,7 +13,7 @@ END_VAR
 VAR
 	xHaltOnPath					: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 // Labelmagazine position is in ° , acc/dec is in °/s², so no convert factor is needed
@@ -23,6 +23,7 @@ Drive.config.unitConvertFactor	:= 1;
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Cyclic
+(* @volt-implementation *)
 // Set limits for the positions, and guard the limits
 Data.getNewLabelsPos.lowerLimit			:= Data.beforeGetNewLabelsPos.value;
 Data.getNewLabelsPos.upperLimit			:= DataBrink.rSWLimitPos;
@@ -49,6 +50,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 ActState := MagazineMotors_Wrap_State.None;
 
@@ -59,6 +61,7 @@ END_METHOD
 
 // After a state change, this method is called to execute the current state
 METHOD PUBLIC Execute
+(* @volt-implementation *)
 CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 	ExchangeSets.Cover_Margarine, ExchangeSets.Tray_Margarine:
 		Execute_Sequence1();
@@ -71,6 +74,7 @@ END_CASE
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence1
+(* @volt-implementation *)
 CASE ActState OF
 	MagazineMotors_Wrap_State.None:
 		Drive.globalSpeedOverrideEnable := TRUE;
@@ -101,6 +105,7 @@ VAR_INPUT
 	position	: MagazineMotors_Positions;
 	tolerance	: REAL;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 CASE position OF
 	MagazineMotors_Positions.getNewLabelsPos:
@@ -122,6 +127,7 @@ END_METHOD
 METHOD PUBLIC MoveToBeforeGetNewLabels : BOOL		// Returns true when in position
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF ActState = MagazineMotors_Wrap_State.None AND NOT xCommandDone THEN
 	ActState := MagazineMotors_Wrap_State.MovingToBeforeGetNewLabelsPos;	// MovingToBeforeGetNewLabelsPos		<-- Press F12 here
@@ -138,6 +144,7 @@ END_METHOD
 METHOD PUBLIC MoveToBeforeTakeoverLabels : BOOL	// Returns true when in position
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF ActState = MagazineMotors_Wrap_State.None AND NOT xCommandDone THEN
 	ActState := MagazineMotors_Wrap_State.MovingToBeforeTakeoverPos;	// MovingToBeforeTakeoverPos		<-- Press F12 here
@@ -155,6 +162,7 @@ METHOD PUBLIC MoveToGetNewLabels : BOOL		// Returns true when in position
 VAR_INPUT
 	xHaltOnPath		: BOOL := FALSE;		// Optional: When true the movement is interrupted before the end to await sensors
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 THIS^.xHaltOnPath := xHaltOnPath;	// Copy parameters
 
@@ -177,6 +185,7 @@ METHOD PUBLIC MoveToTakeoverLabels : BOOL	// Returns true when in position
 VAR_INPUT
 	xHaltOnPath		: BOOL := FALSE;		// Optional: When true the movement is interrupted before the end to await sensors
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF ActState = MagazineMotors_Wrap_State.None AND NOT xCommandDone THEN
 	THIS^.xHaltOnPath := xHaltOnPath;	// Copy parameters
@@ -192,6 +201,7 @@ MoveToTakeoverLabels := xCommandDone;
 END_METHOD
 
 METHOD PROTECTED MovingToBeforeGetNewLabelsPos
+(* @volt-implementation *)
 %FOLDER States
 IF xEntryActionActive THEN
 	Drive.SetMovementProfileData(Data.GetNewLabelsProfile);
@@ -211,6 +221,7 @@ METHOD PROTECTED MovingToBeforeTakeoverPos
 VAR_INST
 	switchSpeed	: BOOL;
 END_VAR
+(* @volt-implementation *)
 %FOLDER States
 IF xEntryActionActive THEN
 	switchSpeed := FALSE;
@@ -243,6 +254,7 @@ METHOD PROTECTED MovingToGetNewLabelsPos
 VAR_INST
 	haltOnPathCleared : FallingTriggerFB;
 END_VAR
+(* @volt-implementation *)
 %FOLDER States
 IF xEntryActionActive THEN
 	Drive.SetMovementProfileData(Data.GetNewLabelsProfile);
@@ -268,6 +280,7 @@ METHOD PROTECTED MovingToTakeoverPos
 VAR_INST
 	haltOnPathCleared : FallingTriggerFB;
 END_VAR
+(* @volt-implementation *)
 %FOLDER States
 IF xEntryActionActive THEN
 	Drive.SetMovementProfileData(Data.TakeoverProfile);
@@ -291,6 +304,7 @@ END_METHOD
 
 // Command to reset the module. Servodrives are homed.
 METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+(* @volt-implementation *)
 %FOLDER Commands
 IF ActState = MagazineMotors_Wrap_State.None AND NOT xCommandDone THEN
 	ActState := MagazineMotors_Wrap_State.Resetting_1;		// Resetting		<-- Press F12 here
@@ -304,6 +318,7 @@ Reset := xCommandDone;
 END_METHOD
 
 METHOD PROTECTED Resetting_1
+(* @volt-implementation *)
 %FOLDER States
 IF Drive.Home() THEN
 	ActState := MagazineMotors_Wrap_State.Resetting_2;
@@ -311,6 +326,7 @@ END_IF
 END_METHOD
 
 METHOD PROTECTED Resetting_2
+(* @volt-implementation *)
 %FOLDER States
 IF xEntryActionActive THEN
 	Drive.PrepareForNewMovement();
@@ -327,6 +343,7 @@ END_IF
 END_METHOD
 
 METHOD PUBLIC SetDefaultData
+(* @volt-implementation *)
 %FOLDER Commands
 DataBrink.rVel						:= 350;
 DataBrink.rAcc						:= 3500;
@@ -356,6 +373,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 ActState := MagazineMotors_Wrap_State.None;
 

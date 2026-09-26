@@ -15,7 +15,7 @@ VAR
 END_VAR
 VAR CONSTANT
 END_VAR
-
+(* @volt-implementation *)
 SUPER^(
 	AxisRef				:= AxisRef,
 	DataBrink			:= DataBrink,
@@ -28,6 +28,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 //	SetError					: ARRAY[1..1] OF SetErrorFB;
 END_VAR
+(* @volt-implementation *)
 END_METHOD
 
 METHOD PROTECTED Cyclic
@@ -35,6 +36,7 @@ VAR_INST
 	guardPosition				: ARRAY[1..2] OF GuardRealFB(									moduleHandler	:= ModuleHandler);
 	attachPosition				: ARRAY[1..2] OF AttachPosToButtonFB(							drive			:= Drive);
 END_VAR
+(* @volt-implementation *)
 // Set limits for the positions, and guard the limits
 Data.Takeover.Pos.lowerLimit				:= DataBrink.rSWLimitNeg;
 Data.Takeover.Pos.upperLimit				:= DataBrink.rSWLimitPos;
@@ -52,6 +54,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 Drive.Quickstop(TRUE);
 
@@ -59,6 +62,7 @@ EStop := (Drive.Standstill OR NOT Drive.AxisEnabled) AND SUPER^.EStop();
 END_METHOD
 
 METHOD PROTECTED Initialize
+(* @volt-implementation *)
 SUPER^.Initialize();
 
 DriveBrakeLogic.config.holdingTorque		:= -6;
@@ -78,6 +82,7 @@ VAR_INPUT
 	setPos		: REAL;
 	tolerance	: REAL	:= 1.0;	// Defaults to 1 mm
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 PosLargerOrEqual	:= Drive.actPos >= setPos - tolerance
 					AND Drive.IsHomed;
@@ -89,6 +94,7 @@ VAR_INPUT
 	setPos		: REAL;
 	tolerance	: REAL	:= 1.0;	// Defaults to 1 mm
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 PosSmallerOrEqual	:= Drive.actPos <= setPos + tolerance
 					AND Drive.IsHomed;
@@ -100,6 +106,7 @@ VAR_INST
 	localState			: SINT;
 	result				: UINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -131,6 +138,7 @@ METHOD PUBLIC RotateToPosition
 VAR_INPUT
 	position	: REAL;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 Drive.SetMovementProfileData(Data.Stacking);
 
@@ -139,6 +147,7 @@ END_METHOD
 
 // Rotate to Stacking position to get place products on conveyor
 METHOD PUBLIC RotateToStacking : BOOL
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -155,6 +164,7 @@ END_METHOD
 
 // Rotate to Takeover position to get products from chain
 METHOD PUBLIC RotateToTakeover : BOOL
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -171,6 +181,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode THEN
 	Drive.Halt();
@@ -186,6 +197,7 @@ PROPERTY PUBLIC InStackingPosition : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 InStackingPosition :=	Drive.AxisEnabled
 					AND Drive.Standstill
 					AND Drive.InPosition
@@ -200,6 +212,7 @@ PROPERTY PUBLIC InTakeoverPosition : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 InTakeoverPosition :=	Drive.AxisEnabled
 					AND Drive.Standstill
 					AND Drive.InPosition

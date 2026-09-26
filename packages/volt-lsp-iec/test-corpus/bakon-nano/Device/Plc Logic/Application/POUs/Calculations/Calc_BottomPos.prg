@@ -1,7 +1,7 @@
 PROGRAM Calc_BottomPos
 VAR
 END_VAR
-
+(* @volt-implementation *)
 //Bereken diepste positie van Z-as (Hoogste) afhankelijk van geselecteerd product plaat.
 
 CASE g_HMI_RCP_Parameters.nProductType  OF

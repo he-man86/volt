@@ -53,7 +53,7 @@ END_VAR
 VAR_TEMP
 	uiPropertyIndex			: UINT;
 END_VAR
-
+(* @volt-implementation *)
 IF xExecute
 AND NOT xExecute_old THEN
 
@@ -232,6 +232,7 @@ VAR_INST
 	sFind				: STRING(1);				//Used to search charachters such as {}[]
 	psFind				: POINTER TO STRING(1);
 END_VAR
+(* @volt-implementation *)
 %FOLDER Internal
 //Load pointer
 psFind := ADR(sFind);
@@ -270,6 +271,7 @@ METHOD INTERNAL _mCheckType_Boolean : BOOL
 VAR_INPUT
 	psContent			: POINTER TO STRING(c_uiPropertyStringSize);
 END_VAR
+(* @volt-implementation *)
 %FOLDER Internal
 //Check for BOOLEAN value (Text or Number)
 IF psContent^ = 'TRUE'
@@ -294,6 +296,7 @@ VAR
 	udiForLoop			: UDINT;
 	pbyFind				: POINTER TO BYTE;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Internal
 //Reset
 _mCheckType_Number := TRUE;
@@ -324,6 +327,7 @@ END_VAR
 VAR
 	psConcat		: POINTER TO STRING(1);
 END_VAR
+(* @volt-implementation *)
 %FOLDER Internal
 //Load pointer
 psConcat := ADR(sConcat);

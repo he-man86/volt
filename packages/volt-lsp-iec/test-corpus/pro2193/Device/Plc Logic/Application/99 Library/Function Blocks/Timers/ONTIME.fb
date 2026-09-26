@@ -14,7 +14,7 @@ VAR
 	refSeconds	: REFERENCE TO UDINT REF= udiSeconds;
 	refCycles	: REFERENCE TO UDINT REF= udiCycles;
 END_VAR
-
+(* @volt-implementation *)
 Initialize();
 
 IF In THEN
@@ -38,6 +38,7 @@ VAR_INST
 	{attribute 'init_on_onlchange' }
 	xInitialized	: BOOL;
 END_VAR
+(* @volt-implementation *)
 IF xInitialized THEN
 	RETURN;
 END_IF
@@ -51,6 +52,7 @@ END_METHOD
 METHOD PUBLIC Reset
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 refSeconds		:= 0;
 refCycles		:= 0;
 
@@ -69,6 +71,7 @@ END_VAR
 // Use this method to set a reference to that variable
 
 // If this method is never used (or reference is set to NULL), data is counted internally in the FB.
+(* @volt-implementation *)
 IF __ISVALIDREF(Cycles) THEN
 	THIS^.refCycles		REF= Cycles;
 ELSE
@@ -87,6 +90,7 @@ END_VAR
 // Use this method to set a reference to that variable
 
 // If this method is never used (or reference is set to NULL), data is counted internally in the FB.
+(* @volt-implementation *)
 IF __ISVALIDREF(Seconds) THEN
 	THIS^.refSeconds	REF= Seconds;
 ELSE
@@ -99,6 +103,7 @@ PROPERTY PUBLIC AsReal : REAL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 AsReal := TO_REAL(refSeconds) + TO_REAL(udiMs) / 1000;
 END_GET
 END_PROPERTY
@@ -108,6 +113,7 @@ PROPERTY PUBLIC AsTime : TIME
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 AsTime := TO_TIME(refSeconds * 1000 + udiMs);
 END_GET
 END_PROPERTY
@@ -117,6 +123,7 @@ PROPERTY PUBLIC Cycles : ULINT
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 Cycles := refCycles;
 END_GET
 END_PROPERTY
@@ -126,6 +133,7 @@ PROPERTY PUBLIC InSeconds : ULINT
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 InSeconds := refSeconds;
 END_GET
 END_PROPERTY

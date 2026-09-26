@@ -30,7 +30,7 @@ END_VAR
 VAR CONSTANT
 	textFileName		: STRING(20)	:= 'RobotSerial.txt';
 END_VAR
-
+(* @volt-implementation *)
 CASE state OF
 	// Await execute rising edge to start
 	0:
@@ -225,6 +225,7 @@ METHOD PRIVATE CharIsNumber : BOOL
 VAR_INPUT
 	character	: BYTE;
 END_VAR
+(* @volt-implementation *)
 CharIsNumber := character >= enumASCII.NUMBER_0 AND character <= enumASCII.NUMBER_9;
 END_METHOD
 
@@ -232,6 +233,7 @@ METHOD PRIVATE CharIsUpperCaseLetter : BOOL
 VAR_INPUT
 	character	: BYTE;
 END_VAR
+(* @volt-implementation *)
 CharIsUpperCaseLetter := character >= enumASCII.UPPERCASE_A AND character <= enumASCII.UPPERCASE_Z;
 END_METHOD
 
@@ -243,6 +245,7 @@ END_VAR
 VAR
 	i			: SINT;
 END_VAR
+(* @volt-implementation *)
 CheckSerialFormat := FALSE;
 
 Stu.StrTrimA(pString := serial);

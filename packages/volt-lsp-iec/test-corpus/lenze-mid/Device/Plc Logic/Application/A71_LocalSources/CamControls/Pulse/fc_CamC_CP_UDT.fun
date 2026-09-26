@@ -14,15 +14,15 @@ END_VAR
 VAR_IN_OUT
 	ioPulse	: UDT_CamPulse;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD
   LET en1 := ;
   IF en1 THEN ioPulse.MachinePos_HMI := MOVE(iMachinePosition); END_IF
 END_NETWORK
 NETWORK 1 LD
-  LET g1 := fc_CamC_CP_Base(iEN, ioPulse.Start, iMachinePosition, iResetFlag, ioPulse.OSP);
-  fc_CamC_CP_UDT := g1;
-  ioPulse.Active := g1;
+  LET m1 := fc_CamC_CP_Base(iEN, ioPulse.Start, iMachinePosition, iResetFlag, ioPulse.OSP);
+  fc_CamC_CP_UDT := m1;
+  ioPulse.Active := m1;
 END_NETWORK
 
 END_FUNCTION

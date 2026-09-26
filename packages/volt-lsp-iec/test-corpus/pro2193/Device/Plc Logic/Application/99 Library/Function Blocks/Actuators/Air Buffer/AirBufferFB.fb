@@ -17,7 +17,7 @@ END_VAR
 VAR CONSTANT
 	rKeepBufferOn			: REAL	:= 10.0;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 xAnyVacuumOn := Arrays.Vacuum_Any(
@@ -45,6 +45,7 @@ xOutputWasSet := FALSE;
 END_FUNCTION_BLOCK
 
 METHOD Set : BOOL
+(* @volt-implementation *)
 xOutputWasSet	:= TRUE;
 SUPER^.Set();
 END_METHOD

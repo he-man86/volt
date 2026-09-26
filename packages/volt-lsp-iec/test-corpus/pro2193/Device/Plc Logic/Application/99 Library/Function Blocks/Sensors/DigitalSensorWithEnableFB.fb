@@ -7,6 +7,7 @@ EXTENDS DigitalSensorFB
 VAR
 	_isEnabled		: BOOL;
 END_VAR
+(* @volt-implementation *)
 
 END_FUNCTION_BLOCK
 
@@ -17,6 +18,7 @@ GET
 PUBLIC
 VAR
 END_VAR
+(* @volt-implementation *)
 IsActive := NOT IsEnabled OR_ELSE SUPER^.IsActive;
 END_GET
 END_PROPERTY
@@ -28,12 +30,14 @@ GET
 PUBLIC
 VAR
 END_VAR
+(* @volt-implementation *)
 IsEnabled := _isEnabled;
 END_GET
 SET
 PUBLIC
 VAR
 END_VAR
+(* @volt-implementation *)
 _isEnabled := IsEnabled;
 END_SET
 END_PROPERTY
@@ -45,6 +49,7 @@ GET
 PUBLIC
 VAR
 END_VAR
+(* @volt-implementation *)
 IsInactive := NOT IsEnabled OR_ELSE SUPER^.IsInactive;
 END_GET
 END_PROPERTY

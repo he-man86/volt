@@ -14,7 +14,7 @@ VAR_IN_OUT
 	ioAxis: AXIS_REF;
 	DataIO: sUDT_FQIComm_Drive;;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD TITLE: "Return when virtual axis"
   IF ioAxis.xVirtual THEN RETURN; END_IF
 END_NETWORK

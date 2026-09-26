@@ -23,7 +23,7 @@ VAR
 	nScanCount : INT;
 	bStartPressedWhileError : BOOL;
 END_VAR
-
+(* @volt-implementation *)
 (*************************************************************************
  *
  * Application name			: Snijmachine

@@ -22,7 +22,7 @@ VAR
 	L_MC1P_ChangeMachineData_FeedforwardWrapper: L_MC1P_ChangeMachineData;
 	L_MC1P_ChangeMachineData_WrappingDevice: L_MC1P_ChangeMachineData;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD
   VirtualMaster_0(ioDataExchange := Data_Exchange_Motion.Servo_VirtualMaster, i_xPositionIsRetain := TRUE, i_lrWindowStandstill := 1, i_lrJogVel := 5, i_VelMax := 600, ioSlaveAxis := LM_VirtualMaster);
 END_NETWORK

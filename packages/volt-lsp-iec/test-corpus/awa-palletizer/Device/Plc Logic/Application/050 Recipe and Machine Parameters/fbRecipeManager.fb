@@ -40,7 +40,7 @@ END_VAR
 VAR CONSTANT                             
 	gc_iSizeRecipesNames    	: INT := 16384;
 END_VAR
-
+(* @volt-implementation *)
 
 xLoadedNewRecipe := FALSE;
 

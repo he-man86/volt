@@ -13,7 +13,7 @@ VAR
 	numeratorX	: REAL;	
 	numeratorY	: REAL;	
 END_VAR
-
+(* @volt-implementation *)
 
 
 

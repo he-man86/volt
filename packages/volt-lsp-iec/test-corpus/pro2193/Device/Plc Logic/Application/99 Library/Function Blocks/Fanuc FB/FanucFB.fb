@@ -39,7 +39,7 @@ VAR CONSTANT
 	iMaxNoRegisters		: INT := 500;
 	iFactor				: INT := 1000;
 END_VAR
-
+(* @volt-implementation *)
 Cyclic();
 Alarms();
 IoMapping();
@@ -52,6 +52,7 @@ VAR_INST
 	SetError					: ARRAY[1..7] OF SetErrorFB;
 	Blinker						: BLINK;
 END_VAR
+(* @volt-implementation *)
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= FanucFB_Errors,
@@ -132,12 +133,14 @@ Q.xCycleStop	:= Blinker.OUT AND xCycleStop;
 END_METHOD
 
 METHOD PROTECTED Cyclic
+(* @volt-implementation *)
 IF SystemState = PACK_ML.State.Idle THEN
 	Q.xStart := NOT (I.xPrgPaused AND NOT I.xFault AND NOT I.xTpEnabled); // Restart paused Fanuc program
 END_IF
 END_METHOD
 
 METHOD Init : BOOL
+(* @volt-implementation *)
 xCycleStop		S= I.xPrgRunning OR I.xPrgPaused;
 Q.xIMSTP		:= TRUE;
 Q.xSFSPD		:= TRUE;
@@ -150,6 +153,7 @@ END_METHOD
 METHOD PRIVATE IoMapping
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 (*--------------------------------------------------------------------------------------------
 									- INPUTS -
 --------------------------------------------------------------------------------------------*)
@@ -409,6 +413,7 @@ arOutputs7[1]			:= Q.arGroupOutputs[40];
 END_METHOD
 
 METHOD ProgramReset
+(* @volt-implementation *)
 iProgChangeState	:= 0;
 Q.uiRsr_pns			:= 0;
 Q.xProdStart		:= FALSE;
@@ -425,6 +430,7 @@ END_VAR
 VAR_INST
 	T_TimeOut	: BTON;
 END_VAR
+(* @volt-implementation *)
 // Timeout while starting the Main program
 IF T_TimeOut.Set(NOT I.xPrgRunning, 3) THEN
 	T_TimeOut.Reset();
@@ -472,6 +478,7 @@ VAR_INST
 	iCurrentReg			: INT;
 	rVal				: REAL;
 END_VAR
+(* @volt-implementation *)
 CASE iWriteRegisterState OF
 0:
 	REPEAT
@@ -518,6 +525,7 @@ PROPERTY PUBLIC ComBrinkFanuc : UINT
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 uiComBrinkFanuc := ComBrinkFanuc;
 END_SET
 END_PROPERTY
@@ -528,6 +536,7 @@ GET
 PUBLIC
 VAR
 END_VAR
+(* @volt-implementation *)
 ComFanucBrink := uiComFanucBrink;
 END_GET
 END_PROPERTY
@@ -538,6 +547,7 @@ GET
 PUBLIC
 VAR
 END_VAR
+(* @volt-implementation *)
 GateAllowedToOpen	:= I.xAtServicePos		// Fanuc is at service position
 					OR NOT I.xInAutoMode	// Fanuc cannot move to service position when not in auto
 					OR I.xTpEnabled;		// Fanuc cannot move to service position when TP is enabled
@@ -550,6 +560,7 @@ GET
 VAR_INST
 	Tr_ManualFunction : R_TRIG;
 END_VAR
+(* @volt-implementation *)
 Tr_ManualFunction(CLK := uiManualFunction > 0);
 ManualFunction := SEL(I.xTpEnabled AND Tr_ManualFunction.Q, 0, uiManualFunction);
 END_GET
@@ -560,6 +571,7 @@ PROPERTY PUBLIC ProgramRunning : UINT
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ProgramRunning := uiProgramRunning;
 END_GET
 END_PROPERTY
@@ -567,11 +579,13 @@ END_PROPERTY
 {attribute 'monitoring':='call'}
 PROPERTY PUBLIC ProgramSelector : UINT
 GET
+(* @volt-implementation *)
 ProgramSelector := uiProgramSelector := SEL(ProgramRunning = uiProgramSelector, uiProgramSelector, 0);
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 uiProgramSelector := ProgramSelector;
 END_SET
 END_PROPERTY

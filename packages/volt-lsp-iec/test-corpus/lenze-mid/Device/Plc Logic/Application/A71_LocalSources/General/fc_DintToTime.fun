@@ -5,7 +5,7 @@ VAR_INPUT
 END_VAR
 VAR
 END_VAR
-
+(* @volt-implementation *)
 
 fc_DintToTime:=DINT_TO_TIME(DintTime*1000/REAL_TO_DINT(EXPT(10,DecShift)));
 

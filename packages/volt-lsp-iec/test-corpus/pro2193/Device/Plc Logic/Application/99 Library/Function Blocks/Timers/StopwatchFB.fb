@@ -13,11 +13,13 @@ VAR_OUTPUT
 	minTime		: UDINT;
 	maxTime		: UDINT;
 END_VAR
+(* @volt-implementation *)
 
 END_FUNCTION_BLOCK
 
 // Returns measurement [µs]
 METHOD PUBLIC End : UDINT
+(* @volt-implementation *)
 IF TO_UDINT(ltStart) = 0 THEN
 	RETURN;
 END_IF
@@ -38,6 +40,7 @@ END_VAR
 VAR_INST
 	last				: BOOL;
 END_VAR
+(* @volt-implementation *)
 IF in XOR last THEN
 	IF in THEN
 		Start();
@@ -51,6 +54,7 @@ END_METHOD
 
 // Resets minimum and maximum values
 METHOD PUBLIC Reset
+(* @volt-implementation *)
 actTime		:= 0;
 minTime		:= 0;
 maxTime		:= 0;
@@ -58,5 +62,6 @@ END_METHOD
 
 // Starts measurement
 METHOD PUBLIC Start
+(* @volt-implementation *)
 ltStart := LTIME();
 END_METHOD

@@ -3,7 +3,7 @@ FUNCTION CheckBounds : DINT
 VAR_INPUT
 	index, lower, upper: DINT;
 END_VAR
-
+(* @volt-implementation *)
 // Implicitly generated code : Only an Implementation suggestion
 IF  index < lower THEN
 	CheckBounds := lower;

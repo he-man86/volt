@@ -8,7 +8,7 @@ VAR
 	xOverride		: BOOL;
 	state			: enumLedState;
 END_VAR
-
+(* @volt-implementation *)
 CASE state OF
 	enumLedState.Off, enumLedState.ForcedOff:
 		Output.Reset();
@@ -37,6 +37,7 @@ END_FUNCTION_BLOCK
 
 // Start flashing the led
 METHOD PUBLIC Flash
+(* @volt-implementation *)
 IF state <> enumLedState.ForcedOn AND state <> enumLedState.ForcedOff THEN
 	state := enumLedState.Flashing;
 END_IF
@@ -44,26 +45,31 @@ END_METHOD
 
 // Force turn the led off
 METHOD PUBLIC LedTestOff
+(* @volt-implementation *)
 state := enumLedState.ForcedOff;
 END_METHOD
 
 // Force turn the led on
 METHOD PUBLIC LedTestOn
+(* @volt-implementation *)
 state := enumLedState.ForcedOn;
 END_METHOD
 
 // Stop forcing the led state
 METHOD PUBLIC LedTestStop
+(* @volt-implementation *)
 state := enumLedState.Off;
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC Map : BOOL
+(* @volt-implementation *)
 Map := Output.Map();
 END_METHOD
 
 // Turn the led off
 METHOD PUBLIC Off
+(* @volt-implementation *)
 IF state <> enumLedState.ForcedOn AND state <> enumLedState.ForcedOff THEN
 	state := enumLedState.Off;
 END_IF
@@ -71,18 +77,21 @@ END_METHOD
 
 // When button is pressed, set the led output without changing the state
 METHOD PROTECTED Override
+(* @volt-implementation *)
 THIS^.xOverride := TRUE;
 END_METHOD
 
 // Reset the output (=False)
 {attribute 'hide'}
 METHOD Reset
+(* @volt-implementation *)
 Off();
 END_METHOD
 
 // Set the output (=True)
 {attribute 'hide'}
 METHOD Set : BOOL
+(* @volt-implementation *)
 Solid();
 END_METHOD
 
@@ -90,6 +99,7 @@ METHOD PUBLIC SetFlashingFrequency
 VAR_INPUT
 	Value		: BOOL;		// Call with False to use (default) 0.5 sec. blinker. Call with True to use fast 0.2 sec. blinker.
 END_VAR
+(* @volt-implementation *)
 FrequencySelect		:= Value;
 END_METHOD
 
@@ -98,6 +108,7 @@ METHOD SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+(* @volt-implementation *)
 IF xValue THEN
 	state := enumLedState.Solid;
 ELSE
@@ -107,6 +118,7 @@ END_METHOD
 
 // Turn the led on
 METHOD PUBLIC Solid
+(* @volt-implementation *)
 IF state <> enumLedState.ForcedOn AND state <> enumLedState.ForcedOff THEN
 	state := enumLedState.Solid;
 END_IF

@@ -28,6 +28,7 @@ VAR
 							CompType			:= L_IMHP_ComponentType.GeneralMachineModule
 						);
 END_VAR
+(* @volt-implementation *)
 
 END_FUNCTION_BLOCK
 
@@ -42,6 +43,7 @@ VAR_INPUT
 
 	name			: STRING(12);					// Give name of module manager (For example SER or BFU)
 END_VAR
+(* @volt-implementation *)
 THIS^._name						:= name;
 THIS^._moduleHandler.CompName	:= name;
 END_METHOD
@@ -53,6 +55,7 @@ VAR_INPUT
 	index			: UINT;
 	module			: IAbleToRegister;
 END_VAR
+(* @volt-implementation *)
 LogPlc.Debug(
 	CONCAT9(
 		Name,
@@ -82,6 +85,7 @@ VAR
 
 	thingMatchedAnyInterface : BOOL;
 END_VAR
+(* @volt-implementation *)
 IF thingToRegister = 0 THEN
 	LogPlc.Fatal('Null reference exception! Interface does not exist.');
 	RETURN;
@@ -164,6 +168,7 @@ VAR
 	gate			: ISafetyGate;
 	thingMatchedAnyInterface : BOOL;
 END_VAR
+(* @volt-implementation *)
 IF thingToRegister = 0 THEN
 	LogPlc.Fatal('Null reference exception! Interface does not exist.');
 	RETURN;
@@ -292,6 +297,7 @@ PROPERTY PUBLIC ModuleHandler : L_IMHP.L_IMHP_IModuleHandler
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ModuleHandler	:= _moduleHandler;
 END_GET
 END_PROPERTY
@@ -300,6 +306,7 @@ PROPERTY PUBLIC Name : STRING(12)
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 Name	:= _name;
 
 // This does not work because CompName has no Getter. Maybe change in the future when Lenze changes library

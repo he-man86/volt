@@ -15,7 +15,7 @@ END_VAR
 VAR
 	_boxAtOutfeedPosition		: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -24,6 +24,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..2] OF SetErrorFB;
 END_VAR
+(* @volt-implementation *)
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= BoxPusher_Errors,
@@ -48,6 +49,7 @@ END_METHOD
 METHOD PROTECTED Cyclic
 VAR_INST
 END_VAR
+(* @volt-implementation *)
 Pusher(
 	moduleHandler			:= ModuleHandler,
 	manualControlEnabled	:= BFU.ManualControlEnabled, // AND manualControlEnabled,
@@ -69,6 +71,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -82,6 +85,7 @@ METHOD PUBLIC Push : BOOL
 VAR_INST
 	Timer				: BTON;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -104,6 +108,7 @@ METHOD PUBLIC Reset : BOOL	// Returns true when homing done
 VAR_INST
 	localState			: SINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -129,6 +134,7 @@ METHOD PUBLIC Retract : BOOL
 VAR_INST
 	Timer				: BTON;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -146,6 +152,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 Pusher.Reset();
 
@@ -158,12 +165,14 @@ GET
 PUBLIC
 VAR
 END_VAR
+(* @volt-implementation *)
 BoxAtOutfeedPosition		:= _boxAtOutfeedPosition;
 END_GET
 SET
 PUBLIC
 VAR
 END_VAR
+(* @volt-implementation *)
 _boxAtOutfeedPosition		:= BoxAtOutfeedPosition;
 END_SET
 END_PROPERTY
@@ -173,6 +182,7 @@ PROPERTY PUBLIC BoxAtOutfeedPositionSensor : IDigitalSensor
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 BoxAtOutfeedPositionSensor	:= sensorBoxAtOutfeedPosition;
 END_GET
 END_PROPERTY

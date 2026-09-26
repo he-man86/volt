@@ -11,7 +11,7 @@ VAR_INPUT
 	I_rY_InfeedPosition		: REAL;
 	I_rY_InfeedPrePosition	: REAL;
 END_VAR
-
+(* @volt-implementation *)
 (*************************************************************************
  *
  * Application name				: Snijmachine

@@ -52,7 +52,7 @@ VAR
 	xStateError: BOOL := FALSE;
 	
 END_VAR
-
+(* @volt-implementation *)
 // ### STATE LOGIC ###
 {region}		 
 	//--------------------------------------------------------------------------------------

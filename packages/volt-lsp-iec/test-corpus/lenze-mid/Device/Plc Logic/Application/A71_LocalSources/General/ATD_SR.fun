@@ -8,7 +8,7 @@ END_VAR
 VAR_IN_OUT
 	ioSR_value: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 
 ioSR_value S=iSet;
 ioSR_value R=iReset;

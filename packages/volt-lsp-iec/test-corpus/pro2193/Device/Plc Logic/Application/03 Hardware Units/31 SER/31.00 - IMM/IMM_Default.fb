@@ -132,7 +132,7 @@ VAR//VISU
 	{attribute 'symbol' := 'read'}		euromapTestResultOk				: BOOL;					// Active test step result is Ok
 	{attribute 'symbol' := 'readwrite'}	euromapTestNextStep				: BOOL;					// Button to start / resume testing
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -141,6 +141,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 	SetError		: ARRAY[1..8] OF SetErrorFB;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Private
 SetError[1](
 	moduleHandler	:= ModuleHandler,
@@ -232,6 +233,7 @@ VAR_INST
 	TriggerEnterMouldArea		: TriggerFB;
 	DelayedMouldClosingTimer	: BTON;		// Mould will close after timer
 END_VAR
+(* @volt-implementation *)
 %FOLDER Private
 EjectStateMachine();
 FollowSERState();
@@ -365,6 +367,7 @@ EStop := TRUE;
 
  *)
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER IModuleBase
 InhibitAll();
 MouldCleaning.EStop();
@@ -376,6 +379,7 @@ END_METHOD
 METHOD PUBLIC EjectShot : BOOL	// Returns true when the ejectors are in the Front position.
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF SER.OperationMode = SER_OperationModeType.SemiAuto THEN
 	EjectShot := TRUE;
@@ -397,6 +401,7 @@ END_VAR
 VAR_INST
 	T_Timer	: BTON;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Private
 // The option to start the ejectors early on a position, is only valid if you have a single Y Unit.
 // If you really need this option, and you have multiple Y Units, you need to change the program below.
@@ -505,6 +510,7 @@ END_VAR
 VAR
 	inputsHigh					: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Private/Euromap Tester
 inputsHigh	:= 0;
 
@@ -527,6 +533,7 @@ VAR_INST
 	NextStepTrigger		: RisingTriggerFB;
 	NextStepTimer		: BTON;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Private/Euromap Tester
 NextStepTrigger.Call(euromapTestNextStep);
 
@@ -770,6 +777,7 @@ END_CASE
 END_METHOD
 
 METHOD PRIVATE FollowSERState
+(* @volt-implementation *)
 %FOLDER Private
 CASE SER.ActState OF
 	PACK_ML.State.Idle:
@@ -806,6 +814,7 @@ VAR
 	ZeroBasedCavNumbering	: USINT;
 	Product					: REFERENCE TO ProductType;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Private
 // Get sample shot request status from all XY Controls (cache this value locally, so method is executed once per module)
 FOR ui := 1 TO ProcessModules.numberOfXYControls DO
@@ -893,6 +902,7 @@ METHOD PUBLIC GetProductData : ARRAY[1..GVL_Constants.MaxProductsInX, 1..GVL_Con
 VAR_INPUT
 	MouldLevel	: UINT(1..GVL_Constants.MaxMouldLevels);
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 GetProductData	:= ProductsInMould[MouldLevel];
 
@@ -904,6 +914,7 @@ END_METHOD
 METHOD PRIVATE InhibitAll
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 %FOLDER Private/All Outputs
 MouldAreaFree.Reset();
 EnableMouldClosure.Reset();
@@ -918,6 +929,7 @@ METHOD PUBLIC InhibitMouldClosing
 VAR
 	i	: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 EnableMouldClosure.Reset();
 MouldAreaFree.Reset();
@@ -932,6 +944,7 @@ END_METHOD
 METHOD PRIVATE ReleaseAll
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 %FOLDER Private/All Outputs
 MouldAreaFree.Set();
 EnableMouldClosure.Set();
@@ -955,6 +968,7 @@ VAR
 	anyDrawerIsChanging			: BOOL := FALSE;
 	i							: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF  Data.xEarlyMouldClosingEnable
 AND YUnits.usiNumberOfUnits = 1		// Only enable early mould closing when there is a single Y Unit ?
@@ -1035,6 +1049,7 @@ END_METHOD
 
 // Command to reset the module. Servodrives are homed.
 METHOD PUBLIC Reset : BOOL	// Returns true when homing done
+(* @volt-implementation *)
 %FOLDER IModuleResettable
 InhibitAll();
 
@@ -1043,6 +1058,7 @@ END_METHOD
 
 // Check if the mould closes every cycle
 METHOD PROTECTED SetMouldWasClosed
+(* @volt-implementation *)
 %FOLDER Private
 IF NOT SER.InAutomaticOperation THEN
 	mouldWasClosed			:= FALSE;
@@ -1061,6 +1077,7 @@ METHOD ShouldStart : BOOL
 VAR_INPUT
 	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
 END_VAR
+(* @volt-implementation *)
 %FOLDER IModuleStartable
 CASE operationMode OF
 	SER_OperationModeType.Production:			ShouldStart := TRUE;
@@ -1077,6 +1094,7 @@ END_METHOD
 
 // Start automatic operations now! Returns true when module is started.
 METHOD StartCycle : BOOL
+(* @volt-implementation *)
 %FOLDER IModuleStartable
 OperationWithRobot.Reset();
 
@@ -1090,6 +1108,7 @@ END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER IModuleBase
 IF MouldIsOpen THEN
 	InhibitMouldClosing();
@@ -1101,6 +1120,7 @@ END_METHOD
 
 // Cycle stop request. Returns true when module finished its active cycle.
 METHOD StopCycle : BOOL
+(* @volt-implementation *)
 %FOLDER IModuleStartable
 StopCycle				:= TRUE;
 END_METHOD
@@ -1113,6 +1133,7 @@ END_VAR
 VAR
 	i			: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 // Find the XYControl with the correct instance number and store the number locally.
 FOR i := 1 TO ProcessModules.numberOfXYControls DO
@@ -1134,6 +1155,7 @@ PROPERTY PUBLIC AllowLabelsInCavities : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 AllowLabelsInCavities	:=  (NOT HasLabels OR SER.OperationMode = SER_OperationModeType.SemiAuto)
 						AND (ShotCounter > Data.usiFirstShotsWithoutIML OR SER.OperationMode = SER_OperationModeType.SemiAuto);
 
@@ -1153,6 +1175,7 @@ PROPERTY PUBLIC AutoOperation : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 AutoOperation := xAutoOperation OR euromapTestInProgress;
 END_GET
 END_PROPERTY
@@ -1164,6 +1187,7 @@ PROPERTY PUBLIC DoorsClosed : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 DoorsClosed := xDoorsClosed;
 END_GET
 END_PROPERTY
@@ -1175,11 +1199,13 @@ PROPERTY PUBLIC EnableDetectMovementIMMInput : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 EnableDetectMovementIMMInput := _enableDetectMovementIMM;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _enableDetectMovementIMM := EnableDetectMovementIMMInput;
 END_SET
 END_PROPERTY
@@ -1191,11 +1217,13 @@ PROPERTY PUBLIC HasLabels : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 HasLabels := _labelsInCavities;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _labelsInCavities			:= HasLabels;
 END_SET
 END_PROPERTY
@@ -1207,6 +1235,7 @@ PROPERTY PUBLIC MouldIsOpen : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 MouldIsOpen := TriggerMouldOpened.Q_Rising;
 END_GET
 END_PROPERTY
@@ -1218,6 +1247,7 @@ PROPERTY PUBLIC MouldIsOpening : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 MouldIsOpening := TriggerMouldClosed.Q_Falling;
 END_GET
 END_PROPERTY
@@ -1229,6 +1259,7 @@ PROPERTY PUBLIC RequestFullMouldOpen : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 // Mould is fully opened.
 IF  xMouldOpen
 AND NOT xMouldClosed
@@ -1252,6 +1283,7 @@ PROPERTY PUBLIC RequestMouldEntry : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 // Use Early Mould Entry option and start moving before the mould is fully opened.
 IF  Data.xIntermediateOpenEnable
 AND SER.ActState <> PACK_ML.State.Starting

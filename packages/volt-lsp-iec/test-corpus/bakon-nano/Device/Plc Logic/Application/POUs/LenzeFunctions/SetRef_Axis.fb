@@ -21,7 +21,7 @@ VAR
 	//TestMultiturn: L_SMC_Multiturn;
 	SetHomePosition : MC_SetPosition;
 END_VAR
-
+(* @volt-implementation *)
 
 
 CASE byStepper OF (*VERVALLEN, KAN NU VIA HOMING IN AXISBASICS: SET HOME -> SM3_Multiturn eronder aanroepen*)

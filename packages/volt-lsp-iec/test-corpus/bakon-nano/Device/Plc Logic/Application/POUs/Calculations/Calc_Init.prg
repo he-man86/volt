@@ -2,7 +2,7 @@ PROGRAM Calc_Init
 VAR
 	Cnt_pos: INT;
 END_VAR
-
+(* @volt-implementation *)
 (* Init array *)
 FOR Cnt_pos := 1 TO (C_wNumberOfMotionObjects -1)  BY 1 DO
 	g_aCuttingPositions[Cnt_pos].X_Target			:=-50;

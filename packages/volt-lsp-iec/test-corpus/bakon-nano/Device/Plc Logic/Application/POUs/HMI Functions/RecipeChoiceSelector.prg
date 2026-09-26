@@ -4,7 +4,7 @@ VAR
 	nOldClmn2Choice : INT;
 	bChoiceSetToZero : BOOL;
 END_VAR
-
+(* @volt-implementation *)
 /////////// First Column ////////////////////////////////////////////////////////////////////////////////
 (*
 Choices: 

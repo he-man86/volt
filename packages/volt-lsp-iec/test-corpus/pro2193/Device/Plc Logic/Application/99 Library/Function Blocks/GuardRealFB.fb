@@ -12,7 +12,7 @@ VAR
 
 	manuallyUpdatePosInAutoMode	: REAL;	// Use by Brink programmers; to force change position during automatic operation of robot.
 END_VAR
-
+(* @volt-implementation *)
 Alarms();
 
 // Set new position manually (also when SER is in automatic operation)
@@ -40,6 +40,7 @@ VAR_INST
 	PosTooSmallAlarm			: SetErrorFB;
 	PosTooBigAlarm				: SetErrorFB;
 END_VAR
+(* @volt-implementation *)
 PosTooSmallAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= General_Unit_Errors,
@@ -85,5 +86,6 @@ VAR_INPUT
 
 	moduleHandler	: L_IMHP.L_IMHP_IModuleHandler;
 END_VAR
+(* @volt-implementation *)
 THIS^.moduleHandler := moduleHandler;
 END_METHOD

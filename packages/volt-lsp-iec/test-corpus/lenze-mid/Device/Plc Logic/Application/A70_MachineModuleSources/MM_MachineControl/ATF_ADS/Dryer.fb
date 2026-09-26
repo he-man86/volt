@@ -45,7 +45,7 @@ VAR RETAIN PERSISTENT
 	stReStopFeedForward: R_TRIG;
 	TMR_HeaterTimeOut: TON;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD TITLE: "DONE Network 1: Convert speed to cycle time"
   // tEmtyingCycle : (1/(MachineSpeed/60))*1000 gives time in [ms]
   LET en1 := ;

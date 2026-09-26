@@ -11,7 +11,7 @@ VAR
     CPY_bAxis_FrontSet       				: BOOL;
     CPY_bAxis_RearSet        				: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 
 
 IF NOT g_sMCHCopyMade THEN

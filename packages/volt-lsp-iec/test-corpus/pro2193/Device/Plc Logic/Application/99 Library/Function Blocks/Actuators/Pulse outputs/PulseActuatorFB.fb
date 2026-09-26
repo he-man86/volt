@@ -12,7 +12,7 @@ VAR
 	Blinker				: BLINK;
 	Trigger				: RisingTriggerFB;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 Blinker(
@@ -35,6 +35,7 @@ END_FUNCTION_BLOCK
 
 // Call once to add a pulse to the buffer
 METHOD PUBLIC AddPulse
+(* @volt-implementation *)
 dwBuffer			:= SHL(dwBuffer, 1);
 dwBuffer.0			:= TRUE;
 END_METHOD
@@ -47,6 +48,7 @@ END_VAR
 VAR
 	i					: USINT;
 END_VAR
+(* @volt-implementation *)
 FOR i := 1 TO number DO
 	AddPulse();
 END_FOR

@@ -18,7 +18,7 @@ END_VAR
 VAR_IN_OUT
 	ioUDT			: UDT_FQI_Drive;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD
   LET i1 := UINT_TO_WORD(ioUDT.Control.AutoSpeed);
   LET en1 := ;

@@ -10,7 +10,7 @@ VAR
 
 	tbool: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD TITLE: "Network 1: Averaging of sensorsignal"
   LET i1 := TO_INT(LST_InputsOutputs.IW340_LeafCoverageSensor);
   LET en1 := ;

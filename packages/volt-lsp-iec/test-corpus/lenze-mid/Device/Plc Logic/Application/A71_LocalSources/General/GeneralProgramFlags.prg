@@ -22,7 +22,7 @@ VAR
 	tmr_FF1s_not: TON;
 	PLC_StartUp_Delay: TON;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD
   // Always Off
   AlwaysOff R= AlwaysOff;

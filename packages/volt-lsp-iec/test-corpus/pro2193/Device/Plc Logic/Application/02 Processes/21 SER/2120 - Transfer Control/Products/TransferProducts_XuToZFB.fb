@@ -24,7 +24,7 @@ VAR
 	) DINT;
 
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 // Enable manual control of Z Unit motor when Xu Unit is in safe position.
@@ -37,6 +37,7 @@ METHOD PUBLIC CheckIfTransferIsNeeded : BOOL
 VAR_INPUT
 	iParameter			: INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
+(* @volt-implementation *)
 // Xu unit has at least 1 product in the gripper. We need a transfer.
 CheckIfTransferIsNeeded	S= xuUnit.HasPayload <> enumPayload.None;
 
@@ -47,11 +48,13 @@ CheckIfTransferIsNeeded	S= SER.OperationMode = SER_OperationModeType.SemiAuto AN
 END_METHOD
 
 METHOD PROTECTED Cyclic
+(* @volt-implementation *)
 State(actState	:= ActState);
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
@@ -60,6 +63,7 @@ END_METHOD
 
 // After a state change, this method is called to execute the current state
 METHOD PROTECTED Execute
+(* @volt-implementation *)
 CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 //	enumExchangeSets.SingleCavSingleTakeover:
 //		Execute_Sequence1();
@@ -80,6 +84,7 @@ METHOD PUBLIC ExecuteTransfer : BOOL
 VAR_INPUT
 	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
+(* @volt-implementation *)
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
 END_IF
@@ -100,6 +105,7 @@ END_IF
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence1
+(* @volt-implementation *)
 IF State.Changed THEN
 	Arrays.Bool_Reset(result);
 END_IF
@@ -172,6 +178,7 @@ END_CASE
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence2
+(* @volt-implementation *)
 IF State.Changed THEN
 	Arrays.Bool_Reset(result);
 END_IF
@@ -252,6 +259,7 @@ END_CASE
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence3
+(* @volt-implementation *)
 IF State.Changed THEN
 	Arrays.Bool_Reset(result);
 END_IF
@@ -329,6 +337,7 @@ END_CASE
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence4
+(* @volt-implementation *)
 IF State.Changed THEN
 	Arrays.Bool_Reset(result);
 END_IF
@@ -406,6 +415,7 @@ END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
@@ -418,6 +428,7 @@ PROPERTY TransferBusy : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 TransferBusy	:= ActState <> StateNone;
 END_GET
 END_PROPERTY

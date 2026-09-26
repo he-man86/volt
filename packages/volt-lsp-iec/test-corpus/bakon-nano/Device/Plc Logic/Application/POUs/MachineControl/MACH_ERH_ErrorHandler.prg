@@ -15,7 +15,7 @@ VAR
 	
 	tonTimeoutHomingDown: TON;
 END_VAR
-
+(* @volt-implementation *)
 (*************************************************************************
  *
  * Application name			: Snijmachine

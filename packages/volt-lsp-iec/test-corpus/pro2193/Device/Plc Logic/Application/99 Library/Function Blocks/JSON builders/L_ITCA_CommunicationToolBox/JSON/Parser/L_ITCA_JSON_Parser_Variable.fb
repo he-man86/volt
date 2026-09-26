@@ -60,7 +60,7 @@ VAR_TEMP
 	uiPropertyIndex			: UINT;
 	diForLoop				: DINT;
 END_VAR
-
+(* @volt-implementation *)
 IF xExecute
 AND NOT xExecute_old THEN
 
@@ -302,6 +302,7 @@ END_VAR
 VAR
 	psFind				: POINTER TO STRING(1);
 END_VAR
+(* @volt-implementation *)
 %FOLDER Internal
 //Load pointer
 psFind := ADR(sFind);
@@ -321,6 +322,7 @@ VAR
 	psValue_Method			: POINTER TO STRING(1);			//Pointer to value in object array
 	diForLoop : DINT;
 END_VAR
+(* @volt-implementation *)
 IF sSymbol <> '' THEN
 	//Loop properties of parser
 	FOR diForLoop := 0 TO MIN(uiPropertyCount, (uiPropertiesTotal-1)) DO

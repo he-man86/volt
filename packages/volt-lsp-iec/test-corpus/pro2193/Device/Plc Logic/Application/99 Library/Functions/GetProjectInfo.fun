@@ -8,7 +8,7 @@ VAR
 	pAppInfo	: POINTER TO CmpApp.APPLICATION_INFO;
 	iecResult	: SysTypes.RTS_IEC_RESULT;
 END_VAR
-
+(* @volt-implementation *)
 // Get handle to current PLC application
 pApp		:= CmpApp.AppGetCurrent(pResult := ADR(iecResult));
 IF pApp = 0 THEN

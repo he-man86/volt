@@ -23,7 +23,7 @@ VAR_IN_OUT
 	Q_dwAGM_Frequency	: REAL;
 	Q_dwAGM_ID				: DWORD;
 END_VAR
-
+(* @volt-implementation *)
 (*Create toggle for reading the parameters*)
 BLINK1		(ENABLE:=I_bEnable ,
 				 TIMELOW:=t#6s ,

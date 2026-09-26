@@ -68,7 +68,7 @@ VAR
 	xLaterShiftStartEnable : BOOL; 		// Shift calculation of planned production time starts with xShiftProductionActive = TRUE
 	uiCalWeek				: UINT;		// Actual calendar week
 END_VAR
-
+(* @volt-implementation *)
 //********************************************************************************
 // Set ShiftName if Production Scheduler has been used
 // Run ID needs to be manage persistant in use rprogram if required 
@@ -124,6 +124,7 @@ xFirstCycleDone	:= TRUE;
 END_FUNCTION_BLOCK
 
 ACTION Call_AssignStructures
+(* @volt-implementation *)
 
 //***********************************************************************************************************************
 // Overwriting intern used scProduction and scErrorCategory with actual machine program 
@@ -184,6 +185,7 @@ END_IF;
 END_ACTION
 
 ACTION act_Call_Properties
+(* @volt-implementation *)
 
 //*********************************************************************************************************
 // Calculation option for part Throughput/hour
@@ -203,6 +205,7 @@ xSetDeactiveShiftContiniousUpdate := FALSE;
 END_ACTION
 
 ACTION call_OEE_FB
+(* @volt-implementation *)
 NETWORK 0 FBD
   // //**********************************************************************************************************************************************************
   // // Call up L_OEE_FBs for OEE KPI calculation, Downtime & Production state Tracking
@@ -219,12 +222,14 @@ PROPERTY xLaterShiftStartEnableDisable : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 
 xLaterShiftStartEnableDisable := xLaterShiftStartEnable;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 
 xLaterShiftStartEnable := xLaterShiftStartEnableDisable;
 END_SET
@@ -235,12 +240,14 @@ PROPERTY PUBLIC xSetDeactiveShiftContiniousUpdate : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 
 xSetDeactiveShiftContiniousUpdate := xDeactiveShiftContiniousUpdate;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 
  xDeactiveShiftContiniousUpdate := xSetDeactiveShiftContiniousUpdate;
 END_SET
@@ -251,12 +258,14 @@ PROPERTY PUBLIC xSetProdSimEventOccurrence : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 
 xSetProdSimEventOccurrence := xProdSimEventOccurrence;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 
 xProdSimEventOccurrence :=  xSetProdSimEventOccurrence ;
 END_SET
@@ -267,12 +276,14 @@ PROPERTY PUBLIC xTriggerManualShiftReset : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 
 xTriggerManualShiftReset := xManualShiftReset;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 
 xManualShiftReset := xTriggerManualShiftReset;
 END_SET
@@ -283,12 +294,14 @@ PROPERTY PUBLIC xTriggerUpdateJsonOEEKPI : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 
 xTriggerUpdateJsonOEEKPI := xUpdateJsonOEEKPI;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 
 xUpdateJsonOEEKPI := xTriggerUpdateJsonOEEKPI;
 END_SET

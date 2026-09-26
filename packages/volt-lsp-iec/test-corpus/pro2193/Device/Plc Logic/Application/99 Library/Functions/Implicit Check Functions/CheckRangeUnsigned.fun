@@ -3,7 +3,7 @@ FUNCTION CheckRangeUnsigned : UDINT
 VAR_INPUT
 	value, lower, upper : UDINT;
 END_VAR
-
+(* @volt-implementation *)
 IF value >= lower AND value <= upper THEN
 	CheckRangeUnsigned := value;
 ELSE

@@ -73,7 +73,7 @@ VAR
 	nLastPosFirstTray		: INT;
 	nLastWastePosFirstTray	: int;
 END_VAR
-
+(* @volt-implementation *)
 Calc_Dia2_Compact				:= FALSE;
 bToggle							:= FALSE;
 rSizeOfKnife					:= g_HMI_MCH_Parameters.rSizeOfKnife;

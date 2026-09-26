@@ -33,7 +33,7 @@ VAR
 	bySelect: BYTE;
 	rGearNumDir: REAL;
 END_VAR
-
+(* @volt-implementation *)
 (*Calc gearing-factor*)
 IF (rMoveMaster <> 0)  THEN
 	rGearingFactor:=rMoveSlave / rMoveMaster;

@@ -6,7 +6,7 @@ IMPLEMENTS IVacuum
 VAR_INPUT
 	{attribute 'symbol' := 'read'}	input2					: BOOL;				// Input 2 of Vacuum sensor (Pressure level reached)
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -16,6 +16,7 @@ PROPERTY HasPressure : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 HasPressure := input2;
 END_GET
 END_PROPERTY

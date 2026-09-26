@@ -13,7 +13,7 @@ VAR
 	requested	: BOOL;			// Toggle bit for detecting every GetValue call
 	timer		: BTON;			// Alarm timer
 END_VAR
-
+(* @volt-implementation *)
 IF NOT requested THEN
 	timer.Reset();
 	alarmActive := FALSE;
@@ -28,6 +28,7 @@ METHOD GetValue : BOOL
 VAR_INPUT
 	expected : BOOL;
 END_VAR
+(* @volt-implementation *)
 alarmActive	:= timer.Set(In := input <> expected, Pt := timeOut);
 requested	:= TRUE;
 GetValue	:= input;

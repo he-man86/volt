@@ -184,7 +184,7 @@ END_VAR
 VAR CONSTANT
 	{attribute 'symbol' := 'none'}	numberOfXYControls		: USINT := 1;	// Number of complete Y/X Units (2 in case of stack moulds)
 END_VAR
-
+(* @volt-implementation *)
 IF NOT Initialize() THEN
 	RETURN;
 END_IF
@@ -313,6 +313,7 @@ VAR_INST
 	{attribute 'init_on_onlchange'}
 	isInitialized	: BOOL;
 END_VAR
+(* @volt-implementation *)
 IF isInitialized THEN
 	Initialize	:= TRUE;
 	RETURN;

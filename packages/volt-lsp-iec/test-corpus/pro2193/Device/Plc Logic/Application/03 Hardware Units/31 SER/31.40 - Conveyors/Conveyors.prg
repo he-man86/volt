@@ -37,7 +37,7 @@ VAR CONSTANT
 	usiNumberOfUnits			: USINT := 1;
 	iNumberOfAlternatingStacks	: INT	:= 1;
 END_VAR
-
+(* @volt-implementation *)
 FOR i := 1 TO usiNumberOfUnits DO
 	Unit[i](
 		xEnableServoDrive	:= GlobalVars.EnableServoDrives,

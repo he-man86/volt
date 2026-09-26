@@ -19,7 +19,7 @@ VAR
 	xStartGoInDelay			: BOOL;
 	xStartGoOutDelay		: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 // Execute base cylinder fb
 SUPER^();
 
@@ -49,6 +49,7 @@ END_IF
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
+(* @volt-implementation *)
 // Set the alarm messages
 SetSensorOutAlarm(
 	SetAlarm(
@@ -65,12 +66,14 @@ END_METHOD
 
 // Set both outputs (=True)
 METHOD PUBLIC FINAL GoForceMiddle : BOOL
+(* @volt-implementation *)
 OutputIn.Set();
 OutputOut.Set();
 END_METHOD
 
 // The cylinder moves in. Returns true when cylinder is in.
 METHOD PUBLIC GoIn : BOOL
+(* @volt-implementation *)
 // Do not move cylinder if outputs are not enabled.
 IF NOT EnableOutputs.Q THEN
 	RETURN;
@@ -96,11 +99,13 @@ END_METHOD
 
 // Reset both outputs. The 5/3 valve goes to middle position.
 METHOD PUBLIC GoMiddle
+(* @volt-implementation *)
 Reset();
 END_METHOD
 
 // The cylinder moves out. Returns true when cylinder is out.
 METHOD PUBLIC GoOut : BOOL
+(* @volt-implementation *)
 // Do not move cylinder if outputs are not enabled.
 IF NOT EnableOutputs.Q THEN
 	RETURN;
@@ -129,6 +134,7 @@ VAR_INPUT
 	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
+(* @volt-implementation *)
 IF inAdjustMode THEN
 	SetOrReset(Blinker.OUT);
 ELSIF plusButtonPushed THEN
@@ -150,27 +156,32 @@ END_METHOD
 
 {attribute 'hide'}
 METHOD Map : BOOL
+(* @volt-implementation *)
 ThrowException('Use other mapping methods instead');
 END_METHOD
 
 // Maps the output when cylinder moves Out to the physical output
 METHOD MapIn : BOOL
+(* @volt-implementation *)
 MapIn := OutputIn.Map();
 END_METHOD
 
 // Maps the output when cylinder moves Out to the physical output
 METHOD MapOut : BOOL
+(* @volt-implementation *)
 MapOut := OutputOut.Map();
 END_METHOD
 
 // Reset the outputs (=False)
 METHOD Reset
+(* @volt-implementation *)
 OutputIn.Reset();
 OutputOut.Reset();
 END_METHOD
 
 // Set the outputs (=True)
 METHOD Set : BOOL
+(* @volt-implementation *)
 GoOut();
 END_METHOD
 
@@ -180,6 +191,7 @@ VAR_INPUT
 	xOutInv		: BOOL;		// The output that moves the cylinder the other way.
 	xSensor		: BOOL;		// The sensor on the cylinder.
 END_VAR
+(* @volt-implementation *)
 NETWORK 0 FBD
   SetAlarm := (((xOutput AND xOutInv AND xSensor) OR (xOutInv AND xOutput AND xSensor) OR (xOutput AND xOutInv AND xSensor)) AND EnableOutputs.Q);
 END_NETWORK
@@ -190,6 +202,7 @@ METHOD SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
+(* @volt-implementation *)
 // Do not move cylinder if outputs are not enabled.
 IF NOT EnableOutputs.Q THEN
 	RETURN;
@@ -217,6 +230,7 @@ VAR_INPUT
 	xOutput2	: BOOL;		// Output when cylinder moves out
 	xOutput1	: BOOL;		// Output when cylinder moves in
 END_VAR
+(* @volt-implementation *)
 OutputOut.SetOrReset(xOutput2);
 OutputIn.SetOrReset(xOutput1);
 END_METHOD
@@ -226,6 +240,7 @@ PROPERTY OnTargetPos : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 OnTargetPos	:= NOT xStartGoInDelay AND NOT xStartGoOutDelay AND EnableOutputs.Q AND
 			(OutputOut.Map() AND NOT OutputIn.Map() AND IsOut) XOR (OutputIn.Map() AND NOT OutputOut.Map() AND IsIn);
 END_GET

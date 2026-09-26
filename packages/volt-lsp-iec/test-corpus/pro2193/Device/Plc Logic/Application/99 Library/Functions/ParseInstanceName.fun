@@ -10,7 +10,7 @@ VAR CONSTANT
 	dotString					: STRING(1) := '.';
 	underscoreString			: STRING(1) := '_';
 END_VAR
-
+(* @volt-implementation *)
 // Check if input string is not empty
 IF Stu.StrIsNullOrEmptyA(pInstanceName) THEN
 	RETURN;

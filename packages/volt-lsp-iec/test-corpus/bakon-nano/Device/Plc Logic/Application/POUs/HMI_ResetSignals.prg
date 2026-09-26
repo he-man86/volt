@@ -1,7 +1,7 @@
 PROGRAM HMI_ResetSignals
 VAR
 END_VAR
-
+(* @volt-implementation *)
 g_HMI_MachCommand.CMD.bStartManual	:= FALSE;
 g_HMI_MachCommand.CMD.bStopManual	:= FALSE;
 g_HMI_MachCommand.CMD.bStartCleaning	:= FALSE;

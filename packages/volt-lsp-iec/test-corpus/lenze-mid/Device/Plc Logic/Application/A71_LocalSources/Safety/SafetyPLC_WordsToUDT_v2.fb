@@ -3,7 +3,7 @@ VAR_IN_OUT
 	ioSafetyStatusUDT: udtSafety_Status;
 	ioSafetyControlUDT: udtSafety_Control;
 END_VAR
-
+(* @volt-implementation *)
 ;
 
 END_FUNCTION_BLOCK

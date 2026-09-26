@@ -58,28 +58,28 @@ VAR RETAIN PERSISTENT
 	stPhotocellWrapperFault: BOOL;
 	stFeedForward: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD TITLE: "DONE Network 2: State: Initialise"
   LET g8 := (iInit OR NOT iTest_Prod OR iCleaning OR ioManualStartSupply);
   stRestposition S= g8;
-  LET g1 := g8;
-  stSupplyWrapper R= g1;
-  stWrapperPresent R= g1;
-  stNoWrapper R= g1;
-  stPhotocellWrapperFault R= g1;
+  LET m1 := g8;
+  stSupplyWrapper R= m1;
+  stWrapperPresent R= m1;
+  stNoWrapper R= m1;
+  stPhotocellWrapperFault R= m1;
 END_NETWORK
 NETWORK 1 LD TITLE: "DONE Network 3: State: Restposition"
-  LET g1 := (stOSN_TakeOverCycle(CLK := iTakeOverCycle) AND stWrapperPresent);
-  stRestposition S= g1;
-  stWrapperPresent R= g1;
+  LET m1 := (stOSN_TakeOverCycle(CLK := iTakeOverCycle) AND stWrapperPresent);
+  stRestposition S= m1;
+  stWrapperPresent R= m1;
 END_NETWORK
 NETWORK 2 LD TITLE: "DONE Network 4: State: Supply wrapper"
-  LET g1 := ((stRestposition AND ((iTest_Prod AND NOT iCleaning AND iBunchPresent AND NOT iTakeOverCycle AND (iGenFlags.RunMan OR iGenFlags.RunAuto)) OR ioManualStartSupply)) OR (stNoWrapper AND iGenFlags.StartFlag) OR (stPhotocellWrapperFault AND iGenFlags.StartFlag));
-  stSupplyWrapper S= g1;
-  stRestposition R= g1;
-  stNoWrapper R= g1;
-  stPhotocellWrapperFault R= g1;
-  ioManualStartSupply R= g1;
+  LET m1 := ((stRestposition AND ((iTest_Prod AND NOT iCleaning AND iBunchPresent AND NOT iTakeOverCycle AND (iGenFlags.RunMan OR iGenFlags.RunAuto)) OR ioManualStartSupply)) OR (stNoWrapper AND iGenFlags.StartFlag) OR (stPhotocellWrapperFault AND iGenFlags.StartFlag));
+  stSupplyWrapper S= m1;
+  stRestposition R= m1;
+  stNoWrapper R= m1;
+  stPhotocellWrapperFault R= m1;
+  ioManualStartSupply R= m1;
 END_NETWORK
 NETWORK 3 LD TITLE: "DONE Network 5: State: Wrapper Present"
   LET g15 := (iWrapperPresentForLeafCarrier AND stSupplyWrapper);
@@ -91,14 +91,14 @@ NETWORK 3 LD TITLE: "DONE Network 5: State: Wrapper Present"
   stSupplyWrapper R= g15;
 END_NETWORK
 NETWORK 4 LD TITLE: "DONE Network 6: State: No Wrapper"
-  LET g1 := TMR_TimeOutSupply(IN := (stSupplyWrapper AND stFeedForward), PT := iTimeOutSupplyWrapper);
-  stNoWrapper S= g1;
-  stSupplyWrapper R= g1;
+  LET m1 := TMR_TimeOutSupply(IN := (stSupplyWrapper AND stFeedForward), PT := iTimeOutSupplyWrapper);
+  stNoWrapper S= m1;
+  stSupplyWrapper R= m1;
 END_NETWORK
 NETWORK 5 LD TITLE: "DONE Network 7: State: Photocell wrapper fault"
-  LET g1 := TMR_TimeOutPhotocell(IN := (stSupplyWrapper AND stFeedForward AND iPhotocellWrapper), PT := T#10S);
-  stPhotocellWrapperFault S= g1;
-  stSupplyWrapper R= g1;
+  LET m1 := TMR_TimeOutPhotocell(IN := (stSupplyWrapper AND stFeedForward AND iPhotocellWrapper), PT := T#10S);
+  stPhotocellWrapperFault S= m1;
+  stSupplyWrapper R= m1;
 END_NETWORK
 NETWORK 6 LD TITLE: "DONE Network 8: Faults"
   LET g21 := True;

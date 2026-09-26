@@ -4,6 +4,7 @@ FUNCTION_BLOCK RisingTriggerFB
 VAR
 	r_trig			: Standard.R_TRIG;
 END_VAR
+(* @volt-implementation *)
 
 END_FUNCTION_BLOCK
 
@@ -14,6 +15,7 @@ VAR_INPUT
 END_VAR
 
 // Use this method if you need the trigger output more than once per PLC cycle.
+(* @volt-implementation *)
 r_trig(
 	CLK	:= CLK,
 	Q   => );
@@ -24,6 +26,7 @@ METHOD PUBLIC Rising : BOOL
 VAR_INPUT
 	CLK	: BOOL;
 END_VAR
+(* @volt-implementation *)
 Call(CLK);
 Rising := Q;
 END_METHOD
@@ -35,6 +38,7 @@ PROPERTY PUBLIC Q : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 Q := r_trig.Q;
 END_GET
 END_PROPERTY

@@ -19,7 +19,7 @@ VAR
 	// Time out time
 	TimeOut_TIME: TIME := T#5S;
 END_VAR
-
+(* @volt-implementation *)
 //------------------------------------------------------------------------------------------
 // This function is a watchdog.
 //

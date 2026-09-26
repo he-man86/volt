@@ -8,13 +8,14 @@ END_VAR
 VAR CONSTANT
 	rMaxSpeedSetting	: REAL	:= 150.0;	// Upper limit of speed setpoint (in Hz). Set limit for rSetPointSpeed value in HMI.
 END_VAR
-
+(* @volt-implementation *)
 SUPER^(profile := profile);
 
 END_FUNCTION_BLOCK
 
 // Maps the actuator to the physical output
 METHOD MapAnalogOut : WORD
+(* @volt-implementation *)
 IF xAutoCycleActive OR Output.Map() THEN
 	MapAnalogOut	:= RANGE_TO_WORD(input := profile.rVel, input_LO := 0.0, input_HI := rMaxSpeedSetting);
 ELSE

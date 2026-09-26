@@ -38,7 +38,7 @@ END_VAR
 
 // The itfSafePos array is needed because it's not possible to cast an array of fbs to another type.
 // More info here: https://stackoverflow.com/questions/69319659/how-do-i-pass-an-array-of-an-extended-type-in-codesys-twincat3
-
+(* @volt-implementation *)
 FOR i := 1 TO usiNumberOfUnits DO
 	Unit[i](
 		xEnableServoDrive			:= GlobalVars.EnableServoDrives,
@@ -58,6 +58,7 @@ GET
 VAR
 	i	: USINT;
 END_VAR
+(* @volt-implementation *)
 AllUnitsAreOnTakeoutPos := TRUE;
 
 FOR i := 1 TO usiNumberOfUnits DO

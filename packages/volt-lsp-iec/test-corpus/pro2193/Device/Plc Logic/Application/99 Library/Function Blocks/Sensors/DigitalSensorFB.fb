@@ -10,6 +10,7 @@ END_VAR
 VAR
 	_isInverted		: BOOL;
 END_VAR
+(* @volt-implementation *)
 
 END_FUNCTION_BLOCK
 
@@ -25,6 +26,7 @@ VAR_INPUT
 
 	invert			: BOOL;	// Sensor or photocell signal should be inverted
 END_VAR
+(* @volt-implementation *)
 _isInverted := invert;
 END_METHOD
 
@@ -35,6 +37,7 @@ GET
 PUBLIC
 VAR
 END_VAR
+(* @volt-implementation *)
 IsActive := SensorInput = NOT _isInverted;
 END_GET
 END_PROPERTY
@@ -46,6 +49,7 @@ GET
 PUBLIC
 VAR
 END_VAR
+(* @volt-implementation *)
 IsInactive := NOT IsActive;
 END_GET
 END_PROPERTY

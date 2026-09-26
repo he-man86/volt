@@ -29,7 +29,7 @@ VAR
 
 
 END_VAR
-
+(* @volt-implementation *)
 //Read out values for light and dark
 tWhiteValue:=MOVE(iLightValue);
 tBrownValue:=MOVE(iDarkValue);

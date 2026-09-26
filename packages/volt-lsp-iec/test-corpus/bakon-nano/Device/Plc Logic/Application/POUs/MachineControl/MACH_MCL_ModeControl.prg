@@ -6,7 +6,7 @@ VAR
 	tDisableDrives		: TON;
 	tonStartButton		: TON;
 END_VAR
-
+(* @volt-implementation *)
 (*************************************************************************
  *
  * Application name				: Snijmachine

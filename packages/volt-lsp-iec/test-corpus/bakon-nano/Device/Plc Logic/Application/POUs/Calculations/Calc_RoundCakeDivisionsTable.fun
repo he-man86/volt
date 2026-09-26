@@ -11,7 +11,7 @@ VAR
 	lower			: DINT;
 	upper 			: DINT;
 END_VAR
-
+(* @volt-implementation *)
 (*
 	Fills the array IQ_Table table with the rotations in degrees in order to cut in I_Divisions pieces.
 	Returns an integer representing how many cuts to place. 

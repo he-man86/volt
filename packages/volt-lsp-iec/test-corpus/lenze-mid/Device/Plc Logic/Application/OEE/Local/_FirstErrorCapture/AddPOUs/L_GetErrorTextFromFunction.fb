@@ -34,7 +34,7 @@ VAR
 	rTrig_xErrorActive : R_TRIG;	
 	wTextRefId, wErrorId : WORD;
 END_VAR
-
+(* @volt-implementation *)
 
 IF xEnabled THEN
 	

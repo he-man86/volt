@@ -26,7 +26,7 @@ END_VAR
 VAR
 	TOF_CameraBusySignal			: BTOF;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^(Data := Data);
 
 END_FUNCTION_BLOCK
@@ -35,6 +35,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..4] OF SetErrorFB;
 END_VAR
+(* @volt-implementation *)
 SUPER^.Alarms();
 
 SetError[1](
@@ -85,6 +86,7 @@ END_VAR
 VAR
 	i		: USINT;
 END_VAR
+(* @volt-implementation *)
 DisableTrigger(
 	manualControlEnabled	:= );
 
@@ -137,6 +139,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 DisableTrigger.Reset();
 Trigger.Reset();
@@ -149,6 +152,7 @@ METHOD PUBLIC Reset : BOOL	// Returns true when homing done
 VAR_INST
 	localState					: SINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -169,6 +173,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 DisableTrigger.Reset();
 Trigger.Reset();
@@ -182,6 +187,7 @@ VAR_INST
 	Timeout						: BTON;
 	debugCounter				: ARRAY[1..2] OF INT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -248,6 +254,7 @@ PROPERTY PUBLIC Busy : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 Busy	:= TOF_CameraBusySignal.Q;
 END_GET
 END_PROPERTY

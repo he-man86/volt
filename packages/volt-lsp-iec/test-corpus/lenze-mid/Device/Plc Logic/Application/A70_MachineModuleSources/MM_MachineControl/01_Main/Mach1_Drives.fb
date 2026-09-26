@@ -51,7 +51,7 @@ VAR
 	ServoWrappingDevice: ServoControl;
 	ServoSideCorrection: ServoControl;
 END_VAR
-
+(* @volt-implementation *)
 NETWORK 0 LD TITLE: "DONE network 3 : All drives ready"
   Mach1.GenFlags.ConditionsReadyForOperation := ((Mach1_Data.Drives.MainDrive.Status.DriveIsReady OR NOT Mach1_Data.Drives.MainDrive.Control.SetDriveEnable) AND (Mach1_Data.Drives.WrappingDevice.Status.DriveIsReady OR NOT Mach1_Data.Drives.WrappingDevice.Control.SetDriveEnable) AND (Mach1_Data.Drives.SideCorrection.Status.DriveIsReady OR NOT Mach1_Data.Drives.SideCorrection.Control.SetDriveEnable));
 END_NETWORK
@@ -259,9 +259,9 @@ NETWORK 31 LD TITLE: "TODO Network 25:"
   Data_Exchange_Motion.FeedForwardWrapper.Control.Enable := (TRUE AND Mach1.GenFlags.DelayAfterEmergStop AND NOT Mach1_Alarms.Alm066);
 END_NETWORK
 NETWORK 32 LD TITLE: "TODO Network 26:"
-  LET g1 := (Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.MIDS_Active AND Mach1.GenFlags.EnableMainDrive AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND Mach1_AuxData.AllDrivesHomed AND NOT Data_Exchange_Motion.FeedForwardWrapper.Status.ReadyForMotion), Mach1.Genflags.StartFlag, Mach1_Alarms.Alm056, Mach1.GenFlags.MinorAlarm) AND mach1.Genflags.ResetFlag);
-  Mach1_Data.Drives.WrappingDevice.Control.ResetError S= g1;
-  Data_Exchange_Motion.FeedForwardWrapper.Control.ResetError := g1;
+  LET m1 := (Alarms_V5_1_100(Mach1_Alarms, (Mach1_AuxData.MIDS_Active AND Mach1.GenFlags.EnableMainDrive AND HMI_Var.Test_Prod AND NOT HMI_Var.Btn_Cleaning AND Mach1_AuxData.AllDrivesHomed AND NOT Data_Exchange_Motion.FeedForwardWrapper.Status.ReadyForMotion), Mach1.Genflags.StartFlag, Mach1_Alarms.Alm056, Mach1.GenFlags.MinorAlarm) AND mach1.Genflags.ResetFlag);
+  Mach1_Data.Drives.WrappingDevice.Control.ResetError S= m1;
+  Data_Exchange_Motion.FeedForwardWrapper.Control.ResetError := m1;
 END_NETWORK
 NETWORK 33 LD TITLE: "TODO Network 27:"
   ;

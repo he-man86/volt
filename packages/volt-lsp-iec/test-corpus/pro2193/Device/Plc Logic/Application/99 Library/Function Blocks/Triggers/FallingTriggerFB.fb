@@ -4,6 +4,7 @@ FUNCTION_BLOCK FallingTriggerFB
 VAR
 	f_trig			: Standard.F_TRIG;
 END_VAR
+(* @volt-implementation *)
 
 END_FUNCTION_BLOCK
 
@@ -14,6 +15,7 @@ VAR_INPUT
 END_VAR
 
 // Use this method if you need the trigger output more than once per PLC cycle.
+(* @volt-implementation *)
 f_trig(
 	CLK	:= CLK,
 	Q   => );
@@ -24,6 +26,7 @@ METHOD PUBLIC Falling : BOOL
 VAR_INPUT
 	CLK	: BOOL;
 END_VAR
+(* @volt-implementation *)
 Call(CLK);
 Falling := Q;
 END_METHOD
@@ -35,6 +38,7 @@ PROPERTY PUBLIC Q : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 Q := f_trig.Q;
 END_GET
 END_PROPERTY

@@ -18,7 +18,7 @@ VAR
 	inWindowTrigger			: TriggerFB;
 	sensorDetected			: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 IF NOT enable THEN
 	leftWindow		:= FALSE;
 	productDetected	:= FALSE;

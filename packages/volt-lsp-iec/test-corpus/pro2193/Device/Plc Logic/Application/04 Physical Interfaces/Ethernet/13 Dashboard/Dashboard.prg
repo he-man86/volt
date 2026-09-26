@@ -10,7 +10,7 @@ VAR
 	taskInfo				: CmpIecTask.Task_Info2;
 	watchdogCounter			: USINT;
 END_VAR
-
+(* @volt-implementation *)
 __TRY
 taskInfo	:= TaskGetInfo();
 
@@ -49,6 +49,7 @@ VAR_INST
 	{attribute 'init_on_onlchange' }
 	initialized	: BOOL;
 END_VAR
+(* @volt-implementation *)
 IF initialized THEN
 	RETURN;
 END_IF

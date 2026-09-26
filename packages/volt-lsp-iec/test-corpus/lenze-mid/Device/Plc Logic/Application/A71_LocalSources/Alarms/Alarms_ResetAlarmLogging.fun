@@ -9,7 +9,7 @@ VAR
 	TimeAdress	: POINTER TO WORD;
 	AlarmNr: DWORD;
 END_VAR
-
+(* @volt-implementation *)
 BaseAdress:=	ADR(AlarmDB);								//start address of AlarmDB
 
 

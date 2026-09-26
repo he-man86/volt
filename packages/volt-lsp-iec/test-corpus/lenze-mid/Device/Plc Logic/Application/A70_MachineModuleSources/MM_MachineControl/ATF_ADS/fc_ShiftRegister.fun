@@ -8,7 +8,7 @@ VAR_IN_OUT
 	//ioPositie			: ARRAY[0..CTE.ct_ArraySizeCheckRegister] OF cUDT_ShiftRegister_Positie;
 	ioPositie			: ARRAY[0..CTE.ct_ArraySizeCheckRegister] OF cUDT_ShiftRegister_Positie;
 END_VAR
-
+(* @volt-implementation *)
 (*
     Shift register
 *)

@@ -8,7 +8,7 @@ VAR
 	a : REAL;
 	b : INT;
 END_VAR
-
+(* @volt-implementation *)
 
 
 

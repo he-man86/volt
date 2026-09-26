@@ -7,11 +7,13 @@ VAR
 END_VAR
 
 // Use methods to interact with the FB.
+(* @volt-implementation *)
 
 END_FUNCTION_BLOCK
 
 // Reset the timer.
 METHOD PUBLIC Reset
+(* @volt-implementation *)
 TOF1(IN := FALSE);
 END_METHOD
 
@@ -21,6 +23,7 @@ VAR_INPUT
 	In	: BOOL;	// Starts timer with rising edge, stops timer with falling edge
 	Pt	: REAL;	// Time to pass (in sec.), before Q is set
 END_VAR
+(* @volt-implementation *)
 TOF1(
 	IN := In,
 	PT := TO_TIME(Pt * 1000),
@@ -36,6 +39,7 @@ PROPERTY PUBLIC Q : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 Q := TOF1.Q;
 END_GET
 END_PROPERTY

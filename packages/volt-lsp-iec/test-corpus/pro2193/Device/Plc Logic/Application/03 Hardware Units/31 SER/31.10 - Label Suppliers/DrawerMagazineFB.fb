@@ -40,7 +40,7 @@ VAR CONSTANT
 	MaxBlowBetweenLabels		: USINT	:= 2;
 	MaxBrakeLabel				: USINT	:= 2;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^();
 
 _tempDrawerActive	:= ActiveDrawerItf;
@@ -62,6 +62,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..4] OF SetErrorFB;
 END_VAR
+(* @volt-implementation *)
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= LabelSupplyDrawer_Errors,
@@ -112,6 +113,7 @@ VAR
 	i			: USINT;
 	drawerId	: enumDrawer;
 END_VAR
+(* @volt-implementation *)
 FOR i := 1 TO MaxBlowBetweenLabels DO
 	BlowBetweenLabels[i](
 		manualControlEnabled	:= SER.ManualControlEnabled);
@@ -195,6 +197,7 @@ END_VAR
 VAR
 	i				: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Change
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -235,6 +238,7 @@ END_VAR
 VAR_INST
 	Timer			: BTON;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Change
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -255,6 +259,7 @@ END_METHOD
 METHOD DrawerUnlock : BOOL
 VAR_INPUT
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Change
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -276,6 +281,7 @@ METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 VAR
 	i	: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 FOR i := 1 TO MaxBrakeLabel DO
 	BrakeLabel[i].Reset();
@@ -292,6 +298,7 @@ END_METHOD
 
 // Gate close button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
 METHOD PUBLIC GateCloseCancelled
+(* @volt-implementation *)
 %FOLDER Commands/Gate Requests
 DrawerChangeCylinder.rGiveAirToBothOutputs := 0.2;
 DrawerChangeCylinder.Reset();
@@ -299,6 +306,7 @@ END_METHOD
 
 // Drawer helps to close the gate
 METHOD PUBLIC GateCloseRequested
+(* @volt-implementation *)
 %FOLDER Commands/Gate Requests
 IF NOT DrawerHoodSafetyMagnet.xSafetyGateClosed THEN
 	RETURN;
@@ -319,6 +327,7 @@ END_METHOD
 
 // Gate open button is released. Safety gate is cancelling request, so stop moving. (trigger signal)
 METHOD PUBLIC GateOpenCancelled
+(* @volt-implementation *)
 %FOLDER Commands/Gate Requests
 DrawerChangeCylinder.rGiveAirToBothOutputs := 0.2;
 DrawerChangeCylinder.Reset();
@@ -326,6 +335,7 @@ END_METHOD
 
 // Drawer helps to open the gate
 METHOD PUBLIC GateOpenRequested
+(* @volt-implementation *)
 %FOLDER Commands/Gate Requests
 IF NOT DrawerHoodSafetyMagnet.xSafetyGateClosed THEN
 	RETURN;
@@ -345,6 +355,7 @@ END_IF
 END_METHOD
 
 METHOD HoldBrakes : BOOL
+(* @volt-implementation *)
 %FOLDER Commands/Supply
 HoldBrakes			:= MoveAllBrakesIn();
 END_METHOD
@@ -353,6 +364,7 @@ METHOD PROTECTED MoveAllBrakesIn : BOOL
 VAR
 	i	: USINT;
 END_VAR
+(* @volt-implementation *)
 MoveAllBrakesIn			:= TRUE;
 FOR i := 1 TO MaxBrakeLabel DO
 	BrakeLabel[i].Reset();
@@ -369,6 +381,7 @@ END_VAR
 VAR
 	i					: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -415,6 +428,7 @@ METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 VAR
 	i	: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 FOR i := 1 TO MaxBrakeLabel DO
 	BrakeLabel[i].Reset();
@@ -435,6 +449,7 @@ END_VAR
 VAR
 	i	: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Supply
 FOR i := 1 TO MaxBlowBetweenLabels DO
 	BlowBetweenLabels[i].Reset();
@@ -452,6 +467,7 @@ END_VAR
 VAR
 	i						: USINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands/Supply
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -492,6 +508,7 @@ END_VAR
 
 // Determine the active and inactive drawer
 // Get interface to the currently active drawer
+(* @volt-implementation *)
 // Safety sensor must be active and lockpins must be activated
 IF DrawerInSafePosition.IsInactive OR NOT LockPins.MapOut() THEN
 	ActiveDrawerItf := 0;
@@ -522,6 +539,7 @@ PROPERTY HoodIsAcknowledged : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 HoodIsAcknowledged := DrawerHoodSafetyMagnet.GateState = enumGateStates.Acknowledged;
 END_GET
 END_PROPERTY
@@ -533,6 +551,7 @@ PROPERTY PUBLIC InSafePosForGate : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 InSafePosForGate := DrawerInSafePosition.IsActive AND (DrawerChangeCylinder.IsIn OR DrawerChangeCylinder.IsOut);
 END_GET
 END_PROPERTY
@@ -544,6 +563,7 @@ PROPERTY InactiveDrawerItf : IDrawer
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 // Get interface to the currently inactive drawer
 
 IF ActiveDrawerItf = 0 THEN

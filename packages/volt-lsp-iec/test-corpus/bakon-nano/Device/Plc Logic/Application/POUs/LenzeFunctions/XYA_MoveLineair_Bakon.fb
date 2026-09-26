@@ -78,7 +78,7 @@ VAR_OUTPUT
 	bAxisAreGearedIn: BOOL;
 	bErrorTargetPosInSWLimits: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 	MC_GearIn_X(			Execute:= , 	RatioNumerator:= , 	RatioDenominator:= , 	Acceleration:=AxisX.scPar.MaxAcceleration , 	Deceleration:=AxisX.scPar.MaxAcceleration , 	Master:=Master , 	Slave:=AxisX , 	InGear=> , 	CommandAborted=> , 	Error=> , 	ErrorID=> );
 	MC_GearIn_Y(			Execute:=, 		RatioNumerator:= , 	RatioDenominator:= , 	Acceleration:=AxisY.scPar.MaxAcceleration , 	Deceleration:=AxisY.scPar.MaxAcceleration , 	Master:=Master , 	Slave:=AxisY , 	InGear=> , 	CommandAborted=> , 	Error=> , 	ErrorID=> );
 	MC_GearIn_A(			Execute:=, 		RatioNumerator:= , 	RatioDenominator:= , 	Acceleration:=AxisA.scPar.MaxAcceleration , 	Deceleration:=AxisA.scPar.MaxAcceleration , 	Master:=Master , 	Slave:=AxisA , 	InGear=> , 	CommandAborted=> , 	Error=> , 	ErrorID=> );

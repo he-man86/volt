@@ -18,7 +18,7 @@ VAR
 	gMachConfig_bXL_mem	: BOOL;
 	
 END_VAR
-
+(* @volt-implementation *)
 //Set limits X
 fbSetSWLimits_X(
 	Axis:= X_Axis, 

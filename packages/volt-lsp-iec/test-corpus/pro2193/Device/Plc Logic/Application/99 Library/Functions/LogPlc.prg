@@ -5,6 +5,7 @@ PROGRAM LogPlc
 VAR
 	throwFatalMessages		: BOOL;
 END_VAR
+(* @volt-implementation *)
 
 END_PROGRAM
 
@@ -13,6 +14,7 @@ METHOD PUBLIC Debug
 VAR_INPUT
 	message : STRING(80);
 END_VAR
+(* @volt-implementation *)
 IF GlobalVars.EnableDebugLogging THEN
 	LogPlc.Info(message);
 END_IF
@@ -22,6 +24,7 @@ METHOD PUBLIC Error
 VAR_INPUT
 	message : STRING(80);
 END_VAR
+(* @volt-implementation *)
 L_LA.L_AddLog2(
 	eSeverity		:= L_TSeverity.L_LogError,	// Severity = 'Trouble log'
 	udiComponendID	:= 16#3F03,		// Component ID, reserved range 0x2800 .... 0x3fff
@@ -34,6 +37,7 @@ METHOD PUBLIC Fatal
 VAR_INPUT
 	message : STRING(80);
 END_VAR
+(* @volt-implementation *)
 L_LA.L_AddLog2(
 	eSeverity		:= L_TSeverity.L_LogFatalError,
 	udiComponendID	:= 16#3F04,		// Component ID, reserved range 0x2800 .... 0x3fff
@@ -50,6 +54,7 @@ METHOD PUBLIC Info
 VAR_INPUT
 	message : STRING(80);
 END_VAR
+(* @volt-implementation *)
 L_LA.L_AddLog2(
 	eSeverity		:= L_TSeverity.L_LogInformation,
 	udiComponendID	:= 16#3F01,		// Component ID, reserved range 0x2800 .... 0x3fff
@@ -63,6 +68,7 @@ VAR
 	pApp			: POINTER TO CmpApp.APPLICATION;
 	iecResult		: SysTypes.RTS_IEC_RESULT;
 END_VAR
+(* @volt-implementation *)
 // Get handle to current PLC application
 pApp := CmpApp.AppGetCurrent(pResult := ADR(iecResult));
 IF pApp <> 0 THEN
@@ -79,6 +85,7 @@ METHOD PUBLIC Warn
 VAR_INPUT
 	message : STRING(80);
 END_VAR
+(* @volt-implementation *)
 L_LA.L_AddLog2(
 	eSeverity		:= L_TSeverity.L_LogWarning,
 	udiComponendID	:= 16#3F02,		// Component ID, reserved range 0x2800 .... 0x3fff

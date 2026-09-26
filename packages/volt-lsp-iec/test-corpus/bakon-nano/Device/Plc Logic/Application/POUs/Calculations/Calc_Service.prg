@@ -6,7 +6,7 @@ VAR
 	rSizeTrimRight: REAL;
 	nPos: INT;
 END_VAR
-
+(* @volt-implementation *)
 	nPos	:= 1;
 
 	(* Ronde taart *)

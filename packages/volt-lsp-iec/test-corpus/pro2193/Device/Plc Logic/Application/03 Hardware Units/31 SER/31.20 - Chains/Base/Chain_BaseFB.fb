@@ -44,7 +44,7 @@ VAR CONSTANT
 	MaxLinks					: UINT	:= 32;
 //	MaxLinks					: UINT	:= 56;
 END_VAR
-
+(* @volt-implementation *)
 SUPER^(
 	AxisRef				:= AxisRef,
 	DataBrink			:= DataBrink,
@@ -82,6 +82,7 @@ VAR
 	j							: USINT;
 	product						: REFERENCE TO ProductType;
 END_VAR
+(* @volt-implementation *)
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= Chain_Errors,
@@ -128,6 +129,7 @@ VAR
 	i							: UINT;
 	result						: BOOL;
 END_VAR
+(* @volt-implementation *)
 FOR i := PersistentVars.RecipeVars.chainPos_XuUnit[1] TO PersistentVars.RecipeVars.chainPos_XuUnit[GVL_Constants.ChainProductsForXuUnit] DO
 	IF Link[i].productCarrier.Product.Present THEN
 		result := TRUE;
@@ -148,6 +150,7 @@ METHOD PUBLIC ClearProductCarrier
 VAR_INPUT
 	position	: UINT(1..MaxLinks);
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF Link[position].productCarrierPresent THEN
 	Link[position].ProductCarrier.productPosition	:= 0;
@@ -164,6 +167,7 @@ END_VAR
 VAR_INST
 	encoderPosition	: REAL;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT Link[PersistentVars.RecipeVars.chainPos_XuUnit[productNo]].productCarrierPresent THEN
 	RETURN;
@@ -195,6 +199,7 @@ VAR
 	linkCounter, counter		: UINT;
 	i							: UINT;
 END_VAR
+(* @volt-implementation *)
 ReadMachineData(
 	Axis					:= AxisRef,
 	xEnable					:= TRUE,
@@ -303,6 +308,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 disableSensorCheckAlarm		:= FALSE;
 
@@ -320,6 +326,7 @@ END_VAR
 VAR
 	i			: USINT;
 END_VAR
+(* @volt-implementation *)
 IF number = 0
 OR_ELSE number > MaxLinks
 OR_ELSE NOT Link[number].productCarrierPresent
@@ -340,6 +347,7 @@ GoodProduct		:= TRUE;
 END_METHOD
 
 METHOD PUBLIC InExactPosition : BOOL
+(* @volt-implementation *)
 %FOLDER Commands
 InExactPosition := InPosition(1) AND_THEN Drive.Standstill AND Drive.InPosition;
 END_METHOD
@@ -348,6 +356,7 @@ METHOD PUBLIC InPosition : BOOL
 VAR_INPUT
 	hysteresis		: REAL;	// Max allowed difference
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF ModuloTools.PositionReached(
 		actPos		:= Drive.actPos,
@@ -367,6 +376,7 @@ END_METHOD
 
 // Increment an int that determens where the Z Unit takes products the next cycle
 METHOD PUBLIC IncrementActiveOrderSelect : USINT
+(* @volt-implementation *)
 %FOLDER Commands
 Increment.Subrange(
 	input			:= activeOrderSelect,
@@ -377,6 +387,7 @@ IncrementActiveOrderSelect	:= activeOrderSelect;
 END_METHOD
 
 METHOD PROTECTED Initialize
+(* @volt-implementation *)
 SUPER^.Initialize();
 
 Drive.config.homingDoExtraSensorCheck	:= FALSE;
@@ -394,6 +405,7 @@ END_VAR
 VAR
 	i			: UINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF position = 0 THEN	// Invalidate all products on chain
 
@@ -416,6 +428,7 @@ METHOD PROTECTED IsSafeToMove : BOOL
 VAR
 	i	: USINT;
 END_VAR
+(* @volt-implementation *)
 // Check if all surrounding units are safe, before moving chain.
 FOR i := 1 TO 5 DO
 	IF safetyModules[i] <> 0 AND_THEN NOT safetyModules[i].InSafePosForChain THEN
@@ -437,6 +450,7 @@ VAR_INST
 	targetPos	: REAL;
 	positionWhereInWindowTurnedOn:REAL;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -495,6 +509,7 @@ VAR
 	distribution				: UINT;
 	i							: UINT;
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -743,6 +758,7 @@ METHOD PUBLIC ReturnProduct : REFERENCE TO ProductType
 VAR_INPUT
 	position	: UINT(1..Chain_BaseFB.MaxLinks);
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 IF Link[position].productCarrierPresent
 AND_THEN Link[position].ProductCarrier.product.Present
@@ -760,6 +776,7 @@ VAR
 	productOk	: ARRAY[16..21] OF BOOL;
 	productsOk	: USINT;
 END_VAR
+(* @volt-implementation *)
 // Check all 10 first positions have a product. Then Xu has just placed the last products on the chain.
 FOR i := 1 TO 10 DO
 	IF NOT Link[i].productCarrierPresent
@@ -801,6 +818,7 @@ VAR
 	count						: UINT;
 	i							: UINT;
 END_VAR
+(* @volt-implementation *)
 // How much links are moved when the chain moves 1 step.
 distribution	:= MaxLinks / TO_UINT(Data.NumberOfProductCarriers.value);
 
@@ -823,6 +841,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
+(* @volt-implementation *)
 %FOLDER Commands
 disableSensorCheckAlarm		:= FALSE;
 
@@ -838,6 +857,7 @@ METHOD PUBLIC TransferComplete : BOOL
 VAR_INPUT
 	iParameter : INT := 0;	// Number indicates which transfer is completed
 END_VAR
+(* @volt-implementation *)
 %FOLDER Commands
 // Reset the ProductsNeeded flag. This way the Chain control knows that the Xu unit is done placing new products onto the chain.
 ProductsNeeded		:= FALSE;
@@ -859,6 +879,7 @@ PROPERTY PUBLIC CycleLength : LREAL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 CycleLength := SEL(ReadMachineData.xValid, -1, ReadMachineData.lrCycleLength);
 END_GET
 END_PROPERTY
@@ -871,6 +892,7 @@ GET
 VAR
 	i			: UINT;
 END_VAR
+(* @volt-implementation *)
 FOR i := 1 TO MaxLinks DO
 	IF Link[i].productCarrierPresent AND_THEN Link[i].ProductCarrier.product.Present THEN
 		HasPayload := TRUE;
@@ -888,6 +910,7 @@ GET
 VAR
 	i			: UINT;
 END_VAR
+(* @volt-implementation *)
 // Check if last products out of the mould are on the chain. In that case no not request more products.
 FOR i := 1 TO MaxLinks DO
 	IF Link[i].productCarrierPresent
@@ -938,6 +961,7 @@ PUBLIC
 VAR
 	i			: UINT;
 END_VAR
+(* @volt-implementation *)
 FOR i := MaxLinks TO MAX(PersistentVars.RecipeVars.chainPos_Camera - 1, 1) BY -1 DO
 	IF Link[i].productCarrierPresent
 	AND_THEN Link[i].ProductCarrier.product.Present
@@ -960,6 +984,7 @@ PUBLIC
 VAR
 	i			: UINT;
 END_VAR
+(* @volt-implementation *)
 FOR i := MaxLinks TO MAX(PersistentVars.RecipeVars.chainPos_Camera - 1, 1) BY -1 DO
 	IF Link[i].productCarrierPresent
 	AND_THEN Link[i].ProductCarrier.Product.TriggerPending
@@ -978,11 +1003,13 @@ PROPERTY PUBLIC ProductsNeeded : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ProductsNeeded := _productsNeeded;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _productsNeeded := ProductsNeeded;
 END_SET
 END_PROPERTY
@@ -996,6 +1023,7 @@ VAR
 	i			: UINT;
 	j			: USINT;
 END_VAR
+(* @volt-implementation *)
 FOR i := 1 TO MaxLinks DO
 	IF Link[i].productCarrierPresent AND_THEN Link[i].ProductCarrier.product.Present THEN
 		FOR j := 1 TO GVL_Constants.MaxRejectReasonsTotal DO
@@ -1016,6 +1044,7 @@ PROPERTY PUBLIC SelectedZUnitPosition : USINT(1..ZUnits.NumberOfTakeoverPosition
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 SelectedZUnitPosition	:= activeOrder[activeOrderSelect];
 END_GET
 END_PROPERTY
@@ -1027,6 +1056,7 @@ PROPERTY PUBLIC StopToCheckImageBuffer : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 StopToCheckImageBuffer := ImageBufferTimer.Q;
 END_GET
 END_PROPERTY
@@ -1038,6 +1068,7 @@ PROPERTY PUBLIC TriggerSensorValid : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 TriggerSensorValid	:= ModuloTools.PositionOnStepWithOffset(
 									position		:= Drive.actPos,
 									stepDistance	:= Data.Step.Pos.value,
@@ -1053,6 +1084,7 @@ PROPERTY PUBLIC ZUnitIsAfterReject : BOOL
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 ZUnitIsAfterReject	:= PersistentVars.RecipeVars.chainPos_ZUnit[1] > PersistentVars.RecipeVars.chainPos_Reject[1];
 END_GET
 END_PROPERTY

@@ -2,7 +2,7 @@ PROGRAM AxisControlLogic
 VAR
 	//LenzeDrive_ECSE_Supply1	: L_SCS_SupplyModule;(*TODO: Lenze supply module is enkel nog een I/O puntje*)
 END_VAR
-
+(* @volt-implementation *)
 (*****************************************************************************************************************************************************************)
 (* Supply module*)
 (*LenzeDrive_ECSE_Supply1(

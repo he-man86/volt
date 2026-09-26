@@ -19,7 +19,7 @@ https://stackoverflow.com/questions/929103/convert-a-number-range-to-another-ran
 
 Update 24-03-2023: Added logic from SCALE_R function in Oscat library.
 *)
-
+(* @volt-implementation *)
 inputRange	:= input_HI - input_LO;
 outputRange	:= output_HI - output_LO;
 

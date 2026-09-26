@@ -11,6 +11,7 @@ VAR
 	_rejectReason	: USINT;							// Private backing field for property
 	_data			: UDINT;							// Private backing field for property
 END_VAR
+(* @volt-implementation *)
 
 END_FUNCTION_BLOCK
 
@@ -22,6 +23,7 @@ VAR_INPUT
 	rejectReason	: USINT;
 	data			: UDINT;
 END_VAR
+(* @volt-implementation *)
 THIS^.Cavity		:= cavity;
 THIS^.StatType		:= statType;
 THIS^.RejectReason	:= rejectReason;
@@ -35,12 +37,14 @@ PROPERTY PUBLIC Cavity : UINT
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 Cavity := _cavity;
 END_GET
 SET
 
 VAR
 END_VAR
+(* @volt-implementation *)
 _cavity := Cavity;
 END_SET
 END_PROPERTY
@@ -49,11 +53,13 @@ PROPERTY PUBLIC Data : UDINT
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 Data := _data;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _data := Data;
 END_SET
 END_PROPERTY
@@ -62,11 +68,13 @@ PROPERTY PUBLIC RejectReason : USINT
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 RejectReason := _rejectReason;
 END_GET
 SET
 VAR
 END_VAR
+(* @volt-implementation *)
 _rejectReason := RejectReason;
 END_SET
 END_PROPERTY
@@ -75,12 +83,14 @@ PROPERTY PUBLIC StatType : enumProductionStatsCavityType
 GET
 VAR
 END_VAR
+(* @volt-implementation *)
 StatType := _statType;
 END_GET
 SET
 
 VAR
 END_VAR
+(* @volt-implementation *)
 _statType := StatType;
 END_SET
 END_PROPERTY

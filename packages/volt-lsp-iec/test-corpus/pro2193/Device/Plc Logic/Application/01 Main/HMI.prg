@@ -46,7 +46,7 @@ END_VAR
 VAR CONSTANT
 	{attribute 'symbol' := 'none'}	PilzAddToLastOctetOfIp		: BYTE := 2;		// IP address of Pilz PnozMulti will be 2 higher than controller IP. So controller is: 10.100.xxx.10, then Pilz is: : 10.100.xxx.12
 END_VAR
-
+(* @volt-implementation *)
 initialized := initialized OR_ELSE Initialize();
 
 MonitorHeartbeat();
@@ -81,6 +81,7 @@ VAR
 	index			: INT;
 	lastOctet		: BYTE;
 END_VAR
+(* @volt-implementation *)
 index	:= LEN(ipAddress) - 1;	// Get index of last character in string
 
 // Get last index of '.' (ascii: 46)
@@ -102,6 +103,7 @@ END_VAR
 VAR
 	i							: USINT;
 END_VAR
+(* @volt-implementation *)
 ButtonEnableDrives();
 ButtonEnableMainvalve();
 ButtonEnableVacuumPumps();
@@ -191,6 +193,7 @@ END_METHOD
 
 // Initializes the FB in the first cycle
 METHOD PRIVATE Initialize : BOOL
+(* @volt-implementation *)
 ProjectInfo				:= GetProjectInfo();
 startGetControllerIp	:= TRUE;
 startGetRobotSerial		:= TRUE;
@@ -202,6 +205,7 @@ VAR_INST
 	heartbeatTimer				: BTON;
 	previousHeartbeat			: UDINT;
 END_VAR
+(* @volt-implementation *)
 // Send a heartbeat to the HMI every 0,5 sec. (currently not in use)
 IF heartbeatTimer.Set(In := TRUE, Pt := 0.5) THEN
 	heartbeatTimer.Reset();

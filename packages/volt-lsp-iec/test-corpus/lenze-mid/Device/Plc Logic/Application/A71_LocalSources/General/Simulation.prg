@@ -2,7 +2,7 @@ PROGRAM Simulation
 VAR
 	ATD_Simulate: BOOL;
 END_VAR
-
+(* @volt-implementation *)
 IF (ATD_Simulate) THEN
 Mach1_Safety.Status.Emergency_button01:=TRUE;
 Mach1_Safety.Status.Emergency_button02:=TRUE;

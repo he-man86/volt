@@ -2,7 +2,7 @@ PROGRAM MACH_HMI_Control
 VAR
 	
 END_VAR
-
+(* @volt-implementation *)
 (* Status *)
 g_sHMI_Mach_UnitStatus.nActState			:= g_sMACH.MCL.nStepCounter;
 
