@@ -47,6 +47,29 @@ public sealed class NextNetworkScope
     public string? InstanceType(string head) => _instances.TryGetValue(head, out var t) ? t : null;
 }
 
+/// <summary>
+/// The v2 writer's one refusal: the fact it has no spelling for (<see cref="Body.UnrepresentableBodyException.Marker"/>,
+/// the reason a pull materializes the marker for) and WHERE it met it. A pull only needs the reason; a push needs
+/// the place too, because there the model came from the engineer's text and the finding belongs at the construct
+/// that holds the fact — so the writer records the innermost node it was writing and the network it was in.
+/// </summary>
+public sealed class NextUnrepresentableException : Body.UnrepresentableBodyException
+{
+    internal NextUnrepresentableException(string reason, string detail)
+        : base(reason, "network text has no spelling for " + reason + ": " + detail +
+                       " Volt materializes the body as a marker rather than write it without that fact.")
+        => Detail = detail;
+
+    /// <summary>What was found, without the pull's "materializes a marker" consequence.</summary>
+    public string Detail { get; }
+
+    /// <summary>The innermost model node being written when the fact was met; null for a network's own field.</summary>
+    internal Node? At { get; set; }
+
+    /// <summary>The position of the network being written, in the body.</summary>
+    internal int? Network { get; set; }
+}
+
 /// <summary>One finding against a network-text body: a <c>NETWORK_*</c> code (<see cref="ConflictCodes"/>), a
 /// message that names what was found, and the 1-based span it was found at.</summary>
 public sealed record NextNetworkTextDiagnostic(string Code, string Message, int Line, int Column, int Length);

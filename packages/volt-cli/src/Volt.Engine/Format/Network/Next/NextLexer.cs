@@ -19,7 +19,7 @@ internal enum TokKind
     Comment,    // a // line; Text = what follows `//` and one space
     Snippet,    // an EXECUTE body; Text = its lines joined by \n
     Wires,      // a whole VAR_TEMP block, as the gate compares it; Text = name:type per wire, by VarId
-    Sym,        // punctuation and operators, including S= and R=
+    Sym,        // punctuation and operators
     Error,      // Text = message, Code = its NETWORK_* code
     Eof,
 }
@@ -31,7 +31,6 @@ internal readonly record struct Tok(TokKind Kind, string Text, int Offset, int L
 {
     public bool Is(string word) => Kind == TokKind.Word && string.Equals(Text, word, StringComparison.OrdinalIgnoreCase);
     public bool IsSym(string s) => Kind == TokKind.Sym && Text == s;
-    public bool IsStorage => Kind == TokKind.Sym && (Text == ":=" || string.Equals(Text, "S=", StringComparison.OrdinalIgnoreCase) || string.Equals(Text, "R=", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>What the gate compares: the kind and the text, never the position.</summary>
     public (TokKind, string) Key => (Kind, Text);
@@ -59,8 +58,13 @@ internal sealed class NextLexer
         for (var k = 0; k < s.Length; k++) if (s[k] == '\n') _lineStarts.Add(k + 1);
     }
 
-    public int Position => _i;
-    public string Source => _s;
+    /// <summary>A lexer standing where this one stands, for a look ahead that must not move this one.</summary>
+    private NextLexer(NextLexer at)
+    {
+        _s = at._s;
+        _lineStarts = at._lineStarts;
+        _i = at._i;
+    }
 
     public (int Line, int Column) LineCol(int offset)
     {
@@ -163,13 +167,9 @@ internal sealed class NextLexer
                 _i++;
                 while (_i < _s.Length && IsWordChar(_s[_i])) _i++;
             }
+            // `S=` / `R=` are a word and `=`, as `S = x` is: which of the storage operator and a comparison with a
+            // variable named S it is, is the PARSER's call from the position — whitespace plays no part.
             var word = _s.Substring(start, _i - start);
-            // ExST's storage operators S= and R=. `S =>` is a pin named S, so `=>` is not one of them.
-            if (word.Length == 1 && (word[0] is 'S' or 's' or 'R' or 'r') && Peek(0) == '=' && Peek(1) != '>')
-            {
-                _i++;
-                return new Tok(TokKind.Sym, word + "=", start, 2, atLineStart);
-            }
             return new Tok(TokKind.Word, word, start, word.Length, atLineStart);
         }
 
@@ -184,15 +184,68 @@ internal sealed class NextLexer
         return new Tok(TokKind.Sym, c.ToString(), start, 1, atLineStart);
     }
 
-    /// <summary>The next non-whitespace character, across lines, or null at the end. A character, not a token:
-    /// it tells an operator word standing alone (<c>( AND b)</c>, an empty first slot) from the same word heading a
-    /// call (<c>AND(EN := go, …)</c>) without a second token of lookahead.</summary>
+    /// <summary>The next non-whitespace character, across lines, or null at the end.</summary>
     public char? PeekChar()
     {
         var j = _i;
         while (j < _s.Length && char.IsWhiteSpace(_s[j])) j++;
         return j < _s.Length ? _s[j] : null;
     }
+
+    /// <summary>Whether <c>=</c> — and not <c>=&gt;</c> — is next, across layout. Asked after an <c>S</c> or <c>R</c>
+    /// that follows a target: it makes the pair the storage operator whatever the spacing.</summary>
+    public bool EqualsFollows()
+    {
+        var j = _i;
+        while (j < _s.Length && char.IsWhiteSpace(_s[j])) j++;
+        return j < _s.Length && _s[j] == '=' && (j + 1 >= _s.Length || _s[j + 1] != '>');
+    }
+
+    /// <summary>
+    /// Whether the pair of parentheses that comes next holds an infix operator at its OWN depth. Asked right after
+    /// an operator word: parentheses are structural (spec), so after <c>AND</c> a pair holding an operator is a
+    /// group and the word was the operator after an empty slot (<c>( AND (x OR y))</c>), while any other pair is
+    /// the word's argument list (<c>AND(EN := go, a, b)</c>, <c>AND((x OR y), c)</c>). Spacing plays no part,
+    /// which is what makes the writer's <c>AND (</c> and a hand-typed <c>AND(</c> the same text.
+    ///
+    /// <para>Scanned on a fork of the lexer, token by token, so backticks, titles and EXECUTE bodies inside the
+    /// pair are skipped as the units they are — an <c>AND</c> in a snippet's ST is not the pair's operator.</para>
+    /// </summary>
+    public bool PairAheadHoldsOperator()
+    {
+        var f = new NextLexer(this);
+        if (!f.Next().IsSym("(")) return false;
+        var depth = 1;
+        var executeAt = new Stack<int>();   // the depth an `EXECUTE(EN := …)` head's pair closes back to
+        while (true)
+        {
+            var t = f.Next();
+            switch (t.Kind)
+            {
+                case TokKind.Eof:
+                    return false;
+                case TokKind.Sym when t.Text == "(":
+                    depth++;
+                    break;
+                case TokKind.Sym when t.Text == ")":
+                    if (--depth == 0) return false;
+                    if (executeAt.Count > 0 && executeAt.Peek() == depth) { executeAt.Pop(); f.ExecuteBody(); }
+                    break;
+                case TokKind.Word when t.Is("EXECUTE") && !f.PinOperatorFollows():
+                    if (f.PeekOnLine() == '(') executeAt.Push(depth);
+                    else f.ExecuteBody();
+                    break;
+                default:
+                    if (depth == 1 && IsOperator(t) && !(t.Kind == TokKind.Word && f.PinOperatorFollows())) return true;
+                    break;
+            }
+        }
+    }
+
+    /// <summary>An infix operator of the table: a symbol, or one of the operator words.</summary>
+    public static bool IsOperator(Tok t) =>
+        (t.Kind == TokKind.Sym && FbdOperators.SymbolToType.ContainsKey(t.Text)) ||
+        (t.Kind == TokKind.Word && (t.Is("AND") || t.Is("OR") || t.Is("XOR") || t.Is("MOD")));
 
     /// <summary>Whether <c>:=</c> or <c>=&gt;</c> is next, across layout. Asked right after a word inside an
     /// argument list: it makes that word a PIN NAME before it is read as a value, so a formal spelled like a

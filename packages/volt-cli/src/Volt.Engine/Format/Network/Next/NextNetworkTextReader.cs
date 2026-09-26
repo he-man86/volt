@@ -12,8 +12,11 @@ namespace Volt.Engine.Format.Network.Next;
 /// <c>openspec/changes/network-text-literal-nwl</c>; the inverse of <see cref="NextNetworkTextWriter"/>, built
 /// BESIDE the v1 reader, which keeps serving every caller until the swap.
 ///
-/// <para><b>Recursive descent, one token of lookahead, no post-pass.</b> Each statement becomes exactly one NWL
-/// item as it is read; nothing is hoisted, re-inlined, counted or resolved afterwards. The only state that
+/// <para><b>Recursive descent, one token of lookahead, no post-pass over the model.</b> Each statement becomes
+/// exactly one NWL item as it is read; nothing is hoisted, re-inlined, counted or resolved afterwards. Two things
+/// look further without building anything: after an operator word the lexer scans the pair that follows for an
+/// operator (parentheses decide group vs argument list), and at END_NETWORK each wire's declared type is CHECKED
+/// against its producer, because a leaf's type is decided by the uses below its definition. The only state that
 /// crosses statements is the network's wire set, and it is decided by the <c>VAR_TEMP</c> declaration alone: a
 /// declared name's assignment DEFINES a Demux, every other use of it REFERENCES one, and any other assignment is
 /// an Assign. v1 decided the same thing by use count and name prefix, which is how a coil on a real variable
@@ -33,15 +36,28 @@ public static class NextNetworkTextReader
     public static NextReadResult Read(string text, BodyLanguage language, NextNetworkScope scope) =>
         ReadTokens(text, language, scope).Result;
 
-    /// <summary>The read plus every token it consumed, in order — what the gate compares.</summary>
-    internal static (NextReadResult Result, IReadOnlyList<Tok> Tokens, NextLexer? Lexer) ReadTokens(
-        string text, BodyLanguage language, NextNetworkScope scope)
+    /// <summary>The read plus what the gate needs of it: every token consumed, in order (what it compares), and
+    /// where each model node and each network header was read (where it reports a finding the writer raises).</summary>
+    internal static (NextReadResult Result, ReadTrace Trace) ReadTokens(string text, BodyLanguage language, NextNetworkScope scope)
     {
         if (text is null) throw new ArgumentNullException(nameof(text));
         if (scope is null) throw new ArgumentNullException(nameof(scope));
         var p = new Parser(text, language, scope);
         var body = p.ParseBody();
-        return (new NextReadResult(p.Diagnostics.Count == 0 ? body : null, p.Diagnostics), p.Consumed, p.Lexer);
+        return (new NextReadResult(p.Diagnostics.Count == 0 ? body : null, p.Diagnostics),
+                new ReadTrace(p.Consumed, p.Lexer, p.Spans, p.Headers));
+    }
+
+    /// <summary>What a read leaves behind for the gate. <see cref="Spans"/> is keyed by node IDENTITY: two equal
+    /// leaves at two places are two keys.</summary>
+    internal sealed record ReadTrace(IReadOnlyList<Tok> Tokens, NextLexer? Lexer,
+                                     IReadOnlyDictionary<Node, (int Offset, int Length)> Spans, IReadOnlyList<Tok> Headers);
+
+    private sealed class ByIdentity : IEqualityComparer<Node>
+    {
+        public static readonly ByIdentity Instance = new();
+        public bool Equals(Node? x, Node? y) => ReferenceEquals(x, y);
+        public int GetHashCode(Node n) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(n);
     }
 
     private sealed class ParseError : Exception
@@ -86,7 +102,18 @@ public static class NextNetworkTextReader
 
         public readonly List<Tok> Consumed = new();
         public readonly List<NextNetworkTextDiagnostic> Diagnostics = new();
+        public readonly Dictionary<Node, (int Offset, int Length)> Spans = new(ByIdentity.Instance);
+        public readonly List<Tok> Headers = new();
         public NextLexer? Lexer => _lx;
+
+        /// <summary>Record that <paramref name="node"/> was read from <paramref name="start"/> through the last
+        /// token consumed.</summary>
+        private T Mark<T>(T node, int start) where T : Node
+        {
+            var end = Consumed.Count > 0 ? Consumed[Consumed.Count - 1].Offset + Consumed[Consumed.Count - 1].Length : start;
+            Spans[node] = (start, Math.Max(1, end - start));
+            return node;
+        }
 
         // Per network: the declared wires, and every word spelled where a wire name may not appear (a call head,
         // backticked text, an output target, a jump label) — the writer reserves the same words, so a wire that
@@ -192,6 +219,7 @@ public static class NextNetworkTextReader
             _otherWords = new List<(string, Tok)>();
 
             var hdr = Next();
+            Headers.Add(hdr);
             var hdrLine = Line(hdr);
             string? label = null, title = null;
             var disabled = false;
@@ -262,6 +290,7 @@ public static class NextNetworkTextReader
                 Diagnostics.Add(Diag(ConflictCodes.NetworkBadExpression,
                     $"the wire {w.Name} is declared and never defined: a wire's definition is the statement `{w.Name} := value;`.",
                     w.Decl.Offset, w.Decl.Length));
+            CheckWireTypes(trees);
             foreach (var (word, at) in _otherWords)
                 if (_wires.TryGetValue(word, out var w))
                     Diagnostics.Add(Diag(ConflictCodes.NetworkDuplicateName,
@@ -345,7 +374,7 @@ public static class NextNetworkTextReader
             var t = Peek();
 
             // The empty statement IS the empty item — a `;` that closes no statement.
-            if (t.IsSym(";")) { Next(); return new Terminator(null, Flags.None); }
+            if (t.IsSym(";")) { Next(); return Mark(new Terminator(null, Flags.None), t.Offset); }
 
             if (t.Is("LET")) throw Err(t, ConflictCodes.NetworkParse, V1Refusal("`LET` statements"));
 
@@ -361,7 +390,7 @@ public static class NextNetworkTextReader
                 ExpectSym(";", "IF c THEN JMP l; END_IF;");
                 ExpectWord("END_IF", "IF c THEN JMP l; END_IF;");
                 ExpectSym(";", "every statement ends with `;`, END_IF; included");
-                return new Assign(cond, new[] { target }, flags);
+                return Mark(new Assign(cond, new[] { target }, flags), t.Offset);
             }
 
             if (t.Is("JMP") || t.Is("RETURN"))
@@ -369,11 +398,11 @@ public static class NextNetworkTextReader
                 var (target, flags) = ParseJump();
                 ExpectSym(";", "every statement ends with `;`");
                 // Unconditional: the vendor's "nothing drives it" is an empty Terminator (census 1.2, DIALECT C11).
-                return new Assign(new Terminator(null, Flags.None), new[] { target }, flags);
+                return Mark(new Assign(new Terminator(null, Flags.None), new[] { target }, flags), t.Offset);
             }
 
             var first = ParseValue(consumed: false, defer: true);
-            if (Peek().IsStorage)
+            if (AtStorage())
             {
                 var targets = new List<(Tok Target, Tok Op)>();
                 var cur = first;
@@ -383,19 +412,39 @@ public static class NextNetworkTextReader
                     if (cur.Bare is not { } bare)
                         throw Err(cur.Start, ConflictCodes.NetworkBadExpression,
                             "an assignment target is one variable: a token, or text between backticks.");
-                    targets.Add((bare, Next()));
+                    targets.Add((bare, TakeStorage()));
                     var v = ParseValue(consumed: true, defer: true);
-                    if (Peek().IsStorage) { cur = v; continue; }
+                    if (AtStorage()) { cur = v; continue; }
                     value = Resolve(v, consumed: true);
                     break;
                 }
                 ExpectSym(";", "every statement ends with `;`");
-                return BuildAssign(targets, value);
+                return Mark(BuildAssign(targets, value), t.Offset);
             }
 
             var node = Resolve(first, consumed: false);
             ExpectSym(";", "every statement ends with `;`");
             return node;
+        }
+
+        /// <summary>Whether a storage operator is next after a target: <c>:=</c>, or ExST's <c>S=</c> / <c>R=</c>
+        /// — a word <c>S</c> or <c>R</c> and <c>=</c>, however spaced. After a target nothing else can follow in
+        /// that shape, while inside a group <c>(R = x)</c> is a comparison; so the position decides, never the
+        /// spacing (spec: whitespace is significant only inside backticks, TITLE, comments and EXECUTE).</summary>
+        private bool AtStorage()
+        {
+            var t = Peek();
+            return t.IsSym(":=") || ((t.Is("S") || t.Is("R")) && _lx!.EqualsFollows());
+        }
+
+        /// <summary>Consume the storage operator <see cref="AtStorage"/> found, as one token <c>:=</c>, <c>S=</c> or
+        /// <c>R=</c> with the span of both parts.</summary>
+        private Tok TakeStorage()
+        {
+            var t = Next();
+            if (t.IsSym(":=")) return t;
+            var eq = Next();
+            return new Tok(TokKind.Sym, t.Text.ToUpperInvariant() + "=", t.Offset, eq.Offset + eq.Length - t.Offset, t.AtLineStart);
         }
 
         private Node BuildAssign(List<(Tok Target, Tok Op)> targets, Node value)
@@ -411,11 +460,8 @@ public static class NextNetworkTextReader
                         $"the wire {w.Name} is defined with {targets[0].Op.Text}; a wire is defined with `:=`, and S=/R= are coils.");
                 if (w.Defined)
                     throw Err(tok, ConflictCodes.NetworkDuplicateName, $"the wire {w.Name} is defined twice.");
-                // The Demux holds no type, so the declared one is checked against the producer wherever the producer
-                // says its type by itself — the vendor has no field that would keep a type it contradicts.
-                if (ProducerType(value) is { } produced && !string.Equals(produced, w.Type, StringComparison.OrdinalIgnoreCase))
-                    throw Err(w.Decl, ConflictCodes.NetworkBadExpression,
-                        $"the wire {w.Name} is declared {w.Type} and its producer is {produced}.");
+                // The declared type is checked against the producer once the network is read
+                // (CheckWireTypes): a leaf's type depends on how the wire is USED, which the statements below say.
                 w.Defined = true;
                 return new Demux(w.VarId, value, Flags.None, w.Type);
             }
@@ -441,8 +487,10 @@ public static class NextNetworkTextReader
             var t = Next();
             if (t.Is("JMP"))
             {
+                // After JMP a word can be nothing but the label, so a label spelled like a word of the text
+                // (`Execute`, `Parallel` — legal IEC labels the header's LABEL: takes too) is read as one.
                 var l = Next();
-                if (l.Kind != TokKind.Word || !NextSpelling.Identifier.IsMatch(l.Text) || NextSpelling.TextWords.Contains(l.Text))
+                if (l.Kind != TokKind.Word || !NextSpelling.Identifier.IsMatch(l.Text))
                     throw Err(l, ConflictCodes.NetworkBadExpression, "JMP takes one label, an identifier.");
                 AddOtherWords(l, l.Text);
                 var jump = Flags.None with { Jump = true };
@@ -475,11 +523,11 @@ public static class NextNetworkTextReader
                 if (n.IsSym("("))
                     // Parentheses are structural. After NOT, a pair holding an operator is a group under the
                     // negation modifier; any other pair is the NOT box's argument list. Spacing plays no part.
-                    return PVal.Of(ParseAfterNotParen(t, consumed), t);
+                    return PVal.Of(Mark(ParseAfterNotParen(t, consumed), t.Offset), t);
                 var core = n.Is("R_EDGE") || n.Is("F_EDGE")
                     ? ParseEdge(consumed)
                     : Resolve(ParseCore(consumed, defer: false), consumed);
-                return PVal.Of(WithFlags(core, f => f with { Negated = true }), t);
+                return PVal.Of(Mark(WithFlags(core, f => f with { Negated = true }), t.Offset), t);
             }
 
             if (t.Is("R_EDGE") || t.Is("F_EDGE")) return PVal.Of(ParseEdge(consumed), t);
@@ -508,7 +556,7 @@ public static class NextNetworkTextReader
                 throw Err(kw, ConflictCodes.NetworkUnsupported, "a flag on an empty slot: an unconnected position has no text to modify.");
             var core = Resolve(ParseCore(consumed, defer: false), consumed);
             ExpectSym(")", $"{kw.Text.ToUpperInvariant()}(x)");
-            return WithFlags(core, f => rising ? f with { Rising = true } : f with { Falling = true });
+            return Mark(WithFlags(core, f => rising ? f with { Rising = true } : f with { Falling = true }), kw.Offset);
         }
 
         private PVal ParseCore(bool consumed, bool defer)
@@ -518,7 +566,7 @@ public static class NextNetworkTextReader
             {
                 case TokKind.Sym when t.Text == "(":
                     Next();
-                    return PVal.Of(ParseGroupRest(t, Resolve(ParseValue(consumed: true), consumed: true)), t);
+                    return PVal.Of(Mark(ParseGroupRest(t, Resolve(ParseValue(consumed: true), consumed: true)), t.Offset), t);
 
                 case TokKind.Unnamed:
                     Next();
@@ -538,12 +586,12 @@ public static class NextNetworkTextReader
                     return Bare(t, defer, consumed);
 
                 case TokKind.Word:
-                    if (t.Is("PARALLEL")) return PVal.Of(ParseParallel(), t);
-                    if (t.Is("EXECUTE")) return PVal.Of(ParseExecute(consumed), t);
+                    if (t.Is("PARALLEL")) return PVal.Of(Mark(ParseParallel(), t.Offset), t);
+                    if (t.Is("EXECUTE")) return PVal.Of(Mark(ParseExecute(consumed), t.Offset), t);
                     Next();
                     if (Peek().IsSym("("))
                     {
-                        if (NextSpelling.TextWords.Contains(t.Text) && !OperatorHeads.Contains(t.Text))
+                        if (NextSpelling.TextWords.Contains(t.Text) && !NextSpelling.OperatorHeads.Contains(t.Text))
                             throw Err(t, ConflictCodes.NetworkBadExpression, $"'{t.Text}' is a keyword of the text and no call head.");
                         Next();
                         return PVal.Of(ParseCall(t, null, null, consumed, null), t);
@@ -684,15 +732,18 @@ public static class NextNetworkTextReader
                 type = head.Text;
                 AddOtherWords(head, head.Text);
             }
+            // Spec, "a POU named like an edge word": refused by name, at the call. A backticked head is still the
+            // POU's name, and an instance's FB type is a POU too — the writer could spell none of them back.
+            if (NextSpelling.ConstructWords.Contains(type))
+                throw Err(head, ConflictCodes.NetworkUnsupported,
+                    $"a POU named {type.ToUpperInvariant()}: the text reads {type.ToUpperInvariant()}(…) as its own construct, so a call of it has no spelling.");
 
             // The slot rule: ENO (slot 0 of a box with EN) is never an `=>` slot, nor is the slot a consumer is
-            // connected to; positional pins fill the rest in order. A box consumed WITHOUT `.ENO` is connected by
-            // its main output, and the text does not say which slot that is: the spec reads it as slot 0 ("err
-            // reads back on slot 1" — spec, "a consumed box without EN keeps its main output"). That is the census
-            // majority (0 on 456 boxes) and NOT a vendor fact the text carries — 3 Lenze call boxes store 1 — so the
-            // push must check it against the IDE's own box before writing a slot.
+            // connected to; positional pins fill the rest in order. A box consumed WITHOUT `.ENO` is connected by its
+            // main output, which the text reads by NextSpelling.MainSlotOfCall — slot 0, or no stored slot for a
+            // bit operator — and the writer refuses every box that reading would get wrong.
             int? enoSlot = hadEn ? 0 : null;
-            int? connected = eno ? 0 : consumed ? 0 : null;
+            int? connected = eno ? 0 : consumed ? NextSpelling.MainSlotOfCall(type) : null;
             var next = 0;
             var built = new List<Output>();
             foreach (var (formal, target, positional) in outputs)
@@ -708,9 +759,9 @@ public static class NextNetworkTextReader
                     $"`.ENO` on a box without EN: ENO echoes the enable, and '{head.Text}' has none.");
 
             var box = new Box(type, instance, NextSpelling.KindOf(type, instance is not null), inputs, built, en, null,
-                Flags.None, MainOutputIndex: consumed && !eno ? 0 : null, ConnectedSlot: connected);
+                Flags.None, MainOutputIndex: consumed && !eno ? connected : null, ConnectedSlot: connected);
             CheckConsumption(box, head, consumed, eno);
-            return box;
+            return Mark(box, head.Offset);
         }
 
         private void Pin(PVal? pre, ref Node? en, ref bool hadEn, List<Input> inputs,
@@ -867,27 +918,20 @@ public static class NextNetworkTextReader
         private Node Resolve(PVal v, bool consumed)
         {
             if (v.Node is not null) return v.Node;
-            if (v.Empty) return new Terminator(null, Flags.None);
+            if (v.Empty) return Mark(new Terminator(null, Flags.None), v.Start.Offset);
             var t = v.Bare!.Value;
-            switch (t.Kind)
+            if (t.Kind == TokKind.Word && _wires.TryGetValue(t.Text, out var w))
             {
-                case TokKind.Word:
-                    if (_wires.TryGetValue(t.Text, out var w))
-                    {
-                        if (!w.Defined)
-                            throw Err(t, ConflictCodes.NetworkBadExpression,
-                                $"the wire {w.Name} is referenced before its definition: a wire is defined by `{w.Name} := value;` before its first use.");
-                        return new Demux(w.VarId, null, Flags.None);
-                    }
-                    RefuseUndeclaredWire(t);
-                    AddOtherWords(t, t.Text);
-                    return new Leaf(new Operand(t.Text), Flags.None);
-                case TokKind.Backtick:
-                    AddOtherWords(t, t.Text);
-                    return new Leaf(new Operand(t.Text), Flags.None);
-                default:
-                    return new Leaf(new Operand(t.Text), Flags.None);
+                if (!w.Defined)
+                    throw Err(t, ConflictCodes.NetworkBadExpression,
+                        $"the wire {w.Name} is referenced before its definition: a wire is defined by `{w.Name} := value;` before its first use.");
+                return Mark(new Demux(w.VarId, null, Flags.None), t.Offset);
             }
+            if (t.Kind == TokKind.Word) RefuseUndeclaredWire(t);
+            // Every operand's words, whatever its token — the writer reserves the same (a typed literal's type
+            // included), so a wire it would rename is one the reader refuses.
+            AddOtherWords(t, t.Text);
+            return Mark(new Leaf(new Operand(t.Text), Flags.None), t.Offset);
         }
 
         /// <summary>An assignment or <c>=&gt;</c> target's text: a token or backticked text.</summary>
@@ -925,26 +969,27 @@ public static class NextNetworkTextReader
 
         private void AddOtherWords(Tok at, string text)
         {
-            foreach (Match m in Regex.Matches(text, @"[A-Za-z_][A-Za-z0-9_]*")) _otherWords.Add((m.Value, at));
+            foreach (var word in NextSpelling.Words(text)) _otherWords.Add((word, at));
         }
 
-        /// <summary>The type a producer says by itself — the same rule the writer declares with. Null when only a
-        /// declaration could say (a data box, a leaf in FBD).</summary>
-        private string? ProducerType(Node n)
+        /// <summary>Spec, "a hand-edited type": each wire's declared type against what its producer says, by the rule
+        /// the writer declares with (<see cref="NextSpelling.ProducerType"/>) — the vendor's Demux has no field that
+        /// would keep a type the producer contradicts. Run once the network is read, because a leaf's type is
+        /// decided by how the wire is used.</summary>
+        private void CheckWireTypes(IReadOnlyList<Node> trees)
         {
-            if (n.Flags.Rising || n.Flags.Falling) return NextSpelling.Bool;
-            switch (n)
+            foreach (var d in trees.OfType<Demux>().Where(d => d.Input is not null))
             {
-                case Leaf l:
-                    if (string.Equals(l.Operand.Text, "TRUE", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(l.Operand.Text, "FALSE", StringComparison.OrdinalIgnoreCase)) return NextSpelling.Bool;
-                    return _lang == BodyLanguage.Ld ? NextSpelling.Bool : null;
-                case Parallel: return NextSpelling.Bool;
-                case Demux d: return _byId.TryGetValue(d.VarId, out var w) ? w.Type : null;
-                case Box b:
-                    if (b.StCode is not null || b.ConnectedSlot == 0 && b.Enable is not null) return NextSpelling.Bool;
-                    return NextSpelling.BooleanBoxes.Contains(b.Type) ? NextSpelling.Bool : null;
-                default: return null;
+                if (!_byId.TryGetValue(d.VarId, out var w)) continue;
+                var produced = NextSpelling.ProducerType(d.Input!, d.VarId, trees, _lang,
+                    id => _byId.TryGetValue(id, out var o) ? o.Type : null);
+                if (produced.Exact is { } exact && !string.Equals(exact, w.Type, StringComparison.OrdinalIgnoreCase))
+                    Diagnostics.Add(Diag(ConflictCodes.NetworkBadExpression,
+                        $"the wire {w.Name} is declared {w.Type} and its producer is {exact}.", w.Decl.Offset, w.Decl.Length));
+                else if (produced.AnyBit && !NextSpelling.BitStrings.Contains(w.Type))
+                    Diagnostics.Add(Diag(ConflictCodes.NetworkBadExpression,
+                        $"the wire {w.Name} is declared {w.Type} and its producer is a bit operator, whose result is BOOL or " +
+                        "another bit string (BYTE, WORD, DWORD, LWORD).", w.Decl.Offset, w.Decl.Length));
             }
         }
 
@@ -1000,18 +1045,17 @@ public static class NextNetworkTextReader
             Next();
         }
 
-        private static bool IsOperator(Tok t) =>
-            (t.Kind == TokKind.Sym && FbdOperators.SymbolToType.ContainsKey(t.Text)) ||
-            (t.Kind == TokKind.Word && (t.Is("AND") || t.Is("OR") || t.Is("XOR") || t.Is("MOD")));
+        private static bool IsOperator(Tok t) => NextLexer.IsOperator(t);
 
         private static string OperatorSymbol(Tok t) => t.Kind == TokKind.Word ? t.Text.ToUpperInvariant() : t.Text;
 
-        /// <summary>An empty position: nothing stands where a value could. An operator word followed by <c>(</c> is
-        /// a call head (<c>AND(EN := go, a, b)</c>), not an operator after an empty slot. Called only on the
-        /// lookahead token, so the lexer stands right after it.</summary>
+        /// <summary>An empty position: nothing stands where a value could. An operator word is a call head only
+        /// when the pair after it is an argument list (<c>AND(EN := go, a, b)</c>); a pair holding an operator is a
+        /// group, so the word was the operator after an empty slot (<c>( AND (x OR y))</c>) — parentheses decide,
+        /// never spacing. Called only on the lookahead token, so the lexer stands right after it.</summary>
         private bool IsEmptyHere(Tok t) =>
             t.IsSym(",") || t.IsSym(")") || t.IsSym(";") || t.Is("THEN") ||
-            (IsOperator(t) && !(t.Kind == TokKind.Word && _lx!.PeekChar() == '('));
+            (IsOperator(t) && !(t.Kind == TokKind.Word && _lx!.PeekChar() == '(' && !_lx.PairAheadHoldsOperator()));
 
         /// <summary>Whether the lookahead word is a pin's name: <c>:=</c> or <c>=&gt;</c> follows it. Called only
         /// on the lookahead token, so the lexer stands right after it.</summary>
@@ -1035,10 +1079,6 @@ public static class NextNetworkTextReader
         private static readonly Regex Marker = new(@"^\(\*\s*@volt-implementation\s+(FBD|LD)\s*\*\)\s*$", RegexOptions.Compiled);
         private static readonly Regex BareMarker = new(@"^\(\*\s*@volt-implementation\s*\*\)", RegexOptions.Compiled);
         private static readonly Regex V1Header = new(@"^NETWORK\s+\d+", RegexOptions.Compiled);
-
-        /// <summary>Keywords of the text that ARE box types, so they may head a call: an operator box in call form
-        /// (<c>AND(EN := go, a, b, =&gt; out)</c>) and the NOT box.</summary>
-        private static readonly HashSet<string> OperatorHeads = new(StringComparer.OrdinalIgnoreCase) { "AND", "OR", "XOR", "MOD", "NOT" };
 
         private static readonly HashSet<string> Structural = new() { ",", ")", "(", ";", ":=", "=>", ".", ":" };
     }

@@ -10,6 +10,11 @@
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
       <_Parameter1>Volt.Engine.Tests</_Parameter1>
     </AssemblyAttribute>
+    <!-- The network text v2 model oracle (test/shared) is compiled into this suite too, and reads the spelling
+         rules it normalises by (NextSpelling) rather than keep a copy that could drift. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Volt.Ide.Twincat.Tests</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="System.Text.Json" />

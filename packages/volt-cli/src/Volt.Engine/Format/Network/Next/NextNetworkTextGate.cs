@@ -32,25 +32,36 @@ public static class NextNetworkTextGate
 {
     public static NextGateResult Validate(string text, BodyLanguage language, NextNetworkScope scope)
     {
-        var (read, tokens, lexer) = NextNetworkTextReader.ReadTokens(text, language, scope);
+        var (read, trace) = NextNetworkTextReader.ReadTokens(text, language, scope);
         if (!read.Ok) return new NextGateResult(null, read.Diagnostics, null);
+        var tokens = trace.Tokens;
+        var lexer = trace.Lexer;
 
         string canonical;
         try
         {
-            canonical = NextNetworkTextWriter.Write(read.Body!, scope.Names);
+            canonical = NextNetworkTextWriter.Write(read.Body!, scope);
         }
-        catch (UnrepresentableBodyException e)
+        catch (NextUnrepresentableException e)
         {
-            // The text reads, and the model it reads to has a fact the writer has no spelling for — the same
-            // refusal a pull turns into the marker, raised here by name so the push never reaches the IDE.
+            // The text reads, and the model it reads to has a fact the writer has no spelling for — the refusal
+            // a pull turns into the marker, raised here by name so the push never reaches the IDE. Reported where
+            // the engineer wrote it: the construct the writer was on, else the network's header.
+            var (offset, length) =
+                e.At is not null && trace.Spans.TryGetValue(e.At, out var span) ? span
+                : e.Network is { } n && n < trace.Headers.Count ? (trace.Headers[n].Offset, trace.Headers[n].Length)
+                : (0, 1);
+            var (line, col) = lexer!.LineCol(offset);
             return new NextGateResult(null, new[]
             {
-                new NextNetworkTextDiagnostic(ConflictCodes.NetworkUnsupported, e.Message, 1, 1, 1),
+                new NextNetworkTextDiagnostic(ConflictCodes.NetworkUnsupported,
+                    $"network text has no spelling for {e.Marker}: {e.Detail} The push is refused rather than build the " +
+                    "IDE a different body than this one.", line, col, length),
             }, null);
         }
 
-        var (again, canonicalTokens, _) = NextNetworkTextReader.ReadTokens(canonical, language, scope);
+        var (again, canonicalTrace) = NextNetworkTextReader.ReadTokens(canonical, language, scope);
+        var canonicalTokens = canonicalTrace.Tokens;
         if (!again.Ok)
             // Not bad input: the writer produced text its own reader refuses. Loud, because a diagnostic here would
             // blame the engineer for a Volt defect.

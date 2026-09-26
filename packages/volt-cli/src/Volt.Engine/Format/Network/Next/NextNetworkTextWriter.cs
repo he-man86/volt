@@ -28,22 +28,33 @@ namespace Volt.Engine.Format.Network.Next;
 public static class NextNetworkTextWriter
 {
     /// <summary>Render <paramref name="body"/>.</summary>
-    /// <param name="namesInScope">Every name visible to the body besides its own operands — the POU's variables,
-    /// globals, the owning FB's members seen from a method or action. REQUIRED rather than defaulted: a wire named
-    /// like one of them would read back as that variable (or refuse the push), so a caller that does not know the
-    /// scope must say so by passing an empty set, not by leaving it out.</param>
-    public static string Write(NetworkBody body, IEnumerable<string> namesInScope)
+    /// <param name="scope">The declarations the body can see — the SAME <see cref="NextNetworkScope"/> the reader
+    /// reads the text back against, so the two sides reserve one set of names and resolve one set of FB instances.
+    /// REQUIRED rather than defaulted: a wire named like a name in scope would read back as that variable, and an
+    /// FB instance the declarations do not name would read back as a function; a caller that does not know the
+    /// scope must say so by passing <see cref="NextNetworkScope.Empty"/>, not by leaving it out.</param>
+    public static string Write(NetworkBody body, NextNetworkScope scope)
     {
         if (body is null) throw new ArgumentNullException(nameof(body));
-        if (namesInScope is null) throw new ArgumentNullException(nameof(namesInScope));
+        if (scope is null) throw new ArgumentNullException(nameof(scope));
 
         var sb = new StringBuilder();
         // The body's language rides on its one implementation marker (spec: "the body language and the v1
         // refusal"). v1 printed it on every network header, which invited a per-network edit nothing applied.
         sb.Append("(* @volt-implementation ").Append(body.Language == BodyLanguage.Ld ? "LD" : "FBD").Append(" *)\n");
 
-        var scope = new HashSet<string>(namesInScope, StringComparer.OrdinalIgnoreCase);
-        foreach (var net in body.Networks) new Emitter(net, body.Language, scope).Emit(sb);
+        for (var i = 0; i < body.Networks.Count; i++)
+        {
+            try
+            {
+                new Emitter(body.Networks[i], body.Language, scope).Emit(sb);
+            }
+            catch (NextUnrepresentableException e) when (e.Network is null)
+            {
+                e.Network = i;
+                throw;
+            }
+        }
         return sb.ToString();
     }
 
@@ -51,6 +62,7 @@ public static class NextNetworkTextWriter
     {
         private readonly Network _net;
         private readonly BodyLanguage _lang;
+        private readonly NextNetworkScope _scope;
 
         // VarId → the wire's written name. Decided once, before any statement is rendered.
         private readonly Dictionary<int, string> _names = new();
@@ -60,15 +72,16 @@ public static class NextNetworkTextWriter
         private readonly Dictionary<int, string> _defined = new();
         private readonly List<int> _definitionOrder = new();
 
-        public Emitter(Network net, BodyLanguage lang, HashSet<string> scope)
+        public Emitter(Network net, BodyLanguage lang, NextNetworkScope scope)
         {
             _net = net;
             _lang = lang;
+            _scope = scope;
 
             // THE RESERVED SET: every name in scope plus every identifier this network spells, compared
             // case-insensitively, because IEC identifiers are. A wire `g3` beside a variable `G3` is the same
             // name to the compiler and to the reader.
-            var reserved = new HashSet<string>(scope, StringComparer.OrdinalIgnoreCase);
+            var reserved = new HashSet<string>(scope.Names, StringComparer.OrdinalIgnoreCase);
             var ids = new List<int>();
             foreach (var t in net.Trees) Collect(t, reserved, ids);
 
@@ -104,10 +117,18 @@ public static class NextNetworkTextWriter
             sb.Append(Header()).Append('\n');
 
             if (_net.Comment is { } comment)
-                foreach (var line in comment.Replace("\r", "").Split('\n'))
+                // A CR LF line ending is the file's layout, not the comment's text (spec, "the network header and
+                // its comment"); every other character is text and is carried.
+                foreach (var line in comment.Replace("\r\n", "\n").Split('\n'))
+                {
+                    if (line.EndsWith("\r", StringComparison.Ordinal))
+                        // The reader drops a CR at a line's end as that layout, so this one would be lost.
+                        throw Unrepresentable("a comment line ending in a carriage return",
+                            $"network {_net.Order}'s comment holds a line ending in a lone carriage return.");
                     // `//` and ONE space are syntax; everything after them is text, leading indentation and a
                     // leading `//` included. An empty line is `//` alone, so a trailing space means nothing.
                     sb.Append("  //").Append(line.Length == 0 ? "" : " " + line).Append('\n');
+                }
 
             if (_definitionOrder.Count > 0)
             {
@@ -154,7 +175,15 @@ public static class NextNetworkTextWriter
 
         // ── statements: one per top-level item ──────────────────────────────────────────────────────
 
+        /// <summary>A top-level item as its statement. A refusal met anywhere below records this item as where it
+        /// was met, unless a node below it already did.</summary>
         private string Statement(Node n)
+        {
+            try { return StatementCore(n); }
+            catch (NextUnrepresentableException e) when (e.At is null) { e.At = n; throw; }
+        }
+
+        private string StatementCore(Node n)
         {
             switch (n)
             {
@@ -232,8 +261,18 @@ public static class NextNetworkTextWriter
                     $"one Assign in network {_net.Order} drives {a.Targets.Count} targets, one of them control flow.");
 
             RefuseItemFlags(a.Flags with { Jump = false, Return = false }, "a jump or return item");
+            if (a.Value is null)
+                // Census 1.2 and DIALECT C11: the vendor spells "nothing drives it" as the empty Terminator, and an
+                // item holding nothing is what neither IDE would save — not a second spelling of unconditional.
+                throw Unrepresentable("an assign with a null value",
+                    $"a jump or return in network {_net.Order} has a null value; the vendor's unconnected value is an empty Terminator.");
             // The bit lives on the target as well as the item (DIALECT C13); either names the kind.
             var target = a.Targets.Count == 1 ? a.Targets[0] : null;
+            if (target?.Flags is { } tf && !(tf with { Jump = false, Return = false }).IsNone)
+                // Spec, "marker-only shapes": `JMP l` and `RETURN` have no position for a negation, an edge or a
+                // storage bit on their target (census 1.7: 0 negation-only or edge targets), so it cannot ride along.
+                throw Unrepresentable("a flag on a jump or return target",
+                    $"the jump or return target '{target.Text}' in network {_net.Order} carries {Describe(tf with { Jump = false, Return = false })}.");
             var jump = a.Flags.Jump || target?.Flags?.Jump == true;
             var ret = a.Flags.Return || target?.Flags?.Return == true;
             if (jump && ret)
@@ -243,6 +282,8 @@ public static class NextNetworkTextWriter
             string action;
             if (jump)
             {
+                // Any identifier, words of the text included: after `JMP` a word is always the label (the reader
+                // reads it so), and the header's `LABEL:` takes the same names.
                 if (target is null || !NextSpelling.Identifier.IsMatch(target.Text))
                     throw Unrepresentable("a jump with no label",
                         $"a jump in network {_net.Order} names '{target?.Text}', and JMP takes one label.");
@@ -258,16 +299,22 @@ public static class NextNetworkTextWriter
                 action = "RETURN";
             }
 
-            // Unconditional when nothing drives it. Both a null value and the empty Terminator are read as
-            // unconnected here, as v1 did — 0 jumps and 1 conditional RETURN in every corpus leave the vendor's
-            // unconditional shape unmeasured (NetworkModel.Assign).
-            if (a.Value is null or Terminator { Input: null, Flags.IsNone: true }) return action;
+            // Unconditional when nothing drives it: the empty Terminator (DIALECT C11).
+            if (a.Value is Terminator { Input: null, Flags.IsNone: true }) return action;
             return "IF " + Value(a.Value) + " THEN " + action + "; END_IF";
         }
 
         // ── values: one arm per node class ──────────────────────────────────────────────────────────
 
+        /// <summary>A value. A refusal met while writing it records the node as where it was met, unless a node
+        /// below it already did — so a push reports the innermost construct holding the fact.</summary>
         private string Value(Node n)
+        {
+            try { return ValueCore(n); }
+            catch (NextUnrepresentableException e) when (e.At is null) { e.At = n; throw; }
+        }
+
+        private string ValueCore(Node n)
         {
             switch (n)
             {
@@ -342,11 +389,12 @@ public static class NextNetworkTextWriter
             // The ENO slot: output slot 0 of a box that shows EN/ENO (Box.HasEnoSlot, measured), and the ONLY
             // output of an Execute box.
             int? eno = isExecute || b.Enable is not null ? 0 : null;
-            var suffix = consumed ? Suffix(b, eno) : "";
+            var infix = NextSpelling.IsInfix(b);
+            var suffix = consumed ? Suffix(b, eno, infix) : "";
 
             if (isExecute) return Execute(b) + suffix;
 
-            if (NextSpelling.IsInfix(b)) return "(" + string.Join(" " + FbdOperators.TypeToSymbol[b.Type] + " ", b.Inputs.Select(p => Value(p.Value))) + ")";
+            if (infix) return "(" + string.Join(" " + FbdOperators.TypeToSymbol[b.Type] + " ", b.Inputs.Select(p => Value(p.Value))) + ")";
 
             var pins = new List<string>();
             if (b.Enable is not null) pins.Add("EN := " + Value(b.Enable));
@@ -372,21 +420,42 @@ public static class NextNetworkTextWriter
         }
 
         /// <summary>The slot rule on a CONSUMED box: connected by ENO → <c>.ENO</c>; by its main output → no
-        /// suffix; anything else has no spelling. The stored slot is compared as stored: the vendor keeps no main
-        /// output index on an AND/OR box (census 1.6, None on 823), and a consumer of one records none either, so
-        /// null matching null is the main output — a null against a stored index is a slot nobody read.</summary>
-        private string Suffix(Box b, int? eno)
+        /// suffix, read back by <see cref="NextSpelling.MainSlotOfCall"/>; anything that reading would get wrong has
+        /// no spelling. The stored slots are compared as stored — a null against a stored index is a slot nobody
+        /// read, never the main output by convention.</summary>
+        private string Suffix(Box b, int? eno, bool infix)
         {
             var slot = b.ConnectedSlot;
-            if (eno is not null && slot == eno) return ".ENO";
-            // Until census 1.6 shows an enabled box connected by its main output, `.ENO`-less is refused on push
-            // for an enabled box, so the text could not carry the connection back.
             if (eno is not null)
+            {
+                if (slot == eno) return ".ENO";
+                // Until census 1.6 shows an enabled box connected by its main output, `.ENO`-less is refused on
+                // push for an enabled box, so the text could not carry the connection back.
                 throw Unrepresentable("an enabled box connected by a slot other than ENO",
                     $"a consumer of the '{b.Type}' box is connected to its output slot {slot?.ToString() ?? "(not stored)"}; an enabled box is spelled only by `.ENO`.");
+            }
+
+            // A group, and a bit operator's call, read back connected by no stored slot (the vendor keeps no main
+            // output index on AND/OR — census 1.6), so that is the one connection they can carry.
+            if (infix || NextSpelling.MainSlotOfCall(b.Type) is null)
+            {
+                if (slot is not null)
+                    throw Unrepresentable("a bit operator box connected by a stored output slot",
+                        $"a consumer of the '{b.Type}' box is connected to its output slot {slot}, and the text reads a consumed bit operator as connected by none.");
+                return "";
+            }
+
+            if (slot is null)
+                throw Unrepresentable("a consumed box with no stored connection slot",
+                    $"the '{b.Type}' box is consumed and does not record which of its output slots its consumer is connected to.");
             if (slot != b.MainOutputIndex)
                 throw Unrepresentable("a connection by an unspellable output slot",
-                    $"a consumer of the '{b.Type}' box is connected to its output slot {slot?.ToString() ?? "(not stored)"}, which is neither its main output ({b.MainOutputIndex?.ToString() ?? "none"}) nor ENO.");
+                    $"a consumer of the '{b.Type}' box is connected to its output slot {slot}, which is neither its main output ({b.MainOutputIndex?.ToString() ?? "none"}) nor ENO.");
+            if (slot != NextSpelling.MainSlotOfCall(b.Type))
+                // Census 1.6: 3 Lenze call boxes store main output 1. The text reads a main-output connection as
+                // slot 0, so every positional `=>` pin would come back one slot over.
+                throw Unrepresentable("a main output other than slot 0",
+                    $"the '{b.Type}' box's main output is its slot {slot}, and the text reads a box consumed by its main output as connected by slot 0.");
             return "";
         }
 
@@ -437,9 +506,12 @@ public static class NextNetworkTextWriter
         }
 
         /// <summary>The call's head: the FB instance, <c>??? : TYPE</c> for the vendor's unnamed instance, or the
-        /// BoxType verbatim, keywords included.</summary>
-        private static string Head(Box b)
+        /// BoxType verbatim — bare when it is one name that is no word of the text (the operators' own words
+        /// included: <c>NOT</c>, <c>AND</c>), else between backticks.</summary>
+        private string Head(Box b)
         {
+            // A POU of that name would read back as the construct, whether it is called or instantiated.
+            RefuseEdgeWord(b.Type, "a box type");
             if (b.Instance is { } inst)
             {
                 if (inst.Text == Box.UnnamedInstance)
@@ -450,17 +522,21 @@ public static class NextNetworkTextWriter
                     return Box.UnnamedInstance + " : " + b.Type;
                 }
                 RefuseEdgeWord(inst.Text, "an FB instance");
+                // The text does not repeat the FB's type: the reader takes it from the instance's declaration, and
+                // reads a head no declaration names as a FUNCTION of that name. Census 1.12: `SUPER^` (Lenze
+                // ATD_TorqueControl) is declared nowhere.
+                var declared = _scope.InstanceType(inst.Text);
+                if (declared is null)
+                    throw Unrepresentable("an FB instance the declarations do not name",
+                        $"the '{b.Type}' instance '{inst.Text}' is declared by no name in scope, so its call would read back as a function named '{inst.Text}'.");
+                if (!string.Equals(declared, b.Type, StringComparison.Ordinal))
+                    throw Unrepresentable("an FB instance declared with another type",
+                        $"the instance '{inst.Text}' is a '{b.Type}' box and its declaration says '{declared}'.");
                 return Operand(inst.Text, "an FB instance");
             }
-            RefuseEdgeWord(b.Type, "a box type");
-            if (string.Equals(b.Type, "EXECUTE", StringComparison.OrdinalIgnoreCase))
-                throw Unrepresentable("a box type that is a keyword of the text",
-                    $"a box of type '{b.Type}' has no ST snippet and would read back as an Execute box.");
-            // VERBATIM, keywords included (NOT, AND, MOVE): a word followed by `(` is a head, so the operand
-            // rule's keyword backticks do not apply here — only a type that is not one name is backticked.
             if (b.Type.IndexOf('`') >= 0)
                 throw Unrepresentable("operand text containing a backtick", $"the box type '{b.Type}' contains a backtick.");
-            return NextSpelling.Identifier.IsMatch(b.Type) || NextSpelling.Path.IsMatch(b.Type) ? b.Type : "`" + b.Type + "`";
+            return NextSpelling.IsBareHead(b.Type) ? b.Type : "`" + b.Type + "`";
         }
 
         private string Execute(Box b)
@@ -468,13 +544,21 @@ public static class NextNetworkTextWriter
             if (b.Inputs.Count > 0 || b.Outputs.Count > 0 || b.Instance is not null)
                 throw Unrepresentable("an Execute box with pins",
                     $"an Execute box in network {_net.Order} carries pins or an instance beside its ST.");
-            var st = b.StCode!.Replace("\r", "").TrimEnd('\n');
+            // Verbatim, trailing newlines included (each is the empty line it is). Only the CR of a CR LF is the
+            // file's layout rather than the snippet's text; the reader drops a CR at any line's end, so a lone
+            // one there has no spelling.
+            var st = b.StCode!.Replace("\r\n", "\n");
             foreach (var line in st.Split('\n'))
+            {
                 // The body ends at the first line whose first word is END_EXECUTE; a snippet holding one would end
                 // early on the way back.
                 if (Regex.IsMatch(line, @"^\s*END_EXECUTE\b", RegexOptions.IgnoreCase))
                     throw Unrepresentable("a snippet line starting with END_EXECUTE",
                         $"an Execute box in network {_net.Order} holds the line '{line.Trim()}'.");
+                if (line.EndsWith("\r", StringComparison.Ordinal))
+                    throw Unrepresentable("a snippet line ending in a carriage return",
+                        $"an Execute box in network {_net.Order} holds a line ending in a lone carriage return.");
+            }
             // An empty snippet is exactly one empty line between the two keyword lines.
             var head = b.Enable is null ? "EXECUTE" : "EXECUTE(EN := " + Value(b.Enable) + ")";
             return head + "\n" + st + "\n  END_EXECUTE";
@@ -502,6 +586,8 @@ public static class NextNetworkTextWriter
             if (f.Negated) throw Unrepresentable("negated coil", $"the coil '{target.Text}' is negated.");
             if (f.Rising) throw Unrepresentable("rising-edge coil", $"the coil '{target.Text}' is a rising-edge coil.");
             if (f.Falling) throw Unrepresentable("falling-edge coil", $"the coil '{target.Text}' is a falling-edge coil.");
+            if (f.Set && f.Reset)
+                throw Unrepresentable("a coil both set and reset", $"the coil '{target.Text}' carries both the Set and the Reset bit.");
             return f.Reset ? "R=" : f.Set ? "S=" : ":=";
         }
 
@@ -514,44 +600,38 @@ public static class NextNetworkTextWriter
 
         // ── wire types ──────────────────────────────────────────────────────────────────────────────
 
-        /// <summary>The type a wire is declared with, read off its producer: BOOL when the producer is boolean by
-        /// itself, a box's stored output type otherwise. Where the producer says nothing, the type the TEXT declared
-        /// (<see cref="Demux.Type"/> — a body read from the engineer's file) is the type; a pulled wire has none
-        /// and is never guessed. A text-declared type that disagrees with a producer that does say is refused.</summary>
+        /// <summary>The type a wire is declared with, read off its producer by the one rule the reader checks with
+        /// (<see cref="NextSpelling.ProducerType"/>). Where the producer says nothing, the type the TEXT declared
+        /// (<see cref="Demux.Type"/> — a body read from the engineer's file) is the type; a pulled wire has none and
+        /// is never guessed. A bit operator with no stored type is BOOL (spec, "a boolean producer"), or the
+        /// bit-string type the text declared. A declared type the producer contradicts is refused.</summary>
         private string WireType(Demux d)
         {
-            var producer = ProducerType(d.Input!);
-            var type = producer ?? d.Type;
-            if (type is null)
-                throw Unrepresentable("a wire of unknown type",
-                    $"the wire {_names[d.VarId]} in network {_net.Order} is fed by a {d.Input!.GetType().Name} whose type the model does not carry.");
-            if (producer is not null && d.Type is not null && !string.Equals(producer, d.Type, StringComparison.OrdinalIgnoreCase))
-                throw Unrepresentable("a wire typed unlike its producer",
-                    $"the wire {_names[d.VarId]} in network {_net.Order} is declared {d.Type} and its producer is {producer}.");
+            var name = _names[d.VarId];
+            var produced = NextSpelling.ProducerType(d.Input!, d.VarId, _net.Trees, _lang,
+                id => _defined.TryGetValue(id, out var t) ? t : null);
+            string type;
+            if (produced.Exact is { } exact)
+            {
+                if (d.Type is not null && !string.Equals(exact, d.Type, StringComparison.OrdinalIgnoreCase))
+                    throw Unrepresentable("a wire typed unlike its producer",
+                        $"the wire {name} in network {_net.Order} is declared {d.Type} and its producer is {exact}.");
+                type = exact;
+            }
+            else if (produced.AnyBit)
+            {
+                if (d.Type is not null && !NextSpelling.BitStrings.Contains(d.Type))
+                    throw Unrepresentable("a wire typed unlike its producer",
+                        $"the wire {name} in network {_net.Order} is declared {d.Type} and its producer is a bit operator.");
+                type = d.Type ?? NextSpelling.Bool;
+            }
+            else
+                type = d.Type ?? throw Unrepresentable("a wire of unknown type",
+                    $"the wire {name} in network {_net.Order} is fed by a {d.Input!.GetType().Name} whose type the model does not carry.");
             if (type.IndexOfAny(new[] { ';', '\n', '\r' }) >= 0 || type.Trim().Length == 0)
                 throw Unrepresentable("a wire of unspellable type",
-                    $"the wire {_names[d.VarId]} in network {_net.Order} has the type '{type}'.");
+                    $"the wire {name} in network {_net.Order} has the type '{type}'.");
             return type;
-        }
-
-        private string? ProducerType(Node n)
-        {
-            if (n.Flags.Rising || n.Flags.Falling) return NextSpelling.Bool;   // an edge is boolean
-            switch (n)
-            {
-                case Leaf l:
-                    if (string.Equals(l.Operand.Text, "TRUE", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(l.Operand.Text, "FALSE", StringComparison.OrdinalIgnoreCase)) return NextSpelling.Bool;
-                    // In ladder every leaf on a rung is a contact.
-                    return _lang == BodyLanguage.Ld ? NextSpelling.Bool : null;
-                case Parallel: return NextSpelling.Bool;
-                case Demux d: return _defined.TryGetValue(d.VarId, out var t) ? t : null;
-                case Box b:
-                    if (b.StCode is not null || b.Enable is not null) return NextSpelling.Bool;   // consumed by `.ENO`
-                    if (NextSpelling.BooleanBoxes.Contains(b.Type)) return NextSpelling.Bool;
-                    return b.ConnectedSlot is { } s && b.OutputTypes is { } types && s < types.Count ? types[s] : null;
-                default: return null;
-            }
         }
 
         // ── names and operands ──────────────────────────────────────────────────────────────────────
@@ -608,11 +688,7 @@ public static class NextNetworkTextWriter
             }
         }
 
-        // Every identifier-shaped word in the text, not just the whole text: a backticked `g3 + 1` names g3 too.
-        private static void Words(string text, HashSet<string> into)
-        {
-            foreach (Match m in Regex.Matches(text, @"[A-Za-z_][A-Za-z0-9_]*")) into.Add(m.Value);
-        }
+        private static void Words(string text, HashSet<string> into) => into.UnionWith(NextSpelling.Words(text));
 
         private static string Describe(Flags f) =>
             string.Join(" + ", new[]
@@ -622,8 +698,6 @@ public static class NextNetworkTextWriter
                 f.Rising ? "a rising edge" : null, f.Falling ? "a falling edge" : null,
             }.Where(s => s != null));
 
-        private static UnrepresentableBodyException Unrepresentable(string reason, string detail) =>
-            new(reason, "network text has no spelling for " + reason + ": " + detail +
-                        " Volt materializes the body as a marker rather than write it without that fact.");
+        private static NextUnrepresentableException Unrepresentable(string reason, string detail) => new(reason, detail);
     }
 }

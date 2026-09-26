@@ -27,7 +27,7 @@ namespace Volt.Engine.Format.Network;
 ///
 /// <para><b>Record equality is NOT structural.</b> These are records, but their collection members compare by
 /// reference, so <c>==</c> on two equal bodies is false. Compare models through
-/// <see cref="NetworkModelEquality"/>, which walks the lists — the network text v2 oracle checks
+/// the oracle's <c>NetworkModelEquality</c> (test/shared), which walks the lists — the network text v2 oracle checks
 /// <c>Read(Write(m)) ≅ m</c> on MODELS, because a text round trip that is a fixed point can still have lost a
 /// fact the vendor reader filled (a writer arm that drops a flag writes and reads back the same text).</para>
 /// </summary>
@@ -64,13 +64,13 @@ public sealed record Leaf(Operand Operand, Flags Flags) : Node(Flags);
 /// because the vendor's <c>Outputs</c> is one (<c>OutputItemList</c>: <c>AppendOutputItem</c> /
 /// <c>InsertOutputItem</c> / <c>RemoveOutputItem</c>, enumerated through <c>List</c>): one value can be
 /// assigned to several l-values in a single network.
-/// <para><see cref="Value"/> is NULLABLE and <see cref="Targets"/> may be empty, because this record also
-/// carries control flow: with <c>Flags.Jump</c> the target is the destination label and the value is the
-/// (optional) condition; with <c>Flags.Return</c> there is no target at all. An unconditional
-/// <c>RETURN;</c> is therefore <c>Assign(null, [], Flags{Return})</c>. <b>The vendor shape for the
-/// unconditional case is NOT measured</b> — `IFlags` carries the Jump/Return bits, but which item holds them
-/// and what its RValue is when there is no condition has not been seen on a real body. Settle it against a
-/// fixture with a jump before the adapter relies on it.</para></summary>
+/// <para>This record also carries control flow: with <c>Flags.Jump</c> the target is the destination label and
+/// the value is the condition, and a return written by Volt may have no target. <see cref="Value"/> is typed
+/// nullable, but no vendor item holds a null value and network text v2 refuses one by name. An UNCONDITIONAL jump or return is drawn on a rung nothing drives, so its value is the empty
+/// <see cref="Terminator"/> — never null: an item holding nothing is what neither IDE would save (DIALECT C11), and
+/// census 1.2 found the empty Terminator the one representation of "unconnected" (RValue null 0, Terminator 3).
+/// The Jump/Return bit rides on the target operand as well as the item (DIALECT C13); a return's target is the
+/// vendor's constant <c>???</c>.</para></summary>
 public sealed record Assign(Node? Value, IReadOnlyList<Operand> Targets, Flags Flags) : Node(Flags);
 
 /// <summary>A call or operator — <c>BoxTreeBox</c>, the <c>VisitBox</c> arm. Covers every shape the previous

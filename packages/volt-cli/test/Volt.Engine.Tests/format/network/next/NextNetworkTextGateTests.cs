@@ -306,7 +306,56 @@ public class NextNetworkTextGateTests
         var scope = Names("G3");
         var text = NextNetworkTextWriter.Write(
             new NetworkBody(BodyLanguage.Fbd, new[] { NextModels.Net(NextModels.Def(3, NextModels.L("TRUE")), NextModels.Set(NextModels.Ref(3), NextModels.T("out"))) }),
-            scope.Names);
+            scope);
         Accepted(text, scope);
+    }
+    // ── review 2026-09-26 ───────────────────────────────────────────────────────────────────────
+
+    /// <summary>Spec, "a POU named like an edge word": refused by name AT the call, by the reader — a backticked
+    /// head is still the POU's name. (It used to pass the reader and fail in the writer, reported at 1:1 with the
+    /// pull's "materializes the body as a marker" message.)</summary>
+    [Fact]
+    public void A_backticked_head_named_like_a_construct_is_refused_at_the_call()
+    {
+        var d = Refused("NETWORK_UNSUPPORTED", 4, Src("y := x;", "y := `R_EDGE`(x);"));
+        Assert.Equal(8, d.Column);
+        Assert.DoesNotContain("marker", d.Message);
+        Assert.Equal(8, Refused("NETWORK_UNSUPPORTED", 4, Src("y := x;", "y := `Parallel`(x);")).Column);
+    }
+
+    /// <summary>A POU whose NAME is a keyword that is no construct (EXECUTE, NETWORK) is called with a backticked
+    /// head, and reads back as that box type.</summary>
+    [Fact]
+    public void A_backticked_keyword_head_is_a_box_type() =>
+        Accepted(Src("y := `EXECUTE`(x);", "`Network`(x, => z);"));
+
+    /// <summary>Gate requirement: whitespace is significant only inside backticks, TITLE, comments and EXECUTE —
+    /// so a comparison against a variable named R or S reads the same with or without spaces, and a storage
+    /// operator does too.</summary>
+    [Fact]
+    public void Spacing_does_not_decide_a_storage_operator()
+    {
+        Accepted(Src("out := (R=x);"));
+        Accepted(Src("out := (S = x);"));
+        Accepted(Src("x S = a;"));
+        Accepted(Src("x :=", "y R =a;"));
+    }
+
+    /// <summary>Task 1.17: in ladder a leaf wire whose every use is boolean (a coil) is BOOL, so another declared
+    /// type is refused by name — the same rule the writer declares with.</summary>
+    [Fact]
+    public void A_ladder_leaf_wire_used_only_as_a_contact_is_BOOL()
+    {
+        var d = Refused("NETWORK_BAD_EXPRESSION", 3,
+            "(* @volt-implementation LD *)\nNETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := x;\n  o := g1;\nEND_NETWORK\n", lang: BodyLanguage.Ld);
+        Assert.Contains("BOOL", d.Message);
+    }
+
+    /// <summary>A bit operator's wire is BOOL or another bit-string type; a numeric type is refused, naming both.</summary>
+    [Fact]
+    public void A_bit_operator_wire_accepts_a_bit_string_type()
+    {
+        Accepted(Src("VAR_TEMP g5 : WORD; END_VAR", "g5 := (w1 AND w2);", "o := g5;"));
+        Assert.Contains("BOOL", Refused("NETWORK_BAD_EXPRESSION", 3, Src("VAR_TEMP g5 : REAL; END_VAR", "g5 := (w1 AND w2);", "o := g5;")).Message);
     }
 }

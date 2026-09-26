@@ -1,9 +1,12 @@
 using System.Collections.Generic;
+using Volt.Engine.Format.Network;
+using Parallel = Volt.Engine.Format.Network.Parallel;
 
-namespace Volt.Engine.Format.Network;
+namespace Volt.Tests.Shared;
 
 /// <summary>
-/// STRUCTURAL equality for <see cref="NetworkBody"/> models — the oracle's "model A equals model B".
+/// STRUCTURAL equality for <see cref="NetworkBody"/> models — the oracle's "model A equals model B". Test code:
+/// only the oracle compares models, so it ships in no product (compiled into each suite that runs the oracle).
 ///
 /// <para><b>Why this exists.</b> The model is records, but its members are <c>IReadOnlyList&lt;T&gt;</c>, and a
 /// record compares a list by REFERENCE: two bodies built from the same vendor network are never <c>==</c>. v1

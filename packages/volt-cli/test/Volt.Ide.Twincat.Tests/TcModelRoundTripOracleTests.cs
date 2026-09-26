@@ -69,8 +69,11 @@ public class TcModelRoundTripOracleTests
         Assert.Equal(new Dictionary<string, string> { ["ExecuteBox.derived.TcPOU#0"] = "EXECUTE" }, Archives.Value.ReaderRefused);
         NextModelOracle.AssertTally("TwinCAT archives",
             Archives.Value.Read.Select(kv => NextModelOracle.Check(kv.Key, kv.Value)),
-            bodies: 13, networks: 21, refused: new Dictionary<string, int>
+            bodies: 11, networks: 15, refused: new Dictionary<string, int>
             {
+                // execute-box, ladder-demux: a consumed call, and TcNetworkReader does not read which output slot
+                // its consumer is connected to yet (task 3.10). The text would read slot 0; null is no default.
+                ["a consumed box with no stored connection slot"] = 2,
                 // The rung drawn by hand to hold a coil and a jump on one assign (UnspellableCoilTests): marker-only.
                 ["a rung driving a coil and a jump together"] = 1,
             });

@@ -51,12 +51,53 @@ public class ModelRoundTripOracleTests
     public void Every_v1_test_text_round_trips_or_is_refused_by_name(string id) =>
         NextModelOracle.Check(id, V1Texts.Value.Read[id]);
 
+    /// <summary>Every literal the harvest finds and the v1 reader CANNOT read is named here, so the oracle cannot
+    /// shrink silently: a literal mis-harvested, or a v1 regression, is a new name on this list and fails.</summary>
+    [Fact]
+    public void V1_test_texts_the_v1_reader_refuses_are_pinned()
+    {
+        var expected = new[]
+        {
+            // Diagnostics tests: v1 text that is bad on purpose.
+            "Volt.Engine.Tests/format/network/MetadataPlacementTests.cs#2",   // two LABELs on one header
+            "Volt.Engine.Tests/format/network/MetadataPlacementTests.cs#3",   // a `Later:` label line
+            "Volt.Engine.Tests/format/network/NetworkTextDiagnosticsTests.cs#1",
+            "Volt.Engine.Tests/format/network/NetworkTextDiagnosticsTests.cs#2",
+            "Volt.Engine.Tests/format/network/NetworkTextDiagnosticsTests.cs#3",
+            "Volt.Engine.Tests/format/network/NetworkTextDiagnosticsTests.cs#4",
+            "Volt.Engine.Tests/format/network/NetworkTextDiagnosticsTests.cs#5",
+            "Volt.Engine.Tests/format/network/NetworkTextDiagnosticsTests.cs#6",
+            "Volt.Engine.Tests/format/network/NetworkTextDiagnosticsTests.cs#7",
+            "Volt.Engine.Tests/format/network/NetworkTextDiagnosticsTests.cs#8",
+            "Volt.Engine.Tests/format/network/NetworkTextDiagnosticsTests.cs#9",
+            "Volt.Engine.Tests/format/network/NetworkTextDiagnosticsTests.cs#10",
+            "Volt.Engine.Tests/format/network/NetworkTextDiagnosticsTests.cs#11",
+            "Volt.Engine.Tests/format/network/NetworkTextDiagnosticsTests.cs#12",
+            "Volt.Engine.Tests/format/network/NetworkTextDiagnosticsTests.cs#13",
+            "Volt.Engine.Tests/format/st/ChildDirectiveTests.cs#3",           // a VAR_TEMP block, which v1 refuses
+            // Fragments: the test builds the rest of the body in code (a variable, an interpolation), which a
+            // literal harvest cannot see — the literal alone has no END_NETWORK.
+            "Volt.Engine.Tests/format/network/NetworkTextRoundTripTests.cs#55",
+            "Volt.Engine.Tests/format/st/ChildDirectiveTests.cs#2",
+            "Volt.Engine.Tests/sync/PouMergeWriteTests.cs#2",
+            "Volt.Engine.Tests/sync/PushServiceTests.cs#1",
+            "Volt.Engine.Tests/sync/RenameBeforeWriteTests.cs#1",            // a POU text: END_PROGRAM, no END_NETWORK
+            "Volt.Ide.Twincat.Tests/TcPlcOpenWriterTests.cs#1",
+            "Volt.Ide.Twincat.Tests/TcSharedFormatTests.cs#1",
+        };
+        Assert.True(expected.OrderBy(x => x, StringComparer.Ordinal).SequenceEqual(V1Texts.Value.Unreadable.OrderBy(x => x, StringComparer.Ordinal)),
+            "the v1 reader refuses a different set of harvested literals:\n" + string.Join("\n", V1Texts.Value.Unreadable));
+    }
+
     [Fact]
     public void V1_test_texts_tally() =>
         NextModelOracle.AssertTally("v1 test texts",
             V1Texts.Value.Read.Select(kv => NextModelOracle.Check(kv.Key, kv.Value)),
-            bodies: 67, networks: 69, refused: new Dictionary<string, int>
+            bodies: 64, networks: 66, refused: new Dictionary<string, int>
             {
+                // v1 never read which output slot a consumer is connected to (task 3.10 fills it), so a consumed
+                // call has no ConnectedSlot: the text would read one (slot 0), and null is no default.
+                ["a consumed box with no stored connection slot"] = 3,
                 // v1 text spells an enabled box's rung continuing as the `en` echo, and v1 never read which output
                 // slot that consumer is connected to — ENO or main — so the model has no ConnectedSlot to spell.
                 ["an enabled box connected by a slot other than ENO"] = 11,
@@ -82,9 +123,13 @@ public class ModelRoundTripOracleTests
             V1BuiltModels.Select(kv => NextModelOracle.Check(kv.Key, kv.Value)),
             bodies: 15, networks: 15, refused: new Dictionary<string, int>
             {
-                // The v1 tests hand a DEFINING Demux object to its consumers (FanOutShape x2) or bury one under a
-                // Parallel (UnspellableCoil); the vendor defines a wire at the top level only (census 1.8).
-                ["a Demux definition below the top level"] = 3,
+                // The v1 tests bury a defining Demux under a Parallel (UnspellableCoil); the vendor defines a wire
+                // at the top level only (census 1.8).
+                ["a Demux definition below the top level"] = 1,
+                // FanOutShape x2 hand the DEFINING Demux object to its consumers, so the wire has no reference at
+                // all: its leaf producer (`a`, in ladder) is boolean only by its uses (task 1.17), and there are none
+                // — refused at the definition, before the nested definitions are reached.
+                ["a wire of unknown type"] = 2,
                 ["a return with a named target"] = 1,                   // CoilAssign/return: a Return bit on `out`
                 ["a rung driving a coil and a jump together"] = 4,      // marker-only (spec)
                 ["a rung driving several jumps"] = 1,                   // marker-only (spec)
@@ -117,10 +162,11 @@ public class ModelRoundTripOracleTests
         Assert.True(Corpus.Value.Unreadable.Count == 0, "v1 cannot read: " + string.Join("\n", Corpus.Value.Unreadable));
         NextModelOracle.AssertTally("corpus",
             Corpus.Value.Read.Select(kv => NextModelOracle.Check(kv.Key, kv.Value)),
-            bodies: 18, networks: 75, refused: new Dictionary<string, int>
+            bodies: 13, networks: 34, refused: new Dictionary<string, int>
             {
-                ["a wire of unknown type"] = 1,                                  // a data wire, no OutputTypes in v1
-                ["an enabled box connected by a slot other than ENO"] = 23,      // no ConnectedSlot in v1
+                ["a consumed box with no stored connection slot"] = 13,          // no ConnectedSlot in v1 (task 3.10)
+                ["an FB instance the declarations do not name"] = 1,             // census 1.12: SUPER^, ATD_TorqueControl
+                ["an enabled box connected by a slot other than ENO"] = 15,      // no ConnectedSlot in v1
             });
     }
 
@@ -147,12 +193,16 @@ public class ModelRoundTripOracleTests
     public void Corpus_network_tally() =>
         NextModelOracle.AssertTally("corpus networks",
             CorpusNetworks.Value.Select(kv => NextModelOracle.Check(kv.Key, kv.Value)),
-            bodies: 298, networks: 298, refused: new Dictionary<string, int>
+            bodies: 206, networks: 206, refused: new Dictionary<string, int>
             {
-                // A wire fed by a data producer (census 1.17: FB/function outputs, 11 in Lenze): its type is the
-                // box's output type, which v1 text never carried — never guessed.
-                ["a wire of unknown type"] = 14,
-                ["an enabled box connected by a slot other than ENO"] = 66,
+                // v1 never read a consumer's connection slot (task 3.10 fills it): a consumed call's positional
+                // outputs would be placed by a slot the model does not have.
+                ["a consumed box with no stored connection slot"] = 108,
+                // A wire fed by a data producer (census 1.17: FB/function outputs, 11 in Lenze) or by a ladder leaf
+                // not every use of which is boolean: its type is never guessed, and v1 carried no output types.
+                ["a wire of unknown type"] = 6,
+                ["an FB instance the declarations do not name"] = 1,             // census 1.12: SUPER^
+                ["an enabled box connected by a slot other than ENO"] = 57,
             });
 
     // ── harvesting ──────────────────────────────────────────────────────────────────────────────────
@@ -193,7 +243,7 @@ public class ModelRoundTripOracleTests
                 if (NetworkSpan(lit) is not { } span || !seen.Add(span)) continue;
                 var id = $"{rel}#{++n}";
                 try { read[id] = NetworkTextReader.Parse(span); }
-                catch (Exception) { unreadable.Add(id); }   // a v1 diagnostics test's deliberately bad text
+                catch (Exception) { unreadable.Add(id); }   // pinned, by name: V1_test_texts_the_v1_reader_refuses_are_pinned
             }
         }
         return (read, unreadable);

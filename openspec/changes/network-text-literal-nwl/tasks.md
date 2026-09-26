@@ -79,8 +79,10 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
   unflagged): Lenze `call_FirstErrorCapture_FB` (3), pro2193 `SetAlarm` (3). The reader dropped them — inverted logic
   pulled into git (Lenze `FirstErrorCapture.prg:83` shows `fbFirstErrCapture.xIsWarningInfo` plain). **Hotfixed in v1**:
   both vendors refuse a pin flag by name (`CodesysNetworkReader.RefusePinFlags`, `TcNetworkReader.ReadInputs`), tests
-  `A_negation_on_a_box_input_pin_is_refused_by_name_not_dropped`, `TcPinFlagTests`. v2 MUST spell pin flags (the
-  `f(NOT IN1 := x)` form; for an operator box's unnamed pin a positional spelling is still to decide) — 1.10 is cancelled.
+  `A_negation_on_a_box_input_pin_is_refused_by_name_not_dropped`, `TcPinFlagTests`. 1.10 is cancelled. **Owner
+  decision 2026-09-26 (phase 1): v2 spells NO pin flag yet** — the writer refuses one by name ("a flag on a box input
+  pin"), so it reaches the marker, never the floor; a spelling (`f(NOT IN1 := x)`, and one for an operator box's unnamed
+  pin) is its own decision.
 - **1.17** Wires by producer (Lenze 139): boolean **124** (AND 48, OR 5, TRUE/FALSE 51, variable 17, R_TRIG 3), FB/function
   outputs **11** (Alarms_V5 ×6, fc_CamC_CP_UDT ×2, Dryer, MOVE, ADD), fed by nothing **4** (`Terminator`) → BOOL-by-producer
   covers 124; the 11 need the FB/function declaration's output type (or the marker); the 4 need `g := ;`.
@@ -175,7 +177,8 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       `NETWORK_NOT_CANONICAL` now reports a token difference only. The wire type is checked against the producer.
 - [ ] 3.5 v1 text (`LET`, `NETWORK <n> <LANG>`) → `NETWORK_PARSE` naming "re-pull"; drop `NETWORK_DUPLICATE_NETWORK`.
 - [ ] 3.6 Refuse by name (review 7.8): a backtick inside backticked text; a POU or instance named `PARALLEL`,
-      `R_EDGE` or `F_EDGE`; nested edges; a flag on an empty slot; a non-default `Parallel.Mode`.
+      `R_EDGE` or `F_EDGE` (a backticked head too); nested edges; a flag on an empty slot; an unmeasured
+      `Parallel.Mode` (owner decision: `Sequential` is carried as `MODE := Sequential`).
 - [ ] 3.7 Groups 2.2–2.14 green; `NetworkTextRoundTripTests` convergence cases rewritten to v2 input.
 - [ ] 3.8 Layout after push: the CLI records the IDE's re-materialized (canonical) text as `volt/ide` and brings the
       working tree to it; a black-box CLI test pushes a hand-wrapped call and asserts the next pull reports nothing.

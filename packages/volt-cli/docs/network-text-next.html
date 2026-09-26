@@ -65,9 +65,10 @@
   <li><b>Pull never throws.</b> Anything the writer cannot spell sends the body to the existing marker; push refuses
     by name. Unmeasured vendor facts (pin flags, item flags, nested Demux) are routed there until a census speaks.</li>
   <li><b>Wires are declared in a per-network <code>VAR_TEMP … END_VAR</code></b> below the header and comments, not in
-    a header field — ordinary ST declarations the LSP hovers like any other. <b>Type: <code>BOOL</code> when the
-    producer is boolean</b>, one rule for FBD and LD; a data-valued wire goes to the marker until type inference
-    exists. Rejected: a pseudo-type <code>WIRE</code> (lossless, but not compilable ST) and a writer-inferred data
+    a header field — ordinary ST declarations the LSP hovers like any other. <b>Type: read off the producer</b>, one
+    rule for FBD and LD and for writer and reader: the vendor's stored output type where it has one, else
+    <code>BOOL</code> for a boolean producer; a wire whose type nothing says goes to the marker, never guessed.
+    Rejected: a pseudo-type <code>WIRE</code> (lossless, but not compilable ST) and a writer-inferred data
     type (needs POU and library declarations the writer lacks, and NWL has no field to keep it).</li>
 </ol>
 
@@ -209,16 +210,16 @@ marker     = "(* @volt-implementation" , ( "FBD" | "LD" ) , "*)" ;
 network    = header , NL , { comment } , [ wires ] , { statement } , "END_NETWORK" ;
 header     = "NETWORK" , [ "LABEL:" , name ] , [ "TITLE:" , title ] , [ "DISABLED" ] ;   (* ends at its newline *)
 wires      = "VAR_TEMP" , decl , { decl } , "END_VAR" , [ ";" ] ;       (* one per network, if it has a Demux *)
-decl       = wire , { "," , wire } , ":" , "BOOL" , ";" ;           (* data wires: census 1.17 *)
-title      = '"' , { char - '"' - NL | '""' } , '"' ;
+decl       = wire , { "," , wire } , ":" , type , ";" ;             (* type read off the producer *)
+title      = '"' , { char - '"' - "$" - NL | "$N" | "$R" | '$"' | "$$" } , '"' ;   (* ST's string escapes *)
 comment    = "//" , { char - NL } , NL ;                            (* ends at its newline *)
 wire       = "g" , digit , { digit } ;
 
 statement  = ( assign | jump | cond | value ) , ";" ;               (* ONE per NWL item *)
 cond       = "IF" , value , "THEN" , jump , ";" , "END_IF" ;
 assign     = lvalue , op , { lvalue , op } , value ;                 (* a lone wire target = Demux *)
-op         = ":=" | "S=" | "R=" ;
-jump       = "JMP" , name | "RETURN" ;
+op         = ":=" | "S=" | "R=" ;                                 (* "S =" is "S=" after a target *)
+jump       = "JMP" , name | "RETURN" ;                               (* any identifier after JMP is the label *)
 
 value      = [ "NOT" ] , ( edge | core ) | (* empty *) ;
 edge       = ( "R_EDGE" | "F_EDGE" ) , "(" , core , ")" ;          (* a flag, not an FB *)
@@ -228,7 +229,7 @@ call       = [ "???" , ":" ] , head , "(" , [ pin , { "," , pin } ] , ")" ;  (* 
 head       = boxtype | name | backtick ;                             (* NOT(…) is the NOT box *)
 pin        = [ name , ":=" ] , value | [ name ] , "=&gt;" , [ lvalue ] ;
 execute    = "EXECUTE" , [ "(" , "EN" , ":=" , value , ")" ] , NL , st-lines , "END_EXECUTE" ;
-parallel   = "PARALLEL" , "(" , [ "IN" , ":=" , value , "," ] , value , { "," , value } , ")" ;
+parallel   = "PARALLEL" , "(" , [ "MODE" , ":=" , mode , "," ] , [ "IN" , ":=" , value , "," ] , value , { "," , value } , ")" ;   (* MODE only off its default *)
 operand    = token | backtick ;
 lvalue     = token | backtick ;
 backtick   = "`" , { char - "`" } , "`" ;
@@ -240,11 +241,17 @@ operator   = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
     nothing is the empty item, written on its own line.</li>
   <li><b>Parentheses are structural:</b> a pair is a group's (it holds an operator) or a call's (it follows a head).
     After <code>NOT</code>, a pair holding an operator is a group under the modifier; any other pair is the NOT box's
-    argument list. A pair that is neither is refused.</li>
-  <li><b>Call heads:</b> an operator or function box's head is its <code>BoxType</code> verbatim, keywords included
-    (<code>ADD</code>, <code>MOVE</code>, <code>AND</code>, <code>GE</code>, <code>MAX</code>, <code>NOT</code>). An FB
-    box's head is its instance; an instance whose text is not a token (<code>fbs[1]</code>) is backticked:
-    <code>`fbs[1]`(IN := a)</code>.</li>
+    argument list. After an operator word (<code>AND</code>, <code>MOD</code>, …) the same: a pair holding an operator
+    at its own depth is a group, so the word was the operator after an empty slot (<code>( AND (x OR y))</code>); any
+    other pair is the word's argument list (<code>AND(EN := go, a, b)</code>). Spacing plays no part. A pair that is
+    neither is refused.</li>
+  <li><b>Call heads:</b> an operator or function box's head is its <code>BoxType</code> verbatim — bare when it is one
+    name and no word of the text other than the operators' own (<code>ADD</code>, <code>MOVE</code>, <code>AND</code>,
+    <code>GE</code>, <code>MAX</code>, <code>NOT</code>), else between backticks (a POU named <code>Network</code> is
+    called <code>`Network`(x)</code>). An operator type spelled otherwise than the table (<code>and</code>) keeps its
+    spelling in call form, never infix. An FB box's head is its instance; an instance whose text is not a token
+    (<code>fbs[1]</code>) is backticked: <code>`fbs[1]`(IN := a)</code>. The FB's type is taken from the instance's
+    declaration, so an instance no declaration names (<code>SUPER^</code>, census 1.12) goes to the marker.</li>
   <li><b>lvalue:</b> an assign target or a <code>=&gt; v</code> pin is a token or a backtick, by the same rule as an
     operand (<code>`arr[i + 1]` := x;</code>, <code>`a .b` := x;</code>). <code>=&gt;</code> with no lvalue is an output
     slot connected to nothing.</li>
@@ -262,7 +269,10 @@ operator   = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
   <code>NETWORK</code> at a line start outside an EXECUTE body (<code>NetworkState := 1;</code> is not one). So a line
   after <code>NETWORK</code> that starts <code>DISABLED :=</code>, <code>TITLE :=</code> or <code>LABEL :=</code> is a
   statement, never a header field. Elsewhere, whitespace and newlines are layout — except
-  inside backticks, TITLE strings, comments and EXECUTE bodies. The operator table is unchanged
+  inside backticks, TITLE strings, comments and EXECUTE bodies. <code>S=</code> / <code>R=</code> are the word and
+  <code>=</code>, so <code>x S = a;</code> is <code>x S= a;</code> and <code>(R=x)</code> compares a variable
+  <code>R</code>: after a target the pair is the storage operator, inside a group it is a comparison. A CR LF line
+  ending is layout everywhere, in a comment and an EXECUTE body included. The operator table is unchanged
   (<code>FbdOperators.cs</code>).
 </p>
 <p>
@@ -324,13 +334,15 @@ END_NETWORK</pre>
   order and never reorders; a vendor order that references a wire before defining it goes to the marker.
 </p>
 <p>
-  <b>The type comes from the producer</b>, one rule for FBD and LD. The Demux holds no type, so the text may not
-  invent one. A producer that is boolean by itself — a contact or operand used as a boolean, AND/OR/XOR/NOT, a
-  comparison, <code>TRUE</code>/<code>FALSE</code>, an edge, <code>.ENO</code>, <code>PARALLEL</code> — makes the wire
-  <code>BOOL</code>, decided from the item alone. A data producer (<code>g1 := ADD(a, b);</code> fanned out to two
-  comparisons, a non-boolean leaf) needs declarations the writer does not have: it goes to the marker, never guessed,
-  until census 1.17 shows it occurs and type inference exists. The gate checks a hand-edited type against the
-  producer and refuses a mismatch by name — the IDE has no field that would keep it.
+  <b>The type comes from the producer</b>, one rule for FBD and LD, applied by the writer to declare and by the reader
+  to check. The Demux holds no type, so the text may not invent one. The vendor's stored output type of the connected
+  slot comes first (a bitwise AND on WORDs is a WORD). Otherwise <code>BOOL</code>: a comparison,
+  <code>TRUE</code>/<code>FALSE</code>, an edge, <code>.ENO</code>, <code>PARALLEL</code>, an AND/OR/XOR/NOT box (BOOL or
+  the bit-string type the text declares), and a leaf whose EVERY use is boolean — an EN, a PARALLEL, a jump condition,
+  an edge on the reference, and in ladder a coil or contact (task 1.17). A leaf feeding a data pin, and a data box with
+  no stored type, say nothing: the wire goes to the marker on pull, never guessed, and a hand-written declaration is
+  taken as written. The gate checks a declared type against what the producer says and refuses a mismatch by name —
+  the IDE has no field that would keep it.
 </p>
 <table>
   <tr><th>wire misuse</th><th>code</th></tr>
@@ -361,7 +373,9 @@ GetTime();</pre>
 <p>
   An FB call with named input and output pins [create-shapes.test.ts, RoundTrip L38]; a function with a named output
   pin, assigned [RoundTrip L40]; a named function box [parity-fixes.test.ts L88]; a top-level box with no input slot.
-  The FB's type comes from the instance's declaration.
+  The FB's type comes from the instance's declaration — so the writer and the reader resolve an instance through the
+  same declarations, and an instance they do not name (<code>SUPER^</code>) goes to the marker rather than read back
+  as a function.
 </p>
 
 <h3 id="unnamed-instance">Unnamed instances and <code>???</code></h3>
@@ -439,6 +453,10 @@ GT(EN := SUB(EN := rung, light, deviation, =&gt; diff).ENO, sensor, diff, =&gt; 
   <li>ENO is never an <code>=&gt;</code> slot. It is only ever <code>.ENO</code>.</li>
   <li>A consumed box connected by its main output (<code>MainOutputIndex</code>) has no suffix; connected by ENO it says
     <code>.ENO</code>. Any other connection slot goes to the marker until census 1.6 finds one.</li>
+  <li>The text does not say WHICH slot the main output is, so it reads it by rule: slot 0, and for an AND/OR/XOR/NOT
+    box (which the vendor stores no main output index for — census 1.6) no stored slot. A box the rule would misread
+    goes to the marker: a main output stored as another slot (1 on 3 Lenze call boxes), or a consumed box whose
+    connection slot was never read. Renumbering its pins instead would wire them to other slots on push.</li>
   <li>Positional <code>=&gt; v</code> pins fill the remaining output slots in order, skipping the connected one. A named
     <code>F =&gt; v</code> goes to slot F.</li>
   <li>Until 1.6 shows an enabled box connected by its main output, a consumed box with EN must say <code>.ENO</code>,
@@ -506,8 +524,9 @@ x := 1;
   An Execute box with ST [refused-shapes.test.ts, roundtrip.test.ts]; the empty body, whose canonical form is exactly
   one empty line between the <code>EXECUTE</code> line and the <code>END_EXECUTE</code> line, as the e2e pins it; and an
   Execute box whose ENO continues the rung — the value form, which v1's IF-en form and en echo could express and v2
-  must not lose. The ST lines are verbatim; the indentation of the <code>END_EXECUTE</code> line is layout. A snippet
-  holding a line whose first word is <code>END_EXECUTE</code> goes to the marker.
+  must not lose. The ST lines are verbatim, a trailing newline included (it is the empty line it is); the
+  indentation of the <code>END_EXECUTE</code> line and the CR of a CR LF are layout. A snippet holding a line whose
+  first word is <code>END_EXECUTE</code>, or a line ending in a lone CR, goes to the marker.
 </p>
 
 <h3 id="opaque">Backticked operands</h3>

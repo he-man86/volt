@@ -54,8 +54,11 @@
     /// equivalent pre-scan to run, so the same body that gives a TwinCAT engineer a marker removed the whole
     /// CODESYS POU — declaration, body and every sibling method. Catching a MESSAGE would close that hole and
     /// re-open it the first time somebody rephrased the sentence.</para>
+    ///
+    /// <para>Not sealed for one reason: network text v2's writer throws a subtype that also says WHERE it met the
+    /// fact (<c>NextUnrepresentableException</c>), so a push can report it at its span. Every catch stays on this type.</para>
     /// </summary>
-    public sealed class UnrepresentableBodyException : System.NotSupportedException
+    public class UnrepresentableBodyException : System.NotSupportedException
     {
         /// <summary>The marker the driver should materialize instead — e.g. <c>EXECUTE</c>.</summary>
         public string Marker { get; }

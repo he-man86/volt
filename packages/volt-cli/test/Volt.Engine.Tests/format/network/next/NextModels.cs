@@ -83,7 +83,6 @@ internal static class NextModels
         Add("backtick.typed-call", Body(Fb("fb", new[] { In(L("fc_dinttotime(T.Start,2)"), "P") })));
         Add("backtick.lvalue-index", Body(Set(L("x"), T("arr[i + 1]"))));
         Add("backtick.lvalue-space", Body(Set(L("x"), T("a .b"))));
-        Add("backtick.head", Body(Fb("fbs[1]", new[] { In(L("a"), "IN") })));
         Add("tokens.bare", Body(Set(Op("OR", Op("AND", L("s.f"), L("T#1S")), L("???")), T("out"))));
         Add("infix.nested", Body(Set(Op("OR", Op("AND", L("a"), L("b")), L("c")), T("out"))));
         Add("not.modifier", Body(Set(L("a", Neg), T("out"))));
@@ -131,9 +130,9 @@ internal static class NextModels
         {
             Net(new Assign(L("a"), new[] { T("Done", JumpBit) }, JumpBit)),
             new Network(1, null, "Done", null, false, new Node[] { Set(L("a"), T("out")) }),
-            Net(new Assign(null, new[] { T("Done", JumpBit) }, JumpBit)),
+            Net(new Assign(Empty, new[] { T("Done", JumpBit) }, JumpBit)),
             Net(new Assign(L("a"), new Operand[0], ReturnBit)),
-            Net(new Assign(null, new Operand[0], ReturnBit)),
+            Net(new Assign(Empty, new Operand[0], ReturnBit)),
         }));
         Add("wires.mach1-n0", Body(new Network(0, "DONE Network 1: Activating/deactivating MID-S/Trayfiller", null, null, false, new Node[]
         {

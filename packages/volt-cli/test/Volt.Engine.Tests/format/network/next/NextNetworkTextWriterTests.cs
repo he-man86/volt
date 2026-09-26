@@ -53,8 +53,13 @@ public class NextNetworkTextWriterTests
 
     static Network Net(params Node[] trees) => new(0, null, null, null, false, trees);
 
-    static string Write(Network net, BodyLanguage lang = BodyLanguage.Fbd, params string[] scope) =>
-        NextNetworkTextWriter.Write(new NetworkBody(lang, new[] { net }), scope);
+    /// <summary>Write one network against a scope declaring <paramref name="names"/> and the body's own FB
+    /// instances — every instance these goldens call is one a POU declares (<see cref="NextModelOracle.Instances"/>).</summary>
+    static string Write(Network net, BodyLanguage lang = BodyLanguage.Fbd, params string[] names)
+    {
+        var body = new NetworkBody(lang, new[] { net });
+        return NextNetworkTextWriter.Write(body, new NextNetworkScope(names, NextModelOracle.Instances(body)));
+    }
 
     static string Write(Node tree, BodyLanguage lang = BodyLanguage.Fbd) => Write(Net(tree), lang);
 
@@ -66,7 +71,7 @@ public class NextNetworkTextWriterTests
         Fbd + "NETWORK\n" + string.Concat(lines.Select(l => "  " + l + "\n")) + "END_NETWORK\n";
 
     static UnrepresentableBodyException Refused(Func<string> write) =>
-        Assert.Throws<UnrepresentableBodyException>(() => write());
+        Assert.ThrowsAny<UnrepresentableBodyException>(() => write());   // the v2 refusal is a subtype that also says where
 
     // ── the body marker and the Network item ────────────────────────────────────────────────────
 
@@ -154,13 +159,16 @@ public class NextNetworkTextWriterTests
     }
 
     /// <summary>Grammar: an lvalue is a token or a backtick (<c>`arr[i + 1]` := x;</c>, <c>`a .b` := x;</c>),
-    /// and an instance that is not a token is a backticked call head (<c>`fbs[1]`(IN := a)</c>).</summary>
+    /// and an instance that is not a token is a backticked call head (<c>`fbs[1]`(IN := a)</c>) — where the
+    /// declarations name it, since the text takes an FB's type from there.</summary>
     [Fact]
     public void Lvalues_and_call_heads_are_backticked_by_the_same_rule()
     {
         Assert.Equal(Body("`arr[i + 1]` := x;"), Write(Set(L("x"), T("arr[i + 1]"))));
         Assert.Equal(Body("`a .b` := x;"), Write(Set(L("x"), T("a .b"))));
-        Assert.Equal(Body("`fbs[1]`(IN := a);"), Write(Fb("fbs[1]", new[] { In(L("a"), "IN") })));
+        Assert.Equal(Body("`fbs[1]`(IN := a);"), NextNetworkTextWriter.Write(
+            new NetworkBody(BodyLanguage.Fbd, new[] { Net(Fb("fbs[1]", new[] { In(L("a"), "IN") })) }),
+            new NextNetworkScope(new[] { "a" }, new Dictionary<string, string> { ["fbs[1]"] = "FB" })));
     }
 
     [Fact]
@@ -412,7 +420,8 @@ public class NextNetworkTextWriterTests
 
     // ── Jump and Return ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>Page, "LABEL, JMP and RETURN" — the five networks.</summary>
+    /// <summary>Page, "LABEL, JMP and RETURN" — the five networks. Unconditional is the empty Terminator
+    /// (census 1.2, DIALECT C11).</summary>
     [Fact]
     public void Labels_jumps_and_returns()
     {
@@ -422,9 +431,9 @@ public class NextNetworkTextWriterTests
         {
             Net(new Assign(L("a"), new[] { T("Done", jumpBit) }, jumpBit)),
             new Network(1, null, "Done", null, false, new Node[] { Set(L("a"), T("out")) }),
-            Net(new Assign(null, new[] { T("Done", jumpBit) }, jumpBit)),
+            Net(new Assign(Empty, new[] { T("Done", jumpBit) }, jumpBit)),
             Net(new Assign(L("a"), new Operand[0], returnBit)),
-            Net(new Assign(null, new Operand[0], returnBit)),
+            Net(new Assign(Empty, new Operand[0], returnBit)),
         });
         Assert.Equal(
             Fbd +
@@ -433,7 +442,7 @@ public class NextNetworkTextWriterTests
             "NETWORK\n  JMP Done;\nEND_NETWORK\n" +
             "NETWORK\n  IF a THEN RETURN; END_IF;\nEND_NETWORK\n" +
             "NETWORK\n  RETURN;\nEND_NETWORK\n",
-            NextNetworkTextWriter.Write(body, Array.Empty<string>()));
+            NextNetworkTextWriter.Write(body, NextNetworkScope.Empty));
     }
 
     /// <summary>Spec, "marker-only shapes": a rung with several control-flow targets.</summary>
@@ -574,5 +583,144 @@ public class NextNetworkTextWriterTests
     {
         Assert.Equal("a POU or instance named R_EDGE", Refused(() => Write(Call("R_EDGE", new[] { In(L("x")) }))).Marker);
         Assert.Equal("a POU or instance named PARALLEL", Refused(() => Write(Fb("parallel", new[] { In(L("x"), "IN") }))).Marker);
+    }
+    // ── review 2026-09-26: facts the text cannot carry are refused by name, never dropped ──────
+
+    /// <summary>Spec, "marker-only shapes": a jump or return TARGET with a Negation or edge bit (or any other
+    /// flag than its own Jump/Return) goes to the marker. <c>JMP Done</c> and <c>RETURN</c> have nowhere to put it.</summary>
+    [Fact]
+    public void A_flag_on_a_jump_or_return_target_goes_to_the_marker()
+    {
+        var jump = Flags.None with { Jump = true };
+        var ret = Flags.None with { Return = true };
+        Assert.Equal("a flag on a jump or return target",
+            Refused(() => Write(new Assign(L("c"), new[] { T("Done", jump with { Negated = true }) }, jump))).Marker);
+        Assert.Equal("a flag on a jump or return target",
+            Refused(() => Write(new Assign(L("c"), new[] { T("???", ret with { Set = true }) }, ret))).Marker);
+        Assert.Equal("a flag on a jump or return target",
+            Refused(() => Write(new Assign(L("c"), new[] { T("Done", jump with { Rising = true }) }, jump))).Marker);
+    }
+
+    /// <summary>A coil is ONE of <c>:=</c>, <c>S=</c>, <c>R=</c>; a target carrying both Set and Reset has no
+    /// spelling, and writing <c>R=</c> would drop the Set.</summary>
+    [Fact]
+    public void A_coil_both_set_and_reset_goes_to_the_marker() =>
+        Assert.Equal("a coil both set and reset",
+            Refused(() => Write(Set(L("a"), T("x", Flags.None with { Set = true, Reset = true })))).Marker);
+
+    /// <summary>Census 1.2 and DIALECT C11: "unconnected" is the empty Terminator, never a null value — an item
+    /// holding nothing is what neither IDE would save. The control-flow arm refuses a null value as the plain
+    /// assign arm does.</summary>
+    [Fact]
+    public void A_jump_or_return_with_a_null_value_goes_to_the_marker()
+    {
+        Assert.Equal("an assign with a null value",
+            Refused(() => Write(new Assign(null, new[] { T("Done", Flags.None with { Jump = true }) }, Flags.None with { Jump = true }))).Marker);
+        Assert.Equal("an assign with a null value",
+            Refused(() => Write(new Assign(null, new[] { T("???", Flags.None with { Return = true }) }, Flags.None with { Return = true }))).Marker);
+    }
+
+    /// <summary>Spec, "EN is a pin …": a consumed box connected by its main output has no suffix, and the text
+    /// reads that main output as slot 0 (spec, "err reads back on slot 1"). A box whose main output is stored as
+    /// another slot (census 1.6: 3 Lenze call boxes store 1), or whose connection slot is not stored at all, would
+    /// read back with its positional outputs on other slots — refused by name, never renumbered.</summary>
+    [Fact]
+    public void A_consumed_box_whose_main_output_the_text_would_misread_goes_to_the_marker()
+    {
+        Assert.Equal("a main output other than slot 0",
+            Refused(() => Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 0) }, main: 1, connected: 1), T("out")))).Marker);
+        Assert.Equal("a consumed box with no stored connection slot",
+            Refused(() => Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 1) }, main: null, connected: null), T("out")))).Marker);
+        // Slot 0 as main output is the text's own reading: written, and x keeps slot 1.
+        Assert.Equal(Body("out := FC(src, => x);"),
+            Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 1) }, main: 0, connected: 0), T("out"))));
+    }
+
+    /// <summary>Spec, "a call's head SHALL be its BoxType verbatim": a type that is a word of the text (other than
+    /// the operators, which head their own call form) is written verbatim between backticks, so it can never be
+    /// read as the construct — <c>Network(x)</c> at a line start would open a network.</summary>
+    [Fact]
+    public void A_box_type_spelled_like_a_word_of_the_text_is_a_backticked_head()
+    {
+        Assert.Equal(Body("`Network`(x, => y);"), Write(Call("Network", new[] { In(L("x")) }, new[] { Out("y", 0) })));
+        Assert.Equal(Body("out := `JMP`(x);"), Write(Set(Call("JMP", new[] { In(L("x")) }, connected: 0), T("out"))));
+        Assert.Equal(Body("`EXECUTE`(x);"), Write(Call("EXECUTE", new[] { In(L("x")) })));
+        Assert.Equal(Body("`Let`(x);"), Write(Call("Let", new[] { In(L("x")) })));
+    }
+
+    /// <summary>The text does not repeat an FB's type — the reader takes it from the instance's declaration. An
+    /// instance the declarations do not name (census 1.12: <c>SUPER^</c>; an element or member path such as
+    /// <c>st.fbT</c>) would read back as a FUNCTION named like the instance, so it goes to the marker.</summary>
+    [Fact]
+    public void An_FB_instance_the_declarations_do_not_name_goes_to_the_marker()
+    {
+        var super = Call("ATD_Base", new[] { In(L("ioAxis"), "ioAxis") }, main: null,
+            instance: new Operand("SUPER^", IsInstance: true), kind: CallKind.FunctionBlock);
+        Assert.Equal("an FB instance the declarations do not name",
+            Refused(() => NextNetworkTextWriter.Write(new NetworkBody(BodyLanguage.Fbd, new[] { Net(super) }),
+                new NextNetworkScope(new[] { "ioAxis" }, new Dictionary<string, string>()))).Marker);
+        var path = Call("TON", new[] { In(L("a"), "IN") }, main: null,
+            instance: new Operand("st.fbT", IsInstance: true), kind: CallKind.FunctionBlock);
+        Assert.Equal("an FB instance the declarations do not name",
+            Refused(() => NextNetworkTextWriter.Write(new NetworkBody(BodyLanguage.Fbd, new[] { Net(path) }),
+                new NextNetworkScope(new[] { "st", "a" }, new Dictionary<string, string>()))).Marker);
+        // Declared with another type: the reader would take the declaration's.
+        Assert.Equal("an FB instance declared with another type",
+            Refused(() => NextNetworkTextWriter.Write(new NetworkBody(BodyLanguage.Fbd, new[] { Net(Fb("t1", new[] { In(L("a"), "IN") }, type: "TON")) }),
+                new NextNetworkScope(Array.Empty<string>(), new Dictionary<string, string> { ["t1"] = "TOF" }))).Marker);
+    }
+
+    /// <summary>The vendor's stored output type is the wire's type: a bitwise AND on WORDs feeding a wire is a
+    /// WORD, and the "AND is boolean" reading applies only where the vendor stored nothing.</summary>
+    [Fact]
+    public void A_wire_fed_by_a_bit_operator_takes_the_vendors_stored_type() =>
+        Assert.Equal(Body("VAR_TEMP g5 : WORD; END_VAR", "g5 := (w1 AND w2);", "o1 := g5;", "o2 := g5;"),
+            Write(Net(Def(5, new Box("AND", null, CallKind.Operator, new[] { In(L("w1")), In(L("w2")) }, new Output[0], null, null, Flags.None,
+                    OutputTypes: new[] { "WORD" })),
+                Set(Ref(5), T("o1")), Set(Ref(5), T("o2")))));
+
+    /// <summary>Task 1.17: a leaf producer is boolean only when it is TRUE/FALSE or EVERY use is boolean — in
+    /// ladder a leaf feeding a data pin is a data value, and its type is never guessed.</summary>
+    [Fact]
+    public void A_ladder_leaf_wire_feeding_data_pins_is_of_unknown_type() =>
+        Assert.Equal("a wire of unknown type",
+            Refused(() => Write(Net(Def(1, L("nSpeed")),
+                Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("nOut", 0) }),
+                Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("y", 0) })), BodyLanguage.Ld)).Marker);
+
+    /// <summary>A head is the BoxType verbatim: an operator type not spelled as the table's own word (<c>and</c>)
+    /// is written in call form with that spelling, never as the infix group that reads back as <c>AND</c>.</summary>
+    [Fact]
+    public void An_operator_type_in_another_case_keeps_its_spelling() =>
+        Assert.Equal(Body("o := and(a, b);"),
+            Write(Set(Call("and", new[] { In(L("a")), In(L("b")) }, main: null, kind: CallKind.Operator), T("o"))));
+
+    /// <summary>An EXECUTE body is verbatim text: its trailing newlines are content and are written as the
+    /// empty lines they are; only the CR of a CR LF line ending is layout (the file's, not the snippet's).</summary>
+    [Fact]
+    public void An_EXECUTE_snippet_keeps_its_trailing_newlines()
+    {
+        Assert.Equal(Fbd + "NETWORK\n  EXECUTE\nx := 1;\n\n  END_EXECUTE;\nEND_NETWORK\n", Write(Exec("x := 1;\n")));
+        Assert.Equal(Fbd + "NETWORK\n  EXECUTE\nx := 1;\ny := 2;\n\n  END_EXECUTE;\nEND_NETWORK\n", Write(Exec("x := 1;\r\ny := 2;\r\n")));
+        Assert.Equal("a snippet line ending in a carriage return", Refused(() => Write(Exec("x := 1;\r"))).Marker);
+    }
+
+    /// <summary>A comment is text: only the CR of a CR LF line ending is layout, and a CR the reader would read
+    /// as layout (a line ending in a lone CR) has no spelling.</summary>
+    [Fact]
+    public void A_comment_keeps_everything_but_the_CR_of_a_CRLF()
+    {
+        Assert.Equal(Fbd + "NETWORK\n  // line1\n  // line2\n  ;\nEND_NETWORK\n",
+            Write(new Network(0, null, null, "line1\r\nline2", false, new Node[] { Empty })));
+        Assert.Equal("a comment line ending in a carriage return",
+            Refused(() => Write(new Network(0, null, null, "line1\r", false, new Node[] { Empty }))).Marker);
+    }
+
+    /// <summary>A name the reader takes for a v1 <c>LET</c> statement is backticked like every other word of the text.</summary>
+    [Fact]
+    public void An_operand_named_LET_is_backticked()
+    {
+        Assert.Equal(Body("`Let` := a;"), Write(Set(L("a"), T("Let"))));
+        Assert.Equal(Body("`let`;"), Write(L("let")));
     }
 }

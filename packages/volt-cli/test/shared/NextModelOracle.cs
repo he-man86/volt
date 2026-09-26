@@ -35,7 +35,7 @@ internal static class NextModelOracle
         string text;
         try
         {
-            text = NextNetworkTextWriter.Write(m, scope.Names);
+            text = NextNetworkTextWriter.Write(m, scope);
         }
         catch (UnrepresentableBodyException e)
         {
@@ -129,19 +129,14 @@ internal static class NextModelOracle
     };
 
     /// <summary>The declarations a vendor model's text is read back against: every name it spells as an operand,
-    /// target or instance, and its FB instances with their types. Taken from the model because these sources
-    /// (archives, test models, corpus bodies) come without a parsed VAR block — and every operand of a body the
-    /// vendor holds IS a name in scope (a variable, a global, a member), which is what the reader's "a wire-shaped
-    /// name in no scope" refusal relies on.</summary>
+    /// target or instance, and its FB instances with their types (<see cref="Instances"/>). Taken from the model
+    /// because these sources (archives, test models, corpus bodies) come without a parsed VAR block — and every
+    /// operand of a body the vendor holds IS a name in scope (a variable, a global, a member), which is what the
+    /// reader's "a wire-shaped name in no scope" refusal relies on.</summary>
     public static NextNetworkScope ScopeOf(NetworkBody body)
     {
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        void Words(string text)
-        {
-            foreach (System.Text.RegularExpressions.Match m in
-                     System.Text.RegularExpressions.Regex.Matches(text, @"[A-Za-z_][A-Za-z0-9_]*"))
-                names.Add(m.Value);
-        }
+        void Words(string text) => names.UnionWith(NextSpelling.Words(text));
         void Walk(Node? n)
         {
             switch (n)
@@ -164,7 +159,10 @@ internal static class NextModelOracle
         return new NextNetworkScope(names, Instances(body));
     }
 
-    /// <summary>A model's FB instances with their types — what the POU's declarations would say of each.</summary>
+    /// <summary>A model's FB instances with their types — what the POU's declarations would say of each, and
+    /// ONLY what they can say: a declaration names an identifier. An instance whose text is a path, an array
+    /// element or <c>SUPER^</c> (census 1.12) is declared by no name, so the push reads its head as a function;
+    /// declaring it here anyway would make the oracle pass a body the push path loses.</summary>
     public static Dictionary<string, string> Instances(NetworkBody body)
     {
         var instances = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -173,7 +171,7 @@ internal static class NextModelOracle
             switch (n)
             {
                 case Box b:
-                    if (b.Instance is { } i && i.Text != Box.UnnamedInstance) instances[i.Text] = b.Type;
+                    if (b.Instance is { } i && NextSpelling.Identifier.IsMatch(i.Text)) instances[i.Text] = b.Type;
                     Walk(b.Enable);
                     foreach (var p in b.Inputs) Walk(p.Value);
                     break;

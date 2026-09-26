@@ -95,19 +95,31 @@ carrying the vendor VarId. The writer SHALL emit items in vendor order and SHALL
 
 ### Requirement: a wire's type is read off its producer
 
-The Demux holds no type, so the text SHALL NOT invent one. A wire whose producer is boolean by itself — an operand
-used as a boolean, an AND/OR/XOR/NOT box, a comparison box, `TRUE`/`FALSE`, an edge, `.ENO`, a Parallel — SHALL be
-declared `BOOL`, in FBD and LD alike. A wire whose producer is a data value SHALL materialize the body as the
-unsupported marker until type inference exists in the writer; its type SHALL never be guessed. The gate SHALL refuse,
-by name, a declared type that differs from the producer's.
+The Demux holds no type, so the text SHALL NOT invent one. The writer and the reader SHALL read a producer's type
+by ONE rule, in FBD and LD alike: the vendor's stored output type of the connected slot (`OutputTypes`) where the
+model has one; else `BOOL` for a comparison box, `TRUE`/`FALSE`, an edge, `.ENO`, an Execute box and a Parallel; else
+"`BOOL` or another bit string" (`BYTE`, `WORD`, `DWORD`, `LWORD`) for an AND/OR/XOR/NOT box, declared `BOOL` unless
+the text declares another; else `BOOL` for a leaf whose every use is boolean (an EN, a Parallel, a jump condition, an
+edge on the reference, and in LD a coil or an AND/OR/XOR/NOT input), `TRUE`/`FALSE` aside a leaf being boolean only
+so. A producer the rule says nothing about SHALL materialize the body as the unsupported marker on pull, its type
+never guessed; on push the declared type is taken as written. The gate SHALL refuse, by name, a declared type the
+producer contradicts.
 
 #### Scenario: a boolean producer
 - **WHEN** a Demux is fed by `(a AND b)`
 - **THEN** its wire is declared `BOOL`
 
 #### Scenario: a data producer
-- **WHEN** a pulled Demux is fed by an ADD box
+- **WHEN** a pulled Demux is fed by an ADD box whose output type the vendor does not store
 - **THEN** the body materializes as the unsupported marker
+
+#### Scenario: a stored output type
+- **WHEN** a pulled Demux is fed by an AND box whose stored output type is `WORD`
+- **THEN** its wire is declared `WORD`, never `BOOL`
+
+#### Scenario: a ladder leaf feeding a data pin
+- **WHEN** an LD Demux is fed by the leaf `nSpeed` and its only uses are MOVE input pins
+- **THEN** the body materializes as the unsupported marker, and pushed text declaring it `INT` is accepted
 
 #### Scenario: a hand-edited type
 - **WHEN** a pushed network declares `VAR_TEMP g1 : INT; END_VAR` and defines `g1 := (a AND b);`
@@ -119,7 +131,10 @@ The writer and the reader SHALL use the same reserved set: every name in scope (
 owning FB's members seen from a method or action), keywords, literals, and `PARALLEL`, `R_EDGE`, `F_EDGE`, matched
 case-insensitively. A wire name matching the set SHALL be refused with `NETWORK_DUPLICATE_NAME`; the writer SHALL
 rename a colliding `g<VarId>` to the lowest free `g<n>`. A POU or FB instance named `PARALLEL`, `R_EDGE` or `F_EDGE`
-SHALL be refused with `NETWORK_UNSUPPORTED`.
+SHALL be refused with `NETWORK_UNSUPPORTED` at the call, a backticked head included. An operand or target spelled like
+a word of the text (`LET` included — a statement starting with it is the v1 refusal) SHALL be backticked, and so SHALL
+a call head that is such a word other than the operators' own (`AND`, `OR`, `XOR`, `MOD`, `NOT`). After `JMP` any
+identifier SHALL be the label, words of the text included, as in the header's `LABEL:`.
 
 #### Scenario: a wire that differs from a variable only in case
 - **WHEN** a network declares wire `g3` and the POU declares a variable `G3`
@@ -130,8 +145,16 @@ SHALL be refused with `NETWORK_UNSUPPORTED`.
 - **THEN** the wire is written as the lowest `g<n>` in no scope, and the reader accepts it
 
 #### Scenario: a POU named like an edge word
-- **WHEN** a project holds a function named `R_EDGE` and a body calls it
-- **THEN** the push is refused with `NETWORK_UNSUPPORTED`
+- **WHEN** a project holds a function named `R_EDGE` and a body calls it, bare or as `` `R_EDGE`(x) ``
+- **THEN** the push is refused with `NETWORK_UNSUPPORTED` at the call
+
+#### Scenario: a POU named like a word of the text
+- **WHEN** a box's type is `Network`
+- **THEN** it is written `` `Network`(x) `` and reads back as a box of type `Network`
+
+#### Scenario: a label named like a word of the text
+- **WHEN** a network carries `LABEL: Execute` and another jumps to it
+- **THEN** it is written `JMP Execute;` and both networks round-trip
 
 ### Requirement: the network header and its comment
 
@@ -141,7 +164,10 @@ with `DISABLED`, `TITLE` or `LABEL` SHALL be read as a statement. The network co
 the header and the wire block (or first statement); per line the `//` and one following space SHALL be syntax and
 the rest — leading indentation and a leading `//` included — text. An empty comment line SHALL be `//`; a blank line
 between comment lines SHALL be layout. A `//` line after a statement SHALL be refused with `NETWORK_PARSE`. The
-drivers SHALL compare a comment ignoring trailing whitespace.
+drivers SHALL compare a comment ignoring trailing whitespace. A CR LF line ending SHALL be layout, in a comment and an
+EXECUTE body alike; a line ending in a lone CR SHALL materialize the body as the unsupported marker. A TITLE SHALL be
+written with ST's string escapes (`$N`, `$R`, `$"`, `$$`), so a title holding a newline round-trips (census: 7 Lenze
+titles hold one).
 
 #### Scenario: a variable named like a header field
 - **WHEN** a network's first statement, on the line after `NETWORK`, is `DISABLED := x;`
@@ -187,7 +213,11 @@ shown but unwired. The model SHALL carry each output's slot index and, on a cons
 connected to. A consumed box connected by its main output (`MainOutputIndex`) SHALL carry no suffix; connected by
 ENO it SHALL be suffixed `.ENO`; connected by any other slot the body SHALL materialize as the unsupported marker.
 Positional `=> v` pins SHALL fill the remaining output slots in order, skipping the connected one; ENO SHALL never be
-an `=>` slot. Until the slot census shows an enabled box connected by its main output, the gate SHALL refuse a
+an `=>` slot. The text does not spell WHICH slot is the main output, so it SHALL be read by one rule: slot 0, and no
+stored slot for an AND/OR/XOR/NOT box (the vendor stores no main output index on them — census 1.6); a consumed box the
+rule would misread — its main output another slot, or its connection slot never read — SHALL materialize the body as
+the unsupported marker, never be renumbered. `MainOutputIndex` is compared only where a consumer is connected by it; at
+the top level and behind `.ENO` the text has no position for it and the push takes it from the IDE's box. Until the slot census shows an enabled box connected by its main output, the gate SHALL refuse a
 consumed enabled box without `.ENO`, and SHALL refuse `.ENO` on a box without EN except on an Execute box, whose only
 output is ENO. A call's head SHALL be its BoxType verbatim (keywords included) or its FB instance.
 
@@ -211,6 +241,10 @@ output is ENO. A call's head SHALL be its BoxType verbatim (keywords included) o
 - **WHEN** a pulled consumer is connected to a box's output slot that is neither its main output nor ENO
 - **THEN** the body materializes as the unsupported marker
 
+#### Scenario: a main output that is not slot 0
+- **WHEN** a pulled box whose `MainOutputIndex` is 1 is consumed by its main output and wires `x` on slot 0
+- **THEN** the body materializes as the unsupported marker; `x` is never read back on slot 1
+
 #### Scenario: a consumed Execute box without EN
 - **WHEN** an Execute box with no EN wired is consumed by `out :=`
 - **THEN** it is written `out := EXECUTE … END_EXECUTE.ENO;` and reads back as the same box
@@ -223,7 +257,9 @@ output is ENO. A call's head SHALL be its BoxType verbatim (keywords included) o
 
 Every pair of parentheses SHALL be one box: a group's (it holds an infix operator) or a call's argument list (it
 follows a head). After `NOT`, a pair holding an operator SHALL be a group under the negation modifier and any other
-pair the NOT box's argument list. Whitespace SHALL play no part in telling them apart. A pair that is neither SHALL be
+pair the NOT box's argument list. After an operator word, a pair holding an operator at its own depth SHALL be a group
+(the word being the operator after an empty slot) and any other pair the word's argument list. Whitespace SHALL play
+no part in telling them apart, nor in telling `S=`/`R=` after a target from a comparison with a variable `S` or `R`. A pair that is neither SHALL be
 refused with `NETWORK_BAD_EXPRESSION`.
 
 #### Scenario: the NOT box and the modifier
@@ -233,6 +269,10 @@ refused with `NETWORK_BAD_EXPRESSION`.
 #### Scenario: spacing does not change the box
 - **WHEN** a body contains `out := NOT (a);`
 - **THEN** it reads back as the NOT box on `a`, exactly as `out := NOT(a);`
+
+#### Scenario: an empty slot before a group
+- **WHEN** an AND box's first input is unconnected and its second is an OR box
+- **THEN** it is written `( AND (x OR y))` and reads back as the same two boxes, as `(AND(x OR y))` does
 
 #### Scenario: a redundant pair
 - **WHEN** a body contains `out := ((a AND b));`
@@ -268,9 +308,10 @@ pull.
 Materializing a body SHALL never throw. A shape the writer cannot spell SHALL materialize the body as the existing
 unsupported marker; a push SHALL refuse it by name. This SHALL cover: a flag on an input pin (`Input.Flags`) until the
 pin-flag census names its spelling; a Negation or edge flag on a Demux or Assign item until the item-flag census
-does; a Demux definition below the top level; a flag on an empty slot; operand text containing a backtick; a TITLE
-containing a newline; an EXECUTE snippet holding a line whose first word is `END_EXECUTE`. `Input.Flags` SHALL NOT be
-deleted from the model until the pin-flag census on CODESYS finds it empty. An EXECUTE body SHALL end at the first
+does; a Demux definition below the top level; a flag on an empty slot; operand text containing a backtick; an FB
+instance the declarations do not name (census 1.12: `SUPER^`), whose call would read back as a function; an EXECUTE
+snippet holding a line whose first word is `END_EXECUTE`. `Input.Flags` SHALL NOT be deleted from the model: census
+1.13 found it populated and load-bearing on CODESYS, and a pin flag has no spelling until the owner decides one. An EXECUTE body SHALL end at the first
 line whose first word is `END_EXECUTE`, and a header SHALL be recognised only as the whole word `NETWORK` at a line
 start outside an EXECUTE body.
 
@@ -284,7 +325,7 @@ start outside an EXECUTE body.
 
 #### Scenario: a newline in a title
 - **WHEN** a pulled network's TITLE contains a newline inside its text
-- **THEN** the body materializes as the unsupported marker
+- **THEN** it is written with `$N` in the title and reads back as the same title
 
 #### Scenario: a snippet line starting with END_EXECUTE
 - **WHEN** a pulled Execute snippet holds a line whose first word is `END_EXECUTE`
@@ -313,8 +354,9 @@ parsed into boxes. Pushed text containing a backtick inside backticks SHALL be r
 A `BoxTreeParallel` SHALL be written `PARALLEL([IN := feed,] branches)`, distinct from AND/OR boxes; `IN := ,` SHALL
 be a feed slot wired to nothing and a missing `IN` no feed. A top-level box's own unnamed output pin SHALL be written
 `=> target` inside the call, distinct from an Assign over the box. `f()` SHALL be a box with no input slot and a lone
-unconnected slot SHALL be written with its formal (`MOVE(IN := )`). A non-default `Parallel.Mode` SHALL be refused
-with `NETWORK_UNSUPPORTED`. An Execute box SHALL be written `EXECUTE[(EN := c)]` … verbatim ST … `END_EXECUTE`,
+unconnected slot SHALL be written with its formal (`MOVE(IN := )`). `Parallel.Mode` SHALL be written `MODE := m` first
+in the list, and only off its default `BoxShortCircuit` (census 1.3: one `Sequential` in Lenze); an unmeasured mode
+SHALL be refused with `NETWORK_UNSUPPORTED`. An Execute box SHALL be written `EXECUTE[(EN := c)]` … verbatim ST … `END_EXECUTE`,
 suffixed `.ENO` where consumed; an empty snippet SHALL be written as exactly one empty line.
 
 #### Scenario: a Parallel is not rebuilt as AND/OR on CODESYS
@@ -333,6 +375,10 @@ suffixed `.ENO` where consumed; an empty snippet SHALL be written as exactly one
 - **WHEN** a top-level `BoxTreeBox MOVE` has its unnamed output slot wired to `dst`
 - **THEN** it is written `MOVE(src, => dst);` and `dst := MOVE(src);` reads back as a different item, an Assign
 
+#### Scenario: a sequential Parallel
+- **WHEN** a `BoxTreeParallel` has `Mode = Sequential`
+- **THEN** it is written `PARALLEL(MODE := Sequential, IN := f, a, b)` and reads back with that mode
+
 #### Scenario: an empty Execute box
 - **WHEN** an Execute box with an empty snippet is written
 - **THEN** exactly one empty line separates `EXECUTE` and `END_EXECUTE`, and it reads back with an empty snippet
@@ -341,7 +387,11 @@ suffixed `.ENO` where consumed; an empty snippet SHALL be written as exactly one
 
 An operator box with no EN, no instance and no output pin SHALL be written infix when its `InputParams` names are
 absent or are the operator's defaults; a non-default name SHALL force call form. The driver SHALL write the defaults,
-and the model oracle SHALL treat absent and default names as equal — its one equivalence.
+and the model oracle SHALL treat absent and default names as equal — its one equivalence. Facts the text has no
+position for (the network order number, an operand's type and comment, the vendor's `CallType`, `MainOutputIndex`
+where no connection names it, a named output's slot, `OutputTypes` beyond the declared wire type, a CR LF) SHALL be
+listed once beside the oracle, each with the reason; every other fact the text cannot carry SHALL be refused by name.
+An infix box SHALL carry its type exactly as the table spells it; `and` SHALL be written in call form.
 
 #### Scenario: default formals read as infix
 - **WHEN** an AND box carries the input names `IN1`, `IN2`

@@ -19,6 +19,8 @@
     <Compile Include="..\shared\FakeIde.cs" Link="FakeIde.cs" />
     <!-- The network text v2 model oracle, shared with the TwinCAT suite (its archives take the same check). -->
     <Compile Include="..\shared\NextModelOracle.cs" Link="NextModelOracle.cs" />
+    <Compile Include="..\shared\NextNetworkTextFacts.cs" Link="NextNetworkTextFacts.cs" />
+    <Compile Include="..\shared\NetworkModelEquality.cs" Link="NetworkModelEquality.cs" />
     <Using Include="Volt.Tests.Shared" />   <!-- so every file sees the shared double, as before -->
   </ItemGroup>
   <ItemGroup>
