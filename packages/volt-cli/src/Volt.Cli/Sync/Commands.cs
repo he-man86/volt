@@ -628,14 +628,37 @@ public static class Commands
         // With the ref first, the gap leaves the SIDECAR behind instead, and the next pull's incremental fetch
         // sends the stale `knownItems`, gets the items back and rewrites it.
         //
-        // Point volt/ide AT HEAD — exactly what was pushed. New IDE state comes from the receipt (no follow-up `refs`).
-        Git.UpdateRef(gitDir, IdeTree.Range, Git.HeadCommit(root)!);
+        // Point volt/ide AT WHAT THE IDE NOW HOLDS: HEAD — exactly what was pushed — unless the IDE re-materializes
+        // a pushed item differently, in which case its own text on top of HEAD (see `Rematerialized`). New IDE
+        // state comes from the receipt (no follow-up `refs`).
+        var head = Git.HeadCommit(root)!;
+        var ideCommit = head;
+        var canonical = Rematerialized(bridge, cfg, ops, resp);
+        if (canonical.Count > 0)
+        {
+            var tree = IdeTree.BuildVoltIdeTree(gitDir, head, head, canonical.SelectMany(Materialize.MaterializeItem).ToList(),
+                                                Array.Empty<string>(), librariesRefreshed: false);
+            ideCommit = IdeTree.CommitVoltIde(gitDir, tree, head, $"volt: IDE @ {resp.NewProjectVersion} (as the IDE holds the push)");
+            // The version of the text adopted, which is the IDE's for exactly that text.
+            foreach (var item in canonical) adopted[item.Name] = item.Version;
+        }
+        Git.UpdateRef(gitDir, IdeTree.Range, ideCommit);
         Sidecar.SaveIdeRefs(root, new IdeRefs
         {
             ProjectVersion = resp.NewProjectVersion!,
             Items = adopted,
             Folders = adoptedFolders,
         });
+        // …and the working tree follows it. volt/ide's parent IS HEAD, so this is a fast-forward over the pushed
+        // items' files alone; nothing of the engineer's can conflict, because everything else in the commit is HEAD.
+        if (ideCommit != head)
+        {
+            var outcome = Git.GitMerge(root, IdeTree.Range, $"volt: adopt the IDE's layout @ {resp.NewProjectVersion}");
+            if (outcome.Kind != ResultKinds.Clean)
+                throw new InvalidOperationException(
+                    "volt: adopting the IDE's own text of the pushed items did not fast-forward the workspace: " +
+                    string.Join(", ", outcome.Paths));
+        }
 
         var status = StatusModel.BuildStatusData(root, new BridgeSnapshot
         {
@@ -651,6 +674,44 @@ public static class Commands
             UnwalkedFolders = resp.UnwalkedFolders,
         });
         return PushResult.Ok(ops.Select(o => o.Name).ToList(), status);
+    }
+
+    /// <summary>
+    /// THE PUSHED ITEMS THE IDE HOLDS IN OTHER TEXT THAN WAS PUSHED — each as the IDE materializes it now, else none.
+    ///
+    /// <para><b>Why a push can come back different.</b> Network text is compared by TOKENS (openspec
+    /// <c>network-text-literal-nwl</c>, "the round trip is checked on tokens and on models"): layout is free, so an
+    /// engineer may wrap a 30-pin call one pin per line and the push is accepted. The IDE then holds the MODEL, and
+    /// materializes it in the canonical layout. Recording the pushed text as <c>volt/ide</c> would leave the two
+    /// apart: the next time the IDE changes that item, the pull's diff would carry the re-layout as an IDE-side edit
+    /// of lines nobody touched in the IDE (spec, "a hand layout does not come back as an IDE change").</para>
+    ///
+    /// <para><b>Detected without a fetch.</b> The receipt carries each item's version — the hash of its folder and
+    /// the text the IDE materializes (<see cref="Volt.Engine.Sync.Hasher.ComputeItemVersion"/>, the one function every version on the
+    /// wire comes from). The pushed text hashed the same way says whether the IDE holds it byte for byte; only the
+    /// items it does not are fetched, in ONE directed fetch.</para>
+    /// </summary>
+    private static List<FetchedItem> Rematerialized(BridgeClient bridge, WorkspaceConfig cfg, List<PushOp> ops, PushResponse resp)
+    {
+        var differ = ops.OfType<SetItemOp>()
+            .Where(o => o.SourceText is not null)
+            .Select(o => (Name: o.ToName ?? o.Name, Text: o.SourceText!))
+            .Where(x => resp.NewItems!.TryGetValue(x.Name, out var version)
+                        && resp.NewFolders!.TryGetValue(x.Name, out var folder)
+                        && Volt.Engine.Sync.Hasher.ComputeItemVersion(folder, x.Text) != version)
+            .Select(x => x.Name)
+            .ToList();
+        if (differ.Count == 0) return new List<FetchedItem>();
+
+        var fetched = bridge.FetchChanges(new FetchRequest
+        {
+            // Versions the IDE cannot have, so every item named comes back with its text.
+            KnownItems = differ.ToDictionary(n => n, _ => "", StringComparer.Ordinal),
+            OnlyItems = differ,
+            ExpectedPlatform = cfg.Project.Platform,
+            ExpectedProjectName = cfg.Project.ProjectName,
+        });
+        return fetched.Changed.Where(i => differ.Contains(i.Name, StringComparer.Ordinal)).ToList();
     }
 
     /// <summary>volt build — build via the IDE, return normalized diagnostics.</summary>

@@ -126,13 +126,14 @@ public static class BodyFormatGuard
 
     /// <summary>The two LANGUAGES the guard compared. A refusal that names only its verdict cannot be
     /// diagnosed from the other side of a pipe - which cost a debugging round the first time this fired
-    /// wrongly - but echoing the first line of each body named only one of them: the network header says
-    /// "NETWORK 0 FBD" while a line of ST just says `x := TRUE;`, which is the value, not the language.</summary>
+    /// wrongly - but echoing the first line of each body named only one of them: a graphical body's marker says
+    /// "FBD" while a line of ST just says `x := TRUE;`, which is the value, not the language.</summary>
     private static string Saw(string? live, string? pushed) =>
         $"(IDE: {LanguageOf(live)} | pushed: {LanguageOf(pushed)})";
 
-    /// <summary>What language a body is written in, as the workspace spells it: the network header carries it
-    /// (<c>NETWORK 0 FBD</c>), a marker carries it, and anything else is ST.</summary>
+    /// <summary>What language a body is written in, as the workspace spells it: a graphical body's implementation
+    /// marker carries it (<c>(* @volt-implementation FBD *)</c>), an unsupported-body marker carries it, and anything
+    /// else is ST.</summary>
     private static string LanguageOf(string? body)
     {
         if (body is null) return "<none>";

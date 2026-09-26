@@ -408,6 +408,68 @@ public class PushServiceTests
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") && r.Contains("T1"));
     }
 
+    /// <summary>Spec, "a v1 body is refused, not translated" (task 3.5): a push carrying network text v1 — a
+    /// <c>NETWORK 0 LD</c> header and a <c>LET</c> — behind the BARE marker is refused with <c>NETWORK_PARSE</c>, the
+    /// message naming a re-pull, before anything is written. Nothing else calls that text network text (the language
+    /// rides on the marker now), so without the refusal it would read as Structured Text and be written into the
+    /// graphical POU as ST.</summary>
+    [Fact]
+    public void A_v1_body_is_refused_naming_a_re_pull_and_nothing_is_written()
+    {
+        var ide = new FakeIde(new FakeIde.Item("PLC_PRG", ItemKind.PlcPouProg, "", true,
+            "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR", "out := TRUE;", "LD", null));
+        var (v, pv) = Ver(ide, "PLC_PRG.prg");
+
+        var resp = Push(ide, pv, new SetItemOp
+        {
+            Name = "PLC_PRG.prg",
+            IfVersion = v,
+            SourceText = "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR\n(* @volt-implementation *)\n" +
+                         "NETWORK 0 LD\n  LET g0 := TRUE;\n  out := g0;\nEND_NETWORK\n\nEND_PROGRAM\n",
+        });
+
+        Assert.False(resp.Accepted);
+        var conflict = Assert.Single(resp.Conflicts!);
+        Assert.Equal("NETWORK_PARSE", conflict.Code);
+        Assert.Contains("re-pull", conflict.Reason);
+        Assert.Empty(ide.WrittenContent);
+    }
+
+    /// <summary>The pre-flight reads a graphical body against the scope the DRIVER builds from the project (task 3.9,
+    /// <c>ICodeStore.NetworkScopeFor</c>): a wire <c>g7</c> in a POU of a project whose GVL declares <c>G7</c> is the
+    /// global's name, so the push is refused <c>NETWORK_DUPLICATE_NAME</c> before anything is written — and the same
+    /// body in a project without that global is accepted.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_wire_named_like_a_projects_global_is_refused_by_the_pre_flight(bool withGlobal)
+    {
+        var items = new System.Collections.Generic.List<FakeIde.Item>
+        {
+            new("PLC_PRG", ItemKind.PlcPouProg, "", true, "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR",
+                "(* @volt-implementation LD *)\nNETWORK\n  out := TRUE;\nEND_NETWORK", "LD", null),
+        };
+        if (withGlobal) items.Add(FakeIde.Item.TextualPou("GVL_Main", "VAR_GLOBAL\n  G7 : BOOL;\nEND_VAR", ""));
+        var ide = new FakeIde(items.ToArray());
+        var (v, pv) = Ver(ide, "PLC_PRG.prg");
+
+        var resp = Push(ide, pv, new SetItemOp
+        {
+            Name = "PLC_PRG.prg",
+            IfVersion = v,
+            SourceText = "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\n" +
+                         "NETWORK\n  VAR_TEMP g7 : BOOL; END_VAR\n  g7 := TRUE;\n  out := g7;\nEND_NETWORK\n\nEND_PROGRAM\n",
+        });
+
+        if (withGlobal)
+        {
+            Assert.False(resp.Accepted);
+            Assert.Equal("NETWORK_DUPLICATE_NAME", Assert.Single(resp.Conflicts!).Code);
+            Assert.Empty(ide.WrittenContent);
+        }
+        else Assert.True(resp.Accepted, string.Join(" | ", (resp.Conflicts ?? new()).Select(c => c.Code + ": " + c.Reason)));
+    }
+
     /// <summary>A move+edit whose CONTENT is refused must leave the item where it was — the refusal has to be
     /// atomic. The move used to run FIRST, so a rejected edit (a read-only body, a language change, malformed
     /// network text) left the item already relocated and its destination folder already created, while the push

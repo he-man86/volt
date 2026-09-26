@@ -408,6 +408,31 @@ public class CodesysCoilFlagTests
         Assert.True((bool?)written.En, "the vendor's `En` flag says the pin is SHOWN, and it must be set");
     }
 
+    /// <summary>A POSITIONAL OUTPUT PIN IS WRITTEN AT ITS SLOT (task 3.10). <c>f(a, =&gt;, =&gt; x)</c> puts <c>x</c> on
+    /// output slot 1 with slot 0 passed over; writing the pins one after another put <c>x</c> on slot 0 — another
+    /// output, a different program — and the next pull read it back there. A slot passed over is the empty operand
+    /// an unwired pin is (the reader skips it), and an enabled box's ENO echo stays in front of the data slots.</summary>
+    [Theory]
+    [InlineData(false, new[] { "", "x" })]
+    [InlineData(true, new[] { "", "", "x" })]
+    public void A_positional_output_pin_is_written_at_its_slot(bool enabled, string[] slots)
+    {
+        var model = new Network(0, null, null, null, false, new Node[]
+        {
+            new Box("f", null, CallKind.Function,
+                    new[] { new Input(null, new Leaf(new Operand("a"), Flags.None), Flags.None) },
+                    new[] { new Output(null, new Operand("x", IsLValue: true), slots.Length - 1) },
+                    enabled ? new Leaf(new Operand("rung"), Flags.None) : null,
+                    null, Flags.None, MainOutputIndex: 0, HasEnoOutput: enabled),
+        });
+
+        var live = Different();
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, ScopeOf(model, BodyLanguage.Fbd));
+
+        var written = Assert.IsType<Nwl.BoxTreeBox>(live.GetTree(live.NetworkItemCount - 1));
+        Assert.Equal(slots, written.Outputs.List.Select(o => Assert.IsType<Nwl.Operand>(o).OperandExpr ?? "").ToArray());
+    }
+
     /// <summary>A BOX WITH NO INSTANCE CLEARS THE VENDOR'S MARKER, and this is the test that was missing.
     ///
     /// <para>A freshly constructed <c>BoxTreeBox</c> does not arrive blank: its <c>Instance</c> operand holds

@@ -719,9 +719,15 @@ public static class PushService
     }
 
     /// <summary>Parse the pushed source the way the write will, and throw if it cannot be parsed — WITHOUT
-    /// touching the IDE. This is the batch PRE-FLIGHT's worker (<see cref="Handle"/>): running it over every
+    /// WRITING to the IDE. This is the batch PRE-FLIGHT's worker (<see cref="Handle"/>): running it over every
     /// op before the first write is what makes a push all-or-nothing for the class of refusal that is
-    /// decidable from the text alone, which is the class a real push fails on.</summary>
+    /// decidable from the text alone, which is the class a real push fails on.
+    ///
+    /// <para>A graphical body is read against the declarations it can see (network text v2: an FB call's type, a
+    /// wire name's collisions — <see cref="IIdeDriver.NetworkScopeFor"/>), and the ones the push does not carry are
+    /// the IDE's. So this READS the project — once per operation, indexed in one walk the driver shares with the
+    /// write (<see cref="ProjectDeclarations"/>) — and never per op, which is the cost <see cref="WillCreate"/> is
+    /// written against.</para></summary>
     private static void ValidateSourceOrThrow(IIdeDriver ide, string src, bool isCreate,
                                               IReadOnlyDictionary<string, string> pushedDeclarations, string? wireKind = null)
     {
@@ -765,8 +771,8 @@ public static class PushService
 
     /// <summary>Does this op CREATE — is there no such item right now?
     ///
-    /// <para>Answered from the PRE-APPLY WALK and nothing else, because the pre-flight touches no IDE — that is
-    /// the property that makes it free to run over every op. A first cut called <c>ItemLookup.Find</c> here,
+    /// <para>Answered from the PRE-APPLY WALK and nothing else, because the pre-flight walks the IDE no more than
+    /// once — that is the property that makes it free to run over every op. A first cut called <c>ItemLookup.Find</c> here,
     /// which is a fresh tree walk PER OP: the same answer, bought with the one cost this pass is not allowed to
     /// have (measured immediately — the live TwinCAT suite went from ~5 minutes to over 20).</para>
     ///

@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test"
-import { type BodySpan, type Document, type Expr, isGraphicalBody, parseSource, unitBodies, walkExpr } from "../syntax/index.js"
+import { type BodySpan, type Document, type Expr, graphicalMarkerLanguage, isGraphicalBody, parseSource, unitBodies, walkExpr } from "../syntax/index.js"
 import { buildSymbolTable, type Scope } from "../symbols/index.js"
 import { messagesFor, type DiagnosticItem, type WorkspaceRefs } from "../analysis/index.js"
 import {
@@ -58,6 +58,29 @@ test("network text: an FBD/LD body is detected as graphical, not ST", () => {
   const { units, errors } = parseSource(LD)
   expect(errors).toEqual([]) // ST parser routes around the network-text body — no false parse errors
   expect(unitBodies(units[0]!).some(isGraphicalBody)).toBe(true)
+})
+
+test("network text: a graphical body is detected by its implementation marker, even with no network", () => {
+  // Network text v2 states a body's language once, on its own marker (openspec network-text-literal-nwl 3.3). A body
+  // with no network is still graphical; the bare marker is an ST body's.
+  const empty = parseSource(`FUNCTION_BLOCK FB_LD
+VAR
+\ta : BOOL;
+END_VAR
+(* @volt-implementation LD *)
+END_FUNCTION_BLOCK`)
+  expect(unitBodies(empty.units[0]!).map(graphicalMarkerLanguage)).toEqual(["LD"])
+  expect(unitBodies(empty.units[0]!).some(isGraphicalBody)).toBe(true)
+
+  const st = parseSource(`FUNCTION_BLOCK FB_ST
+VAR
+\ta : BOOL;
+END_VAR
+(* @volt-implementation *)
+a := TRUE;
+END_FUNCTION_BLOCK`)
+  expect(unitBodies(st.units[0]!).map(graphicalMarkerLanguage)).toEqual([undefined])
+  expect(unitBodies(st.units[0]!).some(isGraphicalBody)).toBe(false)
 })
 
 test("network text: a single LD network with a sink parses clean", () => {

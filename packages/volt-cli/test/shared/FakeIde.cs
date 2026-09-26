@@ -748,7 +748,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             _items[_items.IndexOf(owner)] = owner with
             {
                 Declaration = content.Declaration,
-                Implementation = content.Body ?? owner.Implementation,
+                Implementation = Held(content.Body, content.Declaration, pushedDeclarations) ?? owner.Implementation,
                 Children = content.Members.Select(m => m.Name).ToArray(),
             };
 
@@ -762,14 +762,30 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             // never re-placed") passed green against a fake that asserted the bug away. Placement changes only
             // through `Move`, which is what the real IDEs require too.
             var folder = existing?.Folder ?? m.Folder ?? "";
-            var member = new Item(m.Name, KindCodeOf(m.Kind), folder, false,
-                                  m.Declaration, m.Body, null, null);
+            var member = new Item(m.Name, KindCodeOf(m.Kind), folder, false, m.Declaration,
+                                  Held(m.Body, Volt.Engine.Ide.SourceScopes.Scope(
+                                      m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, content.Declaration),
+                                      pushedDeclarations),
+                                  null, null);
             if (existing is null) _items.Add(member);
             else _items[_items.IndexOf(existing)] = member;
         }
 
         // Bumped LAST, so this call's own handle was still valid.
         if (InvalidatesHandlesOnWrite) _generation++;
+    }
+
+    /// <summary>A written body AS THE IDE HOLDS IT. A real IDE stores a graphical body as its MODEL — the drivers read
+    /// the pushed network text into one and build the vendor's objects from it — so what a read gives back is the
+    /// model materialized, in the canonical layout, whatever layout was pushed (network text compares TOKENS, so a
+    /// hand-wrapped call is accepted). Storing the pushed bytes instead would make this fake hold a text no IDE
+    /// holds, and hide the one case the CLI's post-push adoption exists for. Any other body is stored as sent.</summary>
+    private string? Held(string? body, string? declaration, IReadOnlyDictionary<string, string> pushedDeclarations)
+    {
+        if (body is null || !Volt.Engine.Format.Network.NetworkText.Is(body)) return body;
+        var scope = NetworkScopeFor(declaration, pushedDeclarations);
+        return Volt.Engine.Format.Network.NetworkTextWriter
+            .Write(Volt.Engine.Format.Network.NetworkText.Validate(body, scope), scope).TrimEnd('\n');
     }
 
     private static int KindCodeOf(string kind) => kind switch

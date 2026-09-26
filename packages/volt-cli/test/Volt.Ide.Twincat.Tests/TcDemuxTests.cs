@@ -20,9 +20,9 @@ namespace Volt.Ide.Twincat.Tests;
 /// on a live XAE — so the importer spells a shared wire as a multi-target assign and only the EDITOR builds a
 /// Demux. A measurement of the importer is not a measurement of the vendor, and this fixture is the difference.</para>
 ///
-/// <para>Network text has always spelled a fan-out as <c>LET g := …</c> plus its uses, and the writer emits
-/// <c>LET</c> for nothing else — so the rendering below is itself evidence that the reader took the Demux
-/// path.</para>
+/// <para>Network text spells a fan-out as a wire declared in its network's <c>VAR_TEMP</c> block plus its uses, and
+/// the writer declares one for nothing else — so the rendering below is itself evidence that the reader took the
+/// Demux path.</para>
 /// </summary>
 public class TcDemuxTests
 {
@@ -62,6 +62,21 @@ public class TcDemuxTests
         Assert.NotEmpty(references);
         foreach (var r in references)
             Assert.Contains(definitions, d => d.VarId == r.VarId);
+    }
+
+    /// <summary>THE SLOT A CONSUMER READS, from the archive (task 3.10). The archive serializes no
+    /// <c>MainOutputIndex</c>; the connected output is the one slot stored NULL, as the CODESYS census found beside the
+    /// index (DIALECT N16). The hand-drawn TON read by its coil holds <c>[null, ""]</c> — <c>Q</c> connected, <c>ET</c>
+    /// unwired — and an AND box, which stores no main output, is connected by none.</summary>
+    [Fact]
+    public void A_consumed_box_records_the_slot_its_consumer_reads()
+    {
+        var boxes = Read().Networks.SelectMany(n => n.Trees).SelectMany(Flatten).OfType<Box>().ToList();
+
+        var ton = boxes.First(b => b.Type == "TON");
+        Assert.Equal((0, 0, false), (ton.ConnectedSlot, ton.MainOutputIndex, ton.HasEnoOutput));
+        var and = boxes.First(b => b.Type == "AND");
+        Assert.Equal((null, null), (and.ConnectedSlot, and.MainOutputIndex));
     }
 
     /// <summary>...and it renders as the format's own spelling for a fan-out: the wire declared in its network's

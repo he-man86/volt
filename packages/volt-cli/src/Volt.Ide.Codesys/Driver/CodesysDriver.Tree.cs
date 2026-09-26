@@ -14,6 +14,10 @@ public sealed partial class CodesysDriver
 {
     public WalkResult WalkItems()
     {
+        // A walk starts an operation (fetch, refs, push, build), and the project's declarations are read afresh for
+        // it: an item created or renamed since the last one must be in the scope network text is written and read
+        // against (ProjectDeclarations), or a pulled call through it would go to the marker as undeclared.
+        _declarations = null;
         var items = new List<ProjectItem>();
         var unwalked = new List<string>();
         var root = _om.PrimaryProject;

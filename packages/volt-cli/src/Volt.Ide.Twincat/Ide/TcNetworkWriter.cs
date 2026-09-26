@@ -158,19 +158,18 @@ internal static class TcNetworkWriter
         var impl = doc.Descendants("o").FirstOrDefault(o => (string?)o.Attribute("t") == "NWLImplementationObject")
             ?? throw Refuse("replaces a " + doc.Name.LocalName + " body with a graphical one");
 
-        // THE VIEW CANNOT BE CHANGED BY A PUSH — the same rule CODESYS states, from its own accessor.
-        // Network text prints FBD or LD on every header, so it invites an edit nothing applies: only the
-        // CREATE route writes `DefaultViewMode` (`TcArchive.WithViewMode`), and `Unchanged` below compares
-        // both sides with the language neutralised — so a header-only edit wrote nothing, reported
-        // success, and was reverted by the next pull.
+        // THE VIEW CANNOT BE CHANGED BY A PUSH — the same rule CODESYS states, from its own accessor. Network
+        // text states FBD or LD once, on the body's implementation marker, and only the CREATE route writes
+        // `DefaultViewMode` (`TcArchive.WithViewMode`) — so a marker-only edit would write nothing, report
+        // success, and be reverted by the next pull.
         NetworkText.RefuseViewModeChange(BeckhoffDriver.ViewModeOf(impl), body.Language);
 
         var networks = TcArchive.List(impl, "NetworkList");
         if (networks.Count != body.Networks.Count)
             // ADDING one needs an archive element Volt will not build (the generic `Refuse` below says why).
             // DELETING one does not build anything, and is refused for a DIFFERENT reason worth stating: the
-            // networks are paired by POSITION here, and network text RENUMBERS on every pull — `NETWORK 0, 1,
-            // 2` after deleting the second of four is byte-identical to the same text after deleting the
+            // networks are paired by POSITION here, and a network carries no identity in the text (its headers are
+            // positional) — so the text after deleting the second of four is the same shape as after deleting the
             // fourth. So the push does not carry which network went, and picking one would be a guess at the
             // engineer's intent with their logic. CODESYS does not face it: its writer rebuilds every changed
             // network from the model, so deletion falls out for free and the ambiguity never arises.

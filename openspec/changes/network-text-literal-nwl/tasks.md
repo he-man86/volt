@@ -378,45 +378,112 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
 
 ## 3. The swap (one change, no dual reader)
 
-- [ ] 3.1 `NetworkTextWriter` as one fold, one arm per NWL class; state = VarId→name map only. Delete the m/i/en arms,
+- [x] 3.1 `NetworkTextWriter` as one fold, one arm per NWL class; state = VarId→name map only. Delete the m/i/en arms,
       `_prelude`/`Flush`, `_en/_i/_m` counters, `EnabledAssign`/`EnabledCall`, operand-position hoist,
       Parallel-as-AND/OR. Shrink the Unspellable detector to the marker-only shapes: a rung with several control-flow
       targets (coil + jump, two jumps) and a negated/edge coil; `JumpDestinationTests` keeps pinning it. Add the
       marker routing for unmeasured facts (pin and item flags, nested Demux, reference before definition, a data wire,
       Rtrig+Ftrig, a flag on an empty slot). Edges as `R_EDGE(…)`/`F_EDGE(…)`; wires in a per-network `VAR_TEMP` typed
       `BOOL` from the producer.
-- [ ] 3.2 `NetworkTextReader` as a token stream + recursive descent; the `VAR_TEMP` wire set decides Demux; `.ENO`
+      *Done (swap, 2026-09-26):* the section-2 writer IS `Format/Network/NetworkTextWriter` now; the v1 writer, its
+      arms, prelude and counters are deleted, and so is `Unspellable` — every shape it named is the writer's own
+      refusal (`NetworkUnrepresentableException`), which both drivers' pulls turn into the marker. `JumpDestinationTests`
+      pins it on v2: a coil beside a jump goes to the marker by name in either order, a lone jump names its flagged
+      target. The marker routing is pinned by the writer tests of 2.10–2.12.
+- [x] 3.2 `NetworkTextReader` as a token stream + recursive descent; the `VAR_TEMP` wire set decides Demux; `.ENO`
       asserts EN (Execute excepted); every statement ends with `;`, the empty statement is the empty item; `value;`
       statements; structural parentheses; edges. Delete `MergeEnableEchoes`, `Build` classification, `CountRefs`,
       `Resolve`/`Combine`, `ReferencesToDemux`, `FoldableConsumers`, the OpaqueLeaf/MultiOutput/WireName regexes.
-- [ ] 3.3 Body-level language on `(* @volt-implementation FBD|LD *)`, one marker per graphical body (method, action,
+      *Done (swap):* the section-2 reader is `Format/Network/NetworkTextReader`; the v1 reader and every function named
+      here are gone from `src/`. (".ENO asserts EN" is superseded by 1.6/2.5: `.ENO` means the ENO output, independent
+      of EN — the spec wins.) The v1 reader survives ONLY as a test fixture, `test/shared/V1CorpusReader.cs`, which
+      reads the v1 LSP corpus into models for the oracle until 6.1 re-pulls it; nothing in `src/` can reach it.
+- [x] 3.3 Body-level language on `(* @volt-implementation FBD|LD *)`, one marker per graphical body (method, action,
       accessor); ST bodies keep the bare marker; `(* @volt-graphical: CFC *)` unchanged. Update `ImplementationMarker`
       (today an exact match on the bare form), `StReader` and the LSP body detection. `RefuseViewModeChange` compares
       one header.
-- [ ] 3.4 `NetworkTextGate`: token fixed point; newlines significant in the header, comments and EXECUTE bodies;
+      *Done:* `ImplementationMarker` matches the bare and the language form and splits/joins a body's own marker
+      line; `StWriter` writes a graphical body's marker in the bare one's place (POU, method, action, accessor —
+      after it the `%FOLDER` directive), `StReader` puts it back in front of the body, so a body alone says what it is
+      (`NetworkText.Is`/`LanguageOf` read the first line). Golden: `ChildDirectiveTests.An_ST_function_block_with_an_LD_method_and_an_FBD_getter`
+      and the rewritten `Folder_and_language_round_trip_as_directives`. Both drivers refuse a view change against the
+      model's language, which is the marker's. LSP: `isGraphicalBody` reads the marker (`graphicalMarkerLanguage`,
+      `network.test.ts`), and keeps the `NETWORK`-first-token test for the v1 bodies its parser reads until 5.1/6.1.
+- [x] 3.4 `NetworkTextGate`: token fixed point; newlines significant in the header, comments and EXECUTE bodies;
       whitespace significant only in backticks, TITLE, comments and EXECUTE (no `NOT(` lexeme, review 7.13).
       `NETWORK_NOT_CANONICAL` now reports a token difference only. The wire type is checked against the producer.
-- [ ] 3.5 v1 text (`LET`, `NETWORK <n> <LANG>`) → `NETWORK_PARSE` naming "re-pull"; drop `NETWORK_DUPLICATE_NETWORK`.
-- [ ] 3.6 Refuse by name (review 7.8): a backtick inside backticked text; a POU or instance named `PARALLEL`,
+      *Done (swap):* the section-2 gate is THE gate; the push path reaches it through `NetworkText.Validate(body,
+      scope)`, which throws the first finding as `NetworkTextException` (code + line) for `PushService`'s conflict.
+- [x] 3.5 v1 text (`LET`, `NETWORK <n> <LANG>`) → `NETWORK_PARSE` naming "re-pull"; drop `NETWORK_DUPLICATE_NETWORK`.
+      *Done:* a v1 body sits behind the BARE marker, so nothing calls it network text; the push pre-flight refuses it by
+      name (`NetworkText.RefuseV1`) before it could be written as ST — `PushServiceTests.A_v1_body_is_refused_naming_a_re_pull_and_nothing_is_written`;
+      inside a v2 body the reader refuses `LET` and a numbered header (`V1_text_is_refused_naming_a_re_pull`).
+      `NETWORK_DUPLICATE_NETWORK` is gone from `ConflictCodes` and the generated docs; `DocDataTests` now also pins that
+      no `NETWORK_*` literal stands in for a const. (The LSP still carries its own copy of the code until 5.1.)
+- [x] 3.6 Refuse by name (review 7.8): a backtick inside backticked text; a POU or instance named `PARALLEL`,
       `R_EDGE` or `F_EDGE` (a backticked head too); nested edges; a flag on an empty slot; an unmeasured
       `Parallel.Mode` (owner decision: `Sequential` is carried as `MODE := Sequential`).
-- [ ] 3.7 Groups 2.2–2.14 green; `NetworkTextRoundTripTests` convergence cases rewritten to v2 input.
-- [ ] 3.8 Layout after push: the CLI records the IDE's re-materialized (canonical) text as `volt/ide` and brings the
+      *Done:* the gate tests of section 2 (`A_backtick_inside_backticked_text`, `A_POU_or_instance_named_like_a_construct`,
+      `A_backticked_head_named_like_a_construct_is_refused_at_the_call`, `Nested_edges`, `A_flag_on_an_empty_slot`,
+      `An_unmeasured_Parallel_mode`) run on the swapped gate, and against a scope BUILT from a project's declarations:
+      `NetworkScopeTests.A_project_function_named_R_EDGE_makes_its_call_unspellable` (bare and backticked) and its
+      complement.
+- [x] 3.7 Groups 2.2–2.14 green; `NetworkTextRoundTripTests` convergence cases rewritten to v2 input.
+      *Done:* the section-2 tests moved out of `next/` under their final names and are green. `NetworkTextRoundTripTests`
+      is rewritten: every convergence and real-project case is its v2 text, pinned CANONICAL (the gate accepts it and
+      the writer gives back the same bytes) against a scope built from a declaration. The v1 tests whose shapes are v2
+      goldens are deleted (`FanOutShapeTests`, `UnspellableCoilTests`, `LiteralFanoutBugTests`,
+      `NetworkTextDiagnosticsTests`, `MetadataPlacementTests`, the v1 `NetworkKeywordBoundaryTests`; the
+      `ParallelRenderTests` class), as are the oracle's v1-text harvest and `The_oracle_is_red_on_v1_…`, which went
+      with v1. Every other suite's v1 input is v2 now (ChildDirective, StFormatRoundTrip, AccessorPreflight, Hasher,
+      PouMergeWrite, PushService, RenameBeforeWrite; the TwinCAT suites through `TcText`; `ladderLabel.prg`).
+      *TwinCAT's `LiteralFanoutBugTests` requirement* (a structurally changed network holding a Demux of a leaf is
+      refused before the importer) has no v2 test yet: the text is legal (golden `LiteralFanout.a-Demux-of-a-leaf`) and
+      the refusal is 4.2's.
+- [x] 3.8 Layout after push: the CLI records the IDE's re-materialized (canonical) text as `volt/ide` and brings the
       working tree to it; a black-box CLI test pushes a hand-wrapped call and asserts the next pull reports nothing.
-- [ ] 3.9 One reserved-name set (review 7.2), built once and used by writer and reader: POU vars, globals, the owning
+      *Done:* `Commands.Push` hashes each pushed item's text as the IDE's version is hashed; where the receipt's version
+      differs, ONE directed fetch returns the IDE's own text, which is committed as `volt/ide` on top of HEAD and
+      fast-forwarded into the working tree (the sidecar keeps the fetched versions). `FakeIde` holds a written
+      graphical body as the model re-materialized, as a real IDE does. Test:
+      `PushCommandTests.A_hand_wrapped_graphical_call_is_adopted_in_the_IDEs_layout_after_the_push`.
+- [x] 3.9 One reserved-name set (review 7.2), built once and used by writer and reader: POU vars, globals, the owning
       FB's members from a method/action, keywords, literals, `PARALLEL`/`R_EDGE`/`F_EDGE`, case-insensitive. Wire
       names `g<digits>` only; the writer's collision rename takes the lowest free `g<n>`. Tests (moved from 2.6,
       review 7.2), each with the scope BUILT from the declarations, never stated as a name list: a wire named like a
       GVL global and like the owning FB's member, read in a method and in an action → refused
       `NETWORK_DUPLICATE_NAME` on read, case-insensitively; the writer renames around each and the reader accepts
       that text against the same built scope.
-- [ ] 3.10 Model (review 7.3): carry the slot index on `Output` and the connection slot on a consumed `Box`
+      *Done:* `NetworkScope.FromDeclarations(declaration, declarationOf, globals)` — the body's declarations innermost
+      first (`SourceScopes.Scope`), the project's items by name, every GVL read lazily — and `ProjectDeclarations`, the
+      one per-operation index both drivers and `FakeIde` build it from (`ICodeStore.NetworkScopeFor`; the engine's
+      pre-flight asks the driver, so it reads a body exactly as the write will). An FB instance's type comes from the
+      declaration that makes it (a member, a GVL global, a qualified path through a GVL and a struct), so the drivers'
+      v1-only type resolvers (`CodesysNetworkWriter.ResolveBoxType` and its pre-flight, `TcPlcOpenWriter.TypeNameOf`)
+      are deleted. Tests: `NetworkScopeTests` (GVL global and owner member, in a method and in an action, refused and
+      renamed-and-accepted; instance types; a POU named `R_EDGE`), `PushServiceTests.A_wire_named_like_a_projects_global_is_refused_by_the_pre_flight`.
+- [x] 3.10 Model (review 7.3): carry the slot index on `Output` and the connection slot on a consumed `Box`
       (`ReadBoxOutputs` stops dropping null slots); both drivers read and write them; the slot rule reads them.
-- [ ] 3.11 Pull never throws (review 7.4): every writer refusal becomes a marker route; EXECUTE ends at the first line
+      *Done:* CODESYS reads `MainOutputIndex`, the connection slot of a consumed box (= its main output, DIALECT N16),
+      `HasEnoOutput` and each output's slot; TwinCAT reads the same facts, the connection slot from the one NULL output
+      item the archive stores for it (the archive serializes no `MainOutputIndex`; DIALECT N16 now records both
+      spellings — confirmation on a live TwinCAT is 4.4). Both writers place a positional pin at its slot (CODESYS
+      pads a passed-over slot with the empty operand an unwired pin is; TwinCAT's in-place write matches a positional
+      pin by slot, a named one by name). Tests: `CodesysNetworkReaderTests.A_consumed_box_is_connected_by_its_main_output_and_an_operator_by_none`,
+      `An_unnamed_output_pin_is_the_boxs_own_result_pin_not_an_assign`, `CodesysCoilFlagTests.A_positional_output_pin_is_written_at_its_slot`,
+      `TcDemuxTests.A_consumed_box_records_the_slot_its_consumer_reads`; the oracle tallies: CODESYS doubles 33/33 with
+      no refusal, TwinCAT archives 13 bodies / 21 networks with one (the drawn coil-and-jump rung, marker-only).
+- [x] 3.11 Pull never throws (review 7.4): every writer refusal becomes a marker route; EXECUTE ends at the first line
       whose first word is `END_EXECUTE`; the reader's `network` line check matches the whole word at a line start,
       outside EXECUTE bodies.
-- [ ] 3.12 Comments: `//` plus one space is syntax, the rest is text; an empty line is `//`; `//` only between the
+      *Done:* both drivers' pulls catch the writer's one exception and materialize the marker (the `Unspellable`
+      pre-pass is gone); the writer raises nothing else (argument nulls aside). The EXECUTE and header rules are the
+      section-2 reader's (`NetworkState := 1;` in a snippet, `END_EXECUTE` goldens). The change gates render the live
+      network with the body's scope, and a live network the writer cannot spell is refused on push rather than
+      destroyed and rebuilt (CODESYS) or treated as changed and walked structurally (TwinCAT).
+- [x] 3.12 Comments: `//` plus one space is syntax, the rest is text; an empty line is `//`; `//` only between the
       header and the wire block or first statement.
+      *Done:* the section-2 rules (2.14 tests), on the swapped reader and writer.
 
 ## 4. Drivers
 
@@ -469,7 +536,8 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
 ## 6. Migration and docs
 
 - [ ] 6.1 Bump MATERIALIZATION 2 → 3; re-pull the six corpora; rewrite e2e bodies and conformance fixtures
-      (`network-graphical.ts`, `network-unresolved.ts`); re-record live only where a message moved.
+      (`network-graphical.ts`, `network-unresolved.ts`); re-record live only where a message moved. Delete
+      `test/shared/V1CorpusReader.cs` with the re-pull (the swap kept it only to read the v1 corpus for the oracle).
 - [ ] 6.2 Replace `docs/network-text.html` with `docs/network-text-next.html`; fix the stale model doc for the
       unconditional jump (NetworkModel.cs vs DIALECT C11), the reader header ("decided by USE COUNT") and the
       ParallelRenderTests "forces a g" comment.

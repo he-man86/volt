@@ -37,10 +37,9 @@ namespace Volt.Ide.Codesys
                         "into an item that cannot hold one");
 
                 // THE VIEW CANNOT BE CHANGED BY A PUSH, and this is the only place that says so. Network
-                // text prints FBD or LD on every network header — the sole textual difference between the
-                // two — so it invites an edit that nothing applies: the member is never written on an
-                // update, and the change gate below compares both sides with the language neutralised, so a
-                // header-only edit wrote nothing, reported success, and was reverted by the next pull.
+                // text states FBD or LD once, on the body's implementation marker — the sole textual difference
+                // between the two — and the member is never written on an update, so a marker-only edit would
+                // write nothing, report success, and be reverted by the next pull.
                 // ...but only when there IS one. A body that is not graphical YET — a freshly created
                 // accessor, whose Implementation is still an `STImplementationObject` — has no
                 // `DefaultViewMode` member at all, and `ReadViewMode` demands it. Asking that of a CREATE

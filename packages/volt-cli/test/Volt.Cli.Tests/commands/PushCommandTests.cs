@@ -42,6 +42,42 @@ public class PushCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>Spec, "a hand layout does not come back as an IDE change" (task 3.8). Network text is compared by
+    /// TOKENS, so an engineer may lay out a call one pin per line and the push is accepted; the IDE then holds the
+    /// MODEL and materializes it in the canonical layout. The CLI records that text as <c>volt/ide</c> and brings the
+    /// working tree to it — so the next pull reports nothing, the workspace holds the canonical layout, and nothing
+    /// is outgoing.</summary>
+    [Fact]
+    public void A_hand_wrapped_graphical_call_is_adopted_in_the_IDEs_layout_after_the_push()
+    {
+        const string canonical = "(* @volt-implementation LD *)\nNETWORK\n  t1(IN := a, PT := pt);\nEND_NETWORK";
+        var ide = ConnectedIde(new FakeIde.Item("PLC_PRG", Volt.Engine.Item.ItemKind.PlcPouProg, "", true,
+            "PROGRAM PLC_PRG\nVAR\n  t1 : TON;\n  a : BOOL;\n  pt : TIME;\nEND_VAR", canonical, "LD", null));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            var path = Path.Combine(root, "src", "PLC_PRG.prg");
+            var pulled = File.ReadAllText(path).Replace("\r\n", "\n");
+            Assert.Contains(canonical, pulled);
+
+            // The same call, one pin per line: token-identical, so the gate accepts it.
+            File.WriteAllText(path, pulled.Replace("  t1(IN := a, PT := pt);", "  t1(\n    IN := a,\n    PT := pt\n  );"));
+            var r = Commands.Push(root, client);
+            Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
+
+            // The working tree holds the IDE's layout, the next pull brings nothing, and nothing is outgoing.
+            Assert.Equal(pulled, File.ReadAllText(path).Replace("\r\n", "\n"));
+            var again = Commands.Pull(root, client);
+            Assert.Equal("ok", again.Kind);
+            Assert.Empty(again.Synced!);
+            Assert.Equal("already up to date with the IDE", again.Message);
+            Assert.Equal(0, Commands.Status(root, client).Outgoing.Count);
+            Assert.Equal("nothing to push — the IDE already matches your workspace", Commands.Push(root, client).Message);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     /// <summary>A workspace file saved with a UTF-8 BOM still pushes. Visual Studio and TcXaeShell write UTF-8
     /// WITH a BOM by default on Windows, so any user who opens a `.prg` there and saves gets one — and the BOM
     /// sits in front of the header keyword, where `.Trim()` does not remove it (U+FEFF is not whitespace under

@@ -33,17 +33,18 @@ public static class ItemLookup
     public static ItemRef? Find(IProjectTree tree, string name) =>
         Find(tree, tree.GetTreeRoot(), name, 0);
 
-    /// <summary>Every top-level item whose tree kind satisfies <paramref name="kind"/>, by the same walk and the
-    /// same refusal to read a fault as absence as <see cref="Find"/> — a list that silently missed a folder would
-    /// answer "no such global" for one that exists.</summary>
-    public static IReadOnlyList<ItemRef> All(IProjectTree tree, System.Func<int, bool> kind)
+    /// <summary>Every top-level item — its handle, name and tree kind — in ONE walk, by the same descent and the same
+    /// refusal to read a fault as absence as <see cref="Find"/>: a list that silently missed a folder would answer "no
+    /// such global" for one that exists. For a caller asking about many names, where a <see cref="Find"/> per name is
+    /// a walk per name.</summary>
+    public static IReadOnlyList<(ItemRef Item, string Name, int Kind)> All(IProjectTree tree)
     {
-        var found = new List<ItemRef>();
-        Collect(tree, tree.GetTreeRoot(), kind, found, 0);
+        var found = new List<(ItemRef, string, int)>();
+        Collect(tree, tree.GetTreeRoot(), found, 0);
         return found;
     }
 
-    private static void Collect(IProjectTree tree, ItemRef node, System.Func<int, bool> want, List<ItemRef> into, int depth)
+    private static void Collect(IProjectTree tree, ItemRef node, List<(ItemRef, string, int)> into, int depth)
     {
         if (depth > MaxDepth) return;
         int count;
@@ -67,8 +68,19 @@ public static class ItemLookup
                 throw new BridgeException(BridgeErrorCodes.InternalError,
                     $"could not read child {i} while listing the project's items — the IDE refused the read ({ex.Message}).");
             }
-            if (ItemKind.IsAddressableItem(kind)) { if (want(kind)) into.Add(child); continue; }
-            Collect(tree, child, want, into, depth + 1);
+            if (ItemKind.IsAddressableItem(kind))
+            {
+                string name;
+                try { name = tree.Name(child); }
+                catch (System.Exception ex)
+                {
+                    throw new BridgeException(BridgeErrorCodes.InternalError,
+                        $"could not read the name of child {i} while listing the project's items — the IDE refused the read ({ex.Message}).");
+                }
+                into.Add((child, name, kind));
+                continue;
+            }
+            Collect(tree, child, into, depth + 1);
         }
     }
 
