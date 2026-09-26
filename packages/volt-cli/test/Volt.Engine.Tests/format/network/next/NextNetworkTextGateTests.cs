@@ -218,18 +218,32 @@ public class NextNetworkTextGateTests
         Assert.Contains("BOOL", d.Message);
     }
 
-    /// <summary>Spec, "a missing ENO is refused" and "an enabled box nested without ENO".</summary>
+    /// <summary>Task 2.5, spec "the gate SHALL NOT refuse a consumed enabled box for lacking `.ENO`". These were
+    /// "a missing ENO is refused" — a premise census 1.6 measured false (DIALECT N16: EN and ENO are independent; 40
+    /// enabled comparisons are consumed by their one data output). The text is valid; whether the IDE's box has an
+    /// ENO main output the consumer must say `.ENO` for is the PUSH's to check against the box it builds.
+    /// <c>GT(ADD(EN := x, a, b), c)</c> is the re-decided case: it reads as GT consuming ADD's main output, no ENO.</summary>
     [Fact]
-    public void A_consumed_enabled_box_without_ENO()
+    public void A_consumed_enabled_box_without_ENO_is_valid_text()
     {
-        Refused("NETWORK_BAD_EXPRESSION", 3, Src("lamp := MOVE(EN := c, 0, => Status);"));
-        Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := GT(ADD(EN := x, a, b), c);"));
+        Accepted(Src("lamp := MOVE(EN := c, 0, => Status);"));
+        Accepted(Src("out := GT(EN := c, a, b);"));
+        // Its canonical form is the group (GT with no EN is infix): accepted, and ADD reads as consumed by its main
+        // output with no ENO — the call form, not canonical, reads to the same model.
+        Accepted(Src("out := (ADD(EN := x, a, b) > c);"));
+        var read = NextNetworkTextReader.Read(Src("out := GT(ADD(EN := x, a, b), c);"), BodyLanguage.Fbd, NextNetworkScope.Empty);
+        Assert.True(read.Ok);
+        var add = Assert.IsType<Box>(Assert.IsType<Box>(Assert.IsType<Assign>(read.Body!.Networks[0].Trees.Single()).Value).Inputs[0].Value);
+        Assert.Equal((0, false), (add.ConnectedSlot, add.HasEnoOutput));
     }
 
+    /// <summary>`.ENO` means "connected to the ENO output", never "the box has EN" (spec; census 1.6: Lenze
+    /// <c>Dryer</c> declares ENO without EN), so it is valid on a box without EN. On a box nothing consumes it is
+    /// refused: a top-level box's output goes nowhere.</summary>
     [Fact]
-    public void ENO_on_a_box_without_EN_or_on_a_box_nothing_consumes()
+    public void ENO_on_a_box_without_EN_is_valid_and_on_a_box_nothing_consumes_is_not()
     {
-        Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := f(a).ENO;"));
+        Accepted(Src("out := f(a).ENO;"));
         Refused("NETWORK_BAD_EXPRESSION", 3, Src("MOVE(EN := c, 0).ENO;"));
     }
 

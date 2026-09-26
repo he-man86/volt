@@ -38,9 +38,10 @@ public class NextNetworkTextReaderTests
         Assert.Null(NetworkModelEquality.FirstDifference(expected, actual));
 
     /// <summary>A box as the reader builds it from a call consumed by its main output: the text reads that as
-    /// slot 0 (spec, "a consumed box without EN keeps its main output").</summary>
+    /// slot 0 (spec, "a consumed box without EN keeps its main output"), and as a main output that is not ENO — so
+    /// the box has no ENO output (census 1.6: the main output is ENO exactly when the box has one).</summary>
     static Box Consumed(string type, IEnumerable<Input> inputs, IEnumerable<Output>? outputs = null) =>
-        Call(type, inputs, outputs, main: 0, connected: 0, kind: NextSpelling.KindOf(type, hasInstance: false));
+        Call(type, inputs, outputs, main: 0, connected: 0, eno: false, kind: NextSpelling.KindOf(type, hasInstance: false));
 
     /// <summary>A bit operator's box (AND/OR/XOR/NOT) as the reader builds it from a call consumed by its main
     /// output: connected by no stored slot, as the vendor keeps no main output index on these boxes (census 1.6:
@@ -48,9 +49,11 @@ public class NextNetworkTextReaderTests
     static Box ConsumedBitOp(string type, IEnumerable<Input> inputs) =>
         Call(type, inputs, main: null, connected: null, kind: CallKind.Operator);
 
-    /// <summary>A box as the reader builds it at the top level: nothing connected, no main output read.</summary>
-    static Box Top(string type, IEnumerable<Input> inputs, IEnumerable<Output>? outputs = null, Node? en = null, Flags? f = null) =>
-        Call(type, inputs, outputs, en: en, main: null, connected: null, f: f, kind: NextSpelling.KindOf(type, hasInstance: false));
+    /// <summary>A box as the reader builds it at the top level: nothing connected, no main output read, and its ENO
+    /// stated only where positional pins make the text say it (<paramref name="eno"/>).</summary>
+    static Box Top(string type, IEnumerable<Input> inputs, IEnumerable<Output>? outputs = null, Node? en = null, Flags? f = null,
+                    bool? eno = null) =>
+        Call(type, inputs, outputs, en: en, main: null, connected: null, f: f, kind: NextSpelling.KindOf(type, hasInstance: false), eno: eno);
 
     static Operand Coil(string text, Flags? f = null) => new(text, IsLValue: true, Flags: f);
 
@@ -224,8 +227,23 @@ public class NextNetworkTextReaderTests
     /// <summary>Spec, "an enabled box drives a lamp".</summary>
     [Fact]
     public void An_enabled_box_consumed_by_its_ENO() =>
-        AssertModel(Body(Set(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"), main: null, connected: 0), Coil("lamp"))),
+        AssertModel(Body(Set(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"), main: null, connected: 0, eno: true), Coil("lamp"))),
             Read(Src("lamp := MOVE(EN := c, 0, => Status).ENO;")));
+
+    /// <summary>Spec, "an enabled comparison consumed by its main output" (task 2.5, census 1.6): EN is a pin like any
+    /// other and says nothing about ENO — a consumer with no suffix reads a main output that is not ENO.</summary>
+    [Fact]
+    public void An_enabled_box_consumed_without_a_suffix_reads_its_main_output() =>
+        AssertModel(Body(Set(Call("GT", new[] { In(L("a")), In(L("b")) }, en: L("c"), main: 0, connected: 0, eno: false,
+                kind: CallKind.Operator), Coil("out"))),
+            Read(Src("out := GT(EN := c, a, b);")));
+
+    /// <summary>Spec, "`.ENO` on a box without EN SHALL be accepted where the box has an ENO output": `.ENO` means
+    /// connected to the ENO output, so the box has one, and a positional pin fills the slot after it.</summary>
+    [Fact]
+    public void ENO_without_EN_reads_as_a_box_with_an_ENO_output() =>
+        AssertModel(Body(Set(Call("Dryer", new[] { In(L("a")) }, new[] { Out("speed", 1) }, main: null, connected: 0, eno: true), Coil("out"))),
+            Read(Src("out := Dryer(a, => speed).ENO;")));
 
     /// <summary>Spec, "a consumed box without EN keeps its main output for its consumer".</summary>
     [Fact]
@@ -244,7 +262,7 @@ public class NextNetworkTextReaderTests
 
     [Fact]
     public void An_operator_box_in_call_form_has_its_BoxType_as_head() =>
-        AssertModel(Body(Call("AND", new[] { In(L("a")), In(L("b")) }, new[] { Out("out", 1) }, en: L("go"), main: null, kind: CallKind.Operator)),
+        AssertModel(Body(Call("AND", new[] { In(L("a")), In(L("b")) }, new[] { Out("out", 1) }, en: L("go"), main: null, kind: CallKind.Operator, eno: true)),
             Read(Src("AND(EN := go, a, b, => out);")));
 
     /// <summary>Spec, "a consumed Execute box without EN".</summary>
@@ -289,7 +307,7 @@ public class NextNetworkTextReaderTests
     [Fact]
     public void Edges_are_flags_on_their_operand_never_a_box()
     {
-        AssertModel(Body(Top("MOVE", new[] { In(L("1")) }, new[] { Out("nMode", 1) }, en: L("bStart", Rise))),
+        AssertModel(Body(Top("MOVE", new[] { In(L("1")) }, new[] { Out("nMode", 1) }, en: L("bStart", Rise), eno: true)),
             Read(Src("MOVE(EN := R_EDGE(bStart), 1, => nMode);")));
         AssertModel(Body(Set(L("x", Neg with { Falling = true }), Coil("out"))), Read(Src("out := F_EDGE(NOT x);")));
         AssertModel(Body(Set(Op("AND", L("a"), L("b")) with { Flags = Rise }, Coil("lamp"))), Read(Src("lamp := R_EDGE((a AND b));")));
@@ -309,7 +327,7 @@ public class NextNetworkTextReaderTests
     [Fact]
     public void A_result_pin_and_an_assign_over_the_box_are_different_items()
     {
-        AssertModel(Body(Top("MOVE", new[] { In(L("src")) }, new[] { Out("dst", 0) })), Read(Src("MOVE(src, => dst);")));
+        AssertModel(Body(Top("MOVE", new[] { In(L("src")) }, new[] { Out("dst", 0) }, eno: false)), Read(Src("MOVE(src, => dst);")));
         AssertModel(Body(Set(Consumed("MOVE", new[] { In(L("src")) }), Coil("dst"))), Read(Src("dst := MOVE(src);")));
     }
 
@@ -414,7 +432,7 @@ public class NextNetworkTextReaderTests
     [Fact]
     public void A_box_type_spelled_like_a_word_of_the_text_round_trips()
     {
-        RoundTrips(Body(Top("Network", new[] { In(L("x")) }, new[] { Out("y", 0) })), NextNetworkScope.Empty);
+        RoundTrips(Body(Top("Network", new[] { In(L("x")) }, new[] { Out("y", 0) }, eno: false)), NextNetworkScope.Empty);
         RoundTrips(Body(Set(Consumed("JMP", new[] { In(L("x")) }), Coil("out"))), NextNetworkScope.Empty);
         RoundTrips(Body(Top("EXECUTE", new[] { In(L("x")) })), NextNetworkScope.Empty);
     }
@@ -434,7 +452,7 @@ public class NextNetworkTextReaderTests
     /// is a data value, and the engineer's own declared type for it is accepted, never overruled as BOOL.</summary>
     [Fact]
     public void A_ladder_leaf_wire_feeding_a_data_pin_takes_its_declared_type() =>
-        AssertModel(Body(Net(Def(1, L("nSpeed"), "INT"), Top("MOVE", new[] { In(Ref(1)) }, new[] { Out("nOut", 0) })), BodyLanguage.Ld),
+        AssertModel(Body(Net(Def(1, L("nSpeed"), "INT"), Top("MOVE", new[] { In(Ref(1)) }, new[] { Out("nOut", 0) }, eno: false)), BodyLanguage.Ld),
             Read(LdMarker + "NETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := nSpeed;\n  MOVE(g1, => nOut);\nEND_NETWORK\n", BodyLanguage.Ld));
 
     /// <summary>An EXECUTE snippet's trailing newlines are its own content.</summary>

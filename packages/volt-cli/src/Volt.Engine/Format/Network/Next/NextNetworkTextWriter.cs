@@ -394,6 +394,22 @@ public static class NextNetworkTextWriter
 
             if (b.StCode is not null) return Execute(b) + suffix;
 
+            if (NextSpelling.EnoCarried(b, consumed))
+            {
+                // The text spells the ENO output only by `.ENO`, and reads every other box by one rule
+                // (NextSpelling.TextHasEno). Where the answer decides the text — the suffix, and the slots positional
+                // `=>` pins fill — a box the rule would read otherwise has no spelling: its pins would come back one
+                // slot over, or its consumer on another output.
+                if (b.HasEnoOutput is not { } has)
+                    throw Unrepresentable("a box whose ENO output was not read",
+                        $"the '{b.Type}' box does not record whether it has an ENO output, and its text depends on it.");
+                if (has != NextSpelling.TextHasEno(isExecute: false, b.Enable is not null, suffix.Length > 0, consumed))
+                    throw Unrepresentable("an ENO output the text reads otherwise",
+                        has
+                            ? $"the '{b.Type}' box has an ENO output and no EN, and the text reads a box that says neither `EN :=` nor `.ENO` as having none."
+                            : $"the '{b.Type}' box has EN and no ENO output, and the text reads a top-level box with EN as having one.");
+            }
+
             if (infix) return "(" + string.Join(" " + FbdOperators.TypeToSymbol[b.Type] + " ", b.Inputs.Select(p => Value(p.Value))) + ")";
 
             var pins = new List<string>();
@@ -429,10 +445,13 @@ public static class NextNetworkTextWriter
             if (NextSpelling.EnoSlot(b) is not null)
             {
                 if (NextSpelling.ConnectedByEno(b)) return ".ENO";   // the one definition, shared with ProducerType and the oracle
-                // Until census 1.6 shows an enabled box connected by its main output, `.ENO`-less is refused on
-                // push for an enabled box, so the text could not carry the connection back.
-                throw Unrepresentable("an enabled box connected by a slot other than ENO",
-                    $"a consumer of the '{b.Type}' box is connected to its output slot {slot?.ToString() ?? "(not stored)"}; an enabled box is spelled only by `.ENO`.");
+                if (slot is null)
+                    throw Unrepresentable("a consumed box with no stored connection slot",
+                        $"the '{b.Type}' box is consumed and does not record which of its output slots its consumer is connected to.");
+                // Census 1.6 (DIALECT N16): a box with an ENO output is connected by its main output, and that IS the
+                // ENO. `.ENO` wins where the two coincide, so one model has one text; any other slot has none.
+                throw Unrepresentable("a connection by an unspellable output slot",
+                    $"a consumer of the '{b.Type}' box is connected to its output slot {slot}, and the box's main output is its ENO.");
             }
 
             // A bit operator, group or call, reads back connected by no stored slot (the vendor keeps no main output

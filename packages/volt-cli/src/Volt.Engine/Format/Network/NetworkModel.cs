@@ -117,9 +117,10 @@ public sealed record Box(
     Flags Flags,
     int? MainOutputIndex = null,
     int? ConnectedSlot = null,
-    IReadOnlyList<string?>? OutputTypes = null) : Node(Flags)
+    IReadOnlyList<string?>? OutputTypes = null,
+    bool? HasEnoOutput = null) : Node(Flags)
 {
-    // MainOutputIndex / ConnectedSlot / OutputTypes are network text v2 facts
+    // MainOutputIndex / ConnectedSlot / OutputTypes / HasEnoOutput are network text v2 facts
     // (openspec/changes/network-text-literal-nwl, review 7.3 and 1.17). They are OPTIONAL with null meaning
     // "not read" so that v1, which never consults them, builds and renders exactly as before; the drivers fill
     // them in phase 2. Null is NOT a default the v2 writer may assume a value for — it refuses by name instead.
@@ -133,6 +134,12 @@ public sealed record Box(
     //  OutputTypes      the vendor's OutputParams.Types, index-aligned with the output SLOTS (not with
     //                   Outputs, which holds only the wired ones). v2 declares a wire fed by this box with the
     //                   type of the connected slot; a null list or entry is an unknown type, refused by name.
+    //  HasEnoOutput     whether the box has an ENO output — its OutputParams.Names start "ENO" (HasEnoSlot), which
+    //                   makes output slot 0 the ENO and, on such a box, its main output (DIALECT N16). It is NOT
+    //                   "the box has EN": the two are independent (census 1.6 — 40 enabled comparisons have EN and
+    //                   one data output; Lenze `Dryer` declares ENO without EN), so it cannot be derived from Enable.
+    //                   v2 spells a consumer of the ENO output `.ENO` and never gives ENO an `=>` pin; null is "not
+    //                   read", which the writer refuses wherever the answer decides the text.
 
 
     /// <summary>The vendor's name for the enable pin. It occupies INPUT SLOT 0 of a box that shows EN/ENO,

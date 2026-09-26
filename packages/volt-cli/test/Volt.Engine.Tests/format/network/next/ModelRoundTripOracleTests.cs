@@ -99,10 +99,11 @@ public class ModelRoundTripOracleTests
             {
                 // v1 never read which output slot a consumer is connected to (task 3.10 fills it), so a consumed
                 // call has no ConnectedSlot: the text would read one (slot 0), and null is no default.
-                ["a consumed box with no stored connection slot"] = 3,
-                // v1 text spells an enabled box's rung continuing as the `en` echo, and v1 never read which output
-                // slot that consumer is connected to — ENO or main — so the model has no ConnectedSlot to spell.
-                ["an enabled box connected by a slot other than ENO"] = 11,
+                // v1 text spells an enabled box's rung continuing as the `en` echo too, and v1 read neither the slot
+                // nor whether the box HAS an ENO output (task 2.5: keyed on the output, not on EN — census 1.6), so
+                // neither the suffix nor a positional pin's slot can be spelled.
+                ["a consumed box with no stored connection slot"] = 12,
+                ["a box whose ENO output was not read"] = 2,
             });
 
     // ── v1 test models ──────────────────────────────────────────────────────────────────────────────
@@ -135,7 +136,7 @@ public class ModelRoundTripOracleTests
                 ["a return with a named target"] = 1,                   // CoilAssign/return: a Return bit on `out`
                 ["a rung driving a coil and a jump together"] = 4,      // marker-only (spec)
                 ["a rung driving several jumps"] = 1,                   // marker-only (spec)
-                ["an enabled box connected by a slot other than ENO"] = 1,   // no ConnectedSlot, as above
+                ["a box whose ENO output was not read"] = 1,   // FanOutShape: an AND with EN, consumed, ENO unread
                 ["falling-edge coil"] = 1,                              // marker-only (census 1.7: 0 of 576)
                 ["negated coil"] = 1,
                 ["rising-edge coil"] = 1,
@@ -166,9 +167,8 @@ public class ModelRoundTripOracleTests
             Corpus.Value.Read.Select(kv => NextModelOracle.Check(kv.Key, kv.Value)),
             bodies: 13, networks: 34, refused: new Dictionary<string, int>
             {
-                ["a consumed box with no stored connection slot"] = 13,          // no ConnectedSlot in v1 (task 3.10)
+                ["a consumed box with no stored connection slot"] = 28,          // no ConnectedSlot in v1 (task 3.10)
                 ["an FB instance the declarations do not name"] = 1,             // census 1.12: SUPER^, ATD_TorqueControl
-                ["an enabled box connected by a slot other than ENO"] = 15,      // no ConnectedSlot in v1
             });
     }
 
@@ -199,13 +199,45 @@ public class ModelRoundTripOracleTests
             {
                 // v1 never read a consumer's connection slot (task 3.10 fills it): a consumed call's positional
                 // outputs would be placed by a slot the model does not have.
-                ["a consumed box with no stored connection slot"] = 108,
+                ["a consumed box with no stored connection slot"] = 165,
                 // A wire fed by a data producer (census 1.17: FB/function outputs, 11 in Lenze) or by a ladder leaf
                 // not every use of which is boolean: its type is never guessed, and v1 carried no output types.
                 ["a wire of unknown type"] = 6,
                 ["an FB instance the declarations do not name"] = 1,             // census 1.12: SUPER^
-                ["an enabled box connected by a slot other than ENO"] = 57,
             });
+
+    // ── the oracle is red on v1 ─────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Task 2.2: the oracle "must be red today" on the two losses that motivated it — a <c>BoxTreeParallel</c>, which
+    /// v1 spells as AND/OR and so reads back as boxes, and a top-level box's own result pin, which v1 spells
+    /// <c>dst := MOVE(src)</c> and so reads back as an <c>Assign</c> over the box: each a different NWL item. The
+    /// v1 TEXT is a fixed point on both, which is why only a model comparison sees them. The same two models pass
+    /// the v2 oracle, so this pins that the comparison — not a difference in the models fed to it — is what fails on
+    /// v1. It goes with v1 at the swap (3.7), when the oracle's writer and reader ARE v2.
+    /// </summary>
+    [Fact]
+    public void The_oracle_is_red_on_v1_for_a_Parallel_and_a_result_pin()
+    {
+        var parallel = Body(BodyLanguage.Ld, new Assign(
+            new Parallel(L("c"), new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), new[] { Coil("out") }, Flags.None));
+        var resultPin = Body(BodyLanguage.Fbd, new Box("MOVE", null, CallKind.Function, new[] { In(L("src")) },
+            new[] { new Output(null, new Operand("dst", IsLValue: true), 0) }, null, null, Flags.None, MainOutputIndex: 0,
+            HasEnoOutput: false));
+
+        foreach (var (name, m) in new[] { ("a Parallel", parallel), ("a result pin", resultPin) })
+        {
+            var v1Text = NetworkTextWriter.Write(m);
+            Assert.Equal(v1Text, NetworkTextWriter.Write(NetworkTextReader.Parse(v1Text)));   // v1's text round trip holds
+            var v1Back = NetworkTextReader.Parse(v1Text);
+            Assert.True(NetworkModelEquality.FirstDifference(NextNetworkTextFacts.Carried(m), NextNetworkTextFacts.Carried(v1Back)) is not null,
+                $"{name}: the model oracle did not see v1 lose the item:\n{v1Text}");
+            Assert.Null(NextModelOracle.Check(name, m).Reason);   // …and v2 carries it
+        }
+        // What v1 lost, by item class: the Parallel came back as a box, the result pin as an Assign.
+        Assert.IsType<Box>(Assert.IsType<Assign>(NetworkTextReader.Parse(NetworkTextWriter.Write(parallel)).Networks[0].Trees.Single()).Value);
+        Assert.IsType<Assign>(NetworkTextReader.Parse(NetworkTextWriter.Write(resultPin)).Networks[0].Trees.Single());
+    }
 
     // ── harvesting ──────────────────────────────────────────────────────────────────────────────────
 

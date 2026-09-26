@@ -21,4 +21,11 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Volt.Ide.Codesys\Volt.Ide.Codesys.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The network text v2 model oracle, shared with the engine and TwinCAT suites: the CODESYS reader doubles
+         take the same check (test/shared/NextModelOracle.cs). -->
+    <Compile Include="..\shared\NextModelOracle.cs" Link="NextModelOracle.cs" />
+    <Compile Include="..\shared\NextNetworkTextFacts.cs" Link="NextNetworkTextFacts.cs" />
+    <Compile Include="..\shared\NetworkModelEquality.cs" Link="NetworkModelEquality.cs" />
+  </ItemGroup>
 </Project>

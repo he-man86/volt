@@ -29,6 +29,9 @@ namespace Volt.Tests.Shared;
 /// main output the text would read back as another — <see cref="NextSpelling.MainSlotOfCall"/>).</item>
 /// <item><c>OutputTypes</c> and <c>Demux.Type</c>: a wire's type is compared through the declaration the writer
 /// derives from them, not as model fields (the vendor's Demux has no type; the text's has no stored types).</item>
+/// <item><c>Box.HasEnoOutput</c> where the text does not decide by it (<see cref="NextSpelling.EnoCarried"/>): a
+/// top-level box with no positional <c>=&gt;</c> pin, a box consumed by no stored slot, an Execute box. The ENO
+/// output is the box type's; the text spells it only as <c>.ENO</c> and as the slot positional pins skip.</item>
 /// <item>A NAMED output's slot → null: <c>F =&gt; v</c> names the pin, and the pin's slot is the box type's.</item>
 /// <item>Control flow: the Jump/Return bit on the item AND its target (DIALECT C13 — the reader writes both); a
 /// target-less return's target is the vendor's constant <c>???</c>.</item>
@@ -40,17 +43,19 @@ public static class NextNetworkTextFacts
 {
     public static NetworkBody Carried(NetworkBody body) =>
         new(body.Language, body.Networks.Select((n, i) => new Network(
-            i, n.Title, n.Label, n.Comment?.Replace("\r\n", "\n"), n.Disabled, n.Trees.Select(Node).ToList())).ToList());
+            i, n.Title, n.Label, n.Comment?.Replace("\r\n", "\n"), n.Disabled, n.Trees.Select(t => Node(t, consumed: false)).ToList())).ToList());
 
-    private static Node? NodeOrNull(Node? n) => n is null ? null : Node(n);
+    private static Node? NodeOrNull(Node? n) => n is null ? null : Node(n, consumed: true);
 
-    private static Node Node(Node n) => n switch
+    /// <param name="consumed">Whether something consumes the node — everything but a top-level item. A box's
+    /// ENO is carried differently at the top level (<see cref="NextSpelling.EnoCarried"/>).</param>
+    private static Node Node(Node n, bool consumed) => n switch
     {
         Leaf l => new Leaf(new Operand(l.Operand.Text), l.Flags),
         Assign a => AssignOf(a),
-        Box b => BoxOf(b),
+        Box b => BoxOf(b, consumed),
         Demux d => new Demux(d.VarId, NodeOrNull(d.Input)),
-        Parallel p => new Parallel(NodeOrNull(p.Input), p.Branches.Select(Node).ToList(), p.Mode),
+        Parallel p => new Parallel(NodeOrNull(p.Input), p.Branches.Select(br => Node(br, consumed: true)).ToList(), p.Mode),
         Terminator t => new Terminator(t.Flags),
         _ => throw new NotSupportedException($"NextNetworkTextFacts does not know node {n.GetType().Name}"),
     };
@@ -60,19 +65,19 @@ public static class NextNetworkTextFacts
         var jump = a.Flags.Jump || a.Targets.Any(t => t.Flags?.Jump == true);
         var ret = a.Flags.Return || a.Targets.Any(t => t.Flags?.Return == true);
         if (!jump && !ret)
-            return new Assign(Node(a.Value), a.Targets.Select(Target).ToList(), a.Flags);
+            return new Assign(Node(a.Value, consumed: true), a.Targets.Select(Target).ToList(), a.Flags);
 
         var flags = a.Flags with { Jump = jump, Return = ret };
         var targets = a.Targets.Count == 0 && ret
             ? new[] { new Operand(Box.UnnamedInstance, IsLValue: true, Flags: Flags.None with { Return = true }) }
             : a.Targets.Select(t => new Operand(t.Text, IsLValue: true,
                 Flags: (t.Flags ?? Flags.None) with { Jump = jump, Return = ret })).ToArray();
-        return new Assign(Node(a.Value), targets, flags);
+        return new Assign(Node(a.Value, consumed: true), targets, flags);
     }
 
     private static Operand Target(Operand t) => new(t.Text, IsLValue: true, Flags: t.Flags is { IsNone: false } f ? f : null);
 
-    private static Box BoxOf(Box b)
+    private static Box BoxOf(Box b, bool consumed)
     {
         // The one definition of ".ENO", shared with the writer: a copy here could drift from it silently.
         var byMainOutput = b.ConnectedSlot is not null && !NextSpelling.ConnectedByEno(b);
@@ -84,13 +89,14 @@ public static class NextNetworkTextFacts
             b.Instance is null ? null : new Operand(b.Instance.Text, IsInstance: true,
                 Flags: b.Instance.Flags is { IsNone: false } f ? f : null),
             NextSpelling.KindOf(b.Type, b.Instance is not null),
-            b.Inputs.Select(p => new Input(infix ? null : p.Formal, Node(p.Value), p.Flags)).ToList(),
+            b.Inputs.Select(p => new Input(infix ? null : p.Formal, Node(p.Value, consumed: true), p.Flags)).ToList(),
             b.Outputs.Select(o => new Output(o.Formal, Target(o.Value), o.Formal is not null ? null : o.Slot)).ToList(),
             NodeOrNull(b.Enable),
             b.StCode?.Replace("\r\n", "\n"),
             b.Flags,
             MainOutputIndex: byMainOutput ? b.MainOutputIndex : null,
             ConnectedSlot: b.ConnectedSlot,
-            OutputTypes: null);
+            OutputTypes: null,
+            HasEnoOutput: NextSpelling.EnoCarried(b, consumed) ? b.HasEnoOutput : null);
     }
 }

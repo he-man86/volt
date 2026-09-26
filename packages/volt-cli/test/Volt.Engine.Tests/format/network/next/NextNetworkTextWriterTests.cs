@@ -38,9 +38,9 @@ public class NextNetworkTextWriterTests
 
     static Box Call(string type, IEnumerable<Input> inputs, IEnumerable<Output>? outputs = null, Node? en = null,
                     int? main = 0, int? connected = null, Flags? f = null, Operand? instance = null,
-                    CallKind kind = CallKind.Function, IReadOnlyList<string?>? types = null) =>
+                    CallKind kind = CallKind.Function, IReadOnlyList<string?>? types = null, bool? eno = null) =>
         new(type, instance, kind, inputs.ToList(), (outputs ?? Array.Empty<Output>()).ToList(), en, null, f ?? Flags.None,
-            MainOutputIndex: main, ConnectedSlot: connected, OutputTypes: types);
+            MainOutputIndex: main, ConnectedSlot: connected, OutputTypes: types, HasEnoOutput: eno);
 
     static Box Fb(string instance, IEnumerable<Input> inputs, IEnumerable<Output>? outputs = null, string type = "FB") =>
         Call(type, inputs, outputs, main: null, instance: new Operand(instance, IsInstance: true), kind: CallKind.FunctionBlock);
@@ -199,7 +199,7 @@ public class NextNetworkTextWriterTests
     [Fact]
     public void Edges_are_flags_spelled_R_EDGE_and_F_EDGE()
     {
-        var move = Call("MOVE", new[] { In(L("1")) }, new[] { Out("nMode", 1) }, en: L("bStart", Rise));
+        var move = Call("MOVE", new[] { In(L("1")) }, new[] { Out("nMode", 1) }, en: L("bStart", Rise), eno: true);
         Assert.Equal(Body("MOVE(EN := R_EDGE(bStart), 1, => nMode);"), Write(move));
 
         Assert.Equal(Body("lamp := R_EDGE((a AND b));"),
@@ -278,9 +278,9 @@ public class NextNetworkTextWriterTests
         Assert.Equal(Body("t1(IN := a, PT := pt, ET => el);"),
             Write(Fb("t1", new[] { In(L("a"), "IN"), In(L("pt"), "PT") }, new[] { Out("el", 2, "ET") }, "TON")));
         Assert.Equal(Body("dst := f(src, oErr => err);"),
-            Write(Set(Call("f", new[] { In(L("src")) }, new[] { Out("err", 1, "oErr") }, connected: 0), T("dst"))));
+            Write(Set(Call("f", new[] { In(L("src")) }, new[] { Out("err", 1, "oErr") }, connected: 0, eno: false), T("dst"))));
         Assert.Equal(Body("out := MAX(a, b);"),
-            Write(Set(Call("MAX", new[] { In(L("a")), In(L("b")) }, connected: 0), T("out"))));
+            Write(Set(Call("MAX", new[] { In(L("a")), In(L("b")) }, connected: 0, eno: false), T("out"))));
     }
 
     /// <summary>Page, "Unnamed instances and ???".</summary>
@@ -303,7 +303,7 @@ public class NextNetworkTextWriterTests
         Assert.Equal(Body("out := (a AND b);"),
             Write(Set(Call("AND", new[] { In(L("a"), "IN1"), In(L("b"), "IN2") }, main: null), T("out"))));
         Assert.Equal(Body("out := ADD(X := a, b);"),
-            Write(Set(Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0), T("out"))));
+            Write(Set(Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, eno: false), T("out"))));
     }
 
     // ── input and output slots, EN and ENO ──────────────────────────────────────────────────────
@@ -314,38 +314,38 @@ public class NextNetworkTextWriterTests
     {
         Assert.Equal(Body("MOVE(EN := a, b);"), Write(Call("MOVE", new[] { In(L("b")) }, en: L("a"))));
         Assert.Equal(Body("MOVE(EN := c, 0, => Status);"),
-            Write(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"))));
+            Write(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"), eno: true)));
         Assert.Equal(Body("AND(EN := go, a, b, => out);"),
-            Write(Call("AND", new[] { In(L("a")), In(L("b")) }, new[] { Out("out", 1) }, en: L("go"), main: null)));
+            Write(Call("AND", new[] { In(L("a")), In(L("b")) }, new[] { Out("out", 1) }, en: L("go"), main: null, eno: true)));
 
-        var sub = Call("SUB", new[] { In(L("light")), In(L("deviation")) }, new[] { Out("diff", 1) }, en: L("rung"), connected: 0);
+        var sub = Call("SUB", new[] { In(L("light")), In(L("deviation")) }, new[] { Out("diff", 1) }, en: L("rung"), connected: 0, eno: true);
         Assert.Equal(Body("GT(EN := SUB(EN := rung, light, deviation, => diff).ENO, sensor, diff, => out);"),
-            Write(Call("GT", new[] { In(L("sensor")), In(L("diff")) }, new[] { Out("out", 1) }, en: sub)));
+            Write(Call("GT", new[] { In(L("sensor")), In(L("diff")) }, new[] { Out("out", 1) }, en: sub, eno: true)));
     }
 
     /// <summary>Spec, "an enabled box drives a lamp".</summary>
     [Fact]
     public void An_enabled_box_consumed_by_its_ENO() =>
         Assert.Equal(Body("lamp := MOVE(EN := c, 0, => Status).ENO;"),
-            Write(Set(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"), connected: 0), T("lamp"))));
+            Write(Set(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"), connected: 0, eno: true), T("lamp"))));
 
     /// <summary>Page, the TrayFiller N8 oracle: <c>GE(EN := , stActHeightElevator, tInt).ENO</c> — an EN shown and
     /// unwired.</summary>
     [Fact]
     public void An_EN_shown_but_unwired_is_an_empty_EN_pin() =>
         Assert.Equal(Body("out := GE(EN := , stActHeightElevator, tInt).ENO;"),
-            Write(Set(Call("GE", new[] { In(L("stActHeightElevator")), In(L("tInt")) }, en: Empty, connected: 0), T("out"))));
+            Write(Set(Call("GE", new[] { In(L("stActHeightElevator")), In(L("tInt")) }, en: Empty, connected: 0, eno: true), T("out"))));
 
     /// <summary>Spec, "a result pin is not an assign" and "a consumed box without EN keeps its main output".</summary>
     [Fact]
     public void Positional_result_pins_fill_the_slots_left_after_the_connected_one()
     {
-        Assert.Equal(Body("MOVE(src, => dst);"), Write(Call("MOVE", new[] { In(L("src")) }, new[] { Out("dst", 0) })));
+        Assert.Equal(Body("MOVE(src, => dst);"), Write(Call("MOVE", new[] { In(L("src")) }, new[] { Out("dst", 0) }, eno: false)));
         Assert.Equal(Body("out := f(src, => err);"),
-            Write(Set(Call("f", new[] { In(L("src")) }, new[] { Out("err", 1) }, connected: 0), T("out"))));
+            Write(Set(Call("f", new[] { In(L("src")) }, new[] { Out("err", 1) }, connected: 0, eno: false), T("out"))));
         // A slot passed over is a bare `=>`: slot 0 connected, slot 1 unwired, slot 2 to `b`.
         Assert.Equal(Body("out := f(src, =>, => b);"),
-            Write(Set(Call("f", new[] { In(L("src")) }, new[] { Out("b", 2) }, connected: 0), T("out"))));
+            Write(Set(Call("f", new[] { In(L("src")) }, new[] { Out("b", 2) }, connected: 0, eno: false), T("out"))));
     }
 
     /// <summary>Spec, "a connection by an unspellable slot".</summary>
@@ -353,15 +353,84 @@ public class NextNetworkTextWriterTests
     public void A_connection_by_neither_the_main_output_nor_ENO_goes_to_the_marker()
     {
         Assert.Equal("a connection by an unspellable output slot",
-            Refused(() => Write(Set(Call("f", new[] { In(L("src")) }, main: 0, connected: 1), T("out")))).Marker);
-        Assert.Equal("an enabled box connected by a slot other than ENO",
-            Refused(() => Write(Set(Call("MOVE", new[] { In(L("0")) }, en: L("c"), main: 1, connected: 1), T("out")))).Marker);
+            Refused(() => Write(Set(Call("f", new[] { In(L("src")) }, main: 0, connected: 1, eno: false), T("out")))).Marker);
+        // A box with an ENO output is connected by its main output, and that IS its ENO (census 1.6, DIALECT N16):
+        // a consumer on another slot has no spelling. (This was "an enabled box connected by a slot other than ENO",
+        // keyed on EN — which 1.6 measured independent of ENO.)
+        Assert.Equal("a connection by an unspellable output slot",
+            Refused(() => Write(Set(Call("MOVE", new[] { In(L("0")) }, en: L("c"), main: 1, connected: 1, eno: true), T("out")))).Marker);
+    }
+
+    // ── the slot rule keys ENO on the ENO OUTPUT, not on EN (task 2.5, census 1.6) ─────────────────────
+
+    /// <summary>Spec, "an enabled comparison consumed by its main output": EN wired, ONE data output, no ENO (40
+    /// such boxes in the corpora) — written with no suffix, and reads back connected by its main output.</summary>
+    [Fact]
+    public void An_enabled_comparison_consumed_by_its_main_output_has_no_suffix() =>
+        Assert.Equal(Body("out := GT(EN := c, a, b);"),
+            Write(Set(Call("GT", new[] { In(L("a")), In(L("b")) }, en: L("c"), main: 0, connected: 0, eno: false), T("out"))));
+
+    /// <summary>Spec, "ENO is the main output": a MOVE showing EN/ENO (outputs <c>ENO</c>, <c>''</c>;
+    /// <c>MainOutputIndex</c> 0) consumed by its main output is written <c>.ENO</c> — never suffix-less — and its
+    /// result pin fills slot 1, the slot after ENO.</summary>
+    [Fact]
+    public void ENO_wins_where_it_is_also_the_main_output() =>
+        Assert.Equal(Body("lamp := MOVE(EN := c, 0, => Status).ENO;"),
+            Write(Set(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"), main: 0, connected: 0, eno: true), T("lamp"))));
+
+    /// <summary>Spec, "`.ENO` on a box without EN SHALL be accepted where the box has an ENO output": an FB declaring
+    /// <c>ENO</c> without <c>EN</c> (Lenze <c>Dryer</c>), consumed through it, is written <c>.ENO</c> with no EN.</summary>
+    [Fact]
+    public void A_box_with_ENO_and_no_EN_consumed_by_its_ENO() =>
+        Assert.Equal(Body("out := Dryer(a, => speed).ENO;"),
+            Write(Set(Call("Dryer", new[] { In(L("a")) }, new[] { Out("speed", 1) }, main: 0, connected: 0, eno: true), T("out"))));
+
+    /// <summary>Spec, "ENO SHALL never be an `=&gt;` slot": a model wiring ENO to a variable as a named pin has no
+    /// spelling (ENO is only ever <c>.ENO</c>), and the text refuses <c>ENO =&gt; v</c>; a positional pin skips the ENO
+    /// slot, so <c>=&gt; Status</c> on a MOVE showing ENO is its slot 1.</summary>
+    [Fact]
+    public void ENO_is_never_an_output_pin()
+    {
+        Assert.Equal("an ENO output pin",
+            Refused(() => Write(Call("MOVE", new[] { In(L("0")) }, new[] { Out("lamp", null, "ENO") }, en: L("c"), eno: true))).Marker);
+        var r = NextNetworkTextGate.Validate(Body("MOVE(EN := c, 0, ENO => lamp);"), BodyLanguage.Fbd, NextNetworkScope.Empty);
+        Assert.Equal("NETWORK_BAD_EXPRESSION", Assert.Single(r.Diagnostics).Code);
+        Assert.Equal(Body("MOVE(EN := c, 0, => Status);"),
+            Write(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"), eno: true)));
+        Assert.Equal("a connection by an unspellable output slot",
+            Refused(() => Write(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 0) }, en: L("c"), eno: true))).Marker);
+    }
+
+    /// <summary>Where the ENO decides the text and the model does not say, it has no spelling: a consumed box's
+    /// suffix, and the slots a top-level box's positional pins fill. Null is "not read", never "no ENO".</summary>
+    [Fact]
+    public void A_box_whose_ENO_output_was_not_read_goes_to_the_marker()
+    {
+        Assert.Equal("a box whose ENO output was not read",
+            Refused(() => Write(Set(Call("f", new[] { In(L("src")) }, connected: 0), T("out")))).Marker);
+        Assert.Equal("a box whose ENO output was not read",
+            Refused(() => Write(Call("MOVE", new[] { In(L("src")) }, new[] { Out("dst", 1) }, en: L("c")))).Marker);
+        // …and where it decides nothing, it is not asked: a top-level box with no positional pin.
+        Assert.Equal(Body("MOVE(EN := a, b);"), Write(Call("MOVE", new[] { In(L("b")) }, en: L("a"))));
+    }
+
+    /// <summary>A top-level box says neither <c>.ENO</c> nor anything else about ENO, and is read by its EN
+    /// (<see cref="NextSpelling.TextHasEno"/>). A box that rule misreads, where it matters — its positional pins —
+    /// has no spelling: an enabled comparison writing its one output to a pin, an FB with ENO and no EN writing a
+    /// positional pin. Renumbered, its pins would be wired to other slots on push.</summary>
+    [Fact]
+    public void A_top_level_box_whose_ENO_the_text_would_misread_goes_to_the_marker()
+    {
+        Assert.Equal("an ENO output the text reads otherwise",
+            Refused(() => Write(Call("GT", new[] { In(L("a")), In(L("b")) }, new[] { Out("x", 0) }, en: L("c"), eno: false))).Marker);
+        Assert.Equal("an ENO output the text reads otherwise",
+            Refused(() => Write(Call("Dryer", new[] { In(L("a")) }, new[] { Out("speed", 1) }, eno: true))).Marker);
     }
 
     [Fact]
     public void An_unnamed_output_with_no_stored_slot_goes_to_the_marker() =>
         Assert.Equal("an output pin with no stored slot",
-            Refused(() => Write(Call("MOVE", new[] { In(L("src")) }, new[] { Out("dst", null) }))).Marker);
+            Refused(() => Write(Call("MOVE", new[] { In(L("src")) }, new[] { Out("dst", null) }, eno: false))).Marker);
 
     // ── empty slots ─────────────────────────────────────────────────────────────────────────────
 
@@ -525,14 +594,14 @@ public class NextNetworkTextWriterTests
     [Fact]
     public void A_wire_is_typed_from_its_producer_and_never_guessed()
     {
-        var add = Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, types: new[] { "INT" });
+        var add = Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, eno: false, types: new[] { "INT" });
         // The comparisons are consumed by their main output, slot 0, as the vendor stores them (census 1.6) — the
         // slot the group reads back.
         Assert.Equal(Body("VAR_TEMP g1 : INT; END_VAR", "g1 := ADD(X := a, b);", "o1 := (g1 > c);", "o2 := (g1 < d);"),
-            Write(Net(Def(1, add), Set(Call("GT", new[] { In(Ref(1)), In(L("c")) }, connected: 0), T("o1")),
-                Set(Call("LT", new[] { In(Ref(1)), In(L("d")) }, connected: 0), T("o2")))));
+            Write(Net(Def(1, add), Set(Call("GT", new[] { In(Ref(1)), In(L("c")) }, connected: 0, eno: false), T("o1")),
+                Set(Call("LT", new[] { In(Ref(1)), In(L("d")) }, connected: 0, eno: false), T("o2")))));
 
-        var untyped = Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0);
+        var untyped = Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, eno: false);
         Assert.Equal("a wire of unknown type", Refused(() => Write(Net(Def(1, untyped), Set(Ref(1), T("o"))))).Marker);
 
         // An FBD leaf that is not TRUE/FALSE says nothing about its type; the same leaf in LD is a contact.
@@ -544,7 +613,7 @@ public class NextNetworkTextWriterTests
     [Fact]
     public void Wires_of_several_types_are_one_block_one_declaration_per_type()
     {
-        var add = Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, types: new[] { "INT" });
+        var add = Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, eno: false, types: new[] { "INT" });
         Assert.Equal(
             Body("VAR_TEMP g1, g3 : BOOL; g2 : INT; END_VAR", "g1 := TRUE;", "g2 := ADD(X := a, b);", "g3 := (g1 AND c);",
                  "o := g2;", "p := g3;"),
@@ -638,12 +707,12 @@ public class NextNetworkTextWriterTests
     public void A_consumed_box_whose_main_output_the_text_would_misread_goes_to_the_marker()
     {
         Assert.Equal("a main output other than slot 0",
-            Refused(() => Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 0) }, main: 1, connected: 1), T("out")))).Marker);
+            Refused(() => Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 0) }, main: 1, connected: 1, eno: false), T("out")))).Marker);
         Assert.Equal("a consumed box with no stored connection slot",
             Refused(() => Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 1) }, main: null, connected: null), T("out")))).Marker);
         // Slot 0 as main output is the text's own reading: written, and x keeps slot 1.
         Assert.Equal(Body("out := FC(src, => x);"),
-            Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 1) }, main: 0, connected: 0), T("out"))));
+            Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 1) }, main: 0, connected: 0, eno: false), T("out"))));
     }
 
     /// <summary>Spec, "a call's head SHALL be its BoxType verbatim": a type that is a word of the text (other than
@@ -652,8 +721,8 @@ public class NextNetworkTextWriterTests
     [Fact]
     public void A_box_type_spelled_like_a_word_of_the_text_is_a_backticked_head()
     {
-        Assert.Equal(Body("`Network`(x, => y);"), Write(Call("Network", new[] { In(L("x")) }, new[] { Out("y", 0) })));
-        Assert.Equal(Body("out := `JMP`(x);"), Write(Set(Call("JMP", new[] { In(L("x")) }, connected: 0), T("out"))));
+        Assert.Equal(Body("`Network`(x, => y);"), Write(Call("Network", new[] { In(L("x")) }, new[] { Out("y", 0) }, eno: false)));
+        Assert.Equal(Body("out := `JMP`(x);"), Write(Set(Call("JMP", new[] { In(L("x")) }, connected: 0, eno: false), T("out"))));
         Assert.Equal(Body("`EXECUTE`(x);"), Write(Call("EXECUTE", new[] { In(L("x")) })));
         Assert.Equal(Body("`Let`(x);"), Write(Call("Let", new[] { In(L("x")) })));
     }
@@ -695,8 +764,8 @@ public class NextNetworkTextWriterTests
     public void A_ladder_leaf_wire_feeding_data_pins_is_of_unknown_type() =>
         Assert.Equal("a wire of unknown type",
             Refused(() => Write(Net(Def(1, L("nSpeed")),
-                Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("nOut", 0) }),
-                Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("y", 0) })), BodyLanguage.Ld)).Marker);
+                Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("nOut", 0) }, eno: false),
+                Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("y", 0) }, eno: false)), BodyLanguage.Ld)).Marker);
 
     /// <summary>A head is the BoxType verbatim: an operator type not spelled as the table's own word (<c>and</c>)
     /// is written in call form with that spelling, never as the infix group that reads back as <c>AND</c>.</summary>

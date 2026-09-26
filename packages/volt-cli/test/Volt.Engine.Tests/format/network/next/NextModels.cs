@@ -35,9 +35,9 @@ internal static class NextModels
 
     public static Box Call(string type, IEnumerable<Input> inputs, IEnumerable<Output>? outputs = null, Node? en = null,
                            int? main = 0, int? connected = null, Flags? f = null, Operand? instance = null,
-                           CallKind kind = CallKind.Function, IReadOnlyList<string?>? types = null) =>
+                           CallKind kind = CallKind.Function, IReadOnlyList<string?>? types = null, bool? eno = null) =>
         new(type, instance, kind, inputs.ToList(), (outputs ?? Array.Empty<Output>()).ToList(), en, null, f ?? Flags.None,
-            MainOutputIndex: main, ConnectedSlot: connected, OutputTypes: types);
+            MainOutputIndex: main, ConnectedSlot: connected, OutputTypes: types, HasEnoOutput: eno);
 
     public static Box Fb(string instance, IEnumerable<Input> inputs, IEnumerable<Output>? outputs = null, string type = "FB") =>
         Call(type, inputs, outputs, main: null, instance: new Operand(instance, IsInstance: true), kind: CallKind.FunctionBlock);
@@ -89,29 +89,29 @@ internal static class NextModels
         Add("not.on-group", Body(Set(new Box("AND", null, CallKind.Operator, new[] { In(L("a")), In(L("b")) }, new Output[0], null, null, Neg), T("out"))));
         Add("not.box", Body(Set(Call("NOT", new[] { In(L("a")) }, main: null), T("out"))));
         Add("not.box-around-group", Body(Set(Call("NOT", new[] { In(Op("AND", L("a"), L("b"))) }, main: null), T("out"))));
-        Add("edge.on-en", Body(Call("MOVE", new[] { In(L("1")) }, new[] { Out("nMode", 1) }, en: L("bStart", Rise))));
+        Add("edge.on-en", Body(Call("MOVE", new[] { In(L("1")) }, new[] { Out("nMode", 1) }, en: L("bStart", Rise), eno: true)));
         Add("edge.on-group", Body(Set(new Box("AND", null, CallKind.Operator, new[] { In(L("a")), In(L("b")) }, new Output[0], null, null, Rise), T("lamp"))));
         Add("edge.negated", Body(Set(L("x", Neg with { Falling = true }), T("out"))));
         Add("call.fb", Body(Fb("t1", new[] { In(L("a"), "IN"), In(L("pt"), "PT") }, new[] { Out("el", 2, "ET") }, "TON")));
-        Add("call.named-output", Body(Set(Call("f", new[] { In(L("src")) }, new[] { Out("err", 1, "oErr") }, connected: 0), T("dst"))));
-        Add("call.function", Body(Set(Call("MAX", new[] { In(L("a")), In(L("b")) }, connected: 0), T("out"))));
+        Add("call.named-output", Body(Set(Call("f", new[] { In(L("src")) }, new[] { Out("err", 1, "oErr") }, connected: 0, eno: false), T("dst"))));
+        Add("call.function", Body(Set(Call("MAX", new[] { In(L("a")), In(L("b")) }, connected: 0, eno: false), T("out"))));
         Add("unnamed.instance", Body(Call("TON", new[] { In(L("a"), "IN"), In(L("t"), "PT") }, main: null,
             instance: new Operand("???", IsInstance: true), kind: CallKind.FunctionBlock)));
         Add("unnamed.target", Body(Set(L("ioAxis.xVirtual"), T("???"))));
         Add("unnamed.pins", Body(Fb("t1", new[] { In(L("???"), "IN"), In(L("pt"), "PT") }, new[] { Out("???", 2, "ET") }, "TON")));
         Add("unnamed.in-group", Body(Set(Op("AND", L("???"), L("a")), T("out"))));
         Add("formals.default", Body(Set(Call("AND", new[] { In(L("a"), "IN1"), In(L("b"), "IN2") }, main: null), T("out"))));
-        Add("formals.non-default", Body(Set(Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0), T("out"))));
+        Add("formals.non-default", Body(Set(Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, eno: false), T("out"))));
         Add("en.unconsumed", Body(Call("MOVE", new[] { In(L("b")) }, en: L("a"))));
-        Add("en.result-pin", Body(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"))));
-        Add("en.operator-call-form", Body(Call("AND", new[] { In(L("a")), In(L("b")) }, new[] { Out("out", 1) }, en: L("go"), main: null)));
-        Add("en.chain", Body(Call("GT", new[] { In(L("sensor")), In(L("diff")) }, new[] { Out("out", 1) },
-            en: Call("SUB", new[] { In(L("light")), In(L("deviation")) }, new[] { Out("diff", 1) }, en: L("rung"), connected: 0))));
-        Add("eno.lamp", Body(Set(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"), connected: 0), T("lamp"))));
-        Add("eno.unwired-en", Body(Set(Call("GE", new[] { In(L("stActHeightElevator")), In(L("tInt")) }, en: Empty, connected: 0), T("out"))));
-        Add("slots.top-level", Body(Call("MOVE", new[] { In(L("src")) }, new[] { Out("dst", 0) })));
-        Add("slots.consumed", Body(Set(Call("f", new[] { In(L("src")) }, new[] { Out("err", 1) }, connected: 0), T("out"))));
-        Add("slots.passed-over", Body(Set(Call("f", new[] { In(L("src")) }, new[] { Out("b", 2) }, connected: 0), T("out"))));
+        Add("en.result-pin", Body(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"), eno: true)));
+        Add("en.operator-call-form", Body(Call("AND", new[] { In(L("a")), In(L("b")) }, new[] { Out("out", 1) }, en: L("go"), main: null, eno: true)));
+        Add("en.chain", Body(Call("GT", new[] { In(L("sensor")), In(L("diff")) }, new[] { Out("out", 1) }, eno: true,
+            en: Call("SUB", new[] { In(L("light")), In(L("deviation")) }, new[] { Out("diff", 1) }, en: L("rung"), connected: 0, eno: true))));
+        Add("eno.lamp", Body(Set(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"), connected: 0, eno: true), T("lamp"))));
+        Add("eno.unwired-en", Body(Set(Call("GE", new[] { In(L("stActHeightElevator")), In(L("tInt")) }, en: Empty, connected: 0, eno: true), T("out"))));
+        Add("slots.top-level", Body(Call("MOVE", new[] { In(L("src")) }, new[] { Out("dst", 0) }, eno: false)));
+        Add("slots.consumed", Body(Set(Call("f", new[] { In(L("src")) }, new[] { Out("err", 1) }, connected: 0, eno: false), T("out"))));
+        Add("slots.passed-over", Body(Set(Call("f", new[] { In(L("src")) }, new[] { Out("b", 2) }, connected: 0, eno: false), T("out"))));
         Add("empty.mul", Body(Op("MUL", Empty, L("iRPM"), L("6"))));
         Add("empty.named", Body(Fb("ctu", new[] { In(L("a"), "CU"), In(Empty, "RESET"), In(Empty, "PV") })));
         Add("empty.leading", Body(Call("f", new[] { In(Empty), In(L("a")) })));
@@ -142,20 +142,20 @@ internal static class NextModels
             Set(Op("AND", Ref(0), L("TRUE")), T("Mach1_AuxData.MIDS_Active")),
         }), BodyLanguage.Ld));
         Add("wires.single-consumer", Body(Net(Def(28, Op("AND", L("a"), L("b"))), Set(Ref(28), T("out")))));
-        Add("wires.typed-box", Body(Net(Def(1, Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, types: new[] { "INT" })),
-            Set(Call("GT", new[] { In(Ref(1)), In(L("c")) }, connected: 0), T("o1")),
-            Set(Call("LT", new[] { In(Ref(1)), In(L("d")) }, connected: 0), T("o2")))));
+        Add("wires.typed-box", Body(Net(Def(1, Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, eno: false, types: new[] { "INT" })),
+            Set(Call("GT", new[] { In(Ref(1)), In(L("c")) }, connected: 0, eno: false), T("o1")),
+            Set(Call("LT", new[] { In(Ref(1)), In(L("d")) }, connected: 0, eno: false), T("o2")))));
         Add("wires.ld-leaf", Body(Net(Def(1, L("x")), Set(Ref(1), T("o"))), BodyLanguage.Ld));
         Add("wires.several-types", Body(Net(Def(1, L("TRUE")),
-            Def(2, Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, types: new[] { "INT" })),
+            Def(2, Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, eno: false, types: new[] { "INT" })),
             Def(3, Op("AND", Ref(1), L("c"))), Set(Ref(2), T("o")), Set(Ref(3), T("p")))));
         Add("parallel.fed", Body(Net(Def(54, L("TRUE")),
             Set(new Parallel(Ref(54), new Node[] { L("StartFlag"), L("tResetSafetyGuard") }, ParallelMode.BoxShortCircuit), T("ResetSafetyGuard", SetBit)))));
         Add("parallel.unfed", Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), T("out"))));
-        Add("infix.consumed-comparison", Body(Set(Call("GT", new[] { In(L("a")), In(L("b")) }, connected: 0), T("o"))));
-        Add("infix.consumed-arithmetic", Body(Set(Call("ADD", new[] { In(L("a")), In(L("b")) }, connected: 0), T("out"))));
-        Add("targets.literal", Body(Net(Set(L("a"), T("5")), Set(L("a"), T("16#FF")), Call("F", new[] { In(L("a")) }, new[] { Out("T#1s", 0) }))));
-        Add("empty.lone-beside-output", Body(Call("f", new[] { In(Empty) }, new[] { Out("x", 0) })));
+        Add("infix.consumed-comparison", Body(Set(Call("GT", new[] { In(L("a")), In(L("b")) }, connected: 0, eno: false), T("o"))));
+        Add("infix.consumed-arithmetic", Body(Set(Call("ADD", new[] { In(L("a")), In(L("b")) }, connected: 0, eno: false), T("out"))));
+        Add("targets.literal", Body(Net(Set(L("a"), T("5")), Set(L("a"), T("16#FF")), Call("F", new[] { In(L("a")) }, new[] { Out("T#1s", 0) }, eno: false))));
+        Add("empty.lone-beside-output", Body(Call("f", new[] { In(Empty) }, new[] { Out("x", 0) }, eno: false)));
         Add("parallel.sequential", Body(Set(new Parallel(L("f"), new Node[] { L("a"), L("b") }, ParallelMode.Sequential), T("out"))));
         return g;
     }

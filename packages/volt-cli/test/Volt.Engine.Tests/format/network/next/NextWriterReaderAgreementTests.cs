@@ -49,9 +49,9 @@ public class NextWriterReaderAgreementTests
         new(names, pous ?? Array.Empty<string>(), instances ?? new Dictionary<string, string>());
 
     /// <summary>A comparison or arithmetic box as the vendor stores it when a consumer takes its result: main output
-    /// 0 and connected by it (census 1.6: MainOutputIndex 0 on 456 boxes).</summary>
+    /// 0 and connected by it (census 1.6: MainOutputIndex 0 on 456 boxes), which is not an ENO — no EN shown.</summary>
     static Box Stored(string type, params Node[] inputs) =>
-        Call(type, inputs.Select(i => In(i)), connected: 0);
+        Call(type, inputs.Select(i => In(i)), connected: 0, eno: false);
 
     // ── infix and the slot rule (spec, "infix treats absent and default formals as one"; "EN is a pin …") ─────
 
@@ -109,7 +109,7 @@ public class NextWriterReaderAgreementTests
         Assert.Equal("a stored output type the text reads otherwise", RefusedBy(m, NextNetworkScope.Empty));
         Assert.Equal("a stored output type the text reads otherwise", NextModelOracle.Check("and-dint", m).Reason);
 
-        var gt = Call("GT", new[] { In(L("a")), In(L("b")) }, connected: 0, types: new string?[] { "INT" });
+        var gt = Call("GT", new[] { In(L("a")), In(L("b")) }, connected: 0, eno: false, types: new string?[] { "INT" });
         Assert.Equal("a stored output type the text reads otherwise",
             RefusedBy(Body(Net(Def(1, gt), Set(Ref(1), T("c")))), NextNetworkScope.Empty));
     }
@@ -141,11 +141,11 @@ public class NextWriterReaderAgreementTests
     {
         Assert.Equal(Src("`5` := a;"), Written(Body(Set(L("a"), T("5"))), NextNetworkScope.Empty));
         Assert.Equal(Src("`16#FF` := a;"), Written(Body(Set(L("a"), T("16#FF"))), NextNetworkScope.Empty));
-        Assert.Equal(Src("F(a, => `T#1s`);"), Written(Body(Call("F", new[] { In(L("a")) }, new[] { Out("T#1s", 0) })), NextNetworkScope.Empty));
+        Assert.Equal(Src("F(a, => `T#1s`);"), Written(Body(Call("F", new[] { In(L("a")) }, new[] { Out("T#1s", 0) }, eno: false)), NextNetworkScope.Empty));
         Assert.Equal(Src("%QX0.1 := a;"), Written(Body(Set(L("a"), T("%QX0.1"))), NextNetworkScope.Empty));
         Assert.Null(NextModelOracle.Check("5", Body(Set(L("a"), T("5")))).Reason);
         Assert.Null(NextModelOracle.Check("16#FF", Body(Set(L("a"), T("16#FF")))).Reason);
-        Assert.Null(NextModelOracle.Check("T#1s", Body(Call("F", new[] { In(L("a")) }, new[] { Out("T#1s", 0) }))).Reason);
+        Assert.Null(NextModelOracle.Check("T#1s", Body(Call("F", new[] { In(L("a")) }, new[] { Out("T#1s", 0) }, eno: false))).Reason);
     }
 
     // ── call heads and instances ────────────────────────────────────────────────────────────────
@@ -227,7 +227,7 @@ public class NextWriterReaderAgreementTests
     [Fact]
     public void A_lone_unwired_slot_beside_an_output_pin_is_written()
     {
-        var m = Body(Call("f", new[] { In(Empty) }, new[] { Out("x", 0) }));
+        var m = Body(Call("f", new[] { In(Empty) }, new[] { Out("x", 0) }, eno: false));
         Assert.Equal(Src("f(, => x);"), Written(m, NextNetworkScope.Empty));
         Assert.Null(NextModelOracle.Check("f(, => x)", m).Reason);
         Assert.True(NextNetworkTextGate.Validate(Src("f(, => x);"), BodyLanguage.Fbd, NextNetworkScope.Empty).Ok);
@@ -308,22 +308,22 @@ public class NextWriterReaderAgreementTests
         Assert.Null(NextModelOracle.Check("and(or)", and).Reason);
 
         var enabled = Body(Call("AND", new[] { In(Call("xor", new[] { In(L("a")), In(L("b")) }, main: null)), In(L("c")) },
-            new[] { Out("out", 1) }, en: L("go"), main: null));
+            new[] { Out("out", 1) }, en: L("go"), main: null, eno: true));
         Assert.Equal(Src("AND(EN := go, xor(a, b), c, => out);"), Written(enabled, NextNetworkScope.Empty));
         Assert.Null(NextModelOracle.Check("AND(EN, xor)", enabled).Reason);
 
         var enoChain = Body(Set(Call("AND", new[]
         {
-            In(Call("XOR", new[] { In(L("a")), In(L("b")) }, en: L("c"), main: null, connected: 0)), In(L("d")),
-        }, en: L("go"), main: null, connected: 0), T("out")));
+            In(Call("XOR", new[] { In(L("a")), In(L("b")) }, en: L("c"), main: null, connected: 0, eno: true)), In(L("d")),
+        }, en: L("go"), main: null, connected: 0, eno: true), T("out")));
         Assert.Equal(Src("out := AND(EN := go, XOR(EN := c, a, b).ENO, d).ENO;"), Written(enoChain, NextNetworkScope.Empty));
         Assert.Null(NextModelOracle.Check("AND(EN, XOR.ENO).ENO", enoChain).Reason);
 
         Assert.Null(NextModelOracle.Check("R_EDGE(AND(EN := MOD.ENO))", Body(Set(Call("AND", new[] { In(L("a")), In(L("b")) },
-            en: Call("MOD", new[] { In(L("a")), In(L("b")) }, en: L("c"), connected: 0), main: null, connected: 0, f: Rise), T("out")))).Reason);
+            en: Call("MOD", new[] { In(L("a")), In(L("b")) }, en: L("c"), connected: 0, eno: true), main: null, connected: 0, f: Rise, eno: true), T("out")))).Reason);
         Assert.Null(NextModelOracle.Check("OR-group over XOR.ENO", Body(Set(Op("OR", L("a"),
-            Call("XOR", new[] { In(Call("AND", new[] { In(L("a")), In(L("b")) }, en: L("d"), main: null, connected: 0)), In(L("b")) },
-                en: L("c"), main: null, connected: 0)), T("out")))).Reason);
+            Call("XOR", new[] { In(Call("AND", new[] { In(L("a")), In(L("b")) }, en: L("d"), main: null, connected: 0, eno: true)), In(L("b")) },
+                en: L("c"), main: null, connected: 0, eno: true)), T("out")))).Reason);
 
         var r = Gate(Src("and(`or`(a, b), c);"), BodyLanguage.Fbd, NextNetworkScope.Empty);
         Assert.Equal("NETWORK_NOT_CANONICAL", Assert.Single(r.Diagnostics).Code);

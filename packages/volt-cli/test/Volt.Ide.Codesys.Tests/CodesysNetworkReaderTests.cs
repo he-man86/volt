@@ -836,12 +836,7 @@ public class CodesysNetworkReaderTests
     [Fact]
     public void An_execute_box_with_empty_ST_reads_as_empty_not_missing()
     {
-        var box = new Nwl.BoxTreeBox
-        {
-            BoxType = "Execute",
-            InputItemList = new object[] { Nwl.Leaf("a") },
-            STSnippet = new Nwl.STSnippet { Snippet = new _3S.CoDeSys.STObject.STImplementationObject() },
-        };
+        var box = Nwl.ExecuteBox(new Nwl.STSnippet { Snippet = new _3S.CoDeSys.STObject.STImplementationObject() });
 
         var body = CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd);
 
@@ -860,12 +855,7 @@ public class CodesysNetworkReaderTests
         try { impl.TextDocument.Insert(0, "n := n + 1;"); }
         finally { Nwl.TextDocument.ThrowsAfterInsert = true; }
 
-        var box = new Nwl.BoxTreeBox
-        {
-            BoxType = "Execute",
-            InputItemList = new object[] { Nwl.Leaf("a") },
-            STSnippet = new Nwl.STSnippet { Snippet = impl },
-        };
+        var box = Nwl.ExecuteBox(new Nwl.STSnippet { Snippet = impl });
 
         var read = Assert.IsType<Box>(
             CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd).Networks.Single().Trees.Single());
@@ -878,12 +868,7 @@ public class CodesysNetworkReaderTests
     [Fact]
     public void An_execute_box_whose_snippet_has_no_document_throws()
     {
-        var box = new Nwl.BoxTreeBox
-        {
-            BoxType = "Execute",
-            InputItemList = new object[] { Nwl.Leaf("a") },
-            STSnippet = new Nwl.STSnippet(),   // ProvidesSTSnippet is true; the Snippet aspect is absent
-        };
+        var box = Nwl.ExecuteBox(new Nwl.STSnippet());   // ProvidesSTSnippet is true; the Snippet aspect is absent
 
         // THE TYPE IS THE CONTRACT, not the wording. This asserted a bare `NotSupportedException`, and the
         // driver above it had no way to tell this refusal from any other — so it did not try, and the throw

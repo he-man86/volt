@@ -665,8 +665,14 @@ public static class NextNetworkTextReader
             Next();
             var type = FbdOperators.SymbolToType[sym];
             var connected = consumed ? NextSpelling.MainSlotOfCall(type) : null;
-            return new Box(type, null, CallKind.Operator, inputs, new List<Output>(), null, null, Flags.None,
+            var box = new Box(type, null, CallKind.Operator, inputs, new List<Output>(), null, null, Flags.None,
                 MainOutputIndex: connected, ConnectedSlot: connected);
+            // A group has no suffix and no EN, so where the text carries ENO at all it says "none".
+            return box with
+            {
+                HasEnoOutput = NextSpelling.EnoCarried(box, consumed)
+                    ? NextSpelling.TextHasEno(isExecute: false, hasEnable: false, enoSuffix: false, consumed) : null,
+            };
         }
 
         private ParseError NotAnOperator(Tok t) =>
@@ -763,11 +769,14 @@ public static class NextNetworkTextReader
                 throw Err(head, ConflictCodes.NetworkUnsupported,
                     $"a POU named {type.ToUpperInvariant()}: the text reads {type.ToUpperInvariant()}(…) as its own construct, so a call of it has no spelling.");
 
-            // The slot rule: ENO (slot 0 of a box with EN) is never an `=>` slot, nor is the slot a consumer is
-            // connected to; positional pins fill the rest in order. A box consumed WITHOUT `.ENO` is connected by its
+            // The slot rule: ENO is never an `=>` slot, nor is the slot a consumer is connected to; positional pins
+            // fill the rest in order. Whether the box HAS an ENO output is read by the one rule the writer refuses
+            // against (NextSpelling.TextHasEno): `.ENO` says so, a consumer without it reads a main output that is
+            // not ENO, and a top-level box is read by its EN. A box consumed WITHOUT `.ENO` is connected by its
             // main output, which the text reads by NextSpelling.MainSlotOfCall — slot 0, or no stored slot for a
             // bit operator — and the writer refuses every box that reading would get wrong.
-            var enoSlot = NextSpelling.EnoSlot(isExecute: false, hasEnable: hadEn);
+            var hasEno = NextSpelling.TextHasEno(isExecute: false, hadEn, eno, consumed);
+            int? enoSlot = hasEno ? 0 : null;
             int? connected = eno ? enoSlot : consumed ? NextSpelling.MainSlotOfCall(type) : null;
             var next = 0;
             var built = new List<Output>();
@@ -779,13 +788,17 @@ public static class NextNetworkTextReader
                 if (target is { } tt) built.Add(new Output(null, new Operand(LValueText(tt), IsLValue: true), slot));
             }
 
-            if (eno && !hadEn)
+            // `.ENO` on a box without EN is NOT refused here: `.ENO` means "connected to the ENO output", and a box
+            // may have one without EN (census 1.6: Lenze `Dryer`). Whether the IDE's box has it is the push's to
+            // check against the box it builds, as is a suffix-less consumer of a box whose main output is ENO.
+            if (eno && !consumed)
                 throw Err(head, ConflictCodes.NetworkBadExpression,
-                    $"`.ENO` on a box without EN: ENO echoes the enable, and '{head.Text}' has none.");
+                    $"`.ENO` on '{head.Text}', which nothing consumes: a top-level box's output goes nowhere.");
 
             var box = new Box(type, instance, NextSpelling.KindOf(type, instance is not null), inputs, built, en, null,
                 Flags.None, MainOutputIndex: consumed && !eno ? connected : null, ConnectedSlot: connected);
-            CheckConsumption(box, head, consumed, eno);
+            // Stated only where the text carries it; elsewhere the text says nothing about ENO, and null says so.
+            box = box with { HasEnoOutput = NextSpelling.EnoCarried(box, consumed) ? hasEno : null };
             return Mark(box, head.Offset);
         }
 
@@ -925,22 +938,9 @@ public static class NextNetworkTextReader
                     "a consumed EXECUTE box says `.ENO`: its only output is ENO.");
             if (!consumed && eno)
                 throw Err(kw, ConflictCodes.NetworkBadExpression, "`.ENO` on an EXECUTE box nothing consumes.");
+            // An Execute box's only output is its ENO, slot 0 (census 1.11).
             return new Box(NextSpelling.ExecuteType, null, NextSpelling.KindOf(NextSpelling.ExecuteType, false),
-                new List<Input>(), new List<Output>(), en, snippet.Text, Flags.None,
-                ConnectedSlot: eno ? NextSpelling.EnoSlot(isExecute: true, hasEnable: en is not null) : null);
-        }
-
-        /// <summary>The <c>.ENO</c> rule. Until census 1.6 shows an enabled box connected by its main output, a
-        /// consumed enabled box must say <c>.ENO</c> — without it <c>coil := MOVE(EN := c, 0, =&gt; dst)</c> would
-        /// read as "coil gets 0" — and a top-level box, whose output goes nowhere, cannot say it.</summary>
-        private void CheckConsumption(Box b, Tok at, bool consumed, bool eno)
-        {
-            if (!consumed && eno)
-                throw Err(at, ConflictCodes.NetworkBadExpression,
-                    $"`.ENO` on '{at.Text}', which nothing consumes: a top-level box's output goes nowhere.");
-            if (consumed && b.Enable is not null && !eno)
-                throw Err(at, ConflictCodes.NetworkBadExpression,
-                    $"the enabled box '{at.Text}' is consumed without `.ENO`: a consumer of a box with EN is connected to its ENO, written `.ENO`.");
+                new List<Input>(), new List<Output>(), en, snippet.Text, Flags.None, ConnectedSlot: eno ? 0 : null);
         }
 
         // ── operands ────────────────────────────────────────────────────────────────────────────────

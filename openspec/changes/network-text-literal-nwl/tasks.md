@@ -190,10 +190,18 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
 - [x] 2.1 A structural `NetworkModel` comparer (the model deliberately has none today). Its one equivalence: absent
       and default `InputParams` names (1.5, review 7.9).
       *Done (phase 1):* `test/shared/NetworkModelEquality.cs` + `NetworkModelEqualityTests`; the default-formals equivalence is deliberately not built — census 1.5 found no default formals to reconcile.
-- [ ] 2.2 Property test `Read(Write(m)) ≅ m` over every vendor-read fixture (Codesys reader doubles, `tc-pou/*.TcPOU`)
+- [x] 2.2 Property test `Read(Write(m)) ≅ m` over every vendor-read fixture (Codesys reader doubles, `tc-pou/*.TcPOU`)
       and the Lenze-shape InlineData. **Must be red today** on: a `BoxTreeParallel` (reads back as AND/OR), a top-level
       box with a result pin (reads back as `Assign(Box)`).
       *Progress (phase 1):* the v2 oracle `Read(Write(m)) ≅ m` runs over every v1 test text and model, the LSP corpus (per body and per network) and the TwinCAT `tc-pou` archives (`ModelRoundTripOracleTests`, `TcModelRoundTripOracleTests`), green or refused by name. Open: the CODESYS reader doubles are not fed to it yet; the "red on v1" half belongs to the swap (3.7).
+      *Done (section 2):* the CODESYS reader doubles run through the same oracle (`CodesysModelRoundTripOracleTests`,
+      the shared oracle now compiled into the CODESYS suite): 31 round-trip, 1 refused by name (MOVE's result pin —
+      the reader fills no output slot or ENO fact yet, 3.10/4.1), pinned. The three Execute doubles were
+      `BoxType = "Execute"` with an unnamed data pin, a shape no vendor emits; they are now the measured shape
+      (`Nwl.ExecuteBox`: `'EXECUTE'`, EN/ENO shown, the one input the EN wire — `nwl-execute-compare.log`). The red
+      half: `The_oracle_is_red_on_v1_for_a_Parallel_and_a_result_pin` shows the model comparison failing on v1's
+      round trip (the Parallel reads back a box, the result pin an Assign) while v1's text is a fixed point, and the
+      same models passing v2; it goes with v1 at the swap.
 - [ ] 2.3 v2 goldens for the SAME NWL shapes the split-only tests pin, red until the swap:
       `A_modifier_on_an_operand_does_not_force_a_hoisted_LET`, `An_operand_whose_own_text_is_unsafe_is_still_hoisted`,
       the en-chain InlineData (RoundTrip L56-67), `LET g28` single-consumer Demux (L139), the `i1 := DINT_TO_REAL`
@@ -206,7 +214,7 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       v2 text AND as a model, red until the swap. Positions with the `X AND (a OR b)` shape are pinned only after 1.3.
       (The design page shows N82 and N8 only.)
       *Progress (phase 1):* Mach1_MIDS N0 and TrayFiller N8 pinned as v2 text + model (`NextNetworkTextWriterTests`); N10, N13, N82, TrayFiller N1, N6 open.
-- [ ] 2.5 The slot rule (review 7.3), one test each, on the stored connection slot: a top-level box's positional `=>`
+- [x] 2.5 The slot rule (review 7.3), one test each, on the stored connection slot: a top-level box's positional `=>`
       fills slot 0; a consumed box connected by its main output has no suffix and its `=>` pins skip that slot; a
       consumed box connected by ENO says `.ENO` and its `=>` pins start at slot 0; ENO is never an `=>` slot; a
       connection by any other slot → marker; `.ENO` on a non-Execute box without EN and a consumed enabled box
@@ -219,6 +227,21 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       case to re-decide (ADD shows ENO, so its consumer reads ENO and the text must say `.ENO`).
       *And the precedence (review):* where ENO is also the main output (outputs start `ENO`), the writer says `.ENO`;
       a pushed suffix-less consumer of such a box is refused naming it (spec, "ENO is the main output") — one test.
+      *Done (section 2):* the model carries the fact, `Box.HasEnoOutput` (the vendor's outputs start `ENO`; null =
+      not read), and `NextSpelling.EnoSlot` keys on it — never on `Enable`. The text states ENO only by `.ENO` and
+      reads every other box by ONE rule both sides use (`NextSpelling.TextHasEno`: Execute or `.ENO` → has one; a
+      consumer without the suffix reads a main output that is not ENO → has none; a top-level box → by its EN), and
+      compares it only where it decides the text (`EnoCarried`: a consumed box's suffix, a positional pin's slot).
+      Gone: "consumed enabled box without `.ENO`" and "`.ENO` on a box without EN" (both premises measured false).
+      Tests: `An_enabled_comparison_consumed_by_its_main_output_has_no_suffix`, `ENO_wins_where_it_is_also_the_main_output`,
+      `A_box_with_ENO_and_no_EN_consumed_by_its_ENO`, `ENO_is_never_an_output_pin`,
+      `A_box_whose_ENO_output_was_not_read_goes_to_the_marker`, `A_top_level_box_whose_ENO_the_text_would_misread_goes_to_the_marker`,
+      `An_enabled_box_consumed_without_a_suffix_reads_its_main_output`, `ENO_without_EN_reads_as_a_box_with_an_ENO_output`,
+      and the gate's `A_consumed_enabled_box_without_ENO_is_valid_text` (`GT(ADD(EN := x, a, b), c)` re-decided: valid
+      text, ADD read as connected by its main output with no ENO) and `ENO_on_a_box_without_EN_is_valid_and_on_a_box_nothing_consumes_is_not`.
+      The PUSH refusals (`.ENO` on a box the IDE gives no ENO output; a suffix-less consumer of a box whose main output
+      is ENO) compare the text's model with the box the IDE builds, so their one test each is the driver's — moved
+      to 4.1.
 - [ ] 2.6 Wire misuse, one test each: undefined, defined with `S=`/`R=`, chained, referenced before definition, not
       `g<digits>`, a second `VAR_TEMP` block, an undeclared `g<digits>` in no scope, a declared type unlike the
       producer's (`NETWORK_BAD_EXPRESSION`); declared or defined twice, a name equal to a declared variable differing
@@ -322,6 +345,9 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
 
 - [ ] 4.1 CODESYS: build `BoxTreeParallel` from the model; the unnamed output-slot operand for `=> v`; write each
       Demux's VarId verbatim (unchanged); read `InputFlags` into `Input.Flags` (1.13). Model-built tests for each.
+      The push half of 2.5 (spec, "EN is a pin, ENO is spelled"): after building a box, refuse by name `.ENO` on a
+      box the IDE gives no ENO output, and a suffix-less consumer (`HasEnoOutput` false) of a box whose main output
+      is ENO — one test each, and read `HasEnoOutput` from `OutputParams.Names` (`Box.HasEnoSlot`).
       `Parallel.Mode` both ways — *done (review of section 1):* the reader reads it and the writer sets it (a freshly
       built `BoxTreeParallel` is `Sequential`, DIALECT N20); no flag is written on a Demux or a Parallel (the model
       has none).

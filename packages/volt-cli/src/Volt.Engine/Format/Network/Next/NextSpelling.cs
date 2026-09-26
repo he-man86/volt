@@ -154,16 +154,39 @@ internal static class NextSpelling
     /// </summary>
     public static int? MainSlotOfCall(string type) => BitOperators.Contains(type) ? null : 0;
 
-    /// <summary>The ENO slot: output slot 0 of a box that shows EN/ENO (<see cref="Box.HasEnoSlot"/>, measured), and
-    /// the ONLY output of an Execute box, which has ENO whether or not its EN is wired. ENO is never an <c>=&gt;</c>
-    /// slot, and a consumer connected to it is written <c>.ENO</c>.</summary>
-    public static int? EnoSlot(bool isExecute, bool hasEnable) => isExecute || hasEnable ? 0 : null;
-
-    public static int? EnoSlot(Box b) => EnoSlot(b.StCode is not null, b.Enable is not null);
+    /// <summary>The ENO slot: output slot 0 of a box whose outputs start with ENO (<see cref="Box.HasEnoOutput"/>,
+    /// read off the vendor's output names), and the ONLY output of an Execute box, which has ENO whether or not its
+    /// EN is wired. Keyed on the ENO OUTPUT, never on EN: census 1.6 (DIALECT N16) measured the two independent — an
+    /// enabled comparison has EN and no ENO, an FB may declare ENO without EN. ENO is never an <c>=&gt;</c> slot, and
+    /// a consumer connected to it is written <c>.ENO</c>.</summary>
+    public static int? EnoSlot(Box b) => b.StCode is not null || b.HasEnoOutput == true ? 0 : null;
 
     /// <summary>Whether a consumer of <paramref name="b"/> is connected to its ENO — the <c>.ENO</c> suffix. The ONE
     /// definition: the writer's suffix, the wire type rule and the test oracle all ask this, so none can drift.</summary>
     public static bool ConnectedByEno(Box b) => b.ConnectedSlot is { } c && c == EnoSlot(b);
+
+    /// <summary>
+    /// THE TEXT'S READING of whether a box has an ENO output — the one rule the reader builds with and the writer
+    /// refuses against, because the text spells ENO only where a consumer reads it. An Execute box has one by type;
+    /// <c>.ENO</c> says so; a consumed box without the suffix is connected by a main output that is NOT ENO, and N16
+    /// measured the main output to be ENO exactly when the box has one — so it has none. A top-level box says
+    /// nothing, and is read by its EN: a box showing EN/ENO (MOVE, ADD, calls — 66 connections) is the common case,
+    /// and a top-level box the rule misreads (an enabled comparison writing its result to a pin; an FB declaring ENO
+    /// without EN, writing a positional pin) is refused by the writer, never renumbered.
+    /// </summary>
+    public static bool TextHasEno(bool isExecute, bool hasEnable, bool enoSuffix, bool consumed) =>
+        isExecute || enoSuffix || (!consumed && hasEnable);
+
+    /// <summary>Whether <see cref="Box.HasEnoOutput"/> is a fact the text carries for <paramref name="b"/>: where it
+    /// decides the text — the suffix of a consumed box that is connected by a stored slot or shows EN, and the slots
+    /// its positional <c>=&gt;</c> pins fill. Elsewhere the text has no position for it and the push takes it from the
+    /// IDE's box: a top-level box with no positional pin; an Execute box, whose ENO is its type's; and an operator
+    /// group — no EN, consumed by no stored slot (the vendor keeps no main output index on AND/OR, census 1.6),
+    /// which N16 found no ENO on (an ENO without EN was measured only on an FB DECLARING one, Lenze <c>Dryer</c>).
+    /// The writer checks, the reader states and the oracle compares it by this one predicate.</summary>
+    public static bool EnoCarried(Box b, bool consumed) =>
+        b.StCode is null &&
+        (b.Outputs.Any(o => o.Formal is null) || (consumed && (b.ConnectedSlot is not null || b.Enable is not null)));
 
     /// <summary>The first output slot at or after <paramref name="from"/> a positional <c>=&gt;</c> pin can fill:
     /// ENO and the slot a consumer is connected to are skipped, the rest fill in order. The writer spells a pin by

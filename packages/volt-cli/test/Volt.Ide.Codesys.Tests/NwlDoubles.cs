@@ -280,6 +280,22 @@ internal static class Nwl
     public static BoxTreeOperand Leaf(string name) =>
         new BoxTreeOperand { Operand = new Operand { OperandExpr = name } };
 
+    /// <summary>An Execute box as the vendor holds one (<c>scripts/nwl-execute-compare.log</c>, the real box in Lenze
+    /// <c>SpeedCalculationDryer</c>): <c>BoxType = 'EXECUTE'</c> in capitals, EN/ENO shown (<c>En = True</c>,
+    /// <c>Eno = True</c>), and its one input item the EN wire — an Execute box takes no data pin
+    /// (<c>MaxInputPinCount = 0</c>). These doubles were <c>BoxType = "Execute"</c> with an unnamed data pin, a shape
+    /// no vendor emits, which network text v2 reads as another box type with a pin and refuses: the oracle over the
+    /// reader doubles would have been checking the double, not the vendor.</summary>
+    public static BoxTreeBox ExecuteBox(STSnippet snippet) => new()
+    {
+        BoxType = "EXECUTE",
+        InputItemList = new object[] { Leaf("a") },
+        InputParams = new ParamList { Names = new[] { "EN" }, Types = new[] { "BOOL" } },
+        En = true,
+        Eno = true,
+        STSnippet = snippet,
+    };
+
     public static NWLImplementationObject Body(params object[] trees)
     {
         var impl = new NWLImplementationObject();
