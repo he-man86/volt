@@ -1921,7 +1921,9 @@ describe("lower — a STRING CURSOR (a character pointer a caller fills with a s
   const FILL = lib("CFILL", "FUNCTION CFILL : BOOL\nVAR_INPUT\n\tP : POINTER TO BYTE;\n\tN : DINT;\nEND_VAR\nVAR\n\ti : DINT;\nEND_VAR\nFOR i := 0 TO N - 1 DO\n\tP[i] := 16#78;\nEND_FOR\nP[N] := 0;\nEND_FUNCTION\n")
   const WLEN = lib("CWLEN", "FUNCTION CWLEN : DINT\nVAR_INPUT\n\tP : POINTER TO WORD;\nEND_VAR\nWHILE P^ <> 0 DO\n\tCWLEN := CWLEN + 1;\n\tP := P + 2;\nEND_WHILE\nEND_FUNCTION\n")
   const WHOLE = lib("CFIRST", "FUNCTION CFIRST : BYTE\nVAR_INPUT\n\tP : POINTER TO STRING(255);\nEND_VAR\nCFIRST := P^[0];\nEND_FUNCTION\n")
-  const LIBS = [LEN, TAIL, FILL, WLEN, WHOLE]
+  // two cursors, possibly into ONE string: the characters of FROM from position K on, moved to the front of TO
+  const SHIFT = lib("CSHIFT", "FUNCTION CSHIFT : BOOL\nVAR_INPUT\n\tFROM_ : POINTER TO BYTE;\n\tK : DINT;\n\tTO_ : POINTER TO BYTE;\nEND_VAR\nVAR\n\ti : DINT;\nEND_VAR\nWHILE FROM_[K + i] <> 0 DO\n\tTO_[i] := FROM_[K + i];\n\ti := i + 1;\nEND_WHILE\nTO_[i] := 0;\nEND_FUNCTION\n")
+  const LIBS = [LEN, TAIL, FILL, WLEN, WHOLE, SHIFT]
   const scanned = (vars: string, body: string) => {
     const { pou, diagnostics } = lowerSource(`PROGRAM P\nVAR ${vars} END_VAR\n${body}\nEND_PROGRAM\n`, "P", LIBS)
     if (pou === undefined) throw new Error(diagnostics.map((d) => `${d.code}: ${d.message}`).join("\n"))
@@ -1954,6 +1956,13 @@ describe("lower — a STRING CURSOR (a character pointer a caller fills with a s
 
   test("a POINTER TO STRING(255) takes a shorter string as it is, and p^ is that string", () => {
     expect(scanned("s : STRING(20) := 'abc'; c : BYTE;", "c := CFIRST(ADR(s));").get("c")).toBe(97n)
+  })
+
+  test("two pointers into ONE string share it, each at its own offset — StrMidA(pst := s, pstResult := s)", () => {
+    expect(scanned("s : STRING := 'Device.Main';", "CSHIFT(ADR(s), 7, ADR(s));").get("s")).toBe("Main")
+    // into two strings, each is its own
+    const p = scanned("s : STRING := 'Device.Main'; t : STRING(20);", "CSHIFT(ADR(s), 7, ADR(t));")
+    expect([p.get("s"), p.get("t")]).toEqual(["Device.Main", "Main"])
   })
 
   test("anything but a string's address, a cursor or a pointer to a string is refused, not guessed", () => {

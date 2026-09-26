@@ -12,7 +12,7 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     1967
+ *     confirmed     1970
  *     refused        538
  *     not-lowered     90
  *     lsp-gap          4
@@ -24,15 +24,16 @@
  *     arith                  1441     1441
  *     control                  58       58
  *     aggregate                25       25
- *     call                    216      216
+ *     call                    219      217
  *     indirect                161      157
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
  *     clippy::collapsible_if                     4
+ *     clippy::too_many_arguments                 2
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile-confidence.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
- *     dead_code                               5561
+ *     dead_code                               5594
  *     clippy::self_assignment                   33
  *     clippy::eq_op                             12
  *     clippy::approx_constant                    6
@@ -1425,8 +1426,11 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lib_stu_copy: { evidence: "confirmed", tier: "call", rust: "vendor" },
   lib_stu_find: { evidence: "confirmed", tier: "call", rust: "vendor" },
   lib_stu_length: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  lib_stu_mid: { evidence: "confirmed", tier: "call", rust: "vendor", lints: ["clippy::too_many_arguments"] },
   lib_stu_pad: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  lib_stu_replace: { evidence: "confirmed", tier: "call", rust: "vendor", lints: ["clippy::too_many_arguments"] },
   lib_stu_start_end: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  lib_stu_trim: { evidence: "confirmed", tier: "call", rust: "vendor" },
   lib_stu_wide: { evidence: "confirmed", tier: "call", rust: "vendor" },
   lib_util_blink: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"] },
   lib_util_blink_slow: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"] },

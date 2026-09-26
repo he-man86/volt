@@ -398,6 +398,11 @@ So the cursor is form 2 keeping its value (`Lowering.cursors`):
 - `p^` and `p[i]` are characters of the bound string through the `s[i]` primitive (`char`/`setchar`), and
   `p := p ± n` is the only store a cursor takes.
 
+Two pointers of ONE call into the SAME string — `StrMidA(pst := s, pstResult := s)`, an in-place MID — share its
+one hidden VAR_IN_OUT, each with its own offset (`CursorArgument.shares`; the variant key reads `PSTRESULT^=PST^`).
+Two bindings would be two `&mut s`. "The same" is decided while lowering: the same place with no index computed at
+run time and not reached through a pointer; anything else binds separately, and the alias check refuses it as before.
+
 What it does NOT do: a pointer into anything but a string is refused as before, and a byte pointer into a WSTRING
 (StringUtils' W functions over `CHARBUFFERPTR`) needs a byte view of 2-byte units that the cursor does not model. A
 cursor over a GLOBAL string is refused too (`call-inout-global`): the emitted Rust cannot lend a field of `g` beside

@@ -417,4 +417,88 @@ letter := IsSpaceCharacter(16#41);
 nbsp := IsSpaceCharacter(16#A0);
 END_FUNCTION_BLOCK
 `),
+  fb("lib_stu_trim", "StrTrimA in place: spaces and a TAB on both sides, inner spaces, nothing to trim, only spaces, empty",
+    `FUNCTION_BLOCK FB_LANG_LIB_trim
+VAR
+\tboth : STRING(20);
+\tinner : STRING(20);
+\tnone : STRING(20);
+\tblank : STRING(20);
+\tempty : STRING(20);
+END_VAR
+both := ' $T ab  ';
+inner := '  a b c ';
+none := 'abc';
+blank := '    ';
+empty := '';
+StrTrimA(ADR(both));
+StrTrimA(ADR(inner));
+StrTrimA(ADR(none));
+StrTrimA(ADR(blank));
+StrTrimA(ADR(empty));
+END_FUNCTION_BLOCK
+`),
+
+  fb("lib_stu_mid", "StrMidA: a middle, in place, past the end, a cut result buffer, position 0, position past the length, length 0",
+    `FUNCTION_BLOCK FB_LANG_LIB_mid
+VAR
+\ttext : STRING(20);
+\tmiddle : STRING(20);
+\tinPlace : STRING(40);
+\tpastEnd : STRING(20);
+\tcut : STRING(20);
+\tposZero : STRING(20);
+\tposPast : STRING(20);
+\tnoLength : STRING(20);
+END_VAR
+text := 'abcdefgh';
+middle := 'xxxxxxxxxxxx';
+inPlace := 'Device.Application.Main';
+pastEnd := 'xx';
+cut := 'xx';
+posZero := 'xx';
+posPast := 'xx';
+noLength := 'xx';
+StrMidA(pst := ADR(text), uiInputBufferSize := 21, iLength := 3, iPosition := 2, pstResult := ADR(middle), uiResultBufferSize := 21);
+StrMidA(pst := ADR(inPlace), uiInputBufferSize := 41, iLength := 4, iPosition := 20, pstResult := ADR(inPlace), uiResultBufferSize := 41);
+StrMidA(pst := ADR(text), uiInputBufferSize := 21, iLength := 10, iPosition := 6, pstResult := ADR(pastEnd), uiResultBufferSize := 21);
+StrMidA(pst := ADR(text), uiInputBufferSize := 21, iLength := 5, iPosition := 1, pstResult := ADR(cut), uiResultBufferSize := 3);
+StrMidA(pst := ADR(text), uiInputBufferSize := 21, iLength := 3, iPosition := 0, pstResult := ADR(posZero), uiResultBufferSize := 21);
+StrMidA(pst := ADR(text), uiInputBufferSize := 21, iLength := 3, iPosition := 12, pstResult := ADR(posPast), uiResultBufferSize := 21);
+StrMidA(pst := ADR(text), uiInputBufferSize := 21, iLength := 0, iPosition := 2, pstResult := ADR(noLength), uiResultBufferSize := 21);
+END_FUNCTION_BLOCK
+`),
+
+  fb("lib_stu_replace", "StrReplaceA in place: same length, growing, shrinking, iLengthInput not the length, a cut buffer, a short iLengthToReplaceWith, a position past the end",
+    `FUNCTION_BLOCK FB_LANG_LIB_replace
+VAR
+\trepl : STRING(10);
+\tsame : STRING(20);
+\tgrow : STRING(20);
+\tshrink : STRING(20);
+\tlengthInput : STRING(20);
+\tcut : STRING(20);
+\tshortWith : STRING(20);
+\tpastEnd : STRING(20);
+\tatEnd : STRING(20);
+END_VAR
+repl := 'XYZ';
+same := 'Device.App';
+grow := 'abc';
+shrink := 'abcdef';
+lengthInput := 'abcdef';
+cut := 'abcdef';
+shortWith := 'abcdef';
+pastEnd := 'abc';
+atEnd := 'abc';
+StrReplaceA(pstInput := ADR(same), uiInputBufferSize := 21, pstReplaceWith := ADR(repl), iLengthInput := 10, iLengthToReplace := 1, iLengthToReplaceWith := 1, iPosition := 7);
+StrReplaceA(pstInput := ADR(grow), uiInputBufferSize := 21, pstReplaceWith := ADR(repl), iLengthInput := 3, iLengthToReplace := 1, iLengthToReplaceWith := 3, iPosition := 2);
+StrReplaceA(pstInput := ADR(shrink), uiInputBufferSize := 21, pstReplaceWith := ADR(repl), iLengthInput := 6, iLengthToReplace := 3, iLengthToReplaceWith := 1, iPosition := 2);
+StrReplaceA(pstInput := ADR(lengthInput), uiInputBufferSize := 21, pstReplaceWith := ADR(repl), iLengthInput := 1, iLengthToReplace := 1, iLengthToReplaceWith := 1, iPosition := 4);
+StrReplaceA(pstInput := ADR(cut), uiInputBufferSize := 7, pstReplaceWith := ADR(repl), iLengthInput := 6, iLengthToReplace := 1, iLengthToReplaceWith := 3, iPosition := 2);
+StrReplaceA(pstInput := ADR(shortWith), uiInputBufferSize := 21, pstReplaceWith := ADR(repl), iLengthInput := 6, iLengthToReplace := 2, iLengthToReplaceWith := 2, iPosition := 1);
+StrReplaceA(pstInput := ADR(pastEnd), uiInputBufferSize := 21, pstReplaceWith := ADR(repl), iLengthInput := 3, iLengthToReplace := 1, iLengthToReplaceWith := 1, iPosition := 6);
+StrReplaceA(pstInput := ADR(atEnd), uiInputBufferSize := 21, pstReplaceWith := ADR(repl), iLengthInput := 3, iLengthToReplace := 0, iLengthToReplaceWith := 3, iPosition := 4);
+END_FUNCTION_BLOCK
+`),
 ]

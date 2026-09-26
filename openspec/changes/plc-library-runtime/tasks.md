@@ -72,8 +72,12 @@ unticked long after the code landed — `lowerStandardString` in `transpile/lowe
 
 ## Open, found on the way
 
-- [ ] Re-pull pro2193 with the bridge that materializes return-less FUNCTIONs — until then its corpus build gate is
-      red on `StrReplaceA`, and `StrMidA`/`StrTrimA`/`StrReplaceA` have no declaration to write a body behind.
+- [x] Re-pull pro2193 with the bridge that materializes return-less FUNCTIONs — done 2026-09-26 for all five CODESYS
+      corpora (+134..164 library declarations each, the `@volt-implementation` separator), and pro2193's build gate is
+      green. `StrTrimA`, `StrMidA` and `StrReplaceA` are written and recorded (`lib_stu_trim`/`_mid`/`_replace`).
+      StrReplaceA is NOT REPLACE: it moves the tail from `pos + iLengthToReplace` up to `iLengthInput` and copies the
+      WHOLE replacement over `pos`, ignoring `iLengthToReplaceWith` — pro2193 passes `iLengthInput := 1` ("Don't know
+      function of this parameter") and gets an overwrite, which is exactly what it wants for '.' → '_'.
 - [ ] A string cursor over a GLOBAL is refused (`call-inout-global`, 105 corpus POUs: `StrCpyA(pBuffer :=
       ADR(<GVL string>), …)`). The emitted Rust cannot lend a field of `g` beside `g` itself; the fix is the callee
       reaching the global through `g` — a transpiler item, tracked in `transpile-st-to-rust`.

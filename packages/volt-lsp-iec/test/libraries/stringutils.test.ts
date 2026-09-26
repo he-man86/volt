@@ -57,6 +57,12 @@ const CASES: readonly [name: string, type: string, body: string, expected: unkno
   // through the library's NAMESPACE (`Stu`, from its manifest) — as a value, and as a call statement
   ["nsLen", "DINT", "nsLen := Stu.StrLenA(ADR(hello));", 5n],
   ["nsCopy", "STRING(10)", "Stu.StrCpyA(ADR(nsCopy), 4, ADR(abc));", "abc"],
+  // the return-less ones, called as statements — materialized since the bridge renders a FUNCTION with no return
+  ["trimmed", "STRING(20)", "StrTrimA(ADR(trimmed));", "a b"],
+  ["mid", "STRING(10)", "StrMidA(ADR(hello), 81, 3, 2, ADR(mid), 11);", "ell"],
+  ["midInPlace", "STRING(20)", "StrMidA(ADR(midInPlace), 21, 5, 11, ADR(midInPlace), 21);", "Plant"],
+  ["replaced", "STRING(20)", "StrReplaceA(ADR(replaced), 21, ADR(underscore), 1, 1, 1, 7);", "Device_App"],
+  ["grown", "STRING(20)", "StrReplaceA(ADR(grown), 21, ADR(abc), 3, 1, 3, 2);", "aabcc"],
   ["upper", "BYTE", "upper := CharToUpper(16#61);", 0x41n],
   ["space", "BOOL", "space := IsSpaceCharacter(16#09);", true],
 ]
@@ -66,9 +72,11 @@ const STRINGS =
   "joined : STRING(80) := 'foo'; tight : STRING(80) := 'foo'; buffer : STRING(10) := 'xxxxxxx'; abc : STRING := 'abc'; " +
   "abd : STRING := 'abd'; ab : STRING := 'ab'; upperAbc : STRING := 'ABC'; hel : STRING := 'hel'; llo : STRING := 'llo'; " +
   "upperLlo : STRING := 'LLO'; padded : STRING(10); paddedRight : STRING(10); twice : STRING := 'ababab'; " +
+  "trimmed : STRING(20) := ' $T a b  '; midInPlace : STRING(20) := 'Device.PLCPlant'; replaced : STRING(20) := 'Device.App'; " +
+  "grown : STRING(20) := 'abc'; underscore : STRING := '_'; " +
   "wide : WSTRING := \"hello\"; wide2 : WSTRING(30) := \"hello\"; wideLo : WSTRING := \"lo\";"
 
-const results = CASES.filter(([, , body]) => body !== "").map(([name, type]) => `${name} : ${type};`).join(" ")
+const results = CASES.filter(([name, , body]) => body !== "" && !STRINGS.includes(`${name} :`)).map(([name, type]) => `${name} : ${type};`).join(" ")
 const PROGRAM = `PROGRAM P\nVAR ${STRINGS} ${results} END_VAR\n${CASES.map(([, , body]) => body).join("\n")}\nEND_PROGRAM\n`
 
 function lowered(): IrPou {
