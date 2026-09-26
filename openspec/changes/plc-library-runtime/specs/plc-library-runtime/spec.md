@@ -41,3 +41,17 @@ materializes for a project that references it, and nowhere else.
 #### Scenario: a library element in a project without its library
 - **WHEN** a project that references no `Standard` declares `t : TON` or calls `LEN`
 - **THEN** the LSP reports the name unresolved, as CODESYS does
+
+### Requirement: a library element's behaviour is recorded against the vendor
+
+Every element the library repo writes SHALL have its behaviour asked of CODESYS wherever its contract leaves a
+choice, by a conformance fixture recorded against the real library and replayed through both backends. A timer SHALL
+be replayed on the clock the recording saw.
+
+#### Scenario: an open edge of a contract is settled by the vendor
+- **WHEN** a body chooses what `StrCmpA` answers for two strings that differ
+- **THEN** a recorded fixture holds it to CODESYS's answer (the sign: -1, 0, 1), in the interpreter and the emitted Rust
+
+#### Scenario: a timer matches although the simulator runs in real time
+- **WHEN** a TON fixture records `TIME()` on every scan beside `Q` and `ET`
+- **THEN** the replay sets the transpiler's clock to those instants, and `Q` and `ET` match exactly

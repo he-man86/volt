@@ -379,3 +379,26 @@ need. The refusal says all of this now: `pointer-foreign`, split from `pointer-o
 Acceptance tests already recorded and waiting: `ptrparam_function_block`, `ptrparam_input_persists`,
 `ptrparam_unsupplied` (nothing supplied, and the vendor FAULTS — the "holds nothing" arm), and `ptrparam_kept`,
 which additionally needs a pointer COPIED out of the input into a field.
+
+## The STRING CURSOR — form 2 with an offset, built 2026-09-26
+
+A library written over pointers into strings — StringUtils is nothing else: `StrLenA(ADR(s))`,
+`StrConcatA(pstFrom, pstTo, …)` — walks a string byte by byte through a `POINTER TO BYTE`. That is a byte view of a
+string, which none of forms 1–3 holds: form 2 erases the pointer into a whole-variable borrow, and the body also STEPS
+it (`pstData := pstData + 1`), so the value has to survive.
+
+So the cursor is form 2 keeping its value (`Lowering.cursors`):
+
+- a `POINTER TO BYTE` (`WORD`, or a whole `STRING`/`WSTRING`) VAR_INPUT a call fills with `ADR(s)` of a string, a
+  pointer variable whose one target is a string, or the caller's own cursor, binds that string as a hidden
+  VAR_IN_OUT — of the CALLER's exact string type, the routine lowered once per type, so a store is cut at the
+  caller's capacity in both backends;
+- the pointer keeps a byte offset + 1, as an element pointer keeps its index + 1 — CODESYS pointer arithmetic counts
+  bytes, so `p + 2` is the next WORD of a WSTRING;
+- `p^` and `p[i]` are characters of the bound string through the `s[i]` primitive (`char`/`setchar`), and
+  `p := p ± n` is the only store a cursor takes.
+
+What it does NOT do: a pointer into anything but a string is refused as before, and a byte pointer into a WSTRING
+(StringUtils' W functions over `CHARBUFFERPTR`) needs a byte view of 2-byte units that the cursor does not model. A
+cursor over a GLOBAL string is refused too (`call-inout-global`): the emitted Rust cannot lend a field of `g` beside
+`g`, which is the largest single blocker the 2026-09-26 re-measurement shows (105 POUs; see `tasks.md`).

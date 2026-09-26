@@ -109,6 +109,11 @@ a compare answers its sign, StrCpyA counts the terminator, a pad fills to the si
 16#A0 is a space, TP clears ET in the scan a pulse ends with IN low, BLINK starts HIGH and keeps OUT once disabled. All
 20 fixtures now match in both backends.
 
+Two harness decisions carry this. The replay lowers against EVERY library the fixture project references, as the
+recording did, bound once (`libraryBase`) with each fixture's own files bound on top — the same shape the LSP replay
+already used. And a library FB instance is recorded by its INTERFACE only: what a body keeps privately is the
+implementation's, so the repo's body is held to the inputs and outputs and nothing else.
+
 **Not in scope of this decision.** `Standard` is not what blocks the corpus — the namespaces that do are third-party
 (`L_LA` 128 POUs, `stu` 105, `CmpApp` 93). ST shims fix the library the standard defines, not the libraries a
 customer bought.

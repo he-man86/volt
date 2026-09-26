@@ -45,6 +45,9 @@ A referenced library is **the code behind the compiled library, written in ST**,
 - `packages/volt-lsp-iec/src/transpile` — the string intrinsics deleted; `s[i]`, `TIME()`/`LTIME()` added;
   `prepareProject` makes a project's library units impossible to leave out.
 - `packages/volt-lsp-iec/src/reference` — every library element removed from the built-in catalog.
-- `packages/volt-cli` — the library renderer materializes a FUNCTION with no return type instead of dropping it.
+- `packages/volt-cli` — the library renderer materializes a FUNCTION with no return type instead of dropping it; the
+  fixture project (`test/fixtures/CodesysTestProject.project`) references Util and StringUtils as placeholders.
+- `packages/volt-lsp-iec/test/conformance` — the replay lowers against every referenced library, bound once; a
+  fixture can run on a recorded clock; `fixtures/libraries/library-bodies.ts` holds every repo body to CODESYS.
 - No runtime crate, and no change to the shipping product's behaviour beyond the LSP no longer resolving a library
   element in a project that does not reference its library.

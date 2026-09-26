@@ -1027,6 +1027,20 @@ transpiler: a library runtime, a recorder that can push network text through the
 live CODESYS. That is the honest shape of the remaining work, and it is why `reach` alone was misleading —
 `init-not-constant` stops 181 POUs and is the sole blocker of none.
 
+**Re-measured 2026-09-26** (`scripts/lower-completeness.ts`), after the library repo, the string cursor and — the
+change that moves the most — library units REFUSED rather than run as empty bodies:
+
+| construct | reach | sole | |
+|---|---:|---:|---|
+| `call-library` | 188 | **2** | 34 before only because the empty-body lowering hid the rest; hardware / fieldbus / file libraries — test doubles, not ST |
+| `place-not-local` | 123 | **7** | 190 before: namespace-qualified library calls (`Stu.StrLenA`) lower now |
+| `call-inout-global` | 109 | **1** | 105 of them one shape — a string cursor over a GVL string (`__str_PBUFFER`); the callee must reach the global through `g` |
+| `graphical-body` | 112 | **6** | unchanged |
+| `stmt-try` · `pointer-order` · `conversion-type` · `fb-init-root` | 6 · 104 · 9 · 2 | 3 · 2 · 2 · 2 | |
+
+Reach: **55 of 304** POUs lower, and 20 routines are reached — all of them from a POU that runs (the 582 before were
+mostly library FBs' `FB_INIT`s, lowered as empty bodies). The next buildable item by corpus reach is the global lend.
+
 ### `fb-init-argument` was reporting a harness limit as the best item on the board
 
 It read `reach 2, sole 2` — a 100% conversion rate, the best ratio here — and no amount of lowering could ever
