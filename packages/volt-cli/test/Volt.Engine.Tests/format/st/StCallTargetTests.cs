@@ -67,6 +67,15 @@ public class StCallTargetTests
         Assert.Equal("ATD_FQI", StDeclaration.TypeOfCallTarget(
             "FUNCTION_BLOCK ATD_TorqueControl EXTENDS ATD_FQI\nVAR_INPUT\nEND_VAR", "SUPER^", Project));
 
+    /// <summary>In a MEMBER's scope — its own declaration, then its owner's (<c>SourceScopes.Scope</c>) — <c>SUPER^</c>
+    /// is the owner's base: the method has no EXTENDS of its own, and the owner's header comes after the method's VAR
+    /// block. The scan that stopped at the first VAR block answered nothing here, while the scope's own inheritance
+    /// walk (<c>WithInherited</c>) found the same clause: one question, two scanners, two answers.</summary>
+    [Fact]
+    public void SUPER_in_a_member_is_its_owners_base() =>
+        Assert.Equal("B", StDeclaration.TypeOfCallTarget(
+            "METHOD M\nVAR_INPUT x : INT; END_VAR\nFUNCTION_BLOCK D EXTENDS B\nVAR END_VAR", "SUPER^", Project));
+
     /// <summary>Nothing BELOW the header may answer for it. The scan stops at the first VAR block, so a
     /// variable whose type merely contains the word cannot be read as a base class.</summary>
     [Fact]

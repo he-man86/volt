@@ -32,6 +32,13 @@ namespace Volt.Tests.Shared;
 /// top-level box with no positional <c>=&gt;</c> pin, a consumed box with no EN and no stored slot (an operator
 /// group), an Execute box. The ENO output is the box type's; the text spells it only as <c>.ENO</c> and as the
 /// slot positional pins skip.</item>
+/// <item>An FB instance box's <c>Type</c> SPELLING → its last name segment, case folded. The text spells the call by
+/// its instance, and the reader takes the type from the instance's declaration, in the declaration's spelling
+/// (<c>t : Standard.TON;</c>, <c>t : Ton;</c>) where the vendor may store <c>TON</c>. Those are one type, and the writer
+/// refuses any pair that is not (<c>StDeclaration.SameType</c>: two namespaces are two types), so what reaches this
+/// comparison differs in spelling alone. The push keeps the IDE's own spelling where it edits in place (TwinCAT) and
+/// writes the declaration's where it builds the box (CODESYS), which the IDE resolves to the same type. A <c>???</c>
+/// instance's type is spelled in the text and compared whole.</item>
 /// <item>A NAMED output's slot → null: <c>F =&gt; v</c> names the pin, and the pin's slot is the box type's.</item>
 /// <item>Control flow: the Jump/Return bit on the item AND its target (DIALECT C13 — the reader writes both); a
 /// target-less return's target is the vendor's constant <c>???</c>.</item>
@@ -83,7 +90,7 @@ public static class NetworkTextFacts
         var byMainOutput = b.ConnectedSlot is not null && !NetworkSpelling.ConnectedByEno(b);
         var infix = NetworkSpelling.IsInfix(b);
         return new Box(
-            b.Type,
+            b.Instance is { } named && named.Text != Box.UnnamedInstance ? TypeSpelling(b.Type) : b.Type,
             // The instance's text and its flags: the text has no position for a flag on the instance operand, so the
             // writer refuses one — which only holds if the oracle compares it.
             b.Instance is null ? null : new Operand(b.Instance.Text, IsInstance: true,
@@ -99,4 +106,7 @@ public static class NetworkTextFacts
             OutputTypes: null,
             HasEnoOutput: NetworkSpelling.EnoCarried(b, consumed) ? b.HasEnoOutput : null);
     }
+
+    /// <summary>An FB type as the text carries it: the name, not its namespace or its case (see the list above).</summary>
+    private static string TypeSpelling(string type) => type.Substring(type.LastIndexOf('.') + 1).ToUpperInvariant();
 }

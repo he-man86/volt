@@ -312,7 +312,7 @@ public sealed partial class BeckhoffDriver
             // for every such fact (network text v2: pull never throws anything else).
             try
             {
-                return NetworkTextWriter.Write(model, NetworkScopeFor(declaration, NoPush)).TrimEnd('\n');
+                return NetworkTextWriter.Write(model, Declarations.ScopeForPull(declaration)).TrimEnd('\n');
             }
             catch (UnrepresentableBodyException ex)
             {
@@ -650,9 +650,6 @@ public sealed partial class BeckhoffDriver
     private ProjectDeclarations Declarations =>
         _declarations ??= new ProjectDeclarations(this, item => _om.ReadDeclaration(item.Native));
     private ProjectDeclarations? _declarations;
-
-    /// <summary>A pull pushes nothing: its scope is the IDE's declarations alone.</summary>
-    private static readonly IReadOnlyDictionary<string, string> NoPush = new Dictionary<string, string>();
 
     public NetworkScope NetworkScopeFor(string? declaration, IReadOnlyDictionary<string, string> pushedDeclarations) =>
         Declarations.ScopeFor(declaration, pushedDeclarations);

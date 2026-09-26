@@ -499,6 +499,24 @@ marker says the language and `RefuseViewModeChange` is the one comparison. *Stil
 builds an enabled box Volt creates without an ENO slot (the shape of 40 vendor comparisons), and a base FB the project
 does not hold (a library base) still contributes no inherited names — 4.x.
 
+*Second review of section 3 (2026-09-26), each fix pinned by a test that was red first:* the post-push comparison
+reads a `.task` as a descriptor, not ST — it threw after the IDE had applied the push
+(`PushCommandTests.A_pushed_task_the_IDE_holds_in_its_canonical_layout_is_adopted`); an item the directed fetch does
+not give back is named as such, never "another program" (`…_whose_text_the_IDE_does_not_give_back_…`); the spec's
+round-trip requirement now says only a LAYOUT is adopted; `SameTokens` compares a VAR_TEMP block by what it declares,
+as the gate does (`NetworkSpelling.WireBlockKey`, one spelling for both), and enters EXECUTE bodies through the lexer's
+one scope-free walker (`NetworkLexer.Walk`, shared with `PairAheadHoldsOperator`) so a nested snippet stays verbatim
+(`NetworkTextGateTests`, post-push section); an FB instance box's type SPELLING is listed beside the oracle
+(`NetworkTextFacts`) and the scope tests read their text back; TwinCAT's in-place writer compares box types by
+`StDeclaration.SameType`, so `t : Tc2_Standard.TON` over a stored `TON` is edited in place
+(`TcRoundTripTests.An_FB_call_typed_by_its_declarations_spelling_is_edited_in_place`); the view-change refusal has a
+test through each driver's write (`CodesysViewModeTests`, `TcRoundTripTests.A_marker_naming_the_other_view_…`);
+`SUPER^` and the inherited scope share one EXTENDS scanner (`StCallTargetTests.SUPER_in_a_member_is_its_owners_base`);
+TwinCAT reads an `OutputParam` with no `Types` as null, as CODESYS does
+(`TcDemuxTests.An_OutputParam_with_no_stored_types_reads_as_none_read`); the CODESYS build takes an unstated ENO from
+the text's rule (`NetworkText.HasEnoOutput`) rather than a copy of it; the pull scope is
+`ProjectDeclarations.ScopeForPull`, one empty push map instead of three.
+
 ## 4. Drivers
 
 - [ ] 4.1 CODESYS: build `BoxTreeParallel` from the model; the unnamed output-slot operand for `=> v`; write each

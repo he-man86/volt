@@ -433,6 +433,52 @@ public class CodesysCoilFlagTests
         Assert.Equal(slots, written.Outputs.List.Select(o => Assert.IsType<Nwl.Operand>(o).OperandExpr ?? "").ToArray());
     }
 
+    /// <summary>A box that does not record whether it has an ENO output, where the text DOES state it (a positional
+    /// <c>=&gt;</c> pin's slot depends on it), is refused by that name before anything is built: the change gate renders
+    /// the model through the text writer, which refuses the missing fact. The build below it derives the fact only
+    /// where the text does not state it, so it never has to guess one the text states.</summary>
+    [Fact]
+    public void A_box_whose_ENO_output_was_not_read_is_refused_by_that_name()
+    {
+        var model = new Network(0, null, null, null, false, new Node[]
+        {
+            new Box("ADD", null, CallKind.Operator,
+                    new[] { new Input(null, new Leaf(new Operand("a"), Flags.None), Flags.None),
+                            new Input(null, new Leaf(new Operand("b"), Flags.None), Flags.None) },
+                    new[] { new Output(null, new Operand("x", IsLValue: true), 0) },
+                    new Leaf(new Operand("c"), Flags.None),
+                    null, Flags.None, HasEnoOutput: null),
+        });
+
+        var ex = Record.Exception(() => CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), Different(),
+                                            model, BodyLanguage.Fbd, ScopeOf(model, BodyLanguage.Fbd)));
+
+        Assert.NotNull(ex);
+        Assert.Contains("does not record whether it has an ENO output", ex!.Message);
+    }
+
+    /// <summary>…and where the text does NOT state it, the box is built as the text reads it (<c>TextHasEno</c>): a
+    /// top-level box by its EN, a consumed operator group with neither EN nor a stored slot with no ENO echo.</summary>
+    [Fact]
+    public void A_box_the_text_states_no_ENO_for_is_built_as_the_text_reads_it()
+    {
+        var model = new Network(0, null, null, null, false, new Node[]
+        {
+            new Assign(new Box("AND", null, CallKind.Operator,
+                           new[] { new Input(null, new Leaf(new Operand("a"), Flags.None), Flags.None),
+                                   new Input(null, new Leaf(new Operand("b"), Flags.None), Flags.None) },
+                           System.Array.Empty<Output>(), null, null, Flags.None, HasEnoOutput: null),
+                       new[] { new Operand("out", IsLValue: true) }, Flags.None),
+        });
+
+        var live = Different();
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, ScopeOf(model, BodyLanguage.Fbd));
+
+        var assign = Assert.IsType<Nwl.BoxTreeAssign>(live.GetTree(live.NetworkItemCount - 1));
+        var box = Assert.IsType<Nwl.BoxTreeBox>(assign.RValue);
+        Assert.Empty(box.Outputs.List);
+    }
+
     /// <summary>THE ENO ECHO IS WRITTEN FOR A BOX THAT HAS AN ENO OUTPUT, and for no other — the model's
     /// <see cref="Box.HasEnoOutput"/>, not its EN. The two are independent (DIALECT N16, census 1.6: 40 enabled
     /// comparisons have EN and no ENO), and the text says which: <c>x := GT(EN := c, a, b)</c> reads <c>x</c> off the
@@ -550,5 +596,35 @@ public class CodesysCoilFlagTests
         var snippet = Assert.IsType<Nwl.STSnippet>(box.STSnippet);
         var impl = Assert.IsType<_3S.CoDeSys.STObject.STImplementationObject>(snippet.Snippet);
         return impl.TextDocument.Text;
+    }
+}
+
+/// <summary>The write's refusal of a view change, reached offline through <c>CodesysNetworkWriter.Write</c> — the
+/// write into the object the IDE hands out, without the vendor's ObjectManager transaction around it.</summary>
+public class CodesysViewModeTests
+{
+    /// <summary>Spec, "a view change is one comparison": the pushed marker says FBD and the IDE's body is a ladder, so
+    /// the push is refused — through the write the push runs, the one place that compares the two now that the reader
+    /// takes the language from the marker alone.</summary>
+    [Fact]
+    public void A_marker_naming_the_other_view_is_refused_by_the_write()
+    {
+        var ex = Assert.Throws<NotSupportedException>(() =>
+            CodesysNetworkWriter.Write(new LadderPou(), new NetworkBody(BodyLanguage.Fbd, Array.Empty<Network>()),
+                                             NetworkScope.Empty));
+        Assert.Contains("view is LD and the pushed text says FBD", ex.Message);
+    }
+
+    /// <summary>The object the IDE hands out to modify, holding a ladder: its <c>Implementation</c> aspect, whose
+    /// <c>DefaultViewMode</c> is what <c>CodesysDriver.ReadViewMode</c> reads.</summary>
+    private sealed class LadderPou
+    {
+        public LadderImplementation Implementation { get; } = new LadderImplementation();
+    }
+
+    private sealed class LadderImplementation
+    {
+        public string DefaultViewMode => "Ld";
+        public System.Collections.Generic.List<object> NetworkList { get; } = new System.Collections.Generic.List<object>();
     }
 }

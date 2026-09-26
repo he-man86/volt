@@ -25,44 +25,45 @@ namespace Volt.Ide.Codesys
     /// </summary>
     internal static class CodesysNetworkWriter
     {
+        /// <summary>Write <paramref name="body"/> into <paramref name="iobj"/>, the object the IDE hands out to modify.
+        /// The transaction around it (<c>CodesysObjectModel.ModifyObject</c>) is the driver's: it is the vendor's
+        /// ObjectManager, which no offline test has, and the refusals made here — a view change above all — are what
+        /// a test must reach.</summary>
         /// <param name="scope">The scope the body was read against — the change gate renders the live network
         /// against it to compare (see <see cref="TreesUnchanged"/>).</param>
-        public static void Write(CodesysObjectModel om, object node, NetworkBody body, NetworkScope scope)
+        internal static void Write(object? iobj, NetworkBody body, NetworkScope scope)
         {
-            om.ModifyObject(node, iobj =>
-            {
-                var impl = NwlInterop.Get(iobj, "Implementation")
-                    ?? throw new InvalidOperationException(
-                        "CODESYS: the item has no Implementation aspect — refusing to write a graphical body " +
-                        "into an item that cannot hold one");
+            var impl = NwlInterop.Get(iobj, "Implementation")
+                ?? throw new InvalidOperationException(
+                    "CODESYS: the item has no Implementation aspect — refusing to write a graphical body " +
+                    "into an item that cannot hold one");
 
-                // THE VIEW CANNOT BE CHANGED BY A PUSH, and this is the only place that says so. Network
-                // text states FBD or LD once, on the body's implementation marker — the sole textual difference
-                // between the two — and the member is never written on an update, so a marker-only edit would
-                // write nothing, report success, and be reverted by the next pull.
-                // ...but only when there IS one. A body that is not graphical YET — a freshly created
-                // accessor, whose Implementation is still an `STImplementationObject` — has no
-                // `DefaultViewMode` member at all, and `ReadViewMode` demands it. Asking that of a CREATE
-                // turned every graphical property accessor into `'STImplementationObject' has no
-                // 'DefaultViewMode'`. There is no view to preserve when there is no diagram yet.
-                if (NwlInterop.Get(impl, "DefaultViewMode") is not null)
-                    NetworkText.RefuseViewModeChange(CodesysDriver.ReadViewMode(impl), body.Language);
+            // THE VIEW CANNOT BE CHANGED BY A PUSH, and this is the only place that says so. Network
+            // text states FBD or LD once, on the body's implementation marker — the sole textual difference
+            // between the two — and the member is never written on an update, so a marker-only edit would
+            // write nothing, report success, and be reverted by the next pull.
+            // ...but only when there IS one. A body that is not graphical YET — a freshly created
+            // accessor, whose Implementation is still an `STImplementationObject` — has no
+            // `DefaultViewMode` member at all, and `ReadViewMode` demands it. Asking that of a CREATE
+            // turned every graphical property accessor into `'STImplementationObject' has no
+            // 'DefaultViewMode'`. There is no view to preserve when there is no diagram yet.
+            if (NwlInterop.Get(impl, "DefaultViewMode") is not null)
+                NetworkText.RefuseViewModeChange(CodesysDriver.ReadViewMode(impl), body.Language);
 
-                // Match the network COUNT first, through the aspect's own API. `NetworkList` is read-only,
-                // and an earlier version of this file refused a count change outright as "not measured" - which
-                // failed every splice test, because splicing a body is exactly where a network appears or goes.
-                // The aspect has AppendNetwork / InsertNetwork / RemoveNetwork / ReplaceNetwork; nothing here
-                // needs the archive back door (SetSerializableValue), which also works but writes AROUND the
-                // object model rather than through it.
-                for (int i = Count(impl) - 1; i >= body.Networks.Count; i--)
-                    NwlInterop.Call(impl, "RemoveNetwork", i);
-                while (Count(impl) < body.Networks.Count)
-                    NwlInterop.Call(impl, "AppendNetwork", NwlInterop.New(impl, "Network"));
+            // Match the network COUNT first, through the aspect's own API. `NetworkList` is read-only,
+            // and an earlier version of this file refused a count change outright as "not measured" - which
+            // failed every splice test, because splicing a body is exactly where a network appears or goes.
+            // The aspect has AppendNetwork / InsertNetwork / RemoveNetwork / ReplaceNetwork; nothing here
+            // needs the archive back door (SetSerializableValue), which also works but writes AROUND the
+            // object model rather than through it.
+            for (int i = Count(impl) - 1; i >= body.Networks.Count; i--)
+                NwlInterop.Call(impl, "RemoveNetwork", i);
+            while (Count(impl) < body.Networks.Count)
+                NwlInterop.Call(impl, "AppendNetwork", NwlInterop.New(impl, "Network"));
 
-                var existing = NwlInterop.Items(NwlInterop.Require(impl, "NetworkList"), listMember: "");
-                for (int i = 0; i < existing.Count; i++)
-                    WriteNetwork(impl, existing[i], body.Networks[i], body.Language, scope);
-            });
+            var existing = NwlInterop.Items(NwlInterop.Require(impl, "NetworkList"), listMember: "");
+            for (int i = 0; i < existing.Count; i++)
+                WriteNetwork(impl, existing[i], body.Networks[i], body.Language, scope);
         }
 
         internal static void WriteNetwork(object impl, object net, Network model, BodyLanguage language, NetworkScope scope)
@@ -90,7 +91,7 @@ namespace Volt.Ide.Codesys
 
             var ctx = new BuildContext(net);
             foreach (var tree in model.Trees)
-                NwlInterop.Call(net, "AppendTree", ctx.Node(tree));
+                NwlInterop.Call(net, "AppendTree", ctx.Node(tree, consumed: false));
         }
 
         /// <summary>Does the live network already hold exactly the logic being pushed?
@@ -142,7 +143,9 @@ namespace Volt.Ide.Codesys
 
             public BuildContext(object net) { _net = net; }
 
-            public object Node(Node n)
+            /// <param name="consumed">Whether something consumes the node — everything but a top-level item. The
+            /// text reads a box's ENO output differently at the top level (<c>NetworkText.HasEnoOutput</c>).</param>
+            public object Node(Node n, bool consumed = true)
             {
                 switch (n)
                 {
@@ -355,9 +358,11 @@ namespace Volt.Ide.Codesys
                         // the ENO. Keyed on EN, both got the ENO slot, the reader then found a box with an ENO output
                         // whose consumer reads its main output — the ENO — and the next pull said `.ENO`: x fed by
                         // ENO, a different program. Null is where the text has no position for the fact (a
-                        // top-level box with no positional pin, a consumed operator with no EN), and there the text
-                        // reads a box by its EN (`NetworkSpelling.TextHasEno`), which is what this writes.
-                        var eno = b.HasEnoOutput ?? b.Enable is not null;
+                        // top-level box with no positional pin, a consumed operator with no EN), and there the box
+                        // is built as the text reads it — by the text's own rule, never a copy of it here. A null
+                        // where the text DOES state the fact never gets this far: the change gate renders the model
+                        // first, and the text writer refuses it by name.
+                        var eno = NetworkText.HasEnoOutput(b, consumed);
                         var slots = OutputSlots(b, eno);
                         if (slots.Count > 0)
                         {

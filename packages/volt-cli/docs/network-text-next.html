@@ -623,7 +623,9 @@ END_NETWORK</pre>
   <b>Layout after a push.</b> The writer has one canonical layout. After a successful push the CLI records the IDE's
   re-materialized — canonical — text as <code>volt/ide</code> and brings the working tree to it, as a formatter would.
   A hand layout therefore lasts until its push and never reappears as an IDE-side change on a later pull; an item the
-  push did not touch is not re-fetched.
+  push did not touch is not re-fetched. Only a layout is adopted: an IDE that holds a pushed item as other tokens holds
+  another program, so the working tree keeps the pushed text, the push names the item, and the next pull brings the
+  IDE's text in as the IDE-side change it is.
 </p>
 
 <h3 id="diagnostics">Diagnostics</h3>

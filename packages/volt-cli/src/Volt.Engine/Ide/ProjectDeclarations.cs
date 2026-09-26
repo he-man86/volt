@@ -80,11 +80,15 @@ public sealed class ProjectDeclarations
             if (!pushed.ContainsKey(name)) yield return declaration;
     }
 
-    /// <summary>The IDE's own globals are read as no push would replace them.</summary>
+    /// <summary>What a pull pushes: nothing. The IDE's own globals are read as no push would replace them, and a pulled
+    /// body is written against the IDE's declarations alone (<see cref="ScopeForPull"/>).</summary>
     private static readonly IReadOnlyDictionary<string, string> NoPush = new Dictionary<string, string>();
 
     /// <summary>The scope of a body whose own declarations are <paramref name="declaration"/> (innermost first:
     /// <see cref="SourceScopes.Scope"/>), seeing <paramref name="pushed"/> before the IDE's items.</summary>
     public NetworkScope ScopeFor(string? declaration, IReadOnlyDictionary<string, string> pushed) =>
         NetworkScope.FromDeclarations(declaration, n => Of(pushed, n), () => Globals(pushed));
+
+    /// <summary>The scope a PULL writes a body against: the IDE's declarations alone, since a pull pushes nothing.</summary>
+    public NetworkScope ScopeForPull(string? declaration) => ScopeFor(declaration, NoPush);
 }

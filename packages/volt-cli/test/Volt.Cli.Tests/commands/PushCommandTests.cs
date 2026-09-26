@@ -115,6 +115,82 @@ public class PushCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>A pushed item whose version says the IDE holds other text, but whose text the directed fetch does not
+    /// give back, was never COMPARED — so it must not be reported as "held as another program". It used to be filed
+    /// there by default: a missing fact turned into a claim about the IDE's program. It is named as what it is — its
+    /// text did not come back — and the baseline keeps the pushed version, so the next pull fetches it.</summary>
+    [Fact]
+    public void A_pushed_item_whose_text_the_IDE_does_not_give_back_is_not_claimed_as_another_program()
+    {
+        const string canonical = "(* @volt-implementation LD *)\nNETWORK\n  t1(IN := a, PT := pt);\nEND_NETWORK";
+        var ide = new FakeIde(new FakeIde.Item("PLC_PRG", Volt.Engine.Item.ItemKind.PlcPouProg, "", true,
+            "PROGRAM PLC_PRG\nVAR\n  t1 : TON;\n  a : BOOL;\n  pt : TIME;\n  b : BOOL;\nEND_VAR", canonical, "LD", null))
+        {
+            HealthConnected = true, HealthPlatform = "codesys", HealthProjectName = "Demo",
+            RematerializeAs = held => held.Replace(", PT := pt", ""),
+        };
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            var path = Path.Combine(root, "src", "PLC_PRG.prg");
+            var edited = File.ReadAllText(path).Replace("\r\n", "\n").Replace("t1(IN := a, PT := pt);", "t1(IN := b, PT := pt);");
+            File.WriteAllText(path, edited);
+            // The receipt's walk reads the item once after the write and hashes what the IDE holds; the directed
+            // fetch that follows cannot read it back.
+            var readsAfterWrite = 0;
+            ide.OnReadContent = (fake, item) =>
+            {
+                if (fake.Recorded.Contains("writecontent:PLC_PRG") && fake.Name(item) == "PLC_PRG" && ++readsAfterWrite > 1)
+                    throw new System.InvalidOperationException("'PLC_PRG': the body cannot be read");
+            };
+
+            var r = Commands.Push(root, client);
+
+            Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
+            Assert.NotNull(r.Message);
+            Assert.DoesNotContain("another program", r.Message);
+            Assert.Contains("PLC_PRG.prg", r.Message);
+            Assert.Equal(edited, File.ReadAllText(path).Replace("\r\n", "\n"));
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>A `.task` is a DESCRIPTOR, not ST, and the post-push comparison must read it as one. Its gate ignores
+    /// trailing whitespace, so a pushed descriptor can be accepted as canonical while its bytes — and so its version —
+    /// differ from what the IDE holds. The comparison used to hand it to the ST reader, which threw "Unrecognized code
+    /// header" AFTER the IDE had applied the push and BEFORE volt/ide and the baseline were written: an accepted push
+    /// crashed the CLI and left both behind the IDE. The IDE holds the same descriptor laid out canonically, so it is
+    /// adopted like any other layout.</summary>
+    [Fact]
+    public void A_pushed_task_the_IDE_holds_in_its_canonical_layout_is_adopted()
+    {
+        var canonical = Volt.Engine.Format.Task.TaskDescriptorFormat.Write(new Volt.Engine.Format.Task.TaskSettings(
+            "cyclic", "t#10ms", "", "1", null, null, new[] { "PLC_PRG" }));
+        var ide = ConnectedIde(Prg(),
+            new FakeIde.Item("MainTask", Volt.Engine.Item.ItemKind.PlcTask, "", true, canonical, null, null, null));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            var path = Directory.GetFiles(root, "MainTask.task", SearchOption.AllDirectories).Single();
+            var pulled = File.ReadAllText(path).Replace("\r\n", "\n");
+            Assert.Equal(canonical, pulled);
+            File.WriteAllText(path, pulled.TrimEnd('\n') + "   \n");
+
+            var r = Commands.Push(root, client);
+
+            Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
+            Assert.Contains("writetask:MainTask", ide.Recorded);
+            Assert.Null(r.Message);
+            Assert.Equal(canonical, File.ReadAllText(path).Replace("\r\n", "\n"));
+            var again = Commands.Pull(root, client);
+            Assert.Equal("already up to date with the IDE", again.Message);
+            Assert.Equal(0, Commands.Status(root, client).Outgoing.Count);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     /// <summary>A workspace file saved with a UTF-8 BOM still pushes. Visual Studio and TcXaeShell write UTF-8
     /// WITH a BOM by default on Windows, so any user who opens a `.prg` there and saves gets one — and the BOM
     /// sits in front of the header keyword, where `.Trim()` does not remove it (U+FEFF is not whitespace under

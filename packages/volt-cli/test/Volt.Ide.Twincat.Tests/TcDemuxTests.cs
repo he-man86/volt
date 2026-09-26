@@ -114,6 +114,23 @@ public class TcDemuxTests
         Assert.Equal(new[] { "BOOL" }, boxes.First(b => b.Type == "AND").OutputTypes);
     }
 
+    /// <summary>…and an <c>OutputParam</c> that stores NO types is null — not read — as it is on CODESYS, never an
+    /// empty list, which says "read, zero slots". A missing <c>&lt;l2 n="Types"&gt;</c> used to read as the empty list
+    /// the archive helper hands back for any missing member, so the same absence was two facts on two vendors.</summary>
+    [Fact]
+    public void An_OutputParam_with_no_stored_types_reads_as_none_read()
+    {
+        var body = XElement.Parse(Body(), LoadOptions.PreserveWhitespace);
+        foreach (var types in body.Descendants("l2").Where(l => (string?)l.Attribute("n") == "Types"
+                     && (string?)l.Parent?.Attribute("n") == "OutputParam").ToList())
+            types.Remove();
+
+        var boxes = Read(body).Networks.SelectMany(n => n.Trees).SelectMany(Flatten).OfType<Box>().ToList();
+
+        Assert.NotEmpty(boxes);
+        Assert.All(boxes, b => Assert.Null(b.OutputTypes));
+    }
+
     /// <summary>…and a wire a box feeds is declared with the type of its connected slot. The hand-drawn wire is fed
     /// by the contact <c>b</c>; here it is fed by the rung's AND box instead, stored as a bitwise <c>WORD</c> AND.
     /// Without the stored type the wire was declared <c>BOOL</c>: a different type, stated silently.</summary>

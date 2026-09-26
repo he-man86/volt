@@ -43,6 +43,15 @@ public static class NetworkText
         _ => null,
     };
 
+    /// <summary>Whether a box a driver BUILDS has an ENO output: the model's fact where it has one, and where the text
+    /// states none (<see cref="Box.HasEnoOutput"/> null), the text's own reading of the box
+    /// (<see cref="NetworkSpelling.TextHasEno"/>) — the rule the reader built the model by, so the built box is the
+    /// one the text describes. The one door a driver has to that rule; a copy of it in a driver is free to drift.</summary>
+    /// <param name="consumed">Whether something consumes the box — everything but a top-level item.</param>
+    public static bool HasEnoOutput(Box b, bool consumed) =>
+        b.HasEnoOutput ?? NetworkSpelling.TextHasEno(isExecute: b.StCode is not null, hasEnable: b.Enable is not null,
+                                                     enoSuffix: NetworkSpelling.ConnectedByEno(b), consumed: consumed);
+
     /// <summary>Refuse a push that changes the body's VIEW between FBD and LD.
     ///
     /// <para>The view is a property of the whole implementation object (the vendors' <c>DefaultViewMode</c>), and

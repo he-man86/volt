@@ -74,7 +74,7 @@ public sealed partial class CodesysDriver
             // ordering rule that used to live in PushService was about TwinCAT's IMPORTER, and there is no
             // import on this path at all.)
             _om.WriteSourceText(item.Native, content.Declaration, null);
-            CodesysNetworkWriter.Write(_om, item.Native, graph, scope);
+            WriteGraph(item.Native, graph, scope);
         }
 
         WriteMembers(item, content.Members, content.Declaration, pushedDeclarations);
@@ -160,7 +160,7 @@ public sealed partial class CodesysDriver
                 // else), so this is the same arm as the reader's refusal above, and as IL.
                 try
                 {
-                    return NetworkTextWriter.Write(model, NetworkScopeFor(declaration, NoPush)).TrimEnd('\n');
+                    return NetworkTextWriter.Write(model, Declarations.ScopeForPull(declaration)).TrimEnd('\n');
                 }
                 catch (UnrepresentableBodyException ex)
                 {
@@ -306,11 +306,12 @@ public sealed partial class CodesysDriver
     private ProjectDeclarations Declarations => _declarations ??= new ProjectDeclarations(this, ReadDeclarationText);
     private ProjectDeclarations? _declarations;
 
-    /// <summary>A pull pushes nothing: its scope is the IDE's declarations alone.</summary>
-    private static readonly IReadOnlyDictionary<string, string> NoPush = new Dictionary<string, string>();
-
     public NetworkScope NetworkScopeFor(string? declaration, IReadOnlyDictionary<string, string> pushedDeclarations) =>
         Declarations.ScopeFor(declaration, pushedDeclarations);
+
+    /// <summary>A graphical body into <paramref name="node"/>, inside one modify transaction.</summary>
+    private void WriteGraph(object node, NetworkBody graph, NetworkScope scope) =>
+        _om.ModifyObject(node, iobj => CodesysNetworkWriter.Write(iobj, graph, scope));
 
 
     /// <summary>The item's KIND, from the TREE — never from its text.
@@ -372,7 +373,7 @@ public sealed partial class CodesysDriver
             else
             {
                 _om.WriteSourceText(target.Native, m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, null);
-                CodesysNetworkWriter.Write(_om, target.Native, graph, scope);
+                WriteGraph(target.Native, graph, scope);
             }
 
             // The accessor is LOOKED UP by the code this vendor's classifier actually returns, and the
@@ -474,7 +475,7 @@ public sealed partial class CodesysDriver
             }
 
             _om.WriteSourceText(child.Native, accessor.Declaration, null);
-            CodesysNetworkWriter.Write(_om, child.Native, graph, scope);
+            WriteGraph(child.Native, graph, scope);
             return;
         }
     }

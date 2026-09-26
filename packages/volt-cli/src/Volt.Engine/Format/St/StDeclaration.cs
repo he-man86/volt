@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace Volt.Engine.Format.St;
@@ -105,6 +106,8 @@ public static class StDeclaration
         @"\bEXTENDS\s+(?<base>[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    private static readonly Regex EndVar = new(@"\bEND_VAR\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     /// <summary>The TYPE a graphical box calls, for the call targets a POU's own declaration cannot answer
     /// alone.
     ///
@@ -127,7 +130,9 @@ public static class StDeclaration
     public static string? TypeOfCallTarget(string? scope, string target, Func<string, string?> declarationOf)
     {
         if (string.IsNullOrEmpty(target)) return null;
-        if (string.Equals(target, SuperCall, StringComparison.OrdinalIgnoreCase)) return BaseTypeOf(scope);
+        // The first base the scope names: a POU's own header, or — in a member's scope, which is the member's
+        // declaration and then its owner's — the owner's, since a member extends nothing.
+        if (string.Equals(target, SuperCall, StringComparison.OrdinalIgnoreCase)) return BasesOf(scope).FirstOrDefault();
 
         var segments = target.Split('.');
         var declaration = scope;
@@ -188,8 +193,10 @@ public static class StDeclaration
         return string.Join("\n", parts);
     }
 
-    /// <summary>Every base an <c>EXTENDS</c> clause outside a VAR block names, comments stripped — the header may wrap
-    /// the clause onto its own line, as CODESYS stores it.</summary>
+    /// <summary>Every base an <c>EXTENDS</c> clause outside a VAR block names, in order, comments stripped — the header
+    /// may wrap the clause onto its own line, as CODESYS stores it, and nothing inside a VAR block may answer for a
+    /// header (a variable's type is no base). The ONE scanner of the clause: <c>SUPER^</c> and the inherited scope ask
+    /// it the same question.</summary>
     private static IEnumerable<string> BasesOf(string? declaration)
     {
         if (string.IsNullOrEmpty(declaration)) yield break;
@@ -199,36 +206,15 @@ public static class StDeclaration
         {
             var line = CodeHelper.CodeOn(raw, ref inBlockComment).TrimStart();
             if (line.Length == 0) continue;
+            // A block may open and close on one line (`VAR_INPUT x : INT; END_VAR`), and the header after it is read.
+            if (!inVars && line.StartsWith("VAR", StringComparison.OrdinalIgnoreCase)) inVars = true;
             if (inVars)
             {
-                if (line.StartsWith("END_VAR", StringComparison.OrdinalIgnoreCase)) inVars = false;
+                if (EndVar.IsMatch(line)) inVars = false;
                 continue;
             }
-            if (line.StartsWith("VAR", StringComparison.OrdinalIgnoreCase)) { inVars = true; continue; }
             var m = ExtendsClause.Match(line);
             if (m.Success) yield return m.Groups["base"].Value;
         }
-    }
-
-    /// <summary>The base type of a POU — the <c>EXTENDS</c> clause of its own header.</summary>
-    private static string? BaseTypeOf(string? declaration)
-    {
-        if (string.IsNullOrEmpty(declaration)) return null;
-
-        var inBlockComment = false;
-        foreach (var raw in declaration!.Replace("\r", "").Split('\n'))
-        {
-            var line = CodeHelper.CodeOn(raw, ref inBlockComment);
-            if (line.Length == 0) continue;
-
-            var m = ExtendsClause.Match(line);
-            if (m.Success) return m.Groups["base"].Value;
-
-            // The header legally WRAPS — CODESYS stores `EXTENDS Base` on its own line — so the scan cannot
-            // stop at the first code line. It stops at the first VAR block instead: everything below that is
-            // variables, and nothing down there is allowed to answer for the header.
-            if (line.TrimStart().StartsWith("VAR", StringComparison.OrdinalIgnoreCase)) break;
-        }
-        return null;
     }
 }

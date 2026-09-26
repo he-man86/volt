@@ -636,12 +636,14 @@ public static class Commands
         // state comes from the receipt (no follow-up `refs`).
         var head = Git.HeadCommit(root)!;
         var ideCommit = head;
-        var (canonical, heldOtherwise) = Rematerialized(bridge, cfg, ops, resp);
+        var (canonical, heldOtherwise, unfetched) = Rematerialized(bridge, cfg, ops, resp);
         // AN IDE THAT HOLDS A PUSHED ITEM AS OTHER TOKENS CHANGED THE PROGRAM, and that is an IDE-side change: volt/ide
         // keeps what was pushed (HEAD) and the baseline says so — the version of the pushed text, hashed as the IDE's
         // are — so the next pull sees the IDE's version differ and brings its text in as the change it is. Adopting it
         // here merged it into the working tree under a layout commit, and the next pull reported nothing.
-        foreach (var (name, version) in heldOtherwise) adopted[name] = version;
+        // An item whose text did not come back is pinned the same way, for the same effect — the next pull fetches it
+        // and shows whatever the IDE holds — but it is NAMED apart: nothing was compared, so nothing is claimed.
+        foreach (var (name, version) in heldOtherwise.Concat(unfetched)) adopted[name] = version;
         if (canonical.Count > 0)
         {
             var tree = IdeTree.BuildVoltIdeTree(gitDir, head, head, canonical.SelectMany(Materialize.MaterializeItem).ToList(),
@@ -681,9 +683,15 @@ public static class Commands
             // the IDE deleted the engineer's POUs immediately after a successful push.
             UnwalkedFolders = resp.UnwalkedFolders,
         });
-        return PushResult.Ok(ops.Select(o => o.Name).ToList(), status, heldOtherwise.Count == 0 ? null :
-            "pushed — the IDE holds " + string.Join(", ", heldOtherwise.Select(h => h.Name)) +
-            " as another program than the text pushed; `volt pull` brings its text in as an IDE change");
+        var notes = new List<string>();
+        if (heldOtherwise.Count > 0)
+            notes.Add("the IDE holds " + string.Join(", ", heldOtherwise.Select(h => h.Name)) +
+                      " as another program than the text pushed; `volt pull` brings its text in as an IDE change");
+        if (unfetched.Count > 0)
+            notes.Add("the IDE holds " + string.Join(", ", unfetched.Select(h => h.Name)) +
+                      " in other text than was pushed and did not give that text back; `volt pull` fetches it");
+        return PushResult.Ok(ops.Select(o => o.Name).ToList(), status,
+                             notes.Count == 0 ? null : "pushed — " + string.Join("; ", notes));
     }
 
     /// <summary>
@@ -708,7 +716,8 @@ public static class Commands
     /// wire comes from). The pushed text hashed the same way says whether the IDE holds it byte for byte; only the
     /// items it does not are fetched, in ONE directed fetch.</para>
     /// </summary>
-    private static (List<FetchedItem> Canonical, List<(string Name, string Version)> HeldOtherwise) Rematerialized(
+    private static (List<FetchedItem> Canonical, List<(string Name, string Version)> HeldOtherwise,
+                    List<(string Name, string Version)> Unfetched) Rematerialized(
         BridgeClient bridge, WorkspaceConfig cfg, List<PushOp> ops, PushResponse resp)
     {
         var differ = new Dictionary<string, (string Text, string Version)>(StringComparer.Ordinal);
@@ -720,7 +729,7 @@ public static class Commands
             var pushedVersion = Volt.Engine.Sync.Hasher.ComputeItemVersion(folder, o.SourceText);
             if (pushedVersion != version) differ[name] = (o.SourceText, pushedVersion);
         }
-        if (differ.Count == 0) return (new List<FetchedItem>(), new List<(string, string)>());
+        if (differ.Count == 0) return (new List<FetchedItem>(), new List<(string, string)>(), new List<(string, string)>());
 
         var fetched = bridge.FetchChanges(new FetchRequest
         {
@@ -733,17 +742,26 @@ public static class Commands
 
         var canonical = new List<FetchedItem>();
         var heldOtherwise = new List<(string, string)>();
+        // An item the fetch did not return was never compared, so it is neither a layout nor another program.
+        var unfetched = new List<(string, string)>();
         foreach (var kv in differ)
-            if (fetched.TryGetValue(kv.Key, out var held) && LayoutOnly(kv.Value.Text, held.SourceText)) canonical.Add(held);
+            if (!fetched.TryGetValue(kv.Key, out var held)) unfetched.Add((kv.Key, kv.Value.Version));
+            else if (LayoutOnly(kv.Key, kv.Value.Text, held.SourceText)) canonical.Add(held);
             else heldOtherwise.Add((kv.Key, kv.Value.Version));
-        return (canonical, heldOtherwise);
+        return (canonical, heldOtherwise, unfetched);
     }
 
     /// <summary>Whether the IDE's text of an item is the pushed text laid out otherwise: the same declarations,
     /// folders and ST bodies byte for byte, and every graphical body the same tokens
-    /// (<see cref="NetworkTextGate.SameTokens"/>) — the one place the format lets layout vary.</summary>
-    private static bool LayoutOnly(string pushed, string held)
+    /// (<see cref="NetworkTextGate.SameTokens"/>) — the one place the format lets layout vary.
+    ///
+    /// <para>A TASK is a descriptor, not ST, and is compared by its own format, exactly as the push gates it
+    /// (<c>PushService.IsTask</c>): the ST reader throws on a descriptor, and here that throw lands after the IDE
+    /// has applied the push and before volt/ide and the baseline record it.</para></summary>
+    private static bool LayoutOnly(string wireName, string pushed, string held)
     {
+        if (ItemKind.KindForWireName(wireName) == ItemKind.Kinds.Task)
+            return Volt.Engine.Format.Task.TaskDescriptorFormat.SameDescriptor(pushed, held);
         var a = StReader.Read(pushed);
         var b = StReader.Read(held);
         return a.Kind == b.Kind && a.Declaration == b.Declaration && SameBody(a.Body, b.Body)

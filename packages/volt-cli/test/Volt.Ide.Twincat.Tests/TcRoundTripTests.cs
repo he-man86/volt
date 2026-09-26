@@ -301,6 +301,64 @@ public class TcRoundTripTests
         Assert.DoesNotContain("( := ", text);
     }
 
+    /// <summary>Spec, "a view change is one comparison": the pushed marker says FBD, the IDE's body is a ladder, so
+    /// the push is refused — through the writer the push runs, which is now the only place that compares the two (the
+    /// reader takes the language from the marker and cannot know the IDE's view).</summary>
+    [Fact]
+    public void A_marker_naming_the_other_view_is_refused_by_the_writer()
+    {
+        var before = Body("ladder.TcPOU");
+        Assert.Equal(BodyLanguage.Ld, LanguageOf(before));
+        var pushed = TextDerivedModel(before) with { Language = BodyLanguage.Fbd };
+
+        var ex = Assert.Throws<NotSupportedException>(() => TcText.Apply(before, pushed));
+        Assert.Contains("view is LD and the pushed text says FBD", ex.Message);
+    }
+
+    /// <summary>AN FB CALL WHOSE INSTANCE IS DECLARED THROUGH ITS LIBRARY NAMESPACE IS THE SAME BOX. The text spells
+    /// only the instance, and the reader takes the box type from the declaration — <c>t : Tc2_Standard.TON;</c>
+    /// reads as <c>Tc2_Standard.TON</c> where the archive stores <c>TON</c>. That is one type (the writer accepts it,
+    /// <c>StDeclaration.SameType</c>), and the type is no fact of the text: an edit of a pin value beside it is written
+    /// in place, and the archive keeps the type it stores. Compared by exact spelling, the edit was refused as a
+    /// retype and the network went to the importer, its ids re-minted.</summary>
+    [Theory]
+    [InlineData("Tc2_Standard.")]
+    [InlineData("")]
+    public void An_FB_call_typed_by_its_declarations_spelling_is_edited_in_place(string qualifier)
+    {
+        var before = Body("FbCall.derived.TcPOU");
+        var model = TextDerivedModel(before);
+        var ton = model.Networks.SelectMany(n => n.Trees).SelectMany(Boxes).Single(b => b.Instance is not null);
+        var leaf = ton.Inputs.Select(i => i.Value).OfType<Leaf>().First();
+        var edited = Map(model, n => n is Box b && ReferenceEquals(b, ton)
+            ? b with
+            {
+                Type = qualifier + b.Type.ToLowerInvariant(),
+                Inputs = b.Inputs.Select(i => ReferenceEquals(i.Value, leaf)
+                    ? i with { Value = leaf with { Operand = leaf.Operand with { Text = "renamed" } } } : i).ToList(),
+            }
+            : n);
+
+        var written = TcText.Apply(before, edited);
+
+        Assert.NotNull(written);
+        // The archive keeps the type it stores, byte for byte.
+        Assert.Equal(new[] { "\"AND\"", "\"TON\"" },
+            XElement.Parse(written!).Descendants("v").Where(v => (string?)v.Attribute("n") == "BoxType")
+                .Select(v => v.Value).OrderBy(v => v, StringComparer.Ordinal));
+        Assert.Contains("renamed", written);
+    }
+
+    private static NetworkBody Map(NetworkBody body, Func<Node, Node> f) =>
+        body with { Networks = body.Networks.Select(n => n with { Trees = n.Trees.Select(t => MapNode(t, f)).ToList() }).ToList() };
+
+    private static Node MapNode(Node n, Func<Node, Node> f) => f(n) switch
+    {
+        Box b => b with { Inputs = b.Inputs.Select(i => i with { Value = MapNode(i.Value, f) }).ToList() },
+        Assign a => a with { Value = MapNode(a.Value, f) },
+        var m => m,
+    };
+
     /// <summary>And the pulled text is PARSEABLE, which is the half that made such a POU permanently
     /// unpushable: an empty pin name makes the reader throw "expected a name at: :=".</summary>
     [Fact]

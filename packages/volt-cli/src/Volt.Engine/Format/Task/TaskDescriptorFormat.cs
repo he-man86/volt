@@ -120,6 +120,11 @@ public static class TaskDescriptorFormat
         return settings;
     }
 
+    /// <summary>Whether two descriptors differ only in what <see cref="Gate"/> lets vary — trailing whitespace and
+    /// the final newline. This is the task's LAYOUT: a push the gate accepted as canonical may come back from the
+    /// IDE in the canonical bytes, and that is the same descriptor, not an IDE-side change.</summary>
+    public static bool SameDescriptor(string a, string b) => Normalize(a) == Normalize(b);
+
     /// <summary>Trailing-whitespace-and-newline insensitive: a workspace file may lose or gain a final newline
     /// on the way through an editor, and that is not a reason to refuse a push.</summary>
     private static string Normalize(string s) =>

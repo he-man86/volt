@@ -308,7 +308,7 @@ public static class NetworkTextReader
                     to = t.Offset + t.Length;
                 }
                 Next();
-                var type = Regex.Replace(_text.Substring(from, to - from), @"\s+", " ").Trim();
+                var type = NetworkSpelling.WireType(_text.Substring(from, to - from));
                 foreach (var n in names) Declare(n, type);
                 any = true;
             }
@@ -317,13 +317,11 @@ public static class NetworkTextReader
             // END_VAR takes no `;` of its own: a `;` after it is the empty statement — the empty item — and taking it
             // into the block would drop that item from the network without a word, on pull and on push alike.
 
-            // The gate compares the block by what it DECLARES, not by how the declarations are grouped: the spec
-            // accepts `g1 : BOOL; g2 : BOOL;` across lines as the same block as the canonical `g1, g2 : BOOL;`.
-            // Grouping and order are not an NWL fact (the vendor's Demux has no declaration at all), so the block
-            // stands in the token stream as one token: each wire as written with its type, by VarId.
+            // The gate compares the block by what it DECLARES, not by how the declarations are grouped
+            // (NetworkSpelling.WireBlockKey), so the block stands in the token stream as one token.
             Consumed.RemoveRange(first, Consumed.Count - first);
             Consumed.Add(new Tok(TokKind.Wires,
-                string.Join(", ", _byId.OrderBy(kv => kv.Key).Select(kv => kv.Value.Name + " : " + kv.Value.Type)),
+                NetworkSpelling.WireBlockKey(_byId.Select(kv => (kv.Key, kv.Value.Name, kv.Value.Type))),
                 kw.Offset, endVar.Offset + endVar.Length - kw.Offset, kw.AtLineStart));
         }
 

@@ -68,6 +68,16 @@ internal static class NetworkSpelling
     /// its own reader refuses.</summary>
     public static bool ReadsAsUndeclaredWire(string t, NetworkScope scope) => WireName.IsMatch(t) && !scope.Contains(t);
 
+    /// <summary>A wire's declared type as the text compares it: its spelling with every run of layout one space.</summary>
+    internal static string WireType(string spelled) => Regex.Replace(spelled, @"\s+", " ").Trim();
+
+    /// <summary>A VAR_TEMP block as the text compares it: what it DECLARES — each wire with its type, by VarId — never
+    /// how the declarations are grouped or ordered. Grouping and order are no NWL fact (the vendor's Demux has no
+    /// declaration at all), so the spec accepts <c>g1 : BOOL; g2 : BOOL;</c> as the canonical <c>g1, g2 : BOOL;</c>.
+    /// The one spelling of that comparison, for the reader's token stream and the gate's post-push comparison alike.</summary>
+    internal static string WireBlockKey(IEnumerable<(int VarId, string Name, string Type)> wires) =>
+        string.Join(", ", wires.OrderBy(w => w.VarId).Select(w => w.Name + " : " + w.Type));
+
     /// <summary>Whether <paramref name="t"/> is exactly one token of the text, so it may stand bare.</summary>
     public static bool IsToken(string t) =>
         t == Box.UnnamedInstance ||

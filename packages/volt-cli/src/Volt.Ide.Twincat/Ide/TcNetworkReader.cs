@@ -196,9 +196,11 @@ internal static class TcNetworkReader
     /// <summary>THE STORED OUTPUT TYPES, index-aligned with the output slots as the names are — the compiler's answer
     /// the archive keeps (<c>&lt;l2 n="Types"&gt;&lt;v&gt;BOOL&lt;/v&gt;&lt;v&gt;TIME&lt;/v&gt;</c> on a TON; <c>[BOOL]</c> on an AND, DIALECT
     /// D22). An empty entry (<c>&lt;v&gt;&lt;/v&gt;</c>, an unresolved slot) is an unknown type, never a default; a box with
-    /// no <c>OutputParam</c> at all stored none, which is null — not read — rather than an empty list.</summary>
+    /// no <c>OutputParam</c>, or one with no <c>Types</c> list, stored none, which is null — not read — rather than an
+    /// empty list, which says "read, zero slots". <c>TcArchive.Strings</c> answers a missing list with an empty one,
+    /// so the list's presence is asked first: CODESYS reads the same absence as null, and the model has one meaning.</summary>
     private static IReadOnlyList<string?>? OutputTypes(XElement box) =>
-        TcArchive.Obj(box, "OutputParam") is { } param
+        TcArchive.Obj(box, "OutputParam") is { } param && param.Elements("l2").Any(l => (string?)l.Attribute("n") == "Types")
             ? TcArchive.Strings(param, "Types").Select(t => string.IsNullOrWhiteSpace(t) ? null : t).ToList()
             : null;
 

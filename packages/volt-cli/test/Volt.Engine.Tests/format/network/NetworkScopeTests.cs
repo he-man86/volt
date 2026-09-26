@@ -180,13 +180,27 @@ public class NetworkScopeTests
 
     /// <summary>…and a pulled box of that instance is written, whether the vendor stores the type bare (<c>TON</c>)
     /// or as declared: a declaration naming a type through its namespace names the type the box calls. It went to
-    /// the marker as "an FB instance declared with another type".</summary>
+    /// the marker as "an FB instance declared with another type". The written text reads back as the same model
+    /// (spec, <c>Read(Write(m)) ≅ m</c>): the reader takes the type in the declaration's spelling, and that spelling
+    /// is a fact the text does not carry (<see cref="NetworkTextFacts"/>).</summary>
     [Theory]
-    [InlineData("TON")]
-    [InlineData("Standard.TON")]
-    public void A_pulled_box_of_a_namespace_qualified_instance_is_written(string storedType) =>
-        Assert.Equal(LdSrc("t2(IN := a);"),
-            NetworkTextWriter.Write(Ld1(Fb("t2", new[] { NetworkModels.In(L("a"), "IN") }, type: storedType)), ScopeOf(Derived)));
+    [InlineData("TON", Derived)]
+    [InlineData("Standard.TON", Derived)]
+    [InlineData("Standard.TON", "FUNCTION_BLOCK FB\nVAR\n    a : BOOL;\n    t2 : TON;\nEND_VAR")]
+    public void A_pulled_box_of_a_namespace_qualified_instance_is_written(string storedType, string declaration) =>
+        RoundTrips(Ld1(Fb("t2", new[] { NetworkModels.In(L("a"), "IN") }, type: storedType)), ScopeOf(declaration),
+                   LdSrc("t2(IN := a);"));
+
+    /// <summary>Write, compare the text, read it back against the same scope, and compare the model as the oracle
+    /// does — so a test of what the writer accepts also proves what the reader rebuilds from it.</summary>
+    static void RoundTrips(NetworkBody m, NetworkScope scope, string expected)
+    {
+        var text = NetworkTextWriter.Write(m, scope);
+        Assert.Equal(expected, text);
+        var back = NetworkTextReader.Read(text, scope);
+        Assert.True(back.Ok, string.Join("\n", back.Diagnostics.Select(d => d.Code + " " + d.Message)));
+        Assert.Null(NetworkModelEquality.FirstDifference(NetworkTextFacts.Carried(m), NetworkTextFacts.Carried(back.Body!)));
+    }
 
     /// <summary>A namespace is part of a type's name: two libraries' <c>TON</c> are two types.</summary>
     [Fact]
@@ -201,9 +215,8 @@ public class NetworkScopeTests
     /// <c>TON</c> are one type. Compared ordinally, the body went to the marker for a difference that is none.</summary>
     [Fact]
     public void An_instance_type_differing_only_in_case_is_the_same_type() =>
-        Assert.Equal(LdSrc("T1(IN := a);"),
-            NetworkTextWriter.Write(Ld1(Fb("T1", new[] { NetworkModels.In(L("a"), "IN") }, type: "TON")),
-                ScopeOf("PROGRAM P\nVAR\n    a : BOOL;\n    t1 : Ton;\nEND_VAR")));
+        RoundTrips(Ld1(Fb("T1", new[] { NetworkModels.In(L("a"), "IN") }, type: "TON")),
+            ScopeOf("PROGRAM P\nVAR\n    a : BOOL;\n    t1 : Ton;\nEND_VAR"), LdSrc("T1(IN := a);"));
 
     const string Base = "FUNCTION_BLOCK FB_Base\nVAR\n    tBase : TON;\n    G3 : BOOL;\nEND_VAR";
     const string Child = "FUNCTION_BLOCK FB_Child EXTENDS FB_Base\nVAR\n    a : BOOL;\nEND_VAR";

@@ -218,36 +218,65 @@ internal sealed class NetworkLexer
     public bool PairAheadHoldsOperator()
     {
         var f = new NetworkLexer(this);
-        if (!f.Next().IsSym("(")) return false;
-        var depth = 1;
-        var executeAt = new Stack<int>();   // the depth an `EXECUTE(EN := …)` head's pair closes back to
+        var w = new Walk(f);
+        if (!w.Next().IsSym("(")) return false;
         while (true)
         {
-            var t = f.Next();
-            switch (t.Kind)
+            var t = w.Next();
+            if (t.Kind == TokKind.Eof) return false;
+            if (t.IsSym(")") && w.Depth == 0) return false;
+            // An operator word is an infix operator here unless it is a pin's name or a CALL HEAD — a word whose own
+            // pair holds no operator (the same rule, one level down): the argument list of `and(or(a, b), c)` holds
+            // a call, not an operator, and is an argument list itself.
+            if (w.Depth == 1 && IsOperator(t) &&
+                !(t.Kind == TokKind.Word && (f.PinOperatorFollows() || (f.PeekChar() == '(' && !f.PairAheadHoldsOperator()))))
+                return true;
+        }
+    }
+
+    /// <summary>
+    /// The tokens of a text as the reader consumes them, without reading it: every EXECUTE body is entered where the
+    /// reader enters one — at an <c>EXECUTE</c> that is no pin's name, right after it or after the pin list
+    /// <c>(EN := …)</c> that follows it, however deep that list nests another EXECUTE — and comes out as its snippet
+    /// and its <c>END_EXECUTE</c>. It is the ONE scope-free copy of that rule: the look-ahead above and the gate's
+    /// post-push comparison (<see cref="NetworkTextGate.SameTokens"/>) both walk through it, so the two cannot enter
+    /// a body at different places, and an ST line inside a snippet is never lexed as network tokens.
+    /// </summary>
+    public sealed class Walk
+    {
+        private readonly NetworkLexer _lx;
+        private readonly Stack<int> _executeAt = new();   // the depth an `EXECUTE(EN := …)` head's pair closes back to
+        private readonly Queue<Tok> _body = new();
+
+        public Walk(NetworkLexer lx) => _lx = lx;
+
+        /// <summary>Open parentheses after the last token returned.</summary>
+        public int Depth { get; private set; }
+
+        public Tok Next()
+        {
+            if (_body.Count > 0) return _body.Dequeue();
+            var t = _lx.Next();
+            if (t.IsSym("(")) Depth++;
+            else if (t.IsSym(")"))
             {
-                case TokKind.Eof:
-                    return false;
-                case TokKind.Sym when t.Text == "(":
-                    depth++;
-                    break;
-                case TokKind.Sym when t.Text == ")":
-                    if (--depth == 0) return false;
-                    if (executeAt.Count > 0 && executeAt.Peek() == depth) { executeAt.Pop(); f.ExecuteBody(); }
-                    break;
-                case TokKind.Word when t.Is("EXECUTE") && !f.PinOperatorFollows():
-                    if (f.PeekOnLine() == '(') executeAt.Push(depth);
-                    else f.ExecuteBody();
-                    break;
-                default:
-                    // An operator word is an infix operator here unless it is a pin's name or a CALL HEAD — a word
-                    // whose own pair holds no operator (the same rule, one level down): the argument list of
-                    // `and(or(a, b), c)` holds a call, not an operator, and is an argument list itself.
-                    if (depth == 1 && IsOperator(t) &&
-                        !(t.Kind == TokKind.Word && (f.PinOperatorFollows() || (f.PeekChar() == '(' && !f.PairAheadHoldsOperator()))))
-                        return true;
-                    break;
+                Depth--;
+                if (_executeAt.Count > 0 && _executeAt.Peek() == Depth) { _executeAt.Pop(); Body(); }
             }
+            else if (t.Is("EXECUTE") && !_lx.PinOperatorFollows())
+            {
+                if (_lx.PeekOnLine() == '(') _executeAt.Push(Depth);
+                else Body();
+            }
+            return t;
+        }
+
+        private void Body()
+        {
+            var (snippet, end) = _lx.ExecuteBody();
+            _body.Enqueue(snippet);
+            // An error has consumed its text and the lexer goes on from it, as the reader's recovery does.
+            if (snippet.Kind != TokKind.Error) _body.Enqueue(end);
         }
     }
 

@@ -96,13 +96,16 @@ public static class NetworkTextGate
     }
 
     /// <summary>
-    /// Whether two graphical bodies are one text but for LAYOUT: the same marker and the same tokens, whitespace
-    /// significant only where the gate says it is (inside backticks, a TITLE, a comment line and an EXECUTE body).
+    /// Whether two graphical bodies are one text but for LAYOUT: the same marker and the same tokens, as the gate
+    /// compares them — whitespace significant only inside backticks, a TITLE, a comment line and an EXECUTE body, and
+    /// a VAR_TEMP block compared by what it declares (<see cref="NetworkSpelling.WireBlockKey"/>). Whatever the gate
+    /// accepts as equal to its canonical form is the same tokens as that form here, so a push the gate let through in
+    /// another layout is adopted as that layout when the IDE gives it back canonically.
     ///
     /// <para><b>Without a scope, on purpose.</b> It answers the CLI after a push — is the IDE's text of a body a
     /// re-layout of the pushed one, or another program? — and the CLI has no declarations to read against. Tokens need
-    /// none: the lexer's one raw mode, an EXECUTE body, is entered exactly where the reader enters it (the word at
-    /// value position, not a pin name), so an ST line inside a snippet is compared whole, as the gate compares it.</para>
+    /// none: EXECUTE bodies are entered by the lexer's one scope-free copy of the reader's rule
+    /// (<see cref="NetworkLexer.Walk"/>), so an ST line inside a snippet is compared whole, as the gate compares it.</para>
     /// </summary>
     public static bool SameTokens(string a, string b)
     {
@@ -127,27 +130,59 @@ public static class NetworkTextGate
         var first = text.Substring(start, eol - start).TrimEnd('\r');
         var keys = new List<(TokKind, string)> { (TokKind.Marker, St.ImplementationMarker.LanguageOf(first) ?? first) };
 
-        var lx = new NetworkLexer(text, eol);
-        for (var t = lx.Next(); t.Kind != TokKind.Eof; t = lx.Next())
+        var walk = new NetworkLexer.Walk(new NetworkLexer(text, eol));
+        for (var t = walk.Next(); t.Kind != TokKind.Eof; t = walk.Next())
         {
-            keys.Add(t.Key);
-            if (!t.Is("EXECUTE") || lx.PinOperatorFollows()) continue;
-            // `EXECUTE(EN := c)`: the pin list is ordinary tokens, up to the parenthesis that closes it.
-            if (lx.PeekOnLine() == '(')
-                for (var depth = 0; ;)
-                {
-                    var p = lx.Next();
-                    keys.Add(p.Key);
-                    if (p.Kind == TokKind.Eof) return keys;
-                    if (p.IsSym("(")) depth++;
-                    else if (p.IsSym(")") && --depth == 0) break;
-                }
-            var (snippet, end) = lx.ExecuteBody();
-            keys.Add(snippet.Key);
-            // An error has consumed its text and the lexer goes on from it, as the reader's recovery does.
-            if (snippet.Kind != TokKind.Error) keys.Add(end.Key);
+            if (!t.Is("VAR_TEMP")) { keys.Add(t.Key); continue; }
+            var block = new List<Tok> { t };
+            for (var u = walk.Next(); ; u = walk.Next())
+            {
+                block.Add(u);
+                if (u.Kind == TokKind.Eof || u.Is("END_VAR")) break;
+            }
+            // A block that is no list of declarations has no key but its tokens: such a text never passed the gate,
+            // and its tokens compared one by one are the strict answer.
+            if (WireBlock(text, block) is { } declared) keys.Add((TokKind.Wires, declared));
+            else foreach (var u in block) if (u.Kind != TokKind.Eof) keys.Add(u.Key);
+            if (block[block.Count - 1].Kind == TokKind.Eof) break;
         }
         return keys;
+    }
+
+    /// <summary>A <c>VAR_TEMP … END_VAR</c> block's <see cref="NetworkSpelling.WireBlockKey"/>, read by its shape
+    /// alone — <c>g1, g2 : TYPE;</c> declarations — or null when it has another.</summary>
+    private static string? WireBlock(string text, List<Tok> block)
+    {
+        if (!block[block.Count - 1].Is("END_VAR")) return null;
+        var end = block.Count - 1;
+        var wires = new List<(int, string, string)>();
+        var i = 1;
+        while (i < end)
+        {
+            var names = new List<Tok>();
+            while (true)
+            {
+                var n = block[i++];
+                if (i >= end || n.Kind != TokKind.Word || !NetworkSpelling.WireName.IsMatch(n.Text)) return null;
+                names.Add(n);
+                if (block[i].IsSym(",")) { i++; continue; }
+                if (block[i].IsSym(":")) { i++; break; }
+                return null;
+            }
+            var from = i;
+            while (i < end && !block[i].IsSym(";")) i++;
+            if (i == from || i >= end) return null;
+            var last = block[i - 1];
+            var type = NetworkSpelling.WireType(text.Substring(block[from].Offset, last.Offset + last.Length - block[from].Offset));
+            foreach (var n in names)
+            {
+                if (!int.TryParse(n.Text.Substring(1), System.Globalization.NumberStyles.None,
+                        System.Globalization.CultureInfo.InvariantCulture, out var id)) return null;
+                wires.Add((id, n.Text, type));
+            }
+            i++;   // the `;`
+        }
+        return wires.Count == 0 ? null : NetworkSpelling.WireBlockKey(wires);
     }
 
     private static string Show(Tok t) => t.Kind switch

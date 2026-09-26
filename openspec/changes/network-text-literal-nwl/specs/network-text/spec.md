@@ -499,8 +499,11 @@ several control-flow targets (a coil and a jump, or two jumps), a target with a 
 
 The gate SHALL accept a body iff `Tokens(Write(Read(x))) == Tokens(x)`, whitespace being significant only inside
 backticks, TITLE strings, comments and EXECUTE bodies. `NETWORK_NOT_CANONICAL` SHALL report a token difference only.
-After a successful push the CLI SHALL record the IDE's re-materialized text as `volt/ide` and bring the working tree
-to it. A test oracle SHALL check `Read(Write(m)) ≅ m` structurally for every vendor-read fixture.
+After a successful push, where the IDE's re-materialized text of a pushed item differs from the pushed text only in
+layout (the same tokens, as the gate compares them), the CLI SHALL record that text as `volt/ide` and bring the working
+tree to it. An IDE holding other tokens holds another program: the CLI SHALL keep the pushed text, name the item in the
+push's message, and leave the IDE's text to the next pull as an IDE-side change. An item whose text the IDE does not
+give back after the push SHALL be named as such and left to the next pull, never claimed as either. A test oracle SHALL check `Read(Write(m)) ≅ m` structurally for every vendor-read fixture.
 
 #### Scenario: re-wrapping a call is accepted
 - **WHEN** an engineer lays out a 30-pin FB call one pin per line
@@ -509,6 +512,10 @@ to it. A test oracle SHALL check `Read(Write(m)) ≅ m` structurally for every v
 #### Scenario: a hand layout does not come back as an IDE change
 - **WHEN** that body is pushed and the project is pulled again with no IDE edit
 - **THEN** the pull reports nothing to pull, and the working tree holds the canonical layout
+
+#### Scenario: an IDE holding other tokens is not adopted as a layout
+- **WHEN** a pushed body comes back from the IDE with a pin dropped
+- **THEN** the working tree keeps the pushed text, the push names the item, and the next pull brings the IDE's text in
 
 #### Scenario: pull-side loss is caught
 - **WHEN** a writer arm drops a flag that the vendor reader filled

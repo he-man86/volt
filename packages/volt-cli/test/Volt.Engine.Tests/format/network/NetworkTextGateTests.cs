@@ -502,4 +502,40 @@ public class NetworkTextGateTests
     [Fact]
     public void Two_markers_are_two_texts() =>
         Assert.False(NetworkTextGate.SameTokens(Src("x := a;"), LdSrc("x := a;")));
+
+    /// <summary>The comparison after a push and the gate agree on what LAYOUT is: whatever the gate accepts as the
+    /// canonical form's equal is the same tokens as that canonical form. The gate compares a VAR_TEMP block by what it
+    /// declares — grouping and order are free — so a push declaring <c>g1 : BOOL; g2 : BOOL;</c> comes back from the IDE
+    /// as <c>g1, g2 : BOOL;</c>, and that is a layout, not an IDE change (spec, "a hand layout does not come back as an
+    /// IDE change").</summary>
+    [Theory]
+    [InlineData("VAR_TEMP g1 : BOOL; g2 : BOOL; END_VAR")]
+    [InlineData("VAR_TEMP g2 : BOOL; g1 : BOOL; END_VAR")]
+    [InlineData("VAR_TEMP\n    g2, g1 :\n BOOL;\n  END_VAR")]
+    public void A_wire_block_the_gate_accepts_is_the_same_tokens_as_its_canonical_form(string block)
+    {
+        var text = Src(block, "g1 := (a AND b);", "g2 := (c AND d);", "o := (g1 OR g2);");
+        var g = Gate(text);
+        Assert.True(g.Ok, string.Join("\n", g.Diagnostics.Select(d => d.Message)));
+        Assert.True(NetworkTextGate.SameTokens(text, g.Canonical!));
+    }
+
+    /// <summary>…and a wire block that DECLARES something else is another text: a wire's type is content.</summary>
+    [Fact]
+    public void A_wire_block_declaring_another_type_is_another_text() =>
+        Assert.False(NetworkTextGate.SameTokens(
+            Src("VAR_TEMP g1 : WORD; END_VAR", "g1 := (a AND b);", "o := g1;"),
+            Src("VAR_TEMP g1 : BOOL; END_VAR", "g1 := (a AND b);", "o := g1;")));
+
+    /// <summary>An EXECUTE nested in another's pin list opens its own verbatim body, where the reader opens it: the ST
+    /// inside it is compared whole, so a changed space in a string literal is another program, while a re-wrapped pin
+    /// list around it is only layout.</summary>
+    [Theory]
+    [InlineData("s := 'a  b';", "  EXECUTE(EN := EXECUTE\n s := 'a b';\nEND_EXECUTE.ENO)\n y := 1;\nEND_EXECUTE.ENO;", false)]
+    [InlineData("s := 'a b';", "  EXECUTE(\n    EN := EXECUTE\n s := 'a b';\nEND_EXECUTE.ENO\n  )\n y := 1;\nEND_EXECUTE.ENO;", true)]
+    public void An_EXECUTE_nested_in_a_pin_list_keeps_its_body_verbatim(string inner, string other, bool same)
+    {
+        var a = Src("out := EXECUTE(EN := EXECUTE\n " + inner + "\nEND_EXECUTE.ENO)\n y := 1;\nEND_EXECUTE.ENO;");
+        Assert.Equal(same, NetworkTextGate.SameTokens(a, Src("out :=" + other.Substring(1))));
+    }
 }

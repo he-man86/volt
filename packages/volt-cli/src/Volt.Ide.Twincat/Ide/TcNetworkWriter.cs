@@ -408,26 +408,19 @@ internal static class TcNetworkWriter
             {
                 // The box TYPE is not an editable value: it is what the IDE resolved `CallType`, `InputParam`
                 // and `OutputParam` from, and changing it without redoing that resolution leaves an archive
-                // describing one call with another call's signature.
-                // A FUNCTION-BLOCK CALL IS NAMED BY ITS INSTANCE IN TEXT, NOT BY ITS TYPE. Network text writes
-                // `fbTimer(IN := x)`, so the reader rebuilds `Box(Type: "fbTimer")` while the archive holds
-                // `BoxType = "TON"` - and comparing those two refused a body NOBODY HAD CHANGED, making every
-                // POU with a TON, an R_TRIG or any user FB permanently unpushable.
+                // describing one call with another call's signature. So a retype is refused — and only a retype.
                 //
-                // This one is mine too: the refusal was added for parity with CODESYS, which REBUILDS the box
-                // and genuinely cannot know the type from the text. This writer edits IN PLACE and has both
-                // values in front of it - the archive's BoxType and its Instance - so it can simply check the
-                // right one. A retype is still refused; being called by its instance name is not a retype.
-                // CASE-INSENSITIVELY, because these are IEC IDENTIFIERS and IEC 61131-3 says case does not
-                // distinguish them. This was the last Ordinal identity compare on the wire — the same mistake
-                // `BeckhoffDriver.WriteContent` fixed for member names, where `METHOD Calc` renamed to
-                // `METHOD calc` passed every gate above and then threw NOT_FOUND. Here the cost was a refusal
-                // of a body nobody retyped, which on the push path discards the network to `RebuildNetwork` and
-                // regenerates the exact ids this writer exists to preserve.
+                // THE TEXT DOES NOT SPELL AN FB CALL'S TYPE: it writes `t(IN := x)`, and the reader takes the type
+                // from the declaration, in the DECLARATION'S spelling — `t : Tc2_Standard.TON;` reads as
+                // `Tc2_Standard.TON` and `t : Ton;` as `Ton`, where the archive stores `TON`. Those are one type (IEC
+                // names are case-insensitive, and a namespace qualifies a name without changing it), by the one rule
+                // the text's writer accepts them by, `StDeclaration.SameType`. Compared by exact spelling, a body
+                // nobody retyped was refused, and on the push path that refusal discards the network to
+                // `RebuildNetwork`, regenerating the very ids this writer exists to preserve. The spelling is no fact
+                // of the text, so the archive keeps its own. (v1's reader built `Type` from the INSTANCE name, which
+                // this compare also accepted; the v2 reader never does, and that arm went with v1, task 3.9.)
                 var was = TcArchive.Str(e, "BoxType") ?? "";
-                var instance = TcArchive.Str(TcArchive.Obj(e, "Instance"), "Operand");
-                var namesThisBox = string.Equals(was, b.Type, StringComparison.OrdinalIgnoreCase)
-                                   || (instance != null && string.Equals(instance, b.Type, StringComparison.OrdinalIgnoreCase));
+                var namesThisBox = Volt.Engine.Format.St.StDeclaration.SameType(was, b.Type);
                 if (!namesThisBox)
                     throw Refuse($"a box changes from '{was}' to '{b.Type}'");
 
