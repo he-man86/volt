@@ -25,9 +25,11 @@ namespace Volt.Engine.Format.Network;
 /// importer — is unrepresentable rather than guarded against. Fan-out is explicit, through
 /// a <see cref="Demux"/>, which is what the vendor holds.</para>
 ///
-/// <para><b>Structural equality is deliberately NOT relied upon.</b> These are records, but their collection
-/// members compare by reference. Compare rendered network text, never models — the same rule
-/// <c>GraphModel</c> carried, and for the same reason.</para>
+/// <para><b>Record equality is NOT structural.</b> These are records, but their collection members compare by
+/// reference, so <c>==</c> on two equal bodies is false. Compare models through
+/// <see cref="NetworkModelEquality"/>, which walks the lists — the network text v2 oracle checks
+/// <c>Read(Write(m)) ≅ m</c> on MODELS, because a text round trip that is a fixed point can still have lost a
+/// fact the vendor reader filled (a writer arm that drops a flag writes and reads back the same text).</para>
 /// </summary>
 public sealed record NetworkBody(BodyLanguage Language, IReadOnlyList<Network> Networks);
 
@@ -95,8 +97,27 @@ public sealed record Box(
     IReadOnlyList<Output> Outputs,
     Node? Enable,
     string? StCode,
-    Flags Flags) : Node(Flags)
+    Flags Flags,
+    int? MainOutputIndex = null,
+    int? ConnectedSlot = null,
+    IReadOnlyList<string?>? OutputTypes = null) : Node(Flags)
 {
+    // MainOutputIndex / ConnectedSlot / OutputTypes are network text v2 facts
+    // (openspec/changes/network-text-literal-nwl, review 7.3 and 1.17). They are OPTIONAL with null meaning
+    // "not read" so that v1, which never consults them, builds and renders exactly as before; the drivers fill
+    // them in phase 2. Null is NOT a default the v2 writer may assume a value for — it refuses by name instead.
+    //
+    //  MainOutputIndex  the vendor's BoxTreeBox.MainOutputIndex: which output slot is the box's result. It is
+    //                   STORED, not "slot 0 by convention": measured 0 on 456 boxes, 1 on 3 call boxes (Lenze
+    //                   call_FirstErrorCapture_FB), None on 823 — so null is a real vendor value as well as "unread".
+    //  ConnectedSlot    on a CONSUMED box (an Assign's value, a box input, a Demux/Parallel input), the output
+    //                   slot its consumer is wired to. The spec's slot rule reads it: the main output writes no
+    //                   suffix, ENO writes `.ENO`, any other slot is the marker. Null on a top-level box.
+    //  OutputTypes      the vendor's OutputParams.Types, index-aligned with the output SLOTS (not with
+    //                   Outputs, which holds only the wired ones). v2 declares a wire fed by this box with the
+    //                   type of the connected slot; a null list or entry is an unknown type, refused by name.
+
+
     /// <summary>The vendor's name for the enable pin. It occupies INPUT SLOT 0 of a box that shows EN/ENO,
     /// and the vendor says so by naming that slot — see <see cref="HasEnableSlot"/>.</summary>
     public const string EnablePin = "EN";
@@ -157,8 +178,19 @@ public sealed record Box(
 
 /// <summary>An LD parallel branch — <c>BoxTreeParallel</c> (contacts in parallel = a boolean OR of rungs).
 /// <see cref="Input"/> is the rung feeding the branch; <see cref="Branches"/> are the parallel paths.</summary>
-public sealed record Parallel(Node? Input, IReadOnlyList<Node> Branches, Flags Flags)
-    : Node(Flags);
+public sealed record Parallel(
+    Node? Input,
+    IReadOnlyList<Node> Branches,
+    Flags Flags,
+    ParallelMode Mode = ParallelMode.BoxShortCircuit) : Node(Flags);
+
+/// <summary>The vendor's <c>BoxTreeParallel.Mode</c>. Carried because a non-default value EXISTS in a real
+/// project: census 2026-09-26, 17 Parallels in Lenze_MID-S100 — <c>BoxShortCircuit</c> 16, <c>Sequential</c> 1
+/// (MainDrive network 1). A model without it would rebuild that branch in the default mode on push, silently.
+/// <see cref="BoxShortCircuit"/> is the default because it is what every other measured Parallel holds, and it is
+/// what v1 — which never read the member — has always meant. Only the two measured members are listed; an
+/// unmeasured one must be refused by the reader, not mapped onto these.</summary>
+public enum ParallelMode { BoxShortCircuit, Sequential }
 
 /// <summary>The end of an LD rung — <c>BoxTreeTerminator</c>.</summary>
 public sealed record Terminator(Node? Input, Flags Flags) : Node(Flags);
@@ -178,8 +210,15 @@ public sealed record Terminator(Node? Input, Flags Flags) : Node(Flags);
 /// BoxTreeAssign .RValue BoxTreeBox AND .InputItemList
 ///   BoxTreeDemux VarId=24                                  // a reference
 /// </code>
+///
+/// <para><see cref="Type"/> is the type network text v2 DECLARED the wire with (<c>VAR_TEMP g1 : INT;</c>) — a
+/// fact of the TEXT, not of the vendor, whose Demux holds no type. The v2 reader fills it on a definition and the
+/// v2 writer declares it where the producer does not say the type by itself (a box read from text carries no
+/// <c>OutputTypes</c>): without it, <c>g1 := ADD(a, b);</c> read back from the engineer's own file could not be
+/// written again. A driver never reads it and never fills it; null means "no text declared one" (every
+/// vendor-read model, and v1).</para>
 /// </summary>
-public sealed record Demux(int VarId, Node? Input, Flags Flags) : Node(Flags);
+public sealed record Demux(int VarId, Node? Input, Flags Flags, string? Type = null) : Node(Flags);
 
 /// <summary>One input pin: the formal parameter name where the vendor supplies one, the sub-tree feeding it,
 /// and that pin's own modifiers (the vendor keeps these in <c>BoxTreeBox.InputFlags</c>, per pin).</summary>
@@ -198,8 +237,13 @@ public sealed record Input(string? Formal, Node Value, Flags Flags);
 /// every pin an engineer wired straight off a box vanished from the text: <c>MOVE(EN := rung, IN := 0)</c>
 /// with its output on <c>TempI</c> materialized as <c>MOVE(0)</c>, and `TempI` was nowhere in the file. 208 wired
 /// output pins on 171 boxes across 373 networks (`scripts/nwl-census.log`). The push side knew: it REFUSED any box carrying outputs, because
-/// "network text has no form for them" — which was true, and is what this record exists to end.</para></summary>
-public sealed record Output(string? Formal, Operand Value);
+/// "network text has no form for them" — which was true, and is what this record exists to end.</para>
+///
+/// <para><see cref="Slot"/> is the pin's OUTPUT SLOT index (network text v2, review 7.3). v1 dropped null
+/// slots while reading, so a list position is not a slot: positional <c>=&gt; v</c> pins fill the slots that
+/// remain after the one a consumer is connected to, and that needs the stored index. Null means "not read"
+/// (v1, and until the drivers fill it in phase 2), never "slot = list position".</para></summary>
+public sealed record Output(string? Formal, Operand Value, int? Slot = null);
 
 /// <summary>A variable, literal or expression. <see cref="Type"/> is the vendor's declared type when it
 /// supplies one — read-only metadata used to declare a wire's temp; it is NOT load-bearing for round-trip.
