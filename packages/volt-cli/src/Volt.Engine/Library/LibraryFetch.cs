@@ -46,8 +46,10 @@ internal static class LibraryFetch
             if (onProgress != null && (i % 25 == 0 || i == sigs.Count))
                 onProgress(new ProgressFrame { Operation = Ops.Fetch, Done = startDone + i, Total = total });
 
-            // Render-null: a sub-signature (method/property — covered by its parent FB) or an unknown POUType.
-            if (LibSignatureRenderer.Render(sig) is not { } r) { renderNull++; VoltLog.Debug($"fetch skip: render-null lib sig '{sig.Name}' (pouType={sig.PouType}, lib={sig.LibraryPath})"); continue; }
+            // Render-null: a POUType the renderer does not model, or a name that is not an IEC identifier. Neither
+            // occurs on a measured SP21 project — which is why it WARNS: a library element the LSP never sees is
+            // how return-less FUNCTIONs went missing, and a Debug line hid that.
+            if (LibSignatureRenderer.Render(sig) is not { } r) { renderNull++; VoltLog.Warn($"fetch skip: render-null lib sig '{sig.Name}' (pouType={sig.PouType}, lib={sig.LibraryPath})"); continue; }
             string libFolder;
             if (libByResolution.TryGetValue(sig.LibraryPath, out var lib))
                 // Identified: fold the element beside its library's `.library` file (matched by RESOLUTION).

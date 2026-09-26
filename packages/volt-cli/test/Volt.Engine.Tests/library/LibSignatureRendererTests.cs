@@ -100,7 +100,8 @@ public class LibSignatureRendererTests
         Assert.Equal("TYPE POINT :\nSTRUCT\n\tX : INT;\n\tY : INT;\nEND_STRUCT\nEND_TYPE", r!.Value.Text);
     }
 
-    // Enum members carry their ordinal in LibVar.Initial and must render as `NAME := value` (e.g. error codes).
+    // An enum is a VarGlobal the vendor FLAGS `Enum`; its members carry their ordinal in LibVar.Initial and must
+    // render as `NAME := value` (e.g. error codes).
     [Fact]
     public void Enum_members_render_with_their_ordinal_values()
     {
@@ -109,7 +110,7 @@ public class LibSignatureRendererTests
             new LibVar("UNKNOWN", "PERIODE", "0"), new LibVar("STANDARD", "PERIODE", "1"), new LibVar("DAYLIGHT", "PERIODE", "2"),
         };
         var s = new LibSignature("PERIODE", "lib", "VarGlobal",
-            new LibVar[0], new LibVar[0], new LibVar[0], members, null, null);
+            new LibVar[0], new LibVar[0], new LibVar[0], members, null, null, Flags: "Enum");
         var r = LibSignatureRenderer.Render(s);
         Assert.Equal(".enum", r!.Value.Ext);
         Assert.Equal("TYPE PERIODE :\n(\n\tUNKNOWN := 0,\n\tSTANDARD := 1,\n\tDAYLIGHT := 2\n);\nEND_TYPE", r.Value.Text);

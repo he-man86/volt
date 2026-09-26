@@ -121,9 +121,10 @@ public static class LibSignatureRenderer
             case "VarGlobal":
             {
                 var mem = s.Members.Where(v => OkName(v.Name)).ToList();
-                // An enum: every member is typed as the container itself. Otherwise a GVL of constants.
-                var isEnum = mem.Count > 0 && mem.All(v => v.Type.Replace(" ", "").ToLowerInvariant() == name.Replace(" ", "").ToLowerInvariant());
-                if (isEnum)
+                // An enum is what the VENDOR flags as one (CODESYS `Flags = Enum`), not a shape guessed from its
+                // members — the guess agreed with the flag on every SP21 library, but it would have read an enum
+                // with no readable members as a GVL. TwinCAT's VarGlobal is GVL constants and never flags Enum.
+                if (s.Flags.Contains("Enum"))
                 {
                     // Enum members carry their ordinal in Initial (`NO_ERROR := 0, FIRST_ERROR := 5700`).
                     var members = mem.Select(v => "\t" + v.Name + (string.IsNullOrEmpty(v.Initial) ? "" : $" := {v.Initial}"));

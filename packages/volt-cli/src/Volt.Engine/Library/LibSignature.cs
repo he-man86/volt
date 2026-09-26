@@ -36,9 +36,9 @@ public sealed record LibSignature(
     // alias is modeled as a single unnamed variable whose Type is the base, so it can't ride in Members
     // (name-filtered). Non-null ⇒ render `TYPE name : AliasBase; END_TYPE` (an alias body), not a struct body.
     string? AliasBase = null,
-    // The CODESYS DUT sub-kind flag ("Alias" / "Union" / "None"/…) — it picks the rendered BODY form (a union
-    // gets UNION/END_UNION) AND the file extension it is rendered under, since the two say the same thing.
-    // Empty for non-DUT signatures.
+    // The CODESYS signature flags ("Alias" / "Union" / "Enum" / "Structure, Internal"/…) — they pick the rendered
+    // BODY form (a union gets UNION/END_UNION, an enum-flagged VarGlobal a `TYPE … ( … )`) AND the file extension
+    // it is rendered under, since the two say the same thing. Empty where the vendor has none (TwinCAT).
     string Flags = "",
     // Methods of an FB or interface (declaration only). Null/empty for elements that have none. Folded into the
     // parent's rendered text as METHOD blocks so a library FB's methods are known to the LSP, not unknown-member.
