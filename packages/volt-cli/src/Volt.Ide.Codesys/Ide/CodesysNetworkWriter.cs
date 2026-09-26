@@ -408,7 +408,10 @@ namespace Volt.Ide.Codesys
                         // With an Input this DEFINES the wire; without one it REFERENCES the definition
                         // carrying the same id.
                         if (d.Input is { } src) NwlInterop.Call(dm, "SetInputTree", 0, Node(src));
-                        return Flagged(dm, d.Flags);
+                        // No flags: the model has none on a Demux, because the IDE stores none (DIALECT N20). This
+                        // used to call Flagged(dm, d.Flags), which set bits on an IFlags the node hands out and never
+                        // keeps — the push reported success and the wire ran un-negated.
+                        return dm;
                     }
 
                     case Terminator t:
@@ -419,7 +422,12 @@ namespace Volt.Ide.Codesys
                         var par = NwlInterop.New(_net, "BoxTreeParallel");
                         if (p.Input is { } pi) NwlInterop.Call(par, "SetInputTree", 0, Node(pi));
                         foreach (var branch in p.Branches) NwlInterop.Call(par, "Append", Node(branch));
-                        return Flagged(par, p.Flags);
+                        // SET, never left: a freshly constructed BoxTreeParallel is `Sequential` (DIALECT N20) while
+                        // 16 of 17 real ones are `BoxShortCircuit` (census 1.3), so leaving it flipped the evaluation
+                        // mode of every Parallel a push rebuilt — and no reader looked, so no pull showed it.
+                        // No flags, for the Demux reason above.
+                        NwlInterop.SetEnum(par, "Mode", p.Mode.ToString());
+                        return par;
                     }
 
                     default:

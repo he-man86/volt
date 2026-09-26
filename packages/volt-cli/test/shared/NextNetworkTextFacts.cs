@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using Volt.Engine.Format.Network;
 using Volt.Engine.Format.Network.Next;
@@ -49,8 +49,8 @@ public static class NextNetworkTextFacts
         Leaf l => new Leaf(new Operand(l.Operand.Text), l.Flags),
         Assign a => AssignOf(a),
         Box b => BoxOf(b),
-        Demux d => new Demux(d.VarId, NodeOrNull(d.Input), d.Flags),
-        Parallel p => new Parallel(NodeOrNull(p.Input), p.Branches.Select(Node).ToList(), p.Flags, p.Mode),
+        Demux d => new Demux(d.VarId, NodeOrNull(d.Input)),
+        Parallel p => new Parallel(NodeOrNull(p.Input), p.Branches.Select(Node).ToList(), p.Mode),
         Terminator t => new Terminator(t.Flags),
         _ => throw new NotSupportedException($"NextNetworkTextFacts does not know node {n.GetType().Name}"),
     };
@@ -74,7 +74,8 @@ public static class NextNetworkTextFacts
 
     private static Box BoxOf(Box b)
     {
-        var byMainOutput = b.ConnectedSlot is { } c && c != NextSpelling.EnoSlot(b);
+        // The one definition of ".ENO", shared with the writer: a copy here could drift from it silently.
+        var byMainOutput = b.ConnectedSlot is not null && !NextSpelling.ConnectedByEno(b);
         var infix = NextSpelling.IsInfix(b);
         return new Box(
             b.Type,

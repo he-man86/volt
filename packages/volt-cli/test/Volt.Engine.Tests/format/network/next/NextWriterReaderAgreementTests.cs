@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
@@ -219,7 +219,7 @@ public class NextWriterReaderAgreementTests
     [Fact]
     public void An_unmeasured_Parallel_mode_goes_to_the_marker() =>
         Assert.Equal("an unmeasured Parallel mode",
-            RefusedBy(Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, Flags.None, (ParallelMode)5), T("o")), BodyLanguage.Ld),
+            RefusedBy(Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, (ParallelMode)5), T("o")), BodyLanguage.Ld),
                 NextNetworkScope.Empty));
 
     /// <summary>The empty argument list <c>f()</c> is the only ambiguity a lone unwired slot has: beside an output
@@ -241,7 +241,7 @@ public class NextWriterReaderAgreementTests
     [Fact]
     public void A_variable_named_like_a_construct_does_not_block_the_construct()
     {
-        var par = Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, Flags.None), T("out")), BodyLanguage.Ld);
+        var par = Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), T("out")), BodyLanguage.Ld);
         var names = Scope(new[] { "Parallel", "a", "b", "out" });
         var text = Written(par, names);
         Assert.Equal("(* @volt-implementation LD *)\nNETWORK\n  out := PARALLEL(a, b);\nEND_NETWORK\n", text);
@@ -257,7 +257,7 @@ public class NextWriterReaderAgreementTests
     [Fact]
     public void A_POU_or_instance_named_like_a_construct_blocks_it_on_both_sides()
     {
-        var par = Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, Flags.None), T("out")), BodyLanguage.Ld);
+        var par = Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), T("out")), BodyLanguage.Ld);
         Assert.Equal("PARALLEL beside a POU or instance of that name", RefusedBy(par, Scope(new[] { "a" }, pous: new[] { "Parallel" })));
 
         var edge = Body(Set(L("x", Rise), T("out")));
@@ -360,15 +360,15 @@ public class NextWriterReaderAgreementTests
     [Fact]
     public void A_Parallel_with_a_lone_unconnected_branch_goes_to_the_marker()
     {
-        var m = Body(new Parallel(null, new Node[] { Empty }, Flags.None), BodyLanguage.Ld);
+        var m = Body(new Parallel(null, new Node[] { Empty }, ParallelMode.BoxShortCircuit), BodyLanguage.Ld);
         Assert.Equal("a lone unconnected Parallel branch", RefusedBy(m, NextNetworkScope.Empty));
         var r = Gate("(* @volt-implementation LD *)\nNETWORK\n  PARALLEL(MODE := BoxShortCircuit, );\nEND_NETWORK\n",
             BodyLanguage.Ld, NextNetworkScope.Empty);
         Assert.Equal("NETWORK_UNSUPPORTED", Assert.Single(r.Diagnostics).Code);
         // Beside a feed or a mode the empty branch is a position of its own.
-        Assert.Null(NextModelOracle.Check("fed", Body(new Parallel(L("f"), new Node[] { Empty }, Flags.None), BodyLanguage.Ld)).Reason);
+        Assert.Null(NextModelOracle.Check("fed", Body(new Parallel(L("f"), new Node[] { Empty }, ParallelMode.BoxShortCircuit), BodyLanguage.Ld)).Reason);
         Assert.Null(NextModelOracle.Check("sequential",
-            Body(new Parallel(null, new Node[] { Empty }, Flags.None, ParallelMode.Sequential), BodyLanguage.Ld)).Reason);
+            Body(new Parallel(null, new Node[] { Empty }, ParallelMode.Sequential), BodyLanguage.Ld)).Reason);
     }
 
     /// <summary>Spec, "one statement per NWL network item": the empty item right after the wire block is its own
@@ -415,7 +415,7 @@ public class NextWriterReaderAgreementTests
     public void A_box_named_like_a_construct_and_a_construct_beside_a_POU_are_named_apart()
     {
         var box = RefusedBy(Body(Call("Parallel", new[] { In(L("a")) })), NextNetworkScope.Empty);
-        var beside = RefusedBy(Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, Flags.None), T("o")), BodyLanguage.Ld),
+        var beside = RefusedBy(Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), T("o")), BodyLanguage.Ld),
             Scope(new[] { "a" }, pous: new[] { "Parallel" }));
         Assert.NotEqual(box, beside);
     }

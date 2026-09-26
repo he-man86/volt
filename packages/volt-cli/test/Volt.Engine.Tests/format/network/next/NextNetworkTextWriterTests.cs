@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
@@ -24,8 +24,8 @@ public class NextNetworkTextWriterTests
     static Operand T(string text, Flags? f = null) => new(text, IsLValue: true, Flags: f);
     static Terminator Empty => new(Flags.None);
     static Input In(Node v, string? formal = null) => new(formal, v, Flags.None);
-    static Demux Ref(int id, Flags? f = null) => new(id, null, f ?? Flags.None);
-    static Demux Def(int id, Node v) => new(id, v, Flags.None);
+    static Demux Ref(int id) => new(id, null);
+    static Demux Def(int id, Node v) => new(id, v);
     static Assign Set(Node v, params Operand[] targets) => new(v, targets, Flags.None);
     static readonly Flags Neg = Flags.None with { Negated = true };
     static readonly Flags Rise = Flags.None with { Rising = true };
@@ -135,7 +135,7 @@ public class NextNetworkTextWriterTests
     public void A_top_level_leaf_wire_reference_and_parallel_are_value_statements()
     {
         Assert.Equal(Body("a;"), Write(L("a")));
-        Assert.Equal(Body("PARALLEL(a, b);"), Write(new Parallel(null, new Node[] { L("a"), L("b") }, Flags.None)));
+        Assert.Equal(Body("PARALLEL(a, b);"), Write(new Parallel(null, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit)));
         Assert.Equal(
             Body("VAR_TEMP g1 : BOOL; END_VAR", "g1 := TRUE;", "g1;"),
             Write(Net(Def(1, L("TRUE")), Ref(1))));
@@ -202,25 +202,22 @@ public class NextNetworkTextWriterTests
         var move = Call("MOVE", new[] { In(L("1")) }, new[] { Out("nMode", 1) }, en: L("bStart", Rise));
         Assert.Equal(Body("MOVE(EN := R_EDGE(bStart), 1, => nMode);"), Write(move));
 
-
         Assert.Equal(Body("lamp := R_EDGE((a AND b));"),
             Write(Set(new Box("AND", null, CallKind.Operator, new[] { In(L("a")), In(L("b")) }, new Output[0], null, null, Rise), T("lamp"))));
     }
 
-    /// <summary>A FLAG ON A WIRE REFERENCE OR A PARALLEL HAS NO VENDOR FORM, so it goes to the marker by name. Measured
-    /// 2026-09-26 (DIALECT N20, <c>scripts/probe-edge-names-order.py</c>): on <c>BoxTreeDemux</c> and
-    /// <c>BoxTreeParallel</c> the <c>Flags</c> getter hands out an object that is not stored — a bit set on it reads
-    /// back unset before the commit, and neither type serializes one — so the IDE ran every such network as the bare
-    /// value. A pulled body never carries one; a model that does describes logic no IDE can hold.</summary>
+    /// <summary>A FLAG ON A WIRE OR A PARALLEL HAS NO VENDOR FORM (DIALECT N20, <c>scripts/probe-edge-names-order.py</c>):
+    /// on <c>BoxTreeDemux</c> and <c>BoxTreeParallel</c> the <c>Flags</c> getter hands out an object that is not stored,
+    /// so the IDE ran every such network as the bare value. This asserted the writer refused a model carrying one; the
+    /// model now cannot carry one (no Flags parameter, always None), so no writer, v1 or v2, and no driver can be handed
+    /// that state — the readers refuse the vendor bit by name, the text readers the spelling.</summary>
     [Fact]
-    public void A_flag_on_a_wire_reference_or_a_Parallel_goes_to_the_marker()
+    public void A_wire_or_a_Parallel_cannot_carry_a_flag()
     {
-        Assert.Equal("a flag on a wire reference",
-            Refused(() => Write(Net(Def(3, L("TRUE")), Set(Ref(3, Neg with { Falling = true }), T("out"))))).Marker);
-        Assert.Equal("a flag on a wire reference",
-            Refused(() => Write(Net(Def(3, L("TRUE")), Set(Ref(3, Rise), T("out"))))).Marker);
-        Assert.Equal("a flag on a Parallel",
-            Refused(() => Write(Set(new Parallel(null, new Node[] { L("a"), L("b") }, Neg), T("out")))).Marker);
+        Assert.Equal(Flags.None, Ref(3).Flags);
+        Assert.Equal(Flags.None, new Parallel(null, new Node[] { L("a") }, ParallelMode.BoxShortCircuit).Flags);
+        foreach (var t in new[] { typeof(Demux), typeof(Parallel) })
+            Assert.DoesNotContain(t.GetConstructors().SelectMany(c => c.GetParameters()), p => p.ParameterType == typeof(Flags));
     }
 
     /// <summary>Spec, "negation with an edge": the one order.</summary>
@@ -245,13 +242,11 @@ public class NextNetworkTextWriterTests
         Assert.Equal("a flag on a box input pin", Refused(() => Write(box)).Marker);
     }
 
-    /// <summary>Census 1.1: no item-level flag on a Demux or Assign item; none has a position.</summary>
+    /// <summary>Census 1.1: no item-level flag on an Assign item; none has a position. (A Demux item cannot carry one
+    /// at all — DIALECT N20, <see cref="A_wire_or_a_Parallel_cannot_carry_a_flag"/>.)</summary>
     [Fact]
-    public void A_flag_on_a_Demux_or_Assign_item_goes_to_the_marker()
-    {
-        Assert.Equal("a flag on a Demux item", Refused(() => Write(new Demux(1, L("TRUE"), Neg))).Marker);
+    public void A_flag_on_an_Assign_item_goes_to_the_marker() =>
         Assert.Equal("a flag on an Assign item", Refused(() => Write(new Assign(L("a"), new[] { T("out") }, Neg))).Marker);
-    }
 
     /// <summary>Page, "Empty slots": a flag on an empty slot has no spelling.</summary>
     [Fact]
@@ -571,16 +566,16 @@ public class NextNetworkTextWriterTests
         Assert.Equal(
             Body("VAR_TEMP g54 : BOOL; END_VAR", "g54 := TRUE;", "ResetSafetyGuard S= PARALLEL(IN := g54, StartFlag, tResetSafetyGuard);"),
             Write(Net(Def(54, L("TRUE")),
-                Set(new Parallel(Ref(54), new Node[] { L("StartFlag"), L("tResetSafetyGuard") }, Flags.None),
+                Set(new Parallel(Ref(54), new Node[] { L("StartFlag"), L("tResetSafetyGuard") }, ParallelMode.BoxShortCircuit),
                     T("ResetSafetyGuard", Flags.None with { Set = true })))));
         Assert.Equal(Body("out := PARALLEL(a, b);"),
-            Write(Set(new Parallel(null, new Node[] { L("a"), L("b") }, Flags.None), T("out"))));
+            Write(Set(new Parallel(null, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), T("out"))));
         // Census 1.2: the unfed Parallel is the null feed (5 of 17); a feed that is the empty terminator occurs in
         // no project, so it has no spelling of its own and goes to the marker.
         Assert.Equal("a Parallel fed by the empty terminator",
-            Refused(() => Write(Set(new Parallel(Empty, new Node[] { L("a"), L("b") }, Flags.None), T("out")))).Marker);
+            Refused(() => Write(Set(new Parallel(Empty, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), T("out")))).Marker);
         Assert.Equal(Body("out := PARALLEL(MODE := Sequential, IN := f, a, b);"),
-            Write(Set(new Parallel(L("f"), new Node[] { L("a"), L("b") }, Flags.None, ParallelMode.Sequential), T("out"))));
+            Write(Set(new Parallel(L("f"), new Node[] { L("a"), L("b") }, ParallelMode.Sequential), T("out"))));
     }
 
     // A terminator with an input (census 1.4: 0) and an assign with a null value (census 1.2: 0) are no longer

@@ -288,6 +288,31 @@ public class CodesysCoilFlagTests
         Assert.False(FlagsOf(target).Negation);
     }
 
+    /// <summary>A BUILT PARALLEL CARRIES THE MODEL'S MODE. DIALECT N20: a freshly constructed <c>BoxTreeParallel</c> is
+    /// <c>Sequential</c>, while 16 of 17 real ones are <c>BoxShortCircuit</c> (census 1.3). The writer never set it, so
+    /// every Parallel a push rebuilt changed evaluation mode — invisible, because no reader read it. Both modes, so a
+    /// writer that sets a constant cannot pass.</summary>
+    [Theory]
+    [InlineData(ParallelMode.BoxShortCircuit, "BoxShortCircuit")]
+    [InlineData(ParallelMode.Sequential, "Sequential")]
+    public void A_built_Parallel_carries_the_models_mode(ParallelMode mode, string vendor)
+    {
+        var model = new Network(0, null, null, null, false, new Node[]
+        {
+            new Assign(new Volt.Engine.Format.Network.Parallel(null,
+                           new Node[] { new Leaf(new Operand("a"), Flags.None), new Leaf(new Operand("b"), Flags.None) }, mode),
+                       new[] { new Operand("out") }, Flags.None),
+        });
+
+        var live = new Nwl.Network().With(new Nwl.BoxTreeAssign());
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, null, NoProject, BodyLanguage.Ld);
+
+        var par = Assert.IsType<Nwl.BoxTreeParallel>(Assert.IsType<Nwl.BoxTreeAssign>(live.GetTree(live.NetworkItemCount - 1)).RValue);
+        Assert.Equal(vendor, par.Mode.ToString());
+        Assert.Equal(mode, Assert.IsType<Volt.Engine.Format.Network.Parallel>(
+            Assert.IsType<Assign>(CodesysNetworkReader.ReadNetwork(live, 0).Trees.Last()).Value).Mode);
+    }
+
     /// <summary>A WIRED ENABLE ROUND-TRIPS, and this is the write half of a refusal that turned out to be
     /// wrong.
     ///

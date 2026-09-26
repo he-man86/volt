@@ -303,8 +303,9 @@ vendor negates before it detects the edge, on an operand and on a box alike (cen
 `Negation+Rtrig` ran as `R_EDGE(NOT x)` in simulation on both), so `NOT R_EDGE(x)` would state other logic and SHALL
 be refused with `NETWORK_BAD_EXPRESSION`. A Parallel and a wire reference hold NO flag (DIALECT N20: the IDE keeps
 none, and every flag set on one ran as the bare value), so `NOT`, `R_EDGE` or `F_EDGE` applied to `PARALLEL(…)` or to
-a wire name SHALL be refused with `NETWORK_UNSUPPORTED`, and a model carrying such a flag SHALL materialize as the
-marker; the flag belongs on the wire's producer or a branch. The order is measured on CODESYS only: no TwinCAT
+a wire name SHALL be refused with `NETWORK_UNSUPPORTED` (the v1 text as well, which ships today: `NOT g1`), the model
+SHALL have no place for such a flag (a Demux and a Parallel carry none), and a vendor object reporting one SHALL
+materialize as the marker; the flag belongs on the wire's producer or a branch. The order is measured on CODESYS only: no TwinCAT
 runtime is licensed on the measuring machine, so until TwinCAT's order is measured the TwinCAT driver SHALL
 materialize a body holding a negation with an edge on one node as the marker (DIALECT N17), never write it in the
 CODESYS order. The argument of an edge SHALL carry no modifier but that one `NOT`: any other SHALL be
@@ -331,14 +332,15 @@ pull.
 
 #### Scenario: a flag on a wire reference or a Parallel
 - **WHEN** a body contains `out := NOT g3;`, `out := R_EDGE(g3);` or `out := NOT PARALLEL(a, b);`
-- **THEN** it is refused with `NETWORK_UNSUPPORTED`, and a model holding such a flag materializes as the marker
+- **THEN** it is refused with `NETWORK_UNSUPPORTED`, and a vendor Demux or Parallel reporting such a flag materializes
+  as the marker (the model cannot hold one)
 
 ### Requirement: pull never throws; unmeasured vendor facts go to the marker
 
 Materializing a body SHALL never throw. A shape the writer cannot spell SHALL materialize the body as the existing
 unsupported marker; a push SHALL refuse it by name. This SHALL cover: a flag on an input pin (`Input.Flags`) until the
-pin-flag census names its spelling; a Negation or edge flag on a Demux or Assign item (census 1.1: none; a Demux and
-a Parallel cannot hold one, DIALECT N20); a Demux definition below the top level; a flag on an empty slot; operand text containing a backtick; an FB
+pin-flag census names its spelling; a Negation or edge flag on an Assign item (census 1.1: none) or reported on a Demux or Parallel (the model has no
+place for one, DIALECT N20); a Demux definition below the top level; a flag on an empty slot; operand text containing a backtick; an FB
 instance the declarations do not name (census 1.12: `SUPER^`), whose call would read back as a function; an EXECUTE
 snippet holding a line whose first word is `END_EXECUTE`. `Input.Flags` SHALL NOT be deleted from the model: census
 1.13 found it populated and load-bearing on CODESYS, and a pin flag has no spelling until the owner decides one. An EXECUTE body SHALL end at the first

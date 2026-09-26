@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Xunit;
 using Volt.Engine.Format.Network;
 using Parallel = Volt.Engine.Format.Network.Parallel;
@@ -31,9 +31,8 @@ public class NetworkModelEqualityTests
                 // A coil fed by a Parallel — the rung shape. (This was a Terminator holding the Parallel, a shape
                 // census 1.4 found in no project and the model no longer has a field for.)
                 new Assign(
-                    new Parallel(new Demux(3, null, Flags.None),
-                        new List<Node> { new Leaf(new Operand("a"), Flags.None), new Leaf(new Operand("b"), Flags.None) },
-                        Flags.None, mode),
+                    new Parallel(new Demux(3, null),
+                        new List<Node> { new Leaf(new Operand("a"), Flags.None), new Leaf(new Operand("b"), Flags.None) }, mode),
                     new List<Operand> { new("coil", IsLValue: true) }, Flags.None),
             }),
         });

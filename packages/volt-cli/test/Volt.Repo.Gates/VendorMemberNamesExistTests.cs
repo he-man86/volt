@@ -64,6 +64,8 @@ public class VendorMemberNamesExistTests
         ["Trees"] = "BoxTreeParallel — no committed archive contains one; drawing parallel contacts in XAE " +
                     "produces an OR box instead, so this may be unreachable on TwinCAT rather than merely " +
                     "unsampled. Needs a hand-drawn body that yields one, or a note that none exists.",
+        ["Mode"] = "BoxTreeParallel.Mode (OperationMode) — no committed archive contains a Parallel (see Trees). The " +
+                   "reader refuses an absent or unknown value by name, so a wrong spelling reaches the marker, not a guess.",
     };
 
     private static readonly string[] Sources =

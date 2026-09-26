@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -161,8 +161,9 @@ internal static class NextSpelling
 
     public static int? EnoSlot(Box b) => EnoSlot(b.StCode is not null, b.Enable is not null);
 
-    /// <summary>Whether a consumer of <paramref name="b"/> is connected to its ENO — the <c>.ENO</c> suffix.</summary>
-    private static bool ConnectedByEno(Box b) => b.ConnectedSlot is { } c && c == EnoSlot(b);
+    /// <summary>Whether a consumer of <paramref name="b"/> is connected to its ENO — the <c>.ENO</c> suffix. The ONE
+    /// definition: the writer's suffix, the wire type rule and the test oracle all ask this, so none can drift.</summary>
+    public static bool ConnectedByEno(Box b) => b.ConnectedSlot is { } c && c == EnoSlot(b);
 
     /// <summary>The first output slot at or after <paramref name="from"/> a positional <c>=&gt;</c> pin can fill:
     /// ENO and the slot a consumer is connected to are skipped, the rest fill in order. The writer spells a pin by
@@ -266,7 +267,7 @@ internal static class NextSpelling
                 case Demux { Input: null } d:
                     if (d.VarId != varId) break;
                     any = true;
-                    all &= boolean || d.Flags.Rising || d.Flags.Falling;
+                    all &= boolean;
                     break;
                 case Demux d:
                     Walk(d.Input, false);   // whether it is boolean depends on the other wire's uses — not proven

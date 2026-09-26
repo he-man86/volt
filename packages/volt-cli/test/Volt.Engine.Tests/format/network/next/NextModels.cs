@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Volt.Engine.Format.Network;
@@ -19,8 +19,8 @@ internal static class NextModels
     public static Operand T(string text, Flags? f = null) => new(text, IsLValue: true, Flags: f);
     public static Terminator Empty => new(Flags.None);
     public static Input In(Node v, string? formal = null) => new(formal, v, Flags.None);
-    public static Demux Ref(int id, Flags? f = null) => new(id, null, f ?? Flags.None);
-    public static Demux Def(int id, Node v, string? type = null) => new(id, v, Flags.None, type);
+    public static Demux Ref(int id) => new(id, null);
+    public static Demux Def(int id, Node v, string? type = null) => new(id, v, type);
     public static Assign Set(Node v, params Operand[] targets) => new(v, targets, Flags.None);
     public static readonly Flags Neg = Flags.None with { Negated = true };
     public static readonly Flags Rise = Flags.None with { Rising = true };
@@ -76,7 +76,7 @@ internal static class NextModels
         Add("value.flagged-box", Body(Call("f", new[] { In(L("x")) }, f: Neg)));
         Add("value.no-input-slot", Body(Call("GetTime", Array.Empty<Input>())));
         Add("value.leaf", Body(L("a")));
-        Add("value.parallel", Body(new Parallel(null, new Node[] { L("a"), L("b") }, Flags.None)));
+        Add("value.parallel", Body(new Parallel(null, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit)));
         Add("value.wire-ref", Body(Net(Def(1, L("TRUE")), Ref(1))));
         Add("empty-item", Body(Net(Set(L("a"), T("out")), Empty)));
         Add("backtick.in-pin", Body(Fb("t1", new[] { In(L("DINT_TO_REAL(x)"), "IN") })));
@@ -150,13 +150,13 @@ internal static class NextModels
             Def(2, Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, types: new[] { "INT" })),
             Def(3, Op("AND", Ref(1), L("c"))), Set(Ref(2), T("o")), Set(Ref(3), T("p")))));
         Add("parallel.fed", Body(Net(Def(54, L("TRUE")),
-            Set(new Parallel(Ref(54), new Node[] { L("StartFlag"), L("tResetSafetyGuard") }, Flags.None), T("ResetSafetyGuard", SetBit)))));
-        Add("parallel.unfed", Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, Flags.None), T("out"))));
+            Set(new Parallel(Ref(54), new Node[] { L("StartFlag"), L("tResetSafetyGuard") }, ParallelMode.BoxShortCircuit), T("ResetSafetyGuard", SetBit)))));
+        Add("parallel.unfed", Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), T("out"))));
         Add("infix.consumed-comparison", Body(Set(Call("GT", new[] { In(L("a")), In(L("b")) }, connected: 0), T("o"))));
         Add("infix.consumed-arithmetic", Body(Set(Call("ADD", new[] { In(L("a")), In(L("b")) }, connected: 0), T("out"))));
         Add("targets.literal", Body(Net(Set(L("a"), T("5")), Set(L("a"), T("16#FF")), Call("F", new[] { In(L("a")) }, new[] { Out("T#1s", 0) }))));
         Add("empty.lone-beside-output", Body(Call("f", new[] { In(Empty) }, new[] { Out("x", 0) })));
-        Add("parallel.sequential", Body(Set(new Parallel(L("f"), new Node[] { L("a"), L("b") }, Flags.None, ParallelMode.Sequential), T("out"))));
+        Add("parallel.sequential", Body(Set(new Parallel(L("f"), new Node[] { L("a"), L("b") }, ParallelMode.Sequential), T("out"))));
         return g;
     }
 }

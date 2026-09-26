@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -459,7 +459,7 @@ public static class NextNetworkTextReader
                 // The declared type is checked against the producer once the network is read
                 // (CheckWireTypes): a leaf's type depends on how the wire is USED, which the statements below say.
                 w.Defined = true;
-                return new Demux(w.VarId, value, Flags.None, w.Type);
+                return new Demux(w.VarId, value, w.Type);
             }
 
             var operands = new List<Operand>();
@@ -872,7 +872,7 @@ public static class NextNetworkTextReader
                 throw Err(sep, ConflictCodes.NetworkParse, $"'{sep.Text}' in PARALLEL: branches are separated by `,` and closed by `)`.");
             }
             if (branches.Count == 0) throw Err(kw, ConflictCodes.NetworkBadExpression, "a PARALLEL with no branch.");
-            return new Parallel(input, branches, Flags.None, mode);
+            return new Parallel(input, branches, mode);
         }
 
         /// <summary><c>EXECUTE[(EN := c)]</c>, the verbatim ST lines, <c>END_EXECUTE</c>, and <c>.ENO</c> where
@@ -939,7 +939,7 @@ public static class NextNetworkTextReader
                 if (!w.Defined)
                     throw Err(t, ConflictCodes.NetworkBadExpression,
                         $"the wire {w.Name} is referenced before its definition: a wire is defined by `{w.Name} := value;` before its first use.");
-                return Mark(new Demux(w.VarId, null, Flags.None), t.Offset);
+                return Mark(new Demux(w.VarId, null), t.Offset);
             }
             if (t.Kind == TokKind.Word) RefuseUndeclaredWire(t);
             // Every operand's words, whatever its token — the writer reserves the same (a typed literal's type

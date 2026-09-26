@@ -232,16 +232,15 @@ public class NetworkTextRoundTripTests
         var wire = new Demux(7, new Box("AND", null, CallKind.Operator,
                                         new[] { new Input(null, new Leaf(new Operand("a"), Flags.None), Flags.None),
                                                 new Input(null, new Leaf(new Operand("b"), Flags.None), Flags.None) },
-                                        Array.Empty<Output>(), null, null, Flags.None),
-                             Flags.None);
+                                        Array.Empty<Output>(), null, null, Flags.None));
 
         var body = new NetworkBody(BodyLanguage.Fbd, new[]
         {
             new Network(0, null, null, null, false, new Node[]
             {
                 wire,
-                new Assign(new Demux(7, null, Flags.None), new[] { new Operand("out1") }, Flags.None),
-                new Assign(new Demux(7, null, Flags.None), new[] { new Operand("out2") }, Flags.None),
+                new Assign(new Demux(7, null), new[] { new Operand("out1") }, Flags.None),
+                new Assign(new Demux(7, null), new[] { new Operand("out2") }, Flags.None),
             }),
         });
 
@@ -275,10 +274,9 @@ public class NetworkTextRoundTripTests
                 new Demux(5, new Box("AND", null, CallKind.Operator,
                                      new[] { new Input(null, new Leaf(new Operand("g5"), Flags.None), Flags.None),
                                              new Input(null, new Leaf(new Operand("b"), Flags.None), Flags.None) },
-                                     Array.Empty<Output>(), null, null, Flags.None),
-                          Flags.None),
-                new Assign(new Demux(5, null, Flags.None), new[] { new Operand("out1") }, Flags.None),
-                new Assign(new Demux(5, null, Flags.None), new[] { new Operand("out2") }, Flags.None),
+                                     Array.Empty<Output>(), null, null, Flags.None)),
+                new Assign(new Demux(5, null), new[] { new Operand("out1") }, Flags.None),
+                new Assign(new Demux(5, null), new[] { new Operand("out2") }, Flags.None),
             }),
         });
 
@@ -386,7 +384,7 @@ public class ParallelRenderTests
     public void A_fed_parallel_renders_its_feeding_rung()
     {
         var text = Render(new Assign(
-            new Volt.Engine.Format.Network.Parallel(Leaf("c"), new[] { Leaf("a"), Leaf("b") }, Flags.None),
+            new Volt.Engine.Format.Network.Parallel(Leaf("c"), new[] { Leaf("a"), Leaf("b") }, ParallelMode.BoxShortCircuit),
             new[] { new Operand("out") }, Flags.None));
 
         Assert.Contains("out := (c AND (a OR b));", text);
@@ -397,7 +395,7 @@ public class ParallelRenderTests
     public void An_unfed_parallel_is_still_a_plain_or()
     {
         var text = Render(new Assign(
-            new Volt.Engine.Format.Network.Parallel(null, new[] { Leaf("a"), Leaf("b") }, Flags.None),
+            new Volt.Engine.Format.Network.Parallel(null, new[] { Leaf("a"), Leaf("b") }, ParallelMode.BoxShortCircuit),
             new[] { new Operand("out") }, Flags.None));
 
         Assert.Contains("out := (a OR b);", text);
@@ -426,16 +424,5 @@ public class ParallelRenderTests
 
         Assert.Contains("outC := g1;", text);                      // the engineer's variable, untouched
         Assert.DoesNotContain("LET g1 :=", text);                  // and the mint went elsewhere
-    }
-
-    /// <summary>And the parallel's OWN modifiers reach the text, which this arm also used to drop.</summary>
-    [Fact]
-    public void A_negated_parallel_says_so()
-    {
-        var text = Render(new Assign(
-            new Volt.Engine.Format.Network.Parallel(null, new[] { Leaf("a"), Leaf("b") }, Flags.None with { Negated = true }),
-            new[] { new Operand("out") }, Flags.None));
-
-        Assert.Contains("NOT (a OR b)", text);
     }
 }

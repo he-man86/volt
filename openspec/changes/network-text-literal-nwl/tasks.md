@@ -49,6 +49,16 @@ never dropped, never guessed.
       `An_assignment_holding_no_value_is_refused_by_name` and their `TcDrawnJumpTests` twins. Item flags on
       Demux/Assign (1.1: 0) are no field of their own (`Node.Flags`; an Assign's Jump/Return live there) and stay
       refused by name.
+      *And `Demux.Flags` / `Parallel.Flags` (review of section 1 — N20 proves them dead):* the two records carry no
+      Flags (always None). The vendor stores none, and the field let the v1 text `out := NOT g1;` reach
+      `CodesysNetworkWriter`, which set the bit on the unstored `IFlags`: the push succeeded and the IDE ran
+      `out := g1`. **v1 hotfix, like 1.13's:** the v1 reader refuses a modifier on a wire reference
+      (`NETWORK_UNSUPPORTED`, `NetworkTextDiagnosticsTests.A_negated_wire_reference_never_reaches_a_driver`); both
+      vendor readers refuse a bit reported on a Demux/Parallel by name ("a flag on a wire" / "a flag on a Parallel",
+      `CodesysNetworkReaderTests`, `TcDrawnJumpTests`); the v2 writer's two refusals of that state went with the
+      field. `Parallel.Mode` lost its default: both readers read it (absent/unknown → "an unmeasured Parallel
+      mode"), the CODESYS writer sets it (`A_built_Parallel_carries_the_models_mode`) and TwinCAT's in-place writer
+      refuses a mode change — the 4.1/4.2 halves of N20's `Sequential` finding.
 - [x] 1.11 Is an Execute box ever consumed (its ENO continuing the rung), and with EN unwired? The value form
       `EXECUTE … END_EXECUTE.ENO` is specified either way (an Execute box's only output is ENO, so `.ENO` needs no
       EN — review 7.11); the census decides corpus golden vs synthetic.
@@ -71,8 +81,8 @@ never dropped, never guessed.
       `R_EDGE` and `F_EDGE`: clean on both). The order is measured on an AND BOX too — the same as the operand. On a
       Parallel and a wire reference it cannot be: the IDE holds no flag there (DIALECT N20), so the text refuses one
       (`A_flag_on_a_wire_reference_or_a_Parallel*`). *BLOCKED (TwinCAT order):* running a TwinCAT PLC needs a runtime
-      licence this machine does not have — `C:\TwinCAT.1\Target\License` does not exist and the `UmRT_Default` target
-      holds none; a TC1200 trial licence is issued through XAE's interactive security-code dialog, which no probe can
+      licence this machine does not have — `C:\TwinCAT\3.1\Target\License` exists but is empty (re-checked
+      2026-09-26) and the `UmRT_Default` target holds none; a TC1200 trial licence is issued through XAE's interactive security-code dialog, which no probe can
       answer. Until measured, the spec sends a TwinCAT Negation+edge on one node to the marker (4.2).
 - [x] 1.15 Labels and jumps, live on both vendors, recording each build message: one LABEL on two networks of a body
       (can the IDE hold it; case-insensitive?); a LABEL on a DISABLED network as a jump target (still a target?); a
@@ -114,8 +124,8 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
 - **1.6** Consumed enabled boxes: as an Assign value 18, as a box input 66, as a Demux input 2, in a Parallel 10; top-level
   boxes with a wired output pin 107. `MainOutputIndex` 0 on 456 boxes, **1 on 3 call boxes** (Lenze
   `call_FirstErrorCapture_FB`), None on 823 → the stored index is required (review 7.3), not slot 0 by convention. Output
-  slot 0 is the null ENO slot except once (`Rneeee`, same POU). *Still open:* which output a consumed enabled box stands
-  for — needs a constructed live network.
+  slot 0 is the null ENO slot except once (`Rneeee`, same POU). Which output a consumed enabled box stands for is
+  answered in the second pass (below; DIALECT N16).
 - **1.7** Coil targets: Set 246, Negation+Set (reset) 128, Return 1; **negation-only 0, edge 0** → the marker stays.
 - **1.8** Demux definitions: **139, all at the top level**; references 434, all nested → define-before-use holds.
 - **1.11** Execute boxes: 11 (Lenze 9, Bakon 2), **all top level, never consumed** → the value form gets a synthetic
@@ -125,7 +135,8 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
   unflagged): Lenze `call_FirstErrorCapture_FB` (3), pro2193 `SetAlarm` (3). The reader dropped them — inverted logic
   pulled into git (Lenze `FirstErrorCapture.prg:83` shows `fbFirstErrCapture.xIsWarningInfo` plain). **Hotfixed in v1**:
   both vendors refuse a pin flag by name (`CodesysNetworkReader.RefusePinFlags`, `TcNetworkReader.ReadInputs`), tests
-  `A_negation_on_a_box_input_pin_is_refused_by_name_not_dropped`, `TcPinFlagTests`. 1.10 is cancelled. **Owner
+  `A_negation_on_a_box_input_pin_is_refused_by_name_not_dropped`, `TcPinFlagTests`. So 1.10 keeps
+  `Input.Flags` (it deleted other fields instead — see 1.10). **Owner
   decision 2026-09-26 (phase 1): v2 spells NO pin flag yet** — the writer refuses one by name ("a flag on a box input
   pin"), so it reaches the marker, never the floor; a spelling (`f(NOT IN1 := x)`, and one for an operator box's unnamed
   pin) is its own decision.
@@ -136,8 +147,8 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
   lines starting with `//`, 2 with an inner blank line, 1 indented, 6 with trailing whitespace; **0 labels, 0 jumps** in
   every corpus (1 RETURN), 3 disabled networks → 1.15 can only be measured by BUILDING a probe project; no vendor split
   points.
-- **Open:** 1.16 (needs a real TwinCAT ladder project — the fixture has none of the shapes). 1.6, 1.9, 1.14 and 1.15 were
-  measured the same day (below).
+- **Open:** 1.16 (needs a real TwinCAT ladder project — the fixture has none of the shapes) and 1.14's TwinCAT order
+  (BLOCKED: no licensed runtime). 1.6, 1.9, 1.15 and 1.14's CODESYS half were measured the same day (below).
 
 ### Census results — 2026-09-26, second pass (constructed and live measurements)
 
@@ -231,9 +242,10 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       *Done (phase 1), on the v2 writer:* pin flag, Demux-item and Assign-item flags → marker by name. The CODESYS driver reading `InputFlags` into the model is 4.1.
 - [ ] 2.13 Untested shapes (review 7.17), each a golden text + model: a DISABLED header with and without LABEL, with
       and without a wire block (262 in lenze); an edge on EN (the pro2193 ActuatorFB shape); an LD rising contact;
-      `R_EDGE((a AND b))`; an edge on a wire reference; an edge on a `.ENO`; NOT with an edge; edges in PARALLEL
-      branches; ENO into a data pin (Lenze `fc_CamC_CP_UDT`); a negated-only coil → marker.
-      *Progress (phase 1):* DISABLED/LABEL headers, an edge on EN, `R_EDGE((a AND b))`, an edge on `.ENO`, NOT with an edge and the negated-only coil are pinned on v2; an LD rising contact, an edge on a wire reference, edges in PARALLEL branches and ENO into a data pin still need their golden.
+      `R_EDGE((a AND b))`; an edge on a `.ENO`; NOT with an edge; edges in PARALLEL branches; ENO into a data pin
+      (Lenze `fc_CamC_CP_UDT`); a negated-only coil → marker. (An edge on a wire REFERENCE was on this list; N20
+      showed the IDE cannot hold one, so it is a refusal, not a golden — `A_flag_on_a_wire_reference_or_a_Parallel`.)
+      *Progress (phase 1):* DISABLED/LABEL headers, an edge on EN, `R_EDGE((a AND b))`, an edge on `.ENO`, NOT with an edge and the negated-only coil are pinned on v2; an LD rising contact, edges in PARALLEL branches and ENO into a data pin still need their golden.
 - [ ] 2.14 Comments and labels: a multi-line comment with an empty line (`//`), an indented line and a line starting
       `//` round-trips byte-identically; a blank line between `//` lines is layout; a `//` after a statement →
       `NETWORK_PARSE`; a comment on a network with LABEL, TITLE, DISABLED and a wire block writes header, comment,
@@ -283,13 +295,16 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
 
 - [ ] 4.1 CODESYS: build `BoxTreeParallel` from the model; the unnamed output-slot operand for `=> v`; write each
       Demux's VarId verbatim (unchanged); read `InputFlags` into `Input.Flags` (1.13). Model-built tests for each.
-      `Parallel.Mode` both ways: the reader does not read it today (a Sequential Parallel pulls as BoxShortCircuit),
-      and the writer must SET it — a freshly built `BoxTreeParallel` is `Sequential` (DIALECT N20).
+      `Parallel.Mode` both ways — *done (review of section 1):* the reader reads it and the writer sets it (a freshly
+      built `BoxTreeParallel` is `Sequential`, DIALECT N20); no flag is written on a Demux or a Parallel (the model
+      has none).
 - [ ] 4.2 TwinCAT: a value edit stays in place. A structurally changed network is imported (D22c/D25/D30/C25/C20);
       until measured live it refuses `PARALLEL`, a Demux of a leaf and a result pin `=> v` with `NETWORK_UNSUPPORTED`,
       the message naming the network and the reason (review 7.16). Offline tests for each refusal. Read
       `Parallel.Mode` (not read today). Until 1.14 measures TwinCAT's evaluation order, a pulled Negation+edge on one
       node goes to the marker by name (spec, "edges are R_EDGE and F_EDGE flags").
+      *`Parallel.Mode` done (review of section 1):* read by member name, an absent/unknown value refused by name; the
+      in-place writer refuses a changed mode (no committed archive holds a Parallel, so the scalar is never authored).
 - [ ] 4.3 TwinCAT: delete `TcNetworkWriter.Unhoist`'s legacy fold; keep the D25 component count; the in-place
       tree-count check holds by construction.
 - [ ] 4.4 Live e2e on both vendors (`pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys|twincat`, then

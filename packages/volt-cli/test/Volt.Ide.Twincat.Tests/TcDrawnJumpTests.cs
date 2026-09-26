@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Format.Network;
 using Xunit;
@@ -80,6 +80,52 @@ public class TcDrawnJumpTests
 
         var ex = Assert.Throws<Volt.Engine.Format.Body.UnrepresentableBodyException>(() => TcNetworkReader.Read(impl, BodyLanguage.Ld));
         Assert.Equal("a Parallel fed by the empty terminator", ex.Marker);
+    }
+
+    /// <summary>DIALECT N20, the parity twin of CODESYS's reader tests: the object model holds no flag on a Parallel,
+    /// so the model has no place for one and a bit found anyway is refused by name, never dropped. And its MODE is read
+    /// by member name (census 1.3: a Sequential exists) — an archive carrying none is refused, not defaulted.</summary>
+    [Theory]
+    [InlineData("<v n=\"Mode\" t=\"OperationMode\">Sequential</v>", null, "Sequential")]
+    [InlineData("<v n=\"Mode\" t=\"OperationMode\">BoxShortCircuit</v>", null, "BoxShortCircuit")]
+    [InlineData(null, null, "an unmeasured Parallel mode")]
+    [InlineData("<v n=\"Mode\" t=\"OperationMode\">BoxShortCircuit</v>", "<o n=\"Flags\" t=\"Flags\"><v n=\"Flags\">1</v></o>", "a flag on a Parallel")]
+    public void A_Parallel_reads_its_mode_and_refuses_a_flag(string? mode, string? flags, string expected)
+    {
+        var impl = Impl();
+        var rvalues = impl.Descendants("o").Where(o => (string?)o.Attribute("n") == "RValue").ToList();
+        var terminator = rvalues.First(o => (string?)o.Attribute("t") == "BoxTreeTerminator");
+        var branch = new XElement(rvalues.First(o => (string?)o.Attribute("t") == "BoxTreeOperand"));
+        branch.Attribute("n")!.Remove();
+        var par = new XElement("o", new XAttribute("n", "RValue"), new XAttribute("t", "BoxTreeParallel"),
+            new XElement("n", new XAttribute("n", "Input")), new XElement("l2", new XAttribute("n", "Trees"), branch));
+        if (mode is not null) par.Add(XElement.Parse(mode));
+        if (flags is not null) par.Add(XElement.Parse(flags));
+        terminator.ReplaceWith(par);
+
+        if (expected is "Sequential" or "BoxShortCircuit")
+        {
+            var read = TcNetworkReader.Read(impl, BodyLanguage.Ld).Networks.SelectMany(n => n.Trees).OfType<Assign>()
+                .Select(a => a.Value).OfType<Volt.Engine.Format.Network.Parallel>().Single();
+            Assert.Equal(expected, read.Mode.ToString());
+        }
+        else
+            Assert.Equal(expected, Assert.Throws<Volt.Engine.Format.Body.UnrepresentableBodyException>(
+                () => TcNetworkReader.Read(impl, BodyLanguage.Ld)).Marker);
+    }
+
+    /// <summary>The same fact on a wire: a <c>BoxTreeDemux</c> the archive gives a flag is refused by name.</summary>
+    [Fact]
+    public void A_flag_on_a_wire_is_refused_by_name()
+    {
+        var impl = XElement.Parse(XDocument.Parse(Fixtures.Pou("ladder-demux.TcPOU")).Descendants("NWL").Single().ToString())
+            .DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject");
+        var reference = impl.Descendants("o").First(o => (string?)o.Attribute("t") == "BoxTreeDemux"
+                                                         && o.Elements("n").Any(n => (string?)n.Attribute("n") == "Input"));
+        reference.Add(XElement.Parse("<o n=\"Flags\" t=\"Flags\"><v n=\"Flags\">1</v></o>"));
+
+        Assert.Equal("a flag on a wire", Assert.Throws<Volt.Engine.Format.Body.UnrepresentableBodyException>(
+            () => TcNetworkReader.Read(impl, BodyLanguage.Ld)).Marker);
     }
 
     /// <summary>CENSUS 1.2 AND 1.10: "unconnected" is the empty terminator, never a null value, so an assignment

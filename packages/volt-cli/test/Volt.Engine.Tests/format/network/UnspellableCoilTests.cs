@@ -1,4 +1,4 @@
-using Volt.Engine.Format.Network;
+﻿using Volt.Engine.Format.Network;
 using Xunit;
 
 namespace Volt.Engine.Tests.Format.Network;
@@ -82,8 +82,7 @@ public class UnspellableCoilTests
     {
         var buried = new Volt.Engine.Format.Network.Parallel(
             null,
-            new Node[] { new Demux(7, CoilAssign(Flags.None with { Rising = true }), Flags.None) },
-            Flags.None);
+            new Node[] { new Demux(7, CoilAssign(Flags.None with { Rising = true })) }, ParallelMode.BoxShortCircuit);
 
         Assert.Equal("LD (rising-edge coil)", NetworkTextWriter.Unspellable(Body(buried)));
     }

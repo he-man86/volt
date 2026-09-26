@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -162,6 +162,22 @@ namespace Volt.Ide.Codesys
                 return;
             }
             throw Missing(o, member + " (writable)");
+        }
+
+        /// <summary>Set an enum-typed property by its member NAME — the vendor's enum types live in its assemblies,
+        /// so Volt names the member and the property's own type parses it. A name the enum lacks throws (no
+        /// nearest-match), which is the point: it is a value Volt would otherwise write wrong.</summary>
+        public static void SetEnum(object o, string member, string name)
+        {
+            var t = o.GetType();
+            foreach (var p in new[] { t.GetProperty(member, BF) }
+                         .Concat(t.GetInterfaces().Select(i => i.GetProperty(member)))
+                         .Where(p => p != null && p.CanWrite && p.PropertyType.IsEnum))
+            {
+                p!.SetValue(o, Enum.Parse(p.PropertyType, name, ignoreCase: false), null);
+                return;
+            }
+            throw Missing(o, member + " (writable enum)");
         }
 
         // ── diagnostics ───────────────────────────────────────────────────────────────────────────

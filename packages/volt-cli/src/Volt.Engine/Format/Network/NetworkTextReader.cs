@@ -617,7 +617,7 @@ public static class NetworkTextReader
                 var resolved = Resolve(node, inline, new HashSet<string>(StringComparer.Ordinal));
 
                 if (let != null && wires.TryGetValue(let, out var defId))
-                    resolved = new Demux(defId, resolved is Assign da ? da.Value : resolved, Flags.None);
+                    resolved = new Demux(defId, resolved is Assign da ? da.Value : resolved);
 
                 trees.Add(ReferencesToDemux(resolved, wires));
             }
@@ -682,7 +682,16 @@ public static class NetworkTextReader
             switch (n)
             {
                 case Leaf l when wires.TryGetValue(l.Operand.Text, out var id):
-                    return new Demux(id, null, l.Flags);
+                    // DIALECT N20: the IDE holds no flag on a BoxTreeDemux — a bit set there is gone before the
+                    // commit and the wire runs bare. This used to become a flagged reference that the writer
+                    // printed back identically (so the canonical gate passed) and the CODESYS driver "wrote":
+                    // `out := NOT g1;` ran as `out := g1`. The modifier belongs on the producer or a consumer.
+                    if (!l.Flags.IsNone)
+                        throw new NetworkTextException(
+                            $"a modifier on the wire '{l.Operand.Text}': the IDE holds no flag on a wire reference, so " +
+                            "the push would run it unmodified. Put the modifier on the wire's producer (its LET) instead.",
+                            ConflictCodes.NetworkUnsupported);
+                    return new Demux(id, null);
                 case Assign a:
                     return a with { Value = ReferencesToDemux(a.Value, wires) };
                 case Box b:
@@ -773,10 +782,10 @@ public static class NetworkTextReader
             {
                 Leaf l => l with { Flags = f },
                 Box b => b with { Flags = f },
-                Parallel p => p with { Flags = f },
                 Terminator t => t with { Flags = f },
                 Assign a => a with { Flags = f },
-                _ => value,
+                // Nothing else is ever a LET's value here; a modifier landing on one would be dropped, not merged.
+                _ => throw new InvalidOperationException($"a modifier on a {value.GetType().Name} wire value"),
             };
         }
     }
@@ -1078,10 +1087,11 @@ public static class NetworkTextReader
         {
             Leaf l => l with { Flags = f },
             Box b => b with { Flags = f },
-            Parallel p => p with { Flags = f },
             Terminator t => t with { Flags = f },
             Assign a => a with { Flags = f },
-            _ => n,
+            // The v1 reader parses no Parallel or Demux; a modifier on anything else would be silently dropped.
+            _ when f.IsNone => n,
+            _ => throw new InvalidOperationException($"a modifier on a {n.GetType().Name}"),
         };
     }
 }

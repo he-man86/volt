@@ -540,8 +540,12 @@ internal static class TcNetworkWriter
                 // write put a value into a live ladder's archive the vendor's own deserializer cannot read back
                 // as that enum. Both readers were equally confused — they compared it against "And", which the
                 // enum can never produce — so every parallel has always been read as an OR, which for a ladder
-                // is the right answer reached for the wrong reason. Volt does not model this member; the honest
-                // write is to leave the IDE's value alone.
+                // is the right answer reached for the wrong reason. The model now carries the member (census
+                // 1.3: a Sequential exists) and the reader reads it, so an in-place write leaves the archive's
+                // value alone and REFUSES a model that asks for the other one — this path assigns members the IDE
+                // wrote and cannot be trusted to author an enum scalar it never measured (4.2).
+                if (ParallelModes.FromVendor(TcArchive.Str(e, "Mode")) != p.Mode)
+                    throw Refuse($"a Parallel changes mode to {p.Mode}");
                 changed |= WriteChild(e, "Input", p.Input);
                 var branches = TcArchive.List(e, "Trees");
                 if (branches.Count != p.Branches.Count)

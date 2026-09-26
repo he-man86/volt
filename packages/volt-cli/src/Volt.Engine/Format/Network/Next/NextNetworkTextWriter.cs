@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -216,7 +216,6 @@ public static class NextNetworkTextWriter
 
                 case Demux d when d.Input is not null:
                 {
-                    RefuseItemFlags(d.Flags, "a Demux item");
                     if (_defined.ContainsKey(d.VarId))
                         throw Unrepresentable("a wire defined twice",
                             $"two Demux items define VarId {d.VarId} in network {_net.Order}.");
@@ -327,7 +326,6 @@ public static class NextNetworkTextWriter
                     if (!_defined.ContainsKey(d.VarId))
                         throw Unrepresentable("a wire referenced before its definition",
                             $"network {_net.Order} references VarId {d.VarId} before (or without) the item defining it.");
-                    RefuseUnheldFlags(d.Flags, "a wire reference", $"the wire {_names[d.VarId]} in network {_net.Order}");
                     return _names[d.VarId];
 
                 case Box b:
@@ -338,7 +336,6 @@ public static class NextNetworkTextWriter
                     if (p.Branches.Count == 0)
                         throw Unrepresentable("a Parallel with no branch",
                             $"a Parallel in network {_net.Order} has no branch.");
-                    RefuseUnheldFlags(p.Flags, "a Parallel", $"a Parallel in network {_net.Order}");
                     // Census 1.2: the unfed Parallel is the null feed; a feed that is the empty terminator occurs in no
                     // project, so it has no spelling of its own (`IN := ,` would be a second "no feed").
                     if (p.Input is Terminator)
@@ -431,7 +428,7 @@ public static class NextNetworkTextWriter
             var slot = b.ConnectedSlot;
             if (eno is not null)
             {
-                if (slot == eno) return ".ENO";
+                if (NextSpelling.ConnectedByEno(b)) return ".ENO";   // the one definition, shared with ProducerType and the oracle
                 // Until census 1.6 shows an enabled box connected by its main output, `.ENO`-less is refused on
                 // push for an enabled box, so the text could not carry the connection back.
                 throw Unrepresentable("an enabled box connected by a slot other than ENO",
@@ -617,18 +614,10 @@ public static class NextNetworkTextWriter
             return f.Reset ? "R=" : f.Set ? "S=" : ":=";
         }
 
-        /// <summary>DIALECT N20: a <c>BoxTreeDemux</c> and a <c>BoxTreeParallel</c> hold no flag — the getter hands out
-        /// an object the IDE never stores, so a bit set on it is gone before the commit. A model carrying one states
-        /// logic no IDE runs; it goes to the marker, never to a spelling the push would silently drop.</summary>
-        private static void RefuseUnheldFlags(Flags f, string what, string where)
-        {
-            if (!f.IsNone)
-                throw Unrepresentable("a flag on " + what, $"{where} carries {Describe(f)}, and the IDE holds no flag on {what}.");
-        }
-
         private static void RefuseItemFlags(Flags f, string what)
         {
-            // Census 1.1: 0 item-level flags on Demux/Assign items. No position is decided for one.
+            // Census 1.1: 0 item-level flags on Assign items (an Assign's Jump/Return are control flow, written
+            // apart). No position is decided for one. A Demux or Parallel cannot carry one at all (DIALECT N20).
             if (!f.IsNone)
                 throw Unrepresentable("a flag on " + what, $"{what} carries {Describe(f)} on the item itself.");
         }

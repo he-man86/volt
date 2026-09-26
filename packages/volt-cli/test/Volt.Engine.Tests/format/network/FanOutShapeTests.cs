@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using Volt.Engine.Format.Network;
 using Xunit;
 
@@ -35,7 +35,7 @@ public class FanOutShapeTests
     /// <summary>A REAL SPLIT POINT feeding two single-target assigns — what the editor draws.</summary>
     private static NetworkBody DemuxAndTwoAssigns()
     {
-        var demux = new Demux(1, new Leaf(new Operand("a"), Flags.None), Flags.None);
+        var demux = new Demux(1, new Leaf(new Operand("a"), Flags.None));
         return Body(demux,
                     new Assign(demux, new[] { new Operand("out1", IsLValue: true) }, Flags.None),
                     new Assign(demux, new[] { new Operand("out2", IsLValue: true) }, Flags.None));
@@ -144,7 +144,7 @@ public class FanOutShapeTests
     [Fact]
     public void A_folded_assign_fed_by_a_WIRE_keeps_the_wire()
     {
-        var wire = new Demux(3, new Leaf(new Operand("a"), Flags.None), Flags.None);
+        var wire = new Demux(3, new Leaf(new Operand("a"), Flags.None));
         var body = Body(
             wire,
             new Assign(wire, new[] { new Operand("single", IsLValue: true) }, Flags.None),

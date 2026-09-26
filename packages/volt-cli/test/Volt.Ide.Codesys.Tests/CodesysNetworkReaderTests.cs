@@ -442,6 +442,51 @@ public class CodesysNetworkReaderTests
         Assert.Null(Assert.IsType<Volt.Engine.Format.Network.Parallel>(a.Value).Input);
     }
 
+    /// <summary>CENSUS 1.3: a real Parallel is <c>BoxShortCircuit</c> 16 times and <c>Sequential</c> once, so the mode
+    /// is a fact of the body and is READ — not left to the model's constructor, which would pull the Sequential one as
+    /// BoxShortCircuit and hand that to the next push.</summary>
+    [Theory]
+    [InlineData("BoxShortCircuit", ParallelMode.BoxShortCircuit)]
+    [InlineData("Sequential", ParallelMode.Sequential)]
+    public void A_Parallel_reads_its_mode(string vendor, ParallelMode expected)
+    {
+        var par = new Nwl.BoxTreeParallel { Mode = (Nwl.OperationMode)System.Enum.Parse(typeof(Nwl.OperationMode), vendor) };
+        par.Trees.Add(Nwl.Leaf("a"));
+        par.Trees.Add(Nwl.Leaf("b"));
+        var assign = new Nwl.BoxTreeAssign { RValue = par };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
+
+        var a = Assert.IsType<Assign>(Assert.Single(CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld).Networks).Trees.Single());
+        Assert.Equal(expected, Assert.IsType<Volt.Engine.Format.Network.Parallel>(a.Value).Mode);
+    }
+
+    /// <summary>DIALECT N20: the IDE holds no flag on a Parallel or a wire, so the model has no place for one. A
+    /// vendor object that nonetheless answers a bit is refused by name — never dropped on the way into the model.</summary>
+    [Fact]
+    public void A_flag_on_a_Parallel_is_refused_by_name()
+    {
+        var par = new Nwl.BoxTreeParallel { Mode = Nwl.OperationMode.BoxShortCircuit, Flags = new Nwl.Flags { Negation = true } };
+        par.Trees.Add(Nwl.Leaf("a"));
+        par.Trees.Add(Nwl.Leaf("b"));
+        var assign = new Nwl.BoxTreeAssign { RValue = par };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
+
+        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld));
+        Assert.Equal("a flag on a Parallel", ex.Marker);
+    }
+
+    /// <summary>The same fact on a wire (<c>BoxTreeDemux</c>), definition or reference.</summary>
+    [Fact]
+    public void A_flag_on_a_wire_is_refused_by_name()
+    {
+        var def = new Nwl.BoxTreeDemux { VarId = 1, Input = Nwl.Leaf("a") };
+        var assign = new Nwl.BoxTreeAssign { RValue = new Nwl.BoxTreeDemux { VarId = 1, Flags = new Nwl.Flags { Rtrig = true } } };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
+
+        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(def, assign), BodyLanguage.Ld));
+        Assert.Equal("a flag on a wire", ex.Marker);
+    }
+
     /// <summary>The one representation of "unconnected" still reads.</summary>
     [Fact]
     public void An_assignment_fed_by_the_empty_terminator_reads()

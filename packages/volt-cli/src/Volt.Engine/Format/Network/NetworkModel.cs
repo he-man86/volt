@@ -178,20 +178,42 @@ public sealed record Box(
 }
 
 /// <summary>An LD parallel branch — <c>BoxTreeParallel</c> (contacts in parallel = a boolean OR of rungs).
-/// <see cref="Input"/> is the rung feeding the branch; <see cref="Branches"/> are the parallel paths.</summary>
+/// <see cref="Input"/> is the rung feeding the branch; <see cref="Branches"/> are the parallel paths.
+///
+/// <para><b>It carries no <see cref="Flags"/></b> (always <see cref="Flags.None"/>), because the vendor holds none:
+/// <c>BoxTreeParallel.Flags</c> hands out an object the node never stores, so a bit set on it is gone before the
+/// commit and ran as the bare value (DIALECT N20). A model able to say "negated Parallel" let a writer set that bit
+/// and report success; a negation belongs on a branch or on the consumer.</para>
+///
+/// <para><see cref="Mode"/> has no default: a reader states the vendor's value, a text states its own. Defaulting it
+/// hid that no reader read it, and a new vendor Parallel is <c>Sequential</c> (N20) while the corpus is
+/// <c>BoxShortCircuit</c> — any default is wrong for one of them.</para></summary>
 public sealed record Parallel(
     Node? Input,
     IReadOnlyList<Node> Branches,
-    Flags Flags,
-    ParallelMode Mode = ParallelMode.BoxShortCircuit) : Node(Flags);
+    ParallelMode Mode) : Node(Flags.None);
 
 /// <summary>The vendor's <c>BoxTreeParallel.Mode</c>. Carried because a non-default value EXISTS in a real
 /// project: census 2026-09-26, 17 Parallels in Lenze_MID-S100 — <c>BoxShortCircuit</c> 16, <c>Sequential</c> 1
 /// (MainDrive network 1). A model without it would rebuild that branch in the default mode on push, silently.
-/// <see cref="BoxShortCircuit"/> is the default because it is what every other measured Parallel holds, and it is
-/// what v1 — which never read the member — has always meant. Only the two measured members are listed; an
-/// unmeasured one must be refused by the reader, not mapped onto these.</summary>
+/// Both readers read it and the CODESYS writer sets it; there is no default (see <see cref="Parallel"/>). Only the
+/// two measured members are listed; an unmeasured one must be refused by the reader, not mapped onto these.</summary>
 public enum ParallelMode { BoxShortCircuit, Sequential }
+
+/// <summary>The one reading of the vendor's <c>OperationMode</c> by member name, shared by both readers so the two
+/// vendors cannot disagree on it. A name outside the two measured members — or none at all, where a TwinCAT archive
+/// might omit it — is refused by name (the marker): mapping it onto either would push the other mode.</summary>
+public static class ParallelModes
+{
+    public static ParallelMode FromVendor(string? name) => name switch
+    {
+        nameof(ParallelMode.BoxShortCircuit) => ParallelMode.BoxShortCircuit,
+        nameof(ParallelMode.Sequential) => ParallelMode.Sequential,
+        _ => throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
+            "an unmeasured Parallel mode",
+            $"a parallel branch has the mode '{name ?? "(none)"}'; the measured modes are BoxShortCircuit and Sequential."),
+    };
+}
 
 /// <summary>The end of an LD rung, and the model's one spelling of "nothing drives this" — <c>BoxTreeTerminator</c>
 /// with no input. The vendor type HAS an <c>Input</c>, and it is not carried: census 1.4 found none holding one across
@@ -221,8 +243,14 @@ public sealed record Terminator(Flags Flags) : Node(Flags);
 /// <c>OutputTypes</c>): without it, <c>g1 := ADD(a, b);</c> read back from the engineer's own file could not be
 /// written again. A driver never reads it and never fills it; null means "no text declared one" (every
 /// vendor-read model, and v1).</para>
+///
+/// <para><b>It carries no <see cref="Flags"/></b> (always <see cref="Flags.None"/>), definition or reference: the
+/// vendor's <c>BoxTreeDemux.Flags</c> hands out an object the node never stores, so a negation or an edge set there
+/// is gone before the commit and the wire runs bare (DIALECT N20) — census 1.1's zero item flags on a Demux is this
+/// fact, not chance. With a field for it, the v1 text <c>out := NOT g1;</c> became a flagged reference that the
+/// CODESYS writer "wrote" and the IDE ran as <c>out := g1</c>. A modifier rides the wire's producer or a consumer.</para>
 /// </summary>
-public sealed record Demux(int VarId, Node? Input, Flags Flags, string? Type = null) : Node(Flags);
+public sealed record Demux(int VarId, Node? Input, string? Type = null) : Node(Flags.None);
 
 /// <summary>One input pin: the formal parameter name where the vendor supplies one, the sub-tree feeding it,
 /// and that pin's own modifiers (the vendor keeps these in <c>BoxTreeBox.InputFlags</c>, per pin).</summary>

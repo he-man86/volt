@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -74,6 +74,8 @@ public class ModelRoundTripOracleTests
             "Volt.Engine.Tests/format/network/NetworkTextDiagnosticsTests.cs#11",
             "Volt.Engine.Tests/format/network/NetworkTextDiagnosticsTests.cs#12",
             "Volt.Engine.Tests/format/network/NetworkTextDiagnosticsTests.cs#13",
+            "Volt.Engine.Tests/format/network/NetworkTextDiagnosticsTests.cs#14",
+            "Volt.Engine.Tests/format/network/NetworkTextDiagnosticsTests.cs#15",
             "Volt.Engine.Tests/format/st/ChildDirectiveTests.cs#3",           // a VAR_TEMP block, which v1 refuses
             // Fragments: the test builds the rest of the body in code (a variable, an interpolation), which a
             // literal harvest cannot see — the literal alone has no END_NETWORK.
@@ -93,11 +95,8 @@ public class ModelRoundTripOracleTests
     public void V1_test_texts_tally() =>
         NextModelOracle.AssertTally("v1 test texts",
             V1Texts.Value.Read.Select(kv => NextModelOracle.Check(kv.Key, kv.Value)),
-            bodies: 62, networks: 64, refused: new Dictionary<string, int>
+            bodies: 63, networks: 65, refused: new Dictionary<string, int>
             {
-                // v1 spells a negated wire reference (`NOT g3`, LiteralFanoutBug and a Diagnostics case); the IDE
-                // holds no flag on a BoxTreeDemux (DIALECT N20), so such a model states logic no IDE runs.
-                ["a flag on a wire reference"] = 2,
                 // v1 never read which output slot a consumer is connected to (task 3.10 fills it), so a consumed
                 // call has no ConnectedSlot: the text would read one (slot 0), and null is no default.
                 ["a consumed box with no stored connection slot"] = 3,
@@ -126,8 +125,6 @@ public class ModelRoundTripOracleTests
             V1BuiltModels.Select(kv => NextModelOracle.Check(kv.Key, kv.Value)),
             bodies: 14, networks: 14, refused: new Dictionary<string, int>
             {
-                // ParallelRender.A_negated_parallel: the IDE holds no flag on a BoxTreeParallel (DIALECT N20).
-                ["a flag on a Parallel"] = 1,
                 // The v1 tests bury a defining Demux under a Parallel (UnspellableCoil); the vendor defines a wire
                 // at the top level only (census 1.8).
                 ["a Demux definition below the top level"] = 1,
@@ -320,7 +317,7 @@ public class ModelRoundTripOracleTests
         {
             // The v1 test hands the DEFINING Demux object to its consumers as their value; the vendor readers
             // build a reference (Input null). Kept as the test builds it: the oracle covers what exists.
-            var demux = new Demux(1, L("a"), Flags.None);
+            var demux = new Demux(1, L("a"));
             m["FanOutShape.DemuxAndTwoAssigns"] = Body(BodyLanguage.Ld, demux,
                 new Assign(demux, new[] { Coil("out1") }, Flags.None), new Assign(demux, new[] { Coil("out2") }, Flags.None));
         }
@@ -330,7 +327,7 @@ public class ModelRoundTripOracleTests
             new Box("AND", null, CallKind.Operator, new[] { In(L("a")), In(L("b")) }, Array.Empty<Output>(), L("en"), null, Flags.None),
             new[] { Coil("out1"), Coil("out2") }, Flags.None));
         {
-            var wire = new Demux(3, L("a"), Flags.None);
+            var wire = new Demux(3, L("a"));
             m["FanOutShape.A_folded_assign_fed_by_a_WIRE"] = Body(BodyLanguage.Ld, wire,
                 new Assign(wire, new[] { Coil("single") }, Flags.None),
                 new Assign(wire, new[] { Coil("out1"), Coil("out2") }, Flags.None));
@@ -347,24 +344,22 @@ public class ModelRoundTripOracleTests
         m["RoundTrip.An_operand_whose_own_text_is_unsafe"] = Body(BodyLanguage.Fbd,
             new Assign(And(L("a"), L("arr[j + 1]")), new[] { new Operand("out") }, Flags.None));
         m["RoundTrip.A_fan_out_wire_renders_as_a_named_LET"] = Body(BodyLanguage.Fbd,
-            new Demux(7, And(L("a"), L("b")), Flags.None),
-            new Assign(new Demux(7, null, Flags.None), new[] { new Operand("out1") }, Flags.None),
-            new Assign(new Demux(7, null, Flags.None), new[] { new Operand("out2") }, Flags.None));
+            new Demux(7, And(L("a"), L("b"))),
+            new Assign(new Demux(7, null), new[] { new Operand("out1") }, Flags.None),
+            new Assign(new Demux(7, null), new[] { new Operand("out2") }, Flags.None));
         m["RoundTrip.A_wire_whose_name_a_variable_already_holds"] = Body(BodyLanguage.Fbd,
-            new Demux(5, And(L("g5"), L("b")), Flags.None),
-            new Assign(new Demux(5, null, Flags.None), new[] { new Operand("out1") }, Flags.None),
-            new Assign(new Demux(5, null, Flags.None), new[] { new Operand("out2") }, Flags.None));
+            new Demux(5, And(L("g5"), L("b"))),
+            new Assign(new Demux(5, null), new[] { new Operand("out1") }, Flags.None),
+            new Assign(new Demux(5, null), new[] { new Operand("out2") }, Flags.None));
 
         // ParallelRenderTests
         m["ParallelRender.A_fed_parallel"] = Body(BodyLanguage.Ld,
-            new Assign(new Parallel(L("c"), new Node[] { L("a"), L("b") }, Flags.None), new[] { new Operand("out") }, Flags.None));
+            new Assign(new Parallel(L("c"), new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), new[] { new Operand("out") }, Flags.None));
         m["ParallelRender.An_unfed_parallel"] = Body(BodyLanguage.Ld,
-            new Assign(new Parallel(null, new Node[] { L("a"), L("b") }, Flags.None), new[] { new Operand("out") }, Flags.None));
+            new Assign(new Parallel(null, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), new[] { new Operand("out") }, Flags.None));
         m["ParallelRender.A_minted_wire_does_not_capture_a_declared_variable"] = Body(BodyLanguage.Ld,
             new Assign(L("a"), new[] { new Operand("out1"), new Operand("out2") }, Flags.None),
             new Assign(L("g1"), new[] { new Operand("outC") }, Flags.None));
-        m["ParallelRender.A_negated_parallel"] = Body(BodyLanguage.Ld,
-            new Assign(new Parallel(null, new Node[] { L("a"), L("b") }, Flags.None with { Negated = true }), new[] { new Operand("out") }, Flags.None));
 
         // UnspellableCoilTests
         Node CoilAssign(Flags f) => new Assign(L("a"), new[] { Coil("out", f) }, Flags.None);
@@ -377,7 +372,7 @@ public class ModelRoundTripOracleTests
                  })
             m["UnspellableCoil.CoilAssign/" + name] = Body(BodyLanguage.Ld, CoilAssign(f));
         m["UnspellableCoil.The_walk_reaches_a_coil_nested_under_ld_structure"] = Body(BodyLanguage.Ld,
-            new Parallel(null, new Node[] { new Demux(7, CoilAssign(Flags.None with { Rising = true }), Flags.None) }, Flags.None));
+            new Parallel(null, new Node[] { new Demux(7, CoilAssign(Flags.None with { Rising = true })) }, ParallelMode.BoxShortCircuit));
         foreach (var jumpFirst in new[] { true, false })
         {
             var j = new Operand("Onwards", IsLValue: true, Flags: jump);

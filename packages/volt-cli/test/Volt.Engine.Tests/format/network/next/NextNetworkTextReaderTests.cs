@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
@@ -142,7 +142,7 @@ public class NextNetworkTextReaderTests
     public void Top_level_leaf_wire_and_parallel_are_value_statements()
     {
         AssertModel(Body(L("a")), Read(Src("a;")));
-        AssertModel(Body(new Parallel(null, new Node[] { L("a"), L("b") }, Flags.None)), Read(Src("PARALLEL(a, b);")));
+        AssertModel(Body(new Parallel(null, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit)), Read(Src("PARALLEL(a, b);")));
         AssertModel(Body(Net(Def(1, L("TRUE"), "BOOL"), Ref(1))), Read(Src("VAR_TEMP g1 : BOOL; END_VAR", "g1 := TRUE;", "g1;")));
     }
 
@@ -317,11 +317,11 @@ public class NextNetworkTextReaderTests
     [Fact]
     public void PARALLEL_is_a_Parallel_fed_or_unfed()
     {
-        AssertModel(Body(Net(Def(54, L("TRUE"), "BOOL"), Set(new Parallel(Ref(54), new Node[] { L("a"), L("b") }, Flags.None), Coil("out")))),
+        AssertModel(Body(Net(Def(54, L("TRUE"), "BOOL"), Set(new Parallel(Ref(54), new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), Coil("out")))),
             Read(Src("VAR_TEMP g54 : BOOL; END_VAR", "g54 := TRUE;", "out := PARALLEL(IN := g54, a, b);")));
-        AssertModel(Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, Flags.None), Coil("out"))),
+        AssertModel(Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), Coil("out"))),
             Read(Src("out := PARALLEL(a, b);")));
-        AssertModel(Body(Set(new Parallel(L("f"), new Node[] { L("a"), L("b") }, Flags.None, ParallelMode.Sequential), Coil("out"))),
+        AssertModel(Body(Set(new Parallel(L("f"), new Node[] { L("a"), L("b") }, ParallelMode.Sequential), Coil("out"))),
             Read(Src("out := PARALLEL(MODE := Sequential, IN := f, a, b);")));
     }
 

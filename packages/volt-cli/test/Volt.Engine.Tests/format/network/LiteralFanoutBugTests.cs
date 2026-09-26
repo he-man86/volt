@@ -9,11 +9,14 @@ namespace Volt.Engine.Tests;
 // leaf-fan-out guard refuses it cleanly. A BLOCK-output branch (the real fbd_branch shape) stays allowed.
 public class LiteralFanoutBugTests
 {
+    // `outpur := g3;` was `outpur := NOT g3;` — incidental to the leaf fan-out this pins, and since DIALECT N20 a text
+    // the reader refuses on its own (the IDE holds no flag on a wire reference: NETWORK_UNSUPPORTED), which would
+    // make both tests below fail or pass for that reason instead of the fan-out.
     private const string LiteralFanout =
         "NETWORK 0 FBD\n" +
         "  LET i1 := TRUE;\n  LET i2 := FALSE;\n  LET i3 := FALSE;\n" +
         "  LET g1 := (i1 AND i2);\n  LET g2 := (g1 OR i3);\n  LET g3 := (g2 AND i3);\n" +
-        "  np := g2;\n  outpur := NOT g3;\nEND_NETWORK\n";
+        "  np := g2;\n  outpur := g3;\nEND_NETWORK\n";
 
     [Fact]
     public void Canonical_output_never_emits_a_fanout_leaf_so_the_guard_is_a_backstop()

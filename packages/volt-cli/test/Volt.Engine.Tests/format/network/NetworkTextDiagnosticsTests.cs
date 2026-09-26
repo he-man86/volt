@@ -37,12 +37,14 @@ public class NetworkTextDiagnosticsTests
     [InlineData("NETWORK 0 FBD\n  out := (a FOO b);\nEND_NETWORK\n", "NETWORK_UNKNOWN_OPERATOR")]                 // not an FBD operator
 
     // ── temp / name integrity ─────────────────────────────────────────────────────────
-    // `LET g2 := NOT g1;` was NETWORK_LEAF_REFERENCES_TEMP and is now VALID - it moved to the accepted
-    // shapes below. The refusal existed because a LET name was, in the specification's own words, "a network
-    // text-only construct: they never reach the IDE", so a leaf whose TEXT aliased one pushed a reference to
-    // something that would not exist. A named wire is now the vendor's own BoxTreeDemux VarId - measured, 573
-    // of them in one real ladder project - so the reference DOES reach the IDE and the hazard is gone.
-    // Refusing it would also break closure: the writer emits exactly this shape for a negated fan-out wire.
+    // A FLAG ON A WIRE REFERENCE (`NOT g1`, an edge on one) is refused: the IDE HOLDS NO FLAG on a BoxTreeDemux
+    // (DIALECT N20, measured by running it) — the bit is gone before the commit, so the push ran `out := g1` and
+    // the next pull read that back: inverted logic, no error. `LET g2 := NOT g1;` was accepted here until N20,
+    // reasoned from "a named wire is the vendor's own Demux, so the reference reaches the IDE" — true of the
+    // reference, never checked for its negation. It belongs on the wire's producer or a consumer, where the
+    // vendor keeps it; the writer cannot emit this shape (the model has no flag on a Demux).
+    [InlineData("NETWORK 0 FBD\n  LET g1 := (a OR b);\n  LET g2 := NOT g1;\n  out := g2;\nEND_NETWORK\n", "NETWORK_UNSUPPORTED")]
+    [InlineData("NETWORK 0 FBD\n  LET g1 := (a AND b);\n  x := g1;\n  out := NOT g1;\nEND_NETWORK\n", "NETWORK_UNSUPPORTED")] // one use of a fanned-out wire negated
     [InlineData("NETWORK 0 FBD\n  LET g1 := (a AND b);\n  LET g1 := (c OR d);\n  out := g1;\nEND_NETWORK\n", "NETWORK_DUPLICATE_NAME")] // result defined twice
     [InlineData("NETWORK 0 FBD LABEL: lbl LABEL: lbl\nEND_NETWORK\n", "NETWORK_DUPLICATE_NAME")]                        // label declared twice
 
@@ -61,6 +63,17 @@ public class NetworkTextDiagnosticsTests
     [InlineData("NETWORK 0 FBD\n  out := a;\nEND_NETWORK\nNETWORK 1 FBD\n  z := b;\nEND_NETWORK\n")]            // distinct network indices
     [InlineData("NETWORK 0 FBD\n  LET en1 := a;\n  IF en1 THEN LET g1 := (b AND c); END_IF\n  out := g1;\nEND_NETWORK\n")] // a valid EN/ENO box
     [InlineData("NETWORK 0 FBD LABEL: lbl\n  JMP lbl;\nEND_NETWORK\n")]                                          // a label + a jump to it
-    [InlineData("NETWORK 0 FBD\n  LET g1 := (a OR b);\n  LET g2 := NOT g1;\n  out := g2;\nEND_NETWORK\n")]   // a negated fan-out wire: a real Demux reference, not an alias
     public void Valid_structure_is_accepted(string net) => NetworkTextReader.Parse(net);   // must not throw
+
+    /// <summary>THE PUSH GATE, not only the parser: the v1 writer printed `NOT g1` back identically, so the
+    /// fixed-point check passed and `CodesysNetworkWriter` set Negation on an IFlags object the BoxTreeDemux never
+    /// stores (DIALECT N20). The push succeeded and the IDE ran the wire un-negated. Refused before the driver.</summary>
+    [Fact]
+    public void A_negated_wire_reference_never_reaches_a_driver()
+    {
+        var ex = Assert.Throws<NetworkTextException>(() => NetworkTextGate.Validate(
+            "NETWORK 0 FBD\n  LET g1 := (a AND b);\n  x := g1;\n  out := NOT g1;\nEND_NETWORK\n"));
+        Assert.Equal("NETWORK_UNSUPPORTED", ex.Code);
+        Assert.Contains("g1", ex.Message);
+    }
 }

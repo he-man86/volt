@@ -157,7 +157,32 @@ internal static class Nwl
     {
         public object? Input { get; set; }
         public List<object> Trees { get; } = new List<object>();
+
+        /// <summary>The vendor's <c>IBoxTreeParallel.Mode</c>, typed as its enum — and <c>Sequential</c> by default,
+        /// because that is what a freshly constructed one measures (DIALECT N20), while 16 of 17 real ones hold
+        /// <c>BoxShortCircuit</c> (census 1.3). A double defaulting to the common value would let a writer that never
+        /// sets it pass.</summary>
+        public OperationMode Mode { get; set; } = OperationMode.Sequential;
+
+        /// <summary>Present so a test can describe a vendor object carrying a bit; the real <c>Flags</c> getter hands
+        /// out an object the node never stores (N20), so a set bit never survives there.</summary>
         public object? Flags { get; set; } = new Flags();
+
+        /// <summary>The writer's feed and branch construction (<c>SetInputTree(0, …)</c>, <c>Append(…)</c>).</summary>
+        public void SetInputTree(int index, object tree) => Input = tree;
+        public void Append(object tree) => Trees.Add(tree);
+    }
+
+    /// <summary>The vendor's <c>OperationMode</c>, its two measured members (SP21 <c>NWLObject</c> 4.6.0.0).</summary>
+    internal enum OperationMode { Sequential, BoxShortCircuit }
+
+    /// <summary>Fan-out: a definition with an <see cref="Input"/>, a reference without one.</summary>
+    internal sealed class BoxTreeDemux
+    {
+        public int VarId { get; set; }
+        public object? Input { get; set; }
+        public object? Flags { get; set; } = new Flags();
+        public void SetInputTree(int index, object tree) => Input = tree;
     }
 
     /// <summary>A call or operator.

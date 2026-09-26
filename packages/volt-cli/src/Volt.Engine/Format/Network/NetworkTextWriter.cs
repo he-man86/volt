@@ -263,7 +263,7 @@ public static class NetworkTextWriter
                 // in one real project came back as `out := ( AND b);` with the wire silently gone.
                 case Demux d when d.Input is not null:
                 {
-                    var v = ApplyMods(Render(d.Input, nested: false), d.Flags);
+                    var v = Render(d.Input, nested: false);
                     Flush();
                     Line("LET " + NameOf(d.VarId) + " := " + v + ";");
                     break;
@@ -462,7 +462,7 @@ public static class NetworkTextWriter
                 }
                 // A REFERENCE to a fan-out wire: the bare name. A Demux carrying an input is the definition
                 // and is emitted as a statement, but it can also sit inline as its own consumer's source.
-                case Demux d: return ApplyMods(NameOf(d.VarId), d.Flags);
+                case Demux d: return NameOf(d.VarId);
 
                 // AN ENABLED BOX AT OPERAND POSITION IS HOISTED, because EN/ENO has no inline form. The
                 // format spells an enable as a statement — `LET en := src; IF en THEN … END_IF` — and a
@@ -531,8 +531,7 @@ public static class NetworkTextWriter
                     var rungText = p.Input is null ? null : Render(p.Input, nested: true);
                     var branches = "(" + string.Join(" OR ",
                                                      p.Branches.Select(x => Render(x, nested: true))) + ")";
-                    return ApplyMods(rungText is null ? branches : "(" + rungText + " AND " + branches + ")",
-                                     p.Flags);
+                    return rungText is null ? branches : "(" + rungText + " AND " + branches + ")";
                 // AN UNCONNECTED PIN HAS A SPELLING. The terminator arm used to return "" — the same silent
                 // default that the comment below calls "the single line that turned a missing feature into
                 // invisible data loss". A box input wired to nothing is the empty `Terminator`, and rendering
