@@ -20,8 +20,13 @@ namespace Volt.Ide.Twincat;
 /// </summary>
 public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
 {
-    private readonly TcObjectModel _om = new();
+    private readonly TcObjectModel _om;
     private readonly StaDispatcher _dispatcher = new();
+
+    public BeckhoffDriver() : this(new TcObjectModel()) { }
+
+    /// <summary>Over a given object model — the offline tests hand one whose window is a double (<c>TcAttachTests</c>).</summary>
+    internal BeckhoffDriver(TcObjectModel om) { _om = om; }
 
     public override bool IsConnected => _om.IsConnected;
 
@@ -32,9 +37,12 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
 
     public override string? IdeVersion => _om.IdeVersion;
 
-    /// <summary>Per-XAE worker startup: own the ONE XAE window with this process id (the connector spawned us for it).
-    /// TwinCAT has NO parameterless Connect() — a worker attaches to a specific XAE by pid, never "the IDE".</summary>
-    public void Connect(int xaePid) { _om.ConnectToPid(xaePid); SnapshotHealth(); }
+    /// <summary>Per-XAE worker startup: own the ONE XAE window with this process id (the connector spawned us for it),
+    /// and serve what it has open — its first TwinCAT project (<see cref="TcObjectModel.AttachFirstProject"/>), as the
+    /// CODESYS attach serves its primary project. A `select` by name serves another; the connector's gate (`disconnect`,
+    /// <c>BridgePipeHost._paused</c>) is independent of this and still stops it. TwinCAT has NO parameterless Connect()
+    /// — a worker attaches to a specific XAE by pid, never "the IDE".</summary>
+    public void Connect(int xaePid) { _om.ConnectToPid(xaePid); _om.AttachFirstProject(); SnapshotHealth(); }
     // ponytail: never called on TwinCAT — the worker dies with its process, and the wire `disconnect` op only sets
     // BridgePipeHost._paused. The ONE production caller of IIdeSession.Disconnect() is Codesys/PipeHost.Stop().
     // Kept to satisfy the DriverBase/IIdeSession contract (the full record is on TcObjectModel.Disconnect).

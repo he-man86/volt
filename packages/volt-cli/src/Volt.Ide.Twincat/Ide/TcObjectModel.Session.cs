@@ -25,23 +25,50 @@ internal sealed partial class TcObjectModel
     public void ConnectToPid(int pid)
     {
         _xaePid = pid;
-        var dte = RotInstances.BindByPid(pid) ?? throw new InvalidOperationException($"No running TwinCAT XAE with pid {pid}.");
+        var dte = BindWindow(pid) ?? throw new InvalidOperationException($"No running TwinCAT XAE with pid {pid}.");
         SwapDte(dte);
-        VoltLog.Info($"attached to TwinCAT {_ideVersion ?? "?"} (xae pid {pid}) — no project selected");
+        VoltLog.Info($"attached to TwinCAT {_ideVersion ?? "?"} (xae pid {pid})");
+    }
+
+    /// <summary>How this worker reaches its XAE window by pid — the ROT in production, a double in the offline tests
+    /// (<c>TcAttachTests</c>). The one way in: attach, recovery and the health poll all re-acquire through it.</summary>
+    internal Func<int, object?> BindWindow { get; set; } = RotInstances.BindByPid;
+
+    /// <summary>
+    /// THE ATTACH SERVES WHAT THE WINDOW HAS OPEN — its first TwinCAT project — until a client picks another by name,
+    /// as the CODESYS attach serves its primary project. It used to resolve nothing: the bridge answered `idle` and
+    /// refused every sync op until a LOCAL client sent `select`, which a consumer with no local client (the relay) never
+    /// does (openspec <c>twincat-bind-without-a-local-client</c>).
+    /// <para>What it takes up becomes the standing selection, so recovery re-establishes it after a DTE drop exactly as
+    /// it would a pick — <see cref="ReattachProject"/> recovers only a selection. A pick already standing is never
+    /// replaced. The resolve is the one a `select` makes (the project's system manager, never its PLC tree).</para>
+    /// </summary>
+    public void AttachFirstProject()
+    {
+        if (HasSelection || _dte == null) return;
+        FindTwinCatProject(null);
+        if (_sysManager == null) return;   // no TwinCAT project open yet — the health poll takes it up when one is
+        _wantProject = _projectName;
+        VoltLog.Info($"attach: serving '{_projectName}', the first TwinCAT project of [{string.Join(", ", SolutionProjectNames())}] — a select by name serves another");
     }
 
     /// <summary>Ambient re-attach for the health poll: if our held DTE is gone or dead, re-acquire OUR window by its
     /// stable pid so the owned-window project list SURVIVES a DTE re-registration (the durability the pid model
-    /// exists for) WITHOUT waiting for a `select`. A BARE bind only — it never resolves a project (no `_sysManager`,
-    /// no PLC walk), so the health poll's "no resolution" invariant holds. When a project IS already selected the
-    /// full recovery is left to content-op <see cref="ReattachProject"/> (which re-resolves), so this no-ops then.
-    /// Runs on the STA thread (SnapshotHealth calls it).</summary>
+    /// exists for) WITHOUT waiting for a `select`. While the worker serves nothing — the window had no TwinCAT project
+    /// when it attached — it completes the attach (<see cref="AttachFirstProject"/>), so a project opened later is
+    /// served without anyone sending `select`; that resolve touches the system manager, never the PLC tree, and stops
+    /// once a project is taken up. When one IS already selected the full recovery is left to content-op
+    /// <see cref="ReattachProject"/> (which re-resolves), so this no-ops then. Runs on the STA thread (SnapshotHealth
+    /// calls it).</summary>
     public void EnsureAttached()
     {
         if (HasSelection) return;                       // a selected project recovers fully on the next content op
-        if (_dte != null && ProbeIdeAlive()) return;    // held DTE still answers — nothing to do
-        var dte = RotInstances.BindByPid(_xaePid);      // dead/gone → re-acquire our window by pid (bare, no resolve)
-        if (dte != null) SwapDte(dte);
+        if (_dte == null || !ProbeIdeAlive())
+        {
+            var dte = BindWindow(_xaePid);              // dead/gone → re-acquire our window by pid
+            if (dte != null) SwapDte(dte);
+        }
+        AttachFirstProject();
     }
 
     /// <summary>Bind a project by NAME within OUR XAE window — the connector's `select`. Re-acquires our window (by
@@ -70,7 +97,7 @@ internal sealed partial class TcObjectModel
         // Re-acquire OUR window by its stable pid, then resolve the project inside it. The DTE re-registers with a
         // fresh cookie/moniker but keeps its pid, so this survives a re-registration AND never drifts to another
         // window (a name search could). Both a project select and the soft attach re-bind the same one window.
-        var dte = RotInstances.BindByPid(_xaePid);
+        var dte = BindWindow(_xaePid);
         if (dte != null) { SwapDte(dte); if (!string.IsNullOrEmpty(project)) FindTwinCatProject(project); }
         if (_dte == null) { VoltLog.Warn($"{tag}: no running TwinCAT/VS instance to bind"); return; } // Core: not connected → refuse
         if (string.IsNullOrEmpty(project)) { FindTwinCatProject(null); return; }   // soft attach: resolve first so PLCs list

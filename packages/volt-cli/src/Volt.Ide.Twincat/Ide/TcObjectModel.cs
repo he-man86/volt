@@ -33,10 +33,11 @@ internal sealed partial class TcObjectModel
     // (stable across a DTE re-registration), never search other windows. Set once at startup by ConnectToPid.
     private int _xaePid;
 
-    // The DESIRED selection — the project name the user last explicitly picked (the connector's `select`). Recovery
-    // (ReattachProject, after a project close / re-registration / RPC drop) re-establishes THIS, by its stable
-    // NAME, instead of resolving the first-available. Without it, any hiccup silently flipped a two-XAE setup to the
-    // other project. Set only by an explicit project select; deliberately SURVIVES Disconnect.
+    // The DESIRED selection — the project this worker serves: the one a client last picked by name (the connector's
+    // `select`), or, until one does, the one the ATTACH took up (`AttachFirstProject`). Recovery (ReattachProject,
+    // after a project close / re-registration / RPC drop) re-establishes THIS, by its stable NAME, instead of resolving
+    // the first-available. Without it, any hiccup silently flipped a two-XAE setup to the other project — and a
+    // bridge no client ever sends `select` (the relay) never recovered at all. Deliberately SURVIVES Disconnect.
     private string? _wantProject;
 
     // "Connected" = a project is BOUND: its DTE + TwinCAT project (system manager) are resolved. It deliberately
@@ -48,8 +49,9 @@ internal sealed partial class TcObjectModel
     public string? IdeVersion => _ideVersion;
     public string? ProjectName => _projectName;
 
-    /// <summary>Whether the user has explicitly picked a project (the connector's `select`). When true, recovery
-    /// re-establishes THAT project by its stable name; when false, nothing is bound (health shows no project).</summary>
+    /// <summary>Whether this worker has a project to serve — picked by a client's `select`, or taken up by the attach.
+    /// When true, recovery re-establishes THAT project by its stable name; when false, the window has no TwinCAT
+    /// project open yet (health lists what it has, none serving).</summary>
     public bool HasSelection => !string.IsNullOrEmpty(_wantProject);
 
     // ── health (TOP-LEVEL liveness only — no content) ────────────────

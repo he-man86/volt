@@ -327,8 +327,9 @@ var cts = new CancellationTokenSource();
 var sta = new Thread(() =>
 {
     ComMessageFilter.Register(); // must run on the STA thread that makes the COM calls
-    // Attach to our one XAE window by pid. If it isn't attachable yet, stay degraded — the driver re-acquires the
-    // same pid on a content op / recovery. No project is auto-bound (the user picks one via `select`).
+    // Attach to our one XAE window by pid and serve what it has open — its first TwinCAT project, or the first one
+    // opened later (the health poll takes it up). A `select` by name serves another. If the window isn't attachable
+    // yet, stay degraded — the driver re-acquires the same pid on a content op / recovery.
     try { driver.Connect(xaePid); }
     catch (Exception ex) { driver.MarkDegraded($"waiting for TwinCAT XAE pid {xaePid} ({ex.Message})"); }
     driver.RunStaMessageLoop(cts.Token);

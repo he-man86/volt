@@ -96,6 +96,22 @@ function Read-Pids([string]$path) {
     @(Get-Content $path | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [int]$_ })
 }
 
+# Did THIS script start the process? It is tracked by `up`, or it runs this repo's build (the worker `up` spawns, a
+# CODESYS started on this repo's launcher script), or it has one of this script's fixture copies open (the IDE `up`
+# opened, and the one CODESYS re-execs into, which `up` never saw). Anything else — an engineer's own IDE, a bridge
+# they downloaded — is not ours to close, whatever vendor it shares. A plain substring test, not `-like`: a path
+# holding `[` or `]` is a wildcard pattern to `-like`.
+function Test-Ours([int]$procId, [int[]]$tracked) {
+    if ($tracked -contains $procId) { return $true }
+    $p = Get-CimInstance Win32_Process -Filter "ProcessId=$procId" -ErrorAction SilentlyContinue
+    if ($null -eq $p) { return $false }
+    $text = "$($p.ExecutablePath) $($p.CommandLine)"
+    foreach ($mark in @($ROOT, (Join-Path ([System.IO.Path]::GetTempPath()) "volt-ide-"))) {
+        if ($text.IndexOf($mark, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { return $true }
+    }
+    return $false
+}
+
 # MERGE with what is already tracked, never overwrite: `up -Fixture 13` then `up -Fixture 14` used to replace
 # the file, so `down` closed only the second and left the first running.
 # `@(...)` on BOTH sides is load-bearing. `$live + $new` did STRING concatenation whenever the file held
@@ -321,11 +337,21 @@ switch ($Action) {
     "down" {
         # Kill what is SERVING as well as what we launched. The two are not the same set: CODESYS re-execs, so
         # the serving pid was never tracked, and a worker we spawned is not an IDE at all.
-        $targets = @(Get-ServingPids $Vendor) + @(Read-Pids $pidFile) | Select-Object -Unique
+        #
+        # BUT ONLY WHAT IS OURS (Test-Ours). This used to close every serving IDE and every VoltBridgeTwincat on the
+        # machine — and on 2026-09-26 it closed an engineer's own TcXaeShell and the production bridge serving it,
+        # which merely shared the vendor. A process `up` did not start is reported and left running.
+        $tracked = @(Read-Pids $pidFile)
+        $candidates = @(Get-ServingPids $Vendor) + $tracked
         if ($Vendor -eq "twincat") {
-            $targets = @(Get-Process VoltBridgeTwincat -ErrorAction SilentlyContinue | ForEach-Object { $_.Id }) + $targets | Select-Object -Unique
+            $candidates = @(Get-Process VoltBridgeTwincat -ErrorAction SilentlyContinue | ForEach-Object { $_.Id }) + $candidates
         }
-        if ($targets.Count -eq 0) { Write-Host "nothing to close for $Vendor"; break }
+        $candidates = @($candidates | Select-Object -Unique)
+        $targets = @($candidates | Where-Object { Test-Ours $_ $tracked })
+        foreach ($procId in @($candidates | Where-Object { $targets -notcontains $_ })) {
+            Write-Host "left pid $procId running — not started by this script"
+        }
+        if ($targets.Count -eq 0) { Write-Host "nothing of ours to close for $Vendor" }
         foreach ($procId in $targets) {
             try { Stop-Process -Id $procId -Force -ErrorAction Stop; Write-Host "closed pid $procId" } catch {}
         }
