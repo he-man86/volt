@@ -76,12 +76,14 @@ public static class NextNetworkTextFacts
 
     private static Box BoxOf(Box b)
     {
-        int? eno = b.StCode is not null || b.Enable is not null ? 0 : null;
-        var byMainOutput = b.ConnectedSlot is { } c && c != eno;
+        var byMainOutput = b.ConnectedSlot is not null && !NextSpelling.ConnectedByEno(b);
         var infix = NextSpelling.IsInfix(b);
         return new Box(
             b.Type,
-            b.Instance is null ? null : new Operand(b.Instance.Text, IsInstance: true),
+            // The instance's text and its flags: the text has no position for a flag on the instance operand, so the
+            // writer refuses one — which only holds if the oracle compares it.
+            b.Instance is null ? null : new Operand(b.Instance.Text, IsInstance: true,
+                Flags: b.Instance.Flags is { IsNone: false } f ? f : null),
             NextSpelling.KindOf(b.Type, b.Instance is not null),
             b.Inputs.Select(p => new Input(infix ? null : p.Formal, Node(p.Value), p.Flags)).ToList(),
             b.Outputs.Select(o => new Output(o.Formal, Target(o.Value), o.Formal is not null ? null : o.Slot)).ToList(),

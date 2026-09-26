@@ -145,7 +145,7 @@
   <tr><td class="name">top-level item with no target</td><td><code>value;</code> — a box, leaf, wire reference or PARALLEL whose output goes nowhere; <code>;</code> alone is the empty item</td></tr>
   <tr><td class="name">BoxTreeOperand</td><td>a bare token (<code>a</code>, <code>s.f</code>, <code>T#1S</code>, <code>???</code>), else <code>`text`</code></td></tr>
   <tr><td class="name">IFlags on an operand, box, Parallel or wire reference</td><td><code>NOT x</code> · <code>R_EDGE(x)</code> · <code>F_EDGE(x)</code> · <code>NOT R_EDGE(x)</code>; on a box <code>NOT (a AND b)</code>, <code>R_EDGE(f(x))</code>, <code>NOT PARALLEL(…)</code>. Rising and falling together: marker</td></tr>
-  <tr><td class="name">flags on an input <i>pin</i> (<code>Input.Flags</code>)</td><td>unmeasured on CODESYS (census 1.13): a pulled pin flag goes to the marker, never dropped. If found: on the formal, forcing named form — <code>f(NOT IN1 := x)</code>, <code>f(R_EDGE(CLK) := x)</code> — distinct from <code>f(CLK := R_EDGE(x))</code>, the flag on the value</td></tr>
+  <tr><td class="name">flags on an input <i>pin</i> (<code>Input.Flags</code>)</td><td>measured populated and load-bearing on CODESYS (census 1.13: 6 pins carry a Negation there only). No spelling yet (owner decision 2026-09-26): the writer refuses a pin flag by name, so a pulled one goes to the marker, never dropped. A spelling — on the formal, forcing named form, <code>f(NOT IN1 := x)</code>, distinct from <code>f(CLK := R_EDGE(x))</code>, the flag on the value, and one for an operator box's unnamed pin — is its own decision</td></tr>
   <tr><td class="name">flags on a Demux or Assign <i>item</i></td><td>census 1.1. None → the field is deleted. Some → marker until the census names a position distinct from the value's flags</td></tr>
   <tr><td class="name">BoxTreeBox</td><td><code>BoxType(pins)</code> · <code>inst(pins)</code> · <code>??? : Type(pins)</code>; infix <code>(a OP b)</code> for an operator box with no EN, no instance, no output pin and absent-or-default formals (<a href="#group">below</a>)</td></tr>
   <tr><td class="name">input slot / output slot</td><td><code>F := v</code> / <code>F =&gt; v</code> when named; <code>v</code> / <code>=&gt; v</code> when not, by the slot rule in <a href="#eneno">EN, ENO and output slots</a></td></tr>
@@ -157,7 +157,7 @@
   <tr><td class="name">BoxTreeDemux with Input</td><td><code>g3 := tree;</code> with <code>g3</code> declared in the network's <code>VAR_TEMP</code>, top level only; a nested definition or a reference stored before it: marker (census 1.8)</td></tr>
   <tr><td class="name">BoxTreeDemux without Input</td><td>the bare name <code>g3</code></td></tr>
   <tr><td class="name">BoxTreeParallel</td><td><code>PARALLEL([IN := feed,] b1, b2, …)</code>; <code>IN := ,</code> is a feed slot wired to nothing, no <code>IN</code> is no feed</td></tr>
-  <tr><td class="name">Parallel.Mode</td><td>not in the text until census 1.3 shows its values; a non-default Mode is refused with <code>NETWORK_UNSUPPORTED</code>, never dropped</td></tr>
+  <tr><td class="name">Parallel.Mode</td><td><code>MODE := Sequential</code>, first in the list, only off the default <code>BoxShortCircuit</code> (census 1.3: 16 BoxShortCircuit, 1 Sequential). Any other mode is unmeasured: refused with <code>NETWORK_UNSUPPORTED</code> on push and the marker on pull, never written as a number</td></tr>
   <tr><td class="name">BoxTreeTerminator(null)</td><td>an empty position: <code>f(a, )</code>, <code>RESET := ,</code>, <code>coil := ;</code>, <code>;</code>. A lone empty slot is named, <code>MOVE(IN := )</code>; <code>f()</code> is a box with no input slot</td></tr>
   <tr><td class="name">BoxTreeTerminator(Input)</td><td>census 1.4. 0 occurrences → refused by name, like Mux; &gt;0 → <code>TERMINATOR(x)</code></td></tr>
   <tr><td class="name">BoxTreeMux, split points</td><td>none — 0 occurrences; the body is a marker</td></tr>
@@ -172,7 +172,7 @@
   <tr><td>Item Jump/Return bit; RETURN's <code>???</code></td><td>Derived from the target bit (TwinCAT sets both, C13); the target text is measured constant.</td></tr>
   <tr><td>Network position; Int64 Ids</td><td>Host limit: CODESYS re-mints Ids on a changed network.</td></tr>
   <tr><td>Wire collision rename</td><td>When <code>g&lt;VarId&gt;</code> matches a name in scope, case-insensitively, the writer takes the lowest free <code>g&lt;n&gt;</code> and the push writes VarId n. 0 in six corpora.</td></tr>
-  <tr><td>Marker on pull, pending a census</td><td>Pin flags (1.13), item flags (1.1), a nested Demux definition or a reference stored before its definition (1.8), a data-valued wire (1.17), a flag on an empty slot, rising+falling on one operand, a backtick in operand text, a newline in a TITLE, a snippet line starting <code>END_EXECUTE</code>. Each has no spelling yet; dropping or reordering it would lose a vendor fact.</td></tr>
+  <tr><td>Marker on pull, pending a census</td><td>Pin flags (1.13), item flags (1.1), a nested Demux definition or a reference stored before its definition (1.8), a data-valued wire (1.17), a flag on an empty slot, rising+falling on one operand, a backtick in operand text, a snippet line starting <code>END_EXECUTE</code>. (A newline in a TITLE is spelled <code>$N</code> — 7 Lenze titles hold one.) Each has no spelling yet; dropping or reordering it would lose a vendor fact.</td></tr>
   <tr><td>Rungs with several control-flow targets — marker only</td><td>A coil plus a jump, and two jumps on one rung (<code>UnspellableCoilTests.A_rung_driving_TWO_jumps_is_named_too</code>). 0 in six corpora; spelling them needs JMP as a target, which is not ST. A small detector stays to route both to the marker; <code>JumpDestinationTests</code> pins it.</td></tr>
   <tr><td>Negated/edge coils — marker only</td><td>0 in 576 measured targets. Census 1.7 re-checks every corpus; a spelling is added only on a measured occurrence and a live build of its constructor.</td></tr>
   <tr><td>TwinCAT structural edits</td><td>A value edit is written in place and the bijection holds. A structural edit (and every create) is rebuilt through PLCopen import, with its quirks: D22c, D25, D30 (a single-consumer wire is refused), C25 (a wire comes back as a multi-output assign), C20. Until measured live, <code>PARALLEL</code>, a Demux of a leaf and a result pin <code>=&gt; v</code> in a structurally changed TwinCAT network are refused, naming the network and the reason. <b>Scale:</b> 66 of lenze-mid's 139 wires are fed by a leaf; if TwinCAT ladder is alike, about half of structural rung edits are refused until 4.4 measures the import (census 1.16).</td></tr>
@@ -249,9 +249,11 @@ operator   = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
     name and no word of the text other than the operators' own (<code>ADD</code>, <code>MOVE</code>, <code>AND</code>,
     <code>GE</code>, <code>MAX</code>, <code>NOT</code>), else between backticks (a POU named <code>Network</code> is
     called <code>`Network`(x)</code>). An operator type spelled otherwise than the table (<code>and</code>) keeps its
-    spelling in call form, never infix. An FB box's head is its instance; an instance whose text is not a token
-    (<code>fbs[1]</code>) is backticked: <code>`fbs[1]`(IN := a)</code>. The FB's type is taken from the instance's
-    declaration, so an instance no declaration names (<code>SUPER^</code>, census 1.12) goes to the marker.</li>
+    spelling in call form, never infix. An FB box's head is its instance. The FB's type is taken from the instance's
+    declaration, and a declaration names a NAME — so an instance whose text is an expression (<code>fbs[1]</code>,
+    <code>SUPER^</code>, census 1.12: one in every corpus) is declared by no name and goes to the marker, and a push
+    of <code>`fbs[1]`(IN := a)</code> is refused rather than read as a function named <code>fbs[1]</code>. A function
+    box named like an instance in scope goes to the marker too: its head would read back as that instance.</li>
   <li><b>lvalue:</b> an assign target or a <code>=&gt; v</code> pin is a token or a backtick, by the same rule as an
     operand (<code>`arr[i + 1]` := x;</code>, <code>`a .b` := x;</code>). <code>=&gt;</code> with no lvalue is an output
     slot connected to nothing.</li>
@@ -290,7 +292,7 @@ operator   = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
 </p>
 
 <h3 id="comments">Header and comment</h3>
-<pre>NETWORK LABEL: Done TITLE: "Tray ""A"" ready" DISABLED
+<pre>NETWORK LABEL: Done TITLE: "Tray $"A$" ready" DISABLED
   // Indented notes keep their indentation:
   //     step 1 — wait for the tray
   //
@@ -454,7 +456,9 @@ GT(EN := SUB(EN := rung, light, deviation, =&gt; diff).ENO, sensor, diff, =&gt; 
   <li>A consumed box connected by its main output (<code>MainOutputIndex</code>) has no suffix; connected by ENO it says
     <code>.ENO</code>. Any other connection slot goes to the marker until census 1.6 finds one.</li>
   <li>The text does not say WHICH slot the main output is, so it reads it by rule: slot 0, and for an AND/OR/XOR/NOT
-    box (which the vendor stores no main output index for — census 1.6) no stored slot. A box the rule would misread
+    box (which the vendor stores no main output index for — census 1.6) no stored slot. The rule is the same for a
+    group and a call: <code>(a &gt; b)</code> and <code>GT(a, b)</code> read to one box, connected by slot 0, and the
+    slot never decides infix. A box the rule would misread
     goes to the marker: a main output stored as another slot (1 on 3 Lenze call boxes), or a consumed box whose
     connection slot was never read. Renumbering its pins instead would wire them to other slots on push.</li>
   <li>Positional <code>=&gt; v</code> pins fill the remaining output slots in order, skipping the connected one. A named
@@ -614,7 +618,7 @@ END_NETWORK</pre>
   <tr><td class="name">NETWORK_DUPLICATE_NAME</td><td>A wire declared or defined twice; a wire name matching a name in scope, case-insensitively; an instance defined twice; a label on two networks, if census 1.15 shows the IDE cannot hold it.</td></tr>
   <tr><td class="name">NETWORK_BAD_EXPRESSION</td><td>A malformed group; a parenthesis pair that is no box; a wire undefined, undeclared, defined with <code>S=</code>/<code>R=</code>, chained, referenced before its definition, not named <code>g&lt;digits&gt;</code> or typed unlike its producer; <code>.ENO</code> on a box without EN; a consumed enabled box without <code>.ENO</code>; a modifier inside <code>R_EDGE(…)</code>/<code>F_EDGE(…)</code>.</td></tr>
   <tr><td class="name">NETWORK_UNKNOWN_OPERATOR</td><td>The symbol is not in the operator table.</td></tr>
-  <tr><td class="name">NETWORK_UNSUPPORTED</td><td>Operand or target text containing a backtick; a POU or instance named <code>PARALLEL</code>, <code>R_EDGE</code> or <code>F_EDGE</code>; nested edges or rising+falling on one operand; a flag on an empty slot; a non-default <code>Parallel.Mode</code>; on TwinCAT, <code>PARALLEL</code>, a Demux of a leaf or a result pin in a structurally changed network — the message names the network and the reason.</td></tr>
+  <tr><td class="name">NETWORK_UNSUPPORTED</td><td>Operand or target text containing a backtick; a POU or instance named <code>PARALLEL</code>, <code>R_EDGE</code> or <code>F_EDGE</code>; nested edges or rising+falling on one operand; a flag on an empty slot; an unmeasured <code>Parallel.Mode</code> (neither <code>BoxShortCircuit</code> nor <code>Sequential</code>); an FB instance whose text is an expression (<code>`fbs[1]`(…)</code>) or that no declaration names; on TwinCAT, <code>PARALLEL</code>, a Demux of a leaf or a result pin in a structurally changed network — the message names the network and the reason.</td></tr>
 </table>
 <p>
   <code>NETWORK_DUPLICATE_NETWORK</code> is gone (no order numbers). The writer-side <code>NETWORK_UNSUPPORTED</code>

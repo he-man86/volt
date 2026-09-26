@@ -94,11 +94,11 @@ public class NextNetworkTextReaderTests
     [Fact]
     public void A_renamed_wire_reads_back_under_its_new_VarId()
     {
-        var scope = new NextNetworkScope(new[] { "G3" }, new Dictionary<string, string>());
+        var scope = new NextNetworkScope(new[] { "G3" }, Array.Empty<string>(), new Dictionary<string, string>());
         var text = NextNetworkTextWriter.Write(Body(Net(Def(3, L("TRUE")), Set(Ref(3), T("out")))), scope);
         AssertModel(Body(Net(Def(0, L("TRUE"), "BOOL"), Set(Ref(0), Coil("out")))), Read(text, scope));
 
-        var scope2 = new NextNetworkScope(new[] { "G0", "G3" }, new Dictionary<string, string>());
+        var scope2 = new NextNetworkScope(new[] { "G0", "G3" }, Array.Empty<string>(), new Dictionary<string, string>());
         var text2 = NextNetworkTextWriter.Write(
             Body(Net(Def(1, L("TRUE")), Def(3, Op("AND", Ref(1), L("G0"))), Set(Ref(3), T("G3")))), scope2);
         AssertModel(Body(Net(Def(1, L("TRUE"), "BOOL"), Def(2, Op("AND", Ref(1), L("G0")), "BOOL"), Set(Ref(2), Coil("G3")))),
@@ -168,11 +168,11 @@ public class NextNetworkTextReaderTests
     [Fact]
     public void An_undeclared_wire_shaped_target_in_scope_is_a_coil() =>
         AssertModel(Body(Set(L("x"), Coil("g5"))),
-            Read(Src("g5 := x;"), new NextNetworkScope(new[] { "g5" }, new Dictionary<string, string>())));
+            Read(Src("g5 := x;"), new NextNetworkScope(new[] { "g5" }, Array.Empty<string>(), new Dictionary<string, string>())));
 
     [Fact]
     public void A_wire_takes_the_type_it_is_declared_with_where_the_producer_does_not_say() =>
-        AssertModel(Body(Net(Def(1, Consumed("ADD", new[] { In(L("a")), In(L("b")) }), "INT"), Set(Op("GT", Ref(1), L("c")), Coil("o")))),
+        AssertModel(Body(Net(Def(1, Consumed("ADD", new[] { In(L("a")), In(L("b")) }), "INT"), Set(Consumed("GT", new[] { In(Ref(1)), In(L("c")) }), Coil("o")))),
             Read(Src("VAR_TEMP g1 : INT; END_VAR", "g1 := ADD(a, b);", "o := (g1 > c);")));
 
     // ── the header and its comment ──────────────────────────────────────────────────────────────
@@ -261,7 +261,7 @@ public class NextNetworkTextReaderTests
     [Fact]
     public void An_FB_head_is_the_instance_the_scope_declares_and_its_type_comes_from_there()
     {
-        var scope = new NextNetworkScope(Array.Empty<string>(), new Dictionary<string, string> { ["t1"] = "TON" });
+        var scope = new NextNetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["t1"] = "TON" });
         AssertModel(Body(Fb("t1", new[] { In(L("a"), "IN"), In(L("pt"), "PT") }, new[] { Out("el", null, "ET") }, "TON")),
             Read(Src("t1(IN := a, PT := pt, ET => el);"), scope));
         // The same text with no instance declared is a function call named t1 — the text alone cannot tell.
@@ -341,7 +341,7 @@ public class NextNetworkTextReaderTests
     [Fact]
     public void Backticked_text_is_one_operand_never_parsed()
     {
-        var scope = new NextNetworkScope(Array.Empty<string>(), new Dictionary<string, string> { ["fb"] = "FB" });
+        var scope = new NextNetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["fb"] = "FB" });
         AssertModel(Body(Fb("fb", new[] { In(L("fc_dinttotime(T.Start,2)"), "P") })),
             Read(Src("fb(P := `fc_dinttotime(T.Start,2)`);"), scope));
         AssertModel(Body(Set(L("x"), Coil("arr[i + 1]"))), Read(Src("`arr[i + 1]` := x;")));
@@ -425,12 +425,6 @@ public class NextNetworkTextReaderTests
     [Fact]
     public void An_operator_type_in_another_case_round_trips() =>
         RoundTrips(Body(Set(Call("and", new[] { In(L("a")), In(L("b")) }, main: null, kind: CallKind.Operator), Coil("o"))), NextNetworkScope.Empty);
-
-    /// <summary>A backticked FB head reads back as the instance its declaration names, with that type.</summary>
-    [Fact]
-    public void A_backticked_instance_head_reads_back_with_its_declared_type() =>
-        RoundTrips(Body(Fb("fbs[1]", new[] { In(L("a"), "IN") })),
-            new NextNetworkScope(new[] { "a" }, new Dictionary<string, string> { ["fbs[1]"] = "FB" }));
 
     /// <summary>A wire fed by a bit operator is BOOL or another bit-string type — whichever the text declares.</summary>
     [Fact]

@@ -14,11 +14,14 @@ namespace Volt.Engine.Format.Network.Next;
 /// <c>docs/network-text-next.html</c> and <c>openspec/changes/network-text-literal-nwl</c>; built BESIDE the v1
 /// <see cref="NetworkTextWriter"/>, which keeps serving every caller until the swap.
 ///
-/// <para><b>One fold, one arm per model node class.</b> There is no hoisting, no minted name, no use count and no
-/// pass over the produced text: each arm decides its spelling from the node in hand. The per-network state is the
-/// VarId→name map (fixed before the fold, so a rename can never depend on the order things are rendered in) and
-/// the set of wires already defined, which is what lets a reference stored before its definition be refused
-/// instead of silently reordered.</para>
+/// <para><b>One fold, one arm per model node class.</b> There is no hoisting, no minted name and no pass over the
+/// produced text: each arm decides its spelling from the node in hand. The per-network state is the VarId→name
+/// map (fixed before the fold, so a rename can never depend on the order things are rendered in) and the set of
+/// wires already defined, which is what lets a reference stored before its definition be refused instead of
+/// silently reordered. Two things look beyond the node in hand, both over the MODEL and never over text: the
+/// constructor collects the network's names and VarIds before the fold (the reserved set a wire name must avoid),
+/// and a wire fed by a leaf counts that wire's uses across the network (<see cref="NextSpelling.ProducerType"/>),
+/// because a leaf's type is decided by how it is used — the one fact of a wire below its definition.</para>
 ///
 /// <para><b>A fact with no spelling throws <see cref="UnrepresentableBodyException"/>, naming it.</b> That is the
 /// one exception this writer raises, and the pull path turns it into the body marker — the POU still appears and
@@ -344,6 +347,12 @@ public static class NextNetworkTextWriter
                     if (p.Branches.Count == 0)
                         throw Unrepresentable("a Parallel with no branch",
                             $"a Parallel in network {_net.Order} has no branch.");
+                    RefuseTakenConstruct("PARALLEL");
+                    if (!NextSpelling.IsMeasuredMode(p.Mode))
+                        // Spec: an unmeasured mode is refused. Written by its number it would be text the reader
+                        // refuses — a pull producing an unpushable body where the marker belongs.
+                        throw Unrepresentable("an unmeasured Parallel mode",
+                            $"a Parallel in network {_net.Order} has the mode '{p.Mode}'; the measured modes are BoxShortCircuit and Sequential.");
                     var pins = new List<string>();
                     // Owner decision 2026-09-26: the mode is carried, and written only off its default. Census 1.3:
                     // BoxShortCircuit 16, Sequential 1 — rebuilding that one in the default mode would be silent.
@@ -385,14 +394,11 @@ public static class NextNetworkTextWriter
                     throw Unrepresentable("a flag on a box input pin",
                         $"the '{b.Type}' box has {Describe(p.Flags)} on its pin {p.Formal ?? "(positional)"}.");
 
-            var isExecute = b.StCode is not null;
-            // The ENO slot: output slot 0 of a box that shows EN/ENO (Box.HasEnoSlot, measured), and the ONLY
-            // output of an Execute box.
-            int? eno = isExecute || b.Enable is not null ? 0 : null;
+            var eno = NextSpelling.EnoSlot(b);
             var infix = NextSpelling.IsInfix(b);
-            var suffix = consumed ? Suffix(b, eno, infix) : "";
+            var suffix = consumed ? Suffix(b, eno) : "";
 
-            if (isExecute) return Execute(b) + suffix;
+            if (b.StCode is not null) return Execute(b) + suffix;
 
             if (infix) return "(" + string.Join(" " + FbdOperators.TypeToSymbol[b.Type] + " ", b.Inputs.Select(p => Value(p.Value))) + ")";
 
@@ -409,21 +415,21 @@ public static class NextNetworkTextWriter
                 }
                 else pins.Add(Value(p.Value));
             }
-            // A LONE unconnected slot needs its formal: `MOVE()` is a box with no input slot, `MOVE(IN := )` one
-            // unwired slot. A positional one has no name to give it.
-            if (b.Enable is null && b.Inputs.Count == 1 && b.Inputs[0].Formal is null && pins[0].Length == 0)
+            pins.AddRange(OutputPins(b, eno));
+            // A LONE unconnected slot needs its formal when it is the whole argument list: `MOVE()` is a box with no
+            // input slot, `MOVE(IN := )` one unwired slot. A positional one has no name to give it. Beside an output
+            // pin it is a position of its own — `f(, => x)` is not `f(=> x)` — and needs none.
+            if (pins.Count == 1 && pins[0].Length == 0)
                 throw Unrepresentable("a lone unconnected input slot with no formal",
                     $"the '{b.Type}' box has one input slot, wired to nothing and unnamed, and `{b.Type}()` is a box with none.");
-
-            pins.AddRange(OutputPins(b, eno));
             return Head(b) + "(" + string.Join(", ", pins) + ")" + suffix;
         }
 
-        /// <summary>The slot rule on a CONSUMED box: connected by ENO → <c>.ENO</c>; by its main output → no
-        /// suffix, read back by <see cref="NextSpelling.MainSlotOfCall"/>; anything that reading would get wrong has
-        /// no spelling. The stored slots are compared as stored — a null against a stored index is a slot nobody
-        /// read, never the main output by convention.</summary>
-        private string Suffix(Box b, int? eno, bool infix)
+        /// <summary>The slot rule on a CONSUMED box, group or call alike: connected by ENO → <c>.ENO</c>; by its main
+        /// output → no suffix, read back by <see cref="NextSpelling.MainSlotOfCall"/>; anything that reading would
+        /// get wrong has no spelling. The stored slots are compared as stored — a null against a stored index is a
+        /// slot nobody read, never the main output by convention.</summary>
+        private string Suffix(Box b, int? eno)
         {
             var slot = b.ConnectedSlot;
             if (eno is not null)
@@ -435,9 +441,9 @@ public static class NextNetworkTextWriter
                     $"a consumer of the '{b.Type}' box is connected to its output slot {slot?.ToString() ?? "(not stored)"}; an enabled box is spelled only by `.ENO`.");
             }
 
-            // A group, and a bit operator's call, read back connected by no stored slot (the vendor keeps no main
-            // output index on AND/OR — census 1.6), so that is the one connection they can carry.
-            if (infix || NextSpelling.MainSlotOfCall(b.Type) is null)
+            // A bit operator, group or call, reads back connected by no stored slot (the vendor keeps no main output
+            // index on AND/OR — census 1.6), so that is the one connection it can carry.
+            if (NextSpelling.MainSlotOfCall(b.Type) is null)
             {
                 if (slot is not null)
                     throw Unrepresentable("a bit operator box connected by a stored output slot",
@@ -478,6 +484,10 @@ public static class NextNetworkTextWriter
                     if (string.Equals(formal, Box.EnoPin, StringComparison.OrdinalIgnoreCase))
                         throw Unrepresentable("an ENO output pin",
                             $"the '{b.Type}' box wires ENO to '{o.Value.Text}'; ENO is only ever `.ENO`, never an `=>` pin.");
+                    if (string.Equals(formal, Box.EnablePin, StringComparison.OrdinalIgnoreCase))
+                        // `EN =>` reads as the enable written the wrong way round, and is refused as such.
+                        throw Unrepresentable("an output pin named EN",
+                            $"the '{b.Type}' box has an output pin named EN, wired to '{o.Value.Text}'; EN is the enable input.");
                     yield return Formal(formal, b) + " => " + target;
                     continue;
                 }
@@ -492,7 +502,7 @@ public static class NextNetworkTextWriter
 
                 while (true)
                 {
-                    if (next == eno || next == b.ConnectedSlot) { next++; continue; }
+                    next = NextSpelling.NextFreeSlot(next, eno, b.ConnectedSlot);
                     if (next > slot)
                         throw Unrepresentable("a connection by an unspellable output slot",
                             $"the '{b.Type}' box wires output slot {slot} to '{o.Value.Text}', which is its ENO or its connected slot.");
@@ -514,6 +524,10 @@ public static class NextNetworkTextWriter
             RefuseEdgeWord(b.Type, "a box type");
             if (b.Instance is { } inst)
             {
+                if (inst.Flags is { IsNone: false } instFlags)
+                    // The call head has no position for a modifier of its own: the box's flags are the call's.
+                    throw Unrepresentable("a flag on an FB instance",
+                        $"the '{b.Type}' instance '{inst.Text}' carries {Describe(instFlags)} on the instance operand.");
                 if (inst.Text == Box.UnnamedInstance)
                 {
                     if (!NextSpelling.Identifier.IsMatch(b.Type))
@@ -536,11 +550,26 @@ public static class NextNetworkTextWriter
             }
             if (b.Type.IndexOf('`') >= 0)
                 throw Unrepresentable("operand text containing a backtick", $"the box type '{b.Type}' contains a backtick.");
+            if (!NextSpelling.IsName(b.Type))
+                // A function is a POU, named by a name; a head that is none (`fbs[1]`, `SUPER^`) is an FB instance
+                // the text lost, and the reader refuses it rather than build a function of that name.
+                throw Unrepresentable("a box type that is no POU name",
+                    $"the box type '{b.Type}' is not a name, and the box has no FB instance.");
+            if (_scope.InstanceType(b.Type) is { } instanceType)
+                // The reader takes a head the declarations name as an instance to BE that instance, so this function
+                // box would read back as that instance's call, with the instance's FB type.
+                throw Unrepresentable("a function named like an FB instance in scope",
+                    $"the function box '{b.Type}' has the name of the '{instanceType}' instance '{b.Type}', and its call would read back as that instance's.");
             return NextSpelling.IsBareHead(b.Type) ? b.Type : "`" + b.Type + "`";
         }
 
         private string Execute(Box b)
         {
+            if (!string.Equals(b.Type, NextSpelling.ExecuteType, StringComparison.Ordinal))
+                // The text writes the keyword, not the box type, and reads every Execute box back as EXECUTE; a
+                // box type spelled otherwise (unmeasured on CODESYS, which passes BoxType through) would be lost.
+                throw Unrepresentable("an Execute box of another type",
+                    $"an Execute box in network {_net.Order} has the type '{b.Type}', and the text reads every Execute box as '{NextSpelling.ExecuteType}'.");
             if (b.Inputs.Count > 0 || b.Outputs.Count > 0 || b.Instance is not null)
                 throw Unrepresentable("an Execute box with pins",
                     $"an Execute box in network {_net.Order} carries pins or an instance beside its ST.");
@@ -565,7 +594,7 @@ public static class NextNetworkTextWriter
         }
 
         /// <summary>A value's modifiers, in the one order: <c>NOT</c>, then the edge around the core.</summary>
-        private static string Modified(string core, Flags f, string what)
+        private string Modified(string core, Flags f, string what)
         {
             if (f.Set || f.Reset || f.Jump || f.Return)
                 throw Unrepresentable("a coil flag on a value",
@@ -573,8 +602,8 @@ public static class NextNetworkTextWriter
             if (f.Rising && f.Falling)
                 throw Unrepresentable("rising and falling on one operand",
                     $"{what} carries both a rising and a falling edge.");
-            if (f.Rising) core = "R_EDGE(" + core + ")";
-            else if (f.Falling) core = "F_EDGE(" + core + ")";
+            if (f.Rising) { RefuseTakenConstruct("R_EDGE"); core = "R_EDGE(" + core + ")"; }
+            else if (f.Falling) { RefuseTakenConstruct("F_EDGE"); core = "F_EDGE(" + core + ")"; }
             return f.Negated ? "NOT " + core : core;
         }
 
@@ -610,33 +639,42 @@ public static class NextNetworkTextWriter
             var name = _names[d.VarId];
             var produced = NextSpelling.ProducerType(d.Input!, d.VarId, _net.Trees, _lang,
                 id => _defined.TryGetValue(id, out var t) ? t : null);
-            string type;
-            if (produced.Exact is { } exact)
-            {
-                if (d.Type is not null && !string.Equals(exact, d.Type, StringComparison.OrdinalIgnoreCase))
-                    throw Unrepresentable("a wire typed unlike its producer",
-                        $"the wire {name} in network {_net.Order} is declared {d.Type} and its producer is {exact}.");
-                type = exact;
-            }
-            else if (produced.AnyBit)
-            {
-                if (d.Type is not null && !NextSpelling.BitStrings.Contains(d.Type))
-                    throw Unrepresentable("a wire typed unlike its producer",
-                        $"the wire {name} in network {_net.Order} is declared {d.Type} and its producer is a bit operator.");
-                type = d.Type ?? NextSpelling.Bool;
-            }
-            else
-                type = d.Type ?? throw Unrepresentable("a wire of unknown type",
-                    $"the wire {name} in network {_net.Order} is fed by a {d.Input!.GetType().Name} whose type the model does not carry.");
-            if (type.IndexOfAny(new[] { ';', '\n', '\r' }) >= 0 || type.Trim().Length == 0)
+            if (d.Type is not null && NextSpelling.Disagreement(produced, d.Type) is { } says)
+                throw Unrepresentable("a wire typed unlike its producer",
+                    $"the wire {name} in network {_net.Order} is declared {d.Type} and its producer is {says}.");
+            var type = produced.Exact
+                       ?? (produced.AnyBit ? d.Type ?? NextSpelling.Bool : null)
+                       ?? d.Type
+                       ?? throw Unrepresentable("a wire of unknown type",
+                           $"the wire {name} in network {_net.Order} is fed by a {d.Input!.GetType().Name} whose type the model does not carry.");
+            if (!NextSpelling.IsSpellableType(type))
                 throw Unrepresentable("a wire of unspellable type",
-                    $"the wire {name} in network {_net.Order} has the type '{type}'.");
+                    $"the wire {name} in network {_net.Order} has the type '{type}', which a VAR_TEMP declaration cannot hold.");
+
+            // The reader checks the declaration against the producer AS THE TEXT CARRIES IT — without the vendor's
+            // stored output types, which the text has no position for. A stored type the text's own rule
+            // contradicts (a bitwise AND stored as DINT, a comparison stored as INT) would be written into a
+            // declaration the reader refuses.
+            var carried = NextSpelling.ProducerType(WithoutStoredTypes(d.Input!), d.VarId, _net.Trees, _lang,
+                id => _defined.TryGetValue(id, out var t) ? t : null);
+            if (NextSpelling.Disagreement(carried, type) is { } rule)
+                throw Unrepresentable("a stored output type the text reads otherwise",
+                    $"the wire {name} in network {_net.Order} is fed by a producer the vendor stores as {type}, and the text reads that producer as {rule}.");
             return type;
         }
 
+        private static Node WithoutStoredTypes(Node n) => n is Box b ? b with { OutputTypes = null } : n;
+
         // ── names and operands ──────────────────────────────────────────────────────────────────────
 
-        private static string LValue(Operand o, string what) => Operand(o.Text, what);
+        /// <summary>An assignment or <c>=&gt;</c> target: bare when it is a target token, else verbatim between
+        /// backticks — the same rule as an operand, except that a literal is no target token.</summary>
+        private static string LValue(Operand o, string what)
+        {
+            if (o.Text.IndexOf('`') >= 0)
+                throw Unrepresentable("operand text containing a backtick", $"{what} '{o.Text}' contains a backtick.");
+            return NextSpelling.IsBareTarget(o.Text) ? o.Text : "`" + o.Text + "`";
+        }
 
         private static string Formal(string f, Box b) =>
             NextSpelling.Identifier.IsMatch(f)
@@ -651,6 +689,15 @@ public static class NextNetworkTextWriter
             if (text.IndexOf('`') >= 0)
                 throw Unrepresentable("operand text containing a backtick", $"{what} '{text}' contains a backtick.");
             return NextSpelling.IsToken(text) ? text : "`" + text + "`";
+        }
+
+        /// <summary>A construct (<c>R_EDGE(x)</c>, <c>PARALLEL(…)</c>) the scope gives a POU or instance of the same
+        /// name has no spelling: the reader would refuse it as that call (<see cref="NextSpelling.ConstructTaken"/>).</summary>
+        private void RefuseTakenConstruct(string word)
+        {
+            if (NextSpelling.ConstructTaken(word, _scope))
+                throw Unrepresentable("a POU or instance named " + word,
+                    $"network {_net.Order} spells {word}(…), and a POU or FB instance in scope is named {word}, so the text would read it as that call.");
         }
 
         /// <summary>A POU or instance named like an edge word would read back as the edge flag.</summary>

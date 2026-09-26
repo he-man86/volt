@@ -129,13 +129,15 @@ internal static class NextModelOracle
     };
 
     /// <summary>The declarations a vendor model's text is read back against: every name it spells as an operand,
-    /// target or instance, and its FB instances with their types (<see cref="Instances"/>). Taken from the model
+    /// target or instance, the POUs it calls (its box types), and its FB instances with their types
+    /// (<see cref="Instances"/>). Taken from the model
     /// because these sources (archives, test models, corpus bodies) come without a parsed VAR block — and every
     /// operand of a body the vendor holds IS a name in scope (a variable, a global, a member), which is what the
     /// reader's "a wire-shaped name in no scope" refusal relies on.</summary>
     public static NextNetworkScope ScopeOf(NetworkBody body)
     {
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var pous = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         void Words(string text) => names.UnionWith(NextSpelling.Words(text));
         void Walk(Node? n)
         {
@@ -143,7 +145,8 @@ internal static class NextModelOracle
             {
                 case Leaf l: Words(l.Operand.Text); break;
                 case Box b:
-                    Words(b.Type);   // a function or FB type is a POU in scope too
+                    Words(b.Type);
+                    pous.Add(b.Type);   // a function or FB type is a POU in scope
                     if (b.Instance is { } i) Words(i.Text);
                     foreach (var o in b.Outputs) Words(o.Value.Text);
                     Walk(b.Enable);
@@ -156,7 +159,7 @@ internal static class NextModelOracle
             }
         }
         foreach (var net in body.Networks) foreach (var t in net.Trees) Walk(t);
-        return new NextNetworkScope(names, Instances(body));
+        return new NextNetworkScope(names, pous, Instances(body));
     }
 
     /// <summary>A model's FB instances with their types — what the POU's declarations would say of each, and

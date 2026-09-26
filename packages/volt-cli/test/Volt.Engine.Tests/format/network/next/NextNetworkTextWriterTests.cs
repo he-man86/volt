@@ -58,7 +58,7 @@ public class NextNetworkTextWriterTests
     static string Write(Network net, BodyLanguage lang = BodyLanguage.Fbd, params string[] names)
     {
         var body = new NetworkBody(lang, new[] { net });
-        return NextNetworkTextWriter.Write(body, new NextNetworkScope(names, NextModelOracle.Instances(body)));
+        return NextNetworkTextWriter.Write(body, new NextNetworkScope(names, Array.Empty<string>(), NextModelOracle.Instances(body)));
     }
 
     static string Write(Node tree, BodyLanguage lang = BodyLanguage.Fbd) => Write(Net(tree), lang);
@@ -158,17 +158,14 @@ public class NextNetworkTextWriterTests
             Write(Fb("fb", new[] { In(L("fc_dinttotime(T.Start,2)"), "P") })));
     }
 
-    /// <summary>Grammar: an lvalue is a token or a backtick (<c>`arr[i + 1]` := x;</c>, <c>`a .b` := x;</c>),
-    /// and an instance that is not a token is a backticked call head (<c>`fbs[1]`(IN := a)</c>) — where the
-    /// declarations name it, since the text takes an FB's type from there.</summary>
+    /// <summary>Grammar: an lvalue is a token or a backtick (<c>`arr[i + 1]` := x;</c>, <c>`a .b` := x;</c>). An FB
+    /// instance whose text is an expression (<c>fbs[1]</c>) is declared by no name, so its call has no type to read
+    /// back and goes to the marker (<c>NextWriterReaderAgreementTests</c>).</summary>
     [Fact]
-    public void Lvalues_and_call_heads_are_backticked_by_the_same_rule()
+    public void Lvalues_that_are_not_one_token_are_backticked()
     {
         Assert.Equal(Body("`arr[i + 1]` := x;"), Write(Set(L("x"), T("arr[i + 1]"))));
         Assert.Equal(Body("`a .b` := x;"), Write(Set(L("x"), T("a .b"))));
-        Assert.Equal(Body("`fbs[1]`(IN := a);"), NextNetworkTextWriter.Write(
-            new NetworkBody(BodyLanguage.Fbd, new[] { Net(Fb("fbs[1]", new[] { In(L("a"), "IN") })) }),
-            new NextNetworkScope(new[] { "a" }, new Dictionary<string, string> { ["fbs[1]"] = "FB" })));
     }
 
     [Fact]
@@ -506,8 +503,11 @@ public class NextNetworkTextWriterTests
     public void A_wire_is_typed_from_its_producer_and_never_guessed()
     {
         var add = Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, types: new[] { "INT" });
+        // The comparisons are consumed by their main output, slot 0, as the vendor stores them (census 1.6) — the
+        // slot the group reads back.
         Assert.Equal(Body("VAR_TEMP g1 : INT; END_VAR", "g1 := ADD(X := a, b);", "o1 := (g1 > c);", "o2 := (g1 < d);"),
-            Write(Net(Def(1, add), Set(Op("GT", Ref(1), L("c")), T("o1")), Set(Op("LT", Ref(1), L("d")), T("o2")))));
+            Write(Net(Def(1, add), Set(Call("GT", new[] { In(Ref(1)), In(L("c")) }, connected: 0), T("o1")),
+                Set(Call("LT", new[] { In(Ref(1)), In(L("d")) }, connected: 0), T("o2")))));
 
         var untyped = Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0);
         Assert.Equal("a wire of unknown type", Refused(() => Write(Net(Def(1, untyped), Set(Ref(1), T("o"))))).Marker);
@@ -658,16 +658,16 @@ public class NextNetworkTextWriterTests
             instance: new Operand("SUPER^", IsInstance: true), kind: CallKind.FunctionBlock);
         Assert.Equal("an FB instance the declarations do not name",
             Refused(() => NextNetworkTextWriter.Write(new NetworkBody(BodyLanguage.Fbd, new[] { Net(super) }),
-                new NextNetworkScope(new[] { "ioAxis" }, new Dictionary<string, string>()))).Marker);
+                new NextNetworkScope(new[] { "ioAxis" }, Array.Empty<string>(), new Dictionary<string, string>()))).Marker);
         var path = Call("TON", new[] { In(L("a"), "IN") }, main: null,
             instance: new Operand("st.fbT", IsInstance: true), kind: CallKind.FunctionBlock);
         Assert.Equal("an FB instance the declarations do not name",
             Refused(() => NextNetworkTextWriter.Write(new NetworkBody(BodyLanguage.Fbd, new[] { Net(path) }),
-                new NextNetworkScope(new[] { "st", "a" }, new Dictionary<string, string>()))).Marker);
+                new NextNetworkScope(new[] { "st", "a" }, Array.Empty<string>(), new Dictionary<string, string>()))).Marker);
         // Declared with another type: the reader would take the declaration's.
         Assert.Equal("an FB instance declared with another type",
             Refused(() => NextNetworkTextWriter.Write(new NetworkBody(BodyLanguage.Fbd, new[] { Net(Fb("t1", new[] { In(L("a"), "IN") }, type: "TON")) }),
-                new NextNetworkScope(Array.Empty<string>(), new Dictionary<string, string> { ["t1"] = "TOF" }))).Marker);
+                new NextNetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["t1"] = "TOF" }))).Marker);
     }
 
     /// <summary>The vendor's stored output type is the wire's type: a bitwise AND on WORDs feeding a wire is a

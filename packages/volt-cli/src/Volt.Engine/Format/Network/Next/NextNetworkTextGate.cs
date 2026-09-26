@@ -47,10 +47,17 @@ public static class NextNetworkTextGate
             // The text reads, and the model it reads to has a fact the writer has no spelling for — the refusal
             // a pull turns into the marker, raised here by name so the push never reaches the IDE. Reported where
             // the engineer wrote it: the construct the writer was on, else the network's header.
+            // Both are always there: the writer records the network of every refusal, the reader marks every node
+            // the writer can name, and a body that read has one header per network. A miss is a Volt defect, and
+            // reporting it at 1:1 would blame the engineer's first line for it.
             var (offset, length) =
-                e.At is not null && trace.Spans.TryGetValue(e.At, out var span) ? span
-                : e.Network is { } n && n < trace.Headers.Count ? (trace.Headers[n].Offset, trace.Headers[n].Length)
-                : (0, 1);
+                e.At is not null
+                    ? trace.Spans.TryGetValue(e.At, out var span) ? span
+                      : throw new InvalidOperationException(
+                          $"network text v2: the writer refused a node the reader did not mark ({e.At.GetType().Name}): {e.Message}")
+                    : e.Network is { } n && n < trace.Headers.Count ? (trace.Headers[n].Offset, trace.Headers[n].Length)
+                    : throw new InvalidOperationException(
+                        $"network text v2: the writer refused network {e.Network?.ToString() ?? "(none)"}, which the reader did not read: {e.Message}");
             var (line, col) = lexer!.LineCol(offset);
             return new NextGateResult(null, new[]
             {

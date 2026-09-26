@@ -22,7 +22,9 @@ public class NextNetworkTextGateTests
     static NextGateResult Gate(string text, NextNetworkScope? scope = null, BodyLanguage lang = BodyLanguage.Fbd) =>
         NextNetworkTextGate.Validate(text, lang, scope ?? NextNetworkScope.Empty);
 
-    static NextNetworkScope Names(params string[] names) => new(names, new Dictionary<string, string>());
+    static NextNetworkScope Names(params string[] names) => new(names, Array.Empty<string>(), new Dictionary<string, string>());
+
+    static NextNetworkScope Pous(params string[] pous) => new(Array.Empty<string>(), pous, new Dictionary<string, string>());
 
     /// <summary>The body is refused with exactly one finding, of <paramref name="code"/>, on <paramref name="line"/>.</summary>
     static NextNetworkTextDiagnostic Refused(string code, int line, string text, NextNetworkScope? scope = null, BodyLanguage lang = BodyLanguage.Fbd)
@@ -110,7 +112,7 @@ public class NextNetworkTextGateTests
     public void Layout_is_not_a_difference()
     {
         var pins = Enumerable.Range(1, 30).Select(i => $"P{i} := v{i}").ToArray();
-        var scope = new NextNetworkScope(Array.Empty<string>(), new Dictionary<string, string> { ["fb"] = "FB_Big" });
+        var scope = new NextNetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["fb"] = "FB_Big" });
         Accepted(Fbd + "NETWORK\n  fb(\n      " + string.Join(",\n      ", pins) + "\n  );\nEND_NETWORK\n", scope);
         Accepted(Fbd + "NETWORK\nout:=((a AND b)OR c);\nEND_NETWORK\n");
     }
@@ -263,12 +265,17 @@ public class NextNetworkTextGateTests
     public void A_backtick_inside_backticked_text() =>
         Assert.Contains("backtick", Refused("NETWORK_UNSUPPORTED", 3, Src("out := `a`b`;")).Message);
 
-    /// <summary>Spec, "a POU named like an edge word".</summary>
+    /// <summary>Spec, "a POU named like an edge word": a POU or an FB instance of that name — a variable of it
+    /// never heads a call, and blocks nothing.</summary>
     [Fact]
     public void A_POU_or_instance_named_like_a_construct()
     {
-        Refused("NETWORK_UNSUPPORTED", 3, Src("out := R_EDGE(x);"), Names("R_EDGE"));
-        Refused("NETWORK_UNSUPPORTED", 3, Src("out := PARALLEL(a, b);"), Names("Parallel"));
+        Refused("NETWORK_UNSUPPORTED", 3, Src("out := R_EDGE(x);"), Pous("R_EDGE"));
+        Refused("NETWORK_UNSUPPORTED", 3, Src("out := PARALLEL(a, b);"), Pous("Parallel"));
+        Refused("NETWORK_UNSUPPORTED", 3, Src("out := F_EDGE(x);"),
+            new NextNetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["f_edge"] = "F_TRIG" }));
+        Accepted(Src("out := R_EDGE(x);"), Names("R_EDGE"));
+        Accepted(Src("out := PARALLEL(a, b);"), Names("Parallel"));
     }
 
     [Fact]

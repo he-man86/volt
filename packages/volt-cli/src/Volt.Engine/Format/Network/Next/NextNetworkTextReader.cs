@@ -12,15 +12,20 @@ namespace Volt.Engine.Format.Network.Next;
 /// <c>openspec/changes/network-text-literal-nwl</c>; the inverse of <see cref="NextNetworkTextWriter"/>, built
 /// BESIDE the v1 reader, which keeps serving every caller until the swap.
 ///
-/// <para><b>Recursive descent, one token of lookahead, no post-pass over the model.</b> Each statement becomes
-/// exactly one NWL item as it is read; nothing is hoisted, re-inlined, counted or resolved afterwards. Two things
-/// look further without building anything: after an operator word the lexer scans the pair that follows for an
-/// operator (parentheses decide group vs argument list), and at END_NETWORK each wire's declared type is CHECKED
-/// against its producer, because a leaf's type is decided by the uses below its definition. The only state that
-/// crosses statements is the network's wire set, and it is decided by the <c>VAR_TEMP</c> declaration alone: a
-/// declared name's assignment DEFINES a Demux, every other use of it REFERENCES one, and any other assignment is
-/// an Assign. v1 decided the same thing by use count and name prefix, which is how a coil on a real variable
-/// could silently become a wire.</para>
+/// <para><b>Recursive descent, one token of lookahead; the model is built as it is read and never rebuilt.</b>
+/// Each statement becomes exactly one NWL item as it is read; nothing is hoisted, re-inlined or resolved
+/// afterwards. The only state that crosses statements is the network's wire set, and it is decided by the
+/// <c>VAR_TEMP</c> declaration alone: a declared name's assignment DEFINES a Demux, every other use of it
+/// REFERENCES one, and any other assignment is an Assign. v1 decided the same thing by use count and name prefix,
+/// which is how a coil on a real variable could silently become a wire.</para>
+///
+/// <para><b>What looks further, and why.</b> After an operator word the lexer scans the pair that follows for an
+/// operator (parentheses decide group vs argument list). At END_NETWORK three checks run over what the network
+/// read, each because its fact lies below the point it is about: a declared wire never defined; each wire's
+/// declared type against its producer — a leaf's type is decided by its uses, which
+/// <see cref="NextSpelling.ProducerType"/> counts across the network; and a wire name that some later statement
+/// also spells as another name (a call head, backticked text, a target, a label). None of them changes the
+/// model — each only reports.</para>
 ///
 /// <para><b>Bad input is a diagnostic, never an exception.</b> Every finding carries a <c>NETWORK_*</c> code and a
 /// span, and a failed network does not hide the next one's findings. What the reader cannot know from the text —
@@ -542,7 +547,7 @@ public static class NextNetworkTextReader
         {
             var kw = Next();
             var rising = kw.Is("R_EDGE");
-            if (_scope.Contains(kw.Text))
+            if (NextSpelling.ConstructTaken(kw.Text, _scope))
                 throw Err(kw, ConflictCodes.NetworkUnsupported,
                     $"a POU or instance named {kw.Text.ToUpperInvariant()}: the text reads {kw.Text.ToUpperInvariant()}(…) as the edge flag, so the call has no spelling.");
             ExpectSym("(", $"{kw.Text.ToUpperInvariant()}(x)");
@@ -566,7 +571,7 @@ public static class NextNetworkTextReader
             {
                 case TokKind.Sym when t.Text == "(":
                     Next();
-                    return PVal.Of(Mark(ParseGroupRest(t, Resolve(ParseValue(consumed: true), consumed: true)), t.Offset), t);
+                    return PVal.Of(Mark(ParseGroupRest(t, Resolve(ParseValue(consumed: true), consumed: true), consumed), t.Offset), t);
 
                 case TokKind.Unnamed:
                     Next();
@@ -624,8 +629,9 @@ public static class NextNetworkTextReader
 
         /// <summary>A group's remainder, after <c>(</c> and its first operand: one operator kind, then <c>)</c>.
         /// Every pair of parentheses is exactly one box, so a pair holding no operator is refused, not read as
-        /// grouping.</summary>
-        private Box ParseGroupRest(Tok open, Node first)
+        /// grouping. A consumed group is connected by its main output, read by the one slot rule a call's is
+        /// (<see cref="NextSpelling.MainSlotOfCall"/>) — the group and the call form of one box are one model.</summary>
+        private Box ParseGroupRest(Tok open, Node first, bool consumed)
         {
             var op = Peek();
             if (!IsOperator(op))
@@ -647,7 +653,10 @@ public static class NextNetworkTextReader
             }
             if (!Peek().IsSym(")")) throw NotAnOperator(Peek());
             Next();
-            return new Box(FbdOperators.SymbolToType[sym], null, CallKind.Operator, inputs, new List<Output>(), null, null, Flags.None);
+            var type = FbdOperators.SymbolToType[sym];
+            var connected = consumed ? NextSpelling.MainSlotOfCall(type) : null;
+            return new Box(type, null, CallKind.Operator, inputs, new List<Output>(), null, null, Flags.None,
+                MainOutputIndex: connected, ConnectedSlot: connected);
         }
 
         private ParseError NotAnOperator(Tok t) =>
@@ -668,7 +677,7 @@ public static class NextNetworkTextReader
             var v = ParseValue(consumed: true, defer: true);
             if (v.Bare is not null && (Peek().IsSym(":=") || Peek().IsSym("=>"))) return ParseCall(not, null, null, consumed, v);
             if (IsOperator(Peek()))
-                return WithFlags(ParseGroupRest(open, Resolve(v, consumed: true)), f => f with { Negated = true });
+                return WithFlags(ParseGroupRest(open, Resolve(v, consumed: true), consumed), f => f with { Negated = true });
             return ParseCall(not, null, null, consumed, v);
         }
 
@@ -729,6 +738,12 @@ public static class NextNetworkTextReader
             }
             else
             {
+                if (!NextSpelling.IsName(head.Text))
+                    // A function is a POU and has a name. A head that is none (`fbs[1]`, `SUPER^`) is an FB instance
+                    // whose declaration the scope does not name, and read as a function it would push a box of a type
+                    // no POU has in place of the instance call.
+                    throw Err(head, ConflictCodes.NetworkUnsupported,
+                        $"an FB instance the declarations do not name: '{head.Text}' is no POU name, and no declaration names it an instance, so its type is unknown.");
                 type = head.Text;
                 AddOtherWords(head, head.Text);
             }
@@ -742,15 +757,15 @@ public static class NextNetworkTextReader
             // connected to; positional pins fill the rest in order. A box consumed WITHOUT `.ENO` is connected by its
             // main output, which the text reads by NextSpelling.MainSlotOfCall — slot 0, or no stored slot for a
             // bit operator — and the writer refuses every box that reading would get wrong.
-            int? enoSlot = hadEn ? 0 : null;
-            int? connected = eno ? 0 : consumed ? NextSpelling.MainSlotOfCall(type) : null;
+            var enoSlot = NextSpelling.EnoSlot(isExecute: false, hasEnable: hadEn);
+            int? connected = eno ? enoSlot : consumed ? NextSpelling.MainSlotOfCall(type) : null;
             var next = 0;
             var built = new List<Output>();
             foreach (var (formal, target, positional) in outputs)
             {
                 if (!positional) { built.Add(new Output(formal, new Operand(LValueText(target!.Value), IsLValue: true), null)); continue; }
-                while (next == enoSlot || next == connected) next++;
-                var slot = next++;
+                var slot = NextSpelling.NextFreeSlot(next, enoSlot, connected);
+                next = slot + 1;
                 if (target is { } tt) built.Add(new Output(null, new Operand(LValueText(tt), IsLValue: true), slot));
             }
 
@@ -815,7 +830,7 @@ public static class NextNetworkTextReader
         private Parallel ParseParallel()
         {
             var kw = Next();
-            if (_scope.Contains(kw.Text))
+            if (NextSpelling.ConstructTaken(kw.Text, _scope))
                 throw Err(kw, ConflictCodes.NetworkUnsupported,
                     "a POU or instance named PARALLEL: the text reads PARALLEL(…) as the parallel branch, so the call has no spelling.");
             ExpectSym("(", "PARALLEL([IN := feed,] b1, b2, …)");
@@ -897,7 +912,8 @@ public static class NextNetworkTextReader
             if (!consumed && eno)
                 throw Err(kw, ConflictCodes.NetworkBadExpression, "`.ENO` on an EXECUTE box nothing consumes.");
             return new Box(NextSpelling.ExecuteType, null, NextSpelling.KindOf(NextSpelling.ExecuteType, false),
-                new List<Input>(), new List<Output>(), en, snippet.Text, Flags.None, ConnectedSlot: eno ? 0 : null);
+                new List<Input>(), new List<Output>(), en, snippet.Text, Flags.None,
+                ConnectedSlot: eno ? NextSpelling.EnoSlot(isExecute: true, hasEnable: en is not null) : null);
         }
 
         /// <summary>The <c>.ENO</c> rule. Until census 1.6 shows an enabled box connected by its main output, a
@@ -983,13 +999,9 @@ public static class NextNetworkTextReader
                 if (!_byId.TryGetValue(d.VarId, out var w)) continue;
                 var produced = NextSpelling.ProducerType(d.Input!, d.VarId, trees, _lang,
                     id => _byId.TryGetValue(id, out var o) ? o.Type : null);
-                if (produced.Exact is { } exact && !string.Equals(exact, w.Type, StringComparison.OrdinalIgnoreCase))
+                if (NextSpelling.Disagreement(produced, w.Type) is { } says)
                     Diagnostics.Add(Diag(ConflictCodes.NetworkBadExpression,
-                        $"the wire {w.Name} is declared {w.Type} and its producer is {exact}.", w.Decl.Offset, w.Decl.Length));
-                else if (produced.AnyBit && !NextSpelling.BitStrings.Contains(w.Type))
-                    Diagnostics.Add(Diag(ConflictCodes.NetworkBadExpression,
-                        $"the wire {w.Name} is declared {w.Type} and its producer is a bit operator, whose result is BOOL or " +
-                        "another bit string (BYTE, WORD, DWORD, LWORD).", w.Decl.Offset, w.Decl.Length));
+                        $"the wire {w.Name} is declared {w.Type} and its producer is {says}.", w.Decl.Offset, w.Decl.Length));
             }
         }
 

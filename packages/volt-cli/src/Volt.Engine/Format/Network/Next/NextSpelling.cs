@@ -43,6 +43,18 @@ internal static class NextSpelling
     public static readonly HashSet<string> ConstructWords = new(StringComparer.OrdinalIgnoreCase)
         { "R_EDGE", "F_EDGE", "PARALLEL" };
 
+    /// <summary>A name a declaration makes and a call can head: an identifier, or a qualified one
+    /// (<c>GVL.fbTimer</c>, <c>Lib.F</c>). Not an expression — <c>fbs[1]</c>, <c>SUPER^</c> — which names no POU and
+    /// is declared by no name.</summary>
+    public static bool IsName(string t) => Identifier.IsMatch(t) || Path.IsMatch(t);
+
+    /// <summary>Whether a call of the text would read the construct word <paramref name="word"/> as something else
+    /// than the construct: a POU or an FB instance in scope is named so (case-insensitively, as IEC names are). A
+    /// VARIABLE of that name is not a reason — it never heads a call, and as an operand it is backticked — so both
+    /// sides ask the scope the one question, never "is the name anywhere in scope".</summary>
+    public static bool ConstructTaken(string word, NextNetworkScope scope) =>
+        ConstructWords.Contains(word) && scope.IsCallable(word);
+
     /// <summary>Whether <paramref name="t"/> is exactly one token of the text, so it may stand bare.</summary>
     public static bool IsToken(string t) =>
         t == Box.UnnamedInstance ||
@@ -53,7 +65,41 @@ internal static class NextSpelling
     /// operator's own. Anything else is written verbatim between backticks — a type <c>Network</c> written bare
     /// would open a network at a line start.</summary>
     public static bool IsBareHead(string type) =>
-        (Identifier.IsMatch(type) || Path.IsMatch(type)) && (!TextWords.Contains(type) || OperatorHeads.Contains(type));
+        IsName(type) && (!TextWords.Contains(type) || OperatorHeads.Contains(type));
+
+    /// <summary>Whether an assignment or <c>=&gt;</c> target may stand bare: a name that is no word of the text,
+    /// the vendor's <c>???</c>, or an address. A literal (<c>5</c>, <c>16#FF</c>, <c>T#1s</c>) is a token at operand
+    /// position but no target token — the reader refuses a bare literal where a target stands — so a target
+    /// holding one is backticked like any other text that is not a target token.</summary>
+    public static bool IsBareTarget(string t) =>
+        t == Box.UnnamedInstance || Address.IsMatch(t) || (IsName(t) && !TextWords.Contains(t));
+
+    /// <summary>Whether <paramref name="type"/> can be written into a <c>VAR_TEMP</c> declaration and read back as
+    /// itself: decided by the text's own lexer, so it is the reader's rule and not a copy of it. The reader takes the
+    /// tokens up to the declaration's <c>;</c>, so a <c>;</c>, a <c>//</c> comment, a backtick, a string, an
+    /// <c>END_VAR</c> or a lexical error inside the type would end, swallow or break the block; and the block is
+    /// one line, so a newline has no place in it.</summary>
+    public static bool IsSpellableType(string type)
+    {
+        if (type.Trim().Length == 0 || type.IndexOfAny(new[] { '\n', '\r' }) >= 0) return false;
+        var lx = new NextLexer(type, 0);
+        for (var t = lx.Next(); t.Kind != TokKind.Eof; t = lx.Next())
+        {
+            var ok = t.Kind switch
+            {
+                TokKind.Word => !t.Is("END_VAR"),
+                TokKind.Number or TokKind.Typed or TokKind.Address => true,
+                TokKind.Sym => t.Text != ";",
+                _ => false,
+            };
+            if (!ok) return false;
+        }
+        return true;
+    }
+
+    /// <summary>The Parallel modes measured on a real project (census 1.3: <c>BoxShortCircuit</c> 16,
+    /// <c>Sequential</c> 1). Any other value is unmeasured and refused by both sides, never written as a number.</summary>
+    public static bool IsMeasuredMode(ParallelMode m) => m is ParallelMode.BoxShortCircuit or ParallelMode.Sequential;
 
     private static readonly Regex WordPattern = new(@"[A-Za-z_][A-Za-z0-9_]*", RegexOptions.Compiled);
 
@@ -78,28 +124,49 @@ internal static class NextSpelling
     public static readonly HashSet<string> BitOperators = new(StringComparer.OrdinalIgnoreCase)
         { "AND", "OR", "XOR", "NOT" };
 
-    /// <summary>Infix is decided by the box's own fields alone: an operator in the table spelled as the table spells
-    /// it (a head is the BoxType verbatim, and a group reads back as the table's word — <c>and</c> must stay a
-    /// call), no EN, no instance, no output pin, formals absent or the operator's defaults, at least two inputs
-    /// (with fewer, the group's parentheses would be a pair that is no box), and no stored connection slot — a
-    /// group says nothing about one, so a box connected by a stored slot is written as the call that does.</summary>
+    /// <summary>Infix is decided by the box's own fields alone (spec, "infix treats absent and default formals as
+    /// one"): an operator in the table spelled as the table spells it (a head is the BoxType verbatim, and a group
+    /// reads back as the table's word — <c>and</c> must stay a call), no EN, no instance, no output pin, formals
+    /// absent or the operator's defaults, and at least two inputs (with fewer, the group's parentheses would be a
+    /// pair that is no box). The connection slot plays no part: a group and a call say the same about it, and both
+    /// are read by <see cref="MainSlotOfCall"/> — so the slot a consumer is connected to never decides the
+    /// spelling, and a box whose slot that reading would get wrong is refused whichever form it would take.</summary>
     public static bool IsInfix(Box b) =>
-        b.Enable is null && b.Instance is null && b.Outputs.Count == 0 && b.StCode is null && b.ConnectedSlot is null &&
+        b.Enable is null && b.Instance is null && b.Outputs.Count == 0 && b.StCode is null &&
         FbdOperators.TypeToSymbol.ContainsKey(b.Type) &&
         string.Equals(b.Type, b.Type.ToUpperInvariant(), StringComparison.Ordinal) && b.Inputs.Count >= 2 &&
         b.Inputs.Select((p, i) => p.Formal is null ||
                                   string.Equals(p.Formal, "IN" + (i + 1), StringComparison.OrdinalIgnoreCase)).All(x => x);
 
     /// <summary>
-    /// THE SLOT READING of a box consumed by its main output (no <c>.ENO</c>), which the text does not spell and so
-    /// fixes by rule — the writer refuses every box the rule would misread. A bit operator's call form stores no
-    /// slot (census 1.6: the vendor keeps no main output index on AND/OR, and phase 1 reads their consumers as
-    /// connected by none); every other box is connected by its main output and that output is slot 0 (spec, "err
-    /// reads back on slot 1"; census 1.6: 0 on 456 boxes). Positional <c>=&gt;</c> pins fill the slots that remain,
-    /// so a box whose main output is another slot (census: 1 on 3 Lenze call boxes) would read back with every
-    /// positional output moved — which is why it is refused, not renumbered.
+    /// THE SLOT READING of a box consumed by its main output (no <c>.ENO</c>), in call form or as a group, which the
+    /// text does not spell and so fixes by rule — the writer refuses every box the rule would misread. A bit
+    /// operator stores no slot (census 1.6: the vendor keeps no main output index on AND/OR, and their consumers
+    /// are read as connected by none); every other box is connected by its main output and that output is slot 0
+    /// (spec, "err reads back on slot 1"; census 1.6: 0 on 456 boxes). Positional <c>=&gt;</c> pins fill the slots
+    /// that remain, so a box whose main output is another slot (census: 1 on 3 Lenze call boxes) would read back
+    /// with every positional output moved — which is why it is refused, not renumbered.
     /// </summary>
     public static int? MainSlotOfCall(string type) => BitOperators.Contains(type) ? null : 0;
+
+    /// <summary>The ENO slot: output slot 0 of a box that shows EN/ENO (<see cref="Box.HasEnoSlot"/>, measured), and
+    /// the ONLY output of an Execute box, which has ENO whether or not its EN is wired. ENO is never an <c>=&gt;</c>
+    /// slot, and a consumer connected to it is written <c>.ENO</c>.</summary>
+    public static int? EnoSlot(bool isExecute, bool hasEnable) => isExecute || hasEnable ? 0 : null;
+
+    public static int? EnoSlot(Box b) => EnoSlot(b.StCode is not null, b.Enable is not null);
+
+    /// <summary>Whether a consumer of <paramref name="b"/> is connected to its ENO — the <c>.ENO</c> suffix.</summary>
+    public static bool ConnectedByEno(Box b) => b.ConnectedSlot is { } c && c == EnoSlot(b);
+
+    /// <summary>The first output slot at or after <paramref name="from"/> a positional <c>=&gt;</c> pin can fill:
+    /// ENO and the slot a consumer is connected to are skipped, the rest fill in order. The writer spells a pin by
+    /// counting these and the reader places one by them — one rule, so the two cannot count differently.</summary>
+    public static int NextFreeSlot(int from, int? eno, int? connected)
+    {
+        while (from == eno || from == connected) from++;
+        return from;
+    }
 
     /// <summary>The box's <see cref="CallKind"/> as the TEXT determines it. The text does not carry the vendor's
     /// <c>CallType</c> (a MOVE the IDE resolved reads <c>Operator</c>, the same box freshly built reads
@@ -157,7 +224,7 @@ internal static class NextSpelling
             case Demux d:
                 return wireType(d.VarId) is { } t ? ProducedType.Of(t) : ProducedType.Nothing;
             case Box b:
-                if (b.StCode is not null || (b.Enable is not null && b.ConnectedSlot == 0)) return ProducedType.Of(Bool);
+                if (b.StCode is not null || ConnectedByEno(b)) return ProducedType.Of(Bool);
                 // A box with ONE output slot has only one slot a consumer can be connected to.
                 var slot = b.ConnectedSlot ?? (b.OutputTypes is { Count: 1 } ? 0 : (int?)null);
                 if (slot is { } s && b.OutputTypes is { } types && s < types.Count && types[s] is { } stored)
@@ -170,7 +237,19 @@ internal static class NextSpelling
         }
     }
 
-    /// <summary>Whether wire <paramref name="varId"/> is referenced at least once and only where a BOOL is taken.</summary>
+    /// <summary>How <paramref name="p"/> disagrees with a DECLARED type — what the producer says instead — or null
+    /// when they agree. The writer refuses a model whose declaration disagrees, and the reader reports one: the same
+    /// comparison, so the two cannot differ on which declarations a producer allows.</summary>
+    public static string? Disagreement(ProducedType p, string declared) =>
+        p.Exact is { } exact
+            ? string.Equals(exact, declared, StringComparison.OrdinalIgnoreCase) ? null : exact
+            : p.AnyBit && !BitStrings.Contains(declared)
+                ? "a bit operator, whose result is BOOL or another bit string (BYTE, WORD, DWORD, LWORD)"
+                : null;
+
+    /// <summary>Whether wire <paramref name="varId"/> is referenced at least once and only where a BOOL is taken.
+    /// A walk over the whole network per leaf-fed wire: a leaf's type is decided by its USES, the one fact of a
+    /// wire that lies below its definition.</summary>
     private static bool EveryUseIsBoolean(int varId, IReadOnlyList<Node> network, BodyLanguage lang)
     {
         var any = false;

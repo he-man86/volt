@@ -56,7 +56,7 @@ internal static class NextModels
     /// <summary>The scope a model's text needs to be read back: its FB instances (the declarations would carry
     /// them) plus <paramref name="names"/>.</summary>
     public static NextNetworkScope ScopeOf(NetworkBody body, params string[] names) =>
-        new(names, NextModelOracle.Instances(body));
+        new(names, Array.Empty<string>(), NextModelOracle.Instances(body));
 
     /// <summary>Every model <c>NextNetworkTextWriterTests</c> writes without refusing, by the test that pins it.</summary>
     public static readonly IReadOnlyDictionary<string, NetworkBody> WriterGoldens = BuildGoldens();
@@ -144,7 +144,8 @@ internal static class NextModels
         }), BodyLanguage.Ld));
         Add("wires.single-consumer", Body(Net(Def(28, Op("AND", L("a"), L("b"))), Set(Ref(28), T("out")))));
         Add("wires.typed-box", Body(Net(Def(1, Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, types: new[] { "INT" })),
-            Set(Op("GT", Ref(1), L("c")), T("o1")), Set(Op("LT", Ref(1), L("d")), T("o2")))));
+            Set(Call("GT", new[] { In(Ref(1)), In(L("c")) }, connected: 0), T("o1")),
+            Set(Call("LT", new[] { In(Ref(1)), In(L("d")) }, connected: 0), T("o2")))));
         Add("wires.ld-leaf", Body(Net(Def(1, L("x")), Set(Ref(1), T("o"))), BodyLanguage.Ld));
         Add("wires.several-types", Body(Net(Def(1, L("TRUE")),
             Def(2, Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, types: new[] { "INT" })),
@@ -153,6 +154,10 @@ internal static class NextModels
             Set(new Parallel(Ref(54), new Node[] { L("StartFlag"), L("tResetSafetyGuard") }, Flags.None), T("ResetSafetyGuard", SetBit)))));
         Add("parallel.unfed", Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, Flags.None), T("out"))));
         Add("parallel.unwired-feed", Body(Set(new Parallel(Empty, new Node[] { L("a"), L("b") }, Flags.None), T("out"))));
+        Add("infix.consumed-comparison", Body(Set(Call("GT", new[] { In(L("a")), In(L("b")) }, connected: 0), T("o"))));
+        Add("infix.consumed-arithmetic", Body(Set(Call("ADD", new[] { In(L("a")), In(L("b")) }, connected: 0), T("out"))));
+        Add("targets.literal", Body(Net(Set(L("a"), T("5")), Set(L("a"), T("16#FF")), Call("F", new[] { In(L("a")) }, new[] { Out("T#1s", 0) }))));
+        Add("empty.lone-beside-output", Body(Call("f", new[] { In(Empty) }, new[] { Out("x", 0) })));
         Add("parallel.sequential", Body(Set(new Parallel(L("f"), new Node[] { L("a"), L("b") }, Flags.None, ParallelMode.Sequential), T("out"))));
         return g;
     }
