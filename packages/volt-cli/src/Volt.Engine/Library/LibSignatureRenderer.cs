@@ -101,24 +101,14 @@ public static class LibSignatureRenderer
                 // BOOL and the engineer is told their correct code is wrong (or their wrong code is fine). That
                 // much stands.
                 //
-                // What changed is the OTHER branch. This used to throw, on the reading that a return-less
-                // FUNCTION is "an object-model failure". Measured, it is not: `AppendErrorString` and `ConcatX`
-                // (analyzation 4.1.0.0) are real, well-formed CODESYS OPERATORS — POUType is
-                // `LanguageModel.Operator.Function`, `Flags` is `None`, they carry two VAR_IN_OUT and no return
-                // at all, and both are marked `{attribute 'hide'}`. IEC has no void FUNCTION, so there is no
-                // honest text for one; the previous behaviour turned that into a thrown exception that took the
-                // WHOLE fetch with it — 593 items to zero because of two hidden operators nobody can call.
-                //
-                // So: skip, via the null this method already returns for a kind it does not materialize.
-                // `FetchService` counts those as `lib-render-null` and prints the tally, so it is a visible drop
-                // rather than a silent one. Exactly 2 of 588 library signatures hit this on the reference project.
-                //
-                // Skipping on `{attribute 'hide'}` instead was measured and rejected: 40 of 586 signatures carry
-                // it, including `SysFileOpen`/`SysFileRead`, which real code calls directly. Dropping those would
-                // make the LSP report unknown-identifier on valid programs — a worse failure than the crash.
-                if (ret is null) return null;
-                var rt = ret;
-                var lines = new[] { $"FUNCTION {name} : {rt}" }
+                // A FUNCTION WITH NO RETURN TYPE IS REAL CODESYS, and it renders as what it is: `FUNCTION name`.
+                // This was skipped (and before that thrown on) on the reading that IEC has no void FUNCTION, so
+                // there was no honest text for one. CODESYS has one — project source declares it and builds
+                // (lenze-mid's `Scale_Offset_Dint.fun`), and StringUtils' `StrTrimA`, `StrMidA` and `StrReplaceA`
+                // are return-less functions called as statements. Skipping them left names pro2193 calls
+                // unresolvable, which the LSP papered over with a hardcoded list of library names; that list is
+                // gone (a library is known through its materialization, nothing else).
+                var lines = new[] { ret is null ? $"FUNCTION {name}" : $"FUNCTION {name} : {ret}" }
                     .Concat(Block("VAR_INPUT", s.Inputs)).Concat(Block("VAR_OUTPUT", outs))
                     .Concat(Block("VAR_IN_OUT", s.InOuts)).Concat(new[] { "END_FUNCTION" });
                 return (".fun", string.Join("\n", lines));

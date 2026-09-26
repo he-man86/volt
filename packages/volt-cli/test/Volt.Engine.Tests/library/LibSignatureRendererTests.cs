@@ -40,33 +40,29 @@ public class LibSignatureRendererTests
         Assert.Equal("FUNCTION F : REAL\nEND_FUNCTION", r!.Value.Text);
     }
 
-    /// <summary>A library FUNCTION with NO return type — and no output named after itself — is SKIPPED, not
-    /// thrown on.
-    /// <para>This used to throw "has no readable return type — cannot render its signature", on the reading that
-    /// such a signature meant an object-model version mismatch. Measured against a live SP21 compile context, it
-    /// does not: `AppendErrorString` and `ConcatX` (analyzation 4.1.0.0) are real CODESYS OPERATORS — POUType
-    /// `LanguageModel.Operator.Function`, `Flags` `None` — carrying two VAR_IN_OUT and no return at all. IEC has
-    /// no void FUNCTION, so there is no honest text to emit for one.</para>
-    /// <para>The throw was not a cheap failure. `ExtractLibrarySignatures` renders every signature in one pass
-    /// during `fetch`, so ONE unrenderable operator aborted the whole thing: a project that referenced that
-    /// library fetched 0 items instead of 593. The blast radius is what makes skipping right — `Render` already
-    /// returns null for kinds it does not materialize, and `FetchService` tallies those as `lib-render-null`, so
-    /// this is a counted drop rather than a silent one.</para>
-    /// <para>Still NOT `?? "BOOL"`: inventing a return type would resolve and then lie at every call site. The
-    /// choice here is between skipping and crashing, never between skipping and guessing.</para></summary>
+    /// <summary>A library FUNCTION with NO return type renders as `FUNCTION name` — what CODESYS itself accepts.
+    /// <para>It was thrown on (a whole fetch lost to two hidden operators) and then skipped, both on the reading that
+    /// IEC has no void FUNCTION and so there is no honest text for one. CODESYS has one: project source declares
+    /// `FUNCTION Scale_Offset_Dint` with no type and builds (lenze-mid), and StringUtils' `StrTrimA`/`StrMidA`/
+    /// `StrReplaceA` are return-less functions real code calls as statements. Skipped, those left pro2193's calls
+    /// unresolvable, and the LSP had grown a hardcoded list of library names to hide it.</para>
+    /// <para>Still NOT `?? "BOOL"`: inventing a return type would resolve and then lie at every call site. No type
+    /// is the text, not a guess at one.</para></summary>
     [Fact]
-    public void Function_with_no_return_type_is_skipped_rather_than_throwing()
+    public void Function_with_no_return_type_renders_without_one()
     {
-        Assert.Null(LibSignatureRenderer.Render(Fn("APPENDERRORSTRING", new LibVar[0], null)));
+        var inouts = new[] { new LibVar("PSTRING", "POINTER TO STRING") };
+        var s = new LibSignature("STRTRIMA", "StringUtils", "Function", new LibVar[0], new LibVar[0], inouts, new LibVar[0], null, null);
+        Assert.Equal("FUNCTION STRTRIMA\nVAR_IN_OUT\n\tPSTRING : POINTER TO STRING;\nEND_VAR\nEND_FUNCTION", LibSignatureRenderer.Render(s)!.Value.Text);
     }
 
-    /// <summary>And a function whose outputs simply do not include a self-named pin is the same case — the skip
-    /// keys on "no return could be lifted", not on the pin list being empty.</summary>
+    /// <summary>And a function whose outputs do not include a self-named pin is the same case — those outputs stay
+    /// outputs, and no return is lifted out of them.</summary>
     [Fact]
-    public void Function_with_outputs_but_no_liftable_return_is_also_skipped()
+    public void Function_with_outputs_but_no_liftable_return_keeps_them_as_outputs()
     {
         var outs = new[] { new LibVar("STROLD", "STRING"), new LibVar("STRNEW", "STRING") };
-        Assert.Null(LibSignatureRenderer.Render(Fn("CONCATX", outs, null)));
+        Assert.Equal("FUNCTION CONCATX\nVAR_OUTPUT\n\tSTROLD : STRING;\n\tSTRNEW : STRING;\nEND_VAR\nEND_FUNCTION", LibSignatureRenderer.Render(Fn("CONCATX", outs, null))!.Value.Text);
     }
 
     // A DUT ALIAS (CODESYS `Flags == "Alias"`, e.g. `TYPE HANDLE : __XWORD`) must render as an alias, NOT an
