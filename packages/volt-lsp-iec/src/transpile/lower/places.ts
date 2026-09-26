@@ -8,7 +8,7 @@ import { defaultValueOf, elementOf, type IrExpr, peelArray, type Place } from ".
 import { boundName, Lowering, openDims } from "./lowering.js"
 import { binaryOf, convert } from "./convert.js"
 import { addressPlace, declareVars, storageOf, withStringCapacity } from "./storage.js"
-import { pointeePlace } from "./pointers.js"
+import { cursorChar, cursorString, pointeePlace } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 
 /**
@@ -143,8 +143,8 @@ export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): P
     if (field === undefined) return lw.bail(notAMember, "member access is not lowered yet", e.span)
     return { ...base, path: [...base.path, { kind: "field", name: field.name }], type: field.type, span: e.span }
   }
-  if (e.kind === "index") {
-    const indexed = lowerIndexed(lw, e, notAMember)
+  if (e.kind === "index" || (e.kind === "deref" && !isSelfRef(e))) {
+    const indexed = lowerAccess(lw, e, notAMember)
     if (indexed === undefined || "place" in indexed) return indexed?.place
     // `ADR(s[i])`, an in-out bound to it, `s[i] S= …`: a character is read out of a string value and stored back into
     // one (`char`/`setchar`), never a location of its own
@@ -157,12 +157,6 @@ export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): P
     if (lw.selfType.kind === "function_block" && lw.bodies.get(lw.selfType.name.toUpperCase())?.unit.kind === "program")
       return lw.bail("this-in-program", "THIS in a PROGRAM, which CODESYS does not compile", e.span)
     return { slot: 0, path: [], type: lw.selfType, span: e.span, root: "this" }
-  }
-  if (e.kind === "deref" && !isSelfRef(e)) {
-    const pointer = lowerPlace(lw, e.base, notAMember)
-    if (pointer === undefined) return undefined
-    if (pointer.type.kind !== "pointer") return lw.bail("place-shape", "a dereference of something that is not a pointer", e.span)
-    return pointeePlace(lw, pointer, undefined, e.span)
   }
   // `%IB8` / `%MW30` written with no variable on it — the process image itself (`addressPlace`, conformance
   // `ca_direct_address_expression`). It is a place, readable and writable, exactly as an `AT` variable is.
@@ -194,15 +188,26 @@ export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): P
 }
 
 /**
- * An index expression, lowered ONCE: an array element or a pointer's `p[i]` is a place; `s[i]` on a STRING or WSTRING is
- * a character — its string's place, the index, and the character's type (a BYTE, a WSTRING's WORD) — which a read turns
- * into `char` and a store into `setchar`. It is what the Standard library's string functions are written in
+ * An index or a dereference, lowered ONCE: an array element, a pointer's `p[i]` or `p^` is a place; `s[i]` on a STRING
+ * or WSTRING is a character — its string's place, the index, and the character's type (a BYTE, a WSTRING's WORD) — which
+ * a read turns into `char` and a store into `setchar`. So is `p^` or `p[i]` on a STRING CURSOR (`cursorChar`). It is what the Standard library's string functions are written in
  * (`libraries/Standard`). One walk decides both, so the base is never lowered twice (a probe that did, and threw its
  * diagnostics away, also threw away a GVL's declaration errors and the refusal of a call inside the index).
  */
 export type Indexed = { place: Place } | { char: { place: Place; index: IrExpr; unit: Type } }
 
-export function lowerIndexed(lw: Lowering, e: Extract<Expr, { kind: "index" }>, notAMember?: string): Indexed | undefined {
+export function lowerAccess(lw: Lowering, e: Extract<Expr, { kind: "index" | "deref" }>, notAMember?: string): Indexed | undefined {
+  if (e.kind === "deref") {
+    const pointer = lowerPlace(lw, e.base, notAMember)
+    if (pointer === undefined) return undefined
+    const char = cursorChar(lw, pointer, undefined, e.span)
+    if (char !== null) return { char }
+    const whole = cursorString(lw, pointer, e.span)
+    if (whole !== undefined) return { place: whole }
+    if (pointer.type.kind !== "pointer") return lw.bail("place-shape", "a dereference of something that is not a pointer", e.span)
+    const pointee = pointeePlace(lw, pointer, undefined, e.span)
+    return pointee && { place: pointee }
+  }
   let place = throughReference(lw, lowerPlace(lw, e.base, notAMember), e.base.span)
   // `s[i]` on a STRING or WSTRING — one character, a BYTE (a WSTRING's WORD), counted from 0
   const text = place?.type.kind === "elementary" && (place.type.name === "STRING" || place.type.name === "WSTRING") ? place.type.name : undefined
@@ -216,7 +221,10 @@ export function lowerIndexed(lw: Lowering, e: Extract<Expr, { kind: "index" }>, 
   if (place !== undefined && place.type.kind === "pointer") {
     if (e.indices.length !== 1) return lw.bail("pointer-index", "a pointer indexed in more than one dimension", e.span)
     const extra = lowerExpr(lw, e.indices[0]!)
-    const pointee = extra && pointeePlace(lw, place, extra, e.span)
+    if (extra === undefined) return undefined
+    const char = cursorChar(lw, place, extra, e.span)
+    if (char !== null) return { char }
+    const pointee = pointeePlace(lw, place, extra, e.span)
     return pointee && { place: pointee }
   }
   // an array: one `index` step per dimension, each carrying the bounds a backend normalises by

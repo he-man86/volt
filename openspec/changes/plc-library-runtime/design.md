@@ -93,6 +93,12 @@ compiled library**, kept as a repo the transpiler reads like any other source.
   fixtures pass against the ST unchanged, which makes CODESYS the oracle for the library's own code.
 - The only primitives are the language's: `s[i]` (`char`/`setchar`) and `TIME()`/`LTIME()`, read from a `__clock`
   global (LTIME, ns) the harness sets per scan.
+- A library written over POINTERS INTO STRINGS — StringUtils is nothing else — needed one pointer form more, the STRING
+  CURSOR (2026-09-26): a `POINTER TO BYTE` / `WORD` / `STRING` input a caller fills with a string's address binds that
+  string as a hidden VAR_IN_OUT of the caller's own type (the routine is lowered once per string type) and keeps its
+  byte offset as its value, exactly as an element pointer keeps its index. Its `p^` and `p[i]` are characters of the
+  bound string through the same `s[i]` primitive. It is form 2 with an offset, not a byte-addressable memory: a pointer
+  into anything but a string is still refused.
 
 **Not yet recorded:** the function-block bodies are the IEC definitions. Where CODESYS's own blocks decide an edge the
 standard leaves open — a counter at the top of its WORD, TP with a PT of 0, what RTC holds while EN is FALSE — the

@@ -60,8 +60,11 @@ test/
     properties.test.ts       the memory model as properties
     source-map.test.ts       every mapping names a Rust line that exists
   libraries/
-    standard.test.ts         the library repo's Standard: every body behind the exact materialized interface,
-                             the version lookup, and the FBs (timers over a harness clock) in both backends
+    repo.test.ts             every library and version the repo writes, held to the interface a corpus project
+                             that resolves that version materialized
+    standard.test.ts         Standard: the version lookup, and the FBs (timers over a harness clock) in both backends
+    util.test.ts             Util's BLINK — one repo library (Standard's TP) inside another — in both backends
+    stringutils.test.ts      the STR* functions over string cursors, their contract cases, in both backends
   corpus/
     corpus.test.ts           THE CORPUS - one walk, three questions: the LSP can read it, it invents nothing
                              (vs each project's recorded IDE build), and lowering is total over it

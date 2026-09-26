@@ -2,7 +2,7 @@
  * POINTER and REFERENCE (design §9 form 1): each variable's one target, the value naming it, and dereference.
  */
 import type { Expr, Span, Statement } from "../../syntax/index.js"
-import { elementaryRef, type Type } from "../../types/index.js"
+import { elemOf, elementaryRef, type Type } from "../../types/index.js"
 import { type IrExpr, type IrSelect, type IrStmt, peelArray, type Place } from "../ir/index.js"
 import type { Lowering, PointerTarget } from "./lowering.js"
 import { binaryOf, cast, convert } from "./convert.js"
@@ -280,8 +280,50 @@ export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undef
   return { ...target.base, path: [...target.base.path, step], type: target.element.type, guard: pointer, span }
 }
 
+/** The STRING CURSOR a pointer place is (`Lowering.cursors`) — a bare parameter of this routine — or undefined. */
+function cursorOf(lw: Lowering, pointer: Place): { inout: number; unit: Type } | undefined {
+  if (pointer.root !== "local" || pointer.path.length > 0) return undefined
+  const name = lw.localSlots[pointer.slot]?.name.toUpperCase()
+  return name === undefined ? undefined : lw.cursors.get(name)
+}
+
+/**
+ * A STRING CURSOR'S CHARACTER — `p^`, or `p[i]` with `extra` — as the string it walks, the character index and the
+ * character's type; null when `pointer` is no cursor. The pointer holds a BYTE offset + 1, as CODESYS pointer
+ * arithmetic counts bytes (`p + 1` is the next BYTE, `p + 2` the next WORD), while `p[i]` steps whole characters.
+ */
+export function cursorChar(lw: Lowering, pointer: Place, extra: IrExpr | undefined, span: Span): { place: Place; index: IrExpr; unit: Type } | null {
+  const cursor = cursorOf(lw, pointer)
+  if (cursor === undefined || elemOf(cursor.unit)?.family === "string") return null
+  const text: Place = { slot: cursor.inout, path: [], type: lw.inoutSlots[cursor.inout]!.type, span, root: "inout" }
+  const lint = elementaryRef("LINT")
+  const n = (value: bigint): IrExpr => ({ kind: "const", value, type: lint, span })
+  const width = elemOf(cursor.unit)?.name === "WORD" ? 2n : 1n
+  let index = binaryOf("sub", cast({ kind: "load", place: pointer, type: pointer.type, span }, lint), n(1n), lint, span)
+  if (width > 1n) index = binaryOf("div", index, n(width), lint, span)
+  if (extra !== undefined) index = binaryOf("add", index, convert(extra, lint), lint, span)
+  return { place: text, index, unit: cursor.unit }
+}
+
+/** The string a `POINTER TO STRING` cursor's `p^` is — the caller's own, bound whole — or undefined. */
+export function cursorString(lw: Lowering, pointer: Place, span: Span): Place | undefined {
+  const cursor = cursorOf(lw, pointer)
+  if (cursor === undefined || elemOf(cursor.unit)?.family !== "string") return undefined
+  return { slot: cursor.inout, path: [], type: lw.inoutSlots[cursor.inout]!.type, span, root: "inout" }
+}
+
 /** `p := <pointer value>` — its target recorded for every body that dereferences `p`. */
 export function storePointer(lw: Lowering, target: Place, value: Expr, span: Span): IrStmt | undefined {
+  // a STRING CURSOR moves along the string it walks and nowhere else: `p := p + n` / `p := p - n`, by bytes
+  if (cursorOf(lw, target) !== undefined) {
+    const stepped = value.kind === "binary" && (value.op === "+" || value.op === "-") ? value : undefined
+    const same = stepped?.left.kind === "ident_expr" && lw.localSlots[target.slot]?.name.toUpperCase() === stepped.left.name.toUpperCase()
+    if (stepped === undefined || !same) return lw.bail("pointer-value", "a string cursor given anything but itself stepped by bytes", span)
+    const bytes = lowerExpr(lw, stepped.right)
+    if (bytes === undefined) return undefined
+    const current: IrExpr = { kind: "load", place: target, type: target.type, span }
+    return { kind: "assign", target, value: binaryOf(stepped.op === "+" ? "add" : "sub", current, convert(bytes, target.type), target.type, span), span }
+  }
   const key = pointerKey(lw, target)
   if (key === undefined) return lw.bail("pointer-place", "a pointer stored somewhere this does not track", span)
   const stored = pointerValue(lw, value, target.type)

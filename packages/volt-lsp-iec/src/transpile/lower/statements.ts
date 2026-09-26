@@ -8,7 +8,7 @@ import { holdsCall } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 import { convert } from "./convert.js"
 import { foldConstant } from "./constants.js"
-import { lowerIndexed, lowerPlace, refuseOpenArray } from "./places.js"
+import { lowerAccess, lowerPlace, refuseOpenArray } from "./places.js"
 import { bindReference, nullDeref, pointerArms, pointeePlace, refuseConstantWrite, storePointer, through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 import { lowerCallStatement, lowerPropertySet } from "./calls.js"
@@ -119,9 +119,9 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
       // no new IR. Measured: `ptrhandle_write_either_target` picks its target in an IF and the 99 lands in b.
       const scattered = storeThrough(lw, s)
       if (scattered !== null) return scattered
-      const indexed = s.target.kind === "index" && s.op === undefined ? lowerIndexed(lw, s.target) : { place: lowerPlace(lw, s.target) }
+      const indexed = (s.target.kind === "index" || (s.target.kind === "deref" && !isSelfRef(s.target))) && s.op === undefined ? lowerAccess(lw, s.target) : { place: lowerPlace(lw, s.target) }
       if (indexed === undefined) return undefined
-      // `s[i] := c` — the string stored back with one character changed (`setchar`)
+      // `s[i] := c` or a cursor's `p^ := c` — the string stored back with one character changed (`setchar`)
       if ("char" in indexed) {
         const { place: text, index, unit } = indexed.char
         const c = lowerExpr(lw, s.value, unit)

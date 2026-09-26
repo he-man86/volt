@@ -38,9 +38,17 @@ unticked long after the code landed — `lowerStandardString` in `transpile/lowe
 - [x] Util's `BLINK` (3.5.19.0 and 3.5.21.0, the versions the corpus resolves) — the Util element real code calls
       most (44 sites); its phase timer is Standard's TP, so it is also one repo library running on another. One more
       corpus POU lowers (54 -> 55).
-- [ ] StringUtils — blocked on the memory model, not on writing it: every element takes a `CHARBUFFERPTR`
-      (`POINTER TO BYTE`) that callers fill with `ADR(someString)`, a byte view of a string the pointer model does
-      not hold (`pointer-order`).
+- [x] StringUtils (3.5.18.0, 3.5.20.0) — the STR* functions over a byte, word or string pointer and the helpers they
+      call: 24 elements. They needed the STRING CURSOR first (`Lowering.cursors`): a character pointer a caller fills
+      with `ADR(s)`, a pointer variable or its own cursor binds the caller's string by its own type and keeps its byte
+      offset, so `p^`, `p[i]` and `p := p + n` are characters of that string. Library calls through a namespace
+      (`Stu.StrTrimA(…)`) lower too. READINGS OF THE CONTRACT, not recordings — the library ships compiled.
+- [ ] StringUtils, the rest: the W functions over a BYTE pointer into a WSTRING (`StrLenW`, `StrConcatW`, `StrCpyW`,
+      the W pads, `StrTrimW`) need a byte view of a WORD string; `HelpTrim`/`HelpTrimW` return a cursor, which would
+      carry its string out of the call; the `CharBufferString` family (`StrCmp`, `StrCpy`, `StrFind`, `StrLen`,
+      `StrCpyFrom`, `CharacterAtEquals`) and the formatters are classes. `StrMidA`/`StrTrimA`/`StrReplaceA` wait on
+      the pro2193 re-pull to be materialized at all.
+- [ ] Record StringUtils against CODESYS: the fixture project has to reference it before `record:exec` can ask.
 - [ ] Standard64: a fixture project that references it, then `libraries/Standard64/<version>/` — the W-functions,
       `LTON`/`LTOF`/`LTP`, `LCTU`/`LCTD`/`LCTUD`.
 

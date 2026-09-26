@@ -26,8 +26,8 @@ import {
   stringLiteralText,
   typedRealOf,
 } from "./constants.js"
-import { lowerIndexed, lowerPlace } from "./places.js"
-import { loadValue, selectThrough } from "./pointers.js"
+import { lowerAccess, lowerPlace } from "./places.js"
+import { cursorChar, loadValue, selectThrough } from "./pointers.js"
 import { adrDifference } from "./bytes.js"
 import { lowerBuiltin } from "./builtins.js"
 import { lowerPropertyGet } from "./calls.js"
@@ -119,6 +119,9 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
       // its tag. `lowerPlace` below is form 1's erasure and stays the common case — `selectThrough` answers
       // undefined whenever there is one target, which is nearly always.
       const pointer = isSelfRef(e) ? undefined : lowerPlace(lw, e.base)
+      // a STRING CURSOR'S `p^` is the character it stands on (`char`)
+      const char = pointer === undefined ? null : cursorChar(lw, pointer, undefined, e.span)
+      if (char !== null) return { kind: "builtin", name: "char", args: [{ kind: "load", place: char.place, type: char.place.type, span: e.span }, char.index], type: char.unit, span: e.span }
       if (pointer !== undefined && pointer.type.kind === "pointer") {
         const selected = selectThrough(lw, pointer, e.span)
         if (selected !== undefined) return selected
@@ -294,7 +297,7 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
       // `inst.P` / `THIS^.P` on a PROPERTY: its getter, run on the instance
       const property = e.kind === "member" ? lowerPropertyGet(lw, e) : null
       if (property !== null) return property
-      const indexed = e.kind === "index" ? lowerIndexed(lw, e, "expr-index") : { place: lowerPlace(lw, e, "expr-member") }
+      const indexed = e.kind === "index" ? lowerAccess(lw, e, "expr-index") : { place: lowerPlace(lw, e, "expr-member") }
       if (indexed === undefined) return undefined
       // `s[i]`: one character read out of the string (`char`)
       if ("char" in indexed) {

@@ -185,6 +185,19 @@ export class Lowering {
    * single recorded target per pointer cannot represent.
    */
   readonly borrowedPointers = new Map<string, number>()
+  /**
+   * A STRING CURSOR — `pointer-model.md` form 2 over a string's characters, not over a whole variable. Each
+   * `POINTER TO BYTE` (`POINTER TO WORD`) parameter a caller filled with the address of a STRING (WSTRING), upper-cased,
+   * to the hidden VAR_IN_OUT the call binds that string to, and the character type it walks.
+   *
+   * It is what the StringUtils library is written in (`libraries/StringUtils`): `StrLenA(ADR(s))` walks `s` byte by
+   * byte through `pstData^`, `pstData[i]` and `pstData := pstData + 1`. Unlike a plain borrow the pointer VALUE is
+   * kept — a byte offset + 1, exactly as an element pointer holds its index + 1 — and every dereference is a
+   * character of the bound string (`char` / `setchar`). The routine is lowered once per string TYPE, so the capacity a
+   * store is cut at is the caller's, in both backends. A `POINTER TO STRING` parameter binds the same way, by the
+   * caller's own string type — its `unit` is then a string, and `p^` is the whole bound string.
+   */
+  readonly cursors = new Map<string, { inout: number; unit: Type }>()
   /** What `__POUNAME()` answers here, in SOURCE casing: the POU's name, or `POU.Member` inside a METHOD or ACTION
    *  (conformance `cp_pouname_operator`: 'FB_CP_named', 'FB_CP_named.Inner', 'FB_CP_named.Marked'). */
   displayName = ""

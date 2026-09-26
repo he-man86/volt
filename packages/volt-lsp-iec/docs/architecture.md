@@ -118,7 +118,9 @@ AST ──lower/──> ir/ ──┬── interp/       runs it — the oracle
 semantics the transpiler owns: its elements are ordinary POUs whose bodies the library repo supplies
 (`libraries/<library>/<version>/`, ST, looked up by the manifest's `RESOLUTION`), lowered like project code. The
 only primitives a library needs are language operators — `s[i]` and `TIME()`, the latter read from a `CLOCK`
-global the harness sets per scan. That split is enforced by
+global the harness sets per scan — and one pointer form, the STRING CURSOR: a character pointer a caller fills with
+a string's address binds that string by its own type and keeps its byte offset (`Lowering.cursors`), which is what a
+library like StringUtils walks. That split is enforced by
 `check-layering.ts`: inside `transpile/`, **only `ir/` is importable across folders**, so a backend cannot
 reach into the lowering and let a semantic decision drift out of its single home.
 

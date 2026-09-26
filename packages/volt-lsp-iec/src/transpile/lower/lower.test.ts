@@ -1911,3 +1911,53 @@ describe("lower — the clock, TIME() and LTIME()", () => {
     expect(pou!.globals.map((g) => g.type.kind === "elementary" && g.type.name)).toEqual(["INT", "LTIME"])
   })
 })
+
+describe("lower — a STRING CURSOR (a character pointer a caller fills with a string's address)", () => {
+  /** A library function over a character pointer, as the library repo writes one — `uri` keeps it a library unit. */
+  const lib = (name: string, source: string) => ({ uri: `Library Manager/Lib/${name}.fun`, source })
+  const LEN = lib("CLEN", "FUNCTION CLEN : DINT\nVAR_INPUT\n\tP : POINTER TO BYTE;\nEND_VAR\nWHILE P^ <> 0 DO\n\tCLEN := CLEN + 1;\n\tP := P + 1;\nEND_WHILE\nEND_FUNCTION\n")
+  // hands its cursor on, one byte in: the callee walks the same string from where this one stands
+  const TAIL = lib("CTAIL", "FUNCTION CTAIL : DINT\nVAR_INPUT\n\tP : POINTER TO BYTE;\nEND_VAR\nP := P + 1;\nCTAIL := CLEN(P);\nEND_FUNCTION\n")
+  const FILL = lib("CFILL", "FUNCTION CFILL : BOOL\nVAR_INPUT\n\tP : POINTER TO BYTE;\n\tN : DINT;\nEND_VAR\nVAR\n\ti : DINT;\nEND_VAR\nFOR i := 0 TO N - 1 DO\n\tP[i] := 16#78;\nEND_FOR\nP[N] := 0;\nEND_FUNCTION\n")
+  const WLEN = lib("CWLEN", "FUNCTION CWLEN : DINT\nVAR_INPUT\n\tP : POINTER TO WORD;\nEND_VAR\nWHILE P^ <> 0 DO\n\tCWLEN := CWLEN + 1;\n\tP := P + 2;\nEND_WHILE\nEND_FUNCTION\n")
+  const WHOLE = lib("CFIRST", "FUNCTION CFIRST : BYTE\nVAR_INPUT\n\tP : POINTER TO STRING(255);\nEND_VAR\nCFIRST := P^[0];\nEND_FUNCTION\n")
+  const LIBS = [LEN, TAIL, FILL, WLEN, WHOLE]
+  const scanned = (vars: string, body: string) => {
+    const { pou, diagnostics } = lowerSource(`PROGRAM P\nVAR ${vars} END_VAR\n${body}\nEND_PROGRAM\n`, "P", LIBS)
+    if (pou === undefined) throw new Error(diagnostics.map((d) => `${d.code}: ${d.message}`).join("\n"))
+    const p = run(pou)
+    p.scan()
+    return p
+  }
+
+  test("ADR(s) binds the caller's string, and the pointer steps it byte by byte", () => {
+    expect(scanned("s : STRING := 'hello'; n : DINT;", "n := CLEN(ADR(s));").get("n")).toBe(5n)
+  })
+
+  test("a cursor handed on carries on from where it stands", () => {
+    expect(scanned("s : STRING := 'hello'; n : DINT;", "n := CTAIL(ADR(s));").get("n")).toBe(4n)
+  })
+
+  test("a pointer VARIABLE given the string's address binds that string", () => {
+    expect(scanned("s : STRING := 'hello'; ps : POINTER TO STRING; n : DINT;", "ps := ADR(s);\nn := CLEN(ps);").get("n")).toBe(5n)
+  })
+
+  test("a write goes through to the caller's string, cut at the CALLER's capacity", () => {
+    expect(scanned("s : STRING(8);", "CFILL(ADR(s), 3);").get("s")).toBe("xxx")
+    // the routine is lowered for a STRING(3) here, so its capacity — not a default — is where a store faults
+    expect(() => scanned("s : STRING(3);", "CFILL(ADR(s), 5);")).toThrow(RangeError)
+  })
+
+  test("a WORD cursor walks a WSTRING, and steps by the two bytes a WORD is", () => {
+    expect(scanned('w : WSTRING := "h$00E9llo"; n : DINT;', "n := CWLEN(ADR(w));").get("n")).toBe(5n)
+  })
+
+  test("a POINTER TO STRING(255) takes a shorter string as it is, and p^ is that string", () => {
+    expect(scanned("s : STRING(20) := 'abc'; c : BYTE;", "c := CFIRST(ADR(s));").get("c")).toBe(97n)
+  })
+
+  test("anything but a string's address, a cursor or a pointer to a string is refused, not guessed", () => {
+    const { diagnostics } = lowerSource("PROGRAM P\nVAR b : BYTE; n : DINT; END_VAR\nn := CLEN(ADR(b));\nEND_PROGRAM\n", "P", LIBS)
+    expect(diagnostics.map((d) => d.code)).toContain("pointer-order")
+  })
+})

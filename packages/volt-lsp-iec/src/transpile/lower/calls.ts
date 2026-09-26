@@ -46,7 +46,7 @@ import { callsNothing, type InFrame, inFramePlace, isInFrame, specializeRoutine 
 import { convert } from "./convert.js"
 import { declareInOuts, declareOpenBounds, declareVars, storageOf, tempResets } from "./storage.js"
 import { boundOf, lowerPlace } from "./places.js"
-import { pointeePlace, refuseConstantWrite, sameStorage, through } from "./pointers.js"
+import { pointeePlace, pointerKey, refuseConstantWrite, sameStorage, through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 import { lowerBlock } from "./statements.js"
 import { interfaceArgument, interfaceCall, interfacePropertyGet, interfacePropertySet, storeInterface } from "./interfaces.js"
@@ -193,6 +193,15 @@ const borrowedInputs = new WeakMap<object, Map<string, ReadonlyMap<number, numbe
 function borrowedInputsOf(lw: Lowering): Map<string, ReadonlyMap<number, number>> {
   let map = borrowedInputs.get(lw.shared)
   if (map === undefined) borrowedInputs.set(lw.shared, (map = new Map()))
+  return map
+}
+
+/** Each routine's STRING CURSOR inputs (`Lowering.cursors`), by key: the input slot index → the hidden VAR_IN_OUT a call
+ *  binds the string to. `borrowedInputsOf`'s twin. */
+const cursorInputs = new WeakMap<object, Map<string, ReadonlyMap<number, number>>>()
+function cursorInputsOf(lw: Lowering): Map<string, ReadonlyMap<number, number>> {
+  let map = cursorInputs.get(lw.shared)
+  if (map === undefined) cursorInputs.set(lw.shared, (map = new Map()))
   return map
 }
 
@@ -414,6 +423,67 @@ function anyArgumentTypes(lw: Lowering, sym: RoutineSymbol, call: Extract<Expr, 
   return out
 }
 
+/** The prefix of the hidden VAR_IN_OUT a STRING CURSOR input is given — `__ptr_`'s twin. The cursor's own name with a
+ *  `^` is registered for it too, a name no ST identifier can spell, so a cursor handed on to another routine binds by it. */
+export const CURSOR = "__str_"
+
+/** The string a character pointer walks: STRING under a `POINTER TO BYTE`, WSTRING under a `POINTER TO WORD`. A pointer
+ *  to a whole STRING or WSTRING is a cursor too, whose `p^` is that string (`Lowering.cursors`). */
+const TEXT_OF: Readonly<Record<string, string>> = { BYTE: "STRING", WORD: "WSTRING" }
+
+/**
+ * THE STRING EACH CHARACTER-POINTER INPUT OF THIS CALL WALKS (`Lowering.cursors`), by parameter — from the argument:
+ * `ADR(s)` of a string, or a cursor of the caller's own handed on. The routine is lowered once per string TYPE (the
+ * variant in its name), so the hidden VAR_IN_OUT is the caller's exact type and its capacity cuts a store in both
+ * backends. An argument of any other shape leaves the parameter an ordinary pointer, refused where it is used.
+ */
+function cursorArgumentTypes(lw: Lowering, sym: RoutineSymbol, call: Extract<Expr, { kind: "call" }>): Map<string, Type> {
+  const ast = sym.ast as Extract<TopLevel, { kind: "method" | "action" | "function" }>
+  if (ast.kind === "action") return new Map()
+  const scope = findChildScope(sym.owner, sym.name) ?? lw.scope
+  const parameters = positionalParameters(ast.varSections)
+  const out = new Map<string, Type>()
+  for (const [position, arg] of call.args.entries()) {
+    const name = arg.param?.name.toUpperCase() ?? parameters[position]?.name.toUpperCase()
+    const prm = parameters.find((p) => p.name.toUpperCase() === name)
+    if (prm?.sectionKind !== "VAR_INPUT" || arg.output || arg.value === undefined) continue
+    const type = lw.resolve(prm.type, scope)
+    // a pointer to characters walks a string of that width; a pointer to a whole STRING (WSTRING) of any capacity takes
+    // the caller's string as it is — `POINTER TO STRING(255)` given `ADR` of a STRING(80) reads those 80
+    const pointee = type.kind === "pointer" ? elemOf(type.target) : undefined
+    const text = pointee?.family === "string" ? pointee.name : TEXT_OF[pointee?.name ?? ""]
+    if (text === undefined) continue
+    const walked = cursorArgument(lw, arg.value)
+    if (walked !== undefined && elemOf(walked)?.name === text) out.set(name!, walked)
+  }
+  return out
+}
+
+/** The string an argument hands a character pointer: `ADR(s)`'s, or the one the caller's own cursor walks. A probe —
+ *  what it cannot read, the binding reports. */
+function cursorArgument(lw: Lowering, value: Expr): Type | undefined {
+  const own = value.kind === "ident_expr" ? lw.cursors.get(value.name.toUpperCase()) : undefined
+  if (own !== undefined) return lw.inoutSlots[own.inout]!.type
+  const before = lw.diagnostics.length
+  const addressed = adrArgument(value)
+  const place = lw.inArgument(() => (addressed !== undefined ? lowerPlace(lw, addressed) : pointedString(lw, value)))
+  lw.diagnostics.length = before
+  const name = place?.type.kind === "elementary" ? place.type.name : undefined
+  return name === "STRING" || name === "WSTRING" ? place!.type : undefined
+}
+
+/** The string a POINTER VARIABLE argument names — its one recorded target (form 1), reached through it, so a null
+ *  pointer still faults — or undefined when the argument is no such pointer. */
+function pointedString(lw: Lowering, value: Expr): Place | undefined {
+  if (value.kind !== "ident_expr" && value.kind !== "member") return undefined
+  const pointer = lowerPlace(lw, value)
+  if (pointer?.type.kind !== "pointer") return undefined
+  const key = pointerKey(lw, pointer)
+  const targets = key === undefined ? undefined : lw.shared.pointers.get(key)
+  if (targets?.length !== 1 || targets[0]!.element !== undefined) return undefined
+  return pointeePlace(lw, pointer, undefined, value.span)
+}
+
 /**
  * A LIBRARY CALLABLE DECLARED WITHOUT A BODY — refused, not lowered to a routine that does nothing.
  *
@@ -441,7 +511,8 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
   // hidden VAR_IN_OUT, which is what `pValue` reads (conformance `state_any_int_pointer_increment`). Its type is the
   // argument's, so the routine is lowered once per argument type — the variant in its name.
   const targets = call === undefined ? new Map<string, Type>() : anyArgumentTypes(lw, sym, call)
-  const variant = [...targets].map(([n, t]) => `${n}=${typeKey(t)}`).join(",")
+  const cursors = call === undefined ? new Map<string, Type>() : cursorArgumentTypes(lw, sym, call)
+  const variant = [...[...targets].map(([n, t]) => `${n}=${typeKey(t)}`), ...[...cursors].map(([n, t]) => `${n}^=${typeKey(t)}`)].join(",")
   const name = `${frame === undefined ? sym.name : `${frame.name}.${as}`}${variant === "" ? "" : `#${variant}`}`
   return once(lw, name, span, () => {
     if (frame !== undefined && !lw.layouts.has(frame.name.toUpperCase())) return lw.bail("call-target", `${frame.name} has no layout`, span)
@@ -500,8 +571,20 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     // FORM 2: a `POINTER TO T` parameter this body only dereferences becomes a hidden VAR_IN_OUT of T, and every
     // `p^` becomes the place the CALL binds to it. One lowering serves every call site — which is the whole point,
     // since `ptrparam_two_targets` calls one routine with two different `ADR` arguments and gets two answers.
+    // A STRING CURSOR: a character pointer this call fills with a string's address walks that string — one hidden
+    // VAR_IN_OUT of the caller's exact string type, and the pointer keeps its byte offset (`Lowering.cursors`)
+    const cursorByInput = new Map<number, number>()
+    for (const [input, text] of cursors) {
+      const local = r.localByName.get(input)!
+      r.cursors.set(input, { inout: r.inoutSlots.length, unit: (r.localSlots[local]!.type as Extract<Type, { kind: "pointer" }>).target })
+      r.inoutByName.set(`${input}^`, r.inoutSlots.length)
+      cursorByInput.set(local, r.inoutSlots.length)
+      r.inoutSlots.push({ name: `${CURSOR}${r.localSlots[local]!.name}`, type: text, section: "VAR_IN_OUT", init: defaultValueOf(text) })
+    }
+    cursorInputsOf(lw).set(key, cursorByInput)
     const borrowedByInput = new Map<number, number>()
     for (const [name, slot] of borrowedPointerSlots(r, parsed.statements)) {
+      if (r.cursors.has(name)) continue
       const pointee = (slot.type as Extract<Type, { kind: "pointer" }>).target
       r.borrowedPointers.set(name, r.inoutSlots.length)
       borrowedByInput.set(r.localSlots.indexOf(slot), r.inoutSlots.length)
@@ -739,8 +822,14 @@ function bindInOut(lw: Lowering, arg: CallArg, param: IrSlot, held: readonly Pla
   }
   const variable = value
   const written = lw.inArgument(() => lowerPlace(lw, variable))
+  return written && bindPlace(lw, written, arg, param, held, callee, calleeFb, instance)
+}
+
+/** A place, already lowered, lent to a VAR_IN_OUT — every check `bindInOut` makes once it has the argument's place. A
+ *  STRING CURSOR binds this way to what a pointer argument names, which is a place and no expression. */
+function bindPlace(lw: Lowering, written: Place, arg: CallArg, param: IrSlot, held: readonly Place[], callee: readonly IrStmt[], calleeFb: string | undefined, instance: Place | undefined): IrBinding | InFrame | undefined {
   // a read-only binding writes nothing, so it is not a store `through` must check — a reference still reads its target
-  const target = written === undefined ? undefined : param.constant === true && written.type.kind !== "reference" ? written : through(lw, written, arg.span)
+  const target = param.constant === true && written.type.kind !== "reference" ? written : through(lw, written, arg.span)
   if (target === undefined) return undefined
   // A place INSIDE the instance the callee runs on is not lent at all: the routine is specialized on the path to it
   // (`specialize.ts`), which is the only exact answer where the callee also reaches that storage another way.
@@ -856,6 +945,13 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
       return lw.bail("call-super", `SUPER^.${callee.member.name} names no METHOD of a base FB`, call.span)
     routine = calledRoutine(lw, sym, frame, call.span, `SUPER_${sym.owner.name}_${sym.name}`, call)
     instance = thisPlace(frame, callee.base.span)
+  } else if (callee.kind === "member" && namespaceOf(lw, callee.base) !== undefined) {
+    // `Stu.StrTrimA(…)` — a library FUNCTION named through its library's NAMESPACE (the `.library` manifest's), which
+    // is the same function the bare name reaches, looked up among that library's own symbols only
+    const ns = namespaceOf(lw, callee.base)!
+    const sym = ns.symbols.get(callee.member.name.toLowerCase())?.find((s) => s.kind === "function")
+    if (sym === undefined) return lw.bail("expr-call", `${ns.name}.${callee.member.name} is no FUNCTION of that namespace`, call.span)
+    routine = calledRoutine(lw, sym, undefined, call.span, sym.name, call)
   } else if (callee.kind === "member") {
     const named = lowerPlace(lw, callee.base)
     const base = named === undefined ? undefined : instancePlace(lw, named, call.span)
@@ -959,6 +1055,35 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
       anyPlaces.set(name!, place)
       inputs[k] = { kind: "const", value: size.size, type: elementaryRef("DINT"), span: arg.span }
       order.push(k)
+      continue
+    }
+    // A STRING CURSOR input: the string the argument addresses is bound to its hidden VAR_IN_OUT, and the pointer starts
+    // at its first character (value 1: byte offset 0) — or, handed on from the caller's own cursor, at wherever that
+    // cursor has walked to, over the same string
+    const cursorInOut = cursorInputsOf(lw).get(routine.key)?.get(routine.inputs[k]!)
+    if (cursorInOut !== undefined) {
+      const param = routine.inouts[cursorInOut]!
+      const pointerType = routine.locals[routine.inputs[k]!]!.type
+      const addressed = adrArgument(arg.value)
+      const own = arg.value?.kind === "ident_expr" && lw.cursors.has(arg.value.name.toUpperCase()) ? arg.value : undefined
+      // three sources, each with where the callee starts: `ADR(s)` at the first character; the caller's own cursor where
+      // it stands; a pointer variable at the one string it was given (its value is form 1's 1, the first character)
+      let target: IrBinding | InFrame | undefined
+      let start: IrExpr = { kind: "const", value: 1n, type: pointerType, span: arg.span }
+      if (addressed !== undefined) target = bindInOut(lw, { ...arg, value: addressed }, param, held(), routine.body, routine.fb, instance)
+      else if (own !== undefined) {
+        target = bindInOut(lw, { ...arg, value: { kind: "ident_expr", name: `${own.name.toUpperCase()}^`, span: own.span } }, param, held(), routine.body, routine.fb, instance)
+        start = { kind: "load", place: lowerPlace(lw, own)!, type: pointerType, span: arg.span }
+      } else {
+        const pointed = arg.value === undefined ? undefined : lw.inArgument(() => pointedString(lw, arg.value!))
+        if (pointed === undefined) return lw.bail("pointer-order", `${arg.param!.name} walks a string, and is given something other than ADR(...) of one, a cursor, or a pointer to one`, arg.span)
+        target = bindPlace(lw, pointed, arg, param, held(), routine.body, routine.fb, instance)
+      }
+      if (target === undefined) return undefined
+      inouts[cursorInOut] = target
+      inputs[k] = start
+      order.push(k)
+      order.push({ inout: cursorInOut })
       continue
     }
     // FORM 2: a borrowed `POINTER TO T` input takes the PLACE the caller took an address of, bound to the hidden
@@ -1296,7 +1421,8 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
     }
   }
   if (callee.kind === "member") {
-    if (isSuper(callee.base)) {
+    // `SUPER^.M()`, and `Stu.StrTrimA(…)` through a library namespace — calls of a routine, not of an instance
+    if (isSuper(callee.base) || namespaceOf(lw, callee.base) !== undefined) {
       const value = lowerInvoke(lw, call)
       return value && [{ kind: "eval", value, span: call.span }]
     }
@@ -1457,4 +1583,10 @@ export function aliases(a: Place, b: Place): boolean {
   const own = (p: Place) => p.root === "this" || p.root === undefined
   if (a.root === "this" || b.root === "this") return own(a) && own(b)
   return a.slot === b.slot && a.root === b.root
+}
+
+/** The library NAMESPACE a call's base names — `Stu` in `Stu.StrTrimA(…)` — as its scope, or undefined. */
+function namespaceOf(lw: Lowering, base: Expr): Scope | undefined {
+  if (base.kind !== "ident_expr" || lookup(lw.scope, base.name)?.symbol.kind !== "namespace") return undefined
+  return findChildScope(lw.project, base.name)
 }
