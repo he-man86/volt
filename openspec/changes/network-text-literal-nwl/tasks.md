@@ -59,6 +59,22 @@ never dropped, never guessed.
       field. `Parallel.Mode` lost its default: both readers read it (absent/unknown → "an unmeasured Parallel
       mode"), the CODESYS writer sets it (`A_built_Parallel_carries_the_models_mode`) and TwinCAT's in-place writer
       refuses a mode change — the 4.1/4.2 halves of N20's `Sequential` finding.
+      *Third pass (review of section 1):* the "cannot carry" was only a missing constructor parameter — `with {
+      Flags = … }` still built a flagged Demux/Parallel through the inherited init, and every consumer that refused
+      it was gone. `Node.Flags` is virtual now and both records close it (a non-None value throws;
+      `A_wire_or_a_Parallel_cannot_carry_a_flag`). The N20 refusal and the new Assign-item refusal live ONCE in
+      `UnheldFlags` (Volt.Engine), which both readers call, so the marker cannot drift between vendors. The item
+      flags of 1.1 were refused only by the v2 writer: both vendor readers now refuse an Assign item's negation or
+      edge by name ("a flag on an Assign item", `A_negation_or_edge_on_an_Assign_item_is_refused_by_name` on both
+      drivers) and v1 `Unspellable` names it (v1 printed it on the value — `out := NOT g1;`, which its own push
+      refuses since N20). The mode claims were untested and one was false: both writers' no-change gates compare v1
+      TEXT, which has no mode, so a mode-only edit was "unchanged" — CODESYS never rebuilt it and TwinCAT never
+      reached its refusal. Both now also compare modes (`ParallelModes.Agree`;
+      `A_Parallel_whose_only_change_is_its_mode_is_rebuilt`, `The_in_place_writer_refuses_a_Parallel_mode_change`,
+      `A_Parallel_with_an_unmeasured_mode_is_refused_by_name`). And v1 pull no longer merges the modes: v1 spells a
+      Parallel with no mode, so a `Sequential` one (Lenze MainDrive net1) materializes as the marker ("a Parallel in
+      Sequential mode", `A_sequential_Parallel_is_named_rather_than_merged_with_the_default_mode`) until v2 ships
+      `MODE := Sequential`.
 - [x] 1.11 Is an Execute box ever consumed (its ENO continuing the rung), and with EN unwired? The value form
       `EXECUTE … END_EXECUTE.ENO` is specified either way (an Execute box's only output is ENO, so `.ENO` needs no
       EN — review 7.11); the census decides corpus golden vs synthetic.
@@ -83,7 +99,9 @@ never dropped, never guessed.
       (`A_flag_on_a_wire_reference_or_a_Parallel*`). *BLOCKED (TwinCAT order):* running a TwinCAT PLC needs a runtime
       licence this machine does not have — `C:\TwinCAT\3.1\Target\License` exists but is empty (re-checked
       2026-09-26) and the `UmRT_Default` target holds none; a TC1200 trial licence is issued through XAE's interactive security-code dialog, which no probe can
-      answer. Until measured, the spec sends a TwinCAT Negation+edge on one node to the marker (4.2).
+      answer. Until measured, the spec sends a TwinCAT Negation+edge on one node to the marker (4.2). *Third pass:*
+      still BLOCKED — `C:\TwinCAT\3.1\Target\License` is still empty (re-checked 2026-09-26). The CODESYS half is
+      in the v2 text now: 2.11 is rewritten and green.
 - [x] 1.15 Labels and jumps, live on both vendors, recording each build message: one LABEL on two networks of a body
       (can the IDE hold it; case-insensitive?); a LABEL on a DISABLED network as a jump target (still a target?); a
       `JMP` inside a DISABLED network; a `JMP` to a label no network carries. The gate refuses only what the IDE
@@ -229,14 +247,20 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       newline, a snippet holding a line whose first word is `END_EXECUTE` → marker, no exception; a snippet holding
       `NetworkState := 1;` round-trips and pushes.
       *Done (phase 1), on v2:* backtick in operand text and `END_EXECUTE` snippet line → marker; `NetworkState := 1;` round-trips and passes the gate. Owner decision: a TITLE newline is now spelled with `$N` escapes (round-trips), not the marker.
-- [ ] 2.11 Edges (reviews 7.8, 7.12): `R_EDGE(x)`/`F_EDGE(x)` read back as a flag on the operand, never a box;
+- [x] 2.11 Edges (reviews 7.8, 7.12): `R_EDGE(x)`/`F_EDGE(x)` read back as a flag on the operand, never a box;
       `R_EDGE(NOT x)` is Negation+Rtrig (was `NOT R_EDGE(x)`; reopened by 1.14, the vendor negates first);
       `NOT R_EDGE(x)` → `NETWORK_BAD_EXPRESSION`; `R_EDGE(F_EDGE(x))` and a POU
       named `R_EDGE` → `NETWORK_UNSUPPORTED`; Rtrig+Ftrig on one pulled operand → marker; a flag on an empty slot →
       marker on pull, `NETWORK_UNSUPPORTED` on push.
       *Reopened by 1.14 (2026-09-26):* `Negation_with_an_edge_is_NOT_outside`, `A_modifier_inside_an_edge` and the
-      goldens writing `NOT F_EDGE(…)` pin the order the vendor does NOT compute (DIALECT N17) and must be rewritten.
-      *Done (phase 1), on v2:* `Edges_are_flags_on_their_operand_never_a_box`, `Negation_with_an_edge_is_NOT_outside`, `A_modifier_inside_an_edge`, `Nested_edges`, `A_POU_or_instance_named_like_a_construct`, `Rising_and_falling_on_one_operand_goes_to_the_marker`, `A_flag_on_an_empty_slot(_goes_to_the_marker)`.
+      goldens writing `NOT F_EDGE(…)` pinned the order the vendor does NOT compute (DIALECT N17).
+      *Done (review of section 1), on v2:* rewritten to N17 first, red, then the writer (`R_EDGE(NOT x)`, on an
+      operand and a box) and the reader (NOT inside an edge is the flag; NOT outside one is
+      `NETWORK_BAD_EXPRESSION`; a second modifier inside is refused; `R_EDGE(NOT F_EDGE(x))` is nested) —
+      `Negation_with_an_edge_is_NOT_inside`, `A_negation_goes_inside_an_edge_and_nowhere_else`,
+      `Edges_are_flags_on_their_operand_never_a_box`, `An_edge_on_a_NOT_box_round_trips`, `Nested_edges`,
+      `A_POU_or_instance_named_like_a_construct`, `Rising_and_falling_on_one_operand_goes_to_the_marker`,
+      `A_flag_on_an_empty_slot(_goes_to_the_marker)`. The TwinCAT marker for Negation+edge is 4.2.
 - [x] 2.12 Marker routing for unmeasured facts (reviews 7.1, 7.6): a CODESYS pin flag in `InputFlags`, a flag on a
       Demux item, a flag on an Assign item → marker on pull, the flag never dropped.
       *Done (phase 1), on the v2 writer:* pin flag, Demux-item and Assign-item flags → marker by name. The CODESYS driver reading `InputFlags` into the model is 4.1.
@@ -246,12 +270,15 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       (Lenze `fc_CamC_CP_UDT`); a negated-only coil → marker. (An edge on a wire REFERENCE was on this list; N20
       showed the IDE cannot hold one, so it is a refusal, not a golden — `A_flag_on_a_wire_reference_or_a_Parallel`.)
       *Progress (phase 1):* DISABLED/LABEL headers, an edge on EN, `R_EDGE((a AND b))`, an edge on `.ENO`, NOT with an edge and the negated-only coil are pinned on v2; an LD rising contact, edges in PARALLEL branches and ENO into a data pin still need their golden.
-- [ ] 2.14 Comments and labels: a multi-line comment with an empty line (`//`), an indented line and a line starting
+- [x] 2.14 Comments and labels: a multi-line comment with an empty line (`//`), an indented line and a line starting
       `//` round-trips byte-identically; a blank line between `//` lines is layout; a `//` after a statement →
       `NETWORK_PARSE`; a comment on a network with LABEL, TITLE, DISABLED and a wire block writes header, comment,
-      block, statements; a DISABLED network with a LABEL that is a jump target round-trips; a `JMP` to a missing
-      label passes the gate; a duplicate label (case-differing) follows 1.15: held on both vendors, so accepted.
-      *Progress (phase 1):* comment shape, `//` after a statement, header/comment/block/statement order, a DISABLED labelled jump target and a jump to a missing label are pinned on v2; the duplicate-label case waits on 1.15.
+      block, statements; a DISABLED network with a LABEL that is a jump target round-trips; a `JMP` inside a
+      DISABLED network round-trips; a `JMP` to a missing label passes the gate; one label on two networks
+      (`Done` / `DONE`) follows 1.15: held on both vendors, so accepted and kept verbatim.
+      *Progress (phase 1):* comment shape, `//` after a statement, header/comment/block/statement order, a DISABLED labelled jump target and a jump to a missing label are pinned on v2.
+      *Done (review of section 1):* the two 1.15 shapes no task carried — `A_jump_inside_a_disabled_network_round_trips`,
+      `A_label_on_two_networks_is_accepted_and_kept_verbatim`.
 
 ## 3. The swap (one change, no dual reader)
 
@@ -301,10 +328,11 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
 - [ ] 4.2 TwinCAT: a value edit stays in place. A structurally changed network is imported (D22c/D25/D30/C25/C20);
       until measured live it refuses `PARALLEL`, a Demux of a leaf and a result pin `=> v` with `NETWORK_UNSUPPORTED`,
       the message naming the network and the reason (review 7.16). Offline tests for each refusal. Read
-      `Parallel.Mode` (not read today). Until 1.14 measures TwinCAT's evaluation order, a pulled Negation+edge on one
+      `Parallel.Mode` (done, below). Until 1.14 measures TwinCAT's evaluation order, a pulled Negation+edge on one
       node goes to the marker by name (spec, "edges are R_EDGE and F_EDGE flags").
       *`Parallel.Mode` done (review of section 1):* read by member name, an absent/unknown value refused by name; the
-      in-place writer refuses a changed mode (no committed archive holds a Parallel, so the scalar is never authored).
+      in-place writer refuses a changed mode (no committed archive holds a Parallel, so the scalar is never authored)
+      — reachable only since the no-change gate compares modes (`The_in_place_writer_refuses_a_Parallel_mode_change`).
 - [ ] 4.3 TwinCAT: delete `TcNetworkWriter.Unhoist`'s legacy fold; keep the D25 component count; the in-place
       tree-count check holds by construction.
 - [ ] 4.4 Live e2e on both vendors (`pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys|twincat`, then

@@ -487,6 +487,61 @@ public class CodesysNetworkReaderTests
         Assert.Equal("a flag on a wire", ex.Marker);
     }
 
+    /// <summary>Task 1.10 / 4.1: <c>Mode</c> is read, never defaulted, so a value outside the two measured members — or
+    /// no member at all — is refused by name rather than mapped onto either (which would push the other mode).</summary>
+    [Fact]
+    public void A_Parallel_with_an_unmeasured_mode_is_refused_by_name()
+    {
+        var unknown = new Nwl.BoxTreeParallel { Mode = (Nwl.OperationMode)7 };
+        unknown.Trees.Add(Nwl.Leaf("a"));
+        var absent = new NoMode.BoxTreeParallel();
+        absent.Trees.Add(Nwl.Leaf("a"));
+
+        foreach (var par in new object[] { unknown, absent })
+        {
+            var assign = new Nwl.BoxTreeAssign { RValue = par };
+            assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
+            var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld));
+            Assert.Equal("an unmeasured Parallel mode", ex.Marker);
+        }
+    }
+
+    /// <summary>A vendor Parallel with no <c>Mode</c> member at all — the double's own type name is what the reader
+    /// dispatches on, so it lives in its own scope.</summary>
+    private static class NoMode
+    {
+        internal sealed class BoxTreeParallel
+        {
+            public object? Input { get; set; }
+            public System.Collections.Generic.List<object> Trees { get; } = new();
+            public object? Flags { get; set; } = new Nwl.Flags();
+        }
+    }
+
+    /// <summary>Census 1.1: no Assign ITEM carries a negation or an edge — only operands do — and the model's
+    /// <c>Assign.Flags</c> is where Jump/Return ride. A bit found there has no position in the text: v1 printed it on
+    /// the VALUE (<c>out := NOT g1;</c>, which its own push refuses since N20), so it is refused by name at the read.</summary>
+    [Theory]
+    [InlineData(true, false, false, false)]
+    [InlineData(false, true, false, false)]
+    [InlineData(false, false, true, false)]
+    [InlineData(true, false, false, true)]   // the value a wire reference: pulled text its own push would refuse
+    public void A_negation_or_edge_on_an_Assign_item_is_refused_by_name(bool negation, bool rtrig, bool ftrig, bool wire)
+    {
+        var trees = new System.Collections.Generic.List<object>();
+        if (wire) trees.Add(new Nwl.BoxTreeDemux { VarId = 1, Input = Nwl.Leaf("a") });
+        var assign = new Nwl.BoxTreeAssign
+        {
+            RValue = wire ? new Nwl.BoxTreeDemux { VarId = 1 } : Nwl.Leaf("a"),
+            Flags = new Nwl.Flags { Negation = negation, Rtrig = rtrig, Ftrig = ftrig },
+        };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
+        trees.Add(assign);
+
+        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(trees.ToArray()), BodyLanguage.Ld));
+        Assert.Equal("a flag on an Assign item", ex.Marker);
+    }
+
     /// <summary>The one representation of "unconnected" still reads.</summary>
     [Fact]
     public void An_assignment_fed_by_the_empty_terminator_reads()

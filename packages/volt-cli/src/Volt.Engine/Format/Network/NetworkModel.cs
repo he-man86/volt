@@ -54,8 +54,24 @@ public sealed record Network(
     IReadOnlyList<Node> Trees);
 
 /// <summary>A node in a network's tree. The three the vendor's visitor dispatches over are
-/// <see cref="Leaf"/>, <see cref="Box"/> and <see cref="Assign"/>; the remaining three are LD structures.</summary>
-public abstract record Node(Flags Flags);
+/// <see cref="Leaf"/>, <see cref="Box"/> and <see cref="Assign"/>; the remaining three are LD structures.
+/// <para><see cref="Flags"/> is VIRTUAL so that a node the vendor holds no flag on (<see cref="Demux"/>,
+/// <see cref="Parallel"/>, DIALECT N20) can close the inherited <c>init</c>: without that, <c>with { Flags = … }</c>
+/// built a flagged wire or Parallel that every writer passes through as the bare node — the silent drop N20 is.</para></summary>
+public abstract record Node(Flags Flags)
+{
+    public virtual Flags Flags { get; init; } = Flags;
+
+    /// <summary>The <c>init</c> of a node that holds no flag: <see cref="Flags.None"/> is its one value, anything else
+    /// is refused loudly — never kept, never dropped.</summary>
+    private protected static void RefuseFlag(Flags value, string what)
+    {
+        if (!value.IsNone)
+            throw new ArgumentException(
+                $"{what} holds no flag (DIALECT N20: the IDE stores none, and a bit set on one ran as the bare value).",
+                nameof(Flags));
+    }
+}
 
 /// <summary>A bare operand in tree position — the vendor's <c>BoxTreeOperand</c>, its <c>VisitOperand</c> arm.</summary>
 public sealed record Leaf(Operand Operand, Flags Flags) : Node(Flags);
@@ -191,7 +207,10 @@ public sealed record Box(
 public sealed record Parallel(
     Node? Input,
     IReadOnlyList<Node> Branches,
-    ParallelMode Mode) : Node(Flags.None);
+    ParallelMode Mode) : Node(Flags.None)
+{
+    public override Flags Flags { get => Flags.None; init => RefuseFlag(value, "a Parallel"); }
+}
 
 /// <summary>The vendor's <c>BoxTreeParallel.Mode</c>. Carried because a non-default value EXISTS in a real
 /// project: census 2026-09-26, 17 Parallels in Lenze_MID-S100 — <c>BoxShortCircuit</c> 16, <c>Sequential</c> 1
@@ -213,6 +232,75 @@ public static class ParallelModes
             "an unmeasured Parallel mode",
             $"a parallel branch has the mode '{name ?? "(none)"}'; the measured modes are BoxShortCircuit and Sequential."),
     };
+
+    /// <summary>Whether two networks hold their Parallels in the same modes, in walk order. Both writers' no-change
+    /// gates compare v1 TEXT, which spells no mode, so without this a mode-only edit was "unchanged": CODESYS never
+    /// rebuilt the network and TwinCAT never reached its refusal, and each push reported success.</summary>
+    public static bool Agree(Network a, Network b) =>
+        System.Linq.Enumerable.SequenceEqual(In(a.Trees), In(b.Trees));
+
+    private static IEnumerable<ParallelMode> In(IEnumerable<Node?> nodes)
+    {
+        foreach (var n in nodes)
+        {
+            if (n is Parallel p) yield return p.Mode;
+            foreach (var m in In(Children(n))) yield return m;
+        }
+    }
+
+    private static IEnumerable<Node?> Children(Node? n)
+    {
+        switch (n)
+        {
+            case Parallel p:
+                yield return p.Input;
+                foreach (var br in p.Branches) yield return br;
+                break;
+            case Assign a:
+                yield return a.Value;
+                break;
+            case Box b:
+                yield return b.Enable;
+                foreach (var i in b.Inputs) yield return i.Value;
+                break;
+            case Demux d:
+                yield return d.Input;
+                break;
+        }
+    }
+}
+
+/// <summary>Flag bits a vendor object reports where the model has no place for them, refused by name on READ. One
+/// definition both vendor readers call — like <see cref="ParallelModes"/> — so the marker and the rule cannot drift
+/// between the vendors; only the message's vendor name differs.</summary>
+public static class UnheldFlags
+{
+    /// <summary>DIALECT N20: the IDE holds no flag on a <c>BoxTreeDemux</c> or <c>BoxTreeParallel</c> (the getter hands
+    /// out an object the node never stores), so <see cref="Demux"/> and <see cref="Parallel"/> have no place for one.
+    /// A bit read there anyway is the marker, never dropped on the way into a model that cannot say it.</summary>
+    public static void RefuseOnNode(string vendor, string what, Flags flags)
+    {
+        if (!flags.IsNone)
+            throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
+                "a flag on " + what,
+                $"{vendor}: {what} carries a modifier, and the IDE holds none there (DIALECT N20). Edit this network in the IDE.");
+    }
+
+    /// <summary>Census 1.1: no Assign ITEM carries a negation or an edge — its operands and targets do — while
+    /// <see cref="Assign.Flags"/> is where Jump/Return ride. Neither text has a position for such a bit: v1 printed it
+    /// on the VALUE, so a re-read moved it onto the operand (and onto a wire reference, text its own push refuses).</summary>
+    public static bool OnAssignItem(Flags flags) => flags.Negated || flags.Rising || flags.Falling;
+
+    public const string AssignItemMarker = "a flag on an Assign item";
+
+    public static void RefuseOnAssignItem(string vendor, Flags flags)
+    {
+        if (OnAssignItem(flags))
+            throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
+                AssignItemMarker,
+                $"{vendor}: an assignment item carries a negation or an edge of its own, which no measured project holds " +
+                "(census 1.1) and the text has no position for. Edit this network in the IDE.");
+    }
 }
 
 /// <summary>The end of an LD rung, and the model's one spelling of "nothing drives this" — <c>BoxTreeTerminator</c>
@@ -250,7 +338,10 @@ public sealed record Terminator(Flags Flags) : Node(Flags);
 /// fact, not chance. With a field for it, the v1 text <c>out := NOT g1;</c> became a flagged reference that the
 /// CODESYS writer "wrote" and the IDE ran as <c>out := g1</c>. A modifier rides the wire's producer or a consumer.</para>
 /// </summary>
-public sealed record Demux(int VarId, Node? Input, string? Type = null) : Node(Flags.None);
+public sealed record Demux(int VarId, Node? Input, string? Type = null) : Node(Flags.None)
+{
+    public override Flags Flags { get => Flags.None; init => RefuseFlag(value, "a wire (Demux)"); }
+}
 
 /// <summary>One input pin: the formal parameter name where the vendor supplies one, the sub-tree feeding it,
 /// and that pin's own modifiers (the vendor keeps these in <c>BoxTreeBox.InputFlags</c>, per pin).</summary>

@@ -155,4 +155,49 @@ public class UnspellableCoilTests
             new[] { new Operand("out1", IsLValue: true, Flags: Flags.None),
                     new Operand("out2", IsLValue: true, Flags: Flags.None) }, Flags.None))));
     }
+
+    /// <summary>Census 1.1: no Assign ITEM carries a negation or an edge — only its operands and targets do. The v1
+    /// writer had no position for one and printed it on the VALUE, so <c>Assign(a, [out], Negated)</c> and
+    /// <c>Assign(NOT a, [out])</c> were the same text and a re-read moved the bit onto the operand. Two models, one
+    /// text: the marker, never the merge (spec, "pull never throws; unmeasured vendor facts go to the marker").</summary>
+    [Theory]
+    [InlineData(nameof(Flags.Negated))]
+    [InlineData(nameof(Flags.Rising))]
+    [InlineData(nameof(Flags.Falling))]
+    public void A_negation_or_edge_on_an_Assign_item_is_named_rather_than_moved(string bit)
+    {
+        var flags = bit switch
+        {
+            nameof(Flags.Negated) => Flags.None with { Negated = true },
+            nameof(Flags.Rising) => Flags.None with { Rising = true },
+            _ => Flags.None with { Falling = true },
+        };
+        var onItem = Body(new Assign(new Leaf(new Operand("a"), Flags.None), new[] { new Operand("out", IsLValue: true) }, flags));
+        var onValue = Body(new Assign(new Leaf(new Operand("a"), flags), new[] { new Operand("out", IsLValue: true) }, Flags.None));
+
+        Assert.Equal("LD (a flag on an Assign item)", NetworkTextWriter.Unspellable(onItem));
+        Assert.Null(NetworkTextWriter.Unspellable(onValue));
+    }
+
+    /// <summary>Census 1.3: one real Parallel (Lenze MainDrive network 1) is <c>Sequential</c>, the rest
+    /// <c>BoxShortCircuit</c>. v1 spells a Parallel as <c>(rung AND (b1 OR b2))</c> with no mode, so the two modes were
+    /// one text: an IDE-side mode switch pulled as no change, and a push rebuilt the branch from text with no mode.
+    /// The mode v1's spelling stands for is the default, so only the other one is named — the marker, not a merge.</summary>
+    [Fact]
+    public void A_sequential_Parallel_is_named_rather_than_merged_with_the_default_mode()
+    {
+        static Node Par(ParallelMode mode) => new Volt.Engine.Format.Network.Parallel(new Leaf(new Operand("f"), Flags.None),
+            new Node[] { new Leaf(new Operand("a"), Flags.None), new Leaf(new Operand("b"), Flags.None) }, mode);
+        static Node Out(Node value) => new Assign(value, new[] { new Operand("out", IsLValue: true) }, Flags.None);
+
+        var sequential = Body(Out(Par(ParallelMode.Sequential)));
+        var shortCircuit = Body(Out(Par(ParallelMode.BoxShortCircuit)));
+        Assert.Equal("LD (a Parallel in Sequential mode)", NetworkTextWriter.Unspellable(sequential));
+        Assert.Null(NetworkTextWriter.Unspellable(shortCircuit));
+        // Nested below a box input, where a ladder buries it.
+        var nested = Out(new Box("AND", null, CallKind.Operator,
+            new[] { new Input(null, Par(ParallelMode.Sequential), Flags.None), new Input(null, new Leaf(new Operand("c"), Flags.None), Flags.None) },
+            new Output[0], null, null, Flags.None));
+        Assert.Equal("LD (a Parallel in Sequential mode)", NetworkTextWriter.Unspellable(Body(nested)));
+    }
 }

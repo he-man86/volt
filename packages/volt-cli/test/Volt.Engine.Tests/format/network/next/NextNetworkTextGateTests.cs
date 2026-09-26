@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
@@ -237,10 +237,18 @@ public class NextNetworkTextGateTests
     public void A_consumed_execute_box_says_ENO() =>
         Refused("NETWORK_BAD_EXPRESSION", 3, Fbd + "NETWORK\n  out := EXECUTE\nx := 1;\n  END_EXECUTE;\nEND_NETWORK\n");
 
-    /// <summary>Spec, "a modifier inside an edge".</summary>
+    /// <summary>Spec, "negation with an edge" and "a negation outside an edge": <c>R_EDGE(NOT x)</c> is the one
+    /// spelling (the vendor negates first, DIALECT N17); <c>NOT R_EDGE(x)</c> states logic no vendor operand holds,
+    /// and any modifier inside an edge but that one <c>NOT</c> is refused.</summary>
     [Fact]
-    public void A_modifier_inside_an_edge() =>
-        Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := R_EDGE(NOT x);"));
+    public void A_negation_goes_inside_an_edge_and_nowhere_else()
+    {
+        Accepted(Src("out := R_EDGE(NOT x);"));
+        Accepted(Src("out := F_EDGE(NOT (a AND b));"));
+        Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := NOT R_EDGE(x);"));
+        Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := R_EDGE(NOT NOT x);"));
+        Refused("NETWORK_UNSUPPORTED", 3, Src("out := R_EDGE(NOT F_EDGE(x));"));
+    }
 
     [Fact]
     public void An_operand_spelled_like_a_keyword_must_be_backticked()
@@ -320,6 +328,35 @@ public class NextNetworkTextGateTests
     {
         Accepted(Src("JMP Nowhere;"));
         Accepted(Fbd + "NETWORK\n  JMP Done;\nEND_NETWORK\nNETWORK LABEL: Done DISABLED\n  out := a;\nEND_NETWORK\n");
+    }
+
+    /// <summary>Spec, "labels and jumps round-trip what the IDE holds" (census 1.15, DIALECT N19): a <c>JMP</c> inside a
+    /// DISABLED network is held by both IDEs (the build reports the label as unreferenced), so it round-trips — the
+    /// jump stays in the disabled network, as a jump.</summary>
+    [Fact]
+    public void A_jump_inside_a_disabled_network_round_trips()
+    {
+        var text = Fbd + "NETWORK DISABLED\n  JMP Done;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := a;\nEND_NETWORK\n";
+        Accepted(text);
+        var body = NextNetworkTextReader.Read(text, BodyLanguage.Fbd, NextNetworkScope.Empty).Body!;
+        Assert.True(body.Networks[0].Disabled);
+        var jump = Assert.IsType<Assign>(Assert.Single(body.Networks[0].Trees));
+        Assert.True(jump.Flags.Jump);
+        Assert.Equal("Done", Assert.Single(jump.Targets).Text);
+        Assert.Equal(text, NextNetworkTextWriter.Write(body, NextNetworkScope.Empty));
+    }
+
+    /// <summary>Spec, "a label on two networks" (census 1.15, DIALECT N19): both IDEs hold one label on two networks,
+    /// case-differing or not — their build reports <c>The label 'DONE' is a duplicate</c> — so the push is accepted and
+    /// each label travels verbatim.</summary>
+    [Fact]
+    public void A_label_on_two_networks_is_accepted_and_kept_verbatim()
+    {
+        var text = Fbd + "NETWORK LABEL: Done\n  out := a;\nEND_NETWORK\nNETWORK LABEL: DONE\n  out := b;\nEND_NETWORK\n";
+        Accepted(text);
+        var body = NextNetworkTextReader.Read(text, BodyLanguage.Fbd, NextNetworkScope.Empty).Body!;
+        Assert.Equal(new[] { "Done", "DONE" }, body.Networks.Select(n => n.Label));
+        Assert.Equal(text, NextNetworkTextWriter.Write(body, NextNetworkScope.Empty));
     }
 
     /// <summary>Spec, "a comment on a fully-headed network".</summary>

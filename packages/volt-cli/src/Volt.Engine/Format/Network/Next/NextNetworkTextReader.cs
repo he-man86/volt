@@ -520,9 +520,12 @@ public static class NextNetworkTextReader
                     // Parentheses are structural. After NOT, a pair holding an operator is a group under the
                     // negation modifier; any other pair is the NOT box's argument list. Spacing plays no part.
                     return PVal.Of(Mark(ParseAfterNotParen(t, consumed), t.Offset), t);
-                var core = n.Is("R_EDGE") || n.Is("F_EDGE")
-                    ? ParseEdge(consumed)
-                    : Resolve(ParseCore(consumed, defer: false), consumed);
+                // The vendor negates BEFORE it detects the edge (DIALECT N17, run in simulation), so a negation of
+                // an edge's result is logic no operand or box holds; the one spelling is R_EDGE(NOT x).
+                if (n.Is("R_EDGE") || n.Is("F_EDGE"))
+                    throw Err(t, ConflictCodes.NetworkBadExpression,
+                        $"NOT outside {n.Text.ToUpperInvariant()}(…): the IDE negates before it detects the edge, so the one spelling is {n.Text.ToUpperInvariant()}(NOT x).");
+                var core = Resolve(ParseCore(consumed, defer: false), consumed);
                 return PVal.Of(Mark(WithFlags(Held(core, t), f => f with { Negated = true }), t.Offset), t);
             }
 
@@ -544,16 +547,29 @@ public static class NextNetworkTextReader
             ExpectSym("(", $"{kw.Text.ToUpperInvariant()}(x)");
             var n = Peek();
             // Parentheses are structural here too: `NOT(a)` — NOT with a pair holding no operator — is the NOT BOX,
-            // an argument like any other, and the writer spells an edge on a NOT box so. Only the modifier (`NOT a`,
-            // `NOT (a AND b)`) is refused inside an edge.
+            // an argument like any other. Any other NOT is the negation MODIFIER, and inside the edge is where it
+            // belongs: the vendor negates before it detects the edge (DIALECT N17), so `R_EDGE(NOT x)` is
+            // Negation+Rtrig on x. That one NOT is the only modifier an edge's argument carries.
+            Tok? not = null;
             if (n.Is("NOT") && !(_lx!.PeekChar() == '(' && !_lx.PairAheadHoldsOperator()))
-                throw Err(n, ConflictCodes.NetworkBadExpression,
-                    $"a modifier inside {kw.Text.ToUpperInvariant()}(…): the one order is NOT {kw.Text.ToUpperInvariant()}(x).");
+            {
+                not = Next();
+                n = Peek();
+                if (n.Is("NOT") && !(_lx.PeekChar() == '(' && !_lx.PairAheadHoldsOperator()))
+                    throw Err(n, ConflictCodes.NetworkBadExpression,
+                        $"a second modifier inside {kw.Text.ToUpperInvariant()}(…): the one modifier an edge's argument carries is one NOT.");
+            }
             if (n.Is("R_EDGE") || n.Is("F_EDGE"))
                 throw Err(n, ConflictCodes.NetworkUnsupported, "nested edges: one operand carries one edge flag, and rising with falling has no spelling.");
             if (IsEmptyHere(n))
-                throw Err(kw, ConflictCodes.NetworkUnsupported, "a flag on an empty slot: an unconnected position has no text to modify.");
-            var core = Resolve(ParseCore(consumed, defer: false), consumed);
+                throw Err(not ?? kw, ConflictCodes.NetworkUnsupported, "a flag on an empty slot: an unconnected position has no text to modify.");
+            var core = not is not { } nt
+                ? Resolve(ParseCore(consumed, defer: false), consumed)
+                : n.IsSym("(")
+                    // The pair after the modifier holds an operator (the NOT-box case was taken above): a group
+                    // under the negation.
+                    ? ParseAfterNotParen(nt, consumed)
+                    : WithFlags(Held(Resolve(ParseCore(consumed, defer: false), consumed), nt), f => f with { Negated = true });
             ExpectSym(")", $"{kw.Text.ToUpperInvariant()}(x)");
             return Mark(WithFlags(Held(core, kw), f => rising ? f with { Rising = true } : f with { Falling = true }), kw.Offset);
         }

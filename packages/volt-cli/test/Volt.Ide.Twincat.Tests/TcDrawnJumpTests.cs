@@ -114,6 +114,68 @@ public class TcDrawnJumpTests
                 () => TcNetworkReader.Read(impl, BodyLanguage.Ld)).Marker);
     }
 
+    /// <summary>The <c>&lt;NWL&gt;</c> body holding a <c>BoxTreeParallel</c> in <paramref name="mode"/> where the fixture's
+    /// empty terminator was — the archive shape <see cref="A_Parallel_reads_its_mode_and_refuses_a_flag"/> reads.</summary>
+    private static XElement NwlWithParallel(string mode)
+    {
+        var nwl = XDocument.Load(Fixtures.Path("tc-pou", "drawn-refused-shapes.TcPOU"), LoadOptions.PreserveWhitespace)
+            .Descendants("NWL").Single();
+        var rvalues = nwl.Descendants("o").Where(o => (string?)o.Attribute("n") == "RValue").ToList();
+        var terminator = rvalues.First(o => (string?)o.Attribute("t") == "BoxTreeTerminator");
+        var branch = new XElement(rvalues.First(o => (string?)o.Attribute("t") == "BoxTreeOperand"));
+        branch.Attribute("n")!.Remove();
+        terminator.ReplaceWith(new XElement("o", new XAttribute("n", "RValue"), new XAttribute("t", "BoxTreeParallel"),
+            new XElement("n", new XAttribute("n", "Input")), new XElement("l2", new XAttribute("n", "Trees"), branch),
+            XElement.Parse($"<v n=\"Mode\" t=\"OperationMode\">{mode}</v>")));
+        return nwl;
+    }
+
+    /// <summary>Task 4.2: the in-place writer assigns members the IDE wrote and never authors the <c>Mode</c> scalar,
+    /// so a model asking for the OTHER mode is refused by name — it must not reach the archive as a silent keep of the
+    /// old mode (the push would report success and the next pull would show the mode reverted).</summary>
+    [Fact]
+    public void The_in_place_writer_refuses_a_Parallel_mode_change()
+    {
+        var nwl = NwlWithParallel("BoxShortCircuit");
+        var xml = nwl.ToString(SaveOptions.DisableFormatting);
+        var impl = nwl.DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject");
+        var model = TcNetworkReader.Read(impl, BodyLanguage.Ld);
+        Assert.Null(TcNetworkWriter.Apply(xml, model));   // the unchanged mode writes nothing
+
+        var switched = model with
+        {
+            Networks = model.Networks.Select(n => n with
+            {
+                Trees = n.Trees.Select(t => t is Assign { Value: Volt.Engine.Format.Network.Parallel p } a
+                    ? a with { Value = p with { Mode = ParallelMode.Sequential } }
+                    : t).ToList(),
+            }).ToList(),
+        };
+        var ex = Assert.Throws<System.NotSupportedException>(() => TcNetworkWriter.Apply(xml, switched));
+        Assert.Contains("a Parallel changes mode to Sequential", ex.Message);
+    }
+
+    /// <summary>Census 1.1: no Assign ITEM carries a negation or an edge (only its operands do), and the model's
+    /// <c>Assign.Flags</c> is where Jump/Return ride. A bit found there has no position in the text — v1 printed it on
+    /// the VALUE, moving it to the operand on the next read — so it is refused by name, the parity twin of CODESYS's.</summary>
+    [Theory]
+    [InlineData(TcArchive.FlagNegation)]
+    [InlineData(TcArchive.FlagRtrig)]
+    [InlineData(TcArchive.FlagFtrig)]
+    public void A_negation_or_edge_on_an_Assign_item_is_refused_by_name(int bit)
+    {
+        var impl = Impl();
+        // The item is typed by its list's `cet`, so it is found through its operand-valued RValue.
+        var assign = impl.Descendants("o").First(o => (string?)o.Attribute("n") == "RValue"
+                                                     && (string?)o.Attribute("t") == "BoxTreeOperand").Parent!;
+        var bits = assign.Elements("o").Single(o => (string?)o.Attribute("n") == "Flags")
+            .Elements("v").Single(v => (string?)v.Attribute("n") == "Flags");
+        bits.Value = (int.Parse(bits.Value) | bit).ToString();
+
+        Assert.Equal("a flag on an Assign item", Assert.Throws<Volt.Engine.Format.Body.UnrepresentableBodyException>(
+            () => TcNetworkReader.Read(impl, BodyLanguage.Ld)).Marker);
+    }
+
     /// <summary>The same fact on a wire: a <c>BoxTreeDemux</c> the archive gives a flag is refused by name.</summary>
     [Fact]
     public void A_flag_on_a_wire_is_refused_by_name()

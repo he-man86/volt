@@ -228,7 +228,10 @@ internal static class TcNetworkWriter
             var live = TcNetworkReader.ReadNetworkFor(net, model.Order);
             var one = new NetworkBody(BodyLanguage.Fbd, new[] { live });
             var other = new NetworkBody(BodyLanguage.Fbd, new[] { model });
-            return NetworkTextWriter.Write(one) == NetworkTextWriter.Write(other);
+            // v1 text carries no Parallel mode (a Sequential one prints as the BoxShortCircuit one), so text equality
+            // alone called a mode change "unchanged", skipped the walk that refuses it, and reported success.
+            return NetworkTextWriter.Write(one) == NetworkTextWriter.Write(other)
+                && ParallelModes.Agree(live, model);
         }
         catch (NotSupportedException) { return false; }
     }

@@ -210,20 +210,35 @@ public class NextNetworkTextWriterTests
     /// on <c>BoxTreeDemux</c> and <c>BoxTreeParallel</c> the <c>Flags</c> getter hands out an object that is not stored,
     /// so the IDE ran every such network as the bare value. This asserted the writer refused a model carrying one; the
     /// model now cannot carry one (no Flags parameter, always None), so no writer, v1 or v2, and no driver can be handed
-    /// that state — the readers refuse the vendor bit by name, the text readers the spelling.</summary>
+    /// that state — the readers refuse the vendor bit by name, the text readers the spelling. The inherited
+    /// <c>Node.Flags</c> init is no way round it: a <c>with</c> setting a flag on either throws, typed as the record or
+    /// as a <see cref="Node"/>, rather than build the state every consumer stopped refusing.</summary>
     [Fact]
     public void A_wire_or_a_Parallel_cannot_carry_a_flag()
     {
+        var par = new Parallel(null, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit);
         Assert.Equal(Flags.None, Ref(3).Flags);
-        Assert.Equal(Flags.None, new Parallel(null, new Node[] { L("a") }, ParallelMode.BoxShortCircuit).Flags);
+        Assert.Equal(Flags.None, par.Flags);
         foreach (var t in new[] { typeof(Demux), typeof(Parallel) })
             Assert.DoesNotContain(t.GetConstructors().SelectMany(c => c.GetParameters()), p => p.ParameterType == typeof(Flags));
+
+        Assert.Throws<ArgumentException>(() => Ref(3) with { Flags = Neg });
+        Assert.Throws<ArgumentException>(() => par with { Flags = Neg });
+        Assert.Throws<ArgumentException>(() => (Node)Def(3, L("a")) with { Flags = Rise });
+        Assert.Throws<ArgumentException>(() => (Node)par with { Flags = Fall });
+        // Setting the one value they hold is no new state.
+        Assert.Equal(Ref(3).Flags, (Ref(3) with { Flags = Flags.None }).Flags);
     }
 
-    /// <summary>Spec, "negation with an edge": the one order.</summary>
+    /// <summary>Spec, "negation with an edge": the one order is the vendor's — it negates before it detects the edge
+    /// (DIALECT N17, run in simulation), on an operand and on a box alike.</summary>
     [Fact]
-    public void Negation_with_an_edge_is_NOT_outside() =>
-        Assert.Equal(Body("out := NOT F_EDGE(x);"), Write(Set(L("x", Neg with { Falling = true }), T("out"))));
+    public void Negation_with_an_edge_is_NOT_inside()
+    {
+        Assert.Equal(Body("out := F_EDGE(NOT x);"), Write(Set(L("x", Neg with { Falling = true }), T("out"))));
+        Assert.Equal(Body("out := R_EDGE(NOT (a AND b));"),
+            Write(Set(new Box("AND", null, CallKind.Operator, new[] { In(L("a")), In(L("b")) }, new Output[0], null, null, Neg with { Rising = true }), T("out"))));
+    }
 
     /// <summary>Spec, "rising and falling on one operand".</summary>
     [Fact]

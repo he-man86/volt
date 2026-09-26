@@ -289,9 +289,13 @@ public class NextWriterReaderAgreementTests
         var r = Gate(Src("out := R_EDGE(`NOT`(a));"), BodyLanguage.Fbd, NextNetworkScope.Empty);
         Assert.Equal("NETWORK_NOT_CANONICAL", Assert.Single(r.Diagnostics).Code);
 
-        // A modifier inside the edge is still the one refusal the spec names.
-        GateRefuses("NETWORK_BAD_EXPRESSION", Src("out := R_EDGE(NOT a);"), NextNetworkScope.Empty);
-        GateRefuses("NETWORK_BAD_EXPRESSION", Src("out := R_EDGE(NOT (a AND b));"), NextNetworkScope.Empty);
+        // The negation MODIFIER inside the edge is the vendor's order (DIALECT N17) and reads back as the flag;
+        // outside the edge it is the one refusal the spec names.
+        Assert.Equal(Src("out := R_EDGE(NOT a);"),
+            Written(Body(Set(L("a", Neg with { Rising = true }), T("out"))), NextNetworkScope.Empty));
+        Assert.Equal(Src("out := R_EDGE(NOT (a AND b));"),
+            Written(Body(Set(Op("AND", L("a"), L("b")) with { Flags = Neg with { Rising = true } }, T("out"))), NextNetworkScope.Empty));
+        GateRefuses("NETWORK_BAD_EXPRESSION", Src("out := NOT R_EDGE(a);"), NextNetworkScope.Empty);
     }
 
     /// <summary>Spec, "parentheses are structural": a call head is not an infix operator, so an operator-word call

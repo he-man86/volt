@@ -313,6 +313,28 @@ public class CodesysCoilFlagTests
             Assert.IsType<Assign>(CodesysNetworkReader.ReadNetwork(live, 0).Trees.Last()).Value).Mode);
     }
 
+    /// <summary>A MODE CHANGE IS A CHANGE. The no-change gate compares v1 TEXT, which carries no Parallel mode, so a
+    /// model differing from the live network only in its mode was called unchanged and never rebuilt — the writer's
+    /// <c>Mode</c> set above was unreachable for exactly the edit it exists for, and the push reported success.</summary>
+    [Fact]
+    public void A_Parallel_whose_only_change_is_its_mode_is_rebuilt()
+    {
+        Network Rung(ParallelMode mode) => new(0, null, null, null, false, new Node[]
+        {
+            new Assign(new Volt.Engine.Format.Network.Parallel(null,
+                           new Node[] { new Leaf(new Operand("a"), Flags.None), new Leaf(new Operand("b"), Flags.None) }, mode),
+                       new[] { new Operand("out") }, Flags.None),
+        });
+        var impl = new Nwl.NWLImplementationObject();
+        var live = new Nwl.Network().With(new Nwl.BoxTreeAssign());
+        CodesysNetworkWriter.WriteNetwork(impl, live, Rung(ParallelMode.BoxShortCircuit), null, NoProject, BodyLanguage.Ld);
+
+        CodesysNetworkWriter.WriteNetwork(impl, live, Rung(ParallelMode.Sequential), null, NoProject, BodyLanguage.Ld);
+
+        Assert.Equal(ParallelMode.Sequential, Assert.IsType<Volt.Engine.Format.Network.Parallel>(
+            Assert.IsType<Assign>(CodesysNetworkReader.ReadNetwork(live, 0).Trees.Last()).Value).Mode);
+    }
+
     /// <summary>A WIRED ENABLE ROUND-TRIPS, and this is the write half of a refusal that turned out to be
     /// wrong.
     ///

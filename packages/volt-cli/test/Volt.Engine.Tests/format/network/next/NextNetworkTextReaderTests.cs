@@ -291,7 +291,7 @@ public class NextNetworkTextReaderTests
     {
         AssertModel(Body(Top("MOVE", new[] { In(L("1")) }, new[] { Out("nMode", 1) }, en: L("bStart", Rise))),
             Read(Src("MOVE(EN := R_EDGE(bStart), 1, => nMode);")));
-        AssertModel(Body(Set(L("x", Neg with { Falling = true }), Coil("out"))), Read(Src("out := NOT F_EDGE(x);")));
+        AssertModel(Body(Set(L("x", Neg with { Falling = true }), Coil("out"))), Read(Src("out := F_EDGE(NOT x);")));
         AssertModel(Body(Set(Op("AND", L("a"), L("b")) with { Flags = Rise }, Coil("lamp"))), Read(Src("lamp := R_EDGE((a AND b));")));
     }
 

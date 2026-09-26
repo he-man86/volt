@@ -106,6 +106,7 @@ internal static class TcNetworkReader
                 // only place the bit appears — an engineer's RETURN coil came back as `??? := cond;`. The two
                 // bits share a bit-field and an operand; splitting them across two lines is what let one be
                 // fixed while the other stayed broken.
+                UnheldFlags.RefuseOnAssignItem(Volt.Contracts.Vendors.TwincatDisplay, flags);
                 return new Assign(value, targets, flags.WithControlFlowFrom(targets));
             }
 
@@ -130,7 +131,9 @@ internal static class TcNetworkReader
 
             // Fan-out: with an Input it DEFINES the wire, without one it REFERENCES the same VarId.
             case "BoxTreeDemux":
-                RefuseUnheldFlags(flags, "a wire");
+                // DIALECT N20: the archive serializes no flag on a wire or a Parallel (`BoxTreeParallel` carries only
+                // Trees, Input, Mode and Id); one found anyway is refused by name, the rule CODESYS's reader shares.
+                UnheldFlags.RefuseOnNode(Volt.Contracts.Vendors.TwincatDisplay, "a wire", flags);
                 return new Demux(
                     TcArchive.Int(e, "VarId"),
                     TcArchive.Obj(e, "Input") is { } di ? ReadNode(di) : null);
@@ -145,7 +148,7 @@ internal static class TcNetworkReader
                         "a Parallel fed by the empty terminator",
                         "TwinCAT: a parallel branch's feed is an unconnected terminator, a shape no measured project " +
                         "holds (an unfed branch has no feed at all). Edit this network in the IDE.");
-                RefuseUnheldFlags(flags, "a Parallel");
+                UnheldFlags.RefuseOnNode(Volt.Contracts.Vendors.TwincatDisplay, "a Parallel", flags);
                 // `Mode` is an enum scalar, written by member name like `CallType` — read, never defaulted (census
                 // 1.3 found a Sequential); no committed archive holds a Parallel, so an absent or unknown value is
                 // the marker, not a guess.
@@ -349,17 +352,6 @@ internal static class TcNetworkReader
 
     /// <summary>The vendor bit-field. The archive stores a NUMBER where the live model exposes named booleans,
     /// so the bit values are decoded here — from <c>IFlags</c>'s own member order, not from a guess.</summary>
-    /// <summary>DIALECT N20, the parity twin of CODESYS's reader: the object model holds no flag on a wire or a
-    /// Parallel (the archive serializes none — `BoxTreeParallel` carries only Trees, Input, Mode and Id), so the model
-    /// has no place for one. A bit found anyway is refused by name, never dropped.</summary>
-    private static void RefuseUnheldFlags(Flags flags, string what)
-    {
-        if (!flags.IsNone)
-            throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
-                "a flag on " + what,
-                $"TwinCAT: {what} carries a modifier, and the IDE holds none there (DIALECT N20). Edit this network in the IDE.");
-    }
-
     private static Flags ReadFlags(int bits) =>
         bits == 0
             ? Flags.None

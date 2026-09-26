@@ -112,7 +112,9 @@ namespace Volt.Ide.Codesys
         {
             var live = CodesysNetworkReader.ReadNetwork(net, model.Order);
             return Render(live with { Title = model.Title, Label = model.Label, Comment = model.Comment, Disabled = model.Disabled }, language)
-                == Render(model, language);
+                == Render(model, language)
+                // v1 text carries no Parallel mode, so a mode-only edit rendered equal and was never rebuilt.
+                && ParallelModes.Agree(live, model);
         }
 
         private static string Render(Network network, BodyLanguage language) =>

@@ -88,17 +88,6 @@ namespace Volt.Ide.Codesys
         private static object? Tree(object? o) =>
             o is not null && NwlInterop.TypeName(o).StartsWith("BoxTree", StringComparison.Ordinal) ? o : null;
 
-        /// <summary>DIALECT N20: the IDE holds no flag on a <c>BoxTreeDemux</c> or <c>BoxTreeParallel</c> (the getter
-        /// hands out an object the node never stores), so the model has no place for one. A bit read there anyway is
-        /// refused by name — the marker — rather than dropped on the way into a model that cannot say it.</summary>
-        private static void RefuseUnheldFlags(Flags flags, string what)
-        {
-            if (!flags.IsNone)
-                throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
-                    "a flag on " + what,
-                    $"CODESYS: {what} carries a modifier, and the IDE holds none there (DIALECT N20). Edit this network in the IDE.");
-        }
-
         private static Node ReadNode(object n)
         {
             var flags = ReadFlags(NwlInterop.Get(n, "Flags"));
@@ -140,6 +129,7 @@ namespace Volt.Ide.Codesys
                     // JUMP AND RETURN TOGETHER, in one call both drivers share: this was fixed for `Jump`
                     // alone, and `Return` sits in the same bit-field on the same operand, so a RETURN coil
                     // kept the bug for another release. See `Flags.WithControlFlowFrom`.
+                    UnheldFlags.RefuseOnAssignItem(Volt.Contracts.Vendors.CodesysDisplay, flags);
                     return new Assign(value, targets, flags.WithControlFlowFrom(targets));
                 }
 
@@ -149,7 +139,7 @@ namespace Volt.Ide.Codesys
                 // Fan-out. With an Input this DEFINES the wire; without one it REFERENCES the definition
                 // carrying the same VarId. 573 of these in the surveyed project, against zero split points.
                 case "BoxTreeDemux":
-                    RefuseUnheldFlags(flags, "a wire");
+                    UnheldFlags.RefuseOnNode(Volt.Contracts.Vendors.CodesysDisplay, "a wire", flags);
                     return new Demux(
                         NwlInterop.RequireInt(n, "VarId"),
                         Tree(NwlInterop.Get(n, "Input")) is { } di ? ReadNode(di) : null);
@@ -165,7 +155,7 @@ namespace Volt.Ide.Codesys
                             "a Parallel fed by the empty terminator",
                             "CODESYS: a parallel branch's feed is an unconnected terminator, a shape no measured project " +
                             "holds (an unfed branch has no feed at all). Edit this network in the IDE.");
-                    RefuseUnheldFlags(flags, "a Parallel");
+                    UnheldFlags.RefuseOnNode(Volt.Contracts.Vendors.CodesysDisplay, "a Parallel", flags);
                     return new Parallel(
                         feed,
                         NwlInterop.RequireItems(n, "Trees", listMember: "").Select(ReadNode).ToList(),

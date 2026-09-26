@@ -104,6 +104,9 @@ public static class NetworkTextWriter
                 // loses the second one just as surely as a rung carrying a jump and a coil loses the coil. The
                 // first spelling of this guard asked for a MIXTURE (`control < Targets.Count`) and let the
                 // two-jump case through — the same silent loss, one predicate away.
+                // An item-level negation or edge (census 1.1: none measured) has no position: `ApplyMods` would print
+                // it on the value, the same text as a flagged operand, and the re-read moves it there.
+                if (UnheldFlags.OnAssignItem(a.Flags)) return UnheldFlags.AssignItemMarker;
                 if (a.Targets.Count > 1 && a.Targets.Any(t => t.Flags is { } cf && (cf.Jump || cf.Return)))
                     // NAMES WHAT IS ACTUALLY THERE. This said "a coil and a jump together" for every case,
                     // including two jumps on one rung — a shape with no coil in it. A message describing the
@@ -128,6 +131,10 @@ public static class NetworkTextWriter
                 return null;
             case Demux d: return UnspellableIn(d.Input);
             case Parallel p2:
+                // v1 spells a Parallel `(rung AND (b1 OR b2))`, with no mode, and that spelling stands for the
+                // measured default. A Sequential one (census 1.3: Lenze MainDrive network 1) would print the same
+                // text — an IDE mode switch pulled as no change, a push rebuilding it from text with no mode.
+                if (p2.Mode != ParallelMode.BoxShortCircuit) return $"a Parallel in {p2.Mode} mode";
                 if (UnspellableIn(p2.Input) is { } ie) return ie;
                 foreach (var br in p2.Branches)
                     if (UnspellableIn(br) is { } bre) return bre;

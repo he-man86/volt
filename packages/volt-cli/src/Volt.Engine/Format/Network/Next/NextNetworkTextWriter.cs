@@ -390,7 +390,7 @@ public static class NextNetworkTextWriter
 
             var eno = NextSpelling.EnoSlot(b);
             var infix = NextSpelling.IsInfix(b);
-            var suffix = consumed ? Suffix(b, eno) : "";
+            var suffix = consumed ? Suffix(b) : "";
 
             if (b.StCode is not null) return Execute(b) + suffix;
 
@@ -423,10 +423,10 @@ public static class NextNetworkTextWriter
         /// output → no suffix, read back by <see cref="NextSpelling.MainSlotOfCall"/>; anything that reading would
         /// get wrong has no spelling. The stored slots are compared as stored — a null against a stored index is a
         /// slot nobody read, never the main output by convention.</summary>
-        private string Suffix(Box b, int? eno)
+        private string Suffix(Box b)
         {
             var slot = b.ConnectedSlot;
-            if (eno is not null)
+            if (NextSpelling.EnoSlot(b) is not null)
             {
                 if (NextSpelling.ConnectedByEno(b)) return ".ENO";   // the one definition, shared with ProducerType and the oracle
                 // Until census 1.6 shows an enabled box connected by its main output, `.ENO`-less is refused on
@@ -587,7 +587,9 @@ public static class NextNetworkTextWriter
             return head + "\n" + st + "\n  END_EXECUTE";
         }
 
-        /// <summary>A value's modifiers, in the one order: <c>NOT</c>, then the edge around the core.</summary>
+        /// <summary>A value's modifiers, in the vendor's one order: the edge around the NEGATED core
+        /// (<c>R_EDGE(NOT x)</c>) — the IDE negates before it detects the edge (DIALECT N17, run in simulation), so
+        /// <c>NOT R_EDGE(x)</c> would state logic the flags do not.</summary>
         private string Modified(string core, Flags f, string what)
         {
             if (f.Set || f.Reset || f.Jump || f.Return)
@@ -596,9 +598,10 @@ public static class NextNetworkTextWriter
             if (f.Rising && f.Falling)
                 throw Unrepresentable("rising and falling on one operand",
                     $"{what} carries both a rising and a falling edge.");
+            if (f.Negated) core = "NOT " + core;
             if (f.Rising) { RefuseTakenConstruct("R_EDGE"); core = "R_EDGE(" + core + ")"; }
             else if (f.Falling) { RefuseTakenConstruct("F_EDGE"); core = "F_EDGE(" + core + ")"; }
-            return f.Negated ? "NOT " + core : core;
+            return core;
         }
 
         /// <summary>A coil's storage — ExST's <c>:=</c>, <c>S=</c>, <c>R=</c>. Negated and edge coils are
