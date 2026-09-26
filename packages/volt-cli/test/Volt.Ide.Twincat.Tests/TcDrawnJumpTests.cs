@@ -23,7 +23,6 @@ public class TcDrawnJumpTests
             .Descendants("NWL").Single()
             .DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject");
 
-    private static string PulledText() => NetworkTextWriter.Write(TcNetworkReader.Read(Impl(), BodyLanguage.Ld));
 
     /// <summary>THE SHAPE ITSELF: the jump's input is a `BoxTreeTerminator` with an explicit null `Input`, and
     /// the destination operand carries `Flags = 4`. A CONDITIONAL jump is the same item with the RValue element
@@ -115,7 +114,10 @@ public class TcDrawnJumpTests
     }
 
     /// <summary>The <c>&lt;NWL&gt;</c> body holding a <c>BoxTreeParallel</c> in <paramref name="mode"/> where the fixture's
-    /// empty terminator was — the archive shape <see cref="A_Parallel_reads_its_mode_and_refuses_a_flag"/> reads.</summary>
+    /// empty terminator was — the archive shape <see cref="A_Parallel_reads_its_mode_and_refuses_a_flag"/> reads — and
+    /// the drawn rung's COIL dropped, so the rung is a conditional jump: <c>IF PARALLEL(…) THEN JMP owrods; END_IF;</c>.
+    /// A coil beside a jump has no spelling (<see cref="The_drawn_rung_goes_to_the_marker_by_name"/>), so with it the
+    /// writer's change gate could not say "unchanged" about a network the text cannot hold.</summary>
     private static XElement NwlWithParallel(string mode)
     {
         var nwl = XDocument.Load(Fixtures.Path("tc-pou", "drawn-refused-shapes.TcPOU"), LoadOptions.PreserveWhitespace)
@@ -127,6 +129,8 @@ public class TcDrawnJumpTests
         terminator.ReplaceWith(new XElement("o", new XAttribute("n", "RValue"), new XAttribute("t", "BoxTreeParallel"),
             new XElement("n", new XAttribute("n", "Input")), new XElement("l2", new XAttribute("n", "Trees"), branch),
             XElement.Parse($"<v n=\"Mode\" t=\"OperationMode\">{mode}</v>")));
+        nwl.Descendants("o").Single(o => o.Elements("v").Any(v => (string?)v.Attribute("n") == "Operand" && v.Value == "\"out\""))
+           .Remove();
         return nwl;
     }
 
@@ -140,7 +144,7 @@ public class TcDrawnJumpTests
         var xml = nwl.ToString(SaveOptions.DisableFormatting);
         var impl = nwl.DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject");
         var model = TcNetworkReader.Read(impl, BodyLanguage.Ld);
-        Assert.Null(TcNetworkWriter.Apply(xml, model));   // the unchanged mode writes nothing
+        Assert.Null(TcText.Apply(xml, model));   // the unchanged mode writes nothing
 
         var switched = model with
         {
@@ -151,7 +155,7 @@ public class TcDrawnJumpTests
                     : t).ToList(),
             }).ToList(),
         };
-        var ex = Assert.Throws<System.NotSupportedException>(() => TcNetworkWriter.Apply(xml, switched));
+        var ex = Assert.Throws<System.NotSupportedException>(() => TcText.Apply(xml, switched));
         Assert.Contains("a Parallel changes mode to Sequential", ex.Message);
     }
 
@@ -203,25 +207,22 @@ public class TcDrawnJumpTests
         Assert.Equal("an assignment with no value", ex.Marker);
     }
 
-    /// <summary>And Volt reads the jump — the half that already worked.</summary>
+    /// <summary>THE DRAWN RUNG GOES TO THE MARKER, BY NAME — and the coil it drives is no longer lost on the way.
+    ///
+    /// <para>The rung drives TWO outputs from one terminator: the jump destination <c>owrods</c> (<c>Flags = 4</c>) and an
+    /// ordinary coil <c>out</c> (<c>Flags = 0</c>). v1 rendered <c>"JMP " + a.Targets[0].Text</c> and dropped every other
+    /// target, so the pulled text was <c>JMP owrods;</c> and the coil was absent from the engineer's file — hidden by
+    /// the fixed point, since the text round-tripped to itself. Network text v2 has no spelling for the shape (<c>JMP</c>
+    /// as an assign target is not ST, and no corpus holds it — spec, "marker-only shapes stay on the existing marker"),
+    /// so the writer refuses it by name and the pull materializes the marker: the POU appears, says what it holds, and
+    /// nothing the engineer drew is missing from git.</para></summary>
     [Fact]
-    public void The_jump_survives_the_read()
+    public void The_drawn_rung_goes_to_the_marker_by_name()
     {
-        Assert.Contains("JMP owrods", PulledText());
-    }
+        var pulled = TcNetworkReader.Read(Impl(), BodyLanguage.Ld);
 
-    // THE LOSS THIS FIXTURE FOUND, and it is on the READ side.
-    //
-    // The drawn rung drives TWO outputs from the same terminator: the jump destination `owrods` (`Flags = 4`)
-    // and an ordinary coil `out` (`Flags = 0`). `NetworkTextWriter.Goto` renders `"JMP " + a.Targets[0].Text`
-    // and drops every other target, so the pulled text is `JMP owrods;` and the coil is absent from the
-    // engineer's file. The fixed point HIDES it: the text round-trips to itself, so every no-op push is clean
-    // and nothing ever asks where `out` went.
-    //
-    // The assertion that catches it is written and RED, and it is held in
-    // `openspec/changes/graphical-vendor-parity-map` (task 1) rather than committed red — because the fix is
-    // not the assertion, it is a TEXT FORM for a rung driving a coil and a jump together that reads back as
-    // ONE item. It comes back here with that form.
-    //
-    // It could not have been found from a Volt-created body, because Volt cannot create this shape at all.
+        var ex = Assert.ThrowsAny<Volt.Engine.Format.Body.UnrepresentableBodyException>(() => TcText.Write(pulled));
+
+        Assert.Equal("a rung driving a coil and a jump together", ex.Marker);
+    }
 }

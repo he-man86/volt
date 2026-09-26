@@ -425,7 +425,7 @@ public class PushServiceTests
             Name = "PLC_PRG.prg",
             IfVersion = v,
             ToFolder = "Machine",
-            SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\n\nNETWORK 0 FBD\n  out := (a AND b);\n",
+            SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\n(* @volt-implementation FBD *)\nNETWORK\n  out := (a AND b);\n\nEND_PROGRAM\n",
         });
 
         Assert.False(resp.Accepted);

@@ -43,8 +43,7 @@ public class TcImporterSplitTests
     [Fact]
     public void The_importer_splits_one_pushed_network_into_two()
     {
-        var pushed = NetworkTextGate.Validate(
-            "NETWORK 0 FBD\n  t1(IN := a, PT := pt);\n  done := t1.Q;\nEND_NETWORK\n");
+        var pushed = Pushed();
 
         Assert.Equal(1, pushed.Networks.Count);
         Assert.Equal(2, TcNetworkReader.Read(Impl(Built()), BodyLanguage.Fbd).Networks.Count);
@@ -158,7 +157,7 @@ public class TcImporterSplitTests
     [Fact]
     public void The_second_rungs_operand_survives_the_merge()
     {
-        var text = NetworkTextWriter.Write(
+        var text = TcText.Write(
             TcNetworkReader.Read(Impl(TcNetworkWriter.MergeImporterSplits(Built(), Pushed())!), BodyLanguage.Fbd));
 
         Assert.Contains("done := t1.Q;", text);
@@ -166,6 +165,9 @@ public class TcImporterSplitTests
         Assert.Contains("t1(IN := a, PT := pt);", text);
     }
 
+    /// <summary>The pushed body, read against a scope whose declarations say <c>t1 : TON</c>.</summary>
     private static NetworkBody Pushed() =>
-        NetworkTextGate.Validate("NETWORK 0 FBD\n  t1(IN := a, PT := pt);\n  done := t1.Q;\nEND_NETWORK\n");
+        NetworkText.Validate("(* @volt-implementation FBD *)\nNETWORK\n  t1(IN := a, PT := pt);\n  done := t1.Q;\nEND_NETWORK\n",
+            new NetworkScope(new[] { "a", "pt", "done" }, System.Array.Empty<string>(),
+                             new System.Collections.Generic.Dictionary<string, string> { ["t1"] = "TON" }));
 }

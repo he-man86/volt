@@ -11,8 +11,8 @@ namespace Volt.Ide.Codesys.Tests;
 /// <summary>
 /// THE MODEL ROUND-TRIP ORACLE over the CODESYS reader doubles (task 2.2): every NWL double the offline CODESYS
 /// suites hand <see cref="CodesysNetworkReader"/> and expect to READ — the vendor-read model a pull hands the writer
-/// — must round-trip through network text v2 or be refused by name (<see cref="NextModelOracle"/>). The engine
-/// suite runs the same oracle over the v1 tests and the LSP corpus, and the TwinCAT suite over its archives; this
+/// — must round-trip through network text v2 or be refused by name (<see cref="NetworkModelOracle"/>). The engine
+/// suite runs the same oracle over its goldens and the LSP corpus, and the TwinCAT suite over its archives; this
 /// third half lives here because only this suite can reach <see cref="CodesysNetworkReader"/>.
 ///
 /// <para><b>Transcribed, keyed by the test that builds each double.</b> A double constructed inside a test method
@@ -23,10 +23,10 @@ namespace Volt.Ide.Codesys.Tests;
 /// <see cref="Every_reader_test_is_transcribed_or_says_why_not"/> holds the two lists to the reader tests that exist:
 /// a new reader test fails it until its double is here or its reason is.</para>
 ///
-/// <para><b>The refusal table is pinned, by reason.</b> <see cref="CodesysNetworkReader"/> does not read the v2 slot
-/// facts yet (task 3.10 / 4.1 fill them), so what v2 cannot spell without them is refused here by the name the
-/// writer gives it — never guessed. A count moving means v2 learned or lost a spelling, or the reader started filling
-/// a fact, and must be read, never re-pinned blind.</para>
+/// <para><b>The refusal table is pinned, by reason.</b> <see cref="CodesysNetworkReader"/> reads the slot facts (task
+/// 3.10), so what the writer still cannot spell is refused here by the name it gives it — never guessed. A count
+/// moving means the text learned or lost a spelling, or the reader started or stopped filling a fact, and must be
+/// read, never re-pinned blind.</para>
 /// </summary>
 public class CodesysModelRoundTripOracleTests
 {
@@ -170,11 +170,23 @@ public class CodesysModelRoundTripOracleTests
                 BoxType = "MOVE",
                 InputItemList = new object[] { Nwl.Leaf("src") },
                 InputParams = new Nwl.ParamList { Names = new[] { "" }, Types = new[] { "" } },
-                OutputParams = new Nwl.ParamList { Names = new[] { "ENO", "" }, Types = new[] { "", "" } },
+                OutputParams = new Nwl.ParamList { Names = new[] { "" }, Types = new[] { "" } },
+                MainOutputIndex = 0,
             };
-            box.Outputs.List.Add(null!);
             box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "dst" });
-            Fbd("Reader.An_unnamed_output_pin_renders_as_the_calls_assignment", box);
+            Fbd("Reader.An_unnamed_output_pin_is_the_boxs_own_result_pin_not_an_assign", box);
+        }
+        {
+            var ge = new Nwl.BoxTreeBox
+            {
+                BoxType = "GE",
+                InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b") },
+                OutputParams = new Nwl.ParamList { Names = new[] { "" }, Types = new[] { "" } },
+                MainOutputIndex = 0,
+            };
+            var and = new Nwl.BoxTreeBox { BoxType = "AND", InputItemList = new object[] { ge, Nwl.Leaf("c") } };
+            Ld("Reader.A_consumed_box_is_connected_by_its_main_output_and_an_operator_by_none",
+               Coil(and, new Nwl.Operand { OperandExpr = "out", IsLValue = true }));
         }
         {
             var net = new Nwl.Network().With(Coil(null, new Nwl.Operand { OperandExpr = "out" }));
@@ -203,7 +215,7 @@ public class CodesysModelRoundTripOracleTests
     [Theory]
     [MemberData(nameof(Ids))]
     public void Every_reader_double_round_trips_or_is_refused_by_name(string id) =>
-        NextModelOracle.Check(id, Read.Value[id]);
+        NetworkModelOracle.Check(id, Read.Value[id]);
 
     /// <summary>The reader tests whose double is NOT transcribed above, each with why. Everything else a
     /// <see cref="CodesysNetworkReaderTests"/> test reads must be in <see cref="Doubles"/> under its test's name.</summary>
@@ -250,13 +262,10 @@ public class CodesysModelRoundTripOracleTests
 
     [Fact]
     public void Reader_double_tally() =>
-        NextModelOracle.AssertTally("CODESYS reader doubles",
-            Read.Value.Select(kv => NextModelOracle.Check(kv.Key, kv.Value)),
-            bodies: 31, networks: 31, refused: new Dictionary<string, int>
-            {
-                // MOVE's result wired to `dst`: CodesysNetworkReader reads neither an output's SLOT nor whether the box
-                // has an ENO output yet (tasks 3.10, 4.1), and a positional `=> dst` is spelled by both — the slot it
-                // fills, after the ENO it skips. Never by list position, never by EN.
-                ["a box whose ENO output was not read"] = 1,
-            });
+        NetworkModelOracle.AssertTally("CODESYS reader doubles",
+            Read.Value.Select(kv => NetworkModelOracle.Check(kv.Key, kv.Value)),
+            // Every double round-trips since the reader fills the output slots, the connection slot and whether a box has
+            // an ENO output (task 3.10): the one refusal this table held — MOVE's result pin, "a box whose ENO output
+            // was not read" — was those facts missing, and its double is now the measured MOVE (`OutputParams ['']`).
+            bodies: 33, networks: 33, refused: new Dictionary<string, int>());
 }

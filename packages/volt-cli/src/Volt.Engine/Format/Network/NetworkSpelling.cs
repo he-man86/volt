@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace Volt.Engine.Format.Network.Next;
+namespace Volt.Engine.Format.Network;
 
 /// <summary>
 /// The spelling rules network text v2's writer and reader must agree on, in ONE place. Each rule here is decided
@@ -13,7 +13,7 @@ namespace Volt.Engine.Format.Network.Next;
 /// first time one side learns a new literal form — and the drift would show up only as a body the gate refuses as
 /// not canonical, far from the rule that moved.
 /// </summary>
-internal static class NextSpelling
+internal static class NetworkSpelling
 {
     public static readonly Regex Identifier = new(@"^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.Compiled);
     public static readonly Regex Path = new(@"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$", RegexOptions.Compiled);
@@ -57,7 +57,7 @@ internal static class NextSpelling
     /// than the construct: a POU or an FB instance in scope is named so (case-insensitively, as IEC names are). A
     /// VARIABLE of that name is not a reason — it never heads a call, and as an operand it is backticked — so both
     /// sides ask the scope the one question, never "is the name anywhere in scope".</summary>
-    public static bool ConstructTaken(string word, NextNetworkScope scope) =>
+    public static bool ConstructTaken(string word, NetworkScope scope) =>
         ConstructWords.Contains(word) && scope.IsCallable(word);
 
     /// <summary>Whether a BARE word <paramref name="t"/> that is no wire of its network reads as a wire someone forgot
@@ -66,7 +66,7 @@ internal static class NextSpelling
     /// takes as the variable of that name. One rule for both sides: a scope that lacks a name the body uses (until
     /// task 3.9 builds it from every declaration, a method's GVL global) otherwise made the writer's text one its own
     /// reader refuses.</summary>
-    public static bool ReadsAsUndeclaredWire(string t, NextNetworkScope scope) => WireName.IsMatch(t) && !scope.Contains(t);
+    public static bool ReadsAsUndeclaredWire(string t, NetworkScope scope) => WireName.IsMatch(t) && !scope.Contains(t);
 
     /// <summary>Whether <paramref name="t"/> is exactly one token of the text, so it may stand bare.</summary>
     public static bool IsToken(string t) =>
@@ -95,7 +95,7 @@ internal static class NextSpelling
     public static bool IsSpellableType(string type)
     {
         if (type.Trim().Length == 0 || type.IndexOfAny(new[] { '\n', '\r' }) >= 0) return false;
-        var lx = new NextLexer(type, 0);
+        var lx = new NetworkLexer(type, 0);
         for (var t = lx.Next(); t.Kind != TokKind.Eof; t = lx.Next())
         {
             var ok = t.Kind switch

@@ -31,7 +31,7 @@ namespace Volt.Ide.Twincat.Tests;
 /// (<c>vendor-serialization-needs-identity-gate</c>). It is hand-built because the two fixtures turned out to be
 /// different STATES of one POU — see the test.</item>
 /// <item><b>Production</b> — the model a push actually carries is TEXT-derived, and provably cannot hold an
-/// operand's type or flags (<c>NetworkTextReader</c> builds <c>new Operand(name)</c>; network text has no syntax
+/// operand's type or flags (the text reader builds <c>new Operand(name)</c>; network text has no syntax
 /// for either). A real two-network vendor archive must still lower cleanly through the whole chain.</item>
 /// <item><b>Fan-out</b> and <b>LD</b> — the two shapes with their own lowering rules.</item>
 /// </list>
@@ -41,11 +41,6 @@ namespace Volt.Ide.Twincat.Tests;
 /// </summary>
 public class TcPlcOpenWriterTests
 {
-
-    /// <summary>No project behind this double — a dotted call target cannot resolve here, and these tests do
-    /// not use one. The lookup is passed EXPLICITLY rather than defaulted so a test that starts needing a real
-    /// one has to say so.</summary>
-    private static string? NoProject(string name) => null;
     private static string Fixture(string name) => Fixtures.Path("tc-pou", name);
 
     /// <summary>The whole &lt;NWL&gt; body of a vendor file, exactly as it sits on disk.</summary>
@@ -97,9 +92,15 @@ public class TcPlcOpenWriterTests
     private static XElement Lower(NetworkBody model)
     {
         XNamespace tc6 = "http://www.plcopen.org/xml/tc6_0200";
-        return TcPlcOpenWriter.WriteProject("P", model, null, NoProject)
+        return TcPlcOpenWriter.WriteProject("P", model)
             .Descendants(tc6 + "body").Single().Elements().Single();
     }
+
+    /// <summary>A pushed body as the gate reads it, against a scope whose declarations say <c>t1 : TON</c> — the
+    /// one FB instance these texts call.</summary>
+    private static NetworkBody Read(string text) =>
+        NetworkText.Validate(text, new NetworkScope(Array.Empty<string>(), Array.Empty<string>(),
+                                                    new System.Collections.Generic.Dictionary<string, string> { ["t1"] = "TON" }));
 
     // -- the push PRE-FLIGHT: refused before anything is written -------------------------------------
 
@@ -117,8 +118,8 @@ public class TcPlcOpenWriterTests
     [InlineData("t1(IN := a, PT := pt, ET => el);", "output pin")]
     public void APreflightRefusesWhatTheWriterCannotExpress(string statement, string expected)
     {
-        var text = $"NETWORK 0 LD\n  {statement}\nEND_NETWORK\n";
-        var ex = Assert.ThrowsAny<Exception>(() => Lower(NetworkTextReader.Parse(text)));
+        var text = $"(* @volt-implementation LD *)\nNETWORK\n  {statement}\nEND_NETWORK\n";
+        var ex = Assert.ThrowsAny<Exception>(() => Lower(Read(text)));
         Assert.Contains(expected, ex.Message);
     }
 
@@ -140,9 +141,9 @@ public class TcPlcOpenWriterTests
     public void An_unconditional_jump_or_return_is_lowered_WIRED_rather_than_refused(string statement)
     {
         XNamespace tc6 = "http://www.plcopen.org/xml/tc6_0200";
-        var text = string.Join("\n", "NETWORK 0 LD", "  " + statement, "END_NETWORK", "");
+        var text = string.Join("\n", "(* @volt-implementation LD *)", "NETWORK", "  " + statement, "END_NETWORK", "");
 
-        var body = Lower(NetworkTextReader.Parse(text));
+        var body = Lower(Read(text));
 
         var control = body.Elements().Single(e => e.Name == tc6 + "jump" || e.Name == tc6 + "return");
         var wire = control.Element(tc6 + "connectionPointIn")?.Element(tc6 + "connection");
@@ -213,9 +214,9 @@ public class TcPlcOpenWriterTests
 
         // The model a push carries - round-tripped through network text, so it holds only what the text holds.
         var pulled = TcNetworkReader.Read(Impl(fixture), BodyLanguage.Ld);
-        var model = NetworkTextGate.Validate(NetworkTextWriter.Write(pulled));
+        var model = TcText.Validate(TcText.Write(pulled), TcText.ScopeOf(pulled));
 
-        var stamped = TcNetworkWriter.Apply(imported, model);
+        var stamped = TcText.Apply(imported, model);
 
         Assert.NotNull(stamped);
         Assert.Contains($"<v n=\"Flags\">{flag}</v>", stamped);
@@ -271,7 +272,7 @@ public class TcPlcOpenWriterTests
     public void The_text_derived_model_of_a_real_archive_lowers()
     {
         var pulled = TcNetworkReader.Read(Impl("POU_PBD.TcPOU"), BodyLanguage.Fbd);
-        var model = NetworkTextGate.Validate(NetworkTextWriter.Write(pulled));
+        var model = TcText.Validate(TcText.Write(pulled), TcText.ScopeOf(pulled));
 
         var written = Lower(model);
 
@@ -340,8 +341,8 @@ public class TcPlcOpenWriterTests
     public void A_wire_feeding_two_consumers_becomes_one_shared_refLocalId()
     {
         // The gate is handed the BODY only - everything from the first NETWORK marker on - not a whole POU.
-        var model = NetworkTextGate.Validate(
-            "NETWORK 0 FBD\n  LET g7 := (a AND b);\n  out1 := g7;\n  out2 := g7;\nEND_NETWORK\n");
+        var model = Read("(* @volt-implementation FBD *)\nNETWORK\n  VAR_TEMP g7 : BOOL; END_VAR\n  g7 := (a AND b);\n" +
+                         "  out1 := g7;\n  out2 := g7;\nEND_NETWORK\n");
 
         var written = Lower(model);
 

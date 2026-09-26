@@ -69,7 +69,7 @@ public class TcNetworkWriterTests
     public void A_push_of_the_unchanged_body_is_not_written_back()
     {
         var body = VendorBody();
-        Assert.Null(TcNetworkWriter.Apply(body, Read(body)));
+        Assert.Null(TcText.Apply(body, Read(body)));
     }
 
     /// <summary>The read is not lossy in the direction that matters: what the reader saw is what a re-read of
@@ -82,7 +82,7 @@ public class TcNetworkWriterTests
         var edited = model with { Networks = new[] { model.Networks[0] with { Title = "Interlock" } }
                                     .Concat(model.Networks.Skip(1)).ToList() };
 
-        var written = TcNetworkWriter.Apply(body, edited);
+        var written = TcText.Apply(body, edited);
         Assert.NotNull(written);
         Assert.Equal("Interlock", Read(written!).Networks[0].Title);
     }
@@ -101,7 +101,7 @@ public class TcNetworkWriterTests
         var edited = model with { Networks = new[] { model.Networks[0] with { Title = "Interlock" } }
                                     .Concat(model.Networks.Skip(1)).ToList() };
 
-        var written = TcNetworkWriter.Apply(body, edited);
+        var written = TcText.Apply(body, edited);
         Assert.NotNull(written);
         Assert.Equal(Skeleton(body), Skeleton(written!));
     }
@@ -124,7 +124,7 @@ public class TcNetworkWriterTests
         var edited = model with { Networks = new[] { model.Networks[0] with { Comment = "checked" } }
                                     .Concat(model.Networks.Skip(1)).ToList() };
 
-        var written = TcNetworkWriter.Apply(body, edited);
+        var written = TcText.Apply(body, edited);
         Assert.NotNull(written);
         Assert.Equal(Ids(body), Ids(written!));
     }
@@ -142,7 +142,7 @@ public class TcNetworkWriterTests
     {
         var body = VendorBody();
         var model = Read(body);
-        var written = TcNetworkWriter.Apply(body, Rename(model, "FALSE", "bGuardClosed"));
+        var written = TcText.Apply(body, Rename(model, "FALSE", "bGuardClosed"));
 
         Assert.NotNull(written);
         Assert.Equal(Skeleton(body), Skeleton(written!));
@@ -162,7 +162,7 @@ public class TcNetworkWriterTests
         Assert.True(model.Networks[1].Disabled);
 
         var flipped = model with { Networks = model.Networks.Select(n => n with { Disabled = !n.Disabled }).ToList() };
-        var written = TcNetworkWriter.Apply(body, flipped);
+        var written = TcText.Apply(body, flipped);
 
         Assert.NotNull(written);
         var back = Read(written!);
@@ -179,7 +179,7 @@ public class TcNetworkWriterTests
         var model = Read(body);
         var grown = model with { Networks = model.Networks.Append(model.Networks[0]).ToList() };
 
-        var ex = Assert.Throws<NotSupportedException>(() => TcNetworkWriter.Apply(body, grown));
+        var ex = Assert.Throws<NotSupportedException>(() => TcText.Apply(body, grown));
         Assert.Contains("changes the number of networks (2 -> 3)", ex.Message);
         // ADDING is refused for the member-contract reason; DELETING is not, and the message says which.
         Assert.Contains("cannot ADD one through the archive", ex.Message);
@@ -201,7 +201,7 @@ public class TcNetworkWriterTests
         var model = Read(body);
         var shrunk = model with { Networks = model.Networks.Take(1).ToList() };
 
-        var ex = Assert.Throws<NotSupportedException>(() => TcNetworkWriter.Apply(body, shrunk));
+        var ex = Assert.Throws<NotSupportedException>(() => TcText.Apply(body, shrunk));
         Assert.Contains("changes the number of networks (2 -> 1)", ex.Message);
         Assert.Contains("cannot tell WHICH network was removed", ex.Message);
         Assert.DoesNotContain("member contract", ex.Message);
@@ -215,7 +215,7 @@ public class TcNetworkWriterTests
         var box = (Box)model.Networks[0].Trees[0];
         var grown = Replace(model, box with { Inputs = box.Inputs.Append(box.Inputs[0]).ToList() });
 
-        var ex = Assert.Throws<NotSupportedException>(() => TcNetworkWriter.Apply(body, grown));
+        var ex = Assert.Throws<NotSupportedException>(() => TcText.Apply(body, grown));
         Assert.Contains("from 2 to 3 input(s)", ex.Message);
     }
 
@@ -230,7 +230,7 @@ public class TcNetworkWriterTests
         var box = (Box)model.Networks[0].Trees[0];
         var retyped = Replace(model, box with { Type = "OR" });
 
-        var ex = Assert.Throws<NotSupportedException>(() => TcNetworkWriter.Apply(body, retyped));
+        var ex = Assert.Throws<NotSupportedException>(() => TcText.Apply(body, retyped));
         Assert.Contains("box changes from 'AND' to 'OR'", ex.Message);
     }
 
@@ -241,7 +241,7 @@ public class TcNetworkWriterTests
     public void Creating_a_graphical_body_from_nothing_is_refused()
     {
         var model = Read(VendorBody());
-        var ex = Assert.Throws<NotSupportedException>(() => TcNetworkWriter.Apply("", model));
+        var ex = Assert.Throws<NotSupportedException>(() => TcText.Apply("", model));
         Assert.Contains("creates a graphical body where the IDE has none", ex.Message);
     }
 
@@ -250,7 +250,7 @@ public class TcNetworkWriterTests
     public void Replacing_a_textual_body_with_a_graphical_one_is_refused()
     {
         var model = Read(VendorBody());
-        var ex = Assert.Throws<NotSupportedException>(() => TcNetworkWriter.Apply("a := b;", model));
+        var ex = Assert.Throws<NotSupportedException>(() => TcText.Apply("a := b;", model));
         Assert.Contains("replaces a textual body with a graphical one", ex.Message);
     }
 
@@ -263,7 +263,7 @@ public class TcNetworkWriterTests
         var model = Read(body);
         var grown = model with { Networks = model.Networks.Append(model.Networks[0]).ToList() };
 
-        var ex = Assert.Throws<NotSupportedException>(() => TcNetworkWriter.Apply(body, grown));
+        var ex = Assert.Throws<NotSupportedException>(() => TcText.Apply(body, grown));
         // The network-count refusal carries its own advice now, per case, rather than the generic sentence.
         Assert.Contains("Add it in the IDE and pull it.", ex.Message);
     }
@@ -318,7 +318,7 @@ public class TcNetworkWriterTests
         };
 
         // No refusal: the box was never retyped, only spelled differently.
-        var written = TcNetworkWriter.Apply(body, edited);
+        var written = TcText.Apply(body, edited);
 
         // …and because nothing actually changed, the writer has nothing to write back.
         Assert.Null(written);
@@ -340,7 +340,7 @@ public class TcNetworkWriterTests
                 .ToList(),
         };
 
-        Assert.Throws<System.NotSupportedException>(() => TcNetworkWriter.Apply(body, edited));
+        Assert.Throws<System.NotSupportedException>(() => TcText.Apply(body, edited));
     }
 
     /// <summary>Respell every AND box's type, leaving everything else alone.</summary>

@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 using Volt.Engine.Format.Network;
-using Volt.Engine.Format.Network.Next;
-using static Volt.Engine.Tests.NextModels;
+using static Volt.Engine.Tests.NetworkModels;
 using Parallel = Volt.Engine.Format.Network.Parallel;
 
 namespace Volt.Engine.Tests;
@@ -12,7 +11,7 @@ namespace Volt.Engine.Tests;
 /// <summary>
 /// THE LADDER ORACLE (task 2.4): seven real rungs from <c>test-corpus/lenze-mid</c> — Mach1_MIDS networks 0, 10, 13
 /// and 82, TrayFiller networks 1, 6 and 8 — each pinned as network text v2 AND as the vendor's model, both ways:
-/// the writer writes the model to the text, and the text reads back to the model (<see cref="NextModelOracle"/>,
+/// the writer writes the model to the text, and the text reads back to the model (<see cref="NetworkModelOracle"/>,
 /// which also runs the gate).
 ///
 /// <para><b>The models are the vendor's, not the corpus text's.</b> The corpus holds these rungs as v1 text, which
@@ -23,7 +22,7 @@ namespace Volt.Engine.Tests;
 /// <c>ENO</c> is <see cref="Box.HasEnoOutput"/>, <c>MainOutputIndex</c> as stored (None on AND/OR), a consumer
 /// connected by it (DIALECT N16), <c>Outputs.List[i]</c> wired is slot i, <c>Negation+Set</c> on a target is a reset.
 /// Facts the text has no position for (an operand's type, <c>CallType</c>) are left out, as
-/// <see cref="NextNetworkTextFacts"/> lists.</para>
+/// <see cref="NetworkTextFacts"/> lists.</para>
 ///
 /// <para><b>What the dump settled that the design page had guessed.</b> Of the page's two-way positions ‹E1›–‹E4›,
 /// only ‹E4› (TrayFiller 8) is a Parallel; ‹E1›–‹E3› are AND/OR boxes. And the GE on that Parallel's branch has EN
@@ -31,7 +30,7 @@ namespace Volt.Engine.Tests;
 /// comparison result, so it is written without <c>.ENO</c> — the v1 text's <c>IF en4 THEN (… &gt;= tInt)</c> and
 /// the page's <c>GE(EN := , …).ENO</c> both claimed the ENO, which the rung does not read.</para>
 /// </summary>
-public class NextLadderOracleTests
+public class LadderOracleTests
 {
     // Operator boxes as the vendor holds them: no main output index, an empty output type list (the dump's
     // `MainOutputIndex=None`, `OutputParams Names=[] Types=[]`).
@@ -59,8 +58,8 @@ public class NextLadderOracleTests
     public void The_rung_is_pinned_as_text_and_as_a_model(string name)
     {
         var (model, text) = Oracle[name];
-        Assert.Equal(text, NextNetworkTextWriter.Write(model, ScopeOf(model)));
-        Assert.Null(NextModelOracle.Check(name, model).Reason);
+        Assert.Equal(text, NetworkTextWriter.Write(model, ScopeOf(model)));
+        Assert.Null(NetworkModelOracle.Check(name, model).Reason);
     }
 
     static readonly IReadOnlyDictionary<string, (NetworkBody Model, string Text)> Oracle = new Dictionary<string, (NetworkBody, string)>

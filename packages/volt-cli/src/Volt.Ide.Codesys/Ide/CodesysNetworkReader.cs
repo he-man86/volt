@@ -41,7 +41,7 @@ namespace Volt.Ide.Codesys
                 // NetworkItemCount can EXCEED the number of real trees — measured: a network reported 2 with
                 // one tree, the second slot being an item the IDE had dropped. A null here is normal, not a
                 // failure, and must be skipped rather than treated as an empty body.
-                        if (Tree(NwlInterop.TryCall(net, "GetTree", i)) is { } tree) trees.Add(ReadNode(tree));
+                        if (Tree(NwlInterop.TryCall(net, "GetTree", i)) is { } tree) trees.Add(ReadNode(tree, consumed: false));
             }
 
             // The vendor's own per-network SPLIT-POINT list, which is NOT fan-out - fan-out is `Demux`, and
@@ -88,7 +88,10 @@ namespace Volt.Ide.Codesys
         private static object? Tree(object? o) =>
             o is not null && NwlInterop.TypeName(o).StartsWith("BoxTree", StringComparison.Ordinal) ? o : null;
 
-        private static Node ReadNode(object n)
+        /// <param name="consumed">Whether an item above this one reads its output — true for everything below
+        /// the top level. A consumed box records the output slot its consumer is connected to
+        /// (<see cref="Box.ConnectedSlot"/>); a top-level one has no consumer and records none.</param>
+        private static Node ReadNode(object n, bool consumed)
         {
             var flags = ReadFlags(NwlInterop.Get(n, "Flags"));
             switch (NwlInterop.TypeName(n))
@@ -110,7 +113,7 @@ namespace Volt.Ide.Codesys
                     // Census 1.2: the empty terminator is the ONE spelling of "unconnected" (RValue null 0 across
                     // five projects), so the model has no null value to put a vendor null in (task 1.10).
                     var value = Tree(NwlInterop.Get(n, "RValue")) is { } rv
-                        ? ReadNode(rv)
+                        ? ReadNode(rv, consumed: true)
                         : throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
                             "an assignment with no value",
                             "CODESYS: an assignment holds no value at all, where an unconnected one holds an empty " +
@@ -134,7 +137,7 @@ namespace Volt.Ide.Codesys
                 }
 
                 case "BoxTreeBox":
-                    return ReadBox(n, flags);
+                    return ReadBox(n, flags, consumed);
 
                 // Fan-out. With an Input this DEFINES the wire; without one it REFERENCES the definition
                 // carrying the same VarId. 573 of these in the surveyed project, against zero split points.
@@ -142,11 +145,11 @@ namespace Volt.Ide.Codesys
                     UnheldFlags.RefuseOnNode(Volt.Contracts.Vendors.CodesysDisplay, "a wire", flags);
                     return new Demux(
                         NwlInterop.RequireInt(n, "VarId"),
-                        Tree(NwlInterop.Get(n, "Input")) is { } di ? ReadNode(di) : null);
+                        Tree(NwlInterop.Get(n, "Input")) is { } di ? ReadNode(di, consumed: true) : null);
 
                 case "BoxTreeParallel":
                 {
-                    var feed = Tree(NwlInterop.Get(n, "Input")) is { } pi ? ReadNode(pi) : null;
+                    var feed = Tree(NwlInterop.Get(n, "Input")) is { } pi ? ReadNode(pi, consumed: true) : null;
                     // Census 1.2: an unfed Parallel is the NULL feed (5 of 17), and a feed that is the empty
                     // terminator occurs in no measured project. One "no feed" in the model, so the other is refused
                     // by name — the marker, never a second spelling nobody has seen the vendor hold.
@@ -158,7 +161,7 @@ namespace Volt.Ide.Codesys
                     UnheldFlags.RefuseOnNode(Volt.Contracts.Vendors.CodesysDisplay, "a Parallel", flags);
                     return new Parallel(
                         feed,
-                        NwlInterop.RequireItems(n, "Trees", listMember: "").Select(ReadNode).ToList(),
+                        NwlInterop.RequireItems(n, "Trees", listMember: "").Select(t => ReadNode(t, consumed: true)).ToList(),
                         ParallelModes.FromVendor(NwlInterop.Get(n, "Mode")?.ToString()));
                 }
 
@@ -233,7 +236,7 @@ namespace Volt.Ide.Codesys
             string.Join(" + ", new[] { f.Negated ? "negation" : null, f.Rising ? "rising edge" : null, f.Falling ? "falling edge" : null,
                 f.Set ? "set" : null, f.Jump ? "jump" : null, f.Return ? "return" : null }.Where(s => s != null));
 
-        private static Box ReadBox(object n, Flags flags)
+        private static Box ReadBox(object n, Flags flags, bool consumed)
         {
             var items = NwlInterop.RequireItems(n, "InputItemList", listMember: "").ToList();
 
@@ -255,14 +258,14 @@ namespace Volt.Ide.Codesys
             Node? enable = null;
             if (Box.HasEnableSlot(formals) && items.Count > 0)
             {
-                enable = ReadNode(items[0]);
+                enable = ReadNode(items[0], consumed: true);
                 items.RemoveAt(0);
                 formals.RemoveAt(0);
             }
 
             // INDEX-ALIGNED, never length-equal: `Names` may be shorter than the item list (see Box.FormalAt).
             var inputs = items
-                .Select((x, i) => new Input(Clean(Box.FormalAt(formals, i)), ReadNode(x), Flags.None))
+                .Select((x, i) => new Input(Clean(Box.FormalAt(formals, i)), ReadNode(x, consumed: true), Flags.None))
                 .ToList();
 
             // AN INSTANCE THAT NAMES NOTHING IS NOT AN INSTANCE. The member is PRESENT on every box —
@@ -278,6 +281,15 @@ namespace Volt.Ide.Codesys
                 ? ReadOperand(instanceObj)
                 : null;
 
+            // THE OUTPUT SLOTS (network text v2, task 3.10; DIALECT N16, measured on 1,117 consumed boxes): NWL
+            // stores no connection slot — a consumer reads the box's output at `MainOutputIndex`, so that IS the
+            // slot a consumed box is connected by. `MainOutputIndex` is absent on the AND/OR boxes (census 1.6),
+            // and absent is null here, never a default: the writer reads a consumed bit operator by that rule and
+            // refuses any other box whose slot nobody read. Whether the box HAS an ENO output is its output list's
+            // first name (`Box.HasEnoSlot`), independent of EN — census 1.6 found 40 enabled comparisons with none.
+            var mainOutput = NwlInterop.Get(n, "MainOutputIndex") is int main ? main : (int?)null;
+            var outputNames = Names(NwlInterop.Get(n, "OutputParams"));
+
             return new Box(
                 NwlInterop.Text(n, "BoxType") ?? "",
                 instance,
@@ -292,7 +304,10 @@ namespace Volt.Ide.Codesys
                 // null: dead code that read as a guarantee.
                 enable,
                 ReadStCode(n),
-                flags);
+                flags,
+                MainOutputIndex: mainOutput,
+                ConnectedSlot: consumed ? mainOutput : null,
+                HasEnoOutput: Box.HasEnoSlot(outputNames));
         }
 
         /// <summary>A CODESYS Execute box: a box whose call is raw ST, carried on the box itself.
@@ -375,7 +390,8 @@ namespace Volt.Ide.Codesys
                 if (slots[i] is not { } slot) continue;
                 var operand = ReadOperand(slot);
                 if (operand.Text.Length == 0) continue;
-                outputs.Add(new Output(Clean(Box.FormalAt(names, i)), operand));
+                // The SLOT travels with the pin: a positional `=> v` is spelled by the slot it fills (task 3.10).
+                outputs.Add(new Output(Clean(Box.FormalAt(names, i)), operand, i));
             }
             return outputs;
         }

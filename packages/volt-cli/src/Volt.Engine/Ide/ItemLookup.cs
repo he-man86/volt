@@ -33,6 +33,45 @@ public static class ItemLookup
     public static ItemRef? Find(IProjectTree tree, string name) =>
         Find(tree, tree.GetTreeRoot(), name, 0);
 
+    /// <summary>Every top-level item whose tree kind satisfies <paramref name="kind"/>, by the same walk and the
+    /// same refusal to read a fault as absence as <see cref="Find"/> — a list that silently missed a folder would
+    /// answer "no such global" for one that exists.</summary>
+    public static IReadOnlyList<ItemRef> All(IProjectTree tree, System.Func<int, bool> kind)
+    {
+        var found = new List<ItemRef>();
+        Collect(tree, tree.GetTreeRoot(), kind, found, 0);
+        return found;
+    }
+
+    private static void Collect(IProjectTree tree, ItemRef node, System.Func<int, bool> want, List<ItemRef> into, int depth)
+    {
+        if (depth > MaxDepth) return;
+        int count;
+        try { count = tree.ChildCount(node); }
+        catch (System.Exception ex)
+        {
+            throw new BridgeException(BridgeErrorCodes.InternalError,
+                $"could not read the project tree while listing its items — the IDE refused a child read ({ex.Message}).");
+        }
+        for (var i = 1; i <= count; i++)
+        {
+            ItemRef child;
+            int kind;
+            try
+            {
+                child = tree.ChildAt(node, i);
+                kind = tree.KindCode(child);
+            }
+            catch (System.Exception ex)
+            {
+                throw new BridgeException(BridgeErrorCodes.InternalError,
+                    $"could not read child {i} while listing the project's items — the IDE refused the read ({ex.Message}).");
+            }
+            if (ItemKind.IsAddressableItem(kind)) { if (want(kind)) into.Add(child); continue; }
+            Collect(tree, child, want, into, depth + 1);
+        }
+    }
+
     private static ItemRef? Find(IProjectTree tree, ItemRef node, string name, int depth)
     {
         if (depth > MaxDepth) return null;

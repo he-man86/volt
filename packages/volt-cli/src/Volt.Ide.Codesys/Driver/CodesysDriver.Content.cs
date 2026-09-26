@@ -30,16 +30,15 @@ public sealed partial class CodesysDriver
     {
         var declaration = ReadDeclarationText(item);
         var iobj = _om.ReadObject(item.Native);
-        var (language, body) = ReadBody(iobj);
+        var body = ReadBody(iobj, declaration);
 
         var members = new List<Member>();
         var ownerIsInterface = KindCode(item) == ItemKind.PlcItf;
         foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, item))
-            members.Add(ReadMember(site, ownerIsInterface));
+            members.Add(ReadMember(site, ownerIsInterface, declaration));
 
-        // No separate language field: a graphical body's text LEADS with `NETWORK n FBD|LD`, so the
-        // language is already in the content and a second copy could only disagree with it.
-        _ = language;
+        // No separate language field: a graphical body's text LEADS with its `(* @volt-implementation FBD|LD *)`
+        // marker, so the language is already in the content and a second copy could only disagree with it.
         return new ItemContent(
             KindOf(item),
             declaration.TrimEnd('\n'),
@@ -51,7 +50,8 @@ public sealed partial class CodesysDriver
                              IReadOnlyDictionary<string, string> pushedDeclarations)
     {
         // A graphical body is validated BEFORE anything is written, so a refusal leaves the item untouched.
-        NetworkBody? graph = content.Body is { } b && NetworkText.Is(b) ? NetworkTextGate.Validate(b) : null;
+        var scope = NetworkScopeFor(content.Declaration, pushedDeclarations);
+        NetworkBody? graph = content.Body is { } b && NetworkText.Is(b) ? NetworkText.Validate(b, scope) : null;
 
         if (graph is null)
         {
@@ -74,7 +74,7 @@ public sealed partial class CodesysDriver
             // ordering rule that used to live in PushService was about TwinCAT's IMPORTER, and there is no
             // import on this path at all.)
             _om.WriteSourceText(item.Native, content.Declaration, null);
-            CodesysNetworkWriter.Write(_om, item.Native, graph, content.Declaration, n => DeclarationOfName(pushedDeclarations, n));
+            CodesysNetworkWriter.Write(_om, item.Native, graph, scope);
         }
 
         WriteMembers(item, content.Members, content.Declaration, pushedDeclarations);
@@ -102,16 +102,18 @@ public sealed partial class CodesysDriver
     private static string? BodyText(string raw) =>
         raw.TrimEnd('\n') is { } text && text.Trim().Length == 0 ? null : raw.TrimEnd('\n');
 
-    private static (BodyLanguage? Language, string? Body) ReadBody(object? iobj)
+    /// <param name="declaration">The declarations the body resolves against, innermost first
+    /// (<see cref="SourceScopes.Scope"/>) — a graphical body is written against its <see cref="NetworkScope"/>.</param>
+    private string? ReadBody(object? iobj, string? declaration)
     {
         var impl = iobj is null ? null : NwlInterop.Get(iobj, "Implementation");
-        if (impl is null) return (null, null);
+        if (impl is null) return null;
 
         switch (impl.GetType().Name)
         {
             case "STImplementationObject":
             {
-                return (null, BodyText(CodesysObjectModel.ReadAspectText(iobj, "Implementation")));
+                return BodyText(CodesysObjectModel.ReadAspectText(iobj, "Implementation"));
             }
 
             case "NWLImplementationObject":
@@ -124,7 +126,7 @@ public sealed partial class CodesysDriver
                 // every pull, with only a log warning. IL is unsupported, which is exactly what the marker is
                 // for; ARCHITECTURE.md and docs/network-text.html both already said it materializes as one.
                 var language = ReadViewMode(impl);
-                if (language is null) return (null, BodyMarker.For("IL"));
+                if (language is null) return BodyMarker.For("IL");
 
                 // A BODY THE READER CANNOT REPRESENT IS A MARKER, NOT A MISSING POU.
                 //
@@ -149,22 +151,27 @@ public sealed partial class CodesysDriver
                 }
                 catch (UnrepresentableBodyException ex)
                 {
-                    return (null, BodyMarker.For(ex.Marker));
+                    return BodyMarker.For(ex.Marker);
                 }
 
-                // A coil modifier the text form cannot spell makes the body a MARKER, never a plain coil. The
-                // silent alternative writes a different machine into the engineer's file; see
-                // `NetworkTextWriter.Unspellable`. Same arm as IL and for the same reason.
-                if (NetworkTextWriter.Unspellable(model) is { } why) return (null, BodyMarker.For(why));
-
-                var text = NetworkTextWriter.Write(model).Trim();
-                return (language, text.Length == 0 ? null : text);
+                // A fact the text has no spelling for makes the body a MARKER, never a body without it — a negated
+                // coil, a rung driving two jumps, a connection by an output slot the text cannot name. The writer
+                // raises the one exception for every such fact (network text v2: pull never throws anything
+                // else), so this is the same arm as the reader's refusal above, and as IL.
+                try
+                {
+                    return NetworkTextWriter.Write(model, NetworkScopeFor(declaration, NoPush)).TrimEnd('\n');
+                }
+                catch (UnrepresentableBodyException ex)
+                {
+                    return BodyMarker.For(ex.Marker);
+                }
             }
 
             default:
                 // CFC, SFC and anything else graphical: UNSUPPORTED, and it materializes as the marker so an
                 // engineer gets a file that says so rather than an editable-looking approximation of a diagram.
-                return (null, BodyMarker.For(MarkerLanguage(impl.GetType().Name)));
+                return BodyMarker.For(MarkerLanguage(impl.GetType().Name));
         }
     }
 
@@ -199,11 +206,14 @@ public sealed partial class CodesysDriver
     // ── members ───────────────────────────────────────────────────────────────────────────────────
 
 
-    private Member ReadMember(Volt.Engine.Ide.MemberSites.Site site, bool ownerIsInterface)
+    private Member ReadMember(Volt.Engine.Ide.MemberSites.Site site, bool ownerIsInterface, string? ownerDeclaration)
     {
         var kind = MemberKind(site.Code, ownerIsInterface);
         var iobj = _om.ReadObject(site.Ref.Native);
-        var (_, body) = ReadBody(iobj);
+        var declaration = MemberDeclaration(site);
+        // An ACTION has no declaration of its own and resolves against its owner's (SourceScopes.BodiesOf).
+        var scope = SourceScopes.Scope(site.Code == ItemKind.PlcAction ? null : declaration, ownerDeclaration);
+        var body = ReadBody(iobj, scope);
 
         Accessor? getter = null, setter = null;
         if (kind is ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)
@@ -212,13 +222,13 @@ public sealed partial class CodesysDriver
             for (int i = 1; i <= n; i++)
             {
                 var acc = ChildAt(site.Ref, i);
-                var accessor = ReadAccessor(acc);
+                var accessor = ReadAccessor(acc, scope);
                 if (KindCode(acc) == ItemKind.PlcPropGet) getter = accessor;
                 else if (KindCode(acc) == ItemKind.PlcPropSet) setter = accessor;
             }
         }
 
-        return new Member(kind, site.Name, MemberDeclaration(site), body, site.Folder, getter, setter);
+        return new Member(kind, site.Name, declaration, body, site.Folder, getter, setter);
     }
 
     /// <summary>A member's kind, decided by its OWNER rather than by the object's interfaces alone.
@@ -253,11 +263,11 @@ public sealed partial class CodesysDriver
         return null;
     }
 
-    private Accessor ReadAccessor(ItemRef acc)
+    private Accessor ReadAccessor(ItemRef acc, string? propertyScope)
     {
         var iobj = _om.ReadObject(acc.Native);
-        var (_, body) = ReadBody(iobj);
-        return new Accessor(AccessorDeclaration.Keep(CodesysObjectModel.ReadAspectText(iobj, "Interface")), body);
+        var declaration = AccessorDeclaration.Keep(CodesysObjectModel.ReadAspectText(iobj, "Interface"));
+        return new Accessor(declaration, ReadBody(iobj, SourceScopes.Scope(declaration, propertyScope)));
     }
 
     /// <summary>A member's declaration, from the member's OWN declaration aspect.
@@ -279,62 +289,27 @@ public sealed partial class CodesysDriver
     private string ReadDeclarationText(ItemRef item) =>
         item.Native is LibRefNode lib ? lib.Manifest : _om.ReadDeclaration(item.Native);
 
-    /// <summary>Another top-level item's declaration, by name — the vendor half of
-    /// <see cref="StDeclaration.TypeOfCallTarget"/>.
+    /// <summary>The project's declarations as a graphical body sees them — its own, another item's by name, every
+    /// global list — through the one helper both drivers share (<see cref="ProjectDeclarations"/>: the push asked
+    /// first, the IDE half cached for the driver's life). A body is written on pull and read on push against the
+    /// <see cref="NetworkScope"/> built from them (task 3.9).
     ///
     /// <para>A graphical box can call through a name this POU does not declare:
     /// `Mach1_AuxData.IEC_TIMERS.OffDelayLockDrives(...)` walks a GVL, then a struct, then reaches the timer.
     /// Each hop is one more item's declaration, and only the driver can ask the IDE for it.</para>
     ///
-    /// <para>THE PUSH IS ASKED FIRST, and that is not an optimization. The IDE can only answer for items it
-    /// ALREADY holds, so on a push that creates a whole project the answer depends on op order — `Mach1_Drives`
-    /// walks a struct that was hundreds of ops further down the same push, and its body was refused. The push
-    /// is also the NEWER truth for an item it is updating. The IDE answers for everything the push does not
-    /// carry, which is every unchanged item in the project.</para>
-    ///
-    /// <para>The IDE half is CACHED for the life of the driver. <see cref="ItemLookup.Find"/> is a full walk
-    /// from the tree root, and a body like Lenze's `Mach1_MIDS` resolves fourteen paths through the same two
-    /// items — without the cache that is a project walk per box. A miss is cached too: "there is no item by
-    /// that name" is just as expensive to establish, and the push overlay in front of it means a name that
-    /// arrives later in the same push is never reached through here.</para></summary>
-    private readonly Dictionary<string, string?> _declarationByName = new(StringComparer.OrdinalIgnoreCase);
+    /// <para>This driver had a push PRE-FLIGHT override (<c>ValidateSource</c>) whose one job was resolving an FB
+    /// call's type from the declarations before the write, for v1's text-derived <c>Box(Type: instance)</c>. The v2
+    /// reader resolves the type from this same scope, so the engine's pre-flight (which reads every body against
+    /// <see cref="NetworkScopeFor"/>) covers it, and the override went with the resolver.</para></summary>
+    private ProjectDeclarations Declarations => _declarations ??= new ProjectDeclarations(this, ReadDeclarationText);
+    private ProjectDeclarations? _declarations;
 
-    /// <summary>The push PRE-FLIGHT: refuse a body this driver could not write, before anything is written.
-    ///
-    /// <para>CODESYS never overrode this, so <c>DriverBase</c> refused nothing and every refusal inside
-    /// <c>CodesysNetworkWriter</c> fired from INSIDE the write. <c>PushService</c> applies a push item by
-    /// item, so a create whose Nth POU called a function-block instance with no resolvable type wrote items
-    /// 1..N-1 into the engineer's live project and then rejected the push — the caller told it failed, half
-    /// of it landed, and the receipt's "already written ... run volt pull" note is the apology. That is the
-    /// `Lenze_MID-S100` shape the pre-flight exists to prevent, and TwinCAT has been covered since
-    /// <c>ICodeStore.ValidateSource</c> landed. Found by the vendor differential map, 2026-09-22.</para>
-    ///
-    /// <para>ONE decision, not two: <c>CodesysNetworkWriter.Validate</c> calls the same
-    /// <c>ResolveBoxType</c> the write does, so the pre-flight cannot start refusing bodies the write would
-    /// take — which is the only failure mode a pre-flight must not have.</para>
-    ///
-    /// <para>CREATE only, like TwinCAT's: an update rewrites just the networks that CHANGED, so a body may
-    /// legitimately carry a shape the whole-body validator refuses in a network the edit does not touch.</para></summary>
-    public override void ValidateSource(string wireName, string sourceText,
-                                        IReadOnlyDictionary<string, string> pushedDeclarations)
-    {
-        var split = StReader.Read(sourceText, null);
-        foreach (var (body, declaration) in SourceScopes.BodiesOf(split))
-        {
-            if (body is not { } text || !NetworkText.Is(text)) continue;
-            CodesysNetworkWriter.Validate(NetworkTextReader.Parse(text), declaration,
-                                          n => DeclarationOfName(pushedDeclarations, n));
-        }
-    }
+    /// <summary>A pull pushes nothing: its scope is the IDE's declarations alone.</summary>
+    private static readonly IReadOnlyDictionary<string, string> NoPush = new Dictionary<string, string>();
 
-    private string? DeclarationOfName(IReadOnlyDictionary<string, string> pushed, string name)
-    {
-        if (pushed.TryGetValue(name, out var incoming) && !string.IsNullOrWhiteSpace(incoming)) return incoming;
-        if (_declarationByName.TryGetValue(name, out var cached)) return cached;
-
-        var declaration = ItemLookup.Find(this, name) is { } item ? ReadDeclarationText(item) : null;
-        return _declarationByName[name] = string.IsNullOrWhiteSpace(declaration) ? null : declaration;
-    }
+    public NetworkScope NetworkScopeFor(string? declaration, IReadOnlyDictionary<string, string> pushedDeclarations) =>
+        Declarations.ScopeFor(declaration, pushedDeclarations);
 
 
     /// <summary>The item's KIND, from the TREE — never from its text.
@@ -383,7 +358,10 @@ public sealed partial class CodesysDriver
                     "is the push service's job, and writing through a missing one would land nothing");
 
 
-            NetworkBody? graph = m.Body is { } b && NetworkText.Is(b) ? NetworkTextGate.Validate(b) : null;
+            // An ACTION has no declaration of its own and resolves against its owner's (SourceScopes.BodiesOf).
+            var memberScope = SourceScopes.Scope(m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, ownerDeclaration);
+            var scope = NetworkScopeFor(memberScope, pushedDeclarations);
+            NetworkBody? graph = m.Body is { } b && NetworkText.Is(b) ? NetworkText.Validate(b, scope) : null;
             if (graph is null)
             {
                 _om.WriteSourceText(target.Native,
@@ -393,8 +371,7 @@ public sealed partial class CodesysDriver
             else
             {
                 _om.WriteSourceText(target.Native, m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, null);
-                CodesysNetworkWriter.Write(_om, target.Native, graph, SourceScopes.Scope(m.Declaration, ownerDeclaration),
-                                       n => DeclarationOfName(pushedDeclarations, n));
+                CodesysNetworkWriter.Write(_om, target.Native, graph, scope);
             }
 
             // The accessor is LOOKED UP by the code this vendor's classifier actually returns, and the
@@ -410,9 +387,9 @@ public sealed partial class CodesysDriver
             // `volt status` then reported in sync.
             var ownerIsInterface = m.Kind == ItemKind.Kinds.InterfaceProperty;
             WriteAccessor(target, ItemKind.PlcPropGet, m.Getter, ownerIsInterface, pushedDeclarations,
-                          ownerDeclaration);
+                          memberScope);
             WriteAccessor(target, ItemKind.PlcPropSet, m.Setter, ownerIsInterface, pushedDeclarations,
-                          ownerDeclaration);
+                          memberScope);
         }
     }
 
@@ -450,7 +427,7 @@ public sealed partial class CodesysDriver
             var live = FindAccessor(property, code);
             if (live is not null)
             {
-                var was = ReadAccessor(live.Value);
+                var was = ReadAccessor(live.Value, ownerDeclaration);
                 InterfaceAccessorGuard.RefuseIfChanged(was.Declaration, was.Code,
                                                        accessor.Declaration, accessor.Code);
             }
@@ -468,7 +445,7 @@ public sealed partial class CodesysDriver
             // This wrote `accessor.Code` straight through `WriteSourceText`, with no graphical branch at
             // all - the only write path in this driver that lacked one. So a property whose GET/SET is
             // FBD or LD had its NETWORK TEXT stored as the accessor's ST body, and the project stopped
-            // compiling: `';' expected instead of '0'`, `';' expected instead of 'FBD'` - the
+            // compiling: `';' expected instead of '0'`, `';' expected instead of 'FBD'` - the v1
             // `NETWORK 0 FBD` header being parsed as a statement.
             //
             // It round-tripped perfectly the whole time, because Volt read its own network text straight
@@ -479,7 +456,9 @@ public sealed partial class CodesysDriver
             //
             // Same two-step as every other body here: validate BEFORE touching the IDE, write the
             // declaration with a null body, then build the diagram through the network writer.
-            var graph = accessor.Code is { } ac && NetworkText.Is(ac) ? NetworkTextGate.Validate(ac) : null;
+            var accessorScope = SourceScopes.Scope(accessor.Declaration, ownerDeclaration);
+            var scope = NetworkScopeFor(accessorScope, pushedDeclarations);
+            var graph = accessor.Code is { } ac && NetworkText.Is(ac) ? NetworkText.Validate(ac, scope) : null;
             if (graph is null)
             {
                 // A MARKER IS NEVER WRITTEN BACK — the same guard `WriteContent` and `WriteMembers` carry,
@@ -494,8 +473,7 @@ public sealed partial class CodesysDriver
             }
 
             _om.WriteSourceText(child.Native, accessor.Declaration, null);
-            CodesysNetworkWriter.Write(_om, child.Native, graph, SourceScopes.Scope(accessor.Declaration, ownerDeclaration),
-                                       n => DeclarationOfName(pushedDeclarations, n));
+            CodesysNetworkWriter.Write(_om, child.Native, graph, scope);
             return;
         }
     }

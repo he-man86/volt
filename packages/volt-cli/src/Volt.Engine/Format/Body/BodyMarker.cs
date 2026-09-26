@@ -56,7 +56,7 @@
     /// re-open it the first time somebody rephrased the sentence.</para>
     ///
     /// <para>Not sealed for one reason: network text v2's writer throws a subtype that also says WHERE it met the
-    /// fact (<c>NextUnrepresentableException</c>), so a push can report it at its span. Every catch stays on this type.</para>
+    /// fact (<c>NetworkUnrepresentableException</c>), so a push can report it at its span. Every catch stays on this type.</para>
     /// </summary>
     public class UnrepresentableBodyException : System.NotSupportedException
     {

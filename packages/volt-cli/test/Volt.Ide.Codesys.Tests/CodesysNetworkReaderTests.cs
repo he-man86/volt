@@ -692,9 +692,9 @@ public class CodesysNetworkReaderTests
         });
 
         var body = CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld);
-        var text = NetworkTextWriter.Write(body);
+        var text = NetworkTextWriter.Write(body, NetworkScope.Empty);
 
-        Assert.Contains("IF ioAxis.xVirtual THEN RETURN; END_IF", text);
+        Assert.Contains("IF ioAxis.xVirtual THEN RETURN; END_IF;", text);
         Assert.DoesNotContain("???", text);
     }
 
@@ -753,26 +753,61 @@ public class CodesysNetworkReaderTests
         Assert.Equal("pulse", pin.Value.Text);
     }
 
-    /// <summary>An UNNAMED output pin is the box's RESULT, and the writer spells it by assigning the call —
-    /// `MOVE`'s data output is unnamed on the vendor (`OutputParams.Names = ['ENO', '']`), which is the
-    /// commonest wired pin there is.</summary>
+    /// <summary>An UNNAMED output pin on a top-level box is the box's OWN RESULT PIN, spelled <c>=&gt; dst</c>
+    /// inside the call — never <c>dst := MOVE(src);</c>, which is a different NWL item, an Assign over the box
+    /// (spec, "a result pin is not an assign"; v1 spelled both alike and read the pin back as the Assign). The
+    /// slot travels with the pin (task 3.10): a MOVE with EN/ENO hidden has one output, unnamed
+    /// (<c>OutputParams.Names = ['']</c>, measured — <c>nwl-slots.log</c>), so <c>dst</c> is slot 0 and the box has
+    /// no ENO output.</summary>
     [Fact]
-    public void An_unnamed_output_pin_renders_as_the_calls_assignment()
+    public void An_unnamed_output_pin_is_the_boxs_own_result_pin_not_an_assign()
     {
         var box = new Nwl.BoxTreeBox
         {
             BoxType = "MOVE",
             InputItemList = new object[] { Nwl.Leaf("src") },
             InputParams = new Nwl.ParamList { Names = new[] { "" }, Types = new[] { "" } },
-            OutputParams = new Nwl.ParamList { Names = new[] { "ENO", "" }, Types = new[] { "", "" } },
+            OutputParams = new Nwl.ParamList { Names = new[] { "" }, Types = new[] { "" } },
+            MainOutputIndex = 0,
         };
-        box.Outputs.List.Add(null);
         box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "dst" });
 
         var body = CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd);
-        var text = NetworkTextWriter.Write(body);
 
-        Assert.Contains("dst := MOVE(src);", text);
+        var read = Assert.IsType<Box>(body.Networks.Single().Trees.Single());
+        Assert.Equal(0, Assert.Single(read.Outputs).Slot);
+        Assert.False(read.HasEnoOutput);
+        Assert.Null(read.ConnectedSlot);   // a top-level box has no consumer
+        Assert.Contains("  MOVE(src, => dst);\n", NetworkTextWriter.Write(body, NetworkScope.Empty));
+    }
+
+    /// <summary>A CONSUMED box records the slot its consumer reads (task 3.10). NWL stores no connection slot — the
+    /// consumer reads the box's output at <c>MainOutputIndex</c> (DIALECT N16: 338 connections checked against the
+    /// vendor's own export, none disagreeing) — so that IS the connection; an AND/OR box stores no main output and
+    /// is connected by none. Whether a box has an ENO output is its output list's first name, not its EN.</summary>
+    [Fact]
+    public void A_consumed_box_is_connected_by_its_main_output_and_an_operator_by_none()
+    {
+        var ge = new Nwl.BoxTreeBox
+        {
+            BoxType = "GE",
+            InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b") },
+            OutputParams = new Nwl.ParamList { Names = new[] { "" }, Types = new[] { "" } },
+            MainOutputIndex = 0,
+        };
+        var and = new Nwl.BoxTreeBox { BoxType = "AND", InputItemList = new object[] { ge, Nwl.Leaf("c") } };
+        var assign = new Nwl.BoxTreeAssign { RValue = and };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
+
+        var read = Assert.IsType<Assign>(CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld).Networks.Single().Trees.Single());
+
+        var readAnd = Assert.IsType<Box>(read.Value);
+        Assert.Null(readAnd.MainOutputIndex);
+        Assert.Null(readAnd.ConnectedSlot);
+        var readGe = Assert.IsType<Box>(readAnd.Inputs[0].Value);
+        Assert.Equal(0, readGe.MainOutputIndex);
+        Assert.Equal(0, readGe.ConnectedSlot);
+        Assert.False(readGe.HasEnoOutput);
     }
     /// <summary>A NETWORK THAT REPORTS MORE ITEMS THAN IT HAS reads as the trees it really has — the phantom slot
     /// is SKIPPED, not thrown on and not rendered as an empty body.
@@ -842,7 +877,7 @@ public class CodesysNetworkReaderTests
 
         var read = Assert.IsType<Box>(body.Networks.Single().Trees.Single());
         Assert.Equal("", read.StCode);
-        Assert.Contains("END_EXECUTE", NetworkTextWriter.Write(body));
+        Assert.Contains("END_EXECUTE", NetworkTextWriter.Write(body, NetworkScope.Empty));
     }
 
     /// <summary>The complement, so the rule above cannot decay into "always empty": a snippet WITH text still

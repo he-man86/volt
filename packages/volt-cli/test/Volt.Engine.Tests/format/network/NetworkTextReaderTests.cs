@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 using Volt.Engine.Format.Network;
-using Volt.Engine.Format.Network.Next;
-using static Volt.Engine.Tests.NextModels;
+using static Volt.Engine.Tests.NetworkModels;
 using Parallel = Volt.Engine.Format.Network.Parallel;
 
 namespace Volt.Engine.Tests;
@@ -14,18 +13,18 @@ namespace Volt.Engine.Tests;
 /// oracle <c>Read(Write(m)) ≅ m</c> holds over every model the writer goldens pin. Expected texts come from
 /// <c>docs/network-text-next.html</c> and the scenarios in
 /// <c>openspec/changes/network-text-literal-nwl/specs/network-text/spec.md</c>; expected models are built by hand
-/// in the shape the reader produces (<see cref="NextNetworkTextFacts"/> lists what the text does not carry).
+/// in the shape the reader produces (<see cref="NetworkTextFacts"/> lists what the text does not carry).
 /// </summary>
-public class NextNetworkTextReaderTests
+public class NetworkTextReaderTests
 {
-    static NetworkBody Read(string text, NextNetworkScope scope, BodyLanguage lang = BodyLanguage.Fbd)
+    static NetworkBody Read(string text, NetworkScope scope, BodyLanguage lang = BodyLanguage.Fbd)
     {
-        var r = NextNetworkTextReader.Read(text, lang, scope);
+        var r = NetworkTextReader.Read(text, lang, scope);
         Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => $"{d.Line}:{d.Column} {d.Code} {d.Message}")));
         return r.Body!;
     }
 
-    static NetworkBody Read(string text, BodyLanguage lang = BodyLanguage.Fbd) => Read(text, NextNetworkScope.Empty, lang);
+    static NetworkBody Read(string text, BodyLanguage lang = BodyLanguage.Fbd) => Read(text, NetworkScope.Empty, lang);
 
     static void AssertModel(NetworkBody expected, NetworkBody actual) =>
         Assert.Null(NetworkModelEquality.FirstDifference(expected, actual));
@@ -34,7 +33,7 @@ public class NextNetworkTextReaderTests
     /// slot 0 (spec, "a consumed box without EN keeps its main output"), and as a main output that is not ENO — so
     /// the box has no ENO output (census 1.6: the main output is ENO exactly when the box has one).</summary>
     static Box Consumed(string type, IEnumerable<Input> inputs, IEnumerable<Output>? outputs = null) =>
-        Call(type, inputs, outputs, main: 0, connected: 0, eno: false, kind: NextSpelling.KindOf(type, hasInstance: false));
+        Call(type, inputs, outputs, main: 0, connected: 0, eno: false, kind: NetworkSpelling.KindOf(type, hasInstance: false));
 
     /// <summary>A bit operator's box (AND/OR/XOR/NOT) as the reader builds it from a call consumed by its main
     /// output: connected by no stored slot, as the vendor keeps no main output index on these boxes (census 1.6:
@@ -46,7 +45,7 @@ public class NextNetworkTextReaderTests
     /// stated only where positional pins make the text say it (<paramref name="eno"/>).</summary>
     static Box Top(string type, IEnumerable<Input> inputs, IEnumerable<Output>? outputs = null, Node? en = null, Flags? f = null,
                     bool? eno = null) =>
-        Call(type, inputs, outputs, en: en, main: null, connected: null, f: f, kind: NextSpelling.KindOf(type, hasInstance: false), eno: eno);
+        Call(type, inputs, outputs, en: en, main: null, connected: null, f: f, kind: NetworkSpelling.KindOf(type, hasInstance: false), eno: eno);
 
     static Operand Coil(string text, Flags? f = null) => new(text, IsLValue: true, Flags: f);
 
@@ -67,11 +66,11 @@ public class NextNetworkTextReaderTests
     {
         var m = WriterGoldens[name];
         var scope = ScopeOf(m);
-        var text = NextNetworkTextWriter.Write(m, scope);
+        var text = NetworkTextWriter.Write(m, scope);
         var back = Read(text, scope, m.Language);
-        Assert.Null(NetworkModelEquality.FirstDifference(NextNetworkTextFacts.Carried(m), NextNetworkTextFacts.Carried(back)));
+        Assert.Null(NetworkModelEquality.FirstDifference(NetworkTextFacts.Carried(m), NetworkTextFacts.Carried(back)));
 
-        var gate = NextNetworkTextGate.Validate(text, m.Language, scope);
+        var gate = NetworkTextGate.Validate(text, m.Language, scope);
         Assert.True(gate.Ok, string.Join("\n", gate.Diagnostics.Select(x => x.Code + " " + x.Message)));
     }
 
@@ -85,9 +84,9 @@ public class NextNetworkTextReaderTests
         static HashSet<string> TestsOf(Type t) => t.GetMethods()
             .Where(m => m.GetCustomAttributes(typeof(FactAttribute), inherit: true).Length > 0)   // Theory is a Fact
             .Select(m => m.Name).ToHashSet(StringComparer.Ordinal);
-        const string agreement = nameof(NextWriterReaderAgreementTests) + ".";
-        var writer = TestsOf(typeof(NextNetworkTextWriterTests));
-        var agreed = TestsOf(typeof(NextWriterReaderAgreementTests));
+        const string agreement = nameof(WriterReaderAgreementTests) + ".";
+        var writer = TestsOf(typeof(NetworkTextWriterTests));
+        var agreed = TestsOf(typeof(WriterReaderAgreementTests));
         var named = WriterGoldens.Keys.Select(k => k.Split('/')[0]).ToHashSet(StringComparer.Ordinal);
 
         var missing = writer.Where(t => !named.Contains(t) && !NotGolden.ContainsKey(t)).OrderBy(t => t, StringComparer.Ordinal).ToList();
@@ -108,9 +107,9 @@ public class NextNetworkTextReaderTests
     [Fact]
     public void The_oracle_writes_against_a_scope_without_the_bodys_variables()
     {
-        Assert.DoesNotContain("g5", NextModelOracle.CallablesOf(Body(Set(L("g5"), T("out")))).Names);
-        foreach (var (tree, line) in NextNetworkTextWriterTests.WireShapedNames)
-            Assert.Null(NextModelOracle.Check(line, Body(tree)).Reason);
+        Assert.False(NetworkModelOracle.CallablesOf(Body(Set(L("g5"), T("out")))).Contains("g5"));
+        foreach (var (tree, line) in NetworkTextWriterTests.WireShapedNames)
+            Assert.Null(NetworkModelOracle.Check(line, Body(tree)).Reason);
     }
 
     /// <summary>Spec, "pull-side loss is caught": the oracle fails on a dropped fact even where the text is a
@@ -120,7 +119,7 @@ public class NextNetworkTextReaderTests
     {
         var with = Body(Set(L("a", Neg), T("out")));
         var without = Body(Set(L("a"), T("out")));
-        Assert.NotNull(NetworkModelEquality.FirstDifference(NextNetworkTextFacts.Carried(with), NextNetworkTextFacts.Carried(without)));
+        Assert.NotNull(NetworkModelEquality.FirstDifference(NetworkTextFacts.Carried(with), NetworkTextFacts.Carried(without)));
     }
 
     /// <summary>Spec, "the writer avoids a collision": the renamed wire reads back, carrying the new VarId the
@@ -128,12 +127,12 @@ public class NextNetworkTextReaderTests
     [Fact]
     public void A_renamed_wire_reads_back_under_its_new_VarId()
     {
-        var scope = new NextNetworkScope(new[] { "G3" }, Array.Empty<string>(), new Dictionary<string, string>());
-        var text = NextNetworkTextWriter.Write(Body(Net(Def(3, L("TRUE")), Set(Ref(3), T("out")))), scope);
+        var scope = new NetworkScope(new[] { "G3" }, Array.Empty<string>(), new Dictionary<string, string>());
+        var text = NetworkTextWriter.Write(Body(Net(Def(3, L("TRUE")), Set(Ref(3), T("out")))), scope);
         AssertModel(Body(Net(Def(0, L("TRUE"), "BOOL"), Set(Ref(0), Coil("out")))), Read(text, scope));
 
-        var scope2 = new NextNetworkScope(new[] { "G0", "G3" }, Array.Empty<string>(), new Dictionary<string, string>());
-        var text2 = NextNetworkTextWriter.Write(
+        var scope2 = new NetworkScope(new[] { "G0", "G3" }, Array.Empty<string>(), new Dictionary<string, string>());
+        var text2 = NetworkTextWriter.Write(
             Body(Net(Def(1, L("TRUE")), Def(3, Op("AND", Ref(1), L("G0"))), Set(Ref(3), T("G3")))), scope2);
         AssertModel(Body(Net(Def(1, L("TRUE"), "BOOL"), Def(2, Op("AND", Ref(1), L("G0")), "BOOL"), Set(Ref(2), Coil("G3")))),
             Read(text2, scope2));
@@ -164,7 +163,7 @@ public class NextNetworkTextReaderTests
     {
         var text = Src("out := a;", ";");
         AssertModel(Body(Net(Set(L("a"), Coil("out")), Empty)), Read(text));
-        Assert.Equal(text, NextNetworkTextWriter.Write(Read(text), NextNetworkScope.Empty));
+        Assert.Equal(text, NetworkTextWriter.Write(Read(text), NetworkScope.Empty));
     }
 
     /// <summary>Spec, "a top-level box with nothing connected".</summary>
@@ -195,14 +194,14 @@ public class NextNetworkTextReaderTests
         var text = FbdMarker + "NETWORK\n  VAR_TEMP\n    g1 : BOOL;\n    g2 : BOOL;\n  END_VAR\n  g1 := TRUE;\n  g2 := (g1 AND a);\n  out := g2;\nEND_NETWORK\n";
         AssertModel(Body(Net(Def(1, L("TRUE"), "BOOL"), Def(2, Op("AND", Ref(1), L("a")), "BOOL"), Set(Ref(2), Coil("out")))),
             Read(text));
-        Assert.True(NextNetworkTextGate.Validate(text, BodyLanguage.Fbd, NextNetworkScope.Empty).Ok);
+        Assert.True(NetworkTextGate.Validate(text, BodyLanguage.Fbd, NetworkScope.Empty).Ok);
     }
 
     /// <summary>Spec, "an undeclared assignment is a coil".</summary>
     [Fact]
     public void An_undeclared_wire_shaped_target_in_scope_is_a_coil() =>
         AssertModel(Body(Set(L("x"), Coil("g5"))),
-            Read(Src("g5 := x;"), new NextNetworkScope(new[] { "g5" }, Array.Empty<string>(), new Dictionary<string, string>())));
+            Read(Src("g5 := x;"), new NetworkScope(new[] { "g5" }, Array.Empty<string>(), new Dictionary<string, string>())));
 
     [Fact]
     public void A_wire_takes_the_type_it_is_declared_with_where_the_producer_does_not_say() =>
@@ -310,7 +309,7 @@ public class NextNetworkTextReaderTests
     [Fact]
     public void An_FB_head_is_the_instance_the_scope_declares_and_its_type_comes_from_there()
     {
-        var scope = new NextNetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["t1"] = "TON" });
+        var scope = new NetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["t1"] = "TON" });
         AssertModel(Body(Fb("t1", new[] { In(L("a"), "IN"), In(L("pt"), "PT") }, new[] { Out("el", null, "ET") }, "TON")),
             Read(Src("t1(IN := a, PT := pt, ET => el);"), scope));
         // The same text with no instance declared is a function call named t1 — the text alone cannot tell.
@@ -381,14 +380,14 @@ public class NextNetworkTextReaderTests
         AssertModel(Body(Exec("", L("bRun"))), Read(FbdMarker + "NETWORK\n  EXECUTE(EN := bRun)\n\n  END_EXECUTE;\nEND_NETWORK\n"));
         var text = FbdMarker + "NETWORK\n  EXECUTE\nNetworkState := 1;\n  END_EXECUTE;\nEND_NETWORK\n";
         AssertModel(Body(Exec("NetworkState := 1;")), Read(text));
-        Assert.True(NextNetworkTextGate.Validate(text, BodyLanguage.Fbd, NextNetworkScope.Empty).Ok);
+        Assert.True(NetworkTextGate.Validate(text, BodyLanguage.Fbd, NetworkScope.Empty).Ok);
     }
 
     /// <summary>Spec, "a typed call stays one operand".</summary>
     [Fact]
     public void Backticked_text_is_one_operand_never_parsed()
     {
-        var scope = new NextNetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["fb"] = "FB" });
+        var scope = new NetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["fb"] = "FB" });
         AssertModel(Body(Fb("fb", new[] { In(L("fc_dinttotime(T.Start,2)"), "P") })),
             Read(Src("fb(P := `fc_dinttotime(T.Start,2)`);"), scope));
         AssertModel(Body(Set(L("x"), Coil("arr[i + 1]"))), Read(Src("`arr[i + 1]` := x;")));
@@ -404,9 +403,9 @@ public class NextNetworkTextReaderTests
     [Fact]
     public void A_bad_network_does_not_hide_the_next_ones_finding()
     {
-        var r = NextNetworkTextReader.Read(
+        var r = NetworkTextReader.Read(
             FbdMarker + "NETWORK\n  out := ((a AND b));\nEND_NETWORK\nNETWORK\n  out := (a & b);\nEND_NETWORK\nNETWORK\n  ok := a;\nEND_NETWORK\n",
-            BodyLanguage.Fbd, NextNetworkScope.Empty);
+            BodyLanguage.Fbd, NetworkScope.Empty);
         Assert.Null(r.Body);
         Assert.Equal(new[] { ("NETWORK_BAD_EXPRESSION", 3), ("NETWORK_UNKNOWN_OPERATOR", 6) },
             r.Diagnostics.Select(d => (d.Code, d.Line)).ToArray());
@@ -414,11 +413,11 @@ public class NextNetworkTextReaderTests
     // ── review 2026-09-26: what the writer writes, the reader reads back unchanged ──────────────
 
     /// <summary>The written text read back must be the model it was written from, raw — no normalisation.</summary>
-    static void RoundTrips(NetworkBody m, NextNetworkScope scope)
+    static void RoundTrips(NetworkBody m, NetworkScope scope)
     {
-        var text = NextNetworkTextWriter.Write(m, scope);
+        var text = NetworkTextWriter.Write(m, scope);
         AssertModel(m, Read(text, scope, m.Language));
-        var gate = NextNetworkTextGate.Validate(text, m.Language, scope);
+        var gate = NetworkTextGate.Validate(text, m.Language, scope);
         Assert.True(gate.Ok, string.Join("\n", gate.Diagnostics.Select(x => x.Code + " " + x.Message)) + "\n\n" + text);
     }
 
@@ -428,8 +427,8 @@ public class NextNetworkTextReaderTests
     [Fact]
     public void An_empty_slot_before_a_group_is_not_a_call_head()
     {
-        RoundTrips(Body(Set(Op("AND", Empty, Op("OR", L("x"), L("y"))), Coil("out"))), NextNetworkScope.Empty);
-        RoundTrips(Body(Set(Op("AND", L("a"), Empty, Op("OR", L("x"), L("y"))), Coil("out"))), NextNetworkScope.Empty);
+        RoundTrips(Body(Set(Op("AND", Empty, Op("OR", L("x"), L("y"))), Coil("out"))), NetworkScope.Empty);
+        RoundTrips(Body(Set(Op("AND", L("a"), Empty, Op("OR", L("x"), L("y"))), Coil("out"))), NetworkScope.Empty);
         AssertModel(Body(Set(Op("AND", Empty, Op("OR", L("x"), L("y"))), Coil("out"))), Read(Src("out := (AND(x OR y));")));
         // A pair holding no operator at its own depth is still the call's: a group nested inside it does not count.
         AssertModel(Body(Set(ConsumedBitOp("NOT", new[] { In(ConsumedBitOp("AND", new[] { In(Op("OR", L("x"), L("y"))) })) }), Coil("out"))),
@@ -450,28 +449,28 @@ public class NextNetworkTextReaderTests
             Net(new Assign(L("x"), new[] { Coil(label, JumpBit) }, JumpBit)),
             new Network(1, null, label, null, false, new Node[] { Set(L("a"), Coil("out")) }),
             Net(new Assign(Empty, new[] { Coil(label, JumpBit) }, JumpBit)) with { Order = 2 },
-        }), NextNetworkScope.Empty);
+        }), NetworkScope.Empty);
 
     [Fact]
     public void An_operand_named_LET_round_trips()
     {
-        RoundTrips(Body(Set(L("a"), Coil("Let"))), NextNetworkScope.Empty);
-        RoundTrips(Body(L("let")), NextNetworkScope.Empty);
+        RoundTrips(Body(Set(L("a"), Coil("Let"))), NetworkScope.Empty);
+        RoundTrips(Body(L("let")), NetworkScope.Empty);
     }
 
     /// <summary>A box type spelled like a word of the text is a backticked head, and reads back as that type.</summary>
     [Fact]
     public void A_box_type_spelled_like_a_word_of_the_text_round_trips()
     {
-        RoundTrips(Body(Top("Network", new[] { In(L("x")) }, new[] { Out("y", 0) }, eno: false)), NextNetworkScope.Empty);
-        RoundTrips(Body(Set(Consumed("JMP", new[] { In(L("x")) }), Coil("out"))), NextNetworkScope.Empty);
-        RoundTrips(Body(Top("EXECUTE", new[] { In(L("x")) })), NextNetworkScope.Empty);
+        RoundTrips(Body(Top("Network", new[] { In(L("x")) }, new[] { Out("y", 0) }, eno: false)), NetworkScope.Empty);
+        RoundTrips(Body(Set(Consumed("JMP", new[] { In(L("x")) }), Coil("out"))), NetworkScope.Empty);
+        RoundTrips(Body(Top("EXECUTE", new[] { In(L("x")) })), NetworkScope.Empty);
     }
 
     /// <summary>An operator type in another case keeps its spelling through call form.</summary>
     [Fact]
     public void An_operator_type_in_another_case_round_trips() =>
-        RoundTrips(Body(Set(Call("and", new[] { In(L("a")), In(L("b")) }, main: null, kind: CallKind.Operator), Coil("o"))), NextNetworkScope.Empty);
+        RoundTrips(Body(Set(Call("and", new[] { In(L("a")), In(L("b")) }, main: null, kind: CallKind.Operator), Coil("o"))), NetworkScope.Empty);
 
     /// <summary>A wire fed by a bit operator is BOOL or another bit-string type — whichever the text declares.</summary>
     [Fact]
@@ -490,9 +489,9 @@ public class NextNetworkTextReaderTests
     [Fact]
     public void An_EXECUTE_snippet_with_trailing_newlines_round_trips()
     {
-        RoundTrips(Body(Exec("x := 1;\n")), NextNetworkScope.Empty);
-        RoundTrips(Body(Exec("\n")), NextNetworkScope.Empty);
-        RoundTrips(Body(Exec("")), NextNetworkScope.Empty);
+        RoundTrips(Body(Exec("x := 1;\n")), NetworkScope.Empty);
+        RoundTrips(Body(Exec("\n")), NetworkScope.Empty);
+        RoundTrips(Body(Exec("")), NetworkScope.Empty);
     }
 
     /// <summary>Spec, "pull-side loss is caught": ≅ compares the output slots and the connection slot as stored.
@@ -503,7 +502,7 @@ public class NextNetworkTextReaderTests
     {
         var one = Body(Set(Call("f", new[] { In(L("src")) }, new[] { Out("err", 0) }, main: 1, connected: 1), Coil("out")));
         var zero = Body(Set(Call("f", new[] { In(L("src")) }, new[] { Out("err", 1) }, main: 0, connected: 0), Coil("out")));
-        Assert.NotNull(NetworkModelEquality.FirstDifference(NextNetworkTextFacts.Carried(one), NextNetworkTextFacts.Carried(zero)));
+        Assert.NotNull(NetworkModelEquality.FirstDifference(NetworkTextFacts.Carried(one), NetworkTextFacts.Carried(zero)));
     }
 
     /// <summary>The oracle's ≅ holds no equivalence the spec does not state: a snippet's trailing newline is a
@@ -512,7 +511,7 @@ public class NextNetworkTextReaderTests
     public void The_oracle_sees_a_trailing_newline()
     {
         Assert.NotNull(NetworkModelEquality.FirstDifference(
-            NextNetworkTextFacts.Carried(Body(Exec("x := 1;\n"))), NextNetworkTextFacts.Carried(Body(Exec("x := 1;")))));
+            NetworkTextFacts.Carried(Body(Exec("x := 1;\n"))), NetworkTextFacts.Carried(Body(Exec("x := 1;")))));
     }
 
     /// <summary>Census 1.12: the oracle's scope holds only what a declaration can name. <c>SUPER^</c> is no
@@ -523,6 +522,6 @@ public class NextNetworkTextReaderTests
     {
         var super = Body(Call("ATD_Base", new[] { In(L("ioAxis"), "ioAxis") }, main: null,
             instance: new Operand("SUPER^", IsInstance: true), kind: CallKind.FunctionBlock));
-        Assert.Equal("an FB instance the declarations do not name", NextModelOracle.Check("SUPER^", super).Reason);
+        Assert.Equal("an FB instance the declarations do not name", NetworkModelOracle.Check("SUPER^", super).Reason);
     }
 }

@@ -63,7 +63,7 @@ public class StFormatRoundTripTests
 
         { "a network-text body",
           new ItemContent(ItemKind.Kinds.Program, "PROGRAM P\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR",
-              "NETWORK 0 FBD\n  out := NOT (a);\nEND_NETWORK", new()) },
+              "(* @volt-implementation FBD *)\nNETWORK\n  out := NOT (a);\nEND_NETWORK", new()) },
 
         { "a read-only CFC marker body",
           new ItemContent(ItemKind.Kinds.Program, "PROGRAM P\nVAR\nEND_VAR", "(* @volt-graphical: CFC *)", new()) },

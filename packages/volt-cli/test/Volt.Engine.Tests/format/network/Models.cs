@@ -2,18 +2,17 @@
 using System.Collections.Generic;
 using System.Linq;
 using Volt.Engine.Format.Network;
-using Volt.Engine.Format.Network.Next;
 using Parallel = Volt.Engine.Format.Network.Parallel;
 
 namespace Volt.Engine.Tests;
 
 /// <summary>
 /// Model builders for the network text v2 reader and gate tests, and <see cref="WriterGoldens"/> — every model
-/// <c>NextNetworkTextWriterTests</c> writes successfully, rebuilt here field for field so the model oracle
+/// <c>NetworkTextWriterTests</c> writes successfully, rebuilt here field for field so the model oracle
 /// <c>Read(Write(m)) ≅ m</c> runs over exactly the shapes the writer goldens pin. (Copied rather than shared:
 /// the writer tests stay as they were written, and a model changed there does not silently change the oracle.)
 /// </summary>
-internal static class NextModels
+internal static class NetworkModels
 {
     public static Leaf L(string text, Flags? f = null) => new(new Operand(text), f ?? Flags.None);
     public static Operand T(string text, Flags? f = null) => new(text, IsLValue: true, Flags: f);
@@ -54,7 +53,7 @@ internal static class NextModels
     public static Box EnEno(string type, Node en, IEnumerable<Input> inputs, IEnumerable<Output>? outputs = null,
                             bool consumed = false, params string?[] types) =>
         Call(type, inputs, outputs, en: en, main: 0, connected: consumed ? 0 : null, eno: true,
-            types: types.Length == 0 ? null : types, kind: NextSpelling.KindOf(type, hasInstance: false));
+            types: types.Length == 0 ? null : types, kind: NetworkSpelling.KindOf(type, hasInstance: false));
 
     // ── source text ─────────────────────────────────────────────────────────────────────────────
 
@@ -81,10 +80,10 @@ internal static class NextModels
 
     /// <summary>The scope a model's text needs to be read back: its FB instances (the declarations would carry
     /// them) plus <paramref name="names"/>.</summary>
-    public static NextNetworkScope ScopeOf(NetworkBody body, params string[] names) =>
-        new(names, Array.Empty<string>(), NextModelOracle.Instances(body));
+    public static NetworkScope ScopeOf(NetworkBody body, params string[] names) =>
+        new(names, Array.Empty<string>(), NetworkModelOracle.Instances(body));
 
-    /// <summary>Every model <c>NextNetworkTextWriterTests</c> writes without refusing, keyed by the test that pins it
+    /// <summary>Every model <c>NetworkTextWriterTests</c> writes without refusing, keyed by the test that pins it
     /// (<c>Test</c> or <c>Test/variant</c>) — held to that list by <c>Every_writer_test_is_a_golden_or_says_why_not</c>.</summary>
     public static readonly IReadOnlyDictionary<string, NetworkBody> WriterGoldens = BuildGoldens();
 
@@ -180,10 +179,10 @@ internal static class NextModels
         Add("Parallel_fed_unfed_and_sequential/fed", Body(Net(Def(54, L("TRUE")),
             Set(new Parallel(Ref(54), new Node[] { L("StartFlag"), L("tResetSafetyGuard") }, ParallelMode.BoxShortCircuit), T("ResetSafetyGuard", SetBit)))));
         Add("Parallel_fed_unfed_and_sequential/unfed", Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), T("out"))));
-        Add("NextWriterReaderAgreementTests.A_consumed_comparison_or_arithmetic_box_the_vendor_stores_is_written_infix/comparison", Body(Set(Call("GT", new[] { In(L("a")), In(L("b")) }, connected: 0, eno: false), T("o"))));
-        Add("NextWriterReaderAgreementTests.A_consumed_comparison_or_arithmetic_box_the_vendor_stores_is_written_infix/arithmetic", Body(Set(Call("ADD", new[] { In(L("a")), In(L("b")) }, connected: 0, eno: false), T("out"))));
-        Add("NextWriterReaderAgreementTests.A_literal_target_is_backticked", Body(Net(Set(L("a"), T("5")), Set(L("a"), T("16#FF")), Call("F", new[] { In(L("a")) }, new[] { Out("T#1s", 0) }, eno: false))));
-        Add("NextWriterReaderAgreementTests.A_lone_unwired_slot_beside_an_output_pin_is_written", Body(Call("f", new[] { In(Empty) }, new[] { Out("x", 0) }, eno: false)));
+        Add("WriterReaderAgreementTests.A_consumed_comparison_or_arithmetic_box_the_vendor_stores_is_written_infix/comparison", Body(Set(Call("GT", new[] { In(L("a")), In(L("b")) }, connected: 0, eno: false), T("o"))));
+        Add("WriterReaderAgreementTests.A_consumed_comparison_or_arithmetic_box_the_vendor_stores_is_written_infix/arithmetic", Body(Set(Call("ADD", new[] { In(L("a")), In(L("b")) }, connected: 0, eno: false), T("out"))));
+        Add("WriterReaderAgreementTests.A_literal_target_is_backticked", Body(Net(Set(L("a"), T("5")), Set(L("a"), T("16#FF")), Call("F", new[] { In(L("a")) }, new[] { Out("T#1s", 0) }, eno: false))));
+        Add("WriterReaderAgreementTests.A_lone_unwired_slot_beside_an_output_pin_is_written", Body(Call("f", new[] { In(Empty) }, new[] { Out("x", 0) }, eno: false)));
         Add("Parallel_fed_unfed_and_sequential/sequential", Body(Set(new Parallel(L("f"), new Node[] { L("a"), L("b") }, ParallelMode.Sequential), T("out"))));
 
         // Section 2 added these writer goldens without their models — the drift the completeness guard
@@ -221,14 +220,14 @@ internal static class NextModels
         Add("An_operand_named_LET_is_backticked/target", Body(Set(L("a"), T("Let"))));
         Add("An_operand_named_LET_is_backticked/value", Body(L("let")));
         var i = 0;
-        foreach (var (tree, _) in NextNetworkTextWriterTests.WireShapedNames)
+        foreach (var (tree, _) in NetworkTextWriterTests.WireShapedNames)
             Add("A_wire_shaped_name_the_scope_does_not_hold_is_backticked/" + i++, Body(tree));
         return g;
     }
 
     /// <summary>The writer tests with no model in <see cref="WriterGoldens"/>, each with why. Every other
-    /// <c>NextNetworkTextWriterTests</c> test is a golden under its own name (<c>Test</c> or <c>Test/variant</c>);
-    /// a key prefixed <c>NextWriterReaderAgreementTests.</c> is a model that test pins.</summary>
+    /// <c>NetworkTextWriterTests</c> test is a golden under its own name (<c>Test</c> or <c>Test/variant</c>);
+    /// a key prefixed <c>WriterReaderAgreementTests.</c> is a model that test pins.</summary>
     public static readonly IReadOnlyDictionary<string, string> NotGolden = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         ["Operand_text_holding_a_backtick_goes_to_the_marker"] = "refused by the writer",
@@ -254,7 +253,7 @@ internal static class NextModels
         ["A_consumed_box_whose_main_output_was_not_read_goes_to_the_marker"] = "refused by the writer",
         ["A_wire_whose_name_is_taken_is_renamed_to_the_lowest_free_g"] =
             "renames a wire, so its model comes back under the new VarId, which a golden compared as-is would call a " +
-            "difference: A_renamed_wire_reads_back_under_its_new_VarId pins the read-back, and NextModelOracle maps " +
+            "difference: A_renamed_wire_reads_back_under_its_new_VarId pins the read-back, and NetworkModelOracle maps " +
             "only such a forced rename back",
     };
 }

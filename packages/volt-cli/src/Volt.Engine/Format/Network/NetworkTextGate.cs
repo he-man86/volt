@@ -1,71 +1,108 @@
-using System;
-using System.Linq;
+﻿using System;
+using System.Collections.Generic;
+using Volt.Contracts;
+using Volt.Engine.Format.Body;
 
 namespace Volt.Engine.Format.Network;
 
+/// <summary>What <see cref="NetworkTextGate.Validate"/> returns: the model when the body may be pushed, every
+/// diagnostic otherwise, and the canonical form whenever the body parsed (a NOT_CANONICAL finding carries it too).</summary>
+public sealed record NetworkGateResult(NetworkBody? Body, IReadOnlyList<NetworkTextDiagnostic> Diagnostics, string? Canonical)
+{
+    public bool Ok => Body is not null && Diagnostics.Count == 0;
+}
+
 /// <summary>
-/// The pre-write gate for a graphical body: the language check and the canonical-form check, both PURE —
-/// no IDE, no vendor, no document. Replaces <c>NetworkCode.Validate</c>, and is deliberately smaller than it.
+/// The network text v2 pre-push gate: read, write back, and accept iff the TOKENS agree —
+/// <c>Tokens(Write(Read(x))) == Tokens(x)</c>. Specified by the spec requirement "the round trip is checked on
+/// tokens and on models". It replaced v1's gate, which compared LINES and so could only accept Volt's own layout.
 ///
-/// <para><b>Two of that gate's three checks are gone because the transport no longer needs them:</b></para>
-/// <list type="bullet">
-/// <item><b>The PLCopen convergence gate</b> required a body to reach a FIXED POINT through
-/// <c>GraphWriter → GraphReader</c>, so that push → pull → push stabilised instead of oscillating. It existed
-/// because the body was REGENERATED from a projection on every write. Nothing is regenerated now — CODESYS
-/// mutates the live objects and TwinCAT rewrites only the networks that changed — so there is no loop to
-/// converge.</item>
-/// <item><b>The leaf fan-out refusal</b> rejected a leaf read more than once in a network, because TwinCAT's
-/// importer crashed on a shared leaf ("Index was outside the bounds of the array"). It was expressible only in
-/// a graph: a tree cannot share a node, so the shape is now UNREPRESENTABLE rather than refused. This is the
-/// clearest single case of the model change removing a class of bug instead of guarding it.</item>
-/// </list>
+/// <para><b>Tokens, not bytes.</b> v1 compared lines, so it could only accept Volt's own layout and had to demand
+/// Volt's numbering. Whitespace here is layout everywhere except where it is content — inside backticks, a TITLE,
+/// a comment line and an EXECUTE body — and those arrive as ONE token each, compared whole. So re-wrapping a
+/// 30-pin call one pin per line passes, and changing any token does not: a NOT_CANONICAL finding always names a
+/// token, never a space.</para>
 ///
-/// <para>What remains is genuinely about the FORMAT, and is the reason a push can still be refused before the
-/// IDE is touched at all.</para>
+/// <para><b>What the reader already refuses is not re-checked here.</b> Every wire rule, the <c>.ENO</c> rule,
+/// edges, reserved names and the producer-type check are the reader's diagnostics, at their spans. The gate adds
+/// the two checks that need the writer: a model the text can hold but the writer cannot spell (refused by name,
+/// NETWORK_UNSUPPORTED), and a body that is valid but not the canonical form.</para>
 /// </summary>
 public static class NetworkTextGate
 {
-    /// <summary>Validate a network-text body and return the parsed model. Throws
-    /// <see cref="NetworkTextException"/> on anything outside the strict form.</summary>
-    public static NetworkBody Validate(string networkText)
+    public static NetworkGateResult Validate(string text, BodyLanguage language, NetworkScope scope)
     {
-        // Only FBD/LD can be authored as network text. An unknown language token on the NETWORK marker is
-        // refused HERE with a clear message, rather than downstream as a misleading "not writable".
-        var lang = NetworkText.LanguageOf(networkText);
-        if (!NetworkText.IsEditable(lang))
-            throw new NetworkTextException($"unknown graphical language '{lang ?? "?"}' (expected FBD or LD).");
+        var (read, trace) = NetworkTextReader.ReadTokens(text, language, scope);
+        if (!read.Ok) return new NetworkGateResult(null, read.Diagnostics, null);
+        var tokens = trace.Tokens;
+        var lexer = trace.Lexer;
 
-        var body = NetworkTextReader.Parse(networkText);   // throws on structurally-invalid network text
+        string canonical;
+        try
+        {
+            canonical = NetworkTextWriter.Write(read.Body!, scope);
+        }
+        catch (NetworkUnrepresentableException e)
+        {
+            // The text reads, and the model it reads to has a fact the writer has no spelling for — the refusal
+            // a pull turns into the marker, raised here by name so the push never reaches the IDE. Reported where
+            // the engineer wrote it: the construct the writer was on, else the network's header.
+            // Both are always there: the writer records the network of every refusal, the reader marks every node
+            // the writer can name, and a body that read has one header per network. A miss is a Volt defect, and
+            // reporting it at 1:1 would blame the engineer's first line for it.
+            var (offset, length) =
+                e.At is not null
+                    ? trace.Spans.TryGetValue(e.At, out var span) ? span
+                      : throw new InvalidOperationException(
+                          $"network text v2: the writer refused a node the reader did not mark ({e.At.GetType().Name}): {e.Message}")
+                    : e.Network is { } n && n < trace.Headers.Count ? (trace.Headers[n].Offset, trace.Headers[n].Length)
+                    : throw new InvalidOperationException(
+                        $"network text v2: the writer refused network {e.Network?.ToString() ?? "(none)"}, which the reader did not read: {e.Message}");
+            var (line, col) = lexer!.LineCol(offset);
+            return new NetworkGateResult(null, new[]
+            {
+                new NetworkTextDiagnostic(ConflictCodes.NetworkUnsupported,
+                    $"network text has no spelling for {e.Marker}: {e.Detail} The push is refused rather than build the " +
+                    "IDE a different body than this one.", line, col, length),
+            }, null);
+        }
 
-        // The canonical-form gate: the parser is the exact inverse of the writer, so a body that does not
-        // RE-EMIT identically is not canonical — it would drift on the next pull, or silently rename a wire.
-        // Refuse it here and show the canonical form so the author can paste it.
-        var canonical = NetworkTextWriter.Write(body);
-        if (Canon(canonical) != Canon(networkText))
-            throw new NetworkTextException(
-                "graphical body is not in canonical form — it would not round-trip identically (you'd see drift "
-                + "on the next pull). Use this exact body:\n\n" + canonical.TrimEnd('\n'),
-                "NETWORK_NOT_CANONICAL")
-            { Line = FirstDiffLine(Canon(networkText), Canon(canonical)) };
+        var (again, canonicalTrace) = NetworkTextReader.ReadTokens(canonical, language, scope);
+        var canonicalTokens = canonicalTrace.Tokens;
+        if (!again.Ok)
+            // Not bad input: the writer produced text its own reader refuses. Loud, because a diagnostic here would
+            // blame the engineer for a Volt defect.
+            throw new InvalidOperationException(
+                "network text v2: the canonical form of a valid body does not read back — " +
+                again.Diagnostics[0].Code + ": " + again.Diagnostics[0].Message + "\n\n" + canonical);
 
-        return body;
+        for (var i = 0; i < Math.Max(tokens.Count, canonicalTokens.Count); i++)
+        {
+            if (i < tokens.Count && i < canonicalTokens.Count && tokens[i].Key == canonicalTokens[i].Key) continue;
+            var at = i < tokens.Count ? tokens[i] : tokens[tokens.Count - 1];
+            var (line, col) = lexer!.LineCol(at.Offset);
+            var expected = i < canonicalTokens.Count ? Show(canonicalTokens[i]) : "the end of the body";
+            var found = i < tokens.Count ? Show(tokens[i]) : "the end of the body";
+            return new NetworkGateResult(null, new[]
+            {
+                new NetworkTextDiagnostic(ConflictCodes.NetworkNotCanonical,
+                    $"graphical body is not in canonical form: {found} where the canonical form has {expected}. It would " +
+                    "not come back from the IDE as written. Use this body:\n\n" + canonical.TrimEnd('\n'),
+                    line, col, Math.Max(1, at.Length)),
+            }, canonical);
+        }
+
+        return new NetworkGateResult(read.Body, Array.Empty<NetworkTextDiagnostic>(), canonical);
     }
 
-    /// <summary>LF endings, no trailing whitespace, no trailing blank lines.</summary>
-    private static string Canon(string s)
+    private static string Show(Tok t) => t.Kind switch
     {
-        var lines = s.Replace("\r", "").Split('\n');
-        for (int i = 0; i < lines.Length; i++) lines[i] = lines[i].TrimEnd();
-        return string.Join("\n", lines).TrimEnd('\n');
-    }
-
-    /// <summary>1-based index of the first differing line, for the NETWORK_NOT_CANONICAL diagnostic.</summary>
-    private static int? FirstDiffLine(string a, string b)
-    {
-        var la = a.Split('\n');
-        var lb = b.Split('\n');
-        for (int i = 0; i < Math.Max(la.Length, lb.Length); i++)
-            if (i >= la.Length || i >= lb.Length || la[i] != lb[i]) return i + 1;
-        return null;
-    }
+        TokKind.String => "the title \"" + t.Text + "\"",
+        TokKind.Comment => "the comment line '" + t.Text + "'",
+        TokKind.Snippet => "an EXECUTE body",
+        TokKind.Wires => "the wire block (" + t.Text + ")",
+        TokKind.Backtick => "`" + t.Text + "`",
+        TokKind.Marker => "the marker for " + t.Text,
+        _ => "'" + t.Text + "'",
+    };
 }

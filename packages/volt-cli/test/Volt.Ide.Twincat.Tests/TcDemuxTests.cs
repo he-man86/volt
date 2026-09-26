@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Format.Body;
@@ -64,13 +64,15 @@ public class TcDemuxTests
             Assert.Contains(definitions, d => d.VarId == r.VarId);
     }
 
-    /// <summary>...and it renders as the format's own spelling for a fan-out.</summary>
+    /// <summary>...and it renders as the format's own spelling for a fan-out: the wire declared in its network's
+    /// <c>VAR_TEMP</c> block, typed off its producer (a ladder leaf every use of which is a contact is BOOL), defined
+    /// by an assignment and referenced by name.</summary>
     [Fact]
     public void It_materializes_as_a_named_wire_and_its_uses()
     {
-        var text = NetworkTextWriter.Write(Read());
+        var text = TcText.Write(Read());
 
-        Assert.Contains("LET g1 := b;", text);
+        Assert.Contains("  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := b;\n", text);
         Assert.Contains("out2 := g1;", text);          // one consumer
         Assert.Contains("(a OR g1)", text);            // ...and the other, inside the OR box
     }
@@ -80,7 +82,7 @@ public class TcDemuxTests
     [Fact]
     public void A_push_of_the_unchanged_body_writes_nothing()
     {
-        Assert.Null(TcNetworkWriter.Apply(Body(), NetworkTextGate.Validate(NetworkTextWriter.Write(Read()))));
+        Assert.Null(TcText.Apply(Body(), TcText.Validate(TcText.Write(Read()), TcText.ScopeOf(Read()))));
     }
 
     private static IEnumerable<Node> Flatten(Node n)

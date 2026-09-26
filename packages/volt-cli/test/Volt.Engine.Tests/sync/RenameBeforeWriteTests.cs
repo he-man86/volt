@@ -28,7 +28,7 @@ public class RenameBeforeWriteTests
     public RenameBeforeWriteTests(ITestOutputHelper o) => _out = o;
 
     /// <summary>An ordinary, perfectly readable POU. The refusal comes from the PUSHED TEXT rather than the
-    /// item's state — malformed network text, which `NetworkTextGate.Validate` rejects inside the write.
+    /// item's state — malformed network text, which the network text gate rejects before the write.
     /// <para>Deliberate: an unreadable item is isolated out of `/refs` by design, so it has no version to push
     /// against. Using a real guard on a normal item is also the stronger test — this is the shape an engineer
     /// actually hits, a rename plus an edit that turns out not to parse.</para></summary>
@@ -38,7 +38,7 @@ public class RenameBeforeWriteTests
 
     /// <summary>A body that parses as graphical and then fails validation — the network is never closed.</summary>
     private const string MalformedBody =
-        "PROGRAM FB_Renamed\nVAR\nEND_VAR\n(* @volt-implementation *)\nNETWORK 0 LD\n  out := (a AND b);\nEND_PROGRAM\n";
+        "PROGRAM FB_Renamed\nVAR\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\n  out := (a AND b);\nEND_PROGRAM\n";
 
     [Fact]
     public void A_rename_whose_edit_is_refused_does_not_rename()

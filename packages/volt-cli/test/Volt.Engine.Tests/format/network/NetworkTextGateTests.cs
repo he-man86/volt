@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 using Volt.Engine.Format.Network;
-using Volt.Engine.Format.Network.Next;
-using static Volt.Engine.Tests.NextModels;
+using static Volt.Engine.Tests.NetworkModels;
 
 namespace Volt.Engine.Tests;
 
@@ -13,17 +12,17 @@ namespace Volt.Engine.Tests;
 /// scenarios of <c>specs/network-text/spec.md</c>) fires on its case, with its code and at its line — and what the
 /// spec says is accepted, is. A finding is always a diagnostic; nothing here expects an exception.
 /// </summary>
-public class NextNetworkTextGateTests
+public class NetworkTextGateTests
 {
-    static NextGateResult Gate(string text, NextNetworkScope? scope = null, BodyLanguage lang = BodyLanguage.Fbd) =>
-        NextNetworkTextGate.Validate(text, lang, scope ?? NextNetworkScope.Empty);
+    static NetworkGateResult Gate(string text, NetworkScope? scope = null, BodyLanguage lang = BodyLanguage.Fbd) =>
+        NetworkTextGate.Validate(text, lang, scope ?? NetworkScope.Empty);
 
-    static NextNetworkScope Names(params string[] names) => new(names, Array.Empty<string>(), new Dictionary<string, string>());
+    static NetworkScope Names(params string[] names) => new(names, Array.Empty<string>(), new Dictionary<string, string>());
 
-    static NextNetworkScope Pous(params string[] pous) => new(Array.Empty<string>(), pous, new Dictionary<string, string>());
+    static NetworkScope Pous(params string[] pous) => new(Array.Empty<string>(), pous, new Dictionary<string, string>());
 
     /// <summary>The body is refused with exactly one finding, of <paramref name="code"/>, on <paramref name="line"/>.</summary>
-    static NextNetworkTextDiagnostic Refused(string code, int line, string text, NextNetworkScope? scope = null, BodyLanguage lang = BodyLanguage.Fbd)
+    static NetworkTextDiagnostic Refused(string code, int line, string text, NetworkScope? scope = null, BodyLanguage lang = BodyLanguage.Fbd)
     {
         var r = Gate(text, scope, lang);
         Assert.False(r.Ok);
@@ -32,7 +31,7 @@ public class NextNetworkTextGateTests
         return d;
     }
 
-    static void Accepted(string text, NextNetworkScope? scope = null, BodyLanguage lang = BodyLanguage.Fbd)
+    static void Accepted(string text, NetworkScope? scope = null, BodyLanguage lang = BodyLanguage.Fbd)
     {
         var r = Gate(text, scope, lang);
         Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => $"{d.Line}:{d.Column} {d.Code} {d.Message}")));
@@ -135,7 +134,7 @@ public class NextNetworkTextGateTests
     public void Layout_is_not_a_difference()
     {
         var pins = Enumerable.Range(1, 30).Select(i => $"P{i} := v{i}").ToArray();
-        var scope = new NextNetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["fb"] = "FB_Big" });
+        var scope = new NetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["fb"] = "FB_Big" });
         Accepted(FbdMarker + "NETWORK\n  fb(\n      " + string.Join(",\n      ", pins) + "\n  );\nEND_NETWORK\n", scope);
         Accepted(FbdMarker + "NETWORK\nout:=((a AND b)OR c);\nEND_NETWORK\n");
     }
@@ -267,7 +266,7 @@ public class NextNetworkTextGateTests
         // Its canonical form is the group (GT with no EN is infix): accepted, and ADD reads as consumed by its main
         // output with no ENO — the call form, not canonical, reads to the same model.
         Accepted(Src("out := (ADD(EN := x, a, b) > c);"));
-        var read = NextNetworkTextReader.Read(Src("out := GT(ADD(EN := x, a, b), c);"), BodyLanguage.Fbd, NextNetworkScope.Empty);
+        var read = NetworkTextReader.Read(Src("out := GT(ADD(EN := x, a, b), c);"), BodyLanguage.Fbd, NetworkScope.Empty);
         Assert.True(read.Ok);
         var add = Assert.IsType<Box>(Assert.IsType<Box>(Assert.IsType<Assign>(read.Body!.Networks[0].Trees.Single()).Value).Inputs[0].Value);
         Assert.Equal((0, false), (add.ConnectedSlot, add.HasEnoOutput));
@@ -333,7 +332,7 @@ public class NextNetworkTextGateTests
         Refused("NETWORK_UNSUPPORTED", 3, Src("out := R_EDGE(x);"), Pous("R_EDGE"));
         Refused("NETWORK_UNSUPPORTED", 3, Src("out := PARALLEL(a, b);"), Pous("Parallel"));
         Refused("NETWORK_UNSUPPORTED", 3, Src("out := F_EDGE(x);"),
-            new NextNetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["f_edge"] = "F_TRIG" }));
+            new NetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["f_edge"] = "F_TRIG" }));
         Accepted(Src("out := R_EDGE(x);"), Names("R_EDGE"));
         Accepted(Src("out := PARALLEL(a, b);"), Names("Parallel"));
     }
@@ -390,12 +389,12 @@ public class NextNetworkTextGateTests
     {
         var text = FbdMarker + "NETWORK DISABLED\n  JMP Done;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := a;\nEND_NETWORK\n";
         Accepted(text);
-        var body = NextNetworkTextReader.Read(text, BodyLanguage.Fbd, NextNetworkScope.Empty).Body!;
+        var body = NetworkTextReader.Read(text, BodyLanguage.Fbd, NetworkScope.Empty).Body!;
         Assert.True(body.Networks[0].Disabled);
         var jump = Assert.IsType<Assign>(Assert.Single(body.Networks[0].Trees));
         Assert.True(jump.Flags.Jump);
         Assert.Equal("Done", Assert.Single(jump.Targets).Text);
-        Assert.Equal(text, NextNetworkTextWriter.Write(body, NextNetworkScope.Empty));
+        Assert.Equal(text, NetworkTextWriter.Write(body, NetworkScope.Empty));
     }
 
     /// <summary>Spec, "a label on two networks" (census 1.15, DIALECT N19): both IDEs hold one label on two networks,
@@ -406,9 +405,9 @@ public class NextNetworkTextGateTests
     {
         var text = FbdMarker + "NETWORK LABEL: Done\n  out := a;\nEND_NETWORK\nNETWORK LABEL: DONE\n  out := b;\nEND_NETWORK\n";
         Accepted(text);
-        var body = NextNetworkTextReader.Read(text, BodyLanguage.Fbd, NextNetworkScope.Empty).Body!;
+        var body = NetworkTextReader.Read(text, BodyLanguage.Fbd, NetworkScope.Empty).Body!;
         Assert.Equal(new[] { "Done", "DONE" }, body.Networks.Select(n => n.Label));
-        Assert.Equal(text, NextNetworkTextWriter.Write(body, NextNetworkScope.Empty));
+        Assert.Equal(text, NetworkTextWriter.Write(body, NetworkScope.Empty));
     }
 
     /// <summary>Spec, "a comment on a fully-headed network".</summary>
@@ -421,8 +420,8 @@ public class NextNetworkTextGateTests
     public void The_writers_renamed_wire_is_accepted()
     {
         var scope = Names("G3");
-        var text = NextNetworkTextWriter.Write(
-            new NetworkBody(BodyLanguage.Fbd, new[] { NextModels.Net(NextModels.Def(3, NextModels.L("TRUE")), NextModels.Set(NextModels.Ref(3), NextModels.T("out"))) }),
+        var text = NetworkTextWriter.Write(
+            new NetworkBody(BodyLanguage.Fbd, new[] { NetworkModels.Net(NetworkModels.Def(3, NetworkModels.L("TRUE")), NetworkModels.Set(NetworkModels.Ref(3), NetworkModels.T("out"))) }),
             scope);
         Accepted(text, scope);
     }

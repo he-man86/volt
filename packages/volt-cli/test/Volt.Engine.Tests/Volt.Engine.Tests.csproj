@@ -18,9 +18,11 @@
     <!-- The one shared in-memory IDE fake, compiled into each test assembly (see test/shared/FakeIde.cs). -->
     <Compile Include="..\shared\FakeIde.cs" Link="FakeIde.cs" />
     <!-- The network text v2 model oracle, shared with the TwinCAT suite (its archives take the same check). -->
-    <Compile Include="..\shared\NextModelOracle.cs" Link="NextModelOracle.cs" />
-    <Compile Include="..\shared\NextNetworkTextFacts.cs" Link="NextNetworkTextFacts.cs" />
+    <Compile Include="..\shared\NetworkModelOracle.cs" Link="NetworkModelOracle.cs" />
+    <Compile Include="..\shared\NetworkTextFacts.cs" Link="NetworkTextFacts.cs" />
     <Compile Include="..\shared\NetworkModelEquality.cs" Link="NetworkModelEquality.cs" />
+    <!-- The v1 reader as a FIXTURE: the LSP corpus is v1 text until task 6.1 re-pulls it (V1CorpusReader.cs). -->
+    <Compile Include="..\shared\V1CorpusReader.cs" Link="V1CorpusReader.cs" />
     <Using Include="Volt.Tests.Shared" />   <!-- so every file sees the shared double, as before -->
   </ItemGroup>
   <ItemGroup>

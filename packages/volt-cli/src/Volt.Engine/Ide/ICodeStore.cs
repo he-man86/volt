@@ -97,4 +97,12 @@ public interface ICodeStore
     /// host, which has no such thing.)</para></summary>
     void ValidateSource(string wireName, string sourceText,
                         IReadOnlyDictionary<string, string> pushedDeclarations);
+
+    /// <summary>The scope a graphical body resolves against: its own declarations (<paramref name="declaration"/>,
+    /// innermost first — <see cref="SourceScopes.Scope"/>), the project's other items and its globals, the push's
+    /// own declarations answering before the IDE's. The SAME scope the driver writes a pulled body against, so the
+    /// engine's pre-flight reads a body exactly as the driver will (network text v2, task 3.9) — a pre-flight
+    /// with a smaller scope would refuse an undeclared-looking wire the write accepts.</summary>
+    Volt.Engine.Format.Network.NetworkScope NetworkScopeFor(string? declaration,
+                                                            IReadOnlyDictionary<string, string> pushedDeclarations);
 }

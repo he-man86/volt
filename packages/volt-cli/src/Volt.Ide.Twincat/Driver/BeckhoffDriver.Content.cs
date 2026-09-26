@@ -32,11 +32,11 @@ public sealed partial class BeckhoffDriver
     public ItemContent ReadContent(ItemRef item)
     {
         var declaration = _om.ReadDeclaration(item.Native);
-        var body = ReadBody(item);
+        var body = ReadBody(item, declaration);
 
         var members = new List<Member>();
         foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, item))
-            members.Add(ReadMember(site));
+            members.Add(ReadMember(site, declaration));
 
         return new ItemContent(KindOf(item), declaration.TrimEnd('\n'), body, members);
     }
@@ -60,10 +60,9 @@ public sealed partial class BeckhoffDriver
         foreach (var (body, declaration) in SourceScopes.BodiesOf(split))
         {
             if (body is not { } text || !NetworkText.Is(text)) continue;
-            var model = NetworkTextReader.Parse(text);
+            var model = NetworkText.Validate(text, NetworkScopeFor(declaration, pushedDeclarations));
             // The name is the scratch POU's, and nothing reads it back — only whether the writer throws.
-            TcPlcOpenWriter.WriteProject("VoltPreflight", model, declaration,
-                                         n => DeclarationOfName(pushedDeclarations, n));
+            TcPlcOpenWriter.WriteProject("VoltPreflight", model);
         }
     }
 
@@ -127,14 +126,16 @@ public sealed partial class BeckhoffDriver
         {
             var site = byName[m.Name];
             var itf = m.Kind == ItemKind.Kinds.InterfaceProperty;
-            Collect(graphical, new[] { m.Name }, site, m.Body, SourceScopes.Scope(m.Declaration, content.Declaration),
-                    pushedDeclarations);
+            // Each body against its OWN scope, the one `SourceScopes.BodiesOf` gives the pre-flight: an action
+            // has no declaration of its own, and an accessor sees its property's and then the POU's.
+            var memberScope = SourceScopes.Scope(m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, content.Declaration);
+            Collect(graphical, new[] { m.Name }, site, m.Body, memberScope, pushedDeclarations);
             Collect(graphical, new[] { m.Name, "Get" },
                     AccessorSite(site, itf ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet),
-                    m.Getter?.Body, SourceScopes.Scope(m.Getter?.Declaration, content.Declaration), pushedDeclarations);
+                    m.Getter?.Body, SourceScopes.Scope(m.Getter?.Declaration, memberScope), pushedDeclarations);
             Collect(graphical, new[] { m.Name, "Set" },
                     AccessorSite(site, itf ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet),
-                    m.Setter?.Body, SourceScopes.Scope(m.Setter?.Declaration, content.Declaration), pushedDeclarations);
+                    m.Setter?.Body, SourceScopes.Scope(m.Setter?.Declaration, memberScope), pushedDeclarations);
         }
 
         if (graphical.Count > 0)
@@ -188,7 +189,7 @@ public sealed partial class BeckhoffDriver
                          IReadOnlyDictionary<string, string> pushedDeclarations)
     {
         if (body is not { } b || !NetworkText.Is(b)) return;
-        var model = NetworkTextGate.Validate(b);           // refuse BEFORE touching the IDE
+        var model = NetworkText.Validate(b, NetworkScopeFor(declaration, pushedDeclarations));   // refuse BEFORE touching the IDE
 
         // A null site is an accessor the property does not carry. Collecting nothing leaves the report to
         // `WriteAccessor`, which is where that case is already decided.
@@ -256,7 +257,9 @@ public sealed partial class BeckhoffDriver
 
     /// <summary>An item's body as workspace text: ST verbatim, a graphical body as network text, an
     /// unsupported language as its marker.</summary>
-    private string? ReadBody(ItemRef item)
+    /// <param name="declaration">The declarations the body resolves against, innermost first
+    /// (<see cref="SourceScopes.Scope"/>) — a graphical body is written against its <see cref="NetworkScope"/>.</param>
+    private string? ReadBody(ItemRef item, string? declaration)
     {
         var raw = _om.ReadImplementation(item.Native);
         if (string.IsNullOrWhiteSpace(raw)) return null;
@@ -303,12 +306,18 @@ public sealed partial class BeckhoffDriver
                 return BodyMarker.For(ex.Marker);
             }
 
-            // Byte-identical with CODESYS: a coil modifier the text form cannot spell is a MARKER on both
-            // vendors, because the model is the same model (DIALECT N1) and the format is the same format.
-            if (NetworkTextWriter.Unspellable(model) is { } why) return BodyMarker.For(why);
-
-            var text = NetworkTextWriter.Write(model).Trim();
-            return text.Length == 0 ? null : text;
+            // Byte-identical with CODESYS: a fact the text has no spelling for — a negated coil, a rung driving two
+            // jumps, a connection slot the archive does not record — is a MARKER on both vendors, because the model
+            // is the same model (DIALECT N1) and the format is the same format. The writer raises the one exception
+            // for every such fact (network text v2: pull never throws anything else).
+            try
+            {
+                return NetworkTextWriter.Write(model, NetworkScopeFor(declaration, NoPush)).TrimEnd('\n');
+            }
+            catch (UnrepresentableBodyException ex)
+            {
+                return BodyMarker.For(ex.Marker);
+            }
         }
 
         // CFC and SFC are graphical and unsupported: they materialize as the marker, so an engineer gets a file
@@ -369,7 +378,7 @@ public sealed partial class BeckhoffDriver
     {
         if (body is { } b && NetworkText.Is(b))
         {
-            var model = NetworkTextGate.Validate(b);      // refuse BEFORE touching the IDE
+            var model = NetworkText.Validate(b, NetworkScopeFor(declaration, pushedDeclarations));   // refuse BEFORE touching the IDE
             var existing = _om.ReadImplementation(item.Native);
 
             // CREATE takes the other door. The archive writer cannot BUILD a body - a BoxTreeBox carries
@@ -406,6 +415,8 @@ public sealed partial class BeckhoffDriver
     private string? ResolveBody(string? existing, NetworkBody model, string? declaration,
                                 IReadOnlyDictionary<string, string> pushedDeclarations)
     {
+        // The scope the body was read against: the in-place writer's change gate renders the live network with it.
+        var scope = NetworkScopeFor(declaration, pushedDeclarations);
         // Blank, or an archive the engineer has drawn nothing into. Deliberately NOT "the archive root is
         // null": that is also true of a TEXTUAL body, and routing those here would silently turn live ST
         // into a diagram instead of refusing — which is what TcNetworkWriter below is for.
@@ -423,9 +434,8 @@ public sealed partial class BeckhoffDriver
                 // stamps the values on: flags, comments, titles, everything network text does carry. Neither
                 // half has to learn the other's job, and a modifier no longer has to be expressible in PLCopen
                 // to survive a create.
-            var built = _om.ResolveGraphicalBody(model, model.Language == BodyLanguage.Ld ? "Ld" : "Fbd", declaration,
-                                                n => DeclarationOfName(pushedDeclarations, n));
-            return Stamp(built, model);
+            var built = _om.ResolveGraphicalBody(model, model.Language == BodyLanguage.Ld ? "Ld" : "Fbd");
+            return Stamp(built, model, scope);
         }
 
             // AN EXISTING BODY IS EDITED IN PLACE, and where its SHAPE changed - a box retyped, a rung
@@ -434,9 +444,8 @@ public sealed partial class BeckhoffDriver
             // byte for byte as the IDE wrote it: ids, Fixed flags, ILLines and all.
         // A null means the archive already says exactly this: writing it back would rewrite ids and
         // vendor members for no change at all.
-        return TcNetworkWriter.Apply(existing!, model,
-                                     network => RebuildNetwork(network, model.Language, declaration,
-                                                               pushedDeclarations));
+        return TcNetworkWriter.Apply(existing!, model, scope,
+                                     network => RebuildNetwork(network, model.Language));
     }
 
     /// <summary>Have the IDE rebuild ONE network, and hand back its archive element ready to be spliced in.
@@ -444,8 +453,7 @@ public sealed partial class BeckhoffDriver
     /// <para>The same scratch-POU resolution a create uses — the IDE resolves the call, Volt copies the result —
     /// only narrowed to a single network. The guard that this network is ONE connected component lives in
     /// <see cref="TcNetworkWriter"/>, which checks it from the model before this is ever called.</para></summary>
-    private XElement RebuildNetwork(Network network, BodyLanguage language, string? declaration,
-                                    IReadOnlyDictionary<string, string> pushedDeclarations)
+    private XElement RebuildNetwork(Network network, BodyLanguage language)
     {
         // RENUMBERED TO 0 for the rebuild. `localId` encodes the network index (10^10 * (order + 1)), so a
         // network carrying its real Order of 1 told the importer to build networks 0 AND 1 - it answered with
@@ -453,8 +461,7 @@ public sealed partial class BeckhoffDriver
         // scratch POU has its own id space, and the network's real position is the slot it is spliced back
         // into, not anything the rebuild needs to know.
         var one = new NetworkBody(language, new[] { network with { Order = 0 } });
-        var body = _om.ResolveGraphicalBody(one, language == BodyLanguage.Ld ? "Ld" : "Fbd", declaration,
-                                            n => DeclarationOfName(pushedDeclarations, n));
+        var body = _om.ResolveGraphicalBody(one, language == BodyLanguage.Ld ? "Ld" : "Fbd");
 
         var impl = TcArchive.Root(body)
             ?? throw new InvalidOperationException(
@@ -488,7 +495,7 @@ public sealed partial class BeckhoffDriver
     /// carries DETAIL the import cannot express — a negated contact, a SET coil, a network title, a disabled
     /// network — that detail would be lost, so the push fails instead of reporting success over a body missing
     /// the very thing the engineer wrote.</para></summary>
-    private static string Stamp(string built, NetworkBody model)
+    private static string Stamp(string built, NetworkBody model, NetworkScope scope)
     {
         try
         {
@@ -513,7 +520,7 @@ public sealed partial class BeckhoffDriver
             // refusal was carrying never reached the split networks. Merging restores the count so the stamp
             // below reaches them.
             var merged = TcNetworkWriter.MergeImporterSplits(built, model) ?? built;
-            var applied = TcNetworkWriter.Apply(merged, model) ?? merged;
+            var applied = TcNetworkWriter.Apply(merged, model, scope) ?? merged;
             return TcNetworkWriter.DropImporterBoxOutputs(applied);
         }
         catch (NotSupportedException) when (!CarriesDetail(model) && !LostNetworks(built, model))
@@ -593,9 +600,12 @@ public sealed partial class BeckhoffDriver
     // ── members ───────────────────────────────────────────────────────────────────────────────────
 
 
-    private Member ReadMember(Volt.Engine.Ide.MemberSites.Site site)
+    private Member ReadMember(Volt.Engine.Ide.MemberSites.Site site, string? ownerDeclaration)
     {
         var kind = ItemKind.Map(site.Code) ?? ItemKind.Kinds.Method;
+        var declaration = MemberDeclaration(site);
+        // An ACTION has no declaration of its own and resolves against its owner's (SourceScopes.BodiesOf).
+        var scope = SourceScopes.Scope(site.Code == ItemKind.PlcAction ? null : declaration, ownerDeclaration);
 
         Accessor? getter = null, setter = null;
         if (site.Code == ItemKind.PlcItfProp)
@@ -615,40 +625,36 @@ public sealed partial class BeckhoffDriver
             {
                 var acc = ChildAt(site.Ref, i);
                 var code = KindCode(acc);
-                if (code == ItemKind.PlcPropGet) getter = ReadAccessor(acc);
-                else if (code == ItemKind.PlcPropSet) setter = ReadAccessor(acc);
+                if (code == ItemKind.PlcPropGet) getter = ReadAccessor(acc, scope);
+                else if (code == ItemKind.PlcPropSet) setter = ReadAccessor(acc, scope);
             }
         }
 
-        return new Member(kind, site.Name, MemberDeclaration(site), ReadBody(site.Ref), site.Folder, getter, setter);
+        return new Member(kind, site.Name, declaration, ReadBody(site.Ref, scope), site.Folder, getter, setter);
     }
 
-    private Accessor ReadAccessor(ItemRef acc) =>
-        new Accessor(AccessorDeclaration.Keep(_om.ReadDeclaration(acc.Native)), ReadBody(acc));
+    private Accessor ReadAccessor(ItemRef acc, string? propertyScope)
+    {
+        var declaration = AccessorDeclaration.Keep(_om.ReadDeclaration(acc.Native));
+        return new Accessor(declaration, ReadBody(acc, SourceScopes.Scope(declaration, propertyScope)));
+    }
 
     /// <summary>Another top-level item's declaration, by name — the vendor half of
-    /// <c>StDeclaration.TypeOfCallTarget</c>, and CODESYS's <c>DeclarationOfName</c> member for member.
+    /// <c>StDeclaration.TypeOfCallTarget</c> — and every global list, through the one helper both drivers share
+    /// (<see cref="ProjectDeclarations"/>: the push asked first, the IDE half cached for the driver's life).
     ///
     /// <para>A graphical box can call through a name the POU does not declare — a qualified path walks a GVL,
     /// then a struct, then reaches the timer; <c>SUPER^</c> reaches the EXTENDS clause. Each hop is one more
-    /// item's declaration, and only the driver can ask its IDE for one.</para>
-    ///
-    /// <para>THE PUSH IS ASKED FIRST. The IDE can only answer for items it ALREADY holds, so on a push that
-    /// creates a whole project the answer would depend on op order — and the push is the newer truth for an
-    /// item it is updating anyway. The IDE answers for every item the push does not carry.</para>
-    ///
-    /// <para>The IDE half is cached, hits and misses alike: <c>ItemLookup.Find</c> is a full walk from the tree
-    /// root, and one body resolves many paths through the same two items.</para></summary>
-    private readonly Dictionary<string, string?> _declarationByName = new(StringComparer.OrdinalIgnoreCase);
+    /// item's declaration, and only the driver can ask its IDE for one.</para></summary>
+    private ProjectDeclarations Declarations =>
+        _declarations ??= new ProjectDeclarations(this, item => _om.ReadDeclaration(item.Native));
+    private ProjectDeclarations? _declarations;
 
-    private string? DeclarationOfName(IReadOnlyDictionary<string, string> pushed, string name)
-    {
-        if (pushed.TryGetValue(name, out var incoming) && !string.IsNullOrWhiteSpace(incoming)) return incoming;
-        if (_declarationByName.TryGetValue(name, out var cached)) return cached;
+    /// <summary>A pull pushes nothing: its scope is the IDE's declarations alone.</summary>
+    private static readonly IReadOnlyDictionary<string, string> NoPush = new Dictionary<string, string>();
 
-        var declaration = Volt.Engine.Ide.ItemLookup.Find(this, name) is { } item ? _om.ReadDeclaration(item.Native) : null;
-        return _declarationByName[name] = string.IsNullOrWhiteSpace(declaration) ? null : declaration;
-    }
+    public NetworkScope NetworkScopeFor(string? declaration, IReadOnlyDictionary<string, string> pushedDeclarations) =>
+        Declarations.ScopeFor(declaration, pushedDeclarations);
 
     /// <summary><b>An ACTION is the one member with no declaration to read</b>: IEC gives an action a name and
     /// a body and nothing else, and Beckhoff's own object model says so — <c>_ITcPlcImplementation</c> exposes

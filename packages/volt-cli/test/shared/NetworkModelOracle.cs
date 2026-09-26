@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Volt.Engine.Format.Network;
-using Volt.Engine.Format.Network.Next;
 using Xunit;
 using Parallel = Volt.Engine.Format.Network.Parallel;
 using Volt.Engine.Format.Body;
@@ -12,8 +11,8 @@ namespace Volt.Tests.Shared;
 /// <summary>
 /// THE MODEL ROUND-TRIP ORACLE for network text v2 — spec, "the round trip is checked on tokens and on models":
 /// for a model <c>m</c> the writer either REFUSES it by name (<see cref="UnrepresentableBodyException"/>, which the
-/// pull turns into the body marker) or <c>NextNetworkTextReader.Read(NextNetworkTextWriter.Write(m)) ≅ m</c>, where
-/// ≅ is structural equality on what the text carries (<see cref="NextNetworkTextFacts.Carried"/>), and the gate
+/// pull turns into the body marker) or <c>NetworkTextReader.Read(NetworkTextWriter.Write(m)) ≅ m</c>, where
+/// ≅ is structural equality on what the text carries (<see cref="NetworkTextFacts.Carried"/>), and the gate
 /// accepts the written text as canonical.
 ///
 /// <para>Compiled into each suite that owns a model source (the engine's v1 tests and corpus, TwinCAT's
@@ -23,7 +22,7 @@ namespace Volt.Tests.Shared;
 /// anything but the refusal), the reader or gate refusing the writer's own text, or the model coming back
 /// different — which is the "pull-side loss" the text round trip alone cannot see.</para>
 /// </summary>
-internal static class NextModelOracle
+internal static class NetworkModelOracle
 {
     /// <summary>What happened to one body: round-tripped (<see cref="Reason"/> null) or refused for a reason
     /// (the exception's <c>Marker</c> — the writer's name for the fact it cannot spell).</summary>
@@ -43,12 +42,12 @@ internal static class NextModelOracle
         return outcome;
     }
 
-    static Outcome CheckIn(string source, NetworkBody m, NextNetworkScope scope)
+    static Outcome CheckIn(string source, NetworkBody m, NetworkScope scope)
     {
         string text;
         try
         {
-            text = NextNetworkTextWriter.Write(m, scope);
+            text = NetworkTextWriter.Write(m, scope);
         }
         catch (UnrepresentableBodyException e)
         {
@@ -61,16 +60,16 @@ internal static class NextModelOracle
             throw;
         }
 
-        var back = NextNetworkTextReader.Read(text, m.Language, scope);
+        var back = NetworkTextReader.Read(text, m.Language, scope);
         Assert.True(back.Ok,
             $"{source}: the v2 reader refuses the v2 writer's own text:\n" +
             string.Join("\n", back.Diagnostics.Select(d => $"{d.Line}:{d.Column} {d.Code} {d.Message}")) + "\n\n" + text);
 
         var diff = NetworkModelEquality.FirstDifference(
-            NextNetworkTextFacts.Carried(m), NextNetworkTextFacts.Carried(RestoreRenamedWires(source, m, back.Body!, scope)));
+            NetworkTextFacts.Carried(m), NetworkTextFacts.Carried(RestoreRenamedWires(source, m, back.Body!, scope)));
         Assert.True(diff is null, $"{source}: Read(Write(m)) differs from m at {diff}\n\n{text}");
 
-        var gate = NextNetworkTextGate.Validate(text, m.Language, scope);
+        var gate = NetworkTextGate.Validate(text, m.Language, scope);
         Assert.True(gate.Ok,
             $"{source}: the gate refuses the writer's own text:\n" +
             string.Join("\n", gate.Diagnostics.Select(d => $"{d.Code} {d.Message}")) + "\n\n" + text);
@@ -85,7 +84,7 @@ internal static class NextModelOracle
     /// the order the wires occur — and ONLY where that rename was forced: an id that changed although its
     /// <c>g&lt;VarId&gt;</c> was free, or a mapping that is not one-to-one, fails here rather than being mapped away.
     /// </summary>
-    static NetworkBody RestoreRenamedWires(string source, NetworkBody m, NetworkBody back, NextNetworkScope scope)
+    static NetworkBody RestoreRenamedWires(string source, NetworkBody m, NetworkBody back, NetworkScope scope)
     {
         if (m.Networks.Count != back.Networks.Count) return back;
         var spelled = ScopeOf(m);   // every word the body spells: the writer's reserved set beside the scope
@@ -146,11 +145,11 @@ internal static class NextModelOracle
     /// because these sources (archives, test models, corpus bodies) come without a parsed VAR block — and every
     /// operand of a body the vendor holds IS a name in scope (a variable, a global, a member), which is what the
     /// reader's "a wire-shaped name in no scope" refusal relies on.</summary>
-    public static NextNetworkScope ScopeOf(NetworkBody body)
+    public static NetworkScope ScopeOf(NetworkBody body)
     {
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var pous = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        void Words(string text) => names.UnionWith(NextSpelling.Words(text));
+        void Words(string text) => names.UnionWith(NetworkSpelling.Words(text));
         void Walk(Node? n)
         {
             switch (n)
@@ -170,12 +169,12 @@ internal static class NextModelOracle
             }
         }
         foreach (var net in body.Networks) foreach (var t in net.Trees) Walk(t);
-        return new NextNetworkScope(names, pous, Instances(body));
+        return new NetworkScope(names, pous, Instances(body));
     }
 
     /// <summary>What the scope holds of a model when no VARIABLE is declared: its POUs (box types) and its FB
     /// instances with their types — the facts the text needs to read a call back — and nothing else.</summary>
-    public static NextNetworkScope CallablesOf(NetworkBody body)
+    public static NetworkScope CallablesOf(NetworkBody body)
     {
         var pous = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         void Walk(Node? n)
@@ -193,7 +192,7 @@ internal static class NextModelOracle
             }
         }
         foreach (var net in body.Networks) foreach (var t in net.Trees) Walk(t);
-        return new NextNetworkScope(Array.Empty<string>(), pous, Instances(body));
+        return new NetworkScope(Array.Empty<string>(), pous, Instances(body));
     }
 
     /// <summary>A model's FB instances with their types — what the POU's declarations would say of each, and
@@ -208,7 +207,7 @@ internal static class NextModelOracle
             switch (n)
             {
                 case Box b:
-                    if (b.Instance is { } i && NextSpelling.Identifier.IsMatch(i.Text)) instances[i.Text] = b.Type;
+                    if (b.Instance is { } i && NetworkSpelling.Identifier.IsMatch(i.Text)) instances[i.Text] = b.Type;
                     Walk(b.Enable);
                     foreach (var p in b.Inputs) Walk(p.Value);
                     break;

@@ -236,6 +236,11 @@ internal static class Nwl
         public object? OutputParams { get; set; } = new ParamList();
 
         public OutputItemList Outputs { get; } = new OutputItemList();
+
+        /// <summary>Which output slot is the box's result — the slot a consumer reads (DIALECT N16). Null by default,
+        /// the shape of an AND/OR box, which stores none (census 1.6); a call box states it.</summary>
+        public int? MainOutputIndex { get; set; }
+
         public object? En { get; set; }
 
         /// <summary>The other half of the EN/ENO pair, and settable for the same reason: the vendor sets both

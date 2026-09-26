@@ -59,9 +59,11 @@ internal static class TcNetworkReader
             Trimmed(TcArchive.Str(net, "Label")),
             Trimmed(TcArchive.Str(net, "Comment")),
             TcArchive.Bool(net, "OutCommented"),
-            TcArchive.RequireList(net, "NetworkItems", $"network {order}").Select(ReadNode).ToList());
+            TcArchive.RequireList(net, "NetworkItems", $"network {order}").Select(n => ReadNode(n, consumed: false)).ToList());
 
-    private static Node ReadNode(XElement e)
+    /// <param name="consumed">Whether an item above this one reads its output — true for everything below the top
+    /// level. A consumed box records the output slot its consumer is connected to (<see cref="ConnectedSlot"/>).</param>
+    private static Node ReadNode(XElement e, bool consumed)
     {
         var flags = ReadFlags(TcArchive.FlagBits(e));
         switch (TcArchive.TypeOf(e))
@@ -82,7 +84,7 @@ internal static class TcNetworkReader
                 // Census 1.2: the empty terminator is the ONE spelling of "unconnected", so the model has no null
                 // value to put an archive null in (task 1.10) — the same refusal CODESYS's reader makes.
                 var value = TcArchive.Obj(e, "RValue") is { } rv
-                    ? ReadNode(rv)
+                    ? ReadNode(rv, consumed: true)
                     : throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
                         "an assignment with no value",
                         "TwinCAT: an assignment holds no value at all, where an unconnected one holds an empty " +
@@ -111,6 +113,8 @@ internal static class TcNetworkReader
             }
 
             case "BoxTreeBox":
+            {
+                var connected = consumed ? ConnectedSlot(e) : null;
                 return new Box(
                     TcArchive.Str(e, "BoxType") ?? "",
                     InstanceOf(e),
@@ -127,7 +131,15 @@ internal static class TcNetworkReader
                     // other vendor's live model (`Box.HasEnableSlot`) and identical here by N1.
                     ReadEnable(e),
                     ReadStCode(e),
-                    flags);
+                    flags,
+                    // A consumer reads the box's MAIN output (DIALECT N16), so on a consumed box the connected slot is
+                    // the main output; a top-level box has no consumer, and the text no position for its main
+                    // output, so neither is stated there.
+                    MainOutputIndex: connected,
+                    ConnectedSlot: connected,
+                    // Whether the box HAS an ENO output: its output list's first name, as CODESYS reads it (task 3.10).
+                    HasEnoOutput: HasEno(e));
+            }
 
             // Fan-out: with an Input it DEFINES the wire, without one it REFERENCES the same VarId.
             case "BoxTreeDemux":
@@ -136,11 +148,11 @@ internal static class TcNetworkReader
                 UnheldFlags.RefuseOnNode(Volt.Contracts.Vendors.TwincatDisplay, "a wire", flags);
                 return new Demux(
                     TcArchive.Int(e, "VarId"),
-                    TcArchive.Obj(e, "Input") is { } di ? ReadNode(di) : null);
+                    TcArchive.Obj(e, "Input") is { } di ? ReadNode(di, consumed: true) : null);
 
             case "BoxTreeParallel":
             {
-                var feed = TcArchive.Obj(e, "Input") is { } pi ? ReadNode(pi) : null;
+                var feed = TcArchive.Obj(e, "Input") is { } pi ? ReadNode(pi, consumed: true) : null;
                 // Census 1.2, the parity twin of CODESYS's reader: an unfed Parallel is the null feed, and a feed
                 // that is the empty terminator occurs in no measured project — refused by name.
                 if (feed is Terminator)
@@ -152,7 +164,7 @@ internal static class TcNetworkReader
                 // `Mode` is an enum scalar, written by member name like `CallType` — read, never defaulted (census
                 // 1.3 found a Sequential); no committed archive holds a Parallel, so an absent or unknown value is
                 // the marker, not a guess.
-                return new Parallel(feed, TcArchive.List(e, "Trees").Select(ReadNode).ToList(),
+                return new Parallel(feed, TcArchive.List(e, "Trees").Select(t => ReadNode(t, consumed: true)).ToList(),
                     ParallelModes.FromVendor(TcArchive.Str(e, "Mode")));
             }
 
@@ -173,6 +185,38 @@ internal static class TcNetworkReader
                     "Volt refuses to materialize a body it cannot represent, rather than rendering an " +
                     "approximation an engineer would then push back.");
         }
+    }
+
+    private static bool HasEno(XElement box) =>
+        Box.HasEnoSlot(TcArchive.Strings(TcArchive.Obj(box, "OutputParam"), "Names"));
+
+    /// <summary>THE OUTPUT SLOT A CONSUMED BOX'S CONSUMER READS (task 3.10), or null where the archive does not say.
+    ///
+    /// <para>The archive serializes no <c>MainOutputIndex</c> (no fixture carries the member; the live CODESYS object
+    /// reports one). It does say it another way, the one CODESYS's census recorded beside the index: the slot a
+    /// consumer is connected to is the one output slot stored as NULL (<c>&lt;n /&gt;</c>) — nothing is written into
+    /// it because the connection IS the nesting. Measured on CODESYS (<c>scripts/nwl-slots.log</c>, the slots column:
+    /// <c>MainOutputIndex=1 slots=eneeRe</c>, <c>=0 slots=nRRRR</c>, <c>=0 slots=ne</c> — the null sits at the index
+    /// every time), and the hand-drawn TwinCAT fixtures hold the same shape (<c>ladder-demux.TcPOU</c>'s TON read by
+    /// its coil: <c>[null, ""]</c>, Q connected, ET unwired). DIALECT N1: one object model, two spellings.</para>
+    ///
+    /// <para>A box with an ENO output is read through it (DIALECT N16: the main output IS the ENO there), and the ENO
+    /// echo is stored null whether or not anything reads it — so it is slot 0 by that rule, not by its null. Any other
+    /// box: exactly one null slot is the answer; none (an AND/OR box, which has no output items and stores no main
+    /// output) or several is no answer, and null is never a default — the writer refuses what it would need the slot
+    /// for, by name.</para></summary>
+    private static int? ConnectedSlot(XElement box)
+    {
+        // A bit operator stores no main output (census 1.6), so its consumer is connected by no stored slot — what
+        // the archive's single null output item on an AND box would otherwise be read as. CODESYS reads the same box
+        // as `MainOutputIndex` None; one model, one answer.
+        if (Box.StoresNoMainOutput(TcArchive.Str(box, "BoxType") ?? "")) return null;
+        if (HasEno(box)) return 0;
+        var holder = TcArchive.Obj(box, "OutputItems");
+        if (holder is null) return null;
+        var nulls = TcArchive.Slots(holder, "OutputItems").Select((slot, i) => (slot, i)).Where(x => x.slot is null)
+                             .Select(x => x.i).ToList();
+        return nulls.Count == 1 ? nulls[0] : null;
     }
 
     /// <summary>An Execute box's ST, read from the archive.
@@ -236,7 +280,7 @@ internal static class TcNetworkReader
         var names = TcArchive.Strings(TcArchive.Obj(e, "InputParam"), "Names");
         if (!Box.HasEnableSlot(names)) return null;
         var items = TcArchive.List(e, "InputItems");
-        return items.Count > 0 ? ReadNode(items[0]) : null;
+        return items.Count > 0 ? ReadNode(items[0], consumed: true) : null;
     }
 
     /// <summary>A box's inputs, WITH their pin names.
@@ -278,7 +322,7 @@ internal static class TcNetworkReader
         return items.Skip(skip)
             // `Flags.None` because a pin with a modifier was refused above; a per-pin negation that rides the
             // OPERAND (`NegatedContact.derived.TcPOU`: `Flags = 1` on the operand's own Flags) is read there.
-            .Select((x, i) => new Input(Box.FormalAt(names, i + skip), ReadNode(x), Flags.None))
+            .Select((x, i) => new Input(Box.FormalAt(names, i + skip), ReadNode(x, consumed: true), Flags.None))
             .ToList();
     }
 
@@ -315,7 +359,8 @@ internal static class TcNetworkReader
             if (slots[i] is not { } slot) continue;
             var operand = ReadOperand(slot);
             if (operand.Text.Length == 0) continue;      // a declared pin the engineer never wired
-            outputs.Add(new Output(Box.FormalAt(names, i), operand));
+            // The SLOT travels with the pin: a positional `=> v` is spelled by the slot it fills (task 3.10).
+            outputs.Add(new Output(Box.FormalAt(names, i), operand, i));
         }
         return outputs;
     }

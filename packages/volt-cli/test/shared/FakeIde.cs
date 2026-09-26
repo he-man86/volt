@@ -654,8 +654,15 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         var impl = it.Implementation ?? "";
         return Volt.Engine.Format.Network.NetworkText.Is(impl)
             ? impl
-            : $"NETWORK 0 {lang}\n  {impl.Trim()}\nEND_NETWORK\n";
+            : $"{Volt.Engine.Format.St.ImplementationMarker.For(lang)}\nNETWORK\n  {impl.Trim()}\nEND_NETWORK\n";
     }
+
+    /// <summary>The scope a graphical body resolves against, built as both drivers build it
+    /// (<see cref="Volt.Engine.Ide.ProjectDeclarations"/>) — fresh on every call, because a test edits the fake's
+    /// items between calls and a driver-lifetime cache would answer for the item before the edit.</summary>
+    public Volt.Engine.Format.Network.NetworkScope NetworkScopeFor(string? declaration,
+                                                                   IReadOnlyDictionary<string, string> pushedDeclarations) =>
+        new Volt.Engine.Ide.ProjectDeclarations(this, r => Find(r).Declaration).ScopeFor(declaration, pushedDeclarations);
 
     private IEnumerable<Member> MembersOf(Item owner)
     {

@@ -33,8 +33,9 @@ public static class StWriter
         // leading the body is the engineer's and has to survive the round trip.
         // The MARKER, always — see ImplementationMarker. An empty body gets it too: the line records where the
         // DECLARATION ends, which is a fact about the declaration and not about whether code follows it.
-        var impl = item.Body ?? "";
-        if (ImplementationMarker.AppliesTo(item.Kind)) sb.Append('\n').Append(ImplementationMarker.Text);
+        // A graphical body starts with its own marker, the language form, which stands in the bare one's place.
+        var (marker, impl) = ImplementationMarker.Split(item.Body ?? "");
+        if (ImplementationMarker.AppliesTo(item.Kind)) sb.Append('\n').Append(marker);
         if (impl.Length > 0)
             sb.Append('\n').Append(impl);
 
@@ -95,7 +96,10 @@ public static class StWriter
         if (child.Kind is ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)
             return AssembleProperty(child, ownerKind);
         var decl = child.Declaration.TrimEnd('\n');
-        var impl = PrependFolder(child.Folder, child.Body ?? "");
+        // The marker first, then `%FOLDER`, then the code: a graphical body's own marker line is lifted off it so
+        // it stands where the bare marker would (see ImplementationMarker.Split).
+        var (marker, code) = ImplementationMarker.Split(child.Body ?? "");
+        var impl = PrependFolder(child.Folder, code);
         var end = child.Kind switch
         {
             // An interface's members are the same ST constructs as a POU's; only the WIRE kind differs.
@@ -106,7 +110,6 @@ public static class StWriter
         };
         if (!ImplementationMarker.AppliesTo(child.Kind) || !ImplementationMarker.AppliesTo(ownerKind))
             return impl.Length == 0 ? $"{decl}\n{end}" : $"{decl}\n{impl}\n{end}";
-        var marker = ImplementationMarker.Text;
         return impl.Length == 0 ? $"{decl}\n{marker}\n{end}" : $"{decl}\n{marker}\n{impl}\n{end}";
     }
 
@@ -130,10 +133,10 @@ public static class StWriter
         // double, and a LEADING newline is the engineer's blank line - six accessors in pro2193 hold one.
         // Trimming here took back exactly what the read had just been fixed to preserve.
         var d = decl ?? "";
-        var i = impl ?? "";
+        var (marker, i) = ImplementationMarker.Split(impl ?? "");
         var lines = new List<string> { keyword };
         if (d.Length > 0) lines.Add(d);
-        if (marked) lines.Add(ImplementationMarker.Text);   // an accessor splits the same way, so it is marked the same way
+        if (marked) lines.Add(marker);   // an accessor splits the same way, so it is marked the same way
         if (i.Length > 0) lines.Add(i);
         lines.Add($"END_{keyword}");
         return string.Join("\n", lines);

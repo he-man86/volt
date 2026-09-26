@@ -650,10 +650,11 @@ public class DocDataTests
                 + "raises it, add it to ConflictCodes.FromBridge, or delete it.");
     }
 
-    /// <summary>EVERY NETWORK_* THE ENGINE RAISES IS A PINNED CONST. Contracts holds no Engine reference, so
-    /// the Engine cannot import these — the check runs the other way, over the source, which is also what
-    /// stops the family drifting back into loose literals. A phantom code (`NETWORK_NESTED_EXPR`, cited in a
-    /// DTO comment and existing nowhere) is what this prevents.</summary>
+    /// <summary>EVERY NETWORK_* THE ENGINE RAISES IS A PUBLISHED CONST. The check runs over the source: every
+    /// <c>ConflictCodes.Network…</c> the Engine names must be in <see cref="ConflictCodes.Network"/>, and no
+    /// <c>"NETWORK_…"</c> literal may stand in for one — a loose literal is how a phantom code
+    /// (`NETWORK_NESTED_EXPR`, cited in a DTO comment and existing nowhere) got documented. The v1 reader raised
+    /// literals; network text v2 raises the constants only, so the literal count is pinned at zero.</summary>
     [Fact]
     public void Every_network_conflict_code_is_published()
     {
@@ -664,19 +665,33 @@ public class DocDataTests
         var engine = Path.Combine(root!.FullName, "packages", "volt-cli", "src", "Volt.Engine");
 
         var published = ConflictCodes.Network.ToHashSet(StringComparer.Ordinal);
-        var raised = Directory.EnumerateFiles(engine, "*.cs", SearchOption.AllDirectories)
+        var sources = Directory.EnumerateFiles(engine, "*.cs", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
                      && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
-            .SelectMany(f => System.Text.RegularExpressions.Regex
-                .Matches(File.ReadAllText(f), "\"(NETWORK_[A-Z_]+)\"")
-                .Select(m => (File: Path.GetFileName(f), Code: m.Groups[1].Value)))
+            .Select(f => (File: Path.GetFileName(f), Text: File.ReadAllText(f)))
+            .ToList();
+
+        var literals = sources
+            .SelectMany(f => System.Text.RegularExpressions.Regex.Matches(f.Text, "\"(NETWORK_[A-Z_]+)\"")
+                .Select(m => $"{f.File}: {m.Groups[1].Value}"))
+            .ToList();
+        Assert.True(literals.Count == 0,
+            "a NETWORK_* code spelled as a literal instead of its ConflictCodes const:\n" + string.Join("\n", literals));
+
+        var raised = sources
+            .SelectMany(f => System.Text.RegularExpressions.Regex.Matches(f.Text, @"ConflictCodes\.(Network[A-Za-z]+)\b")
+                .Select(m => (f.File, Const: m.Groups[1].Value)))
+            .Where(x => x.Const != nameof(ConflictCodes.Network))
             .ToList();
 
         Assert.NotEmpty(raised);   // the regex must see the Engine, or this proves nothing
-        foreach (var (file, code) in raised)
-            Assert.True(published.Contains(code),
-                $"{file} raises '{code}', which is not in ConflictCodes.Network — clients observe these on "
+        foreach (var (file, name) in raised)
+        {
+            var field = typeof(ConflictCodes).GetField(name);
+            Assert.True(field is not null && field.GetValue(null) is string code && published.Contains(code),
+                $"{file} raises ConflictCodes.{name}, which is not in ConflictCodes.Network — clients observe these on "
                 + "PushConflict.code, so an unpublished one is a code nobody can look up.");
+        }
     }
 
     /// <summary>EVERY GATE CODE IS ACTUALLY PRODUCED. Same direction as the NETWORK check above and for the

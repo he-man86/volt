@@ -25,10 +25,12 @@ namespace Volt.Ide.Codesys.Tests;
 public class CodesysNetworkWriterGateTests
 {
 
-    /// <summary>No project behind this double — a dotted call target cannot resolve here, and these tests do
-    /// not use one. The lookup is passed EXPLICITLY rather than defaulted so a test that starts needing a real
-    /// one has to say so.</summary>
-    private static string? NoProject(string name) => null;
+
+    /// <summary>The scope the pushed model was read against â€” here the model's own names and FB instances, as the
+    /// declarations of the POU it came from would state them (<c>NetworkModelOracle.ScopeOf</c>). The change gate
+    /// renders both sides with it: "the same file" is only defined for one scope.</summary>
+    private static NetworkScope ScopeOf(Network model, BodyLanguage language) =>
+        Volt.Tests.Shared.NetworkModelOracle.ScopeOf(new NetworkBody(language, new[] { model }));
     /// <summary>A live network holding `out := (a AND b)`, as the vendor would present it.</summary>
     private static Nwl.Network LiveAndRung()
     {
@@ -53,7 +55,7 @@ public class CodesysNetworkWriterGateTests
     {
         try
         {
-            CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, null, NoProject, language);
+            CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, language, ScopeOf(model, language));
             return null;
         }
         catch (Exception ex) { return ex; }
@@ -177,18 +179,35 @@ public class CodesysNetworkWriterGateTests
 public class CodesysCoilFlagTests
 {
 
-    /// <summary>No project behind this double — a dotted call target cannot resolve here, and these tests do
-    /// not use one. The lookup is passed EXPLICITLY rather than defaulted so a test that starts needing a real
-    /// one has to say so.</summary>
-    private static string? NoProject(string name) => null;
+
+    /// <summary>The scope the pushed model was read against â€” here the model's own names and FB instances, as the
+    /// declarations of the POU it came from would state them (<c>NetworkModelOracle.ScopeOf</c>). The change gate
+    /// renders both sides with it: "the same file" is only defined for one scope.</summary>
+    private static NetworkScope ScopeOf(Network model, BodyLanguage language) =>
+        Volt.Tests.Shared.NetworkModelOracle.ScopeOf(new NetworkBody(language, new[] { model }));
+    /// <summary>A live network holding a rung unlike any this class pushes — <c>elsewhere := TRUE;</c> — so the
+    /// change gate opens and the destroy-and-rebuild path runs. It must be a rung network text can SPELL: the gate
+    /// renders the live network to compare, and a live network the text cannot hold is refused rather than rebuilt,
+    /// because a rebuild would delete the fact it could not carry (network text v2: an assign item driving no
+    /// target is such a fact — <c>value;</c> is the value item itself).</summary>
+    private static Nwl.Network Different()
+    {
+        var assign = new Nwl.BoxTreeAssign
+        {
+            RValue = new Nwl.BoxTreeOperand { Operand = new Nwl.Operand { OperandExpr = "TRUE" } },
+        };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "elsewhere", IsLValue = true });
+        return new Nwl.Network().With(assign);
+    }
+
     /// <summary>Rebuild a network from <paramref name="model"/> and hand back the operand the coil ended up as.
     ///
     /// <para>The live network deliberately holds something DIFFERENT, so the change gate opens and the
     /// destroy-and-rebuild path — the one that writes target flags — actually runs.</para></summary>
     private static Nwl.Operand Coil(Network model)
     {
-        var live = new Nwl.Network().With(new Nwl.BoxTreeAssign());
-        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, null, NoProject, BodyLanguage.Ld);
+        var live = Different();
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Ld, ScopeOf(model, BodyLanguage.Ld));
 
         var assign = Assert.IsType<Nwl.BoxTreeAssign>(live.GetTree(live.NetworkItemCount - 1));
         return Assert.IsType<Nwl.Operand>(Assert.Single(assign.Outputs.List));
@@ -304,8 +323,8 @@ public class CodesysCoilFlagTests
                        new[] { new Operand("out") }, Flags.None),
         });
 
-        var live = new Nwl.Network().With(new Nwl.BoxTreeAssign());
-        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, null, NoProject, BodyLanguage.Ld);
+        var live = Different();
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Ld, ScopeOf(model, BodyLanguage.Ld));
 
         var par = Assert.IsType<Nwl.BoxTreeParallel>(Assert.IsType<Nwl.BoxTreeAssign>(live.GetTree(live.NetworkItemCount - 1)).RValue);
         Assert.Equal(vendor, par.Mode.ToString());
@@ -326,10 +345,10 @@ public class CodesysCoilFlagTests
                        new[] { new Operand("out") }, Flags.None),
         });
         var impl = new Nwl.NWLImplementationObject();
-        var live = new Nwl.Network().With(new Nwl.BoxTreeAssign());
-        CodesysNetworkWriter.WriteNetwork(impl, live, Rung(ParallelMode.BoxShortCircuit), null, NoProject, BodyLanguage.Ld);
+        var live = Different();
+        CodesysNetworkWriter.WriteNetwork(impl, live, Rung(ParallelMode.BoxShortCircuit), BodyLanguage.Ld, ScopeOf(Rung(ParallelMode.BoxShortCircuit), BodyLanguage.Ld));
 
-        CodesysNetworkWriter.WriteNetwork(impl, live, Rung(ParallelMode.Sequential), null, NoProject, BodyLanguage.Ld);
+        CodesysNetworkWriter.WriteNetwork(impl, live, Rung(ParallelMode.Sequential), BodyLanguage.Ld, ScopeOf(Rung(ParallelMode.Sequential), BodyLanguage.Ld));
 
         Assert.Equal(ParallelMode.Sequential, Assert.IsType<Volt.Engine.Format.Network.Parallel>(
             Assert.IsType<Assign>(CodesysNetworkReader.ReadNetwork(live, 0).Trees.Last()).Value).Mode);
@@ -356,8 +375,8 @@ public class CodesysCoilFlagTests
                     null, Flags.None),
         });
 
-        var live = new Nwl.Network().With(new Nwl.BoxTreeAssign());
-        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, null, NoProject, BodyLanguage.Ld);
+        var live = Different();
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Ld, ScopeOf(model, BodyLanguage.Ld));
         var back = CodesysNetworkReader.ReadNetwork(live, 0);
 
         var box = Assert.IsType<Box>(back.Trees.Last());
@@ -380,8 +399,8 @@ public class CodesysCoilFlagTests
                     null, Flags.None),
         });
 
-        var live = new Nwl.Network().With(new Nwl.BoxTreeAssign());
-        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, null, NoProject, BodyLanguage.Ld);
+        var live = Different();
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Ld, ScopeOf(model, BodyLanguage.Ld));
 
         var written = Assert.IsType<Nwl.BoxTreeBox>(live.GetTree(live.NetworkItemCount - 1));
         var names = Assert.IsType<Nwl.ParamList>(written.InputParams).Names;
@@ -404,7 +423,7 @@ public class CodesysCoilFlagTests
     [Fact]
     public void A_box_with_no_instance_clears_the_vendors_marker()
     {
-        var live = new Nwl.Network().With(new Nwl.BoxTreeAssign());
+        var live = Different();
         var model = new Network(0, null, null, null, false, new Node[]
         {
             new Box("AND", null, CallKind.Operator,
@@ -416,7 +435,7 @@ public class CodesysCoilFlagTests
                     System.Array.Empty<Output>(), null, null, Flags.None),
         });
 
-        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, null, NoProject, BodyLanguage.Fbd);
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, ScopeOf(model, BodyLanguage.Fbd));
 
         var written = Assert.IsType<Nwl.BoxTreeBox>(live.GetTree(live.NetworkItemCount - 1));
         var instance = Assert.IsType<Nwl.Operand>(written.Instance);
@@ -431,14 +450,14 @@ public class CodesysCoilFlagTests
     public void An_execute_box_is_created_carrying_its_ST()
     {
         const string st = "iCount := iCount + 1;";
-        var live = new Nwl.Network().With(new Nwl.BoxTreeAssign());
+        var live = Different();
         var model = new Network(0, null, null, null, false, new Node[]
         {
             new Box("EXECUTE", null, CallKind.Function, System.Array.Empty<Input>(),
                     System.Array.Empty<Output>(), null, st, Flags.None),
         });
 
-        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, null, NoProject, BodyLanguage.Fbd);
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, ScopeOf(model, BodyLanguage.Fbd));
 
         var written = Assert.IsType<Nwl.BoxTreeBox>(live.GetTree(live.NetworkItemCount - 1));
         Assert.Equal("EXECUTE", written.BoxType);
@@ -463,7 +482,7 @@ public class CodesysCoilFlagTests
         Nwl.TextDocument.DropsText = true;
         try
         {
-            var live = new Nwl.Network().With(new Nwl.BoxTreeAssign());
+            var live = Different();
             var model = new Network(0, null, null, null, false, new Node[]
             {
                 new Box("EXECUTE", null, CallKind.Function, System.Array.Empty<Input>(),
@@ -471,7 +490,7 @@ public class CodesysCoilFlagTests
             });
 
             var ex = Assert.Throws<System.InvalidOperationException>(() =>
-                CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, null, NoProject, BodyLanguage.Fbd));
+                CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, ScopeOf(model, BodyLanguage.Fbd)));
             Assert.Contains("did not take its ST", ex.Message);
         }
         finally { Nwl.TextDocument.DropsText = false; }

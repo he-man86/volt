@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 using Volt.Engine.Format.Network;
-using Volt.Engine.Format.Network.Next;
-using static Volt.Engine.Tests.NextModels;
+using static Volt.Engine.Tests.NetworkModels;
 using Parallel = Volt.Engine.Format.Network.Parallel;
 
 namespace Volt.Engine.Tests;
@@ -15,14 +14,14 @@ namespace Volt.Engine.Tests;
 /// <c>LET g</c> of a single consumer) or sends it to the marker. Each entry is keyed by the v1 test it answers, holds
 /// the NWL model that test's text or model stands for, and pins the v2 text as the one statement per item (or the
 /// marker by name). At the swap (3.7) the v1 tests are rewritten to these; until then they run against
-/// <see cref="NextNetworkTextWriter"/> / <see cref="NextNetworkTextReader"/>.
+/// <see cref="NetworkTextWriter"/> / <see cref="NetworkTextReader"/>.
 ///
 /// <para><b>ENO facts follow the measurement, not the v1 text.</b> v1's <c>IF en THEN … END_IF</c> said "the rung
 /// continues from ENO" for every enabled box. Where these shapes come from a real network the model carries what the
 /// live dump says (<c>scripts/nwl-oracle-rungs.log</c>): a comparison with EN shown and unwired has no ENO output and
 /// is read by its result (TrayFiller N8's GE), while MOVE/ADD/MUL/SUB show ENO.</para>
 /// </summary>
-public class NextSplitShapeGoldensTests
+public class SplitShapeGoldensTests
 {
     /// <summary>A comparison with EN shown and unwired and no ENO output, consumed by its result (TrayFiller N8's
     /// GE, measured: <c>OutputParams.Names = ['']</c>).</summary>
@@ -41,8 +40,8 @@ public class NextSplitShapeGoldensTests
     public void The_shape_is_one_statement_per_item(string name)
     {
         var (model, text) = Goldens[name];
-        Assert.Equal(text, NextNetworkTextWriter.Write(model, ScopeOf(model)));
-        Assert.Null(NextModelOracle.Check(name, model).Reason);
+        Assert.Equal(text, NetworkTextWriter.Write(model, ScopeOf(model)));
+        Assert.Null(NetworkModelOracle.Check(name, model).Reason);
     }
 
     public static TheoryData<string> Marked()
@@ -57,7 +56,7 @@ public class NextSplitShapeGoldensTests
     public void The_shape_goes_to_the_marker_by_name(string name)
     {
         var (model, marker) = Markers[name];
-        Assert.Equal(marker, NextModelOracle.Check(name, model).Reason);
+        Assert.Equal(marker, NetworkModelOracle.Check(name, model).Reason);
     }
 
     static readonly IReadOnlyDictionary<string, (NetworkBody Model, string Text)> Goldens = new Dictionary<string, (NetworkBody, string)>

@@ -369,15 +369,14 @@ internal sealed partial class TcObjectModel
     /// operands, its boxes carrying the <c>InputParam</c>/<c>CallType</c>/<c>Id</c> members Volt must never
     /// invent. Names resolve against the owning scope when the project is compiled, not when the XML is read —
     /// which is why the same archive is valid inside whichever item it is written to.</para></summary>
-    public string ResolveGraphicalBody(Volt.Engine.Format.Network.NetworkBody model, string viewMode,
-                                       string? declaration, Func<string, string?> declarationOf)
+    public string ResolveGraphicalBody(Volt.Engine.Format.Network.NetworkBody model, string viewMode)
     {
         var name = "VoltScratch_" + Guid.NewGuid().ToString("N").Substring(0, 12);
         var file = System.IO.Path.Combine(System.IO.Path.GetTempPath(), name + ".xml");
 
         try
         {
-            TcPlcOpenWriter.WriteProject(name, model, declaration, declarationOf).Save(file);
+            TcPlcOpenWriter.WriteProject(name, model).Save(file);
             ((dynamic)PlcRoot()).PlcOpenImport(file, 0);
 
             var scratch = LookupPath(PathOf(PlcRoot()) + "^" + name)

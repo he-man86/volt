@@ -294,12 +294,17 @@ public static class StReader
 
 	/// <summary>Split at the marker line: everything above it is the declaration, everything below the
 	/// implementation, and the marker itself belongs to neither. No trivia is classified and no keyword is
-	/// looked for — that is the whole point of it (see <see cref="ImplementationMarker"/>).</summary>
-	private static (string decl, string impl) SplitAtMarker(IList<string> lines, int markerIdx)
+	/// looked for — that is the whole point of it (see <see cref="ImplementationMarker"/>).
+	///
+	/// <para>The marker line is returned too. A graphical body's marker names its language
+	/// (<c>(* @volt-implementation LD *)</c>) and is that body's own first line as well as the boundary, so the
+	/// caller puts it back in front of the body (<see cref="ImplementationMarker.Join"/>) once any <c>%FOLDER</c>
+	/// directive is peeled off the text after it. The bare marker is the boundary alone and joins as nothing.</para></summary>
+	private static (string decl, string impl, string marker) SplitAtMarker(IList<string> lines, int markerIdx)
 	{
 		var decl = string.Join("\n", SliceLines(lines, 0, markerIdx - 1));
 		var impl = string.Join("\n", SliceLines(lines, markerIdx + 1, lines.Count - 1));
-		return (decl.TrimEnd('\n'), impl.TrimEnd('\n'));
+		return (decl.TrimEnd('\n'), impl.TrimEnd('\n'), lines[markerIdx]);
 	}
 
 	private static (string decl, string impl) SplitDeclImpl(IList<string> pouLines, string kind)
@@ -319,12 +324,14 @@ public static class StReader
 		// That price came due three times, and every time invisibly: the halves are re-joined on read, so a file
 		// split in the wrong place round-trips byte for byte while the project holds it broken.
 		//
-		// A special case goes with it: a GRAPHICAL body (`NETWORK <n> <LANG>`) carries its own VAR_TEMP, and had
-		// to be split BEFORE its first line or the END_VAR scan pulled those temps into the POU's declaration and
-		// wrote them into the project. With the boundary stated, network text is just what follows the marker.
+		// A special case goes with it: a GRAPHICAL body carries its own VAR_TEMP blocks (one per network that has a
+		// wire), and had to be split BEFORE its first line or the END_VAR scan pulled those temps into the POU's
+		// declaration and wrote them into the project. With the boundary stated, network text is just its own
+		// marker and what follows it.
 		int marked = ImplementationMarker.IndexIn(pouLines);
 		if (marked < 0) throw Unmarked(kind);
-		return SplitAtMarker(pouLines, marked);
+		var (decl, impl, marker) = SplitAtMarker(pouLines, marked);
+		return (decl, ImplementationMarker.Join(marker, impl));
 	}
 
 	// ─── Child blocks (composite POU's siblings) ─────────────────────
@@ -389,11 +396,12 @@ public static class StReader
 		// Split decl from impl inside the block (excluding the sigLine's
 		// own line and the trailing END_X). Re-scan to find last END_VAR.
 		var inner = SliceLines(lines, blockStart, endLine.Value - 1); // includes pragmas + sig
-		var (decl, impl) = SplitDeclImplOfChild(inner, kind, marked);
+		var (decl, impl, marker) = SplitDeclImplOfChild(inner, kind, marked);
 		// The body begins with an optional Volt directive block; %FOLDER is ours (the child's
-		// sub-folder) and is peeled off. The graphical marker (NETWORK … for editable FBD/LD) stays
-		// in the body for graphical detection.
-		var (folder, body) = PeelFolderDirective(impl);
+		// sub-folder) and is peeled off. A graphical body's language marker goes back in front of the
+		// code it heads, where it says what the body is.
+		var (folder, code) = PeelFolderDirective(impl);
+		var body = ImplementationMarker.Join(marker, code);
 		return new Member(kind, name, decl, body, Folder: folder, ReturnType: returnType);
 	}
 
@@ -491,8 +499,8 @@ public static class StReader
 		if (!marked) return new Accessor(string.Join("\n", inner).TrimEnd('\n'), "");
 		int at = ImplementationMarker.IndexIn(inner);
 		if (at < 0) throw Unmarked("property accessor");
-		var (decl, impl) = SplitAtMarker(inner, at);
-		return new Accessor(decl, impl);
+		var (decl, impl, marker) = SplitAtMarker(inner, at);
+		return new Accessor(decl, ImplementationMarker.Join(marker, impl));
 	}
 
 	/// <summary>Split a child block's inner lines (signature..END_X exclusive) at its marker.
@@ -501,9 +509,9 @@ public static class StReader
 	/// marker, and the whole block is declaration (see <see cref="ImplementationMarker.AppliesTo"/>). It is the
 	/// OWNER that decides, which is why it is passed down rather than re-derived here — an interface's members
 	/// arrive as kind `method` and are re-kinded afterwards.</para></summary>
-	private static (string decl, string impl) SplitDeclImplOfChild(IList<string> innerLines, string kind, bool marked)
+	private static (string decl, string impl, string marker) SplitDeclImplOfChild(IList<string> innerLines, string kind, bool marked)
 	{
-		if (!marked) return (string.Join("\n", innerLines).TrimEnd('\n'), "");
+		if (!marked) return (string.Join("\n", innerLines).TrimEnd('\n'), "", ImplementationMarker.Text);
 		int at = ImplementationMarker.IndexIn(innerLines);
 		if (at < 0) throw Unmarked(kind);
 		return SplitAtMarker(innerLines, at);

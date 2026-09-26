@@ -19,8 +19,8 @@ namespace Volt.Tests.Shared;
 /// and nothing is normalised: <c>Operand.Flags</c> null is not <see cref="Flags.None"/>, an absent formal is not
 /// a default formal. The spec's one sanctioned equivalence — an infix box's absent vs default <c>InputParams</c>
 /// names (task 2.1, review 7.9) — is not in THIS comparer, which stays strict for every caller: it lives in the
-/// oracle's normalisation, <c>NextNetworkTextFacts.Carried</c>, which erases the formals of a box the text writes
-/// infix (<c>NextSpelling.IsInfix</c> admits only absent or <c>IN&lt;n&gt;</c> formals) on both sides. Keeping it
+/// oracle's normalisation, <c>NetworkTextFacts.Carried</c>, which erases the formals of a box the text writes
+/// infix (<c>NetworkSpelling.IsInfix</c> admits only absent or <c>IN&lt;n&gt;</c> formals) on both sides. Keeping it
 /// there puts every fact the text does not carry on one list.</para>
 /// </summary>
 public static class NetworkModelEquality

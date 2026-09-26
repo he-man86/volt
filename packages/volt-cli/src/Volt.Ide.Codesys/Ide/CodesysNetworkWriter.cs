@@ -25,8 +25,9 @@ namespace Volt.Ide.Codesys
     /// </summary>
     internal static class CodesysNetworkWriter
     {
-        public static void Write(CodesysObjectModel om, object node, NetworkBody body, string? declaration,
-                                 Func<string, string?> declarationOf)
+        /// <param name="scope">The scope the body was read against — the change gate renders the live network
+        /// against it to compare (see <see cref="TreesUnchanged"/>).</param>
+        public static void Write(CodesysObjectModel om, object node, NetworkBody body, NetworkScope scope)
         {
             om.ModifyObject(node, iobj =>
             {
@@ -61,12 +62,11 @@ namespace Volt.Ide.Codesys
 
                 var existing = NwlInterop.Items(NwlInterop.Require(impl, "NetworkList"), listMember: "");
                 for (int i = 0; i < existing.Count; i++)
-                    WriteNetwork(impl, existing[i], body.Networks[i], declaration, declarationOf, body.Language);
+                    WriteNetwork(impl, existing[i], body.Networks[i], body.Language, scope);
             });
         }
 
-        internal static void WriteNetwork(object impl, object net, Network model, string? declaration,
-                                          Func<string, string?> declarationOf, BodyLanguage language)
+        internal static void WriteNetwork(object impl, object net, Network model, BodyLanguage language, NetworkScope scope)
         {
             SetIfChanged(net, "Title", model.Title ?? "");
             SetIfChanged(net, "Label", model.Label ?? "");
@@ -84,12 +84,12 @@ namespace Volt.Ide.Codesys
             // Scoping it "to ONE network" bounded the damage to every network, since PushService always sends
             // the whole body. TwinCAT's `TcNetworkWriter.Apply` has always returned null on no-change; this is
             // the same rule, and it is what stops the losses below from reaching a rung nobody edited.
-            if (TreesUnchanged(net, model, language)) return;
+            if (TreesUnchanged(net, model, language, scope)) return;
 
             for (int i = NwlInterop.RequireInt(net, "NetworkItemCount") - 1; i >= 0; i--)
                 NwlInterop.Call(net, "RemoveNetworkItem", i);
 
-            var ctx = new BuildContext(net, declaration, declarationOf);
+            var ctx = new BuildContext(net);
             foreach (var tree in model.Trees)
                 NwlInterop.Call(net, "AppendTree", ctx.Node(tree));
         }
@@ -107,18 +107,21 @@ namespace Volt.Ide.Codesys
         /// <para><b>A body the reader REFUSES is not rebuilt.</b> If reading the live network throws — a vendor
         /// split point is the measured case — the exception propagates and the push fails. That is deliberate:
         /// Volt cannot tell whether such a body matches, and destroy-and-rebuild would delete the very construct
-        /// it cannot represent. Refusing is the same answer the reader gives on pull.</para></summary>
-        private static bool TreesUnchanged(object net, Network model, BodyLanguage language)
+        /// it cannot represent. Refusing is the same answer the reader gives on pull.</para>
+        ///
+        /// <para><b>Rendered against the body's scope</b>, the one it was read against: the text spells a wire name
+        /// and an FB instance through the declarations, so both sides must be written with the same ones. A live
+        /// network the writer has no spelling for throws <c>UnrepresentableBodyException</c> — like a reader
+        /// refusal, it is not rebuilt, because a rebuild would delete the fact the text could not carry.</para></summary>
+        private static bool TreesUnchanged(object net, Network model, BodyLanguage language, NetworkScope scope)
         {
             var live = CodesysNetworkReader.ReadNetwork(net, model.Order);
-            return Render(live with { Title = model.Title, Label = model.Label, Comment = model.Comment, Disabled = model.Disabled }, language)
-                == Render(model, language)
-                // v1 text carries no Parallel mode, so a mode-only edit rendered equal and was never rebuilt.
-                && ParallelModes.Agree(live, model);
+            return Render(live with { Title = model.Title, Label = model.Label, Comment = model.Comment, Disabled = model.Disabled }, language, scope)
+                == Render(model, language, scope);
         }
 
-        private static string Render(Network network, BodyLanguage language) =>
-            NetworkTextWriter.Write(new NetworkBody(language, new[] { network }));
+        private static string Render(Network network, BodyLanguage language, NetworkScope scope) =>
+            NetworkTextWriter.Write(new NetworkBody(language, new[] { network }), scope);
 
         private static int Count(object impl) =>
             NwlInterop.Items(NwlInterop.Require(impl, "NetworkList"), listMember: "").Count;
@@ -137,15 +140,8 @@ namespace Volt.Ide.Codesys
         private sealed class BuildContext
         {
             private readonly object _net;
-            private readonly string? _declaration;
 
-            /// <summary>Reach ANOTHER item's declaration by name — what a qualified call target
-            /// (`Mach1_AuxData.IEC_TIMERS.OffDelayLockDrives`) has to be followed through. Only the driver can
-            /// ask the IDE, so it is handed in.</summary>
-            private readonly Func<string, string?> _declarationOf;
-
-            public BuildContext(object net, string? declaration, Func<string, string?> declarationOf)
-            { _net = net; _declaration = declaration; _declarationOf = declarationOf; }
+            public BuildContext(object net) { _net = net; }
 
             public object Node(Node n)
             {
@@ -221,15 +217,12 @@ namespace Volt.Ide.Codesys
 
                     case Box b:
                     {
-                        // AN FB CALL'S TYPE IS NOT ITS INSTANCE NAME. Network text carries ONE name for a
-                        // call, so `t1 : TON` renders as `t1(...)` and the reader rebuilds `Box(Type: "t1")`.
-                        // Writing that into BoxType puts an unresolvable type in the slot the IDE resolves the
-                        // call's signature from: the push reports accepted, the next pull renders identical
-                        // text, and only `volt build` ever reveals it. The pre-NetworkBody writer had a
-                        // declaration-driven instance->type resolver that threw when it could not resolve; it
-                        // went with that rewrite and nothing replaced it. TwinCAT refuses this exact case
-                        // (TcNetworkWriter: "a box changes from X to Y"), so refusing here is also what makes
-                        // the two vendors agree again.
+                        // AN FB CALL'S TYPE IS NOT ITS INSTANCE NAME. Network text carries ONE name for a call —
+                        // `t1(...)` — and its reader takes the TYPE from the declarations (`NetworkScope`: `t1 :
+                        // TON`), so the model arrives with `Type: "TON", Instance: "t1"`, as a pull reads it. (v1's
+                        // reader built `Type: "t1"` and this writer resolved it here from the declaration; that
+                        // resolver went with the v1 text, task 3.9.) An FB call with no instance names no box the IDE
+                        // can resolve at all, and is refused rather than written with the instance name as its type.
                         if (b.Kind == CallKind.FunctionBlock && b.Instance is null)
                             throw new NotSupportedException(
                                 $"CODESYS: the call '{b.Type}' is a function-block instance, and network text " +
@@ -239,7 +232,7 @@ namespace Volt.Ide.Codesys
 
                         var box = NwlInterop.New(_net, "BoxTreeBox");
                         // The TYPE NAME only: CallType and EnEno are the vendor's to derive, and it does.
-                        NwlInterop.Set(box, "BoxType", BoxTypeOf(b));
+                        NwlInterop.Set(box, "BoxType", b.Type);
 
                         // Everything else the READER models on a box had no counterpart here and was dropped in
                         // silence: an FB call lost its instance, an embedded output vanished, an EN pin was
@@ -357,25 +350,24 @@ namespace Volt.Ide.Codesys
                         // This is the C13 shape again: a self-consistent round trip said the body was fine
                         // while the compiler disagreed with it, which is why this is gated by a BUILD.
                         var eno = b.Enable is not null;
-                        if (eno || b.Outputs.Count > 0)
+                        var slots = OutputSlots(b, eno);
+                        if (slots.Count > 0)
                         {
                             var outs = NwlInterop.Require(box, "Outputs");
-                            // AN EMPTY OPERAND, not a null. The vendor STORES the echo slot as null but will
-                            // not ACCEPT one: <c>AppendOutputItem(null)</c> answers "Object reference not set
-                            // to an instance of an object". An empty operand is the shape its own PLCopen
-                            // importer hangs off a box (see <c>DropImporterBoxOutputs</c> on the TwinCAT
-                            // side), and the reader skips an empty output slot, so it round-trips as the
-                            // echo it is.
-                            if (eno) NwlInterop.Call(outs, "AppendOutputItem", Operand(new Operand("")));
-                            foreach (var o in b.Outputs)
-                                NwlInterop.Call(outs, "AppendOutputItem", Operand(o.Value));
+                            // AN EMPTY OPERAND, not a null, for the echo and for a slot passed over. The vendor
+                            // STORES the echo slot as null but will not ACCEPT one: <c>AppendOutputItem(null)</c>
+                            // answers "Object reference not set to an instance of an object". An empty operand is
+                            // the shape its own PLCopen importer hangs off a box (see <c>DropImporterBoxOutputs</c>
+                            // on the TwinCAT side) and the shape of every unwired pin on a resolved FB box, and the
+                            // reader skips an empty output slot, so it round-trips as the nothing it is.
+                            foreach (var (_, value) in slots)
+                                NwlInterop.Call(outs, "AppendOutputItem", Operand(value ?? new Operand("")));
 
-                            if (eno || b.Outputs.Any(o => !string.IsNullOrEmpty(o.Formal)))
+                            if (slots.Any(x => !string.IsNullOrEmpty(x.Formal)))
                             {
                                 var outPins = NwlInterop.Require(box, "OutputParams");
-                                if (eno) NwlInterop.Call(outPins, "AppendParam", Box.EnoPin, "");
-                                foreach (var o in b.Outputs)
-                                    NwlInterop.Call(outPins, "AppendParam", o.Formal ?? "", "");
+                                foreach (var (formal, _) in slots)
+                                    NwlInterop.Call(outPins, "AppendParam", formal ?? "", "");
                             }
                         }
 
@@ -439,31 +431,30 @@ namespace Volt.Ide.Codesys
                 }
             }
 
-            /// <summary>The TYPE to write into <c>BoxType</c> — resolved from the DECLARATION for a
-            /// function-block call, because the body cannot carry it.
-            ///
-            /// <para>Network text names a call once: `t1(IN := a, PT := pt)`. `NetworkTextReader` therefore
-            /// builds <c>Box(Type: "t1", Instance: "t1")</c> — both the INSTANCE name. The IDE needs the type
-            /// (`TON`) in <c>BoxType</c>, because that is what it resolves the call's signature from. Writing
-            /// `t1` there produced a box the IDE could not resolve: it came back with NO formal parameter names,
-            /// so the next pull rendered `t1( := a,  := pt)` and that text no longer parses — the POU could be
-            /// created and then never pushed again.</para>
-            ///
-            /// <para>The type is one line up, in the declaration the same push writes (`t1 : TON;`), which is why
-            /// the declaration is written BEFORE the body on both call sites. This restores the
-            /// declaration-driven resolver the pre-NetworkBody writer had and that nothing replaced — including
-            /// its refusal: an instance that is not declared is a body Volt cannot write correctly, and a
-            /// silently unresolvable box is exactly the failure this exists to prevent.</para>
-            ///
-            /// <para>An ARCHIVE-derived model already carries the real type (`Type: "TON"`, `Instance: "t1"`),
-            /// so resolution runs only when the two are the same string — the text-derived shape.</para></summary>
-            // DELEGATES TO A STATIC, so the push PRE-FLIGHT can run the IDENTICAL decision without a live
-            // project. The refusal below is a pure function of the model and the declarations, and it was
-            // only ever reachable from INSIDE the write — so a create-push whose Nth POU called an
-            // unresolvable FB instance wrote items 1..N-1 into the engineer's project and then failed. That
-            // is the shape `PushService` pre-flights against, and TwinCAT already did; see
-            // `CodesysDriver.ValidateSource`.
-            private string BoxTypeOf(Box b) => ResolveBoxType(b, _declaration, _declarationOf);
+            /// <summary>The box's output slots as the vendor lists them: the <c>ENO</c> echo first when the box is
+            /// enabled, then each pin AT ITS SLOT (task 3.10) — a positional <c>=&gt; v</c> is spelled by the slot it
+            /// fills, so <c>f(a, =&gt;, =&gt; x)</c> puts <c>x</c> on slot 2 with slot 1 passed over, and writing the
+            /// pins one after another would move <c>x</c> onto slot 1: another output, a different program. A pin
+            /// with no stored slot (a named one — the text carries its name, not its position) takes the next.</summary>
+            private static List<(string? Formal, Operand? Value)> OutputSlots(Box b, bool eno)
+            {
+                var slots = new List<(string? Formal, Operand? Value)>();
+                if (eno) slots.Add((Box.EnoPin, null));
+                foreach (var o in b.Outputs)
+                {
+                    if (o.Slot is { } at)
+                    {
+                        if (at < slots.Count)
+                            throw new NotSupportedException(
+                                $"CODESYS: the '{b.Type}' box wires output slot {at} to '{o.Value.Text}', a slot " +
+                                (eno && at == 0 ? "its ENO echo holds" : "another pin already holds") +
+                                " — refusing rather than write the pin onto another output.");
+                        while (slots.Count < at) slots.Add((null, null));
+                    }
+                    slots.Add((o.Formal, o.Value));
+                }
+                return slots;
+            }
 
             /// <summary>Name the function-block instance a box calls — by MUTATING the operand the box already
             /// holds, not by replacing it.
@@ -553,79 +544,6 @@ namespace Volt.Ide.Codesys
                 if (f.Falling) NwlInterop.Set(target, "Ftrig", true);
             }
         }
-
-    /// <summary>THE BOX TYPE, RESOLVED FROM THE DECLARATION — and the refusal when it cannot be.
-    ///
-    /// <para>A text-derived model names a function-block call by its INSTANCE (`t1(IN := a)`), so the TYPE
-    /// comes from one line up, in the declaration the same push writes (`t1 : TON;`). An instance that is not
-    /// declared is a body Volt cannot write correctly, and a silently unresolvable box is exactly the failure
-    /// this exists to prevent. An ARCHIVE-derived model already carries the real type, so the resolution runs
-    /// only when the two strings are the same — the text-derived shape.</para>
-    ///
-    /// <para>Static so the push PRE-FLIGHT and the WRITE make one decision rather than two that can drift.</para></summary>
-    internal static string ResolveBoxType(Box b, string? declaration, Func<string, string?> declarationOf)
-    {
-        if (b.Kind != CallKind.FunctionBlock || b.Instance is not { } inst) return b.Type;
-        if (!string.Equals(b.Type, inst.Text, StringComparison.OrdinalIgnoreCase)) return b.Type;
-
-        return StDeclaration.TypeOfCallTarget(declaration, inst.Text, declarationOf)
-            ?? throw new NotSupportedException(
-                   $"CODESYS: the call '{inst.Text}' names a function-block instance whose TYPE Volt " +
-                   "cannot find — not in this POU's declaration, and not by following the name through " +
-                   "the project. Declare it, or edit this network in the IDE.");
-    }
-
-    /// <summary>THE PUSH PRE-FLIGHT: every refusal this writer raises that is decidable from the SOURCE TEXT.
-    ///
-    /// <para>It was reachable only from inside the write, and the cost of that is measured: `PushService`
-    /// applies a push item by item, so a create whose Nth POU carried one of these wrote items 1..N-1 into the
-    /// live project and then rejected the push — the caller told it failed, half of it in the project. That is
-    /// the `Lenze_MID-S100` shape `PushService` exists to prevent, and TwinCAT has been pre-flighted since
-    /// `ICodeStore.ValidateSource` landed. CODESYS never overrode it, so `DriverBase` refused nothing.</para>
-    ///
-    /// <para>It stops at what the TEXT decides. The live write can still fail on something only the project
-    /// knows, and pretending otherwise here would be a pre-flight that lies.</para></summary>
-    internal static void Validate(NetworkBody model, string? declaration, Func<string, string?> declarationOf)
-    {
-        foreach (var network in model.Networks)
-            foreach (var tree in network.Trees)
-                ValidateNode(tree, declaration, declarationOf);
-    }
-
-    private static void ValidateNode(Node? n, string? declaration, Func<string, string?> declarationOf)
-    {
-        switch (n)
-        {
-            case null: return;
-
-            case Box b:
-                ResolveBoxType(b, declaration, declarationOf);   // throws when the instance has no type
-                ValidateNode(b.Enable, declaration, declarationOf);
-                foreach (var p in b.Inputs) ValidateNode(p.Value, declaration, declarationOf);
-                return;
-
-            case Assign a: ValidateNode(a.Value, declaration, declarationOf); return;
-            case Demux d: ValidateNode(d.Input, declaration, declarationOf); return;
-            case Terminator: return;
-            case Parallel p2:
-                ValidateNode(p2.Input, declaration, declarationOf);
-                foreach (var br in p2.Branches) ValidateNode(br, declaration, declarationOf);
-                return;
-
-            case Leaf: return;
-
-            // A NODE KIND THIS VALIDATOR DOES NOT KNOW IS NOT REFUSED HERE, and the asymmetry is deliberate.
-            //
-            // The writer has its own `default` arm that refuses one, so nothing is written wrongly either way.
-            // What differs is the FAILURE DIRECTION. A pre-flight that under-covers merely lets a refusal
-            // happen later, where it already happened; a pre-flight that OVER-refuses rejects a body the write
-            // would have taken, which is the one failure mode it must not have — and that is exactly what a
-            // refusal here would become the day a node type is added to the writer and forgotten here. The two
-            // switches cannot be shared: the writer's arms BUILD vendor objects.
-            default:
-                return;
-        }
-    }
     }
 
 }

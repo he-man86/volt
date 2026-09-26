@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using Volt.Engine.Format.Network;
 using Volt.Engine.Format.St;
@@ -75,39 +75,34 @@ public class TcSharedFormatTests
 
     /// <summary>A TWINCAT-DRAWN LADDER IS IN CANONICAL NETWORK-TEXT FORM.
     ///
-    /// <para>`NetworkTextGate` refuses a body that would not re-emit identically, because such a body drifts on
-    /// the next pull. Running it over text this vendor's own driver produced asserts the two halves agree ON
-    /// TWINCAT OUTPUT — the ST round trip above cannot, because it treats a graphical body as opaque text and
-    /// would pass over any amount of network-level drift.</para>
+    /// <para>The gate refuses a body that would not re-emit identically, because such a body drifts on the next
+    /// pull. Running it over text this vendor's own driver produced asserts the two halves agree ON TWINCAT OUTPUT —
+    /// the ST round trip above cannot, because it treats a graphical body as opaque text and would pass over any
+    /// amount of network-level drift.</para>
     ///
-    /// <para><c>ladderLabel.prg</c> earns its place by holding two shapes that are easy to get wrong and that
-    /// no hand-written fixture had: a network whose LABEL is its only content (<c>NETWORK 1 LD LABEL: testLabe2</c>
-    /// with nothing between it and <c>END_NETWORK</c>), and a coil with nothing driving it — <c>coil := ;</c>,
-    /// which reads back as the TERMINATOR the archive actually holds rather than as a null.</para></summary>
+    /// <para><c>ladderLabel.prg</c> earns its place by holding two shapes that are easy to get wrong and that no
+    /// hand-written fixture had: a network whose LABEL is its only content (<c>NETWORK LABEL: testLabe2</c> with
+    /// nothing between it and <c>END_NETWORK</c>), and a coil with nothing driving it — <c>coil := ;</c>, which
+    /// reads back as the TERMINATOR the archive actually holds rather than as a null. The fixture is in network
+    /// text v2 (the language on the implementation marker, no order numbers); the shapes are the ones TwinCAT drew.</para>
+    ///
+    /// <para>Read the way a push reads it: the body against the scope its own declaration builds (task 3.9).</para></summary>
     [Fact]
     public void A_twincat_drawn_ladder_is_canonical_network_text()
     {
-        var body = BodyOf(Read("ladderLabel.prg"));
+        var pou = StReader.Read(Read("ladderLabel.prg"));
+        var body = pou.Body!;
 
-        Assert.Contains("NETWORK 0 LD LABEL: testLabel", body);
-        Assert.Contains("coil := ;", body);
-        Assert.Contains("NETWORK 1 LD LABEL: testLabe2\nEND_NETWORK", body);
+        Assert.StartsWith("(* @volt-implementation LD *)\n", body);
+        Assert.Contains("NETWORK LABEL: testLabel\n  coil := ;", body);
+        Assert.Contains("NETWORK LABEL: testLabe2\nEND_NETWORK", body);
 
-        // Throws NetworkTextException with the canonical form if it would not round-trip.
-        var model = NetworkTextGate.Validate(body);
+        // Throws NetworkTextException naming the canonical form if it would not round-trip.
+        var model = NetworkText.Validate(body,
+            NetworkScope.FromDeclarations(pou.Declaration, _ => null, () => Array.Empty<string>()));
 
         Assert.Equal(2, model.Networks.Count);
         Assert.Empty(model.Networks[1].Trees);          // the label-only network really is empty
         _out.WriteLine($"validated {model.Networks.Count} TwinCAT-authored network(s), language {model.Language}");
-    }
-
-    /// <summary>The body of a pulled POU — everything from the first <c>NETWORK</c> marker to the closing
-    /// keyword. `NetworkTextGate` takes a BODY, not a whole file.</summary>
-    private static string BodyOf(string source)
-    {
-        var start = source.IndexOf("NETWORK ", StringComparison.Ordinal);
-        Assert.True(start >= 0, "fixture holds no NETWORK marker");
-        var end = source.LastIndexOf("END_NETWORK", StringComparison.Ordinal) + "END_NETWORK".Length;
-        return source.Substring(start, end - start) + "\n";
     }
 }

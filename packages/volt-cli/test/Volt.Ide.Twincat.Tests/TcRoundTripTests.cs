@@ -14,13 +14,13 @@ namespace Volt.Ide.Twincat.Tests;
 /// push, and that the existing writer test could not see it: it feeds the writer an ARCHIVE-derived model, while
 /// the push path always hands it a TEXT-derived one. Those are different shapes. An archive-derived model
 /// carries an operand's <c>Flags</c>, <c>LValue</c>, <c>Type</c> and <c>SymbolComment</c>; a text-derived one
-/// provably cannot — <c>NetworkTextReader</c> builds <c>new Operand(name)</c> and network text has no syntax for
-/// any of them. So the writer was assigning four archive members from a model that never had values for them.</para>
+/// provably cannot — the text reader builds <c>new Operand(name)</c> and network text has no syntax for any of
+/// them. So the writer was assigning four archive members from a model that never had values for them.</para>
 ///
 /// <para>This drives the REAL path end to end:</para>
 /// <code>
 /// .TcPOU archive → TcNetworkReader → NetworkTextWriter → the .fb text an engineer sees in git
-///                                  → NetworkTextGate    → TcNetworkWriter.Apply → the archive again
+///                                  → NetworkText.Validate → TcNetworkWriter.Apply → the archive again
 /// </code>
 /// <para>and asserts the thing that actually matters: <b>a push that changes nothing must change nothing.</b>
 /// `PushService` always sends the item's own body, so a declaration-only edit — renaming a variable in the VAR
@@ -52,8 +52,8 @@ public class TcRoundTripTests
     private static NetworkBody TextDerivedModel(string body)
     {
         var pulled = TcNetworkReader.Read(Impl(body), LanguageOf(body));
-        var text = NetworkTextWriter.Write(pulled);
-        return NetworkTextGate.Validate(text);
+        var text = TcText.Write(pulled);
+        return TcText.Validate(text, TcText.ScopeOf(pulled));
     }
 
     /// <summary>Every scalar member in the archive, addressed by its path, so a diff names WHAT changed.</summary>
@@ -86,14 +86,15 @@ public class TcRoundTripTests
     [InlineData("MultiOutput.derived.TcPOU")]     // one value driving two coils
     [InlineData("FanOut.TcPOU")]                  // a box with a REAL output item - see the note on this row
     [InlineData("execute-box.TcPOU")]             // an Execute box - its ST must survive a no-op push
-    [InlineData("drawn-refused-shapes.TcPOU")]     // an UNCONDITIONAL JMP - drawn by hand, because Volt cannot create one
     [InlineData("ladder-demux.TcPOU")]            // a REAL fan-out wire, drawn in XAE - the shape `m<n>` had to stop flattening
+    // drawn-refused-shapes (an UNCONDITIONAL JMP beside a coil, drawn by hand) pulls as the MARKER: see
+    // A_body_the_text_has_no_spelling_for_pulls_as_the_marker.
     public void A_push_that_changes_nothing_changes_nothing_in_the_archive(string fixture)
     {
         var before = Body(fixture);
         var model = TextDerivedModel(before);
 
-        var written = TcNetworkWriter.Apply(before, model);
+        var written = TcText.Apply(before, model);
 
         // Null is the ideal answer — "nothing changed, so nothing was written". If the writer does return a
         // document, it must at least be scalar-for-scalar what it was handed.
@@ -123,12 +124,29 @@ public class TcRoundTripTests
     [InlineData("MultiOutput.derived.TcPOU")]     // one value driving two coils
     [InlineData("FanOut.TcPOU")]                  // a box with a REAL output item - see the note on this row
     [InlineData("execute-box.TcPOU")]             // an Execute box - its ST must survive a no-op push
-    [InlineData("drawn-refused-shapes.TcPOU")]     // an UNCONDITIONAL JMP - drawn by hand, because Volt cannot create one
     [InlineData("ladder-demux.TcPOU")]            // a REAL fan-out wire, drawn in XAE - the shape `m<n>` had to stop flattening
+    // drawn-refused-shapes (an UNCONDITIONAL JMP beside a coil, drawn by hand) pulls as the MARKER: see
+    // A_body_the_text_has_no_spelling_for_pulls_as_the_marker.
     public void A_push_of_an_unchanged_body_is_not_written_back_at_all(string fixture)
     {
         var before = Body(fixture);
-        Assert.Null(TcNetworkWriter.Apply(before, TextDerivedModel(before)));
+        Assert.Null(TcText.Apply(before, TextDerivedModel(before)));
+    }
+
+    /// <summary>A BODY THE TEXT HAS NO SPELLING FOR PULLS AS THE MARKER, by name — so a no-op push of it is the marker's
+    /// no-op, never a text-derived model. The hand-drawn rung driving a coil beside an unconditional jump is such a body
+    /// (spec, "marker-only shapes stay on the existing marker"); it carried this suite's no-op-push rows under v1, which
+    /// spelled it <c>JMP owrods;</c> and dropped the coil.</summary>
+    [Theory]
+    [InlineData("drawn-refused-shapes.TcPOU", "a rung driving a coil and a jump together")]
+    public void A_body_the_text_has_no_spelling_for_pulls_as_the_marker(string fixture, string marker)
+    {
+        var before = Body(fixture);
+        var pulled = TcNetworkReader.Read(Impl(before), LanguageOf(before));
+
+        var ex = Assert.ThrowsAny<Volt.Engine.Format.Body.UnrepresentableBodyException>(() => TcText.Write(pulled));
+
+        Assert.Equal(marker, ex.Marker);
     }
 
     /// <summary>A REAL FAN-OUT WIRE SURVIVES AN EDIT — the half a no-op push can never reach.
@@ -141,20 +159,22 @@ public class TcRoundTripTests
     /// <para><b>Neither theory above could see it</b>, and that is why this test exists rather than another
     /// fixture row: they push an UNCHANGED body, and `Unchanged` short-circuits per network before the item
     /// count is ever compared. Only an edit reaches the compare. Verified by putting `Unhoist` back: the two
-    /// theories stay green and this fails with "network 3 changes from 3 to 1 item(s)".</para></summary>
+    /// theories stay green and this fails with "network 3 changes from 3 to 1 item(s)".</para>
+    ///
+    /// <para>Driven through the TEXT: the pulled body, read back as a push reads it, with the comment of the fan-out
+    /// network edited.</para></summary>
     [Fact]
     public void An_edit_to_a_network_holding_a_real_fan_out_wire_is_not_refused()
     {
         const string fixture = "ladder-demux.TcPOU";
         var before = Body(fixture);
-        var text = NetworkTextWriter.Write(TcNetworkReader.Read(Impl(before), LanguageOf(before)));
+        var edited = TextDerivedModel(before);
 
         // An ordinary VALUE edit inside the fan-out network — a comment, which every network carries and
         // which changes no shape at all. The point is only to make the network COUNT as changed.
-        var edited = NetworkTextGate.Validate(text.Replace("LET g", "LET g"));
         var networks = edited.Networks.Select((n, i) => i == 2 ? n with { Comment = "edited" } : n).ToList();
 
-        var written = TcNetworkWriter.Apply(before, edited with { Networks = networks });
+        var written = TcText.Apply(before, edited with { Networks = networks });
 
         Assert.NotNull(written);
         Assert.Contains("BoxTreeDemux", written);   // …and the wire is still a wire
@@ -256,10 +276,10 @@ public class TcRoundTripTests
     ///
     /// <para>The archive carries them — <c>&lt;o n="InputParam" t="ParamList"&gt;&lt;l2 n="Names"&gt;</c>, a
     /// measured member of <c>BoxTreeBox</c> (DIALECT N4) — and <c>TcNetworkReader</c> never read it, hard-coding
-    /// every input's <c>Formal</c> to null. <c>NetworkTextWriter</c> renders an instance call as
+    /// every input's <c>Formal</c> to null. The text writer renders an instance call as
     /// <c>Formal := value</c>, so a TON pulled as <c>fbTimer( := bStart,  := T#5s)</c>: which pin each argument
     /// binds to silently gone from the file committed to git, and the text then unparseable
-    /// (<c>NetworkTextReader.Token</c> throws on the empty name), so that POU could never be pushed back.</para>
+    /// (the reader refused the empty name), so that POU could never be pushed back.</para>
     ///
     /// <para>CODESYS reads exactly this data (<c>CodesysNetworkReader</c>, <c>InputParams</c> -> <c>Formal</c>),
     /// so this was the same fact on the same object model, read on one vendor and dropped on the other —
@@ -272,7 +292,7 @@ public class TcRoundTripTests
     [Fact]
     public void An_FB_call_keeps_its_pin_names_through_a_pull()
     {
-        var text = NetworkTextWriter.Write(
+        var text = TcText.Write(
             TcNetworkReader.Read(Impl(Body("FbCall.derived.TcPOU")), BodyLanguage.Fbd));
 
         Assert.Contains("IN :=", text);
@@ -286,10 +306,11 @@ public class TcRoundTripTests
     [Fact]
     public void An_FB_call_pulls_as_text_that_can_be_pushed_back()
     {
-        var text = NetworkTextWriter.Write(
+        var text = TcText.Write(
             TcNetworkReader.Read(Impl(Body("FbCall.derived.TcPOU")), BodyLanguage.Fbd));
 
-        var ex = Record.Exception(() => NetworkTextGate.Validate(text));
+        var ex = Record.Exception(() => TcText.Validate(text,
+            TcText.ScopeOf(TcNetworkReader.Read(Impl(Body("FbCall.derived.TcPOU")), BodyLanguage.Fbd))));
         Assert.True(ex is null, "a pulled FB call cannot be pushed back: " + ex?.Message + " | " + text);
     }
 
@@ -380,7 +401,7 @@ public class TcRoundTripTests
         var pairsBefore = Pairs(model);
         Assert.Equal(2, pairsBefore.Count);   // the fixture really does carry named pins
 
-        var written = TcNetworkWriter.Apply(before, swapped);
+        var written = TcText.Apply(before, swapped);
         Assert.NotNull(written);
 
         // Read it back: every formal must still be paired with ITS OWN value.
@@ -437,11 +458,12 @@ public class TcRoundTripTests
     public void An_edited_box_output_pin_is_written_to_the_archive()
     {
         var before = Body("FanOut.TcPOU");
-        var text = NetworkTextWriter.Write(TcNetworkReader.Read(Impl(before), LanguageOf(before)));
+        var pulled = TcNetworkReader.Read(Impl(before), LanguageOf(before));
+        var text = TcText.Write(pulled);
         Assert.Contains("out1", text);
 
-        var edited = NetworkTextGate.Validate(text.Replace("out1", "renamed"));
-        var written = TcNetworkWriter.Apply(before, edited);
+        var edited = TcText.Validate(text.Replace("out1", "renamed"), TcText.ScopeOf(pulled));
+        var written = TcText.Apply(before, edited);
 
         Assert.NotNull(written);
         Assert.Contains("\"renamed\"", written!);
@@ -475,7 +497,7 @@ public class TcRoundTripTests
     [Fact]
     public void A_pin_behind_the_ENO_slot_round_trips_through_the_text()
     {
-        var text = NetworkTextWriter.Write(TcNetworkReader.Read(Impl(Body("EnoSlot.derived.TcPOU")), BodyLanguage.Fbd));
+        var text = TcText.Write(TcNetworkReader.Read(Impl(Body("EnoSlot.derived.TcPOU")), BodyLanguage.Fbd));
 
         Assert.Contains("oResult => wiredPin", text);
     }
@@ -488,12 +510,14 @@ public class TcRoundTripTests
     public void Dropping_a_box_output_pin_is_refused_rather_than_ignored()
     {
         var before = Body("EnoSlot.derived.TcPOU");
-        var text = NetworkTextWriter.Write(TcNetworkReader.Read(Impl(before), BodyLanguage.Fbd));
+        var pulled = TcNetworkReader.Read(Impl(before), BodyLanguage.Fbd);
+        var text = TcText.Write(pulled);
         Assert.Contains("oResult => wiredPin", text);
 
-        var without = NetworkTextGate.Validate(text.Replace(", oResult => wiredPin", "").Replace("oResult => wiredPin", ""));
+        var without = TcText.Validate(text.Replace(", oResult => wiredPin", "").Replace("oResult => wiredPin", ""),
+                                      TcText.ScopeOf(pulled));
 
-        var ex = Assert.ThrowsAny<System.Exception>(() => TcNetworkWriter.Apply(before, without));
+        var ex = Assert.ThrowsAny<System.Exception>(() => TcText.Apply(before, without));
         Assert.Contains("output pin", ex.Message);
     }
 }

@@ -55,7 +55,7 @@ public class TcExecuteBoxTests
     [Fact]
     public void The_body_materializes_with_the_code_not_as_an_empty_call()
     {
-        var text = NetworkTextWriter.Write(Read());
+        var text = TcText.Write(Read());
 
         Assert.Contains("EXECUTE", text);
         Assert.Contains("iCount:=icount+1;", text);
@@ -104,8 +104,8 @@ public class TcExecuteBoxTests
     public void An_edit_to_that_ST_is_written_line_for_line()
     {
         // Edited the way production edits: through the TEXT, which is what the engineer's file holds.
-        var text = NetworkTextWriter.Write(Read()).Replace("iCount:=icount+1;", "iCount:=icount+2;");
-        var written = TcNetworkWriter.Apply(Body(), NetworkTextGate.Validate(text));
+        var text = TcText.Write(Read()).Replace("iCount:=icount+1;", "iCount:=icount+2;");
+        var written = TcText.Apply(Body(), TcText.Validate(text, TcText.ScopeOf(Read())));
 
         Assert.NotNull(written);
         Assert.Contains("iCount:=icount+2;", written);
@@ -121,11 +121,11 @@ public class TcExecuteBoxTests
     [Fact]
     public void Growing_the_ST_past_its_line_slots_is_refused()
     {
-        var text = NetworkTextWriter.Write(Read())
+        var text = TcText.Write(Read())
             .Replace("iCount:=icount+1;", "iCount:=icount+1;\n  iCount:=icount+9;\n  iCount:=icount+8;");
 
         var ex = Assert.ThrowsAny<System.Exception>(
-            () => TcNetworkWriter.Apply(Body(), NetworkTextGate.Validate(text)));
+            () => TcText.Apply(Body(), TcText.Validate(text, TcText.ScopeOf(Read()))));
         Assert.Contains("line(s)", ex.Message);
     }
 }

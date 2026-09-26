@@ -34,16 +34,16 @@ public static class ConflictCodes
     public const string NetworkNotCanonical = "NETWORK_NOT_CANONICAL";
 
     /// <summary>Any other structural parse failure: a statement before any network, an unexpected
-    /// <c>END_NETWORK</c>, a leftover legacy <c>VAR_TEMP</c> line, a jump label written as a statement.</summary>
+    /// <c>END_NETWORK</c>, a statement without its <c>;</c>, and network text v1 (<c>LET</c>,
+    /// <c>NETWORK &lt;n&gt; &lt;LANG&gt;</c>), which is refused with a "re-pull" message.</summary>
     public const string NetworkParse = "NETWORK_PARSE";
 
     /// <summary>A <c>NETWORK</c> block with no <c>END_NETWORK</c>.</summary>
     public const string NetworkNotClosed = "NETWORK_NOT_CLOSED";
 
-    /// <summary>One network index used twice — their ids would collide in the IDE.</summary>
-    public const string NetworkDuplicateNetwork = "NETWORK_DUPLICATE_NETWORK";
-
-    /// <summary>A wire, result or instance name defined twice in one network.</summary>
+    /// <summary>A wire declared or defined twice in one network, or named like a name in scope (case-insensitively).
+    /// (<c>NETWORK_DUPLICATE_NETWORK</c>, one v1 network index used twice, went with the order number: network
+    /// text v2 headers carry none.)</summary>
     public const string NetworkDuplicateName = "NETWORK_DUPLICATE_NAME";
 
     /// <summary>A malformed operator group — partial parens, mixed operators in one group, or an operator
@@ -53,15 +53,16 @@ public static class ConflictCodes
     /// <summary>An operator symbol that is not in the FBD/LD operator table.</summary>
     public const string NetworkUnknownOperator = "NETWORK_UNKNOWN_OPERATOR";
 
-    /// <summary>Raised by the WRITER, not the parser: a body shape network text has no spelling for — an
-    /// operator box naming an output pin, or a box with two unnamed output pins.</summary>
+    /// <summary>A body shape network text has no spelling for, refused by name — raised by the reader (a flag
+    /// on a wire reference, nested edges, a POU named like a construct) and by the gate when the WRITER has no
+    /// spelling for a fact of the model the text reads to.</summary>
     public const string NetworkUnsupported = "NETWORK_UNSUPPORTED";
 
     /// <summary>The whole <c>NETWORK_*</c> family, for a client that wants to branch on "is this a graphical
     /// body problem" without listing them.</summary>
     public static readonly string[] Network =
     {
-        NetworkNotCanonical, NetworkParse, NetworkNotClosed, NetworkDuplicateNetwork,
+        NetworkNotCanonical, NetworkParse, NetworkNotClosed,
         NetworkDuplicateName, NetworkBadExpression, NetworkUnknownOperator, NetworkUnsupported,
     };
 

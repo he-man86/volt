@@ -713,7 +713,6 @@ window.VOLT = {
       "NETWORK_NOT_CANONICAL",
       "NETWORK_PARSE",
       "NETWORK_NOT_CLOSED",
-      "NETWORK_DUPLICATE_NETWORK",
       "NETWORK_DUPLICATE_NAME",
       "NETWORK_BAD_EXPRESSION",
       "NETWORK_UNKNOWN_OPERATOR",
@@ -1594,6 +1593,11 @@ window.VOLT = {
           "name": "ValidateSource",
           "kind": "method",
           "signature": "void ValidateSource(string wireName, string sourceText, IReadOnlyDictionary\u003Cstring, string\u003E pushedDeclarations)"
+        },
+        {
+          "name": "NetworkScopeFor",
+          "kind": "method",
+          "signature": "NetworkScope NetworkScopeFor(string? declaration, IReadOnlyDictionary\u003Cstring, string\u003E pushedDeclarations)"
         }
       ]
     }

@@ -141,9 +141,9 @@ public sealed record Box(
     //                   one data output; Lenze `Dryer` declares ENO without EN), so it cannot be derived from Enable.
     //                   v2 spells a consumer of the ENO output `.ENO` and never gives ENO an `=>` pin; null is "not
     //                   read", which the writer refuses wherever the answer decides the text
-    //                   (NextSpelling.EnoCarried). THE ONE PLACE null is not refused is where the text has no
+    //                   (NetworkSpelling.EnoCarried). THE ONE PLACE null is not refused is where the text has no
     //                   position for the fact and the push takes it from the IDE's box — listed beside the oracle
-    //                   (NextNetworkTextFacts): a top-level box with no positional `=>` pin, an Execute box (its ENO is
+    //                   (NetworkTextFacts): a top-level box with no positional `=>` pin, an Execute box (its ENO is
     //                   its type's), and a consumed AND/OR/XOR/NOT with no EN and no stored slot. That last one is not
     //                   a guess of "false": census 1.6 (N16) found no ENO on those boxes, and the vendor keeps no
     //                   slot on them to connect one by. A `true` there IS refused — a box with an ENO is connected by
@@ -196,6 +196,11 @@ public sealed record Box(
     public static bool HasEnoSlot(IReadOnlyList<string?> formals) =>
         formals.Count > 0 && string.Equals(formals[0], EnoPin, StringComparison.Ordinal);
 
+    /// <summary>Whether the vendor stores NO main output for a box of this type — the bit operators (census 1.6:
+    /// <c>MainOutputIndex</c> None on 823 AND/OR boxes), whose consumer is therefore connected by no stored slot. One
+    /// definition for the readers and the text's own slot rule (<c>NetworkSpelling.MainSlotOfCall</c>).</summary>
+    public static bool StoresNoMainOutput(string type) => NetworkSpelling.BitOperators.Contains(type);
+
     /// <summary>The formal name of pin <paramref name="slot"/>, or null when it is POSITIONAL.
     ///
     /// <para>The vendor's <c>Names</c> array is INDEX-ALIGNED with the item list and may be SHORTER than it —
@@ -247,42 +252,6 @@ public static class ParallelModes
             "an unmeasured Parallel mode",
             $"a parallel branch has the mode '{name ?? "(none)"}'; the measured modes are BoxShortCircuit and Sequential."),
     };
-
-    /// <summary>Whether two networks hold their Parallels in the same modes, in walk order. Both writers' no-change
-    /// gates compare v1 TEXT, which spells no mode, so without this a mode-only edit was "unchanged": CODESYS never
-    /// rebuilt the network and TwinCAT never reached its refusal, and each push reported success.</summary>
-    public static bool Agree(Network a, Network b) =>
-        System.Linq.Enumerable.SequenceEqual(In(a.Trees), In(b.Trees));
-
-    private static IEnumerable<ParallelMode> In(IEnumerable<Node?> nodes)
-    {
-        foreach (var n in nodes)
-        {
-            if (n is Parallel p) yield return p.Mode;
-            foreach (var m in In(Children(n))) yield return m;
-        }
-    }
-
-    private static IEnumerable<Node?> Children(Node? n)
-    {
-        switch (n)
-        {
-            case Parallel p:
-                yield return p.Input;
-                foreach (var br in p.Branches) yield return br;
-                break;
-            case Assign a:
-                yield return a.Value;
-                break;
-            case Box b:
-                yield return b.Enable;
-                foreach (var i in b.Inputs) yield return i.Value;
-                break;
-            case Demux d:
-                yield return d.Input;
-                break;
-        }
-    }
 }
 
 /// <summary>Flag bits a vendor object reports where the model has no place for them, refused by name on READ. One
@@ -304,7 +273,7 @@ public static class UnheldFlags
     /// <summary>Census 1.1: no Assign ITEM carries a negation or an edge — its operands and targets do — while
     /// <see cref="Assign.Flags"/> is where Jump/Return ride. Neither text has a position for such a bit: v1 printed it
     /// on the VALUE, so a re-read moved it onto the operand (and onto a wire reference, text its own push refuses).</summary>
-    public static bool OnAssignItem(Flags flags) => flags.Negated || flags.Rising || flags.Falling;
+    private static bool OnAssignItem(Flags flags) => flags.Negated || flags.Rising || flags.Falling;
 
     public const string AssignItemMarker = "a flag on an Assign item";
 

@@ -4,7 +4,6 @@ using System.Linq;
 using Xunit;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Format.Network;
-using Volt.Engine.Format.Network.Next;
 using Parallel = Volt.Engine.Format.Network.Parallel;
 
 namespace Volt.Engine.Tests;
@@ -16,7 +15,7 @@ namespace Volt.Engine.Tests;
 /// Where the page's example is a fragment, it is placed in a one-network body; the network wrapper and the
 /// two-space statement indentation are the page's own layout (its Header and Wires examples).
 /// </summary>
-public class NextNetworkTextWriterTests
+public class NetworkTextWriterTests
 {
     // ── builders ────────────────────────────────────────────────────────────────────────────────
 
@@ -54,11 +53,11 @@ public class NextNetworkTextWriterTests
     static Network Net(params Node[] trees) => new(0, null, null, null, false, trees);
 
     /// <summary>Write one network against a scope declaring <paramref name="names"/> and the body's own FB
-    /// instances — every instance these goldens call is one a POU declares (<see cref="NextModelOracle.Instances"/>).</summary>
+    /// instances — every instance these goldens call is one a POU declares (<see cref="NetworkModelOracle.Instances"/>).</summary>
     static string Write(Network net, BodyLanguage lang = BodyLanguage.Fbd, params string[] names)
     {
         var body = new NetworkBody(lang, new[] { net });
-        return NextNetworkTextWriter.Write(body, new NextNetworkScope(names, Array.Empty<string>(), NextModelOracle.Instances(body)));
+        return NetworkTextWriter.Write(body, new NetworkScope(names, Array.Empty<string>(), NetworkModelOracle.Instances(body)));
     }
 
     static string Write(Node tree, BodyLanguage lang = BodyLanguage.Fbd) => Write(Net(tree), lang);
@@ -160,7 +159,7 @@ public class NextNetworkTextWriterTests
 
     /// <summary>Grammar: an lvalue is a token or a backtick (<c>`arr[i + 1]` := x;</c>, <c>`a .b` := x;</c>). An FB
     /// instance whose text is an expression (<c>fbs[1]</c>) is declared by no name, so its call has no type to read
-    /// back and goes to the marker (<c>NextWriterReaderAgreementTests</c>).</summary>
+    /// back and goes to the marker (<c>WriterReaderAgreementTests</c>).</summary>
     [Fact]
     public void Lvalues_that_are_not_one_token_are_backticked()
     {
@@ -329,7 +328,7 @@ public class NextNetworkTextWriterTests
         Assert.Equal(Body("lamp := MOVE(EN := c, 0, => Status).ENO;"),
             Write(Set(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"), connected: 0, eno: true), T("lamp"))));
 
-    /// <summary>The TrayFiller N8 oracle (<see cref="NextLadderOracleTests"/>): a GE with EN shown and unwired is an
+    /// <summary>The TrayFiller N8 oracle (<see cref="LadderOracleTests"/>): a GE with EN shown and unwired is an
     /// empty EN pin. This asserted <c>GE(EN := , …).ENO</c>, after the design page; the live dump of that network
     /// (<c>scripts/nwl-oracle-rungs.log</c>) shows the GE has NO ENO output (<c>OutputParams.Names = ['']</c>) and is
     /// connected by its result, so the text carries no suffix. A box with EN unwired AND an ENO is written
@@ -408,7 +407,7 @@ public class NextNetworkTextWriterTests
         Assert.Equal(Body("out := (a + b);"), Write(byMain));
         Assert.Equal(Body("out := AND(a, b).ENO;"), Write(andByEno));
         foreach (var (name, tree) in new[] { ("add-by-eno", byEno), ("add-by-main", byMain), ("and-by-eno", andByEno) })
-            Assert.Null(NextModelOracle.Check(name, new NetworkBody(BodyLanguage.Fbd, new[] { Net(tree) })).Reason);
+            Assert.Null(NetworkModelOracle.Check(name, new NetworkBody(BodyLanguage.Fbd, new[] { Net(tree) })).Reason);
     }
 
     /// <summary>Spec, "ENO SHALL never be an `=&gt;` slot": a model wiring ENO to a variable as a named pin has no
@@ -419,7 +418,7 @@ public class NextNetworkTextWriterTests
     {
         Assert.Equal("an ENO output pin",
             Refused(() => Write(Call("MOVE", new[] { In(L("0")) }, new[] { Out("lamp", null, "ENO") }, en: L("c"), eno: true))).Marker);
-        var r = NextNetworkTextGate.Validate(Body("MOVE(EN := c, 0, ENO => lamp);"), BodyLanguage.Fbd, NextNetworkScope.Empty);
+        var r = NetworkTextGate.Validate(Body("MOVE(EN := c, 0, ENO => lamp);"), BodyLanguage.Fbd, NetworkScope.Empty);
         Assert.Equal("NETWORK_BAD_EXPRESSION", Assert.Single(r.Diagnostics).Code);
         Assert.Equal(Body("MOVE(EN := c, 0, => Status);"),
             Write(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"), eno: true)));
@@ -445,7 +444,7 @@ public class NextNetworkTextWriterTests
     }
 
     /// <summary>A top-level box says neither <c>.ENO</c> nor anything else about ENO, and is read by its EN
-    /// (<see cref="NextSpelling.TextHasEno"/>). A box that rule misreads, where it matters — its positional pins —
+    /// (<see cref="NetworkSpelling.TextHasEno"/>). A box that rule misreads, where it matters — its positional pins —
     /// has no spelling: an enabled comparison writing its one output to a pin, an FB with ENO and no EN writing a
     /// positional pin. Renumbered, its pins would be wired to other slots on push.</summary>
     [Fact]
@@ -561,7 +560,7 @@ public class NextNetworkTextWriterTests
             "NETWORK\n  JMP Done;\nEND_NETWORK\n" +
             "NETWORK\n  IF a THEN RETURN; END_IF;\nEND_NETWORK\n" +
             "NETWORK\n  RETURN;\nEND_NETWORK\n",
-            NextNetworkTextWriter.Write(body, NextNetworkScope.Empty));
+            NetworkTextWriter.Write(body, NetworkScope.Empty));
     }
 
     /// <summary>Spec, "marker-only shapes": a rung with several control-flow targets.</summary>
@@ -768,17 +767,17 @@ public class NextNetworkTextWriterTests
         var super = Call("ATD_Base", new[] { In(L("ioAxis"), "ioAxis") }, main: null,
             instance: new Operand("SUPER^", IsInstance: true), kind: CallKind.FunctionBlock);
         Assert.Equal("an FB instance the declarations do not name",
-            Refused(() => NextNetworkTextWriter.Write(new NetworkBody(BodyLanguage.Fbd, new[] { Net(super) }),
-                new NextNetworkScope(new[] { "ioAxis" }, Array.Empty<string>(), new Dictionary<string, string>()))).Marker);
+            Refused(() => NetworkTextWriter.Write(new NetworkBody(BodyLanguage.Fbd, new[] { Net(super) }),
+                new NetworkScope(new[] { "ioAxis" }, Array.Empty<string>(), new Dictionary<string, string>()))).Marker);
         var path = Call("TON", new[] { In(L("a"), "IN") }, main: null,
             instance: new Operand("st.fbT", IsInstance: true), kind: CallKind.FunctionBlock);
         Assert.Equal("an FB instance the declarations do not name",
-            Refused(() => NextNetworkTextWriter.Write(new NetworkBody(BodyLanguage.Fbd, new[] { Net(path) }),
-                new NextNetworkScope(new[] { "st", "a" }, Array.Empty<string>(), new Dictionary<string, string>()))).Marker);
+            Refused(() => NetworkTextWriter.Write(new NetworkBody(BodyLanguage.Fbd, new[] { Net(path) }),
+                new NetworkScope(new[] { "st", "a" }, Array.Empty<string>(), new Dictionary<string, string>()))).Marker);
         // Declared with another type: the reader would take the declaration's.
         Assert.Equal("an FB instance declared with another type",
-            Refused(() => NextNetworkTextWriter.Write(new NetworkBody(BodyLanguage.Fbd, new[] { Net(Fb("t1", new[] { In(L("a"), "IN") }, type: "TON")) }),
-                new NextNetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["t1"] = "TOF" }))).Marker);
+            Refused(() => NetworkTextWriter.Write(new NetworkBody(BodyLanguage.Fbd, new[] { Net(Fb("t1", new[] { In(L("a"), "IN") }, type: "TON")) }),
+                new NetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["t1"] = "TOF" }))).Marker);
     }
 
     /// <summary>The vendor's stored output type is the wire's type: a bitwise AND on WORDs feeding a wire is a
@@ -849,12 +848,12 @@ public class NextNetworkTextWriterTests
         foreach (var (tree, line) in WireShapedNames)
         {
             var body = new NetworkBody(BodyLanguage.Fbd, new[] { Net(tree) });
-            var text = NextNetworkTextWriter.Write(body, NextNetworkScope.Empty);
+            var text = NetworkTextWriter.Write(body, NetworkScope.Empty);
             Assert.Equal(Body(line), text);
-            var back = NextNetworkTextReader.Read(text, BodyLanguage.Fbd, NextNetworkScope.Empty);
+            var back = NetworkTextReader.Read(text, BodyLanguage.Fbd, NetworkScope.Empty);
             Assert.True(back.Ok, line + ": " + string.Join("\n", back.Diagnostics.Select(d => d.Code + " " + d.Message)));
-            Assert.Null(NetworkModelEquality.FirstDifference(NextNetworkTextFacts.Carried(body), NextNetworkTextFacts.Carried(back.Body!)));
-            Assert.True(NextNetworkTextGate.Validate(text, BodyLanguage.Fbd, NextNetworkScope.Empty).Ok, line);
+            Assert.Null(NetworkModelEquality.FirstDifference(NetworkTextFacts.Carried(body), NetworkTextFacts.Carried(back.Body!)));
+            Assert.True(NetworkTextGate.Validate(text, BodyLanguage.Fbd, NetworkScope.Empty).Ok, line);
         }
         Assert.Equal(Body("out := g5;"), Write(Net(Set(L("g5"), T("out"))), BodyLanguage.Fbd, "g5"));
     }

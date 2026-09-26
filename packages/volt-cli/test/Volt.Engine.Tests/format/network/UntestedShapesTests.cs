@@ -1,19 +1,18 @@
 using System.Collections.Generic;
 using Xunit;
 using Volt.Engine.Format.Network;
-using Volt.Engine.Format.Network.Next;
-using static Volt.Engine.Tests.NextModels;
+using static Volt.Engine.Tests.NetworkModels;
 using Parallel = Volt.Engine.Format.Network.Parallel;
 
 namespace Volt.Engine.Tests;
 
 /// <summary>
 /// Task 2.13 / review 7.17: shapes no test had pinned, each as a golden text AND model — the writer writes the model
-/// to the text, and the text reads back to the model and passes the gate (<see cref="NextModelOracle"/>). The rest of
+/// to the text, and the text reads back to the model and passes the gate (<see cref="NetworkModelOracle"/>). The rest of
 /// 7.17's list (an edge on EN, <c>R_EDGE((a AND b))</c>, an edge on <c>.ENO</c>, NOT with an edge, the negated-only
-/// coil) is pinned in <see cref="NextNetworkTextWriterTests"/>; the DISABLED/LABEL header combinations are here.
+/// coil) is pinned in <see cref="NetworkTextWriterTests"/>; the DISABLED/LABEL header combinations are here.
 /// </summary>
-public class NextUntestedShapesTests
+public class UntestedShapesTests
 {
     public static TheoryData<string> Shapes()
     {
@@ -27,8 +26,8 @@ public class NextUntestedShapesTests
     public void The_shape_is_pinned_as_text_and_as_a_model(string name)
     {
         var (model, text) = Goldens[name];
-        Assert.Equal(text, NextNetworkTextWriter.Write(model, ScopeOf(model)));
-        Assert.Null(NextModelOracle.Check(name, model).Reason);
+        Assert.Equal(text, NetworkTextWriter.Write(model, ScopeOf(model)));
+        Assert.Null(NetworkModelOracle.Check(name, model).Reason);
     }
 
     static readonly IReadOnlyDictionary<string, (NetworkBody Model, string Text)> Goldens = new Dictionary<string, (NetworkBody, string)>

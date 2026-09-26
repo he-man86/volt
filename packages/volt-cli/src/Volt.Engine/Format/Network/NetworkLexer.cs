@@ -4,7 +4,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Volt.Contracts;
 
-namespace Volt.Engine.Format.Network.Next;
+namespace Volt.Engine.Format.Network;
 
 internal enum TokKind
 {
@@ -45,13 +45,13 @@ internal readonly record struct Tok(TokKind Kind, string Text, int Offset, int L
 /// <para>A lexical error is a token (<see cref="TokKind.Error"/>) that has consumed its text, never an exception:
 /// the parser turns it into a diagnostic at its span, and recovery can always make progress past it.</para>
 /// </summary>
-internal sealed class NextLexer
+internal sealed class NetworkLexer
 {
     private readonly string _s;
     private readonly List<int> _lineStarts = new() { 0 };
     private int _i;
 
-    public NextLexer(string s, int start)
+    public NetworkLexer(string s, int start)
     {
         _s = s;
         _i = start;
@@ -59,7 +59,7 @@ internal sealed class NextLexer
     }
 
     /// <summary>A lexer standing where this one stands, for a look ahead that must not move this one.</summary>
-    private NextLexer(NextLexer at)
+    private NetworkLexer(NetworkLexer at)
     {
         _s = at._s;
         _lineStarts = at._lineStarts;
@@ -141,7 +141,7 @@ internal sealed class NextLexer
             }
         }
 
-        // ASCII only, as NextSpelling's patterns are: a letter or digit outside ASCII is no character of a bare
+        // ASCII only, as NetworkSpelling's patterns are: a letter or digit outside ASCII is no character of a bare
         // token, so it falls through to a one-character symbol the parser refuses. Taken as a word character it
         // would reach NumberAt, which matches nothing there, and the lexer would stand still on it forever.
         if (IsWordChar(c))
@@ -217,7 +217,7 @@ internal sealed class NextLexer
     /// </summary>
     public bool PairAheadHoldsOperator()
     {
-        var f = new NextLexer(this);
+        var f = new NetworkLexer(this);
         if (!f.Next().IsSym("(")) return false;
         var depth = 1;
         var executeAt = new Stack<int>();   // the depth an `EXECUTE(EN := …)` head's pair closes back to
@@ -390,9 +390,9 @@ internal sealed class NextLexer
     // Longest first: `:=` before `:`, `<=` / `<>` before `<`.
     private static readonly string[] Syms = { ":=", "=>", "<=", ">=", "<>", "(", ")", ",", ";", ":", ".", "=", "<", ">", "+", "-", "*", "/" };
 
-    // The token shapes are NextSpelling's, anchored here at the lexer's position: the writer leaves a text bare by
+    // The token shapes are NetworkSpelling's, anchored here at the lexer's position: the writer leaves a text bare by
     // the same pattern this reads it back by.
-    private static readonly Regex AddressAt = new(@"\G" + NextSpelling.AddressPattern, RegexOptions.Compiled);
-    private static readonly Regex NumberAt = new(@"\G" + NextSpelling.NumberPattern, RegexOptions.Compiled);
+    private static readonly Regex AddressAt = new(@"\G" + NetworkSpelling.AddressPattern, RegexOptions.Compiled);
+    private static readonly Regex NumberAt = new(@"\G" + NetworkSpelling.NumberPattern, RegexOptions.Compiled);
     private static readonly Regex EndExecute = new(@"^\s*(END_EXECUTE)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 }

@@ -39,8 +39,11 @@ internal static class TcNetworkWriter
     /// <para>The parse keeps whitespace and the serialization adds none, so an untouched document comes back
     /// byte-identical — and an unchanged model does not come back at all. Those two together are what make a
     /// push non-destructive: every id, every <c>Fixed</c>, every <c>ILLines</c> entry and every member Volt
-    /// does not model survives exactly as the IDE wrote it.</para></summary>
-    public static string? Apply(string? bodyXml, NetworkBody body) => Apply(bodyXml, body, resolve: null);
+    /// does not model survives exactly as the IDE wrote it.</para>
+    /// <para><paramref name="scope"/> is the one the body was read against: the change gate renders the live
+    /// network with it (<see cref="Unchanged"/>).</para></summary>
+    public static string? Apply(string? bodyXml, NetworkBody body, NetworkScope scope) =>
+        Apply(bodyXml, body, scope, resolve: null);
 
     /// <summary>Put back together what the importer split — the CREATE path only, by MOVING nodes.
     ///
@@ -140,7 +143,7 @@ internal static class TcNetworkWriter
     /// network that is one component comes back as one network and can be swapped in; a network holding
     /// several independent rungs would come back as several, renumbering everything after it, so it is refused
     /// instead. That check happens HERE, from the model, before the IDE is touched.</para></summary>
-    public static string? Apply(string? bodyXml, NetworkBody body, Func<Network, XElement>? resolve)
+    public static string? Apply(string? bodyXml, NetworkBody body, NetworkScope scope, Func<Network, XElement>? resolve)
     {
         // No archive to edit means there is nothing to edit IN, and creating one is the construction this
         // writer does not do. A newly created POU arrives here with an empty implementation, so this is the
@@ -190,7 +193,7 @@ internal static class TcNetworkWriter
             var model = body.Networks[i];
             try
             {
-                changed |= WriteNetwork(networks[i], model);
+                changed |= WriteNetwork(networks[i], model, scope);
                 continue;
             }
             catch (NotSupportedException) when (resolve != null)
@@ -207,7 +210,7 @@ internal static class TcNetworkWriter
 
             var rebuilt = resolve!(model);
             networks[i].ReplaceWith(rebuilt);
-            WriteNetwork(rebuilt, model);      // stamp the values the rebuild could not carry
+            WriteNetwork(rebuilt, model, scope);      // stamp the values the rebuild could not carry
             changed = true;
         }
 
@@ -220,18 +223,19 @@ internal static class TcNetworkWriter
     /// "the same" means the same file, which is the only definition that matters to an engineer. A reader that
     /// REFUSES the live network (an Execute box is the measured case) answers "not unchanged" rather than
     /// throwing, because the caller's structural walk is then the right place for that refusal to surface, with
-    /// its own message.</para></summary>
-    private static bool Unchanged(XElement net, Network model)
+    /// its own message. A live network the WRITER has no spelling for answers the same way: its
+    /// <c>UnrepresentableBodyException</c> is a <c>NotSupportedException</c>.</para>
+    ///
+    /// <para>Both sides are written against the body's scope: the text spells a wire and an FB instance through the
+    /// declarations, so "the same file" is only defined for one scope.</para></summary>
+    private static bool Unchanged(XElement net, Network model, NetworkScope scope)
     {
         try
         {
             var live = TcNetworkReader.ReadNetworkFor(net, model.Order);
             var one = new NetworkBody(BodyLanguage.Fbd, new[] { live });
             var other = new NetworkBody(BodyLanguage.Fbd, new[] { model });
-            // v1 text carries no Parallel mode (a Sequential one prints as the BoxShortCircuit one), so text equality
-            // alone called a mode change "unchanged", skipped the walk that refuses it, and reported success.
-            return NetworkTextWriter.Write(one) == NetworkTextWriter.Write(other)
-                && ParallelModes.Agree(live, model);
+            return NetworkTextWriter.Write(one, scope) == NetworkTextWriter.Write(other, scope);
         }
         catch (NotSupportedException) { return false; }
     }
@@ -245,7 +249,7 @@ internal static class TcNetworkWriter
 
     // -- networks ----------------------------------------------------------------------------------
 
-    private static bool WriteNetwork(XElement net, Network model)
+    private static bool WriteNetwork(XElement net, Network model, NetworkScope scope)
     {
         // THE CHANGE GATE, FIRST. If the live network already renders to exactly the text being pushed, there is
         // nothing to write and nothing to refuse — return before the structural walk below can do either.
@@ -259,7 +263,7 @@ internal static class TcNetworkWriter
         // Compared as TEXT, through the same reader and writer a pull uses, because two bodies are equal exactly
         // when they materialize to the same file. This is the rule CODESYS's writer already follows, so it is
         // also the two vendors agreeing on when a push is a no-op.
-        if (Unchanged(net, model)) return false;
+        if (Unchanged(net, model, scope)) return false;
 
         // Title/Label/Comment compare with TRAILING WHITESPACE IGNORED. The IDE keeps the newline the engineer
         // typed after them and the model holds them trimmed (TcNetworkReader.Trimmed), so a plain compare would
@@ -669,7 +673,12 @@ internal static class TcNetworkWriter
             // slot, and the branch below reads "a wired slot the model does not name" as a DELETION — so an edit
             // that changed nothing about the pin was routed to the full rebuild path on the strength of a
             // capital letter.
-            var pin = b.Outputs.FirstOrDefault(o => string.Equals(o.Formal, name, StringComparison.OrdinalIgnoreCase));
+            // A POSITIONAL pin by its SLOT, a named one by its name (task 3.10). Two unnamed slots are both
+            // `(result)` to a name match, which would write the first unnamed pin onto every unnamed slot; the
+            // model carries the slot a positional `=> v` fills, and the text carries no slot for a named pin.
+            var pin = b.Outputs.FirstOrDefault(o => o.Formal is null && o.Slot is { } at
+                ? at == i
+                : string.Equals(o.Formal, name, StringComparison.OrdinalIgnoreCase));
             if (pin is null)
             {
                 // A SLOT THE MODEL DOES NOT NAME, WHICH THE ARCHIVE HAS WIRED, IS A DELETION - and leaving

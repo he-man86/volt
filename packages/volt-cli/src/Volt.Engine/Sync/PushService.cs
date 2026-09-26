@@ -185,7 +185,7 @@ public static class PushService
                     // Only a CREATE compares the extension with the text. An UPDATE that disagrees is a RE-TYPE,
                     // and `ItemKindIsNotRewritable` refuses it with the better message — it can name what the
                     // object actually is, which a create has nothing to ask.
-                    ValidateSourceOrThrow(text, creating, creating ? ItemKind.KindForWireName(set.Name) : null);
+                    ValidateSourceOrThrow(ide, text, creating, pushedDeclarations, creating ? ItemKind.KindForWireName(set.Name) : null);
                     // …and what only the DRIVER can decide without writing. This is the class the comment above
                     // used to name as out of reach — a body one vendor's format cannot express — and it is out
                     // of reach only for the ENGINE: TwinCAT's PLCopen writer is a pure function of the parsed
@@ -722,7 +722,8 @@ public static class PushService
     /// touching the IDE. This is the batch PRE-FLIGHT's worker (<see cref="Handle"/>): running it over every
     /// op before the first write is what makes a push all-or-nothing for the class of refusal that is
     /// decidable from the text alone, which is the class a real push fails on.</summary>
-    private static void ValidateSourceOrThrow(string src, bool isCreate, string? wireKind = null)
+    private static void ValidateSourceOrThrow(IIdeDriver ide, string src, bool isCreate,
+                                              IReadOnlyDictionary<string, string> pushedDeclarations, string? wireKind = null)
     {
         var split = StReader.Read(src, wireKind);            // throws InvalidSt on a malformed document, or a kind the name contradicts
         // …and every graphical body it carries, root and members alike: network text that does not parse is the
@@ -731,15 +732,21 @@ public static class PushService
         // ACCESSORS INCLUDED. A property's code lives in its GET/SET, not in a body of its own — `StReader`
         // gives a property `Body: ""` and puts the text in `Getter`/`Setter` — so enumerating `m.Body` alone
         // walked past every graphical accessor in the push. That is not a theoretical hole: the drivers each
-        // run `NetworkTextGate.Validate` on an accessor themselves (CodesysDriver.Content WriteAccessor,
+        // run `NetworkText.Validate` on an accessor themselves (CodesysDriver.Content WriteAccessor,
         // BeckhoffDriver.Content Collect), so a non-canonical GET body WAS refused — for the first time from
         // inside the write, after the earlier ops of the same push had already landed in the live IDE and
         // could not be rolled back. Which is precisely what this pre-flight exists to stop.
         // `BodyFormatGuard.RequireAuthorable` already splits members this way for the same reason.
-        var bodies = new List<string?> { split.Body };
-        foreach (var m in split.Members) { bodies.Add(m.Body); bodies.Add(m.Getter?.Body); bodies.Add(m.Setter?.Body); }
-        foreach (var body in bodies)
-            if (body is { } b && NetworkText.Is(b)) NetworkTextGate.Validate(b);
+        // Each body against ITS OWN scope (`SourceScopes.BodiesOf`: a member's declarations, then its owner's), the
+        // one the driver writes a pulled body against — network text v2 reads a call head as an FB instance, and a
+        // wire name as free, only against the declarations (`NetworkScope`).
+        foreach (var (body, declaration) in SourceScopes.BodiesOf(split))
+        {
+            // v1 text follows the BARE marker, so nothing else would call it network text: refused by name here,
+            // or it would be written into the IDE as Structured Text.
+            NetworkText.RefuseV1(body);
+            if (body is { } b && NetworkText.Is(b)) NetworkText.Validate(b, ide.NetworkScopeFor(declaration, pushedDeclarations));
+        }
 
         // AND A CREATE'S MARKER REFUSAL, which is text-decidable in exactly the same way. A body Volt cannot
         // author materializes as `(* @volt-graphical: CFC *)`, and pushing that at an EXISTING item is the
@@ -831,7 +838,7 @@ public static class PushService
             // `impl is not null` changes nothing at run time — `NetworkText.Is` is false for a null body — but it is the
             // form the compiler can PROVE: netstandard2.0 has no [NotNullWhen] to carry that fact out of `Is`, and without
             // it every build of the push path printed CS8604 here.
-            if (pouIsNetwork && impl is not null) NetworkTextGate.Validate(impl);
+            if (pouIsNetwork && impl is not null) NetworkText.Validate(impl, ide.NetworkScopeFor(decl, pushedDeclarations));
             BodyFormatGuard.RequireAuthorable(split);
 
             // The body language is passed UNCONDITIONALLY (null for ST). TwinCAT sets a POU's implementation

@@ -44,6 +44,45 @@ public static class StDeclaration
         return null;
     }
 
+    /// <summary>Every variable a declaration declares (<c>a, t1 : TON;</c> → <c>a</c>, <c>t1</c>), comments
+    /// stripped — the names a graphical body's wires must not collide with (network text, <c>NetworkScope</c>).
+    /// The same line rule as <see cref="TypeOfVariable"/>, so a name one finds the other resolves.</summary>
+    public static IEnumerable<string> DeclaredNames(string? declaration)
+    {
+        if (string.IsNullOrEmpty(declaration)) yield break;
+
+        var inBlockComment = false;
+        foreach (var raw in declaration!.Replace("\r", "").Split('\n'))
+        {
+            var line = CodeHelper.CodeOn(raw, ref inBlockComment);
+            if (line.Length == 0) continue;
+            var m = VarLine.Match(line);
+            if (!m.Success) continue;
+            foreach (var declared in m.Groups["names"].Value.Split(','))
+                yield return declared.Trim();
+        }
+    }
+
+    // `FUNCTION F : BOOL`, `FUNCTION_BLOCK FB EXTENDS …`, `PROGRAM P` — a header a call can name, attributes and
+    // comments stripped first.
+    private static readonly Regex CallableHeader = new(
+        @"^\s*(FUNCTION_BLOCK|FUNCTION|PROGRAM)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    /// <summary>Whether a declaration is a POU a call can name — a FUNCTION, FUNCTION_BLOCK or PROGRAM — by its
+    /// first code line. A GVL, a DUT or an interface of the same name is no callable; null is no item at all.</summary>
+    public static bool IsCallableHeader(string? declaration)
+    {
+        if (string.IsNullOrEmpty(declaration)) return false;
+        var inBlockComment = false;
+        foreach (var raw in declaration!.Replace("\r", "").Split('\n'))
+        {
+            var line = CodeHelper.CodeOn(raw, ref inBlockComment);
+            if (line.Trim().Length == 0 || line.TrimStart().StartsWith("{", StringComparison.Ordinal)) continue;
+            return CallableHeader.IsMatch(line);
+        }
+        return false;
+    }
+
     /// <summary>The language's name for a call to the base implementation. Not an instance, and not a variable
     /// anything declares — which is exactly why looking it up as one failed.</summary>
     public const string SuperCall = "SUPER^";

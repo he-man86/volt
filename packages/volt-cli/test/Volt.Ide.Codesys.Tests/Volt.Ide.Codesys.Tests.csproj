@@ -23,9 +23,9 @@
   </ItemGroup>
   <ItemGroup>
     <!-- The network text v2 model oracle, shared with the engine and TwinCAT suites: the CODESYS reader doubles
-         take the same check (test/shared/NextModelOracle.cs). -->
-    <Compile Include="..\shared\NextModelOracle.cs" Link="NextModelOracle.cs" />
-    <Compile Include="..\shared\NextNetworkTextFacts.cs" Link="NextNetworkTextFacts.cs" />
+         take the same check (test/shared/NetworkModelOracle.cs). -->
+    <Compile Include="..\shared\NetworkModelOracle.cs" Link="NetworkModelOracle.cs" />
+    <Compile Include="..\shared\NetworkTextFacts.cs" Link="NetworkTextFacts.cs" />
     <Compile Include="..\shared\NetworkModelEquality.cs" Link="NetworkModelEquality.cs" />
   </ItemGroup>
 </Project>

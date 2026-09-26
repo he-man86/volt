@@ -1,428 +1,159 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 using Volt.Engine.Format.Network;
+using static Volt.Engine.Tests.NetworkModels;
 
 namespace Volt.Engine.Tests;
 
+/// <summary>
+/// The convergence and real-project shapes of network text, in the v2 spelling (task 3.7: "convergence cases
+/// rewritten to v2 input"). Each input is the v2 text for the SAME NWL shape its v1 case pinned — the v1 form
+/// (<c>LET i</c> hoists, the <c>IF en</c> echo, <c>NETWORK 0 LD</c> headers) is refused now and has no fixed
+/// point to converge to. Where a v1 case pinned a split-only spelling, its model and v2 text are pinned in
+/// <see cref="SplitShapeGoldensTests"/> instead; each case below says which.
+///
+/// <para><b>Canonical, not merely convergent.</b> v1 asserted <c>Round(Round(x)) == Round(x)</c> because its
+/// canonical form minted names the author could not predict. v2 mints none, so each input here IS the canonical
+/// text: the gate accepts it (<c>Tokens(Write(Read(x))) == Tokens(x)</c>) and the writer gives back the same
+/// bytes.</para>
+///
+/// <para><b>The scope is built from a declaration</b> (<see cref="NetworkScope.FromDeclarations"/>, task 3.9), the
+/// way a driver builds it: <c>t1</c> is an instance because <c>t1 : TON</c> says so, not because a test listed it.</para>
+/// </summary>
 public class NetworkTextRoundTripTests
 {
-    private static string Round(string net) => NetworkTextWriter.Write(NetworkTextReader.Parse(net));
+    const string Declaration = @"PROGRAM P
+VAR
+    t1 : TON;
+    ctu : CTU;
+    fb : FB_Sample;
+    Config : FB_Config;
+END_VAR";
+
+    static readonly NetworkScope Scope =
+        NetworkScope.FromDeclarations(Declaration, _ => null, () => Array.Empty<string>());
+
+    static void Canonical(string text, BodyLanguage lang)
+    {
+        var r = NetworkTextGate.Validate(text, lang, Scope);
+        Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => $"{d.Line}:{d.Column} {d.Code} {d.Message}")));
+        Assert.Equal(text, NetworkTextWriter.Write(r.Body!, Scope));
+    }
+
+    static string F(params string[] lines) => Src(lines);
+    static string Ld(params string[] lines) => LdSrc(lines);
+
+    /// <summary>The v1 convergence theory's shapes, each as the one v2 text it now has.</summary>
+    public static TheoryData<string, string> Converging() => new()
+    {
+        // FB call with named literal pins: v1 hoisted each literal to `LET i`.
+        { "fb-literal-pins", F("Config(xFASTSystemInTaskMidPrio := FALSE, xLogErrorTypeInformation := TRUE, xLogErrorTypeWarning := TRUE);") },
+        // Nested groups: v1 hoisted each operand and named each group.
+        { "nested-groups", F("result := ((A AND B) OR C);") },
+        // An FB call and the reads of its outputs, three items.
+        { "fb-call-and-its-outputs", F("t1(IN := start, PT := pt);", "running := t1.Q;", "elapsed := t1.ET;") },
+        { "title", Src("out := (a OR b);").Replace("*)\nNETWORK\n", "*)\nNETWORK TITLE: \"my title\"\n") },
+        { "ld-group", Ld("out := (a AND b);") },
+        { "negated-operand", F("out := (NOT a AND b);") },
+        // v1 `t1(CLK := i1 RISING)`: the edge is a flag on the operand.
+        { "edge-on-a-pin", F("t1(CLK := R_EDGE(clk));") },
+        { "set-coil", F("out S= (a OR b);") },
+        { "reset-coil", F("out R= (a OR b);") },
+        // v1 `LET g1` feeding three coils: ONE Assign with three targets, a chain.
+        { "one-value-three-coils", F("plain :=", "latched S=", "cleared R= (a OR b);") },
+        { "negated-pin-operand", F("fb(IN := NOT x);") },
+        { "move-assign", F("dst := MOVE(src);") },
+        { "named-output-of-a-function", F("fc_MeanValue(20, oMeanValue => measured);") },
+        { "named-output-of-an-fb", F("t1(IN := a, PT := pt, ET => elapsed);") },
+        { "consumed-function-with-named-output", F("dst := f(src, oErr => err);") },
+        // v1 `IF en1 THEN dst := MOVE(src); END_IF`: an enabled MOVE writing its own result pin.
+        { "enabled-move-result-pin", Ld("MOVE(EN := rung, src, => dst);") },
+        // …with the rung continuing from its ENO into a coil (v1 `coil := en1`), one item.
+        { "enabled-move-continuing-into-a-coil", Ld("coil := MOVE(EN := rung, src, => dst).ENO;") },
+        { "enabled-move-continuing-into-a-set-coil", Ld("latched S= MOVE(EN := rung, src, => dst).ENO;") },
+        { "enabled-move-continuing-into-two-coils", Ld("a :=", "b S= MOVE(EN := rung, src, => dst).ENO;") },
+        // v1 `LET i1 := NOT x; fb(IN := i1);`: the negation on the operand.
+        { "negated-operand-into-a-pin", F("fb(IN := NOT x);") },
+        { "empty-network", F() },
+        { "label-only", Src().Replace("*)\nNETWORK\n", "*)\nNETWORK LABEL: myLabel\n") },
+        { "jump", F("JMP myLabel;") },
+        { "conditional-jump", F("IF cond THEN JMP myLabel; END_IF;") },
+        { "negated-conditional-jump", F("IF NOT cond THEN JMP myLabel; END_IF;") },
+        { "return", F("RETURN;") },
+        { "conditional-return", F("IF done THEN RETURN; END_IF;") },
+        // The en-chain InlineData (v1 L56-67) is pinned by model in SplitShapeGoldensTests ("RoundTrip.en/*").
+    };
 
     [Theory]
-    // Each of these shapes must CONVERGE to a fixed point through the readable-network-text round-trip. We assert
-    // idempotence — Round(Round(x)) == Round(x) — not equality to a hardcoded canonical string: the canonical
-    // form is implementation-defined (the writer inlines single-use wires, names only fan-out), so pinning an
-    // exact string is brittle. Inputs here introduce internal wires with the inline `LET <name> := …` form —
-    // they must still parse and settle. (The exact canonical text is pinned separately in NetworkTextWriterTests.)
-    [InlineData("NETWORK 0 FBD\n  LET i1 := FALSE;\n  LET i2 := TRUE;\n  LET i3 := TRUE;\n  Config(xFASTSystemInTaskMidPrio := i1, xLogErrorTypeInformation := i2, xLogErrorTypeWarning := i3);\nEND_NETWORK\n")]
-    [InlineData("NETWORK 0 FBD\n  LET i1 := A;\n  LET i2 := B;\n  LET i3 := C;\n  LET g1 := (i1 AND i2);\n  LET g2 := (g1 OR i3);\n  result := g2;\nEND_NETWORK\n")]
-    [InlineData("NETWORK 0 FBD\n  LET i1 := start;\n  LET i2 := pt;\n  t1(IN := i1, PT := i2);\n  running := t1.Q;\n  elapsed := t1.ET;\nEND_NETWORK\n")]
-    [InlineData("NETWORK 0 FBD TITLE: \"my title\"\n  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 OR i2);\n  out := g1;\nEND_NETWORK\n")]
-    // LD is the same structure as FBD — only the language token on the marker differs (view toggle).
-    [InlineData("NETWORK 0 LD\n  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 AND i2);\n  out := g1;\nEND_NETWORK\n")]
-    // modifiers ride on the REFERENCE: negation (NOT) and edge (RISING/FALLING). Coil STORAGE does not — it
-    // belongs to the target, and is spelled by the assignment operator (`S=` / `R=`) in the cases below.
-    [InlineData("NETWORK 0 FBD\n  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (NOT i1 AND i2);\n  out := g1;\nEND_NETWORK\n")]
-    [InlineData("NETWORK 0 FBD\n  LET i1 := clk;\n  t1(CLK := i1 RISING);\nEND_NETWORK\n")]
-    [InlineData("NETWORK 0 FBD\n  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 OR i2);\n  out S= g1;\nEND_NETWORK\n")]
-    [InlineData("NETWORK 0 FBD\n  LET i1 := a;\n  LET i2 := b;\n  LET g1 := (i1 OR i2);\n  out R= g1;\nEND_NETWORK\n")]
-    // A fan-out whose coils DISAGREE — one plain, one set, one reset. The old trailing-word spelling had one
-    // modifier for the whole statement, so this shape could not be written down at all.
-    [InlineData("NETWORK 0 FBD\n  LET g1 := (a OR b);\n  plain := g1;\n  latched S= g1;\n  cleared R= g1;\nEND_NETWORK\n")]
-    [InlineData("NETWORK 0 FBD\n  LET i1 := x;\n  fb(IN := NOT i1);\nEND_NETWORK\n")]
-    // A BOX'S OWN OUTPUT PINS. The unnamed one is the box's RESULT and takes the assignment position; a named
-    // one rides in the call with ST's output-parameter operator. Both were DROPPED entirely until now —
-    // `Box.Outputs` was never rendered — so 208 wired pins in one real project were absent from the text.
-    [InlineData("NETWORK 0 FBD\n  dst := MOVE(src);\nEND_NETWORK\n")]
-    [InlineData("NETWORK 0 FBD\n  fc_MeanValue(20, oMeanValue => measured);\nEND_NETWORK\n")]
-    [InlineData("NETWORK 0 FBD\n  t1(IN := a, PT := pt, ET => elapsed);\nEND_NETWORK\n")]
-    // a result AND a named pin on the same box
-    [InlineData("NETWORK 0 FBD\n  dst := f(src, oErr => err);\nEND_NETWORK\n")]
-    // an enabled box writing its own pin — the ladder shape a rung with a MOVE on it produces
-    [InlineData("NETWORK 0 LD\n  LET en1 := rung;\n  IF en1 THEN dst := MOVE(src); END_IF\nEND_NETWORK\n")]
-    // AND THE RUNG CARRIES ON INTO A COIL. The box writes its own output pin, and its ENO — spelled by the
-    // `en1` echo — drives the coil after it. Caught by pushing a pulled project into an empty one: `en1` is
-    // referenced by the guard AND by the coil, and the use-count rule called it a fan-out wire, so the text
-    // came back as `LET g3 := rung; LET en1 := g3; … := g3;` and the canonical-form gate refused the push.
-    [InlineData("NETWORK 0 LD\n  LET en1 := rung;\n  IF en1 THEN dst := MOVE(src); END_IF\n  coil := en1;\nEND_NETWORK\n")]
-    // the same, with the coil's own storage — the flags ride on the target, so they must survive the merge
-    [InlineData("NETWORK 0 LD\n  LET en1 := rung;\n  IF en1 THEN dst := MOVE(src); END_IF\n  latched S= en1;\nEND_NETWORK\n")]
-    [InlineData("NETWORK 0 LD\n  LET en1 := rung;\n  IF en1 THEN dst := MOVE(src); END_IF\n  cleared R= en1;\nEND_NETWORK\n")]
-    // several coils off one echo — one Assign with several targets on the vendor
-    [InlineData("NETWORK 0 LD\n  LET en1 := rung;\n  IF en1 THEN dst := MOVE(src); END_IF\n  a := en1;\n  b S= en1;\nEND_NETWORK\n")]
-    // AN EN PIN THAT IS SHOWN AND WIRED TO NOTHING. The empty slot is how this format spells every unwired
-    // pin (§3), and a `LET` was the one place that would not read one back — so the guard below refused a
-    // body the writer had just produced, in 9 POUs of one real project.
-    [InlineData("NETWORK 0 FBD\n  LET en1 := ;\n  IF en1 THEN oDriveSpeed := (iRPM * 6); END_IF\nEND_NETWORK\n")]
-    // AN ENABLED BOX AT OPERAND POSITION — one box's enable fed by ANOTHER enabled box, which is the shape
-    // `SideCorrection` holds (a SUB in a GT's EN slot, with its own output pin). EN/ENO has no inline form,
-    // so the inner box is hoisted and the outer chains off its echo. Rendering it through `Definition`
-    // instead dropped the inner box, its inputs and its pin entirely — silently, and round-tripping.
-    [InlineData("NETWORK 0 LD\n  LET en1 := rung;\n  IF en1 THEN diff := (light - deviation); END_IF\n  LET en2 := en1;\n  IF en2 THEN out := (sensor > diff); END_IF\nEND_NETWORK\n")]
-    // the inner box with NO pin of its own — the enable still has to survive
-    [InlineData("NETWORK 0 LD\n  LET en1 := rung;\n  IF en1 THEN (light - deviation); END_IF\n  LET en2 := en1;\n  IF en2 THEN out := (sensor > 5); END_IF\nEND_NETWORK\n")]
-    // A FED PARALLEL WHOSE RUNG AND BRANCHES BOTH HOIST. The rung is emitted first, so it must be RENDERED
-    // first — otherwise the `en*` numbers are minted in one order and re-read in another, and a body comes
-    // back with the same graph under different names. `fc_CamC_CC_Base` and `TrayFiller` were refused for it.
-    [InlineData("NETWORK 0 LD\n  LET en1 := ;\n  IF en1 THEN (a > b); END_IF\n  LET en2 := ;\n  IF en2 THEN (c >= d); END_IF\n  LET en3 := ;\n  IF en3 THEN (e <= f); END_IF\n  out := (en1 AND (en2 OR en3));\nEND_NETWORK\n")]
-    // a leaf's OWN modifier rides on its RHS
-    [InlineData("NETWORK 0 FBD\n  LET i1 := NOT x;\n  fb(IN := i1);\nEND_NETWORK\n")]
-    // an empty network (or one whose only content was a dropped opaque/vendor node) keeps its
-    // delimiters and has no internal wires
-    [InlineData("NETWORK 0 FBD\nEND_NETWORK\n")]
-    // control flow: labels, jumps, returns (valid CODESYS ST) — conditions are named leaves
-    [InlineData("NETWORK 0 FBD LABEL: myLabel\nEND_NETWORK\n")]
-    [InlineData("NETWORK 0 FBD\n  JMP myLabel;\nEND_NETWORK\n")]
-    [InlineData("NETWORK 0 FBD\n  LET i1 := cond;\n  IF i1 THEN JMP myLabel; END_IF\nEND_NETWORK\n")]
-    [InlineData("NETWORK 0 FBD\n  LET i1 := cond;\n  IF NOT i1 THEN JMP myLabel; END_IF\nEND_NETWORK\n")]
-    [InlineData("NETWORK 0 FBD\n  RETURN;\nEND_NETWORK\n")]
-    [InlineData("NETWORK 0 FBD\n  LET i1 := done;\n  IF i1 THEN RETURN; END_IF\nEND_NETWORK\n")]
-    public void Network_text_converges_to_a_fixed_point(string net) => Assert.Equal(Round(net), Round(Round(net)));
+    [MemberData(nameof(Converging))]
+    public void Network_text_is_canonical(string name, string text)
+    {
+        _ = name;
+        Canonical(text, text.StartsWith(LdMarker, StringComparison.Ordinal) ? BodyLanguage.Ld : BodyLanguage.Fbd);
+    }
+
+    /// <summary>The shapes a real project contains (Lenze_MID-S100: 152 of 373 networks were once pulled as text
+    /// Volt's own reader refused), in v2. Each is exact canonical text.</summary>
+    public static TheoryData<string, string> RealProjectShapes() => new()
+    {
+        // AN UNCONNECTED PIN is an empty slot and reads back as the terminator the vendor holds; `???` is the
+        // vendor's own marker for an unfilled slot and is CONTENT, never a spelling of "unconnected".
+        { "empty-first-slot-of-a-MUL", Ld("( * iRPM * 6);") },
+        { "named-pins-with-nothing-on-them", F("ctu(CU := a, RESET := , PV := );") },
+        { "a-leading-positional-slot", F("f(, a);") },
+        { "a-trailing-positional-slot", F("f(a, );") },
+        { "a-rung-nothing-drives", Ld("coil := ;") },
+        { "an-item-wired-to-nothing", Ld(";") },
+        // AN UNNAMED INSTANCE CARRIES ITS TYPE (`??? : TYPE`).
+        { "unnamed-instance", F("??? : L_TT1P_FlexCamBase(xEnable := , Axis := );") },
+        { "unnamed-instance-and-marker-target", F("??? : TON(IN := a, PT := t);", "??? := ioAxis.xVirtual;") },
+        { "marker-in-a-group", F("out := (??? AND a);") },
+        { "marker-on-a-named-pin", F("t1(IN := ???, PT := pt);") },
+        { "marker-as-a-coil", Ld("??? := a;") },
+        // v1 `IF en1 THEN ??? := NOT(a); END_IF` behind an unconnected enable: the NOT box with EN shown, unwired.
+        { "marker-behind-an-unconnected-enable", Ld("??? := NOT(EN := , a);") },
+        // A POSITIONAL CALL STANDS ALONE (34 networks).
+        { "a-call-standing-alone", Ld("MOVE(a, b);") },
+        // A NOT BOX IS NOT THE NEGATION MODIFIER: parentheses decide.
+        { "the-NOT-box", F("out := NOT(a);") },
+        { "the-NOT-modifier", F("out := NOT a;") },
+        // A QUOTE IN A TITLE is ST's `$"`.
+        { "a-quote-in-a-title", Ld("out := a;").Replace("*)\nNETWORK\n", "*)\nNETWORK TITLE: \"Muting of alarm $\"No bunch$\"\"\n") },
+        // A DOTTED NAME AN ENGINEER SPACED OUT is one operand, verbatim between backticks.
+        { "a-spaced-dotted-name", F("out := `scSimulationDowntimes .uiMaxSimulationEvents`;") },
+        // A COMMENT THEY INDENTED: `//` and one space are syntax, the rest is text.
+        { "an-indented-comment", F("out := a;").Replace("*)\nNETWORK\n", "*)\nNETWORK\n  //     indented on purpose\n") },
+        // DISABLED IN A TITLE is text, not the header keyword.
+        { "DISABLED-in-a-title", Ld("out := a;").Replace("*)\nNETWORK\n", "*)\nNETWORK TITLE: \"DISABLED during commissioning\"\n") },
+        // The IDE's own header layout: label, title, then the comment lines.
+        { "label-title-and-comment", Ld("out := (a AND b);").Replace("*)\nNETWORK\n",
+            "*)\nNETWORK LABEL: Guard TITLE: \"interlock\"\n  // holds the drive off while the guard is open\n  // second line of the same comment\n") },
+        // A single-consumer wire (v1 L139) and an opaque leaf (v1 L144): SplitShapeGoldensTests, by model.
+    };
 
     [Theory]
-    // -- SHAPES A REAL PROJECT ACTUALLY CONTAINS --------------------------------------------------
-    //
-    // Every case below comes from Lenze_MID-S100_V5_00_602_T51 - 373 graphical networks drawn by
-    // engineers, not by Volt. Pulled through the CODESYS bridge and fed straight back into this gate,
-    // 152 of them were REFUSED by Volt's own reader: text the writer had just produced and could not read
-    // back, which means those POUs could be pulled and never pushed again. That is what this theory
-    // exists to keep out.
-    //
-    // These assert EXACT canonical text rather than convergence. Idempotence would have passed on most of
-    // them while quietly changing the body - an unconnected pin dropped, a wire dissolved, a NOT box
-    // turned into a flag - which is a good part of why several survived as long as they did.
-    //
-    // AN UNCONNECTED PIN renders as an empty slot, and reads back as the terminator the vendor holds.
-    // There is no magic token for it: `?` was tried and withdrawn, because CODESYS writes `???` into a
-    // box whose instance is unresolved - a real compile error the engineer must SEE - and this project
-    // holds five of them, one of them an assignment target.
-    [InlineData("NETWORK 0 LD\n  ( * iRPM * 6);\nEND_NETWORK\n")]   // pin 0 of a MUL box: 14 in the project
-    [InlineData("NETWORK 0 FBD\n  ctu(CU := a, RESET := , PV := );\nEND_NETWORK\n")]   // named pins with nothing on them: 12
-    [InlineData("NETWORK 0 FBD\n  f(, a);\nEND_NETWORK\n")]   // a leading positional slot
-    [InlineData("NETWORK 0 FBD\n  f(a, );\nEND_NETWORK\n")]   // a TRAILING slot - dropped until the arg loop followed commas
-    [InlineData("NETWORK 0 LD\n  coil := ;\nEND_NETWORK\n")]   // a rung nothing drives
-    [InlineData("NETWORK 0 LD\n  ;\nEND_NETWORK\n")]   // an item wired to nothing at all
-    //
-    // AN UNNAMED INSTANCE CARRIES ITS TYPE. `???` is the vendor's marker for a call box whose instance has
-    // not been named, and such a box still has a real TYPE - measured on this project's `POU.prg`, four
-    // boxes with `Instance='???'` and `BoxType='L_MC1P_AxisBasicControlV2'` and friends. The format named a
-    // call ONCE and the push read its type off the declaration, so `???` - declared nowhere - lost its type
-    // on the way out and could never be pushed back. It is spelled with ST's own `name : TYPE`.
-    [InlineData("NETWORK 0 FBD\n  ??? : L_TT1P_FlexCamBase(xEnable := , Axis := );\nEND_NETWORK\n")]
-    [InlineData("NETWORK 0 FBD\n  ??? : TON(IN := a, PT := t);\n  ??? := ioAxis.xVirtual;\nEND_NETWORK\n")]   // and the marker as a coil target, unchanged
-    //
-    // AND THE MARKER IN EVERY OTHER POSITION IT CAN OCCUPY. `???` is CONTENT - the vendor's own marker for a
-    // slot nobody filled - so the format has to carry it verbatim wherever it lands, not just where a real
-    // project happened to put it. The corpus only ever holds two of these positions (instance, and an
-    // assignment target), which is exactly why the other three are pinned here: an input is the position a
-    // project has not shown us yet, and "we have never seen it" is not the same as "it round-trips".
-    // Measured live on SP21, every one of them a real compile error the IDE raises (scripts/audit-check.ts):
-    //   operand / named pin  -> "Expression expected instead of '?'" + "Unexpected token '?' found"
-    //   assignment target    -> "The assignment target is not specified."
-    [InlineData("NETWORK 0 FBD\n  out := (??? AND a);\nEND_NETWORK\n")]                 // an operand inside a group
-    [InlineData("NETWORK 0 FBD\n  t1(IN := ???, PT := pt);\nEND_NETWORK\n")]            // a NAMED input pin
-    [InlineData("NETWORK 0 LD\n  ??? := a;\nEND_NETWORK\n")]                            // a coil with no target
-    [InlineData("NETWORK 0 LD\n  LET en1 := ;\n  IF en1 THEN ??? := NOT(a); END_IF\nEND_NETWORK\n")]   // behind an unconnected enable
-    //
-    // A POSITIONAL CALL STANDS ALONE. `MOVE(g0, iDec);` - a box with EN wired and its output connected
-    // to nothing - is a bare statement in 34 networks; the reader used to refuse every one of them.
-    [InlineData("NETWORK 0 LD\n  MOVE(a, b);\nEND_NETWORK\n")]
-    //
-    // A NOT BOX IS NOT THE NEGATION MODIFIER. Both are FBD and they draw differently - a box item versus
-    // a dot on a pin - and they are told apart by the parenthesis being adjacent, which is exactly how
-    // the two emitters already write them.
-    [InlineData("NETWORK 0 FBD\n  out := NOT(a);\nEND_NETWORK\n")]   // the box
-    [InlineData("NETWORK 0 FBD\n  out := NOT a;\nEND_NETWORK\n")]   // the modifier
-    //
-    // A FAN-OUT WIRE USED ONCE IS STILL A WIRE - the vendor holds a `BoxTreeDemux`, a branch point drawn
-    // on the rung, and a use-count heuristic deleted it whenever only one consumer read it.
-    [InlineData("NETWORK 0 LD\n  LET g28 := (a AND b);\n  out := f(IN := g28);\nEND_NETWORK\n")]
-    //
-    // AN OPAQUE LEAF STAYS A LEAF. `LET i<n> := <text>` is ONE `inVariable` whose text is not a safe
-    // token; parsing it turned that single variable into a whole call box, which the next push would
-    // then have BUILT in the IDE.
-    [InlineData("NETWORK 0 FBD\n  LET i1 := DINT_TO_REAL(x);\n  t1(IN := i1);\nEND_NETWORK\n")]   // 23 networks
-    //
-    // A QUOTED TITLE, A DOTTED NAME AN ENGINEER SPACED OUT, AND A COMMENT THEY INDENTED. All three are
-    // text the engineer typed, and all three came back changed.
-    [InlineData("NETWORK 0 LD TITLE: \"Muting of alarm \"\"No bunch\"\"\"\n  out := a;\nEND_NETWORK\n")]   // a quote in the title, doubled
-    [InlineData("NETWORK 0 FBD\n  out := scSimulationDowntimes .uiMaxSimulationEvents;\nEND_NETWORK\n")]   // the space is the engineer's
-    [InlineData("NETWORK 0 FBD\n  //     indented on purpose\n  out := a;\nEND_NETWORK\n")]   // alignment is content
-    //
-    // DISABLED IS A HEADER KEYWORD, not a word in a title - a network titled with it used to switch
-    // itself off on the way back in.
-    [InlineData("NETWORK 0 LD TITLE: \"DISABLED during commissioning\"\n  out := a;\nEND_NETWORK\n")]
-    //
-    //
-    // A NETWORK'S LABEL COMES BEFORE ITS COMMENT, mirroring the IDE's own header layout (the label above the
-    // single comment box). The reader takes them in either order, so this pins the CANONICAL one — and it is
-    // canonical this way round so that writing a network the way the IDE displays it is not refused. It was
-    // the other way for a while, which made the one thing engineers hand-write the one thing the gate
-    // rejected, for no reason the model or either vendor had an opinion about.
-    [InlineData("NETWORK 0 LD LABEL: Guard TITLE: \"interlock\"\n  // holds the drive off while the guard is open\n  // second line of the same comment\n  out := (a AND b);\nEND_NETWORK\n")]
-    public void A_real_projects_shapes_round_trip_byte_for_byte(string net) => Assert.Equal(net, Round(net));
-
-    // MALFORMED INPUT lives in `NetworkTextDiagnosticsTests`, not here. Three cases sat at this spot — statement
-    // before any NETWORK, mixed operators in one parenthesised group, unbalanced parens — on the SAME three
-    // literals that file already uses, asserting only `ThrowsAny<Exception>` where it pins the refusal CODE
-    // (NETWORK_PARSE, NETWORK_BAD_EXPRESSION twice). Two tests over one input, and the weaker one would have gone
-    // on passing if the reader began refusing for the wrong reason. This file is about what ROUND-TRIPS.
-
-    /// <summary>A MODIFIER never forces a hoist. The writer used to test the RENDERED operand for inline
-    /// safety, and "NOT b" contains a space, so every negated operand at operand position was hoisted to
-    /// `LET i1 := NOT b;`. Per network-text.html#opaque an `i*` name is minted for an OPAQUE LEAF - arbitrary
-    /// inlined ST - and a modifier is grammar the parser reads inline (Cursor.Operand), so no name was due.
-    /// <para>Found by the live splice e2e: an engineer editing a rung to `(a AND NOT b)` had their push
-    /// refused by the canonical-form gate, which told them to write Volt's spelling instead.</para></summary>
-    [Theory]
-    [InlineData("out := (a AND NOT b);")]
-    [InlineData("out := (NOT a AND b);")]
-    [InlineData("out := (a AND b RISING);")]
-    [InlineData("out := (NOT a AND NOT b);")]
-    public void A_modifier_on_an_operand_does_not_force_a_hoisted_LET(string statement)
+    [MemberData(nameof(RealProjectShapes))]
+    public void A_real_projects_shapes_round_trip_byte_for_byte(string name, string text)
     {
-        var text = "NETWORK 0 FBD\n  " + statement + "\nEND_NETWORK\n";
-
-        var written = Round(text);
-
-        Assert.DoesNotContain("LET i", written);
-        Assert.Equal(text.Trim(), written.Trim());
+        _ = name;
+        Canonical(text, text.StartsWith(LdMarker, StringComparison.Ordinal) ? BodyLanguage.Ld : BodyLanguage.Fbd);
     }
 
-    /// <summary>The hoist still happens for what it is FOR: an operand whose OWN text cannot sit inline,
-    /// because it would mis-split the operator group or mis-parse as a call. Such a leaf comes from the IDE,
-    /// not from text - network text has no precedence, so `arr[j + 1]` does not parse as a source - so the
-    /// model is built directly here rather than read.</summary>
-    [Fact]
-    public void An_operand_whose_own_text_is_unsafe_is_still_hoisted()
-    {
-        var opaque = new Leaf(new Operand("arr[j + 1]"), Flags.None);
-        var body = new NetworkBody(BodyLanguage.Fbd, new[]
-        {
-            new Network(0, null, null, null, false, new Node[]
-            {
-                new Assign(
-                    new Box("AND", null, CallKind.Operator,
-                            new[] { new Input(null, new Leaf(new Operand("a"), Flags.None), Flags.None),
-                                    new Input(null, opaque, Flags.None) },
-                            Array.Empty<Output>(), null, null, Flags.None),
-                    new[] { new Operand("out") },
-                    Flags.None),
-            }),
-        });
-
-        var written = NetworkTextWriter.Write(body);
-
-        Assert.Contains("LET i1 := arr[j + 1];", written);
-        Assert.Contains("out := (a AND i1);", written);
-    }
-
-    /// <summary>FAN-OUT ROUND-TRIPS. One wire feeding two consumers is the vendor's `BoxTreeDemux`, and the
-    /// format spells it `LET g&lt;VarId&gt; := producer;` with every consumer naming it (network-text.html#let).
-    ///
-    /// <para>THE BUG this pins (audit, 2026-08-29): the writer had no `Demux` arm and fell to
-    /// `default: return ""`, so a branch off a gate output PULLED as `out := ( AND b);` — the wire silently
-    /// gone, `volt status` clean, and the file then unparseable so it could never be pushed back. 573 of these
-    /// in the one real ladder project surveyed. No test caught it because every test round-tripped
-    /// text -> model -> text and the reader never built a Demux; this one builds the model DIRECTLY, which is
-    /// the shape the live IDE hands over.</para></summary>
-    [Fact]
-    public void A_fan_out_wire_renders_as_a_named_LET_and_its_references_name_it()
-    {
-        var wire = new Demux(7, new Box("AND", null, CallKind.Operator,
-                                        new[] { new Input(null, new Leaf(new Operand("a"), Flags.None), Flags.None),
-                                                new Input(null, new Leaf(new Operand("b"), Flags.None), Flags.None) },
-                                        Array.Empty<Output>(), null, null, Flags.None));
-
-        var body = new NetworkBody(BodyLanguage.Fbd, new[]
-        {
-            new Network(0, null, null, null, false, new Node[]
-            {
-                wire,
-                new Assign(new Demux(7, null), new[] { new Operand("out1") }, Flags.None),
-                new Assign(new Demux(7, null), new[] { new Operand("out2") }, Flags.None),
-            }),
-        });
-
-        var text = NetworkTextWriter.Write(body);
-
-        Assert.Contains("LET g7 := (a AND b);", text);
-        Assert.Contains("out1 := g7;", text);
-        Assert.Contains("out2 := g7;", text);
-    }
-
-    /// <summary>AND A WIRE WHOSE NAME THE ENGINEER ALREADY USES IS RENAMED, NOT REFUSED.
-    ///
-    /// <para>`g&lt;VarId&gt;` is the vendor's id and Volt reuses it verbatim so an edit does not renumber every
-    /// wire in the rung (C9) — but when a real variable is spelled the same, the two meanings cannot both be
-    /// written and one has to move. It is the wire that moves, because the variable is the engineer's.</para>
-    ///
-    /// <para>THE BUG this pins: this used to THROW, and the throw ran on the PULL path — `Write` renders every
-    /// body Volt reads out of the IDE, so the exception did not report a limit to anyone. The item failed to
-    /// materialize and the POU was simply missing from the workspace, the same failure shape that cost six POUs
-    /// and 187 networks when a fed parallel was refused. The variable read has to survive byte for byte: if
-    /// `g5` were still emitted for the wire, the reader would take the ENGINEER's `g5` for a reference to it and
-    /// the next push would delete their variable.</para></summary>
-    [Fact]
-    public void A_wire_whose_name_a_variable_already_holds_is_renamed_not_refused()
-    {
-        // The engineer's own variable is called `g5`; the vendor's wire id is 5.
-        var body = new NetworkBody(BodyLanguage.Fbd, new[]
-        {
-            new Network(0, null, null, null, false, new Node[]
-            {
-                new Demux(5, new Box("AND", null, CallKind.Operator,
-                                     new[] { new Input(null, new Leaf(new Operand("g5"), Flags.None), Flags.None),
-                                             new Input(null, new Leaf(new Operand("b"), Flags.None), Flags.None) },
-                                     Array.Empty<Output>(), null, null, Flags.None)),
-                new Assign(new Demux(5, null), new[] { new Operand("out1") }, Flags.None),
-                new Assign(new Demux(5, null), new[] { new Operand("out2") }, Flags.None),
-            }),
-        });
-
-        var text = NetworkTextWriter.Write(body);
-
-        // It rendered at all, the variable is untouched, and the wire took a name nothing else holds.
-        Assert.Contains("(g5 AND b)", text);
-        Assert.DoesNotContain("LET g5 :=", text);
-
-        var wire = System.Text.RegularExpressions.Regex.Match(text, @"LET (g\d+) :=").Groups[1].Value;
-        Assert.NotEqual("g5", wire);
-        Assert.Contains($"out1 := {wire};", text);
-        Assert.Contains($"out2 := {wire};", text);
-
-        // AND IT READS BACK AS THE SAME GRAPH — the renamed wire is a wire again, `g5` is still a leaf.
-        var back = NetworkTextReader.Parse(text);
-        var net = Assert.Single(back.Networks);
-        var def = Assert.IsType<Demux>(net.Trees[0]);
-        var and = Assert.IsType<Box>(def.Input);
-        Assert.Equal("g5", Assert.IsType<Leaf>(and.Inputs[0].Value).Operand.Text);
-    }
-
-    /// <summary>And it comes back as a Demux, not as an assignment to an undeclared symbol — which is what the
-    /// reader used to build (a `SplitPoints` entry plus a plain `Assign` to the name), landing a real assignment
-    /// to `g7` in the project and leaving the POU uncompilable. The two halves of the model now agree.</summary>
-    [Fact]
-    public void A_named_fan_out_wire_reads_back_as_a_Demux_carrying_its_VarId()
-    {
-        var read = NetworkTextReader.Parse(
-            "NETWORK 0 FBD\n  LET g7 := (a AND b);\n  out1 := g7;\n  out2 := g7;\nEND_NETWORK\n");
-
-        var trees = read.Networks[0].Trees;
-        var def = Assert.IsType<Demux>(trees[0]);
-        Assert.Equal(7, def.VarId);
-        Assert.NotNull(def.Input);
-
-        foreach (var t in trees.Skip(1))
-        {
-            var use = Assert.IsType<Demux>(Assert.IsType<Assign>(t).Value);
-            Assert.Equal(7, use.VarId);
-            Assert.Null(use.Input);      // a REFERENCE carries no producer
-        }
-    }
-
-    /// <summary>And the whole thing is a fixed point: what the writer emits, the reader reads back, and the
-    /// writer emits identically. That is what makes pull -> push safe.</summary>
-    [Fact]
-    public void Fan_out_is_a_fixed_point_through_the_text()
-    {
-        var text = "NETWORK 0 FBD\n  LET g7 := (a AND b);\n  out1 := g7;\n  out2 := g7;\nEND_NETWORK\n";
-        Assert.Equal(text.Trim(), Round(text).Trim());
-    }
-
-    /// <summary>A RUNG WITH NOTHING ON IT round-trips — `coil := ;`.
-    ///
-    /// <para>Measured in a user's ladder: a SET coil whose <c>BoxTreeAssign.RValue</c> is a
-    /// <c>BoxTreeTerminator</c> with no input — a coil the engineer placed on a rung nothing drives. The writer
-    /// renders a bare terminator as the empty string, so it always EMITTED this text; the reader refused it with
-    /// "expected an operand", so the POU could be pulled and never pushed back. It reads back as the TERMINATOR
-    /// the vendor holds, not as a null: a null would make the in-place archive writer refuse the RValue as
-    /// removed and lose the rung.</para></summary>
+    /// <summary>A RUNG WITH NOTHING ON IT reads back as the TERMINATOR the vendor holds, not as a null: a null would
+    /// make the in-place archive writer refuse the RValue as removed and lose the rung (census 1.2: the empty
+    /// terminator is the one "unconnected").</summary>
     [Fact]
     public void An_empty_right_hand_side_is_a_rung_with_nothing_on_it()
     {
-        var text = "NETWORK 0 LD\n  coil := ;\nEND_NETWORK\n";
+        var text = Ld("coil := ;");
 
-        var model = NetworkTextGate.Validate(text);
+        var r = NetworkTextGate.Validate(text, BodyLanguage.Ld, Scope);
 
-        var assign = Assert.IsType<Assign>(model.Networks.Single().Trees.Single());
+        Assert.True(r.Ok);
+        var assign = Assert.IsType<Assign>(r.Body!.Networks.Single().Trees.Single());
         Assert.Equal(new[] { "coil" }, assign.Targets.Select(t => t.Text));
         Assert.IsType<Terminator>(assign.Value);
-
-        // …and it survives being written back out, which is the half that was broken.
-        Assert.Equal(text.TrimEnd(), NetworkTextWriter.Write(model).TrimEnd());
-    }
-}
-
-
-/// <summary>
-/// A LADDER PARALLEL'S FEEDING RUNG — the half that was rendered as nothing.
-///
-/// <para><c>Parallel.Input</c> is "the rung feeding the branch" and <c>Branches</c> are the parallel paths, so
-/// the logic is <c>Input AND (b1 OR b2)</c>. The writer rendered the branches ALONE and left the feeding element
-/// out of the committed file — not a drawing detail but a change to what the program computes, and silent,
-/// because the text it produced was a fixed point that the canonical gate accepted.</para>
-///
-/// <para>Measured on a real project: six POUs pulled with whole sub-expressions missing, including
-/// <c>(((g2 AND stDecendTray) * ioActNumberOfRows * iRowHeight) + tInt + iInitialDescentValue)</c> feeding a
-/// single branch. Both readers populate <c>Input</c>; this render arm was the one place it went missing, which
-/// is why no round-trip test could see it — there is no reader arm that builds a <c>Parallel</c> at all, so the
-/// text reparses to boxes and re-emits identically either way.</para>
-/// </summary>
-public class ParallelRenderTests
-{
-    private static string Render(Node tree) =>
-        NetworkTextWriter.Write(new NetworkBody(BodyLanguage.Ld, new[]
-        {
-            new Network(0, null, null, null, false, new[] { tree }),
-        }));
-
-    private static Node Leaf(string name) => new Leaf(new Operand(name), Flags.None);
-
-    /// <summary>THE REGRESSION: the feeding rung is in SERIES with the branches, and must appear.</summary>
-    [Fact]
-    public void A_fed_parallel_renders_its_feeding_rung()
-    {
-        var text = Render(new Assign(
-            new Volt.Engine.Format.Network.Parallel(Leaf("c"), new[] { Leaf("a"), Leaf("b") }, ParallelMode.BoxShortCircuit),
-            new[] { new Operand("out") }, Flags.None));
-
-        Assert.Contains("out := (c AND (a OR b));", text);
-    }
-
-    /// <summary>An UNFED parallel is still a plain OR — the fix must not invent a series that is not there.</summary>
-    [Fact]
-    public void An_unfed_parallel_is_still_a_plain_or()
-    {
-        var text = Render(new Assign(
-            new Volt.Engine.Format.Network.Parallel(null, new[] { Leaf("a"), Leaf("b") }, ParallelMode.BoxShortCircuit),
-            new[] { new Operand("out") }, Flags.None));
-
-        Assert.Contains("out := (a OR b);", text);
-    }
-
-    /// <summary>A MINTED WIRE MUST NOT CAPTURE A VARIABLE THE ENGINEER DECLARED.
-    ///
-    /// <para>The reservation set collected FB INSTANCE names only — no leaf, no assignment target — so a network
-    /// needing one minted wire, beside an ordinary variable an engineer had called `g1`, emitted
-    /// `LET g1 := …;` and then `outC := (g1 OR c);` meaning Volt's wire. Re-emitting reproduces that text
-    /// byte-for-byte, so the canonical gate passes; the push deletes their inVariable and changes what `outC`
-    /// computes.</para></summary>
-    [Fact]
-    public void A_minted_wire_does_not_capture_a_declared_variable()
-    {
-        var text = NetworkTextWriter.Write(new NetworkBody(BodyLanguage.Ld, new[]
-        {
-            new Network(0, null, null, null, false, new Node[]
-            {
-                // two targets on one value — this is what forces a `g` to be minted
-                new Assign(Leaf("a"), new[] { new Operand("out1"), new Operand("out2") }, Flags.None),
-                // …beside a real variable that is already spelled like one
-                new Assign(Leaf("g1"), new[] { new Operand("outC") }, Flags.None),
-            }),
-        }));
-
-        Assert.Contains("outC := g1;", text);                      // the engineer's variable, untouched
-        Assert.DoesNotContain("LET g1 :=", text);                  // and the mint went elsewhere
     }
 }
