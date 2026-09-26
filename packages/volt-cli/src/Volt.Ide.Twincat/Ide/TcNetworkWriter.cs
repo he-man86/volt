@@ -551,8 +551,9 @@ internal static class TcNetworkWriter
                 return changed;
             }
 
-            case Terminator t when type == "BoxTreeTerminator":
-                return changed | WriteChild(e, "Input", t.Input);
+            // The model's terminator never carries an input (task 1.10): the archive's must hold none either.
+            case Terminator when type == "BoxTreeTerminator":
+                return changed | WriteChild(e, "Input", null);
 
             // AN UNCONDITIONAL JUMP OR RETURN IS THIS ELEMENT SWAP AND NOTHING ELSE — measured 2026-09-22
             // against a body drawn by hand in a live TcXaeShell, beside the conditional form Volt created on
@@ -579,7 +580,7 @@ internal static class TcNetworkWriter
             // (an engineer deleting whatever drove a rung, leaving `?;`) would be wiped and rewritten in
             // place — discarding every id and unmodelled member under it — instead of falling to `default`
             // and letting the IDE rebuild that network. Found by review.
-            case Terminator { Input: null } when type == "BoxTreeOperand" && e.Attribute("t") != null:
+            case Terminator when type == "BoxTreeOperand" && e.Attribute("t") != null:
                 return SwapToTerminator(e, n.Flags);
 
             default:

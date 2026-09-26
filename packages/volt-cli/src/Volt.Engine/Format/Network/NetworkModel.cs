@@ -65,13 +65,14 @@ public sealed record Leaf(Operand Operand, Flags Flags) : Node(Flags);
 /// <c>InsertOutputItem</c> / <c>RemoveOutputItem</c>, enumerated through <c>List</c>): one value can be
 /// assigned to several l-values in a single network.
 /// <para>This record also carries control flow: with <c>Flags.Jump</c> the target is the destination label and
-/// the value is the condition, and a return written by Volt may have no target. <see cref="Value"/> is typed
-/// nullable, but no vendor item holds a null value and network text v2 refuses one by name. An UNCONDITIONAL jump or return is drawn on a rung nothing drives, so its value is the empty
-/// <see cref="Terminator"/> — never null: an item holding nothing is what neither IDE would save (DIALECT C11), and
-/// census 1.2 found the empty Terminator the one representation of "unconnected" (RValue null 0, Terminator 3).
+/// the value is the condition, and a return written by Volt may have no target. An UNCONDITIONAL jump or return is
+/// drawn on a rung nothing drives, so its value is the empty <see cref="Terminator"/>. <see cref="Value"/> is never
+/// null: an item holding nothing is what neither IDE would save (DIALECT C11), and census 1.2 found the empty
+/// Terminator the ONE representation of "unconnected" (RValue null 0, Terminator 3), so the readers refuse a vendor
+/// null by name (task 1.10) rather than carry a second spelling of the same fact.
 /// The Jump/Return bit rides on the target operand as well as the item (DIALECT C13); a return's target is the
 /// vendor's constant <c>???</c>.</para></summary>
-public sealed record Assign(Node? Value, IReadOnlyList<Operand> Targets, Flags Flags) : Node(Flags);
+public sealed record Assign(Node Value, IReadOnlyList<Operand> Targets, Flags Flags) : Node(Flags);
 
 /// <summary>A call or operator — <c>BoxTreeBox</c>, the <c>VisitBox</c> arm. Covers every shape the previous
 /// model spread across `Block`, its EN pin, and a separate ST-code field:
@@ -192,8 +193,11 @@ public sealed record Parallel(
 /// unmeasured one must be refused by the reader, not mapped onto these.</summary>
 public enum ParallelMode { BoxShortCircuit, Sequential }
 
-/// <summary>The end of an LD rung — <c>BoxTreeTerminator</c>.</summary>
-public sealed record Terminator(Node? Input, Flags Flags) : Node(Flags);
+/// <summary>The end of an LD rung, and the model's one spelling of "nothing drives this" — <c>BoxTreeTerminator</c>
+/// with no input. The vendor type HAS an <c>Input</c>, and it is not carried: census 1.4 found none holding one across
+/// five real projects, so the readers refuse such a terminator by name (the marker) instead of the model keeping a
+/// field no measured body fills and no spelling exists for (task 1.10).</summary>
+public sealed record Terminator(Flags Flags) : Node(Flags);
 
 /// <summary>
 /// <b>Fan-out.</b> A wire feeding more than one consumer — the vendor's <c>BoxTreeDemux</c>, keyed by

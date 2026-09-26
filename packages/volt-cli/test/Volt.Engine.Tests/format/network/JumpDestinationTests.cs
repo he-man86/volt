@@ -39,7 +39,7 @@ public class JumpDestinationTests
             {
                 // An UNCONNECTED terminator is how the model spells "nothing drives this", which is what makes
                 // the jump unconditional — the shape the archive actually holds.
-                new Assign(new Terminator(null, Flags.None), targets, new Flags(Jump: true)),
+                new Assign(new Terminator(Flags.None), targets, new Flags(Jump: true)),
             }),
         });
 

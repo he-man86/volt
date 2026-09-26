@@ -17,7 +17,7 @@ internal static class NextModels
 {
     public static Leaf L(string text, Flags? f = null) => new(new Operand(text), f ?? Flags.None);
     public static Operand T(string text, Flags? f = null) => new(text, IsLValue: true, Flags: f);
-    public static Terminator Empty => new(null, Flags.None);
+    public static Terminator Empty => new(Flags.None);
     public static Input In(Node v, string? formal = null) => new(formal, v, Flags.None);
     public static Demux Ref(int id, Flags? f = null) => new(id, null, f ?? Flags.None);
     public static Demux Def(int id, Node v, string? type = null) => new(id, v, Flags.None, type);

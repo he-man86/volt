@@ -84,8 +84,8 @@ public static class NetworkModelEquality
                 return NodeDiff(at + ".Input", x.Input, y.Input)
                     ?? Lists(at + ".Branches", x.Branches, y.Branches, NodeDiff);
 
-            case (Terminator x, Terminator y):
-                return NodeDiff(at + ".Input", x.Input, y.Input);
+            case (Terminator, Terminator):
+                return null;
 
             case (Demux x, Demux y):
                 if (x.VarId != y.VarId) return Diff(at + ".VarId", x.VarId, y.VarId);

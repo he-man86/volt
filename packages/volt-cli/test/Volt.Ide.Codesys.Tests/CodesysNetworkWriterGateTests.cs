@@ -151,7 +151,7 @@ public class CodesysNetworkWriterGateTests
     {
         Leaf l => l.Operand.Text == from ? l with { Operand = l.Operand with { Text = to } } : l,
         Box b => b with { Inputs = b.Inputs.Select(i => i with { Value = Rename(i.Value, from, to) }).ToList() },
-        Assign a => a with { Value = a.Value == null ? null : Rename(a.Value, from, to) },
+        Assign a => a with { Value = Rename(a.Value, from, to) },
         _ => n,
     };
 }

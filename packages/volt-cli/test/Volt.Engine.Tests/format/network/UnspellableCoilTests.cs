@@ -115,7 +115,7 @@ public class UnspellableCoilTests
         var coil = new Operand("out", IsLValue: true, Flags: Flags.None);
         var targets = jumpFirst ? new[] { jump, coil } : new[] { coil, jump };
 
-        var body = Body(new Assign(new Terminator(null, Flags.None), targets, new Flags(Jump: true)));
+        var body = Body(new Assign(new Terminator(Flags.None), targets, new Flags(Jump: true)));
 
         Assert.Equal("LD (a rung driving a coil and a jump together)", NetworkTextWriter.Unspellable(body));
     }
@@ -126,7 +126,7 @@ public class UnspellableCoilTests
     [Fact]
     public void A_rung_driving_TWO_jumps_is_named_too()
     {
-        var body = Body(new Assign(new Terminator(null, Flags.None), new[]
+        var body = Body(new Assign(new Terminator(Flags.None), new[]
         {
             new Operand("Onwards", IsLValue: true, Flags: new Flags(Jump: true)),
             new Operand("Elsewhere", IsLValue: true, Flags: new Flags(Jump: true)),
@@ -144,7 +144,7 @@ public class UnspellableCoilTests
     [Fact]
     public void A_lone_jump_a_lone_return_and_a_plain_fan_out_are_not_refused()
     {
-        var lead = new Terminator(null, Flags.None);
+        var lead = new Terminator(Flags.None);
 
         Assert.Null(NetworkTextWriter.Unspellable(Body(new Assign(lead,
             new[] { new Operand("Onwards", IsLValue: true, Flags: new Flags(Jump: true)) }, new Flags(Jump: true)))));

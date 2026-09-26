@@ -130,13 +130,24 @@ internal static class Nwl
 
     internal sealed class BoxTreeAssign
     {
-        public object? RValue { get; set; }
+        /// <summary>An EMPTY terminator by default — the vendor's one spelling of a coil nothing drives (census 1.2:
+        /// Terminator 3, a null RValue 0). This defaulted to null, a shape no project holds, and a dozen tests about
+        /// titles and comments stood on it without meaning to; the reader now refuses a null by name (task 1.10).</summary>
+        public object? RValue { get; set; } = new BoxTreeTerminator();
         public OutputItemList Outputs { get; } = new OutputItemList();
 
         /// <summary>PRESENT, like the operand's. The vendor's own serialization carries it — a jump built by
         /// TwinCAT's importer holds `&lt;o n="Flags" t="Flags"&gt;` on the `BoxTreeAssign` as well as on the
         /// output operand (DIALECT C13) — and `ApplyFlags` throws when the member is missing, so a null here
         /// would make a jump untestable for a reason the vendor does not have.</summary>
+        public object? Flags { get; set; } = new Flags();
+    }
+
+    /// <summary>The end of an LD rung. <see cref="Input"/> is settable so a test can describe the shape census
+    /// 1.4 found nowhere — a terminator that carries an input — and pin that the reader refuses it by name.</summary>
+    internal sealed class BoxTreeTerminator
+    {
+        public object? Input { get; set; }
         public object? Flags { get; set; } = new Flags();
     }
 

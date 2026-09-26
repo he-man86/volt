@@ -180,11 +180,7 @@ internal static class TcPlcOpenWriter
             // importer builds exactly the right thing and `t1(IN := , PT := pt);` round-trips BYTE-IDENTICAL. An
             // empty operand is a shape the vendor's own archives already carry, so this is its spelling rather
             // than an invention.
-            //
-            // Only a BARE terminator. One carrying an Input is a rung end feeding a value — a different shape,
-            // with no measurement behind it — so it keeps a refusal of its own rather than inheriting this.
-            Terminator { Input: null } => EmitEmpty(),
-            Terminator => throw Refuse("contains a ladder rung terminator that carries a value"),
+            Terminator => EmitEmpty(),
             _ => throw Refuse($"contains a {node.GetType().Name}"),
         };
 
@@ -396,7 +392,7 @@ internal static class TcPlcOpenWriter
         /// `test/e2e/graphical/labels.test.ts` fails rather than a comment going stale.</para></summary>
         /// <summary>Nothing drives this item — no value at all, or the unconnected terminator the reader
         /// builds for a bare `JMP name;` / `RETURN;`.</summary>
-        private static bool Unconditional(Node? value) => value is null or Terminator { Input: null };
+        private static bool Unconditional(Node? value) => value is null or Terminator;
 
         private long? EmitReturn(Assign ret)
         {
@@ -478,7 +474,6 @@ internal static class TcPlcOpenWriter
                         break;
                     case Demux d: Count(d.Input); break;
                     case Assign a: Count(a.Value); break;
-                    case Terminator t: Count(t.Input); break;
                     case Parallel p:
                         Count(p.Input);
                         foreach (var b in p.Branches) Count(b);

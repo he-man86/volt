@@ -284,9 +284,6 @@ internal static class NextSpelling
                     Walk(p.Input, true);
                     foreach (var br in p.Branches) Walk(br, true);
                     break;
-                case Terminator t:
-                    Walk(t.Input, false);
-                    break;
             }
         }
         foreach (var t in network) Walk(t, false);   // a top-level value's output goes nowhere

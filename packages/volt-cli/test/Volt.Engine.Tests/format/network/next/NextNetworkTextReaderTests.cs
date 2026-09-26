@@ -459,16 +459,13 @@ public class NextNetworkTextReaderTests
         Assert.NotNull(NetworkModelEquality.FirstDifference(NextNetworkTextFacts.Carried(one), NextNetworkTextFacts.Carried(zero)));
     }
 
-    /// <summary>The oracle's ≅ holds no equivalence the spec does not state: a snippet's trailing newline and an
-    /// unconditional jump's null value (census 1.2: never the vendor's) are differences.</summary>
+    /// <summary>The oracle's ≅ holds no equivalence the spec does not state: a snippet's trailing newline is a
+    /// difference. (An unconditional jump's null value was the other; the model has none since task 1.10.)</summary>
     [Fact]
-    public void The_oracle_sees_a_trailing_newline_and_a_null_jump_value()
+    public void The_oracle_sees_a_trailing_newline()
     {
         Assert.NotNull(NetworkModelEquality.FirstDifference(
             NextNetworkTextFacts.Carried(Body(Exec("x := 1;\n"))), NextNetworkTextFacts.Carried(Body(Exec("x := 1;")))));
-        Assert.NotNull(NetworkModelEquality.FirstDifference(
-            NextNetworkTextFacts.Carried(Body(new Assign(null, new[] { Coil("Done", JumpBit) }, JumpBit))),
-            NextNetworkTextFacts.Carried(Body(new Assign(Empty, new[] { Coil("Done", JumpBit) }, JumpBit)))));
     }
 
     /// <summary>Census 1.12: the oracle's scope holds only what a declaration can name. <c>SUPER^</c> is no

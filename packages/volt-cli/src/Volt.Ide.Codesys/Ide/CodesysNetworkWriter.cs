@@ -174,7 +174,7 @@ namespace Volt.Ide.Codesys
                         // suit the old `out := v SET;` spelling, applied as ONE record to every target — so a
                         // fan-out whose coils disagreed got the first coil's storage on all of them.
                         var asg = NwlInterop.New(_net, "BoxTreeAssign");
-                        if (a.Value is { } v) NwlInterop.Set(asg, "RValue", Node(v));
+                        NwlInterop.Set(asg, "RValue", Node(a.Value));
                         // A JUMP RIDES ON THE TARGET OPERAND, exactly like coil storage — and putting it on
                         // the ITEM instead made every jump a COMPILE ERROR.
                         //
@@ -412,11 +412,7 @@ namespace Volt.Ide.Codesys
                     }
 
                     case Terminator t:
-                    {
-                        var term = NwlInterop.New(_net, "BoxTreeTerminator");
-                        if (t.Input is { } ti) NwlInterop.Call(term, "SetInputTree", 0, Node(ti));
-                        return Flagged(term, t.Flags);
-                    }
+                        return Flagged(NwlInterop.New(_net, "BoxTreeTerminator"), t.Flags);
 
                     case Parallel p:
                     {
@@ -600,7 +596,7 @@ namespace Volt.Ide.Codesys
 
             case Assign a: ValidateNode(a.Value, declaration, declarationOf); return;
             case Demux d: ValidateNode(d.Input, declaration, declarationOf); return;
-            case Terminator t: ValidateNode(t.Input, declaration, declarationOf); return;
+            case Terminator: return;
             case Parallel p2:
                 ValidateNode(p2.Input, declaration, declarationOf);
                 foreach (var br in p2.Branches) ValidateNode(br, declaration, declarationOf);

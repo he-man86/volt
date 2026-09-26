@@ -334,7 +334,7 @@ public class ModelRoundTripOracleTests
         // JumpDestinationTests
         foreach (var (first, second) in new[] { ("Onwards", "out"), ("out", "Onwards") })
             m[$"JumpDestination.The_rendered_jump_names_the_flagged_target/{first}-{second}"] = Body(BodyLanguage.Ld,
-                new Assign(new Terminator(null, Flags.None),
+                new Assign(new Terminator(Flags.None),
                     new[] { first, second }.Select(n => new Operand(n, IsLValue: true, Flags: n == "Onwards" ? jump : Flags.None)).ToArray(),
                     jump));
 
@@ -378,14 +378,14 @@ public class ModelRoundTripOracleTests
             var j = new Operand("Onwards", IsLValue: true, Flags: jump);
             var c = new Operand("out", IsLValue: true, Flags: Flags.None);
             m["UnspellableCoil.A_rung_driving_a_coil_AND_a_jump/" + (jumpFirst ? "jump-first" : "coil-first")] = Body(BodyLanguage.Ld,
-                new Assign(new Terminator(null, Flags.None), jumpFirst ? new[] { j, c } : new[] { c, j }, jump));
+                new Assign(new Terminator(Flags.None), jumpFirst ? new[] { j, c } : new[] { c, j }, jump));
         }
-        m["UnspellableCoil.A_rung_driving_TWO_jumps"] = Body(BodyLanguage.Ld, new Assign(new Terminator(null, Flags.None),
+        m["UnspellableCoil.A_rung_driving_TWO_jumps"] = Body(BodyLanguage.Ld, new Assign(new Terminator(Flags.None),
             new[] { new Operand("Onwards", IsLValue: true, Flags: jump), new Operand("Elsewhere", IsLValue: true, Flags: jump) }, jump));
         m["UnspellableCoil.A_lone_jump"] = Body(BodyLanguage.Ld,
-            new Assign(new Terminator(null, Flags.None), new[] { new Operand("Onwards", IsLValue: true, Flags: jump) }, jump));
+            new Assign(new Terminator(Flags.None), new[] { new Operand("Onwards", IsLValue: true, Flags: jump) }, jump));
         m["UnspellableCoil.A_lone_return"] = Body(BodyLanguage.Ld,
-            new Assign(new Terminator(null, Flags.None), new[] { new Operand("???", IsLValue: true, Flags: ret) }, ret));
+            new Assign(new Terminator(Flags.None), new[] { new Operand("???", IsLValue: true, Flags: ret) }, ret));
         m["UnspellableCoil.A_plain_fan_out"] = Body(BodyLanguage.Ld, new Assign(L("a"),
             new[] { new Operand("out1", IsLValue: true, Flags: Flags.None), new Operand("out2", IsLValue: true, Flags: Flags.None) }, Flags.None));
         return m;

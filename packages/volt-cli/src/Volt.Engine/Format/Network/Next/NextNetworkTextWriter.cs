@@ -202,11 +202,6 @@ public static class NextNetworkTextWriter
                         // Assign with an empty target list would write the same text and read back as its value.
                         throw Unrepresentable("an assign with no target",
                             "an Assign item drives no target, and `value;` spells the value item itself.");
-                    if (a.Value is null)
-                        // Census 1.2: the vendor spells "unconnected" Terminator(null) (3) and never a null RValue
-                        // (0). A null here is not a vendor shape, and `coil := ;` already belongs to the other.
-                        throw Unrepresentable("an assign with a null value",
-                            "an Assign item has a null value; the vendor's unconnected value is an empty Terminator.");
 
                     // One target per line, the value on the last: `x :=` / `y S= v;` — ONE item.
                     var lines = new List<string>();
@@ -234,7 +229,7 @@ public static class NextNetworkTextWriter
                 }
 
                 // The empty item: a `;` that closes no statement.
-                case Terminator { Input: null } t:
+                case Terminator t:
                     if (!t.Flags.IsNone)
                         throw Unrepresentable("a flag on an empty item",
                             $"an unconnected top-level terminator in network {_net.Order} carries {Describe(t.Flags)}.");
@@ -264,11 +259,6 @@ public static class NextNetworkTextWriter
                     $"one Assign in network {_net.Order} drives {a.Targets.Count} targets, one of them control flow.");
 
             RefuseItemFlags(a.Flags with { Jump = false, Return = false }, "a jump or return item");
-            if (a.Value is null)
-                // Census 1.2 and DIALECT C11: the vendor spells "nothing drives it" as the empty Terminator, and an
-                // item holding nothing is what neither IDE would save — not a second spelling of unconditional.
-                throw Unrepresentable("an assign with a null value",
-                    $"a jump or return in network {_net.Order} has a null value; the vendor's unconnected value is an empty Terminator.");
             // The bit lives on the target as well as the item (DIALECT C13); either names the kind.
             var target = a.Targets.Count == 1 ? a.Targets[0] : null;
             if (target?.Flags is { } tf && !(tf with { Jump = false, Return = false }).IsNone)
@@ -303,7 +293,7 @@ public static class NextNetworkTextWriter
             }
 
             // Unconditional when nothing drives it: the empty Terminator (DIALECT C11).
-            if (a.Value is Terminator { Input: null, Flags.IsNone: true }) return action;
+            if (a.Value is Terminator { Flags.IsNone: true }) return action;
             return "IF " + Value(a.Value) + " THEN " + action + "; END_IF";
         }
 
@@ -367,16 +357,11 @@ public static class NextNetworkTextWriter
                     return Modified("PARALLEL(" + string.Join(", ", pins) + ")", p.Flags, "a Parallel");
                 }
 
-                case Terminator { Input: null } t:
+                case Terminator t:
                     if (!t.Flags.IsNone)
                         throw Unrepresentable("a flag on an empty slot",
                             $"an unconnected slot in network {_net.Order} carries {Describe(t.Flags)}, and an empty slot has no text to modify.");
                     return "";   // the empty slot: a position, never a token
-
-                case Terminator:
-                    // Census 1.4: 0 occurrences — refused by name, like Mux.
-                    throw Unrepresentable("a terminator with an input",
-                        $"a Terminator in network {_net.Order} carries an input.");
 
                 case Assign:
                     throw Unrepresentable("an assign below the top level",
@@ -740,7 +725,6 @@ public static class NextNetworkTextWriter
                     Collect(p.Input, names, ids);
                     foreach (var br in p.Branches) Collect(br, names, ids);
                     break;
-                case Terminator t: Collect(t.Input, names, ids); break;
             }
         }
 

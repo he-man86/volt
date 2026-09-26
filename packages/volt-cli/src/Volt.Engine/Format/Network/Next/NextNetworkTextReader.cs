@@ -370,7 +370,7 @@ public static class NextNetworkTextReader
             var t = Peek();
 
             // The empty statement IS the empty item — a `;` that closes no statement.
-            if (t.IsSym(";")) { Next(); return Mark(new Terminator(null, Flags.None), t.Offset); }
+            if (t.IsSym(";")) { Next(); return Mark(new Terminator(Flags.None), t.Offset); }
 
             if (t.Is("LET")) throw Err(t, ConflictCodes.NetworkParse, V1Refusal("`LET` statements"));
 
@@ -379,7 +379,7 @@ public static class NextNetworkTextReader
                 Next();
                 var condTok = Peek();
                 var cond = Resolve(ParseValue(consumed: true), consumed: true);
-                if (cond is Terminator { Input: null })
+                if (cond is Terminator)
                     throw Err(condTok, ConflictCodes.NetworkBadExpression, "IF with no condition: an unconditional jump is `JMP l;`.");
                 ExpectWord("THEN", "IF c THEN JMP l; END_IF;");
                 var (target, flags) = ParseJump();
@@ -394,7 +394,7 @@ public static class NextNetworkTextReader
                 var (target, flags) = ParseJump();
                 ExpectSym(";", "every statement ends with `;`");
                 // Unconditional: the vendor's "nothing drives it" is an empty Terminator (census 1.2, DIALECT C11).
-                return Mark(new Assign(new Terminator(null, Flags.None), new[] { target }, flags), t.Offset);
+                return Mark(new Assign(new Terminator(Flags.None), new[] { target }, flags), t.Offset);
             }
 
             var first = ParseValue(consumed: false, defer: true);
@@ -929,7 +929,7 @@ public static class NextNetworkTextReader
         private Node Resolve(PVal v, bool consumed)
         {
             if (v.Node is not null) return v.Node;
-            if (v.Empty) return Mark(new Terminator(null, Flags.None), v.Start.Offset);
+            if (v.Empty) return Mark(new Terminator(Flags.None), v.Start.Offset);
             var t = v.Bare!.Value;
             if (t.Kind == TokKind.Word && _wires.TryGetValue(t.Text, out var w))
             {

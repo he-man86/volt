@@ -132,7 +132,6 @@ public static class NetworkTextWriter
                 foreach (var br in p2.Branches)
                     if (UnspellableIn(br) is { } bre) return bre;
                 return null;
-            case Terminator t2: return UnspellableIn(t2.Input);
             default: return null;
         }
     }
@@ -253,7 +252,6 @@ public static class NetworkTextWriter
                     Line(result is { } r ? Lhs(r) + " := " + t + ";" : t + ";");
                     break;
                 }
-                case Terminator t when t.Input is not null: Statement(t.Input); break;
                 // NOT a bare `break`. An unconnected terminator standing as its own statement is an item the
                 // IDE is holding, and dropping it emitted no line at all — the item gone from the workspace
                 // with nothing in the file to show it had ever been there.
@@ -283,7 +281,7 @@ public static class NetworkTextWriter
 
             // `?`, not "": a coil with nothing driving it says so, instead of rendering as `x := ;`. One
             // spelling for "connected to nothing", everywhere it can occur.
-            var value = a.Value is null ? Unconnected : ApplyMods(Render(a.Value, nested: false), a.Flags);
+            var value = ApplyMods(Render(a.Value, nested: false), a.Flags);
 
             if (a.Targets.Count == 0) { Flush(); Line(value + ";"); return; }
             if (a.Targets.Count == 1) { Flush(); Line(Lhs(a.Targets[0]) + " " + AssignOp(a.Targets[0]) + " " + value + ";"); return; }
@@ -340,7 +338,6 @@ public static class NetworkTextWriter
                     CollectWireIds(p2.Input, into);
                     foreach (var br in p2.Branches) CollectWireIds(br, into);
                     break;
-                case Terminator t: CollectWireIds(t.Input, into); break;
             }
         }
 
@@ -435,7 +432,7 @@ public static class NetworkTextWriter
             // UNCONDITIONAL when nothing drives it — a null value, or the unconnected terminator the
             // reader builds for exactly this (a rung end nothing drives). Rendering the terminator as a
             // condition instead would emit `IF  THEN RETURN; END_IF`, with an empty condition.
-            if (a.Value is null or Terminator { Input: null }) { Flush(); Line(action + ";"); return; }
+            if (a.Value is Terminator) { Flush(); Line(action + ";"); return; }
             var cond = ApplyMods(Render(a.Value, nested: false), a.Flags with { Jump = false, Return = false });
             Flush();
             Line("IF " + cond + " THEN " + action + "; END_IF");
@@ -556,8 +553,8 @@ public static class NetworkTextWriter
                 // operator symbol each mark a place an operand belongs, and finding the next one of those
                 // instead says there is no operand there. The reader reads it deliberately (`IsEmptyOperand`),
                 // which is the opposite of the silent "" this used to return.
-                case Terminator t: return t.Input is null ? Unconnected : Render(t.Input, nested);
-                case Assign a: return a.Value is null ? Unconnected : Render(a.Value, nested);
+                case Terminator: return Unconnected;
+                case Assign a: return Render(a.Value, nested);
 
                 // NO SILENT DEFAULT. This arm returned "" — the single line that turned a missing feature into
                 // invisible data loss. A `Demux` (the vendor's fan-out item, the 4th most common item in the one
@@ -718,7 +715,6 @@ public static class NetworkTextWriter
                     CollectNames(p2.Input, into);
                     foreach (var br in p2.Branches) CollectNames(br, into);
                     break;
-                case Terminator t: CollectNames(t.Input, into); break;
             }
         }
     }

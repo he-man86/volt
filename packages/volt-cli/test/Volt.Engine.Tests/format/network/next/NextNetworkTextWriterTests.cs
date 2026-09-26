@@ -22,7 +22,7 @@ public class NextNetworkTextWriterTests
 
     static Leaf L(string text, Flags? f = null) => new(new Operand(text), f ?? Flags.None);
     static Operand T(string text, Flags? f = null) => new(text, IsLValue: true, Flags: f);
-    static Terminator Empty => new(null, Flags.None);
+    static Terminator Empty => new(Flags.None);
     static Input In(Node v, string? formal = null) => new(formal, v, Flags.None);
     static Demux Ref(int id, Flags? f = null) => new(id, null, f ?? Flags.None);
     static Demux Def(int id, Node v) => new(id, v, Flags.None);
@@ -244,7 +244,7 @@ public class NextNetworkTextWriterTests
     [Fact]
     public void A_flag_on_an_empty_slot_goes_to_the_marker() =>
         Assert.Equal("a flag on an empty slot",
-            Refused(() => Write(Call("f", new[] { In(new Terminator(null, Neg)), In(L("a")) }))).Marker);
+            Refused(() => Write(Call("f", new[] { In(new Terminator(Neg)), In(L("a")) }))).Marker);
 
     // ── BoxTreeBox: calls, instances, ??? ───────────────────────────────────────────────────────
 
@@ -568,12 +568,9 @@ public class NextNetworkTextWriterTests
             Write(Set(new Parallel(L("f"), new Node[] { L("a"), L("b") }, Flags.None, ParallelMode.Sequential), T("out"))));
     }
 
-    // ── BoxTreeTerminator with an input ─────────────────────────────────────────────────────────
-
-    /// <summary>Census 1.4: 0 occurrences, refused by name.</summary>
-    [Fact]
-    public void A_terminator_with_an_input_goes_to_the_marker() =>
-        Assert.Equal("a terminator with an input", Refused(() => Write(new Terminator(L("a"), Flags.None))).Marker);
+    // A terminator with an input (census 1.4: 0) and an assign with a null value (census 1.2: 0) are no longer
+    // shapes of the model (task 1.10), so the writer cannot be handed one: the vendor readers refuse both by name
+    // (CodesysNetworkReaderTests / TcDrawnJumpTests).
 
     // ── reserved words ──────────────────────────────────────────────────────────────────────────
 
@@ -607,18 +604,6 @@ public class NextNetworkTextWriterTests
     public void A_coil_both_set_and_reset_goes_to_the_marker() =>
         Assert.Equal("a coil both set and reset",
             Refused(() => Write(Set(L("a"), T("x", Flags.None with { Set = true, Reset = true })))).Marker);
-
-    /// <summary>Census 1.2 and DIALECT C11: "unconnected" is the empty Terminator, never a null value — an item
-    /// holding nothing is what neither IDE would save. The control-flow arm refuses a null value as the plain
-    /// assign arm does.</summary>
-    [Fact]
-    public void A_jump_or_return_with_a_null_value_goes_to_the_marker()
-    {
-        Assert.Equal("an assign with a null value",
-            Refused(() => Write(new Assign(null, new[] { T("Done", Flags.None with { Jump = true }) }, Flags.None with { Jump = true }))).Marker);
-        Assert.Equal("an assign with a null value",
-            Refused(() => Write(new Assign(null, new[] { T("???", Flags.None with { Return = true }) }, Flags.None with { Return = true }))).Marker);
-    }
 
     /// <summary>Spec, "EN is a pin …": a consumed box connected by its main output has no suffix, and the text
     /// reads that main output as slot 0 (spec, "err reads back on slot 1"). A box whose main output is stored as

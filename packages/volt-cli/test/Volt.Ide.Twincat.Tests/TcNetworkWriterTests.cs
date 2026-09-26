@@ -349,7 +349,7 @@ public class TcNetworkWriterTests
         Box b when string.Equals(b.Type, "AND", System.StringComparison.OrdinalIgnoreCase) =>
             b with { Type = spelling, Inputs = b.Inputs.Select(i => i with { Value = Recase(i.Value, spelling) }).ToList() },
         Box b => b with { Inputs = b.Inputs.Select(i => i with { Value = Recase(i.Value, spelling) }).ToList() },
-        Assign a => a with { Value = a.Value == null ? null : Recase(a.Value, spelling) },
+        Assign a => a with { Value = Recase(a.Value, spelling) },
         _ => n,
     };
 }

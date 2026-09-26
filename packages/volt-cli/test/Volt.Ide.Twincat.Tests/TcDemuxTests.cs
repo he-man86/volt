@@ -92,15 +92,12 @@ public class TcDemuxTests
                 foreach (var i in b.Inputs) foreach (var c in Flatten(i.Value)) yield return c;
                 if (b.Enable is { } en) foreach (var c in Flatten(en)) yield return c;
                 break;
-            case Assign a when a.Value is { } v:
-                foreach (var c in Flatten(v)) yield return c;
+            case Assign a:
+                foreach (var c in Flatten(a.Value)) yield return c;
                 break;
             case Volt.Engine.Format.Network.Parallel p:
                 if (p.Input is { } pi) foreach (var c in Flatten(pi)) yield return c;
                 foreach (var br in p.Branches) foreach (var c in Flatten(br)) yield return c;
-                break;
-            case Terminator t when t.Input is { } ti:
-                foreach (var c in Flatten(ti)) yield return c;
                 break;
             case Demux d when d.Input is { } di:
                 foreach (var c in Flatten(di)) yield return c;

@@ -406,7 +406,7 @@ public class TcRoundTripTests
     private static System.Collections.Generic.IEnumerable<Box> Boxes(Node n)
     {
         if (n is Box b) { yield return b; foreach (var i in b.Inputs) foreach (var x in Boxes(i.Value)) yield return x; }
-        else if (n is Assign a && a.Value is { } v) foreach (var x in Boxes(v)) yield return x;
+        else if (n is Assign a) foreach (var x in Boxes(a.Value)) yield return x;
     }
 
     /// <summary>The same body with every named box's inputs reversed — formals and values together.</summary>
@@ -418,7 +418,7 @@ public class TcRoundTripTests
         Box b when b.Inputs.Any(i => !string.IsNullOrEmpty(i.Formal)) =>
             b with { Inputs = b.Inputs.Reverse().ToList() },
         Box b => b with { Inputs = b.Inputs.Select(i => i with { Value = SwapNode(i.Value) }).ToList() },
-        Assign a => a with { Value = a.Value == null ? null : SwapNode(a.Value) },
+        Assign a => a with { Value = SwapNode(a.Value) },
         _ => n,
     };
 

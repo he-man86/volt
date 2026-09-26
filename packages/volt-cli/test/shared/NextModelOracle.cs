@@ -108,7 +108,6 @@ internal static class NextModelOracle
             case Assign a: Ids(a.Value, into); break;
             case Box b: Ids(b.Enable, into); foreach (var p in b.Inputs) Ids(p.Value, into); break;
             case Parallel p: Ids(p.Input, into); foreach (var br in p.Branches) Ids(br, into); break;
-            case Terminator t: Ids(t.Input, into); break;
         }
     }
 
@@ -117,14 +116,13 @@ internal static class NextModelOracle
     static Node Renumber(Node n, Dictionary<int, int> map) => n switch
     {
         Demux d => d with { VarId = map.TryGetValue(d.VarId, out var v) ? v : d.VarId, Input = RenumberOrNull(d.Input, map) },
-        Assign a => a with { Value = RenumberOrNull(a.Value, map) },
+        Assign a => a with { Value = Renumber(a.Value, map) },
         Box b => b with
         {
             Enable = RenumberOrNull(b.Enable, map),
             Inputs = b.Inputs.Select(p => p with { Value = Renumber(p.Value, map) }).ToList(),
         },
         Parallel p => p with { Input = RenumberOrNull(p.Input, map), Branches = p.Branches.Select(br => Renumber(br, map)).ToList() },
-        Terminator t => t with { Input = RenumberOrNull(t.Input, map) },
         _ => n,
     };
 
@@ -155,7 +153,6 @@ internal static class NextModelOracle
                 case Assign a: foreach (var t in a.Targets) Words(t.Text); Walk(a.Value); break;
                 case Demux d: Walk(d.Input); break;
                 case Parallel p: Walk(p.Input); foreach (var br in p.Branches) Walk(br); break;
-                case Terminator t: Walk(t.Input); break;
             }
         }
         foreach (var net in body.Networks) foreach (var t in net.Trees) Walk(t);
@@ -181,7 +178,6 @@ internal static class NextModelOracle
                 case Assign a: Walk(a.Value); break;
                 case Demux d: Walk(d.Input); break;
                 case Parallel p: Walk(p.Input); foreach (var br in p.Branches) Walk(br); break;
-                case Terminator t: Walk(t.Input); break;
             }
         }
         foreach (var net in body.Networks) foreach (var t in net.Trees) Walk(t);

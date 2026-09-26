@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Xml.Linq;
 using Volt.Engine.Format.Network;
 using Xunit;
@@ -42,6 +43,36 @@ public class TcDrawnJumpTests
         Assert.Equal("BoxTreeTerminator", (string?)rvalue.Attribute("t"));
         Assert.Contains(rvalue.Elements("n"), n => (string?)n.Attribute("n") == "Input");   // nothing drives it
         Assert.Contains("\"owrods\"", assign.ToString());
+    }
+
+    /// <summary>CENSUS 1.4 AND 1.10, the parity twin of CODESYS's reader test: a terminator carrying an input occurs in
+    /// no measured project, so the model has no field for one and the reader refuses it by name. The drawn jump's
+    /// terminator is given the operand the conditional jump holds, the one structural difference that shape needs.</summary>
+    [Fact]
+    public void A_terminator_with_an_input_is_refused_by_name()
+    {
+        var impl = Impl();
+        var rvalues = impl.Descendants("o").Where(o => (string?)o.Attribute("n") == "RValue").ToList();
+        var terminator = rvalues.First(o => (string?)o.Attribute("t") == "BoxTreeTerminator");
+        var operand = new XElement(rvalues.First(o => (string?)o.Attribute("t") == "BoxTreeOperand"));
+        operand.SetAttributeValue("n", "Input");
+        terminator.Elements("n").Single(n => (string?)n.Attribute("n") == "Input").ReplaceWith(operand);
+
+        var ex = Assert.Throws<Volt.Engine.Format.Body.UnrepresentableBodyException>(() => TcNetworkReader.Read(impl, BodyLanguage.Ld));
+        Assert.Equal("a terminator with an input", ex.Marker);
+    }
+
+    /// <summary>CENSUS 1.2 AND 1.10: "unconnected" is the empty terminator, never a null value, so an assignment
+    /// the archive gives no RValue is refused by name.</summary>
+    [Fact]
+    public void An_assignment_holding_no_value_is_refused_by_name()
+    {
+        var impl = Impl();
+        impl.Descendants("o").First(o => (string?)o.Attribute("n") == "RValue")
+            .ReplaceWith(new XElement("n", new XAttribute("n", "RValue")));
+
+        var ex = Assert.Throws<Volt.Engine.Format.Body.UnrepresentableBodyException>(() => TcNetworkReader.Read(impl, BodyLanguage.Ld));
+        Assert.Equal("an assignment with no value", ex.Marker);
     }
 
     /// <summary>And Volt reads the jump — the half that already worked.</summary>

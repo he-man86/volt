@@ -55,11 +55,10 @@ public class CodesysNetworkReaderTests
         var assign = new Nwl.BoxTreeAssign { RValue = false };
         assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out" });
 
-        var body = CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld);
-
-        var read = Assert.IsType<Assign>(body.Networks.Single().Trees.Single());
-        Assert.Null(read.Value);
-        Assert.Equal(new[] { "out" }, read.Targets.Select(t => t.Text));
+        // Not read as a node, so the assignment holds no value — which the model no longer has a spelling for
+        // (census 1.2, task 1.10): refused by name, never read as a value and never a crash of another kind.
+        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld));
+        Assert.Equal("an assignment with no value", ex.Marker);
     }
 
     /// <summary>A WIRED ENABLE ARRIVES FROM INPUT SLOT 0, which is where the vendor puts it.
@@ -398,6 +397,42 @@ public class CodesysNetworkReaderTests
     /// negation. Network text has no spelling for a pin-level flag yet (openspec <c>network-text-literal-nwl</c>
     /// gives it one), so until then the body goes to the marker: the engineer sees why, and nothing wrong is
     /// materialized.</para></summary>
+    /// <summary>CENSUS 1.4 AND 1.10: a terminator carrying an input occurs in no measured project (0 across five
+    /// CODESYS projects), so the model has no field for one. The reader refuses it by name, so the body reaches the
+    /// marker — never a dropped input, never a throw of another kind.</summary>
+    [Fact]
+    public void A_terminator_with_an_input_is_refused_by_name()
+    {
+        var assign = new Nwl.BoxTreeAssign { RValue = new Nwl.BoxTreeTerminator { Input = Nwl.Leaf("a") } };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
+
+        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld));
+        Assert.Equal("a terminator with an input", ex.Marker);
+    }
+
+    /// <summary>CENSUS 1.2 AND 1.10: "unconnected" has ONE representation, the empty terminator (RValue null 0,
+    /// Terminator 3), so an assignment's value is never null in the model and a vendor null is refused by name.</summary>
+    [Fact]
+    public void An_assignment_holding_no_value_is_refused_by_name()
+    {
+        var assign = new Nwl.BoxTreeAssign { RValue = null };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
+
+        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld));
+        Assert.Equal("an assignment with no value", ex.Marker);
+    }
+
+    /// <summary>The one representation of "unconnected" still reads.</summary>
+    [Fact]
+    public void An_assignment_fed_by_the_empty_terminator_reads()
+    {
+        var assign = new Nwl.BoxTreeAssign { RValue = new Nwl.BoxTreeTerminator() };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
+
+        var a = Assert.IsType<Assign>(Assert.Single(CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld).Networks).Trees.Single());
+        Assert.IsType<Terminator>(a.Value);
+    }
+
     [Fact]
     public void A_negation_on_a_box_input_pin_is_refused_by_name_not_dropped()
     {
@@ -619,7 +654,7 @@ public class CodesysNetworkReaderTests
     [Fact]
     public void A_network_reporting_a_dropped_item_skips_the_phantom_slot()
     {
-        var assign = new Nwl.BoxTreeAssign { RValue = false };
+        var assign = new Nwl.BoxTreeAssign();
         assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out" });
         var net = new Nwl.Network().With(assign);
         net.PhantomItemCount = 2;   // the vendor says two items; only one is really there
@@ -640,7 +675,7 @@ public class CodesysNetworkReaderTests
     [Fact]
     public void A_network_carrying_a_vendor_split_point_is_refused_by_name()
     {
-        var assign = new Nwl.BoxTreeAssign { RValue = false };
+        var assign = new Nwl.BoxTreeAssign();
         assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out" });
         var net = new Nwl.Network().With(assign);
         net.SplitPoint = new Nwl.Operand { OperandExpr = "gSplit" };

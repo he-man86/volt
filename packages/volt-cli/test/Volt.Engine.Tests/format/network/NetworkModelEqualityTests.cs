@@ -28,11 +28,13 @@ public class NetworkModelEqualityTests
                         MainOutputIndex: mainOutput, ConnectedSlot: 0,
                         OutputTypes: new List<string?> { "BOOL", outType }),
                     new List<Operand> { new("lamp", IsLValue: true) }, Flags.None),
-                new Terminator(
+                // A coil fed by a Parallel — the rung shape. (This was a Terminator holding the Parallel, a shape
+                // census 1.4 found in no project and the model no longer has a field for.)
+                new Assign(
                     new Parallel(new Demux(3, null, Flags.None),
                         new List<Node> { new Leaf(new Operand("a"), Flags.None), new Leaf(new Operand("b"), Flags.None) },
                         Flags.None, mode),
-                    Flags.None),
+                    new List<Operand> { new("coil", IsLValue: true) }, Flags.None),
             }),
         });
 
@@ -55,7 +57,7 @@ public class NetworkModelEqualityTests
     [Fact]
     public void Each_v2_fact_is_compared()
     {
-        Assert.StartsWith("Networks[0].Trees[1].Input.Mode:",
+        Assert.StartsWith("Networks[0].Trees[1].Value.Mode:",
             NetworkModelEquality.FirstDifference(Body(mode: ParallelMode.Sequential), Body()));
         Assert.StartsWith("Networks[0].Trees[0].Value.MainOutputIndex:",
             NetworkModelEquality.FirstDifference(Body(mainOutput: null), Body()));

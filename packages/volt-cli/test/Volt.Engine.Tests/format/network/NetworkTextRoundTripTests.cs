@@ -349,8 +349,7 @@ public class NetworkTextRoundTripTests
 
         var assign = Assert.IsType<Assign>(model.Networks.Single().Trees.Single());
         Assert.Equal(new[] { "coil" }, assign.Targets.Select(t => t.Text));
-        var terminator = Assert.IsType<Terminator>(assign.Value);
-        Assert.Null(terminator.Input);
+        Assert.IsType<Terminator>(assign.Value);
 
         // …and it survives being written back out, which is the half that was broken.
         Assert.Equal(text.TrimEnd(), NetworkTextWriter.Write(model).TrimEnd());

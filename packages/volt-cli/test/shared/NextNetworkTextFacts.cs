@@ -51,7 +51,7 @@ public static class NextNetworkTextFacts
         Box b => BoxOf(b),
         Demux d => new Demux(d.VarId, NodeOrNull(d.Input), d.Flags),
         Parallel p => new Parallel(NodeOrNull(p.Input), p.Branches.Select(Node).ToList(), p.Flags, p.Mode),
-        Terminator t => new Terminator(NodeOrNull(t.Input), t.Flags),
+        Terminator t => new Terminator(t.Flags),
         _ => throw new NotSupportedException($"NextNetworkTextFacts does not know node {n.GetType().Name}"),
     };
 
@@ -60,16 +60,14 @@ public static class NextNetworkTextFacts
         var jump = a.Flags.Jump || a.Targets.Any(t => t.Flags?.Jump == true);
         var ret = a.Flags.Return || a.Targets.Any(t => t.Flags?.Return == true);
         if (!jump && !ret)
-            return new Assign(NodeOrNull(a.Value), a.Targets.Select(Target).ToList(), a.Flags);
+            return new Assign(Node(a.Value), a.Targets.Select(Target).ToList(), a.Flags);
 
         var flags = a.Flags with { Jump = jump, Return = ret };
         var targets = a.Targets.Count == 0 && ret
             ? new[] { new Operand(Box.UnnamedInstance, IsLValue: true, Flags: Flags.None with { Return = true }) }
             : a.Targets.Select(t => new Operand(t.Text, IsLValue: true,
                 Flags: (t.Flags ?? Flags.None) with { Jump = jump, Return = ret })).ToArray();
-        // A null value stays null: census 1.2 and DIALECT C11 make the empty Terminator the one "unconnected",
-        // so a null is a different model, which the writer refuses.
-        return new Assign(NodeOrNull(a.Value), targets, flags);
+        return new Assign(Node(a.Value), targets, flags);
     }
 
     private static Operand Target(Operand t) => new(t.Text, IsLValue: true, Flags: t.Flags is { IsNone: false } f ? f : null);

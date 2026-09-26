@@ -265,14 +265,14 @@ public static class NetworkTextReader
             // gets — a measured shape reused, not a new one invented.
             if (Regex.IsMatch(line, @"^JMP\s+\w+$", RegexOptions.IgnoreCase))
             {
-                _stmts.Add((null, new Assign(new Terminator(null, Flags.None),
+                _stmts.Add((null, new Assign(new Terminator(Flags.None),
                                              new List<Operand> { new(line.Substring(4).Trim()) },
                                              Flags.None with { Jump = true })));
                 return;
             }
             if (line.Equals("RETURN", StringComparison.OrdinalIgnoreCase))
             {
-                _stmts.Add((null, new Assign(new Terminator(null, Flags.None), new List<Operand>(),
+                _stmts.Add((null, new Assign(new Terminator(Flags.None), new List<Operand>(),
                                              Flags.None with { Return = true })));
                 return;
             }
@@ -319,7 +319,7 @@ public static class NetworkTextReader
                 // is the only reason this surfaced as a refusal rather than as a silently restructured body.
                 var rhs = let.Groups[2].Value.Trim();
                 var value = rhs.Length == 0
-                    ? new Terminator(null, Flags.None)      // the pin is there and nothing drives it
+                    ? new Terminator(Flags.None)      // the pin is there and nothing drives it
                     : OpaqueLeaf.IsMatch(name)
                         ? new Leaf(new Operand(rhs), Flags.None)
                         : ParseOperand(let.Groups[2].Value);
@@ -345,7 +345,7 @@ public static class NetworkTextReader
                 // what the archive has: a null would make the in-place writer refuse ("the 'RValue' input of an
                 // item is removed") and lose the rung.
                 if (a.Rhs.Trim().Length == 0)
-                    return (null, new Assign(new Terminator(null, Flags.None),
+                    return (null, new Assign(new Terminator(Flags.None),
                                              new List<Operand> { new(a.Lhs, Flags: a.Storage) }, Flags.None));
 
                 return (null, new Assign(ParseOperand(a.Rhs),
@@ -684,7 +684,7 @@ public static class NetworkTextReader
                 case Leaf l when wires.TryGetValue(l.Operand.Text, out var id):
                     return new Demux(id, null, l.Flags);
                 case Assign a:
-                    return a with { Value = a.Value is null ? null : ReferencesToDemux(a.Value, wires) };
+                    return a with { Value = ReferencesToDemux(a.Value, wires) };
                 case Box b:
                     return b with
                     {
@@ -697,8 +697,6 @@ public static class NetworkTextReader
                         Input = p.Input is null ? null : ReferencesToDemux(p.Input, wires),
                         Branches = p.Branches.Select(x => ReferencesToDemux(x, wires)).ToList(),
                     };
-                case Terminator t:
-                    return t with { Input = t.Input is null ? null : ReferencesToDemux(t.Input, wires) };
                 case Demux d:
                     return d with { Input = d.Input is null ? null : ReferencesToDemux(d.Input, wires) };
                 default:
@@ -725,9 +723,6 @@ public static class NetworkTextReader
                     CountRefs(p2.Input, uses);
                     foreach (var br in p2.Branches) CountRefs(br, uses);
                     return;
-                case Terminator t:
-                    CountRefs(t.Input, uses);
-                    return;
             }
         }
 
@@ -750,15 +745,13 @@ public static class NetworkTextReader
                         Inputs = b.Inputs.Select(p => p with { Value = Resolve(p.Value, inline, active) }).ToList(),
                     };
                 case Assign a:
-                    return a with { Value = a.Value is null ? null : Resolve(a.Value, inline, active) };
+                    return a with { Value = Resolve(a.Value, inline, active) };
                 case Parallel p:
                     return p with
                     {
                         Input = p.Input is null ? null : Resolve(p.Input, inline, active),
                         Branches = p.Branches.Select(x => Resolve(x, inline, active)).ToList(),
                     };
-                case Terminator t:
-                    return t with { Input = t.Input is null ? null : Resolve(t.Input, inline, active) };
                 default:
                     return n;
             }
@@ -826,7 +819,7 @@ public static class NetworkTextReader
             // arrive as `( * iRPM * 6)`, `MOVE(, iDec)` and `RESET := , PV := )`. Only the statement-level case
             // (`coil := ;`) was ever read back, so 110 of one real project's 373 networks (Lenze_MID-S100)
             // could be pulled and never pushed. Same rule, every position an operand can stand.
-            if (IsEmptyOperand()) return new Terminator(null, Flags.None);
+            if (IsEmptyOperand()) return new Terminator(Flags.None);
 
             // `NOT(x)` IS A BOX NAMED NOT; `NOT x` IS THE NEGATION MODIFIER. FBD has both, and they are
             // different things in the IDE — a NOT box item versus a negation dot on a pin — so reading one as

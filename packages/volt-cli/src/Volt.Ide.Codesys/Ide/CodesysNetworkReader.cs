@@ -107,7 +107,14 @@ namespace Volt.Ide.Codesys
                 case "BoxTreeAssign":
                 {
                     var targets = NwlInterop.RequireItems(n, "Outputs").Select(ReadTarget).ToList();
-                    var value = Tree(NwlInterop.Get(n, "RValue")) is { } rv ? ReadNode(rv) : null;
+                    // Census 1.2: the empty terminator is the ONE spelling of "unconnected" (RValue null 0 across
+                    // five projects), so the model has no null value to put a vendor null in (task 1.10).
+                    var value = Tree(NwlInterop.Get(n, "RValue")) is { } rv
+                        ? ReadNode(rv)
+                        : throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
+                            "an assignment with no value",
+                            "CODESYS: an assignment holds no value at all, where an unconnected one holds an empty " +
+                            "terminator. No measured project has one, and the model keeps one spelling of it.");
 
                     // COIL STORAGE STAYS ON THE TARGET, where both vendors keep it, because the FORMAT now
                     // spells it there too — `out S= v;` / `out R= v;`, ExST's own assignment operators. It used
@@ -142,10 +149,15 @@ namespace Volt.Ide.Codesys
                         NwlInterop.RequireItems(n, "Trees", listMember: "").Select(ReadNode).ToList(),
                         flags);
 
+                // Census 1.4: a terminator with an INPUT occurs in no measured project, so it has no network-text
+                // spelling and the model no field for it (task 1.10) — refused by name, like Mux below.
                 case "BoxTreeTerminator":
-                    return new Terminator(
-                        Tree(NwlInterop.Get(n, "Input")) is { } ti ? ReadNode(ti) : null,
-                        flags);
+                    if (Tree(NwlInterop.Get(n, "Input")) is not null)
+                        throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
+                            "a terminator with an input",
+                            "CODESYS: a rung terminator carries an input, a shape no measured project holds and " +
+                            "network text has no form for.");
+                    return new Terminator(flags);
 
                 default:
                     // BoxTreeMux is the known member of this set and was unused in the surveyed project, so it

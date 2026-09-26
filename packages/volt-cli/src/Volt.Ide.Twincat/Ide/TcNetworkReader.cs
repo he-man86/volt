@@ -79,7 +79,14 @@ internal static class TcNetworkReader
             case "BoxTreeAssign":
             {
                 var targets = Targets(e);
-                var value = TcArchive.Obj(e, "RValue") is { } rv ? ReadNode(rv) : null;
+                // Census 1.2: the empty terminator is the ONE spelling of "unconnected", so the model has no null
+                // value to put an archive null in (task 1.10) — the same refusal CODESYS's reader makes.
+                var value = TcArchive.Obj(e, "RValue") is { } rv
+                    ? ReadNode(rv)
+                    : throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
+                        "an assignment with no value",
+                        "TwinCAT: an assignment holds no value at all, where an unconnected one holds an empty " +
+                        "terminator. No measured project has one, and the model keeps one spelling of it.");
 
                 // COIL STORAGE STAYS ON THE TARGET, where this archive keeps it (measured: a coil operand comes
                 // back `Flags=Negation,Set`) and where the format now spells it — `out S= v;` / `out R= v;`.
@@ -134,10 +141,15 @@ internal static class TcNetworkReader
                     TcArchive.List(e, "Trees").Select(ReadNode).ToList(),
                     flags);
 
+            // Census 1.4: a terminator with an INPUT occurs in no measured project — refused by name (task 1.10),
+            // the parity twin of CODESYS's reader.
             case "BoxTreeTerminator":
-                return new Terminator(
-                    TcArchive.Obj(e, "Input") is { } ti ? ReadNode(ti) : null,
-                    flags);
+                if (TcArchive.Obj(e, "Input") is not null)
+                    throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
+                        "a terminator with an input",
+                        "TwinCAT: a rung terminator carries an input, a shape no measured project holds and " +
+                        "network text has no form for.");
+                return new Terminator(flags);
 
             default:
                 throw new Volt.Engine.Format.Body.UnrepresentableBodyException(
