@@ -4,7 +4,7 @@
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { bindFile, buildSymbolTable } from "../../../symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const GVL1 = "VAR_GLOBAL\n g_i : INT;\nEND_VAR"
@@ -32,4 +32,20 @@ test("bare ref when the global is declared in only one GVL — no FP", () => {
 
 test("a local var shadowing the ambiguous name — no FP", () => {
   expect(run("PROGRAM PLC_PRG\nVAR\n g_i : INT;\n j : INT := g_i;\nEND_VAR\nEND_PROGRAM")).toEqual([])
+})
+
+test("a GVL an EDIT adds makes the name ambiguous — the incremental re-index keeps the project Scope", () => {
+  // `WorkspaceStore` binds an added file into the same project Scope; the ambiguous set was memoized on the Scope
+  // alone, so the second declaration was never counted
+  const prg = "PROGRAM PLC_PRG\nVAR\n j : INT := g_i;\nEND_VAR\nEND_PROGRAM"
+  const prgParse = parseSource(prg)
+  const project = buildSymbolTable([
+    { uri: "PLC_PRG.prg", source: prg, parseResult: prgParse },
+    { uri: "GVL1.gvl", source: GVL1, parseResult: parseSource(GVL1) },
+  ])
+  const ambiguous = () =>
+    computeSemanticDiagnostics({ parseResult: prgParse, source: prg, project, config: resolveConfig({ vendor: "codesys" }) }).filter((d) => d.code === "ambiguous-global").length
+  expect(ambiguous()).toBe(0)
+  bindFile(project, { uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2) })
+  expect(ambiguous()).toBe(1)
 })

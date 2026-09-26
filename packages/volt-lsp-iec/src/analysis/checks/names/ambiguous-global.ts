@@ -8,28 +8,23 @@
  * manufacture false duplicates (ERR_OK, NULL, … live in many library GVLs). A reference locally shadowed by a
  * var/param is skipped.
  */
-import { forEachExpr, isLibrarySymbol, lookup, type Scope } from "../../../symbols/index.js"
+import { forEachExpr, isLibrarySymbol, lookup, memoByProject, type Scope } from "../../../symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 /** The ambiguous-global set is a PROJECT-WIDE invariant (names in 2+ bare project GVLs) — it does NOT vary per
- *  file, so compute it once per project scope and reuse. A fresh project scope (rebuilt per workspace edit) gets
- *  a fresh entry; the old one is GC'd via the WeakMap. Without this, a 10k-symbol project rescans per file. */
-const ambiguousCache = new WeakMap<Scope, ReadonlySet<string>>()
-function ambiguousGlobals(project: Scope): ReadonlySet<string> {
-  let set = ambiguousCache.get(project)
-  if (set === undefined) {
-    const s = new Set<string>()
-    for (const [key, syms] of project.symbols) {
-      const uris = new Set<string>()
-      for (const sym of syms) if (sym.kind === "gvl_var" && sym.qualifiedOnly !== true && !isLibrarySymbol(sym)) uris.add(sym.uri)
-      if (uris.size >= 2) s.add(key)
-    }
-    set = s
-    ambiguousCache.set(project, set)
+ *  file, so compute it once per project and reuse; without this a 10k-symbol project rescans per file. Memoized per
+ *  project GENERATION (`memoByProject`), because an incremental re-index rebinds into the same Scope — keyed on the
+ *  Scope alone, a GVL an edit added was never counted. */
+const ambiguousGlobals = memoByProject((project: Scope): ReadonlySet<string> => {
+  const s = new Set<string>()
+  for (const [key, syms] of project.symbols) {
+    const uris = new Set<string>()
+    for (const sym of syms) if (sym.kind === "gvl_var" && sym.qualifiedOnly !== true && !isLibrarySymbol(sym)) uris.add(sym.uri)
+    if (uris.size >= 2) s.add(key)
   }
-  return set
-}
+  return s
+})
 
 export function checkAmbiguousGlobal(ctx: CheckContext, out: DiagnosticItem[]): void {
   const ambiguous = ambiguousGlobals(ctx.project)

@@ -125,6 +125,28 @@ export interface Scope {
    *  guard can detect staleness. A stale index makes `scopeForUnit` miss the rebound file's fresh spans and
    *  name-walk into a same-named sibling POU's member (cross-unit scope contamination). */
   _spanIndex?: Map<Span, Scope>
+  /** Bumped every time a file is bound into or unbound from this project (project root only) — the one signal a
+   *  cache keyed on the project can check (`memoByProject`). An incremental re-index keeps the SAME Scope object, so
+   *  a cache keyed on identity alone went on answering for the project as it was before the edit. */
+  _generation?: number
+}
+
+/**
+ * A value computed from a whole PROJECT, remembered until the project changes — per Scope, and per generation, so an
+ * incremental re-index (`bindFile` / `unbindFile` on the same Scope) recomputes it. Two checks cached on the Scope
+ * alone, and in the live LSP both answered for the project as it was before the edit: a data recursion an edit
+ * introduced went unreported, and a GVL an edit added was never counted ambiguous.
+ */
+export function memoByProject<T>(build: (project: Scope) => T): (project: Scope) => T {
+  const cache = new WeakMap<Scope, { generation: number; value: T }>()
+  return (project) => {
+    const generation = project._generation ?? 0
+    const hit = cache.get(project)
+    if (hit !== undefined && hit.generation === generation) return hit.value
+    const value = build(project)
+    cache.set(project, { generation, value })
+    return value
+  }
 }
 
 export function createProjectScope(dialect: Dialect): Scope {

@@ -4,7 +4,7 @@
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { bindFile, buildSymbolTable, unbindFile } from "../../../symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const rec = (src: string): string[] => {
@@ -34,4 +34,20 @@ test("a POINTER TO self does not nest — not flagged; an ARRAY OF self does", (
 test("a self-referential struct is flagged; a non-recursive one is not", () => {
   expect(rec(`TYPE sv :\nSTRUCT\nself : sv;\nEND_STRUCT\nEND_TYPE`)).toEqual(["Data recursion: SV -> SV"])
   expect(rec(`TYPE sv :\nSTRUCT\nn : INT;\nEND_STRUCT\nEND_TYPE`)).toEqual([])
+})
+
+test("an EDIT that introduces a recursion is reported — the incremental re-index keeps the project Scope", () => {
+  // The live LSP re-indexes an edit by unbinding the file and binding its new text into the SAME project Scope
+  // (`WorkspaceStore`). The composition graph was memoized on the Scope alone, so it kept answering for the text
+  // before the edit: a recursion typed in was never reported, one removed was reported forever.
+  const cfg = resolveConfig({ vendor: "codesys" })
+  const before = "FUNCTION_BLOCK FB1\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK"
+  const after = "FUNCTION_BLOCK FB1\nVAR sv : FB1; END_VAR\nEND_FUNCTION_BLOCK"
+  const project = buildSymbolTable([{ uri: "F", parseResult: parseSource(before), source: before }])
+  const check = (src: string) =>
+    computeSemanticDiagnostics({ parseResult: parseSource(src), source: src, project, config: cfg }).filter((d) => d.code === "data-recursion").length
+  expect(check(before)).toBe(0)
+  unbindFile(project, "F")
+  bindFile(project, { uri: "F", parseResult: parseSource(after), source: after })
+  expect(check(after)).toBe(1)
 })

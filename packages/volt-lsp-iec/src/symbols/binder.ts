@@ -100,6 +100,7 @@ export function bindFile(project: Scope, { uri, parseResult, source }: SymbolTab
   project._childIndex = undefined // children changed — bust the lazy name index (length-based staleness misses same-count swaps)
   project._childIndexLen = undefined
   project._spanIndex = undefined // and the span→scope index — else scopeForUnit misses the rebound file's fresh spans
+  project._generation = (project._generation ?? 0) + 1 // and every project-wide memo (`memoByProject`)
 }
 
 /**
@@ -117,6 +118,7 @@ export function unbindFile(project: Scope, uri: string): void {
   project._childIndex = undefined
   project._childIndexLen = undefined
   project._spanIndex = undefined
+  project._generation = (project._generation ?? 0) + 1
 }
 
 /**
