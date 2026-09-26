@@ -192,9 +192,7 @@ VAR_INPUT
 	xSensor		: BOOL;		// The sensor on the cylinder.
 END_VAR
 (* @volt-implementation *)
-NETWORK 0 FBD
-  SetAlarm := (((xOutput AND xOutInv AND xSensor) OR (xOutInv AND xOutput AND xSensor) OR (xOutput AND xOutInv AND xSensor)) AND EnableOutputs.Q);
-END_NETWORK
+(* @volt-graphical: a flag on a box input pin *)
 END_METHOD
 
 // Set the output True or False
