@@ -28,6 +28,7 @@ const manifest = (folder: string, library: string, namespace: string, dependenci
   namespace,
   library,
   dependencies,
+  materialization: 2,
 })
 
 const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source) })

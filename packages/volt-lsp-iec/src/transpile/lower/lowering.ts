@@ -19,6 +19,19 @@ import {
   lowerCodeKind,
 } from "../ir/index.js"
 
+/** A unit's, member's or declaration's attribute names, by its AST node. */
+export interface AttributeLookup {
+  get(node: object): ReadonlySet<string> | undefined
+}
+
+/** A STRING CURSOR parameter (`Lowering.cursors`): its hidden VAR_IN_OUT, what it points at, and whether it may stand
+ *  past its string's first character. */
+export interface Cursor {
+  inout: number
+  unit: Type
+  offset: boolean
+}
+
 /** An FB whose storage is laid out and whose body is lowered at its first call, in the lowering that declared its fields. */
 export interface PendingBody {
   lowering: Lowering
@@ -42,7 +55,7 @@ export interface Shared {
   bodies: Map<string, PendingBody>
   routines: Map<string, CalledRoutine>
   /** The `{attribute '…'}` names on each POU (`syntax/unitAttributes`) — the AST keeps no pragmas. */
-  attributes: ReadonlyMap<object, ReadonlySet<string>>
+  attributes: AttributeLookup
   /** GVL variables and called PROGRAMs' instances, by upper-cased name. */
   globals: { slots: IrSlot[]; byName: Map<string, number> }
   /** The POU being lowered: a PROGRAM that names it is the running frame, not a global instance. */
@@ -85,7 +98,7 @@ export interface Shared {
 }
 
 export function newShared(
-  attributes: ReadonlyMap<object, ReadonlySet<string>> = new Map(),
+  attributes: AttributeLookup = new Map(),
   root = "",
   libraryUnits: ReadonlySet<object> = new Set(),
 ): Shared {
@@ -195,9 +208,11 @@ export class Lowering {
    * kept — a byte offset + 1, exactly as an element pointer holds its index + 1 — and every dereference is a
    * character of the bound string (`char` / `setchar`). The routine is lowered once per string TYPE, so the capacity a
    * store is cut at is the caller's, in both backends. A `POINTER TO STRING` parameter binds the same way, by the
-   * caller's own string type — its `unit` is then a string, and `p^` is the whole bound string.
+   * caller's own string type — its `unit` is then a string, `p^[i]` a character counted from where it stands, and `p^`
+   * the whole bound string. `offset` marks one that may stand past the first character (handed a byte cursor that
+   * walked), whose `p^` is no whole string — refused rather than read from the start.
    */
-  readonly cursors = new Map<string, { inout: number; unit: Type }>()
+  readonly cursors = new Map<string, Cursor>()
   /** What `__POUNAME()` answers here, in SOURCE casing: the POU's name, or `POU.Member` inside a METHOD or ACTION
    *  (conformance `cp_pouname_operator`: 'FB_CP_named', 'FB_CP_named.Inner', 'FB_CP_named.Marked'). */
   displayName = ""
@@ -233,7 +248,7 @@ export class Lowering {
   get routines(): Map<string, CalledRoutine> {
     return this.shared.routines
   }
-  get attributes(): ReadonlyMap<object, ReadonlySet<string>> {
+  get attributes(): AttributeLookup {
     return this.shared.attributes
   }
   get globals(): readonly IrSlot[] {

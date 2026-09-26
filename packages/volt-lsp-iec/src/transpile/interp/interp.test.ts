@@ -1188,11 +1188,16 @@ describe("interp — STRING (design §18; every expectation recorded in conforma
     expect([pou.get("a"), pou.get("b"), pou.get("c")]).toEqual(["aXc", "abcd", "a"])
   })
 
-  test("s[i] stops at what the model holds — past the length, or a character past the capacity, faults", () => {
-    // CODESYS keeps whatever an earlier value left after the terminator; the model does not hold those bytes, so
-    // reaching them is a fault rather than a guess
-    expect(() => scanned("s : STRING := 'abc'; x : BYTE;", "x := s[4];")).toThrow(RangeError)
+  test("s[i] reaches every byte of the variable — past the length it reads 0, and a store there leaves the string", () => {
+    // recorded: lib_prim_char_past_length — `buf[SIZEOF(buf) - 1] := 0` on a short string runs in CODESYS
+    const pou = scanned("s : STRING(10) := 'ab'; x : BYTE; y : BYTE;", "x := s[4]; s[5] := 88; s[10] := 0; y := s[10];")
+    expect([pou.get("x"), pou.get("s"), pou.get("y")]).toEqual([0n, "ab", 0n])
+  })
+
+  test("s[i] outside the variable faults — past the capacity, or a character where only the terminator fits", () => {
+    expect(() => scanned("s : STRING(3) := 'abc'; x : BYTE;", "x := s[4];")).toThrow(RangeError)
     expect(() => scanned("s : STRING(3) := 'abc';", "s[3] := 100;")).toThrow(RangeError)
+    expect(() => scanned("s : STRING := 'abc';", "s[-1] := 100;")).toThrow(RangeError)
     // a 0 AT the capacity is the terminator CODESYS already holds there: nothing changes
     expect(scanned("s : STRING(3) := 'abc';", "s[3] := 0;").get("s")).toBe("abc")
   })

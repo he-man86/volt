@@ -74,6 +74,17 @@ test("a loop test over REALs is negated, not flipped — NaN makes every orderin
     )
   })
 
+  test("a hidden slot keeps its double underscore, so no variable a user declares can take its field", () => {
+    // `__clock` snaked to `_clock`, and a GVL `_clock` beside TIME() threw "both become the Rust field" (review 2026-09-26)
+    const gvl = { uri: "GVL.gvl", source: "VAR_GLOBAL\n\t_clock : INT;\nEND_VAR\n" }
+    const { pou, diagnostics } = lowerSource("PROGRAM P\nVAR t : TIME; END_VAR\nt := TIME();\n_clock := 1;\nEND_PROGRAM\n", "P", [gvl])
+    expect(diagnostics).toEqual([])
+    const code = emitRust(pou!).code
+    expect(code).toContain("pub __clock: u64,")
+    expect(code).toContain("pub _clock: i16,")
+    expect(snake("__str_P")).toBe("__str_p")
+  })
+
   test("a slot without an initial value starts at its type's zero — and a WSTRING's is a WSTRING", () => {
     // `new` printed its own defaults, and gave every string `IecStr::new()`: a STRING for a WSTRING field
     const code = rust("PROGRAM P\nVAR\n  flag : BOOL;\n  wide : WSTRING;\n  ratio : REAL;\nEND_VAR\nflag := TRUE;\nEND_PROGRAM\n")
@@ -175,6 +186,18 @@ test("a loop test over REALs is negated, not flipped — NaN makes every orderin
     expect(code).toContain("as usize]") // the element index crosses into the pointer explicitly
     expect(code).toContain("iec_deref(self.pa);") // a write through a pointer is checked on the line before
     expect(code).toContain('fn iec_deref(at: usize) { if at == 0 { panic!("dereference of a null pointer"); } }')
+  })
+
+  test("a string cursor steps in its own usize — by a literal, or by an INT — and every character is null-checked", () => {
+    // Why missed: `P := P + 1` printed `p.wrapping_add(1i8)`, the literal's own SINT, which rustc refuses beside a
+    // usize; no Rust test stepped a cursor by a literal until lib_prim_string_cursor_offset did.
+    const lib = { uri: "Library Manager/Lib/CSTEP.fun", source: "FUNCTION CSTEP : BYTE\nVAR_INPUT\n\tP : POINTER TO BYTE;\n\tK : INT;\nEND_VAR\nP := P + 1;\nP := P - K;\nCSTEP := P^;\nEND_FUNCTION\n" }
+    const { pou, diagnostics } = lowerSource("PROGRAM Steps\nVAR s : STRING := 'abc'; c : BYTE; END_VAR\nc := CSTEP(ADR(s), 1);\nEND_PROGRAM\n", "Steps", [lib])
+    expect(diagnostics).toEqual([])
+    const code = emitRust(pou!).code
+    expect(code).toContain("p = p.wrapping_add(1);")
+    expect(code).toContain("p = p.wrapping_sub(k as usize);")
+    expect(code).toContain("iec_deref(p);")
   })
 
   test("a VAR_IN_OUT bound through a reference binds its target, checked for null first", () => {

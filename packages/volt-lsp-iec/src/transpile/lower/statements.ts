@@ -1,8 +1,8 @@
 /**
  * Statements → IR: assignment and its chains and latches, IF, CASE, the three loops, and call statements.
  */
-import { isSelfRef, type Statement, type StatementList } from "../../syntax/index.js"
-import { elementaryRef, commonType, elemOf } from "../../types/index.js"
+import { isSelfRef, type Span, type Statement, type StatementList } from "../../syntax/index.js"
+import { elementaryRef, commonType, elemOf, type Type } from "../../types/index.js"
 import type { IrArm, IrExpr, IrStmt, IrValue } from "../ir/index.js"
 import { holdsCall } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
@@ -102,6 +102,15 @@ export function lowerChain(lw: Lowering, s: Extract<Statement, { kind: "assign" 
   return out
 }
 
+/** A STRING value stored into anything but a string — `n := '12'`, or `s[0] := 'X'` into a character — which CODESYS
+ *  refuses (see the assignment below); true when refused. */
+function refuseImplicitString(lw: Lowering, value: IrExpr, target: Type, span: Span): boolean {
+  const targetFamily = elemOf(target)?.family
+  if (elemOf(value.type)?.family !== "string" || targetFamily === undefined || targetFamily === "string") return false
+  lw.bail("assign-string", `a STRING stored into a ${target.kind === "elementary" ? target.name : target.kind}, which is not a conversion the vendor makes implicitly`, span)
+  return true
+}
+
 export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undefined {
   switch (s.kind) {
     case "empty":
@@ -125,7 +134,7 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
       if ("char" in indexed) {
         const { place: text, index, unit } = indexed.char
         const c = lowerExpr(lw, s.value, unit)
-        if (c === undefined || refuseConstantWrite(lw, text, s.span)) return undefined
+        if (c === undefined || refuseImplicitString(lw, c, unit, s.span) || refuseConstantWrite(lw, text, s.span)) return undefined
         const load: IrExpr = { kind: "load", place: text, type: text.type, span: s.span }
         const value: IrExpr = { kind: "builtin", name: "setchar", args: [load, index, convert(c, unit)], type: text.type, span: s.span }
         return { kind: "assign", target: text, value, span: s.span }
@@ -169,10 +178,7 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
       //
       // Only the IMPLICIT store is refused. `STRING_TO_INT('123')` is an explicit conversion and stays, which is the
       // whole difference CODESYS draws.
-      const valueFamily = elemOf(value.type)?.family
-      const targetFamily = elemOf(target.type)?.family
-      if (valueFamily === "string" && targetFamily !== undefined && targetFamily !== "string")
-        return lw.bail("assign-string", `a STRING stored into a ${target.type.kind === "elementary" ? target.type.name : target.type.kind}, which is not a conversion the vendor makes implicitly`, s.span)
+      if (refuseImplicitString(lw, value, target.type, s.span)) return undefined
       const store: IrStmt = { kind: "assign", target, value: convert(value, target.type), span: s.span }
       // a UNION member's store, then its bytes into the members it overlays
       const copies = unionCopies(lw, target, s.span)

@@ -24,20 +24,35 @@
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
+import { libraryResolution } from "../src/symbols/index.js"
 import type { LibraryFile } from "../src/transpile/index.js"
 
 const REPO = import.meta.dirname
 
-/** `RESOLUTION Standard, 3.5.18.0 (System)` → the library and the version the project resolved. */
-const resolution = (manifest: string): { library: string; version: string } | undefined => {
-  const m = /^RESOLUTION[ \t]+(.+?),[ \t]*(\S+)/m.exec(manifest)
-  return m === null ? undefined : { library: m[1]!.trim(), version: m[2]! }
+/**
+ * A version whose bodies ARE another version's — `<library>@<version>` → the version whose folder holds them. Its
+ * interface is held to its OWN materialization all the same (`test/libraries/repo.test.ts`), so an alias stands only
+ * while the two versions' declarations agree; the day they do not, it becomes a folder of its own. One source per body:
+ * two byte-identical copies had to be fixed twice, and nothing noticed them drifting apart.
+ */
+export const SAME_BODIES: Readonly<Record<string, string>> = {
+  "StringUtils@3.5.20.0": "3.5.18.0",
+  "Util@3.5.21.0": "3.5.19.0",
 }
 
 /** Where this repo keeps a library version's bodies, or undefined when it has not written that version. */
 export function implementationDir(library: string, version: string): string | undefined {
-  const dir = join(REPO, library, version)
+  const dir = join(REPO, library, SAME_BODIES[`${library}@${version}`] ?? version)
   return existsSync(dir) ? dir : undefined
+}
+
+/** Every library version this repo answers for: each folder it holds, and each version aliased onto one. */
+export function writtenVersions(): { library: string; version: string }[] {
+  const folders = readdirSync(REPO, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .flatMap((lib) => readdirSync(join(REPO, lib.name)).map((version) => ({ library: lib.name, version })))
+  const aliased = Object.keys(SAME_BODIES).map((k) => ({ library: k.split("@")[0]!, version: k.split("@")[1]! }))
+  return [...folders, ...aliased]
 }
 
 /**
@@ -49,7 +64,7 @@ export function withImplementations(files: readonly LibraryFile[]): LibraryFile[
   const out = [...files]
   const key = (uri: string): string => uri.replaceAll("\\", "/").toLowerCase()
   for (const manifest of files.filter((f) => key(f.uri).endsWith(".library"))) {
-    const resolved = resolution(manifest.source)
+    const resolved = libraryResolution(manifest.source)
     const dir = resolved && implementationDir(resolved.library, resolved.version)
     if (dir === undefined) continue
     const folder = manifest.uri.slice(0, manifest.uri.length - manifest.uri.split(/[\\/]/).at(-1)!.length)

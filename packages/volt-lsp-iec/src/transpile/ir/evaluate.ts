@@ -32,8 +32,8 @@ function widthOf(type: Type, op: string): number {
  */
 export class LoweringBug extends TypeError {}
 
-/** A builtin over ALREADY-EVALUATED arguments. */
-export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Type): Val {
+/** A builtin over ALREADY-EVALUATED arguments — `argTypes` their types, which `char` reads its string's capacity from. */
+export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Type, argTypes: readonly Type[]): Val {
   const pick = (op: "lt" | "gt"): Val => args.reduce((best, v) => (ord(op, v, best) ? v : best))
   switch (name) {
     case "max":
@@ -93,8 +93,12 @@ export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Ty
       const v = args[0]!
       return fit(typeof v === "bigint" ? (v < 0n ? -v : v) : Math.abs(Number(v)), type)
     }
-    case "char":
-      return fit(charAt(args[0] as string, num(args[1]!) as bigint), type)
+    case "char": {
+      const text = argTypes[0]!
+      const capacity = text.kind === "elementary" ? text.length : undefined
+      if (capacity === undefined) throw new LoweringBug("CHAR of a string whose capacity lowering did not state")
+      return fit(charAt(args[0] as string, num(args[1]!) as bigint, capacity), type)
+    }
     case "setchar": {
       // the capacity is where a store is cut, and lowering gives every `setchar` one (`lowerIndexed`) — a node without
       // it would let the interpreter append past the capacity the emitted Rust panics at
@@ -199,7 +203,7 @@ function evaluate(e: IrExpr): Val | undefined {
         if (v === undefined) return undefined
         args.push(v)
       }
-      return builtinValue(e.name, args, e.type)
+      return builtinValue(e.name, args, e.type, e.args.map((a) => a.type))
     }
     default:
       return undefined

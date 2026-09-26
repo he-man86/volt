@@ -32,7 +32,7 @@ const CASE_INSENSITIVE_FS = process.platform === "win32" || process.platform ===
 /** Collapse a URI to a stable identity key so an open buffer and its disk file are one entry.
  *  ponytail: whole-path case-fold on case-insensitive filesystems — good enough for the drive-letter/case
  *  mismatches a client sends; swap for per-segment folding only if a case-sensitive path ever collides. */
-function normalizeKey(uri: string): string {
+export function normalizeKey(uri: string): string {
   try {
     const p = fileURLToPath(uri)
     return CASE_INSENSITIVE_FS ? p.toLowerCase() : p
@@ -40,6 +40,9 @@ function normalizeKey(uri: string): string {
     return uri
   }
 }
+
+/** Whether two URIs name the same file — the client's spelling and the server's may differ in case and escaping. */
+export const sameDocument = (a: string, b: string): boolean => normalizeKey(a) === normalizeKey(b)
 
 interface Parsed {
   version: number

@@ -199,7 +199,7 @@ class Machine {
       // them too when it folds a declaration's initial value — one table, so a folded value and a computed one
       // cannot disagree.
       case "builtin":
-        return builtinValue(e.name, e.args.map((a) => this.expr(a)), e.type)
+        return builtinValue(e.name, e.args.map((a) => this.expr(a)), e.type, e.args.map((a) => a.type))
       case "unary":
         return unaryValue(e.op, this.expr(e.operand), e.type)
       case "binary": {

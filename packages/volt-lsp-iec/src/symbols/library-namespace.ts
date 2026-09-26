@@ -36,10 +36,37 @@ export interface LibraryManifest {
    *  `L_IE1P.L_IE1P_SeverityLevel`, and that enum belongs to `L_IE1P_ApplicationErrorsTypes`, which the
    *  `L_IE1P_ApplicationErrors` library (namespace `L_IE1P`) depends on. Titles that name no manifest are ignored. */
   dependencies: readonly string[]
+  /** Which materialization wrote the library's declarations — its MATERIALIZATION line, 1 when the manifest predates
+   *  the line. Below `LIBRARY_MATERIALIZATION` the declarations are known to be incomplete (`staleLibraryManifests`). */
+  materialization: number
+}
+
+/**
+ * The materialization the bridge writes today — `LibraryManifest.Materialization` in C#, which says what each format
+ * added. 2: FUNCTIONs without a return type are rendered; format 1 skipped them, so a library pulled by it is missing
+ * elements the project calls, and every call to one reads as undefined here, where a library is known only through its
+ * materialization. Nothing in the LSP fills that gap — the manifest is told to re-pull instead.
+ */
+export const LIBRARY_MATERIALIZATION = 2
+
+/** The manifests a pull by an older bridge wrote — whose declarations miss what the current one materializes. */
+export function staleLibraryManifests(manifests: readonly LibraryManifest[]): LibraryManifest[] {
+  return manifests.filter((m) => m.materialization < LIBRARY_MATERIALIZATION)
 }
 
 /** A path as the manifest match reads it: forward slashes, decoded spaces, lower case. */
 const normalize = (uri: string): string => uri.replace(/%20/g, " ").replaceAll("\\", "/").toLowerCase()
+
+/**
+ * A manifest's RESOLUTION line — `RESOLUTION Standard, 3.5.18.0 (System)` — as the library and the version the project
+ * resolved; undefined without one. The one reading of it: the library repo is looked up by it (`libraries/index.ts`),
+ * and its interface gate finds the materialization to hold a version to by it. (The bridge's `LibraryFetch.ResolutionLine`
+ * reads the same line whole, as the key a library signature joins its manifest by — a different question.)
+ */
+export function libraryResolution(source: string): { library: string; version: string } | undefined {
+  const m = /^RESOLUTION[ \t]+(.+?),[ \t]*(\S+)/m.exec(source)
+  return m === null ? undefined : { library: m[1]!.trim(), version: m[2]! }
+}
 
 /** `<folder>.library`'s LIBRARY and NAMESPACE lines — undefined when the file is not one, or names no namespace. */
 export function parseLibraryManifest(uri: string, source: string): LibraryManifest | undefined {
@@ -51,7 +78,8 @@ export function parseLibraryManifest(uri: string, source: string): LibraryManife
   // the DEPENDENCIES line is comma-separated and its own entries may hold commas, so each token is simply matched
   // against the titles seen; one that names no library is ignored rather than guessed at
   const dependencies = (/^DEPENDENCIES[ \t]+(\S.*)$/m.exec(source)?.[1] ?? "").split(",").map((d) => d.trim()).filter((d) => d !== "")
-  return namespace === undefined || namespace === "" || folder === undefined ? undefined : { uri, folder, namespace, library, dependencies }
+  const materialization = Number(/^MATERIALIZATION[ 	]+(\d+)/m.exec(source)?.[1] ?? 1)
+  return namespace === undefined || namespace === "" || folder === undefined ? undefined : { uri, folder, namespace, library, dependencies, materialization }
 }
 
 /**

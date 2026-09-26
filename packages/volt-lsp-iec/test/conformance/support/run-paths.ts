@@ -37,13 +37,15 @@ export function runPaths(t: LanguageTest, all: readonly LanguageTest[]): string[
   const parsedFixtures = fixtures.map((f) => ({ uri: f.name, source: f.source, parseResult: parseSource(f.source) }))
   const plc = parseSource(plcPrgSource(t))
   const project = buildSymbolTable([...parsedFixtures, { uri: "plc_prg", parseResult: plc, source: plcPrgSource(t) }])
+  // The TYPES a variable can be declared of, by name — a library's first, then a fixture's own over them, as the project's
+  // own declaration wins in CODESYS. The same filter for both: a library file folds its FBs' METHOD blocks in as
+  // top-level units, and one named like a library type replaced that type here, so its instances expanded to nothing.
   const declared = new Map<string, TopLevel>()
-  for (const u of LIBRARY_UNITS) if ("name" in u && u.name !== undefined) declared.set(u.name.text.toUpperCase(), u)
-  // a fixture's own declaration wins over a library's of the same name, as the project's does in CODESYS
-  for (const p of parsedFixtures)
-    for (const u of p.parseResult.units)
-      if (u.kind !== "method" && u.kind !== "action" && u.kind !== "property" && "name" in u && u.name !== undefined)
-        declared.set(u.name.text.toUpperCase(), u)
+  const declare = (u: TopLevel) => {
+    if (u.kind !== "method" && u.kind !== "action" && u.kind !== "property" && "name" in u && u.name !== undefined) declared.set(u.name.text.toUpperCase(), u)
+  }
+  LIBRARY_UNITS.forEach(declare)
+  for (const p of parsedFixtures) p.parseResult.units.forEach(declare)
   const program = plc.units[0]
   if (program === undefined || !("varSections" in program)) return []
   const out: string[] = []

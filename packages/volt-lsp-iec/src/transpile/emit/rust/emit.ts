@@ -106,12 +106,19 @@ function initOf(t: Type, init: IrValue): string {
   return array.element.kind === "elementary" ? `[${element}; ${array.length}]` : `std::array::from_fn(|_| ${element})`
 }
 
-/** ST names are PascalCase/mixed; Rust fields are snake_case. Mechanical, and stable across runs. */
+/**
+ * ST names are PascalCase/mixed; Rust fields are snake_case. Mechanical, and stable across runs.
+ *
+ * A HIDDEN name — the clock `__clock`, a cursor's `__str_P` — keeps its leading double underscore. No ST identifier can
+ * have one, so no variable a user declares can snake to the same field; collapsed to one underscore, `__clock` became
+ * `_clock`, and a GVL variable of that (legal) name stopped every program that calls TIME() from emitting.
+ */
 export function snake(name: string): string {
-  return name
+  const snaked = name
     .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
     .replace(/[^A-Za-z0-9]+/g, "_")
     .toLowerCase()
+  return name.startsWith("__") ? `_${snaked}` : snaked
 }
 
 /** Rust's keywords (strict and reserved, 2021) — a field named one does not compile. */

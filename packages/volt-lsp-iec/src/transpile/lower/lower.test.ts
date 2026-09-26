@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { lowerSource } from "./lower.js"
+import { libraryBase, lowerSource } from "./lower.js"
 import { CLOCK } from "./builtins.js"
 import type { IrAssign, IrIf, IrLoop } from "../ir/index.js"
 import { run } from "../interp/index.js"
@@ -1923,7 +1923,15 @@ describe("lower — a STRING CURSOR (a character pointer a caller fills with a s
   const WHOLE = lib("CFIRST", "FUNCTION CFIRST : BYTE\nVAR_INPUT\n\tP : POINTER TO STRING(255);\nEND_VAR\nCFIRST := P^[0];\nEND_FUNCTION\n")
   // two cursors, possibly into ONE string: the characters of FROM from position K on, moved to the front of TO
   const SHIFT = lib("CSHIFT", "FUNCTION CSHIFT : BOOL\nVAR_INPUT\n\tFROM_ : POINTER TO BYTE;\n\tK : DINT;\n\tTO_ : POINTER TO BYTE;\nEND_VAR\nVAR\n\ti : DINT;\nEND_VAR\nWHILE FROM_[K + i] <> 0 DO\n\tTO_[i] := FROM_[K + i];\n\ti := i + 1;\nEND_WHILE\nTO_[i] := 0;\nEND_FUNCTION\n")
-  const LIBS = [LEN, TAIL, FILL, WLEN, WHOLE, SHIFT]
+  // a byte cursor that walked, handed to a whole-string pointer: `p^` is the string FROM there (lib_prim_string_cursor_offset)
+  const FROMBYTE = lib("CFROMBYTE", "FUNCTION CFROMBYTE : BYTE\nVAR_INPUT\n\tQ : POINTER TO BYTE;\nEND_VAR\nQ := Q + 1;\nCFROMBYTE := CFIRST(Q);\nEND_FUNCTION\n")
+  const WHOLELEN = lib("CWHOLELEN", "FUNCTION CWHOLELEN : INT\nVAR_INPUT\n\tP : POINTER TO STRING;\nEND_VAR\nVAR\n\tt : STRING;\nEND_VAR\nt := P^;\nCWHOLELEN := BYTE_TO_INT(t[0]);\nEND_FUNCTION\n")
+  const WHOLEFROMBYTE = lib("CWHOLEFROMBYTE", "FUNCTION CWHOLEFROMBYTE : INT\nVAR_INPUT\n\tQ : POINTER TO BYTE;\nEND_VAR\nCWHOLEFROMBYTE := CWHOLELEN(Q);\nEND_FUNCTION\n")
+  const STEPWHOLE = lib("CSTEPWHOLE", "FUNCTION CSTEPWHOLE : BYTE\nVAR_INPUT\n\tP : POINTER TO STRING;\nEND_VAR\nP := P + 1;\nCSTEPWHOLE := P^[0];\nEND_FUNCTION\n")
+  // every StringUtils function starts so — a null pointer answers, it does not fault (lib_prim_null_cursor)
+  const LENOR = lib("CLENOR", "FUNCTION CLENOR : DINT\nVAR_INPUT\n\tP : POINTER TO BYTE;\nEND_VAR\nIF P = 0 THEN\n\tCLENOR := -1;\n\tRETURN;\nEND_IF\nCLENOR := CLEN(P);\nEND_FUNCTION\n")
+  const DEREF = lib("CDEREF", "FUNCTION CDEREF : BYTE\nVAR_INPUT\n\tP : POINTER TO BYTE;\nEND_VAR\nCDEREF := P[1];\nEND_FUNCTION\n")
+  const LIBS = [LEN, TAIL, FILL, WLEN, WHOLE, SHIFT, FROMBYTE, WHOLELEN, WHOLEFROMBYTE, STEPWHOLE, LENOR, DEREF]
   const scanned = (vars: string, body: string) => {
     const { pou, diagnostics } = lowerSource(`PROGRAM P\nVAR ${vars} END_VAR\n${body}\nEND_PROGRAM\n`, "P", LIBS)
     if (pou === undefined) throw new Error(diagnostics.map((d) => `${d.code}: ${d.message}`).join("\n"))
@@ -1958,6 +1966,32 @@ describe("lower — a STRING CURSOR (a character pointer a caller fills with a s
     expect(scanned("s : STRING(20) := 'abc'; c : BYTE;", "c := CFIRST(ADR(s));").get("c")).toBe(97n)
   })
 
+  test("a whole-string pointer handed a byte cursor that walked: p^[i] counts from where it stands", () => {
+    expect(scanned("s : STRING := 'abc'; a : BYTE; b : BYTE;", "a := CFIRST(ADR(s)); b := CFROMBYTE(ADR(s));").get("b")).toBe(98n)
+  })
+
+  test("its whole p^ is the string from there, which the model holds no place for — refused, not read from the start", () => {
+    const { diagnostics } = lowerSource("PROGRAM P\nVAR s : STRING := 'abc'; n : INT; END_VAR\nn := CWHOLEFROMBYTE(ADR(s));\nEND_PROGRAM\n", "P", LIBS)
+    expect(diagnostics.map((d) => d.code)).toContain("pointer-value")
+    // handed the string's address, it stands at the start: the whole string
+    expect(scanned("s : STRING := 'abc'; n : INT;", "n := CWHOLELEN(ADR(s));").get("n")).toBe(97n)
+  })
+
+  test("a POINTER TO STRING cursor moved along its string is refused", () => {
+    const { diagnostics } = lowerSource("PROGRAM P\nVAR s : STRING := 'abc'; c : BYTE; END_VAR\nc := CSTEPWHOLE(ADR(s));\nEND_PROGRAM\n", "P", LIBS)
+    expect(diagnostics.map((d) => d.code)).toContain("pointer-value")
+  })
+
+  test("a NULL pointer variable reaches the callee as 0 — its `IF p = 0 THEN RETURN` answers, and a dereference faults", () => {
+    expect(scanned("s : STRING := 'abc'; ps : POINTER TO STRING; n : DINT; m : DINT;", "ps := ADR(s);\nn := CLENOR(ps);\nps := 0;\nm := CLENOR(ps);").get("m")).toBe(-1n)
+    expect(() => scanned("s : STRING := 'abc'; ps : POINTER TO STRING; c : BYTE;", "ps := ADR(s);\nps := 0;\nc := CDEREF(ps);")).toThrow("null pointer")
+  })
+
+  test("a STRING stored into a character is refused while lowering — CODESYS does not convert it", () => {
+    const { pou, diagnostics } = lowerSource("PROGRAM P\nVAR s : STRING := 'abc'; END_VAR\ns[0] := 'X';\nEND_PROGRAM\n", "P")
+    expect([pou, diagnostics.map((d) => d.code)]).toEqual([undefined, ["assign-string"]])
+  })
+
   test("two pointers into ONE string share it, each at its own offset — StrMidA(pst := s, pstResult := s)", () => {
     expect(scanned("s : STRING := 'Device.Main';", "CSHIFT(ADR(s), 7, ADR(s));").get("s")).toBe("Main")
     // into two strings, each is its own
@@ -1968,5 +2002,44 @@ describe("lower — a STRING CURSOR (a character pointer a caller fills with a s
   test("anything but a string's address, a cursor or a pointer to a string is refused, not guessed", () => {
     const { diagnostics } = lowerSource("PROGRAM P\nVAR b : BYTE; n : DINT; END_VAR\nn := CLEN(ADR(b));\nEND_PROGRAM\n", "P", LIBS)
     expect(diagnostics.map((d) => d.code)).toContain("pointer-order")
+  })
+})
+
+describe("lower — a LIBRARY BASE (libraries bound once, each program bound on top and taken off)", () => {
+  const lib = (name: string, source: string) => ({ uri: `Library Manager/Lib/${name}`, source })
+  const F = lib("F.fun", "FUNCTION F : INT\nF := 7;\nEND_FUNCTION\n")
+  const BASE_FB = lib("B.fb", "FUNCTION_BLOCK B\nVAR_OUTPUT n : INT; END_VAR\nn := 1;\nEND_FUNCTION_BLOCK\n")
+  const DERIVED = lib("D.fb", "FUNCTION_BLOCK D EXTENDS B\nn := 2;\nEND_FUNCTION_BLOCK\n")
+  const PROGRAM = "PROGRAM P\nVAR x : INT; d : D; y : INT; END_VAR\nx := F();\nd();\ny := d.n;\nEND_PROGRAM\n"
+  /** What a base's table IS, as lowering reads it: its units in order, and what each one extends. */
+  const shape = (base: ReturnType<typeof libraryBase>) => base.prepared.project.children.map((c) => `${c.defUri}:${c.name}->${c.baseScope?.defUri ?? "-"}`)
+
+  test("a program lowers against it as against the files handed in whole — and leaves it as it was", () => {
+    const base = libraryBase([F, BASE_FB, DERIVED])
+    const before = shape(base)
+    const onBase = lowerSource(PROGRAM, "P", [], "p.prg", base)
+    expect(onBase.diagnostics).toEqual([])
+    expect(shape(base)).toEqual(before)
+    const p = run(onBase.pou!)
+    p.scan()
+    expect([p.get("x"), p.get("y")]).toEqual([7n, 2n])
+  })
+
+  test("a program unit named like a base unit's EXTENDS target is relinked away again", () => {
+    // `B` is not in the base, so D links to the PROGRAM's B while it is bound — and must not keep a link into a scope
+    // that is gone once it is taken off (a library's own B would win the link, which would prove nothing)
+    const base = libraryBase([F, DERIVED])
+    const before = shape(base)
+    lowerSource("FUNCTION_BLOCK B\nVAR_OUTPUT n : INT; END_VAR\nEND_FUNCTION_BLOCK\n" + PROGRAM, "P", [], "p.prg", base)
+    expect(shape(base)).toEqual(before)
+  })
+
+  test("a file already in the base, or a manifest beside it, is a caller's mistake — said, not left to corrupt it", () => {
+    const base = libraryBase([F])
+    expect(() => lowerSource(PROGRAM, "P", [F], "p.prg", base)).toThrow("already bound in the library base")
+    const manifest = { uri: "Library Manager/Lib/Lib.library", source: "LIBRARY Lib\nNAMESPACE Lib\nRESOLUTION Lib, 1.0.0.0 (x)\n" }
+    expect(() => lowerSource(PROGRAM, "P", [manifest], "p.prg", base)).toThrow(".library manifest")
+    // and the base is whole after both
+    expect(lowerSource("PROGRAM P\nVAR x : INT; END_VAR\nx := F();\nEND_PROGRAM\n", "P", [], "p.prg", base).diagnostics).toEqual([])
   })
 })

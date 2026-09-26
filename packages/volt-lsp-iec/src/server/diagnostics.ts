@@ -17,7 +17,8 @@ import {
 } from "../analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../network/index.js"
 import { codesysCodeFor } from "../analysis/error-code-map.js"
-import { isLibrarySymbol } from "../symbols/index.js"
+import { isLibrarySymbol, LIBRARY_MATERIALIZATION, staleLibraryManifests, type LibraryManifest } from "../symbols/index.js"
+import { pathToFileURL } from "node:url"
 import { rangeFromSpan } from "../services/index.js"
 import type { Document } from "../syntax/index.js"
 import type { WorkspaceStore } from "./workspace-store.js"
@@ -84,4 +85,28 @@ export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d
       message: e.message,
     })),
   ]
+}
+
+/**
+ * A LIBRARY PULLED BY AN OLDER BRIDGE, SAID ON ITS MANIFEST — by file URI, one warning each. The LSP knows a library only
+ * through its materialization, so declarations an older bridge did not write (format 1 skipped every FUNCTION without a
+ * return type) read as undefined at each call; the answer is a re-pull, never a list of names kept here instead.
+ */
+export function libraryManifestDiagnostics(manifests: readonly LibraryManifest[]): Map<string, VoltDiagnostic[]> {
+  return new Map(
+    staleLibraryManifests(manifests).map((m) => [
+      pathToFileURL(m.uri).href,
+      [
+        {
+          range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+          severity: DiagnosticSeverity.Warning,
+          source: "volt-lsp-iec",
+          code: "library-stale",
+          message:
+            `${m.library} was materialized by an older Volt (format ${m.materialization}, now ${LIBRARY_MATERIALIZATION}), ` +
+            "which skipped its FUNCTIONs without a return type — a call to one reads as undefined. Run `volt pull` to re-materialize it.",
+        },
+      ],
+    ]),
+  )
 }

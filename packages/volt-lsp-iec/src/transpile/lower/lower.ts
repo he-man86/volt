@@ -43,7 +43,7 @@ import { lowerPlace } from "./places.js"
 import { buildInitSequence } from "./init-sequence.js"
 import { resolveNamedType, type Type, UNKNOWN } from "../../types/index.js"
 import { defaultValueOf, holdsCall, type IrExpr, type IrInit, type IrPou, type IrRoutine, type IrSlot, type IrStmt, type LoweredPou, peelArray, type Place, lowerDiagnostic } from "../ir/index.js"
-import { baseOf, Lowering, newShared, openDims } from "./lowering.js"
+import { type AttributeLookup, baseOf, Lowering, newShared, openDims } from "./lowering.js"
 import { declareVars, storageOf, tempResets } from "./storage.js"
 import { lowerBlock } from "./statements.js"
 import { calledLayout, calledRoutine, programReentrant } from "./calls.js"
@@ -622,7 +622,7 @@ export interface LibraryFile {
 export interface LoweringProject {
   project: Scope
   /** Each POU's `{attribute '…'}` names (`syntax/unitAttributes`), for the ones lowering must refuse. */
-  attributes: ReadonlyMap<object, ReadonlySet<string>>
+  attributes: AttributeLookup
   /** The units that came from LIBRARY files — a bodyless one of these is refused (`isBodylessLibrary`). */
   libraryUnits: ReadonlySet<object>
 }
@@ -676,44 +676,59 @@ export interface ParsedFile {
 export interface LibraryBase {
   readonly prepared: LoweringProject
   readonly manifests: readonly LibraryManifest[]
+  /** Every file the base holds, by uri — a program's file of the same uri would be taken off WITH it (`lowerSource`). */
+  readonly uris: ReadonlySet<string>
+  /** Every name a base unit EXTENDS, lower-cased — a program unit named so can change which base that unit links to. */
+  readonly extended: ReadonlySet<string>
 }
 
 /** Bind a project's library files — declarations, bodies and `.library` manifests — once. */
 export function libraryBase(libraries: readonly LibraryFile[]): LibraryBase {
-  const manifests = libraries.flatMap((l) => parseLibraryManifest(l.uri, l.source) ?? [])
-  const files = libraries
+  const read = readFiles(libraries)
+  if ("unparsed" in read) throw new Error(`${read.unparsed.uri} did not parse: ${read.unparsed.parseResult.errors[0]!.message}`)
+  const prepared = prepareProject(read.files, read.manifests)
+  const extended = new Set(prepared.project.children.flatMap((c) => (c.extendsName === undefined ? [] : [c.extendsName.toLowerCase()])))
+  return { prepared, manifests: read.manifests, uris: new Set(read.files.map((f) => f.uri)), extended }
+}
+
+/**
+ * A project's files as binding takes them, split and parsed ONCE: a `.library` manifest recognised by its name and
+ * read by `parseLibraryManifest`, everything else parsed (or its `parseResult` reused). A file that does not parse is
+ * named, not built on — a GVL whose `gN : INT := 7` is missing its semicolon was put into the symbol table half-parsed,
+ * and the failure resurfaced downstream wearing someone else's name (`aggregate-init`, `place-not-local`).
+ */
+function readFiles(files: readonly LibraryFile[]): { files: ParsedFile[]; manifests: LibraryManifest[] } | { unparsed: ParsedFile } {
+  const manifests = files.flatMap((l) => parseLibraryManifest(l.uri, l.source) ?? [])
+  const parsed = files
     .filter((l) => !l.uri.toLowerCase().endsWith(".library"))
     .map((l) => ({ uri: l.uri, parseResult: l.parseResult ?? parseSource(l.source), source: l.source }))
-  const unparsed = files.find((f) => f.parseResult.errors.length > 0)
-  if (unparsed !== undefined) throw new Error(`${unparsed.uri} did not parse: ${unparsed.parseResult.errors[0]!.message}`)
-  return { prepared: prepareProject(files, manifests), manifests }
+  const unparsed = parsed.find((f) => f.parseResult.errors.length > 0)
+  return unparsed === undefined ? { files: parsed, manifests } : { unparsed }
 }
 
 /** Parse, bind and lower one source string, against the files a project would hand in beside it. The test/CLI path.
  *  `uri` places the source in a project tree — where an `instance-path` takes its device and application from.
  *  `base`, when given, holds the project's libraries already bound (`libraryBase`); `libraries` is then only the
- *  program's other files — its GVLs and sibling POUs. */
+ *  program's other files — its GVLs and sibling POUs, none of them in the base and no `.library` among them. */
 export function lowerSource(source: string, name?: string, libraries: readonly LibraryFile[] = [], uri = "transpile://source", base?: LibraryBase): LoweredPou {
   const parseResult = parseSource(source)
   if (parseResult.errors.length > 0) {
     const first = parseResult.errors[0]!
     return { diagnostics: [lowerDiagnostic("parse", first.message, first.span)] }
   }
-  // ONE parse per file: a manifest is recognised by its name and read by `parseLibraryManifest`, everything else parsed
-  const manifests = libraries.flatMap((l) => parseLibraryManifest(l.uri, l.source) ?? [])
-  // A DECLARATION FILE THAT DOES NOT PARSE IS REPORTED, not built on. A GVL whose `gN : INT := 7` is missing its
-  // semicolon was put into the symbol table half-parsed, and the failure resurfaced downstream wearing someone else's
-  // name (`aggregate-init`, `place-not-local`) — neither true, neither naming the file.
-  const parsed = libraries
-    .filter((l) => !l.uri.toLowerCase().endsWith(".library"))
-    .map((l) => ({ uri: l.uri, parseResult: l.parseResult ?? parseSource(l.source), source: l.source }))
-  const unparsed = parsed.find((f) => f.parseResult.errors.length > 0)
-  if (unparsed !== undefined) {
-    const first = unparsed.parseResult.errors[0]!
-    return { diagnostics: [lowerDiagnostic("parse", `${unparsed.uri} did not parse: ${first.message}`, first.span)] }
+  const read = readFiles(libraries)
+  if ("unparsed" in read) {
+    const first = read.unparsed.parseResult.errors[0]!
+    return { diagnostics: [lowerDiagnostic("parse", `${read.unparsed.uri} did not parse: ${first.message}`, first.span)] }
   }
-  const own = [{ uri, parseResult, source }, ...parsed]
-  if (base === undefined) return lowerPrepared(parseResult, name, prepareProject(own, manifests))
+  const own = [{ uri, parseResult, source }, ...read.files]
+  if (base === undefined) return lowerPrepared(parseResult, name, prepareProject(own, read.manifests))
+  // A CALLER'S MISTAKE, SAID AS ONE — both were silent. A file already in the base is taken off by uri afterwards, and
+  // its copy in the base with it, so every later program lowered against a base missing that file; a manifest beside a
+  // base was dropped, since the base's are the ones linked against.
+  const twice = own.find((f) => base.uris.has(f.uri))
+  if (twice !== undefined) throw new Error(`${twice.uri} is already bound in the library base — hand in only the program's own files`)
+  if (read.manifests.length > 0) throw new Error("a .library manifest handed beside a library base — bind it into the base (`libraryBase`)")
   // the program's files bound on the base for this lowering only — and taken off again whatever happens, so the next
   // program starts from the libraries alone
   const project = base.prepared.project
@@ -721,14 +736,20 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
   linkExtends(project, base.manifests)
   try {
     const libraryUnits = own.filter((f) => isLibrarySymbol(f)).flatMap((f) => f.parseResult.units)
+    const attributes = new Map<object, ReadonlySet<string>>(own.flatMap(attributesOf))
     return lowerPrepared(parseResult, name, {
       project,
-      attributes: new Map([...base.prepared.attributes, ...own.flatMap(attributesOf)]),
+      // the program's own over the base's — layered, not copied: the base can hold thousands
+      attributes: { get: (key) => attributes.get(key) ?? base.prepared.attributes.get(key) },
       libraryUnits: libraryUnits.length === 0 ? base.prepared.libraryUnits : new Set([...base.prepared.libraryUnits, ...libraryUnits]),
     })
   } finally {
     for (const f of own) unbindFile(project, f.uri)
-    linkExtends(project, base.manifests)
+    // Taking the files off leaves the base's order canonical and its links as they were — unless a program unit shared
+    // a name something in the base EXTENDS, when that link may now point into a removed scope. Only then is it
+    // relinked: the whole relink was 0.3 ms of a 1.5 ms lowering (`lowerSource` is run some 10 000 times a suite).
+    const named = own.some((f) => f.parseResult.units.some((u) => "name" in u && base.extended.has(u.name.text.toLowerCase())))
+    if (named) linkExtends(project, base.manifests)
   }
 }
 

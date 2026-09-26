@@ -25,21 +25,25 @@ impl<T: Copy + Default, const N: usize> IecStr<T, N> {
     pub fn units(&self) -> &[T] { &self.units[..self.len] }
     pub fn to<const M: usize>(&self) -> IecStr<T, M> { IecStr::<T, M>::lit(self.units()) }
 }
-// s[i] — 0-based; a read AT the length is the terminator, a store there appends, and a 0 stored cuts the string.
-// Past the length is a byte the model does not hold: a panic, as the interpreter's RangeError (ir/values.ts charAt).
+// s[i] — 0-based over the N + 1 bytes of the variable: a read at or past the length is 0, a store below it replaces (a 0
+// cuts), a store AT it appends, a store past it lands behind the terminator and changes nothing. Outside 0..N is
+// outside the variable: a panic, as the interpreter's RangeError (ir/values.ts charAt / setChar).
 // Written out, not on one line: "if .. { panic!() } if .." on one line reads to clippy as possible_missing_else.
 impl<T: Copy + Default + PartialEq, const N: usize> IecStr<T, N> {
     pub fn char_at(&self, i: i64) -> T {
-        if i < 0 || i as usize > self.len {
-            panic!("character {} of a string of length {}", i, self.len)
+        if i < 0 || i as usize > N {
+            panic!("character {} of a string of capacity {}", i, N)
         }
-        if i as usize == self.len { T::default() } else { self.units[i as usize] }
+        if i as usize >= self.len { T::default() } else { self.units[i as usize] }
     }
     pub fn with_char(mut self, i: i64, c: T) -> Self {
-        if i < 0 || i as usize > self.len || (i as usize == N && c != T::default()) {
-            panic!("character {} of a string of length {}", i, self.len)
+        if i < 0 || i as usize > N || (i as usize == N && c != T::default()) {
+            panic!("character {} of a string of capacity {}", i, N)
         }
         let i = i as usize;
+        if i > self.len {
+            return self;
+        }
         if c == T::default() {
             self.len = i;
         } else {

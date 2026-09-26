@@ -25,6 +25,15 @@ public static class LibraryManifest
     public static string Resolution(string name, string version, string distributor) =>
         $"{name}, {version} ({distributor})";
 
+    /// <summary>WHICH MATERIALIZATION wrote the library's declaration files, stated in its manifest so a reader can
+    /// tell a stale one. 2: FUNCTIONs with no return type are rendered (<c>FUNCTION name</c>) — format 1 skipped them,
+    /// so a workspace pulled by it lacks StringUtils' <c>StrTrimA</c>/<c>StrMidA</c>/<c>StrReplaceA</c>, and the LSP,
+    /// which knows a library only through its materialization, reports every call to one as undefined. A manifest
+    /// without the line is format 1, and the LSP says so on it. Bump it whenever the rendered declarations change what
+    /// they declare: the manifest is the library's version-hash basis, so the bump itself re-fetches every library on
+    /// the next pull — which is the repair.</summary>
+    public const int Materialization = 2;
+
     public static string Build(
         string name,
         string @namespace,
@@ -42,6 +51,7 @@ public static class LibraryManifest
         // Direct dependencies, by name — the tree captured as a reference (the deps live once in the flat list).
         if (dependencies != null && dependencies.Count > 0)
             sb.Append("DEPENDENCIES ").Append(string.Join(", ", dependencies)).Append('\n');
+        sb.Append("MATERIALIZATION ").Append(Materialization).Append('\n');
         return sb.ToString();
     }
 }

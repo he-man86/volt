@@ -4,7 +4,7 @@
 import type { Expr, Span, Statement } from "../../syntax/index.js"
 import { elemOf, elementaryRef, type Type } from "../../types/index.js"
 import { type IrExpr, type IrSelect, type IrStmt, peelArray, type Place } from "../ir/index.js"
-import type { Lowering, PointerTarget } from "./lowering.js"
+import type { Cursor, Lowering, PointerTarget } from "./lowering.js"
 import { binaryOf, cast, convert } from "./convert.js"
 import { storageOf } from "./storage.js"
 import { lowerPlace, refuseOpenArray } from "./places.js"
@@ -281,7 +281,7 @@ export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undef
 }
 
 /** The STRING CURSOR a pointer place is (`Lowering.cursors`) — a bare parameter of this routine — or undefined. */
-function cursorOf(lw: Lowering, pointer: Place): { inout: number; unit: Type } | undefined {
+function cursorOf(lw: Lowering, pointer: Place): Cursor | undefined {
   if (pointer.root !== "local" || pointer.path.length > 0) return undefined
   const name = lw.localSlots[pointer.slot]?.name.toUpperCase()
   return name === undefined ? undefined : lw.cursors.get(name)
@@ -295,34 +295,64 @@ function cursorOf(lw: Lowering, pointer: Place): { inout: number; unit: Type } |
 export function cursorChar(lw: Lowering, pointer: Place, extra: IrExpr | undefined, span: Span): { place: Place; index: IrExpr; unit: Type } | null {
   const cursor = cursorOf(lw, pointer)
   if (cursor === undefined || elemOf(cursor.unit)?.family === "string") return null
-  const text: Place = { slot: cursor.inout, path: [], type: lw.inoutSlots[cursor.inout]!.type, span, root: "inout" }
+  return cursorCharAt(lw, pointer, cursor, cursor.unit, extra, span)
+}
+
+/** `p^[i]` on a `POINTER TO STRING` (WSTRING) cursor — the i-th character counted from where the cursor stands, which is
+ *  where the string `p^` names begins. Null when `pointer` is no such cursor. */
+export function cursorStringChar(lw: Lowering, pointer: Place, extra: IrExpr, span: Span): { place: Place; index: IrExpr; unit: Type } | null {
+  const cursor = cursorOf(lw, pointer)
+  const text = cursor === undefined ? undefined : elemOf(cursor.unit)
+  if (cursor === undefined || text?.family !== "string") return null
+  return cursorCharAt(lw, pointer, cursor, elementaryRef(text.name === "WSTRING" ? "WORD" : "BYTE"), extra, span)
+}
+
+/** The character a cursor's byte offset, plus `extra` characters, names in the string it walks. */
+function cursorCharAt(lw: Lowering, pointer: Place, cursor: Cursor, unit: Type, extra: IrExpr | undefined, span: Span): { place: Place; index: IrExpr; unit: Type } {
+  // guarded by the pointer: a cursor handed a null pointer variable is bound all the same, and faults HERE, where it is
+  // dereferenced — as form 1's `p^` does
+  const text: Place = { slot: cursor.inout, path: [], type: lw.inoutSlots[cursor.inout]!.type, span, root: "inout", guard: pointer }
   const lint = elementaryRef("LINT")
   const n = (value: bigint): IrExpr => ({ kind: "const", value, type: lint, span })
-  const width = elemOf(cursor.unit)?.name === "WORD" ? 2n : 1n
+  const width = elemOf(unit)?.name === "WORD" ? 2n : 1n
   let index = binaryOf("sub", cast({ kind: "load", place: pointer, type: pointer.type, span }, lint), n(1n), lint, span)
   if (width > 1n) index = binaryOf("div", index, n(width), lint, span)
   if (extra !== undefined) index = binaryOf("add", index, convert(extra, lint), lint, span)
-  return { place: text, index, unit: cursor.unit }
+  return { place: text, index, unit }
 }
 
-/** The string a `POINTER TO STRING` cursor's `p^` is — the caller's own, bound whole — or undefined. */
-export function cursorString(lw: Lowering, pointer: Place, span: Span): Place | undefined {
+/**
+ * The string a `POINTER TO STRING` cursor's `p^` is — the caller's own, bound whole. Undefined when `pointer` is no such
+ * cursor; null, refused, when it may stand past the string's first character: its `p^` is then the string from there,
+ * which is no place the model holds.
+ */
+export function cursorString(lw: Lowering, pointer: Place, span: Span): Place | null | undefined {
   const cursor = cursorOf(lw, pointer)
   if (cursor === undefined || elemOf(cursor.unit)?.family !== "string") return undefined
-  return { slot: cursor.inout, path: [], type: lw.inoutSlots[cursor.inout]!.type, span, root: "inout" }
+  if (cursor.offset) {
+    lw.bail("pointer-value", "the whole string behind a POINTER TO STRING that may stand past its first character", span)
+    return null
+  }
+  return { slot: cursor.inout, path: [], type: lw.inoutSlots[cursor.inout]!.type, span, root: "inout", guard: pointer }
 }
 
 /** `p := <pointer value>` — its target recorded for every body that dereferences `p`. */
 export function storePointer(lw: Lowering, target: Place, value: Expr, span: Span): IrStmt | undefined {
   // a STRING CURSOR moves along the string it walks and nowhere else: `p := p + n` / `p := p - n`, by bytes
-  if (cursorOf(lw, target) !== undefined) {
+  const cursor = cursorOf(lw, target)
+  if (cursor !== undefined) {
+    // a whole-string cursor stays where it was bound, which is what keeps its `p^` a whole string (`cursorString`)
+    if (elemOf(cursor.unit)?.family === "string") return lw.bail("pointer-value", "a POINTER TO STRING cursor moved along its string", span)
     const stepped = value.kind === "binary" && (value.op === "+" || value.op === "-") ? value : undefined
     const same = stepped?.left.kind === "ident_expr" && lw.localSlots[target.slot]?.name.toUpperCase() === stepped.left.name.toUpperCase()
     if (stepped === undefined || !same) return lw.bail("pointer-value", "a string cursor given anything but itself stepped by bytes", span)
     const bytes = lowerExpr(lw, stepped.right)
     if (bytes === undefined) return undefined
     const current: IrExpr = { kind: "load", place: target, type: target.type, span }
-    return { kind: "assign", target, value: binaryOf(stepped.op === "+" ? "add" : "sub", current, convert(bytes, target.type), target.type, span), span }
+    // the step in the POINTER's type, as an element pointer's is: `convert` leaves a literal its own type (a SINT's
+    // `1i8` beside a `usize` pointer did not compile — lib_prim_string_cursor_offset)
+    const step: IrExpr = bytes.kind === "const" && typeof bytes.value === "bigint" ? { ...bytes, type: target.type } : cast(bytes, target.type)
+    return { kind: "assign", target, value: binaryOf(stepped.op === "+" ? "add" : "sub", current, step, target.type, span), span }
   }
   const key = pointerKey(lw, target)
   if (key === undefined) return lw.bail("pointer-place", "a pointer stored somewhere this does not track", span)

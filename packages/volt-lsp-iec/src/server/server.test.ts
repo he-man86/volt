@@ -731,6 +731,33 @@ test("server: workspace/diagnostic reports errors in unopened files (eager index
   rmSync(dir, { recursive: true, force: true })
 })
 
+test("server: a library an older bridge materialized is told to re-pull — on its manifest, and nowhere else", async () => {
+  // format 1 skipped FUNCTIONs without a return type, so their calls read as undefined; the LSP keeps no list of those
+  // names to paper over it (review 2026-09-26) — it says, on the manifest, what the repair is
+  const lib = (name: string, materialization: string) =>
+    `LIBRARY ${name}\nNAMESPACE ${name}\nRESOLUTION ${name}, 1.0.0.0 (x)\nPLACEHOLDER true\nSYSTEM true\n${materialization}`
+  const dir = tempWorkspace({
+    "Library Manager/Old/Old.library": lib("Old", ""),
+    "Library Manager/New/New.library": lib("New", "MATERIALIZATION 2\n"),
+    "PLC_PRG.prg": PRG,
+    "E_Mode.enum": ENUM,
+  })
+  const client = connect()
+  await initInDir(client, dir)
+  const report = (await client.sendRequest(WorkspaceDiagnosticRequest.type, { previousResultIds: [] })) as {
+    items: { uri: string; items: { code?: unknown; message: string }[] }[]
+  }
+  const oldUri = pathToFileURL(join(dir, "Library Manager/Old/Old.library")).href
+  const stale = report.items.filter((r) => r.items.some((d) => d.code === "library-stale"))
+  expect(stale.map((r) => r.uri)).toEqual([oldUri])
+  expect(stale[0]!.items[0]!.message).toContain("volt pull")
+  // pulled for the manifest itself, as a client does for an open file
+  const pulled = (await client.sendRequest(DocumentDiagnosticRequest.type, { textDocument: { uri: oldUri } })) as { items: { code?: unknown }[] }
+  expect(pulled.items.map((d) => d.code)).toEqual(["library-stale"])
+  client.dispose()
+  rmSync(dir, { recursive: true, force: true })
+})
+
 test("server: diagnostics are GATED until the workspace is indexed (no startup false-error flicker)", async () => {
   // PLC_PRG references E_Mode, defined in a SIBLING file — resolvable ONLY after the cross-file crawl. Before the
   // crawl the store holds just the open buffer, so E_Mode reads as "not defined": exactly the false error the gate

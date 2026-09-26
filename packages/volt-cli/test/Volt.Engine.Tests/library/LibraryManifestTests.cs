@@ -20,7 +20,8 @@ public class LibraryManifestTests
             "RESOLUTION CAA Real Time Clock Extern, 3.5.17.0 (CAA Technical Workgroup)\n" +
             "PLACEHOLDER true\n" +
             "SYSTEM false\n" +
-            "DEPENDENCIES CAA Types, CAA Async Manager\n",
+            "DEPENDENCIES CAA Types, CAA Async Manager\n" +
+            "MATERIALIZATION 2\n",
             m);
     }
 
@@ -43,7 +44,8 @@ public class LibraryManifestTests
             "NAMESPACE Tc2_Standard\n" +
             "RESOLUTION Tc2_Standard, * (Beckhoff Automation GmbH)\n" +
             "PLACEHOLDER true\n" +
-            "SYSTEM true\n",
+            "SYSTEM true\n" +
+            "MATERIALIZATION 2\n",
             m);
     }
 }

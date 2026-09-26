@@ -161,49 +161,37 @@ function once(lw: Lowering, name: string, span: Span, build: () => IrRoutine | u
   return routine
 }
 
-/** Each routine's `touched` set, by key — per POU lowering, so the routine's callers can take it on. */
-const touches = new WeakMap<object, Map<string, ReadonlySet<number>>>()
-function touchesOf(lw: Lowering): Map<string, ReadonlySet<number>> {
-  let map = touches.get(lw.shared)
-  if (map === undefined) touches.set(lw.shared, (map = new Map()))
-  return map
+/**
+ * A FACT ABOUT EACH LOWERED ROUTINE, by its key (`once`'s name, upper-cased), kept per POU lowering (`lw.shared`). The
+ * call site needs what the callee's own lowering worked out, and that lowering is gone by the time an argument binds.
+ * Lowering's, not the IR's: nothing a backend reads.
+ */
+function routineFacts<T>(): (lw: Lowering) => Map<string, T> {
+  const tables = new WeakMap<object, Map<string, T>>()
+  return (lw) => {
+    let map = tables.get(lw.shared)
+    if (map === undefined) tables.set(lw.shared, (map = new Map()))
+    return map
+  }
 }
 
-/** Each routine's parameters in declaration order — VAR_INPUT, VAR_IN_OUT and VAR_OUTPUT as written — by key: the order a
+/** Each routine's `touched` set — so the routine's callers can take it on. */
+const touchesOf = routineFacts<ReadonlySet<number>>()
+
+/** Each routine's parameters in declaration order — VAR_INPUT, VAR_IN_OUT and VAR_OUTPUT as written: the order a
  *  positional argument binds in (conformance `callshape_positional_arguments`). */
-const positionals = new WeakMap<object, Map<string, readonly { name: string; output: boolean }[]>>()
-function positionalOf(lw: Lowering): Map<string, readonly { name: string; output: boolean }[]> {
-  let map = positionals.get(lw.shared)
-  if (map === undefined) positionals.set(lw.shared, (map = new Map()))
-  return map
-}
+const positionalOf = routineFacts<readonly { name: string; output: boolean }[]>()
 
-/** Each routine's ANY / ANY_* input slots, by key — the inputs a call fills with its argument's size, not its value. */
-const anyInputs = new WeakMap<object, Map<string, ReadonlySet<number>>>()
-function anyInputsOf(lw: Lowering): Map<string, ReadonlySet<number>> {
-  let map = anyInputs.get(lw.shared)
-  if (map === undefined) anyInputs.set(lw.shared, (map = new Map()))
-  return map
-}
+/** Each routine's ANY / ANY_* input slots — the inputs a call fills with its argument's size, not its value. */
+const anyInputsOf = routineFacts<ReadonlySet<number>>()
 
-/** Each routine's BORROWED pointer inputs (form 2), by key: the input slot index → the hidden VAR_IN_OUT a call
- *  binds to whatever the caller took an `ADR` of. `anyInputsOf`'s twin, for the same reason — the call site needs
- *  a fact the callee's own lowering worked out, and that lowering is gone by the time an argument binds. */
-const borrowedInputs = new WeakMap<object, Map<string, ReadonlyMap<number, number>>>()
-function borrowedInputsOf(lw: Lowering): Map<string, ReadonlyMap<number, number>> {
-  let map = borrowedInputs.get(lw.shared)
-  if (map === undefined) borrowedInputs.set(lw.shared, (map = new Map()))
-  return map
-}
+/** Each routine's BORROWED pointer inputs (form 2): the input slot index → the hidden VAR_IN_OUT a call binds to whatever
+ *  the caller took an `ADR` of. */
+const borrowedInputsOf = routineFacts<ReadonlyMap<number, number>>()
 
-/** Each routine's STRING CURSOR inputs (`Lowering.cursors`), by key: the input slot index → the hidden VAR_IN_OUT a call
- *  binds the string to. `borrowedInputsOf`'s twin. */
-const cursorInputs = new WeakMap<object, Map<string, ReadonlyMap<number, number>>>()
-function cursorInputsOf(lw: Lowering): Map<string, ReadonlyMap<number, number>> {
-  let map = cursorInputs.get(lw.shared)
-  if (map === undefined) cursorInputs.set(lw.shared, (map = new Map()))
-  return map
-}
+/** Each routine's STRING CURSOR inputs (`Lowering.cursors`): the input slot index → the hidden VAR_IN_OUT a call binds
+ *  the string to. */
+const cursorInputsOf = routineFacts<ReadonlyMap<number, number>>()
 
 /** The lowering a routine body is lowered in: the frame's fields (when it runs on an instance) plus per-call locals. */
 function routineLowering(lw: Lowering, scope: Scope, frame: FbType | undefined, codeOwner: Scope | undefined, key: string, displayName = key): Lowering {
@@ -460,34 +448,40 @@ function cursorArgumentTypes(lw: Lowering, sym: RoutineSymbol, call: Extract<Exp
     // pointer at its own offset. Two hidden VAR_IN_OUTs would be two `&mut` of `s`, which the alias check refuses.
     const shares = walked.same === undefined ? undefined : walking.get(walked.same)
     if (walked.same !== undefined && shares === undefined) walking.set(walked.same, name!)
-    out.set(name!, { type: walked.type, shares })
+    // a whole-string pointer handed a cursor that may have walked stands wherever that one does (`Cursor.offset`)
+    out.set(name!, { type: walked.type, shares, offset: pointee?.family === "string" && walked.walked })
   }
   return out
 }
 
-/** A cursor input's string, or — `shares` — the earlier input of the same call whose string it walks too. */
+/** A cursor input's string; `shares` — the earlier input of the same call whose string it walks too; `offset` — that it
+ *  may stand past its string's first character (`Cursor.offset`). */
 interface CursorArgument {
   type: Type
   shares?: string
+  offset: boolean
 }
 
 /** The string an argument hands a character pointer: `ADR(s)`'s, or the one the caller's own cursor walks. A probe —
  *  what it cannot read, the binding reports. */
-function cursorArgument(lw: Lowering, value: Expr): { type: Type; same?: string } | undefined {
+function cursorArgument(lw: Lowering, value: Expr): { type: Type; same?: string; walked: boolean } | undefined {
+  // the caller's own cursor may have walked — a character cursor can step; a whole-string one cannot, unless it was
+  // itself handed one that did
   const own = value.kind === "ident_expr" ? lw.cursors.get(value.name.toUpperCase()) : undefined
-  if (own !== undefined) return { type: lw.inoutSlots[own.inout]!.type, same: `inout:${own.inout}` }
+  if (own !== undefined)
+    return { type: lw.inoutSlots[own.inout]!.type, same: `inout:${own.inout}`, walked: own.offset || elemOf(own.unit)?.family !== "string" }
   const before = lw.diagnostics.length
   const addressed = adrArgument(value)
   const place = lw.inArgument(() => (addressed !== undefined ? lowerPlace(lw, addressed) : pointedString(lw, value)))
   lw.diagnostics.length = before
   const name = place?.type.kind === "elementary" ? place.type.name : undefined
-  return name === "STRING" || name === "WSTRING" ? { type: place!.type, same: stringIdentity(place!) } : undefined
+  return name === "STRING" || name === "WSTRING" ? { type: place!.type, same: stringIdentity(place!), walked: false } : undefined
 }
 
 /** Which string a place is, as a key two arguments agree on only when they name the SAME one — or undefined when that
- *  is not known while lowering: an index computed at run time, or a string reached through a pointer. */
+ *  is not known while lowering: an index computed at run time. A pointer variable's one target is that variable, so
+ *  `ADR(s)` and a pointer given it agree. */
 function stringIdentity(place: Place): string | undefined {
-  if (place.guard !== undefined) return undefined
   const path: string[] = []
   for (const a of place.path) {
     if (a.kind === "field") path.push(a.name.toUpperCase())
@@ -539,7 +533,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
   const cursors = call === undefined ? new Map<string, CursorArgument>() : cursorArgumentTypes(lw, sym, call)
   const variant = [
     ...[...targets].map(([n, t]) => `${n}=${typeKey(t)}`),
-    ...[...cursors].map(([n, c]) => `${n}^=${c.shares === undefined ? typeKey(c.type) : `${c.shares}^`}`),
+    ...[...cursors].map(([n, c]) => `${n}^=${c.offset ? "@" : ""}${c.shares === undefined ? typeKey(c.type) : `${c.shares}^`}`),
   ].join(",")
   const name = `${frame === undefined ? sym.name : `${frame.name}.${as}`}${variant === "" ? "" : `#${variant}`}`
   return once(lw, name, span, () => {
@@ -602,10 +596,10 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     // A STRING CURSOR: a character pointer this call fills with a string's address walks that string — one hidden
     // VAR_IN_OUT of the caller's exact string type, and the pointer keeps its byte offset (`Lowering.cursors`)
     const cursorByInput = new Map<number, number>()
-    for (const [input, { type: text, shares }] of cursors) {
+    for (const [input, { type: text, shares, offset }] of cursors) {
       const local = r.localByName.get(input)!
       const inout = shares === undefined ? r.inoutSlots.length : r.cursors.get(shares)!.inout
-      r.cursors.set(input, { inout, unit: (r.localSlots[local]!.type as Extract<Type, { kind: "pointer" }>).target })
+      r.cursors.set(input, { inout, unit: (r.localSlots[local]!.type as Extract<Type, { kind: "pointer" }>).target, offset })
       r.inoutByName.set(`${input}^`, inout)
       cursorByInput.set(local, inout)
       if (shares === undefined)
@@ -1097,26 +1091,30 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
       const addressed = adrArgument(arg.value)
       const own = arg.value?.kind === "ident_expr" && lw.cursors.has(arg.value.name.toUpperCase()) ? arg.value : undefined
       // three sources, each with where the callee starts: `ADR(s)` at the first character; the caller's own cursor where
-      // it stands; a pointer variable at the one string it was given (its value is form 1's 1, the first character)
-      let target: IrBinding | InFrame | undefined
-      let start: IrExpr = { kind: "const", value: 1n, type: pointerType, span: arg.span }
+      // it stands; a pointer variable at its own VALUE — form 1's 1 for the one string it was given, or 0 while it is
+      // still null, which the callee's `IF p = 0 THEN RETURN` reads as CODESYS's does (every StringUtils function
+      // starts so). The string is bound either way: a null cursor faults where it is DEREFERENCED (`cursorCharAt`'s
+      // guard), not where it is passed.
+      const pointed = addressed !== undefined || own !== undefined || arg.value === undefined ? undefined : lw.inArgument(() => pointedString(lw, arg.value!))
+      if (addressed === undefined && own === undefined && pointed === undefined)
+        return lw.bail("pointer-order", `${arg.param!.name} walks a string, and is given something other than ADR(...) of one, a cursor, or a pointer to one`, arg.span)
+      const from = own ?? (pointed === undefined ? undefined : arg.value)
+      const start: IrExpr =
+        from === undefined ? { kind: "const", value: 1n, type: pointerType, span: arg.span } : { kind: "load", place: lowerPlace(lw, from)!, type: pointerType, span: arg.span }
       // a second pointer into a string this call already bound (`CursorArgument.shares`): the string is bound once, and
       // only this pointer's start is its own
-      const bound = inouts[cursorInOut] !== undefined
-      if (bound) {
-        if (own !== undefined) start = { kind: "load", place: lowerPlace(lw, own)!, type: pointerType, span: arg.span }
+      if (inouts[cursorInOut] !== undefined) {
         inputs[k] = start
         order.push(k)
         continue
       }
+      let target: IrBinding | InFrame | undefined
       if (addressed !== undefined) target = bindInOut(lw, { ...arg, value: addressed }, param, held(), routine.body, routine.fb, instance)
-      else if (own !== undefined) {
+      else if (own !== undefined)
         target = bindInOut(lw, { ...arg, value: { kind: "ident_expr", name: `${own.name.toUpperCase()}^`, span: own.span } }, param, held(), routine.body, routine.fb, instance)
-        start = { kind: "load", place: lowerPlace(lw, own)!, type: pointerType, span: arg.span }
-      } else {
-        const pointed = arg.value === undefined ? undefined : lw.inArgument(() => pointedString(lw, arg.value!))
-        if (pointed === undefined) return lw.bail("pointer-order", `${arg.param!.name} walks a string, and is given something other than ADR(...) of one, a cursor, or a pointer to one`, arg.span)
-        target = bindPlace(lw, pointed, arg, param, held(), routine.body, routine.fb, instance)
+      else {
+        const { guard: _, ...unguarded } = pointed!
+        target = bindPlace(lw, unguarded, arg, param, held(), routine.body, routine.fb, instance)
       }
       if (target === undefined) return undefined
       inouts[cursorInOut] = target

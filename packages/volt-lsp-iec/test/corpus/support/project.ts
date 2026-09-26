@@ -54,6 +54,10 @@ export function parseProject(dir: string): ParsedFile[] {
  * The project lowering reads: its files that PARSE — a parse gap is the parser's to report, not lowering's — with each
  * library the repo has written for the version the project resolved swapped for its ST, bound by `prepareProject`.
  * `parsed` is the project's own parse, reused for every file the repo leaves as it is.
+ *
+ * A REPO BODY THAT DOES NOT PARSE THROWS, as `libraryBase` does for the conformance replay. Filtered with the project's
+ * own files, it vanished: its declaration was already swapped out, so the element was simply gone, every call to it
+ * read as `type-unknown`, and the corpus reach moved for a reason nothing named.
  */
 export function loweringProject(dir: string, parsed: readonly ParsedFile[] = parseProject(dir)): LoweringProject & { files: ParsedFile[] } {
   const manifests = walkSources(dir, new Set([".library"])).map((uri) => ({ uri, source: readFileSync(uri, "utf8") }))
@@ -62,7 +66,10 @@ export function loweringProject(dir: string, parsed: readonly ParsedFile[] = par
     .filter((f) => !f.uri.toLowerCase().endsWith(".library"))
     .map((f) => {
       const own = byUri.get(f.uri)
-      return own !== undefined && own.source === f.source ? own : { ...f, parseResult: parseSource(f.source) }
+      if (own !== undefined && own.source === f.source) return own
+      const body = { ...f, parseResult: parseSource(f.source) }
+      if (body.parseResult.errors.length > 0) throw new Error(`the library repo's ${f.uri} did not parse: ${body.parseResult.errors[0]!.message}`)
+      return body
     })
     .filter((f) => f.parseResult.errors.length === 0)
   return { ...prepareProject(files, scanLibraryManifests(dir)), files }

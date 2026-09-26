@@ -78,23 +78,27 @@ export const MATH: Readonly<Record<IrMathName, (x: number) => number>> = {
  * primitive the Standard library's string functions are written in (`libraries/Standard`). Mirrored by the emitter's
  * prelude (`IecStr::char_at` / `with_char`).
  *
- * The value model holds a string's characters up to its terminator and nothing after it, so an index is defined up
- * to the length and no further:
- *   - a read AT the length is the terminator, 0; past it is a byte the model does not hold — a fault, not a guess;
+ * A STRING(n) is n + 1 bytes in CODESYS, and `s[i]` reaches every one of them — 0 to n — whatever the length
+ * (recorded: lib_prim_char_past_length — `buf[SIZEOF(buf) - 1] := 0` on a short string runs). The value model holds the
+ * characters up to the terminator and nothing after it:
+ *   - a read AT or PAST the length reads 0 — the terminator, or a byte past it;
  *   - a store below the length replaces that character, and a 0 there cuts the string at i;
- *   - a store AT the length appends, up to the capacity (a 0 there changes nothing).
- * ponytail: CODESYS keeps whatever an earlier, longer value left after the terminator, so ST that appends without
- * writing its own terminator next can see stale bytes this model does not hold. The library's ST always terminates.
+ *   - a store AT the length appends (a 0 there changes nothing), and at n only a 0 fits;
+ *   - a store PAST the length lands behind the terminator: the string does not change.
+ * An index outside 0..n is outside the variable — a fault, as CODESYS would be writing into its neighbour.
+ * ponytail: the bytes behind the terminator are not held, so ST that reads back what it stored past the length — or
+ * what an earlier, longer value left there — sees 0 where CODESYS sees that byte. The library's ST always terminates.
  */
-export function charAt(s: string, i: bigint): bigint {
+export function charAt(s: string, i: bigint, capacity: number): bigint {
   const at = Number(i)
-  if (at < 0 || at > s.length) throw new RangeError(`character ${at} of a string of length ${s.length}`)
-  return at === s.length ? 0n : BigInt(s.charCodeAt(at))
+  if (at < 0 || at > capacity) throw new RangeError(`character ${at} of a string of capacity ${capacity}`)
+  return at >= s.length ? 0n : BigInt(s.charCodeAt(at))
 }
 
 export function setChar(s: string, i: bigint, c: bigint, capacity: number): string {
   const at = Number(i)
-  if (at < 0 || at > s.length || (at === capacity && c !== 0n)) throw new RangeError(`character ${at} of a string of length ${s.length}`)
+  if (at < 0 || at > capacity || (at === capacity && c !== 0n)) throw new RangeError(`character ${at} of a string of capacity ${capacity}`)
+  if (at > s.length) return s
   if (c === 0n) return s.slice(0, at)
   return s.slice(0, at) + String.fromCharCode(Number(c)) + s.slice(at + 1)
 }

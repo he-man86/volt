@@ -67,6 +67,7 @@ import {
   type DocumentDiagnosticReport,
   type InitializeResult,
   type WorkspaceDiagnosticReport,
+  type WorkspaceDocumentDiagnosticReport,
 } from "vscode-languageserver-protocol/node"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import {
@@ -80,8 +81,8 @@ import {
 import { scanWorkspace } from "../workspace-refs.js"
 import { SOURCE_EXTENSIONS } from "../source-extensions.js"
 import type { Scope, Symbol } from "../symbols/index.js"
-import { WorkspaceStore } from "./workspace-store.js"
-import { documentDiagnostics } from "./diagnostics.js"
+import { sameDocument, WorkspaceStore } from "./workspace-store.js"
+import { documentDiagnostics, libraryManifestDiagnostics } from "./diagnostics.js"
 import {
   callIncoming,
   callOutgoing,
@@ -201,6 +202,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     store.seedDisk(scan.sources.map((s) => ({ uri: pathToFileURL(s.path).href, source: s.source })))
     indexed = true // the disk layer is fully seeded — diagnostics can now resolve cross-file symbols
     for (const uri of store.openUris()) pushDiagnostics(uri)
+    pushManifestDiagnostics()
     // A re-index can change tokens/hints/lenses in already-open files; ask the client to re-request them
     // (diagnostics we pushed above; these have no push channel, so a refresh is the only way to un-stale them).
     if (clientRefresh.semanticTokens) void conn.sendRequest(SemanticTokensRefreshRequest.type).catch(() => {})
@@ -218,6 +220,21 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
       uri,
       diagnostics: documentDiagnostics(store, messages, d),
     })
+  }
+
+  /** Each `.library` manifest an older bridge wrote, with the warning that says to re-pull it (`libraryManifestDiagnostics`). */
+  const manifestDiagnostics = () => libraryManifestDiagnostics(store.workspaceRefs.libraryManifests)
+
+  /** The manifest warnings, for a push-mode client: published after every crawl, and cleared from a manifest a pull
+   *  has since brought up to date. */
+  let publishedManifests = new Set<string>()
+  function pushManifestDiagnostics(): void {
+    if (clientSupportsPull) return
+    const now = manifestDiagnostics()
+    for (const [uri, diagnostics] of now) void conn.sendNotification(PublishDiagnosticsNotification.type, { uri, diagnostics })
+    for (const uri of publishedManifests)
+      if (!now.has(uri)) void conn.sendNotification(PublishDiagnosticsNotification.type, { uri, diagnostics: [] })
+    publishedManifests = new Set(now.keys())
   }
 
   /** Live-apply a config change (`diagnoseDeadCode` + the opt-in `lints`) and re-publish open diagnostics.
@@ -379,21 +396,26 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
     const d = doc(p.textDocument.uri)
     // Pre-index: report NO diagnostics (not false ones). The `initialized` refresh makes the client re-pull once
     // the crawl seeds the project, so the real diagnostics land a moment later instead of flickering wrong first.
+    // A `.library` manifest is no Document: its one possible diagnostic is being stale (`manifestDiagnostics`).
+    const manifest = () => [...manifestDiagnostics()].find(([uri]) => sameDocument(uri, p.textDocument.uri))?.[1] ?? []
     return {
       kind: DocumentDiagnosticReportKind.Full,
-      items: indexed && d !== undefined ? documentDiagnostics(store, messages, d) : [],
+      items: !indexed ? [] : d !== undefined ? documentDiagnostics(store, messages, d) : manifest(),
     }
   })
   conn.onRequest(
     WorkspaceDiagnosticRequest.type,
     (): WorkspaceDiagnosticReport => ({
       items: indexed
-        ? store.workspace().map((d) => ({
-            kind: DocumentDiagnosticReportKind.Full,
-            uri: d.uri,
-            version: null,
-            items: documentDiagnostics(store, messages, d),
-          }))
+        ? [
+            ...store.workspace().map((d): WorkspaceDocumentDiagnosticReport => ({
+              kind: DocumentDiagnosticReportKind.Full,
+              uri: d.uri,
+              version: null,
+              items: documentDiagnostics(store, messages, d),
+            })),
+            ...[...manifestDiagnostics()].map(([uri, items]): WorkspaceDocumentDiagnosticReport => ({ kind: DocumentDiagnosticReportKind.Full, uri, version: null, items })),
+          ]
         : [],
     }),
   )

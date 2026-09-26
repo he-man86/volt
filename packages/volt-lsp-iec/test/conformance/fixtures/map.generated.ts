@@ -12,7 +12,7 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     1970
+ *     confirmed     1973
  *     refused        538
  *     not-lowered     90
  *     lsp-gap          4
@@ -24,7 +24,7 @@
  *     arith                  1441     1441
  *     control                  58       58
  *     aggregate                25       25
- *     call                    219      217
+ *     call                    222      220
  *     indirect                161      157
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
@@ -33,7 +33,7 @@
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile-confidence.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
- *     dead_code                               5594
+ *     dead_code                               5627
  *     clippy::self_assignment                   33
  *     clippy::eq_op                             12
  *     clippy::approx_constant                    6
@@ -1411,6 +1411,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   keyword_null_pointer_init: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   keyword_this_dereference: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   ldate_ltod_ldt: { evidence: "confirmed", tier: "arith", rust: "vendor", diverges: { twincat: "triage" } },
+  lib_prim_char_past_length: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  lib_prim_null_cursor: { evidence: "confirmed", tier: "call", rust: "vendor" },
+  lib_prim_string_cursor_offset: { evidence: "confirmed", tier: "call", rust: "vendor" },
   lib_std_bistables: { evidence: "confirmed", tier: "call", rust: "vendor" },
   lib_std_counter_ends: { evidence: "confirmed", tier: "call", rust: "vendor" },
   lib_std_counters: { evidence: "confirmed", tier: "call", rust: "vendor" },

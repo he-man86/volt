@@ -8,7 +8,7 @@ import { defaultValueOf, elementOf, type IrExpr, peelArray, type Place } from ".
 import { boundName, Lowering, openDims } from "./lowering.js"
 import { binaryOf, convert } from "./convert.js"
 import { addressPlace, declareVars, storageOf, withStringCapacity } from "./storage.js"
-import { cursorChar, cursorString, pointeePlace } from "./pointers.js"
+import { cursorChar, cursorString, cursorStringChar, pointeePlace } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 
 /**
@@ -203,10 +203,21 @@ export function lowerAccess(lw: Lowering, e: Extract<Expr, { kind: "index" | "de
     const char = cursorChar(lw, pointer, undefined, e.span)
     if (char !== null) return { char }
     const whole = cursorString(lw, pointer, e.span)
+    if (whole === null) return undefined
     if (whole !== undefined) return { place: whole }
     if (pointer.type.kind !== "pointer") return lw.bail("place-shape", "a dereference of something that is not a pointer", e.span)
     const pointee = pointeePlace(lw, pointer, undefined, e.span)
     return pointee && { place: pointee }
+  }
+  // `p^[i]` on a POINTER TO STRING cursor: a character counted from where the cursor stands, not from the string's start
+  // (a cursor is a bare parameter, so its name decides before anything is lowered — nothing is lowered twice)
+  if (e.base.kind === "deref" && e.base.base.kind === "ident_expr" && lw.cursors.has(e.base.base.name.toUpperCase()) && e.indices.length === 1) {
+    const pointer = lowerPlace(lw, e.base.base, notAMember)
+    const i = pointer && lowerExpr(lw, e.indices[0]!)
+    if (pointer === undefined || i === undefined) return undefined
+    const char = cursorStringChar(lw, pointer, i, e.span)
+    if (char !== null) return { char }
+    return lw.bail("place-shape", "an index on a character cursor's character", e.span)
   }
   let place = throughReference(lw, lowerPlace(lw, e.base, notAMember), e.base.span)
   // `s[i]` on a STRING or WSTRING — one character, a BYTE (a WSTRING's WORD), counted from 0
