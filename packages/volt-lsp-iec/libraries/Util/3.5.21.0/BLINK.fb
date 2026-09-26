@@ -1,0 +1,26 @@
+FUNCTION_BLOCK BLINK
+VAR_INPUT
+	ENABLE : BOOL;
+	TIMELOW : TIME;
+	TIMEHIGH : TIME;
+END_VAR
+VAR_OUTPUT
+	OUT : BOOL;
+END_VAR
+VAR
+	CLOCK : TP;
+END_VAR
+(* OUT alternates: FALSE for TIMELOW, then TRUE for TIMEHIGH, for as long as ENABLE holds — one TP times each phase,
+   and when it runs out OUT flips and the TP is re-armed with the other phase's length *)
+IF ENABLE THEN
+	CLOCK(IN := TRUE, PT := SEL(OUT, TIMELOW, TIMEHIGH));
+	IF NOT CLOCK.Q THEN
+		OUT := NOT OUT;
+		CLOCK(IN := FALSE);
+		CLOCK(IN := TRUE, PT := SEL(OUT, TIMELOW, TIMEHIGH));
+	END_IF
+ELSE
+	OUT := FALSE;
+	CLOCK(IN := FALSE);
+END_IF
+END_FUNCTION_BLOCK

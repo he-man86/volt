@@ -4,7 +4,7 @@
  * What the nine string functions compute is proved elsewhere, and by the vendor: the recorded `str_*` / `string_*`
  * fixtures lower against this repo (`STANDARD_LOWERING`), so CODESYS is their oracle. This file holds what no
  * recording reaches yet:
- *   - every body sits behind the declaration CODESYS materialized — the interface, byte for byte;
+ *   - the repo writes every element of the library (their interfaces are `repo.test.ts`'s, for every library);
  *   - the repo answers for the version a project RESOLVED, and a version it has not written stays refused;
  *   - the function blocks, which run over many scans and, the timers, over a clock the harness sets.
  *
@@ -45,22 +45,8 @@ function scans(p: Runner, clockMs: readonly number[], reads: readonly string[]):
 }
 
 describe("the repo", () => {
-  test("every body sits behind the declaration CODESYS materialized", () => {
-    // The declaration is the library's INTERFACE and it is the vendor's, so the repo may add a body and nothing that
-    // changes a call — only a private VAR block, and only on a function the materialization shows none for (the
-    // functions need loop counters; the blocks' private variables are materialized, and kept as they are).
-    const withoutBody = (s: string): string => {
-      const lines = s.split("\n")
-      return [...lines.slice(0, lines.lastIndexOf("END_VAR") + 1), lines.at(-1)].join("\n")
-    }
-    const files = readdirSync(REPO)
-    expect(files.sort()).toEqual(readdirSync(STANDARD).filter((f) => /\.(fb|fun)$/.test(f)).sort())
-    for (const f of files) {
-      const declared = readFileSync(join(STANDARD, f), "utf8")
-      let written = withoutBody(readFileSync(join(REPO, f), "utf8"))
-      if (!/\nVAR\n/.test(declared)) written = written.replace(/\nVAR\n[^]*?\nEND_VAR(?=\n)/, "")
-      expect(`${f}\n${written}`).toBe(`${f}\n${declared}`)
-    }
+  test("writes every element of Standard 3.5.18.0 (its interface is `repo.test.ts`'s to hold)", () => {
+    expect(readdirSync(REPO).sort()).toEqual(readdirSync(STANDARD).filter((f) => /.(fb|fun)$/.test(f)).sort())
   })
 
   test("it answers for the version the project resolved, and a version it has not written stays refused", () => {

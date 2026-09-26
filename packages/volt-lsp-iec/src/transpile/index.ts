@@ -27,10 +27,10 @@
  *
  * **The reach contract: a STATED SUBSET, and it is small.** The input contract above says which programs are
  * *defined*; this says which are *reached*. Measured 2026-09-19 over the 6-project corpus (29,359 files) and
- * enforced by `test/corpus/corpus.test.ts`, which fails if these numbers rot (last moved 2026-09-25, DOWN, when
- * library elements stopped running as empty bodies — see the corpus test):
+ * enforced by `test/corpus/corpus.test.ts`, which fails if these numbers rot (last moved 2026-09-26, up one, when
+ * Util's BLINK joined the library repo; the day before, DOWN, when library elements stopped running as empty bodies):
  *
- *   - top-level PROGRAM / FUNCTION_BLOCK bodies: **54 of 304 lower (17.8%)**
+ *   - top-level PROGRAM / FUNCTION_BLOCK bodies: **55 of 304 lower (18.1%)**
  *   - METHOD / ACTION bodies: **56,629, of which 20 are REACHED**, every one from a POU that RUNS — a routine
  *     lowers when a POU that lowers calls it, and they are not in the 304 denominator. This read 582 until
  *     2026-09-25: 566 were library FBs' `FB_INIT`s, bodyless declarations lowered as if they did nothing.

@@ -35,6 +35,12 @@ unticked long after the code landed — `lowerStandardString` in `transpile/lowe
 - [x] **Decision: native Rust crate + TS mirror, or ST shims** (design §5) — ST, and as a repo (design §6).
 - [x] `TON`/`TOF`/`TP`, `CTU`/`CTD`/`CTUD`, `R_TRIG`/`F_TRIG`, `RS`/`SR`, `RTC` — bound by (library, resolved version).
 - [ ] Record the FB bodies against CODESYS — the edges the IEC definition leaves open (design §6, "Not yet recorded").
+- [x] Util's `BLINK` (3.5.19.0 and 3.5.21.0, the versions the corpus resolves) — the Util element real code calls
+      most (44 sites); its phase timer is Standard's TP, so it is also one repo library running on another. One more
+      corpus POU lowers (54 -> 55).
+- [ ] StringUtils — blocked on the memory model, not on writing it: every element takes a `CHARBUFFERPTR`
+      (`POINTER TO BYTE`) that callers fill with `ADR(someString)`, a byte view of a string the pointer model does
+      not hold (`pointer-order`).
 - [ ] Standard64: a fixture project that references it, then `libraries/Standard64/<version>/` — the W-functions,
       `LTON`/`LTOF`/`LTP`, `LCTU`/`LCTD`/`LCTUD`.
 

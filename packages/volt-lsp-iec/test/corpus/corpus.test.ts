@@ -554,7 +554,8 @@ test("an embedded source snippet compares equal however it was spaced", () => {
 // a LIBRARY, so lowering ran every bodyless library element as an empty body — `t.Q` FALSE forever, counted as reach.
 // Two POUs "lowered" only through that. With the library units marked (`test/corpus/support/project.ts`, one loader
 // for the gate and the scripts), a library runs only where the library repo (`libraries/`) has written its ST.
-const REACH = { bodies: 304, lowered: 54 }
+// 54 -> 55 on 2026-09-26: Util's BLINK is in the library repo (`libraries/Util/`), and one POU was waiting on it alone.
+const REACH = { bodies: 304, lowered: 55 }
 /**
  * The METHOD/ACTION half of the same contract, measured 2026-09-19. `index.ts` said **none reachable** and that was
  * never true: a routine lowers when a POU that lowers calls it, and 543 do. Only 14 come from a POU that RUNS —

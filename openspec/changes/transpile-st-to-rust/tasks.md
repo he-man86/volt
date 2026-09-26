@@ -500,8 +500,8 @@ Closed 2026-09-16, each recorded first and green in both backends:
 
 ## The plan from here — measured, not ranked by reach (2026-09-16)
 
-**Corpus today: 54 of 304 POUs with a body (17.8%)** — re-measured 2026-09-25 (56 before: two lowered only by running a
-bodyless library element as an empty body, which the corpus gate did until then); it read 52 (17.1%) when the
+**Corpus today: 55 of 304 POUs with a body (18.1%)** — re-measured 2026-09-26 (Util's BLINK joined the library repo;
+56 before 2026-09-25: two lowered only by running a bodyless library element as an empty body); it read 52 (17.1%) when the
 order below was written, and the order has moved further than the number (see "Re-measured" at the end). The work list above ranked constructs by how many POUs each
 one *reaches*, and that number is misleading: almost every blocked POU is blocked by several constructs at once, so
 the construct with the biggest reach can unlock nothing. `lower-completeness` now prints `sole` beside `reach` — how
