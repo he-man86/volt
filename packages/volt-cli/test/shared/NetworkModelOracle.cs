@@ -60,7 +60,7 @@ internal static class NetworkModelOracle
             throw;
         }
 
-        var back = NetworkTextReader.Read(text, m.Language, scope);
+        var back = NetworkTextReader.Read(text, scope);
         Assert.True(back.Ok,
             $"{source}: the v2 reader refuses the v2 writer's own text:\n" +
             string.Join("\n", back.Diagnostics.Select(d => $"{d.Line}:{d.Column} {d.Code} {d.Message}")) + "\n\n" + text);
@@ -69,7 +69,7 @@ internal static class NetworkModelOracle
             NetworkTextFacts.Carried(m), NetworkTextFacts.Carried(RestoreRenamedWires(source, m, back.Body!, scope)));
         Assert.True(diff is null, $"{source}: Read(Write(m)) differs from m at {diff}\n\n{text}");
 
-        var gate = NetworkTextGate.Validate(text, m.Language, scope);
+        var gate = NetworkTextGate.Validate(text, scope);
         Assert.True(gate.Ok,
             $"{source}: the gate refuses the writer's own text:\n" +
             string.Join("\n", gate.Diagnostics.Select(d => $"{d.Code} {d.Message}")) + "\n\n" + text);

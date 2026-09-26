@@ -190,8 +190,9 @@ test("an ordinary body reports no unresolved boxes", () => {
 })
 
 // ── §3 metadata PLACEMENT — relocating a refusal the push already makes ──────────────────────
-// Measured 2026-09-03 (engine `MetadataPlacementTests`): the push refuses these. These pin that the editor
-// says so first, in the engineer's terms. The LABEL half is now structural — it is a header field, so the
+// Measured 2026-09-03 against the v1 engine, whose pins went with it (v2 refuses a comment after a statement
+// outright — `NetworkTextGateTests.A_comment_after_a_statement_is_refused_never_moved`): the push refuses these.
+// These pin that the editor says so first, in the engineer's terms. The LABEL half is now structural — it is a header field, so the
 // placement and duplicate rules it needed are things the grammar no longer lets you express.
 
 const byCode = (src: string, code: string) => diags(src).filter((d) => d.code === code)

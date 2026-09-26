@@ -25,7 +25,7 @@ public class WriterReaderAgreementTests
 
     static NetworkTextDiagnostic GateRefuses(string code, string text, NetworkScope scope)
     {
-        var r = NetworkTextGate.Validate(text, BodyLanguage.Fbd, scope);
+        var r = NetworkTextGate.Validate(text, scope);
         Assert.False(r.Ok, "the gate accepted:\n" + text);
         var d = Assert.Single(r.Diagnostics);
         Assert.True(code == d.Code, $"expected {code}, got {d.Code}: {d.Message}");
@@ -34,7 +34,7 @@ public class WriterReaderAgreementTests
 
     static NetworkBody ReadOk(string text, NetworkScope scope)
     {
-        var r = NetworkTextReader.Read(text, BodyLanguage.Fbd, scope);
+        var r = NetworkTextReader.Read(text, scope);
         Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => $"{d.Line}:{d.Column} {d.Code} {d.Message}")));
         return r.Body!;
     }
@@ -224,7 +224,7 @@ public class WriterReaderAgreementTests
         var m = Body(Call("f", new[] { In(Empty) }, new[] { Out("x", 0) }, eno: false));
         Assert.Equal(Src("f(, => x);"), Written(m, NetworkScope.Empty));
         Assert.Null(NetworkModelOracle.Check("f(, => x)", m).Reason);
-        Assert.True(NetworkTextGate.Validate(Src("f(, => x);"), BodyLanguage.Fbd, NetworkScope.Empty).Ok);
+        Assert.True(NetworkTextGate.Validate(Src("f(, => x);"), NetworkScope.Empty).Ok);
     }
 
     // ── construct words (spec, "reserved names are one case-insensitive set") ─────────────────────
@@ -239,11 +239,11 @@ public class WriterReaderAgreementTests
         var names = Scope(new[] { "Parallel", "a", "b", "out" });
         var text = Written(par, names);
         Assert.Equal(LdMarker + "NETWORK\n  out := PARALLEL(a, b);\nEND_NETWORK\n", text);
-        Assert.True(NetworkTextReader.Read(text, BodyLanguage.Ld, names).Ok);
+        Assert.True(NetworkTextReader.Read(text, names).Ok);
 
         var edge = Body(Set(L("x", Rise), T("out")));
         var edgeNames = Scope(new[] { "r_edge", "x", "out" });
-        Assert.True(NetworkTextReader.Read(Written(edge, edgeNames), BodyLanguage.Fbd, edgeNames).Ok);
+        Assert.True(NetworkTextReader.Read(Written(edge, edgeNames), edgeNames).Ok);
     }
 
     /// <summary>A POU or instance of the construct's name: the writer refuses the construct by the reader's own
@@ -262,8 +262,8 @@ public class WriterReaderAgreementTests
 
     // ── review 2026-09-26, third pass ─────────────────────────────────────────────────────────────
 
-    static NetworkGateResult Gate(string text, BodyLanguage lang, NetworkScope scope) =>
-        NetworkTextGate.Validate(text, lang, scope);
+    static NetworkGateResult Gate(string text, NetworkScope scope) =>
+        NetworkTextGate.Validate(text, scope);
 
     /// <summary>Spec, "edges are R_EDGE and F_EDGE flags" with "parentheses are structural": inside an edge,
     /// <c>NOT(a)</c> is the NOT BOX (its pair holds no operator), not the negation modifier — so an edge on a NOT
@@ -280,7 +280,7 @@ public class WriterReaderAgreementTests
             Body(Set(Call("NOT", new[] { In(Op("AND", L("a"), L("b"))) }, main: null, f: Rise), T("out")))).Reason);
 
         // The backticked head reads to the same box and is not canonical — a finding, never an exception.
-        var r = Gate(Src("out := R_EDGE(`NOT`(a));"), BodyLanguage.Fbd, NetworkScope.Empty);
+        var r = Gate(Src("out := R_EDGE(`NOT`(a));"), NetworkScope.Empty);
         Assert.Equal("NETWORK_NOT_CANONICAL", Assert.Single(r.Diagnostics).Code);
 
         // The negation MODIFIER inside the edge is the vendor's order (DIALECT N17) and reads back as the flag;
@@ -319,7 +319,7 @@ public class WriterReaderAgreementTests
             Call("XOR", new[] { In(Call("AND", new[] { In(L("a")), In(L("b")) }, en: L("d"), main: null, connected: 0, eno: true)), In(L("b")) },
                 en: L("c"), main: null, connected: 0, eno: true)), T("out")))).Reason);
 
-        var r = Gate(Src("and(`or`(a, b), c);"), BodyLanguage.Fbd, NetworkScope.Empty);
+        var r = Gate(Src("and(`or`(a, b), c);"), NetworkScope.Empty);
         Assert.Equal("NETWORK_NOT_CANONICAL", Assert.Single(r.Diagnostics).Code);
     }
 
@@ -333,7 +333,7 @@ public class WriterReaderAgreementTests
     public void A_non_ASCII_digit_or_letter_is_refused_not_spun_on(string statement)
     {
         var task = System.Threading.Tasks.Task.Run(() =>
-            NetworkTextGate.Validate(Src(statement), BodyLanguage.Fbd, Scope(new[] { "out", "a" })));
+            NetworkTextGate.Validate(Src(statement), Scope(new[] { "out", "a" })));
         Assert.True(task.Wait(TimeSpan.FromSeconds(10)), "the gate did not return");
         Assert.False(task.Result.Ok);
         Assert.Equal("NETWORK_PARSE", task.Result.Diagnostics[0].Code);
@@ -361,7 +361,7 @@ public class WriterReaderAgreementTests
         var m = Body(new Parallel(null, new Node[] { Empty }, ParallelMode.BoxShortCircuit), BodyLanguage.Ld);
         Assert.Equal("a lone unconnected Parallel branch", RefusedBy(m, NetworkScope.Empty));
         var r = Gate(LdMarker + "NETWORK\n  PARALLEL(MODE := BoxShortCircuit, );\nEND_NETWORK\n",
-            BodyLanguage.Ld, NetworkScope.Empty);
+            NetworkScope.Empty);
         Assert.Equal("NETWORK_UNSUPPORTED", Assert.Single(r.Diagnostics).Code);
         // Beside a feed or a mode the empty branch is a position of its own.
         Assert.Null(NetworkModelOracle.Check("fed", Body(new Parallel(L("f"), new Node[] { Empty }, ParallelMode.BoxShortCircuit), BodyLanguage.Ld)).Reason);
@@ -389,8 +389,7 @@ public class WriterReaderAgreementTests
     [Fact]
     public void A_wire_name_collision_is_reported_beside_a_later_error()
     {
-        var r = NetworkTextReader.Read(Src("VAR_TEMP g1 : BOOL; END_VAR", "g1 := a;", "`g1 + 1` := g1;", "out := ((b));"),
-            BodyLanguage.Fbd, NetworkScope.Empty);
+        var r = NetworkTextReader.Read(Src("VAR_TEMP g1 : BOOL; END_VAR", "g1 := a;", "`g1 + 1` := g1;", "out := ((b));"), NetworkScope.Empty);
         Assert.Contains(r.Diagnostics, d => d.Code == "NETWORK_DUPLICATE_NAME" && d.Line == 5);
         Assert.Contains(r.Diagnostics, d => d.Code == "NETWORK_BAD_EXPRESSION" && d.Line == 6);
     }
@@ -403,7 +402,7 @@ public class WriterReaderAgreementTests
         foreach (ParallelMode mode in Enum.GetValues(typeof(ParallelMode)))
         {
             var text = LdMarker + "NETWORK\n  out := PARALLEL(MODE := " + mode + ", a, b);\nEND_NETWORK\n";
-            Assert.Equal(NetworkSpelling.IsMeasuredMode(mode), NetworkTextReader.Read(text, BodyLanguage.Ld, NetworkScope.Empty).Ok);
+            Assert.Equal(NetworkSpelling.IsMeasuredMode(mode), NetworkTextReader.Read(text, NetworkScope.Empty).Ok);
         }
     }
 

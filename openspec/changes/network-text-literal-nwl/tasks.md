@@ -485,6 +485,20 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       header and the wire block or first statement.
       *Done:* the section-2 rules (2.14 tests), on the swapped reader and writer.
 
+*Review of section 3 (2026-09-26), each fix pinned by a test that was red first:* both vendor readers fill
+`Box.OutputTypes` from `OutputParams.Types` (a wire a WORD AND or an ADD feeds is declared with the stored type —
+`TcDemuxTests.A_wire_fed_by_a_box_is_declared_with_its_stored_output_type`,
+`CodesysNetworkReaderTests.A_wire_fed_by_a_data_box_is_declared_with_its_stored_output_type`); the CODESYS writer
+writes the ENO echo from `HasEnoOutput`, not EN (`The_ENO_slot_is_written_for_the_box_that_has_one_…`); the CLI
+adopts only a LAYOUT after a push — an IDE holding other tokens stays an IDE-side change the next pull brings
+(`PushCommandTests.A_pushed_body_the_IDE_holds_as_other_tokens_is_not_adopted_as_a_layout`,
+`NetworkTextGate.SameTokens`); the scope follows `EXTENDS`, reads a namespace-qualified type whole
+(`t : Standard.TON`), compares an instance's type case-insensitively, and reads a pushed GVL by its first code line
+(`NetworkScopeTests`, review section); the reader's second view check and its `language` parameter are gone — the
+marker says the language and `RefuseViewModeChange` is the one comparison. *Still unmeasured live:* whether CODESYS
+builds an enabled box Volt creates without an ENO slot (the shape of 40 vendor comparisons), and a base FB the project
+does not hold (a library base) still contributes no inherited names — 4.x.
+
 ## 4. Drivers
 
 - [ ] 4.1 CODESYS: build `BoxTreeParallel` from the model; the unnamed output-slot operand for `=> v`; write each

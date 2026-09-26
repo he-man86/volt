@@ -137,6 +137,9 @@ internal static class TcNetworkReader
                     // output, so neither is stated there.
                     MainOutputIndex: connected,
                     ConnectedSlot: connected,
+                    // The vendor's stored output types, beside the names this reads (`OutputParam/Types`) — a wire
+                    // fed by the box is declared with the type of its connected slot (spec, "a stored output type").
+                    OutputTypes: OutputTypes(e),
                     // Whether the box HAS an ENO output: its output list's first name, as CODESYS reads it (task 3.10).
                     HasEnoOutput: HasEno(e));
             }
@@ -189,6 +192,15 @@ internal static class TcNetworkReader
 
     private static bool HasEno(XElement box) =>
         Box.HasEnoSlot(TcArchive.Strings(TcArchive.Obj(box, "OutputParam"), "Names"));
+
+    /// <summary>THE STORED OUTPUT TYPES, index-aligned with the output slots as the names are — the compiler's answer
+    /// the archive keeps (<c>&lt;l2 n="Types"&gt;&lt;v&gt;BOOL&lt;/v&gt;&lt;v&gt;TIME&lt;/v&gt;</c> on a TON; <c>[BOOL]</c> on an AND, DIALECT
+    /// D22). An empty entry (<c>&lt;v&gt;&lt;/v&gt;</c>, an unresolved slot) is an unknown type, never a default; a box with
+    /// no <c>OutputParam</c> at all stored none, which is null — not read — rather than an empty list.</summary>
+    private static IReadOnlyList<string?>? OutputTypes(XElement box) =>
+        TcArchive.Obj(box, "OutputParam") is { } param
+            ? TcArchive.Strings(param, "Types").Select(t => string.IsNullOrWhiteSpace(t) ? null : t).ToList()
+            : null;
 
     /// <summary>THE OUTPUT SLOT A CONSUMED BOX'S CONSUMER READS (task 3.10), or null where the archive does not say.
     ///

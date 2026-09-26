@@ -30,9 +30,9 @@ public sealed record NetworkGateResult(NetworkBody? Body, IReadOnlyList<NetworkT
 /// </summary>
 public static class NetworkTextGate
 {
-    public static NetworkGateResult Validate(string text, BodyLanguage language, NetworkScope scope)
+    public static NetworkGateResult Validate(string text, NetworkScope scope)
     {
-        var (read, trace) = NetworkTextReader.ReadTokens(text, language, scope);
+        var (read, trace) = NetworkTextReader.ReadTokens(text, scope);
         if (!read.Ok) return new NetworkGateResult(null, read.Diagnostics, null);
         var tokens = trace.Tokens;
         var lexer = trace.Lexer;
@@ -67,7 +67,7 @@ public static class NetworkTextGate
             }, null);
         }
 
-        var (again, canonicalTrace) = NetworkTextReader.ReadTokens(canonical, language, scope);
+        var (again, canonicalTrace) = NetworkTextReader.ReadTokens(canonical, scope);
         var canonicalTokens = canonicalTrace.Tokens;
         if (!again.Ok)
             // Not bad input: the writer produced text its own reader refuses. Loud, because a diagnostic here would
@@ -93,6 +93,61 @@ public static class NetworkTextGate
         }
 
         return new NetworkGateResult(read.Body, Array.Empty<NetworkTextDiagnostic>(), canonical);
+    }
+
+    /// <summary>
+    /// Whether two graphical bodies are one text but for LAYOUT: the same marker and the same tokens, whitespace
+    /// significant only where the gate says it is (inside backticks, a TITLE, a comment line and an EXECUTE body).
+    ///
+    /// <para><b>Without a scope, on purpose.</b> It answers the CLI after a push — is the IDE's text of a body a
+    /// re-layout of the pushed one, or another program? — and the CLI has no declarations to read against. Tokens need
+    /// none: the lexer's one raw mode, an EXECUTE body, is entered exactly where the reader enters it (the word at
+    /// value position, not a pin name), so an ST line inside a snippet is compared whole, as the gate compares it.</para>
+    /// </summary>
+    public static bool SameTokens(string a, string b)
+    {
+        if (a is null) throw new ArgumentNullException(nameof(a));
+        if (b is null) throw new ArgumentNullException(nameof(b));
+        var x = LayoutFree(a);
+        var y = LayoutFree(b);
+        if (x.Count != y.Count) return false;
+        for (var i = 0; i < x.Count; i++)
+            if (x[i] != y[i]) return false;
+        return true;
+    }
+
+    private static List<(TokKind, string)> LayoutFree(string text)
+    {
+        // The marker is the first non-blank line, and its token is the language it names, as the reader takes it (a
+        // line that is no marker is compared whole).
+        var start = 0;
+        while (start < text.Length && char.IsWhiteSpace(text[start])) start++;
+        var eol = text.IndexOf('\n', start);
+        if (eol < 0) eol = text.Length;
+        var first = text.Substring(start, eol - start).TrimEnd('\r');
+        var keys = new List<(TokKind, string)> { (TokKind.Marker, St.ImplementationMarker.LanguageOf(first) ?? first) };
+
+        var lx = new NetworkLexer(text, eol);
+        for (var t = lx.Next(); t.Kind != TokKind.Eof; t = lx.Next())
+        {
+            keys.Add(t.Key);
+            if (!t.Is("EXECUTE") || lx.PinOperatorFollows()) continue;
+            // `EXECUTE(EN := c)`: the pin list is ordinary tokens, up to the parenthesis that closes it.
+            if (lx.PeekOnLine() == '(')
+                for (var depth = 0; ;)
+                {
+                    var p = lx.Next();
+                    keys.Add(p.Key);
+                    if (p.Kind == TokKind.Eof) return keys;
+                    if (p.IsSym("(")) depth++;
+                    else if (p.IsSym(")") && --depth == 0) break;
+                }
+            var (snippet, end) = lx.ExecuteBody();
+            keys.Add(snippet.Key);
+            // An error has consumed its text and the lexer goes on from it, as the reader's recovery does.
+            if (snippet.Kind != TokKind.Error) keys.Add(end.Key);
+        }
+        return keys;
     }
 
     private static string Show(Tok t) => t.Kind switch

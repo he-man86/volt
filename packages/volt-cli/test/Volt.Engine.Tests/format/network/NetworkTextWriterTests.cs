@@ -418,7 +418,7 @@ public class NetworkTextWriterTests
     {
         Assert.Equal("an ENO output pin",
             Refused(() => Write(Call("MOVE", new[] { In(L("0")) }, new[] { Out("lamp", null, "ENO") }, en: L("c"), eno: true))).Marker);
-        var r = NetworkTextGate.Validate(Body("MOVE(EN := c, 0, ENO => lamp);"), BodyLanguage.Fbd, NetworkScope.Empty);
+        var r = NetworkTextGate.Validate(Body("MOVE(EN := c, 0, ENO => lamp);"), NetworkScope.Empty);
         Assert.Equal("NETWORK_BAD_EXPRESSION", Assert.Single(r.Diagnostics).Code);
         Assert.Equal(Body("MOVE(EN := c, 0, => Status);"),
             Write(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"), eno: true)));
@@ -574,7 +574,7 @@ public class NetworkTextWriterTests
             Refused(() => Write(new Assign(L("a"), new[] { T("A", jumpBit), T("out") }, Flags.None))).Marker);
     }
 
-    /// <summary>Found by the model oracle (UnspellableCoilTests' return coil): RETURN takes no target, so a
+    /// <summary>Found by the model oracle (the return coil of v1's coil fixtures): RETURN takes no target, so a
     /// return whose target names anything but the vendor's constant <c>???</c> is refused, never written as a
     /// bare RETURN that drops the name.</summary>
     [Fact]
@@ -850,10 +850,10 @@ public class NetworkTextWriterTests
             var body = new NetworkBody(BodyLanguage.Fbd, new[] { Net(tree) });
             var text = NetworkTextWriter.Write(body, NetworkScope.Empty);
             Assert.Equal(Body(line), text);
-            var back = NetworkTextReader.Read(text, BodyLanguage.Fbd, NetworkScope.Empty);
+            var back = NetworkTextReader.Read(text, NetworkScope.Empty);
             Assert.True(back.Ok, line + ": " + string.Join("\n", back.Diagnostics.Select(d => d.Code + " " + d.Message)));
             Assert.Null(NetworkModelEquality.FirstDifference(NetworkTextFacts.Carried(body), NetworkTextFacts.Carried(back.Body!)));
-            Assert.True(NetworkTextGate.Validate(text, BodyLanguage.Fbd, NetworkScope.Empty).Ok, line);
+            Assert.True(NetworkTextGate.Validate(text, NetworkScope.Empty).Ok, line);
         }
         Assert.Equal(Body("out := g5;"), Write(Net(Set(L("g5"), T("out"))), BodyLanguage.Fbd, "g5"));
     }

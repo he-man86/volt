@@ -30,9 +30,11 @@ public class TcDemuxTests
         XDocument.Parse(Fixtures.Pou("ladder-demux.TcPOU"), LoadOptions.PreserveWhitespace)
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
 
-    private static NetworkBody Read() =>
+    private static NetworkBody Read() => Read(XElement.Parse(Body(), LoadOptions.PreserveWhitespace));
+
+    private static NetworkBody Read(XElement body) =>
         TcNetworkReader.Read(
-            XElement.Parse(Body(), LoadOptions.PreserveWhitespace)
+            body
                 .DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject"),
             BodyLanguage.Ld);
 
@@ -99,6 +101,48 @@ public class TcDemuxTests
     {
         Assert.Null(TcText.Apply(Body(), TcText.Validate(TcText.Write(Read()), TcText.ScopeOf(Read()))));
     }
+
+    /// <summary>THE STORED OUTPUT TYPES, from the archive (spec, "a stored output type"). The archive keeps them beside
+    /// the output names the reader already read — <c>&lt;l2 n="Types"&gt;</c> — and no reader filled
+    /// <see cref="Box.OutputTypes"/>, so only a hand-built model ever carried one.</summary>
+    [Fact]
+    public void The_stored_output_types_are_read()
+    {
+        var boxes = Read().Networks.SelectMany(n => n.Trees).SelectMany(Flatten).OfType<Box>().ToList();
+
+        Assert.Equal(new[] { "BOOL", "TIME" }, boxes.First(b => b.Type == "TON").OutputTypes);
+        Assert.Equal(new[] { "BOOL" }, boxes.First(b => b.Type == "AND").OutputTypes);
+    }
+
+    /// <summary>…and a wire a box feeds is declared with the type of its connected slot. The hand-drawn wire is fed
+    /// by the contact <c>b</c>; here it is fed by the rung's AND box instead, stored as a bitwise <c>WORD</c> AND.
+    /// Without the stored type the wire was declared <c>BOOL</c>: a different type, stated silently.</summary>
+    [Fact]
+    public void A_wire_fed_by_a_box_is_declared_with_its_stored_output_type()
+    {
+        var root = XElement.Parse(Body(), LoadOptions.PreserveWhitespace);
+        var feed = root.Descendants("o").Single(o => Is(o, "BoxTreeDemux") && o.Elements("o").Any(i => Named(i, "Input")))
+                       .Elements("o").Single(i => Named(i, "Input"));
+        var and = new XElement(root.Descendants("o").First(o => Is(o, "BoxTreeBox") &&
+                                  o.Elements("v").Any(v => Named(v, "BoxType") && v.Value == "\"AND\"")));
+        and.SetAttributeValue("n", "Input");
+        // The AND reads the wire itself further down; the copy reads the contact the wire carries instead.
+        foreach (var reference in and.Descendants("o").Where(o => Is(o, "BoxTreeDemux")).ToList())
+        {
+            var leaf = new XElement(feed);
+            leaf.SetAttributeValue("n", null);
+            reference.ReplaceWith(leaf);
+        }
+        and.Elements("o").Single(o => Named(o, "OutputParam")).Elements("l2").Single(l => Named(l, "Types")).Element("v")!.Value = "WORD";
+        feed.ReplaceWith(and);
+
+        var text = TcText.Write(Read(root));
+
+        Assert.Contains("  VAR_TEMP g1 : WORD; END_VAR\n", text);
+    }
+
+    private static bool Is(XElement e, string type) => (string?)e.Attribute("t") == type;
+    private static bool Named(XElement e, string name) => (string?)e.Attribute("n") == name;
 
     private static IEnumerable<Node> Flatten(Node n)
     {

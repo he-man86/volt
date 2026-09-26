@@ -19,9 +19,9 @@ namespace Volt.Engine.Ide;
 /// creates a whole project the answer would depend on op order — and the push is the newer truth for an item it
 /// is updating anyway. The IDE answers for every item the push does not carry.</para>
 ///
-/// <para><b>The IDE half is read once and cached for the life of this instance</b> — a driver makes a new one per
-/// operation (each project walk), so an item created since the last is seen: the project
-/// is indexed in ONE walk (<see cref="ItemLookup.All"/>), the first time a body asks about a name its own declarations
+/// <para><b>The IDE half is read once and cached for the life of this instance</b>, and a driver keeps an instance for
+/// ONE operation — it drops it at the start of every project walk (<c>WalkItems</c>), so an item created since the
+/// last operation is seen. The project is indexed in ONE walk (<see cref="ItemLookup.All"/>), the first time a body asks about a name its own declarations
 /// do not hold — a call head (every function a body calls is such a name), a name shaped like a wire — and each
 /// declaration is read the first time it is asked for. A walk per name, which the drivers' <c>ItemLookup.Find</c>
 /// copies cost, is a walk per function a project calls.</para>
@@ -75,21 +75,16 @@ public sealed class ProjectDeclarations
             .Select(kv => (kv.Key, Of(NoPush, kv.Key) ?? ""))
             .ToList();
         foreach (var kv in pushed)
-            if (IsGlobalList(kv.Value)) yield return kv.Value;
+            if (Format.St.StDeclaration.IsGlobalListHeader(kv.Value)) yield return kv.Value;
         foreach (var (name, declaration) in _globals)
             if (!pushed.ContainsKey(name)) yield return declaration;
     }
 
-    /// <summary>The scope of a body whose own declarations are <paramref name="declaration"/> (innermost first:
-    /// <see cref="SourceScopes.Scope"/>).</summary>
+    /// <summary>The IDE's own globals are read as no push would replace them.</summary>
     private static readonly IReadOnlyDictionary<string, string> NoPush = new Dictionary<string, string>();
 
+    /// <summary>The scope of a body whose own declarations are <paramref name="declaration"/> (innermost first:
+    /// <see cref="SourceScopes.Scope"/>), seeing <paramref name="pushed"/> before the IDE's items.</summary>
     public NetworkScope ScopeFor(string? declaration, IReadOnlyDictionary<string, string> pushed) =>
         NetworkScope.FromDeclarations(declaration, n => Of(pushed, n), () => Globals(pushed));
-
-    private static bool IsGlobalList(string declaration) =>
-        declaration.Split('\n').Select(l => l.Trim())
-            .FirstOrDefault(l => l.Length > 0 && !l.StartsWith("{", StringComparison.Ordinal)
-                                  && !l.StartsWith("(*", StringComparison.Ordinal) && !l.StartsWith("//", StringComparison.Ordinal))
-            is { } first && first.StartsWith("VAR_GLOBAL", StringComparison.OrdinalIgnoreCase);
 }

@@ -30,11 +30,16 @@ public static class NetworkText
         return ImplementationMarker.LanguageOf(eol < 0 ? text : text.Substring(0, eol));
     }
 
-    /// <summary>The body language of a network-text body, as the model spells it.</summary>
-    private static BodyLanguage? BodyLanguageOf(string? impl) => LanguageOf(impl) switch
+    /// <summary>How a body language is spelled — on its implementation marker, and in the vendor-neutral language
+    /// vocabulary (<see cref="Languages"/>). The one mapping: the marker's writer, its reader and the view-change
+    /// refusal each spelled it by hand.</summary>
+    public static string Spelling(BodyLanguage language) => language == BodyLanguage.Ld ? Languages.Ld : Languages.Fbd;
+
+    /// <summary>The body language <paramref name="spelled"/> names (<see cref="Spelling"/>), or null for any other word.</summary>
+    public static BodyLanguage? LanguageNamed(string? spelled) => spelled switch
     {
-        "LD" => BodyLanguage.Ld,
-        "FBD" => BodyLanguage.Fbd,
+        Languages.Ld => BodyLanguage.Ld,
+        Languages.Fbd => BodyLanguage.Fbd,
         _ => null,
     };
 
@@ -52,9 +57,8 @@ public static class NetworkText
     {
         if (live is not { } was || was == pushed) return;
 
-        var name = (BodyLanguage l) => l == BodyLanguage.Ld ? "LD" : "FBD";
         throw new NotSupportedException(
-            $"the graphical body's view is {name(was)} and the pushed text says {name(pushed)}. Volt cannot " +
+            $"the graphical body's view is {Spelling(was)} and the pushed text says {Spelling(pushed)}. Volt cannot " +
             "change a body's view — it is one property of the whole body, and nothing here writes it — so the " +
             "push is refused rather than silently applying every other edit and reverting this one on the next " +
             "pull. Switch the view in the IDE and pull.");
@@ -101,11 +105,7 @@ public static class NetworkText
     /// separately, against the IDE's view (<see cref="RefuseViewModeChange"/>), where the drivers know it.</summary>
     public static NetworkBody Validate(string body, NetworkScope scope)
     {
-        var language = BodyLanguageOf(body)
-            ?? throw new NetworkTextException(
-                "a graphical body starts with its implementation marker, (* @volt-implementation FBD *) or " +
-                "(* @volt-implementation LD *), on its first line.");
-        var result = NetworkTextGate.Validate(body, language, scope);
+        var result = NetworkTextGate.Validate(body, scope);
         if (result.Ok) return result.Body!;
         var first = result.Diagnostics[0];
         var more = result.Diagnostics.Count > 1 ? $" (and {result.Diagnostics.Count - 1} more finding(s))" : "";

@@ -34,20 +34,20 @@ namespace Volt.Engine.Format.Network;
 /// </summary>
 public static class NetworkTextReader
 {
-    /// <summary>Read <paramref name="text"/>, a whole graphical body starting with its implementation marker.</summary>
-    /// <param name="language">The body's view as the IDE holds it. A marker saying the other language is a view
-    /// change, which Volt cannot apply (<see cref="NetworkText.RefuseViewModeChange"/>), and is reported.</param>
+    /// <summary>Read <paramref name="text"/>, a whole graphical body starting with its implementation marker — which
+    /// says the body's language. A marker saying another language than the IDE's view is a view change, refused by
+    /// the one comparison the drivers make against the IDE (<see cref="NetworkText.RefuseViewModeChange"/>).</summary>
     /// <param name="scope">The declarations the body can see; see <see cref="NetworkScope"/>.</param>
-    public static NetworkReadResult Read(string text, BodyLanguage language, NetworkScope scope) =>
-        ReadTokens(text, language, scope).Result;
+    public static NetworkReadResult Read(string text, NetworkScope scope) =>
+        ReadTokens(text, scope).Result;
 
     /// <summary>The read plus what the gate needs of it: every token consumed, in order (what it compares), and
     /// where each model node and each network header was read (where it reports a finding the writer raises).</summary>
-    internal static (NetworkReadResult Result, ReadTrace Trace) ReadTokens(string text, BodyLanguage language, NetworkScope scope)
+    internal static (NetworkReadResult Result, ReadTrace Trace) ReadTokens(string text, NetworkScope scope)
     {
         if (text is null) throw new ArgumentNullException(nameof(text));
         if (scope is null) throw new ArgumentNullException(nameof(scope));
-        var p = new Parser(text, language, scope);
+        var p = new Parser(text, scope);
         var body = p.ParseBody();
         return (new NetworkReadResult(p.Diagnostics.Count == 0 ? body : null, p.Diagnostics),
                 new ReadTrace(p.Consumed, p.Lexer, p.Spans, p.Headers));
@@ -99,7 +99,6 @@ public static class NetworkTextReader
     private sealed class Parser
     {
         private readonly string _text;
-        private readonly BodyLanguage _expected;
         private readonly NetworkScope _scope;
         private NetworkLexer? _lx;
         private Tok? _la;
@@ -124,10 +123,9 @@ public static class NetworkTextReader
         private Dictionary<string, Wire> _wires = new(StringComparer.OrdinalIgnoreCase);
         private Dictionary<int, Wire> _byId = new();
 
-        public Parser(string text, BodyLanguage expected, NetworkScope scope)
+        public Parser(string text, NetworkScope scope)
         {
             _text = text;
-            _expected = expected;
             _scope = scope;
         }
 
@@ -157,18 +155,10 @@ public static class NetworkTextReader
                 return null;
             }
 
-            _lang = marked == "LD" ? BodyLanguage.Ld : BodyLanguage.Fbd;
+            _lang = NetworkText.LanguageNamed(marked)
+                    ?? throw new InvalidOperationException($"the marker names '{marked}', which is no body language.");
             Consumed.Add(new Tok(TokKind.Marker, marked, start, first.Length, true));
             _lx = new NetworkLexer(_text, eol);
-            if (_lang != _expected)
-            {
-                string Name(BodyLanguage l) => l == BodyLanguage.Ld ? "LD" : "FBD";
-                Diagnostics.Add(Diag(ConflictCodes.NetworkUnsupported,
-                    $"the graphical body's view is {Name(_expected)} and the text's marker says {Name(_lang)}. Volt cannot " +
-                    "change a body's view — it is one property of the whole body — so the push is refused rather than " +
-                    "applying every other edit and reverting this one on the next pull. Switch the view in the IDE and pull.",
-                    start, first.Length));
-            }
 
             var networks = new List<Network>();
             while (true)
@@ -1131,4 +1121,15 @@ public static class NetworkTextReader
 
         private static readonly HashSet<string> Structural = new() { ",", ")", "(", ";", ":=", "=>", ".", ":" };
     }
+}
+
+/// <summary>One finding against a network-text body: a <c>NETWORK_*</c> code (<see cref="ConflictCodes"/>), a
+/// message that names what was found, and the 1-based span it was found at.</summary>
+public sealed record NetworkTextDiagnostic(string Code, string Message, int Line, int Column, int Length);
+
+/// <summary>What <see cref="NetworkTextReader.Read"/> returns: the model when the text is valid, else null,
+/// and every diagnostic found. Bad input is never an exception — the push reports each finding at its span.</summary>
+public sealed record NetworkReadResult(NetworkBody? Body, IReadOnlyList<NetworkTextDiagnostic> Diagnostics)
+{
+    public bool Ok => Body is not null && Diagnostics.Count == 0;
 }

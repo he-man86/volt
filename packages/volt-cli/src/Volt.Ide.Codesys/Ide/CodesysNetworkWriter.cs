@@ -348,7 +348,16 @@ namespace Volt.Ide.Codesys
                         //
                         // This is the C13 shape again: a self-consistent round trip said the body was fine
                         // while the compiler disagreed with it, which is why this is gated by a BUILD.
-                        var eno = b.Enable is not null;
+                        //
+                        // <b>WHETHER THE BOX HAS AN ENO OUTPUT IS THE MODEL'S FACT, NOT ITS EN.</b> The two are
+                        // independent (DIALECT N16, census 1.6: 40 enabled comparisons have EN and no ENO), and the
+                        // text keeps them apart — `x := GT(EN := c, a, b)` reads x off the comparison, `… .ENO` off
+                        // the ENO. Keyed on EN, both got the ENO slot, the reader then found a box with an ENO output
+                        // whose consumer reads its main output — the ENO — and the next pull said `.ENO`: x fed by
+                        // ENO, a different program. Null is where the text has no position for the fact (a
+                        // top-level box with no positional pin, a consumed operator with no EN), and there the text
+                        // reads a box by its EN (`NetworkSpelling.TextHasEno`), which is what this writes.
+                        var eno = b.HasEnoOutput ?? b.Enable is not null;
                         var slots = OutputSlots(b, eno);
                         if (slots.Count > 0)
                         {
@@ -430,8 +439,8 @@ namespace Volt.Ide.Codesys
                 }
             }
 
-            /// <summary>The box's output slots as the vendor lists them: the <c>ENO</c> echo first when the box is
-            /// enabled, then each pin AT ITS SLOT (task 3.10) — a positional <c>=&gt; v</c> is spelled by the slot it
+            /// <summary>The box's output slots as the vendor lists them: the <c>ENO</c> echo first when the box has
+            /// an ENO output, then each pin AT ITS SLOT (task 3.10) — a positional <c>=&gt; v</c> is spelled by the slot it
             /// fills, so <c>f(a, =&gt;, =&gt; x)</c> puts <c>x</c> on slot 2 with slot 1 passed over, and writing the
             /// pins one after another would move <c>x</c> onto slot 1: another output, a different program. A pin
             /// with no stored slot (a named one — the text carries its name, not its position) takes the next.</summary>

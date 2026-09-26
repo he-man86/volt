@@ -45,7 +45,7 @@ public static class NetworkTextWriter
         var sb = new StringBuilder();
         // The body's language rides on its one implementation marker (spec: "the body language and the v1
         // refusal"). v1 printed it on every network header, which invited a per-network edit nothing applied.
-        sb.Append("(* @volt-implementation ").Append(body.Language == BodyLanguage.Ld ? "LD" : "FBD").Append(" *)\n");
+        sb.Append(St.ImplementationMarker.For(NetworkText.Spelling(body.Language))).Append('\n');
 
         for (var i = 0; i < body.Networks.Count; i++)
         {
@@ -569,7 +569,7 @@ public static class NetworkTextWriter
                 if (declared is null)
                     throw Unrepresentable("an FB instance the declarations do not name",
                         $"the '{b.Type}' instance '{inst.Text}' is declared by no name in scope, so its call would read back as a function named '{inst.Text}'.");
-                if (!string.Equals(declared, b.Type, StringComparison.Ordinal))
+                if (!St.StDeclaration.SameType(declared, b.Type))
                     throw Unrepresentable("an FB instance declared with another type",
                         $"the instance '{inst.Text}' is a '{b.Type}' box and its declaration says '{declared}'.");
                 return Operand(inst.Text, "an FB instance");
@@ -786,3 +786,27 @@ public static class NetworkTextWriter
         private static NetworkUnrepresentableException Unrepresentable(string reason, string detail) => new(reason, detail);
     }
 }
+
+/// <summary>
+/// The v2 writer's one refusal: the fact it has no spelling for (<see cref="Body.UnrepresentableBodyException.Marker"/>,
+/// the reason a pull materializes the marker for) and WHERE it met it. A pull only needs the reason; a push needs
+/// the place too, because there the model came from the engineer's text and the finding belongs at the construct
+/// that holds the fact — so the writer records the innermost node it was writing and the network it was in.
+/// </summary>
+public sealed class NetworkUnrepresentableException : Body.UnrepresentableBodyException
+{
+    internal NetworkUnrepresentableException(string reason, string detail)
+        : base(reason, "network text has no spelling for " + reason + ": " + detail +
+                       " Volt materializes the body as a marker rather than write it without that fact.")
+        => Detail = detail;
+
+    /// <summary>What was found, without the pull's "materializes a marker" consequence.</summary>
+    public string Detail { get; }
+
+    /// <summary>The innermost model node being written when the fact was met; null for a network's own field.</summary>
+    internal Node? At { get; set; }
+
+    /// <summary>The position of the network being written, in the body.</summary>
+    internal int? Network { get; set; }
+}
+

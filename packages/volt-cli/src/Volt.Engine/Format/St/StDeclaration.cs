@@ -9,11 +9,26 @@ namespace Volt.Engine.Format.St;
 /// </summary>
 public static class StDeclaration
 {
-    // `t1 : TON;`, `t1 : TON := (...);`, `a, t1 : TON;`, `t1:TON;`. The type is the first identifier after the
-    // colon; anything after it (array bounds, an initializer, a string length) is not the type name.
+    // `t1 : TON;`, `t1 : TON := (...);`, `a, t1 : TON;`, `t1:TON;`, `t2 : Standard.TON;`. The type is the name after
+    // the colon — a QUALIFIED one whole: a library type is declared through its namespace (`Standard.TON` in three
+    // corpus projects, `Tc2_Standard.TON` on TwinCAT), and reading only its first identifier made the type the
+    // namespace, so a push built a box of type `Standard`. Anything after the name (array bounds, an initializer, a
+    // string length) is not the type name.
     private static readonly Regex VarLine = new(
-        @"^\s*(?<names>[A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:\s*(?<type>[A-Za-z_]\w*)",
+        @"^\s*(?<names>[A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:\s*(?<type>[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)",
         RegexOptions.Compiled);
+
+    /// <summary>Whether a DECLARED type and a box's stored type name one type. IEC names are case-insensitive, and a
+    /// declaration may name a library type through its namespace (<c>Standard.TON</c>) where the vendor's box holds
+    /// it bare (<c>TON</c>), or the other way round: a qualified name and its own last segment are one type. Two
+    /// different namespaces are two types.</summary>
+    public static bool SameType(string declared, string stored)
+    {
+        if (string.Equals(declared, stored, StringComparison.OrdinalIgnoreCase)) return true;
+        bool Qualifies(string qualified, string bare) =>
+            bare.IndexOf('.') < 0 && qualified.EndsWith("." + bare, StringComparison.OrdinalIgnoreCase);
+        return Qualifies(declared, stored) || Qualifies(stored, declared);
+    }
 
     /// <summary>The declared TYPE of a variable, or null when the declaration does not name one.
     ///
@@ -69,19 +84,17 @@ public static class StDeclaration
         @"^\s*(FUNCTION_BLOCK|FUNCTION|PROGRAM)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     /// <summary>Whether a declaration is a POU a call can name — a FUNCTION, FUNCTION_BLOCK or PROGRAM — by its
-    /// first code line. A GVL, a DUT or an interface of the same name is no callable; null is no item at all.</summary>
-    public static bool IsCallableHeader(string? declaration)
-    {
-        if (string.IsNullOrEmpty(declaration)) return false;
-        var inBlockComment = false;
-        foreach (var raw in declaration!.Replace("\r", "").Split('\n'))
-        {
-            var line = CodeHelper.CodeOn(raw, ref inBlockComment);
-            if (line.Trim().Length == 0 || line.TrimStart().StartsWith("{", StringComparison.Ordinal)) continue;
-            return CallableHeader.IsMatch(line);
-        }
-        return false;
-    }
+    /// first code line (<see cref="CodeHelper.HeaderLine"/>, the one rule: comments, block comments across lines and
+    /// pragmas skipped). A GVL, a DUT or an interface of the same name is no callable; null is no item at all.</summary>
+    public static bool IsCallableHeader(string? declaration) =>
+        CallableHeader.IsMatch(CodeHelper.HeaderLine(declaration?.Replace("\r", "")));
+
+    /// <summary>Whether a declaration is a global variable list, by the same first code line. A second, weaker rule
+    /// once stood beside this one — it skipped only lines STARTING with <c>(*</c>, so the second line of a multi-line
+    /// block comment was taken for the first code line and a pushed GVL opening with one was no global at all.</summary>
+    public static bool IsGlobalListHeader(string? declaration) =>
+        CodeHelper.HeaderLine(declaration?.Replace("\r", "")).TrimStart()
+            .StartsWith("VAR_GLOBAL", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The language's name for a call to the base implementation. Not an instance, and not a variable
     /// anything declares — which is exactly why looking it up as one failed.</summary>
@@ -143,6 +156,58 @@ public static class StDeclaration
         // The path named a container and stopped there. A GVL is not something a box can call, and answering
         // with its name would put a non-type in `BoxType` — the very failure the refusal exists to prevent.
         return null;
+    }
+
+    /// <summary>
+    /// <paramref name="declaration"/> with the declarations of every base it inherits from (<c>EXTENDS</c>, followed
+    /// to the root) after it — the names a body of the POU can see, in the order IEC resolves them: its own first,
+    /// an inherited member only where nothing nearer declares the name.
+    ///
+    /// <para><b>Why the scope needs it.</b> A derived FB's body and its methods use the base's members as their own.
+    /// A scope built without them read <c>tBase(IN := a)</c> — a call to an inherited timer — as a FUNCTION named
+    /// <c>tBase</c> on push, and sent the pulled box to the marker as an instance no declaration names.</para>
+    ///
+    /// <para>Every <c>EXTENDS</c> outside a VAR block is followed, not only the first: a member's scope is its own
+    /// declaration followed by its owner's (<c>SourceScopes.Scope</c>), and it is the OWNER's header that extends. A
+    /// base <paramref name="declarationOf"/> cannot answer (a library FB) contributes nothing — its members are not in
+    /// the project. Each base is read once, so an inheritance cycle ends.</para>
+    /// </summary>
+    public static string? WithInherited(string? declaration, Func<string, string?> declarationOf)
+    {
+        if (string.IsNullOrEmpty(declaration)) return declaration;
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var parts = new List<string> { declaration! };
+        var pending = new Queue<string>(BasesOf(declaration));
+        while (pending.Count > 0)
+        {
+            var name = pending.Dequeue();
+            if (!seen.Add(name) || declarationOf(name) is not { } inherited) continue;
+            parts.Add(inherited);
+            foreach (var next in BasesOf(inherited)) pending.Enqueue(next);
+        }
+        return string.Join("\n", parts);
+    }
+
+    /// <summary>Every base an <c>EXTENDS</c> clause outside a VAR block names, comments stripped — the header may wrap
+    /// the clause onto its own line, as CODESYS stores it.</summary>
+    private static IEnumerable<string> BasesOf(string? declaration)
+    {
+        if (string.IsNullOrEmpty(declaration)) yield break;
+        var inBlockComment = false;
+        var inVars = false;
+        foreach (var raw in declaration!.Replace("\r", "").Split('\n'))
+        {
+            var line = CodeHelper.CodeOn(raw, ref inBlockComment).TrimStart();
+            if (line.Length == 0) continue;
+            if (inVars)
+            {
+                if (line.StartsWith("END_VAR", StringComparison.OrdinalIgnoreCase)) inVars = false;
+                continue;
+            }
+            if (line.StartsWith("VAR", StringComparison.OrdinalIgnoreCase)) { inVars = true; continue; }
+            var m = ExtendsClause.Match(line);
+            if (m.Success) yield return m.Groups["base"].Value;
+        }
     }
 
     /// <summary>The base type of a POU — the <c>EXTENDS</c> clause of its own header.</summary>

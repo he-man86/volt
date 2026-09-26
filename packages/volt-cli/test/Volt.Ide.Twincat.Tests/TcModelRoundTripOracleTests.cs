@@ -73,7 +73,7 @@ public class TcModelRoundTripOracleTests
             // consumer is connected to (task 3.10) — the one null output item, where CODESYS states MainOutputIndex.
             bodies: 13, networks: 21, refused: new Dictionary<string, int>
             {
-                // The rung drawn by hand to hold a coil and a jump on one assign (UnspellableCoilTests): marker-only.
+                // The rung drawn by hand to hold a coil and a jump on one assign: marker-only (JumpDestinationTests).
                 ["a rung driving a coil and a jump together"] = 1,
             });
     }

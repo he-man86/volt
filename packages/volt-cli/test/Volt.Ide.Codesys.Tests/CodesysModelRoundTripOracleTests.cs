@@ -189,6 +189,19 @@ public class CodesysModelRoundTripOracleTests
                Coil(and, new Nwl.Operand { OperandExpr = "out", IsLValue = true }));
         }
         {
+            var add = new Nwl.BoxTreeBox
+            {
+                BoxType = "ADD",
+                InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b") },
+                OutputParams = new Nwl.ParamList { Names = new[] { "", "" }, Types = new[] { "INT", "" } },
+                MainOutputIndex = 0,
+            };
+            var use = new Nwl.BoxTreeAssign { RValue = new Nwl.BoxTreeDemux { VarId = 1 } };
+            use.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
+            Fbd("Reader.A_wire_fed_by_a_data_box_is_declared_with_its_stored_output_type",
+                new Nwl.BoxTreeDemux { VarId = 1, Input = add }, use);
+        }
+        {
             var net = new Nwl.Network().With(Coil(null, new Nwl.Operand { OperandExpr = "out" }));
             net.PhantomItemCount = 2;
             Net("Reader.A_network_reporting_a_dropped_item_skips_the_phantom_slot", net);
@@ -266,6 +279,7 @@ public class CodesysModelRoundTripOracleTests
             Read.Value.Select(kv => NetworkModelOracle.Check(kv.Key, kv.Value)),
             // Every double round-trips since the reader fills the output slots, the connection slot and whether a box has
             // an ENO output (task 3.10): the one refusal this table held — MOVE's result pin, "a box whose ENO output
-            // was not read" — was those facts missing, and its double is now the measured MOVE (`OutputParams ['']`).
-            bodies: 33, networks: 33, refused: new Dictionary<string, int>());
+            // was not read" — was those facts missing, and its double is now the measured MOVE (`OutputParams ['']`). The
+            // 34th is the data box whose stored output type (`OutputParams.Types`) declares the wire it feeds.
+            bodies: 34, networks: 34, refused: new Dictionary<string, int>());
 }

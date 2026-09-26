@@ -18,7 +18,10 @@ namespace Volt.Engine.Ide;
 /// the broad one could answer with a METHOD that happens to share a POU's name.</item>
 /// </list>
 /// <para>Both semantics live here now, taken from whichever side had it right, and — the actual point — this
-/// runs against <c>FakeIde</c> in the offline suite. Neither driver's copy was executed by a single C# test.</para>
+/// runs against <c>FakeIde</c> in the offline suite. Neither driver's copy was executed by a single C# test.
+/// <see cref="Find"/> and <see cref="All"/> are ONE walk (<see cref="Walk"/>) with two visitors: when they were two
+/// copies of the descent, each carried its own copy of the fault-is-not-absence rule, which is how the drivers' copies
+/// drifted before.</para>
 /// </summary>
 public static class ItemLookup
 {
@@ -30,30 +33,61 @@ public static class ItemLookup
     /// <para>Descends from <see cref="IProjectTree.GetTreeRoot"/> — the same origin both driver walks used, and
     /// the one the push's <c>toFolder</c> paths are measured from, so lookup and placement agree about where the
     /// tree starts.</para></summary>
-    public static ItemRef? Find(IProjectTree tree, string name) =>
-        Find(tree, tree.GetTreeRoot(), name, 0);
+    public static ItemRef? Find(IProjectTree tree, string name)
+    {
+        ItemRef? hit = null;
+        Walk(tree, tree.GetTreeRoot(), $"looking for '{name}'", 0, (item, itemName, _) =>
+        {
+            if (!string.Equals(itemName, name, System.StringComparison.OrdinalIgnoreCase)) return true;
+            hit = item;
+            return false;
+        });
+        return hit;
+    }
 
-    /// <summary>Every top-level item — its handle, name and tree kind — in ONE walk, by the same descent and the same
-    /// refusal to read a fault as absence as <see cref="Find"/>: a list that silently missed a folder would answer "no
-    /// such global" for one that exists. For a caller asking about many names, where a <see cref="Find"/> per name is
-    /// a walk per name.</summary>
+    /// <summary>Every top-level item — its handle, name and tree kind — in ONE walk. For a caller asking about many
+    /// names, where a <see cref="Find"/> per name is a walk per name.</summary>
     public static IReadOnlyList<(ItemRef Item, string Name, int Kind)> All(IProjectTree tree)
     {
         var found = new List<(ItemRef, string, int)>();
-        Collect(tree, tree.GetTreeRoot(), found, 0);
+        Walk(tree, tree.GetTreeRoot(), "listing the project's items", 0, (item, name, kind) =>
+        {
+            found.Add((item, name, kind));
+            return true;
+        });
         return found;
     }
 
-    private static void Collect(IProjectTree tree, ItemRef node, List<(ItemRef, string, int)> into, int depth)
+    /// <summary>
+    /// Visit every top-level item under <paramref name="node"/> until <paramref name="visit"/> answers false; whether
+    /// the walk was stopped.
+    ///
+    /// <para><b>A fault is NOT absence.</b> Every caller reads a missing answer as "no such item" — <c>PushService</c>
+    /// reads Find's null as "create one", so a swallowed read fault made a push CREATE an item that already existed,
+    /// which on a bare-name-keyed vendor is a duplicate or an overwrite, from a push reporting success; and a list
+    /// that silently missed a folder answers "no such global" for one that exists. Skipping is right for a WALK of
+    /// the project (one bad folder must not fail a pull, and that path reports its incompleteness through
+    /// <c>WalkResult</c>); a lookup was asked a question and cannot answer it. So an unreadable child count, child or
+    /// name throws.</para>
+    ///
+    /// <para><b>It recurses through everything that is NOT itself a top-level item</b>: user folders, and the
+    /// structural spine a vendor puts above them (CODESYS's Device / Plc Logic / Application are plain nodes, not
+    /// folders, which is why "recurse only into folders" would never have found anything there). Stopping AT a
+    /// top-level item is what keeps this off a POU's methods — the walk that made TwinCAT's version cheap,
+    /// generalized.</para>
+    /// </summary>
+    private static bool Walk(IProjectTree tree, ItemRef node, string doing, int depth, System.Func<ItemRef, string, int, bool> visit)
     {
-        if (depth > MaxDepth) return;
+        if (depth > MaxDepth) return true;
         int count;
         try { count = tree.ChildCount(node); }
         catch (System.Exception ex)
         {
             throw new BridgeException(BridgeErrorCodes.InternalError,
-                $"could not read the project tree while listing its items — the IDE refused a child read ({ex.Message}).");
+                $"could not read the project tree while {doing} — the IDE refused a child read ({ex.Message}). " +
+                "Refusing to report it as absent.");
         }
+
         for (var i = 1; i <= count; i++)
         {
             ItemRef child;
@@ -66,76 +100,26 @@ public static class ItemLookup
             catch (System.Exception ex)
             {
                 throw new BridgeException(BridgeErrorCodes.InternalError,
-                    $"could not read child {i} while listing the project's items — the IDE refused the read ({ex.Message}).");
+                    $"could not read child {i} while {doing} — the IDE refused the read ({ex.Message}). " +
+                    "Refusing to report it as absent.");
             }
-            if (ItemKind.IsAddressableItem(kind))
+
+            if (!ItemKind.IsAddressableItem(kind))
             {
-                string name;
-                try { name = tree.Name(child); }
-                catch (System.Exception ex)
-                {
-                    throw new BridgeException(BridgeErrorCodes.InternalError,
-                        $"could not read the name of child {i} while listing the project's items — the IDE refused the read ({ex.Message}).");
-                }
-                into.Add((child, name, kind));
+                if (!Walk(tree, child, doing, depth + 1, visit)) return false;
                 continue;
             }
-            Collect(tree, child, into, depth + 1);
-        }
-    }
 
-    private static ItemRef? Find(IProjectTree tree, ItemRef node, string name, int depth)
-    {
-        if (depth > MaxDepth) return null;
-        int count;
-        // An unreadable subtree is a leaf, not a crash. Both drivers guarded their ChildCount this way (TwinCAT
-        // in the member itself, CODESYS at its call sites); doing it once here is why they no longer have to.
-        // A fault is NOT absence. Null is this method's only channel and every caller reads it as "no such
-        // item" — `PushService` reads it as "create one", so a swallowed read fault made a push CREATE an item
-        // that already existed, which on a bare-name-keyed vendor is a duplicate or an overwrite, from a push
-        // reporting success. Skipping is right for a WALK (one bad folder must not fail a pull, and that path
-        // reports its incompleteness through WalkResult); a single-item lookup was asked one question and cannot
-        // answer it.
-        try { count = tree.ChildCount(node); }
-        catch (System.Exception ex)
-        {
-            throw new BridgeException(BridgeErrorCodes.InternalError,
-                $"could not read the project tree while looking for '{name}' — the IDE refused a child read " +
-                $"({ex.Message}). Refusing to report it as absent.");
-        }
-
-        for (var i = 1; i <= count; i++)
-        {
-            ItemRef child;
-            string childName;
-            int kind;
-            try
-            {
-                child = tree.ChildAt(node, i);
-                childName = tree.Name(child);
-                kind = tree.KindCode(child);   // one read, used by both tests below
-            }
+            string name;
+            try { name = tree.Name(child); }
             catch (System.Exception ex)
             {
-                // Same rule one level down: a child that cannot be READ is not a child that is not THERE, and
-                // this loop is how `name` would have been recognised.
                 throw new BridgeException(BridgeErrorCodes.InternalError,
-                    $"could not read child {i} while looking for '{name}' — the IDE refused the read " +
-                    $"({ex.Message}). Refusing to report it as absent.");
+                    $"could not read the name of child {i} while {doing} — the IDE refused the read ({ex.Message}). " +
+                    "Refusing to report it as absent.");
             }
-
-            if (ItemKind.IsAddressableItem(kind) &&
-                string.Equals(childName, name, System.StringComparison.OrdinalIgnoreCase))
-                return child;
-
-            // Recurse through everything that is NOT itself a top-level item: user folders, and the structural
-            // spine a vendor puts above them (CODESYS's Device / Plc Logic / Application are plain nodes, not
-            // folders, which is why "recurse only into folders" would never have found anything there).
-            // Stopping AT a top-level item is what keeps this off a POU's methods — the walk that made TwinCAT's
-            // version cheap, generalized.
-            if (ItemKind.IsAddressableItem(kind)) continue;
-            if (Find(tree, child, name, depth + 1) is { } hit) return hit;
+            if (!visit(child, name, kind)) return false;
         }
-        return null;
+        return true;
     }
 }

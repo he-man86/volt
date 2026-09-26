@@ -291,8 +291,9 @@ public sealed partial class CodesysDriver
 
     /// <summary>The project's declarations as a graphical body sees them — its own, another item's by name, every
     /// global list — through the one helper both drivers share (<see cref="ProjectDeclarations"/>: the push asked
-    /// first, the IDE half cached for the driver's life). A body is written on pull and read on push against the
-    /// <see cref="NetworkScope"/> built from them (task 3.9).
+    /// first, the IDE half cached for one operation — dropped at the start of every
+    /// <see cref="WalkItems"/>). A body is written on pull and read on push against the <see cref="NetworkScope"/>
+    /// built from them (task 3.9).
     ///
     /// <para>A graphical box can call through a name this POU does not declare:
     /// `Mach1_AuxData.IEC_TIMERS.OffDelayLockDrives(...)` walks a GVL, then a struct, then reaches the timer.

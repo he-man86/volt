@@ -78,6 +78,43 @@ public class PushCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>…and ONLY a layout is adopted. An IDE that holds the pushed body as other TOKENS (here it dropped the
+    /// <c>PT</c> pin) changed the program, and that is an IDE-side change the engineer must see: the working tree keeps
+    /// what was pushed, the push says which item the IDE holds otherwise, and the next pull brings the IDE's text in as
+    /// the change it is. Adopting it merged a semantic difference into the working tree under a layout commit, and
+    /// the next pull said "already up to date".</summary>
+    [Fact]
+    public void A_pushed_body_the_IDE_holds_as_other_tokens_is_not_adopted_as_a_layout()
+    {
+        const string canonical = "(* @volt-implementation LD *)\nNETWORK\n  t1(IN := a, PT := pt);\nEND_NETWORK";
+        var ide = new FakeIde(new FakeIde.Item("PLC_PRG", Volt.Engine.Item.ItemKind.PlcPouProg, "", true,
+            "PROGRAM PLC_PRG\nVAR\n  t1 : TON;\n  a : BOOL;\n  pt : TIME;\n  b : BOOL;\nEND_VAR", canonical, "LD", null))
+        {
+            HealthConnected = true, HealthPlatform = "codesys", HealthProjectName = "Demo",
+            RematerializeAs = held => held.Replace(", PT := pt", ""),
+        };
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            var path = Path.Combine(root, "src", "PLC_PRG.prg");
+            var pulled = File.ReadAllText(path).Replace("\r\n", "\n");
+            var edited = pulled.Replace("t1(IN := a, PT := pt);", "t1(IN := b, PT := pt);");
+            File.WriteAllText(path, edited);
+
+            var r = Commands.Push(root, client);
+
+            Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
+            Assert.Equal(edited, File.ReadAllText(path).Replace("\r\n", "\n"));
+            Assert.Contains("PLC_PRG.prg", r.Message);
+            var again = Commands.Pull(root, client);
+            Assert.Equal("ok", again.Kind);
+            Assert.Contains("PLC_PRG.prg", again.Synced!);
+            Assert.Contains("t1(IN := b);", File.ReadAllText(path).Replace("\r\n", "\n"));
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     /// <summary>A workspace file saved with a UTF-8 BOM still pushes. Visual Studio and TcXaeShell write UTF-8
     /// WITH a BOM by default on Windows, so any user who opens a `.prg` there and saves gets one — and the BOM
     /// sits in front of the header keyword, where `.Trim()` does not remove it (U+FEFF is not whitespace under

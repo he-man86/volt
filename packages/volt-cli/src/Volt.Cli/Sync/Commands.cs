@@ -1,6 +1,9 @@
 ﻿using System.Text;
 using Volt.Wire;
 using Volt.Contracts;
+using Volt.Engine.Format.Network;
+using Volt.Engine.Format.St;
+using Volt.Engine.Item;
 
 namespace Volt.Cli.Sync;
 
@@ -633,7 +636,12 @@ public static class Commands
         // state comes from the receipt (no follow-up `refs`).
         var head = Git.HeadCommit(root)!;
         var ideCommit = head;
-        var canonical = Rematerialized(bridge, cfg, ops, resp);
+        var (canonical, heldOtherwise) = Rematerialized(bridge, cfg, ops, resp);
+        // AN IDE THAT HOLDS A PUSHED ITEM AS OTHER TOKENS CHANGED THE PROGRAM, and that is an IDE-side change: volt/ide
+        // keeps what was pushed (HEAD) and the baseline says so — the version of the pushed text, hashed as the IDE's
+        // are — so the next pull sees the IDE's version differ and brings its text in as the change it is. Adopting it
+        // here merged it into the working tree under a layout commit, and the next pull reported nothing.
+        foreach (var (name, version) in heldOtherwise) adopted[name] = version;
         if (canonical.Count > 0)
         {
             var tree = IdeTree.BuildVoltIdeTree(gitDir, head, head, canonical.SelectMany(Materialize.MaterializeItem).ToList(),
@@ -673,11 +681,15 @@ public static class Commands
             // the IDE deleted the engineer's POUs immediately after a successful push.
             UnwalkedFolders = resp.UnwalkedFolders,
         });
-        return PushResult.Ok(ops.Select(o => o.Name).ToList(), status);
+        return PushResult.Ok(ops.Select(o => o.Name).ToList(), status, heldOtherwise.Count == 0 ? null :
+            "pushed — the IDE holds " + string.Join(", ", heldOtherwise.Select(h => h.Name)) +
+            " as another program than the text pushed; `volt pull` brings its text in as an IDE change");
     }
 
     /// <summary>
-    /// THE PUSHED ITEMS THE IDE HOLDS IN OTHER TEXT THAN WAS PUSHED — each as the IDE materializes it now, else none.
+    /// THE PUSHED ITEMS THE IDE HOLDS IN OTHER TEXT THAN WAS PUSHED, split in two: those it holds in another LAYOUT —
+    /// each as the IDE materializes it now, to adopt — and those it holds as other TOKENS, each with the version of
+    /// the text that was pushed, which the baseline keeps.
     ///
     /// <para><b>Why a push can come back different.</b> Network text is compared by TOKENS (openspec
     /// <c>network-text-literal-nwl</c>, "the round trip is checked on tokens and on models"): layout is free, so an
@@ -686,32 +698,67 @@ public static class Commands
     /// apart: the next time the IDE changes that item, the pull's diff would carry the re-layout as an IDE-side edit
     /// of lines nobody touched in the IDE (spec, "a hand layout does not come back as an IDE change").</para>
     ///
+    /// <para><b>Only a layout is adopted.</b> The spec asks that a hand LAYOUT not come back as an IDE change; an IDE
+    /// that holds other tokens — a pin its build dropped, an ENO it added, an ST body it reformatted — holds another
+    /// text, and adopting that under "the IDE's layout" merged the difference into the working tree unseen
+    /// (<see cref="LayoutOnly"/>).</para>
+    ///
     /// <para><b>Detected without a fetch.</b> The receipt carries each item's version — the hash of its folder and
     /// the text the IDE materializes (<see cref="Volt.Engine.Sync.Hasher.ComputeItemVersion"/>, the one function every version on the
     /// wire comes from). The pushed text hashed the same way says whether the IDE holds it byte for byte; only the
     /// items it does not are fetched, in ONE directed fetch.</para>
     /// </summary>
-    private static List<FetchedItem> Rematerialized(BridgeClient bridge, WorkspaceConfig cfg, List<PushOp> ops, PushResponse resp)
+    private static (List<FetchedItem> Canonical, List<(string Name, string Version)> HeldOtherwise) Rematerialized(
+        BridgeClient bridge, WorkspaceConfig cfg, List<PushOp> ops, PushResponse resp)
     {
-        var differ = ops.OfType<SetItemOp>()
-            .Where(o => o.SourceText is not null)
-            .Select(o => (Name: o.ToName ?? o.Name, Text: o.SourceText!))
-            .Where(x => resp.NewItems!.TryGetValue(x.Name, out var version)
-                        && resp.NewFolders!.TryGetValue(x.Name, out var folder)
-                        && Volt.Engine.Sync.Hasher.ComputeItemVersion(folder, x.Text) != version)
-            .Select(x => x.Name)
-            .ToList();
-        if (differ.Count == 0) return new List<FetchedItem>();
+        var differ = new Dictionary<string, (string Text, string Version)>(StringComparer.Ordinal);
+        foreach (var o in ops.OfType<SetItemOp>())
+        {
+            var name = o.ToName ?? o.Name;
+            if (o.SourceText is null || !resp.NewItems!.TryGetValue(name, out var version)
+                || !resp.NewFolders!.TryGetValue(name, out var folder)) continue;
+            var pushedVersion = Volt.Engine.Sync.Hasher.ComputeItemVersion(folder, o.SourceText);
+            if (pushedVersion != version) differ[name] = (o.SourceText, pushedVersion);
+        }
+        if (differ.Count == 0) return (new List<FetchedItem>(), new List<(string, string)>());
 
         var fetched = bridge.FetchChanges(new FetchRequest
         {
             // Versions the IDE cannot have, so every item named comes back with its text.
-            KnownItems = differ.ToDictionary(n => n, _ => "", StringComparer.Ordinal),
-            OnlyItems = differ,
+            KnownItems = differ.Keys.ToDictionary(n => n, _ => "", StringComparer.Ordinal),
+            OnlyItems = differ.Keys.ToList(),
             ExpectedPlatform = cfg.Project.Platform,
             ExpectedProjectName = cfg.Project.ProjectName,
-        });
-        return fetched.Changed.Where(i => differ.Contains(i.Name, StringComparer.Ordinal)).ToList();
+        }).Changed.Where(i => differ.ContainsKey(i.Name)).ToDictionary(i => i.Name, StringComparer.Ordinal);
+
+        var canonical = new List<FetchedItem>();
+        var heldOtherwise = new List<(string, string)>();
+        foreach (var kv in differ)
+            if (fetched.TryGetValue(kv.Key, out var held) && LayoutOnly(kv.Value.Text, held.SourceText)) canonical.Add(held);
+            else heldOtherwise.Add((kv.Key, kv.Value.Version));
+        return (canonical, heldOtherwise);
+    }
+
+    /// <summary>Whether the IDE's text of an item is the pushed text laid out otherwise: the same declarations,
+    /// folders and ST bodies byte for byte, and every graphical body the same tokens
+    /// (<see cref="NetworkTextGate.SameTokens"/>) — the one place the format lets layout vary.</summary>
+    private static bool LayoutOnly(string pushed, string held)
+    {
+        var a = StReader.Read(pushed);
+        var b = StReader.Read(held);
+        return a.Kind == b.Kind && a.Declaration == b.Declaration && SameBody(a.Body, b.Body)
+               && a.Members.Count == b.Members.Count && a.Members.Zip(b.Members, SameMember).All(same => same);
+
+        static bool SameMember(Member x, Member y) =>
+            x.Kind == y.Kind && x.Name == y.Name && x.Declaration == y.Declaration && x.Folder == y.Folder
+            && x.ReturnType == y.ReturnType && x.DataType == y.DataType && SameBody(x.Body, y.Body)
+            && SameAccessor(x.Getter, y.Getter) && SameAccessor(x.Setter, y.Setter);
+
+        static bool SameAccessor(Accessor? x, Accessor? y) =>
+            x is null ? y is null : y is not null && x.Declaration == y.Declaration && SameBody(x.Body, y.Body);
+
+        static bool SameBody(string? x, string? y) =>
+            x == y || (x is not null && y is not null && NetworkText.Is(x) && NetworkText.Is(y) && NetworkTextGate.SameTokens(x, y));
     }
 
     /// <summary>volt build — build via the IDE, return normalized diagnostics.</summary>

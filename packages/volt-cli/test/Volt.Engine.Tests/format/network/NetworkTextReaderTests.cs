@@ -17,14 +17,14 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class NetworkTextReaderTests
 {
-    static NetworkBody Read(string text, NetworkScope scope, BodyLanguage lang = BodyLanguage.Fbd)
+    static NetworkBody Read(string text, NetworkScope scope)
     {
-        var r = NetworkTextReader.Read(text, lang, scope);
+        var r = NetworkTextReader.Read(text, scope);
         Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => $"{d.Line}:{d.Column} {d.Code} {d.Message}")));
         return r.Body!;
     }
 
-    static NetworkBody Read(string text, BodyLanguage lang = BodyLanguage.Fbd) => Read(text, NetworkScope.Empty, lang);
+    static NetworkBody Read(string text) => Read(text, NetworkScope.Empty);
 
     static void AssertModel(NetworkBody expected, NetworkBody actual) =>
         Assert.Null(NetworkModelEquality.FirstDifference(expected, actual));
@@ -67,10 +67,10 @@ public class NetworkTextReaderTests
         var m = WriterGoldens[name];
         var scope = ScopeOf(m);
         var text = NetworkTextWriter.Write(m, scope);
-        var back = Read(text, scope, m.Language);
+        var back = Read(text, scope);
         Assert.Null(NetworkModelEquality.FirstDifference(NetworkTextFacts.Carried(m), NetworkTextFacts.Carried(back)));
 
-        var gate = NetworkTextGate.Validate(text, m.Language, scope);
+        var gate = NetworkTextGate.Validate(text, scope);
         Assert.True(gate.Ok, string.Join("\n", gate.Diagnostics.Select(x => x.Code + " " + x.Message)));
     }
 
@@ -194,7 +194,7 @@ public class NetworkTextReaderTests
         var text = FbdMarker + "NETWORK\n  VAR_TEMP\n    g1 : BOOL;\n    g2 : BOOL;\n  END_VAR\n  g1 := TRUE;\n  g2 := (g1 AND a);\n  out := g2;\nEND_NETWORK\n";
         AssertModel(Body(Net(Def(1, L("TRUE"), "BOOL"), Def(2, Op("AND", Ref(1), L("a")), "BOOL"), Set(Ref(2), Coil("out")))),
             Read(text));
-        Assert.True(NetworkTextGate.Validate(text, BodyLanguage.Fbd, NetworkScope.Empty).Ok);
+        Assert.True(NetworkTextGate.Validate(text, NetworkScope.Empty).Ok);
     }
 
     /// <summary>Spec, "an undeclared assignment is a coil".</summary>
@@ -380,7 +380,7 @@ public class NetworkTextReaderTests
         AssertModel(Body(Exec("", L("bRun"))), Read(FbdMarker + "NETWORK\n  EXECUTE(EN := bRun)\n\n  END_EXECUTE;\nEND_NETWORK\n"));
         var text = FbdMarker + "NETWORK\n  EXECUTE\nNetworkState := 1;\n  END_EXECUTE;\nEND_NETWORK\n";
         AssertModel(Body(Exec("NetworkState := 1;")), Read(text));
-        Assert.True(NetworkTextGate.Validate(text, BodyLanguage.Fbd, NetworkScope.Empty).Ok);
+        Assert.True(NetworkTextGate.Validate(text, NetworkScope.Empty).Ok);
     }
 
     /// <summary>Spec, "a typed call stays one operand".</summary>
@@ -396,7 +396,7 @@ public class NetworkTextReaderTests
     [Fact]
     public void A_ladder_body_reads_with_its_marker() =>
         AssertModel(Body(Net(Def(1, L("x"), "BOOL"), Set(Ref(1), Coil("o"))), BodyLanguage.Ld),
-            Read(LdMarker + "NETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := x;\n  o := g1;\nEND_NETWORK\n", BodyLanguage.Ld));
+            Read(LdMarker + "NETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := x;\n  o := g1;\nEND_NETWORK\n"));
 
     // ── diagnostics are findings, not exceptions ────────────────────────────────────────────────
 
@@ -404,8 +404,7 @@ public class NetworkTextReaderTests
     public void A_bad_network_does_not_hide_the_next_ones_finding()
     {
         var r = NetworkTextReader.Read(
-            FbdMarker + "NETWORK\n  out := ((a AND b));\nEND_NETWORK\nNETWORK\n  out := (a & b);\nEND_NETWORK\nNETWORK\n  ok := a;\nEND_NETWORK\n",
-            BodyLanguage.Fbd, NetworkScope.Empty);
+            FbdMarker + "NETWORK\n  out := ((a AND b));\nEND_NETWORK\nNETWORK\n  out := (a & b);\nEND_NETWORK\nNETWORK\n  ok := a;\nEND_NETWORK\n", NetworkScope.Empty);
         Assert.Null(r.Body);
         Assert.Equal(new[] { ("NETWORK_BAD_EXPRESSION", 3), ("NETWORK_UNKNOWN_OPERATOR", 6) },
             r.Diagnostics.Select(d => (d.Code, d.Line)).ToArray());
@@ -416,8 +415,8 @@ public class NetworkTextReaderTests
     static void RoundTrips(NetworkBody m, NetworkScope scope)
     {
         var text = NetworkTextWriter.Write(m, scope);
-        AssertModel(m, Read(text, scope, m.Language));
-        var gate = NetworkTextGate.Validate(text, m.Language, scope);
+        AssertModel(m, Read(text, scope));
+        var gate = NetworkTextGate.Validate(text, scope);
         Assert.True(gate.Ok, string.Join("\n", gate.Diagnostics.Select(x => x.Code + " " + x.Message)) + "\n\n" + text);
     }
 
@@ -483,7 +482,7 @@ public class NetworkTextReaderTests
     [Fact]
     public void A_ladder_leaf_wire_feeding_a_data_pin_takes_its_declared_type() =>
         AssertModel(Body(Net(Def(1, L("nSpeed"), "INT"), Top("MOVE", new[] { In(Ref(1)) }, new[] { Out("nOut", 0) }, eno: false)), BodyLanguage.Ld),
-            Read(LdMarker + "NETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := nSpeed;\n  MOVE(g1, => nOut);\nEND_NETWORK\n", BodyLanguage.Ld));
+            Read(LdMarker + "NETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := nSpeed;\n  MOVE(g1, => nOut);\nEND_NETWORK\n"));
 
     /// <summary>An EXECUTE snippet's trailing newlines are its own content.</summary>
     [Fact]

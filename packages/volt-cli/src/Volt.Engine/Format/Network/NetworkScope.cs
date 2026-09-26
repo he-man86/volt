@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using Volt.Contracts;
 
 namespace Volt.Engine.Format.Network;
 
@@ -86,6 +84,9 @@ public sealed class NetworkScope
     {
         if (declarationOf is null) throw new ArgumentNullException(nameof(declarationOf));
         if (globals is null) throw new ArgumentNullException(nameof(globals));
+        // An FB's inherited members are its own names too (EXTENDS, followed to the root), after its own so a nearer
+        // declaration still wins.
+        declaration = St.StDeclaration.WithInherited(declaration, declarationOf);
         var local = new HashSet<string>(St.StDeclaration.DeclaredNames(declaration), StringComparer.OrdinalIgnoreCase);
         var global = new Lazy<(HashSet<string> Names, string Text)>(() =>
         {
@@ -121,38 +122,4 @@ public sealed class NetworkScope
 
     /// <summary>The FB type of <paramref name="head"/> when it is an instance in scope, else null.</summary>
     public string? InstanceType(string head) => _instanceType(head);
-}
-
-/// <summary>
-/// The v2 writer's one refusal: the fact it has no spelling for (<see cref="Body.UnrepresentableBodyException.Marker"/>,
-/// the reason a pull materializes the marker for) and WHERE it met it. A pull only needs the reason; a push needs
-/// the place too, because there the model came from the engineer's text and the finding belongs at the construct
-/// that holds the fact — so the writer records the innermost node it was writing and the network it was in.
-/// </summary>
-public sealed class NetworkUnrepresentableException : Body.UnrepresentableBodyException
-{
-    internal NetworkUnrepresentableException(string reason, string detail)
-        : base(reason, "network text has no spelling for " + reason + ": " + detail +
-                       " Volt materializes the body as a marker rather than write it without that fact.")
-        => Detail = detail;
-
-    /// <summary>What was found, without the pull's "materializes a marker" consequence.</summary>
-    public string Detail { get; }
-
-    /// <summary>The innermost model node being written when the fact was met; null for a network's own field.</summary>
-    internal Node? At { get; set; }
-
-    /// <summary>The position of the network being written, in the body.</summary>
-    internal int? Network { get; set; }
-}
-
-/// <summary>One finding against a network-text body: a <c>NETWORK_*</c> code (<see cref="ConflictCodes"/>), a
-/// message that names what was found, and the 1-based span it was found at.</summary>
-public sealed record NetworkTextDiagnostic(string Code, string Message, int Line, int Column, int Length);
-
-/// <summary>What <see cref="NetworkTextReader.Read"/> returns: the model when the text is valid, else null,
-/// and every diagnostic found. Bad input is never an exception — the push reports each finding at its span.</summary>
-public sealed record NetworkReadResult(NetworkBody? Body, IReadOnlyList<NetworkTextDiagnostic> Diagnostics)
-{
-    public bool Ok => Body is not null && Diagnostics.Count == 0;
 }

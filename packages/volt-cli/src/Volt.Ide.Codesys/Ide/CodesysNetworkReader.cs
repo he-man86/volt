@@ -188,13 +188,22 @@ namespace Volt.Ide.Codesys
         }
 
         /// <summary>The <c>Names</c> array of an <c>IParamList</c>, or empty when there is none.</summary>
-        private static List<string?> Names(object? paramList)
-        {
-            if (paramList == null) return new List<string?>();
-            if (NwlInterop.Get(paramList, "Names") is not System.Collections.IEnumerable names)
-                return new List<string?>();
-            return names.Cast<object?>().Select(x => x?.ToString()).ToList();
-        }
+        private static List<string?> Names(object? paramList) => Strings(paramList, "Names") ?? new List<string?>();
+
+        /// <summary>One of an <c>IParamList</c>'s two string arrays (<c>Names</c>, <c>Types</c>), or null when the list or
+        /// the array is absent.</summary>
+        private static List<string?>? Strings(object? paramList, string member) =>
+            paramList != null && NwlInterop.Get(paramList, member) is System.Collections.IEnumerable values
+                ? values.Cast<object?>().Select(x => x?.ToString()).ToList()
+                : null;
+
+        /// <summary>THE STORED OUTPUT TYPES — <c>OutputParams.Types</c>, index-aligned with the output slots as the names
+        /// are: the compiler's answer the vendor keeps (<c>Names=['ENO', ''] Types=['BOOL', 'INT']</c>,
+        /// <c>scripts/nwl-oracle-rungs.log</c>; an AND's list is empty). A wire the box feeds is declared with the type of
+        /// its connected slot (spec, "a stored output type"). An empty entry is an unresolved slot — an unknown type,
+        /// null, never a default; no array at all is null, not read.</summary>
+        private static List<string?>? OutputTypes(object box) =>
+            Strings(NwlInterop.Get(box, "OutputParams"), "Types")?.Select(t => string.IsNullOrWhiteSpace(t) ? null : t).ToList();
 
         /// <summary>
         /// A MODIFIER ON A BOX INPUT PIN — the vendor's <c>InputFlags</c>, index-aligned with <c>InputItemList</c>
@@ -307,6 +316,7 @@ namespace Volt.Ide.Codesys
                 flags,
                 MainOutputIndex: mainOutput,
                 ConnectedSlot: consumed ? mainOutput : null,
+                OutputTypes: OutputTypes(n),
                 HasEnoOutput: Box.HasEnoSlot(outputNames));
         }
 

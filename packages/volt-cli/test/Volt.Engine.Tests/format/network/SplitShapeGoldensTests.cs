@@ -130,16 +130,16 @@ public class SplitShapeGoldensTests
 
     static readonly IReadOnlyDictionary<string, (NetworkBody Model, string Marker)> Markers = new Dictionary<string, (NetworkBody, string)>
     {
-        // UnspellableCoilTests: negated and edge coils (census 1.7: 0 of 576 targets) and rungs with several
-        // control-flow targets stay on the marker, by name.
-        ["UnspellableCoil.negated"] = (Ld1(Set(L("a"), T("out", Neg))), "negated coil"),
-        ["UnspellableCoil.rising"] = (Ld1(Set(L("a"), T("out", Rise))), "rising-edge coil"),
-        ["UnspellableCoil.falling"] = (Ld1(Set(L("a"), T("out", Fall))), "falling-edge coil"),
-        ["UnspellableCoil.coil-and-jump"] = (Ld1(new Assign(Empty, new[] { T("Onwards", JumpBit), T("out") }, JumpBit)),
+        // The shapes v1's deleted Unspellable detector named — negated and edge coils (census 1.7: 0 of 576 targets)
+        // and rungs with several control-flow targets — stay on the marker, by the writer's own refusal.
+        ["MarkerCoil.negated"] = (Ld1(Set(L("a"), T("out", Neg))), "negated coil"),
+        ["MarkerCoil.rising"] = (Ld1(Set(L("a"), T("out", Rise))), "rising-edge coil"),
+        ["MarkerCoil.falling"] = (Ld1(Set(L("a"), T("out", Fall))), "falling-edge coil"),
+        ["MarkerCoil.coil-and-jump"] = (Ld1(new Assign(Empty, new[] { T("Onwards", JumpBit), T("out") }, JumpBit)),
             "a rung driving a coil and a jump together"),
-        ["UnspellableCoil.jump-and-coil"] = (Ld1(new Assign(Empty, new[] { T("out"), T("Onwards", JumpBit) }, JumpBit)),
+        ["MarkerCoil.jump-and-coil"] = (Ld1(new Assign(Empty, new[] { T("out"), T("Onwards", JumpBit) }, JumpBit)),
             "a rung driving a coil and a jump together"),
-        ["UnspellableCoil.two-jumps"] = (Ld1(new Assign(Empty, new[] { T("Onwards", JumpBit), T("Elsewhere", JumpBit) }, JumpBit)),
+        ["MarkerCoil.two-jumps"] = (Ld1(new Assign(Empty, new[] { T("Onwards", JumpBit), T("Elsewhere", JumpBit) }, JumpBit)),
             "a rung driving several jumps"),
     };
 }

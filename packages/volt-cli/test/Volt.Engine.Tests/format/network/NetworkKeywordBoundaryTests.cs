@@ -21,7 +21,7 @@ public class NetworkKeywordBoundaryTests
 {
     static NetworkBody Read(string text)
     {
-        var r = NetworkTextReader.Read(text, BodyLanguage.Fbd, NetworkScope.Empty);
+        var r = NetworkTextReader.Read(text, NetworkScope.Empty);
         Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => $"{d.Line}:{d.Column} {d.Code} {d.Message}")));
         return r.Body!;
     }
@@ -53,7 +53,7 @@ public class NetworkKeywordBoundaryTests
         Assert.Equal(word, Assert.IsType<Assign>(Assert.Single(net.Trees)).Targets.Single().Text);
         Assert.Equal((null, null, false), (net.Title, net.Label, net.Disabled));
         // …and the gate takes it as written: it is the canonical form.
-        Assert.True(NetworkTextGate.Validate(FbdMarker + $"NETWORK\n  {word} := x;\nEND_NETWORK\n", BodyLanguage.Fbd, NetworkScope.Empty).Ok);
+        Assert.True(NetworkTextGate.Validate(FbdMarker + $"NETWORK\n  {word} := x;\nEND_NETWORK\n", NetworkScope.Empty).Ok);
     }
 
     /// <summary>The same word ON the header line is the field: position decides, not the word.</summary>
@@ -81,7 +81,7 @@ public class NetworkKeywordBoundaryTests
     [InlineData("NETWORK DISABLED TITLE: \"t\"")]
     public void Header_fields_out_of_order_are_not_canonical(string header)
     {
-        var r = NetworkTextGate.Validate(FbdMarker + header + "\n  ;\nEND_NETWORK\n", BodyLanguage.Fbd, NetworkScope.Empty);
+        var r = NetworkTextGate.Validate(FbdMarker + header + "\n  ;\nEND_NETWORK\n", NetworkScope.Empty);
         Assert.Equal("NETWORK_NOT_CANONICAL", Assert.Single(r.Diagnostics).Code);
     }
 }

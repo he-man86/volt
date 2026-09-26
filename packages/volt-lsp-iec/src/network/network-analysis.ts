@@ -402,10 +402,12 @@ function checkUnresolvedBoxes(
  * header field cannot appear twice or in the wrong place — so the checks went with it rather than being
  * rewritten. That is the point of moving it: the model stopped admitting the mistake.
  *
- * **These are RELOCATIONS, not new rules** — measured 2026-09-03 and pinned by the engine's
- * `MetadataPlacementTests`: the push already refuses all three. A second label is rejected by the reader; a
- * label or comment after a statement fails the canonical-form check, because the re-emit moves it to the network
- * head and the text no longer matches. So the wording here REUSES the reader's rather than inventing a second
+ * **These are RELOCATIONS, not new rules** — measured 2026-09-03 against the v1 engine, whose pins went with
+ * it: the push already refused all three. (Network text v2 refuses a comment after a statement outright —
+ * `NetworkTextGateTests.A_comment_after_a_statement_is_refused_never_moved` — and this module moves to v2 with the
+ * rest of the LSP sublanguage, openspec network-text-literal-nwl section 5.) A second label is rejected by the
+ * reader; a label or comment after a statement fails the canonical-form check, because the re-emit moves it to the
+ * network head and the text no longer matches. So the wording here REUSES the reader's rather than inventing a second
  * phrasing for one fact, and the messages name the round-trip consequence instead of the grammar rule: what the
  * engineer will actually see is a body that comes back different from the one they wrote.
  *

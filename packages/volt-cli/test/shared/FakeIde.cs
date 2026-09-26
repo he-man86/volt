@@ -784,9 +784,14 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     {
         if (body is null || !Volt.Engine.Format.Network.NetworkText.Is(body)) return body;
         var scope = NetworkScopeFor(declaration, pushedDeclarations);
-        return Volt.Engine.Format.Network.NetworkTextWriter
+        var held = Volt.Engine.Format.Network.NetworkTextWriter
             .Write(Volt.Engine.Format.Network.NetworkText.Validate(body, scope), scope).TrimEnd('\n');
+        return RematerializeAs is null ? held : RematerializeAs(held);
     }
+
+    /// <summary>Model a driver whose IDE holds a written graphical body as OTHER TOKENS than were pushed — a pin the
+    /// build dropped, an ENO the vendor added. Null (the default) is an IDE that holds exactly the pushed model.</summary>
+    public Func<string, string>? RematerializeAs { get; init; }
 
     private static int KindCodeOf(string kind) => kind switch
     {

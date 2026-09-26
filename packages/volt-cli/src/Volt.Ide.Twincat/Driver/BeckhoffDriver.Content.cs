@@ -641,7 +641,8 @@ public sealed partial class BeckhoffDriver
 
     /// <summary>Another top-level item's declaration, by name — the vendor half of
     /// <c>StDeclaration.TypeOfCallTarget</c> — and every global list, through the one helper both drivers share
-    /// (<see cref="ProjectDeclarations"/>: the push asked first, the IDE half cached for the driver's life).
+    /// (<see cref="ProjectDeclarations"/>: the push asked first, the IDE half cached for one operation — dropped at
+    /// the start of every <see cref="WalkItems"/>).
     ///
     /// <para>A graphical box can call through a name the POU does not declare — a qualified path walks a GVL,
     /// then a struct, then reaches the timer; <c>SUPER^</c> reaches the EXTENDS clause. Each hop is one more

@@ -611,8 +611,6 @@ internal static class TcNetworkWriter
         return WriteNode(child, node);
     }
 
-    /// <summary>Outputs sit one level deeper than in the live model: an <c>OutputItems</c> member of type
-    /// <c>OutputItemList</c>, itself holding an <c>OutputItems</c> list.</summary>
     /// <summary>An OUTPUT operand's text only. Its modifiers are NOT written, and that is the difference from
     /// a leaf.
     ///
@@ -630,11 +628,6 @@ internal static class TcNetworkWriter
     /// the workspace at all. Until then the archive value is left exactly as the IDE wrote it.</para></summary>
     private static bool WriteOutputOperand(XElement o, Operand op) => SetString(o, "Operand", op.Text);
 
-    /// <summary>Set or clear the SET bit on every target of an assignment, leaving every OTHER bit alone.
-    ///
-    /// <para>The whole-flags write cannot be used here. A target may carry modifiers network text has no form
-    /// for — a NEGATED coil is the measured case (`Flags=Negation,Set`) — and rewriting the field wholesale
-    /// would erase them on a push that never mentioned them. Only the bit the format can express is touched.</para></summary>
     /// <summary>A box's OUTPUT PINS, written into the slots they belong to.
     ///
     /// <para>BY NAME, not by position, and the two lists genuinely differ in length: the archive holds a slot
@@ -643,8 +636,9 @@ internal static class TcNetworkWriter
     /// put a pin's variable on its neighbour — the same swap `WriteFormalNames` exists to prevent on the input
     /// side, where it was measured changing a running program.</para>
     ///
-    /// <para>The box's RESULT — the pin the vendor leaves unnamed — matches the first non-ENO slot whose name
-    /// is empty. A slot the model does not mention is left ALONE rather than cleared: network text does not
+    /// <para>A NAMED pin matches the slot of its name; a POSITIONAL one (<c>=&gt; v</c>, no name) the slot the model
+    /// says it fills (<see cref="Output.Slot"/>, task 3.10) — two unnamed slots are both "the unnamed one" to a name
+    /// match. A slot the model does not mention is left ALONE rather than cleared: network text does not
     /// spell an unwired pin, so a push that never mentioned one is not an instruction to disconnect it.</para></summary>
     private static bool WriteBoxOutputs(XElement e, Box b)
     {
@@ -683,8 +677,8 @@ internal static class TcNetworkWriter
                 // A SLOT THE MODEL DOES NOT NAME, WHICH THE ARCHIVE HAS WIRED, IS A DELETION - and leaving
                 // it alone would be the silent no-op this method was written to end. The reader cannot tell
                 // "never wired" from "just disconnected", but the WRITER can: every output the model carries
-                // is always rendered to text (`Definition` spells a named pin, `ResultOf` the unnamed one,
-                // and both throw rather than drop), so a wired slot the push does not mention can only be an
+                // is always rendered to text (a named `F => v` or a positional `=> v`, and the writer throws rather than
+                // drop one), so a wired slot the push does not mention can only be an
                 // edit that removed it. Refusing routes it to the rebuild path rather than writing "" - the
                 // vendor rejects an empty operand there (see `DropImporterBoxOutputs`).
                 if (!string.IsNullOrEmpty(TcArchive.Str(slot, "Operand")))

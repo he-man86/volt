@@ -433,6 +433,29 @@ public class CodesysCoilFlagTests
         Assert.Equal(slots, written.Outputs.List.Select(o => Assert.IsType<Nwl.Operand>(o).OperandExpr ?? "").ToArray());
     }
 
+    /// <summary>THE ENO ECHO IS WRITTEN FOR A BOX THAT HAS AN ENO OUTPUT, and for no other — the model's
+    /// <see cref="Box.HasEnoOutput"/>, not its EN. The two are independent (DIALECT N16, census 1.6: 40 enabled
+    /// comparisons have EN and no ENO), and the text says which: <c>x := GT(EN := c, a, b)</c> reads <c>x</c> off the
+    /// comparison, <c>… .ENO</c> off the ENO. The writer keyed on EN and gave both the same ENO slot, so the first came
+    /// back from the IDE as the second — <c>x</c> fed by ENO, a different program.</summary>
+    [Theory]
+    [InlineData("x := GT(EN := c, a, b);", false)]
+    [InlineData("x := GT(EN := c, a, b).ENO;", true)]
+    public void The_ENO_slot_is_written_for_the_box_that_has_one_not_for_every_enabled_box(string statement, bool eno)
+    {
+        const string declaration = "PROGRAM P\nVAR\n  x : BOOL;\n  c : BOOL;\n  a : INT;\n  b : INT;\nEND_VAR";
+        var scope = NetworkScope.FromDeclarations(declaration, _ => null, () => Array.Empty<string>());
+        var model = NetworkText.Validate("(* @volt-implementation FBD *)\nNETWORK\n  " + statement + "\nEND_NETWORK\n", scope).Networks[0];
+        Assert.Equal(eno, Assert.IsType<Box>(Assert.IsType<Assign>(model.Trees[0]).Value).HasEnoOutput);
+
+        var live = Different();
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope);
+
+        var written = Assert.IsType<Nwl.BoxTreeBox>(Assert.IsType<Nwl.BoxTreeAssign>(live.GetTree(live.NetworkItemCount - 1)).RValue);
+        Assert.Equal(eno ? new[] { "ENO" } : Array.Empty<string>(), Assert.IsType<Nwl.ParamList>(written.OutputParams).Names);
+        Assert.Equal(eno ? 1 : 0, written.Outputs.List.Count);
+    }
+
     /// <summary>A BOX WITH NO INSTANCE CLEARS THE VENDOR'S MARKER, and this is the test that was missing.
     ///
     /// <para>A freshly constructed <c>BoxTreeBox</c> does not arrive blank: its <c>Instance</c> operand holds

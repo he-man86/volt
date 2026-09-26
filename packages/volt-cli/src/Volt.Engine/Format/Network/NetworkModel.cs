@@ -94,14 +94,13 @@ public sealed record Assign(Node Value, IReadOnlyList<Operand> Targets, Flags Fl
 /// model spread across `Block`, its EN pin, and a separate ST-code field:
 /// <list type="bullet">
 /// <item><see cref="Instance"/> non-null: a function-block instance call.</item>
-/// <item><see cref="Enable"/> non-null: an enable is actually WIRED, and this is its expression. It comes
-/// from the vendor's <c>En</c> pin, NOT from its <c>EnEno</c> flag — measured in a real project, <c>EnEno</c>
-/// is <c>true</c> on all 1,256 boxes including every plain <c>AND</c>/<c>OR</c>, because it marks that the box
-/// SUPPORTS EN/ENO. Keying on it would wrap every operator in the project in an <c>IF en THEN …</c>.
-/// On the vendor this is a BOX PROPERTY (<c>EnEno</c> / <c>En</c> / <c>Eno</c>), not a pin found by name —
-/// the old model searched the inputs for one literally called "EN", which is a PLCopen spelling. It is a
-/// <see cref="Node"/> rather than a flag because the enable is a wired expression, and network text renders
-/// it as the box's <c>en*</c> echo that downstream boxes chain off.</item>
+/// <item><see cref="Enable"/> non-null: an enable is actually WIRED, and this is its expression. It is the
+/// box's input slot 0 where the vendor names that slot <c>EN</c> (<see cref="HasEnableSlot"/>) — NOT its
+/// <c>EnEno</c> flag, which is <c>true</c> on all 1,256 boxes of a real project including every plain
+/// <c>AND</c>/<c>OR</c> because it marks that the box SUPPORTS EN/ENO, and not its <c>En</c> member, which says
+/// EN/ENO is SHOWN. It is a <see cref="Node"/> rather than a flag because the enable is a wired expression, and
+/// network text writes it as the call's first pin, <c>EN := …</c>. Whether the box has an ENO output is a
+/// separate fact (<see cref="HasEnoOutput"/>).</item>
 /// <item><see cref="StCode"/>: a CODESYS Execute box — a box whose call is raw ST
 /// (<c>BoxTreeBox.STSnippet</c> / <c>ProvidesSTSnippet</c>). Emitted verbatim between network text's
 /// <c>EXECUTE</c> markers so it round-trips byte-for-byte.</item>
@@ -121,10 +120,10 @@ public sealed record Box(
     bool? HasEnoOutput = null) : Node(Flags)
 {
     // MainOutputIndex / ConnectedSlot / OutputTypes / HasEnoOutput are network text v2 facts
-    // (openspec/changes/network-text-literal-nwl, review 7.3 and 1.17). They are OPTIONAL with null meaning
-    // "not read" so that v1, which never consults them, builds and renders exactly as before; the drivers fill
-    // them in phase 2. Null is NOT a default the v2 writer may assume a value for — it refuses by name instead,
-    // except where the text has no position for the fact at all (named per field below, and beside the oracle).
+    // (openspec/changes/network-text-literal-nwl, review 7.3 and 1.17), which both drivers read. Null means "not
+    // read" (a model built by hand, or a fact the vendor did not store); it is NOT a default the writer may assume
+    // a value for — it refuses by name instead, except where the text has no position for the fact at all (named
+    // per field below, and beside the oracle).
     //
     //  MainOutputIndex  the vendor's BoxTreeBox.MainOutputIndex: which output slot is the box's result. It is
     //                   STORED, not "slot 0 by convention": measured 0 on 456 boxes, 1 on 3 call boxes (Lenze
@@ -314,7 +313,7 @@ public sealed record Terminator(Flags Flags) : Node(Flags);
 /// v2 writer declares it where the producer does not say the type by itself (a box read from text carries no
 /// <c>OutputTypes</c>): without it, <c>g1 := ADD(a, b);</c> read back from the engineer's own file could not be
 /// written again. A driver never reads it and never fills it; null means "no text declared one" (every
-/// vendor-read model, and v1).</para>
+/// vendor-read model).</para>
 ///
 /// <para><b>It carries no <see cref="Flags"/></b> (always <see cref="Flags.None"/>), definition or reference: the
 /// vendor's <c>BoxTreeDemux.Flags</c> hands out an object the node never stores, so a negation or an edge set there
@@ -346,10 +345,10 @@ public sealed record Input(string? Formal, Node Value, Flags Flags);
 /// output pins on 171 boxes across 373 networks (`scripts/nwl-census.log`). The push side knew: it REFUSED any box carrying outputs, because
 /// "network text has no form for them" — which was true, and is what this record exists to end.</para>
 ///
-/// <para><see cref="Slot"/> is the pin's OUTPUT SLOT index (network text v2, review 7.3). v1 dropped null
-/// slots while reading, so a list position is not a slot: positional <c>=&gt; v</c> pins fill the slots that
+/// <para><see cref="Slot"/> is the pin's OUTPUT SLOT index (network text v2, review 7.3). The readers drop
+/// unwired and null slots, so a list position is not a slot: positional <c>=&gt; v</c> pins fill the slots that
 /// remain after the one a consumer is connected to, and that needs the stored index. Null means "not read"
-/// (v1, and until the drivers fill it in phase 2), never "slot = list position".</para></summary>
+/// (a model built by hand, or a pin whose slot the reader did not see), never "slot = list position".</para></summary>
 public sealed record Output(string? Formal, Operand Value, int? Slot = null);
 
 /// <summary>A variable, literal or expression. <see cref="Type"/> is the vendor's declared type when it

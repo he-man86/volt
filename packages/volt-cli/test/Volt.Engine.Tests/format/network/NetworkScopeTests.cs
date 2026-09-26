@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Volt.Engine.Format.Network;
 using Volt.Engine.Ide;
+using Volt.Tests.Shared;
 using Xunit;
 using static Volt.Engine.Tests.NetworkModels;
 
@@ -45,7 +46,7 @@ public class NetworkScopeTests
     /// <summary>An action has no declarations of its own and sees its FB's.</summary>
     static NetworkScope InAction => ScopeOf(SourceScopes.Scope(null, Owner));
 
-    static NetworkGateResult Gate(string text, NetworkScope scope) => NetworkTextGate.Validate(text, BodyLanguage.Fbd, scope);
+    static NetworkGateResult Gate(string text, NetworkScope scope) => NetworkTextGate.Validate(text, scope);
 
     static void RefusedAsDuplicate(string text, NetworkScope scope)
     {
@@ -153,5 +154,138 @@ public class NetworkScopeTests
 
         Assert.True(r.Ok);
         Assert.True(Assert.IsType<Leaf>(Assert.IsType<Assign>(r.Body!.Networks[0].Trees[0]).Value).Flags.Rising);
+    }
+
+    // ── review of section 3: the declarations a scope is built from ─────────────────────────────
+
+    const string Derived = "FUNCTION_BLOCK FB_Derived\nVAR\n    a : BOOL;\n    t2 : Standard.TON;\nEND_VAR";
+
+    static string Diagnostics(NetworkGateResult r) => string.Join("\n", r.Diagnostics.Select(d => d.Code + " " + d.Message));
+
+    /// <summary>A type named through its library namespace (<c>t2 : Standard.TON;</c> — lenze-mid, bakon-nano and
+    /// pro2193 hold <c>Standard.TON</c>, TwinCAT projects <c>Tc2_Standard.TON</c>) is that whole name. Read as its
+    /// first identifier it was the namespace, <c>Standard</c>, and the push built a box of type <c>Standard</c>.</summary>
+    [Fact]
+    public void An_instance_declared_through_its_library_namespace_has_the_qualified_type()
+    {
+        var scope = ScopeOf(Derived);
+        Assert.Equal("Standard.TON", scope.InstanceType("t2"));
+
+        var r = NetworkTextGate.Validate(LdSrc("t2(IN := a);"), scope);
+
+        Assert.True(r.Ok, Diagnostics(r));
+        var box = Assert.IsType<Box>(r.Body!.Networks[0].Trees[0]);
+        Assert.Equal(("t2", "Standard.TON"), (box.Instance!.Text, box.Type));
+    }
+
+    /// <summary>…and a pulled box of that instance is written, whether the vendor stores the type bare (<c>TON</c>)
+    /// or as declared: a declaration naming a type through its namespace names the type the box calls. It went to
+    /// the marker as "an FB instance declared with another type".</summary>
+    [Theory]
+    [InlineData("TON")]
+    [InlineData("Standard.TON")]
+    public void A_pulled_box_of_a_namespace_qualified_instance_is_written(string storedType) =>
+        Assert.Equal(LdSrc("t2(IN := a);"),
+            NetworkTextWriter.Write(Ld1(Fb("t2", new[] { NetworkModels.In(L("a"), "IN") }, type: storedType)), ScopeOf(Derived)));
+
+    /// <summary>A namespace is part of a type's name: two libraries' <c>TON</c> are two types.</summary>
+    [Fact]
+    public void Two_namespaces_are_two_types()
+    {
+        var e = Assert.Throws<NetworkUnrepresentableException>(() =>
+            NetworkTextWriter.Write(Ld1(Fb("t2", new[] { NetworkModels.In(L("a"), "IN") }, type: "Other.TON")), ScopeOf(Derived)));
+        Assert.Equal("an FB instance declared with another type", e.Marker);
+    }
+
+    /// <summary>IEC names are case-insensitive, a declared type too: <c>t1 : Ton;</c> and a vendor box of type
+    /// <c>TON</c> are one type. Compared ordinally, the body went to the marker for a difference that is none.</summary>
+    [Fact]
+    public void An_instance_type_differing_only_in_case_is_the_same_type() =>
+        Assert.Equal(LdSrc("T1(IN := a);"),
+            NetworkTextWriter.Write(Ld1(Fb("T1", new[] { NetworkModels.In(L("a"), "IN") }, type: "TON")),
+                ScopeOf("PROGRAM P\nVAR\n    a : BOOL;\n    t1 : Ton;\nEND_VAR")));
+
+    const string Base = "FUNCTION_BLOCK FB_Base\nVAR\n    tBase : TON;\n    G3 : BOOL;\nEND_VAR";
+    const string Child = "FUNCTION_BLOCK FB_Child EXTENDS FB_Base\nVAR\n    a : BOOL;\nEND_VAR";
+
+    static NetworkScope Inheriting(string? declaration) =>
+        NetworkScope.FromDeclarations(declaration,
+            n => string.Equals(n, "FB_Base", StringComparison.OrdinalIgnoreCase) ? Base : null,
+            () => Array.Empty<string>());
+
+    public static TheoryData<string> InheritingBodies() => new() { "body", "method" };
+
+    static NetworkScope InChild(string where) => Inheriting(where == "body" ? Child : SourceScopes.Scope(Method, Child));
+
+    /// <summary>An FB's members include its base's (<c>EXTENDS</c>), in its own body and in its methods: a call to an
+    /// inherited instance is that instance. Without them the push read <c>tBase(IN := a)</c> as a FUNCTION named
+    /// <c>tBase</c> — a different program, accepted silently.</summary>
+    [Theory]
+    [MemberData(nameof(InheritingBodies))]
+    public void An_inherited_instance_is_that_instance(string where)
+    {
+        var scope = InChild(where);
+        Assert.Equal("TON", scope.InstanceType("tBase"));
+
+        var r = NetworkTextGate.Validate(LdSrc("tBase(IN := a);"), scope);
+
+        Assert.True(r.Ok, Diagnostics(r));
+        var box = Assert.IsType<Box>(r.Body!.Networks[0].Trees[0]);
+        Assert.Equal(("tBase", "TON", CallKind.FunctionBlock), (box.Instance!.Text, box.Type, box.Kind));
+    }
+
+    /// <summary>…and the pull writes it, rather than going to the marker as "an FB instance the declarations do not
+    /// name".</summary>
+    [Theory]
+    [MemberData(nameof(InheritingBodies))]
+    public void A_pulled_call_of_an_inherited_instance_is_written(string where) =>
+        Assert.Equal(LdSrc("tBase(IN := a);"),
+            NetworkTextWriter.Write(Ld1(Fb("tBase", new[] { NetworkModels.In(L("a"), "IN") }, type: "TON")), InChild(where)));
+
+    /// <summary>Spec, "reserved names are one case-insensitive set": every name in scope, an inherited member too. A
+    /// wire <c>g3</c> beside the base's <c>G3</c> is refused on read and renamed on write.</summary>
+    [Theory]
+    [MemberData(nameof(InheritingBodies))]
+    public void A_wire_named_like_an_inherited_member_is_a_duplicate_name(string where)
+    {
+        var scope = InChild(where);
+        Assert.True(scope.Contains("G3"));
+        RefusedAsDuplicate(Src("VAR_TEMP g3 : BOOL; END_VAR", "g3 := TRUE;", "out := g3;"), scope);
+        Assert.Contains("VAR_TEMP g0 : BOOL; END_VAR",
+            NetworkTextWriter.Write(Body(Net(Def(3, L("TRUE")), Set(Ref(3), T("out")))), scope));
+    }
+
+    /// <summary>A base that extends in turn is followed to the root (a header may wrap <c>EXTENDS</c> onto its own
+    /// line, as CODESYS stores it), and a cycle — an invalid project, but text an IDE can hold — ends.</summary>
+    [Fact]
+    public void Inheritance_is_followed_to_the_root_and_a_cycle_ends()
+    {
+        var items = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["FB_Mid"] = "FUNCTION_BLOCK FB_Mid\nEXTENDS FB_Root\nVAR\n    mid : BOOL;\nEND_VAR",
+            ["FB_Root"] = "FUNCTION_BLOCK FB_Root EXTENDS FB_Mid\nVAR\n    tRoot : TOF;\nEND_VAR",
+        };
+        var scope = NetworkScope.FromDeclarations("FUNCTION_BLOCK FB_Leaf EXTENDS FB_Mid\nVAR\nEND_VAR",
+            n => items.TryGetValue(n, out var d) ? d : null, () => Array.Empty<string>());
+
+        Assert.True(scope.Contains("mid"));
+        Assert.Equal("TOF", scope.InstanceType("tRoot"));
+    }
+
+    /// <summary>A pushed GVL is a global list by its first CODE line, the rule a callable header is read by: one
+    /// opening with a multi-line block comment is still a GVL. The push's scope lost every name it declared (the
+    /// comment's second line was taken for the first code line), while the pull found the same GVL by its tree kind
+    /// — the writer's and the reader's scopes apart again.</summary>
+    [Fact]
+    public void A_pushed_GVL_opening_with_a_block_comment_is_a_global_list()
+    {
+        var pushed = new Dictionary<string, string>
+        {
+            ["GVL_Timers"] = "(* shared\n   timers *)\nVAR_GLOBAL\n  t1 : TON;\nEND_VAR",
+        };
+
+        var scope = new FakeIde().NetworkScopeFor("PROGRAM P\nVAR\n  go : BOOL;\nEND_VAR", pushed);
+
+        Assert.Equal("TON", scope.InstanceType("t1"));
     }
 }

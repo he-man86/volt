@@ -176,7 +176,7 @@
   <tr><td>Network position; Int64 Ids</td><td>Host limit: CODESYS re-mints Ids on a changed network.</td></tr>
   <tr><td>Wire collision rename</td><td>When <code>g&lt;VarId&gt;</code> matches a name in scope, case-insensitively, the writer takes the lowest free <code>g&lt;n&gt;</code> and the push writes VarId n. 0 in six corpora.</td></tr>
   <tr><td>Marker on pull, pending a census</td><td>Pin flags (1.13), item flags (1.1), a nested Demux definition or a reference stored before its definition (1.8), a data-valued wire (1.17), a flag on an empty slot, rising+falling on one operand, a backtick in operand text, a snippet line starting <code>END_EXECUTE</code>. (A newline in a TITLE is spelled <code>$N</code> — 7 Lenze titles hold one.) Each has no spelling yet; dropping or reordering it would lose a vendor fact.</td></tr>
-  <tr><td>Rungs with several control-flow targets — marker only</td><td>A coil plus a jump, and two jumps on one rung (<code>UnspellableCoilTests.A_rung_driving_TWO_jumps_is_named_too</code>). 0 in six corpora; spelling them needs JMP as a target, which is not ST. A small detector stays to route both to the marker; <code>JumpDestinationTests</code> pins it.</td></tr>
+  <tr><td>Rungs with several control-flow targets — marker only</td><td>A coil plus a jump, and two jumps on one rung (<code>NetworkTextWriterTests.A_rung_with_several_control_flow_targets_goes_to_the_marker</code>). 0 in six corpora; spelling them needs JMP as a target, which is not ST. The writer refuses both by name, which routes them to the marker; <code>JumpDestinationTests</code> pins it.</td></tr>
   <tr><td>Negated/edge coils — marker only</td><td>0 in 576 measured targets. Census 1.7 re-checks every corpus; a spelling is added only on a measured occurrence and a live build of its constructor.</td></tr>
   <tr><td>TwinCAT structural edits</td><td>A value edit is written in place and the bijection holds. A structural edit (and every create) is rebuilt through PLCopen import, with its quirks: D22c, D25, D30 (a single-consumer wire is refused), C25 (a wire comes back as a multi-output assign), C20. Until measured live, <code>PARALLEL</code>, a Demux of a leaf and a result pin <code>=&gt; v</code> in a structurally changed TwinCAT network are refused, naming the network and the reason. <b>Scale:</b> 66 of lenze-mid's 139 wires are fed by a leaf; if TwinCAT ladder is alike, about half of structural rung edits are refused until 4.4 measures the import (census 1.16).</td></tr>
 </table>
@@ -568,7 +568,7 @@ fb(P := `fc_dinttotime(T.Start,2)`);</pre>
   are spelled from a live dump of the networks themselves (<code>scripts/probe-nwl-oracle-rungs.py</code> →
   <code>nwl-oracle-rungs.log</code>, task 2.4), not from their v1 text: which item is a Parallel, which box has an ENO
   output and which slot a pin is on are read off the vendor's objects. All seven oracle rungs of tasks.md 2.4 are
-  pinned as text and model in <code>NextLadderOracleTests</code>.
+  pinned as text and model in <code>LadderOracleTests</code>.
 </p>
 
 <h3 id="ex-lamps">Mach1_MIDS network 82 — MOVE boxes lighting lamps</h3>

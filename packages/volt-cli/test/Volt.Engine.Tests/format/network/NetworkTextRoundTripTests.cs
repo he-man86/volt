@@ -35,9 +35,9 @@ END_VAR";
     static readonly NetworkScope Scope =
         NetworkScope.FromDeclarations(Declaration, _ => null, () => Array.Empty<string>());
 
-    static void Canonical(string text, BodyLanguage lang)
+    static void Canonical(string text)
     {
-        var r = NetworkTextGate.Validate(text, lang, Scope);
+        var r = NetworkTextGate.Validate(text, Scope);
         Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => $"{d.Line}:{d.Column} {d.Code} {d.Message}")));
         Assert.Equal(text, NetworkTextWriter.Write(r.Body!, Scope));
     }
@@ -91,7 +91,7 @@ END_VAR";
     public void Network_text_is_canonical(string name, string text)
     {
         _ = name;
-        Canonical(text, text.StartsWith(LdMarker, StringComparison.Ordinal) ? BodyLanguage.Ld : BodyLanguage.Fbd);
+        Canonical(text);
     }
 
     /// <summary>The shapes a real project contains (Lenze_MID-S100: 152 of 373 networks were once pulled as text
@@ -138,7 +138,7 @@ END_VAR";
     public void A_real_projects_shapes_round_trip_byte_for_byte(string name, string text)
     {
         _ = name;
-        Canonical(text, text.StartsWith(LdMarker, StringComparison.Ordinal) ? BodyLanguage.Ld : BodyLanguage.Fbd);
+        Canonical(text);
     }
 
     /// <summary>A RUNG WITH NOTHING ON IT reads back as the TERMINATOR the vendor holds, not as a null: a null would
@@ -149,7 +149,7 @@ END_VAR";
     {
         var text = Ld("coil := ;");
 
-        var r = NetworkTextGate.Validate(text, BodyLanguage.Ld, Scope);
+        var r = NetworkTextGate.Validate(text, Scope);
 
         Assert.True(r.Ok);
         var assign = Assert.IsType<Assign>(r.Body!.Networks.Single().Trees.Single());

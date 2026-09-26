@@ -63,9 +63,9 @@ internal static class NetworkSpelling
     /// <summary>Whether a BARE word <paramref name="t"/> that is no wire of its network reads as a wire someone forgot
     /// to declare: shaped like one, and no name in scope. The reader refuses it (spec, "an undeclared wire-shaped
     /// name"), so the writer never leaves such an operand or target bare — it backticks it, verbatim text the reader
-    /// takes as the variable of that name. One rule for both sides: a scope that lacks a name the body uses (until
-    /// task 3.9 builds it from every declaration, a method's GVL global) otherwise made the writer's text one its own
-    /// reader refuses.</summary>
+    /// takes as the variable of that name. One rule for both sides: a name the scope lacks (one no declaration the
+    /// scope is built from makes — <see cref="NetworkScope.FromDeclarations"/>) otherwise made the writer's text one
+    /// its own reader refuses.</summary>
     public static bool ReadsAsUndeclaredWire(string t, NetworkScope scope) => WireName.IsMatch(t) && !scope.Contains(t);
 
     /// <summary>Whether <paramref name="t"/> is exactly one token of the text, so it may stand bare.</summary>

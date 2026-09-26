@@ -14,26 +14,26 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class NetworkTextGateTests
 {
-    static NetworkGateResult Gate(string text, NetworkScope? scope = null, BodyLanguage lang = BodyLanguage.Fbd) =>
-        NetworkTextGate.Validate(text, lang, scope ?? NetworkScope.Empty);
+    static NetworkGateResult Gate(string text, NetworkScope? scope = null) =>
+        NetworkTextGate.Validate(text, scope ?? NetworkScope.Empty);
 
     static NetworkScope Names(params string[] names) => new(names, Array.Empty<string>(), new Dictionary<string, string>());
 
     static NetworkScope Pous(params string[] pous) => new(Array.Empty<string>(), pous, new Dictionary<string, string>());
 
     /// <summary>The body is refused with exactly one finding, of <paramref name="code"/>, on <paramref name="line"/>.</summary>
-    static NetworkTextDiagnostic Refused(string code, int line, string text, NetworkScope? scope = null, BodyLanguage lang = BodyLanguage.Fbd)
+    static NetworkTextDiagnostic Refused(string code, int line, string text, NetworkScope? scope = null)
     {
-        var r = Gate(text, scope, lang);
+        var r = Gate(text, scope);
         Assert.False(r.Ok);
         var d = Assert.Single(r.Diagnostics);
         Assert.True(code == d.Code && line == d.Line, $"expected {code} on line {line}, got {d.Code} on line {d.Line}: {d.Message}");
         return d;
     }
 
-    static void Accepted(string text, NetworkScope? scope = null, BodyLanguage lang = BodyLanguage.Fbd)
+    static void Accepted(string text, NetworkScope? scope = null)
     {
-        var r = Gate(text, scope, lang);
+        var r = Gate(text, scope);
         Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => $"{d.Line}:{d.Column} {d.Code} {d.Message}")));
     }
 
@@ -100,10 +100,20 @@ public class NetworkTextGateTests
         Refused("NETWORK_PARSE", 1, "(* @volt-implementation *)\nNETWORK\n  out := a;\nEND_NETWORK\n");
     }
 
-    /// <summary>Spec, "a view change is one comparison": the marker says FBD, the IDE holds LD.</summary>
+    /// <summary>Spec, "a view change is one comparison": the marker says FBD, the IDE holds LD. The body's language IS
+    /// its marker's, so the text reads; the one comparison is the drivers' against the IDE's view. The reader once
+    /// made a second one against a language its only caller took from that same marker — a check that could never
+    /// fire, with a copy of the refusal's wording.</summary>
     [Fact]
-    public void A_marker_naming_the_other_view_is_refused() =>
-        Assert.Contains("view", Refused("NETWORK_UNSUPPORTED", 1, Src("out := a;"), lang: BodyLanguage.Ld).Message);
+    public void A_marker_naming_the_other_view_is_refused_by_the_one_comparison()
+    {
+        var read = Gate(Src("out := a;"));
+        Assert.True(read.Ok);
+        Assert.Equal(BodyLanguage.Fbd, read.Body!.Language);
+
+        var e = Assert.Throws<System.NotSupportedException>(() => NetworkText.RefuseViewModeChange(BodyLanguage.Ld, read.Body.Language));
+        Assert.Contains("view is LD and the pushed text says FBD", e.Message);
+    }
 
     [Fact]
     public void Header_fields_are_on_the_header_line_and_each_once()
@@ -160,7 +170,7 @@ public class NetworkTextGateTests
     /// <summary>Spec, "a wire defined twice".</summary>
     [Fact]
     public void A_wire_defined_twice() =>
-        Refused("NETWORK_DUPLICATE_NAME", 5, Src("VAR_TEMP g1 : BOOL; END_VAR", "g1 := a;", "g1 := b;", "out := g1;"), lang: BodyLanguage.Fbd);
+        Refused("NETWORK_DUPLICATE_NAME", 5, Src("VAR_TEMP g1 : BOOL; END_VAR", "g1 := a;", "g1 := b;", "out := g1;"));
 
     [Fact]
     public void A_wire_declared_twice_or_with_one_VarId_twice()
@@ -266,7 +276,7 @@ public class NetworkTextGateTests
         // Its canonical form is the group (GT with no EN is infix): accepted, and ADD reads as consumed by its main
         // output with no ENO — the call form, not canonical, reads to the same model.
         Accepted(Src("out := (ADD(EN := x, a, b) > c);"));
-        var read = NetworkTextReader.Read(Src("out := GT(ADD(EN := x, a, b), c);"), BodyLanguage.Fbd, NetworkScope.Empty);
+        var read = NetworkTextReader.Read(Src("out := GT(ADD(EN := x, a, b), c);"), NetworkScope.Empty);
         Assert.True(read.Ok);
         var add = Assert.IsType<Box>(Assert.IsType<Box>(Assert.IsType<Assign>(read.Body!.Networks[0].Trees.Single()).Value).Inputs[0].Value);
         Assert.Equal((0, false), (add.ConnectedSlot, add.HasEnoOutput));
@@ -389,7 +399,7 @@ public class NetworkTextGateTests
     {
         var text = FbdMarker + "NETWORK DISABLED\n  JMP Done;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := a;\nEND_NETWORK\n";
         Accepted(text);
-        var body = NetworkTextReader.Read(text, BodyLanguage.Fbd, NetworkScope.Empty).Body!;
+        var body = NetworkTextReader.Read(text, NetworkScope.Empty).Body!;
         Assert.True(body.Networks[0].Disabled);
         var jump = Assert.IsType<Assign>(Assert.Single(body.Networks[0].Trees));
         Assert.True(jump.Flags.Jump);
@@ -405,7 +415,7 @@ public class NetworkTextGateTests
     {
         var text = FbdMarker + "NETWORK LABEL: Done\n  out := a;\nEND_NETWORK\nNETWORK LABEL: DONE\n  out := b;\nEND_NETWORK\n";
         Accepted(text);
-        var body = NetworkTextReader.Read(text, BodyLanguage.Fbd, NetworkScope.Empty).Body!;
+        var body = NetworkTextReader.Read(text, NetworkScope.Empty).Body!;
         Assert.Equal(new[] { "Done", "DONE" }, body.Networks.Select(n => n.Label));
         Assert.Equal(text, NetworkTextWriter.Write(body, NetworkScope.Empty));
     }
@@ -463,7 +473,7 @@ public class NetworkTextGateTests
     public void A_ladder_leaf_wire_used_only_as_a_contact_is_BOOL()
     {
         var d = Refused("NETWORK_BAD_EXPRESSION", 3,
-            LdMarker + "NETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := x;\n  o := g1;\nEND_NETWORK\n", lang: BodyLanguage.Ld);
+            LdMarker + "NETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := x;\n  o := g1;\nEND_NETWORK\n");
         Assert.Contains("BOOL", d.Message);
     }
 
@@ -474,4 +484,22 @@ public class NetworkTextGateTests
         Accepted(Src("VAR_TEMP g5 : WORD; END_VAR", "g5 := (w1 AND w2);", "o := g5;"));
         Assert.Contains("BOOL", Refused("NETWORK_BAD_EXPRESSION", 3, Src("VAR_TEMP g5 : REAL; END_VAR", "g5 := (w1 AND w2);", "o := g5;")).Message);
     }
+
+    // ── the post-push comparison (review of section 3) ──────────────────────────────────────────
+
+    /// <summary><see cref="NetworkTextGate.SameTokens"/> — the CLI's question after a push: is the IDE's text a
+    /// re-layout of the pushed one? A wrapped call is; a changed pin, marker or ST line inside an EXECUTE body (whose
+    /// whitespace is content, as the gate says) is not.</summary>
+    [Theory]
+    [InlineData("  t1(IN := a, PT := pt);", "  t1(\n    IN := a,\n    PT := pt\n  );", true)]
+    [InlineData("  t1(IN := a, PT := pt);", "  t1(IN := a);", false)]
+    [InlineData("  EXECUTE\nx := 1;\n  END_EXECUTE;", "  EXECUTE\n    x := 1;\n  END_EXECUTE;", false)]
+    [InlineData("  EXECUTE(EN := (a AND b))\nx := 1;\n  END_EXECUTE;", "  EXECUTE(EN := ( a AND b ))\nx := 1;\n  END_EXECUTE;", true)]
+    [InlineData("  x := `a  b`;", "  x := `a b`;", false)]
+    public void Two_bodies_are_the_same_tokens_only_but_for_layout(string a, string b, bool same) =>
+        Assert.Equal(same, NetworkTextGate.SameTokens(Src(a.TrimStart()), Src(b.TrimStart())));
+
+    [Fact]
+    public void Two_markers_are_two_texts() =>
+        Assert.False(NetworkTextGate.SameTokens(Src("x := a;"), LdSrc("x := a;")));
 }

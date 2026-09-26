@@ -809,6 +809,32 @@ public class CodesysNetworkReaderTests
         Assert.Equal(0, readGe.ConnectedSlot);
         Assert.False(readGe.HasEnoOutput);
     }
+
+    /// <summary>THE STORED OUTPUT TYPES (spec, "a stored output type"): <c>OutputParams.Types</c>, the array beside
+    /// the <c>Names</c> this reader already reads (<c>scripts/nwl-oracle-rungs.log</c>: <c>Names=['ENO', '']
+    /// Types=['BOOL', 'INT']</c>). No reader filled <see cref="Box.OutputTypes"/>, so every wire a data box feeds went
+    /// to the marker as "a wire of unknown type" although the vendor stores it. An empty entry is an unresolved slot,
+    /// an unknown type — null, never a default.</summary>
+    [Fact]
+    public void A_wire_fed_by_a_data_box_is_declared_with_its_stored_output_type()
+    {
+        var add = new Nwl.BoxTreeBox
+        {
+            BoxType = "ADD",
+            InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b") },
+            OutputParams = new Nwl.ParamList { Names = new[] { "", "" }, Types = new[] { "INT", "" } },
+            MainOutputIndex = 0,
+        };
+        var use = new Nwl.BoxTreeAssign { RValue = new Nwl.BoxTreeDemux { VarId = 1 } };
+        use.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
+
+        var body = CodesysNetworkReader.Read(Nwl.Body(new Nwl.BoxTreeDemux { VarId = 1, Input = add }, use), BodyLanguage.Fbd);
+
+        var read = Assert.IsType<Box>(Assert.IsType<Demux>(body.Networks.Single().Trees[0]).Input);
+        Assert.Equal(new[] { "INT", null }, read.OutputTypes);
+        Assert.Contains("  VAR_TEMP g1 : INT; END_VAR\n  g1 := (a + b);\n",
+            NetworkTextWriter.Write(body, Volt.Tests.Shared.NetworkModelOracle.ScopeOf(body)));
+    }
     /// <summary>A NETWORK THAT REPORTS MORE ITEMS THAN IT HAS reads as the trees it really has — the phantom slot
     /// is SKIPPED, not thrown on and not rendered as an empty body.
     ///
