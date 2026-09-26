@@ -68,8 +68,11 @@ internal static class TcUnmeasured
     /// network and the shape, before the import is called:
     /// <list type="bullet">
     /// <item><c>PARALLEL</c> — PLCopen FBD has no element for a parallel branch (D30);</item>
-    /// <item>a wire whose producer is a leaf — the importer CRASHED on one (the v1 <c>LiteralFanoutBugTests</c>) and D30
-    /// found it collapses a wire it cannot see a branch point for; 1.16 would say how many rung edits this blocks;</item>
+    /// <item>a wire whose producer is a leaf — the v1 lowering CRASHED the importer on one (<c>LiteralFanoutBugTests</c>).
+    /// Measured through the v2 lowering (2026-09-27, the refusal lifted for one live push, DIALECT N22): no crash, but
+    /// no round trip either — a leaf wire read by two coils comes back as ONE chained assign (C25's fold), and one read
+    /// inside a box comes back a wire under an importer-minted VarId (<c>g1883419948</c>). A refusal costs a detour; a
+    /// reshape costs a drawing, so it stays refused. 1.16 would say how many rung edits this blocks;</item>
     /// <item>a box's result pin <c>=&gt; v</c> — the importer lowers an output pin to a separate assignment (C20).</item>
     /// </list>
     /// Task 4.4 measures each live; a shape measured to import cleanly leaves this list.

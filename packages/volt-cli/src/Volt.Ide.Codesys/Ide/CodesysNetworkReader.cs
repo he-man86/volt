@@ -288,15 +288,18 @@ namespace Volt.Ide.Codesys
 
             // THE OUTPUT SLOTS (network text v2, task 3.10; DIALECT N16, measured on 1,117 consumed boxes): NWL
             // stores no connection slot — a consumer reads the box's output at `MainOutputIndex`, so that IS the
-            // slot a consumed box is connected by. `MainOutputIndex` is absent on the AND/OR boxes (census 1.6),
-            // and absent is null here, never a default: the writer reads a consumed bit operator by that rule and
-            // refuses any other box whose slot nobody read. Whether the box HAS an ENO output is its output list's
+            // slot a consumed box is connected by. `MainOutputIndex` is absent on the AND/OR boxes (census 1.6) and on
+            // every box a push built (read-only, DIALECT N21); where it is absent the slot is the one the COMPILER was
+            // measured to read (`UnstoredMainOutput`), and null where no measurement says — never a default: the
+            // writer refuses a box whose slot nobody read. Whether the box HAS an ENO output is its output list's
             // first name (`Box.HasEnoSlot`), independent of EN — census 1.6 found 40 enabled comparisons with none.
-            var mainOutput = NwlInterop.Get(n, "MainOutputIndex") is int main ? main : (int?)null;
             var outputNames = Names(NwlInterop.Get(n, "OutputParams"));
+            var type = NwlInterop.Text(n, "BoxType") ?? "";
+            var mainOutput = NwlInterop.Get(n, "MainOutputIndex") is int main ? main
+                : consumed ? UnstoredMainOutput(type, enable is not null, outputNames) : null;
 
             return new Box(
-                NwlInterop.Text(n, "BoxType") ?? "",
+                type,
                 instance,
                 ReadCallKind(NwlInterop.Get(n, "CallType"), instance),
                 inputs,
@@ -314,6 +317,21 @@ namespace Volt.Ide.Codesys
                 ConnectedSlot: consumed ? mainOutput : null,
                 OutputTypes: OutputTypes(n),
                 HasEnoOutput: Box.HasEnoSlot(outputNames));
+        }
+
+        /// <summary>THE OUTPUT A CONSUMER READS WHEN THE BOX STORES NO <c>MainOutputIndex</c> — every box a push built
+        /// (the member is read-only, so Volt can never set it) and the AND/OR boxes an engineer drew (census 1.6).
+        ///
+        /// <para>Measured by building and RUNNING each shape (DIALECT N21): without EN the consumer reads the data
+        /// output, slot 0 (<c>MAX(1, 2)</c> gave 2, <c>ADD(1, 2)</c> gave 3); with EN it reads the ENO, whatever output
+        /// list the box holds. A bit operator without EN keeps the text's reading, connected by no stored slot
+        /// (<c>Box.StoresNoMainOutput</c>). An enabled box whose list names no ENO has no slot the text could state
+        /// (the ENO is read, and the text reads a suffix-less consumer as a data output), so it stays null and the
+        /// writer names it.</para></summary>
+        private static int? UnstoredMainOutput(string type, bool enabled, IReadOnlyList<string?> outputNames)
+        {
+            if (enabled) return Box.HasEnoSlot(outputNames) ? 0 : null;
+            return Box.StoresNoMainOutput(type) ? null : 0;
         }
 
         /// <summary>A CODESYS Execute box: a box whose call is raw ST, carried on the box itself.

@@ -233,8 +233,16 @@ internal static class TcNetworkReader
         if (HasEno(box)) return 0;
         var holder = TcArchive.Obj(box, "OutputItems");
         if (holder is null) return null;
-        var nulls = TcArchive.Slots(holder, "OutputItems").Select((slot, i) => (slot, i)).Where(x => x.slot is null)
-                             .Select(x => x.i).ToList();
+        var slots = TcArchive.Slots(holder, "OutputItems");
+        // A box the PLCopen IMPORT built declares one output (`OutputParam/Names = [Out1]`) and stores no slot null: the
+        // importer hangs an EMPTY operand there, which `TcNetworkWriter.DropImporterBoxOutputs` removes after the stamp
+        // (`importer-max.TcPOU`, real XAE output, is the state after it). Before or after that repair, one declared
+        // output is one slot a consumer can read — and the stamp compares the connection BEFORE the repair, so both
+        // states must read the same.
+        if (slots.Count <= 1 && slots.All(s => s is not null && string.IsNullOrEmpty(TcArchive.Str(s, "Operand")))
+            && TcArchive.Strings(TcArchive.Obj(box, "OutputParam"), "Names").Count == 1)
+            return 0;
+        var nulls = slots.Select((slot, i) => (slot, i)).Where(x => x.slot is null).Select(x => x.i).ToList();
         return nulls.Count == 1 ? nulls[0] : null;
     }
 
@@ -341,9 +349,21 @@ internal static class TcNetworkReader
         return items.Skip(skip)
             // `Flags.None` because a pin with a modifier was refused above; a per-pin negation that rides the
             // OPERAND (`NegatedContact.derived.TcPOU`: `Flags = 1` on the operand's own Flags) is read there.
-            .Select((x, i) => new Input(Box.FormalAt(names, i + skip), ReadNode(x, consumed: true), Flags.None))
+            .Select((x, i) => new Input(Box.FormalAt(names, i + skip),
+                                        IsUnwiredPin(x) ? new Terminator(Flags.None) : ReadNode(x, consumed: true), Flags.None))
             .ToList();
     }
+
+    /// <summary>AN UNWIRED BOX INPUT, IN THIS ARCHIVE'S SPELLING: an operand holding no text. The PLCopen import builds
+    /// an unconnected pin that way — an empty <c>&lt;inVariable&gt;</c> becomes an empty operand, the spelling the vendor's
+    /// own export uses for a pin wired to nothing (<c>importer-unwired.TcPOU</c>, real XAE output of
+    /// <c>n := ( * m * 6);</c> and <c>t1(IN := , PT := );</c>) — where CODESYS keeps a <c>BoxTreeTerminator</c>. Read as
+    /// an operand it came back as <c>``</c>, an empty backticked name, over a body Volt had just created; it is the one
+    /// "unconnected" the model has (census 1.2), and the in-place writer accepts it over the same operand unchanged.
+    /// An empty operand carrying a flag is not that shape and reads as the operand it is.</summary>
+    internal static bool IsUnwiredPin(XElement item) =>
+        TcArchive.TypeOf(item) == "BoxTreeOperand" && TcArchive.Obj(item, "Operand") is { } op
+        && string.IsNullOrEmpty(TcArchive.Str(op, "Operand")) && TcArchive.FlagBits(op) == 0;
 
     /// <summary>An item's outputs. The archive nests them one level deeper than the live model does — an
     /// <c>OutputItems</c> object of type <c>OutputItemList</c>, itself holding an <c>OutputItems</c> list.</summary>

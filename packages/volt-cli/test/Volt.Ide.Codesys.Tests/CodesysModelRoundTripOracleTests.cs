@@ -151,6 +151,28 @@ public class CodesysModelRoundTripOracleTests
             InputParams = new Nwl.ParamList { Names = new[] { "EN", "" }, Types = new[] { "BOOL", "" } },
             InputFlags = new object[] { new Nwl.Flags(), new Nwl.Flags { Negation = true } },
         });
+        // Boxes a push BUILT store no MainOutputIndex (read-only, DIALECT N21); the reader takes the slot the compiler
+        // was measured to read. Transcribed from the theory, one double per row.
+        foreach (var (row, type, enabled, names) in new (string, string, bool, string[])[]
+        {
+            ("MAX", "MAX", false, new string[0]), ("ADD", "ADD", false, new string[0]),
+            ("AND", "AND", true, new[] { "ENO" }), ("MOVE", "MOVE", true, new[] { "ENO", "" }), ("MOVE_noeno", "MOVE", true, new string[0]),
+        })
+        {
+            var inputs = new List<object>();
+            if (enabled) inputs.Add(Nwl.Leaf("c"));
+            inputs.Add(Nwl.Leaf("a"));
+            inputs.Add(Nwl.Leaf("b"));
+            var box = new Nwl.BoxTreeBox
+            {
+                BoxType = type,
+                InputItemList = inputs.ToArray(),
+                InputParams = enabled ? new Nwl.ParamList { Names = new[] { "EN", "", "" }, Types = new[] { "", "", "" } } : new Nwl.ParamList(),
+                OutputParams = new Nwl.ParamList { Names = names, Types = names.Select(_ => "").ToArray() },
+            };
+            foreach (var _ in names) box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "" });
+            Fbd("Reader.A_consumed_box_Volt_built_is_connected_as_the_compiler_reads_it/" + row, Coil(box, Target("n")));
+        }
         Fbd("Reader.Empty_pin_flags_read_as_before", new Nwl.BoxTreeBox
         {
             BoxType = "AND",
@@ -304,6 +326,12 @@ public class CodesysModelRoundTripOracleTests
             // was not read" — was those facts missing, and its double is now the measured MOVE (`OutputParams ['']`). The
             // 34th is the data box whose stored output type (`OutputParams.Types`) declares the wire it feeds. The three
             // refusals are the pin-flag doubles the reader reads since task 4.1: the text has no spelling for a flag on a
-            // box input pin (phase-1 decision), so the pull names it rather than write the pin without it.
-            bodies: 34, networks: 34, refused: new Dictionary<string, int> { ["a flag on a box input pin"] = 3 });
+            // box input pin (phase-1 decision), so the pull names it rather than write the pin without it. Four more
+            // round-trip since the reader takes a Volt-built box's slot from the measured compiler reading (N21); the
+            // enabled MOVE whose list names no ENO is the one shape that reading leaves unstated, refused by name.
+            bodies: 38, networks: 38, refused: new Dictionary<string, int>
+            {
+                ["a flag on a box input pin"] = 3,
+                ["a consumed box with no stored connection slot"] = 1,
+            });
 }

@@ -76,6 +76,16 @@ VltEno_MoveTypedNoEno: lamp := MOVE(EN := c, 0, => sv) - OutputParams ['', ''] t
    committed:   OutputParams.Names=['', ''] Types=['INT', 'INT'] MainOutputIndex=None En=True Eno=True EnEno=True Outputs=['', 'sv'] OutputPins=1..1
    build:       CLEAN
    after build: OutputParams.Names=['', ''] Types=['INT', 'INT'] MainOutputIndex=None En=True Eno=True EnEno=True Outputs=['', 'sv'] OutputPins=1..1
+VltEno_MaxNoEn: n := MAX(a, b) - a function without EN, no output list, consumed
+   built:       OutputParams.Names=[] Types=[] MainOutputIndex=None En=None Eno=None EnEno=True Outputs=[] OutputPins=0..2147483647
+   committed:   OutputParams.Names=[] Types=[] MainOutputIndex=None En=None Eno=None EnEno=True Outputs=[] OutputPins=1..1
+   build:       CLEAN
+   after build: OutputParams.Names=[] Types=[] MainOutputIndex=None En=None Eno=None EnEno=True Outputs=[] OutputPins=1..1
+VltEno_AddNoEn: n := ADD(a, b) - an operator without EN, no output list, consumed
+   built:       OutputParams.Names=[] Types=[] MainOutputIndex=None En=None Eno=None EnEno=True Outputs=[] OutputPins=0..2147483647
+   committed:   OutputParams.Names=[] Types=[] MainOutputIndex=None En=None Eno=None EnEno=True Outputs=[] OutputPins=1..1
+   build:       CLEAN
+   after build: OutputParams.Names=[] Types=[] MainOutputIndex=None En=None Eno=None EnEno=True Outputs=[] OutputPins=1..1
 
 === run: what each clean case's consumer holds after one cycle (GT/MOVE data = FALSE/0, ENO = TRUE) ===
    build of all kept: CLEAN
@@ -85,6 +95,8 @@ VltEno_MoveTypedNoEno: lamp := MOVE(EN := c, 0, => sv) - OutputParams ['', ''] t
    VltEno_TopGt         out=FALSE  lamp=FALSE  sv=INT#0  n=INT#0
    VltEno_TopGtNoEcho   out=FALSE  lamp=FALSE  sv=INT#0  n=INT#0
    VltEno_MoveTypedNoEno out=FALSE  lamp=TRUE  sv=INT#0  n=INT#0
+   VltEno_MaxNoEn       out=FALSE  lamp=FALSE  sv=INT#0  n=INT#2
+   VltEno_AddNoEn       out=FALSE  lamp=FALSE  sv=INT#0  n=INT#3
 
 === a BoxTreeBox's surface (is there a door that resolves the pins from the type?) ===
       type: _3S.CoDeSys.NWLObject.BoxTreeBox

@@ -3,7 +3,7 @@
  *
  * A jump in FBD/LD leaves its network: each network may carry ONE label, and `JMP name` transfers control to the
  * network carrying it. The model holds the label on the network itself (`Network.Label`, which both drivers read
- * and write), and `NetworkTextWriter` renders it as `name:` at the top of that network's statements — so a real
+ * and write), and `NetworkTextWriter` renders it on that network's header, `NETWORK LABEL: name` — so a real
  * forward jump names a label the JUMPING network does not contain.
  *
  * Nothing in the live suite covered either half, on either vendor: the label could have been dropped on the way
@@ -12,7 +12,7 @@
  * than merely appeared once.
  */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { id, fid, bridge, pushOps, requireHealthy, BASE } from "../harness"
+import { id, fid, bridge, pushOps, requireHealthy, expectRoundTrip, BASE } from "../harness"
 
 describe(`graphical / labels and jumps (${BASE})`, () => {
 	setDefaultTimeout(180_000)
@@ -48,8 +48,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 		// that lives on the network object rather than in the statements.
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			`(* @volt-implementation *)\nNETWORK 0 FBD\n  out1 := (a AND b);\nEND_NETWORK\n` +
-			`NETWORK 1 FBD LABEL: Done\n  out2 := (a OR b);\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`(* @volt-implementation FBD *)\nNETWORK\n  out1 := (a AND b);\nEND_NETWORK\n` +
+			`NETWORK LABEL: Done\n  out2 := (a OR b);\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -85,8 +85,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`(* @volt-implementation *)\nNETWORK 0 FBD\n  IF a THEN JMP Done; END_IF\nEND_NETWORK\n` +
-			`NETWORK 1 FBD LABEL: Done\n  out := (a OR b);\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`(* @volt-implementation FBD *)\nNETWORK\n  IF a THEN JMP Done; END_IF;\nEND_NETWORK\n` +
+			`NETWORK LABEL: Done\n  out := (a OR b);\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -126,8 +126,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`(* @volt-implementation *)\nNETWORK 0 FBD\n  IF a THEN RETURN; END_IF\nEND_NETWORK\n` +
-			`NETWORK 1 FBD\n  out := (a AND b);\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`(* @volt-implementation FBD *)\nNETWORK\n  IF a THEN RETURN; END_IF;\nEND_NETWORK\n` +
+			`NETWORK\n  out := (a AND b);\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -168,8 +168,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`(* @volt-implementation *)\nNETWORK 0 FBD\n  out := (a AND b);\nEND_NETWORK\n` +
-			`NETWORK 1 FBD\n  RETURN;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`(* @volt-implementation FBD *)\nNETWORK\n  out := (a AND b);\nEND_NETWORK\n` +
+			`NETWORK\n  RETURN;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 		if (!created.accepted) {
@@ -192,8 +192,8 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`(* @volt-implementation *)\nNETWORK 0 FBD\n  JMP Done;\nEND_NETWORK\n` +
-			`NETWORK 1 FBD LABEL: Done\n  out := (a AND b);\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`(* @volt-implementation FBD *)\nNETWORK\n  JMP Done;\nEND_NETWORK\n` +
+			`NETWORK LABEL: Done\n  out := (a AND b);\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 		if (!created.accepted) {
@@ -208,4 +208,29 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 		await clean(item)
 	})
+
+	/**
+	 * THE LABEL SHAPES CENSUS 1.15 BUILT ON BOTH VENDORS (DIALECT N19): the IDE HOLDS each of them — some with a
+	 * build message, which is the LSP's parity target (task 5.6), not a reason to refuse — so the push must carry
+	 * each exactly and the pull must give it back. One label on two networks (in two cases: labels match
+	 * case-insensitively), a label on a DISABLED network that a jump names, a jump inside a DISABLED network, and a
+	 * jump to a label no network carries.
+	 */
+	const SHAPES: readonly (readonly [string, string])[] = [
+		["twice", "NETWORK LABEL: Done\n  out := (a AND b);\nEND_NETWORK\nNETWORK LABEL: DONE\n  q := a;\nEND_NETWORK\n"],
+		["disabled_target", "NETWORK\n  IF a THEN JMP Done; END_IF;\nEND_NETWORK\nNETWORK LABEL: Done DISABLED\n  out := (a OR b);\nEND_NETWORK\n"],
+		["jump_disabled", "NETWORK DISABLED\n  IF a THEN JMP Done; END_IF;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := (a AND b);\nEND_NETWORK\n"],
+		["missing", "NETWORK\n  IF a THEN JMP Nowhere; END_IF;\nEND_NETWORK\nNETWORK\n  out := (a AND b);\nEND_NETWORK\n"],
+	]
+	for (const [key, nets] of SHAPES) {
+		it(`the IDE holds a label shape (${key}): it round-trips exactly`, async () => {
+			const name = id(`lbl_${key}`), item = fid(`lbl_${key}`, "prg")
+			await clean(item)
+			const src =
+				`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n\tq : BOOL;\nEND_VAR\n` +
+				`(* @volt-implementation FBD *)\n${nets}\nEND_PROGRAM\n`
+			await expectRoundTrip(item, src)
+			await clean(item)
+		})
+	}
 })

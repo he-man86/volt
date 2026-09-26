@@ -570,11 +570,32 @@ the text's rule (`NetworkText.HasEnoOutput`) rather than a copy of it; the pull 
       nested, so such a network was refused as "would split it" (`TcStructuralEditTests.A_wire_read_inside_its_consumers_is_one_rung_and_reaches_the_importer`,
       red first; `Two_rungs_sharing_no_wire_are_still_refused_as_a_split`). It only counts, so the in-place item-count
       check compares the model in its own shape.
-- [ ] 4.4 Live e2e on both vendors (`pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys|twincat`, then
+- [x] 4.4 Live e2e on both vendors (`pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys|twincat`, then
       `bun run test:e2e:codesys` / `test:e2e:twincat`): roundtrip, fanout, real-project-shapes, parity-fixes
       ("editing one operand leaves every wire name alone"), graphical-kinds (mixed ST FB + LD method, accessors),
       labels (1.15 shapes), and the TwinCAT Demux-of-a-leaf case from 2.3 (refused cleanly, or imported — measured;
       1.16 says how much rides on it). Stage explicit paths, never `git add -A`.
+      *Done (section 4), live on both vendors (fixture copies via `ide.ps1`, Project14 on TwinCAT):* the six suites are
+      network text v2 now and green — roundtrip 13, fanout 2, real-project-shapes 7, parity-fixes 9, graphical-kinds
+      18, labels 9: **58 pass on CODESYS and 58 on TwinCAT** (the operand oracle and its offline self-check,
+      `test/unit/oracle.test.ts`, moved to v2 with them). Labels gained the four 1.15 shapes, round-tripped exactly on
+      both. The leaf wire of 2.3 (`fanout.test.ts`): CODESYS round-trips it; TwinCAT refuses it by name before the
+      import (`NETWORK_UNSUPPORTED`, network and wire named) — and the import was MEASURED with the refusal lifted
+      (DIALECT N22): no crash, but reshaped both ways (a coil-read leaf wire folds into a chained assign, a box-read
+      one returns under an importer-minted VarId `g1883419948`), so the refusal stands. The live run found five
+      driver bugs, each fixed with an offline test on a committed capture: a consumed box Volt BUILT pulled as the
+      marker on both vendors — CODESYS stores no `MainOutputIndex` on it (read-only), measured by running
+      `MAX(1, 2)`/`ADD(1, 2)` to read slot 0 (N21, `A_consumed_box_Volt_built_is_connected_as_the_compiler_reads_it`),
+      TwinCAT's import stores no null slot (`importer-max.TcPOU`, `A_consumed_box_the_import_built_is_connected_by_its_one_output`
+      and `…_before_the_repair_too`); TwinCAT's import kept Volt's own `In1`/`In2` pin names, so `MAX(a, b)` came back
+      named and the stamp silently wrote nothing (`Positional_pins_are_written_over_the_names_the_import_took_from_Volt`,
+      `A_pin_name_the_IDE_holds_is_not_blanked_by_a_positional_push`, plus a live build: `a created stateless function
+      call compiles`); and an unwired pin the import built came back as an empty backticked name
+      (`importer-unwired.TcPOU`, `An_unwired_pin_the_import_built_reads_as_the_empty_slot_and_pushes_back_unchanged`).
+      Test changes whose premise the measurements refuted: the EN-pin test pushes `AND(EN := go, a, b).ENO` (N21: the
+      suffix-less form is refused on CODESYS) and accepts TwinCAT's named ENO refusal; `parity-fixes`' wire count and the
+      fixed-point test's shape are vendor-stated (D22/C25: TwinCAT's import folds a wire; a titled network holding one
+      is refused rather than stamped, so the fixed point uses the chained assign both vendors create).
 - [ ] 4.5 Ladder census round trip: lenze-mid pull → gate → push into an empty project → re-pull; per network compare
       Demux (573), multi-output Assign (40), Parallel (17), EN boxes.
 

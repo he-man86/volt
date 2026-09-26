@@ -116,6 +116,97 @@ public class TcStructuralEditTests
         Assert.Contains("\"renamedBranch\"", written!);
     }
 
+    /// <summary>A BOX THE IMPORT BUILT IS CONNECTED BY ITS ONE OUTPUT. <c>importer-max.TcPOU</c> is real XAE output
+    /// (2026-09-26): Volt pushed <c>n := MAX(a, b);</c> and the PLCopen import built the box with ONE declared output
+    /// (<c>OutputParam/Names = [Out1]</c>) and — once the importer's empty operand is dropped — no output item at all,
+    /// so no slot is stored null to say which output the consumer reads. The pull read that as "a consumed box with no
+    /// stored connection slot" and materialized the marker over the body Volt had just created (found live,
+    /// <c>parity-fixes.test.ts</c>). A box with one output has one slot a consumer can read: slot 0.</summary>
+    [Fact]
+    public void A_consumed_box_the_import_built_is_connected_by_its_one_output()
+    {
+        var impl = XDocument.Parse(Fixtures.Pou("importer-max.TcPOU"), LoadOptions.PreserveWhitespace)
+            .Descendants("NWL").Single().DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject");
+
+        var body = TcNetworkReader.Read(impl, BodyLanguage.Fbd);
+        var max = Assert.IsType<Box>(Assert.IsType<Assign>(body.Networks.Single().Trees.Single()).Value);
+
+        Assert.Equal((0, 0), (max.ConnectedSlot, max.MainOutputIndex));
+        Assert.Contains("  n := MAX(", TcText.Write(body));
+    }
+
+    /// <summary>…and the same BEFORE the importer's empty operand is dropped, which is the state the stamp compares
+    /// against (values first, then the repair — <c>BeckhoffDriver.Stamp</c>). Read as "no slot" there, the stamp refused
+    /// ("the consumer of box 'MAX' moves to output slot 0"), the create path swallowed the refusal as a regrouping, and
+    /// the body was left unstamped (found live, <c>parity-fixes.test.ts</c>).</summary>
+    [Fact]
+    public void A_consumed_box_the_import_built_is_connected_by_its_one_output_before_the_repair_too()
+    {
+        var nwl = XDocument.Parse(Fixtures.Pou("importer-max.TcPOU"), LoadOptions.PreserveWhitespace).Descendants("NWL").Single();
+        var box = nwl.Descendants("o").First(o => o.Elements("v").Any(v => (string?)v.Attribute("n") == "BoxType"));
+        var list = box.Elements("o").First(o => (string?)o.Attribute("n") == "OutputItems").Elements("l2").Single();
+        list.Add(new XElement("o", new XElement("v", new XAttribute("n", "Operand"), "\"\""), new XElement("v", new XAttribute("n", "Id"), "99L")));
+
+        var read = TcNetworkReader.Read(nwl.DescendantsAndSelf("o").First(o => (string?)o.Attribute("t") == "NWLImplementationObject"), BodyLanguage.Fbd);
+
+        Assert.Equal(0, Assert.IsType<Box>(Assert.IsType<Assign>(read.Networks.Single().Trees.Single()).Value).ConnectedSlot);
+    }
+
+    /// <summary>…AND ITS PINS COME BACK AS THEY WERE PUSHED. Volt's PLCopen lowering must name every input it wires
+    /// (<c>formalParameter</c>), so a positional pin goes out as <c>In1</c>, <c>In2</c> — and the import keeps those names
+    /// (<c>importer-max.TcPOU</c>: <c>InputParam/Names = [In1, In2]</c>), so <c>n := MAX(a, b);</c> came back
+    /// <c>n := MAX(In1 := a, In2 := b);</c> (found live, <c>parity-fixes.test.ts</c>). The stamp after the import writes
+    /// the text's positional pins over them — a value edit of names the import itself took from Volt; a pin the IDE
+    /// names otherwise is not Volt's to blank, and a push leaving it positional is refused, never a silent no-op.</summary>
+    [Fact]
+    public void Positional_pins_are_written_over_the_names_the_import_took_from_Volt()
+    {
+        var xml = XDocument.Parse(Fixtures.Pou("importer-max.TcPOU"), LoadOptions.PreserveWhitespace)
+            .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
+        var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
+                                                  _ => null, () => Array.Empty<string>());
+        var pushed = NetworkText.Validate("(* @volt-implementation FBD *)\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
+
+        var written = TcNetworkWriter.Apply(xml, pushed, scope);
+
+        Assert.NotNull(written);
+        var back = TcNetworkReader.Read(TcArchive.Root(written)!, BodyLanguage.Fbd);
+        Assert.Contains("  n := MAX(a, b);\n", NetworkTextWriter.Write(back, scope));
+    }
+
+    [Fact]
+    public void A_pin_name_the_IDE_holds_is_not_blanked_by_a_positional_push()
+    {
+        var xml = XDocument.Parse(Fixtures.Pou("importer-max.TcPOU"), LoadOptions.PreserveWhitespace)
+            .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting).Replace("<v>In2</v>", "<v>Limit</v>");
+        var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
+                                                  _ => null, () => Array.Empty<string>());
+        var pushed = NetworkText.Validate("(* @volt-implementation FBD *)\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
+
+        var ex = Assert.Throws<NotSupportedException>(() => TcNetworkWriter.Apply(xml, pushed, scope));
+        Assert.Contains("Limit", ex.Message);
+    }
+
+    /// <summary>AN UNWIRED PIN THE IMPORT BUILT READS AS THE EMPTY SLOT IT IS. <c>importer-unwired.TcPOU</c> is real XAE
+    /// output of <c>n := ( * m * 6);</c> and <c>t1(IN := , PT := );</c>: the import holds each unconnected pin as an
+    /// operand with no text, where CODESYS holds a terminator, and it came back <c>(`` * m * 6)</c> (found live,
+    /// <c>real-project-shapes.test.ts</c>). Read as the model's one "unconnected", and pushed back unchanged.</summary>
+    [Fact]
+    public void An_unwired_pin_the_import_built_reads_as_the_empty_slot_and_pushes_back_unchanged()
+    {
+        var xml = XDocument.Parse(Fixtures.Pou("importer-unwired.TcPOU"), LoadOptions.PreserveWhitespace)
+            .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
+        var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  n : INT;\n  m : INT;\n  t1 : TON;\nEND_VAR",
+                                                  _ => null, () => Array.Empty<string>());
+
+        var pulled = TcNetworkReader.Read(TcArchive.Root(xml)!, BodyLanguage.Ld);
+        var text = NetworkTextWriter.Write(pulled, scope);
+
+        Assert.Contains("  n := ( * m * 6);\n", text);
+        Assert.Contains("  t1(IN := , PT := );\n", text);
+        Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
+    }
+
     // -- 4.3: the component count ---------------------------------------------------------------------------------
 
     /// <summary>A WIRE AND EVERYTHING THAT READS IT ARE ONE RUNG (D25), wherever the reference sits. The count used a

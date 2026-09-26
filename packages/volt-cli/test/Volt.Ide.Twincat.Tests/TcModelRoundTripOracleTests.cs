@@ -71,7 +71,10 @@ public class TcModelRoundTripOracleTests
             Archives.Value.Read.Select(kv => NetworkModelOracle.Check(kv.Key, kv.Value)),
             // execute-box and ladder-demux round-trip since the reader reads which output slot a consumed call's
             // consumer is connected to (task 3.10) — the one null output item, where CODESYS states MainOutputIndex.
-            bodies: 13, networks: 21, refused: new Dictionary<string, int>
+            // importer-max and importer-unwired (task 4.4, real XAE output of bodies the PLCopen import built) are the
+            // 14th and 15th: a box's one declared output is its connection slot, and an empty operand on a pin is the
+            // empty slot.
+            bodies: 15, networks: 24, refused: new Dictionary<string, int>
             {
                 // The rung drawn by hand to hold a coil and a jump on one assign: marker-only (JumpDestinationTests).
                 ["a rung driving a coil and a jump together"] = 1,

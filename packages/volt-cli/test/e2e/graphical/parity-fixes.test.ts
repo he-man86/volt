@@ -11,7 +11,7 @@
  * same project". A test that passed on one bridge and not the other would be the finding.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
+import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, expectVendorDifference, BASE } from "../harness"
 
 setDefaultTimeout(30000)
 
@@ -44,9 +44,11 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const name = id("pf_en")
 		const full = fid("pf_en", "prg")
 		const src =
-			`PROGRAM ${name}\nVAR\n\tgo : BOOL;\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n(* @volt-implementation *)\n` +
-			// The EN/ENO form is ONE LINE — `IF en THEN <result>; END_IF` (network-text.html#eneno).
-			`NETWORK 0 FBD\n  LET en1 := go;\n  IF en1 THEN out := (a AND b); END_IF\nEND_NETWORK\n\n` +
+			`PROGRAM ${name}\nVAR\n\tgo : BOOL;\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n(* @volt-implementation FBD *)\n` +
+			// The enable is the box's own EN pin and the rung continues from its ENO (network text v2). The ENO form,
+			// because a box CODESYS builds with EN is read through its ENO whatever Volt writes (DIALECT N21) — the
+			// suffix-less `out := AND(EN := go, a, b);` is refused by name there, and this test is about the EN pin.
+			`NETWORK\n  out := AND(EN := go, a, b).ENO;\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		// VENDOR-BLIND ON PURPOSE, because this is the one capability that genuinely differs and the difference
@@ -65,7 +67,9 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		})
 
 		if (!r.accepted) {
-			expect(JSON.stringify(r.conflicts)).toMatch(/EN\b/)
+			// …naming the EN/ENO pair it could not build: TwinCAT's import builds an enabled AND with no ENO output,
+			// so the text's `.ENO` is refused by name (task 4.2, `TcEnoRefusal`).
+			expect(JSON.stringify(r.conflicts)).toMatch(/\bENO?\b/)
 			return
 		}
 		expect((await fetchItem(full)).sourceText).toBe(src)
@@ -85,7 +89,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_fn", "prg")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tout : INT;\nEND_VAR\n` +
-			`(* @volt-implementation *)\nNETWORK 0 FBD\n  out := MAX(a, b);\nEND_NETWORK\n\n` +
+			`(* @volt-implementation FBD *)\nNETWORK\n  out := MAX(a, b);\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
@@ -93,6 +97,23 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		expect(back).toContain("MAX(")                   // the callee is named…
 		expect(back).not.toMatch(/\(\s*:=/)              // …and not the headless `( := a, := b)` shape
 		expect(back).toBe(src)
+	})
+
+	/**
+	 * …AND IT COMPILES. On TwinCAT the positional pins come back positional only because the stamp after the import
+	 * writes empty names over the `In1`/`In2` Volt's own PLCopen lowering gave them (task 4.4) — a body whose text is
+	 * right proves nothing about whether the IDE builds it, so the build says so.
+	 */
+	it("a created stateless function call compiles", async () => {
+		const name = id("pf_fnbuild")
+		const src =
+			`FUNCTION_BLOCK ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tout : INT;\nEND_VAR\n` +
+			`(* @volt-implementation FBD *)\nNETWORK\n  out := MAX(a, b);\nEND_NETWORK\n\n` +
+			`END_FUNCTION_BLOCK\n`
+
+		await createItem(fid("pf_fnbuild"), src, "")
+		expect((await fetchItem(fid("pf_fnbuild"))).sourceText).toBe(src)
+		await ensureCompiles(name)
 	})
 
 	/**
@@ -108,7 +129,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_pins", "prg")
 		const src =
 			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\tgo : BOOL;\n\tpt : TIME;\nEND_VAR\n` +
-			`(* @volt-implementation *)\nNETWORK 0 FBD\n  t1(IN := go, PT := pt);\nEND_NETWORK\n\n` +
+			`(* @volt-implementation FBD *)\nNETWORK\n  t1(IN := go, PT := pt);\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		// Create, then edit the PULLED text rather than re-stating the body. The IDE decides its own network
@@ -143,7 +164,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_neg", "prg")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`(* @volt-implementation *)\nNETWORK 0 LD\n  out := (NOT a AND b);\nEND_NETWORK\n\n` +
+			`(* @volt-implementation LD *)\nNETWORK\n  out := (NOT a AND b);\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
@@ -164,7 +185,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_set", "prg")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`(* @volt-implementation *)\nNETWORK 0 LD\n  out S= a;\nEND_NETWORK\n\n` +
+			`(* @volt-implementation LD *)\nNETWORK\n  out S= a;\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
@@ -183,7 +204,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_fix", "prg")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`(* @volt-implementation *)\nNETWORK 0 LD\n  out S= (NOT a AND b);\nEND_NETWORK\n\n` +
+			`(* @volt-implementation LD *)\nNETWORK\n  out S= (NOT a AND b);\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		const once = await roundTrip(full, src)
@@ -195,7 +216,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 	/**
 	 * EDITING A NETWORK DOES NOT RENAME THE WIRES IN IT.
 	 *
-	 * A fan-out is a named wire in the text (`LET g0 := ...`), and the name is minted from the id the vendor
+	 * A fan-out is a named wire in the text (`VAR_TEMP g0 : BOOL; END_VAR` + `g0 := ...`), named by the id the vendor
 	 * holds. CODESYS re-minted every id on write, so touching one operand renumbered the whole network: measured
 	 * live, `LET g0` came back as `LET g2` after a one-word edit, while the untouched network beside it kept
 	 * `g1` because the change gate spared it. Nothing was lost and nothing miscompiled — the diff just claimed
@@ -219,15 +240,17 @@ VAR
 END_VAR
 ` +
 			// Two fan-outs, in two networks, so the test sees both the edited one and its untouched neighbour.
-			`(* @volt-implementation *)
-NETWORK 0 FBD
-  LET g0 := (a AND b);
+			`(* @volt-implementation FBD *)
+NETWORK
+  VAR_TEMP g0 : BOOL; END_VAR
+  g0 := (a AND b);
   p := g0;
   q := g0;
 END_NETWORK
 ` +
-			`NETWORK 1 FBD
-  LET g1 := (a OR b);
+			`NETWORK
+  VAR_TEMP g1 : BOOL; END_VAR
+  g1 := (a OR b);
   r := g1;
   s := g1;
 END_NETWORK
@@ -239,8 +262,14 @@ END_NETWORK
 		// Edit the PULLED text, not the authored text: the IDE owns its own network boundaries (D25), so a
 		// re-stated body can differ in shape for reasons that have nothing to do with wire names.
 		const before = await roundTrip(full, src)
-		const wires = (t: string) => t.match(/LET \w+/g) ?? []
-		expect(wires(before).length).toBe(2)
+		const wires = (t: string) => t.match(/VAR_TEMP [^;]*;/g) ?? []
+		// A CREATE keeps both wires on CODESYS; TwinCAT's only create door, the PLCopen import, folds each into
+		// one assign driving two coils (D22 / C25, `fanout.test.ts`) — so there the property is that the edit keeps
+		// the body as it was, which the last assertion states for both.
+		expect(wires(before).length).toBe(expectVendorDifference("DIALECT D22 / C25 — the importer folds a fan-out wire", {
+			codesys: () => 2,
+			twincat: () => 0,
+		}))
 
 		const edited = before.replace("(a AND b)", "(a AND p)")
 		expect(edited).not.toBe(before)              // the edit really applied
@@ -276,12 +305,12 @@ VAR
 END_VAR
 ` +
 			// Canonical form puts NO blank line between networks — the push gate refuses otherwise, and says so.
-			`(* @volt-implementation *)
-NETWORK 0 FBD
+			`(* @volt-implementation FBD *)
+NETWORK
   t1(IN := go, PT := pt);
 END_NETWORK
 ` +
-			`NETWORK 1 FBD
+			`NETWORK
   done := t1.Q;
 END_NETWORK
 

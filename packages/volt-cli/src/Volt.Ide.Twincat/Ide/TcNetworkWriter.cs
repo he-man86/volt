@@ -577,6 +577,11 @@ internal static class TcNetworkWriter
             // (an engineer deleting whatever drove a rung, leaving `?;`) would be wiped and rewritten in
             // place — discarding every id and unmodelled member under it — instead of falling to `default`
             // and letting the IDE rebuild that network. Found by review.
+            // An UNWIRED BOX INPUT the import built as an empty operand is the reader's Terminator
+            // (`TcNetworkReader.IsUnwiredPin`), so the same Terminator pushed back over it is no change.
+            case Terminator when n.Flags.IsNone && (string?)e.Parent?.Attribute("n") == "InputItems" && TcNetworkReader.IsUnwiredPin(e):
+                return changed;
+
             case Terminator when type == "BoxTreeOperand" && e.Attribute("t") != null:
                 return SwapToTerminator(e, n.Flags);
 
@@ -697,10 +702,33 @@ internal static class TcNetworkWriter
     /// mismatch is a shape change and is refused, exactly as the input count above is.</para></summary>
     private static bool WriteFormalNames(XElement e, Box b)
     {
-        if (!b.Inputs.Any(i => !string.IsNullOrEmpty(i.Formal))) return false;   // operator: positional pins
-
         var list = TcArchive.Obj(e, "InputParam")?.Elements("l2")
             .FirstOrDefault(l => (string?)l.Attribute("n") == "Names");
+
+        // POSITIONAL PINS. An operator drawn in the editor names none, and nothing needs writing. But a box the PLCopen
+        // IMPORT built names every pin, because Volt's lowering must give each wired input a `formalParameter` and gives
+        // a positional one `In<n>` (TcPlcOpenWriter.EmitBox) — so `MAX(a, b)` came back `MAX(In1 := a, In2 := b)`
+        // (`importer-max.TcPOU`). Those names are Volt's own, echoed; the text's positional pins are written over them
+        // (an empty name is the vendor's own spelling of an unnamed slot — the `''` after `EN` on every enabled MOVE).
+        // Any OTHER name is the IDE's, and a push that leaves that pin positional says to drop it — which this write
+        // does not do by guessing, so it is refused (the network then goes to the IDE to rebuild), never a no-op.
+        if (!b.Inputs.Any(i => !string.IsNullOrEmpty(i.Formal)))
+        {
+            if (list == null) return false;
+            var named = list.Elements("v").ToList();
+            var first = Box.HasEnableSlot(named.Select(v => (string?)v.Value).ToList()) ? 1 : 0;
+            var blanked = false;
+            for (var i = first; i < named.Count; i++)
+            {
+                if (named[i].Value.Length == 0) continue;
+                if (!string.Equals(named[i].Value, "In" + (i - first + 1), StringComparison.Ordinal))
+                    throw Refuse($"box '{b.Type}' names its pin '{named[i].Value}', which the text leaves positional");
+                named[i].Value = "";
+                blanked = true;
+            }
+            return blanked;
+        }
+
         if (list == null)
             throw Refuse($"box '{b.Type}' names its pins but the IDE wrote no InputParam/Names to name");
 

@@ -12,8 +12,8 @@
  * to the wire's NAME, a second encoding no vendor understood, so a push landed a real assignment to an
  * UNDECLARED symbol and the POU stopped compiling. The model now carries ONE encoding — the vendor's own.
  *
- * The IDE mints its own `VarId`, so the wire may come back as a different `g<n>`; what must hold is that the
- * wire SURVIVES and that pull → push is a FIXED POINT.
+ * CODESYS keeps the wire under the VarId the text gave it; TwinCAT's importer folds it into one assign. What must hold
+ * on both is that the value and both consumers SURVIVE and that pull → push is a FIXED POINT.
  */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { id, fid, bridge, pushOps, requireHealthy, expectVendorDifference, BASE } from "../harness"
@@ -40,7 +40,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			`(* @volt-implementation *)\nNETWORK 0 FBD\n  LET g7 := (a AND b);\n  out1 := g7;\n  out2 := g7;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`(* @volt-implementation FBD *)\nNETWORK\n  VAR_TEMP g7 : BOOL; END_VAR\n  g7 := (a AND b);\n  out1 := g7;\n  out2 := g7;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, toFolder: "", sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -51,24 +51,23 @@ describe(`graphical / fan-out (${BASE})`, () => {
 		// THE VALUE AND BOTH CONSUMERS ARE THERE ON BOTH VENDORS — and the SHAPE they come back in is not the
 		// same, which nothing could see until network text learned to tell the two apart (2026-09-22).
 		//
-		// A `g<n>` LET is a real fan-out WIRE (a `BoxTreeDemux` the editor draws) and `m<n>` is ONE item driving
-		// several coils. They used to share the `g` spelling, so this assertion passed on both vendors while one
-		// of them was RESHAPING the body: TwinCAT's only create door is `PlcOpenImport`, whose lowering turns a
-		// fan-out into a single assign with two targets — DIALECT D22 recorded exactly that ("fan-out survives
-		// as ONE assign with two targets") and read it as a success, because nothing downstream could tell.
+		// A wire declared in the network's `VAR_TEMP` block is a real fan-out (a `BoxTreeDemux` the editor draws);
+		// a chained assignment (`out1 :=` / `out2 := v;`) is ONE item driving several coils. v1 spelled both as
+		// `LET g`, so this assertion passed on both vendors while one of them was RESHAPING the body: TwinCAT's only
+		// create door is `PlcOpenImport`, whose lowering turns a fan-out into a single assign with two targets —
+		// DIALECT D22 recorded exactly that ("fan-out survives as ONE assign with two targets") and read it as a
+		// success, because nothing downstream could tell.
 		//
-		// CODESYS builds live NWL objects and keeps the wire. So this is the same asymmetry as C20 — the shape
-		// is Volt's DOOR on TwinCAT, not the vendor's limit; the IDE holds a Demux perfectly well, and editing
-		// one that already exists works. No logic is lost either way (one value, two coils), which is why it is
-		// named here rather than refused: refusing would make every fan-out body uncreatable on TwinCAT, and
-		// `Lenze_MID-S100` alone holds 573 of them.
-		const wireName = expectVendorDifference("DIALECT D22 / C20 — the PLCopen importer lowers a fan-out wire", {
-			codesys: () => "g",
-			twincat: () => "m",
+		// CODESYS builds live NWL objects and keeps the wire, under the VarId the text gave it (the writer writes it
+		// verbatim). So this is the same asymmetry as C20 — the shape is Volt's DOOR on TwinCAT, not the vendor's
+		// limit; the IDE holds a Demux perfectly well, and editing one that already exists works. No logic is lost
+		// either way (one value, two coils), which is why it is named here rather than refused: refusing would make
+		// every fan-out body uncreatable on TwinCAT, and `Lenze_MID-S100` alone holds 573 of them.
+		const shape = expectVendorDifference("DIALECT D22 / C20 — the PLCopen importer lowers a fan-out wire", {
+			codesys: () => "  VAR_TEMP g7 : BOOL; END_VAR\n  g7 := (a AND b);\n  out1 := g7;\n  out2 := g7;\n",
+			twincat: () => "  out1 :=\n  out2 := (a AND b);\n",
 		})
-		expect(v1.sourceText).toMatch(new RegExp(String.raw`LET ${wireName}\d+ := \(a AND b\);`))
-		expect(v1.sourceText).toMatch(new RegExp(String.raw`out1 := ${wireName}\d+;`))
-		expect(v1.sourceText).toMatch(new RegExp(String.raw`out2 := ${wireName}\d+;`))
+		expect(v1.sourceText).toContain(shape)
 		// …and the erasure signatures are absent: an empty operand, or a bare statement.
 		expect(v1.sourceText).not.toContain("( AND")
 		expect(v1.sourceText).not.toMatch(/^\s*;\s*$/m)
@@ -84,5 +83,41 @@ describe(`graphical / fan-out (${BASE})`, () => {
 		expect(v2.sourceText).toBe(v1.sourceText)
 
 		await clean()
+	})
+	/**
+	 * A WIRE FED BY A LEAF (task 4.4; the 2.3 golden `LiteralFanout.a-Demux-of-a-leaf`). The text is legal and CODESYS
+	 * builds it natively, so it must come back exactly. TwinCAT reaches a body it does not have only through PLCopen
+	 * import, which crashed on this shape (the v1 `LiteralFanoutBugTests`); the driver refuses it by name
+	 * (`NETWORK_UNSUPPORTED`, naming the network and the wire) BEFORE the import — never an importer crash, never a
+	 * reshape (spec, "TwinCAT structural edits are refused where the import is unmeasured"; 1.16 says how much rides on it).
+	 */
+	it("a wire fed by a leaf round-trips on CODESYS and is refused by name before TwinCAT's import", async () => {
+		const name = id("fanleaf")
+		const wire = fid("fanleaf", "prg")
+		const items = (await bridge.refs()).items ?? {}
+		await pushOps([{ op: "deleteItem", name: wire, ifVersion: items[wire] ?? "UNREADABLE000000" }])
+
+		const src =
+			`PROGRAM ${name}\nVAR\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
+			`(* @volt-implementation LD *)\nNETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := TRUE;\n  out1 := g1;\n  out2 := g1;\nEND_NETWORK\n\nEND_PROGRAM\n`
+
+		const created = await pushOps([{ op: "set", name: wire, toFolder: "", sourceText: src, ifVersion: null }])
+		const outcome = expectVendorDifference("spec: a leaf wire is refused before TwinCAT's unmeasured import", {
+			codesys: () => "created",
+			twincat: () => "refused",
+		})
+		if (outcome === "refused") {
+			expect(created.accepted, "TwinCAT accepted a leaf wire its import is not measured for").toBe(false)
+			const why = JSON.stringify(created.conflicts)
+			expect(why).toContain("NETWORK_UNSUPPORTED")
+			expect(why).toContain("network 1")
+			expect(why).toContain("g1")
+			return
+		}
+		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		const back = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
+		expect(back.sourceText).toBe(src)
+		const refs = await bridge.refs()
+		await pushOps([{ op: "deleteItem", name: wire, ifVersion: refs.items[wire] }])
 	})
 })

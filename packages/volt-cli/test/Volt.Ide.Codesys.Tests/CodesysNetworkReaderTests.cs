@@ -853,6 +853,48 @@ public class CodesysNetworkReaderTests
         Assert.False(readGe.HasEnoOutput);
     }
 
+    /// <summary>A BOX VOLT BUILT STORES NO MAIN OUTPUT, AND ITS CONSUMER STILL READS ONE (DIALECT N21). <c>MainOutputIndex</c>
+    /// is read-only on <c>BoxTreeBox</c>, so every box a push constructs keeps it <c>None</c> — and the pull read a
+    /// consumed <c>MAX</c> of Volt's own making as "a consumed box with no stored connection slot": the marker, for the
+    /// body Volt had just written (found live, <c>parity-fixes.test.ts</c>, on both vendors). What the compiler does
+    /// with such a box is measured by running it: without EN it reads the data output, slot 0 (<c>MAX(1, 2) = 2</c>,
+    /// <c>ADD(1, 2) = 3</c>); with EN it reads the ENO — so that is the slot, where the box has one. A bit operator
+    /// without EN keeps the text's reading (connected by none), and an enabled box with no ENO in its list has no slot
+    /// the text could state: it stays unread, and the writer names it.</summary>
+    [Theory]
+    [InlineData("MAX", false, new string[0], 0, "n := MAX(a, b);")]
+    [InlineData("ADD", false, new string[0], 0, "n := (a + b);")]
+    [InlineData("AND", true, new[] { "ENO" }, 0, "n := AND(EN := c, a, b).ENO;")]
+    [InlineData("MOVE", true, new[] { "ENO", "" }, 0, "n := MOVE(EN := c, a, b).ENO;")]
+    [InlineData("MOVE", true, new string[0], null, null)]
+    public void A_consumed_box_Volt_built_is_connected_as_the_compiler_reads_it(
+        string type, bool enabled, string[] outputNames, int? slot, string? text)
+    {
+        var inputs = new List<object>();
+        if (enabled) inputs.Add(Nwl.Leaf("c"));
+        inputs.Add(Nwl.Leaf("a"));
+        inputs.Add(Nwl.Leaf("b"));
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = type,
+            InputItemList = inputs.ToArray(),
+            InputParams = enabled ? new Nwl.ParamList { Names = new[] { "EN", "", "" }, Types = new[] { "", "", "" } } : new Nwl.ParamList(),
+            OutputParams = new Nwl.ParamList { Names = outputNames, Types = outputNames.Select(_ => "").ToArray() },
+        };
+        foreach (var _ in outputNames) box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "" });
+        var assign = new Nwl.BoxTreeAssign { RValue = box };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "n", IsLValue = true });
+
+        var body = CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Fbd);
+        var read = Assert.IsType<Box>(Assert.IsType<Assign>(body.Networks.Single().Trees.Single()).Value);
+
+        Assert.Equal(slot, read.ConnectedSlot);
+        if (text is null)
+            Assert.Throws<NetworkUnrepresentableException>(() => NetworkTextWriter.Write(body, Volt.Tests.Shared.NetworkModelOracle.ScopeOf(body)));
+        else
+            Assert.Contains("  " + text + "\n", NetworkTextWriter.Write(body, Volt.Tests.Shared.NetworkModelOracle.ScopeOf(body)));
+    }
+
     /// <summary>THE STORED OUTPUT TYPES (spec, "a stored output type"): <c>OutputParams.Types</c>, the array beside
     /// the <c>Names</c> this reader already reads (<c>scripts/nwl-oracle-rungs.log</c>: <c>Names=['ENO', '']
     /// Types=['BOOL', 'INT']</c>). No reader filled <see cref="Box.OutputTypes"/>, so every wire a data box feeds went

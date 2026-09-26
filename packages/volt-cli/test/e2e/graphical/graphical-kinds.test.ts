@@ -38,11 +38,11 @@ END_VAR`
  *  every kind and both languages, so a failure isolates to the kind or the language and never to the network.
  *  It is also the canonical form both readers emit, which is what makes the re-push a fixed point. */
 const NET = (lang: string) => (coil: string, l = "a", r = "b") =>
-	`NETWORK 0 ${lang}\n  ${coil} := (${l} AND ${r});\nEND_NETWORK`
+	`(* @volt-implementation ${lang} *)\nNETWORK\n  ${coil} := (${l} AND ${r});\nEND_NETWORK`
 
 /** A network that CALLS an FB instance — the shape whose type can only be resolved from the OWNER's
  *  declaration. `t1` is declared in `VARS`, i.e. one level above any member that calls it. */
-const callNet = (lang: string) => `NETWORK 0 ${lang}\n  t1(IN := a, PT := T#1s);\nEND_NETWORK`
+const callNet = (lang: string) => `(* @volt-implementation ${lang} *)\nNETWORK\n  t1(IN := a, PT := T#1s);\nEND_NETWORK`
 
 /** Every source shape for one language. Built from the same `net` so the two languages differ in exactly one
  *  token — if FBD passes where LD fails, the difference is real and not a fixture artefact. */
@@ -65,26 +65,27 @@ function sources(lang: string) {
 	const withFbCall = (n: string, member: string) =>
 		`FUNCTION_BLOCK ${n}\n${VARS}\n(* @volt-implementation *)\nout := a;\nEND_FUNCTION_BLOCK\n${member}`
 	return {
-		fb: (n: string) => `FUNCTION_BLOCK ${n}\n${VARS}\n(* @volt-implementation *)\n${net("out")}\nEND_FUNCTION_BLOCK\n`,
-		prg: (n: string) => `PROGRAM ${n}\n${VARS}\n(* @volt-implementation *)\n${net("out")}\nEND_PROGRAM\n`,
+		fb: (n: string) => `FUNCTION_BLOCK ${n}\n${VARS}\n${net("out")}\nEND_FUNCTION_BLOCK\n`,
+		prg: (n: string) => `PROGRAM ${n}\n${VARS}\n${net("out")}\nEND_PROGRAM\n`,
 		// A FUNCTION's coil is its RETURN variable — the function's own name. BOOL return so a coil can drive it.
-		fun: (n: string) => `FUNCTION ${n} : BOOL\nVAR_INPUT\n\ta : BOOL;\n\tb : BOOL;\nEND_VAR\n(* @volt-implementation *)\n${net(n)}\nEND_FUNCTION\n`,
-		method: (n: string) => withMember(n, `\nMETHOD M_G : BOOL\nVAR_INPUT\n\tp : BOOL;\nEND_VAR\n(* @volt-implementation *)\n${net("M_G", "a", "p")}\nEND_METHOD\n`),
+		fun: (n: string) => `FUNCTION ${n} : BOOL\nVAR_INPUT\n\ta : BOOL;\n\tb : BOOL;\nEND_VAR\n${net(n)}\nEND_FUNCTION\n`,
+		method: (n: string) => withMember(n, `\nMETHOD M_G : BOOL\nVAR_INPUT\n\tp : BOOL;\nEND_VAR\n${net("M_G", "a", "p")}\nEND_METHOD\n`),
 		// the FB call reaches the OWNER's VAR block for `t1`
 		methodFbCall: (n: string) =>
-			withFbCall(n, `\nMETHOD M_C : BOOL\n(* @volt-implementation *)\n${callNet(lang)}\nEND_METHOD\n`),
+			withFbCall(n, `\nMETHOD M_C : BOOL\n${callNet(lang)}\nEND_METHOD\n`),
 		actionFbCall: (n: string) =>
-			withFbCall(n, `\nACTION A_C\n(* @volt-implementation *)\n${callNet(lang)}\nEND_ACTION\n`),
-		action: (n: string) => withMember(n, `\nACTION A_G\n(* @volt-implementation *)\n${net("out")}\nEND_ACTION\n`),
+			withFbCall(n, `\nACTION A_C\n${callNet(lang)}\nEND_ACTION\n`),
+		action: (n: string) => withMember(n, `\nACTION A_G\n${net("out")}\nEND_ACTION\n`),
 		// Both accessors graphical, and they are NOT symmetric: a GET's coil is the property itself, a SET's is
 		// driven BY it. Writing one and asserting the other is how an accessor bug hides.
 		property: (n: string) =>
-			withMember(n, `\nPROPERTY P_G : BOOL\nGET\n(* @volt-implementation *)\n${net("P_G")}\nEND_GET\nSET\n(* @volt-implementation *)\n${net("out", "P_G", "a")}\nEND_SET\nEND_PROPERTY\n`),
+			withMember(n, `\nPROPERTY P_G : BOOL\nGET\n${net("P_G")}\nEND_GET\nSET\n${net("out", "P_G", "a")}\nEND_SET\nEND_PROPERTY\n`),
 	}
 }
 
-/** The languages of every `NETWORK n LANG` marker in a body, in order. */
-const networkLangs = (src: string) => [...String(src).matchAll(/NETWORK\s+\d+\s+(\w+)/g)].map((m) => m[1])
+/** The languages of every graphical body's implementation marker, in order (network text v2 states the language
+ *  once per body, on `(* @volt-implementation FBD|LD *)`). */
+const networkLangs = (src: string) => [...String(src).matchAll(/@volt-implementation (FBD|LD) \*\)/g)].map((m) => m[1])
 
 /** Re-push exactly what was fetched and assert nothing moved. The property that keeps `volt status` quiet. */
 async function isFixedPoint(fullName: string, fetched: any) {
@@ -161,7 +162,7 @@ for (const lang of ["FBD", "LD"]) {
 			// A body that is genuinely graphical must REFUSE a textual push. That refusal is the wire-visible
 			// difference between a real diagram and its text sitting in an <ST>; a flattened accessor accepts it.
 			const refs = await bridge.refs()
-			const flat = src.property(name).replace(new RegExp(`NETWORK 0 ${lang}[^]*?END_NETWORK`, "g"), "P_G := a;")
+			const flat = src.property(name).replace(new RegExp(`\\(\\* @volt-implementation ${lang} \\*\\)\\nNETWORK[^]*?END_NETWORK`, "g"), "(* @volt-implementation *)\nP_G := a;")
 			const r = await bridge.push({
 				expectedProjectVersion: refs.projectVersion,
 				ops: [{ op: "set", name: full, ifVersion: refs.items[full], sourceText: flat }],

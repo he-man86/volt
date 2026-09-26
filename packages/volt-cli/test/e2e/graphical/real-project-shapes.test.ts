@@ -59,11 +59,12 @@ async function survivesOrIsRefused(fullName: string, src: string): Promise<"roun
 	return "round-tripped"
 }
 
-/** A PROGRAM wrapping one network body, with the declarations the shapes below reference. */
-function program(name: string, networks: string): string {
+/** A PROGRAM wrapping one network body, with the declarations the shapes below reference. Network text v2 states
+ *  the body's language once, on its implementation marker. */
+function program(name: string, lang: "FBD" | "LD", networks: string): string {
 	return (
 		`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n\tout2 : BOOL;\n\tn : INT;\n\tm : INT;\n` +
-		`\tt1 : TON;\n\tgo : BOOL;\n\tpt : TIME;\nEND_VAR\n(* @volt-implementation *)\n` +
+		`\tt1 : TON;\n\tgo : BOOL;\n\tpt : TIME;\nEND_VAR\n(* @volt-implementation ${lang} *)\n` +
 		networks +
 		`\nEND_PROGRAM\n`
 	)
@@ -87,14 +88,14 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	 */
 	it("a box with an unconnected input survives, or is refused", async () => {
 		const name = id("rp_pin")
-		await survivesOrIsRefused(fid("rp_pin", "prg"), program(name, `NETWORK 0 LD\n  n := ( * m * 6);\nEND_NETWORK\n`))
+		await survivesOrIsRefused(fid("rp_pin", "prg"), program(name, "LD", `NETWORK\n  n := ( * m * 6);\nEND_NETWORK\n`))
 	})
 
 	/** The same fact in the other syntax — an FB call whose pins are declared but unwired, which is how a
 	 *  half-finished block sits in a live project. */
 	it("an FB call with unwired named pins survives, or is refused", async () => {
 		const name = id("rp_pins")
-		await survivesOrIsRefused(fid("rp_pins", "prg"), program(name, `NETWORK 0 FBD\n  t1(IN := , PT := );\nEND_NETWORK\n`))
+		await survivesOrIsRefused(fid("rp_pins", "prg"), program(name, "FBD", `NETWORK\n  t1(IN := , PT := );\nEND_NETWORK\n`))
 	})
 
 	/**
@@ -111,7 +112,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		const name = id("rp_wire")
 		await survivesOrIsRefused(
 			fid("rp_wire", "prg"),
-			program(name, `NETWORK 0 LD\n  LET g0 := (a AND b);\n  out := g0;\nEND_NETWORK\n`),
+			program(name, "LD", `NETWORK\n  VAR_TEMP g0 : BOOL; END_VAR\n  g0 := (a AND b);\n  out := g0;\nEND_NETWORK\n`),
 		)
 	})
 
@@ -125,7 +126,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	it("a call whose output goes nowhere round-trips", async () => {
 		const name = id("rp_stmt")
 		const full = fid("rp_stmt", "prg")
-		const src = program(name, `NETWORK 0 LD\n  MOVE(a, b);\nEND_NETWORK\n`)
+		const src = program(name, "LD", `NETWORK\n  MOVE(a, b);\nEND_NETWORK\n`)
 
 		expect(await roundTrip(full, src)).toBe(src)
 	})
@@ -136,10 +137,10 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	 * spellings go through the IDE here, because only the IDE can say they stayed different.
 	 */
 	it("a NOT box and a negated operand stay different", async () => {
-		const boxSrc = program(id("rp_notbox"), `NETWORK 0 FBD\n  out := NOT(a);\nEND_NETWORK\n`)
+		const boxSrc = program(id("rp_notbox"), "FBD", `NETWORK\n  out := NOT(a);\nEND_NETWORK\n`)
 		expect(await roundTrip(fid("rp_notbox", "prg"), boxSrc)).toBe(boxSrc)
 
-		const flagSrc = program(id("rp_notflag"), `NETWORK 0 FBD\n  out := NOT a;\nEND_NETWORK\n`)
+		const flagSrc = program(id("rp_notflag"), "FBD", `NETWORK\n  out := NOT a;\nEND_NETWORK\n`)
 		expect(await roundTrip(fid("rp_notflag", "prg"), flagSrc)).toBe(flagSrc)
 	})
 
@@ -151,7 +152,9 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		const full = fid("rp_text", "prg")
 		const src = program(
 			id("rp_text"),
-			`NETWORK 0 LD TITLE: "Muting of alarm ""No bunch"""\n  //     aligned on purpose\n  out := (a AND b);\nEND_NETWORK\n`,
+			"LD",
+			// A quote in a title is ST's own `$"` (network text v2 titles use ST's string escapes).
+			`NETWORK TITLE: "Muting of alarm $"No bunch$""\n  //     aligned on purpose\n  out := (a AND b);\nEND_NETWORK\n`,
 		)
 
 		expect(await roundTrip(full, src)).toBe(src)
@@ -164,7 +167,9 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	 *
 	 * Built only from what BOTH vendors can create, so a failure here is a real regression rather than the
 	 * PLCopen boundary the three tests above already describe. Two deliberate choices make it vendor-neutral:
-	 * the wire has TWO consumers (one is inexpressible in PLCopen, above), and each connected component gets
+	 * one value drives two coils as ONE chained assignment, not a wire — TwinCAT's only create door, the PLCopen
+	 * import, folds a wire into exactly that assignment (D22 / C25, `fanout.test.ts`), and on a titled network the
+	 * title then has no rung to be stamped on, so the create is refused — and each connected component gets
 	 * its OWN network — a TwinCAT import decides its own network boundaries, one per connected component
 	 * (DIALECT D25), so putting the `MOVE` in with the rung made the IDE return two networks where one was
 	 * pushed, and the second push then failed on a count change the archive writer will not make.
@@ -173,11 +178,13 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		const full = fid("rp_fix", "prg")
 		const src = program(
 			id("rp_fix"),
-			`NETWORK 0 LD TITLE: "a rung"\n  LET g0 := (a AND b);\n  out := g0;\n  out2 := g0;\nEND_NETWORK\n` +
-				`NETWORK 1 LD\n  MOVE(a, b);\nEND_NETWORK\n`,
+			"LD",
+			`NETWORK TITLE: "a rung"\n  out :=\n  out2 := (a AND b);\nEND_NETWORK\n` +
+				`NETWORK\n  MOVE(a, b);\nEND_NETWORK\n`,
 		)
 
 		const once = await roundTrip(full, src)
+		expect(once).toBe(src)
 		const twice = await roundTrip(full, once)
 
 		expect(twice).toBe(once)

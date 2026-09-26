@@ -64,6 +64,13 @@ CASES = [
     # Does the output LIST decide which output a consumed MOVE is read through? No ENO named, both slots typed.
     ("VltEno_MoveTypedNoEno", "lamp := MOVE(EN := c, 0, => sv) - OutputParams ['', ''] typed INT, no ENO name", True,
      "MOVE", True, False, ["0"], [("", "", "INT"), ("", "sv", "INT")]),
+    # A consumed box WITHOUT EN that Volt builds carries no MainOutputIndex either (read-only, never set): which
+    # output does its consumer read? A function and an operator, each with one data output (MAX(1, 2) = 2,
+    # ADD(1, 2) = 3), so the run says whether "no index" means slot 0 or something else.
+    ("VltEno_MaxNoEn", "n := MAX(a, b) - a function without EN, no output list, consumed", True, "MAX", False, False,
+     ["a", "b"], []),
+    ("VltEno_AddNoEn", "n := ADD(a, b) - an operator without EN, no output list, consumed", True, "ADD", False, False,
+     ["a", "b"], []),
 ]
 
 
@@ -131,7 +138,7 @@ def build_case(case):
         if consumed:
             asg = vp.nwl_new(net, "BoxTreeAssign")
             vp.nwl_set(asg, "RValue", box)
-            target = "lamp" if btype == "MOVE" else ("n" if btype == "ADD" else "out")
+            target = "lamp" if btype == "MOVE" else ("n" if btype in ("ADD", "MAX") else "out")
             vp.call(vp.prop(asg, "Outputs"), "AppendOutputItem", [vp.nwl_new(net, "Operand", target)])
             vp.call(net, "AppendTree", [asg])
         else:

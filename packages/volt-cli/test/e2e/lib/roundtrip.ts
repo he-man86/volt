@@ -76,9 +76,10 @@ export async function expectStable(name: string): Promise<void> {
 
 // ── the operand oracle ────────────────────────────────────────────────────────
 
-/** The `NETWORK … END_NETWORK` region of a source — the diagram, isolated from the declaration. */
+/** The `NETWORK … END_NETWORK` region of a source — the diagram, isolated from the declaration. A header is a line
+ *  that STARTS with the word `NETWORK` (network text v2 numbers none, and `END_NETWORK` must not count). */
 export function bodyOf(src: string): string {
-	const i = src.indexOf("NETWORK ")
+	const i = src.search(/^[ \t]*NETWORK\b/m)
 	const j = src.lastIndexOf("END_NETWORK")
 	if (i < 0 || j < 0) throw new Error(`no NETWORK block in:\n${src}`)
 	return src.slice(i, j + "END_NETWORK".length)
@@ -86,35 +87,39 @@ export function bodyOf(src: string): string {
 
 /** Everything in a network line that is grammar rather than the engineer's program. */
 const NETWORK_KEYWORDS = new Set([
-	"NETWORK", "END_NETWORK", "FBD", "LD", "DISABLED", "LET", "NOT", "AND", "OR", "XOR", "MOD",
-	"IF", "THEN", "ELSE", "END_IF", "JMP", "RETURN", "EXECUTE", "END_EXECUTE", "TRUE", "FALSE",
+	"NETWORK", "END_NETWORK", "DISABLED", "LABEL", "TITLE", "VAR_TEMP", "END_VAR", "NOT", "AND", "OR", "XOR", "MOD",
+	"IF", "THEN", "END_IF", "JMP", "RETURN", "EXECUTE", "END_EXECUTE", "PARALLEL", "MODE", "R_EDGE", "F_EDGE", "ENO",
+	"TRUE", "FALSE",
 ])
 
 /**
  * Every operand the engineer wrote is still in the body the repo shows back.
  *
- * <p>Byte equality is too strong for a graphical body, and MEASURED to be (live CODESYS): a single-use `LET` is
- * inlined, a flat `a AND b AND c` comes back fully parenthesised, two coils in one LD network come back as two
- * networks, and a created FBD body is renumbered from `NETWORK 0` to `NETWORK 1` because the vendor assigns its
- * own network ids. None of that is loss — the same program runs.</p>
+ * <p>Byte equality is too strong for a graphical body, and MEASURED to be: TwinCAT's importer splits two
+ * disconnected rungs into two networks (D25) and folds a fan-out wire into one multi-output assign (C25),
+ * and a flat `a AND b AND c` can come back reparenthesised. None of that is loss — the same program runs.</p>
  *
  * <p>What survives every one of those rewrites is the SET OF OPERANDS, so that is what this asserts. It catches
  * the whole measured loss class — a dropped unconsumed block, a jump's discarded condition spine, an FB instance
  * written with `typeName=""`, a flattened accessor — while staying blind to reformatting, which is the IDE's
- * business. Names introduced by `LET` are excluded: inlining them away is the canonicalizer doing its job.</p>
+ * business. A wire name (declared in its network's `VAR_TEMP` block) is excluded: it names a branch point, not an
+ * operand of the program, and an importer that folds the wire away drops the name with nothing lost.</p>
  *
  * <p>It is loose by design, and loose assertions rot into vacuous ones — which is how the graphical evidence in
  * this repo once stayed green over a body it was destroying. `test/unit/oracle.test.ts` pins the three measured
- * loss shapes it MUST refuse and the four measured rewrites it must accept, offline, so the looseness stays
- * bounded.</p>
+ * loss shapes it MUST refuse and the rewrites it must accept, offline, so the looseness stays bounded.</p>
  */
 export function expectNoOperandsLost(pushed: string, fetched: string): void {
 	const idents = (s: string): string[] =>
 		(s.match(/[A-Za-z_][A-Za-z0-9_.]*/g) ?? []).filter((w) => !NETWORK_KEYWORDS.has(w.toUpperCase()))
 
 	const body = bodyOf(pushed)
-	const bound = new Set((body.match(/\bLET\s+([A-Za-z_]\w*)/g) ?? []).map((m) => m.split(/\s+/)[1]))
-	const want = [...new Set(idents(body))].filter((w) => !bound.has(w))
+	const bound = new Set(
+		[...body.matchAll(/VAR_TEMP([\s\S]*?)END_VAR/g)].flatMap((m) => m[1].match(/\bg\d+\b/g) ?? []),
+	)
+	// A wire's declared TYPE is grammar of the block, not an operand either.
+	const types = new Set([...body.matchAll(/VAR_TEMP([\s\S]*?)END_VAR/g)].flatMap((m) => [...m[1].matchAll(/:\s*([A-Za-z_]\w*)/g)].map((t) => t[1])))
+	const want = [...new Set(idents(body))].filter((w) => !bound.has(w) && !types.has(w))
 	const got = new Set(idents(bodyOf(fetched)))
 
 	const lost = want.filter((w) => !got.has(w))
