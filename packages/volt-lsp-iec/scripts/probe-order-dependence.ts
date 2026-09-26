@@ -8,34 +8,14 @@
  * Run: bun scripts/probe-order-dependence.ts [projectName]
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
-import { extname, join, relative } from "node:path"
-import {
-  parseSource,
-  isGraphicalBody,
-  parseStatements,
-  unitAttributes,
-  memberAttributes,
-  declarationAttributes,
-  type TopLevel,
-} from "../src/syntax/index.js"
-import { buildSymbolTable, scopeForUnit } from "../src/symbols/index.js"
+import { join, relative } from "node:path"
+import { isGraphicalBody, parseSource, parseStatements, type TopLevel } from "../src/syntax/index.js"
+import { isLibrarySymbol, scopeForUnit } from "../src/symbols/index.js"
 import { lowerUnit } from "../src/transpile/index.js"
-import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
-import { scanLibraryManifests } from "../src/workspace-refs.js"
+import { loweringProject, walkSources } from "../test/corpus/support/project.js"
 
 const CORPUS = join(import.meta.dir, "..", "test-corpus")
 if (!existsSync(CORPUS)) throw new Error(`no corpus at ${CORPUS}`)
-
-function walk(dir: string): string[] {
-  const out: string[] = []
-  for (const name of readdirSync(dir)) {
-    const p = join(dir, name)
-    if (statSync(p).isDirectory()) out.push(...walk(p))
-    else if (SOURCE_EXTENSION_SET.has(extname(p).toLowerCase())) out.push(p)
-  }
-  const key = (p: string) => p.split("\\").join("/")
-  return out.sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0))
-}
 
 /** The same narrowing predicate the corpus test uses, so `unit.body` is typed. */
 const isRunnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "function_block" }> =>
@@ -43,31 +23,22 @@ const isRunnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "fu
 
 /** Every routine key this ordering produces, tagged with the POU it came from. */
 function routinesFor(dir: string, files: string[]): Map<string, string> {
-  const parsed = files.map((file) => {
-    const source = readFileSync(file, "utf8")
-    return { file, source, parseResult: parseSource(source) }
-  })
-  const clean = parsed.filter((x) => x.parseResult.errors.length === 0)
-  const project = buildSymbolTable(
-    clean.map(({ file, source, parseResult }) => ({ uri: file, parseResult, source })),
-    scanLibraryManifests(dir),
-  )
-  const attributes = new Map<object, Set<string>>(
-    clean.flatMap(({ source, parseResult }) => [
-      ...unitAttributes(parseResult, source),
-      ...memberAttributes(parseResult, source),
-      ...declarationAttributes(parseResult, source),
-    ]),
+  const lowering = loweringProject(
+    dir,
+    files.map((uri) => {
+      const source = readFileSync(uri, "utf8")
+      return { uri, source, parseResult: parseSource(source) }
+    }),
   )
   const out = new Map<string, string>()
-  for (const { file, parseResult } of clean)
+  for (const { uri: file, parseResult } of lowering.files.filter((f) => !isLibrarySymbol(f)))
     for (const unit of parseResult.units.filter(isRunnable)) {
-      const scope = scopeForUnit(project, unit)
+      const scope = scopeForUnit(lowering.project, unit)
       if (scope === undefined) continue
       if (isGraphicalBody(unit.body)) continue
       const hasCode = parseStatements(unit.body).statements.length > 0
       try {
-        const { pou } = lowerUnit(unit, scope, project, attributes)
+        const { pou } = lowerUnit(unit, scope, lowering)
         for (const r of pou?.routines ?? [])
           out.set(`${file}:${r.key}`, `${relative(CORPUS, file)}${hasCode ? " [runs]" : ""}`)
       } catch {
@@ -83,7 +54,7 @@ for (const projectName of readdirSync(CORPUS)
   .sort()) {
   if (only !== undefined && projectName !== only) continue
   const dir = join(CORPUS, projectName)
-  const files = walk(dir)
+  const files = walkSources(dir)
 
   const forward = routinesFor(dir, files)
   const reverse = routinesFor(dir, [...files].reverse())

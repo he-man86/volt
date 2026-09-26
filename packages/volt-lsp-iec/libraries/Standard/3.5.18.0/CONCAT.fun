@@ -1,0 +1,18 @@
+FUNCTION CONCAT : STRING(255)
+VAR_INPUT
+	STR1 : STRING(255);
+	STR2 : STRING(255);
+END_VAR
+VAR
+	i : DINT;
+	n : DINT;
+END_VAR
+(* STR2 after STR1, cut at the 255 the result holds *)
+CONCAT := STR1;
+n := UINT_TO_DINT(LEN_INTERNAL(STR1));
+WHILE n + i < 255 AND STR2[i] <> 0 DO
+	CONCAT[n + i] := STR2[i];
+	i := i + 1;
+END_WHILE
+CONCAT[n + i] := 0;
+END_FUNCTION

@@ -48,7 +48,7 @@ import { CODESYS_TRIAGE, KNOWN_DIVERGENCES, TWINCAT_TRIAGE } from "./support/div
 import { ALL_TESTS } from "./fixtures/index.js"
 import { assembleFixture, withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
-import { STANDARD_LIBRARY } from "./support/standard-library.js"
+import { STANDARD_LIBRARY, STANDARD_LOWERING, STANDARD_MANIFESTS } from "./support/standard-library.js"
 import { CLIPPY, RUSTC as rustc, skipLintCheck, skipRustSuite } from "./support/rustc.js"
 import {
   buildArgv,
@@ -102,7 +102,7 @@ function lowering(c: LanguageTest): LoweredPou {
     // A GVL is an object of its own, named by its pouName — `GVL_Name.var` reaches it only under that name, which a
     // file gives it. Folded into the one source, every list was named `source`, and no qualified access could resolve.
     const { source, gvls } = assembleFixture(c, ALL_TESTS)
-    lowered = lowerSource(source, "PLC_PRG", [...STANDARD_LIBRARY, ...gvls])
+    lowered = lowerSource(source, "PLC_PRG", [...STANDARD_LOWERING, ...gvls])
     loweredCache.set(c.name, lowered)
   }
   return lowered
@@ -242,6 +242,10 @@ function asDisplayed(raw: string, value: IrValue): IrValue {
   return value
 }
 
+/** The recorded values a run can reproduce — all but the ones that read the IDE's wall clock (`LanguageTest.wallClock`). */
+const reproducible = (c: LanguageTest, rec: RunRecorded): [string, string][] =>
+  Object.entries(rec.values!).filter(([path]) => !(c.wallClock ?? []).includes(path))
+
 /** The recorded values as the IR holds them, and the interpreter's answers reduced to the same display. */
 function compareInterp(c: LanguageTest, rec: RunRecorded): void {
   const lowered = lowering(c)
@@ -249,9 +253,11 @@ function compareInterp(c: LanguageTest, rec: RunRecorded): void {
     throw new Error(`cannot lower: ${lowered.diagnostics[0]?.message} [${lowered.diagnostics[0]?.code}]`)
   const pou = run(lowered.pou)
   for (let i = 0; i < (c.cycles ?? 1); i++) pou.scan()
-  const want = Object.fromEntries(Object.entries(rec.values!).map(([k, v]) => [k, ideValue(v, enumsOf(c))]))
+  const want = Object.fromEntries(reproducible(c, rec).map(([k, v]) => [k, ideValue(v, enumsOf(c))]))
   const got = Object.fromEntries(Object.keys(want).map((k) => [k, asDisplayed(rec.values![k]!, pou.get(k) as IrValue)]))
   expect(got).toEqual(want)
+  // a wall-clock path is not compared, and it is still one the run must PRODUCE
+  for (const path of c.wallClock ?? []) expect(typeof pou.get(path)).toBe("bigint")
 }
 
 // ─── the rating rows ─────────────────────────────────────────────────────────────────────────────────────────
@@ -461,7 +467,8 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
           .split(/\r?\n/)
           .map((line) => line.split("\t") as [string, string]),
       )
-      const want = Object.fromEntries(Object.entries(rec.values!).map(([k, v]) => [k, ideValue(v, enumsOf(c))]))
+      const want = Object.fromEntries(reproducible(c, rec).map(([k, v]) => [k, ideValue(v, enumsOf(c))]))
+      for (const path of c.wallClock ?? []) expect(printed.has(path)).toBe(true)
       const got = Object.fromEntries(
         Object.keys(want).map((k) => {
           const { type } = rustAccess(pou, k)
@@ -1299,7 +1306,7 @@ const SHARED = new Map<Vendor, Scope>()
 function sharedProject(vendor: Vendor): Scope {
   let project = SHARED.get(vendor)
   if (project === undefined) {
-    project = buildSymbolTable([...CROSS_DECLS, ...standardLibrary(vendor)], [], vendor)
+    project = buildSymbolTable([...CROSS_DECLS, ...standardLibrary(vendor)], STANDARD_MANIFESTS, vendor)
     SHARED.set(vendor, project)
   }
   return project

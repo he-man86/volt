@@ -21,7 +21,7 @@ import { lowerSource } from "../../../src/transpile/lower/index.js"
 import { run } from "../../../src/transpile/interp/index.js"
 import { assembleFixture, withDependencies } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
-import { STANDARD_LIBRARY } from "./standard-library.js"
+import { STANDARD_LIBRARY, STANDARD_LOWERING, STANDARD_MANIFESTS } from "./standard-library.js"
 import type { LanguageTest } from "../types.js"
 
 export type Evidence = NonNullable<LanguageTest["evidence"]>
@@ -50,7 +50,7 @@ const buildRec = JSON.parse(readFileSync(join(RECORDINGS, "codesys.build.json"),
 /** The fixture as one program, plus the libraries it lowers against — `assembleFixture` is the shared assembly. */
 function sourceOf(t: LanguageTest, all: readonly LanguageTest[]): { source: string; libraries: { uri: string; source: string }[] } {
   const { source, gvls } = assembleFixture(t, all)
-  return { source, libraries: [...STANDARD_LIBRARY, ...gvls] }
+  return { source, libraries: [...STANDARD_LOWERING, ...gvls] }
 }
 
 /**
@@ -84,7 +84,7 @@ export function lspErrors(t: LanguageTest, all: readonly LanguageTest[]): string
   const plcText = plcPrgSource(t)
   const plc = { uri: `file:///conformance/${t.name}/PLC_PRG.prg`, source: plcText, parseResult: parseSource(plcText) }
   const files = [own, plc, ...deps]
-  const project = buildSymbolTable([...files, ...libraryFiles()])
+  const project = buildSymbolTable([...files, ...libraryFiles()], STANDARD_MANIFESTS)
   const config = resolveConfig({ vendor: "codesys" })
   const semantic = files.flatMap((f) =>
     computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }),

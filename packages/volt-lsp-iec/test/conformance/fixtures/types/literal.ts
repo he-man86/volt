@@ -261,7 +261,6 @@ END_METHOD
   // e-acute, so the answer to LEN() also says whether a STRING counts BYTES or characters.
   {
     name: "string_non_ascii_bytes",
-    deferred: { transpile: "2026-09-18: as string_high_byte_escape - the vendor's STRING is UTF-8 and LEN counts bytes." },
     pouName: "FB_LANG_string_non_ascii_bytes",
     kind: "function_block" as const,
     feature: "a STRING literal holding non-ASCII bytes ($C3$A9) — accepted, and does LEN count bytes or characters?",

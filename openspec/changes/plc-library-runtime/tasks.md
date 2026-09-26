@@ -1,3 +1,10 @@
+## SUPERSEDED 2026-09-25 — the library repo (design §6)
+
+Tier 1's intrinsics below are DELETED: the nine string functions are ST in `packages/volt-lsp-iec/libraries/Standard/
+3.5.18.0/`, written over `s[i]`, and the same recorded string fixtures confirm them (now 1947 confirmed, up from
+1945 — `string_non_ascii_bytes` was only not-lowered for want of `s[i]`, and `cs_clock_reads` for want of
+`TIME()`). The history below is kept as it was written.
+
 ## Tier 1 — pure library functions as library-gated transpiler intrinsics · DONE (2026-09-21)
 
 Delivered through `transpile-st-to-rust`'s STRING row; tracked there, summarised here. The boxes were still
@@ -21,13 +28,15 @@ unticked long after the code landed — `lowerStandardString` in `transpile/lowe
       defined" without the reference, and Standard's `LEN` refuses a WSTRING outright, so `wstring_basic`
       measures the WSTRING without functions at all.
 
-## Tier 2 — stateful library FBs in a runtime · LATER
+## Tier 2 — the stateful FBs · DONE as ST in the library repo (2026-09-25)
 
-- [ ] Prerequisite: FB instances in the frame (`transpile-st-to-rust` design §9, phase 3).
-- [ ] Prerequisite: a simulated clock injected per scan — never a wall clock.
-- [ ] **Decision: native Rust crate + TS mirror, or ST shims** (design §5).
-- [ ] `TON`/`TOF`/`TP`, `CTU`/`CTD`/`CTUD`, `R_TRIG`/`F_TRIG`, `RS`/`SR`, `RTC` — bound by (library, resolved version).
-- [ ] Standard64's `LTON`/`LTOF`/`LTP`, `LCTU`/`LCTD`/`LCTUD`.
+- [x] Prerequisite: FB instances in the frame (`transpile-st-to-rust` design §9, phase 3).
+- [x] Prerequisite: a simulated clock injected per scan — `TIME()`/`LTIME()` read a `__clock` global the harness sets.
+- [x] **Decision: native Rust crate + TS mirror, or ST shims** (design §5) — ST, and as a repo (design §6).
+- [x] `TON`/`TOF`/`TP`, `CTU`/`CTD`/`CTUD`, `R_TRIG`/`F_TRIG`, `RS`/`SR`, `RTC` — bound by (library, resolved version).
+- [ ] Record the FB bodies against CODESYS — the edges the IEC definition leaves open (design §6, "Not yet recorded").
+- [ ] Standard64: a fixture project that references it, then `libraries/Standard64/<version>/` — the W-functions,
+      `LTON`/`LTOF`/`LTP`, `LCTU`/`LCTD`/`LCTUD`.
 
 ## What tier 1 did NOT decide, and is now worth writing down
 
@@ -41,22 +50,17 @@ unticked long after the code landed — `lowerStandardString` in `transpile/lowe
   measurement about signatures agreeing, not a licence to treat the two as one library — a specific divergence,
   when one is found, is a reason to materialize `Tc2_Standard` separately.
 
-## The spec delta against what was BUILT — checked 2026-09-21, before anyone archives this
+## The spec delta against what was BUILT — re-checked 2026-09-25, before anyone archives this
 
-Two of the three ADDED requirements are met by tier 1. The third is not, and saying so here is the point of the
-check: a delta written at proposal time can assert a design the work never reached.
+The delta was rewritten to the library repo (it described tier 1's intrinsics). Against the code:
 
-- [x] *a library element executes only where the project references its library* — met. `lowerStandardString`
-      resolves the name and requires `libraryOf(sym) === "Standard"`; everything else stays a counted `expr-call`.
-      - …with a CAVEAT that belongs to the LSP, not the transpiler: `reference.ts` still lists `LEN`…`FIND` and
-        `TON`…`RS` as always-present names, so the LSP resolves them in a project that references no Standard
-        while the transpiler refuses them. That is gap 10 in `transpile-st-to-rust`, parked by the user
-        2026-09-14, and it is the one place the two disagree about this requirement.
-- [x] *a library element's signature is read, not recalled* — met. Parameters and result come from the symbol's
-      own AST, capacities included, so a longer argument is cut on the way in exactly as the compiler passes it.
-- [ ] *a library element's behaviour is verified per library version* — **NOT met, and not started.** The gate is
-      the FOLDER name (`libraryOf` matches `Library Manager/<folder>/`); nothing reads the `RESOLUTION` line of
-      the `.library` manifest, so a project resolving a different `Standard` lowers to the same intrinsics with
-      no word said. The manifests ARE parsed — `symbols/library-namespace.ts` reads LIBRARY, NAMESPACE and
-      DEPENDENCIES for the namespace binding — so the version is one field away; what is missing is a decision
-      about what to do when it differs, and a second recording to compare against.
+- [x] *a library element executes only where the project references its library* — met: a body exists only where
+      `withImplementations` put the repo's file under the project's own `Library Manager/<library>/`, and
+      `prepareProject` marks every library unit, so a bodyless one is refused (`call-library`) rather than run empty.
+- [x] *a library element's interface is the materialized one* — met and gated: `test/libraries/standard.test.ts`.
+- [x] *a library element runs only for the version it was written for* — met by the key: the repo is looked up by the
+      manifest's RESOLUTION; the same test holds that 3.5.19.0 stays refused.
+- [x] *the LSP knows a library only through its materialization* — met: `src/reference/` lists no library element.
+      pro2193 calls `StrReplaceA`, which the old bridge never materialized (it dropped return-less functions); the
+      bridge renders them now, and the corpus build gate stays red on that one name until pro2193 is re-pulled.
+- [ ] Behaviour recorded against CODESYS for the FB bodies — see tier 2 above.

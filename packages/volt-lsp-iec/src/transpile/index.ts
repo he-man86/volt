@@ -15,8 +15,8 @@
  *   - Lowering stays total: invalid input still ends in a `LowerDiagnostic` under a generic code (`binary-op`,
  *     `call-arity`, `bad-literal`), never a throw and never an invented meaning.
  *   - Every other refusal is about VALID code, and is one of two kinds:
- *       not modelled yet — understood, not built: `stmt-call_stmt`, `aggregate-init`, `call-library` (a referenced
- *                          library's body is the vendor's, and a declaration file holds none);
+ *       not modelled yet — understood, not built: `stmt-call_stmt`, `aggregate-init`, `call-library` (a library
+ *                          element whose body the library repo, `libraries/`, has not written for that version);
  *       not measured yet — compiles, but its behaviour is unrecorded, so it is not guessed: REAL_TO_STRING's digits,
  *                          a WSTRING's named escapes (`string-escape`, `conversion-type`), where a variable of an
  *                          enum whose first enumerator is not 0 starts (`enum-default`).
@@ -27,18 +27,17 @@
  *
  * **The reach contract: a STATED SUBSET, and it is small.** The input contract above says which programs are
  * *defined*; this says which are *reached*. Measured 2026-09-19 over the 6-project corpus (29,359 files) and
- * enforced by `test/corpus/corpus.test.ts`, which fails if these numbers rot (last moved 2026-09-23, when name
- * resolution stopped depending on the order files were bound — see below):
+ * enforced by `test/corpus/corpus.test.ts`, which fails if these numbers rot (last moved 2026-09-25, DOWN, when
+ * library elements stopped running as empty bodies — see the corpus test):
  *
- *   - top-level PROGRAM / FUNCTION_BLOCK bodies: **56 of 304 lower (18.4%)**
- *   - METHOD / ACTION bodies: **56,629, of which 582 are REACHED** — a routine lowers when a POU that lowers
- *     calls it, and they are not in the 304 denominator. Only **20** of those come from a POU that RUNS; the
- *     rest are lifecycle methods (`FB_Init`, `call_after_global_init_slot`) reached from declaration-only POUs.
- *     This said "none reachable" until it was measured on 2026-09-19 — it was never none.
- *   - so of every executable body in the corpus, about **1.0%**, and of the ones a running body reaches, 0.12%
+ *   - top-level PROGRAM / FUNCTION_BLOCK bodies: **54 of 304 lower (17.8%)**
+ *   - METHOD / ACTION bodies: **56,629, of which 20 are REACHED**, every one from a POU that RUNS — a routine
+ *     lowers when a POU that lowers calls it, and they are not in the 304 denominator. This read 582 until
+ *     2026-09-25: 566 were library FBs' `FB_INIT`s, bodyless declarations lowered as if they did nothing.
+ *   - so of every executable body in the corpus, about **0.13%**
  *
  * Real PLC logic lives in methods and actions, and almost none of THAT is reached: 20 routine bodies out of
- * 56,629 are called from a POU that runs. This backend therefore executes a SUBSET — enough for the conformance
+ * 56,629. This backend therefore executes a SUBSET — enough for the conformance
  * oracle and for a POU written to be tested, not enough to run a real project — and that is a statement of fact
  * rather than a roadmap. Growing it belongs to `openspec/changes/transpile-st-to-rust`;
  * making the subset trustworthy belongs to `production-grade-transpiler`.

@@ -36,7 +36,7 @@ import {
   type TopLevel,
   unitAttributes,
 } from "../../syntax/index.js"
-import { buildSymbolTable, lookup, lookupMember, parseLibraryManifest, type Scope, scopeForUnit, type Symbol, isLibrarySymbol } from "../../symbols/index.js"
+import { buildSymbolTable, lookup, lookupMember, parseLibraryManifest, type LibraryManifest, type Scope, scopeForUnit, type Symbol, isLibrarySymbol } from "../../symbols/index.js"
 import { convert, stored, valueAs } from "./convert.js"
 import { foldConstant } from "./constants.js"
 import { lowerPlace } from "./places.js"
@@ -61,15 +61,7 @@ function representable(t: Type): boolean {
 }
 
 /** Lower one already-bound unit. The workspace path: the caller owns the project scope and its index. */
-export function lowerUnit(
-  unit: TopLevel,
-  scope: Scope,
-  project: Scope,
-  /** Each POU's `{attribute '…'}` names (`syntax/unitAttributes`), for the ones lowering must refuse. */
-  attributes: ReadonlyMap<object, ReadonlySet<string>> = new Map(),
-  /** The units that came from LIBRARY files — a bodyless one of these is refused (`isBodylessLibrary`). */
-  libraryUnits: ReadonlySet<object> = new Set(),
-): LoweredPou {
+export function lowerUnit(unit: TopLevel, scope: Scope, { project, attributes, libraryUnits }: LoweringProject): LoweredPou {
   if (unit.kind !== "program" && unit.kind !== "function_block")
     return { diagnostics: [lowerDiagnostic("unit-kind", `${unit.kind} is not lowered yet`, unit.span)] }
 
@@ -202,7 +194,7 @@ function extendsChain(lw: Lowering, fb: string): string[] {
  * Built once per type and cached in `lw.routines` beside the real METHODs, because that is exactly what it is: a
  * body that runs on an instance. `IrInvoke` binds the instance, so nothing has to rewrite places per instance.
  */
-function instanceInitRoutine(lw: Lowering, fb: string, span: Span): string | undefined | null {
+function instanceInitRoutine(lw: Lowering, fb: string): string | undefined | null {
   const nested = lw.bodies.get(fb.toUpperCase())?.lowering
   if (nested === undefined || nested.pendingInits.length === 0) return undefined
   const key = `${fb.toUpperCase()}.__INIT`
@@ -528,7 +520,7 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     // same indices they have in the base's own frame.
     if (t.kind === "function_block")
       for (const type of extendsChain(lw, t.name)) {
-        const routine = instanceInitRoutine(lw, type, span)
+        const routine = instanceInitRoutine(lw, type)
         if (routine === null) return false
         if (routine !== undefined)
           mine.push({
@@ -610,13 +602,66 @@ function rootInstance(lw: Lowering, unit: Extract<TopLevel, { kind: "function_bl
   return [{ kind: "call", instance: { slot: lw.frame.length - 1, path: [], type, span: unit.span }, fb: layout.name, inouts, span: unit.span }]
 }
 
-/** A referenced library's materialized declaration file — `uri` must keep its `Library Manager/<library>/` path. */
+/** A file handed to lowering beside the source — a GVL, a sibling POU, or a referenced library's file, which keeps its
+ *  `Library Manager/<library>/` path (how `isLibrarySymbol` tells it apart). */
 export interface LibraryFile {
   uri: string
   source: string
+  /** `source` already parsed — a caller lowering many programs against the same library parses it once. */
+  parseResult?: ReturnType<typeof parseSource>
 }
 
-/** Parse, bind and lower one source string, against the library files a project would reference. The test/CLI path.
+/**
+ * A PROJECT AS LOWERING READS IT — one symbol table, every unit's attributes, and which units are a library's.
+ *
+ * The three travel together because each caller used to assemble them, and one did not: `lowerUnit` took the library
+ * units as an optional parameter defaulting to none, the corpus gate and three scripts never passed it, and there
+ * every bodyless library element "lowered" as an empty body — `t.Q` FALSE forever, an invented meaning counted as
+ * reach. `prepareProject` is the one place they are built, so the set cannot be forgotten.
+ */
+export interface LoweringProject {
+  project: Scope
+  /** Each POU's `{attribute '…'}` names (`syntax/unitAttributes`), for the ones lowering must refuse. */
+  attributes: ReadonlyMap<object, ReadonlySet<string>>
+  /** The units that came from LIBRARY files — a bodyless one of these is refused (`isBodylessLibrary`). */
+  libraryUnits: ReadonlySet<object>
+}
+
+/** Bind parsed files into the project lowering reads. A library's bodies are whatever its files hold — hand in the library
+ *  repo's (`libraries/` `withImplementations`) to run one, or its materialized declarations to have it refused. */
+export function prepareProject(files: readonly ParsedFile[], manifests: readonly LibraryManifest[]): LoweringProject {
+  return {
+    project: buildSymbolTable(files, manifests),
+    // every file's: a GVL's or a library's unit carries its own. Only the main source's were read once, so the
+    // call_after_global_init_slot method of an FB in `fb_init_before_slot_method_sibling`'s GVL file never ran
+    attributes: new Map<object, ReadonlySet<string>>(files.flatMap(attributesOf)),
+    libraryUnits: new Set(files.filter((f) => isLibrarySymbol(f)).flatMap((f) => f.parseResult.units)),
+  }
+}
+
+/**
+ * A file's `{attribute …}`s, by unit, member and declaration — read from its RAW TEXT, so they are the slow part of
+ * binding (2 ms for the Standard library, against 0.1 ms for its symbol table). Remembered per parse: a library handed
+ * to every program of a sweep is scanned once, not once per program.
+ */
+const attributeCache = new WeakMap<object, readonly (readonly [object, Set<string>])[]>()
+function attributesOf(f: ParsedFile): readonly (readonly [object, Set<string>])[] {
+  let found = attributeCache.get(f.parseResult)
+  if (found === undefined) {
+    found = [...unitAttributes(f.parseResult, f.source), ...memberAttributes(f.parseResult, f.source), ...declarationAttributes(f.parseResult, f.source)]
+    attributeCache.set(f.parseResult, found)
+  }
+  return found
+}
+
+/** A file parsed for `prepareProject`. */
+export interface ParsedFile {
+  uri: string
+  source: string
+  parseResult: ReturnType<typeof parseSource>
+}
+
+/** Parse, bind and lower one source string, against the files a project would hand in beside it. The test/CLI path.
  *  `uri` places the source in a project tree — where an `instance-path` takes its device and application from. */
 export function lowerSource(source: string, name?: string, libraries: readonly LibraryFile[] = [], uri = "transpile://source"): LoweredPou {
   const parseResult = parseSource(source)
@@ -624,25 +669,20 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
     const first = parseResult.errors[0]!
     return { diagnostics: [lowerDiagnostic("parse", first.message, first.span)] }
   }
-  // ONE parse per library file, not two: this called `parseLibraryManifest` over every file to collect the manifests
-  // and then over every file again to find the ones that are not manifests, so each file was parsed twice to answer
-  // the same question.
-  const parsedManifests = libraries.map((l) => ({ file: l, manifest: parseLibraryManifest(l.uri, l.source) }))
-  const manifests = parsedManifests.flatMap((l) => l.manifest ?? [])
-  const declarations = parsedManifests.filter((l) => l.manifest === undefined).map((l) => l.file)
-  // A DECLARATION FILE THAT DOES NOT PARSE IS REPORTED, not built on. The main source's errors return above; a
-  // library's or a GVL's were dropped, and the half-parsed file went into the symbol table anyway — so the failure
-  // resurfaced downstream wearing someone else's name. A GVL whose `gN : INT := 7` is missing its semicolon reported
-  // `aggregate-init: an aggregate initializer of a shape lowering does not recognise` and `place-not-local: gN is a
-  // gvl_var, which has no frame slot yet`, neither of which is true and neither of which names the file.
-  const parsedDeclarations = declarations.map((l) => ({ uri: l.uri, parseResult: parseSource(l.source), source: l.source }))
-  const unparsed = parsedDeclarations.find((f) => f.parseResult.errors.length > 0)
+  // ONE parse per file: a manifest is recognised by its name and read by `parseLibraryManifest`, everything else parsed
+  const manifests = libraries.flatMap((l) => parseLibraryManifest(l.uri, l.source) ?? [])
+  // A DECLARATION FILE THAT DOES NOT PARSE IS REPORTED, not built on. A GVL whose `gN : INT := 7` is missing its
+  // semicolon was put into the symbol table half-parsed, and the failure resurfaced downstream wearing someone else's
+  // name (`aggregate-init`, `place-not-local`) — neither true, neither naming the file.
+  const parsed = libraries
+    .filter((l) => !l.uri.toLowerCase().endsWith(".library"))
+    .map((l) => ({ uri: l.uri, parseResult: l.parseResult ?? parseSource(l.source), source: l.source }))
+  const unparsed = parsed.find((f) => f.parseResult.errors.length > 0)
   if (unparsed !== undefined) {
     const first = unparsed.parseResult.errors[0]!
     return { diagnostics: [lowerDiagnostic("parse", `${unparsed.uri} did not parse: ${first.message}`, first.span)] }
   }
-  const files = [{ uri, parseResult, source }, ...parsedDeclarations]
-  const project = buildSymbolTable(files, manifests)
+  const prepared = prepareProject([{ uri, parseResult, source }, ...parsed], manifests)
   const runnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "function_block" }> =>
     u.kind === "program" || u.kind === "function_block"
   const unit = parseResult.units
@@ -656,19 +696,8 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
       ],
     }
   }
-  const scope = scopeForUnit(project, unit)
+  const scope = scopeForUnit(prepared.project, unit)
   if (scope === undefined)
     return { diagnostics: [lowerDiagnostic("no-scope", `${unit.name.text} did not bind`, unit.span)] }
-  // Every file's `{attribute …}`s: a GVL's or a library's unit carries its own. Only the main source's were read, so the
-  // call_after_global_init_slot method of an FB in `fb_init_before_slot_method_sibling`'s GVL file never ran (seen 0, 7
-  // recorded) — and any other attribute outside the main source was silently unread.
-  const attributes = new Map<object, Set<string>>(
-    files.flatMap((f) => [...unitAttributes(f.parseResult, f.source), ...memberAttributes(f.parseResult, f.source), ...declarationAttributes(f.parseResult, f.source)]),
-  )
-  // Which units' bodies are the VENDOR's. The `libraries` channel is not the discriminator — it carries a project's
-  // other files too (a GVL, sibling POUs), and `fb_init_before_slot_method_sibling` puts real FBs in a GVL through it.
-  // `isLibrarySymbol` is: a referenced library is materialized under `Library Manager/<library>/`, which is what
-  // `LibraryFile.uri` is documented to keep, and it is the same predicate the analyzer gates error-checking on.
-  const libraryUnits = new Set(files.filter((f) => isLibrarySymbol(f)).flatMap((f) => f.parseResult.units))
-  return lowerUnit(unit, scope, project, attributes, libraryUnits)
+  return lowerUnit(unit, scope, prepared)
 }

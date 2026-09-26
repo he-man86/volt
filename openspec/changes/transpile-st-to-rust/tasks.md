@@ -100,8 +100,8 @@ Every row: record oracle cases FIRST, then implement, then green in both backend
       `REAL_TO_STRING` refuses on 70 cells of evidence, and Standard64's W-functions need a project that
       references Standard64. 69 of the 72 string fixtures are `confirmed`. Rules in design §18. Green in both backends: capacity on the
       resolved type (sizeless = 80, STRING and WSTRING), truncation on every store, comparison by code unit, every `$`
-      escape, the nine Standard string functions as LIBRARY-GATED intrinsics (bound only to `Library Manager/Standard/`,
-      signature STRING(255) from the `.fun`, so a longer argument is cut on the way in) with all position edges, and
+      escape, the nine Standard string functions (library-gated intrinsics until 2026-09-25; now ST in the library repo
+      over `s[i]`, still STRING(255) from the `.fun`, so a longer argument is cut on the way in) with all position edges, and
       integer/bit string/BOOL/TIME → STRING, STRING → integer/REAL/LREAL. Rust: a generated `IecStr<T, N>` (u8 / u16).
       Bugs, each with why no test caught it (§18): every string slot started EMPTY (`declare` silently dropped an
       unfoldable initializer — now `init-not-constant`, 22 corpus POUs that were silently wrong); `String` moved out of
@@ -500,7 +500,8 @@ Closed 2026-09-16, each recorded first and green in both backends:
 
 ## The plan from here — measured, not ranked by reach (2026-09-16)
 
-**Corpus today: 56 of 304 POUs with a body (18.4%)** — re-measured 2026-09-21; it read 52 (17.1%) when the
+**Corpus today: 54 of 304 POUs with a body (17.8%)** — re-measured 2026-09-25 (56 before: two lowered only by running a
+bodyless library element as an empty body, which the corpus gate did until then); it read 52 (17.1%) when the
 order below was written, and the order has moved further than the number (see "Re-measured" at the end). The work list above ranked constructs by how many POUs each
 one *reaches*, and that number is misleading: almost every blocked POU is blocked by several constructs at once, so
 the construct with the biggest reach can unlock nothing. `lower-completeness` now prints `sole` beside `reach` — how
@@ -870,15 +871,18 @@ Today's table, `sole` first — the ONLY blocker of that many POUs:
 
 ## Phase 6 — the standard library
 
-**This phase IS `plc-library-runtime` tier 2**, and tier 1 of that change — the nine pure Standard string
-functions as library-gated intrinsics — is delivered here in the STRING row above. The split is by STATE: a
-function with none is a transpiler intrinsic, an FB with some needs a runtime and a clock.
+**This phase IS `plc-library-runtime`**, and it is built as a LIBRARY REPO rather than a runtime (2026-09-25):
+`packages/volt-lsp-iec/libraries/<library>/<version>/` holds each element as its materialized declaration with an ST
+body, and `withImplementations` swaps those in for the version a project's manifest RESOLVES. The transpiler lowers
+them as ordinary POUs — no crate, no intrinsic per element. The nine string functions were intrinsics until then;
+they are ST now, over `s[i]`, and the recorded string fixtures are their oracle.
 
-- [ ] Create the Rust runtime crate. **Not before something needs it** (design §6); location undecided.
-- [ ] `TON`/`TOF`/`TP` — the three that cannot be written in ST at all, since they read a clock the language
-      does not expose. Simulated time, injected per scan; never a wall clock.
-- [ ] `CTU`/`CTD`/`CTUD`/`R_TRIG`/`F_TRIG`/`RS`/`SR`.
-- [ ] **Parameter names come from the bridge's library-signature extraction, not from memory** (design §6).
+- [x] ~~Create the Rust runtime crate~~ — not needed: the library transpiles like user code.
+- [x] `TON`/`TOF`/`TP` (and `RTC`) — ST over `TIME()`, the language's clock, which lowers to a `__clock` global the
+      harness sets per scan; never a wall clock.
+- [x] `CTU`/`CTD`/`CTUD`/`R_TRIG`/`F_TRIG`/`RS`/`SR`.
+- [x] **Parameter names come from the bridge's library-signature extraction, not from memory** — every repo file is
+      its materialized declaration plus a body, byte-identical interface (`test/libraries/standard.test.ts`).
 - [ ] Stub mechanism for third-party library FBs, so a POU that calls one is still testable (design §8).
 
 ## Beyond this change — ST under a standard test framework
@@ -886,7 +890,7 @@ function with none is a transpiler intrinsic, an FB with some needs a runtime an
 The goal all of this serves: an engineer or an agent tests ST with an **ordinary test framework** — `cargo test`
 over the emitted Rust, `bun test` over `interp/` — rather than a PLC-specific tool. The oracle is what makes a
 green run mean the PLC would agree. When that becomes user-facing (`volt test`), it gets its own proposal — and
-it needs one before phase 6, because the test API (inputs, cycles, simulated time, stubs) shapes the runtime crate.
+it needs one before phase 6, because the test API (inputs, cycles, simulated time, stubs) shapes the harness (the clock is a `CLOCK` global the harness sets; there is no runtime crate).
 Running tests in the vendor's simulator through the bridge was considered and is NOT the default: it switches the
 engineer's device to simulation and downloads over their application, and TwinCAT has no equivalent. (If it is
 ever wanted, SP21's Core `IOnlineApplication` has a real `SingleCycle()` that the scripting surface does not.)

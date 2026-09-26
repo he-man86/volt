@@ -4,7 +4,7 @@
  */
 import type { Expr, Identifier, Span, TopLevel, TypeExpr, VarSection } from "../../syntax/index.js"
 import type { Scope } from "../../symbols/index.js"
-import { elementaryRef, resolveTypeExpr, type Type } from "../../types/index.js"
+import { resolveTypeExpr, type Type } from "../../types/index.js"
 import {
   defaultValueOf,
   type IrCall,
@@ -14,7 +14,6 @@ import {
   type IrRoutine,
   type IrSlot,
   type IrStmt,
-  type IrValue,
   type LowerDiagnostic,
   type Place,
   lowerCodeKind,

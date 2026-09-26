@@ -23,18 +23,14 @@ import {
 } from "../ir/index.js"
 import type { Type } from "../../types/index.js"
 import {
-  arith,
   bool,
   coerce,
   copy,
   eq,
   fit,
   instantiate,
-  logic,
-  MATH,
   num,
   ord,
-  STRING_FUNCTIONS,
   type Val,
 } from "../ir/values.js"
 import { binaryValue, builtinValue, unaryValue } from "../ir/evaluate.js"
@@ -279,13 +275,6 @@ class Machine {
   }
 }
 
-/** A shift or rotate happens in the NODE'''s width. Lowering always types these from a promoted operand, so anything
- *  else is a lowering bug — reported as one rather than silently treated as 32 bits. */
-function widthOf(type: Type, op: string): number {
-  if (type.kind !== "elementary") throw new TypeError(`${op.toUpperCase()} on a ${type.kind}, which lowering should have typed`)
-  return type.elem.bits
-}
-
 export interface Runner {
   /** Live slot values, in frame order. */
   readonly frame: readonly Val[]
@@ -312,10 +301,12 @@ function resolvePath(pou: IrPou, frame: Val[], globals: Val[], layouts: Readonly
   )
   const first = parts[0]?.[1]
   const slot = first === undefined ? -1 : pou.slots.findIndex((s) => sameName(s.name, first))
-  if (slot < 0) throw new Error(`no variable ${path} in ${pou.name}`)
-  let container = frame as unknown as Record<string | number, Val>
-  let key: string | number = slot
-  let type: Type = pou.slots[slot]!.type
+  // not the POU's own: a global by its name — a GVL variable, or the `__clock` a harness sets before a scan
+  const global = slot < 0 && first !== undefined ? pou.globals.findIndex((s) => s.section !== "program" && sameName(s.name, first)) : -1
+  if (slot < 0 && global < 0) throw new Error(`no variable ${path} in ${pou.name}`)
+  let container = (global >= 0 ? globals : frame) as unknown as Record<string | number, Val>
+  let key: string | number = global >= 0 ? global : slot
+  let type: Type = global >= 0 ? pou.globals[global]!.type : pou.slots[slot]!.type
   for (const part of parts.slice(1)) {
     container = container[key] as Record<string | number, Val>
     if (part[1] !== undefined) {

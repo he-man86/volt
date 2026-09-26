@@ -1,8 +1,9 @@
 /**
- * The built-in functions: the value functions, the Standard library's string functions, and type conversions.
+ * The built-in functions — the operators the COMPILER provides, never a library's elements: the value functions, type
+ * conversions, SIZEOF and the other system operators, and the clock (`TIME()`/`LTIME()`). A library element (`LEN`, `TON`)
+ * is an ordinary call of the body the library repo (`libraries/`) supplies.
  */
 import type { Expr, Span } from "../../syntax/index.js"
-import { libraryOf, lookup } from "../../symbols/index.js"
 import {
   commonType,
   elementaryRef,
@@ -27,6 +28,12 @@ import { sizeOf } from "./bytes.js"
 import { lowerExpr } from "./expressions.js"
 import { lowerInvoke } from "./calls.js"
 
+/** The global `TIME()` and `LTIME()` read: an LTIME in nanoseconds, which a harness sets before a scan
+ *  (`Runner.set(CLOCK, ns)`). Keyed in the globals by `TIME()` — a spelling no ST identifier can have, so no GVL variable
+ *  can become the clock, or the clock a GVL variable. */
+export const CLOCK = "__clock"
+const CLOCK_KEY = "TIME()"
+
 /** The value functions `builtin` lowers, and how many operands each takes. SEL's count includes its selector. */
 export const BUILTIN_ARITY: Readonly<Record<string, { min: number; max?: number }>> = {
   MAX: { min: 1 },
@@ -44,9 +51,6 @@ export const BUILTIN_ARITY: Readonly<Record<string, { min: number; max?: number 
   MUX: { min: 2 },
   ...Object.fromEntries(["SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"].map((n) => [n, { min: 1, max: 1 }])),
 }
-
-/** The Standard library's string functions — lowered only when the callee resolves into that library (`standardString`). */
-export const STANDARD_STRING_FUNCTIONS: ReadonlySet<string> = new Set(["LEN", "LEFT", "RIGHT", "MID", "CONCAT", "INSERT", "DELETE", "REPLACE", "FIND"])
 
 /** The one-argument math functions — same arity, same typing rule (see `builtin`). */
 export const UNARY_MATH: ReadonlySet<string> = new Set(["SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"])
@@ -87,6 +91,22 @@ export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>): 
   // of its store is not modelled
   if (name === "__QUERYINTERFACE")
     return lw.hoistedQueries.get(e) ?? lw.bail("interface-query", "__QUERYINTERFACE other than an assignment's whole value or an IF condition's leading operand", e.span)
+  // `TIME()` / `LTIME()` — the clock. A CODESYS operator, not a library element: `cs_clock_reads` builds with no library
+  // at all, and the Standard library's timers are written over it (`libraries/Standard`). What time it is belongs to
+  // whoever runs the program, so it is a global the harness sets before a scan — `__clock`, an LTIME counting
+  // nanoseconds — and never a wall clock, so a run is reproducible. TIME() is the same instant in milliseconds.
+  if ((name === "TIME" || name === "LTIME") && e.args.length === 0) {
+    const clock = elementaryRef("LTIME")
+    if (!lw.shared.globals.byName.has(CLOCK_KEY)) {
+      lw.shared.globals.byName.set(CLOCK_KEY, lw.shared.globals.slots.length)
+      lw.shared.globals.slots.push({ name: CLOCK, type: clock, section: "VAR", init: 0n })
+    }
+    const now: IrExpr = { kind: "load", place: { slot: lw.shared.globals.byName.get(CLOCK_KEY)!, path: [], type: clock, span: e.span, root: "global" }, type: clock, span: e.span }
+    if (name === "LTIME") return now
+    const ns = elementaryRef("ULINT")
+    const ms: IrExpr = { kind: "binary", op: "div", left: convert(now, ns), right: { kind: "const", value: 1_000_000n, type: ns, span: e.span }, type: ns, span: e.span }
+    return { kind: "convert", value: ms, type: elementaryRef("TIME"), span: e.span }
+  }
   // LOWER_BOUND(array, dimension) / UPPER_BOUND: a DINT (conformance `callshape_array_star_*`, `callshape_bounds_of_sized_array`)
   if (name === "LOWER_BOUND" || name === "UPPER_BOUND") {
     const [array, dimension] = e.args
@@ -115,7 +135,6 @@ export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>): 
   const platform = name === undefined ? undefined : /^(__U?X(?:INT|WORD))_TO_/i.exec(name)?.[1]
   const conv = name === undefined ? undefined : parseConversionName(platform === undefined ? name : name.replace(platform, PLATFORM_ALIASES.get(platform.toUpperCase())!))
   if (conv !== undefined) return lowerConversion(lw, e, conv.from && elementaryRef(conv.from.name), elementaryRef(conv.to.name))
-  if (name !== undefined && STANDARD_STRING_FUNCTIONS.has(name)) return lowerStandardString(lw, e, name)
   const arity = name === undefined ? undefined : BUILTIN_ARITY[name]
   if (name === undefined || arity === undefined) {
     // a METHOD of an instance, or a project FUNCTION — a routine with a result
@@ -218,34 +237,6 @@ export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>): 
 }
 
 /**
- * A string function of the referenced Standard library → one `builtin` node — a library-gated intrinsic
- * (plc-library-runtime, tier 1). It binds ONLY when the name resolves to that library's own declaration under
- * `Library Manager/Standard/`: a project that references no Standard has no LEN, and a project FUNCTION called LEN is
- * not this one. The signature is the library's, never recalled — every parameter and result is STRING(255) there,
- * so an argument converts to it (and a longer one is cut on the way in) exactly as the compiler passes it.
- */
-export function lowerStandardString(lw: Lowering, e: Extract<Expr, { kind: "call" }>, name: string): IrExpr | undefined {
-  const sym = lookup(lw.scope, name)?.symbol
-  if (sym === undefined || sym.ast.kind !== "function" || libraryOf(sym) !== "Standard")
-    return lw.bail("expr-call", `${name} does not resolve to the Standard library`, e.span)
-  const params = sym.ast.varSections
-    .filter((s) => s.sectionKind === "VAR_INPUT")
-    .flatMap((s) => s.decls.flatMap((d) => d.names.map(() => withStringCapacity(lw.resolve(d.type, lw.project)))))
-  const result = sym.ast.returnType === undefined ? UNKNOWN : withStringCapacity(lw.resolve(sym.ast.returnType, lw.project))
-  if (e.args.some((a) => a.param !== undefined || a.output || a.value === undefined))
-    return lw.bail("call-named-args", `${name} with named or output arguments`, e.span)
-  if (e.args.length !== params.length || result === UNKNOWN || params.includes(UNKNOWN))
-    return lw.bail("call-arity", `${name} with ${e.args.length} arguments`, e.span)
-  const args: IrExpr[] = []
-  for (const [i, a] of e.args.entries()) {
-    const arg = lowerExpr(lw, a.value!, params[i])
-    if (arg === undefined) return undefined
-    args.push(convert(arg, params[i]!))
-  }
-  return { kind: "builtin", name: name.toLowerCase() as IrBuiltinName, args, type: result, span: e.span }
-}
-
-/**
  * `X_TO_Y(v)` / `TO_Y(v)` → an explicit `convert` node. The rules themselves live in that IR node (design §11), so
  * implicit and explicit conversions cannot drift apart. `X_TO_Y` first brings `v` to X the way the compiler
  * would; `TO_Y` converts from whatever `v` is. The explicit step is always a NODE, never a retyped constant:
@@ -284,7 +275,8 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   const parses = (t: Type): boolean => isInt(t) || elemOf(t)?.family === "real"
   // STRING <-> WSTRING: one code unit per code unit, truncated at the target's capacity (conformance
   // `xo3_string_wide_conversions`: a WSTRING(10) into a STRING(4) is 'abcd', a STRING(6) into a WSTRING(2) is "he").
-  // Both sides are ASCII by construction — a non-ASCII literal is already refused — so nothing is re-encoded.
+  // Measured on ASCII only. A STRING can hold bytes past 0x7F (a `$C3` escape, a `s[i]` store), and what the vendor
+  // makes of one crossing to a WSTRING is not recorded — both backends cast it as its value; a recording decides it.
   const wideConversion = isString(to) && isString(from) && elemOf(to)?.name !== elemOf(from ?? UNKNOWN)?.name
   // `TO_STRING(v)` names no source, so `from` is undefined and the text rules below had nothing to test — the catalog
   // only ever wrote `X_TO_STRING`, while the corpus writes the bare form 132 times. The argument's own type is the
@@ -357,8 +349,6 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   const real = (name: string) => name === "REAL" || name === "LREAL"
   const pair = `${fromName}>${toName}`
   const span = e.span
-  const udint = elementaryRef("UDINT")
-  const n = (value: bigint): IrExpr => ({ kind: "const", value, type: udint, span })
   // THE WHOLE DATE FAMILY CONVERTS THROUGH AN ABSOLUTE INSTANT. `DT>DATE` and `DT>TOD` were special-cased here and
   // the other 28 pairs were refused as "not measured yet"; `conversions/cross-family.ts` measured all thirty on
   // 2026-09-19 and they are one rule:
@@ -401,7 +391,6 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
     return { kind: "convert", value: count, type: to, span }
   }
   const temporal = (t: Type): boolean => ["time", "date"].includes(elemOf(t)?.family ?? "")
-  void udint
   const fromTemporal = temporal(source.type)
   const toTemporal = temporal(to)
   const integral = (name: string): boolean => !real(name) && name !== "BOOL"

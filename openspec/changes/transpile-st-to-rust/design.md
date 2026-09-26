@@ -106,14 +106,19 @@ lists declaration-only POUs and METHOD/ACTION bodies separately.
 real POU ran — because 5,778 units are empty-bodied, with their logic in separate METHOD/ACTION units. A
 coverage number whose denominator flatters it is worse than none.
 
-## 6. The standard blocks and functions are runtime, not language server
+## 6. The standard blocks and functions are library code, not language server
+
+> **SUPERSEDED 2026-09-25 on the HOW, not the WHAT.** They are still not the LSP's — the LSP now knows no library
+> element at all (`reference.ts` lists none). But there is no Rust runtime crate: a library is ST in the library repo
+> (`packages/volt-lsp-iec/libraries/<library>/<version>/`), transpiled like project code, with its interface taken
+> from the bridge's materialization. See `plc-library-runtime` design §6.
 
 **Decision.** `TON`, `CTU`, `R_TRIG`, and the built-in functions belong in a Rust runtime crate beside the
 IEC numeric semantics — written once, ground-truthed against the vendor. Not hardcoded in `volt-lsp-iec`.
 The crate is created when something needs it, not as empty scaffolding.
 
 **Why.** They are a library implementation, not language semantics — and the LSP's job for them is only to
-know the names exist (`reference.ts` already does that). An earlier attempt implemented nine of them as
+know the names exist (then through `reference.ts`; now through the materialized declarations alone). An earlier attempt implemented nine of them as
 native TypeScript inside the LSP; it was removed.
 
 **The failure it prevents.** That attempt's parameter names (`RESET1` for RS, `PT`/`ET` for TON) were written

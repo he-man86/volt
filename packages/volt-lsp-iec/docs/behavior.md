@@ -402,8 +402,14 @@ ambient-scope machinery: (a) library element signature files use the ordinary ki
 symbol table — a bare or member reference to a library element resolves like any project symbol; (b) each
 `.library` stub's `NAMESPACE` line registers that library's namespace, so a qualified-reference ROOT
 (`PACK_ML.State`, `MEM.LowWord`) is not flagged unresolved. Namespaces are keyed independently of project
-symbols, so a library `State` and a project `State` do not collide. The hand-curated standard-function
-table is retained only as a fallback for names not covered by a mirrored library.
+symbols, so a library `State` and a project `State` do not collide. The materialization is the ONLY source:
+no library element (Standard's `LEN`/`TON`, StringUtils' `StrConcatA`, …) is hardcoded in the LSP, so in a
+project that does not reference a library its elements are unknown names, exactly as CODESYS reports them. A
+name missing from a referenced library's materialization is a bridge gap and is fixed there.
+
+#### Scenario: A library element outside a referencing project is unknown
+- **WHEN** a project that does not reference `Standard` calls `LEN` or declares a `TON`
+- **THEN** the LSP reports the name unresolved, as CODESYS does
 
 #### Scenario: A library element resolves via the ingested signature
 - **WHEN** a built object references a library FB/function/type whose signature is materialized under the Library Manager

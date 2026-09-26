@@ -26,7 +26,7 @@ import {
   stringLiteralText,
   typedRealOf,
 } from "./constants.js"
-import { lowerPlace } from "./places.js"
+import { lowerIndexed, lowerPlace } from "./places.js"
 import { loadValue, selectThrough } from "./pointers.js"
 import { adrDifference } from "./bytes.js"
 import { lowerBuiltin } from "./builtins.js"
@@ -294,7 +294,14 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
       // `inst.P` / `THIS^.P` on a PROPERTY: its getter, run on the instance
       const property = e.kind === "member" ? lowerPropertyGet(lw, e) : null
       if (property !== null) return property
-      const place = lowerPlace(lw, e, e.kind === "member" ? "expr-member" : "expr-index")
+      const indexed = e.kind === "index" ? lowerIndexed(lw, e, "expr-index") : { place: lowerPlace(lw, e, "expr-member") }
+      if (indexed === undefined) return undefined
+      // `s[i]`: one character read out of the string (`char`)
+      if ("char" in indexed) {
+        const { place: text, index, unit } = indexed.char
+        return { kind: "builtin", name: "char", args: [{ kind: "load", place: text, type: text.type, span: e.span }, index], type: unit, span: e.span }
+      }
+      const place = indexed.place
       if (place === undefined) return undefined
       if (place.type === UNKNOWN) return lw.bail("type-unknown", "the type of a member is not resolvable", e.span)
       return loadValue(lw, place, e.span)

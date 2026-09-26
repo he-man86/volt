@@ -11,6 +11,6 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src", "test", "scripts"],
+  "include": ["src", "test", "scripts", "libraries"],
   "exclude": ["dist", "node_modules"]
 }

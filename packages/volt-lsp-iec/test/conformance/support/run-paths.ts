@@ -7,8 +7,9 @@
  * most `MAX_ELEMENTS`), so every path names one elementary value — a composite cannot be read online ("Invalid pointer
  * size.", measured). Left out, each for a reason:
  *   - VAR_TEMP (gone after the call), VAR_IN_OUT and VAR_EXTERNAL (aliases of storage recorded elsewhere);
- *   - a type no fixture declares (a library FB such as TON): its members are not in the source, and a guess would record
- *     the wrong list;
+ *   - a type neither a fixture nor the referenced Standard library declares: its members are nowhere to read, and a guess
+ *     would record the wrong list. A Standard FB (TON, CTU, R_TRIG) IS declared — by its materialization, the same
+ *     declaration CODESYS compiled — so an instance of one expands like any FB;
  *   - a SUBRANGE value (`INT(0..100)`, or a DUT that is one): the online read refuses it, "Type 'Subrange' is not a
  *     literal type." (measured 2026-09-14, `type_dut_subrange`, `subrange_init_in_range`).
  */
@@ -18,6 +19,10 @@ import { constEval, elementaryType } from "../../../src/types/index.js"
 import type { LanguageTest } from "../types.js"
 import { withDependencies } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
+import { STANDARD_LIBRARY } from "./standard-library.js"
+
+/** The Standard library's declarations, parsed once — what a Standard FB instance expands from. */
+const STANDARD_UNITS = STANDARD_LIBRARY.flatMap((f) => parseSource(f.source).units)
 
 const READABLE: ReadonlySet<VarSectionKind> = new Set(["VAR", "VAR_INPUT", "VAR_OUTPUT", "VAR_STAT", "VAR_INST"])
 const MAX_ELEMENTS = 16
@@ -29,6 +34,8 @@ export function runPaths(t: LanguageTest, all: readonly LanguageTest[]): string[
   const plc = parseSource(plcPrgSource(t))
   const project = buildSymbolTable([...parsedFixtures, { uri: "plc_prg", parseResult: plc, source: plcPrgSource(t) }])
   const declared = new Map<string, TopLevel>()
+  for (const u of STANDARD_UNITS) if ("name" in u && u.name !== undefined) declared.set(u.name.text.toUpperCase(), u)
+  // a fixture's own declaration wins over a library's of the same name, as the project's does in CODESYS
   for (const p of parsedFixtures)
     for (const u of p.parseResult.units)
       if (u.kind !== "method" && u.kind !== "action" && u.kind !== "property" && "name" in u && u.name !== undefined)

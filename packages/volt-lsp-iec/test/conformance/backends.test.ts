@@ -31,11 +31,10 @@ import { join } from "node:path"
 import { lowerSource, rustAccess, run, type IrPou } from "../../src/transpile/index.js"
 import type { Type } from "../../src/types/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
-import { assembleFixture, withDependencies } from "./support/fixture-units.js"
-import { plcPrgSource } from "./support/plc-prg.js"
+import { assembleFixture } from "./support/fixture-units.js"
 import { runPaths } from "./support/run-paths.js"
 import { RUSTC as rustc, skipRustSuite } from "./support/rustc.js"
-import { STANDARD_LIBRARY as LIBRARIES } from "./support/standard-library.js"
+import { STANDARD_LOWERING as LIBRARIES } from "./support/standard-library.js"
 import type { LanguageTest } from "./types.js"
 
 /**

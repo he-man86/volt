@@ -12,7 +12,7 @@
  *   VOLT_PIPE=volt.bridge.codesys.<pid> bun run scripts/record-gaps.ts
  */
 import { call } from "./bridge.js"
-import { MINIMAL_PLC, openFixture } from "./bridge-fixture.js"
+import { openFixture } from "./bridge-fixture.js"
 
 const PROBE = "VOLT_PROBE_UNDEFINED" // positive control: an undefined identifier that errors iff its unit compiled
 const fx = await openFixture()

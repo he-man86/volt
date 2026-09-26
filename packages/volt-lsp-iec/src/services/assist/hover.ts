@@ -2,7 +2,8 @@
  * hover (Layer E · E.3 · assist). A markdown tooltip for the symbol under the cursor: a reconstructed
  * declaration line in an `iecst` code fence + the human kind label (the same `humanKind` completion
  * uses — the parity test guards they agree). Thin over `resolveAt` + `types/renderTypeExpr`.
- * (Reference-catalog hover for built-ins like `INT` / `{attribute}` lands with Layer F.)
+ * A compiler built-in (`INT`, `MOD`, `SQRT`) that no symbol answers falls back to the reference catalog; a library
+ * element never needs to — it is a symbol, from its materialized declaration.
  */
 import type { Hover } from "vscode-languageserver-protocol"
 import { lookupReference, pragmaHelp, renderReferenceHover } from "../../reference/index.js"

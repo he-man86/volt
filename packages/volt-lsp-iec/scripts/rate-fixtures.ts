@@ -35,7 +35,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
 import { assembleFixture } from "../test/conformance/support/fixture-units.js"
-import { STANDARD_LIBRARY } from "../test/conformance/support/standard-library.js"
+import { STANDARD_LOWERING } from "../test/conformance/support/standard-library.js"
 import { EVIDENCE_ORDER, rateFixture, type Evidence } from "../test/conformance/support/evidence.js"
 import {
   ALLOWED,
@@ -90,7 +90,7 @@ await Promise.all(
       let pou
       try {
         const { source, gvls } = assembleFixture(t, ALL_TESTS)
-        pou = lowerSource(source, "PLC_PRG", [...STANDARD_LIBRARY, ...gvls]).pou
+        pou = lowerSource(source, "PLC_PRG", [...STANDARD_LOWERING, ...gvls]).pou
       } catch {
         pou = undefined // a THROW is a defect `rateFixture` already reports as `diverges`; there is no Rust to rate
       }

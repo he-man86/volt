@@ -4,7 +4,7 @@
  * required param is missing but permit deviating return types / extra params. One canned message per
  * method (per-vendor wording via `messages.lifecycle`), flagged once.
  *
- * ponytail: the required-param table is inlined here — it moves to `reference/lifecycle` when Layer F lands.
+ * ponytail: the required-param table is inlined here, its one reader; move it to `reference/` if a second appears.
  */
 import { varInputParams } from "../../../syntax/index.js"
 import type { LifecycleMethod } from "../../messages.js"

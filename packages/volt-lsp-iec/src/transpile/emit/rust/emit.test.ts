@@ -605,7 +605,11 @@ describe.skipIf(skipRustSuite())("emit/rust — compiles", () => {
         "FUNCTION F_OShift : BOOL\nVAR_IN_OUT rows : ARRAY[*] OF ARRAY[1..4] OF INT; END_VAR\nVAR di : DINT; END_VAR\nFOR di := UPPER_BOUND(rows, 1) TO 2 BY -1 DO\n  rows[di] := rows[di - 1];\nEND_FOR\nEND_FUNCTION\n",
       "PROGRAM Inherit\nVAR plain : FB_ID; viaSuper : FB_IS; shared : INT; END_VAR\nplain(inBase := 7, io := shared);\nviaSuper(inBase := 5, io := shared);\nEND_PROGRAM\nFUNCTION_BLOCK FB_IB\nVAR_INPUT inBase : INT; END_VAR\nVAR_IN_OUT io : INT; END_VAR\nVAR nBase : INT; END_VAR\nnBase := nBase + 1;\nio := io + inBase;\nHook();\nEND_FUNCTION_BLOCK\nMETHOD Hook\nnBase := nBase + 10;\nEND_METHOD\nFUNCTION_BLOCK FB_ID EXTENDS FB_IB\nVAR nDerived : INT; END_VAR\nnDerived := nDerived + inBase;\nio := io + 1;\nEND_FUNCTION_BLOCK\nMETHOD Hook\nnDerived := 0;\nEND_METHOD\nFUNCTION_BLOCK FB_IS EXTENDS FB_IB\nSUPER^(inBase := inBase + 100, io := io);\nSUPER^.Hook();\nEND_FUNCTION_BLOCK\nMETHOD Hook\nnBase := nBase - 1;\nEND_METHOD\n",
     ]
-    const len = { uri: "Library Manager/Standard/LEN.fun", source: "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\nEND_FUNCTION\n" }
+    // a library element WITH its body, the shape the library repo (`libraries/`) hands in — a declaration alone is refused
+    const len = {
+      uri: "Library Manager/Standard/LEN.fun",
+      source: "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\nWHILE STR[LEN] <> 0 DO\n\tLEN := LEN + 1;\nEND_WHILE\nEND_FUNCTION\n",
+    }
     // Each POU's output is emitted on its own — its string prelude and its `Globals` with it (emit.ts's ponytail notes) — so
     // each goes into a module of its own. One flat crate kept the first prelude only, and broke the moment a second POU
     // owned globals: two `struct Globals` (E0428), a collision of the test's namespace, not of any one POU's Rust.

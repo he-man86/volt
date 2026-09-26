@@ -6,6 +6,8 @@ import * as transpile from "./index.js"
 describe("transpile — public surface", () => {
   test("the runtime exports are exactly these", () => {
     expect(Object.keys(transpile).sort()).toEqual([
+      // the global `TIME()` reads — a harness sets it before a scan, so the name is how every harness reaches it
+      "CLOCK",
       // the loop cap and its wording are IR-level semantics BOTH backends read, so they are surface: the
       // interpreter enforces the cap and the emitter prints it, and a rename must break here rather than let
       // the two drift apart again (which is how the emitted Rust came to have no cap at all). Capitals sort
@@ -28,6 +30,8 @@ describe("transpile — public surface", () => {
       "lowerSource",
       "lowerUnit",
       "peelArray",
+      // binds a project for `lowerUnit` — the one place its library units are marked, so no caller can forget them
+      "prepareProject",
       "run",
       "rustAccess",
       "rustName",

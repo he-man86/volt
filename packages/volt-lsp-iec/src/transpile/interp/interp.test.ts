@@ -1162,19 +1162,8 @@ END_PROGRAM
 })
 
 describe("interp — STRING (design §18; every expectation recorded in conformance `string_*`)", () => {
-  /** A Standard declaration as the bridge materializes it, from its one-line signature. */
-  const standard = (signature: string) => {
-    const [, name, params, result] = /^(\w+)\((.*)\) : (.+)$/.exec(signature)!
-    const inputs = params!.split("; ").map((p) => `  ${p};`).join("\n")
-    return { uri: `Library Manager/Standard/${name}.fun`, source: `FUNCTION ${name} : ${result}\nVAR_INPUT\n${inputs}\nEND_VAR\nEND_FUNCTION\n` }
-  }
-  const LIBRARIES = [
-    "INSERT(STR1 : STRING(255); STR2 : STRING(255); POS : INT) : STRING(255)",
-    "REPLACE(STR1 : STRING(255); STR2 : STRING(255); L : INT; P : INT) : STRING(255)",
-    "FIND(STR1 : STRING(255); STR2 : STRING(255)) : INT",
-  ].map(standard)
   const scanned = (vars: string, body: string) => {
-    const pou = load(`PROGRAM P\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM\n`, undefined, LIBRARIES)
+    const pou = load(`PROGRAM P\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM\n`)
     pou.scan()
     return pou
   }
@@ -1187,12 +1176,30 @@ describe("interp — STRING (design §18; every expectation recorded in conforma
     expect(scanned('short3 : WSTRING(3); wide : WSTRING := "héllo";', "short3 := wide;").get("short3")).toBe("hél")
   })
 
-  test("the position edges — INSERT past the end, REPLACE at 0, FIND of nothing", () => {
-    const pou = scanned(
-      "abc : STRING := 'abc'; inserted : STRING; replaced : STRING; found : INT;",
-      "inserted := INSERT(abc, 'XY', 5); replaced := REPLACE(abc, 'XY', 1, 0); found := FIND(abc, '');",
-    )
-    expect([pou.get("inserted"), pou.get("replaced"), pou.get("found")]).toEqual(["abc", "XYabc", 0n])
+  // `s[i]` — the one primitive the Standard library's string functions are written in (`ir/values.ts` charAt/setChar).
+  // Counted from 0 and a BYTE: `string_non_ascii_bytes` records `text[0]` of 'caf…' as BYTE#99.
+  test("s[i] reads a character from 0, and the terminator at the length", () => {
+    const pou = scanned("s : STRING := 'abc'; first : BYTE; last : BYTE; end : BYTE;", "first := s[0]; last := s[2]; end := s[3];")
+    expect([pou.get("first"), pou.get("last"), pou.get("end")]).toEqual([97n, 99n, 0n])
+  })
+
+  test("s[i] := c replaces below the length, appends at it, and a 0 cuts the string there", () => {
+    const pou = scanned("a : STRING := 'abc'; b : STRING := 'abc'; c : STRING := 'abc';", "a[1] := 88; b[3] := 100; c[1] := 0;")
+    expect([pou.get("a"), pou.get("b"), pou.get("c")]).toEqual(["aXc", "abcd", "a"])
+  })
+
+  test("s[i] stops at what the model holds — past the length, or a character past the capacity, faults", () => {
+    // CODESYS keeps whatever an earlier value left after the terminator; the model does not hold those bytes, so
+    // reaching them is a fault rather than a guess
+    expect(() => scanned("s : STRING := 'abc'; x : BYTE;", "x := s[4];")).toThrow(RangeError)
+    expect(() => scanned("s : STRING(3) := 'abc';", "s[3] := 100;")).toThrow(RangeError)
+    // a 0 AT the capacity is the terminator CODESYS already holds there: nothing changes
+    expect(scanned("s : STRING(3) := 'abc';", "s[3] := 0;").get("s")).toBe("abc")
+  })
+
+  test("s[i] on a WSTRING is a WORD", () => {
+    const pou = scanned('w : WSTRING := "h$00E9"; c : WORD;', "c := w[1]; w[0] := 72;")
+    expect([pou.get("c"), pou.get("w")]).toEqual([0xe9n, "Hé"])
   })
 
   test("STRING_TO_REAL reads a decimal prefix after spaces and tabs — and nothing numeric is 0", () => {

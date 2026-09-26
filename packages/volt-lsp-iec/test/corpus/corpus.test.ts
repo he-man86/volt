@@ -38,34 +38,30 @@
  */
 import { describe, expect, test } from "bun:test"
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
-import { extname, join, relative } from "node:path"
+import { join, relative } from "node:path"
 import { DiagnosticSeverity } from "vscode-languageserver-protocol"
 import {
-  declarationAttributes,
   isGraphicalBody,
   isTrivia,
-  memberAttributes,
   parseSource,
   parseStatements,
-  unitAttributes,
   type BodySpan,
   type TopLevel,
   type TypeExpr,
 } from "../../src/syntax/index.js"
-import { buildSymbolTable, isLibrarySymbol, lookupLocal, scopeForUnit } from "../../src/symbols/index.js"
+import { isLibrarySymbol, lookupLocal, scopeForUnit } from "../../src/symbols/index.js"
 import { libraryRank } from "../../src/symbols/precedence.js"
 import { lowerUnit } from "../../src/transpile/index.js"
 import { LOWER_CODES, LOWER_CODE_PREFIXES } from "../../src/transpile/ir/codes.js"
-import type { IrPou, IrRoutine, IrStmt } from "../../src/transpile/ir/index.js"
+import type { IrBuiltinName, IrPou, IrRoutine, IrStmt } from "../../src/transpile/ir/index.js"
 import { allowedCode } from "../../src/server/diagnostic-codes.js"
 import { formatDocument } from "../../src/services/index.js"
 import { parseNetworkText } from "../../src/network/index.js"
-import { SOURCE_EXTENSION_SET } from "../../src/source-extensions.js"
-import { scanLibraryManifests } from "../../src/workspace-refs.js"
 import { projectDocuments } from "./support/diagnostics.js"
+import { loweringProject, walkSources } from "./support/project.js"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
 import { assembleFixture } from "../conformance/support/fixture-units.js"
-import { STANDARD_LIBRARY } from "../conformance/support/standard-library.js"
+import { STANDARD_LOWERING } from "../conformance/support/standard-library.js"
 import { lowerSource } from "../../src/transpile/lower/index.js"
 
 const CORPUS = join(import.meta.dir, "..", "..", "test-corpus")
@@ -80,33 +76,6 @@ const CORPUS_TIMEOUT = 120_000
 /** The lowering walk is the slow one — 29k files parsed, bound and lowered. Measured ~80s. */
 const LOWERING_TIMEOUT = 240_000
 
-/**
- * Every source file under `dir`, IN A DETERMINISTIC ORDER.
- *
- * <b>The order is load-bearing and that is not obvious.</b> The symbol table is built from this array, and
- * lowering reaches a routine through it — so the walk order decides which of two same-named units a reference
- * binds to, and therefore how many routines lower. Measured: reversing this array moves the corpus figure from
- * 558 routines to 574, on one machine, over identical bytes.
- *
- * `readdirSync` returns whatever the filesystem hands back — alphabetical on NTFS, directory order on ext4 —
- * so without this the measurement was a property of the DEVELOPER'S DISK. It read 558 on Windows and 582 in
- * CI, and the exact-figure gate below failed on every Linux run while passing locally, which is the worst
- * shape a gate can have: green for the person who could fix it.
- *
- * Sorted on the path with separators NORMALIZED, because `\` (0x5C) and `/` (0x2F) sort either side of `-`
- * and `.` — sorting raw paths would have swapped sibling order between the two platforms and left the same
- * bug with an extra step in front of it.
- */
-function walk(dir: string): string[] {
-  const out: string[] = []
-  for (const name of readdirSync(dir)) {
-    const p = join(dir, name)
-    if (statSync(p).isDirectory()) out.push(...walk(p))
-    else if (SOURCE_EXTENSION_SET.has(extname(p).toLowerCase())) out.push(p)
-  }
-  const key = (p: string) => p.split("\\").join("/")
-  return out.sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0))
-}
 
 /** Sorted for the same reason as `walk`: the projects are walked in this order into one shared tally. */
 const projectDirs = (): string[] =>
@@ -273,7 +242,7 @@ function pass(): Pass {
 
   for (const projectName of projectDirs()) {
     const dir = join(CORPUS, projectName)
-    const parsed = walk(dir).map((file) => {
+    const parsed = walkSources(dir).map((file) => {
       const source = readFileSync(file, "utf8")
       return { file, source, parseResult: parseSource(source) }
     })
@@ -316,18 +285,10 @@ function pass(): Pass {
     // green this is every file, so the binder sees exactly what it always did; if it ever is not, question 1 fails
     // first and names the file.
     const clean = parsed.filter((x) => x.parseResult.errors.length === 0)
-    const lowerProject = buildSymbolTable(
-      clean.map(({ file, source, parseResult }) => ({ uri: file, parseResult, source })),
-      scanLibraryManifests(dir),
-    )
+    // A library the repo has written runs its ST (`libraries/`); any other stays bodyless and is refused as `call-library`.
+    const lowering = loweringProject(dir, parsed.map(({ file, source, parseResult }) => ({ uri: file, source, parseResult })))
+    const lowerProject = lowering.project
     p.extendsBases += lowerProject.children.filter((c) => c.baseScope !== undefined).length
-    const attributes = new Map<object, Set<string>>(
-      clean.flatMap(({ source, parseResult }) => [
-        ...unitAttributes(parseResult, source),
-        ...memberAttributes(parseResult, source),
-        ...declarationAttributes(parseResult, source),
-      ]),
-    )
     // ── ambiguity: a PROJECT declaration whose type name several libraries answer to ──────────────────
     // Same walk, same parse — this file's own rule. Library files are skipped: diagnostics never run on
     // them, and a library naming its own dependency's type is the ordinary case precedence settles.
@@ -352,7 +313,8 @@ function pass(): Pass {
         }
     }
 
-    for (const { file, parseResult } of clean)
+    // the PROJECT's POUs: a library element is reached when project code calls it, and is not the customer's code to count
+    for (const { uri: file, parseResult } of lowering.files.filter((f) => !isLibrarySymbol(f)))
       for (const unit of parseResult.units.filter(isRunnable)) {
         const scope = scopeForUnit(lowerProject, unit)
         if (scope === undefined) continue
@@ -362,7 +324,7 @@ function pass(): Pass {
         const hasCode = parseStatements(unit.body).statements.length > 0
         if (hasCode) p.bodies++
         try {
-          const { pou, diagnostics } = lowerUnit(unit, scope, lowerProject, attributes)
+          const { pou, diagnostics } = lowerUnit(unit, scope, lowering)
           if (hasCode && pou !== undefined) p.lowered++
           for (const r of pou?.routines ?? []) {
             routines.add(`${file}:${r.key}`)
@@ -588,7 +550,11 @@ test("an embedded source snippet compares equal however it was spaced", () => {
 // its target. The parser accepted the operator and did not record WHICH one it was, so every such declaration
 // reached lowering as a plain assignment and every read of the reference was refused `pointer-order` — 72 corpus
 // POUs stopped hitting that refusal at all (reach 177 -> 105).
-const REACH = { bodies: 304, lowered: 56 }
+// 56 -> 54 on 2026-09-25, and DOWN is the correction: the gate built its project without saying which units came from
+// a LIBRARY, so lowering ran every bodyless library element as an empty body — `t.Q` FALSE forever, counted as reach.
+// Two POUs "lowered" only through that. With the library units marked (`test/corpus/support/project.ts`, one loader
+// for the gate and the scripts), a library runs only where the library repo (`libraries/`) has written its ST.
+const REACH = { bodies: 304, lowered: 54 }
 /**
  * The METHOD/ACTION half of the same contract, measured 2026-09-19. `index.ts` said **none reachable** and that was
  * never true: a routine lowers when a POU that lowers calls it, and 543 do. Only 14 come from a POU that RUNS —
@@ -610,7 +576,13 @@ const REACH = { bodies: 304, lowered: 56 }
 // Note what did NOT move: 56/304 POUs still lower, and 20 routines still come from one that RUNS. No POU
 // changed verdict — checked per-POU with `scripts/probe-lowering-refusals.ts`, whose diff is entirely
 // `type-unknown` refusals disappearing.
-const ROUTINES = { routines: 582, routinesFromRunning: 20 }
+//
+// 582 -> 20 on 2026-09-25, and the 582 was never the project's. 566 of those routines were the `FB_INIT`/`__INIT`
+// methods of LIBRARY function blocks (3SLicense, AlarmManager, Component Manager…) — materialized declarations with
+// no bodies, walked as roots and lowered as if their empty bodies did nothing. The "lifecycle methods reached from
+// declaration-only POUs" above were those. Walking project files only, with library units marked, every routine
+// that lowers is reached from a POU that RUNS: 20 of 20. (One more was reached only past an empty library body.)
+const ROUTINES = { routines: 20, routinesFromRunning: 20 }
 
 /** Every node kind the IR defines — `IrExpr` and `IrStmt`, from `ir.ts`. Kept by hand so ADDING one shows up here. */
 const EXPR_KINDS = ["const", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch"] as const
@@ -618,16 +590,23 @@ const STMT_KINDS = ["assign", "if", "switch", "loop", "break", "continue", "retu
 const BUILTINS = [
   "max", "min", "limit", "sel", "trunc", "abs", "expt", "shl", "shr", "rol", "ror", "mux",
   "sqrt", "ln", "log", "exp", "sin", "cos", "tan", "asin", "acos", "atan",
-  "len", "left", "right", "mid", "concat", "insert", "delete", "replace", "find",
-] as const
+  "char", "setchar",
+] as const satisfies readonly IrBuiltinName[]
+// THE LIST IS THE IR'S, checked by the compiler both ways: `satisfies` refuses a name the IR does not define, and this
+// refuses an IR builtin the list forgot. It held `len`…`find` for a day after the IR stopped defining them, because
+// nothing tied the two together — a coverage gate counting nodes that no longer exist.
+const BUILTINS_ARE_EXHAUSTIVE: [Exclude<IrBuiltinName, (typeof BUILTINS)[number]>] extends [never] ? true : never = true
+void BUILTINS_ARE_EXHAUSTIVE
 
 /**
  * Floors, measured 2026-09-18: EVERY node kind and EVERY builtin is built by something. That is the good outcome
  * and it is worth pinning at full — there is no arm of either backend's `switch` that no test has ever reached.
+ * 31 -> 24 on 2026-09-25 because the IR has 24: the nine string builtins are gone (the Standard library is ST now)
+ * and `char`/`setchar` replaced them — still every one built, by the library bodies real code calls.
  */
 const COVERED_EXPR_KINDS = 8
 const COVERED_STMT_KINDS = 9
-const COVERED_BUILTINS = 31
+const COVERED_BUILTINS = 24
 
 /**
  * HOW MANY REGISTERED REFUSAL CODES ANY REAL PROGRAM ACTUALLY PRODUCES.
@@ -651,7 +630,15 @@ const COVERED_BUILTINS = 31
 // 78 -> 83 on 2026-09-23: the floor going UP, which is the direction it is allowed to move on its own. Names
 // that used to resolve to the wrong candidate now resolve, so bodies get further and reach refusals they never
 // used to — `layout-function_block` where `type-unknown` used to stop them first.
-const REACHED_CODES = 83
+// 83 -> 78 on 2026-09-25, measured code by code against HEAD — none of it is a refusal going unreachable:
+//   - `attr-init-unreached`, `call-target`, `fb-init-order`, `root-type` came from lowering the LIBRARY files' own
+//     units as roots. The gate walked every file, and a library element is not the customer's code: it is reached
+//     when project code calls it, so the walk is over project files now;
+//   - `call-fb-inout` came from bodies that got past a library call by running its empty body;
+//   - `call-named-args` came from the deleted Standard string intrinsic, which refused named arguments — a library
+//     call with them now lowers like any call;
+//   - and `call-library` counts again, 646 sites, where the lowering truly stops.
+const REACHED_CODES = 78
 
 /**
  * The project declarations whose type name has two or more DIFFERING candidates tied at the best rank —
@@ -721,7 +708,7 @@ describe.skipIf(!hasCorpus)("3. lowering is total, and its documented reach is m
       // assembled exactly as `backends` does it, so both gates read the same program from a fixture
       const { source, gvls } = assembleFixture(t, ALL_TESTS)
       try {
-        for (const d of lowerSource(source, "PLC_PRG", [...STANDARD_LIBRARY, ...gvls]).diagnostics ?? []) produced.add(d.code)
+        for (const d of lowerSource(source, "PLC_PRG", [...STANDARD_LOWERING, ...gvls]).diagnostics ?? []) produced.add(d.code)
       } catch {
         // a throw is question 3's first assertion, not this one's
       }
@@ -739,7 +726,7 @@ describe.skipIf(!hasCorpus)("3. lowering is total, and its documented reach is m
     for (const t of ALL_TESTS) {
       const { source, gvls } = assembleFixture(t, ALL_TESTS)
       try {
-        const { pou } = lowerSource(source, "PLC_PRG", [...STANDARD_LIBRARY, ...gvls])
+        const { pou } = lowerSource(source, "PLC_PRG", [...STANDARD_LOWERING, ...gvls])
         if (pou !== undefined) fromPou(pou, p.kinds, p.builtins)
       } catch {
         // as above

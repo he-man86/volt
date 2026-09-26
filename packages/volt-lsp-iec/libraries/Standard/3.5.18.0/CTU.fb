@@ -1,0 +1,22 @@
+FUNCTION_BLOCK CTU
+VAR_INPUT
+	CU : BOOL;
+	RESET : BOOL;
+	PV : WORD;
+END_VAR
+VAR_OUTPUT
+	Q : BOOL;
+	CV : WORD;
+END_VAR
+VAR
+	M : BOOL;
+END_VAR
+(* counts CU's rising edges, and stops at the top of the WORD rather than wrapping *)
+IF RESET THEN
+	CV := 0;
+ELSIF CU AND NOT M AND CV < 16#FFFF THEN
+	CV := CV + 1;
+END_IF
+M := CU;
+Q := CV >= PV;
+END_FUNCTION_BLOCK

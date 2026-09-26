@@ -5,8 +5,9 @@
  * a copy; `lit`/`to` keep at most N units, so every store truncates by construction; equality and ordering compare the
  * used units, which is CODESYS's comparison ('abc' < 'b', 'A' < 'a' — conformance `string_compare`, `wstring_basic`).
  *
- * The `iec_*` functions are the Standard string functions and the STRING conversions, line for line the interpreter's
- * (`interp.ts` STRING_FUNCTIONS, `coerce`, `timeText`); the differential test checks both against CODESYS.
+ * `char_at` / `with_char` are `s[i]`, line for line the interpreter's `charAt` / `setChar` (`ir/values.ts`) — the one
+ * primitive the Standard library's ST string functions are written in. The `iec_*` functions are the STRING conversions,
+ * line for line the interpreter's (`coerce`, `timeText`); the differential test checks both against CODESYS.
  *
  * A TypeScript string rather than a `.rs` file: the LSP ships through `tsc`, which would not carry a text import, and it
  * never reads a data file at run time. Mind the escapes — a backslash or a backtick here is the template literal's.
@@ -24,9 +25,36 @@ impl<T: Copy + Default, const N: usize> IecStr<T, N> {
     pub fn units(&self) -> &[T] { &self.units[..self.len] }
     pub fn to<const M: usize>(&self) -> IecStr<T, M> { IecStr::<T, M>::lit(self.units()) }
 }
+// s[i] — 0-based; a read AT the length is the terminator, a store there appends, and a 0 stored cuts the string.
+// Past the length is a byte the model does not hold: a panic, as the interpreter's RangeError (ir/values.ts charAt).
+// Written out, not on one line: "if .. { panic!() } if .." on one line reads to clippy as possible_missing_else.
+impl<T: Copy + Default + PartialEq, const N: usize> IecStr<T, N> {
+    pub fn char_at(&self, i: i64) -> T {
+        if i < 0 || i as usize > self.len {
+            panic!("character {} of a string of length {}", i, self.len)
+        }
+        if i as usize == self.len { T::default() } else { self.units[i as usize] }
+    }
+    pub fn with_char(mut self, i: i64, c: T) -> Self {
+        if i < 0 || i as usize > self.len || (i as usize == N && c != T::default()) {
+            panic!("character {} of a string of length {}", i, self.len)
+        }
+        let i = i as usize;
+        if c == T::default() {
+            self.len = i;
+        } else {
+            self.units[i] = c;
+            if i == self.len {
+                self.len += 1;
+            }
+        }
+        self
+    }
+}
 // WSTRING <-> STRING: one code unit per code unit, truncated at the TARGET's capacity — measured both ways
 // (conformance xo3_string_wide_conversions: a WSTRING(10) into a STRING(4) is 'abcd', a STRING(6) into a WSTRING(2)
-// is "he"). Every unit the model can hold is ASCII (a non-ASCII literal is refused), so the cast is exact.
+// is "he"). Measured on ASCII only: a STRING holds a non-ASCII character as its UTF-8 bytes, and what the vendor makes
+// of a byte past 0x7F crossing to a WSTRING is not recorded — this casts it as its value, as the interpreter does.
 impl<const N: usize> IecStr<u16, N> {
     pub fn narrow<const M: usize>(&self) -> IecStr<u8, M> { let mut out = IecStr::<u8, M>::new(); for &u in self.units() { if out.len == M { break } out.units[out.len] = u as u8; out.len += 1; } out }
 }
@@ -69,20 +97,6 @@ fn iec_lreal_text(v: f64) -> String {
     while whole.len() < point { whole.push('0'); }
     format!("{}{}", sign, trim(&whole, if point < digits.len() { &digits[point..] } else { "" }))
 }
-// The Standard string functions — line for line the interpreter's STRING_FUNCTIONS: 1-based, clamped positions.
-fn iec_count(n: i64, s: &[u8]) -> usize { (n.max(0) as usize).min(s.len()) }
-fn iec_span(s: &[u8], start: usize, length: usize) -> &[u8] { let start = start.min(s.len()); &s[start..(start + length).min(s.len())] }
-fn iec_len(s: &[u8]) -> i64 { s.len() as i64 }
-fn iec_left(s: &[u8], n: i64) -> Vec<u8> { s[..iec_count(n, s)].to_vec() }
-fn iec_right(s: &[u8], n: i64) -> Vec<u8> { s[s.len() - iec_count(n, s)..].to_vec() }
-fn iec_mid(s: &[u8], l: i64, p: i64) -> Vec<u8> { if p < 1 || l <= 0 { return Vec::new(); } iec_span(s, (p - 1) as usize, l as usize).to_vec() }
-fn iec_concat(a: &[u8], b: &[u8]) -> Vec<u8> { [a, b].concat() }
-fn iec_insert(a: &[u8], b: &[u8], p: i64) -> Vec<u8> { if p < 0 || p as usize > a.len() { return a.to_vec(); } let p = p as usize; [&a[..p], b, &a[p..]].concat() }
-// POSITION 0 IS NOT "do nothing" - the start index is p - 1 and may be NEGATIVE, and what goes is the part of
-// [start, start + l) that lands inside the string. Mirrors the interpreter's delete; measured str_delete_at_zero.
-fn iec_delete(s: &[u8], l: i64, p: i64) -> Vec<u8> { if l <= 0 { return s.to_vec(); } let raw = p - 1; let start = raw.max(0) as usize; let drop = l + raw.min(0); if drop <= 0 || start >= s.len() { return s.to_vec(); } let end = start + iec_span(s, start, drop as usize).len(); [&s[..start], &s[end..]].concat() }
-fn iec_replace(a: &[u8], b: &[u8], l: i64, p: i64) -> Vec<u8> { iec_insert(&iec_delete(a, l, p), b, (p - 1).max(0)) }
-fn iec_find(a: &[u8], b: &[u8]) -> i64 { if b.is_empty() { return 0; } a.windows(b.len()).position(|w| w == b).map_or(0, |i| i as i64 + 1) }
 // TIME → STRING: T# and each non-zero component, largest first — 'T#1d2h', 'T#1s500ms', and 'T#0ms' for zero.
 fn iec_time_text(ms: i64) -> String { let mut rest = ms; let mut out = String::new(); for (unit, suffix) in [(86_400_000i64, "d"), (3_600_000, "h"), (60_000, "m"), (1000, "s"), (1, "ms")] { let n = rest / unit; rest %= unit; if n != 0 { out.push_str(&format!("{}{}", n, suffix)); } } if out.is_empty() { out.push_str("0ms"); } format!("T#{}", out) }
 // LTIME as text: a TIME's shape with the LTIME# prefix and three units below a millisecond, and the zero case names

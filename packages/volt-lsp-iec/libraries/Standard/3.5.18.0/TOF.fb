@@ -1,0 +1,32 @@
+FUNCTION_BLOCK TOF
+VAR_INPUT
+	IN : BOOL;
+	PT : TIME;
+END_VAR
+VAR_OUTPUT
+	Q : BOOL;
+	ET : TIME;
+END_VAR
+VAR
+	M : BOOL;
+	STARTTIME : TIME;
+END_VAR
+(* Q follows IN up at once, and falls PT after IN has fallen *)
+IF IN THEN
+	Q := TRUE;
+	ET := TIME#0ms;
+	M := TRUE;
+ELSE
+	IF M THEN
+		STARTTIME := TIME();
+		M := FALSE;
+	END_IF
+	IF Q THEN
+		ET := TIME() - STARTTIME;
+		IF ET >= PT THEN
+			Q := FALSE;
+			ET := PT;
+		END_IF
+	END_IF
+END_IF
+END_FUNCTION_BLOCK

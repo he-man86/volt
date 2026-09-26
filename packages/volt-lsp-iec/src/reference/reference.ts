@@ -1,11 +1,17 @@
 /**
- * reference (Layer F, F.1) — the language-data catalog for BUILT-INS the user didn't declare (elementary
- * types, operators, standard functions). One `ReferenceEntry` shape; `lookupReference` powers built-in
- * hover/completion. Per the architecture, type facts are NOT re-listed here — a data-type entry's range
- * DERIVES from `types/elementary` (the SSOT), so there is exactly one home for a type's numbers.
+ * reference (Layer F, F.1) — the language-data catalog for what the COMPILER provides: elementary types, operators,
+ * and the standard functions that are operators (MAX, SEL, TRUNC…). One `ReferenceEntry` shape; `lookupReference`
+ * powers built-in hover and the "is this a built-in?" oracle. Per the architecture, type facts are NOT re-listed here —
+ * a data-type entry's range DERIVES from `types/elementary` (the SSOT), so there is exactly one home for a type's numbers.
  *
- * ponytail: a curated core catalog, not an exhaustive doc port. The full keyword/pragma/standard-FB
- * catalogs + per-vendor equivalence are follow-on data; add entries as hover/lint needs surface them.
+ * A LIBRARY'S ELEMENTS ARE NEVER HERE — not Standard's LEN or TON, not StringUtils' StrConcatA. A library exists only
+ * where a project references it, and the LSP knows it through what the bridge materializes under
+ * `Library Manager/<library>/`. Listing one here made it resolve in a project that references no such library,
+ * where CODESYS answers "Identifier not defined". (Their code, when something must run it, is the library repo's:
+ * `libraries/`.) A library name the LSP cannot resolve in a project that DOES reference the library is a
+ * materialization gap, and it is fixed in the bridge, not papered over here.
+ *
+ * ponytail: a curated core catalog, not an exhaustive doc port; add operator entries as hover/lint needs surface them.
  */
 import { ELEMENTARY_TYPES, elementaryType, parseConversionName } from "../types/index.js"
 
@@ -32,7 +38,7 @@ function ref(name: string, kind: ReferenceKind, oneLiner: string): ReferenceEntr
 
 // The catalog doubles as the unresolved-identifier check's "is this a compiler-provided global?" oracle:
 // a body identifier that resolves nowhere in project scope but appears here is a valid built-in, not an error.
-// So this list must cover every operator / standard function / standard FB that source calls by bare name.
+// So this list must cover every operator the compiler provides — and nothing a library provides.
 const OPERATORS: ReadonlyArray<ReferenceEntry> = [
   // boolean / bitwise (word form; the symbol form is lexed as its own token)
   ref("AND", "operator", "Boolean / bitwise AND."),
@@ -115,6 +121,7 @@ const OPERATORS: ReadonlyArray<ReferenceEntry> = [
   ref("INI", "operator", "Initialize an FB instance."),
 ]
 
+/** The IEC standard functions the COMPILER provides — no library reference is needed to call one. */
 const STANDARD_FUNCTIONS: ReadonlyArray<ReferenceEntry> = [
   ref("ABS", "standard-function", "Absolute value of a number."),
   ref("SQRT", "standard-function", "Square root (REAL/LREAL)."),
@@ -125,53 +132,9 @@ const STANDARD_FUNCTIONS: ReadonlyArray<ReferenceEntry> = [
   ref("LIMIT", "standard-function", "Clamp: LIMIT(min, in, max)."),
   ref("TRUNC", "standard-function", "Truncate a REAL/LREAL toward zero to DINT."),
   ref("TRUNC_INT", "standard-function", "Truncate a REAL/LREAL toward zero to INT."),
-  // IEC string functions
-  ref("LEN", "standard-function", "Length of a string. `LEN(str)`."),
-  ref("LEFT", "standard-function", "Leftmost N chars. `LEFT(str, n)`."),
-  ref("RIGHT", "standard-function", "Rightmost N chars. `RIGHT(str, n)`."),
-  ref("MID", "standard-function", "N chars from position p. `MID(str, n, p)`."),
-  ref("CONCAT", "standard-function", "Concatenate strings. `CONCAT(a, b)`."),
-  ref("INSERT", "standard-function", "Insert into a string at position p."),
-  ref("DELETE", "standard-function", "Delete N chars from position p."),
-  ref("REPLACE", "standard-function", "Replace N chars at position p."),
-  ref("FIND", "standard-function", "1-based position of `b` in `a`, or 0."),
   // IEC array-bound + memory
   ref("UPPER_BOUND", "standard-function", "Upper index bound of an array dimension."),
   ref("LOWER_BOUND", "standard-function", "Lower index bound of an array dimension."),
-  // CODESYS standard-library string functions (global, ubiquitous)
-  ref("STRCONCATA", "standard-function", "CODESYS ASCII string concat."),
-  ref("STRCONCATW", "standard-function", "CODESYS wide-string concat."),
-  ref("STRLENA", "standard-function", "CODESYS ASCII string length."),
-  ref("STRLENW", "standard-function", "CODESYS wide-string length."),
-  ref("STRFINDA", "standard-function", "CODESYS ASCII substring search."),
-  ref("STRFINDW", "standard-function", "CODESYS wide-string search."),
-  ref("STRMIDA", "standard-function", "CODESYS ASCII substring extract."),
-  ref("STRMIDW", "standard-function", "CODESYS wide-string substring."),
-  ref("STRTRIMA", "standard-function", "CODESYS ASCII string trim."),
-  ref("STRTRIMW", "standard-function", "CODESYS wide-string trim."),
-  ref("STRCPYA", "standard-function", "CODESYS ASCII string copy."),
-  ref("STRCPYW", "standard-function", "CODESYS wide-string copy."),
-  ref("STRCMPA", "standard-function", "CODESYS ASCII string compare."),
-  ref("STRCMPW", "standard-function", "CODESYS wide-string compare."),
-  // Found by the build oracle: pro2193 calls `StrReplaceA` and CODESYS builds it clean, so the LSP flagging it
-  // was a false positive. The A/W pair completes the family — every other member (Concat/Len/Find/Mid/Trim/
-  // Cpy/Cmp) is already here in both spellings. Only the A form is oracle-confirmed; W follows the family.
-  ref("STRREPLACEA", "standard-function", "CODESYS ASCII substring replace."),
-  ref("STRREPLACEW", "standard-function", "CODESYS wide-string replace."),
-]
-
-/** IEC 61131-3 standard function blocks — instantiated as types, but listed so hover/completion know them. */
-const STANDARD_FBS: ReadonlyArray<ReferenceEntry> = [
-  ref("TON", "standard-function", "On-delay timer."),
-  ref("TOF", "standard-function", "Off-delay timer."),
-  ref("TP", "standard-function", "Pulse timer."),
-  ref("R_TRIG", "standard-function", "Rising-edge trigger."),
-  ref("F_TRIG", "standard-function", "Falling-edge trigger."),
-  ref("CTU", "standard-function", "Up counter."),
-  ref("CTD", "standard-function", "Down counter."),
-  ref("CTUD", "standard-function", "Up/down counter."),
-  ref("SR", "standard-function", "Set-dominant bistable."),
-  ref("RS", "standard-function", "Reset-dominant bistable."),
 ]
 
 /** A `data-type` entry for an elementary type — its range/width DERIVED from `types/elementary`. */
@@ -192,7 +155,7 @@ function dataTypeEntry(name: string): ReferenceEntry {
 }
 
 const CATALOG: ReadonlyMap<string, ReferenceEntry> = new Map(
-  [...[...ELEMENTARY_TYPES.keys()].map((n) => dataTypeEntry(n)), ...OPERATORS, ...STANDARD_FUNCTIONS, ...STANDARD_FBS].map((e) => [
+  [...[...ELEMENTARY_TYPES.keys()].map((n) => dataTypeEntry(n)), ...OPERATORS, ...STANDARD_FUNCTIONS].map((e) => [
     e.name.toUpperCase(),
     e,
   ]),

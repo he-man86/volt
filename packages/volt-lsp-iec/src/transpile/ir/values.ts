@@ -1,12 +1,11 @@
 /**
  * The interpreter's values and the rules that make them IEC: how a type stores a value (`fit`), how a conversion reads
- * one (`coerce`), the operators on them, the Standard string functions, and a fresh value of a type.
+ * one (`coerce`), the operators on them, one character of a string, and a fresh value of a type.
  */
 import {
   defaultValueOf,
   type IrLayout,
   type IrMathName,
-  type IrStringName,
   type IrInit,
   type IrValue,
   peelArray,
@@ -75,40 +74,29 @@ export const MATH: Readonly<Record<IrMathName, (x: number) => number>> = {
 }
 
 /**
- * The Standard string functions, over already-converted arguments. Mirrored line for line by the emitter's prelude
- * (`iec_*`), so the differential test checks both against CODESYS. Measured (conformance `string_*`,
- * `string_positions_*`): positions are 1-based and a count clamps to the string — LEFT(abc, 5) is 'abc', LEFT(abc, -1)
- * is ''; MID and DELETE select nothing at a position below 1 or a length at or below 0; INSERT at 0 prepends, but past
- * the end OR below 0 leaves the string as it was (INSERT(abc, 'XY', -1) is 'abc'); FIND of '' is 0. REPLACE is DELETE,
- * then INSERT at P - 1 raised to 0 — every measured REPLACE agrees: REPLACE(abc, 'XY', 1, 0) is 'XYabc' and
- * REPLACE(abc, 'XY', 2, 5) is 'abc'. (This first read "INSERT at P - 1", which implied INSERT at -1 prepends; the
- * oracle recorded that INSERT and said otherwise.)
+ * ONE CHARACTER OF A STRING, as `s[i]` reads and writes it — counted from 0, a BYTE (a WSTRING's WORD). It is the
+ * primitive the Standard library's string functions are written in (`libraries/Standard`). Mirrored by the emitter's
+ * prelude (`IecStr::char_at` / `with_char`).
+ *
+ * The value model holds a string's characters up to its terminator and nothing after it, so an index is defined up
+ * to the length and no further:
+ *   - a read AT the length is the terminator, 0; past it is a byte the model does not hold — a fault, not a guess;
+ *   - a store below the length replaces that character, and a 0 there cuts the string at i;
+ *   - a store AT the length appends, up to the capacity (a 0 there changes nothing).
+ * ponytail: CODESYS keeps whatever an earlier, longer value left after the terminator, so ST that appends without
+ * writing its own terminator next can see stale bytes this model does not hold. The library's ST always terminates.
  */
-export const STRING_FUNCTIONS: Readonly<Record<IrStringName, (args: readonly Val[]) => Val>> = {
-  len: ([s]) => BigInt((s as string).length),
-  left: ([s, n]) => (s as string).slice(0, clamp(n, s)),
-  right: ([s, n]) => (s as string).slice((s as string).length - clamp(n, s)),
-  mid: ([s, l, p]) => (Number(p) < 1 || Number(l) <= 0 ? "" : span(s as string, Number(p) - 1, Number(l))),
-  concat: ([a, b]) => (a as string) + (b as string),
-  insert: ([a, b, p]) => {
-    const at = Number(p)
-    return at < 0 || at > (a as string).length ? a : (a as string).slice(0, at) + (b as string) + (a as string).slice(at)
-  },
-  delete: ([s, l, p]) => {
-    // POSITION 0 IS NOT "DO NOTHING". The start index is `p - 1` and it may be NEGATIVE; what gets deleted is the
-    // part of the range [start, start + l) that lands inside the string. `DELETE('abcde', 2, 0)` is 'bcde' — the
-    // range [-1, 1) meets the string only at index 0, so one character goes (measured `str_delete_at_zero`,
-    // 2026-09-19). The old rule returned the string untouched below position 1, which is what `str_replace_at_zero`
-    // got wrong too, since REPLACE is a DELETE and an INSERT.
-    if (Number(l) <= 0) return s
-    const raw = Number(p) - 1
-    const start = Math.max(raw, 0)
-    const drop = Number(l) + Math.min(raw, 0) // the part of the count falling before the string is simply lost
-    if (drop <= 0 || start >= (s as string).length) return s
-    return (s as string).slice(0, start) + (s as string).slice(start + span(s as string, start, drop).length)
-  },
-  replace: ([a, b, l, p]) => STRING_FUNCTIONS.insert([STRING_FUNCTIONS.delete([a, l, p]), b, BigInt(Math.max(Number(p) - 1, 0))]),
-  find: ([a, b]) => ((b as string) === "" ? 0n : BigInt((a as string).indexOf(b as string) + 1)),
+export function charAt(s: string, i: bigint): bigint {
+  const at = Number(i)
+  if (at < 0 || at > s.length) throw new RangeError(`character ${at} of a string of length ${s.length}`)
+  return at === s.length ? 0n : BigInt(s.charCodeAt(at))
+}
+
+export function setChar(s: string, i: bigint, c: bigint, capacity: number): string {
+  const at = Number(i)
+  if (at < 0 || at > s.length || (at === capacity && c !== 0n)) throw new RangeError(`character ${at} of a string of length ${s.length}`)
+  if (c === 0n) return s.slice(0, at)
+  return s.slice(0, at) + String.fromCharCode(Number(c)) + s.slice(at + 1)
 }
 
 /** A TIME's text — mirrored by the emitter's `iec_time_text`. */
@@ -179,16 +167,6 @@ function durationText(total: bigint, prefix: string, units: readonly (readonly [
     if (n !== 0n) out += `${n}${suffix}`
   }
   return `${prefix}#${out || `0${units[units.length - 1]![1]}`}`
-}
-
-/** `n` as a count within `s`: at least 0, at most its length. */
-export function clamp(n: Val, s: Val): number {
-  return Math.min(Math.max(Number(n), 0), (s as string).length)
-}
-
-/** Up to `length` characters of `s` from `start`, never past its end. */
-export function span(s: string, start: number, length: number): string {
-  return s.slice(Math.min(start, s.length), Math.min(start + length, s.length))
 }
 
 /** A value that must be a number — lowering typed it so; anything else is an interpreter bug, thrown. */

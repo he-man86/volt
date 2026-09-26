@@ -16,7 +16,7 @@
  */
 import type { IrBuiltinName, IrExpr } from "./ir.js"
 import type { Type } from "../../types/index.js"
-import { arith, bool, coerce, eq, fit, logic, MATH, num, ord, STRING_FUNCTIONS, type Val } from "./values.js"
+import { arith, bool, coerce, eq, fit, logic, MATH, num, ord, charAt, setChar, type Val } from "./values.js"
 
 /** A shift or rotate happens in the NODE's width. Lowering always types these from a promoted operand, so anything
  *  else is a lowering bug — reported as one rather than silently treated as 32 bits. */
@@ -93,16 +93,15 @@ export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Ty
       const v = args[0]!
       return fit(typeof v === "bigint" ? (v < 0n ? -v : v) : Math.abs(Number(v)), type)
     }
-    case "len":
-    case "left":
-    case "right":
-    case "mid":
-    case "concat":
-    case "insert":
-    case "delete":
-    case "replace":
-    case "find":
-      return fit(STRING_FUNCTIONS[name]([...args]), type)
+    case "char":
+      return fit(charAt(args[0] as string, num(args[1]!) as bigint), type)
+    case "setchar": {
+      // the capacity is where a store is cut, and lowering gives every `setchar` one (`lowerIndexed`) — a node without
+      // it would let the interpreter append past the capacity the emitted Rust panics at
+      const capacity = type.kind === "elementary" ? type.length : undefined
+      if (capacity === undefined) throw new LoweringBug("SETCHAR on a string whose capacity lowering did not state")
+      return setChar(args[0] as string, num(args[1]!) as bigint, num(args[2]!) as bigint, capacity)
+    }
     case "sqrt":
     case "ln":
     case "log":

@@ -1,5 +1,4 @@
 import { test, expect } from "bun:test"
-import { PassThrough } from "node:stream"
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -11,7 +10,6 @@ import {
   CodeActionRequest,
   CodeLensRequest,
   CompletionRequest,
-  createProtocolConnection,
   DefinitionRequest,
   DidChangeConfigurationNotification,
   DidChangeTextDocumentNotification,
@@ -36,15 +34,12 @@ import {
   PrepareRenameRequest,
   PublishDiagnosticsNotification,
   ReferencesRequest,
-  RegistrationRequest,
   RenameRequest,
   SelectionRangeRequest,
   SemanticTokensDeltaRequest,
   SemanticTokensRangeRequest,
   SemanticTokensRequest,
   SignatureHelpRequest,
-  StreamMessageReader,
-  StreamMessageWriter,
   TypeDefinitionRequest,
   TypeHierarchyPrepareRequest,
   TypeHierarchySubtypesRequest,

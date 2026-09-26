@@ -571,7 +571,7 @@ class Printer {
         const onProgram = e.instance !== undefined && e.instance.root === "global" && this.globals.slots[e.instance.slot]?.section === "program"
         const hoisted = onProgram || e.inputs.some(holdsCall)
         const inputLets = hoisted
-          ? [...(e.order ?? e.inputs.keys())].map((k) => (typeof k === "number" ? `let __arg_${k} = ${this.expr(e.inputs[k]!, slots)};` : `${this.place(k.temp, slots)} = ${this.expr(k.value, slots)};`)).join(" ")
+          ? [...(e.order ?? e.inputs.keys())].map((k) => (typeof k === "number" ? `let __arg_${k} = ${unparen(this.expr(e.inputs[k]!, slots))};` : `${this.place(k.temp, slots)} = ${unparen(this.expr(k.value, slots))};`)).join(" ")
           : ""
         const inputs = e.inputs.map((a, k) => (hoisted ? `__arg_${k}` : unparen(this.expr(a, slots))))
         // the inputs, the in-outs, then each instance lent to the routine (design §24)
@@ -748,22 +748,10 @@ class Printer {
             const t = e.type.kind === "elementary" ? e.type.elem : undefined
             return t?.family === "real" ? `${args[0]}.abs()` : t?.signed ? `${args[0]}.wrapping_abs()` : args[0]!
           }
-          case "len":
-          case "left":
-          case "right":
-          case "mid":
-          case "concat":
-          case "insert":
-          case "delete":
-          case "replace":
-          case "find": {
-            // a STRING argument passes its bytes, an integer one widens to the helpers' i64
-            const passed = e.args.map((a, i) =>
-              a.type.kind === "elementary" && a.type.elem.family === "string" ? `${args[i]}.units()` : unparen(castTo(args[i]!, a.type, "i64")),
-            )
-            const call = `iec_${e.name}(${passed.join(", ")})`
-            return e.name === "len" || e.name === "find" ? `(${call} as ${rustType(e.type)})` : `${stringPath(e.type)}::lit(&${call})`
-          }
+          case "char":
+            return `${args[0]}.char_at(${unparen(castTo(args[1]!, e.args[1]!.type, "i64"))})`
+          case "setchar":
+            return `${args[0]}.with_char(${unparen(castTo(args[1]!, e.args[1]!.type, "i64"))}, ${argv[2]})`
           // The emitted twin of `MATH`'s `logarithm` guard: `LN(0)` and `LOG(0)` stop the task on CODESYS, and Rust
           // answers `-inf` and carries on. Nothing else in this group stops anything — `EXP(1000)` is an infinity
           // and runs. Measured in `operators/math-domain.ts`.
@@ -1102,10 +1090,13 @@ export function rustAccess(pou: IrPou, path: string): { expr: string; type: Type
   )
   const bare = (n: string | undefined): string | undefined => n?.replace(/^`|`$/g, "").toUpperCase()
   const slot = pou.slots.findIndex((s) => bare(s.name) === bare(parts[0]?.[1]))
-  if (slot < 0) throw new Error(`no variable ${path} in ${pou.name}`)
-  let expr = fieldNames(pou.slots)[slot]!
-  let type = pou.slots[slot]!.type
-  let global = false
+  // not the POU's own: a GVL variable, or the `__clock` a harness sets — a field of `Globals`, as the interpreter finds it
+  const variables = pou.globals.filter((s) => s.section !== "program")
+  const named = slot < 0 ? variables.findIndex((s) => bare(s.name) === bare(parts[0]?.[1])) : -1
+  if (slot < 0 && named < 0) throw new Error(`no variable ${path} in ${pou.name}`)
+  let expr = named >= 0 ? fieldNames(variables)[named]! : fieldNames(pou.slots)[slot]!
+  let type = named >= 0 ? variables[named]!.type : pou.slots[slot]!.type
+  let global = named >= 0
   for (const part of parts.slice(1)) {
     if (part[1] !== undefined) {
       const typeName = type.kind === "struct" || type.kind === "function_block" ? type.name.toUpperCase() : undefined

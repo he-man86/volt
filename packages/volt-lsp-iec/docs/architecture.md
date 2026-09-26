@@ -114,7 +114,11 @@ AST ──lower/──> ir/ ──┬── interp/       runs it — the oracle
                       └── emit/rust/    prints it + a source map
 ```
 
-`ir/` is the one contract; `lower/` owns every ST semantic; the backends own none. That split is enforced by
+`ir/` is the one contract; `lower/` owns every ST semantic; the backends own none. A referenced LIBRARY is not
+semantics the transpiler owns: its elements are ordinary POUs whose bodies the library repo supplies
+(`libraries/<library>/<version>/`, ST, looked up by the manifest's `RESOLUTION`), lowered like project code. The
+only primitives a library needs are language operators — `s[i]` and `TIME()`, the latter read from a `CLOCK`
+global the harness sets per scan. That split is enforced by
 `check-layering.ts`: inside `transpile/`, **only `ir/` is importable across folders**, so a backend cannot
 reach into the lowering and let a semantic decision drift out of its single home.
 

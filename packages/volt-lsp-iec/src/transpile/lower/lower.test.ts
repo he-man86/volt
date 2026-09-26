@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { lowerSource } from "./lower.js"
+import { CLOCK } from "./builtins.js"
 import type { IrAssign, IrIf, IrLoop } from "../ir/index.js"
 import { run } from "../interp/index.js"
 import { stored } from "./convert.js"
@@ -1486,21 +1487,17 @@ describe("lower — STRING (design §18)", () => {
     expect(compare.kind === "binary" && [compare.left.kind, compare.right.kind]).toEqual(["load", "load"])
   })
 
-  test("a Standard string function binds only to the referenced library's own declaration", () => {
+  test("a Standard string function is an ordinary call — of the project's LEN, or of a library LEN that has a body", () => {
     const src = wrap("n := LEN(text);", "text : STRING;\n  n : INT;")
     // no library referenced → no LEN
     expect(lowerSource(src).diagnostics.map((d) => d.code)).toEqual(["expr-call"])
-    // a project FUNCTION that happens to be called LEN is not the library's
+    // a project FUNCTION called LEN is the project's, and runs
     const own = `FUNCTION LEN : INT\nVAR_INPUT\n  STR : STRING(255);\nEND_VAR\nLEN := 7;\nEND_FUNCTION\n${src}`
-    expect(lowerSource(own, "P").diagnostics.map((d) => d.code)).toEqual(["expr-call"])
-
-    const { pou, diagnostics } = lowerSource(src, undefined, [STANDARD_LEN])
-    expect(diagnostics).toEqual([])
-    const call = (pou!.body[0] as IrAssign).value
-    expect(call.kind === "builtin" && call.name).toBe("len")
-    // the argument takes the library's STRING(255) — which is where a STRING(300) is cut on the way in
-    const arg = call.kind === "builtin" ? call.args[0]! : undefined
-    expect(arg?.type.kind === "elementary" && arg.type.length).toBe(255)
+    const p = run(lowerSource(own, "P").pou!)
+    p.scan()
+    expect(p.get("n")).toBe(7n)
+    // the materialized declaration alone has no body to run — the library repo supplies one (test/libraries)
+    expect(lowerSource(src, undefined, [STANDARD_LEN]).diagnostics.map((d) => d.code)).toEqual(["call-library"])
   })
 
   test("a sizeless WSTRING holds 80, like STRING, and its four-digit escape is one UTF-16 unit", () => {
@@ -1615,18 +1612,17 @@ test("a duration CONSTANT divided by an integer VARIABLE computes in the duratio
 })
 
 /**
- * A LIBRARY CALLABLE WITHOUT A BODY IS REFUSED — libraries are not implemented yet, and a signature is not an
- * implementation.
+ * A LIBRARY CALLABLE WITHOUT A BODY IS REFUSED — a signature is not an implementation.
  *
- * A library reaches lowering as a DECLARATION file: the vendor compiles the body and Volt never sees it. `parseActive`
+ * A library reaches lowering as a DECLARATION file, and has a body only where the library repo (`libraries/`) wrote one. `parseActive`
  * answers an empty statement list for that, which lowered to a routine that ran nothing — so `t1(IN := TRUE)` was a
  * no-op and `t1.Q` read FALSE forever, an INVENTED meaning rather than a missing one. 308 corpus files declare a TON,
  * TOF, CTU, R_TRIG or F_TRIG.
  *
  * An empty body is legal IEC, so emptiness alone cannot be the discriminator — PROVENANCE is, and the three cases below
  * pin all of it: a bodyless LIBRARY unit refuses, a library shipping REAL SOURCE still lowers, and a PROJECT POU with an
- * empty body still lowers and does nothing. The standard FUNCTIONs (`CONCAT`, `LEFT`, `LEN`, …) are unaffected because
- * they lower as builtins and never reach a routine (`standard-functions` covers their values).
+ * empty body still lowers and does nothing. The Standard library is no exception: its
+ * elements are ordinary library units, run from the repo's ST (`test/libraries/standard.test.ts`).
  */
 describe("a library declaration without a body", () => {
   const BODYLESS_FB = { uri: "file:///p/Library Manager/MyLib/VendorFB.fb", source: "FUNCTION_BLOCK VendorFB\nVAR_INPUT\n\tIN : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tQ : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n" }
@@ -1820,8 +1816,6 @@ describe("an FB body call counts as a call", () => {
  * SEL is untouched: it PICKS an operand rather than comparing them, so it needs no order.
  */
 describe("a value function over a STRING", () => {
-  const refuse = (source: string): string[] => lowerSource(source, "PLC_PRG").diagnostics.map((d) => d.code)
-
   /** The one string the program computes, run. */
   const value = (body: string): unknown => {
     const r = lowerSource(`PROGRAM PLC_PRG
@@ -1887,4 +1881,33 @@ test("an over-range TIME initializer wraps at its width, in lowering as in the i
 	expect(stored(1n, elementaryTypeRef(elementaryType("BIT")!))).toBe(1n)
 	// the integer rule it always had is unchanged
 	expect(stored(40000n, elementaryTypeRef(elementaryType("INT")!))).toBe(-25536n)
+})
+
+describe("lower — the clock, TIME() and LTIME()", () => {
+  // CODESYS's operators, not a library's: `cs_clock_reads` builds with no library at all. What time it is belongs to
+  // whoever runs the program, so both read one LTIME global (`CLOCK`, nanoseconds) the harness sets per scan.
+  const clocked = (body: string) => {
+    const p = run(lowerSource(`PROGRAM P\nVAR t : TIME; long : LTIME; END_VAR\n${body}\nEND_PROGRAM\n`, "P").pou!)
+    p.set(CLOCK, 1_500_250_000n)
+    p.scan()
+    return p
+  }
+
+  test("LTIME() is the clock, and TIME() the same instant in milliseconds", () => {
+    const p = clocked("t := TIME(); long := LTIME();")
+    expect([p.get("t"), p.get("long")]).toEqual([1500n, 1_500_250_000n])
+  })
+
+  test("TIME() wraps as a 32-bit count of milliseconds, as the PLC's does after 49.7 days", () => {
+    const p = run(lowerSource("PROGRAM P\nVAR t : TIME; END_VAR\nt := TIME();\nEND_PROGRAM\n", "P").pou!)
+    p.set(CLOCK, (2n ** 32n + 7n) * 1_000_000n)
+    p.scan()
+    expect(p.get("t")).toBe(7n)
+  })
+
+  test("the clock is keyed by a name no identifier can spell, so a GVL variable called like it stays its own", () => {
+    const gvl = { uri: "GVL.gvl", source: "VAR_GLOBAL\n\t__clock : INT := 3;\nEND_VAR\n" }
+    const { pou } = lowerSource("PROGRAM P\nVAR a : INT; t : TIME; END_VAR\na := __clock;\nt := TIME();\nEND_PROGRAM\n", "P", [gvl])
+    expect(pou!.globals.map((g) => g.type.kind === "elementary" && g.type.name)).toEqual(["INT", "LTIME"])
+  })
 })

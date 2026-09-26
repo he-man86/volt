@@ -7,7 +7,9 @@
  *
  * Measured over every conformance fixture (781 programs, 3636 mappings, 2026-09-18) and two things came out.
  *
- * **It holds for a single-file program** — no span out of bounds, no blank slice, no mapping onto a lone delimiter.
+ * **It holds in every file** — no span out of bounds, no blank slice, no mapping onto a lone delimiter. A program is
+ * rarely one file: its GVLs are others, and so is every library body it calls, which the library repo (`libraries/`)
+ * supplies — so each span is checked against the file its mapping names.
  *
  * **It had NO FILE IDENTITY**, which made it wrong for a program of more than one file: a mapping was a line and a
  * span, with nothing saying WHICH source the span indexed, so a body lowered from a GVL or a library declaration
@@ -25,9 +27,8 @@ import { describe, expect, test } from "bun:test"
 import { emitRust } from "../../src/transpile/emit/rust/index.js"
 import { lowerSource } from "../../src/transpile/lower/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
-import { assembleFixture, withDependencies } from "./support/fixture-units.js"
-import { plcPrgSource } from "./support/plc-prg.js"
-import { STANDARD_LIBRARY } from "./support/standard-library.js"
+import { assembleFixture } from "./support/fixture-units.js"
+import { STANDARD_LOWERING } from "./support/standard-library.js"
 
 
 
@@ -42,7 +43,8 @@ const RENAMED_TARGETS = 30
 interface Program {
   name: string
   source: string
-  multiFile: boolean
+  /** The text a mapping's span indexes: the main source when it names no file, else the file it names. */
+  fileOf: (uri: string | undefined) => string | undefined
   map: readonly { line: number; span: { start: number; end: number; startLine: number }; uri?: string }[]
   rustLines: readonly string[]
 }
@@ -53,14 +55,16 @@ function programs(): Program[] {
     const { source: source, gvls } = assembleFixture(t, ALL_TESTS)
     let pou
     try {
-      pou = lowerSource(source, "PLC_PRG", [...STANDARD_LIBRARY, ...gvls]).pou
+      pou = lowerSource(source, "PLC_PRG", [...STANDARD_LOWERING, ...gvls]).pou
     } catch {
       continue // a lowering throw is `corpus`'s to report
     }
     if (pou === undefined) continue
     try {
       const emitted = emitRust(pou)
-      out.push({ name: t.name, source, multiFile: gvls.length > 0, map: emitted.sourceMap, rustLines: emitted.code.split("\n") })
+      const files = new Map([...STANDARD_LOWERING, ...gvls].map((f) => [f.uri, f.source]))
+      const fileOf = (uri: string | undefined) => (uri === undefined || uri === "transpile://source" ? source : files.get(uri))
+      out.push({ name: t.name, source, fileOf, map: emitted.sourceMap, rustLines: emitted.code.split("\n") })
     } catch {
       continue // an emitter throw is the emitter suite's to report
     }
@@ -83,15 +87,20 @@ describe("the source map", () => {
     expect(bad).toEqual([])
   })
 
-  test("in a SINGLE-FILE program every span lies in the source and points at a statement", () => {
+  test("every span lies in the file its mapping names and points at a statement", () => {
     const bad: string[] = []
-    for (const p of all().filter((x) => !x.multiFile))
-      for (const { span } of p.map) {
-        if (span.start < 0 || span.end > p.source.length || span.start >= span.end) {
-          bad.push(`${p.name}: [${span.start},${span.end}) of ${p.source.length}`)
+    for (const p of all())
+      for (const { span, uri } of p.map) {
+        const text = p.fileOf(uri)
+        if (text === undefined) {
+          bad.push(`${p.name}: names ${String(uri)}, which is no file of the program`)
           continue
         }
-        if (p.source.slice(span.start, span.end).trim() === "") bad.push(`${p.name}: [${span.start},${span.end}) is blank`)
+        if (span.start < 0 || span.end > text.length || span.start >= span.end) {
+          bad.push(`${p.name}: [${span.start},${span.end}) of ${text.length}`)
+          continue
+        }
+        if (text.slice(span.start, span.end).trim() === "") bad.push(`${p.name}: [${span.start},${span.end}) is blank`)
         if (span.startLine < 1) bad.push(`${p.name}: startLine ${span.startLine}`)
       }
     expect(bad).toEqual([])
@@ -114,10 +123,11 @@ describe("the source map", () => {
     const squash = (s: string): string => s.toLowerCase().replace(/_/g, "")
     let checked = 0
     let named = 0
-    for (const p of all().filter((x) => !x.multiFile))
-      for (const { line, span } of p.map) {
-        if (span.start < 0 || span.end > p.source.length) continue
-        const target = /^\s*([A-Za-z_]\w*)\s*:=/.exec(p.source.slice(span.start, span.end))
+    for (const p of all())
+      for (const { line, span, uri } of p.map) {
+        const text = p.fileOf(uri)
+        if (text === undefined || span.start < 0 || span.end > text.length) continue
+        const target = /^\s*([A-Za-z_]\w*)\s*:=/.exec(text.slice(span.start, span.end))
         const rust = p.rustLines[line - 1]
         if (target === null || rust === undefined) continue
         if (!/^[^=]*=[^=]/.test(rust)) continue // the mapped line is not itself an assignment

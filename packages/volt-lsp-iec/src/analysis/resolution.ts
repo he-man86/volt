@@ -9,8 +9,10 @@
  *
  * Zero-FP is the whole game. A name resolves (is NOT flagged) when it is any of: a `__`-system operator, a
  * conversion call (`<T>_TO_<U>` / `TO_<U>`), a compiler-provided implicit (`THIS`/`SUPER`/`IoConfig_Globals`/
- * `TYPE_CLASS`), a built-in in the reference catalog, a referenced-library namespace or device-tree instance,
- * a bare-accessible enum member, or anything in the given scope (parent chain + EXTENDS bases).
+ * `TYPE_CLASS`), a compiler built-in in the reference catalog, a referenced-library namespace or device-tree instance,
+ * a bare-accessible enum member, or anything in the given scope (parent chain + EXTENDS bases). A LIBRARY'S element —
+ * Standard's LEN or TON included — resolves through the scope, from its materialized declaration, and nowhere else:
+ * in a project that does not reference its library it is the unknown name CODESYS says it is.
  */
 import { CODESYS_ONLY_KEYWORDS, renderTypeExpr, walkExpr, type Expr, type MemberExpr, type Span, type TypeExpr } from "../syntax/index.js"
 import { CODESYS_ONLY_TYPES } from "../types/index.js"

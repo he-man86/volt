@@ -1,0 +1,37 @@
+FUNCTION_BLOCK CTUD
+VAR_INPUT
+	CU : BOOL;
+	CD : BOOL;
+	RESET : BOOL;
+	LOAD : BOOL;
+	PV : WORD;
+END_VAR
+VAR_OUTPUT
+	QU : BOOL;
+	QD : BOOL;
+	CV : WORD;
+END_VAR
+VAR
+	MU : BOOL;
+	MD : BOOL;
+	RU : BOOL;
+	RD : BOOL;
+END_VAR
+(* RU and RD are the library's own variables, and this body has no use for them *)
+IF RESET THEN
+	CV := 0;
+ELSIF LOAD THEN
+	CV := PV;
+ELSE
+	IF CU AND NOT MU AND CV < 16#FFFF THEN
+		CV := CV + 1;
+	END_IF
+	IF CD AND NOT MD AND CV > 0 THEN
+		CV := CV - 1;
+	END_IF
+END_IF
+MU := CU;
+MD := CD;
+QU := CV >= PV;
+QD := CV = 0;
+END_FUNCTION_BLOCK

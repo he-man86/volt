@@ -20,24 +20,31 @@ must be unavailable where the reference is absent.
 
 ## What Changes
 
-Library execution splits into two tiers, by whether a library element has **state**:
+(Rewritten 2026-09-25 to what was BUILT. The first version split libraries into tier 1 — pure functions as
+transpiler intrinsics — and tier 2 — stateful FBs in a runtime to be designed later. Tier 1 shipped and was then
+replaced; the runtime was never needed. design.md §5–§6 hold the decision and the measurements.)
 
-- **Tier 1 — pure library functions → library-gated transpiler intrinsics. NOW.** `LEN`/`LEFT`/`RIGHT`/`MID`/
-  `CONCAT`/`INSERT`/`DELETE`/`REPLACE`/`FIND` (Standard) and their W-variants (Standard64) are deterministic, with
-  no clock and no instance. The transpiler lowers a call to one ONLY when the callee resolves to a symbol
-  materialized from that library's `Library Manager` folder — the resolution the LSP already performs
-  (`isLibrarySymbol`) — takes parameter names, types and capacities from those signature files, and has every
-  behaviour recorded by the execution oracle in a project that references the library.
-- **Tier 2 — stateful library FBs → a real runtime library. LATER.** `TON`/`TOF`/`TP`, `CTU`/`CTD`/`CTUD`,
-  `R_TRIG`/`F_TRIG`, `RS`/`SR`, `RTC`, and Standard64's `LTON`/`LCTU`/… need FB instances (the frame, blocked on
-  `transpile-st-to-rust` design §9) and a simulated clock injected per scan. They are built as a runtime bound by
-  (library, resolved version) from the project's `Library Manager` manifest. **How that runtime is written is
-  decided when this tier starts** — see design.md.
+A referenced library is **the code behind the compiled library, written in ST**, and nothing else:
+
+- **The library repo** — `packages/volt-lsp-iec/libraries/<library>/<version>/` holds each element as the declaration
+  the bridge materializes plus an ST body. The transpiler lowers those like any project POU; there is no intrinsic per
+  element, no runtime crate, and no Standard-specific code in `lower/`.
+- **Looked up by the version the project resolved** — `withImplementations` reads the project manifest's
+  `RESOLUTION <library>, <version>` and swaps the repo's files in under the materialized ones' paths. A version the
+  repo has not written keeps its bodyless declarations and is refused (`call-library`).
+- **The only primitives are language operators** the transpiler owns: `s[i]` (a string's character) and `TIME()` /
+  `LTIME()` (read from a `CLOCK` global the harness sets per scan).
+- **Standard 3.5.18.0 is written** — all 22 elements, strings and FBs. The nine string functions are confirmed by the
+  execution oracle's recorded fixtures; the FB bodies are the IEC definitions, not yet recorded.
+- **Every library, not just Standard** (the user's principle, 2026-09-25): a library element needed by the transpiler
+  is written in ST in the repo, and NO library element is known to the LSP except through its materialization.
 
 ## Impact
 
-- `packages/volt-lsp-iec/src/transpile/lower` — tier 1: a call resolving to a Standard/Standard64 library symbol
-  lowers to an IR intrinsic; any other library call stays a counted `expr-call` gap.
-- `transpile-st-to-rust` tasks: the STRING row delivers tier 1 for strings; phase 6 ("the standard library")
-  becomes tier 2 of this change.
-- No impact on the LSP, the bridge, or the shipping product. No runtime crate is created by tier 1.
+- `packages/volt-lsp-iec/libraries/` — new: the repo and its resolver.
+- `packages/volt-lsp-iec/src/transpile` — the string intrinsics deleted; `s[i]`, `TIME()`/`LTIME()` added;
+  `prepareProject` makes a project's library units impossible to leave out.
+- `packages/volt-lsp-iec/src/reference` — every library element removed from the built-in catalog.
+- `packages/volt-cli` — the library renderer materializes a FUNCTION with no return type instead of dropping it.
+- No runtime crate, and no change to the shipping product's behaviour beyond the LSP no longer resolving a library
+  element in a project that does not reference its library.

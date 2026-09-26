@@ -22,7 +22,7 @@ import {
   type TopLevel,
   type VarSection,
 } from "../../syntax/index.js"
-import { childScopesByName, findChildScope, libraryOf, lookup, lookupMember, type Scope } from "../../symbols/index.js"
+import { childScopesByName, findChildScope, lookup, lookupMember, type Scope } from "../../symbols/index.js"
 import { ANY_FAMILIES, elemOf, elementaryRef, inferExprType, type Type, UNKNOWN } from "../../types/index.js"
 import { byteSize } from "./bytes.js"
 import {
@@ -417,18 +417,16 @@ function anyArgumentTypes(lw: Lowering, sym: RoutineSymbol, call: Extract<Expr, 
 /**
  * A LIBRARY CALLABLE DECLARED WITHOUT A BODY — refused, not lowered to a routine that does nothing.
  *
- * Libraries reach lowering as DECLARATION files: signatures and VAR sections, no statements, because the vendor compiles
- * the implementation and Volt never sees it. `parseActive` answers an empty statement list for that, and an empty
- * routine lowers cleanly — so `t1(IN := TRUE)` would run nothing and `t1.Q` would read FALSE forever. That is an
+ * A project's libraries are materialized as DECLARATION files: signatures and VAR sections, no statements. The library
+ * repo (`libraries/<library>/<version>/`) replaces them with ST bodies for the versions it has written; any other
+ * library element is still only its declaration here. `parseActive` answers an empty statement list for that, and an
+ * empty routine lowers cleanly — so `t1(IN := TRUE)` would run nothing and `t1.Q` would read FALSE forever. That is an
  * INVENTED meaning rather than a missing one, and it is the same hazard `lowerUnit` already refuses for a graphical
  * body, for the same stated reason.
  *
- * An empty body is legal IEC, so emptiness alone is not the discriminator — PROVENANCE is. A POU written in the project
- * with no statements genuinely does nothing and must still lower; a library declaration with no statements is one we
- * cannot implement yet. A vendored library that ships real source has statements and is untouched by this.
- *
- * The standard FUNCTIONs (`CONCAT`, `LEFT`, `LEN`, …) never reach here: they are lowered as builtins and answer the
- * vendor's values, which is why refusing the declarations does not take them with it.
+ * An empty body is legal IEC, so emptiness alone is not the discriminator — PROVENANCE is (`LoweringProject.libraryUnits`).
+ * A POU written in the project with no statements genuinely does nothing and must still lower; a library element with
+ * no statements is one whose body nobody has written. A library with real source — the repo's — lowers like any POU.
  */
 function isBodylessLibrary(lw: Lowering, ast: object, statements: readonly unknown[]): boolean {
   return statements.length === 0 && lw.shared.libraryUnits.has(ast)
@@ -885,10 +883,8 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
   } else if (callee.kind === "ident_expr") {
     const sym = lookup(lw.scope, callee.name)?.symbol
     if (sym?.kind !== "function") return lw.bail("expr-call", `${callee.name} is not a project FUNCTION`, call.span)
-    // A LIBRARY FUNCTION says so, rather than being filed under the generic call gap: its body is the vendor's, exactly
-    // as a library FB's is. The Standard string functions never reach here — `lowerStandardString` claims them first,
-    // which is why gating this does not take CONCAT/LEFT/LEN with it.
-    if (libraryOf(sym) !== undefined) return lw.bail("call-library", `${callee.name} is a library FUNCTION — libraries are not implemented yet`, call.span)
+    // A library FUNCTION lowers like a project one when its body is there — the library repo's (`libraries/`) — and is
+    // refused as `call-library` by `calledRoutine` when only the materialized declaration is.
     routine = calledRoutine(lw, sym, undefined, call.span, sym.name, call)
   } else return lw.bail("expr-call", "a call of an expression", call.span)
   if (routine === undefined) return undefined
@@ -1323,19 +1319,15 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
   if (instance.type.kind !== "function_block") {
     // AN UNRESOLVED TYPE IS ITS OWN ANSWER, not "not an FB instance".
     //
-    // `t1 : TON` types as `unknown` because the standard library's FBs are declarations without bodies — the
-    // vendor compiles them, and `TON.fb` in the fixture project holds its VAR sections and nothing else. Calling
-    // one was reported as "a call of something that is not an FB instance", which is false (it IS an instance)
-    // and which piled the whole class into `stmt-call_stmt`, the bucket `lower-completeness` ranks work by.
-    //
-    // 308 corpus files declare a TON, TOF, CTU, R_TRIG or F_TRIG. Reporting them as a generic statement gap said
-    // the work was somewhere it is not; saying the TYPE is unresolved says where it is. Loading the declarations
-    // would be worse than either: the call would lower against an empty body and `t1.Q` would be FALSE forever,
-    // which is an invented meaning rather than a missing one.
+    // `t1 : TON` types as `unknown` when no declaration of TON reached lowering — the project's Library Manager was not
+    // handed in. Calling one was reported as "a call of something that is not an FB instance", which is false (it IS
+    // an instance) and which piled the whole class into `stmt-call_stmt`, the bucket `lower-completeness` ranks work by.
+    // Handed in, the declaration types it, and its body comes from the library repo (`libraries/`) for the version
+    // the project resolved — or, for a version the repo has not written, `calledLayout` refuses the empty body.
     if (instance.type.kind === "unknown")
       return lw.bail(
         "call-library",
-        `the type of ${callee.kind === "ident_expr" ? callee.name : "this instance"} is not declared in the project — a library FB's body is the vendor's, not something source lowering can reach`,
+        `the type of ${callee.kind === "ident_expr" ? callee.name : "this instance"} is not declared — no library declaring it was handed to lowering`,
         call.span,
       )
     return lw.bail("stmt-call_stmt", "a call of something that is not an FB instance", call.span)

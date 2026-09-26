@@ -95,6 +95,12 @@ export interface LanguageTest {
    * writing a confident sentence here instead is how it stops being visible.
    */
   execSkip?: string
+  /**
+   * Paths whose recorded value is the IDE's WALL CLOCK at the moment it was recorded — `TIME()` read into a variable.
+   * No run can reproduce that instant: the transpiler reads the clock its harness sets (`CLOCK`), never a wall clock.
+   * The replays compare every other path, and hold these only to having been produced.
+   */
+  wallClock?: readonly string[]
   /** Optional human note explaining why we expect what we expect. */
   note?: string
   /** Scan cycles a run records after (`recordings/codesys.run.json`). Default 1. */

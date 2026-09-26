@@ -34,7 +34,7 @@ function probe(slug: string, expr: string, outType: string, feature: string, dec
     pouName: pou,
     kind: "function_block" as const,
     feature,
-    fromDoc: "08-standard-library.md",
+    fromDoc: "06-data-types.md#string",
     plcPrgVar: `inst : ${pou};`,
     plcPrgBody: "inst();",
     source:

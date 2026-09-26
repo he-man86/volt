@@ -16,7 +16,7 @@ import { extname, join, relative } from "node:path"
 import { parseSource } from "../src/syntax/index.js"
 import { buildSymbolTable } from "../src/symbols/index.js"
 import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
-import { libraryOf, isLibrarySymbol, type Scope } from "../src/symbols/symbol.js"
+import { libraryOf, type Scope } from "../src/symbols/symbol.js"
 
 const CORPUS = join(import.meta.dir, "..", "test-corpus")
 if (!existsSync(CORPUS)) throw new Error(`no corpus at ${CORPUS}`)

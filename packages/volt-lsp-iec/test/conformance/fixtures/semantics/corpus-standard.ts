@@ -15,8 +15,9 @@ import type { LanguageTest } from "../../types.js"
 
 const doc = "conformance — constructs the corpus uses and the fixtures did not"
 
-function fb(name: string, pouName: string, feature: string, source: string, note?: string): LanguageTest {
+function fb(name: string, pouName: string, feature: string, source: string, note?: string, extra: Partial<LanguageTest> = {}): LanguageTest {
   return {
+    ...extra,
     name,
     pouName,
     kind: "function_block",
@@ -97,7 +98,8 @@ since := TIME();
 sinceLong := LTIME();
 END_FUNCTION_BLOCK
 `,
-    "The corpus reads the clock this way (pro2193's StopwatchFB). It is the shape that made `refused-name` exempt a call's CALLEE: an elementary type name in callee position is a legitimate function, not a name the parser refuses."),
+    "The corpus reads the clock this way (pro2193's StopwatchFB). It is the shape that made `refused-name` exempt a call's CALLEE: an elementary type name in callee position is a legitimate function, not a name the parser refuses.",
+    { wallClock: ["inst.since", "inst.sinceLong"] }),
 
   fb("cs_spelled_narrowing_conversions", "FB_CS_spelled", "the spelled X_TO_Y conversions the corpus uses, including ones that NARROW",
     `FUNCTION_BLOCK FB_CS_spelled

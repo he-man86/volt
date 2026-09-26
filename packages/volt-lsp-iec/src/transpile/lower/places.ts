@@ -3,11 +3,11 @@
  */
 import { type Expr, isSelfRef, type Span, type TopLevel, type VarDecl, type VarSection } from "../../syntax/index.js"
 import { libraryOf, lookup } from "../../symbols/index.js"
-import { elementaryRef, resolveNamedType } from "../../types/index.js"
+import { elementaryRef, resolveNamedType, type Type } from "../../types/index.js"
 import { defaultValueOf, elementOf, type IrExpr, peelArray, type Place } from "../ir/index.js"
 import { boundName, Lowering, openDims } from "./lowering.js"
 import { binaryOf, convert } from "./convert.js"
-import { addressPlace, declareVars, storageOf } from "./storage.js"
+import { addressPlace, declareVars, storageOf, withStringCapacity } from "./storage.js"
 import { pointeePlace } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 
@@ -144,34 +144,11 @@ export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): P
     return { ...base, path: [...base.path, { kind: "field", name: field.name }], type: field.type, span: e.span }
   }
   if (e.kind === "index") {
-    // one `index` step per dimension, each carrying the bounds a backend normalises by
-    let place = throughReference(lw, lowerPlace(lw, e.base, notAMember), e.base.span)
-    // `p[i]` on a pointer: i elements past the one it points at (conformance `mem_pointer_index_struct_array`)
-    if (place !== undefined && place.type.kind === "pointer") {
-      if (e.indices.length !== 1) return lw.bail("pointer-index", "a pointer indexed in more than one dimension", e.span)
-      const extra = lowerExpr(lw, e.indices[0]!)
-      return extra && pointeePlace(lw, place, extra, e.span)
-    }
-    for (const written of e.indices) {
-      if (place === undefined) return undefined
-      const array = peelArray(place.type)
-      // an `ARRAY[*]` in-out's dimension: indexed from the lower bound its call was handed (design §26)
-      const open =
-        array === undefined && place.type.kind === "array" && place.root === "inout" && place.path.every((s) => s.kind === "index")
-          ? boundOf(lw, { ...place, path: [], type: lw.inoutSlots[place.slot]!.type }, "lower", place.path.length + 1)
-          : undefined
-      if (array === undefined && open === undefined) return lw.bail("place-shape", "an index on something that is not a sized array", e.span)
-      const index = lowerExpr(lw, written)
-      if (index === undefined) return undefined
-      if (open !== undefined) {
-        const wide = elementaryRef("LINT")
-        const offset = binaryOf("sub", convert(index, wide), convert(open, wide), wide, written.span)
-        place = { ...place, path: [...place.path, { kind: "index", index: offset, lower: 0n }], type: elementOf(place.type)!, span: e.span }
-        continue
-      }
-      place = { ...place, path: [...place.path, { kind: "index", index, lower: array!.lower, length: array!.length }], type: array!.element, span: e.span }
-    }
-    return place
+    const indexed = lowerIndexed(lw, e, notAMember)
+    if (indexed === undefined || "place" in indexed) return indexed?.place
+    // `ADR(s[i])`, an in-out bound to it, `s[i] S= …`: a character is read out of a string value and stored back into
+    // one (`char`/`setchar`), never a location of its own
+    return lw.bail("place-shape", "a character of a string used as a storage location", e.span)
   }
   // `THIS^` — the instance the body runs on (conformance `keyword_this_dereference`, `use_self_method_call`). `SUPER^` is
   // no place of its own: `SUPER^()` and `SUPER^.M()` are calls, lowered in `calls.ts`.
@@ -214,6 +191,55 @@ export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): P
     return lw.bail("place-not-local", `${e.name} ${what}`, e.span)
   }
   return { slot, path: [], type: lw.slots[slot]!.type, span: e.span }
+}
+
+/**
+ * An index expression, lowered ONCE: an array element or a pointer's `p[i]` is a place; `s[i]` on a STRING or WSTRING is
+ * a character — its string's place, the index, and the character's type (a BYTE, a WSTRING's WORD) — which a read turns
+ * into `char` and a store into `setchar`. It is what the Standard library's string functions are written in
+ * (`libraries/Standard`). One walk decides both, so the base is never lowered twice (a probe that did, and threw its
+ * diagnostics away, also threw away a GVL's declaration errors and the refusal of a call inside the index).
+ */
+export type Indexed = { place: Place } | { char: { place: Place; index: IrExpr; unit: Type } }
+
+export function lowerIndexed(lw: Lowering, e: Extract<Expr, { kind: "index" }>, notAMember?: string): Indexed | undefined {
+  let place = throughReference(lw, lowerPlace(lw, e.base, notAMember), e.base.span)
+  // `s[i]` on a STRING or WSTRING — one character, a BYTE (a WSTRING's WORD), counted from 0
+  const text = place?.type.kind === "elementary" && (place.type.name === "STRING" || place.type.name === "WSTRING") ? place.type.name : undefined
+  if (place !== undefined && text !== undefined) {
+    if (e.indices.length !== 1) return lw.bail("place-shape", "a string indexed in more than one dimension", e.span)
+    const index = lowerExpr(lw, e.indices[0]!)
+    // the capacity is what a store is cut at, so a string reached without one — a pointee — takes the default
+    return index && { char: { place: { ...place, type: withStringCapacity(place.type) }, index, unit: elementaryRef(text === "STRING" ? "BYTE" : "WORD") } }
+  }
+  // `p[i]` on a pointer: i elements past the one it points at (conformance `mem_pointer_index_struct_array`)
+  if (place !== undefined && place.type.kind === "pointer") {
+    if (e.indices.length !== 1) return lw.bail("pointer-index", "a pointer indexed in more than one dimension", e.span)
+    const extra = lowerExpr(lw, e.indices[0]!)
+    const pointee = extra && pointeePlace(lw, place, extra, e.span)
+    return pointee && { place: pointee }
+  }
+  // an array: one `index` step per dimension, each carrying the bounds a backend normalises by
+  for (const written of e.indices) {
+    if (place === undefined) return undefined
+    const array = peelArray(place.type)
+    // an `ARRAY[*]` in-out's dimension: indexed from the lower bound its call was handed (design §26)
+    const open =
+      array === undefined && place.type.kind === "array" && place.root === "inout" && place.path.every((s) => s.kind === "index")
+        ? boundOf(lw, { ...place, path: [], type: lw.inoutSlots[place.slot]!.type }, "lower", place.path.length + 1)
+        : undefined
+    if (array === undefined && open === undefined) return lw.bail("place-shape", "an index on something that is not a sized array", e.span)
+    const index = lowerExpr(lw, written)
+    if (index === undefined) return undefined
+    if (open !== undefined) {
+      const wide = elementaryRef("LINT")
+      const offset = binaryOf("sub", convert(index, wide), convert(open, wide), wide, written.span)
+      place = { ...place, path: [...place.path, { kind: "index", index: offset, lower: 0n }], type: elementOf(place.type)!, span: e.span }
+      continue
+    }
+    place = { ...place, path: [...place.path, { kind: "index", index, lower: array!.lower, length: array!.length }], type: array!.element, span: e.span }
+  }
+  return place && { place }
 }
 
 /**

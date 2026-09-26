@@ -42,7 +42,7 @@ function probe(slug: string, decls: string, body: string, feature: string): Lang
     pouName: pou,
     kind: "function_block" as const,
     feature,
-    fromDoc: "08-standard-library.md",
+    fromDoc: "03-operators.md#codesys-specific-system-operators-all-__-prefixed",
     ...(REFUSED[slug] !== undefined ? { refused: REFUSED[slug]! } : {}),
     plcPrgVar: `inst : ${pou};`,
     plcPrgBody: "inst();",

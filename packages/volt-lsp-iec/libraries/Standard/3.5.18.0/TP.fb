@@ -1,0 +1,29 @@
+FUNCTION_BLOCK TP
+VAR_INPUT
+	IN : BOOL;
+	PT : TIME;
+END_VAR
+VAR_OUTPUT
+	Q : BOOL;
+	ET : TIME;
+END_VAR
+VAR
+	STARTTIME : TIME;
+END_VAR
+(* a pulse of PT on IN's rising edge, which IN falling does not cut short; ET holds PT until IN is FALSE again, and
+   ET = 0 is what arms the next pulse *)
+IF Q THEN
+	ET := TIME() - STARTTIME;
+	IF ET >= PT THEN
+		Q := FALSE;
+		ET := PT;
+	END_IF
+ELSIF IN THEN
+	IF ET = TIME#0ms THEN
+		STARTTIME := TIME();
+		Q := TRUE;
+	END_IF
+ELSE
+	ET := TIME#0ms;
+END_IF
+END_FUNCTION_BLOCK

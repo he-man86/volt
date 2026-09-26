@@ -283,11 +283,10 @@ export type IrBuiltinName =
   /** `(K, IN0, …)`: inputs already met; an out-of-range K — negative included — picks the LAST input. */
   | "mux"
   | IrMathName
-  | IrStringName
-
-/** The Standard library's string functions, argument order as its declarations give it — MID(STR, LEN, POS),
- *  DELETE(STR, LEN, POS), REPLACE(STR1, STR2, L, P); positions 1-based; FIND answers 0 when absent (design §18). */
-export type IrStringName = "len" | "left" | "right" | "mid" | "concat" | "insert" | "delete" | "replace" | "find"
+  /** `(s, i)`: `s[i]`, the character at 0-based `i` as the node's BYTE (a WSTRING's WORD); 0 at `i` = its length. */
+  | "char"
+  /** `(s, i, c)`: `s` with `s[i] := c` — the node's type is the string's. See `values.ts` `setChar` for the model. */
+  | "setchar"
 
 /** The one-argument math functions: the argument is already converted to the node's `type` (design §12). */
 export type IrMathName = "sqrt" | "ln" | "log" | "exp" | "sin" | "cos" | "tan" | "asin" | "acos" | "atan"

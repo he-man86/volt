@@ -1,0 +1,33 @@
+FUNCTION_BLOCK TON
+VAR_INPUT
+	IN : BOOL;
+	PT : TIME;
+END_VAR
+VAR_OUTPUT
+	Q : BOOL;
+	ET : TIME;
+END_VAR
+VAR
+	M : BOOL;
+	STARTTIME : TIME;
+END_VAR
+(* Q rises once IN has been TRUE for PT; ET counts up to PT and holds there. TIME() is an operator of the language,
+   not of this library: the one thing the library needs that ST cannot say by itself. *)
+IF IN THEN
+	IF NOT M THEN
+		STARTTIME := TIME();
+		M := TRUE;
+	END_IF
+	IF NOT Q THEN
+		ET := TIME() - STARTTIME;
+		IF ET >= PT THEN
+			Q := TRUE;
+			ET := PT;
+		END_IF
+	END_IF
+ELSE
+	Q := FALSE;
+	ET := TIME#0ms;
+	M := FALSE;
+END_IF
+END_FUNCTION_BLOCK

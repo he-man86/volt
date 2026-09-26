@@ -59,6 +59,9 @@ test/
     suite.test.ts            is enough being ASKED - the census, our grammar, the vendor's index
     properties.test.ts       the memory model as properties
     source-map.test.ts       every mapping names a Rust line that exists
+  libraries/
+    standard.test.ts         the library repo's Standard: every body behind the exact materialized interface,
+                             the version lookup, and the FBs (timers over a harness clock) in both backends
   corpus/
     corpus.test.ts           THE CORPUS - one walk, three questions: the LSP can read it, it invents nothing
                              (vs each project's recorded IDE build), and lowering is total over it

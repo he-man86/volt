@@ -5,7 +5,6 @@
  * bound `[0..GC_MAX]` on a library global that we can't prove constant).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../syntax/index.js"
 import { messagesFor, resolveConfig } from "../analysis/index.js"
 import { WorkspaceStore } from "./workspace-store.js"
 import { documentDiagnostics } from "./diagnostics.js"

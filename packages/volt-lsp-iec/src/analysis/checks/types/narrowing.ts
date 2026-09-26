@@ -9,7 +9,6 @@ import { bodies, forEachDecl, type Scope } from "../../../symbols/index.js"
 import {
 
   checkedMeetType,
-  elementaryType,
   elementaryTypeRef,
   inferExprType,
   integerOfWidth,

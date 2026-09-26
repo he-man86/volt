@@ -107,20 +107,19 @@ needs a BOOL-like source · V2.3 `TRUNC` returned INT (auto-replaced with `TRUNC
 acceptable-source widening (integer-family widening for INT/DINT/LINT targets; REAL↔LREAL interchangeable;
 date-family members mutually acceptable; ANY accepts anything) — used to suppress false positives.
 
-## 5. Standard functions
+## 5. Compiler-provided functions
 
-**IEC strings (shared):** `LEN LEFT RIGHT MID CONCAT INSERT DELETE REPLACE FIND`.
+**IEC (shared):** `ABS SQRT MIN MAX LIMIT SEL MUX TRUNC TRUNC_INT` and the math operators.
 **IEC array/memory (shared):** `UPPER_BOUND(arr,dim)` `LOWER_BOUND(arr,dim)` `MOVE(in)`.
-**CODESYS stdlib strings (codesys):** `STRCONCATA/W STRLENA/W STRFINDA/W STRMIDA/W STRTRIMA/W STRCPYA/W
-STRCMPA/W` (A = ASCII, W = wide).
+**Clock (codesys):** `TIME()` / `LTIME()` — an elementary type name called as a nullary function.
 
-## 6. Standard function blocks (shared)
+## 6. Library elements are not language
 
-**Timers:** `TON` (on-delay), `TOF` (off-delay), `TP` (pulse) — `IN, PT → Q, ET`.
-**Edges:** `R_TRIG`, `F_TRIG` — `CLK → Q` (one-cycle pulse).
-**Counters:** `CTU` (up), `CTD` (down), `CTUD` (up/down) — `CU/CD, R/LD, PV → Q/QU/QD, CV`.
-**Bistables:** `SR` (set-dominant), `RS` (reset-dominant) — `SET/RESET → Q1`.
-Each carries the full VAR_INPUT/VAR_OUTPUT pin signature.
+`LEN`…`FIND`, `TON`/`TOF`/`TP`, `R_TRIG`/`F_TRIG`, `CTU`/`CTD`/`CTUD`, `SR`/`RS` are elements of the
+`Standard` library (`Tc2_Standard` on TwinCAT); `StrConcatA` and its family are `StringUtils`'. They exist only
+where a project references their library, and the LSP knows them only through what the bridge materializes under
+`Library Manager/<library>/` — nothing about them is hardcoded here. Their code, where the transpiler runs it, is
+the library repo's (`libraries/<library>/<version>/`, ST).
 
 ## 7. Keywords (shared)
 

@@ -14,13 +14,12 @@
  *   --sole with --code narrows that to the POUs it is the ONLY blocker of: what building it would lower today.
  *   --why  lists the distinct MESSAGES behind one construct — which shape to build first.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs"
-import { join, extname, relative } from "node:path"
-import { declarationAttributes, isGraphicalBody, memberAttributes, parseSource, parseStatements, unitAttributes, type TopLevel } from "../src/syntax/index.js"
-import { buildSymbolTable, scopeForUnit } from "../src/symbols/index.js"
+import { readdirSync, statSync } from "node:fs"
+import { join, relative } from "node:path"
+import { isGraphicalBody, parseStatements, type TopLevel } from "../src/syntax/index.js"
+import { isLibrarySymbol, scopeForUnit } from "../src/symbols/index.js"
 import { lowerUnit } from "../src/transpile/index.js"
-import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
-import { scanLibraryManifests } from "../src/workspace-refs.js"
+import { loweringProject } from "../test/corpus/support/project.js"
 
 const CORPUS = join(import.meta.dir, "..", "test-corpus")
 const args = process.argv.slice(2)
@@ -31,16 +30,6 @@ const soleOnly = args.includes("--sole")
 /** --why <code>: the distinct MESSAGES behind one code, most POUs first — which construct to build, not just where. */
 const why = args.includes("--why") ? args[args.indexOf("--why") + 1] : undefined
 const reasons = new Map<string, number>()
-
-const walk = (d: string): string[] => {
-  const out: string[] = []
-  for (const name of readdirSync(d)) {
-    const p = join(d, name)
-    if (statSync(p).isDirectory()) out.push(...walk(p))
-    else if (SOURCE_EXTENSION_SET.has(extname(p).toLowerCase())) out.push(p)
-  }
-  return out
-}
 
 const isRunnable = (u: TopLevel): u is Extract<TopLevel, { kind: "program" | "function_block" }> =>
   u.kind === "program" || u.kind === "function_block"
@@ -65,30 +54,11 @@ const blockers = new Map<string, { pous: number; sole: number; examples: string[
 // One symbol table per corpus PROJECT, as the IDE compiles it. A table per FILE made every type and global declared in
 // another file unresolvable: it reported 16 `type-unknown` POUs where 7 are real, and hid 6 `case-label` blockers
 // behind them (2026-09-14).
-const projects = readdirSync(CORPUS).filter((name) => statSync(join(CORPUS, name)).isDirectory())
+const projects = readdirSync(CORPUS).filter((name) => statSync(join(CORPUS, name)).isDirectory()).sort()
 for (const projectDir of projects) {
-  const files = walk(join(CORPUS, projectDir)).flatMap((file) => {
-    const source = readFileSync(file, "utf8")
-    try {
-      const parseResult = parseSource(source)
-      // a parse gap is `parser-completeness`'s to report, not ours
-      return parseResult.errors.length > 0 ? [] : [{ file, source, parseResult }]
-    } catch {
-      return []
-    }
-  })
-  const project = buildSymbolTable(
-    files.map(({ file, source, parseResult }) => ({ uri: file, parseResult, source })),
-    scanLibraryManifests(join(CORPUS, projectDir)),
-  )
-  const attributes = new Map<object, Set<string>>(
-    files.flatMap(({ source, parseResult }) => [
-      ...unitAttributes(parseResult, source),
-      ...memberAttributes(parseResult, source),
-      ...declarationAttributes(parseResult, source),
-    ]),
-  )
-  for (const { file, parseResult } of files) {
+  // the shared loader: sorted, bound with its library units, and a library the repo has written runs its ST
+  const lowering = loweringProject(join(CORPUS, projectDir))
+  for (const { uri: file, parseResult } of lowering.files.filter((f) => !isLibrarySymbol(f))) {
     // Where the code actually lives: a METHOD/ACTION body belongs to its FB's frame. Counted so the number is
     // visible rather than quietly excluded — and counted AGAINST `reachedRoutines`, because "not reachable yet"
     // was wrong: a routine lowers when a lowering POU calls it, and 444 of these do.
@@ -97,13 +67,13 @@ for (const projectDir of projects) {
     ).length
 
     for (const unit of parseResult.units.filter(isRunnable)) {
-      const scope = scopeForUnit(project, unit)
+      const scope = scopeForUnit(lowering.project, unit)
       if (scope === undefined) continue
       const hasCode = !isGraphicalBody(unit.body) && parseStatements(unit.body).statements.length > 0
       if (hasCode) withCode++
       else declOnly++
 
-      const { pou, diagnostics } = lowerUnit(unit, scope, project, attributes)
+      const { pou, diagnostics } = lowerUnit(unit, scope, lowering)
       if (pou !== undefined) {
         for (const routine of pou.routines) {
           reachedRoutines.add(`${file}:${routine.key}`)
