@@ -10,8 +10,8 @@ namespace Volt.Engine.Tests;
 /// <summary>
 /// Task 2.13 / review 7.17: shapes no test had pinned, each as a golden text AND model — the writer writes the model
 /// to the text, and the text reads back to the model and passes the gate (<see cref="NextModelOracle"/>). The rest of
-/// 7.17's list (DISABLED/LABEL headers, an edge on EN, <c>R_EDGE((a AND b))</c>, an edge on <c>.ENO</c>, NOT with an
-/// edge, the negated-only coil) is pinned in <see cref="NextNetworkTextWriterTests"/>.
+/// 7.17's list (an edge on EN, <c>R_EDGE((a AND b))</c>, an edge on <c>.ENO</c>, NOT with an edge, the negated-only
+/// coil) is pinned in <see cref="NextNetworkTextWriterTests"/>; the DISABLED/LABEL header combinations are here.
 /// </summary>
 public class NextUntestedShapesTests
 {
@@ -64,5 +64,17 @@ public class NextUntestedShapesTests
                 "g10 := True;",
                 "Mach1_AuxData.MemWrapperPresentForLeafCarrier R=",
                 "Mach1_AuxData.MemWrapperPassedUnderTheSensor R= fc_CamC_CP_UDT(MOVE(EN := g10, Mach1_Data.CamControls.TakeOverCycle_C.Stop, => Mach1_AuxData.CamControls.TakeOverCycleStopPulse_CP.Start).ENO, HMI_Var.Mach1.Position, Mach1.GenFlags.Rotflag, Mach1_AuxData.CamControls.TakeOverCycleStopPulse_CP);")),
+
+        // A DISABLED header with and without LABEL, with and without a wire block — the four combinations, none with
+        // a TITLE or comment to lean on. DISABLED without LABEL beside a wire block is the common real shape (262 in
+        // lenze); header.full in the writer goldens is the one with every field.
+        ["DISABLED, no LABEL, no wire block"] = (Body(new Network(0, null, null, null, true, new Node[] { Set(L("a"), T("out")) })),
+            FbdMarker + "NETWORK DISABLED\n  out := a;\nEND_NETWORK\n"),
+        ["DISABLED, no LABEL, a wire block"] = (Body(new Network(0, null, null, null, true, new Node[] { Def(1, L("TRUE")), Set(Ref(1), T("out")) })),
+            FbdMarker + "NETWORK DISABLED\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := TRUE;\n  out := g1;\nEND_NETWORK\n"),
+        ["DISABLED with a LABEL, no wire block"] = (Body(new Network(0, null, "Done", null, true, new Node[] { Set(L("a"), T("out")) })),
+            FbdMarker + "NETWORK LABEL: Done DISABLED\n  out := a;\nEND_NETWORK\n"),
+        ["DISABLED with a LABEL and a wire block"] = (Body(new Network(0, null, "Done", null, true, new Node[] { Def(1, L("TRUE")), Set(Ref(1), T("out")) })),
+            FbdMarker + "NETWORK LABEL: Done DISABLED\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := TRUE;\n  out := g1;\nEND_NETWORK\n"),
     };
 }

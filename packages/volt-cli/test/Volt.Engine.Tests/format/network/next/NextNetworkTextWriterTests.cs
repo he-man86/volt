@@ -656,9 +656,11 @@ public class NextNetworkTextWriterTests
     {
         Assert.Equal(Body("VAR_TEMP g0 : BOOL; END_VAR", "g0 := TRUE;", "out := g0;"),
             Write(Net(Def(3, L("TRUE")), Set(Ref(3), T("out"))), BodyLanguage.Fbd, "G3"));
-        // g0 is a variable the body reads, g1 is another wire's own id: g3 lands on g2.
+        // g0 is a variable the body reads, g1 is another wire's own id: g3 lands on g2. The body's G0 and G3 are
+        // variables, so the scope declares them — undeclared, a bare wire-shaped name is refused by the reader (spec,
+        // "an undeclared wire-shaped name") and the writer backticks it.
         Assert.Equal(Body("VAR_TEMP g1, g2 : BOOL; END_VAR", "g1 := TRUE;", "g2 := (g1 AND G0);", "G3 := g2;"),
-            Write(Net(Def(1, L("TRUE")), Def(3, Op("AND", Ref(1), L("G0"))), Set(Ref(3), T("G3")))));
+            Write(Net(Def(1, L("TRUE")), Def(3, Op("AND", Ref(1), L("G0"))), Set(Ref(3), T("G3"))), BodyLanguage.Fbd, "G0", "G3"));
     }
 
     /// <summary>Spec, "the vendor stores a reference before its definition"; census 1.8.</summary>
@@ -832,4 +834,59 @@ public class NextNetworkTextWriterTests
         Assert.Equal(Body("`Let` := a;"), Write(Set(L("a"), T("Let"))));
         Assert.Equal(Body("`let`;"), Write(L("let")));
     }
+
+    // ── review of section 2 ─────────────────────────────────────────────────────────────────────
+
+    /// <summary>Spec, "an undeclared wire-shaped name": the reader refuses a BARE <c>g&lt;digits&gt;</c> that neither
+    /// the network's block nor the scope declares, so the writer never leaves one bare — it backticks it, verbatim
+    /// text the reader takes as the variable of that name. A pull meets this wherever the scope lacks a name the body
+    /// uses (a method reading a GVL's <c>g5</c>, until task 3.9 builds the scope from every declaration): left bare,
+    /// the writer's text was refused by its own reader. Every position an operand or a target takes, matched
+    /// case-insensitively; declared, the name stays bare.</summary>
+    [Fact]
+    public void A_wire_shaped_name_the_scope_does_not_hold_is_backticked()
+    {
+        foreach (var (tree, line) in WireShapedNames)
+        {
+            var body = new NetworkBody(BodyLanguage.Fbd, new[] { Net(tree) });
+            var text = NextNetworkTextWriter.Write(body, NextNetworkScope.Empty);
+            Assert.Equal(Body(line), text);
+            var back = NextNetworkTextReader.Read(text, BodyLanguage.Fbd, NextNetworkScope.Empty);
+            Assert.True(back.Ok, line + ": " + string.Join("\n", back.Diagnostics.Select(d => d.Code + " " + d.Message)));
+            Assert.Null(NetworkModelEquality.FirstDifference(NextNetworkTextFacts.Carried(body), NextNetworkTextFacts.Carried(back.Body!)));
+            Assert.True(NextNetworkTextGate.Validate(text, BodyLanguage.Fbd, NextNetworkScope.Empty).Ok, line);
+        }
+        Assert.Equal(Body("out := g5;"), Write(Net(Set(L("g5"), T("out"))), BodyLanguage.Fbd, "g5"));
+    }
+
+    internal static readonly (Node Tree, string Line)[] WireShapedNames =
+    {
+        (Set(L("g5"), T("out")), "out := `g5`;"),
+        (Set(L("G12"), T("out")), "out := `G12`;"),
+        (Set(L("a"), T("g5")), "`g5` := a;"),
+        (Call("F", new[] { In(L("a")) }, new[] { Out("g5", 0) }, eno: false), "F(a, => `g5`);"),
+        (Call("MOVE", new[] { In(L("b")) }, en: L("g5")), "MOVE(EN := `g5`, b);"),
+    };
+
+    /// <summary>Spec, "a line ending in a lone CR": a lone CR ends a line wherever it stands — mid-text too, where
+    /// an editor breaks the line — and a comment or snippet line has no spelling for one. Written as it was, the text
+    /// after it would read back as more comment on push, and the engineer would see a statement Volt does not.</summary>
+    [Fact]
+    public void A_lone_CR_inside_a_comment_or_snippet_line_goes_to_the_marker()
+    {
+        Assert.Equal("a comment line ending in a carriage return",
+            Refused(() => Write(new Network(0, null, null, "step 1\rout := x;", false, new Node[] { Set(L("a"), T("o")) }))).Marker);
+        Assert.Equal("a comment line ending in a carriage return",
+            Refused(() => Write(new Network(0, null, null, "line1\r\r\nline2", false, new Node[] { Empty }))).Marker);
+        Assert.Equal("a snippet line ending in a carriage return", Refused(() => Write(Exec("x := 1;\ry := 2;"))).Marker);
+    }
+
+    /// <summary>A consumed box that is no bit operator is read back connected by its main output, slot 0 — so where
+    /// its main output was never read (null: the CODESYS reader does not fill it yet, tasks 3.10/4.1) the one fact
+    /// the slot rule compares against is missing, and it is refused under that name: census 1.6 measured None only
+    /// on the AND/OR boxes, so null here is "not read", never a main output of "none".</summary>
+    [Fact]
+    public void A_consumed_box_whose_main_output_was_not_read_goes_to_the_marker() =>
+        Assert.Equal("a consumed box whose main output was not read",
+            Refused(() => Write(Set(Call("MOVE", new[] { In(L("a")) }, main: null, connected: 0, eno: false), T("out")))).Marker);
 }

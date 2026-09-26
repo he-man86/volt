@@ -356,7 +356,9 @@ END_NETWORK</pre>
   <tr><td>a name that is not <code>g&lt;digits&gt;</code>; a type other than the producer's; a second block</td><td class="name">NETWORK_BAD_EXPRESSION</td></tr>
   <tr><td>declared or defined twice; a name matching any name in scope, case-insensitively (<code>g3</code> beside a variable <code>G3</code>)</td><td class="name">NETWORK_DUPLICATE_NAME</td></tr>
 </table>
-<p>An undeclared <code>g5 := x;</code>, where the POU declares <code>g5</code>, is a coil on that variable.</p>
+<p>An undeclared <code>g5 := x;</code>, where the POU declares <code>g5</code>, is a coil on that variable. Between
+  backticks a wire-shaped name is verbatim text, the variable of that name, whatever the scope holds: the writer spells
+  a pulled <code>g5</code> the scope does not hold as <code>`g5`</code>, never bare.</p>
 
 <h3 id="assign">Assignment — coils</h3>
 <pre>lamp := x;
@@ -547,7 +549,8 @@ x := 1;
   Execute box whose ENO continues the rung — the value form, which v1's IF-en form and en echo could express and v2
   must not lose. The ST lines are verbatim, a trailing newline included (it is the empty line it is); the
   indentation of the <code>END_EXECUTE</code> line and the CR of a CR LF are layout. A snippet holding a line whose
-  first word is <code>END_EXECUTE</code>, or a line ending in a lone CR, goes to the marker.
+  first word is <code>END_EXECUTE</code>, or a lone CR anywhere in a line (a lone CR ends a line wherever it stands),
+  goes to the marker; pushed, a lone CR in a comment or EXECUTE line is <code>NETWORK_PARSE</code>.
 </p>
 
 <h3 id="opaque">Backticked operands</h3>

@@ -61,6 +61,11 @@ carrying the vendor VarId. The writer SHALL emit items in vendor order and SHALL
 - **WHEN** a body references `g5`, which neither the network's `VAR_TEMP` nor any scope declares
 - **THEN** it is refused with `NETWORK_BAD_EXPRESSION`
 
+#### Scenario: a backticked wire-shaped name
+- **WHEN** a body holds `` out := `g5`; `` and neither the network's `VAR_TEMP` nor the scope declares `g5`
+- **THEN** it reads back as an Assign from the variable `g5` and is canonical; and a pulled operand or target named
+  `g5` that the scope does not hold is written backticked, never bare
+
 #### Scenario: a wire defined twice
 - **WHEN** a network declares `g1` and contains `g1 := a;` and `g1 := b;`
 - **THEN** it is refused with `NETWORK_DUPLICATE_NAME`
@@ -165,7 +170,9 @@ the header and the wire block (or first statement); per line the `//` and one fo
 the rest — leading indentation and a leading `//` included — text. An empty comment line SHALL be `//`; a blank line
 between comment lines SHALL be layout. A `//` line after a statement SHALL be refused with `NETWORK_PARSE`. The
 drivers SHALL compare a comment ignoring trailing whitespace. A CR LF line ending SHALL be layout, in a comment and an
-EXECUTE body alike; a line ending in a lone CR SHALL materialize the body as the unsupported marker. A TITLE SHALL be
+EXECUTE body alike; a line ending in a lone CR SHALL materialize the body as the unsupported marker. A lone CR ends
+a line wherever it stands, so a comment or EXECUTE line holding a CR anywhere but in its CR LF SHALL go to the marker
+on pull and SHALL be refused with `NETWORK_PARSE` on push, never read as text of that line. A TITLE SHALL be
 written with ST's string escapes (`$N`, `$R`, `$"`, `$$`), so a title holding a newline round-trips (census: 7 Lenze
 titles hold one).
 

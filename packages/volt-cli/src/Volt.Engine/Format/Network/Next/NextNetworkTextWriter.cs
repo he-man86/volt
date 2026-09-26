@@ -124,8 +124,10 @@ public static class NextNetworkTextWriter
                 // its comment"); every other character is text and is carried.
                 foreach (var line in comment.Replace("\r\n", "\n").Split('\n'))
                 {
-                    if (line.EndsWith("\r", StringComparison.Ordinal))
-                        // The reader drops a CR at a line's end as that layout, so this one would be lost.
+                    if (line.IndexOf('\r') >= 0)
+                        // A CR left after the CR LFs is a lone one, and a lone CR ends a line wherever it stands (an
+                        // editor breaks the line there): at a line's end the reader would drop it as layout, inside
+                        // one it would carry what follows as comment the engineer sees as a statement.
                         throw Unrepresentable("a comment line ending in a carriage return",
                             $"network {_net.Order}'s comment holds a line ending in a lone carriage return.");
                     // `//` and ONE space are syntax; everything after them is text, leading indentation and a
@@ -469,9 +471,15 @@ public static class NextNetworkTextWriter
                 // ENO. `.ENO` wins where the two coincide, so one model has one text; any other slot has none.
                 throw Unrepresentable("a connection by an unspellable output slot",
                     $"a consumer of the '{b.Type}' box is connected to its output slot {slot}, and the box's main output is its ENO.");
+            // The comparison below needs the main output. Census 1.6 measured None only on the AND/OR boxes, which
+            // returned above, so a null here is a fact nobody read — refused under that name, as an unread ENO is in
+            // BoxCore, never as a vendor shape with a main output of "none".
+            if (b.MainOutputIndex is null)
+                throw Unrepresentable("a consumed box whose main output was not read",
+                    $"the '{b.Type}' box is consumed and does not record which of its output slots is its main output, and its text depends on it.");
             if (slot != b.MainOutputIndex)
                 throw Unrepresentable("a connection by an unspellable output slot",
-                    $"a consumer of the '{b.Type}' box is connected to its output slot {slot}, which is neither its main output ({b.MainOutputIndex?.ToString() ?? "none"}) nor ENO.");
+                    $"a consumer of the '{b.Type}' box is connected to its output slot {slot}, which is neither its main output ({b.MainOutputIndex}) nor ENO.");
             if (slot != NextSpelling.MainSlotOfCall(b.Type))
                 // Census 1.6: 3 Lenze call boxes store main output 1. The text reads a main-output connection as
                 // slot 0, so every positional `=>` pin would come back one slot over.
@@ -589,8 +597,8 @@ public static class NextNetworkTextWriter
                 throw Unrepresentable("an Execute box with pins",
                     $"an Execute box in network {_net.Order} carries pins or an instance beside its ST.");
             // Verbatim, trailing newlines included (each is the empty line it is). Only the CR of a CR LF is the
-            // file's layout rather than the snippet's text; the reader drops a CR at any line's end, so a lone
-            // one there has no spelling.
+            // file's layout rather than the snippet's text; the reader drops that one CR and refuses any other, so a
+            // lone one has no spelling.
             var st = b.StCode!.Replace("\r\n", "\n");
             foreach (var line in st.Split('\n'))
             {
@@ -599,7 +607,8 @@ public static class NextNetworkTextWriter
                 if (Regex.IsMatch(line, @"^\s*END_EXECUTE\b", RegexOptions.IgnoreCase))
                     throw Unrepresentable("a snippet line starting with END_EXECUTE",
                         $"an Execute box in network {_net.Order} holds the line '{line.Trim()}'.");
-                if (line.EndsWith("\r", StringComparison.Ordinal))
+                // A lone CR ends a line wherever it stands, as in a comment; the reader refuses one inside a line.
+                if (line.IndexOf('\r') >= 0)
                     throw Unrepresentable("a snippet line ending in a carriage return",
                         $"an Execute box in network {_net.Order} holds a line ending in a lone carriage return.");
             }
@@ -687,12 +696,15 @@ public static class NextNetworkTextWriter
         // ── names and operands ──────────────────────────────────────────────────────────────────────
 
         /// <summary>An assignment or <c>=&gt;</c> target: bare when it is a target token, else verbatim between
-        /// backticks — the same rule as an operand, except that a literal is no target token.</summary>
-        private static string LValue(Operand o, string what)
+        /// backticks — the same rule as an operand, except that a literal is no target token. A wire-shaped name the
+        /// scope does not hold is backticked too: bare, the reader refuses it as an undeclared wire
+        /// (<see cref="NextSpelling.ReadsAsUndeclaredWire"/>).</summary>
+        private string LValue(Operand o, string what)
         {
             if (o.Text.IndexOf('`') >= 0)
                 throw Unrepresentable("operand text containing a backtick", $"{what} '{o.Text}' contains a backtick.");
-            return NextSpelling.IsBareTarget(o.Text) ? o.Text : "`" + o.Text + "`";
+            return NextSpelling.IsBareTarget(o.Text) && !NextSpelling.ReadsAsUndeclaredWire(o.Text, _scope)
+                ? o.Text : "`" + o.Text + "`";
         }
 
         private static string Formal(string f, Box b) =>
@@ -702,12 +714,13 @@ public static class NextNetworkTextWriter
                     $"the '{b.Type}' box has a pin named '{f}'.");
 
         /// <summary>An operand as a bare token when it is exactly one, else verbatim between backticks. A backtick
-        /// cannot occur in ST, so text holding one has no spelling.</summary>
-        private static string Operand(string text, string what)
+        /// cannot occur in ST, so text holding one has no spelling. A wire-shaped name the scope does not hold is
+        /// backticked as the target is (<see cref="LValue"/>).</summary>
+        private string Operand(string text, string what)
         {
             if (text.IndexOf('`') >= 0)
                 throw Unrepresentable("operand text containing a backtick", $"{what} '{text}' contains a backtick.");
-            return NextSpelling.IsToken(text) ? text : "`" + text + "`";
+            return NextSpelling.IsToken(text) && !NextSpelling.ReadsAsUndeclaredWire(text, _scope) ? text : "`" + text + "`";
         }
 
         /// <summary>A construct (<c>R_EDGE(x)</c>, <c>PARALLEL(…)</c>) the scope gives a POU or instance of the same

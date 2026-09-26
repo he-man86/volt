@@ -92,10 +92,11 @@ internal sealed class NextLexer
         {
             _i += 2;
             var end = LineEnd(_i);
-            var text = _s.Substring(_i, end - _i).TrimEnd('\r');
+            var text = WithoutLayoutCr(_s.Substring(_i, end - _i));
+            _i = end;
+            if (text.IndexOf('\r') >= 0) return LoneCr(start);
             // `//` and ONE space are syntax; the rest — indentation, a leading `//` — is the comment's text.
             if (text.StartsWith(" ", StringComparison.Ordinal)) text = text.Substring(1);
-            _i = end;
             return new Tok(TokKind.Comment, text, start, end - start, atLineStart);
         }
 
@@ -291,20 +292,25 @@ internal sealed class NextLexer
         }
         var bodyStart = Math.Min(eol + 1, _s.Length);
         var lines = new List<string>();
+        int? loneCr = null;
         var k = bodyStart;
         while (k < _s.Length)
         {
             var end = LineEnd(k);
-            var line = _s.Substring(k, end - k).TrimEnd('\r');
+            var line = WithoutLayoutCr(_s.Substring(k, end - k));
             var m = EndExecute.Match(line);
             if (m.Success)
             {
                 var wordAt = k + m.Groups[1].Index;
                 _i = wordAt + "END_EXECUTE".Length;
+                // Reported once the body's end is found, so the parser resumes after END_EXECUTE and not inside ST.
+                if (loneCr is { } cr) { var e = LoneCr(cr); return (e, e); }
                 var snippet = string.Join("\n", lines);
                 return (new Tok(TokKind.Snippet, snippet, bodyStart, wordAt - bodyStart, true),
                         new Tok(TokKind.Word, _s.Substring(wordAt, "END_EXECUTE".Length), wordAt, "END_EXECUTE".Length, true));
             }
+            var at = line.IndexOf('\r');
+            if (at >= 0 && loneCr is null) loneCr = k + at;
             lines.Add(line);
             k = end + 1;
         }
@@ -344,6 +350,19 @@ internal sealed class NextLexer
         }
         return new Tok(TokKind.String, sb.ToString(), start, _i - start, atLineStart);
     }
+
+    /// <summary>A line's text without the CR of a CR LF, which is the file's layout — ONE CR, so a CR before it is
+    /// still a lone one.</summary>
+    private static string WithoutLayoutCr(string line) =>
+        line.EndsWith("\r", StringComparison.Ordinal) ? line.Substring(0, line.Length - 1) : line;
+
+    /// <summary>Spec: a line ending in a lone CR goes to the marker on pull, so on push it has no reading. It ends a
+    /// line wherever it stands — an editor breaks the line there — and taking it as text would carry what follows
+    /// into the comment or the ST, where the engineer sees a line of its own.</summary>
+    private Tok LoneCr(int at) =>
+        new(TokKind.Error,
+            "a lone carriage return (CR without LF) in a comment or EXECUTE line: a line ends at LF, and a CR is layout only right before one.",
+            at, 1, AtLineStart(at), ConflictCodes.NetworkParse);
 
     private Tok Error(int start, string message, string code) =>
         new(TokKind.Error, message, start, Math.Max(1, _i - start), AtLineStart(start), code);

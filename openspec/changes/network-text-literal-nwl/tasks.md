@@ -209,6 +209,14 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       harvested), so `Every_reader_test_is_transcribed_or_says_why_not` holds them to the reader tests that exist —
       every reader test is transcribed under its name or excused with a reason. It found one the list had missed
       (`A_negation_or_edge_on_an_Assign_item_is_refused_by_name`, a reader refusal).
+      *Second review of section 2:* the oracle only ever wrote a body against `ScopeOf(m)`, a scope holding every
+      word of the body — so it passed a writer that left an undeclared `g5` bare for its own reader to refuse (a
+      pull whose scope lacks a GVL global, until 3.9). `NextModelOracle.Check` now also writes each body against
+      `CallablesOf(m)` (its POUs and instances, no variable) and requires the same outcome
+      (`The_oracle_writes_against_a_scope_without_the_bodys_variables`); it found two v1 test models the writer had
+      broken. The writer-golden copy got the transcription guard the doubles have: `WriterGoldens` is keyed by the
+      writer test that pins each model, and `Every_writer_test_is_a_golden_or_says_why_not` found 14 section-2
+      models missing from it (all round-trip).
 - [x] 2.3 v2 goldens for the SAME NWL shapes the split-only tests pin, red until the swap:
       `A_modifier_on_an_operand_does_not_force_a_hoisted_LET`, `An_operand_whose_own_text_is_unsafe_is_still_hoisted`,
       the en-chain InlineData (RoundTrip L56-67), `LET g28` single-consumer Demux (L139), the `i1 := DINT_TO_REAL`
@@ -247,7 +255,8 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       "consumed enabled box without `.ENO`" and "`.ENO` on a box without EN" go; `GT(ADD(EN := x, a, b), c)` is the
       case to re-decide (ADD shows ENO, so its consumer reads ENO and the text must say `.ENO`).
       *And the precedence (review):* where ENO is also the main output (outputs start `ENO`), the writer says `.ENO`;
-      a pushed suffix-less consumer of such a box is refused naming it (spec, "ENO is the main output") — one test.
+      the PUSH refusal of a suffix-less consumer of such a box (spec, "ENO is the main output") is 4.1's test (below):
+      this task's checkbox covers the writer and reader halves.
       *Done (section 2):* the model carries the fact, `Box.HasEnoOutput` (the vendor's outputs start `ENO`; null =
       not read), and `NextSpelling.EnoSlot` keys on it — never on `Enable`. The text states ENO only by `.ENO` and
       reads every other box by ONE rule both sides use (`NextSpelling.TextHasEno`: Execute or `.ENO` → has one; a
@@ -272,10 +281,14 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       (`An_operator_box_consumed_by_its_ENO_is_a_call_with_the_suffix_not_a_group`; spec "infix" and "an operator
       box consumed by its ENO"); an unread `HasEnoOutput` is refused by that name before the slot rule reads it;
       the top-level `.ENO` refusal is specified (spec ".ENO on a box nothing consumes", page NETWORK_BAD_EXPRESSION).
+      *Second review of section 2:* an unread `MainOutputIndex` on a consumed box that is no bit operator is refused
+      by that name too (`A_consumed_box_whose_main_output_was_not_read_goes_to_the_marker`) — it was refused as "a
+      connection by an unspellable output slot" with a main output of "none", a vendor shape census 1.6 measured
+      only on AND/OR.
 - [x] 2.6 Wire misuse, one test each: undefined, defined with `S=`/`R=`, chained, referenced before definition, not
       `g<digits>`, a second `VAR_TEMP` block, an undeclared `g<digits>` in no scope, a declared type unlike the
       producer's (`NETWORK_BAD_EXPRESSION`); declared or defined twice, a name equal to a declared variable differing
-      only in case, to a global, to an FB member seen from a method (`NETWORK_DUPLICATE_NAME`, review 7.2); the
+      only in case (`NETWORK_DUPLICATE_NAME`, review 7.2; the global and FB-member cases are 3.9's); the
       block across lines accepted; the writer's collision rename to the lowest free `g<n>` read back by the reader
       with the same reserved set; the writer never reorders, and a vendor reference stored before its definition
       goes to the marker (review 7.7); a data-valued producer goes to the marker (1.17).
@@ -285,6 +298,12 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       could not fail for a global's reason (`NextNetworkScope` has no notion of one). That duplicate was deleted; the
       rename-and-accept half is `A_renamed_wire_reads_back_under_its_new_VarId`. What is open is building the scope
       from the declarations, and 3.9 now names the tests.
+      *Second review of section 2:* the reader refuses a bare undeclared `g<digits>`, and the writer had no matching
+      rule — a pulled operand or target named `g5` that the scope lacks was written bare and refused by its own
+      reader, and the gate crashed re-spelling a backticked `` `g5` `` bare. One rule now, in `NextSpelling`
+      (`ReadsAsUndeclaredWire`): the writer backticks such a name, and between backticks it is the variable of that
+      name (`A_wire_shaped_name_the_scope_does_not_hold_is_backticked`,
+      `A_backticked_wire_shaped_name_in_no_scope_is_the_variable_and_canonical`; spec, "a backticked wire-shaped name").
 - [x] 2.7 `NetworkKeywordBoundaryTests`: a statement on the line after `NETWORK` that starts `DISABLED :=`,
       `TITLE :=` or `LABEL :=` is a statement, not a header field (the header ends at its newline); a `//` comment
       ends at its newline; header fields out of order are `NETWORK_NOT_CANONICAL`.
@@ -338,6 +357,9 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       *Done (section 2):* `NextUntestedShapesTests`, text + model each: an LD rising contact (and a negated falling
       one, `F_EDGE(NOT a)`), edges and a negation on a Parallel's feed and branches (the Parallel holds none, N20),
       and ENO into a data pin in Lenze AHWF's `fc_CamC_CP_UDT` shape (a MOVE's `.ENO` into `iEN : BOOL`).
+      *Second review of section 2:* the DISABLED headers were pinned only as `header.full` (LABEL, TITLE, comment and
+      block together) and as gate acceptances; the four combinations — with and without LABEL, with and without a
+      wire block, nothing else in the header — are now golden text + model in `NextUntestedShapesTests`.
 - [x] 2.14 Comments and labels: a multi-line comment with an empty line (`//`), an indented line and a line starting
       `//` round-trips byte-identically; a blank line between `//` lines is layout; a `//` after a statement →
       `NETWORK_PARSE`; a comment on a network with LABEL, TITLE, DISABLED and a wire block writes header, comment,
@@ -347,6 +369,12 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       *Progress (phase 1):* comment shape, `//` after a statement, header/comment/block/statement order, a DISABLED labelled jump target and a jump to a missing label are pinned on v2.
       *Done (review of section 1):* the two 1.15 shapes no task carried — `A_jump_inside_a_disabled_network_round_trips`,
       `A_label_on_two_networks_is_accepted_and_kept_verbatim`.
+      *Second review of section 2:* the lone-CR rule (spec, "a line ending in a lone CR") covered only a CR at a
+      line's END. A lone CR ends a line wherever it stands — an editor breaks the line there — and inside a `//` line
+      the lexer read everything after it as comment, so a statement the engineer saw vanished from the push. Now a
+      comment or EXECUTE line holding any CR but the one of its CR LF goes to the marker on pull and is
+      `NETWORK_PARSE` on push (`A_lone_CR_inside_a_comment_or_snippet_line_goes_to_the_marker`,
+      `A_lone_CR_inside_a_comment_or_snippet_line_is_refused`).
 
 ## 3. The swap (one change, no dual reader)
 

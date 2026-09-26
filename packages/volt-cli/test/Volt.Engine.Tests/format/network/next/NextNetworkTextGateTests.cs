@@ -71,6 +71,19 @@ public class NextNetworkTextGateTests
         Refused("NETWORK_PARSE", 3, Src("out := a; // trailing"));
     }
 
+    /// <summary>Spec, "a line ending in a lone CR": a lone CR ends a line wherever it stands, and an editor shows it
+    /// as one — so the statement after one in a comment line was read as more comment and dropped from the push while
+    /// the engineer saw it. Refused, in a comment and an EXECUTE body alike; the CR of a CR LF stays layout.</summary>
+    [Fact]
+    public void A_lone_CR_inside_a_comment_or_snippet_line_is_refused()
+    {
+        Refused("NETWORK_PARSE", 3, FbdMarker + "NETWORK\n  // hi\r  out := a;\nEND_NETWORK\n");
+        Refused("NETWORK_PARSE", 4, FbdMarker + "NETWORK\n  // one\n  // two\r  o := b;\n  p := c;\nEND_NETWORK\n");
+        Refused("NETWORK_PARSE", 3, FbdMarker + "NETWORK\n  // hi\r\r\n  out := a;\nEND_NETWORK\n");
+        Refused("NETWORK_PARSE", 4, FbdMarker + "NETWORK\n  EXECUTE\nx := 1;\ry := 2;\n  END_EXECUTE;\nEND_NETWORK\n");
+        Accepted(FbdMarker.Replace("\n", "\r\n") + "NETWORK\r\n  // hi\r\n  EXECUTE\r\nx := 1;\r\n  END_EXECUTE;\r\nEND_NETWORK\r\n");
+    }
+
     /// <summary>Spec, "a v1 body is refused, not translated".</summary>
     [Fact]
     public void V1_text_is_refused_naming_a_re_pull()
@@ -181,6 +194,19 @@ public class NextNetworkTextGateTests
     [Fact]
     public void An_undeclared_wire_shaped_name_in_no_scope() =>
         Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := g5;"));
+
+    /// <summary>Review of section 2: backticked, a wire-shaped name is verbatim text — the variable of that name,
+    /// which the scope may not hold — and that IS its canonical form. The gate re-spelled it bare, its own reader
+    /// refused that, and the push crashed on text the reader had accepted. Declared, the bare name is canonical.</summary>
+    [Fact]
+    public void A_backticked_wire_shaped_name_in_no_scope_is_the_variable_and_canonical()
+    {
+        Accepted(Src("out := `g5`;"));
+        Accepted(Src("`g5` := a;"));
+        Accepted(Src("out := `G12`;"), Names("out", "a"));
+        Accepted(Src("`g5` := a;"), Names("out", "a"));
+        Refused("NETWORK_NOT_CANONICAL", 3, Src("out := `g5`;"), Names("g5"));
+    }
 
     /// <summary>Spec, "a second block".</summary>
     [Fact]

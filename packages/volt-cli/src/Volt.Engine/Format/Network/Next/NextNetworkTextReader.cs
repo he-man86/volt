@@ -993,10 +993,12 @@ public static class NextNetworkTextReader
         }
 
         /// <summary>A name shaped like a wire that neither this network nor the scope declares is a wire someone
-        /// forgot to declare — read as a variable it would compile against nothing.</summary>
+        /// forgot to declare — read as a variable it would compile against nothing. Only a BARE word: between
+        /// backticks the name is verbatim text, the variable of that name, which is how the writer spells one the
+        /// scope does not hold (<see cref="NextSpelling.ReadsAsUndeclaredWire"/>).</summary>
         private void RefuseUndeclaredWire(Tok t)
         {
-            if (NextSpelling.WireName.IsMatch(t.Text) && !_wires.ContainsKey(t.Text) && !_scope.Contains(t.Text))
+            if (!_wires.ContainsKey(t.Text) && NextSpelling.ReadsAsUndeclaredWire(t.Text, _scope))
                 throw Err(t, ConflictCodes.NetworkBadExpression,
                     $"'{t.Text}' is shaped like a wire and is declared neither in this network's VAR_TEMP block nor in scope.");
         }

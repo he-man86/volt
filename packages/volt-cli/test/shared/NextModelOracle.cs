@@ -31,7 +31,20 @@ internal static class NextModelOracle
 
     public static Outcome Check(string source, NetworkBody m)
     {
-        var scope = ScopeOf(m);
+        var outcome = CheckIn(source, m, ScopeOf(m));
+        // The pull does not always know every name the body uses: until task 3.9 builds the scope from every
+        // declaration, a method reading a GVL's variable or its FB's member meets a scope without it. Read against
+        // ScopeOf alone, the oracle only ever faced a scope holding every word of the body — and passed a writer that
+        // left an undeclared `g5` bare for its own reader to refuse. So the same body is checked against the scope of
+        // its CALLABLES only, no variable declared, and must come to the same end.
+        var undeclared = CheckIn(source + " (no variable in scope)", m, CallablesOf(m));
+        Assert.True(undeclared.Reason == outcome.Reason,
+            $"{source}: with its variables in scope the body is {outcome.Reason ?? "round-tripped"}, without them {undeclared.Reason ?? "round-tripped"} — a variable's declaration decides no spelling but a wire's name.");
+        return outcome;
+    }
+
+    static Outcome CheckIn(string source, NetworkBody m, NextNetworkScope scope)
+    {
         string text;
         try
         {
@@ -67,7 +80,7 @@ internal static class NextModelOracle
 
     /// <summary>
     /// The one VarId change the spec makes on purpose: a wire whose <c>g&lt;VarId&gt;</c> collides with a name in
-    /// scope is written as the lowest free <c>g&lt;n&gt;</c>, and reads back — and is pushed — as VarId n (spec,
+    /// scope or a word the body spells (the writer reserves both) is written as the lowest free <c>g&lt;n&gt;</c>, and reads back — and is pushed — as VarId n (spec,
     /// "the writer avoids a collision"). So the read-back ids are mapped back onto the model's, per network, in
     /// the order the wires occur — and ONLY where that rename was forced: an id that changed although its
     /// <c>g&lt;VarId&gt;</c> was free, or a mapping that is not one-to-one, fails here rather than being mapped away.
@@ -75,6 +88,7 @@ internal static class NextModelOracle
     static NetworkBody RestoreRenamedWires(string source, NetworkBody m, NetworkBody back, NextNetworkScope scope)
     {
         if (m.Networks.Count != back.Networks.Count) return back;
+        var spelled = ScopeOf(m);   // every word the body spells: the writer's reserved set beside the scope
         var nets = new List<Network>();
         for (var i = 0; i < back.Networks.Count; i++)
         {
@@ -91,8 +105,8 @@ internal static class NextModelOracle
                     return back;   // not one-to-one: the structures differ, and the comparison names where
                 map[got[k]] = want[k];
                 inverse[want[k]] = got[k];
-                Assert.True(got[k] == want[k] || scope.Contains("g" + want[k]),
-                    $"{source}: network {i}'s wire VarId {want[k]} came back as {got[k]}, and g{want[k]} names nothing in scope — only a colliding wire is renamed.");
+                Assert.True(got[k] == want[k] || scope.Contains("g" + want[k]) || spelled.Contains("g" + want[k]),
+                    $"{source}: network {i}'s wire VarId {want[k]} came back as {got[k]}, and g{want[k]} names nothing in scope or in the body — only a colliding wire is renamed.");
             }
             var net = back.Networks[i];
             nets.Add(net with { Trees = net.Trees.Select(t => Renumber(t, map)).ToList() });
@@ -157,6 +171,29 @@ internal static class NextModelOracle
         }
         foreach (var net in body.Networks) foreach (var t in net.Trees) Walk(t);
         return new NextNetworkScope(names, pous, Instances(body));
+    }
+
+    /// <summary>What the scope holds of a model when no VARIABLE is declared: its POUs (box types) and its FB
+    /// instances with their types — the facts the text needs to read a call back — and nothing else.</summary>
+    public static NextNetworkScope CallablesOf(NetworkBody body)
+    {
+        var pous = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void Walk(Node? n)
+        {
+            switch (n)
+            {
+                case Box b:
+                    pous.Add(b.Type);
+                    Walk(b.Enable);
+                    foreach (var p in b.Inputs) Walk(p.Value);
+                    break;
+                case Assign a: Walk(a.Value); break;
+                case Demux d: Walk(d.Input); break;
+                case Parallel p: Walk(p.Input); foreach (var br in p.Branches) Walk(br); break;
+            }
+        }
+        foreach (var net in body.Networks) foreach (var t in net.Trees) Walk(t);
+        return new NextNetworkScope(Array.Empty<string>(), pous, Instances(body));
     }
 
     /// <summary>A model's FB instances with their types — what the POU's declarations would say of each, and

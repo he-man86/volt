@@ -75,6 +75,44 @@ public class NextNetworkTextReaderTests
         Assert.True(gate.Ok, string.Join("\n", gate.Diagnostics.Select(x => x.Code + " " + x.Message)));
     }
 
+    /// <summary>THE GOLDEN COPY IS COMPLETE. <see cref="WriterGoldens"/> copies the writer tests' models by hand (a
+    /// model built inside a test method cannot be harvested), so a writer test added without its model never reached
+    /// the oracle above — section 2 added nine that way. Every writer test is a golden under its own name or listed in
+    /// <see cref="NotGolden"/> with the reason; no key names a test that is gone.</summary>
+    [Fact]
+    public void Every_writer_test_is_a_golden_or_says_why_not()
+    {
+        static HashSet<string> TestsOf(Type t) => t.GetMethods()
+            .Where(m => m.GetCustomAttributes(typeof(FactAttribute), inherit: true).Length > 0)   // Theory is a Fact
+            .Select(m => m.Name).ToHashSet(StringComparer.Ordinal);
+        const string agreement = nameof(NextWriterReaderAgreementTests) + ".";
+        var writer = TestsOf(typeof(NextNetworkTextWriterTests));
+        var agreed = TestsOf(typeof(NextWriterReaderAgreementTests));
+        var named = WriterGoldens.Keys.Select(k => k.Split('/')[0]).ToHashSet(StringComparer.Ordinal);
+
+        var missing = writer.Where(t => !named.Contains(t) && !NotGolden.ContainsKey(t)).OrderBy(t => t, StringComparer.Ordinal).ToList();
+        var gone = named.Where(k => k.StartsWith(agreement, StringComparison.Ordinal)
+                ? !agreed.Contains(k.Substring(agreement.Length))
+                : !writer.Contains(k))
+            .Concat(NotGolden.Keys.Where(t => !writer.Contains(t))).OrderBy(t => t, StringComparer.Ordinal).ToList();
+        var both = named.Where(NotGolden.ContainsKey).ToList();
+        Assert.True(missing.Count == 0 && gone.Count == 0 && both.Count == 0,
+            "writer tests with no golden model and no reason: " + string.Join(", ", missing) +
+            "\nnamed here but no longer a test: " + string.Join(", ", gone) +
+            "\nboth a golden and excused: " + string.Join(", ", both));
+    }
+
+    /// <summary>Review of section 2: the oracle also writes a body against the scope of its callables only — no
+    /// variable declared, as a pull meets it until task 3.9 — so a writer that leaves an undeclared
+    /// <c>g&lt;digits&gt;</c> bare for its own reader to refuse fails here, not only in the one writer test.</summary>
+    [Fact]
+    public void The_oracle_writes_against_a_scope_without_the_bodys_variables()
+    {
+        Assert.DoesNotContain("g5", NextModelOracle.CallablesOf(Body(Set(L("g5"), T("out")))).Names);
+        foreach (var (tree, line) in NextNetworkTextWriterTests.WireShapedNames)
+            Assert.Null(NextModelOracle.Check(line, Body(tree)).Reason);
+    }
+
     /// <summary>Spec, "pull-side loss is caught": the oracle fails on a dropped fact even where the text is a
     /// fixed point. A model whose flag the writer would not carry must not compare equal to one without it.</summary>
     [Fact]
