@@ -3,3 +3,4 @@ NAMESPACE CmpOPCUAStack_Interfaces
 RESOLUTION CmpOPCUAStack Interfaces, * (System)
 PLACEHOLDER false
 SYSTEM false
+MATERIALIZATION 2

@@ -4,3 +4,4 @@ RESOLUTION CAA Async Manager Extern, 3.5.21.0 (CAA Technical Workgroup)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES CAA Types, CAA ResMan
+MATERIALIZATION 2

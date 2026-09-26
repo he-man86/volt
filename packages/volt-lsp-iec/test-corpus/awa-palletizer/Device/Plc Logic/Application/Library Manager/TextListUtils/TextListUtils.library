@@ -4,3 +4,4 @@ RESOLUTION TextListUtils, 4.6.0.0 (System)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES CmpDynamicText, StringUtils, ElementCollections, CAA FB Factory, CAA Types, CmpErrors2 Interfaces, * (System)
+MATERIALIZATION 2

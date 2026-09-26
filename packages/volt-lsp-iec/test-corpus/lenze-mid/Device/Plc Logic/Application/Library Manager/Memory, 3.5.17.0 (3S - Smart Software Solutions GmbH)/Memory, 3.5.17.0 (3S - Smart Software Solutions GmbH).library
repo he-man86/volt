@@ -4,3 +4,4 @@ RESOLUTION Memory, 3.5.17.0 (3S - Smart Software Solutions GmbH)
 PLACEHOLDER false
 SYSTEM false
 DEPENDENCIES CAA Memory, CAA Types
+MATERIALIZATION 2

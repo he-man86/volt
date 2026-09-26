@@ -3,3 +3,4 @@ NAMESPACE SysTypes
 RESOLUTION SysTypes Interfaces, * (System)
 PLACEHOLDER false
 SYSTEM false
+MATERIALIZATION 2

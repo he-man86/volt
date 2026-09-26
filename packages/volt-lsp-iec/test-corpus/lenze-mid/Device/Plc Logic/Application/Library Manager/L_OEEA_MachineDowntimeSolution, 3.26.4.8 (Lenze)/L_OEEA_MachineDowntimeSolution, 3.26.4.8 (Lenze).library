@@ -3,3 +3,4 @@ NAMESPACE L_OEEA_Downtime
 RESOLUTION L_OEEA_MachineDowntimeSolution, 3.26.4.8 (Lenze)
 PLACEHOLDER false
 SYSTEM false
+MATERIALIZATION 2

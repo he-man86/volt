@@ -4,3 +4,4 @@ RESOLUTION CmpSrv, 3.5.17.0 (System)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES SysTypes2 Interfaces, * (System)
+MATERIALIZATION 2

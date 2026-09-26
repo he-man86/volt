@@ -3,3 +3,4 @@ NAMESPACE VisuElemBase
 RESOLUTION VisuElemBase, * (System)
 PLACEHOLDER true
 SYSTEM true
+MATERIALIZATION 2

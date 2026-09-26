@@ -3,3 +3,4 @@ NAMESPACE SysSem_Interfaces
 RESOLUTION SysSem Interfaces, * (System)
 PLACEHOLDER false
 SYSTEM false
+MATERIALIZATION 2

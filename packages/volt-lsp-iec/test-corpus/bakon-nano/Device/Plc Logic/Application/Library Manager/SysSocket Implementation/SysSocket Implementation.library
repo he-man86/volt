@@ -4,3 +4,4 @@ RESOLUTION SysSocket Implementation, 3.5.19.0 (System)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES SysSocket Interfaces, * (System), SysTypes2 Interfaces, * (System)
+MATERIALIZATION 2

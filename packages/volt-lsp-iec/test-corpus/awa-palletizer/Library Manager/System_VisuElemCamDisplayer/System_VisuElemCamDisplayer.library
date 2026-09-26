@@ -3,3 +3,4 @@ NAMESPACE VisuElemCamDisplayer
 RESOLUTION VisuElemCamDisplayer, 4.7.0.0 (System)
 PLACEHOLDER true
 SYSTEM true
+MATERIALIZATION 2

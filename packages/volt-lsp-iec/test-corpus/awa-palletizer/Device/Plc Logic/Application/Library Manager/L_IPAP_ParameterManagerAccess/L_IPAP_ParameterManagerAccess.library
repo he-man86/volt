@@ -4,3 +4,4 @@ RESOLUTION L_IPAP_ParameterManagerAccess, 3.32.0.7 (Lenze)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES SysTypes2 Interfaces, * (System), Standard, System_VisuElems, System_VisuElemMeter, System_VisuElemsSpecialControls, System_VisuElemsWinControls, System_VisuElemTextEditor, System_VisuElemTrace, System_VisuNativeControl, System_VisuElemsAlarm, System_VisuElemCamDisplayer, System_VisuElem3DPath, System_VisuElemsDateTime, system_visuinputs, VisuDialogs, SysMem, SysTime
+MATERIALIZATION 2

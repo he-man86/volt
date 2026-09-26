@@ -4,3 +4,4 @@ RESOLUTION L_RPMA_RecipeManager, 3.26.2.0 (Lenze)
 PLACEHOLDER false
 SYSTEM false
 DEPENDENCIES RecipeManagement, Standard, StringUtils
+MATERIALIZATION 2

@@ -4,3 +4,4 @@ RESOLUTION NetVarUdp, 3.5.20.0 (System)
 PLACEHOLDER true
 SYSTEM true
 DEPENDENCIES SysMem, SysSocket, CmpEventMgr, CmpErrors2 Interfaces, * (System), Standard, SysTypes2 Interfaces, * (System), CmpApp, CmpIecTask
+MATERIALIZATION 2

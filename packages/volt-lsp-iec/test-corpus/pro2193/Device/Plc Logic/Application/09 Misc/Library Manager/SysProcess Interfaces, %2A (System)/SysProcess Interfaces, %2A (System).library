@@ -3,3 +3,4 @@ NAMESPACE SysProcess_Interfaces
 RESOLUTION SysProcess Interfaces, * (System)
 PLACEHOLDER false
 SYSTEM false
+MATERIALIZATION 2

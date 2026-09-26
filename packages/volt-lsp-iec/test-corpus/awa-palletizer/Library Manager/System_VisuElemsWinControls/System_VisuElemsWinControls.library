@@ -3,3 +3,4 @@ NAMESPACE VisuElemsWinControls
 RESOLUTION VisuElemsWinControls, 4.8.1.0 (System)
 PLACEHOLDER true
 SYSTEM true
+MATERIALIZATION 2

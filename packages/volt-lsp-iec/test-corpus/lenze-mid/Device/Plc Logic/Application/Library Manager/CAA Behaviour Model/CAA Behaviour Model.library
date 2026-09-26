@@ -4,3 +4,4 @@ RESOLUTION CAA Behaviour Model, 3.5.19.0 (CAA Technical Workgroup)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES CAA Types, CAA TickUtil, CAA Tick
+MATERIALIZATION 2

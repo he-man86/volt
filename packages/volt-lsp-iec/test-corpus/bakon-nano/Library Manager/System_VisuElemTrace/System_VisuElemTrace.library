@@ -3,3 +3,4 @@ NAMESPACE VisuElemTrace
 RESOLUTION VisuElemTrace, 4.8.0.0 (System)
 PLACEHOLDER true
 SYSTEM true
+MATERIALIZATION 2

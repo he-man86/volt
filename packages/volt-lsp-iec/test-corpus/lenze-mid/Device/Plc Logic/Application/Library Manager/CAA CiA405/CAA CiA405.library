@@ -4,3 +4,4 @@ RESOLUTION CAA CiA 405, 3.5.17.0 (CAA Technical Workgroup)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES CAA Types, CAA Tick, CAA TickUtil, CAA CANopen Manager, CAA CANopen Stack, CmpLog, Standard
+MATERIALIZATION 2

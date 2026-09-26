@@ -3,3 +3,4 @@ NAMESPACE SysSocket_Interfaces
 RESOLUTION SysSocket Interfaces, * (System)
 PLACEHOLDER false
 SYSTEM false
+MATERIALIZATION 2

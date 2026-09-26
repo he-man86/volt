@@ -3,3 +3,4 @@ NAMESPACE CmpOPCUAProviderAlarmConfiguration_Interfaces
 RESOLUTION CmpOPCUAProviderAlarmConfiguration Interfaces, * (System)
 PLACEHOLDER false
 SYSTEM false
+MATERIALIZATION 2

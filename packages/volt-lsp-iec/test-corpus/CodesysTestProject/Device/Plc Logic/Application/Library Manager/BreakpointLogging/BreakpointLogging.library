@@ -4,3 +4,4 @@ RESOLUTION Breakpoint Logging Functions, 3.5.17.0 (3S - Smart Software Solutions
 PLACEHOLDER true
 SYSTEM true
 DEPENDENCIES CmpLog, SysTypes2 Interfaces, * (System)
+MATERIALIZATION 2

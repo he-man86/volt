@@ -4,3 +4,4 @@ RESOLUTION CmpApp, 3.5.21.0 (System)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES SysTypes2 Interfaces, * (System), CmpEventMgr
+MATERIALIZATION 2

@@ -3,3 +3,4 @@ NAMESPACE IIoDrv
 RESOLUTION IoDriver Interfaces, * (System)
 PLACEHOLDER false
 SYSTEM false
+MATERIALIZATION 2

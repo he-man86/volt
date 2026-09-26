@@ -4,3 +4,4 @@ RESOLUTION TCP, 3.5.19.0 (3S - Smart Software Solutions GmbH)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES SysSocket, CmpLog, Standard, CmpErrors2 Interfaces, * (System), SysTypes2 Interfaces, * (System)
+MATERIALIZATION 2

@@ -3,3 +3,4 @@ NAMESPACE SysCpuMultiCore
 RESOLUTION SysCpuMultiCore, * (System)
 PLACEHOLDER true
 SYSTEM false
+MATERIALIZATION 2

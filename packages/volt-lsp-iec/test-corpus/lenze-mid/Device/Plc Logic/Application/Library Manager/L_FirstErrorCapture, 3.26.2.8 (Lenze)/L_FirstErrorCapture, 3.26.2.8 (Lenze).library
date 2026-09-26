@@ -4,3 +4,4 @@ RESOLUTION L_FirstErrorCapture, 3.26.2.8 (Lenze)
 PLACEHOLDER false
 SYSTEM false
 DEPENDENCIES Standard, L_IE1P_ApplicationErrors, L_IMHP_ModuleHandler, CAA File, CAA Memory
+MATERIALIZATION 2

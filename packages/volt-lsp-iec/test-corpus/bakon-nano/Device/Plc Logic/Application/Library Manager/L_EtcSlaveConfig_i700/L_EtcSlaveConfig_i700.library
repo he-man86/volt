@@ -4,3 +4,4 @@ RESOLUTION L_EtcSlaveConfig_i700, 3.32.0.16 (Lenze)
 PLACEHOLDER true
 SYSTEM true
 DEPENDENCIES CAA File, IoStandard, CAA Tick, CAA Types, Standard, CmpLog, SysTypes2 Interfaces, * (System), StringUtils, L_SEMP_ErrorManagement, IODrvEtherCAT, L_SUDP_SlaveUpDownloadManager, L_IMHP_ModuleHandler, L_EtcSlaveConfig, SysTarget
+MATERIALIZATION 2

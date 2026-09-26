@@ -4,3 +4,4 @@ RESOLUTION L_IE1P_ApplicationErrorsTypes, 3.32.0.11 (Lenze)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES SysTime, SysTypes2 Interfaces, * (System)
+MATERIALIZATION 2

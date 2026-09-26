@@ -3,3 +3,4 @@ NAMESPACE VisuUserManagement_Interfaces
 RESOLUTION VisuUserMgmt3 Interfaces, * (System)
 PLACEHOLDER false
 SYSTEM false
+MATERIALIZATION 2

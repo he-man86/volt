@@ -4,3 +4,4 @@ RESOLUTION L_PLCLoggingAccess, 3.32.0.2 (Lenze)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES CmpLog, SysTypes2 Interfaces, * (System)
+MATERIALIZATION 2

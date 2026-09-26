@@ -3,3 +3,4 @@ NAMESPACE VisuElemTextEditor
 RESOLUTION VisuElemTextEditor, 4.8.0.0 (System)
 PLACEHOLDER true
 SYSTEM true
+MATERIALIZATION 2

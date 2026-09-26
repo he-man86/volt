@@ -3,3 +3,4 @@ NAMESPACE visuinputs
 RESOLUTION visuinputs, 4.1.0.0 (system)
 PLACEHOLDER true
 SYSTEM true
+MATERIALIZATION 2

@@ -4,3 +4,4 @@ RESOLUTION L_SSYP_CmpLenzeIPCSystem, 3.32.0.4 (Lenze)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES SysTypes2 Interfaces, * (System)
+MATERIALIZATION 2
