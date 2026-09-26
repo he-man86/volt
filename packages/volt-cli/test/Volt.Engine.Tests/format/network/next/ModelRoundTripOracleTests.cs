@@ -101,9 +101,11 @@ public class ModelRoundTripOracleTests
                 // call has no ConnectedSlot: the text would read one (slot 0), and null is no default.
                 // v1 text spells an enabled box's rung continuing as the `en` echo too, and v1 read neither the slot
                 // nor whether the box HAS an ENO output (task 2.5: keyed on the output, not on EN — census 1.6), so
-                // neither the suffix nor a positional pin's slot can be spelled.
-                ["a consumed box with no stored connection slot"] = 12,
-                ["a box whose ENO output was not read"] = 2,
+                // neither the suffix nor a positional pin's slot can be spelled. A box missing BOTH facts is named by
+                // the ENO one: the writer refuses an unread HasEnoOutput before the slot rule reads it (review of
+                // section 2, finding 5) — 9 bodies moved here from the slot reason, the same bodies.
+                ["a consumed box with no stored connection slot"] = 3,
+                ["a box whose ENO output was not read"] = 11,
             });
 
     // ── v1 test models ──────────────────────────────────────────────────────────────────────────────
@@ -167,7 +169,10 @@ public class ModelRoundTripOracleTests
             Corpus.Value.Read.Select(kv => NextModelOracle.Check(kv.Key, kv.Value)),
             bodies: 13, networks: 34, refused: new Dictionary<string, int>
             {
-                ["a consumed box with no stored connection slot"] = 28,          // no ConnectedSlot in v1 (task 3.10)
+                ["a consumed box with no stored connection slot"] = 13,          // no ConnectedSlot in v1 (task 3.10)
+                // A consumed box missing BOTH facts in v1 (EN or a positional pin) is named by the ENO one, refused first (review
+                // of section 2, finding 5): 15 of the former 28 slot refusals, the same bodies.
+                ["a box whose ENO output was not read"] = 15,
                 ["an FB instance the declarations do not name"] = 1,             // census 1.12: SUPER^, ATD_TorqueControl
             });
     }
@@ -199,7 +204,10 @@ public class ModelRoundTripOracleTests
             {
                 // v1 never read a consumer's connection slot (task 3.10 fills it): a consumed call's positional
                 // outputs would be placed by a slot the model does not have.
-                ["a consumed box with no stored connection slot"] = 165,
+                ["a consumed box with no stored connection slot"] = 108,
+                // …and one with EN or a positional pin misses whether it has an ENO too, refused first (review of section
+                // 2, finding 5): 57 of the former 165, the same networks.
+                ["a box whose ENO output was not read"] = 57,
                 // A wire fed by a data producer (census 1.17: FB/function outputs, 11 in Lenze) or by a ladder leaf
                 // not every use of which is boolean: its type is never guessed, and v1 carried no output types.
                 ["a wire of unknown type"] = 6,

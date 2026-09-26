@@ -43,16 +43,8 @@ public class NextLadderOracleTests
         Call(type, inputs, main: 0, connected: 0, eno: false, types: types,
             instance: new Operand(instance, IsInstance: true), kind: CallKind.FunctionBlock);
 
-    /// <summary>A box showing EN/ENO (<c>Names=['ENO', '']</c>, <c>MainOutputIndex=0</c>): consumed, it is read
-    /// through its ENO; top level (<paramref name="consumed"/> false), it is connected by nothing.</summary>
-    static Box Enabled(string type, Node en, IEnumerable<Input> inputs, IEnumerable<Output> outputs, bool consumed, params string?[] types) =>
-        Call(type, inputs, outputs, en: en, main: 0, connected: consumed ? 0 : null, eno: true, types: types,
-            kind: NextSpelling.KindOf(type, hasInstance: false));
-
     static NetworkBody Ld(string? title, params Node[] trees) =>
         new(BodyLanguage.Ld, new[] { new Network(0, title, null, null, false, trees) });
-
-    const string Marker = "(* @volt-implementation LD *)\n";
 
     public static TheoryData<string> Rungs()
     {
@@ -81,7 +73,7 @@ public class NextLadderOracleTests
                 Set(Ref(1), T("Mach1_AuxData.TrayfillerActive")),
                 Set(Ref(1), T("HMI_Var.TrayfillerActive")),
                 Set(And(Ref(0), L("TRUE")), T("Mach1_AuxData.MIDS_Active"))),
-            Marker +
+            LdMarker +
             "NETWORK TITLE: \"DONE Network 1: Activating/deactivating MID-S/Trayfiller\"\n" +
             "  VAR_TEMP g0, g1 : BOOL; END_VAR\n" +
             "  g0 := TRUE;\n" +
@@ -99,7 +91,7 @@ public class NextLadderOracleTests
                     In(And(L("Mach1_Alarms.Alm011"), L("Mach1_Alarms.Alm011", Neg)), "IN"), In(L("T#10000S"), "PT"),
                 }, "BOOL"),
                 T("EtherCAT_Master.xRestart"), T("REQ_RestartComm", SetBit))),
-            Marker +
+            LdMarker +
             "NETWORK\n" +
             "  EtherCAT_Master.xRestart :=\n" +
             "  REQ_RestartComm S= TON_DelayAfterNetworkError(IN := (Mach1_Alarms.Alm011 AND NOT Mach1_Alarms.Alm011), PT := T#10000S);\n" +
@@ -109,10 +101,10 @@ public class NextLadderOracleTests
         // series contact (v1: `LET en1 := TRUE; IF en1 THEN MainDrive(); END_IF`).
         ["Mach1_MIDS N13"] = (
             Ld("TODO NETWORK 6", Set(
-                And(Enabled("MainDrive", L("TRUE"), Array.Empty<Input>(), Array.Empty<Output>(), consumed: true, "BOOL"),
+                And(EnEno("MainDrive", L("TRUE"), Array.Empty<Input>(), Array.Empty<Output>(), consumed: true, "BOOL"),
                     L("Mach1.GenFlags.DriveIsRunning")),
                 T("HMI_Var.Mach1.HourCounterRunning", SetBit))),
-            Marker +
+            LdMarker +
             "NETWORK TITLE: \"TODO NETWORK 6\"\n" +
             "  HMI_Var.Mach1.HourCounterRunning S= (MainDrive(EN := TRUE).ENO AND Mach1.GenFlags.DriveIsRunning);\n" +
             "END_NETWORK\n"),
@@ -122,17 +114,17 @@ public class NextLadderOracleTests
         ["Mach1_MIDS N82"] = (
             Ld("DONE NETWORK 49: State of the machine",
                 Def(22, L("TRUE")),
-                Set(Enabled("MOVE", And(Ref(22), Or(L("Mach1.GenFlags.MajorAlarm"), L("Mach1.GenFlags.MinorAlarm"))),
+                Set(EnEno("MOVE", And(Ref(22), Or(L("Mach1.GenFlags.MajorAlarm"), L("Mach1.GenFlags.MinorAlarm"))),
                     new[] { In(L("0")) }, new[] { Out("HMI_Var.Mach1.Status", 1) }, consumed: true, "BOOL", null), T("tAlarmSL")),
                 Def(23, And(Ref(22), L("Mach1.GenFlags.MajorAlarm", Neg), L("Mach1.GenFlags.MinorAlarm", Neg))),
-                Set(Enabled("MOVE", And(Ref(23), L("Mach1.GenFlags.Warning")),
+                Set(EnEno("MOVE", And(Ref(23), L("Mach1.GenFlags.Warning")),
                     new[] { In(L("1")) }, new[] { Out("HMI_Var.Mach1.Status", 1) }, consumed: true, "BOOL", null), T("tWarningSL")),
                 Def(24, And(Ref(23), L("Mach1.GenFlags.Warning", Neg))),
-                Set(Enabled("MOVE", And(Ref(24), L("Mach1.GenFlags.RunMan", Neg), L("Mach1.GenFlags.RunAuto", Neg)),
+                Set(EnEno("MOVE", And(Ref(24), L("Mach1.GenFlags.RunMan", Neg), L("Mach1.GenFlags.RunAuto", Neg)),
                     new[] { In(L("2")) }, new[] { Out("HMI_Var.Mach1.Status", 1) }, consumed: true, "BOOL", null), T("tStandbySL")),
-                Set(Enabled("MOVE", And(Ref(24), Or(L("Mach1.GenFlags.RunMan"), L("Mach1.GenFlags.RunAuto"))),
+                Set(EnEno("MOVE", And(Ref(24), Or(L("Mach1.GenFlags.RunMan"), L("Mach1.GenFlags.RunAuto"))),
                     new[] { In(L("3")) }, new[] { Out("HMI_Var.Mach1.Status", 1) }, consumed: true, "BOOL", null), T("tRunningSL"))),
-            Marker +
+            LdMarker +
             "NETWORK TITLE: \"DONE NETWORK 49: State of the machine\"\n" +
             "  VAR_TEMP g22, g23, g24 : BOOL; END_VAR\n" +
             "  g22 := TRUE;\n" +
@@ -155,7 +147,7 @@ public class NextLadderOracleTests
                 Set(Ref(0), T("stRestposition", SetBit), T("stLowerInpusher", ResetBit), T("stInfeedTray", ResetBit),
                     T("stLightCurtainInterruptedBeforeStart", ResetBit)),
                 Set(And(Ref(0), L("iFcGuardTrayOnElev", Neg), L("iTestProd")), T("Trayfiller_Data.Alarms.AlmTrayInfeeding", SetBit))),
-            Marker +
+            LdMarker +
             "NETWORK TITLE: \"DONE NETWORK 2: Condition: Rest position\"\n" +
             "  VAR_TEMP g0 : BOOL; END_VAR\n" +
             "  g0 := (TMR_InpusherDown(IN := stLowerInpusher, PT := T#500MS) OR (stInfeedTray AND iPsInfeedConvAtElev) OR (stLightCurtainInterruptedBeforeStart AND iLightCurtainInpusher AND iGenFlags.StartFlag));\n" +
@@ -170,7 +162,7 @@ public class NextLadderOracleTests
         // echo and five statements.
         ["TrayFiller N6"] = (
             Ld("TODO NETWORK 7: Condition: Decend tray", Set(
-                Enabled("ADD",
+                EnEno("ADD",
                     And(Or(
                             FbByQ("TON", "TMR_DelayDescend", new[]
                             {
@@ -181,7 +173,7 @@ public class NextLadderOracleTests
                     new[] { In(L("ioActNumberOfRows")), In(L("1")) }, new[] { Out("ioActNumberOfRows", 1) }, consumed: true, "BOOL", "INT"),
                 T("stDecendTray", SetBit), T("stInpushingRow", ResetBit), T("stLightCurtainInterruptedDuringInpushing", ResetBit),
                 T("stSrCigarAtEndBeforeLast", ResetBit), T("stSrCigarAtEnd", ResetBit))),
-            Marker +
+            LdMarker +
             "NETWORK TITLE: \"TODO NETWORK 7: Condition: Decend tray\"\n" +
             "  stDecendTray S=\n" +
             "  stInpushingRow R=\n" +
@@ -200,11 +192,11 @@ public class NextLadderOracleTests
                 Def(4, And(Ref(3), L("iPulseCounterElevator"))),
                 Set(FbByQ("R_TRIG", "stRePulseCounter", new[] { In(Ref(4), "CLK") }, "BOOL"), T("tBool")),
                 Set(FbByQ("F_TRIG", "stFePulseCounter", new[] { In(Ref(4), "CLK") }, "BOOL"), T("tBool", SetBit)),
-                Enabled("ADD", And(Ref(3), L("tBool"), Or(L("stDecendTray"), L("stTrayDecended"), L("stTiltInpusher"))),
+                EnEno("ADD", And(Ref(3), L("tBool"), Or(L("stDecendTray"), L("stTrayDecended"), L("stTiltInpusher"))),
                     new[] { In(L("stActHeightElevator")), In(L("5")) }, new[] { Out("stActHeightElevator", 1) }, consumed: false, "BOOL", "INT"),
                 Set(new Parallel(
-                        Enabled("ADD",
-                            Enabled("MUL", And(Ref(2), L("stDecendTray")),
+                        EnEno("ADD",
+                            EnEno("MUL", And(Ref(2), L("stDecendTray")),
                                 new[] { In(L("ioActNumberOfRows")), In(L("iRowHeight")) }, new[] { Out("tInt", 1) }, consumed: true, "BOOL", "INT"),
                             new[] { In(L("tInt")), In(L("iInitialDescentValue")) }, new[] { Out("tInt", 1) }, consumed: true, "BOOL", "INT"),
                         new Node[]
@@ -215,7 +207,7 @@ public class NextLadderOracleTests
                         },
                         ParallelMode.BoxShortCircuit),
                     T("stTrayDecended", SetBit), T("stDecendTray", ResetBit))),
-            Marker +
+            LdMarker +
             "NETWORK TITLE: \"TODO NETWORK 9: Condition: Tray decend\"\n" +
             "  VAR_TEMP g2, g3, g4 : BOOL; END_VAR\n" +
             "  g2 := True;\n" +

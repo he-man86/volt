@@ -388,21 +388,26 @@ public static class NextNetworkTextWriter
                     throw Unrepresentable("a flag on a box input pin",
                         $"the '{b.Type}' box has {Describe(p.Flags)} on its pin {p.Formal ?? "(positional)"}.");
 
+            // The text spells the ENO output only by `.ENO`, and reads every other box by one rule
+            // (NextSpelling.TextHasEno). Where the answer decides the text — the suffix, and the slots positional
+            // `=>` pins fill — a missing fact is refused FIRST, by its own name: the suffix and the slot rule below
+            // read HasEnoOutput, and asked with it unread they would refuse the box as unspellable when the one
+            // thing wrong is that nobody read whether it has an ENO.
+            var carried = NextSpelling.EnoCarried(b, consumed);
+            if (carried && b.HasEnoOutput is null)
+                throw Unrepresentable("a box whose ENO output was not read",
+                    $"the '{b.Type}' box does not record whether it has an ENO output, and its text depends on it.");
+
             var eno = NextSpelling.EnoSlot(b);
             var infix = NextSpelling.IsInfix(b);
             var suffix = consumed ? Suffix(b) : "";
 
             if (b.StCode is not null) return Execute(b) + suffix;
 
-            if (NextSpelling.EnoCarried(b, consumed))
+            if (carried && b.HasEnoOutput is { } has)
             {
-                // The text spells the ENO output only by `.ENO`, and reads every other box by one rule
-                // (NextSpelling.TextHasEno). Where the answer decides the text — the suffix, and the slots positional
-                // `=>` pins fill — a box the rule would read otherwise has no spelling: its pins would come back one
-                // slot over, or its consumer on another output.
-                if (b.HasEnoOutput is not { } has)
-                    throw Unrepresentable("a box whose ENO output was not read",
-                        $"the '{b.Type}' box does not record whether it has an ENO output, and its text depends on it.");
+                // A box the rule would read otherwise has no spelling: its pins would come back one slot over, or its
+                // consumer on another output.
                 if (has != NextSpelling.TextHasEno(isExecute: false, b.Enable is not null, suffix.Length > 0, consumed))
                     throw Unrepresentable("an ENO output the text reads otherwise",
                         has
@@ -442,21 +447,12 @@ public static class NextNetworkTextWriter
         private string Suffix(Box b)
         {
             var slot = b.ConnectedSlot;
-            if (NextSpelling.EnoSlot(b) is not null)
-            {
-                if (NextSpelling.ConnectedByEno(b)) return ".ENO";   // the one definition, shared with ProducerType and the oracle
-                if (slot is null)
-                    throw Unrepresentable("a consumed box with no stored connection slot",
-                        $"the '{b.Type}' box is consumed and does not record which of its output slots its consumer is connected to.");
-                // Census 1.6 (DIALECT N16): a box with an ENO output is connected by its main output, and that IS the
-                // ENO. `.ENO` wins where the two coincide, so one model has one text; any other slot has none.
-                throw Unrepresentable("a connection by an unspellable output slot",
-                    $"a consumer of the '{b.Type}' box is connected to its output slot {slot}, and the box's main output is its ENO.");
-            }
+            var hasEno = NextSpelling.EnoSlot(b) is not null;
+            if (NextSpelling.ConnectedByEno(b)) return ".ENO";   // the one definition, shared with ProducerType and the oracle
 
-            // A bit operator, group or call, reads back connected by no stored slot (the vendor keeps no main output
-            // index on AND/OR — census 1.6), so that is the one connection it can carry.
-            if (NextSpelling.MainSlotOfCall(b.Type) is null)
+            // A bit operator without ENO, group or call, reads back connected by no stored slot (the vendor keeps no
+            // main output index on AND/OR — census 1.6), so that is the one connection it can carry.
+            if (!hasEno && NextSpelling.MainSlotOfCall(b.Type) is null)
             {
                 if (slot is not null)
                     throw Unrepresentable("a bit operator box connected by a stored output slot",
@@ -464,9 +460,15 @@ public static class NextNetworkTextWriter
                 return "";
             }
 
+            // Every other consumed box is read back connected by a stored slot, so one it never recorded has none.
             if (slot is null)
                 throw Unrepresentable("a consumed box with no stored connection slot",
                     $"the '{b.Type}' box is consumed and does not record which of its output slots its consumer is connected to.");
+            if (hasEno)
+                // Census 1.6 (DIALECT N16): a box with an ENO output is connected by its main output, and that IS the
+                // ENO. `.ENO` wins where the two coincide, so one model has one text; any other slot has none.
+                throw Unrepresentable("a connection by an unspellable output slot",
+                    $"a consumer of the '{b.Type}' box is connected to its output slot {slot}, and the box's main output is its ENO.");
             if (slot != b.MainOutputIndex)
                 throw Unrepresentable("a connection by an unspellable output slot",
                     $"a consumer of the '{b.Type}' box is connected to its output slot {slot}, which is neither its main output ({b.MainOutputIndex?.ToString() ?? "none"}) nor ENO.");

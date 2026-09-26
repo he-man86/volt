@@ -4,6 +4,7 @@ using System.Linq;
 using Xunit;
 using Volt.Engine.Format.Network;
 using Volt.Engine.Format.Network.Next;
+using static Volt.Engine.Tests.NextModels;
 
 namespace Volt.Engine.Tests;
 
@@ -14,11 +15,6 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class NextNetworkTextGateTests
 {
-    const string Fbd = "(* @volt-implementation FBD *)\n";
-
-    static string Src(params string[] lines) =>
-        Fbd + "NETWORK\n" + string.Concat(lines.Select(l => "  " + l + "\n")) + "END_NETWORK\n";
-
     static NextGateResult Gate(string text, NextNetworkScope? scope = null, BodyLanguage lang = BodyLanguage.Fbd) =>
         NextNetworkTextGate.Validate(text, lang, scope ?? NextNetworkScope.Empty);
 
@@ -60,9 +56,9 @@ public class NextNetworkTextGateTests
     public void END_EXECUTE_without_its_semicolon()
     {
         // Reported where the `;` is missing - at the token found instead, as for `END_IF` above.
-        Refused("NETWORK_PARSE", 6, Fbd + "NETWORK\n  EXECUTE\nx := 1;\n  END_EXECUTE\nEND_NETWORK\n");
-        Refused("NETWORK_PARSE", 6, Fbd + "NETWORK\n  out := EXECUTE\nx := 1;\n  END_EXECUTE.ENO\nEND_NETWORK\n");
-        var ok = Gate(Fbd + "NETWORK\n  EXECUTE\nx := 1;\n  END_EXECUTE;\nEND_NETWORK\n");
+        Refused("NETWORK_PARSE", 6, FbdMarker + "NETWORK\n  EXECUTE\nx := 1;\n  END_EXECUTE\nEND_NETWORK\n");
+        Refused("NETWORK_PARSE", 6, FbdMarker + "NETWORK\n  out := EXECUTE\nx := 1;\n  END_EXECUTE.ENO\nEND_NETWORK\n");
+        var ok = Gate(FbdMarker + "NETWORK\n  EXECUTE\nx := 1;\n  END_EXECUTE;\nEND_NETWORK\n");
         Assert.True(ok.Ok);
         Assert.IsType<Box>(Assert.Single(ok.Body!.Networks[0].Trees));
     }
@@ -82,7 +78,7 @@ public class NextNetworkTextGateTests
         var d = Refused("NETWORK_PARSE", 1, "NETWORK 0 LD\n  LET g0 := TRUE;\n  out := g0;\nEND_NETWORK\n");
         Assert.Contains("re-pull", d.Message);
         Assert.Contains("re-pull", Refused("NETWORK_PARSE", 3, Src("LET g0 := TRUE;")).Message);
-        Assert.Contains("re-pull", Refused("NETWORK_PARSE", 2, Fbd + "NETWORK 0 FBD\n  out := a;\nEND_NETWORK\n").Message);
+        Assert.Contains("re-pull", Refused("NETWORK_PARSE", 2, FbdMarker + "NETWORK 0 FBD\n  out := a;\nEND_NETWORK\n").Message);
     }
 
     [Fact]
@@ -100,9 +96,9 @@ public class NextNetworkTextGateTests
     [Fact]
     public void Header_fields_are_on_the_header_line_and_each_once()
     {
-        Refused("NETWORK_PARSE", 2, Fbd + "NETWORK DISABLED DISABLED\n  ;\nEND_NETWORK\n");
-        Refused("NETWORK_PARSE", 2, Fbd + "NETWORK TITLE: \"open\n  ;\nEND_NETWORK\n");
-        Refused("NETWORK_PARSE", 2, Fbd + "NETWORK TITLE: \"$Q\"\n  ;\nEND_NETWORK\n");
+        Refused("NETWORK_PARSE", 2, FbdMarker + "NETWORK DISABLED DISABLED\n  ;\nEND_NETWORK\n");
+        Refused("NETWORK_PARSE", 2, FbdMarker + "NETWORK TITLE: \"open\n  ;\nEND_NETWORK\n");
+        Refused("NETWORK_PARSE", 2, FbdMarker + "NETWORK TITLE: \"$Q\"\n  ;\nEND_NETWORK\n");
     }
 
     // ── NETWORK_NOT_CLOSED ──────────────────────────────────────────────────────────────────────
@@ -110,14 +106,14 @@ public class NextNetworkTextGateTests
     [Fact]
     public void A_network_without_END_NETWORK()
     {
-        Refused("NETWORK_NOT_CLOSED", 2, Fbd + "NETWORK\n  out := a;\n");
-        var r = Gate(Fbd + "NETWORK\n  out := a;\nNETWORK\n  out := b;\nEND_NETWORK\n");
+        Refused("NETWORK_NOT_CLOSED", 2, FbdMarker + "NETWORK\n  out := a;\n");
+        var r = Gate(FbdMarker + "NETWORK\n  out := a;\nNETWORK\n  out := b;\nEND_NETWORK\n");
         Assert.Equal(("NETWORK_NOT_CLOSED", 2), (Assert.Single(r.Diagnostics).Code, r.Diagnostics[0].Line));
     }
 
     [Fact]
     public void An_EXECUTE_body_without_END_EXECUTE() =>
-        Refused("NETWORK_PARSE", 3, Fbd + "NETWORK\n  EXECUTE\nx := 1;\n");
+        Refused("NETWORK_PARSE", 3, FbdMarker + "NETWORK\n  EXECUTE\nx := 1;\n");
 
     // ── NETWORK_NOT_CANONICAL: tokens, never layout ─────────────────────────────────────────────
 
@@ -127,8 +123,8 @@ public class NextNetworkTextGateTests
     {
         var pins = Enumerable.Range(1, 30).Select(i => $"P{i} := v{i}").ToArray();
         var scope = new NextNetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["fb"] = "FB_Big" });
-        Accepted(Fbd + "NETWORK\n  fb(\n      " + string.Join(",\n      ", pins) + "\n  );\nEND_NETWORK\n", scope);
-        Accepted(Fbd + "NETWORK\nout:=((a AND b)OR c);\nEND_NETWORK\n");
+        Accepted(FbdMarker + "NETWORK\n  fb(\n      " + string.Join(",\n      ", pins) + "\n  );\nEND_NETWORK\n", scope);
+        Accepted(FbdMarker + "NETWORK\nout:=((a AND b)OR c);\nEND_NETWORK\n");
     }
 
     [Fact]
@@ -141,7 +137,7 @@ public class NextNetworkTextGateTests
     /// <summary>Spec, "the network header": another field order is NOT_CANONICAL.</summary>
     [Fact]
     public void Header_fields_out_of_order() =>
-        Refused("NETWORK_NOT_CANONICAL", 2, Fbd + "NETWORK DISABLED LABEL: Done\n  ;\nEND_NETWORK\n");
+        Refused("NETWORK_NOT_CANONICAL", 2, FbdMarker + "NETWORK DISABLED LABEL: Done\n  ;\nEND_NETWORK\n");
 
     [Fact]
     public void A_default_Parallel_mode_written_out_is_not_canonical() =>
@@ -287,11 +283,13 @@ public class NextNetworkTextGateTests
     {
         Accepted(Src("out := f(a).ENO;"));
         Refused("NETWORK_BAD_EXPRESSION", 3, Src("MOVE(EN := c, 0).ENO;"));
+        // Spec, ".ENO on a box nothing consumes": the Execute box's value form at the top level likewise.
+        Refused("NETWORK_BAD_EXPRESSION", 3, FbdMarker + "NETWORK\n  EXECUTE\nx := 1;\n  END_EXECUTE.ENO;\nEND_NETWORK\n");
     }
 
     [Fact]
     public void A_consumed_execute_box_says_ENO() =>
-        Refused("NETWORK_BAD_EXPRESSION", 3, Fbd + "NETWORK\n  out := EXECUTE\nx := 1;\n  END_EXECUTE;\nEND_NETWORK\n");
+        Refused("NETWORK_BAD_EXPRESSION", 3, FbdMarker + "NETWORK\n  out := EXECUTE\nx := 1;\n  END_EXECUTE;\nEND_NETWORK\n");
 
     /// <summary>Spec, "negation with an edge" and "a negation outside an edge": <c>R_EDGE(NOT x)</c> is the one
     /// spelling (the vendor negates first, DIALECT N17); <c>NOT R_EDGE(x)</c> states logic no vendor operand holds,
@@ -383,7 +381,7 @@ public class NextNetworkTextGateTests
     public void Labels_are_the_compilers_business()
     {
         Accepted(Src("JMP Nowhere;"));
-        Accepted(Fbd + "NETWORK\n  JMP Done;\nEND_NETWORK\nNETWORK LABEL: Done DISABLED\n  out := a;\nEND_NETWORK\n");
+        Accepted(FbdMarker + "NETWORK\n  JMP Done;\nEND_NETWORK\nNETWORK LABEL: Done DISABLED\n  out := a;\nEND_NETWORK\n");
     }
 
     /// <summary>Spec, "labels and jumps round-trip what the IDE holds" (census 1.15, DIALECT N19): a <c>JMP</c> inside a
@@ -392,7 +390,7 @@ public class NextNetworkTextGateTests
     [Fact]
     public void A_jump_inside_a_disabled_network_round_trips()
     {
-        var text = Fbd + "NETWORK DISABLED\n  JMP Done;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := a;\nEND_NETWORK\n";
+        var text = FbdMarker + "NETWORK DISABLED\n  JMP Done;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := a;\nEND_NETWORK\n";
         Accepted(text);
         var body = NextNetworkTextReader.Read(text, BodyLanguage.Fbd, NextNetworkScope.Empty).Body!;
         Assert.True(body.Networks[0].Disabled);
@@ -408,7 +406,7 @@ public class NextNetworkTextGateTests
     [Fact]
     public void A_label_on_two_networks_is_accepted_and_kept_verbatim()
     {
-        var text = Fbd + "NETWORK LABEL: Done\n  out := a;\nEND_NETWORK\nNETWORK LABEL: DONE\n  out := b;\nEND_NETWORK\n";
+        var text = FbdMarker + "NETWORK LABEL: Done\n  out := a;\nEND_NETWORK\nNETWORK LABEL: DONE\n  out := b;\nEND_NETWORK\n";
         Accepted(text);
         var body = NextNetworkTextReader.Read(text, BodyLanguage.Fbd, NextNetworkScope.Empty).Body!;
         Assert.Equal(new[] { "Done", "DONE" }, body.Networks.Select(n => n.Label));
@@ -418,7 +416,7 @@ public class NextNetworkTextGateTests
     /// <summary>Spec, "a comment on a fully-headed network".</summary>
     [Fact]
     public void A_fully_headed_network_in_canonical_order() =>
-        Accepted(Fbd + "NETWORK LABEL: Done TITLE: \"Tray $\"A$\" ready\" DISABLED\n  // note\n  VAR_TEMP g0 : BOOL; END_VAR\n  g0 := TRUE;\n  out := g0;\nEND_NETWORK\n");
+        Accepted(FbdMarker + "NETWORK LABEL: Done TITLE: \"Tray $\"A$\" ready\" DISABLED\n  // note\n  VAR_TEMP g0 : BOOL; END_VAR\n  g0 := TRUE;\n  out := g0;\nEND_NETWORK\n");
 
     /// <summary>Spec, "the writer avoids a collision … and the reader accepts it".</summary>
     [Fact]
@@ -468,7 +466,7 @@ public class NextNetworkTextGateTests
     public void A_ladder_leaf_wire_used_only_as_a_contact_is_BOOL()
     {
         var d = Refused("NETWORK_BAD_EXPRESSION", 3,
-            "(* @volt-implementation LD *)\nNETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := x;\n  o := g1;\nEND_NETWORK\n", lang: BodyLanguage.Ld);
+            LdMarker + "NETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := x;\n  o := g1;\nEND_NETWORK\n", lang: BodyLanguage.Ld);
         Assert.Contains("BOOL", d.Message);
     }
 

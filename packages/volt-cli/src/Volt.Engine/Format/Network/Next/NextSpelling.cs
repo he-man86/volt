@@ -133,11 +133,14 @@ internal static class NextSpelling
     /// one"): an operator in the table spelled as the table spells it (a head is the BoxType verbatim, and a group
     /// reads back as the table's word — <c>and</c> must stay a call), no EN, no instance, no output pin, formals
     /// absent or the operator's defaults, and at least two inputs (with fewer, the group's parentheses would be a
-    /// pair that is no box). The connection slot plays no part: a group and a call say the same about it, and both
-    /// are read by <see cref="MainSlotOfCall"/> — so the slot a consumer is connected to never decides the
-    /// spelling, and a box whose slot that reading would get wrong is refused whichever form it would take.</summary>
+    /// pair that is no box), and no consumer connected by ENO. A group has no suffix position, so a box consumed
+    /// by its ENO is a call ending <c>.ENO</c>; written infix it would be the text of the same box consumed by its
+    /// main output — two models on one text, and the push would wire the consumer to the data result. Any OTHER
+    /// connection plays no part: a group and a call say the same about it, and both are read by
+    /// <see cref="MainSlotOfCall"/> — a box whose slot that reading would get wrong is refused whichever form it
+    /// would take.</summary>
     public static bool IsInfix(Box b) =>
-        b.Enable is null && b.Instance is null && b.Outputs.Count == 0 && b.StCode is null &&
+        b.Enable is null && b.Instance is null && b.Outputs.Count == 0 && b.StCode is null && !ConnectedByEno(b) &&
         FbdOperators.TypeToSymbol.ContainsKey(b.Type) &&
         string.Equals(b.Type, b.Type.ToUpperInvariant(), StringComparison.Ordinal) && b.Inputs.Count >= 2 &&
         b.Inputs.Select((p, i) => p.Formal is null ||

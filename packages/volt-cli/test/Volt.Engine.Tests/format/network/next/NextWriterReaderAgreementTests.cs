@@ -19,11 +19,6 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class NextWriterReaderAgreementTests
 {
-    const string Fbd = "(* @volt-implementation FBD *)\n";
-
-    static string Src(params string[] lines) =>
-        Fbd + "NETWORK\n" + string.Concat(lines.Select(l => "  " + l + "\n")) + "END_NETWORK\n";
-
     static string Written(NetworkBody m, NextNetworkScope scope) => NextNetworkTextWriter.Write(m, scope);
 
     static string RefusedBy(NetworkBody m, NextNetworkScope scope) =>
@@ -244,7 +239,7 @@ public class NextWriterReaderAgreementTests
         var par = Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), T("out")), BodyLanguage.Ld);
         var names = Scope(new[] { "Parallel", "a", "b", "out" });
         var text = Written(par, names);
-        Assert.Equal("(* @volt-implementation LD *)\nNETWORK\n  out := PARALLEL(a, b);\nEND_NETWORK\n", text);
+        Assert.Equal(LdMarker + "NETWORK\n  out := PARALLEL(a, b);\nEND_NETWORK\n", text);
         Assert.True(NextNetworkTextReader.Read(text, BodyLanguage.Ld, names).Ok);
 
         var edge = Body(Set(L("x", Rise), T("out")));
@@ -366,7 +361,7 @@ public class NextWriterReaderAgreementTests
     {
         var m = Body(new Parallel(null, new Node[] { Empty }, ParallelMode.BoxShortCircuit), BodyLanguage.Ld);
         Assert.Equal("a lone unconnected Parallel branch", RefusedBy(m, NextNetworkScope.Empty));
-        var r = Gate("(* @volt-implementation LD *)\nNETWORK\n  PARALLEL(MODE := BoxShortCircuit, );\nEND_NETWORK\n",
+        var r = Gate(LdMarker + "NETWORK\n  PARALLEL(MODE := BoxShortCircuit, );\nEND_NETWORK\n",
             BodyLanguage.Ld, NextNetworkScope.Empty);
         Assert.Equal("NETWORK_UNSUPPORTED", Assert.Single(r.Diagnostics).Code);
         // Beside a feed or a mode the empty branch is a position of its own.
@@ -408,7 +403,7 @@ public class NextWriterReaderAgreementTests
     {
         foreach (ParallelMode mode in Enum.GetValues(typeof(ParallelMode)))
         {
-            var text = "(* @volt-implementation LD *)\nNETWORK\n  out := PARALLEL(MODE := " + mode + ", a, b);\nEND_NETWORK\n";
+            var text = LdMarker + "NETWORK\n  out := PARALLEL(MODE := " + mode + ", a, b);\nEND_NETWORK\n";
             Assert.Equal(NextSpelling.IsMeasuredMode(mode), NextNetworkTextReader.Read(text, BodyLanguage.Ld, NextNetworkScope.Empty).Ok);
         }
     }

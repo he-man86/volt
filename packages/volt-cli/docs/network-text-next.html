@@ -422,7 +422,7 @@ out := NOT((a AND b));</pre>
 </p>
 <div class="note">
   <b>Infix depends on census 1.5.</b> The reader reads <code>InputParams</code> names for every box
-  (CodesysNetworkReader L184). Infix is used when the box has no EN, no instance, no output pin and its formals are
+  (CodesysNetworkReader L184). Infix is used when the box has no EN, no instance, no output pin, no consumer connected by its ENO, and its formals are
   <i>the operator's defaults</i> or absent — the two are one text, and the driver writes the defaults. Only a
   non-default formal forces call form. Without that rule, default formals such as <code>IN1</code>/<code>IN2</code>
   would turn every rung into <code>AND(IN1 := a, IN2 := b)</code>. Every rung example on this page assumes 1.5
@@ -469,7 +469,9 @@ GT(EN := SUB(EN := rung, light, deviation, =&gt; diff).ENO, sensor, diff, =&gt; 
   <li>The text does not say WHICH slot the main output is, so it reads it by rule: slot 0, and for an AND/OR/XOR/NOT
     box (which the vendor stores no main output index for — census 1.6) no stored slot. The rule is the same for a
     group and a call: <code>(a &gt; b)</code> and <code>GT(a, b)</code> read to one box, connected by slot 0, and the
-    slot never decides infix. A box the rule would misread
+    slot never decides infix — except ENO: a group has no suffix position, so an operator box consumed by its ENO is
+    a call, <code>out := ADD(a, b).ENO;</code>, never <code>(a + b)</code>, which is the same ADD consumed by its data
+    output. A box the rule would misread
     goes to the marker: a main output stored as another slot (1 on 3 Lenze call boxes), or a consumed box whose
     connection slot was never read. Renumbering its pins instead would wire them to other slots on push.</li>
   <li>Positional <code>=&gt; v</code> pins fill the remaining output slots in order, skipping the connected one. A named
@@ -628,7 +630,7 @@ END_NETWORK</pre>
   <tr><td class="name">NETWORK_NOT_CLOSED</td><td>A <code>NETWORK</code> is missing its <code>END_NETWORK</code>.</td></tr>
   <tr><td class="name">NETWORK_NOT_CANONICAL</td><td>It parses, but writes back as different <i>tokens</i> — e.g. <code>AND(a, b)</code> where infix is canonical, header fields out of order. Layout differences are not reported. The message carries the canonical form.</td></tr>
   <tr><td class="name">NETWORK_DUPLICATE_NAME</td><td>A wire declared or defined twice; a wire name matching a name in scope, case-insensitively; an instance defined twice. (Not a label on two networks: both IDEs hold that, census 1.15 — the LSP reports the build's message.)</td></tr>
-  <tr><td class="name">NETWORK_BAD_EXPRESSION</td><td>A malformed group; a parenthesis pair that is no box; a wire undefined, undeclared, defined with <code>S=</code>/<code>R=</code>, chained, referenced before its definition, not named <code>g&lt;digits&gt;</code> or typed unlike its producer; <code>NOT R_EDGE(x)</code> (the vendor negates first — the one spelling is <code>R_EDGE(NOT x)</code>); a modifier inside an edge other than that one <code>NOT</code>. Push, not the gate, refuses <code>.ENO</code> on a box the IDE gives no ENO output, and a suffix-less consumer of a box whose main output is ENO.</td></tr>
+  <tr><td class="name">NETWORK_BAD_EXPRESSION</td><td>A malformed group; a parenthesis pair that is no box; a wire undefined, undeclared, defined with <code>S=</code>/<code>R=</code>, chained, referenced before its definition, not named <code>g&lt;digits&gt;</code> or typed unlike its producer; <code>NOT R_EDGE(x)</code> (the vendor negates first — the one spelling is <code>R_EDGE(NOT x)</code>); a modifier inside an edge other than that one <code>NOT</code>; <code>.ENO</code> on a box nothing consumes (a top-level <code>f(…).ENO;</code> or <code>EXECUTE … END_EXECUTE.ENO;</code> — a top-level item's output goes nowhere, so there is no consumer for the suffix to connect, and the writer never writes one there). Push, not the gate, refuses <code>.ENO</code> on a box the IDE gives no ENO output, and a suffix-less consumer of a box whose main output is ENO.</td></tr>
   <tr><td class="name">NETWORK_UNKNOWN_OPERATOR</td><td>The symbol is not in the operator table.</td></tr>
   <tr><td class="name">NETWORK_UNSUPPORTED</td><td>Operand or target text containing a backtick; a POU or instance named <code>PARALLEL</code>, <code>R_EDGE</code> or <code>F_EDGE</code>; nested edges or rising+falling on one operand; a flag on an empty slot, a wire reference or a <code>PARALLEL</code>; an unmeasured <code>Parallel.Mode</code> (neither <code>BoxShortCircuit</code> nor <code>Sequential</code>); an FB instance whose text is an expression (<code>`fbs[1]`(…)</code>) or that no declaration names; on TwinCAT, <code>PARALLEL</code>, a Demux of a leaf or a result pin in a structurally changed network — the message names the network and the reason.</td></tr>
 </table>

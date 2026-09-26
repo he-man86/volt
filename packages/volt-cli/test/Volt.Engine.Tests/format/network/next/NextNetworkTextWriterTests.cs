@@ -392,6 +392,25 @@ public class NextNetworkTextWriterTests
         Assert.Equal(Body("out := Dryer(a, => speed).ENO;"),
             Write(Set(Call("Dryer", new[] { In(L("a")) }, new[] { Out("speed", 1) }, main: 0, connected: 0, eno: true), T("out"))));
 
+    /// <summary>Spec, "A consumed box connected by its ENO output SHALL be suffixed `.ENO` … so one model has one
+    /// text": an operator box consumed by its ENO (an ADD with no EN showing ENO; an AND the same) is written in CALL
+    /// form with the suffix. A group has no suffix position, and written infix it was the text of the same box
+    /// consumed by its main output — two models on one text, and the push would wire the consumer to the data
+    /// result. The main-output ADD stays a group.</summary>
+    [Fact]
+    public void An_operator_box_consumed_by_its_ENO_is_a_call_with_the_suffix_not_a_group()
+    {
+        var byEno = Set(Call("ADD", new[] { In(L("a")), In(L("b")) }, main: 0, connected: 0, eno: true, kind: CallKind.Operator), T("out"));
+        var byMain = Set(Call("ADD", new[] { In(L("a")), In(L("b")) }, main: 0, connected: 0, eno: false, kind: CallKind.Operator), T("out"));
+        var andByEno = Set(Call("AND", new[] { In(L("a")), In(L("b")) }, main: null, connected: 0, eno: true, kind: CallKind.Operator), T("out"));
+
+        Assert.Equal(Body("out := ADD(a, b).ENO;"), Write(byEno));
+        Assert.Equal(Body("out := (a + b);"), Write(byMain));
+        Assert.Equal(Body("out := AND(a, b).ENO;"), Write(andByEno));
+        foreach (var (name, tree) in new[] { ("add-by-eno", byEno), ("add-by-main", byMain), ("and-by-eno", andByEno) })
+            Assert.Null(NextModelOracle.Check(name, new NetworkBody(BodyLanguage.Fbd, new[] { Net(tree) })).Reason);
+    }
+
     /// <summary>Spec, "ENO SHALL never be an `=&gt;` slot": a model wiring ENO to a variable as a named pin has no
     /// spelling (ENO is only ever <c>.ENO</c>), and the text refuses <c>ENO =&gt; v</c>; a positional pin skips the ENO
     /// slot, so <c>=&gt; Status</c> on a MOVE showing ENO is its slot 1.</summary>
@@ -417,6 +436,10 @@ public class NextNetworkTextWriterTests
             Refused(() => Write(Set(Call("f", new[] { In(L("src")) }, connected: 0), T("out")))).Marker);
         Assert.Equal("a box whose ENO output was not read",
             Refused(() => Write(Call("MOVE", new[] { In(L("src")) }, new[] { Out("dst", 1) }, en: L("c")))).Marker);
+        // …named for the missing fact even where the suffix is decided first: with ENO read (true) this box is
+        // `lamp := MOVE(EN := c, 0).ENO;` — spellable — so "an unspellable slot" would be the wrong reason.
+        Assert.Equal("a box whose ENO output was not read",
+            Refused(() => Write(Set(Call("MOVE", new[] { In(L("0")) }, en: L("c"), main: null, connected: 0), T("lamp")))).Marker);
         // …and where it decides nothing, it is not asked: a top-level box with no positional pin.
         Assert.Equal(Body("MOVE(EN := a, b);"), Write(Call("MOVE", new[] { In(L("b")) }, en: L("a"))));
     }
@@ -716,7 +739,7 @@ public class NextNetworkTextWriterTests
         Assert.Equal("a main output other than slot 0",
             Refused(() => Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 0) }, main: 1, connected: 1, eno: false), T("out")))).Marker);
         Assert.Equal("a consumed box with no stored connection slot",
-            Refused(() => Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 1) }, main: null, connected: null), T("out")))).Marker);
+            Refused(() => Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 1) }, main: null, connected: null, eno: false), T("out")))).Marker);
         // Slot 0 as main output is the text's own reading: written, and x keeps slot 1.
         Assert.Equal(Body("out := FC(src, => x);"),
             Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 1) }, main: 0, connected: 0, eno: false), T("out"))));

@@ -18,13 +18,6 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class NextNetworkTextReaderTests
 {
-    const string FbdMarker = "(* @volt-implementation FBD *)\n";
-    const string LdMarker = "(* @volt-implementation LD *)\n";
-
-    /// <summary>A one-network FBD body holding these statement lines.</summary>
-    static string Src(params string[] lines) =>
-        FbdMarker + "NETWORK\n" + string.Concat(lines.Select(l => "  " + l + "\n")) + "END_NETWORK\n";
-
     static NetworkBody Read(string text, NextNetworkScope scope, BodyLanguage lang = BodyLanguage.Fbd)
     {
         var r = NextNetworkTextReader.Read(text, lang, scope);

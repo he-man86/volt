@@ -48,6 +48,32 @@ internal static class NextModels
 
     public static Output Out(string target, int? slot, string? formal = null) => new(formal, new Operand(target, IsLValue: true), slot);
 
+    /// <summary>A box showing EN/ENO (<c>OutputParams.Names = ['ENO', …]</c>, <c>MainOutputIndex</c> 0): consumed,
+    /// it is read through its ENO; at the top level it is connected by nothing. <paramref name="types"/> are its
+    /// stored output types, none given = not read.</summary>
+    public static Box EnEno(string type, Node en, IEnumerable<Input> inputs, IEnumerable<Output>? outputs = null,
+                            bool consumed = false, params string?[] types) =>
+        Call(type, inputs, outputs, en: en, main: 0, connected: consumed ? 0 : null, eno: true,
+            types: types.Length == 0 ? null : types, kind: NextSpelling.KindOf(type, hasInstance: false));
+
+    // ── source text ─────────────────────────────────────────────────────────────────────────────
+
+    public const string FbdMarker = "(* @volt-implementation FBD *)\n";
+    public const string LdMarker = "(* @volt-implementation LD *)\n";
+
+    /// <summary>A one-network FBD body holding exactly these statement lines, in the page's layout (two-space
+    /// statement indentation).</summary>
+    public static string Src(params string[] lines) => OneNetwork(FbdMarker, lines);
+
+    /// <summary>A one-network LD body holding exactly these statement lines.</summary>
+    public static string LdSrc(params string[] lines) => OneNetwork(LdMarker, lines);
+
+    private static string OneNetwork(string marker, string[] lines) =>
+        marker + "NETWORK\n" + string.Concat(lines.Select(l => "  " + l + "\n")) + "END_NETWORK\n";
+
+    public static NetworkBody Fbd1(params Node[] trees) => new(BodyLanguage.Fbd, new[] { Net(trees) });
+    public static NetworkBody Ld1(params Node[] trees) => new(BodyLanguage.Ld, new[] { Net(trees) });
+
     public static Network Net(params Node[] trees) => new(0, null, null, null, false, trees);
 
     public static NetworkBody Body(Network net, BodyLanguage lang = BodyLanguage.Fbd) => new(lang, new[] { net });

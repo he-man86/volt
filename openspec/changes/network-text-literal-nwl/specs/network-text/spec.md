@@ -262,6 +262,16 @@ instance.
 - **WHEN** a pulled box whose `MainOutputIndex` is 1 is consumed by its main output and wires `x` on slot 0
 - **THEN** the body materializes as the unsupported marker; `x` is never read back on slot 1
 
+#### Scenario: an operator box consumed by its ENO
+- **WHEN** an ADD box with no EN and an ENO output is consumed by `out :=` through its ENO
+- **THEN** it is written `out := ADD(a, b).ENO;` in call form (a group has no suffix position), never `(a + b)`, which
+  is the same box consumed by its main output
+
+#### Scenario: .ENO on a box nothing consumes
+- **WHEN** a pushed body contains a top-level `MOVE(EN := c, 0).ENO;` or `EXECUTE … END_EXECUTE.ENO;`
+- **THEN** the gate reports `NETWORK_BAD_EXPRESSION`: a top-level item's output goes nowhere, so the suffix connects
+  no consumer, and the writer never writes one there
+
 #### Scenario: a consumed Execute box without EN
 - **WHEN** an Execute box with no EN wired is consumed by `out :=`
 - **THEN** it is written `out := EXECUTE … END_EXECUTE.ENO;` and reads back as the same box
@@ -431,11 +441,13 @@ suffixed `.ENO` where consumed; an empty snippet SHALL be written as exactly one
 
 ### Requirement: infix treats absent and default formals as one
 
-An operator box with no EN, no instance and no output pin SHALL be written infix when its `InputParams` names are
+An operator box with no EN, no instance, no output pin and no consumer connected by its ENO SHALL be written infix when its `InputParams` names are
 absent or are the operator's defaults; a non-default name SHALL force call form. The driver SHALL write the defaults,
 and the model oracle SHALL treat absent and default names as equal — its one equivalence. Facts the text has no
 position for (the network order number, an operand's type and comment, the vendor's `CallType`, `MainOutputIndex`
-where no connection names it, a named output's slot, `OutputTypes` beyond the declared wire type, a CR LF) SHALL be
+where no connection names it, `HasEnoOutput` where the text does not decide by it (a top-level box with no positional
+`=>` pin, an Execute box, a consumed AND/OR/XOR/NOT with no EN and no stored slot — census 1.6 found no ENO there), a
+named output's slot, `OutputTypes` beyond the declared wire type, a CR LF) SHALL be
 listed once beside the oracle, each with the reason; every other fact the text cannot carry SHALL be refused by name.
 An infix box SHALL carry its type exactly as the table spells it; `and` SHALL be written in call form.
 

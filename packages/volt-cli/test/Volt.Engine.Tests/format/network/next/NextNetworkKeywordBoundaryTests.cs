@@ -2,6 +2,7 @@ using System.Linq;
 using Xunit;
 using Volt.Engine.Format.Network;
 using Volt.Engine.Format.Network.Next;
+using static Volt.Engine.Tests.NextModels;
 
 namespace Volt.Engine.Tests;
 
@@ -19,8 +20,6 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class NextNetworkKeywordBoundaryTests
 {
-    const string Fbd = "(* @volt-implementation FBD *)\n";
-
     static NetworkBody Read(string text)
     {
         var r = NextNetworkTextReader.Read(text, BodyLanguage.Fbd, NextNetworkScope.Empty);
@@ -34,14 +33,14 @@ public class NextNetworkKeywordBoundaryTests
     [InlineData("NETWORKSTATE")]
     public void An_identifier_beginning_with_NETWORK_is_not_a_network_header(string lvalue)
     {
-        var body = Read(Fbd + $"NETWORK\n  {lvalue} := (a AND b);\nEND_NETWORK\n");
+        var body = Read(FbdMarker + $"NETWORK\n  {lvalue} := (a AND b);\nEND_NETWORK\n");
         var assign = Assert.IsType<Assign>(Assert.Single(Assert.Single(body.Networks).Trees));
         Assert.Equal(lvalue, assign.Targets.Single().Text);
     }
 
     [Fact]
     public void A_real_NETWORK_header_still_opens_a_network() =>
-        Assert.Equal(2, Read(Fbd + "NETWORK\n  out := a;\nEND_NETWORK\nNETWORK\n  out2 := b;\nEND_NETWORK\n").Networks.Count);
+        Assert.Equal(2, Read(FbdMarker + "NETWORK\n  out := a;\nEND_NETWORK\nNETWORK\n  out2 := b;\nEND_NETWORK\n").Networks.Count);
 
     /// <summary>Spec, "a variable named like a header field": the header ends at its newline.</summary>
     [Theory]
@@ -50,19 +49,19 @@ public class NextNetworkKeywordBoundaryTests
     [InlineData("LABEL")]
     public void A_statement_after_the_header_that_starts_with_a_header_word_is_a_statement(string word)
     {
-        var body = Read(Fbd + $"NETWORK\n  {word} := x;\nEND_NETWORK\n");
+        var body = Read(FbdMarker + $"NETWORK\n  {word} := x;\nEND_NETWORK\n");
         var net = Assert.Single(body.Networks);
         Assert.Equal(word, Assert.IsType<Assign>(Assert.Single(net.Trees)).Targets.Single().Text);
         Assert.Equal((null, null, false), (net.Title, net.Label, net.Disabled));
         // …and the gate takes it as written: it is the canonical form.
-        Assert.True(NextNetworkTextGate.Validate(Fbd + $"NETWORK\n  {word} := x;\nEND_NETWORK\n", BodyLanguage.Fbd, NextNetworkScope.Empty).Ok);
+        Assert.True(NextNetworkTextGate.Validate(FbdMarker + $"NETWORK\n  {word} := x;\nEND_NETWORK\n", BodyLanguage.Fbd, NextNetworkScope.Empty).Ok);
     }
 
     /// <summary>The same word ON the header line is the field: position decides, not the word.</summary>
     [Fact]
     public void The_same_words_on_the_header_line_are_its_fields()
     {
-        var net = Read(Fbd + "NETWORK LABEL: Done TITLE: \"t\" DISABLED\n  TITLE := x;\nEND_NETWORK\n").Networks.Single();
+        var net = Read(FbdMarker + "NETWORK LABEL: Done TITLE: \"t\" DISABLED\n  TITLE := x;\nEND_NETWORK\n").Networks.Single();
         Assert.Equal(("t", "Done", true), (net.Title, net.Label, net.Disabled));
         Assert.Equal("TITLE", Assert.IsType<Assign>(Assert.Single(net.Trees)).Targets.Single().Text);
     }
@@ -71,7 +70,7 @@ public class NextNetworkKeywordBoundaryTests
     [Fact]
     public void A_comment_ends_at_its_newline()
     {
-        var net = Read(Fbd + "NETWORK\n  // holds the drive off\n  DISABLED := x;\nEND_NETWORK\n").Networks.Single();
+        var net = Read(FbdMarker + "NETWORK\n  // holds the drive off\n  DISABLED := x;\nEND_NETWORK\n").Networks.Single();
         Assert.Equal("holds the drive off", net.Comment);
         Assert.False(net.Disabled);
         Assert.Equal("DISABLED", Assert.IsType<Assign>(Assert.Single(net.Trees)).Targets.Single().Text);
@@ -83,7 +82,7 @@ public class NextNetworkKeywordBoundaryTests
     [InlineData("NETWORK DISABLED TITLE: \"t\"")]
     public void Header_fields_out_of_order_are_not_canonical(string header)
     {
-        var r = NextNetworkTextGate.Validate(Fbd + header + "\n  ;\nEND_NETWORK\n", BodyLanguage.Fbd, NextNetworkScope.Empty);
+        var r = NextNetworkTextGate.Validate(FbdMarker + header + "\n  ;\nEND_NETWORK\n", BodyLanguage.Fbd, NextNetworkScope.Empty);
         Assert.Equal("NETWORK_NOT_CANONICAL", Assert.Single(r.Diagnostics).Code);
     }
 }

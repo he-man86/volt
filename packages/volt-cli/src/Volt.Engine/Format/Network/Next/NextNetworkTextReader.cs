@@ -667,7 +667,9 @@ public static class NextNetworkTextReader
             var connected = consumed ? NextSpelling.MainSlotOfCall(type) : null;
             var box = new Box(type, null, CallKind.Operator, inputs, new List<Output>(), null, null, Flags.None,
                 MainOutputIndex: connected, ConnectedSlot: connected);
-            // A group has no suffix and no EN, so where the text carries ENO at all it says "none".
+            // A group has no suffix and no EN (a box consumed by ENO is a call — NextSpelling.IsInfix), so where the
+            // text carries ENO at all the one rule answers "none". Asked rather than written `false`: a literal here
+            // would be a second copy of TextHasEno, free to drift from the writer's.
             return box with
             {
                 HasEnoOutput = NextSpelling.EnoCarried(box, consumed)
@@ -938,9 +940,11 @@ public static class NextNetworkTextReader
                     "a consumed EXECUTE box says `.ENO`: its only output is ENO.");
             if (!consumed && eno)
                 throw Err(kw, ConflictCodes.NetworkBadExpression, "`.ENO` on an EXECUTE box nothing consumes.");
-            // An Execute box's only output is its ENO, slot 0 (census 1.11).
-            return new Box(NextSpelling.ExecuteType, null, NextSpelling.KindOf(NextSpelling.ExecuteType, false),
-                new List<Input>(), new List<Output>(), en, snippet.Text, Flags.None, ConnectedSlot: eno ? 0 : null);
+            // An Execute box's only output is its ENO (census 1.11); which slot that is, NextSpelling.EnoSlot says —
+            // the one definition the writer's `.ENO` is decided by, never a second copy of the number here.
+            var box = new Box(NextSpelling.ExecuteType, null, NextSpelling.KindOf(NextSpelling.ExecuteType, false),
+                new List<Input>(), new List<Output>(), en, snippet.Text, Flags.None);
+            return eno ? box with { ConnectedSlot = NextSpelling.EnoSlot(box) } : box;
         }
 
         // ── operands ────────────────────────────────────────────────────────────────────────────────

@@ -123,7 +123,8 @@ public sealed record Box(
     // MainOutputIndex / ConnectedSlot / OutputTypes / HasEnoOutput are network text v2 facts
     // (openspec/changes/network-text-literal-nwl, review 7.3 and 1.17). They are OPTIONAL with null meaning
     // "not read" so that v1, which never consults them, builds and renders exactly as before; the drivers fill
-    // them in phase 2. Null is NOT a default the v2 writer may assume a value for — it refuses by name instead.
+    // them in phase 2. Null is NOT a default the v2 writer may assume a value for — it refuses by name instead,
+    // except where the text has no position for the fact at all (named per field below, and beside the oracle).
     //
     //  MainOutputIndex  the vendor's BoxTreeBox.MainOutputIndex: which output slot is the box's result. It is
     //                   STORED, not "slot 0 by convention": measured 0 on 456 boxes, 1 on 3 call boxes (Lenze
@@ -139,7 +140,14 @@ public sealed record Box(
     //                   "the box has EN": the two are independent (census 1.6 — 40 enabled comparisons have EN and
     //                   one data output; Lenze `Dryer` declares ENO without EN), so it cannot be derived from Enable.
     //                   v2 spells a consumer of the ENO output `.ENO` and never gives ENO an `=>` pin; null is "not
-    //                   read", which the writer refuses wherever the answer decides the text.
+    //                   read", which the writer refuses wherever the answer decides the text
+    //                   (NextSpelling.EnoCarried). THE ONE PLACE null is not refused is where the text has no
+    //                   position for the fact and the push takes it from the IDE's box — listed beside the oracle
+    //                   (NextNetworkTextFacts): a top-level box with no positional `=>` pin, an Execute box (its ENO is
+    //                   its type's), and a consumed AND/OR/XOR/NOT with no EN and no stored slot. That last one is not
+    //                   a guess of "false": census 1.6 (N16) found no ENO on those boxes, and the vendor keeps no
+    //                   slot on them to connect one by. A `true` there IS refused — a box with an ENO is connected by
+    //                   a stored slot, which this one lacks — so null and false write the same text by that census.
 
 
     /// <summary>The vendor's name for the enable pin. It occupies INPUT SLOT 0 of a box that shows EN/ENO,

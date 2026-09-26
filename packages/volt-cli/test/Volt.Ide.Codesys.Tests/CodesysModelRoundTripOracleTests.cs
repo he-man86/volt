@@ -19,7 +19,9 @@ namespace Volt.Ide.Codesys.Tests;
 /// cannot be harvested, so each is rebuilt here exactly as its test builds it (the engine suite's
 /// <c>V1BuiltModels</c> does the same for the v1 models). The doubles a test builds to be REFUSED by the reader
 /// (a pin flag, a split point, a terminator with an input, …) are not here: they never reach a writer, v1 or v2,
-/// and <see cref="CodesysNetworkReaderTests"/> pins each refusal by name.</para>
+/// and <see cref="CodesysNetworkReaderTests"/> pins each refusal by name. A copy can fall behind its source, so
+/// <see cref="Every_reader_test_is_transcribed_or_says_why_not"/> holds the two lists to the reader tests that exist:
+/// a new reader test fails it until its double is here or its reason is.</para>
 ///
 /// <para><b>The refusal table is pinned, by reason.</b> <see cref="CodesysNetworkReader"/> does not read the v2 slot
 /// facts yet (task 3.10 / 4.1 fill them), so what v2 cannot spell without them is refused here by the name the
@@ -202,6 +204,49 @@ public class CodesysModelRoundTripOracleTests
     [MemberData(nameof(Ids))]
     public void Every_reader_double_round_trips_or_is_refused_by_name(string id) =>
         NextModelOracle.Check(id, Read.Value[id]);
+
+    /// <summary>The reader tests whose double is NOT transcribed above, each with why. Everything else a
+    /// <see cref="CodesysNetworkReaderTests"/> test reads must be in <see cref="Doubles"/> under its test's name.</summary>
+    static readonly Dictionary<string, string> NotTranscribed = new(StringComparer.Ordinal)
+    {
+        ["A_boolean_where_a_node_belongs_is_never_a_node"] = "refused by the reader: an assignment with no value",
+        ["Formal_pin_names_are_read_from_the_param_list"] = "the TON double of A_box_whose_first_pin_is_not_EN_keeps_all_of_its_inputs",
+        ["A_network_missing_its_item_count_throws_rather_than_reading_as_empty"] = "refused by the reader",
+        ["A_terminator_with_an_input_is_refused_by_name"] = "refused by the reader",
+        ["An_assignment_holding_no_value_is_refused_by_name"] = "refused by the reader",
+        ["A_Parallel_fed_by_the_empty_terminator_is_refused_by_name"] = "refused by the reader",
+        ["A_flag_on_a_Parallel_is_refused_by_name"] = "refused by the reader",
+        ["A_flag_on_a_wire_is_refused_by_name"] = "refused by the reader",
+        ["A_Parallel_with_an_unmeasured_mode_is_refused_by_name"] = "refused by the reader",
+        ["A_negation_on_a_box_input_pin_is_refused_by_name_not_dropped"] = "refused by the reader",
+        ["An_edge_on_a_box_input_pin_is_refused_too"] = "refused by the reader",
+        ["A_negation_or_edge_on_an_Assign_item_is_refused_by_name"] = "refused by the reader",
+        ["A_return_coil_renders_as_a_conditional_RETURN"] = "the double of A_return_coil_reads_as_control_flow_not_as_an_assignment_to_the_marker",
+        ["A_network_carrying_a_vendor_split_point_is_refused_by_name"] = "refused by the reader",
+        ["An_execute_box_whose_snippet_has_no_document_throws"] = "refused by the reader",
+    };
+
+    /// <summary>THE TRANSCRIPTION IS COMPLETE. The doubles above are copied by hand, because a double built inside
+    /// a test method cannot be harvested — so a reader test added (or renamed) without its entry here would never
+    /// reach the v2 oracle, and the tally would not notice. Every reader test is either transcribed under its
+    /// name or listed in <see cref="NotTranscribed"/> with the reason; neither list names a test that is gone.</summary>
+    [Fact]
+    public void Every_reader_test_is_transcribed_or_says_why_not()
+    {
+        var tests = typeof(CodesysNetworkReaderTests).GetMethods()
+            .Where(m => m.GetCustomAttributes(typeof(FactAttribute), inherit: true).Length > 0)   // Theory is a Fact
+            .Select(m => m.Name).ToHashSet(StringComparer.Ordinal);
+        var transcribed = Doubles().Keys.Where(k => k.StartsWith("Reader.", StringComparison.Ordinal))
+            .Select(k => k.Substring("Reader.".Length).Split('/')[0]).ToHashSet(StringComparer.Ordinal);
+
+        var missing = tests.Where(t => !transcribed.Contains(t) && !NotTranscribed.ContainsKey(t)).OrderBy(t => t, StringComparer.Ordinal).ToList();
+        var gone = transcribed.Concat(NotTranscribed.Keys).Where(t => !tests.Contains(t)).OrderBy(t => t, StringComparer.Ordinal).ToList();
+        var both = transcribed.Where(NotTranscribed.ContainsKey).ToList();
+        Assert.True(missing.Count == 0 && gone.Count == 0 && both.Count == 0,
+            "reader tests with no transcribed double and no reason: " + string.Join(", ", missing) +
+            "\nnamed here but no longer a reader test: " + string.Join(", ", gone) +
+            "\nboth transcribed and excused: " + string.Join(", ", both));
+    }
 
     [Fact]
     public void Reader_double_tally() =>

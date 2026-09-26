@@ -202,6 +202,10 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       half: `The_oracle_is_red_on_v1_for_a_Parallel_and_a_result_pin` shows the model comparison failing on v1's
       round trip (the Parallel reads back a box, the result pin an Assign) while v1's text is a fixed point, and the
       same models passing v2; it goes with v1 at the swap.
+      *Review of section 2:* the doubles are transcribed by hand (a double built inside a test cannot be
+      harvested), so `Every_reader_test_is_transcribed_or_says_why_not` holds them to the reader tests that exist —
+      every reader test is transcribed under its name or excused with a reason. It found one the list had missed
+      (`A_negation_or_edge_on_an_Assign_item_is_refused_by_name`, a reader refusal).
 - [x] 2.3 v2 goldens for the SAME NWL shapes the split-only tests pin, red until the swap:
       `A_modifier_on_an_operand_does_not_force_a_hoisted_LET`, `An_operand_whose_own_text_is_unsafe_is_still_hoisted`,
       the en-chain InlineData (RoundTrip L56-67), `LET g28` single-consumer Demux (L139), the `i1 := DINT_TO_REAL`
@@ -255,7 +259,16 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       text, ADD read as connected by its main output with no ENO) and `ENO_on_a_box_without_EN_is_valid_and_on_a_box_nothing_consumes_is_not`.
       The PUSH refusals (`.ENO` on a box the IDE gives no ENO output; a suffix-less consumer of a box whose main output
       is ENO) compare the text's model with the box the IDE builds, so their one test each is the driver's — moved
-      to 4.1.
+      to 4.1. Not writable offline yet (review of section 2): a double holds exactly what the CODESYS writer
+      appends, and the writer appends an ENO echo on EVERY enabled box (the v1 premise 1.6 refuted for the 40
+      enabled comparisons) — so a refusal keyed on it would refuse the valid `out := GT(EN := c, a, b);`, and one
+      keyed on the text would pass `.ENO` on a GT the IDE builds without ENO. Both need the IDE's own output list
+      for the box type, which 4.1 measures live; the TwinCAT half is 4.2's.
+      *Review of section 2:* an operator box consumed by its ENO is a call (`out := ADD(a, b).ENO;`), never the
+      group `(a + b)` — a group has no suffix position, and it was the text of the main-output box
+      (`An_operator_box_consumed_by_its_ENO_is_a_call_with_the_suffix_not_a_group`; spec "infix" and "an operator
+      box consumed by its ENO"); an unread `HasEnoOutput` is refused by that name before the slot rule reads it;
+      the top-level `.ENO` refusal is specified (spec ".ENO on a box nothing consumes", page NETWORK_BAD_EXPRESSION).
 - [x] 2.6 Wire misuse, one test each: undefined, defined with `S=`/`R=`, chained, referenced before definition, not
       `g<digits>`, a second `VAR_TEMP` block, an undeclared `g<digits>` in no scope, a declared type unlike the
       producer's (`NETWORK_BAD_EXPRESSION`); declared or defined twice, a name equal to a declared variable differing
@@ -383,7 +396,10 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       until measured live it refuses `PARALLEL`, a Demux of a leaf and a result pin `=> v` with `NETWORK_UNSUPPORTED`,
       the message naming the network and the reason (review 7.16). Offline tests for each refusal. Read
       `Parallel.Mode` (done, below). Until 1.14 measures TwinCAT's evaluation order, a pulled Negation+edge on one
-      node goes to the marker by name (spec, "edges are R_EDGE and F_EDGE flags").
+      node goes to the marker by name (spec, "edges are R_EDGE and F_EDGE flags"). The push half of "EN is a pin,
+      ENO is spelled" is vendor-neutral, so TwinCAT carries it too: refuse by name `.ENO` on a box the IDE gives no
+      ENO output, and a suffix-less consumer of a box whose main output is ENO — one test each, the imported box's
+      output list read as CODESYS reads it (`Box.HasEnoSlot`).
       *`Parallel.Mode` done (review of section 1):* read by member name, an absent/unknown value refused by name; the
       in-place writer refuses a changed mode (no committed archive holds a Parallel, so the scalar is never authored)
       — reachable only since the no-change gate compares modes (`The_in_place_writer_refuses_a_Parallel_mode_change`).

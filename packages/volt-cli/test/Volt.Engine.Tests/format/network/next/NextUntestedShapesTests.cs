@@ -15,13 +15,6 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class NextUntestedShapesTests
 {
-    const string LdMarker = "(* @volt-implementation LD *)\n";
-
-    static string Src(params string[] lines) =>
-        LdMarker + "NETWORK\n" + string.Concat(System.Linq.Enumerable.Select(lines, l => "  " + l + "\n")) + "END_NETWORK\n";
-
-    static NetworkBody Ld1(params Node[] trees) => new(BodyLanguage.Ld, new[] { Net(trees) });
-
     public static TheoryData<string> Shapes()
     {
         var d = new TheoryData<string>();
@@ -43,16 +36,16 @@ public class NextUntestedShapesTests
         // An LD rising contact: the vendor holds it as the Rtrig bit on the contact's OPERAND (DIALECT N4; census 1.7
         // found one, pro2193 `Counters`) — a flag, never an R_TRIG box.
         ["an LD rising contact"] = (Ld1(Set(Op("AND", L("a", Rise), L("b")), T("out"))),
-            Src("out := (R_EDGE(a) AND b);")),
+            LdSrc("out := (R_EDGE(a) AND b);")),
         // …and a falling one with the negation the vendor applies first (DIALECT N17).
         ["an LD negated falling contact"] = (Ld1(Set(Op("AND", L("a", Neg with { Falling = true }), L("b")), T("out"))),
-            Src("out := (F_EDGE(NOT a) AND b);")),
+            LdSrc("out := (F_EDGE(NOT a) AND b);")),
 
         // Edges on a Parallel's branches (and on its feed): the flags ride on the branch operands — the Parallel
         // itself holds none (DIALECT N20). Census 1.3/7.12: MainDrive net1's Parallel has a negated branch.
         ["edges in PARALLEL branches"] = (Ld1(Set(new Parallel(L("c", Rise),
                 new Node[] { L("a", Rise), L("b", Neg with { Falling = true }), L("d", Neg) }, ParallelMode.BoxShortCircuit), T("out"))),
-            Src("out := PARALLEL(IN := R_EDGE(c), R_EDGE(a), F_EDGE(NOT b), NOT d);")),
+            LdSrc("out := PARALLEL(IN := R_EDGE(c), R_EDGE(a), F_EDGE(NOT b), NOT d);")),
 
         // ENO into a DATA pin — Lenze AHWF (the fc_CamC_CP_UDT shape): a MOVE's ENO feeds the function's first
         // input, `iEN : BOOL`, an ordinary data pin and not an EN; the function's result drives two reset coils.
@@ -67,7 +60,7 @@ public class NextUntestedShapesTests
                         In(L("Mach1_AuxData.CamControls.TakeOverCycleStopPulse_CP")),
                     }, main: 0, connected: 0, eno: false),
                     T("Mach1_AuxData.MemWrapperPresentForLeafCarrier", ResetBit), T("Mach1_AuxData.MemWrapperPassedUnderTheSensor", ResetBit))),
-            Src("VAR_TEMP g10 : BOOL; END_VAR",
+            LdSrc("VAR_TEMP g10 : BOOL; END_VAR",
                 "g10 := True;",
                 "Mach1_AuxData.MemWrapperPresentForLeafCarrier R=",
                 "Mach1_AuxData.MemWrapperPassedUnderTheSensor R= fc_CamC_CP_UDT(MOVE(EN := g10, Mach1_Data.CamControls.TakeOverCycle_C.Stop, => Mach1_AuxData.CamControls.TakeOverCycleStopPulse_CP.Start).ENO, HMI_Var.Mach1.Position, Mach1.GenFlags.Rotflag, Mach1_AuxData.CamControls.TakeOverCycleStopPulse_CP);")),
