@@ -255,7 +255,16 @@ internal sealed class NetworkLexer
 
         public Tok Next()
         {
-            if (_body.Count > 0) return _body.Dequeue();
+            var t = _body.Count > 0 ? _body.Dequeue() : Lexed();
+            (_before, _last) = (_last, t);
+            return t;
+        }
+
+        // The two tokens returned before the one in hand: a LABEL's name follows `LABEL :`, a jump's follows `JMP`.
+        private Tok _before, _last;
+
+        private Tok Lexed()
+        {
             var t = _lx.Next();
             if (t.IsSym("(")) Depth++;
             else if (t.IsSym(")"))
@@ -263,7 +272,11 @@ internal sealed class NetworkLexer
                 Depth--;
                 if (_executeAt.Count > 0 && _executeAt.Peek() == Depth) { _executeAt.Pop(); Body(); }
             }
-            else if (t.Is("EXECUTE") && !_lx.PinOperatorFollows())
+            // In VALUE position only, as the reader opens one: a pin's name (`execute :=`) and a label — the header's
+            // `LABEL: Execute` and `JMP Execute`, legal IEC labels the reader takes as names — open no body. Entered
+            // at a label, the walk swallowed the rest of the text into one error token.
+            else if (t.Is("EXECUTE") && !_lx.PinOperatorFollows() && !_last.Is("JMP") &&
+                     !(_last.IsSym(":") && _before.Is("LABEL")))
             {
                 if (_lx.PeekOnLine() == '(') _executeAt.Push(Depth);
                 else Body();

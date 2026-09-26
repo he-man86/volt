@@ -538,4 +538,68 @@ public class NetworkTextGateTests
         var a = Src("out := EXECUTE(EN := EXECUTE\n " + inner + "\nEND_EXECUTE.ENO)\n y := 1;\nEND_EXECUTE.ENO;");
         Assert.Equal(same, NetworkTextGate.SameTokens(a, Src("out :=" + other.Substring(1))));
     }
+
+    // ── the third section-3 review ──────────────────────────────────────────────────────────────
+
+    /// <summary>A TITLE or comment fact no driver stores is not canonical. Both vendor readers trim a network's title
+    /// and comment at the end (an empty one is none), and both writers compare ignoring trailing whitespace — so a
+    /// trailing space, an empty title, a lone <c>//</c> or a closing empty <c>//</c> line would be pushed, never
+    /// written, and come back from the IDE as another text (spec, "the network header and its comment": the drivers
+    /// compare a comment ignoring trailing whitespace).</summary>
+    [Theory]
+    [InlineData("NETWORK TITLE: \"t  \"\n  out := a;\nEND_NETWORK\n", 2)]
+    [InlineData("NETWORK TITLE: \"\"\n  out := a;\nEND_NETWORK\n", 2)]
+    [InlineData("NETWORK TITLE: \"   \"\n  out := a;\nEND_NETWORK\n", 2)]
+    [InlineData("NETWORK\n  //\n  out := a;\nEND_NETWORK\n", 3)]
+    [InlineData("NETWORK\n  // one\n  //\n  out := a;\nEND_NETWORK\n", 4)]
+    [InlineData("NETWORK\n  // one   \n  out := a;\nEND_NETWORK\n", 3)]
+    public void A_title_or_comment_the_drivers_do_not_store_is_not_canonical(string network, int line) =>
+        Refused("NETWORK_NOT_CANONICAL", line, FbdMarker + network);
+
+    /// <summary>…while trailing whitespace INSIDE a comment, before its last line, is text the drivers store and
+    /// compare: only the comment's end is trimmed.</summary>
+    [Fact]
+    public void Trailing_whitespace_on_an_inner_comment_line_is_the_comments_text() =>
+        Accepted(FbdMarker + "NETWORK TITLE: \"t\"\n  // one   \n  // two\n  out := a;\nEND_NETWORK\n");
+
+    static string LabelledExecute(string value) =>
+        FbdMarker + "NETWORK LABEL: Execute\n  out := " + value + ";\nEND_NETWORK\n" +
+        "NETWORK\n  IF go THEN JMP Execute; END_IF;\nEND_NETWORK\n";
+
+    /// <summary>A label spelled <c>Execute</c> opens no EXECUTE body — the reader opens one only in value position, and
+    /// the post-push comparison walks the text by that one rule. Entered at the label, the walk swallowed the rest of
+    /// the text into one error token and called two different programs the same tokens, which adopts the IDE's other
+    /// program as a layout (spec, "an IDE holding other tokens is not adopted as a layout").</summary>
+    [Fact]
+    public void A_label_named_Execute_opens_no_body_in_the_post_push_comparison()
+    {
+        Accepted(LabelledExecute("(a OR b)"));
+        Assert.False(NetworkTextGate.SameTokens(LabelledExecute("(a AND b)"), LabelledExecute("(a OR b)")));
+        Assert.True(NetworkTextGate.SameTokens(LabelledExecute("(a OR b)"), LabelledExecute("( a OR\n    b )")));
+    }
+
+    /// <summary>Two texts that do not lex are no layouts of each other: an error token is no token of a body, so two
+    /// failures with one message say nothing about the programs behind them.</summary>
+    [Fact]
+    public void Two_texts_that_do_not_lex_are_not_the_same_tokens() =>
+        Assert.False(NetworkTextGate.SameTokens(Src("x := `a;"), Src("x := `b AND c;")));
+
+    static string TypedWire(string type) =>
+        Src("VAR_TEMP g1 : " + type + "; END_VAR", "g1 := CONCAT(a, b);", "out := g1;");
+
+    /// <summary>A wire's declared type is TOKENS, like every other part of the text outside backticks, a TITLE, a
+    /// comment and an EXECUTE body: <c>STRING (80)</c> is <c>STRING(80)</c> laid out otherwise. Compared as a
+    /// whitespace-collapsed substring, it was another text, and the canonical form echoed the engineer's layout.</summary>
+    [Fact]
+    public void A_wire_type_is_compared_as_tokens()
+    {
+        Assert.True(NetworkTextGate.SameTokens(TypedWire("STRING (80)"), TypedWire("STRING(80)")));
+        Assert.True(NetworkTextGate.SameTokens(TypedWire("ARRAY [1..2] OF INT"), TypedWire("ARRAY[1 .. 2]  OF\n INT")));
+        Assert.False(NetworkTextGate.SameTokens(TypedWire("STRING(80)"), TypedWire("STRING(81)")));
+
+        var spaced = Gate(TypedWire("STRING (80)"));
+        var tight = Gate(TypedWire("STRING(80)"));
+        Assert.True(spaced.Ok && tight.Ok, string.Join("\n", spaced.Diagnostics.Concat(tight.Diagnostics).Select(d => d.Message)));
+        Assert.Equal(tight.Canonical, spaced.Canonical);
+    }
 }

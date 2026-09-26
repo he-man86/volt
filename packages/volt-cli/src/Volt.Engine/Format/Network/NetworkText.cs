@@ -19,6 +19,14 @@ public static class NetworkText
     /// <summary>The text is an editable graphical network-text body — its first line is a language marker.</summary>
     public static bool Is(string? impl) => LanguageOf(impl) != null;
 
+    /// <summary>A network's TITLE or comment as the drivers hold it: trimmed at the end, and none where nothing is
+    /// left. Both vendors' readers trim these (the IDE keeps the newline an engineer typed after a title) and both
+    /// writers compare ignoring trailing whitespace, so a trailing space, an empty title or a closing empty <c>//</c>
+    /// line is no fact a push can write. The one rule: the vendor readers build the model by it, the text reader reads
+    /// by it — so the gate calls such a text not canonical — and the text writer refuses a model that breaks it.</summary>
+    public static string? Stored(string? s) =>
+        string.IsNullOrEmpty(s) ? null : s!.TrimEnd() is { Length: > 0 } t ? t : null;
+
     /// <summary>The body's language ("FBD"/"LD" from its implementation marker), or null if not a network-text
     /// body. The marker is the body's FIRST line: a network-text body is the marker and its networks, nothing
     /// before them.</summary>

@@ -376,6 +376,11 @@ public static class ItemKind
              : KindByFileExt.TryGetValue(wireName!.Substring(dot + 1), out var kind) ? kind : null;
     }
 
+    /// <summary>Is this wire name a TASK — a descriptor, the one non-source kind a push writes, routed by its own
+    /// format before anything is resolved? The one copy: the push's gate and write and the post-push comparison
+    /// (<c>PushedText</c>) all ask it, so none can send a `.task` to the ST reader.</summary>
+    public static bool IsTaskWireName(string wireName) => KindForWireName(wireName) == Kinds.Task;
+
     private static readonly HashSet<string> SourceKinds =
         new(SourceKindExtensions.Select(x => x.Kind), StringComparer.Ordinal);
 

@@ -113,13 +113,16 @@ public static class NetworkTextGate
         if (b is null) throw new ArgumentNullException(nameof(b));
         var x = LayoutFree(a);
         var y = LayoutFree(b);
-        if (x.Count != y.Count) return false;
+        // A text that does not lex has no tokens to compare past its error, which swallows what follows it: two such
+        // texts carrying one message would otherwise be "the same" whatever programs stand behind them.
+        if (x is null || y is null || x.Count != y.Count) return false;
         for (var i = 0; i < x.Count; i++)
             if (x[i] != y[i]) return false;
         return true;
     }
 
-    private static List<(TokKind, string)> LayoutFree(string text)
+    /// <summary>The text's tokens as the gate compares them, or null where it does not lex.</summary>
+    private static List<(TokKind, string)>? LayoutFree(string text)
     {
         // The marker is the first non-blank line, and its token is the language it names, as the reader takes it (a
         // line that is no marker is compared whole).
@@ -133,10 +136,12 @@ public static class NetworkTextGate
         var walk = new NetworkLexer.Walk(new NetworkLexer(text, eol));
         for (var t = walk.Next(); t.Kind != TokKind.Eof; t = walk.Next())
         {
+            if (t.Kind == TokKind.Error) return null;
             if (!t.Is("VAR_TEMP")) { keys.Add(t.Key); continue; }
             var block = new List<Tok> { t };
             for (var u = walk.Next(); ; u = walk.Next())
             {
+                if (u.Kind == TokKind.Error) return null;
                 block.Add(u);
                 if (u.Kind == TokKind.Eof || u.Is("END_VAR")) break;
             }

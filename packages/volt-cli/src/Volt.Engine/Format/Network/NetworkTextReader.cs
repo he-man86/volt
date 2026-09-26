@@ -283,7 +283,10 @@ public static class NetworkTextReader
                     w.Decl.Offset, w.Decl.Length));
             CheckWireTypes(trees);
 
-            return new Network(index, title, label, comment.Count > 0 ? string.Join("\n", comment) : null, disabled, trees);
+            // Title and comment as the drivers store them (NetworkText.Stored): a trailing space, an empty title or a
+            // closing empty `//` line reads as what the IDE would hold, so the gate finds the text not canonical.
+            return new Network(index, NetworkText.Stored(title), label,
+                NetworkText.Stored(comment.Count > 0 ? string.Join("\n", comment) : null), disabled, trees);
         }
 
         /// <summary><c>VAR_TEMP g1, g2 : BOOL; … END_VAR</c> — on one line canonically, across lines as ST allows.</summary>

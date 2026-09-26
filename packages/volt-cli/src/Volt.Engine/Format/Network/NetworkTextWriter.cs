@@ -123,6 +123,7 @@ public static class NetworkTextWriter
             sb.Append(Header()).Append('\n');
 
             if (_net.Comment is { } comment)
+            {
                 // A CR LF line ending is the file's layout, not the comment's text (spec, "the network header and
                 // its comment"); every other character is text and is carried.
                 foreach (var line in comment.Replace("\r\n", "\n").Split('\n'))
@@ -137,6 +138,12 @@ public static class NetworkTextWriter
                     // leading `//` included. An empty line is `//` alone, so a trailing space means nothing.
                     sb.Append("  //").Append(line.Length == 0 ? "" : " " + line).Append('\n');
                 }
+                // What the drivers store (NetworkText.Stored): an empty comment or one ending in whitespace would read
+                // back trimmed. Asked after the lines, so a lone CR is refused by its own name.
+                if (NetworkText.Stored(comment) != comment)
+                    throw Unrepresentable("a comment the IDE does not store",
+                        $"network {_net.Order}'s comment is empty or ends in whitespace, which the drivers trim.");
+            }
 
             if (_definitionOrder.Count > 0)
             {
@@ -164,7 +171,13 @@ public static class NetworkTextWriter
                         $"network {_net.Order} carries the label '{label}', and a LABEL is one identifier.");
                 h.Append(" LABEL: ").Append(label);
             }
-            if (_net.Title is { } title) h.Append(" TITLE: ").Append(Quote(title));
+            if (_net.Title is { } title)
+            {
+                if (NetworkText.Stored(title) != title)
+                    throw Unrepresentable("a title the IDE does not store",
+                        $"network {_net.Order}'s title is empty or ends in whitespace, which the drivers trim.");
+                h.Append(" TITLE: ").Append(Quote(title));
+            }
             if (_net.Disabled) h.Append(" DISABLED");
             return h.ToString();
         }
@@ -681,6 +694,9 @@ public static class NetworkTextWriter
             if (!NetworkSpelling.IsSpellableType(type))
                 throw Unrepresentable("a wire of unspellable type",
                     $"the wire {name} in network {_net.Order} has the type '{type}', which a VAR_TEMP declaration cannot hold.");
+            // Written in the text's one spelling of a type's tokens, never as a holder happened to lay it out — the
+            // text's own declaration included — so the canonical form does not depend on the engineer's layout.
+            type = NetworkSpelling.WireType(type);
 
             // The reader checks the declaration against the producer AS THE TEXT CARRIES IT — without the vendor's
             // stored output types, which the text has no position for. A stored type the text's own rule

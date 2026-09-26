@@ -178,7 +178,7 @@ public static class PushService
             // through `ValidateSourceOrThrow` would refuse every task push as a malformed document.
             try
             {
-                if (IsTask(set.Name)) TaskDescriptorFormat.Gate(text);
+                if (ItemKind.IsTaskWireName(set.Name)) TaskDescriptorFormat.Gate(text);
                 else
                 {
                     var creating = WillCreate(walk, itemCache, Materializer.Bare(set.Name));
@@ -437,7 +437,7 @@ public static class PushService
 
         switch (op)
         {
-            case SetItemOp set when IsTask(set.Name):
+            case SetItemOp set when ItemKind.IsTaskWireName(set.Name):
                 return ApplySetTask(ide, name, existing, set);
             case SetItemOp set:
                 return ApplySetItem(ide, name, existing, currentFolder, set, force, pushedDeclarations);
@@ -477,10 +477,6 @@ public static class PushService
                     "\"deleteItem\" (lower-camel, exactly). The op was ignored rather than applied.");
         }
     }
-
-    /// <summary>Is this wire name a TASK? Read off the extension, because routing happens before the item is
-    /// resolved — a create has no handle to ask, and the pre-flight runs earlier still.</summary>
-    private static bool IsTask(string wireName) => ItemKind.KindForWireName(wireName) == ItemKind.Kinds.Task;
 
     /// <summary>Create or update a TASK from its descriptor — the one non-source kind a push may write.
     ///

@@ -45,7 +45,7 @@ internal static class TcNetworkReader
     ///
     /// <para>The archive keeps its own bytes: <see cref="TcNetworkWriter"/> compares these with trailing
     /// whitespace ignored, so a push that changed nothing still writes nothing.</para></summary>
-    private static string? Trimmed(string? s) => s?.TrimEnd();
+    private static string? Trimmed(string? s) => NetworkText.Stored(s);
 
     /// <summary>One live network, read back into the model — for the WRITER's change gate, which must compare
     /// through exactly the reader a pull would use. A second, nearly-identical read there is how the two would
@@ -190,7 +190,7 @@ internal static class TcNetworkReader
         }
     }
 
-    private static bool HasEno(XElement box) =>
+    internal static bool HasEno(XElement box) =>
         Box.HasEnoSlot(TcArchive.Strings(TcArchive.Obj(box, "OutputParam"), "Names"));
 
     /// <summary>THE STORED OUTPUT TYPES, index-aligned with the output slots as the names are — the compiler's answer
@@ -219,7 +219,7 @@ internal static class TcNetworkReader
     /// box: exactly one null slot is the answer; none (an AND/OR box, which has no output items and stores no main
     /// output) or several is no answer, and null is never a default — the writer refuses what it would need the slot
     /// for, by name.</para></summary>
-    private static int? ConnectedSlot(XElement box)
+    internal static int? ConnectedSlot(XElement box)
     {
         // A bit operator stores no main output (census 1.6), so its consumer is connected by no stored slot — what
         // the archive's single null output item on an AND box would otherwise be read as. CODESYS reads the same box

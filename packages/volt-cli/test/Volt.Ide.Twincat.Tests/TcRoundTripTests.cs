@@ -86,7 +86,7 @@ public class TcRoundTripTests
     [InlineData("MultiOutput.derived.TcPOU")]     // one value driving two coils
     [InlineData("FanOut.TcPOU")]                  // a box with a REAL output item - see the note on this row
     [InlineData("execute-box.TcPOU")]             // an Execute box - its ST must survive a no-op push
-    [InlineData("ladder-demux.TcPOU")]            // a REAL fan-out wire, drawn in XAE - the shape `m<n>` had to stop flattening
+    [InlineData("ladder-demux.TcPOU")]            // a REAL fan-out wire, drawn in XAE - never folded into a multi-output assign
     // drawn-refused-shapes (an UNCONDITIONAL JMP beside a coil, drawn by hand) pulls as the MARKER: see
     // A_body_the_text_has_no_spelling_for_pulls_as_the_marker.
     public void A_push_that_changes_nothing_changes_nothing_in_the_archive(string fixture)
@@ -124,7 +124,7 @@ public class TcRoundTripTests
     [InlineData("MultiOutput.derived.TcPOU")]     // one value driving two coils
     [InlineData("FanOut.TcPOU")]                  // a box with a REAL output item - see the note on this row
     [InlineData("execute-box.TcPOU")]             // an Execute box - its ST must survive a no-op push
-    [InlineData("ladder-demux.TcPOU")]            // a REAL fan-out wire, drawn in XAE - the shape `m<n>` had to stop flattening
+    [InlineData("ladder-demux.TcPOU")]            // a REAL fan-out wire, drawn in XAE - never folded into a multi-output assign
     // drawn-refused-shapes (an UNCONDITIONAL JMP beside a coil, drawn by hand) pulls as the MARKER: see
     // A_body_the_text_has_no_spelling_for_pulls_as_the_marker.
     public void A_push_of_an_unchanged_body_is_not_written_back_at_all(string fixture)
@@ -152,9 +152,10 @@ public class TcRoundTripTests
     /// <summary>A REAL FAN-OUT WIRE SURVIVES AN EDIT — the half a no-op push can never reach.
     ///
     /// <para>`ladder-demux.TcPOU` network 2 is a `BoxTreeDemux` feeding two assigns: THREE archive items, drawn
-    /// in XAE. Network text spells that `LET g1 := …; a := g1; b := g1;` — and until 2026-09-22 it spelled a
+    /// in XAE. Network text v1 spelled that `LET g1 := …; a := g1; b := g1;` — and until 2026-09-22 it spelled a
     /// MULTI-OUTPUT ASSIGNMENT (one item, two coils) exactly the same way. `Unhoist` folded that spelling back
-    /// into one tree so the counts would match, which repaired the assign case and FLATTENED this one.</para>
+    /// into one tree so the counts would match, which repaired the assign case and FLATTENED this one. v2 spells
+    /// the two apart and the writer folds neither (<c>TcInPlaceSilentNoOpTests</c> holds the other direction).</para>
     ///
     /// <para><b>Neither theory above could see it</b>, and that is why this test exists rather than another
     /// fixture row: they push an UNCHANGED body, and `Unchanged` short-circuits per network before the item

@@ -6,12 +6,13 @@
 #    (`LET g1 := v; o1 := g1; o2 := g1;`), and the reader turns any `g<n>` LET back into a Demux - by the
 #    PREFIX, not the use count. So a multi-output assign cannot survive a round trip: TwinCAT's `Unhoist`
 #    guesses it back into one item, CODESYS builds a Demux. Whichever guess is wrong, the engineer's drawn
-#    shape changes. Distinguishing them costs a second name family (`m<n>`) and a canonical-form change that
-#    diffs every already-pulled workspace holding a fan-out - worth paying IF the shape occurs.
+#    shape changes. Distinguishing them costs a second spelling (v1 minted `m<n>`; network text v2 writes a
+#    chained assignment) and a canonical-form change that diffs every already-pulled workspace holding a
+#    fan-out - worth paying IF the shape occurs.
 #
 # 2. THE MIXED RUNG. A rung driving a coil AND a jump loses the coil in the pulled text, so it now materializes
-#    as a MARKER instead (`NetworkTextWriter.Unspellable`). A marker is honest and it is also a POU the
-#    engineer can no longer edit as text - so if the shape is COMMON, the marker is the wrong answer and the
+#    as a MARKER instead (v1's deleted `Unspellable` detector then; network text v2's writer refuses it by
+#    name now). A marker is honest and it is also a POU the engineer can no longer edit as text - so if the shape is COMMON, the marker is the wrong answer and the
 #    spelling has to be built instead. This says which.
 #
 # It also answers the question that prompted the run: does any of this cost DATA LOSS on a real project?

@@ -639,6 +639,16 @@ public class NetworkTextWriterTests
             Write(Net(Def(1, L("x")), Set(Ref(1), T("o"))), BodyLanguage.Ld));
     }
 
+    /// <summary>A stored type is written in the text's one spelling of its tokens, not as the vendor laid it out: the
+    /// canonical form must not depend on layout, and the gate compares a declared type as tokens.</summary>
+    [Fact]
+    public void A_stored_type_is_written_in_the_texts_spelling_of_its_tokens()
+    {
+        var concat = Call("CONCAT", new[] { In(L("a")), In(L("b")) }, connected: 0, eno: false, types: new[] { "STRING (80)" });
+        Assert.Equal(Body("VAR_TEMP g1 : STRING(80); END_VAR", "g1 := CONCAT(a, b);", "o := g1;"),
+            Write(Net(Def(1, concat), Set(Ref(1), T("o")))));
+    }
+
     [Fact]
     public void Wires_of_several_types_are_one_block_one_declaration_per_type()
     {

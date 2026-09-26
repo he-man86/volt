@@ -173,8 +173,8 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	 *
 	 * `ApplyMods` spells `RISING`/`FALLING` on a VALUE and `AssignOp` spells nothing of the sort on a TARGET —
 	 * an asymmetry found this session, where an edge-triggered COIL rendered as a plain one. That half is
-	 * guarded by refusal now (`NetworkTextWriter.Unspellable`) because a census of five real projects found no
-	 * edge coil to calibrate a spelling against. The VALUE side is expressible and had still never been pushed.
+	 * guarded by refusal now (the writer refuses an edge coil by name and the body materializes as the marker)
+	 * because a census of five real projects found no edge coil to calibrate a spelling against. The VALUE side is expressible and had still never been pushed.
 	 */
 	it("a RISING-edge modifier survives a round trip", async () => {
 		const name = id("rise")

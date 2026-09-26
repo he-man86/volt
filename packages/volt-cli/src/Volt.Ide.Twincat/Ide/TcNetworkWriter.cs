@@ -272,39 +272,18 @@ internal static class TcNetworkWriter
                      | SetText(net, "Comment", model.Comment)
                      | SetBool(net, "OutCommented", model.Disabled);
 
-        // THE MODEL IS ALREADY IN THE ARCHIVE'S SHAPE, and it took a format change to make that true.
+        // THE MODEL IS COMPARED IN ITS OWN SHAPE, item for item, and never folded toward the archive's.
         //
-        // A multi-output assignment is ONE item, and network text used to spell it exactly like a real fan-out
-        // WIRE — `LET g1 := (a OR b); out1 := g1; out2 := g1;` — because it cannot repeat a producer without
-        // duplicating its box. Both reparsed as a `Demux` plus one assign each, so one archive item arrived as
-        // three model trees and a raw count refused a body NOBODY had changed. `Unhoist` folded them back, and
-        // it had to GUESS: the same spelling covers a `BoxTreeDemux` the editor drew, which the archive holds
-        // as three items, so folding flattened real wires exactly as often as it repaired real assigns.
-        //
-        // The writer mints `m<n>` for a multi-output assign now and keeps `g<n>` for a wire, so the model says
-        // which shape it is and this compares them directly. Unhoisting here would REFUSE a real fan-out (one
-        // model tree against three archive items) — the mirror of the bug it was added to fix.
+        // Network text v2 spells a multi-output assign (`out1 :=` / `out2 := v;`, ONE item) and a fan-out wire
+        // (`VAR_TEMP g1 …; g1 := v; out1 := g1; out2 := g1;`, a Demux and two items) differently, so the model
+        // always says which shape the engineer wrote. A fold (`Unhoist`) used to run here whenever the counts
+        // disagreed, for v1 text, which spelled both shapes as `LET g1`. v1 text is refused before it gets this
+        // far (`NetworkText.RefuseV1`), and the fold was then only a way to make two DIFFERENT programs agree: an
+        // assign rewritten as a wire folded back into the archive's one assign, found no value change and
+        // returned null — the push reported success and the next pull reverted the file. A count that disagrees
+        // is a shape change, refused so the network goes to the IDE to rebuild.
         var items = TcArchive.List(net, "NetworkItems");
-        IReadOnlyList<Node> trees = model.Trees;
-
-        // …AND `Unhoist` SURVIVES AS A RECONCILIATION FALLBACK, for text written before the spelling existed.
-        //
-        // Every workspace pulled before `m<n>` spells a multi-output assign the way a WIRE is spelled, and that
-        // text is on engineers' disks and in their git history. Read today it builds a `Demux` plus N assigns —
-        // three model trees against the archive's ONE item — so refusing outright would make an existing,
-        // correct file UNPUSHABLE until it was pulled again, with a message about member contracts that
-        // explains none of it.
-        //
-        // So the fold is tried only when the counts DISAGREE and folding makes them agree. That is the whole
-        // difference from what it used to be: it was applied ALWAYS, which is why it flattened real fan-out
-        // wires — a body whose archive genuinely holds three items matches on the first comparison and is never
-        // folded. Old text keeps working, new text is exact, and neither case guesses.
-        if (items.Count != trees.Count)
-        {
-            var folded = Unhoist(trees);
-            if (folded.Count == items.Count) trees = folded;
-        }
-
+        var trees = model.Trees;
         if (items.Count != trees.Count)
             throw Refuse($"network {model.Order + 1} changes from {items.Count} to {trees.Count} item(s)");
 
@@ -315,14 +294,10 @@ internal static class TcNetworkWriter
 
     /// <summary>HOW MANY INDEPENDENT RUNGS a network holds — a fan-out wire and everything it feeds being ONE.
     ///
-    /// <para>This is the only job left. It used to be two: the same fold also reshaped the model to the
-    /// archive before comparing, which stopped being necessary (and became WRONG) when the text learned to
-    /// tell a multi-output assign from a real wire. Counting is unaffected by that distinction — a `Demux`
-    /// and its consumers are one connected rung either way — which is why this survives and the reshape
-    /// does not.</para>
-    ///
-    /// <para>It matters because TwinCAT's importer builds ONE NETWORK PER CONNECTED COMPONENT (D25), so
-    /// "how many rungs does the model hold" is what says whether a rebuild would split the network.</para></summary>
+    /// <para>COUNTING is its only job: TwinCAT's importer builds ONE NETWORK PER CONNECTED COMPONENT (D25), so
+    /// "how many rungs does the model hold" is what says whether a rebuild would split the network, and a `Demux`
+    /// and its consumers are one connected rung. It never reshapes a model a write compares — a wire folded into
+    /// one multi-target assign is another program, not the same one in the archive's spelling.</para></summary>
     private static IReadOnlyList<Node> Unhoist(IReadOnlyList<Node> trees)
     {
         var wires = trees.OfType<Demux>().Where(d => d.Input is not null)
@@ -423,6 +398,17 @@ internal static class TcNetworkWriter
                 var namesThisBox = Volt.Engine.Format.St.StDeclaration.SameType(was, b.Type);
                 if (!namesThisBox)
                     throw Refuse($"a box changes from '{was}' to '{b.Type}'");
+
+                // THE CONNECTION AND THE ENO OUTPUT ARE FACTS THE TEXT CARRIES (`.ENO`, task 3.10), and neither is a
+                // value this write can change: the connected slot is the one the archive stores null, and the ENO
+                // output is the box's `OutputParam` signature. Compared against the archive by the reader's own
+                // derivation, so a consumer moved from Q to ENO is refused here — sent to the IDE to rebuild — and
+                // never found "unchanged" by a walk that looks at neither. Where the model states neither (a
+                // top-level box, a fact the text has no position for there), there is nothing to compare.
+                if (b.HasEnoOutput is { } hasEno && hasEno != TcNetworkReader.HasEno(e))
+                    throw Refuse($"box '{b.Type}' {(hasEno ? "gains" : "loses")} its ENO output");
+                if (b.ConnectedSlot is { } slot && TcNetworkReader.ConnectedSlot(e) != slot)
+                    throw Refuse($"the consumer of box '{b.Type}' moves to output slot {slot}");
 
                 changed |= WriteOperand(e, "Instance", b.Instance);
 

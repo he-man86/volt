@@ -68,8 +68,61 @@ internal static class NetworkSpelling
     /// its own reader refuses.</summary>
     public static bool ReadsAsUndeclaredWire(string t, NetworkScope scope) => WireName.IsMatch(t) && !scope.Contains(t);
 
-    /// <summary>A wire's declared type as the text compares it: its spelling with every run of layout one space.</summary>
-    internal static string WireType(string spelled) => Regex.Replace(spelled, @"\s+", " ").Trim();
+    /// <summary>
+    /// A wire's declared type as the text compares AND writes it: its TOKENS, spelled one way. Whitespace is layout
+    /// in a type like everywhere outside backticks, a TITLE, a comment and an EXECUTE body, so <c>STRING (80)</c> and
+    /// <c>STRING(80)</c> are one type, and the canonical form must not echo the engineer's layout.
+    ///
+    /// <para>The spelling: no space inside brackets and parentheses, before a comma or around a dot, one space
+    /// elsewhere (<c>ARRAY[1..2] OF INT</c>, <c>POINTER TO INT</c>) — except where two tokens would run together into
+    /// others (<c>a</c> <c>.</c> <c>b</c> is not the path <c>a.b</c>), where the space stays.</para>
+    /// </summary>
+    private static string WireType(IReadOnlyList<Tok> tokens)
+    {
+        var sb = new System.Text.StringBuilder();
+        var keys = new List<(TokKind, string)>();
+        for (var i = 0; i < tokens.Count; i++)
+        {
+            var t = tokens[i];
+            keys.Add(t.Key);
+            if (i > 0)
+            {
+                var tight = sb.ToString() + t.Text;
+                sb.Append(Tight(tokens[i - 1], t) && LexesAs(tight, keys) ? "" : " ");
+            }
+            sb.Append(t.Text);
+        }
+        return sb.ToString();
+
+        static bool Tight(Tok left, Tok right) =>
+            (left.Kind == TokKind.Sym && left.Text is "(" or "[" or ".") ||
+            (right.Kind == TokKind.Sym && right.Text is "(" or ")" or "[" or "]" or "," or ".");
+
+        static bool LexesAs(string text, List<(TokKind, string)> keys)
+        {
+            var lx = new NetworkLexer(text, 0);
+            var i = 0;
+            for (var t = lx.Next(); t.Kind != TokKind.Eof; t = lx.Next(), i++)
+                if (i >= keys.Count || t.Key != keys[i]) return false;
+            return i == keys.Count;
+        }
+    }
+
+    /// <summary>The one door to that spelling, for every holder of a type: a declaration's source (the reader, the
+    /// gate's post-push block key), a vendor's stored output type and a model's <see cref="Demux.Type"/> (the writer,
+    /// the producer comparison). Only a type a declaration can hold (<see cref="IsSpellableType"/>) is tokens; any
+    /// other string — a backtick or a string inside a declaration — is kept as written with its layout collapsed,
+    /// and the writer refuses it by name, so such a text never passes the gate.</summary>
+    internal static string WireType(string spelled)
+    {
+        // A declaration read across lines is one type: its newlines are layout here, as everywhere a type is tokens.
+        var laidOut = Regex.Replace(spelled, @"\s+", " ").Trim();
+        if (!IsSpellableType(laidOut)) return laidOut;
+        var lx = new NetworkLexer(laidOut, 0);
+        var tokens = new List<Tok>();
+        for (var t = lx.Next(); t.Kind != TokKind.Eof; t = lx.Next()) tokens.Add(t);
+        return WireType(tokens);
+    }
 
     /// <summary>A VAR_TEMP block as the text compares it: what it DECLARES — each wire with its type, by VarId — never
     /// how the declarations are grouped or ordered. Grouping and order are no NWL fact (the vendor's Demux has no
@@ -294,11 +347,12 @@ internal static class NetworkSpelling
 
     /// <summary>How <paramref name="p"/> disagrees with a DECLARED type — what the producer says instead — or null
     /// when they agree. The writer refuses a model whose declaration disagrees, and the reader reports one: the same
-    /// comparison, so the two cannot differ on which declarations a producer allows.</summary>
+    /// comparison, so the two cannot differ on which declarations a producer allows. Both types compared by their
+    /// tokens (<see cref="WireType(string)"/>): the vendor's <c>STRING (80)</c> is a declared <c>STRING(80)</c>.</summary>
     public static string? Disagreement(ProducedType p, string declared) =>
         p.Exact is { } exact
-            ? string.Equals(exact, declared, StringComparison.OrdinalIgnoreCase) ? null : exact
-            : p.AnyBit && !BitStrings.Contains(declared)
+            ? string.Equals(WireType(exact), WireType(declared), StringComparison.OrdinalIgnoreCase) ? null : exact
+            : p.AnyBit && !BitStrings.Contains(WireType(declared))
                 ? "a bit operator, whose result is BOOL or another bit string (BYTE, WORD, DWORD, LWORD)"
                 : null;
 

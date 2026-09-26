@@ -173,6 +173,9 @@ internal static class NetworkModels
             Set(Call("GT", new[] { In(Ref(1)), In(L("c")) }, connected: 0, eno: false), T("o1")),
             Set(Call("LT", new[] { In(Ref(1)), In(L("d")) }, connected: 0, eno: false), T("o2")))));
         Add("A_wire_is_typed_from_its_producer_and_never_guessed/ld-leaf", Body(Net(Def(1, L("x")), Set(Ref(1), T("o"))), BodyLanguage.Ld));
+        Add("A_stored_type_is_written_in_the_texts_spelling_of_its_tokens", Body(Net(
+            Def(1, Call("CONCAT", new[] { In(L("a")), In(L("b")) }, connected: 0, eno: false, types: new[] { "STRING (80)" })),
+            Set(Ref(1), T("o")))));
         Add("Wires_of_several_types_are_one_block_one_declaration_per_type", Body(Net(Def(1, L("TRUE")),
             Def(2, Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, eno: false, types: new[] { "INT" })),
             Def(3, Op("AND", Ref(1), L("c"))), Set(Ref(2), T("o")), Set(Ref(3), T("p")))));

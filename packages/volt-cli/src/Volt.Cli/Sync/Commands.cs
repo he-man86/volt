@@ -1,9 +1,8 @@
 ﻿using System.Text;
 using Volt.Wire;
 using Volt.Contracts;
-using Volt.Engine.Format.Network;
-using Volt.Engine.Format.St;
 using Volt.Engine.Item;
+using Volt.Engine.Sync;
 
 namespace Volt.Cli.Sync;
 
@@ -709,7 +708,7 @@ public static class Commands
     /// <para><b>Only a layout is adopted.</b> The spec asks that a hand LAYOUT not come back as an IDE change; an IDE
     /// that holds other tokens — a pin its build dropped, an ENO it added, an ST body it reformatted — holds another
     /// text, and adopting that under "the IDE's layout" merged the difference into the working tree unseen
-    /// (<see cref="LayoutOnly"/>).</para>
+    /// (<see cref="PushedText.SameExceptLayout"/>).</para>
     ///
     /// <para><b>Detected without a fetch.</b> The receipt carries each item's version — the hash of its folder and
     /// the text the IDE materializes (<see cref="Volt.Engine.Sync.Hasher.ComputeItemVersion"/>, the one function every version on the
@@ -746,37 +745,9 @@ public static class Commands
         var unfetched = new List<(string, string)>();
         foreach (var kv in differ)
             if (!fetched.TryGetValue(kv.Key, out var held)) unfetched.Add((kv.Key, kv.Value.Version));
-            else if (LayoutOnly(kv.Key, kv.Value.Text, held.SourceText)) canonical.Add(held);
+            else if (PushedText.SameExceptLayout(kv.Key, kv.Value.Text, held.SourceText)) canonical.Add(held);
             else heldOtherwise.Add((kv.Key, kv.Value.Version));
         return (canonical, heldOtherwise, unfetched);
-    }
-
-    /// <summary>Whether the IDE's text of an item is the pushed text laid out otherwise: the same declarations,
-    /// folders and ST bodies byte for byte, and every graphical body the same tokens
-    /// (<see cref="NetworkTextGate.SameTokens"/>) — the one place the format lets layout vary.
-    ///
-    /// <para>A TASK is a descriptor, not ST, and is compared by its own format, exactly as the push gates it
-    /// (<c>PushService.IsTask</c>): the ST reader throws on a descriptor, and here that throw lands after the IDE
-    /// has applied the push and before volt/ide and the baseline record it.</para></summary>
-    private static bool LayoutOnly(string wireName, string pushed, string held)
-    {
-        if (ItemKind.KindForWireName(wireName) == ItemKind.Kinds.Task)
-            return Volt.Engine.Format.Task.TaskDescriptorFormat.SameDescriptor(pushed, held);
-        var a = StReader.Read(pushed);
-        var b = StReader.Read(held);
-        return a.Kind == b.Kind && a.Declaration == b.Declaration && SameBody(a.Body, b.Body)
-               && a.Members.Count == b.Members.Count && a.Members.Zip(b.Members, SameMember).All(same => same);
-
-        static bool SameMember(Member x, Member y) =>
-            x.Kind == y.Kind && x.Name == y.Name && x.Declaration == y.Declaration && x.Folder == y.Folder
-            && x.ReturnType == y.ReturnType && x.DataType == y.DataType && SameBody(x.Body, y.Body)
-            && SameAccessor(x.Getter, y.Getter) && SameAccessor(x.Setter, y.Setter);
-
-        static bool SameAccessor(Accessor? x, Accessor? y) =>
-            x is null ? y is null : y is not null && x.Declaration == y.Declaration && SameBody(x.Body, y.Body);
-
-        static bool SameBody(string? x, string? y) =>
-            x == y || (x is not null && y is not null && NetworkText.Is(x) && NetworkText.Is(y) && NetworkTextGate.SameTokens(x, y));
     }
 
     /// <summary>volt build — build via the IDE, return normalized diagnostics.</summary>

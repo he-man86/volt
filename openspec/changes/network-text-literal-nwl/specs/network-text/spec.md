@@ -40,7 +40,7 @@ the empty statement — a `;` that closes no statement, written on its own line.
 A `BoxTreeDemux` SHALL be the only named intermediate. A network holding a Demux SHALL carry exactly one
 `VAR_TEMP … END_VAR` block after its comment lines and before its first statement; a network without one SHALL carry
 none. The block SHALL be written on one line (`VAR_TEMP g1, g2 : BOOL; END_VAR`) and SHALL be read across lines as
-well. `name := tree;` SHALL be a declared wire's definition and a bare `name` elsewhere a reference. Wire-ness SHALL
+well. A wire's type SHALL be compared and written as its tokens, never as its layout: `STRING (80)` is `STRING(80)`. `name := tree;` SHALL be a declared wire's definition and a bare `name` elsewhere a reference. Wire-ness SHALL
 be decided by the declaration alone, never by use count or name prefix, and a wire name SHALL be `g<digits>`,
 carrying the vendor VarId. The writer SHALL emit items in vendor order and SHALL never reorder them.
 
@@ -169,7 +169,9 @@ with `DISABLED`, `TITLE` or `LABEL` SHALL be read as a statement. The network co
 the header and the wire block (or first statement); per line the `//` and one following space SHALL be syntax and
 the rest — leading indentation and a leading `//` included — text. An empty comment line SHALL be `//`; a blank line
 between comment lines SHALL be layout. A `//` line after a statement SHALL be refused with `NETWORK_PARSE`. The
-drivers SHALL compare a comment ignoring trailing whitespace. A CR LF line ending SHALL be layout, in a comment and an
+drivers SHALL compare a comment ignoring trailing whitespace, so the reader SHALL read a TITLE and a comment as the
+drivers store them — trimmed at the end, none where nothing is left — and a trailing space, an empty TITLE or a
+closing empty `//` line SHALL be `NETWORK_NOT_CANONICAL`. A CR LF line ending SHALL be layout, in a comment and an
 EXECUTE body alike; a line ending in a lone CR SHALL materialize the body as the unsupported marker. A lone CR ends
 a line wherever it stands, so a comment or EXECUTE line holding a CR anywhere but in its CR LF SHALL go to the marker
 on pull and SHALL be refused with `NETWORK_PARSE` on push, never read as text of that line. A TITLE SHALL be
@@ -183,6 +185,11 @@ titles hold one).
 #### Scenario: a multi-line comment keeps its shape
 - **WHEN** a network comment is `"step:\n\n    indented\n// quoted"`
 - **THEN** it is written as `// step:`, `//`, `//     indented`, `// // quoted` and reads back as the same four lines
+
+#### Scenario: a title the drivers would trim
+- **WHEN** a pushed network carries `TITLE: "t  "`, `TITLE: ""` or a comment ending in an empty `//` line
+- **THEN** it is refused with `NETWORK_NOT_CANONICAL`, whose canonical form holds `TITLE: "t"`, no TITLE, or the
+  comment without its closing line
 
 #### Scenario: a comment below a statement
 - **WHEN** a network holds a `//` line after its first statement
@@ -454,7 +461,10 @@ and the model oracle SHALL treat absent and default names as equal — its one e
 position for (the network order number, an operand's type and comment, the vendor's `CallType`, `MainOutputIndex`
 where no connection names it, `HasEnoOutput` where the text does not decide by it (a top-level box with no positional
 `=>` pin, an Execute box, a consumed AND/OR/XOR/NOT with no EN and no stored slot — census 1.6 found no ENO there), a
-named output's slot, `OutputTypes` beyond the declared wire type, a CR LF) SHALL be
+named output's slot, `OutputTypes` beyond the declared wire type, a CR LF, and an FB instance box's type SPELLING —
+the text spells the call by its instance and reads the type from the instance's declaration in the declaration's
+spelling (`t : Standard.TON;` where the vendor may store `TON`), so the two compare by their last name segment,
+case-insensitively, and a pair `StDeclaration.SameType` does not call one type is refused by name) SHALL be
 listed once beside the oracle, each with the reason; every other fact the text cannot carry SHALL be refused by name.
 An infix box SHALL carry its type exactly as the table spells it; `and` SHALL be written in call form.
 
