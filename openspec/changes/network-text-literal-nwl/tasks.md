@@ -16,18 +16,29 @@ never dropped, never guessed.
 - [x] 1.5 Do operator boxes carry `InputParams.Names`, and are they the operator's defaults? Infix is kept when the
       formals are absent or default — one text for both, the driver writes the defaults, the comparer treats them as
       equal; only a non-default name forces call form (ADD/MUL/GE/AND in TrayFiller N8) (review 7.9).
-- [ ] 1.6 Output slots (review 7.3): frequency of a top-level box's unnamed result pin vs `Assign(Box)`; live on FBD
+- [x] 1.6 Output slots (review 7.3): frequency of a top-level box's unnamed result pin vs `Assign(Box)`; live on FBD
       and LD, which slot a consumer is connected to — an Assign over an enabled box (ENO?), box-in-box nesting with
       and without EN, `MainOutputIndex` values, and whether an enabled box is ever connected by its main output
       (if so, the "consumed enabled box needs `.ENO`" refusal becomes "no suffix = main output").
+      *Done 2026-09-26:* `scripts/probe-nwl-slots.py` -> `nwl-slots.log`, DIALECT N16. It IS: 40 enabled comparison
+      boxes are connected by their main output and have no ENO. The refusal is lifted in the spec; 2.5 is reopened.
 - [x] 1.7 Target Negation-only / Rtrig / Ftrig bits across all corpora (archive census, not pulled text). 0 → stay on
       the marker (today: 0 of 576); >0 → propose a spelling with a live constructor build, in its own change.
 - [x] 1.8 Demux definition positions (every sample so far is top-level); a definition nested below the top level, or
       a reference stored before its definition — frequency; each gets a spelling or stays on the marker, never a
       silent reorder (review 7.7). TwinCAT single-consumer Demux frequency.
-- [ ] 1.9 Chained `S=`/`R=` assignment parses on SP21 ST (readability/LSP parity only — network text is not compiled).
-- [ ] 1.10 Delete `NetworkModel.Input.Flags` and any field 1.1–1.4 proves dead. **Blocked on 1.13**: the "null in
+- [x] 1.9 Chained `S=`/`R=` assignment parses on SP21 ST (readability/LSP parity only — network text is not compiled).
+      *Done 2026-09-26:* every mix builds CLEAN against a failing control (`scripts/probe-st-chained-set.py` ->
+      `st-chained-set.log`): `a := b S= c;`, `a S= b := c;`, `a S= b R= c;`, `a := b S= d R= c;`.
+- [x] 1.10 Delete `NetworkModel.Input.Flags` and any field 1.1–1.4 proves dead. **Blocked on 1.13**: the "null in
       22/22" count is TwinCAT-only.
+      *Done 2026-09-26:* `Input.Flags` stays (1.13: load-bearing). Deleted: `Terminator.Input` (1.4: 0) and the null
+      `Assign.Value` (1.2: the empty Terminator is the one "unconnected"). Both readers refuse the vendor shapes by
+      name — "a terminator with an input", "an assignment with no value" — tests
+      `CodesysNetworkReaderTests.A_terminator_with_an_input_is_refused_by_name` /
+      `An_assignment_holding_no_value_is_refused_by_name` and their `TcDrawnJumpTests` twins. Item flags on
+      Demux/Assign (1.1: 0) are no field of their own (`Node.Flags`; an Assign's Jump/Return live there) and stay
+      refused by name.
 - [x] 1.11 Is an Execute box ever consumed (its ENO continuing the rung), and with EN unwired? The value form
       `EXECUTE … END_EXECUTE.ENO` is specified either way (an Execute box's only output is ENO, so `.ENO` needs no
       EN — review 7.11); the census decides corpus golden vs synthetic.
@@ -39,16 +50,30 @@ never dropped, never guessed.
       box-to-box pin, read where they land. Found → the pin spelling on the formal (`f(NOT IN1 := x)`,
       `f(R_EDGE(CLK) := x)`), distinct from the value's flag (`f(CLK := R_EDGE(x))`); until then a pulled pin flag
       goes to the marker.
-- [ ] 1.14 `R_EDGE` / `F_EDGE` (review 7.12): check neither SP21 nor TwinCAT lets a POU or instance take the names;
+- [x] 1.14 `R_EDGE` / `F_EDGE` (review 7.12): check neither SP21 nor TwinCAT lets a POU or instance take the names;
       measure the vendor's evaluation order for Negation+Rtrig on one operand (the text's one order is
       `NOT R_EDGE(x)`).
-- [ ] 1.15 Labels and jumps, live on both vendors, recording each build message: one LABEL on two networks of a body
+      *Done 2026-09-26 (DIALECT N17, N18):* BOTH vendors let a function, an FB, an instance and a variable be named
+      `R_EDGE`/`F_EDGE` (clean builds), so the spec's refusal of such a call stands. The ORDER is the other way round:
+      SP21 evaluates `Negation+Rtrig` as `R_EDGE(NOT x)` (run in simulation, `edge-names-order.log`), so the text's
+      `NOT R_EDGE(x)` stated other logic; the spec now spells it `R_EDGE(NOT x)` and 2.11 is reopened. TwinCAT's
+      order is not measured: no Volt path runs a TwinCAT PLC, and N1 is the only evidence it matches.
+- [x] 1.15 Labels and jumps, live on both vendors, recording each build message: one LABEL on two networks of a body
       (can the IDE hold it; case-insensitive?); a LABEL on a DISABLED network as a jump target (still a target?); a
       `JMP` inside a DISABLED network; a `JMP` to a label no network carries. The gate refuses only what the IDE
       cannot hold; the rest is LSP parity (5.6).
+      *Done 2026-09-26 (DIALECT N19):* both IDEs HOLD every shape, so the gate refuses none of them. The messages
+      (5.6's parity targets): `The label 'DONE' is a duplicate` (same case or not); `No such label 'DONE' within
+      the scope of the JMP statement` (a disabled network's label is no target; TwinCAT adds a `.`); `The label
+      'DONE' has not been referenced` (a JMP in a disabled network is no reference; a warning); `No such label
+      'NOWHERE' ...`. Labels match case-insensitively.
 - [ ] 1.16 TwinCAT ladder (review 7.16): the share of wires fed by a leaf in the TwinCAT corpora (lenze-mid: 66 of
       139). If alike, refusing "a Demux of a leaf" on a structural edit blocks about half of rung edits — the reason
       4.4 measures the import first.
+      *BLOCKED 2026-09-26:* no engineer-drawn TwinCAT ladder project exists on this machine. The one TwinCAT corpus
+      (`twincat-project14`, the fixture) holds ONE wire (`POUexecute`, fed by the leaf `b`): 1 of 1, no share. The
+      other `.TcPOU` files holding a Demux are Volt's own test and scratch bodies, and Beckhoff's
+      `PlcSample_BasicPlcElements` holds none. Needs a real TwinCAT ladder project.
 - [x] 1.17 Wires by producer kind across every corpus: boolean (operand used as a boolean, AND/OR/XOR/NOT, comparison,
       TRUE/FALSE, edge, ENO, Parallel) vs data (e.g. `g1 := ADD(a, b)` fanned out; a non-boolean leaf). All boolean →
       the rule is `BOOL`, a data wire goes to the marker by name; data wires found → type inference in the writer is
@@ -92,8 +117,23 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
   lines starting with `//`, 2 with an inner blank line, 1 indented, 6 with trailing whitespace; **0 labels, 0 jumps** in
   every corpus (1 RETURN), 3 disabled networks → 1.15 can only be measured by BUILDING a probe project; no vendor split
   points.
-- **Open:** 1.6 (live semantics of a consumed enabled box), 1.9, 1.14, 1.15 (constructed probe project), 1.16 (needs a real
-  TwinCAT ladder project — the fixture has none of the shapes).
+- **Open:** 1.16 (needs a real TwinCAT ladder project — the fixture has none of the shapes). 1.6, 1.9, 1.14 and 1.15 were
+  measured the same day (below).
+
+### Census results — 2026-09-26, second pass (constructed and live measurements)
+
+- **1.6** (`probe-nwl-slots.py`, 1,164 consumed boxes in five projects, each connection checked against the vendor's
+  PLCopen export): the consumer is ALWAYS connected to `MainOutputIndex` (3 call boxes store 1 and are read through
+  output #1), and that slot is ENO exactly when the box's outputs start `ENO`. MOVE/ADD/calls showing EN/ENO are read
+  through ENO (66 connections); an enabled COMPARISON (`GT`/`LT`/`LE`/`EQ` with EN, 40 boxes) has one output `''` and is
+  read through it (53) — an enabled box connected by its main output, with no ENO; an FB declaring `ENO` as a variable
+  without `EN` (Lenze `Dryer`) is read through ENO. `.ENO` means "connected to the ENO output", not "the box has EN".
+- **1.9** chained `:=`/`S=`/`R=` in any mix: clean on SP21.
+- **1.10** `Terminator.Input` and the null `Assign.Value` deleted; readers refuse both by name.
+- **1.14** names: legal on both vendors. Order: SP21 computes `Negation+Rtrig` as `R_EDGE(NOT x)` and
+  `Negation+Ftrig` as `F_EDGE(NOT x)` (simulation, `x = 00110010`).
+- **1.15** held on both vendors; build messages as in 1.15 above.
+- **1.16** BLOCKED: no real TwinCAT ladder corpus.
 
 ## 2. Oracle red first (tests-are-the-oracle)
 
@@ -116,12 +156,17 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       v2 text AND as a model, red until the swap. Positions with the `X AND (a OR b)` shape are pinned only after 1.3.
       (The design page shows N82 and N8 only.)
       *Progress (phase 1):* Mach1_MIDS N0 and TrayFiller N8 pinned as v2 text + model (`NextNetworkTextWriterTests`); N10, N13, N82, TrayFiller N1, N6 open.
-- [x] 2.5 The slot rule (review 7.3), one test each, on the stored connection slot: a top-level box's positional `=>`
+- [ ] 2.5 The slot rule (review 7.3), one test each, on the stored connection slot: a top-level box's positional `=>`
       fills slot 0; a consumed box connected by its main output has no suffix and its `=>` pins skip that slot; a
       consumed box connected by ENO says `.ENO` and its `=>` pins start at slot 0; ENO is never an `=>` slot; a
       connection by any other slot → marker; `.ENO` on a non-Execute box without EN and a consumed enabled box
       without it (`GT(ADD(EN := x, a, b), c)`) are refused; a consumed Execute box without EN writes `.ENO`.
-      *Done (phase 1), on v2:* `NextNetworkTextWriterTests` / `NextNetworkTextReaderTests` / `NextNetworkTextGateTests` slot-rule tests. 1.6 (live semantics) is still open and may change the "consumed enabled box needs `.ENO`" refusal.
+      *Done (phase 1), on v2:* `NextNetworkTextWriterTests` / `NextNetworkTextReaderTests` / `NextNetworkTextGateTests` slot-rule tests.
+      *Reopened by 1.6 (2026-09-26):* the premise "an enabled box is consumed through ENO" is measured false for the
+      40 enabled comparisons (EN, one output, no ENO), and ENO exists without EN (`Dryer`). `NextSpelling.EnoSlot`
+      keys ENO on `Box.Enable`; it must key on the ENO output (`Box.HasEnoSlot` over the output names). The refusals
+      "consumed enabled box without `.ENO`" and "`.ENO` on a box without EN" go; `GT(ADD(EN := x, a, b), c)` is the
+      case to re-decide (ADD shows ENO, so its consumer reads ENO and the text must say `.ENO`).
 - [ ] 2.6 Wire misuse, one test each: undefined, defined with `S=`/`R=`, chained, referenced before definition, not
       `g<digits>`, a second `VAR_TEMP` block, an undeclared `g<digits>` in no scope, a declared type unlike the
       producer's (`NETWORK_BAD_EXPRESSION`); declared or defined twice, a name equal to a declared variable differing
@@ -150,10 +195,13 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       newline, a snippet holding a line whose first word is `END_EXECUTE` → marker, no exception; a snippet holding
       `NetworkState := 1;` round-trips and pushes.
       *Done (phase 1), on v2:* backtick in operand text and `END_EXECUTE` snippet line → marker; `NetworkState := 1;` round-trips and passes the gate. Owner decision: a TITLE newline is now spelled with `$N` escapes (round-trips), not the marker.
-- [x] 2.11 Edges (reviews 7.8, 7.12): `R_EDGE(x)`/`F_EDGE(x)` read back as a flag on the operand, never a box;
-      `NOT R_EDGE(x)` is Negation+Rtrig; `R_EDGE(NOT x)` → `NETWORK_BAD_EXPRESSION`; `R_EDGE(F_EDGE(x))` and a POU
+- [ ] 2.11 Edges (reviews 7.8, 7.12): `R_EDGE(x)`/`F_EDGE(x)` read back as a flag on the operand, never a box;
+      `R_EDGE(NOT x)` is Negation+Rtrig (was `NOT R_EDGE(x)`; reopened by 1.14, the vendor negates first);
+      `NOT R_EDGE(x)` → `NETWORK_BAD_EXPRESSION`; `R_EDGE(F_EDGE(x))` and a POU
       named `R_EDGE` → `NETWORK_UNSUPPORTED`; Rtrig+Ftrig on one pulled operand → marker; a flag on an empty slot →
       marker on pull, `NETWORK_UNSUPPORTED` on push.
+      *Reopened by 1.14 (2026-09-26):* `Negation_with_an_edge_is_NOT_outside`, `A_modifier_inside_an_edge` and the
+      goldens writing `NOT F_EDGE(…)` pin the order the vendor does NOT compute (DIALECT N17) and must be rewritten.
       *Done (phase 1), on v2:* `Edges_are_flags_on_their_operand_never_a_box`, `Negation_with_an_edge_is_NOT_outside`, `A_modifier_inside_an_edge`, `Nested_edges`, `A_POU_or_instance_named_like_a_construct`, `Rising_and_falling_on_one_operand_goes_to_the_marker`, `A_flag_on_an_empty_slot(_goes_to_the_marker)`.
 - [x] 2.12 Marker routing for unmeasured facts (reviews 7.1, 7.6): a CODESYS pin flag in `InputFlags`, a flag on a
       Demux item, a flag on an Assign item → marker on pull, the flag never dropped.
@@ -167,7 +215,7 @@ TwinCAT: the Project14 fixture only (4 graphical POUs — no negation, edge or P
       `//` round-trips byte-identically; a blank line between `//` lines is layout; a `//` after a statement →
       `NETWORK_PARSE`; a comment on a network with LABEL, TITLE, DISABLED and a wire block writes header, comment,
       block, statements; a DISABLED network with a LABEL that is a jump target round-trips; a `JMP` to a missing
-      label passes the gate; a duplicate label (case-differing) follows 1.15.
+      label passes the gate; a duplicate label (case-differing) follows 1.15: held on both vendors, so accepted.
       *Progress (phase 1):* comment shape, `//` after a statement, header/comment/block/statement order, a DISABLED labelled jump target and a jump to a missing label are pinned on v2; the duplicate-label case waits on 1.15.
 
 ## 3. The swap (one change, no dual reader)

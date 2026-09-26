@@ -236,3 +236,56 @@ def projects_from_env():
         return [s.strip() for s in many.split(";") if s.strip()]
     one = (os.environ.get("VOLT_PROBE_PROJECT") or "").strip()
     return [one] if one else []
+
+
+def build_messages(app, system_api, severity):
+    """Build `app` and return every error and warning the build left, as "[Severity] text" lines.
+
+    `system_api` and `severity` are the `system` and `Severity` globals CODESYS injects into a runscript; like
+    `projects`, they cannot be imported here. Every category is read, not only the compiler's, because a refusal
+    can come from the object tree (a label, a POU name) before the compiler ever sees the code."""
+    app.build()
+    out = []
+    for cat in system_api.get_message_categories(True):
+        for sev in (severity.FatalError, severity.Error, severity.Warning):
+            for m in system_api.get_message_objects(cat, sev):
+                out.append("[%s] %s" % (sev, getattr(m, "text", m)))
+    return out
+
+
+def nwl_new(sample, type_name, *args):
+    """A fresh NWL object (`Network`, `BoxTreeAssign`, `Operand`, ...) from the assembly `sample` lives in - the
+    same lookup the C# writer's `NwlInterop.New` does, so a probe builds exactly what the driver would."""
+    import System
+    for t in sample.GetType().Assembly.GetTypes():
+        if t.Name == type_name and t.IsClass and not t.IsAbstract:
+            return System.Activator.CreateInstance(t, System.Array[System.Object](list(args)))
+    raise Exception("no NWL type " + type_name)
+
+
+def nwl_set(o, name, value):
+    """Set a (possibly non-public) property by reflection - IronPython refuses some the listing shows."""
+    for src in [o.GetType()] + list(o.GetType().GetInterfaces()):
+        p = src.GetProperty(name, bf()) if src is o.GetType() else src.GetProperty(name)
+        if p is not None and p.CanWrite:
+            p.SetValue(o, value, None)
+            return
+    raise Exception("no writable %s on %s" % (name, o.GetType().Name))
+
+
+def nwl_edit(objmgr, pou, fn):
+    """Open `pou`'s graphical implementation for writing, hand it to `fn`, and commit - the object-manager round
+    trip the scripting API has no door for. `fn(impl)` builds networks with `nwl_new`."""
+    u = unwrap(pou)
+    meta = objmgr.GetObjectToModify(prop(u, "handle") or 0, prop(u, "guid"))
+    try:
+        fn(prop(prop(meta, "Object"), "Implementation"))
+    finally:
+        objmgr.SetObject(meta, True, None)
+
+
+def nwl_read(objmgr, pou):
+    """The committed NetworkList of `pou`, read fresh through the object manager."""
+    u = unwrap(pou)
+    meta = objmgr.GetObjectToRead(prop(u, "handle") or 0, prop(u, "guid"))
+    return prop(prop(prop(meta, "Object"), "Implementation"), "NetworkList")

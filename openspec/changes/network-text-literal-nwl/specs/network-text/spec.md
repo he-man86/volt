@@ -190,8 +190,10 @@ titles hold one).
 The gate SHALL refuse only a label or jump shape the IDE cannot hold; label resolution SHALL remain the compiler's,
 and the LSP SHALL report what the recorded build reports. Labels SHALL match case-insensitively and travel verbatim.
 A `JMP` to a label no network of the body carries SHALL be accepted by the gate. One label on two networks of a body
-SHALL be refused with `NETWORK_DUPLICATE_NAME` if and only if the label census shows the IDE cannot hold it. A LABEL on
-a DISABLED network and a `JMP` inside a DISABLED network SHALL round-trip.
+SHALL be accepted: both IDEs hold it (census 1.15, DIALECT N19) and their build reports `The label 'DONE' is a
+duplicate`. A LABEL on a DISABLED network and a `JMP` inside a DISABLED network SHALL round-trip; both IDEs hold them,
+and the build reports the first as no jump target (`No such label … within the scope of the JMP statement`) and the
+second as no reference (`The label '…' has not been referenced`).
 
 #### Scenario: a jump to a missing label
 - **WHEN** a body holds `JMP Nowhere;` and no network labelled `Nowhere`
@@ -203,8 +205,8 @@ a DISABLED network and a `JMP` inside a DISABLED network SHALL round-trip.
 
 #### Scenario: a label on two networks
 - **WHEN** two networks of one body carry `LABEL: Done` and `LABEL: DONE`
-- **THEN** the push follows the label census: refused with `NETWORK_DUPLICATE_NAME` if the IDE cannot hold it, else
-  accepted with the build's message in the LSP
+- **THEN** the push is accepted (census 1.15: both IDEs hold it) and the LSP reports the build's `The label 'DONE' is a
+  duplicate`
 
 ### Requirement: EN is a pin, ENO is spelled, and output slots are stored
 
@@ -217,21 +219,27 @@ an `=>` slot. The text does not spell WHICH slot is the main output, so it SHALL
 stored slot for an AND/OR/XOR/NOT box (the vendor stores no main output index on them — census 1.6); a consumed box the
 rule would misread — its main output another slot, or its connection slot never read — SHALL materialize the body as
 the unsupported marker, never be renumbered. `MainOutputIndex` is compared only where a consumer is connected by it; at
-the top level and behind `.ENO` the text has no position for it and the push takes it from the IDE's box. Until the slot census shows an enabled box connected by its main output, the gate SHALL refuse a
-consumed enabled box without `.ENO`, and SHALL refuse `.ENO` on a box without EN except on an Execute box, whose only
-output is ENO. A call's head SHALL be its BoxType verbatim (keywords included) or its FB instance.
+the top level and behind `.ENO` the text has no position for it and the push takes it from the IDE's box. Census 1.6
+(DIALECT N16: 1,164 consumed boxes, every connection checked against the vendor's PLCopen export) found a consumer
+ALWAYS connected to the box's main output, and that slot is ENO exactly when the box has an ENO output — EN and ENO are
+independent. So `.ENO` SHALL mean "connected to the ENO output", never "the box has EN": an enabled comparison
+(`GT(EN := c, a, b)`: EN wired, one output, no ENO) consumed by its main output SHALL carry no suffix, and `.ENO` on
+a box without EN SHALL be accepted where the box has an ENO output (an Execute box; an FB declaring `ENO`, Lenze
+`Dryer`). The gate SHALL NOT refuse a consumed enabled box for lacking `.ENO`; the push SHALL refuse `.ENO` on a box
+the IDE gives no ENO output, naming it. A call's head SHALL be its BoxType verbatim (keywords included) or its FB
+instance.
 
 #### Scenario: an enabled box drives a lamp
 - **WHEN** `Assign(Box MOVE{EN: c, IN: 0, result → Status}, [lamp])` is written
 - **THEN** it is `lamp := MOVE(EN := c, 0, => Status).ENO;` and no `LET` or `IF` appears
 
-#### Scenario: a missing ENO is refused
-- **WHEN** a pushed body contains `lamp := MOVE(EN := c, 0, => Status);`
-- **THEN** the push is refused with `NETWORK_BAD_EXPRESSION`
+#### Scenario: an enabled comparison consumed by its main output
+- **WHEN** a pulled `GT` box with EN wired to `c` and no ENO output is consumed by `out :=` (census 1.6: 40 such boxes)
+- **THEN** it is written `out := GT(EN := c, a, b);` with no suffix and reads back connected by its main output
 
-#### Scenario: an enabled box nested without ENO
-- **WHEN** a pushed body contains `out := GT(ADD(EN := x, a, b), c);`
-- **THEN** it is refused with `NETWORK_BAD_EXPRESSION`, never read as GT on ADD's ENO
+#### Scenario: a box that has no ENO output says .ENO
+- **WHEN** a pushed body contains `out := GT(EN := c, a, b).ENO;` and the IDE builds that GT with no ENO output
+- **THEN** the push is refused, naming the box, never connected to another slot
 
 #### Scenario: a consumed box without EN keeps its main output for its consumer
 - **WHEN** a box `f` without EN is consumed by `out :=` through its main output and its output slot 1 is wired to `err`
@@ -281,9 +289,11 @@ refused with `NETWORK_BAD_EXPRESSION`.
 ### Requirement: edges are R_EDGE and F_EDGE flags
 
 A `Rtrig` or `Ftrig` flag on an operand, box, Parallel or wire reference SHALL be written `R_EDGE(x)` or `F_EDGE(x)`,
-and SHALL read back as that flag on `x`, never as a box. With negation the one spelling SHALL be `NOT R_EDGE(x)`. The
-argument of an edge SHALL carry no modifier: a modifier inside it SHALL be refused with `NETWORK_BAD_EXPRESSION`, and
-nested edges with `NETWORK_UNSUPPORTED`. Rising and falling on one operand SHALL materialize the body as the marker on
+and SHALL read back as that flag on `x`, never as a box. With negation the one spelling SHALL be `R_EDGE(NOT x)` /
+`F_EDGE(NOT x)`: the vendor negates the operand before it detects the edge (census 1.14, DIALECT N17 — `Negation+Rtrig`
+ran as `R_EDGE(NOT x)` in simulation), so `NOT R_EDGE(x)` would state other logic and SHALL be refused with
+`NETWORK_BAD_EXPRESSION`. The argument of an edge SHALL carry no modifier but that one `NOT`: any other SHALL be
+refused with `NETWORK_BAD_EXPRESSION`, and nested edges with `NETWORK_UNSUPPORTED`. Rising and falling on one operand SHALL materialize the body as the marker on
 pull.
 
 #### Scenario: an edge on EN
@@ -293,11 +303,12 @@ pull.
 
 #### Scenario: negation with an edge
 - **WHEN** an operand `x` carries `Negation` and `Ftrig`
-- **THEN** it is written `NOT F_EDGE(x)`
+- **THEN** it is written `F_EDGE(NOT x)` and reads back as the same two flags on `x`
 
-#### Scenario: a modifier inside an edge
-- **WHEN** a body contains `out := R_EDGE(NOT x);`
-- **THEN** it is refused with `NETWORK_BAD_EXPRESSION`
+#### Scenario: a negation outside an edge
+- **WHEN** a body contains `out := NOT R_EDGE(x);`
+- **THEN** it is refused with `NETWORK_BAD_EXPRESSION`: the vendor has no operand whose edge is negated after it is
+  detected
 
 #### Scenario: rising and falling on one operand
 - **WHEN** a pulled operand carries both `Rtrig` and `Ftrig`

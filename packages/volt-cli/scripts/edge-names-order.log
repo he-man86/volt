@@ -1,0 +1,37 @@
+=== A: can a POU, an instance or a variable take the name? ===
+control: an error
+   build: 
+      [Error] Cannot convert type 'Unknown type: 'zz'' to type 'BOOL'
+      [Error] Identifier 'zz' not defined
+a FUNCTION named R_EDGE, called
+   object tree: created function 'R_EDGE'
+   build: CLEAN
+a FUNCTION named F_EDGE, called
+   object tree: created function 'F_EDGE'
+   build: CLEAN
+an FB named R_EDGE, instantiated
+   object tree: created fb 'R_EDGE'
+   build: CLEAN
+an instance named R_EDGE
+   build: CLEAN
+a variable named F_EDGE
+   build: CLEAN
+the IEC qualifier (x : BOOL R_EDGE)
+   build: 
+      [Error] ';, :=, REF=, ( or [' expected instead of 'R_EDGE'
+
+=== B: Negation + an edge bit on ONE operand - which order does the vendor evaluate? ===
+   network 0 held: neg_rtrig := x Negation+Rtrig
+   network 1 held: neg_ftrig := x Negation+Ftrig
+   network 2 held: rtrig := x Rtrig
+   network 3 held: ftrig := x Ftrig
+   network 4 held: neg := x Negation
+   build: CLEAN
+   x sequence                  00110010
+   neg_rtrig  Negation+Rtrig   10001001  = R_EDGE(NOT x)
+   neg_ftrig  Negation+Ftrig   00100010  = F_EDGE(NOT x), R_EDGE(x)
+   rtrig      Rtrig            00100010  = F_EDGE(NOT x), R_EDGE(x)
+   ftrig      Ftrig            00001001  = F_EDGE(x)
+   neg        Negation         11001101  = NOT x
+   (orders: F_EDGE(NOT x)=00100010; F_EDGE(x)=00001001; NOT F_EDGE(x)=11110110; NOT R_EDGE(x)=11011101; NOT x=11001101; R_EDGE(NOT x)=10001001; R_EDGE(x)=00100010)
+done

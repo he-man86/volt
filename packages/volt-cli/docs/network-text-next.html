@@ -51,7 +51,8 @@
     other non-infix construct. They spell a <i>flag</i> on the operand (<code>Rtrig</code>/<code>Ftrig</code> in
     IFlags), not a box: <code>R_TRIG</code> would be an FB box with an instance the IDE never held, and a real
     <code>R_TRIG</code> box the engineer drew must stay distinguishable from it. With negation the one order is
-    <code>NOT R_EDGE(x)</code>. One corpus use (pro2193 ActuatorFB, an edge on MOVE's EN), so it keeps a spelling.</li>
+    <code>R_EDGE(NOT x)</code>: the vendor negates before it detects the edge (census 1.14, DIALECT N17), so
+    <code>NOT R_EDGE(x)</code> would say other logic and is refused. One corpus use (pro2193 ActuatorFB, an edge on MOVE's EN), so it keeps a spelling.</li>
   <li><b>No whitespace rule for NOT.</b> Tokens separate the modifier from the box, and <b>parentheses are
     structural</b>: every pair is a box — a group's, or a call's argument list. <code>NOT a</code> and
     <code>NOT (a AND b)</code> are the modifier; <code>NOT(a)</code> and <code>NOT((a AND b))</code> are the NOT box.
@@ -144,7 +145,7 @@
   <tr><td class="name">Network (Label, Title, Comment, OutCommented)</td><td><code>NETWORK [LABEL: x] [TITLE: "…"] [DISABLED]</code> to the end of its line, <code>//</code> lines, an optional <code>VAR_TEMP</code> wire block, <code>END_NETWORK</code> (<a href="#comments">comments</a>)</td></tr>
   <tr><td class="name">top-level item with no target</td><td><code>value;</code> — a box, leaf, wire reference or PARALLEL whose output goes nowhere; <code>;</code> alone is the empty item</td></tr>
   <tr><td class="name">BoxTreeOperand</td><td>a bare token (<code>a</code>, <code>s.f</code>, <code>T#1S</code>, <code>???</code>), else <code>`text`</code></td></tr>
-  <tr><td class="name">IFlags on an operand, box, Parallel or wire reference</td><td><code>NOT x</code> · <code>R_EDGE(x)</code> · <code>F_EDGE(x)</code> · <code>NOT R_EDGE(x)</code>; on a box <code>NOT (a AND b)</code>, <code>R_EDGE(f(x))</code>, <code>NOT PARALLEL(…)</code>. Rising and falling together: marker</td></tr>
+  <tr><td class="name">IFlags on an operand, box, Parallel or wire reference</td><td><code>NOT x</code> · <code>R_EDGE(x)</code> · <code>F_EDGE(x)</code> · <code>R_EDGE(NOT x)</code>; on a box <code>NOT (a AND b)</code>, <code>R_EDGE(f(x))</code>, <code>NOT PARALLEL(…)</code>. Rising and falling together: marker</td></tr>
   <tr><td class="name">flags on an input <i>pin</i> (<code>Input.Flags</code>)</td><td>measured populated and load-bearing on CODESYS (census 1.13: 6 pins carry a Negation there only). No spelling yet (owner decision 2026-09-26): the writer refuses a pin flag by name, so a pulled one goes to the marker, never dropped. A spelling — on the formal, forcing named form, <code>f(NOT IN1 := x)</code>, distinct from <code>f(CLK := R_EDGE(x))</code>, the flag on the value, and one for an operator box's unnamed pin — is its own decision</td></tr>
   <tr><td class="name">flags on a Demux or Assign <i>item</i></td><td>census 1.1. None → the field is deleted. Some → marker until the census names a position distinct from the value's flags</td></tr>
   <tr><td class="name">BoxTreeBox</td><td><code>BoxType(pins)</code> · <code>inst(pins)</code> · <code>??? : Type(pins)</code>; infix <code>(a OP b)</code> for an operator box with no EN, no instance, no output pin and absent-or-default formals (<a href="#group">below</a>)</td></tr>
@@ -168,7 +169,8 @@
   <tr><th>mapping</th><th>why it stays</th></tr>
   <tr><td>Infix <code>(a AND b)</code>; absent ≡ default formals</td><td>Decided only by the box's own fields — a function both ways. The parentheses are the box. Absent and default <code>InputParams</code> names write the same text; the model oracle treats them as equal and the driver writes the defaults (census 1.5).</td></tr>
   <tr><td>FB BoxType not written</td><td>Recovered from the declaration; <code>??? : TYPE</code> when there is no instance. Repeating it would bury every rung.</td></tr>
-  <tr><td><code>.ENO</code>; the ENO slot</td><td>ENO is null on 220/220 boxes. <code>.ENO</code> is redundant but required: without it <code>coil := MOVE(EN := c, 0, =&gt; dst)</code> reads as "coil gets 0".</td></tr>
+  <tr><td><code>.ENO</code>; the ENO slot</td><td>ENO is null on 220/220 boxes. <code>.ENO</code> says the consumer reads the ENO output, which only the box's outputs decide — an enabled GT
+    has none (census 1.6).</td></tr>
   <tr><td>Item Jump/Return bit; RETURN's <code>???</code></td><td>Derived from the target bit (TwinCAT sets both, C13); the target text is measured constant.</td></tr>
   <tr><td>Network position; Int64 Ids</td><td>Host limit: CODESYS re-mints Ids on a changed network.</td></tr>
   <tr><td>Wire collision rename</td><td>When <code>g&lt;VarId&gt;</code> matches a name in scope, case-insensitively, the writer takes the lowest free <code>g&lt;n&gt;</code> and the push writes VarId n. 0 in six corpora.</td></tr>
@@ -428,12 +430,13 @@ out := NOT((a AND b));</pre>
 
 <h3 id="edge">Edges</h3>
 <pre>MOVE(EN := R_EDGE(bStart), 1, =&gt; nMode);
-out := NOT F_EDGE(g3);
+out := F_EDGE(NOT g3);
 lamp := R_EDGE((a AND b));</pre>
 <p>
-  A rising edge on MOVE's EN (the pro2193 ActuatorFB shape); a negated falling edge on a wire reference; an edge on an
-  AND box's output — the outer pair is <code>R_EDGE</code>'s, the inner the group's. The argument carries no modifier
-  (<code>R_EDGE(NOT x)</code> is refused: the one order is <code>NOT R_EDGE(x)</code>), while
+  A rising edge on MOVE's EN (the pro2193 ActuatorFB shape); a falling edge of a negated wire reference; an edge on an
+  AND box's output — the outer pair is <code>R_EDGE</code>'s, the inner the group's. The argument carries no modifier but one <code>NOT</code>, which is the operand's negation: the vendor
+  negates first, so <code>R_EDGE(NOT x)</code> is <code>Negation+Rtrig</code> and <code>NOT R_EDGE(x)</code> is refused
+  (census 1.14), while
   <code>R_EDGE(NOT(a))</code> is an edge on the NOT <em>box</em> — its pair holds no operator, so it is NOT's argument
   list, as everywhere; nested edges and rising+falling on one operand are refused by name.
 </p>
@@ -455,7 +458,9 @@ GT(EN := SUB(EN := rung, light, deviation, =&gt; diff).ENO, sensor, diff, =&gt; 
 <ul>
   <li>ENO is never an <code>=&gt;</code> slot. It is only ever <code>.ENO</code>.</li>
   <li>A consumed box connected by its main output (<code>MainOutputIndex</code>) has no suffix; connected by ENO it says
-    <code>.ENO</code>. Any other connection slot goes to the marker until census 1.6 finds one.</li>
+    <code>.ENO</code>. Census 1.6 (DIALECT N16) found no other: over 1,164 consumed boxes the consumer is always
+    connected to the main output, and that slot IS the ENO output exactly when the box has one. Any other connection
+    slot goes to the marker.</li>
   <li>The text does not say WHICH slot the main output is, so it reads it by rule: slot 0, and for an AND/OR/XOR/NOT
     box (which the vendor stores no main output index for — census 1.6) no stored slot. The rule is the same for a
     group and a call: <code>(a &gt; b)</code> and <code>GT(a, b)</code> read to one box, connected by slot 0, and the
@@ -464,14 +469,18 @@ GT(EN := SUB(EN := rung, light, deviation, =&gt; diff).ENO, sensor, diff, =&gt; 
     connection slot was never read. Renumbering its pins instead would wire them to other slots on push.</li>
   <li>Positional <code>=&gt; v</code> pins fill the remaining output slots in order, skipping the connected one. A named
     <code>F =&gt; v</code> goes to slot F.</li>
-  <li>Until 1.6 shows an enabled box connected by its main output, a consumed box with EN must say <code>.ENO</code>,
-    and <code>.ENO</code> on a box without EN is refused. An Execute box has no output but ENO, so
-    <code>END_EXECUTE.ENO</code> needs no EN (census 1.11).</li>
+  <li><code>.ENO</code> means "connected to the ENO output", never "the box has EN" — the two are independent
+    (census 1.6). An enabled comparison has EN and no ENO, and its consumer reads its one data output:
+    <code>out := GT(EN := c, a, b);</code> (40 boxes in the corpora). An FB may declare <code>ENO</code> without
+    <code>EN</code> (Lenze <code>Dryer</code>), and an Execute box has no output but ENO, so
+    <code>END_EXECUTE.ENO</code> needs no EN (census 1.11). The push refuses <code>.ENO</code> on a box the IDE gives
+    no ENO output.</li>
 </ul>
 <p>
-  So <code>coil := MOVE(EN := c, 0, =&gt; dst).ENO;</code> is "dst gets 0, coil gets ENO", and
-  <code>GT(ADD(EN := x, a, b), c)</code> is refused rather than read as GT on ADD's ENO. Census 1.6 confirms the main
-  output index and box-in-box connections live on FBD and LD.
+  So <code>coil := MOVE(EN := c, 0, =&gt; dst).ENO;</code> is "dst gets 0, coil gets ENO": a MOVE showing EN/ENO
+  has ENO as its main output, and its consumer reads ENO (66 connections, census 1.6).
+  <code>GT(ADD(EN := x, a, b), c)</code> would claim GT reads ADD's data output, which no measured ADD with EN is
+  connected by; the push refuses what the IDE's box cannot connect.
 </p>
 
 <h3 id="parallel">PARALLEL</h3>

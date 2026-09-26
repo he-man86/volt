@@ -57,7 +57,7 @@ where the vendor nests them, and a name only where the vendor names something.**
 - **EXECUTE** → `EXECUTE[(EN := c)] … END_EXECUTE;`, with a value form `… END_EXECUTE.ENO` where the box is consumed
   (its only output is ENO, so `.ENO` needs no EN).
 - **Edges** → `R_EDGE(x)` / `F_EDGE(x)`, IEC's edge words, spelling the IFlags bit — not an `R_TRIG` box, which would
-  add an instance the IDE never had. `NOT R_EDGE(x)` is the one order with negation.
+  add an instance the IDE never had. `R_EDGE(NOT x)` is the one order with negation — the vendor negates before it detects the edge (census 1.14).
 - **Terminators** → every statement ends with `;` (`END_IF;`, `END_EXECUTE;`); the empty item is the empty statement
   `;` on its own line; `value;` is a top-level item with no target.
 - **Parentheses are structural** → each pair is one box; `NOT a`/`NOT (a AND b)` are the modifier, `NOT(a)`/
