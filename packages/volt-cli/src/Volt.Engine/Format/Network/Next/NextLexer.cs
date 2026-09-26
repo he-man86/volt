@@ -140,7 +140,10 @@ internal sealed class NextLexer
             }
         }
 
-        if (char.IsLetterOrDigit(c) || c == '_')
+        // ASCII only, as NextSpelling's patterns are: a letter or digit outside ASCII is no character of a bare
+        // token, so it falls through to a one-character symbol the parser refuses. Taken as a word character it
+        // would reach NumberAt, which matches nothing there, and the lexer would stand still on it forever.
+        if (IsWordChar(c))
         {
             while (_i < _s.Length && IsWordChar(_s[_i])) _i++;
             // A typed literal: the word before `#` is its type or base (T#1S, 16#FF, DT#2020-01-01-12:00:00).
@@ -154,7 +157,7 @@ internal sealed class NextLexer
                     return new Tok(TokKind.Typed, _s.Substring(start, _i - start), start, _i - start, atLineStart);
                 }
             }
-            if (char.IsDigit(c))
+            if (c is >= '0' and <= '9')
             {
                 _i = start;
                 var m = NumberAt.Match(_s, _i);
@@ -236,7 +239,12 @@ internal sealed class NextLexer
                     else f.ExecuteBody();
                     break;
                 default:
-                    if (depth == 1 && IsOperator(t) && !(t.Kind == TokKind.Word && f.PinOperatorFollows())) return true;
+                    // An operator word is an infix operator here unless it is a pin's name or a CALL HEAD — a word
+                    // whose own pair holds no operator (the same rule, one level down): the argument list of
+                    // `and(or(a, b), c)` holds a call, not an operator, and is an argument list itself.
+                    if (depth == 1 && IsOperator(t) &&
+                        !(t.Kind == TokKind.Word && (f.PinOperatorFollows() || (f.PeekChar() == '(' && !f.PairAheadHoldsOperator()))))
+                        return true;
                     break;
             }
         }
@@ -358,12 +366,14 @@ internal sealed class NextLexer
 
     private char Peek(int ahead) => _i + ahead < _s.Length ? _s[_i + ahead] : '\0';
 
-    private static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c == '_';
+    private static bool IsWordChar(char c) => c is >= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= '0' and <= '9' or '_';
 
     // Longest first: `:=` before `:`, `<=` / `<>` before `<`.
     private static readonly string[] Syms = { ":=", "=>", "<=", ">=", "<>", "(", ")", ",", ";", ":", ".", "=", "<", ">", "+", "-", "*", "/" };
 
-    private static readonly Regex AddressAt = new(@"\G%[IQM][XBWDL]?[0-9]+(\.[0-9]+)*", RegexOptions.Compiled);
-    private static readonly Regex NumberAt = new(@"\G[0-9][0-9_]*(\.[0-9][0-9_]*)?([eE][+-]?[0-9]+)?", RegexOptions.Compiled);
+    // The token shapes are NextSpelling's, anchored here at the lexer's position: the writer leaves a text bare by
+    // the same pattern this reads it back by.
+    private static readonly Regex AddressAt = new(@"\G" + NextSpelling.AddressPattern, RegexOptions.Compiled);
+    private static readonly Regex NumberAt = new(@"\G" + NextSpelling.NumberPattern, RegexOptions.Compiled);
     private static readonly Regex EndExecute = new(@"^\s*(END_EXECUTE)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 }

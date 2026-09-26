@@ -17,10 +17,15 @@ internal static class NextSpelling
 {
     public static readonly Regex Identifier = new(@"^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.Compiled);
     public static readonly Regex Path = new(@"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$", RegexOptions.Compiled);
-    public static readonly Regex Number = new(@"^[0-9][0-9_]*(\.[0-9][0-9_]*)?([eE][+-]?[0-9]+)?$", RegexOptions.Compiled);
+    /// <summary>A number and a direct address, unanchored: the lexer reads them at its position with these same
+    /// patterns, so what the writer leaves bare is what the lexer takes as one token.</summary>
+    internal const string NumberPattern = @"[0-9][0-9_]*(\.[0-9][0-9_]*)?([eE][+-]?[0-9]+)?";
+    internal const string AddressPattern = @"%[IQM][XBWDL]?[0-9]+(\.[0-9]+)*";
+
+    public static readonly Regex Number = new("^" + NumberPattern + "$", RegexOptions.Compiled);
     // T#1S, TIME#1h2m, 16#FF, INT#5, DT#2020-01-01-12:00:00 — one ST literal token, no whitespace.
     public static readonly Regex Typed = new(@"^[A-Za-z0-9_]+#[A-Za-z0-9_.:+\-]+$", RegexOptions.Compiled);
-    public static readonly Regex Address = new(@"^%[IQM][XBWDL]?[0-9]+(\.[0-9]+)*$", RegexOptions.Compiled);
+    public static readonly Regex Address = new("^" + AddressPattern + "$", RegexOptions.Compiled);
 
     /// <summary>A wire's name: <c>g</c> plus the vendor VarId. Matched case-insensitively, as IEC names are.</summary>
     public static readonly Regex WireName = new(@"^[gG][0-9]+$", RegexOptions.Compiled);

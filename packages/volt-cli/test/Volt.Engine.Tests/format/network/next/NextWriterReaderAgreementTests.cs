@@ -258,11 +258,165 @@ public class NextWriterReaderAgreementTests
     public void A_POU_or_instance_named_like_a_construct_blocks_it_on_both_sides()
     {
         var par = Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, Flags.None), T("out")), BodyLanguage.Ld);
-        Assert.Equal("a POU or instance named PARALLEL", RefusedBy(par, Scope(new[] { "a" }, pous: new[] { "Parallel" })));
+        Assert.Equal("PARALLEL beside a POU or instance of that name", RefusedBy(par, Scope(new[] { "a" }, pous: new[] { "Parallel" })));
 
         var edge = Body(Set(L("x", Rise), T("out")));
-        Assert.Equal("a POU or instance named R_EDGE", RefusedBy(edge, Scope(new[] { "x" }, pous: new[] { "r_edge" })));
-        Assert.Equal("a POU or instance named F_EDGE",
+        Assert.Equal("R_EDGE beside a POU or instance of that name", RefusedBy(edge, Scope(new[] { "x" }, pous: new[] { "r_edge" })));
+        Assert.Equal("F_EDGE beside a POU or instance of that name",
             RefusedBy(Body(Set(L("x", Fall), T("out"))), Scope(new[] { "x" }, instances: new() { ["F_Edge"] = "F_TRIG" })));
+    }
+
+    // ── review 2026-09-26, third pass ─────────────────────────────────────────────────────────────
+
+    static NextGateResult Gate(string text, BodyLanguage lang, NextNetworkScope scope) =>
+        NextNetworkTextGate.Validate(text, lang, scope);
+
+    /// <summary>Spec, "edges are R_EDGE and F_EDGE flags" with "parentheses are structural": inside an edge,
+    /// <c>NOT(a)</c> is the NOT BOX (its pair holds no operator), not the negation modifier — so an edge on a NOT
+    /// box is spelled and read back, while a modifier inside the edge stays refused.</summary>
+    [Fact]
+    public void An_edge_on_a_NOT_box_round_trips()
+    {
+        var m = Body(Set(Call("NOT", new[] { In(L("a")) }, main: null, f: Rise), T("out")));
+        Assert.Equal(Src("out := R_EDGE(NOT(a));"), Written(m, NextNetworkScope.Empty));
+        Assert.Null(NextModelOracle.Check("rising-not-box", m).Reason);
+        Assert.Null(NextModelOracle.Check("negated-falling-not-box",
+            Body(Set(Call("NOT", new[] { In(L("a")) }, main: null, f: Neg with { Falling = true }), T("out")))).Reason);
+        Assert.Null(NextModelOracle.Check("rising-not-box-around-group",
+            Body(Set(Call("NOT", new[] { In(Op("AND", L("a"), L("b"))) }, main: null, f: Rise), T("out")))).Reason);
+
+        // The backticked head reads to the same box and is not canonical — a finding, never an exception.
+        var r = Gate(Src("out := R_EDGE(`NOT`(a));"), BodyLanguage.Fbd, NextNetworkScope.Empty);
+        Assert.Equal("NETWORK_NOT_CANONICAL", Assert.Single(r.Diagnostics).Code);
+
+        // A modifier inside the edge is still the one refusal the spec names.
+        GateRefuses("NETWORK_BAD_EXPRESSION", Src("out := R_EDGE(NOT a);"), NextNetworkScope.Empty);
+        GateRefuses("NETWORK_BAD_EXPRESSION", Src("out := R_EDGE(NOT (a AND b));"), NextNetworkScope.Empty);
+    }
+
+    /// <summary>Spec, "parentheses are structural": a call head is not an infix operator, so an operator-word call
+    /// inside another operator-word call's argument list leaves the outer pair an argument list.</summary>
+    [Fact]
+    public void An_operator_word_call_inside_an_operator_word_call_round_trips()
+    {
+        var and = Body(Call("and", new[] { In(Call("or", new[] { In(L("a")), In(L("b")) }, main: null)), In(L("c")) }, main: null));
+        Assert.Equal(Src("and(or(a, b), c);"), Written(and, NextNetworkScope.Empty));
+        Assert.Null(NextModelOracle.Check("and(or)", and).Reason);
+
+        var enabled = Body(Call("AND", new[] { In(Call("xor", new[] { In(L("a")), In(L("b")) }, main: null)), In(L("c")) },
+            new[] { Out("out", 1) }, en: L("go"), main: null));
+        Assert.Equal(Src("AND(EN := go, xor(a, b), c, => out);"), Written(enabled, NextNetworkScope.Empty));
+        Assert.Null(NextModelOracle.Check("AND(EN, xor)", enabled).Reason);
+
+        var enoChain = Body(Set(Call("AND", new[]
+        {
+            In(Call("XOR", new[] { In(L("a")), In(L("b")) }, en: L("c"), main: null, connected: 0)), In(L("d")),
+        }, en: L("go"), main: null, connected: 0), T("out")));
+        Assert.Equal(Src("out := AND(EN := go, XOR(EN := c, a, b).ENO, d).ENO;"), Written(enoChain, NextNetworkScope.Empty));
+        Assert.Null(NextModelOracle.Check("AND(EN, XOR.ENO).ENO", enoChain).Reason);
+
+        Assert.Null(NextModelOracle.Check("R_EDGE(AND(EN := MOD.ENO))", Body(Set(Call("AND", new[] { In(L("a")), In(L("b")) },
+            en: Call("MOD", new[] { In(L("a")), In(L("b")) }, en: L("c"), connected: 0), main: null, connected: 0, f: Rise), T("out")))).Reason);
+        Assert.Null(NextModelOracle.Check("OR-group over XOR.ENO", Body(Set(Op("OR", L("a"),
+            Call("XOR", new[] { In(Call("AND", new[] { In(L("a")), In(L("b")) }, en: L("d"), main: null, connected: 0)), In(L("b")) },
+                en: L("c"), main: null, connected: 0)), T("out")))).Reason);
+
+        var r = Gate(Src("and(`or`(a, b), c);"), BodyLanguage.Fbd, NextNetworkScope.Empty);
+        Assert.Equal("NETWORK_NOT_CANONICAL", Assert.Single(r.Diagnostics).Code);
+    }
+
+    /// <summary>A digit or letter outside ASCII is no character of a bare token: the lexer makes progress past it
+    /// and the gate refuses it, instead of spinning in recovery on a token that consumed nothing.</summary>
+    [Theory]
+    [InlineData("out := ٣;")]
+    [InlineData("out := 1٣;")]
+    [InlineData("out := １;")]
+    [InlineData("out := aä;")]
+    public void A_non_ASCII_digit_or_letter_is_refused_not_spun_on(string statement)
+    {
+        var task = System.Threading.Tasks.Task.Run(() =>
+            NextNetworkTextGate.Validate(Src(statement), BodyLanguage.Fbd, Scope(new[] { "out", "a" })));
+        Assert.True(task.Wait(TimeSpan.FromSeconds(10)), "the gate did not return");
+        Assert.False(task.Result.Ok);
+        Assert.Equal("NETWORK_PARSE", task.Result.Diagnostics[0].Code);
+    }
+
+    /// <summary>A text the writer leaves bare is exactly one token of the lexer, and a text it backticks is not —
+    /// one set of spellings (NextSpelling) on both sides.</summary>
+    [Theory]
+    [InlineData("a")] [InlineData("a.b.c")] [InlineData("12")] [InlineData("1_000.5e-3")] [InlineData("T#1S")]
+    [InlineData("16#FF")] [InlineData("%IX0.1")] [InlineData("%QW12")] [InlineData("???")]
+    [InlineData("٣")] [InlineData("aä")] [InlineData("1a")] [InlineData("%IX")] [InlineData("1.")]
+    public void A_bare_token_is_one_token_of_the_lexer(string text)
+    {
+        var lx = new NextLexer(text, 0);
+        var first = lx.Next();
+        var one = first.Kind != TokKind.Sym && first.Kind != TokKind.Error && first.Text == text && lx.Next().Kind == TokKind.Eof;
+        Assert.Equal(NextSpelling.IsToken(text), one);
+    }
+
+    /// <summary>A Parallel whose lone branch is unconnected would be <c>PARALLEL()</c>, which is a Parallel with
+    /// no branch: refused by name on pull, and the push spelling that reads to it is refused by name too.</summary>
+    [Fact]
+    public void A_Parallel_with_a_lone_unconnected_branch_goes_to_the_marker()
+    {
+        var m = Body(new Parallel(null, new Node[] { Empty }, Flags.None), BodyLanguage.Ld);
+        Assert.Equal("a lone unconnected Parallel branch", RefusedBy(m, NextNetworkScope.Empty));
+        var r = Gate("(* @volt-implementation LD *)\nNETWORK\n  PARALLEL(MODE := BoxShortCircuit, );\nEND_NETWORK\n",
+            BodyLanguage.Ld, NextNetworkScope.Empty);
+        Assert.Equal("NETWORK_UNSUPPORTED", Assert.Single(r.Diagnostics).Code);
+        // Beside a feed or a mode the empty branch is a position of its own.
+        Assert.Null(NextModelOracle.Check("fed", Body(new Parallel(L("f"), new Node[] { Empty }, Flags.None), BodyLanguage.Ld)).Reason);
+        Assert.Null(NextModelOracle.Check("sequential",
+            Body(new Parallel(null, new Node[] { Empty }, Flags.None, ParallelMode.Sequential), BodyLanguage.Ld)).Reason);
+    }
+
+    /// <summary>Spec, "one statement per NWL network item": the empty item right after the wire block is its own
+    /// statement — <c>END_VAR</c> takes no <c>;</c> of its own that could swallow it.</summary>
+    [Fact]
+    public void The_empty_item_after_the_wire_block_is_not_swallowed()
+    {
+        Assert.Null(NextModelOracle.Check("empty-before-wire", Body(Net(Empty, Def(3, L("TRUE")), Set(Ref(3), T("out"))))).Reason);
+        Assert.Null(NextModelOracle.Check("two-empty-before-wire",
+            Body(Net(Empty, Empty, Def(3, L("TRUE")), Set(Ref(3), T("out"))))).Reason);
+
+        // `END_VAR;` is END_VAR and the empty statement: the same tokens as the canonical form's own line.
+        var read = ReadOk(Src("VAR_TEMP g3 : BOOL; END_VAR;", "g3 := TRUE;", "out := g3;"), Scope(new[] { "out" }));
+        Assert.Equal(3, read.Networks[0].Trees.Count);
+        Assert.IsType<Terminator>(read.Networks[0].Trees[0]);
+    }
+
+    /// <summary>A wire spelled as another name is reported where it is spelled, so a later error in the same
+    /// network does not hide it.</summary>
+    [Fact]
+    public void A_wire_name_collision_is_reported_beside_a_later_error()
+    {
+        var r = NextNetworkTextReader.Read(Src("VAR_TEMP g1 : BOOL; END_VAR", "g1 := a;", "`g1 + 1` := g1;", "out := ((b));"),
+            BodyLanguage.Fbd, NextNetworkScope.Empty);
+        Assert.Contains(r.Diagnostics, d => d.Code == "NETWORK_DUPLICATE_NAME" && d.Line == 5);
+        Assert.Contains(r.Diagnostics, d => d.Code == "NETWORK_BAD_EXPRESSION" && d.Line == 6);
+    }
+
+    /// <summary>The reader and the writer refuse the same Parallel modes: whatever member the enum gains, the one
+    /// rule (<see cref="NextSpelling.IsMeasuredMode"/>) decides both.</summary>
+    [Fact]
+    public void Every_Parallel_mode_is_measured_or_refused_by_both_sides()
+    {
+        foreach (ParallelMode mode in Enum.GetValues(typeof(ParallelMode)))
+        {
+            var text = "(* @volt-implementation LD *)\nNETWORK\n  out := PARALLEL(MODE := " + mode + ", a, b);\nEND_NETWORK\n";
+            Assert.Equal(NextSpelling.IsMeasuredMode(mode), NextNetworkTextReader.Read(text, BodyLanguage.Ld, NextNetworkScope.Empty).Ok);
+        }
+    }
+
+    /// <summary>A box literally named like a construct and a construct used beside a POU of its name are two
+    /// facts, and the marker names each apart.</summary>
+    [Fact]
+    public void A_box_named_like_a_construct_and_a_construct_beside_a_POU_are_named_apart()
+    {
+        var box = RefusedBy(Body(Call("Parallel", new[] { In(L("a")) })), NextNetworkScope.Empty);
+        var beside = RefusedBy(Body(Set(new Parallel(null, new Node[] { L("a"), L("b") }, Flags.None), T("o")), BodyLanguage.Ld),
+            Scope(new[] { "a" }, pous: new[] { "Parallel" }));
+        Assert.NotEqual(box, beside);
     }
 }

@@ -209,7 +209,7 @@ flowchart LR
 marker     = "(* @volt-implementation" , ( "FBD" | "LD" ) , "*)" ;
 network    = header , NL , { comment } , [ wires ] , { statement } , "END_NETWORK" ;
 header     = "NETWORK" , [ "LABEL:" , name ] , [ "TITLE:" , title ] , [ "DISABLED" ] ;   (* ends at its newline *)
-wires      = "VAR_TEMP" , decl , { decl } , "END_VAR" , [ ";" ] ;       (* one per network, if it has a Demux *)
+wires      = "VAR_TEMP" , decl , { decl } , "END_VAR" ;                 (* one per network, if it has a Demux *)
 decl       = wire , { "," , wire } , ":" , type , ";" ;             (* type read off the producer *)
 title      = '"' , { char - '"' - "$" - NL | "$N" | "$R" | '$"' | "$$" } , '"' ;   (* ST's string escapes *)
 comment    = "//" , { char - NL } , NL ;                            (* ends at its newline *)
@@ -433,8 +433,9 @@ lamp := R_EDGE((a AND b));</pre>
 <p>
   A rising edge on MOVE's EN (the pro2193 ActuatorFB shape); a negated falling edge on a wire reference; an edge on an
   AND box's output — the outer pair is <code>R_EDGE</code>'s, the inner the group's. The argument carries no modifier
-  (<code>R_EDGE(NOT x)</code> is refused: the one order is <code>NOT R_EDGE(x)</code>); nested edges and rising+falling
-  on one operand are refused by name.
+  (<code>R_EDGE(NOT x)</code> is refused: the one order is <code>NOT R_EDGE(x)</code>), while
+  <code>R_EDGE(NOT(a))</code> is an edge on the NOT <em>box</em> — its pair holds no operator, so it is NOT's argument
+  list, as everywhere; nested edges and rising+falling on one operand are refused by name.
 </p>
 
 <h3 id="eneno">EN, ENO and output slots</h3>

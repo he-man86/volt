@@ -341,9 +341,16 @@ start outside an EXECUTE body.
 
 ### Requirement: an opaque operand is backticked in place
 
-A `BoxTreeOperand`, an assign target, an `=>` target or an FB instance whose text is not exactly one token SHALL be
-written verbatim between backticks at its own position, and SHALL read back as one operand whose text is never
-parsed into boxes. Pushed text containing a backtick inside backticks SHALL be refused by name.
+A `BoxTreeOperand`, an assign target or an `=>` target whose text is not exactly one token SHALL be written verbatim
+between backticks at its own position, and SHALL read back as one operand whose text is never parsed into boxes.
+Pushed text containing a backtick inside backticks SHALL be refused by name. An FB instance is not an opaque operand:
+its call head is read against the declarations, which name a NAME, so an instance whose text is not one
+(`fbs[1]`, `SUPER^` — census 1.12) SHALL materialize the body as the unsupported marker on pull, and a backticked
+head that is no name SHALL be refused with `NETWORK_UNSUPPORTED` on push, never read as a function of that name.
+
+#### Scenario: an FB instance that is an expression
+- **WHEN** a pulled box's FB instance is `fbs[1]`, or a pushed body calls `` `fbs[1]`(IN := a) ``
+- **THEN** the pull materializes the body as the unsupported marker, and the push is refused with `NETWORK_UNSUPPORTED`
 
 #### Scenario: a typed call stays one operand
 - **WHEN** an FB pin is fed by the operand text `fc_dinttotime(T.Start,2)`

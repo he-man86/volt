@@ -20,12 +20,11 @@ namespace Volt.Engine.Format.Network.Next;
 /// which is how a coil on a real variable could silently become a wire.</para>
 ///
 /// <para><b>What looks further, and why.</b> After an operator word the lexer scans the pair that follows for an
-/// operator (parentheses decide group vs argument list). At END_NETWORK three checks run over what the network
-/// read, each because its fact lies below the point it is about: a declared wire never defined; each wire's
+/// operator (parentheses decide group vs argument list). At END_NETWORK two checks run over what the network
+/// read, each because its fact lies below the point it is about: a declared wire never defined; and each wire's
 /// declared type against its producer — a leaf's type is decided by its uses, which
-/// <see cref="NextSpelling.ProducerType"/> counts across the network; and a wire name that some later statement
-/// also spells as another name (a call head, backticked text, a target, a label). None of them changes the
-/// model — each only reports.</para>
+/// <see cref="NextSpelling.ProducerType"/> counts across the network. Neither changes the model — each only
+/// reports.</para>
 ///
 /// <para><b>Bad input is a diagnostic, never an exception.</b> Every finding carries a <c>NETWORK_*</c> code and a
 /// span, and a failed network does not hide the next one's findings. What the reader cannot know from the text —
@@ -120,12 +119,9 @@ public static class NextNetworkTextReader
             return node;
         }
 
-        // Per network: the declared wires, and every word spelled where a wire name may not appear (a call head,
-        // backticked text, an output target, a jump label) — the writer reserves the same words, so a wire that
-        // equals one would be renamed on the way out and the text would not be its own canonical form.
+        // Per network: the declared wires, by name and by VarId.
         private Dictionary<string, Wire> _wires = new(StringComparer.OrdinalIgnoreCase);
         private Dictionary<int, Wire> _byId = new();
-        private List<(string Word, Tok At)> _otherWords = new();
 
         public Parser(string text, BodyLanguage expected, NextNetworkScope scope)
         {
@@ -221,7 +217,6 @@ public static class NextNetworkTextReader
         {
             _wires = new Dictionary<string, Wire>(StringComparer.OrdinalIgnoreCase);
             _byId = new Dictionary<int, Wire>();
-            _otherWords = new List<(string, Tok)>();
 
             var hdr = Next();
             Headers.Add(hdr);
@@ -296,11 +291,6 @@ public static class NextNetworkTextReader
                     $"the wire {w.Name} is declared and never defined: a wire's definition is the statement `{w.Name} := value;`.",
                     w.Decl.Offset, w.Decl.Length));
             CheckWireTypes(trees);
-            foreach (var (word, at) in _otherWords)
-                if (_wires.TryGetValue(word, out var w))
-                    Diagnostics.Add(Diag(ConflictCodes.NetworkDuplicateName,
-                        $"the wire {w.Name} is also spelled as a name in this network ('{at.Text}'); a wire's name must be " +
-                        "no other name the network or its scope uses, case-insensitively.", at.Offset, at.Length));
 
             return new Network(index, title, label, comment.Count > 0 ? string.Join("\n", comment) : null, disabled, trees);
         }
@@ -333,7 +323,8 @@ public static class NextNetworkTextReader
             }
             var endVar = Next();
             if (!any) throw Err(kw, ConflictCodes.NetworkBadExpression, "an empty VAR_TEMP block: a network without a wire carries none.");
-            if (Peek().IsSym(";")) endVar = Next();
+            // END_VAR takes no `;` of its own: a `;` after it is the empty statement — the empty item — and taking it
+            // into the block would drop that item from the network without a word, on pull and on push alike.
 
             // The gate compares the block by what it DECLARES, not by how the declarations are grouped: the spec
             // accepts `g1 : BOOL; g2 : BOOL;` across lines as the same block as the canonical `g1, g2 : BOOL;`.
@@ -552,7 +543,10 @@ public static class NextNetworkTextReader
                     $"a POU or instance named {kw.Text.ToUpperInvariant()}: the text reads {kw.Text.ToUpperInvariant()}(…) as the edge flag, so the call has no spelling.");
             ExpectSym("(", $"{kw.Text.ToUpperInvariant()}(x)");
             var n = Peek();
-            if (n.Is("NOT"))
+            // Parentheses are structural here too: `NOT(a)` — NOT with a pair holding no operator — is the NOT BOX,
+            // an argument like any other, and the writer spells an edge on a NOT box so. Only the modifier (`NOT a`,
+            // `NOT (a AND b)`) is refused inside an edge.
+            if (n.Is("NOT") && !(_lx!.PeekChar() == '(' && !_lx.PairAheadHoldsOperator()))
                 throw Err(n, ConflictCodes.NetworkBadExpression,
                     $"a modifier inside {kw.Text.ToUpperInvariant()}(…): the one order is NOT {kw.Text.ToUpperInvariant()}(x).");
             if (n.Is("R_EDGE") || n.Is("F_EDGE"))
@@ -596,7 +590,7 @@ public static class NextNetworkTextReader
                     Next();
                     if (Peek().IsSym("("))
                     {
-                        if (NextSpelling.TextWords.Contains(t.Text) && !NextSpelling.OperatorHeads.Contains(t.Text))
+                        if (!NextSpelling.IsBareHead(t.Text))
                             throw Err(t, ConflictCodes.NetworkBadExpression, $"'{t.Text}' is a keyword of the text and no call head.");
                         Next();
                         return PVal.Of(ParseCall(t, null, null, consumed, null), t);
@@ -850,9 +844,10 @@ public static class NextNetworkTextReader
                         if (sawMode || sawIn || branches.Count > 0)
                             throw Err(b, ConflictCodes.NetworkBadExpression, "PARALLEL takes MODE := first, once.");
                         var m = Next();
-                        // Only the two measured members; an unmeasured one is refused, never mapped onto these.
+                        // Only the measured members, by the writer's own rule; an unmeasured one is refused, never
+                        // mapped onto these.
                         if (m.Kind != TokKind.Word || !Enum.TryParse<ParallelMode>(m.Text, ignoreCase: false, out mode) ||
-                            !Enum.IsDefined(typeof(ParallelMode), mode))
+                            !NextSpelling.IsMeasuredMode(mode))
                             throw Err(m, ConflictCodes.NetworkUnsupported,
                                 $"the Parallel mode '{m.Text}': the measured modes are BoxShortCircuit and Sequential.");
                         sawMode = true;
@@ -983,9 +978,17 @@ public static class NextNetworkTextReader
                     $"'{t.Text}' is shaped like a wire and is declared neither in this network's VAR_TEMP block nor in scope.");
         }
 
+        /// <summary>A word spelled where a wire name may not appear (a call head, backticked text, a target, a label,
+        /// an operand's words) — the writer reserves the same words, so a wire equal to one would be renamed on the
+        /// way out and the text would not be its own canonical form. Reported on the spot: the wire block precedes
+        /// every statement, so the wire set is complete here, and a later error in the network cannot hide it.</summary>
         private void AddOtherWords(Tok at, string text)
         {
-            foreach (var word in NextSpelling.Words(text)) _otherWords.Add((word, at));
+            foreach (var word in NextSpelling.Words(text))
+                if (_wires.TryGetValue(word, out var w))
+                    Diagnostics.Add(Diag(ConflictCodes.NetworkDuplicateName,
+                        $"the wire {w.Name} is also spelled as a name in this network ('{at.Text}'); a wire's name must be " +
+                        "no other name the network or its scope uses, case-insensitively.", at.Offset, at.Length));
         }
 
         /// <summary>Spec, "a hand-edited type": each wire's declared type against what its producer says, by the rule
@@ -996,7 +999,11 @@ public static class NextNetworkTextReader
         {
             foreach (var d in trees.OfType<Demux>().Where(d => d.Input is not null))
             {
-                if (!_byId.TryGetValue(d.VarId, out var w)) continue;
+                // BuildAssign makes a defining Demux only from a declared wire; one without is a reader defect, and
+                // skipping it would drop the wire's type check without a trace.
+                if (!_byId.TryGetValue(d.VarId, out var w))
+                    throw new InvalidOperationException(
+                        $"network text v2: a wire definition with VarId {d.VarId} that no VAR_TEMP declaration made.");
                 var produced = NextSpelling.ProducerType(d.Input!, d.VarId, trees, _lang,
                     id => _byId.TryGetValue(id, out var o) ? o.Type : null);
                 if (NextSpelling.Disagreement(produced, w.Type) is { } says)

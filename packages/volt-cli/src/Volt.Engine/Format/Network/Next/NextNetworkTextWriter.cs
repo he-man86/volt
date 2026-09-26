@@ -359,6 +359,11 @@ public static class NextNetworkTextWriter
                     if (p.Mode != ParallelMode.BoxShortCircuit) pins.Add("MODE := " + p.Mode);
                     if (p.Input is not null) pins.Add("IN := " + Value(p.Input));   // `IN := ,` is a feed wired to nothing
                     pins.AddRange(p.Branches.Select(Value));
+                    // The same ambiguity a call's lone unconnected slot has: `PARALLEL()` is a Parallel with no
+                    // branch, which the reader refuses. Beside a mode or a feed the empty branch is its own position.
+                    if (pins.Count == 1 && pins[0].Length == 0)
+                        throw Unrepresentable("a lone unconnected Parallel branch",
+                            $"a Parallel in network {_net.Order} has one branch, wired to nothing, and no feed; `PARALLEL()` is a Parallel with none.");
                     return Modified("PARALLEL(" + string.Join(", ", pins) + ")", p.Flags, "a Parallel");
                 }
 
@@ -692,15 +697,19 @@ public static class NextNetworkTextWriter
         }
 
         /// <summary>A construct (<c>R_EDGE(x)</c>, <c>PARALLEL(…)</c>) the scope gives a POU or instance of the same
-        /// name has no spelling: the reader would refuse it as that call (<see cref="NextSpelling.ConstructTaken"/>).</summary>
+        /// name has no spelling: the reader would refuse it as that call (<see cref="NextSpelling.ConstructTaken"/>).
+        /// A fact of the SCOPE, not of the body — which holds no box of that name — so it is named apart from
+        /// <see cref="RefuseEdgeWord"/>.</summary>
         private void RefuseTakenConstruct(string word)
         {
             if (NextSpelling.ConstructTaken(word, _scope))
-                throw Unrepresentable("a POU or instance named " + word,
+                throw Unrepresentable(word + " beside a POU or instance of that name",
                     $"network {_net.Order} spells {word}(…), and a POU or FB instance in scope is named {word}, so the text would read it as that call.");
         }
 
-        /// <summary>A POU or instance named like an edge word would read back as the edge flag.</summary>
+        /// <summary>A box whose own type or instance is named <c>PARALLEL</c>, <c>R_EDGE</c> or <c>F_EDGE</c> has no
+        /// call the reader reads back as that box: bare, the head is read as the construct; between backticks, the
+        /// reader refuses it by name (spec, "a POU named like an edge word").</summary>
         private static void RefuseEdgeWord(string name, string what)
         {
             if (NextSpelling.ConstructWords.Contains(name))

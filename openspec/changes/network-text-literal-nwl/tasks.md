@@ -31,7 +31,9 @@ never dropped, never guessed.
 - [x] 1.11 Is an Execute box ever consumed (its ENO continuing the rung), and with EN unwired? The value form
       `EXECUTE … END_EXECUTE.ENO` is specified either way (an Execute box's only output is ENO, so `.ENO` needs no
       EN — review 7.11); the census decides corpus golden vs synthetic.
-- [x] 1.12 FB instances whose operand text is not a token (`fbs[1]`) — frequency; spelled as a backticked call head.
+- [x] 1.12 FB instances whose operand text is not a token (`fbs[1]`) — frequency. Decided: not spelled — the FB type
+      comes from the instance's declaration, which names a NAME, so such an instance goes to the marker on pull and a
+      backticked non-name head is refused on push (was "spelled as a backticked call head"; review 2026-09-26, third pass).
 - [x] 1.13 **CODESYS `InputFlags` (review 7.1, blocking).** `CodesysNetworkReader.cs:199` writes `Flags.None` and
       `scripts/nwl-execute-compare.log:68` shows a populated `Array[Flags]`. Live: set an edge and a negation on a
       box-to-box pin, read where they land. Found → the pin spelling on the formal (`f(NOT IN1 := x)`,
