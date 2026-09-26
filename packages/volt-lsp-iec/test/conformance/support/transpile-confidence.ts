@@ -104,7 +104,7 @@ export function tierOf(pou: IrPou, ownPouName: string): Tier {
  */
 export type Correctness = "vendor" | "compiles" | "rejected"
 
-const RUNS = JSON.parse(readFileSync(join(import.meta.dir, "..", "recordings", "codesys.run.json"), "utf8")).tests as Record<
+const RUNS = JSON.parse(readFileSync(join(import.meta.dirname, "..", "recordings", "codesys.run.json"), "utf8")).tests as Record<
   string,
   { error?: string; values?: Record<string, string> }
 >
