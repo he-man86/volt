@@ -39,7 +39,7 @@ function walk(dir: string): string[] {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name)
     if (statSync(p).isDirectory()) out.push(...walk(p))
-    else if (SOURCE_EXTENSION_SET.has(extname(p).toLowerCase())) out.push(p)
+    else if (SOURCE_EXTENSION_SET.has(extname(p))) out.push(p)
   }
   return out
 }

@@ -94,6 +94,22 @@ test("the workspace scan picks up the project's .projectsettings", () => {
   }
 })
 
+// A source unit is a file whose extension is EXACTLY a source extension, as the CLI's classifier decides it: a
+// file name IS its wire name, so `E_Mode.Enum` is not the `E_Mode.enum` the IDE publishes and `volt push` refuses
+// it as a foreign file. Indexed here, the LSP resolved `E_Mode` from a file Volt will never push.
+test("the workspace scan takes a source file only under its exact extension", () => {
+  const dir = mkdtempSync(join(tmpdir(), "volt-case-"))
+  try {
+    writeFileSync(join(dir, "E_Mode.Enum"), "TYPE E_Mode : (Idle, Run);\nEND_TYPE\n")
+    writeFileSync(join(dir, "FB_New.FB"), "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\n")
+    writeFileSync(join(dir, "E_State.enum"), "TYPE E_State : (Off, On);\nEND_TYPE\n")
+    const scan = scanWorkspace(dir)
+    expect(scan.sources.map((s) => s.path)).toEqual([join(dir, "E_State.enum")])
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 /**
  * THE SETTINGS HAVE TO REACH THE ANALYSIS, not merely be parsed out of the file.
  *

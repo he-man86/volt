@@ -275,7 +275,9 @@ public static class Commands
         // has to make the same decision.
         var incoming = StatusModel.ComputeIncoming(fetched.Items, sidecar?.Items ?? new Dictionary<string, string>(),
                                                    complete: fetched.UnwalkedFolders.Count == 0);
-        var synced = incoming.Added.Concat(incoming.Modified).Concat(incoming.Removed).OrderBy(x => x, StringComparer.Ordinal).ToList();
+        var retired = Retired(fetched, sidecar);
+        var synced = incoming.Added.Concat(incoming.Modified).Concat(incoming.Removed).Concat(retired)
+            .Distinct(StringComparer.Ordinal).OrderBy(x => x, StringComparer.Ordinal).ToList();
 
         StatusData PostStatus() => StatusModel.BuildStatusData(root, new BridgeSnapshot
         {
@@ -349,17 +351,10 @@ public static class Commands
         {
             // Start from the baseline and let the walk WIN where it saw something — a plain overlay. This was a
             // Concat/GroupBy/Last that leaned on enumeration order for "fetched wins", which nothing stated.
+            // What leaves it is exactly what the tree below drops (`retired`), never a second decision.
             newItems = new Dictionary<string, string>(sidecar.Items, StringComparer.Ordinal);
             foreach (var kv in fetched.Items) newItems[kv.Key] = kv.Value;
-
-            // …and only for the folders that were actually UNREAD. Keeping every absent baseline name would
-            // also resurrect an item the engineer really deleted from a folder this walk DID read: the one case
-            // where absence is meaningful is the one the overlay must not override.
-            var unread = fetched.UnwalkedFolders;
-            foreach (var name in sidecar.Items.Keys)
-                if (!fetched.Items.ContainsKey(name)
-                    && !(sidecar.Folders.TryGetValue(name, out var folder) && UnderAny(folder, unread)))
-                    newItems.Remove(name);
+            foreach (var name in retired) newItems.Remove(name);
         }
         else newItems = fetched.Items;
 
@@ -381,7 +376,7 @@ public static class Commands
         var head = Git.HeadCommit(root);
         var parentIde = IdeTree.VoltIdeHead(gitDir);
 
-        var tree = IdeTree.BuildVoltIdeTree(gitDir, head, parentIde, ideFiles, fetched.Removed,
+        var tree = IdeTree.BuildVoltIdeTree(gitDir, head, parentIde, ideFiles, retired,
             fetched.LibrariesRefreshed,
             (done, total) => progress.Report(1, "Importing objects", done, total));
         progress.Enter(2, "Merging");
@@ -1013,6 +1008,30 @@ public static class Commands
             if (Extensions.FullNameFromPath(rel) is { } name) known[name] = "";
         }
         return known;
+    }
+
+    /// <summary>The names a pull retires — from the baseline AND, through the <c>volt/ide</c> tree, from the
+    /// workspace. ONE list for both, because the two disagreeing is how a file outlives its item: a name that
+    /// leaves the baseline while its file is carried forward is never reported removed again (a later fetch is
+    /// only asked about names the baseline still holds), so the file stays for good, reads in sync, and its next
+    /// edit recreates an item the IDE deleted.
+    ///
+    /// <para>A complete walk: the bridge's <c>removed</c>, as is. A PARTIAL walk: the bridge reports no removals
+    /// (it cannot tell where a known name used to sit), but the baseline can — a name absent from a folder the
+    /// walk DID read is gone, and one under an unread folder is merely unseen. Except a name whose item the walk
+    /// found and could not read: the bridge names only its BARE name, and whether that is this item or a
+    /// same-named item of another kind is the bridge's to decide (it has the walked kind; a wire name here is
+    /// only a string). It stays known, undecided, and the next complete walk — asked about it because the
+    /// baseline still holds it — decides with the kind.</para></summary>
+    private static List<string> Retired(FetchResponse fetched, IdeRefs? sidecar)
+    {
+        if (fetched.UnwalkedFolders.Count == 0 || sidecar is null) return fetched.Removed.ToList();
+        var unreadable = new HashSet<string>(fetched.Unreadable, StringComparer.Ordinal);
+        return sidecar.Items.Keys
+            .Where(name => !fetched.Items.ContainsKey(name)
+                           && !(sidecar.Folders.TryGetValue(name, out var folder) && UnderAny(folder, fetched.UnwalkedFolders))
+                           && !unreadable.Contains(name.Substring(0, name.LastIndexOf('.'))))
+            .ToList();
     }
 
     /// <summary>Is <paramref name="folder"/> one of <paramref name="roots"/>, or inside one? The folder paths the

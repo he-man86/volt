@@ -551,9 +551,10 @@ reds, unchanged); Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Ga
       case-sensitive grep missed) — AND for `ItemKind.KindFor`,
       `IsSourceKind`, `ImplementationMarker` — zero hits: a kind decision that never spells `dut` is still one.
       **Not closed — it closes with 4.9.** `grep -rniE "\bdut|\.(struct|enum|union|alias)\b|\bDUTs?\b"
-      src/Volt.Cli` leaves the sidecar refusal's doc (`Sidecar.cs`) and `Commands.cs:863` — the `V1Note` comment
-      — and the `KindForWireName`/`IsSourceKind`/`ImplementationMarker` grep leaves only `V1Note`
-      (`Commands.cs:865-867`): all 4.9's. The IdeTree/Commands library comments no longer spell `.struct`/`.alias`
+      src/Volt.Cli` leaves the sidecar refusal's doc (`Sidecar.cs`) and the `V1Note` comment in `Commands.cs`
+      — and the `KindForWireName`/`IsSourceKind`/`ImplementationMarker` grep leaves only `V1Note`'s three lines
+      below that comment: all 4.9's. (Named by method, not line: every edit to `Commands.cs` moved the numbers,
+      and the record went stale twice.) The IdeTree/Commands library comments no longer spell `.struct`/`.alias`
       examples. A bare case-insensitive `dut|struct|enum|union|alias` also hits English words
       (`enumerate`, `structural`, `structured-text`) and the C# keyword `enum` (`Extensions.Access`, a `Types.cs`
       doc) — none a kind decision.
@@ -601,7 +602,34 @@ findings; fixed test-first:
   deleted example list — restored. The missing review record — this block.
 Run after: `Volt.Engine.Tests` 1499 passed / 0 failed (1 skipped, pre-existing); `Volt.Cli.Tests` 240 / 0;
 Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Gates 20, `bun test test/unit` 4, `bun run check`
-14 — all green. No live IDE; no driver touched; DIALECT.md unchanged. Rounds 2–3 not yet run.
+14 — all green. No live IDE; no driver touched; DIALECT.md unchanged.
+
+**Section 4.1–4.6 review, round 2 (2026-09-27)** — one product finding, one TS-classifier finding, one gate
+finding (reported twice); fixed test-first:
+- A pull over a PARTIAL walk dropped a name absent from a folder it DID read from the baseline, while the bridge's
+  `removed` (empty for any partial walk) left its file in `volt/ide` and the workspace. No later pull could report
+  it removed — a fetch is asked only about names the baseline still holds — so the file stayed for good, status
+  read in sync, its edit was refused `ITEM_EXISTS`, and `volt push --force` wrote it over the live item. 4.3 routed
+  the DUT subtype change into that hole (the old `X.struct` beside the new `X.enum`); the hole itself was any item
+  deleted in the IDE during a partial pull. `Commands.Retired` is now the ONE list the baseline overlay drops and
+  the `volt/ide` tree removes (complete walk: the bridge's `removed`; partial: absent from a read folder), so the
+  two cannot disagree. A name whose BARE name the walk found unreadable stays known, undecided — the bridge has
+  the walked kind, the CLI does not — and the next complete walk decides it. Pinned (the first two red before):
+  `PullCommandTests.A_pull_over_an_unreadable_folder_retires_an_item_deleted_from_a_folder_it_read`,
+  `…_retires_the_old_name_of_a_dut_whose_subtype_changed`, `…_keeps_an_item_it_found_and_could_not_read`.
+- Round 1 made the CLI's extension lookup Ordinal; the TS copies still case-folded (`volt-control` `isPouFile`,
+  the `volt-lsp-iec` workspace scan), so `E_Mode.Enum` was a source file to the LSP and the extension while
+  `volt push` refused it. Both match exactly now (the LSP's whole workspace scan, one rule in the file). Test
+  first: `workspace-refs.test.ts` "takes a source file only under its exact extension" (red before). **Test premise
+  corrected:** `files.test.ts` "is case-insensitive (Windows paths arrive mixed-case)" — an extension's case is the
+  file's own on disk (preserved by every filesystem Volt runs on), and the spec makes a file name its wire name,
+  which the CLI refuses in another case; it now pins the exact match.
+- Round 1's `Extensions.ByExt` comment spelt `E_Mode.Enum`/"a DUT deleted" into the CLI, regressing the 4.6 grep;
+  rewritten with a non-DUT example (`FB_New.FB`, "an item deleted"). The 4.6 record names `V1Note` by method, not
+  by line.
+Run after: `Volt.Cli.Tests` 243 / 0; Repo.Gates 20, `bun test test/unit` 4; `volt-control` 115, `volt-lsp-iec`
+5616 / 0 fail, `volt-vscode` 31; `bun run check` 14, typecheck, lint — all green. No engine or driver code touched
+(Engine/Codesys/Twincat suites unaffected, not re-run); no live IDE; DIALECT.md unchanged. Round 3 not yet run.
 
 ## 5. Docs and gates
 

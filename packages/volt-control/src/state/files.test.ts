@@ -20,9 +20,15 @@ describe("isPouFile", () => {
 		expect(isPouFile("DUT_Data.dut")).toBe(false);
 	});
 
-	test("is case-insensitive (Windows paths arrive mixed-case)", () => {
-		expect(isPouFile("Foo.FB")).toBe(true);
-		expect(isPouFile("FB_Motor.Prg")).toBe(true);
+	// Exact, as the CLI's classifier is: a file name IS its wire name, so `Foo.FB` is not the `Foo.fb` the IDE
+	// publishes and `volt push` refuses it as a foreign file. The case of an extension is the case of the file on
+	// disk (every filesystem Volt runs on preserves it), so there is no mixed-case spelling to forgive — only a
+	// file Volt will never push, which must not count as a tracked source file here.
+	test("matches the extension exactly — a case variant is not a source file", () => {
+		expect(isPouFile("Foo.FB")).toBe(false);
+		expect(isPouFile("FB_Motor.Prg")).toBe(false);
+		expect(isPouFile("E_Mode.Enum")).toBe(false);
+		expect(isPouFile("C:\\Users\\Foo\\SRC\\DUTs\\E_Mode.enum")).toBe(true);
 	});
 
 	test("rejects non-source extensions", () => {

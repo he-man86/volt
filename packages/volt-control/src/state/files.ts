@@ -18,10 +18,13 @@ export const SOURCE_EXTENSIONS: ReadonlySet<string> = new Set([
   "alias",
 ])
 
+// EXACT, never case-folded: a file name IS its item's wire name, and the CLI classifies an extension Ordinally,
+// so `E_Mode.Enum` is a foreign file `volt push` refuses. Folded here it counted as a tracked source file — the
+// watcher, `isTrackedFile` and the Diagnostics view all treated a file Volt will never push as Volt's.
 export function isPouFile(path: string): boolean {
 	const dot = path.lastIndexOf(".")
 	if (dot < 0) return false
-	return SOURCE_EXTENSIONS.has(path.slice(dot + 1).toLowerCase())
+	return SOURCE_EXTENSIONS.has(path.slice(dot + 1))
 }
 
 /** Last sync activity = mtime of the git-native IDE baseline (.git/volt/ide-refs.json), bumped on every

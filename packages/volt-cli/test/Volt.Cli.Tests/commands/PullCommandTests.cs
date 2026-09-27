@@ -538,6 +538,106 @@ public class PullCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>…BUT A PARTIAL PULL STILL RETIRES WHAT IT SAW GONE FROM A FOLDER IT READ — in the files AND the
+    /// baseline, together.
+    ///
+    /// <para>The overlay above drops a baseline name absent from a folder the walk DID read; the bridge's
+    /// `removed` is empty for any partial walk. The two used to disagree: the name left `ide-refs.json` while
+    /// its file was carried forward in `volt/ide`. No later pull could ever report it removed — a complete walk
+    /// is only asked about names the baseline still holds — so the file stayed for good, status read in sync,
+    /// and its next edit went up as a create of an item the IDE had deleted.</para></summary>
+    [Fact]
+    public void A_pull_over_an_unreadable_folder_retires_an_item_deleted_from_a_folder_it_read()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("A", "PROGRAM A\nVAR\nEND_VAR", "x := 1;"),
+                               FakeIde.Item.TextualPou("FB_Gone", "FUNCTION_BLOCK FB_Gone\nVAR\nEND_VAR", "", "POUs"),
+                               FakeIde.Item.TextualPou("Deep", "PROGRAM Deep\nVAR\nEND_VAR", "y := 2;", "Machine"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var gone = Path.Combine(root, "src", "POUs", "FB_Gone.fb");
+            var deep = Path.Combine(root, "src", "Machine", "Deep.prg");
+            Assert.True(File.Exists(gone), "the first pull did not write the item this test is about");
+
+            ide.RemoveItem("FB_Gone");
+            ide.UnwalkableFolders = new[] { "Machine" };
+            var partial = Commands.Pull(root, client);
+
+            Assert.Equal("ok", partial.Kind);
+            Assert.False(File.Exists(gone), "a partial pull kept the file of an item deleted from a folder it read");
+            Assert.DoesNotContain("FB_Gone.fb", Sidecar.LoadIdeRefs(root)!.Items.Keys);
+            Assert.True(File.Exists(deep), "the pull DELETED an item it merely could not see");
+            Assert.Contains("FB_Gone.fb", partial.Synced!);
+
+            ide.UnwalkableFolders = new string[0];
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            Assert.False(File.Exists(gone));
+            Assert.True(File.Exists(deep));
+            Assert.Equal("in sync with the IDE", Commands.Status(root, client).Summary);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>The same hole, reached by a DUT whose subtype the IDE changed during a partial walk: the IDE now
+    /// publishes `X.enum`, and `X.struct` is a removed name like any other. Its file must go with it — left
+    /// behind, an edit to it was refused ITEM_EXISTS forever and `volt push --force` wrote the stale STRUCT over
+    /// the IDE's live ENUM.</summary>
+    [Fact]
+    public void A_pull_over_an_unreadable_folder_retires_the_old_name_of_a_dut_whose_subtype_changed()
+    {
+        var ide = ConnectedIde(Prg(),
+            FakeIde.Item.TextualPou("X", "TYPE X :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE", "", "DUTs"),
+            FakeIde.Item.TextualPou("Deep", "PROGRAM Deep\nVAR\nEND_VAR", "y := 2;", "Machine"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var structFile = Path.Combine(root, "src", "DUTs", "X.struct");
+            var enumFile = Path.Combine(root, "src", "DUTs", "X.enum");
+            Assert.True(File.Exists(structFile));
+
+            ide.RemoveItem("X");
+            ide.AddItem(FakeIde.Item.TextualPou("X", "TYPE X :\n(\n\tA := 0,\n\tB\n);\nEND_TYPE", "", "DUTs"));
+            ide.UnwalkableFolders = new[] { "Machine" };
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            Assert.True(File.Exists(enumFile));
+            Assert.False(File.Exists(structFile), "the DUT's old subtype file survived beside its new one");
+
+            ide.UnwalkableFolders = new string[0];
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            Assert.False(File.Exists(structFile));
+            Assert.Equal("in sync with the IDE", Commands.Status(root, client).Summary);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>…and an item the partial walk FOUND but could not read is not gone: its file stays, exactly as a
+    /// complete walk leaves it (the bridge exempts it from `removed`).</summary>
+    [Fact]
+    public void A_pull_over_an_unreadable_folder_keeps_an_item_it_found_and_could_not_read()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("A", "PROGRAM A\nVAR\nEND_VAR", "x := 1;"),
+                               FakeIde.Item.TextualPou("Y", "PROGRAM Y\nVAR\nEND_VAR", "z := 3;", "POUs"),
+                               FakeIde.Item.TextualPou("Deep", "PROGRAM Deep\nVAR\nEND_VAR", "y := 2;", "Machine"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var y = Path.Combine(root, "src", "POUs", "Y.prg");
+            Assert.True(File.Exists(y));
+
+            ide.RemoveItem("Y");
+            ide.AddItem(FakeIde.Item.MalformedGraphical("Y", "POUs"));
+            ide.UnwalkableFolders = new[] { "Machine" };
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            Assert.True(File.Exists(y), "the pull DELETED an item it found and could not read");
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     /// <summary>A PULL REPAIRS A MISSING `volt/ide`, rather than declaring victory over it.
     ///
     /// <para>The up-to-date short-circuit is keyed on the SIDECAR alone, and the two halves of the baseline are

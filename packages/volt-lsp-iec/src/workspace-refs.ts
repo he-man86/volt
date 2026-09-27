@@ -54,7 +54,7 @@ function walkFiles(root: string): string[] {
 export function scanLibraryManifests(root: string): LibraryManifest[] {
   const out: LibraryManifest[] = []
   for (const file of walkFiles(root)) {
-    if (extname(file).toLowerCase() !== ".library") continue
+    if (extname(file) !== ".library") continue
     try {
       const manifest = parseLibraryManifest(file, readFileSync(file, "utf8"))
       if (manifest !== undefined) out.push(manifest)
@@ -94,7 +94,7 @@ const taskRootsOf = (file: string): string[] =>
 function collect(root: string, ext: string, nameOf: (path: string) => string | undefined): Set<string> {
   const out = new Set<string>()
   for (const file of walkFiles(root)) {
-    if (extname(file).toLowerCase() !== ext) continue
+    if (extname(file) !== ext) continue
     let name: string | undefined
     try {
       name = nameOf(file)
@@ -126,7 +126,7 @@ export function loadDeviceInstances(root: string): Set<string> {
 export function loadTaskRoots(root: string): Set<string> {
   const out = new Set<string>()
   for (const file of walkFiles(root)) {
-    if (extname(file).toLowerCase() !== ".task") continue
+    if (extname(file) !== ".task") continue
     try {
       for (const p of taskRootsOf(file)) out.add(p.toLowerCase())
     } catch {
@@ -140,7 +140,7 @@ export function loadTaskRoots(root: string): Set<string> {
 function loadObsoletePous(root: string): Map<string, { name: string; message: string }> {
   const out = new Map<string, { name: string; message: string }>()
   for (const file of walkFiles(root)) {
-    if (!SOURCE_EXTENSION_SET.has(extname(file).toLowerCase())) continue
+    if (!SOURCE_EXTENSION_SET.has(extname(file))) continue
     try {
       for (const [k, v] of obsoletePousOf(file)) out.set(k, v)
     } catch {
@@ -186,7 +186,11 @@ export function scanWorkspace(root: string): WorkspaceScan {
   const obsoletePous = new Map<string, { name: string; message: string }>()
   const sources: { path: string; source: string }[] = []
   for (const file of walkFiles(root)) {
-    const ext = extname(file).toLowerCase()
+    // EXACT, never case-folded — here and in every loader above. A file name IS its item's wire name, and the
+    // CLI classifies an extension Ordinally: `E_Mode.Enum` is a foreign file `volt push` refuses, not the
+    // `E_Mode.enum` the IDE publishes. Folded, the LSP indexed it as a source unit and resolved names from a file
+    // Volt will never push.
+    const ext = extname(file)
     try {
       if (ext === ".library") {
         const ns = libraryNamespaceOf(file)
