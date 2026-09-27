@@ -69,20 +69,20 @@ FirstScanCycle:= TRUE;
 END_PROGRAM
 
 ACTION actReadFromFile
-(* @volt-implementation *)
-NETWORK 0 FBD
+(* @volt-implementation FBD *)
+NETWORK
   fbReadErrorFromFile(asErrorText := L_FECA.GVL_ReadErrorFromFile.asErrorText, adwErrorID := L_FECA.GVL_ReadErrorFromFile.adwErrorID, xEnable := xEnable, xExecute := xExecute, xStoreAllErrorText := xStoreAllErrorText, xStoreTexRefIDErrorText := xStoreTexRefIDErrorText, xStoreAllAppTexRefIDErrorText := xStoreAllAppTexRefIDErrorText, xStopIfErrorFound := xStopIfErrorFound, xContinuousRead := xContinuousRead, xRepeat := xRepeat, xInit := xInit, xClearErrorArrays := xClearErrorArrays, scIN := scIN, xError => xError, xBusy => xBusy, xDone => xDone, scOUT => scOUT);
 END_NETWORK
-NETWORK 1 FBD
+NETWORK
   xRepeat := FALSE;
 END_NETWORK
-NETWORK 2 FBD
+NETWORK
   xInit := FALSE;
 END_NETWORK
-NETWORK 3 FBD
+NETWORK
   xRestart := FALSE;
 END_NETWORK
-NETWORK 4 FBD
+NETWORK
   xClearErrorArrays := FALSE;
 END_NETWORK
 END_ACTION

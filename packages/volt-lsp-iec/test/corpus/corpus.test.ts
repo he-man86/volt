@@ -56,7 +56,7 @@ import { LOWER_CODES, LOWER_CODE_PREFIXES } from "../../src/transpile/ir/codes.j
 import type { IrBuiltinName, IrPou, IrRoutine, IrStmt } from "../../src/transpile/ir/index.js"
 import { allowedCode } from "../../src/server/diagnostic-codes.js"
 import { formatDocument } from "../../src/services/index.js"
-import { parseNetworkText } from "../../src/network/index.js"
+import { STRUCTURE_ONLY, parseNetworkText } from "../../src/network/index.js"
 import { projectDocuments } from "./support/diagnostics.js"
 import { loweringProject, walkSources } from "./support/project.js"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
@@ -261,7 +261,7 @@ function pass(): Pass {
             // must find its networks and emit ZERO structural errors. Duplicate name/network warnings are not
             // structural parse failures and are not counted.
             p.graphicalBodies += 1
-            const vg = parseNetworkText(body)
+            const vg = parseNetworkText(body, STRUCTURE_ONLY)
             if (vg.networks.length === 0) p.networkFailures.push(`${file}: no networks parsed`)
             for (const d of vg.diagnostics) if (STRUCTURAL.has(d.code)) p.networkFailures.push(`${file} [${d.code}] ${d.message}`)
             continue

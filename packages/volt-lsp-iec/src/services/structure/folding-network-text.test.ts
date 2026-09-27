@@ -11,10 +11,11 @@ test("each NETWORK in a graphical body is a foldable range", () => {
 VAR
 \ta : BOOL; b : BOOL; out : BOOL;
 END_VAR
-NETWORK 0 LD
+(* @volt-implementation LD *)
+NETWORK
 out := (a AND b);
 END_NETWORK
-NETWORK 1 LD
+NETWORK
 out := (a OR b);
 END_NETWORK
 END_FUNCTION_BLOCK`

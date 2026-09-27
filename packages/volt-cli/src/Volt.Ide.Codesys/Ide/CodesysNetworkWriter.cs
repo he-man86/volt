@@ -243,9 +243,13 @@ namespace Volt.Ide.Codesys
                         // claim than "it is what the IDE would have written", and the two vendors share this
                         // object model member-for-member (N1), so the other one's importer is evidence here.
                         //
-                        // RETURN stays on the ITEM, and that asymmetry is the model's rather than a
-                        // preference: a return has no target operand to carry anything, and a POU built with
-                        // the bit there compiles clean.
+                        // RETURN RIDES ON THE TARGET TOO (DIALECT C13's correction): a return an engineer draws
+                        // has the vendor's `???` in its target slot with `Return` on it, and network text v2 reads
+                        // `RETURN;` into exactly that shape. This once said a return has no target to carry the
+                        // bit — true of the model v1 text built, which had none — and the writer kept writing
+                        // only `Jump` here, so under v2 the IDE got a coil assigning to `???` and the build said
+                        // "The assignment target is not specified." (`ng_conditional_jump_and_return`, re-recorded
+                        // 2026-09-27). The item keeps its bit as well, as for a jump.
                         //
                         // NOTHING IN A ROUND TRIP COULD HAVE CAUGHT THIS. Volt wrote the bit to the item and
                         // read it back from the item, so the text was byte-identical while the IDE disagreed
@@ -261,7 +265,7 @@ namespace Volt.Ide.Codesys
                             var (negation, set) = (t.Flags ?? Flags.None).VendorCoilBits();
                             var coil = t with
                             {
-                                Flags = Flags.None with { Negated = negation, Set = set, Jump = a.Flags.Jump },
+                                Flags = Flags.None with { Negated = negation, Set = set, Jump = a.Flags.Jump, Return = a.Flags.Return },
                             };
                             NwlInterop.Call(outputs, "AppendOutputItem", Operand(coil));
                         }

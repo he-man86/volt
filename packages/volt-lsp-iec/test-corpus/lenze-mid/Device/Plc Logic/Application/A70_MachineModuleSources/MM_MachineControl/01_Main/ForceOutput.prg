@@ -1,9 +1,10 @@
 PROGRAM ForceOutput
 VAR
 END_VAR
-(* @volt-implementation *)
-NETWORK 0 LD
-  LET g2 := HMI_Var.ForceOutputs;
+(* @volt-implementation LD *)
+NETWORK
+  VAR_TEMP g2 : BOOL; END_VAR
+  g2 := HMI_Var.ForceOutputs;
   LST_InputsOutputs.Q100_0_Pilot_light_Alarm_green_ := (g2 AND LST_InputsOutputs.Serv_QB100.0);
   LST_InputsOutputs.Q100_1_Pilot_light_Alarm_orange_ := (g2 AND LST_InputsOutputs.Serv_QB100.1);
   LST_InputsOutputs.Q100_2_Pilot_light_Alarm_red_ := (g2 AND LST_InputsOutputs.Serv_QB100.2);
@@ -21,8 +22,9 @@ NETWORK 0 LD
   LST_InputsOutputs.Q101_6_Spare := (g2 AND LST_InputsOutputs.Serv_QB101.6);
   LST_InputsOutputs.Q101_7_Spare := (g2 AND LST_InputsOutputs.Serv_QB101.7);
 END_NETWORK
-NETWORK 1 LD
-  LET g1 := HMI_Var.ForceOutputs;
+NETWORK
+  VAR_TEMP g1 : BOOL; END_VAR
+  g1 := HMI_Var.ForceOutputs;
   LST_InputsOutputs.Q132_0_SL_Start_OP2a := (g1 AND LST_InputsOutputs.Serv_QB132.0);
   LST_InputsOutputs.Q132_1_SL_Stop_OP2a := (g1 AND LST_InputsOutputs.Serv_QB132.1);
   LST_InputsOutputs.Q132_2_Enable_power_controllers := (g1 AND LST_InputsOutputs.Serv_QB132.2);
@@ -40,8 +42,9 @@ NETWORK 1 LD
   LST_InputsOutputs.Q133_6_InfeedConv_Rev := (g1 AND LST_InputsOutputs.Serv_QB133.6);
   LST_InputsOutputs.Q133_7_OutfeedConv_Fwd := (g1 AND LST_InputsOutputs.Serv_QB133.7);
 END_NETWORK
-NETWORK 2 LD
-  LET g0 := HMI_Var.ForceOutputs;
+NETWORK
+  VAR_TEMP g0 : BOOL; END_VAR
+  g0 := HMI_Var.ForceOutputs;
   LST_InputsOutputs.Q136_0_Spare := (g0 AND LST_InputsOutputs.Serv_QB136.0);
   LST_InputsOutputs.Q136_1_Spare := (g0 AND LST_InputsOutputs.Serv_QB136.1);
   LST_InputsOutputs.Q136_2_Spare := (g0 AND LST_InputsOutputs.Serv_QB136.2);
@@ -59,7 +62,7 @@ NETWORK 2 LD
   LST_InputsOutputs.Q137_6_Spare := (g0 AND LST_InputsOutputs.Serv_QB137.6);
   LST_InputsOutputs.Q137_7_Spare := (g0 AND LST_InputsOutputs.Serv_QB137.7);
 END_NETWORK
-NETWORK 3 LD
+NETWORK
 END_NETWORK
 
 END_PROGRAM

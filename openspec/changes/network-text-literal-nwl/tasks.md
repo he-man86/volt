@@ -655,26 +655,127 @@ the text's rule (`NetworkText.HasEnoOutput`) rather than a copy of it; the pull 
 
 ## 5. LSP and editor
 
-- [ ] 5.1 Parser: the per-network `VAR_TEMP` wire block into network scope, chained targets, backticks (inner text
+- [x] 5.1 Parser: the per-network `VAR_TEMP` wire block into network scope, chained targets, backticks (inner text
       parsed as an Expr; backticked targets and call heads), `.ENO` (BOOL), `=> v`, `EN :=` on any call including
       PROGRAM calls, `R_EDGE`/`F_EDGE` (builtins, BOOL→BOOL), structural parentheses (no `NOT(` lexeme), `PARALLEL`,
       `value;` statements, `END_IF;`/`END_EXECUTE;`, EXECUTE value form. Delete the LET branch, `isEnBinding`,
       `parseEnEnoIf`, IF-body flattening.
-- [ ] 5.2 `collectVoidCallTargets`, `isBoxOutput` and `checkHoles` learn the `=> v` pin form and `.ENO`
+      *Done (section 5):* `packages/volt-lsp-iec/src/network-text/` is v2 — `lexer.ts` is the bridge's `NetworkLexer` and
+      `parser.ts` its reader's recursive descent, raising the same `NETWORK_*` finding at the same token (header to its
+      newline, `//` comment rules, the `VAR_TEMP` block and every wire misuse, chained targets, backticks, `.ENO`, `=> v`,
+      `EN :=` on any call, `R_EDGE`/`F_EDGE` flags with the one `NOT` inside, structural parentheses and the empty slot
+      before a group, `PARALLEL` with `MODE`/`IN`, `value;`, `;`, `END_IF;`/`END_EXECUTE;`, EXECUTE's value form, the v1
+      refusal naming a re-pull). Values are a tree of their own (`ast.ts`); `exprs.ts` gives each its ST reading where
+      ST has one and reads the operands of the rest, so every check, hover and rename still runs on ST `Expr`s (backticked
+      text parsed as one; a call head as a path). The wires are the network scope, typed AS DECLARED. Deleted: the LET
+      branch, `isEnBinding`, `parseEnEnoIf`, IF-body flattening, `NETWORK_DUPLICATE_NETWORK`, the RISING/FALLING word
+      skip, the comment-placement warning (v2 refuses a comment after a statement). What needs the declarations — a wire
+      named like a name in scope, a POU named like a construct, a bare wire-shaped name no scope declares — the parser
+      asks of the POU's scope (`NetworkScopeView`, from `network-analyze.ts`) where the bridge reader asks it; the
+      wire-type-against-producer check and NETWORK_NOT_CANONICAL stay the push's. A v1 body gets the re-pull finding and
+      nothing else. Tests: `src/network-text/parser.test.ts`, `network.test.ts`, `network-real-shapes.test.ts`, all
+      rewritten to v2 input.
+      *Review (section 5):* the look-ahead that tells an operator head's argument list from a group walks THROUGH an
+      EXECUTE body as the bridge's `NetworkLexer.Walk` does (an `AND` in a snippet's ST made the writer's own text a
+      NETWORK_PARSE and dropped the network's statements); a wire's VarId past Int32 is refused as the bridge refuses it;
+      the three scope findings moved from a post-pass (`checkScopeCollisions`, deleted) into the parser, because a call
+      of a POU named `R_EDGE` failed as the edge's argument list first and an undeclared `g5` reached the compiler checks
+      the push never lets it reach; `.ENO` reads BOOL wherever it is consumed and an edge BOOL (`exprs.ts`), a box's own
+      top-level output staying unpaired (5.2); a `=> v` target records no storage operator; a rename to a word of the
+      text is backticked where the text reads a bare token; the `???` check reads the slot off the parse instead of a
+      token post-pass (`collectVoidCallTargets` folded into it); `typeToTypeExpr` (v1 wire inference) deleted; one
+      `OPERATOR_HEADS`; semantic tokens read the wires off the same scoped analysis. Tests: `parser.test.ts` and
+      `network.test.ts` "section-5 review" (red first).
+      *Second review (section 5):* a marker LINE may end in blanks, as the bridge's `ImplementationMarker.Line` allows
+      (refused, the body read no network and rename left the old name in it); a call of an INSTANCE is typed by its
+      FB (`NetworkScopeView.instanceType`, the bridge's `InstanceType`), so an instance of a POU named R_EDGE is refused
+      and a backticked instance named so is named as an instance — the pin check asks the same `instanceFb`, so the two
+      cannot disagree about a head; the v1 detector is v1's header SHAPE (`NETWORK <n>`), not the first word, so an ST
+      body starting `network := 1;` is ST; a wire's declared type IS held to its producer, as the bridge reader holds
+      it from the text (`checkWireTypes`, spec "a hand-edited type"), and a refused declaration types none of the
+      wire's uses, so no compiler message lands at the consumer (this note's "stays the push's" was wrong — the READER
+      checks it, from what the text says); `isBoxOutput` deleted — whether a value is a box is the tree's fact, so an
+      EXECUTE box's `o := F(k);` is type-checked as the ST it is; the scope is a required argument, structure-only
+      readers (folding, the outline, the corpus's structural gate) passing `STRUCTURE_ONLY` explicitly. Tests:
+      `network.test.ts` "section-5 second review", `parser.test.ts` "section-5 second review" (red first). Re-measured:
+      `corpus.test.ts` 19 pass, 1 skip, 0 fail (unchanged).
+- [x] 5.2 `collectVoidCallTargets`, `isBoxOutput` and `checkHoles` learn the `=> v` pin form and `.ENO`
       (`??? := PRG_void_callee()` may become `PRG_void_callee(EN := , => ???)`, `??? := MOVE(src)` may become
       `MOVE(src, => ???)` — unresolved-marker.test.ts L148, L162). Re-measure against the recorded builds; the recorded
       false positive must not return.
-- [ ] 5.3 Wire semantic-token class resolved through the network scope; hover shows `g22 : BOOL` and its producer.
-- [ ] 5.4 volt-vscode TextMate rules for backticks, `VAR_TEMP` in a network, `R_EDGE`/`F_EDGE`.
-- [ ] 5.5 corpus.test.ts and build-conformance re-measured; no new LSP-only message.
-- [ ] 5.6 Label diagnostics at parity with the builds recorded in 1.15 (missing label, duplicate label, label on a
+      *Done (section 5):* `=> ???` is the vendor's unconnected result pin and draws no message (lenze-mid's four, which v1
+      spelled as a coil over the call — the format ambiguity is gone); a `??? :=` coil over a call, `.ENO` included, keeps
+      the measured "source, not target" silence (`collectVoidCallTargets`); a box's output by `.ENO`, by its data pin or
+      by `=> v` is never an ST assignment pair (`assignmentPairs`, which pairs a chained assign's one value with each of
+      its targets; `checkHoles` reports that value's hole once). The conformance fixtures are v2 text of the SAME models (`network-graphical.ts`, `network-unresolved.ts`,
+      `check-coverage.ts`: the v1 reader's model written by the v2 writer, an enabled box Volt builds read through `.ENO`
+      per N21) and were RE-RECORDED live on both vendors: CODESYS gave the same answer for every one but
+      `ng_conditional_jump_and_return` — a real CODESYS driver bug, fixed (below). The recorded false positives stay
+      silent (`network_unnamed_target_of_void_call` / `_of_valued_call` still `MEASURED_SILENT`). Tests:
+      `network-real-shapes.test.ts` "5.2 the output pin and `.ENO`" (red first).
+      *Found on the way (a section-4 bug):* `CodesysNetworkWriter` wrote only `Jump` onto a target, so a v2 `RETURN;`
+      (whose target is the vendor's `???` with `Return` on it, DIALECT C13) built as a coil assigning to `???` — "The
+      assignment target is not specified." twice. Fixed; `CodesysNetworkWriterGateTests.A_returns_marker_target_carries_the_return_bit`
+      (red first), and the fixture re-recorded clean live.
+      *Open, TwinCAT:* six fixtures' v2 text is refused by the TwinCAT driver, so their TwinCAT recordings stay the v1
+      ones (same model): `.ENO` on an enabled box the import builds with NO ENO output (`network_unnamed_target_behind_enable`,
+      `_of_void_call`, `_of_valued_call`, `ng_en_eno_sink` — CODESYS needs the suffix, N21, TwinCAT's import has no ENO:
+      one text cannot push to both) and a changed wire network the in-place writer cannot restructure (`ng_coil_storage`,
+      `ng_en_eno_named_wire`).
+- [x] 5.3 Wire semantic-token class resolved through the network scope; hover shows `g22 : BOOL` and its producer.
+      *Done (section 5):* the semantic-token legend gains `wire` (last, so every index holds); a wire's declaration,
+      definition and references take it because the parser resolved them through the network's own `VAR_TEMP`, so a POU
+      variable merely named `g2` stays a variable. volt-vscode declares `wire` with `superType: variable`. Hover shows the
+      declaration and the producer (`g1 : BOOL` and `g1 := (a AND b);`), and go-to-definition lands on the declaration.
+      Tests: `semantic-tokens-primitives.test.ts` "a wire has its own class…", `network.test.ts` hover/definition,
+      `server.test.ts` hover.
+- [x] 5.4 volt-vscode TextMate rules for backticks, `VAR_TEMP` in a network, `R_EDGE`/`F_EDGE`.
+      *Done (section 5):* `network-text.injection.tmLanguage.json` reads the v2 header (no number, no language; `LABEL:`,
+      `TITLE:` with `$`-escapes, `DISABLED`), a `VAR_TEMP` wire block with its `g<digits>` names, backticked text, `.ENO`,
+      and `R_EDGE`/`F_EDGE`/`PARALLEL` as the text's constructs; the `LET` rule is gone. Test:
+      `packages/volt-vscode/src/network-text-grammar.test.ts` (the rules exercised as JS regexes, red first).
+- [x] 5.5 corpus.test.ts and build-conformance re-measured; no new LSP-only message.
+      *Done (section 5), live:* the corpus had to become v2 text first — v1 bodies are refused by name, so the
+      committed v1 corpus measured nothing — so the graphical bodies were RE-PULLED through the v2 bridge from copies of
+      their projects (`bun run refresh:corpus`, `ide.ps1 -Fixture`): all 44 v1 bodies, and ONLY them — pro2193 (2 files),
+      awa-palletizer (1), bakon-nano (1), lenze-mid (40), twincat-project14 (2, `POUexecute.prg` and `ladderLabel.prg`,
+      from a fresh copy of the committed Project14 fixture). Everything else a pull brought — an environment's unresolved
+      `Visu_Itfs` library (19 files per project), TwinCAT library-layout drift — was left out, so the diff is the
+      re-materialization alone. (6.1's MATERIALIZATION 2 → 3 still re-pulls all six.) Re-measured, it found three LSP-only
+      messages v1 had never reached, each fixed red-first in `network-real-shapes.test.ts`: an FB instance reached through
+      a path (`Mach1_AuxData.IEC_TIMERS.TON_…(IN := …)`) read as one undeclared identifier (the head is an ST path now);
+      bakon's `DELETE(STR := …)` pin-checked as a library FB of the same name (pins are checked on an INSTANCE only, as v1
+      in effect did); a chained assign reporting its value's hole once per target on one range — `checkHoles` now
+      reports once per VALUE, while the assignment rules still pair the value with EVERY target (a mismatch against a
+      non-last target is not hidden: "a chained assignment type-checks its value against EVERY target"). Also a v1 body
+      now gets the re-pull finding and nothing else (the `???` token scan ran on it). Result: `corpus.test.ts` 19 pass,
+      1 skip, 0 fail — every graphical body parses with no structural error, and build conformance (its section 2: every
+      LSP error and warning is in the recorded build) holds on the five CODESYS projects; the skip is
+      twincat-project14, which has only a TwinCAT recording and no CODESYS one (as before this change).
+- [x] 5.6 Label diagnostics at parity with the builds recorded in 1.15 (missing label, duplicate label, label on a
       DISABLED network) — a conformance fixture each; no message the build does not give.
+      *Done (section 5):* `checkLabels` gives the build's words — "No such label" for a jump to a label no ENABLED network
+      carries (TwinCAT with its full stop: the 2026-07-07 "TwinCAT is silent" was of v1 text, and census 1.15 measured
+      it reporting), "is a duplicate" for one label on two enabled networks in any case, and the "has not been referenced"
+      warning once per label no enabled JMP names; a disabled network's label is no target and its JMP no reference. The
+      codes are the ST label check's (`jump-label-*`, C0116–C0118): one compiler rule, one slug and one config switch —
+      `network-undefined-label` left the unmapped list. Four new fixtures, each recorded live on both vendors, each the
+      message the LSP gives: `cc_vg_duplicate_label`, `cc_vg_label_on_disabled_network`, `cc_vg_jump_in_disabled_network`,
+      `cc_vg_unreferenced_label` (floors 2539→2546 TwinCAT, 2556→2560 CODESYS). Unit tests: `network.test.ts`
+      "network labels: …".
 
 ## 6. Migration and docs
 
 - [ ] 6.1 Bump MATERIALIZATION 2 → 3; re-pull the six corpora; rewrite e2e bodies and conformance fixtures
       (`network-graphical.ts`, `network-unresolved.ts`); re-record live only where a message moved. Delete
       `test/shared/V1CorpusReader.cs` with the re-pull (the swap kept it only to read the v1 corpus for the oracle).
+      *Partly done at the close of section 5:* 5.5's re-pull made the corpus's graphical bodies v2, which left
+      `ModelRoundTripOracleTests` harvesting nothing (its v1 reader found no v1 body — 4 red). So the oracle now reads
+      the corpus through THE reader, against the scope a push reads it with (`NetworkScope.FromDeclarations` over the
+      project's own item files, library items excluded as the IDE walk excludes them), and `V1CorpusReader.cs` is
+      deleted. Pinned: 34 bodies / 157 networks, every one read and round-tripped, none refused. The conformance
+      fixtures are v2 already (5.2). STILL OPEN here: the MATERIALIZATION bump, the full six-corpus re-pull (5.5
+      re-pulled the 46 graphical files only) and the e2e bodies.
 - [ ] 6.2 Replace `docs/network-text.html` with `docs/network-text-next.html`; fix the stale model doc for the
       unconditional jump (NetworkModel.cs vs DIALECT C11), the reader header ("decided by USE COUNT") and the
       ParallelRenderTests "forces a g" comment.

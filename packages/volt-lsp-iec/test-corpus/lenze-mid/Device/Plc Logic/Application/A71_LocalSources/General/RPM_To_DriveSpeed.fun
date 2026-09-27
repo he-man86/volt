@@ -8,10 +8,9 @@ END_VAR
 VAR_OUTPUT
 	oDriveSpeed: INT;
 END_VAR
-(* @volt-implementation *)
-NETWORK 0 LD
-  LET en1 := ;
-  IF en1 THEN oDriveSpeed := (iRPM * 6); END_IF
+(* @volt-implementation LD *)
+NETWORK
+  MUL(EN := , iRPM, 6, => oDriveSpeed);
 END_NETWORK
 
 END_FUNCTION

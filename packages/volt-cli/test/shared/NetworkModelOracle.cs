@@ -15,7 +15,7 @@ namespace Volt.Tests.Shared;
 /// ≅ is structural equality on what the text carries (<see cref="NetworkTextFacts.Carried"/>), and the gate
 /// accepts the written text as canonical.
 ///
-/// <para>Compiled into each suite that owns a model source (the engine's v1 tests and corpus, TwinCAT's
+/// <para>Compiled into each suite that owns a model source (the engine's goldens and the corpus, TwinCAT's
 /// archives), so every suite applies the SAME check and the per-reason refusal tables can be compared.</para>
 ///
 /// <para>Anything else is a failure, loudly: the writer throwing any other exception (pull must never throw

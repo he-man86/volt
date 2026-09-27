@@ -19,17 +19,16 @@ export const KNOWN_UNMAPPED = new Set([
   "unary-operand-type",
   "unterminated-conditional-pragma",
 
-  // NETWORK-TEXT SEMANTIC CHECKS. These are NOT unmapped for want of a code — three of the four have an EXACT
+  // NETWORK-TEXT SEMANTIC CHECKS. These are NOT unmapped for want of a code — two of the three have an EXACT
   // catalog entry, and their messages are that entry's wording verbatim:
   //
   //   network-undeclared-identifier -> C0046  Identifier '<name>' not defined
   //   network-unknown-member        -> C0004  '<variable>' is not a component of '<structure>'
-  //   network-undefined-label       -> C0117  No such label '<label>' within the scope of the 'JMP' statement
   //
   // What blocks them is the MAP'S SHAPE, not the catalog: `CODESYS_CODE_MAP` is derived from the catalog's
   // `ourCode` field and asserted equal to it (catalog.test.ts), which makes it ONE SLUG PER `Cnnnn` — and
-  // each of those three codes is already claimed by the ST check these share their resolution logic with
-  // (`unresolved-identifier`, `unknown-member`, `jump-label-undefined`). The network checks keep their own slug
+  // each of those codes is already claimed by the ST check these share their resolution logic with
+  // (`unresolved-identifier`, `unknown-member`). The network checks keep their own slug
   // deliberately: a slug is also the CONFIG SWITCH, and merging them would make "turn off identifier checking in
   // network text" silently turn it off in ST too. Mapping them needs the catalog to carry several slugs per
   // code; until it does, they belong here.
@@ -41,8 +40,10 @@ export const KNOWN_UNMAPPED = new Set([
   // They were absent from this list not because they were mapped, but because no corpus file had triggered one.
   // The first that did (`Cam_MainDrive` in lenze-mid, a CAM object Volt does not materialize) turned the gate
   // red for a bookkeeping gap rather than the precision gap it was pointing at.
+  //
+  // `network-undefined-label` was a third, and it LEFT this list: the network label checks now emit the ST label
+  // check's own slugs (`jump-label-*`, C0116-C0118), because a label is one compiler rule whichever body holds it.
   "network-undeclared-identifier",
-  "network-undefined-label",
   "network-unknown-member",
   "network-unknown-pin",
 ])

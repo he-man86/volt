@@ -33,13 +33,13 @@ const doc = "network-text.html"
  *  a recording of a network's variable values would have no consumer.
  *
  *  It is worth being exact about this, because the mechanical symptom invites a more flattering explanation.
- *  `record:exec` writes declaration and implementation text straight into a POU, so `NETWORK 0 FBD` reaches the
+ *  `record:exec` writes declaration and implementation text straight into a POU, so a `NETWORK` header reaches the
  *  compiler verbatim and is answered "';' expected instead of 'FBD'". That LOOKS like an unfinished recorder —
  *  and the ground truth is in fact obtainable, since the BRIDGE turns network text into a real graphical body
  *  and that is how the BUILD recording of these very fixtures was taken. So the honest reason is not "it cannot
  *  be measured"; it is "nothing would read it". If a graphical lowering is ever built, this line is what has to
  *  change first. */
-const NOT_ST = "the exec oracle checks the ST transpiler, which has no graphical lowering — nothing would read it"
+export const NOT_ST = "the exec oracle checks the ST transpiler, which has no graphical lowering — nothing would read it"
 
 /** A graphical FB, instantiated in PLC_PRG — an uninstantiated POU is dead code CODESYS never compiles. */
 function ng(name: string, pouName: string, feature: string, source: string, fromDoc = doc, note?: string): LanguageTest {
@@ -95,7 +95,8 @@ VAR
 \tout : BOOL;
 END_VAR
 
-NETWORK 0 FBD
+(* @volt-implementation FBD *)
+NETWORK
   out := ((a AND b) OR c);
 END_NETWORK
 
@@ -111,7 +112,8 @@ VAR
 \tout : BOOL;
 END_VAR
 
-NETWORK 0 FBD
+(* @volt-implementation FBD *)
+NETWORK
   out := (a AND b AND c);
 END_NETWORK
 
@@ -128,10 +130,11 @@ VAR
 \trest : INT;
 END_VAR
 
-NETWORK 0 FBD
+(* @volt-implementation FBD *)
+NETWORK
   sum := (x + y + z);
 END_NETWORK
-NETWORK 1 FBD
+NETWORK
   rest := (x MOD y);
 END_NETWORK
 
@@ -147,10 +150,11 @@ VAR
 \tsame : BOOL;
 END_VAR
 
-NETWORK 0 FBD
+(* @volt-implementation FBD *)
+NETWORK
   below := (x < y);
 END_NETWORK
-NETWORK 1 FBD
+NETWORK
   same := (x = y);
 END_NETWORK
 
@@ -158,7 +162,7 @@ END_FUNCTION_BLOCK
 `, `${doc}#7-operators`),
 
   // ─── wires and fan-out (§6) ────────────────────────────────────────────────
-  ng("ng_fanout_let", "FB_NG_fanout", "a named wire feeding TWO sinks — the reason `LET` exists at all",
+  ng("ng_fanout_let", "FB_NG_fanout", "a named wire feeding TWO sinks — the one named thing, declared in the network's VAR_TEMP",
     `FUNCTION_BLOCK FB_NG_fanout
 VAR
 \ta : BOOL;
@@ -167,8 +171,10 @@ VAR
 \tout2 : BOOL;
 END_VAR
 
-NETWORK 0 FBD
-  LET g1 := (a OR b);
+(* @volt-implementation FBD *)
+NETWORK
+  VAR_TEMP g1 : BOOL; END_VAR
+  g1 := (a OR b);
   out1 := g1;
   out2 := g1;
 END_NETWORK
@@ -186,8 +192,10 @@ VAR
 \tcleared : BOOL;
 END_VAR
 
-NETWORK 0 LD
-  LET g1 := (a OR b);
+(* @volt-implementation LD *)
+NETWORK
+  VAR_TEMP g1 : BOOL; END_VAR
+  g1 := (a OR b);
   plain := g1;
   latched S= g1;
   cleared R= g1;
@@ -205,14 +213,14 @@ VAR
 \tout : BOOL;
 END_VAR
 
-NETWORK 0 FBD
-  LET i1 := NOT b;
-  out := (a AND i1);
+(* @volt-implementation FBD *)
+NETWORK
+  out := (a AND \`NOT b\`);
 END_NETWORK
 
 END_FUNCTION_BLOCK
 `, `${doc}#opaque-leaf--let-i--text`,
-    "`NOT b` is no longer a single token, so it cannot ride on the operand: the writer lifts it to `LET i1 := NOT b`. That round-trip has never been built."),
+    "ONE vendor operand whose text is `NOT b` — not a token, so it travels between backticks (v1 hoisted it into `LET i1`). Recorded from the v1 body; the model is the same."),
 
   // ─── modifiers (§6) ────────────────────────────────────────────────────────
   ng("ng_negation_sink", "FB_NG_negate", "`NOT` riding on a SINK's source — the modifier form, not a statement of its own",
@@ -223,14 +231,15 @@ VAR
 \tout : BOOL;
 END_VAR
 
-NETWORK 0 FBD
+(* @volt-implementation FBD *)
+NETWORK
   out := NOT (a AND b);
 END_NETWORK
 
 END_FUNCTION_BLOCK
 `, `${doc}#modifiers--ride-on-the-consumer`),
 
-  ng("ng_edge_modifiers", "FB_NG_edges", "the trailing edge modifiers `RISING` and `FALLING`",
+  ng("ng_edge_modifiers", "FB_NG_edges", "the edge flags `R_EDGE(x)` and `F_EDGE(x)` on an operand",
     `FUNCTION_BLOCK FB_NG_edges
 VAR
 \tclk : BOOL;
@@ -238,11 +247,12 @@ VAR
 \tdown : BOOL;
 END_VAR
 
-NETWORK 0 LD
-  up := clk RISING;
+(* @volt-implementation LD *)
+NETWORK
+  up := R_EDGE(clk);
 END_NETWORK
-NETWORK 1 LD
-  down := clk FALLING;
+NETWORK
+  down := F_EDGE(clk);
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -259,7 +269,8 @@ VAR
 \tdone : BOOL;
 END_VAR
 
-NETWORK 0 FBD
+(* @volt-implementation FBD *)
+NETWORK
   t1(IN := go, PT := pt);
   done := t1.Q;
 END_NETWORK
@@ -286,7 +297,8 @@ VAR
 \ttwice : INT;
 END_VAR
 
-NETWORK 0 FBD
+(* @volt-implementation FBD *)
+NETWORK
   next := F_NG_split(src, doubled => twice);
 END_NETWORK
 
@@ -304,9 +316,9 @@ VAR
 \tout : BOOL;
 END_VAR
 
-NETWORK 0 LD
-  LET en1 := go;
-  IF en1 THEN out := (a AND b); END_IF
+(* @volt-implementation LD *)
+NETWORK
+  out := AND(EN := go, a, b).ENO;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -322,10 +334,10 @@ VAR
 \tout3 : BOOL;
 END_VAR
 
-NETWORK 0 FBD
-  LET en1 := go;
-  IF en1 THEN (b OR c); END_IF
-  LET g1 := en1;
+(* @volt-implementation FBD *)
+NETWORK
+  VAR_TEMP g1 : BOOL; END_VAR
+  g1 := OR(EN := go, b, c).ENO;
   out := g1;
   out3 := g1;
 END_NETWORK
@@ -341,15 +353,13 @@ VAR
 \ttarget : INT;
 END_VAR
 
-NETWORK 0 FBD
-  LET en1 := bRun;
-  IF en1 THEN
-  EXECUTE
+(* @volt-implementation FBD *)
+NETWORK
+  EXECUTE(EN := bRun)
 IF bStart THEN
-\ttarget := 40 + 2;
+	target := 40 + 2;
 END_IF
-  END_EXECUTE
-  END_IF
+  END_EXECUTE;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -364,11 +374,12 @@ VAR
 \tafter : BOOL;
 END_VAR
 
-NETWORK 0 LD
+(* @volt-implementation LD *)
+NETWORK
   out := TRUE;
   JMP Onwards;
 END_NETWORK
-NETWORK 1 LD LABEL: Onwards
+NETWORK LABEL: Onwards
   after := TRUE;
 END_NETWORK
 
@@ -384,17 +395,18 @@ VAR
 \tlater : BOOL;
 END_VAR
 
-NETWORK 0 LD
-  IF cond THEN JMP Tail; END_IF
+(* @volt-implementation LD *)
+NETWORK
+  IF cond THEN JMP Tail; END_IF;
 END_NETWORK
-NETWORK 1 LD
-  IF cond THEN RETURN; END_IF
+NETWORK
+  IF cond THEN RETURN; END_IF;
 END_NETWORK
-NETWORK 2 LD LABEL: Tail
+NETWORK LABEL: Tail
   done := TRUE;
   RETURN;
 END_NETWORK
-NETWORK 3 LD
+NETWORK
   later := TRUE;
 END_NETWORK
 
@@ -410,7 +422,8 @@ VAR
 \tout : BOOL;
 END_VAR
 
-NETWORK 0 FBD TITLE: "the interlock"
+(* @volt-implementation FBD *)
+NETWORK TITLE: "the interlock"
   // both have to be true
   out := (a AND b);
 END_NETWORK
@@ -426,10 +439,11 @@ VAR
 \tlive : BOOL;
 END_VAR
 
-NETWORK 0 FBD DISABLED
+(* @volt-implementation FBD *)
+NETWORK DISABLED
   out := nothingDeclaredWithThisName;
 END_NETWORK
-NETWORK 1 FBD
+NETWORK
   live := a;
 END_NETWORK
 
@@ -446,10 +460,11 @@ VAR
 \tfromLd : BOOL;
 END_VAR
 
-NETWORK 0 LD
+(* @volt-implementation LD *)
+NETWORK
   fromFbd := (a AND b);
 END_NETWORK
-NETWORK 1 LD
+NETWORK
   fromLd := (a OR b);
 END_NETWORK
 
@@ -466,7 +481,8 @@ VAR
 \tcount : INT;
 END_VAR
 
-NETWORK 0 FBD
+(* @volt-implementation FBD *)
+NETWORK
   count := (a AND b);
 END_NETWORK
 

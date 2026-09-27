@@ -23,43 +23,6 @@ VAR
 	PLC_StartUp_Delay: TON;
 END_VAR
 (* @volt-implementation *)
-NETWORK 0 LD
-  // Always Off
-  AlwaysOff R= AlwaysOff;
-END_NETWORK
-NETWORK 1 LD
-  // Always ON
-  AlwaysOn S= NOT AlwaysOn;
-END_NETWORK
-NETWORK 2 LD
-  FirstCycle R= (AlwaysOn AND OSfirstflagcycle);
-END_NETWORK
-NETWORK 3 LD
-  LET en1 := AlwaysOn;
-  IF en1 THEN dummyWord := MOVE(0); END_IF
-END_NETWORK
-NETWORK 4 LD
-  LET g2 := ;
-  FF50ms := tmr_FF50ms(IN := (g2 AND NOT tmr_FF50ms_not.Q), PT := T#100MS);
-  LST_General.Imp100ms := tmr_FF50ms_not(IN := (g2 AND FF50ms), PT := T#100MS);
-END_NETWORK
-NETWORK 5 LD
-  LET g1 := ;
-  FF100ms := tmr_FF100ms(IN := (g1 AND NOT tmr_FF100ms_not.Q), PT := T#500MS);
-  LST_General.Imp200ms := tmr_FF100ms_not(IN := (g1 AND FF100ms), PT := T#500MS);
-END_NETWORK
-NETWORK 6 LD
-  LET g3 := ;
-  FF500ms := tmr_FF500ms(IN := (g3 AND NOT tmr_FF500ms_not.Q), PT := T#500MS);
-  LST_General.Imp1s := tmr_FF500ms_not(IN := (g3 AND FF500ms), PT := T#500MS);
-END_NETWORK
-NETWORK 7 LD
-  LET g4 := ;
-  FF1s := tmr_FF1s(IN := (g4 AND NOT tmr_FF1s_not.Q), PT := T#1S);
-  tmr_FF1s_not(IN := (g4 AND FF1s), PT := T#1S);
-END_NETWORK
-NETWORK 8 LD
-  LST_General.StartUpDelayPLC := PLC_StartUp_Delay(IN := AlwaysOn, PT := T#60S);
-END_NETWORK
+(* @volt-graphical: a wire of unknown type *)
 
 END_PROGRAM

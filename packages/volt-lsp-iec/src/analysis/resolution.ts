@@ -3,8 +3,8 @@
  * check's base-name test, and the network-text `network-undeclared-identifier` check — which is why it is not a helper
  * inside one check group (it was `checks/names/_identifier-resolution.ts`, imported across groups; the layering lint now
  * refuses that). The ST and network-text checks resolve alike: network-text operands are ST `Expr` trees, so a graphical body resolves
- * its identifiers by exactly the same rules as a textual one (against a network scope that layers `LET`
- * wires over the POU scope). Keeping the rules in one place is what makes the two checks agree by
+ * its identifiers by exactly the same rules as a textual one (against a network scope that layers the network's
+ * `VAR_TEMP` wires over the POU scope). Keeping the rules in one place is what makes the two checks agree by
  * construction — a name ST resolves can never be one the network-text check flags, and vice-versa.
  *
  * Zero-FP is the whole game. A name resolves (is NOT flagged) when it is any of: a `__`-system operator, a

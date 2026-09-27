@@ -18,21 +18,21 @@ END_VAR
 VAR_IN_OUT
 	ioUDT			: UDT_FQI_Drive;
 END_VAR
-(* @volt-implementation *)
-NETWORK 0 LD
-  LET i1 := UINT_TO_WORD(ioUDT.Control.AutoSpeed);
-  LET en1 := ;
-  IF en1 THEN oRefSpeed := MOVE(i1); END_IF
+(* @volt-implementation LD *)
+NETWORK
+  MOVE(EN := , `UINT_TO_WORD(ioUDT.Control.AutoSpeed)`, => oRefSpeed);
 END_NETWORK
-NETWORK 1 LD
-  LET g6 := TRUE;
+NETWORK
+  VAR_TEMP g6 : BOOL; END_VAR
+  g6 := TRUE;
   ioUDT.Status.Error := (g6 AND iStatusWord.Bit3_Fault);
   ioUDT.Status.DriveReady := (g6 AND NOT iStatusWord.Bit3_Fault AND iStatusWord.Bit0_ReadyForOperation);
 END_NETWORK
-NETWORK 2 LD
-  LET g17 := TRUE;
+NETWORK
+  VAR_TEMP g17, g18 : BOOL; END_VAR
+  g17 := TRUE;
   oControlWord.Bit4_RunForward := (g17 AND ioUDT.Control.Enable AND ioUDT.Control.StartAuto);
-  LET g18 := (g17 AND ioUDT.Control.ResetError);
+  g18 := (g17 AND ioUDT.Control.ResetError);
   oControlWord.Bit7_ResetFault := g18;
   ioUDT.Control.ResetError R= g18;
   oControlWord.Bit12_ReverseDirection := (g17 AND ioUDT.Control.Reverse);

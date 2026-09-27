@@ -1019,8 +1019,8 @@ fbOEE_Input_IF.xLaterShiftStartEnableDisable := xLaterShiftStartEnabled;
 END_ACTION
 
 ACTION call_OEE_Input_IF
-(* @volt-implementation *)
-NETWORK 0 FBD
+(* @volt-implementation FBD *)
+NETWORK
   // //**********************************************************************************************************************************************************
   // // Call up L_OEE_Input_IF for OEE KPI calculation, Downtime & Production state Tracking
   // // With the Bit xSimultionEnabled the FB will go in simulation mode and generate Part count, state changes and donwtimes
@@ -1028,6 +1028,6 @@ NETWORK 0 FBD
   // //**********************************************************************************************************************************************************
   fbOEE_Input_IF(xEnabled := TRUE, xResetActualData := GVL_OEE_Var.xResetActualOEEData, xResetHistoryData := GVL_OEE_Var.xResetHistoryOEEData, xProdSimultionEnabled := xSimultionEnabled, xHMIActive := GVL_OEE_Var.xHMIDataActive, eSchedulerMode := eShiftMode, eSetWeekday := eSetWeekday, xUseReasonCodeString := xUseReasonCodeString, scMachineData := GVL_OEE_Var.scMachineData, scProductionMode := GVL_OEE_Var.scProductionMode, ascDaySchedules := MM_PD.ascDaySchedules, asErrorCategory := GVL_FirstErrCapture.asErrorCategory, scFirstErrorData := scFirstErrorData);
 END_NETWORK
-NETWORK 1 FBD
+NETWORK
 END_NETWORK
 END_ACTION

@@ -301,4 +301,67 @@ public class NetworkScopeTests
 
         Assert.Equal("TON", scope.InstanceType("t1"));
     }
+
+    // ── an FB instance is a variable whose type is a FUNCTION BLOCK, not any variable ────────────
+
+    /// <summary>A variable whose type is elementary, or a project item that is no function block (a DUT), is no
+    /// FB instance: the scope that said otherwise read <c>k(x)</c>, <c>k : INT</c>, as a box of an FB named
+    /// <c>INT</c> and let it through, where the LSP reads the same head as no instance (<c>instanceFb</c>). A library
+    /// type the project holds no declaration of (<c>TON</c>) is one, and so is a project FUNCTION_BLOCK.</summary>
+    [Theory]
+    [InlineData("k : INT;", "k", null)]
+    [InlineData("k : Bool;", "k", null)]
+    [InlineData("k : STRING(80);", "k", null)]
+    [InlineData("k : ARRAY[1..3] OF TON;", "k", null)]
+    [InlineData("k : POINTER TO TON;", "k", null)]
+    [InlineData("s : ST_Timers;", "s", null)]
+    [InlineData("t : TON;", "t", "TON")]
+    [InlineData("f : FB_Motor;", "f", "FB_Motor")]
+    public void Only_a_variable_of_a_function_block_type_is_an_instance(string line, string name, string? expected)
+    {
+        var items = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["ST_Timers"] = Timers,
+            ["FB_Motor"] = "FUNCTION_BLOCK FB_Motor\nVAR_INPUT\n    x : INT;\nEND_VAR",
+        };
+        var scope = NetworkScope.FromDeclarations("PROGRAM P\nVAR\n    " + line + "\nEND_VAR",
+            n => items.TryGetValue(n, out var d) ? d : null, () => Array.Empty<string>());
+
+        Assert.Equal(expected, scope.InstanceType(name));
+    }
+
+    /// <summary>…so a call headed by such a variable is read as the LSP reads it — a call of that name, no instance —
+    /// never as an instance box whose FB is <c>INT</c>, which the push would have built.</summary>
+    [Fact]
+    public void A_call_headed_by_a_variable_of_an_elementary_type_is_no_instance_box()
+    {
+        var scope = NetworkScope.FromDeclarations("FUNCTION_BLOCK FB\nVAR\n    k : INT;\n    x : INT;\n    out : INT;\nEND_VAR",
+            _ => null, () => Array.Empty<string>());
+
+        var r = NetworkTextGate.Validate(Src("out := k(x);"), scope);
+
+        var box = Assert.IsType<Box>(Assert.IsType<Assign>(Assert.Single(r.Body!.Networks[0].Trees)).Value);
+        Assert.Null(box.Instance);
+        Assert.Equal("k", box.Type);
+    }
+
+    /// <summary>Spec, "a variable named like a construct does not block it", through the scope a driver BUILDS: a
+    /// BOOL named <c>R_EDGE</c> is no POU and no instance, so an ordinary rising edge in its POU is read and written.
+    /// Built by hand the scope held no instance of that name and the rule passed; built from the declaration it
+    /// called the BOOL an instance, refused every edge on push and sent the pulled body to the marker.</summary>
+    [Theory]
+    [InlineData("R_EDGE")]
+    [InlineData("F_EDGE")]
+    [InlineData("PARALLEL")]
+    public void A_variable_named_like_a_construct_does_not_block_it_in_a_built_scope(string word)
+    {
+        var scope = NetworkScope.FromDeclarations(
+            $"FUNCTION_BLOCK FB\nVAR\n    {word} : BOOL;\n    x : BOOL;\n    out : BOOL;\nEND_VAR",
+            _ => null, () => Array.Empty<string>());
+
+        Assert.False(scope.IsCallable(word));
+        var r = NetworkTextGate.Validate(Src("out := R_EDGE(x);"), scope);
+        Assert.True(r.Ok, Diagnostics(r));
+        Assert.Equal(Src("out := R_EDGE(x);"), NetworkTextWriter.Write(r.Body!, scope));
+    }
 }

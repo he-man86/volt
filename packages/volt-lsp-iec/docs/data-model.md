@@ -311,49 +311,37 @@ interface ConversionEntry extends ReferenceEntry { sourceType: string; destType:
 
 ## network text (FBD/LD as text)
 
-**As-built (the reuse model).** Network-text operands ARE fully-parenthesised ST expressions, so they parse into the
-ST `Expr` tree and flow through the ONE type engine / `resolveMemberChain` / nav / hover — there is no
-parallel `NetworkOperand`/`NetworkGroup`/`NetworkLeaf` operand tree, no network-text-specific infer/resolve stack, and operator info
-is the `Expr` binary node's, not a `NetworkGroup` fact. An `EXECUTE` box holds ordinary ST, parsed with the ST
-statement parser into a `StatementList`. This is the "reuse the shared core — one type engine, one service
-set" refinement (architecture F); the pre-rebuild `NetworkOperand` tree below the line is retained only as the
-historical topology model.
+**As-built (network text v2, openspec `network-text-literal-nwl`; `src/network-text/`).** The body is read by a port of
+the bridge reader (`parser.ts`, over its own `lexer.ts`): one statement per vendor network item, the values a tree of
+their own (`NetworkValue`) because the text spells things ST has no node for — an empty slot, an edge FLAG, `PARALLEL`,
+an EXECUTE box, `.ENO`, `=> v`. Every operand, target and backticked text is still an ST `Expr`, and `exprs.ts` gives
+each value its ST reading where it has one (`networkValueExpr`) and the operands of the ones it has not
+(`statementExprs`), so the ONE type engine / `resolveMemberChain` / nav / hover / rename run unchanged. An EXECUTE box's
+lines are ordinary ST, parsed with the ST statement parser into a `StatementList`.
 
 ```ts
-// Diagnostic codes — the LSP EMITS only the pure-text structural subset (it mirrors these so a body is
-// fixed before push). The rest are BRIDGE-OWNED (need the writer + PLCopen round-trip) and never emitted
-// by the LSP; they are listed for completeness of the wire vocabulary.
+// The bridge gate's structural codes the text alone decides (raised where the bridge reader raises them). The two the
+// LSP adds from the declarations (a wire named like a name in scope, a POU named like a construct) are
+// NETWORK_DUPLICATE_NAME / NETWORK_UNSUPPORTED from `network-analysis.ts`. NETWORK_NOT_CANONICAL stays the push's.
 type NetworkDiagnosticCode =
-  | "NETWORK_PARSE" | "NETWORK_NOT_CLOSED" | "NETWORK_DUPLICATE_NETWORK" | "NETWORK_DUPLICATE_NAME"   // ← LSP-emitted
-  | "NETWORK_BAD_EXPRESSION" | "NETWORK_UNKNOWN_OPERATOR" | "NETWORK_LEAF_REFERENCES_TEMP" | "NETWORK_LEAF_FANOUT" | "NETWORK_NOT_CANONICAL" // ← bridge-only
-interface NetworkDiagnostic { code: NetworkDiagnosticCode; message: string; span: Span } // messages PROVISIONAL until the T.1 bridge record pass
+  | "NETWORK_PARSE" | "NETWORK_NOT_CLOSED" | "NETWORK_DUPLICATE_NAME"
+  | "NETWORK_BAD_EXPRESSION" | "NETWORK_UNSUPPORTED" | "NETWORK_UNKNOWN_OPERATOR"
+interface NetworkTextDiagnostic { code: NetworkDiagnosticCode; message: string; span: Span }
 
-type NetworkLanguage = "FBD" | "LD" | "CFC" | "SFC" | "UNKNOWN"
-interface NetworkName { text: string; span: Span }
-
-// Statements — operands are ST `Expr` (undefined when a slice does not parse cleanly → conservative skip).
-type NetworkStatement =
-  | NetworkWireDef | NetworkSink | NetworkFbCall | NetworkEnEnoIf | NetworkExecute | NetworkLabel | NetworkJump | NetworkReturn | NetworkComment | NetworkUnknownStmt
-interface NetworkWireDef { kind: "wire_def"; name: NetworkName; isEnBinding: boolean; producer?: Expr; span: Span }
-interface NetworkSink    { kind: "sink"; target?: Expr; value?: Expr; span: Span }
-interface NetworkFbCall  { kind: "fb_call"; call?: Expr; span: Span }                        // a box call `inst(PIN := arg, …)`
-interface NetworkEnEnoIf { kind: "en_eno_if"; en?: Expr; body: NetworkStatement[]; span: Span }   // IF <en> THEN … END_IF
-interface NetworkExecute { kind: "execute"; statements: StatementList; ok: boolean; span: Span } // EXECUTE <inline ST> END_EXECUTE
-interface NetworkLabel   { kind: "label"; name: NetworkName; span: Span }
-interface NetworkJump    { kind: "jump"; target: NetworkName; condition?: Expr; span: Span }
-interface NetworkReturn  { kind: "return"; condition?: Expr; span: Span }
-interface NetworkComment { kind: "comment"; text: string; span: Span }
-interface NetworkUnknownStmt { kind: "unknown_stmt"; tokens: Token[]; span: Span }
-
-interface NetworkNetwork {
-  index?: number; language: NetworkLanguage; label?: string; disabled: boolean
-  statements: NetworkStatement[]; headerSpan: Span; span: Span
+interface NetworkTextBody { kind: "network_body"; language?: "FBD" | "LD"; networks: NetworkTextNetwork[]; diagnostics: NetworkTextDiagnostic[]; span: Span }
+interface NetworkTextNetwork {
+  index: number; title?: string; label?: NetworkName; disabled: boolean; comment?: string
+  wires: NetworkWire[]                      // the network's VAR_TEMP block: g<digits> with their declared type
+  statements: NetworkTextStatement[]; span: Span; headerSpan: Span
 }
-interface NetworkText { kind: "network_body"; networks: NetworkNetwork[]; diagnostics: NetworkDiagnostic[]; span: Span }
+type NetworkTextStatement = NetworkAssign | NetworkWireDef | NetworkValueStatement | NetworkJump | NetworkReturn | NetworkEmpty
+//   assign: t1 := t2 S= … value;   wire_def: g1 := value;   value: value;   jump/return: [IF c THEN] JMP l; / RETURN;   empty: ;
+type NetworkValue = NetworkEmptySlot | NetworkOperand | NetworkWireRef | NetworkNot | NetworkEdge | NetworkGroup
+                  | NetworkCall | NetworkParallel | NetworkExecute
 
-// Analysis (F.2b) — a per-network resolution scope layering the network's LET wires (typed by inferring
-// their producer `Expr`) over the POU scope; the shared infer engine resolves wires like real variables.
-interface VgAnalysis { vg: NetworkText; pou: Scope; networkScopes: Map<NetworkNetwork, Scope> }
+// Analysis (F.2b) — a per-network resolution scope layering the network's VAR_TEMP wires, typed AS DECLARED, over the
+// POU scope; the shared infer engine resolves wires like real variables.
+interface NetworkTextAnalysis { vg: NetworkTextBody; pou: Scope; networkScopes: Map<NetworkTextNetwork, Scope>; wires: Map<Symbol, NetworkWire> }
 ```
 
 <details><summary>Pre-rebuild operand tree (historical — NOT built; operands are `Expr`)</summary>
@@ -409,6 +397,6 @@ The deltas the clean design makes to the shapes above (facts-first, structured-n
 - **Network-text operands are ST `Expr`, not a `NetworkOperand`/`NetworkGroup` tree** — Network-text operands are fully-parenthesised ST
   expressions, so they parse into the ST `Expr` tree and reuse the ONE type engine / `resolveMemberChain` /
   nav / hover. There is no network-text-specific operand tree or infer/resolve stack; operator info is the `Expr`
-  binary node's. `LET` wires become per-network pseudo-symbols typed by inferring their producer `Expr`
-  (`VgAnalysis.networkScopes`), and `EXECUTE` boxes hold ordinary ST parsed into a `StatementList`. Supersedes
+  binary node's. A network's `VAR_TEMP` wires become per-network symbols typed as declared
+  (`NetworkTextAnalysis.networkScopes`), and `EXECUTE` boxes hold ordinary ST parsed into a `StatementList`. Supersedes
   the earlier "operator info as a fact on `NetworkGroup`" refinement (there is no `NetworkGroup`).

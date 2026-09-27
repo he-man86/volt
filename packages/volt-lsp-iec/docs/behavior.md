@@ -579,13 +579,13 @@ written entirely as network text without drift.
 ### Requirement: The bridge owns format, the LSP owns code correctness
 
 The bridge SHALL enforce network-text *structural* well-formedness (the `NETWORK_*` gate) since those checks depend
-only on the text. The LSP SHALL provide *code* correctness — type inference (wire types are inferred,
-never written), undeclared-variable detection, hover, completion, navigation — and SHOULD mirror the
-structural codes as diagnostics so a body is fixed before it is pushed.
+only on the text. The LSP SHALL provide *code* correctness — type checks against each wire's declared type, undeclared-variable
+detection, hover, completion, navigation — and SHOULD mirror the structural codes as diagnostics so a body is fixed
+before it is pushed.
 
-#### Scenario: A wire's type is inferred, not stored
-- **WHEN** the LSP hovers an internal `LET` wire
-- **THEN** it shows a type inferred from the defining expression (the network text carries no wire type)
+#### Scenario: A wire hovers as its declaration and its producer
+- **WHEN** the LSP hovers a wire declared in its network's `VAR_TEMP` block (network text v2)
+- **THEN** it shows the declaration (`g22 : BOOL`) and the value that produces it (`g22 := (a AND b);`)
 
 ### Requirement: FBD/LD are editable; CFC/SFC are read-only
 

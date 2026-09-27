@@ -2,28 +2,27 @@
  * network-text diagnostics (Layer F, F.2c) — the graphical branch of the analysis orchestrator. Two streams, both
  * lifted into the same `DiagnosticItem` the ST checks emit so the server merges them onto one
  * `PublishDiagnostics`:
- *   1. STRUCTURAL — the LSP-ownable subset of the bridge's `NETWORK_*` codes (parse · not-closed · duplicate
- *      network/name). The canonical/round-trip gate stays the bridge's. Vendor-neutral, PROVISIONAL text.
- *   2. CODE CORRECTNESS — a sink `target := value` is an assignment, so it runs the SAME assignment-type
- *      check as ST (`assignmentPairError`), against a scope where `LET` wires are inferred pseudo-vars.
- *      Byte-identical wording per vendor; the corpus 0-FP gate covers it. Sinks nested in EN/ENO boxes and
- *      the assignments inside EXECUTE boxes are checked too.
+ *   1. STRUCTURAL — the bridge gate's `NETWORK_*` findings (`network-text/parser`, a port of the bridge reader, which
+ *      asks the POU's scope what the bridge reader asks it, and holds a wire's declared type to its producer as the
+ *      reader does). NETWORK_NOT_CANONICAL stays the push's: it needs the writer.
+ *   2. CODE CORRECTNESS — an assign `target := value` is an assignment, so it runs the SAME assignment-type check as ST
+ *      (`assignmentPairError`), against a scope where the network's `VAR_TEMP` wires are declared variables. Byte-identical
+ *      wording per vendor; the corpus 0-FP gate covers it. The assignments inside EXECUTE boxes are checked too.
  *
  * Type checks mirrored for network text (all share the ST per-pair/per-node helpers so wording stays byte-identical):
- * assignment mismatch + sink narrowing (`checkStatements`/`checkPair`), binary-operator (`checkBinaryOps`), and
+ * assignment mismatch + narrowing (`checkStatements`/`checkPair`), binary-operator (`checkBinaryOps`), and
  * conversion-argument narrowing/sign-change (`checkConversionArgs`). ponytail: not every ST type check runs on
  * network text yet — the remainder is added the same way (per-node helper over `operandExprs`) as corpus cases surface.
  *
- * network-undeclared-identifier: an operand naming something declared nowhere reachable — the network-text analogue of ST's
- * unresolved-identifier, sharing its exact resolution rules (`unresolvedInExprs`), against the per-network
- * scope (POU + `LET` wires). Error severity, so the corpus 0-FP gate covers it.
+ * network-undeclared-identifier: an operand naming something declared nowhere reachable — the network-text analogue of
+ * ST's unresolved-identifier, sharing its exact resolution rules (`unresolvedInExprs`), against the per-network scope
+ * (POU + the network's wires). Error severity, so the corpus 0-FP gate covers it.
  */
 import {
-  type BodySpan,
   type Document,
   type Expr,
+  type Span,
   graphicalBodies,
-  isTrivia,
   stmtExprs,
   walkExpr,
   walkStatements,
@@ -45,9 +44,9 @@ import {
 } from "../analysis/index.js"
 import { EMPTY_WORKSPACE_REFS } from "../analysis/index.js"
 import { hasUnresolvedBase, type Scope } from "../symbols/index.js"
-import { analyzeNetworkText } from "./network-analyze.js"
-import { networkStatements, type NetworkTextNetwork, type NetworkTextStatement } from "../network-text/ast.js"
-import { ASSIGN_OPS } from "../network-text/parser.js"
+import { analyzeNetworkText, instanceFb } from "./network-analyze.js"
+import { walkValues, type NetworkName, type NetworkTextNetwork, type NetworkTextStatement, type NetworkValue } from "../network-text/ast.js"
+import { callReading, executeBoxes, networkValueExpr, statementExprs } from "../network-text/exprs.js"
 
 export function computeNetworkTextDiagnostics(
   doc: Document,
@@ -61,21 +60,16 @@ export function computeNetworkTextDiagnostics(
     for (const d of analysis.vg.diagnostics) {
       out.push({ severity: "error", span: d.span, source: SOURCE, code: d.code, message: d.message })
     }
-    // `??? := <a call that returns nothing>` — the marker sits in the TARGET slot but the compiler does not
-    // answer about the target. Gathered BEFORE the marker walk, which is token-based and cannot see it.
-    const voidCallTargets: { start: number; end: number }[] = []
-    for (const [network, scope] of analysis.networkScopes)
-      collectVoidCallTargets(network.statements, scope, project, voidCallTargets)
-    checkUnresolvedBoxes(body, messages, out, voidCallTargets)
+    // A body with no graphical marker is v1 text (or no network text at all): the parser refused it by name, and it has
+    // no reading a compiler message could be derived from.
+    if (analysis.vg.language === undefined) continue
 
     for (const [network, scope] of analysis.networkScopes) {
-      // A network's FORMAT still has to be right whether or not it is disabled — it round-trips either way — so
-      // the metadata check runs first and unconditionally.
-      checkMetadataPlacement(network, out)
-      // …but a DISABLED network is not compiled, so nothing inside it can be a compile error. The flag was parsed
-      // and then read by nobody, which made every disabled network's contents a source of false positives:
-      // `ng_network_disabled` puts an undeclared name in one and CODESYS reports nothing at all.
+      // A DISABLED network is not compiled, so nothing inside it can be a compile error — its `???` included. The flag
+      // was parsed and then read by nobody once, which made every disabled network's contents a source of false
+      // positives: `ng_network_disabled` puts an undeclared name in one and CODESYS reports nothing at all.
       if (network.disabled) continue
+      checkUnresolvedBoxes(network.statements, scope, project, messages, out)
       checkStatements(network.statements, scope, project, messages, out)
       checkBinaryOps(network.statements, scope, project, messages, out)
       checkConversionArgs(network.statements, scope, project, messages, out)
@@ -85,30 +79,19 @@ export function computeNetworkTextDiagnostics(
     }
 
     // Labels are resolved across the WHOLE BODY, not per network — see checkLabels.
-    checkLabels(analysis.networkScopes, messages, out)
+    checkLabels(analysis.vg.networks, messages, out)
   }
   return out
 }
 
 /**
- * Network-text operand MODIFIER words (network-text.html#whitespace), lowercased. Trailing `RISING`/`FALLING`
- * (edge) are graphical keywords the lean operand parser leaves in the expression, not identifiers — so the
- * undeclared check must skip them. (`NOT`, the leading modifier, already resolves via the reference catalog's
- * boolean operator.)
- *
- * `set`/`reset` USED TO BE HERE, and dropping them is the point rather than a tidy-up. Coil storage is the
- * assignment operator now (`out S= v`), so those two are ordinary names again — and exempting them was never
- * free: `RESET` is a perfectly good enum member (`DEVICE_TRANSITION_STATE.RESET`), so every real use of one
- * was silently skipped by the undeclared check in order to keep a coil modifier quiet.
- */
-const NETWORK_MODIFIER_WORDS: ReadonlySet<string> = new Set(["rising", "falling"])
-
-/**
  * network-undeclared-identifier + network-unknown-member: resolve every operand identifier in the network against its
  * POU+wire scope (bare names), then type-check every member access (`a.b`) against the base's type — the SAME
- * `unresolvedInExprs`/`unresolvedMembers` the ST check uses, so network text matches ST byte-for-byte. Member access was
- * held pending a corpus re-harvest; the blocker was actually a binder bug (qualified_only GVL members leaking
- * into the bare namespace — the lenze `Mach1` collision), now fixed, so it ships at 0-FP.
+ * `unresolvedInExprs`/`unresolvedMembers` the ST check uses, so network text matches ST byte-for-byte.
+ *
+ * No word of the text reaches it as an identifier any more: an edge is `R_EDGE(x)`, a flag on `x` that reads as an
+ * opaque BOOL whose operand is still resolved (`network-text/exprs`), where v1 left a trailing `RISING`/`FALLING` in
+ * the operand for this check to skip by name.
  */
 function checkUndeclared(
   statements: readonly NetworkTextStatement[],
@@ -120,7 +103,6 @@ function checkUndeclared(
 ): void {
   const exprs = operandExprs(statements)
   for (const ref of unresolvedInExprs(exprs, scope, project, references)) {
-    if (NETWORK_MODIFIER_WORDS.has(ref.name.toLowerCase())) continue
     out.push({
       severity: "error",
       span: ref.span,
@@ -141,48 +123,50 @@ function checkUndeclared(
 }
 
 /**
- * network-undefined-label: a `JMP` whose target names no `LABEL` ANYWHERE IN THE BODY → error.
+ * Labels and jumps, at parity with the builds census 1.15 recorded on both vendors (DIALECT N19;
+ * `volt-cli/scripts/nwl-labels.log`, `tc-labels-edge-names.log`). Both IDEs HOLD every shape below, so none is a gate
+ * refusal; the build reports them, and so does the LSP — with the build's words and nothing more:
  *
- * SCOPE IS THE BODY, NOT THE NETWORK — and it used to be the network, which rejected the normal case. A jump in
- * FBD/LD exists precisely to leave the current network: each network may carry one label, and `JMP name` transfers
- * control to the network carrying it. The bridge writes that label on the DESTINATION network's header
- * (`LABEL:`, from `Network.Label`, which both drivers read and write), so a legitimate forward jump names a
- * label the jumping network does not carry. Resolving per network therefore flagged every real jump and
- * accepted only a jump to a label in its own network — an infinite loop or a no-op.
+ *   a JMP to a label no ENABLED network carries   error    No such label 'X' within the scope of the JMP statement
+ *                                                          (TwinCAT adds a full stop)
+ *   one label on two enabled networks             error    The label 'X' is a duplicate          (any case)
+ *   an enabled label no enabled JMP names         warning  The label 'X' has not been referenced (once per name)
  *
- * Jumps are gathered through EN/ENO boxes too, since one inside a branch still reaches the body's labels.
- * ponytail: message PROVISIONAL/bridge-gated — network text has no conformance recording yet (like the NETWORK_* codes).
+ * A DISABLED network is not compiled: its label is no jump target (a jump to it is "No such label"), and a JMP inside
+ * it references nothing (its label reads "not referenced"). SCOPE IS THE BODY, NOT THE NETWORK — a jump in FBD/LD
+ * exists to leave its network, so a legitimate jump names a label its own network does not carry. Labels match
+ * case-insensitively, as IEC names do (measured on both vendors: `JMP DONE` to `LABEL: Done` builds clean).
+ *
+ * The TwinCAT half used to be silent (measured 2026-07-07 on v1 text). Census 1.15 re-measured it on network text v2
+ * and TwinCAT does report a missing label, so the vendor exception went with the text that produced it.
+ *
+ * The codes are the ST label check's (`checks/flow/jump-labels`): one compiler rule (C0116-C0118), so one slug, one
+ * `Cnnnn` on the wire and one configuration switch — a label unreferenced in a ladder is the warning the project's
+ * configuration says it is, exactly as in ST. (The network check had a slug of its own, `network-undefined-label`,
+ * on the unmapped list; it is gone from there.)
  */
-function checkLabels(
-  networkScopes: Iterable<readonly [NetworkTextNetwork, unknown]>,
-  messages: Messages,
-  out: DiagnosticItem[],
-): void {
-  const networks = [...networkScopes].map(([network]) => network)
-
-  // A label is a property of the network (`NETWORK 0 LD LABEL: skipRest`), so the jump targets are the
-  // networks' own labels — no statement walk, and no way for one to hide inside an EN/ENO branch.
-  const labels = new Set<string>()
-  for (const network of networks) if (network.label !== undefined) labels.add(network.label.toLowerCase())
-  for (const network of networks) checkJumps(network.statements, labels, messages, out)
-}
-
-function checkJumps(
-  statements: readonly NetworkTextStatement[],
-  labels: ReadonlySet<string>,
-  messages: Messages,
-  out: DiagnosticItem[],
-): void {
-  for (const s of networkStatements(statements)) {
-    if (s.kind === "jump") {
-      // CODESYS reports it (label UPPERCASED); TwinCAT does not flag a network-text JMP to a missing label at all, so the
-      // message is undefined there. This hard-coded the CODESYS text for both vendors — a TwinCAT false positive the
-      // replay hid as a "known divergence" (consolidate-lsp-structure A7).
-      const message = labels.has(s.target.text.toLowerCase()) ? undefined : messages.networkJumpLabelUndefined(s.target.text)
-      if (message !== undefined)
-        out.push({ severity: "error", span: s.target.span, source: SOURCE, code: "network-undefined-label", message })
-    }
+function checkLabels(networks: readonly NetworkTextNetwork[], messages: Messages, out: DiagnosticItem[]): void {
+  const enabled = networks.filter((n) => !n.disabled)
+  const labels = new Map<string, NetworkName>() // upper-cased name → its first enabled occurrence
+  for (const n of enabled) {
+    if (n.label === undefined) continue
+    const key = n.label.text.toUpperCase()
+    if (labels.has(key))
+      out.push({ severity: "error", span: n.label.span, source: SOURCE, code: "jump-label-duplicate", message: messages.jumpLabelDuplicate(n.label.text) })
+    else labels.set(key, n.label)
   }
+  const referenced = new Set<string>()
+  for (const n of enabled)
+    for (const s of n.statements) {
+      if (s.kind !== "jump") continue
+      const key = s.target.text.toUpperCase()
+      referenced.add(key)
+      if (!labels.has(key))
+        out.push({ severity: "error", span: s.target.span, source: SOURCE, code: "jump-label-undefined", message: messages.jumpLabelUndefined(s.target.text) })
+    }
+  for (const [key, label] of labels)
+    if (!referenced.has(key))
+      out.push({ severity: "warning", span: label.span, source: SOURCE, code: "jump-label-unreferenced", message: messages.jumpLabelUnreferenced(label.text) })
 }
 
 /**
@@ -190,8 +174,11 @@ function checkJumps(
  * (both compilers reject it). Conservative to a fault (zero-FP): the check runs ONLY when the callee
  * resolves to a project FB whose ENTIRE `EXTENDS` chain is resolved — an unresolvable base (a library FB) is
  * an unknown pin set, so the whole call is skipped rather than guessed. Pins = the FB's VAR_INPUT/OUTPUT/
- * IN_OUT members + PROPERTY accessors (all bare-settable on a box), inherited members included.
- * ponytail: message PROVISIONAL/bridge-gated (network text has no conformance recording yet).
+ * IN_OUT members + PROPERTY accessors (all bare-settable on a box), inherited members included. The message is the
+ * recorded build's (conformance `cc_vg_unknown_pin`).
+ *
+ * Pins are checked on an FB INSTANCE only (`instanceFb`, the one answer the parser's construct check asks too): the
+ * pins of an instance are its FB's, while a head that names a POU is a function or the vendor's own box.
  */
 function checkPins(
   statements: readonly NetworkTextStatement[],
@@ -200,36 +187,39 @@ function checkPins(
   messages: Messages,
   out: DiagnosticItem[],
 ): void {
-  for (const s of networkStatements(statements)) {
-    if (s.kind !== "fb_call" || s.call?.kind !== "call") continue
-    const t = inferExprType(s.call.callee, scope, project)
-    if (t.kind !== "function_block" || t.scope === undefined) continue // not a project FB instance → skip
-    const pins = pinSet(t.scope)
-    if (pins === undefined) continue // an unresolved EXTENDS base → don't guess
-    for (const arg of s.call.args) {
-      if (arg.param === undefined) continue
-      if (!pins.has(arg.param.name.toLowerCase())) {
-        out.push({
-          severity: "error",
-          span: arg.param.span,
-          source: SOURCE,
-          code: "network-unknown-pin",
-          // Both compilers: "'<pin>' is no input of '<FB TYPE, UPPERCASED>'" (confirmed live) — the ST check's
-          // `messages.noInput`, no second copy of the wording. The FB's TYPE name (t.name), not the instance expression.
-          message: messages.noInput(arg.param.name, t.name.toUpperCase()),
-        })
-        // The compiler then looks the pin name up as an ordinary identifier, and does not find it either
-        // (conformance `cc_vg_unknown_pin`).
-        out.push({
-          severity: "error",
-          span: arg.param.span,
-          source: SOURCE,
-          code: "network-undeclared-identifier",
-          message: messages.undefinedIdentifier(arg.param.name),
-        })
+  for (const s of statements)
+    for (const v of walkValues(s)) {
+      if (v.kind !== "call") continue
+      const call = callReading(v) // its own pins, whatever consumes it — `.ENO` included
+      if (call?.kind !== "call") continue
+      const t = instanceFb(call.callee, scope, project)
+      if (t?.scope === undefined) continue // not a project FB instance → skip
+      const pins = pinSet(t.scope)
+      if (pins === undefined) continue // an unresolved EXTENDS base → don't guess
+      for (const arg of call.args) {
+        if (arg.param === undefined) continue
+        if (!pins.has(arg.param.name.toLowerCase())) {
+          out.push({
+            severity: "error",
+            span: arg.param.span,
+            source: SOURCE,
+            code: "network-unknown-pin",
+            // Both compilers: "'<pin>' is no input of '<FB TYPE, UPPERCASED>'" (confirmed live) — the ST check's
+            // `messages.noInput`, no second copy of the wording. The FB's TYPE name (t.name), not the instance expression.
+            message: messages.noInput(arg.param.name, t.name.toUpperCase()),
+          })
+          // The compiler then looks the pin name up as an ordinary identifier, and does not find it either
+          // (conformance `cc_vg_unknown_pin`).
+          out.push({
+            severity: "error",
+            span: arg.param.span,
+            source: SOURCE,
+            code: "network-undeclared-identifier",
+            message: messages.undefinedIdentifier(arg.param.name),
+          })
+        }
       }
     }
-  }
 }
 
 /**
@@ -262,7 +252,6 @@ function isPinSection(section: string | undefined): boolean {
   return section === "VAR_INPUT" || section === "VAR_OUTPUT" || section === "VAR_IN_OUT"
 }
 
-/** Every operand `Expr` a network carries, recursing into EN/ENO boxes and EXECUTE (inline-ST) boxes. */
 /**
  * NETWORK_UNRESOLVED_BOX: an operand of `???`, which is a COMPILE ERROR the IDE will raise — reported here at
  * the keystroke instead.
@@ -274,225 +263,144 @@ function isPinSection(section: string | undefined): boolean {
  * (`??? := ioAxis.xVirtual;`). It is also why network text has no `?` token of its own — a sigil for the
  * unconnected pin was tried and withdrawn precisely because `???` was already content.
  *
- * Walked over TOKENS rather than the parsed operands, for two reasons. The lean operand parser drops it (before
- * this, `???` produced no diagnostic at all, anywhere). And the lexer has already separated comments and string
- * literals into single tokens, so a `???` inside a network TITLE or a `//` comment is skipped for free — which a
- * text scan would have to re-derive, wrongly, at least once.
+ * Read off the parse, which records the marker in every slot it can stand in — a target, an operand, a `=> ???` pin,
+ * the instance of `??? : TYPE(…)` — so the slot is a fact of the tree, not something re-derived from the tokens
+ * around the marker. A `???` in a TITLE, a comment or backticked text is no slot, and a statement the push refuses is
+ * not read, so the build never meets its marker either.
  *
- * THE MESSAGE IS THE COMPILER'S OWN, and it depends on the SLOT — which is why this check reads one token of
- * lookahead. Measured live on SP21 (scripts/audit-check.ts in this package):
+ * THE MESSAGE IS THE COMPILER'S OWN, and it depends on the SLOT. Measured live on SP21 (scripts/audit-check.ts in
+ * this package):
  *
  *   operand / input pin / unnamed instance   `Expression expected instead of '?'`  (+ `Unexpected token '?'
  *                                            found`, and for an instance two more — the LSP emits the first)
  *   assignment target                        `The assignment target is not specified.`
  *
- * It used to emit ONE string for all of them, and that string said "a box whose instance the IDE could not
- * resolve" — which is false on an input pin and on a coil, where there is no instance at all. Every shape is
- * pinned in `test/conformance/fixtures/network-unresolved.ts` against a recording of the real compiler.
- *
- * The lexer emits `?` as three separate `punct` tokens, so adjacency is checked on the spans: only `???` written
- * with nothing between the marks is the vendor's marker.
+ * Every shape is pinned in `test/conformance/fixtures/graphical/network-unresolved.ts` against a recording of the
+ * real compiler.
  */
 function checkUnresolvedBoxes(
-  body: BodySpan,
+  statements: readonly NetworkTextStatement[],
+  scope: Scope,
+  project: Scope,
   messages: Messages,
   out: DiagnosticItem[],
-  voidCallTargets: readonly { start: number; end: number }[] = [],
 ): void {
-  const toks = body.tokens
-  for (let i = 0; i + 2 < toks.length; i++) {
-    const [a, b, c] = [toks[i]!, toks[i + 1]!, toks[i + 2]!]
-    if (a.kind !== "punct" || a.text !== "?") continue
-    if (b.kind !== "punct" || b.text !== "?" || c.kind !== "punct" || c.text !== "?") continue
-    if (a.span.end !== b.span.start || b.span.end !== c.span.start) continue // `? ? ?` is not `???`
-
-    // WHICH SLOT the marker sits in, decided by the token that FOLLOWS it. An assignment operator there
-    // means the marker is the TARGET (`??? := a;`, `??? S= a;`) and the compiler answers semantically;
-    // anywhere else it is an operand and the compiler's PARSER answers instead. One token of lookahead is
-    // enough because the grammar is fully parenthesised (docs/network-text.html#grammar): every operand sits
-    // between two structural marks, so nothing else can follow a marker that is about to be assigned to.
-    // SKIP TRIVIA to reach it: `body.tokens` carries whitespace and comments, so the token at i+3 is the
-    // SPACE in `??? := a` rather than the operator. Reading it raw classified every target as an operand.
-    let n = i + 3
-    while (n < toks.length && isTrivia(toks[n]!.kind)) n++
-    const next = toks[n]
-    const isTarget = next !== undefined && ASSIGN_OPS.has(next.text)
-    const marker = { ...a.span, end: c.span.end }
-
-    // A TARGET MARKER OVER A VOID CALL IS NOT A TARGET COMPLAINT — measured, not reasoned.
-    //
-    // Four shapes were recorded on live SP21 (2026-09-06) and they split cleanly on ONE thing — whether the
-    // assigned value is a real CALL:
+  const found: DiagnosticItem[] = []
+  const error = (span: Span, message: string): void => {
+    found.push({ severity: "error", span, source: SOURCE, code: "NETWORK_UNRESOLVED_BOX", message })
+  }
+  // AN OPERAND MARKER GETS BOTH OF THE COMPILER'S MESSAGES, because it emits both for the one marker and both are
+  // reproducible: they name the position and the token, and neither embeds anything invented. The spans differ so
+  // they say WHICH is which (and so the corpus gate's no-duplicate-(range,code) rule is satisfied): the position
+  // message covers `???`, the token message the `?` it choked on.
+  //
+  // The other positions stay a SUBSET on purpose. An unnamed INSTANCE answers with four, one of them a duplicate and
+  // one spelling a placeholder (`!!!'ERROR'!!!`); a target behind an unconnected enable answers with three, two of
+  // which name a temp the compiler invents (`__FB__ImpVar15`) whose number no offline check can reproduce. Emitting
+  // those would be imitating parser recovery, not matching a fact.
+  const operand = (span: Span): void => {
+    error(span, messages.unresolvedOperand())
+    error({ ...span, end: span.start + 1, endLine: span.startLine, endCol: span.startCol + 1 }, messages.unresolvedOperandToken())
+  }
+  for (const s of statements) {
+    // A TARGET MARKER OVER A CALL IS NOT A TARGET COMPLAINT — measured, not reasoned. Four shapes were recorded on
+    // live SP21 (2026-09-06) and they split cleanly on ONE thing — whether the assigned value is a real CALL:
     //
     //   `??? := a`               variable   -> "The assignment target is not specified."
     //   `??? := NOT(a)`          operator   -> the same, plus two about an implicit temp
     //   `??? := <PROGRAM>()`     void call  -> "The assignment source is incorrect."
     //   `??? := <FUNCTION:BOOL>()` valued   -> the same source answer
     //
-    // So over a call the compiler answers about the SOURCE and never about the target, and the target message
-    // is one it does not emit — a false positive. Voidness looked like the line and is not: a `FUNCTION : BOOL`
-    // gets the same answer as a `PROGRAM`. This was fixed once on the narrower void-only rule and the valued
-    // case then had to be measured to correct it, which is why both fixtures are committed rather than one.
-    //
-    // It accounts for all four of lenze-mid's divergences, and for why the recorded build reports success over
-    // them: they were never errors. `Mach1_MIDS` IS live — `General.prg:29` calls it and `general` is a task
-    // root — so this is not the excluded-from-build gap it was briefly taken for.
-    //
-    // WHY THE FIXTURE AND THE CORPUS CAN BOTH BE RIGHT, which took a while to see. CODESYS never reads network
-    // text: the recorder pushes the fixture through the BRIDGE, which writes PlcOpen XML, and the compiler reads
-    // that. So the fixture's answer is about the XML the bridge makes of a `???`, and lenze-mid's clean build is
-    // about the XML its author actually drew — an unconnected output pin, which is legal. The two differ, and
-    // that difference is a ROUND-TRIP fidelity question for `volt-cli`, not a rule this analysis can hold: the
-    // marker is Volt's own word for "nothing is connected here", and flagging it would flag the vendor's drawing.
-    //
-    // Nothing is emitted in its place: of the compiler's two messages one names an implicit temp whose number
-    // cannot be known (the same reason the instance case emits a subset), and the other belongs to an
-    // assignment-source rule that does not exist yet and would have to fire for a plain `x := VoidProg()` too.
-    // A missing diagnostic is a reported coverage gap; a wrong one is a hard failure.
-    if (isTarget && voidCallTargets.some((sp) => marker.start >= sp.start && marker.start < sp.end)) continue
-
-    // AN OPERAND MARKER GETS BOTH OF THE COMPILER'S MESSAGES, because it emits both for the one marker and
-    // both are reproducible: they name the position and the token, and neither embeds anything invented.
-    // The spans differ so they say WHICH is which (and so the corpus gate's no-duplicate-(range,code) rule
-    // is satisfied): the position message covers `???`, the token message the `?` it choked on.
-    //
-    // The other positions stay a SUBSET on purpose. An unnamed INSTANCE answers with four, one of them a
-    // duplicate and one spelling a placeholder (`!!!'ERROR'!!!`); a target behind an unconnected enable
-    // answers with three, two of which name a temp the compiler invents (`__FB__ImpVar15`) whose number no
-    // offline check can reproduce. Emitting those would be imitating parser recovery, not matching a fact.
-    if (isTarget) {
-      out.push({
-        severity: "error",
-        span: marker,
-        source: SOURCE,
-        code: "NETWORK_UNRESOLVED_BOX",
-        message: messages.unresolvedAssignTarget(),
-      })
-    } else {
-      out.push({
-        severity: "error",
-        span: marker,
-        source: SOURCE,
-        code: "NETWORK_UNRESOLVED_BOX",
-        message: messages.unresolvedOperand(),
-      })
-      out.push({
-        severity: "error",
-        span: { ...a.span },
-        source: SOURCE,
-        code: "NETWORK_UNRESOLVED_BOX",
-        message: messages.unresolvedOperandToken(),
-      })
+    // So over a call the compiler answers about the SOURCE and never about the target, and the target message is one
+    // it does not emit. Voidness looked like the line and is not: a `FUNCTION : BOOL` gets the same answer as a
+    // `PROGRAM` (`network_unnamed_target_of_void_call` / `_of_valued_call`). Nothing is emitted in its place: one of
+    // the two messages names an implicit temp whose number cannot be known, and the other belongs to an
+    // assignment-source rule that does not exist yet. A missing diagnostic is a reported coverage gap; a wrong one is
+    // a hard failure.
+    if (s.kind === "assign" && !isRealCall(s.value, scope, project))
+      for (const t of s.targets) if (t.unnamed) error(t.span, messages.unresolvedAssignTarget())
+    for (const v of walkValues(s)) {
+      if (v.kind === "operand" && v.unnamed) operand(v.span)
+      // `??? : TYPE(…)` — the marker is the instance's name, which the compiler parses as an operand.
+      if (v.kind === "call" && v.unnamedType !== undefined) operand(v.head.span)
+      // AN OUTPUT PIN WIRED TO THE MARKER (`f(x, => ???)`, `f(Q => ???)`) IS NO COMPLAINT AT ALL: a box whose result
+      // pin the author left unnamed. The vendor stores the operand `'???'` on the box's output slot, and CODESYS
+      // compiles that without a word — lenze-mid holds four (`AHWF` network 6, `Mach1_MIDS`) and its recorded build
+      // is clean. So a `=> ???` target is not visited here.
     }
-    i += 2 // one diagnostic per marker, not three overlapping ones
   }
+  out.push(...found.sort((x, y) => x.span.start - y.span.start))
 }
-
-
 
 /**
- * The placement rule for a network's COMMENT — reported here so an engineer sees it while typing rather than
- * when the push refuses.
- *
- * A network carries exactly ONE comment, per-network metadata on `INetwork`. The text grammar admits it as an
- * ordinary statement, so it accepts bodies the model cannot hold.
- *
- * The LABEL used to be checked here too, for the same reason and with two more rules (one label per network,
- * and it must come first). Both became unrepresentable when the label moved onto the header as `LABEL:` — a
- * header field cannot appear twice or in the wrong place — so the checks went with it rather than being
- * rewritten. That is the point of moving it: the model stopped admitting the mistake.
- *
- * **These are RELOCATIONS, not new rules** — measured 2026-09-03 against the v1 engine, whose pins went with
- * it: the push already refused all three. (Network text v2 refuses a comment after a statement outright —
- * `NetworkTextGateTests.A_comment_after_a_statement_is_refused_never_moved` — and this module moves to v2 with the
- * rest of the LSP sublanguage, openspec network-text-literal-nwl section 5.) A second label is rejected by the
- * reader; a label or comment after a statement fails the canonical-form check, because the re-emit moves it to the
- * network head and the text no longer matches. So the wording here REUSES the reader's rather than inventing a second
- * phrasing for one fact, and the messages name the round-trip consequence instead of the grammar rule: what the
- * engineer will actually see is a body that comes back different from the one they wrote.
- *
- * Severity follows the push: a WARNING, because the content survives — only its position does not.
- *
- * NOT reported: several `//` lines before the first statement. `Network.Comment` is multi-line, the lines are
- * joined, and the round trip is exact — a warning there would fire on correct content. The proposal called that
- * one data loss; it is not.
+ * Whether a `??? :=` coil's value is a real CALL — see `checkUnresolvedBoxes`. The call may be consumed through its ENO
+ * (`??? := f(EN := c).ENO;`): the value is the box either way, and the marker sits in the same target slot.
+ * RESOLUTION IS THE TEST, and it is what separates a CALL from an OPERATOR: `NOT(a)` and `MOVE(x)` read as calls too,
+ * and the compiler DOES answer about the target for those (`_behind_enable`) — they resolve to no declared callable.
  */
-function checkMetadataPlacement(network: NetworkTextNetwork, out: DiagnosticItem[]): void {
-  let firstReal: number | undefined
-
-  network.statements.forEach((stmt, i) => {
-    if (stmt.kind !== "comment") {
-      firstReal ??= i
-      return
-    }
-    if (firstReal === undefined) return // a comment before any statement is where it belongs
-
-    out.push({
-      severity: "warning",
-      span: stmt.span,
-      source: SOURCE,
-      code: "NETWORK_COMMENT_NOT_FIRST",
-      message:
-        "a comment's position is not stored - this one moves to the head of the network on the next pull, " +
-        "so the pushed text and the project stop matching",
-    })
-  })
+function isRealCall(value: NetworkValue, scope: Scope, project: Scope): boolean {
+  const call = value.kind === "call" ? callReading(value) : undefined
+  return call?.kind === "call" && resolveCallee(call, scope, project) !== undefined
 }
 
-/** Spans of `??? := <call>` sinks whose callee returns NOTHING — see the note in `checkUnresolvedBoxes`.
- *  The parser drops the marker, so such a sink is exactly one with NO target and a call for its value. */
-function collectVoidCallTargets(
-  statements: readonly NetworkTextStatement[],
-  scope: Scope,
-  project: Scope,
-  out: { start: number; end: number }[],
-): void {
-  for (const s of networkStatements(statements)) {
-    if (s.kind !== "sink" || s.target !== undefined || s.value?.kind !== "call") continue
-    // RESOLUTION IS THE TEST, and it is what separates a CALL from an OPERATOR. `NOT(a)` and `MOVE(x)` parse
-    // as calls too, and the compiler DOES answer about the target for those (`_behind_enable`) — they resolve
-    // to no declared callable. A name that resolves to a real POU is a real call, and voidness does not enter
-    // into it: measured, a `PROGRAM` and a `FUNCTION : BOOL` get the same source answer.
-    if (resolveCallee(s.value, scope, project) !== undefined) out.push(s.span)
-  }
-}
-
+/** Every ST expression the network's statements carry, EXECUTE boxes' ST included. */
 function operandExprs(statements: readonly NetworkTextStatement[]): Expr[] {
   const out: Expr[] = []
-  for (const s of networkStatements(statements)) {
-    switch (s.kind) {
-      case "wire_def":
-        if (s.producer !== undefined) out.push(s.producer)
-        break
-      case "sink":
-        if (s.target !== undefined) out.push(s.target)
-        if (s.value !== undefined) out.push(s.value)
-        break
-      case "fb_call":
-        if (s.call !== undefined) out.push(s.call)
-        break
-      case "en_eno_if":
-        if (s.en !== undefined) out.push(s.en)
-        break
-      case "execute":
-        if (s.ok) walkStatements(s.statements, (st) => out.push(...stmtExprs(st)))
-        break
-      case "jump":
-        if (s.condition !== undefined) out.push(s.condition)
-        break
-      case "return":
-        if (s.condition !== undefined) out.push(s.condition)
-        break
-    }
+  for (const s of statements) {
+    out.push(...statementExprs(s))
+    for (const x of executeBoxes(s)) if (x.ok) walkStatements(x.statements, (st) => out.push(...stmtExprs(st)))
   }
   return out
 }
 
 /**
- * network-unknown-source: a sink whose SOURCE the compiler could not type carries the hole to the destination,
+ * The `target := value` pairs an assignment rule applies to: an assign's value against the target it is written to,
+ * and the plain assignments inside EXECUTE boxes.
+ *
+ * NOT a pair: a value that is a box's OUTPUT — `x := f(…)`, `x := f(…).ENO`, an EXECUTE box — nor a box's `=> v` pin.
+ * In FBD/LD such a target is a wire from a box pin, whose type is the IDE's remit (the box's declared pin type, through
+ * EN/ENO), not an ST assignment; the LSP applying its assignment rule there invented errors on box wiring the editor
+ * owns. Whether a value IS a box is a fact of the tree (`call`, `execute`), never a guess from its ST reading: an edge
+ * is no box (`x := R_EDGE(a)` pairs as `x := <BOOL>`, its opaque reading), backticked text is an operand whatever it
+ * spells, and an EXECUTE box's own lines are ST the IDE compiles as ST, `o := F(k);` included. Nor a wire's
+ * definition: the vendor's Demux holds no type, so a wire is no assignment target a build checks — its producer flows
+ * to its consumers, which are typed as the build types them (`network-analyze` `usesTypeOf`). Nor a value with no ST
+ * reading (`PARALLEL`, a group with an empty slot): its type is no expression's.
+ */
+function assignmentPairs(statements: readonly NetworkTextStatement[]): Assignment[] {
+  const pairs: Assignment[] = []
+  for (const s of statements) {
+    if (s.kind === "assign") {
+      // A CHAINED assignment (`a := b S= v;`) writes ONE value to every target: each target is its own assignment to
+      // type-check, but the value — and so a hole in it — is one (see `checkHoles`).
+      // The value's own box is the IDE's, through `.ENO` too: `x := f(…).ENO` reads BOOL for what CONSUMES it (a
+      // group, a NOT), but the assignment is still a wire from the box's pin, not an ST assignment.
+      const box = s.value.kind === "call" || s.value.kind === "execute"
+      const value = networkValueExpr(s.value)
+      if (value !== undefined && !box) pairs.push({ targets: s.targets.flatMap((t) => (t.expr === undefined ? [] : [t.expr])), value })
+    }
+    for (const x of executeBoxes(s))
+      if (x.ok)
+        walkStatements(x.statements, (st) => {
+          if (st.kind === "assign" && st.op === undefined)
+            pairs.push({ targets: [st.target], value: st.value })
+        })
+  }
+  return pairs
+}
+
+/** One value and the targets it is written to — several for a chained assignment. */
+type Assignment = { readonly targets: readonly Expr[]; readonly value: Expr }
+
+/**
+ * network-unknown-source: an assignment whose SOURCE the compiler could not type carries the hole to the destination,
  * exactly as an ST assignment does (conformance `cc_vg_undeclared`, `cc_vg_unknown_member`). `analysis/hole` holds
  * the one definition of "could not type", and it reads the evidence the earlier checks left in `out` — so this runs
  * LAST, after `checkUndeclared`, for the same reason `unknown-source` is the last ST check.
+ *
+ * Reported once per VALUE: a chained assignment's targets share the value's one range, and a message per target put
+ * one code on that range several times — which the corpus gate refuses and no build was measured to give (lenze-mid,
+ * task 5.5). The destination named is the target the value is written to, the last.
  */
 function checkHoles(
   statements: readonly NetworkTextStatement[],
@@ -502,10 +410,12 @@ function checkHoles(
   out: DiagnosticItem[],
 ): void {
   const seen = reported(out)
-  const pair = (target: Expr, value: Expr): void => {
-    if (!isHole(value, scope, project, seen)) return
+  for (const { targets, value } of assignmentPairs(statements)) {
+    if (!isHole(value, scope, project, seen)) continue
+    const target = targets[targets.length - 1]
+    if (target === undefined) continue
     const dest = inferExprType(target, scope, project)
-    if (dest.kind === "unknown") return
+    if (dest.kind === "unknown") continue
     out.push({
       severity: "error",
       span: value.span,
@@ -514,18 +424,9 @@ function checkHoles(
       message: messages.cannotConvert(messages.unknownType(compilerExprText(value)), renderType(dest)),
     })
   }
-  for (const s of networkStatements(statements)) {
-    if (s.kind === "sink") {
-      if (s.target !== undefined && s.value !== undefined && !isBoxOutput(s.value) && !isModifierValue(s.value)) pair(s.target, s.value)
-    } else if (s.kind === "execute" && s.ok) {
-      walkStatements(s.statements, (st) => {
-        if (st.kind === "assign" && st.op === undefined && !isBoxOutput(st.value)) pair(st.target, st.value)
-      })
-    }
-  }
 }
 
-/** Sink pair type-checks (assignment mismatch + narrowing), recursing into EN/ENO + EXECUTE boxes. */
+/** Assignment pair type-checks (assignment mismatch + narrowing), EXECUTE boxes included. */
 function checkStatements(
   statements: readonly NetworkTextStatement[],
   scope: Scope,
@@ -533,28 +434,8 @@ function checkStatements(
   messages: Messages,
   out: DiagnosticItem[],
 ): void {
-  for (const s of networkStatements(statements)) {
-    if (s.kind === "sink") {
-      if (s.target !== undefined && s.value !== undefined && !isBoxOutput(s.value) && !isModifierValue(s.value)) {
-        checkPair(s.target, s.value, scope, project, messages, out)
-      }
-    } else if (s.kind === "execute" && s.ok) {
-      walkStatements(s.statements, (st) => {
-        if (st.kind === "assign" && st.op === undefined && !isBoxOutput(st.value)) {
-          checkPair(st.target, st.value, scope, project, messages, out)
-        }
-      })
-    }
-  }
-}
-
-/**
- * A sink value that is a bare edge MODIFIER word (`out := clk RISING`), NOT an assigned expression. The parser
- * leaves it as a plain identifier, so the assignment/narrowing rules must skip it. (The undeclared check skips
- * the same set.)
- */
-function isModifierValue(value: Expr): boolean {
-  return value.kind === "ident_expr" && NETWORK_MODIFIER_WORDS.has(value.name.toLowerCase())
+  for (const { targets, value } of assignmentPairs(statements))
+    for (const target of targets) checkPair(target, value, scope, project, messages, out)
 }
 
 /** Run the shared per-pair rules (assignment mismatch → error, narrowing → warning) on one `target := value`. */
@@ -600,12 +481,3 @@ function checkConversionArgs(
   }
 }
 
-/**
- * A value that is a function/FB box OUTPUT (`box(...)`) rather than a direct expression. In FBD/LD such a
- * sink is a graph wire from a box pin, whose type is the IDE/bridge's remit (the box's declared pin type,
- * possibly through EN/ENO), not an ST assignment — so the LSP does not apply its assignment-type rule to
- * it (avoids false positives on box wiring the graphical editor owns).
- */
-function isBoxOutput(value: Expr): boolean {
-  return value.kind === "call" || (value.kind === "paren" && isBoxOutput(value.inner))
-}

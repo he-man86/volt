@@ -192,7 +192,7 @@ VAR_INPUT
 	xSensor		: BOOL;		// The sensor on the cylinder.
 END_VAR
 (* @volt-implementation *)
-(* @volt-graphical: a flag on a box input pin *)
+(* @volt-graphical: a bit operator box connected by a stored output slot *)
 END_METHOD
 
 // Set the output True or False

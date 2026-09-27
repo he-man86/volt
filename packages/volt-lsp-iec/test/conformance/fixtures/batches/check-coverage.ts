@@ -6,6 +6,7 @@
  * the LSP emits ⊆ what the compiler emits (no false positives).
  */
 import type { LanguageTest } from "../../types.js"
+import { NOT_ST } from "../graphical/network-graphical.js"
 
 /** A single self-contained FB fixture, instantiated in PLC_PRG so the compiler reaches it. */
 function fb(name: string, feature: string, decls: string, body = ""): LanguageTest {
@@ -104,7 +105,7 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
     fromDoc: "check-coverage",
     plcPrgVar: "inst_vgu : FB_LANG_cc_vg_undeclared;",
     plcPrgBody: "inst_vgu();",
-    source: `FUNCTION_BLOCK FB_LANG_cc_vg_undeclared\nVAR\n\tout : BOOL;\nEND_VAR\nNETWORK 0 LD\n  out := nope;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n`,
+    source: `FUNCTION_BLOCK FB_LANG_cc_vg_undeclared\nVAR\n\tout : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\n  out := nope;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n`,
   },
   {
     name: "cc_vg_undefined_label",
@@ -119,7 +120,51 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
     fromDoc: "check-coverage",
     plcPrgVar: "inst_vgl : FB_LANG_cc_vg_label;",
     plcPrgBody: "inst_vgl();",
-    source: `FUNCTION_BLOCK FB_LANG_cc_vg_label\nVAR\n\tout : BOOL;\nEND_VAR\nNETWORK 0 LD\n  out := TRUE;\n  JMP Missing;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n`,
+    source: `FUNCTION_BLOCK FB_LANG_cc_vg_label\nVAR\n\tout : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\n  out := TRUE;\n  JMP Missing;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n`,
+  },
+  // ── labels and jumps the IDE HOLDS and its build reports (census 1.15, DIALECT N19; openspec
+  //    network-text-literal-nwl 5.6). None is a gate refusal, so each is the LSP's to say — with the build's words.
+  {
+    name: "cc_vg_duplicate_label",
+    pouName: "FB_LANG_cc_vg_duplabel",
+    kind: "function_block",
+    feature: "network text: one LABEL on two networks, in two cases → 'The label … is a duplicate'",
+    fromDoc: "check-coverage",
+    plcPrgVar: "inst_vgd : FB_LANG_cc_vg_duplabel;",
+    plcPrgBody: "inst_vgd();",
+    source: `FUNCTION_BLOCK FB_LANG_cc_vg_duplabel\nVAR\n\tout : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\n  JMP Done;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := TRUE;\nEND_NETWORK\nNETWORK LABEL: DONE\n  out := FALSE;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n`,
+  },
+  {
+    name: "cc_vg_label_on_disabled_network",
+    pouName: "FB_LANG_cc_vg_offlabel",
+    kind: "function_block",
+    feature: "network text: a JMP to the LABEL of a DISABLED network → no such label (a disabled network is no target)",
+    fromDoc: "check-coverage",
+    plcPrgVar: "inst_vgo : FB_LANG_cc_vg_offlabel;",
+    plcPrgBody: "inst_vgo();",
+    source: `FUNCTION_BLOCK FB_LANG_cc_vg_offlabel\nVAR\n\tout : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\n  JMP Done;\nEND_NETWORK\nNETWORK LABEL: Done DISABLED\n  out := TRUE;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n`,
+  },
+  {
+    name: "cc_vg_jump_in_disabled_network",
+    pouName: "FB_LANG_cc_vg_offjump",
+    execSkip: NOT_ST,
+    kind: "function_block",
+    feature: "network text: the only JMP to a label sits in a DISABLED network → the label is not referenced (a warning)",
+    fromDoc: "check-coverage",
+    plcPrgVar: "inst_vgj : FB_LANG_cc_vg_offjump;",
+    plcPrgBody: "inst_vgj();",
+    source: `FUNCTION_BLOCK FB_LANG_cc_vg_offjump\nVAR\n\tout : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK DISABLED\n  JMP Done;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := TRUE;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n`,
+  },
+  {
+    name: "cc_vg_unreferenced_label",
+    pouName: "FB_LANG_cc_vg_idlelabel",
+    execSkip: NOT_ST,
+    kind: "function_block",
+    feature: "network text: a LABEL no JMP names → the label is not referenced (a warning)",
+    fromDoc: "check-coverage",
+    plcPrgVar: "inst_vgi : FB_LANG_cc_vg_idlelabel;",
+    plcPrgBody: "inst_vgi();",
+    source: `FUNCTION_BLOCK FB_LANG_cc_vg_idlelabel\nVAR\n\tout : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK LABEL: Done\n  out := TRUE;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n`,
   },
   {
     name: "cc_vg_unknown_member",
@@ -129,7 +174,7 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
     fromDoc: "check-coverage",
     plcPrgVar: "inst_vgm : FB_LANG_cc_vg_member;",
     plcPrgBody: "inst_vgm();",
-    source: `TYPE DUT_LANG_cc_vgm_pt :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK FB_LANG_cc_vg_member\nVAR\n\tp : DUT_LANG_cc_vgm_pt;\n\ty : INT;\nEND_VAR\nNETWORK 0 LD\n  y := p.nope;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n`,
+    source: `TYPE DUT_LANG_cc_vgm_pt :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK FB_LANG_cc_vg_member\nVAR\n\tp : DUT_LANG_cc_vgm_pt;\n\ty : INT;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\n  y := p.nope;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n`,
   },
   {
     name: "cc_vg_unknown_pin",
@@ -139,7 +184,7 @@ export const CHECK_COVERAGE_TESTS: readonly LanguageTest[] = [
     fromDoc: "check-coverage",
     plcPrgVar: "inst_vgp : FB_LANG_cc_vg_pin;",
     plcPrgBody: "inst_vgp();",
-    source: `FUNCTION_BLOCK FB_LANG_cc_vgpin_callee\nVAR_INPUT\n\tgoodPin : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nFUNCTION_BLOCK FB_LANG_cc_vg_pin\nVAR\n\tcallee : FB_LANG_cc_vgpin_callee;\nEND_VAR\nNETWORK 0 FBD\n  callee(badPin := TRUE);\nEND_NETWORK\nEND_FUNCTION_BLOCK\n`,
+    source: `FUNCTION_BLOCK FB_LANG_cc_vgpin_callee\nVAR_INPUT\n\tgoodPin : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nFUNCTION_BLOCK FB_LANG_cc_vg_pin\nVAR\n\tcallee : FB_LANG_cc_vgpin_callee;\nEND_VAR\n(* @volt-implementation FBD *)\nNETWORK\n  callee(badPin := TRUE);\nEND_NETWORK\nEND_FUNCTION_BLOCK\n`,
   },
 
   // ── LSP gaps the transpiler's execution oracle exposed (2026-09-14; tasks.md "Found along the way"). Each was a

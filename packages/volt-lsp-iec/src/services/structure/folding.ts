@@ -4,7 +4,7 @@
  */
 import type { FoldingRange } from "vscode-languageserver-protocol"
 import { type Document, isGraphicalBody, parseStatements, type Span, unitBodies, walkStatements } from "../../syntax/index.js"
-import { parseNetworkText } from "../../network-text/parser.js"
+import { STRUCTURE_ONLY, parseNetworkText } from "../../network-text/parser.js"
 
 export function foldingRanges(doc: Document): FoldingRange[] {
   const out: FoldingRange[] = []
@@ -16,7 +16,7 @@ export function foldingRanges(doc: Document): FoldingRange[] {
     if ("varSections" in unit) for (const s of unit.varSections) add(s.span)
     for (const body of unitBodies(unit)) {
       if (isGraphicalBody(body)) {
-        for (const n of parseNetworkText(body).networks) add(n.span) // one fold per NETWORK in an FBD/LD body
+        for (const n of parseNetworkText(body, STRUCTURE_ONLY).networks) add(n.span) // one fold per NETWORK in an FBD/LD body
         continue
       }
       const parsed = parseStatements(body)

@@ -2,8 +2,9 @@
 // the graphical branch of the outline. A second front-end that plugs in, not a second stack.
 // See architecture.md → ownership map: `network/` owns the network-text AST + network-text diagnostics.
 export * from "../network-text/ast.js"
-export { parseNetworkText } from "../network-text/parser.js"
-export { analyzeNetworkText, wireDefs, type NetworkTextAnalysis } from "./network-analyze.js"
+export { STRUCTURE_ONLY, parseNetworkText } from "../network-text/parser.js"
+export { analyzeNetworkText, type NetworkTextAnalysis } from "./network-analyze.js"
+export { networkValueExpr, statementExprs } from "../network-text/exprs.js"
 export { computeNetworkTextDiagnostics } from "./network-analysis.js"
 export { documentSymbolsWithVg } from "./network-symbols.js"
 export {

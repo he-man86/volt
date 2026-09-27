@@ -11,44 +11,39 @@ VAR
 	BLINK_0: BLINK;
 	restart1: BOOL;
 END_VAR
-(* @volt-implementation *)
-NETWORK 0 LD
-  LET en1 := TRUE;
-  IF en1 THEN GeneralProgramFlags(); END_IF
+(* @volt-implementation LD *)
+NETWORK
+  GeneralProgramFlags(EN := TRUE);
 END_NETWORK
-NETWORK 1 LD
-  LET en1 := TRUE;
-  IF en1 THEN fc_Information(); END_IF
+NETWORK
+  fc_Information(EN := TRUE);
 END_NETWORK
-NETWORK 2 LD
+NETWORK
   WordConvertor_v2(ioSafetyStatusUDT := Mach1_Safety.Status, ioSafetyControlUDT := Mach1_Safety.Control);
 END_NETWORK
-NETWORK 3 LD
-  LET g16 := NOT HMI_Var.ForceOutputs;
-  LET en1 := g16;
-  IF en1 THEN Mach1_MIDS(); END_IF
-  LET en2 := g16;
-  IF en2 THEN fc_Visualisation_HMI(); END_IF
-  LET en3 := g16;
-  IF en3 THEN SMC_BitsToBytes(); END_IF
+NETWORK
+  VAR_TEMP g16 : BOOL; END_VAR
+  g16 := NOT HMI_Var.ForceOutputs;
+  Mach1_MIDS(EN := g16);
+  fc_Visualisation_HMI(EN := g16);
+  SMC_BitsToBytes(EN := g16);
 END_NETWORK
-NETWORK 4 LD
-  LET en1 := TRUE;
-  IF en1 THEN Status_ForceOutputs(); END_IF
+NETWORK
+  Status_ForceOutputs(EN := TRUE);
 END_NETWORK
-NETWORK 5 LD
+NETWORK
   LST_General.FirstCycle R= ;
 END_NETWORK
-NETWORK 6 LD
+NETWORK
   Bugs.checkconnection := BLINK_0(ENABLE := TRUE, TIMELOW := T#1S, TIMEHIGH := T#1S);
 END_NETWORK
-NETWORK 7 LD
+NETWORK
   TON_0(IN := NOT Bugs.reportConnectionAlive, PT := T#2S);
 END_NETWORK
-NETWORK 8 LD
+NETWORK
   TON_1(IN := Bugs.reportConnectionAlive, PT := T#2S);
 END_NETWORK
-NETWORK 9 LD
+NETWORK
   Bugs.restart := (TON_0.Q OR TON_1.Q);
 END_NETWORK
 

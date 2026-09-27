@@ -1145,7 +1145,10 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // it already restricted to the pin sections and properties. Both vendors say the ST side was wrong. The
   // same cell settled the CASING too: a call site upper-cases the callee, a member WRITE keeps its case, and
   // only the network check knew.
-  { vendor: "twincat", floor: 2539 },
+  // 2539 -> 2546 (2026-09-27): network text v2 (openspec network-text-literal-nwl 5.6). TwinCAT reports a JMP to a
+  // missing label after all (census 1.15 — the silence measured 2026-07-07 was of v1 text), and the label checks
+  // follow the recorded builds: four new label fixtures, each recorded live on both vendors.
+  { vendor: "twincat", floor: 2546 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1225,7 +1228,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 2544 -> 2545: the same two, on the vendor that records `cfold_expt`.
   // 2545 -> 2555: the same ten cells.
   // 2555 -> 2556: the same cell.
-  { vendor: "codesys", floor: 2556 },
+  // 2556 -> 2560 (2026-09-27): the four label fixtures of network text v2 (5.6), each the build's own message.
+  { vendor: "codesys", floor: 2560 },
 ]
 
 

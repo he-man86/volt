@@ -18,14 +18,12 @@ VAR
 	// Return value of machine par manager
 	dwMachineParReturnValue: DWORD;
 END_VAR
-(* @volt-implementation *)
-NETWORK 0 FBD
-  LET en1 := TRUE;
-  IF en1 THEN RecipeManager(sDatabaseName := 'Recipes', iNumberOfRecipes => iNumberOfRecipes, dwReturnValue => dwRecipeReturnValue, ActiveRecipe => ActiveRecipe, xLoadedNewRecipe => xLoadedNewRecipe, xRcpVisuPlcAreEqual => xRcpVisuPlcAreEqual); END_IF
+(* @volt-implementation FBD *)
+NETWORK
+  RecipeManager(EN := TRUE, sDatabaseName := `'Recipes'`, iNumberOfRecipes => iNumberOfRecipes, dwReturnValue => dwRecipeReturnValue, ActiveRecipe => ActiveRecipe, xLoadedNewRecipe => xLoadedNewRecipe, xRcpVisuPlcAreEqual => xRcpVisuPlcAreEqual);
 END_NETWORK
-NETWORK 1 FBD
-  LET en1 := TRUE;
-  IF en1 THEN MachineParManager(sDatabaseName := 'MachinePar', iNumberOfRecipes => iNumberOfMachinePar, dwReturnValue => dwMachineParReturnValue); END_IF
+NETWORK
+  MachineParManager(EN := TRUE, sDatabaseName := `'MachinePar'`, iNumberOfRecipes => iNumberOfMachinePar, dwReturnValue => dwMachineParReturnValue);
 END_NETWORK
 
 END_PROGRAM

@@ -1,36 +1,30 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "VG graphical networks",
+  "name": "Network text (FBD/LD) networks",
   "scopeName": "network-text.injection",
   "injectionSelector": "L:source.structured-text -comment -string",
   "patterns": [
     {
-      "comment": "A network-text network \u2014 the textual form of an FBD/LD body. Detected by content (the NETWORK header), so it lights up whether it's a whole graphical POU or a graphical body inlined in a POU. The optional header fields are NAMED \u2014 LABEL: is the jump target, TITLE: is free text \u2014 so neither can be mistaken for the other, for the language, or for DISABLED. Mirrors the LSP's parseNetworkText header.",
+      "comment": "A network-text network \u2014 the textual form of an FBD/LD body, network text v2 (volt-cli docs/network-text-next.html). Detected by content (the NETWORK header at a line start), so it lights up in any graphical body. The header carries no order number and no language (the body's `(* @volt-implementation FBD|LD *)` marker says it once); its optional fields are NAMED and come in one order \u2014 LABEL: is the jump target, TITLE: is free text with ST's $-escapes, DISABLED the vendor's bit \u2014 and it ends at its newline. `\\b` after NETWORK keeps a variable such as NETWORK_OK an identifier. Mirrors the LSP's network-text parser header.",
       "name": "meta.network.vg",
-      "begin": "^\\s*(NETWORK)\\b[ \\t]*(\\d+)?[ \\t]*(FBD|LD|CFC|SFC)?\\b(?:[ \\t]*(LABEL:)[ \\t]*(\\w+)|[ \\t]*(TITLE:)[ \\t]*(\"(?:[^\"]|\"\")*\"))*[ \\t]*(DISABLED)?",
+      "begin": "^\\s*(NETWORK)\\b(?:[ \\t]+(LABEL:)[ \\t]*(\\w+))?(?:[ \\t]+(TITLE:)[ \\t]*(\"(?:[^\"$\\n]|\\$.)*\"))?(?:[ \\t]+(DISABLED))?",
       "beginCaptures": {
         "1": {
           "name": "keyword.control.vg"
         },
         "2": {
-          "name": "constant.numeric.vg"
+          "name": "keyword.other.vg"
         },
         "3": {
-          "name": "storage.type.vg"
+          "name": "entity.name.label.vg"
         },
         "4": {
           "name": "keyword.other.vg"
         },
         "5": {
-          "name": "entity.name.label.vg"
-        },
-        "6": {
-          "name": "keyword.other.vg"
-        },
-        "7": {
           "name": "string.quoted.double.vg"
         },
-        "8": {
+        "6": {
           "name": "keyword.other.vg"
         }
       },
@@ -42,8 +36,44 @@
       },
       "patterns": [
         {
-          "match": "\\b(LET)\\b",
-          "name": "keyword.operator.wire.vg"
+          "comment": "The network's wire block: `VAR_TEMP g1, g2 : BOOL; END_VAR`, one per network that has a Demux. Its names are the network's WIRES (g<digits>, the vendor VarId), coloured apart from the type the rest of the ST grammar colours. A reference to a wire elsewhere is told from a variable by the LSP's `wire` semantic token, which resolves it through the network's scope \u2014 a name pattern alone would also paint a POU variable called g2.",
+          "name": "meta.wires.vg",
+          "begin": "(?i)\\b(VAR_TEMP)\\b",
+          "beginCaptures": {
+            "1": {
+              "name": "storage.type.vg"
+            }
+          },
+          "end": "(?i)\\b(END_VAR)\\b",
+          "endCaptures": {
+            "1": {
+              "name": "storage.type.vg"
+            }
+          },
+          "patterns": [
+            {
+              "match": "\\b[gG][0-9]+\\b",
+              "name": "variable.other.wire.vg"
+            },
+            {
+              "include": "source.structured-text"
+            }
+          ]
+        },
+        {
+          "comment": "Backticked text is ONE operand, target or call head whose text is not a single token (`fc_dinttotime(T.Start,2)`, `arr[i + 1]`) \u2014 verbatim between the backticks, never parsed into boxes. Matched before the ST grammar so its parentheses and operators are not coloured as structure.",
+          "match": "`[^`\\n]*`",
+          "name": "variable.other.quoted.vg"
+        },
+        {
+          "comment": "`.ENO` \u2014 a consumer connected to the box's ENO output. An output of the box, not a member of its result.",
+          "match": "(?i)\\.ENO\\b",
+          "name": "keyword.other.eno.vg"
+        },
+        {
+          "comment": "The text's own constructs, call-shaped: R_EDGE(x) / F_EDGE(x) are edge FLAGS on their operand (not an R_TRIG box), PARALLEL(\u2026) is the LD BoxTreeParallel. Only followed by `(`, and never as part of a longer name.",
+          "match": "(?i)(?<![\\w.])(R_EDGE|F_EDGE|PARALLEL)\\b(?=\\s*\\()",
+          "name": "keyword.other.construct.vg"
         },
         {
           "include": "source.structured-text"

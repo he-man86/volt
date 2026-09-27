@@ -65,5 +65,5 @@ END_PROGRAM
 
 ACTION call_FirstErrorCapture_FB
 (* @volt-implementation *)
-(* @volt-graphical: a flag on a box input pin *)
+(* @volt-graphical: a main output other than slot 0 *)
 END_ACTION

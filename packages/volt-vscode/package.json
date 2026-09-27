@@ -233,6 +233,13 @@
         }
       }
     ],
+    "semanticTokenTypes": [
+      {
+        "id": "wire",
+        "superType": "variable",
+        "description": "A network-text wire: a fan-out point of an FBD/LD network, declared in the network's VAR_TEMP block."
+      }
+    ],
     "grammars": [
       {
         "language": "structured-text",

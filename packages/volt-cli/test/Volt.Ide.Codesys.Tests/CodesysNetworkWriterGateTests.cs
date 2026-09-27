@@ -307,6 +307,29 @@ public class CodesysCoilFlagTests
         Assert.False(FlagsOf(target).Negation);
     }
 
+    /// <summary>A RETURN'S `???` TARGET CARRIES THE RETURN BIT — DIALECT C13's correction, on the write side. Network
+    /// text v2 reads `IF cond THEN RETURN; END_IF;` as the vendor draws a return: an Assign whose one target is the
+    /// unresolved-instance marker `???` with `Return` on it (and on the item). The writer carried only the coil bits and
+    /// `Jump` onto a target, so the IDE got a COIL assigning to `???`: the conformance fixture
+    /// `ng_conditional_jump_and_return`, recorded clean from v1 text (which built a return with no target at all), built
+    /// with "The assignment target is not specified." twice when re-recorded from v2 text (2026-09-27, live SP21).</summary>
+    [Fact]
+    public void A_returns_marker_target_carries_the_return_bit()
+    {
+        var ret = Flags.None with { Return = true };
+        var model = new Network(0, null, null, null, false, new Node[]
+        {
+            new Assign(new Leaf(new Operand("cond"), Flags.None),
+                       new[] { new Operand(Box.UnnamedInstance, IsLValue: true, Flags: ret) }, ret),
+        });
+
+        var target = Coil(model);
+
+        Assert.Equal(Box.UnnamedInstance, target.OperandExpr);
+        Assert.True(FlagsOf(target).Return, "a RETURN's target lost its Return bit and became a coil assigning to ???");
+        Assert.False(FlagsOf(target).Jump);
+    }
+
     /// <summary>A BUILT PARALLEL CARRIES THE MODEL'S MODE. DIALECT N20: a freshly constructed <c>BoxTreeParallel</c> is
     /// <c>Sequential</c>, while 16 of 17 real ones are <c>BoxShortCircuit</c> (census 1.3). The writer never set it, so
     /// every Parallel a push rebuilt changed evaluation mode — invisible, because no reader read it. Both modes, so a

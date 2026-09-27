@@ -163,6 +163,33 @@ public static class StDeclaration
         return null;
     }
 
+    // The type words no function block can be named: IEC's elementary types (CODESYS's and TwinCAT's own included)
+    // and the heads of a composite type (`ARRAY[..] OF`, `POINTER TO`, `REFERENCE TO`), which VarLine reads as the
+    // type name. None is a POU a project or a library declares.
+    private static readonly HashSet<string> NonBlockTypeWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "BOOL", "BIT", "BYTE", "WORD", "DWORD", "LWORD", "SINT", "INT", "DINT", "LINT", "USINT", "UINT", "UDINT", "ULINT",
+        "REAL", "LREAL", "TIME", "LTIME", "DATE", "LDATE", "TIME_OF_DAY", "TOD", "LTIME_OF_DAY", "LTOD",
+        "DATE_AND_TIME", "DT", "LDATE_AND_TIME", "LDT", "STRING", "WSTRING", "__XWORD", "__UXINT", "__XINT",
+        "ARRAY", "POINTER", "REFERENCE",
+    };
+
+    private static readonly Regex FunctionBlockHeader = new(
+        @"^\s*FUNCTION_BLOCK\b", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    /// <summary>Whether a declared type is a function block — what makes a variable of it an FB instance. A type
+    /// word no block can be named is none; a project item is one only when its first code line is FUNCTION_BLOCK (a
+    /// DUT, an interface, a function is not). A type the project declares nowhere is a LIBRARY type (<c>TON</c>,
+    /// <c>Standard.TON</c>), and the bridge can read no library's declarations: every library-typed call head the
+    /// corpus holds is a function block's instance, so it stays one. A library DUT variable called like a block is
+    /// no program the IDE compiles either way; the build, not this read, is what reports it.</summary>
+    public static bool IsFunctionBlockType(string type, Func<string, string?> declarationOf)
+    {
+        if (NonBlockTypeWords.Contains(type)) return false;
+        return declarationOf(type) is not { } declaration
+               || FunctionBlockHeader.IsMatch(CodeHelper.HeaderLine(declaration.Replace("\r", "")));
+    }
+
     /// <summary>
     /// <paramref name="declaration"/> with the declarations of every base it inherits from (<c>EXTENDS</c>, followed
     /// to the root) after it — the names a body of the POU can see, in the order IEC resolves them: its own first,

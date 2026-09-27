@@ -20,7 +20,7 @@
  * everything with an implementation to separate. A GVL and a DUT are a declaration and nothing else; an INTERFACE
  * and its members are SIGNATURES, so there is no boundary to record and a marker would invent one.
  */
-import { parseSource, type TopLevel } from "../../../src/syntax/index.js"
+import { graphicalMarkerLanguage, parseSource, type BodySpan, type TopLevel } from "../../../src/syntax/index.js"
 
 export const IMPLEMENTATION_MARKER = "(* @volt-implementation *)"
 
@@ -32,6 +32,12 @@ function boundaries(source: string): number[] {
 }
 
 function push(unit: TopLevel, at: number[]): void {
+  // A GRAPHICAL body already states its boundary: network text v2 opens it with its own marker,
+  // `(* @volt-implementation FBD|LD *)`, which also names its language. A bare marker above it would be a second
+  // boundary, and the push would read the graphical one as the first line of an ST body.
+  const mark = (body: BodySpan): void => {
+    if (graphicalMarkerLanguage(body) === undefined) at.push(body.span.start)
+  }
   switch (unit.kind) {
     // A POU and its code-bearing members: the declaration runs to the body's first token.
     case "function_block":
@@ -39,12 +45,12 @@ function push(unit: TopLevel, at: number[]): void {
     case "function":
     case "method":
     case "action":
-      at.push(unit.body.span.start)
+      mark(unit.body)
       return
     // A property has no body of its own — each ACCESSOR does, and they split independently.
     case "property":
-      if (unit.getter !== undefined) at.push(unit.getter.body.span.start)
-      if (unit.setter !== undefined) at.push(unit.setter.body.span.start)
+      if (unit.getter !== undefined) mark(unit.getter.body)
+      if (unit.setter !== undefined) mark(unit.setter.body)
       return
     // interface / global_var_list / type_decl / namespace — no implementation, so no boundary to state.
     default:

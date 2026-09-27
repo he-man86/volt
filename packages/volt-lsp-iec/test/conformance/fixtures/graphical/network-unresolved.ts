@@ -15,7 +15,7 @@
  *                       ("Expression expected instead of '?'", "Program name, function or function block
  *                        instance expected instead of '!!!'ERROR'!!!'", "Unexpected token '?' found")
  *   assignment target   `??? := a;`                      "The assignment target is not specified."
- *   target behind EN    `IF en1 THEN ??? := NOT(a); …`   the same, plus two about the implicit temp
+ *   target behind EN    `??? := NOT(EN := , a).ENO;`     the same, plus two about the implicit temp
  *
  * So the LSP and the compiler agree that every one of these is an error, and these fixtures hold them to it
  * ON THE TEXT, not merely on the fact that both flagged something. The check reads which SLOT the marker sits
@@ -46,13 +46,15 @@
  * without complaint. An unnamed COIL is a different shape — a `BoxTreeAssign` with a `???` target — and IS
  * an error, which is exactly what `network_unnamed_assignment_target` below records.
  *
- * Network text writes BOTH as `??? := <value>;`, so nothing downstream can tell them apart and the LSP
- * reports the pin case as the coil case. That is the whole of the remaining build-conformance gap.
+ * Network text v1 wrote BOTH as `??? := <value>;`, so nothing downstream could tell them apart and the LSP
+ * reported the pin case as the coil case. v2 gives the pin its own spelling — `f(…, => ???)`, the box's own output
+ * slot (openspec network-text-literal-nwl, "a result pin is not an assign") — and the LSP says nothing about it, as
+ * the build says nothing (`network/network-analysis.ts`, `checkUnresolvedBoxes`). The coil keeps `??? := <value>;`
+ * and the compiler's answer below.
  *
- * FIDELITY IS NOT AFFECTED: pushing those items' own bytes back into the real project and rebuilding adds
- * no error, so the push rebuilds the pin rather than a coil. The ambiguity costs ANALYSIS, not data. Closing
- * it means giving an unwired box result a spelling of its own — a format decision (DIALECT C18), not
- * another resolver: "the RHS is a call" is the only discriminator available today, and it is a guess.
+ * These bodies were recorded as v1 text; each is now the v2 text of the SAME vendor model (the v1 reader's model,
+ * written by the v2 writer — an enabled box Volt builds is read through its ENO, DIALECT N21, so its consumer says
+ * `.ENO`), so the recordings stand.
  */
 import type { LanguageTest } from "../../types.js"
 
@@ -72,7 +74,8 @@ VAR
 \tt : TIME;
 END_VAR
 
-NETWORK 0 FBD
+(* @volt-implementation FBD *)
+NETWORK
   ??? : TON(IN := a, PT := t);
 END_NETWORK
 
@@ -93,7 +96,8 @@ VAR
 \ta : BOOL;
 END_VAR
 
-NETWORK 0 LD
+(* @volt-implementation LD *)
+NETWORK
   ??? := a;
 END_NETWORK
 
@@ -114,9 +118,9 @@ VAR
 \ta : BOOL;
 END_VAR
 
-NETWORK 0 LD
-  LET en1 := ;
-  IF en1 THEN ??? := NOT(a); END_IF
+(* @volt-implementation LD *)
+NETWORK
+  ??? := NOT(EN := , a).ENO;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -137,7 +141,8 @@ VAR
 	pt : TIME;
 END_VAR
 
-NETWORK 0 FBD
+(* @volt-implementation FBD *)
+NETWORK
   t1(IN := ???, PT := pt);
 END_NETWORK
 
@@ -159,7 +164,8 @@ VAR
 	out : BOOL;
 END_VAR
 
-NETWORK 0 FBD
+(* @volt-implementation FBD *)
+NETWORK
   out := (??? AND a);
 END_NETWORK
 
@@ -202,9 +208,9 @@ VAR
 	go : BOOL;
 END_VAR
 
-NETWORK 0 LD
-  LET en1 := go;
-  IF en1 THEN ??? := PRG_LANG_network_unnamed_void_callee(); END_IF
+(* @volt-implementation LD *)
+NETWORK
+  ??? := PRG_LANG_network_unnamed_void_callee(EN := go).ENO;
 END_NETWORK
 
 END_PROGRAM
@@ -240,9 +246,9 @@ VAR
 	a : BOOL;
 END_VAR
 
-NETWORK 0 LD
-  LET en1 := ;
-  IF en1 THEN ??? := FUN_LANG_network_unnamed_valued(a); END_IF
+(* @volt-implementation LD *)
+NETWORK
+  ??? := FUN_LANG_network_unnamed_valued(EN := , a).ENO;
 END_NETWORK
 
 END_FUNCTION_BLOCK

@@ -100,13 +100,19 @@ public sealed class NetworkScope
         // An FB instance is a NAME a declaration makes: a local or owner variable first, then a global, then a
         // qualified path through a GVL and its structs. A head that is no name (`fbs[1]`, `SUPER^`) is none — census
         // 1.12, spec "an FB instance that is an expression": the text cannot say which instance it is.
+        //
+        // And only a variable whose type is a FUNCTION BLOCK is an instance (the LSP's `instanceFb`, the other side of
+        // the parity). Any variable's type was taken once: a BOOL named R_EDGE counted as a callable, so every edge in
+        // its POU was refused on push and went to the marker on pull, and `k(x)` with `k : INT` became a box of an
+        // FB named INT that the gate let through.
         string? InstanceType(string head)
         {
             if (!NetworkSpelling.IsName(head)) return null;
-            if (St.StDeclaration.TypeOfCallTarget(declaration, head, declarationOf) is { } local_) return local_;
-            return head.IndexOf('.') < 0 && global.Value.Names.Contains(head)
-                ? St.StDeclaration.TypeOfCallTarget(global.Value.Text, head, declarationOf)
-                : null;
+            var type = St.StDeclaration.TypeOfCallTarget(declaration, head, declarationOf)
+                       ?? (head.IndexOf('.') < 0 && global.Value.Names.Contains(head)
+                           ? St.StDeclaration.TypeOfCallTarget(global.Value.Text, head, declarationOf)
+                           : null);
+            return type is not null && St.StDeclaration.IsFunctionBlockType(type, declarationOf) ? type : null;
         }
 
         bool Contains(string name) =>

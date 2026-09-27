@@ -17,16 +17,14 @@ END_VAR
 VAR_IN_OUT
 	ioAuxOneShot: BOOL;
 END_VAR
-(* @volt-implementation *)
-NETWORK 0 LD
-  LET en1 := ;
-  IF en1 THEN (iMachinePosition >= iStartCam); END_IF
-  tBool := (en1 AND NOT iResetFlag AND iEN);
+(* @volt-implementation LD *)
+NETWORK
+  tBool := (GE(EN := , iMachinePosition, iStartCam) AND NOT iResetFlag AND iEN);
 END_NETWORK
-NETWORK 1 LD
+NETWORK
   fc_CamC_CP_Base := (tbool AND NOT ioAuxOneShot);
 END_NETWORK
-NETWORK 2 LD
+NETWORK
   ioAuxOneShot := tbool;
 END_NETWORK
 

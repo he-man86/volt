@@ -101,9 +101,9 @@ export const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
 // here: the `constant-overflow` check was REMOVED (it false-positived — CODESYS accepts out-of-range untyped
 // literals), so the LSP is silent on them; they read as honest "not-yet-implemented" misses.
 export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
-  // TwinCAT does NOT flag a network-text JMP to a missing label (CODESYS does) — confirmed live 2026-07-07.
-  // `cc_vg_undefined_label` was listed here: the LSP flagged the network-text JMP on TwinCAT too, a false positive this
-  // set hid. The message is vendor data now (`networkJumpLabelUndefined`), undefined on TwinCAT — no divergence left.
+  // `cc_vg_undefined_label` was listed here once, when TwinCAT said nothing about a network-text JMP to a missing label
+  // (measured 2026-07-07 on v1 text). Census 1.15 re-measured it on v2 text and TwinCAT DOES report it, with a trailing
+  // full stop; the label checks use the ST label messages (`jumpLabelUndefined`) on both vendors — no divergence left.
   //   `op_sys_varinfo` — the TwinCAT RECORDING is truncated, not the behaviour: it stores `The code '.size;` with no
   //                       closing quote, where CODESYS stores the whole sentence including the line break it quotes.
   //                       The message is cut at that break on the way out of the TwinCAT driver — a BRIDGE bug to

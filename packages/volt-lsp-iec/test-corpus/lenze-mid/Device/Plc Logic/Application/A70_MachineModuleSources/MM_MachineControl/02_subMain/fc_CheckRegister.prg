@@ -1,12 +1,12 @@
 PROGRAM fc_CheckRegister
 VAR
 END_VAR
-(* @volt-implementation *)
-NETWORK 0 LD TITLE: "NETWORK 1: Shift CheckRegister"
-  fc_ShiftRegister(db_CheckRegister.Positie);
+(* @volt-implementation LD *)
+NETWORK TITLE: "NETWORK 1: Shift CheckRegister"
+  fc_ShiftRegister(ioPositie := db_CheckRegister.Positie);
 END_NETWORK
-NETWORK 1 LD TITLE: "NETWORK 2: Check for error in dryer"
-  fc_CheckNumberOfErrorsRegister(db_CheckRegister.Positie, CTE.posCigarPresentOutfeed, Mach1_Data.Counters.MaxRepetitionNoCigarsDryer.SetValue, oError => db_CheckRegister.CheckRegisterError);
+NETWORK TITLE: "NETWORK 2: Check for error in dryer"
+  fc_CheckNumberOfErrorsRegister(iPositie := db_CheckRegister.Positie, iPositionToCheck := CTE.posCigarPresentOutfeed, iAmountOfErrors := Mach1_Data.Counters.MaxRepetitionNoCigarsDryer.SetValue, oError => db_CheckRegister.CheckRegisterError);
 END_NETWORK
 
 END_PROGRAM

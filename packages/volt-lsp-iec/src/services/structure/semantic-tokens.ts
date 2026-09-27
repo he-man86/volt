@@ -12,6 +12,8 @@ import { lookup, resolveBareEnumMember, type Scope, type SymbolKind } from "../.
 import { isKnownPrimitive } from "../../types/index.js"
 import { scopeAtOffset } from "../shared/index.js"
 import { NETWORK_TEXT_KEYWORDS } from "../../network-text/parser.js"
+import { analyzeNetworkText } from "../../network/network-analyze.js"
+import { walkValues } from "../../network-text/ast.js"
 
 /** The token-type legend (index = the `typeIdx` emitted). Advertised to the client in server capabilities. */
 export const SEMANTIC_TOKEN_TYPES = [
@@ -32,6 +34,11 @@ export const SEMANTIC_TOKEN_TYPES = [
   "comment",
   "macro",
   "namespace",
+  // A network-text wire — a vendor Demux, the one named fan-out point of a drawing, declared in its network's own
+  // `VAR_TEMP` block. Its own class so an editor can tell it from a variable the POU declares (openspec
+  // network-text-literal-nwl 5.3); volt-vscode declares it with `variable` as its super type, so a theme that knows
+  // nothing of it still paints it as a variable. LAST, so every other type keeps its index.
+  "wire",
 ] as const
 
 const TYPE_INDEX = new Map<string, number>(SEMANTIC_TOKEN_TYPES.map((t, i) => [t, i]))
@@ -49,8 +56,9 @@ interface TokenRecord {
 function tokenRecords(doc: Document, project: Scope): TokenRecord[] {
   const out: TokenRecord[] = []
   const graphical = graphicalBodySpans(doc)
+  const wires = wireOccurrences(doc, project)
   for (const tok of lex(doc.source)) {
-    const type = classify(tok, doc, project, graphical)
+    const type = wires.has(tok.span.start) ? "wire" : classify(tok, doc, project, graphical)
     if (type === undefined) continue
     // Multi-line tokens (block comments) are emitted on their first line only — clients tolerate this.
     out.push({
@@ -121,13 +129,33 @@ function classify(tok: Token, doc: Document, project: Scope, graphical: readonly
   const sym = lookup(scope, tok.text)?.symbol ?? resolveBareEnumMember(project, tok.text)
   if (sym !== undefined) return SYMBOL_TYPE[sym.kind]
   // A network-text keyword. These are syntax of the FBD/LD sublanguage but NOT of ST, so the lexer returns
-  // them as identifiers and `NETWORK`/`END_NETWORK`/`LET` painted the same as a variable. Only inside a
+  // them as identifiers and `NETWORK`/`END_NETWORK`/`PARALLEL` painted the same as a variable. Only inside a
   // graphical body, and only AFTER the symbol lookup: a declared name wins, so a project that really has an
   // FB called `Execute` still colours its calls as that FB while a bare `EXECUTE` block reads as syntax.
   if (NETWORK_TEXT_KEYWORDS.has(tok.text.toUpperCase()) && graphical.some((s) => tok.span.start >= s.start && tok.span.end <= s.end))
     return "keyword"
   if (isKnownPrimitive(tok.text)) return "type" // INT/BOOL/… are type names, not variables
   return "variable"
+}
+
+/**
+ * Where each network-text wire is spelled — its `VAR_TEMP` declaration, its definition and every reference — as start
+ * offsets. Resolved through the NETWORK's scope, the one place a wire is declared: the parser reads a bare name as a
+ * wire exactly when its network's block declares it, so a POU variable merely named `g2` is not one, and `g1` in
+ * network 0 is not the `g1` of network 1. Read off the same analysis every other network service reads — the parse
+ * depends on the POU's scope, so a parse of its own could see other statements than the diagnostics do.
+ */
+function wireOccurrences(doc: Document, project: Scope): Set<number> {
+  const at = new Set<number>()
+  for (const { unit, body } of graphicalBodies(doc.parseResult.units))
+    for (const network of analyzeNetworkText(unit, body, project, doc.uri).vg.networks) {
+      for (const w of network.wires) at.add(w.name.span.start)
+      for (const s of network.statements) {
+        if (s.kind === "wire_def") at.add(s.wire.span.start)
+        for (const v of walkValues(s)) if (v.kind === "wire_ref") at.add(v.name.span.start)
+      }
+    }
+  return at
 }
 
 /** The spans of this document's graphical bodies — computed once per document, not per token. */

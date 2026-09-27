@@ -155,7 +155,7 @@ test("server: didOpen pushes network-text diagnostics for a graphical body", asy
     client.onNotification(PublishDiagnosticsNotification.type, (p) => resolve(p as never))
   })
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
-  const vg = `FUNCTION_BLOCK F\nVAR out : BOOL;\nEND_VAR\nNETWORK 0 LD\nout := TRUE;\nEND_FUNCTION_BLOCK` // no END_NETWORK
+  const vg = `FUNCTION_BLOCK F\nVAR out : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\nout := TRUE;\nEND_FUNCTION_BLOCK` // no END_NETWORK
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: URI, languageId: "iecst", version: 1, text: vg },
   })
@@ -202,18 +202,18 @@ test("server: a dead FB's diagnostics are suppressed by default, emitted with di
   expect(emitted.some((d) => d.code === "C0032")).toBe(true)
 })
 
-test("server: hover inside a network-text body resolves a wire's inferred type", async () => {
+test("server: hover inside a network-text body resolves a wire's declared type", async () => {
   const client = connect()
-  const vg = `FUNCTION_BLOCK F\nVAR a : BOOL; b : BOOL; out : BOOL;\nEND_VAR\nNETWORK 0 LD\nLET g := (a AND b);\nout := g;\nEND_NETWORK\nEND_FUNCTION_BLOCK`
+  const vg = `FUNCTION_BLOCK F\nVAR a : BOOL; b : BOOL; out : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\nVAR_TEMP g1 : BOOL; END_VAR\ng1 := (a AND b);\nout := g1;\nEND_NETWORK\nEND_FUNCTION_BLOCK`
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: URI, languageId: "iecst", version: 1, text: vg },
   })
   const h = await client.sendRequest(HoverRequest.type, {
     textDocument: { uri: URI },
-    position: { line: 5, character: 7 }, // the `g` use in `out := g;`
+    position: { line: 7, character: 7 }, // the `g1` use in `out := g1;`
   })
-  expect((h as { contents: { value: string } })?.contents.value).toContain("g : BOOL")
+  expect((h as { contents: { value: string } })?.contents.value).toContain("g1 : BOOL")
   client.dispose()
 })
 

@@ -13,11 +13,11 @@
  *
  *   evidence
  *     confirmed     1973
- *     refused        538
+ *     refused        540
  *     not-lowered     90
  *     lsp-gap          4
  *     diverges         3
- *     unaskable       36
+ *     unaskable       38
  *
  *   tier                     lowered    clean
  *     decl                    426      426
@@ -601,10 +601,14 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cc_typed_fold_usint_fits: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   cc_unknown_member: { evidence: "refused" },
   cc_unterminated_if: { evidence: "refused" },
+  cc_vg_duplicate_label: { evidence: "refused" },
+  cc_vg_jump_in_disabled_network: { evidence: "unaskable" },
+  cc_vg_label_on_disabled_network: { evidence: "refused" },
   cc_vg_undeclared: { evidence: "refused" },
   cc_vg_undefined_label: { evidence: "refused" },
   cc_vg_unknown_member: { evidence: "refused" },
   cc_vg_unknown_pin: { evidence: "refused" },
+  cc_vg_unreferenced_label: { evidence: "unaskable" },
   cc_wstring_init_too_long_2: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   cc_wstring_init_too_long_7: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   cc_wstring_plus_wstring: { evidence: "refused" },

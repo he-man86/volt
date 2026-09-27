@@ -13,24 +13,23 @@ VAR
 	t2: TON;
 	out2: INT;
 END_VAR
-
-NETWORK 0 LD
-  LET en1 := TRUE;
-  IF en1 THEN
-  EXECUTE
+(* @volt-implementation LD *)
+NETWORK
+  EXECUTE(EN := TRUE)
 iCount:=icount+1;
-  END_EXECUTE
-  END_IF
+
+  END_EXECUTE;
 END_NETWORK
-NETWORK 1 LD
+NETWORK
   output := t1(IN := in1, PT := e1);
 END_NETWORK
-NETWORK 2 LD
-  LET g1 := b;
+NETWORK
+  VAR_TEMP g1 : BOOL; END_VAR
+  g1 := b;
   out1 := ((a OR g1) AND c);
   out2 := g1;
 END_NETWORK
-NETWORK 3 LD
+NETWORK
   output := t2(IN := , PT := e1);
 END_NETWORK
 
