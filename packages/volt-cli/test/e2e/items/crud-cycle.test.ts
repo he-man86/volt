@@ -14,12 +14,6 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDe
 import { id, fid, cleanup, requireHealthy, snapshot, assertDelta, createItem, updateItem, fetchItem, fetchSource, pushOps, ensureCompiles, savePlcPrg, restorePlcPrg, fixPlcPrg, snapshotItem, snapshotHas, plcFolder, BASE } from "../harness"
 import { LIFECYCLE_KINDS } from "../fixtures"
 
-// Each writable source kind is named by its KIND: function_block→fb, program→prg, gvl→gvl, every DUT→dut.
-// (That is the WIRE name. The workspace file a DUT lands in is `.struct`/`.enum`/`.union`/`.alias`.)
-const EXT_BY_KIND: Record<string, string> = {
-	function_block: "fb", program: "prg", gvl: "gvl", dut: "dut",
-}
-
 describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 	setDefaultTimeout(60_000) // TC COM calls are slow; default 5s is too tight
 	beforeAll(async () => { await requireHealthy() })
@@ -30,7 +24,7 @@ describe(`lifecycle / CRUD cycle (${BASE})`, () => {
 	for (const k of LIFECYCLE_KINDS) {
 		it(`${k.key}: create→fetch→fixedpoint→edit→rename→move→delete, versions track correctly`, async () => {
 			const name = id(`lc_${k.key}`)
-			const ext = EXT_BY_KIND[k.kind]
+			const ext = k.ext
 			const wire = fid(`lc_${k.key}`, ext)             // FULL wire name for every op/helper/lookup
 
 			// 1. baseline

@@ -41,7 +41,7 @@ describe(`lifecycle / folder-vs-object name clash (${BASE})`, () => {
 
 		const r = await pushOps([
 			// The sibling DUT, named exactly like the folder below it.
-			{ op: "set", name: fid("clash", "dut"), toFolder: root, sourceText: structDut(clash), ifVersion: null },
+			{ op: "set", name: fid("clash", "struct"), toFolder: root, sourceText: structDut(clash), ifVersion: null },
 			// ...and the folder's content, which is what forces the folder to exist.
 			{ op: "set", name: fid("clash_inner"), toFolder: inside, sourceText: fb(id("clash_inner")), ifVersion: null },
 		])
@@ -49,7 +49,7 @@ describe(`lifecycle / folder-vs-object name clash (${BASE})`, () => {
 		expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 
 		// Both landed, and each where it was asked to — the coexistence D34 says is legal.
-		expect((await fetchItem(fid("clash", "dut"))).folder ?? "").toBe(root)
+		expect((await fetchItem(fid("clash", "struct"))).folder ?? "").toBe(root)
 		expect((await fetchItem(fid("clash_inner"))).folder ?? "").toBe(inside)
 	})
 })

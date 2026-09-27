@@ -40,7 +40,7 @@ export const ITF_PROPERTY = (n: string, get = true, set = true) =>
  *  builder produces a second, content-different version so the content-edit delta is observable. */
 export type LifecycleKind = {
 	key: string
-	kind: string                       // expected wire `kind`
+	ext: string                        // the kind extension of its FULL wire name (`X.fb`, `X.enum`)
 	create: (name: string) => string
 	edit: (name: string) => string
 	editToken: RegExp                  // appears in the edited source, proving the edit landed
@@ -51,15 +51,14 @@ export type LifecycleKind = {
 }
 
 export const LIFECYCLE_KINDS: LifecycleKind[] = [
-	{ key: "fb", kind: "function_block", create: n => fb(n, { body: "x := 1;" }), edit: n => fb(n, { body: "x := 999;" }), editToken: /x := 999/, nameInSource: true },
-	{ key: "prog", kind: "program", create: n => prog(n, "n := 1;"), edit: n => prog(n, "n := 888;"), editToken: /n := 888/, nameInSource: true },
-	{ key: "gvl", kind: "gvl", create: n => gvl(n), edit: n => `VAR_GLOBAL\n\t${n}_g : INT := 42;\nEND_VAR\n`, editToken: /42/, nameInSource: false },
-	// Every DUT is one wire kind `dut` — which is what these fixtures name, because the WIRE is what they
-	// drive. On disk the CLI writes each under its own `.struct`/`.enum`/`.union`/`.alias` (materialization
-	// reads the subtype from the declaration); that split is covered by DutSubtypeFileTests, not here.
-	{ key: "struct", kind: "dut", create: n => structDut(n), edit: n => `TYPE ${n} :\nSTRUCT\n\ta : INT;\n\tb : BOOL;\n\tc : REAL;\nEND_STRUCT\nEND_TYPE\n`, editToken: /c : REAL/, nameInSource: true },
-	{ key: "enum", kind: "dut", create: n => enumDut(n), edit: n => `TYPE ${n} :\n(\n\tRed,\n\tGreen,\n\tBlue,\n\tAmber\n);\nEND_TYPE\n`, editToken: /Amber/, nameInSource: true },
-	{ key: "union", kind: "dut", create: n => unionDut(n), edit: n => `TYPE ${n} :\nUNION\n\ti : INT;\n\tr : REAL;\n\tb : BYTE;\nEND_UNION\nEND_TYPE\n`, editToken: /b : BYTE/, nameInSource: true },
-	{ key: "alias", kind: "dut", create: n => aliasDut(n), edit: n => `TYPE ${n} : LWORD;\nEND_TYPE\n`, editToken: /LWORD/, nameInSource: true },
-	{ key: "fbChildren", kind: "function_block", create: n => fb(n, { children: METHOD("Accelerate") + ACTION("Start") + PROPERTY("Speed") }), edit: n => fb(n, { body: "x := 5;", children: METHOD("Accelerate") + ACTION("Start") + PROPERTY("Speed") }), editToken: /x := 5/, nameInSource: true },
+	{ key: "fb", ext: "fb", create: n => fb(n, { body: "x := 1;" }), edit: n => fb(n, { body: "x := 999;" }), editToken: /x := 999/, nameInSource: true },
+	{ key: "prog", ext: "prg", create: n => prog(n, "n := 1;"), edit: n => prog(n, "n := 888;"), editToken: /n := 888/, nameInSource: true },
+	{ key: "gvl", ext: "gvl", create: n => gvl(n), edit: n => `VAR_GLOBAL\n\t${n}_g : INT := 42;\nEND_VAR\n`, editToken: /42/, nameInSource: false },
+	// A DUT's wire name carries its SUBTYPE (`X.struct`/`.enum`/`.union`/`.alias`), minted by the engine from the
+	// declaration — so each row names the extension its body implies, and a mismatch is refused by the bridge.
+	{ key: "struct", ext: "struct", create: n => structDut(n), edit: n => `TYPE ${n} :\nSTRUCT\n\ta : INT;\n\tb : BOOL;\n\tc : REAL;\nEND_STRUCT\nEND_TYPE\n`, editToken: /c : REAL/, nameInSource: true },
+	{ key: "enum", ext: "enum", create: n => enumDut(n), edit: n => `TYPE ${n} :\n(\n\tRed,\n\tGreen,\n\tBlue,\n\tAmber\n);\nEND_TYPE\n`, editToken: /Amber/, nameInSource: true },
+	{ key: "union", ext: "union", create: n => unionDut(n), edit: n => `TYPE ${n} :\nUNION\n\ti : INT;\n\tr : REAL;\n\tb : BYTE;\nEND_UNION\nEND_TYPE\n`, editToken: /b : BYTE/, nameInSource: true },
+	{ key: "alias", ext: "alias", create: n => aliasDut(n), edit: n => `TYPE ${n} : LWORD;\nEND_TYPE\n`, editToken: /LWORD/, nameInSource: true },
+	{ key: "fbChildren", ext: "fb", create: n => fb(n, { children: METHOD("Accelerate") + ACTION("Start") + PROPERTY("Speed") }), edit: n => fb(n, { body: "x := 5;", children: METHOD("Accelerate") + ACTION("Start") + PROPERTY("Speed") }), editToken: /x := 5/, nameInSource: true },
 ]

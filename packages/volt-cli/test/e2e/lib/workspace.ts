@@ -18,8 +18,8 @@ export function id(s: string): string {
 }
 
 /** The FULL wire name: IEC name + KIND extension. A POU is named by kind — default `.fb`; pass
- *  `prg`/`fun`/`itf`/`dut`/`gvl` for others. Every DUT is the one wire kind `dut`; the four file extensions
- *  (`.struct`/`.enum`/`.union`/`.alias`) are a materialization concern the wire never sees. */
+ *  `prg`/`fun`/`itf`/`gvl` for others. A DUT is named by its SUBTYPE — `struct`/`enum`/`union`/`alias` — the
+ *  name the engine mints from its declaration, which is also the workspace file's name. */
 export function fid(s: string, ext = "fb"): string {
 	return `${id(s)}.${ext}`
 }

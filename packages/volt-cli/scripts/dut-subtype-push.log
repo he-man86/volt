@@ -83,3 +83,24 @@ negative control: vB := VltM_B.Purple; vA.alpha := 1 ->
   [error] VltM_Use.prg C0032: Cannot convert type 'Unknown type: 'VltM_B.Purple'' to type 'VLTM_B'
   [error] VltM_Use.prg C0004: 'Purple' is no component of 'VltM_B'
   [error] VltM_Use.prg C0062: 'vA' is no structured variable
+
+######## session 3 (2026-09-27) - openspec dut-subtype-on-the-wire task 6.1: 1.1 RE-RUN WITH THE NEW BUILD
+######## (DUT named by its subtype on the wire; PushService coalesces a subtype change). CodesysTestProject copy via
+######## `ide.ps1 up -Vendor codesys` (the plain production host, not this probe - GUIDs NOT read this session; the
+######## in-place write keeping the object was measured in sessions 1-2 and 1.3). Every write a `volt push` (Debug
+######## build of HEAD) from a fresh `volt init` workspace.
+create VltMeasure/VltM_A..C.struct: bridge: push 3 ops - accepted [created: VltM_A.struct, VltM_B.struct, VltM_C.struct]
+(a)  git R069 VltM_A.struct -> VltM_A.enum: "pushed 1 item(s)"; bridge: push 1 ops - accepted [updated: VltM_A.struct]
+(b1) git D VltM_B.struct + A VltM_B.enum (new extension first): "pushed 2 item(s)";
+     bridge: push 1 ops - accepted [updated: VltM_B.struct]   (the pair coalesced into ONE update, nothing deleted)
+(b2) git D VltM_C.struct + A VltM_C.union (old extension first - the order that was STUCK in session 2):
+     "pushed 2 item(s)"; bridge: push 1 ops - accepted [updated: VltM_C.struct]
+volt status after each: in sync with the IDE. refs + sidecar: VltM_A.enum, VltM_B.enum, VltM_C.union (no .struct left);
+fetch: all three in folder Device/Plc Logic/Application/VltMeasure.
+volt build, VltM_Use called from PLC_PRG (vA := VltM_A.Blue; vB := VltM_B.Red; vC.rv := 1.5) plus negatives:
+  [error] VltM_Use.prg C0062: 'vA' is no structured variable
+  [error] VltM_Use.prg C0032: Cannot convert type 'Unknown type: 'VltM_B.Purple'' to type 'VLTM_B'
+  [error] VltM_Use.prg C0004: 'Purple' is no component of 'VltM_B'
+negatives removed: Compile complete -- 0 errors. (A first attempt named the union member `r`: CODESYS refuses it -
+`C0009 Unexpected token 'r' found` - on a union CREATED as a union too, so it is the IL reset operator `R`, not the
+subtype change; renamed `rv`.)

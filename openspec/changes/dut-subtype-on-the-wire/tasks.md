@@ -558,7 +558,8 @@ reds, unchanged); Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Ga
       examples. A bare case-insensitive `dut|struct|enum|union|alias` also hits English words
       (`enumerate`, `structural`, `structured-text`) and the C# keyword `enum` (`Extensions.Access`, a `Types.cs`
       doc) — none a kind decision.
-- [ ] 4.7 TS e2e client (1.4 census): `lib/workspace.ts` `fid` doc, `fixtures.ts` DUT rows carry their subtype
+- [ ] 4.7 (naming half DONE in 6.2; `whole-project.test.ts`'s `WRITABLE` half OPEN)
+      TS e2e client (1.4 census): `lib/workspace.ts` `fid` doc, `fixtures.ts` DUT rows carry their subtype
       extension, `crud-cycle`, `name-clash`, `kinds/top-level`, `vendor-parity` name DUTs `X.struct`/`.enum`/…; and
       `whole-project.test.ts`'s `WRITABLE` kind regex goes — the writable set comes from what the wire says, and
       the test asserts the sweep includes the project's DUTs (so a DUT falling out is red).
@@ -735,6 +736,38 @@ unchanged (no new vendor measurement).
 
 ## 6. Live
 
-- [ ] 6.1 Re-run 1.1 on both vendors with the new build: both git shapes land as one update; folder kept.
-- [ ] 6.2 e2e: `vendor-parity`, `name-clash`, `crud-cycle`, `kinds/top-level` green on both vendors.
+- [x] 6.1 Re-run 1.1 on both vendors with the new build: both git shapes land as one update; folder kept.
+      **Measured 2026-09-27**, `volt push` (Debug build of HEAD) from a fresh `volt init` workspace, fixtures served
+      by `ide.ps1 up` (CODESYS `CodesysTestProject`; TwinCAT `Project14`, one worker). Three structs created in
+      `VltMeasure`, then (a) git `R069` A.struct→A.enum, (b1) `D`+`A` B.struct→B.enum (new extension sorts first),
+      (b2) `D`+`A` C.struct→C.union (old extension first — the order 1.1 found stuck). Identical on both vendors:
+      each push is `push 1 ops — accepted [updated: X.struct]` in the bridge log (the delete+add pair coalesced;
+      nothing deleted or created), `volt status` in sync after each, `refs` and the sidecar hold `VltM_A.enum`,
+      `VltM_B.enum`, `VltM_C.union` and no `.struct`, the workspace holds exactly those files, and `fetch` puts all
+      three in `VltMeasure`. TwinCAT `.TcDUT` Ids unchanged (tree code stays 606, as 1.2 measured); CODESYS GUIDs
+      not read this session (plain production host — the in-place write keeping the object is 1.1/1.3's). Both
+      compile each as its new shape: a user called from the main program builds clean, and the negatives are
+      refused (`'vA' is no structured variable`, `'Purple' is no component of 'VltM_B'`).
+      Evidence: `scripts/dut-subtype-push.log` and `scripts/tc-dut-codes.log`, session 3 of each. The same rule is
+      now an e2e suite, `items/dut-subtype-change.test.ts` (7 cases: rename, delete+add in both orders — folder
+      kept, only the new name in `refs` — stale delete guard, two sets on one DUT, a body of another subtype, a stale
+      subtype delete) — green on both vendors.
+- [x] 6.2 e2e: `vendor-parity`, `name-clash`, `crud-cycle`, `kinds/top-level` green on both vendors.
+      Needed 4.7's naming half first (done here, see 4.7): the suites still named DUTs `.dut`, which the bridge now
+      refuses. `fixtures.ts` `LIFECYCLE_KINDS` rows carry their wire extension (`ext: "struct"`…, `kind` gone),
+      `crud-cycle`'s `EXT_BY_KIND` deleted, `name-clash` `X.struct`, `kinds/top-level` `X.alias`, `vendor-parity`
+      `struct`/`enum`, `lib/workspace.ts` `fid` doc. **Test premise corrected:** `vendor-parity`'s `refs` shape
+      lacked `removed`, which `refs` carries since review round 3 moved removal into the engine for both read ops
+      (`ReadResponse.Removed`) — the shape now includes it, asserted on BOTH vendors (it checked one), and both
+      report `removed: []` when asked about no names. Runs: CODESYS `crud-cycle`+`name-clash`+`kinds/top-level`+
+      `dut-subtype-change` 21/0; TwinCAT the same 21/0; `vendor-parity` (both bridges) 11/0.
 - [ ] 6.3 Full C# suites + `bun test test/unit` green; archive, delete the recreated `openspec/specs/`.
+      Suites **green** (2026-09-27, after 6.1/6.2): Engine 1532/0 (1 skipped, pre-existing), Cli 251, Contracts 19,
+      Codesys 160, Twincat 231, Connector 110, Repo.Gates 20, `bun test test/unit` 4; `bun run check`, lint and the
+      volt-cli `tsc` exit 0. **Archive BLOCKED:** 1.5, 4.6, 4.7 (whole-project half), 4.8 and 4.9 are open, and
+      4.9 is the proposal's own goal (`V1Note` still makes a kind decision in `Volt.Cli`). Archiving would file the
+      change as done with its goal unmet; it waits for those tasks (or an explicit close-out decision).
+      Found live, fixed: the subtype-mismatch refusal read "named for a enum" — now "names the subtype X but its
+      declaration's subtype is Y" (text only, no test pins it). Noted, not fixed: the e2e `unionDut` fixture's
+      member `r` is the IL reset operator — CODESYS refuses it on compile (`C0009 Unexpected token 'r'`); no e2e
+      compiles a DUT, so no suite is affected.

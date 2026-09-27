@@ -142,7 +142,7 @@ internal static class DutSubtypeChanges
 
         if (!string.Equals(Ext(target), declared, StringComparison.OrdinalIgnoreCase))
             throw new PushRefusal(set.Name,
-                $"'{target}' is named for a {Ext(target)} but its declaration is a {declared}, so its name is " +
+                $"'{target}' names the subtype {Ext(target)} but its declaration's subtype is {declared}, so its name is " +
                 $"'{Materializer.Bare(target)}.{declared}'. A DUT's name carries its subtype: rename the file to match " +
                 "its declaration (or the declaration to match the file).");
     }

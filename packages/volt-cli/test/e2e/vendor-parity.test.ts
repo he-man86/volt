@@ -128,8 +128,8 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 		["an FB with a METHOD", "fb", (n) => fb(n, { children: METHOD("Compute") })],
 		["an FB with an ACTION", "fb", (n) => fb(n, { children: ACTION("Step") })],
 		["an FB with a PROPERTY (both accessors)", "fb", (n) => fb(n, { children: PROPERTY("Ready") })],
-		["a struct DUT", "dut", (n) => structDut(n)],
-		["an enum DUT", "dut", (n) => enumDut(n)],
+		["a struct DUT", "struct", (n) => structDut(n)],
+		["an enum DUT", "enum", (n) => enumDut(n)],
 		["a GVL", "gvl", (n) => gvl(n)],
 	]
 
@@ -202,16 +202,15 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 			// `unreadable` names the items the walk found and could not materialize: they are tracked in the
 			// project hash but deliberately absent from `items`, so without it a POU that failed to read was
 			// simply missing, with no error anywhere (DIALECT C7). `unwalkedFolders` is the same idea one level
-			// up — a folder the driver could not enumerate, which makes absence meaningless beneath it.
-			expect(Object.keys(rb).sort()).toEqual([
-				"folders",
-				"items",
-				"platform",
-				"projectName",
-				"projectVersion",
-				"unreadable",
-				"unwalkedFolders",
-			])
+			// up — a folder the driver could not enumerate, which makes absence meaningless beneath it. `removed` is
+			// the engine's removal verdict over the names a client says it knows (`ReadResponse.Removed`, shared with
+			// `fetch`): refs carries it since removal is decided once, in the engine, for both read ops.
+			const shape = ["folders", "items", "platform", "projectName", "projectVersion", "removed", "unreadable", "unwalkedFolders"]
+			expect(Object.keys(ra).sort()).toEqual(shape)
+			expect(Object.keys(rb).sort()).toEqual(shape)
+			// Asked about no known names, neither vendor can report one removed.
+			expect(ra.removed).toEqual([])
+			expect(rb.removed).toEqual([])
 
 			// …and BOTH vendors report nothing unreadable for the same push — a parity claim in its own right,
 			// since one vendor quietly dropping an item is exactly what this suite exists to catch.

@@ -87,3 +87,28 @@ volt build of VltM_Use (called from PLC_PRG): `vN : VltM_N := VltM_N.Green`, `vU
 `vS.alpha := 2` compile; the negatives are refused as the DECLARED shape:
   [error] VltM_Use.prg:8 'Purple' is no component of 'VLTM_N'
   [error] VltM_Use.prg:10 'zeta' is no component of 'VLTM_U'
+
+######## session 3 (2026-09-27) - openspec dut-subtype-on-the-wire task 6.1: 1.1 RE-RUN WITH THE NEW BUILD
+######## (DUT named by its subtype on the wire; PushService coalesces a subtype change). Fixture Project14 via
+######## `ide.ps1 up -Vendor twincat -Fixture 14`, ONE worker (VoltBridgeTwincat 37244 on volt.bridge.twincat.9236);
+######## every write a `volt push` (Debug build of HEAD) from a fresh `volt init` workspace.
+create VltMeasure/VltM_A..C.struct -> bridge: push 3 ops - accepted [created: VltM_A.struct, VltM_B.struct, VltM_C.struct]
+VltM_A       606 (struct) {2be5a047-36d9-4d94-8031-0b8fad0efafd} in 'VltMeasure'  decl: TYPE VltM_A : | STRUCT | 	alpha : INT;
+VltM_B       606 (struct) {15e7ef42-4dec-45ba-bf96-b5f0df090f4d} in 'VltMeasure'  decl: TYPE VltM_B : | STRUCT | 	alpha : INT;
+VltM_C       606 (struct) {acb62012-0546-4454-a0a7-82346261f856} in 'VltMeasure'  decl: TYPE VltM_C : | STRUCT | 	alpha : INT;
+(a)  git R069 VltM_A.struct -> VltM_A.enum: volt push "pushed 1 item(s)"; bridge: push 1 ops - accepted [updated: VltM_A.struct]
+(b1) git D VltM_B.struct + A VltM_B.enum (new extension sorts first): volt push "pushed 2 item(s)";
+     bridge: push 1 ops - accepted [updated: VltM_B.struct]   (the pair coalesced into ONE update)
+(b2) git D VltM_C.struct + A VltM_C.union (old extension sorts first): volt push "pushed 2 item(s)";
+     bridge: push 1 ops - accepted [updated: VltM_C.struct]
+volt status after each: in sync with the IDE. refs + sidecar: VltM_A.enum, VltM_B.enum, VltM_C.union (no .struct left);
+workspace holds exactly those three files; fetch: every one in folder VltMeasure.
+VltM_A       606 (struct) {2be5a047-36d9-4d94-8031-0b8fad0efafd} in 'VltMeasure'  decl: TYPE VltM_A : | (* | STRUCT
+VltM_B       606 (struct) {15e7ef42-4dec-45ba-bf96-b5f0df090f4d} in 'VltMeasure'  decl: TYPE VltM_B : | ( | 	Red,
+VltM_C       606 (struct) {acb62012-0546-4454-a0a7-82346261f856} in 'VltMeasure'  decl: TYPE VltM_C : | UNION | 	i : INT;
+(Ids UNCHANGED, folder kept, code stays 606 live - as session 1 measured; the subtype comes from the declaration)
+volt build of VltM_Use (called from PLC_PRG: vA := VltM_A.Blue; vB := VltM_B.Red; vC.rv := 1.5) with negatives:
+  [error] VltM_Use.prg:10 'vA' is no structured variable
+  [error] VltM_Use.prg:11 Cannot convert type 'Unknown type: 'VltM_B.Purple'' to type 'VLTM_B'
+  [error] VltM_Use.prg:11 'Purple' is no component of 'VLTM_B'
+negatives removed: Build succeeded, status in sync.

@@ -20,7 +20,7 @@ describe(`kinds / top-level (${BASE})`, () => {
 	})
 
 	it("creates an alias with a non-INT base type that survives", async () => {
-		const name = id("k_alias"), wire = fid("k_alias", "dut")
+		const name = id("k_alias"), wire = fid("k_alias", "alias")
 		await createItem(wire, aliasDut(name))
 		const item = await fetchItem(wire)
 		expect(item.sourceText).toContain("DWORD")
