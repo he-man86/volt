@@ -404,7 +404,7 @@ public static class NetworkTextWriter
                     // Phase-1 decision: a modifier on the PIN (vendor InputFlags) has no spelling yet, so the fact
                     // reaches the marker instead of the floor. The message names the pin by what feeds it where it can:
                     // an engineer finds `xIsWarningInfo` in the diagram, not "input 1".
-                    throw Unrepresentable("a flag on a box input pin",
+                    throw Unrepresentable(BoxRefusals.PinFlagMarker,
                         $"the '{b.Type}' box has {Describe(p.Flags)} on its pin {p.Formal ?? $"input {i}"}" +
                         (p.Value is Leaf feed ? $" fed by '{feed.Operand.Text}'." : "."));
 

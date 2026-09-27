@@ -308,6 +308,59 @@ public static class UnheldFlags
     }
 }
 
+/// <summary>
+/// THE REFUSALS BOTH VENDOR READERS RAISE FOR ONE BOX SHAPE. The two vendors ship one NWL object model (DIALECT N1) and
+/// differ only in how it is reached — CODESYS's live objects, TwinCAT's archive — so a box shape the text cannot hold
+/// is one shape, refused under one marker with one message. Written once per reader, the markers were string literals
+/// a rename could change on one vendor only, and the parity pair would then refuse the same box under two names.
+/// </summary>
+public static class BoxRefusals
+{
+    public const string PinFlagMarker = "a flag on a box input pin";
+    public const string WiredEnoMarker = "an ENO output wired to a variable";
+    public const string NullInputSlotMarker = "a box input slot holding nothing";
+    public const string MissingListMarker = "a box list the reader cannot find";
+
+    /// <summary>A variable stored on the ENO slot: the text has no spelling for it (ENO is never an <c>=&gt;</c> slot), and
+    /// skipping it pulled a body that hid the variable — a push rebuilding the network then wrote an empty operand there,
+    /// deleting it from the IDE with nothing in the diff. Measured null on every box, not assumed so.</summary>
+    /// <param name="enoSlotText">The operand text the ENO slot holds; null or empty for the null echo.</param>
+    public static void RefuseWiredEno(string vendor, string boxType, string? enoSlotText)
+    {
+        if (enoSlotText is { Length: > 0 } wired)
+            throw new Volt.Engine.Format.Body.UnrepresentableBodyException(WiredEnoMarker,
+                $"{vendor}: the '{boxType}' box stores '{wired}' on its ENO output, which network text has no spelling " +
+                "for (a box's ENO is read by its consumer, never assigned with =>). Volt refuses to materialize the body " +
+                "rather than pull it without that variable.");
+    }
+
+    /// <summary>A box with no <c>InputFlags</c> member: the census found it on every box (DIALECT N4 on TwinCAT, ~1,300
+    /// CODESYS boxes), and a box without it keeps its pins' modifiers where the reader cannot see them — reading the gap
+    /// as "no flag" is what pulled six negated pins as plain contacts (task 1.13).</summary>
+    public static Volt.Engine.Format.Body.UnrepresentableBodyException NoPinFlags(string vendor, string boxType) =>
+        new(PinFlagMarker,
+            $"{vendor}: the '{boxType}' box holds no InputFlags list, which every measured box holds aligned with its " +
+            "inputs, so whether a pin carries a negation or an edge is unknown. Volt refuses to materialize the body " +
+            "rather than read the gap as \"no flag\".");
+
+    /// <summary>A null input slot. The slots are index-aligned with the pin names, so a reader that drops the null moves
+    /// every later pin onto its neighbour's name (or a data pin onto the enable); an unwired pin is spelled otherwise on
+    /// both vendors (a terminator, an empty operand), and no measured box holds a null.</summary>
+    public static Volt.Engine.Format.Body.UnrepresentableBodyException NullInputSlot(string vendor, string boxType, int slot) =>
+        new(NullInputSlotMarker,
+            $"{vendor}: the '{boxType}' box holds nothing in input slot {slot} — not an unwired pin, a slot with no item, a " +
+            "shape no measured box holds. Volt refuses to materialize the body rather than read its pins against the " +
+            "wrong names.");
+
+    /// <summary>A list a box always holds, not there: its outputs, or a pin-name list. Missing is not empty — an
+    /// operator's empty name list is a real answer, while an absent one means the reader is looking by a name the
+    /// object model does not use. Read as empty, a box lost every <c>=&gt; v</c>, or a wired EN became a data pin.</summary>
+    public static Volt.Engine.Format.Body.UnrepresentableBodyException MissingList(string vendor, string boxType, string member) =>
+        new(MissingListMarker,
+            $"{vendor}: the '{boxType}' box holds no {member}, which every measured box holds (empty where it has none). " +
+            "Volt refuses to materialize the body rather than read the gap as an empty list.");
+}
+
 /// <summary>The end of an LD rung, and the model's one spelling of "nothing drives this" — <c>BoxTreeTerminator</c>
 /// with no input. The vendor type HAS an <c>Input</c>, and it is not carried: census 1.4 found none holding one across
 /// five real projects, so the readers refuse such a terminator by name (the marker) instead of the model keeping a
@@ -337,8 +390,9 @@ public sealed record Terminator(Flags Flags) : Node(Flags)
 /// fact of the TEXT, not of the vendor, whose Demux holds no type. The v2 reader fills it on a definition and the
 /// v2 writer declares it where the producer does not say the type by itself (a box read from text carries no
 /// <c>OutputTypes</c>): without it, <c>g1 := ADD(a, b);</c> read back from the engineer's own file could not be
-/// written again. A driver never reads it and never fills it; null means "no text declared one" (every
-/// vendor-read model).</para>
+/// written again. A driver never fills it; one that BUILDS the producer reads it once, as the box's stored output type
+/// (<see cref="NetworkText.WithDeclaredType"/>) — the vendor derives none, so a pushed data wire read back typeless.
+/// Null means "no text declared one" (every vendor-read model).</para>
 ///
 /// <para><b>It carries no <see cref="Flags"/></b> (always <see cref="Flags.None"/>), definition or reference: the
 /// vendor's <c>BoxTreeDemux.Flags</c> hands out an object the node never stores, so a negation or an edge set there

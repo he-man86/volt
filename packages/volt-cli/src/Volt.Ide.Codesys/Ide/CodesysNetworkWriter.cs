@@ -426,13 +426,22 @@ namespace Volt.Ide.Codesys
                             // reader skips an empty output slot, so it round-trips as the nothing it is.
                             foreach (var (_, value) in slots)
                                 NwlInterop.Call(outs, "AppendOutputItem", Operand(value ?? new Operand("")));
+                        }
 
-                            if (slots.Any(x => !string.IsNullOrEmpty(x.Formal)))
-                            {
-                                var outPins = NwlInterop.Require(box, "OutputParams");
-                                foreach (var (formal, _) in slots)
-                                    NwlInterop.Call(outPins, "AppendParam", formal ?? "", "");
-                            }
+                        // THE OUTPUT NAMES AND STORED TYPES, index-aligned with the slots as the reader reads them back
+                        // (`OutputParams`). The vendor derives neither (DIALECT N21: `OutputParams` holds exactly what the
+                        // writer appended), so a type the model carries and this does not write is a type the next pull
+                        // does not have — a data wire read back "of unknown type". A slot only a TYPE names (the one a
+                        // wire is connected to) gets a param and NO output item: the vendor stores the connected slot as
+                        // null, and an empty operand there is an assignment to nothing — measured live, the build answers
+                        // "The assignment target is not specified".
+                        var types = b.OutputTypes ?? Array.Empty<string?>();
+                        if (slots.Any(x => !string.IsNullOrEmpty(x.Formal)) || types.Any(t => t is not null))
+                        {
+                            var outPins = NwlInterop.Require(box, "OutputParams");
+                            for (var i = 0; i < Math.Max(slots.Count, types.Count); i++)
+                                NwlInterop.Call(outPins, "AppendParam",
+                                    (i < slots.Count ? slots[i].Formal : null) ?? "", (i < types.Count ? types[i] : null) ?? "");
                         }
 
                         // THE REFUSAL THAT USED TO STAND HERE said a box's embedded output "has no network
@@ -465,7 +474,9 @@ namespace Volt.Ide.Codesys
                         NwlInterop.Set(dm, "VarId", d.VarId);
                         // With an Input this DEFINES the wire; without one it REFERENCES the definition
                         // carrying the same id.
-                        if (d.Input is { } src) NwlInterop.Call(dm, "SetInputTree", 0, Node(src));
+                        // The producer carries the type the text declared the wire with, which the box writes into
+                        // `OutputParams.Types` — the one place the vendor keeps it, and it derives none itself (N21).
+                        if (d.Input is { } src) NwlInterop.Call(dm, "SetInputTree", 0, Node(NetworkText.WithDeclaredType(src, d.Type)));
                         // No flags: the model has none on a Demux, because the IDE stores none (DIALECT N20). This
                         // used to call Flagged(dm, d.Flags), which set bits on an IFlags the node hands out and never
                         // keeps — the push reported success and the wire ran un-negated.

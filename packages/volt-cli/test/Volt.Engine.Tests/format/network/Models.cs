@@ -252,6 +252,7 @@ internal static class NetworkModels
         ["A_coil_both_set_and_reset_goes_to_the_marker"] = "refused by the writer",
         ["An_FB_instance_the_declarations_do_not_name_goes_to_the_marker"] = "refused by the writer",
         ["A_ladder_leaf_wire_feeding_data_pins_is_of_unknown_type"] = "refused by the writer",
+        ["A_ladder_leaf_wire_on_an_enabled_boxs_data_pins_is_of_unknown_type"] = "refused by the writer",
         ["A_lone_CR_inside_a_comment_or_snippet_line_goes_to_the_marker"] = "refused by the writer",
         ["A_consumed_box_whose_main_output_was_not_read_goes_to_the_marker"] = "refused by the writer",
         ["A_wire_whose_name_is_taken_is_renamed_to_the_lowest_free_g"] =

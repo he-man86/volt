@@ -594,6 +594,33 @@ public class CodesysCoilFlagTests
         Assert.Equal(new[] { 28, 28, 28 }, ids);
     }
 
+    /// <summary>A DATA WIRE A PUSH BUILDS COMES BACK AS THE TEXT DECLARED IT, and pushes again unchanged. The text says
+    /// the wire's type only in <c>VAR_TEMP g1 : INT</c>; the vendor keeps a box's output type in <c>OutputParams.Types</c>
+    /// and derives none itself (DIALECT N21), so a writer that appended no type built an ADD whose re-read stored none —
+    /// the next pull turned the body into the marker ("a wire of unknown type") and the next push of the very same text
+    /// was refused by the change gate rendering the live network. Spec: "on push the declared type is taken as
+    /// written".</summary>
+    [Fact]
+    public void A_data_wire_a_push_built_reads_back_with_its_declared_type_and_pushes_again()
+    {
+        var (model, scope) = Pushed("VAR_TEMP g1 : INT; END_VAR\n  g1 := (a + b);\n  n := g1;\n  sv := g1;");
+        var live = Different();
+
+        CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope);
+
+        // The type rides the param list, and the connected slot holds NO output item: an empty operand there is an
+        // assignment to nothing, which the live build refused ("The assignment target is not specified").
+        var add = Assert.IsType<Nwl.BoxTreeBox>(Assert.IsType<Nwl.BoxTreeDemux>(live.GetTree(0)).Input);
+        Assert.Equal(new[] { "INT" }, Assert.IsType<Nwl.ParamList>(add.OutputParams).Types);
+        Assert.Empty(add.Outputs.List);
+
+        var reread = CodesysNetworkReader.ReadNetwork(live, 0);
+        var body = new NetworkBody(BodyLanguage.Fbd, new[] { reread });
+        Assert.Contains("VAR_TEMP g1 : INT; END_VAR", NetworkTextWriter.Write(body, scope));
+        Assert.Null(Record.Exception(() =>
+            CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, scope)));
+    }
+
     /// <summary>A MODIFIER ON A BOX INPUT PIN (task 4.1: the reader fills <see cref="Input.Flags"/>) is never written
     /// without its bit and never dropped: the change gate renders the model through the text writer first, which has no
     /// spelling for a pin flag (phase-1 decision) and refuses it by name — so such a model reaches no rebuild.</summary>

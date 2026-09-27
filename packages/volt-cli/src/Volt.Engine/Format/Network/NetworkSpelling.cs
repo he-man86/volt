@@ -364,7 +364,7 @@ internal static class NetworkSpelling
     {
         var any = false;
         var all = true;
-        void Walk(Node? n, bool boolean)
+        void Walk(Node n, bool boolean)
         {
             switch (n)
             {
@@ -383,15 +383,12 @@ internal static class NetworkSpelling
                     foreach (var c in a.Children()) Walk(c, controlFlow || lang == BodyLanguage.Ld);   // a condition; a ladder coil
                     break;
                 case Box b:
-                    // `Children()` yields the enable FIRST (its documented order, the vendor's input slot 0): the enable
-                    // is always taken as a BOOL, the pins after it as contacts or not by the box kind.
+                    // Not through `Children()`: the context differs per slot — the enable is always a BOOL, the pins are
+                    // contacts or not by the box kind — and the record already keeps the two apart, so counting position
+                    // in a uniform walk would only restate that, and break the day the walk's order changed.
+                    if (b.Enable is { } en) Walk(en, true);
                     var contacts = lang == BodyLanguage.Ld && b.StCode is null && BitOperators.Contains(b.Type);
-                    var enable = b.Enable is not null;
-                    foreach (var c in b.Children())
-                    {
-                        Walk(c, enable || contacts);
-                        enable = false;
-                    }
+                    foreach (var pin in b.Inputs) Walk(pin.Value, contacts);
                     break;
                 case Parallel p:
                     foreach (var c in p.Children()) Walk(c, true);

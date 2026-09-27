@@ -85,6 +85,52 @@ describe(`graphical / fan-out (${BASE})`, () => {
 		await clean()
 	})
 	/**
+	 * A DATA WIRE (review of section 4). The text states its type only in `VAR_TEMP g1 : INT`, and CODESYS keeps a
+	 * box's output type in `OutputParams.Types`, which it never fills itself (DIALECT N21). The writer appended no type,
+	 * so the pushed ADD re-read typeless: the next pull was the marker ("a wire of unknown type") and the next push of
+	 * the same text was refused. Every other wire here is BOOL, which the rule types without a stored type — so nothing
+	 * pushed a data wire until this. It must come back as written, push again unchanged, and BUILD (the box now carries
+	 * a typed output slot the vendor's own boxes carry). TwinCAT's import folds a fan-out into one assign (D22).
+	 */
+	it("a data wire comes back declared as pushed, pushes again, and builds", async () => {
+		const name = id("fanint")
+		const wire = fid("fanint", "prg")
+		const clean = async () => {
+			const items = (await bridge.refs()).items ?? {}
+			await pushOps([{ op: "deleteItem", name: wire, ifVersion: items[wire] ?? "UNREADABLE000000" }])
+		}
+		await clean()
+		// Counted, not attributed: a build diagnostic names no POU, and a PROGRAM cannot be instantiated to force it
+		// (`ensureCompiles`) — the baseline is whatever the fixture reports without it (labels.test.ts, same reason).
+		const errors = async () => ((await bridge.build()).diagnostics ?? []).filter((d: any) => d.severity === "error")
+		const before = (await errors()).length
+
+		const src =
+			`PROGRAM ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tn : INT;\n\tsv : INT;\nEND_VAR\n` +
+			`(* @volt-implementation FBD *)\nNETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := (a + b);\n  n := g1;\n  sv := g1;\nEND_NETWORK\n\nEND_PROGRAM\n`
+
+		const created = await pushOps([{ op: "set", name: wire, toFolder: "", sourceText: src, ifVersion: null }])
+		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+
+		const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
+		const shape = expectVendorDifference("DIALECT D22 / C20 — the PLCopen importer lowers a fan-out wire", {
+			codesys: () => "  VAR_TEMP g1 : INT; END_VAR\n  g1 := (a + b);\n  n := g1;\n  sv := g1;\n",
+			twincat: () => "  n :=\n  sv := (a + b);\n",
+		})
+		expect(v1.sourceText).toContain(shape)
+
+		const refs = await bridge.refs()
+		const again = await pushOps([{ op: "set", name: wire, sourceText: v1.sourceText, ifVersion: refs.items[wire] }])
+		expect(again.accepted, `re-push refused: ${JSON.stringify(again.conflicts)}`).toBe(true)
+		const v2 = (await bridge.fetch({ knownItems: {}, onlyItems: [wire] })).changed.find((i: any) => i.name === wire)
+		expect(v2.sourceText).toBe(v1.sourceText)
+
+		const after = await errors()
+		expect(after.length, `the pushed data wire does not build: ${JSON.stringify(after).slice(0, 400)}`).toBe(before)
+		await clean()
+	})
+
+	/**
 	 * A WIRE FED BY A LEAF (task 4.4; the 2.3 golden `LiteralFanout.a-Demux-of-a-leaf`). The text is legal and CODESYS
 	 * builds it natively, so it must come back exactly. TwinCAT reaches a body it does not have only through PLCopen
 	 * import, which crashed on this shape (the v1 `LiteralFanoutBugTests`); the driver refuses it by name

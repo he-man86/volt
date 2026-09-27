@@ -60,6 +60,21 @@ public static class NetworkText
         b.HasEnoOutput ?? NetworkSpelling.TextHasEno(isExecute: b.StCode is not null, hasEnable: b.Enable is not null,
                                                      enoSuffix: NetworkSpelling.ConnectedByEno(b), consumed: consumed);
 
+    /// <summary>A WIRE'S PRODUCER, CARRYING THE TYPE THE TEXT DECLARED THE WIRE WITH as the stored output type of the slot
+    /// the wire is connected to (<see cref="Box.OutputTypes"/>) — what a driver building the box writes where its vendor
+    /// keeps a box's output type. The text states a data wire's type only in its <c>VAR_TEMP</c> (spec: "on push the
+    /// declared type is taken as written"), and the vendor derives none itself (DIALECT N21: CODESYS's
+    /// <c>OutputParams</c> holds exactly what the writer appended). Built without it, <c>g1 := (a + b);</c> declared
+    /// <c>INT</c> read back as a wire of unknown type: the next pull was the marker, and the next push of the same text
+    /// was refused by the change gate rendering the live network. Only a box connected by a data slot takes it — a
+    /// consumer of ENO reads a BOOL the rule already knows, and a bit operator stores no slot to carry one (census 1.6);
+    /// a type already stored is its own answer.</summary>
+    public static Node WithDeclaredType(Node producer, string? declared) =>
+        producer is Box { OutputTypes: null, StCode: null, ConnectedSlot: { } slot } b && declared is not null
+        && !NetworkSpelling.ConnectedByEno(b)
+            ? b with { OutputTypes = Enumerable.Repeat<string?>(null, slot).Append(declared).ToList() }
+            : producer;
+
     /// <summary>Whether a box type is a comparison operator (GT, GE, LT, LE, EQ, NE) — the engine's one list, the door a
     /// driver has to it so a refusal keyed on "a comparison" cannot drift from the set the text types as BOOL.</summary>
     public static bool IsComparison(string type) => NetworkSpelling.Comparisons.Contains(type);

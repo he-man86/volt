@@ -187,8 +187,13 @@ namespace Volt.Ide.Codesys
             }
         }
 
-        /// <summary>The <c>Names</c> array of an <c>IParamList</c>, or empty when there is none.</summary>
-        private static List<string?> Names(object? paramList) => Strings(paramList, "Names") ?? new List<string?>();
+        /// <summary>A box's pin names — the <c>Names</c> array of its <c>InputParams</c>/<c>OutputParams</c>, REQUIRED. The
+        /// names decide whether slot 0 is the enable (and the ENO), so a list the box does not answer is refused by name
+        /// (<see cref="BoxRefusals.MissingList"/>): read as "no names", <c>MOVE(EN := en1, a)</c> pulled as
+        /// <c>MOVE(en1, a)</c>. An operator's EMPTY array is a real answer (<c>Names=[]</c>, measured).</summary>
+        private static List<string?> Names(object box, string paramList) =>
+            Strings(NwlInterop.Get(box, paramList), "Names")
+            ?? throw BoxRefusals.MissingList(Volt.Contracts.Vendors.CodesysDisplay, NwlInterop.Text(box, "BoxType") ?? "", paramList + ".Names");
 
         /// <summary>One of an <c>IParamList</c>'s two string arrays (<c>Names</c>, <c>Types</c>), or null when the list or
         /// the array is absent.</summary>
@@ -231,19 +236,16 @@ namespace Volt.Ide.Codesys
         private static List<Flags> PinFlags(object box) =>
             NwlInterop.Get(box, "InputFlags") is System.Collections.IEnumerable pinFlags
                 ? pinFlags.Cast<object?>().Select(ReadFlags).ToList()
-                : throw new Volt.Engine.Format.Body.UnrepresentableBodyException("a flag on a box input pin",
-                    $"CODESYS: the '{NwlInterop.Text(box, "BoxType")}' box answers no InputFlags list, where every measured " +
-                    "box holds one aligned with its inputs, so whether a pin carries a negation or an edge is unknown. " +
-                    "Volt refuses to materialize the body rather than read the gap as \"no flag\".");
+                : throw BoxRefusals.NoPinFlags(Volt.Contracts.Vendors.CodesysDisplay, NwlInterop.Text(box, "BoxType") ?? "");
 
         private static Volt.Engine.Format.Body.UnrepresentableBodyException PinFlagsMisaligned(object box, int flags, int pins) =>
-            new("a flag on a box input pin",
+            new(BoxRefusals.PinFlagMarker,
                 $"CODESYS: the '{NwlInterop.Text(box, "BoxType")}' box holds {flags} pin flag(s) for {pins} input(s). The " +
                 "list is index-aligned with the inputs and was never measured any other length, so which pin a modifier " +
                 "belongs to is unknown. Volt refuses to materialize the body rather than read the gap as \"no flag\".");
 
         private static Volt.Engine.Format.Body.UnrepresentableBodyException PinFlagOnEnable(object box, Flags flags) =>
-            new("a flag on a box input pin",
+            new(BoxRefusals.PinFlagMarker,
                 $"CODESYS: the '{NwlInterop.Text(box, "BoxType")}' box has a {Describe(flags)} on its EN pin, and the " +
                 "model has no place for a modifier on the enable (it is a tree, not a pin). Volt refuses to materialize " +
                 "the body rather than pull the enable without it.");
@@ -254,7 +256,14 @@ namespace Volt.Ide.Codesys
 
         private static Box ReadBox(object n, Flags flags, bool consumed)
         {
-            var items = NwlInterop.RequireItems(n, "InputItemList", listMember: "").ToList();
+            var type = NwlInterop.Text(n, "BoxType") ?? "";
+            // RAW, nulls and all — the slots are index-aligned with the names and the pin flags, and `NwlInterop.Items`
+            // drops a null, which shifted every later pin onto its neighbour's name. A null slot is no measured shape
+            // (an unwired pin is a terminator here), so it is refused under its own name, before the flag check would
+            // refuse it as a misaligned "flag on a box input pin".
+            var items = (NwlInterop.Require(n, "InputItemList") as IEnumerable
+                         ?? throw BoxRefusals.MissingList(Volt.Contracts.Vendors.CodesysDisplay, type, "InputItemList")).Cast<object?>().ToList();
+            if (items.IndexOf(null) is var hole && hole >= 0) throw BoxRefusals.NullInputSlot(Volt.Contracts.Vendors.CodesysDisplay, type, hole);
 
             // Formal pin names, where the vendor supplies them. Operator boxes are positional; an FB call names
             // its pins, and network text needs those names to write `inst(IN := x, PT := y)`.
@@ -265,7 +274,7 @@ namespace Volt.Ide.Codesys
             // never had: the lookup found nothing, `formals` came back EMPTY every time, and a count guard
             // then quietly left every pin unnamed. So an FB call pulled as `t1( := a,  := pt)` - text that
             // does not parse, which means such a POU could be pulled and never pushed back.
-            var formals = Names(NwlInterop.Get(n, "InputParams"));
+            var formals = Names(n, "InputParams");
             var pinFlags = PinFlags(n);
             // INDEX-ALIGNED WITH THE ITEMS, or not read at all. Census 2026-09-26 found the list on every box and never
             // a length other than the pins'; a list that does not line up says a pin's modifier is somewhere this reader
@@ -279,7 +288,7 @@ namespace Volt.Ide.Codesys
             if (Box.HasEnableSlot(formals) && items.Count > 0)
             {
                 if (!pinFlags[0].IsNone) throw PinFlagOnEnable(n, pinFlags[0]);
-                enable = ReadNode(items[0], consumed: true);
+                enable = ReadNode(items[0]!, consumed: true);
                 items.RemoveAt(0);
                 formals.RemoveAt(0);
                 pinFlags.RemoveAt(0);
@@ -288,7 +297,7 @@ namespace Volt.Ide.Codesys
             // `Names` is INDEX-ALIGNED, never length-equal: it may be shorter than the item list (see Box.FormalAt).
             // `InputFlags` is length-equal — required and checked above.
             var inputs = items
-                .Select((x, i) => new Input(Clean(Box.FormalAt(formals, i)), ReadNode(x, consumed: true), pinFlags[i]))
+                .Select((x, i) => new Input(Clean(Box.FormalAt(formals, i)), ReadNode(x!, consumed: true), pinFlags[i]))
                 .ToList();
 
             // AN INSTANCE THAT NAMES NOTHING IS NOT AN INSTANCE. The member is PRESENT on every box —
@@ -311,8 +320,7 @@ namespace Volt.Ide.Codesys
             // measured to read (`UnstoredMainOutput`), and null where no measurement says — never a default: the
             // writer refuses a box whose slot nobody read. Whether the box HAS an ENO output is its output list's
             // first name (`Box.HasEnoSlot`), independent of EN — census 1.6 found 40 enabled comparisons with none.
-            var outputNames = Names(NwlInterop.Get(n, "OutputParams"));
-            var type = NwlInterop.Text(n, "BoxType") ?? "";
+            var outputNames = Names(n, "OutputParams");
             var mainOutput = NwlInterop.Get(n, "MainOutputIndex") is int main ? main
                 : consumed ? UnstoredMainOutput(type, enable is not null, outputNames) : null;
 
@@ -321,7 +329,7 @@ namespace Volt.Ide.Codesys
                 instance,
                 ReadCallKind(NwlInterop.Get(n, "CallType"), instance),
                 inputs,
-                ReadBoxOutputs(n),
+                ReadBoxOutputs(n, type, outputNames),
                 // From INPUT SLOT 0 (above), never from `En` and never from `EnEno`. `EnEno` is a CAPABILITY
                 // marker, true on every box in a real project including every plain AND and OR, so keying on it
                 // would wrap the whole project in `IF en THEN … END_IF`. `En` is the "EN/ENO is shown" flag —
@@ -417,21 +425,18 @@ namespace Volt.Ide.Codesys
         /// declared output whether or not the engineer wired it — 29 empty slots on one 30-pin box — so the
         /// non-empty ones are the connections, and emitting the rest would fabricate assignments to nothing.
         /// Nulls occur too (the ENO slot), so both are skipped.</para></summary>
-        private static List<Output> ReadBoxOutputs(object n)
+        private static List<Output> ReadBoxOutputs(object n, string type, IReadOnlyList<string?> names)
         {
             // RAW, nulls and all. `NwlInterop.Items` drops nulls — right for a list read for its CONTENT, and
             // wrong here, because the ENO slot IS a null and dropping it shifts every later slot one place
-            // against `OutputParams.Names`. The pin names would then belong to the wrong pins.
+            // against `OutputParams.Names`. The pin names would then belong to the wrong pins. And REQUIRED: a
+            // holder with no list is not a box with no outputs — read as empty, every `=> v` went without a word.
             var holder = NwlInterop.Require(n, "Outputs");
-            var slots = (NwlInterop.Get(holder, "List") as IEnumerable)?.Cast<object?>().ToList()
-                        ?? new List<object?>();
-            var names = Names(NwlInterop.Get(n, "OutputParams"));
+            var slots = (NwlInterop.Get(holder, "List") as IEnumerable
+                         ?? throw BoxRefusals.MissingList(Volt.Contracts.Vendors.CodesysDisplay, type, "Outputs.List")).Cast<object?>().ToList();
             var eno = Box.HasEnoSlot(names) ? 1 : 0;
-            if (eno == 1 && slots.Count > 0 && slots[0] is { } enoSlot && ReadOperand(enoSlot).Text is { Length: > 0 } wired)
-                throw new Volt.Engine.Format.Body.UnrepresentableBodyException("an ENO output wired to a variable",
-                    $"CODESYS: the '{NwlInterop.Text(n, "BoxType")}' box stores '{wired}' on its ENO output, which network " +
-                    "text has no spelling for (a box's ENO is read by its consumer, never assigned with =>). Volt refuses " +
-                    "to materialize the body rather than pull it without that variable.");
+            if (eno == 1 && slots.Count > 0 && slots[0] is { } enoSlot)
+                BoxRefusals.RefuseWiredEno(Volt.Contracts.Vendors.CodesysDisplay, type, ReadOperand(enoSlot).Text);
 
             var outputs = new List<Output>();
             for (var i = eno; i < slots.Count; i++)

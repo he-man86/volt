@@ -195,8 +195,33 @@ internal static class TcNetworkReader
         }
     }
 
-    internal static bool HasEno(XElement box) =>
-        Box.HasEnoSlot(TcArchive.Strings(TcArchive.Obj(box, "OutputParam"), "Names"));
+    internal static bool HasEno(XElement box) => Box.HasEnoSlot(Names(box, "OutputParam"));
+
+    /// <summary>A box's pin names — <c>InputParam</c>/<c>OutputParam</c>'s <c>Names</c> list, REQUIRED. The names decide
+    /// whether slot 0 is the enable (and the ENO), so a list the archive does not hold is refused by name
+    /// (<see cref="BoxRefusals.MissingList"/>): <c>TcArchive.Strings</c> answers a missing list with an empty one, and
+    /// read so a wired EN became a positional data pin and a named output the box's result. An operator's EMPTY list
+    /// (<c>&lt;l2 n="Names" /&gt;</c>, measured on every operator box here) is a real answer.</summary>
+    private static IReadOnlyList<string> Names(XElement box, string param) =>
+        TcArchive.Obj(box, param) is { } p && p.Elements("l2").Any(l => (string?)l.Attribute("n") == "Names")
+            ? TcArchive.Strings(p, "Names")
+            : throw BoxRefusals.MissingList(Volt.Contracts.Vendors.TwincatDisplay, TcArchive.Str(box, "BoxType") ?? "", param + "/Names");
+
+    /// <summary>A box's INPUT SLOTS — with their holes, REQUIRED, and refused where one is a hole. The slots are
+    /// index-aligned with <c>InputParam/Names</c>, and <c>TcArchive.List</c> drops a <c>&lt;n /&gt;</c>: a null slot
+    /// then moved every later pin onto its neighbour's name (the TON's <c>PT</c> read as <c>IN</c>) or a data pin onto
+    /// the enable, and nothing caught it — this vendor's <c>InputFlags</c> is null, so there is no length to check.
+    /// An unwired pin is an empty operand here (<see cref="IsUnwiredPin"/>); a null slot is no measured shape.</summary>
+    private static IReadOnlyList<XElement> InputSlots(XElement box)
+    {
+        var type = TcArchive.Str(box, "BoxType") ?? "";
+        if (!box.Elements("l2").Any(l => (string?)l.Attribute("n") == "InputItems"))
+            throw BoxRefusals.MissingList(Volt.Contracts.Vendors.TwincatDisplay, type, "InputItems");
+        var slots = TcArchive.Slots(box, "InputItems");
+        for (var i = 0; i < slots.Count; i++)
+            if (slots[i] is null) throw BoxRefusals.NullInputSlot(Volt.Contracts.Vendors.TwincatDisplay, type, i);
+        return slots.Select(x => x!).ToList();
+    }
 
     /// <summary>THE STORED OUTPUT TYPES, index-aligned with the output slots as the names are — the compiler's answer
     /// the archive keeps (<c>&lt;l2 n="Types"&gt;&lt;v&gt;BOOL&lt;/v&gt;&lt;v&gt;TIME&lt;/v&gt;</c> on a TON; <c>[BOOL]</c> on an AND, DIALECT
@@ -240,7 +265,7 @@ internal static class TcNetworkReader
         // output is one slot a consumer can read — and the stamp compares the connection BEFORE the repair, so both
         // states must read the same.
         if (slots.Count <= 1 && slots.All(s => s is not null && string.IsNullOrEmpty(TcArchive.Str(s, "Operand")))
-            && TcArchive.Strings(TcArchive.Obj(box, "OutputParam"), "Names").Count == 1)
+            && Names(box, "OutputParam").Count == 1)
             return 0;
         var nulls = slots.Select((slot, i) => (slot, i)).Where(x => x.slot is null).Select(x => x.i).ToList();
         return nulls.Count == 1 ? nulls[0] : null;
@@ -304,13 +329,9 @@ internal static class TcNetworkReader
     /// ordinary input item, and the <c>EN</c> member is the "EN/ENO is shown" flag rather than the wire.</summary>
     private static Node? ReadEnable(XElement e)
     {
-        var names = TcArchive.Strings(TcArchive.Obj(e, "InputParam"), "Names");
-        if (!Box.HasEnableSlot(names)) return null;
-        var items = TcArchive.List(e, "InputItems");
-        // The import builds an unwired enable exactly as it builds an unwired data pin (an empty operand), so the
-        // enable slot reads through the same rule as the data pins in `ReadInputs` — else it came back `EN := ``.
-        if (items.Count == 0) return null;
-        return ReadPin(items[0]);
+        if (!Box.HasEnableSlot(Names(e, "InputParam"))) return null;
+        var items = InputSlots(e);
+        return items.Count == 0 ? null : ReadPin(items[0]);
     }
 
     /// <summary>THE ONE READ OF A BOX INPUT SLOT — the enable (slot 0) and every data pin alike. The import builds an
@@ -332,8 +353,8 @@ internal static class TcNetworkReader
     /// here): its pins are positional and have no names, so those stay null rather than being refused.</para></summary>
     private static List<Input> ReadInputs(XElement e)
     {
-        var items = TcArchive.List(e, "InputItems");
-        var names = TcArchive.Strings(TcArchive.Obj(e, "InputParam"), "Names");
+        var items = InputSlots(e);
+        var names = Names(e, "InputParam");
 
         // Slot 0 is the ENABLE when the vendor names it so, and it is not a data pin — `ReadEnable` takes it.
         var skip = Box.HasEnableSlot(names) && items.Count > 0 ? 1 : 0;
@@ -353,12 +374,9 @@ internal static class TcNetworkReader
         // shape this reader has never seen, not a box whose pins carry nothing.
         var pinFlags = e.Elements().FirstOrDefault(x => (string?)x.Attribute("n") == "InputFlags");
         if (pinFlags is null)
-            throw new Volt.Engine.Format.Body.UnrepresentableBodyException("a flag on a box input pin",
-                $"TwinCAT: the '{TcArchive.Str(e, "BoxType")}' box carries no InputFlags member, which every measured box " +
-                "holds, so whether a pin carries a negation or an edge is unknown. Volt refuses to materialize the body " +
-                "rather than read the gap as \"no flag\".");
+            throw BoxRefusals.NoPinFlags(Volt.Contracts.Vendors.TwincatDisplay, TcArchive.Str(e, "BoxType") ?? "");
         if (pinFlags.Name.LocalName != "n")
-            throw new Volt.Engine.Format.Body.UnrepresentableBodyException("a flag on a box input pin",
+            throw new Volt.Engine.Format.Body.UnrepresentableBodyException(BoxRefusals.PinFlagMarker,
                 $"TwinCAT: the '{TcArchive.Str(e, "BoxType")}' box carries a populated InputFlags — a modifier on a PIN, " +
                 "which network text has no spelling for (only on what feeds it). Volt refuses to materialize the body " +
                 "rather than pull the input without it.");
@@ -399,21 +417,21 @@ internal static class TcNetworkReader
     /// vendors ship the same NWL model (N1) and this is that model through the archive's spelling.</summary>
     private static IReadOnlyList<Output> BoxOutputs(XElement e)
     {
-        var names = TcArchive.Strings(TcArchive.Obj(e, "OutputParam"), "Names");
+        var names = Names(e, "OutputParam");
         // SLOTS, NOT ITEMS. `Outputs`/`TcArchive.List` drop a `<n />` slot, and the ENO slot IS one — so
         // indexing the compacted list against `Names` named every later pin one place wrong, or dropped the
         // only wired pin outright. The CODESYS twin reads raw for the same reason; this used to go through
         // `Outputs(e)` while its own comment claimed the two vendors shared the rule.
-        var holder = TcArchive.RequireObj(e, "OutputItems", $"the {TcArchive.TypeOf(e) ?? "item"}");
+        // And REQUIRED, holder and list, as `Outputs` requires them: `Slots` answers a missing list with an empty
+        // one, which read a box whose outputs this reader cannot find as a box with none — every `=> v` dropped.
+        var type = TcArchive.Str(e, "BoxType") ?? "";
+        var holder = TcArchive.Obj(e, "OutputItems");
+        if (holder is null || !holder.Elements("l2").Any(l => (string?)l.Attribute("n") == "OutputItems"))
+            throw BoxRefusals.MissingList(Volt.Contracts.Vendors.TwincatDisplay, type, "OutputItems");
         var slots = TcArchive.Slots(holder, "OutputItems");
         var eno = Box.HasEnoSlot(names) ? 1 : 0;
-        // A VARIABLE ON THE ENO SLOT IS REFUSED, never skipped: the text has no spelling for it (ENO is never an `=>`
-        // slot), and skipping it pulled a body that hid the variable. Measured null on every box — not assumed so.
-        if (eno == 1 && slots.Count > 0 && slots[0] is { } enoSlot && ReadOperand(enoSlot).Text is { Length: > 0 } wired)
-            throw new Volt.Engine.Format.Body.UnrepresentableBodyException("an ENO output wired to a variable",
-                $"TwinCAT: the '{TcArchive.Str(e, "BoxType")}' box stores '{wired}' on its ENO output, which network " +
-                "text has no spelling for (a box's ENO is read by its consumer, never assigned with =>). Volt refuses " +
-                "to materialize the body rather than pull it without that variable.");
+        if (eno == 1 && slots.Count > 0 && slots[0] is { } enoSlot)
+            BoxRefusals.RefuseWiredEno(Volt.Contracts.Vendors.TwincatDisplay, type, ReadOperand(enoSlot).Text);
 
         var outputs = new List<Output>();
         for (var i = eno; i < slots.Count; i++)

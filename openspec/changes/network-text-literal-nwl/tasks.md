@@ -549,6 +549,20 @@ the text's rule (`NetworkText.HasEnoOutput`) rather than a copy of it; the pull 
       is refused by name ("an ENO output wired to a variable") on both readers instead of skipped, which a CODESYS
       rebuild turned into a silent delete (`A_variable_wired_on_the_ENO_slot_is_refused_by_name_not_dropped`,
       `A_variable_on_the_ENO_slot_is_refused_by_name_not_dropped`).
+      *Review of section 4 (third pass, 2026-09-27), each fix pinned by a test that was red first:* a null INPUT slot
+      is refused under its own name ("a box input slot holding nothing") on both readers — TwinCAT compacted it away
+      and read the TON's `PT` as `IN` silently, CODESYS refused it as a misaligned pin flag; a box whose output list, or
+      whose `InputParams`/`OutputParams` `Names`, is missing is refused by name ("a box list the reader cannot find")
+      instead of read as empty, which dropped every `=> v` or turned a wired EN into a data pin (`TcBoxSlotTests`,
+      `CodesysBoxSlotTests`); the four box refusals live once in the engine (`BoxRefusals`), so the parity pair cannot
+      drift onto two markers. The CODESYS writer writes the type a data wire is DECLARED with as its producer's
+      `OutputParams.Types` (`NetworkText.WithDeclaredType`): the vendor derives none (N21), so `g1 := (a + b);` declared
+      `INT` pulled back as "a wire of unknown type" and its own re-push was refused
+      (`A_data_wire_a_push_built_reads_back_with_its_declared_type_and_pushes_again`); live on both vendors
+      (`fanout.test.ts`, "a data wire …": exact on CODESYS, folded on TwinCAT per D22, and the build adds no error) —
+      measured on the way: an empty operand on the CONNECTED slot builds as "The assignment target is not specified",
+      so the slot gets a typed param and no output item (DIALECT N21). `EveryUseIsBoolean`'s box arm reads the enable
+      and the pins by field again, not by position in `Children()`.
 - [x] 4.2 TwinCAT: a value edit stays in place. A structurally changed network is imported (D22c/D25/D30/C25/C20);
       until measured live it refuses `PARALLEL`, a Demux of a leaf and a result pin `=> v` with `NETWORK_UNSUPPORTED`,
       the message naming the network and the reason (review 7.16). Offline tests for each refusal. Read

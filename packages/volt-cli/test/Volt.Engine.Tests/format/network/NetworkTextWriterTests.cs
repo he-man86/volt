@@ -808,6 +808,16 @@ public class NetworkTextWriterTests
                 Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("nOut", 0) }, eno: false),
                 Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("y", 0) }, eno: false)), BodyLanguage.Ld)).Marker);
 
+    /// <summary>…and on an ENABLED box too: the enable is a BOOL and the pins are not, which the record keeps apart. A
+    /// leaf wire read only by the data pins of enabled MOVEs is a data value; a walk that counted position over the
+    /// box's children would take the first pin for the enable the day that order changed, and declare it BOOL.</summary>
+    [Fact]
+    public void A_ladder_leaf_wire_on_an_enabled_boxs_data_pins_is_of_unknown_type() =>
+        Assert.Equal("a wire of unknown type",
+            Refused(() => Write(Net(Def(1, L("nSpeed")),
+                Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("y", 1) }, en: L("x"), eno: true),
+                Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("z", 1) }, en: L("x"), eno: true)), BodyLanguage.Ld)).Marker);
+
     /// <summary>A head is the BoxType verbatim: an operator type not spelled as the table's own word (<c>and</c>)
     /// is written in call form with that spelling, never as the infix group that reads back as <c>AND</c>.</summary>
     [Fact]

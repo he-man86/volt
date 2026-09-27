@@ -121,12 +121,19 @@ internal static class Nwl
 
     internal sealed class OutputItemList
     {
-        public List<object> List { get; } = new List<object>();
+        private readonly List<object> _list = new List<object>();
+        private bool _withoutList;
+
+        /// <summary>The holder's slots. Null only on <see cref="WithoutList"/> — a shape no vendor was measured holding,
+        /// described for the test that refuses it (a missing list is not an empty one).</summary>
+        public List<object> List => _withoutList ? null! : _list;
+
+        public static OutputItemList WithoutList() => new OutputItemList { _withoutList = true };
 
         /// <summary>The vendor's own append. These collections are NOT <c>IList</c> — no <c>Add</c>, no
         /// <c>Count</c>, no indexer — so the writer calls this, and a double without it cannot complete a
         /// rebuild.</summary>
-        public void AppendOutputItem(object item) => List.Add(item);
+        public void AppendOutputItem(object item) => _list.Add(item);
     }
 
     internal sealed class BoxTreeAssign
@@ -245,7 +252,8 @@ internal static class Nwl
         /// default like the vendor's, where an operator box simply has an empty one.</summary>
         public object? OutputParams { get; set; } = new ParamList();
 
-        public OutputItemList Outputs { get; } = new OutputItemList();
+        /// <summary>Settable for a test that describes a holder the vendor was never measured with.</summary>
+        public OutputItemList Outputs { get; set; } = new OutputItemList();
 
         /// <summary>Which output slot is the box's result — the slot a consumer reads (DIALECT N16). Null by default,
         /// the shape of an AND/OR box, which stores none (census 1.6); a call box states it.</summary>
