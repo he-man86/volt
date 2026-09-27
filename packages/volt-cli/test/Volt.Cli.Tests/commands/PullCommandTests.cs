@@ -81,9 +81,9 @@ public class PullCommandTests
     }
 
     /// <summary>The upgrade to MATERIALIZATION 3 (network text v2) re-materializes every graphical body, so an
-    /// engineer's un-pushed v1 edit meets it as a whole-body conflict — and v1 can never be pushed again (refused,
-    /// "re-pull"). Resolving it by keeping OUR side would keep text no Volt reads, so the conflict names those files
-    /// and the one resolution that works (openspec network-text-literal-nwl 6.4).</summary>
+    /// engineer's un-pushed v1 edit can meet it as a conflict — and v1 can never be pushed again (refused, "re-pull").
+    /// Resolving it by keeping OUR side would keep text no Volt reads, so the conflict names those files and the one
+    /// resolution that works (openspec network-text-literal-nwl 6.4). It can also merge CLEANLY, see below.</summary>
     [Fact]
     public void A_conflict_over_network_text_v1_names_the_files_and_the_resolution()
     {
@@ -102,6 +102,169 @@ public class PullCommandTests
             Assert.Contains("PLC_PRG.prg", r.Message);
             Assert.Contains("network text v1", r.Message);
             Assert.Contains("--theirs", r.Message);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>The hunk need not hold the v1 header. A v1 network whose header is followed by `//` comment lines
+    /// merges its header cleanly onto the IDE's bare `NETWORK`, and the conflict hunk holds only v1 `LET` statements —
+    /// the file still holds v1 text the push refuses, so the note must still name it.</summary>
+    [Fact]
+    public void A_conflict_whose_hunk_holds_only_v1_statements_still_names_the_file()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR",
+            "NETWORK 14 LD TITLE: \"Digital inputs\"\n// read the inputs\n// once per cycle\n" +
+            "LET en1 := TRUE;\nIF en1 THEN mydword := MOVE(%ID79); END_IF\nLET g8 := en1;\nEND_NETWORK"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            File.WriteAllText(PrgPath(root), File.ReadAllText(PrgPath(root)).Replace("%ID79", "%ID80")); // ours, v1
+            ide.MutateImplementation("PLC_PRG",                                                          // the re-materialization
+                "(* @volt-implementation LD *)\nNETWORK TITLE: \"Digital inputs\"\n// read the inputs\n// once per cycle\n" +
+                "mydword := MOVE(%ID79);\nEND_NETWORK");
+
+            var r = Commands.Pull(root, client);
+            Assert.Equal("conflict", r.Kind);
+            // The premise: git merged the header, so no line of the file is a v1 header any more.
+            Assert.DoesNotMatch(@"(?m)^\s*NETWORK\s+\d+", File.ReadAllText(PrgPath(root)));
+            Assert.NotNull(r.Message);
+            Assert.Contains("PLC_PRG.prg", r.Message);
+            Assert.Contains("network text v1", r.Message);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>A line spelled like a v1 header outside any graphical body — here in a comment in the declaration of
+    /// a pure-ST program — is no v1 text, and a note telling the engineer to throw their side away would lose a
+    /// pushable edit.</summary>
+    [Fact]
+    public void A_v1_header_spelling_in_a_declaration_comment_is_no_v1_text()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("PLC_PRG",
+            "PROGRAM PLC_PRG\n(*\n  the tray infeed:\nNETWORK 2 drives the conveyor\n*)\nVAR\nEND_VAR", "x := 1;"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            File.WriteAllText(PrgPath(root), File.ReadAllText(PrgPath(root)).Replace("x := 1;", "x := 2;"));
+            ide.MutateImplementation("PLC_PRG", "x := 99;");
+
+            var r = Commands.Pull(root, client);
+            Assert.Equal("conflict", r.Kind);
+            Assert.Null(r.Message);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    private const string V1Body =
+        "NETWORK 0 LD\n  LET g0 := (a AND b);\n  p := g0;\n  q := g0;\nEND_NETWORK\n" +
+        "NETWORK 1 LD\n  LET g1 := (a OR b);\n  r := g1;\n  s := g1;\nEND_NETWORK\n" +
+        "NETWORK 2 LD\n  out := (a AND b);\n  out2 := x;\nEND_NETWORK";
+
+    private const string V2Body =
+        "(* @volt-implementation LD *)\n" +
+        "NETWORK\n  VAR_TEMP g0 : BOOL; END_VAR\n  g0 := (a AND b);\n  p := g0;\n  q := g0;\nEND_NETWORK\n" +
+        "NETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := (a OR b);\n  r := g1;\n  s := g1;\nEND_NETWORK\n" +
+        "NETWORK\n  out := (a AND b);\n  out2 := x;\nEND_NETWORK";
+
+    /// <summary>An un-pushed v1 edit does NOT always meet the re-materialization as a conflict: next to lines the IDE
+    /// left alone, git merges it cleanly — and when the edit adds v1 constructs (a whole `NETWORK 3 LD` with a `LET`)
+    /// the clean result is a hybrid v1/v2 body the push refuses. The pull is the moment the engineer can still act on
+    /// it (a re-pull later changes nothing), so a clean pull names it too.</summary>
+    [Fact]
+    public void A_clean_merge_that_leaves_v1_text_in_a_body_names_the_file()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", V1Body));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            File.WriteAllText(PrgPath(root), File.ReadAllText(PrgPath(root)).Replace("  out2 := x;\nEND_NETWORK",
+                "  out2 := x;\nEND_NETWORK\nNETWORK 3 LD\n  LET g3 := (c AND d);\n  y := g3;\n  z := g3;\nEND_NETWORK")); // ours: a v1 network added
+            ide.MutateImplementation("PLC_PRG", V2Body);
+
+            var r = Commands.Pull(root, client);
+            Assert.Equal("ok", r.Kind);
+            Assert.Contains("LET g3", File.ReadAllText(PrgPath(root)));      // the premise: a clean, hybrid merge
+            Assert.NotNull(r.Message);
+            Assert.Contains("PLC_PRG.prg", r.Message);
+            Assert.Contains("network text v1", r.Message);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>…while a v1 edit git merges cleanly INTO v2 text (a statement both forms spell alike) leaves nothing
+    /// v1 behind, and the pull says nothing about v1.</summary>
+    [Fact]
+    public void A_clean_merge_that_leaves_only_v2_text_carries_no_v1_note()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", V1Body));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            File.WriteAllText(PrgPath(root), File.ReadAllText(PrgPath(root)).Replace("out2 := x;", "out2 := y;"));
+            ide.MutateImplementation("PLC_PRG", V2Body);
+
+            var r = Commands.Pull(root, client);
+            Assert.Equal("ok", r.Kind);
+            Assert.Contains("out2 := y;", File.ReadAllText(PrgPath(root)));   // the premise: the edit merged in
+            Assert.Null(r.Message);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>A modify/delete conflict is a conflict the IDE side materialized nothing for: the engineer edited a v1
+    /// body and the IDE deleted the item. Keeping our side re-creates the POU with v1 text the push refuses, so the
+    /// note must judge every CONFLICTED file, not only the ones the IDE changed.</summary>
+    [Fact]
+    public void A_modify_delete_conflict_over_network_text_v1_names_the_file()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR",
+            "NETWORK 0 LD\n  LET g0 := TRUE;\n  out := g0;\nEND_NETWORK"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            File.WriteAllText(PrgPath(root), File.ReadAllText(PrgPath(root)).Replace("out := g0;", "out2 := g0;")); // ours, v1
+            ide.RemoveItem("PLC_PRG");                                                                          // theirs: deleted
+
+            var r = Commands.Pull(root, client);
+            Assert.Equal("conflict", r.Kind);
+            Assert.Contains("PLC_PRG.prg", r.Paths!);
+            Assert.NotNull(r.Message);
+            Assert.Contains("PLC_PRG.prg", r.Message);
+            Assert.Contains("network text v1", r.Message);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>A file the merge left too malformed to split into declaration and bodies cannot be judged — and
+    /// dropping it from the note is the silence the note exists to break: the engineer fixes the declaration, the
+    /// push then refuses the v1 body ("re-pull"), and by then a re-pull changes nothing. So the note names it as
+    /// unchecked.</summary>
+    [Fact]
+    public void A_file_the_merge_left_unreadable_is_named_as_unchecked()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", V1Body));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            File.WriteAllText(PrgPath(root), File.ReadAllText(PrgPath(root))
+                .Replace("PROGRAM PLC_PRG", "FUNCTION_BLOCK PLC_PRG")                  // ours: a header the .prg refuses
+                .Replace("  out2 := x;\nEND_NETWORK",
+                    "  out2 := x;\nEND_NETWORK\nNETWORK 3 LD\n  LET g3 := (c AND d);\n  y := g3;\n  z := g3;\nEND_NETWORK"));
+            ide.MutateImplementation("PLC_PRG", V2Body);
+
+            var r = Commands.Pull(root, client);
+            Assert.Equal("ok", r.Kind);
+            var merged = File.ReadAllText(PrgPath(root));
+            Assert.Contains("FUNCTION_BLOCK PLC_PRG", merged);   // the premise: a clean merge that no longer splits
+            Assert.Contains("LET g3", merged);
+            Assert.NotNull(r.Message);
+            Assert.Contains("PLC_PRG.prg", r.Message);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }

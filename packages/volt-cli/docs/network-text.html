@@ -64,7 +64,8 @@
   <li><b>Keep <code>S=</code>/<code>R=</code> and chained assignment</b> — native ExST with the same level semantics:
     the target is set (reset) on every scan the value is TRUE, not on its transition.</li>
   <li><b>Pull never throws.</b> Anything the writer cannot spell sends the body to the existing marker; push refuses
-    by name. Unmeasured vendor facts (pin flags, item flags, nested Demux) are routed there until a census speaks.</li>
+    by name. The vendor facts it has no spelling for — pin flags, item flags, nested Demux — are measured (census
+    1.13, 1.1, 1.8) and routed there by name (<a href="#not-one-to-one">marker on pull, measured</a>).</li>
   <li><b>Wires are declared in a per-network <code>VAR_TEMP … END_VAR</code></b> below the header and comments, not in
     a header field — ordinary ST declarations the LSP hovers like any other. <b>Type: read off the producer</b>, one
     rule for FBD and LD and for writer and reader: the vendor's stored output type where it has one, else
@@ -175,7 +176,7 @@
   <tr><td>Item Jump/Return bit; RETURN's <code>???</code></td><td>Derived from the target bit (TwinCAT sets both, C13); the target text is measured constant.</td></tr>
   <tr><td>Network position; Int64 Ids</td><td>Host limit: CODESYS re-mints Ids on a changed network.</td></tr>
   <tr><td>Wire collision rename</td><td>When <code>g&lt;VarId&gt;</code> matches a name in scope, case-insensitively, the writer takes the lowest free <code>g&lt;n&gt;</code> and the push writes VarId n. 0 in six corpora.</td></tr>
-  <tr><td>Marker on pull, pending a census</td><td>Pin flags (1.13), item flags (1.1), a nested Demux definition or a reference stored before its definition (1.8), a data-valued wire (1.17), a flag on an empty slot, rising+falling on one operand, a backtick in operand text, a snippet line starting <code>END_EXECUTE</code>. (A newline in a TITLE is spelled <code>$N</code> — 7 Lenze titles hold one.) Each has no spelling yet; dropping or reordering it would lose a vendor fact.</td></tr>
+  <tr><td>Marker on pull, measured</td><td>No spelling, by census: a flag on a box input pin (1.13 — 6 pins, all load-bearing negations, so refused by name rather than dropped), an item flag on a Demux or Assign item (1.1 — 0 in every corpus), a Demux definition nested below the top level or a reference stored before its definition (1.8 — 139 definitions, all top level), a wire whose producer has no known type (1.17 — a boolean producer's wire is <code>BOOL</code>, a data wire takes its box's stored output type). Also without a spelling: a flag on an empty slot, rising+falling on one operand, a backtick in operand text, a snippet line starting <code>END_EXECUTE</code>. (A newline in a TITLE is spelled <code>$N</code> — 7 Lenze titles hold one.) Each goes to the marker by name; dropping or reordering it would lose a vendor fact.</td></tr>
   <tr><td>Rungs with several control-flow targets — marker only</td><td>A coil plus a jump, and two jumps on one rung (<code>NetworkTextWriterTests.A_rung_with_several_control_flow_targets_goes_to_the_marker</code>). 0 in six corpora; spelling them needs JMP as a target, which is not ST. The writer refuses both by name, which routes them to the marker; <code>JumpDestinationTests</code> pins it.</td></tr>
   <tr><td>Negated/edge coils — marker only</td><td>0 in 576 measured targets. Census 1.7 re-checks every corpus; a spelling is added only on a measured occurrence and a live build of its constructor.</td></tr>
   <tr><td>TwinCAT structural edits</td><td>A value edit is written in place and the bijection holds. A structural edit (and every create) is rebuilt through PLCopen import, with its quirks: D22c, D25, D30 (a single-consumer wire is refused), C25 (a wire comes back as a multi-output assign), C20. <code>PARALLEL</code>, a Demux of a leaf and a result pin <code>=&gt; v</code> in a structurally changed TwinCAT network are refused, naming the network and the reason. The leaf wire was measured live (DIALECT N22): the import does not crash on it, but reshapes it both ways, so its refusal stands; <code>PARALLEL</code> and the result pin are refused until measured. A fan-out whose coils carry storage (<code>S=</code>/<code>R=</code>) is refused on create too: the import folds the wire into one assign (C25), which leaves no item to stamp the storage onto. <b>Scale:</b> 66 of lenze-mid's 139 wires are fed by a leaf; how many TwinCAT ladder wires are is unmeasured — no engineer-drawn TwinCAT ladder project is at hand (census 1.16).</td></tr>
@@ -669,11 +670,14 @@ END_NETWORK</pre>
 <ol>
   <li><b>Push pending graphical edits before upgrading.</b> The first pull after the upgrade re-materializes every
     graphical body (its text changed, so its version did) and every library manifest (the bump changes it). An
-    un-pushed v1 edit meets the new text as a whole-body git conflict, and v1 text can never be pushed afterwards —
-    the push refuses it with <code>NETWORK_PARSE</code>, naming a re-pull. The conflicted pull says so too: it names
-    each conflicted file that still holds v1 and the one resolution that works — take the IDE's side
-    (<code>volt merge --resolve &lt;path&gt; --use-theirs</code>), redo the edit on the v2 text, then
-    <code>volt merge --continue</code>.</li>
+    un-pushed v1 edit meets the new text in git's merge, and v1 text can never be pushed afterwards — the push
+    refuses it with <code>NETWORK_PARSE</code>, and by then a re-pull changes nothing. The merge is not always a
+    conflict: an edit next to lines the re-materialization left alone merges cleanly, and when it brought v1
+    constructs with it (a whole <code>NETWORK 3 LD</code>, a <code>LET</code>) the clean result is a hybrid body. So
+    the pull judges every body it merged and names each file that still holds v1, with the one resolution that works:
+    in a conflict, take the IDE's side (<code>volt merge --resolve &lt;path&gt; --use-theirs</code>), redo the edit on
+    the v2 text, then <code>volt merge --continue</code>; after a clean merge, take the IDE's version
+    (<code>git checkout volt/ide -- src/&lt;path&gt;</code>), redo the edit and commit.</li>
   <li><b>Ship the CLI, the LSP and the extension together.</b> The volt-vscode bundle carries its own LSP and can lag
     the CLI. The LSP compares the workspace's MATERIALIZATION with its own and names a mismatch once, on the
     manifests, instead of flagging every graphical body: <code>library-stale</code> when an older Volt pulled the

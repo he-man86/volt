@@ -7,7 +7,8 @@
 import { test, expect } from "bun:test"
 import { messagesFor, resolveConfig } from "../analysis/index.js"
 import { WorkspaceStore } from "./workspace-store.js"
-import { documentDiagnostics } from "./diagnostics.js"
+import { documentDiagnostics, libraryManifestDiagnostics } from "./diagnostics.js"
+import { MATERIALIZATION } from "../symbols/index.js"
 
 const messages = messagesFor("codesys")
 // A library GVL that would otherwise trip array-bound-non-const (bound is a plain global, not provably const).
@@ -28,4 +29,51 @@ test("a library-origin document (Library Manager path) is not error-checked at a
 test("the same source in a PROJECT file IS checked (the gate is library-only, not a blanket mute)", () => {
   const diags = diagnose("file:///App/POUs/Stack.gvl")
   expect(diags.some((x) => x.code === "C0161")).toBe(true) // the mapped wire code for array-bound-non-const
+})
+
+// Every format below this server's own must say what it lacks: the stale-manifest warning is built from that list,
+// and a format with no entry printed "…(format 3, now 4): . Run `volt pull`…" — an empty clause, no failure.
+test("libraryManifestDiagnostics: every older format names what the workspace lacks", () => {
+  for (let format = 1; format < MATERIALIZATION; format++) {
+    const uri = `/w/Library Manager/Standard/Standard.library`
+    const byUri = libraryManifestDiagnostics([
+      {
+        uri,
+        folder: "Library Manager/Standard",
+        namespace: "Standard",
+        library: "Standard",
+        dependencies: [],
+        materialization: format,
+      },
+    ])
+    const [warning] = [...byUri.values()].flat()
+    expect(warning?.code).toBe("library-stale")
+    expect(warning!.message).not.toContain("): .")
+    const clause = warning!.message.split(`(format ${format}, now ${MATERIALIZATION}): `)[1] ?? ""
+    expect(clause.startsWith(".")).toBe(false)
+    expect(clause.length).toBeGreaterThan(0)
+  }
+})
+
+// The re-pull repair assumes the CLI on PATH is at least this server's format. volt-vscode is published on its own and
+// bundles its own LSP, so the extension can be AHEAD of the installed CLI — and then `volt pull` writes the same old
+// format back and the warning (with every graphical body unchecked) never clears. The warning must name that case:
+// the CLI is the stale side, and the repair is updating it before the pull.
+test("libraryManifestDiagnostics: an older manifest names an older CLI as a possible stale side", () => {
+  const uri = `/w/Library Manager/Standard/Standard.library`
+  const byUri = libraryManifestDiagnostics([
+    {
+      uri,
+      folder: "Library Manager/Standard",
+      namespace: "Standard",
+      library: "Standard",
+      dependencies: [],
+      materialization: MATERIALIZATION - 1,
+    },
+  ])
+  const [warning] = [...byUri.values()].flat()
+  expect(warning?.code).toBe("library-stale")
+  expect(warning!.message).toContain("volt pull")
+  expect(warning!.message).toContain(`format ${MATERIALIZATION}`)
+  expect(warning!.message).toMatch(/update the volt CLI/i)
 })

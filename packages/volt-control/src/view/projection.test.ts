@@ -109,7 +109,7 @@ test("describePull: conflict offers Open Conflicts / Finish Merge / Abort; refus
 })
 
 test("describePull: a conflict over network text v1 carries the CLI's note on how to resolve it", () => {
-  // MATERIALIZATION 3 meets an un-pushed v1 edit as a whole-body conflict, and keeping our side keeps text no Volt
+  // MATERIALIZATION 3 can meet an un-pushed v1 edit as a conflict, and keeping our side keeps text no Volt
   // pushes — so the CLI names those files and the resolution, and the toast must not drop that sentence.
   const note = "1 conflicted file(s) hold network text v1, which this Volt neither reads nor pushes: A.fb. Take the IDE's side."
   const v1 = describePull({ kind: "conflict", paths: ["A.fb"], message: note })

@@ -160,6 +160,17 @@ public static class NetworkTextReader
             Consumed.Add(new Tok(TokKind.Marker, marked, start, first.Length, true));
             _lx = new NetworkLexer(_text, eol);
 
+            // v1 is refused as a whole, before any statement is parsed, by the one rule the pull's note asks too
+            // (NetworkText.V1Constructs): there is no translator, so nothing else said about a v1 body is actionable —
+            // and a construct judged where the parse happens to reach it hid behind every error in front of it.
+            var v1 = NetworkText.V1Constructs(_text, eol);
+            if (v1.Count > 0)
+            {
+                foreach (var (at, what) in v1)
+                    Diagnostics.Add(Diag(ConflictCodes.NetworkParse, NetworkText.V1Refusal(what), at.Offset, Math.Max(1, at.Length)));
+                return null;
+            }
+
             var networks = new List<Network>();
             while (true)
             {
@@ -172,7 +183,6 @@ public static class NetworkTextReader
                         if (ParseNetwork(networks.Count) is { } n) networks.Add(n);
                         continue;
                     }
-                    if (t.Is("LET")) throw Err(t, ConflictCodes.NetworkParse, V1Refusal("`LET` statements"));
                     throw Err(t, ConflictCodes.NetworkParse,
                         $"'{t.Text}' outside a network: a body is a sequence of NETWORK … END_NETWORK blocks, each NETWORK at a line start.");
                 }
@@ -245,8 +255,6 @@ public static class NetworkTextReader
                     if (disabled) throw Err(t, ConflictCodes.NetworkParse, "a NETWORK header carries DISABLED twice.");
                     disabled = true;
                 }
-                else if (t.Kind == TokKind.Number)
-                    throw Err(t, ConflictCodes.NetworkParse, V1Refusal("`NETWORK <n> <LANG>` headers"));
                 else
                     throw Err(t, ConflictCodes.NetworkParse,
                         $"'{t.Text}' in a NETWORK header: the header is NETWORK [LABEL: x] [TITLE: \"…\"] [DISABLED], and it ends at its newline.");
@@ -363,8 +371,6 @@ public static class NetworkTextReader
 
             // The empty statement IS the empty item — a `;` that closes no statement.
             if (t.IsSym(";")) { Next(); return Mark(new Terminator(Flags.None), t.Offset); }
-
-            if (t.Is("LET")) throw Err(t, ConflictCodes.NetworkParse, V1Refusal("`LET` statements"));
 
             if (t.Is("IF"))
             {
@@ -1117,8 +1123,6 @@ public static class NetworkTextReader
             var (line, col) = (_lx ?? new NetworkLexer(_text, 0)).LineCol(offset);
             return new NetworkTextDiagnostic(code, message, line, col, length);
         }
-
-        private static string V1Refusal(string what) => NetworkText.V1Refusal(what);
 
         private static readonly HashSet<string> Structural = new() { ",", ")", "(", ";", ":=", "=>", ".", ":" };
     }

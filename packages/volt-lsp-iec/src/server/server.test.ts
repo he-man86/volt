@@ -50,6 +50,7 @@ import {
   type TypeHierarchyItem,
 } from "vscode-languageserver-protocol/node"
 import { connectToServer } from "./harness.js"
+import { MATERIALIZATION } from "../symbols/library-namespace.js"
 
 /** A client connection wired to an in-process server over two pipes — `harness.ts` owns the setup, and the typed
  *  `harness()` built on it is what the wire-behaviour tests beside this file use. */
@@ -762,6 +763,8 @@ test("server: a library an older bridge materialized is told to re-pull — on i
 const V1_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n(* @volt-implementation *)\nNETWORK 0 LD\n  out := a;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
 /** …and the way format 3 writes it: network text v2. */
 const V2_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\n  out := a;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
+/** …and a format-3 body with a network-text finding of its own: a wire used without its VAR_TEMP declaration. */
+const V2_FLAWED_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\n  g5 := a;\n  out := g5;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
 
 /** Every diagnostic of a workspace, by file name. */
 async function workspaceDiagnostics(files: Record<string, string>) {
@@ -798,20 +801,28 @@ test("server: a workspace an OLDER Volt pulled is told once, on its manifests �
 test("server: a workspace a NEWER Volt pulled names the language server as the stale side", async () => {
   // The volt-vscode bundle carries its own LSP and can lag the CLI: an old one meeting a newer materialization must
   // say so once, not misread every body the newer format wrote.
+  // The body must be one that DOES draw a network-text finding at this server's own format — a clean one says nothing
+  // either way, and the suppression would go untested.
+  const atOwnFormat = await workspaceDiagnostics({
+    "Library Manager/Standard/Standard.library": libAt(`MATERIALIZATION ${MATERIALIZATION}\n`),
+    "F.fb": V2_FLAWED_BODY,
+  })
+  expect((atOwnFormat.get("F.fb") ?? []).length).toBeGreaterThan(0)
+
   const diags = await workspaceDiagnostics({
-    "Library Manager/Standard/Standard.library": libAt("MATERIALIZATION 4\n"),
-    "F.fb": V2_BODY,
+    "Library Manager/Standard/Standard.library": libAt(`MATERIALIZATION ${MATERIALIZATION + 1}\n`),
+    "F.fb": V2_FLAWED_BODY,
   })
   const manifest = diags.get("Standard.library") ?? []
   expect(manifest.map((d) => d.code)).toEqual(["materialization-newer"])
   expect(manifest[0]!.message).toContain("newer Volt")
-  expect(manifest[0]!.message).toContain("format 4")
+  expect(manifest[0]!.message).toContain(`format ${MATERIALIZATION + 1}`)
   expect(diags.get("F.fb") ?? []).toEqual([])
 })
 
 test("server: a workspace at the LSP's own materialization says nothing about it", async () => {
   const diags = await workspaceDiagnostics({
-    "Library Manager/Standard/Standard.library": libAt("MATERIALIZATION 3\n"),
+    "Library Manager/Standard/Standard.library": libAt(`MATERIALIZATION ${MATERIALIZATION}\n`),
     "F.fb": V2_BODY,
   })
   expect(diags.get("Standard.library") ?? []).toEqual([])

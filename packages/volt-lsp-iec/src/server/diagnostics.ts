@@ -20,6 +20,7 @@ import { codesysCodeFor } from "../analysis/error-code-map.js"
 import {
   isLibrarySymbol,
   MATERIALIZATION,
+  MATERIALIZATION_FORMATS,
   materializationMismatch,
   newerLibraryManifests,
   staleLibraryManifests,
@@ -98,17 +99,13 @@ export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d
   ]
 }
 
-/** What a workspace pulled by format `n` lacks against this server's — each format since, in its own words. */
-const MISSING_SINCE: readonly (readonly [format: number, lacks: string])[] = [
-  [2, "it skipped FUNCTIONs without a return type, so a call to one reads as undefined"],
-  [3, "its graphical bodies are network text v1, which this language server does not read"],
-]
-
 /**
  * A WORKSPACE ANOTHER MATERIALIZATION WROTE, SAID ON ITS MANIFESTS — by file URI, one warning each, whichever side is
  * stale. Older (the manifest's format below `MATERIALIZATION`): the LSP knows the workspace only through what the pull
  * wrote, so what an older Volt did not write, or wrote in a form since replaced, reads wrong at every use; the answer
- * is a re-pull, never a list of names kept here instead. Newer: this server is the stale side — the volt-vscode bundle
+ * is a re-pull, never a list of names kept here instead — by a CLI that writes this server's format: volt-vscode is
+ * published on its own and bundles this server, so the extension can be AHEAD of the installed CLI, whose pull then
+ * writes the old format back and the warning never clears. So the older-side warning names that stale side too. Newer: this server is the stale side — the volt-vscode bundle
  * carries its own LSP and can lag the CLI — and the answer is updating it. Either way the graphical bodies are not
  * flagged one by one (`documentDiagnostics`): the mismatch is named once, where its repair is decided.
  */
@@ -121,14 +118,16 @@ export function libraryManifestDiagnostics(manifests: readonly LibraryManifest[]
     message,
   })
   const older = staleLibraryManifests(manifests).map((m): [string, VoltDiagnostic[]] => {
-    const lacks = MISSING_SINCE.filter(([format]) => m.materialization < format).map(([, what]) => what)
+    const lacks = MATERIALIZATION_FORMATS.filter(([format]) => m.materialization < format).map(([, what]) => what)
     return [
       pathToFileURL(m.uri).href,
       [
         warning(
           "library-stale",
           `${m.library} was materialized by an older Volt (format ${m.materialization}, now ${MATERIALIZATION}): ` +
-            `${lacks.join("; and ")}. Run \`volt pull\` to re-materialize the workspace.`,
+            `${lacks.join("; and ")}. Run \`volt pull\` to re-materialize the workspace. If the pull leaves it at ` +
+            `format ${m.materialization}, the volt CLI on PATH is the stale side (it writes format ${m.materialization}, ` +
+            `this language server reads format ${MATERIALIZATION}): update the volt CLI, then pull.`,
         ),
       ],
     ]

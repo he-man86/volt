@@ -825,6 +825,22 @@ the text's rule (`NetworkText.HasEnoOutput`) rather than a copy of it; the pull 
       `An_ordinary_conflict_carries_no_v1_note`, red first; `projection.test.ts` in volt-control). The release note is
       `docs/network-text.html#migration` ("push pending graphical edits before upgrading"); GitHub releases are
       `--generate-notes` from commits, so there is no curated notes file to add it to.
+      *Review fix:* "whole-body conflict" was false — git merges a v1 edit cleanly next to lines the IDE left alone,
+      and one that brings v1 constructs (a `NETWORK 3 LD`, a `LET`) leaves a hybrid body behind an `ok` pull; and the
+      note matched a `NETWORK <n>` line anywhere in the file, so a header merged away (comment lines under it) was
+      missed and a declaration comment spelled like one was named. The pull now judges every body the IDE side
+      changed with the engine's one rule, `NetworkText.SourceHoldsV1` (bodies only; ours-stage for a conflicted
+      file, the merged text for a clean one) and names both cases with their resolution
+      (`A_conflict_whose_hunk_holds_only_v1_statements_still_names_the_file`,
+      `A_v1_header_spelling_in_a_declaration_comment_is_no_v1_text`,
+      `A_clean_merge_that_leaves_v1_text_in_a_body_names_the_file`, red first; `NetworkTextV1DetectionTests`).
+      *Second review fix:* the detector kept its own copy of the reader's grammar to decide WHERE a v1 construct may
+      stand, and the copy drifted (an en-hoist `IF … THEN LET`, a `LET` behind a missing `;` or a `//` line went
+      unnamed; a pin `Let` between networks and `NETWORK LABEL: 3` were named). Both now call one scan by shape,
+      `NetworkText.V1Constructs` — `LET name :=` anywhere but a label, a number at a field position of a header — over
+      the reader's own token walk; `ParseBody` runs it first and refuses each find as `NETWORK_PARSE`. Six findings,
+      eight cases red first (`The_reader_refuses_as_v1_exactly_what_the_detector_names`,
+      `The_detector_names_nothing_the_reader_does_not_refuse_as_v1`).
 - [x] 6.5 Ship CLI, LSP and volt-vscode together; a version check compares the workspace MATERIALIZATION with the
       LSP's and names the mismatch instead of flagging every body `NETWORK_PARSE`.
       *Done (section 6):* the LSP's `MATERIALIZATION` is 3 (was `LIBRARY_MATERIALIZATION` 2). A manifest below it is
@@ -833,6 +849,11 @@ the text's rule (`NetworkText.HasEnoOutput`) rather than a copy of it; the pull 
       (volt-vscode)"); on either mismatch no graphical body gets network-text diagnostics. A workspace with no manifest
       states no number, so a v1 body there keeps its own re-pull finding. `server.test.ts`: four tests, the older and
       newer cases red first. The three already ship together: one installer, one version (`scripts/version.ts`).
+      *Review fix:* the newer-case test used a body with no finding at any format, so it could not fail — it now uses
+      one that draws a finding at the LSP's own format (asserted) and none on the mismatch. The format number is no
+      longer free-standing on either side of the LSP: `MATERIALIZATION` is the last row of `MATERIALIZATION_FORMATS`
+      (the stale warning's per-format clauses, so a bump without a clause cannot happen; `diagnostics.test.ts` pins
+      every older format naming one), and `bun run check` fails when it differs from C# `LibraryManifest.Materialization`.
 - [x] 6.6 Grep `network-text.html#` (about 27 links in source, tests, wire.html and DIALECT.md: #diagnostics, #grammar, #let, #opaque, #sink, #eneno,
       #unnamed-instance, #fb, #empty-slot, #group, #whitespace) and confirm each id exists on the new page or rewrite
       the link.

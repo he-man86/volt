@@ -108,8 +108,98 @@ public static class NetworkText
     private static readonly System.Text.RegularExpressions.Regex V1Header =
         new(@"^\s*NETWORK\s+\d+(\s|$)", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
-    /// <summary>A line that is a v1 network header (<c>NETWORK 0 LD</c>).</summary>
-    public static bool IsV1Header(string line) => V1Header.IsMatch(line);
+    /// <summary>A line that is a v1 network header (<c>NETWORK 0 LD</c>). Internal on purpose: a line alone says
+    /// nothing — the same spelling in a declaration's comment is no v1 text. Outside the reader, ask
+    /// <see cref="SourceHoldsV1"/>, which looks at bodies only.</summary>
+    internal static bool IsV1Header(string line) => V1Header.IsMatch(line);
+
+    /// <summary>
+    /// Every network-text-v1 construct in a graphical body's text from <paramref name="from"/> (past its marker line),
+    /// each with the name the refusal gives it. THE one rule of what is v1: the reader refuses exactly these, before it
+    /// parses a statement, and <see cref="HoldsV1"/> names a file for exactly these — so the pull's note and the push
+    /// cannot disagree by construction.
+    ///
+    /// <para>WHY a scan by SHAPE and not by grammar place. A v2 body with v1 in it is what a CLEAN git merge makes of an
+    /// un-pushed v1 edit (a <c>LET</c> between two unchanged statements, a whole v1 network appended). That text is
+    /// v1-shaped wherever it lands — after <c>IF … THEN</c> (v1's own en-hoist line), after a statement v1 wrote with
+    /// no <c>;</c>, after a <c>//</c> comment v1 allowed anywhere. Judging it only where a v2 STATEMENT starts took a
+    /// second copy of the reader's grammar that drifted from it five ways; and an error the reader stops at hid a
+    /// v1 construct the push would refuse once that error was fixed — when a re-pull no longer helps. The shapes are
+    /// exact, so the only place they need is the one kind of name that may be spelled <c>Let</c> bare — a label:</para>
+    /// <list type="bullet">
+    /// <item><c>LET name :=</c> — v1's wire definition, the only way its writer spelled <c>LET</c>. v2 never has it:
+    /// an operand or target spelled <c>LET</c> is backticked (spec, reserved words), and a pin named <c>Let</c> is
+    /// followed by <c>:=</c> or <c>=&gt;</c>. A LABEL named <c>Let</c> — on the header's line, or after <c>JMP</c> — is not
+    /// judged: it is followed by the next line's statement (<c>LABEL: Let</c>, then <c>out := a;</c>), which spells
+    /// the same three tokens.</item>
+    /// <item>a number at a FIELD position of a <c>NETWORK</c> header's line — v1's <c>NETWORK &lt;n&gt;</c>. A number
+    /// where a field's VALUE stands (after <c>:</c>, or after <c>LABEL</c>/<c>TITLE</c> missing its colon) is a
+    /// malformed field, one ordinary fix from v2, and not v1.</item>
+    /// </list>
+    ///
+    /// <para>The text is walked with the reader's own token walk (<see cref="NetworkLexer.Walk"/>): a <c>//</c> comment
+    /// is a comment and an EXECUTE body is verbatim ST. A lexical error that swallows the rest of the text (an unclosed
+    /// backtick) does not end the scan: it goes on from the next line, as a fixed backtick would let the push.</para>
+    /// </summary>
+    internal static List<(Tok At, string What)> V1Constructs(string text, int from)
+    {
+        var found = new List<(Tok, string)>();
+        var lx = new NetworkLexer(text, from);
+        var walk = new NetworkLexer.Walk(lx);
+        var headerLine = -1;
+        Tok prev = default, before = default, third = default;   // the last three tokens, comments skipped
+        Tok last = default;                     // the last token, comments included: the restart point
+        while (true)
+        {
+            var t = walk.Next();
+            if (t.Kind == TokKind.Eof)
+            {
+                // Each restart starts strictly later, so this ends.
+                if (last.Kind != TokKind.Error) return found;
+                var next = text.IndexOf('\n', last.Offset);
+                if (next < 0) return found;
+                lx = new NetworkLexer(text, next + 1);
+                walk = new NetworkLexer.Walk(lx);
+                (last, prev, before, third, headerLine) = (default, default, default, default, -1);
+                continue;
+            }
+            last = t;
+            if (t.Kind is TokKind.Comment or TokKind.Error) continue;
+
+            // `NETWORK` at a line start is a header wherever it stands, as the reader's body loop and recovery take it.
+            if (t.Is("NETWORK") && t.AtLineStart) headerLine = lx.LineOf(t.Offset);
+            else if (t.Kind == TokKind.Number && headerLine >= 0 && lx.LineOf(t.Offset) == headerLine &&
+                     !prev.IsSym(":") && !prev.Is("LABEL") && !prev.Is("TITLE"))
+                found.Add((t, "`NETWORK <n> <LANG>` headers"));
+            else if (t.IsSym(":=") && prev.Kind == TokKind.Word && before.Is("LET") && !third.Is("JMP") &&
+                     lx.LineOf(before.Offset) != headerLine)
+                found.Add((before, "`LET` statements"));
+
+            (third, before, prev) = (before, prev, t);
+        }
+    }
+
+    /// <summary>
+    /// The body still holds network text v1 — text the push refuses ("re-pull"): it IS a v1 body (<see cref="IsV1"/>),
+    /// or it is a v2 body holding a v1 construct (<see cref="V1Constructs"/>, the reader's own rule).
+    /// </summary>
+    private static bool HoldsV1(string? body)
+    {
+        if (IsV1(body)) return true;
+        if (!Is(body)) return false;
+        var eol = body!.IndexOf('\n');
+        return eol >= 0 && V1Constructs(body, eol).Count > 0;
+    }
+
+    /// <summary>A workspace source file of <paramref name="kind"/> holds network text v1 in any of its bodies — the
+    /// POU's, a member's, a property accessor's (<see cref="HoldsV1"/>). Only bodies are looked at: the declaration
+    /// is ST whatever its comments spell. Throws what <see cref="StReader.Read"/> throws on a malformed file.</summary>
+    public static bool SourceHoldsV1(string source, string kind)
+    {
+        var item = StReader.Read(source, kind);
+        return HoldsV1(item.Body) || item.Members.Any(m =>
+            HoldsV1(m.Body) || HoldsV1(m.Getter?.Body) || HoldsV1(m.Setter?.Body));
+    }
 
     /// <summary>The body is network text v1: its first non-blank line is a <c>NETWORK &lt;n&gt; &lt;LANG&gt;</c>
     /// header. v1 bodies follow the BARE implementation marker, so none of them reaches the v2 reader through

@@ -85,7 +85,7 @@ Concepts: 33 → 28 at equal granularity. The count is not the gain; the four LE
 and use counts — every rule carrying state across statements except the wire set — are. Remaining non-literal
 mappings (infix sugar with absent ≡ default formals, FB type from the declaration, `.ENO`/ENO, item-level jump bit, RETURN's `???`, network
 position/Ids, wire collision rename, marker-only rungs, the marker for unmeasured facts, TwinCAT structural edits via PLCopen) are listed and
-justified in `docs/network-text-next.html#not-one-to-one`.
+justified in `docs/network-text.html#not-one-to-one` (the design page, `network-text-next.html` until it replaced it in 6.2).
 
 ## Decisions the owner may veto
 

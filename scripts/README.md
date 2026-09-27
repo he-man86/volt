@@ -75,7 +75,9 @@ electron-builder), `--upload` / `--upload-only`.
 
 `bun run check` (`check-wiring.ts`) — built binaries, product-version parity, and **source-extension parity across
 every runtime that declares the writable-source set** (C#, the LSP, volt-control, and four separate places in the
-VS Code extension manifest). Offline and key-free, so **CI runs it on every push/PR**.
+VS Code extension manifest), and **materialization parity** — the format number the C# CLI writes on every library
+manifest (`LibraryManifest.Materialization`) against the one the LSP reads (`MATERIALIZATION`), since a mismatch
+silences every network-text diagnostic. Offline and key-free, so **CI runs it on every push/PR**.
 
 > This used to be `bun run compat`, a two-step gate whose real purpose was `verify-opencode.ts` — driving the
 > installed opencode binary to confirm it still loaded Volt's `opencode-config/` layer. Both are deleted along
