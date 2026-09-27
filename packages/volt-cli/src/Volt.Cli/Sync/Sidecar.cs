@@ -29,7 +29,25 @@ public static class Sidecar
         var raw = JsonSerializer.Deserialize<IdeRefs>(File.ReadAllText(p), Json);
         if (raw is null || raw.ProjectVersion is null || raw.Items is null || raw.Folders is null)
             throw new InvalidOperationException(".git/volt/ide-refs.json is malformed — delete it and run `volt pull` to rebuild the baseline");
+        RefuseUnknownNames(raw, ".git/volt/ide-refs.json");
         return raw;
+    }
+
+    /// <summary>A BASELINE KEY THAT IS NO WIRE NAME IS REFUSED BY NAME, NEVER TRANSLATED. The baseline is keyed by
+    /// the names the IDE publishes, and a workspace from an older Volt holds names it no longer does — its DUTs
+    /// as `X.dut`, from before the wire carried the subtype. Every `ifVersion` such a key quotes names no item and
+    /// every comparison against it is wrong, so the baseline is refused exactly as a malformed one is: the file to
+    /// delete, and `volt pull`, which rebuilds it from what the wire says now. A translator would have to re-derive
+    /// a subtype the old key never held, and would be item-kind knowledge in the CLI. "No wire name" is asked of the
+    /// one extension table (`Extensions`), so no retired spelling is listed here.</summary>
+    private static void RefuseUnknownNames(IdeRefs refs, string file)
+    {
+        var stale = refs.Items.Keys.Concat(refs.Folders.Keys)
+            .FirstOrDefault(k => Extensions.DefFromName(k) is null);
+        if (stale is not null)
+            throw new InvalidOperationException(
+                $"{file} holds \"{stale}\", which is not a name the IDE publishes (a baseline from an older Volt) — " +
+                "delete .git/volt/ide-refs.json and run `volt pull` to rebuild the baseline");
     }
 
     public static void SaveIdeRefs(string root, IdeRefs refs)
@@ -57,7 +75,12 @@ public static class Sidecar
         var raw = JsonSerializer.Deserialize<IdeRefs>(File.ReadAllText(p), Json);
         // A corrupt/partial stash is treated as "no stash" — never promoted into the real sidecar (which would
         // then fail LoadIdeRefs's guard). Re-running `volt pull` rebuilds a good baseline.
-        return raw is null || raw.ProjectVersion is null || raw.Items is null || raw.Folders is null ? null : raw;
+        if (raw is null || raw.ProjectVersion is null || raw.Items is null || raw.Folders is null) return null;
+        // A stash keyed by a name the IDE no longer publishes is REFUSED here too, not only in `LoadIdeRefs`:
+        // `volt merge --continue` promotes this file straight into the live sidecar, so a check only on the live
+        // load would let the old key back in through the merge.
+        RefuseUnknownNames(raw, ".git/volt/pending-ide-refs.json");
+        return raw;
     }
 
     public static void ClearPendingIdeRefs(string root)

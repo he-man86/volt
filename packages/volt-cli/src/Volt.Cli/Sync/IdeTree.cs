@@ -44,17 +44,14 @@ public static class IdeTree
         // is its name (the whole wire is keyed that way). `replaced` above IS a path set, which is why only this
         // one needed the distinction spelt out: comparing names against src-relative paths silently matched
         // nothing for any item in a folder, so a deletion in the IDE never reached the workspace unless the item
-        // sat in the project root. And a file's name is NOT always its wire name (a DUT file `X.struct` is the
-        // wire item `X.dut`), so each file is resolved through the one path→name seam, `FullNameFromPath`, as
-        // the `replacedNames` side below already does. Comparing the bare FILE name here silently matched no
-        // deleted DUT: its file survived the pull while the sidecar dropped it, and the next edit of that stale
-        // file pushed as a create and resurrected the DUT the engineer had deleted in the IDE.
+        // sat in the project root. Each file is resolved through the one path→name seam, `FullNameFromPath`
+        // (a tracked file's own name IS its wire name), as the `replacedNames` side below does.
         var removedNamesSet = new HashSet<string>(removedNames);
 
         // A referenced LIBRARY's rendered element signatures are not IDE items and have no identity on the wire:
         // they are content the bridge re-renders per library version, and they carry ordinary SOURCE extensions
-        // (.fb/.fun/.itf/.struct/.gvl). So a bare-name sweep hits them by accident — deleting the project's own
-        // `ERROR.struct` also deleted `Library Manager/CAA/ERROR.struct`, which nothing regenerates until that library's
+        // So a name-keyed sweep hits them by accident — deleting the project's own `ERROR` item also deleted the
+        // same-named signature under `Library Manager/CAA/`, which nothing regenerates until that library's
         // version changes. Removal is keyed by NAME (identity is the item name) and these files have no item, so
         // they are exempt by LOCATION. A library root is any directory holding a `.library` stub.
         // FROM BOTH SIDES. Derived from the PARENT tree alone, a library added in THIS pull is not a library
@@ -67,20 +64,19 @@ public static class IdeTree
                 .Concat(ideFiles.Select(f => f.Path)));
         bool UnderLibrary(string rel) => IsUnderLibraryRoot(rel, libraryRoots);
 
-        // THE SAME ITEM CAN ARRIVE UNDER A DIFFERENT PATH, and `replaced` is keyed by PATH. A DUT is `X.dut` on
-        // the wire and `X.struct`/`X.enum`/`X.union`/`X.alias` on disk, chosen from its declaration
-        // (`Materialize.FileNameFor`) — so an engineer rewriting a STRUCT as an ENUM produces a CHANGED item,
-        // not a removed one: `replaced` holds `X.enum`, `removedNames` is empty, and the old `X.struct` matched
-        // neither. Both files then sat in the workspace, and the stale one still maps to the live item's wire
-        // name — so editing it pushed the old shape back over the new DUT, and deleting it deleted the live one.
+        // THE SAME ITEM CAN ARRIVE UNDER A DIFFERENT PATH, and `replaced` is keyed by PATH. An item the engineer
+        // moved to another folder in the IDE is CHANGED (its folder is part of its version), not removed (it
+        // still exists), so neither `replaced` nor `removedNames` reaches its old file. The item NAME is the
+        // identity, so a changed item supersedes the parent file carrying that name wherever it sits — without
+        // this the workspace held two files for one item, and editing the stale one pushed it back over the
+        // moved item (`IdeTreeTests.An_item_the_ide_moved_to_another_folder_leaves_one_file`).
         //
         // LIBRARY SIGNATURES ARE EXCLUDED FROM BOTH SIDES. They carry ordinary source extensions and are
         // PATH-identified, so a name-keyed sweep hits them by accident in BOTH directions — the `removedNames`
-        // sweep beside this one records what that cost ("deleting the project's own ERROR.struct also deleted
-        // Library Manager/CAA/ERROR.struct"). Exempting only the carried file would leave the SOURCE side open:
-        // a refreshed `Library Manager/CAA/ERROR.struct` resolves to the full name `ERROR.dut`, and the
-        // project's own untouched `DUTs/ERROR.struct` shares it — so the guard would drop it from the tree and
-        // the pull's merge would DELETE the engineer's file.
+        // sweep beside this one records what that cost (the project's own `ERROR` took the library's `ERROR`
+        // signature with it). Exempting only the carried file would leave the SOURCE side open: a refreshed
+        // signature under `Library Manager/CAA/` shares its name with the project's own untouched item, so this
+        // rule would drop the engineer's file from the tree and the pull's merge would DELETE it.
         var replacedNames = new HashSet<string>(
             ideFiles.Where(f => !UnderLibrary(f.Path))
                     .Select(f => Extensions.FullNameFromPath(f.Path))
@@ -110,6 +106,7 @@ public static class IdeTree
                 if (rel is not null && Extensions.IsTrackedPath(rel) && !replaced.Contains(rel)
                     // A library signature is PATH-identified and shares extensions with real items, so a
                     // name-keyed sweep would hit one by accident — the same exemption `removedNames` takes.
+                    // A parent file whose name a changed item now carries at another path was MOVED.
                     && !(!UnderLibrary(rel) && Extensions.FullNameFromPath(rel) is { } full && replacedNames.Contains(full))
                     && !(!UnderLibrary(rel) && Extensions.FullNameFromPath(rel) is { } name && removedNamesSet.Contains(name))
                     && !DroppedLibraryFile(rel))
@@ -133,7 +130,7 @@ public static class IdeTree
     /// <summary>The workspace folders that hold a REFERENCED LIBRARY's rendered files — any directory containing
     /// a <c>.library</c> stub, taken from a tree listing of <c>src/</c> paths.
     /// <para>Library files are read-only and identity-less by LOCATION, not by extension: the element signatures
-    /// the bridge renders beside each stub carry ordinary SOURCE extensions (.fb/.fun/.itf/.struct/.gvl), so the
+    /// the bridge renders beside each stub carry ordinary SOURCE extensions, so the
     /// extension-keyed classifier calls them writable and a bare-name sweep matches them by accident. Two
     /// separate places need that answer — the pull's removal sweep and the push's read-only guard — so it is
     /// defined ONCE here; two spellings of it would drift and each drift is a data-loss bug.</para></summary>

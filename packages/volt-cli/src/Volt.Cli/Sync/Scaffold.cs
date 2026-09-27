@@ -1,5 +1,4 @@
 ﻿using System.Text.Json;
-using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
 
 namespace Volt.Cli.Sync;
@@ -49,20 +48,20 @@ public static class Scaffold
         "- **`volt pull` / `volt push`** sync `src/` with the live IDE (the machine).",
         "- **`git commit` / `git push`** version the text + share with the team. Commit before pulling.", "",
         "`src/` mirrors the IDE — edit the kind-named source files locally; `volt push` writes them back.",
-        "FBD/LD graphical bodies ride in those files too, editable as network text. `.cfc`/`.sfc` are read-only",
-        "views of graphical bodies (don't hand-edit).", "",
-        "## File extensions — name every item by its KIND", "",
-        "An item's extension names what it is. A DUT is written as `.struct`, `.enum`, `.union` or `.alias`,",
-        "read from its own declaration — CODESYS and TwinCAT model a DUT as ONE object type, so all four are",
-        "the same kind to the IDE; the file just says which one you are looking at.", "",
-        "| Kind | Extension | | Kind | Extension |",
-        "|---|---|---|---|---|",
-        "| Program | `.prg` | | Interface | `.itf` |",
-        "| Function | `.fun` | | Global var list | `.gvl` |",
-        "| Function block | `.fb` | | DUT | `.struct` `.enum` `.union` `.alias` |", "",
+        "FBD/LD graphical bodies ride in those files too, editable as network text; a CFC/SFC body is a",
+        "read-only marker.", "",
+        "## File extensions", "",
+        "A file's name is its item's name in the IDE, and the extension names what the item is.", "",
+        // Rendered from the one extension table (as VscodeSettings is), never typed out: a hand-kept kind table
+        // here was item-kind knowledge in the CLI, and had drifted from what Volt actually writes.
+        "- Pushed back by `volt push`: " + Listed(Extensions.PushableExtensions),
+        "- Read-only (the IDE owns them — don't hand-edit): " + Listed(Extensions.ReadOnlyExtensions), "",
         "## What lives where",
         "- `.git/`    a normal git repo — Volt keeps its binding + IDE baseline in `.git/volt/`",
         "- `.claude/` AI language reference for ST (committed)",
         "- `src/`     synced from the IDE (leave to Volt)", "",
     });
+
+    private static string Listed(IEnumerable<string> extensions) =>
+        string.Join(" ", extensions.Select(e => "`." + e + "`"));
 }

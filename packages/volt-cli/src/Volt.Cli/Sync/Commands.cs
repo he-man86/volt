@@ -441,8 +441,9 @@ public static class Commands
             var parts = new List<string>();
             if (others.Count > 0)
                 parts.Add("unrecognized file extension - these can't sync to the IDE and were NOT pushed. Rename each " +
-                          "to its Volt extension (a DUT is .struct/.enum/.union/.alias, by its declaration; POUs " +
-                          ".fb/.prg/.fun/.itf; global var list .gvl):\n" + string.Join("\n", others.Select(p => "  " + p)));
+                          "to the Volt extension that names what it is (" +
+                          string.Join(", ", Extensions.PushableExtensions.Select(e => "." + e)) + "):\n" +
+                          string.Join("\n", others.Select(p => "  " + p)));
             if (markers.Count > 0)
                 parts.Add("`.gitkeep` files can't sync to the IDE - they were folder markers for an older Volt and " +
                           "nothing writes them now. Delete them (`git rm`) and push again:\n" +
@@ -471,11 +472,10 @@ public static class Commands
             ? new[] { Files.StripSrcPrefix(r.OldPath), Files.StripSrcPrefix(r.NewPath) }
             : new[] { Files.StripSrcPrefix(r.Path) }).ToList();
         // A referenced library's files are read-only by LOCATION, not by extension. The element signatures the
-        // bridge renders beside each `.library` stub carry SOURCE extensions (.fb/.fun/.itf/.struct/.gvl - every arm
-        // of LibSignatureRenderer), so `Extensions.IsReadOnly`, which keys on the extension alone, calls them
-        // WRITABLE. Pushing one is never right and is destructive, because a push op is keyed by BARE NAME:
-        // `Library Manager/CAA/HANDLE.alias` pushes as item "HANDLE.dut", which either creates junk inside the
-        // Library Manager or OVERWRITES the project's own DUT that happens to share the short name.
+        // bridge renders beside each `.library` stub carry ordinary SOURCE extensions, so `Extensions.IsReadOnly`,
+        // which keys on the extension alone, calls them WRITABLE. Pushing one is never right and is destructive,
+        // because a push op is keyed by NAME: `Library Manager/Util/BLINK.fb` pushes as item "BLINK.fb", which
+        // either creates junk inside the Library Manager or OVERWRITES the project's own item of that name.
         var libraryRoots = IdeTree.LibraryRoots(Git.ListTree(gitDir, IdeTree.Range).Select(e => e.Path));
         var readOnly = affected.Where(p => Extensions.IsReadOnly(p) || IdeTree.IsUnderLibraryRoot(p, libraryRoots)).ToList();
         if (readOnly.Count > 0)
@@ -957,7 +957,17 @@ public static class Commands
             Git.MergeContinue(root);
 
             // The one thing git can't do: advance Volt's IDE baseline to the state this merge resolved against.
-            if (isVoltMerge && Sidecar.LoadPendingIdeRefs(root) is { } pending)
+            // The git merge above is already concluded — resolving it is git's job and does not depend on Volt's
+            // baseline — so a stash the sidecar refuses is reported, not thrown: the merge stands, the baseline is
+            // NOT advanced (the refused stash is dropped, never promoted), and the refusal names `volt pull`.
+            IdeRefs? pending;
+            try { pending = isVoltMerge ? Sidecar.LoadPendingIdeRefs(root) : null; }
+            catch (InvalidOperationException e)
+            {
+                Sidecar.ClearPendingIdeRefs(root);
+                return (0, $"merge completed — the IDE baseline was NOT synced: {e.Message}");
+            }
+            if (pending is not null)
             {
                 Sidecar.SaveIdeRefs(root, pending);
                 Sidecar.ClearPendingIdeRefs(root);

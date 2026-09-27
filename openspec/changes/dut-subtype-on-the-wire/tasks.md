@@ -508,20 +508,54 @@ reds, unchanged); Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Ga
 
 ## 4. CLI — delete, don't move
 
-- [ ] 4.1 `Materialize.FileNameFor` → gone; pull writes `item.Name`.
-- [ ] 4.2 `Extensions.FullNameFromPath` → the DUT branch gone.
-- [ ] 4.3 `IdeTree.cs:66-80` stale-subtype guard deleted (the library exclusion beside it stays).
-- [ ] 4.4 `Commands.cs` refusal text and `Scaffold.cs` doc: "the extension names what it is" — no "maps to .dut".
+- [x] 4.1 `Materialize.FileNameFor` → gone; pull writes `item.Name`.
+      Cut to the pass-through in section 3 (to keep `Volt.Cli` compiling); nothing left to delete.
+      `DutSubtypeFileTests.The_file_name_comes_from_the_wire_never_from_the_declaration`,
+      `A_dut_is_written_under_its_wire_name`; the import is gated by `WireVocabularyGuardTests.The_cli_imports_no_st_format`.
+- [x] 4.2 `Extensions.FullNameFromPath` → the DUT branch gone.
+      Also cut in section 3; `DutSubtypeFileTests.And_a_dut_file_reads_back_as_that_same_wire_name`,
+      `No_path_produces_or_recognizes_a_dut_FILE`. Its now-unused `Volt.Engine.Format.Body` import deleted (and
+      `Scaffold.cs`'s).
+- [x] 4.3 `IdeTree.cs:66-80` stale-subtype guard deleted (the library exclusion beside it stays).
+      **The DUT premise is deleted; the rule is NOT, because deleting it was measured to lose data.** With
+      `FullNameFromPath` the identity since 3.x, what was left of the guard is "a changed item supersedes the parent
+      file carrying its NAME at another path" — and that is also the only thing retiring the old file of an item
+      the engineer MOVED to another folder in the IDE (changed — its folder is in its version — and not removed).
+      Test first: `IdeTreeTests.An_item_the_ide_moved_to_another_folder_leaves_one_file` and
+      `PullCommandTests.Pull_after_an_IDE_side_move_leaves_one_file_in_the_new_folder` — green with the rule, RED
+      with it deleted (both: the old `POUs/FB_Axis.fb` survived beside `Motion/FB_Axis.fb`). So the code stays and
+      its comment now states the move rule (name identity, no kind); every DUT/`.dut`/`FileNameFor` sentence is
+      gone from it. `A_subtype_change_removes_the_old_file_through_the_ordinary_sweep` and
+      `A_file_is_carried_forward_unless_the_wire_names_it_removed` (two NAMES, not a move) green either way.
+- [x] 4.4 `Commands.cs` refusal text and `Scaffold.cs` doc: "the extension names what it is" — no "maps to .dut".
       Neither keeps a hand-written kind→extension list: both render from the one extension table, as
       `VscodeSettings()` already does.
+      `Extensions.PushableExtensions` / `ReadOnlyExtensions` (from `ItemKind.FileExtensions`); the refusal lists
+      the pushable ones, the README both. Test first: `ExtensionListTextTests` (red before: the refusal named
+      `.struct`/`.fb`/… by hand and missed `.task`; the README named `.cfc`/`.sfc`, which no Volt writes, and
+      none of the read-only extensions). The library-guard comment's `HANDLE.alias` → "HANDLE.dut" example
+      rewritten (a push op is keyed by its full name now).
 - [ ] 4.5 `Sidecar` load: refuse a `.dut` key (2.5) — in `LoadIdeRefs` AND `LoadPendingIdeRefs`, so the
       `merge --continue` promotion cannot write one into the live sidecar. The refusal is the malformed one's:
       name the key, `.git/volt/ide-refs.json` to delete, and `volt pull` (pull loads the same baseline, so it is
       refused too — 2.5).
+      `Sidecar.RefuseUnknownNames`, called by both loads: a key (items or folders) with no extension in the one
+      table is refused naming the key, `.git/volt/ide-refs.json` and `volt pull`. Keyed on "no wire name Volt
+      knows" rather than the `.dut` spelling, so the CLI lists no retired spelling (a `.dut` key is one such).
+      `volt merge --continue` catches the pending refusal AFTER the git merge concluded: the merge stands, the
+      stash is dropped unpromoted, and the one-line result says the baseline was NOT synced and names `volt pull`.
+      `DutBaselineMigrationTests` (the three 2.5 reds) green; the other nine unchanged.
 - [ ] 4.6 grep `Volt.Cli` CASE-INSENSITIVELY for `dut` and for the subtype spellings `struct|enum|union|alias` —
       zero hits outside the sidecar refusal (the uppercase `DUT` in `Scaffold.cs`/`Commands.cs` is what a
       case-sensitive grep missed) — AND for `ItemKind.KindFor`,
       `IsSourceKind`, `ImplementationMarker` — zero hits: a kind decision that never spells `dut` is still one.
+      **Not closed — it closes with 4.9.** `grep -rniE "\bdut|\.(struct|enum|union|alias)\b|\bDUTs?\b"
+      src/Volt.Cli` leaves the sidecar refusal's doc (`Sidecar.cs`) and `Commands.cs:863` — the `V1Note` comment
+      — and the `KindForWireName`/`IsSourceKind`/`ImplementationMarker` grep leaves only `V1Note`
+      (`Commands.cs:865-867`): all 4.9's. The IdeTree/Commands library comments no longer spell `.struct`/`.alias`
+      examples. A bare case-insensitive `dut|struct|enum|union|alias` also hits English words
+      (`enumerate`, `structural`, `structured-text`) and the C# keyword `enum` (`Extensions.Access`, a `Types.cs`
+      doc) — none a kind decision.
 - [ ] 4.7 TS e2e client (1.4 census): `lib/workspace.ts` `fid` doc, `fixtures.ts` DUT rows carry their subtype
       extension, `crud-cycle`, `name-clash`, `kinds/top-level`, `vendor-parity` name DUTs `X.struct`/`.enum`/…; and
       `whole-project.test.ts`'s `WRITABLE` kind regex goes — the writable set comes from what the wire says, and
@@ -536,6 +570,11 @@ reds, unchanged); Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Ga
       engine predicate keyed by the wire name (the rule `ImplementationMarker.AppliesTo` already owns); the CLI
       calls it and imports no `ItemKind`. Test first: the CLI's answer for `X.fb`, `X.gvl`, `X.struct`, `X.enum`
       equals the engine predicate's.
+
+**Section 4.1–4.6 (2026-09-27), offline.** `Volt.Engine.Tests` 1494 passed / 0 failed (1 skipped, pre-existing);
+`Volt.Cli.Tests` 238 / 0 (every group-2 test green, the 4.5 reds included); Codesys 160, Twincat 231, Contracts
+19, Connector 110, Repo.Gates 20, `bun test test/unit` 4, `bun run check` 14 — all green. No live IDE; no driver
+touched; DIALECT.md unchanged. 4.6 stays open on 4.9's `V1Note`; 4.7–4.9 not started.
 
 ## 5. Docs and gates
 

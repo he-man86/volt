@@ -61,6 +61,31 @@ public class PullCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>A pull after the engineer moved an item to another folder in the IDE leaves ONE file, in the new
+    /// folder — through the commands, the shape `IdeTreeTests.An_item_the_ide_moved_…` pins at the tree.</summary>
+    [Fact]
+    public void Pull_after_an_IDE_side_move_leaves_one_file_in_the_new_folder()
+    {
+        const string fb = "FUNCTION_BLOCK FB_Axis\nVAR\nEND_VAR";
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("FB_Axis", fb, "", "POUs"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            Assert.True(File.Exists(Path.Combine(root, "src", "POUs", "FB_Axis.fb")));
+
+            ide.RemoveItem("FB_Axis");
+            ide.AddItem(FakeIde.Item.TextualPou("FB_Axis", fb, "", "Motion"));
+
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            Assert.True(File.Exists(Path.Combine(root, "src", "Motion", "FB_Axis.fb")), "the moved item was not written");
+            Assert.False(File.Exists(Path.Combine(root, "src", "POUs", "FB_Axis.fb")),
+                         "the old path survived — two files for one item");
+            Assert.Equal("in sync with the IDE", Commands.Status(root, client).Summary);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     [Fact]
     public void Pull_reports_a_conflict_when_both_sides_edited_the_same_item()
     {

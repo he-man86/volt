@@ -189,6 +189,32 @@ public class IdeTreeTests
         finally { TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>AN ITEM THE IDE MOVED ARRIVES UNDER ANOTHER PATH WITH THE SAME NAME. The fetch reports it changed
+    /// (its folder is part of its version) and not removed (it still exists), so neither the path-keyed
+    /// `replaced` set nor the `removedNames` sweep reaches the old file. The name is the identity, so a changed
+    /// item supersedes the parent file carrying its name wherever it sits; without that the workspace held two
+    /// files for one item, and the stale one's next edit pushed back over it.</summary>
+    [Fact]
+    public void An_item_the_ide_moved_to_another_folder_leaves_one_file()
+    {
+        var root = TestUtil.NewRepo();
+        try
+        {
+            var gitDir = Git.ResolveGitDir(root);
+            var parent = Git.CommitTree(gitDir, Git.BuildTree(gitDir, new[]
+            {
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "A"), "src/POUs/A.fb"),
+            }), Array.Empty<string>(), "parent");
+
+            var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
+                new List<MaterializedFile> { new("Motion/A.fb", "A") }, Array.Empty<string>(), librariesRefreshed: false);
+
+            Assert.True(Has(root, tree, "src/Motion/A.fb"));
+            Assert.False(Has(root, tree, "src/POUs/A.fb"));
+        }
+        finally { TestUtil.ForceDelete(root); }
+    }
+
     [Fact]
     public void Paths_with_spaces_round_trip_into_the_tree()
     {

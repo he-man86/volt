@@ -1,4 +1,3 @@
-﻿using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
 namespace Volt.Cli.Sync;
 
@@ -62,6 +61,13 @@ public static class Extensions
         if (relPath == ".gitattributes") return true;
         return GetByPath(relPath) != null;
     }
+
+    /// <summary>The extensions a push writes, and those it only reads, in table order — for the text that names
+    /// them to a person (the push's refusal, the scaffolded README). Rendered from the table rather than typed out:
+    /// a hand-kept list there was item-kind knowledge in the CLI and had already drifted (it named files no Volt
+    /// writes, and missed `.task`, which a push writes).</summary>
+    public static IEnumerable<string> PushableExtensions => All.Where(d => d.DefaultAccess == Access.Rw).Select(d => d.Ext);
+    public static IEnumerable<string> ReadOnlyExtensions => All.Where(d => d.DefaultAccess == Access.R).Select(d => d.Ext);
 
     public static bool IsPushable(string relPath) => GetByPath(relPath)?.DefaultAccess == Access.Rw;
     public static bool IsReadOnly(string relPath) => GetByPath(relPath)?.DefaultAccess == Access.R;
