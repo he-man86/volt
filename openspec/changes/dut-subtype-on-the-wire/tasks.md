@@ -631,6 +631,37 @@ Run after: `Volt.Cli.Tests` 243 / 0; Repo.Gates 20, `bun test test/unit` 4; `vol
 5616 / 0 fail, `volt-vscode` 31; `bun run check` 14, typecheck, lint — all green. No engine or driver code touched
 (Engine/Codesys/Twincat suites unaffected, not re-run); no live IDE; DIALECT.md unchanged. Round 3 not yet run.
 
+**Section 4.1–4.6 review, round 3 (2026-09-27)** — four findings, all fixed test-first (each red before):
+- Round 2's `Commands.Retired` was a SECOND removal rule in the CLI, weaker than the engine's: it exempted a known
+  name by BARE name against the wire's `unreadable` list, so an unreadable program `X` shielded a DUT `X.struct`
+  the IDE deleted on every partial pull (`PullCommandTests.A_partial_pull_retires_a_deleted_dut_beside_an_
+  unreadable_item_of_its_name`); and `volt status` (refs) still derived no removal from a partial walk while `volt
+  pull` deleted the file (`PullCommandTests.Status_over_a_partial_walk_reports_the_removal_pull_makes`). Fixed at
+  the root: removal is decided ONCE, in the engine (`Sync/Removal`, kind-aware unreadable exemption; on a partial
+  walk a known name is gone iff absent and its known folder was read), for BOTH read ops — `FetchRequest.
+  knownFolders`, `RefsRequest.knownItems`/`knownFolders`, `ReadResponse.removed` (moved up from `FetchResponse`).
+  The CLI sends its baseline and folders and takes `removed` as given: `Retired` and `UnderAny` deleted,
+  `StatusModel.ComputeIncoming` takes the bridge's list (its `complete` absence rule deleted). Engine:
+  `PartialWalkTests` (four new). **Test premise corrected:** `StatusPartialViewTests` and
+  `StatusModelTests.ComputeIncoming_classifies_…` pinned the CLI deriving removal from absence — the rule this
+  finding moves to the engine; the three partial-view facts are now pinned end to end through `volt status` over
+  the pipe, the unit test passes the bridge's `removed`. `volt-bridge.openrpc.json`/`data.js` regenerated;
+  `logs.html` Warn text and the fetch error-doc line updated to the new rule.
+- A baseline-less pull (the 4.5 migration) over a partial walk wrote the partial map as the whole baseline, so a
+  DUT under the unread folder that the IDE later deleted kept its file and was re-CREATED by the next push. The
+  overlay now starts from the `volt/ide` tree when there is no sidecar (names at `""`, folders from the file
+  paths — `KnownFromIdeTree`), which also gives the engine the folders it judges a partial walk by:
+  `DutBaselineMigrationTests.A_baseline_less_pull_over_an_unreadable_folder_still_retires_what_the_ide_deletes_later`.
+- A push receipt from a partial walk restored every baseline name it lacked, including the one the push itself
+  retired (a delete, or a rename's old name — a subtype change is either), so `X.struct` stayed beside `X.enum` and
+  the rewrite back was refused. The restore now skips them:
+  `DutSubtypeFileTests.A_subtype_rewrite_over_a_partial_receipt_retires_the_old_name_from_the_baseline`.
+Noted, not fixed (pre-existing, not a finding): a `--force` push adopts a COMPLETE receipt filtered to known
+names, so an item the IDE deleted concurrently leaves the baseline while its file stays in `volt/ide`.
+Run after: `Volt.Engine.Tests` 1503 passed / 0 failed (1 skipped, pre-existing); `Volt.Cli.Tests` 247 / 0;
+Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Gates 20, `bun test test/unit` 4, `bun run check` 14 —
+all green. No live IDE; no driver touched; DIALECT.md unchanged. Three review rounds run — the cap; not called clean.
+
 ## 5. Docs and gates
 
 - [ ] 5.1 `docs/items.html`: tables regenerated (`VOLT_WRITE_DOCS=1` — it writes only `assets/data.js`) AND the

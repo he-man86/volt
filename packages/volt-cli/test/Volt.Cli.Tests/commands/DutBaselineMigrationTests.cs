@@ -186,6 +186,40 @@ public class DutBaselineMigrationTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>…and what it could not see stays IN THE BASELINE, so a later pull can still retire it. The
+    /// recovery pull (the sidecar deleted, as the refusal says) over a folder that faults used to write the
+    /// partial map as the whole baseline, while the files under that folder were carried forward in `volt/ide`.
+    /// A later fetch is asked only about names the baseline holds, so when the IDE then deleted one of them no
+    /// pull ever reported it: its file stayed, status read in sync, and its next edit was pushed as a CREATE that
+    /// brought the deleted DUT back into the PLC.</summary>
+    [Fact]
+    public void A_baseline_less_pull_over_an_unreadable_folder_still_retires_what_the_ide_deletes_later()
+    {
+        var ide = ConnectedIde(Prg(),
+            FakeIde.Item.TextualPou("E_Mode", "TYPE E_Mode :\n(\n\tIdle,\n\tRun\n);\nEND_TYPE", "", "Machine"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var file = Path.Combine(root, "src", "Machine", "E_Mode.enum");
+            Assert.True(File.Exists(file), "fixture: the first pull wrote the file");
+
+            File.Delete(Config.Paths(root).IdeRefsPath);
+            ide.UnwalkableFolders = new[] { "Machine" };
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            Assert.True(File.Exists(file), "the recovery pull deleted a file under a folder it could not read");
+            Assert.Contains("E_Mode.enum", Sidecar.LoadIdeRefs(root)!.Items.Keys);
+
+            ide.RemoveItem("E_Mode");
+            ide.UnwalkableFolders = new string[0];
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            Assert.False(File.Exists(file), "the file of a DUT the IDE deleted outlived the recovery pull");
+            Assert.Equal("in sync with the IDE", Commands.Status(root, client).Summary);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     /// <summary>…and the `unreadable` exemption is the unreadable ITEM's, not its bare name's. Bare names repeat
     /// across kinds (`CM_Carrier.fb` beside `CM_Carrier.visualization`, CLAUDE.md): with the FB unreadable, a
     /// visualization the IDE deleted must still be retired, or the rebuilt baseline lacks it while its file stays,

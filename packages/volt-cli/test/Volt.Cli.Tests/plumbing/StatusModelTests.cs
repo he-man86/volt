@@ -15,10 +15,10 @@ public class StatusModelTests
     {
         var bridge = new Dictionary<string, string> { ["A.fb"] = "v2", ["B.fb"] = "v1", ["C.fb"] = "v1" };
         var baseMap = new Dictionary<string, string> { ["A.fb"] = "v1", ["C.fb"] = "v1", ["D.fb"] = "v1" };
-        var inc = StatusModel.ComputeIncoming(bridge, baseMap);
+        var inc = StatusModel.ComputeIncoming(bridge, baseMap, new[] { "D.fb" });
         Assert.Equal(new[] { "B.fb" }, inc.Added);      // in bridge, not baseline
         Assert.Equal(new[] { "A.fb" }, inc.Modified);   // version differs
-        Assert.Equal(new[] { "D.fb" }, inc.Removed);    // in baseline, gone from bridge
+        Assert.Equal(new[] { "D.fb" }, inc.Removed);    // the bridge's `removed`, as given
     }
 
     [Fact]

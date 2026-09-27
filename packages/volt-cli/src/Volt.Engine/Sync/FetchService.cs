@@ -138,11 +138,9 @@ public static class FetchService
                 // comes from the materialized item, which is null here, and re-deriving it would lean on the very
                 // content that defeated the read. The walked kind is the tree's, read without the body. The bare
                 // name alone is NOT enough — IEC makes names unique within a kind, not across kinds (CLAUDE.md,
-                // the item-name invariant) — so the removal pass matches both (`IsUnreadable`).
+                // the item-name invariant) — so the removal pass matches both (`Removal`).
                 unreadableBareNames.Add(it.Name);
-                if (!unreadableKinds.TryGetValue(it.Name, out var kinds))
-                    unreadableKinds[it.Name] = kinds = new HashSet<string>(System.StringComparer.Ordinal);
-                kinds.Add(kind);
+                Removal.AddUnreadable(unreadableKinds, it.Name, kind);
                 unreadable++;
                 continue;
             }
@@ -248,25 +246,21 @@ public static class FetchService
         // `IdeTree.BuildVoltIdeTree` acts on that list. The workspace is wiped down to the subset.
         //
         // It has never fired only because every caller happens to send an empty or single-entry baseline with
-        // `onlyItems` — the protocol made the dangerous shape look like the ordinary one. Same reasoning as
-        // the incomplete walk on the next line: absence is only evidence of deletion if you looked everywhere.
-        var removed = isInit || !walk.Complete || onlyItems != null
+        // `onlyItems` — the protocol made the dangerous shape look like the ordinary one: absence is only
+        // evidence of deletion where you looked. The same holds for a PARTIAL walk, which `Removal` judges per
+        // name: under a folder the walk could not enumerate, unseen; absent from a folder it read, gone.
+        var removed = isInit || onlyItems != null
             ? new List<string>()
-            : knownItems.Keys
-                .Where(k => !fullVersions.ContainsKey(k) && !IsUnreadable(k, unreadableKinds))
-                .ToList();
+            : Removal.Removed(knownItems.Keys, request.KnownFolders, fullVersions.Keys, unreadableKinds, walk.UnwalkedFolders);
 
-        // A PARTIAL walk can report no deletions at all, and that is the only honest answer available. Deletion
-        // is derived from absence, and a folder the driver could not enumerate makes absence meaningless for
-        // everything beneath it — a single faulting folder would otherwise delete the engineer's files for every
-        // POU under it. Loud, because the alternative is a pull that quietly syncs less of the project than it
-        // claims: the drivers already logged the skip (CODESYS at Warn, TwinCAT at Debug — off by default) and
-        // neither reached the code that had to act on it.
+        // Loud, because the alternative is a pull that quietly syncs less of the project than it claims: the
+        // drivers already logged the skip (CODESYS at Warn, TwinCAT at Debug — off by default) and neither reached
+        // the code that had to act on it.
         if (!walk.Complete)
             VoltLog.Warn(
                 $"fetch: the project walk was INCOMPLETE — {walk.UnwalkedFolders.Count} folder(s) could not be " +
-                $"enumerated ({string.Join(", ", walk.UnwalkedFolders)}). Deletions are suppressed for this " +
-                "fetch: items under those folders were not seen, which is not the same as gone.");
+                $"enumerated ({string.Join(", ", walk.UnwalkedFolders)}). Nothing under those folders is reported " +
+                "removed by this fetch: items there were not seen, which is not the same as gone.");
 
         var drops = Drops(("unmapped-kind", unmapped), ("unreadable", unreadable),
                           ("lib-render-null", libRenderNull), ("lib-unmatched", libUnmatched));
@@ -284,8 +278,8 @@ public static class FetchService
             // so the removal pass does not read "absent" as "deleted") and already counted in the log — naming
             // them on the wire is what makes an item that simply never arrives visible to a client at all.
             Unreadable = unreadableBareNames.OrderBy(n => n, System.StringComparer.Ordinal).ToList(),
-            // The caveat travels WITH the answer. `removed` is already suppressed above when this is
-            // non-empty; saying so is what lets a client decline to advance its baseline as well.
+            // The caveat travels WITH the answer. `removed` above already spares everything under these
+            // folders; saying so is what lets a client keep the baseline entries it did not see as well.
             UnwalkedFolders = walk.UnwalkedFolders.ToList(),
             LibrariesRefreshed = librariesRefreshed,
             // Echo the project we actually walked, so the client can confirm it before merging. This is the LIVE
@@ -295,20 +289,6 @@ public static class FetchService
         };
     }
 
-
-    /// <summary>Is the known wire name <paramref name="known"/> an item this walk saw and could not read? Same bare
-    /// name AND the kind it was walked as — a name of ANOTHER kind that shares the bare name is a different item,
-    /// and absent from the walk means gone.
-    ///
-    /// <para>A known name whose kind cannot be read off its extension is NOT exempt. It used to be ("absence proves
-    /// nothing about an item the reader could not place"), and that shielded exactly the names the engine does
-    /// not recognise: with FB <c>X</c> unreadable, a known <c>X.struct</c> the IDE had deleted was never reported
-    /// removed, so its file survived and its next edit pushed as a create. No legitimate known name lacks a kind —
-    /// an unreadable item is published in <c>Unreadable</c>, never in <c>Items</c>, so no baseline holds its bare
-    /// identity — and the answer for any other unplaceable name is the ordinary one: not in this walk.</para></summary>
-    private static bool IsUnreadable(string known, IReadOnlyDictionary<string, HashSet<string>> unreadableKinds) =>
-        unreadableKinds.TryGetValue(Materializer.Bare(known), out var kinds)
-        && ItemKind.KindForWireName(known) is { } kind && kinds.Contains(kind);
 
     // The `.library` file extension, from the canonical registry (not a literal) — used to spot a removed library
     // in the client's knownItems (only .library keys are relevant to the library-change decision).

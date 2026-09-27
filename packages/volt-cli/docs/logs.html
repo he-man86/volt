@@ -74,12 +74,13 @@ refs: 138 items (140ms)</pre>
 
 <h3 id="incomplete">The incomplete walk — Warn</h3>
 <pre>fetch: the project walk was INCOMPLETE — 1 folder(s) could not be enumerated (POUs/Machine).
-Deletions are suppressed for this fetch: items under those folders were not seen, which is not
-the same as gone.</pre>
+Nothing under those folders is reported removed by this fetch: items there were not seen, which is
+not the same as gone.</pre>
 <p>
   This is the loudest line the sync layer has, and it deserves to be. Deletion is derived from absence, so a
   folder the driver could not enumerate makes absence meaningless for everything beneath it. The fetch
-  suppresses deletions entirely rather than reporting them, and says so. Before this existed, a single
+  reports no deletion under that folder (a name absent from a folder it DID read is still removed, judged
+  by the folder the client says it last sat in), and says so. Before this existed, a single
   faulting folder deleted the engineer's files for every POU under it.
 </p>
 

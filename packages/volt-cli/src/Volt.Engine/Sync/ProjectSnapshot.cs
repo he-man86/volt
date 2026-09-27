@@ -51,6 +51,10 @@ internal sealed class ProjectSnapshot
     /// otherwise, because it is tracked in the version hash but absent from the wire index (DIALECT C7).</summary>
     public List<string> Unreadable { get; } = new List<string>();
 
+    /// <summary>The same unreadable items, bare name → the kinds each was walked as — what <see cref="Removal"/>
+    /// needs to exempt the unreadable ITEM and not every item sharing its bare name.</summary>
+    public Dictionary<string, HashSet<string>> UnreadableKinds { get; } = new(StringComparer.Ordinal);
+
     /// <summary>Folders the driver could not enumerate. Non-empty means "there may be items under here this
     /// walk did not see" — never "these are gone". Everything derived from this snapshot is partial when it
     /// is non-empty, including both aggregate versions.</summary>
@@ -104,7 +108,7 @@ internal sealed class ProjectSnapshot
             var v = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder);
             snap.Versions[v.Identity] = v.Version;
             if (v.Materialized is { } mat) { snap.FullVersions[mat.FullName] = v.Version; snap.Folders[mat.FullName] = folder; }
-            else snap.Unreadable.Add(it.Name);
+            else { snap.Unreadable.Add(it.Name); Removal.AddUnreadable(snap.UnreadableKinds, it.Name, kind); }
         }
         snap.ProjectVersion = Hasher.ComputeProjectVersion(snap.Versions);
         return snap;

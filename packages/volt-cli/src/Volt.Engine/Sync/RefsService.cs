@@ -40,6 +40,11 @@ public static class RefsService
             // deliberately absent from `Items` — naming them here is the only way a client can tell the
             // difference between "this project has no such POU" and "Volt could not read it".
             Unreadable = snap.Unreadable,
+            // What of the client's baseline is gone — by the rule `fetch` uses (`Removal`), so `volt status` and
+            // `volt pull` read one answer. A refs sent no baseline (discovery, an older client) reports none.
+            Removed = req?.KnownItems is { } known
+                ? Removal.Removed(known.Keys, req.KnownFolders, snap.FullVersions.Keys, snap.UnreadableKinds, snap.UnwalkedFolders)
+                : new List<string>(),
             // THE PROJECT THIS WALK IS OF, atomic with the walk. `fetch` has echoed it all along and `refs` did
             // not, which is backwards for the op `volt status` runs: a caller that asked WITHOUT a binding — the
             // discovery path, the console, the e2e harness — got a version map with nothing saying what it was a

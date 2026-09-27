@@ -375,6 +375,44 @@ public class DutSubtypeFileTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>…AND OVER A PARTIAL RECEIPT. A receipt whose walk could not read a folder keeps the baseline's
+    /// entries it did not see — but not the name THIS push retired. Restored, `X.struct` stayed in the baseline
+    /// beside `X.enum` while the IDE and the workspace held only `X.enum`; rewriting `X` back to a struct then
+    /// sent an UPDATE of `X.struct` (at the stale version) paired with the delete of `X.enum`, and the engine
+    /// refused the pair with advice the engineer could not act on.</summary>
+    [Fact]
+    public void A_subtype_rewrite_over_a_partial_receipt_retires_the_old_name_from_the_baseline()
+    {
+        var ide = ConnectedIde(
+            FakeIde.Item.TextualPou("X", WideStruct, "", "DUTs"),
+            FakeIde.Item.TextualPou("Deep", "PROGRAM Deep\nVAR\nEND_VAR", "y := 2;", "Machine"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            ide.UnwalkableFolders = new[] { "Machine" };
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var dir = Path.Combine(root, "src", "DUTs");
+
+            File.Delete(Path.Combine(dir, "X.struct"));
+            File.WriteAllText(Path.Combine(dir, "X.enum"), Rewritten("enum") + "\n");
+            var first = Commands.Push(root, client);
+            Assert.True(first.Kind == "ok", $"push {first.Kind}: {first.Reason}");
+
+            var baseline = Sidecar.LoadIdeRefs(root)!.Items.Keys;
+            Assert.DoesNotContain("X.struct", baseline);
+            Assert.Contains("X.enum", baseline);
+            Assert.Contains("Deep.prg", baseline);   // the unseen item is still kept
+
+            File.Delete(Path.Combine(dir, "X.enum"));
+            File.WriteAllText(Path.Combine(dir, "X.struct"), WideStruct + "\n");
+            var back = Commands.Push(root, client);
+            Assert.True(back.Kind == "ok", $"push {back.Kind}: {back.Reason}");
+            Assert.Equal(new[] { "X.struct" }, RefsService.Handle(ide).Items.Keys.Where(k => k.StartsWith("X.")).ToArray());
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     /// <summary>…AND INTO ANOTHER FOLDER: delete `DUTs/X.struct`, add `Types/X.{subtype}`. The push sends the
     /// create with its folder, and the one update it becomes must still MOVE the DUT — otherwise the IDE keeps
     /// `X` in `DUTs` while the receipt, the baseline and the workspace say `Types`, status reads in sync, and the

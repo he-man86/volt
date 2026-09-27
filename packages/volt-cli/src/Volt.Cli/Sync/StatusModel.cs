@@ -26,6 +26,11 @@ public sealed class BridgeSnapshot
     /// emitted an `iD` line for the entire project, right beside the `# incoming-stale` marker saying the
     /// answer was not to be trusted.</para></summary>
     public bool Walked { get; set; } = true;
+
+    /// <summary>The baseline names the bridge says are GONE (<c>ReadResponse.Removed</c>). Taken as given: the
+    /// removal rule is the engine's, one for status and pull, and absence from <see cref="Items"/> is not
+    /// evidence the client weighs itself.</summary>
+    public List<string> Removed { get; set; } = new();
     public Dictionary<string, string> Folders { get; set; } = new();
     public string ProjectVersion { get; set; } = "";
 }
@@ -34,32 +39,27 @@ public sealed class BridgeSnapshot
 /// snapshot + local git state, with NO bridge calls.</summary>
 public static class StatusModel
 {
-    /// <summary>The IDE-side changeset: the bridge's item→version map diffed against the baseline.</summary>
-    /// <param name="complete">False when the bridge could not enumerate part of the project. A deletion is
-    /// derived from ABSENCE, so a partial view cannot produce one: every item under a folder that failed to
-    /// read is missing from <paramref name="bridge"/>, present in the baseline, and would be rendered as
-    /// incoming-REMOVED. Status would tell the user the engineer deleted their POUs.</param>
+    /// <summary>The IDE-side changeset: the bridge's item→version map diffed against the baseline, plus the
+    /// bridge's own list of what is gone.</summary>
+    /// <param name="removed">The bridge's <c>removed</c>, never derived here from absence. A deletion used to be
+    /// derived in this method (baseline minus the map), which cannot see what the walk found and could not read,
+    /// nor tell an item under a folder the walk could not enumerate from one deleted from a folder it read — so it
+    /// was switched off for every partial walk, and status then reported nothing removed where the pull, deciding
+    /// with the bridge's facts, deleted the file.</param>
     public static ChangeSet ComputeIncoming(
-        IReadOnlyDictionary<string, string> bridge, IReadOnlyDictionary<string, string> baseMap, bool complete = true)
+        IReadOnlyDictionary<string, string> bridge, IReadOnlyDictionary<string, string> baseMap, IEnumerable<string> removed)
     {
         var added = new List<string>();
         var modified = new List<string>();
-        var removed = new List<string>();
         foreach (var kv in bridge)
         {
             if (!baseMap.ContainsKey(kv.Key)) added.Add(kv.Key);
             else if (baseMap[kv.Key] != kv.Value) modified.Add(kv.Key);
         }
-        // ONLY A COMPLETE VIEW MAY REPORT A DELETION. See the parameter's doc: with a folder unread, every
-        // item beneath it is absent from `bridge` and present in the baseline, which reads identically to the
-        // engineer having deleted them.
-        if (complete)
-            foreach (var name in baseMap.Keys)
-                if (!bridge.ContainsKey(name)) removed.Add(name);
         added.Sort(StringComparer.Ordinal);
         modified.Sort(StringComparer.Ordinal);
-        removed.Sort(StringComparer.Ordinal);
-        return new ChangeSet { Added = added, Modified = modified, Removed = removed };
+        var gone = removed.Distinct(StringComparer.Ordinal).OrderBy(x => x, StringComparer.Ordinal).ToList();
+        return new ChangeSet { Added = added, Modified = modified, Removed = gone };
     }
 
     public static StatusData BuildStatusData(string root, BridgeSnapshot snap)
@@ -69,8 +69,7 @@ public static class StatusModel
 
         var sidecar = Sidecar.LoadIdeRefs(root);
         var incoming = snap.Online && snap.ProjectMismatch is null && snap.Walked
-            ? ComputeIncoming(snap.Items, sidecar?.Items ?? new Dictionary<string, string>(),
-                              complete: snap.UnwalkedFolders.Count == 0)
+            ? ComputeIncoming(snap.Items, sidecar?.Items ?? new Dictionary<string, string>(), snap.Removed)
             : ChangeSet.Empty();
 
         var pathByName = new Dictionary<string, string>();

@@ -154,6 +154,10 @@ public static class Commands
     public static StatusData Status(string root, BridgeClient bridge, bool localOnly = false)
     {
         var cfg = Config.ConfigExists(root) ? Config.LoadConfig(root) : null;
+        // Loaded HERE, outside the bridge try below: a refused baseline is the engineer's to fix (the refusal names
+        // the file and `volt pull`), not an offline bridge. And it rides on the refs, so the bridge answers what of
+        // it is gone — the one removal rule `volt pull` gets from its fetch.
+        var sidecar = cfg is null ? null : Sidecar.LoadIdeRefs(root);
         var snap = new BridgeSnapshot { Online = false, Detail = "offline" };
         try
         {
@@ -185,8 +189,13 @@ public static class Commands
                 var bound = new ProjectId(cfg.Project.Platform, cfg.Project.ProjectName);
                 try
                 {
-                    snap = BuildSnap(online, detail, null, bridge.GetRefs(
-                        new RefsRequest { ExpectedPlatform = bound.Platform, ExpectedProjectName = bound.ProjectName }));
+                    snap = BuildSnap(online, detail, null, bridge.GetRefs(new RefsRequest
+                    {
+                        ExpectedPlatform = bound.Platform,
+                        ExpectedProjectName = bound.ProjectName,
+                        KnownItems = sidecar?.Items,
+                        KnownFolders = sidecar?.Folders,
+                    }));
                 }
                 catch (PipeCallException e) when (e.Code == BridgeErrorCodes.WrongProject)
                 {
@@ -242,6 +251,12 @@ public static class Commands
 
         var cfg = Config.LoadConfig(root);
         var sidecar = Sidecar.LoadIdeRefs(root);
+        // What this client knows of the IDE, and where each item sat: the baseline, or — with none — the last
+        // `volt/ide` tree (see `KnownFromIdeTree`). The folders are what let the bridge decide removals on a
+        // PARTIAL walk too, and what a baseline-less partial pull keeps for the items it could not see.
+        var (knownItems, knownFolders) = sidecar is not null
+            ? (sidecar.Items, sidecar.Folders)
+            : KnownFromIdeTree(gitDir);
 
         // ONE path for dry-run and real pull. Always `fetch` (incremental), compute incoming, then the up-to-date
         // short-circuit; dry-run returns the preview, the real pull falls through to the merge. The fetch carries
@@ -256,7 +271,8 @@ public static class Commands
             progress.Enter(0, "Fetching from IDE");
             fetched = bridge.FetchChanges(new FetchRequest
             {
-                KnownItems = sidecar?.Items ?? KnownFromIdeTree(gitDir),
+                KnownItems = knownItems,
+                KnownFolders = knownFolders,
                 ExpectedPlatform = cfg.Project.Platform,
                 ExpectedProjectName = cfg.Project.ProjectName,
             }, progress.Wrap(0, "Fetching from IDE"));
@@ -268,15 +284,13 @@ public static class Commands
         var bindErr = Config.VerifyFetchedIdentity(cfg, fetched.Platform, fetched.ProjectName);
         if (bindErr is not null) return PullResult.Refused(bindErr);
 
-        // `complete:` here for the same reason `BuildStatusData` passes it: a fetch that could not enumerate a
-        // folder returns a PARTIAL item map, and every item under it would otherwise diff as incoming-REMOVED —
-        // a pull that DELETES the engineer's files for POUs still sitting in the IDE. The bridge suppresses its
-        // own `removed` list in that case; this is the client computing the same thing from the same map, and it
-        // has to make the same decision.
+        // What is GONE is the bridge's answer (`fetched.Removed`), never absence read here: it alone can tell an
+        // item under a folder the walk could not enumerate (unseen) from one deleted from a folder it read, and an
+        // unreadable item from a deleted one of another kind. The baseline, the `volt/ide` tree and status all
+        // take that one list, so none of them can disagree about which file outlives its item.
         var incoming = StatusModel.ComputeIncoming(fetched.Items, sidecar?.Items ?? new Dictionary<string, string>(),
-                                                   complete: fetched.UnwalkedFolders.Count == 0);
-        var retired = Retired(fetched, sidecar);
-        var synced = incoming.Added.Concat(incoming.Modified).Concat(incoming.Removed).Concat(retired)
+                                                   fetched.Removed);
+        var synced = incoming.Added.Concat(incoming.Modified).Concat(incoming.Removed)
             .Distinct(StringComparer.Ordinal).OrderBy(x => x, StringComparer.Ordinal).ToList();
 
         StatusData PostStatus() => StatusModel.BuildStatusData(root, new BridgeSnapshot
@@ -289,6 +303,8 @@ public static class Commands
             ProjectVersion = fetched.ProjectVersion,
             UnwalkedFolders = fetched.UnwalkedFolders,
             Unreadable = fetched.Unreadable,
+            // The pull just adopted this list (or, dry, would): the post-status reports the same removals.
+            Removed = fetched.Removed,
         });
 
         if (dryRun)
@@ -338,45 +354,49 @@ public static class Commands
         var ideFiles = fetched.Changed.SelectMany(Materialize.MaterializeItem).ToList();
         // A PARTIAL WALK MUST NOT SHRINK THE BASELINE. `ReadResponse.UnwalkedFolders` says a client that sees
         // it non-empty must not conclude anything from absence — and REPLACING the sidecar's item map is exactly
-        // that conclusion, one layer past the `removed` list this response already suppressed. Every item under
+        // that conclusion, one layer past the `removed` list the bridge already judged. Every item under
         // an unreadable folder would leave `ide-refs.json`, and the damage lands on the next PUSH, not here: an
         // edit to such a file has no known version, so it goes up as a create and is refused ITEM_EXISTS; a
         // local delete is skipped by the `guardItems.TryGetValue` gate and reported as "nothing to push"; a
         // rename throws "has no known IDE version" straight past Commands.Push to the top-level handler.
         //
         // Overlaying keeps the unseen entries at the version the last COMPLETE walk gave them, which is the only
-        // honest thing to say about an item nobody could look at.
+        // honest thing to say about an item nobody could look at. With NO baseline (the recovery pull a refused
+        // sidecar names) the overlay starts from the `volt/ide` tree instead, at the empty version: the item is
+        // known and its version is not. Writing the partial map alone made the baseline forget the unseen items
+        // while their files were carried forward — and a fetch is asked only about names the baseline holds, so
+        // when the IDE later deleted one, no pull ever said so and its next edit pushed as a CREATE. An empty
+        // version is refused by the push's version gate (never a create), and the next fetch that sees the item
+        // sends it as changed.
         Dictionary<string, string> newItems;
-        if (fetched.UnwalkedFolders.Count > 0 && sidecar is not null)
-        {
-            // Start from the baseline and let the walk WIN where it saw something — a plain overlay. This was a
-            // Concat/GroupBy/Last that leaned on enumeration order for "fetched wins", which nothing stated.
-            // What leaves it is exactly what the tree below drops (`retired`), never a second decision.
-            newItems = new Dictionary<string, string>(sidecar.Items, StringComparer.Ordinal);
-            foreach (var kv in fetched.Items) newItems[kv.Key] = kv.Value;
-            foreach (var name in retired) newItems.Remove(name);
-        }
-        else newItems = fetched.Items;
-
-        // THE FOLDER MAP GETS THE SAME OVERLAY, because the item overlay above is USELESS without it. Written
-        // through as `fetched.Folders`, a preserved item had no folder entry — and the very next partial pull
-        // reads `sidecar.Folders.TryGetValue(name, …)` to decide whether it sits under an unread folder, gets
-        // false, and removes it. The protection lasted one cycle and then did the thing it was preventing.
         Dictionary<string, string> newFolders;
-        if (fetched.UnwalkedFolders.Count > 0 && sidecar is not null)
+        if (fetched.UnwalkedFolders.Count > 0)
         {
-            newFolders = new Dictionary<string, string>(sidecar.Folders, StringComparer.Ordinal);
+            // Start from what is known and let the walk WIN where it saw something — a plain overlay. What leaves
+            // it is exactly what the tree below drops (`fetched.Removed`), never a second decision.
+            newItems = new Dictionary<string, string>(knownItems, StringComparer.Ordinal);
+            foreach (var kv in fetched.Items) newItems[kv.Key] = kv.Value;
+            foreach (var name in fetched.Removed) newItems.Remove(name);
+
+            // THE FOLDER MAP GETS THE SAME OVERLAY, because the item overlay above is USELESS without it: the
+            // folder is what the next partial walk judges an unseen item by, and an item with none is never
+            // removed by a partial walk — nor kept on purpose.
+            newFolders = new Dictionary<string, string>(knownFolders, StringComparer.Ordinal);
             foreach (var kv in fetched.Folders) newFolders[kv.Key] = kv.Value;
             foreach (var name in newFolders.Keys.ToList())
                 if (!newItems.ContainsKey(name)) newFolders.Remove(name);   // the two halves name the same items
         }
-        else newFolders = fetched.Folders;
+        else
+        {
+            newItems = fetched.Items;
+            newFolders = fetched.Folders;
+        }
 
         var newSidecar = new IdeRefs { ProjectVersion = fetched.ProjectVersion, Items = newItems, Folders = newFolders };
         var head = Git.HeadCommit(root);
         var parentIde = IdeTree.VoltIdeHead(gitDir);
 
-        var tree = IdeTree.BuildVoltIdeTree(gitDir, head, parentIde, ideFiles, retired,
+        var tree = IdeTree.BuildVoltIdeTree(gitDir, head, parentIde, ideFiles, fetched.Removed,
             fetched.LibrariesRefreshed,
             (done, total) => progress.Report(1, "Importing objects", done, total));
         progress.Enter(2, "Merging");
@@ -603,9 +623,20 @@ public static class Commands
         // …AND A RECEIPT FROM A PARTIAL WALK DOES NOT SHRINK IT. The receipt is a full re-walk and can be short
         // for the same reasons a read can; replacing the map with it would drop every item under an
         // unenumerable folder, undoing in one push the overlay the PULL path installs for this exact case.
+        //
+        // Except a name THIS PUSH took out of the IDE: a delete, or the old name of a rename. The receipt lacks it
+        // because it is gone, not because it was unseen. Restored, the old name stayed in the baseline beside the
+        // new one while the IDE and the workspace held only the new; the next change back to the old name then
+        // went up as an UPDATE of an item the IDE no longer has, at a stale version, and was refused.
         if (resp.UnwalkedFolders.Count > 0)
+        {
+            var retiredByPush = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var op in ops)
+                if (op is DeleteItemOp) retiredByPush.Add(op.Name);
+                else if (op is SetItemOp { ToName: { } to } && to != op.Name) retiredByPush.Add(op.Name);
             foreach (var kv in known)
-                if (!adopted.ContainsKey(kv.Key)) adopted[kv.Key] = kv.Value;
+                if (!adopted.ContainsKey(kv.Key) && !retiredByPush.Contains(kv.Key)) adopted[kv.Key] = kv.Value;
+        }
 
         // The FOLDER map is filtered the same way. It was written through unfiltered, so after a `--force` push
         // against an IDE holding items this workspace has never seen, `Items` correctly omitted them while
@@ -676,10 +707,9 @@ public static class Commands
             Items = resp.NewItems!,
             Folders = resp.NewFolders!,
             ProjectVersion = resp.NewProjectVersion!,
-            // Or `ComputeIncoming` runs `complete: true` over a PARTIAL receipt and reports every item the walk
-            // did not see as an incoming DELETION — handed straight to volt-control, so the GUI announces that
-            // the IDE deleted the engineer's POUs immediately after a successful push.
             UnwalkedFolders = resp.UnwalkedFolders,
+            // Nothing is reported removed: the receipt is a walk the client sent no baseline to, and the baseline
+            // just written holds only names the receipt has and names restored above as unseen.
         });
         var notes = new List<string>();
         if (heldOtherwise.Count > 0)
@@ -987,17 +1017,20 @@ public static class Commands
     /// name): delete it and run <c>volt pull</c>.</para>
     ///
     /// <para>The empty versions make every item come back changed (there is no baseline to diff against), and
-    /// the bridge's own removal pass — complete walks only, minus what it could not read — decides what is gone,
-    /// exactly as on every other pull. The same shape the post-push re-fetch sends. A library's rendered
-    /// signatures are path-identified, never wire items, so they are not named — but its <c>.library</c> STUB is a
-    /// wire item and IS named. Excluding every file under a library root dropped the stub too, so the bridge could
-    /// not see a library the IDE had stopped referencing: nothing was removed, the libraries were not refreshed,
-    /// and the stub and its signatures were carried forward into a baseline that no longer listed the stub, and
-    /// so past every later pull as well.</para></summary>
-    private static Dictionary<string, string> KnownFromIdeTree(string gitDir)
+    /// the bridge's own removal pass decides what is gone, exactly as on every other pull. The same shape the
+    /// post-push re-fetch sends. Each name's FOLDER is the directory its file sits in — a pull writes an item at
+    /// <c>{folder}/{name}</c> — so a PARTIAL walk can still judge it (gone from a folder it read, unseen under one
+    /// it could not), and the partial pull keeps it for the next one. A library's rendered signatures are
+    /// path-identified, never wire items, so they are not named — but its <c>.library</c> STUB is a wire item and
+    /// IS named. Excluding every file under a library root dropped the stub too, so the bridge could not see a
+    /// library the IDE had stopped referencing: nothing was removed, the libraries were not refreshed, and the stub
+    /// and its signatures were carried forward into a baseline that no longer listed the stub, and so past every
+    /// later pull as well.</para></summary>
+    private static (Dictionary<string, string> Items, Dictionary<string, string> Folders) KnownFromIdeTree(string gitDir)
     {
         var known = new Dictionary<string, string>(StringComparer.Ordinal);
-        if (IdeTree.VoltIdeHead(gitDir) is not { } parentIde) return known;
+        var folders = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (IdeTree.VoltIdeHead(gitDir) is not { } parentIde) return (known, folders);
         var paths = Git.ListTree(gitDir, parentIde).Select(e => e.Path).ToList();
         var libraryRoots = IdeTree.LibraryRoots(paths);
         foreach (var path in paths)
@@ -1005,44 +1038,12 @@ public static class Commands
             if (!path.StartsWith(Files.SrcDir + "/", StringComparison.Ordinal)) continue;
             var rel = path.Substring(Files.SrcDir.Length + 1);
             if (IdeTree.IsLibrarySignature(rel, libraryRoots)) continue;
-            if (Extensions.FullNameFromPath(rel) is { } name) known[name] = "";
+            if (Extensions.FullNameFromPath(rel) is not { } name) continue;
+            known[name] = "";
+            var slash = rel.LastIndexOf('/');
+            folders[name] = slash < 0 ? "" : rel.Substring(0, slash);
         }
-        return known;
-    }
-
-    /// <summary>The names a pull retires — from the baseline AND, through the <c>volt/ide</c> tree, from the
-    /// workspace. ONE list for both, because the two disagreeing is how a file outlives its item: a name that
-    /// leaves the baseline while its file is carried forward is never reported removed again (a later fetch is
-    /// only asked about names the baseline still holds), so the file stays for good, reads in sync, and its next
-    /// edit recreates an item the IDE deleted.
-    ///
-    /// <para>A complete walk: the bridge's <c>removed</c>, as is. A PARTIAL walk: the bridge reports no removals
-    /// (it cannot tell where a known name used to sit), but the baseline can — a name absent from a folder the
-    /// walk DID read is gone, and one under an unread folder is merely unseen. Except a name whose item the walk
-    /// found and could not read: the bridge names only its BARE name, and whether that is this item or a
-    /// same-named item of another kind is the bridge's to decide (it has the walked kind; a wire name here is
-    /// only a string). It stays known, undecided, and the next complete walk — asked about it because the
-    /// baseline still holds it — decides with the kind.</para></summary>
-    private static List<string> Retired(FetchResponse fetched, IdeRefs? sidecar)
-    {
-        if (fetched.UnwalkedFolders.Count == 0 || sidecar is null) return fetched.Removed.ToList();
-        var unreadable = new HashSet<string>(fetched.Unreadable, StringComparer.Ordinal);
-        return sidecar.Items.Keys
-            .Where(name => !fetched.Items.ContainsKey(name)
-                           && !(sidecar.Folders.TryGetValue(name, out var folder) && UnderAny(folder, fetched.UnwalkedFolders))
-                           && !unreadable.Contains(name.Substring(0, name.LastIndexOf('.'))))
-            .ToList();
-    }
-
-    /// <summary>Is <paramref name="folder"/> one of <paramref name="roots"/>, or inside one? The folder paths the
-    /// walk reports are the same shape the sidecar stores, so this is a prefix test on `/` boundaries.</summary>
-    private static bool UnderAny(string folder, IReadOnlyList<string> roots)
-    {
-        foreach (var r in roots)
-            if (string.Equals(folder, r, StringComparison.Ordinal)
-                || folder.StartsWith(r + "/", StringComparison.Ordinal))
-                return true;
-        return false;
+        return (known, folders);
     }
 
     private static BridgeSnapshot BuildSnap(bool online, string detail, ProjectMismatch? mismatch, RefsResponse refs) => new()
@@ -1053,9 +1054,9 @@ public static class Commands
         Items = refs.Items,
         Folders = refs.Folders,
         ProjectVersion = refs.ProjectVersion,
-        // Carried so `ComputeIncoming` can decline to report deletions: with a folder unread, `Items` is a
-        // PARTIAL view and absence proves nothing.
+        // Carried so status can say the view is INCOMPLETE: with a folder unread, `Items` is a PARTIAL view.
         UnwalkedFolders = refs.UnwalkedFolders,
         Unreadable = refs.Unreadable,
+        Removed = refs.Removed,
     };
 }

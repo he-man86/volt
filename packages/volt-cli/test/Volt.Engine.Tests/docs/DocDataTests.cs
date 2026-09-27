@@ -97,8 +97,8 @@ public class DocDataTests
             "NO_SIDECAR is specific to this op: a fetch with neither `knownItems` nor `onlyItems` is ambiguous "
             + "— it could mean \"everything\" or a client that forgot its baseline. Send `init: true` for a "
             + "first pull.",
-            "A walk that could not enumerate a folder SUPPRESSES every deletion and says so at Warn, so "
-            + "`removed` comes back empty rather than wrong.",
+            "A walk that could not enumerate a folder reports no deletion beneath it and says so at Warn; a "
+            + "name absent from a folder it did read is still in `removed`, judged by `knownFolders`.",
             "Items that would not materialize are named in `unreadable`, not raised.",
         }),
         [Ops.Push] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,

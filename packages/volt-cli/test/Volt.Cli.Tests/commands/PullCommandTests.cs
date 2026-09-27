@@ -1,3 +1,4 @@
+using System.Linq;
 using System.IO;
 using Volt.Cli.Sync;
 using Xunit;
@@ -425,10 +426,10 @@ public class PullCommandTests
     /// <summary>A PULL OVER A PARTIAL WALK KEEPS THE FILES AND SAYS THE VIEW IS SHORT.
     ///
     /// <para>Two halves, in two places, and it is worth being exact about which does what. The FILES survive
-    /// because `FetchService` suppresses its own `removed` list when the walk was incomplete — the destructive
+    /// because `FetchService` names nothing under an unwalked folder in its `removed` list — the destructive
     /// path reads `fetched.Removed`, so that is the half that prevents data loss. The client half is what the
-    /// USER is told: `PostStatus` carries the incompleteness, so the status the pull returns declines to derive
-    /// a deletion from absence and names the folder it could not read. Without it a pull that changed nothing
+    /// USER is told: `PostStatus` carries the incompleteness and the bridge's own `removed`, so the status the
+    /// pull returns derives no deletion from absence and names the folder it could not read. Without it a pull that changed nothing
     /// on disk still reported the engineer's POUs as incoming-REMOVED.</para>
     ///
     /// <para>This is also the hazard `BridgeClient.GuardEmptyItems` was standing in for, and it stood in the
@@ -541,8 +542,8 @@ public class PullCommandTests
     /// <summary>…BUT A PARTIAL PULL STILL RETIRES WHAT IT SAW GONE FROM A FOLDER IT READ — in the files AND the
     /// baseline, together.
     ///
-    /// <para>The overlay above drops a baseline name absent from a folder the walk DID read; the bridge's
-    /// `removed` is empty for any partial walk. The two used to disagree: the name left `ide-refs.json` while
+    /// <para>The overlay above once dropped a baseline name absent from a folder the walk DID read while the
+    /// bridge's `removed` was empty for any partial walk. The two disagreed: the name left `ide-refs.json` while
     /// its file was carried forward in `volt/ide`. No later pull could ever report it removed — a complete walk
     /// is only asked about names the baseline still holds — so the file stayed for good, status read in sync,
     /// and its next edit went up as a create of an item the IDE had deleted.</para></summary>
@@ -609,6 +610,62 @@ public class PullCommandTests
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
             Assert.False(File.Exists(structFile));
             Assert.Equal("in sync with the IDE", Commands.Status(root, client).Summary);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>STATUS AND PULL GIVE ONE ANSWER over a partial walk. `volt status` said nothing was removed while
+    /// `volt pull` retired the item — and `volt pull --dry-run` listed it in `synced` beside a post-status that
+    /// did not. What pull would bring in and what status reports incoming are the same set.</summary>
+    [Fact]
+    public void Status_over_a_partial_walk_reports_the_removal_pull_makes()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("A", "PROGRAM A\nVAR\nEND_VAR", "x := 1;"),
+                               FakeIde.Item.TextualPou("FB_Gone", "FUNCTION_BLOCK FB_Gone\nVAR\nEND_VAR", "", "POUs"),
+                               FakeIde.Item.TextualPou("Deep", "PROGRAM Deep\nVAR\nEND_VAR", "y := 2;", "Machine"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            ide.RemoveItem("FB_Gone");
+            ide.UnwalkableFolders = new[] { "Machine" };
+
+            var status = Commands.Status(root, client).Incoming;
+            var dry = Commands.Pull(root, client, dryRun: true);
+
+            Assert.Equal(new[] { "FB_Gone.fb" }, status.Removed);
+            Assert.Equal(dry.Synced, status.Added.Concat(status.Modified).Concat(status.Removed).OrderBy(x => x, System.StringComparer.Ordinal));
+            Assert.Equal(new[] { "FB_Gone.fb" }, dry.Status!.Incoming.Removed);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>ONE KIND-AWARE RULE decides removal on a partial walk too. The IDE deleted the DUT `X` and now
+    /// holds an unreadable PROGRAM `X` — another item of the same bare name. A rule keyed by bare name kept the
+    /// DUT's file (and its baseline entry) for as long as a folder kept faulting: the same shielding the complete
+    /// walk's kind check already refuses. (FakeIde resolves a read by bare name, so it cannot hold both at once;
+    /// the program arriving as the DUT leaves is the same wire answer — `unreadable: [X]`, no `X.struct`.)</summary>
+    [Fact]
+    public void A_partial_pull_retires_a_deleted_dut_beside_an_unreadable_item_of_its_name()
+    {
+        var ide = ConnectedIde(Prg(),
+            FakeIde.Item.TextualPou("X", "TYPE X :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE", "", "DUTs"),
+            FakeIde.Item.TextualPou("Deep", "PROGRAM Deep\nVAR\nEND_VAR", "y := 2;", "Machine"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var dut = Path.Combine(root, "src", "DUTs", "X.struct");
+            Assert.True(File.Exists(dut), "fixture: the first pull wrote the DUT");
+
+            ide.RemoveItem("X");
+            ide.AddItem(FakeIde.Item.MalformedGraphical("X", "POUs"));
+            ide.UnwalkableFolders = new[] { "Machine" };
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            Assert.False(File.Exists(dut), "the deleted DUT survived, shielded by the unreadable item's bare name");
+            Assert.DoesNotContain("X.struct", Sidecar.LoadIdeRefs(root)!.Items.Keys);
+            Assert.True(File.Exists(Path.Combine(root, "src", "Machine", "Deep.prg")), "the pull deleted an unseen item");
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }

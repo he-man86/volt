@@ -59,13 +59,22 @@ public abstract class ReadResponse
     [JsonPropertyName("unreadable")]
     public List<string> Unreadable { get; set; } = new();
 
+    /// <summary>Names in the client's baseline (<c>knownItems</c>) that are GONE from the IDE — the one removal
+    /// decision, made here in the engine for every read op, so no client derives a deletion from absence with a
+    /// rule of its own. Gone means: not walked, and not an item the walk found and could not read (matched by bare
+    /// name AND kind — names repeat across kinds); on a PARTIAL walk also known to have sat in a folder the walk
+    /// read (<c>knownFolders</c>). Empty when the request sent no baseline, on <c>init</c>, and for a directed
+    /// (<c>onlyItems</c>) fetch.</summary>
+    [JsonPropertyName("removed")]
+    public List<string> Removed { get; set; } = new();
+
     /// <summary>Folders the driver could not ENUMERATE — normally empty.
     ///
-    /// <para><b>A partial walk is not a smaller project.</b> Absence is how a client derives a deletion, so a
-    /// folder that could not be read makes absence meaningless for everything beneath it. A client that sees this
-    /// non-empty must not report deletions and should not advance its baseline; <c>fetch</c> suppresses its own
-    /// <c>removed</c> list for the same reason. It is a caveat on a SUCCESSFUL response, not a failure — a
-    /// partial pull is still useful.</para></summary>
+    /// <para><b>A partial walk is not a smaller project.</b> A folder that could not be read makes absence
+    /// meaningless for everything beneath it, so a client that sees this non-empty must not derive deletions from
+    /// <see cref="Items"/> and must not shrink its baseline by the items it did not see. <see cref="Removed"/> is
+    /// the bridge's own answer, which already accounts for it. It is a caveat on a SUCCESSFUL response, not a
+    /// failure — a partial pull is still useful.</para></summary>
     [JsonPropertyName("unwalkedFolders")]
     public List<string> UnwalkedFolders { get; set; } = new();
 
