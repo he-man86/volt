@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Volt.Contracts;
 using Volt.Engine.Host;
 using Volt.Relay;
+using Volt.Wire;
 using Xunit;
 
 namespace Volt.Relay.Tests;
@@ -24,7 +26,14 @@ public class RelayTunnelTests : IDisposable
 
     private static string PipeName() => "volt.test.relay." + Guid.NewGuid().ToString("N");
 
-    private (FakeRelay Relay, RelayTunnel Tunnel, FakeIde Ide) Start(FakeIde? ide = null)
+    private (FakeRelay Relay, RelayTunnel Tunnel, FakeIde Ide) Start(FakeIde? ide = null) =>
+        Start(out _, ide);
+
+    private (FakeRelay Relay, RelayTunnel Tunnel, FakeIde Ide) Start(
+        out string pipeName,
+        FakeIde? ide = null,
+        FakeDelay? delay = null,
+        LogCapture? log = null)
     {
         ide ??= new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;"))
         {
@@ -32,13 +41,16 @@ public class RelayTunnelTests : IDisposable
         };
 
         var pipe = PipeName();
+        pipeName = pipe;
         var host = new BridgePipeHost(ide, pipe);
         host.Start();
         _disposables.Add(host);
 
         var relay = new FakeRelay();
         var config = RelaySidecar.Parse("{\"url\":\"wss://relay.test/bridge\",\"token\":\"t\"}", "test");
-        var tunnel = new RelayTunnel(config, pipe, "codesys", "0.0.0-test", relay.NewSocket);
+        var tunnel = new RelayTunnel(config, pipe, "codesys", "0.0.0-test", relay.NewSocket,
+            delay == null ? null : delay.Delay,
+            log == null ? null : log.Write);
         _disposables.Add(tunnel);
         tunnel.Start();
 
@@ -243,6 +255,150 @@ public class RelayTunnelTests : IDisposable
         while (relay.ConnectAttempts < 2 && DateTime.UtcNow < deadline) await Task.Delay(100);
         Assert.True(relay.ConnectAttempts >= 2,
             "the tunnel did not redial after the socket dropped");
+    }
+
+    // ── the relay's close, and what it does to redialing ─────────
+    //
+    // A relay turns a bridge away with close status 1008 and a reason (`unsupported protocol N` for a bridge
+    // from another protocol version). Until this was pinned the tunnel dropped both and redialed every 30 s for
+    // ever, so "download the new bridge" looked, on the engineer's machine, exactly like a network blip.
+
+    private static readonly TimeSpan Floor = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan Ceiling = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan RefusedCeiling = TimeSpan.FromHours(1);
+    // Every wait carries up to 1 s of jitter, so a wait is asserted as a range starting at its base.
+    private static readonly TimeSpan Jitter = TimeSpan.FromSeconds(1);
+
+    private static void AssertWait(TimeSpan expectedBase, TimeSpan actual, string what) =>
+        Assert.True(actual >= expectedBase && actual < expectedBase + Jitter,
+            $"{what}: expected a wait of {expectedBase} (+ < 1 s jitter), the tunnel asked for {actual}");
+
+    [Fact]
+    public async Task A_protocol_refusal_is_one_error_line_with_the_reason_and_the_update_hint()
+    {
+        var delay = new FakeDelay();
+        var log = new LogCapture();
+        var (relay, _, _) = Start(out _, delay: delay, log: log);
+        await relay.AwaitHello();
+
+        relay.Close(1008, "unsupported protocol 1");
+        var wait = await delay.NextWait();
+
+        var errors = log.At(VoltLogLevel.Error);
+        Assert.True(errors.Count == 1, "expected exactly one error line, got:\n" + log);
+        Assert.Contains("unsupported protocol 1", errors[0]);
+        Assert.Contains("download the latest bridge", errors[0]);
+
+        // The long ceiling, not 30 s: a stale bridge re-asking every half minute is a hot loop against someone
+        // else's server that can only ever get the same answer.
+        AssertWait(RefusedCeiling, wait, "after a 1008");
+        // And no dial in the meantime: the wait IS the gap between attempts.
+        Assert.Equal(1, relay.ConnectAttempts);
+    }
+
+    [Fact]
+    public async Task A_policy_refusal_for_another_reason_names_it_without_an_update_hint()
+    {
+        var delay = new FakeDelay();
+        var log = new LogCapture();
+        var (relay, _, _) = Start(out _, delay: delay, log: log);
+        await relay.AwaitHello();
+
+        relay.Close(1008, "bridge disabled by its owner");
+        var wait = await delay.NextWait();
+
+        var errors = log.At(VoltLogLevel.Error);
+        Assert.True(errors.Count == 1, "expected exactly one error line, got:\n" + log);
+        Assert.Contains("bridge disabled by its owner", errors[0]);
+        // A newer bridge would be refused just the same; telling the engineer to download one sends them the
+        // wrong way.
+        Assert.DoesNotContain("download", errors[0]);
+        AssertWait(RefusedCeiling, wait, "after a 1008");
+    }
+
+    /// <summary>A relay restart (1001 going away, or 1006: the connection dies with no close at all) is NOT a
+    /// refusal. Today's jittered backoff, 1 s doubling to a 30 s ceiling, pinned by value.</summary>
+    [Theory]
+    [InlineData(1001)]
+    [InlineData(1006)]
+    public async Task A_relay_restart_backs_off_to_at_most_30s_as_before(int status)
+    {
+        var delay = new FakeDelay();
+        var (relay, _, _) = Start(out _, delay: delay, log: new LogCapture());
+        await relay.AwaitHello();
+
+        var expected = new[] { 1, 2, 4, 8, 16, 30, 30, 30 };
+        for (var i = 0; i < expected.Length; i++)
+        {
+            if (status == 1006) relay.DieWithoutClose();
+            else relay.Close(status, "going away");
+
+            AssertWait(TimeSpan.FromSeconds(expected[i]), await delay.NextWait(), $"end #{i + 1} ({status})");
+            delay.Release();
+        }
+    }
+
+    [Fact]
+    public async Task A_lifted_refusal_puts_the_backoff_back_at_its_floor()
+    {
+        var delay = new FakeDelay();
+        var (relay, _, _) = Start(out _, delay: delay, log: new LogCapture());
+        await relay.AwaitHello();
+
+        // Three ends the relay never accepted climb the backoff to 8 s, so a floor afterwards is the RESET and
+        // not a coincidence of it never having climbed.
+        for (var i = 0; i < 3; i++)
+        {
+            relay.Close(1001, "going away");
+            await delay.NextWait();
+            delay.Release();
+        }
+
+        relay.Close(1008, "unsupported protocol 1");
+        AssertWait(RefusedCeiling, await delay.NextWait(), "after a 1008");
+        delay.Release();
+
+        // Accepted this time: the relay talks to the bridge (any frame proves it is being served) before the
+        // connection later ends in an ordinary way.
+        relay.Send(RelayFrames.Pong);
+        relay.Close(1001, "going away");
+        AssertWait(Floor, await delay.NextWait(), "the first end after an accepted connection");
+    }
+
+    [Theory]
+    [InlineData(1000, "replaced by a live bridge")]
+    [InlineData(1001, "going away")]
+    [InlineData(1011, "internal error")]
+    [InlineData(1008, "unsupported protocol 1")]
+    public async Task Every_relay_close_is_logged_with_its_status_and_description(int status, string description)
+    {
+        var delay = new FakeDelay();
+        var log = new LogCapture();
+        var (relay, _, _) = Start(out _, delay: delay, log: log);
+        await relay.AwaitHello();
+
+        relay.Close(status, description);
+        await delay.NextWait();
+
+        Assert.True(
+            log.Lines.Any(l => l.Message.Contains(status.ToString()) && l.Message.Contains(description)),
+            $"no log line names both {status} and \"{description}\":\n" + log);
+    }
+
+    [Fact]
+    public async Task The_local_pipe_keeps_answering_while_the_tunnel_is_refused()
+    {
+        var delay = new FakeDelay();
+        var (relay, _, _) = Start(out var pipe, delay: delay, log: new LogCapture());
+        await relay.AwaitHello();
+
+        relay.Close(1008, "unsupported protocol 1");
+        await delay.NextWait();
+
+        // The tunnel is sitting out its refusal. The engineer's own CLI talks to the same pipe and must not notice.
+        var health = await Task.Run(() => new PipeClient(pipe).Call(Ops.Health));
+        Assert.True(health.TryGetProperty("projects", out var projects));
+        Assert.Equal(1, projects.GetArrayLength());
     }
 }
 

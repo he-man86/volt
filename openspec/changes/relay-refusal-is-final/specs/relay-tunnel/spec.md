@@ -19,7 +19,7 @@ say that the latest bridge must be downloaded.
 
 After a 1008 close, `RelayTunnel` SHALL wait a long backoff ceiling (1 hour) before dialing again; it SHALL NOT stop
 dialing for the life of the process. Any other end SHALL keep the jittered backoff capped at 30 s. An accepted
-connection SHALL reset the backoff to its floor. A refused tunnel SHALL NOT stop the bridge serving its local pipe.
+connection (one on which the relay sent at least one frame) SHALL reset the backoff to its floor. A refused tunnel SHALL NOT stop the bridge serving its local pipe.
 
 #### Scenario: a refused bridge
 - **WHEN** the relay closes with 1008

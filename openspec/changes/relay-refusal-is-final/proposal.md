@@ -41,6 +41,21 @@ install this way.
 - Unverified: that a refused CREDENTIAL arrives as a 1008 close. A bad bearer token normally fails the HTTP upgrade
   (401) inside `ConnectAsync`, which throws and never reaches the close path. Measure against the PLC Assist relay
   before claiming it (task 1.3); if it is a 401, it is logged as today and is out of scope here.
+- From PLC Assist (read from its code, not measured live): its relay refuses a missing/invalid bearer with HTTP 401
+  at the upgrade (`infra/relay-worker/src/volt-routes.ts:181-183`), so a revoked credential is out of scope. Its
+  only 1008 is `unsupported protocol N` (`volt-relay.ts:333`). It also closes an incumbent bridge with 1000
+  `replaced by a live bridge` when a second attaches on the same token: an ordinary close under this spec, worth
+  its own log line.
+
+## Found during implementation (2026-09-27)
+
+- "A connection that is accepted again resets the backoff to the floor, **as today**" was false: `RunForeverAsync`
+  never reset `backoff`, so a bridge that had once climbed to 30 s stayed there for the life of the process. The
+  reset is new behaviour here. "Accepted" is defined as the relay having sent the connection at least one frame:
+  a successful upgrade alone cannot mean it, because a refused bridge's upgrade succeeds too (the 1008 comes after
+  `hello`).
+- The fake relay reported an aborted socket as a clean close (`null`). A real `ClientWebSocket` throws from a
+  receive it cannot complete, so the fake now throws too, and a 1006 is exercised as that exception.
 
 ## Non-goals
 

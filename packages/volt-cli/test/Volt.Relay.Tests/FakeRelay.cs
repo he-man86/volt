@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Net.WebSockets;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,7 +19,9 @@ public sealed class FakeRelay
 {
     private readonly object _gate = new();
     private readonly List<string> _sentToRelay = new();
-    private readonly BlockingCollection<string> _toBridge = new();
+    // What the bridge's next receive yields. A thunk, not a string, so the queue can also carry a close with its
+    // status and a connection that dies without one: the three things a real socket's receive can produce.
+    private readonly BlockingCollection<Func<RelayReceived>> _toBridge = new();
     private readonly TaskCompletionSource<bool> _connected = new();
 
     /// <summary>Set to refuse the next connect — for the reconnect tests.</summary>
@@ -37,7 +40,17 @@ public sealed class FakeRelay
 
     public IRelaySocket NewSocket() => new Socket(this);
 
-    public void Send(string frame) => _toBridge.Add(frame);
+    public void Send(string frame) => _toBridge.Add(() => RelayReceived.Frame(frame));
+
+    /// <summary>Close the tunnel from the relay's side with a status and reason, as a relay's close handshake
+    /// does. The next receive sees it: on this connection, or on the next one if none is reading.</summary>
+    public void Close(int status, string description) =>
+        _toBridge.Add(() => RelayReceived.Closed(status, description));
+
+    /// <summary>The connection dies with no close handshake (1006: a relay restart, a dropped flow). A real
+    /// ClientWebSocket reports that by THROWING from receive, not with a close frame, so this does too.</summary>
+    public void DieWithoutClose() =>
+        _toBridge.Add(() => throw new WebSocketException(WebSocketError.ConnectionClosedPrematurely));
 
     public void SendRequest(string id, string op, object? body = null)
     {
@@ -106,21 +119,24 @@ public sealed class FakeRelay
             return Task.CompletedTask;
         }
 
-        public Task<string?> ReceiveTextAsync(CancellationToken cancellation)
+        public Task<RelayReceived> ReceiveAsync(CancellationToken cancellation)
         {
             return Task.Run(() =>
             {
                 using var linked = CancellationTokenSource.CreateLinkedTokenSource(
                     cancellation, _aborted.Token);
+                Func<RelayReceived> next;
                 try
                 {
-                    return (string?)_relay._toBridge.Take(linked.Token);
+                    next = _relay._toBridge.Take(linked.Token);
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
                 {
-                    // Null is "the peer closed", which is what an aborted socket looks like to the tunnel.
-                    return null;
+                    // Aborted (the watchdog, or DropSocket): a real socket throws from a receive it can no
+                    // longer complete. It does not hand back a close, because nobody sent one.
+                    throw new WebSocketException(WebSocketError.ConnectionClosedPrematurely);
                 }
+                return next();
             });
         }
 

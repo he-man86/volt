@@ -19,8 +19,10 @@ namespace Volt.Relay
     {
         Task ConnectAsync(Uri url, string token, CancellationToken cancellation);
         Task SendTextAsync(string text, CancellationToken cancellation);
-        /// <summary>The next frame, or null when the peer closed.</summary>
-        Task<string?> ReceiveTextAsync(CancellationToken cancellation);
+        /// <summary>The next frame, or the relay's close WITH its status and description. The close is not a
+        /// bare "gone": 1008 is how a relay turns a bridge away (`unsupported protocol N`), and a tunnel that
+        /// only learns "closed" cannot tell that from a network blip.</summary>
+        Task<RelayReceived> ReceiveAsync(CancellationToken cancellation);
         /// <summary>Drop it now, without a close handshake. Used when the watchdog gives up — a handshake with
         /// a peer that has stopped answering is a wait we already know the answer to.</summary>
         void Abort();
@@ -55,7 +57,7 @@ namespace Volt.Relay
                 new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cancellation);
         }
 
-        public async Task<string?> ReceiveTextAsync(CancellationToken cancellation)
+        public async Task<RelayReceived> ReceiveAsync(CancellationToken cancellation)
         {
             var buffer = new byte[ChunkBytes];
             using (var assembled = new System.IO.MemoryStream())
@@ -66,7 +68,10 @@ namespace Volt.Relay
                         .ReceiveAsync(new ArraySegment<byte>(buffer), cancellation)
                         .ConfigureAwait(false);
 
-                    if (result.MessageType == WebSocketMessageType.Close) return null;
+                    if (result.MessageType == WebSocketMessageType.Close)
+                        return RelayReceived.Closed(
+                            result.CloseStatus.HasValue ? (int)result.CloseStatus.Value : (int?)null,
+                            result.CloseStatusDescription);
 
                     assembled.Write(buffer, 0, result.Count);
 
@@ -77,7 +82,7 @@ namespace Volt.Relay
                     if (result.EndOfMessage) break;
                 }
 
-                return Encoding.UTF8.GetString(assembled.ToArray());
+                return RelayReceived.Frame(Encoding.UTF8.GetString(assembled.ToArray()));
             }
         }
 
