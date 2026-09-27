@@ -535,7 +535,7 @@ reds, unchanged); Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Ga
       `.struct`/`.fb`/… by hand and missed `.task`; the README named `.cfc`/`.sfc`, which no Volt writes, and
       none of the read-only extensions). The library-guard comment's `HANDLE.alias` → "HANDLE.dut" example
       rewritten (a push op is keyed by its full name now).
-- [ ] 4.5 `Sidecar` load: refuse a `.dut` key (2.5) — in `LoadIdeRefs` AND `LoadPendingIdeRefs`, so the
+- [x] 4.5 `Sidecar` load: refuse a `.dut` key (2.5) — in `LoadIdeRefs` AND `LoadPendingIdeRefs`, so the
       `merge --continue` promotion cannot write one into the live sidecar. The refusal is the malformed one's:
       name the key, `.git/volt/ide-refs.json` to delete, and `volt pull` (pull loads the same baseline, so it is
       refused too — 2.5).
@@ -543,7 +543,8 @@ reds, unchanged); Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Ga
       table is refused naming the key, `.git/volt/ide-refs.json` and `volt pull`. Keyed on "no wire name Volt
       knows" rather than the `.dut` spelling, so the CLI lists no retired spelling (a `.dut` key is one such).
       `volt merge --continue` catches the pending refusal AFTER the git merge concluded: the merge stands, the
-      stash is dropped unpromoted, and the one-line result says the baseline was NOT synced and names `volt pull`.
+      stash is dropped unpromoted, and the one-line result says the baseline was NOT synced and names `volt pull`
+      — and it exits 1 (review round 1, below), so no client reads the unsynced baseline as `done`.
       `DutBaselineMigrationTests` (the three 2.5 reds) green; the other nine unchanged.
 - [ ] 4.6 grep `Volt.Cli` CASE-INSENSITIVELY for `dut` and for the subtype spellings `struct|enum|union|alias` —
       zero hits outside the sidecar refusal (the uppercase `DUT` in `Scaffold.cs`/`Commands.cs` is what a
@@ -575,6 +576,32 @@ reds, unchanged); Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Ga
 `Volt.Cli.Tests` 238 / 0 (every group-2 test green, the 4.5 reds included); Codesys 160, Twincat 231, Contracts
 19, Connector 110, Repo.Gates 20, `bun test test/unit` 4, `bun run check` 14 — all green. No live IDE; no driver
 touched; DIALECT.md unchanged. 4.6 stays open on 4.9's `V1Note`; 4.7–4.9 not started.
+**This run committed with NO review round** (the loop's step 2 was skipped); round 1 below is the first.
+
+**Section 4.1–4.6 review, round 1 (2026-09-27)** — one product finding, one CLI-contract finding, three record
+findings; fixed test-first:
+- A kind extension in another CASE (`E_Mode.Enum`, `FB_New.FB`) was a kind to both readers — the engine's
+  `ItemKind.KindForWireName` and the CLI's `Extensions` lookup were `OrdinalIgnoreCase` — while every name-keyed
+  comparison after them is Ordinal. Pushed, the file's spelling reached the IDE and the baseline held the minted
+  `E_Mode.enum`: a later edit was refused `ITEM_EXISTS` as a create beside itself, and a DUT deleted in the IDE
+  kept its file (the removal sweep never matched it) so the next push recreated it. On the engine side, `delete
+  X.Struct` destroyed the struct `X`. The one spelling per kind is now the only one: both lookups are Ordinal, so
+  the engine refuses the op `BAD_REQUEST` by name (`RequireWireNames`) and the CLI refuses the file before
+  committing as an unrecognized extension, naming the path. No case folding. Pinned (red before):
+  `DutSubtypeChangePushTests.A_set_under_a_name_that_is_no_wire_name_…` (`X.Struct`, `X.STRUCT`, forced or not),
+  `A_delete_under_a_name_that_is_not_the_duts_wire_name_…` (`X.Struct`),
+  `PushCommandTests.Push_rejects_a_kind_extension_spelt_in_another_case` (`DUTs/E_Mode.Enum`, `POUs/FB_New.FB`).
+  The case gap predates this change for non-DUT kinds (`.FB` was never folded); it became reachable for DUTs when
+  `FullNameFromPath` stopped rewriting them to `.dut`.
+- `volt merge --continue` exited 0 when it refused the pending baseline, which volt-control reads as `done`. It
+  exits 1 now; the message is unchanged (the merge concluded, the baseline was NOT synced, `volt pull`).
+  `DutBaselineMigrationTests.A_dut_keyed_pending_baseline_is_never_promoted_by_merge_continue` asserts the code
+  (red before).
+- 4.5 was done and tested but left unticked — ticked. The `IdeTree` library comment lost its sentence end with the
+  deleted example list — restored. The missing review record — this block.
+Run after: `Volt.Engine.Tests` 1499 passed / 0 failed (1 skipped, pre-existing); `Volt.Cli.Tests` 240 / 0;
+Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Gates 20, `bun test test/unit` 4, `bun run check`
+14 — all green. No live IDE; no driver touched; DIALECT.md unchanged. Rounds 2–3 not yet run.
 
 ## 5. Docs and gates
 

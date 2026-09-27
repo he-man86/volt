@@ -641,6 +641,12 @@ public class DutSubtypeChangePushTests
     [InlineData("X", true)]
     [InlineData("X.foo", false)]
     [InlineData("X.foo", true)]
+    // A kind extension in the wrong CASE is no wire name either: refs/fetch publish `X.struct`, and a client keying
+    // `X.Struct` compares Ordinal, so it never matched its own item (it pushed as a create beside it, and a pull's
+    // removal sweep never reached its file — a DUT the IDE deleted came back).
+    [InlineData("X.Struct", false)]
+    [InlineData("X.Struct", true)]
+    [InlineData("X.STRUCT", false)]
     public void A_set_under_a_name_that_is_no_wire_name_is_refused_and_writes_nothing(string name, bool force)
     {
         var (ide, refs) = StructInDuts();
@@ -693,6 +699,8 @@ public class DutSubtypeChangePushTests
     [InlineData("X", false, true)]
     [InlineData("X.foo", false, false)]
     [InlineData("X.foo", false, true)]
+    [InlineData("X.Struct", true, false)]
+    [InlineData("X.Struct", false, true)]
     public void A_delete_under_a_name_that_is_not_the_duts_wire_name_never_deletes_it(string name, bool quoteVersion, bool force)
     {
         var (ide, refs) = StructInDuts();

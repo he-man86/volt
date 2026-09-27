@@ -18,8 +18,12 @@ public static class Extensions
     private static readonly ExtensionDef[] All =
         ItemKind.FileExtensions.Select(x => new ExtensionDef(x.Ext, x.IsWritable ? Access.Rw : Access.R)).ToArray();
 
+    // ORDINAL, as the engine reads a wire name: a file name IS its wire name, so `E_Mode.Enum` is not the
+    // `E_Mode.enum` the IDE publishes. Matched case-blind here it was pushed under its own spelling and then never
+    // matched by the Ordinal baseline, version guard or removal sweep — a later edit was refused as a create beside
+    // itself, and a DUT deleted in the IDE kept its file. Now it is a foreign file, refused by name before a push.
     private static readonly Dictionary<string, ExtensionDef> ByExt =
-        All.ToDictionary(d => "." + d.Ext, StringComparer.OrdinalIgnoreCase);
+        All.ToDictionary(d => "." + d.Ext, StringComparer.Ordinal);
 
     private static ExtensionDef? GetByExt(string ext) => ByExt.TryGetValue(ext, out var d) ? d : null;
 

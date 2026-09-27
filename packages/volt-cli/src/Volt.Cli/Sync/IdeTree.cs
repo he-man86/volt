@@ -49,7 +49,7 @@ public static class IdeTree
         var removedNamesSet = new HashSet<string>(removedNames);
 
         // A referenced LIBRARY's rendered element signatures are not IDE items and have no identity on the wire:
-        // they are content the bridge re-renders per library version, and they carry ordinary SOURCE extensions
+        // they are content the bridge re-renders per library version, and they carry ordinary SOURCE extensions.
         // So a name-keyed sweep hits them by accident — deleting the project's own `ERROR` item also deleted the
         // same-named signature under `Library Manager/CAA/`, which nothing regenerates until that library's
         // version changes. Removal is keyed by NAME (identity is the item name) and these files have no item, so

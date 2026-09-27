@@ -337,9 +337,14 @@ public static class ItemKind
     private static readonly HashSet<string> WritableReferenceSet =
         new(WritableReferenceKinds, StringComparer.Ordinal);
 
+    // ORDINAL: the extension is part of the wire name, and the wire name is compared Ordinal everywhere a client
+    // keys it (baseline, version guard, removal sweep). Read case-blind, `X.Enum` passed as a DUT and was applied
+    // to the IDE's `X`, while refs went on publishing `X.enum` — two spellings of one item that no later comparison
+    // joined (a delete under the odd spelling destroyed it; a client's file of it never matched its own item).
+    // There is one spelling per kind; any other names no kind and is refused by name (`RequireWireNames`).
     private static readonly Dictionary<string, string> KindByFileExt =
         SourceKindExtensions.Concat(ReferenceKindExtensions)
-            .ToDictionary(x => x.Ext, x => x.Kind, StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(x => x.Ext, x => x.Kind, StringComparer.Ordinal);
 
     /// <summary>The kind a WIRE NAME denotes, read off its extension (`MainTask.task` — `task`).
     ///

@@ -315,7 +315,8 @@ public class DutBaselineMigrationTests
 
     /// <summary>THE MERGE DOOR. A pending baseline holding a `.dut` key is never promoted: the git merge still
     /// completes (resolving it is git's job and is independent of Volt's baseline), but "IDE baseline synced" is
-    /// not claimed, the live sidecar gains no `.dut` key, and the output names `volt pull`.</summary>
+    /// not claimed, the command FAILS (exit 1), the live sidecar gains no `.dut` key, and the output names
+    /// `volt pull`.</summary>
     [Fact]
     public void A_dut_keyed_pending_baseline_is_never_promoted_by_merge_continue()
     {
@@ -331,9 +332,13 @@ public class DutBaselineMigrationTests
             Sidecar.SavePendingIdeRefs(root, WithOldDutKey(Sidecar.LoadPendingIdeRefs(root)!));
 
             Commands.Merge(root, resolve: "PLC_PRG.prg", useTheirs: true);
-            var (_, msg) = Commands.Merge(root, cont: true);
+            var (code, msg) = Commands.Merge(root, cont: true);
 
             Assert.False(Git.IsMerging(root), "the git merge did not complete");
+            // A baseline NOT advanced is a failure the caller must see: exit 0 is what every client reads as "merge
+            // done, baseline synced" (volt-control's `mergeContinue` maps it to `done`), and 2 means "still
+            // unresolved", which is false — the merge concluded.
+            Assert.Equal(1, code);
             Assert.DoesNotContain("IDE baseline synced", msg);
             Assert.Contains("volt pull", msg);
             Assert.DoesNotContain(Sidecar.LoadIdeRefs(root)!.Items.Keys,

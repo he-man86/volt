@@ -960,12 +960,14 @@ public static class Commands
             // The git merge above is already concluded — resolving it is git's job and does not depend on Volt's
             // baseline — so a stash the sidecar refuses is reported, not thrown: the merge stands, the baseline is
             // NOT advanced (the refused stash is dropped, never promoted), and the refusal names `volt pull`.
+            // It still EXITS 1: exit 0 is what a client reads as "merge done AND baseline synced" (volt-control's
+            // `mergeContinue` maps it to `done`), so a success code here would report the unsynced baseline as synced.
             IdeRefs? pending;
             try { pending = isVoltMerge ? Sidecar.LoadPendingIdeRefs(root) : null; }
             catch (InvalidOperationException e)
             {
                 Sidecar.ClearPendingIdeRefs(root);
-                return (0, $"merge completed — the IDE baseline was NOT synced: {e.Message}");
+                return (1, $"merge completed — the IDE baseline was NOT synced: {e.Message}");
             }
             if (pending is not null)
             {

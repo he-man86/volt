@@ -329,6 +329,36 @@ public class PushCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>A FILE NAME IS A WIRE NAME, EXTENSION CASE INCLUDED. The wire publishes `E_Mode.enum`; a file
+    /// `E_Mode.Enum` was accepted as the same kind (the extension lookup ignored case) and pushed under its own
+    /// spelling, so the receipt, the baseline and every later fetch named it `E_Mode.enum` while the file said
+    /// `E_Mode.Enum`. Every name-keyed comparison after that (the pull's removal sweep, the push's version guard)
+    /// missed it: a later edit was refused as a create beside itself, and a DUT deleted in the IDE kept its file,
+    /// which the next push recreated. Refused by name BEFORE anything is committed or sent — there is no canonical
+    /// spelling to fold it into without guessing, so the engineer renames it.</summary>
+    [Theory]
+    [InlineData("DUTs/E_Mode.Enum", "TYPE E_Mode : (Idle, Run);\nEND_TYPE\n")]
+    [InlineData("POUs/FB_New.FB", "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\n")]
+    public void Push_rejects_a_kind_extension_spelt_in_another_case(string rel, string text)
+    {
+        var ide = ConnectedIde(Prg());
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            var path = Path.Combine(root, "src", rel);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, text);
+
+            var r = Commands.Push(root, client);
+            Assert.Equal("rejected", r.Kind);
+            Assert.Contains("unrecognized file extension", r.Reason);
+            Assert.Contains(rel, r.Reason);
+            Assert.Empty(ide.Recorded);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     [Fact]
     public void Push_rejects_editing_a_read_only_item()
     {
