@@ -49,9 +49,18 @@ public static class CodeHelper
     /// consumes at least two characters, so it always terminates. Nested <c>(*</c> is NOT tracked — neither
     /// scanner ever did, and no recorded export contains one.</para>
     ///
-    /// <para>A PRAGMA is deliberately trivia for the WHOLE line, which is what both scanners already did: a
-    /// <c>{attribute …}</c> sits on its own line in every form either vendor emits, and the multi-line pragma
-    /// that would need real tracking is not valid IEC 61131-3.</para></summary>
+    /// <para>A PRAGMA is trivia up to its closing <c>}</c>, and code after it on the same line is code — the same
+    /// rule as a closed <c>(* … *)</c>. It used to be trivia for the WHOLE line, on the grounds that a
+    /// <c>{attribute …}</c> sits on its own line in every form either vendor emits; for those lines the two rules
+    /// agree. They disagree only where code follows the pragma, and there the whole-line rule threw the code away:
+    /// the DUT subtype reader (<see cref="DutSubtype"/>) needs <c>TYPE E : {attribute 'strict'} (A, B);</c> to read
+    /// as an enumeration, and grew its own scanner to get that answer — a second trivia rule disagreeing with this
+    /// one about the same line. An unclosed <c>{</c> is still trivia to the end of the line: the multi-line pragma
+    /// that would need real tracking is not valid IEC 61131-3.</para>
+    ///
+    /// <para><b>THE one scanner still</b>: <see cref="WithoutComments"/> answers a different question (the line
+    /// with EVERY comment removed, trailing ones included), and every "where does the code start" question —
+    /// <see cref="HeaderLine"/>, <c>StReader</c>, <c>StDeclaration</c>, <see cref="DutSubtype"/> — asks this.</para></summary>
     /// <summary>The line with its comments removed — a TRAILING <c>// …</c> and any complete
     /// <c>(* … *)</c> span, wherever they sit.
     ///
@@ -112,7 +121,13 @@ public static class CodeHelper
             }
             if (s.Length == 0) return "";
             if (s.StartsWith("//", StringComparison.Ordinal)) return "";
-            if (s.StartsWith("{", StringComparison.Ordinal)) return "";
+            if (s.StartsWith("{", StringComparison.Ordinal))
+            {
+                var close = s.IndexOf('}');
+                if (close < 0) return "";
+                s = s.Substring(close + 1).TrimStart();
+                continue;
+            }
             if (s.StartsWith("(*", StringComparison.Ordinal))
             {
                 inBlockComment = true;
@@ -133,32 +148,68 @@ public static class CodeHelper
     ///
     /// <para>The rule is the grammar's: after the type name's <c>:</c>, a DUT body opens with <c>STRUCT</c>,
     /// <c>UNION</c>, or <c>(</c> for an enumeration; anything else is an alias (<c>TYPE T : INT (0..10);</c>,
-    /// <c>TYPE T : ARRAY[..] OF X;</c>, <c>TYPE T : POINTER TO Y;</c>). Comments, pragmas and a BOM are skipped
-    /// by <see cref="CodeOn"/>, and an <c>EXTENDS Base</c> clause sits BEFORE the colon so it never interferes.
-    /// A declaration that does not parse falls to alias — the shape that assumes least.</para></summary>
+    /// <c>TYPE T : ARRAY[..] OF X;</c>, <c>TYPE T : POINTER TO Y;</c>). An <c>EXTENDS Base</c> clause sits
+    /// BEFORE the colon so it never interferes.
+    /// </para>
+    ///
+    /// <para><b>Trivia anywhere before the body token is skipped</b> — a comment or pragma at the end of the
+    /// <c>TYPE X :</c> line, a block comment before <c>STRUCT</c> (on its line or spanning lines), an attribute
+    /// pragma before an enumeration's <c>(</c>. The subtype is the first CODE token after the colon; reading the
+    /// raw text after it named a struct <c>alias</c> (<c>// note</c>) or <c>enum</c> (<c>(* note *)</c> opens with
+    /// <c>(</c>).</para>
+    ///
+    /// <para><b>A declaration that states no subtype still answers <c>alias</c> here</b>, and the spec says it
+    /// must not be given one (openspec <c>dut-subtype-on-the-wire</c>: it is published unreadable). The refusal
+    /// belongs where the wire name is minted, per item, so the one item surfaces in <c>unreadable</c> and the
+    /// rest of the fetch goes on. Until the engine mints the name there, this function's only caller is the CLI's
+    /// file naming, which runs over a whole pull with no per-item refusal path: throwing here aborted every
+    /// <c>volt pull</c> and <c>volt init</c> over one DUT whose text an engineer was mid-way through typing.
+    /// </para></summary>
     public static string DutSubtype(string code)
     {
-        var meaningful = new System.Text.StringBuilder();
-        var inBlockComment = false;
-        string rest = "";
-        foreach (var line in (code ?? "").Split('\n'))
-        {
-            var onLine = CodeOn(line, ref inBlockComment);
-            if (onLine.Length > 0) meaningful.Append(onLine).Append(' ');
-            // Stop at the first token AFTER the colon, not at the colon itself: `TYPE BUS_INFO :` and `STRUCT`
-            // are routinely on separate lines in real exports, and breaking on the colon reads every such DUT
-            // as an alias. A whole body is still never scanned — one more meaningful line is enough.
-            var text = meaningful.ToString();
-            var at = text.IndexOf(':');
-            if (at < 0) continue;
-            rest = text.Substring(at + 1).TrimStart();
-            if (rest.Length > 0) break;
-        }
-        if (meaningful.ToString().IndexOf(':') < 0) return "alias";
+        var rest = AfterTypeColon(code ?? "");
         if (rest.StartsWith("STRUCT", StringComparison.OrdinalIgnoreCase)) return "struct";
         if (rest.StartsWith("UNION", StringComparison.OrdinalIgnoreCase)) return "union";
         if (rest.StartsWith("(", StringComparison.Ordinal)) return "enum";
         return "alias";
+    }
+
+    /// <summary>The CODE after a DUT declaration's first colon, from its first token, or "" when there is no
+    /// colon or nothing after it. Trivia is <see cref="CodeOn"/>'s — the one scanner — applied wherever a comment
+    /// or pragma opens, so a colon inside a comment is not the type's colon either, and a comment or pragma
+    /// between the colon and the body token is stepped over on its line or across lines. Stops at the first code
+    /// after the colon: a whole body is never scanned.</summary>
+    private static string AfterTypeColon(string code)
+    {
+        var inBlockComment = false;
+        var sawColon = false;
+        foreach (var line in code.Split('\n'))
+        {
+            var s = CodeOn(line, ref inBlockComment);
+            while (s.Length > 0)
+            {
+                if (sawColon) return s;
+                // `CodeOn` strips LEADING trivia only, so the colon is looked for up to the next trivia opener,
+                // and whatever opens there goes back through `CodeOn`.
+                var at = IndexOfColonOrTrivia(s);
+                if (at < 0) break;
+                if (s[at] == ':') { sawColon = true; at++; }
+                s = CodeOn(s.Substring(at), ref inBlockComment);
+            }
+        }
+        return "";
+    }
+
+    /// <summary>Where <paramref name="s"/> holds its first <c>:</c> or opens a comment or pragma; -1 for neither.</summary>
+    private static int IndexOfColonOrTrivia(string s)
+    {
+        for (var i = 0; i < s.Length; i++)
+        {
+            var c = s[i];
+            if (c == ':' || c == '{') return i;
+            if ((c == '/' || c == '(') && i + 1 < s.Length && s[i + 1] == (c == '/' ? '/' : '*')) return i;
+        }
+        return -1;
     }
 
     /// <summary>The item KIND a declaration's header names — <c>function_block</c>, <c>program</c>, … — and

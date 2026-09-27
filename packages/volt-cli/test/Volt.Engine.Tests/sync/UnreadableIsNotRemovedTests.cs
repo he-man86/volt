@@ -51,6 +51,72 @@ public class UnreadableIsNotRemovedTests
         Assert.DoesNotContain("FB_Broken.prg", res.Removed);
     }
 
+    /// <summary>AN UNREADABLE ITEM SHIELDS ITSELF, NOT EVERY ITEM THAT SHARES ITS BARE NAME. Bare names repeat
+    /// across kinds in real projects — a control module and the visualization that draws it are
+    /// <c>CM_Carrier.fb</c> and <c>CM_Carrier.visualization</c> (CLAUDE.md, V71_PackML_Hauzer). The exemption was
+    /// keyed by bare name alone, so with the FB unreadable, a visualization the IDE had DELETED was never reported
+    /// removed: its file survived the pull, the new baseline dropped it, and its next edit pushed as a CREATE —
+    /// resurrecting what the engineer deleted. The walk knows the unreadable item's KIND even when it cannot read
+    /// its body, so the exemption covers a known name of that kind and nothing else.</summary>
+    [Fact]
+    public void An_unreadable_item_does_not_shield_a_deleted_item_of_another_kind_with_its_bare_name()
+    {
+        var ide = new FakeIde(new FakeIde.Item("CM_Carrier", Volt.Engine.Item.ItemKind.PlcPouFb, "", true,
+            null, null, "LD", "the graphical body cannot be read"));
+
+        var res = FetchService.Handle(ide, new FetchRequest
+        {
+            KnownItems = new Dictionary<string, string> { ["CM_Carrier.fb"] = "v", ["CM_Carrier.visualization"] = "v" },
+        });
+        _out.WriteLine($"removed: [{string.Join(", ", res.Removed)}] unreadable: [{string.Join(", ", res.Unreadable)}]");
+
+        Assert.Equal(new[] { "CM_Carrier" }, res.Unreadable.ToArray());
+        Assert.DoesNotContain("CM_Carrier.fb", res.Removed);
+        Assert.Contains("CM_Carrier.visualization", res.Removed);
+    }
+
+    /// <summary>…and the same holds for a known name whose extension the engine does not read as any kind. The
+    /// exemption used to cover every such name by bare name alone, so with FB `X` unreadable a known `X.struct`
+    /// (no DUT `X` in the IDE at all) was never reported removed — the resurrection above, reached through the
+    /// "no kind" arm instead. A name the engine cannot place is not the unreadable item; `X.foo` pins it for an
+    /// extension no kind will ever claim.</summary>
+    [Theory]
+    [InlineData("X.struct")]
+    [InlineData("X.foo")]
+    public void An_unreadable_item_does_not_shield_a_known_name_the_engine_cannot_place(string other)
+    {
+        var ide = new FakeIde(new FakeIde.Item("X", Volt.Engine.Item.ItemKind.PlcPouFb, "", true,
+            null, null, "LD", "the graphical body cannot be read"));
+
+        var res = FetchService.Handle(ide, new FetchRequest
+        {
+            KnownItems = new Dictionary<string, string> { ["X.fb"] = "v", [other] = "v" },
+        });
+
+        Assert.DoesNotContain("X.fb", res.Removed);
+        Assert.Contains(other, res.Removed);
+    }
+
+    /// <summary>WHY THE REMOVAL EXEMPTION HAS NO "NAME WITHOUT A KIND" ARM. The one case such an arm could serve is
+    /// a BARE identity — an item that could not be materialized is versioned under its bare name
+    /// (<c>VersionedItem.Identity</c>) — but that key feeds only the aggregate <c>projectVersion</c>. Neither
+    /// `refs` nor `fetch` publishes an unreadable item in <c>Items</c> (it travels in <c>Unreadable</c>), so no
+    /// client baseline can hold `FB_Broken` without its extension, and every known name the removal pass meets
+    /// carries one. The arm exempted exactly the names it could not place, which is the case above.</summary>
+    [Fact]
+    public void An_unreadable_item_is_published_under_no_name_so_no_baseline_holds_a_bare_one()
+    {
+        var ide = new FakeIde(FakeIde.Item.MalformedGraphical("FB_Broken"));
+
+        var refs = RefsService.Handle(ide);
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
+
+        Assert.Empty(refs.Items);
+        Assert.Empty(fetch.Items);
+        Assert.Equal(new[] { "FB_Broken" }, refs.Unreadable.ToArray());
+        Assert.Equal(new[] { "FB_Broken" }, fetch.Unreadable.ToArray());
+    }
+
     /// <summary>A PARTIAL walk reports NO deletions at all.
     /// <para>A driver skips a subtree it cannot enumerate rather than failing the pull — right, because a
     /// transient COM fault on one folder should not stop everything. What it could not do was TELL anyone:

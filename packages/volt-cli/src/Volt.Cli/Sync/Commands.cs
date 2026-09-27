@@ -256,7 +256,7 @@ public static class Commands
             progress.Enter(0, "Fetching from IDE");
             fetched = bridge.FetchChanges(new FetchRequest
             {
-                KnownItems = sidecar?.Items ?? new Dictionary<string, string>(),
+                KnownItems = sidecar?.Items ?? KnownFromIdeTree(gitDir),
                 ExpectedPlatform = cfg.Project.Platform,
                 ExpectedProjectName = cfg.Project.ProjectName,
             }, progress.Wrap(0, "Fetching from IDE"));
@@ -966,6 +966,41 @@ public static class Commands
             return (0, "merge completed");
         }
         return (1, "merge: pass --continue, --abort, or --resolve <path> [--use-ours|--use-theirs]");
+    }
+
+    /// <summary>The wire names a pull with NO BASELINE still knows: every item file of the previous
+    /// <c>volt/ide</c> tree, each at a version the IDE cannot have (<c>""</c>).
+    ///
+    /// <para>The bridge's <c>removed</c> is "known to the client and absent now". With no sidecar the CLI used to
+    /// send an empty map — claiming to know nothing, which is false: the last <c>volt/ide</c> tree names every
+    /// item it carried. So <c>removed</c> came back empty and each of those files was carried forward, including
+    /// one whose item the IDE had deleted since. The rebuilt baseline then lacked the item while the workspace
+    /// kept its file, status read in sync, and the next edit pushed as a CREATE — resurrecting what the engineer
+    /// deleted in the IDE. That is the recovery path a refused sidecar names (malformed, or keyed by a retired wire
+    /// name): delete it and run <c>volt pull</c>.</para>
+    ///
+    /// <para>The empty versions make every item come back changed (there is no baseline to diff against), and
+    /// the bridge's own removal pass — complete walks only, minus what it could not read — decides what is gone,
+    /// exactly as on every other pull. The same shape the post-push re-fetch sends. A library's rendered
+    /// signatures are path-identified, never wire items, so they are not named — but its <c>.library</c> STUB is a
+    /// wire item and IS named. Excluding every file under a library root dropped the stub too, so the bridge could
+    /// not see a library the IDE had stopped referencing: nothing was removed, the libraries were not refreshed,
+    /// and the stub and its signatures were carried forward into a baseline that no longer listed the stub, and
+    /// so past every later pull as well.</para></summary>
+    private static Dictionary<string, string> KnownFromIdeTree(string gitDir)
+    {
+        var known = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (IdeTree.VoltIdeHead(gitDir) is not { } parentIde) return known;
+        var paths = Git.ListTree(gitDir, parentIde).Select(e => e.Path).ToList();
+        var libraryRoots = IdeTree.LibraryRoots(paths);
+        foreach (var path in paths)
+        {
+            if (!path.StartsWith(Files.SrcDir + "/", StringComparison.Ordinal)) continue;
+            var rel = path.Substring(Files.SrcDir.Length + 1);
+            if (IdeTree.IsLibrarySignature(rel, libraryRoots)) continue;
+            if (Extensions.FullNameFromPath(rel) is { } name) known[name] = "";
+        }
+        return known;
     }
 
     /// <summary>Is <paramref name="folder"/> one of <paramref name="roots"/>, or inside one? The folder paths the

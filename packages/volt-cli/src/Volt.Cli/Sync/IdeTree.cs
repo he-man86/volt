@@ -160,7 +160,7 @@ public static class IdeTree
                 continue;
             }
 
-            if (!rel.EndsWith(".library", StringComparison.Ordinal)) continue;
+            if (!IsLibraryStub(rel)) continue;
             var i = rel.LastIndexOf('/');
             if (i > 0) roots.Add(rel.Substring(0, i));
         }
@@ -172,6 +172,18 @@ public static class IdeTree
     public static bool IsUnderLibraryRoot(string rel, HashSet<string> roots) =>
         roots.Any(r => rel.Length > r.Length + 1 && rel[r.Length] == '/' &&
                        rel.StartsWith(r, StringComparison.Ordinal));
+
+    /// <summary>Is this src-relative path one of a library's rendered SIGNATURES — inside a library root and not
+    /// the root's own <c>.library</c> stub?
+    /// <para>The two differ in exactly the way that matters to a known-names map: a signature is path-identified
+    /// and never a wire item, while the stub IS one (the bridge versions it and decides from the known stubs
+    /// whether a library was removed). "Under a root" alone takes the stub with the signatures, since the stub
+    /// is what makes its folder a root.</para></summary>
+    public static bool IsLibrarySignature(string rel, HashSet<string> roots) =>
+        IsUnderLibraryRoot(rel, roots) && !IsLibraryStub(rel);
+
+    /// <summary>A referenced library's stub, the file whose folder is that library's root.</summary>
+    private static bool IsLibraryStub(string rel) => rel.EndsWith(".library", StringComparison.Ordinal);
 
     public static string CommitVoltIde(string gitDir, string treeSha, string? parent, string message) =>
         Git.CommitTree(gitDir, treeSha, parent is not null ? new[] { parent } : Array.Empty<string>(), message);

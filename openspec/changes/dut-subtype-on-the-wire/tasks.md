@@ -232,11 +232,38 @@ BLOCKED; it is never faked.
       deleted, the other deletes then fails `INTERNAL_ERROR`).
       **Written, red today:** `test/Volt.Engine.Tests/sync/DutSubtypeChangePushTests.cs` — plus a same-subtype
       delete + create refused `BAD_REQUEST` (the "anything else" arm) and an ordinary update under the current name.
+      **Review round 1 added** (red today unless noted): two deletes on one DUT, and a subtype rename plus a second
+      op, refused naming both; the rule's BOUNDARY — `set X.fb` + `set X.struct` is never refused as a pair (green
+      today; it catches a naive "two ops on one bare name" rule, which is the forbidden duplicate-name guard); a
+      DUT op whose NAME disagrees with its declaration — update, subtype rename, delete + create pair, create — is
+      refused `BAD_REQUEST` naming the op's name and the declared one, nothing written (without it, `set X.struct`
+      with an enum body is accepted, the receipt says `X.enum`, the sidecar keeps neither name, and the stale
+      `X.struct` file later deletes the live DUT); and `delete X.struct` against an IDE whose `X` is an enum never
+      deletes `X`, with and without force.
+      **Review round 2 added** (red today unless noted): a subtype change that also MOVES the DUT — the rename and
+      both pair orders, forced and not, each carrying `ToFolder = "Types"` as the CLI sends a create — is one update
+      that keeps the move (`refs` and the receipt say `Types`; a coalesce that drops the create's folder passed every
+      earlier test); a DUT rename ACROSS bare names (`X.struct → Y.struct`, `X.struct → Y.enum`) renames the object,
+      never taken as a content update of `X`; and the boundary test now asserts NO `BAD_REQUEST` at all (green
+      today) — a forbidden "two ops on one bare name" rule whose reason quotes only the bare name passed the old
+      "names both" check.
+      **Review round 3:** the boundary test was green for the wrong reason — its FB text was invalid ST, so the
+      pre-flight refused `INVALID_ST` before any pairing rule could run. Valid FB text now, and it asserts the push
+      reached the IDE (`create:X`). Acceptance of the pair is NOT asserted: the push resolves an existing item by
+      bare name (the struct lands on the new FB, `UNSUPPORTED` re-type after the FB was written — a pre-existing
+      bare-name lookup, not a subtype fact), FakeIde cannot hold two items of one bare name, and whether a vendor
+      can hold an FB and a DUT of one name is unmeasured.
 - [x] 2.3 Engine: `TransportMatrixTests` / `WireVocabularyGuardTests` — no `.dut` on any wire message.
       **Written, red today:** `TransportMatrixTests` (the DUT row is `K.struct`;
       `No_wire_message_carries_a_dut_name` over `refs`, `fetch`, a push of an update + a create, and the receipt);
       `WireVocabularyGuardTests.Nothing_mints_or_spells_the_dut_wire_name` (no `ExtFor(Kinds.Dut)`, no `.dut` string
       literal outside `Sidecar.cs`; red on `Materialize.cs:41` and `ItemKind.cs:329`; self-checks both arms).
+      **Review round 1:** the guard missed every real source of the old name, so it now also flags a bare `"dut"`
+      literal outside the `Kinds.Dut` constant (the table entry `(Kinds.Dut, "dut")`) and ANY mention of
+      `WireExtFor`/`IsDutFileExtension`/`DutFileExtensions` (the CLI translator) — red on 10 lines today. A generic
+      `ExtFor(kind)` cannot be seen in source; `ItemKindTests.ExtFor_refuses_the_dut_kind…` makes it throw. The
+      build response is a wire message too: `BuildDiagnosticNameTests.A_dut_diagnostic_carries_the_duts_subtype_name`
+      (red: `Boiler.dut`).
 - [x] 2.4 CLI: `DutSubtypeFileTests` rewritten as "file name == wire name" (no declaration read on pull);
       the IdeTree stale-subtype case (pull after the IDE changed struct→enum) removes `X.struct` and writes
       `X.enum` through the ordinary sweep. KEEP the section-1 IDE-delete cases (a DUT deleted in the IDE is gone
@@ -252,16 +279,85 @@ BLOCKED; it is never faked.
       measurement: set-first partial write + `BAD_REQUEST`, delete-first `ITEM_MISSING`, forced enum accepted with
       the DUT deleted, forced union `INTERNAL_ERROR Sequence contains no matching element`. `Changing_a_subtype_
       changes_the_FILE_but_never_the_wire_name` is deleted: its premise is what this change reverses.
+      **Review round 2:** the same rewrite INTO ANOTHER FOLDER (`DUTs/X.struct` deleted, `Types/X.{enum,union}`
+      added, forced and not) moves the DUT and reads in sync —
+      `DutSubtypeFileTests.A_subtype_rewrite_into_another_folder_moves_the_dut` (red today).
+      **Review round 3** (red until 3.1): a DUT whose text states no subtype is written under NO name
+      (`A_dut_whose_text_states_no_subtype_is_not_written_under_a_guessed_subtype` — today `X.alias`), and a HELD
+      `DUTs/X.struct` whose IDE text turns subtype-less keeps its file and content, with and without a baseline
+      (`A_held_dut_whose_text_loses_its_subtype_keeps_its_file`); engine side
+      `DutSubtypeCodeTests.A_known_dut_whose_declaration_loses_its_subtype_is_unreadable_and_not_removed`.
 - [x] 2.5 CLI: sidecar with a `.dut` key → refused, names `volt pull`, sends nothing. And a PENDING baseline
       (`pending-ide-refs.json`) with a `.dut` key is never promoted by `volt merge --continue`: the merge completes
       without "IDE baseline synced", `ide-refs.json` holds no `.dut` key, and the output names `volt pull`.
       **Written, red today:** `test/Volt.Cli.Tests/commands/DutBaselineMigrationTests.cs` — push refused with an
       `InvalidOperationException` naming the key and `volt pull`, nothing recorded; `volt pull` then rebuilds the
       baseline (no `.dut` key) and the push lands; the merge door as specified.
+      **Review round 1 — the contract settled:** "`volt pull` rebuilds it" contradicted 4.5 (the refusal lives in
+      `LoadIdeRefs`, which `Pull` calls before its fetch, so the fix it named was a dead end). The refusal is now the
+      malformed sidecar's: it names the key, `.git/volt/ide-refs.json` to delete, and `volt pull`; a PULL over the
+      old baseline is refused the same way, `volt/ide` unmoved; deleting the file and pulling rebuilds it and the
+      push lands. And the rebuild must not resurrect: a baseline-less pull had nothing to report removals against,
+      so an item the IDE deleted since the last pull kept its file (red for a DUT and for a plain `.fb` — a bug
+      today on the malformed-sidecar path) — FIXED now in `Commands.Pull`, and a baseline-less pull after an IDE
+      subtype change leaves one DUT file (green today through the `IdeTree` guard; it holds the line when 4.3
+      deletes it).
+      **Review round 2:** the round-1 fix (`GoneWithoutABaseline`) was a SECOND COPY of the engine's removal rule
+      in the CLI (complete walk, unreadable exemption, its own bare-name derivation). The root was the pull's
+      `KnownItems = sidecar?.Items ?? {}`: with no sidecar it told the bridge the client knew nothing, though the
+      previous `volt/ide` tree names every item it carried. It now sends those wire names at `""` (the push
+      re-fetch's shape; library signatures excluded — path-identified, never wire items), every item comes back
+      changed, and the ENGINE's one removal pass decides what is gone; `GoneWithoutABaseline` is deleted. Pinned
+      too: a baseline-less pull keeps the file of an unreadable item and of an item under an unwalked folder, and
+      library signature files (`DutBaselineMigrationTests`). And the engine's unreadable exemption was keyed by
+      BARE name, so an unreadable `CM_Carrier` FB shielded a DELETED `CM_Carrier.visualization` (its file kept, its
+      next edit a create) on every pull, with or without a baseline — FIXED in `FetchService` (bare name AND the
+      walked kind; round 3 removed the "no kind" arm, below), pinned by
+      `UnreadableIsNotRemovedTests.An_unreadable_item_does_not_shield_…` and
+      `DutBaselineMigrationTests.An_unreadable_item_does_not_keep_a_deleted_item_of_another_kind`.
+      **Review round 3:** the round-2 known-names rebuild dropped each library's `.library` STUB with its
+      signatures (the stub sits inside its own library root), so a baseline-less pull never retired a library the
+      IDE stopped referencing — FIXED (`IdeTree.IsLibrarySignature`: under a root and not the stub),
+      `DutBaselineMigrationTests.A_library_the_ide_no_longer_references_is_retired_with_or_without_a_baseline`
+      (red before, without a baseline). The exemption's "no kind on the name" arm is DELETED, not kept: it shielded
+      a known `X.struct`/`X.foo` behind an unreadable FB `X`, and the bare identity it claimed to serve never
+      reaches a baseline (an unreadable item is in `unreadable`, never in `Items`) —
+      `UnreadableIsNotRemovedTests.An_unreadable_item_does_not_shield_a_known_name_the_engine_cannot_place` (red
+      before) and `…is_published_under_no_name_so_no_baseline_holds_a_bare_one`. The pull refusal pins "sends
+      nothing" by `WalkCalls` (red with the rest of that test until 4.5).
 - [x] 2.6 Library: a library enum and a project enum carry the same extension, from the same `DutSubtype`.
       **Written, red today:** `test/Volt.Engine.Tests/library/LibraryDutExtensionParityTests.cs` — for the enum,
       struct, union and alias the renderer produces, its extension == the project materializer's for the same
       text == `"." + CodeHelper.DutSubtype(text)`.
+      **Review round 1:** that test cannot see the renderer's own flag-based classifier (flag and text agree for
+      every signature it renders, so 3.1 alone turns it green). The structural half:
+      `WireVocabularyGuardTests.A_dut_subtype_is_named_in_one_place` — no lower-case subtype-name literal outside
+      `CodeHelper`/`ItemKind` (red on `LibSignatureRenderer.cs:74,131,142`). And the reader itself no longer
+      guesses: `CodeHelper.DutSubtype` answered `alias` for a declaration that states no subtype — a guessed wire
+      identity once 3.1 lands. `DutSubtype_refuses_…` and
+      `A_dut_whose_declaration_states_no_subtype_is_unreadable_not_a_guessed_alias` pin it, both red until 3.1.
+      **Review round 2:** round 1 made `DutSubtype` throw NOW — a section-3 change whose only caller was still the
+      CLI's `Materialize.FileNameFor`, with no per-item refusal path: one DUT typed `TYPE X :` in the IDE aborted
+      the whole `volt pull` (nothing pulled) and left `volt init` half-made (scaffold committed, no `volt/ide`, no
+      baseline, a re-init refused). REVERTED; the throw lands with 3.1, where the name is minted per item and the
+      item can surface as unreadable. Pinned: `DutSubtypeFileTests.A_dut_whose_text_states_no_subtype_never_aborts_a_pull`
+      / `…_an_init` (red with the throw, green now, and must stay green through 3.1). And the reader misread a
+      TRAILING comment or pragma after the colon (`TYPE ST_X : // note` → `alias`, `: (* note *)` → `enum`,
+      `: {attribute 'strict'} (A, B)` → `alias`) — FIXED (the first CODE token after the colon; a colon inside a
+      comment is not the type's), `DutSubtypeCodeTests.DutSubtype_reads_the_first_code_token_after_the_colon`.
+
+      **Review round 3:** `DutSubtype` carried its own trivia scanner, disagreeing with `CodeOn` (THE one) about a
+      pragma line (`{attribute 'strict'} (A, B);`: `CodeOn` called the whole line trivia). FIXED at the root:
+      `CodeOn` ends a pragma at its `}` like a closed `(* *)`, and `DutSubtype` is built on it —
+      `CodeHelperTests.CodeOn_ends_a_pragma_at_its_closing_brace` (red before), `…agree_about_a_pragma_line`.
+**Section 2 closed (2026-09-27), three review rounds — the cap; round 3's findings were all fixed or pinned, so it
+is not called clean by a fourth round.** Final offline run: `Volt.Engine.Tests` 1366 passed / 81 failed,
+`Volt.Cli.Tests` 207 / 27, and every failure is a section-2 red test (classes `DutSubtypeChangePushTests`,
+`DutSubtypeCodeTests`, `ItemKindTests`, `KindFromExtensionTests`, `LibraryDutExtensionParityTests`,
+`BuildDiagnosticNameTests`, `PushServiceTests`, `PushDeclarationTransportTests`, `TransportMatrixTests`,
+`WireVocabularyGuardTests`; `DutSubtypeFileTests`, `DutBaselineMigrationTests`, `BlackBoxTests`, `IdeTreeTests`)
+— red by design until sections 3-4. No other test is red: Codesys 160, Twincat 231, Contracts 19, Connector 110,
+Repo.Gates 20, `bun test test/unit` 4, `bun run check` 14 all pass. No live IDE was used in section 2.
 
 ## 3. Engine
 
@@ -269,6 +365,9 @@ BLOCKED; it is never faked.
 - [ ] 3.2 `PushService`: the subtype-change rule (spec requirement 2), placed with the other op normalisation,
       before `InFolderDepthOrder`. Resolve every DUT op to its bare name once; kind check accepts all four.
       The coalescing does not depend on `Force`: force drops the version gate, never the pairing (1.1).
+      The pairing rule keys on DUT ops only (a same-named `.fb` is not a pair). Every DUT `set` checks its name
+      (the `toName` for a rename) against `DutSubtype` of its body and refuses a mismatch `BAD_REQUEST` naming
+      both; a `delete` resolves its FULL wire name, so `delete X.struct` never reaches an `X` that is an enum.
 - [ ] 3.3 `ItemKind`: delete `WireExtFor`, `IsDutFileExtension`; `SourceKindExtensions` lists
       struct/enum/union/alias as ordinary source extensions mapping to `Kinds.Dut`; `ExtFor(Kinds.Dut)` is no
       longer a wire extension (delete or make it throw — nothing may mint `.dut`). Rewrite the long comments at
@@ -290,7 +389,9 @@ BLOCKED; it is never faked.
       Neither keeps a hand-written kind→extension list: both render from the one extension table, as
       `VscodeSettings()` already does.
 - [ ] 4.5 `Sidecar` load: refuse a `.dut` key (2.5) — in `LoadIdeRefs` AND `LoadPendingIdeRefs`, so the
-      `merge --continue` promotion cannot write one into the live sidecar.
+      `merge --continue` promotion cannot write one into the live sidecar. The refusal is the malformed one's:
+      name the key, `.git/volt/ide-refs.json` to delete, and `volt pull` (pull loads the same baseline, so it is
+      refused too — 2.5).
 - [ ] 4.6 grep `Volt.Cli` CASE-INSENSITIVELY for `dut` and for the subtype spellings `struct|enum|union|alias` —
       zero hits outside the sidecar refusal (the uppercase `DUT` in `Scaffold.cs`/`Commands.cs` is what a
       case-sensitive grep missed) — AND for `ItemKind.KindFor`,
@@ -317,7 +418,9 @@ BLOCKED; it is never faked.
       "remains the wire kind"); `wire.html`, `RefsFetch.cs` example, DIALECT.md.
 - [ ] 5.2 `volt-control/src/state/files.ts`, `volt-lsp-iec/src/source-extensions.ts` comments; `bun run check`
       (extension parity) green.
-- [ ] 5.3 Release note: run `volt pull` once after upgrading (sidecar rebuild); files on disk unchanged.
+- [ ] 5.3 Release note: after upgrading, delete `.git/volt/ide-refs.json` and run `volt pull` once (the old
+      baseline is refused by name, `volt pull` included — it cannot rebuild a baseline it first has to load);
+      files on disk unchanged.
 
 ## 6. Live
 

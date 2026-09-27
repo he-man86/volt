@@ -153,19 +153,40 @@ public class WireVocabularyGuardTests
     /// a second minting site or a translator, i.e. DUT logic outside the engine.</para>
     ///
     /// <para>The one legitimate literal is the SIDECAR's refusal of a baseline still keyed by the old name — it
-    /// has to recognise <c>.dut</c> to refuse it by name (the spec's migration rule).</para></summary>
+    /// has to recognise <c>.dut</c> to refuse it by name (the spec's migration rule).</para>
+    ///
+    /// <para><b>What each arm catches, and what it leaves to a behavioural test.</b> The old name had three
+    /// sources, and a guard that saw only the literal <c>.dut</c> missed all of them: the kind table's entry
+    /// <c>(Kinds.Dut, "dut")</c> (a bare <c>"dut"</c> used as an EXTENSION — the internal kind constant
+    /// <c>Kinds.Dut = "dut"</c> is the one line allowed to spell it), the translator's helpers
+    /// (<c>WireExtFor</c>, <c>IsDutFileExtension</c>, <c>DutFileExtensions</c> — named anywhere, they are DUT
+    /// logic outside the one minting site), and the explicit <c>ExtFor(Kinds.Dut)</c>. A GENERIC call —
+    /// <c>ExtFor(resolvedKind)</c>, which reaches the DUT kind at run time — cannot be seen in source; that is
+    /// <c>ItemKindTests.ExtFor_refuses_the_dut_kind_rather_than_mint_an_extension_for_it</c>'s job, which makes
+    /// every such call throw instead of minting.</para></summary>
     [Fact]
     public void Nothing_mints_or_spells_the_dut_wire_name()
     {
-        var mint = new Regex(@"ExtFor\(\s*(ItemKind\.)?Kinds\.Dut\s*\)");
+        var mint = new Regex(@"ExtFor\(\s*(ItemKind\.)?Kinds\.Dut\s*\)|\b(WireExtFor|IsDutFileExtension|DutFileExtensions)\b");
+        // A bare `"dut"` literal is the DUT EXTENSION spelt out, except where it defines the internal kind.
+        var bareDut = new Regex(@"^""dut""$", RegexOptions.IgnoreCase);
+        var kindConstant = new Regex(@"const\s+string\s+Dut\s*=");
         // Each string LITERAL on the line, whole and with its escapes honoured — so the text BETWEEN two
         // literals (`"itf"), (Kinds.Dut, "`) is never read as one.
         var literal = new Regex(@"""(?:[^""\\]|\\.)*""");
         var dutName = new Regex(@"\.dut\b", RegexOptions.IgnoreCase);
-        bool SpellsDut(string code) => literal.Matches(code).Cast<Match>().Any(m => dutName.IsMatch(m.Value));
-        // A guard that cannot go red passes for the wrong reason (see `StripComment`): prove both arms fire.
+        bool SpellsDut(string code) =>
+            literal.Matches(code).Cast<Match>().Any(m => dutName.IsMatch(m.Value)
+                                                        || (bareDut.IsMatch(m.Value) && !kindConstant.IsMatch(code)));
+        // A guard that cannot go red passes for the wrong reason (see `StripComment`): prove every arm fires, and
+        // that the one legitimate spelling does not.
         Assert.True(SpellsDut("var n = $\"{bare}.dut\";") && !SpellsDut("(Kinds.Interface, \"itf\"), (Kinds.Dut, \"x\")"));
+        Assert.True(SpellsDut("(Kinds.Interface, \"itf\"), (Kinds.Dut, \"dut\"), (Kinds.Gvl, \"gvl\"),"));
+        Assert.False(SpellsDut("public const string Dut = \"dut\";"));
         Assert.Matches(mint, "var e = ItemKind.ExtFor(ItemKind.Kinds.Dut);");
+        Assert.Matches(mint, "return ItemKind.IsDutFileExtension(ext) ? a : b;");
+        Assert.Matches(mint, "var w = ItemKind.WireExtFor(ext);");
+        Assert.DoesNotMatch(mint, "var e = ItemKind.ExtFor(resolvedKind);");
         var allowLiteral = new HashSet<string> { "Sidecar.cs" };
         var offenders = new List<string>();
 
@@ -185,6 +206,45 @@ public class WireVocabularyGuardTests
         Assert.True(offenders.Count == 0,
             "The `.dut` wire name is gone — a DUT is named on the wire by its subtype, minted once in " +
             "Materializer. These lines mint or spell the old name:\n  " + string.Join("\n  ", offenders));
+    }
+
+    /// <summary>A DUT SUBTYPE IS CLASSIFIED IN ONE PLACE (openspec <c>dut-subtype-on-the-wire</c>, tasks 2.6/3.4).
+    ///
+    /// <para>The subtype is read from a declaration by <c>CodeHelper.DutSubtype</c>, and the kind table lists the
+    /// four subtype extensions. Anything else that spells a subtype as a name — <c>LibSignatureRenderer</c>
+    /// returning <c>".enum"</c> from a vendor flag — is a second classifier, and two classifiers of one shape can
+    /// disagree about the same text. The behavioural parity test
+    /// (<c>LibraryDutExtensionParityTests</c>) cannot see that: for every signature it renders, the flag and the
+    /// declaration agree, so it goes green with both classifiers still in place. This is the structural half.</para>
+    ///
+    /// <para>Lower-case only, and the whole literal: the vendor's own flags (<c>"Enum"</c>, <c>"Union"</c>) and
+    /// the ST keywords (<c>"STRUCT"</c>) are what a renderer reads and writes, not names it mints.</para></summary>
+    [Fact]
+    public void A_dut_subtype_is_named_in_one_place()
+    {
+        var literal = new Regex(@"""(?:[^""\\]|\\.)*""");
+        var subtype = new Regex(@"^""\.?(struct|enum|union|alias)""$");
+        bool Names(string code) => literal.Matches(code).Cast<Match>().Any(m => subtype.IsMatch(m.Value));
+        Assert.True(Names("return (\".enum\", text);") && Names("return union ? \".union\" : \"x\";"));
+        Assert.False(Names("if (s.Flags.Contains(\"Enum\"))") || Names("(\"STRUCT\", \"END_STRUCT\")"));
+        // The reader, and the table the extension set comes from.
+        var allow = new HashSet<string> { "CodeHelper.cs", "ItemKind.cs" };
+        var offenders = new List<string>();
+
+        foreach (var file in EnumerateCs(FindSrcDir()))
+        {
+            if (allow.Contains(AllowKey(file))) continue;
+            var lineNo = 0;
+            foreach (var raw in File.ReadLines(file))
+            {
+                lineNo++;
+                if (Names(StripComment(raw))) offenders.Add($"{Path.GetFileName(file)}:{lineNo}: {raw.Trim()}");
+            }
+        }
+
+        Assert.True(offenders.Count == 0,
+            "A DUT's subtype name comes from CodeHelper.DutSubtype (and the kind table's extension set) — these " +
+            "lines name one on their own, a second classifier:\n  " + string.Join("\n  ", offenders));
     }
 
     /// <summary>The line with any trailing <c>//</c> comment removed — where <c>//</c> INSIDE a string literal

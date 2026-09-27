@@ -212,6 +212,115 @@ public class DutSubtypeFileTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    // ── a DUT whose text states no subtype ─────────────────────────────────────────────────────────
+
+    /// <summary>A DUT whose declaration states no subtype — reachable live: an engineer mid-way through typing
+    /// `TYPE X :` in the IDE — is ONE item, and one item never takes the whole pull down. The spec publishes it as
+    /// unreadable (the engine's per-item refusal); whatever it becomes, every OTHER item is still pulled. Making
+    /// the subtype reader throw before the engine had a per-item place to catch it aborted the pull with a
+    /// FormatException and wrote nothing.</summary>
+    [Fact]
+    public void A_dut_whose_text_states_no_subtype_never_aborts_a_pull()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            ide.AddItem(FakeIde.Item.TextualPou("X", "TYPE X :\nEND_TYPE", "", "DUTs"));
+            ide.MutateImplementation("PLC_PRG", "x := 2;");
+            var r = Commands.Pull(root, client);
+
+            Assert.True(r.Kind == "ok", $"pull {r.Kind}: {r.Reason}");
+            Assert.Contains("x := 2;", File.ReadAllText(Path.Combine(root, "src", "PLC_PRG.prg")));
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>…and it is written under NO name. A declaration that states no subtype is published unreadable,
+    /// never under a guessed one; the CLI writes what the wire names, so no `DUTs/X.*` file appears. Reading the
+    /// declaration here wrote `X.alias` — `END_TYPE` read as the first token after the colon.</summary>
+    [Fact]
+    public void A_dut_whose_text_states_no_subtype_is_not_written_under_a_guessed_subtype()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            ide.AddItem(FakeIde.Item.TextualPou("X", "TYPE X :\nEND_TYPE", "", "DUTs"));
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            var duts = Path.Combine(root, "src", "DUTs");
+            var written = Directory.Exists(duts) ? Directory.GetFiles(duts).Select(Path.GetFileName).ToArray() : new string?[0];
+            Assert.True(written.Length == 0, $"a subtype-less DUT was written as {string.Join(", ", written)}");
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>A DUT THE WORKSPACE ALREADY HOLDS, TURNED SUBTYPE-LESS IN THE IDE — an engineer half-way through
+    /// retyping `X`. The item is still in the IDE, just unreadable, so the pull keeps `DUTs/X.struct` with its
+    /// last content and writes no guessed `X.alias` beside it. Today's pull wrote `X.alias` holding the half-typed
+    /// text and swept `X.struct` as the item's replaced file. Both pulls: with a baseline, and without one (the
+    /// recovery path, which rebuilds the known names from the previous `volt/ide` tree).</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_held_dut_whose_text_loses_its_subtype_keeps_its_file(bool withBaseline)
+    {
+        const string held = "TYPE X :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE";
+        var ide = ConnectedIde(
+            FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"),
+            FakeIde.Item.TextualPou("X", held, "", "DUTs"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var file = Path.Combine(root, "src", "DUTs", "X.struct");
+            Assert.True(File.Exists(file), "fixture: the first pull wrote X.struct");
+            var before = File.ReadAllText(file);
+
+            ide.RemoveItem("X");
+            ide.AddItem(FakeIde.Item.TextualPou("X", "TYPE X :\nEND_TYPE", "", "DUTs"));
+            if (!withBaseline) File.Delete(Config.Paths(root).IdeRefsPath);
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            Assert.True(File.Exists(file), "the pull deleted X.struct for a DUT still in the IDE");
+            Assert.Equal(before, File.ReadAllText(file));
+            Assert.Equal(new[] { "X.struct" }, Directory.GetFiles(Path.Combine(root, "src", "DUTs")).Select(Path.GetFileName).ToArray());
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>…and through `volt init`, where an abort is worse: init commits the scaffold BEFORE it
+    /// materializes, so a throw there left a folder with config and a commit but no `volt/ide`, no baseline and
+    /// no src — and a second `volt init` refused it as a non-empty folder.</summary>
+    [Fact]
+    public void A_dut_whose_text_states_no_subtype_never_aborts_an_init()
+    {
+        var ide = ConnectedIde(
+            FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"),
+            FakeIde.Item.TextualPou("X", "TYPE X :\nEND_TYPE", "", "DUTs"));
+        var pipe = Pipe();
+        var host = new Volt.Engine.Host.BridgePipeHost(ide, pipe);
+        host.Start();
+        var client = new BridgeClient(pipe);
+        var parent = Directory.CreateTempSubdirectory("volt-init-").FullName;
+        try
+        {
+            var r = Commands.Init(parent, client);
+
+            Assert.True(r.Kind == "ok", $"init {r.Kind}");
+            var ws = r.Workspace!;
+            Assert.True(File.Exists(Path.Combine(ws, "src", "PLC_PRG.prg")));
+            Assert.NotNull(IdeTree.VoltIdeHead(Git.ResolveGitDir(ws)));
+            Assert.NotNull(Sidecar.LoadIdeRefs(ws));
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(parent); }
+    }
+
     // ── a subtype change pushed as delete + add ────────────────────────────────────────────────────
 
     /// <summary>A struct long enough that a rewrite as an enum or union shares under half its text, so git sees
@@ -262,6 +371,40 @@ public class DutSubtypeFileTests
             Assert.Equal("in sync with the IDE", s.Summary);
             Assert.True(File.Exists(Path.Combine(dir, $"X.{subtype}")));
             Assert.False(File.Exists(Path.Combine(dir, "X.struct")));
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>…AND INTO ANOTHER FOLDER: delete `DUTs/X.struct`, add `Types/X.{subtype}`. The push sends the
+    /// create with its folder, and the one update it becomes must still MOVE the DUT — otherwise the IDE keeps
+    /// `X` in `DUTs` while the receipt, the baseline and the workspace say `Types`, status reads in sync, and the
+    /// two never meet again (later updates carry no folder; a pull short-circuits on an equal version).</summary>
+    [Theory]
+    [InlineData("enum", false)]
+    [InlineData("union", false)]
+    [InlineData("enum", true)]
+    [InlineData("union", true)]
+    public void A_subtype_rewrite_into_another_folder_moves_the_dut(string subtype, bool force)
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("X", WideStruct, "", "DUTs"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            File.Delete(Path.Combine(root, "src", "DUTs", "X.struct"));
+            var types = Path.Combine(root, "src", "Types");
+            Directory.CreateDirectory(types);
+            File.WriteAllText(Path.Combine(types, $"X.{subtype}"), Rewritten(subtype) + "\n");
+
+            var r = Commands.Push(root, client, force: force);
+            Assert.True(r.Kind == "ok", $"push {r.Kind}: {r.Reason}");
+
+            Assert.True(ide.Exists("X"), "the DUT is gone from the IDE");
+            Assert.DoesNotContain(ide.Recorded, x => x.StartsWith("delete:") || x.StartsWith("create:"));
+            var refs = RefsService.Handle(ide);
+            Assert.Equal(new[] { $"X.{subtype}" }, refs.Items.Keys.ToArray());
+            Assert.Equal("Types", refs.Folders[$"X.{subtype}"]);
+            Assert.Equal("in sync with the IDE", Commands.Status(root, client).Summary);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }

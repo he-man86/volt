@@ -42,7 +42,9 @@ from the wire and re-deriving it in every client.
   (`SourceKindExtensions`, the wiring check's source) lists the four DUT extensions as plain source extensions.
 - **Migration.** Workspace FILES do not change (they are already `.struct` etc.). The sidecar
   `.git/volt/ide-refs.json` is keyed by wire name and holds `X.dut` keys; a sidecar with a `.dut` key is refused
-  by name ("run `volt pull` to rebuild the baseline"), exactly as a malformed one is. No translator.
+  by name exactly as a malformed one is: the refusal names the key, `.git/volt/ide-refs.json` to delete, and
+  `volt pull`. Every command that loads the baseline refuses — `volt pull` included, since it cannot rebuild a
+  baseline it first has to load. No translator.
 
 ## Non-goals
 

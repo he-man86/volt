@@ -910,8 +910,9 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         }).ToList();
 
     /// <summary>Library element signatures the fetch's verbose fold will render + fold under each owning
-    /// library's folder(s). Set per-test; empty by default.</summary>
-    public IReadOnlyList<LibSignature> LibSignatures { get; init; } = new List<LibSignature>();
+    /// library's folder(s). Set per-test; empty by default. Settable after construction, so a test can model the
+    /// IDE dropping a library reference between two pulls.</summary>
+    public IReadOnlyList<LibSignature> LibSignatures { get; set; } = new List<LibSignature>();
     // Optional test hooks to hold a mutation IN FLIGHT: extraction signals it has been entered, then blocks until
     // released — lets a test observe /health while the op runs (extraction is the FIRST thing a verbose /init does).
     public ManualResetEventSlim? ExtractEntered { get; init; }

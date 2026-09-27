@@ -134,6 +134,27 @@ public class CodeHelperTests
         Assert.Equal(expected, CodeHelper.HeaderLine(decl));
     }
 
+    /// <summary>A PRAGMA IS TRIVIA UP TO ITS `}`, the way a closed `(* … *)` is — code after it on the line is
+    /// code. `CodeOn` called the whole line trivia, while the DUT subtype reader, needing
+    /// `{attribute 'strict'} (A, B);` to read as an enumeration, carried a scanner of its own that resumed after
+    /// the `}`: two answers to "where does the code start" for one line. Both now ask `CodeOn`, and the last row
+    /// is the DUT reader agreeing with it on that very line.</summary>
+    [Theory]
+    [InlineData("{attribute 'strict'} (A, B);", "(A, B);")]
+    [InlineData("{attribute 'qualified_only'}", "")]
+    [InlineData("{attribute 'a'} {attribute 'b'} PROGRAM P", "PROGRAM P")]
+    [InlineData("{an unclosed pragma", "")]
+    public void CodeOn_ends_a_pragma_at_its_closing_brace(string line, string code)
+    {
+        var inBlockComment = false;
+        Assert.Equal(code, CodeHelper.CodeOn(line, ref inBlockComment));
+        Assert.False(inBlockComment);
+    }
+
+    [Fact]
+    public void The_dut_subtype_reader_and_CodeOn_agree_about_a_pragma_line() =>
+        Assert.Equal("enum", CodeHelper.DutSubtype("TYPE E :\n{attribute 'strict'} (A, B);\nEND_TYPE"));
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

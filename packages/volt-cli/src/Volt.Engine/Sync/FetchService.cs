@@ -78,6 +78,11 @@ public static class FetchService
         var liveLibVersions = new Dictionary<string, string>();
         // Items the walk SAW but could not read. They exist; they are simply not in this response.
         var unreadableBareNames = new HashSet<string>(System.StringComparer.Ordinal);
+        // …and the KINDS each was walked as, which the walk knows even when it cannot read the body. The removal
+        // exemption is the unreadable ITEM's, and bare names repeat across kinds (`CM_Carrier.fb` beside
+        // `CM_Carrier.visualization`): keyed by bare name alone, an unreadable FB shielded a visualization the
+        // IDE had deleted, whose file then survived the pull and whose next edit pushed as a create.
+        var unreadableKinds = new Dictionary<string, HashSet<string>>(System.StringComparer.Ordinal);
         // `.library` stubs the walk skipped as unchanged, held in case the signatures get re-rendered.
         var skippedLibraryStubs = new List<FetchedItem>();
         onProgress?.Invoke(new ProgressFrame { Operation = Ops.Fetch, Done = 0, Total = total });
@@ -129,11 +134,15 @@ public static class FetchService
                 // does not mistake "absent from this response" for "deleted from the project"; without this a
                 // pull DELETES the engineer's file for a POU sitting in the IDE.
                 //
-                // Keyed by BARE name rather than a reconstructed `name.ext`: the full name normally comes from
-                // the materialized item, which is null here, and re-deriving it would lean on the very kind
-                // mapping that may be what defeated the read. IEC guarantees bare names are unique among source
-                // items, which is what makes this safe.
+                // Keyed by BARE name and the WALKED kind rather than a reconstructed `name.ext`: the full name
+                // comes from the materialized item, which is null here, and re-deriving it would lean on the very
+                // content that defeated the read. The walked kind is the tree's, read without the body. The bare
+                // name alone is NOT enough — IEC makes names unique within a kind, not across kinds (CLAUDE.md,
+                // the item-name invariant) — so the removal pass matches both (`IsUnreadable`).
                 unreadableBareNames.Add(it.Name);
+                if (!unreadableKinds.TryGetValue(it.Name, out var kinds))
+                    unreadableKinds[it.Name] = kinds = new HashSet<string>(System.StringComparer.Ordinal);
+                kinds.Add(kind);
                 unreadable++;
                 continue;
             }
@@ -244,7 +253,7 @@ public static class FetchService
         var removed = isInit || !walk.Complete || onlyItems != null
             ? new List<string>()
             : knownItems.Keys
-                .Where(k => !fullVersions.ContainsKey(k) && !unreadableBareNames.Contains(Materializer.Bare(k)))
+                .Where(k => !fullVersions.ContainsKey(k) && !IsUnreadable(k, unreadableKinds))
                 .ToList();
 
         // A PARTIAL walk can report no deletions at all, and that is the only honest answer available. Deletion
@@ -286,6 +295,20 @@ public static class FetchService
         };
     }
 
+
+    /// <summary>Is the known wire name <paramref name="known"/> an item this walk saw and could not read? Same bare
+    /// name AND the kind it was walked as — a name of ANOTHER kind that shares the bare name is a different item,
+    /// and absent from the walk means gone.
+    ///
+    /// <para>A known name whose kind cannot be read off its extension is NOT exempt. It used to be ("absence proves
+    /// nothing about an item the reader could not place"), and that shielded exactly the names the engine does
+    /// not recognise: with FB <c>X</c> unreadable, a known <c>X.struct</c> the IDE had deleted was never reported
+    /// removed, so its file survived and its next edit pushed as a create. No legitimate known name lacks a kind —
+    /// an unreadable item is published in <c>Unreadable</c>, never in <c>Items</c>, so no baseline holds its bare
+    /// identity — and the answer for any other unplaceable name is the ordinary one: not in this walk.</para></summary>
+    private static bool IsUnreadable(string known, IReadOnlyDictionary<string, HashSet<string>> unreadableKinds) =>
+        unreadableKinds.TryGetValue(Materializer.Bare(known), out var kinds)
+        && ItemKind.KindForWireName(known) is { } kind && kinds.Contains(kind);
 
     // The `.library` file extension, from the canonical registry (not a literal) — used to spot a removed library
     // in the client's knownItems (only .library keys are relevant to the library-change decision).

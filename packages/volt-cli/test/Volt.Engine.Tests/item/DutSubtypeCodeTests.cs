@@ -111,6 +111,81 @@ public class DutSubtypeCodeTests
     public void The_subtype_comes_from_the_declaration_not_the_tree_code(int code, string decl, string wireName) =>
         Assert.Equal(new[] { wireName }, RefsService.Handle(OneDut(code, decl)).Items.Keys.ToArray());
 
+    /// <summary>A DECLARATION THAT STATES NO SUBTYPE IS REFUSED, NEVER GUESSED. The subtype is a wire IDENTITY:
+    /// whatever `DutSubtype` answers becomes the item's name on the wire, its file name on disk, and the key the
+    /// subtype-change pairing reads. It used to answer `alias` for anything it could not classify — "the shape that
+    /// assumes least" — which publishes `X.alias` for a declaration that never says so, and a later fix of the
+    /// text then reads as the alias removed and a new item added. No colon, nothing after the colon, or the
+    /// colon followed straight by `END_TYPE` is a declaration with no body shape at all.</summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("TYPE X\nEND_TYPE")]
+    [InlineData("TYPE X :")]
+    [InlineData("TYPE X :\nEND_TYPE")]
+    public void DutSubtype_refuses_a_declaration_that_states_no_subtype(string decl)
+    {
+        var ex = Assert.Throws<System.FormatException>(() => Volt.Engine.Format.St.CodeHelper.DutSubtype(decl));
+        Assert.Contains("subtype", ex.Message);
+    }
+
+    /// <summary>THE SUBTYPE IS THE FIRST TOKEN AFTER THE COLON — THE FIRST CODE TOKEN. A comment or a pragma
+    /// between the colon and the body is trivia, wherever it sits: at the end of the TYPE line, as a block comment
+    /// before `STRUCT` on the same line or the next, or an attribute pragma before an enumeration's `(`. The
+    /// reader stripped only LEADING trivia per line, so the text after the colon began with the comment itself and
+    /// a STRUCT read as `alias` (a `//` comment) or `enum` (a `(*` comment opens with `(`). That answer is the
+    /// item's file name today and its wire identity once the engine mints it, so a struct would be published under
+    /// an enum's name — and every push of the correctly named `X.struct` refused as disagreeing with it.</summary>
+    [Theory]
+    [InlineData("TYPE ST_X : // note\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE", "struct")]
+    [InlineData("TYPE ST_X : (* note *)\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE", "struct")]
+    [InlineData("TYPE ST_X : (* note *) STRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE", "struct")]
+    [InlineData("TYPE ST_X : (* a\nmulti-line note *)\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE", "struct")]
+    [InlineData("TYPE U_X : // note\nUNION\n\tb : BYTE;\nEND_UNION\nEND_TYPE", "union")]
+    [InlineData("TYPE E_X : {attribute 'strict'} (A, B);\nEND_TYPE", "enum")]
+    [InlineData("TYPE E_X : // note\n(A, B);\nEND_TYPE", "enum")]
+    [InlineData("TYPE E_X :\n{attribute 'strict'} (A, B);\nEND_TYPE", "enum")]   // the pragma on the body's own line
+    [InlineData("TYPE T_X : (* note *) INT (0..10);\nEND_TYPE", "alias")]
+    [InlineData("TYPE ST_X (* a colon : in a comment *) :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE", "struct")]
+    public void DutSubtype_reads_the_first_code_token_after_the_colon(string decl, string subtype) =>
+        Assert.Equal(subtype, Volt.Engine.Format.St.CodeHelper.DutSubtype(decl));
+
+    /// <summary>…and on the wire that refusal is an UNREADABLE item — tracked, named in `unreadable`, its file
+    /// kept by every client — rather than an item published under a subtype its text never states.</summary>
+    [Fact]
+    public void A_dut_whose_declaration_states_no_subtype_is_unreadable_not_a_guessed_alias()
+    {
+        var ide = OneDut(ItemKind.PlcDut, "TYPE X\nEND_TYPE");
+
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
+
+        Assert.Equal(new[] { "X" }, fetch.Unreadable.ToArray());
+        Assert.Empty(fetch.Items);
+        Assert.Empty(fetch.Changed);
+    }
+
+    /// <summary>…"ITS FILE KEPT" is the half that loses data, and it needs a DUT the client ALREADY HOLDS: an
+    /// engineer half-way through retyping `X` in the IDE leaves `TYPE X :` with nothing after the colon. The item
+    /// is still there, so the client's `X.struct` must not be reported removed — or the pull deletes the file for
+    /// a DUT sitting in the IDE — and it is published under no name at all, since any name would be a guess.
+    /// The known map is whatever `refs` published for the struct, so this holds before and after the rename of
+    /// the wire name.</summary>
+    [Theory]
+    [InlineData("TYPE X :\nEND_TYPE")]
+    [InlineData("TYPE X :")]
+    public void A_known_dut_whose_declaration_loses_its_subtype_is_unreadable_and_not_removed(string decl)
+    {
+        var ide = OneDut(ItemKind.PlcDut, Struct);
+        var before = RefsService.Handle(ide);
+
+        ide.RemoveItem("X");
+        ide.AddItem(new FakeIde.Item("X", ItemKind.PlcDut, "DUTs", true, decl, null, null, null));
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new(before.Items) });
+
+        Assert.Equal(new[] { "X" }, fetch.Unreadable.ToArray());
+        Assert.Empty(fetch.Removed);
+        Assert.Empty(fetch.Changed);
+    }
+
     /// <summary>A SUBTYPE CHANGE IN THE IDE IS A REMOVED NAME PLUS AN ADDED ONE. That is what lets a client's
     /// ordinary removal sweep retire the old file with no DUT knowledge of its own: `fetch` against a baseline
     /// holding `X.struct` reports `X.struct` removed and `X.enum` changed.</summary>
