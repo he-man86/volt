@@ -191,10 +191,13 @@ internal sealed partial class TcObjectModel
         // export TwinCAT then refuses to re-import ("incomplete content" against TC6). The per-child write only
         // survived it because `WriteText` landed the real declaration afterwards.
         //
-        // Seeding the struct and letting the pushed DECLARATION re-derive the subtype is exactly what CODESYS does
-        // (`create_dut` with `DutType.Structure`), and it is measured to work here for all four shapes: struct
-        // stays 606, an enum declaration becomes 605, a union 607, and an alias — `: INT;` or `: STRING(80);` —
-        // becomes 623 with the right base. One seed, no per-subtype dispatch. DIALECT C2b.
+        // Seeding the struct and writing the pushed DECLARATION into it is exactly what CODESYS does (`create_dut`
+        // with `DutType.Structure`), and it is measured to work here for all four shapes: the compiler takes the
+        // DECLARED shape (an enum body in the 606 seed is an enum to it). One seed, no per-subtype dispatch.
+        // The TREE CODE does not follow: a DUT created this way reads 606 whatever its body in the live session
+        // (DIALECT C2e, which corrects C2b — C2b's "an enum declaration becomes 605" was measured on the deleted
+        // PLCopen import path; what a reload does to a CREATED DUT's code is unmeasured). So the subtype is read
+        // from the declaration, never from the code this seeds.
         if (kindCode == ItemKind.PlcDut) kindCode = ItemKind.PlcDutStruct;
 
         // A task is TWO items and the SYSTEM one comes first — measured, from the vendor's own refusal:

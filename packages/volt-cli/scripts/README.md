@@ -39,7 +39,8 @@ file that makes that checkable rather than a claim is `accessor-census.log`.
 | `stop_volt_codesys.py` | its counterpart |
 | `run_pipe_production.py` | the launcher `ide.ps1` hands to `--runscript` (dialog suppression + a file log) |
 | `probe-tc-task.ps1` | a PowerShell probe — TwinCAT is COM, not IronPython |
-| `probe-tc-project-object.ps1` | the other one: what `Projects.Item(i).Object` IS, and how to tell a TwinCAT project from a C# one (DIALECT D35) |
+| `probe-tc-project-object.ps1` | another: what `Projects.Item(i).Object` IS, and how to tell a TwinCAT project from a C# one (DIALECT D35) |
+| `probe-tc-dut-codes.ps1` | and a third, read-only: each DUT's tree code, `.TcDUT` Id and declaration head, run between `volt push`es (DIALECT C2e) |
 
 ## `voltprobe.py` — the shared half of every probe
 
@@ -99,6 +100,15 @@ Parallel, which box has an ENO output, which slot a pin is on; `nwl-oracle-rungs
 `probe-nwl-eno-build` (a box VOLT builds is read through ENO exactly when it has EN, whatever output list Volt writes,
 and a consumed enabled comparison does not compile — built and run in simulation, N21, task 4.1).
 `voltprobe.build_messages` / `nwl_new` / `nwl_edit` are the build-and-construct half those share.
+
+**DUTs** — `probe-dut-subtype-in-place` (CODESYS: a DUT created as a Structure takes an enum/union/alias declaration in place, same
+`guid`, and compiles as the new shape — a build with a negative control, `dut-subtype-in-place.log`; written through scripting),
+`probe-dut-subtype-push` (CODESYS, the BRIDGE path: the `--runscript` of a normal GUI IDE that serves the pipe exactly as `ide.ps1`
+does and leaves a UI timer answering read requests, so `volt push`es can be made from outside and each object's `guid`, folder,
+interfaces and Interface aspect read between them — `dut-subtype-push.log`, including a real text-list enum), `probe-tc-dut-codes.ps1`
+(TwinCAT, read-only: each DUT's tree code, `.TcDUT` Id and declaration head; the code keeps its old value after an in-place subtype
+change, and re-derives on reload; a DUT created by push is 606 whatever its body in the live session, its reload unmeasured — `tc-dut-codes.log`). All
+DIALECT C2e.
 
 **Structure** — `probe-tc-name-collision` (TwinCAT refuses to CREATE a folder whose name an object at that
 level already has, in either kind — but the two may COEXIST, so it is an ORDER constraint, DIALECT D34).

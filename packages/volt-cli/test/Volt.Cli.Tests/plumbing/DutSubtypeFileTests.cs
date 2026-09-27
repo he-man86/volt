@@ -143,4 +143,27 @@ public class DutSubtypeFileTests
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
+
+    /// <summary>A DUT DELETED IN THE IDE LEAVES THE WORKSPACE. The pull's removal sweep matched the fetch's
+    /// removed WIRE names against FILE names, which differ for a DUT — so the file survived, the sidecar
+    /// dropped the item, `volt status` read in sync, and the next edit of the stale file pushed as a CREATE
+    /// and resurrected the DUT the engineer had deleted.</summary>
+    [Fact]
+    public void A_dut_deleted_in_the_ide_is_removed_by_the_next_pull()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("BUS_INFO", Struct, ""));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            Assert.True(File.Exists(Path.Combine(root, "src", "BUS_INFO.struct")));
+
+            ide.RemoveItem("BUS_INFO");
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            Assert.False(File.Exists(Path.Combine(root, "src", "BUS_INFO.struct")),
+                         "the IDE deleted the DUT but its file survived the pull — editing it would re-create it");
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
 }

@@ -44,9 +44,12 @@ public static class IdeTree
         // is its name (the whole wire is keyed that way). `replaced` above IS a path set, which is why only this
         // one needed the distinction spelt out: comparing names against src-relative paths silently matched
         // nothing for any item in a folder, so a deletion in the IDE never reached the workspace unless the item
-        // sat in the project root.
+        // sat in the project root. And a file's name is NOT always its wire name (a DUT file `X.struct` is the
+        // wire item `X.dut`), so each file is resolved through the one path→name seam, `FullNameFromPath`, as
+        // the `replacedNames` side below already does. Comparing the bare FILE name here silently matched no
+        // deleted DUT: its file survived the pull while the sidecar dropped it, and the next edit of that stale
+        // file pushed as a create and resurrected the DUT the engineer had deleted in the IDE.
         var removedNamesSet = new HashSet<string>(removedNames);
-        static string NameOf(string rel) { var i = rel.LastIndexOf('/'); return i < 0 ? rel : rel.Substring(i + 1); }
 
         // A referenced LIBRARY's rendered element signatures are not IDE items and have no identity on the wire:
         // they are content the bridge re-renders per library version, and they carry ordinary SOURCE extensions
@@ -108,7 +111,7 @@ public static class IdeTree
                     // A library signature is PATH-identified and shares extensions with real items, so a
                     // name-keyed sweep would hit one by accident — the same exemption `removedNames` takes.
                     && !(!UnderLibrary(rel) && Extensions.FullNameFromPath(rel) is { } full && replacedNames.Contains(full))
-                    && !(removedNamesSet.Contains(NameOf(rel)) && !UnderLibrary(rel))
+                    && !(!UnderLibrary(rel) && Extensions.FullNameFromPath(rel) is { } name && removedNamesSet.Contains(name))
                     && !DroppedLibraryFile(rel))
                     AddRef(new IndexEntry(e.Mode, e.Sha, e.Path));
             }

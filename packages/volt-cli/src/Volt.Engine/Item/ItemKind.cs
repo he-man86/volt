@@ -32,8 +32,9 @@ public static class ItemKind
     public const int PlcGvl = 615;
     public const int PlcItf = 618;
     // A DUT is ONE wire kind (`dut`) and FOUR files on disk (`.struct`/`.enum`/`.union`/`.alias`). The subtype is
-    // not a WIRE concept: it lives solely in the declaration body, and BOTH the IDE's create and its read derive it
-    // from that text. CODESYS classifies every IDUTObject as PlcDut and creates with one create_dut call. Volt reads
+    // not a WIRE concept: it lives solely in the declaration body, and the COMPILER takes each DUT as its declared
+    // shape. The IDE's tree does not reliably say it: CODESYS classifies every IDUTObject as PlcDut and creates with
+    // one create_dut call, and TwinCAT's tree code lags the declaration (below; DIALECT C2e). Volt reads
     // the same text for the same reason — to NAME the file. Identity stays the wire name, so a struct edited into an
     // enum is still one item being updated (see DutFileExtensions).
     //
@@ -45,8 +46,10 @@ public static class ItemKind
     // (union) rather than the 623 it was created with. So a DUT authored in the TwinCAT IDE — the ordinary case —
     // was INVISIBLE to `refs` and `fetch`, and absent means DELETED to a pull.
     //
-    // 623 is the generic code `CreateChild` accepts; 605/606/607 are the subtypes TwinCAT stores. All four are the
-    // one wire kind, so the "one code" the design cares about is the WIRE one, and it is still one.
+    // 623 is TREEITEMTYPE_PLCDUTALIAS, not a generic DUT (DIALECT C2b): a push-create seeds 606 whatever the body
+    // (`TcObjectModel.CreateChild`), and an in-place write of another shape keeps the OLD code live until a reload
+    // (C2e) — so the code is never a subtype source. All four are the one wire kind, so the "one code" the design
+    // cares about is the WIRE one, and it is still one.
     public const int PlcDut = 623;
     public const int PlcDutEnum = 605;
     public const int PlcDutStruct = 606;

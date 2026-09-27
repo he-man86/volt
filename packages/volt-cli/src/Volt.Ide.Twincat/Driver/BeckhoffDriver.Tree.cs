@@ -333,15 +333,16 @@ public sealed partial class BeckhoffDriver
                 $"moved '{name}' but it is not under the target folder afterwards");
     }
 
-    // TwinCAT has FOUR DUT tree codes, not one: 623 is what CreateChild accepts, and 605/606/607 are the
-    // enum/struct/union subtypes it actually STORES — so a DUT authored in the IDE, or re-created from TwinCAT's
-    // own item archive, carries a subtype code (ItemKind.cs, measured two ways). This comment used to claim
-    // "EVERY DUT is 623"; those three codes were unmapped, so every such item was dropped by Core as an unknown
-    // kind — invisible to refs and fetch, and absent means DELETED to a pull.
-    // All four map onto the one wire kind `dut`, so we emit the raw code as-is and Core maps it. The
-    // struct/enum/union/alias distinction is NOT computed on a read (its only
-    // consumer was the four-way extension, now the four subtype extensions); it is derived from the declaration on push-
-    // create only. This drops the per-DUT declaration read the walk used to pay.
+    // TwinCAT has FOUR DUT tree codes, not one: 605/606/607/623 = TREEITEMTYPE_PLCDUTENUM/STRUCT/UNION/ALIAS
+    // (DIALECT C2b — 623 is the ALIAS code, not a generic DUT). An IDE-authored DUT carries its subtype's code
+    // (ItemKind.cs, measured two ways). This comment used to claim "EVERY DUT is 623"; those three codes were
+    // unmapped, so every such item was dropped by Core as an unknown kind — invisible to refs and fetch, and
+    // absent means DELETED to a pull.
+    // All four map onto the one wire kind `dut`, so we emit the raw code as-is and Core maps it. The code is NOT a
+    // subtype source and nothing may read one from it: a push-create always seeds 606 whatever the body
+    // (`TcObjectModel.CreateChild`), and an in-place write of another shape keeps the OLD code in the live session
+    // — a 606 holding an enum, a 605 holding a struct — until a reload re-derives it (DIALECT C2e). The subtype
+    // lives only in the declaration text; the walk does no per-DUT declaration read to classify it.
     private int ClassifiedKind(object node) => _om.ItemType(node);
 
     private static readonly HashSet<int> _loggedTcCodes = new HashSet<int>();

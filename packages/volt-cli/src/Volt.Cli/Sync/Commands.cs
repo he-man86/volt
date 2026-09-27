@@ -422,8 +422,9 @@ public static class Commands
         if (sidecar is null || voltHead is null)
             return PushResult.Rejected("no IDE baseline yet — run `volt pull` once before pushing");
 
-        // Unrecognized-extension guard (BEFORE committing anything): a `.struct` etc. cannot sync — fail loud instead
-        // of silently skipping and reporting "nothing to push".
+        // Unrecognized-extension guard (BEFORE committing anything): a file whose extension names no Volt item
+        // (`.txt`, `.bak`, a legacy `.gitkeep`) cannot sync — fail loud instead of silently skipping and reporting
+        // "nothing to push".
         var foreign = Git.DiffWorktree(root, IdeTree.Range, "src")
             .Where(r => r.Kind != DiffKinds.Delete)
             .Select(r => Files.StripSrcPrefix(r.Kind == DiffKinds.Rename ? r.NewPath : r.Path))

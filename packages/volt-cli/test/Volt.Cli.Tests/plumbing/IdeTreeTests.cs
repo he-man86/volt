@@ -107,6 +107,35 @@ public class IdeTreeTests
         finally { TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>A removed item whose FILE name is not its WIRE name. `removedNames` carries wire names; the
+    /// sweep once compared them with the file name, so a DUT the IDE deleted (`X.dut` on the wire, `X.struct`
+    /// on disk) never matched and was carried forward forever — `volt status` said in sync, and the next edit
+    /// of the stale file pushed as a create and brought the deleted DUT back into the IDE. The sweep must ask
+    /// the one path→name seam (`Extensions.FullNameFromPath`), exactly as the `replacedNames` side does.</summary>
+    [Fact]
+    public void A_removed_item_is_dropped_by_its_wire_name_not_its_file_name()
+    {
+        var root = TestUtil.NewRepo();
+        try
+        {
+            var gitDir = Git.ResolveGitDir(root);
+            var parent = Git.CommitTree(gitDir, Git.BuildTree(gitDir, new[]
+            {
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "TYPE X : STRUCT a : INT; END_STRUCT END_TYPE"), "src/DUTs/X.struct"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "B"), "src/DUTs/B.fb"),
+            }), Array.Empty<string>(), "parent");
+
+            // What `volt pull` passes: the fetch's `Removed`, i.e. the names `refs` published.
+            var removed = Materialize.PathToItem("DUTs/X.struct")!.Value.Name;
+            var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
+                Array.Empty<MaterializedFile>(), new[] { removed, "B.fb" }, librariesRefreshed: false);
+
+            Assert.False(Has(root, tree, "src/DUTs/B.fb"));
+            Assert.False(Has(root, tree, "src/DUTs/X.struct")); // the IDE deleted it — so must the workspace
+        }
+        finally { TestUtil.ForceDelete(root); }
+    }
+
     [Fact]
     public void Paths_with_spaces_round_trip_into_the_tree()
     {
@@ -176,8 +205,11 @@ public class IdeTreeTests
             }), Array.Empty<string>(), "parent");
 
             // The IDE deleted the PROJECT's ERROR.struct. The library's same-named signature must survive.
+            // `Removed` carries the name `refs` published for that file — this passed the FILE name once, which
+            // the wire never sends, and so hid that the sweep matched no deleted DUT at all.
+            var removed = Materialize.PathToItem("POUs/ERROR.struct")!.Value.Name;
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
-                Array.Empty<MaterializedFile>(), new[] { "ERROR.struct" }, librariesRefreshed: false);
+                Array.Empty<MaterializedFile>(), new[] { removed }, librariesRefreshed: false);
 
             Assert.False(Has(root, tree, "src/POUs/ERROR.struct"));                  // the real deletion lands
             Assert.True(Has(root, tree, "src/Library Manager/CAA/ERROR.struct"));    // the collateral one does not
