@@ -35,7 +35,12 @@ Write-Output "========================================"
 # LSP gets the equivalent via a compile-time --define in build-payload.ts. Empty outside CI: a dev build stays 1.0.0.
 $VER = $env:VOLT_VERSION
 $VERARGS = if ($VER) { @("/p:Version=$VER", "/p:FileVersion=$VER") } else { @() }
+# An unstamped build is said out loud because nothing else marks it until someone runs a binary: a consumer that
+# packaged dist\ from a local build shipped bridges that all reported 1.0.0.0, and learned it from the field. It is
+# NOT stamped with a computed number instead -- a local (possibly dirty) build carrying a real release number would
+# be a binary lying about its version, and would compare as current against the updater.
 if ($VER) { Write-Output "  stamping version $VER into every binary" }
+else { Write-Output "  VOLT_VERSION is unset: this is an unstamped DEVELOPMENT build (1.0.0.0, reported as `"(dev)`"), not a release. For a release set VOLT_VERSION, or use the published GitHub release." }
 
 # --- Tests (fail fast — never package a red build) -----------------
 Write-Output "`n[Test] Volt.Cli.Tests"

@@ -27,6 +27,13 @@ stamp, computing `<maj.min>.<commit count>` via `scripts/version.ts` when `VOLT_
   unstamped development build (`1.0.0.0`, reported as "(dev)") and is not a release; set `VOLT_VERSION` or use the
   published release. Today it prints nothing in that case, so a consumer only learns it from the shipped binary.
 
+## Found while verifying (2026-09-27)
+
+- The verification value `0.1.99999` (task 1.2) cannot be stamped: .NET caps each assembly-version component at
+  65534, and the build fails with CS7034 in `Volt.Contracts`. The release shape `X.Y.Z.<count>` is fine today
+  (the commit count is ~17,000), but **the same cap applies to `<count>`**: at 65,535 commits every release build
+  fails the same way. Not in scope here; worth its own change before the count gets close.
+
 ## Non-goals
 
 - No change to the version scheme, `scripts/version.ts`, `release.yml`, or `ide.ps1`.

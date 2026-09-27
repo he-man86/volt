@@ -12,5 +12,6 @@ version. When `VOLT_VERSION` is set, it SHALL stamp that value, as today.
   build, not a release
 
 #### Scenario: CI's value wins
-- **WHEN** `VOLT_VERSION=0.1.99999` is set
-- **THEN** every binary is stamped `0.1.99999` and no development-build message is printed
+- **WHEN** `VOLT_VERSION=0.0.1.12345` is set (the release shape `X.Y.Z.<count>`; every component must be ≤ 65534,
+  which is why the originally written `0.1.99999` fails to build with CS7034)
+- **THEN** every binary is stamped `0.0.1.12345` and no development-build message is printed
