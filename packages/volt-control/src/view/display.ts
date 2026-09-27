@@ -188,7 +188,7 @@ export function aggregate(workspaces: readonly WorkspaceState[]): VoltDisplay {
     return {
       severity: "partial",
       label: "Volt: unreadable items",
-      tooltip: `${unreadable} item(s) in the IDE could not be read and have no file here — check the IDE`,
+      tooltip: `${unreadable} item(s) in the IDE could not be read and cannot be pushed; a file here, if any, is the last one read — check the IDE`,
       action: "status",
       incoming,
       outgoing,

@@ -294,6 +294,77 @@ public class DutSubtypeFileTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>…AND WHEN THE ENGINEER FINISHES RETYPING IT AS ANOTHER SUBTYPE, the held file goes. A subtype
+    /// change in the IDE passes through the subtype-less state above (STRUCT..END_STRUCT deleted, the enum not yet
+    /// typed), so a pull in that window is ordinary. That pull used to write a baseline without `X.struct` — the
+    /// fetch's `Items` leaves an unreadable item out — so the next fetch was never asked about `X.struct`, never
+    /// reported it removed, and `X.enum` landed BESIDE it: two files for one IDE object, the stale one with no
+    /// baseline version (a local delete of it silently skipped, an edit a versionless set at the live enum).</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_held_dut_retyped_through_a_subtype_less_state_leaves_one_file(bool withBaseline)
+    {
+        const string held = "TYPE X :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE";
+        var ide = ConnectedIde(
+            FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"),
+            FakeIde.Item.TextualPou("X", held, "", "DUTs"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            ide.RemoveItem("X");
+            ide.AddItem(FakeIde.Item.TextualPou("X", "TYPE X :\nEND_TYPE", "", "DUTs"));
+            if (!withBaseline) File.Delete(Config.Paths(root).IdeRefsPath);
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            ide.RemoveItem("X");
+            ide.AddItem(FakeIde.Item.TextualPou("X", "TYPE X : (A, B);\nEND_TYPE", "", "DUTs"));
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            Assert.Equal(new[] { "X.enum" }, Directory.GetFiles(Path.Combine(root, "src", "DUTs")).Select(Path.GetFileName).ToArray());
+            var refs = Sidecar.LoadIdeRefs(root)!;
+            Assert.True(refs.Items.ContainsKey("X.enum"), "the baseline does not hold X.enum");
+            Assert.False(refs.Items.ContainsKey("X.struct"), "the baseline still holds X.struct");
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>…and the same window crossed by a PUSH of another item. The receipt is a fresh walk and lists an
+    /// unreadable item under no full name, so adopting the receipt dropped `X.struct` from the baseline exactly as
+    /// the pull did — and the pull after the retype landed `X.enum` beside it.</summary>
+    [Fact]
+    public void A_push_while_a_held_dut_is_subtype_less_keeps_it_known()
+    {
+        const string held = "TYPE X :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE";
+        var ide = ConnectedIde(
+            FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"),
+            FakeIde.Item.TextualPou("X", held, "", "DUTs"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            ide.RemoveItem("X");
+            ide.AddItem(FakeIde.Item.TextualPou("X", "TYPE X :\nEND_TYPE", "", "DUTs"));
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);   // the push is gated on a current baseline
+            var prg = Path.Combine(root, "src", "PLC_PRG.prg");
+            File.WriteAllText(prg, File.ReadAllText(prg).Replace("x := 1;", "x := 2;"));
+            var pushed = Commands.Push(root, client);
+            Assert.True(pushed.Kind == "ok", $"push {pushed.Kind}: {pushed.Reason}");
+            Assert.True(Sidecar.LoadIdeRefs(root)!.Items.ContainsKey("X.struct"),
+                "the push forgot X.struct, an item still in the IDE that it neither deleted nor renamed");
+
+            ide.RemoveItem("X");
+            ide.AddItem(FakeIde.Item.TextualPou("X", "TYPE X : (A, B);\nEND_TYPE", "", "DUTs"));
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            Assert.Equal(new[] { "X.enum" }, Directory.GetFiles(Path.Combine(root, "src", "DUTs")).Select(Path.GetFileName).ToArray());
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     /// <summary>…and through `volt init`, where an abort is worse: init commits the scaffold BEFORE it
     /// materializes, so a throw there left a folder with config and a commit but no `volt/ide`, no baseline and
     /// no src — and a second `volt init` refused it as a non-empty folder.</summary>

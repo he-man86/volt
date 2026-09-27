@@ -40,7 +40,10 @@ from the wire and re-deriving it in every client.
   beside it STAYS (it is about path-identified library files, not DUTs).
 - **`ItemKind.WireExtFor` / `IsDutFileExtension` leave the CLI's reach**: the extension table
   (`SourceKindExtensions`, the wiring check's source) lists the four DUT extensions as plain source extensions.
-- **Migration.** Workspace FILES do not change (they are already `.struct` etc.). The sidecar
+- **Migration.** Workspace files were already written `.struct` etc., so most keep their names — but the subtype
+  reader tightened (whole tokens, every comment and pragma after the colon skipped, a declaration stating no subtype
+  refused), so a DUT the previous reader misread comes back from the recovery pull RENAMED, and one stating no
+  subtype comes back UNREADABLE (file kept, pushes refused); `docs/items.html#dut-migration` lists the shapes. The sidecar
   `.git/volt/ide-refs.json` is keyed by wire name and holds `X.dut` keys; a sidecar with a `.dut` key is refused
   by name exactly as a malformed one is: the refusal names the key, `.git/volt/ide-refs.json` to delete, and
   `volt pull`. Every command that loads the baseline refuses — `volt pull` included, since it cannot rebuild a

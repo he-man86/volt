@@ -53,8 +53,9 @@ public abstract class ReadResponse
     ///
     /// <para><b>An unreadable item is the one failure a client cannot otherwise see.</b> It still exists, and it
     /// still counts toward <see cref="ProjectVersion"/> (tracked with the Unreadable sentinel so a pull does not
-    /// mistake it for deleted), but it has no entry in <see cref="Items"/> and no file in the workspace — so the
-    /// POU is simply ABSENT, with no error anywhere. That happened to a real project: one box whose <c>En</c> pin
+    /// mistake it for deleted), but it has no entry in <see cref="Items"/>, so nothing but this list says it is
+    /// there: a client that never read it has no file for it and the POU is simply ABSENT, with no error anywhere
+    /// (a client that read it before keeps its last file, held and stale). That happened to a real project: one box whose <c>En</c> pin
     /// read as a boolean made a body unreadable, and the whole POU vanished from git silently (DIALECT C7).</para></summary>
     [JsonPropertyName("unreadable")]
     public List<string> Unreadable { get; set; } = new();

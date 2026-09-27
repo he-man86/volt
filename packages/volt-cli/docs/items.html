@@ -96,9 +96,50 @@
   <code>.git/volt/ide-refs.json</code> and run <code>volt pull</code> once.</b> Until then every command that loads
   the baseline — <code>volt pull</code> included, since it cannot rebuild a baseline it first has to load — refuses
   it by name, naming the key, the file to delete and <code>volt pull</code>; nothing is sent to the IDE. There is no
-  translation of old keys. The workspace's files do not change: they were already <code>.struct</code> /
-  <code>.enum</code> / <code>.union</code> / <code>.alias</code>. A merge still pending over an old baseline is not
-  promoted by <code>volt merge --continue</code> (it exits 1 and names <code>volt pull</code>).
+  translation of old keys. A merge still pending over an old baseline is not promoted by
+  <code>volt merge --continue</code> (it exits 1 and names <code>volt pull</code>).
+</p>
+<p>
+  <b>Most files keep their names — not all.</b> The previous Volt already wrote DUT files as <code>.struct</code> /
+  <code>.enum</code> / <code>.union</code> / <code>.alias</code>, but its subtype reader was looser than the one
+  that now names the wire, and a DUT it read differently comes back from the recovery pull under a new name. It
+  matched the body keyword as a <b>prefix</b>, and it looked for trivia only at the <b>start of a line</b>: a
+  block comment there was stepped over, but a pragma there <b>took the whole line with it</b>, code and all. So any
+  comment or pragma between the type's colon and its body token was read AS the body token (a block comment's
+  <code>(*</code> as an enumeration's <code>(</code>, anything else as an alias), a colon inside a comment was taken
+  for the type's own, and a pragma that starts the <code>TYPE</code> line dropped the type's colon, so a member's
+  colon (<code>a : INT;</code>, or an initializer's <code>:=</code>) stood in for it — or none was found — and the
+  answer was alias. The current reader matches whole tokens and steps over every comment and pragma, keeping the
+  code beside it. The shapes that move:
+</p>
+<table>
+  <tr><th>declaration</th><th>was</th><th>is now</th></tr>
+  <tr><td><code>TYPE T : Struct_Alarm;</code> — an alias of a type whose name begins with STRUCT or UNION</td><td><code>T.struct</code></td><td><code>T.alias</code></td></tr>
+  <tr><td><code>TYPE S : // note</code>, then <code>STRUCT</code> on the next line</td><td><code>S.alias</code></td><td><code>S.struct</code></td></tr>
+  <tr><td><code>TYPE S : (* note *) STRUCT</code> — a block comment before the body</td><td><code>S.enum</code></td><td><code>S.struct</code></td></tr>
+  <tr><td><code>TYPE T : (* note *) INT (0..10);</code> — a block comment before an alias's type</td><td><code>T.enum</code></td><td><code>T.alias</code></td></tr>
+  <tr><td><code>TYPE E : {attribute 'strict'} (A, B);</code> — a pragma before an enumeration</td><td><code>E.alias</code></td><td><code>E.enum</code></td></tr>
+  <tr><td><code>TYPE C (* a : colon *) :</code>, then <code>STRUCT</code> — a colon inside a comment</td><td><code>C.alias</code></td><td><code>C.struct</code></td></tr>
+  <tr><td><code>{attribute 'pack_mode' := '1'} TYPE P :</code>, then <code>STRUCT</code> — a pragma starting the TYPE line</td><td><code>P.alias</code></td><td><code>P.struct</code></td></tr>
+  <tr><td><code>{attribute 'strict'} TYPE E :</code>, then <code>(A, B);</code> or one value per line — the same, on an enumeration</td><td><code>E.alias</code></td><td><code>E.enum</code></td></tr>
+</table>
+<p>
+  The same holds for <code>UNION</code> behind a comment, and for a pragma that starts the body's own line
+  (<code>TYPE E :</code>, then <code>{attribute 'strict'} (A, B);</code>) — the previous reader dropped that whole
+  line and read the <code>END_TYPE</code> after it as an alias. The pull shows such a DUT as a <b>rename</b> the engineer did not make: the old name is gone from the IDE, so it is
+  removed, and the new one is written. Nothing is lost — a local edit to the old file follows it through git's
+  rename detection in the merge.
+</p>
+<p>
+  A declaration that <b>states no subtype</b> was <code>X.alias</code>; it is now <b>unreadable</b>. That covers no
+  colon at all (<code>TYPE X END_TYPE</code>), a colon with no type (<code>TYPE X : ;</code>), and a colon straight
+  into <code>END_TYPE</code>. Such a DUT is listed in the pull's <code>unreadable</code>, its file is left where it
+  is, the baseline keeps its last name, and every push of it is refused <b>unless forced</b>:
+  <code>volt push --force</code> is the way past an unreadable item, so a forced push reaches the IDE's DUT —
+  a forced push of the file's local deletion deletes the DUT from the IDE. When the declaration says what it is, the
+  next pull writes the file under the name it states — the same name, or, if it is now another subtype, the new name
+  with the old one removed. The same happens outside an upgrade: a subtype change typed in the IDE passes through a
+  moment with no subtype, and a pull taken then is an ordinary one.
 </p>
 
 <h3 id="writable">Source, addressable, writable — three different questions</h3>

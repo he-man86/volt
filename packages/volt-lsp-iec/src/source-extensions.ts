@@ -8,8 +8,9 @@
  * here — they are not writable source. Kept as a dependency-free leaf so a lightweight consumer does not
  * transitively load the analysis layer. (It named `detect-vendor` as the consumer that needed that; that
  * module is gone — see `consolidate-lsp-structure` C8 — and the property is still worth keeping.)
- * The bridge/CLI own the on-disk layout (`ItemKind.ExtFor` in `volt-cli`); this mirrors its
- * writable-source rows and is cross-checked against every other copy by `scripts/check-wiring.ts`.
+ * The ENGINE names every item, and the file name is that wire name (`Materializer.FullWireName` in `volt-cli`;
+ * a DUT's extension comes from its declaration's subtype). This mirrors the engine's writable-source table,
+ * `ItemKind.SourceKindExtensions`, and is cross-checked against it and every other copy by `scripts/check-wiring.ts`.
  */
 export const SOURCE_EXTENSIONS: readonly string[] = [
   ".fb",

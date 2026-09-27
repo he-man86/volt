@@ -352,45 +352,35 @@ public static class Commands
         // <param name="force"> doc above has to be rewritten with it.
         Git.AutoCommitSrc(root);
         var ideFiles = fetched.Changed.SelectMany(Materialize.MaterializeItem).ToList();
-        // A PARTIAL WALK MUST NOT SHRINK THE BASELINE. `ReadResponse.UnwalkedFolders` says a client that sees
-        // it non-empty must not conclude anything from absence — and REPLACING the sidecar's item map is exactly
-        // that conclusion, one layer past the `removed` list the bridge already judged. Every item under
-        // an unreadable folder would leave `ide-refs.json`, and the damage lands on the next PUSH, not here: an
-        // edit to such a file has no known version, so it goes up as a create and is refused ITEM_EXISTS; a
-        // local delete is skipped by the `guardItems.TryGetValue` gate and reported as "nothing to push"; a
-        // rename throws "has no known IDE version" straight past Commands.Push to the top-level handler.
+        // THE BASELINE FORGETS A NAME ONLY WHEN THE BRIDGE SAYS IT IS GONE (`fetched.Removed`). `fetched.Items` is
+        // what the walk SAW and READ, and two kinds of known item are absent from it without being gone:
         //
-        // Overlaying keeps the unseen entries at the version the last COMPLETE walk gave them, which is the only
-        // honest thing to say about an item nobody could look at. With NO baseline (the recovery pull a refused
-        // sidecar names) the overlay starts from the `volt/ide` tree instead, at the empty version: the item is
-        // known and its version is not. Writing the partial map alone made the baseline forget the unseen items
-        // while their files were carried forward — and a fetch is asked only about names the baseline holds, so
-        // when the IDE later deleted one, no pull ever said so and its next edit pushed as a CREATE. An empty
-        // version is refused by the push's version gate (never a create), and the next fetch that sees the item
-        // sends it as changed.
-        Dictionary<string, string> newItems;
-        Dictionary<string, string> newFolders;
-        if (fetched.UnwalkedFolders.Count > 0)
-        {
-            // Start from what is known and let the walk WIN where it saw something — a plain overlay. What leaves
-            // it is exactly what the tree below drops (`fetched.Removed`), never a second decision.
-            newItems = new Dictionary<string, string>(knownItems, StringComparer.Ordinal);
-            foreach (var kv in fetched.Items) newItems[kv.Key] = kv.Value;
-            foreach (var name in fetched.Removed) newItems.Remove(name);
+        //  - one under a folder the walk could not enumerate (`UnwalkedFolders`). Replacing the map made every such
+        //    item leave `ide-refs.json`, and the damage landed on the next PUSH: an edit went up as a create and was
+        //    refused ITEM_EXISTS, a local delete was skipped by the `guardItems.TryGetValue` gate, a rename threw
+        //    "has no known IDE version".
+        //  - one the walk found and could not READ (`Unreadable`) — a DUT half-way through a retype, whose
+        //    declaration states no subtype for a moment. Replacing the map dropped `X.struct` while its file stayed
+        //    in `volt/ide`; a fetch is asked only about names the baseline holds, so when the engineer finished it
+        //    as `X.enum` no pull ever reported `X.struct` removed, and both files lived on for one IDE object.
+        //
+        // So the map is ALWAYS an overlay: start from what is known, let the walk win where it read something, and
+        // drop exactly what the tree below drops. An entry kept this way holds the version the last read gave it —
+        // the only honest thing to say about an item nobody could read. With NO baseline (the recovery pull a
+        // refused sidecar names) the overlay starts from the `volt/ide` tree at the empty version: the item is known
+        // and its version is not. An empty version is refused by the push's version gate (never a create), and the
+        // next fetch that reads the item sends it as changed.
+        var newItems = new Dictionary<string, string>(knownItems, StringComparer.Ordinal);
+        foreach (var kv in fetched.Items) newItems[kv.Key] = kv.Value;
+        foreach (var name in fetched.Removed) newItems.Remove(name);
 
-            // THE FOLDER MAP GETS THE SAME OVERLAY, because the item overlay above is USELESS without it: the
-            // folder is what the next partial walk judges an unseen item by, and an item with none is never
-            // removed by a partial walk — nor kept on purpose.
-            newFolders = new Dictionary<string, string>(knownFolders, StringComparer.Ordinal);
-            foreach (var kv in fetched.Folders) newFolders[kv.Key] = kv.Value;
-            foreach (var name in newFolders.Keys.ToList())
-                if (!newItems.ContainsKey(name)) newFolders.Remove(name);   // the two halves name the same items
-        }
-        else
-        {
-            newItems = fetched.Items;
-            newFolders = fetched.Folders;
-        }
+        // THE FOLDER MAP GETS THE SAME OVERLAY, because the item overlay above is USELESS without it: the folder is
+        // what the next partial walk judges an unseen item by, and an item with none is never removed by a partial
+        // walk — nor kept on purpose.
+        var newFolders = new Dictionary<string, string>(knownFolders, StringComparer.Ordinal);
+        foreach (var kv in fetched.Folders) newFolders[kv.Key] = kv.Value;
+        foreach (var name in newFolders.Keys.ToList())
+            if (!newItems.ContainsKey(name)) newFolders.Remove(name);   // the two halves name the same items
 
         var newSidecar = new IdeRefs { ProjectVersion = fetched.ProjectVersion, Items = newItems, Folders = newFolders };
         var head = Git.HeadCommit(root);
@@ -620,23 +610,23 @@ public static class Commands
         var adopted = resp.NewItems!.Where(kv => known.ContainsKey(kv.Key) || pushed.Contains(kv.Key))
                                     .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
 
-        // …AND A RECEIPT FROM A PARTIAL WALK DOES NOT SHRINK IT. The receipt is a full re-walk and can be short
-        // for the same reasons a read can; replacing the map with it would drop every item under an
-        // unenumerable folder, undoing in one push the overlay the PULL path installs for this exact case.
+        // …AND THE RECEIPT DOES NOT SHRINK IT. The receipt is a fresh walk and lists only what it SAW and READ: an
+        // item under an unenumerable folder is missing from it, and so is one the walk could not read (a DUT whose
+        // declaration states no subtype mid-retype is published under no full name). Adopting the receipt alone
+        // dropped either from the baseline, undoing the overlay the PULL path keeps — and a fetch is asked only
+        // about names the baseline holds, so no later pull could report the old name removed. Deciding what is
+        // GONE is the bridge's, on the next fetch (`Removed`); the baseline keeps the last version it was told.
         //
         // Except a name THIS PUSH took out of the IDE: a delete, or the old name of a rename. The receipt lacks it
         // because it is gone, not because it was unseen. Restored, the old name stayed in the baseline beside the
         // new one while the IDE and the workspace held only the new; the next change back to the old name then
         // went up as an UPDATE of an item the IDE no longer has, at a stale version, and was refused.
-        if (resp.UnwalkedFolders.Count > 0)
-        {
-            var retiredByPush = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var op in ops)
-                if (op is DeleteItemOp) retiredByPush.Add(op.Name);
-                else if (op is SetItemOp { ToName: { } to } && to != op.Name) retiredByPush.Add(op.Name);
-            foreach (var kv in known)
-                if (!adopted.ContainsKey(kv.Key) && !retiredByPush.Contains(kv.Key)) adopted[kv.Key] = kv.Value;
-        }
+        var retiredByPush = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var op in ops)
+            if (op is DeleteItemOp) retiredByPush.Add(op.Name);
+            else if (op is SetItemOp { ToName: { } to } && to != op.Name) retiredByPush.Add(op.Name);
+        foreach (var kv in known)
+            if (!adopted.ContainsKey(kv.Key) && !retiredByPush.Contains(kv.Key)) adopted[kv.Key] = kv.Value;
 
         // The FOLDER map is filtered the same way. It was written through unfiltered, so after a `--force` push
         // against an IDE holding items this workspace has never seen, `Items` correctly omitted them while

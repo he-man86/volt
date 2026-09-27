@@ -214,9 +214,10 @@ internal static class Program
 
     /// <summary>The two ways the IDE view can be SHORT, printed wherever a status is printed.
     ///
-    /// <para>Both were on the wire and no client had ever shown either. An unreadable item has no file and no
-    /// version, so it is simply ABSENT from everything else here — indistinguishable from one that was never in
-    /// the project. That is not hypothetical: one box whose `En` pin read as a boolean made a body unreadable
+    /// <para>Both were on the wire and no client had ever shown either. An unreadable item has no version, so
+    /// it is simply ABSENT from everything else here — indistinguishable from one that was never in the project,
+    /// or, when an earlier pull read it, HELD: its last-read file and baseline entry stay (a DUT caught mid-retype),
+    /// stale and refused by every unforced push. Either way nothing else here says so, which is why this does. That is not hypothetical: one box whose `En` pin read as a boolean made a body unreadable
     /// and the whole POU vanished from git, silently (DIALECT C7). An unenumerable folder is worse, because its
     /// items are absent AND absence is how a deletion is derived.</para>
     ///
@@ -226,7 +227,7 @@ internal static class Program
     {
         if (s.Unreadable.Count > 0)
         {
-            Console.Error.WriteLine($"warning: the IDE holds {s.Unreadable.Count} item(s) volt could not read — they have NO file here:");
+            Console.Error.WriteLine($"warning: the IDE holds {s.Unreadable.Count} item(s) volt could not read — none can be pushed; a file here, if any, is the last one read:");
             foreach (var n in s.Unreadable) Console.Error.WriteLine($"  ? {n}");
         }
         if (s.UnwalkedFolders.Count > 0)

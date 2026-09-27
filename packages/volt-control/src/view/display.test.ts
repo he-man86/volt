@@ -94,6 +94,10 @@ test("an unreadable item is reported but does not take the actionable step away"
   const d = aggregate([quiet])
   expect(d.severity).toBe("partial")
   expect(d.tooltip).toContain("could not be read")
+  // An unreadable item the workspace pulled before is HELD — its last-read file stays (a DUT caught mid-retype).
+  // Telling the engineer it has no file sends them looking for a file that is right there, and hides that the
+  // one there is stale and cannot be pushed.
+  expect(d.tooltip).not.toContain("no file")
 })
 
 test("a complete view still reads as in sync", () => {

@@ -149,6 +149,13 @@ public class DutSubtypeCodeTests
     [InlineData("TYPE E_X :\n{attribute 'strict'} (A, B);\nEND_TYPE", "enum")]   // the pragma on the body's own line
     [InlineData("TYPE T_X : (* note *) INT (0..10);\nEND_TYPE", "alias")]
     [InlineData("TYPE ST_X (* a colon : in a comment *) :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE", "struct")]
+    // A pragma that STARTS the TYPE line is trivia before the header, not the whole line: the previous reader
+    // dropped such a line entirely, lost the type's own colon, took a member's `a : INT` (or an initializer's
+    // `:=`) for it, and answered alias. Pinned because the upgrade note (items.html#dut-migration) lists the
+    // rename it causes.
+    [InlineData("{attribute 'pack_mode' := '1'} TYPE ST_X :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE", "struct")]
+    [InlineData("{attribute 'qualified_only'} TYPE E_X :\n(\n\tIdle := 0,\n\tRun := 1\n);\nEND_TYPE", "enum")]
+    [InlineData("{attribute 'strict'} TYPE E_X :\n(A, B);\nEND_TYPE", "enum")]
     // The body keyword is a WHOLE token: an alias of a user type whose name merely BEGINS with STRUCT or UNION is
     // an alias. Matched as a prefix it was published `T.struct`, and the correctly named `T.alias` was refused.
     [InlineData("TYPE T : Struct_Alarm;\nEND_TYPE", "alias")]

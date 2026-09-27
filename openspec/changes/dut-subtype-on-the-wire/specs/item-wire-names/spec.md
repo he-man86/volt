@@ -26,6 +26,12 @@ given one: the item is published as unreadable, never under a guessed subtype.
 - **WHEN** a project DUT's declaration is `TYPE X END_TYPE`
 - **THEN** `fetch` lists `X` in `unreadable` and publishes no `X.alias`
 
+#### Scenario: a held DUT retyped through a subtype-less state
+- **WHEN** the workspace holds `X.struct`, a pull (or a push of another item) runs while the IDE's `X` states no
+  subtype, and the engineer then finishes `X` as an enumeration
+- **THEN** the baseline keeps `X.struct` through the unreadable window, and the next pull removes `X.struct` and
+  writes `X.enum` — one file for the one IDE object
+
 ### Requirement: a subtype change is an update of the same object
 
 Below the vendor seam the four DUT names SHALL be one object, the bare name. In one push, a DUT op that changes

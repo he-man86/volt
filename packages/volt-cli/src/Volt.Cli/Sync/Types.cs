@@ -67,9 +67,9 @@ public sealed class StatusData
 
     /// <summary>Items the IDE holds that the bridge could not READ, by bare name — normally empty.
     ///
-    /// <para>They have no file in the workspace and no version in <c>items</c>, so nothing else in this model
-    /// mentions them: an unreadable POU is simply ABSENT, which is indistinguishable from one that was never
-    /// there. It happened to a real project — one box whose <c>En</c> pin read as a boolean made a body
+    /// <para>They have no version in <c>items</c>, so nothing else in this model mentions them: an unreadable POU
+    /// no pull ever read has no file and is simply ABSENT, indistinguishable from one that was never there; one a
+    /// pull read before is HELD, its last-read file stale and unpushable, and equally unmentioned. It happened to a real project — one box whose <c>En</c> pin read as a boolean made a body
     /// unreadable and the whole POU vanished from git with no error anywhere (DIALECT C7). The bridge has
     /// published the names since; no client showed them until now.</para></summary>
     public List<string> Unreadable { get; set; } = new();

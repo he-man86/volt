@@ -288,6 +288,31 @@ public class BlackBoxTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>THE UNREADABLE WARNING DOES NOT SAY A HELD ITEM HAS NO FILE. A DUT caught mid-retype (its text
+    /// states no subtype) is unreadable, yet the pull keeps its last-read file and its baseline entry — it is
+    /// HELD. `volt status` said every unreadable item has "NO file here" while `src/DUTs/X.struct` sat on disk,
+    /// sending the engineer after a missing file instead of telling them the one there is stale and unpushable.</summary>
+    [Fact]
+    public void Status_warning_does_not_deny_a_held_unreadable_items_file()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("X", DutStruct, "", "DUTs"));
+        var (root, host, pipe) = Boot(ide);
+        try
+        {
+            Assert.Equal(0, RunVolt(root, pipe, "pull").Code);
+            ide.RemoveItem("X");
+            ide.AddItem(FakeIde.Item.TextualPou("X", "TYPE X :\nEND_TYPE", "", "DUTs"));
+            Assert.Equal(0, RunVolt(root, pipe, "pull").Code);
+            Assert.True(File.Exists(Path.Combine(root, "src", "DUTs", "X.struct")), "fixture: the pull holds X.struct");
+
+            var st = RunVolt(root, pipe, "status");
+            Assert.True(st.Code == 0, $"status exit {st.Code}: {st.Err}");
+            Assert.Contains("  ? X", st.Err);
+            Assert.DoesNotContain("no file", st.Err, StringComparison.OrdinalIgnoreCase);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     [Fact]
     public void Show_exit_codes_success_zero_absent_two_and_usage_one()
     {

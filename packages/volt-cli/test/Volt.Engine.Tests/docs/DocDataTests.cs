@@ -812,6 +812,18 @@ public class DocDataTests
             Assert.True(migration.Success, "docs/items.html has no #dut-migration upgrade note.");
             Assert.Contains(".git/volt/ide-refs.json", migration.Value, StringComparison.Ordinal);
             Assert.Contains("volt pull", migration.Value, StringComparison.Ordinal);
+            // The previous CLI read a DUT's subtype by PREFIX (`Struct_Alarm` → struct), took a comment after the
+            // colon for the body token, and answered alias for a declaration that stated none. The current reader
+            // does none of that, so the recovery pull can RENAME a file (removal + git's rename detection) or leave
+            // it UNREADABLE and unpushable. A note promising the files do not move sends the engineer into a tree
+            // they did not change without a word of why.
+            Assert.DoesNotContain("files do not change", migration.Value, StringComparison.Ordinal);
+            Assert.Contains("rename", migration.Value, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("unreadable", migration.Value, StringComparison.Ordinal);
+            // An unreadable DUT is NOT push-safe: PushService refuses its push only UNFORCED, and a forced local
+            // delete removes the live DUT (DutSubtypeChangePushTests pins that). A note that says "every push is
+            // refused" hides the one path by which the push reaches the object, so it must name --force.
+            Assert.Contains("--force", migration.Value, StringComparison.Ordinal);
         }
         var rest = migration.Success ? text.Remove(migration.Index, migration.Length) : text;
 
@@ -822,6 +834,117 @@ public class DocDataTests
         Assert.True(stale.Count == 0,
             $"{relative} still describes the retired DUT wire name: {string.Join(", ", stale)} — a DUT is named on "
             + "the wire by its subtype (X.struct/.enum/.union/.alias).");
+    }
+
+    /// <summary>THE WIRE NAME'S CONTRACT COMMENT NAMES EVERY PLACE A WIRE NAME IS MINTED. <c>FetchedItem.Name</c> is
+    /// where a client reader learns where a name (and so a DUT's <c>.struct</c>/<c>.enum</c>) comes from. It named
+    /// <c>Materializer.FullWireName</c> as "the one place", while library items are named in <c>LibraryFetch</c>
+    /// from <c>LibSignatureRenderer</c>'s extension — a reader who trusted it missed the library path. Every source
+    /// file that constructs a <c>FetchedItem</c> must be named by the comment.</summary>
+    [Fact]
+    public void The_fetched_item_name_comment_names_every_minting_site()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
+            root = root.Parent;
+        Assert.NotNull(root);
+        var src = Path.Combine(root!.FullName, "packages", "volt-cli", "src");
+        var contract = File.ReadAllText(Path.Combine(src, "Volt.Contracts", "Wire", "RefsFetch.cs"));
+        var comment = System.Text.RegularExpressions.Regex.Match(contract,
+            @"((?:[ \t]*///.*\r?\n)+)(?:[ \t]*\[[^\]]*\]\s*)*public string Name",
+            System.Text.RegularExpressions.RegexOptions.None).Groups[1].Value;
+        Assert.False(string.IsNullOrEmpty(comment), "RefsFetch.cs: FetchedItem.Name has no doc comment.");
+
+        var minters = Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories)
+            .Where(f => File.ReadAllText(f).Contains("new FetchedItem", StringComparison.Ordinal))
+            .Select(Path.GetFileNameWithoutExtension)
+            .ToList();
+        Assert.NotEmpty(minters);
+        // FetchService builds its items from Materializer's name; the comment names the NAMER, not the builder.
+        var named = minters.Select(m => m == "FetchService" ? "Materializer" : m!).ToList();
+        var missing = named.Where(m => !comment.Contains(m, StringComparison.Ordinal)).ToList();
+        Assert.True(missing.Count == 0,
+            $"FetchedItem.Name's comment does not name {string.Join(", ", missing)}, which mint wire names too.");
+    }
+
+    /// <summary>THE LSP'S SOURCE-EXTENSION LIST NAMES THE TABLE IT MIRRORS. <c>scripts/check-wiring.ts</c> gates it
+    /// against <c>ItemKind.SourceKindExtensions</c>; its header pointed at <c>ItemKind.ExtFor</c>, which REFUSES a
+    /// DUT (it has four extensions, named by its declaration) — so a reader following the pointer to learn where
+    /// <c>.struct</c> comes from reached a method that throws for it.</summary>
+    [Fact]
+    public void The_lsp_source_extension_list_names_the_table_it_mirrors()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
+            root = root.Parent;
+        Assert.NotNull(root);
+        var text = File.ReadAllText(Path.Combine(root!.FullName, "packages", "volt-lsp-iec", "src", "source-extensions.ts"));
+        Assert.Contains("ItemKind.SourceKindExtensions", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("ItemKind.ExtFor", text, StringComparison.Ordinal);
+    }
+
+    /// <summary>THE UPGRADE NOTE NAMES EVERY SHAPE THE PREVIOUS SUBTYPE READER MISREAD — so an engineer who finds a
+    /// DUT renamed by the recovery pull finds its shape in the list. The previous reader (0e9f9523e0,
+    /// <c>CodeHelper.DutSubtype</c>) stripped trivia only where it STARTED a line and matched the body token as a
+    /// prefix, so it misread in every direction, not only the two the note first listed: a block comment after the
+    /// colon opens with <c>(</c> and read ENUM (<c>S.enum</c> → <c>S.struct</c>, <c>T.enum</c> → <c>T.alias</c>), a
+    /// pragma or a colon inside a comment read ALIAS (<c>E.alias</c> → <c>E.enum</c>, <c>C.alias</c> →
+    /// <c>C.struct</c>), a pragma that STARTED the TYPE line dropped that whole line — the type's own colon with it
+    /// — so a member's colon stood in for it and read ALIAS (<c>P.alias</c> → <c>P.struct</c>, an enumeration over
+    /// several lines → enum), and no colon, or a colon with no type, read alias where the current reader states none.
+    /// Each entry is a shape the note must spell (its old name included where it renames), not a wording.</summary>
+    [Theory]
+    [InlineData("Struct_Alarm")]                     // a prefix is no keyword: struct → alias
+    [InlineData("// note")]                          // a line comment after the colon: alias → struct
+    [InlineData("(* note *) STRUCT")]                // a block comment read as an enum's '(': enum → struct
+    [InlineData("S.enum")]
+    [InlineData("(* note *) INT (0..10)")]           // …and before an alias's type: enum → alias
+    [InlineData("T.enum")]
+    [InlineData("{attribute 'strict'} (A, B)")]      // a pragma before an enumeration: alias → enum
+    [InlineData("E.alias")]
+    [InlineData("(* a : colon *)")]                  // a colon inside a comment taken for the type's: alias → struct
+    [InlineData("C.alias")]
+    [InlineData("{attribute 'pack_mode' := '1'} TYPE P :")] // a pragma starting the TYPE line lost the header: alias → struct
+    [InlineData("P.alias")]
+    [InlineData("{attribute 'strict'} TYPE E :")]    // …the same on an enumeration laid over several lines: alias → enum
+    [InlineData("TYPE X END_TYPE")]                  // no colon: alias → unreadable
+    [InlineData("TYPE X : ;")]                       // a colon with no type: alias → unreadable
+    public void The_dut_migration_note_names_every_shape_the_old_reader_misread(string shape)
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
+            root = root.Parent;
+        Assert.NotNull(root);
+        var text = File.ReadAllText(Path.Combine(root!.FullName, "packages", "volt-cli", "docs", "items.html"));
+        var migration = System.Text.RegularExpressions.Regex.Match(
+            text, @"<h[23][^>]*id=""dut-migration"".*?(?=<h[23][ >]|</main>)",
+            System.Text.RegularExpressions.RegexOptions.Singleline);
+        Assert.True(migration.Success, "docs/items.html has no #dut-migration upgrade note.");
+        var plain = System.Net.WebUtility.HtmlDecode(
+            System.Text.RegularExpressions.Regex.Replace(migration.Value, "<[^>]+>", ""));
+        Assert.Contains(shape, plain, StringComparison.Ordinal);
+    }
+
+    /// <summary>THE CHANGE'S OWN ARTIFACTS DO NOT PROMISE THE FILES STAY PUT. The recovery pull renames a DUT the
+    /// previous reader misread (see the test above), yet the proposal said "Workspace FILES do not change" and the
+    /// ticked release-note task "files on disk unchanged" — the record archiving files. Found wherever the change
+    /// lives, in flight or archived.</summary>
+    [Fact]
+    public void The_dut_subtype_change_does_not_promise_unchanged_files()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
+            root = root.Parent;
+        Assert.NotNull(root);
+        var changes = Path.Combine(root!.FullName, "openspec", "changes");
+        var dirs = Directory.EnumerateDirectories(changes, "*dut-subtype-on-the-wire", SearchOption.AllDirectories).ToList();
+        Assert.NotEmpty(dirs);
+        foreach (var file in dirs.SelectMany(d => new[] { "proposal.md", "tasks.md" }.Select(f => Path.Combine(d, f))))
+        {
+            var text = File.ReadAllText(file);
+            Assert.DoesNotContain("FILES do not change", text, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("files on disk unchanged", text, StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     /// <summary>THE WIRE PAGE STATES THE SUBTYPE-CHANGE PUSH RULE. It is the one push rule a client has to know to

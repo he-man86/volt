@@ -688,18 +688,50 @@ all green. No live IDE; no driver touched; DIALECT.md unchanged. Three review ro
       comment also lost a dangling "— every" fragment. `files.test.ts`'s comment ("`.dut` is the WIRE kind")
       rewritten, its assertion unchanged. `bun run check` 14/14 (all six extension-parity rows).
 - [x] 5.3 Release note: after upgrading, delete `.git/volt/ide-refs.json` and run `volt pull` once (the old
-      baseline is refused by name, `volt pull` included — it cannot rebuild a baseline it first has to load);
-      files on disk unchanged.
+      baseline is refused by name, `volt pull` included — it cannot rebuild a baseline it first has to load).
+      (As first written this task also promised the files on disk would not move — FALSE, found in review: the tightened
+      subtype reader renames a DUT the previous one misread, and leaves one stating no subtype unreadable.)
       The repo has no changelog and the release workflows write no release body, so the note lives where
       MATERIALIZATION 3's did (`network-text.html#migration`): `docs/items.html#dut-migration`, gated by 5.1's test
       to exist and to name `.git/volt/ide-refs.json` and `volt pull`. It also says nothing is sent, there is no
       translation, and a pending merge over an old baseline is not promoted (`merge --continue` exits 1).
+      It now also lists every shape the previous reader misread and the rename each causes (prefix, a comment or
+      pragma after the colon — enum↔struct/alias included — a colon inside a comment), and the no-subtype shapes
+      that come back unreadable; gated per shape by `The_dut_migration_note_names_every_shape_the_old_reader_misread`.
 
 **Section 5 (2026-09-27), offline, docs only.** `Volt.Engine.Tests` 1511 passed / 0 failed (1 skipped,
 pre-existing; +8 = the two new doc gates); `Volt.Cli.Tests` 247; Codesys 160, Twincat 231, Contracts 19, Connector
 110, Repo.Gates 20, `bun test test/unit` 4, `volt-control` 115, `bun run check` 14, typecheck, lint (exit 0) — all
 green. No product code, no driver, no live IDE. Review (data / spec / layering, one round): one finding — wire.html's
 `BAD_REQUEST` row did not list the new push refusals; the row now does and links the rule. Round 2 found nothing new.
+
+**Section 5 review round 4 (2026-09-27).** HIGH: a DUT held as `X.struct` that went subtype-less in the IDE (the
+ordinary mid-retype state) left the baseline — pull wrote `fetched.Items`, which omits an unreadable item, and the
+push adopted `resp.NewItems`, likewise — so when it was finished as `X.enum` no fetch was asked about `X.struct` and
+both files lived on for one object. Fixed generically in `Commands.Pull` / `Commands.Push`: the baseline is always an
+overlay, forgetting a name only when the bridge reports it `Removed` (pull) or this push deleted/renamed it (push).
+No kind logic in the CLI; the removal decision stays the engine's. Tests (red first):
+`DutSubtypeFileTests.A_held_dut_retyped_through_a_subtype_less_state_leaves_one_file` (with and without a baseline),
+`A_push_while_a_held_dut_is_subtype_less_keeps_it_known`. LOW ×3: the proposal and 5.3 promised unchanged files
+(corrected; gated by `DocDataTests.The_dut_subtype_change_does_not_promise_unchanged_files`), and
+`items.html#dut-migration` listed only two of the old reader's misreads (now a table of every shape, enum renames
+included; gated per shape).
+
+**Section 5 review round 5 (2026-09-27).** Four findings, all fixed, each test red first. (1+3) the migration note
+missed a pragma that STARTS the TYPE line — the old reader (0e9f9523e0) dropped any line starting `{`, header and
+colon with it, so such a DUT read as alias; `items.html#dut-migration` now says so and lists `P.alias → P.struct`
+and `E.alias → E.enum` (gated by three new shapes in `The_dut_migration_note_names_every_shape_the_old_reader_misread`;
+`DutSubtypeCodeTests` pins the current reader on three pragma-led TYPE lines — green on arrival, the reader was
+already right). (2) the note said every push of an unreadable DUT is refused — false under `--force` (the
+pre-flight runs only unforced; `DeleteReaches` is true under force); the note now says "unless forced" and what a
+forced delete does (gated in `No_doc_names_a_dut_by_the_retired_wire_name`). (4) the unreadable warning said "NO
+file here" — false for an item a pull already wrote; `Program.WarnIfPartial` and volt-control's tooltip now say the
+file, if any, is the last one read (`BlackBoxTests.Status_warning_does_not_deny_a_held_unreadable_items_file`,
+`display.test.ts`); the same claim fixed in `StatusModel.cs`, `Types.cs`, `Shared.cs`, `types.ts` doc comments.
+Run after: `Volt.Engine.Tests` 1532 / 0 (1 skipped, pre-existing); `Volt.Cli.Tests` 251; Codesys 160, Twincat 231,
+Contracts 19, Connector 110, Repo.Gates 20; `bun test test/unit` 4; `volt-control` 115 + typecheck;
+`volt-lsp-iec` typecheck; lint; `bun run check` exit 0 — all green. No driver touched, no live IDE, DIALECT.md
+unchanged (no new vendor measurement).
 
 ## 6. Live
 

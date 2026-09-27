@@ -13,8 +13,8 @@ public sealed class BridgeSnapshot
     /// of the project, so nothing may be concluded from a name's absence.</summary>
     public List<string> UnwalkedFolders { get; set; } = new();
 
-    /// <summary>Items the bridge FOUND but could not materialize, by bare name. They exist in the IDE and have
-    /// no file in the workspace.</summary>
+    /// <summary>Items the bridge FOUND but could not materialize, by bare name. They exist in the IDE and cannot be
+    /// pushed; one an earlier pull read keeps its last-read file here (held), any other has none.</summary>
     public List<string> Unreadable { get; set; } = new();
 
     /// <summary>Did a REFS WALK produce <see cref="Items"/>? False for `volt status --local`, which deliberately
