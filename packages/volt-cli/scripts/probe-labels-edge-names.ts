@@ -142,8 +142,10 @@ const cases: Case[] = [
  * compiled on TwinCAT, so it would report CLEAN whatever it holds — the control case is what shows this is not
  * happening. The main program is restored after every case.
  */
-const MAIN = Object.keys((await refs()).items ?? {}).find((n) => /^(PLC_PRG|MAIN)\.prg$/i.test(n))
-if (!MAIN) throw new Error("no PLC_PRG / MAIN program to call the cases from")
+// A `string`, not `string | undefined` narrowed by the guard: the narrowing does not reach `setMain` below (a closure),
+// which is where `tsc` stopped the package's typecheck.
+const MAIN: string = Object.keys((await refs()).items ?? {}).find((n) => /^(PLC_PRG|MAIN)\.prg$/i.test(n))
+	?? (() => { throw new Error("no PLC_PRG / MAIN program to call the cases from") })()
 const fetchSrc = async (n: string): Promise<string> =>
 	(await callOn(PIPE, "fetch", { knownItems: {}, onlyItems: [n] })).changed.find((i: any) => i.name === n).sourceText
 const MAIN_SRC = await fetchSrc(MAIN)

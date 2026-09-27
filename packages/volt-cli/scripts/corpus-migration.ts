@@ -41,7 +41,10 @@ import { callOn } from "../test/e2e/lib/pipe"
 
 const REPO = join(import.meta.dir, "..", "..", "..")
 const VOLT = join(REPO, "packages", "volt-cli", "src", "Volt.Cli", "bin", "Release", "net10.0", "volt.exe")
-const CORPUS_ROOT = join(REPO, "packages", "volt-lsp-iec", "test-corpus")
+// VOLT_CORPUS_ROOT: a directory of corpora laid out like the LSP's (one workspace `src` tree per corpus) — a FRESH
+// pull, when the committed corpora predate the current text (network text v2, task 4.5: the committed corpora are
+// v1 until 6.1 re-pulls them, and a v1 body is refused naming a re-pull).
+const CORPUS_ROOT = process.env.VOLT_CORPUS_ROOT ?? join(REPO, "packages", "volt-lsp-iec", "test-corpus")
 const LAUNCHER = join(import.meta.dir, "ide.ps1")
 /** The pipe THIS run launched. Every `volt` call is pinned to it, so a stray IDE cannot be used. */
 let activePipe: string | undefined

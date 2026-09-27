@@ -75,12 +75,18 @@ let cachedPipe: string | undefined
  */
 function resolvePipe(): string {
 	if (cachedPipe && livePipes().includes(cachedPipe)) return cachedPipe
-	cachedPipe = livePipes()[0] ?? PIPE_PREFIX
+	const live = livePipes()[0]
+	cachedPipe = live ?? PIPE_PREFIX
 	// Stamp the RESOLVED name into the environment, because a spawned `volt` inherits it — and VOLT_PIPE is how the
 	// CLI is told which bridge to drive. Without this the suite starts from the vendor PREFIX (as the README says to),
 	// resolves it to a per-pid pipe for its own calls, and every CLI child still inherits the prefix — which is not a
 	// pipe. The invariant is not "the harness uses one pipe"; it is that EVERYTHING driving this bridge does.
-	process.env.VOLT_PIPE = cachedPipe
+	//
+	// ONLY a resolved pipe. The prefix fallback stamped here too, and `BASE` below resolves at IMPORT — so a process
+	// that imported this with no bridge up (the corpus finder, which then LAUNCHES the IDE) handed `VOLT_PIPE=
+	// volt.bridge.codesys` to the CODESYS it spawned. The IDE's host honours VOLT_PIPE as an override, served the bare
+	// prefix, and the launcher waited ten minutes for a per-pid pipe that could never appear (task 4.5).
+	if (live) process.env.VOLT_PIPE = live
 	return cachedPipe
 }
 
