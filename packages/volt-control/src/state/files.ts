@@ -1,11 +1,12 @@
 import { statSync } from "node:fs"
 import { join } from "node:path"
 
-// The kind-named writable-source extensions (POU/DUT/GVL/interface, textual or editable graphical) — every
-// A DUT is one wire kind but FOUR files on disk, named by its declaration's subtype; no `.dut` is
-// written, so none is recognized. Bare (no leading dot), matching how the CLI/bridge name
-// wire files. volt-control can't cleanly depend on the LSP for this (wrong-direction coupling), so it keeps
-// its own copy; `scripts/check-wiring.ts` cross-checks it against every other copy to prevent drift.
+// The kind-named writable-source extensions (POU/DUT/GVL/interface, textual or editable graphical).
+// A DUT is named on the wire by its declaration's subtype (struct/enum/union/alias) and the file name
+// IS the wire name, so its four extensions are ordinary entries here. Bare (no leading dot), matching
+// how the CLI/bridge name wire files. volt-control can't cleanly depend on the LSP for this
+// (wrong-direction coupling), so it keeps its own copy; `scripts/check-wiring.ts` cross-checks it
+// against every other copy to prevent drift.
 export const SOURCE_EXTENSIONS: ReadonlySet<string> = new Set([
   "fb",
   "prg",

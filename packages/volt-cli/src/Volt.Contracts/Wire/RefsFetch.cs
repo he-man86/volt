@@ -50,9 +50,11 @@ public class FetchRequest : BoundRequest
 
 public class FetchedItem
 {
-    /// <summary>Full workspace filename including its KIND extension (e.g. "PLC_PRG.prg", "Foo.fb",
-    /// "MyDut.dut") — see <c>Volt.Engine.Item.ItemKind.ExtFor</c>. A graphical FBD/LD
-    /// body keeps its kind extension (language rides in the content), not a distinct one.</summary>
+    /// <summary>Full workspace filename including its KIND extension (e.g. "PLC_PRG.prg", "Foo.fb") — see
+    /// <c>Volt.Engine.Sync.Materializer.FullWireName</c>, the one place it is minted. A DUT is named by its
+    /// declaration's subtype ("E_Mode.enum", "ST_Axis.struct", ".union", ".alias"), so the file a client writes is
+    /// this name as given. A graphical FBD/LD body keeps its kind extension (language rides in the content), not a
+    /// distinct one.</summary>
     [JsonPropertyName("name")]
     public string Name { get; set; } = "";
 

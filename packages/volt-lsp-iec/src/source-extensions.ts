@@ -17,8 +17,8 @@ export const SOURCE_EXTENSIONS: readonly string[] = [
   ".fun",
   ".itf",
   ".gvl",
-  // A DUT is one wire kind but FOUR files on disk, named by its declaration's subtype. There is no `.dut`
-  // file: the CLI writes the subtype and the library-signature renderer does too.
+  // A DUT is named on the wire — and so on disk — by its declaration's subtype, read by the engine's one
+  // subtype reader for project and library DUTs alike; the file name IS the wire name.
   ".struct",
   ".enum",
   ".union",

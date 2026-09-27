@@ -664,14 +664,42 @@ all green. No live IDE; no driver touched; DIALECT.md unchanged. Three review ro
 
 ## 5. Docs and gates
 
-- [ ] 5.1 `docs/items.html`: tables regenerated (`VOLT_WRITE_DOCS=1` — it writes only `assets/data.js`) AND the
+- [x] 5.1 `docs/items.html`: tables regenerated (`VOLT_WRITE_DOCS=1` — it writes only `assets/data.js`) AND the
       hand-written prose rewritten (`:67`, `:74`, `:140` — "one wire kind", "the wire identity keeps `.dut`",
       "remains the wire kind"); `wire.html`, `RefsFetch.cs` example, DIALECT.md.
-- [ ] 5.2 `volt-control/src/state/files.ts`, `volt-lsp-iec/src/source-extensions.ts` comments; `bun run check`
+      Test first: `DocDataTests.No_doc_names_a_dut_by_the_retired_wire_name` (seven pages/comments: no `.dut`, no
+      "one wire kind"/"remains the wire kind" outside the upgrade note, and the note must exist and name the fix)
+      and `The_wire_page_states_the_dut_subtype_rule` — six red before (items.html, `RefsFetch.cs`, `files.ts`,
+      `source-extensions.ts`, `agents.mdx`, wire.html's missing section). `VOLT_WRITE_DOCS=1` regenerated
+      `data.js` with NO diff (3.3 had already brought the tables current). `items.html#dut` now says the engine kind
+      is `dut` and the wire/file name is the subtype, minted once, never from the tree code (623 is the alias code,
+      DIALECT C2b — the old "generic code" wording was also stale), and links the push rule; the extensions lede
+      no longer says `.dut` is "the wire kind"; the kinds table's column is "kind", not "wire kind" (`doc.js`).
+      `wire.html#dut-subtype`: the two git shapes, the delete's `ifVersion` guard, create-only pairing, refusals by
+      name, `X.fb` never pairs, a delete names one wire item, a kind-less name is `BAD_REQUEST`; the `BAD_REQUEST`
+      row links it. `RefsFetch.cs`: the `MyDut.dut` example → the subtype names, minted by `FullWireName`.
+      DIALECT C2e: a "how Volt relies on it" sentence (offline-pinned; the live re-run is 6.1) — no new
+      measurement. **Found beyond the list:** `volt-web/app/docs/agents.mdx` told Claude Code users the plugin
+      registers `.dut` — the plugin (`plugins/volt-lsp/.claude-plugin/plugin.json`) registers the four subtypes;
+      the page now says so. (`check-wiring.ts` does not cover that plugin manifest — noted, not in this section.)
+- [x] 5.2 `volt-control/src/state/files.ts`, `volt-lsp-iec/src/source-extensions.ts` comments; `bun run check`
       (extension parity) green.
-- [ ] 5.3 Release note: after upgrading, delete `.git/volt/ide-refs.json` and run `volt pull` once (the old
+      Both rewritten (the file name IS the wire name; one subtype reader) — gated by 5.1's test; `files.ts`'s
+      comment also lost a dangling "— every" fragment. `files.test.ts`'s comment ("`.dut` is the WIRE kind")
+      rewritten, its assertion unchanged. `bun run check` 14/14 (all six extension-parity rows).
+- [x] 5.3 Release note: after upgrading, delete `.git/volt/ide-refs.json` and run `volt pull` once (the old
       baseline is refused by name, `volt pull` included — it cannot rebuild a baseline it first has to load);
       files on disk unchanged.
+      The repo has no changelog and the release workflows write no release body, so the note lives where
+      MATERIALIZATION 3's did (`network-text.html#migration`): `docs/items.html#dut-migration`, gated by 5.1's test
+      to exist and to name `.git/volt/ide-refs.json` and `volt pull`. It also says nothing is sent, there is no
+      translation, and a pending merge over an old baseline is not promoted (`merge --continue` exits 1).
+
+**Section 5 (2026-09-27), offline, docs only.** `Volt.Engine.Tests` 1511 passed / 0 failed (1 skipped,
+pre-existing; +8 = the two new doc gates); `Volt.Cli.Tests` 247; Codesys 160, Twincat 231, Contracts 19, Connector
+110, Repo.Gates 20, `bun test test/unit` 4, `volt-control` 115, `bun run check` 14, typecheck, lint (exit 0) — all
+green. No product code, no driver, no live IDE. Review (data / spec / layering, one round): one finding — wire.html's
+`BAD_REQUEST` row did not list the new push refusals; the row now does and links the rule. Round 2 found nothing new.
 
 ## 6. Live
 

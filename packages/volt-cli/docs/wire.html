@@ -104,6 +104,29 @@
   <i>that push</i> emptied, recursively up the chain, and never a vendor container.
 </p>
 
+<h3 id="dut-subtype">A DUT that changes subtype</h3>
+<p>
+  A DUT's wire name carries its subtype — <code>X.struct</code>, <code>X.enum</code>, <code>X.union</code> or
+  <code>X.alias</code>, read from its declaration (<a href="items.html#dut">items</a>) — but below the vendor seam
+  those four names are <b>one object</b>, the bare <code>X</code>. So a push that only changes the subtype updates
+  that object's content and never deletes or creates it; it keeps its folder, and the next <code>refs</code>
+  lists the new name and not the old one. Two shapes of op say that, because git reports a rewrite either way:
+</p>
+<table>
+  <tr><th>ops</th><th>means</th></tr>
+  <tr><td class="name">set X.struct → toName X.enum</td><td>git saw a rename: one content update of <code>X</code>, guarded by the op's <code>ifVersion</code>.</td></tr>
+  <tr><td class="name">delete X.struct + set X.enum</td><td>git saw a delete and an add (a struct rewritten as an enum shares little text): coalesced into the same one update, guarded by the <b>delete's</b> <code>ifVersion</code> — a stale one is a version conflict like any update. The set must be a create; unforced, a delete that quotes no <code>ifVersion</code> is refused.</td></tr>
+</table>
+<p>
+  Anything else that lands two ops on one bare DUT is refused <code>BAD_REQUEST</code> naming both, never
+  ordered. A same-named item of another kind (<code>X.fb</code>) is another item and never pairs. A DUT op's name
+  must agree with its body: a <code>set X.struct</code> whose declaration is an enum is refused
+  <code>BAD_REQUEST</code> naming <code>X.struct</code> and <code>X.enum</code>. A <code>delete</code> names one
+  wire item: <code>delete X.struct</code> never deletes an <code>X</code> that is an enum, forced or not. An op
+  under a name with no kind extension — <code>X</code>, <code>X.foo</code>, or the retired spelling of the DUT
+  kind — is refused <code>BAD_REQUEST</code> before anything is read.
+</p>
+
 <h2 id="errors">Error codes</h2>
 <p>
   Every failure is a coded error, not a message a client has to pattern-match. The codes are plain strings —
@@ -114,7 +137,7 @@
   <tr><th>code</th><th>means</th><th>what a client does</th></tr>
   <tr><td class="name">PLC_DISCONNECTED</td><td>No project is bound, or the bridge is paused by <code>disconnect</code>.</td><td>Send <code>connect</code>.</td></tr>
   <tr><td class="name">WRONG_PROJECT</td><td>The bound project is not the one the request named.</td><td>Rebind, or refuse — never merge.</td></tr>
-  <tr><td class="name">BAD_REQUEST</td><td>A request frame that is not valid JSON, a body that does not deserialize, an unknown <code>op</code>, or a push op the engine cannot route — an empty <code>sourceText</code>, a create with none, an unknown member kind.</td><td>Fix the caller. The message names the op and the body type.</td></tr>
+  <tr><td class="name">BAD_REQUEST</td><td>A request frame that is not valid JSON, a body that does not deserialize, an unknown <code>op</code>, or a push op the engine cannot route — an empty <code>sourceText</code>, a create with none, an unknown member kind, a name with no kind extension, or DUT ops the <a href="#dut-subtype">subtype rule</a> refuses.</td><td>Fix the caller. The message names the op and the body type.</td></tr>
   <tr><td class="name">NOT_FOUND</td><td>The named item does not exist in the project.</td><td>Re-read <code>refs</code>.</td></tr>
   <tr><td class="name">UNSUPPORTED</td><td>A shape this vendor cannot write, a member kind with no mapping, or a descriptor field the vendor has no counterpart for. The message says what. Also raised on a READ — a CODESYS member whose type code has no kind.</td><td>Surface it: a real limit, not a transient. No retry and no edit will change it.</td></tr>
   <tr><td class="name">DUPLICATE_CHILD</td><td>A create collided with something already there.</td><td>Rename, or update instead of create.</td></tr>

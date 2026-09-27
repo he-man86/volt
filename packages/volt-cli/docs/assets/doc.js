@@ -229,7 +229,7 @@ function renderKinds(el) {
     )
     .join("")
   el.innerHTML = `<table>
-    <tr><th>code</th><th>constant</th><th>wire kind</th><th>file</th>
+    <tr><th>code</th><th>constant</th><th>kind</th><th>file</th>
         <th>ST source</th><th>addressable</th><th>member</th><th>container</th></tr>
     ${rows}</table>`
 }

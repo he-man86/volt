@@ -778,6 +778,65 @@ public class DocDataTests
             $"docs/{page} does not say there are {n} ops, and the wire has {n}.");
     }
 
+    /// <summary>NO DOC STILL SAYS A DUT TRAVELS AS <c>.dut</c> (openspec <c>dut-subtype-on-the-wire</c>, 5.1–5.3).
+    /// A DUT is named on the wire by its subtype — <c>X.struct</c>/<c>.enum</c>/<c>.union</c>/<c>.alias</c> — and
+    /// <c>.dut</c> names nothing any more: no file, no wire item. The prose that said otherwise ("one wire kind",
+    /// "the wire identity keeps <c>.dut</c>") is exactly what a generated table cannot correct, so the pages and
+    /// comments a reader or a host config is built from are held here. The one place <c>.dut</c> may still be
+    /// spelt is the upgrade note (<c>items.html#dut-migration</c>), which exists to name the old key a baseline
+    /// is refused for — so the check also requires that note to be there and to name the fix.
+    ///
+    /// <para>Presence and absence of names, not wording: a clearer sentence is never a failure here.</para></summary>
+    [Theory]
+    [InlineData("packages/volt-cli/docs/items.html")]
+    [InlineData("packages/volt-cli/docs/wire.html")]
+    [InlineData("packages/volt-cli/src/Volt.Engine/Ide/DIALECT.md")]
+    [InlineData("packages/volt-cli/src/Volt.Contracts/Wire/RefsFetch.cs")]
+    [InlineData("packages/volt-control/src/state/files.ts")]
+    [InlineData("packages/volt-lsp-iec/src/source-extensions.ts")]
+    [InlineData("packages/volt-web/app/docs/agents.mdx")]
+    public void No_doc_names_a_dut_by_the_retired_wire_name(string relative)
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
+            root = root.Parent;
+        Assert.NotNull(root);
+        var text = File.ReadAllText(Path.Combine(root!.FullName, relative));
+
+        // The upgrade note, from its heading to the next heading, is the one place the old key is named.
+        var migration = System.Text.RegularExpressions.Regex.Match(
+            text, @"<h[23][^>]*id=""dut-migration"".*?(?=<h[23][ >]|</main>)",
+            System.Text.RegularExpressions.RegexOptions.Singleline);
+        if (relative.EndsWith("items.html", StringComparison.Ordinal))
+        {
+            Assert.True(migration.Success, "docs/items.html has no #dut-migration upgrade note.");
+            Assert.Contains(".git/volt/ide-refs.json", migration.Value, StringComparison.Ordinal);
+            Assert.Contains("volt pull", migration.Value, StringComparison.Ordinal);
+        }
+        var rest = migration.Success ? text.Remove(migration.Index, migration.Length) : text;
+
+        var stale = System.Text.RegularExpressions.Regex.Matches(
+                rest, @"\.dut\b|one wire kind|remains the wire kind",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+            .Select(m => m.Value).ToList();
+        Assert.True(stale.Count == 0,
+            $"{relative} still describes the retired DUT wire name: {string.Join(", ", stale)} — a DUT is named on "
+            + "the wire by its subtype (X.struct/.enum/.union/.alias).");
+    }
+
+    /// <summary>THE WIRE PAGE STATES THE SUBTYPE-CHANGE PUSH RULE. It is the one push rule a client has to know to
+    /// send a struct→enum rewrite at all (spec requirement 2), so it has a section a client can find.</summary>
+    [Fact]
+    public void The_wire_page_states_the_dut_subtype_rule()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root != null && !File.Exists(Path.Combine(root.FullName, "packages", "volt-cli", "Volt.sln")))
+            root = root.Parent;
+        Assert.NotNull(root);
+        var html = File.ReadAllText(Path.Combine(root!.FullName, "packages", "volt-cli", "docs", "wire.html"));
+        Assert.Contains("id=\"dut-subtype\"", html, StringComparison.Ordinal);
+    }
+
     /// <summary>EVERY DRIVER MEMBER IS LISTED. <see cref="IIdeDriver"/> is the layer another project reuses, so
     /// a facet it does not inherit from would be a whole surface missing from the page with nothing to notice
     /// it — the reason to assert the composition rather than just walk the three types.</summary>

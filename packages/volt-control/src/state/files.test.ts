@@ -16,7 +16,7 @@ describe("isPouFile", () => {
 		expect(isPouFile("E_Mode.enum")).toBe(true);
 		expect(isPouFile("U_Bits.union")).toBe(true);
 		expect(isPouFile("T_Handle.alias")).toBe(true);
-		// `.dut` is the WIRE kind, never a file — nothing writes one, so nothing recognizes one.
+		// `.dut` names nothing — a DUT's file and wire name carry its subtype — so nothing recognizes one.
 		expect(isPouFile("DUT_Data.dut")).toBe(false);
 	});
 

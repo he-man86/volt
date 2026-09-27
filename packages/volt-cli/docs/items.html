@@ -62,24 +62,44 @@
   CFC/SFC body is that kind's extension too, materialized as a marker comment.
 </p>
 
-<h3 id="dut">The DUT: four codes, one kind, four extensions</h3>
+<h3 id="dut">The DUT: four codes, one kind, four wire names</h3>
 <p>
-  A DUT is <b>one wire kind</b>. TwinCAT stores four tree codes for it (605 enum / 606 struct / 607 union, and
-  623 which is the generic code <code>CreateChild</code> accepts); CODESYS classifies every
-  <code>IDUTObject</code> onto one and creates with one call. All of them map to <code>dut</code>.
+  A DUT is <b>one item kind</b> inside the engine (<code>dut</code>). TwinCAT stores four tree codes for it
+  (605 enum / 606 struct / 607 union, and 623 alias); CODESYS classifies every <code>IDUTObject</code> onto one
+  and creates with one call. All of them map to <code>dut</code>.
 </p>
 <p>
-  On disk it materializes as <code>.struct</code> / <code>.enum</code> / <code>.union</code> /
-  <code>.alias</code>, derived from the declaration text — which is where the IDE itself derives it, on both
-  read and create. That is a <i>naming</i> choice, not a wire one: the wire identity keeps <code>.dut</code>,
-  because if the subtype were part of it then editing a struct into an enum would present as a delete plus a
-  create of the same underlying object.
+  On the wire and on disk it is named by its <b>subtype</b> — <code>X.struct</code> / <code>X.enum</code> /
+  <code>X.union</code> / <code>X.alias</code> — read from the declaration text by the one subtype reader
+  (<code>CodeHelper.DutSubtype</code>) at the one place a full wire name is minted
+  (<code>Materializer.FullWireName</code>). Never from the tree code: TwinCAT's code lags an in-place change
+  (<a href="../src/Volt.Engine/Ide/DIALECT.md">DIALECT C2e</a>). A library's DUTs are named by the same reader,
+  so a library enum and a project enum carry the same extension. The file name <i>is</i> the wire name: no
+  client maps one extension to another. A declaration that states no subtype is published as
+  <code>unreadable</code>, never under a guessed one.
+</p>
+<p>
+  Below the vendor seam the four names are <b>one object</b>, the bare name <code>X</code>. So a subtype change
+  — a struct rewritten as an enum — is <b>one update of that object</b>, never a delete plus a create: the push
+  decides it, whichever shape git gave the change. See <a href="wire.html#dut-subtype">the push rule</a>.
 </p>
 <div class="note">
   <b>This row used to read "not used by Volt".</b> 605/606/607 were therefore unmapped, so every DUT authored
   in the TwinCAT IDE — the ordinary case — was invisible to <code>refs</code> and <code>fetch</code>. Absent
   means deleted to a pull.
 </div>
+
+<h3 id="dut-migration">Upgrading a workspace from <code>.dut</code></h3>
+<p>
+  The previous Volt named a DUT <code>X.dut</code> on the wire, and a workspace's baseline
+  (<code>.git/volt/ide-refs.json</code>) is keyed by wire name. <b>After upgrading, delete
+  <code>.git/volt/ide-refs.json</code> and run <code>volt pull</code> once.</b> Until then every command that loads
+  the baseline — <code>volt pull</code> included, since it cannot rebuild a baseline it first has to load — refuses
+  it by name, naming the key, the file to delete and <code>volt pull</code>; nothing is sent to the IDE. There is no
+  translation of old keys. The workspace's files do not change: they were already <code>.struct</code> /
+  <code>.enum</code> / <code>.union</code> / <code>.alias</code>. A merge still pending over an old baseline is not
+  promoted by <code>volt merge --continue</code> (it exits 1 and names <code>volt pull</code>).
+</p>
 
 <h3 id="writable">Source, addressable, writable — three different questions</h3>
 <table>
@@ -123,7 +143,7 @@
 
 <h2 id="kinds">The kind table</h2>
 <p class="lede">
-  Codes, wire kinds, extensions and every predicate, read off the same class the walk uses. A row exists
+  Codes, kinds, file extensions and every predicate, read off the same class the walk uses. A row exists
   because a constant does.
 </p>
 <div data-render="kinds"></div>
@@ -136,9 +156,8 @@
 </p>
 <div data-render="extensions"></div>
 <p class="lede">
-  <code>dut</code> is deliberately absent: no path writes a <code>.dut</code> file, so recognising one would
-  advertise a file Volt never produces. It remains the wire kind, which is a different name in a different
-  place.
+  <code>dut</code> is the engine's kind, not an extension: it names no file and no wire item
+  (both carry the subtype). A DUT's four extensions are ordinary rows here, each mapping to that kind.
 </p>
 
 <h2 id="vendors">How each vendor classifies</h2>
