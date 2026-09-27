@@ -21,6 +21,7 @@ The stamping proposal is declined (see proposal.md). One message remains.
 
 ## 2. Hand-off
 
-- [ ] 2.1 Tell PLC Assist the verdict: ship bridges from Volt's published release, or keep requiring `VOLT_VERSION`
+- [x] 2.1 Tell PLC Assist the verdict: ship bridges from Volt's published release, or keep requiring `VOLT_VERSION`
       with its commit check. No Volt change for the stamp itself.
-      Not done here: it is a message to another team, for the repo owner to send.
+      Done 2026-09-27: the owner pointed PLC Assist at this spec; PLC Assist confirmed it packages from a local
+      build-cli output and checks no bridge version, so no Volt change is needed.
