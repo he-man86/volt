@@ -221,12 +221,20 @@ namespace Volt.Ide.Codesys
         /// where the spelling lives rather than by the reader throwing away a model it could build. The EN slot is the
         /// exception: the enable is a <see cref="Node"/>, not an <see cref="Input"/>, so a flag on it has no place in
         /// the model and is refused here, by the same name.</para>
+        ///
+        /// <para><b>The list is REQUIRED.</b> Census 2026-09-26 found it on every box (~1,300, none null), and the rung
+        /// oracle on every box a push built (<c>scripts/nwl-oracle-rungs.log</c>). A box that answers without one — the
+        /// member null, absent under this name, or not a list — keeps its pins' modifiers where this reader cannot see
+        /// them, and reading that as "no flag on any pin" is the silent default that pulled six negated pins as plain
+        /// contacts before 1.13. So it is refused by the same name, and the pull materializes the marker.</para>
         /// </summary>
-        /// <summary>Null when the member is absent — distinct from a present list, which must align with the pins.</summary>
-        private static List<Flags>? PinFlags(object box) =>
+        private static List<Flags> PinFlags(object box) =>
             NwlInterop.Get(box, "InputFlags") is System.Collections.IEnumerable pinFlags
                 ? pinFlags.Cast<object?>().Select(ReadFlags).ToList()
-                : null;
+                : throw new Volt.Engine.Format.Body.UnrepresentableBodyException("a flag on a box input pin",
+                    $"CODESYS: the '{NwlInterop.Text(box, "BoxType")}' box answers no InputFlags list, where every measured " +
+                    "box holds one aligned with its inputs, so whether a pin carries a negation or an edge is unknown. " +
+                    "Volt refuses to materialize the body rather than read the gap as \"no flag\".");
 
         private static Volt.Engine.Format.Body.UnrepresentableBodyException PinFlagsMisaligned(object box, int flags, int pins) =>
             new("a flag on a box input pin",
@@ -262,7 +270,7 @@ namespace Volt.Ide.Codesys
             // INDEX-ALIGNED WITH THE ITEMS, or not read at all. Census 2026-09-26 found the list on every box and never
             // a length other than the pins'; a list that does not line up says a pin's modifier is somewhere this reader
             // cannot locate, and reading the gap as "no flag" is the silent drop 1.13 was.
-            if (pinFlags is { } present && present.Count != items.Count) throw PinFlagsMisaligned(n, present.Count, items.Count);
+            if (pinFlags.Count != items.Count) throw PinFlagsMisaligned(n, pinFlags.Count, items.Count);
 
             // THE ENABLE IS INPUT SLOT 0, not the `En` member. `Box.HasEnableSlot` holds the measurement and
             // what reading it as a data pin cost; here it is two lines, and they must run BEFORE the pins are
@@ -270,19 +278,17 @@ namespace Volt.Ide.Codesys
             Node? enable = null;
             if (Box.HasEnableSlot(formals) && items.Count > 0)
             {
-                if (pinFlags is { } f && !f[0].IsNone) throw PinFlagOnEnable(n, f[0]);
+                if (!pinFlags[0].IsNone) throw PinFlagOnEnable(n, pinFlags[0]);
                 enable = ReadNode(items[0], consumed: true);
                 items.RemoveAt(0);
                 formals.RemoveAt(0);
-                pinFlags?.RemoveAt(0);
+                pinFlags.RemoveAt(0);
             }
 
             // `Names` is INDEX-ALIGNED, never length-equal: it may be shorter than the item list (see Box.FormalAt).
-            // `InputFlags` is length-equal (checked above) or ABSENT. The census saw it present on every box; a null
-            // member holds no modifier to misplace, so it is read as none rather than guessed into a length.
+            // `InputFlags` is length-equal — required and checked above.
             var inputs = items
-                .Select((x, i) => new Input(Clean(Box.FormalAt(formals, i)), ReadNode(x, consumed: true),
-                                            pinFlags?[i] ?? Flags.None))
+                .Select((x, i) => new Input(Clean(Box.FormalAt(formals, i)), ReadNode(x, consumed: true), pinFlags[i]))
                 .ToList();
 
             // AN INSTANCE THAT NAMES NOTHING IS NOT AN INSTANCE. The member is PRESENT on every box —
@@ -402,8 +408,10 @@ namespace Volt.Ide.Codesys
         /// <para>The vendor's <c>OutputParams.Names</c> is index-aligned with <c>Outputs</c>, exactly like the
         /// input side, and slot 0 is the <c>ENO</c> ECHO when the vendor names it so (<c>Box.HasEnoSlot</c>).
         /// Measured across 373 networks: the ENO slot is null in every case — the rung's continuation is the
-        /// enclosing <c>Assign</c>, not a variable — so it carries nothing and is dropped here rather than
-        /// pretending to be a data pin.</para>
+        /// enclosing <c>Assign</c>, not a variable — so it is not a data pin. That measurement is not a guarantee:
+        /// the text has no spelling for a variable on ENO (it is never an <c>=&gt;</c> slot), so one wired there anyway
+        /// is REFUSED by name. Skipping it pulled a body without the variable, and a push rebuilding that network wrote
+        /// an empty operand into the slot — deleting the variable from the IDE with nothing in the diff.</para>
         ///
         /// <para><b>An UNWIRED pin is an EMPTY OPERAND, not a null.</b> A resolved FB box carries one slot per
         /// declared output whether or not the engineer wired it — 29 empty slots on one 30-pin box — so the
@@ -419,6 +427,11 @@ namespace Volt.Ide.Codesys
                         ?? new List<object?>();
             var names = Names(NwlInterop.Get(n, "OutputParams"));
             var eno = Box.HasEnoSlot(names) ? 1 : 0;
+            if (eno == 1 && slots.Count > 0 && slots[0] is { } enoSlot && ReadOperand(enoSlot).Text is { Length: > 0 } wired)
+                throw new Volt.Engine.Format.Body.UnrepresentableBodyException("an ENO output wired to a variable",
+                    $"CODESYS: the '{NwlInterop.Text(n, "BoxType")}' box stores '{wired}' on its ENO output, which network " +
+                    "text has no spelling for (a box's ENO is read by its consumer, never assigned with =>). Volt refuses " +
+                    "to materialize the body rather than pull it without that variable.");
 
             var outputs = new List<Output>();
             for (var i = eno; i < slots.Count; i++)

@@ -560,7 +560,7 @@ public sealed partial class BeckhoffDriver
         return node switch
         {
             Leaf l => l.Operand.Flags is { IsNone: false },
-            Assign a => a.Targets.Any(t => t.Flags is { IsNone: false }) || HasFlags(a.Value),
+            Assign a => a.Targets.Any(t => t.Flags is { IsNone: false }) || a.Children().Any(HasFlags),
             // AN OUTPUT PIN IS CONTENT, NOT DECORATION. This asked only whether a pin carried FLAGS, so a box
             // whose `ET => x` the import failed to place counted as "nothing to lose" and the refusal that said
             // so was swallowed. Whatever else the catch above is willing to shrug at, it must not be a pin the
@@ -574,12 +574,14 @@ public sealed partial class BeckhoffDriver
                      || b.StCode is not null
                      || b.Instance?.Flags is { IsNone: false }
                      || b.Outputs.Any(o => o.Value.Flags is { IsNone: false })
-                     || b.Inputs.Any(i => !i.Flags.IsNone || HasFlags(i.Value)),
-            Volt.Engine.Format.Network.Parallel p =>
-                (p.Input is { } pi && HasFlags(pi)) || p.Branches.Any(HasFlags),
+                     || b.Inputs.Any(i => !i.Flags.IsNone)
+                     || b.Children().Any(HasFlags),
+            // SUB-TREES THROUGH `Children()`, the model's one list of them: a hand-copied list here is how a subtree
+            // goes unasked, and on the filter of a catch that swallows a refusal that means a loss nobody reports.
+            Volt.Engine.Format.Network.Parallel p => p.Children().Any(HasFlags),
             // Listed, not left to the default below: an empty terminator holds nothing but the item flags checked above.
             Terminator => false,
-            Demux d => d.Input is { } di && HasFlags(di),
+            Demux d => d.Children().Any(HasFlags),
             // AN UNRECOGNISED NODE IS CONTENT. This is the filter on a CATCH that discards a refusal, so the
             // safe default is "there is something to lose" — a node kind added later must not become silently
             // droppable by not being listed here.

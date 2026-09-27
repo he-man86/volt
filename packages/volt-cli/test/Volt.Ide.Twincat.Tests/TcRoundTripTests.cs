@@ -552,6 +552,26 @@ public class TcRoundTripTests
         Assert.Equal("wiredPin", pin.Value.Text);
     }
 
+    /// <summary>A VARIABLE STORED ON THE ENO SLOT IS REFUSED BY NAME, never dropped — the parity twin of CODESYS's
+    /// <c>A_variable_wired_on_the_ENO_slot_is_refused_by_name_not_dropped</c>. The text has no spelling for it (ENO is
+    /// never an <c>=&gt;</c> slot); skipping slot 0 pulled the body without the variable, so the file in git hid it.
+    /// The fixture is <c>EnoSlot.derived.TcPOU</c> with its null echo replaced by a copy of the wired pin's operand.</summary>
+    [Fact]
+    public void A_variable_on_the_ENO_slot_is_refused_by_name_not_dropped()
+    {
+        var impl = Impl(Body("EnoSlot.derived.TcPOU"));
+        var slots = impl.Descendants("l2").First(l => (string?)l.Attribute("n") == "OutputItems");
+        var echo = slots.Elements().First();
+        Assert.Equal("n", echo.Name.LocalName);                    // the fixture's null ENO echo
+        var wired = new XElement(slots.Elements().Skip(1).First());
+        wired.Elements("v").Single(v => (string?)v.Attribute("n") == "Operand").Value = "\"enoFlag\"";
+        echo.ReplaceWith(wired);
+
+        var ex = Assert.Throws<Volt.Engine.Format.Body.UnrepresentableBodyException>(() => TcNetworkReader.Read(impl, BodyLanguage.Fbd));
+        Assert.Equal("an ENO output wired to a variable", ex.Marker);
+        Assert.Contains("enoFlag", ex.Message);
+    }
+
     /// <summary>…and it survives the round trip to text and back, so the `=>` form carries the right name.</summary>
     [Fact]
     public void A_pin_behind_the_ENO_slot_round_trips_through_the_text()

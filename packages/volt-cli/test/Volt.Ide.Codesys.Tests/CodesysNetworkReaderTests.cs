@@ -680,6 +680,54 @@ public class CodesysNetworkReaderTests
         Assert.Contains("2 input", ex.Message);
     }
 
+    /// <summary>A BOX THAT ANSWERS NO <c>InputFlags</c> LIST IS REFUSED BY NAME, never read as "no flag on any pin".
+    /// The census found the list on every box; a box without one — the member null, or absent under this name, which
+    /// <c>NwlInterop.Get</c> answers the same way — keeps its pins' modifiers where the reader cannot see them, and the
+    /// six census pins whose negation lives only there would pull as plain contacts: the inverted logic 1.13 fixed.</summary>
+    [Fact]
+    public void A_box_with_no_pin_flag_list_is_refused_by_name_not_read_as_unflagged()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "AND",
+            InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b") },
+            InputFlags = null,
+        };
+        var assign = new Nwl.BoxTreeAssign { RValue = box };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
+
+        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0));
+        Assert.Equal("a flag on a box input pin", ex.Marker);
+        Assert.Contains("'AND'", ex.Message);
+        Assert.Contains("InputFlags", ex.Message);
+    }
+
+    /// <summary>A VARIABLE WIRED ON THE ENO OUTPUT SLOT IS REFUSED BY NAME, never dropped. The text has no spelling for
+    /// it (ENO is never an <c>=&gt;</c> slot — the rung's continuation is the enclosing Assign's <c>.ENO</c>), and the
+    /// census measured the slot null on every box; a slot that holds a variable anyway is a fact the pull would lose.
+    /// Dropped, the body pulled without <c>enoFlag</c>, and a push rebuilding the network wrote an EMPTY operand into
+    /// that slot — deleting the variable from the IDE with nothing in the diff.</summary>
+    [Fact]
+    public void A_variable_wired_on_the_ENO_slot_is_refused_by_name_not_dropped()
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "MOVE",
+            InputItemList = new object[] { Nwl.Leaf("c"), Nwl.Leaf("0") },
+            InputParams = new Nwl.ParamList { Names = new[] { "EN", "" }, Types = new[] { "BOOL", "" } },
+            OutputParams = new Nwl.ParamList { Names = new[] { "ENO", "" }, Types = new[] { "BOOL", "INT" } },
+        };
+        box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "enoFlag" });
+        box.Outputs.List.Add(new Nwl.Operand { OperandExpr = "Status" });
+        var assign = new Nwl.BoxTreeAssign { RValue = box };
+        assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "lamp", IsLValue = true });
+
+        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0));
+        Assert.Equal("an ENO output wired to a variable", ex.Marker);
+        Assert.Contains("enoFlag", ex.Message);
+        Assert.Contains("'MOVE'", ex.Message);
+    }
+
     /// <summary>An edge-triggered contact travels the same way — the fix is about WHERE flags are read, not
     /// about one bit.</summary>
     [Fact]

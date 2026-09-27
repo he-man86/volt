@@ -542,6 +542,13 @@ the text's rule (`NetworkText.HasEnoOutput`) rather than a copy of it; the pull 
       (`A_consumer_the_built_box_would_read_otherwise_is_refused_by_name_before_anything_is_destroyed`, 4 rows;
       `A_consumer_the_built_box_reads_as_written_is_built`); `The_ENO_slot_is_written_…`'s two GT rows were exactly the
       unbuildable shapes and are MOVE/LIMIT rows now; spec scenario "the box CODESYS builds decides by EN" added.
+      *Review of section 4 (second pass):* a box answering no `InputFlags` list is refused by name ("a flag on a box
+      input pin") on both readers — the census found it on every box, so the missing list is not "no flag"
+      (`A_box_with_no_pin_flag_list_is_refused_by_name_not_read_as_unflagged`, `An_absent_InputFlags_is_refused_by_name_not_read_as_unflagged`;
+      the CODESYS double now defaults to an aligned list, the vendor's shape); a variable stored on the ENO output slot
+      is refused by name ("an ENO output wired to a variable") on both readers instead of skipped, which a CODESYS
+      rebuild turned into a silent delete (`A_variable_wired_on_the_ENO_slot_is_refused_by_name_not_dropped`,
+      `A_variable_on_the_ENO_slot_is_refused_by_name_not_dropped`).
 - [x] 4.2 TwinCAT: a value edit stays in place. A structurally changed network is imported (D22c/D25/D30/C25/C20);
       until measured live it refuses `PARALLEL`, a Demux of a leaf and a result pin `=> v` with `NETWORK_UNSUPPORTED`,
       the message naming the network and the reason (review 7.16). Offline tests for each refusal. Read
@@ -596,8 +603,9 @@ the text's rule (`NetworkText.HasEnoOutput`) rather than a copy of it; the pull 
       suffix-less form is refused on CODESYS) and accepts TwinCAT's named ENO refusal; `parity-fixes`' wire count and the
       fixed-point test's shape are vendor-stated (D22/C25: TwinCAT's import folds a wire; a titled network holding one
       is refused rather than stamped, so the fixed point uses the chained assign both vendors create).
-- [x] 4.5 Ladder census round trip: lenze-mid pull → gate → push into an empty project → re-pull; per network compare
-      Demux (573), multi-output Assign (40), Parallel (17), EN boxes.
+- [x] 4.5 Ladder census round trip: lenze-mid pull → gate → push into an empty project → re-pull, byte-identical on
+      every body that travels, and every body that does not named by its marker or push refusal. (The per-network
+      comparison against the census figures is split out as 4.6 — review of section 4: it was ticked here while open.)
       *Done (section 4), live on SP21 (2026-09-27):* a fresh v2 pull of a copy of `Lenze_MID-S100_V5_00_602_T51`
       (7,832 files; the committed corpus is v1 until 6.1), migrated into a blank project by `scripts/corpus-migration.ts`
       (`VOLT_CORPUS_ROOT`), re-pulled into a second workspace: **165 files, 23 graphical bodies, 85 networks came back
@@ -612,18 +620,24 @@ the text's rule (`NetworkText.HasEnoOutput`) rather than a copy of it; the pull 
       **So ZERO Parallels travelled through this round trip**; a pushed Parallel is proved by the live e2e instead
       (`real-project-shapes.test.ts`: fed and unfed, `MODE := Sequential`, exact on CODESYS; refused by name before
       TwinCAT's import).
-      **OPEN — the per-network comparison this task asks for is PARTIAL (review of section 4, 2026-09-27).** The pull
-      spells 4 of the census's 17 `BoxTreeParallel` items; the other 13 are not in any text file. The census places at
-      least the 5 unfed ones in bodies that pull as the marker (`Mach1_MIDS` net41, `TrayFiller` net12 — "an assign below
-      the top level"), so they are named, not lost silently — but the remaining 8 fed ones are not located, and the EN
-      pins (45 travelled + 63 set aside = 108) are not reconciled with the census's 226 `en` LETs, nor the 56 wires with
-      its 573 Demux items. Closing it needs a per-location census (each Parallel/Demux/EN box → the file and marker it
-      pulls as), not another push. The v1 census figures count vendor items across all 40 graphical POUs. Two finder
-      traps fixed or worked around on the way: the e2e pipe module stamped the bare prefix into `VOLT_PIPE` at import,
+      Two finder traps fixed or worked around on the way: the e2e pipe module stamped the bare prefix into `VOLT_PIPE` at import,
       so the IDE the finder launched served the wrong pipe (fixed, `test/e2e/lib/pipe.ts`); and the SP19
       `Standard.project` template raises a modal "upgrade the storage format" box on the first create, which blocks the
       bridge silently — accepted by hand on the throwaway blank here, still unhandled by the launcher's dialog
       suppression (`run_pipe_production.py`), noted for the tooling.
+- [ ] 4.6 Ladder census, per network: reconcile the lenze-mid census's Demux (573), multi-output Assign (40),
+      Parallel (17) and EN boxes (226 `en` LETs) with where each one lands — the file it pulls into, the marker it
+      pulls as, or the push refusal that set its body aside — and push a Parallel in a real body.
+      **OPEN (split from 4.5, review of section 4, 2026-09-27).** 4.5's round trip accounts for 4 of the 17
+      `BoxTreeParallel` items (all in the 6 bodies set aside, so ZERO travelled), 108 EN pins (45 travelled + 63 set
+      aside) of 226, and 56 wires (20 + 36) of 573 Demux items. The census places at least the 5 unfed Parallels in
+      bodies that pull as the marker (`Mach1_MIDS` net41, `TrayFiller` net12 — "an assign below the top level"), so they
+      are named, not lost silently — but the remaining 8 fed ones are not located. The census figures count vendor items
+      across all 40 graphical POUs (a Demux item is a definition OR a reference; a wire is one definition), so part of
+      the gap is units, not loss — which is exactly what has to be shown per location, not argued. Closing it needs a
+      per-location census (`scripts/probe-nwl-census-v2.py` listing every Parallel/Demux/EN box by POU and network,
+      not one example) joined against the pull, not another push; a pushed Parallel in a real body needs one that does
+      not also hold a consumed enabled comparison (DIALECT N21).
 
 ## 5. LSP and editor
 

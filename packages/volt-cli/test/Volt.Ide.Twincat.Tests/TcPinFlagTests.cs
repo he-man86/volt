@@ -38,6 +38,21 @@ public class TcPinFlagTests
         Assert.NotEmpty(TcNetworkReader.Read(Impl(populated: false), BodyLanguage.Fbd).Networks);
     }
 
+    /// <summary>AN ABSENT <c>InputFlags</c> IS REFUSED TOO. N4: the archive is a strict per-type member contract, and a
+    /// <c>BoxTreeBox</c> carries the member on every box measured (null, <c>&lt;n n="InputFlags" /&gt;</c>). A box
+    /// without it is not a box with no pin modifiers; it is an archive this reader does not know the shape of — the
+    /// parity twin of CODESYS's <c>A_box_with_no_pin_flag_list_is_refused_by_name_not_read_as_unflagged</c>.</summary>
+    [Fact]
+    public void An_absent_InputFlags_is_refused_by_name_not_read_as_unflagged()
+    {
+        var impl = Impl(populated: false);
+        impl.Descendants("n").First(n => (string?)n.Attribute("n") == "InputFlags").Remove();
+
+        var ex = Assert.Throws<UnrepresentableBodyException>(() => TcNetworkReader.Read(impl, BodyLanguage.Fbd));
+        Assert.Equal("a flag on a box input pin", ex.Marker);
+        Assert.Contains("InputFlags", ex.Message);
+    }
+
     [Fact]
     public void A_populated_InputFlags_is_refused_by_name_not_dropped()
     {

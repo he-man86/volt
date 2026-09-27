@@ -290,6 +290,8 @@ public class CodesysModelRoundTripOracleTests
         ["A_Parallel_with_an_unmeasured_mode_is_refused_by_name"] = "refused by the reader",
         ["A_flag_on_the_enable_pin_is_refused_by_name"] = "refused by the reader: the model has no place for a flag on the enable",
         ["Pin_flags_that_do_not_align_with_the_pins_are_refused_by_name"] = "refused by the reader: a pin flag list that does not align with the pins",
+        ["A_box_with_no_pin_flag_list_is_refused_by_name_not_read_as_unflagged"] = "refused by the reader: a box with no pin flag list",
+        ["A_variable_wired_on_the_ENO_slot_is_refused_by_name_not_dropped"] = "refused by the reader: an ENO output wired to a variable",
         ["A_negation_or_edge_on_an_Assign_item_is_refused_by_name"] = "refused by the reader",
         ["A_return_coil_renders_as_a_conditional_RETURN"] = "the double of A_return_coil_reads_as_control_flow_not_as_an_assignment_to_the_marker",
         ["A_network_carrying_a_vendor_split_point_is_refused_by_name"] = "refused by the reader",

@@ -766,29 +766,24 @@ public static class NetworkTextWriter
         }
 
         /// <summary>Every identifier the network spells, into the reserved set, and every Demux VarId in item
-        /// order.</summary>
-        private static void Collect(Node? n, HashSet<string> names, List<int> ids)
+        /// order. A node's OWN words here; its sub-trees through <see cref="Node.Children"/>, the model's one list of
+        /// them, in item order — a hand-copied list per kind is how a subtree goes unvisited.</summary>
+        private static void Collect(Node n, HashSet<string> names, List<int> ids)
         {
             switch (n)
             {
                 case Leaf l: Words(l.Operand.Text, names); break;
-                case Demux d: ids.Add(d.VarId); Collect(d.Input, names, ids); break;
+                case Demux d: ids.Add(d.VarId); break;
                 case Assign a:
                     foreach (var t in a.Targets) Words(t.Text, names);
-                    Collect(a.Value, names, ids);
                     break;
                 case Box b:
                     Words(b.Type, names);
                     if (b.Instance is { } i) Words(i.Text, names);
                     foreach (var o in b.Outputs) Words(o.Value.Text, names);
-                    Collect(b.Enable, names, ids);
-                    foreach (var p in b.Inputs) Collect(p.Value, names, ids);
-                    break;
-                case Parallel p:
-                    Collect(p.Input, names, ids);
-                    foreach (var br in p.Branches) Collect(br, names, ids);
                     break;
             }
+            foreach (var child in n.Children()) Collect(child, names, ids);
         }
 
         private static void Words(string text, HashSet<string> into) => into.UnionWith(NetworkSpelling.Words(text));

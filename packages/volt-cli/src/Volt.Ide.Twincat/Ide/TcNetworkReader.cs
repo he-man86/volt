@@ -310,8 +310,14 @@ internal static class TcNetworkReader
         // The import builds an unwired enable exactly as it builds an unwired data pin (an empty operand), so the
         // enable slot reads through the same rule as the data pins in `ReadInputs` — else it came back `EN := ``.
         if (items.Count == 0) return null;
-        return IsUnwiredPin(items[0]) ? new Terminator(Flags.None) : ReadNode(items[0], consumed: true);
+        return ReadPin(items[0]);
     }
+
+    /// <summary>THE ONE READ OF A BOX INPUT SLOT — the enable (slot 0) and every data pin alike. The import builds an
+    /// unwired slot as an empty operand whichever slot it is (<see cref="IsUnwiredPin"/>), and a rule one slot had
+    /// that the other did not is how the enable came back <c>EN := ``</c>. One helper, so the two cannot drift.</summary>
+    private static Node ReadPin(XElement item) =>
+        IsUnwiredPin(item) ? new Terminator(Flags.None) : ReadNode(item, consumed: true);
 
     /// <summary>A box's inputs, WITH their pin names.
     ///
@@ -343,8 +349,15 @@ internal static class TcNetworkReader
         // pulled inverted logic. CODESYS now READS its populated list into `Input.Flags` (the text writer then refuses
         // a pin flag, which has no spelling); this reader cannot, because the populated ARCHIVE spelling has never been
         // observed, so it is not guessed at: anything but `<n n="InputFlags" />` refuses the body here, at the reader.
+        // An ABSENT member is refused too: N4 measured it on every `BoxTreeBox`, so a box without one is an archive
+        // shape this reader has never seen, not a box whose pins carry nothing.
         var pinFlags = e.Elements().FirstOrDefault(x => (string?)x.Attribute("n") == "InputFlags");
-        if (pinFlags is not null && pinFlags.Name.LocalName != "n")
+        if (pinFlags is null)
+            throw new Volt.Engine.Format.Body.UnrepresentableBodyException("a flag on a box input pin",
+                $"TwinCAT: the '{TcArchive.Str(e, "BoxType")}' box carries no InputFlags member, which every measured box " +
+                "holds, so whether a pin carries a negation or an edge is unknown. Volt refuses to materialize the body " +
+                "rather than read the gap as \"no flag\".");
+        if (pinFlags.Name.LocalName != "n")
             throw new Volt.Engine.Format.Body.UnrepresentableBodyException("a flag on a box input pin",
                 $"TwinCAT: the '{TcArchive.Str(e, "BoxType")}' box carries a populated InputFlags — a modifier on a PIN, " +
                 "which network text has no spelling for (only on what feeds it). Volt refuses to materialize the body " +
@@ -353,8 +366,7 @@ internal static class TcNetworkReader
         return items.Skip(skip)
             // `Flags.None` because a pin with a modifier was refused above; a per-pin negation that rides the
             // OPERAND (`NegatedContact.derived.TcPOU`: `Flags = 1` on the operand's own Flags) is read there.
-            .Select((x, i) => new Input(Box.FormalAt(names, i + skip),
-                                        IsUnwiredPin(x) ? new Terminator(Flags.None) : ReadNode(x, consumed: true), Flags.None))
+            .Select((x, i) => new Input(Box.FormalAt(names, i + skip), ReadPin(x), Flags.None))
             .ToList();
     }
 
@@ -395,6 +407,13 @@ internal static class TcNetworkReader
         var holder = TcArchive.RequireObj(e, "OutputItems", $"the {TcArchive.TypeOf(e) ?? "item"}");
         var slots = TcArchive.Slots(holder, "OutputItems");
         var eno = Box.HasEnoSlot(names) ? 1 : 0;
+        // A VARIABLE ON THE ENO SLOT IS REFUSED, never skipped: the text has no spelling for it (ENO is never an `=>`
+        // slot), and skipping it pulled a body that hid the variable. Measured null on every box — not assumed so.
+        if (eno == 1 && slots.Count > 0 && slots[0] is { } enoSlot && ReadOperand(enoSlot).Text is { Length: > 0 } wired)
+            throw new Volt.Engine.Format.Body.UnrepresentableBodyException("an ENO output wired to a variable",
+                $"TwinCAT: the '{TcArchive.Str(e, "BoxType")}' box stores '{wired}' on its ENO output, which network " +
+                "text has no spelling for (a box's ENO is read by its consumer, never assigned with =>). Volt refuses " +
+                "to materialize the body rather than pull it without that variable.");
 
         var outputs = new List<Output>();
         for (var i = eno; i < slots.Count; i++)

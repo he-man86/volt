@@ -373,21 +373,28 @@ internal static class NetworkSpelling
                     any = true;
                     all &= boolean;
                     break;
+                // Sub-trees through `Children()`, the model's one list of them; only the context each is taken in is
+                // decided here, per kind.
                 case Demux d:
-                    Walk(d.Input, false);   // whether it is boolean depends on the other wire's uses — not proven
+                    foreach (var c in d.Children()) Walk(c, false);   // boolean or not rides the other wire's uses — not proven
                     break;
                 case Assign a:
                     var controlFlow = a.Flags.Jump || a.Flags.Return || a.Targets.Any(t => t.Flags is { } f && (f.Jump || f.Return));
-                    Walk(a.Value, controlFlow || lang == BodyLanguage.Ld);   // a condition; a ladder coil
+                    foreach (var c in a.Children()) Walk(c, controlFlow || lang == BodyLanguage.Ld);   // a condition; a ladder coil
                     break;
                 case Box b:
-                    Walk(b.Enable, true);
+                    // `Children()` yields the enable FIRST (its documented order, the vendor's input slot 0): the enable
+                    // is always taken as a BOOL, the pins after it as contacts or not by the box kind.
                     var contacts = lang == BodyLanguage.Ld && b.StCode is null && BitOperators.Contains(b.Type);
-                    foreach (var p in b.Inputs) Walk(p.Value, contacts);
+                    var enable = b.Enable is not null;
+                    foreach (var c in b.Children())
+                    {
+                        Walk(c, enable || contacts);
+                        enable = false;
+                    }
                     break;
                 case Parallel p:
-                    Walk(p.Input, true);
-                    foreach (var br in p.Branches) Walk(br, true);
+                    foreach (var c in p.Children()) Walk(c, true);
                     break;
             }
         }

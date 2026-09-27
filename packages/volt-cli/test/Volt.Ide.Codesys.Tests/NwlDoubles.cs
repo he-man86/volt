@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace Volt.Ide.Codesys.Tests;
 
@@ -228,8 +229,17 @@ internal static class Nwl
         /// <summary>Per-pin modifiers, index-aligned with <see cref="InputItemList"/> (the EN slot included) — a
         /// real member on CODESYS, where a negated FBD input can live HERE and nowhere else (measured 2026-09-26,
         /// `scripts/probe-nwl-census-v2.py`: 6 such pins across Lenze and pro2193, the operand unflagged).
-        /// Null by default, the shape of a box with no pin modifiers.</summary>
-        public object[]? InputFlags { get; set; }
+        /// PRESENT AND ALIGNED by default, like the vendor's: the census found the list on every box (~1,300, none
+        /// null), one empty <see cref="Flags"/> per input — so an unset double follows the inputs as they are set or
+        /// appended. A null default was the shape of a box no vendor holds, and it let the reader treat a missing list as
+        /// "no flag on any pin". A test that wants the missing list sets null explicitly.</summary>
+        public object[]? InputFlags
+        {
+            get { return _inputFlagsSet ? _inputFlags : _inputs.Select(_ => (object)new Flags()).ToArray(); }
+            set { _inputFlags = value; _inputFlagsSet = true; }
+        }
+        private object[]? _inputFlags;
+        private bool _inputFlagsSet;
 
         /// <summary>The output side's name list, index-aligned with <see cref="Outputs"/> — present by
         /// default like the vendor's, where an operator box simply has an empty one.</summary>
