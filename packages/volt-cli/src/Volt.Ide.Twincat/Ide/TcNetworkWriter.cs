@@ -318,14 +318,8 @@ internal static class TcNetworkWriter
 
         return Enumerable.Range(0, trees.Count).Select(Find).Distinct().Count();
 
-        static IEnumerable<int> Wires(Node? n) => n switch
-        {
-            Demux d => new[] { d.VarId }.Concat(Wires(d.Input)),
-            Assign a => Wires(a.Value),
-            Box b => Wires(b.Enable).Concat(b.Inputs.SelectMany(p => Wires(p.Value))),
-            Parallel p => Wires(p.Input).Concat(p.Branches.SelectMany(Wires)),
-            _ => Enumerable.Empty<int>(),
-        };
+        static IEnumerable<int> Wires(Node n) =>
+            (n is Demux d ? new[] { d.VarId } : Enumerable.Empty<int>()).Concat(n.Children().SelectMany(Wires));
     }
 
     // -- the tree ----------------------------------------------------------------------------------
@@ -707,7 +701,7 @@ internal static class TcNetworkWriter
 
         // POSITIONAL PINS. An operator drawn in the editor names none, and nothing needs writing. But a box the PLCopen
         // IMPORT built names every pin, because Volt's lowering must give each wired input a `formalParameter` and gives
-        // a positional one `In<n>` (TcPlcOpenWriter.EmitBox) — so `MAX(a, b)` came back `MAX(In1 := a, In2 := b)`
+        // a positional one `TcPlcOpenWriter.PositionalPinName` — so `MAX(a, b)` came back `MAX(In1 := a, In2 := b)`
         // (`importer-max.TcPOU`). Those names are Volt's own, echoed; the text's positional pins are written over them
         // (an empty name is the vendor's own spelling of an unnamed slot — the `''` after `EN` on every enabled MOVE).
         // Any OTHER name is the IDE's, and a push that leaves that pin positional says to drop it — which this write
@@ -721,7 +715,7 @@ internal static class TcNetworkWriter
             for (var i = first; i < named.Count; i++)
             {
                 if (named[i].Value.Length == 0) continue;
-                if (!string.Equals(named[i].Value, "In" + (i - first + 1), StringComparison.Ordinal))
+                if (!string.Equals(named[i].Value, TcPlcOpenWriter.PositionalPinName(i - first), StringComparison.Ordinal))
                     throw Refuse($"box '{b.Type}' names its pin '{named[i].Value}', which the text leaves positional");
                 named[i].Value = "";
                 blanked = true;

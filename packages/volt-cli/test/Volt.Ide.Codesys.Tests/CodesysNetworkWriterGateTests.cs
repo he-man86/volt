@@ -543,6 +543,22 @@ public class CodesysCoilFlagTests
         Assert.Equal("elsewhere", Assert.IsType<Nwl.Operand>(Assert.Single(kept.Outputs.List)).OperandExpr);
     }
 
+    /// <summary>…for EVERY comparison the engine knows, not for a copy of the list: N21's refusal once read its own
+    /// hand-kept set, so an operator the engine gained or lost would have built the unbuildable shape unnoticed.</summary>
+    [Fact]
+    public void Every_comparison_the_engine_knows_is_refused_consumed_and_enabled()
+    {
+        Assert.NotEmpty(NetworkSpelling.Comparisons);
+        foreach (var op in NetworkSpelling.Comparisons)
+        {
+            var (model, scope) = Pushed($"x := {op}(EN := c, a, b);");
+            var ex = Assert.Throws<NotSupportedException>(() =>
+                CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), Different(), model, BodyLanguage.Fbd, scope));
+            Assert.Contains($"'{op}'", ex.Message);
+            Assert.Contains("comparison", ex.Message);
+        }
+    }
+
     /// <summary>…and the shapes that DO build are not refused: at the top level every enabled box builds (N21), and an
     /// FB call may declare <c>ENO</c> without EN (Lenze <c>Dryer</c>, N16), so <c>.ENO</c> on one is the FB's own output.</summary>
     [Theory]

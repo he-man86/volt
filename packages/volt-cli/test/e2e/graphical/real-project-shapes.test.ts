@@ -193,8 +193,9 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	 * A PARALLEL BRANCH (network text v2: `PARALLEL(…)`, `MODE := Sequential` off the default). CODESYS builds a
 	 * `BoxTreeParallel` natively and must hand it back exactly, fed and unfed, in both modes — v1 rebuilt one as AND/OR
 	 * and a fresh one as `Sequential` (DIALECT N20). TwinCAT's import has no element for one (D30), so the push is
-	 * refused by name before the import (task 4.2). Lenze's 17 Parallels all sit in bodies holding an enabled
-	 * comparison, which CODESYS cannot rebuild at all (N21) — so this is where a pushed Parallel is proved live (4.5).
+	 * refused by name before the import (task 4.2). Of Lenze's 17 Parallels the v2 pull spells 4, all in bodies holding
+	 * an enabled comparison, which CODESYS cannot rebuild at all (N21); the rest pull inside marker bodies or are not yet
+	 * located (4.5's open item) — so none travels in the census round trip, and this is where a pushed Parallel is proved.
 	 */
 	it("a Parallel round-trips on CODESYS and is refused by name before TwinCAT's import", async () => {
 		const full = fid("rp_par", "prg")

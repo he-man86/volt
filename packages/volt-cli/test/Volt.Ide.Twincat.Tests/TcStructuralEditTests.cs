@@ -174,6 +174,32 @@ public class TcStructuralEditTests
         Assert.Contains("  n := MAX(a, b);\n", NetworkTextWriter.Write(back, scope));
     }
 
+    /// <summary>THE NAMES THE STAMP BLANKS ARE THE NAMES THE LOWERING GAVE. <c>importer-max.TcPOU</c> is what the import
+    /// made of an older lowering; this puts TODAY's lowering's pin names into that capture, so a rename on one side
+    /// (a prefix, a case, a numbering) can no longer leave the stamp refusing every positional box it just created as
+    /// "names its pin 'X'".</summary>
+    [Fact]
+    public void Positional_pins_are_blanked_under_the_names_the_lowering_gives_them()
+    {
+        var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
+                                                  _ => null, () => Array.Empty<string>());
+        var pushed = NetworkText.Validate("(* @volt-implementation FBD *)\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
+        var lowered = TcPlcOpenWriter.WriteProject("VltProbe_Max", pushed).Descendants()
+            .Where(x => x.Name.LocalName == "block").Single().Descendants()
+            .Where(x => x.Name.LocalName == "variable" && x.Parent!.Name.LocalName == "inputVariables")
+            .Select(x => (string)x.Attribute("formalParameter")!).ToList();
+        Assert.Equal(2, lowered.Count);
+
+        var xml = XDocument.Parse(Fixtures.Pou("importer-max.TcPOU"), LoadOptions.PreserveWhitespace)
+            .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting)
+            .Replace("<v>In1</v>", "<v>" + lowered[0] + "</v>").Replace("<v>In2</v>", "<v>" + lowered[1] + "</v>");
+
+        var written = TcNetworkWriter.Apply(xml, pushed, scope);
+
+        Assert.NotNull(written);
+        Assert.Contains("  n := MAX(a, b);\n", NetworkTextWriter.Write(TcNetworkReader.Read(TcArchive.Root(written)!, BodyLanguage.Fbd), scope));
+    }
+
     [Fact]
     public void A_pin_name_the_IDE_holds_is_not_blanked_by_a_positional_push()
     {
@@ -204,6 +230,27 @@ public class TcStructuralEditTests
 
         Assert.Contains("  n := ( * m * 6);\n", text);
         Assert.Contains("  t1(IN := , PT := );\n", text);
+        Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
+    }
+
+    /// <summary>…and an unwired ENABLE is the same empty slot. The import builds an unconnected <c>EN</c> exactly as it
+    /// builds an unconnected data pin (<c>TcPlcOpenWriter.EmitBox</c> emits the enable first, a terminator as an empty
+    /// <c>&lt;inVariable&gt;</c>), so the capture's first pin renamed <c>EN</c> is that slot. The fix for the empty
+    /// backticked name covered the data pins only, and this came back as <c>EN := ``</c>.</summary>
+    [Fact]
+    public void An_unwired_enable_the_import_built_reads_as_the_empty_slot_and_pushes_back_unchanged()
+    {
+        var xml = XDocument.Parse(Fixtures.Pou("importer-unwired.TcPOU"), LoadOptions.PreserveWhitespace)
+            .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting).Replace("<v>IN</v>", "<v>EN</v>");
+        var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  n : INT;\n  m : INT;\n  t1 : TON;\nEND_VAR",
+                                                  _ => null, () => Array.Empty<string>());
+
+        var pulled = TcNetworkReader.Read(TcArchive.Root(xml)!, BodyLanguage.Ld);
+        var box = pulled.Networks.SelectMany(n => n.Trees).OfType<Box>().Single(b => b.Type == "TON");
+        Assert.IsType<Terminator>(box.Enable);
+
+        var text = NetworkTextWriter.Write(pulled, scope);
+        Assert.Contains("  t1(EN := , PT := );\n", text);
         Assert.Null(TcNetworkWriter.Apply(xml, NetworkText.Validate(text, scope), scope));
     }
 
@@ -293,6 +340,33 @@ public class TcStructuralEditTests
         var ex = Assert.Throws<UnrepresentableBodyException>(() => TcNetworkReader.Read(impl, BodyLanguage.Ld));
         Assert.Equal("a negation with an edge", ex.Marker);
         Assert.Contains("xtest", ex.Message);
+    }
+
+    /// <summary>…and on a BOX: a box carries its own Flags (the OR in <c>ladder.TcPOU</c>), the order is as unmeasured
+    /// there, and the marker names the box.</summary>
+    [Theory]
+    [InlineData(TcArchive.FlagRtrig)]
+    [InlineData(TcArchive.FlagFtrig)]
+    public void A_negation_with_an_edge_on_one_box_is_the_marker(int edge)
+    {
+        var impl = TcArchive.Root(Ladder())!;
+        var box = impl.Descendants("o").Single(o => (string?)o.Attribute("t") == "BoxTreeBox");
+        box.Elements("o").Single(o => (string?)o.Attribute("n") == "Flags").Elements("v")
+            .Single(v => (string?)v.Attribute("n") == "Flags").Value = (TcArchive.FlagNegation | edge).ToString();
+
+        var ex = Assert.Throws<UnrepresentableBodyException>(() => TcNetworkReader.Read(impl, BodyLanguage.Ld));
+        Assert.Equal("a negation with an edge", ex.Marker);
+        Assert.Contains("the 'OR' box", ex.Message);
+    }
+
+    /// <summary>…and a push that spells one on a box is refused naming the box.</summary>
+    [Fact]
+    public void A_negation_with_an_edge_on_a_box_is_refused_on_push()
+    {
+        var ex = Assert.Throws<NotSupportedException>(() =>
+            TcNetworkWriter.Apply(Ladder(), Pushed("xoutput := R_EDGE(NOT (xtest OR xtest2));"), Scope, NeverImported));
+        Assert.Contains("a negation with an edge", ex.Message);
+        Assert.Contains("the 'OR' box", ex.Message);
     }
 
     /// <summary>…and a push that spells one is refused by the same name before anything is written.</summary>

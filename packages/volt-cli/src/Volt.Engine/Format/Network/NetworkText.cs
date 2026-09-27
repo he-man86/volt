@@ -60,6 +60,10 @@ public static class NetworkText
         b.HasEnoOutput ?? NetworkSpelling.TextHasEno(isExecute: b.StCode is not null, hasEnable: b.Enable is not null,
                                                      enoSuffix: NetworkSpelling.ConnectedByEno(b), consumed: consumed);
 
+    /// <summary>Whether a box type is a comparison operator (GT, GE, LT, LE, EQ, NE) — the engine's one list, the door a
+    /// driver has to it so a refusal keyed on "a comparison" cannot drift from the set the text types as BOOL.</summary>
+    public static bool IsComparison(string type) => NetworkSpelling.Comparisons.Contains(type);
+
     /// <summary>Refuse a push that changes the body's VIEW between FBD and LD.
     ///
     /// <para>The view is a property of the whole implementation object (the vendors' <c>DefaultViewMode</c>), and

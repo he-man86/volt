@@ -608,10 +608,17 @@ the text's rule (`NetworkText.HasEnoOutput`) rather than a copy of it; the pull 
       refused on push** (`Mach1_Drives`, `MainDrive`, `SideCorrection`, `SpeedCalculationTrayfiller`,
       `fc_CamC_CP_Base`, `fc_CamC_CC_Base` — each holds a consumed enabled comparison, which CODESYS does not compile
       when Volt builds it, DIALECT N21) and were set aside for the round trip: they carry the other 36 wires, 5 chained
-      assigns, 63 EN pins and all 4 Parallels the text spells. A pushed Parallel is therefore proved by the live e2e
-      instead (`real-project-shapes.test.ts`: fed and unfed, `MODE := Sequential`, exact on CODESYS; refused by name
-      before TwinCAT's import). The v1 census figures (573 Demux items, 40 multi-output assigns, 17 Parallels) count
-      vendor items across all 40 graphical POUs; the text round-trips what it spells, and names the rest. Two finder
+      assigns, 63 EN pins and all 4 Parallels the text spells (`Mach1_Drives` 1, `MainDrive` 1, `fc_CamC_CC_Base` 2).
+      **So ZERO Parallels travelled through this round trip**; a pushed Parallel is proved by the live e2e instead
+      (`real-project-shapes.test.ts`: fed and unfed, `MODE := Sequential`, exact on CODESYS; refused by name before
+      TwinCAT's import).
+      **OPEN — the per-network comparison this task asks for is PARTIAL (review of section 4, 2026-09-27).** The pull
+      spells 4 of the census's 17 `BoxTreeParallel` items; the other 13 are not in any text file. The census places at
+      least the 5 unfed ones in bodies that pull as the marker (`Mach1_MIDS` net41, `TrayFiller` net12 — "an assign below
+      the top level"), so they are named, not lost silently — but the remaining 8 fed ones are not located, and the EN
+      pins (45 travelled + 63 set aside = 108) are not reconciled with the census's 226 `en` LETs, nor the 56 wires with
+      its 573 Demux items. Closing it needs a per-location census (each Parallel/Demux/EN box → the file and marker it
+      pulls as), not another push. The v1 census figures count vendor items across all 40 graphical POUs. Two finder
       traps fixed or worked around on the way: the e2e pipe module stamped the bare prefix into `VOLT_PIPE` at import,
       so the IDE the finder launched served the wrong pipe (fixed, `test/e2e/lib/pipe.ts`); and the SP19
       `Standard.project` template raises a modal "upgrade the storage format" box on the first create, which blocks the

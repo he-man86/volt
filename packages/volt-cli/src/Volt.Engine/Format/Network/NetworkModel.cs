@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Volt.Engine.Format.Network;
 
@@ -62,6 +63,11 @@ public abstract record Node(Flags Flags)
 {
     public virtual Flags Flags { get; init; } = Flags;
 
+    /// <summary>THE ONE LIST OF THIS NODE'S SUB-TREES, in the order a walk visits them. Abstract so a node kind states
+    /// its own beside its fields: every refusal walk in the drivers used to copy this list by hand, and a child one
+    /// copy missed was a subtree that refusal passed unchecked.</summary>
+    public abstract IEnumerable<Node> Children();
+
     /// <summary>The <c>init</c> of a node that holds no flag: <see cref="Flags.None"/> is its one value, anything else
     /// is refused loudly — never kept, never dropped.</summary>
     private protected static void RefuseFlag(Flags value, string what)
@@ -74,7 +80,10 @@ public abstract record Node(Flags Flags)
 }
 
 /// <summary>A bare operand in tree position — the vendor's <c>BoxTreeOperand</c>, its <c>VisitOperand</c> arm.</summary>
-public sealed record Leaf(Operand Operand, Flags Flags) : Node(Flags);
+public sealed record Leaf(Operand Operand, Flags Flags) : Node(Flags)
+{
+    public override IEnumerable<Node> Children() => Array.Empty<Node>();
+}
 
 /// <summary>An assignment — <c>BoxTreeAssign</c>, the <c>VisitAssign</c> arm. <see cref="Targets"/> is a LIST
 /// because the vendor's <c>Outputs</c> is one (<c>OutputItemList</c>: <c>AppendOutputItem</c> /
@@ -88,7 +97,10 @@ public sealed record Leaf(Operand Operand, Flags Flags) : Node(Flags);
 /// null by name (task 1.10) rather than carry a second spelling of the same fact.
 /// The Jump/Return bit rides on the target operand as well as the item (DIALECT C13); a return's target is the
 /// vendor's constant <c>???</c>.</para></summary>
-public sealed record Assign(Node Value, IReadOnlyList<Operand> Targets, Flags Flags) : Node(Flags);
+public sealed record Assign(Node Value, IReadOnlyList<Operand> Targets, Flags Flags) : Node(Flags)
+{
+    public override IEnumerable<Node> Children() => new[] { Value };
+}
 
 /// <summary>A call or operator — <c>BoxTreeBox</c>, the <c>VisitBox</c> arm. Covers every shape the previous
 /// model spread across `Block`, its EN pin, and a separate ST-code field:
@@ -119,6 +131,13 @@ public sealed record Box(
     IReadOnlyList<string?>? OutputTypes = null,
     bool? HasEnoOutput = null) : Node(Flags)
 {
+    /// <summary>The enable first (it is input slot 0 on the vendor), then the pins' values.</summary>
+    public override IEnumerable<Node> Children()
+    {
+        if (Enable is not null) yield return Enable;
+        foreach (var p in Inputs) yield return p.Value;
+    }
+
     // MainOutputIndex / ConnectedSlot / OutputTypes / HasEnoOutput are network text v2 facts
     // (openspec/changes/network-text-literal-nwl, review 7.3 and 1.17), which both drivers read. Null means "not
     // read" (a model built by hand, or a fact the vendor did not store); it is NOT a default the writer may assume
@@ -229,6 +248,9 @@ public sealed record Parallel(
     ParallelMode Mode) : Node(Flags.None)
 {
     public override Flags Flags { get => Flags.None; init => RefuseFlag(value, "a Parallel"); }
+
+    /// <summary>The feed first, then the branches.</summary>
+    public override IEnumerable<Node> Children() => Input is null ? Branches : Branches.Prepend(Input);
 }
 
 /// <summary>The vendor's <c>BoxTreeParallel.Mode</c>. Carried because a non-default value EXISTS in a real
@@ -290,7 +312,10 @@ public static class UnheldFlags
 /// with no input. The vendor type HAS an <c>Input</c>, and it is not carried: census 1.4 found none holding one across
 /// five real projects, so the readers refuse such a terminator by name (the marker) instead of the model keeping a
 /// field no measured body fills and no spelling exists for (task 1.10).</summary>
-public sealed record Terminator(Flags Flags) : Node(Flags);
+public sealed record Terminator(Flags Flags) : Node(Flags)
+{
+    public override IEnumerable<Node> Children() => Array.Empty<Node>();
+}
 
 /// <summary>
 /// <b>Fan-out.</b> A wire feeding more than one consumer — the vendor's <c>BoxTreeDemux</c>, keyed by
@@ -324,6 +349,9 @@ public sealed record Terminator(Flags Flags) : Node(Flags);
 public sealed record Demux(int VarId, Node? Input, string? Type = null) : Node(Flags.None)
 {
     public override Flags Flags { get => Flags.None; init => RefuseFlag(value, "a wire (Demux)"); }
+
+    /// <summary>A definition's producer; a reference has none (it points at a producer, it does not hold one).</summary>
+    public override IEnumerable<Node> Children() => Input is null ? Array.Empty<Node>() : new[] { Input };
 }
 
 /// <summary>One input pin: the formal parameter name where the vendor supplies one, the sub-tree feeding it,

@@ -190,8 +190,9 @@ internal static class NetworkSpelling
     public static readonly HashSet<string> BitStrings = new(StringComparer.OrdinalIgnoreCase)
         { "BOOL", "BYTE", "WORD", "DWORD", "LWORD" };
 
-    /// <summary>Operator boxes whose result is BOOL whatever their operands.</summary>
-    private static readonly HashSet<string> Comparisons = new(StringComparer.OrdinalIgnoreCase)
+    /// <summary>Operator boxes whose result is BOOL whatever their operands. The one list: a driver that refuses a
+    /// comparison shape (CODESYS's consumed enabled comparison, DIALECT N21) asks <see cref="NetworkText.IsComparison"/>.</summary>
+    internal static readonly HashSet<string> Comparisons = new(StringComparer.OrdinalIgnoreCase)
         { "GT", "GE", "LT", "LE", "EQ", "NE" };
 
     /// <summary>The bit operators: their result has their operands' bit-string type, so they say "BOOL or another

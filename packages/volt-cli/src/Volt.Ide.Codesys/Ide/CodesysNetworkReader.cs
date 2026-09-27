@@ -222,10 +222,17 @@ namespace Volt.Ide.Codesys
         /// exception: the enable is a <see cref="Node"/>, not an <see cref="Input"/>, so a flag on it has no place in
         /// the model and is refused here, by the same name.</para>
         /// </summary>
-        private static List<Flags> PinFlags(object box) =>
+        /// <summary>Null when the member is absent — distinct from a present list, which must align with the pins.</summary>
+        private static List<Flags>? PinFlags(object box) =>
             NwlInterop.Get(box, "InputFlags") is System.Collections.IEnumerable pinFlags
                 ? pinFlags.Cast<object?>().Select(ReadFlags).ToList()
-                : new List<Flags>();
+                : null;
+
+        private static Volt.Engine.Format.Body.UnrepresentableBodyException PinFlagsMisaligned(object box, int flags, int pins) =>
+            new("a flag on a box input pin",
+                $"CODESYS: the '{NwlInterop.Text(box, "BoxType")}' box holds {flags} pin flag(s) for {pins} input(s). The " +
+                "list is index-aligned with the inputs and was never measured any other length, so which pin a modifier " +
+                "belongs to is unknown. Volt refuses to materialize the body rather than read the gap as \"no flag\".");
 
         private static Volt.Engine.Format.Body.UnrepresentableBodyException PinFlagOnEnable(object box, Flags flags) =>
             new("a flag on a box input pin",
@@ -252,6 +259,10 @@ namespace Volt.Ide.Codesys
             // does not parse, which means such a POU could be pulled and never pushed back.
             var formals = Names(NwlInterop.Get(n, "InputParams"));
             var pinFlags = PinFlags(n);
+            // INDEX-ALIGNED WITH THE ITEMS, or not read at all. Census 2026-09-26 found the list on every box and never
+            // a length other than the pins'; a list that does not line up says a pin's modifier is somewhere this reader
+            // cannot locate, and reading the gap as "no flag" is the silent drop 1.13 was.
+            if (pinFlags is { } present && present.Count != items.Count) throw PinFlagsMisaligned(n, present.Count, items.Count);
 
             // THE ENABLE IS INPUT SLOT 0, not the `En` member. `Box.HasEnableSlot` holds the measurement and
             // what reading it as a data pin cost; here it is two lines, and they must run BEFORE the pins are
@@ -259,18 +270,19 @@ namespace Volt.Ide.Codesys
             Node? enable = null;
             if (Box.HasEnableSlot(formals) && items.Count > 0)
             {
-                if (pinFlags.Count > 0 && !pinFlags[0].IsNone) throw PinFlagOnEnable(n, pinFlags[0]);
+                if (pinFlags is { } f && !f[0].IsNone) throw PinFlagOnEnable(n, f[0]);
                 enable = ReadNode(items[0], consumed: true);
                 items.RemoveAt(0);
                 formals.RemoveAt(0);
-                if (pinFlags.Count > 0) pinFlags.RemoveAt(0);
+                pinFlags?.RemoveAt(0);
             }
 
-            // INDEX-ALIGNED, never length-equal: `Names` may be shorter than the item list (see Box.FormalAt), and
-            // `InputFlags` may be absent (a null array reads as no flag on any pin).
+            // `Names` is INDEX-ALIGNED, never length-equal: it may be shorter than the item list (see Box.FormalAt).
+            // `InputFlags` is length-equal (checked above) or ABSENT. The census saw it present on every box; a null
+            // member holds no modifier to misplace, so it is read as none rather than guessed into a length.
             var inputs = items
                 .Select((x, i) => new Input(Clean(Box.FormalAt(formals, i)), ReadNode(x, consumed: true),
-                                            i < pinFlags.Count ? pinFlags[i] : Flags.None))
+                                            pinFlags?[i] ?? Flags.None))
                 .ToList();
 
             // AN INSTANCE THAT NAMES NOTHING IS NOT AN INSTANCE. The member is PRESENT on every box —

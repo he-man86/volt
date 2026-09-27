@@ -41,25 +41,12 @@ internal static class TcUnmeasured
                         "measured, so Volt will not write one to it. Draw it in the IDE if it is meant.");
     }
 
-    private static string? FirstNegatedEdge(Node? n)
+    private static string? FirstNegatedEdge(Node n) => n switch
     {
-        switch (n)
-        {
-            case Leaf l:
-                return NegatedEdge(l.Flags) || NegatedEdge(l.Operand.Flags) ? $"'{l.Operand.Text}'" : null;
-            case Box b:
-                if (NegatedEdge(b.Flags)) return $"the '{b.Type}' box";
-                return new[] { b.Enable }.Concat(b.Inputs.Select(p => p.Value)).Select(FirstNegatedEdge).FirstOrDefault(x => x != null);
-            case Assign a:
-                return FirstNegatedEdge(a.Value);
-            case Demux d:
-                return FirstNegatedEdge(d.Input);
-            case Parallel p:
-                return new[] { p.Input }.Concat(p.Branches).Select(FirstNegatedEdge).FirstOrDefault(x => x != null);
-            default:
-                return null;
-        }
-    }
+        Leaf l => NegatedEdge(l.Flags) || NegatedEdge(l.Operand.Flags) ? $"'{l.Operand.Text}'" : null,
+        Box b when NegatedEdge(b.Flags) => $"the '{b.Type}' box",
+        _ => n.Children().Select(FirstNegatedEdge).FirstOrDefault(x => x != null),
+    };
 
     /// <summary>
     /// THE SHAPES NOBODY HAS PUT THROUGH TWINCAT'S PLCOPEN IMPORT (spec, "TwinCAT structural edits are refused where the
@@ -75,7 +62,8 @@ internal static class TcUnmeasured
     /// reshape costs a drawing, so it stays refused. 1.16 would say how many rung edits this blocks;</item>
     /// <item>a box's result pin <c>=&gt; v</c> — the importer lowers an output pin to a separate assignment (C20).</item>
     /// </list>
-    /// Task 4.4 measures each live; a shape measured to import cleanly leaves this list.
+    /// A shape leaves this list only when a live import measures it round-tripping; task 4.4 measured the leaf wire
+    /// (N22) and it stays, the other two are not yet measured.
     /// </summary>
     public static void RefuseImport(Network network)
     {
@@ -90,26 +78,14 @@ internal static class TcUnmeasured
     private static string? FirstUnmeasured(IEnumerable<Node> trees) =>
         trees.Select(Unmeasured).FirstOrDefault(x => x != null);
 
-    private static string? Unmeasured(Node? n)
+    private static string? Unmeasured(Node n) => n switch
     {
-        switch (n)
-        {
-            case Parallel p:
-                return "a `PARALLEL` branch";
-            case Demux { Input: Leaf leaf } d:
-                return $"the wire g{d.VarId} fed by the leaf '{leaf.Operand.Text}'";
-            case Demux d:
-                return Unmeasured(d.Input);
-            case Box b when b.Outputs.FirstOrDefault(o => o.Formal is null) is { } pin:
-                return $"the result pin `=> {pin.Value.Text}` of the '{b.Type}' box";
-            case Box b:
-                return new[] { b.Enable }.Concat(b.Inputs.Select(i => i.Value)).Select(Unmeasured).FirstOrDefault(x => x != null);
-            case Assign a:
-                return Unmeasured(a.Value);
-            default:
-                return null;
-        }
-    }
+        Parallel => "a `PARALLEL` branch",
+        Demux { Input: Leaf leaf } d => $"the wire g{d.VarId} fed by the leaf '{leaf.Operand.Text}'",
+        Box b when b.Outputs.FirstOrDefault(o => o.Formal is null) is { } pin =>
+            $"the result pin `=> {pin.Value.Text}` of the '{b.Type}' box",
+        _ => n.Children().Select(Unmeasured).FirstOrDefault(x => x != null),
+    };
 }
 
 /// <summary>

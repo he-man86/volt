@@ -307,7 +307,10 @@ internal static class TcNetworkReader
         var names = TcArchive.Strings(TcArchive.Obj(e, "InputParam"), "Names");
         if (!Box.HasEnableSlot(names)) return null;
         var items = TcArchive.List(e, "InputItems");
-        return items.Count > 0 ? ReadNode(items[0], consumed: true) : null;
+        // The import builds an unwired enable exactly as it builds an unwired data pin (an empty operand), so the
+        // enable slot reads through the same rule as the data pins in `ReadInputs` — else it came back `EN := ``.
+        if (items.Count == 0) return null;
+        return IsUnwiredPin(items[0]) ? new Terminator(Flags.None) : ReadNode(items[0], consumed: true);
     }
 
     /// <summary>A box's inputs, WITH their pin names.
@@ -337,8 +340,9 @@ internal static class TcNetworkReader
         // used to read every pin as `Flags.None` and say "do not fix this". On CODESYS — the same object model
         // (DIALECT N1) — the member IS populated, and six pins in two real projects keep their negation there ONLY,
         // with the operand unflagged (census 2026-09-26, `scripts/probe-nwl-census-v2.py`); reading them as None
-        // pulled inverted logic. The populated spelling has never been seen in an archive, so it is not guessed at:
-        // anything but `<n n="InputFlags" />` refuses the body, as CODESYS's `RefusePinFlags` does.
+        // pulled inverted logic. CODESYS now READS its populated list into `Input.Flags` (the text writer then refuses
+        // a pin flag, which has no spelling); this reader cannot, because the populated ARCHIVE spelling has never been
+        // observed, so it is not guessed at: anything but `<n n="InputFlags" />` refuses the body here, at the reader.
         var pinFlags = e.Elements().FirstOrDefault(x => (string?)x.Attribute("n") == "InputFlags");
         if (pinFlags is not null && pinFlags.Name.LocalName != "n")
             throw new Volt.Engine.Format.Body.UnrepresentableBodyException("a flag on a box input pin",

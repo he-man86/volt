@@ -657,6 +657,29 @@ public class CodesysNetworkReaderTests
         Assert.Equal(new[] { "a", "b" }, read.Inputs.Select(i => ((Leaf)i.Value).Operand.Text));
     }
 
+    /// <summary>A PRESENT <c>InputFlags</c> THAT DOES NOT ALIGN WITH THE PINS IS REFUSED BY NAME. The list is index-aligned
+    /// with <c>InputItemList</c>; census 2026-09-26 measured it on every box (~1,300) and never measured one shorter.
+    /// Reading the missing tail as "no flag" was the same silent default that pulled six negated pins as plain
+    /// contacts before 1.13: a pin whose modifier the reader cannot locate is not a pin without one.</summary>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    public void Pin_flags_that_do_not_align_with_the_pins_are_refused_by_name(int flagCount)
+    {
+        var box = new Nwl.BoxTreeBox
+        {
+            BoxType = "AND",
+            InputItemList = new object[] { Nwl.Leaf("a"), Nwl.Leaf("b") },
+            InputFlags = Enumerable.Range(0, flagCount).Select(_ => (object)new Nwl.Flags()).ToArray(),
+        };
+
+        var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd));
+        Assert.Equal("a flag on a box input pin", ex.Marker);
+        Assert.Contains("'AND'", ex.Message);
+        Assert.Contains($"{flagCount} pin flag", ex.Message);
+        Assert.Contains("2 input", ex.Message);
+    }
+
     /// <summary>An edge-triggered contact travels the same way — the fix is about WHERE flags are read, not
     /// about one bit.</summary>
     [Fact]
