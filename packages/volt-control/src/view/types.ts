@@ -21,7 +21,7 @@ export interface StatusJson {
 	/** Items the IDE holds that the bridge could not READ, by bare name. They have no entry in any
 	 *  change set, so nothing else here mentions them — an unreadable POU is indistinguishable from one that was
 	 *  never in the project unless this is rendered. One an earlier pull read is HELD: its last-read file stays in
-	 *  the workspace (a DUT caught mid-retype), stale, and no unforced push of it is accepted. */
+	 *  the workspace (an item caught mid-edit), stale, and no unforced push of it is accepted. */
 	unreadable?: string[]
 	/** Folders the bridge could not ENUMERATE. Non-empty means the item view is PARTIAL: `incoming` reports no
 	 *  removals, because absence proves nothing about a subtree nobody could read. The counts cannot be trusted

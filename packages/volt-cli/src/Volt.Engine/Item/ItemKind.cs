@@ -364,6 +364,11 @@ public static class ItemKind
     /// (<c>PushedText</c>) all ask it, so none can send a `.task` to the ST reader.</summary>
     public static bool IsTaskWireName(string wireName) => KindForWireName(wireName) == Kinds.Task;
 
+    /// <summary>Is this wire name a referenced LIBRARY's stub (`Standard.library`)? The CLI asks it to find a library's
+    /// root folder (the stub's folder) by the file name, which IS the wire name — so the library extension is spelt
+    /// only in the table above, and the CLI keeps no copy of it that would silently stop matching.</summary>
+    public static bool IsLibraryWireName(string wireName) => KindForWireName(wireName) == Kinds.Library;
+
     private static readonly HashSet<string> SourceKinds =
         new(SourceKindExtensions.Select(x => x.Kind), StringComparer.Ordinal);
 

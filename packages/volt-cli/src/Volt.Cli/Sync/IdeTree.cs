@@ -179,8 +179,10 @@ public static class IdeTree
     public static bool IsLibrarySignature(string rel, HashSet<string> roots) =>
         IsUnderLibraryRoot(rel, roots) && !IsLibraryStub(rel);
 
-    /// <summary>A referenced library's stub, the file whose folder is that library's root.</summary>
-    private static bool IsLibraryStub(string rel) => rel.EndsWith(".library", StringComparison.Ordinal);
+    /// <summary>A referenced library's stub, the file whose folder is that library's root. Asked of the engine by the
+    /// file name (== its wire name): the CLI spelt `.library` here once, a second copy of the engine's kind table.</summary>
+    private static bool IsLibraryStub(string rel) =>
+        Volt.Engine.Item.ItemKind.IsLibraryWireName(rel.Substring(rel.LastIndexOf('/') + 1));
 
     public static string CommitVoltIde(string gitDir, string treeSha, string? parent, string message) =>
         Git.CommitTree(gitDir, treeSha, parent is not null ? new[] { parent } : Array.Empty<string>(), message);

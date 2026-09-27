@@ -90,6 +90,18 @@ public class DutSubtypeFileTests
         Assert.Null(Materialize.PathToItem("POUs/X.dut"));
     }
 
+    /// <summary>A wire name the CLI cannot file — now most likely the engine minting an extension its own table lacks —
+    /// is refused naming THAT table. The message used to say "add it to Extensions.cs", a file that holds no list
+    /// since the extensions derive from the engine's: it sent the fix into the one layer that must hold no kinds.</summary>
+    [Fact]
+    public void An_unfileable_wire_name_is_refused_naming_the_engines_kind_table()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => Materialize.MaterializeItem(Dut("X.dut", Struct)));
+        Assert.Contains("\"X.dut\"", ex.Message);
+        Assert.Contains("ItemKind.FileExtensions", ex.Message);
+        Assert.DoesNotContain("Extensions.cs", ex.Message);
+    }
+
     [Theory]
     [InlineData("struct")]
     [InlineData("enum")]

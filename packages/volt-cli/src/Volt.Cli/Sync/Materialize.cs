@@ -20,7 +20,10 @@ public static class Materialize
         // an item), so there is no folder-marker arm — legacy `.gitkeep` files are only READ back
         // (Extensions.FullNameFromPath / IsTrackedPath), never produced here.
         if (Extensions.DefFromName(name) is null)
-            throw new InvalidOperationException($"unrecognized extension in \"{name}\" — add it to Extensions.cs");
+            // The CLI keeps no extension list (Extensions derives it), so a wire name it cannot file is the engine
+            // minting a name its own table lacks — the fix belongs there, never in this layer.
+            throw new InvalidOperationException(
+                $"unrecognized extension in \"{name}\" — the bridge minted a wire name missing from ItemKind.FileExtensions (Volt.Engine)");
         return new[] { new MaterializedFile(JoinPath(folder, name), item.SourceText) };
     }
 

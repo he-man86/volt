@@ -565,6 +565,13 @@ reds, unchanged); Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Ga
       `Sidecar.cs` (the refusal's doc names the retired `X.dut` key), and zero allowed hits for the kind-decision
       grep. Red at the section-5 HEAD (the three comments and `V1Note`), green after the comments were rewritten
       kind-neutral and 4.9 landed.
+      **Widened in section 6 review round 2** — the gate matched a subtype only as an extension and a lookup only as
+      `ItemKind.KindFor…`, so a subtype list of quoted literals, an unqualified `KindForWireName` after `using
+      static`, and a hard-coded kind extension all passed — and the CLI really held one (`IdeTree.IsLibraryStub`,
+      `rel.EndsWith(".library")`). It now also refuses quoted subtype words, `KindFor`/`KindForWireName`
+      unqualified, `Kinds.X`, `using static …ItemKind`, and any kind extension as a string literal in code (the list
+      read from `ItemKind.cs`'s one table); each shape is a pinned case. `@volt/control`'s `src` is scanned too,
+      its extension table (`state/files.ts`) the one allowed file.
 - [x] 4.7 (naming half done in 6.2; the `WRITABLE` half in the section 6 review)
       TS e2e client (1.4 census): `lib/workspace.ts` `fid` doc, `fixtures.ts` DUT rows carry their subtype
       extension, `crud-cycle`, `name-clash`, `kinds/top-level`, `vendor-parity` name DUTs `X.struct`/`.enum`/…; and
@@ -594,6 +601,16 @@ reds, unchanged); Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Ga
       plus the layering gate (4.6) that fails on any `ItemKind.KindFor`/`IsSourceKind`/`ImplementationMarker` in
       `Volt.Cli`. The "CLI answer equals the engine's" test as worded would need a CLI wrapper existing only for
       the test — the CLI's answer IS the engine call, which the gate enforces.
+      **Corrected in section 6 review round 2:** that last sentence was wrong — `PullCommandTests` already drives
+      `V1Note` end to end, and every such test used `PLC_PRG.prg`, so a CLI that swapped the engine call for
+      `EndsWith(".prg")` passed them all. The test as worded now exists:
+      `PullCommandTests.A_clean_merge_that_leaves_v1_text_names_the_file_for_every_kind_with_a_body` (`.fb`, `.fun`
+      — red under that mutation) and `A_pull_judges_no_v1_in_a_kind_without_a_body` (`.gvl`, `.struct`: no note).
+      **Corrected in round 3:** the no-case test lacked the `.enum` the task names (added, `E_Io.enum`), and it pins
+      only that the CLI adds no judgement of its own — red under a CLI kind list plus text scan that forgot `.enum`.
+      It cannot see the `CanHold` skip removed, and need not: `FileHoldsV1` asks `CanHold` itself, so the skip saves
+      a read and changes no answer. `Commands.cs` also kept a dead `using Volt.Engine.Item;` after `V1Note` moved —
+      deleted, and gated (below).
 
 **Section 4.1–4.6 (2026-09-27), offline.** `Volt.Engine.Tests` 1494 passed / 0 failed (1 skipped, pre-existing);
 `Volt.Cli.Tests` 238 / 0 (every group-2 test green, the 4.5 reds included); Codesys 160, Twincat 231, Contracts
@@ -785,15 +802,14 @@ unchanged (no new vendor measurement).
 - [ ] 6.3 Full C# suites + `bun test test/unit` green; archive, delete the recreated `openspec/specs/`.
       Suites **green** (2026-09-27, after 6.1/6.2): Engine 1532/0 (1 skipped, pre-existing), Cli 251, Contracts 19,
       Codesys 160, Twincat 231, Connector 110, Repo.Gates 20, `bun test test/unit` 4; `bun run check`, lint and the
-      volt-cli `tsc` exit 0. **Archive BLOCKED:** 1.5, 4.6, 4.7 (whole-project half), 4.8 and 4.9 are open, and
-      4.9 is the proposal's own goal (`V1Note` still makes a kind decision in `Volt.Cli`). Archiving would file the
-      change as done with its goal unmet; it waits for those tasks (or an explicit close-out decision).
+      volt-cli `tsc` exit 0. **Archive BLOCKED on 1.5 and 4.8 only** — 1.5 (the Pro2193 `refs`
+      `System.Guid`->`Int32` failure, an unexplained bridge fault needing a live Pro2193 session) and 4.8 (the three
+      wire-driving scripts). 4.6, 4.7 and 4.9 were open at the first run of this task and are closed since the
+      section 6 review (`V1Note` asks `NetworkText.CanHold` and resolves no kind). The change is not archived and
+      `openspec/specs/` is not recreated until those two close (or an explicit close-out decision).
       Found live, fixed: the subtype-mismatch refusal read "named for a enum" — now "names the subtype X but its
       declaration's subtype is Y" (pinned since the section 6 review). The e2e `unionDut` fixture's member `r` (the
       IL reset operator, `C0009 Unexpected token 'r'` on CODESYS) — fixed in the section 6 review.
-      **Still BLOCKED after the section 6 review:** 4.6, 4.7 and 4.9 are closed; 1.5 (the Pro2193 `refs`
-      `System.Guid`->`Int32` failure, an unexplained bridge fault needing a live Pro2193 session) and 4.8 (the three
-      wire-driving scripts) are open, so the change is not archived and `openspec/specs/` is not recreated.
 
 **Section 6 review (2026-09-27)** — seven findings; five fixed test-first (each red before), and the two
 acknowledged-open ones (4.7's `WRITABLE` half, 4.9) closed:
@@ -821,3 +837,39 @@ Twincat 231, Connector 110, Repo.Gates 21; `bun test test/unit` 4; `bun run chec
 0. Live, fixtures via `ide.ps1` (CODESYS `CodesysTestProject`; TwinCAT `Project14`, ONE worker): `crud-cycle`,
 `name-clash`, `kinds/top-level`, `dut-subtype-change`, `whole-project` 23/0 on each vendor; `vendor-parity` 11/0.
 DIALECT.md unchanged (no new vendor measurement). One review round.
+
+**Section 6 review, round 2 (2026-09-27)** — five findings, all fixed; each red first:
+- (low, test) 4.9's "CLI answer equals the engine's" test was skipped on a false premise (see 4.9). Written:
+  `PullCommandTests.A_clean_merge_that_leaves_v1_text_names_the_file_for_every_kind_with_a_body` (`.fb`, `.fun`) —
+  red with `V1Note`'s engine call swapped for `EndsWith(".prg")`, green on the product — and
+  `A_pull_judges_no_v1_in_a_kind_without_a_body` (`.gvl`, `.struct`).
+- (low, record) 6.3 listed 4.6/4.7/4.9 as archive blockers and said `V1Note` still decides a kind, three lines
+  above saying they were closed; the paragraph now names the two real blockers, 1.5 and 4.8.
+- (low, gate) `CliHoldsNoItemKindLogicTests` widened (see 4.6), with the escaping shapes pinned as cases
+  (`The_gate_catches_a_kind_decision_in_any_spelling`, and `The_gate_passes_what_decides_no_kind` so it stays
+  precise). Red on `IdeTree.cs`'s `".library"` before the next fix.
+- (low, product) `IdeTree.IsLibraryStub` spelt `.library` — a second copy of the engine's kind table in the CLI.
+  It asks `ItemKind.IsLibraryWireName(fileName)` now (the file name IS the wire name; the `IsTaskWireName` shape).
+- (info) `@volt/control` `view/types.ts` still said "a DUT caught mid-retype" — now "an item caught mid-edit";
+  gated by `Volt_control_spells_no_dut_subtype_outside_its_extension_table` (red on that line before).
+Run after: `Volt.Engine.Tests` 1547 / 0 (1 skipped, pre-existing); `Volt.Cli.Tests` 256; Codesys 160, Twincat 231,
+Connector 110, Contracts 19, Repo.Gates 33; `bun test test/unit` 4; `volt-control` 115 + typecheck; `bun run
+check`, lint exit 0. No driver touched, no live IDE (no bridge behaviour changed), DIALECT.md unchanged.
+Archive still BLOCKED on 1.5 and 4.8.
+
+**Section 6 review, round 3 (2026-09-27)** — four findings (all low), all fixed; each red first:
+- (layering) `Commands.cs` still imported `Volt.Engine.Item` though nothing in it used the namespace any more, so an
+  unqualified `ItemKind.X` could return with no new import to review. The import is deleted. It is gated by
+  `CliHoldsNoItemKindLogicTests.Volt_Cli_imports_the_kind_namespace_only_where_it_reads_the_extension_table` (only
+  `Extensions.cs` and `Scaffold.cs`, which read `ItemKind.FileExtensions` as a table; red on `Commands.cs`).
+- (test) 4.9's no-case test gained `.enum`. The record now says what that test does and does not pin (see 4.9).
+- (gate) `KindExtensionLiteral` matched case-sensitively, so `rel.EndsWith(".LIBRARY", OrdinalIgnoreCase)` and
+  `".Fb"` passed. It is `IgnoreCase` now, and both lines are cases of `The_gate_catches_a_kind_decision_in_any_spelling`
+  (red without the flag). The flag adds no false positive over `Volt.Cli`.
+- (layering, message) `Materialize.MaterializeItem` refused an unknown extension with "add it to Extensions.cs".
+  That file holds no list, so the message sent the fix into the CLI. It now names `ItemKind.FileExtensions
+  (Volt.Engine)`. Pinned by `DutSubtypeFileTests.An_unfileable_wire_name_is_refused_naming_the_engines_kind_table` (red).
+Run after: `Volt.Engine.Tests` 1547 / 0 (1 skipped, pre-existing); `Volt.Cli.Tests` 258; Codesys 160, Twincat 231,
+Connector 110, Contracts 19, Repo.Gates 36; `bun test test/unit` 4; `bun run check`, lint exit 0. No engine or driver
+code touched, no live IDE (no bridge behaviour changed), DIALECT.md unchanged. Three review rounds of section 6: the
+cap. This is not a claim that the section is clean. Archive still BLOCKED on 1.5 and 4.8.

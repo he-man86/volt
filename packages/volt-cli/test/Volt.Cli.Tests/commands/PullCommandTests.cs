@@ -220,6 +220,68 @@ public class PullCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>Which files the note judges is the ENGINE's answer, asked by the file name — every other v1 test here
+    /// uses a `.prg`, so a CLI that swapped the engine call for its own extension check (`EndsWith(".prg")`) passed
+    /// them all while an FB's or a function's v1 body went un-noted. The same clean hybrid merge, per kind that can
+    /// hold network text.</summary>
+    [Theory]
+    [InlineData("FB_Conv", "FUNCTION_BLOCK FB_Conv\nVAR\nEND_VAR", "FB_Conv.fb")]
+    [InlineData("F_Gate", "FUNCTION F_Gate : BOOL\nVAR\nEND_VAR", "F_Gate.fun")]
+    public void A_clean_merge_that_leaves_v1_text_names_the_file_for_every_kind_with_a_body(
+        string name, string decl, string file)
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou(name, decl, V1Body));
+        var (root, host, client) = Bound(ide);
+        var path = Path.Combine(root, "src", file);
+        try
+        {
+            Commands.Pull(root, client);
+            File.WriteAllText(path, File.ReadAllText(path).Replace("  out2 := x;\nEND_NETWORK",
+                "  out2 := x;\nEND_NETWORK\nNETWORK 3 LD\n  LET g3 := (c AND d);\n  y := g3;\n  z := g3;\nEND_NETWORK"));
+            ide.MutateImplementation(name, V2Body);
+
+            var r = Commands.Pull(root, client);
+            Assert.Equal("ok", r.Kind);
+            Assert.Contains("LET g3", File.ReadAllText(path));               // the premise: a clean, hybrid merge
+            Assert.NotNull(r.Message);
+            Assert.Contains(file, r.Message);
+            Assert.Contains("network text v1", r.Message);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>…and a kind that holds no body — a GVL, a DUT under its subtype name — is not judged at all, even when
+    /// its declaration carries v1-looking text an IDE-side change brought in: no note, and no "does not split"
+    /// unreadable entry either (it was never parsed as a POU).
+    ///
+    /// <para>What this pins of the CLI: that it adds no judgement of its OWN to the engine's — a text scan for v1
+    /// spellings would flag the header this declaration's comment carries. It cannot tell the CLI's `CanHold` skip
+    /// from its absence, and need not: `NetworkText.FileHoldsV1` asks `CanHold` itself, so the skip only saves a
+    /// read and changes no answer.</para></summary>
+    [Theory]
+    [InlineData("GVL_Io", "VAR_GLOBAL\n  a : BOOL;\nEND_VAR", "GVL_Io.gvl")]
+    [InlineData("ST_Io", "TYPE ST_Io :\nSTRUCT\n  a : BOOL;\nEND_STRUCT\nEND_TYPE", "ST_Io.struct")]
+    [InlineData("E_Io", "TYPE E_Io :\n(\n  a := 0\n);\nEND_TYPE", "E_Io.enum")]
+    public void A_pull_judges_no_v1_in_a_kind_without_a_body(string name, string decl, string file)
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou(name, decl, ""));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            Assert.True(File.Exists(Path.Combine(root, "src", file)), $"the premise: {file} was materialized");
+            ide.RemoveItem(name);
+            ide.AddItem(FakeIde.Item.TextualPou(name,
+                decl.Replace("  a", "  (* NETWORK 0 LD\n  LET g0 := TRUE; *)\n  a"), ""));
+
+            var r = Commands.Pull(root, client);
+            Assert.Equal("ok", r.Kind);
+            Assert.Contains(file, r.Synced!);                                  // the premise: the IDE side changed it
+            Assert.Null(r.Message);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     /// <summary>…while a v1 edit git merges cleanly INTO v2 text (a statement both forms spell alike) leaves nothing
     /// v1 behind, and the pull says nothing about v1.</summary>
     [Fact]
