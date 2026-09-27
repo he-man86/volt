@@ -36,6 +36,9 @@
 
 ## 4. Verify
 
+**Archived 2026-09-27 with 4.1/4.2 open** — the behaviour is covered against the in-memory relay; the live
+check against PLC Assist's relay is still owed and belongs to whoever next deploys a protocol change there.
+
 - [ ] 4.1 Against a relay that refuses the protocol: one attempt, the error line in the bridge log, the next attempt
       an hour later, the local pipe answering throughout.
       BLOCKED: no relay is reachable from here without inventing credentials, and Volt runs none. The same

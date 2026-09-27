@@ -67,6 +67,8 @@ Production `plc-assist.com`, TcXaeShell 15.0 serving `TwinCAT Project14`, bridge
 Not required by anything above; the fix stands alone. Only worth doing if serving the first project turns out
 to be the wrong one often enough to matter.
 
+**Archived 2026-09-27 without this section** — deliberately not built; a new change if it is ever needed.
+
 - [ ] `BridgePipeHost` — accept `select` while UNBOUND, refuse once serving. The guard belongs here, not in any
       caller, so a second consumer cannot forget it.
 - [ ] Decide whether the relay's op allowlist opens for `select` or whether the bridge-side guard alone carries
