@@ -108,6 +108,16 @@ test("describePull: conflict offers Open Conflicts / Finish Merge / Abort; refus
   expect(describePull({ kind: "ok", synced: ["A.fb"] }).actions).toEqual([])
 })
 
+test("describePull: a conflict over network text v1 carries the CLI's note on how to resolve it", () => {
+  // MATERIALIZATION 3 meets an un-pushed v1 edit as a whole-body conflict, and keeping our side keeps text no Volt
+  // pushes — so the CLI names those files and the resolution, and the toast must not drop that sentence.
+  const note = "1 conflicted file(s) hold network text v1, which this Volt neither reads nor pushes: A.fb. Take the IDE's side."
+  const v1 = describePull({ kind: "conflict", paths: ["A.fb"], message: note })
+  expect(v1.message).toContain(note)
+  expect(v1.actions.map((a) => a.tag)).toEqual(["open-conflicts", "finish-merge", "abort-merge"])
+  expect(describePull({ kind: "conflict", paths: ["A.fb"] }).message).not.toContain("network text v1")
+})
+
 test("describeMerge: done is a clean toast; unresolved keeps the finish/abort affordances", () => {
   expect(describeMerge({ kind: "done", message: "merge completed — IDE baseline synced" }).actions).toEqual([])
   const unresolved = describeMerge({ kind: "unresolved", message: "2 file(s) with conflict markers" })

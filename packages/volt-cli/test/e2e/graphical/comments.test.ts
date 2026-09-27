@@ -35,12 +35,12 @@ describe(`graphical / titles and comments (${BASE})`, () => {
 		// mixes annotated and bare networks is covered in one go.
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			`(* @volt-implementation *)\nNETWORK 0 FBD TITLE: "the interlock"\n` +
+			`(* @volt-implementation FBD *)\nNETWORK TITLE: "the interlock"\n` +
 			`  // holds the drive off while the guard is open\n` +
 			`  // second line of the same comment\n` +
 			`  out1 := (a AND b);\n` +
 			`END_NETWORK\n` +
-			`NETWORK 1 FBD\n  out2 := (a OR b);\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`NETWORK\n  out2 := (a OR b);\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -49,7 +49,7 @@ describe(`graphical / titles and comments (${BASE})`, () => {
 		expect(v1, "the item vanished after its create").toBeDefined()
 
 		// The title stays on ONE line - an embedded newline here is the bug this test exists for.
-		expect(v1.sourceText, "the network title was dropped").toContain(`NETWORK 0 FBD TITLE: "the interlock"`)
+		expect(v1.sourceText, "the network title was dropped").toContain(`NETWORK TITLE: "the interlock"\n`)
 		expect(v1.sourceText, "the comment was dropped").toContain("// holds the drive off while the guard is open")
 		expect(v1.sourceText, "the comment's second line was dropped").toContain("// second line of the same comment")
 

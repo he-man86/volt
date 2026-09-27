@@ -30,8 +30,8 @@ This file focuses on Structured Text (ST) and Extended Structured Text (ExST), s
 |---|---|---|
 | `:=` | `target := expr;` | Standard assignment. Equivalent to `MOVE` operator. |
 | `=>` | `<FB output> => <var>;` | Output assignment in FB calls. RHS may be blank (`FBcomp_Output2 => ;`). |
-| `S=` | `var S= operand;` | **ExST only.** When operand transitions to TRUE, sets var to TRUE; var sticks. Both `BOOL`. |
-| `R=` | `var R= operand;` | **ExST only.** When operand transitions to TRUE, resets var to FALSE; var sticks. Both `BOOL`. |
+| `S=` | `var S= operand;` | **ExST only.** Level-triggered: on every scan the operand is TRUE, var is set to TRUE; while it is FALSE var keeps its value (not a transition — use `R_TRIG` for an edge). Both `BOOL`. |
+| `R=` | `var R= operand;` | **ExST only.** Level-triggered: on every scan the operand is TRUE, var is reset to FALSE; while it is FALSE var keeps its value (not a transition). Both `BOOL`. |
 | `REF=` | `ref REF= target;` | **ExST only.** Creates a reference (`A REF= B` ≡ `A := ADR(B)`). Used with `REFERENCE TO` variables. |
 
 **Critical quirk — multi-assignment evaluation:** In chained assignments like `xSet S= xReset R= funCompute(...)`, the assignments do **NOT** evaluate right-to-left. **All assignments operate against the operand at the end of the line.** So `xReset R= funCompute(...)` and `xSet S= funCompute(...)` — `xSet` does NOT take its value from `xReset`. Easy bug source.

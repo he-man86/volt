@@ -11,7 +11,7 @@ namespace Volt.Engine.Tests;
 /// <summary>
 /// Network text v2 reader: each construct parses to the model the spec and the page say it is, and the model
 /// oracle <c>Read(Write(m)) ≅ m</c> holds over every model the writer goldens pin. Expected texts come from
-/// <c>docs/network-text-next.html</c> and the scenarios in
+/// <c>docs/network-text.html</c> and the scenarios in
 /// <c>openspec/changes/network-text-literal-nwl/specs/network-text/spec.md</c>; expected models are built by hand
 /// in the shape the reader produces (<see cref="NetworkTextFacts"/> lists what the text does not carry).
 /// </summary>

@@ -11,7 +11,7 @@ namespace Volt.Engine.Format.Network;
 /// Network text v2: renders a <see cref="NetworkBody"/> as a literal transcript of the vendor's network model —
 /// one statement per top-level NWL item, every owned subtree nested where the vendor holds it, and a name only
 /// where the vendor names something (a <see cref="Demux"/>'s VarId). Specified by
-/// <c>docs/network-text-next.html</c> and <c>openspec/changes/network-text-literal-nwl</c>. It replaced v1's writer,
+/// <c>docs/network-text.html</c> and <c>openspec/changes/network-text-literal-nwl</c>. It replaced v1's writer,
 /// whose hoists (<c>LET i</c>/<c>m</c>/<c>en</c>), prelude and <c>Unspellable</c> pre-pass are gone: a fact with
 /// no spelling is this writer's own refusal, the pull's one marker route.
 ///

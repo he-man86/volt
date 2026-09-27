@@ -36,22 +36,37 @@ export interface LibraryManifest {
    *  `L_IE1P.L_IE1P_SeverityLevel`, and that enum belongs to `L_IE1P_ApplicationErrorsTypes`, which the
    *  `L_IE1P_ApplicationErrors` library (namespace `L_IE1P`) depends on. Titles that name no manifest are ignored. */
   dependencies: readonly string[]
-  /** Which materialization wrote the library's declarations — its MATERIALIZATION line, 1 when the manifest predates
-   *  the line. Below `LIBRARY_MATERIALIZATION` the declarations are known to be incomplete (`staleLibraryManifests`). */
+  /** Which materialization wrote the workspace — the manifest's MATERIALIZATION line, 1 when the manifest predates the
+   *  line. Different from `MATERIALIZATION`, the files that format wrote mean something else to this server
+   *  (`staleLibraryManifests`, `newerLibraryManifests`). */
   materialization: number
 }
 
 /**
- * The materialization the bridge writes today — `LibraryManifest.Materialization` in C#, which says what each format
- * added. 2: FUNCTIONs without a return type are rendered; format 1 skipped them, so a library pulled by it is missing
- * elements the project calls, and every call to one reads as undefined here, where a library is known only through its
- * materialization. Nothing in the LSP fills that gap — the manifest is told to re-pull instead.
+ * The materialization this server reads — `LibraryManifest.Materialization` in C#, stated on every library manifest a
+ * pull writes. The manifest is the one file a pull always writes that can carry a format number, so it names the whole
+ * workspace, not only the library beside it; what each format changed:
+ *  - 2: FUNCTIONs without a return type are rendered; format 1 skipped them, so a call to one read as undefined here,
+ *    where a library is known only through its materialization.
+ *  - 3: graphical bodies are network text v2; format 2 wrote v1, which this server refuses body by body.
+ * Nothing in the LSP fills either gap — the manifest is told to re-pull instead.
  */
-export const LIBRARY_MATERIALIZATION = 2
+export const MATERIALIZATION = 3
 
-/** The manifests a pull by an older bridge wrote — whose declarations miss what the current one materializes. */
+/** The manifests a pull by an OLDER Volt wrote — the workspace holds files the current format writes otherwise. */
 export function staleLibraryManifests(manifests: readonly LibraryManifest[]): LibraryManifest[] {
-  return manifests.filter((m) => m.materialization < LIBRARY_MATERIALIZATION)
+  return manifests.filter((m) => m.materialization < MATERIALIZATION)
+}
+
+/** The manifests a pull by a NEWER Volt wrote — this server is the stale side (a volt-vscode bundle lagging the CLI). */
+export function newerLibraryManifests(manifests: readonly LibraryManifest[]): LibraryManifest[] {
+  return manifests.filter((m) => m.materialization > MATERIALIZATION)
+}
+
+/** Did any pull other than this server's format write the workspace? Then its graphical bodies are in a form this
+ *  server does not read, and the manifests say so once instead of every body being flagged. */
+export function materializationMismatch(manifests: readonly LibraryManifest[]): boolean {
+  return manifests.some((m) => m.materialization !== MATERIALIZATION)
 }
 
 /** A path as the manifest match reads it: forward slashes, decoded spaces, lower case. */

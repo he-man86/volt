@@ -9,7 +9,7 @@ using Parallel = Volt.Engine.Format.Network.Parallel;
 namespace Volt.Engine.Tests;
 
 /// <summary>
-/// Network text v2 writer goldens. Every expected string is taken from <c>docs/network-text-next.html</c> (the
+/// Network text v2 writer goldens. Every expected string is taken from <c>docs/network-text.html</c> (the
 /// #nwl table and the Constructs section) or from a scenario in
 /// <c>openspec/changes/network-text-literal-nwl/specs/network-text/spec.md</c> — NOT from the writer's output.
 /// Where the page's example is a fragment, it is placed in a one-network body; the network wrapper and the

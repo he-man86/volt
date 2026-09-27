@@ -80,6 +80,51 @@ public class PullCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>The upgrade to MATERIALIZATION 3 (network text v2) re-materializes every graphical body, so an
+    /// engineer's un-pushed v1 edit meets it as a whole-body conflict — and v1 can never be pushed again (refused,
+    /// "re-pull"). Resolving it by keeping OUR side would keep text no Volt reads, so the conflict names those files
+    /// and the one resolution that works (openspec network-text-literal-nwl 6.4).</summary>
+    [Fact]
+    public void A_conflict_over_network_text_v1_names_the_files_and_the_resolution()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR",
+            "NETWORK 0 LD\n  out := a;\nEND_NETWORK"));          // pulled by the previous Volt: v1 text
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            File.WriteAllText(PrgPath(root), File.ReadAllText(PrgPath(root)).Replace("out := a;", "out := b;")); // ours, v1
+            ide.MutateImplementation("PLC_PRG", "NETWORK\n  out := c;\nEND_NETWORK"); // the upgrade's re-materialization
+
+            var r = Commands.Pull(root, client);
+            Assert.Equal("conflict", r.Kind);
+            Assert.NotNull(r.Message);
+            Assert.Contains("PLC_PRG.prg", r.Message);
+            Assert.Contains("network text v1", r.Message);
+            Assert.Contains("--theirs", r.Message);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>…and an ordinary conflict says nothing about v1.</summary>
+    [Fact]
+    public void An_ordinary_conflict_carries_no_v1_note()
+    {
+        var ide = ConnectedIde(Prg());
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            File.WriteAllText(PrgPath(root), File.ReadAllText(PrgPath(root)).Replace("x := 1;", "x := 2;"));
+            ide.MutateImplementation("PLC_PRG", "x := 99;");
+
+            var r = Commands.Pull(root, client);
+            Assert.Equal("conflict", r.Kind);
+            Assert.Null(r.Message);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     /// <summary>THE bug this was added for. Both frontends have shown a "Force Pull" button with a "this cannot be
     /// undone, your local edits are discarded" confirm since long before the CLI could do it: volt-control passed
     /// `--force`, `Commands.Pull` had no such parameter, and the unknown flag was silently ignored — so the user

@@ -93,7 +93,7 @@ public sealed class StatusData
 }
 
 /// <summary>The pull outcome (mirrors the TS client's PullResult / @volt/control's PullOutcome). Nullable fields +
-/// omit-when-null serialize each kind's exact shape: ok{synced,status}, refused{reason}, conflict{paths,status}.</summary>
+/// omit-when-null serialize each kind's exact shape: ok{synced,status}, refused{reason}, conflict{paths,status,message?} — the message only when a conflicted file holds network text v1.</summary>
 public sealed class PullResult
 {
     public string Kind { get; set; } = "";
@@ -106,8 +106,8 @@ public sealed class PullResult
     public static PullResult Ok(List<string> synced, StatusData? status, string? message = null) =>
         new() { Kind = ResultKinds.Ok, Synced = synced, Status = status, Message = message };
     public static PullResult Refused(string reason) => new() { Kind = ResultKinds.Refused, Reason = reason };
-    public static PullResult Conflict(List<string> paths, StatusData? status) =>
-        new() { Kind = ResultKinds.Conflict, Paths = paths, Status = status };
+    public static PullResult Conflict(List<string> paths, StatusData? status, string? message) =>
+        new() { Kind = ResultKinds.Conflict, Paths = paths, Status = status, Message = message };
 }
 
 /// <summary>The push outcome: ok{items,status} | rejected{reason}.</summary>

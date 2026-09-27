@@ -24,7 +24,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
 import {
 	bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, pushOps, requireHealthy,
-	savePlcPrg, restorePlcPrg, fixPlcPrg, BASE,
+	savePlcPrg, restorePlcPrg, fixPlcPrg, expectVendorDifference, BASE,
 } from "../harness"
 
 setDefaultTimeout(180_000)
@@ -59,8 +59,8 @@ VAR
 	out : BOOL;
 END_VAR
 ` +
-			`(* @volt-implementation *)
-NETWORK 0 LD
+			`(* @volt-implementation LD *)
+NETWORK
   out := (a AND b);
 END_NETWORK
 ` +
@@ -114,15 +114,17 @@ VAR
 	s : BOOL;
 END_VAR
 ` +
-			`(* @volt-implementation *)
-NETWORK 0 LD
-  LET g0 := (a AND b);
+			`(* @volt-implementation LD *)
+NETWORK
+  VAR_TEMP g0 : BOOL; END_VAR
+  g0 := (a AND b);
   p := g0;
   q := g0;
 END_NETWORK
 ` +
-			`NETWORK 1 LD
-  LET g1 := (a OR b);
+			`NETWORK
+  VAR_TEMP g1 : BOOL; END_VAR
+  g1 := (a OR b);
   r := g1;
   s := g1;
 END_NETWORK
@@ -133,8 +135,13 @@ END_FUNCTION_BLOCK
 
 		await createItem(fid("rb_scope"), src, "")
 		const before = (await fetchItem(full)).sourceText
-		const wires = (t: string) => t.match(/LET \w+/g) ?? []
-		expect(wires(before).length).toBe(2)
+		const wires = (t: string) => t.match(/VAR_TEMP [^;]*;/g) ?? []
+		// A create keeps both wires on CODESYS; TwinCAT's only create door, the PLCopen import, folds each into one
+		// assign driving two coils (D22 / C25, `fanout.test.ts`), so there the evidence is the byte-identical body.
+		expect(wires(before).length).toBe(expectVendorDifference("DIALECT D22 / C25 — the importer folds a fan-out wire", {
+			codesys: () => 2,
+			twincat: () => 0,
+		}))
 
 		const edited = before.replace("(a AND b)", "(a AND c)")
 		expect(edited).not.toBe(before)
@@ -177,13 +184,13 @@ VAR
 	c : BOOL;
 	out : BOOL;
 END_VAR
-(* @volt-implementation *)
+(* @volt-implementation LD *)
 ` +
 			// LABEL FIRST, THEN COMMENT — the IDE's own header layout, and now the canonical form too. It was
 			// the other way round until this suite made the cost obvious: the reader takes them in either
 			// order, so a network typed the way the IDE displays it parsed fine and was then re-emitted
 			// swapped and refused as "not in canonical form".
-			`NETWORK 0 LD LABEL: Guard TITLE: "interlock"
+			`NETWORK LABEL: Guard TITLE: "interlock"
   // holds the drive off while the guard is open
   // second line of the same comment
   out := (a AND b);

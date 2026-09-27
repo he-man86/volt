@@ -4,3 +4,4 @@ RESOLUTION Tc2_System, 3.10.1.0 (Beckhoff Automation GmbH)
 PLACEHOLDER true
 SYSTEM false
 DEPENDENCIES Tc2_Standard, Tc3_Module
+MATERIALIZATION 3

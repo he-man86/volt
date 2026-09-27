@@ -140,6 +140,7 @@ internal static class Program
         {
             Console.WriteLine($"CONFLICT in {r.Paths!.Count} file(s) — resolve the markers, then `volt merge --continue` (or `volt merge --abort`):");
             foreach (var p in r.Paths!) Console.WriteLine($"  ! {p}");
+            if (r.Message is not null) Console.WriteLine(r.Message);
             return 2;
         }
         Console.WriteLine(r.Message ?? $"pulled {r.Synced!.Count} file(s)");

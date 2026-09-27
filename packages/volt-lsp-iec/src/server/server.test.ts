@@ -738,7 +738,7 @@ test("server: a library an older bridge materialized is told to re-pull — on i
     `LIBRARY ${name}\nNAMESPACE ${name}\nRESOLUTION ${name}, 1.0.0.0 (x)\nPLACEHOLDER true\nSYSTEM true\n${materialization}`
   const dir = tempWorkspace({
     "Library Manager/Old/Old.library": lib("Old", ""),
-    "Library Manager/New/New.library": lib("New", "MATERIALIZATION 2\n"),
+    "Library Manager/New/New.library": lib("New", "MATERIALIZATION 3\n"),
     "PLC_PRG.prg": PRG,
     "E_Mode.enum": ENUM,
   })
@@ -756,6 +756,72 @@ test("server: a library an older bridge materialized is told to re-pull — on i
   expect(pulled.items.map((d) => d.code)).toEqual(["library-stale"])
   client.dispose()
   rmSync(dir, { recursive: true, force: true })
+})
+
+/** A graphical body the way format 2 wrote it: network text v1, behind the bare marker. */
+const V1_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n(* @volt-implementation *)\nNETWORK 0 LD\n  out := a;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
+/** …and the way format 3 writes it: network text v2. */
+const V2_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\n  out := a;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
+
+/** Every diagnostic of a workspace, by file name. */
+async function workspaceDiagnostics(files: Record<string, string>) {
+  const dir = tempWorkspace(files)
+  const client = connect()
+  await initInDir(client, dir)
+  const report = (await client.sendRequest(WorkspaceDiagnosticRequest.type, { previousResultIds: [] })) as {
+    items: { uri: string; items: { code?: unknown; message: string }[] }[]
+  }
+  client.dispose()
+  rmSync(dir, { recursive: true, force: true })
+  const byFile = new Map<string, { code?: unknown; message: string }[]>()
+  for (const r of report.items) if (r.items.length > 0) byFile.set(decodeURIComponent(r.uri).split("/").at(-1)!, r.items)
+  return byFile
+}
+
+const libAt = (format: string) =>
+  `LIBRARY Standard\nNAMESPACE Standard\nRESOLUTION Standard, 1.0.0.0 (x)\nPLACEHOLDER true\nSYSTEM true\n${format}`
+
+test("server: a workspace an OLDER Volt pulled is told once, on its manifests — not with a finding on every graphical body", async () => {
+  // MATERIALIZATION 3 is network text v2; format 2 wrote v1, which the parser refuses body by body (re-pull). With the
+  // workspace's own number in hand, the mismatch is named where the repair is decided, and the bodies stay quiet.
+  const diags = await workspaceDiagnostics({
+    "Library Manager/Standard/Standard.library": libAt("MATERIALIZATION 2\n"),
+    "F.fb": V1_BODY,
+  })
+  const manifest = diags.get("Standard.library") ?? []
+  expect(manifest.map((d) => d.code)).toEqual(["library-stale"])
+  expect(manifest[0]!.message).toContain("network text v1")
+  expect(manifest[0]!.message).toContain("volt pull")
+  expect(diags.get("F.fb") ?? []).toEqual([])
+})
+
+test("server: a workspace a NEWER Volt pulled names the language server as the stale side", async () => {
+  // The volt-vscode bundle carries its own LSP and can lag the CLI: an old one meeting a newer materialization must
+  // say so once, not misread every body the newer format wrote.
+  const diags = await workspaceDiagnostics({
+    "Library Manager/Standard/Standard.library": libAt("MATERIALIZATION 4\n"),
+    "F.fb": V2_BODY,
+  })
+  const manifest = diags.get("Standard.library") ?? []
+  expect(manifest.map((d) => d.code)).toEqual(["materialization-newer"])
+  expect(manifest[0]!.message).toContain("newer Volt")
+  expect(manifest[0]!.message).toContain("format 4")
+  expect(diags.get("F.fb") ?? []).toEqual([])
+})
+
+test("server: a workspace at the LSP's own materialization says nothing about it", async () => {
+  const diags = await workspaceDiagnostics({
+    "Library Manager/Standard/Standard.library": libAt("MATERIALIZATION 3\n"),
+    "F.fb": V2_BODY,
+  })
+  expect(diags.get("Standard.library") ?? []).toEqual([])
+  expect(diags.get("F.fb") ?? []).toEqual([])
+})
+
+test("server: without the mismatch the v1 body still gets its own re-pull finding", async () => {
+  // No manifest states a format (a workspace with no library): the body is the only place left to say it.
+  const diags = await workspaceDiagnostics({ "F.fb": V1_BODY })
+  expect((diags.get("F.fb") ?? []).some((d) => d.message.includes("re-pull"))).toBe(true)
 })
 
 test("server: diagnostics are GATED until the workspace is indexed (no startup false-error flicker)", async () => {

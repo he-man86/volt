@@ -1,0 +1,5 @@
+FUNCTION F_RaiseException
+VAR_INPUT
+	exceptionCode : UDINT;
+END_VAR
+END_FUNCTION

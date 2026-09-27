@@ -17,7 +17,14 @@ import {
 } from "../analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../network/index.js"
 import { codesysCodeFor } from "../analysis/error-code-map.js"
-import { isLibrarySymbol, LIBRARY_MATERIALIZATION, staleLibraryManifests, type LibraryManifest } from "../symbols/index.js"
+import {
+  isLibrarySymbol,
+  MATERIALIZATION,
+  materializationMismatch,
+  newerLibraryManifests,
+  staleLibraryManifests,
+  type LibraryManifest,
+} from "../symbols/index.js"
 import { pathToFileURL } from "node:url"
 import { rangeFromSpan } from "../services/index.js"
 import type { Document } from "../syntax/index.js"
@@ -73,9 +80,13 @@ export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d
         references: store.workspaceRefs,
         uri: d.uri,
       }).filter((it) => !inDeadMember(it.span, dm))
+  // A workspace another materialization wrote holds its graphical bodies in a form this server does not read — v1
+  // from an older Volt, a later one from a newer. Its manifests say so once (`libraryManifestDiagnostics`); flagging
+  // every body as well would bury that one sentence under a finding per POU that all mean the same thing.
+  const otherFormat = materializationMismatch(store.workspaceRefs.libraryManifests)
   return [
     ...items.map(toLspDiagnostic),
-    ...(dead ? [] : computeNetworkTextDiagnostics(d, store.project(), messages, store.workspaceRefs))
+    ...(dead || otherFormat ? [] : computeNetworkTextDiagnostics(d, store.project(), messages, store.workspaceRefs))
       .filter((it) => !inDeadMember(it.span, dm))
       .map(toLspDiagnostic),
     ...d.parseResult.errors.map((e) => ({
@@ -87,26 +98,51 @@ export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d
   ]
 }
 
+/** What a workspace pulled by format `n` lacks against this server's — each format since, in its own words. */
+const MISSING_SINCE: readonly (readonly [format: number, lacks: string])[] = [
+  [2, "it skipped FUNCTIONs without a return type, so a call to one reads as undefined"],
+  [3, "its graphical bodies are network text v1, which this language server does not read"],
+]
+
 /**
- * A LIBRARY PULLED BY AN OLDER BRIDGE, SAID ON ITS MANIFEST — by file URI, one warning each. The LSP knows a library only
- * through its materialization, so declarations an older bridge did not write (format 1 skipped every FUNCTION without a
- * return type) read as undefined at each call; the answer is a re-pull, never a list of names kept here instead.
+ * A WORKSPACE ANOTHER MATERIALIZATION WROTE, SAID ON ITS MANIFESTS — by file URI, one warning each, whichever side is
+ * stale. Older (the manifest's format below `MATERIALIZATION`): the LSP knows the workspace only through what the pull
+ * wrote, so what an older Volt did not write, or wrote in a form since replaced, reads wrong at every use; the answer
+ * is a re-pull, never a list of names kept here instead. Newer: this server is the stale side — the volt-vscode bundle
+ * carries its own LSP and can lag the CLI — and the answer is updating it. Either way the graphical bodies are not
+ * flagged one by one (`documentDiagnostics`): the mismatch is named once, where its repair is decided.
  */
 export function libraryManifestDiagnostics(manifests: readonly LibraryManifest[]): Map<string, VoltDiagnostic[]> {
-  return new Map(
-    staleLibraryManifests(manifests).map((m) => [
+  const warning = (code: string, message: string): VoltDiagnostic => ({
+    range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+    severity: DiagnosticSeverity.Warning,
+    source: "volt-lsp-iec",
+    code,
+    message,
+  })
+  const older = staleLibraryManifests(manifests).map((m): [string, VoltDiagnostic[]] => {
+    const lacks = MISSING_SINCE.filter(([format]) => m.materialization < format).map(([, what]) => what)
+    return [
       pathToFileURL(m.uri).href,
       [
-        {
-          range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
-          severity: DiagnosticSeverity.Warning,
-          source: "volt-lsp-iec",
-          code: "library-stale",
-          message:
-            `${m.library} was materialized by an older Volt (format ${m.materialization}, now ${LIBRARY_MATERIALIZATION}), ` +
-            "which skipped its FUNCTIONs without a return type — a call to one reads as undefined. Run `volt pull` to re-materialize it.",
-        },
+        warning(
+          "library-stale",
+          `${m.library} was materialized by an older Volt (format ${m.materialization}, now ${MATERIALIZATION}): ` +
+            `${lacks.join("; and ")}. Run \`volt pull\` to re-materialize the workspace.`,
+        ),
       ],
-    ]),
-  )
+    ]
+  })
+  const newer = newerLibraryManifests(manifests).map((m): [string, VoltDiagnostic[]] => [
+    pathToFileURL(m.uri).href,
+    [
+      warning(
+        "materialization-newer",
+        `${m.library} was materialized by a newer Volt (format ${m.materialization}) than this language server reads ` +
+          `(format ${MATERIALIZATION}), so its graphical bodies are not checked. Update the language server (volt-vscode) ` +
+          "to the version of the volt CLI that pulled the workspace.",
+      ),
+    ],
+  ])
+  return new Map([...older, ...newer])
 }

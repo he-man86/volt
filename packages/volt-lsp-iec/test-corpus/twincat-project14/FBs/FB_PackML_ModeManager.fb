@@ -28,7 +28,7 @@ END_VAR
 VAR
     xAbortPending   : BOOL;
 END_VAR
-
+(* @volt-implementation *)
 IF xAbort THEN
     xAbortPending := TRUE;
 END_IF

@@ -395,7 +395,8 @@ public static class Commands
             // Stash the IDE refs this pull WOULD have adopted, beside the in-progress merge, so `volt merge
             // --continue` can advance the baseline once conflicts are resolved — no "pull again" tax.
             Sidecar.SavePendingIdeRefs(root, newSidecar);
-            return PullResult.Conflict(outcome.Paths.Select(Files.StripSrcPrefix).ToList(), PostStatus());
+            return PullResult.Conflict(outcome.Paths.Select(Files.StripSrcPrefix).ToList(), PostStatus(),
+                                       V1ConflictNote(root, outcome.Paths));
         }
 
         Sidecar.SaveIdeRefs(root, newSidecar);
@@ -824,6 +825,27 @@ public static class Commands
         if (gitRef is null) return (null, "no merge in progress (MERGE_BASE unavailable)", false);
         var bytes = Git.GitShowBytes(root, gitRef, $"{Files.SrcDir}/{rel}");
         return bytes is not null ? (bytes, null, false) : (null, $"{rel} not found at {@ref}", true);
+    }
+
+    /// <summary>The note a conflicted pull carries when a conflicted file still holds network text v1 — null when none
+    /// does.
+    ///
+    /// <para>WHY THIS EXISTS. MATERIALIZATION 3 (network text v2) re-materializes every graphical body, so an edit the
+    /// engineer made to v1 text and never pushed meets the new text as a whole-body conflict. Resolved the usual way —
+    /// keep our side, or hand-merge — it leaves v1 text in the file, which no Volt reads or pushes any more (the push
+    /// refuses it, "re-pull"). The one resolution that works is the IDE's side and the edit redone on it, so the
+    /// conflict says that here rather than letting the engineer find out at the push.</para></summary>
+    private static string? V1ConflictNote(string root, IEnumerable<string> conflicted)
+    {
+        var v1 = conflicted
+            .Where(p => File.Exists(Path.Combine(root, p)) &&
+                        File.ReadLines(Path.Combine(root, p)).Any(Volt.Engine.Format.Network.NetworkText.IsV1Header))
+            .Select(Files.StripSrcPrefix)
+            .ToList();
+        if (v1.Count == 0) return null;
+        return $"{v1.Count} conflicted file(s) hold network text v1, which this Volt neither reads nor pushes: " +
+               string.Join(", ", v1) + ". Take the IDE's side of each (`volt merge --resolve <path> --use-theirs`, " +
+               "i.e. `git checkout --theirs`), redo the edit on its network text v2, then `volt merge --continue`.";
     }
 
     /// <summary>volt merge — finish a conflicted pull: --continue | --abort | --resolve.</summary>

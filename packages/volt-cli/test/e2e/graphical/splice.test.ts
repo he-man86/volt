@@ -27,20 +27,20 @@ VAR
 \tout1 : BOOL;
 \tout2 : BOOL;
 END_VAR
-(* @volt-implementation *)
-NETWORK 0 FBD
+(* @volt-implementation FBD *)
+NETWORK
   out1 := (a AND b);
 END_NETWORK
-NETWORK 1 FBD
+NETWORK
   out2 := (a OR b);
 END_NETWORK
 END_PROGRAM
 `
 }
 
-/** Each `NETWORK n …` block, sliced so concatenation reproduces the original. */
+/** Each `NETWORK …` block, sliced so concatenation reproduces the original. */
 const networks = (src: string): string[] => {
-	const heads = [...src.matchAll(/^NETWORK[ \t]+\d+\b/gm)]
+	const heads = [...src.matchAll(/^NETWORK\b/gm)]
 	return heads.map((h, i) =>
 		src.slice(h.index!, i + 1 < heads.length ? heads[i + 1].index! : src.lastIndexOf("END_NETWORK") + "END_NETWORK".length + 1))
 }
@@ -93,11 +93,11 @@ VAR
 \tout1 : BOOL;
 \tout2 : BOOL;
 END_VAR
-(* @volt-implementation *)
-NETWORK 0 FBD
+(* @volt-implementation FBD *)
+NETWORK
   out1 := (a AND b);
 END_NETWORK
-NETWORK 1 FBD
+NETWORK
   out2 := (a OR b);
 END_NETWORK
 END_FUNCTION_BLOCK

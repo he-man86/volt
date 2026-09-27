@@ -2,7 +2,7 @@
  * Network text v2 parser — the bridge reader (`volt-cli/src/Volt.Engine/Format/Network/NetworkTextReader.cs`) ported
  * for the editor: the same recursive descent over the same tokens (`lexer.ts`), raising the same `NETWORK_*` finding
  * at the same token, so what the LSP underlines is what the push refuses. Specified by
- * `volt-cli/docs/network-text-next.html` and openspec network-text-literal-nwl (task 5.1).
+ * `volt-cli/docs/network-text.html` and openspec network-text-literal-nwl (task 5.1).
  *
  * THE SCOPE. The bridge reader consults the declarations (`NetworkScope`) in the middle of a statement, and three of
  * its answers decide how the text reads: a POU or instance named R_EDGE, F_EDGE or PARALLEL is refused before its

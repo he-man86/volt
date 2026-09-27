@@ -67,12 +67,12 @@ VAR
 \tout : BOOL;
 \tafter : BOOL;
 END_VAR
-(* @volt-implementation *)
-NETWORK 0 LD
+(* @volt-implementation LD *)
+NETWORK
   out := TRUE;
   JMP Onwards;
 END_NETWORK
-NETWORK 1 LD LABEL: Onwards
+NETWORK LABEL: Onwards
   after := TRUE;
 END_NETWORK
 
@@ -93,18 +93,18 @@ VAR
 \tdone : BOOL;
 \tlater : BOOL;
 END_VAR
-(* @volt-implementation *)
-NETWORK 0 LD
-  IF cond THEN JMP Tail; END_IF
+(* @volt-implementation LD *)
+NETWORK
+  IF cond THEN JMP Tail; END_IF;
 END_NETWORK
-NETWORK 1 LD
-  IF cond THEN RETURN; END_IF
+NETWORK
+  IF cond THEN RETURN; END_IF;
 END_NETWORK
-NETWORK 2 LD LABEL: Tail
+NETWORK LABEL: Tail
   done := TRUE;
   RETURN;
 END_NETWORK
-NETWORK 3 LD
+NETWORK
   later := TRUE;
 END_NETWORK
 
@@ -125,16 +125,13 @@ VAR
 \tbStart : BOOL;
 \ttarget : INT;
 END_VAR
-(* @volt-implementation *)
-NETWORK 0 FBD
-  LET en1 := bRun;
-  IF en1 THEN
-  EXECUTE
+(* @volt-implementation FBD *)
+NETWORK
+  EXECUTE(EN := bRun)
 IF bStart THEN
 \ttarget := 40 + 2;
 END_IF
-  END_EXECUTE
-  END_IF
+  END_EXECUTE;
 END_NETWORK
 
 END_FUNCTION_BLOCK
@@ -170,8 +167,8 @@ VAR
 \tnext : INT;
 \ttwice : INT;
 END_VAR
-(* @volt-implementation *)
-NETWORK 0 FBD
+(* @volt-implementation FBD *)
+NETWORK
   next := VltRefSplit(src, doubled => twice);
 END_NETWORK
 
@@ -254,7 +251,7 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 
 	const NL = String.fromCharCode(10)
 	const prg = (name: string, vars: readonly string[], nets: readonly string[]) =>
-		["PROGRAM " + name, "VAR", ...vars, "END_VAR", "(* @volt-implementation *)", ...nets, "END_PROGRAM", ""].join(NL)
+		["PROGRAM " + name, "VAR", ...vars, "END_VAR", "(* @volt-implementation FBD *)", ...nets, "END_PROGRAM", ""].join(NL)
 
 	const BOOLS = ["\ta : BOOL;", "\tout : BOOL;"]
 
@@ -269,23 +266,23 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 			// Editing a conditional jump into an unconditional one is the swap DIRECTLY — no import at all,
 			// because only the RValue element changes. This is what was measured first.
 			vars: BOOLS,
-			nets: ["NETWORK 0 FBD", "  IF a THEN JMP Done; END_IF", "END_NETWORK", "NETWORK 1 FBD LABEL: Done", "  out := a;", "END_NETWORK"],
-			from: "IF a THEN JMP Done; END_IF",
+			nets: ["NETWORK", "  IF a THEN JMP Done; END_IF;", "END_NETWORK", "NETWORK LABEL: Done", "  out := a;", "END_NETWORK"],
+			from: "IF a THEN JMP Done; END_IF;",
 			to: "JMP Done;",
 		},
 		{
 			key: "eret",
 			what: "an unconditional RETURN",
 			vars: BOOLS,
-			nets: ["NETWORK 0 FBD", "  IF a THEN RETURN; END_IF", "END_NETWORK", "NETWORK 1 FBD", "  out := a;", "END_NETWORK"],
-			from: "IF a THEN RETURN; END_IF",
+			nets: ["NETWORK", "  IF a THEN RETURN; END_IF;", "END_NETWORK", "NETWORK", "  out := a;", "END_NETWORK"],
+			from: "IF a THEN RETURN; END_IF;",
 			to: "RETURN;",
 		},
 		{
 			key: "earrow",
 			what: "a box output pin wired straight to a variable",
 			vars: ["\tt1 : TON;", "\ta : BOOL;", "\tpt : TIME;", "\tel : TIME;"],
-			nets: ["NETWORK 0 FBD", "  t1(IN := a, PT := pt);", "END_NETWORK"],
+			nets: ["NETWORK", "  t1(IN := a, PT := pt);", "END_NETWORK"],
 			from: "t1(IN := a, PT := pt)",
 			to: "t1(IN := a, PT := pt, ET => el)",
 		},
@@ -293,9 +290,9 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 			key: "eexec",
 			what: "an EXECUTE box",
 			vars: BOOLS,
-			nets: ["NETWORK 0 FBD", "  out := a;", "END_NETWORK"],
+			nets: ["NETWORK", "  out := a;", "END_NETWORK"],
 			from: "  out := a;",
-			to: ["  EXECUTE", "    out := a;", "  END_EXECUTE"].join(NL),
+			to: ["  EXECUTE", "    out := a;", "  END_EXECUTE;"].join(NL),
 		},
 	]
 

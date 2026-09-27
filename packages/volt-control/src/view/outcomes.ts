@@ -89,7 +89,11 @@ export function describePull(outcome: PullOutcome): OutcomeView {
     case "conflict":
       return {
         tone: "warn",
-        message: `Pull hit ${outcome.paths.length} conflict(s) with the IDE. Resolve each file (edit, or take a whole side), then Finish Merge.`,
+        // The CLI's own note rides along when there is one: a conflict over network text v1 has ONE resolution
+        // (the IDE's side), and the generic "take a whole side" would let the engineer keep text no Volt pushes.
+        message:
+          `Pull hit ${outcome.paths.length} conflict(s) with the IDE. Resolve each file (edit, or take a whole side), then Finish Merge.` +
+          (outcome.message === undefined ? "" : ` ${outcome.message}`),
         actions: [OPEN_CONFLICTS, FINISH_MERGE, ABORT_MERGE],
       }
   }

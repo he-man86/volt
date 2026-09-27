@@ -57,7 +57,8 @@
 <p>
   A file's extension carries the <b>kind</b> and nothing else. A body's language is not in the extension: an
   editable FBD/LD body is the same <code>.fb</code>/<code>.prg</code>/<code>.fun</code> as a textual one — the
-  language rides on the <a href="network-text.html"><code>NETWORK</code> marker</a> in the content — and a
+  language rides on the body's <a href="network-text.html#whitespace">implementation marker</a> in the content,
+  <code>(* @volt-implementation FBD *)</code> or <code>… LD *)</code> — and a
   CFC/SFC body is that kind's extension too, materialized as a marker comment.
 </p>
 

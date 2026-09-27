@@ -11,8 +11,8 @@
  * with `volt push` reporting success (`twincat-graphical-create-loss`). Neither shape appears anywhere in
  * `test/e2e`, so 175 passing tests on both vendors said nothing about either.
  *
- * So this counts. Each construct the FORMAT defines (`docs/network-text.html` (statement forms), plus the network
- * metadata in section 7) against the e2e sources that push it. It is a REPORT, not a gate: a construct with
+ * So this counts. Each construct the FORMAT defines (`docs/network-text.html`, each row keyed by the id of the section
+ * that specifies it) against the e2e sources that push it. It is a REPORT, not a gate: a construct with
  * no coverage is a question — "can this be created, and does anyone know?" — and answering it needs a live
  * IDE, not a red CI job.
  *
@@ -51,34 +51,38 @@ const line = (rest: string): RegExp => new RegExp(AT_LINE + rest, 'm')
  * reported apart.
  */
 const CONSTRUCTS: { name: string; where: string; match: RegExp; archive?: RegExp }[] = [
-	{ name: "wire definition (LET)", where: "§6", match: /\bLET\s+\w+\s*:=/ },
-	{ name: "sink (lvalue := operand)", where: "§6", match: line("\\w[\\w.]*\\s*:=\\s*[^;\\s]") },
-	{ name: "operator group", where: "§6", match: /:=\s*\([^)]*\b(AND|OR|XOR|ADD|MUL|SUB|DIV)\b/ },
-	{ name: "function call", where: "§6", match: /:=\s*[A-Z_]\w*\(/ },
-	{ name: "FB instance call", where: "§6", match: /\b\w+\((\w+\s*:=|\s*\))/ },
-	{ name: "output read (inst.Pin)", where: "§6", match: /:=\s*\w+\.\w+/ },
-	{ name: "unnamed instance (??? : TYPE)", where: "§6", match: /\?\?\?\s*:\s*\w+\(/ },
-	{ name: "output pin (=>)", where: "§6", match: /=>/, archive: /n="OutputItems"[\s\S]{0,400}?<n \/>[\s\S]{0,400}?<v n="Operand">"[^"]+"/ },
-	{ name: "EN/ENO (IF en THEN … END_IF)", where: "§6", match: /IF\s+\w+\s+THEN\b/ },
-	{ name: "Execute box", where: "§6", match: /\bEXECUTE\b/, archive: /<v n="ProvidesSTSnippet">true<|n="STSnippet"[^\/]*>\s*<o/ },
-	{ name: "modifier NOT", where: "§6", match: /:=\s*NOT\s|\bAND\s+NOT\b|\bOR\s+NOT\b/ },
-	{ name: "modifier RISING", where: "§6", match: /\bRISING\b/ },
-	{ name: "modifier FALLING", where: "§6", match: /\bFALLING\b/ },
-	{ name: "SET coil (S=)", where: "§6", match: /\sS=\s/ },
-	{ name: "RESET coil (R=)", where: "§6", match: /\sR=\s/ },
-	{ name: "JMP", where: "§6", match: /\bJMP\s+\w+/, archive: /<v n="Flags">4</ },
-	{ name: "RETURN", where: "§6", match: /\bRETURN\s*;/, archive: /<v n="Flags">8</ },
-	{ name: "network LABEL", where: "§7", match: /NETWORK\s+\d+\s+\w+\s+LABEL:/ },
-	{ name: "network TITLE", where: "§7", match: /TITLE:/ },
-	{ name: "network COMMENT", where: "§7", match: line("\\/\\/ ") },
-	{ name: "network DISABLED", where: "§7", match: /\bDISABLED\b/ },
-	{ name: "language LD", where: "§7", match: /NETWORK\s+\d+\s+LD\b/ },
-	{ name: "language FBD", where: "§7", match: /NETWORK\s+\d+\s+FBD\b/ },
+	{ name: "wire (VAR_TEMP g… : BOOL)", where: "#wire", match: /\bVAR_TEMP\s+g\d+/ },
+	{ name: "coil (lvalue := operand)", where: "#assign", match: line("\\w[\\w.]*\\s*:=\\s*[^;\\s]") },
+	{ name: "chained assign (x := y S= v)", where: "#assign", match: /:=(\s|\\n)+\w[\w.]*\s*(:=|S=|R=)/ },
+	{ name: "operator group", where: "#group", match: /:=\s*\([^)]*\b(AND|OR|XOR|ADD|MUL|SUB|DIV)\b/ },
+	{ name: "function call", where: "#fb", match: /:=\s*[A-Z_]\w*\(/ },
+	{ name: "FB instance call", where: "#fb", match: /\b\w+\((\w+\s*:=|\s*\))/ },
+	{ name: "output read (inst.Pin)", where: "#fb", match: /:=\s*\w+\.\w+/ },
+	{ name: "unnamed instance (??? : TYPE)", where: "#unnamed-instance", match: /\?\?\?\s*:\s*\w+\(/ },
+	{ name: "output pin (=>)", where: "#eneno", match: /=>/, archive: /n="OutputItems"[\s\S]{0,400}?<n \/>[\s\S]{0,400}?<v n="Operand">"[^"]+"/ },
+	{ name: "EN pin (EN :=)", where: "#eneno", match: /\bEN\s*:=/ },
+	{ name: "ENO consumer (.ENO)", where: "#eneno", match: /\)\.ENO\b/ },
+	{ name: "Execute box", where: "#execute", match: /\bEXECUTE\b/, archive: /<v n="ProvidesSTSnippet">true<|n="STSnippet"[^\/]*>\s*<o/ },
+	{ name: "modifier NOT", where: "#group", match: /:=\s*NOT\s|\bAND\s+NOT\b|\bOR\s+NOT\b/ },
+	{ name: "rising edge (R_EDGE)", where: "#edge", match: /\bR_EDGE\(/ },
+	{ name: "falling edge (F_EDGE)", where: "#edge", match: /\bF_EDGE\(/ },
+	{ name: "PARALLEL", where: "#parallel", match: /\bPARALLEL\(/ },
+	{ name: "backticked operand", where: "#opaque", match: /`[^`\s]*\(/ },
+	{ name: "SET coil (S=)", where: "#assign", match: /\sS=\s/ },
+	{ name: "RESET coil (R=)", where: "#assign", match: /\sR=\s/ },
+	{ name: "JMP", where: "#control", match: /\bJMP\s+\w+/, archive: /<v n="Flags">4</ },
+	{ name: "RETURN", where: "#control", match: /\bRETURN\s*;/, archive: /<v n="Flags">8</ },
+	{ name: "network LABEL", where: "#comments", match: /NETWORK\s+LABEL:/ },
+	{ name: "network TITLE", where: "#comments", match: /TITLE:/ },
+	{ name: "network COMMENT", where: "#comments", match: line("\\/\\/ ") },
+	{ name: "network DISABLED", where: "#comments", match: /\bDISABLED\b/ },
+	{ name: "language LD", where: "#whitespace", match: /@volt-implementation LD \*\)/ },
+	{ name: "language FBD", where: "#whitespace", match: /@volt-implementation FBD \*\)/ },
 
 	// THE TWO THAT WERE MISSING, and the reason this file exists. Both are shapes a real project holds and
 	// nothing in the suite creates.
-	{ name: "EMPTY network (marker straight to END_NETWORK)", where: "§7", match: /NETWORK\s+\d+\s+\w+[^\n\\]*\\n\s*END_NETWORK/ },
-	{ name: "undriven coil (x := ;)", where: "§4", match: line("\\w[\\w.]*\\s*:=\\s*;") },
+	{ name: "EMPTY network (header straight to END_NETWORK)", where: "#comments", match: /NETWORK[^\n\\`]*\\n\s*END_NETWORK/ },
+	{ name: "undriven coil (x := ;)", where: "#empty-slot", match: line("\\w[\\w.]*\\s*:=\\s*;") },
 ]
 
 function sources(dir: string): string[] {

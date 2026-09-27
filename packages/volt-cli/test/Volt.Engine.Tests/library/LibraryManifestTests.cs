@@ -21,7 +21,7 @@ public class LibraryManifestTests
             "PLACEHOLDER true\n" +
             "SYSTEM false\n" +
             "DEPENDENCIES CAA Types, CAA Async Manager\n" +
-            "MATERIALIZATION 2\n",
+            "MATERIALIZATION 3\n",
             m);
     }
 
@@ -45,7 +45,7 @@ public class LibraryManifestTests
             "RESOLUTION Tc2_Standard, * (Beckhoff Automation GmbH)\n" +
             "PLACEHOLDER true\n" +
             "SYSTEM true\n" +
-            "MATERIALIZATION 2\n",
+            "MATERIALIZATION 3\n",
             m);
     }
 }

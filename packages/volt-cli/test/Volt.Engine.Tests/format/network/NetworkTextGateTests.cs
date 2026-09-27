@@ -8,7 +8,7 @@ using static Volt.Engine.Tests.NetworkModels;
 namespace Volt.Engine.Tests;
 
 /// <summary>
-/// Network text v2 gate: every diagnostic in the spec's table (docs/network-text-next.html#diagnostics and the
+/// Network text v2 gate: every diagnostic in the spec's table (docs/network-text.html#diagnostics and the
 /// scenarios of <c>specs/network-text/spec.md</c>) fires on its case, with its code and at its line — and what the
 /// spec says is accepted, is. A finding is always a diagnostic; nothing here expects an exception.
 /// </summary>

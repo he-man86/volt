@@ -25,14 +25,23 @@ public static class LibraryManifest
     public static string Resolution(string name, string version, string distributor) =>
         $"{name}, {version} ({distributor})";
 
-    /// <summary>WHICH MATERIALIZATION wrote the library's declaration files, stated in its manifest so a reader can
-    /// tell a stale one. 2: FUNCTIONs with no return type are rendered (<c>FUNCTION name</c>) — format 1 skipped them,
-    /// so a workspace pulled by it lacks StringUtils' <c>StrTrimA</c>/<c>StrMidA</c>/<c>StrReplaceA</c>, and the LSP,
-    /// which knows a library only through its materialization, reports every call to one as undefined. A manifest
-    /// without the line is format 1, and the LSP says so on it. Bump it whenever the rendered declarations change what
-    /// they declare: the manifest is the library's version-hash basis, so the bump itself re-fetches every library on
-    /// the next pull — which is the repair.</summary>
-    public const int Materialization = 2;
+    /// <summary>WHICH MATERIALIZATION wrote the workspace, stated in every library manifest so a reader can tell a
+    /// stale one. The manifest is the one file a pull always writes that can carry a format number (every project
+    /// resolves at least one library, and no source file has a header to put it in), so this names the whole
+    /// materialization, not only the declarations beside it — the LSP compares it with its own and names a mismatch
+    /// once, where it would otherwise misread every file the other format wrote.
+    /// <list type="bullet">
+    /// <item>2: FUNCTIONs with no return type are rendered (<c>FUNCTION name</c>) — format 1 skipped them, so a
+    /// workspace pulled by it lacks StringUtils' <c>StrTrimA</c>/<c>StrMidA</c>/<c>StrReplaceA</c>, and the LSP, which
+    /// knows a library only through its materialization, reports every call to one as undefined. A manifest without
+    /// the line is format 1.</item>
+    /// <item>3: graphical bodies are network text v2 (<c>docs/network-text.html</c>) — no <c>LET</c>, no numbered
+    /// <c>NETWORK &lt;n&gt; &lt;LANG&gt;</c> header. A v2 reader refuses format 2's bodies by name ("re-pull").</item>
+    /// </list>
+    /// Bump it whenever what a pull writes changes meaning: the manifest is the library's version-hash basis, so the bump
+    /// itself re-fetches every library on the next pull and restates the number the LSP reads — which is the repair.
+    /// (A graphical body needs no bump to be re-fetched: its version hashes its text, which the new writer changes.)</summary>
+    public const int Materialization = 3;
 
     public static string Build(
         string name,

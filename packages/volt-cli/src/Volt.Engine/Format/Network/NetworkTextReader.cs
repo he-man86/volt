@@ -8,7 +8,7 @@ namespace Volt.Engine.Format.Network;
 
 /// <summary>
 /// Network text v2: reads a body written as a literal transcript of the vendor's network model back into a
-/// <see cref="NetworkBody"/>. Specified by <c>docs/network-text-next.html</c> and
+/// <see cref="NetworkBody"/>. Specified by <c>docs/network-text.html</c> and
 /// <c>openspec/changes/network-text-literal-nwl</c>; the inverse of <see cref="NetworkTextWriter"/>. There is no
 /// second reader: v1 text (<c>LET</c>, <c>NETWORK &lt;n&gt; &lt;LANG&gt;</c>) is refused with a "re-pull" message
 /// and never translated (spec, "the body language and the v1 refusal").

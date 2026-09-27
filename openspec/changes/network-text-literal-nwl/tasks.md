@@ -766,7 +766,7 @@ the text's rule (`NetworkText.HasEnoOutput`) rather than a copy of it; the pull 
 
 ## 6. Migration and docs
 
-- [ ] 6.1 Bump MATERIALIZATION 2 → 3; re-pull the six corpora; rewrite e2e bodies and conformance fixtures
+- [x] 6.1 Bump MATERIALIZATION 2 → 3; re-pull the six corpora; rewrite e2e bodies and conformance fixtures
       (`network-graphical.ts`, `network-unresolved.ts`); re-record live only where a message moved. Delete
       `test/shared/V1CorpusReader.cs` with the re-pull (the swap kept it only to read the v1 corpus for the oracle).
       *Partly done at the close of section 5:* 5.5's re-pull made the corpus's graphical bodies v2, which left
@@ -774,23 +774,81 @@ the text's rule (`NetworkText.HasEnoOutput`) rather than a copy of it; the pull 
       the corpus through THE reader, against the scope a push reads it with (`NetworkScope.FromDeclarations` over the
       project's own item files, library items excluded as the IDE walk excludes them), and `V1CorpusReader.cs` is
       deleted. Pinned: 34 bodies / 157 networks, every one read and round-tripped, none refused. The conformance
-      fixtures are v2 already (5.2). STILL OPEN here: the MATERIALIZATION bump, the full six-corpus re-pull (5.5
-      re-pulled the 46 graphical files only) and the e2e bodies.
-- [ ] 6.2 Replace `docs/network-text.html` with `docs/network-text-next.html`; fix the stale model doc for the
+      fixtures are v2 already (5.2).
+      *Done (section 6, 2026-09-27):* `LibraryManifest.Materialization` is 3 (`LibraryManifestTests`, red first) — the
+      manifest is the one file every pull writes that can carry a format number, so it names the workspace, and the
+      LSP reads it (6.5). All six corpora re-pulled live through `bun run refresh:corpus` from copies of their projects
+      (`ide.ps1 -Fixture`), each file count unchanged (CodesysTestProject 850, lenze-mid 7,832, pro2193 8,106,
+      awa-palletizer 6,465, bakon-nano 6,663, twincat-project14 247 → 251). The diff is the bump alone —
+      `MATERIALIZATION 2` → `3` on all 695 manifests — plus, on twincat-project14 only, what the committed tree predated:
+      the ST implementation marker on 5 bodies and the 4 return-less Tc2_System FUNCTIONs format 2 added. **Set aside,
+      not committed:** the same TwinCAT pull rendered all 12 Tc2_System library ENUMS as `.gvl` (`VAR_GLOBAL
+      PATH_GENERIC : E_OPENPATH; …`) — a bridge regression from `a8f7e0d715` ("a library enum is the one the vendor
+      flags"): TwinCAT's `TypeSignature type="VarGlobal"` carries no Enum flag, only self-typed members (captured in
+      `tc-pou/library-signatures.xml`), so `LibSignatureRenderer` now reads every TwinCAT library enum as a GVL. Not
+      this change's to fix; the corpus keeps the `.enum` files. The e2e bodies: the nine suites still in v1
+      (`comments`, `create-shapes`, `grouping`, `preflight`, `rebuild`, `refused-shapes`, `splice`, `uncovered-shapes`,
+      `unresolved-marker`) are v2 and **green live on both vendors — the full e2e 206 pass / 20 skip / 0 fail on
+      CODESYS and on TwinCAT** (`scripts/e2e-graphical-coverage.ts` counts v2 constructs now: 29 of 29 pushed).
+      Premises the port refuted, each on grounds outside the code: `uncovered-shapes`' wrapper put a bare marker
+      ABOVE `VAR`, so its seven cases had round-tripped as ST text on both vendors (the mistake `unresolved-marker`
+      had already found in its own) — now graphical, and the SET+RESET fan-out case measures on TwinCAT a refusal by
+      name (the import folds the wire, C25, leaving `Stamp` no item for the storage — `CarriesDetail`), on CODESYS the
+      exact round trip; `preflight`'s undeclared `t1(…)` is a function call in v2 (spec, "an opaque operand is
+      backticked in place": only a head that is no name is refused), so the pre-flight shape is `` `fbs[1]`(IN := a) ``;
+      `??? := MOVE(src)` meant both a result pin and an assign in v1 and is now two cases (`MOVE(src, => ???)`, refused
+      by name on TwinCAT as a result pin in a changed network); the unconnected enable is `??? := NOT(EN := , a).ENO`,
+      which TwinCAT refuses by name ("no ENO output"), the same measured refusal `parity-fixes` accepts (4.4). No
+      conformance message moved, so nothing was re-recorded.
+- [x] 6.2 Replace `docs/network-text.html` with `docs/network-text-next.html`; fix the stale model doc for the
       unconditional jump (NetworkModel.cs vs DIALECT C11), the reader header ("decided by USE COUNT") and the
       ParallelRenderTests "forces a g" comment.
+      *Done (section 6):* the next page IS `docs/network-text.html` (git mv over the v1 page), rewritten from design to
+      reference — v1/v2 in place of today/after, the census that was pending now named as measured, TwinCAT's leaf wire
+      as measured (N22) and the storing fan-out refusal added, `#migration` as shipped (MATERIALIZATION 3, the conflict
+      note of 6.4, the check of 6.5). One claim corrected to the spec: `NETWORK_UNSUPPORTED` refuses an FB instance
+      whose text is an EXPRESSION; a bare name no declaration makes an instance is a function call. The three stale
+      docs were already fixed by the swap: `NetworkModel.Assign` states C11's terminator, the reader header names use
+      count only as what v1 did, and `ParallelRenderTests` no longer exists. `docs/items.html` said the language rides
+      on "the `NETWORK` marker" — it rides on the implementation marker now.
 - [ ] 6.3 Archive: check the spec delta still describes what was built; delete the recreated `openspec/specs/`.
-- [ ] 6.4 Release notes / CLI message: push pending graphical edits before upgrading — un-pushed v1 edits meet the
+      *BLOCKED (2026-09-27):* the archive waits on every other task, and three are open — 1.14 (TwinCAT's
+      Negation+edge order: no TwinCAT runtime licence on this machine), 1.16 (no engineer-drawn TwinCAT ladder
+      project) and 4.6 (the per-network lenze-mid census). The delta was checked against what was built: it holds —
+      the one divergence found was on the PAGE (an undeclared bare call head), corrected there to the spec (6.2).
+- [x] 6.4 Release notes / CLI message: push pending graphical edits before upgrading — un-pushed v1 edits meet the
       re-materialization as a whole-body conflict and cannot be pushed as v1.
-- [ ] 6.5 Ship CLI, LSP and volt-vscode together; a version check compares the workspace MATERIALIZATION with the
+      *Done (section 6):* a conflicted `volt pull` names every conflicted file that still holds network text v1 and
+      the one resolution that works (`volt merge --resolve <path> --use-theirs`, redo the edit on v2, `volt merge
+      --continue`) — `PullResult.message` on the conflict kind, printed by the CLI and appended to the frontends'
+      conflict toast (`PullCommandTests.A_conflict_over_network_text_v1_names_the_files_and_the_resolution` and
+      `An_ordinary_conflict_carries_no_v1_note`, red first; `projection.test.ts` in volt-control). The release note is
+      `docs/network-text.html#migration` ("push pending graphical edits before upgrading"); GitHub releases are
+      `--generate-notes` from commits, so there is no curated notes file to add it to.
+- [x] 6.5 Ship CLI, LSP and volt-vscode together; a version check compares the workspace MATERIALIZATION with the
       LSP's and names the mismatch instead of flagging every body `NETWORK_PARSE`.
-- [ ] 6.6 Grep `network-text.html#` (about 27 links in source, tests, wire.html and DIALECT.md: #diagnostics, #grammar, #let, #opaque, #sink, #eneno,
+      *Done (section 6):* the LSP's `MATERIALIZATION` is 3 (was `LIBRARY_MATERIALIZATION` 2). A manifest below it is
+      `library-stale` and says what each missing format lacks (format 2: "network text v1, which this language server
+      does not read"); above it, `materialization-newer` names the LSP as the stale side ("update the language server
+      (volt-vscode)"); on either mismatch no graphical body gets network-text diagnostics. A workspace with no manifest
+      states no number, so a v1 body there keeps its own re-pull finding. `server.test.ts`: four tests, the older and
+      newer cases red first. The three already ship together: one installer, one version (`scripts/version.ts`).
+- [x] 6.6 Grep `network-text.html#` (about 27 links in source, tests, wire.html and DIALECT.md: #diagnostics, #grammar, #let, #opaque, #sink, #eneno,
       #unnamed-instance, #fb, #empty-slot, #group, #whitespace) and confirm each id exists on the new page or rewrite
       the link.
-- [ ] 6.7 Add `network-text-next.html` to the docs nav (`assets/doc.js` GROUPS) as "Network text (next)" and to
+      *Done (section 6):* 21 anchored links (#diagnostics 3, #eneno 2, #fb 2, #grammar 2, #group 2, #opaque 1, #sink
+      6, #unnamed-instance 4, #whitespace 1) — every id exists on the page and each still names what the linking line
+      means (the six #sink links are `???`-coil fixtures; the page's `#sink` is "a consumer that is not a declared
+      wire is an ordinary coil"). The nine links to `network-text-next.html` (reader, writer, three C# test files, two
+      LSP sources, the TextMate grammar, ARCHITECTURE.md) now point at `network-text.html`.
+- [x] 6.7 Add `network-text-next.html` to the docs nav (`assets/doc.js` GROUPS) as "Network text (next)" and to
       `index.html` until the swap.
-- [ ] 6.8 Fix `packages/volt-lsp-iec/docs/codesys-reference/01-languages-and-editors.md:33-34`: `S=`/`R=` are
+      *Superseded by 6.2:* the swap landed in this section, so there is no "next" page to list — `assets/doc.js` and
+      `index.html` already link `network-text.html` ("Network text"), which is the v2 page now.
+- [x] 6.8 Fix `packages/volt-lsp-iec/docs/codesys-reference/01-languages-and-editors.md:33-34`: `S=`/`R=` are
       level-triggered (set/reset while the operand is TRUE), not transitions (review 7.15).
+      *Done (section 6):* both rows say level-triggered — set (reset) on every scan the operand is TRUE, held while it
+      is FALSE, not a transition. The design page's decision 4 no longer calls the reference wrong.
 
 ## 7. Review 2026-09-26 — index
 

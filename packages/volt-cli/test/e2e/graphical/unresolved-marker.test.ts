@@ -43,7 +43,7 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 	 * THE INVARIANT: create the body, pull it back, and get the same bytes. Not "the push was accepted" — an
 	 * accepted push that reshapes the drawing is the failure this file exists to catch.
 	 */
-	async function roundTrips(slug: string, body: string, vars: string, tcCannotCreate?: string): Promise<void> {
+	async function roundTrips(slug: string, lang: "FBD" | "LD", body: string, vars: string, tcCannotCreate?: string): Promise<void> {
 		const name = id(slug)
 		const item = fid(slug, "prg")
 		await clean(item)
@@ -56,7 +56,7 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 		// push, and the two that failed were the only honest signal in the file — they asked for a graphical
 		// refusal from a body the graphical path never saw. Every other suite in this folder already writes it
 		// the right way (`create-shapes`, `fanout`, `comments`, `graphical-kinds`).
-		const src = `PROGRAM ${name}\nVAR\n${vars}END_VAR\n(* @volt-implementation *)\n${body}\nEND_PROGRAM\n`
+		const src = `PROGRAM ${name}\nVAR\n${vars}END_VAR\n(* @volt-implementation ${lang} *)\n${body}\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 
@@ -96,7 +96,7 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 	 * from — that is the whole reason the form exists.
 	 */
 	it("an UNDECLARED FB instance keeps its type: `??? : TYPE(pins)`", async () => {
-		await roundTrips("qmark_inst", "NETWORK 0 FBD\n  ??? : TON(IN := a, PT := pt);\nEND_NETWORK\n", BOOLS)
+		await roundTrips("qmark_inst", "FBD", "NETWORK\n  ??? : TON(IN := a, PT := pt);\nEND_NETWORK\n", BOOLS)
 	})
 
 	/** The same, with a type this project does NOT have — exactly the Lenze case, where the box names a library
@@ -104,7 +104,8 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 	it("an undeclared instance of an UNRESOLVABLE type survives too", async () => {
 		await roundTrips(
 			"qmark_lib",
-			"NETWORK 0 FBD\n  ??? : L_TT1P_FlexCamBase(xEnable := , Axis := );\nEND_NETWORK\n",
+			"FBD",
+			"NETWORK\n  ??? : L_TT1P_FlexCamBase(xEnable := , Axis := );\nEND_NETWORK\n",
 			BOOLS,
 			// NO VENDOR BRANCH. This carried one — TwinCAT refused the unconnected pins (`xEnable := ,`) as "a
 			// ladder rung terminator" — and the refusal was wrong: emitted as an `<inVariable>` with an EMPTY
@@ -115,14 +116,15 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 	/** AN INPUT PIN. The position no real project has shown us yet — which is the reason to pin it, not a
 	 *  reason to skip it. */
 	it("`???` on a named INPUT pin", async () => {
-		await roundTrips("qmark_in", "NETWORK 0 FBD\n  t1(IN := ???, PT := pt);\nEND_NETWORK\n", BOOLS)
+		await roundTrips("qmark_in", "FBD", "NETWORK\n  t1(IN := ???, PT := pt);\nEND_NETWORK\n", BOOLS)
 	})
 
 	/** AN OUTPUT PIN, spelled with ST's own output-parameter operator. */
 	it("`???` on a named OUTPUT pin", async () => {
 		await roundTrips(
 			"qmark_out",
-			"NETWORK 0 FBD\n  t1(IN := a, PT := pt, ET => ???);\nEND_NETWORK\n",
+			"FBD",
+			"NETWORK\n  t1(IN := a, PT := pt, ET => ???);\nEND_NETWORK\n",
 			BOOLS,
 			// TwinCAT: the importer honours the wire and lowers it to a SEPARATE assignment rather than a pin on
 			// the box, so what came back would not be what was pushed (DIALECT C20). Editing one that already
@@ -137,21 +139,30 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 	it("`???` on an input AND an output pin of the SAME box", async () => {
 		await roundTrips(
 			"qmark_both",
-			"NETWORK 0 FBD\n  t1(IN := ???, PT := pt, ET => ???);\nEND_NETWORK\n",
+			"FBD",
+			"NETWORK\n  t1(IN := ???, PT := pt, ET => ???);\nEND_NETWORK\n",
 			BOOLS,
 			"output pin straight to a variable", // TwinCAT: the same C20 limit, reached through the output arm
 		)
 	})
 
-	/** THE BOX'S RESULT PIN — the unnamed output, which network text spells by assigning the call. */
-	it("`???` as the target of a box's RESULT", async () => {
-		await roundTrips("qmark_res", "NETWORK 0 FBD\n  ??? := MOVE(src);\nEND_NETWORK\n", BOOLS)
+	/** THE BOX'S RESULT PIN — the unnamed output the box writes itself, spelled `=> ???` in its own call. v1 spelled
+	 *  it `??? := MOVE(src);`, which is also an Assign whose value is the box — a different NWL item — so nothing
+	 *  could tell them apart (`network-unresolved.ts` in the LSP conformance set records the difference).
+	 *  TwinCAT's import has no unmeasured result pin in a structurally changed network, so it refuses one by name. */
+	it("`???` on a box's RESULT pin", async () => {
+		await roundTrips("qmark_res", "FBD", "NETWORK\n  MOVE(src, => ???);\nEND_NETWORK\n", BOOLS, "result pin")
+	})
+
+	/** …and the Assign the v1 spelling also meant: a coil nobody named, driven by a box. */
+	it("`???` as the target of an assign driven by a box", async () => {
+		await roundTrips("qmark_asg", "FBD", "NETWORK\n  ??? := MOVE(src);\nEND_NETWORK\n", BOOLS)
 	})
 
 	/** A COIL WITH NO TARGET. `??? := ioAxis.xVirtual;` is the shape a real project carried, and the reason the
 	 *  format could not adopt `?` as its unconnected-pin token. */
 	it("`???` as a coil target", async () => {
-		await roundTrips("qmark_coil", "NETWORK 0 LD\n  ??? := a;\nEND_NETWORK\n", BOOLS)
+		await roundTrips("qmark_coil", "LD", "NETWORK\n  ??? := a;\nEND_NETWORK\n", BOOLS)
 	})
 
 	/** …and behind an UNCONNECTED ENABLE, which is how the two LIVE Lenze POUs (`Mach1_MIDS`, `AHWF`) carry it.
@@ -159,16 +170,22 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 	it("`???` as a coil target behind an unconnected enable", async () => {
 		await roundTrips(
 			"qmark_coilen",
-			"NETWORK 0 LD\n  LET en1 := ;\n  IF en1 THEN ??? := NOT(a); END_IF\nEND_NETWORK\n",
+			"LD",
+			// The NOT box shows EN (wired to nothing) and its consumer reads ENO, as the recorded LSP fixture has it —
+			// the ENO form because a box CODESYS builds with EN is read through its ENO (DIALECT N21), so the
+			// suffix-less spelling is refused there.
+			"NETWORK\n  ??? := NOT(EN := , a).ENO;\nEND_NETWORK\n",
 			BOOLS,
-			// NO VENDOR BRANCH. TwinCAT refused this for a year — the importer folds a wired enable in as an
-			// ordinary data input — until the fold turned out to be repairable: the input item and its name slot
-			// already exist, so renaming slot 0 to `EN` and setting the display flag makes it a real enable.
+			// TwinCAT: its import builds the NOT box with no ENO output, so `.ENO` names an output the box would not
+			// have and the push is refused by name before anything is written — the same measured refusal the EN-pin
+			// case in `parity-fixes.test.ts` accepts (task 4.4). v1's `IF en1 THEN … END_IF` spelled the enable
+			// without saying which output the rung reads, which is how it passed there.
+			"no ENO output",
 		)
 	})
 
 	/** AN OPERAND INSIDE A GROUP — the marker where a plain variable belongs. */
 	it("`???` as an operand in a group", async () => {
-		await roundTrips("qmark_operand", "NETWORK 0 FBD\n  out := (??? AND a);\nEND_NETWORK\n", BOOLS)
+		await roundTrips("qmark_operand", "FBD", "NETWORK\n  out := (??? AND a);\nEND_NETWORK\n", BOOLS)
 	})
 })

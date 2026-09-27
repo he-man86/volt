@@ -11,9 +11,9 @@
  *
  * WHY IT IS A GATE AND NOT A NOTE. A per-network splice — re-resolving only the network an engineer changed,
  * leaving the others byte-identical — is only sound where one network in gives one network out, and that is
- * exactly the connected-component rule. It is also PREDICTABLE from the model before touching the IDE, because
- * `TcNetworkWriter.Unhoist` already folds shared-wire trees into one item: the component count is its result
- * count. If a TwinCAT update ever changed this grouping, every such splice would silently renumber an
+ * exactly the connected-component rule. It is also PREDICTABLE from the model before touching the IDE:
+ * `TcNetworkWriter.Rungs` groups a network's top-level items by the wires that connect them, and that count is the
+ * number of networks the importer will build. If a TwinCAT update ever changed this grouping, every such splice would silently renumber an
  * engineer's networks, so it is asserted rather than remembered.
  */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
@@ -23,7 +23,7 @@ const SHAPES: [string, string, string][] = [
 	// label, VAR block, the ONE network's statements
 	["one connected tree", "\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;", "  out := (a AND b);"],
 	["one wire, two coils", "\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;",
-		"  LET g1 := (a AND b);\n  out1 := g1;\n  out2 := g1;"],
+		"  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := (a AND b);\n  out1 := g1;\n  out2 := g1;"],
 	["two disconnected sinks", "\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;",
 		"  out1 := a;\n  out2 := b;"],
 	["fb call + output read", "\tt1 : TON;\n\ta : BOOL;\n\tpt : TIME;\n\tdone : BOOL;",
@@ -57,7 +57,7 @@ describe(`graphical / importer grouping (${BASE})`, () => {
 			// outlives its own test is exactly the shape that produces that.
 			try {
 
-				const src = `PROGRAM ${name}\nVAR\n${vars}\nEND_VAR\n(* @volt-implementation *)\nNETWORK 0 FBD\n${body}\nEND_NETWORK\n\nEND_PROGRAM\n`
+				const src = `PROGRAM ${name}\nVAR\n${vars}\nEND_VAR\n(* @volt-implementation FBD *)\nNETWORK\n${body}\nEND_NETWORK\n\nEND_PROGRAM\n`
 				const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 
 				if (!created.accepted) {
@@ -67,7 +67,7 @@ describe(`graphical / importer grouping (${BASE})`, () => {
 				}
 
 				const v = (await bridge.fetch({ knownItems: {}, onlyItems: [item] })).changed.find((i: any) => i.name === item)
-				const n = [...String(v.sourceText).matchAll(/^NETWORK\s+\d+\s+\w+/gm)].length
+				const n = [...String(v.sourceText).matchAll(/^NETWORK$/gm)].length
 				report.push(`  ${label.padEnd(24)} pushed 1 network -> got ${n}`)
 				counts.push(n)
 			} finally {

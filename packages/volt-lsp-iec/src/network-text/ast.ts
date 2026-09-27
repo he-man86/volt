@@ -1,5 +1,5 @@
 /**
- * Network-text AST — the textual form of an FBD/LD body, v2 (`volt-cli/docs/network-text-next.html`, openspec
+ * Network-text AST — the textual form of an FBD/LD body, v2 (`volt-cli/docs/network-text.html`, openspec
  * network-text-literal-nwl). A body is network text when it carries a graphical implementation marker
  * (`(* @volt-implementation FBD|LD *)`, `syntax/isGraphicalBody`). One statement per vendor network item:
  *

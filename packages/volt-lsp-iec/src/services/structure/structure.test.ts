@@ -78,21 +78,22 @@ test("semantic tokens: color network-text operand text (whole-doc pass covers gr
 VAR
 	a : BOOL; b : BOOL; out : BOOL;
 END_VAR
-NETWORK 0 LD
+(* @volt-implementation LD *)
+NETWORK
 out := (a AND b);
 END_NETWORK
 END_FUNCTION_BLOCK`
   const { doc, project } = setup(src)
   const { data } = semanticTokens(doc, project)
   expect(data.length % 5).toBe(0)
-  // a token lands on the `out` operand line inside the network (line index 5, 0-based)
+  // a token lands on the `out` operand line inside the network (line index 6, 0-based)
   let line = 0
   const lines: number[] = []
   for (let i = 0; i < data.length; i += 5) {
     line += data[i]! // deltaLine is cumulative in the LSP encoding
     lines.push(line)
   }
-  expect(lines).toContain(5) // the `out := (a AND b);` operand line is tokenized
+  expect(lines).toContain(6) // the `out := (a AND b);` operand line is tokenized
 })
 
 test("semantic tokens: emits 5-int tuples with valid type indices", () => {

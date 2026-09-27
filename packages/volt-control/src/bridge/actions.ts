@@ -28,7 +28,7 @@ export type PullOutcome =
   // destroyed. `PushOutcome` below has carried the same field all along; the mirror image did not.
   | { kind: "ok"; synced: string[]; status?: StatusJson; message?: string }
   | { kind: "refused"; reason: string }
-  | { kind: "conflict"; paths: string[]; status?: StatusJson }
+  | { kind: "conflict"; paths: string[]; status?: StatusJson; message?: string }
   | { kind: "error"; message: string }
 
 export type PushOutcome =

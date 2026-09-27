@@ -18,7 +18,7 @@
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import {
 	id, fid, bridge, requireHealthy, BASE, expectRoundTrip, expectRoundTripOrRefusal, diagnostics,
-	removeItem, createItem, fetchItem, pushOps, versionOf,
+	removeItem, createItem, fetchItem, pushOps, versionOf, plcFolder, FOLDER, VENDOR,
 } from "../harness"
 
 describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
@@ -40,9 +40,14 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		})
 	})
 
-	/** A program wrapper, so each case is only its networks. */
-	const prg = (name: string, networks: string, vars = "\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n") =>
-		`PROGRAM ${name}\n(* @volt-implementation *)\nVAR\n${vars}END_VAR\n\n${networks}\nEND_PROGRAM\n`
+	/** A program wrapper, so each case is only its networks.
+	 *
+	 *  THE MARKER GOES AFTER `END_VAR` and names the language. This wrapper put a bare marker ABOVE `VAR` until
+	 *  network text v2, which made the whole `VAR … END_VAR … NETWORK …` blob the implementation — stored verbatim as
+	 *  ST, so every case here round-tripped a text blob and no graphical path ever ran (`unresolved-marker.test.ts`
+	 *  found the same mistake in its own wrapper). */
+	const prg = (name: string, lang: "FBD" | "LD", networks: string, vars = "\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n") =>
+		`PROGRAM ${name}\nVAR\n${vars}END_VAR\n(* @volt-implementation ${lang} *)\n${networks}\nEND_PROGRAM\n`
 
 	/** The diagnostics a body ADDS. Counted as a delta, because the fixture project reports its own. */
 	const added = async (before: any[]): Promise<string[]> => {
@@ -67,7 +72,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	 */
 	it("a coil with nothing driving it round-trips", async () => {
 		const name = id("ucoil")
-		await expectRoundTrip(fid("ucoil", "prg"), prg(name, `NETWORK 0 LD\n  out := ;\nEND_NETWORK\n`))
+		await expectRoundTrip(fid("ucoil", "prg"), prg(name, "LD", `NETWORK\n  out := ;\nEND_NETWORK\n`))
 	})
 
 	/**
@@ -80,7 +85,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	 */
 	it("an empty network round-trips, or is refused by name", async () => {
 		const name = id("enet")
-		const src = prg(name, `NETWORK 0 LD\n  out := (a AND b);\nEND_NETWORK\nNETWORK 1 LD\nEND_NETWORK\n`)
+		const src = prg(name, "LD", `NETWORK\n  out := (a AND b);\nEND_NETWORK\nNETWORK\nEND_NETWORK\n`)
 
 		const outcome = await expectRoundTripOrRefusal(fid("enet", "prg"), src, "network")
 		console.log(`  [empty network] ${BASE}: ${outcome}`)
@@ -95,7 +100,8 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const name = id("lbl0")
 		const src = prg(
 			name,
-			`NETWORK 0 LD LABEL: First\n  out := ;\nEND_NETWORK\nNETWORK 1 LD LABEL: Second\nEND_NETWORK\n`,
+			"LD",
+			`NETWORK LABEL: First\n  out := ;\nEND_NETWORK\nNETWORK LABEL: Second\nEND_NETWORK\n`,
 			"\tout : BOOL;\n",
 		)
 
@@ -118,7 +124,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const name = id("rcoil")
 		const before = await diagnostics()
 
-		const back = await expectRoundTrip(fid("rcoil", "prg"), prg(name, `NETWORK 0 LD\n  out R= a;\nEND_NETWORK\n`))
+		const back = await expectRoundTrip(fid("rcoil", "prg"), prg(name, "LD", `NETWORK\n  out R= a;\nEND_NETWORK\n`))
 
 		expect(back, "the reset coil came back as something else").toContain("R=")
 		expect(back, "a reset coil must not degrade to a SET coil").not.toContain("S=")
@@ -130,35 +136,39 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	 * than a single flag being echoed back. A fan-out whose coils disagree could not be spelled at all until
 	 * storage moved onto the target, so this is also the regression test for that move.
 	 *
-	 * THE WIRE NAME IS MATCHED LOOSELY, and that is not a weakened assertion. A minted wire is named `g<VarId>`
-	 * from the id the VENDOR holds (`NetworkTextWriter.WireName`), so a body the IDE has just CREATED gets the
-	 * ids that IDE assigned — TwinCAT answered `g1` where the push said `g0`. Volt cannot dictate them and does
-	 * not try: the name exists so the same wire keeps the same name across a pull → push round trip, which is a
-	 * statement about an EXISTING body. `fanout.test.ts` already encodes this with `/LET g\d+/`, and a strict
-	 * `expectRoundTrip` here would have been asserting something the format never promised.
-	 *
-	 * What IS promised, and is asserted: each coil keeps its OWN storage, both read the same wire, and pushing
-	 * back what came out changes nothing.
+	 * CODESYS builds the Demux the text declares, under the VarId the text gave it, and each coil must come back with
+	 * its OWN storage. TwinCAT's only create door, the PLCopen import, folds a fan-out wire into ONE assign driving
+	 * both coils (DIALECT D22 / C25); a plain fan-out is kept in that folded shape (`fanout.test.ts`), but here the
+	 * coils carry storage the fold leaves `Stamp` no item to write onto, and it refuses by name rather than report a
+	 * body whose storage it did not write (`BeckhoffDriver.Stamp`, `CarriesDetail`). Measured 2026-09-27 — the first
+	 * run of this case through a graphical path: until v2 its wrapper put the marker above `VAR`, so it round-tripped
+	 * as ST text on both vendors.
 	 */
 	it("a SET and a RESET coil on one wire keep their own storage", async () => {
 		const name = id("srcoil")
 		const item = fid("srcoil", "prg")
 		const src = prg(
 			name,
-			`NETWORK 0 LD\n  LET g0 := (a AND b);\n  latched S= g0;\n  cleared R= g0;\nEND_NETWORK\n`,
+			"LD",
+			`NETWORK\n  VAR_TEMP g0 : BOOL; END_VAR\n  g0 := (a AND b);\n  latched S= g0;\n  cleared R= g0;\nEND_NETWORK\n`,
 			"\ta : BOOL;\n\tb : BOOL;\n\tlatched : BOOL;\n\tcleared : BOOL;\n",
 		)
 
 		await removeItem(item)
+		if (VENDOR === "twincat") {
+			const before = await versionOf(item)
+			const r = await pushOps([{ op: "set", name: item, toFolder: await plcFolder(FOLDER), sourceText: src, ifVersion: null }])
+			expect(r.accepted, "TwinCAT created a fan-out with storing coils it has no item to stamp").toBe(false)
+			expect(JSON.stringify(r.conflicts), "the refusal does not name the shape change").toContain("item(s)")
+			expect(await versionOf(item), "a refused create wrote the item anyway").toBe(before)
+			return
+		}
 		await createItem(item, src)
 		const back = (await fetchItem(item)).sourceText
 
-		const wire = /LET (g\d+) := \(a AND b\);/.exec(back)
-		expect(wire, `no fan-out wire in the created body:\n${back}`).not.toBeNull()
-		const g = wire![1]!
-
-		expect(back, "the SET coil lost its storage").toContain(`latched S= ${g};`)
-		expect(back, "the RESET coil lost its storage - or took the SET's").toContain(`cleared R= ${g};`)
+		// Each coil keeps its own storage — a SET that came back as the RESET's (or plain) is the bug this pins.
+		expect(back, "the SET or the RESET coil lost its storage")
+			.toContain("  VAR_TEMP g0 : BOOL; END_VAR\n  g0 := (a AND b);\n  latched S= g0;\n  cleared R= g0;\n")
 
 		// THE FIXED POINT is the half a create cannot give: push back exactly what came out, and nothing moves.
 		const again = await pushOps([
@@ -169,31 +179,30 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	})
 
 	/**
-	 * A RISING-EDGE MODIFIER on a consumed operand.
+	 * A RISING-EDGE FLAG on a consumed operand, spelled `R_EDGE(a)` — IEC's edge word for the vendor's IFlags bit,
+	 * never an `R_TRIG` box (which would add an instance the IDE never had).
 	 *
-	 * `ApplyMods` spells `RISING`/`FALLING` on a VALUE and `AssignOp` spells nothing of the sort on a TARGET —
-	 * an asymmetry found this session, where an edge-triggered COIL rendered as a plain one. That half is
-	 * guarded by refusal now (the writer refuses an edge coil by name and the body materializes as the marker)
-	 * because a census of five real projects found no edge coil to calibrate a spelling against. The VALUE side is expressible and had still never been pushed.
+	 * The VALUE side is the one the text spells; an edge-triggered COIL has no spelling (a census of five real
+	 * projects found none to calibrate one against), so a body holding one materializes as the marker.
 	 */
-	it("a RISING-edge modifier survives a round trip", async () => {
+	it("a rising edge (R_EDGE) survives a round trip", async () => {
 		const name = id("rise")
 		const back = await expectRoundTrip(
 			fid("rise", "prg"),
-			prg(name, `NETWORK 0 FBD\n  out := (a RISING AND b);\nEND_NETWORK\n`),
+			prg(name, "FBD", `NETWORK\n  out := (R_EDGE(a) AND b);\nEND_NETWORK\n`),
 		)
 
-		expect(back, "the rising-edge modifier was dropped").toContain("RISING")
+		expect(back, "the rising edge was dropped").toContain("R_EDGE(a)")
 	})
 
-	/** The same for FALLING, which shares the model field and every code path. */
-	it("a FALLING-edge modifier survives a round trip", async () => {
+	/** The same for F_EDGE, which shares the model field and every code path. */
+	it("a falling edge (F_EDGE) survives a round trip", async () => {
 		const name = id("fall")
 		const back = await expectRoundTrip(
 			fid("fall", "prg"),
-			prg(name, `NETWORK 0 FBD\n  out := (a FALLING AND b);\nEND_NETWORK\n`),
+			prg(name, "FBD", `NETWORK\n  out := (F_EDGE(a) AND b);\nEND_NETWORK\n`),
 		)
 
-		expect(back, "the falling-edge modifier was dropped").toContain("FALLING")
+		expect(back, "the falling edge was dropped").toContain("F_EDGE(a)")
 	})
 })

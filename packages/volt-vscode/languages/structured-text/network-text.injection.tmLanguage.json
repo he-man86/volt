@@ -5,7 +5,7 @@
   "injectionSelector": "L:source.structured-text -comment -string",
   "patterns": [
     {
-      "comment": "A network-text network \u2014 the textual form of an FBD/LD body, network text v2 (volt-cli docs/network-text-next.html). Detected by content (the NETWORK header at a line start), so it lights up in any graphical body. The header carries no order number and no language (the body's `(* @volt-implementation FBD|LD *)` marker says it once); its optional fields are NAMED and come in one order \u2014 LABEL: is the jump target, TITLE: is free text with ST's $-escapes, DISABLED the vendor's bit \u2014 and it ends at its newline. `\\b` after NETWORK keeps a variable such as NETWORK_OK an identifier. Mirrors the LSP's network-text parser header.",
+      "comment": "A network-text network \u2014 the textual form of an FBD/LD body, network text v2 (volt-cli docs/network-text.html). Detected by content (the NETWORK header at a line start), so it lights up in any graphical body. The header carries no order number and no language (the body's `(* @volt-implementation FBD|LD *)` marker says it once); its optional fields are NAMED and come in one order \u2014 LABEL: is the jump target, TITLE: is free text with ST's $-escapes, DISABLED the vendor's bit \u2014 and it ends at its newline. `\\b` after NETWORK keeps a variable such as NETWORK_OK an identifier. Mirrors the LSP's network-text parser header.",
       "name": "meta.network.vg",
       "begin": "^\\s*(NETWORK)\\b(?:[ \\t]+(LABEL:)[ \\t]*(\\w+))?(?:[ \\t]+(TITLE:)[ \\t]*(\"(?:[^\"$\\n]|\\$.)*\"))?(?:[ \\t]+(DISABLED))?",
       "beginCaptures": {
