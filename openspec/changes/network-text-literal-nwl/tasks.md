@@ -596,8 +596,27 @@ the text's rule (`NetworkText.HasEnoOutput`) rather than a copy of it; the pull 
       suffix-less form is refused on CODESYS) and accepts TwinCAT's named ENO refusal; `parity-fixes`' wire count and the
       fixed-point test's shape are vendor-stated (D22/C25: TwinCAT's import folds a wire; a titled network holding one
       is refused rather than stamped, so the fixed point uses the chained assign both vendors create).
-- [ ] 4.5 Ladder census round trip: lenze-mid pull → gate → push into an empty project → re-pull; per network compare
+- [x] 4.5 Ladder census round trip: lenze-mid pull → gate → push into an empty project → re-pull; per network compare
       Demux (573), multi-output Assign (40), Parallel (17), EN boxes.
+      *Done (section 4), live on SP21 (2026-09-27):* a fresh v2 pull of a copy of `Lenze_MID-S100_V5_00_602_T51`
+      (7,832 files; the committed corpus is v1 until 6.1), migrated into a blank project by `scripts/corpus-migration.ts`
+      (`VOLT_CORPUS_ROOT`), re-pulled into a second workspace: **165 files, 23 graphical bodies, 85 networks came back
+      byte-identical** — 20 wires (`VAR_TEMP`), 4 chained (multi-output) assigns, 45 EN pins, 14 `.ENO` consumers, the
+      same counts on both sides. What did not travel, each by name, never reshaped: **11 bodies pull as the marker**
+      (4 "an assign below the top level", 3 "a wire of unknown type", 2 "a bit operator box connected by a stored output
+      slot", 1 "an FB instance the declarations do not name", 1 "a main output other than slot 0"); **6 bodies are
+      refused on push** (`Mach1_Drives`, `MainDrive`, `SideCorrection`, `SpeedCalculationTrayfiller`,
+      `fc_CamC_CP_Base`, `fc_CamC_CC_Base` — each holds a consumed enabled comparison, which CODESYS does not compile
+      when Volt builds it, DIALECT N21) and were set aside for the round trip: they carry the other 36 wires, 5 chained
+      assigns, 63 EN pins and all 4 Parallels the text spells. A pushed Parallel is therefore proved by the live e2e
+      instead (`real-project-shapes.test.ts`: fed and unfed, `MODE := Sequential`, exact on CODESYS; refused by name
+      before TwinCAT's import). The v1 census figures (573 Demux items, 40 multi-output assigns, 17 Parallels) count
+      vendor items across all 40 graphical POUs; the text round-trips what it spells, and names the rest. Two finder
+      traps fixed or worked around on the way: the e2e pipe module stamped the bare prefix into `VOLT_PIPE` at import,
+      so the IDE the finder launched served the wrong pipe (fixed, `test/e2e/lib/pipe.ts`); and the SP19
+      `Standard.project` template raises a modal "upgrade the storage format" box on the first create, which blocks the
+      bridge silently — accepted by hand on the throwaway blank here, still unhandled by the launcher's dialog
+      suppression (`run_pipe_production.py`), noted for the tooling.
 
 ## 5. LSP and editor
 

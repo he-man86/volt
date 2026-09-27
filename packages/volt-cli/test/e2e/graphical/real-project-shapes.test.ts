@@ -22,7 +22,7 @@
  * they will not know changed.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, fetchItem, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE } from "../harness"
+import { bridge, id, fid, cleanup, fetchItem, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, VENDOR, BASE } from "../harness"
 
 setDefaultTimeout(30000)
 
@@ -188,5 +188,36 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 		const twice = await roundTrip(full, once)
 
 		expect(twice).toBe(once)
+	})
+	/**
+	 * A PARALLEL BRANCH (network text v2: `PARALLEL(…)`, `MODE := Sequential` off the default). CODESYS builds a
+	 * `BoxTreeParallel` natively and must hand it back exactly, fed and unfed, in both modes — v1 rebuilt one as AND/OR
+	 * and a fresh one as `Sequential` (DIALECT N20). TwinCAT's import has no element for one (D30), so the push is
+	 * refused by name before the import (task 4.2). Lenze's 17 Parallels all sit in bodies holding an enabled
+	 * comparison, which CODESYS cannot rebuild at all (N21) — so this is where a pushed Parallel is proved live (4.5).
+	 */
+	it("a Parallel round-trips on CODESYS and is refused by name before TwinCAT's import", async () => {
+		const full = fid("rp_par", "prg")
+		const src = program(
+			id("rp_par"),
+			"LD",
+			`NETWORK\n  out := PARALLEL(IN := go, a, b);\nEND_NETWORK\n` +
+				`NETWORK\n  out2 := (a AND PARALLEL(MODE := Sequential, b, go));\nEND_NETWORK\n`,
+		)
+		const refs = await bridge.refs()
+		const r = await bridge.push({
+			expectedProjectVersion: refs.projectVersion,
+			ops: [{ op: "set", name: full, toFolder: refs.items[full] ? null : "", sourceText: src, ifVersion: refs.items[full] ?? null }],
+		})
+		if (VENDOR === "twincat") {
+			expect(r.accepted, "TwinCAT accepted a Parallel its import cannot build").toBe(false)
+			expect(JSON.stringify(r.conflicts)).toContain("NETWORK_UNSUPPORTED")
+			expect(JSON.stringify(r.conflicts)).toContain("PARALLEL")
+			return
+		}
+		expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+		const once = (await fetchItem(full)).sourceText
+		expect(once).toBe(src)
+		expect(await roundTrip(full, once)).toBe(once)
 	})
 })
