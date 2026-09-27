@@ -1,6 +1,28 @@
 Order: measure → tests red → engine → CLI deletion → docs → live. Starts only after
 `network-text-literal-nwl` has landed (both touch `Volt.Engine/Sync` and `Volt.Cli/Sync`).
 
+## How this change is worked (the loop — every section, in order)
+
+1. **Implement** the section's tasks, test-first. Never start a later section's work.
+2. **Review** with three independent read-only lenses. Every finding needs a concrete repro (a model, a text, a
+   failing assertion or a command); speculation is not a finding.
+   - **data**: try to lose or corrupt a DUT, including subtype changes in both git shapes, stale versions,
+     folders, a DUT beside a same-named item, library vs project DUTs, an old workspace, and TwinCAT codes
+     605/606/607/623.
+   - **spec**: requirement by requirement against the spec, proposal and this file. A ticked task that isn't
+     done is a finding.
+   - **layering**: no item-kind logic in `Volt.Cli` or the TS clients, no second classifier, no fallbacks, no
+     dead code, no stale "one wire kind `dut`" comments.
+3. **Fix** every confirmed finding: failing test first, then the product fix, then keep the test. A finding shown
+   wrong is skipped with the reason.
+4. **Repeat** 2–3 until a round finds nothing new, at most 3 rounds. If the cap is hit, say so; don't call it
+   clean.
+5. **Commit** once everything is green. Tick only what is done and tested, and mark BLOCKED tasks with the exact
+   reason. Stage explicit paths only (never `git add -A`). Don't push.
+
+Live-IDE tasks use `ide.ps1` fixtures on both vendors. If an IDE truly cannot come up, the task stays unticked as
+BLOCKED; it is never faked.
+
 ## 1. Measure (live, both vendors — `pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys|twincat`)
 
 - [ ] 1.1 Today's behaviour, recorded before any change: rewrite a fixture STRUCT as an ENUM in the workspace; push
