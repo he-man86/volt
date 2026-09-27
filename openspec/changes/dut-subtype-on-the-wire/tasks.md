@@ -807,6 +807,9 @@ unchanged (no new vendor measurement).
       wire-driving scripts). 4.6, 4.7 and 4.9 were open at the first run of this task and are closed since the
       section 6 review (`V1Note` asks `NetworkText.CanHold` and resolves no kind). The change is not archived and
       `openspec/specs/` is not recreated until those two close (or an explicit close-out decision).
+      **Re-run at `fe8cf4c504` (2026-09-27, clean tree):** Engine 1547/0 (1 skipped, pre-existing), Cli 258,
+      Repo.Gates 36, Contracts 19, Connector 110, Codesys 160, Twincat 231, `bun test test/unit` 4; `bun run check`
+      and lint exit 0. Still BLOCKED on 1.5 (needs a live Pro2193 session) and 4.8 (three scripts not yet updated).
       Found live, fixed: the subtype-mismatch refusal read "named for a enum" — now "names the subtype X but its
       declaration's subtype is Y" (pinned since the section 6 review). The e2e `unionDut` fixture's member `r` (the
       IL reset operator, `C0009 Unexpected token 'r'` on CODESYS) — fixed in the section 6 review.
