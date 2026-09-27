@@ -361,24 +361,150 @@ Repo.Gates 20, `bun test test/unit` 4, `bun run check` 14 all pass. No live IDE 
 
 ## 3. Engine
 
-- [ ] 3.1 `Materializer.FullWireName`: DUT → `CodeHelper.DutSubtype(text)` extension. The only minting site.
-- [ ] 3.2 `PushService`: the subtype-change rule (spec requirement 2), placed with the other op normalisation,
+- [x] 3.1 `Materializer.FullWireName`: DUT → `CodeHelper.DutSubtype(text)` extension. The only minting site.
+      **Done:** `FullWireName(bare, kind, declaration)` names a DUT from its declaration; `DutSubtype` now THROWS
+      `FormatException` for a declaration that states no subtype, and `Versioning.SafeVersion` turns that into an
+      unreadable item (per item — the rest of the fetch goes on). Green: `DutSubtypeCodeTests` (all),
+      `BuildDiagnosticNameTests`, `TransportMatrixTests.No_wire_message_carries_a_dut_name`,
+      `DutSubtypeFileTests.A_dut_whose_text_states_no_subtype_never_aborts_a_pull`/`…_an_init` still green.
+- [x] 3.2 `PushService`: the subtype-change rule (spec requirement 2), placed with the other op normalisation,
       before `InFolderDepthOrder`. Resolve every DUT op to its bare name once; kind check accepts all four.
       The coalescing does not depend on `Force`: force drops the version gate, never the pairing (1.1).
       The pairing rule keys on DUT ops only (a same-named `.fb` is not a pair). Every DUT `set` checks its name
       (the `toName` for a rename) against `DutSubtype` of its body and refuses a mismatch `BAD_REQUEST` naming
       both; a `delete` resolves its FULL wire name, so `delete X.struct` never reaches an `X` that is an enum.
-- [ ] 3.3 `ItemKind`: delete `WireExtFor`, `IsDutFileExtension`; `SourceKindExtensions` lists
+      **Done:** `Sync/DutSubtypeChanges.Normalize`, run in `PushService.Handle` after the walk and BEFORE the
+      version gate (so the pair's guard is the delete's `ifVersion`); every later pass sees the normalized ops.
+      A delete of a DUT name is checked against the object's minted wire name (`PushService.NamesThisDut`) and is
+      a no-op when it names another subtype; a subtype-less DUT refuses the delete `BAD_REQUEST`. Green: all of
+      `DutSubtypeChangePushTests`. **One test premise corrected:** `A_subtype_change_into_another_folder_…`
+      (engine) and `DutSubtypeFileTests.A_subtype_rewrite_into_another_folder_moves_the_dut` (CLI) forbade ANY
+      `create:` — but `Types` does not exist in the fixture, so every correct move into it creates the FOLDER
+      (`create:Types`, `TreeNav.ResolveTopLevelFolder`, predating this change). The tests' own stated intent is
+      "the object is never deleted or created"; both now forbid `delete:X`/`create:X` (and a rename), no weaker.
+- [x] 3.3 `ItemKind`: delete `WireExtFor`, `IsDutFileExtension`; `SourceKindExtensions` lists
       struct/enum/union/alias as ordinary source extensions mapping to `Kinds.Dut`; `ExtFor(Kinds.Dut)` is no
       longer a wire extension (delete or make it throw — nothing may mint `.dut`). Rewrite the long comments at
       `ItemKind.cs:34`, `:49`, `:301-306` and `:398` to the new fact.
-- [ ] 3.4 `LibSignatureRenderer`: use `DutSubtype`-equivalent naming from one helper (no second classifier);
+      **Done:** `DutFileExtensions`/`IsDutFileExtension`/`WireExtFor` deleted; the four subtypes are
+      `(Kinds.Dut, …)` rows; `FileExtensions` is the table entry for entry; `ExtFor(Kinds.Dut)` throws. Green:
+      `ItemKindTests`, `KindFromExtensionTests`, `WireVocabularyGuardTests` (all three). Carried with it, because
+      each broke the build or a gate on its own: `scripts/check-wiring.ts` reads the one table (no DUT split;
+      `bun run check` 14/14); `DocDataTests`' generator lists each kind's extensions (`exts`, an array — the DUT
+      has four) and `docs/assets/doc.js` renders it, `data.js` regenerated (`VOLT_WRITE_DOCS=1`) — the TABLE half of
+      5.1 only, the hand-written prose is still 5.1's; and the CLI's two callers of the deleted helpers
+      (`Materialize.FileNameFor`, `Extensions.FullNameFromPath`'s DUT branch) reduced to identity so `Volt.Cli`
+      compiles — the code half of 4.1/4.2, left UNTICKED for section 4 (its comments, 4.6 grep, review).
+      **Test premise corrected:** `ItemKindTests.The_extension_table_is_one_to_one` asserted no kind appears twice,
+      which the spec (and the section-2 test beside it) now contradicts for the DUT kind; it keeps "no extension
+      names two kinds" whole and "no kind twice" for every other kind.
+- [x] 3.4 `LibSignatureRenderer`: use `DutSubtype`-equivalent naming from one helper (no second classifier);
       rewrite the `:139` "One wire kind still" comment.
-- [ ] 3.5 Drivers: confirm neither bridge parses a wire extension to decide DUT-ness beyond `Bare()`; fix any that do.
+      **Done:** every DUT return goes through `Dut(text)` = `"." + CodeHelper.DutSubtype(text)`; the vendor flag
+      only picks the keywords. Green: `LibraryDutExtensionParityTests`, `WireVocabularyGuardTests.A_dut_subtype_is_named_in_one_place`.
+- [x] 3.5 Drivers: confirm neither bridge parses a wire extension to decide DUT-ness beyond `Bare()`; fix any that do.
       Rewrite the "one wire kind `dut`" comments at `CodesysTypeMap.cs:59,134` and `BeckhoffDriver.Tree.cs:341`.
-- [ ] 3.6 Every ENGINE `KindForWireName` reader (`PushedText.SameExceptLayout`, `StReader` via `PushService`) gets
+      **Confirmed (read, both vendors):** neither driver reads a wire extension — CODESYS classifies by object-model
+      interface (`CodesysTypeMap`), TwinCAT by raw tree code (`ClassifiedKind`); `BeckhoffDriver.ValidateSource`
+      ignores its `wireName`; `TcObjectModel.Build`'s `LastIndexOf('.')` strips a `.TcDUT`/`.TcPOU` FILE path from
+      a compiler message, not a wire name. Comments rewritten. Offline suites green: Codesys 160, Twincat 231. No
+      live IDE used (section 6 is the live check).
+- [x] 3.6 Every ENGINE `KindForWireName` reader (`PushedText.SameExceptLayout`, `StReader` via `PushService`) gets
       `Kinds.Dut` for all four subtype names (1.4 census) — today a `.struct` wire name reads as NO kind. The CLI's
       `Commands.cs:863` is not one of them: it is 4.9.
+      **Done by 3.3's table** (`ItemKindTests.A_dut_subtype_wire_name_is_the_dut_kind`,
+      `KindFromExtensionTests.A_DUT_agrees_…`) — the table half. **The `StReader`-via-`PushService` half was NOT
+      done by it (section 3 review, round 1), fixed now:** `WriteItemFromSource` read `KindForWireName` off the
+      BARE name, so the apply-time read got no kind for EVERY item. It now takes the FULL name the op lands under
+      (`toName ?? name`): a create is read by the wire kind outright; an update is read by its header first so the
+      re-type guard still names what the live object is (`ItemKindIsNotRewritableTests` unchanged), then the wire
+      kind is checked against the text by the reader's own refusal (`StReader.RequireKind`, the one message).
+      `DutSubtypeChangePushTests.A_dut_name_over_a_function_blocks_text_is_refused_by_the_kind_its_name_carries`
+      (red before: a function block's text pushed as `X.struct` over the FB `X` was written, forced and not).
+
+**Section 3 (2026-09-27), offline.** Final run: `Volt.Engine.Tests` 1445 passed / 2 failed; `Volt.Cli.Tests`
+231 / 3; Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Gates 20, `bun test test/unit` 4, `bun run check`
+14 — all green. Every group-2 ENGINE test is green. The 3 CLI reds are 4.5's (`DutBaselineMigrationTests`: the
+`.dut`-keyed baseline refusal). **The 2 engine reds are NEW and are not group-2:**
+`ModelRoundTripOracleTests.Corpus_network_tally` (150/150 + 7 refused) and `Corpus_tally` (31/109 + 3 refused), all
+"an FB instance the declarations do not name", all qualified instance calls through a `.struct` DUT in lenze-mid
+(`Mach1_AuxData.IEC_TIMERS.OffDelayLockDrives(…)`, the path running through `cUDTs/…/cUDT_MachAuxData_Timers.struct`).
+Cause: `CorpusProject` admits `Kinds.Dut` files, but `.struct` read as NO kind until 3.3, so no DUT declaration was
+ever in the corpus scope and the pinned tally was taken without them. With them, the real scope
+(`NetworkScope.FromDeclarations`, which "answers the hops of a qualified instance path") reads these heads as FB
+instances, and the oracle's synthetic write scope (`NetworkModelOracle.Instances`, identifiers only — "a path is
+declared by no name, so the push reads its head as a function") cannot declare them. No product change: the pull and
+push both use the real scope. Left red at the time; fixed in review round 1 (below). No review rounds were run in
+this section; no live IDE; DIALECT.md unchanged (no new measurement).
+
+**Section 3 review, round 1 (2026-09-27)** — seven findings, all fixed test-first (each test red before its fix):
+- A DUT CREATE over the IDE's DUT of ANOTHER subtype (`set X.struct` new, the IDE holding `X.enum`) passed the
+  gate and was written over it by bare name — a regression from 3.1 (under `.dut` it was `ITEM_EXISTS`).
+  `PushConflicts` now looks a DUT create up under its sibling subtype names too (DUT names only — `X.fb` stays
+  another item): `A_create_over_a_dut_of_another_subtype_is_refused_as_item_exists`.
+- A delete of a DUT whose IDE declaration states no subtype threw `BAD_REQUEST` from inside the APPLY loop (earlier
+  ops already written). Decided in the pre-flight now: unforced → refused whole as `UNREADABLE`, nothing written;
+  forced → deleted (force is the documented way past an unreadable item, as a forced `delete X.dut` was):
+  `A_delete_of_a_dut_whose_declaration_states_no_subtype_is_decided_before_any_write`.
+- 3.6's apply-time kind (above).
+- The 2 `ModelRoundTripOracleTests` reds: the oracle's `Instances` premise ("a path is declared by no name, so the
+  push reads its head as a function") is false wherever declarations exist — the push reads a body against the same
+  `NetworkScope.FromDeclarations` the pull wrote it with, and that scope resolves a qualified path. The corpus now
+  checks each body against the scope it was READ with (`NetworkModelOracle.Check(…, declared)`: a path is an
+  instance exactly when that scope says so; sources with no declarations — archives, test models — unchanged). The
+  pinned tallies are NOT re-pinned: both are back to 34/157 and 157/157 with no refusal.
+- `CodeHelper.DutSubtype` answered `alias` for `TYPE X : ;` — punctuation names no type; refused now (two
+  `InlineData` rows, and the refs/fetch case: unreadable, no `X.alias`).
+- `DutSubtypeChanges.StartsWithType` was a second "is this a DUT declaration" classifier disagreeing with
+  `CodeHelper.ParseCodeHeader`; it asks `ParseCodeHeader` now, so a bare `TYPE` line gets the reader's
+  `INVALID_CODE_HEADER` under any subtype name instead of "rename it to X.enum":
+  `A_type_keyword_alone_on_its_line_is_refused_by_the_st_reader_under_any_subtype_name`.
+- `Materialize.cs` kept dead `Volt.Engine.Format.St`/`Volt.Engine.Item` imports; deleted, and
+  `WireVocabularyGuardTests.The_cli_imports_no_st_format` gates the import (the one qualified use left in
+  `Commands.cs` is 4.9's).
+Run after: `Volt.Engine.Tests` 1459 passed / 0 failed (1 skipped, pre-existing); `Volt.Cli.Tests` 231 / 3 (4.5's
+reds, unchanged); Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Gates 20, `bun test test/unit` 4,
+`bun run check` 14 — all green.
+
+**Section 3 review, round 2 (2026-09-27)** — three product findings (plus a duplicate), all fixed test-first:
+- `PushService.NamesThisDut` caught only `FormatException`, while the refs/fetch walk (`Versioning.SafeVersion`)
+  publishes ANY materialize failure as unreadable. A COM/driver fault on a DUT a push deletes escaped `Handle` as a
+  raw exception (unforced), or threw from the apply after earlier ops landed (forced) — a DUT no push could delete.
+  Every failure now counts, its reason carried into the `UNREADABLE` refusal; the pre-flight check sits in the
+  reject path: `A_delete_of_a_dut_the_ide_cannot_read_is_decided_like_the_walk_decided_it`.
+- `CodeHelper.DutSubtype` matched `STRUCT`/`UNION` as PREFIXES, so `TYPE T : Struct_Alarm;` was published
+  `T.struct` (and a library alias of `STRUCT_HANDLE` rendered `.struct`), and the correctly named `T.alias` refused.
+  Whole token now (`FirstToken`): five `InlineData` rows, a library-parity row, and
+  `An_alias_of_a_type_whose_name_begins_with_struct_is_published_and_pushed_as_an_alias`.
+- A subtype-change pair whose delete quotes NO `ifVersion` coalesced into a version-less set, i.e. a CREATE, and was
+  refused `ITEM_EXISTS` naming an op the client never sent. The pair is an update guarded by the delete's version
+  (spec requirement 2), so unforced it is refused `BAD_REQUEST` naming both ops and the missing `ifVersion`; forced
+  it is the one update: `A_pair_whose_delete_quotes_no_version_is_refused_by_name_unless_forced` (both orders).
+  `volt push` always sends a delete's version, so only another wire client could reach it.
+Run after: `Volt.Engine.Tests` 1471 passed / 0 failed (1 skipped, pre-existing); `Volt.Cli.Tests` 231 / 3 (4.5's
+reds, unchanged); Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Gates 20, `bun test test/unit` 4,
+`bun run check` 14 — all green. No live IDE; DIALECT.md unchanged.
+
+**Section 3 review, round 3 (2026-09-27)** — two product findings (each reported twice), fixed test-first:
+- A push op under a name that is NO wire name — `X.dut` (what the previous CLI and `probe-tc-name-collision.ts`
+  still send), a bare `X`, `X.foo` — slipped every full-name check (the gate passed a set as a create; the kind
+  check had no kind) and was applied by BARE name: `set X.dut` overwrote the live DUT with no version check (forced,
+  it also moved it), and `delete X.dut` — its quoted version equals `X.struct`'s — destroyed it. `PushService.
+  RequireWireNames` now refuses any op whose `name` or `toName` has no kind, `BAD_REQUEST` naming it, before a read,
+  forced or not. And a delete reaches an object only under that object's own wire name for EVERY kind
+  (`NamesThisItem`: kinds agree, and a DUT's minted name matches), not only for DUT subtype names — `delete X.fb`
+  destroyed a DUT `X`, `delete X.prg` an FB `X`. Pinned: `A_set_under_a_name_that_is_no_wire_name_…`,
+  `A_rename_to_a_name_that_is_no_wire_name_…`, `A_delete_under_a_name_that_is_not_the_duts_wire_name_…`,
+  `A_delete_under_another_kinds_name_…` (all red before). **Test premise corrected:** `RenameBeforeWriteTests`
+  sent a BARE `toName` (`FB_New`) while asserting the receipt names `FB_New.prg` — the wire carries full names on
+  every push op (the item-name invariant); both renames now say `.prg`, so the malformed-body case is still refused
+  by its body and not by its name.
+- `DutSubtypeChanges.Pair` took an UPDATE (`set X.enum ifVersion w`) as the create half of a subtype change and
+  dropped `w` unchecked. Only a create pairs now; the rest is refused naming both:
+  `A_delete_paired_with_an_update_is_refused_naming_both` (both orders, forced and not; red before).
+Run after: `Volt.Engine.Tests` 1494 passed / 0 failed (1 skipped, pre-existing); `Volt.Cli.Tests` 231 / 3 (4.5's
+reds, unchanged); Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Gates 20, `bun test test/unit` 4,
+`bun run check` 14 — all green. No live IDE; DIALECT.md unchanged (no driver touched).
 
 ## 4. CLI — delete, don't move
 

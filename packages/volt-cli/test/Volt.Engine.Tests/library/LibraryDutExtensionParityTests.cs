@@ -34,6 +34,8 @@ public class LibraryDutExtensionParityTests
         { new LibSignature("U", "lib", "Type", None, None, None,
               new[] { new LibVar("asWord", "WORD") }, null, null, null, "Union"), ".union" },
         { new LibSignature("HANDLE", "CAA Types", "Type", None, None, None, None, null, null, "__XWORD"), ".alias" },
+        // An alias whose BASE merely begins with STRUCT is still an alias: the classifier matches whole tokens.
+        { new LibSignature("H", "lib", "Type", None, None, None, None, null, null, "STRUCT_HANDLE"), ".alias" },
     };
 
     [Theory]

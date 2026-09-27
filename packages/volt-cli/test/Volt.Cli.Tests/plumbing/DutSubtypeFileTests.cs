@@ -400,7 +400,9 @@ public class DutSubtypeFileTests
             Assert.True(r.Kind == "ok", $"push {r.Kind}: {r.Reason}");
 
             Assert.True(ide.Exists("X"), "the DUT is gone from the IDE");
-            Assert.DoesNotContain(ide.Recorded, x => x.StartsWith("delete:") || x.StartsWith("create:"));
+            // The DUT `X` is never deleted or created. `Types` does not exist in the IDE, so the move creates the
+            // FOLDER (`create:Types`) — the destination being made, not the object.
+            Assert.DoesNotContain(ide.Recorded, x => x is "delete:X" or "create:X");
             var refs = RefsService.Handle(ide);
             Assert.Equal(new[] { $"X.{subtype}" }, refs.Items.Keys.ToArray());
             Assert.Equal("Types", refs.Folders[$"X.{subtype}"]);

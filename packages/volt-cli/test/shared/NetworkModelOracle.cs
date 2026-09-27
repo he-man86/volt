@@ -28,15 +28,18 @@ internal static class NetworkModelOracle
     /// (the exception's <c>Marker</c> — the writer's name for the fact it cannot spell).</summary>
     public sealed record Outcome(string Source, int Networks, string? Reason);
 
-    public static Outcome Check(string source, NetworkBody m)
+    /// <param name="declared">The scope the body was READ against, when the source has one (the corpus: its project's
+    /// own declarations, <c>NetworkScope.FromDeclarations</c>) — it decides which qualified instance paths are
+    /// declared (<see cref="Instances"/>). Null for a source with no declarations (archives, test models).</param>
+    public static Outcome Check(string source, NetworkBody m, NetworkScope? declared = null)
     {
-        var outcome = CheckIn(source, m, ScopeOf(m));
+        var outcome = CheckIn(source, m, ScopeOf(m, declared));
         // The pull does not always know every name the body uses: until task 3.9 builds the scope from every
         // declaration, a method reading a GVL's variable or its FB's member meets a scope without it. Read against
         // ScopeOf alone, the oracle only ever faced a scope holding every word of the body — and passed a writer that
         // left an undeclared `g5` bare for its own reader to refuse. So the same body is checked against the scope of
         // its CALLABLES only, no variable declared, and must come to the same end.
-        var undeclared = CheckIn(source + " (no variable in scope)", m, CallablesOf(m));
+        var undeclared = CheckIn(source + " (no variable in scope)", m, CallablesOf(m, declared));
         Assert.True(undeclared.Reason == outcome.Reason,
             $"{source}: with its variables in scope the body is {outcome.Reason ?? "round-tripped"}, without them {undeclared.Reason ?? "round-tripped"} — a variable's declaration decides no spelling but a wire's name.");
         return outcome;
@@ -145,7 +148,7 @@ internal static class NetworkModelOracle
     /// because these sources (archives, test models, corpus bodies) come without a parsed VAR block — and every
     /// operand of a body the vendor holds IS a name in scope (a variable, a global, a member), which is what the
     /// reader's "a wire-shaped name in no scope" refusal relies on.</summary>
-    public static NetworkScope ScopeOf(NetworkBody body)
+    public static NetworkScope ScopeOf(NetworkBody body, NetworkScope? declared = null)
     {
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var pous = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -169,12 +172,12 @@ internal static class NetworkModelOracle
             }
         }
         foreach (var net in body.Networks) foreach (var t in net.Trees) Walk(t);
-        return new NetworkScope(names, pous, Instances(body));
+        return new NetworkScope(names, pous, Instances(body, declared));
     }
 
     /// <summary>What the scope holds of a model when no VARIABLE is declared: its POUs (box types) and its FB
     /// instances with their types — the facts the text needs to read a call back — and nothing else.</summary>
-    public static NetworkScope CallablesOf(NetworkBody body)
+    public static NetworkScope CallablesOf(NetworkBody body, NetworkScope? declared = null)
     {
         var pous = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         void Walk(Node? n)
@@ -192,14 +195,18 @@ internal static class NetworkModelOracle
             }
         }
         foreach (var net in body.Networks) foreach (var t in net.Trees) Walk(t);
-        return new NetworkScope(Array.Empty<string>(), pous, Instances(body));
+        return new NetworkScope(Array.Empty<string>(), pous, Instances(body, declared));
     }
 
     /// <summary>A model's FB instances with their types — what the POU's declarations would say of each, and
-    /// ONLY what they can say: a declaration names an identifier. An instance whose text is a path, an array
-    /// element or <c>SUPER^</c> (census 1.12) is declared by no name, so the push reads its head as a function;
-    /// declaring it here anyway would make the oracle pass a body the push path loses.</summary>
-    public static Dictionary<string, string> Instances(NetworkBody body)
+    /// ONLY what they can say. An identifier is a name a declaration makes. A QUALIFIED path
+    /// (<c>Mach1_AuxData.IEC_TIMERS.OffDelayLockDrives</c>) is one only when the declarations resolve it through a GVL
+    /// and its structs — the push reads it against the same <c>NetworkScope.FromDeclarations</c> the pull wrote it
+    /// with — so it is declared here exactly when <paramref name="declared"/>, the scope the body was read against,
+    /// says so; a source with no declarations has no such answer and declares none. An array element or
+    /// <c>SUPER^</c> (census 1.12) is no name at all. Declaring more than the declarations do would make the oracle
+    /// pass a body the push path loses; declaring less refuses one it keeps.</summary>
+    public static Dictionary<string, string> Instances(NetworkBody body, NetworkScope? declared = null)
     {
         var instances = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         void Walk(Node? n)
@@ -207,7 +214,9 @@ internal static class NetworkModelOracle
             switch (n)
             {
                 case Box b:
-                    if (b.Instance is { } i && NetworkSpelling.Identifier.IsMatch(i.Text)) instances[i.Text] = b.Type;
+                    if (b.Instance is { } i
+                        && (NetworkSpelling.Identifier.IsMatch(i.Text) || declared?.InstanceType(i.Text) is not null))
+                        instances[i.Text] = b.Type;
                     Walk(b.Enable);
                     foreach (var p in b.Inputs) Walk(p.Value);
                     break;

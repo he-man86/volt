@@ -80,15 +80,33 @@ public static class PushService
         // the client `""` where it had always had the real hash. `RejectAt` computes it on demand instead —
         // a rejection is not the hot path, and paying for it there costs nothing a successful push notices.
         string? currentProjectVersion = needVersions ? Hasher.ComputeProjectVersion(gatedVersions) : null;
-        var conflicts = PushConflicts.DetectConflicts(request.Ops, request.ExpectedProjectVersion, request.Force,
+
+        // EVERY NAME AN OP CARRIES IS A WIRE NAME, checked before anything reads the ops. Then a DUT SUBTYPE CHANGE
+        // BECOMES ONE UPDATE, before the version gate below, so the pair's guard is the delete's `ifVersion` exactly
+        // as an update's would be. Every later pass sees the normalized ops and nothing else (`DutSubtypeChanges`).
+        List<PushOp> ops;
+        try
+        {
+            RequireWireNames(request.Ops);
+            ops = DutSubtypeChanges.Normalize(request.Ops, request.Force);
+        }
+        catch (PushRefusal refusal)
+        {
+            VoltLog.Info($"push {request.Ops.Count} ops — REJECTED ({refusal.OpName}: {refusal.Message}) ({sw.ElapsedMilliseconds}ms)");
+            return PushResponse.RejectedResult(
+                new List<PushConflict> { new() { Name = refusal.OpName, Reason = refusal.Message, Code = BridgeErrorCodes.BadRequest } },
+                currentProjectVersion ?? ProjectSnapshot.Walk(ide, operation: "push-reject").ProjectVersion);
+        }
+
+        var conflicts = PushConflicts.DetectConflicts(ops, request.ExpectedProjectVersion, request.Force,
                                                       currentVersions, currentProjectVersion, walk.Complete);
         if (conflicts.Count > 0)
         {
-            VoltLog.Info($"push {request.Ops.Count} ops — REJECTED ({conflicts.Count} conflicts: {string.Join(", ", conflicts.Take(5).Select(c => c.Name))}{(conflicts.Count > 5 ? "..." : "")}) ({sw.ElapsedMilliseconds}ms)");
+            VoltLog.Info($"push {ops.Count} ops — REJECTED ({conflicts.Count} conflicts: {string.Join(", ", conflicts.Take(5).Select(c => c.Name))}{(conflicts.Count > 5 ? "..." : "")}) ({sw.ElapsedMilliseconds}ms)");
             return PushResponse.RejectedResult(conflicts, currentProjectVersion!);   // a gate conflict means a lease ran
         }
 
-        var pushedDeclarations = DeclarationsIn(request.Ops);
+        var pushedDeclarations = DeclarationsIn(ops);
 
         // VALIDATE EVERY OP BEFORE APPLYING ANY OF THEM. Ops are applied in a loop and a throw returns
         // immediately, so whatever had already been written STAYS written — a push of 174 items refused on the
@@ -110,7 +128,7 @@ public static class PushService
         // driver cannot resolve, a body the IDE itself rejects on import. Those stay possible, and the rejection
         // below says so rather than implying nothing happened.
         var applied = new List<(string Action, string Name)>();  // what each op did, for the write receipt in the log
-        var opTotal = request.Ops.Count;
+        var opTotal = ops.Count;
 
         // A refusal here reads EXACTLY like one from the apply loop below — same conflict shape, same codes. The
         // client cannot tell which pass refused it, and should not have to: both mean "this op's text is not
@@ -171,8 +189,27 @@ public static class PushService
                 currentProjectVersion ?? ProjectSnapshot.Walk(ide, operation: "push-reject").ProjectVersion);
         }
 
-        foreach (var op in request.Ops)
+        foreach (var op in ops)
         {
+            // A DUT DELETE WHOSE TARGET CANNOT BE READ is decided HERE, before anything is written. Whether
+            // `delete X.struct` names the IDE's DUT `X` is read from `X`'s declaration (`NamesThisItem`; no other
+            // kind needs a read — each has one extension, so its kind names it), and one
+            // that does not materialize — no subtype stated, or any read fault — has no wire name to compare
+            // with. Asked first inside the apply loop, that
+            // refused after the batch's earlier ops had landed. Without force the item is UNREADABLE — refused
+            // whole, as a create over one is (`PushConflicts`); with force, the documented way past an unreadable
+            // item, the apply deletes it. Resolved from the walk's cache only, like `WillCreate`: no per-op walk.
+            // Inside the reject path like every other pre-flight read: a fault asking the IDE (its tree code) is a
+            // refusal with nothing written, never an exception out of `Handle`.
+            try
+            {
+                if (op is DeleteItemOp && !request.Force
+                    && itemCache.TryGetValue(Materializer.Bare(op.Name), out var target)
+                    && NamesThisItem(ide, Materializer.Bare(op.Name), target.Item, op.Name, out var unreadable) is null)
+                    return Reject(op, UnreadableDut(op.Name, Materializer.Bare(op.Name), unreadable!));
+            }
+            catch (Exception ex) { return Reject(op, ex); }
+
             if (op is not SetItemOp { SourceText: { } text } set) continue;
             // A `.task` is a DESCRIPTOR, not assembled ST, so it is gated by its own format. Routing it
             // through `ValidateSourceOrThrow` would refuse every task push as a malformed document.
@@ -205,7 +242,7 @@ public static class PushService
             catch (Exception ex) { return Reject(op, ex); }
         }
         onProgress?.Invoke(new ProgressFrame { Operation = Ops.Push, Done = 0, Total = opTotal, Phase = "applying" });
-        foreach (var op in InFolderDepthOrder(request.Ops))
+        foreach (var op in InFolderDepthOrder(ops))
         {
             // A structured network-text diagnostic (parser / round-trip gate) carries a stable code + source
             // line; any other throw is reason-only. `Reject` handles both, and is shared with the pre-flight.
@@ -239,7 +276,7 @@ public static class PushService
         // `ItemLookup` and `BeckhoffDriver` both wrap `ChildCount` for exactly that reason. Letting one throw
         // out of here would fail a push that FULLY SUCCEEDED: no receipt, so the client never persists the new
         // baseline, and its next push reports a conflict over changes already in the IDE.
-        try { TreeNav.PruneEmptied(ide, EmptiedFolders(itemCache, request.Ops)); }
+        try { TreeNav.PruneEmptied(ide, EmptiedFolders(itemCache, ops)); }
         catch (Exception ex) { VoltLog.Warn($"push: could not prune an emptied folder: {ex.Message}"); }
 
         // The receipt is a FRESH FULL snapshot — the SAME walk /refs uses (ProjectSnapshot), NOT a reuse of the
@@ -248,7 +285,7 @@ public static class PushService
         // receipt as its IDE baseline with no follow-up /refs, so it must match /refs exactly.
         var receipt = ProjectSnapshot.Walk(ide, operation: "push-receipt");
 
-        VoltLog.Info($"push {request.Ops.Count} ops — accepted [{FormatApplied(applied)}] ({receipt.FullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
+        VoltLog.Info($"push {ops.Count} ops — accepted [{FormatApplied(applied)}] ({receipt.FullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
         // The receipt walk can be SHORT for the same reasons a read walk can, and the client rebuilds its
         // baseline from it — so it has to be told, exactly as `refs`/`fetch` tell it.
         return PushResponse.AcceptedResult(receipt.ProjectVersion, receipt.FullVersions, receipt.Folders,
@@ -441,6 +478,14 @@ public static class PushService
                 return ApplySetTask(ide, name, existing, set);
             case SetItemOp set:
                 return ApplySetItem(ide, name, existing, currentFolder, set, force, pushedDeclarations);
+            // A DELETE NAMES ONE WIRE ITEM, and the bare lookup above cannot say which: `X.struct`, `X.enum` and
+            // `X.fb` all resolve to the object `X`. So the op's name is checked against the object's own wire name,
+            // and a delete of a name the IDE's `X` does not have — a stale file from before a subtype change, a name
+            // of another kind — finds nothing, with or without force (force drops a version gate; it never widens
+            // what a name means). Checked for DUT subtype names only, `delete X.fb` destroyed the DUT `X` that
+            // `delete X.enum` could not.
+            case DeleteItemOp when existing is { } found && !DeleteReaches(ide, name, found, op.Name, force):
+                return "no-op";
             case DeleteItemOp when existing is { } del:
                 // THE SAME LAST-MOMENT CHECK THE SET ARM DOES, and for a stronger reason: this is the one op
                 // that cannot be undone. The per-item `ifVersion` gate runs once in the pre-apply walk, and a
@@ -477,6 +522,66 @@ public static class PushService
                     "\"deleteItem\" (lower-camel, exactly). The op was ignored rather than applied.");
         }
     }
+
+    /// <summary>Is <paramref name="wireName"/> the wire name of <paramref name="item"/>, the object the bare lookup
+    /// resolved it to? The kinds must agree first — the tree says what the object IS, the extension what the op
+    /// names. Every kind but the DUT has ONE extension, so there the kind and the bare name are the whole wire name.
+    /// A DUT's is read through <see cref="Materializer"/>, the one place a wire name is minted, so this cannot
+    /// disagree with what <c>refs</c> published. A DUT that cannot be materialized has NO wire name: null, since no
+    /// name can be shown to be its, with the read's own reason in <paramref name="unreadable"/>.
+    ///
+    /// <para><b>EVERY read failure, not only a declaration that states no subtype.</b> The walk that built
+    /// <c>refs</c> (<see cref="Versioning.SafeVersion"/>) publishes any item that fails to materialize — a missing
+    /// subtype, a COM error, a driver throw — as unreadable, keyed bare. Catching less here made the push disagree
+    /// with that: a COM failure escaped the pre-flight as a raw exception (no response), and under force threw from
+    /// the apply after earlier ops had landed, leaving a DUT no push could delete. The reason is carried, not
+    /// swallowed: it is what the refusal names.</para></summary>
+    private static bool? NamesThisItem(IIdeDriver ide, string bare, ItemRef item, string wireName, out string? unreadable)
+    {
+        unreadable = null;
+        var kind = ItemKind.Map(ide.KindCode(item));
+        if (kind is null || kind != ItemKind.KindForWireName(wireName)) return false;
+        if (kind != ItemKind.Kinds.Dut) return true;
+        try { return string.Equals(Materializer.Materialize(ide, bare, kind, item).FullName, wireName,
+                                   StringComparison.OrdinalIgnoreCase); }
+        catch (Exception ex) { unreadable = ex.Message; return null; }
+    }
+
+    /// <summary>Does a <c>delete</c> of <paramref name="wireName"/> reach the IDE's object? Only when it is that
+    /// object's wire name — or, under force, when the object is a DUT that has none: a DUT that cannot be
+    /// materialized is an UNREADABLE item, and force is the documented way past one (a forced <c>delete X.dut</c>
+    /// removed it before the subtype reached the wire). Without force the pre-flight refused it already
+    /// (<see cref="UnreadableDut"/>); reaching it here unforced means the IDE changed mid-push, refused the same way.</summary>
+    private static bool DeleteReaches(IIdeDriver ide, string bare, ItemRef item, string wireName, bool force) =>
+        NamesThisItem(ide, bare, item, wireName, out var unreadable)
+        ?? (force ? true : throw UnreadableDut(wireName, bare, unreadable!));
+
+    /// <summary>EVERY NAME A PUSH OP CARRIES — its <c>name</c> and a set's <c>toName</c> — IS A WIRE NAME: its
+    /// extension names an item kind, as every name <c>refs</c>/<c>fetch</c> publish does. Anything else is refused
+    /// <c>BAD_REQUEST</c> before a read or a write, forced or not.
+    ///
+    /// <para><b>Why a name with no kind cannot just be tried.</b> The apply resolves an op by its BARE name, so
+    /// <c>X.dut</c>, <c>X</c> or <c>X.foo</c> reaches whatever object is called <c>X</c>, while every check keyed by
+    /// the full name misses it: the version gate finds no such key and passes a set as a create, and the kind check
+    /// has no kind to hold the text to. So a <c>set X.dut</c> — the name the previous CLI and unmigrated scripts
+    /// still send, now that a DUT is named by its subtype — overwrote the live DUT with no version check (forced, it
+    /// also moved it). Force drops a version gate; it never makes a name mean something.</para></summary>
+    private static void RequireWireNames(IEnumerable<PushOp> ops)
+    {
+        foreach (var op in ops)
+            foreach (var name in new[] { op.Name, (op as SetItemOp)?.ToName })
+                if (name is not null && ItemKind.KindForWireName(name) is null)
+                    throw new PushRefusal(op.Name,
+                        $"'{name}' is not a wire name: its extension names no item kind. A push names each item " +
+                        "exactly as refs/fetch published it (a DUT by its subtype), so this op could only be " +
+                        "applied by guessing which item it means. Pull, and push the names the workspace holds.");
+    }
+
+    private static BridgeException UnreadableDut(string wireName, string bare, string reason) =>
+        new(BridgeErrorCodes.Unreadable,
+            $"cannot tell whether '{wireName}' names the IDE's DUT '{bare}': it could not be read ({reason}), so it " +
+            "has no wire name (it is listed in `unreadable` by every refs/fetch). Fix it in the IDE, or push with " +
+            "--force to delete it.");
 
     /// <summary>Create or update a TASK from its descriptor — the one non-source kind a push may write.
     ///
@@ -559,7 +664,7 @@ public static class PushService
         {
             if (op.SourceText is null)
                 throw new BridgeException(BridgeErrorCodes.BadRequest, $"set '{op.Name}': a new item needs sourceText");
-            WriteItemFromSource(ide, name, existing: null, op.SourceText, op.ToFolder, pushedDeclarations);
+            WriteItemFromSource(ide, name, op.Name, existing: null, op.SourceText, op.ToFolder, pushedDeclarations);
             return "created";
         }
 
@@ -637,14 +742,14 @@ public static class PushService
         // distinction was already being made by the one client that matters.
         if (op.ToFolder is { } toFolder && !string.Equals(toFolder, currentFolder, StringComparison.OrdinalIgnoreCase))
         {
-            MoveItem(ide, currentName, item, toFolder, op.SourceText, pushedDeclarations);   // recreate in the new folder
+            MoveItem(ide, currentName, op.ToName ?? op.Name, item, toFolder, op.SourceText, pushedDeclarations);   // recreate in the new folder
             return renamed ? "renamed+moved" : "moved";
         }
         if (op.SourceText is { } src)
         {
             // FORCE deliberately overrides a diverged IDE, so it skips the last-moment check too - passing
             // `ifVersion` through regardless made `volt push --force` refuse the very case it exists for.
-            WriteItemFromSource(ide, currentName, item, src, currentFolder,
+            WriteItemFromSource(ide, currentName, op.ToName ?? op.Name, item, src, currentFolder,
                                 pushedDeclarations, force ? null : op.IfVersion); // content update in place
             return renamed ? "renamed+updated" : "updated";
         }
@@ -659,7 +764,7 @@ public static class PushService
     /// admitted what it cost: it REFUSED a graphical move outright (a diagram cannot be rebuilt from text), and a
     /// delete whose re-create then failed left a DUPLICATE rather than a no-op. It was "the arm only TwinCAT
     /// takes", and TwinCAT has a move now (DIALECT D4f), so it models a driver that does not exist.</para></summary>
-    private static void MoveItem(IIdeDriver ide, string name, ItemRef item, string newFolder,
+    private static void MoveItem(IIdeDriver ide, string name, string wireName, ItemRef item, string newFolder,
                                  string? sourceText, IReadOnlyDictionary<string, string> pushedDeclarations)
     {
         var kind = ItemKind.Map(ide.KindCode(item));
@@ -674,7 +779,7 @@ public static class PushService
         // the refusal atomic: the item has not moved, so there is nothing to undo.
         if (sourceText is { } edited)
         {
-            WriteItemFromSource(ide, name, item, edited, newFolder, pushedDeclarations);
+            WriteItemFromSource(ide, name, wireName, item, edited, newFolder, pushedDeclarations);
             // RE-RESOLVE before moving. On TwinCAT the write is a document IMPORT, and an import invalidates every
             // handle into the item it replaced (DIALECT D4d) — so the handle this method was called with is dead
             // by the time the move needs it. That made a move+edit fail with "Item 'X' is deleted or invalidated
@@ -710,7 +815,7 @@ public static class PushService
                 ?? throw new BridgeException(BridgeErrorCodes.NotFound,
                     $"'{name}' could not be found after being moved — the edit cannot be re-applied, so the " +
                     "push is failed rather than leaving the item holding its pre-edit content.");
-            WriteItemFromSource(ide, name, moved, settle, newFolder, pushedDeclarations);
+            WriteItemFromSource(ide, name, wireName, moved, settle, newFolder, pushedDeclarations);
         }
     }
 
@@ -783,16 +888,22 @@ public static class PushService
         walk.Complete && !itemCache.ContainsKey(bare);
 
     /// <summary>Create-or-update an item and its children from full canonical ST source. Shared by the
-    /// set create/update path and the move recreate, so both apply identical full-fidelity write semantics.</summary>
-    private static void WriteItemFromSource(IIdeDriver ide, string name, ItemRef? existing,
+    /// set create/update path and the move recreate, so both apply identical full-fidelity write semantics.
+    /// <paramref name="name"/> is the BARE IDE name the write resolves by; <paramref name="wireName"/> is the FULL
+    /// name the op lands under (its <c>toName</c> for a rename), whose extension is the kind.</summary>
+    private static void WriteItemFromSource(IIdeDriver ide, string name, string wireName, ItemRef? existing,
                                         string src, string? folder,
                                         IReadOnlyDictionary<string, string> pushedDeclarations,
                                         string? ifVersion = null)
     {
-        // ALWAYS the wire kind, create or update. It was create-only at first, which left every UPDATE still
-        // taking the kind from the header — and an update that disagrees is a RE-TYPE, which the guard below
-        // catches with a better message but only AFTER the reader has already believed the text.
-        var split = StReader.Read(src, ItemKind.KindForWireName(name));
+        // THE WIRE KIND DECIDES, create or update — read off the FULL name. This was handed the BARE name, so
+        // `KindForWireName` answered null for every item and the write believed the text's header: a function
+        // block's text pushed as `X.struct` over the FB `X` was written, and the receipt named `X.fb` for an op
+        // sent as `X.struct`. A CREATE is read by the wire kind outright. An UPDATE is read by its header first so
+        // the re-type guard below can name what the live object IS (the better message, when the text disagrees
+        // with the object); the wire kind is then checked against the text by the reader's own refusal.
+        var wireKind = ItemKind.KindForWireName(wireName);
+        var split = StReader.Read(src, existing is null ? wireKind : null);
 
 
         // Children (method/action/property) are keyed by name, so two children sharing a name would silently
@@ -886,6 +997,8 @@ public static class PushService
                     $"'{name}' is a {live.Kind} in the IDE and this push declares it a {split.Kind}. A push " +
                     "writes an object's TEXT and cannot change what it IS. Delete it and create it again if that " +
                     "is what you mean — that discards the object's identity, so it is not done for you.");
+            // …and the text matches the object, so it must match its NAME too: the extension is the kind.
+            StReader.RequireKind(split.Kind, wireKind);
 
             // LAST-MOMENT CHECK, against the state the IDE is in RIGHT NOW.
             //

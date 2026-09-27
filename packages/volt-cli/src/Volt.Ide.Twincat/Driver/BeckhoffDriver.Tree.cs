@@ -338,7 +338,8 @@ public sealed partial class BeckhoffDriver
     // (ItemKind.cs, measured two ways). This comment used to claim "EVERY DUT is 623"; those three codes were
     // unmapped, so every such item was dropped by Core as an unknown kind — invisible to refs and fetch, and
     // absent means DELETED to a pull.
-    // All four map onto the one wire kind `dut`, so we emit the raw code as-is and Core maps it. The code is NOT a
+    // All four map onto the one internal DUT kind, so we emit the raw code as-is and Core maps it; the wire NAME
+    // (`X.struct`/`X.enum`/…) is minted by the engine from the declaration (`Materializer`). The code is NOT a
     // subtype source and nothing may read one from it: a push-create always seeds 606 whatever the body
     // (`TcObjectModel.CreateChild`), and an in-place write of another shape keeps the OLD code in the live session
     // — a 606 holding an enum, a 605 holding a struct — until a reload re-derives it (DIALECT C2e). The subtype

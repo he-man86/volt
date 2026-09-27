@@ -155,18 +155,11 @@ const itemKindPath = (() => {
 const itemKindSrc = readFileSync(itemKindPath, "utf-8");
 const canonBlock = /SourceKindExtensions = new \(string, string\)\[\]\s*\{([\s\S]*?)\};/.exec(itemKindSrc);
 if (!canonBlock) throw new Error("check-wiring: could not find ItemKind.SourceKindExtensions");
-// Mirror `ItemKind.FileExtensions`, which is the kind table with the DUT SPLIT applied: a DUT is one wire kind
-// (`dut`) written to disk under four subtype extensions, so `dut` names no file and drops out while the four
-// join. Reading both tables from ItemKind keeps this a projection of the canonical source, not a third list.
-const dutBlock = /DutFileExtensions = new\[\]\s*\{([^}]*)\}/.exec(itemKindSrc);
-if (!dutBlock) throw new Error("check-wiring: could not find ItemKind.DutFileExtensions");
-const DUT_FILE_EXTS = [...dutBlock[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-const CANON = normExts([
-	...[...canonBlock[1].matchAll(/\(\s*(?:"[^"]+"|[\w.]+)\s*,\s*"([^"]+)"\s*\)/g)]
-		.map((m) => m[1])
-		.filter((ext) => ext !== "dut"),
-	...DUT_FILE_EXTS,
-]);
+// `ItemKind.FileExtensions` IS this table, entry for entry: a DUT's four subtype extensions are ordinary rows of
+// the one DUT kind (its wire name is its file name), so there is no split to mirror and no second list to read.
+const CANON = normExts(
+	[...canonBlock[1].matchAll(/\(\s*(?:"[^"]+"|[\w.]+)\s*,\s*"([^"]+)"\s*\)/g)].map((m) => m[1]),
+);
 
 const jsonAt = (rel: string, pick: (o: any) => unknown): string[] => {
 	const v = pick(JSON.parse(readRepo(rel)));

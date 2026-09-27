@@ -140,11 +140,13 @@ public static class CodeHelper
 
     /// <summary>Which SUBTYPE a DUT declaration is — <c>struct</c> / <c>enum</c> / <c>union</c> / <c>alias</c>.
     ///
-    /// <para>This is a MATERIALIZATION concern only: it picks the file extension the DUT is written under. The
-    /// wire kind stays the one <c>dut</c> (see <see cref="ItemKind.DutSubtypeExtensions"/> for why identity must
-    /// not carry it), and both vendors still create every DUT with a single call, deriving the subtype from
-    /// this same declaration text. So Volt is not classifying anything the IDE does not — it is reading the
-    /// same thing the IDE reads, to name the file the way an engineer expects.</para>
+    /// <para><b>THE one subtype reader, and the subtype is a WIRE IDENTITY.</b> A DUT is one internal kind
+    /// (<see cref="ItemKind.Kinds.Dut"/>) and is named on the wire by its subtype — <c>X.struct</c>,
+    /// <c>X.enum</c>, … — minted from this answer in <c>Materializer</c>, the one place a wire name is minted;
+    /// <c>LibSignatureRenderer</c> names a library DUT from the same answer, and <c>PushService</c> checks a pushed
+    /// DUT's name against it. The IDE's tree cannot say it (TwinCAT's code lags the declaration, DIALECT C2e), and
+    /// both vendors create every DUT with one call and let this same text decide the shape — so Volt reads what the
+    /// IDE reads, and nothing else.</para>
     ///
     /// <para>The rule is the grammar's: after the type name's <c>:</c>, a DUT body opens with <c>STRUCT</c>,
     /// <c>UNION</c>, or <c>(</c> for an enumeration; anything else is an alias (<c>TYPE T : INT (0..10);</c>,
@@ -158,20 +160,39 @@ public static class CodeHelper
     /// raw text after it named a struct <c>alias</c> (<c>// note</c>) or <c>enum</c> (<c>(* note *)</c> opens with
     /// <c>(</c>).</para>
     ///
-    /// <para><b>A declaration that states no subtype still answers <c>alias</c> here</b>, and the spec says it
-    /// must not be given one (openspec <c>dut-subtype-on-the-wire</c>: it is published unreadable). The refusal
-    /// belongs where the wire name is minted, per item, so the one item surfaces in <c>unreadable</c> and the
-    /// rest of the fetch goes on. Until the engine mints the name there, this function's only caller is the CLI's
-    /// file naming, which runs over a whole pull with no per-item refusal path: throwing here aborted every
-    /// <c>volt pull</c> and <c>volt init</c> over one DUT whose text an engineer was mid-way through typing.
-    /// </para></summary>
+    /// <para><b>A declaration that states no subtype is REFUSED</b> (<see cref="FormatException"/>) — no colon,
+    /// nothing after it, <c>END_TYPE</c> straight after it, or punctuation where a type would stand
+    /// (<c>TYPE X : ;</c>): an alias NAMES a type, so it opens with one. It used to answer <c>alias</c>, "the shape that
+    /// assumes least", which on the wire publishes <c>X.alias</c> for a text that never says so. The refusal is
+    /// per item: the materializer's caller (<c>Versioning.SafeVersion</c>) turns it into an UNREADABLE item, so
+    /// the one DUT an engineer is half-way through typing surfaces in <c>unreadable</c> and the rest of the fetch
+    /// goes on.</para></summary>
     public static string DutSubtype(string code)
     {
         var rest = AfterTypeColon(code ?? "");
-        if (rest.StartsWith("STRUCT", StringComparison.OrdinalIgnoreCase)) return "struct";
-        if (rest.StartsWith("UNION", StringComparison.OrdinalIgnoreCase)) return "union";
         if (rest.StartsWith("(", StringComparison.Ordinal)) return "enum";
+        // The body keyword is compared as a WHOLE token, never a prefix: `TYPE T : Struct_Alarm;` is an alias of a
+        // user type whose name begins with STRUCT, and a prefix match published it `T.struct`.
+        var first = FirstToken(rest);
+        if (first.Equals("STRUCT", StringComparison.OrdinalIgnoreCase)) return "struct";
+        if (first.Equals("UNION", StringComparison.OrdinalIgnoreCase)) return "union";
+        // Anything else is an alias only when a TYPE stands there — an identifier-led token (`INT`, `ARRAY`,
+        // `POINTER`, a user type). Nothing, `END_TYPE`, or punctuation (`TYPE X : ;`) names no type, and calling it an
+        // alias would mint `X.alias` for a text that never says so.
+        if (first.Length == 0 || first.Equals("END_TYPE", StringComparison.OrdinalIgnoreCase))
+            throw new FormatException(
+                "the DUT declaration states no subtype — nothing after its 'TYPE <name> :' says whether it is a " +
+                "STRUCT, UNION, enumeration or alias");
         return "alias";
+    }
+
+    /// <summary>The leading identifier-ish run of <paramref name="s"/> — up to the first character that cannot be
+    /// in an IEC identifier — so <c>END_TYPE;</c> reads as <c>END_TYPE</c> and <c>END_TYPEX</c> does not.</summary>
+    private static string FirstToken(string s)
+    {
+        var i = 0;
+        while (i < s.Length && (char.IsLetterOrDigit(s[i]) || s[i] == '_')) i++;
+        return s.Substring(0, i);
     }
 
     /// <summary>The CODE after a DUT declaration's first colon, from its first token, or "" when there is no
@@ -259,9 +280,9 @@ public static class CodeHelper
             if (Is(keyword, "ACTION")) return ItemKind.Kinds.Action;
             if (Is(keyword, "METHOD")) return ItemKind.Kinds.Method;
             if (Is(keyword, "PROPERTY")) return ItemKind.Kinds.Property;
-            // A DUT is unambiguous — only a DUT begins with TYPE — and it is ONE kind. struct/enum/union/alias
-            // is not a Volt concept on the wire; it lives in the declaration body, where `DutSubtype` reads it
-            // to name the FILE and where both IDEs read it to create the object.
+            // A DUT is unambiguous — only a DUT begins with TYPE — and it is ONE kind. Its struct/enum/union/alias
+            // SUBTYPE is not a kind: it lives in the declaration body, where `DutSubtype` reads it to NAME the item
+            // on the wire and where both IDEs read it to shape the object.
             if (Is(keyword, "TYPE")) return ItemKind.Kinds.Dut;
         }
 

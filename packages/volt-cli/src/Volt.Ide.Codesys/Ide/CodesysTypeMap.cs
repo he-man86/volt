@@ -56,8 +56,9 @@ namespace Volt.Ide.Codesys
             // enumeration — a normal `TYPE X : (…)` enum whose members map to a text list, surfaced by CODESYS
             // as its OWN object kind (not IDUTObject); without it, a text-list enum drops to Unknown and every
             // reference is unresolved (real cases: SER_OperationModeType, IQSlices, enumRecipeCommandResult).
-            // A DUT is ONE wire kind (`dut`) — the struct/enum/union/alias subkind is NOT computed here (it is
-            // derived from the declaration on push-create only), so no declaration read is needed on the walk.
+            // A DUT is ONE internal kind — its struct/enum/union/alias SUBTYPE is NOT computed here: the engine reads
+            // it from the declaration when it mints the wire name (`Materializer`, `CodeHelper.DutSubtype`), and
+            // CODESYS creates every DUT with one `create_dut` call, so the walk needs no declaration read.
             if (Has(ifaces, "IDUTObject") || Has(ifaces, "ITextListEnumerationObject")) return ItemKind.PlcDut;
             if (Has(ifaces, "IInterfaceObject")) return ItemKind.PlcItf;
 
@@ -131,8 +132,8 @@ namespace Volt.Ide.Codesys
         }
 
         /// <summary>True when the node's kind is REFINED from its declaration text — only a POU (keyword →
-        /// fb/func/prog/itf). A DUT is NOT refined on a read (it is one wire kind `dut`), so it does not need
-        /// the declaration here. This is a SUPERSET of the RefinePou branch in <see cref="CodeForObject"/>: that
+        /// fb/func/prog/itf). A DUT is NOT refined on a read (it is one internal kind; its subtype is read from the
+        /// declaration by the engine when it names the item), so it does not need the declaration here. This is a SUPERSET of the RefinePou branch in <see cref="CodeForObject"/>: that
         /// branch sits behind ten earlier returns, so a node carrying IPOUObject alongside an earlier-matching
         /// interface reads a declaration that classification then ignores — safe, but not free. Keeping the predicate
         /// in this file is what stops it drifting BELOW the branch (the failure that matters: a POU whose kind

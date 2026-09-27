@@ -122,6 +122,9 @@ public class DutSubtypeCodeTests
     [InlineData("TYPE X\nEND_TYPE")]
     [InlineData("TYPE X :")]
     [InlineData("TYPE X :\nEND_TYPE")]
+    // Punctuation after the colon is no type either: an alias names one, so `TYPE X : ;` states nothing.
+    [InlineData("TYPE X : ;\nEND_TYPE")]
+    [InlineData("TYPE X :\n;\nEND_TYPE")]
     public void DutSubtype_refuses_a_declaration_that_states_no_subtype(string decl)
     {
         var ex = Assert.Throws<System.FormatException>(() => Volt.Engine.Format.St.CodeHelper.DutSubtype(decl));
@@ -146,15 +149,25 @@ public class DutSubtypeCodeTests
     [InlineData("TYPE E_X :\n{attribute 'strict'} (A, B);\nEND_TYPE", "enum")]   // the pragma on the body's own line
     [InlineData("TYPE T_X : (* note *) INT (0..10);\nEND_TYPE", "alias")]
     [InlineData("TYPE ST_X (* a colon : in a comment *) :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE", "struct")]
+    // The body keyword is a WHOLE token: an alias of a user type whose name merely BEGINS with STRUCT or UNION is
+    // an alias. Matched as a prefix it was published `T.struct`, and the correctly named `T.alias` was refused.
+    [InlineData("TYPE T : Struct_Alarm;\nEND_TYPE", "alias")]
+    [InlineData("TYPE T : STRUCTURE_T;\nEND_TYPE", "alias")]
+    [InlineData("TYPE T_Handle : StructHandle;\nEND_TYPE", "alias")]
+    [InlineData("TYPE T : UNIONBITS;\nEND_TYPE", "alias")]
+    [InlineData("TYPE T : Union_Word;\nEND_TYPE", "alias")]
+    [InlineData("TYPE ST_X :STRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE", "struct")]
     public void DutSubtype_reads_the_first_code_token_after_the_colon(string decl, string subtype) =>
         Assert.Equal(subtype, Volt.Engine.Format.St.CodeHelper.DutSubtype(decl));
 
     /// <summary>…and on the wire that refusal is an UNREADABLE item — tracked, named in `unreadable`, its file
     /// kept by every client — rather than an item published under a subtype its text never states.</summary>
-    [Fact]
-    public void A_dut_whose_declaration_states_no_subtype_is_unreadable_not_a_guessed_alias()
+    [Theory]
+    [InlineData("TYPE X\nEND_TYPE")]
+    [InlineData("TYPE X : ;\nEND_TYPE")]
+    public void A_dut_whose_declaration_states_no_subtype_is_unreadable_not_a_guessed_alias(string decl)
     {
-        var ide = OneDut(ItemKind.PlcDut, "TYPE X\nEND_TYPE");
+        var ide = OneDut(ItemKind.PlcDut, decl);
 
         var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
 

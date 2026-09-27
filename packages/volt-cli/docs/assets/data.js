@@ -759,7 +759,7 @@ window.VOLT = {
       "constant": "PlcFolder",
       "kind": "folder",
       "emitted": true,
-      "ext": null,
+      "exts": null,
       "source": false,
       "addressable": false,
       "member": false,
@@ -771,7 +771,9 @@ window.VOLT = {
       "constant": "PlcPouProg",
       "kind": "program",
       "emitted": true,
-      "ext": "prg",
+      "exts": [
+        "prg"
+      ],
       "source": true,
       "addressable": true,
       "member": false,
@@ -783,7 +785,9 @@ window.VOLT = {
       "constant": "PlcPouFunc",
       "kind": "function",
       "emitted": true,
-      "ext": "fun",
+      "exts": [
+        "fun"
+      ],
       "source": true,
       "addressable": true,
       "member": false,
@@ -795,7 +799,9 @@ window.VOLT = {
       "constant": "PlcPouFb",
       "kind": "function_block",
       "emitted": true,
-      "ext": "fb",
+      "exts": [
+        "fb"
+      ],
       "source": true,
       "addressable": true,
       "member": false,
@@ -807,7 +813,12 @@ window.VOLT = {
       "constant": "PlcDutEnum",
       "kind": "dut",
       "emitted": true,
-      "ext": "dut",
+      "exts": [
+        "struct",
+        "enum",
+        "union",
+        "alias"
+      ],
       "source": true,
       "addressable": true,
       "member": false,
@@ -819,7 +830,12 @@ window.VOLT = {
       "constant": "PlcDutStruct",
       "kind": "dut",
       "emitted": true,
-      "ext": "dut",
+      "exts": [
+        "struct",
+        "enum",
+        "union",
+        "alias"
+      ],
       "source": true,
       "addressable": true,
       "member": false,
@@ -831,7 +847,12 @@ window.VOLT = {
       "constant": "PlcDutUnion",
       "kind": "dut",
       "emitted": true,
-      "ext": "dut",
+      "exts": [
+        "struct",
+        "enum",
+        "union",
+        "alias"
+      ],
       "source": true,
       "addressable": true,
       "member": false,
@@ -843,7 +864,7 @@ window.VOLT = {
       "constant": "PlcAction",
       "kind": "action",
       "emitted": true,
-      "ext": null,
+      "exts": null,
       "source": false,
       "addressable": false,
       "member": true,
@@ -855,7 +876,7 @@ window.VOLT = {
       "constant": "PlcMethod",
       "kind": "method",
       "emitted": true,
-      "ext": null,
+      "exts": null,
       "source": false,
       "addressable": false,
       "member": true,
@@ -867,7 +888,7 @@ window.VOLT = {
       "constant": "PlcItfMeth",
       "kind": "interface_method",
       "emitted": true,
-      "ext": null,
+      "exts": null,
       "source": false,
       "addressable": false,
       "member": true,
@@ -879,7 +900,7 @@ window.VOLT = {
       "constant": "PlcProp",
       "kind": "property",
       "emitted": true,
-      "ext": null,
+      "exts": null,
       "source": false,
       "addressable": false,
       "member": true,
@@ -891,7 +912,7 @@ window.VOLT = {
       "constant": "PlcItfProp",
       "kind": "interface_property",
       "emitted": true,
-      "ext": null,
+      "exts": null,
       "source": false,
       "addressable": false,
       "member": true,
@@ -903,7 +924,7 @@ window.VOLT = {
       "constant": "PlcPropGet",
       "kind": "property_get",
       "emitted": true,
-      "ext": null,
+      "exts": null,
       "source": false,
       "addressable": false,
       "member": false,
@@ -915,7 +936,7 @@ window.VOLT = {
       "constant": "PlcPropSet",
       "kind": "property_set",
       "emitted": true,
-      "ext": null,
+      "exts": null,
       "source": false,
       "addressable": false,
       "member": false,
@@ -927,7 +948,9 @@ window.VOLT = {
       "constant": "PlcGvl",
       "kind": "gvl",
       "emitted": true,
-      "ext": "gvl",
+      "exts": [
+        "gvl"
+      ],
       "source": true,
       "addressable": true,
       "member": false,
@@ -939,7 +962,7 @@ window.VOLT = {
       "constant": "PlcTrans",
       "kind": "transition",
       "emitted": true,
-      "ext": null,
+      "exts": null,
       "source": false,
       "addressable": false,
       "member": false,
@@ -951,7 +974,9 @@ window.VOLT = {
       "constant": "PlcLibMan",
       "kind": "library_manager",
       "emitted": true,
-      "ext": "library_manager",
+      "exts": [
+        "library_manager"
+      ],
       "source": false,
       "addressable": false,
       "member": false,
@@ -963,7 +988,9 @@ window.VOLT = {
       "constant": "PlcItf",
       "kind": "interface",
       "emitted": true,
-      "ext": "itf",
+      "exts": [
+        "itf"
+      ],
       "source": true,
       "addressable": true,
       "member": false,
@@ -975,7 +1002,9 @@ window.VOLT = {
       "constant": "PlcVisObj",
       "kind": "visualization",
       "emitted": true,
-      "ext": "visualization",
+      "exts": [
+        "visualization"
+      ],
       "source": false,
       "addressable": false,
       "member": false,
@@ -987,7 +1016,9 @@ window.VOLT = {
       "constant": "PlcVisMan",
       "kind": "visualization_manager",
       "emitted": true,
-      "ext": "visualization_manager",
+      "exts": [
+        "visualization_manager"
+      ],
       "source": false,
       "addressable": false,
       "member": false,
@@ -999,7 +1030,9 @@ window.VOLT = {
       "constant": "PlcTask",
       "kind": "task",
       "emitted": true,
-      "ext": "task",
+      "exts": [
+        "task"
+      ],
       "source": false,
       "addressable": true,
       "member": false,
@@ -1011,7 +1044,12 @@ window.VOLT = {
       "constant": "PlcDut",
       "kind": "dut",
       "emitted": true,
-      "ext": "dut",
+      "exts": [
+        "struct",
+        "enum",
+        "union",
+        "alias"
+      ],
       "source": true,
       "addressable": true,
       "member": false,
@@ -1023,7 +1061,9 @@ window.VOLT = {
       "constant": "PlcTextList",
       "kind": "text_list",
       "emitted": true,
-      "ext": "text_list",
+      "exts": [
+        "text_list"
+      ],
       "source": false,
       "addressable": false,
       "member": false,
@@ -1035,7 +1075,9 @@ window.VOLT = {
       "constant": "PlcImagePool",
       "kind": "image_pool",
       "emitted": true,
-      "ext": "image_pool",
+      "exts": [
+        "image_pool"
+      ],
       "source": false,
       "addressable": false,
       "member": false,
@@ -1047,7 +1089,9 @@ window.VOLT = {
       "constant": "PlcParamList",
       "kind": "parameter_list",
       "emitted": true,
-      "ext": "parameter_list",
+      "exts": [
+        "parameter_list"
+      ],
       "source": false,
       "addressable": false,
       "member": false,
@@ -1059,7 +1103,9 @@ window.VOLT = {
       "constant": "PlcClassDiagram",
       "kind": "class_diagram",
       "emitted": true,
-      "ext": "class_diagram",
+      "exts": [
+        "class_diagram"
+      ],
       "source": false,
       "addressable": false,
       "member": false,
@@ -1071,7 +1117,9 @@ window.VOLT = {
       "constant": "PlcRecipeMan",
       "kind": "recipe_manager",
       "emitted": true,
-      "ext": "recipe_manager",
+      "exts": [
+        "recipe_manager"
+      ],
       "source": false,
       "addressable": false,
       "member": false,
@@ -1083,7 +1131,9 @@ window.VOLT = {
       "constant": "PlcRecipes",
       "kind": "recipe_manager",
       "emitted": true,
-      "ext": "recipe_manager",
+      "exts": [
+        "recipe_manager"
+      ],
       "source": false,
       "addressable": false,
       "member": false,
@@ -1095,7 +1145,7 @@ window.VOLT = {
       "constant": "PlcProgRef",
       "kind": "task_call_reference",
       "emitted": true,
-      "ext": null,
+      "exts": null,
       "source": false,
       "addressable": false,
       "member": false,
@@ -1107,7 +1157,9 @@ window.VOLT = {
       "constant": "PlcExtDataTypeCont",
       "kind": "external_types",
       "emitted": true,
-      "ext": "external_types",
+      "exts": [
+        "external_types"
+      ],
       "source": false,
       "addressable": false,
       "member": false,
@@ -1119,7 +1171,9 @@ window.VOLT = {
       "constant": "PlcTmcDescription",
       "kind": "tmc_file",
       "emitted": true,
-      "ext": "tmc",
+      "exts": [
+        "tmc"
+      ],
       "source": false,
       "addressable": false,
       "member": false,
@@ -1131,7 +1185,7 @@ window.VOLT = {
       "constant": "PlcItfPropGet",
       "kind": "interface_property_get",
       "emitted": true,
-      "ext": null,
+      "exts": null,
       "source": false,
       "addressable": false,
       "member": false,
@@ -1143,7 +1197,7 @@ window.VOLT = {
       "constant": "PlcItfPropSet",
       "kind": "interface_property_set",
       "emitted": true,
-      "ext": null,
+      "exts": null,
       "source": false,
       "addressable": false,
       "member": false,
@@ -1155,7 +1209,9 @@ window.VOLT = {
       "constant": "PlcLibRef",
       "kind": "library",
       "emitted": true,
-      "ext": "library",
+      "exts": [
+        "library"
+      ],
       "source": false,
       "addressable": false,
       "member": false,
@@ -1197,7 +1253,9 @@ window.VOLT = {
       "constant": "PlcDevice",
       "kind": "device",
       "emitted": true,
-      "ext": "device",
+      "exts": [
+        "device"
+      ],
       "source": false,
       "addressable": false,
       "member": false,
@@ -1209,7 +1267,9 @@ window.VOLT = {
       "constant": "PlcProjectInfo",
       "kind": "project_info",
       "emitted": true,
-      "ext": "projectinfo",
+      "exts": [
+        "projectinfo"
+      ],
       "source": false,
       "addressable": false,
       "member": false,
@@ -1221,7 +1281,9 @@ window.VOLT = {
       "constant": "PlcTrace",
       "kind": "trace",
       "emitted": true,
-      "ext": "trace",
+      "exts": [
+        "trace"
+      ],
       "source": false,
       "addressable": false,
       "member": false,
@@ -1233,7 +1295,9 @@ window.VOLT = {
       "constant": "PlcRecipe",
       "kind": "recipe",
       "emitted": true,
-      "ext": "recipe",
+      "exts": [
+        "recipe"
+      ],
       "source": false,
       "addressable": false,
       "member": false,
@@ -1245,7 +1309,9 @@ window.VOLT = {
       "constant": "PlcSymbolConfig",
       "kind": "symbol_config",
       "emitted": true,
-      "ext": "symbols",
+      "exts": [
+        "symbols"
+      ],
       "source": false,
       "addressable": false,
       "member": false,
@@ -1257,7 +1323,9 @@ window.VOLT = {
       "constant": "PlcProjectSettings",
       "kind": "project_settings",
       "emitted": true,
-      "ext": "projectsettings",
+      "exts": [
+        "projectsettings"
+      ],
       "source": false,
       "addressable": false,
       "member": false,

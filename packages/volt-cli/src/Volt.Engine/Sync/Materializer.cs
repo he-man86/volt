@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Volt.Engine.Item;
 using Volt.Engine.Ide;
 using Volt.Engine.Library;
@@ -14,20 +14,32 @@ public static class Materializer
         {
             var build = BuildSource(ide, item, kind);
             var text = StWriter.Write(build);
-            var resolvedKind = build.Kind;
-            return new WorkspaceItem(text, FullWireName(name, ItemKind.ExtFor(resolvedKind)));
+            return new WorkspaceItem(text, FullWireName(name, build.Kind, build.Declaration));
         }
-        return new WorkspaceItem(ide.ReadManifest(item, kind),
-            FullWireName(name, ItemKind.ExtFor(kind)));
+        return new WorkspaceItem(ide.ReadManifest(item, kind), FullWireName(name, kind, declaration: null));
     }
 
-    /// <summary>The name an item is known by ON THE WIRE — <c>name.kind</c> — from the BARE name the IDE holds.
+    /// <summary>The name an item is known by ON THE WIRE — <c>name.ext</c> — from the BARE name the IDE holds.
+    /// <b>The one place a full wire name is minted</b>: <c>VersionedItem.Identity</c>, and through it every
+    /// <c>refs</c>/<c>fetch</c>/receipt map and every push gate, keys on what this returns.
+    ///
+    /// <para><b>A DUT is named by its SUBTYPE</b> — <c>X.struct</c> / <c>X.enum</c> / <c>X.union</c> /
+    /// <c>X.alias</c> — read from its declaration (<see cref="CodeHelper.DutSubtype"/>), never from the tree code,
+    /// which on TwinCAT lags an in-place change (DIALECT C2e). It used to travel as <c>X.dut</c> and be re-derived
+    /// in the CLI to name the file, which put item-kind knowledge in the one layer whose job is git; a client now
+    /// writes the wire name as the file name. A declaration that states no subtype throws here, and the caller
+    /// (<c>Versioning.SafeVersion</c>) publishes the item as unreadable rather than under a guessed name.</para>
     ///
     /// <para>PRIVATE, and it stays that way: <see cref="Materialize"/> is the public path and every item goes
     /// through it, so a test has no reason to reach past it. Making this public to test it directly is what
     /// `NoTestOnlyCodeInSrcTests` exists to catch — and it did.</para></summary>
-    private static string FullWireName(string bareName, string ext) =>
-        IsVerbatimKind(bareName, ext) ? bareName : $"{bareName}.{ext}";
+    private static string FullWireName(string bareName, string kind, string? declaration)
+    {
+        var ext = kind == ItemKind.Kinds.Dut
+            ? CodeHelper.DutSubtype(declaration ?? throw new ArgumentException($"DUT '{bareName}' has no declaration to name it by"))
+            : ItemKind.ExtFor(kind);
+        return IsVerbatimKind(bareName, ext) ? bareName : $"{bareName}.{ext}";
+    }
 
     private static bool IsVerbatimKind(string name, string ext) =>
         name.EndsWith("." + ext, StringComparison.OrdinalIgnoreCase);

@@ -379,11 +379,13 @@ public class DocDataTests
     /// <para>Reflected off the class rather than transcribed, because the transcription is what went stale: a
     /// doc listing 623 as the only DUT code was written while 605/606/607 were being dropped from every walk,
     /// and nothing could tell. A row here exists because a constant does.</para></summary>
-    /// <summary>The kinds that materialize as their own workspace file — the two extension tables, which is
-    /// the only definition of "has an extension" there is.</summary>
-    private static readonly HashSet<string> FileKinds = new(
-        ItemKind.SourceKindExtensions.Concat(ItemKind.ReferenceKindExtensions).Select(x => x.Kind),
-        StringComparer.Ordinal);
+    /// <summary>Each kind that materializes as its own workspace file, with its extensions — the two extension
+    /// tables, which are the only definition of "has an extension" there is. A LIST per kind: the DUT kind has four,
+    /// one per subtype, and `ItemKind.ExtFor` refuses to pick one (a DUT's name comes from its declaration).</summary>
+    private static readonly Dictionary<string, string[]> FileKinds =
+        ItemKind.SourceKindExtensions.Concat(ItemKind.ReferenceKindExtensions)
+            .GroupBy(x => x.Kind, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Ext).ToArray(), StringComparer.Ordinal);
 
     private static JsonArray BuildKinds()
     {
@@ -409,7 +411,9 @@ public class DocDataTests
                 // A kind has an extension only when it materializes as its OWN file. A folder is a path
                 // segment and a member is folded into its POU's file, so neither has one — and `ExtFor`
                 // throws rather than inventing one, which is the behaviour this mirrors instead of catching.
-                row["ext"] = FileKinds.Contains(kind) ? ItemKind.ExtFor(kind) : null;
+                row["exts"] = FileKinds.TryGetValue(kind, out var exts)
+                    ? new JsonArray(exts.Select(e => (JsonNode?)e).ToArray())
+                    : null;
                 row["source"] = ItemKind.IsSourceKind(kind);
                 row["addressable"] = ItemKind.IsAddressableItem(code);
                 row["member"] = ItemKind.IsMember(code);

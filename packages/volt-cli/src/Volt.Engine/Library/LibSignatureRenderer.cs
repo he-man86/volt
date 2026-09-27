@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Volt.Engine.Format.St;
 using Volt.Engine.Library;
 
 namespace Volt.Engine.Library;
@@ -68,10 +69,9 @@ public static class LibSignatureRenderer
         if (!OkName(name)) return null;
 
         // A DUT alias (`TYPE HANDLE : __XWORD; END_TYPE`) — render it faithfully, not as an empty struct. The
-        // base can be a `__`-prefixed CODESYS system type (target-specific word), which the LSP resolves. The
-        // subtype is not re-derived from the text here: this renderer BUILT the body, so it already knows.
+        // base can be a `__`-prefixed CODESYS system type (target-specific word), which the LSP resolves.
         if (!string.IsNullOrEmpty(s.AliasBase))
-            return (".alias", $"TYPE {name} : {s.AliasBase};\nEND_TYPE");
+            return Dut($"TYPE {name} : {s.AliasBase};\nEND_TYPE");
 
         var kind = s.PouType.Contains(".") ? s.PouType.Substring(s.PouType.LastIndexOf('.') + 1) : s.PouType;
 
@@ -128,7 +128,7 @@ public static class LibSignatureRenderer
                 {
                     // Enum members carry their ordinal in Initial (`NO_ERROR := 0, FIRST_ERROR := 5700`).
                     var members = mem.Select(v => "\t" + v.Name + (string.IsNullOrEmpty(v.Initial) ? "" : $" := {v.Initial}"));
-                    return (".enum", $"TYPE {name} :\n(\n{string.Join(",\n", members)}\n);\nEND_TYPE");
+                    return Dut($"TYPE {name} :\n(\n{string.Join(",\n", members)}\n);\nEND_TYPE");
                 }
                 return (".gvl", string.Join("\n", new[] { "VAR_GLOBAL" }.Concat(mem.Select(v => $"\t{VarDecl(v)};")).Concat(new[] { "END_VAR" })));
             }
@@ -136,14 +136,18 @@ public static class LibSignatureRenderer
             {
                 var fields = s.Members.Where(v => OkName(v.Name)).Select(v => $"\t{VarDecl(v)};");
                 // A UNION shares the struct shape but with UNION/END_UNION (overlapping members); a STRUCT is the
-                // default. One wire kind still — but the FILE is named for what it is, as a project DUT now is.
-                var union = s.Flags.Contains("Union");
-                var (open, close) = union ? ("UNION", "END_UNION") : ("STRUCT", "END_STRUCT");
-                return (union ? ".union" : ".struct",
-                        string.Join("\n", new[] { $"TYPE {name} :", open }.Concat(fields).Concat(new[] { close, "END_TYPE" })));
+                // default. The vendor flag picks the KEYWORDS; the name comes from the text they make (`Dut`).
+                var (open, close) = s.Flags.Contains("Union") ? ("UNION", "END_UNION") : ("STRUCT", "END_STRUCT");
+                return Dut(string.Join("\n", new[] { $"TYPE {name} :", open }.Concat(fields).Concat(new[] { close, "END_TYPE" })));
             }
             default:
                 return null;
         }
     }
+
+    /// <summary>A library DUT's (extension, text), named by the ONE subtype reader — the same answer the project
+    /// materializer mints a DUT's wire name from, so a library enum and a project enum carry the same extension.
+    /// This renderer used to spell `.enum`/`.struct`/`.union`/`.alias` itself from the vendor's flags: a second
+    /// classifier of one shape, free to disagree with the reader about the very text it had just written.</summary>
+    private static (string Ext, string Text) Dut(string text) => ("." + CodeHelper.DutSubtype(text), text);
 }

@@ -220,7 +220,7 @@ function renderKinds(el) {
         <td class="num">${k.code}</td>
         <td class="name">${k.constant}</td>
         <td class="name">${k.kind ? esc(k.kind) : '<span class="no">not emitted</span>'}</td>
-        <td class="name">${k.ext ? "." + k.ext : '<span class="no">·</span>'}</td>
+        <td class="name">${k.exts ? k.exts.map((e) => "." + e).join(" ") : '<span class="no">·</span>'}</td>
         <td>${flag(k.source)}</td>
         <td>${flag(k.addressable)}</td>
         <td>${flag(k.member)}</td>

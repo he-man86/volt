@@ -247,6 +247,36 @@ public class WireVocabularyGuardTests
             "lines name one on their own, a second classifier:\n  " + string.Join("\n  ", offenders));
     }
 
+    /// <summary>THE CLI HOLDS NO ST-FORMAT KNOWLEDGE (openspec <c>dut-subtype-on-the-wire</c>: "the CLI maps file name
+    /// == wire name"). Reading a declaration — <c>CodeHelper</c>, the ST reader — is what the CLI's DUT logic was made
+    /// of (<c>Materialize.FileNameFor</c> read the subtype to pick an extension). An import of
+    /// <c>Volt.Engine.Format.St</c> left behind after that logic went is the open door it comes back through
+    /// unnoticed, so no <c>Volt.Cli</c> file imports the namespace. (The one qualified use left, <c>Commands.cs</c>'
+    /// <c>ImplementationMarker.AppliesTo</c>, is task 4.9's: that decision moves behind one engine call.)</summary>
+    [Fact]
+    public void The_cli_imports_no_st_format()
+    {
+        var stFormat = new Regex(@"^\s*using\s+(\w+\s*=\s*)?Volt\.Engine\.Format\.St\s*;");
+        Assert.Matches(stFormat, "using Volt.Engine.Format.St;");
+        Assert.Matches(stFormat, "using St = Volt.Engine.Format.St;");
+        Assert.DoesNotMatch(stFormat, "using Volt.Engine.Format.Stx;");
+        var cli = Path.Combine(FindSrcDir(), "Volt.Cli");
+        Assert.True(Directory.Exists(cli), $"Volt.Cli not found at {cli}");
+        var offenders = new List<string>();
+        foreach (var file in EnumerateCs(cli))
+        {
+            var lineNo = 0;
+            foreach (var raw in File.ReadLines(file))
+            {
+                lineNo++;
+                if (stFormat.IsMatch(StripComment(raw))) offenders.Add($"{Path.GetFileName(file)}:{lineNo}: {raw.Trim()}");
+            }
+        }
+        Assert.True(offenders.Count == 0,
+            "Volt.Cli reads no declaration — the wire name IS the file name. These lines import the ST format:\n  " +
+            string.Join("\n  ", offenders));
+    }
+
     /// <summary>The line with any trailing <c>//</c> comment removed — where <c>//</c> INSIDE a string literal
     /// is not a comment.
     ///

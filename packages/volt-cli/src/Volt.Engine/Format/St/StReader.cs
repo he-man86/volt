@@ -68,6 +68,19 @@ public static class StReader
 	// The model lives in Item/ — this reader and StWriter are the two halves of ONE format, and they now
 	// produce and consume the SAME record rather than two records that happened to line up. See ItemContent.
 
+	/// <summary>Refuse a text whose header declares <paramref name="declared"/> under a wire name whose extension says
+	/// <paramref name="expectedKind"/> — THE refusal <see cref="Read"/> makes, for a caller that must read the text
+	/// before it compares (the push's update arm, whose re-type guard first names what the live object IS). A null
+	/// <paramref name="expectedKind"/> is no wire name and checks nothing.</summary>
+	public static void RequireKind(string declared, string? expectedKind)
+	{
+		if (expectedKind != null && !string.Equals(declared, expectedKind, System.StringComparison.Ordinal))
+			throw new BridgeException(BridgeErrorCodes.InvalidSt,
+				$"the item's extension says '{expectedKind}' and its text declares a '{declared}'. The extension is " +
+				"the kind — rename the file to match the code, or change the code to match the file. (Writing it " +
+				"anyway would silently replace the item with one of the other kind, under a different name.)");
+	}
+
 	/// <summary>
 	/// Split one canonical workspace source item (ST text) into the vendor-neutral primitives the
 	/// push path writes through <c>IIdeDriver</c>.
@@ -88,11 +101,7 @@ public static class StReader
 		// `KindTest.prg` (measured on live SP21, 2026-09-17), and since the wire is keyed by the FULL name the
 		// next `ifVersion` then named an item that no longer existed.
 		var declared = CodeHelper.ParseCodeHeader(sourceText);
-		if (expectedKind != null && !string.Equals(declared, expectedKind, System.StringComparison.Ordinal))
-			throw new BridgeException(BridgeErrorCodes.InvalidSt,
-				$"the item's extension says '{expectedKind}' and its text declares a '{declared}'. The extension is " +
-				"the kind — rename the file to match the code, or change the code to match the file. (Writing it " +
-				"anyway would silently replace the item with one of the other kind, under a different name.)");
+		RequireKind(declared, expectedKind);
 		var kind = expectedKind ?? declared;
 
 		// 2. Branch on kind: composite POUs have children, simple

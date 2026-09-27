@@ -56,7 +56,7 @@ public class RenameBeforeWriteTests
                 new SetItemOp
                 {
                     Name = "FB_Draw.prg",
-                    ToName = "FB_Renamed",
+                    ToName = "FB_Renamed.prg",
                     SourceText = MalformedBody,
                     IfVersion = refs.Items["FB_Draw.prg"],
                 },
@@ -91,7 +91,7 @@ public class RenameBeforeWriteTests
                 new SetItemOp
                 {
                     Name = "FB_Old.prg",
-                    ToName = "FB_New",
+                    ToName = "FB_New.prg",
                     SourceText = "PROGRAM FB_New\nVAR\nEND_VAR\n(* @volt-implementation *)\ny := 2;\nEND_PROGRAM\n",
                     IfVersion = refs.Items["FB_Old.prg"],
                 },

@@ -66,15 +66,21 @@ public class ItemKindTests
 
     // ── the table's own consistency ────────────────────────────────────────────────────────────
 
-    /// <summary>NO KIND APPEARS TWICE, and no EXTENSION is claimed by two kinds. A duplicated extension makes
-    /// the workspace ambiguous in the direction that matters most: kind is recovered from the file's extension
-    /// on push, so two kinds sharing one would make a pushed file's kind unknowable.</summary>
+    /// <summary>NO EXTENSION IS CLAIMED BY TWO KINDS, and no kind appears twice but the DUT. A duplicated extension
+    /// makes the workspace ambiguous in the direction that matters most: kind is recovered from the file's
+    /// extension on push, so two kinds sharing one would make a pushed file's kind unknowable.
+    ///
+    /// <para>The DUT kind is the one many-to-one row, by design (openspec <c>dut-subtype-on-the-wire</c>): its wire
+    /// name carries its subtype, so it is listed under its four subtype extensions
+    /// (<see cref="The_dut_kind_is_listed_under_its_four_subtype_extensions_and_never_dut"/>) — which still leaves
+    /// every EXTENSION naming exactly one kind.</para></summary>
     [Fact]
     public void The_extension_table_is_one_to_one()
     {
         var all = ItemKind.SourceKindExtensions.Concat(ItemKind.ReferenceKindExtensions).ToArray();
+        var notDut = all.Where(x => x.Kind != ItemKind.Kinds.Dut).ToArray();
 
-        Assert.Equal(all.Length, all.Select(x => x.Kind).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(notDut.Length, notDut.Select(x => x.Kind).Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(all.Length, all.Select(x => x.Ext).Distinct(StringComparer.Ordinal).Count());
     }
 

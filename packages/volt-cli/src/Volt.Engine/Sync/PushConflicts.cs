@@ -52,6 +52,28 @@ internal static class PushConflicts
             {
                 if (clientVersion == null)            // create
                 {
+                    // A DUT IS ONE OBJECT UNDER FOUR NAMES. `X.struct` is absent from the map when the IDE's `X` is
+                    // an enum — its identity there is `X.enum` — yet the apply resolves the op by BARE name, finds
+                    // that enum and writes the struct over it with no version check. So a DUT create also looks for
+                    // the object under its other subtype names: a create must not land on an item that is there,
+                    // whatever subtype it has now. DUT names only: `X.fb` beside `X.struct` is two items (the
+                    // item-name invariant), never one object.
+                    if (currentVersion == null && DutSubtypeChanges.IsDut(name)
+                        && pending.FirstOrDefault(kv => DutSubtypeChanges.IsDut(kv.Key)
+                               && string.Equals(Materializer.Bare(kv.Key), bare, StringComparison.OrdinalIgnoreCase))
+                           is { Key: { } sibling } hit)
+                    {
+                        conflicts.Add(new PushConflict
+                        {
+                            Name = name, YourVersion = null, CurrentVersion = hit.Value,
+                            Code = ConflictCodes.ItemExists,
+                            Reason = $"expected to create new item but the IDE already holds this DUT as '{sibling}' " +
+                                     "(a DUT's subtype names are one object). Pull it first; to change its subtype, " +
+                                     "rename or replace that file.",
+                        });
+                        continue;
+                    }
+
                     // AN UNREADABLE ITEM IS ITS OWN SITUATION, not a name collision.
                     //
                     // The refusal is right — a create must not land on top of an item that is there — but it
