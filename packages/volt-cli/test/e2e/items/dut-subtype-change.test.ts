@@ -17,6 +17,7 @@ import { BASE } from "../lib/pipe"
 import { bridge } from "../lib/bridge"
 import { id, fid, cleanup, requireHealthy, createItem, fetchItem, pushOps, plcFolder } from "../lib/workspace"
 import { structDut, enumDut, unionDut } from "../fixtures"
+import { ensureCompiles, withMainProgramRestored } from "../lib/compile"
 
 describe(`items / DUT subtype change (${BASE})`, () => {
 	setDefaultTimeout(60_000)
@@ -68,6 +69,8 @@ describe(`items / DUT subtype change (${BASE})`, () => {
 			expect(it.folder).toBe(folder)
 			expect(it.sourceText).toMatch(/UNION/)
 			await expectOnlyUnder(key, "union", ["struct"])
+			// The vendor object took the new shape IN PLACE only if the compiler accepts it as that shape.
+			await withMainProgramRestored(() => ensureCompiles(bare))
 		})
 	}
 
@@ -78,6 +81,10 @@ describe(`items / DUT subtype change (${BASE})`, () => {
 			{ op: "set", name: fid("sub_stale", "enum"), sourceText: enumDut(bare), ifVersion: null },
 		])
 		expect(r.accepted).toBe(false)
+		// A version conflict like any update's — not any refusal: the spec names the code.
+		expect(r.conflicts ?? [], JSON.stringify(r.conflicts)).toContainEqual(
+			expect.objectContaining({ name: fid("sub_stale", "struct"), code: "STALE_ITEM_VERSION" }),
+		)
 		await expectOnlyUnder("sub_stale", "struct", ["enum"])
 		expect((await bridge.refs()).items[fid("sub_stale", "struct")]).toBe(version)
 	})
@@ -94,6 +101,7 @@ describe(`items / DUT subtype change (${BASE})`, () => {
 		const text = `${c.name} ${c.reason}`
 		expect(text).toContain(fid("sub_two", "struct"))
 		expect(text).toContain(fid("sub_two", "enum"))
+		await expectOnlyUnder("sub_two", "struct", ["enum"])
 		expect((await bridge.refs()).items[fid("sub_two", "struct")]).toBe(version)
 	})
 
@@ -103,7 +111,10 @@ describe(`items / DUT subtype change (${BASE})`, () => {
 		expect(r.accepted).toBe(false)
 		const c = (r.conflicts ?? []).find((x: any) => x.code === "BAD_REQUEST")
 		expect(c, JSON.stringify(r.conflicts)).toBeDefined()
-		expect(`${c.name} ${c.reason}`).toContain(fid("sub_body", "enum"))
+		const text = `${c.name} ${c.reason}`
+		expect(text).toContain(fid("sub_body", "struct"))
+		expect(text).toContain(fid("sub_body", "enum"))
+		await expectOnlyUnder("sub_body", "struct", ["enum"])
 		expect((await bridge.refs()).items[fid("sub_body", "struct")]).toBe(version)
 	})
 

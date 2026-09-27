@@ -614,6 +614,35 @@ public class PullCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>…and when the unread folder is the one the OLD name last sat in. The IDE retyped `X` and moved it
+    /// out of `Old`, and `Old` now faults. Absence under an unread folder proves nothing — but this walk did not
+    /// merely miss `X`: it found the one object under its new name, `X.enum`. Two files for one IDE object is what
+    /// the spec forbids, and the stale `X.struct` could be force-pushed over the live enum.</summary>
+    [Fact]
+    public void A_pull_retires_the_old_subtype_name_even_when_its_own_folder_went_unread()
+    {
+        var ide = ConnectedIde(Prg(),
+            FakeIde.Item.TextualPou("X", "TYPE X :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE", "", "Old"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var structFile = Path.Combine(root, "src", "Old", "X.struct");
+            var enumFile = Path.Combine(root, "src", "DUTs", "X.enum");
+            Assert.True(File.Exists(structFile));
+
+            ide.RemoveItem("X");
+            ide.AddItem(FakeIde.Item.TextualPou("X", "TYPE X :\n(\n\tA := 0,\n\tB\n);\nEND_TYPE", "", "DUTs"));
+            ide.UnwalkableFolders = new[] { "Old" };
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+
+            Assert.True(File.Exists(enumFile));
+            Assert.False(File.Exists(structFile), "the DUT's old subtype file survived beside its new one");
+            Assert.DoesNotContain("X.struct", Sidecar.LoadIdeRefs(root)!.Items.Keys);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     /// <summary>STATUS AND PULL GIVE ONE ANSWER over a partial walk. `volt status` said nothing was removed while
     /// `volt pull` retired the item — and `volt pull --dry-run` listed it in `synced` beside a post-status that
     /// did not. What pull would bring in and what status reports incoming are the same set.</summary>

@@ -1,11 +1,10 @@
 using Xunit;
 using Volt.Engine.Format.Network;
-using Volt.Engine.Item;
 
 namespace Volt.Engine.Tests;
 
 /// <summary>
-/// <see cref="NetworkText.SourceHoldsV1"/>: the ONE answer to "does this file still hold network text v1", which the
+/// <see cref="NetworkText.FileHoldsV1"/>: the ONE answer to "does this file still hold network text v1", which the
 /// pull's migration note asks. It looks where the reader would meet v1 — inside a graphical BODY — and only there: a
 /// body that IS v1 (its first line a <c>NETWORK &lt;n&gt;</c> header), or a v2 body a clean git merge left v1
 /// constructs in (a numbered header, a <c>LET</c> statement). A line spelled like a v1 header anywhere else (a
@@ -15,10 +14,37 @@ public class NetworkTextV1DetectionTests
 {
     /// <summary>A PROGRAM whose body is <paramref name="body"/>, as a pull writes it: a graphical body's own marker
     /// stands in the bare marker's place, any other body follows the bare marker.</summary>
-    private static bool Holds(string body) => NetworkText.SourceHoldsV1(
+    private static bool Holds(string body) => NetworkText.FileHoldsV1("P.prg",
         "PROGRAM P\nVAR\nEND_VAR\n" +
         (body.StartsWith("(* @volt-implementation", System.StringComparison.Ordinal) ? "" : "(* @volt-implementation *)\n") +
-        body + "\n\nEND_PROGRAM\n", ItemKind.Kinds.Program);
+        body + "\n\nEND_PROGRAM\n");
+
+    /// <summary>WHICH FILES CAN HOLD NETWORK TEXT is a question about the file's NAME, answered here once — the wire
+    /// name IS the file name, so a client asks by name and knows no kind. Only a kind with an implementation to
+    /// separate (a POU and its members) can hold a body; a GVL, a DUT of every subtype, an interface, a descriptor
+    /// and a name no kind claims cannot. The CLI's pull note (`V1Note`) asked this with its own kind logic —
+    /// `KindForWireName`, `IsSourceKind`, `ImplementationMarker.AppliesTo` — before it asked the engine.</summary>
+    [Theory]
+    [InlineData("X.fb", true)]
+    [InlineData("X.prg", true)]
+    [InlineData("X.fun", true)]
+    [InlineData("X.gvl", false)]
+    [InlineData("X.struct", false)]
+    [InlineData("X.enum", false)]
+    [InlineData("X.union", false)]
+    [InlineData("X.alias", false)]
+    [InlineData("X.itf", false)]
+    [InlineData("X.task", false)]
+    [InlineData("X", false)]
+    [InlineData("X.Enum", false)]
+    public void Whether_a_file_can_hold_network_text_is_asked_by_its_name(string wireName, bool can) =>
+        Assert.Equal(can, NetworkText.CanHold(wireName));
+
+    /// <summary>…and the v1 question is asked by the same name, so the caller never resolves a kind to pass in.</summary>
+    [Fact]
+    public void The_v1_question_is_asked_by_the_files_name() =>
+        Assert.True(NetworkText.FileHoldsV1("P.prg",
+            "PROGRAM P\nVAR\nEND_VAR\n(* @volt-implementation *)\nNETWORK 0 LD\n  out := a;\nEND_NETWORK\n\nEND_PROGRAM\n"));
 
     [Fact]
     public void A_v1_body_holds_v1() =>
@@ -59,7 +85,7 @@ public class NetworkTextV1DetectionTests
             n => n == "FB" ? "FUNCTION_BLOCK FB\nVAR_INPUT\n  Let : BOOL;\nEND_VAR\n" : null,
             () => System.Array.Empty<string>());
         Assert.True(NetworkTextGate.Validate(body, scope).Ok);   // the premise: the push accepts it
-        Assert.False(NetworkText.SourceHoldsV1(decl + body + "\n\nEND_PROGRAM\n", ItemKind.Kinds.Program));
+        Assert.False(NetworkText.FileHoldsV1("P.prg", decl + body + "\n\nEND_PROGRAM\n"));
     }
 
     /// <summary>…and it refuses <c>LET</c> at a statement start that is not a line start.</summary>
@@ -127,10 +153,9 @@ public class NetworkTextV1DetectionTests
     public void A_source_file_is_judged_by_its_bodies_not_its_declaration()
     {
         const string decl = "PROGRAM P\n(*\nNETWORK 2 drives the conveyor\n*)\nVAR\nEND_VAR\n";
-        Assert.False(NetworkText.SourceHoldsV1(decl + "(* @volt-implementation *)\nx := 1;\n\nEND_PROGRAM\n",
-                                               ItemKind.Kinds.Program));
-        Assert.True(NetworkText.SourceHoldsV1(decl + "(* @volt-implementation *)\nNETWORK 0 LD\n  x := a;\nEND_NETWORK\n\nEND_PROGRAM\n",
-                                              ItemKind.Kinds.Program));
+        Assert.False(NetworkText.FileHoldsV1("P.prg", decl + "(* @volt-implementation *)\nx := 1;\n\nEND_PROGRAM\n"));
+        Assert.True(NetworkText.FileHoldsV1("P.prg",
+            decl + "(* @volt-implementation *)\nNETWORK 0 LD\n  x := a;\nEND_NETWORK\n\nEND_PROGRAM\n"));
     }
 
     [Fact]
@@ -139,6 +164,6 @@ public class NetworkTextV1DetectionTests
         const string src =
             "FUNCTION_BLOCK FB\nVAR\nEND_VAR\n(* @volt-implementation *)\nx := 1;\n\nEND_FUNCTION_BLOCK\n\n" +
             "METHOD M\nVAR\nEND_VAR\n(* @volt-implementation *)\nNETWORK 0 FBD\n  x := a;\nEND_NETWORK\nEND_METHOD\n";
-        Assert.True(NetworkText.SourceHoldsV1(src, ItemKind.Kinds.FunctionBlock));
+        Assert.True(NetworkText.FileHoldsV1("F.fb", src));
     }
 }

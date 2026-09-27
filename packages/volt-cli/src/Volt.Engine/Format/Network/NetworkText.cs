@@ -194,12 +194,28 @@ public static class NetworkText
     /// <summary>A workspace source file of <paramref name="kind"/> holds network text v1 in any of its bodies — the
     /// POU's, a member's, a property accessor's (<see cref="HoldsV1"/>). Only bodies are looked at: the declaration
     /// is ST whatever its comments spell. Throws what <see cref="StReader.Read"/> throws on a malformed file.</summary>
-    public static bool SourceHoldsV1(string source, string kind)
+    private static bool SourceHoldsV1(string source, string kind)
     {
         var item = StReader.Read(source, kind);
         return HoldsV1(item.Body) || item.Members.Any(m =>
             HoldsV1(m.Body) || HoldsV1(m.Getter?.Body) || HoldsV1(m.Setter?.Body));
     }
+
+    /// <summary>Can a workspace file named <paramref name="wireName"/> hold network text at all? Only a source kind
+    /// with an implementation to separate (<see cref="ImplementationMarker.AppliesTo"/>) has a body — a GVL, a DUT of
+    /// any subtype, an interface or a descriptor has none. Asked by NAME because the file name IS the wire name: a
+    /// client (the pull's v1 note) asks this and resolves no kind of its own — the kind table is the engine's.</summary>
+    public static bool CanHold(string wireName) =>
+        Volt.Engine.Item.ItemKind.KindForWireName(wireName) is { } kind
+        && Volt.Engine.Item.ItemKind.IsSourceKind(kind)
+        && ImplementationMarker.AppliesTo(kind);
+
+    /// <summary><see cref="SourceHoldsV1"/> for the file named <paramref name="wireName"/>. A file that cannot hold
+    /// network text (<see cref="CanHold"/>) holds no v1 — that is the answer, not a guess, and it is given before the
+    /// text is read, so a GVL or a DUT is never parsed as a body it does not have. Throws what
+    /// <see cref="StReader.Read"/> throws on a malformed file.</summary>
+    public static bool FileHoldsV1(string wireName, string source) =>
+        CanHold(wireName) && SourceHoldsV1(source, Volt.Engine.Item.ItemKind.KindForWireName(wireName)!);
 
     /// <summary>The body is network text v1: its first non-blank line is a <c>NETWORK &lt;n&gt; &lt;LANG&gt;</c>
     /// header. v1 bodies follow the BARE implementation marker, so none of them reaches the v2 reader through

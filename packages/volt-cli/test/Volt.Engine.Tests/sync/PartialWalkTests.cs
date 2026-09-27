@@ -120,6 +120,42 @@ public class PartialWalkTests
         Assert.Equal(fetch.Removed, refs.Removed);
     }
 
+    /// <summary>…and a known name the walk found under ANOTHER wire name of the same kind is gone, whatever folder
+    /// it last sat in. A DUT is one object under its bare name; retyped (and moved out of a folder that now
+    /// faults), the walk publishes `X.enum`. `X.struct` is not "unseen" — the one object was seen, under its new
+    /// name — so keeping it would leave two workspace files and two baseline keys for one IDE object.</summary>
+    [Fact]
+    public void A_partial_walk_removes_the_old_subtype_name_of_a_dut_it_found_retyped()
+    {
+        var ide = new FakeIde();
+        ide.AddItem(FakeIde.Item.TextualPou("X", "TYPE X :\n(\n\tA := 0,\n\tB\n);\nEND_TYPE", "", "DUTs"));
+        ide.UnwalkableFolders = new[] { "Old" };
+        var known = new Dictionary<string, string> { ["X.struct"] = "v" };
+        var knownFolders = new Dictionary<string, string> { ["X.struct"] = "Old" };
+
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = known, KnownFolders = knownFolders });
+        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = known, KnownFolders = knownFolders });
+
+        Assert.Contains("X.enum", fetch.Items.Keys);
+        Assert.Equal(new[] { "X.struct" }, fetch.Removed);
+        Assert.Equal(fetch.Removed, refs.Removed);
+    }
+
+    /// <summary>The rule is one object under two names of ONE kind — an FB `X` the walk found says nothing about a
+    /// known `X.struct` whose folder it could not read (CLAUDE.md, the item-name invariant).</summary>
+    [Fact]
+    public void A_partial_walk_does_not_retire_a_name_because_another_kind_shares_its_bare_name()
+    {
+        var ide = new FakeIde();
+        ide.AddItem(FakeIde.Item.TextualPou("X", "FUNCTION_BLOCK X\nVAR\nEND_VAR", "", "POUs"));
+        ide.UnwalkableFolders = new[] { "Old" };
+        var known = new Dictionary<string, string> { ["X.struct"] = "v" };
+        var knownFolders = new Dictionary<string, string> { ["X.struct"] = "Old" };
+
+        Assert.Empty(FetchService.Handle(ide, new FetchRequest { KnownItems = known, KnownFolders = knownFolders }).Removed);
+        Assert.Empty(RefsService.Handle(ide, new RefsRequest { KnownItems = known, KnownFolders = knownFolders }).Removed);
+    }
+
     /// <summary>`refs` answers the complete walk's removals too, so `volt status` and `volt pull` read the one
     /// answer — and a refs with no baseline reports none.</summary>
     [Fact]

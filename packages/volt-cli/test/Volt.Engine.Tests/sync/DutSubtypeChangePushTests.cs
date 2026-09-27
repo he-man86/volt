@@ -398,6 +398,11 @@ public class DutSubtypeChangePushTests
         Assert.Equal(BridgeErrorCodes.BadRequest, conflict.Code);
         Assert.Contains(sent, conflict.Reason);
         Assert.Contains(declared, conflict.Reason);
+        // The sentence the engineer reads, pinned: it says which subtype the NAME claims and which the DECLARATION
+        // states, in words that read for every subtype (the previous "is named for a enum" did not).
+        var (sentExt, declaredExt) = (sent[(sent.LastIndexOf('.') + 1)..], declared[(declared.LastIndexOf('.') + 1)..]);
+        Assert.Contains($"'{sent}' names the subtype {sentExt} but its declaration's subtype is {declaredExt}, so its name is '{declared}'.",
+            conflict.Reason);
         Assert.Empty(ide.Recorded);
     }
 

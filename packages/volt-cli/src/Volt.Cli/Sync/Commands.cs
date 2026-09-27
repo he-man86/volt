@@ -359,10 +359,10 @@ public static class Commands
         //    item leave `ide-refs.json`, and the damage landed on the next PUSH: an edit went up as a create and was
         //    refused ITEM_EXISTS, a local delete was skipped by the `guardItems.TryGetValue` gate, a rename threw
         //    "has no known IDE version".
-        //  - one the walk found and could not READ (`Unreadable`) — a DUT half-way through a retype, whose
-        //    declaration states no subtype for a moment. Replacing the map dropped `X.struct` while its file stayed
-        //    in `volt/ide`; a fetch is asked only about names the baseline holds, so when the engineer finished it
-        //    as `X.enum` no pull ever reported `X.struct` removed, and both files lived on for one IDE object.
+        //  - one the walk found and could not READ (`Unreadable`) — an item caught mid-edit, whose text the reader
+        //    cannot place for a moment. Replacing the map dropped its name while its file stayed in `volt/ide`; a
+        //    fetch is asked only about names the baseline holds, so when the IDE next published that item under
+        //    another name no pull ever reported the old one removed, and both files lived on for one IDE object.
         //
         // So the map is ALWAYS an overlay: start from what is known, let the walk win where it read something, and
         // drop exactly what the tree below drops. An entry kept this way holds the version the last read gave it —
@@ -611,8 +611,8 @@ public static class Commands
                                     .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
 
         // …AND THE RECEIPT DOES NOT SHRINK IT. The receipt is a fresh walk and lists only what it SAW and READ: an
-        // item under an unenumerable folder is missing from it, and so is one the walk could not read (a DUT whose
-        // declaration states no subtype mid-retype is published under no full name). Adopting the receipt alone
+        // item under an unenumerable folder is missing from it, and so is one the walk could not read (an item the
+        // reader cannot place is published under no full name). Adopting the receipt alone
         // dropped either from the baseline, undoing the overlay the PULL path keeps — and a fetch is asked only
         // about names the baseline holds, so no later pull could report the old name removed. Deciding what is
         // GONE is the bridge's, on the next fetch (`Removed`); the baseline keeps the last version it was told.
@@ -859,7 +859,7 @@ public static class Commands
     ///
     /// <para>WHAT IS LOOKED AT. A conflicted file has markers in the worktree, so its OURS side (the index's stage 2)
     /// is judged — the text keeping our side would keep; a cleanly merged file is judged as merged. Either way the
-    /// engine's one v1 rule judges only the file's BODIES (<c>NetworkText.SourceHoldsV1</c>): a v1 header's spelling
+    /// engine's one v1 rule judges only the file's BODIES (<c>NetworkText.FileHoldsV1</c>): a v1 header's spelling
     /// in a declaration's comment is no v1 text, and the conflict hunk need not hold the header at all — git merges a
     /// header followed by `//` lines cleanly onto the IDE's bare `NETWORK`.</para>
     ///
@@ -875,10 +875,10 @@ public static class Commands
         var unreadable = new List<string>();
         foreach (var rel in ideFiles.Select(f => f.Path).Concat(conflicted).Distinct(StringComparer.Ordinal))
         {
-            // Only kinds with a body can hold network text; a GVL, a DUT, an interface or a descriptor has none.
-            var kind = ItemKind.KindForWireName(Path.GetFileName(rel));
-            if (kind is null || !ItemKind.IsSourceKind(kind) ||
-                !Volt.Engine.Format.St.ImplementationMarker.AppliesTo(kind)) continue;
+            // Which files can hold network text is the engine's answer, asked by the file's name (== its wire name):
+            // the CLI keeps no kind table of its own. Skipped before reading, so no git show for a file without one.
+            var name = Path.GetFileName(rel);
+            if (!Volt.Engine.Format.Network.NetworkText.CanHold(name)) continue;
 
             var isConflict = conflicted.Contains(rel);
             string? text;
@@ -895,7 +895,7 @@ public static class Commands
             if (text is null) continue;
 
             bool v1;
-            try { v1 = Volt.Engine.Format.Network.NetworkText.SourceHoldsV1(text, kind); }
+            try { v1 = Volt.Engine.Format.Network.NetworkText.FileHoldsV1(name, text); }
             catch (Volt.Engine.BridgeException) { unreadable.Add(rel); continue; }
             if (v1) (isConflict ? inConflict : merged).Add(rel);
         }

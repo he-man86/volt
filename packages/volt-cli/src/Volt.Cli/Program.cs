@@ -216,7 +216,7 @@ internal static class Program
     ///
     /// <para>Both were on the wire and no client had ever shown either. An unreadable item has no version, so
     /// it is simply ABSENT from everything else here — indistinguishable from one that was never in the project,
-    /// or, when an earlier pull read it, HELD: its last-read file and baseline entry stay (a DUT caught mid-retype),
+    /// or, when an earlier pull read it, HELD: its last-read file and baseline entry stay (an item caught mid-edit),
     /// stale and refused by every unforced push. Either way nothing else here says so, which is why this does. That is not hypothetical: one box whose `En` pin read as a boolean made a body unreadable
     /// and the whole POU vanished from git, silently (DIALECT C7). An unenumerable folder is worse, because its
     /// items are absent AND absence is how a deletion is derived.</para>

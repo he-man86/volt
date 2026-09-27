@@ -26,14 +26,31 @@ internal static class Removal
         IReadOnlyDictionary<string, string>? knownFolders,
         ICollection<string> walked,
         IReadOnlyDictionary<string, HashSet<string>> unreadableKinds,
-        IReadOnlyList<string> unwalkedFolders) =>
-        known.Where(name => !walked.Contains(name)
-                            && !IsUnreadable(name, unreadableKinds)
-                            && (unwalkedFolders.Count == 0
-                                || (knownFolders is not null && knownFolders.TryGetValue(name, out var folder)
-                                    && !UnderAny(folder, unwalkedFolders))))
-             .OrderBy(n => n, System.StringComparer.Ordinal)
-             .ToList();
+        IReadOnlyList<string> unwalkedFolders)
+    {
+        var seen = new HashSet<(string Bare, string Kind)>(
+            walked.Select(w => (Materializer.Bare(w), ItemKind.KindForWireName(w)))
+                  .Where(x => x.Item2 is not null)
+                  .Select(x => (x.Item1, x.Item2!)));
+        return known.Where(name => !walked.Contains(name)
+                                   && (SeenUnderAnotherName(name, seen)
+                                       || (!IsUnreadable(name, unreadableKinds)
+                                           && (unwalkedFolders.Count == 0
+                                               || (knownFolders is not null && knownFolders.TryGetValue(name, out var folder)
+                                                   && !UnderAny(folder, unwalkedFolders))))))
+                    .OrderBy(n => n, System.StringComparer.Ordinal)
+                    .ToList();
+    }
+
+    /// <summary>Did the walk publish the one object behind <paramref name="known"/> under another wire name? Same
+    /// bare name AND same kind is the same IDE object (IEC makes a name unique within a kind), so a known name that
+    /// differs from it is gone — a DUT whose subtype changed (`X.struct` → `X.enum`) is the case that reaches it.
+    /// The walk SAW that object, so where the old name last sat, and whether that folder was read, no longer
+    /// matter: without this a partial walk whose unread folder held the old name kept it beside the new one — two
+    /// files and two baseline keys for one object, the stale one force-pushable over the live one. A different kind
+    /// sharing the bare name (`X.fb`) is a different item and proves nothing.</summary>
+    private static bool SeenUnderAnotherName(string known, HashSet<(string Bare, string Kind)> seen) =>
+        ItemKind.KindForWireName(known) is { } kind && seen.Contains((Materializer.Bare(known), kind));
 
     /// <summary>Record an item the walk found and could not read, under its bare name and walked kind.</summary>
     public static void AddUnreadable(Dictionary<string, HashSet<string>> unreadableKinds, string bareName, string kind)

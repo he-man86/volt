@@ -20,7 +20,9 @@ export const iface = (name: string, members = "") => `INTERFACE ${name}\n${membe
 export const gvl = (name: string) => `VAR_GLOBAL\n\t${name}_g : INT := 7;\nEND_VAR\n`
 export const structDut = (name: string) => `TYPE ${name} :\nSTRUCT\n\ta : INT;\n\tb : BOOL;\nEND_STRUCT\nEND_TYPE\n`
 export const enumDut = (name: string) => `TYPE ${name} :\n(\n\tRed,\n\tGreen,\n\tBlue\n);\nEND_TYPE\n`
-export const unionDut = (name: string) => `TYPE ${name} :\nUNION\n\ti : INT;\n\tr : REAL;\nEND_UNION\nEND_TYPE\n`
+// The REAL member is `rv`, not `r`: `R` is the IL reset operator, and CODESYS refuses it as a member name
+// (`C0009 Unexpected token 'r'`), so a union spelt that way is a text the compiler does not take as a union.
+export const unionDut = (name: string) => `TYPE ${name} :\nUNION\n\ti : INT;\n\trv : REAL;\nEND_UNION\nEND_TYPE\n`
 export const aliasDut = (name: string) => `TYPE ${name} : DWORD;\nEND_TYPE\n`
 
 // ── POU children ──────────────────────────────────────────────────────────────
@@ -58,7 +60,7 @@ export const LIFECYCLE_KINDS: LifecycleKind[] = [
 	// declaration — so each row names the extension its body implies, and a mismatch is refused by the bridge.
 	{ key: "struct", ext: "struct", create: n => structDut(n), edit: n => `TYPE ${n} :\nSTRUCT\n\ta : INT;\n\tb : BOOL;\n\tc : REAL;\nEND_STRUCT\nEND_TYPE\n`, editToken: /c : REAL/, nameInSource: true },
 	{ key: "enum", ext: "enum", create: n => enumDut(n), edit: n => `TYPE ${n} :\n(\n\tRed,\n\tGreen,\n\tBlue,\n\tAmber\n);\nEND_TYPE\n`, editToken: /Amber/, nameInSource: true },
-	{ key: "union", ext: "union", create: n => unionDut(n), edit: n => `TYPE ${n} :\nUNION\n\ti : INT;\n\tr : REAL;\n\tb : BYTE;\nEND_UNION\nEND_TYPE\n`, editToken: /b : BYTE/, nameInSource: true },
+	{ key: "union", ext: "union", create: n => unionDut(n), edit: n => `TYPE ${n} :\nUNION\n\ti : INT;\n\trv : REAL;\n\tb : BYTE;\nEND_UNION\nEND_TYPE\n`, editToken: /b : BYTE/, nameInSource: true },
 	{ key: "alias", ext: "alias", create: n => aliasDut(n), edit: n => `TYPE ${n} : LWORD;\nEND_TYPE\n`, editToken: /LWORD/, nameInSource: true },
 	{ key: "fbChildren", ext: "fb", create: n => fb(n, { children: METHOD("Accelerate") + ACTION("Start") + PROPERTY("Speed") }), edit: n => fb(n, { body: "x := 5;", children: METHOD("Accelerate") + ACTION("Start") + PROPERTY("Speed") }), editToken: /x := 5/, nameInSource: true },
 ]

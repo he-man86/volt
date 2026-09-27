@@ -546,7 +546,7 @@ reds, unchanged); Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Ga
       stash is dropped unpromoted, and the one-line result says the baseline was NOT synced and names `volt pull`
       — and it exits 1 (review round 1, below), so no client reads the unsynced baseline as `done`.
       `DutBaselineMigrationTests` (the three 2.5 reds) green; the other nine unchanged.
-- [ ] 4.6 grep `Volt.Cli` CASE-INSENSITIVELY for `dut` and for the subtype spellings `struct|enum|union|alias` —
+- [x] 4.6 grep `Volt.Cli` CASE-INSENSITIVELY for `dut` and for the subtype spellings `struct|enum|union|alias` —
       zero hits outside the sidecar refusal (the uppercase `DUT` in `Scaffold.cs`/`Commands.cs` is what a
       case-sensitive grep missed) — AND for `ItemKind.KindFor`,
       `IsSourceKind`, `ImplementationMarker` — zero hits: a kind decision that never spells `dut` is still one.
@@ -558,21 +558,42 @@ reds, unchanged); Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Ga
       examples. A bare case-insensitive `dut|struct|enum|union|alias` also hits English words
       (`enumerate`, `structural`, `structured-text`) and the C# keyword `enum` (`Extensions.Access`, a `Types.cs`
       doc) — none a kind decision.
-- [ ] 4.7 (naming half DONE in 6.2; `whole-project.test.ts`'s `WRITABLE` half OPEN)
+      **Closed in the section 6 review (2026-09-27), and no longer a manual grep.** The record above went stale a
+      third time — section 5's rounds 4-5 put `X.struct`/`X.enum`/"a DUT mid-retype" into three new comments
+      (`Commands.Pull`'s overlay, `Commands.Push`'s receipt, `Program.WarnIfPartial`) — so the grep is now a test:
+      `Volt.Repo.Gates/CliHoldsNoItemKindLogicTests` runs both greps over `src/Volt.Cli` with ONE allow-listed file,
+      `Sidecar.cs` (the refusal's doc names the retired `X.dut` key), and zero allowed hits for the kind-decision
+      grep. Red at the section-5 HEAD (the three comments and `V1Note`), green after the comments were rewritten
+      kind-neutral and 4.9 landed.
+- [x] 4.7 (naming half done in 6.2; the `WRITABLE` half in the section 6 review)
       TS e2e client (1.4 census): `lib/workspace.ts` `fid` doc, `fixtures.ts` DUT rows carry their subtype
       extension, `crud-cycle`, `name-clash`, `kinds/top-level`, `vendor-parity` name DUTs `X.struct`/`.enum`/…; and
       `whole-project.test.ts`'s `WRITABLE` kind regex goes — the writable set comes from what the wire says, and
       the test asserts the sweep includes the project's DUTs (so a DUT falling out is red).
+      **Done (section 6 review).** The wire carries no writable flag, so the sweep asks the ONE writable-source table
+      the clients share — `@volt/control`'s `isPouFile`, cross-checked against the engine's by `bun run check` —
+      and the hand regex (which still named `.dut`) is deleted. Neither committed fixture holds a DUT (CODESYS
+      `refs`: 36 items, none a DUT), so the suite seeds one `VltE2E_` DUT of each subtype and asserts all four are
+      swept: red with the old regex (all four left out), green after, on both vendors.
 - [ ] 4.8 Wire-driving scripts (1.4 census): `probe-tc-name-collision.ts` pushes `X.struct`;
       `corpus-migration.ts` compares names WITH extensions again (delete the `.struct`≠`.dut` stem workaround);
       `record-language.ts` sweeps DUT orphans by their subtype name (`extForKind` loses `dut: "dut"`) and its
       `unitExt` stops deciding a subtype: the fixture STATES it (`kind: "struct"|"enum"|…`, as a workspace file's
       name does), with no `alias`/`fb` default — an unstated kind fails loud; the
       `corpus-migration.ts:494` comment goes with the workaround.
-- [ ] 4.9 `Commands.cs` `V1Note` (1.4 census): the "which files can hold network text" decision moves behind ONE
+- [x] 4.9 `Commands.cs` `V1Note` (1.4 census): the "which files can hold network text" decision moves behind ONE
       engine predicate keyed by the wire name (the rule `ImplementationMarker.AppliesTo` already owns); the CLI
       calls it and imports no `ItemKind`. Test first: the CLI's answer for `X.fb`, `X.gvl`, `X.struct`, `X.enum`
       equals the engine predicate's.
+      **Done (section 6 review).** `NetworkText.CanHold(wireName)` is the predicate (a source kind with an
+      implementation — `ImplementationMarker.AppliesTo`), and `NetworkText.FileHoldsV1(wireName, text)` the v1
+      question keyed by the same name; `SourceHoldsV1(text, kind)` is private now (the NoTestOnlyCodeInSrc gate
+      caught it as test-only). `V1Note` calls the two by the file name and resolves no kind. The test is the
+      predicate's own table (`NetworkTextV1DetectionTests.Whether_a_file_can_hold_network_text_is_asked_by_its_name`
+      — fb/prg/fun yes; gvl, all four DUT subtypes, itf, task, no extension, `X.Enum` no), red before (no API),
+      plus the layering gate (4.6) that fails on any `ItemKind.KindFor`/`IsSourceKind`/`ImplementationMarker` in
+      `Volt.Cli`. The "CLI answer equals the engine's" test as worded would need a CLI wrapper existing only for
+      the test — the CLI's answer IS the engine call, which the gate enforces.
 
 **Section 4.1–4.6 (2026-09-27), offline.** `Volt.Engine.Tests` 1494 passed / 0 failed (1 skipped, pre-existing);
 `Volt.Cli.Tests` 238 / 0 (every group-2 test green, the 4.5 reds included); Codesys 160, Twincat 231, Contracts
@@ -768,6 +789,35 @@ unchanged (no new vendor measurement).
       4.9 is the proposal's own goal (`V1Note` still makes a kind decision in `Volt.Cli`). Archiving would file the
       change as done with its goal unmet; it waits for those tasks (or an explicit close-out decision).
       Found live, fixed: the subtype-mismatch refusal read "named for a enum" — now "names the subtype X but its
-      declaration's subtype is Y" (text only, no test pins it). Noted, not fixed: the e2e `unionDut` fixture's
-      member `r` is the IL reset operator — CODESYS refuses it on compile (`C0009 Unexpected token 'r'`); no e2e
-      compiles a DUT, so no suite is affected.
+      declaration's subtype is Y" (pinned since the section 6 review). The e2e `unionDut` fixture's member `r` (the
+      IL reset operator, `C0009 Unexpected token 'r'` on CODESYS) — fixed in the section 6 review.
+      **Still BLOCKED after the section 6 review:** 4.6, 4.7 and 4.9 are closed; 1.5 (the Pro2193 `refs`
+      `System.Guid`->`Int32` failure, an unexplained bridge fault needing a live Pro2193 session) and 4.8 (the three
+      wire-driving scripts) are open, so the change is not archived and `openspec/specs/` is not recreated.
+
+**Section 6 review (2026-09-27)** — seven findings; five fixed test-first (each red before), and the two
+acknowledged-open ones (4.7's `WRITABLE` half, 4.9) closed:
+- (medium, product) A pull whose PARTIAL walk left the DUT's OLD folder unread kept the old subtype name beside the
+  new: `Removal.Removed` judged `X.struct` only by its folder, though the walk HAD published the one object as
+  `X.enum`. Two files and two baseline keys for one IDE object — a regression from `.dut`, where both were one name.
+  Fixed in the engine: a known name is removed when the walk published the same bare name AND kind under another
+  wire name (`Removal.SeenUnderAnotherName`), whatever its folder; a same-named item of another kind proves nothing.
+  `PartialWalkTests.A_partial_walk_removes_the_old_subtype_name_of_a_dut_it_found_retyped` (red),
+  `…_does_not_retire_a_name_because_another_kind_shares_its_bare_name`,
+  `PullCommandTests.A_pull_retires_the_old_subtype_name_even_when_its_own_folder_went_unread` (red).
+- (low, test) `dut-subtype-change.test.ts` asserted weaker than the scenarios it cites: the stale delete guard now
+  asserts `STALE_ITEM_VERSION` on the op, "two sets" asserts `X.enum` is absent after, and "a body of another
+  subtype" asserts both names. Green on both vendors (the product already met them).
+- (low) The subtype-mismatch sentence is pinned:
+  `DutSubtypeChangePushTests.An_op_whose_subtype_name_disagrees_with_its_declaration_is_refused_by_name` asserts it
+  for all four shapes (red against the old "is named for a enum" wording, green on the current).
+- (low, fixture) `unionDut`'s `r` member -> `rv` (the fixture and the `LIFECYCLE_KINDS` union edit). The live
+  suite's delete+add cases now also BUILD the union on the IDE (`ensureCompiles`): red on CODESYS with `r` (C0009,
+  5 errors), green with `rv`, and green on TwinCAT.
+- (low, gate) 4.6 — closed as a test (`CliHoldsNoItemKindLogicTests`), see 4.6.
+- (info) 4.9 `V1Note` — closed, see 4.9. (info) `whole-project.test.ts` `WRITABLE` — closed, see 4.7.
+Run after: `Volt.Engine.Tests` 1547 / 0 (1 skipped, pre-existing); `Volt.Cli.Tests` 252; Contracts 19, Codesys 160,
+Twincat 231, Connector 110, Repo.Gates 21; `bun test test/unit` 4; `bun run check`, lint and the volt-cli `tsc` exit
+0. Live, fixtures via `ide.ps1` (CODESYS `CodesysTestProject`; TwinCAT `Project14`, ONE worker): `crud-cycle`,
+`name-clash`, `kinds/top-level`, `dut-subtype-change`, `whole-project` 23/0 on each vendor; `vendor-parity` 11/0.
+DIALECT.md unchanged (no new vendor measurement). One review round.

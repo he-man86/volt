@@ -24,18 +24,33 @@
  * The push half writes each item's OWN bytes back, so a correct bridge changes nothing; that is exactly what
  * makes it safe to point at a real project, and exactly what fails loudly when it is not correct.
  */
-import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { bridge, requireHealthy, BASE, libraryRoots, inLibrary } from "./harness"
+import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
+import { bridge, requireHealthy, BASE, libraryRoots, inLibrary, cleanup, createItem, fid, id } from "./harness"
+import { structDut, enumDut, unionDut, aliasDut } from "./fixtures"
+import { isPouFile } from "@volt/control"
 
-/** The kinds an engineer edits — the ones a push may write. Library signatures and device/task descriptors are
- *  read-only and are swept for READABILITY only, never pushed. */
-const WRITABLE = /\.(prg|fb|fun|dut|gvl|itf)$/i
+/** The kinds an engineer edits — the ones a push may write — are asked of the ONE writable-source table the
+ *  clients share (`@volt/control`'s `isPouFile`, cross-checked against the engine's by `bun run check`), never a
+ *  copy kept here: this file's own regex still named `.dut` long after the wire stopped carrying it. Library
+ *  signatures and device/task descriptors are read-only and are swept for READABILITY only, never pushed. */
 
 describe(`whole project (${BASE})`, () => {
 	setDefaultTimeout(600_000)
+	/** One DUT of each subtype, so the sweep provably covers DUTs on a project that has none of its own (neither
+	 *  committed fixture does). The sweep's kind filter once named `.dut`, which no wire message carries since a
+	 *  DUT's wire name became its subtype — every project DUT silently fell out and the suite stayed green. */
+	const SEEDED_DUTS = [
+		fid("wp_struct", "struct"), fid("wp_enum", "enum"), fid("wp_union", "union"), fid("wp_alias", "alias"),
+	]
 	beforeAll(async () => {
 		await requireHealthy()
+		await cleanup()
+		await createItem(SEEDED_DUTS[0], structDut(id("wp_struct")))
+		await createItem(SEEDED_DUTS[1], enumDut(id("wp_enum")))
+		await createItem(SEEDED_DUTS[2], unionDut(id("wp_union")))
+		await createItem(SEEDED_DUTS[3], aliasDut(id("wp_alias")))
 	})
+	afterAll(cleanup)
 
 	/** NOTHING VANISHED. An item Volt cannot materialize is tracked in the project hash and left out of the
 	 *  index, so it has no file and no error — it is simply gone, which is how a POU disappeared from a real
@@ -61,9 +76,11 @@ describe(`whole project (${BASE})`, () => {
 		// live, derived from the payload — see `libraryRoots`.
 		const roots = libraryRoots(first.changed as any[])
 		const items = (first.changed as any[]).filter(
-			(i) => WRITABLE.test(String(i.name)) && !inLibrary(i.folder, roots),
+			(i) => isPouFile(String(i.name)) && !inLibrary(i.folder, roots),
 		)
 		expect(items.length, "the project has no editable items — is the right project open?").toBeGreaterThan(0)
+		const swept = new Set(items.map((i) => String(i.name)))
+		expect(SEEDED_DUTS.filter((n) => !swept.has(n)), "DUTs the sweep left out").toEqual([])
 
 		// FOUR CALLS, whatever the project's size. Doing this per item — refs, push, fetch each time — makes the
 		// cost quadratic, because refs and fetch are each a FULL project walk: on a 9.9 MB customer project that
