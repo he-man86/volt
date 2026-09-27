@@ -50,7 +50,8 @@ public class CodeHelperTests
     [Fact]
     public void Struct_with_wrapped_EXTENDS_and_colon_is_a_dut()   // verbatim pro2193 form
     {
-        // A DUT is ONE wire kind `dut` — the header no longer carries the struct/enum/union/alias subkind.
+        // The header names the ONE internal DUT kind. The subtype (struct/enum/union/alias) is not the header's
+        // answer — it is `DutSubtype`'s, and it is what the WIRE NAME carries.
         Assert.Equal("dut",
             Parse("TYPE Fanuc_PositionXYZWPR_Type\nEXTENDS Fanuc_PositionXYZ_Type :\nSTRUCT\n\trPosW\t: REAL;\nEND_STRUCT\nEND_TYPE\n"));
     }

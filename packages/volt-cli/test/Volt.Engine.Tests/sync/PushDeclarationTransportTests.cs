@@ -71,7 +71,7 @@ public class PushDeclarationTransportTests
     // kind                    ext    the ORIGINAL declaration                  body       terminator
     [InlineData(ItemKind.PlcPouFb,   "fb",  "FUNCTION_BLOCK K\nVAR\nEND_VAR",   "n := 1;", "END_FUNCTION_BLOCK")]
     [InlineData(ItemKind.PlcPouProg, "prg", "PROGRAM K\nVAR\nEND_VAR",          "n := 1;", "END_PROGRAM")]
-    [InlineData(ItemKind.PlcDut,     "dut", "TYPE K :\nSTRUCT\nEND_STRUCT\nEND_TYPE", "", null)]
+    [InlineData(ItemKind.PlcDut,     "struct", "TYPE K :\nSTRUCT\nEND_STRUCT\nEND_TYPE", "", null)]
     [InlineData(ItemKind.PlcGvl,     "gvl", "VAR_GLOBAL\nEND_VAR",              "",        null)]
     public void A_declaration_edit_reaches_the_aspect(int code, string ext, string decl, string body, string? terminator)
     {
@@ -132,7 +132,7 @@ public class PushDeclarationTransportTests
         const string decl = "TYPE K :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE";
         var ide = new FakeIde(new FakeIde.Item("K", ItemKind.PlcDut, "", true, decl + "\n\n", null, null, null));
 
-        Push(ide, "K.dut", decl + "\n");
+        Push(ide, "K.struct", decl + "\n");
 
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("write:"));
     }

@@ -213,26 +213,55 @@ BLOCKED; it is never faked.
 
 ## 2. Tests red first
 
-- [ ] 2.1 Engine: `Materializer` names each of the four DUT shapes by subtype (struct, enum, union, alias,
+- [x] 2.1 Engine: `Materializer` names each of the four DUT shapes by subtype (struct, enum, union, alias,
       text-list enum on CODESYS) — replace the `.dut` expectations in `DutSubtypeCodeTests` / `ItemKindTests`.
-- [ ] 2.2 Engine: `PushService` against `FakeIde` — rename op struct→enum is one content update (folder kept,
+      **Written 2026-09-27, red today.** `test/Volt.Engine.Tests/item/DutSubtypeCodeTests.cs` (materializer,
+      `refs`/`fetch`, the name from the declaration under every TwinCAT code 605/606/607/623, a subtype change fetches
+      as the old name removed + the new one changed; the text-list enum carries its generated-file comment header);
+      `ItemKindTests` (the four subtypes are ordinary `SourceKindExtensions` entries of `Kinds.Dut`, `KindForWireName`
+      reads them as DUT and `X.dut` as no kind, `ExtFor(Kinds.Dut)` refuses; the `WireExtFor` test is gone with its
+      premise). `KindFromExtensionTests` asserts the kind itself (it passed before with the check silently off);
+      `PushServiceTests`/`PushDeclarationTransportTests` push DUTs under `.struct`/`.enum`/… and assert `refs`.
+      `StFixedPointTests` no longer calls `WireExtFor`: source-ness from `FileExtensions`' own flag (same set both
+      before and after).
+- [x] 2.2 Engine: `PushService` against `FakeIde` — rename op struct→enum is one content update (folder kept,
       version gate honoured); delete + create pair coalesces in BOTH op orders; stale `ifVersion` on the delete
       refuses; two sets on one bare DUT refuse `BAD_REQUEST`; a delete of `X.struct` with NO paired set still
       deletes; and the same pair with `Force = true`, both orders, is still ONE content update — the DUT exists
       after, in its folder, and the receipt names it (1.1's force cases: today one order is accepted with the DUT
       deleted, the other deletes then fails `INTERNAL_ERROR`).
-- [ ] 2.3 Engine: `TransportMatrixTests` / `WireVocabularyGuardTests` — no `.dut` on any wire message.
-- [ ] 2.4 CLI: `DutSubtypeFileTests` rewritten as "file name == wire name" (no declaration read on pull);
+      **Written, red today:** `test/Volt.Engine.Tests/sync/DutSubtypeChangePushTests.cs` — plus a same-subtype
+      delete + create refused `BAD_REQUEST` (the "anything else" arm) and an ordinary update under the current name.
+- [x] 2.3 Engine: `TransportMatrixTests` / `WireVocabularyGuardTests` — no `.dut` on any wire message.
+      **Written, red today:** `TransportMatrixTests` (the DUT row is `K.struct`;
+      `No_wire_message_carries_a_dut_name` over `refs`, `fetch`, a push of an update + a create, and the receipt);
+      `WireVocabularyGuardTests.Nothing_mints_or_spells_the_dut_wire_name` (no `ExtFor(Kinds.Dut)`, no `.dut` string
+      literal outside `Sidecar.cs`; red on `Materialize.cs:41` and `ItemKind.cs:329`; self-checks both arms).
+- [x] 2.4 CLI: `DutSubtypeFileTests` rewritten as "file name == wire name" (no declaration read on pull);
       the IdeTree stale-subtype case (pull after the IDE changed struct→enum) removes `X.struct` and writes
       `X.enum` through the ordinary sweep. KEEP the section-1 IDE-delete cases (a DUT deleted in the IDE is gone
       from the workspace after the next pull). ADD: (i) an IDE-side edit of a DUT → `volt status --json`
       `pathByName` names the real `DUTs/X.struct`, and `volt show BRIDGE DUTs/X.struct` returns the IDE's text;
       (ii) the 1.1 force case black-box: `git rm X.struct` + add `X.enum`, `volt push --force` in both path
       orders, then `refs` holds `X.enum` in its folder and `volt status` is in sync.
-- [ ] 2.5 CLI: sidecar with a `.dut` key → refused, names `volt pull`, sends nothing. And a PENDING baseline
+      **Written, red today:** `test/Volt.Cli.Tests/plumbing/DutSubtypeFileTests.cs` (rewritten; (i) and (ii) at
+      the Commands layer, (ii) also WITHOUT force, both orders); `IdeTreeTests` (the ordinary sweep retires
+      `X.struct`; and a file is carried unless the wire names it removed — red while the stale-subtype guard
+      exists); `BlackBoxTests.Status_json_and_show_BRIDGE_name_a_duts_real_file` and
+      `Push_force_of_a_dut_subtype_rewrite_keeps_the_dut` (the real binary). Offline these reproduce every 1.1
+      measurement: set-first partial write + `BAD_REQUEST`, delete-first `ITEM_MISSING`, forced enum accepted with
+      the DUT deleted, forced union `INTERNAL_ERROR Sequence contains no matching element`. `Changing_a_subtype_
+      changes_the_FILE_but_never_the_wire_name` is deleted: its premise is what this change reverses.
+- [x] 2.5 CLI: sidecar with a `.dut` key → refused, names `volt pull`, sends nothing. And a PENDING baseline
       (`pending-ide-refs.json`) with a `.dut` key is never promoted by `volt merge --continue`: the merge completes
       without "IDE baseline synced", `ide-refs.json` holds no `.dut` key, and the output names `volt pull`.
-- [ ] 2.6 Library: a library enum and a project enum carry the same extension, from the same `DutSubtype`.
+      **Written, red today:** `test/Volt.Cli.Tests/commands/DutBaselineMigrationTests.cs` — push refused with an
+      `InvalidOperationException` naming the key and `volt pull`, nothing recorded; `volt pull` then rebuilds the
+      baseline (no `.dut` key) and the push lands; the merge door as specified.
+- [x] 2.6 Library: a library enum and a project enum carry the same extension, from the same `DutSubtype`.
+      **Written, red today:** `test/Volt.Engine.Tests/library/LibraryDutExtensionParityTests.cs` — for the enum,
+      struct, union and alias the renderer produces, its extension == the project materializer's for the same
+      text == `"." + CodeHelper.DutSubtype(text)`.
 
 ## 3. Engine
 

@@ -1,30 +1,38 @@
-﻿using Xunit;
+﻿using System.Collections.Generic;
+using System.Linq;
+using Xunit;
+using Volt.Contracts;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
+using Volt.Engine.Sync;
 
 namespace Volt.Engine.Tests;
 
 /// <summary>
-/// TwinCAT's DUT tree codes. A DUT is ONE wire kind (<c>dut</c>) but FOUR tree codes on
-/// that vendor, and for a long time only one of them was mapped.
-/// <para><b>The bug this pins was silent data loss.</b> <c>ItemKind</c> asserted that 605/606/607 — the
-/// enum/struct/union subtypes — were "never produced, never needed". They are: a DUT authored in the TwinCAT IDE
-/// carries its SUBTYPE code, not the generic 623 that <c>CreateChild</c> accepts, and a DUT re-created from
-/// TwinCAT's own item archive comes back as one too. An unmapped code is emitted by the walk and then dropped by
-/// Core, so those items never reached <c>refs</c> or <c>fetch</c> — and to a pull, absent means DELETED.</para>
-/// <para>Measured two independent ways: the committed <c>TwinCAT Project14</c> fixture's hand-authored enum
-/// <c>E_PackML_Mode</c> has always walked as 605, and moving a struct DUT turns 623 into 606.</para>
+/// A DUT on the wire: ONE internal kind (<c>Kinds.Dut</c>), FOUR tree codes on TwinCAT, and a wire NAME that
+/// carries its SUBTYPE — <c>X.struct</c> / <c>X.enum</c> / <c>X.union</c> / <c>X.alias</c>, read from the
+/// declaration (openspec <c>dut-subtype-on-the-wire</c>).
+/// <para><b>The tree-code half pinned silent data loss.</b> <c>ItemKind</c> asserted that 605/606/607 — the
+/// enum/struct/union codes — were "never produced, never needed". They are: a DUT authored in the TwinCAT IDE
+/// carries one (the committed <c>TwinCAT Project14</c> fixture's <c>E_PackML_Mode</c> has always walked as 605).
+/// An unmapped code is emitted by the walk and then dropped by Core, so those items never reached <c>refs</c> or
+/// <c>fetch</c> — and to a pull, absent means DELETED.</para>
+/// <para><b>The name half is why the CLI holds no DUT logic.</b> The subtype used to be hidden from the wire
+/// (<c>X.dut</c>) and re-derived in the CLI to name the file, which put item-kind knowledge in the one layer
+/// whose job is git. The engine names the item once, where every other wire name is minted, and a client maps
+/// file name == wire name. The name comes from the DECLARATION and never from the tree code: TwinCAT's code lags
+/// the declaration after an in-place change and a push-create seeds 606 whatever the body (DIALECT C2e).</para>
 /// </summary>
 public class DutSubtypeCodeTests
 {
-    /// <summary>All four codes are the ONE wire kind. The wire never learns that TwinCAT splits them — that is
-    /// what "a DUT is one kind" means, and it is preserved by mapping rather than by pretending.</summary>
+    /// <summary>All four codes are the one INTERNAL kind — the kind the ST reader/writer and the create path
+    /// speak. Mapping without this would drop an IDE-authored DUT from every walk.</summary>
     [Theory]
-    [InlineData(ItemKind.PlcDut)]        // 623 — the generic code CreateChild takes
+    [InlineData(ItemKind.PlcDut)]        // 623 — PLCDUTALIAS on TwinCAT; what CODESYS classifies every DUT as
     [InlineData(ItemKind.PlcDutEnum)]    // 605 — E_PackML_Mode, live fixture
-    [InlineData(ItemKind.PlcDutStruct)]  // 606 — what a moved struct comes back as
+    [InlineData(ItemKind.PlcDutStruct)]  // 606 — what a push-create seeds on TwinCAT
     [InlineData(ItemKind.PlcDutUnion)]   // 607
-    public void Every_dut_tree_code_maps_to_the_one_dut_wire_kind(int code) =>
+    public void Every_dut_tree_code_maps_to_the_one_internal_dut_kind(int code) =>
         Assert.Equal(ItemKind.Kinds.Dut, ItemKind.Map(code));
 
     /// <summary>And each is a top-level source item, so the walk emits it as a file rather than descending it.
@@ -36,4 +44,87 @@ public class DutSubtypeCodeTests
     [InlineData(ItemKind.PlcDutUnion)]
     public void Every_dut_tree_code_is_top_level_crud(int code) =>
         Assert.True(ItemKind.IsTopLevelCrud(code));
+
+    // ── the wire name ─────────────────────────────────────────────────────────────────────────────
+
+    private const string Struct = "TYPE X :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE";
+    private const string Enum = "TYPE X :\n(\n\tIdle := 0,\n\tRun\n);\nEND_TYPE";
+    private const string Union = "TYPE X :\nUNION\n\tb : BYTE;\n\tw : WORD;\nEND_UNION\nEND_TYPE";
+    private const string Alias = "TYPE X : STRING(80);\nEND_TYPE";
+
+    /// <summary>A CODESYS text-list enumeration (<c>ITextListEnumerationObject</c>, Pro2193's <c>IQSlices</c>)
+    /// is the DUT kind to <c>CodesysTypeMap</c> and reaches the engine as a DUT whose declaration is an enum —
+    /// here with the generated-file comment header the real one carries, which the subtype read must step over
+    /// (DIALECT C2e).</summary>
+    private const string TextListEnum =
+        "// -----------------------------------------------------------------------------\n" +
+        "// This file is auto-generated by xlsx_read_adv.py\n" +
+        "{attribute 'qualified_only'}\n" +
+        "TYPE X :\n(\n\tDI_10 := 0,\n\tDI_11 := 1\n) UINT;\nEND_TYPE";
+
+    public static TheoryData<string, string> Shapes => new()
+    {
+        { Struct, "X.struct" },
+        { Enum, "X.enum" },
+        { Union, "X.union" },
+        { Alias, "X.alias" },
+        { TextListEnum, "X.enum" },
+    };
+
+    private static FakeIde OneDut(int code, string decl, string folder = "DUTs") =>
+        new FakeIde(new FakeIde.Item("X", code, folder, true, decl, null, null, null));
+
+    /// <summary>THE ONE MINTING SITE names a DUT by its declaration's subtype. `.dut` was the wire name for
+    /// every one of these, which is what forced the CLI to read the declaration to name a file.</summary>
+    [Theory]
+    [MemberData(nameof(Shapes))]
+    public void The_materializer_names_each_dut_shape_by_its_subtype(string decl, string wireName)
+    {
+        var ide = OneDut(ItemKind.PlcDut, decl);
+        Assert.Equal(wireName, Materializer.Materialize(ide, "X", ItemKind.Kinds.Dut, new ItemRef("X")).FullName);
+    }
+
+    /// <summary>…and so does every wire message that carries the name: `refs` items and folders, and `fetch`.</summary>
+    [Theory]
+    [MemberData(nameof(Shapes))]
+    public void Refs_and_fetch_publish_the_subtype_name(string decl, string wireName)
+    {
+        var ide = OneDut(ItemKind.PlcDut, decl);
+
+        var refs = RefsService.Handle(ide);
+        Assert.Equal(new[] { wireName }, refs.Items.Keys.ToArray());
+        Assert.Equal("DUTs", refs.Folders[wireName]);
+
+        var fetched = Assert.Single(FetchService.Handle(ide, new FetchRequest { KnownItems = new() }).Changed);
+        Assert.Equal(wireName, fetched.Name);
+    }
+
+    /// <summary>THE TREE CODE NEVER DECIDES THE NAME. Measured on TwinCAT (DIALECT C2e): a 606 holding an enum,
+    /// a 623 holding a struct and a 605 holding a union are all real live states — the code lags an in-place
+    /// change until a reload — so a name read off the code would publish the OLD shape.</summary>
+    [Theory]
+    [InlineData(ItemKind.PlcDutStruct, Enum, "X.enum")]
+    [InlineData(ItemKind.PlcDut, Struct, "X.struct")]
+    [InlineData(ItemKind.PlcDutEnum, Struct, "X.struct")]
+    [InlineData(ItemKind.PlcDutEnum, Union, "X.union")]
+    [InlineData(ItemKind.PlcDutUnion, Alias, "X.alias")]
+    public void The_subtype_comes_from_the_declaration_not_the_tree_code(int code, string decl, string wireName) =>
+        Assert.Equal(new[] { wireName }, RefsService.Handle(OneDut(code, decl)).Items.Keys.ToArray());
+
+    /// <summary>A SUBTYPE CHANGE IN THE IDE IS A REMOVED NAME PLUS AN ADDED ONE. That is what lets a client's
+    /// ordinary removal sweep retire the old file with no DUT knowledge of its own: `fetch` against a baseline
+    /// holding `X.struct` reports `X.struct` removed and `X.enum` changed.</summary>
+    [Fact]
+    public void A_subtype_change_in_the_ide_fetches_as_the_old_name_removed_and_the_new_one_changed()
+    {
+        var ide = OneDut(ItemKind.PlcDut, Struct);
+        var before = RefsService.Handle(ide);
+
+        ide.RemoveItem("X");
+        ide.AddItem(new FakeIde.Item("X", ItemKind.PlcDut, "DUTs", true, Enum, null, null, null));
+
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new(before.Items) });
+        Assert.Equal(new[] { "X.struct" }, fetch.Removed.ToArray());
+        Assert.Equal("X.enum", Assert.Single(fetch.Changed).Name);
+    }
 }

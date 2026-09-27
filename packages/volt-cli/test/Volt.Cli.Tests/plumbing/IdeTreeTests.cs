@@ -109,7 +109,7 @@ public class IdeTreeTests
 
     /// <summary>A removed item whose FILE name is not its WIRE name. `removedNames` carries wire names; the
     /// sweep once compared them with the file name, so a DUT the IDE deleted (`X.dut` on the wire, `X.struct`
-    /// on disk) never matched and was carried forward forever — `volt status` said in sync, and the next edit
+    /// on disk, before the wire carried the subtype) never matched and was carried forward forever — `volt status` said in sync, and the next edit
     /// of the stale file pushed as a create and brought the deleted DUT back into the IDE. The sweep must ask
     /// the one path→name seam (`Extensions.FullNameFromPath`), exactly as the `replacedNames` side does.</summary>
     [Fact]
@@ -132,6 +132,59 @@ public class IdeTreeTests
 
             Assert.False(Has(root, tree, "src/DUTs/B.fb"));
             Assert.False(Has(root, tree, "src/DUTs/X.struct")); // the IDE deleted it — so must the workspace
+        }
+        finally { TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>A SUBTYPE CHANGE GOES THROUGH THE ORDINARY SWEEP. The IDE rewrote DUT `X` from a struct to an
+    /// enum; the fetch reports `X.enum` changed and `X.struct` REMOVED, because the wire names a DUT by its subtype
+    /// (openspec <c>dut-subtype-on-the-wire</c>). That is the shape of any other removal, so the old file goes by
+    /// its name and the new one is written — no DUT-specific rule.</summary>
+    [Fact]
+    public void A_subtype_change_removes_the_old_file_through_the_ordinary_sweep()
+    {
+        var root = TestUtil.NewRepo();
+        try
+        {
+            var gitDir = Git.ResolveGitDir(root);
+            var parent = Git.CommitTree(gitDir, Git.BuildTree(gitDir, new[]
+            {
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "TYPE X : STRUCT a : INT; END_STRUCT END_TYPE"), "src/DUTs/X.struct"),
+            }), Array.Empty<string>(), "parent");
+
+            var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
+                new List<MaterializedFile> { new("DUTs/X.enum", "TYPE X : (A, B); END_TYPE") },
+                new[] { "X.struct" }, librariesRefreshed: false);
+
+            Assert.True(Has(root, tree, "src/DUTs/X.enum"));
+            Assert.False(Has(root, tree, "src/DUTs/X.struct"));
+        }
+        finally { TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>…AND ONLY THE WIRE DECIDES WHAT IS GONE. With the subtype on the wire, `X.struct` and `X.enum`
+    /// are two NAMES, and a file leaves the IDE's tree only when the fetch says its name was removed. The CLI
+    /// used to drop `X.struct` on its own because it knew both files meant one `.dut` item — item-kind knowledge
+    /// the CLI no longer holds. Whether one bare name can hold two DUTs is the IDE's question, answered by what
+    /// it reports, not a rule for git plumbing to apply.</summary>
+    [Fact]
+    public void A_file_is_carried_forward_unless_the_wire_names_it_removed()
+    {
+        var root = TestUtil.NewRepo();
+        try
+        {
+            var gitDir = Git.ResolveGitDir(root);
+            var parent = Git.CommitTree(gitDir, Git.BuildTree(gitDir, new[]
+            {
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "TYPE X : STRUCT a : INT; END_STRUCT END_TYPE"), "src/DUTs/X.struct"),
+            }), Array.Empty<string>(), "parent");
+
+            var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
+                new List<MaterializedFile> { new("DUTs/X.enum", "TYPE X : (A, B); END_TYPE") },
+                Array.Empty<string>(), librariesRefreshed: false);
+
+            Assert.True(Has(root, tree, "src/DUTs/X.enum"));
+            Assert.True(Has(root, tree, "src/DUTs/X.struct"));
         }
         finally { TestUtil.ForceDelete(root); }
     }

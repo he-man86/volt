@@ -203,12 +203,13 @@ public class StFixedPointTests
             // Only CODESYS was excluded, which was invisible until a TwinCAT corpus existed — and then 216
             // rendered signature files entered the sweep at once.
             if (LibraryFolders.Any(f => file.Contains(f, StringComparison.Ordinal))) { skipped++; continue; }
-            // `WireExtFor` FIRST. A DUT is one wire kind but four FILE extensions (.struct/.enum/.union/.alias),
-            // and `KindForWireName` only knows the wire spelling — so asking it about a file extension answered
-            // null for every DUT and this sweep silently skipped 290 of the corpus's 902 files, a third of the
-            // evidence, while reporting a pass.
-            var ext = ItemKind.WireExtFor(Path.GetExtension(file).ToLowerInvariant());
-            if (!ItemKind.IsSourceKind(ItemKind.KindForWireName("x." + ext) ?? "")) { skipped++; continue; }
+            // Source-ness from the ONE extension table's own flag, keyed by the FILE extension. This sweep once asked
+            // `KindForWireName` about a file extension while the wire spelt every DUT `.dut` — so it answered null
+            // for every `.struct`/`.enum`/`.union`/`.alias` and silently skipped 290 of the corpus's 902 files, a
+            // third of the evidence, while reporting a pass. The flag is true for the four DUT extensions whether or
+            // not the wire carries the subtype, so no DUT file can drop out of the sweep again.
+            var ext = Path.GetExtension(file).TrimStart('.').ToLowerInvariant();
+            if (!ItemKind.FileExtensions.Any(x => x.IsSource && x.Ext == ext)) { skipped++; continue; }
 
             var text = Read(file);
             checkedCount++;

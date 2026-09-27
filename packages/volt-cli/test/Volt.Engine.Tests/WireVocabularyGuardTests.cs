@@ -144,6 +144,49 @@ public class WireVocabularyGuardTests
             "that vocabulary's allowlist in this test:\n  " + string.Join("\n  ", offenders));
     }
 
+    /// <summary>NOTHING IN THE TOOLCHAIN MINTS OR SPELLS THE `.dut` WIRE NAME.
+    ///
+    /// <para>A DUT's wire name is its subtype name (openspec <c>dut-subtype-on-the-wire</c>): the engine mints
+    /// it once, in <c>Materializer</c>, from the declaration. The old wire name was minted by asking the kind
+    /// table for "the" DUT extension — <c>ExtFor(Kinds.Dut)</c>, which answered <c>dut</c> — and the CLI asked
+    /// the same question to recognise one and translate it. Either spelling surviving anywhere in <c>src</c> is
+    /// a second minting site or a translator, i.e. DUT logic outside the engine.</para>
+    ///
+    /// <para>The one legitimate literal is the SIDECAR's refusal of a baseline still keyed by the old name — it
+    /// has to recognise <c>.dut</c> to refuse it by name (the spec's migration rule).</para></summary>
+    [Fact]
+    public void Nothing_mints_or_spells_the_dut_wire_name()
+    {
+        var mint = new Regex(@"ExtFor\(\s*(ItemKind\.)?Kinds\.Dut\s*\)");
+        // Each string LITERAL on the line, whole and with its escapes honoured — so the text BETWEEN two
+        // literals (`"itf"), (Kinds.Dut, "`) is never read as one.
+        var literal = new Regex(@"""(?:[^""\\]|\\.)*""");
+        var dutName = new Regex(@"\.dut\b", RegexOptions.IgnoreCase);
+        bool SpellsDut(string code) => literal.Matches(code).Cast<Match>().Any(m => dutName.IsMatch(m.Value));
+        // A guard that cannot go red passes for the wrong reason (see `StripComment`): prove both arms fire.
+        Assert.True(SpellsDut("var n = $\"{bare}.dut\";") && !SpellsDut("(Kinds.Interface, \"itf\"), (Kinds.Dut, \"x\")"));
+        Assert.Matches(mint, "var e = ItemKind.ExtFor(ItemKind.Kinds.Dut);");
+        var allowLiteral = new HashSet<string> { "Sidecar.cs" };
+        var offenders = new List<string>();
+
+        foreach (var file in EnumerateCs(FindSrcDir()))
+        {
+            var lineNo = 0;
+            foreach (var raw in File.ReadLines(file))
+            {
+                lineNo++;
+                var code = StripComment(raw);
+                if (mint.IsMatch(code)
+                    || (!allowLiteral.Contains(AllowKey(file)) && SpellsDut(code)))
+                    offenders.Add($"{Path.GetFileName(file)}:{lineNo}: {raw.Trim()}");
+            }
+        }
+
+        Assert.True(offenders.Count == 0,
+            "The `.dut` wire name is gone — a DUT is named on the wire by its subtype, minted once in " +
+            "Materializer. These lines mint or spell the old name:\n  " + string.Join("\n  ", offenders));
+    }
+
     /// <summary>The line with any trailing <c>//</c> comment removed — where <c>//</c> INSIDE a string literal
     /// is not a comment.
     ///

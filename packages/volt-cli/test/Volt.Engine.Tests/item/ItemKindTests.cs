@@ -89,55 +89,68 @@ public class ItemKindTests
         Assert.DoesNotContain(ItemKind.ReferenceKindExtensions, r => source.Contains(r.Kind));
     }
 
-    /// <summary>`FileExtensions` is the two lists WITH THE DUT SPLIT APPLIED, and the writable flag still
-    /// matches which list a kind came from. The CLI's own extension registry is built from this projection, so
-    /// a kind that arrived with the wrong flag would make a read-only descriptor pushable — or a real source
-    /// file refused.
+    /// <summary>`FileExtensions` is the two lists, and the writable flag matches which list a kind came from.
+    /// The CLI's own extension registry is built from this projection, so a kind that arrived with the wrong flag
+    /// would make a read-only descriptor pushable — or a real source file refused.
     ///
-    /// <para>The one asymmetry is deliberate: a DUT's KIND extension is <c>dut</c> (the wire name — one kind,
-    /// because that is what both vendors have) and its FILE extensions are the four subtypes it is written
-    /// under. Only the four appear: <c>dut</c> names no file that any path writes, so recognizing it would
-    /// advertise one Volt never produces. <see cref="ItemKind.WireExtFor"/> closes the loop.</para></summary>
+    /// <para><b>No split any more.</b> This used to project a DUT's ONE table entry (<c>dut</c>, the wire kind)
+    /// onto four file extensions, because the wire hid the subtype and the file carried it. The wire carries it
+    /// now (openspec <c>dut-subtype-on-the-wire</c>), so file extension == wire extension for every kind and the
+    /// projection is the table, entry for entry.</para></summary>
     [Fact]
     public void FileExtensions_reports_writability_from_the_list_a_kind_came_from()
     {
         var flags = ItemKind.FileExtensions.ToDictionary(x => x.Ext, x => x.IsSource, StringComparer.Ordinal);
 
-        var sourceOnDisk = ItemKind.SourceKindExtensions.Count - 1 + ItemKind.DutFileExtensions.Count;
-        Assert.Equal(sourceOnDisk + ItemKind.ReferenceKindExtensions.Count, flags.Count);
-
-        Assert.All(ItemKind.SourceKindExtensions.Where(x => x.Kind != ItemKind.Kinds.Dut),
-                   x => Assert.True(flags[x.Ext]));
-        // The DUT contributes its four subtypes INSTEAD of a `dut` file extension, which does not exist.
-        Assert.All(ItemKind.DutFileExtensions, ext => Assert.True(flags[ext]));
-        Assert.DoesNotContain(ItemKind.ExtFor(ItemKind.Kinds.Dut), flags.Keys);
-
+        Assert.Equal(ItemKind.SourceKindExtensions.Count + ItemKind.ReferenceKindExtensions.Count, flags.Count);
+        Assert.All(ItemKind.SourceKindExtensions, x => Assert.True(flags[x.Ext]));
         Assert.All(ItemKind.ReferenceKindExtensions, x => Assert.False(flags[x.Ext]));
     }
 
-    /// <summary>Every DUT file extension maps back to the ONE wire extension, and every other extension is its
-    /// own. This is the whole many-to-one mapping; if it ever became many-to-many the wire would start seeing
-    /// names the bridge cannot resolve.</summary>
+    /// <summary>THE FOUR DUT SUBTYPES ARE ORDINARY SOURCE EXTENSIONS OF THE ONE DUT KIND, and <c>dut</c> is not
+    /// an extension at all — nothing writes a <c>.dut</c> file and no wire message carries one.</summary>
     [Fact]
-    public void WireExtFor_folds_the_four_dut_extensions_onto_the_one_kind()
+    public void The_dut_kind_is_listed_under_its_four_subtype_extensions_and_never_dut()
     {
-        Assert.All(ItemKind.DutFileExtensions,
-                   ext => Assert.Equal(ItemKind.ExtFor(ItemKind.Kinds.Dut), ItemKind.WireExtFor(ext)));
-        Assert.All(ItemKind.DutFileExtensions, ext => Assert.True(ItemKind.IsDutFileExtension(ext)));
-        // A leading dot is accepted either way — callers hold both forms.
-        Assert.Equal(ItemKind.ExtFor(ItemKind.Kinds.Dut), ItemKind.WireExtFor(".struct"));
-        // Everything else passes through untouched.
-        Assert.Equal("fb", ItemKind.WireExtFor("fb"));
-        Assert.Equal("gvl", ItemKind.WireExtFor(".gvl"));
-        Assert.False(ItemKind.IsDutFileExtension("fb"));
+        var dutExts = ItemKind.SourceKindExtensions.Where(x => x.Kind == ItemKind.Kinds.Dut).Select(x => x.Ext)
+                              .OrderBy(e => e, StringComparer.Ordinal).ToArray();
+
+        Assert.Equal(new[] { "alias", "enum", "struct", "union" }, dutExts);
+        Assert.DoesNotContain(ItemKind.FileExtensions, x => x.Ext == "dut");
     }
 
-    /// <summary>AND EVERY KIND IN THE TABLE RESOLVES THROUGH `ExtFor` to the extension the table gives it —
-    /// the table and its lookup cannot disagree, which is the whole reason there is only one table.</summary>
+    /// <summary>A SUBTYPE WIRE NAME READS AS THE DUT KIND, and <c>.dut</c> reads as no kind. Every engine
+    /// consumer that routes a push op by its name (<c>PushedText</c>, <c>StReader</c> via <c>PushService</c>)
+    /// asks this, and a <c>.struct</c> name used to answer null — so the reader's kind check silently stood down
+    /// for every DUT.</summary>
+    [Theory]
+    [InlineData("X.struct")]
+    [InlineData("X.enum")]
+    [InlineData("X.union")]
+    [InlineData("X.alias")]
+    public void A_dut_subtype_wire_name_is_the_dut_kind(string wireName) =>
+        Assert.Equal(ItemKind.Kinds.Dut, ItemKind.KindForWireName(wireName));
+
     [Fact]
-    public void ExtFor_agrees_with_the_table_for_every_kind_in_it()
-        => Assert.All(ItemKind.SourceKindExtensions.Concat(ItemKind.ReferenceKindExtensions),
-                      x => Assert.Equal(x.Ext, ItemKind.ExtFor(x.Kind)));
+    public void A_dut_wire_name_is_no_kind_at_all() => Assert.Null(ItemKind.KindForWireName("X.dut"));
+
+    /// <summary>NOTHING MINTS `.dut`. The DUT kind has four extensions, so "the" extension for it is not a
+    /// question the table can answer, and <c>ExtFor</c> refuses it rather than picking one (or answering
+    /// <c>dut</c>, which is what minted the old wire name).</summary>
+    [Fact]
+    public void ExtFor_refuses_the_dut_kind_rather_than_mint_an_extension_for_it() =>
+        Assert.ThrowsAny<Exception>(() => ItemKind.ExtFor(ItemKind.Kinds.Dut));
+
+    /// <summary>AND EVERY KIND WITH ONE EXTENSION RESOLVES THROUGH `ExtFor` to the extension the table gives
+    /// it — the table and its lookup cannot disagree, which is the whole reason there is only one table. (The DUT
+    /// kind has four, and is refused above.)</summary>
+    [Fact]
+    public void ExtFor_agrees_with_the_table_for_every_kind_with_one_extension()
+    {
+        var table = ItemKind.SourceKindExtensions.Concat(ItemKind.ReferenceKindExtensions).ToList();
+        Assert.All(table.Where(x => table.Count(y => y.Kind == x.Kind) == 1),
+                   x => Assert.Equal(x.Ext, ItemKind.ExtFor(x.Kind)));
+    }
 
     // ── the member / inlined split ─────────────────────────────────────────────────────────────
 

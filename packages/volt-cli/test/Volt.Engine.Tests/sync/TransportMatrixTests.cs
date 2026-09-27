@@ -33,7 +33,7 @@ public class TransportMatrixTests
     /// CREATE makes. Read it as the table it is:
     /// <code>
     ///   kind                     update      create
-    ///   fb/prg/fun/itf/dut/gvl   writexml    create + writexml + decl
+    ///   fb/prg/fun/itf/struct/gvl   writexml    create + writexml + decl
     /// </code>
     /// <b>One row, six kinds</b> — that uniformity IS the agreement, not a coincidence to be preserved by hand.
     /// It used to be three rows: POUs took the document while an interface's members went one COM call at a time
@@ -53,7 +53,9 @@ public class TransportMatrixTests
         // import added children as a side effect of the document write); the engine does it explicitly now,
         // which is why it appears here and nowhere else in the table.
         { ItemKind.PlcItf,     "itf", ItfSrc, new[] { "create:M", "writecontent:K" }, new[] { "create:K", "create:M", "writecontent:K" } },
-        { ItemKind.PlcDut,     "dut", DutSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
+        // A DUT's wire extension is its SUBTYPE (openspec dut-subtype-on-the-wire): `DutSrc` is a struct, so
+        // `K.struct`. The row is still the one-document row every other kind uses.
+        { ItemKind.PlcDut,     "struct", DutSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
         { ItemKind.PlcGvl,     "gvl", GvlSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
     };
 
@@ -329,10 +331,58 @@ public class TransportMatrixTests
     // method here, but N calls for N members, which is what the document arm collapsed.
 
 
+    // ── no `.dut` on the wire ───────────────────────────────────────────────────────────────────────
+
+    /// <summary>NO WIRE MESSAGE CARRIES `.dut` — not `refs`, not `fetch`, not a push op the engine accepts, not
+    /// the push receipt. A DUT's wire name is its subtype name (openspec <c>dut-subtype-on-the-wire</c>); a
+    /// single `.dut` left on any one message is a name no client file maps to, so the client would either need
+    /// DUT logic to translate it back — the thing that change removes from the CLI — or lose the item.</summary>
+    [Fact]
+    public void No_wire_message_carries_a_dut_name()
+    {
+        var ide = new FakeIde(
+            new FakeIde.Item("S", ItemKind.PlcDut, "DUTs", true, "TYPE S :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE", null, null, null),
+            new FakeIde.Item("E", ItemKind.PlcDutEnum, "DUTs", true, "TYPE E :\n(\n\tA := 0,\n\tB\n);\nEND_TYPE", null, null, null),
+            new FakeIde.Item("U", ItemKind.PlcDutUnion, "DUTs", true, "TYPE U :\nUNION\n\tb : BYTE;\nEND_UNION\nEND_TYPE", null, null, null),
+            new FakeIde.Item("A", ItemKind.PlcDutStruct, "DUTs", true, "TYPE A : STRING(80);\nEND_TYPE", null, null, null));
+        var names = new List<string>();
+
+        var refs = RefsService.Handle(ide);
+        names.AddRange(refs.Items.Keys);
+        names.AddRange(refs.Folders.Keys);
+
+        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
+        names.AddRange(fetch.Items.Keys);
+        names.AddRange(fetch.Folders.Keys);
+        names.AddRange(fetch.Changed.Select(c => c.Name));
+        names.AddRange(fetch.Removed);
+
+        // A create and an update, pushed under the names the wire published — and the receipt that answers them.
+        var push = PushService.Handle(ide, new PushRequest
+        {
+            ExpectedProjectVersion = refs.ProjectVersion,
+            Ops = new()
+            {
+                new SetItemOp { Name = "S.struct", IfVersion = refs.Items["S.struct"],
+                                SourceText = "TYPE S :\nSTRUCT\n\ta : DINT;\nEND_STRUCT\nEND_TYPE\n" },
+                new SetItemOp { Name = "N.enum", IfVersion = null, ToFolder = "DUTs",
+                                SourceText = "TYPE N :\n(\n\tX := 0\n);\nEND_TYPE\n" },
+            },
+        });
+        Assert.True(push.Accepted,
+            "push rejected: " + string.Join("; ", push.Conflicts?.Select(c => $"{c.Name}: {c.Reason}") ?? new[] { "<none>" }));
+        names.AddRange(push.NewItems!.Keys);
+        names.AddRange(push.NewFolders!.Keys);
+
+        Assert.Equal(new[] { "A.alias", "E.enum", "N.enum", "S.struct", "U.union" },
+                     push.NewItems!.Keys.OrderBy(k => k, System.StringComparer.Ordinal).ToArray());
+        Assert.DoesNotContain(names, n => n.EndsWith(".dut", System.StringComparison.OrdinalIgnoreCase));
+    }
+
     private static string SourceFor(string ext) => ext switch
     {
         "fb" => FbSrc, "prg" => PrgSrc, "fun" => FunSrc,
-        "itf" => ItfSrc, "dut" => DutSrc, "gvl" => GvlSrc,
+        "itf" => ItfSrc, "struct" => DutSrc, "gvl" => GvlSrc,
         _ => throw new System.ArgumentOutOfRangeException(nameof(ext), ext, "not a writable kind in the matrix"),
     };
 }

@@ -41,13 +41,19 @@ public class KindFromExtensionTests
     }
 
     [Fact]
-    public void A_DUT_agrees_at_the_WIRE_kind_whichever_file_extension_it_came_from()
+    public void A_DUT_agrees_at_the_DUT_kind_whichever_subtype_name_it_travels_under()
     {
-        // `.struct`/`.enum`/`.union`/`.alias` are four FILE spellings of one WIRE kind, so comparing file
-        // extensions rather than wire kinds would refuse every DUT.
+        // `.struct`/`.enum`/`.union`/`.alias` are the four WIRE names of the one DUT kind, so each must hand the
+        // reader the DUT kind to check against. They used to answer NO kind (only `.dut` was in the table), which
+        // passed a DUT text through with the check silently off — asserting the KIND first is what tells the
+        // two apart. The reader then accepts a DUT and refuses a non-DUT under a DUT name.
         const string st = "TYPE DUT_X :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE";
-        Assert.Equal(ItemKind.Kinds.Dut, StReader.Read(st, ItemKind.KindForWireName("DUT_X.struct")).Kind);
-        Assert.Equal(ItemKind.Kinds.Dut, StReader.Read(st, ItemKind.KindForWireName("DUT_X.dut")).Kind);
+        foreach (var name in new[] { "DUT_X.struct", "DUT_X.enum", "DUT_X.union", "DUT_X.alias" })
+        {
+            Assert.Equal(ItemKind.Kinds.Dut, ItemKind.KindForWireName(name));
+            Assert.Equal(ItemKind.Kinds.Dut, StReader.Read(st, ItemKind.KindForWireName(name)).Kind);
+            Assert.Throws<BridgeException>(() => StReader.Read(ProgramText, ItemKind.KindForWireName(name)));
+        }
     }
 
     [Fact]
