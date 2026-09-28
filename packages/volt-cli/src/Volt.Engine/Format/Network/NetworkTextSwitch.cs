@@ -16,9 +16,15 @@ namespace Volt.Engine.Format.Network;
 /// the vendor's process: IN CODESYS (so CODESYS must be started with the variable — <c>ide.ps1</c> does), and in the
 /// TwinCAT worker. One read at first use makes it one answer for the process's life — a switch that could flip between
 /// the pull and the push of one body would hand back a file the next push reads differently. This is the ONE place
-/// anything reads the variable, and a repo gate holds that. The LSP deliberately has no twin: it runs in the editor's
-/// process, which never sees what <c>ide.ps1</c> gives the bridge, so a second switch there disagreed with this one;
-/// it reads what the file states, and the file already carries this switch's verdict (the UNSUPPORTED line).</para>
+/// the C# runtime reads the variable, and a repo gate holds that. The LSP has its own twin
+/// (<c>NETWORK_TEXT_ENABLED</c>), read in the EDITOR's process: two processes, so they can differ, and neither claims
+/// the other's answer — the bridge reports its own in <c>health</c> (<c>HealthResponse.NetworkText</c>) for a client that
+/// needs network text (the corpus refresh, the language recorder), which setting the variable in its OWN process would
+/// not turn on.</para>
+///
+/// <para><b>Off never blocks a push.</b> A workspace pulled while this was off states its ladders
+/// <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>; pushed at a bridge with it on, that line over the same ladder is the same
+/// body hidden, never written (<c>BodyFormatGuard</c>), so the ST and declaration edits beside it land.</para>
 /// </summary>
 public static class NetworkTextSwitch
 {

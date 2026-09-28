@@ -100,13 +100,13 @@ SHALL never be guessed or re-read as another language.
 
 ### Requirement: LD and FBD are disabled unless the build enables them
 
-LD/FBD network text SHALL be off by default. It SHALL be on only in a bridge process whose environment sets
-`VOLT_GRAPHICAL=1` (development, `ide.ps1`, the test suites, the e2e suites). There SHALL be exactly one flag, in the
-C# engine (the bridge). While it is off, every LD/FBD body SHALL pull as `IMPLEMENTATION LD|FBD UNSUPPORTED` with the
-reason "LD and FBD are not enabled in this build", a push carrying network text SHALL be refused by name, and nothing
-in the IDE SHALL be written for such a body. ST SHALL be unaffected. The LSP SHALL have no flag of its own: it runs in
-the editor's process, not the bridge's, so it reads a body as the file states it — a bridge with the flag off has
-already pulled that body as its UNSUPPORTED line, which the LSP reads nothing under.
+LD/FBD network text SHALL be off by default. It SHALL be on only in a process whose environment sets
+`VOLT_GRAPHICAL=1` (development, `ide.ps1`, the test suites, the e2e suites). There SHALL be exactly one flag per
+runtime: one in the C# engine (the bridge) and one in the LSP. While it is off, every LD/FBD body SHALL pull as
+`IMPLEMENTATION LD|FBD UNSUPPORTED` with the reason "LD and FBD are not enabled in this build", a push carrying
+network text SHALL be refused by name, nothing in the IDE SHALL be written for such a body, and the LSP SHALL read
+nothing under an LD/FBD line. ST SHALL be unaffected. The bridge SHALL report its flag in `health`, so a client that
+needs network text (the corpus refresh, the language recorder) can refuse a bridge that has it off.
 
 #### Scenario: a production build
 - **WHEN** a bridge without `VOLT_GRAPHICAL=1` pulls a project with ST and LD bodies
@@ -119,9 +119,19 @@ already pulled that body as its UNSUPPORTED line, which the LSP reads nothing un
   written
 
 #### Scenario: an editor started without the variable
-- **WHEN** the LSP runs in a process without `VOLT_GRAPHICAL=1` and opens a body stated `IMPLEMENTATION LD` in network
-  text (pulled from a bridge with the flag on)
-- **THEN** it reads the body as network text and reports no refusal the bridge would not make
+- **WHEN** the LSP runs in a process without `VOLT_GRAPHICAL=1` and opens a body stated `IMPLEMENTATION LD`
+- **THEN** it reads nothing under that line: no network finding and no refusal; ST bodies are analysed as before
+
+#### Scenario: a production workspace pushed to a development build
+- **WHEN** a file pulled from a bridge without `VOLT_GRAPHICAL=1` (its ladder stated `IMPLEMENTATION LD UNSUPPORTED`)
+  is edited in its ST and declarations and pushed to a bridge with it
+- **THEN** the push is not blocked, the edits land, and the IDE's ladder is never written; a line stating another
+  language than the one the IDE holds is refused naming both
+
+#### Scenario: a corpus refresh through a production bridge
+- **WHEN** the corpus refresh or the language recorder is pointed at a bridge whose `health` does not report network
+  text on
+- **THEN** it stops before pulling or pushing anything, naming the switch and `ide.ps1` as the way to turn it on
 
 #### Scenario: a development build
 - **WHEN** the bridge runs with `VOLT_GRAPHICAL=1`

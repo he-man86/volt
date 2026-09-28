@@ -345,13 +345,28 @@ function opensNetwork(code: readonly Token[]): boolean {
 
 // ── what a body is ───────────────────────────────────────────────────────────────────────────────
 
-/** Which parser reads a body: `st`, `network`, or — for a hidden (UNSUPPORTED) body, or a line that states no language a body
- *  can have — neither. A body with no line is ST (see `splitImplementation`). */
+/**
+ * Is LD and FBD network text read at all in this process? ON only when its environment holds `VOLT_GRAPHICAL=1` — the
+ * LSP's one switch (openspec `implementation-keyword` 3c), the twin of the bridge's `NetworkTextSwitch`, and the only
+ * place in the LSP that reads the variable (a repo gate holds that).
+ *
+ * WHY: network text is not ready to ship. A production bridge pulls every LD and FBD body as its UNSUPPORTED line; a
+ * production editor reads nothing under an `IMPLEMENTATION LD|FBD` line either (one pulled from a development bridge,
+ * or written by hand) — no network finding and no refusal, because whether a push accepts it is the BRIDGE's answer,
+ * from its own environment, which this process cannot see. Read ONCE: one answer for the server's life. Development
+ * turns it on in the editor's environment, and the test suite in `bunfig.toml`.
+ */
+export const NETWORK_TEXT_ENABLED: boolean = process.env.VOLT_GRAPHICAL === "1"
+
+/** Which parser reads a body: `st`, `network`, or — for a hidden (UNSUPPORTED) body, a line that states no language a
+ *  body can have, or an LD/FBD body while network text is off (`NETWORK_TEXT_ENABLED`) — neither. A body with no line is
+ *  ST (see `splitImplementation`). */
 export function bodyReader(body: BodySpan): "st" | "network" | undefined {
   const s = body.implementation?.statement
   if (s === undefined) return "st"
   if (s.kind !== "read") return undefined
-  return s.language === "ST" ? "st" : "network"
+  if (s.language === "ST") return "st"
+  return NETWORK_TEXT_ENABLED ? "network" : undefined
 }
 
 /** The words of a body's keyword line an editor colours as keywords (`IMPLEMENTATION`, the language, `UNSUPPORTED`). */

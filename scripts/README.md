@@ -76,8 +76,8 @@ electron-builder), `--upload` / `--upload-only`.
 `installer/Volt.iss`, not `build-cli.ps1` — so an installed bridge pulls every LD and FBD body as
 `IMPLEMENTATION LD|FBD UNSUPPORTED`. Development turns it on: `ide.ps1`, the test suites, the e2e and recording
 scripts (`packages/volt-cli/README.md`, "LD and FBD are off unless `VOLT_GRAPHICAL=1`"). To try a shipped build with
-it on, set it in the environment of the process that runs the bridge (CODESYS, or the TwinCAT worker); the LSP has
-no switch of its own. `Volt.Repo.Gates/NetworkTextSwitchTests` fails if a shipping step starts setting it.
+it on, set it in the environment of the process that runs the bridge (CODESYS, or the TwinCAT worker), and of the
+editor for the LSP's own switch. `Volt.Repo.Gates/NetworkTextSwitchTests` fails if a shipping step starts setting it.
 
 ## The wiring check
 

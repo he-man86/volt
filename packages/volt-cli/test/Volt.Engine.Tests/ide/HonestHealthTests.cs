@@ -124,6 +124,28 @@ public class HonestHealthTests
 
     /// <summary>The minimum DriverBase subclass: it counts probes and publishes an empty row list (which is what
     /// stamps the throttle clock). Everything else is inert — no IDE, no marshalling.</summary>
+    /// <summary>`health` says whether LD and FBD network text is on in the BRIDGE's process
+    /// (<see cref="Volt.Engine.Format.Network.NetworkTextSwitch"/>). The switch is read from the bridge's own
+    /// environment, and a client — `refresh:corpus`, `record:language` — cannot set it: a corpus refreshed through a
+    /// bridge started without it (by the connector) swapped every ladder for its UNSUPPORTED line and nothing noticed.
+    /// This is how a client can.</summary>
+    [Fact]
+    public void Health_says_whether_LD_and_FBD_are_on_in_this_bridge()
+    {
+        var driver = new ProbeCountingDriver();
+        var was = Volt.Engine.Format.Network.NetworkTextSwitch.Enabled;
+        try
+        {
+            Volt.Engine.Format.Network.NetworkTextSwitch.Enabled = true;
+            Assert.True(driver.BuildHealthResponse().NetworkText);
+            Volt.Engine.Format.Network.NetworkTextSwitch.Enabled = false;
+            Assert.False(driver.BuildHealthResponse().NetworkText);
+        }
+        finally { Volt.Engine.Format.Network.NetworkTextSwitch.Enabled = was; }
+        Assert.Contains("\"networkText\":true",
+            System.Text.Json.JsonSerializer.Serialize(new HealthResponse { NetworkText = true }));
+    }
+
     private sealed class ProbeCountingDriver : DriverBase
     {
         private int _probes;

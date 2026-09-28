@@ -234,10 +234,14 @@ window.VOLT = {
               "items": {
                 "$ref": "#/components/schemas/ProjectEntry"
               }
+            },
+            "networkText": {
+              "type": "boolean"
             }
           },
           "required": [
-            "projects"
+            "projects",
+            "networkText"
           ]
         },
         "ProjectEntry": {

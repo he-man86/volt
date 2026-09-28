@@ -212,7 +212,7 @@ public abstract class DriverBase : IIdeSession
         // `<= 0` is the UNTHROTTLED case spelled out rather than left to `age > 0`: TickCount has ~15.6ms granularity,
         // so two polls landing in one tick would skip a probe an unconditional vendor fires every time.
         if (ProbeThrottleMs <= 0 || !published || ageMs > ProbeThrottleMs) TriggerAsyncProbe();
-        return new HealthResponse { Projects = OverlayLiveHealth(rows) };
+        return new HealthResponse { Projects = OverlayLiveHealth(rows), NetworkText = Format.Network.NetworkTextSwitch.Enabled };
     }
 
     /// <summary>Kick the ambient refresh — <see cref="SnapshotHealth"/> on the vendor's IDE thread, single-flight,

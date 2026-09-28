@@ -1,0 +1,3 @@
+[test]
+# LD and FBD network text on for every test in this package (see the preloaded file).
+preload = ["./test/network-text-on.ts"]

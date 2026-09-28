@@ -903,7 +903,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         var rows = Projects.Select(p => p with { Status = serving ? p.Status : HealthStatus.Idle }).ToList();
         if (rows.Count == 0 && serving && !string.IsNullOrEmpty(HealthSnapshotProjectName))
             rows.Add(new ProjectEntry(HealthPlatform, "0", HealthSnapshotProjectName!, HealthStatus.Healthy, false));
-        return new HealthResponse { Projects = rows };
+        return new HealthResponse { Projects = rows, NetworkText = Volt.Engine.Format.Network.NetworkTextSwitch.Enabled };
     }
     /// <summary>Whether an op exception counts as a transient the host should self-heal — the filter on
     /// <c>BridgePipeHost.RunRead</c>'s mark-degraded → Recover → retry-once branch. Default false: today's answer, and

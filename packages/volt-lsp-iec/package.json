@@ -36,7 +36,7 @@
     "test:corpus": "bun test test/corpus",
     "record:language": "VOLT_GRAPHICAL=1 bun run scripts/record-language.ts",
     "record:exec": "VOLT_GRAPHICAL=1 bun run scripts/record-exec.ts",
-    "refresh:corpus": "VOLT_GRAPHICAL=1 bun run scripts/refresh-corpus.ts",
+    "refresh:corpus": "bun run scripts/refresh-corpus.ts",
     "audit:check": "bun run scripts/audit-check.ts",
     "rate:fixtures": "bun run scripts/rate-fixtures.ts",
     "bench": "LSP_BENCH=1 bun test src/server/bench.test.ts"

@@ -42,6 +42,8 @@ public class BridgeClientTests
 
         var h = new BridgeClient(pipe).GetHealth();
         Assert.NotNull(h); // a typed HealthResponse, no wire-version handshake needed
+        // The suites run with LD and FBD on (test.runsettings), and the bridge says so over the wire.
+        Assert.True(h.NetworkText);
     }
 
     [Fact]

@@ -35,7 +35,7 @@ import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
 import { withDependencies } from "../test/conformance/support/fixture-units.js"
 import { parseSource } from "../src/syntax/index.js"
 import { plcPrgSource } from "../test/conformance/support/plc-prg.js"
-import { call } from "./bridge.js"
+import { call, requireNetworkText } from "./bridge.js"
 import { markImplementations } from "../test/conformance/support/mark-implementations.js"
 
 // The bridge stores ONE item per top-level unit. A multi-unit fixture (e.g. a struct + an FB that uses it,
@@ -115,6 +115,10 @@ function pragmaStart(source: string, unitStart: number): number {
 }
 
 const WRITE = process.argv.includes("--write")
+
+// The graphical fixtures push network text, which a bridge with LD and FBD off refuses — and the switch is the
+// bridge's environment, not this script's. Say so before the first fixture, not forty fixtures in.
+await requireNetworkText()
 
 // Vendor (→ recording file) is auto-detected from the bridge's reported platform; VOLT_VENDOR overrides.
 const health = await call("health")

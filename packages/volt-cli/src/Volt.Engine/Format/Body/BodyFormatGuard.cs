@@ -128,15 +128,32 @@ public static class BodyFormatGuard
                 "language by push. Pull first, or change it in the IDE.");
         }
 
+        // An LD/FBD body the IDE holds as network text, pushed as its UNSUPPORTED line, is the SAME body hidden: a
+        // workspace pulled while network text was off (a production bridge, `NetworkTextSwitch`) pushed at a bridge that
+        // has it on. Nothing is written for it (`ImplementationMarker.Written`), so accepting it overwrites nothing —
+        // and refusing it blocked the whole item, the ST and declaration edits beside it included, until a re-pull. The
+        // language must still be the one the IDE holds, as between two hidden bodies above.
+        if (live == Shape.Network && pushed == Shape.Unsupported)
+        {
+            var language = NetworkText.LanguageOf(liveBody)!;
+            if (ImplementationMarker.UnsupportedLanguageOf(pushedBody) == language) return;
+            var held = ImplementationMarker.For(language);
+            var stated = ImplementationMarker.Canonical(pushedBody.Trim());
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"{what} is stated '{stated}' but its body in the IDE is '{held}' — a hidden body cannot change " +
+                "language by push. Pull first, or change it in the IDE.");
+        }
+
         if (live == pushed) return;                          // same kind of body: the ordinary write
 
         // Pushing the UNSUPPORTED line back is the ordinary NO-OP for a body Volt cannot write, and it is the only way
         // a POU that merely CONTAINS one stays editable at all. It is a refusal only when it does NOT match: a stale
-        // or hand-written UNSUPPORTED line over something writable would otherwise silently do nothing.
+        // or hand-written UNSUPPORTED line over an ST body (the only live shape left here) would otherwise silently
+        // do nothing.
         if (pushed == Shape.Unsupported)
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"{what} is stated '{pushedBody.Trim()}' — hidden, read-only here and never written — but its body in " +
-                $"the IDE is {Describe(live)} — state its language and push real source, or pull first.");
+                "the IDE is ST — state its language and push real source, or pull first.");
 
         if (live == Shape.Unsupported)
             throw new BridgeException(BridgeErrorCodes.Unsupported,
@@ -168,11 +185,4 @@ public static class BodyFormatGuard
         if (NetworkText.Is(body)) return NetworkText.LanguageOf(body) ?? "FBD/LD";
         return body.Trim().Length == 0 ? "<empty>" : "ST";
     }
-
-    private static string Describe(Shape s) => s switch
-    {
-        Shape.Network => "graphical",
-        Shape.Unsupported => "a language Volt cannot write",
-        _ => "textual",
-    };
 }

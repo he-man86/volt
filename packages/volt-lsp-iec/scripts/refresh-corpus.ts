@@ -4,9 +4,15 @@
  * throwaway temp dir does the pull + materialization, then its `src/` tree is swapped in — pull first,
  * replace last, so a failure anywhere leaves the existing corpus exactly as it was.
  *
- * The bridge must already serve the project (the fixture launcher, or your live IDE):
- *   pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys -Fixture <path>     # or a running IDE + connector
+ * The bridge must already serve the project, started by the fixture launcher:
+ *   pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys -Fixture <path>
  *   bun run refresh:corpus <name> [codesys|twincat]
+ *
+ * NOT a bridge the connector started. LD and FBD network text is switched on in the BRIDGE's own process
+ * (`VOLT_GRAPHICAL=1`, which `ide.ps1` gives the IDE it launches), never in this script's; a connector-launched bridge
+ * has it off and pulls every LD and FBD body as its `IMPLEMENTATION LD|FBD UNSUPPORTED` line. A corpus refreshed through
+ * one loses every ladder, the file count below still matches, and the LSP gate stays green (that line draws nothing).
+ * So the script asks the bridge (`health.networkText`) before it pulls, and `volt init` is pointed at that same pipe.
  *
  * The recorded build oracle (expected-build.<vendor>.json) is captured SEPARATELY (record-corpus-build.ts)
  * and preserved across the swap. Re-record it when a project's source changes.
@@ -33,6 +39,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync,
 import { execFileSync } from "node:child_process"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { requireNetworkText, servedPipe } from "./bridge.js"
 
 const name = process.argv[2]
 const vendor = process.argv[3] ?? "codesys"
@@ -45,8 +52,12 @@ const VOLT = join(import.meta.dir, "..", "..", "volt-cli", "src", "Volt.Cli", "b
 const corpus = join(import.meta.dir, "..", "test-corpus", name)
 
 // A temp dir OUTSIDE the repo (a `volt init` here would nest a .git inside the monorepo).
+// The bridge that is asked is the bridge that is pulled from: `volt init` gets the checked pipe by name.
+const pipe = servedPipe(vendor)
+await requireNetworkText(pipe)
+
 const tmp = mkdtempSync(join(tmpdir(), "volt-corpus-"))
-execFileSync(VOLT, ["init", "--vendor", vendor], { cwd: tmp, stdio: "inherit" })
+execFileSync(VOLT, ["init", "--vendor", vendor], { cwd: tmp, stdio: "inherit", env: { ...process.env, VOLT_PIPE: pipe } })
 
 // `volt init` creates the workspace in a subdirectory NAMED AFTER THE PROJECT (that folder is the git repo
 // root), so the materialized tree is `<tmp>/<ProjectName>/src` — not `<tmp>/src`, which is what this script

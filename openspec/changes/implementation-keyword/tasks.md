@@ -231,9 +231,10 @@ The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comme
       pushes back as a no-op; on: network text as before; the suite runs with the switch on); driver-level
       `TcNetworkTextSwitchTests` (the vendor's `ladder.TcPOU` archive through `BeckhoffDriver.ReadContent`: off →
       the line and reason, on → network text) and `CodesysNetworkTextSwitchTests` (an LD aspect through
-      `CodesysDriver.ReadContent`); LSP `server/network-text-follows-the-file.test.ts` (a server started WITHOUT the
-      variable still reads an `IMPLEMENTATION LD` body as network text and claims no refusal; the UNSUPPORTED line draws
-      nothing). The spec delta's reason now reads the same as the code.
+      `CodesysDriver.ReadContent`); LSP `server/network-text-switch.test.ts` (a server started WITHOUT the variable
+      reads nothing under an `IMPLEMENTATION LD|FBD` line — no network finding, no refusal — and ST as before; with it,
+      network text as before; the UNSUPPORTED line draws nothing). The spec delta's reason now reads the same as the
+      code.
 - [x] 3c.2 One flag in the C# engine (read once from the environment), one in the LSP; nothing else reads the
       variable. The CODESYS bridge runs in-proc, so the flag comes from the CODESYS process environment.
       C#: `Format/Network/NetworkTextSwitch` (`Enabled`, read once; its setter is internal, for the suites). Pull:
@@ -244,19 +245,37 @@ The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comme
       `NetworkText.Validate`, which every network-text body a push carries passes (the engine's pre-flight, the create
       arm, each driver's write), refuses first; the gate now also holds that every vendor reader call and every
       driver `NetworkTextWriter.Write` sits INSIDE `Pulled`'s read argument (a hoisted reader escapes the switch and the
-      catch). LSP: NO switch (review: the LSP runs in the editor's process, which `ide.ps1` never reaches, so its own
-      switch was off against an on dev bridge — a false "the push refuses it" finding and no network analysis). The
-      file carries the bridge's verdict (a bridge with the switch off pulls the UNSUPPORTED line); the spec delta says
-      so. `Volt.Repo.Gates/NetworkTextSwitchTests`: exactly one file names the variable (the engine's), none in the
-      LSP, volt-vscode/control/desktop.
+      catch). LSP: `NETWORK_TEXT_ENABLED` in `src/syntax/implementation-keyword.ts`, read once; off, `bodyReader` gives
+      an LD/FBD body to neither parser, so nothing under the line is read and nothing is claimed about the push (the
+      bridge's switch is another process's). The suite turns it on in `bunfig.toml` (`test/network-text-on.ts`).
+      `Volt.Repo.Gates/NetworkTextSwitchTests`: exactly one file per runtime names the variable (the engine's, the
+      LSP's keyword module), none in volt-vscode/control/desktop.
+      Review round (data lens), fixed with red-first tests: (1) the section's first cut dropped the LSP switch and
+      rewrote this requirement to "no flag in the LSP" without the owner's sign-off; the spec delta is back to the
+      approved text (one flag per runtime, the LSP reads nothing under an LD/FBD line) and the LSP has its switch.
+      Cost, stated: an editor started without the variable does no network analysis while a dev bridge serves network
+      text — start the editor with it too (`volt-cli/README.md`). (2) `VOLT_GRAPHICAL=1` on `refresh:corpus` was inert
+      (the script is a bridge client; the switch is the bridge's environment), so a refresh through a
+      connector-started bridge would have swapped every corpus ladder for its UNSUPPORTED line with the file count
+      still matching: `health` now reports the bridge's switch (`HealthResponse.NetworkText`, `HonestHealthTests`,
+      `BridgeClientTests`; the doc data regenerated), and `refresh:corpus` / `record:language` refuse a bridge that
+      has it off before touching it (`scripts/bridge.ts` `requireNetworkText`/`servedPipe`, `scripts/bridge.test.ts`
+      over a real pipe; `volt init` is pointed at the checked pipe); the inert setting is deleted and the gate asserts
+      the check instead. Live: `health` over CODESYS's pipe under `ide.ps1` answers `"networkText":true`.
+      (3) A workspace pulled with the switch off could not be pushed to a bridge with it on, even for an ST edit:
+      `BodyFormatGuard` refused the UNSUPPORTED line over the live ladder for the whole item. The line over a live
+      LD/FBD body of the SAME language is now that body hidden — accepted, never written; another language is refused
+      naming both (engine `NetworkTextSwitchTests`: ST and member-declaration edits land, ladder and diagram bytes
+      unchanged, unchanged file a no-op, FBD-over-LD refused). The spec delta gains the three scenarios.
 - [x] 3c.3 `ide.ps1` (both vendors), the C# and TS test suites, e2e and the corpus/recording scripts set
       `VOLT_GRAPHICAL=1`; `build-cli.ps1` and the installer do NOT. `scripts/README.md` and
       `packages/volt-cli/README.md` say how to turn it on.
       `ide.ps1 up` sets it before launching either vendor; `test/test.runsettings` via `test/Directory.Build.props`
-      (which imports the solution defaults) for every C# test project; `bunfig.toml` preloads in volt-cli (the LSP has
-      no switch, so no preload); `test:e2e*`, `record:language`, `record:exec`, `refresh:corpus`. The same repo gate asserts each
-      setting, and that `build-cli.ps1`, `build-payload.ts`, `build-installer.ts` and `installer/Volt.iss` never name
-      it.
+      (which imports the solution defaults) for every C# test project; `bunfig.toml` preloads in volt-cli and in
+      volt-lsp-iec; `test:e2e*`, `record:language` (the LSP parser runs in its process), `record:exec` (it launches
+      CODESYS). `refresh:corpus` does NOT set it — that was inert — and asks the bridge instead (3c.2 review). The same
+      repo gate asserts each setting and each check, and that `build-cli.ps1`, `build-payload.ts`,
+      `build-installer.ts` and `installer/Volt.iss` never name it.
 
 ## 4. Data and docs
 

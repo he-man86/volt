@@ -171,4 +171,69 @@ public class NetworkTextSwitchTests
         Assert.Equal(held, new[] { "FB_Mix", "Rung", "Box" }.Select(ide.StoredImplementation));
         Assert.Equal(text, Off(() => Pulled(ide)));
     }
+
+    // ── a production file at a development bridge ────────────────────────────────────────────────
+
+    /// <summary>A workspace pulled from a production bridge (switch off) is pushed at a development one (switch on):
+    /// the live ladder now reads as network text while the file states it <c>IMPLEMENTATION LD UNSUPPORTED</c>. That
+    /// is the same body, hidden — never a reason to block the push. The ST edit and the member's declaration land, and
+    /// neither the ladder nor the diagram is written. It used to be refused for the whole item ("… but its body in the
+    /// IDE is graphical"), so the ST edit beside it could not be pushed until the workspace was pulled again.</summary>
+    [Fact]
+    public void A_file_pulled_off_pushes_to_a_bridge_with_the_switch_on_and_the_ladder_is_never_written()
+    {
+        var ide = Ide();
+        var held = new[] { "Rung", "Box" }.Select(ide.StoredImplementation).ToList();
+        var text = Off(() => Pulled(ide));
+        var edited = text
+            .Replace("x := 1;", "x := 2;")
+            .Replace("METHOD Rung : BOOL\n", "METHOD Rung : BOOL\nVAR_INPUT\n\tbStart : BOOL;\nEND_VAR\n");
+        Assert.NotEqual(text, edited);
+
+        var resp = Update(ide, edited);                             // the switch is on: a development bridge
+
+        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.Equal("x := 2;", ide.StoredImplementation("FB_Mix"));
+        Assert.Contains("bStart : BOOL;",
+            ide.ReadContent(new ItemRef("FB_Mix")).Members.Single(m => m.Name == "Rung").Declaration);
+        Assert.Equal(held, new[] { "Rung", "Box" }.Select(ide.StoredImplementation));
+        // …and a pull from this bridge now shows the ladder as network text again: nothing was lost.
+        Assert.Contains("METHOD Rung : BOOL\nVAR_INPUT\n\tbStart : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK", Pulled(ide));
+    }
+
+    /// <summary>The production file pushed back unchanged at a development bridge is the ordinary no-op.</summary>
+    [Fact]
+    public void A_file_pulled_off_pushes_back_unchanged_to_a_bridge_with_the_switch_on_as_a_no_op()
+    {
+        var ide = Ide();
+        var held = new[] { "FB_Mix", "Rung", "Box" }.Select(ide.StoredImplementation).ToList();
+        var text = Off(() => Pulled(ide));
+
+        var resp = Update(ide, text);
+
+        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.Equal(held, new[] { "FB_Mix", "Rung", "Box" }.Select(ide.StoredImplementation));
+    }
+
+    /// <summary>Hidden is not "anything goes": the stated language still has to be the one the IDE holds. An
+    /// <c>FBD UNSUPPORTED</c> line over a live ladder is refused naming both, and nothing is written — accepting it
+    /// would leave the file and the pushed baseline naming a language the IDE does not hold.</summary>
+    [Fact]
+    public void A_hidden_line_stating_another_language_than_the_live_ladder_is_refused_naming_both()
+    {
+        var ide = Ide();
+        var text = Off(() => Pulled(ide))
+            .Replace("x := 1;", "x := 2;")
+            .Replace("METHOD Rung : BOOL\nIMPLEMENTATION LD UNSUPPORTED", "METHOD Rung : BOOL\nIMPLEMENTATION FBD UNSUPPORTED");
+        Assert.Contains("METHOD Rung : BOOL\nIMPLEMENTATION FBD UNSUPPORTED", text);
+
+        var resp = Update(ide, text);
+
+        Assert.False(resp.Accepted, "a hidden line must state the language the IDE holds");
+        var conflict = Assert.Single(resp.Conflicts!);
+        Assert.Contains("'Rung'", conflict.Reason);
+        Assert.Contains("IMPLEMENTATION FBD UNSUPPORTED", conflict.Reason);
+        Assert.Contains("IMPLEMENTATION LD", conflict.Reason);
+        Assert.Equal("x := 1;", ide.StoredImplementation("FB_Mix"));
+    }
 }
