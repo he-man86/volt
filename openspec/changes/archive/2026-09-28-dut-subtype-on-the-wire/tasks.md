@@ -198,7 +198,7 @@ BLOCKED; it is never faked.
         (`fixtures.test.ts:1237`, `support/evidence.ts:146`), and the CODESYS-scripting recorders
         (`record-exec.py:83`, `probe-fixture-run.py:52`).
 
-- [ ] 1.5 OPEN, found during 1.1/1.3, not a DUT-subtype fact: on the Pro2193 fixture copy the bridge's `refs`
+- [x] 1.5 MOVED 2026-09-28 to its own change `openspec/changes/codesys-refs-guid-int32`. Found during 1.1/1.3, not a DUT-subtype fact: on the Pro2193 fixture copy the bridge's `refs`
       failed in 2 of 3 sessions with `INTERNAL_ERROR Object of type 'System.Guid' cannot be converted to type
       'System.Int32'`, so that project could not be pulled. Both failing sessions had first run
       `probe-dut-subtype-push.py`'s scripting read over three DUTs whose wrapper reported handle 0
@@ -805,7 +805,7 @@ unchanged (no new vendor measurement).
       (`ReadResponse.Removed`) — the shape now includes it, asserted on BOTH vendors (it checked one), and both
       report `removed: []` when asked about no names. Runs: CODESYS `crud-cycle`+`name-clash`+`kinds/top-level`+
       `dut-subtype-change` 21/0; TwinCAT the same 21/0; `vendor-parity` (both bridges) 11/0.
-- [ ] 6.3 Full C# suites + `bun test test/unit` green; archive, delete the recreated `openspec/specs/`.
+- [x] 6.3 Full C# suites + `bun test test/unit` green; archive, delete the recreated `openspec/specs/`.
       Suites **green** (2026-09-27, after 6.1/6.2): Engine 1532/0 (1 skipped, pre-existing), Cli 251, Contracts 19,
       Codesys 160, Twincat 231, Connector 110, Repo.Gates 20, `bun test test/unit` 4; `bun run check`, lint and the
       volt-cli `tsc` exit 0. **Archive BLOCKED on 1.5 and 4.8 only** — 1.5 (the Pro2193 `refs`
