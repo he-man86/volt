@@ -62,7 +62,7 @@ public class PushDeclarationTransportTests
     /// body Volt cannot write as its read-only keyword line ALONE — that line is the body's statement, and an
     /// <c>IMPLEMENTATION ST</c> above it would claim a language Volt reads.</summary>
     private static string Stated(string body) =>
-        ImplementationMarker.IsReadOnlyBody(body) ? body : "IMPLEMENTATION ST\n" + body;
+        ImplementationMarker.IsUnsupportedBody(body) ? body : "IMPLEMENTATION ST\n" + body;
 
     /// <summary>The same declaration with one variable added — the ONLY difference in the push.</summary>
     private static string PlusOneVar(string decl) =>
@@ -107,7 +107,7 @@ public class PushDeclarationTransportTests
         const string decl = "FUNCTION_BLOCK K\nVAR\nEND_VAR";
         var ide = new FakeIde(new FakeIde.Item("K", ItemKind.PlcPouFb, "", true, decl, "", language, null));
 
-        Push(ide, "K.fb", Source(PlusOneVar(decl), ImplementationMarker.ReadOnly(language), "END_FUNCTION_BLOCK"));
+        Push(ide, "K.fb", Source(PlusOneVar(decl), ImplementationMarker.Unsupported(language), "END_FUNCTION_BLOCK"));
 
         Assert.Contains("vltAdded", ide.WrittenContent["K"].Declaration);
     }

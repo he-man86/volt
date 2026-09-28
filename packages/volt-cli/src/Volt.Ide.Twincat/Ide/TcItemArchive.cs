@@ -2,6 +2,7 @@
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Xml;
 using System.Xml.Linq;
 
 namespace Volt.Ide.Twincat;
@@ -243,7 +244,7 @@ internal static class TcItemArchive
     /// been deleted from the project — rather than inside the import, where the item is already gone.</para></summary>
     private static bool TrySetBody(ref string tcPou, string[] path, string nwlXml)
     {
-        var doc = XDocument.Parse(tcPou);
+        var doc = ParseVerbatim(tcPou);
 
         // ORDINAL-IGNORE-CASE, like every other layer that matches a member by name. The `step` values are
         // the PUSHED spellings, taken from the engineer's signature line, and IEC identifiers are
@@ -287,10 +288,48 @@ internal static class TcItemArchive
                                .ToList())
             ids.Remove();
 
-        var sw = new Utf8StringWriter();
-        doc.Save(sw, SaveOptions.DisableFormatting);
-        tcPou = sw.ToString();
+        tcPou = SaveVerbatim(doc);
         return true;
+    }
+
+    /// <summary>Parse a vendor document keeping every character the vendor wrote, so <see cref="SaveVerbatim"/> can
+    /// give back the same bytes for every element Volt did not touch.
+    ///
+    /// <para>The rewrite goes back into the IDE WHOLE: the round trip deletes the POU and imports this document, so
+    /// every sibling Volt was not asked to change — a CFC chart, an SFC action, a body Volt does not show — rides
+    /// along. "Nothing in the IDE is overwritten" (openspec <c>implementation-keyword</c>) is therefore a claim
+    /// about THIS text. A default parse broke it three ways, each measured on vendor output
+    /// (<c>TcHiddenBodyWriteTests</c>): it dropped the indentation between elements, the XML reader turned every
+    /// CRLF — the vendor's line ending, inside a CDATA declaration too — into LF, and the writer re-spelled what was
+    /// left. So: every whitespace node kept, line endings not normalized.</para></summary>
+    private static XDocument ParseVerbatim(string text)
+    {
+        using var reader = new XmlTextReader(new StringReader(text))
+        {
+            Normalization = false,                       // keep CRLF as CRLF, in text, CDATA and attributes
+            WhitespaceHandling = WhitespaceHandling.All,
+            DtdProcessing = DtdProcessing.Prohibit,
+        };
+        return XDocument.Load(reader, LoadOptions.PreserveWhitespace);
+    }
+
+    /// <summary>Serialize WITH the XML declaration, AS UTF-8, WITHOUT re-indenting and WITHOUT touching a line
+    /// ending — the counterpart of <see cref="ParseVerbatim"/>.
+    ///
+    /// <para>A plain StringWriter once declared <c>encoding="utf-16"</c> over UTF-8 bytes, which a reader refuses
+    /// ("There is no Unicode byte order mark. Cannot switch to Unicode") — and <c>RoundTrip</c> DELETES the item
+    /// before importing this text, so for that window it is the ONLY copy, and the undo re-imports the same bytes.
+    /// That is the class of failure that once made twenty .TcPOU files unopenable.</para></summary>
+    private static string SaveVerbatim(XDocument doc)
+    {
+        var sw = new Utf8StringWriter();
+        using (var w = XmlWriter.Create(sw, new XmlWriterSettings
+               {
+                   Indent = false,
+                   NewLineHandling = NewLineHandling.None,
+               }))
+            doc.Save(w);
+        return sw.ToString();
     }
 
     /// <summary>A StringWriter that says UTF-8, because <see cref="XDocument.Save(System.IO.TextWriter)"/>
@@ -311,7 +350,7 @@ internal static class TcItemArchive
 
     private static bool TryPlace(ref string tcPou, string memberName, string folderPath)
     {
-        var doc = XDocument.Parse(tcPou);
+        var doc = ParseVerbatim(tcPou);
         var member = doc.Descendants().FirstOrDefault(e =>
             e.Name.LocalName is "Method" or "Action" or "Property"
             && (string?)e.Attribute("Name") == memberName);
@@ -329,26 +368,7 @@ internal static class TcItemArchive
             member.SetAttributeValue("FolderPath", string.Join(Sep, segments) + Sep);
         }
 
-        // Serialize WITH the XML declaration, and AS UTF-8, and WITHOUT re-indenting.
-        //
-        // This used a plain StringWriter, and every one of those three went wrong. `XDocument.Save` takes its
-        // declared encoding from the writer, and a StringWriter is UTF-16 - so it emitted
-        // `<?xml version="1.0" encoding="utf-16"?>` and the caller then wrote those characters out as UTF-8. A
-        // declaration that contradicts the bytes is exactly what a reader refuses: "There is no Unicode byte
-        // order mark. Cannot switch to Unicode."
-        //
-        // WHY THAT WAS THE WORST PLACE FOR IT: `RoundTrip` DELETES the item from the project before importing
-        // this archive back, so for that window this text is the ONLY copy - and the rollback re-imports the
-        // same bytes, so the move and its undo failed on the identical cause. It is the same class of failure
-        // that already made twenty .TcPOU files unopenable once.
-        //
-        // `SaveOptions.None` also re-indented the whole vendor document; `DisableFormatting` keeps every byte we
-        // were not asked to touch.
-        using (var sw = new Utf8StringWriter())
-        {
-            doc.Save(sw, SaveOptions.DisableFormatting);
-            tcPou = sw.ToString();
-        }
+        tcPou = SaveVerbatim(doc);
         return true;
     }
 

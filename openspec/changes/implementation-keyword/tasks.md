@@ -166,7 +166,46 @@ The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comme
       leaves the IDE body untouched (both vendors' writers); code under an `UNSUPPORTED` line is refused.
       Neither pull nor push is ever blocked by an `UNSUPPORTED` item, and the implementation is NEVER written: a live
       test on each vendor reads the IDE body before and after a declaration push and asserts it is byte-identical.
-- [ ] 3b.2 Engine + LSP + TextMate follow; tests from 2b/3.1 that pinned bare `CFC` rewritten to the new rule.
+      Done, except ONE part, OPEN (not blocked — declined in this round): the byte-level LIVE read on CODESYS. Nothing
+      outside the IDE can read a CODESYS body (the push saves no file, the archive is binary, the wire carries no hidden
+      body by design), but the in-proc bridge can (`CodesysObjectModel` already reads the Implementation aspect), so the
+      check needs a new test-only op on the pipe wire — the parity boundary both vendors serve identically. Not added:
+      the failure it would catch is a whole-object rewrite, which CODESYS has no path for (each aspect is written per
+      object; a move is the vendor's own `move()`), and the writer is held offline against the object manager's checkout
+      (`CodesysHiddenBodyWriteTests`: every declaration commits, the implementation aspect is never even read; red when
+      `Written` is made to pass the line through). TwinCAT is byte-checked live against its saved `.TcPOU`
+      `<Implementation>`.
+      Review round (data lens), fixed with red-first tests: TwinCAT DOES rewrite whole objects — a graphical member edit
+      (`SetMemberBodies`) and a member move (`MoveMember`) delete the POU and import its archive back, so every hidden
+      sibling (the POU's own chart, a CFC method, an SFC action, a CFC getter) rode a re-serialization that dropped the
+      indentation between elements and turned CRLF into LF, inside CDATA too. `TcItemArchive` now parses verbatim
+      (`XmlTextReader`, no normalization, every whitespace node) and writes with no newline handling; the hidden bodies
+      come back byte for byte (`TcHiddenBodyWriteTests`, over `fixtures/tc-pou/MembersHidden.TcPOU` built from the
+      vendor's own CFC/SFC output; both red before). Live: the 18 member/accessor graphical round trips of
+      `graphical-kinds.test.ts`, run on TwinCAT Project14 with keyword bodies, pass through the new serializer and
+      compile. And the LSP called a comment or pragma under an UNSUPPORTED line clean while the push refuses it (the
+      drivers never write a hidden body, so it would be dropped): it is now the same diagnostic
+      (`implementation-keyword-diagnostics.test.ts`; `ReadOnlyBodyTests` pins the push side).
+      Red first: `sync/ReadOnlyBodyTests.cs` (CFC/SFC/IL pull as `… UNSUPPORTED`; a bare `IMPLEMENTATION CFC|SFC|IL`
+      refused naming it and the line to write; declaration edits of a hidden POU and a hidden member pushed with the
+      stored body unchanged (`FakeIde.StoredImplementation`); an ST edit beside a hidden member lands; code under an
+      UNSUPPORTED line refused); `ImplementationKeywordTests` (line recognition, `Unsupported` for every language but
+      ST, `Written`); CLI `PushCommandTests.Editing_the_declarations_of_hidden_bodies_pushes_them_and_never_writes_a_body`
+      (pull → edit → push not blocked → bodies unchanged → in sync → pull not blocked); driver-level
+      `TcHiddenBodyWriteTests` and `CodesysHiddenBodyWriteTests` (POU, method and property accessor, all five
+      languages: declarations land, zero implementation writes); live `e2e/graphical/hidden-declaration.test.ts`, green
+      on CODESYS (CodesysTestProject) and TwinCAT (Project14). The drivers already skipped a hidden body; the decision
+      is now ONE engine function, `ImplementationMarker.Written`, that every writer on both vendors and `FakeIde` call.
+- [x] 3b.2 Engine + LSP + TextMate follow; tests from 2b/3.1 that pinned bare `CFC` rewritten to the new rule.
+      Engine: `ImplementationMarker.Unsupported(lang)` for every language but ST (`ReadOnly` deleted), `IsUnsupported`/
+      `IsUnsupportedBody`/`IsNeverShown`/`Written`; `StReader` names a bare CFC/SFC/IL line with the line to write; the
+      reason still rides only LD/FBD bodies (a CFC/SFC/IL line states its whole reason); `TcArchive.UnreadLanguage`,
+      `CodesysDriver.UnreadLanguage`. LSP: statements `unsupported` (never ST) and `bare-hidden` (a diagnostic naming
+      the UNSUPPORTED line); the hover says the declaration stays editable and the body is never written. TextMate:
+      UNSUPPORTED required after CFC/SFC/IL. Rewritten to the rule: the 2b/3.1 rows spelling bare CFC/SFC/IL in
+      `ImplementationKeywordTests`, `ReadOnlyBodyTests`, `ImplementationLanguagePushTests`, `AccessorPreflightTests`,
+      `MaterializerChildDeclTests`, `StFormatRoundTripTests`, the LSP keyword/diagnostics/hover/format tests and the
+      grammar test. The e2e `unsupported.test.ts` still expects the retired comments (4.1).
 
 ## 3c. Production flag: graphical text off by default
 

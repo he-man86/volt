@@ -27,11 +27,16 @@ function coloured(line: string): Record<string, string> | null {
 const KEYWORD = "keyword.other.implementation.structured-text"
 const LANGUAGE = "keyword.other.implementation.language.structured-text"
 
-test("IMPLEMENTATION and the language it states colour as keywords, for every language a body can state", () => {
-	for (const language of ["ST", "LD", "FBD", "CFC", "SFC", "IL"])
+test("IMPLEMENTATION and the language it states colour as keywords, for every line a body can state", () => {
+	for (const language of ["ST", "LD", "FBD"])
 		expect(coloured(`IMPLEMENTATION ${language}`)).toEqual({ IMPLEMENTATION: KEYWORD, [language]: LANGUAGE })
-	expect(coloured("IMPLEMENTATION LD UNSUPPORTED")).toEqual({ IMPLEMENTATION: KEYWORD, LD: LANGUAGE, UNSUPPORTED: KEYWORD })
-	expect(coloured("IMPLEMENTATION FBD UNSUPPORTED")).toEqual({ IMPLEMENTATION: KEYWORD, FBD: LANGUAGE, UNSUPPORTED: KEYWORD })
+	// A body Volt does not show (section 3b): its language and UNSUPPORTED, on every language but ST.
+	for (const language of ["LD", "FBD", "CFC", "SFC", "IL"])
+		expect(coloured(`IMPLEMENTATION ${language} UNSUPPORTED`)).toEqual({
+			IMPLEMENTATION: KEYWORD,
+			[language]: LANGUAGE,
+			UNSUPPORTED: KEYWORD,
+		})
 })
 
 test("spacing is free and the words are case-insensitive, as ST keywords are", () => {
@@ -46,7 +51,10 @@ test("only a whole line holding the statement is the line", () => {
 		"IMPLEMENTATION LD // note",
 		"IMPLEMENTATION LD out := a;",
 		"IMPLEMENTATION ST UNSUPPORTED",
-		"IMPLEMENTATION CFC UNSUPPORTED",
+		"IMPLEMENTATION CFC", // 3b: a CFC, SFC or IL body is never shown, so the bare line states nothing
+		"IMPLEMENTATION SFC",
+		"IMPLEMENTATION IL",
+		"IMPLEMENTATION CFC UNSUPPORTED x",
 		"x := IMPLEMENTATION LD;",
 		"IMPLEMENTATION_DONE := TRUE;",
 	])

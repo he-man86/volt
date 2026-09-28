@@ -99,7 +99,7 @@ public static class StReader
 		var lines = NormalizeLines(sourceText);
 
 		// 0. A FILE FROM BEFORE THE KEYWORD. No Volt writes a `(* @volt-… *)` comment any more — the boundary and a
-		// read-only body are both stated by an IMPLEMENTATION line — so a file holding one, anywhere, was pulled by an
+		// hidden body are both stated by an IMPLEMENTATION line — so a file holding one, anywhere, was pulled by an
 		// older Volt. Refused before anything else is read, naming the pull that rewrites it: read around, the old
 		// boundary comment left a file with no boundary and the old marker comment landed in the IDE as the tail of a
 		// declaration or as a body. A comment only — the same characters in a string or after `//` are text.
@@ -370,23 +370,24 @@ public static class StReader
 	/// is the one signal for how the body is read. Every refusal names <paramref name="what"/> and the line as
 	/// written, and each is raised before anything is written:
 	/// <list type="bullet">
-	/// <item>a line with no language, or one no body can state (<c>IMPLEMENTATION COBOL</c>, <c>UNSUPPORTED</c> after a
-	/// language other than LD or FBD, code after the language) — never guessed;</item>
+	/// <item>a line with no language, or one no body can state (<c>IMPLEMENTATION COBOL</c>, <c>UNSUPPORTED</c> after
+	/// language other than ST, a bare CFC, SFC or IL, code after the language) — never guessed;</item>
 	/// <item>a body whose text contradicts its language: network text under <c>ST</c>, or text under <c>LD</c>/<c>FBD</c>
 	/// that is no network — never re-read as the other;</item>
-	/// <item>code under a READ-ONLY line (<c>IMPLEMENTATION CFC|SFC|IL</c>, <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>) —
+	/// <item>code under an UNSUPPORTED line (<c>IMPLEMENTATION CFC|SFC|IL|LD|FBD UNSUPPORTED</c>) —
 	/// that body has no text form, the drivers write nothing for it, so the code would be dropped without a word and
 	/// overwritten by the next pull.</item>
 	/// </list></summary>
 	private static string Body(string line, string code, string what)
 	{
 		var stated = line.Trim();
-		if (ImplementationMarker.IsReadOnly(line))
+		if (ImplementationMarker.IsUnsupported(line))
 		{
 			if (code.Trim().Length > 0)
 				throw new BridgeException(BridgeErrorCodes.InvalidSt,
-					$"{what} holds code under '{stated}'. That body has no text form Volt can write, so the code has " +
-					"nowhere to go and would be dropped. Remove it, and edit the body in the IDE.");
+					$"{what} holds code under '{stated}'. Volt shows no implementation for that body and never writes it, " +
+					"so the code has nowhere to go and would be dropped. Remove it, and edit the body in the IDE (the " +
+					"declaration above the line is yours to edit here).");
 			return ImplementationMarker.Join(line, "");
 		}
 
@@ -397,12 +398,20 @@ public static class StReader
 				$"{ImplementationMarker.For(Languages.St)}, {ImplementationMarker.For(Languages.Ld)} or " +
 				$"{ImplementationMarker.For(Languages.Fbd)}. ({ImplementationMarker.Keyword} is reserved, so if the line " +
 				"names something, rename it.)");
+		// A bare CFC, SFC or IL was section 2b's line for a body Volt does not show; 3b gave every such body one word,
+		// UNSUPPORTED, so the bare line states no body. Refused naming the line to write, never read as the hidden body
+		// it once meant — a line that reads two ways is the ambiguity the stated language exists to end.
+		if (ImplementationMarker.IsNeverShown(word.ToUpperInvariant()))
+			throw new BridgeException(BridgeErrorCodes.InvalidSt,
+				$"{what} states '{stated}'. Volt shows no {word.ToUpperInvariant()} body, so its line is " +
+				$"'{ImplementationMarker.Unsupported(word.ToUpperInvariant())}', with nothing under it. Pull the item " +
+				"again to get it.");
 		var lang = ImplementationMarker.LanguageOf(line)
 			?? throw new BridgeException(BridgeErrorCodes.InvalidSt,
 				$"{what} states '{stated}', and '{word}' is no language a body can state. The line holds the keyword and " +
-				$"one of ST, LD or FBD, or — for a body Volt cannot write — CFC, SFC, IL, LD {ImplementationMarker.UnsupportedWord} " +
-				$"or FBD {ImplementationMarker.UnsupportedWord}, alone. Code goes under the line, and a body in another " +
-				"language is edited in the IDE.");
+				$"one of ST, LD or FBD, or — for a body Volt does not show — its language (LD, FBD, CFC, SFC or IL) and " +
+				$"{ImplementationMarker.UnsupportedWord}, alone. Code goes under the line, and a body in another language " +
+				"is edited in the IDE.");
 
 		var network = Volt.Engine.Format.Network.NetworkText.OpensNetwork(code);
 		if (lang == Languages.St && network)

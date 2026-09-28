@@ -14,13 +14,13 @@ namespace Volt.Engine.Item;
 /// from text; a body spliced over a sibling method because the read scoped by name and the write by document
 /// order. Neither is possible between two users of the same record.</para>
 /// <para>This is a TEXT-level model, deliberately: a body is workspace text — ST verbatim, a graphical body as
-/// network text, a body Volt cannot write as its read-only <c>IMPLEMENTATION</c> line. It is what the workspace stores
+/// network text, a body Volt cannot write as its UNSUPPORTED <c>IMPLEMENTATION</c> line. It is what the workspace stores
 /// and what the ST layer round-trips, and it is ALL the engine ever sees of a body. Whatever shape a vendor's own
 /// storage has stops at the driver; this record is the boundary.</para>
 /// <para><b><c>Unsupported</c></b>, here and on <see cref="Member"/> and <see cref="Accessor"/>: WHY a body is
 /// <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> — the fact network text has no spelling for, as the driver's reader or writer
 /// refused it — and null for every other body. The file does not carry it (the line says only that the body is
-/// read-only), so it is set by the driver that read the body, for the pull to report, and is null on a body read from
+/// hidden), so it is set by the driver that read the body, for the pull to report, and is null on a body read from
 /// a file. It is not content: nothing compares it, and the version is the file's.</para>
 /// </summary>
 public sealed record ItemContent(

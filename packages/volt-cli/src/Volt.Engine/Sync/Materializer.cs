@@ -4,6 +4,7 @@ using Volt.Contracts;
 using Volt.Engine.Item;
 using Volt.Engine.Ide;
 using Volt.Engine.Library;
+using Volt.Engine.Format.Body;
 using Volt.Engine.Format.St;
 
 namespace Volt.Engine.Sync;
@@ -42,7 +43,11 @@ public static class Materializer
     /// <summary>Every body of the item the driver read as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>, with its reason —
     /// the one fact about the item its text does not carry, gathered here, where the content is in hand, for the pull
     /// message. A reason on a body that is NOT such a line, or such a line with no reason, is a driver that broke the
-    /// pairing (<see cref="ItemContent.Unsupported"/>), and is refused rather than reported half.</summary>
+    /// pairing (<see cref="ItemContent.Unsupported"/>), and is refused rather than reported half.
+    ///
+    /// <para>A CFC, SFC or IL body is UNSUPPORTED too, and carries no reason: its line states the language, and "Volt
+    /// does not read that language" is the whole reason. Only an LD/FBD body — a language Volt DOES read — needs the
+    /// fact network text had no spelling for.</para></summary>
     private static IReadOnlyList<UnsupportedBody> UnsupportedIn(ItemContent content)
     {
         var found = new List<UnsupportedBody>();
@@ -57,7 +62,8 @@ public static class Materializer
 
         void Add(string? member, string? body, string? reason)
         {
-            var language = ImplementationMarker.UnsupportedLanguageOf(body);
+            var hidden = ImplementationMarker.UnsupportedLanguageOf(body);
+            var language = hidden is not null && Languages.IsNetwork(hidden) ? hidden : null;
             if ((language is null) != (reason is null))
                 throw new InvalidOperationException(
                     $"the driver read {(member is null ? "the item's body" : $"'{member}'")} as '{body?.Trim()}' with " +

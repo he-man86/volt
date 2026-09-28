@@ -33,7 +33,7 @@ public static class StWriter
         // leading the body is the engineer's and has to survive the round trip.
         // The BOUNDARY LINE, always — see ImplementationMarker. An empty body gets it too: the line records where the
         // DECLARATION ends and what language the body is in, facts that do not depend on whether code follows it.
-        // A body Volt cannot write is its read-only line (IMPLEMENTATION CFC, IMPLEMENTATION LD UNSUPPORTED) and nothing under it.
+        // A body Volt does not show is its UNSUPPORTED line (IMPLEMENTATION CFC UNSUPPORTED, …) and nothing under it.
         var (boundary, impl) = ImplementationMarker.Split(item.Body ?? "");
         if (ImplementationMarker.AppliesTo(item.Kind)) sb.Append('\n').Append(boundary);
         if (impl.Length > 0)
@@ -96,7 +96,7 @@ public static class StWriter
         if (child.Kind is ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)
             return AssembleProperty(child, ownerKind);
         var decl = child.Declaration.TrimEnd('\n');
-        // The boundary line first, then `%FOLDER`, then the code — a read-only line is that boundary too, so a read-only
+        // The boundary line first, then `%FOLDER`, then the code — an UNSUPPORTED line is that boundary too, so a hidden
         // member's `%FOLDER` follows it; above it, the directive would be DECLARATION text and the folder lost.
         var (boundary, code) = ImplementationMarker.Split(child.Body ?? "");
         var impl = PrependFolder(child.Folder, code);

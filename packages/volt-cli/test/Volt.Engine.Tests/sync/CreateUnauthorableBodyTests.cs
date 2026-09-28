@@ -11,7 +11,7 @@ namespace Volt.Engine.Tests;
 
 /// <summary>
 /// DATA LOSS regression, the CREATE half: a push that would CREATE an item whose body is the
-/// read-only <c>IMPLEMENTATION CFC|SFC|IL</c> line must be refused, not written.
+/// <c>IMPLEMENTATION CFC|SFC|IL UNSUPPORTED</c> line must be refused, not written.
 ///
 /// <para><see cref="GraphicalChildGuardTests"/> pins the UPDATE half — an existing CFC/SFC body is never
 /// overwritten, decided from the IDE's live state. The create path had no such guard and could not have had the
@@ -33,7 +33,7 @@ public class CreateUnauthorableBodyTests
     private const string Name = Bare + ".fb";
     private const string Decl = "FUNCTION_BLOCK " + Bare + "\nVAR\nEND_VAR";
 
-    private static string Marker(string lang) => Volt.Engine.Format.St.ImplementationMarker.ReadOnly(lang);
+    private static string Marker(string lang) => Volt.Engine.Format.St.ImplementationMarker.Unsupported(lang);
 
     /// <summary>An empty project — so every op below is a CREATE (<c>IfVersion == null</c>).</summary>
     private static FakeIde Empty() => new();

@@ -76,7 +76,7 @@ test("folding: an ST body's keyword line does not break the unit's fold", () => 
   expect(folds.some((f) => f.startLine === 0 && f.endLine >= 5)).toBe(true)
 })
 
-test("semantic tokens: a read-only line colours every word it states, and a look-alike in a comment none", () => {
+test("semantic tokens: an UNSUPPORTED line colours every word it states, and a look-alike in a comment none", () => {
   const ro = ST_FB.replace("IMPLEMENTATION ST\nx := 1;", "IMPLEMENTATION LD UNSUPPORTED\n")
   expect(typesOn(ro, [4])).toEqual({ "4:IMPLEMENTATION": "keyword", "4:LD": "keyword", "4:UNSUPPORTED": "keyword" })
   const commented = ST_FB.replace("END_VAR\n", "END_VAR\n// IMPLEMENTATION LD\n")

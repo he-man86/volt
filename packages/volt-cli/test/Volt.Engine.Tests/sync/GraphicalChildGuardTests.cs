@@ -41,7 +41,7 @@ public class GraphicalChildGuardTests
             childImpl, childLang, null));
 
     /// <summary>What the CLI actually round-trips for a CFC child: its read-only keyword line, over an empty body.</summary>
-    private static string Marker(string lang) => ImplementationMarker.ReadOnly(lang);
+    private static string Marker(string lang) => ImplementationMarker.Unsupported(lang);
 
     /// <summary>An UPDATE op carrying the item's real current version, so it applies rather than conflicting as a
     /// create (IfVersion == null means "create" — the item exists, so that would be a conflict, not an apply).</summary>
@@ -57,7 +57,7 @@ public class GraphicalChildGuardTests
                 {
                     Name = Name,
                     IfVersion = refs.Items[Name],
-                    SourceText = $"{PouDecl}\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\nEND_VAR\n{(ImplementationMarker.IsReadOnlyBody(body) ? body : "IMPLEMENTATION ST\n" + body)}\nEND_METHOD\n",   // a read-only body is its keyword line alone
+                    SourceText = $"{PouDecl}\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\nEND_VAR\n{(ImplementationMarker.IsUnsupportedBody(body) ? body : "IMPLEMENTATION ST\n" + body)}\nEND_METHOD\n",   // a read-only body is its keyword line alone
                 },
             },
         });

@@ -42,6 +42,50 @@ public class PushCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>Spec (implementation-keyword 3b), "the declaration of a hidden body is edited" and "nothing in the IDE is
+    /// overwritten", end to end through the CLI: a project holding a CFC POU and a POU whose method is an LD body network
+    /// text cannot represent pulls with both as <c>IMPLEMENTATION … UNSUPPORTED</c>; each gains a <c>VAR_INPUT</c>; the
+    /// push is NOT blocked, both declarations land, the bodies the IDE holds are untouched, and the workspace is in sync
+    /// afterwards.</summary>
+    [Fact]
+    public void Editing_the_declarations_of_hidden_bodies_pushes_them_and_never_writes_a_body()
+    {
+        const string chart = "<the IDE's own CFC chart>";
+        const string ladder = "<the IDE's own ladder>";
+        var ide = ConnectedIde(
+            new FakeIde.Item("FB_Chart", Volt.Engine.Item.ItemKind.PlcPouFb, "", true,
+                             "FUNCTION_BLOCK FB_Chart\nVAR\nEND_VAR", chart, "CFC", null),
+            new FakeIde.Item("FB_Motor", Volt.Engine.Item.ItemKind.PlcPouFb, "", true,
+                             "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR", "", null, null, new[] { "Reset" }),
+            new FakeIde.Item("Reset", Volt.Engine.Item.ItemKind.PlcMethod, "", false, "METHOD Reset : BOOL", ladder, "LD",
+                             null, Unsupported: "a vendor split point"),
+            Prg());
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var chartFile = Path.Combine(root, "src", "FB_Chart.fb");
+            var motorFile = Path.Combine(root, "src", "FB_Motor.fb");
+            Assert.Contains("IMPLEMENTATION CFC UNSUPPORTED", File.ReadAllText(chartFile));
+            Assert.Contains("IMPLEMENTATION LD UNSUPPORTED", File.ReadAllText(motorFile));
+            File.WriteAllText(chartFile, File.ReadAllText(chartFile)
+                .Replace("FUNCTION_BLOCK FB_Chart\n", "FUNCTION_BLOCK FB_Chart\nVAR_INPUT\n\tbStart : BOOL;\nEND_VAR\n"));
+            File.WriteAllText(motorFile, File.ReadAllText(motorFile)
+                .Replace("METHOD Reset : BOOL\n", "METHOD Reset : BOOL\nVAR_INPUT\n\tbForce : BOOL;\nEND_VAR\n"));
+
+            var r = Commands.Push(root, client);
+
+            Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
+            Assert.Contains("bStart : BOOL;", ide.ReadContent(new Volt.Engine.Item.ItemRef("FB_Chart")).Declaration);
+            Assert.Contains("bForce : BOOL;", ide.ReadContent(new Volt.Engine.Item.ItemRef("FB_Motor")).Members.Single().Declaration);
+            Assert.Equal(chart, ide.StoredImplementation("FB_Chart"));
+            Assert.Equal(ladder, ide.StoredImplementation("Reset"));
+            Assert.Equal(0, Commands.Status(root, client).Outgoing.Count);
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);   // and the next pull is not blocked either
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     /// <summary>Spec, "a hand layout does not come back as an IDE change" (task 3.8). Network text is compared by
     /// TOKENS, so an engineer may lay out a call one pin per line and the push is accepted; the IDE then holds the
     /// MODEL and materializes it in the canonical layout. The CLI records that text as <c>volt/ide</c> and brings the

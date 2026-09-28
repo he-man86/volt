@@ -255,8 +255,8 @@ public sealed partial class BeckhoffDriver
 
     // ── body ──────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>An item's body as workspace text: ST verbatim, a graphical body as network text, a body Volt cannot
-    /// write as its read-only line (<c>IMPLEMENTATION CFC</c>, <c>IMPLEMENTATION LD UNSUPPORTED</c>).</summary>
+    /// <summary>An item's body as workspace text: ST verbatim, a graphical body as network text, a body Volt
+    /// does not show as its UNSUPPORTED line (<c>IMPLEMENTATION CFC UNSUPPORTED</c>, <c>IMPLEMENTATION LD UNSUPPORTED</c>).</summary>
     /// <param name="declaration">The declarations the body resolves against, innermost first
     /// (<see cref="SourceScopes.Scope"/>) — a graphical body is written against its <see cref="NetworkScope"/>.</param>
     /// <returns>The body, and — for an LD/FBD body network text cannot represent — why
@@ -269,21 +269,21 @@ public sealed partial class BeckhoffDriver
         if (TcArchive.Root(raw) is { } impl)
         {
             var language = ViewModeOf(impl);
-            if (language is null) return (ImplementationMarker.ReadOnly(Languages.Il), null);
+            if (language is null) return (ImplementationMarker.Unsupported(Languages.Il), null);
 
             // AN EXECUTE BOX WHOSE ST CANNOT BE READ MAKES THE BODY UNSUPPORTED — it does not make the POU
             // DISAPPEAR. The reader refuses rather than materializing a box without the code it runs, and that
             // refusal is a THROW deep in the node walk; `Versioning.SafeVersion` isolates a throw by giving the
             // item the Unreadable sentinel — so `fetch` skipped the POU entirely and the engineer got no file at
             // all, only a count in the "N unreadable" tally. A body Volt cannot represent is exactly what the
-            // read-only line is for, and this file already answers CFC, SFC and IL that way: the POU appears, says
-            // its body is read-only, and a push that writes code under that line is refused instead of vanishing
+            // UNSUPPORTED line is for, and this file already answers CFC, SFC and IL that way: the POU appears, says
+            // its body is hidden, and a push that writes code under that line is refused instead of vanishing
             // from git.
             //
             // THE TEST USED TO BE "IS THERE AN EXECUTE BOX AT ALL", and that was right only while reading one
             // was impossible. `ReadStCode` reads the snippet now (2026-09-06, from a hand-drawn XAE network),
             // and against the coarse test it could never run in production: the return above it fired first, so
-            // TwinCAT kept serving a read-only body where CODESYS serves network text — the same POU, two different
+            // TwinCAT kept serving an UNSUPPORTED body where CODESYS serves network text — the same POU, two different
             // `sourceText`s, which is exactly what the byte-identical-response rule forbids. Ask the precise
             // question instead. Creating one is still refused (`TcPlcOpenWriter`), and so is editing its ST
             // (`TcNetworkWriter`); this is the READ path, and it can now answer.
@@ -324,10 +324,10 @@ public sealed partial class BeckhoffDriver
             }
         }
 
-        // CFC and SFC are graphical and unsupported: each is its read-only line (`IMPLEMENTATION CFC`), so an engineer
+        // CFC and SFC are graphical and unsupported: each is its UNSUPPORTED line (`IMPLEMENTATION CFC UNSUPPORTED`), so an engineer
         // gets a file that says so rather than an editable-looking approximation of a diagram they would then push back.
-        var lang = TcArchive.ReadOnlyLanguage(raw);
-        if (lang != null) return (ImplementationMarker.ReadOnly(lang), null);
+        var lang = TcArchive.UnreadLanguage(raw);
+        if (lang != null) return (ImplementationMarker.Unsupported(lang), null);
 
         // ST, in memory, carries no line — so a keyword-shaped line in its text is refused here, where the language is
         // known, rather than read back from the file as the language it states.
@@ -347,7 +347,7 @@ public sealed partial class BeckhoffDriver
     {
         // NO `?? "Fbd"`, AND NO NULL EITHER. An archive with no DefaultViewMode is a body whose view Volt cannot
         // determine: guessing FBD renders a ladder as a function-block diagram, and answering null — which this did —
-        // shares IL's answer, so the body was pulled as `IMPLEMENTATION IL`, a language it is not known to have. The
+        // shares IL's answer, so the body was pulled as `IMPLEMENTATION IL UNSUPPORTED`, a language it is not known to have. The
         // stated language is the one signal for how a body is read, and a missing one is refused by name. CODESYS
         // demands the member (`NwlInterop.Require`), and this now answers the same.
         var mode = TcArchive.ViewMode(impl)
@@ -357,7 +357,7 @@ public sealed partial class BeckhoffDriver
         if (mode.Equals("Ld", StringComparison.OrdinalIgnoreCase)) return BodyLanguage.Ld;
         if (mode.Equals("Fbd", StringComparison.OrdinalIgnoreCase)) return BodyLanguage.Fbd;
 
-        // NULL means "a view Volt does not author" - IL - and the caller states it as `IMPLEMENTATION IL`,
+        // NULL means "a view Volt does not author" - IL - and the caller states it as `IMPLEMENTATION IL UNSUPPORTED`,
         // exactly as CODESYS does. Throwing here instead took the WHOLE ENCLOSING POU out of git: SafeVersion
         // swallows the throw to UNREADABLE and FetchService then skips the item, so one IL-view METHOD inside an
         // ordinary ST function block removed the declaration, the body and every sibling method too - and
@@ -369,7 +369,7 @@ public sealed partial class BeckhoffDriver
 
         throw new NotSupportedException(
             $"TwinCAT: the graphical body's view mode is '{mode}', which Volt has never seen. FBD and LD are " +
-            "authored, IL is read-only (IMPLEMENTATION IL) - an unknown fourth view is refused rather than guessed at.");
+            "authored, IL is hidden (IMPLEMENTATION IL UNSUPPORTED) - an unknown fourth view is refused rather than guessed at.");
     }
 
     private void WriteOne(ItemRef item, string kind, string? declaration, string? body,
@@ -396,13 +396,13 @@ public sealed partial class BeckhoffDriver
             return;
         }
 
-        // A read-only body (its IMPLEMENTATION CFC / LD UNSUPPORTED line) is never written back over the live one.
+        // An UNSUPPORTED body is never written back over the live one (`ImplementationMarker.Written`).
         // And NULL for a kind with no implementation slot: a DUT, a GVL and an interface do not have one, and
         // TwinCAT's COM object does not expose the member at all — writing to it throws
         // "'System.__ComObject' does not contain a definition for 'ImplementationText'". PushService used to
         // make this decision from the item's kind code; it moved here with the rest of the write.
         _om.WriteText(item.Native, declaration,
-                      HasBodySlot(kind) && !ImplementationMarker.IsReadOnlyBody(body) ? body : null);
+                      HasBodySlot(kind) ? ImplementationMarker.Written(body) : null);
     }
 
     /// <summary>THE ONE PLACE that decides what a graphical body becomes: a freshly BUILT archive when the item

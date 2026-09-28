@@ -327,14 +327,14 @@ public class ImplementationLanguagePushTests
 
         Assert.Contains(language, reason);
         Assert.Empty(ide.WrittenContent);
-        Assert.Equal(ImplementationMarker.ReadOnly(language), ide.ReadContent(new ItemRef("FB_Chart")).Body);
+        Assert.Equal(ImplementationMarker.Unsupported(language), ide.ReadContent(new ItemRef("FB_Chart")).Body);
     }
 
     /// <summary>A read-only line under a language Volt reads is a contradiction, not a no-op: one says the body has no
     /// text form, the other that it is ST (or LD). Both are keyword lines, so the region holds two, and the refusal names
     /// the member and both lines.</summary>
     [Theory]
-    [InlineData("ST", "IMPLEMENTATION CFC")]
+    [InlineData("ST", "IMPLEMENTATION CFC UNSUPPORTED")]
     [InlineData("LD", "IMPLEMENTATION LD UNSUPPORTED")]
     public void A_read_only_line_under_a_stated_language_is_refused_naming_the_member(string language, string readOnly)
     {
@@ -449,7 +449,7 @@ public class ImplementationLanguagePushTests
     /// declaration it is no directive — and a declaration is written into the IDE verbatim, so the line would reach
     /// the project as code while the member's folder silently read as none. Refused by name instead.</summary>
     [Theory]
-    [InlineData("METHOD DoReset : BOOL\n%FOLDER Sub\nIMPLEMENTATION CFC")]              // above a read-only line
+    [InlineData("METHOD DoReset : BOOL\n%FOLDER Sub\nIMPLEMENTATION CFC UNSUPPORTED")]  // above an UNSUPPORTED line
     [InlineData("METHOD DoReset : BOOL\n%FOLDER Sub\nIMPLEMENTATION ST\nDoReset := TRUE;")] // above the keyword line
     [InlineData("METHOD DoReset : BOOL\nVAR\n%FOLDER Sub\nEND_VAR\nIMPLEMENTATION ST\nDoReset := TRUE;")]
     public void A_FOLDER_line_in_a_members_declaration_is_refused_naming_the_member(string member)

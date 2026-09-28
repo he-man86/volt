@@ -9,9 +9,9 @@ namespace Volt.Engine.Format.St
     /// <summary>
     /// <c>IMPLEMENTATION &lt;LANG&gt;</c> — the line that says where a body's DECLARATION ends, where its
     /// IMPLEMENTATION begins, and what that implementation is: <c>IMPLEMENTATION ST</c>, <c>IMPLEMENTATION LD</c> or
-    /// <c>IMPLEMENTATION FBD</c> for a body Volt reads, and <c>IMPLEMENTATION CFC|SFC|IL</c> or
-    /// <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> for one it cannot write. The ONE place the spelling lives on the bridge
-    /// side (openspec <c>implementation-keyword</c>); the LSP mirrors it in one module of its own.
+    /// <c>IMPLEMENTATION FBD</c> for a body Volt shows, and <c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c> for one it does
+    /// not. The ONE place the spelling lives on the bridge side (openspec <c>implementation-keyword</c>); the LSP mirrors
+    /// it in one module of its own.
     ///
     /// <para><b>Why a boundary is stated at all.</b> The vendors keep the two halves apart (CODESYS writes them
     /// through separate scripting members; <c>WriteSourceText</c> takes them as two arguments), and a Volt workspace
@@ -36,18 +36,22 @@ namespace Volt.Engine.Format.St
     /// <c>IMPLEMENTATION</c> is not IEC 61131-3, so it is stripped on push and the IDE never sees it, and it is a
     /// reserved name no workspace identifier may take — a name spelled like the line could otherwise be read as one.</para>
     ///
-    /// <para><b>A body Volt cannot write states that on the same line</b> (owner decision 2026-09-28): the language
-    /// for CFC, SFC and IL, which Volt does not read at all, and the language plus <c>UNSUPPORTED</c> for an LD/FBD body
-    /// holding a shape network text has no spelling for yet. The body under such a line is empty and read-only. It
-    /// replaced the old marker comment, which carried the REASON in the file; the reason now
-    /// reaches the pull message instead (<see cref="Volt.Engine.Item.ItemContent.Unsupported"/>), and no
-    /// <c>(* @volt-… *)</c> comment of any kind is written — a pushed file holding one was written before the change
-    /// and is refused naming <c>volt pull</c> (<see cref="FindRetiredComment"/>).</para>
+    /// <para><b>A body Volt does not show states that on the same line: its language, then <c>UNSUPPORTED</c></b>
+    /// (owner decisions 2026-09-28, sections 2b and 3b). CFC, SFC and IL always — Volt does not read them — and LD/FBD
+    /// when the body holds a shape network text has no spelling for yet. One word on every language, because it means
+    /// one thing: NO implementation code is shown. The body under the line is empty, a push never writes the IDE's body
+    /// (<see cref="Written"/>), and the item's DECLARATION stays editable and is pushed as usual — so a hidden body
+    /// blocks neither a pull nor a push, and nothing the IDE holds is overwritten. A bare <c>IMPLEMENTATION CFC</c>
+    /// (2b's spelling) is no line a body can state and is refused by name. The line replaced the old marker comment,
+    /// which carried the REASON in the file; an LD/FBD body's reason now reaches the pull message instead
+    /// (<see cref="Volt.Engine.Item.ItemContent.Unsupported"/>), and no <c>(* @volt-… *)</c> comment of any kind is
+    /// written — a pushed file holding one was written before the change and is refused naming <c>volt pull</c>
+    /// (<see cref="FindRetiredComment"/>).</para>
     ///
     /// <para><b>Where the line rides in memory.</b> An ST body is written into the IDE as it stands, so it carries no
     /// line; a network-text body's language is one property of the whole body, so its keyword line stays its FIRST
-    /// line (<see cref="Volt.Engine.Format.Network.NetworkText.LanguageOf"/>); a read-only body IS its line, in its one
-    /// spelling (<see cref="IsReadOnlyBody"/>). <see cref="Split"/> and <see cref="Join"/> are the one translation
+    /// line (<see cref="Volt.Engine.Format.Network.NetworkText.LanguageOf"/>); a hidden body IS its line, in its one
+    /// spelling (<see cref="IsUnsupportedBody"/>). <see cref="Split"/> and <see cref="Join"/> are the one translation
     /// between the file and that.</para>
     ///
     /// <para><b>A file without the line is REFUSED, never guessed</b> — the refusal names the fix, pull the project
@@ -57,11 +61,12 @@ namespace Volt.Engine.Format.St
     {
         public const string Keyword = "IMPLEMENTATION";
 
-        /// <summary>The word after LD or FBD that states a network body the text cannot represent.</summary>
+        /// <summary>The word after a language that states a body Volt does not show.</summary>
         public const string UnsupportedWord = "UNSUPPORTED";
 
-        // Every line a body can state, alone on the line: the keyword, a language, and — after LD or FBD only, which
-        // `Parse` checks — UNSUPPORTED. Spacing is layout and the words are case-insensitive, as ST keywords are.
+        // Every line a body can state, alone on the line: the keyword, a language, and UNSUPPORTED — which `Parse`
+        // requires after CFC, SFC and IL and refuses after ST. Spacing is layout and the words are case-insensitive, as
+        // ST keywords are.
         private static readonly Regex Line = new(@"^\s*IMPLEMENTATION[ \t]+(ST|LD|FBD|CFC|SFC|IL)(?:[ \t]+(UNSUPPORTED))?\s*$",
                                                  RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
@@ -80,20 +85,17 @@ namespace Volt.Engine.Format.St
         /// <summary>The boundary line of a body Volt READS (<c>ST</c>, <c>LD</c> or <c>FBD</c>).</summary>
         public static string For(string language) => $"{Keyword} {language}";
 
-        /// <summary>The line of a body in a language Volt does not read: <c>IMPLEMENTATION CFC|SFC|IL</c>. Only those
-        /// three — a language Volt reads is never read-only by its language.</summary>
-        public static string ReadOnly(string language) =>
-            language is Languages.Cfc or Languages.Sfc or Languages.Il
-                ? $"{Keyword} {language}"
-                : throw new System.ArgumentException($"'{language}' is no language Volt leaves unread", nameof(language));
-
-        /// <summary>The line of an LD/FBD body network text cannot represent: <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>.
-        /// Only those two — UNSUPPORTED says the text could not represent THIS body, which is a statement about a
-        /// language the text reads.</summary>
+        /// <summary>The line of a body Volt does not show: <c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c>, for CFC, SFC, IL,
+        /// and an LD/FBD body network text cannot represent. Never for ST — Volt shows every ST body.</summary>
         public static string Unsupported(string language) =>
-            Languages.IsNetwork(language)
+            language is Languages.Ld or Languages.Fbd or Languages.Cfc or Languages.Sfc or Languages.Il
                 ? $"{Keyword} {language} {UnsupportedWord}"
-                : throw new System.ArgumentException($"'{language}' is no network-text language", nameof(language));
+                : throw new System.ArgumentException($"'{language}' is no language whose body Volt hides", nameof(language));
+
+        /// <summary>Is this a language Volt never shows a body in — CFC, SFC or IL? Its line always carries
+        /// <c>UNSUPPORTED</c>; stated bare, it is refused naming the line to write.</summary>
+        public static bool IsNeverShown(string language) =>
+            language is Languages.Cfc or Languages.Sfc or Languages.Il;
 
         /// <summary>True when items of this kind HAVE an implementation to separate — and therefore carry the
         /// line. A GVL and a DUT are a declaration and nothing else; an INTERFACE and its members are SIGNATURES, so
@@ -106,8 +108,6 @@ namespace Volt.Engine.Format.St
             kind != Volt.Engine.Item.ItemKind.Kinds.InterfaceMethod &&
             kind != Volt.Engine.Item.ItemKind.Kinds.InterfaceProperty;
 
-        private static bool Readable(string language) => language == Languages.St || Languages.IsNetwork(language);
-
         /// <summary>What a boundary line states, in its one spelling, or null for a line that is none.</summary>
         private static (string Language, bool Unsupported)? Parse(string line)
         {
@@ -115,26 +115,38 @@ namespace Volt.Engine.Format.St
             if (!m.Success) return null;
             var language = m.Groups[1].Value.ToUpperInvariant();
             var unsupported = m.Groups[2].Success;
-            return unsupported && !Languages.IsNetwork(language) ? null : (language, unsupported);
+            // ST is always shown, so UNSUPPORTED after it states nothing; CFC, SFC and IL are never shown, so without it
+            // they state nothing either — section 2b's bare `IMPLEMENTATION CFC` is no longer a line (StReader names it).
+            if (unsupported ? language == Languages.St : IsNeverShown(language)) return null;
+            return (language, unsupported);
         }
 
-        /// <summary>True when this line IS a boundary line — any of them, read or read-only — and nothing else is on it.</summary>
+        /// <summary>True when this line IS a boundary line — shown or UNSUPPORTED — and nothing else is on it.</summary>
         public static bool Is(string line) => Parse(line) is not null;
 
         /// <summary>The language a boundary line hands a READER, in its one spelling (<c>ST</c>, <c>LD</c>, <c>FBD</c>),
-        /// or null: for a line that is no boundary line, and for a read-only one, whose body no reader reads.</summary>
+        /// or null: for a line that is no boundary line, and for an UNSUPPORTED one, whose body no reader reads.</summary>
         public static string? LanguageOf(string line) =>
-            Parse(line) is { Unsupported: false } p && Readable(p.Language) ? p.Language : null;
+            Parse(line) is { Unsupported: false } p ? p.Language : null;
 
-        /// <summary>True when this line states a body Volt cannot write: <c>IMPLEMENTATION CFC|SFC|IL</c> or
-        /// <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>.</summary>
-        public static bool IsReadOnly(string line) =>
-            Parse(line) is { } p && (p.Unsupported || !Readable(p.Language));
+        /// <summary>True when this line states a body Volt does not show: <c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c>.</summary>
+        public static bool IsUnsupported(string line) => Parse(line) is { Unsupported: true };
 
-        /// <summary>The language of an <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> body (<c>LD</c> or <c>FBD</c>), or null
-        /// for any other body.</summary>
+        /// <summary>The language of a body Volt does not show (<see cref="IsUnsupportedBody"/>), or null for any other
+        /// body.</summary>
         public static string? UnsupportedLanguageOf(string? body) =>
-            IsReadOnlyBody(body) && Parse(body!.Trim()) is { Unsupported: true } p ? p.Language : null;
+            IsUnsupportedBody(body) ? Parse(body!.Trim())!.Value.Language : null;
+
+        /// <summary>The body a driver WRITES for <paramref name="body"/>: the body itself, or null — "leave the IDE's
+        /// implementation alone", the word both vendors' writers already have for a slot not to touch — for a body Volt
+        /// does not show. The ONE place that decision is made, and every writer on both vendors asks it.
+        ///
+        /// <para>An UNSUPPORTED line has no text form: written into the IDE it would replace a chart or a ladder with
+        /// the words of the line — or, where the aspect has no text document at all (a CODESYS CFC POU), fail after
+        /// the declaration had committed, so that a project holding one diagram could never be pushed again. Null
+        /// keeps the IDE's body byte for byte and lets the declaration land, which is what makes the declaration of a
+        /// hidden body editable.</para></summary>
+        public static string? Written(string? body) => IsUnsupportedBody(body) ? null : body;
 
         /// <summary>A boundary line in its one spelling — single spaces, upper case — however it was typed.</summary>
         public static string Canonical(string line) =>
@@ -142,14 +154,14 @@ namespace Volt.Engine.Format.St
                 ? p.Unsupported ? Unsupported(p.Language) : $"{Keyword} {p.Language}"
                 : throw new System.ArgumentException($"'{line}' is no {Keyword} line", nameof(line));
 
-        /// <summary>Is this body a READ-ONLY body — its read-only line, alone? The whole body, and nothing else: a
-        /// body that is the line and more is no read-only body (the reader refuses code under the line before it
+        /// <summary>Is this body a body Volt does not show — its UNSUPPORTED line, alone? The whole body, and nothing
+        /// else: a body that is the line and more is no such body (the reader refuses code under the line before it
         /// gets here).</summary>
-        public static bool IsReadOnlyBody(string? body)
+        public static bool IsUnsupportedBody(string? body)
         {
             if (body is null) return false;
             var text = body.Trim();
-            return text.IndexOf('\n') < 0 && IsReadOnly(text);
+            return text.IndexOf('\n') < 0 && IsUnsupported(text);
         }
 
         /// <summary>What a line of the keyword's SHAPE states: <c>""</c> for the keyword alone, what follows it as
@@ -207,9 +219,9 @@ namespace Volt.Engine.Format.St
         ///
         /// <para>In memory an ST body carries no line (<see cref="Split"/> gives it <c>IMPLEMENTATION ST</c> on the way
         /// to the file), so its text alone must not read as one of the other bodies. An ST body whose whole text is
-        /// <c>IMPLEMENTATION CFC</c> is indistinguishable from a CFC body, one opening <c>IMPLEMENTATION LD</c> from a
+        /// <c>IMPLEMENTATION CFC UNSUPPORTED</c> is indistinguishable from a CFC body, one opening <c>IMPLEMENTATION LD</c> from a
         /// ladder, and one holding the line further down gives a file with two boundaries. Pulled, each states a
-        /// language the body does not have; pushed back, it is skipped as read-only, written as network text, or
+        /// language the body does not have; pushed back, it is skipped as UNSUPPORTED, written as network text, or
         /// refused forever. Only the driver knows the body is ST, so it asks here, and the item is refused by name
         /// (the pull lists it unreadable) instead of pulled under the wrong language. Such text does not compile in the
         /// IDE either, so the fix is an edit there.</para></summary>
@@ -225,11 +237,11 @@ namespace Volt.Engine.Format.St
         }
 
         /// <summary>A body as the file spells it: its boundary line and the text under it. A network-text body
-        /// STARTS with its own keyword line, a read-only body IS its line and has nothing under it, and any other body
+        /// STARTS with its own keyword line, an UNSUPPORTED body IS its line and has nothing under it, and any other body
         /// is ST and is headed by <c>IMPLEMENTATION ST</c>.</summary>
         public static (string Line, string Code) Split(string body)
         {
-            if (IsReadOnlyBody(body)) return (Canonical(body.Trim()), "");
+            if (IsUnsupportedBody(body)) return (Canonical(body.Trim()), "");
             var eol = body.IndexOf('\n');
             var first = eol < 0 ? body : body.Substring(0, eol);
             var rest = eol < 0 ? "" : body.Substring(eol + 1);
@@ -238,11 +250,11 @@ namespace Volt.Engine.Format.St
         }
 
         /// <summary>The inverse of <see cref="Split"/>, for a body the reader has already checked against the line
-        /// that states it: an ST body is its code, a network-text body keeps its keyword line in front, and a read-only
+        /// that states it: an ST body is its code, a network-text body keeps its keyword line in front, and an UNSUPPORTED
         /// body is its line alone, in its one spelling.</summary>
         public static string Join(string line, string code)
         {
-            if (IsReadOnly(line)) return Canonical(line);
+            if (IsUnsupported(line)) return Canonical(line);
             var lang = LanguageOf(line) ?? throw new System.ArgumentException($"'{line}' states no body language", nameof(line));
             if (!Languages.IsNetwork(lang)) return code;
             return code.Length == 0 ? For(lang) : For(lang) + "\n" + code;

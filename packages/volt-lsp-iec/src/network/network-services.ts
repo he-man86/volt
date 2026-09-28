@@ -14,6 +14,7 @@ import {
   type Document,
   type Expr,
   exprAtOffset,
+  isNeverShown,
   graphicalBodies,
   spanContains,
   type IdentExpr,
@@ -56,10 +57,10 @@ const GRAPHICAL_LANGUAGES: Record<string, string> = {
 }
 
 /**
- * Hover for a READ-ONLY body's line (F.2e) — `IMPLEMENTATION CFC|SFC|IL`, or `IMPLEMENTATION LD|FBD UNSUPPORTED` for an
- * LD/FBD body network text cannot represent yet (`syntax/implementation-keyword`). Explains that the body is authored
- * in the IDE and has no editable text form here: the line is what a pull writes for it, and the body under it is empty
- * and read by neither parser. Read off the parse, so only a line the splitter took as a body's boundary answers — never
+ * Hover for a hidden body's line (F.2e) — `IMPLEMENTATION <LANG> UNSUPPORTED`: always for CFC, SFC and IL, and for an
+ * LD/FBD body network text cannot represent yet (`syntax/implementation-keyword`). Explains that no implementation is
+ * shown and the push never writes it, while the declaration above the line stays editable: the line is what a pull
+ * writes for such a body, and the body under it is empty and read by neither parser. Read off the parse, so only a line the splitter took as a body's boundary answers — never
  * a look-alike in a comment.
  */
 export function readOnlyBodyHover(doc: Document, offset: number): Hover | undefined {
@@ -72,20 +73,21 @@ export function readOnlyBodyHover(doc: Document, offset: number): Hover | undefi
       }
       for (const body of unitBodies(unit)) {
         const line = body.implementation
-        if (line === undefined || line.statement.kind !== "read-only" || !spanContains(line.span, offset)) continue
-        const { language, unsupported } = line.statement
+        if (line === undefined || line.statement.kind !== "unsupported" || !spanContains(line.span, offset)) continue
+        const { language } = line.statement
         const name = GRAPHICAL_LANGUAGES[language] ?? language
-        const why = unsupported
-          ? `This ${name} body holds a shape network text cannot represent yet, so it has no editable text form.`
-          : `Volt does not read ${name}, so this body has no editable text form.`
+        const why = isNeverShown(language)
+          ? `Volt does not read ${name}, so no implementation is shown for this body.`
+          : `This ${name} body holds a shape network text cannot represent yet, so no implementation is shown for it.`
         const value = [
           "```iecst",
           line.text,
           "```",
           "",
-          `_Volt read-only body (${name})_`,
+          `_Volt hidden body (${name})_`,
           "",
-          `${why} It stays as it is in your IDE: to modify it, open the unit in CODESYS / TwinCAT.`,
+          `${why} A push never writes it — it stays as it is in your IDE; to modify it, open the unit in CODESYS / ` +
+            "TwinCAT. The declaration above this line is editable here and pushes as usual.",
         ].join("\n")
         return { contents: { kind: "markdown", value } }
       }

@@ -925,11 +925,11 @@ public static class Commands
     /// <summary>Every body the fetch brought in as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>, by file and member, with
     /// what network text has no spelling for — or null when there is none.
     ///
-    /// <para>The file says only that such a body is read-only. WHY used to be written into it, as the comment the
-    /// keyword line replaced (openspec <c>implementation-keyword</c> 2b), and this is where the engineer learns it now:
-    /// without it a read-only body is a line that explains nothing. The bridge names each one
-    /// (<c>FetchedItem.Unsupported</c>); this only lays them out. CFC, SFC and IL are not listed — the line states the
-    /// language itself, and that is the whole reason.</para></summary>
+    /// <para>The file says only that Volt shows no code for such a body. WHY used to be written into it, as the comment
+    /// the keyword line replaced (openspec <c>implementation-keyword</c> 2b), and this is where the engineer learns it
+    /// now: without it a hidden LD/FBD body is a line that explains nothing. The bridge names each one
+    /// (<c>FetchedItem.Unsupported</c>); this only lays them out. CFC, SFC and IL bodies are UNSUPPORTED too (3b) but
+    /// are not listed — their line states the language, and that is the whole reason.</para></summary>
     private static string? UnsupportedNote(IEnumerable<FetchedItem> changed)
     {
         var lines = new List<string>();
@@ -941,8 +941,9 @@ public static class Commands
                 lines.Add($"  {path}{(body.Member is null ? "" : $" '{body.Member}'")} ({body.Language}): {body.Reason}");
         }
         if (lines.Count == 0) return null;
-        return $"{lines.Count} body(ies) are IMPLEMENTATION LD|FBD UNSUPPORTED — read-only, because network text has no " +
-               "spelling for what they hold yet. Edit them in the IDE:\n" + string.Join("\n", lines);
+        return $"{lines.Count} body(ies) are IMPLEMENTATION LD|FBD UNSUPPORTED — no code is shown for them, because " +
+               "network text has no spelling for what they hold yet. Their declarations stay editable here and push as " +
+               "usual; the push never writes these bodies. Edit them in the IDE:\n" + string.Join("\n", lines);
     }
 
     /// <summary>The notes a pull's message carries, in order, or null when there are none.</summary>

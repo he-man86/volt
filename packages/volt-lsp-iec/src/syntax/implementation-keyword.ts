@@ -9,9 +9,11 @@
  * What a line can state:
  *  - `IMPLEMENTATION ST`, `IMPLEMENTATION LD`, `IMPLEMENTATION FBD` — a body Volt reads: ST by the ST parser, LD/FBD by
  *    the network-text parser. The stated language is the ONE signal for which; nothing sniffs the text.
- *  - `IMPLEMENTATION CFC|SFC|IL` — a body Volt does not read at all, and `IMPLEMENTATION LD|FBD UNSUPPORTED` — an LD/FBD
- *    body network text cannot represent yet. Both are READ-ONLY: the body under the line is empty, and read by neither
- *    parser.
+ *  - `IMPLEMENTATION <LANG> UNSUPPORTED` — a body Volt does not SHOW (owner decisions 2026-09-28, sections 2b and 3b):
+ *    always for CFC, SFC and IL, which Volt does not read, and for an LD/FBD body network text cannot represent yet;
+ *    never for ST. The body under the line is empty and read by neither parser; the push never writes it, and the
+ *    DECLARATION above the line stays editable and is analysed like any other. A bare `IMPLEMENTATION CFC|SFC|IL`
+ *    (section 2b's spelling) states no body and is reported naming the line to write.
  *
  * WHY a whole line, and why it matters here: `IMPLEMENTATION ST` is a line an engineer can plausibly write in a
  * comment, and a look-alike after code (`x := IMPLEMENTATION LD;`) is a use of a name. So the boundary is a line holding
@@ -30,14 +32,15 @@ import type { Span } from "./span.js"
 
 export const IMPLEMENTATION_KEYWORD = "IMPLEMENTATION"
 
-/** The word after LD or FBD that states a network body the text cannot represent. */
+/** The word after a language that states a body Volt does not show. */
 export const UNSUPPORTED_WORD = "UNSUPPORTED"
 
 /** The languages a body's line may state that a parser READS. */
 export type ReadLanguage = "ST" | "LD" | "FBD"
 
-// Every line a body can state, alone on its line: the keyword, a language, and — after LD or FBD only, which
-// `statementOf` checks — UNSUPPORTED. Spacing is layout and the words are case-insensitive, as ST keywords are.
+// Every line a body can state, alone on its line: the keyword, a language, and UNSUPPORTED — which `statementOf`
+// requires after CFC, SFC and IL and refuses after ST. Spacing is layout and the words are case-insensitive, as ST
+// keywords are.
 const LINE = /^\s*IMPLEMENTATION[ \t]+(ST|LD|FBD|CFC|SFC|IL)(?:[ \t]+(UNSUPPORTED))?\s*$/i
 
 // The SHAPE of the line, whatever it states: the keyword alone, or the keyword and whatever follows it when that opens
@@ -54,6 +57,20 @@ export function implementationLine(language: ReadLanguage): string {
 /** The three lines a body Volt reads may state, as a refusal lists them. */
 const READ_LINES = (["ST", "LD", "FBD"] as const).map(implementationLine).join(", ")
 
+/** The languages Volt never shows a body in: their line always carries UNSUPPORTED. */
+const NEVER_SHOWN = new Set(["CFC", "SFC", "IL"])
+
+/** Is this a language Volt never shows a body in (CFC, SFC, IL) — as opposed to LD/FBD, hidden only when network text
+ *  cannot represent the body? */
+export function isNeverShown(language: string): boolean {
+  return NEVER_SHOWN.has(language)
+}
+
+/** The line of a body Volt does not show, in its one spelling. */
+export function unsupportedLine(language: string): string {
+  return `${IMPLEMENTATION_KEYWORD} ${language} ${UNSUPPORTED_WORD}`
+}
+
 /** What a line of the keyword's shape states, or undefined for a line of any other shape. */
 export function statementOf(line: string): ImplementationStatement | undefined {
   const shape = SHAPE.exec(line)
@@ -63,10 +80,9 @@ export function statementOf(line: string): ImplementationStatement | undefined {
   const m = LINE.exec(line)
   const language = m?.[1]?.toUpperCase()
   const unsupported = m?.[2] !== undefined
-  if (language === undefined || (unsupported && language !== "LD" && language !== "FBD"))
-    return { kind: "not-a-language", stated }
-  if (unsupported || language === "CFC" || language === "SFC" || language === "IL")
-    return { kind: "read-only", language, unsupported }
+  if (language === undefined || (unsupported && language === "ST")) return { kind: "not-a-language", stated }
+  if (unsupported) return { kind: "unsupported", language }
+  if (NEVER_SHOWN.has(language)) return { kind: "bare-hidden", language }
   return { kind: "read", language: language as ReadLanguage }
 }
 
@@ -75,7 +91,7 @@ export function statementOf(line: string): ImplementationStatement | undefined {
 export function statedLine(line: ImplementationLine): string {
   const s = line.statement
   if (s.kind === "read") return implementationLine(s.language)
-  if (s.kind === "read-only") return `${IMPLEMENTATION_KEYWORD} ${s.language}${s.unsupported ? ` ${UNSUPPORTED_WORD}` : ""}`
+  if (s.kind === "unsupported") return unsupportedLine(s.language)
   return line.text
 }
 
@@ -149,7 +165,7 @@ export type BodyOwner = "member" | "pou-or-accessor"
  * file without it is the push's to refuse ("pull the project once").
  *
  * Reported, each on its own line, as the push refuses the same file: a line stating no language, or none a body can
- * state; code under a read-only line; network text under `IMPLEMENTATION ST` (never re-read as a network); and a
+ * state; code under an UNSUPPORTED line; a bare CFC, SFC or IL line; network text under `IMPLEMENTATION ST` (never re-read as a network); and a
  * second line of the keyword's shape anywhere in the body.
  */
 export function splitImplementation(
@@ -171,7 +187,7 @@ export function splitImplementation(
       text: text.trim(),
       statement,
       span: { ...keyword.span, end: last.span.end, endLine: last.span.endLine, endCol: last.span.endCol },
-      words: statement.kind === "read" || statement.kind === "read-only" ? words : [keyword],
+      words: statement.kind === "read" || statement.kind === "unsupported" ? words : [keyword],
     }
     // What stands above the line is the declaration's (comments, pragmas) — kept, or the formatter deletes it.
     const leading = tokens
@@ -266,7 +282,9 @@ export function isRetiredComment(t: Token): boolean {
 
 function checkLine(line: ImplementationLine, code: readonly Token[], report: ReportAt): void {
   const s = line.statement
-  const hasCode = code.some((t) => !isTrivia(t.kind))
+  // Anything but whitespace is text under the line — a comment and a pragma included. Not `isTrivia`: the push tests
+  // the raw text (`StReader.Body`), and since no driver writes a hidden body, a comment there would be silently lost.
+  const hasCode = code.some((t) => t.kind !== "whitespace" && t.kind !== "eof")
   if (s.kind === "no-language")
     report(
       `'${line.text}' states no language — a body states its language on that line: ${READ_LINES}. ` +
@@ -276,17 +294,26 @@ function checkLine(line: ImplementationLine, code: readonly Token[], report: Rep
   else if (s.kind === "not-a-language")
     report(
       `'${line.text}' states '${s.stated}', which is no language a body can state. The line holds the keyword and one ` +
-        `of ST, LD or FBD, or — for a body Volt cannot write — CFC, SFC, IL, LD ${UNSUPPORTED_WORD} or FBD ` +
+        `of ST, LD or FBD, or — for a body Volt does not show — its language (LD, FBD, CFC, SFC or IL) and ` +
         `${UNSUPPORTED_WORD}, alone. Code goes under the line, and a body in another language is edited in the IDE.`,
       line.span,
     )
-  else if (s.kind === "read-only" && hasCode)
+  // Section 2b's line for a body Volt does not show; 3b gave every such body one word, so the bare line states no body.
+  // Named with the line to write — never read as the hidden body it once meant, as the push refuses it (`StReader`).
+  else if (s.kind === "bare-hidden")
     report(
-      `the body holds code under '${statedLine(line)}'. That body has no text form Volt can write` +
-        (s.unsupported
-          ? ` (it is ${s.language}, a language network text reads, but this body holds a shape the text cannot represent yet)`
-          : ` (Volt does not read the ${s.language} language)`) +
-        ", so the code has nowhere to go and would be dropped. Remove it, and edit the body in the IDE.",
+      `'${line.text}' states no body: Volt shows no ${s.language} body, so its line is '${unsupportedLine(s.language)}', ` +
+        "with nothing under it. Pull the item again to get it.",
+      line.span,
+    )
+  else if (s.kind === "unsupported" && hasCode)
+    report(
+      `the body holds code under '${statedLine(line)}'. Volt shows no implementation for that body and never writes it` +
+        (NEVER_SHOWN.has(s.language)
+          ? ` (Volt does not read the ${s.language} language)`
+          : ` (it is ${s.language}, a language network text reads, but this body holds a shape the text cannot represent yet)`) +
+        ", so the code has nowhere to go and would be dropped. Remove it, and edit the body in the IDE — the declaration " +
+        "above the line is yours to edit here.",
       line.span,
     )
   else if (s.kind === "read" && s.language === "ST" && opensNetwork(code))
@@ -318,7 +345,7 @@ function opensNetwork(code: readonly Token[]): boolean {
 
 // ── what a body is ───────────────────────────────────────────────────────────────────────────────
 
-/** Which parser reads a body: `st`, `network`, or — for a read-only body, or a line that states no language a body
+/** Which parser reads a body: `st`, `network`, or — for a hidden (UNSUPPORTED) body, or a line that states no language a body
  *  can have — neither. A body with no line is ST (see `splitImplementation`). */
 export function bodyReader(body: BodySpan): "st" | "network" | undefined {
   const s = body.implementation?.statement

@@ -27,7 +27,7 @@ export function unitBodies(unit: TopLevel): BodySpan[] {
 }
 
 /** The language a graphical body's `IMPLEMENTATION` line states (`FBD` / `LD`), or undefined for any other body —
- *  ST, read-only, one whose line states no language, one with no line. */
+ *  ST, hidden (UNSUPPORTED), one whose line states no language, one with no line. */
 export function graphicalMarkerLanguage(body: BodySpan): "FBD" | "LD" | undefined {
   const s = body.implementation?.statement
   return s?.kind === "read" && s.language !== "ST" ? s.language : undefined
@@ -40,8 +40,8 @@ export function isGraphicalBody(body: BodySpan): boolean {
 }
 
 /** True when the ST parser reads this body: its line states `ST`, or it has no line (see `splitImplementation`). A
- *  read-only body, and one whose line states no language a body can have, is read by NEITHER parser — so every ST
- *  consumer asks this, not `!isGraphicalBody`, and a chart under `IMPLEMENTATION CFC` is never analysed as ST. */
+ *  hidden body, and one whose line states no language a body can have, is read by NEITHER parser — so every ST
+ *  consumer asks this, not `!isGraphicalBody`, and a chart under `IMPLEMENTATION CFC UNSUPPORTED` is never analysed as ST. */
 export function isStBody(body: BodySpan): boolean {
   return bodyReader(body) === "st"
 }

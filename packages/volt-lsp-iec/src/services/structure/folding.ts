@@ -19,7 +19,7 @@ export function foldingRanges(doc: Document): FoldingRange[] {
         for (const n of parseNetworkText(body, STRUCTURE_ONLY).networks) add(n.span) // one fold per NETWORK in an FBD/LD body
         continue
       }
-      if (!isStBody(body)) continue // a read-only body is empty: nothing to fold
+      if (!isStBody(body)) continue // a hidden body is empty: nothing to fold
       const parsed = parseStatements(body)
       if (!parsed.ok) continue
       walkStatements(parsed.statements, (s) => {

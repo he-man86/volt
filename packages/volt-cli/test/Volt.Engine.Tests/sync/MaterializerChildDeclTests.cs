@@ -43,9 +43,9 @@ public class MaterializerChildDeclTests
         var ide = new FakeIde(parent, child);
         var text = Materializer.Materialize(ide, "P", "function_block", new ItemRef("P")).Text;
 
-        // The child block carries the METHOD signature and its read-only keyword line.
+        // The child block carries the METHOD signature and its UNSUPPORTED keyword line.
         Assert.Contains("METHOD PRIVATE DoWork : BOOL", text);
-        Assert.Contains("IMPLEMENTATION CFC", text);
+        Assert.Contains("IMPLEMENTATION CFC UNSUPPORTED", text);
         Assert.Contains("END_METHOD", text);
         // The parent's declaration appears ONCE (its own header) — never re-emitted as the child's decl.
         Assert.Equal(1, CountOccurrences(text, "FUNCTION_BLOCK P"));

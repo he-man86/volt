@@ -58,7 +58,7 @@ public sealed partial class CodesysDriver
         {
             // Textual: declaration and body ride one GetObjectToModify/SetObject transaction.
             //
-            // A READ-ONLY BODY is never written back. Restating its line is the ordinary no-op that keeps a POU with
+            // AN UNSUPPORTED BODY is never written back (`ImplementationMarker.Written`). Restating its line is the ordinary no-op that keeps a POU with
             // a CFC/SFC body pushable at all - `volt pull` writes the line to disk and the next push restates every
             // file it has - so the body is dropped and the declaration still lands. WriteMembers
             // has said this since it was written; only the top-level path had not, and a CFC POU has no
@@ -66,7 +66,7 @@ public sealed partial class CodesysDriver
             // "the write would be accepted and land nothing" and a whole project holding one diagram could
             // never be pushed again.
             _om.WriteSourceText(item.Native, content.Declaration,
-                                ImplementationMarker.IsReadOnlyBody(content.Body) ? null : content.Body);
+                                ImplementationMarker.Written(content.Body));
         }
         else
         {
@@ -125,14 +125,14 @@ public sealed partial class CodesysDriver
             case "NWLImplementationObject":
             {
                 // IL is a VIEW of this same aspect, not a separate one, so an IL body arrives HERE and not in
-                // the read-only arm below. ReadViewMode used to THROW for it, and the cost of that throw was total:
+                // the UNSUPPORTED arm below. ReadViewMode used to THROW for it, and the cost of that throw was total:
                 // Versioning.SafeVersion swallows it to UNREADABLE, and FetchService then drops the item from
                 // `changed`, `items` AND `folders` — so one IL-view method inside an ordinary ST function block
                 // removed the ENTIRE POU, declaration and every sibling method with it, from refs and fetch, on
-                // every pull, with only a log warning. IL is unsupported, which is exactly what the read-only line
-                // is for: `IMPLEMENTATION IL`.
+                // every pull, with only a log warning. IL is unsupported, which is exactly what the UNSUPPORTED line
+                // is for: `IMPLEMENTATION IL UNSUPPORTED`.
                 var language = ReadViewMode(impl);
-                if (language is null) return (ImplementationMarker.ReadOnly(Languages.Il), null);
+                if (language is null) return (ImplementationMarker.Unsupported(Languages.Il), null);
 
                 // A BODY THE READER CANNOT REPRESENT IS `IMPLEMENTATION LD|FBD UNSUPPORTED`, NOT A MISSING POU.
                 //
@@ -175,10 +175,10 @@ public sealed partial class CodesysDriver
             }
 
             default:
-                // CFC and SFC: a language Volt does not read, so the body is its read-only line
-                // (`IMPLEMENTATION CFC`) and an engineer gets a file that says so rather than an editable-looking
+                // CFC and SFC: a language Volt does not read, so the body is its UNSUPPORTED line
+                // (`IMPLEMENTATION CFC UNSUPPORTED`) and an engineer gets a file that says so rather than an editable-looking
                 // approximation of a diagram.
-                return (ImplementationMarker.ReadOnly(ReadOnlyLanguage(impl.GetType().Name)), null);
+                return (ImplementationMarker.Unsupported(UnreadLanguage(impl.GetType().Name)), null);
         }
     }
 
@@ -198,23 +198,23 @@ public sealed partial class CodesysDriver
         if (mode.Equals("Ld", StringComparison.OrdinalIgnoreCase)) return BodyLanguage.Ld;
         if (mode.Equals("Fbd", StringComparison.OrdinalIgnoreCase)) return BodyLanguage.Fbd;
 
-        // NULL means "a view Volt does not author" — IL, today. The caller turns that into IMPLEMENTATION IL, which is
+        // NULL means "a view Volt does not author" — IL, today. The caller turns that into IMPLEMENTATION IL UNSUPPORTED, which is
         // how every other unsupported language is handled. Throwing here instead took the whole enclosing POU
         // out of refs and fetch, which is a far larger loss than the body Volt cannot render.
         if (mode.Equals("IL", StringComparison.OrdinalIgnoreCase)) return null;
 
         throw new NotSupportedException(
             $"CODESYS: the graphical body's view mode is '{mode}', which Volt has never seen. FBD and LD are " +
-            "authored, IL is read-only (IMPLEMENTATION IL) — an unknown fourth view is refused rather than guessed at.");
+            "authored, IL is hidden (IMPLEMENTATION IL UNSUPPORTED) — an unknown fourth view is refused rather than guessed at.");
     }
 
     /// <summary>The language of a body aspect Volt does not read — <c>CFCImplementationObject</c> to <c>CFC</c>,
     /// <c>SFCImplementationObject</c> to <c>SFC</c>.
-    /// <para>Those two and nothing else. The read-only line states a language the reader and the LSP both know, so an
+    /// <para>Those two and nothing else. The UNSUPPORTED line states a language the reader and the LSP both know, so an
     /// aspect Volt has never seen is refused naming it — as <see cref="ReadViewMode"/> refuses an unknown view —
     /// rather than written into the file as a language no reader recognises. (It used to become a marker naming
     /// whatever the type name said.)</para></summary>
-    private static string ReadOnlyLanguage(string aspectTypeName)
+    private static string UnreadLanguage(string aspectTypeName)
     {
         var name = aspectTypeName.EndsWith("ImplementationObject", StringComparison.Ordinal)
             ? aspectTypeName.Substring(0, aspectTypeName.Length - "ImplementationObject".Length).ToUpperInvariant()
@@ -223,7 +223,7 @@ public sealed partial class CodesysDriver
             ? name
             : throw new NotSupportedException(
                 $"CODESYS: the body aspect is '{aspectTypeName}', a language Volt has never seen. ST, FBD and LD are " +
-                "read, CFC, SFC and IL are read-only — an unknown language is refused rather than guessed at.");
+                "read, CFC, SFC and IL are hidden (UNSUPPORTED) — an unknown language is refused rather than guessed at.");
     }
 
     // ── members ───────────────────────────────────────────────────────────────────────────────────
@@ -392,7 +392,7 @@ public sealed partial class CodesysDriver
             {
                 _om.WriteSourceText(target.Native,
                     m.Kind == ItemKind.Kinds.Action ? null : m.Declaration,
-                    ImplementationMarker.IsReadOnlyBody(m.Body) ? null : m.Body);   // a read-only body is never written back
+                    ImplementationMarker.Written(m.Body));   // an UNSUPPORTED body is never written back
             }
             else
             {
@@ -487,14 +487,14 @@ public sealed partial class CodesysDriver
             var graph = accessor.Code is { } ac && NetworkText.Is(ac) ? NetworkText.Validate(ac, scope) : null;
             if (graph is null)
             {
-                // A READ-ONLY BODY IS NEVER WRITTEN BACK — the same guard `WriteContent` and `WriteMembers` carry,
+                // AN UNSUPPORTED BODY IS NEVER WRITTEN BACK — the same guard `WriteContent` and `WriteMembers` carry,
                 // and this arm was rewritten without it. An accessor authored in CFC materializes as its
-                // read-only line, `BodyFormatGuard` passes it (restating that line is the ordinary
+                // UNSUPPORTED line, `BodyFormatGuard` passes it (restating that line is the ordinary
                 // no-op that keeps the enclosing POU pushable at all), and writing it into a CFC aspect
                 // throws — after the POU's declaration and earlier members have already committed. That
                 // POU could then never be pushed again while the CFC accessor existed.
                 _om.WriteSourceText(child.Native, accessor.Declaration,
-                                    ImplementationMarker.IsReadOnlyBody(accessor.Code) ? null : accessor.Code);
+                                    ImplementationMarker.Written(accessor.Code));
                 return;
             }
 

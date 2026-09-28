@@ -290,7 +290,7 @@ public static class ItemKind
     // scripts/check-wiring.ts cross-checks the TS/JSON copies (LSP, VS Code, control)
     // against it. A POU's body LANGUAGE is never in the extension: an editable FBD/LD body is the same
     // .fb/.prg/.fun as a textual one (graphical by its stated IMPLEMENTATION LD|FBD line), a CFC/SFC body is that kind
-    // extension too (its read-only `IMPLEMENTATION CFC|SFC` line). Kind is recovered from file
+    // extension too (its `IMPLEMENTATION CFC|SFC UNSUPPORTED` line). Kind is recovered from file
     // content on push, so the extension carries kind alone.
 
     /// <summary>Writable source kinds (assembled ST text), each with its file extension.</summary>

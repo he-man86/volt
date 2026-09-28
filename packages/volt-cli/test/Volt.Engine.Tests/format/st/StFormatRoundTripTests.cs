@@ -65,10 +65,10 @@ public class StFormatRoundTripTests
           new ItemContent(ItemKind.Kinds.Program, "PROGRAM P\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR",
               "IMPLEMENTATION FBD\nNETWORK\n  out := NOT (a);\nEND_NETWORK", new()) },
 
-        { "a read-only CFC body",
-          new ItemContent(ItemKind.Kinds.Program, "PROGRAM P\nVAR\nEND_VAR", "IMPLEMENTATION CFC", new()) },
+        { "a hidden CFC body",
+          new ItemContent(ItemKind.Kinds.Program, "PROGRAM P\nVAR\nEND_VAR", "IMPLEMENTATION CFC UNSUPPORTED", new()) },
 
-        { "a read-only LD body network text cannot represent",
+        { "a hidden LD body network text cannot represent",
           new ItemContent(ItemKind.Kinds.Program, "PROGRAM P\nVAR\nEND_VAR", "IMPLEMENTATION LD UNSUPPORTED", new()) },
 
         { "DUT — declaration only",

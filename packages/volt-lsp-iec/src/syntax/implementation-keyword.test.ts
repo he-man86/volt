@@ -242,10 +242,16 @@ test("…and ST under LD is read as network text, which refuses it", () => {
   expect(parseNetworkText(bodies[0]!, STRUCTURE_ONLY).diagnostics.length).toBeGreaterThan(0)
 })
 
-// ── read-only bodies (section 2b: the line states a body Volt cannot write) ──────────────────────
+// ── hidden bodies (sections 2b and 3b: the line states a body Volt does not show) ─────────────────
 
-test("a read-only line states a body read by neither parser, and its empty body is clean", () => {
-  for (const line of ["IMPLEMENTATION CFC", "IMPLEMENTATION SFC", "IMPLEMENTATION IL", "IMPLEMENTATION LD UNSUPPORTED", "implementation  fbd  unsupported"]) {
+test("an UNSUPPORTED line states a body read by neither parser, on every language but ST, and its empty body is clean", () => {
+  for (const line of [
+    "IMPLEMENTATION CFC UNSUPPORTED",
+    "IMPLEMENTATION SFC UNSUPPORTED",
+    "IMPLEMENTATION IL UNSUPPORTED",
+    "IMPLEMENTATION LD UNSUPPORTED",
+    "implementation  fbd  unsupported",
+  ]) {
     const src = fb(`${line}\n`)
     expect({ line, errors: syntaxErrors(src) }).toEqual({ line, errors: [] })
     const bodies = bodiesOf(src)
@@ -254,12 +260,27 @@ test("a read-only line states a body read by neither parser, and its empty body 
       graphical: [undefined],
       st: [false],
     })
-    expect(bodies[0]!.implementation?.statement.kind).toBe("read-only")
+    expect(bodies[0]!.implementation?.statement.kind).toBe("unsupported")
   }
 })
 
-test("UNSUPPORTED stands only after LD or FBD, and anything after a read-only language is refused naming the line", () => {
-  for (const line of ["IMPLEMENTATION ST UNSUPPORTED", "IMPLEMENTATION CFC UNSUPPORTED", "IMPLEMENTATION CFC x := 1;", "IMPLEMENTATION LD UNSUPPORTED;"]) {
+/** Section 3b reverses 2b's bare `IMPLEMENTATION CFC|SFC|IL`: a body Volt does not show says so with UNSUPPORTED on
+ *  every language, so the bare line states no body — the push refuses it naming the line to write
+ *  (`ReadOnlyBodyTests`), and so does the LSP, on the line. Neither reader reads what is under it. */
+test("a bare CFC, SFC or IL line is refused naming it and the UNSUPPORTED line to write", () => {
+  for (const language of ["CFC", "SFC", "IL", "cfc"]) {
+    const line = `IMPLEMENTATION ${language}`
+    const errors = parseSource(fb(`${line}\n`)).errors.map((e) => e.message)
+    expect({ line, named: errors.some((m) => m.includes(`'${line}'`) && m.includes(`IMPLEMENTATION ${language.toUpperCase()} UNSUPPORTED`)) }).toEqual({
+      line,
+      named: true,
+    })
+    expect({ line, reader: bodiesOf(fb(`${line}\n`)).map(isStBody) }).toEqual({ line, reader: [false] })
+  }
+})
+
+test("UNSUPPORTED never stands after ST, and anything after an UNSUPPORTED line's words is refused naming the line", () => {
+  for (const line of ["IMPLEMENTATION ST UNSUPPORTED", "IMPLEMENTATION CFC UNSUPPORTED x := 1;", "IMPLEMENTATION LD UNSUPPORTED;"]) {
     const errors = parseSource(fb(`${line}\n`)).errors.map((e) => e.message)
     expect({ line, named: errors.some((m) => m.includes(`'${line}'`)) }).toEqual({ line, named: true })
     expect({ line, reader: bodiesOf(fb(`${line}\n`)).map(isStBody) }).toEqual({ line, reader: [false] })
@@ -267,7 +288,7 @@ test("UNSUPPORTED stands only after LD or FBD, and anything after a read-only la
 })
 
 test("a member's %FOLDER under its line is taken out with the line, whatever the line states", () => {
-  for (const line of ["IMPLEMENTATION ST", "IMPLEMENTATION LD", "IMPLEMENTATION CFC", "IMPLEMENTATION FBD UNSUPPORTED"]) {
+  for (const line of ["IMPLEMENTATION ST", "IMPLEMENTATION LD", "IMPLEMENTATION CFC UNSUPPORTED", "IMPLEMENTATION FBD UNSUPPORTED"]) {
     const code = line === "IMPLEMENTATION LD" ? NETWORK : line === "IMPLEMENTATION ST" ? "out := a;" : ""
     const src = `${fb("IMPLEMENTATION ST\n")}\nMETHOD M\n${line}\n%FOLDER Sub/Deep\n${code}\nEND_METHOD\n`
     expect({ line, errors: syntaxErrors(src) }).toEqual({ line, errors: [] })

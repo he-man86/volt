@@ -68,7 +68,7 @@ test("IMPLEMENTATION without a language is a diagnostic on its line naming the m
 })
 
 test("an unknown language is a keyword diagnostic on its line naming it, and the body is read by neither reader", async () => {
-  for (const language of ["XYZ", "ST UNSUPPORTED", "CFC UNSUPPORTED"]) {
+  for (const language of ["XYZ", "ST UNSUPPORTED"]) {
     const ds = await diagnostics(fb(`IMPLEMENTATION ${language}\ni := a;`))
     const on = ds.filter((d) => d.range.start.line === KEYWORD_LINE)
     expect({ language, shown: on.some((d) => text(d).includes(language) && /language/i.test(text(d))) }).toEqual({
@@ -79,12 +79,37 @@ test("an unknown language is a keyword diagnostic on its line naming it, and the
   }
 })
 
-/** CFC, SFC and IL are languages Volt does not read, and `LD|FBD UNSUPPORTED` states an LD/FBD body network text cannot
- *  represent yet (owner decision 2026-09-28, section 2b): each states a READ-ONLY body, which is empty. Code under one
- *  has nowhere to go — the push refuses it naming the item (`ReadOnlyBodyTests`) — so it is a diagnostic on the line
- *  naming what the line states, and neither reader reads the code. */
-test("code under a read-only line is a keyword diagnostic on its line naming it, and read by neither reader", async () => {
-  for (const language of ["CFC", "SFC", "IL", "LD UNSUPPORTED", "FBD UNSUPPORTED"]) {
+/** Section 3b: a bare `IMPLEMENTATION CFC|SFC|IL` is no line a body can state — a body Volt does not show says so with
+ *  UNSUPPORTED, on every language. It is a diagnostic on its line naming the line to write, and nothing under it is
+ *  read. */
+test("a bare CFC, SFC or IL line is a keyword diagnostic naming the UNSUPPORTED line, and read by neither reader", async () => {
+  for (const language of ["CFC", "SFC", "IL"]) {
+    const ds = await diagnostics(fb(`IMPLEMENTATION ${language}\ni := a;`))
+    const on = ds.filter((d) => d.range.start.line === KEYWORD_LINE)
+    expect({ language, shown: on.some((d) => text(d).includes(`IMPLEMENTATION ${language} UNSUPPORTED`)) }).toEqual({
+      language,
+      shown: true,
+    })
+    expect({ language, readByNeither: readByNeither(ds) }).toEqual({ language, readByNeither: true })
+  }
+})
+
+/** Section 3b: UNSUPPORTED hides the IMPLEMENTATION, not the item — the declaration above the line is editable and is
+ *  pushed, so it is analysed like any other: a syntax error in it is reported where it stands. */
+test("the declaration of a hidden body is still analysed", async () => {
+  for (const line of ["CFC UNSUPPORTED", "LD UNSUPPORTED"]) {
+    const src = `FUNCTION_BLOCK F\nVAR_INPUT\n\tbStart BOOL;\nEND_VAR\nIMPLEMENTATION ${line}\nEND_FUNCTION_BLOCK\n`
+    const ds = await diagnostics(src)
+    expect({ line, onDeclaration: ds.some((d) => d.range.start.line === 2) }).toEqual({ line, onDeclaration: true })
+  }
+})
+
+/** `IMPLEMENTATION <LANG> UNSUPPORTED` states a body Volt does not show — always for CFC, SFC and IL, and for an LD/FBD
+ *  body network text cannot represent yet (owner decisions 2026-09-28, sections 2b and 3b) — which is empty. Code under
+ *  one has nowhere to go — the push refuses it naming the item (`ReadOnlyBodyTests`) — so it is a diagnostic on the
+ *  line naming what the line states, and neither reader reads the code. */
+test("code under an UNSUPPORTED line is a keyword diagnostic on its line naming it, and read by neither reader", async () => {
+  for (const language of ["CFC UNSUPPORTED", "SFC UNSUPPORTED", "IL UNSUPPORTED", "LD UNSUPPORTED", "FBD UNSUPPORTED"]) {
     const ds = await diagnostics(fb(`IMPLEMENTATION ${language}\ni := a;`))
     const on = ds.filter((d) => d.range.start.line === KEYWORD_LINE)
     // The keyword's OWN finding — it names the language and says it is one — not any parse error that echoes a token.
@@ -93,6 +118,26 @@ test("code under a read-only line is a keyword diagnostic on its line naming it,
       shown: true,
     })
     expect({ language, readByNeither: readByNeither(ds) }).toEqual({ language, readByNeither: true })
+  }
+})
+
+/** A comment or pragma under an UNSUPPORTED line is text under it too: the push refuses it (`StReader.Body` tests the
+ *  raw text, and the drivers never write a hidden body, so the comment would be silently dropped). An editor that
+ *  called it clean would show a file `volt push` then blocks — so the LSP reports it exactly like code. */
+test("a comment or pragma under an UNSUPPORTED line is the same keyword diagnostic as code under it", async () => {
+  for (const [line, under] of [
+    ["CFC UNSUPPORTED", "(* note *)"],
+    ["CFC UNSUPPORTED", "// note"],
+    ["SFC UNSUPPORTED", "{attribute 'x'}"],
+    ["LD UNSUPPORTED", "(* note *)"],
+  ] as const) {
+    const ds = await diagnostics(fb(`IMPLEMENTATION ${line}\n${under}`))
+    const on = ds.filter((d) => d.range.start.line === KEYWORD_LINE)
+    expect({ line, under, shown: on.some((d) => text(d).includes(line) && /holds code/i.test(text(d))) }).toEqual({
+      line,
+      under,
+      shown: true,
+    })
   }
 })
 
@@ -157,22 +202,22 @@ test("a second keyword line in a body is a diagnostic on that line", async () =>
   expect(ds.some((d) => d.range.start.line === KEYWORD_LINE + 2)).toBe(true)
 })
 
-/** A body Volt cannot write (CFC, SFC, IL, an unrepresentable network) is pulled with its read-only line —
- *  `IMPLEMENTATION CFC|SFC|IL` or `IMPLEMENTATION LD|FBD UNSUPPORTED` — over an empty body, `%FOLDER` under it for a
- *  member in a folder (section 2b): it states the body has no text form, where `IMPLEMENTATION ST` would have labelled
- *  a chart Structured Text. Such a file is what a pull writes, so it draws no diagnostic. */
-test("a body stated by its read-only line draws no diagnostic, and the members around it are still read", async () => {
-  for (const line of ["CFC", "SFC", "IL", "LD UNSUPPORTED", "FBD UNSUPPORTED"])
+/** A body Volt does not show (CFC, SFC, IL, an unrepresentable network) is pulled with its UNSUPPORTED line —
+ *  `IMPLEMENTATION <LANG> UNSUPPORTED` — over an empty body, `%FOLDER` under it for a member in a folder (sections 2b,
+ *  3b): it states no code is shown, where `IMPLEMENTATION ST` would have labelled a chart Structured Text. Such a file is
+ *  what a pull writes, so it draws no diagnostic. */
+test("a body stated by its UNSUPPORTED line draws no diagnostic, and the members around it are still read", async () => {
+  for (const line of ["CFC UNSUPPORTED", "SFC UNSUPPORTED", "IL UNSUPPORTED", "LD UNSUPPORTED", "FBD UNSUPPORTED"])
     expect({ line, shown: shown(await diagnostics(fb(`IMPLEMENTATION ${line}\n`))) }).toEqual({ line, shown: [] })
 
   // The members are CALLED from the body: CODESYS compiles only what is used, so the LSP says nothing about a member
   // nothing calls — and a member nothing calls would draw no diagnostic whatever its line said.
   const src =
     "FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := a;\nChart();\nLadder();\nStep();\nEND_FUNCTION_BLOCK\n" +
-    "\nMETHOD Chart\nIMPLEMENTATION SFC\nEND_METHOD\n" +
+    "\nMETHOD Chart\nIMPLEMENTATION SFC UNSUPPORTED\nEND_METHOD\n" +
     "\nMETHOD Ladder\nIMPLEMENTATION LD UNSUPPORTED\n%FOLDER Sub/Deep\nEND_METHOD\n" +
-    "\nACTION Step\nIMPLEMENTATION CFC\nEND_ACTION\n"
-  // Exactly the ST body's type error, on its line (6): the read-only members draw nothing, and the body is analysed
+    "\nACTION Step\nIMPLEMENTATION CFC UNSUPPORTED\nEND_ACTION\n"
+  // Exactly the ST body's type error, on its line (6): the hidden members draw nothing, and the body is analysed
   // as the ST its keyword states.
   expect((await diagnostics(src)).map((d) => `${d.range.start.line}: ${String(d.code)}`)).toEqual(["6: C0032"])
 })

@@ -42,7 +42,7 @@ public class AccessorPreflightTests
     private static string Prg(string name) => $"PROGRAM {name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 0;\n\nEND_PROGRAM\n";
 
     /// <summary>A POU whose body Volt cannot author — what a CFC POU materializes as in the workspace.</summary>
-    private const string Cfc = "FUNCTION_BLOCK FB_Cfc\nIMPLEMENTATION CFC\n\nEND_FUNCTION_BLOCK\n";
+    private const string Cfc = "FUNCTION_BLOCK FB_Cfc\nIMPLEMENTATION CFC UNSUPPORTED\n\nEND_FUNCTION_BLOCK\n";
 
     private static PushResponse Push(FakeIde ide, params PushOp[] ops)
     {
@@ -102,7 +102,7 @@ public class AccessorPreflightTests
     /// <summary>A CREATE WHOSE BODY IS A MARKER IS REFUSED BEFORE THE FIRST WRITE TOO — the same defect one
     /// guard over.
     ///
-    /// <para>A body Volt cannot author materializes as <c>IMPLEMENTATION CFC</c> over an empty body. Pushing that at an
+    /// <para>A body Volt cannot author materializes as <c>IMPLEMENTATION CFC UNSUPPORTED</c> over an empty body. Pushing that at an
     /// EXISTING item is the ordinary no-op (the splice leaves the body alone); pushing it at an item that does
     /// not exist yet can only land an empty POU, so <c>BodyFormatGuard.RequireAuthorable</c> refuses it — but it
     /// did so from inside <c>WriteItemFromSource</c>'s create arm, after the earlier ops of the batch had

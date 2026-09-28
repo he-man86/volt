@@ -45,8 +45,11 @@ export interface BodySpan {
 export type ImplementationStatement =
   /** `ST`, `LD` or `FBD`: a body a parser reads. */
   | { kind: "read"; language: "ST" | "LD" | "FBD" }
-  /** `CFC`, `SFC`, `IL`, or `LD`/`FBD` + `UNSUPPORTED`: a body Volt cannot write, empty and read by neither parser. */
-  | { kind: "read-only"; language: string; unsupported: boolean }
+  /** A language and `UNSUPPORTED` (never ST): a body Volt does not show, empty and read by neither parser. */
+  | { kind: "unsupported"; language: string }
+  /** `CFC`, `SFC` or `IL` without `UNSUPPORTED`: no line a body can state since section 3b, reported naming the line to
+   *  write. Its own kind so the finding can name that line; read by neither parser. */
+  | { kind: "bare-hidden"; language: string }
   /** The keyword alone. */
   | { kind: "no-language" }
   /** The keyword and something no body can state (`XYZ`, `LD;`, `ST UNSUPPORTED`, `LD // note`). */

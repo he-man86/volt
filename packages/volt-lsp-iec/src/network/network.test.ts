@@ -698,13 +698,14 @@ END_FUNCTION_BLOCK`
   expect(sym?.name).toBe("Q")
 })
 
-test("network text: a read-only body's line hover explains the body (F.2e)", () => {
-  const src = `FUNCTION_BLOCK F\nVAR END_VAR\nIMPLEMENTATION CFC\nEND_FUNCTION_BLOCK`
+test("network text: a hidden body's line hover explains the body (F.2e)", () => {
+  const src = `FUNCTION_BLOCK F\nVAR END_VAR\nIMPLEMENTATION CFC UNSUPPORTED\nEND_FUNCTION_BLOCK`
   const d = doc(src)
   const value = (readOnlyBodyHover(d, src.indexOf("CFC")) as { contents: { value: string } })?.contents.value
   expect(value).toContain("Continuous Function Chart")
   expect(value).toContain("IDE")
-  // a read-only body is read by neither parser (no diagnostics)
+  expect(value).toContain("declaration")   // 3b: the declaration above the line stays editable
+  // a hidden body is read by neither parser (no diagnostics)
   expect(vgDiags(src)).toEqual([])
 
   const ld = `FUNCTION_BLOCK F\nVAR END_VAR\nIMPLEMENTATION LD UNSUPPORTED\nEND_FUNCTION_BLOCK`
@@ -713,7 +714,7 @@ test("network text: a read-only body's line hover explains the body (F.2e)", () 
   expect(unsupported).toContain("cannot represent")
 
   // Only the line a body opens with answers — not an ST body, and not the line quoted in a comment.
-  const st = `FUNCTION_BLOCK F\nVAR END_VAR\n(* IMPLEMENTATION CFC *)\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK`
+  const st = `FUNCTION_BLOCK F\nVAR END_VAR\n(* IMPLEMENTATION CFC UNSUPPORTED *)\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK`
   expect(readOnlyBodyHover(doc(st), st.indexOf("CFC"))).toBeUndefined()
   expect(readOnlyBodyHover(doc(st), st.indexOf("ST\n"))).toBeUndefined()
 })

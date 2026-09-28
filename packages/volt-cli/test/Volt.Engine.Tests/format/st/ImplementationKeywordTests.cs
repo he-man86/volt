@@ -42,14 +42,17 @@ public class ImplementationKeywordTests
         Assert.Equal(language, ImplementationMarker.LanguageOf(line));
     }
 
+
     [Theory]
     [InlineData("(* @volt-implementation *)")]          // the retired comment, both forms — not tolerated
     [InlineData("(* @volt-implementation LD *)")]
     [InlineData("(* @volt-implementation FBD *)")]
     [InlineData("IMPLEMENTATION")]                      // no language: refused by name elsewhere, never a boundary
     [InlineData("IMPLEMENTATION COBOL")]                // not a language a body can state
-    [InlineData("IMPLEMENTATION ST UNSUPPORTED")]       // UNSUPPORTED belongs to LD and FBD alone
-    [InlineData("IMPLEMENTATION CFC UNSUPPORTED")]
+    [InlineData("IMPLEMENTATION ST UNSUPPORTED")]       // an ST body is always shown
+    [InlineData("IMPLEMENTATION CFC")]                  // a CFC/SFC/IL body is never shown: bare, it states nothing (3b)
+    [InlineData("IMPLEMENTATION SFC")]
+    [InlineData("IMPLEMENTATION IL")]
     [InlineData("IMPLEMENTATION UNSUPPORTED")]
     [InlineData("IMPLEMENTATION LD UNSUPPORTED x")]
     [InlineData("IMPLEMENTATION ST;")]                  // a statement, not the line
@@ -75,43 +78,63 @@ public class ImplementationKeywordTests
     {
         Assert.Equal("IMPLEMENTATION " + language, ImplementationMarker.For(language));
         Assert.True(ImplementationMarker.Is(ImplementationMarker.For(language)));
-        Assert.False(ImplementationMarker.IsReadOnly(ImplementationMarker.For(language)));
+        Assert.False(ImplementationMarker.IsUnsupported(ImplementationMarker.For(language)));
     }
 
-    /// <summary>A body Volt cannot write states THAT on the same line (section 2b): <c>IMPLEMENTATION CFC|SFC|IL</c> for a
-    /// language Volt does not read, <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> for a network body the text cannot represent.
-    /// Each is a boundary — it ends the declaration like any other — but it names no READER: the body under it is empty,
-    /// so <see cref="ImplementationMarker.LanguageOf"/> has no language to hand the ST or network-text path. Spacing and
+    /// <summary>A body Volt does not show states THAT on the same line (sections 2b and 3b): its language, then
+    /// <c>UNSUPPORTED</c> — always for CFC, SFC and IL, and for an LD/FBD body network text cannot represent. Each is a
+    /// boundary — it ends the declaration like any other — but it names no READER: the body under it is empty, so
+    /// <see cref="ImplementationMarker.LanguageOf"/> has no language to hand the ST or network-text path. Spacing and
     /// case are free, and the line is held in one spelling.</summary>
     [Theory]
-    [InlineData("IMPLEMENTATION CFC", "IMPLEMENTATION CFC")]
-    [InlineData("IMPLEMENTATION SFC", "IMPLEMENTATION SFC")]
-    [InlineData("IMPLEMENTATION IL", "IMPLEMENTATION IL")]
+    [InlineData("IMPLEMENTATION CFC UNSUPPORTED", "IMPLEMENTATION CFC UNSUPPORTED")]
+    [InlineData("IMPLEMENTATION SFC UNSUPPORTED", "IMPLEMENTATION SFC UNSUPPORTED")]
+    [InlineData("IMPLEMENTATION IL UNSUPPORTED", "IMPLEMENTATION IL UNSUPPORTED")]
     [InlineData("IMPLEMENTATION LD UNSUPPORTED", "IMPLEMENTATION LD UNSUPPORTED")]
     [InlineData("IMPLEMENTATION FBD UNSUPPORTED", "IMPLEMENTATION FBD UNSUPPORTED")]
-    [InlineData("  implementation\tcfc ", "IMPLEMENTATION CFC")]
+    [InlineData("  implementation\tcfc  unsupported ", "IMPLEMENTATION CFC UNSUPPORTED")]
     [InlineData("Implementation  Ld   Unsupported\r", "IMPLEMENTATION LD UNSUPPORTED")]
-    public void A_read_only_line_is_a_boundary_that_names_no_reader(string line, string canonical)
+    public void An_UNSUPPORTED_line_is_a_boundary_that_names_no_reader(string line, string canonical)
     {
         Assert.True(ImplementationMarker.Is(line), $"'{line}' is a boundary line");
-        Assert.True(ImplementationMarker.IsReadOnly(line));
+        Assert.True(ImplementationMarker.IsUnsupported(line));
         Assert.Null(ImplementationMarker.LanguageOf(line));
         Assert.Equal(canonical, ImplementationMarker.Canonical(line));
     }
 
     [Fact]
-    public void The_read_only_spellings_are_built_in_one_place_and_only_for_their_languages()
+    public void The_UNSUPPORTED_spelling_is_built_in_one_place_and_for_every_language_but_ST()
     {
-        Assert.Equal("IMPLEMENTATION CFC", ImplementationMarker.ReadOnly(Languages.Cfc));
-        Assert.Equal("IMPLEMENTATION SFC", ImplementationMarker.ReadOnly(Languages.Sfc));
-        Assert.Equal("IMPLEMENTATION IL", ImplementationMarker.ReadOnly(Languages.Il));
+        Assert.Equal("IMPLEMENTATION CFC UNSUPPORTED", ImplementationMarker.Unsupported(Languages.Cfc));
+        Assert.Equal("IMPLEMENTATION SFC UNSUPPORTED", ImplementationMarker.Unsupported(Languages.Sfc));
+        Assert.Equal("IMPLEMENTATION IL UNSUPPORTED", ImplementationMarker.Unsupported(Languages.Il));
         Assert.Equal("IMPLEMENTATION LD UNSUPPORTED", ImplementationMarker.Unsupported(Languages.Ld));
         Assert.Equal("IMPLEMENTATION FBD UNSUPPORTED", ImplementationMarker.Unsupported(Languages.Fbd));
-        // A language Volt reads is never read-only by its language, and only a language Volt reads can be UNSUPPORTED.
-        Assert.ThrowsAny<System.ArgumentException>(() => ImplementationMarker.ReadOnly(Languages.Ld));
-        Assert.ThrowsAny<System.ArgumentException>(() => ImplementationMarker.ReadOnly(Languages.St));
-        Assert.ThrowsAny<System.ArgumentException>(() => ImplementationMarker.Unsupported(Languages.Cfc));
+        // Volt shows every ST body.
         Assert.ThrowsAny<System.ArgumentException>(() => ImplementationMarker.Unsupported(Languages.St));
+    }
+
+    /// <summary>What a driver writes for a body: the body, or null — "leave the IDE's implementation alone" — for a body
+    /// Volt does not show. The one decision every writer on both vendors asks (section 3b: the IDE's body is never
+    /// written).</summary>
+    [Theory]
+    [InlineData("IMPLEMENTATION CFC UNSUPPORTED")]
+    [InlineData("IMPLEMENTATION IL UNSUPPORTED\n")]
+    [InlineData("  implementation ld unsupported ")]
+    [InlineData("IMPLEMENTATION FBD UNSUPPORTED")]
+    public void A_hidden_body_is_written_as_nothing(string body)
+    {
+        Assert.Null(ImplementationMarker.Written(body));
+    }
+
+    [Theory]
+    [InlineData("x := 1;")]
+    [InlineData("")]
+    [InlineData("IMPLEMENTATION LD\nNETWORK\n  x := 1;\nEND_NETWORK")]
+    [InlineData(null)]
+    public void Any_other_body_is_written_as_it_is(string? body)
+    {
+        Assert.Equal(body, ImplementationMarker.Written(body));
     }
 
     // ── 1.2 the writer states it on every kind that has a body, the reader splits on it ──────────────
@@ -358,17 +381,17 @@ public class ImplementationKeywordTests
     // ── a body Volt cannot write states THAT, on the keyword line ─────────────────────────────────────
 
     /// <summary>A CFC/SFC/IL body, or a network body the text cannot represent, has no text form: in memory and in
-    /// the file it is its read-only keyword line and nothing under it (section 2b). The writer must not print
+    /// the file it is its UNSUPPORTED keyword line and nothing under it (sections 2b, 3b). The writer must not print
     /// <c>IMPLEMENTATION ST</c> for it — that labels a CFC chart as Structured Text, and every reader that trusts the
     /// stated language (the push, the LSP) would then read it as ST — and no <c>(* @volt-… *)</c> comment is written
     /// anywhere.</summary>
     [Theory]
-    [InlineData("IMPLEMENTATION CFC")]
-    [InlineData("IMPLEMENTATION SFC")]
-    [InlineData("IMPLEMENTATION IL")]
+    [InlineData("IMPLEMENTATION CFC UNSUPPORTED")]
+    [InlineData("IMPLEMENTATION SFC UNSUPPORTED")]
+    [InlineData("IMPLEMENTATION IL UNSUPPORTED")]
     [InlineData("IMPLEMENTATION LD UNSUPPORTED")]
     [InlineData("IMPLEMENTATION FBD UNSUPPORTED")]
-    public void A_body_Volt_cannot_write_is_its_read_only_line_and_round_trips(string line)
+    public void A_hidden_body_is_its_UNSUPPORTED_line_and_round_trips(string line)
     {
         var item = new ItemContent(ItemKind.Kinds.FunctionBlock, FbDecl, line, new List<Member>
         {
@@ -395,13 +418,13 @@ public class ImplementationKeywordTests
     }
 
     /// <summary>A member's <c>%FOLDER</c> directive goes directly after its boundary line (the
-    /// <c>ChildDirectiveTests</c> layout), and a read-only line IS that boundary — so the directive follows it. The
+    /// <c>ChildDirectiveTests</c> layout), and an UNSUPPORTED line IS that boundary — so the directive follows it. The
     /// other order leaves <c>%FOLDER</c> above the boundary, in the DECLARATION: the directive is written into the IDE
     /// as declaration text and the member's folder is lost.</summary>
     [Theory]
-    [InlineData("IMPLEMENTATION SFC")]
+    [InlineData("IMPLEMENTATION SFC UNSUPPORTED")]
     [InlineData("IMPLEMENTATION LD UNSUPPORTED")]
-    public void A_read_only_members_folder_directive_follows_its_line_and_round_trips(string line)
+    public void A_hidden_members_folder_directive_follows_its_line_and_round_trips(string line)
     {
         var item = new ItemContent(ItemKind.Kinds.FunctionBlock, FbDecl, "", new List<Member>
         {
@@ -461,8 +484,9 @@ public class ImplementationKeywordTests
     [InlineData("IMPLEMENTATION ST\n" + LdBody)]               // network text under ST: the network reader is not its reader
     [InlineData("(* @volt-implementation LD *)\n" + LdBody)]   // the retired comment
     [InlineData("IMPLEMENTATION\n" + LdBody)]                   // no language
-    [InlineData("IMPLEMENTATION CFC\n" + LdBody)]               // not a network-text language
-    [InlineData("IMPLEMENTATION LD UNSUPPORTED\n" + LdBody)]   // read-only: no reader, network text included
+    [InlineData("IMPLEMENTATION CFC\n" + LdBody)]               // no line at all (3b: a bare CFC states nothing)
+    [InlineData("IMPLEMENTATION CFC UNSUPPORTED\n" + LdBody)]   // hidden: no reader, network text included
+    [InlineData("IMPLEMENTATION LD UNSUPPORTED\n" + LdBody)]
     public void The_network_text_reader_reads_only_a_body_stated_LD_or_FBD(string text)
     {
         var read = NetworkTextReader.Read(text, NetworkScope.Empty);
@@ -479,7 +503,7 @@ public class ImplementationKeywordTests
     /// boundary — was written before the change, and is refused naming <c>volt pull</c> rather than read around.</summary>
     [Theory]
     [InlineData("FUNCTION_BLOCK FB_Motor\n(* @volt-graphical: replaces the old CFC *)\nVAR\n\ta : BOOL;\nEND_VAR\nIMPLEMENTATION ST\na := TRUE;\n\nEND_FUNCTION_BLOCK\n")]
-    [InlineData("FUNCTION_BLOCK FB_Motor\n(* @volt-graphical: replaces the old CFC *)\nVAR\nEND_VAR\nIMPLEMENTATION CFC\n\nEND_FUNCTION_BLOCK\n")]
+    [InlineData("FUNCTION_BLOCK FB_Motor\n(* @volt-graphical: replaces the old CFC *)\nVAR\nEND_VAR\nIMPLEMENTATION CFC UNSUPPORTED\n\nEND_FUNCTION_BLOCK\n")]
     public void A_marker_spelled_comment_in_a_declaration_is_refused_naming_volt_pull(string text)
     {
         var ex = Assert.Throws<BridgeException>(() => StReader.Read(text, ItemKind.Kinds.FunctionBlock, "FB_Motor"));
@@ -552,7 +576,7 @@ public class ImplementationKeywordTests
 
     /// <summary>The drivers hand an ST body up through <see cref="ImplementationMarker.RequireStBody"/>: in memory an ST
     /// body carries no line, so a line of the keyword's shape in its text would be read back as a boundary — a
-    /// read-only body, a network body, a second boundary — and the body would be pulled in a language it is not.</summary>
+    /// hidden body, a network body, a second boundary — and the body would be pulled in a language it is not.</summary>
     [Theory]
     [InlineData("IMPLEMENTATION CFC")]
     [InlineData("IMPLEMENTATION LD UNSUPPORTED")]

@@ -12,8 +12,8 @@ namespace Volt.Engine.Format.Network;
 /// action's or an accessor's) states its language on its boundary line, <c>IMPLEMENTATION FBD</c> or
 /// <c>IMPLEMENTATION LD</c>, which stays the body's first line and round-trips; the language rides on that one line for
 /// the whole body (openspec <c>implementation-keyword</c>). CFC/SFC/IL are NOT network-text bodies, and neither is an
-/// LD/FBD body the text cannot represent: each is its read-only line alone (<c>IMPLEMENTATION CFC</c>,
-/// <c>IMPLEMENTATION LD UNSUPPORTED</c>, <see cref="ImplementationMarker.IsReadOnlyBody"/>).
+/// LD/FBD body the text cannot represent: each is its UNSUPPORTED line alone (<c>IMPLEMENTATION CFC UNSUPPORTED</c>,
+/// <c>IMPLEMENTATION LD UNSUPPORTED</c>, <see cref="ImplementationMarker.IsUnsupportedBody"/>).
 /// </summary>
 public static class NetworkText
 {
@@ -134,7 +134,7 @@ public static class NetworkText
             "pull. Switch the view in the IDE and pull.");
     }
 
-    /// <summary>Editable graphical languages: FBD and LD. (CFC/SFC have no text form — their read-only
+    /// <summary>Editable graphical languages: FBD and LD. (CFC/SFC have no text form — their UNSUPPORTED
     /// <c>IMPLEMENTATION</c> line is materialized for them instead of a network-text body.)</summary>
     public static bool IsEditable(string? language) => Languages.IsNetwork(language);
 

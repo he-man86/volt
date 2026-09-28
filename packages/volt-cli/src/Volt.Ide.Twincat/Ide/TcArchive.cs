@@ -59,10 +59,10 @@ internal static class TcArchive
     /// NWL archive with an implementation object (<see cref="Root"/>).
     /// <para>Those two and nothing else. Any other XML root is a graphical body Volt has never seen (or an NWL archive
     /// with no implementation object), and it is refused naming the root — as CODESYS refuses an unknown aspect
-    /// (<c>CodesysDriver.ReadOnlyLanguage</c>). It used to answer null, so the vendor's XML fell through as TEXT and
+    /// (<c>CodesysDriver.UnreadLanguage</c>). It used to answer null, so the vendor's XML fell through as TEXT and
     /// was pulled under <c>IMPLEMENTATION ST</c>: the same body refused on one vendor and pulled as code on the
     /// other.</para></summary>
-    public static string? ReadOnlyLanguage(string raw)
+    public static string? UnreadLanguage(string raw)
     {
         XElement el;
         try { el = XElement.Parse(raw); } catch (System.Xml.XmlException) { return null; }   // textual ST is not XML
@@ -72,7 +72,7 @@ internal static class TcArchive
             "SFC" => "SFC",
             var root => throw new NotSupportedException(
                 $"TwinCAT: the body is a <{root}> document, a graphical language Volt has never seen. ST, FBD and LD " +
-                "are read, CFC, SFC and IL are read-only — an unknown language is refused rather than guessed at."),
+                "are read, CFC, SFC and IL are hidden (UNSUPPORTED) — an unknown language is refused rather than guessed at."),
         };
     }
 

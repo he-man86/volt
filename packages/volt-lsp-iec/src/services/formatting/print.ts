@@ -206,7 +206,7 @@ function initText(init: VarDecl["init"]): string {
  * keeps them. Rebuilt from the tokens alone, formatting deleted both from every file: an LD body lost the line that
  * states its language and read as ST, and a member lost its folder, which the next push took for "none".
  *
- * Only a body the ST parser reads is re-printed as ST; any other (network text, a read-only body) is kept verbatim.
+ * Only a body the ST parser reads is re-printed as ST; any other (network text, a hidden body) is kept verbatim.
  */
 function printBody(body: BodySpan): string {
   return implementationHead(body) + printCode(body)

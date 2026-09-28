@@ -241,9 +241,9 @@ test("formatting keeps every body's IMPLEMENTATION line, and a member's %FOLDER 
       src: "ACTION A\nIMPLEMENTATION ST\n%FOLDER Sub\nx := 1;\nEND_ACTION\n",
       kept: ["ACTION A\nIMPLEMENTATION ST\n%FOLDER Sub\nx := 1;\n"],
     },
-    "a read-only member in a folder": {
-      src: "METHOD Chart\nIMPLEMENTATION CFC\n%FOLDER Sub\nEND_METHOD\n",
-      kept: ["METHOD Chart\nIMPLEMENTATION CFC\n%FOLDER Sub\nEND_METHOD"],
+    "a hidden member in a folder": {
+      src: "METHOD Chart\nIMPLEMENTATION CFC UNSUPPORTED\n%FOLDER Sub\nEND_METHOD\n",
+      kept: ["METHOD Chart\nIMPLEMENTATION CFC UNSUPPORTED\n%FOLDER Sub\nEND_METHOD"],
     },
     "a property's accessors": {
       src: "PROPERTY P : INT\nGET\nIMPLEMENTATION ST\nP := 1;\nEND_GET\nSET\nIMPLEMENTATION FBD UNSUPPORTED\nEND_SET\nEND_PROPERTY\n",
