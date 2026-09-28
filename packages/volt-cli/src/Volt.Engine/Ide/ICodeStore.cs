@@ -36,8 +36,9 @@ namespace Volt.Engine.Ide;
 public interface ICodeStore
 {
     /// <summary>Everything about one item: kind, declaration, body language, body, and members with theirs.
-    /// A body is workspace TEXT — ST verbatim, a graphical body as network text, an unsupported language as
-    /// its marker — because that is what the workspace stores and what the ST layer round-trips.</summary>
+    /// A body is workspace TEXT — ST verbatim, a graphical body as network text, a body Volt cannot write as its
+    /// read-only <c>IMPLEMENTATION</c> line (with the reason on <c>Unsupported</c> for an LD/FBD one) — because that is
+    /// what the workspace stores and what the ST layer round-trips.</summary>
     ItemContent ReadContent(ItemRef item);
 
     /// <summary>Apply content to an item, in place. The driver decides how much of it actually changes: a

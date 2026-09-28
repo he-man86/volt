@@ -35,7 +35,9 @@ public class WireVocabularyGuardTests
         ("error codes (BridgeErrorCodes)",
             new[] { "PLC_DISCONNECTED", "WRONG_PROJECT", "NO_SIDECAR", "NOT_FOUND", "BAD_REQUEST", "UNSUPPORTED",
                     "DUPLICATE_CHILD", "INVALID_CODE_HEADER", "INVALID_ST", "INTERNAL_ERROR" },
-            new HashSet<string> { "BridgeErrorCodes.cs" }),
+            // ImplementationMarker.cs spells the workspace keyword `IMPLEMENTATION LD UNSUPPORTED` — a word of the file
+            // format that shares its spelling with the error code, not the error code.
+            new HashSet<string> { "BridgeErrorCodes.cs", "ImplementationMarker.cs" }),
 
         // A body written into the wrong XML namespace is not a compile error — it is a document the vendor's
         // importer quietly declines to understand. These were spelled at NINE sites across five files before

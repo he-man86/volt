@@ -146,7 +146,7 @@ public class TcRoundTripTests
 
         var ex = Assert.ThrowsAny<Volt.Engine.Format.Body.UnrepresentableBodyException>(() => TcText.Write(pulled));
 
-        Assert.Equal(marker, ex.Marker);
+        Assert.Equal(marker, ex.Reason);
     }
 
     /// <summary>A REAL FAN-OUT WIRE SURVIVES AN EDIT — the half a no-op push can never reach.
@@ -568,7 +568,7 @@ public class TcRoundTripTests
         echo.ReplaceWith(wired);
 
         var ex = Assert.Throws<Volt.Engine.Format.Body.UnrepresentableBodyException>(() => TcNetworkReader.Read(impl, BodyLanguage.Fbd));
-        Assert.Equal("an ENO output wired to a variable", ex.Marker);
+        Assert.Equal("an ENO output wired to a variable", ex.Reason);
         Assert.Contains("enoFlag", ex.Message);
     }
 

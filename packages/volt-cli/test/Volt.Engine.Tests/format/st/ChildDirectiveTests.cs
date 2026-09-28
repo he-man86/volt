@@ -14,7 +14,7 @@ namespace Volt.Engine.Tests;
 /// sub-folder), not as signature comments/markers. The graphical language is conveyed by the body
 /// itself — its own boundary line, <c>IMPLEMENTATION FBD|LD</c>, for editable FBD/LD (one line per graphical body,
 /// stating its language where every body states it), or the
-/// <c>(* @volt-graphical: LANG *)</c> placeholder for read-only CFC/SFC. This asserts both directions
+/// read-only <c>IMPLEMENTATION CFC|SFC</c> line for a body Volt cannot write. This asserts both directions
 /// (assemble → split) and the NetworkText classification.
 /// </summary>
 public class ChildDirectiveTests

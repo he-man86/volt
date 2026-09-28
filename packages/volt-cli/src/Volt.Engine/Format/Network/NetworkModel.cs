@@ -320,6 +320,9 @@ public static class BoxRefusals
     public const string WiredEnoMarker = "an ENO output wired to a variable";
     public const string NullInputSlotMarker = "a box input slot holding nothing";
     public const string MissingListMarker = "a box list the reader cannot find";
+    /// <summary>An Execute box whose ST snippet the reader cannot read — raised by both vendor readers and answered by
+    /// TwinCAT's archive pre-scan too, so the pull names it in one wording whichever way it was found.</summary>
+    public const string UnreadableExecuteMarker = "an Execute box whose ST cannot be read";
 
     /// <summary>A variable stored on the ENO slot: the text has no spelling for it (ENO is never an <c>=&gt;</c> slot), and
     /// skipping it pulled a body that hid the variable — a push rebuilding the network then wrote an empty operand there,

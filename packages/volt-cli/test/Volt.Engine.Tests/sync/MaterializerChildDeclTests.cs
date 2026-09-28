@@ -1,7 +1,6 @@
 ﻿using Xunit;
 using Volt.Engine.Ide;
 using Volt.Engine.Sync;
-using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
 
 namespace Volt.Engine.Tests;
@@ -44,9 +43,9 @@ public class MaterializerChildDeclTests
         var ide = new FakeIde(parent, child);
         var text = Materializer.Materialize(ide, "P", "function_block", new ItemRef("P")).Text;
 
-        // The child block carries the METHOD signature and the read-only graphical marker.
+        // The child block carries the METHOD signature and its read-only keyword line.
         Assert.Contains("METHOD PRIVATE DoWork : BOOL", text);
-        Assert.Contains("(* @volt-graphical: CFC *)", text);
+        Assert.Contains("IMPLEMENTATION CFC", text);
         Assert.Contains("END_METHOD", text);
         // The parent's declaration appears ONCE (its own header) — never re-emitted as the child's decl.
         Assert.Equal(1, CountOccurrences(text, "FUNCTION_BLOCK P"));

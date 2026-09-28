@@ -257,8 +257,8 @@ public class VendorCapabilityParityTests
         Assert.True(
             driver.Any(t => t.Contains("catch (UnrepresentableBodyException")),
             vendor + " never catches UnrepresentableBodyException, so a body its reader cannot represent " +
-            "removes the whole POU from the workspace and from git instead of materializing as a marker. " +
-            "Catch it where the body is read and return BodyMarker.For(ex.Marker).");
+            "removes the whole POU from the workspace and from git instead of reading as IMPLEMENTATION LD|FBD " +
+            "UNSUPPORTED. Catch it where the body is read and return ImplementationMarker.Unsupported(language) with ex.Reason.");
         }
 
     /// <summary>NO READER MAY REFUSE A BODY IN A WAY THAT REMOVES THE POU.
@@ -271,8 +271,9 @@ public class VendorCapabilityParityTests
     /// declaration and every sibling method, from the workspace and from git, on every pull, and gets a number
     /// in an "N unreadable" tally instead of a file.</para>
     ///
-    /// <para><c>UnrepresentableBodyException</c> is the same refusal with a marker attached, and both drivers
-    /// catch it — so the POU appears, says what it holds, and is refused on PUSH. The distinction is invisible
+    /// <para><c>UnrepresentableBodyException</c> is the same refusal with a reason attached, and both drivers
+    /// catch it — so the POU appears, its body read-only (<c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>) and the reason in
+    /// the pull message. The distinction is invisible
     /// at the throw site, which is why it is gated here rather than left to review: four refusals across the two
     /// readers were the bare kind, and the one that was NOT was the only one anybody had looked at.</para></summary>
     [Theory]
@@ -288,7 +289,7 @@ public class VendorCapabilityParityTests
             source.Contains("throw new NotSupportedException"),
             relative + " throws a bare NotSupportedException. A reader refusal escapes to Versioning.SafeVersion, " +
             "which stamps the item Unreadable and removes the whole POU from the workspace and from git. Throw " +
-            "UnrepresentableBodyException with the marker to materialize instead — both drivers catch it.");
+            "UnrepresentableBodyException with the reason instead — both drivers catch it and read the body UNSUPPORTED.");
     }
 
     private static bool NotBuildOutput(string file) =>

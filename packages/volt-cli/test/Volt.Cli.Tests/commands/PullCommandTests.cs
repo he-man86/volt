@@ -1,6 +1,7 @@
 using System.Linq;
 using System.IO;
 using Volt.Cli.Sync;
+using Volt.Engine.Item;
 using Xunit;
 using static Volt.Cli.Tests.CommandHarness;
 
@@ -795,6 +796,56 @@ public class PullCommandTests
     /// crash in that gap, a `.git` restored without it — has a current sidecar and no ref, so every pull said
     /// "already up to date with the IDE" and returned, while `Outgoing` is diffed against the ref that is not
     /// there. Nothing ever rebuilt it.</para></summary>
+    /// <summary>A body network text cannot represent pulls as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>, and the file says
+    /// no more than that (openspec <c>implementation-keyword</c> 2b). The REASON left the file with the old
+    /// <c>(* @volt-graphical: … *)</c> comment, so the pull message is where the engineer learns it: every such body the
+    /// pull brought in, by file and member, with what network text has no spelling for.</summary>
+    [Fact]
+    public void A_pull_names_every_UNSUPPORTED_body_and_its_reason()
+    {
+        var ide = ConnectedIde(
+            new FakeIde.Item("FB_Motor", ItemKind.PlcPouFb, "POUs", true, "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR", "",
+                             "LD", null, new[] { "Reset", "Chart" }, Unsupported: "a vendor split point"),
+            new FakeIde.Item("Reset", ItemKind.PlcMethod, "", false, "METHOD Reset : BOOL", "", "FBD", null,
+                             Unsupported: "an ENO output wired to a variable"),
+            new FakeIde.Item("Chart", ItemKind.PlcMethod, "", false, "METHOD Chart : BOOL", "", "CFC", null),
+            Prg());
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            var r = Commands.Pull(root, client);
+
+            Assert.Equal("ok", r.Kind);
+            var message = r.Message ?? "";
+            Assert.Contains("POUs/FB_Motor.fb", message);
+            Assert.Contains("a vendor split point", message);
+            Assert.Contains("'Reset'", message);
+            Assert.Contains("an ENO output wired to a variable", message);
+            Assert.DoesNotContain("'Chart'", message);          // CFC is a language Volt does not read, not a shape
+            Assert.DoesNotContain("PLC_PRG", message);
+
+            var file = File.ReadAllText(Path.Combine(root, "src", "POUs", "FB_Motor.fb"));
+            Assert.Contains("IMPLEMENTATION LD UNSUPPORTED", file);
+            Assert.DoesNotContain("a vendor split point", file);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    [Fact]
+    public void A_pull_with_no_UNSUPPORTED_body_says_nothing_about_one()
+    {
+        var ide = ConnectedIde(Prg());
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            var r = Commands.Pull(root, client);
+
+            Assert.Equal("ok", r.Kind);
+            Assert.Null(r.Message);                             // the plain "pulled N file(s)" line
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     [Fact]
     public void A_pull_rebuilds_the_ide_ref_when_it_is_missing()
     {

@@ -852,8 +852,8 @@ public static class PushService
             if (body is { } b && NetworkText.Is(b)) NetworkText.Validate(b, ide.NetworkScopeFor(declaration, pushedDeclarations));
         }
 
-        // AND A CREATE'S MARKER REFUSAL, which is text-decidable in exactly the same way. A body Volt cannot
-        // author materializes as `(* @volt-graphical: CFC *)`, and pushing that at an EXISTING item is the
+        // AND A CREATE'S READ-ONLY REFUSAL, which is text-decidable in exactly the same way. A body Volt cannot
+        // author materializes as its read-only line (`IMPLEMENTATION CFC`), and pushing that at an EXISTING item is the
         // ordinary no-op — the splice leaves the body alone — while pushing it at an item that does not exist
         // yet can only land an empty POU. `BodyFormatGuard` therefore refuses it, but it did so from inside
         // `WriteItemFromSource`, on the create arm, i.e. after the earlier ops of the batch had already been
@@ -862,7 +862,7 @@ public static class PushService
         //
         // Whether it APPLIES is the one part that is not text-decidable, so it is resolved by the caller the
         // same way `ApplyOp` resolves it (cache, then live lookup) rather than guessed at: a pre-flight that
-        // refused an UPDATE carrying a marker would break every push of a project that merely contains a CFC
+        // refused an UPDATE carrying a read-only line would break every push of a project that merely contains a CFC
         // POU, which is a far worse failure than the late refusal this replaces.
         if (isCreate) BodyFormatGuard.RequireAuthorable(split);
     }
@@ -931,7 +931,7 @@ public static class PushService
         var pouIsNetwork = NetworkText.Is(impl);
 
         // Read-only enforcement for an EXISTING graphical body is by LIVE IDE STATE, not content: it is refused
-        // by the body-type guard below. On a CREATE there is no live state to read, and the marker is the only
+        // by the body-type guard below. On a CREATE there is no live state to read, and the read-only line is the only
         // evidence there is — see `BodyFormatGuard.RequireAuthorable`, called on that arm.
 
         ItemRef pou;
@@ -972,7 +972,7 @@ public static class PushService
 
             // Validate the WHOLE write before any of it lands, so a refusal is atomic. The guard decides from
             // the IDE's LIVE body, which arrives in the content the driver returns - a body Volt cannot author
-            // must never be overwritten by a textual push, and a marker must not be written over one it can.
+            // must never be overwritten by a textual push, and a read-only line must not be written over one it can.
             live = ide.ReadContent(pou);
 
             // A PUSH MAY NOT RE-TYPE AN EXISTING ITEM. The IDE's kind comes from the TREE — the object really is
@@ -1133,7 +1133,7 @@ public static class PushService
         // same thing with the same word.
         //
         // BOTH SIDES MUST BE NON-NULL to skip, and that is the careful part rather than a hedge. `null` on the
-        // live side is not "empty" — it is a body that was not read (a marker, an unreadable graphical body),
+        // live side is not "empty" — it is a body that was not read (an IDE item with no implementation),
         // and treating it as equal to a pushed "" would silently skip a write. An EMPTY pushed body against a
         // live one that HAS text still differs, so it is still written, and clearing a body still works: that
         // exact case was a real data-loss bug on TwinCAT (`!IsNullOrEmpty` where it needed `!= null`), and it

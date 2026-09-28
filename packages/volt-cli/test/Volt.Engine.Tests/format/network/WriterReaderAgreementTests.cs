@@ -21,7 +21,7 @@ public class WriterReaderAgreementTests
     static string Written(NetworkBody m, NetworkScope scope) => NetworkTextWriter.Write(m, scope);
 
     static string RefusedBy(NetworkBody m, NetworkScope scope) =>
-        Assert.ThrowsAny<UnrepresentableBodyException>(() => NetworkTextWriter.Write(m, scope)).Marker;
+        Assert.ThrowsAny<UnrepresentableBodyException>(() => NetworkTextWriter.Write(m, scope)).Reason;
 
     static NetworkTextDiagnostic GateRefuses(string code, string text, NetworkScope scope)
     {

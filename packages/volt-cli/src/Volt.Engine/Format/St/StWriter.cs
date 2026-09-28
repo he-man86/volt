@@ -33,9 +33,9 @@ public static class StWriter
         // leading the body is the engineer's and has to survive the round trip.
         // The BOUNDARY LINE, always — see ImplementationMarker. An empty body gets it too: the line records where the
         // DECLARATION ends and what language the body is in, facts that do not depend on whether code follows it.
-        // A body Volt cannot write is stated by its marker line instead, which stands in the keyword's place.
-        var (marker, impl) = ImplementationMarker.Split(item.Body ?? "");
-        if (ImplementationMarker.AppliesTo(item.Kind)) sb.Append('\n').Append(marker);
+        // A body Volt cannot write is its read-only line (IMPLEMENTATION CFC, IMPLEMENTATION LD UNSUPPORTED) and nothing under it.
+        var (boundary, impl) = ImplementationMarker.Split(item.Body ?? "");
+        if (ImplementationMarker.AppliesTo(item.Kind)) sb.Append('\n').Append(boundary);
         if (impl.Length > 0)
             sb.Append('\n').Append(impl);
 
@@ -96,9 +96,9 @@ public static class StWriter
         if (child.Kind is ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)
             return AssembleProperty(child, ownerKind);
         var decl = child.Declaration.TrimEnd('\n');
-        // The boundary line first, then `%FOLDER`, then the code — a marker line is that boundary too, so a marker
+        // The boundary line first, then `%FOLDER`, then the code — a read-only line is that boundary too, so a read-only
         // member's `%FOLDER` follows it; above it, the directive would be DECLARATION text and the folder lost.
-        var (marker, code) = ImplementationMarker.Split(child.Body ?? "");
+        var (boundary, code) = ImplementationMarker.Split(child.Body ?? "");
         var impl = PrependFolder(child.Folder, code);
         var end = child.Kind switch
         {
@@ -110,7 +110,7 @@ public static class StWriter
         };
         if (!ImplementationMarker.AppliesTo(child.Kind) || !ImplementationMarker.AppliesTo(ownerKind))
             return impl.Length == 0 ? $"{decl}\n{end}" : $"{decl}\n{impl}\n{end}";
-        return impl.Length == 0 ? $"{decl}\n{marker}\n{end}" : $"{decl}\n{marker}\n{impl}\n{end}";
+        return impl.Length == 0 ? $"{decl}\n{boundary}\n{end}" : $"{decl}\n{boundary}\n{impl}\n{end}";
     }
 
     private static string AssembleProperty(Member child, string ownerKind)
@@ -133,10 +133,10 @@ public static class StWriter
         // double, and a LEADING newline is the engineer's blank line - six accessors in pro2193 hold one.
         // Trimming here took back exactly what the read had just been fixed to preserve.
         var d = decl ?? "";
-        var (marker, i) = ImplementationMarker.Split(impl ?? "");
+        var (boundary, i) = ImplementationMarker.Split(impl ?? "");
         var lines = new List<string> { keyword };
         if (d.Length > 0) lines.Add(d);
-        if (marked) lines.Add(marker);   // an accessor splits the same way, so it is marked the same way
+        if (marked) lines.Add(boundary);   // an accessor splits the same way, so it is marked the same way
         if (i.Length > 0) lines.Add(i);
         lines.Add($"END_{keyword}");
         return string.Join("\n", lines);

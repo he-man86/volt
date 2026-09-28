@@ -62,7 +62,7 @@ public static class NetworkTextGate
             return new NetworkGateResult(null, new[]
             {
                 new NetworkTextDiagnostic(ConflictCodes.NetworkUnsupported,
-                    $"network text has no spelling for {e.Marker}: {e.Detail} The push is refused rather than build the " +
+                    $"network text has no spelling for {e.Reason}: {e.Detail} The push is refused rather than build the " +
                     "IDE a different body than this one.", line, col, length),
             }, null);
         }

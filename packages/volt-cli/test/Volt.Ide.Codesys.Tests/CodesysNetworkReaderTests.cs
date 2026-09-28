@@ -58,7 +58,7 @@ public class CodesysNetworkReaderTests
         // Not read as a node, so the assignment holds no value — which the model no longer has a spelling for
         // (census 1.2, task 1.10): refused by name, never read as a value and never a crash of another kind.
         var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld));
-        Assert.Equal("an assignment with no value", ex.Marker);
+        Assert.Equal("an assignment with no value", ex.Reason);
     }
 
     /// <summary>A WIRED ENABLE ARRIVES FROM INPUT SLOT 0, which is where the vendor puts it.
@@ -397,7 +397,7 @@ public class CodesysNetworkReaderTests
         assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
 
         var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld));
-        Assert.Equal("a terminator with an input", ex.Marker);
+        Assert.Equal("a terminator with an input", ex.Reason);
     }
 
     /// <summary>CENSUS 1.2 AND 1.10: "unconnected" has ONE representation, the empty terminator (RValue null 0,
@@ -409,7 +409,7 @@ public class CodesysNetworkReaderTests
         assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
 
         var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld));
-        Assert.Equal("an assignment with no value", ex.Marker);
+        Assert.Equal("an assignment with no value", ex.Reason);
     }
 
     /// <summary>CENSUS 1.2, the Parallel half: an unfed Parallel has ONE representation, the null feed (5 of 17 in
@@ -425,7 +425,7 @@ public class CodesysNetworkReaderTests
         assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
 
         var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld));
-        Assert.Equal("a Parallel fed by the empty terminator", ex.Marker);
+        Assert.Equal("a Parallel fed by the empty terminator", ex.Reason);
     }
 
     /// <summary>And the one representation of an unfed Parallel reads, with no feed.</summary>
@@ -472,7 +472,7 @@ public class CodesysNetworkReaderTests
         assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
 
         var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld));
-        Assert.Equal("a flag on a Parallel", ex.Marker);
+        Assert.Equal("a flag on a Parallel", ex.Reason);
     }
 
     /// <summary>The same fact on a wire (<c>BoxTreeDemux</c>), definition or reference.</summary>
@@ -484,7 +484,7 @@ public class CodesysNetworkReaderTests
         assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
 
         var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(def, assign), BodyLanguage.Ld));
-        Assert.Equal("a flag on a wire", ex.Marker);
+        Assert.Equal("a flag on a wire", ex.Reason);
     }
 
     /// <summary>Task 1.10 / 4.1: <c>Mode</c> is read, never defaulted, so a value outside the two measured members — or
@@ -502,7 +502,7 @@ public class CodesysNetworkReaderTests
             var assign = new Nwl.BoxTreeAssign { RValue = par };
             assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
             var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(assign), BodyLanguage.Ld));
-            Assert.Equal("an unmeasured Parallel mode", ex.Marker);
+            Assert.Equal("an unmeasured Parallel mode", ex.Reason);
         }
     }
 
@@ -539,7 +539,7 @@ public class CodesysNetworkReaderTests
         trees.Add(assign);
 
         var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(trees.ToArray()), BodyLanguage.Ld));
-        Assert.Equal("a flag on an Assign item", ex.Marker);
+        Assert.Equal("a flag on an Assign item", ex.Reason);
     }
 
     /// <summary>The one representation of "unconnected" still reads.</summary>
@@ -583,7 +583,7 @@ public class CodesysNetworkReaderTests
         var body = new NetworkBody(BodyLanguage.Fbd, new[] { read });
         var ex = Assert.Throws<NetworkUnrepresentableException>(() =>
             NetworkTextWriter.Write(body, Volt.Tests.Shared.NetworkModelOracle.ScopeOf(body)));
-        Assert.Equal("a flag on a box input pin", ex.Marker);
+        Assert.Equal("a flag on a box input pin", ex.Reason);
         Assert.Contains("AND", ex.Message);             // which box
         Assert.Contains("xIsWarningInfo", ex.Message);  // which pin, by what feeds it
     }
@@ -619,7 +619,7 @@ public class CodesysNetworkReaderTests
         };
 
         var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd));
-        Assert.Equal("a flag on a box input pin", ex.Marker);
+        Assert.Equal("a flag on a box input pin", ex.Reason);
         Assert.Contains("EN pin", ex.Message);
     }
 
@@ -674,7 +674,7 @@ public class CodesysNetworkReaderTests
         };
 
         var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd));
-        Assert.Equal("a flag on a box input pin", ex.Marker);
+        Assert.Equal("a flag on a box input pin", ex.Reason);
         Assert.Contains("'AND'", ex.Message);
         Assert.Contains($"{flagCount} pin flag", ex.Message);
         Assert.Contains("2 input", ex.Message);
@@ -697,7 +697,7 @@ public class CodesysNetworkReaderTests
         assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "out", IsLValue = true });
 
         var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0));
-        Assert.Equal("a flag on a box input pin", ex.Marker);
+        Assert.Equal("a flag on a box input pin", ex.Reason);
         Assert.Contains("'AND'", ex.Message);
         Assert.Contains("InputFlags", ex.Message);
     }
@@ -723,7 +723,7 @@ public class CodesysNetworkReaderTests
         assign.Outputs.List.Add(new Nwl.Operand { OperandExpr = "lamp", IsLValue = true });
 
         var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.ReadNetwork(new Nwl.Network().With(assign), 0));
-        Assert.Equal("an ENO output wired to a variable", ex.Marker);
+        Assert.Equal("an ENO output wired to a variable", ex.Reason);
         Assert.Contains("enoFlag", ex.Message);
         Assert.Contains("'MOVE'", ex.Message);
     }
@@ -1034,7 +1034,7 @@ public class CodesysNetworkReaderTests
         // and keeps the POU; `VendorCapabilityParityTests` gates the distinction, because it is invisible at
         // the throw site.
         var ex = Assert.Throws<UnrepresentableBodyException>(() => CodesysNetworkReader.ReadNetwork(net, 0));
-        Assert.Equal("a vendor split point", ex.Marker);
+        Assert.Equal("a vendor split point", ex.Reason);
         Assert.Contains("split point", ex.Message);
         Assert.Contains("gSplit", ex.Message);   // the engineer needs to know WHICH one
     }
@@ -1095,6 +1095,6 @@ public class CodesysNetworkReaderTests
         // catching it.
         var ex = Assert.Throws<UnrepresentableBodyException>(
             () => CodesysNetworkReader.Read(Nwl.Body(box), BodyLanguage.Fbd));
-        Assert.Equal("EXECUTE", ex.Marker);
+        Assert.Equal(BoxRefusals.UnreadableExecuteMarker, ex.Reason);   // one wording on both vendors, for the pull message
     }
 }

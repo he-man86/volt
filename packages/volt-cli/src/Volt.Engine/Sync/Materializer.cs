@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using Volt.Contracts;
 using Volt.Engine.Item;
 using Volt.Engine.Ide;
 using Volt.Engine.Library;
@@ -14,9 +16,54 @@ public static class Materializer
         {
             var build = BuildSource(ide, item, kind);
             var text = StWriter.Write(build);
-            return new WorkspaceItem(text, FullWireName(name, build.Kind, build.Declaration));
+            RefuseRetiredComment(name, text);
+            return new WorkspaceItem(text, FullWireName(name, build.Kind, build.Declaration), UnsupportedIn(build));
         }
-        return new WorkspaceItem(ide.ReadManifest(item, kind), FullWireName(name, kind, declaration: null));
+        return new WorkspaceItem(ide.ReadManifest(item, kind), FullWireName(name, kind, declaration: null),
+                                 Array.Empty<UnsupportedBody>());
+    }
+
+    /// <summary>A pulled file carries no <c>(* @volt-… *)</c> comment, and the push refuses one naming <c>volt pull</c>
+    /// as the fix (<see cref="StReader.Read"/>). That fix is true only while the pull holds up its half: an IDE that
+    /// ITSELF holds such a comment — an older Volt pushed its marker into a declaration or a body, which is how the
+    /// retired markers were found in the first place — would be pulled verbatim, every push of the file refused, and
+    /// every pull would write the same text straight back. So the item is refused here, naming the comment and the
+    /// one fix that exists (an edit in the IDE); fetch lists it unreadable and leaves the workspace's file alone.
+    /// The same rule as the push's, from the same definition (<see cref="ImplementationMarker.FindRetiredComment"/>).</summary>
+    private static void RefuseRetiredComment(string name, string text)
+    {
+        if (ImplementationMarker.FindRetiredComment(text.Split('\n')) is not { } retired) return;
+        throw new BridgeException(BridgeErrorCodes.Unsupported,
+            $"'{name}' holds '{retired.Text}' in the IDE, a comment of a Volt from before bodies were stated by an " +
+            $"{ImplementationMarker.Keyword} line. A workspace file cannot carry it (a push of one is refused), so " +
+            "the item is not pulled until the comment is removed in the IDE.");
+    }
+
+    /// <summary>Every body of the item the driver read as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>, with its reason —
+    /// the one fact about the item its text does not carry, gathered here, where the content is in hand, for the pull
+    /// message. A reason on a body that is NOT such a line, or such a line with no reason, is a driver that broke the
+    /// pairing (<see cref="ItemContent.Unsupported"/>), and is refused rather than reported half.</summary>
+    private static IReadOnlyList<UnsupportedBody> UnsupportedIn(ItemContent content)
+    {
+        var found = new List<UnsupportedBody>();
+        Add(null, content.Body, content.Unsupported);
+        foreach (var m in content.Members)
+        {
+            Add(m.Name, m.Body, m.Unsupported);
+            Add($"{m.Name} GET", m.Getter?.Body, m.Getter?.Unsupported);
+            Add($"{m.Name} SET", m.Setter?.Body, m.Setter?.Unsupported);
+        }
+        return found;
+
+        void Add(string? member, string? body, string? reason)
+        {
+            var language = ImplementationMarker.UnsupportedLanguageOf(body);
+            if ((language is null) != (reason is null))
+                throw new InvalidOperationException(
+                    $"the driver read {(member is null ? "the item's body" : $"'{member}'")} as '{body?.Trim()}' with " +
+                    $"{(reason is null ? "no reason" : $"the reason '{reason}'")} — an UNSUPPORTED body and its reason come together");
+            if (language is not null) found.Add(new UnsupportedBody { Member = member, Language = language, Reason = reason! });
+        }
     }
 
     /// <summary>The name an item is known by ON THE WIRE — <c>name.ext</c> — from the BARE name the IDE holds.

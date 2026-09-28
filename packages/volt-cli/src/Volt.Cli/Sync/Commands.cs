@@ -110,7 +110,10 @@ public static class Commands
         Git.UpdateRef(gitDir, $"refs/heads/{Git.CurrentBranch(root) ?? "main"}", commit);
 
         Sidecar.SaveIdeRefs(root, new IdeRefs { ProjectVersion = fetched.ProjectVersion, Items = fetched.Items, Folders = fetched.Folders });
-        return InitResult.Ok(project, root, gitCreated: true, ideFiles.Count, scaffold.Created.Count, corpus);
+        // The seed is a pull like any other, so it names what a pull names: every body it brought in read-only.
+        var unsupported = UnsupportedNote(fetched.Changed);
+        return InitResult.Ok(project, root, gitCreated: true, ideFiles.Count, scaffold.Created.Count, corpus,
+            unsupported is null ? null : $"pulled {ideFiles.Count} file(s) — workspace ready. {unsupported}");
     }
 
     /// <summary>volt rebind — re-point an EXISTING workspace's binding to a different/renamed project. Rewrites
@@ -400,13 +403,14 @@ public static class Commands
             // --continue` can advance the baseline once conflicts are resolved — no "pull again" tax.
             Sidecar.SavePendingIdeRefs(root, newSidecar);
             var conflicted = outcome.Paths.Select(Files.StripSrcPrefix).ToList();
-            return PullResult.Conflict(conflicted, PostStatus(), V1Note(root, ideFiles, conflicted));
+            return PullResult.Conflict(conflicted, PostStatus(),
+                Notes(V1Note(root, ideFiles, conflicted), UnsupportedNote(fetched.Changed)));
         }
 
         Sidecar.SaveIdeRefs(root, newSidecar);
         Sidecar.ClearPendingIdeRefs(root); // a clean pull leaves no merge — drop any stash from a past conflict
         // An ok pull's message REPLACES the "pulled N file(s)" line (CLI and toast alike), so the note carries it.
-        var note = V1Note(root, ideFiles, Array.Empty<string>());
+        var note = Notes(V1Note(root, ideFiles, Array.Empty<string>()), UnsupportedNote(fetched.Changed));
         return PullResult.Ok(synced, PostStatus(), note is null ? null : $"pulled {synced.Count} file(s). {note}");
     }
 
@@ -916,6 +920,36 @@ public static class Commands
                       ". The push refuses them as they are; if a body still holds v1 (a numbered `NETWORK <n>` header, " +
                       "a `LET`), take the IDE's version now: once the push has refused it, a re-pull no longer helps.");
         return parts.Count == 0 ? null : string.Join(" ", parts);
+    }
+
+    /// <summary>Every body the fetch brought in as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>, by file and member, with
+    /// what network text has no spelling for — or null when there is none.
+    ///
+    /// <para>The file says only that such a body is read-only. WHY used to be written into it, as the comment the
+    /// keyword line replaced (openspec <c>implementation-keyword</c> 2b), and this is where the engineer learns it now:
+    /// without it a read-only body is a line that explains nothing. The bridge names each one
+    /// (<c>FetchedItem.Unsupported</c>); this only lays them out. CFC, SFC and IL are not listed — the line states the
+    /// language itself, and that is the whole reason.</para></summary>
+    private static string? UnsupportedNote(IEnumerable<FetchedItem> changed)
+    {
+        var lines = new List<string>();
+        foreach (var item in changed)
+        {
+            if (item.Unsupported is null) continue;
+            var path = Materialize.MaterializeItem(item).Single().Path;
+            foreach (var body in item.Unsupported)
+                lines.Add($"  {path}{(body.Member is null ? "" : $" '{body.Member}'")} ({body.Language}): {body.Reason}");
+        }
+        if (lines.Count == 0) return null;
+        return $"{lines.Count} body(ies) are IMPLEMENTATION LD|FBD UNSUPPORTED — read-only, because network text has no " +
+               "spelling for what they hold yet. Edit them in the IDE:\n" + string.Join("\n", lines);
+    }
+
+    /// <summary>The notes a pull's message carries, in order, or null when there are none.</summary>
+    private static string? Notes(params string?[] notes)
+    {
+        var present = notes.Where(n => n is not null).ToList();
+        return present.Count == 0 ? null : string.Join(" ", present);
     }
 
     /// <summary>volt merge — finish a conflicted pull: --continue | --abort | --resolve.</summary>

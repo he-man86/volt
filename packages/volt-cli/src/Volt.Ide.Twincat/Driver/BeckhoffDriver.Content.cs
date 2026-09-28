@@ -32,13 +32,13 @@ public sealed partial class BeckhoffDriver
     public ItemContent ReadContent(ItemRef item)
     {
         var declaration = _om.ReadDeclaration(item.Native);
-        var body = ReadBody(item, declaration);
+        var (body, unsupported) = ReadBody(item, declaration);
 
         var members = new List<Member>();
         foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, item))
             members.Add(ReadMember(site, declaration));
 
-        return new ItemContent(KindOf(item), declaration.TrimEnd('\n'), body, members);
+        return new ItemContent(KindOf(item), declaration.TrimEnd('\n'), body, members, unsupported);
     }
 
     /// <summary>The push PRE-FLIGHT: refuse a body this driver could not write, before anything is written.
@@ -255,36 +255,40 @@ public sealed partial class BeckhoffDriver
 
     // ── body ──────────────────────────────────────────────────────────────────────────────────────
 
-    /// <summary>An item's body as workspace text: ST verbatim, a graphical body as network text, an
-    /// unsupported language as its marker.</summary>
+    /// <summary>An item's body as workspace text: ST verbatim, a graphical body as network text, a body Volt cannot
+    /// write as its read-only line (<c>IMPLEMENTATION CFC</c>, <c>IMPLEMENTATION LD UNSUPPORTED</c>).</summary>
     /// <param name="declaration">The declarations the body resolves against, innermost first
     /// (<see cref="SourceScopes.Scope"/>) — a graphical body is written against its <see cref="NetworkScope"/>.</param>
-    private string? ReadBody(ItemRef item, string? declaration)
+    /// <returns>The body, and — for an LD/FBD body network text cannot represent — why
+    /// (<see cref="UnrepresentableBodyException.Reason"/>), for the pull to report; null for every other body.</returns>
+    private (string? Body, string? Unsupported) ReadBody(ItemRef item, string? declaration)
     {
         var raw = _om.ReadImplementation(item.Native);
-        if (string.IsNullOrWhiteSpace(raw)) return null;
+        if (string.IsNullOrWhiteSpace(raw)) return (null, null);
 
         if (TcArchive.Root(raw) is { } impl)
         {
             var language = ViewModeOf(impl);
-            if (language is null) return BodyMarker.For("IL");
+            if (language is null) return (ImplementationMarker.ReadOnly(Languages.Il), null);
 
             // AN EXECUTE BOX WHOSE ST CANNOT BE READ MAKES THE BODY UNSUPPORTED — it does not make the POU
             // DISAPPEAR. The reader refuses rather than materializing a box without the code it runs, and that
             // refusal is a THROW deep in the node walk; `Versioning.SafeVersion` isolates a throw by giving the
             // item the Unreadable sentinel — so `fetch` skipped the POU entirely and the engineer got no file at
             // all, only a count in the "N unreadable" tally. A body Volt cannot represent is exactly what the
-            // marker is for, and this file already answers CFC, SFC and IL that way: the POU appears, says what
-            // it holds, and is refused on push instead of vanishing from git.
+            // read-only line is for, and this file already answers CFC, SFC and IL that way: the POU appears, says
+            // its body is read-only, and a push that writes code under that line is refused instead of vanishing
+            // from git.
             //
             // THE TEST USED TO BE "IS THERE AN EXECUTE BOX AT ALL", and that was right only while reading one
             // was impossible. `ReadStCode` reads the snippet now (2026-09-06, from a hand-drawn XAE network),
             // and against the coarse test it could never run in production: the return above it fired first, so
-            // TwinCAT kept serving a marker where CODESYS serves network text — the same POU, two different
+            // TwinCAT kept serving a read-only body where CODESYS serves network text — the same POU, two different
             // `sourceText`s, which is exactly what the byte-identical-response rule forbids. Ask the precise
             // question instead. Creating one is still refused (`TcPlcOpenWriter`), and so is editing its ST
             // (`TcNetworkWriter`); this is the READ path, and it can now answer.
-            if (TcArchive.HasUnreadableExecuteBox(impl)) return BodyMarker.For("EXECUTE");
+            if (TcArchive.HasUnreadableExecuteBox(impl))
+                return (ImplementationMarker.Unsupported(NetworkText.Spelling(language.Value)), BoxRefusals.UnreadableExecuteMarker);
 
             // …AND THE CATCH BEHIND IT, because the pre-scan answers ONE question and the reader can refuse for
             // more than one reason. `HasUnreadableExecuteBox` asks whether a TextDocument is missing; a snippet
@@ -303,48 +307,57 @@ public sealed partial class BeckhoffDriver
             }
             catch (UnrepresentableBodyException ex)
             {
-                return BodyMarker.For(ex.Marker);
+                return Unsupported(language.Value, ex);
             }
 
             // Byte-identical with CODESYS: a fact the text has no spelling for — a negated coil, a rung driving two
-            // jumps, a connection slot the archive does not record — is a MARKER on both vendors, because the model
+            // jumps, a connection slot the archive does not record — is UNSUPPORTED on both vendors, because the model
             // is the same model (DIALECT N1) and the format is the same format. The writer raises the one exception
             // for every such fact (network text v2: pull never throws anything else).
             try
             {
-                return NetworkTextWriter.Write(model, Declarations.ScopeForPull(declaration)).TrimEnd('\n');
+                return (NetworkTextWriter.Write(model, Declarations.ScopeForPull(declaration)).TrimEnd('\n'), null);
             }
             catch (UnrepresentableBodyException ex)
             {
-                return BodyMarker.For(ex.Marker);
+                return Unsupported(language.Value, ex);
             }
         }
 
-        // CFC and SFC are graphical and unsupported: they materialize as the marker, so an engineer gets a file
-        // that says so rather than an editable-looking approximation of a diagram they would then push back.
-        var lang = GraphicalLanguageOf(raw);
-        if (lang != null) return BodyMarker.For(lang);
+        // CFC and SFC are graphical and unsupported: each is its read-only line (`IMPLEMENTATION CFC`), so an engineer
+        // gets a file that says so rather than an editable-looking approximation of a diagram they would then push back.
+        var lang = TcArchive.ReadOnlyLanguage(raw);
+        if (lang != null) return (ImplementationMarker.ReadOnly(lang), null);
 
+        // ST, in memory, carries no line — so a keyword-shaped line in its text is refused here, where the language is
+        // known, rather than read back from the file as the language it states.
         var body = raw.TrimEnd('\n');
-        return body.Length == 0 ? null : body;
+        return (body.Length == 0 ? null : ImplementationMarker.RequireStBody(body), null);
     }
+
+    /// <summary>An LD/FBD body network text cannot represent: its <c>UNSUPPORTED</c> line, and the fact it has no
+    /// spelling for as the reason the pull reports — as <c>CodesysDriver</c> answers it.</summary>
+    private static (string Body, string Unsupported) Unsupported(BodyLanguage language, UnrepresentableBodyException ex) =>
+        (ImplementationMarker.Unsupported(NetworkText.Spelling(language)), ex.Reason);
 
     /// <summary>FBD or LD, from the archive's <c>DefaultViewMode</c>. IL is the same network model in a third
     /// view; Volt does not author it, so it is refused rather than re-rendered as a diagram the engineer did
     /// not write.</summary>
     internal static BodyLanguage? ViewModeOf(XElement impl)
     {
-        // NO `?? "Fbd"`. An archive with no DefaultViewMode is a body whose view Volt cannot determine,
-        // and guessing FBD renders a ladder as a function-block diagram — the engineer's own drawing,
-        // reshaped in git by a default. CODESYS demands the member (`NwlInterop.Require`) and this now
-        // agrees: an absent view falls through to the null below, which the caller turns into the MARKER,
-        // so the POU still appears and still says what it is.
-        var mode = TcArchive.ViewMode(impl);
-        if (mode == null) return null;
+        // NO `?? "Fbd"`, AND NO NULL EITHER. An archive with no DefaultViewMode is a body whose view Volt cannot
+        // determine: guessing FBD renders a ladder as a function-block diagram, and answering null — which this did —
+        // shares IL's answer, so the body was pulled as `IMPLEMENTATION IL`, a language it is not known to have. The
+        // stated language is the one signal for how a body is read, and a missing one is refused by name. CODESYS
+        // demands the member (`NwlInterop.Require`), and this now answers the same.
+        var mode = TcArchive.ViewMode(impl)
+            ?? throw new NotSupportedException(
+                "TwinCAT: the graphical body states no DefaultViewMode, so its language (FBD, LD or IL) is unknown — " +
+                "it is refused rather than pulled under a language it was guessed to have.");
         if (mode.Equals("Ld", StringComparison.OrdinalIgnoreCase)) return BodyLanguage.Ld;
         if (mode.Equals("Fbd", StringComparison.OrdinalIgnoreCase)) return BodyLanguage.Fbd;
 
-        // NULL means "a view Volt does not author" - IL, today - and the caller turns that into the MARKER,
+        // NULL means "a view Volt does not author" - IL - and the caller states it as `IMPLEMENTATION IL`,
         // exactly as CODESYS does. Throwing here instead took the WHOLE ENCLOSING POU out of git: SafeVersion
         // swallows the throw to UNREADABLE and FetchService then skips the item, so one IL-view METHOD inside an
         // ordinary ST function block removed the declaration, the body and every sibling method too - and
@@ -356,21 +369,7 @@ public sealed partial class BeckhoffDriver
 
         throw new NotSupportedException(
             $"TwinCAT: the graphical body's view mode is '{mode}', which Volt has never seen. FBD and LD are " +
-            "authored, IL materializes as a marker - an unknown fourth view is refused rather than guessed at.");
-    }
-
-    /// <summary>The wrapper element of a non-NWL graphical body — <c>&lt;CFC&gt;</c>, <c>&lt;SFC&gt;</c> — or
-    /// null when the body is textual (ST is not XML at all).</summary>
-    private static string? GraphicalLanguageOf(string raw)
-    {
-        XElement el;
-        try { el = XElement.Parse(raw); } catch { return null; }
-        return el.Name.LocalName switch
-        {
-            "CFC" => "CFC",
-            "SFC" => "SFC",
-            _ => null,
-        };
+            "authored, IL is read-only (IMPLEMENTATION IL) - an unknown fourth view is refused rather than guessed at.");
     }
 
     private void WriteOne(ItemRef item, string kind, string? declaration, string? body,
@@ -397,13 +396,13 @@ public sealed partial class BeckhoffDriver
             return;
         }
 
-        // A marker is informational and is never written back over a live CFC/SFC body.
+        // A read-only body (its IMPLEMENTATION CFC / LD UNSUPPORTED line) is never written back over the live one.
         // And NULL for a kind with no implementation slot: a DUT, a GVL and an interface do not have one, and
         // TwinCAT's COM object does not expose the member at all — writing to it throws
         // "'System.__ComObject' does not contain a definition for 'ImplementationText'". PushService used to
         // make this decision from the item's kind code; it moved here with the rest of the write.
         _om.WriteText(item.Native, declaration,
-                      HasBodySlot(kind) && !BodyMarker.Is(body) ? body : null);
+                      HasBodySlot(kind) && !ImplementationMarker.IsReadOnlyBody(body) ? body : null);
     }
 
     /// <summary>THE ONE PLACE that decides what a graphical body becomes: a freshly BUILT archive when the item
@@ -634,13 +633,15 @@ public sealed partial class BeckhoffDriver
             }
         }
 
-        return new Member(kind, site.Name, declaration, ReadBody(site.Ref, scope), site.Folder, getter, setter);
+        var (body, unsupported) = ReadBody(site.Ref, scope);
+        return new Member(kind, site.Name, declaration, body, site.Folder, getter, setter, Unsupported: unsupported);
     }
 
     private Accessor ReadAccessor(ItemRef acc, string? propertyScope)
     {
         var declaration = AccessorDeclaration.Keep(_om.ReadDeclaration(acc.Native));
-        return new Accessor(declaration, ReadBody(acc, SourceScopes.Scope(declaration, propertyScope)));
+        var (body, unsupported) = ReadBody(acc, SourceScopes.Scope(declaration, propertyScope));
+        return new Accessor(declaration, body, unsupported);
     }
 
     /// <summary>Another top-level item's declaration, by name — the vendor half of

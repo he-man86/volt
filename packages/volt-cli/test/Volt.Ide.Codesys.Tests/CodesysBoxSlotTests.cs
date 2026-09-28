@@ -35,7 +35,7 @@ public class CodesysBoxSlotTests
             InputParams = new Nwl.ParamList { Names = new[] { "IN", "PT" }, Types = new[] { "BOOL", "TIME" } },
         });
 
-        Assert.Equal(BoxRefusals.NullInputSlotMarker, ex.Marker);
+        Assert.Equal(BoxRefusals.NullInputSlotMarker, ex.Reason);
         Assert.Contains("'TON'", ex.Message);
     }
 
@@ -53,7 +53,7 @@ public class CodesysBoxSlotTests
         };
 
         var ex = Refused(box);
-        Assert.Equal(BoxRefusals.MissingListMarker, ex.Marker);
+        Assert.Equal(BoxRefusals.MissingListMarker, ex.Reason);
         Assert.Contains("Outputs", ex.Message);
     }
 
@@ -75,7 +75,7 @@ public class CodesysBoxSlotTests
         else box.OutputParams = null;
 
         var ex = Refused(box);
-        Assert.Equal(BoxRefusals.MissingListMarker, ex.Marker);
+        Assert.Equal(BoxRefusals.MissingListMarker, ex.Reason);
         Assert.Contains(member, ex.Message);
     }
 

@@ -177,7 +177,7 @@ public class NetworkTextWriterTests
     /// <summary>Spec, "a backtick in operand text": the marker, and no other exception.</summary>
     [Fact]
     public void Operand_text_holding_a_backtick_goes_to_the_marker() =>
-        Assert.Equal("operand text containing a backtick", Refused(() => Write(Set(L("a`b"), T("out")))).Marker);
+        Assert.Equal("operand text containing a backtick", Refused(() => Write(Set(L("a`b"), T("out")))).Reason);
 
     // ── IFlags on a value: NOT, R_EDGE, F_EDGE ──────────────────────────────────────────────────
 
@@ -243,7 +243,7 @@ public class NetworkTextWriterTests
     [Fact]
     public void Rising_and_falling_on_one_operand_goes_to_the_marker() =>
         Assert.Equal("rising and falling on one operand",
-            Refused(() => Write(Set(L("x", Rise with { Falling = true }), T("out")))).Marker);
+            Refused(() => Write(Set(L("x", Rise with { Falling = true }), T("out")))).Reason);
 
     // ── flags with no spelling in this phase ────────────────────────────────────────────────────
 
@@ -253,20 +253,20 @@ public class NetworkTextWriterTests
     public void A_flag_on_a_box_input_pin_goes_to_the_marker()
     {
         var box = Call("f", new[] { new Input("IN1", L("x"), Neg) });
-        Assert.Equal("a flag on a box input pin", Refused(() => Write(box)).Marker);
+        Assert.Equal("a flag on a box input pin", Refused(() => Write(box)).Reason);
     }
 
     /// <summary>Census 1.1: no item-level flag on an Assign item; none has a position. (A Demux item cannot carry one
     /// at all — DIALECT N20, <see cref="A_wire_or_a_Parallel_cannot_carry_a_flag"/>.)</summary>
     [Fact]
     public void A_flag_on_an_Assign_item_goes_to_the_marker() =>
-        Assert.Equal("a flag on an Assign item", Refused(() => Write(new Assign(L("a"), new[] { T("out") }, Neg))).Marker);
+        Assert.Equal("a flag on an Assign item", Refused(() => Write(new Assign(L("a"), new[] { T("out") }, Neg))).Reason);
 
     /// <summary>Page, "Empty slots": a flag on an empty slot has no spelling.</summary>
     [Fact]
     public void A_flag_on_an_empty_slot_goes_to_the_marker() =>
         Assert.Equal("a flag on an empty slot",
-            Refused(() => Write(Call("f", new[] { In(new Terminator(Neg)), In(L("a")) }))).Marker);
+            Refused(() => Write(Call("f", new[] { In(new Terminator(Neg)), In(L("a")) }))).Reason);
 
     // ── BoxTreeBox: calls, instances, ??? ───────────────────────────────────────────────────────
 
@@ -359,12 +359,12 @@ public class NetworkTextWriterTests
     public void A_connection_by_neither_the_main_output_nor_ENO_goes_to_the_marker()
     {
         Assert.Equal("a connection by an unspellable output slot",
-            Refused(() => Write(Set(Call("f", new[] { In(L("src")) }, main: 0, connected: 1, eno: false), T("out")))).Marker);
+            Refused(() => Write(Set(Call("f", new[] { In(L("src")) }, main: 0, connected: 1, eno: false), T("out")))).Reason);
         // A box with an ENO output is connected by its main output, and that IS its ENO (census 1.6, DIALECT N16):
         // a consumer on another slot has no spelling. (This was "an enabled box connected by a slot other than ENO",
         // keyed on EN — which 1.6 measured independent of ENO.)
         Assert.Equal("a connection by an unspellable output slot",
-            Refused(() => Write(Set(Call("MOVE", new[] { In(L("0")) }, en: L("c"), main: 1, connected: 1, eno: true), T("out")))).Marker);
+            Refused(() => Write(Set(Call("MOVE", new[] { In(L("0")) }, en: L("c"), main: 1, connected: 1, eno: true), T("out")))).Reason);
     }
 
     // ── the slot rule keys ENO on the ENO OUTPUT, not on EN (task 2.5, census 1.6) ─────────────────────
@@ -417,13 +417,13 @@ public class NetworkTextWriterTests
     public void ENO_is_never_an_output_pin()
     {
         Assert.Equal("an ENO output pin",
-            Refused(() => Write(Call("MOVE", new[] { In(L("0")) }, new[] { Out("lamp", null, "ENO") }, en: L("c"), eno: true))).Marker);
+            Refused(() => Write(Call("MOVE", new[] { In(L("0")) }, new[] { Out("lamp", null, "ENO") }, en: L("c"), eno: true))).Reason);
         var r = NetworkTextGate.Validate(Body("MOVE(EN := c, 0, ENO => lamp);"), NetworkScope.Empty);
         Assert.Equal("NETWORK_BAD_EXPRESSION", Assert.Single(r.Diagnostics).Code);
         Assert.Equal(Body("MOVE(EN := c, 0, => Status);"),
             Write(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 1) }, en: L("c"), eno: true)));
         Assert.Equal("a connection by an unspellable output slot",
-            Refused(() => Write(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 0) }, en: L("c"), eno: true))).Marker);
+            Refused(() => Write(Call("MOVE", new[] { In(L("0")) }, new[] { Out("Status", 0) }, en: L("c"), eno: true))).Reason);
     }
 
     /// <summary>Where the ENO decides the text and the model does not say, it has no spelling: a consumed box's
@@ -432,13 +432,13 @@ public class NetworkTextWriterTests
     public void A_box_whose_ENO_output_was_not_read_goes_to_the_marker()
     {
         Assert.Equal("a box whose ENO output was not read",
-            Refused(() => Write(Set(Call("f", new[] { In(L("src")) }, connected: 0), T("out")))).Marker);
+            Refused(() => Write(Set(Call("f", new[] { In(L("src")) }, connected: 0), T("out")))).Reason);
         Assert.Equal("a box whose ENO output was not read",
-            Refused(() => Write(Call("MOVE", new[] { In(L("src")) }, new[] { Out("dst", 1) }, en: L("c")))).Marker);
+            Refused(() => Write(Call("MOVE", new[] { In(L("src")) }, new[] { Out("dst", 1) }, en: L("c")))).Reason);
         // …named for the missing fact even where the suffix is decided first: with ENO read (true) this box is
         // `lamp := MOVE(EN := c, 0).ENO;` — spellable — so "an unspellable slot" would be the wrong reason.
         Assert.Equal("a box whose ENO output was not read",
-            Refused(() => Write(Set(Call("MOVE", new[] { In(L("0")) }, en: L("c"), main: null, connected: 0), T("lamp")))).Marker);
+            Refused(() => Write(Set(Call("MOVE", new[] { In(L("0")) }, en: L("c"), main: null, connected: 0), T("lamp")))).Reason);
         // …and where it decides nothing, it is not asked: a top-level box with no positional pin.
         Assert.Equal(Body("MOVE(EN := a, b);"), Write(Call("MOVE", new[] { In(L("b")) }, en: L("a"))));
     }
@@ -451,15 +451,15 @@ public class NetworkTextWriterTests
     public void A_top_level_box_whose_ENO_the_text_would_misread_goes_to_the_marker()
     {
         Assert.Equal("an ENO output the text reads otherwise",
-            Refused(() => Write(Call("GT", new[] { In(L("a")), In(L("b")) }, new[] { Out("x", 0) }, en: L("c"), eno: false))).Marker);
+            Refused(() => Write(Call("GT", new[] { In(L("a")), In(L("b")) }, new[] { Out("x", 0) }, en: L("c"), eno: false))).Reason);
         Assert.Equal("an ENO output the text reads otherwise",
-            Refused(() => Write(Call("Dryer", new[] { In(L("a")) }, new[] { Out("speed", 1) }, eno: true))).Marker);
+            Refused(() => Write(Call("Dryer", new[] { In(L("a")) }, new[] { Out("speed", 1) }, eno: true))).Reason);
     }
 
     [Fact]
     public void An_unnamed_output_with_no_stored_slot_goes_to_the_marker() =>
         Assert.Equal("an output pin with no stored slot",
-            Refused(() => Write(Call("MOVE", new[] { In(L("src")) }, new[] { Out("dst", null) }, eno: false))).Marker);
+            Refused(() => Write(Call("MOVE", new[] { In(L("src")) }, new[] { Out("dst", null) }, eno: false))).Reason);
 
     // ── empty slots ─────────────────────────────────────────────────────────────────────────────
 
@@ -479,7 +479,7 @@ public class NetworkTextWriterTests
     [Fact]
     public void A_lone_unwired_slot_without_a_formal_goes_to_the_marker() =>
         Assert.Equal("a lone unconnected input slot with no formal",
-            Refused(() => Write(Call("MOVE", new[] { In(Empty) }))).Marker);
+            Refused(() => Write(Call("MOVE", new[] { In(Empty) }))).Reason);
 
     // ── EXECUTE ─────────────────────────────────────────────────────────────────────────────────
 
@@ -509,7 +509,7 @@ public class NetworkTextWriterTests
     public void A_snippet_line_starting_END_EXECUTE_goes_to_the_marker_and_one_starting_Network_does_not()
     {
         Assert.Equal("a snippet line starting with END_EXECUTE",
-            Refused(() => Write(Exec("x := 1;\n  END_EXECUTE y", L("bRun")))).Marker);
+            Refused(() => Write(Exec("x := 1;\n  END_EXECUTE y", L("bRun")))).Reason);
         Assert.Equal(Fbd + "NETWORK\n  EXECUTE\nNetworkState := 1;\n  END_EXECUTE;\nEND_NETWORK\n",
             Write(Exec("NetworkState := 1;")));
     }
@@ -531,9 +531,9 @@ public class NetworkTextWriterTests
     [Fact]
     public void Negated_and_edge_coils_go_to_the_marker()
     {
-        Assert.Equal("negated coil", Refused(() => Write(Set(L("a"), T("out", Neg)))).Marker);
-        Assert.Equal("rising-edge coil", Refused(() => Write(Set(L("a"), T("out", Rise)))).Marker);
-        Assert.Equal("falling-edge coil", Refused(() => Write(Set(L("a"), T("out", Fall)))).Marker);
+        Assert.Equal("negated coil", Refused(() => Write(Set(L("a"), T("out", Neg)))).Reason);
+        Assert.Equal("rising-edge coil", Refused(() => Write(Set(L("a"), T("out", Rise)))).Reason);
+        Assert.Equal("falling-edge coil", Refused(() => Write(Set(L("a"), T("out", Fall)))).Reason);
     }
 
     // ── Jump and Return ─────────────────────────────────────────────────────────────────────────
@@ -569,9 +569,9 @@ public class NetworkTextWriterTests
     {
         var jumpBit = Flags.None with { Jump = true };
         Assert.Equal("a rung driving several jumps",
-            Refused(() => Write(new Assign(L("a"), new[] { T("A", jumpBit), T("B", jumpBit) }, jumpBit))).Marker);
+            Refused(() => Write(new Assign(L("a"), new[] { T("A", jumpBit), T("B", jumpBit) }, jumpBit))).Reason);
         Assert.Equal("a rung driving a coil and a jump together",
-            Refused(() => Write(new Assign(L("a"), new[] { T("A", jumpBit), T("out") }, Flags.None))).Marker);
+            Refused(() => Write(new Assign(L("a"), new[] { T("A", jumpBit), T("out") }, Flags.None))).Reason);
     }
 
     /// <summary>Found by the model oracle (the return coil of v1's coil fixtures): RETURN takes no target, so a
@@ -582,7 +582,7 @@ public class NetworkTextWriterTests
     {
         var returnBit = Flags.None with { Return = true };
         Assert.Equal("a return with a named target",
-            Refused(() => Write(new Assign(L("a"), new[] { T("out", returnBit) }, Flags.None))).Marker);
+            Refused(() => Write(new Assign(L("a"), new[] { T("out", returnBit) }, Flags.None))).Reason);
     }
 
     // ── BoxTreeDemux: the VAR_TEMP wire ─────────────────────────────────────────────────────────
@@ -631,10 +631,10 @@ public class NetworkTextWriterTests
                 Set(Call("LT", new[] { In(Ref(1)), In(L("d")) }, connected: 0, eno: false), T("o2")))));
 
         var untyped = Call("ADD", new[] { In(L("a"), "X"), In(L("b")) }, connected: 0, eno: false);
-        Assert.Equal("a wire of unknown type", Refused(() => Write(Net(Def(1, untyped), Set(Ref(1), T("o"))))).Marker);
+        Assert.Equal("a wire of unknown type", Refused(() => Write(Net(Def(1, untyped), Set(Ref(1), T("o"))))).Reason);
 
         // An FBD leaf that is not TRUE/FALSE says nothing about its type; the same leaf in LD is a contact.
-        Assert.Equal("a wire of unknown type", Refused(() => Write(Net(Def(1, L("x")), Set(Ref(1), T("o"))))).Marker);
+        Assert.Equal("a wire of unknown type", Refused(() => Write(Net(Def(1, L("x")), Set(Ref(1), T("o"))))).Reason);
         Assert.Equal(Ld + "NETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := x;\n  o := g1;\nEND_NETWORK\n",
             Write(Net(Def(1, L("x")), Set(Ref(1), T("o"))), BodyLanguage.Ld));
     }
@@ -677,9 +677,9 @@ public class NetworkTextWriterTests
     public void The_writer_never_reorders_and_never_nests_a_definition()
     {
         Assert.Equal("a wire referenced before its definition",
-            Refused(() => Write(Net(Set(Ref(1), T("out")), Def(1, L("TRUE"))))).Marker);
+            Refused(() => Write(Net(Set(Ref(1), T("out")), Def(1, L("TRUE"))))).Reason);
         Assert.Equal("a Demux definition below the top level",
-            Refused(() => Write(Set(Op("AND", Def(1, L("TRUE")), L("a")), T("out")))).Marker);
+            Refused(() => Write(Set(Op("AND", Def(1, L("TRUE")), L("a")), T("out")))).Reason);
     }
 
     // ── BoxTreeParallel ─────────────────────────────────────────────────────────────────────────
@@ -698,7 +698,7 @@ public class NetworkTextWriterTests
         // Census 1.2: the unfed Parallel is the null feed (5 of 17); a feed that is the empty terminator occurs in
         // no project, so it has no spelling of its own and goes to the marker.
         Assert.Equal("a Parallel fed by the empty terminator",
-            Refused(() => Write(Set(new Parallel(Empty, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), T("out")))).Marker);
+            Refused(() => Write(Set(new Parallel(Empty, new Node[] { L("a"), L("b") }, ParallelMode.BoxShortCircuit), T("out")))).Reason);
         Assert.Equal(Body("out := PARALLEL(MODE := Sequential, IN := f, a, b);"),
             Write(Set(new Parallel(L("f"), new Node[] { L("a"), L("b") }, ParallelMode.Sequential), T("out"))));
     }
@@ -713,8 +713,8 @@ public class NetworkTextWriterTests
     [Fact]
     public void A_function_or_instance_named_like_an_edge_word_goes_to_the_marker()
     {
-        Assert.Equal("a POU or instance named R_EDGE", Refused(() => Write(Call("R_EDGE", new[] { In(L("x")) }))).Marker);
-        Assert.Equal("a POU or instance named PARALLEL", Refused(() => Write(Fb("parallel", new[] { In(L("x"), "IN") }))).Marker);
+        Assert.Equal("a POU or instance named R_EDGE", Refused(() => Write(Call("R_EDGE", new[] { In(L("x")) }))).Reason);
+        Assert.Equal("a POU or instance named PARALLEL", Refused(() => Write(Fb("parallel", new[] { In(L("x"), "IN") }))).Reason);
     }
     // ── review 2026-09-26: facts the text cannot carry are refused by name, never dropped ──────
 
@@ -726,11 +726,11 @@ public class NetworkTextWriterTests
         var jump = Flags.None with { Jump = true };
         var ret = Flags.None with { Return = true };
         Assert.Equal("a flag on a jump or return target",
-            Refused(() => Write(new Assign(L("c"), new[] { T("Done", jump with { Negated = true }) }, jump))).Marker);
+            Refused(() => Write(new Assign(L("c"), new[] { T("Done", jump with { Negated = true }) }, jump))).Reason);
         Assert.Equal("a flag on a jump or return target",
-            Refused(() => Write(new Assign(L("c"), new[] { T("???", ret with { Set = true }) }, ret))).Marker);
+            Refused(() => Write(new Assign(L("c"), new[] { T("???", ret with { Set = true }) }, ret))).Reason);
         Assert.Equal("a flag on a jump or return target",
-            Refused(() => Write(new Assign(L("c"), new[] { T("Done", jump with { Rising = true }) }, jump))).Marker);
+            Refused(() => Write(new Assign(L("c"), new[] { T("Done", jump with { Rising = true }) }, jump))).Reason);
     }
 
     /// <summary>A coil is ONE of <c>:=</c>, <c>S=</c>, <c>R=</c>; a target carrying both Set and Reset has no
@@ -738,7 +738,7 @@ public class NetworkTextWriterTests
     [Fact]
     public void A_coil_both_set_and_reset_goes_to_the_marker() =>
         Assert.Equal("a coil both set and reset",
-            Refused(() => Write(Set(L("a"), T("x", Flags.None with { Set = true, Reset = true })))).Marker);
+            Refused(() => Write(Set(L("a"), T("x", Flags.None with { Set = true, Reset = true })))).Reason);
 
     /// <summary>Spec, "EN is a pin …": a consumed box connected by its main output has no suffix, and the text
     /// reads that main output as slot 0 (spec, "err reads back on slot 1"). A box whose main output is stored as
@@ -748,9 +748,9 @@ public class NetworkTextWriterTests
     public void A_consumed_box_whose_main_output_the_text_would_misread_goes_to_the_marker()
     {
         Assert.Equal("a main output other than slot 0",
-            Refused(() => Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 0) }, main: 1, connected: 1, eno: false), T("out")))).Marker);
+            Refused(() => Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 0) }, main: 1, connected: 1, eno: false), T("out")))).Reason);
         Assert.Equal("a consumed box with no stored connection slot",
-            Refused(() => Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 1) }, main: null, connected: null, eno: false), T("out")))).Marker);
+            Refused(() => Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 1) }, main: null, connected: null, eno: false), T("out")))).Reason);
         // Slot 0 as main output is the text's own reading: written, and x keeps slot 1.
         Assert.Equal(Body("out := FC(src, => x);"),
             Write(Set(Call("FC", new[] { In(L("src")) }, new[] { Out("x", 1) }, main: 0, connected: 0, eno: false), T("out"))));
@@ -778,16 +778,16 @@ public class NetworkTextWriterTests
             instance: new Operand("SUPER^", IsInstance: true), kind: CallKind.FunctionBlock);
         Assert.Equal("an FB instance the declarations do not name",
             Refused(() => NetworkTextWriter.Write(new NetworkBody(BodyLanguage.Fbd, new[] { Net(super) }),
-                new NetworkScope(new[] { "ioAxis" }, Array.Empty<string>(), new Dictionary<string, string>()))).Marker);
+                new NetworkScope(new[] { "ioAxis" }, Array.Empty<string>(), new Dictionary<string, string>()))).Reason);
         var path = Call("TON", new[] { In(L("a"), "IN") }, main: null,
             instance: new Operand("st.fbT", IsInstance: true), kind: CallKind.FunctionBlock);
         Assert.Equal("an FB instance the declarations do not name",
             Refused(() => NetworkTextWriter.Write(new NetworkBody(BodyLanguage.Fbd, new[] { Net(path) }),
-                new NetworkScope(new[] { "st", "a" }, Array.Empty<string>(), new Dictionary<string, string>()))).Marker);
+                new NetworkScope(new[] { "st", "a" }, Array.Empty<string>(), new Dictionary<string, string>()))).Reason);
         // Declared with another type: the reader would take the declaration's.
         Assert.Equal("an FB instance declared with another type",
             Refused(() => NetworkTextWriter.Write(new NetworkBody(BodyLanguage.Fbd, new[] { Net(Fb("t1", new[] { In(L("a"), "IN") }, type: "TON")) }),
-                new NetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["t1"] = "TOF" }))).Marker);
+                new NetworkScope(Array.Empty<string>(), Array.Empty<string>(), new Dictionary<string, string> { ["t1"] = "TOF" }))).Reason);
     }
 
     /// <summary>The vendor's stored output type is the wire's type: a bitwise AND on WORDs feeding a wire is a
@@ -806,7 +806,7 @@ public class NetworkTextWriterTests
         Assert.Equal("a wire of unknown type",
             Refused(() => Write(Net(Def(1, L("nSpeed")),
                 Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("nOut", 0) }, eno: false),
-                Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("y", 0) }, eno: false)), BodyLanguage.Ld)).Marker);
+                Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("y", 0) }, eno: false)), BodyLanguage.Ld)).Reason);
 
     /// <summary>…and on an ENABLED box too: the enable is a BOOL and the pins are not, which the record keeps apart. A
     /// leaf wire read only by the data pins of enabled MOVEs is a data value; a walk that counted position over the
@@ -816,7 +816,7 @@ public class NetworkTextWriterTests
         Assert.Equal("a wire of unknown type",
             Refused(() => Write(Net(Def(1, L("nSpeed")),
                 Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("y", 1) }, en: L("x"), eno: true),
-                Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("z", 1) }, en: L("x"), eno: true)), BodyLanguage.Ld)).Marker);
+                Call("MOVE", new[] { In(Ref(1)) }, new[] { Out("z", 1) }, en: L("x"), eno: true)), BodyLanguage.Ld)).Reason);
 
     /// <summary>A head is the BoxType verbatim: an operator type not spelled as the table's own word (<c>and</c>)
     /// is written in call form with that spelling, never as the infix group that reads back as <c>AND</c>.</summary>
@@ -832,7 +832,7 @@ public class NetworkTextWriterTests
     {
         Assert.Equal(Fbd + "NETWORK\n  EXECUTE\nx := 1;\n\n  END_EXECUTE;\nEND_NETWORK\n", Write(Exec("x := 1;\n")));
         Assert.Equal(Fbd + "NETWORK\n  EXECUTE\nx := 1;\ny := 2;\n\n  END_EXECUTE;\nEND_NETWORK\n", Write(Exec("x := 1;\r\ny := 2;\r\n")));
-        Assert.Equal("a snippet line ending in a carriage return", Refused(() => Write(Exec("x := 1;\r"))).Marker);
+        Assert.Equal("a snippet line ending in a carriage return", Refused(() => Write(Exec("x := 1;\r"))).Reason);
     }
 
     /// <summary>A comment is text: only the CR of a CR LF line ending is layout, and a CR the reader would read
@@ -843,7 +843,7 @@ public class NetworkTextWriterTests
         Assert.Equal(Fbd + "NETWORK\n  // line1\n  // line2\n  ;\nEND_NETWORK\n",
             Write(new Network(0, null, null, "line1\r\nline2", false, new Node[] { Empty })));
         Assert.Equal("a comment line ending in a carriage return",
-            Refused(() => Write(new Network(0, null, null, "line1\r", false, new Node[] { Empty }))).Marker);
+            Refused(() => Write(new Network(0, null, null, "line1\r", false, new Node[] { Empty }))).Reason);
     }
 
     /// <summary>A name the reader takes for a v1 <c>LET</c> statement is backticked like every other word of the text.</summary>
@@ -894,10 +894,10 @@ public class NetworkTextWriterTests
     public void A_lone_CR_inside_a_comment_or_snippet_line_goes_to_the_marker()
     {
         Assert.Equal("a comment line ending in a carriage return",
-            Refused(() => Write(new Network(0, null, null, "step 1\rout := x;", false, new Node[] { Set(L("a"), T("o")) }))).Marker);
+            Refused(() => Write(new Network(0, null, null, "step 1\rout := x;", false, new Node[] { Set(L("a"), T("o")) }))).Reason);
         Assert.Equal("a comment line ending in a carriage return",
-            Refused(() => Write(new Network(0, null, null, "line1\r\r\nline2", false, new Node[] { Empty }))).Marker);
-        Assert.Equal("a snippet line ending in a carriage return", Refused(() => Write(Exec("x := 1;\ry := 2;"))).Marker);
+            Refused(() => Write(new Network(0, null, null, "line1\r\r\nline2", false, new Node[] { Empty }))).Reason);
+        Assert.Equal("a snippet line ending in a carriage return", Refused(() => Write(Exec("x := 1;\ry := 2;"))).Reason);
     }
 
     /// <summary>A consumed box that is no bit operator is read back connected by its main output, slot 0 — so where
@@ -907,5 +907,5 @@ public class NetworkTextWriterTests
     [Fact]
     public void A_consumed_box_whose_main_output_was_not_read_goes_to_the_marker() =>
         Assert.Equal("a consumed box whose main output was not read",
-            Refused(() => Write(Set(Call("MOVE", new[] { In(L("a")) }, main: null, connected: 0, eno: false), T("out")))).Marker);
+            Refused(() => Write(Set(Call("MOVE", new[] { In(L("a")) }, main: null, connected: 0, eno: false), T("out")))).Reason);
 }

@@ -458,12 +458,36 @@ window.VOLT = {
             },
             "version": {
               "type": "string"
+            },
+            "unsupported": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/UnsupportedBody"
+              }
             }
           },
           "required": [
             "name",
             "sourceText",
             "version"
+          ]
+        },
+        "UnsupportedBody": {
+          "type": "object",
+          "properties": {
+            "member": {
+              "type": "string"
+            },
+            "language": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "language",
+            "reason"
           ]
         },
         "PushRequest": {

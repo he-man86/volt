@@ -49,7 +49,7 @@ public class TcPinFlagTests
         impl.Descendants("n").First(n => (string?)n.Attribute("n") == "InputFlags").Remove();
 
         var ex = Assert.Throws<UnrepresentableBodyException>(() => TcNetworkReader.Read(impl, BodyLanguage.Fbd));
-        Assert.Equal("a flag on a box input pin", ex.Marker);
+        Assert.Equal("a flag on a box input pin", ex.Reason);
         Assert.Contains("InputFlags", ex.Message);
     }
 
@@ -57,7 +57,7 @@ public class TcPinFlagTests
     public void A_populated_InputFlags_is_refused_by_name_not_dropped()
     {
         var ex = Assert.Throws<UnrepresentableBodyException>(() => TcNetworkReader.Read(Impl(populated: true), BodyLanguage.Fbd));
-        Assert.Equal("a flag on a box input pin", ex.Marker);
+        Assert.Equal("a flag on a box input pin", ex.Reason);
         Assert.Contains("InputFlags", ex.Message);
     }
 }

@@ -54,6 +54,26 @@ public class InitCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(parent); }
     }
 
+    /// <summary>The seed is a pull like any other: every body it brings in as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> is
+    /// named, with its reason, in what init reports.</summary>
+    [Fact]
+    public void Init_names_every_UNSUPPORTED_body_and_its_reason()
+    {
+        var (host, client) = HostFor(ConnectedIde(
+            new FakeIde.Item("FB_Motor", Volt.Engine.Item.ItemKind.PlcPouFb, "", true, "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR",
+                             "", "FBD", null, Unsupported: "a flag on a box input pin")), out _);
+        var parent = Directory.CreateTempSubdirectory("volt-init-").FullName;
+        try
+        {
+            var r = Commands.Init(parent, client);
+
+            Assert.Equal("ok", r.Kind);
+            Assert.Contains("FB_Motor.fb", r.Note ?? "");
+            Assert.Contains("a flag on a box input pin", r.Note ?? "");
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(parent); }
+    }
+
     [Fact]
     public void Rebind_repoints_the_binding_without_touching_content()
     {

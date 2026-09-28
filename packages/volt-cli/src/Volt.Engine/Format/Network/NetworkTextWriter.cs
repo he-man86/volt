@@ -800,8 +800,8 @@ public static class NetworkTextWriter
 }
 
 /// <summary>
-/// The v2 writer's one refusal: the fact it has no spelling for (<see cref="Body.UnrepresentableBodyException.Marker"/>,
-/// the reason a pull materializes the marker for) and WHERE it met it. A pull only needs the reason; a push needs
+/// The v2 writer's one refusal: the fact it has no spelling for (<see cref="Body.UnrepresentableBodyException.Reason"/>,
+/// the reason a pull reports for its UNSUPPORTED body) and WHERE it met it. A pull only needs the reason; a push needs
 /// the place too, because there the model came from the engineer's text and the finding belongs at the construct
 /// that holds the fact — so the writer records the innermost node it was writing and the network it was in.
 /// </summary>
@@ -809,10 +809,10 @@ public sealed class NetworkUnrepresentableException : Body.UnrepresentableBodyEx
 {
     internal NetworkUnrepresentableException(string reason, string detail)
         : base(reason, "network text has no spelling for " + reason + ": " + detail +
-                       " Volt materializes the body as a marker rather than write it without that fact.")
+                       " Volt pulls the body as IMPLEMENTATION LD|FBD UNSUPPORTED rather than write it without that fact.")
         => Detail = detail;
 
-    /// <summary>What was found, without the pull's "materializes a marker" consequence.</summary>
+    /// <summary>What was found, without the pull's "pulls it UNSUPPORTED" consequence.</summary>
     public string Detail { get; }
 
     /// <summary>The innermost model node being written when the fact was met; null for a network's own field.</summary>

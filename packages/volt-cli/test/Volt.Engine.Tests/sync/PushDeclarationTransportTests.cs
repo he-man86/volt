@@ -3,6 +3,7 @@ using Xunit;
 using Volt.Contracts;
 using Volt.Engine.Item;
 using Volt.Engine.Format.Body;
+using Volt.Engine.Format.St;
 using Volt.Engine.Sync;
 
 namespace Volt.Engine.Tests;
@@ -58,9 +59,10 @@ public class PushDeclarationTransportTests
         terminator is null ? decl + "\n" : decl + "\n" + Stated(body) + "\n\n" + terminator + "\n";
 
     /// <summary>A body under the line that states it, as the pull writes it: ST under <c>IMPLEMENTATION ST</c>, and a
-    /// body Volt cannot write as its marker line ALONE — the marker is that body's statement, and a keyword line above
-    /// it would claim a language Volt reads.</summary>
-    private static string Stated(string body) => BodyMarker.Is(body) ? body : "IMPLEMENTATION ST\n" + body;
+    /// body Volt cannot write as its read-only keyword line ALONE — that line is the body's statement, and an
+    /// <c>IMPLEMENTATION ST</c> above it would claim a language Volt reads.</summary>
+    private static string Stated(string body) =>
+        ImplementationMarker.IsReadOnlyBody(body) ? body : "IMPLEMENTATION ST\n" + body;
 
     /// <summary>The same declaration with one variable added — the ONLY difference in the push.</summary>
     private static string PlusOneVar(string decl) =>
@@ -105,7 +107,7 @@ public class PushDeclarationTransportTests
         const string decl = "FUNCTION_BLOCK K\nVAR\nEND_VAR";
         var ide = new FakeIde(new FakeIde.Item("K", ItemKind.PlcPouFb, "", true, decl, "", language, null));
 
-        Push(ide, "K.fb", Source(PlusOneVar(decl), BodyMarker.For(language), "END_FUNCTION_BLOCK"));
+        Push(ide, "K.fb", Source(PlusOneVar(decl), ImplementationMarker.ReadOnly(language), "END_FUNCTION_BLOCK"));
 
         Assert.Contains("vltAdded", ide.WrittenContent["K"].Declaration);
     }

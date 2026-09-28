@@ -54,7 +54,7 @@ internal static class NetworkModelOracle
         }
         catch (UnrepresentableBodyException e)
         {
-            return new Outcome(source, m.Networks.Count, e.Marker);
+            return new Outcome(source, m.Networks.Count, e.Reason);
         }
         catch (Exception e)
         {

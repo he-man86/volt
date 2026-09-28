@@ -46,7 +46,7 @@ public class JumpDestinationTests
 
         var ex = Assert.Throws<NetworkUnrepresentableException>(() => NetworkTextWriter.Write(body, NetworkScope.Empty));
 
-        Assert.Equal("a rung driving a coil and a jump together", ex.Marker);
+        Assert.Equal("a rung driving a coil and a jump together", ex.Reason);
         Assert.IsAssignableFrom<UnrepresentableBodyException>(ex);   // the one exception a pull turns into the marker
     }
 

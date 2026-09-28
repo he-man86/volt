@@ -338,7 +338,7 @@ public class TcStructuralEditTests
         bits.Value = (TcArchive.FlagNegation | edge).ToString();
 
         var ex = Assert.Throws<UnrepresentableBodyException>(() => TcNetworkReader.Read(impl, BodyLanguage.Ld));
-        Assert.Equal("a negation with an edge", ex.Marker);
+        Assert.Equal("a negation with an edge", ex.Reason);
         Assert.Contains("xtest", ex.Message);
     }
 
@@ -355,7 +355,7 @@ public class TcStructuralEditTests
             .Single(v => (string?)v.Attribute("n") == "Flags").Value = (TcArchive.FlagNegation | edge).ToString();
 
         var ex = Assert.Throws<UnrepresentableBodyException>(() => TcNetworkReader.Read(impl, BodyLanguage.Ld));
-        Assert.Equal("a negation with an edge", ex.Marker);
+        Assert.Equal("a negation with an edge", ex.Reason);
         Assert.Contains("the 'OR' box", ex.Message);
     }
 

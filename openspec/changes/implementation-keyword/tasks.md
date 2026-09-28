@@ -59,16 +59,39 @@ the **spec** and **layering** lenses.
 
 The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comment survives in a workspace file.
 
-- [ ] 2b.1 Red first: a CFC/SFC/IL body pulls as `IMPLEMENTATION CFC|SFC|IL` with an empty body; an LD/FBD body
+- [x] 2b.1 Red first: a CFC/SFC/IL body pulls as `IMPLEMENTATION CFC|SFC|IL` with an empty body; an LD/FBD body
       network text cannot represent pulls as `IMPLEMENTATION LD|FBD UNSUPPORTED` with an empty body and the reason in
       the pull message (naming the item); each pushes back unchanged as a no-op; code under either is refused by name;
       `%FOLDER` follows the keyword line; a pushed file holding any `(* @volt-… *)` comment is refused naming
       `volt pull`.
-- [ ] 2b.2 `ImplementationMarker` learns the read-only forms; the body-marker writer/reader (`BodyMarker`,
+      `sync/ReadOnlyBodyTests.cs` (pull, fetch reasons, no-op push back, code under/after the line, UNSUPPORTED only
+      after LD/FBD, `%FOLDER`, any `(* @volt-… *)` comment refused — a string or `//` comment is no comment);
+      `ImplementationKeywordTests` (line recognition, one spelling, round trip); CLI `PullCommandTests`/`InitCommandTests`.
+- [x] 2b.2 `ImplementationMarker` learns the read-only forms; the body-marker writer/reader (`BodyMarker`,
       `BodyFormatGuard`, the unsupported-body routing, section-1 tests 1.7/1.8 that pinned the comment) move to them;
       the `@volt-graphical` spelling is deleted from the engine.
-- [ ] 2b.3 The CLI pull message names every `UNSUPPORTED` item and its reason (the reason no longer lives in the
+      `BodyMarker` is deleted (its file keeps `UnrepresentableBodyException`, whose `Marker` is now `Reason`). A
+      read-only body is its canonical line in memory (`IsReadOnlyBody`); the reason rides `ItemContent`/`Member`/
+      `Accessor.Unsupported`, set only by the drivers. The keyword's SHAPE now takes anything after a word
+      (`IMPLEMENTATION CFC x := 1;` is refused naming the line, not as a reserved name) — the LSP mirrors that in 3.1.
+      An unknown CODESYS body aspect is refused by name instead of becoming a marker naming the type. The Execute-box
+      reason is one wording on both vendors (`BoxRefusals.UnreadableExecuteMarker`, was `EXECUTE`). The round-1 rule
+      "an ST body opening with a marker-spelled comment pushes back" is reversed by the owner's decision: any
+      `(* @volt-… *)` comment is refused, so an IDE body that itself holds one pulls and cannot be pushed until the
+      comment is edited in the IDE (no data is lost; the push writes nothing).
+- [x] 2b.3 The CLI pull message names every `UNSUPPORTED` item and its reason (the reason no longer lives in the
       file). All C# suites green.
+      The wire carries `FetchedItem.unsupported` ({member, language, reason}); `volt pull` (ok and conflict) and
+      `volt init` name each body by file and member. Green except, as before, the four corpus-backed
+      `ModelRoundTripOracleTests` (4.2's re-pull).
+      Section-2b review round (data lens), fixed with tests: a read-only line on a member NEW to an existing POU (added,
+      renamed, or retyped — which deletes and recreates it) is held to the create rule and refused naming the member,
+      before anything is deleted (it used to delete the diagram and create an empty ST member); an IDE item that
+      itself holds a `(* @volt-… *)` comment is refused on pull naming the comment (listed unreadable, the file left
+      alone) instead of pulled into a file every push refuses; an ST body the IDE holds with a keyword-shaped line
+      outside comments is refused by the driver (`ImplementationMarker.RequireStBody`, both vendors and FakeIde)
+      instead of pulled as the language the line states; TwinCAT refuses an NWL archive with no `DefaultViewMode`
+      (was pulled as `IMPLEMENTATION IL`) and an unknown graphical XML root (was pulled as ST text), as CODESYS does.
 
 ## 3. LSP and editor
 

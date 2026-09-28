@@ -54,6 +54,28 @@ internal static class TcArchive
     /// <summary>The body's language tag, as the archive spells it (<c>"Fbd"</c> / <c>"Ld"</c>).</summary>
     public static string? ViewMode(XElement impl) => Str(impl, "DefaultViewMode");
 
+    /// <summary>The language of a graphical body Volt does not read — the wrapper element, <c>&lt;CFC&gt;</c> or
+    /// <c>&lt;SFC&gt;</c> — or null when the body is textual (ST is not XML at all). Asked of a body that is not an
+    /// NWL archive with an implementation object (<see cref="Root"/>).
+    /// <para>Those two and nothing else. Any other XML root is a graphical body Volt has never seen (or an NWL archive
+    /// with no implementation object), and it is refused naming the root — as CODESYS refuses an unknown aspect
+    /// (<c>CodesysDriver.ReadOnlyLanguage</c>). It used to answer null, so the vendor's XML fell through as TEXT and
+    /// was pulled under <c>IMPLEMENTATION ST</c>: the same body refused on one vendor and pulled as code on the
+    /// other.</para></summary>
+    public static string? ReadOnlyLanguage(string raw)
+    {
+        XElement el;
+        try { el = XElement.Parse(raw); } catch (System.Xml.XmlException) { return null; }   // textual ST is not XML
+        return el.Name.LocalName switch
+        {
+            "CFC" => "CFC",
+            "SFC" => "SFC",
+            var root => throw new NotSupportedException(
+                $"TwinCAT: the body is a <{root}> document, a graphical language Volt has never seen. ST, FBD and LD " +
+                "are read, CFC, SFC and IL are read-only — an unknown language is refused rather than guessed at."),
+        };
+    }
+
     /// <summary>The same body with its view set to <paramref name="mode"/> ("Fbd" / "Ld"), or NULL when it
     /// already says that — so an unchanged push writes nothing at all.
     ///

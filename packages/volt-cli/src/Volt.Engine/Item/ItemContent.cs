@@ -14,15 +14,21 @@ namespace Volt.Engine.Item;
 /// from text; a body spliced over a sibling method because the read scoped by name and the write by document
 /// order. Neither is possible between two users of the same record.</para>
 /// <para>This is a TEXT-level model, deliberately: a body is workspace text — ST verbatim, a graphical body as
-/// network text, an unsupported language as its marker. It is what the workspace stores and what the ST layer
-/// round-trips, and it is ALL the engine ever sees of a body. Whatever shape a vendor's own storage has stops
-/// at the driver; this record is the boundary.</para>
+/// network text, a body Volt cannot write as its read-only <c>IMPLEMENTATION</c> line. It is what the workspace stores
+/// and what the ST layer round-trips, and it is ALL the engine ever sees of a body. Whatever shape a vendor's own
+/// storage has stops at the driver; this record is the boundary.</para>
+/// <para><b><c>Unsupported</c></b>, here and on <see cref="Member"/> and <see cref="Accessor"/>: WHY a body is
+/// <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> — the fact network text has no spelling for, as the driver's reader or writer
+/// refused it — and null for every other body. The file does not carry it (the line says only that the body is
+/// read-only), so it is set by the driver that read the body, for the pull to report, and is null on a body read from
+/// a file. It is not content: nothing compares it, and the version is the file's.</para>
 /// </summary>
 public sealed record ItemContent(
     string Kind,
     string Declaration,
     string? Body,
-    List<Member> Members);
+    List<Member> Members,
+    string? Unsupported = null);
 
 /// <summary>A method, action or property. A PROPERTY is a member like any other — it used to be a member in two of
 /// the four models and a separate list in the third, which forced <c>PouDocument.Splice</c> to union them back
@@ -39,7 +45,8 @@ public sealed record Member(
     Accessor? Getter = null,
     Accessor? Setter = null,
     string? ReturnType = null,
-    string? DataType = null);
+    string? DataType = null,
+    string? Unsupported = null);
 
 /// <summary>A property's GET or SET. <b>Presence is the object</b> — null means the property has no such accessor,
 /// and a push of that REMOVES it. That used to be a two-field convention on the read side (a getter existed if
@@ -70,7 +77,7 @@ public static class AccessorDeclaration
         string.IsNullOrWhiteSpace(decl) ? null : decl!.TrimEnd('\n');
 }
 
-public sealed record Accessor(string? Declaration, string? Body)
+public sealed record Accessor(string? Declaration, string? Body, string? Unsupported = null)
 {
     /// <summary>The code to WRITE for this accessor — never null, because the accessor exists.
     /// <para>This exists to keep one hazard closed. On the write path a null body means "remove the accessor",

@@ -58,7 +58,7 @@ public class TcDrawnJumpTests
         terminator.Elements("n").Single(n => (string?)n.Attribute("n") == "Input").ReplaceWith(operand);
 
         var ex = Assert.Throws<Volt.Engine.Format.Body.UnrepresentableBodyException>(() => TcNetworkReader.Read(impl, BodyLanguage.Ld));
-        Assert.Equal("a terminator with an input", ex.Marker);
+        Assert.Equal("a terminator with an input", ex.Reason);
     }
 
     /// <summary>CENSUS 1.2, the Parallel half, the parity twin of CODESYS's reader test: an unfed Parallel is the
@@ -78,7 +78,7 @@ public class TcDrawnJumpTests
             feed, new XElement("l2", new XAttribute("n", "Trees"), branch)));
 
         var ex = Assert.Throws<Volt.Engine.Format.Body.UnrepresentableBodyException>(() => TcNetworkReader.Read(impl, BodyLanguage.Ld));
-        Assert.Equal("a Parallel fed by the empty terminator", ex.Marker);
+        Assert.Equal("a Parallel fed by the empty terminator", ex.Reason);
     }
 
     /// <summary>DIALECT N20, the parity twin of CODESYS's reader tests: the object model holds no flag on a Parallel,
@@ -110,7 +110,7 @@ public class TcDrawnJumpTests
         }
         else
             Assert.Equal(expected, Assert.Throws<Volt.Engine.Format.Body.UnrepresentableBodyException>(
-                () => TcNetworkReader.Read(impl, BodyLanguage.Ld)).Marker);
+                () => TcNetworkReader.Read(impl, BodyLanguage.Ld)).Reason);
     }
 
     /// <summary>The <c>&lt;NWL&gt;</c> body holding a <c>BoxTreeParallel</c> in <paramref name="mode"/> where the fixture's
@@ -177,7 +177,7 @@ public class TcDrawnJumpTests
         bits.Value = (int.Parse(bits.Value) | bit).ToString();
 
         Assert.Equal("a flag on an Assign item", Assert.Throws<Volt.Engine.Format.Body.UnrepresentableBodyException>(
-            () => TcNetworkReader.Read(impl, BodyLanguage.Ld)).Marker);
+            () => TcNetworkReader.Read(impl, BodyLanguage.Ld)).Reason);
     }
 
     /// <summary>The same fact on a wire: a <c>BoxTreeDemux</c> the archive gives a flag is refused by name.</summary>
@@ -191,7 +191,7 @@ public class TcDrawnJumpTests
         reference.Add(XElement.Parse("<o n=\"Flags\" t=\"Flags\"><v n=\"Flags\">1</v></o>"));
 
         Assert.Equal("a flag on a wire", Assert.Throws<Volt.Engine.Format.Body.UnrepresentableBodyException>(
-            () => TcNetworkReader.Read(impl, BodyLanguage.Ld)).Marker);
+            () => TcNetworkReader.Read(impl, BodyLanguage.Ld)).Reason);
     }
 
     /// <summary>CENSUS 1.2 AND 1.10: "unconnected" is the empty terminator, never a null value, so an assignment
@@ -204,7 +204,7 @@ public class TcDrawnJumpTests
             .ReplaceWith(new XElement("n", new XAttribute("n", "RValue")));
 
         var ex = Assert.Throws<Volt.Engine.Format.Body.UnrepresentableBodyException>(() => TcNetworkReader.Read(impl, BodyLanguage.Ld));
-        Assert.Equal("an assignment with no value", ex.Marker);
+        Assert.Equal("an assignment with no value", ex.Reason);
     }
 
     /// <summary>THE DRAWN RUNG GOES TO THE MARKER, BY NAME — and the coil it drives is no longer lost on the way.
@@ -223,6 +223,6 @@ public class TcDrawnJumpTests
 
         var ex = Assert.ThrowsAny<Volt.Engine.Format.Body.UnrepresentableBodyException>(() => TcText.Write(pulled));
 
-        Assert.Equal("a rung driving a coil and a jump together", ex.Marker);
+        Assert.Equal("a rung driving a coil and a jump together", ex.Reason);
     }
 }

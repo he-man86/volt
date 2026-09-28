@@ -23,10 +23,16 @@ internal static class StTrivia
     /// alone, at its columns.</summary>
     public static string[] Code(IList<string> lines) => Scan(lines).Code;
 
-    private static (bool[] OpenAtStart, string[] Code) Scan(IList<string> lines)
+    /// <summary>Where each OUTERMOST block comment opens — its line and the column of its <c>(*</c> — in order. A
+    /// nested <c>(*</c> is part of the comment around it, and one inside a <c>//</c> comment, a string or a pragma
+    /// opens nothing, exactly as for <see cref="OpenAtStart"/>.</summary>
+    public static List<(int Line, int Column)> CommentOpenings(IList<string> lines) => Scan(lines).Openings;
+
+    private static (bool[] OpenAtStart, string[] Code, List<(int Line, int Column)> Openings) Scan(IList<string> lines)
     {
         var open = new bool[lines.Count];
         var code = new string[lines.Count];
+        var openings = new List<(int Line, int Column)>();
         var depth = 0;
         for (int i = 0; i < lines.Count; i++)
         {
@@ -44,7 +50,7 @@ internal static class StTrivia
                     else sb.Append(' ');
                     continue;
                 }
-                if (c == '(' && next == '*') { depth = 1; sb.Append("  "); j++; continue; }
+                if (c == '(' && next == '*') { openings.Add((i, j)); depth = 1; sb.Append("  "); j++; continue; }
                 if (c == '/' && next == '/') { sb.Append(' ', line.Length - j); break; }
                 if (c == '\'' || c == '"' || c == '{')
                 {
@@ -64,6 +70,6 @@ internal static class StTrivia
             }
             code[i] = sb.ToString();
         }
-        return (open, code);
+        return (open, code, openings);
     }
 }

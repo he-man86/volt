@@ -11,8 +11,9 @@ namespace Volt.Engine.Format.Network;
 /// The network text graphical-body contract. An EDITABLE graphical body (FBD/LD — a POU's, a method's, an
 /// action's or an accessor's) states its language on its boundary line, <c>IMPLEMENTATION FBD</c> or
 /// <c>IMPLEMENTATION LD</c>, which stays the body's first line and round-trips; the language rides on that one line for
-/// the whole body (openspec <c>implementation-keyword</c>). CFC/SFC/IL are NOT network-text bodies — they materialize
-/// as <c>BodyMarker.For</c>'s informational comment.
+/// the whole body (openspec <c>implementation-keyword</c>). CFC/SFC/IL are NOT network-text bodies, and neither is an
+/// LD/FBD body the text cannot represent: each is its read-only line alone (<c>IMPLEMENTATION CFC</c>,
+/// <c>IMPLEMENTATION LD UNSUPPORTED</c>, <see cref="ImplementationMarker.IsReadOnlyBody"/>).
 /// </summary>
 public static class NetworkText
 {
@@ -98,7 +99,7 @@ public static class NetworkText
     /// keeps a box's output type. The text states a data wire's type only in its <c>VAR_TEMP</c> (spec: "on push the
     /// declared type is taken as written"), and the vendor derives none itself (DIALECT N21: CODESYS's
     /// <c>OutputParams</c> holds exactly what the writer appended). Built without it, <c>g1 := (a + b);</c> declared
-    /// <c>INT</c> read back as a wire of unknown type: the next pull was the marker, and the next push of the same text
+    /// <c>INT</c> read back as a wire of unknown type: the next pull was UNSUPPORTED, and the next push of the same text
     /// was refused by the change gate rendering the live network. Only a box connected by a data slot takes it — a
     /// consumer of ENO reads a BOOL the rule already knows, and a bit operator stores no slot to carry one (census 1.6);
     /// a type already stored is its own answer.</summary>
@@ -133,8 +134,8 @@ public static class NetworkText
             "pull. Switch the view in the IDE and pull.");
     }
 
-    /// <summary>Editable graphical languages: FBD and LD. (CFC/SFC have no text form — an informational
-    /// marker is materialized for them instead of a network-text body.)</summary>
+    /// <summary>Editable graphical languages: FBD and LD. (CFC/SFC have no text form — their read-only
+    /// <c>IMPLEMENTATION</c> line is materialized for them instead of a network-text body.)</summary>
     public static bool IsEditable(string? language) => Languages.IsNetwork(language);
 
     // `NETWORK <n> <LANG>` — v1's per-network header, which carried the order number and the language.

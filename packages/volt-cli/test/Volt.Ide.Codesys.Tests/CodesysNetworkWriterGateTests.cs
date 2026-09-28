@@ -663,7 +663,7 @@ public class CodesysCoilFlagTests
         var ex = Assert.Throws<NetworkUnrepresentableException>(() =>
             CodesysNetworkWriter.WriteNetwork(new Nwl.NWLImplementationObject(), live, model, BodyLanguage.Fbd, ScopeOf(model, BodyLanguage.Fbd)));
 
-        Assert.Equal("a flag on a box input pin", ex.Marker);
+        Assert.Equal("a flag on a box input pin", ex.Reason);
         Assert.Equal(1, live.NetworkItemCount);
     }
 

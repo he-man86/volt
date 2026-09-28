@@ -208,7 +208,7 @@ public class NetworkScopeTests
     {
         var e = Assert.Throws<NetworkUnrepresentableException>(() =>
             NetworkTextWriter.Write(Ld1(Fb("t2", new[] { NetworkModels.In(L("a"), "IN") }, type: "Other.TON")), ScopeOf(Derived)));
-        Assert.Equal("an FB instance declared with another type", e.Marker);
+        Assert.Equal("an FB instance declared with another type", e.Reason);
     }
 
     /// <summary>IEC names are case-insensitive, a declared type too: <c>t1 : Ton;</c> and a vendor box of type

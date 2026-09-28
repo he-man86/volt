@@ -4,7 +4,7 @@ using Xunit;
 using Volt.Wire;
 using Volt.Contracts;
 using Volt.Engine.Sync;
-using Volt.Engine.Format.Body;
+using Volt.Engine.Format.St;
 using Volt.Engine.Item;
 
 namespace Volt.Engine.Tests;
@@ -40,8 +40,8 @@ public class GraphicalChildGuardTests
         new FakeIde.Item(childName, ItemKind.PlcMethod, "", false, $"METHOD {childName} : INT\nVAR\nEND_VAR",
             childImpl, childLang, null));
 
-    /// <summary>What the CLI actually round-trips for a CFC child: the informational marker.</summary>
-    private static string Marker(string lang) => $"(* @volt-graphical: {lang} *)";
+    /// <summary>What the CLI actually round-trips for a CFC child: its read-only keyword line, over an empty body.</summary>
+    private static string Marker(string lang) => ImplementationMarker.ReadOnly(lang);
 
     /// <summary>An UPDATE op carrying the item's real current version, so it applies rather than conflicting as a
     /// create (IfVersion == null means "create" — the item exists, so that would be a conflict, not an apply).</summary>
@@ -57,7 +57,7 @@ public class GraphicalChildGuardTests
                 {
                     Name = Name,
                     IfVersion = refs.Items[Name],
-                    SourceText = $"{PouDecl}\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\nEND_VAR\n{(BodyMarker.Is(body) ? body : "IMPLEMENTATION ST\n" + body)}\nEND_METHOD\n",   // a marker body is its marker line alone
+                    SourceText = $"{PouDecl}\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\nEND_VAR\n{(ImplementationMarker.IsReadOnlyBody(body) ? body : "IMPLEMENTATION ST\n" + body)}\nEND_METHOD\n",   // a read-only body is its keyword line alone
                 },
             },
         });
@@ -108,7 +108,7 @@ public class GraphicalChildGuardTests
 
         var resp = Push(ide, Marker("CFC"));
 
-        Assert.Contains("marker", Assert.Single(resp.Conflicts!).Reason);
+        Assert.Contains("read-only", Assert.Single(resp.Conflicts!).Reason);
         AssertNothingMutated(ide);
     }
 

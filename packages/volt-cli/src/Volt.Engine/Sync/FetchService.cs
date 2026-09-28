@@ -169,6 +169,7 @@ public static class FetchService
                 Folder = folder,
                 Version = version,
                 SourceText = mat.Text,
+                Unsupported = mat.Unsupported.Count == 0 ? null : mat.Unsupported.ToList(),
             };
 
             if (!isInit && knownItems.TryGetValue(fullName, out var known) && known == version)

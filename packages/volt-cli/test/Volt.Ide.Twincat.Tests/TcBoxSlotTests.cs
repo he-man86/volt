@@ -45,7 +45,7 @@ public class TcBoxSlotTests
         inputs.Elements("o").First().ReplaceWith(new XElement("n"));
 
         var ex = Refused(impl);
-        Assert.Equal(BoxRefusals.NullInputSlotMarker, ex.Marker);
+        Assert.Equal(BoxRefusals.NullInputSlotMarker, ex.Reason);
         Assert.Contains("'TON'", ex.Message);
     }
 
@@ -58,7 +58,7 @@ public class TcBoxSlotTests
         BoxOf(impl, "TON").Elements("o").Single(o => Named(o, "OutputItems")).Elements("l2").Single().Remove();
 
         var ex = Refused(impl);
-        Assert.Equal(BoxRefusals.MissingListMarker, ex.Marker);
+        Assert.Equal(BoxRefusals.MissingListMarker, ex.Reason);
         Assert.Contains("OutputItems", ex.Message);
     }
 
@@ -79,7 +79,7 @@ public class TcBoxSlotTests
         else param.Remove();
 
         var ex = Refused(impl);
-        Assert.Equal(BoxRefusals.MissingListMarker, ex.Marker);
+        Assert.Equal(BoxRefusals.MissingListMarker, ex.Reason);
         Assert.Contains(member, ex.Message);
     }
 

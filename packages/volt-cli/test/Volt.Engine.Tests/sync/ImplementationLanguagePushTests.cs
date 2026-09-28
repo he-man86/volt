@@ -308,76 +308,18 @@ public class ImplementationLanguagePushTests
 
     // ── a body Volt cannot write ──────────────────────────────────────────────────────────────────
 
-    /// <summary>A POU whose body the IDE holds in a language Volt cannot write (CFC, SFC) is pulled with its
-    /// <see cref="BodyMarker"/> line as its statement — no <c>IMPLEMENTATION</c> line claiming a readable language
-    /// (<c>ImplementationKeywordTests</c>). Pushing that file back unchanged is the ordinary no-op: it is accepted
-    /// and the IDE keeps the body it had.</summary>
-    [Theory]
-    [InlineData("CFC")]
-    [InlineData("SFC")]
-    public void A_pulled_unsupported_body_pushes_back_as_a_no_op(string language)
-    {
-        const string decl = "FUNCTION_BLOCK K\nVAR\nEND_VAR";
-        var ide = new FakeIde(new FakeIde.Item("K", ItemKind.PlcPouFb, "", true, decl, "", language, null));
-        var src = $"{decl}\n{BodyMarker.For(language)}\n\nEND_FUNCTION_BLOCK\n";
-        Assert.Equal(src, StWriter.Write(ide.ReadContent(new ItemRef("K"))));   // what the pull writes
-
-        var refs = RefsService.Handle(ide);
-        var resp = PushService.Handle(ide, new PushRequest
-        {
-            ExpectedProjectVersion = refs.ProjectVersion,
-            Ops = new List<PushOp> { new SetItemOp { Name = "K.fb", SourceText = src, IfVersion = refs.Items["K.fb"] } },
-        });
-
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
-        Assert.Equal(BodyMarker.For(language), ide.ReadContent(new ItemRef("K")).Body);
-    }
+    // The pull, the no-op push back and code under a read-only line are ReadOnlyBodyTests' (section 2b). What stays
+    // here is a stated READABLE language meeting a body the IDE holds read-only, and the files from before the change.
 
     private const string ChartDecl = "FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR";
 
-    /// <summary>The no-op above is only a no-op when nothing was ADDED. The marker line states the body has no text
-    /// form, so code written under it, or after it on its own line, has nowhere to go: the drivers skip a marker
-    /// body, so accepting the push drops that code silently and the next pull overwrites it in the working tree.
-    /// It is refused by name instead, and the IDE keeps its chart.</summary>
+    /// <summary>An ST body stated over a chart the IDE holds read-only is no no-op: the chart cannot take an ST body,
+    /// and the drivers write nothing for a read-only body, so accepting the push would drop <c>x := 1;</c> without a
+    /// word. It is refused, naming the chart's language, and the IDE keeps it.</summary>
     [Theory]
-    [InlineData("CFC", "\nx := 1;")]
-    [InlineData("CFC", " x := 1;")]
-    [InlineData("SFC", "\n\nx := 1;")]
-    public void Code_added_under_a_POUs_marker_line_is_refused_naming_the_POU(string language, string added)
-    {
-        var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPouFb, "", true, ChartDecl, "", language, null));
-
-        var reason = Reason(Update(ide, "FB_Chart.fb", $"{ChartDecl}\n{BodyMarker.For(language)}{added}\n\nEND_FUNCTION_BLOCK\n"));
-
-        Assert.Contains("FB_Chart", reason);
-        Assert.Empty(ide.WrittenContent);
-        Assert.Equal(BodyMarker.For(language), ide.ReadContent(new ItemRef("FB_Chart")).Body);
-    }
-
-    [Fact]
-    public void Code_added_under_a_members_marker_line_is_refused_naming_the_member()
-    {
-        var ide = new FakeIde(
-            new FakeIde.Item("FB_Chart", ItemKind.PlcPouFb, "", true, ChartDecl, "", null, null, Children: new[] { "Sequence" }),
-            new FakeIde.Item("Sequence", ItemKind.PlcMethod, "", false, "METHOD Sequence : BOOL", "", "SFC", null));
-        var src = $"{ChartDecl}\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n" +
-                  $"METHOD Sequence : BOOL\n{BodyMarker.For("SFC")}\nSequence := TRUE;\nEND_METHOD\n";
-
-        var reason = Reason(Update(ide, "FB_Chart.fb", src));
-
-        Assert.Contains("Sequence", reason);
-        Assert.Empty(ide.WrittenContent);
-    }
-
-    /// <summary>The marker line is the WHOLE statement of a body Volt cannot write, so only the file's boundary
-    /// position can hold it. Stated <c>IMPLEMENTATION ST</c> above it, it is the first line of an ST body — and that
-    /// body is ST the IDE would be asked to hold, not a marker: read as one (a prefix test), every driver skipped it
-    /// and the guard called it a no-op, so the push was ACCEPTED and <c>x := 1;</c> dropped without a word. The CFC
-    /// chart cannot take an ST body, so the push is refused, naming the chart's language, and the IDE keeps it.</summary>
-    [Theory]
-    [InlineData("CFC", "IMPLEMENTATION ST\n(* @volt-graphical: CFC *)\nx := 1;")]
-    [InlineData("SFC", "IMPLEMENTATION ST\n(* @volt-graphical: SFC *)\n\nx := 1;")]
-    public void Code_under_a_marker_line_stated_ST_is_refused_and_the_chart_is_kept(string language, string impl)
+    [InlineData("CFC", "IMPLEMENTATION ST\nx := 1;")]
+    [InlineData("SFC", "IMPLEMENTATION ST\n\nx := 1;")]
+    public void An_ST_body_over_a_read_only_chart_is_refused_and_the_chart_is_kept(string language, string impl)
     {
         var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPouFb, "", true, ChartDecl, "", language, null));
 
@@ -385,42 +327,25 @@ public class ImplementationLanguagePushTests
 
         Assert.Contains(language, reason);
         Assert.Empty(ide.WrittenContent);
-        Assert.Equal(BodyMarker.For(language), ide.ReadContent(new ItemRef("FB_Chart")).Body);
+        Assert.Equal(ImplementationMarker.ReadOnly(language), ide.ReadContent(new ItemRef("FB_Chart")).Body);
     }
 
-    /// <summary>A marker line alone under a language Volt reads is a contradiction, not a no-op: the marker says the
-    /// body has no text form, and <c>IMPLEMENTATION ST</c> says it is ST. Refused naming the item and the line.</summary>
+    /// <summary>A read-only line under a language Volt reads is a contradiction, not a no-op: one says the body has no
+    /// text form, the other that it is ST (or LD). Both are keyword lines, so the region holds two, and the refusal names
+    /// the member and both lines.</summary>
     [Theory]
-    [InlineData("ST")]
-    [InlineData("LD")]
-    public void A_marker_line_under_a_stated_language_is_refused_naming_the_member(string language)
+    [InlineData("ST", "IMPLEMENTATION CFC")]
+    [InlineData("LD", "IMPLEMENTATION LD UNSUPPORTED")]
+    public void A_read_only_line_under_a_stated_language_is_refused_naming_the_member(string language, string readOnly)
     {
         var ide = new FakeIde();
 
-        var reason = Reason(Create(ide, Motor($"IMPLEMENTATION {language}\n{BodyMarker.For("CFC")}")));
+        var reason = Reason(Create(ide, Motor($"IMPLEMENTATION {language}\n{readOnly}")));
 
         Assert.Contains("DoReset", reason);
         Assert.Contains($"IMPLEMENTATION {language}", reason);
+        Assert.Contains(readOnly, reason);
         AssertNothingWritten(ide);
-    }
-
-    /// <summary>An ST body the IDE holds may open with a comment spelled like the marker — an engineer's note, or a
-    /// chart converted to ST. It is ST: the pull states <c>IMPLEMENTATION ST</c> above it, and the file pushes back
-    /// as the ordinary write of that body. Only a body that IS a marker, and nothing else, is one.</summary>
-    [Fact]
-    public void An_ST_body_opening_with_a_marker_spelled_comment_is_pulled_as_ST_and_pushes_back()
-    {
-        const string body = "(* @volt-graphical: kept from the old chart *)\nx := 1;";
-        var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPouFb, "", true, ChartDecl, body, null, null));
-
-        var text = StWriter.Write(ide.ReadContent(new ItemRef("FB_Chart")));
-        Assert.Equal($"{ChartDecl}\nIMPLEMENTATION ST\n{body}\n\nEND_FUNCTION_BLOCK\n", text);
-        Assert.Equal(body, StReader.Read(text, ItemKind.Kinds.FunctionBlock).Body);
-
-        var resp = Update(ide, "FB_Chart.fb", text.Replace("x := 1;", "x := 2;"));
-
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
-        Assert.Equal(body.Replace("x := 1;", "x := 2;"), ide.ReadContent(new ItemRef("FB_Chart")).Body);
     }
 
     // ── 1.5 the retired comment ───────────────────────────────────────────────────────────────────
@@ -450,11 +375,9 @@ public class ImplementationLanguagePushTests
         AssertNothingWritten(ide);
     }
 
-    /// <summary>The exact pre-change shape of a body Volt cannot write — the retired comment, THEN the marker line —
-    /// is what the corpora hold today (<c>VltFixtureCfc.fb</c>, <c>VltFixtureSfc.fb</c>, lenze-mid
-    /// <c>Mach1_MIDS.prg</c>). A reader that accepts the marker line as a boundary finds one in that old file, and
-    /// the retired comment lands at the end of the DECLARATION and is pushed into the IDE. It is a file from before
-    /// the change like any other: refused, naming <c>volt pull</c>.</summary>
+    /// <summary>The exact pre-change shape of a body Volt cannot write — the retired comment, THEN the old marker
+    /// comment — is what the corpora hold today (<c>VltFixtureCfc.fb</c>, <c>VltFixtureSfc.fb</c>, lenze-mid
+    /// <c>Mach1_MIDS.prg</c>). It is a file from before the change like any other: refused, naming <c>volt pull</c>.</summary>
     [Theory]
     [InlineData("CFC")]
     [InlineData("SFC")]
@@ -463,30 +386,28 @@ public class ImplementationLanguagePushTests
         var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPouFb, "", true, ChartDecl, "", language, null));
 
         var reason = Reason(Update(ide, "FB_Chart.fb",
-            $"{ChartDecl}\n(* @volt-implementation *)\n{BodyMarker.For(language)}\n\nEND_FUNCTION_BLOCK\n"));
+            $"{ChartDecl}\n(* @volt-implementation *)\n(* @volt-graphical: {language} *)\n\nEND_FUNCTION_BLOCK\n"));
 
         Assert.Contains("volt pull", reason);
         Assert.Empty(ide.WrittenContent);
         Assert.Equal(ChartDecl, ide.ReadContent(new ItemRef("FB_Chart")).Declaration);
     }
 
-    /// <summary>The retired comment is refused where it stands as a BOUNDARY — a file from before the change — and
-    /// nowhere else. As an ordinary comment in a current file (in an ST body, or documenting a declaration) it is the
-    /// engineer's text: refusing it sent them to `volt pull`, which writes the same IDE text back, so the item could
-    /// never be pushed.</summary>
+    /// <summary>The retired comment used to be refused only where it stood as a BOUNDARY, and accepted as an ordinary
+    /// comment in a current file. The owner's decision (section 2b) retires every <c>(* @volt-… *)</c> comment: the pull
+    /// writes none, so a file holding one anywhere — in an ST body, documenting a declaration — was written before the
+    /// change, and is refused naming <c>volt pull</c>.</summary>
     [Theory]
-    [InlineData("FUNCTION_BLOCK F\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n(* @volt-implementation *)\n\nEND_FUNCTION_BLOCK\n",
-        "x := 1;\n(* @volt-implementation *)")]
-    [InlineData("FUNCTION_BLOCK F\nVAR\n(* @volt-implementation *)\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n",
-        "x := 1;")]
-    public void The_retired_comment_as_an_ordinary_comment_in_a_current_file_is_accepted(string source, string body)
+    [InlineData("FUNCTION_BLOCK F\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n(* @volt-implementation *)\n\nEND_FUNCTION_BLOCK\n")]
+    [InlineData("FUNCTION_BLOCK F\nVAR\n(* @volt-implementation *)\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n")]
+    public void The_retired_comment_anywhere_in_a_file_is_refused_naming_volt_pull(string source)
     {
         var ide = new FakeIde();
 
-        var resp = Create(ide, source, "F.fb");
+        var reason = Reason(Create(ide, source, "F.fb"));
 
-        Assert.True(resp.Accepted, "push refused: " + Why(resp));
-        Assert.Equal(body, ide.WrittenContent["F"].Body);
+        Assert.Contains("volt pull", reason);
+        AssertNothingWritten(ide);
     }
 
     [Fact]
@@ -494,7 +415,7 @@ public class ImplementationLanguagePushTests
     {
         var ide = new FakeIde();
 
-        var reason = Reason(Create(ide, Motor($"(* @volt-implementation *)\n{BodyMarker.For("SFC")}")));
+        var reason = Reason(Create(ide, Motor("(* @volt-implementation *)\n(* @volt-graphical: SFC *)")));
 
         Assert.Contains("volt pull", reason);
         AssertNothingWritten(ide);
@@ -528,7 +449,7 @@ public class ImplementationLanguagePushTests
     /// declaration it is no directive — and a declaration is written into the IDE verbatim, so the line would reach
     /// the project as code while the member's folder silently read as none. Refused by name instead.</summary>
     [Theory]
-    [InlineData("METHOD DoReset : BOOL\n%FOLDER Sub\n(* @volt-graphical: CFC *)")]      // above a marker line
+    [InlineData("METHOD DoReset : BOOL\n%FOLDER Sub\nIMPLEMENTATION CFC")]              // above a read-only line
     [InlineData("METHOD DoReset : BOOL\n%FOLDER Sub\nIMPLEMENTATION ST\nDoReset := TRUE;")] // above the keyword line
     [InlineData("METHOD DoReset : BOOL\nVAR\n%FOLDER Sub\nEND_VAR\nIMPLEMENTATION ST\nDoReset := TRUE;")]
     public void A_FOLDER_line_in_a_members_declaration_is_refused_naming_the_member(string member)

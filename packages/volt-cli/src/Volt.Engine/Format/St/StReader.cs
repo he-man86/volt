@@ -98,6 +98,17 @@ public static class StReader
 
 		var lines = NormalizeLines(sourceText);
 
+		// 0. A FILE FROM BEFORE THE KEYWORD. No Volt writes a `(* @volt-… *)` comment any more — the boundary and a
+		// read-only body are both stated by an IMPLEMENTATION line — so a file holding one, anywhere, was pulled by an
+		// older Volt. Refused before anything else is read, naming the pull that rewrites it: read around, the old
+		// boundary comment left a file with no boundary and the old marker comment landed in the IDE as the tail of a
+		// declaration or as a body. A comment only — the same characters in a string or after `//` are text.
+		if (ImplementationMarker.FindRetiredComment(lines) is { } retired)
+			throw new BridgeException(BridgeErrorCodes.InvalidSt,
+				$"{(name is null ? "this file" : $"'{name}'")} holds '{retired.Text}' (line {retired.Line + 1}), a comment of a Volt from " +
+				$"before bodies were stated by an {ImplementationMarker.Keyword} line. Run `volt pull` once to rewrite the " +
+				"workspace in the current format.");
+
 		// 1. The kind. THE EXTENSION IS THE KIND — it is on the wire name and `KindForWireName` reads it off,
 		// so the header is CHECKED against it rather than consulted for it. Taking the kind from the text let a
 		// push rename the object: `KindTest.fb` whose text said `PROGRAM` was accepted and produced
@@ -336,19 +347,6 @@ public static class StReader
 				"is reserved, so if the other one names something, rename it; otherwise remove it.");
 		int at = ImplementationMarker.IndexIn(lines);
 		if (at < 0) throw Unmarked(what);
-		// A FILE FROM BEFORE THE KEYWORD. The retired comment is no boundary, so such a file has none and is refused
-		// above — except the old shape of a body Volt cannot write: the comment, THEN the marker line, which finds its
-		// boundary at the marker and would push the comment into the IDE as the tail of the declaration. The old
-		// writer put a member's `%FOLDER` between the two, so the walk up passes over directive lines as it does over
-		// blanks: stopping at the directive let the comment AND the directive through into the declaration. That
-		// shape, and only that one, is the comment standing AS a boundary. Anywhere else it is an engineer's comment
-		// in a current file, and refusing it sent them to `volt pull`, which writes the same IDE text straight back.
-		if (ImplementationMarker.IsMarkerLine(lines[at]))
-		{
-			int above = at - 1;
-			while (above >= 0 && (string.IsNullOrWhiteSpace(lines[above]) || FolderOn(lines[above]) is not null)) above--;
-			if (above >= 0 && ImplementationMarker.IsRetired(lines[above])) throw Unmarked(what);
-		}
 		var decl = string.Join("\n", SliceLines(lines, 0, at - 1));
 		var impl = string.Join("\n", SliceLines(lines, at + 1, lines.Count - 1));
 		return (decl.TrimEnd('\n'), impl.TrimEnd('\n'), lines[at]);
@@ -372,27 +370,26 @@ public static class StReader
 	/// is the one signal for how the body is read. Every refusal names <paramref name="what"/> and the line as
 	/// written, and each is raised before anything is written:
 	/// <list type="bullet">
-	/// <item>a line with no language, or one no body can state (<c>IMPLEMENTATION CFC</c>) — never guessed;</item>
+	/// <item>a line with no language, or one no body can state (<c>IMPLEMENTATION COBOL</c>, <c>UNSUPPORTED</c> after a
+	/// language other than LD or FBD, code after the language) — never guessed;</item>
 	/// <item>a body whose text contradicts its language: network text under <c>ST</c>, or text under <c>LD</c>/<c>FBD</c>
 	/// that is no network — never re-read as the other;</item>
-	/// <item>code under, or after, a <see cref="BodyMarker"/> line — that body has no text form, the drivers write
-	/// nothing for it, so the code would be dropped without a word and overwritten by the next pull.</item>
+	/// <item>code under a READ-ONLY line (<c>IMPLEMENTATION CFC|SFC|IL</c>, <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>) —
+	/// that body has no text form, the drivers write nothing for it, so the code would be dropped without a word and
+	/// overwritten by the next pull.</item>
 	/// </list></summary>
 	private static string Body(string line, string code, string what)
 	{
-		if (ImplementationMarker.IsMarkerLine(line))
+		var stated = line.Trim();
+		if (ImplementationMarker.IsReadOnly(line))
 		{
-			var marker = line.Trim();
-			var close = marker.IndexOf("*)", StringComparison.Ordinal);
-			if (close < 0 || close + 2 < marker.Length || code.Trim().Length > 0)
+			if (code.Trim().Length > 0)
 				throw new BridgeException(BridgeErrorCodes.InvalidSt,
-					$"{what} holds code under or after its marker line '{(close < 0 ? marker : marker.Substring(0, close + 2))}'. " +
-					"That body has no text form Volt can write, so the code has nowhere to go and would be dropped. " +
-					"Remove it, and edit the body in the IDE.");
-			return ImplementationMarker.Join(marker, "");
+					$"{what} holds code under '{stated}'. That body has no text form Volt can write, so the code has " +
+					"nowhere to go and would be dropped. Remove it, and edit the body in the IDE.");
+			return ImplementationMarker.Join(line, "");
 		}
 
-		var stated = line.Trim();
 		var word = ImplementationMarker.Stated(line)!;
 		if (word.Length == 0)
 			throw new BridgeException(BridgeErrorCodes.InvalidSt,
@@ -402,16 +399,10 @@ public static class StReader
 				"names something, rename it.)");
 		var lang = ImplementationMarker.LanguageOf(line)
 			?? throw new BridgeException(BridgeErrorCodes.InvalidSt,
-				$"{what} states '{stated}', and '{word}' is no language a body can state — ST, LD or FBD. " +
-				"A body in another language is edited in the IDE.");
-
-		// A marker ALONE under a stated language contradicts it: the marker says the body has no text form, the line
-		// says it is ST (or LD, FBD). Read on, the body would BE the marker in memory (BodyMarker.Is), and the push
-		// would skip it as a no-op under a line claiming a language Volt reads.
-		if (BodyMarker.Is(code))
-			throw new BridgeException(BridgeErrorCodes.InvalidSt,
-				$"{what} states '{stated}' over the marker line '{code.Trim()}'. The marker states a body with no text " +
-				$"form and stands alone where the {ImplementationMarker.Keyword} line would: keep one or the other.");
+				$"{what} states '{stated}', and '{word}' is no language a body can state. The line holds the keyword and " +
+				$"one of ST, LD or FBD, or — for a body Volt cannot write — CFC, SFC, IL, LD {ImplementationMarker.UnsupportedWord} " +
+				$"or FBD {ImplementationMarker.UnsupportedWord}, alone. Code goes under the line, and a body in another " +
+				"language is edited in the IDE.");
 
 		var network = Volt.Engine.Format.Network.NetworkText.OpensNetwork(code);
 		if (lang == Languages.St && network)
@@ -487,7 +478,7 @@ public static class StReader
 				if (FolderOn(lines[i]) is not null)
 					throw new BridgeException(BridgeErrorCodes.InvalidSt,
 						$"{where} holds '{lines[i].Trim()}' in its declaration. A member's %FOLDER stands directly under " +
-						"its IMPLEMENTATION (or marker) line, or as the last line of a property's declaration; anywhere " +
+						"its IMPLEMENTATION line, or as the last line of a property's declaration; anywhere " +
 						"else it would be written into the IDE as code. Move it there, or remove it.");
 			}
 		}
@@ -802,7 +793,7 @@ public static class StReader
 		return t.StartsWith("%FOLDER ", StringComparison.Ordinal) ? t.Substring("%FOLDER ".Length).Trim() : null;
 	}
 
-	/// <summary>Peel the <c>%FOLDER</c> directive off the FIRST line of the text under a member's boundary (or marker)
+	/// <summary>Peel the <c>%FOLDER</c> directive off the FIRST line of the text under a member's boundary
 	/// line — where the writer puts it, and the only place it is one. This used to take the first such line ANYWHERE in
 	/// the text: a line spelled like it inside a block comment in an ST body became the member's folder, so the push
 	/// moved the member into a folder named after comment text and deleted the line from the comment.</summary>

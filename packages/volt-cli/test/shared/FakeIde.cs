@@ -38,8 +38,12 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public sealed record Item(
         string Name, int KindCode, string Folder, bool IsTopLevel,
         string? Declaration, string? Implementation, string? BodyLang, string? UnreadableReason,
-        string[]? Children = null)
+        string[]? Children = null, string? Unsupported = null)
     {
+        // `Unsupported`: the IDE holds an LD/FBD body (`BodyLang`) that network text cannot represent, and this is the
+        // fact the writer refuses — what a real driver catches as `UnrepresentableBodyException` and reads back as
+        // `IMPLEMENTATION LD|FBD UNSUPPORTED`, with this as the reason the pull reports.
+
         /// <summary>A plain textual (ST) POU — materializes via the declaration/implementation transports.
         ///
         /// <para>The TREE CODE is derived from the declaration HERE, when the fixture is authored — which is
@@ -604,7 +608,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             KindOf(it),
             it.Declaration ?? "",
             BodyTextOf(it),
-            MembersOf(it).ToList());
+            MembersOf(it).ToList(),
+            UnsupportedOf(it));
     }
 
     /// <summary>The item's kind, from its DECLARATION HEADER where it has one.
@@ -637,16 +642,23 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         ?? throw new System.InvalidOperationException($"FakeIde: unmapped item code {it.KindCode} for '{it.Name}'");
 
     /// <summary>An item's body AS A DRIVER WOULD RETURN IT. A language Volt cannot author has no text form, so
-    /// a real driver materializes it as the marker; a fake that returned the raw stored text instead would let a
-    /// textual push sail past the body-format guard here and be refused only against a live IDE.
+    /// a real driver materializes it as its read-only line (<c>IMPLEMENTATION CFC</c>, and <c>IMPLEMENTATION LD
+    /// UNSUPPORTED</c> for a network body the text cannot represent); a fake that returned the raw stored text instead
+    /// would let a textual push sail past the body-format guard here and be refused only against a live IDE.
     /// <para><c>BodyLang</c> models what the IDE holds. It is deliberately NOT the same thing as the body text:
     /// that separation is exactly what the guard exists to check.</para></summary>
     private static string? BodyTextOf(Item it)
     {
-        if (it.BodyLang is not { } lang) return it.Implementation;
+        // No `BodyLang` is ST — or a network body this fake stored from a push, which it keeps as its network text
+        // (`WriteContent` records no language). ST goes up the drivers' ST arm: a keyword-shaped line in it is refused.
+        if (it.BodyLang is not { } lang)
+            return it.Implementation is { } text && !Volt.Engine.Format.Network.NetworkText.Is(text)
+                ? Volt.Engine.Format.St.ImplementationMarker.RequireStBody(text)
+                : it.Implementation;
         // A language Volt cannot author has no text form at all.
         if (!Volt.Engine.Format.Body.Languages.IsNetwork(lang))
-            return Volt.Engine.Format.Body.BodyMarker.For(lang);
+            return Volt.Engine.Format.St.ImplementationMarker.ReadOnly(lang);
+        if (it.Unsupported is not null) return Volt.Engine.Format.St.ImplementationMarker.Unsupported(lang);
         // An FBD/LD body comes back as NETWORK TEXT. A fixture that sets BodyLang but stores plain text is
         // describing "the IDE holds a diagram", so render one — returning the raw text would make a graphical
         // body look textual to the format guard, and the guard would wave through the very overwrite it exists
@@ -656,6 +668,11 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             ? impl
             : $"{Volt.Engine.Format.St.ImplementationMarker.For(lang)}\nNETWORK\n  {impl.Trim()}\nEND_NETWORK\n";
     }
+
+    /// <summary>Why a body the fake returns as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> is read-only — what a driver
+    /// hands up with it, from the exception its reader or writer raised — and null for every other body.</summary>
+    private static string? UnsupportedOf(Item it) =>
+        it.BodyLang is { } lang && Volt.Engine.Format.Body.Languages.IsNetwork(lang) ? it.Unsupported : null;
 
     /// <summary>The scope a graphical body resolves against, built as both drivers build it
     /// (<see cref="Volt.Engine.Ide.ProjectDeclarations"/>) — fresh on every call, because a test edits the fake's
@@ -684,7 +701,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
                 BodyTextOf(child),
                 string.IsNullOrEmpty(child.Folder) ? null : child.Folder,
                 AccessorOf(child, ItemKind.PlcPropGet),
-                AccessorOf(child, ItemKind.PlcPropSet));
+                AccessorOf(child, ItemKind.PlcPropSet),
+                Unsupported: UnsupportedOf(child));
         }
     }
 
@@ -704,7 +722,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         {
             var acc = FindOrNull(Ref(name));
             if (acc is null || acc.KindCode != accessorKind) continue;
-            return new Accessor(AccessorDeclaration.Keep(acc.Declaration), BodyTextOf(acc));
+            return new Accessor(AccessorDeclaration.Keep(acc.Declaration), BodyTextOf(acc), UnsupportedOf(acc));
         }
         return null;
     }
@@ -749,7 +767,14 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             {
                 Declaration = content.Declaration,
                 Implementation = Held(content.Body, content.Declaration, pushedDeclarations) ?? owner.Implementation,
-                Children = content.Members.Select(m => m.Name).ToArray(),
+                // The member SET is not this call's to change: `CreateChild` adds a member and `Delete` removes one,
+                // as on both drivers, and a member absent from `content` is one the push LEFT ALONE (PushService's
+                // `OnlyChanged` drops the unchanged). Replacing the list with the written members made every
+                // untouched member vanish from the fake after an ordinary push.
+                Children = (owner.Children ?? System.Array.Empty<string>())
+                    .Concat(content.Members.Select(m => m.Name)
+                        .Where(n => owner.Children?.Contains(n, StringComparer.OrdinalIgnoreCase) != true))
+                    .ToArray(),
             };
 
         foreach (var m in content.Members)
@@ -762,11 +787,15 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             // never re-placed") passed green against a fake that asserted the bug away. Placement changes only
             // through `Move`, which is what the real IDEs require too.
             var folder = existing?.Folder ?? m.Folder ?? "";
-            var member = new Item(m.Name, KindCodeOf(m.Kind), folder, false, m.Declaration,
-                                  Held(m.Body, Volt.Engine.Ide.SourceScopes.Scope(
-                                      m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, content.Declaration),
-                                      pushedDeclarations),
-                                  null, null);
+            // A READ-ONLY body is never written — both drivers skip it and write the declaration alone — so the
+            // member keeps the body the IDE holds (its language, and what made it UNSUPPORTED).
+            var member = existing is not null && Volt.Engine.Format.St.ImplementationMarker.IsReadOnlyBody(m.Body)
+                ? existing with { KindCode = KindCodeOf(m.Kind), Folder = folder, Declaration = m.Declaration }
+                : new Item(m.Name, KindCodeOf(m.Kind), folder, false, m.Declaration,
+                           Held(m.Body, Volt.Engine.Ide.SourceScopes.Scope(
+                               m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, content.Declaration),
+                               pushedDeclarations),
+                           null, null);
             if (existing is null) _items.Add(member);
             else _items[_items.IndexOf(existing)] = member;
         }

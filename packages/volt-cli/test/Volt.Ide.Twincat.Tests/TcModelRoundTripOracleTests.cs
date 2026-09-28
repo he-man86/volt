@@ -43,7 +43,7 @@ public class TcModelRoundTripOracleTests
                 // The v1 driver's own refusals (a pin flag, an unreadable Execute box) are the marker already — the
                 // body never reaches a writer, v1 or v2. Counted, so a fixture silently lost here is seen.
                 try { read[id] = TcNetworkReader.Read(impl, language); }
-                catch (UnrepresentableBodyException e) { refused[id] = e.Marker; }
+                catch (UnrepresentableBodyException e) { refused[id] = e.Reason; }
             }
         }
         return (read, refused);
@@ -65,8 +65,8 @@ public class TcModelRoundTripOracleTests
     public void Archive_tally()
     {
         // The fixture that exists to hold an Execute box whose ST cannot be read (TcExecuteBoxTests): the
-        // driver's marker, before any writer.
-        Assert.Equal(new Dictionary<string, string> { ["ExecuteBox.derived.TcPOU#0"] = "EXECUTE" }, Archives.Value.ReaderRefused);
+        // driver's UNSUPPORTED reason, before any writer.
+        Assert.Equal(new Dictionary<string, string> { ["ExecuteBox.derived.TcPOU#0"] = BoxRefusals.UnreadableExecuteMarker }, Archives.Value.ReaderRefused);
         NetworkModelOracle.AssertTally("TwinCAT archives",
             Archives.Value.Read.Select(kv => NetworkModelOracle.Check(kv.Key, kv.Value)),
             // execute-box and ladder-demux round-trip since the reader reads which output slot a consumed call's

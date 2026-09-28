@@ -67,6 +67,30 @@ public class FetchedItem
 
     [JsonPropertyName("version")]
     public string Version { get; set; } = "";
+
+    /// <summary>Every body of this item that reads as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>, with WHY — or null
+    /// when it has none. The file states only that such a body is read-only; the reason used to be written into it
+    /// as a comment and is now this, for the pull message to name (openspec <c>implementation-keyword</c> 2b).</summary>
+    [JsonPropertyName("unsupported")]
+    public List<UnsupportedBody>? Unsupported { get; set; }
+}
+
+/// <summary>One body network text cannot represent — its place in the item, its language, and the fact the text has
+/// no spelling for.</summary>
+public class UnsupportedBody
+{
+    /// <summary>The member whose body it is — <c>Reset</c>, or <c>Ready GET</c> for a property's accessor — and null
+    /// for the item's own body.</summary>
+    [JsonPropertyName("member")]
+    public string? Member { get; set; }
+
+    /// <summary><c>LD</c> or <c>FBD</c>.</summary>
+    [JsonPropertyName("language")]
+    public string Language { get; set; } = "";
+
+    /// <summary>What network text has no spelling for, in a few words — e.g. <c>a vendor split point</c>.</summary>
+    [JsonPropertyName("reason")]
+    public string Reason { get; set; } = "";
 }
 
 public class FetchResponse : ReadResponse

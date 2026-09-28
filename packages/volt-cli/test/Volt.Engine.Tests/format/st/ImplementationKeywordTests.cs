@@ -47,8 +47,11 @@ public class ImplementationKeywordTests
     [InlineData("(* @volt-implementation LD *)")]
     [InlineData("(* @volt-implementation FBD *)")]
     [InlineData("IMPLEMENTATION")]                      // no language: refused by name elsewhere, never a boundary
-    [InlineData("IMPLEMENTATION CFC")]                  // not a language a body can state
-    [InlineData("IMPLEMENTATION IL")]
+    [InlineData("IMPLEMENTATION COBOL")]                // not a language a body can state
+    [InlineData("IMPLEMENTATION ST UNSUPPORTED")]       // UNSUPPORTED belongs to LD and FBD alone
+    [InlineData("IMPLEMENTATION CFC UNSUPPORTED")]
+    [InlineData("IMPLEMENTATION UNSUPPORTED")]
+    [InlineData("IMPLEMENTATION LD UNSUPPORTED x")]
     [InlineData("IMPLEMENTATION ST;")]                  // a statement, not the line
     [InlineData("IMPLEMENTATION ST x := 1;")]           // trailing tokens
     [InlineData("IMPLEMENTATION ST LD")]
@@ -72,6 +75,43 @@ public class ImplementationKeywordTests
     {
         Assert.Equal("IMPLEMENTATION " + language, ImplementationMarker.For(language));
         Assert.True(ImplementationMarker.Is(ImplementationMarker.For(language)));
+        Assert.False(ImplementationMarker.IsReadOnly(ImplementationMarker.For(language)));
+    }
+
+    /// <summary>A body Volt cannot write states THAT on the same line (section 2b): <c>IMPLEMENTATION CFC|SFC|IL</c> for a
+    /// language Volt does not read, <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> for a network body the text cannot represent.
+    /// Each is a boundary — it ends the declaration like any other — but it names no READER: the body under it is empty,
+    /// so <see cref="ImplementationMarker.LanguageOf"/> has no language to hand the ST or network-text path. Spacing and
+    /// case are free, and the line is held in one spelling.</summary>
+    [Theory]
+    [InlineData("IMPLEMENTATION CFC", "IMPLEMENTATION CFC")]
+    [InlineData("IMPLEMENTATION SFC", "IMPLEMENTATION SFC")]
+    [InlineData("IMPLEMENTATION IL", "IMPLEMENTATION IL")]
+    [InlineData("IMPLEMENTATION LD UNSUPPORTED", "IMPLEMENTATION LD UNSUPPORTED")]
+    [InlineData("IMPLEMENTATION FBD UNSUPPORTED", "IMPLEMENTATION FBD UNSUPPORTED")]
+    [InlineData("  implementation\tcfc ", "IMPLEMENTATION CFC")]
+    [InlineData("Implementation  Ld   Unsupported\r", "IMPLEMENTATION LD UNSUPPORTED")]
+    public void A_read_only_line_is_a_boundary_that_names_no_reader(string line, string canonical)
+    {
+        Assert.True(ImplementationMarker.Is(line), $"'{line}' is a boundary line");
+        Assert.True(ImplementationMarker.IsReadOnly(line));
+        Assert.Null(ImplementationMarker.LanguageOf(line));
+        Assert.Equal(canonical, ImplementationMarker.Canonical(line));
+    }
+
+    [Fact]
+    public void The_read_only_spellings_are_built_in_one_place_and_only_for_their_languages()
+    {
+        Assert.Equal("IMPLEMENTATION CFC", ImplementationMarker.ReadOnly(Languages.Cfc));
+        Assert.Equal("IMPLEMENTATION SFC", ImplementationMarker.ReadOnly(Languages.Sfc));
+        Assert.Equal("IMPLEMENTATION IL", ImplementationMarker.ReadOnly(Languages.Il));
+        Assert.Equal("IMPLEMENTATION LD UNSUPPORTED", ImplementationMarker.Unsupported(Languages.Ld));
+        Assert.Equal("IMPLEMENTATION FBD UNSUPPORTED", ImplementationMarker.Unsupported(Languages.Fbd));
+        // A language Volt reads is never read-only by its language, and only a language Volt reads can be UNSUPPORTED.
+        Assert.ThrowsAny<System.ArgumentException>(() => ImplementationMarker.ReadOnly(Languages.Ld));
+        Assert.ThrowsAny<System.ArgumentException>(() => ImplementationMarker.ReadOnly(Languages.St));
+        Assert.ThrowsAny<System.ArgumentException>(() => ImplementationMarker.Unsupported(Languages.Cfc));
+        Assert.ThrowsAny<System.ArgumentException>(() => ImplementationMarker.Unsupported(Languages.St));
     }
 
     // ── 1.2 the writer states it on every kind that has a body, the reader splits on it ──────────────
@@ -315,70 +355,69 @@ public class ImplementationKeywordTests
         Assert.Equal(st, StWriter.Write(item));
     }
 
-    // ── a body Volt cannot write states THAT, not a readable language ─────────────────────────────────
+    // ── a body Volt cannot write states THAT, on the keyword line ─────────────────────────────────────
 
-    /// <summary>A CFC/SFC/IL body, or a network body the text cannot represent, materializes as the
-    /// <see cref="BodyMarker"/> (<c>(* @volt-graphical: CFC *)</c>). That marker line IS the body's statement: it
-    /// says the body has no text form and why. The writer must not print <c>IMPLEMENTATION ST</c> above it — that
-    /// labels a CFC chart as Structured Text, and every reader that trusts the stated language (the push, the LSP)
-    /// would then read a CFC body as ST. <c>IMPLEMENTATION CFC</c> is no answer either: the keyword states a language
-    /// Volt READS (ST, LD, FBD), and a marker reason such as <c>EXECUTE</c> is not a language at all.</summary>
+    /// <summary>A CFC/SFC/IL body, or a network body the text cannot represent, has no text form: in memory and in
+    /// the file it is its read-only keyword line and nothing under it (section 2b). The writer must not print
+    /// <c>IMPLEMENTATION ST</c> for it — that labels a CFC chart as Structured Text, and every reader that trusts the
+    /// stated language (the push, the LSP) would then read it as ST — and no <c>(* @volt-… *)</c> comment is written
+    /// anywhere.</summary>
     [Theory]
-    [InlineData("CFC")]
-    [InlineData("SFC")]
-    [InlineData("IL")]
-    [InlineData("EXECUTE")]   // an LD/FBD network whose Execute box the text cannot hold
-    public void A_body_Volt_cannot_write_is_stated_by_its_marker_line_and_round_trips(string what)
+    [InlineData("IMPLEMENTATION CFC")]
+    [InlineData("IMPLEMENTATION SFC")]
+    [InlineData("IMPLEMENTATION IL")]
+    [InlineData("IMPLEMENTATION LD UNSUPPORTED")]
+    [InlineData("IMPLEMENTATION FBD UNSUPPORTED")]
+    public void A_body_Volt_cannot_write_is_its_read_only_line_and_round_trips(string line)
     {
-        var marker = BodyMarker.For(what);
-        var item = new ItemContent(ItemKind.Kinds.FunctionBlock, FbDecl, marker, new List<Member>
+        var item = new ItemContent(ItemKind.Kinds.FunctionBlock, FbDecl, line, new List<Member>
         {
-            new(ItemKind.Kinds.Method, "Chart", "METHOD Chart", marker),
+            new(ItemKind.Kinds.Method, "Chart", "METHOD Chart", line),
             new(ItemKind.Kinds.Property, "Ready", "PROPERTY Ready : BOOL", "",
-                Getter: new Accessor("", marker), Setter: null),
+                Getter: new Accessor("", line), Setter: null),
         });
 
         var text = StWriter.Write(item);
 
         Assert.Equal(
-            $"{FbDecl}\n{marker}\n\nEND_FUNCTION_BLOCK\n" +
-            $"\nMETHOD Chart\n{marker}\nEND_METHOD\n" +
-            $"\nPROPERTY Ready : BOOL\nGET\n{marker}\nEND_GET\nEND_PROPERTY\n", text);
-        Assert.DoesNotContain("IMPLEMENTATION", text);
+            $"{FbDecl}\n{line}\n\nEND_FUNCTION_BLOCK\n" +
+            $"\nMETHOD Chart\n{line}\nEND_METHOD\n" +
+            $"\nPROPERTY Ready : BOOL\nGET\n{line}\nEND_GET\nEND_PROPERTY\n", text);
+        Assert.DoesNotContain("IMPLEMENTATION ST", text);
+        Assert.DoesNotContain("@volt", text);
 
         var back = StReader.Read(text, ItemKind.Kinds.FunctionBlock);
         Assert.Equal(FbDecl, back.Declaration);
-        Assert.Equal(marker, back.Body);
-        Assert.Equal(marker, back.Members.Single(m => m.Name == "Chart").Body);
-        Assert.Equal(marker, back.Members.Single(m => m.Name == "Ready").Getter?.Body);
+        Assert.Equal(line, back.Body);
+        Assert.Equal(line, back.Members.Single(m => m.Name == "Chart").Body);
+        Assert.Equal(line, back.Members.Single(m => m.Name == "Ready").Getter?.Body);
         Assert.Equal(text, StWriter.Write(back));
     }
 
     /// <summary>A member's <c>%FOLDER</c> directive goes directly after its boundary line (the
-    /// <c>ChildDirectiveTests</c> layout), and a marker line IS that boundary — so the directive goes after the
-    /// marker. The other order leaves <c>%FOLDER</c> above the boundary, in the DECLARATION: the directive is
-    /// written into the IDE as declaration text and the member's folder is lost.</summary>
+    /// <c>ChildDirectiveTests</c> layout), and a read-only line IS that boundary — so the directive follows it. The
+    /// other order leaves <c>%FOLDER</c> above the boundary, in the DECLARATION: the directive is written into the IDE
+    /// as declaration text and the member's folder is lost.</summary>
     [Theory]
-    [InlineData("SFC")]
-    [InlineData("CFC")]
-    public void A_marker_members_folder_directive_follows_its_marker_line_and_round_trips(string what)
+    [InlineData("IMPLEMENTATION SFC")]
+    [InlineData("IMPLEMENTATION LD UNSUPPORTED")]
+    public void A_read_only_members_folder_directive_follows_its_line_and_round_trips(string line)
     {
-        var marker = BodyMarker.For(what);
         var item = new ItemContent(ItemKind.Kinds.FunctionBlock, FbDecl, "", new List<Member>
         {
-            new(ItemKind.Kinds.Action, "Chart", "ACTION Chart", marker, Folder: "Sub/Deep"),
+            new(ItemKind.Kinds.Action, "Chart", "ACTION Chart", line, Folder: "Sub/Deep"),
         });
 
         var text = StWriter.Write(item);
 
         Assert.Equal(
             $"{FbDecl}\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n" +
-            $"\nACTION Chart\n{marker}\n%FOLDER Sub/Deep\nEND_ACTION\n", text);
+            $"\nACTION Chart\n{line}\n%FOLDER Sub/Deep\nEND_ACTION\n", text);
 
         var chart = StReader.Read(text, ItemKind.Kinds.FunctionBlock).Members.Single();
         Assert.Equal("Sub/Deep", chart.Folder);
         Assert.Equal("ACTION Chart", chart.Declaration);
-        Assert.Equal(marker, chart.Body);
+        Assert.Equal(line, chart.Body);
         Assert.Equal(text, StWriter.Write(StReader.Read(text, ItemKind.Kinds.FunctionBlock)));
     }
 
@@ -423,6 +462,7 @@ public class ImplementationKeywordTests
     [InlineData("(* @volt-implementation LD *)\n" + LdBody)]   // the retired comment
     [InlineData("IMPLEMENTATION\n" + LdBody)]                   // no language
     [InlineData("IMPLEMENTATION CFC\n" + LdBody)]               // not a network-text language
+    [InlineData("IMPLEMENTATION LD UNSUPPORTED\n" + LdBody)]   // read-only: no reader, network text included
     public void The_network_text_reader_reads_only_a_body_stated_LD_or_FBD(string text)
     {
         var read = NetworkTextReader.Read(text, NetworkScope.Empty);
@@ -433,36 +473,18 @@ public class ImplementationKeywordTests
 
     // ── section 2, data-lens review ───────────────────────────────────────────────────────────────
 
-    /// <summary>The IDE writes a declaration's comments through verbatim, so a declaration may hold a comment line
-    /// spelled like a <see cref="BodyMarker"/>. Where the file states its boundary with the keyword, THAT line is the
-    /// boundary and the comment is declaration text: the item pulls and pushes back unchanged.</summary>
-    [Fact]
-    public void A_marker_spelled_comment_in_a_declaration_is_no_boundary_when_the_keyword_states_one()
+    /// <summary>A declaration comment spelled like the retired <c>(* @volt-graphical: … *)</c> marker was read as the
+    /// engineer's note and pushed back (section-2 review round 1). The owner's decision (section 2b) retires every
+    /// <c>(* @volt-… *)</c> comment: the pull writes none, so a file holding one — in a declaration as much as at a
+    /// boundary — was written before the change, and is refused naming <c>volt pull</c> rather than read around.</summary>
+    [Theory]
+    [InlineData("FUNCTION_BLOCK FB_Motor\n(* @volt-graphical: replaces the old CFC *)\nVAR\n\ta : BOOL;\nEND_VAR\nIMPLEMENTATION ST\na := TRUE;\n\nEND_FUNCTION_BLOCK\n")]
+    [InlineData("FUNCTION_BLOCK FB_Motor\n(* @volt-graphical: replaces the old CFC *)\nVAR\nEND_VAR\nIMPLEMENTATION CFC\n\nEND_FUNCTION_BLOCK\n")]
+    public void A_marker_spelled_comment_in_a_declaration_is_refused_naming_volt_pull(string text)
     {
-        const string decl = "FUNCTION_BLOCK FB_Motor\n(* @volt-graphical: replaces the old CFC *)\nVAR\n\ta : BOOL;\nEND_VAR";
-        var text = $"{decl}\nIMPLEMENTATION ST\na := TRUE;\n\nEND_FUNCTION_BLOCK\n";
-
-        var item = StReader.Read(text, ItemKind.Kinds.FunctionBlock, "FB_Motor");
-
-        Assert.Equal(decl, item.Declaration);
-        Assert.Equal("a := TRUE;", item.Body);
-        Assert.Equal(text, StWriter.Write(item));
-    }
-
-    /// <summary>And where the body IS a marker, the marker line is the LAST one of its kind: a declaration comment
-    /// spelled like one stands above it.</summary>
-    [Fact]
-    public void A_marker_spelled_comment_in_a_declaration_stays_there_above_a_marker_body()
-    {
-        const string decl = "FUNCTION_BLOCK FB_Chart\n(* @volt-graphical: replaces the old CFC *)\nVAR\nEND_VAR";
-        var marker = BodyMarker.For("CFC");
-        var text = $"{decl}\n{marker}\n\nEND_FUNCTION_BLOCK\n";
-
-        var item = StReader.Read(text, ItemKind.Kinds.FunctionBlock, "FB_Chart");
-
-        Assert.Equal(decl, item.Declaration);
-        Assert.Equal(marker, item.Body);
-        Assert.Equal(text, StWriter.Write(item));
+        var ex = Assert.Throws<BridgeException>(() => StReader.Read(text, ItemKind.Kinds.FunctionBlock, "FB_Motor"));
+        Assert.Contains("volt pull", ex.Message);
+        Assert.Contains("FB_Motor", ex.Message);
     }
 
     /// <summary><c>network</c> is an ordinary IEC name, and an ST body may open with it: a <c>REF=</c> assignment,
@@ -524,5 +546,32 @@ public class ImplementationKeywordTests
         Assert.Equal("Commands", go.Folder);
         Assert.Equal("METHOD PUBLIC Go : BOOL\nVAR_INPUT\nEND_VAR", go.Declaration);
         Assert.Equal(text, StWriter.Write(item));
+    }
+
+    // ── an ST body the IDE holds ──────────────────────────────────────────────────────────────────
+
+    /// <summary>The drivers hand an ST body up through <see cref="ImplementationMarker.RequireStBody"/>: in memory an ST
+    /// body carries no line, so a line of the keyword's shape in its text would be read back as a boundary — a
+    /// read-only body, a network body, a second boundary — and the body would be pulled in a language it is not.</summary>
+    [Theory]
+    [InlineData("IMPLEMENTATION CFC")]
+    [InlineData("IMPLEMENTATION LD UNSUPPORTED")]
+    [InlineData("IMPLEMENTATION LD\nNETWORK\n  x := 1;\nEND_NETWORK")]
+    [InlineData("x := 1;\nimplementation st")]
+    [InlineData("IMPLEMENTATION")]
+    public void An_ST_body_with_a_keyword_line_is_refused_naming_the_line(string body)
+    {
+        var ex = Assert.Throws<BridgeException>(() => ImplementationMarker.RequireStBody(body));
+        Assert.Contains(body.Split('\n').First(l => l.Trim().StartsWith("IMPLEMENTATION", System.StringComparison.OrdinalIgnoreCase)).Trim(), ex.Message);
+    }
+
+    [Theory]
+    [InlineData("x := 1;")]
+    [InlineData("(*\nIMPLEMENTATION CFC\n*)\nx := 1;")]
+    [InlineData("s := 'IMPLEMENTATION ST';")]
+    [InlineData("IMPLEMENTATION := 1;")]              // a name, and the reserved-name rule's to answer on push
+    public void An_ST_body_without_a_keyword_line_is_handed_up_unchanged(string body)
+    {
+        Assert.Equal(body, ImplementationMarker.RequireStBody(body));
     }
 }
