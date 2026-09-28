@@ -63,6 +63,24 @@ what it has open, so serving the repo's own tree means tracked files changing un
 - in-proc through the SHIPPED host on CODESYS, a spawned `--xae-pid` worker on TwinCAT - and with `-Wait`
 prints the pipe name. Then `bun run test:e2e:codesys` or `test:e2e:twincat`.
 
+### LD and FBD are off unless `VOLT_GRAPHICAL=1`
+
+Network text is not shipped yet. A bridge reads LD and FBD bodies as network text only when ITS process environment
+holds `VOLT_GRAPHICAL=1` (`Volt.Engine`'s `NetworkTextSwitch`, read once — the only switch). Without it every LD and FBD body pulls as `IMPLEMENTATION LD|FBD UNSUPPORTED` with the
+reason "LD and FBD are not enabled in this build", its declaration stays editable, and network text pushed at it is
+refused by name. ST is unaffected. The LSP has no switch: it runs in the editor's process, which the dev loop never
+gives the variable, so a switch there disagreed with the bridge; it reads what the file states, and a bridge with LD
+and FBD off already pulls them as their UNSUPPORTED line.
+
+Development turns it on everywhere it matters, and the shipped build nowhere (`build-cli.ps1` and the installer do
+not set it; `Volt.Repo.Gates/NetworkTextSwitchTests` holds both halves):
+
+- `ide.ps1 up` sets it before it starts CODESYS (the bridge runs IN that process) or the TwinCAT worker.
+- every C# test project runs under `test/test.runsettings` (picked up through `test/Directory.Build.props`);
+  every `bun test` here preloads `test/network-text-on.ts` (`bunfig.toml`); the e2e scripts set it too.
+- by hand: set it in the environment of whatever runs the bridge — `$env:VOLT_GRAPHICAL = "1"` before starting
+  CODESYS or `VoltBridgeTwincat`.
+
 ### Where a test goes
 
 **`test/Volt.X.Tests` tests package `src/Volt.X`. The `test/` root holds only what belongs to no single package.**

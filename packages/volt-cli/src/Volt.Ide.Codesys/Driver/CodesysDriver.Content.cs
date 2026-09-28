@@ -105,9 +105,9 @@ public sealed partial class CodesysDriver
 
     /// <param name="declaration">The declarations the body resolves against, innermost first
     /// (<see cref="SourceScopes.Scope"/>) — a graphical body is written against its <see cref="NetworkScope"/>.</param>
-    /// <returns>The body as workspace text, and — for an LD/FBD body network text cannot represent, which reads as
-    /// <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> — why (<see cref="UnrepresentableBodyException.Reason"/>), for the pull
-    /// to report; null for every other body.</returns>
+    /// <returns>The body as workspace text, and — for an LD or FBD body that reads as <c>IMPLEMENTATION LD|FBD
+    /// UNSUPPORTED</c> (network text is off, or cannot represent it: <see cref="NetworkText.Pulled"/>) — why, for the
+    /// pull to report; null for every other body.</returns>
     private (string? Body, string? Unsupported) ReadBody(object? iobj, string? declaration)
     {
         var impl = iobj is null ? null : NwlInterop.Get(iobj, "Implementation");
@@ -134,7 +134,9 @@ public sealed partial class CodesysDriver
                 var language = ReadViewMode(impl);
                 if (language is null) return (ImplementationMarker.Unsupported(Languages.Il), null);
 
-                // A BODY THE READER CANNOT REPRESENT IS `IMPLEMENTATION LD|FBD UNSUPPORTED`, NOT A MISSING POU.
+                // A BODY THE READER CANNOT REPRESENT IS `IMPLEMENTATION LD|FBD UNSUPPORTED`, NOT A MISSING POU — and so
+                // is every LD and FBD body while network text is off in this process. `NetworkText.Pulled` decides both,
+                // for both vendors: the switch first, then whatever the reader or the writer refuses.
                 //
                 // `ReadStCode` refuses an Execute box whose ST cannot be read — correctly: materializing the
                 // box without the code it runs makes the body look complete when it is not. But the refusal is
@@ -150,28 +152,15 @@ public sealed partial class CodesysDriver
                 // has no equivalent pre-scan to run, so the SAME body gave a TwinCAT engineer a POU that says
                 // what it holds and a CODESYS engineer no POU at all. The two now answer identically, which is
                 // the byte-identical-response rule the wire exists to hold.
-                NetworkBody model;
-                try
-                {
-                    model = CodesysNetworkReader.Read(impl, language.Value);
-                }
-                catch (UnrepresentableBodyException ex)
-                {
-                    return Unsupported(language.Value, ex);
-                }
-
+                //
                 // A fact the text has no spelling for makes the body UNSUPPORTED, never a body without it — a negated
                 // coil, a rung driving two jumps, a connection by an output slot the text cannot name. The writer
                 // raises the one exception for every such fact (network text v2: pull never throws anything
-                // else), so this is the same arm as the reader's refusal above, and as IL.
-                try
-                {
-                    return (NetworkTextWriter.Write(model, Declarations.ScopeForPull(declaration)).TrimEnd('\n'), null);
-                }
-                catch (UnrepresentableBodyException ex)
-                {
-                    return Unsupported(language.Value, ex);
-                }
+                // else), so it is the same refusal as the reader's, and as IL.
+                var view = language.Value;
+                return NetworkText.Pulled(view, () =>
+                    NetworkTextWriter.Write(CodesysNetworkReader.Read(impl, view), Declarations.ScopeForPull(declaration))
+                        .TrimEnd('\n'));
             }
 
             default:
@@ -181,11 +170,6 @@ public sealed partial class CodesysDriver
                 return (ImplementationMarker.Unsupported(UnreadLanguage(impl.GetType().Name)), null);
         }
     }
-
-    /// <summary>An LD/FBD body network text cannot represent: its <c>UNSUPPORTED</c> line, and the fact it has no
-    /// spelling for as the reason the pull reports.</summary>
-    private static (string Body, string Unsupported) Unsupported(BodyLanguage language, UnrepresentableBodyException ex) =>
-        (ImplementationMarker.Unsupported(NetworkText.Spelling(language)), ex.Reason);
 
     /// <summary>FBD or LD, from the aspect's <c>DefaultViewMode</c> — the vendor's own
     /// <c>NWLDisplayMode { LD, FBD, IL }</c>. Measured on a real ladder project: <c>'Ld'</c>.

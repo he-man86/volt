@@ -220,14 +220,43 @@ The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comme
 
 ## 3c. Production flag: graphical text off by default
 
-- [ ] 3c.1 Red first: without `VOLT_GRAPHICAL=1` an LD/FBD body pulls as `IMPLEMENTATION LD|FBD UNSUPPORTED` with the
+- [x] 3c.1 Red first: without `VOLT_GRAPHICAL=1` an LD/FBD body pulls as `IMPLEMENTATION LD|FBD UNSUPPORTED` with the
       reason "graphical text is not enabled in this build"; network text pushed is refused by name; ST unaffected;
       the declaration of an LD item is still editable. With `VOLT_GRAPHICAL=1`: today's behaviour.
-- [ ] 3c.2 One flag in the C# engine (read once from the environment), one in the LSP; nothing else reads the
+      The reason reads "LD and FBD are not enabled in this build" (the naming rule in `CLAUDE.local.md`: LD and FBD
+      are two languages, never "graphical"). Red first: engine `sync/NetworkTextSwitchTests.cs` (off: ST shown, LD and
+      FBD members `UNSUPPORTED`, the fetch names each with the switch's reason — even a body the text could not have
+      spelled, since the switch is asked first; network text pushed is refused naming the stated line and the switch,
+      nothing written; an LD member's declaration and the ST body push and the ladder is never written; the pulled file
+      pushes back as a no-op; on: network text as before; the suite runs with the switch on); driver-level
+      `TcNetworkTextSwitchTests` (the vendor's `ladder.TcPOU` archive through `BeckhoffDriver.ReadContent`: off →
+      the line and reason, on → network text) and `CodesysNetworkTextSwitchTests` (an LD aspect through
+      `CodesysDriver.ReadContent`); LSP `server/network-text-follows-the-file.test.ts` (a server started WITHOUT the
+      variable still reads an `IMPLEMENTATION LD` body as network text and claims no refusal; the UNSUPPORTED line draws
+      nothing). The spec delta's reason now reads the same as the code.
+- [x] 3c.2 One flag in the C# engine (read once from the environment), one in the LSP; nothing else reads the
       variable. The CODESYS bridge runs in-proc, so the flag comes from the CODESYS process environment.
-- [ ] 3c.3 `ide.ps1` (both vendors), the C# and TS test suites, e2e and the corpus/recording scripts set
+      C#: `Format/Network/NetworkTextSwitch` (`Enabled`, read once; its setter is internal, for the suites). Pull:
+      `NetworkText.Pulled(language, read)` is the one decision for an LD or FBD body — the switch first, then the
+      reader's or writer's `UnrepresentableBodyException` — and both drivers and `FakeIde` read every such body through
+      it (each driver's own `Unsupported` helper and catch deleted; `VendorCapabilityParityTests` now holds that each
+      driver calls `Pulled` instead of that each catches, since the catch moved into the engine). Push:
+      `NetworkText.Validate`, which every network-text body a push carries passes (the engine's pre-flight, the create
+      arm, each driver's write), refuses first; the gate now also holds that every vendor reader call and every
+      driver `NetworkTextWriter.Write` sits INSIDE `Pulled`'s read argument (a hoisted reader escapes the switch and the
+      catch). LSP: NO switch (review: the LSP runs in the editor's process, which `ide.ps1` never reaches, so its own
+      switch was off against an on dev bridge — a false "the push refuses it" finding and no network analysis). The
+      file carries the bridge's verdict (a bridge with the switch off pulls the UNSUPPORTED line); the spec delta says
+      so. `Volt.Repo.Gates/NetworkTextSwitchTests`: exactly one file names the variable (the engine's), none in the
+      LSP, volt-vscode/control/desktop.
+- [x] 3c.3 `ide.ps1` (both vendors), the C# and TS test suites, e2e and the corpus/recording scripts set
       `VOLT_GRAPHICAL=1`; `build-cli.ps1` and the installer do NOT. `scripts/README.md` and
       `packages/volt-cli/README.md` say how to turn it on.
+      `ide.ps1 up` sets it before launching either vendor; `test/test.runsettings` via `test/Directory.Build.props`
+      (which imports the solution defaults) for every C# test project; `bunfig.toml` preloads in volt-cli (the LSP has
+      no switch, so no preload); `test:e2e*`, `record:language`, `record:exec`, `refresh:corpus`. The same repo gate asserts each
+      setting, and that `build-cli.ps1`, `build-payload.ts`, `build-installer.ts` and `installer/Volt.iss` never name
+      it.
 
 ## 4. Data and docs
 

@@ -98,13 +98,15 @@ SHALL never be guessed or re-read as another language.
 - **WHEN** a pushed method's body opens with `IMPLEMENTATION` alone
 - **THEN** the push is refused naming the missing language
 
-### Requirement: graphical text is disabled unless the build enables it
+### Requirement: LD and FBD are disabled unless the build enables them
 
-LD/FBD network text SHALL be off by default. It SHALL be on only in a process whose environment sets
-`VOLT_GRAPHICAL=1` (development, `ide.ps1`, the test suites, the e2e suites). There SHALL be exactly one flag per
-runtime: one in the C# engine (the bridge) and one in the LSP. While it is off, every LD/FBD body SHALL pull as
-`IMPLEMENTATION LD|FBD UNSUPPORTED` with the reason "graphical text is not enabled in this build", a push carrying
-network text SHALL be refused by name, and the LSP SHALL read nothing under an LD/FBD line. ST SHALL be unaffected.
+LD/FBD network text SHALL be off by default. It SHALL be on only in a bridge process whose environment sets
+`VOLT_GRAPHICAL=1` (development, `ide.ps1`, the test suites, the e2e suites). There SHALL be exactly one flag, in the
+C# engine (the bridge). While it is off, every LD/FBD body SHALL pull as `IMPLEMENTATION LD|FBD UNSUPPORTED` with the
+reason "LD and FBD are not enabled in this build", a push carrying network text SHALL be refused by name, and nothing
+in the IDE SHALL be written for such a body. ST SHALL be unaffected. The LSP SHALL have no flag of its own: it runs in
+the editor's process, not the bridge's, so it reads a body as the file states it — a bridge with the flag off has
+already pulled that body as its UNSUPPORTED line, which the LSP reads nothing under.
 
 #### Scenario: a production build
 - **WHEN** a bridge without `VOLT_GRAPHICAL=1` pulls a project with ST and LD bodies
@@ -113,7 +115,13 @@ network text SHALL be refused by name, and the LSP SHALL read nothing under an L
 
 #### Scenario: network text pushed to a production build
 - **WHEN** a file with `IMPLEMENTATION LD` and network text is pushed to a bridge without `VOLT_GRAPHICAL=1`
-- **THEN** the push is refused naming the item and that graphical text is not enabled, and nothing is written
+- **THEN** the push is refused naming the item and that LD and FBD are not enabled in this build, and nothing is
+  written
+
+#### Scenario: an editor started without the variable
+- **WHEN** the LSP runs in a process without `VOLT_GRAPHICAL=1` and opens a body stated `IMPLEMENTATION LD` in network
+  text (pulled from a bridge with the flag on)
+- **THEN** it reads the body as network text and reports no refusal the bridge would not make
 
 #### Scenario: a development build
 - **WHEN** the bridge runs with `VOLT_GRAPHICAL=1`

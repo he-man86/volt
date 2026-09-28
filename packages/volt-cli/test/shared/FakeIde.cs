@@ -647,32 +647,49 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// would let a textual push sail past the body-format guard here and be refused only against a live IDE.
     /// <para><c>BodyLang</c> models what the IDE holds. It is deliberately NOT the same thing as the body text:
     /// that separation is exactly what the guard exists to check.</para></summary>
-    private static string? BodyTextOf(Item it)
+    private static string? BodyTextOf(Item it) => BodyOf(it).Body;
+
+    /// <summary>Why a body the fake returns as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> is hidden — what a driver
+    /// hands up with it — and null for every other body.</summary>
+    private static string? UnsupportedOf(Item it) => BodyOf(it).Unsupported;
+
+    /// <summary>The body and, for a hidden LD or FBD body, why — read as both drivers read one: every LD and FBD body
+    /// through <see cref="Volt.Engine.Format.Network.NetworkText.Pulled"/>, so the production switch and a refusal
+    /// (<c>Unsupported</c>, what a driver's reader or writer raises as <c>UnrepresentableBodyException</c>) reach the
+    /// fake exactly as they reach a vendor.</summary>
+    private static (string? Body, string? Unsupported) BodyOf(Item it)
     {
         // No `BodyLang` is ST — or a network body this fake stored from a push, which it keeps as its network text
         // (`WriteContent` records no language). ST goes up the drivers' ST arm: a keyword-shaped line in it is refused.
         if (it.BodyLang is not { } lang)
-            return it.Implementation is { } text && !Volt.Engine.Format.Network.NetworkText.Is(text)
-                ? Volt.Engine.Format.St.ImplementationMarker.RequireStBody(text)
-                : it.Implementation;
+        {
+            if (it.Implementation is not { } text) return (null, null);
+            if (Volt.Engine.Format.Network.NetworkText.LanguageOf(text) is { } stored)
+                return Pulled(stored, () => text);
+            return (Volt.Engine.Format.St.ImplementationMarker.RequireStBody(text), null);
+        }
         // A language Volt cannot author has no text form at all.
         if (!Volt.Engine.Format.Body.Languages.IsNetwork(lang))
-            return Volt.Engine.Format.St.ImplementationMarker.Unsupported(lang);
-        if (it.Unsupported is not null) return Volt.Engine.Format.St.ImplementationMarker.Unsupported(lang);
+            return (Volt.Engine.Format.St.ImplementationMarker.Unsupported(lang), null);
         // An FBD/LD body comes back as NETWORK TEXT. A fixture that sets BodyLang but stores plain text is
         // describing "the IDE holds a diagram", so render one — returning the raw text would make a graphical
         // body look textual to the format guard, and the guard would wave through the very overwrite it exists
         // to stop.
-        var impl = it.Implementation ?? "";
-        return Volt.Engine.Format.Network.NetworkText.Is(impl)
-            ? impl
-            : $"{Volt.Engine.Format.St.ImplementationMarker.For(lang)}\nNETWORK\n  {impl.Trim()}\nEND_NETWORK\n";
+        return Pulled(lang, () =>
+        {
+            if (it.Unsupported is { } why) throw new Volt.Engine.Format.Body.UnrepresentableBodyException(why, why);
+            var impl = it.Implementation ?? "";
+            return Volt.Engine.Format.Network.NetworkText.Is(impl)
+                ? impl
+                : $"{Volt.Engine.Format.St.ImplementationMarker.For(lang)}\nNETWORK\n  {impl.Trim()}\nEND_NETWORK\n";
+        });
     }
 
-    /// <summary>Why a body the fake returns as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c> is hidden — what a driver
-    /// hands up with it, from the exception its reader or writer raised — and null for every other body.</summary>
-    private static string? UnsupportedOf(Item it) =>
-        it.BodyLang is { } lang && Volt.Engine.Format.Body.Languages.IsNetwork(lang) ? it.Unsupported : null;
+    private static (string? Body, string? Unsupported) Pulled(string lang, Func<string> read) =>
+        Volt.Engine.Format.Network.NetworkText.Pulled(
+            Volt.Engine.Format.Network.NetworkText.LanguageNamed(lang)
+                ?? throw new InvalidOperationException($"FakeIde: '{lang}' is no network-text language"),
+            read);
 
     /// <summary>The scope a graphical body resolves against, built as both drivers build it
     /// (<see cref="Volt.Engine.Ide.ProjectDeclarations"/>) — fresh on every call, because a test edits the fake's

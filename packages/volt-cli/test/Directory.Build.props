@@ -1,0 +1,12 @@
+<Project>
+
+  <!-- The solution-wide defaults one level up (Nullable, LangVersion, ImplicitUsings): MSBuild imports only the NEAREST
+       Directory.Build.props, so this file must import that one or every test project silently loses them. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..'))" />
+
+  <PropertyGroup>
+    <!-- Every test project runs under test.runsettings: VOLT_GRAPHICAL=1, LD and FBD network text on. -->
+    <RunSettingsFilePath>$(MSBuildThisFileDirectory)test.runsettings</RunSettingsFilePath>
+  </PropertyGroup>
+
+</Project>

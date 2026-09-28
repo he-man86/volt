@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Every C# test suite runs with LD and FBD network text ON (openspec implementation-keyword 3c): the switch is
+  VOLT_GRAPHICAL=1 in the process environment (Volt.Engine's NetworkTextSwitch), and the shipped build does not set it.
+  The suites prove today's behaviour with it on, and turn it off in place around the tests that prove the production
+  build. Picked up by every project under test/ through Directory.Build.props, so `dotnet test <project>` needs no flag.
+-->
+<RunSettings>
+  <RunConfiguration>
+    <EnvironmentVariables>
+      <VOLT_GRAPHICAL>1</VOLT_GRAPHICAL>
+    </EnvironmentVariables>
+  </RunConfiguration>
+</RunSettings>

@@ -259,8 +259,8 @@ public sealed partial class BeckhoffDriver
     /// does not show as its UNSUPPORTED line (<c>IMPLEMENTATION CFC UNSUPPORTED</c>, <c>IMPLEMENTATION LD UNSUPPORTED</c>).</summary>
     /// <param name="declaration">The declarations the body resolves against, innermost first
     /// (<see cref="SourceScopes.Scope"/>) — a graphical body is written against its <see cref="NetworkScope"/>.</param>
-    /// <returns>The body, and — for an LD/FBD body network text cannot represent — why
-    /// (<see cref="UnrepresentableBodyException.Reason"/>), for the pull to report; null for every other body.</returns>
+    /// <returns>The body, and — for an LD or FBD body that reads as its UNSUPPORTED line (network text is off, or cannot
+    /// represent it: <see cref="NetworkText.Pulled"/>) — why, for the pull to report; null for every other body.</returns>
     private (string? Body, string? Unsupported) ReadBody(ItemRef item, string? declaration)
     {
         var raw = _om.ReadImplementation(item.Native);
@@ -271,6 +271,10 @@ public sealed partial class BeckhoffDriver
             var language = ViewModeOf(impl);
             if (language is null) return (ImplementationMarker.Unsupported(Languages.Il), null);
 
+            // EVERY LD AND FBD BODY GOES THROUGH `NetworkText.Pulled`, as on CODESYS: while network text is off in this
+            // process it is the UNSUPPORTED line with the switch's reason, and nothing below is read; on, it is network
+            // text, or the UNSUPPORTED line with whatever the reader or the writer refused.
+            //
             // AN EXECUTE BOX WHOSE ST CANNOT BE READ MAKES THE BODY UNSUPPORTED — it does not make the POU
             // DISAPPEAR. The reader refuses rather than materializing a box without the code it runs, and that
             // refusal is a THROW deep in the node walk; `Versioning.SafeVersion` isolates a throw by giving the
@@ -287,41 +291,30 @@ public sealed partial class BeckhoffDriver
             // `sourceText`s, which is exactly what the byte-identical-response rule forbids. Ask the precise
             // question instead. Creating one is still refused (`TcPlcOpenWriter`), and so is editing its ST
             // (`TcNetworkWriter`); this is the READ path, and it can now answer.
-            if (TcArchive.HasUnreadableExecuteBox(impl))
-                return (ImplementationMarker.Unsupported(NetworkText.Spelling(language.Value)), BoxRefusals.UnreadableExecuteMarker);
-
-            // …AND THE CATCH BEHIND IT, because the pre-scan answers ONE question and the reader can refuse for
+            //
+            // …AND `Pulled`'s CATCH BEHIND IT, because the pre-scan answers ONE question and the reader can refuse for
             // more than one reason. `HasUnreadableExecuteBox` asks whether a TextDocument is missing; a snippet
             // that is present and unwalkable for any other reason still reaches `ReadStCode`, and an escaping
             // throw costs the WHOLE POU — `Versioning.SafeVersion` stamps the item Unreadable and `FetchService`
             // drops it from `changed`, `items` and `folders`, so the file leaves the workspace and git on every
-            // pull. The pre-scan stays as the precise answer; this is what makes the imprecise cases survivable.
+            // pull. The pre-scan stays as the precise answer; the catch is what makes the imprecise cases survivable.
             //
-            // Both drivers now end an unrepresentable body the same way, and `VendorCapabilityParityTests` holds
-            // them there — CODESYS had no pre-scan at all and lost POUs outright, which is what the vendor
-            // differential map found on 2026-09-22.
-            NetworkBody model;
-            try
-            {
-                model = TcNetworkReader.Read(impl, language.Value);
-            }
-            catch (UnrepresentableBodyException ex)
-            {
-                return Unsupported(language.Value, ex);
-            }
-
             // Byte-identical with CODESYS: a fact the text has no spelling for — a negated coil, a rung driving two
             // jumps, a connection slot the archive does not record — is UNSUPPORTED on both vendors, because the model
             // is the same model (DIALECT N1) and the format is the same format. The writer raises the one exception
-            // for every such fact (network text v2: pull never throws anything else).
-            try
+            // for every such fact (network text v2: pull never throws anything else). `VendorCapabilityParityTests`
+            // holds the two drivers there — CODESYS had no pre-scan at all and lost POUs outright, which is what the
+            // vendor differential map found on 2026-09-22.
+            var view = language.Value;
+            return NetworkText.Pulled(view, () =>
             {
-                return (NetworkTextWriter.Write(model, Declarations.ScopeForPull(declaration)).TrimEnd('\n'), null);
-            }
-            catch (UnrepresentableBodyException ex)
-            {
-                return Unsupported(language.Value, ex);
-            }
+                if (TcArchive.HasUnreadableExecuteBox(impl))
+                    throw new UnrepresentableBodyException(BoxRefusals.UnreadableExecuteMarker,
+                        "TwinCAT: this body holds an Execute box whose ST cannot be read, and Volt will not materialize " +
+                        "the box without the code it runs.");
+                return NetworkTextWriter.Write(TcNetworkReader.Read(impl, view), Declarations.ScopeForPull(declaration))
+                    .TrimEnd('\n');
+            });
         }
 
         // CFC and SFC are graphical and unsupported: each is its UNSUPPORTED line (`IMPLEMENTATION CFC UNSUPPORTED`), so an engineer
@@ -334,11 +327,6 @@ public sealed partial class BeckhoffDriver
         var body = raw.TrimEnd('\n');
         return (body.Length == 0 ? null : ImplementationMarker.RequireStBody(body), null);
     }
-
-    /// <summary>An LD/FBD body network text cannot represent: its <c>UNSUPPORTED</c> line, and the fact it has no
-    /// spelling for as the reason the pull reports — as <c>CodesysDriver</c> answers it.</summary>
-    private static (string Body, string Unsupported) Unsupported(BodyLanguage language, UnrepresentableBodyException ex) =>
-        (ImplementationMarker.Unsupported(NetworkText.Spelling(language)), ex.Reason);
 
     /// <summary>FBD or LD, from the archive's <c>DefaultViewMode</c>. IL is the same network model in a third
     /// view; Volt does not author it, so it is refused rather than re-rendered as a diagram the engineer did

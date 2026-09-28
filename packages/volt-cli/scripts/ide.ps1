@@ -358,6 +358,11 @@ switch ($Action) {
         Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
     }
     "up" {
+        # LD and FBD network text ON for what this launches (openspec implementation-keyword 3c). The bridge reads the
+        # switch from its OWN process environment — CODESYS runs it in-proc, TwinCAT in the worker — and both inherit
+        # this one, so it must be set before either starts. The shipped build does not set it: a customer's bridge shows
+        # every LD and FBD body as `IMPLEMENTATION LD|FBD UNSUPPORTED`.
+        $env:VOLT_GRAPHICAL = "1"
         $before = Get-ServingPids $Vendor
         if ($Vendor -eq "codesys") { Up-Codesys } else { Up-Twincat }
         Write-Host "Tail the launcher log with: ide.ps1 logs -Vendor $Vendor"

@@ -72,6 +72,24 @@ public static class NetworkText
         return BareHeader.IsMatch(lines[first]) && lines.Skip(first + 1).Any(l => NetworkEnd.IsMatch(l));
     }
 
+    /// <summary>An LD or FBD body as a PULL hands it up: its network text, from <paramref name="read"/> — the driver's
+    /// own reader and <see cref="NetworkTextWriter"/> — or its UNSUPPORTED line and why. The ONE decision every driver's
+    /// pull (and <c>FakeIde</c>) makes for such a body, so the vendors cannot answer the same body differently.
+    ///
+    /// <para>Hidden, with the reason the pull message names, when network text is off in this process
+    /// (<see cref="NetworkTextSwitch"/>) — asked FIRST, so a production bridge reads no network at all and one it could
+    /// not read is hidden for the same reason as every other — or when the body holds a fact the text has no spelling
+    /// for (<see cref="UnrepresentableBodyException"/>, raised by the reader or the writer). That is never a missing
+    /// POU: an escaping throw costs the whole item (<c>Versioning.SafeVersion</c> stamps it unreadable and the fetch
+    /// drops it, declaration and siblings with it).</para></summary>
+    public static (string Body, string? Unsupported) Pulled(BodyLanguage language, Func<string> read)
+    {
+        var hidden = ImplementationMarker.Unsupported(Spelling(language));
+        if (!NetworkTextSwitch.Enabled) return (hidden, NetworkTextSwitch.DisabledReason);
+        try { return (read(), null); }
+        catch (UnrepresentableBodyException ex) { return (hidden, ex.Reason); }
+    }
+
     /// <summary>How a body language is spelled — on its <c>IMPLEMENTATION</c> line, and in the vendor-neutral language
     /// vocabulary (<see cref="Languages"/>). The one mapping: the marker's writer, its reader and the view-change
     /// refusal each spelled it by hand.</summary>
@@ -267,6 +285,18 @@ public static class NetworkText
     /// separately, against the IDE's view (<see cref="RefuseViewModeChange"/>), where the drivers know it.</summary>
     public static NetworkBody Validate(string body, NetworkScope scope)
     {
+        // Every network-text body a push carries comes through here — the engine's pre-flight, the create arm, and each
+        // driver's own write — so this is the one refusal a production bridge needs: before the text is read, and so
+        // before anything is written.
+        if (!NetworkTextSwitch.Enabled)
+        {
+            var language = LanguageOf(body) ?? throw new ArgumentException("no network-text body", nameof(body));
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"a body is stated '{ImplementationMarker.For(language)}', and {NetworkTextSwitch.DisabledReason}, so it " +
+                $"cannot be pushed: this build shows that body as '{ImplementationMarker.Unsupported(language)}' and " +
+                "never writes it. Pull the item to get that line; its declaration stays editable.");
+        }
+
         var result = NetworkTextGate.Validate(body, scope);
         if (result.Ok) return result.Body!;
         var first = result.Diagnostics[0];

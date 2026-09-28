@@ -242,24 +242,75 @@ public class VendorCapabilityParityTests
     ///
     /// <para>The gate is structural on purpose. The CODESYS driver arm needs LIVE vendor objects to exercise,
     /// so no offline test can reach it; what CAN be held is that neither driver ever stops answering.</para>
+    ///
+    /// <para>The catch itself moved into the engine with the production switch (openspec <c>implementation-keyword</c>
+    /// 3c): <c>NetworkText.Pulled</c> is the one decision for an LD or FBD body on pull — the switch, then the refusal —
+    /// so a driver answers by reading every such body through it, and the engine suite proves its catch.</para>
+    ///
+    /// <para>So the gate holds WHERE the reading happens, not only that <c>Pulled</c> is named: every call of the
+    /// vendor's network reader, and every <c>NetworkTextWriter.Write</c> in the driver, must sit inside the
+    /// <c>read</c> argument of a <c>NetworkText.Pulled(</c> call. A reader hoisted out of it — to reuse the model, say —
+    /// runs before the switch is asked (a production bridge reads a network it was to hide) and outside the catch
+    /// (its refusal escapes and costs the whole POU), while <c>Pulled</c> is still named two lines below.</para>
     /// </summary>
     [Theory]
-    [InlineData("Volt.Ide.Codesys")]
-    [InlineData("Volt.Ide.Twincat")]
-    public void Every_driver_answers_an_unrepresentable_body_with_a_marker(string vendor)
-        {
+    [InlineData("Volt.Ide.Codesys", "CodesysNetworkReader.Read(")]
+    [InlineData("Volt.Ide.Twincat", "TcNetworkReader.Read(")]
+    public void Every_driver_answers_an_unrepresentable_body_with_a_marker(string vendor, string reader)
+    {
         var dir = Path.Combine(RepoRoot(), "packages", "volt-cli", "src", vendor);
-        var driver = Directory.EnumerateFiles(dir, "*.cs", SearchOption.AllDirectories)
+        var files = Directory.EnumerateFiles(dir, "*.cs", SearchOption.AllDirectories)
             .Where(NotBuildOutput)
-            .Select(File.ReadAllText)
-            .ToList();
+            .ToDictionary(f => Path.GetRelativePath(dir, f).Replace(Path.DirectorySeparatorChar, '/'), File.ReadAllText);
 
         Assert.True(
-            driver.Any(t => t.Contains("catch (UnrepresentableBodyException")),
-            vendor + " never catches UnrepresentableBodyException, so a body its reader cannot represent " +
+            files.Values.Any(t => t.Contains("NetworkText.Pulled(")),
+            vendor + " never reads an LD or FBD body through NetworkText.Pulled, so a body its reader cannot represent " +
             "removes the whole POU from the workspace and from git instead of reading as IMPLEMENTATION LD|FBD " +
-            "UNSUPPORTED. Catch it where the body is read and return ImplementationMarker.Unsupported(language) with ex.Reason.");
+            "UNSUPPORTED — and the production switch does not reach it either. Read the body through NetworkText.Pulled.");
+
+        var outside = new List<string>();
+        foreach (var (file, text) in files)
+        {
+            var inside = CallExtents(text, "NetworkText.Pulled(");
+            var calls = Occurrences(text, reader).Select(i => (i, reader)).ToList();
+            if (file.StartsWith("Driver/", StringComparison.Ordinal))
+                calls.AddRange(Occurrences(text, "NetworkTextWriter.Write(").Select(i => (i, "NetworkTextWriter.Write(")));
+            foreach (var (at, what) in calls)
+                if (!inside.Any(e => at > e.Start && at < e.End))
+                    outside.Add($"{file}:{text[..at].Count(c => c == '\n') + 1} {what}");
         }
+        Assert.True(outside.Count == 0,
+            vendor + " reads an LD or FBD body outside NetworkText.Pulled — before the production switch is asked, and " +
+            "outside the catch that keeps a refused body from removing the POU. Move the call into Pulled's read " +
+            "argument:\n  " + string.Join("\n  ", outside));
+    }
+
+    /// <summary>Every index at which <paramref name="needle"/> starts in <paramref name="text"/>.</summary>
+    private static IEnumerable<int> Occurrences(string text, string needle)
+    {
+        for (var i = text.IndexOf(needle, StringComparison.Ordinal); i >= 0; i = text.IndexOf(needle, i + 1, StringComparison.Ordinal))
+            yield return i;
+    }
+
+    /// <summary>The argument list of every call that opens with <paramref name="call"/> (ending in its '('): from that
+    /// parenthesis to the one that closes it. Parentheses are counted raw, which is exact while the string literals
+    /// inside these calls hold none (they hold none today).</summary>
+    private static List<(int Start, int End)> CallExtents(string text, string call)
+    {
+        var extents = new List<(int, int)>();
+        foreach (var start in Occurrences(text, call))
+        {
+            var open = start + call.Length - 1;
+            var depth = 0;
+            for (var i = open; i < text.Length; i++)
+            {
+                if (text[i] == '(') depth++;
+                else if (text[i] == ')' && --depth == 0) { extents.Add((open, i)); break; }
+            }
+        }
+        return extents;
+    }
 
     /// <summary>NO READER MAY REFUSE A BODY IN A WAY THAT REMOVES THE POU.
     ///

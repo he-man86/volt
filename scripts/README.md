@@ -71,6 +71,14 @@ scripts/build-payload.ts`) only to debug that stage; `--no-bridge` skips dotnet.
 Useful flags on `build-installer.ts`: `--skip-dist` (reuse the current `dist/volt`), `--rebuild-app` (force
 electron-builder), `--upload` / `--upload-only`.
 
+**The product ships with LD and FBD off.** Network text is on only in a process whose environment holds
+`VOLT_GRAPHICAL=1`, and nothing on this path sets it — not `build-payload.ts`, not `build-installer.ts`, not
+`installer/Volt.iss`, not `build-cli.ps1` — so an installed bridge pulls every LD and FBD body as
+`IMPLEMENTATION LD|FBD UNSUPPORTED`. Development turns it on: `ide.ps1`, the test suites, the e2e and recording
+scripts (`packages/volt-cli/README.md`, "LD and FBD are off unless `VOLT_GRAPHICAL=1`"). To try a shipped build with
+it on, set it in the environment of the process that runs the bridge (CODESYS, or the TwinCAT worker); the LSP has
+no switch of its own. `Volt.Repo.Gates/NetworkTextSwitchTests` fails if a shipping step starts setting it.
+
 ## The wiring check
 
 `bun run check` (`check-wiring.ts`) — built binaries, product-version parity, and **source-extension parity across
