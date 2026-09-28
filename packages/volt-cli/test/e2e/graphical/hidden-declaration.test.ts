@@ -18,9 +18,9 @@
  */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { readdirSync, readFileSync, statSync } from "node:fs"
-import { join } from "node:path"
-import { tmpdir } from "node:os"
-import { bridge, fetchItem, requireHealthy, pushOps, expectVendorDifference, BASE } from "../harness"
+import { dirname, join } from "node:path"
+import { spawnSync } from "node:child_process"
+import { bridge, fetchItem, requireHealthy, pushOps, expectVendorDifference, currentPipe, BASE } from "../harness"
 
 setDefaultTimeout(60000)
 
@@ -28,8 +28,21 @@ const CASES = [["CFC", "VltFixtureCfc"], ["SFC", "VltFixtureSfc"]] as const
 
 const ADDED = "VAR_INPUT\n\tbVoltHiddenProbe : BOOL;\nEND_VAR\n"
 
-/** The `.TcPOU` files of the TwinCAT solution `ide.ps1` copied out and serves (`%TEMP%\volt-ide-twincat[-<instance>]`),
- *  for the served PLC project named `project`. */
+/** The solution folder the served XAE has open — read from THAT process's own command line. The pipe is named
+ *  `volt.bridge.twincat.<pid>` after the XAE it serves, and `ide.ps1` launches the XAE on the `.sln` of its copy, so
+ *  this is a probe of the served copy rather than a guess among the `%TEMP%/volt-ide-twincat[-<instance>]` copies
+ *  several `-Instance` runs leave side by side (picking the newest one was a guess that a stale copy could win). */
+function servedSolutionDir(): string {
+	const pid = Number(currentPipe().split(".").pop())
+	if (!Number.isInteger(pid) || pid <= 0) throw new Error(`pipe '${currentPipe()}' names no XAE pid`)
+	const r = spawnSync("powershell", ["-NoProfile", "-Command",
+		`(Get-CimInstance Win32_Process -Filter "ProcessId=${pid}").CommandLine`], { encoding: "utf8" })
+	const sln = /"([^"]+\.sln)"/i.exec(r.stdout ?? "")?.[1]
+	if (!sln) throw new Error(`XAE ${pid} was not opened on a .sln (command line: ${JSON.stringify(r.stdout)}; ${r.stderr})`)
+	return dirname(sln)
+}
+
+/** The served PLC project's `<bare>.TcPOU` — exactly one, or the test cannot say which bytes it compared. */
 function tcPouFile(bare: string, project: string): string {
 	const found: string[] = []
 	const walk = (dir: string) => {
@@ -39,14 +52,11 @@ function tcPouFile(bare: string, project: string): string {
 			else if (name.toLowerCase() === `${bare.toLowerCase()}.tcpou`) found.push(path)
 		}
 	}
-	for (const work of readdirSync(tmpdir()).filter((n) => n.startsWith("volt-ide-twincat"))) walk(join(tmpdir(), work))
-	// Several `ide.ps1 -Instance` copies of one fixture may sit side by side; the one the IDE serves is the one the push
-	// just before this call flushed, so it is the newest.
-	const served = found
-		.filter((p) => p.split(/[\\/]/).includes(project))
-		.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)
-	if (served.length === 0)
-		throw new Error(`no ${bare}.TcPOU under the served project '${project}', found: ${JSON.stringify(found)}`)
+	const solution = servedSolutionDir()
+	walk(solution)
+	const served = found.filter((p) => p.split(/[\\/]/).includes(project))
+	if (served.length !== 1)
+		throw new Error(`expected one ${bare}.TcPOU in project '${project}' under ${solution}, found: ${JSON.stringify(found)}`)
 	return served[0]!
 }
 
@@ -64,7 +74,10 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 
 	beforeAll(async () => {
 		await requireHealthy()
-		project = ((await bridge.health()).projects ?? []).find((p: any) => p.status && p.status !== "idle")?.project ?? ""
+		// The SERVED project, or no test here can say which file it read: requireHealthy just proved one is served.
+		const served = ((await bridge.health()).projects ?? []).find((p: any) => p.status && p.status !== "idle")
+		if (!served?.project) throw new Error(`health reports no served project: ${JSON.stringify(served)}`)
+		project = served.project
 		const refs = await bridge.refs()
 		for (const [, bare] of CASES) {
 			const full = Object.keys(refs.items).find((n) => n.startsWith(`${bare}.`))
@@ -95,10 +108,12 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 			expect(pulled).toContain(`\nIMPLEMENTATION ${lang} UNSUPPORTED\n`)
 			expect(pulled).not.toContain("XmlArchive")
 
-			// The bytes BEFORE, as the IDE saves them: restating the pulled file is the ordinary no-op, and on TwinCAT the
-			// push's flush saves the project — so "before" is the IDE's own serialization, not the committed fixture's.
-			expect((await set(name, pulled)).accepted).toBe(true)
+			// The bytes BEFORE ANY PUSH — the body as the served project holds it now. Taking the baseline after a push
+			// would make whatever that push did the reference, so a push that rewrote the body would compare equal to
+			// itself. The restating push (the ordinary no-op) is then held to the same bytes like every other push.
 			const before = heldBody(bare)
+			expect((await set(name, pulled)).accepted).toBe(true)
+			expect(heldBody(bare)).toBe(before)
 
 			const edited = pulled.replace(`FUNCTION_BLOCK ${bare}\n`, `FUNCTION_BLOCK ${bare}\n${ADDED}`)
 			expect(edited).not.toBe(pulled)

@@ -196,6 +196,17 @@ The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comme
       languages: declarations land, zero implementation writes); live `e2e/graphical/hidden-declaration.test.ts`, green
       on CODESYS (CodesysTestProject) and TwinCAT (Project14). The drivers already skipped a hidden body; the decision
       is now ONE engine function, `ImplementationMarker.Written`, that every writer on both vendors and `FakeIde` call.
+      Review round 2: `TcItemArchive` dropped the UTF-8 byte order mark of every document it rewrote (default
+      `StreamReader`/`StreamWriter`); entries now keep it, strict UTF-8 (`TcHiddenBodyWriteTests`: a no-op placement
+      imports the vendor document byte for byte; a graphical member edit keeps the BOM; both red before). The live
+      byte check now takes its baseline BEFORE any push (the restating push is held to it too), resolves the served
+      `.TcPOU` from the XAE's own command line (the pipe names its pid) instead of the newest `%TEMP%` copy, and
+      fails loud when health names no served project; green live on TwinCAT Project14 and CODESYS.
+      BLOCKED: a LIVE test of a hidden MEMBER beside a graphical sibling (TwinCAT `SetMemberBodies`/`MoveMember`
+      over a CFC method / SFC action; a hidden member's declaration edit on either vendor). It needs a fixture POU
+      authored by the IDE itself (`CreateChild(…, 609|608, "", "CFC"|"SFC")` against the XAE, saved into
+      Project13/14; `create_method(language=cfc)` in CodesysTestProject), and driving the live XAE over COM to
+      author it was denied by the session's permission policy. Offline coverage stands (`MembersHidden.TcPOU`).
 - [x] 3b.2 Engine + LSP + TextMate follow; tests from 2b/3.1 that pinned bare `CFC` rewritten to the new rule.
       Engine: `ImplementationMarker.Unsupported(lang)` for every language but ST (`ReadOnly` deleted), `IsUnsupported`/
       `IsUnsupportedBody`/`IsNeverShown`/`Written`; `StReader` names a bare CFC/SFC/IL line with the line to write; the

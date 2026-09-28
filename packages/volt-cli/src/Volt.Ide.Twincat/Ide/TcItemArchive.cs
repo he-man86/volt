@@ -168,8 +168,7 @@ internal static class TcItemArchive
             var placed = false;
             foreach (var entry in src.Entries)
             {
-                string text;
-                using (var reader = new StreamReader(entry.Open())) text = reader.ReadToEnd();
+                var (text, bom) = ReadEntry(entry);
                 // ANY vendor source document, not just a .TcPOU. An interface lives in a `.TcIO`, whose
                 // `<Itf>` holds exactly the `<Method>`/`<Property>` children `TryPlace` looks for - and
                 // `EnclosingPouOf` deliberately routes interface members here. Matching only `.TcPOU` meant an
@@ -179,9 +178,7 @@ internal static class TcItemArchive
                 // safe to offer it every source document and let it decide.
                 if (IsPlcSource(entry.FullName))
                     placed |= TryPlace(ref text, memberName, folderPath);
-                var copy = dst.CreateEntry(entry.FullName, CompressionLevel.Optimal);
-                using var writer = new StreamWriter(copy.Open());
-                writer.Write(text);
+                WriteEntry(dst, entry.FullName, text, bom);
             }
             if (!placed)
                 throw new InvalidOperationException(
@@ -206,17 +203,14 @@ internal static class TcItemArchive
         {
             foreach (var entry in src.Entries)
             {
-                string text;
-                using (var reader = new StreamReader(entry.Open())) text = reader.ReadToEnd();
+                var (text, bom) = ReadEntry(entry);
 
                 if (IsPlcSource(entry.FullName))
                     foreach (var (path, nwl) in bodies)
                         if (TrySetBody(ref text, path, nwl))
                             written.Add(string.Join(".", path));
 
-                var copy = dst.CreateEntry(entry.FullName, CompressionLevel.Optimal);
-                using var writer = new StreamWriter(copy.Open());
-                writer.Write(text);
+                WriteEntry(dst, entry.FullName, text, bom);
             }
         }
 
@@ -232,6 +226,35 @@ internal static class TcItemArchive
         File.Delete(zip);
         File.Move(rebuilt, zip);
     }
+
+    /// <summary>An archive entry's text, and whether the vendor opened it with a UTF-8 byte order mark.
+    /// <para>TwinCAT writes one on every source document, and the rewrite goes back into the IDE whole — so the
+    /// mark is part of "every byte as the vendor wrote it", not decoration. A default <c>StreamReader</c> eats it
+    /// and a default <c>StreamWriter</c> writes none, which cost every re-imported document its first three bytes
+    /// (<c>TcHiddenBodyWriteTests</c>).</para></summary>
+    private static (string Text, bool Bom) ReadEntry(ZipArchiveEntry entry)
+    {
+        using var input = entry.Open();
+        using var bytes = new MemoryStream();
+        input.CopyTo(bytes);
+        var raw = bytes.ToArray();
+        var bom = raw.Length >= 3 && raw[0] == 0xEF && raw[1] == 0xBB && raw[2] == 0xBF;
+        return (Utf8.GetString(raw, bom ? 3 : 0, raw.Length - (bom ? 3 : 0)), bom);
+    }
+
+    /// <summary>The counterpart of <see cref="ReadEntry"/>: the text as UTF-8, with the mark exactly when the vendor's
+    /// entry had one.</summary>
+    private static void WriteEntry(ZipArchive dst, string entryName, string text, bool bom)
+    {
+        using var output = dst.CreateEntry(entryName, CompressionLevel.Optimal).Open();
+        if (bom) output.Write(new byte[] { 0xEF, 0xBB, 0xBF }, 0, 3);
+        var body = Utf8.GetBytes(text);
+        output.Write(body, 0, body.Length);
+    }
+
+    // Strict: bytes that are not UTF-8 throw here, BEFORE the POU is deleted, rather than being replaced with U+FFFD
+    // and imported over the engineer's text.
+    private static readonly System.Text.UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     /// <summary>Point one member's <c>&lt;Implementation&gt;</c> at a graphical body.
     ///

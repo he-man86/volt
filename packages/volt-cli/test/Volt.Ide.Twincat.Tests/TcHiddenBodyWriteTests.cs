@@ -188,4 +188,37 @@ public class TcHiddenBodyWriteTests
         foreach (var (element, name) in new[] { ("Method", "M_Ladder"), ("Action", "A_Seq"), ("Property", "P_Chart") })
             Assert.Equal(Raw(was, element, name), Raw(now, element, name));
     }
+
+    /// <summary>The comparisons above are per element, so they cannot see the DOCUMENT's own bytes — and the archive
+    /// rewrite once lost the first three: every entry was read with a default <c>StreamReader</c> (which eats the
+    /// UTF-8 byte order mark TwinCAT writes) and written back with a default <c>StreamWriter</c> (which writes none).
+    /// A placement that changes nothing — a member already at the POU root, "moved" to the root — is the whole
+    /// claim with nothing to subtract: the POU goes back into the IDE as exactly the bytes it came out as.</summary>
+    [Fact]
+    public void A_placement_that_changes_nothing_imports_the_vendor_document_byte_for_byte()
+    {
+        var before = File.ReadAllBytes(Fixtures.Path("tc-pou", "MembersHidden.TcPOU"));
+        Assert.Equal(new byte[] { 0xEF, 0xBB, 0xBF }, before.Take(3).ToArray());   // the vendor writes a BOM
+        var parent = new ArchiveParent(before);
+
+        TcItemArchive.MoveMember(parent, "VltProbe_Hidden", "M_Chart", "");
+
+        Assert.Equal(before, Assert.IsType<byte[]>(parent.Imported));
+    }
+
+    /// <summary>The same for the graphical-body rewrite: whatever the edit, the document keeps the byte order mark
+    /// the vendor gave it.</summary>
+    [Fact]
+    public void A_graphical_member_edit_keeps_the_vendor_documents_byte_order_mark()
+    {
+        var parent = new ArchiveParent(File.ReadAllBytes(Fixtures.Path("tc-pou", "MembersHidden.TcPOU")));
+        var ladder = Fixtures.Pou("ladder.TcPOU");
+        var start = ladder.IndexOf("<NWL>", StringComparison.Ordinal);
+        var nwl = ladder.Substring(start, ladder.IndexOf("</NWL>", StringComparison.Ordinal) + "</NWL>".Length - start);
+
+        TcItemArchive.SetMemberBodies(parent, "VltProbe_Hidden", new List<(string[], string)> { (new[] { "M_Ladder" }, nwl) });
+
+        Assert.Equal(new byte[] { 0xEF, 0xBB, 0xBF, (byte)'<' },
+                     Assert.IsType<byte[]>(parent.Imported).Take(4).ToArray());
+    }
 }
