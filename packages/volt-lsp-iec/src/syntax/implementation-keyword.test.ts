@@ -94,6 +94,30 @@ test("a method named after a modifier keyword keeps its name when its keyword li
   ])
 })
 
+/** The function-block twin of the case above (implementation-keyword 4 review): the FB header ate every modifier
+ *  keyword greedily, so an FB named after one, with no VAR, took its keyword line for the name — `IMPLEMENTATION`, a
+ *  false "reserved" error and a wrong symbol. The header asks the method's question: a modifier is one only when a name
+ *  follows it, and the keyword line is never a name. */
+test("a function block named after a modifier keyword keeps its name when its keyword line follows the header", () => {
+  for (const [header, access, name] of [
+    ["FUNCTION_BLOCK PUBLIC Final", "PUBLIC", "Final"],
+    ["FUNCTION_BLOCK Abstract", undefined, "Abstract"],
+    ["FUNCTION_BLOCK INTERNAL Protected", "INTERNAL", "Protected"],
+  ] as const) {
+    const src = `${header}\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n`
+    expect(syntaxErrors(src)).toEqual([])
+    const units = parseSource(src).units
+    expect(units.map((u) => (u.kind === "function_block" ? [u.name.text, u.accessModifier] : [u.kind]))).toEqual([
+      [name, access],
+    ])
+  }
+  // With a VAR section the same name was already a name; it stays one, and real modifiers stay modifiers.
+  const withVar = parseSource("FUNCTION_BLOCK FINAL ABSTRACT FB_X\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n")
+  const fbx = withVar.units[0]!
+  if (fbx.kind !== "function_block") throw new Error("not a function block")
+  expect([fbx.name.text, fbx.final, fbx.abstract]).toEqual(["FB_X", true, true])
+})
+
 test("the keyword line belongs to no declaration and to no statement", () => {
   const { units } = parseSource(MOTOR)
   const method = units.find((u) => u.kind === "method")!

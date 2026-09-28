@@ -9,6 +9,7 @@
  * (comma list) are both optional.
  */
 import type { FunctionBlock, Identifier } from "../ast.js"
+import type { Keyword } from "../tokens.js"
 import type { Cursor } from "../cursor.js"
 import { collectBodyUntil, collectVarSections, identFromToken, joinSpans } from "../util.js"
 
@@ -22,6 +23,17 @@ export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
   let isFinal = false
   let isAbstract = false
   while (true) {
+    // A modifier keyword is a modifier only when a name (or another modifier) follows it; otherwise it IS the name
+    // (`FUNCTION_BLOCK PUBLIC Final`). The `IMPLEMENTATION` line is an identifier token but never a name — it ends the
+    // declaration, and an FB with no VAR puts it straight under the header — so it does not count as one. Eating
+    // greedily named such an FB `IMPLEMENTATION` (the method header's twin, `parseMethod`).
+    const here = c.peek()
+    if (here.kind !== "keyword" || !isFbModifier(here.keyword)) break
+    const after = c.peek(1)
+    const followsWithName =
+      (after.kind === "identifier" && !c.opensImplementationLine(1)) ||
+      (after.kind === "keyword" && isFbModifier(after.keyword))
+    if (!followsWithName) break
     const mod = c.eatAnyKeyword("PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "FINAL", "ABSTRACT")
     if (mod === undefined) break
     if (
@@ -35,7 +47,8 @@ export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
     else if (mod.keyword === "ABSTRACT") isAbstract = true
   }
 
-  const nameTok = c.expectIdent("for FUNCTION_BLOCK name")
+  // `expectName`, as a method's: a modifier keyword the loop above left is the FB's name.
+  const nameTok = c.expectName("for FUNCTION_BLOCK name")
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
 
@@ -89,4 +102,10 @@ export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
     body,
     span: joinSpans(start.span, body.span),
   }
+}
+
+function isFbModifier(kw: Keyword | undefined): boolean {
+  return (
+    kw === "PUBLIC" || kw === "PRIVATE" || kw === "PROTECTED" || kw === "INTERNAL" || kw === "FINAL" || kw === "ABSTRACT"
+  )
 }

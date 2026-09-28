@@ -4,8 +4,8 @@
  * Nothing on the wire carries a body Volt does not show (`IMPLEMENTATION <LANG> UNSUPPORTED`): that is the point of
  * hiding it. TwinCAT saves every push to its `.TcPOU` files (`FlushPendingWrites`, a `File.SaveAll`), and a POU's
  * `<Implementation>` elements there ARE its bodies, so a test that must prove a push never wrote a hidden body reads
- * them before and after. CODESYS saves no file on push and its archive is binary; its writer is held offline
- * (`CodesysHiddenBodyWriteTests`).
+ * them before and after. CODESYS saves no file on push; its bodies are read through the served IDE's native export
+ * (`codesys-native.ts`), and `held-body.ts` picks the vendor's source.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { dirname, join } from "node:path"

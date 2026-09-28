@@ -279,7 +279,7 @@ The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comme
 
 ## 4. Data and docs
 
-- [ ] 4.1 e2e bodies rewritten; e2e green on CODESYS and TwinCAT (Project14; Project13 is usable again) with
+- [x] 4.1 e2e bodies rewritten; e2e green on CODESYS and TwinCAT (Project14; Project13 is usable again) with
       `VOLT_GRAPHICAL=1`, plus one live pull WITHOUT it on each vendor: ST shown, LD/FBD `UNSUPPORTED`.
       Bodies: every e2e/script body spells `IMPLEMENTATION ST|LD|FBD`; `unsupported.test.ts` expects
       `IMPLEMENTATION CFC|SFC UNSUPPORTED`; `corpus-migration.ts` skips a hidden body by its UNSUPPORTED line.
@@ -297,15 +297,23 @@ The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comme
       no LD/FBD) and TwinCAT Project14: 3/3 each. Plus a full production `volt init` per vendor, diffed against the
       development pull of the same project: identical but for the hidden bodies (pro2193: `ActuatorFB.Counters`;
       Project14: `POUexecute`, `ladderLabel`). The TwinCAT hidden-body bytes are checked live.
-      **BLOCKED — the CODESYS half of "the IDE body byte-identical before and after a declaration push", live.** No
-      live check exists: CODESYS saves no file on push, its `.project` archive is binary, and the pipe has no op that
-      reads a body's bytes, so `network-text-off.test.ts`'s `held()` compares `null` with `null` on CODESYS (a
-      production bridge prints the UNSUPPORTED line whatever the IDE holds) and `hidden-network-body.test.ts` compares
-      the network text read back — which catches a body emptied, flattened or relabelled, but not a rewrite that keeps
-      the text (element Ids re-minted, anything network text does not carry). What holds it today is the offline
-      `CodesysHiddenBodyWriteTests` (no implementation aspect is so much as read on a hidden body). Closing it needs a
-      bridge read of the NWL object's own serialization (TwinCAT's `.TcPOU` holds the same `XmlArchive`) exposed for
-      tests — a wire addition this change does not make; it must be measured live on SP21 first.
+      **The CODESYS half of "the IDE body byte-identical before and after", live — closed (review of section 4).**
+      It stood BLOCKED: CODESYS saves no file on push, and `held()` / `heldBytes()` compared `null` with `null` there,
+      so the CODESYS runs proved nothing about the body. Measured on SP21 Patch 4: `export_native` of an object is
+      CODESYS's own IArchivable serialization, two exports of an unchanged object are byte-identical, and a declaration
+      edit moves only the `Interface` text, `UniqueIdGenerator` and the meta `Timestamp`, never a byte of its
+      `<Single Name="Implementation">`. So the harness launcher (`run_pipe_production.py`, harness-only, read-only)
+      runs a native-export probe on the IDE's UI thread, driven by request files under
+      `%LOCALAPPDATA%\volt-bridge\codesys-native\<pid>\`. The product's wire gains no op. The tests read both vendors
+      through one helper (`e2e/lib/held-body.ts`: TwinCAT's `.TcPOU`, CODESYS's `lib/codesys-native.ts`), and a
+      control proves the reader is live: a VISIBLE ladder edit must move the bytes (`hidden-network-body`). Moves are
+      covered too (the review's untested "… moved"): `ReadOnlyBodyTests.Moving_a_hidden_item_lands_and_never_writes_a_hidden_body`
+      (moved, moved + declaration, renamed + moved, with handles invalidated as TwinCAT does),
+      `TcHiddenBodyWriteTests.Moving_a_POU_holding_hidden_bodies_imports_the_vendor_document_byte_for_byte`, and live
+      in `hidden-declaration.test.ts` (each diagram fixture moved into a folder, then moved back with its declaration
+      edited, bytes unchanged on both vendors). Green live: full e2e CODESYS 233 / 12 / 0 and TwinCAT Project14
+      233 / 12 / 0 (run one after the other; two runs at once collide in vendor-parity and whole-project), production
+      3/3 on both (CODESYS pro2193 `ActuatorFB`, TwinCAT `POUexecute`) with the bytes now compared on CODESYS too.
       Found live and fixed with a red-first test: the pull message said every hidden LD/FBD body was hidden
       "because network text has no spelling for what they hold yet", false for every body hidden by the switch;
       the lead now claims no reason and each line names its own

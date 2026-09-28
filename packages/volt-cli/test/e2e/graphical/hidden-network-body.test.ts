@@ -8,14 +8,16 @@
  * ladder (openspec `implementation-keyword` 3c.2 review; `BodyFormatGuard`, offline in `NetworkTextSwitchTests`).</p>
  *
  * <p>What makes this the live check both vendors can run: because network text is ON here, the IDE's body is readable
- * before and after — as its network text on every vendor, and on TwinCAT also byte for byte from the saved `.TcPOU`. A
- * push that rewrote the ladder (even with the same meaning) moves the TwinCAT bytes; one that emptied or flattened it
- * changes the network text on both.</p>
+ * before and after — as its network text, and byte for byte in the vendor's own serialization (`lib/held-body.ts`:
+ * TwinCAT's saved `.TcPOU`, CODESYS's native export). A push that rewrote the ladder, even with the same meaning (an
+ * element id re-minted), moves those bytes; one that emptied or flattened it changes the network text too. And a
+ * VISIBLE ladder edit must move the bytes, or a comparison that holds proves nothing about the reader.</p>
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { readFileSync } from "node:fs"
 import { id, fid, bridge, fetchItem, pushOps, requireHealthy, expectVendorDifference, BASE } from "../harness"
-import { servedProject, tcImplementations, tcPouFile } from "../lib/tc-files"
+import { heldImplementations } from "../lib/held-body"
+import { servedProject, tcPouFile } from "../lib/tc-files"
 
 setDefaultTimeout(120_000)
 
@@ -51,15 +53,8 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 		return pushOps([{ op: "set", name, sourceText, ifVersion: refs.items[name] }])
 	}
 
-	/** The body as TwinCAT saved it, byte for byte; CODESYS has no readable file (hidden-declaration.test.ts), and the
-	 *  network text read back below is its check. */
-	function heldBytes(lang: string): string[] | null {
-		return expectVendorDifference(
-			"openspec implementation-keyword 3b.1: CODESYS saves no file on push and its archive is binary; the network " +
-				"text read back through the bridge is the check there",
-			{ twincat: () => tcImplementations(tcPouFile(bareOf(lang), project)), codesys: () => null },
-		)
-	}
+	/** The bodies the IDE holds for the item, byte for byte (see the file header). */
+	const heldBytes = (lang: string) => heldImplementations(bareOf(lang), project)
 
 	beforeAll(async () => {
 		await requireHealthy()
@@ -107,13 +102,13 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 			const name = itemOf(lang)
 			const before = (await fetchItem(name)).sourceText as string
 			expect(before).toContain(`\nIMPLEMENTATION ${lang}\nNETWORK\n`)
-			const bytes = heldBytes(lang)
+			const bytes = await heldBytes(lang)
 
 			// The production file pushed back unchanged: the ordinary no-op.
 			const hidden = asProductionPull(before, lang)
 			expect((await set(name, hidden)).accepted).toBe(true)
 			expect((await fetchItem(name)).sourceText).toBe(before)
-			expect(heldBytes(lang)).toEqual(bytes)
+			expect(await heldBytes(lang)).toEqual(bytes)
 
 			// …and with its declaration edited: not blocked, the input lands, the ladder is exactly what it was.
 			const edited = hidden.replace(`PROGRAM ${bareOf(lang)}\n`, `PROGRAM ${bareOf(lang)}\n${ADDED}`)
@@ -122,12 +117,10 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 			expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 			const after = (await fetchItem(name)).sourceText as string
 			expect(after).toBe(before.replace(`PROGRAM ${bareOf(lang)}\n`, `PROGRAM ${bareOf(lang)}\n${ADDED}`))
+			expect(await heldBytes(lang)).toEqual(bytes)                        // not one byte of the ladder moved…
 			expectVendorDifference("openspec implementation-keyword 3b.1: only TwinCAT saves a push to a readable file", {
-				twincat: () => {
-					const file = tcPouFile(bareOf(lang), project)
-					expect(tcImplementations(file)).toEqual(bytes!)                // not one byte of the ladder moved…
-					expect(readFileSync(file, "utf8")).toContain("bVoltHiddenProbe : BOOL;") // …in a file that took the push
-				},
+				// …read from a file that took the push (CODESYS's export is taken live, so it is the IDE's current state)
+				twincat: () => expect(readFileSync(tcPouFile(bareOf(lang), project), "utf8")).toContain("bVoltHiddenProbe : BOOL;"),
 				codesys: () => undefined,
 			})
 		})
@@ -136,7 +129,7 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 	it("a hidden line stating ANOTHER language than the IDE's body is refused naming both, and nothing is written", async () => {
 		const name = itemOf("LD")
 		const before = await fetchItem(name)
-		const bytes = heldBytes("LD")
+		const bytes = await heldBytes("LD")
 		const r = await set(name, asProductionPull(before.sourceText, "FBD"))
 		expect(r.accepted).toBe(false)
 		const reason = JSON.stringify(r.conflicts ?? r)
@@ -145,6 +138,25 @@ describe(`graphical / a production workspace's hidden LD/FBD body pushed to a de
 		const after = await fetchItem(name)
 		expect(after.sourceText).toBe(before.sourceText)
 		expect(after.version).toBe(before.version)
-		expect(heldBytes("LD")).toEqual(bytes)
+		expect(await heldBytes("LD")).toEqual(bytes)
+	})
+
+	/** The control that makes every comparison above mean something: a VISIBLE ladder edit — network text pushed under
+	 *  `IMPLEMENTATION LD` — does write the body, and the bytes read back move. A reader that returned the same bytes
+	 *  whatever the IDE held would pass every "unchanged" check in this file. The body is put back afterwards. */
+	it("a visible ladder edit moves the held bytes, so the reader sees what the IDE holds", async () => {
+		const name = itemOf("LD")
+		const before = (await fetchItem(name)).sourceText as string
+		const bytes = await heldBytes("LD")
+		const rewired = before.replace("out := (a AND b);", "out := (a OR b);")
+		expect(rewired).not.toBe(before)
+		try {
+			expect((await set(name, rewired)).accepted).toBe(true)
+			expect((await fetchItem(name)).sourceText).toBe(rewired)
+			expect(await heldBytes("LD")).not.toEqual(bytes)
+		} finally {
+			expect((await set(name, before)).accepted).toBe(true)
+			expect((await fetchItem(name)).sourceText).toBe(before)
+		}
 	})
 })

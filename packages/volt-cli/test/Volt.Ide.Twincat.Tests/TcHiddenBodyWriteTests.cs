@@ -189,6 +189,25 @@ public class TcHiddenBodyWriteTests
             Assert.Equal(Raw(was, element, name), Raw(now, element, name));
     }
 
+    /// <summary>A TOP-LEVEL move is the same kind of whole-document round trip: <c>TcItemArchive.Move</c> exports the
+    /// POU, deletes it and re-imports it under the target (DIALECT D4f), so every hidden body the POU holds — its own
+    /// CFC chart, a CFC method, an SFC action, a CFC getter — rides that import. The one rewrite on this path is the
+    /// entry NAME (<c>Flatten</c>, the folder prefix TwinCAT would otherwise recreate), and it must be the only one:
+    /// the document arrives at the target as exactly the bytes it left with (spec: "nothing in the IDE is overwritten",
+    /// "… moved").</summary>
+    [Fact]
+    public void Moving_a_POU_holding_hidden_bodies_imports_the_vendor_document_byte_for_byte()
+    {
+        var before = File.ReadAllBytes(Fixtures.Path("tc-pou", "MembersHidden.TcPOU"));
+        var from = new ArchiveParent(before);
+        var to = new ArchiveParent(Array.Empty<byte>());
+
+        TcItemArchive.Move(from, to, "VltProbe_Hidden");
+
+        Assert.Null(from.Imported);                                        // not restored: the move went through
+        Assert.Equal(before, Assert.IsType<byte[]>(to.Imported));
+    }
+
     /// <summary>The comparisons above are per element, so they cannot see the DOCUMENT's own bytes — and the archive
     /// rewrite once lost the first three: every entry was read with a default <c>StreamReader</c> (which eats the
     /// UTF-8 byte order mark TwinCAT writes) and written back with a default <c>StreamWriter</c> (which writes none).

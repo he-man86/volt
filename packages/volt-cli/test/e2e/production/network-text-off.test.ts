@@ -22,7 +22,8 @@
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
 import { readFileSync } from "node:fs"
 import { id, fid, bridge, fetchItem, pushOps, expectVendorDifference, BASE } from "../harness"
-import { servedProject, tcImplementations, tcPouFile } from "../lib/tc-files"
+import { heldImplementations } from "../lib/held-body"
+import { servedProject, tcPouFile } from "../lib/tc-files"
 
 setDefaultTimeout(600_000)
 
@@ -97,24 +98,21 @@ describe.skipIf(!production)(`production / a bridge without VOLT_GRAPHICAL (${BA
 		const edited = pulled.slice(0, own.index) + ADDED + pulled.slice(own.index)
 		console.log(`  [production] declaration push over ${name}`)
 
-		const held = () =>
-			expectVendorDifference(
-				"openspec implementation-keyword 3b.1: CODESYS saves no file on push and its archive is binary; its writer is " +
-					"held offline by CodesysHiddenBodyWriteTests",
-				{ twincat: () => tcImplementations(tcPouFile(bare, project)), codesys: () => null },
-			)
+		// The bodies as the IDE holds them, byte for byte (`lib/held-body.ts`) — a production bridge fetches only the
+		// UNSUPPORTED line, so the wire can say nothing about them.
+		const held = () => heldImplementations(bare, project)
 		const set = async (text: string) => {
 			const refs = await bridge.refs()
 			return pushOps([{ op: "set", name, sourceText: text, ifVersion: refs.items[name] }])
 		}
 
-		const before = held()
+		const before = await held()
 		try {
 			const r = await set(edited)
 			expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 			const after = (await fetchItem(name)).sourceText
 			expect(after).toBe(edited)
-			expect(held()).toEqual(before)
+			expect(await held()).toEqual(before)
 			expectVendorDifference("openspec implementation-keyword 3b.1: only TwinCAT saves a push to a readable file", {
 				twincat: () => expect(readFileSync(tcPouFile(bare, project), "utf8")).toContain("bVoltHiddenProbe : BOOL;"),
 				codesys: () => undefined,
@@ -122,7 +120,7 @@ describe.skipIf(!production)(`production / a bridge without VOLT_GRAPHICAL (${BA
 		} finally {
 			expect((await set(pulled)).accepted).toBe(true)
 			expect((await fetchItem(name)).sourceText).toBe(pulled)
-			expect(held()).toEqual(before)
+			expect(await held()).toEqual(before)
 		}
 	})
 })

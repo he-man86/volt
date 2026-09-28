@@ -116,6 +116,14 @@ The one thing the harness did that the shipped script does not is silence .NET a
 into `run_pipe_production.py`, which is the right home — an engineer at their desk wants to see an assertion,
 an unattended sweep must never stop on a modal window, and a modal window blocks COM outright.
 
+It also starts the **native-export probe** — the one way a test reads a CODESYS body byte for byte. Nothing on the
+wire carries a body Volt does not show, and CODESYS saves no file on push, so to prove a push never wrote a hidden
+body (`graphical/hidden-declaration`, `graphical/hidden-network-body`, `production/network-text-off`) the test drops a
+request file into `%LOCALAPPDATA%\volt-bridge\codesys-native\<pid>\` and the IDE answers with its own
+`export_native` of the object, whose `Implementation` elements are compared (`lib/codesys-native.ts`). It reads and
+never writes, and it is harness-only: the shipped script has no such watcher, and the product's wire has no such op.
+An IDE started any other way does not answer, and the test fails after a bounded wait naming `ide.ps1`.
+
 > SP21's scripting engine is **Python 3**. Several comments in the shipped scripts still say "IronPython
 > 2.7" — true of SP18, not of SP21. It matters: `execfile()` does not exist there, and the
 > `DeprecationWarning` it raises lands in CODESYS's message store, which `build` reads — so a script-level
@@ -216,7 +224,7 @@ bun run test:e2e:twincat        # vendor-parity runs; everything else drives Twi
 shipped build is — and every other file needs the opposite, so it is its own run and skips (saying so) against a
 development bridge. It proves the switch is off where a customer's bridge has it off: ST shown, every LD/FBD body
 `IMPLEMENTATION LD|FBD UNSUPPORTED` with the switch named in the fetch, network text refused, and a declaration
-push over a hidden body taken with the body never written (byte for byte on TwinCAT). The project must hold an
+push over a hidden body taken with the body never written (byte for byte on both vendors). The project must hold an
 LD/FBD body: TwinCAT Project14 does, the CODESYS test fixture does not, so serve the committed pro2193 copy there.
 
 ```bash

@@ -226,6 +226,59 @@ public class ReadOnlyBodyTests
         Assert.Equal(Held(language), ide.StoredImplementation("Step"));
     }
 
+    // ── a MOVE of a hidden item (spec: "nothing in the IDE is overwritten" — "its declaration edited, moved, or
+    //    unchanged") ─────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>A push that MOVES the item takes its own path — <c>MoveItem</c>: write, <c>ide.Move</c>, write again —
+    /// and on TwinCAT that move is a delete-and-re-import of the item's whole document (DIALECT D4f), which invalidates
+    /// every handle into it. The fake is told to behave so. Moved alone, moved with its declaration edited, and renamed
+    /// and moved: each lands, and neither the POU's hidden body nor its hidden member's is written.</summary>
+    public static IEnumerable<object?[]> HiddenMoves() =>
+        from body in HiddenBodies()
+        from shape in new[] { "moved", "moved+declaration", "renamed+moved" }
+        select new[] { body[0], body[1], shape };
+
+    [Theory]
+    [MemberData(nameof(HiddenMoves))]
+    public void Moving_a_hidden_item_lands_and_never_writes_a_hidden_body(string language, string? unsupported, string shape)
+    {
+        var ide = new FakeIde(Pou(language, unsupported, "Step"), Method("Step", language, unsupported))
+        {
+            InvalidatesHandlesOnMove = true,
+            InvalidatesHandlesOnWrite = true,
+        };
+        var text = Pulled(ide);
+        var pushed = shape == "moved+declaration"
+            ? text.Replace("FUNCTION_BLOCK FB_Chart\n", "FUNCTION_BLOCK FB_Chart\n" + AddedInput)
+            : text;
+        var renamed = shape == "renamed+moved";
+        if (renamed) pushed = pushed.Replace("FUNCTION_BLOCK FB_Chart\n", "FUNCTION_BLOCK FB_Moved\n");
+        var refs = RefsService.Handle(ide);
+
+        var resp = PushService.Handle(ide, new PushRequest
+        {
+            ExpectedProjectVersion = refs.ProjectVersion,
+            Ops = new List<PushOp>
+            {
+                new SetItemOp
+                {
+                    Name = "FB_Chart.fb", ToName = renamed ? "FB_Moved.fb" : null, ToFolder = "Sub",
+                    SourceText = pushed, IfVersion = refs.Items["FB_Chart.fb"],
+                },
+            },
+        });
+
+        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        var pou = renamed ? "FB_Moved" : "FB_Chart";
+        Assert.Contains($"move:{pou}->Sub", ide.Recorded);                       // the move happened…
+        Assert.Equal("Sub", RefsService.Handle(ide).Folders[pou + ".fb"]);
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("create:" + pou) || r.StartsWith("delete:"));
+        Assert.Equal(Held(language), ide.StoredImplementation(pou));             // …and wrote no hidden body
+        Assert.Equal(Held(language), ide.StoredImplementation("Step"));
+        if (shape == "moved+declaration")
+            Assert.Contains("bStart : BOOL;", ide.ReadContent(new ItemRef(pou)).Declaration);
+    }
+
     // ── a line that states no hidden body ────────────────────────────────────────────────────────
 
     /// <summary>Section 3b reverses 2b's bare <c>IMPLEMENTATION CFC|SFC|IL</c>: a body Volt does not show says so with

@@ -17,7 +17,8 @@ over the harness pump is not cosmetic:
     script owns the loop.
 
 The only thing scripted here that a user does by hand is OPENING the project — everything after that is the
-production script, unmodified. Stop it the way a user does too: run `stop_volt_codesys.py` from the IDE.
+production script, unmodified. Beside it run two harness-only helpers a user never has: assertion dialogs turned into
+log lines, and a read-only native-export probe the e2e tests read CODESYS bodies through (see `_native_probe`). Stop it the way a user does too: run `stop_volt_codesys.py` from the IDE.
 
 Driven by `ide.ps1 up -Vendor codesys -Production` (which implies -Ui).
 """
@@ -95,6 +96,76 @@ def _open_fixture():
 
 
 _open_fixture()
+
+
+# ── the native-export probe: how an e2e test reads a CODESYS body byte for byte ─────────────────────────────────
+#
+# HARNESS-ONLY, like `_silence_assert_dialogs`: it is here, not in the shipped script, and it reads - it never writes.
+#
+# WHY IT EXISTS. The spec (openspec `implementation-keyword`, "nothing in the IDE is overwritten") says a push that
+# touches an item whose body Volt does not show leaves that body BYTE-IDENTICAL. Nothing on the wire carries such a
+# body - that is the point of hiding it - and CODESYS, unlike TwinCAT, saves no file on push and keeps its project in
+# a binary archive, so for a long time no live test could read a CODESYS body at all (task 4.1 stood BLOCKED on it).
+# What CODESYS DOES have is its own serialization of an object: `export_native` writes the object's IArchivable
+# fields as XML, and its `<Single Name="Implementation">` element is the body exactly as the IDE holds it - chart
+# elements, NWL element ids and all. Measured on SP21 Patch 4: two exports of an unchanged object are byte-identical,
+# and a declaration edit changes only the `Interface` text, the object's `UniqueIdGenerator` and the meta `Timestamp`
+# - never a byte of `Implementation`.
+#
+# THE PROTOCOL is files, so the product's wire gains no test-only op: a test writes `request` into
+# %LOCALAPPDATA%\volt-bridge\codesys-native\<pid>\ (pid = this CODESYS, the one the pipe is named after) holding a
+# request id on the first line and one object name per line after it; this probe exports each named object to
+# `<id>.<name>.export` and then writes `<id>.done` - or `<id>.error` with the reason, so a test fails naming it rather
+# than timing out. A WinForms timer runs it ON THE UI THREAD, the thread the pipe host's calls run on too, so an
+# export never interleaves with a push.
+def _native_probe():
+    try:
+        import clr
+        clr.AddReference("System.Windows.Forms")
+        from System.Windows.Forms import Timer
+        from System.Diagnostics import Process
+        base = os.environ.get("LOCALAPPDATA", _HERE)
+        folder = os.path.join(base, "volt-bridge", "codesys-native", str(Process.GetCurrentProcess().Id))
+        if not os.path.isdir(folder):
+            os.makedirs(folder)
+        request = os.path.join(folder, "request")
+        if os.path.exists(request):
+            os.remove(request)                   # a request left by a previous IDE with this pid answers nothing
+
+        def tick(sender, args):
+            if not os.path.exists(request):
+                return
+            rid = None
+            try:
+                with open(request) as f:
+                    lines = [l.strip() for l in f.read().splitlines() if l.strip()]
+                os.remove(request)
+                rid, names = lines[0], lines[1:]
+                proj = projects.primary
+                if proj is None:
+                    raise Exception("no project is open")
+                for name in names:
+                    found = [o for o in proj.find(name, True) if o.get_name() == name]
+                    if len(found) != 1:
+                        raise Exception("expected ONE object named '%s', found %d" % (name, len(found)))
+                    proj.export_native(found, os.path.join(folder, "%s.%s.export" % (rid, name)), recursive=True)
+                open(os.path.join(folder, rid + ".done"), "w").close()
+            except Exception as e:
+                if rid is not None:
+                    with open(os.path.join(folder, rid + ".error"), "w") as f:
+                        f.write(str(e))
+                _log("native probe: %s" % str(e))
+
+        timer = Timer()
+        timer.Interval = 200
+        timer.Tick += tick
+        timer.Start()                            # an enabled WinForms timer is rooted by the framework; it outlives this script
+        _log("native probe watching %s" % folder)
+    except Exception as e:
+        _log("native probe NOT started: %s" % str(e))
+
+
+_native_probe()
 
 # The SHIPPED script, run as-is. Not imported and not copied: any drift between what is tested and what users run
 # is the whole thing this file exists to prevent.
