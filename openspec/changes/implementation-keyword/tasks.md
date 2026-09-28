@@ -92,6 +92,11 @@ The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comme
       outside comments is refused by the driver (`ImplementationMarker.RequireStBody`, both vendors and FakeIde)
       instead of pulled as the language the line states; TwinCAT refuses an NWL archive with no `DefaultViewMode`
       (was pulled as `IMPLEMENTATION IL`) and an unknown graphical XML root (was pulled as ST text), as CODESYS does.
+      Section-2b review round 2 (data lens), fixed with tests: a read-only line stating a different language than the
+      read-only body the IDE holds (`IMPLEMENTATION SFC` over CFC, `LD UNSUPPORTED` → `FBD UNSUPPORTED`, → `IL`, at
+      item and member level) is refused naming both lines (`BodyFormatGuard` compared only the shape and pushed it as a
+      no-op, leaving the file and baseline mislabelled); a `(* @volt-… *)` comment NESTED inside another comment is
+      refused on push and on pull like an outermost one (`StTrivia.CommentOpenings` lists nested openings).
 
 ## 3. LSP and editor
 

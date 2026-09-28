@@ -163,7 +163,8 @@ namespace Volt.Engine.Format.St
 
         /// <summary>The first <c>(* @volt-… *)</c> comment in <paramref name="lines"/> — a comment of a Volt from before
         /// the keyword — as its line index and its text on that line, or null. Only a real comment counts: <c>(*</c>
-        /// inside a string, a pragma or a <c>//</c> comment opens nothing (<see cref="StTrivia"/>).</summary>
+        /// inside a string, a pragma or a <c>//</c> comment opens nothing (<see cref="StTrivia"/>). A comment NESTED in
+        /// another counts too — "no Volt comment survives" has no depth at which it stops holding.</summary>
         public static (int Line, string Text)? FindRetiredComment(IList<string> lines)
         {
             foreach (var (line, column) in StTrivia.CommentOpenings(lines))

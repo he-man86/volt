@@ -23,9 +23,10 @@ internal static class StTrivia
     /// alone, at its columns.</summary>
     public static string[] Code(IList<string> lines) => Scan(lines).Code;
 
-    /// <summary>Where each OUTERMOST block comment opens — its line and the column of its <c>(*</c> — in order. A
-    /// nested <c>(*</c> is part of the comment around it, and one inside a <c>//</c> comment, a string or a pragma
-    /// opens nothing, exactly as for <see cref="OpenAtStart"/>.</summary>
+    /// <summary>Where each block comment opens — its line and the column of its <c>(*</c> — in order, NESTED ones
+    /// included: comments nest, so a <c>(*</c> inside a comment opens a comment of its own (the retired-comment rule
+    /// asks about every comment, at any depth). One inside a <c>//</c> comment, a string or a pragma opens nothing,
+    /// exactly as for <see cref="OpenAtStart"/>.</summary>
     public static List<(int Line, int Column)> CommentOpenings(IList<string> lines) => Scan(lines).Openings;
 
     private static (bool[] OpenAtStart, string[] Code, List<(int Line, int Column)> Openings) Scan(IList<string> lines)
@@ -45,7 +46,7 @@ internal static class StTrivia
                 var next = j + 1 < line.Length ? line[j + 1] : '\0';
                 if (depth > 0)
                 {
-                    if (c == '(' && next == '*') { depth++; sb.Append("  "); j++; }
+                    if (c == '(' && next == '*') { openings.Add((i, j)); depth++; sb.Append("  "); j++; }
                     else if (c == '*' && next == ')') { depth--; sb.Append("  "); j++; }
                     else sb.Append(' ');
                     continue;

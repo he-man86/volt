@@ -238,6 +238,49 @@ public class ReadOnlyBodyTests
         Assert.Equal(text, Pulled(ide));
     }
 
+    /// <summary>Every read-only line has the same SHAPE — "no text form" — but each states a different LANGUAGE, and
+    /// the stated language is the one signal for what a body is. A file stating one read-only language over a body the
+    /// IDE holds in another is mislabelled: accepted as a no-op, the IDE keeps its real body while the file (and the
+    /// baseline the push records) says something else. So it is refused naming both, and nothing is written.</summary>
+    [Theory]
+    [InlineData("CFC", null, "IMPLEMENTATION CFC", "IMPLEMENTATION SFC")]
+    [InlineData("CFC", null, "IMPLEMENTATION CFC", "IMPLEMENTATION LD UNSUPPORTED")]
+    [InlineData("LD", "a vendor split point", "IMPLEMENTATION LD UNSUPPORTED", "IMPLEMENTATION FBD UNSUPPORTED")]
+    [InlineData("LD", "a vendor split point", "IMPLEMENTATION LD UNSUPPORTED", "IMPLEMENTATION IL")]
+    [InlineData("IL", null, "IMPLEMENTATION IL", "IMPLEMENTATION FBD UNSUPPORTED")]
+    public void A_read_only_line_stating_another_language_than_the_IDE_body_is_refused_naming_both(
+        string language, string? unsupported, string held, string stated)
+    {
+        var ide = new FakeIde(Pou(language, unsupported));
+        var text = Pulled(ide);
+        var mislabelled = text.Replace(held + "\n", stated + "\n");
+        Assert.NotEqual(text, mislabelled);
+
+        var reason = Reason(Update(ide, mislabelled));
+
+        Assert.Contains(held, reason);
+        Assert.Contains(stated, reason);
+        Assert.Empty(ide.WrittenContent);
+        Assert.Equal(text, Pulled(ide));
+    }
+
+    [Fact]
+    public void A_read_only_member_line_stating_another_language_is_refused_naming_the_member()
+    {
+        var ide = new FakeIde(Pou(null, null, "Seq"), Method("Seq", "SFC"));
+        var text = Pulled(ide);
+        var mislabelled = text.Replace("METHOD Seq : BOOL\nIMPLEMENTATION SFC\n", "METHOD Seq : BOOL\nIMPLEMENTATION CFC\n");
+        Assert.NotEqual(text, mislabelled);
+
+        var reason = Reason(Update(ide, mislabelled));
+
+        Assert.Contains("'Seq'", reason);
+        Assert.Contains("IMPLEMENTATION SFC", reason);
+        Assert.Contains("IMPLEMENTATION CFC", reason);
+        Assert.Empty(ide.WrittenContent);
+        Assert.Equal(text, Pulled(ide));
+    }
+
     // ── no Volt comment survives ─────────────────────────────────────────────────────────────────
 
     /// <summary>A file that still holds a <c>(* @volt-… *)</c> comment ANYWHERE was written before the change —
@@ -250,6 +293,10 @@ public class ReadOnlyBodyTests
     [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1; (*@volt-note*)\n\nEND_FUNCTION_BLOCK\n")]
     [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\n(* @volt-graphical: SFC *)\nEND_METHOD\n")]
     [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\n(* @volt-implementation *)\nx := 1;\n\nEND_FUNCTION_BLOCK\n")]
+    // NESTED inside a comment of the engineer's: comments nest, so the tag is a comment of its own inside the outer
+    // one, and "no Volt comment survives" has no depth at which it stops holding.
+    [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n(* note (* @volt-graphical: CFC *) *)\nx := 1;\n\nEND_FUNCTION_BLOCK\n")]
+    [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT; (* a\n\t(* b (* @volt-note *) *)\n\t*)\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n")]
     public void A_pushed_file_holding_a_volt_comment_is_refused_naming_volt_pull(string source)
     {
         var ide = new FakeIde(Pou(null, null, "Step"), Method("Step", "SFC"));
@@ -351,6 +398,7 @@ public class ReadOnlyBodyTests
     [Theory]
     [InlineData(Decl, "(* @volt-graphical: kept from the old chart *)\nx := 1;")]
     [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\n(* @volt-implementation *)", "x := 1;")]
+    [InlineData(Decl, "(* note (* @volt-graphical: CFC *) *)\nx := 1;")]
     public void An_IDE_item_holding_a_volt_comment_is_refused_on_pull_naming_the_comment(string declaration, string body)
     {
         var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPouFb, "", true, declaration, body, null, null));

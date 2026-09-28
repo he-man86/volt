@@ -114,6 +114,20 @@ public static class BodyFormatGuard
 
         var live = ShapeOf(liveBody);
         var pushed = ShapeOf(pushedBody);
+
+        // Two read-only bodies share a SHAPE but not a language, and the stated language is the one signal for what a
+        // body is. Passing on shape alone accepted `IMPLEMENTATION SFC` over a CFC chart as a no-op: the drivers write
+        // nothing for a read-only body, so the IDE kept its chart while the file and the pushed baseline named another.
+        if (live == Shape.Unsupported && pushed == Shape.Unsupported)
+        {
+            var held = ImplementationMarker.Canonical(liveBody!.Trim());
+            var stated = ImplementationMarker.Canonical(pushedBody.Trim());
+            if (held == stated) return;                      // the pulled line pushed back: the ordinary no-op
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"{what} is stated '{stated}' but its body in the IDE is '{held}' — a read-only body cannot change " +
+                "language by push. Pull first, or change it in the IDE.");
+        }
+
         if (live == pushed) return;                          // same kind of body: the ordinary write
 
         // Pushing the read-only line back is the ordinary NO-OP for a body Volt cannot write, and it is the only way
