@@ -3,8 +3,9 @@
 ### Requirement: the implementation boundary is IMPLEMENTATION <LANG>
 
 A workspace file SHALL mark where a body's declaration ends and its implementation begins with a line holding only
-`IMPLEMENTATION <LANG>`, `<LANG>` being one of `ST`, `LD`, `FBD`; spacing is free and the keywords are
-case-insensitive. The line SHALL stand where the comment marker stood, on exactly the items that have an
+`IMPLEMENTATION <LANG>`, `<LANG>` being one of `ST`, `LD`, `FBD` (read as text), `CFC`, `SFC`, `IL` (never read:
+the body is empty and read-only), or `LD UNSUPPORTED` / `FBD UNSUPPORTED` (an LD/FBD body network text cannot
+represent yet: empty and read-only); spacing is free and the keywords are case-insensitive. The line SHALL stand where the comment marker stood, on exactly the items that have an
 implementation, and every such body SHALL state its language, ST included. The comment
 `(* @volt-implementation *)` SHALL NOT be recognised.
 
@@ -33,19 +34,28 @@ implementation, and every such body SHALL state its language, ST included. The c
 - **WHEN** a body holds a second `IMPLEMENTATION <LANG>` line outside any comment
 - **THEN** the push refuses it naming the item, nothing is written, and the LSP reports it on that line
 
-#### Scenario: a body Volt cannot write
-- **WHEN** a body the IDE holds in CFC, SFC or IL, or one network text cannot represent, is pulled
-- **THEN** its `(* @volt-graphical: <what> *)` marker line stands where the keyword line would, stating that the
-  body has no text form; no `IMPLEMENTATION` line claims a language Volt reads, and pushing the file back unchanged
-  is a no-op
+#### Scenario: a body in a language Volt does not read
+- **WHEN** a body the IDE holds in CFC, SFC or IL is pulled
+- **THEN** its keyword line is `IMPLEMENTATION CFC` / `IMPLEMENTATION SFC` / `IMPLEMENTATION IL`, the body under it
+  is empty, and pushing the file back unchanged is a no-op
 
-#### Scenario: code added under a marker line
-- **WHEN** a pushed body holds code under its `(* @volt-graphical: <what> *)` marker line, or after it on that line
+#### Scenario: an LD/FBD body network text cannot represent yet
+- **WHEN** an LD or FBD body holds a shape network text has no spelling for (e.g. an assign below the top level)
+- **THEN** its keyword line is `IMPLEMENTATION LD UNSUPPORTED` / `IMPLEMENTATION FBD UNSUPPORTED`, the body under it is
+  empty, the pull message names the item and the reason, and pushing the file back unchanged is a no-op
+
+#### Scenario: code added under a read-only body
+- **WHEN** a pushed body holds code under `IMPLEMENTATION CFC|SFC|IL` or `IMPLEMENTATION LD|FBD UNSUPPORTED`
 - **THEN** the push refuses it naming the item, and the IDE keeps the body it had
 
-#### Scenario: a marker member in a folder
+#### Scenario: a read-only member in a folder
 - **WHEN** a member whose body Volt cannot write sits in a folder
-- **THEN** its `%FOLDER` directive follows its marker line, and the file reads back with that folder and that body
+- **THEN** its `%FOLDER` directive follows its keyword line, and the file reads back with that folder and that body
+
+#### Scenario: no Volt comment remains
+- **WHEN** any item is pulled
+- **THEN** its file carries no `(* @volt-… *)` comment of any kind; a pushed file that holds one is refused naming
+  `volt pull` as the fix
 
 #### Scenario: IMPLEMENTATION is reserved
 - **WHEN** a workspace file names anything `IMPLEMENTATION` (any case): a variable at any scope, a member, the POU,

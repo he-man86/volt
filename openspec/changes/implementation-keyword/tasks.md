@@ -55,9 +55,24 @@ the **spec** and **layering** lenses.
       last one; two keyword-shaped lines in one region are refused naming both; `OpensNetwork` no longer calls ST
       that names a variable `network` network text.
 
+## 2b. Read-only bodies state their language (owner decision 2026-09-28)
+
+The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comment survives in a workspace file.
+
+- [ ] 2b.1 Red first: a CFC/SFC/IL body pulls as `IMPLEMENTATION CFC|SFC|IL` with an empty body; an LD/FBD body
+      network text cannot represent pulls as `IMPLEMENTATION LD|FBD UNSUPPORTED` with an empty body and the reason in
+      the pull message (naming the item); each pushes back unchanged as a no-op; code under either is refused by name;
+      `%FOLDER` follows the keyword line; a pushed file holding any `(* @volt-… *)` comment is refused naming
+      `volt pull`.
+- [ ] 2b.2 `ImplementationMarker` learns the read-only forms; the body-marker writer/reader (`BodyMarker`,
+      `BodyFormatGuard`, the unsupported-body routing, section-1 tests 1.7/1.8 that pinned the comment) move to them;
+      the `@volt-graphical` spelling is deleted from the engine.
+- [ ] 2b.3 The CLI pull message names every `UNSUPPORTED` item and its reason (the reason no longer lives in the
+      file). All C# suites green.
+
 ## 3. LSP and editor
 
-- [ ] 3.1 One LSP module for the keyword and line regex; `bodies.ts`, the network-text parser, semantic tokens,
+- [ ] 3.1 One LSP module for the keyword and line regex (the read-only forms included; the `@volt-graphical` comment gone); `bodies.ts`, the network-text parser, semantic tokens,
       folding, diagnostics, `mark-implementations.ts` and `record-language.ts` use it and pick the body's reader from
       the stated language.
 - [ ] 3.2 volt-vscode TextMate: `IMPLEMENTATION` and `ST`/`LD`/`FBD` highlighted as keywords, with a grammar test.
