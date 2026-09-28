@@ -289,7 +289,7 @@ public static class ItemKind
     // (Volt.Cli.Sync.Extensions) all derive from it — no second hand-kept list — and
     // scripts/check-wiring.ts cross-checks the TS/JSON copies (LSP, VS Code, control)
     // against it. A POU's body LANGUAGE is never in the extension: an editable FBD/LD body is the same
-    // .fb/.prg/.fun as a textual one (graphical detected by the NETWORK marker), a CFC/SFC body is that kind
+    // .fb/.prg/.fun as a textual one (graphical by its stated IMPLEMENTATION LD|FBD line), a CFC/SFC body is that kind
     // extension too (materialized as an `(* @volt-graphical: LANG *)` comment). Kind is recovered from file
     // content on push, so the extension carries kind alone.
 

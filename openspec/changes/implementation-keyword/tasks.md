@@ -31,12 +31,22 @@ the **spec** and **layering** lenses.
 
 ## 2. Engine
 
-- [ ] 2.1 `ImplementationMarker`: the keyword, the line regex, `For(language)`; `IMPLEMENTATION` in the reserved-name
+- [x] 2.1 `ImplementationMarker`: the keyword, the line regex, `For(language)`; `IMPLEMENTATION` in the reserved-name
       set.
-- [ ] 2.2 StReader, StWriter, the network-text reader, gate and `NetworkText.LanguageOf`, and every driver or engine
+- [x] 2.2 StReader, StWriter, the network-text reader, gate and `NetworkText.LanguageOf`, and every driver or engine
       site that asks "is this body graphical?", read the stated language and nothing else.
-- [ ] 2.3 `LibraryManifest.Materialization` goes from 3 to 4.
+- [x] 2.3 `LibraryManifest.Materialization` goes from 3 to 4.
 - [ ] 2.4 Every C# fixture and golden rewritten (mechanical); all C# suites green.
+      Fixtures and goldens are rewritten and every C# suite is green except the four corpus-backed
+      `ModelRoundTripOracleTests`, which read `volt-lsp-iec/test-corpus`: the corpora still carry the retired comment,
+      so they read as pre-change files ("pull once") and the oracle finds no bodies. They go green with 4.2's re-pull.
+      `bun run check`'s materialization-parity row is red for the same cross-section reason (C# writes 4, the LSP
+      still reads 3); it goes green with 3.1.
+      Section-2 review round 1 (data lens), fixed with tests: a marker body is the WHOLE body (`BodyMarker.Is` is no
+      longer a prefix test), so code under a marker line stated `IMPLEMENTATION ST` is refused instead of dropped and
+      an ST body opening with a marker-spelled comment pulls as ST and pushes back; a marker under a stated language
+      is refused; a keyword-shaped line in any declaration (GVL, DUT, interface, a name alone on its line) is refused
+      as reserved; the retired comment is refused only where it stands as a boundary (directly above a marker line).
 
 ## 3. LSP and editor
 

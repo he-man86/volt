@@ -28,7 +28,7 @@ namespace Volt.Engine.Tests;
 public class PushConflictCodeTests
 {
     private static string Prg(string name) =>
-        $"PROGRAM {name}\nVAR\nEND_VAR\n(* @volt-implementation *)\nn := 0;\n\nEND_PROGRAM\n";
+        $"PROGRAM {name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 0;\n\nEND_PROGRAM\n";
 
     private static PushResponse Push(FakeIde ide, params PushOp[] ops) =>
         PushService.Handle(ide, new PushRequest

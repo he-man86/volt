@@ -37,11 +37,14 @@ public static class LibraryManifest
     /// the line is format 1.</item>
     /// <item>3: graphical bodies are network text v2 (<c>docs/network-text.html</c>) — no <c>LET</c>, no numbered
     /// <c>NETWORK &lt;n&gt; &lt;LANG&gt;</c> header. A v2 reader refuses format 2's bodies by name ("re-pull").</item>
+    /// <item>4: every body states its language on an <c>IMPLEMENTATION ST|LD|FBD</c> line where the
+    /// retired boundary comment stood (openspec <c>implementation-keyword</c>). A format-3 file has no boundary
+    /// line and is refused by name ("pull once").</item>
     /// </list>
     /// Bump it whenever what a pull writes changes meaning: the manifest is the library's version-hash basis, so the bump
     /// itself re-fetches every library on the next pull and restates the number the LSP reads — which is the repair.
     /// (A graphical body needs no bump to be re-fetched: its version hashes its text, which the new writer changes.)</summary>
-    public const int Materialization = 3;
+    public const int Materialization = 4;
 
     public static string Build(
         string name,

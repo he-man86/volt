@@ -57,7 +57,7 @@ public class GraphicalChildGuardTests
                 {
                     Name = Name,
                     IfVersion = refs.Items[Name],
-                    SourceText = $"{PouDecl}\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\nEND_VAR\n(* @volt-implementation *)\n{body}\nEND_METHOD\n",
+                    SourceText = $"{PouDecl}\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\nEND_VAR\n{(BodyMarker.Is(body) ? body : "IMPLEMENTATION ST\n" + body)}\nEND_METHOD\n",   // a marker body is its marker line alone
                 },
             },
         });

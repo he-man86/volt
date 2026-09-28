@@ -109,18 +109,20 @@ public class PullCommandTests
     /// <summary>The upgrade to MATERIALIZATION 3 (network text v2) re-materializes every graphical body, so an
     /// engineer's un-pushed v1 edit can meet it as a conflict — and v1 can never be pushed again (refused, "re-pull").
     /// Resolving it by keeping OUR side would keep text no Volt reads, so the conflict names those files and the one
-    /// resolution that works (openspec network-text-literal-nwl 6.4). It can also merge CLEANLY, see below.</summary>
+    /// resolution that works (openspec network-text-literal-nwl 6.4). It can also merge CLEANLY, see below. The body
+    /// states LD on both sides: network text is only ever read under IMPLEMENTATION LD|FBD, so that is where v1 text a
+    /// merge keeps can stand (under IMPLEMENTATION ST it is a contradiction, refused before the v1 question).</summary>
     [Fact]
     public void A_conflict_over_network_text_v1_names_the_files_and_the_resolution()
     {
         var ide = ConnectedIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR",
-            "NETWORK 0 LD\n  out := a;\nEND_NETWORK"));          // pulled by the previous Volt: v1 text
+            "IMPLEMENTATION LD\nNETWORK 0 LD\n  out := a;\nEND_NETWORK"));   // pulled by the previous Volt: v1 text
         var (root, host, client) = Bound(ide);
         try
         {
             Commands.Pull(root, client);
             File.WriteAllText(PrgPath(root), File.ReadAllText(PrgPath(root)).Replace("out := a;", "out := b;")); // ours, v1
-            ide.MutateImplementation("PLC_PRG", "NETWORK\n  out := c;\nEND_NETWORK"); // the upgrade's re-materialization
+            ide.MutateImplementation("PLC_PRG", "IMPLEMENTATION LD\nNETWORK\n  out := c;\nEND_NETWORK"); // the upgrade's re-materialization
 
             var r = Commands.Pull(root, client);
             Assert.Equal("conflict", r.Kind);
@@ -147,7 +149,7 @@ public class PullCommandTests
             Commands.Pull(root, client);
             File.WriteAllText(PrgPath(root), File.ReadAllText(PrgPath(root)).Replace("%ID79", "%ID80")); // ours, v1
             ide.MutateImplementation("PLC_PRG",                                                          // the re-materialization
-                "(* @volt-implementation LD *)\nNETWORK TITLE: \"Digital inputs\"\n// read the inputs\n// once per cycle\n" +
+                "IMPLEMENTATION LD\nNETWORK TITLE: \"Digital inputs\"\n// read the inputs\n// once per cycle\n" +
                 "mydword := MOVE(%ID79);\nEND_NETWORK");
 
             var r = Commands.Pull(root, client);
@@ -189,7 +191,7 @@ public class PullCommandTests
         "NETWORK 2 LD\n  out := (a AND b);\n  out2 := x;\nEND_NETWORK";
 
     private const string V2Body =
-        "(* @volt-implementation LD *)\n" +
+        "IMPLEMENTATION LD\n" +
         "NETWORK\n  VAR_TEMP g0 : BOOL; END_VAR\n  g0 := (a AND b);\n  p := g0;\n  q := g0;\nEND_NETWORK\n" +
         "NETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := (a OR b);\n  r := g1;\n  s := g1;\nEND_NETWORK\n" +
         "NETWORK\n  out := (a AND b);\n  out2 := x;\nEND_NETWORK";
@@ -394,7 +396,7 @@ public class PullCommandTests
             var pristine = File.ReadAllText(PrgPath(root));
             File.WriteAllText(PrgPath(root), pristine.Replace("x := 1;", "x := 999;"));
             var stray = Path.Combine(root, "src", "Scratch.prg"); // an untracked file is local work too
-            File.WriteAllText(stray, "PROGRAM Scratch\n(* @volt-implementation *)\nEND_PROGRAM");
+            File.WriteAllText(stray, "PROGRAM Scratch\nIMPLEMENTATION ST\nEND_PROGRAM");
 
             var plain = Commands.Pull(root, client);            // a NORMAL pull preserves local work...
             Assert.Equal("ok", plain.Kind);

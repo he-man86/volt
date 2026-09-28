@@ -327,7 +327,7 @@ public class DutSubtypeChangePushTests
             new SetItemOp
             {
                 Name = "X.fb", IfVersion = null,
-                SourceText = "FUNCTION_BLOCK X\nVAR\nEND_VAR\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK\n",
+                SourceText = "FUNCTION_BLOCK X\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n",
             },
             new SetItemOp { Name = "X.struct", IfVersion = null, SourceText = Struct });
 
@@ -470,7 +470,7 @@ public class DutSubtypeChangePushTests
             new SetItemOp
             {
                 Name = "A.fb", IfVersion = refs.Items["A.fb"],
-                SourceText = "FUNCTION_BLOCK A\nVAR\n\tb : INT;\nEND_VAR\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK\n",
+                SourceText = "FUNCTION_BLOCK A\nVAR\n\tb : INT;\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n",
             },
             new DeleteItemOp { Name = "X.struct" },
         };
@@ -514,7 +514,7 @@ public class DutSubtypeChangePushTests
             new SetItemOp
             {
                 Name = "A.fb", IfVersion = refs.Items["A.fb"],
-                SourceText = "FUNCTION_BLOCK A\nVAR\n\tb : INT;\nEND_VAR\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK\n",
+                SourceText = "FUNCTION_BLOCK A\nVAR\n\tb : INT;\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n",
             },
             new DeleteItemOp { Name = "X.struct" },
         };
@@ -595,7 +595,7 @@ public class DutSubtypeChangePushTests
     [InlineData(true)]
     public void A_dut_name_over_a_function_blocks_text_is_refused_by_the_kind_its_name_carries(bool force)
     {
-        const string Fb = "FUNCTION_BLOCK X\nVAR\n\tb : INT;\nEND_VAR\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK\n";
+        const string Fb = "FUNCTION_BLOCK X\nVAR\n\tb : INT;\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n";
         var ide = new FakeIde(FakeIde.Item.TextualPou("X", "FUNCTION_BLOCK X\nVAR\nEND_VAR\n", "", "POUs"));
         var refs = RefsService.Handle(ide);
         var op = new SetItemOp { Name = "X.struct", IfVersion = null, SourceText = Fb };

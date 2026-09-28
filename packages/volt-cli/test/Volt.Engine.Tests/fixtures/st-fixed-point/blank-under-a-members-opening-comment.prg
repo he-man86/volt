@@ -2,13 +2,13 @@ PROGRAM ErrorHandling
 VAR
 	dummy	: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 
 END_PROGRAM
 
 METHOD PROTECTED Initialize
 // Connect Lenze module handlers to this base module handler
-(* @volt-implementation *)
+IMPLEMENTATION ST
 
 GlobalVars.fbModuleManager.ModuleHandler.SetParent(
 	ModuleHandlerParent	:= ModuleHandler);

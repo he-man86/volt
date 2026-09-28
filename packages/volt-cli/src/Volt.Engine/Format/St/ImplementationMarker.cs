@@ -1,17 +1,21 @@
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
+
+using Volt.Engine.Format.Body;
 
 namespace Volt.Engine.Format.St
 {
     /// <summary>
-    /// <c>(* @volt-implementation *)</c> — the line that says where a POU's DECLARATION ends and its
-    /// IMPLEMENTATION begins. A graphical body's marker also names its language:
-    /// <c>(* @volt-implementation LD *)</c> / <c>(* @volt-implementation FBD *)</c>.
+    /// <c>IMPLEMENTATION &lt;LANG&gt;</c> — the line that says where a body's DECLARATION ends, where its
+    /// IMPLEMENTATION begins, and what language that implementation is in: <c>IMPLEMENTATION ST</c>,
+    /// <c>IMPLEMENTATION LD</c> or <c>IMPLEMENTATION FBD</c>. The ONE place the spelling lives on the bridge side
+    /// (openspec <c>implementation-keyword</c>); the LSP mirrors it in one module of its own.
     ///
-    /// <para><b>Why it exists.</b> The vendors keep those two apart (CODESYS writes them through separate
-    /// scripting members; <c>WriteSourceText</c> takes them as two arguments), and a Volt workspace keeps one
-    /// text per item. Something has to divide that text on push, and until now it was INFERRED — the last
-    /// <c>END_VAR</c>, or the end of a wrapped header, then a rule about which trailing comments and pragmas
-    /// belonged to which side. Every one of those rules was written after a bug:</para>
+    /// <para><b>Why a boundary is stated at all.</b> The vendors keep the two halves apart (CODESYS writes them
+    /// through separate scripting members; <c>WriteSourceText</c> takes them as two arguments), and a Volt workspace
+    /// keeps one text per item. Something has to divide that text on push, and it used to be INFERRED — the last
+    /// <c>END_VAR</c>, or the end of a wrapped header, then a rule about which trailing comments and pragmas belonged
+    /// to which side. Every one of those rules was written after a bug:</para>
     /// <list type="bullet">
     /// <item>trailing comments belong to the declaration — measured on <c>pro2193</c>, whose <c>BitLogic</c> has
     /// fourteen members ending <c>END_VAR</c>, blank, comment, and NOT ONE body starting with a comment. Reading
@@ -19,42 +23,55 @@ namespace Volt.Engine.Format.St
     /// <item>a wrapped header is one declaration — <c>EXTENDS</c>/<c>IMPLEMENTS</c> on their own lines were being
     /// written into the BODY, so a derived function block's base class landed in its implementation.</item>
     /// <item>a conditional-compile pragma is NOT trivia — <c>{IF defined(X)}</c> opens a block the body closes,
-    /// and sweeping the opener into the declaration cut it in half. CODESYS answered "This code is not supported
-    /// in declaration part" and "'ELSE' found without matching 'if'".</item>
+    /// and sweeping the opener into the declaration cut it in half.</item>
     /// </list>
     ///
-    /// <para><b>The language form.</b> A graphical body's view (FBD or LD) is one property of the whole body, so
-    /// network text states it once, here — v1 printed it on every network header, which invited a per-network
-    /// edit nothing applied (openspec <c>network-text-literal-nwl</c> 3.3). The marker line then belongs to the
-    /// BODY as well as ending the declaration: <see cref="StReader"/> keeps it as the body's first line, so a body
-    /// alone says what it is (<c>NetworkText.Is</c>), and <see cref="StWriter"/> writes it in the bare marker's
-    /// place rather than beside it. An ST body keeps the bare marker.</para>
+    /// <para><b>Why a keyword, and why every body states its language.</b> The boundary was
+    /// a <c>@volt</c>-tagged comment that every engineer had to have explained, and ST was its unstated
+    /// default. A keyword reads like the rest of ST, and a stated language is the ONE signal for how a body is read:
+    /// <c>ST</c> goes to the ST path, <c>LD</c>/<c>FBD</c> to network text. A body that contradicts what it states
+    /// is refused by name (<see cref="StReader"/>), never re-read as the other language. The price, accepted:
+    /// <c>IMPLEMENTATION</c> is not IEC 61131-3, so it is stripped on push and the IDE never sees it, and it is a
+    /// reserved name no workspace identifier may take — a name spelled like the line could otherwise be read as one.</para>
     ///
-    /// <para><b>It is a COMMENT</b>, so a file carrying it is still valid ST that a vendor's editor accepts, and
-    /// it is deliberately the same shape as <see cref="Volt.Engine.Format.Body.BodyMarker"/>'s
-    /// <c>(* @volt-graphical: LANG *)</c>.</para>
+    /// <para><b>Where the language rides in memory.</b> An ST body is written into the IDE as it stands, so it
+    /// carries no line; a network-text body's language is one property of the whole body, so its keyword line stays
+    /// its FIRST line (<see cref="Volt.Engine.Format.Network.NetworkText.LanguageOf"/>); a body Volt cannot write is
+    /// its <see cref="BodyMarker"/> line, which stands in the keyword's place and states that the body has no text
+    /// form. <see cref="Split"/> and <see cref="Join"/> are the one translation between the file and that.</para>
     ///
-    /// <para><b>A file without it is REFUSED, never guessed.</b> Falling back to the old inference would keep
-    /// every bug above alive on exactly the inputs nobody tested, and hide which files had been migrated. The
-    /// refusal names the fix: pull the project once.</para>
+    /// <para><b>A file without the line is REFUSED, never guessed</b> — the refusal names the fix, pull the project
+    /// once. The retired comment is not tolerated: there were no users, so there is no translator.</para>
     /// </summary>
     public static class ImplementationMarker
     {
-        public const string Text = "(* @volt-implementation *)";
+        public const string Keyword = "IMPLEMENTATION";
 
-        // Bare, or naming a graphical language. Exact in its words, free in its spacing — the same match the
-        // network text reader makes on a body's first line, so the two cannot disagree about what a marker is.
-        private static readonly Regex Line = new(@"^\s*\(\*\s*@volt-implementation(?:\s+(FBD|LD))?\s*\*\)\s*$",
-                                                 RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        // Exactly the keyword and a language a body can state, alone on the line. Spacing is layout and the words are
+        // case-insensitive, as ST keywords are.
+        private static readonly Regex Line = new(@"^\s*IMPLEMENTATION[ \t]+(ST|LD|FBD)\s*$",
+                                                 RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
-        /// <summary>The marker of a graphical body in <paramref name="language"/> (<c>FBD</c> or <c>LD</c>).</summary>
-        public static string For(string language) => $"(* @volt-implementation {language} *)";
+        // The SHAPE of the line, whatever it states: the keyword alone, or the keyword and one word. A line of this
+        // shape that is no boundary line — no language, or one no body can state — is refused NAMING what it
+        // states, rather than passing as code the IDE then cannot compile.
+        private static readonly Regex Shape = new(@"^\s*IMPLEMENTATION(?:[ \t]+([A-Za-z_][A-Za-z0-9_]*))?\s*$",
+                                                  RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+        // The retired comment. Recognised for ONE purpose: to refuse a file from before the change by name, where it
+        // stands as that file's boundary. Without it, the pre-change shape of a body Volt cannot write — the comment,
+        // THEN the marker line — would find its boundary at the marker line and push the comment into the IDE as the
+        // tail of the declaration. Anywhere else it is an ordinary comment (see StReader.SplitAtBoundary).
+        private static readonly Regex Retired = new(@"^\s*\(\*\s*@volt-implementation\b[^*]*\*\)\s*$",
+                                                    RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+        /// <summary>The boundary line stating <paramref name="language"/> (<c>ST</c>, <c>LD</c> or <c>FBD</c>).</summary>
+        public static string For(string language) => $"{Keyword} {language}";
 
         /// <summary>True when items of this kind HAVE an implementation to separate — and therefore carry the
-        /// marker. A GVL and a DUT are a declaration and nothing else; an INTERFACE and its members are
-        /// SIGNATURES, so there is no boundary to record and a marker would invent one. The writer and the
-        /// reader both ask this, so they cannot disagree about which files carry it — the two of them holding
-        /// the same rule separately is how the boundary bugs got in.</summary>
+        /// line. A GVL and a DUT are a declaration and nothing else; an INTERFACE and its members are SIGNATURES, so
+        /// there is no boundary to record and a line would invent one. The writer and the reader both ask this, so
+        /// they cannot disagree about which files carry it.</summary>
         public static bool AppliesTo(string kind) =>
             kind != Volt.Engine.Item.ItemKind.Kinds.Gvl &&
             kind != Volt.Engine.Item.ItemKind.Kinds.Dut &&
@@ -62,39 +79,74 @@ namespace Volt.Engine.Format.St
             kind != Volt.Engine.Item.ItemKind.Kinds.InterfaceMethod &&
             kind != Volt.Engine.Item.ItemKind.Kinds.InterfaceProperty;
 
-        /// <summary>True when this line IS a marker, bare or with a language (whitespace around it ignored,
-        /// nothing else on it).</summary>
+        /// <summary>True when this line IS a boundary line: the keyword and a language, nothing else on it.</summary>
         public static bool Is(string line) => Line.IsMatch(line);
 
-        /// <summary>The language a marker line names (<c>FBD</c> / <c>LD</c>), or null for the bare marker and for
-        /// a line that is no marker.</summary>
+        /// <summary>The language a boundary line states, in its one spelling (<c>ST</c>, <c>LD</c>, <c>FBD</c>), or
+        /// null for a line that is no boundary line.</summary>
         public static string? LanguageOf(string line)
         {
             var m = Line.Match(line);
-            return m.Success && m.Groups[1].Success ? m.Groups[1].Value : null;
+            return m.Success ? m.Groups[1].Value.ToUpperInvariant() : null;
         }
 
-        /// <summary>The index of the marker line in <paramref name="lines"/>, or -1.</summary>
-        public static int IndexIn(System.Collections.Generic.IList<string> lines, int from = 0)
+        /// <summary>What a line of the keyword's SHAPE states: <c>""</c> for the keyword alone, the word after it
+        /// as written otherwise, and null for a line of any other shape. Only <see cref="Is"/> makes a boundary;
+        /// this is how the reader finds the lines it must refuse by name.</summary>
+        public static string? Stated(string line)
         {
+            var m = Shape.Match(line);
+            return !m.Success ? null : m.Groups[1].Success ? m.Groups[1].Value : "";
+        }
+
+        /// <summary>The line is spelled like the retired boundary comment. Only standing directly above a marker line
+        /// does it mark a file from before the change (refused naming <c>volt pull</c>).</summary>
+        public static bool IsRetired(string line) => Retired.IsMatch(line);
+
+        /// <summary>The line opens with a <see cref="BodyMarker"/> — the statement of a body Volt cannot write,
+        /// which stands where the keyword line would. Opens, not is: anything after it on the line is the reader's to
+        /// refuse by name.</summary>
+        public static bool IsMarkerLine(string line) => BodyMarker.Opens(line);
+
+        /// <summary>The index of the first line from <paramref name="from"/> that states a body — a line of the
+        /// keyword's shape, or a <see cref="BodyMarker"/> line — and that starts OUTSIDE every comment; or -1.
+        ///
+        /// <para>Outside every comment, because <c>IMPLEMENTATION ST</c> is a line an engineer can plausibly write
+        /// in documentation, and the pull writes declarations' comments through verbatim. A comment may open after
+        /// code on its line (bakon-nano: <c>:= TRUE;(*NOT (</c> spanning lines) and comments NEST, as the LSP lexer
+        /// nests them — so this asks <see cref="StTrivia"/>, which tracks both, and not the line-start scan the
+        /// structure reader uses.</para></summary>
+        public static int IndexIn(IList<string> lines, int from = 0)
+        {
+            var open = StTrivia.OpenAtStart(lines);
             for (int i = from; i < lines.Count; i++)
-                if (Is(lines[i])) return i;
+                if (!open[i] && (Stated(lines[i]) is not null || IsMarkerLine(lines[i]))) return i;
             return -1;
         }
 
-        /// <summary>A body as the text around it spells it: its marker line and the rest. A graphical body STARTS
-        /// with its own marker (the language form), which then stands where the bare marker would; any other body
-        /// is preceded by the bare marker.</summary>
-        public static (string Marker, string Code) Split(string body)
+        /// <summary>A body as the file spells it: its boundary line and the text under it. A network-text body
+        /// STARTS with its own keyword line, a body Volt cannot write IS its marker line — the whole body, nothing
+        /// else (<see cref="BodyMarker.Is"/>) — and any other body is ST and is headed by <c>IMPLEMENTATION ST</c>,
+        /// including an ST body that merely opens with a comment spelled like the marker.</summary>
+        public static (string Line, string Code) Split(string body)
         {
             var eol = body.IndexOf('\n');
             var first = eol < 0 ? body : body.Substring(0, eol);
-            if (LanguageOf(first) is null) return (Text, body);
-            return (first.Trim(), eol < 0 ? "" : body.Substring(eol + 1));
+            var rest = eol < 0 ? "" : body.Substring(eol + 1);
+            if (LanguageOf(first) is { } lang && Languages.IsNetwork(lang)) return (For(lang), rest);
+            if (BodyMarker.Is(body)) return (body.Trim(), "");
+            return (For(Languages.St), body);
         }
 
-        /// <summary>The inverse of <see cref="Split"/>: the body a marker line and the text after it make.</summary>
-        public static string Join(string markerLine, string rest) =>
-            LanguageOf(markerLine) is null ? rest : rest.Length == 0 ? markerLine.Trim() : markerLine.Trim() + "\n" + rest;
+        /// <summary>The inverse of <see cref="Split"/>, for a body the reader has already checked against the line
+        /// that states it: an ST body is its code, a network-text body keeps its keyword line in front, and a body
+        /// Volt cannot write is its marker line alone.</summary>
+        public static string Join(string line, string code)
+        {
+            if (IsMarkerLine(line)) return line.Trim();
+            var lang = LanguageOf(line) ?? throw new System.ArgumentException($"'{line}' states no body language", nameof(line));
+            if (!Languages.IsNetwork(lang)) return code;
+            return code.Length == 0 ? For(lang) : For(lang) + "\n" + code;
+        }
     }
 }

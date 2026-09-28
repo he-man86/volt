@@ -62,8 +62,8 @@ public class NetworkTextWriterTests
 
     static string Write(Node tree, BodyLanguage lang = BodyLanguage.Fbd) => Write(Net(tree), lang);
 
-    const string Fbd = "(* @volt-implementation FBD *)\n";
-    const string Ld = "(* @volt-implementation LD *)\n";
+    const string Fbd = "IMPLEMENTATION FBD\n";
+    const string Ld = "IMPLEMENTATION LD\n";
 
     /// <summary>A one-network FBD body holding exactly these statement lines.</summary>
     static string Body(params string[] lines) =>

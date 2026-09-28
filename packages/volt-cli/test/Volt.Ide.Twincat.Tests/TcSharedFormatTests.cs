@@ -93,7 +93,7 @@ public class TcSharedFormatTests
         var pou = StReader.Read(Read("ladderLabel.prg"));
         var body = pou.Body!;
 
-        Assert.StartsWith("(* @volt-implementation LD *)\n", body);
+        Assert.StartsWith("IMPLEMENTATION LD\n", body);
         Assert.Contains("NETWORK LABEL: testLabel\n  coil := ;", body);
         Assert.Contains("NETWORK LABEL: testLabe2\nEND_NETWORK", body);
 

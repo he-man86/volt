@@ -124,8 +124,8 @@ public static class NetworkTextGate
     /// <summary>The text's tokens as the gate compares them, or null where it does not lex.</summary>
     private static List<(TokKind, string)>? LayoutFree(string text)
     {
-        // The marker is the first non-blank line, and its token is the language it names, as the reader takes it (a
-        // line that is no marker is compared whole).
+        // The IMPLEMENTATION line is the first non-blank line, and its token is the language it states, as the reader
+        // takes it (a line that states none is compared whole).
         var start = 0;
         while (start < text.Length && char.IsWhiteSpace(text[start])) start++;
         var eol = text.IndexOf('\n', start);
@@ -197,7 +197,7 @@ public static class NetworkTextGate
         TokKind.Snippet => "an EXECUTE body",
         TokKind.Wires => "the wire block (" + t.Text + ")",
         TokKind.Backtick => "`" + t.Text + "`",
-        TokKind.Marker => "the marker for " + t.Text,
+        TokKind.Marker => "the line IMPLEMENTATION " + t.Text,
         _ => "'" + t.Text + "'",
     };
 }

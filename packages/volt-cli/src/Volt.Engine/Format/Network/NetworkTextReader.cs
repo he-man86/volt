@@ -34,8 +34,8 @@ namespace Volt.Engine.Format.Network;
 /// </summary>
 public static class NetworkTextReader
 {
-    /// <summary>Read <paramref name="text"/>, a whole graphical body starting with its implementation marker — which
-    /// says the body's language. A marker saying another language than the IDE's view is a view change, refused by
+    /// <summary>Read <paramref name="text"/>, a whole graphical body starting with its <c>IMPLEMENTATION LD|FBD</c> line —
+    /// which states the body's language. A line stating another language than the IDE's view is a view change, refused by
     /// the one comparison the drivers make against the IDE (<see cref="NetworkText.RefuseViewModeChange"/>).</summary>
     /// <param name="scope">The declarations the body can see; see <see cref="NetworkScope"/>.</param>
     public static NetworkReadResult Read(string text, NetworkScope scope) =>
@@ -139,24 +139,27 @@ public static class NetworkTextReader
             if (eol < 0) eol = _text.Length;
             var first = _text.Substring(start, eol - start).TrimEnd('\r');
 
-            var marked = Volt.Engine.Format.St.ImplementationMarker.LanguageOf(first);
+            // The body's language is the one its first line STATES, and this reader reads only LD and FBD. Anything
+            // else is a diagnostic naming what the line says, never a guess: a body stating ST is the ST path's, and
+            // a line stating no language, or one no body can state, has no reader at all.
+            var marked = NetworkText.LanguageOf(first);
             if (marked is null)
             {
                 string message;
-                if (Volt.Engine.Format.St.ImplementationMarker.Is(first))
-                    message = "the body carries the bare ST marker (* @volt-implementation *); a graphical body carries " +
-                              "(* @volt-implementation FBD *) or (* @volt-implementation LD *).";
+                if (Volt.Engine.Format.St.ImplementationMarker.Stated(first) is { } stated)
+                    message = $"the body states '{first.Trim()}' — a network-text body opens with IMPLEMENTATION FBD or " +
+                              "IMPLEMENTATION LD" + (stated.Length == 0 ? "; this line states no language." : ".");
                 else if (NetworkText.IsV1Header(first))
                     message = NetworkText.V1Refusal("`NETWORK <n> <LANG>` headers");
                 else
-                    message = "a graphical body starts with its implementation marker, (* @volt-implementation FBD *) or " +
-                              "(* @volt-implementation LD *), on its first line.";
+                    message = "a graphical body opens with the line stating its language, IMPLEMENTATION FBD or " +
+                              "IMPLEMENTATION LD, on its first line.";
                 Diagnostics.Add(Diag(ConflictCodes.NetworkParse, message, start, Math.Max(1, first.Length)));
                 return null;
             }
 
             _lang = NetworkText.LanguageNamed(marked)
-                    ?? throw new InvalidOperationException($"the marker names '{marked}', which is no body language.");
+                    ?? throw new InvalidOperationException($"the line states '{marked}', which is no body language.");
             Consumed.Add(new Tok(TokKind.Marker, marked, start, first.Length, true));
             _lx = new NetworkLexer(_text, eol);
 

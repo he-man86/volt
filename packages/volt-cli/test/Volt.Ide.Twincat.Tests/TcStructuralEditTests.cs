@@ -33,7 +33,7 @@ public class TcStructuralEditTests
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
 
     private static NetworkBody Pushed(params string[] statements) =>
-        NetworkText.Validate("(* @volt-implementation LD *)\nNETWORK\n" +
+        NetworkText.Validate("IMPLEMENTATION LD\nNETWORK\n" +
                              string.Concat(statements.Select(s => "  " + s + "\n")) + "END_NETWORK\n", Scope);
 
     private static XElement NeverImported(Network n) =>
@@ -165,7 +165,7 @@ public class TcStructuralEditTests
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting);
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
                                                   _ => null, () => Array.Empty<string>());
-        var pushed = NetworkText.Validate("(* @volt-implementation FBD *)\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
+        var pushed = NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
 
         var written = TcNetworkWriter.Apply(xml, pushed, scope);
 
@@ -183,7 +183,7 @@ public class TcStructuralEditTests
     {
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
                                                   _ => null, () => Array.Empty<string>());
-        var pushed = NetworkText.Validate("(* @volt-implementation FBD *)\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
+        var pushed = NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
         var lowered = TcPlcOpenWriter.WriteProject("VltProbe_Max", pushed).Descendants()
             .Where(x => x.Name.LocalName == "block").Single().Descendants()
             .Where(x => x.Name.LocalName == "variable" && x.Parent!.Name.LocalName == "inputVariables")
@@ -207,7 +207,7 @@ public class TcStructuralEditTests
             .Descendants("NWL").Single().ToString(SaveOptions.DisableFormatting).Replace("<v>In2</v>", "<v>Limit</v>");
         var scope = NetworkScope.FromDeclarations("PROGRAM VltProbe_Max\nVAR\n  a : INT;\n  b : INT;\n  n : INT;\nEND_VAR",
                                                   _ => null, () => Array.Empty<string>());
-        var pushed = NetworkText.Validate("(* @volt-implementation FBD *)\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
+        var pushed = NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  n := MAX(a, b);\nEND_NETWORK\n", scope);
 
         var ex = Assert.Throws<NotSupportedException>(() => TcNetworkWriter.Apply(xml, pushed, scope));
         Assert.Contains("Limit", ex.Message);

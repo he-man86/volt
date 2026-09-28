@@ -32,10 +32,23 @@
             return (end < 0 ? text : text.Substring(0, end)).Trim() is { Length: > 0 } lang ? lang : null;
         }
 
-        /// <summary>Is this body text the marker rather than real source? A prefix test against the same literal
-        /// the writer uses, so reader and writer cannot drift apart.</summary>
-        public static bool Is(string? impl) =>
-            impl != null && impl.TrimStart().StartsWith(Prefix, System.StringComparison.Ordinal);
+        /// <summary>Is this body text the marker rather than real source? The WHOLE body, and nothing else: exactly
+        /// what <see cref="For"/> produces, the one form every driver materializes.
+        /// <para>Not a prefix test, which this was. An ST body the IDE holds may OPEN with a comment spelled like the
+        /// marker (an engineer's note, a chart converted to ST), and a prefix test called that body a marker: the pull
+        /// stated no language for it, and on push every driver skipped it and the guard called it a no-op, so code
+        /// under such a line was accepted and dropped without a word. A body that is the marker and more is ST.</para></summary>
+        public static bool Is(string? impl)
+        {
+            if (impl is null) return false;
+            var text = impl.Trim();
+            return Opens(text) && text.IndexOf("*)", Prefix.Length, System.StringComparison.Ordinal) == text.Length - 2;
+        }
+
+        /// <summary>Does this LINE open with the marker? The question a line scan asks, to find where a marker stands
+        /// in a file — whatever follows it on the line or under it is then judged by the reader, not waved through.</summary>
+        public static bool Opens(string? line) =>
+            line != null && line.TrimStart().StartsWith(Prefix, System.StringComparison.Ordinal);
     }
 
     /// <summary>

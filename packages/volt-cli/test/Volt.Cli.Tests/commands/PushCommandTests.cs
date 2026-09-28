@@ -50,7 +50,7 @@ public class PushCommandTests
     [Fact]
     public void A_hand_wrapped_graphical_call_is_adopted_in_the_IDEs_layout_after_the_push()
     {
-        const string canonical = "(* @volt-implementation LD *)\nNETWORK\n  t1(IN := a, PT := pt);\nEND_NETWORK";
+        const string canonical = "IMPLEMENTATION LD\nNETWORK\n  t1(IN := a, PT := pt);\nEND_NETWORK";
         var ide = ConnectedIde(new FakeIde.Item("PLC_PRG", Volt.Engine.Item.ItemKind.PlcPouProg, "", true,
             "PROGRAM PLC_PRG\nVAR\n  t1 : TON;\n  a : BOOL;\n  pt : TIME;\nEND_VAR", canonical, "LD", null));
         var (root, host, client) = Bound(ide);
@@ -86,7 +86,7 @@ public class PushCommandTests
     [Fact]
     public void A_pushed_body_the_IDE_holds_as_other_tokens_is_not_adopted_as_a_layout()
     {
-        const string canonical = "(* @volt-implementation LD *)\nNETWORK\n  t1(IN := a, PT := pt);\nEND_NETWORK";
+        const string canonical = "IMPLEMENTATION LD\nNETWORK\n  t1(IN := a, PT := pt);\nEND_NETWORK";
         var ide = new FakeIde(new FakeIde.Item("PLC_PRG", Volt.Engine.Item.ItemKind.PlcPouProg, "", true,
             "PROGRAM PLC_PRG\nVAR\n  t1 : TON;\n  a : BOOL;\n  pt : TIME;\n  b : BOOL;\nEND_VAR", canonical, "LD", null))
         {
@@ -122,7 +122,7 @@ public class PushCommandTests
     [Fact]
     public void A_pushed_item_whose_text_the_IDE_does_not_give_back_is_not_claimed_as_another_program()
     {
-        const string canonical = "(* @volt-implementation LD *)\nNETWORK\n  t1(IN := a, PT := pt);\nEND_NETWORK";
+        const string canonical = "IMPLEMENTATION LD\nNETWORK\n  t1(IN := a, PT := pt);\nEND_NETWORK";
         var ide = new FakeIde(new FakeIde.Item("PLC_PRG", Volt.Engine.Item.ItemKind.PlcPouProg, "", true,
             "PROGRAM PLC_PRG\nVAR\n  t1 : TON;\n  a : BOOL;\n  pt : TIME;\n  b : BOOL;\nEND_VAR", canonical, "LD", null))
         {

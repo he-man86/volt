@@ -43,9 +43,9 @@ public class AccessorReconcileTests
     /// <summary>The pushed document: a POU whose property declares exactly the accessors given.</summary>
     private static string Source(bool get, bool set)
     {
-        var body = $"{Decl}\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK\n\nPROPERTY Val : INT\n";
-        if (get) body += "GET\nVAR\nEND_VAR\n(* @volt-implementation *)\nVal := _v;\nEND_GET\n";
-        if (set) body += "SET\nVAR\nEND_VAR\n(* @volt-implementation *)\n_v := Val;\nEND_SET\n";
+        var body = $"{Decl}\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nPROPERTY Val : INT\n";
+        if (get) body += "GET\nVAR\nEND_VAR\nIMPLEMENTATION ST\nVal := _v;\nEND_GET\n";
+        if (set) body += "SET\nVAR\nEND_VAR\nIMPLEMENTATION ST\n_v := Val;\nEND_SET\n";
         return body + "END_PROPERTY\n";
     }
 

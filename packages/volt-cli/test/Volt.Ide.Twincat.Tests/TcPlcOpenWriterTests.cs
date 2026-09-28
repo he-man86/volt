@@ -118,7 +118,7 @@ public class TcPlcOpenWriterTests
     [InlineData("t1(IN := a, PT := pt, ET => el);", "output pin")]
     public void APreflightRefusesWhatTheWriterCannotExpress(string statement, string expected)
     {
-        var text = $"(* @volt-implementation LD *)\nNETWORK\n  {statement}\nEND_NETWORK\n";
+        var text = $"IMPLEMENTATION LD\nNETWORK\n  {statement}\nEND_NETWORK\n";
         var ex = Assert.ThrowsAny<Exception>(() => Lower(Read(text)));
         Assert.Contains(expected, ex.Message);
     }
@@ -141,7 +141,7 @@ public class TcPlcOpenWriterTests
     public void An_unconditional_jump_or_return_is_lowered_WIRED_rather_than_refused(string statement)
     {
         XNamespace tc6 = "http://www.plcopen.org/xml/tc6_0200";
-        var text = string.Join("\n", "(* @volt-implementation LD *)", "NETWORK", "  " + statement, "END_NETWORK", "");
+        var text = string.Join("\n", "IMPLEMENTATION LD", "NETWORK", "  " + statement, "END_NETWORK", "");
 
         var body = Lower(Read(text));
 
@@ -341,7 +341,7 @@ public class TcPlcOpenWriterTests
     public void A_wire_feeding_two_consumers_becomes_one_shared_refLocalId()
     {
         // The gate is handed the BODY only - everything from the first NETWORK marker on - not a whole POU.
-        var model = Read("(* @volt-implementation FBD *)\nNETWORK\n  VAR_TEMP g7 : BOOL; END_VAR\n  g7 := (a AND b);\n" +
+        var model = Read("IMPLEMENTATION FBD\nNETWORK\n  VAR_TEMP g7 : BOOL; END_VAR\n  g7 := (a AND b);\n" +
                          "  out1 := g7;\n  out2 := g7;\nEND_NETWORK\n");
 
         var written = Lower(model);

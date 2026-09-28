@@ -530,7 +530,7 @@ public class CodesysCoilFlagTests
     {
         const string declaration = "PROGRAM P\nVAR\n  x : BOOL;\n  c : BOOL;\n  a : INT;\n  b : INT;\n  n : INT;\n  lamp : BOOL;\n  sv : INT;\nEND_VAR";
         var scope = NetworkScope.FromDeclarations(declaration, _ => null, () => Array.Empty<string>());
-        return (NetworkText.Validate("(* @volt-implementation FBD *)\nNETWORK\n  " + statement + "\nEND_NETWORK\n", scope).Networks[0], scope);
+        return (NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  " + statement + "\nEND_NETWORK\n", scope).Networks[0], scope);
     }
 
     /// <summary>THE PUSH HALF OF "EN IS A PIN, ENO IS SPELLED" (task 4.1; spec "ENO is the main output", "a box that has

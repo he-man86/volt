@@ -55,7 +55,12 @@ public class PushDeclarationTransportTests
     /// terminator. Assembled here rather than inlined per case so a malformed source fails as a REJECTED PUSH
     /// (which names the reason) rather than as a missing dictionary key three frames away.</summary>
     private static string Source(string decl, string body, string? terminator) =>
-        terminator is null ? decl + "\n" : decl + "\n(* @volt-implementation *)\n" + body + "\n\n" + terminator + "\n";
+        terminator is null ? decl + "\n" : decl + "\n" + Stated(body) + "\n\n" + terminator + "\n";
+
+    /// <summary>A body under the line that states it, as the pull writes it: ST under <c>IMPLEMENTATION ST</c>, and a
+    /// body Volt cannot write as its marker line ALONE — the marker is that body's statement, and a keyword line above
+    /// it would claim a language Volt reads.</summary>
+    private static string Stated(string body) => BodyMarker.Is(body) ? body : "IMPLEMENTATION ST\n" + body;
 
     /// <summary>The same declaration with one variable added — the ONLY difference in the push.</summary>
     private static string PlusOneVar(string decl) =>

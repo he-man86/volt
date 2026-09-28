@@ -29,7 +29,7 @@ public class StReaderTriviaBoundaryTests
 
     private const string Fb =
         "FUNCTION_BLOCK FB_P\n" +
-        "VAR\n\tx : INT;\nEND_VAR\n(* @volt-implementation *)\n" +
+        "VAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n" +
         "x := x + 1;\n" +
         "END_FUNCTION_BLOCK\n";
 
@@ -40,11 +40,11 @@ public class StReaderTriviaBoundaryTests
         var src = Fb +
             "\nPROPERTY P : INT\n" +
             "GET\n" +
-            "(* @volt-implementation *)\n" +
+            "IMPLEMENTATION ST\n" +
             "\tP := x;\n" +
             "(* restore *) END_GET\n" +
             "SET\n" +
-            "(* @volt-implementation *)\n" +
+            "IMPLEMENTATION ST\n" +
             "\tx := P;\n" +
             "END_SET\n" +
             "END_PROPERTY\n";
@@ -70,7 +70,7 @@ public class StReaderTriviaBoundaryTests
             "VAR_INPUT\n" +
             "\td : INT;\n" +
             "(* end of inputs *) END_VAR\n" +
-            "(* @volt-implementation *)\n" +
+            "IMPLEMENTATION ST\n" +
             "M := d * 2;\n" +
             "END_METHOD\n";
 
@@ -94,7 +94,7 @@ public class StReaderTriviaBoundaryTests
     {
         var src = Fb +
             "\nACTION A\n" +
-            "(* @volt-implementation *)\n" +
+            "IMPLEMENTATION ST\n" +
             "\tx := 1;\n" +
             "\tx := 2;\n" +
             "END_ACTION\n";

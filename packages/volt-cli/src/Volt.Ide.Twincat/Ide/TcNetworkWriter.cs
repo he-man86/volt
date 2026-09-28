@@ -159,7 +159,7 @@ internal static class TcNetworkWriter
             ?? throw Refuse("replaces a " + doc.Name.LocalName + " body with a graphical one");
 
         // THE VIEW CANNOT BE CHANGED BY A PUSH — the same rule CODESYS states, from its own accessor. Network
-        // text states FBD or LD once, on the body's implementation marker, and only the CREATE route writes
+        // text states FBD or LD once, on the body's IMPLEMENTATION line, and only the CREATE route writes
         // `DefaultViewMode` (`TcArchive.WithViewMode`) — so a marker-only edit would write nothing, report
         // success, and be reverted by the next pull.
         NetworkText.RefuseViewModeChange(BeckhoffDriver.ViewModeOf(impl), body.Language);
@@ -282,7 +282,7 @@ internal static class TcNetworkWriter
         // (`VAR_TEMP g1 …; g1 := v; out1 := g1; out2 := g1;`, a Demux and two items) differently, so the model
         // always says which shape the engineer wrote. A fold (`Unhoist`) used to run here whenever the counts
         // disagreed, for v1 text, which spelled both shapes as `LET g1`. v1 text is refused before it gets this
-        // far (`NetworkText.RefuseV1`), and the fold was then only a way to make two DIFFERENT programs agree: an
+        // far (the network-text reader, `NetworkText.V1Constructs`), and the fold was then only a way to make two DIFFERENT programs agree: an
         // assign rewritten as a wire folded back into the archive's one assign, found no value change and
         // returned null — the push reported success and the next pull reverted the file. A count that disagrees
         // is a shape change, refused so the network goes to the IDE to rebuild.

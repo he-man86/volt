@@ -134,9 +134,9 @@ public class ModelRoundTripOracleTests
 
     static ItemContent Split(string file) => StReader.Read(File.ReadAllText(file), KindOf(file));
 
-    // Only a file with the v2 marker LINE holds network text; checked before splitting, so the ~30k corpus items that
+    // Only a file with an IMPLEMENTATION LD|FBD LINE holds network text; checked before splitting, so the ~30k corpus items that
     // hold none are never parsed.
-    static readonly Regex V2Marker = new(@"(?m)^\(\*\s*@volt-implementation\s+(FBD|LD)\s*\*\)\s*$", RegexOptions.Compiled);
+    static readonly Regex V2Marker = new(@"(?mi)^\s*IMPLEMENTATION[ \t]+(FBD|LD)\s*$", RegexOptions.Compiled);
 
     /// <summary>Every graphical body of the corpus, read by the v2 reader against the scope the push reads it against
     /// (<see cref="NetworkScope.FromDeclarations"/> over the project's own files, each body with its own declarations:

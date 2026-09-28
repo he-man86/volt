@@ -40,7 +40,7 @@ public class PushSiblingDeclarationsTests
                 new SetItemOp
                 {
                     Name = "Caller.fb", IfVersion = refs.Items["Caller.fb"],
-                    SourceText = FbDecl + "\n(* @volt-implementation *)\nn := 2;\n\nEND_FUNCTION_BLOCK\n",
+                    SourceText = FbDecl + "\nIMPLEMENTATION ST\nn := 2;\n\nEND_FUNCTION_BLOCK\n",
                 },
                 new SetItemOp
                 {

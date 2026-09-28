@@ -4,7 +4,7 @@ PROGRAM BitLogic
 VAR
 	uInput		: PointerSizesUnion;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 
 END_PROGRAM
 
@@ -15,7 +15,7 @@ VAR_INPUT
 END_VAR
 
 // This method uses Brian Kernighan's algorithm. Google it for more info.
-(* @volt-implementation *)
+IMPLEMENTATION ST
 WHILE in <> 0 DO
 	CountByte	:= CountByte + 1;
 END_WHILE

@@ -25,8 +25,8 @@ public class SignatureParseTests
 {
     private static Member Only(string signature, string body = "x := 1;") =>
         StReader.Read(
-            "FUNCTION_BLOCK FB_S\nVAR\nEND_VAR\n" + ImplementationMarker.Text + "\nEND_FUNCTION_BLOCK\n\n" +
-            signature + "\n" + ImplementationMarker.Text + "\n" + body + "\n" + EndOf(signature) + "\n")
+            "FUNCTION_BLOCK FB_S\nVAR\nEND_VAR\n" + ImplementationMarker.For(Volt.Engine.Format.Body.Languages.St) + "\nEND_FUNCTION_BLOCK\n\n" +
+            signature + "\n" + ImplementationMarker.For(Volt.Engine.Format.Body.Languages.St) + "\n" + body + "\n" + EndOf(signature) + "\n")
         .Members.Single();
 
     private static string EndOf(string signature) =>
@@ -119,8 +119,8 @@ public class SignatureParseTests
     public void A_property_without_a_type_is_refused()
     {
         var ex = Assert.Throws<BridgeException>(() => StReader.Read(
-            "FUNCTION_BLOCK FB_S\nVAR\nEND_VAR\n" + ImplementationMarker.Text + "\nEND_FUNCTION_BLOCK\n\n" +
-            "PROPERTY Ready\nGET\n" + ImplementationMarker.Text + "\nReady := TRUE;\nEND_GET\nEND_PROPERTY\n"));
+            "FUNCTION_BLOCK FB_S\nVAR\nEND_VAR\n" + ImplementationMarker.For(Volt.Engine.Format.Body.Languages.St) + "\nEND_FUNCTION_BLOCK\n\n" +
+            "PROPERTY Ready\nGET\n" + ImplementationMarker.For(Volt.Engine.Format.Body.Languages.St) + "\nReady := TRUE;\nEND_GET\nEND_PROPERTY\n"));
         Assert.Contains("must declare a type", ex.Message);
     }
 

@@ -32,7 +32,7 @@ public class UnchangedBodyIsNotWrittenTests
     private const string Decl = "FUNCTION_BLOCK FB_X\nVAR\n\tn : INT;\nEND_VAR";
     private const string Body = "n := n + 1;";
 
-    private static string Source(string body) => $"{Decl}\n(* @volt-implementation *)\n{body}\n\nEND_FUNCTION_BLOCK\n";
+    private static string Source(string body) => $"{Decl}\nIMPLEMENTATION ST\n{body}\n\nEND_FUNCTION_BLOCK\n";
 
     private static FakeIde WithBody(string? body) =>
         new(new FakeIde.Item("FB_X", ItemKind.PlcPouFb, "", true, Decl, body, null, null));
@@ -79,7 +79,7 @@ public class UnchangedBodyIsNotWrittenTests
     [Fact]
     public void An_emptied_body_is_still_written_so_it_clears()
     {
-        var written = Written(WithBody(Body), $"{Decl}\n{ImplementationMarker.Text}\nEND_FUNCTION_BLOCK\n");
+        var written = Written(WithBody(Body), $"{Decl}\n{ImplementationMarker.For(Volt.Engine.Format.Body.Languages.St)}\nEND_FUNCTION_BLOCK\n");
 
         Assert.NotNull(written);
         Assert.NotNull(written!.Body);

@@ -31,9 +31,9 @@ public static class StWriter
 
         // NOT trimmed: the reader already dropped the ONE blank line this join re-inserts, so a newline still
         // leading the body is the engineer's and has to survive the round trip.
-        // The MARKER, always — see ImplementationMarker. An empty body gets it too: the line records where the
-        // DECLARATION ends, which is a fact about the declaration and not about whether code follows it.
-        // A graphical body starts with its own marker, the language form, which stands in the bare one's place.
+        // The BOUNDARY LINE, always — see ImplementationMarker. An empty body gets it too: the line records where the
+        // DECLARATION ends and what language the body is in, facts that do not depend on whether code follows it.
+        // A body Volt cannot write is stated by its marker line instead, which stands in the keyword's place.
         var (marker, impl) = ImplementationMarker.Split(item.Body ?? "");
         if (ImplementationMarker.AppliesTo(item.Kind)) sb.Append('\n').Append(marker);
         if (impl.Length > 0)
@@ -96,8 +96,8 @@ public static class StWriter
         if (child.Kind is ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)
             return AssembleProperty(child, ownerKind);
         var decl = child.Declaration.TrimEnd('\n');
-        // The marker first, then `%FOLDER`, then the code: a graphical body's own marker line is lifted off it so
-        // it stands where the bare marker would (see ImplementationMarker.Split).
+        // The boundary line first, then `%FOLDER`, then the code — a marker line is that boundary too, so a marker
+        // member's `%FOLDER` follows it; above it, the directive would be DECLARATION text and the folder lost.
         var (marker, code) = ImplementationMarker.Split(child.Body ?? "");
         var impl = PrependFolder(child.Folder, code);
         var end = child.Kind switch

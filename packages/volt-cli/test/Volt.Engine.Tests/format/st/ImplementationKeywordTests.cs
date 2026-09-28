@@ -140,6 +140,21 @@ public class ImplementationKeywordTests
         Assert.DoesNotContain("volt-implementation", text);
     }
 
+    /// <summary>A kind with no implementation has no boundary, so a keyword line in it is no boundary either — and it
+    /// must not pass through as declaration text, which is written into the IDE verbatim (the IDE would then see the
+    /// line push is meant to strip). It is refused by name, naming the line.</summary>
+    [Theory]
+    [InlineData("interface", "INTERFACE I\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nEND_METHOD\n\nEND_INTERFACE\n")]
+    [InlineData("interface", "INTERFACE I\n\nPROPERTY P : BOOL\nGET\nIMPLEMENTATION LD\nEND_GET\nEND_PROPERTY\n\nEND_INTERFACE\n")]
+    [InlineData("gvl", "VAR_GLOBAL\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n")]
+    [InlineData("dut", "TYPE S :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\nimplementation fbd\n")]
+    public void A_keyword_line_in_a_kind_without_an_implementation_is_refused(string kind, string source)
+    {
+        var ex = Assert.Throws<BridgeException>(() => StReader.Read(source, kind));
+        Assert.Contains("IMPLEMENTATION", ex.Message, System.StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("volt pull", ex.Message);
+    }
+
     [Fact]
     public void The_reader_splits_on_the_keyword_and_the_IDE_never_sees_the_line()
     {

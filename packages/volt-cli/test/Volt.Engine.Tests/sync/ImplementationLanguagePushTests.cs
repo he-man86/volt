@@ -289,6 +289,12 @@ public class ImplementationLanguagePushTests
         "TYPE E :\n(\n\tIMPLEMENTATION,\n\tB\n);\nEND_TYPE\n")]
     [InlineData("S.struct", "implementation",   // a struct member
         "TYPE S :\nSTRUCT\n\timplementation : INT;\nEND_STRUCT\nEND_TYPE\n")]
+    [InlineData("E.enum", "IMPLEMENTATION",   // an enum value alone on its line — the keyword's SHAPE, no comma
+        "TYPE E :\n(\n\ta,\n\tIMPLEMENTATION\n);\nEND_TYPE\n")]
+    [InlineData("G.gvl", "IMPLEMENTATION",    // a global alone on its line in a multi-line declaration
+        "VAR_GLOBAL\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR\n")]
+    [InlineData("FB_Motor.fb", "IMPLEMENTATION",   // the same shape in a POU's own VAR block, above its boundary
+        "FUNCTION_BLOCK FB_Motor\nVAR\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n")]
     public void IMPLEMENTATION_is_refused_as_reserved_in_every_naming_position(string op, string name, string source)
     {
         var ide = new FakeIde();
@@ -363,6 +369,60 @@ public class ImplementationLanguagePushTests
         Assert.Empty(ide.WrittenContent);
     }
 
+    /// <summary>The marker line is the WHOLE statement of a body Volt cannot write, so only the file's boundary
+    /// position can hold it. Stated <c>IMPLEMENTATION ST</c> above it, it is the first line of an ST body — and that
+    /// body is ST the IDE would be asked to hold, not a marker: read as one (a prefix test), every driver skipped it
+    /// and the guard called it a no-op, so the push was ACCEPTED and <c>x := 1;</c> dropped without a word. The CFC
+    /// chart cannot take an ST body, so the push is refused, naming the chart's language, and the IDE keeps it.</summary>
+    [Theory]
+    [InlineData("CFC", "IMPLEMENTATION ST\n(* @volt-graphical: CFC *)\nx := 1;")]
+    [InlineData("SFC", "IMPLEMENTATION ST\n(* @volt-graphical: SFC *)\n\nx := 1;")]
+    public void Code_under_a_marker_line_stated_ST_is_refused_and_the_chart_is_kept(string language, string impl)
+    {
+        var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPouFb, "", true, ChartDecl, "", language, null));
+
+        var reason = Reason(Update(ide, "FB_Chart.fb", $"{ChartDecl}\n{impl}\n\nEND_FUNCTION_BLOCK\n"));
+
+        Assert.Contains(language, reason);
+        Assert.Empty(ide.WrittenContent);
+        Assert.Equal(BodyMarker.For(language), ide.ReadContent(new ItemRef("FB_Chart")).Body);
+    }
+
+    /// <summary>A marker line alone under a language Volt reads is a contradiction, not a no-op: the marker says the
+    /// body has no text form, and <c>IMPLEMENTATION ST</c> says it is ST. Refused naming the item and the line.</summary>
+    [Theory]
+    [InlineData("ST")]
+    [InlineData("LD")]
+    public void A_marker_line_under_a_stated_language_is_refused_naming_the_member(string language)
+    {
+        var ide = new FakeIde();
+
+        var reason = Reason(Create(ide, Motor($"IMPLEMENTATION {language}\n{BodyMarker.For("CFC")}")));
+
+        Assert.Contains("DoReset", reason);
+        Assert.Contains($"IMPLEMENTATION {language}", reason);
+        AssertNothingWritten(ide);
+    }
+
+    /// <summary>An ST body the IDE holds may open with a comment spelled like the marker — an engineer's note, or a
+    /// chart converted to ST. It is ST: the pull states <c>IMPLEMENTATION ST</c> above it, and the file pushes back
+    /// as the ordinary write of that body. Only a body that IS a marker, and nothing else, is one.</summary>
+    [Fact]
+    public void An_ST_body_opening_with_a_marker_spelled_comment_is_pulled_as_ST_and_pushes_back()
+    {
+        const string body = "(* @volt-graphical: kept from the old chart *)\nx := 1;";
+        var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPouFb, "", true, ChartDecl, body, null, null));
+
+        var text = StWriter.Write(ide.ReadContent(new ItemRef("FB_Chart")));
+        Assert.Equal($"{ChartDecl}\nIMPLEMENTATION ST\n{body}\n\nEND_FUNCTION_BLOCK\n", text);
+        Assert.Equal(body, StReader.Read(text, ItemKind.Kinds.FunctionBlock).Body);
+
+        var resp = Update(ide, "FB_Chart.fb", text.Replace("x := 1;", "x := 2;"));
+
+        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.Equal(body.Replace("x := 1;", "x := 2;"), ide.ReadContent(new ItemRef("FB_Chart")).Body);
+    }
+
     // ── 1.5 the retired comment ───────────────────────────────────────────────────────────────────
 
     [Theory]
@@ -408,6 +468,25 @@ public class ImplementationLanguagePushTests
         Assert.Contains("volt pull", reason);
         Assert.Empty(ide.WrittenContent);
         Assert.Equal(ChartDecl, ide.ReadContent(new ItemRef("FB_Chart")).Declaration);
+    }
+
+    /// <summary>The retired comment is refused where it stands as a BOUNDARY — a file from before the change — and
+    /// nowhere else. As an ordinary comment in a current file (in an ST body, or documenting a declaration) it is the
+    /// engineer's text: refusing it sent them to `volt pull`, which writes the same IDE text back, so the item could
+    /// never be pushed.</summary>
+    [Theory]
+    [InlineData("FUNCTION_BLOCK F\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n(* @volt-implementation *)\n\nEND_FUNCTION_BLOCK\n",
+        "x := 1;\n(* @volt-implementation *)")]
+    [InlineData("FUNCTION_BLOCK F\nVAR\n(* @volt-implementation *)\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n",
+        "x := 1;")]
+    public void The_retired_comment_as_an_ordinary_comment_in_a_current_file_is_accepted(string source, string body)
+    {
+        var ide = new FakeIde();
+
+        var resp = Create(ide, source, "F.fb");
+
+        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.Equal(body, ide.WrittenContent["F"].Body);
     }
 
     [Fact]

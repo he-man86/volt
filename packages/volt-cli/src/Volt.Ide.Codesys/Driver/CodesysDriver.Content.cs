@@ -37,8 +37,8 @@ public sealed partial class CodesysDriver
         foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, item))
             members.Add(ReadMember(site, ownerIsInterface, declaration));
 
-        // No separate language field: a graphical body's text LEADS with its `(* @volt-implementation FBD|LD *)`
-        // marker, so the language is already in the content and a second copy could only disagree with it.
+        // No separate language field: a graphical body's text LEADS with its `IMPLEMENTATION FBD|LD` line
+        // (its stated language), so the language is already in the content and a second copy could only disagree.
         return new ItemContent(
             KindOf(item),
             declaration.TrimEnd('\n'),

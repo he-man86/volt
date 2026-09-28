@@ -167,7 +167,7 @@ public class TcImporterSplitTests
 
     /// <summary>The pushed body, read against a scope whose declarations say <c>t1 : TON</c>.</summary>
     private static NetworkBody Pushed() =>
-        NetworkText.Validate("(* @volt-implementation FBD *)\nNETWORK\n  t1(IN := a, PT := pt);\n  done := t1.Q;\nEND_NETWORK\n",
+        NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  t1(IN := a, PT := pt);\n  done := t1.Q;\nEND_NETWORK\n",
             new NetworkScope(new[] { "a", "pt", "done" }, System.Array.Empty<string>(),
                              new System.Collections.Generic.Dictionary<string, string> { ["t1"] = "TON" }));
 }

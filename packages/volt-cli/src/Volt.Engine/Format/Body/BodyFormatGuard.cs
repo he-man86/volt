@@ -131,8 +131,8 @@ public static class BodyFormatGuard
     private static string Saw(string? live, string? pushed) =>
         $"(IDE: {LanguageOf(live)} | pushed: {LanguageOf(pushed)})";
 
-    /// <summary>What language a body is written in, as the workspace spells it: a graphical body's implementation
-    /// marker carries it (<c>(* @volt-implementation FBD *)</c>), an unsupported-body marker carries it, and anything
+    /// <summary>What language a body is written in, as the workspace spells it: a graphical body's IMPLEMENTATION
+    /// line carries it (<c>IMPLEMENTATION FBD</c>), an unsupported-body marker carries it, and anything
     /// else is ST.</summary>
     private static string LanguageOf(string? body)
     {

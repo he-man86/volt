@@ -39,7 +39,7 @@ namespace Volt.Ide.Codesys
                     "into an item that cannot hold one");
 
             // THE VIEW CANNOT BE CHANGED BY A PUSH, and this is the only place that says so. Network
-            // text states FBD or LD once, on the body's implementation marker — the sole textual difference
+            // text states FBD or LD once, on the body's IMPLEMENTATION line — the sole textual difference
             // between the two — and the member is never written on an update, so a marker-only edit would
             // write nothing, report success, and be reverted by the next pull.
             // ...but only when there IS one. A body that is not graphical YET — a freshly created

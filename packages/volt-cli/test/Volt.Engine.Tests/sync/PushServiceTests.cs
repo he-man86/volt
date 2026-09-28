@@ -103,7 +103,7 @@ public class PushServiceTests
             new FakeIde.Item("App", ItemKind.PlcFolder, "", false, null, null, null, null, Children: System.Array.Empty<string>()))
         { PlcRootName = "App", TreeRootName = "<root>" };
         var pv = RefsService.Handle(ide).ProjectVersion!;
-        var resp = Push(ide, pv, new SetItemOp { Name = "New.prg", IfVersion = null, ToFolder = "App", SourceText = "PROGRAM New\n(* @volt-implementation *)\nEND_PROGRAM\n" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "New.prg", IfVersion = null, ToFolder = "App", SourceText = "PROGRAM New\nIMPLEMENTATION ST\nEND_PROGRAM\n" });
         Assert.True(resp.Accepted);
         Assert.Contains("create:New", ide.Recorded);
         Assert.DoesNotContain("create:App", ide.Recorded);   // reused the existing spine node — NOT doubled to App/App
@@ -137,7 +137,7 @@ public class PushServiceTests
         // what made a move INTO the POU pool inexpressible.
         var ide = OneProgram("PLC_PRG", folder: "Device/Plc Logic/Application");
         var (v, pv) = Ver(ide, "PLC_PRG.prg");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToFolder = null, SourceText = "PROGRAM PLC_PRG\nVAR\n\tn : INT;\nEND_VAR\n(* @volt-implementation *)\nn := n + 9;\n\nEND_PROGRAM\n" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToFolder = null, SourceText = "PROGRAM PLC_PRG\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 9;\n\nEND_PROGRAM\n" });
         Assert.True(resp.Accepted);
         Assert.Contains("writecontent:PLC_PRG", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") || r.StartsWith("create:")); // in place, not moved
@@ -168,7 +168,7 @@ public class PushServiceTests
         var ide = OneProgram();
         var pv = RefsService.Handle(ide).ProjectVersion!;
         var resp = Push(ide, pv,
-            new SetItemOp { Name = "Good.prg", IfVersion = null, ToFolder = "", SourceText = "PROGRAM Good\n(* @volt-implementation *)\nEND_PROGRAM\n" },
+            new SetItemOp { Name = "Good.prg", IfVersion = null, ToFolder = "", SourceText = "PROGRAM Good\nIMPLEMENTATION ST\nEND_PROGRAM\n" },
             new SetItemOp { Name = "Bad.prg", IfVersion = null, ToFolder = "", SourceText = "not a POU at all" });
 
         Assert.False(resp.Accepted);
@@ -181,7 +181,7 @@ public class PushServiceTests
     {
         var ide = OneProgram();
         var (v, pv) = Ver(ide, "PLC_PRG.prg");
-        var src = "PROGRAM MOTOR\nVAR\n\tn : INT;\nEND_VAR\n(* @volt-implementation *)\nn := n + 2;\n\nEND_PROGRAM\n";
+        var src = "PROGRAM MOTOR\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 2;\n\nEND_PROGRAM\n";
         var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToName = "MOTOR.prg", SourceText = src });
         Assert.True(resp.Accepted);
         Assert.Contains("rename:PLC_PRG->MOTOR", ide.Recorded);
@@ -215,7 +215,7 @@ public class PushServiceTests
     {
         var ide = OneProgram();
         var (_, pv) = Ver(ide, "PLC_PRG.prg");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = null, SourceText = "PROGRAM PLC_PRG\n(* @volt-implementation *)\nEND_PROGRAM\n" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = null, SourceText = "PROGRAM PLC_PRG\nIMPLEMENTATION ST\nEND_PROGRAM\n" });
         Assert.False(resp.Accepted);
         Assert.Contains(resp.Conflicts!, c => c.Reason.Contains("already exists"));
     }
@@ -295,9 +295,9 @@ public class PushServiceTests
     // first, losing a source method while the push reports accepted. The guard lives in Core (before any driver
     // call), so BOTH drivers reject it identically — this is the parity test for that shared behaviour.
     private const string TwoSameNameMethods =
-        "FUNCTION_BLOCK FB_Math\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK\n" +
-        "METHOD Calc : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\n(* @volt-implementation *)\nEND_METHOD\n" +
-        "METHOD Calc : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;\nEND_VAR\n(* @volt-implementation *)\nEND_METHOD\n";
+        "FUNCTION_BLOCK FB_Math\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n" +
+        "METHOD Calc : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\nIMPLEMENTATION ST\nEND_METHOD\n" +
+        "METHOD Calc : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;\nEND_VAR\nIMPLEMENTATION ST\nEND_METHOD\n";
 
     [Fact]
     public void Duplicate_child_name_is_rejected_not_silently_collapsed()
@@ -404,7 +404,7 @@ public class PushServiceTests
         {
             Name = "SFC_PRG.prg",
             IfVersion = v,
-            SourceText = "PROGRAM SFC_PRG\nVAR\nEND_VAR\n(* @volt-implementation *)\nx := 2;\n\nEND_PROGRAM\n\nACTION ACT_A\n(* @volt-implementation *)\na := 1;\nEND_ACTION\n",
+            SourceText = "PROGRAM SFC_PRG\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 2;\n\nEND_PROGRAM\n\nACTION ACT_A\nIMPLEMENTATION ST\na := 1;\nEND_ACTION\n",
         });
 
         Assert.True(resp.Accepted, string.Join(" | ", (resp.Conflicts ?? new()).Select(c => c.Name + ": " + c.Reason)));
@@ -412,10 +412,10 @@ public class PushServiceTests
     }
 
     /// <summary>Spec, "a v1 body is refused, not translated" (task 3.5): a push carrying network text v1 — a
-    /// <c>NETWORK 0 LD</c> header and a <c>LET</c> — behind the BARE marker is refused with <c>NETWORK_PARSE</c>, the
-    /// message naming a re-pull, before anything is written. Nothing else calls that text network text (the language
-    /// rides on the marker now), so without the refusal it would read as Structured Text and be written into the
-    /// graphical POU as ST.</summary>
+    /// <c>NETWORK 0 LD</c> header and a <c>LET</c> — under the <c>IMPLEMENTATION LD</c> line it now needs to be read as
+    /// network text at all is refused with <c>NETWORK_PARSE</c>, the message naming a re-pull, before anything is
+    /// written. (Under <c>IMPLEMENTATION ST</c> it is network text contradicting its stated language, refused by name
+    /// before the v1 question arises: <c>ImplementationLanguagePushTests</c>.)</summary>
     [Fact]
     public void A_v1_body_is_refused_naming_a_re_pull_and_nothing_is_written()
     {
@@ -427,7 +427,7 @@ public class PushServiceTests
         {
             Name = "PLC_PRG.prg",
             IfVersion = v,
-            SourceText = "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR\n(* @volt-implementation *)\n" +
+            SourceText = "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR\nIMPLEMENTATION LD\n" +
                          "NETWORK 0 LD\n  LET g0 := TRUE;\n  out := g0;\nEND_NETWORK\n\nEND_PROGRAM\n",
         });
 
@@ -450,7 +450,7 @@ public class PushServiceTests
         var items = new System.Collections.Generic.List<FakeIde.Item>
         {
             new("PLC_PRG", ItemKind.PlcPouProg, "", true, "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR",
-                "(* @volt-implementation LD *)\nNETWORK\n  out := TRUE;\nEND_NETWORK", "LD", null),
+                "IMPLEMENTATION LD\nNETWORK\n  out := TRUE;\nEND_NETWORK", "LD", null),
         };
         if (withGlobal) items.Add(FakeIde.Item.TextualPou("GVL_Main", "VAR_GLOBAL\n  G7 : BOOL;\nEND_VAR", ""));
         var ide = new FakeIde(items.ToArray());
@@ -460,7 +460,7 @@ public class PushServiceTests
         {
             Name = "PLC_PRG.prg",
             IfVersion = v,
-            SourceText = "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\n" +
+            SourceText = "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR\nIMPLEMENTATION LD\n" +
                          "NETWORK\n  VAR_TEMP g7 : BOOL; END_VAR\n  g7 := TRUE;\n  out := g7;\nEND_NETWORK\n\nEND_PROGRAM\n",
         });
 
@@ -490,7 +490,7 @@ public class PushServiceTests
             Name = "PLC_PRG.prg",
             IfVersion = v,
             ToFolder = "Machine",
-            SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\n(* @volt-implementation FBD *)\nNETWORK\n  out := (a AND b);\n\nEND_PROGRAM\n",
+            SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  out := (a AND b);\n\nEND_PROGRAM\n",
         });
 
         Assert.False(resp.Accepted);

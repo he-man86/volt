@@ -26,28 +26,28 @@ namespace Volt.Engine.Format.St;
 ///   FUNCTION_BLOCK Name [EXTENDS B] [IMPLEMENTS I,J]
 ///   VAR_INPUT … END_VAR
 ///   VAR … END_VAR
-///   (* @volt-implementation *)
+///   IMPLEMENTATION ST
 ///   {impl body}
 ///
 ///   END_FUNCTION_BLOCK
 ///
-///   {pragmas} METHOD … (* @volt-implementation *) … END_METHOD
-///   ACTION … (* @volt-implementation *) … END_ACTION
-///   PROPERTY … {GET … (* @volt-implementation *) … END_GET} {SET … END_SET} END_PROPERTY
+///   {pragmas} METHOD … IMPLEMENTATION LD … END_METHOD
+///   ACTION … IMPLEMENTATION ST … END_ACTION
+///   PROPERTY … {GET … IMPLEMENTATION ST … END_GET} {SET … END_SET} END_PROPERTY
 ///
 /// Same format for PROGRAM (END_PROGRAM), FUNCTION (END_FUNCTION).
 /// INTERFACE (END_INTERFACE) is special: its method/property/action
 /// signatures live INSIDE the INTERFACE…END_INTERFACE block (no
 /// implementation bodies — interface signatures only), not as siblings
 /// after END_INTERFACE. SplitInterfaceBody pulls them out as children.
-/// An interface and its members carry NO marker: signatures have no
+/// An interface and its members carry NO boundary line: signatures have no
 /// implementation, so there is no boundary to record.
 /// GVL / DUT are simple single-block forms with no child structure.
 ///
 /// TWO THINGS ARE READ FROM THE TEXT AND NOTHING ELSE IS:
 ///   1. the STRUCTURE — where each member block opens and closes;
-///   2. the BOUNDARY — and that one is not read, it is STATED, by
-///      `(* @volt-implementation *)` (see ImplementationMarker).
+///   2. the BOUNDARY and the body's LANGUAGE — and those are not read, they
+///      are STATED, by `IMPLEMENTATION ST|LD|FBD` (see ImplementationMarker).
 /// The KIND comes from the wire name's extension, never the header
 /// (see the `expectedKind` parameter of Read).
 ///
@@ -88,7 +88,10 @@ public static class StReader
 	/// <param name="expectedKind">The kind the WIRE NAME says this item is (<see cref="ItemKind.KindForWireName"/>).
 	/// When given it DECIDES, and a header that disagrees is refused rather than followed — see the class remark.
 	/// Null only where no wire name exists (the format's own round-trip, and tests).</param>
-	public static ItemContent Read(string sourceText, string? expectedKind = null)
+	/// <param name="name">The item's bare name, for the refusals that name the POU's own body. A member is named by its
+	/// signature; the POU is named by its FILE, which this text does not carry (<c>CodeHelper.ParseCodeHeader</c>
+	/// reads no name, on purpose). Null where there is none, and the refusal then names the kind.</param>
+	public static ItemContent Read(string sourceText, string? expectedKind = null, string? name = null)
 	{
 		if (string.IsNullOrWhiteSpace(sourceText))
 			throw new BridgeException(BridgeErrorCodes.InvalidSt, "Empty ST source");
@@ -103,12 +106,16 @@ public static class StReader
 		var declared = CodeHelper.ParseCodeHeader(sourceText);
 		RequireKind(declared, expectedKind);
 		var kind = expectedKind ?? declared;
+		var what = name is null ? $"this {kind}" : $"'{name}'";
 
 		// 2. Branch on kind: composite POUs have children, simple
 		// ones (gvl / dut) are single text blobs.
 		if (kind is ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut)
 		{
-			return new ItemContent(kind, sourceText.TrimEnd('\n'), "", new List<Member>());
+			RefuseReservedNames(lines);
+			var simple = new ItemContent(kind, sourceText.TrimEnd('\n'), "", new List<Member>());
+			RefuseKeywordInDeclarations(simple, what);
+			return simple;
 		}
 
 		// 3. Composite POU: find the outer END_X to split POU from
@@ -128,12 +135,18 @@ public static class StReader
 			// source — we don't merge those in (no spec for sibling
 			// children of an interface).
 			var (interfaceDecl, interfaceChildren) = SplitInterfaceBody(pouLines);
-			return new ItemContent(kind, interfaceDecl, "", interfaceChildren);
+			RefuseReservedNames(lines);
+			var itf = new ItemContent(kind, interfaceDecl, "", interfaceChildren);
+			RefuseKeywordInDeclarations(itf, what);
+			return itf;
 		}
 
-		var (pouDecl, pouImpl) = SplitDeclImpl(pouLines, kind);
+		var (pouDecl, pouImpl) = SplitDeclImpl(pouLines, what);
 		var children = SplitChildren(SliceLines(lines, childrenStart, lines.Count - 1), marked: true);
-		return new ItemContent(kind, pouDecl, pouImpl, children);
+		RefuseReservedNames(lines);
+		var pou = new ItemContent(kind, pouDecl, pouImpl, children);
+		RefuseKeywordInDeclarations(pou, what);
+		return pou;
 	}
 
 	/// <summary>The index of the first line that OPENS a member block, or -1 when there is none. Trivia-aware,
@@ -236,7 +249,7 @@ public static class StReader
 		// signature as part of that child, and parses METHOD…END_METHOD
 		// / PROPERTY…END_PROPERTY blocks. Interface methods have only
 		// declaration (VAR sections + signature), no implementation —
-		// SplitDeclImplOfChild handles that case naturally.
+		// ReadMethodOrAction keeps the whole block as declaration (marked: false).
 		var childRegion = SliceLines(bodyLines, interfaceHeaderLineIdx + 1, bodyLines.Count - 1);
 		// THE OWNER DECIDES THE MEMBER KIND, here exactly as it does on the IDE side
 		// (CodesysDriver.MemberKind). `SplitChildren` is shared with function blocks and can only see
@@ -301,47 +314,179 @@ public static class StReader
 
 	// ─── POU decl/impl split ─────────────────────────────────────────
 
-	/// <summary>Split at the marker line: everything above it is the declaration, everything below the
-	/// implementation, and the marker itself belongs to neither. No trivia is classified and no keyword is
-	/// looked for — that is the whole point of it (see <see cref="ImplementationMarker"/>).
+	/// <summary>Split at the boundary line: everything above it is the declaration, everything below the
+	/// implementation, and the line itself belongs to neither. No trivia is classified and no keyword is looked for
+	/// in the declaration — that is the whole point of stating it (see <see cref="ImplementationMarker"/>).
 	///
-	/// <para>The marker line is returned too. A graphical body's marker names its language
-	/// (<c>(* @volt-implementation LD *)</c>) and is that body's own first line as well as the boundary, so the
-	/// caller puts it back in front of the body (<see cref="ImplementationMarker.Join"/>) once any <c>%FOLDER</c>
-	/// directive is peeled off the text after it. The bare marker is the boundary alone and joins as nothing.</para></summary>
-	private static (string decl, string impl, string marker) SplitAtMarker(IList<string> lines, int markerIdx)
+	/// <para>The line is returned too, because it also states the body's LANGUAGE: the caller checks the body
+	/// against it and joins the two (<see cref="Body"/>) once any <c>%FOLDER</c> directive is peeled off the text
+	/// under it.</para></summary>
+	private static (string decl, string impl, string line) SplitAtBoundary(IList<string> lines, string what)
 	{
-		var decl = string.Join("\n", SliceLines(lines, 0, markerIdx - 1));
-		var impl = string.Join("\n", SliceLines(lines, markerIdx + 1, lines.Count - 1));
-		return (decl.TrimEnd('\n'), impl.TrimEnd('\n'), lines[markerIdx]);
+		int at = ImplementationMarker.IndexIn(lines);
+		if (at < 0) throw Unmarked(what);
+		// A FILE FROM BEFORE THE KEYWORD. The retired comment is no boundary, so such a file has none and is refused
+		// above — except the old shape of a body Volt cannot write: the comment, THEN the marker line, which finds its
+		// boundary at the marker and would push the comment into the IDE as the tail of the declaration. That shape,
+		// and only that one, is the comment standing AS a boundary. Anywhere else it is an engineer's comment in a
+		// current file, and refusing it sent them to `volt pull`, which writes the same IDE text straight back.
+		if (ImplementationMarker.IsMarkerLine(lines[at]))
+		{
+			int above = at - 1;
+			while (above >= 0 && string.IsNullOrWhiteSpace(lines[above])) above--;
+			if (above >= 0 && ImplementationMarker.IsRetired(lines[above])) throw Unmarked(what);
+		}
+		var decl = string.Join("\n", SliceLines(lines, 0, at - 1));
+		var impl = string.Join("\n", SliceLines(lines, at + 1, lines.Count - 1));
+		return (decl.TrimEnd('\n'), impl.TrimEnd('\n'), lines[at]);
 	}
 
-	private static (string decl, string impl) SplitDeclImpl(IList<string> pouLines, string kind)
+	/// <summary>A POU's own declaration and body. THE LINE DECIDES, and nothing else does; a file without one is
+	/// REFUSED, never guessed at.
+	///
+	/// <para>What used to be here: the last <c>END_VAR</c>, or the end of a wrapped header, and then a rule about which
+	/// trailing comments belonged to which side. That price came due three times, and every time invisibly: the
+	/// halves are re-joined on read, so a file split in the wrong place round-trips byte for byte while the project
+	/// holds it broken. A GRAPHICAL body carries its own VAR_TEMP blocks, which an END_VAR scan pulled into the POU's
+	/// declaration; with the boundary stated, network text is its own line and what follows it.</para></summary>
+	private static (string decl, string impl) SplitDeclImpl(IList<string> pouLines, string what)
 	{
-		if (kind == ItemKind.Kinds.Interface)
+		var (decl, impl, line) = SplitAtBoundary(pouLines, what);
+		return (decl, Body(line, impl, what));
+	}
+
+	/// <summary>The body a boundary line and the text under it make — checked against what the line STATES, which
+	/// is the one signal for how the body is read. Every refusal names <paramref name="what"/> and the line as
+	/// written, and each is raised before anything is written:
+	/// <list type="bullet">
+	/// <item>a line with no language, or one no body can state (<c>IMPLEMENTATION CFC</c>) — never guessed;</item>
+	/// <item>a body whose text contradicts its language: network text under <c>ST</c>, or text under <c>LD</c>/<c>FBD</c>
+	/// that is no network — never re-read as the other;</item>
+	/// <item>a second keyword line outside a comment — neither the boundary nor ST the IDE can compile, and dropping
+	/// it would guess at what the engineer meant;</item>
+	/// <item>code under, or after, a <see cref="BodyMarker"/> line — that body has no text form, the drivers write
+	/// nothing for it, so the code would be dropped without a word and overwritten by the next pull.</item>
+	/// </list></summary>
+	private static string Body(string line, string code, string what)
+	{
+		if (ImplementationMarker.IsMarkerLine(line))
 		{
-			// INTERFACE has no impl body; the entire range is declaration.
-			return (string.Join("\n", pouLines).TrimEnd(), "");
+			var marker = line.Trim();
+			var close = marker.IndexOf("*)", StringComparison.Ordinal);
+			if (close < 0 || close + 2 < marker.Length || code.Trim().Length > 0)
+				throw new BridgeException(BridgeErrorCodes.InvalidSt,
+					$"{what} holds code under or after its marker line '{(close < 0 ? marker : marker.Substring(0, close + 2))}'. " +
+					"That body has no text form Volt can write, so the code has nowhere to go and would be dropped. " +
+					"Remove it, and edit the body in the IDE.");
+			return ImplementationMarker.Join(marker, "");
 		}
 
-		// THE MARKER DECIDES, and nothing else does. A file without one is REFUSED, never guessed at.
-		//
-		// What used to be here: the last `END_VAR`, or the end of a wrapped header, and then a rule about which
-		// trailing comments belonged to which side — with a SECOND rule for children, because the writer joined
-		// a top-level POU to its body with a blank line and a child with a single newline. "Identical text,
-		// different split", as the note here used to admit, "which is the price of the separator being implicit".
-		// That price came due three times, and every time invisibly: the halves are re-joined on read, so a file
-		// split in the wrong place round-trips byte for byte while the project holds it broken.
-		//
-		// A special case goes with it: a GRAPHICAL body carries its own VAR_TEMP blocks (one per network that has a
-		// wire), and had to be split BEFORE its first line or the END_VAR scan pulled those temps into the POU's
-		// declaration and wrote them into the project. With the boundary stated, network text is just its own
-		// marker and what follows it.
-		int marked = ImplementationMarker.IndexIn(pouLines);
-		if (marked < 0) throw Unmarked(kind);
-		var (decl, impl, marker) = SplitAtMarker(pouLines, marked);
-		return (decl, ImplementationMarker.Join(marker, impl));
+		var stated = line.Trim();
+		var word = ImplementationMarker.Stated(line)!;
+		if (word.Length == 0)
+			throw new BridgeException(BridgeErrorCodes.InvalidSt,
+				$"{what} states '{stated}' with no language — a body states its language on that line: " +
+				$"{ImplementationMarker.For(Languages.St)}, {ImplementationMarker.For(Languages.Ld)} or " +
+				$"{ImplementationMarker.For(Languages.Fbd)}. ({ImplementationMarker.Keyword} is reserved, so if the line " +
+				"names something, rename it.)");
+		var lang = ImplementationMarker.LanguageOf(line)
+			?? throw new BridgeException(BridgeErrorCodes.InvalidSt,
+				$"{what} states '{stated}', and '{word}' is no language a body can state — ST, LD or FBD. " +
+				"A body in another language is edited in the IDE.");
+
+		// A marker ALONE under a stated language contradicts it: the marker says the body has no text form, the line
+		// says it is ST (or LD, FBD). Read on, the body would BE the marker in memory (BodyMarker.Is), and the push
+		// would skip it as a no-op under a line claiming a language Volt reads.
+		if (BodyMarker.Is(code))
+			throw new BridgeException(BridgeErrorCodes.InvalidSt,
+				$"{what} states '{stated}' over the marker line '{code.Trim()}'. The marker states a body with no text " +
+				$"form and stands alone where the {ImplementationMarker.Keyword} line would: keep one or the other.");
+
+		if (SecondStatedLine(code) is { } second)
+			throw new BridgeException(BridgeErrorCodes.InvalidSt,
+				$"{what} holds a second '{second.Trim()}' line in its body — a body has ONE {ImplementationMarker.Keyword} " +
+				"line, the one that opens it. Remove the other.");
+
+		var network = Volt.Engine.Format.Network.NetworkText.OpensNetwork(code);
+		if (lang == Languages.St && network)
+			throw new BridgeException(BridgeErrorCodes.InvalidSt,
+				$"{what} states '{stated}', and its body is network text. State the language it is written in " +
+				$"({ImplementationMarker.For(Languages.Ld)} or {ImplementationMarker.For(Languages.Fbd)}), or write the body as ST.");
+		if (lang != Languages.St && !network && StTrivia.Code(code.Split('\n')).Any(l => l.Trim().Length > 0))
+			throw new BridgeException(BridgeErrorCodes.InvalidSt,
+				$"{what} states '{stated}', and its body is not network text — a network-text body is a sequence of " +
+				$"NETWORK … END_NETWORK blocks. State {ImplementationMarker.For(Languages.St)} for an ST body.");
+		return ImplementationMarker.Join(line, code);
 	}
+
+	/// <summary>A line of the keyword's shape in a body's text, outside every comment, or null.</summary>
+	private static string? SecondStatedLine(string code)
+	{
+		var lines = code.Split('\n');
+		var open = StTrivia.OpenAtStart(lines);
+		for (int i = 0; i < lines.Length; i++)
+			if (!open[i] && ImplementationMarker.Stated(lines[i]) is not null) return lines[i];
+		return null;
+	}
+
+	/// <summary><c>IMPLEMENTATION</c> is RESERVED: no name in a workspace file may be spelled like it, in any case —
+	/// a variable at any scope, a member, the POU, an enum value, a struct member. A name spelled like the boundary line
+	/// could stand at the start of a line and read as one, so it is refused by name, never renamed or tolerated.
+	///
+	/// <para>Checked over the whole text's CODE — comments, strings and pragmas blanked (<see cref="StTrivia"/>) — and
+	/// every occurrence, not only a declaration: IEC has no such keyword, so any code use of the word is a name, and
+	/// a check hung on one declaration path lets every other position through. The lines of the keyword's own shape are
+	/// skipped HERE because each has one owner that refuses it with a better message: the boundary is consumed, a second
+	/// one in a body is refused by <see cref="Body"/>, and one anywhere else lands in a declaration and is refused by
+	/// <see cref="RefuseKeywordInDeclarations"/> — which is what catches a name standing alone on its line.</para></summary>
+	private static void RefuseReservedNames(IList<string> lines)
+	{
+		var open = StTrivia.OpenAtStart(lines);
+		var code = StTrivia.Code(lines);
+		for (int i = 0; i < lines.Count; i++)
+		{
+			if (!open[i] && ImplementationMarker.Stated(lines[i]) is not null) continue;
+			var m = ReservedWord.Match(code[i]);
+			if (m.Success)
+				throw new BridgeException(BridgeErrorCodes.InvalidSt,
+					$"'{m.Value}' (line {i + 1}) is reserved: {ImplementationMarker.Keyword} is the line that states where " +
+					"a body starts and what language it is in, so nothing in a workspace may be named it. Rename it.");
+		}
+	}
+
+	/// <summary>A line of the keyword's shape that ended up in a DECLARATION is no boundary, and a declaration is
+	/// written into the IDE verbatim — so it would carry the line push is meant to strip. It gets there two ways, and
+	/// both are refused by name: a kind that has no implementation (GVL, DUT, an interface and its members) has no
+	/// boundary to consume it, and a name spelled <c>IMPLEMENTATION</c> alone on its line (the last enum value, a
+	/// variable in a wrapped declaration) has the keyword's shape and slipped past the reserved-name scan on it.</summary>
+	private static void RefuseKeywordInDeclarations(ItemContent item, string what)
+	{
+		Refuse(what, item.Declaration);
+		foreach (var m in item.Members)
+		{
+			var member = $"{m.Kind} '{m.Name}'";
+			Refuse(member, m.Declaration);
+			Refuse($"{member} GET", m.Getter?.Declaration);
+			Refuse($"{member} SET", m.Setter?.Declaration);
+		}
+
+		static void Refuse(string where, string? declaration)
+		{
+			if (string.IsNullOrEmpty(declaration)) return;
+			var lines = declaration!.Split('\n');
+			var open = StTrivia.OpenAtStart(lines);
+			for (int i = 0; i < lines.Length; i++)
+				if (!open[i] && ImplementationMarker.Stated(lines[i]) is not null)
+					throw new BridgeException(BridgeErrorCodes.InvalidSt,
+						$"{where} holds '{lines[i].Trim()}' in its declaration. {ImplementationMarker.Keyword} is reserved: " +
+						"it is the line that opens a body and states its language, so it stands only where a body starts, " +
+						"and nothing may be named it. Remove the line, or rename what it names.");
+		}
+	}
+
+	private static readonly System.Text.RegularExpressions.Regex ReservedWord =
+		new(@"(?<![A-Za-z0-9_])" + ImplementationMarker.Keyword + "(?![A-Za-z0-9_])",
+			System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
 	// ─── Child blocks (composite POU's siblings) ─────────────────────
 
@@ -405,13 +550,19 @@ public static class StReader
 		// Split decl from impl inside the block (excluding the sigLine's
 		// own line and the trailing END_X). Re-scan to find last END_VAR.
 		var inner = SliceLines(lines, blockStart, endLine.Value - 1); // includes pragmas + sig
-		var (decl, impl, marker) = SplitDeclImplOfChild(inner, kind, marked);
-		// The body begins with an optional Volt directive block; %FOLDER is ours (the child's
-		// sub-folder) and is peeled off. A graphical body's language marker goes back in front of the
-		// code it heads, where it says what the body is.
+		var what = $"{kind} '{name}'";
+		if (!marked)
+		{
+			// An INTERFACE's members are SIGNATURES (the OWNER decides, which is why `marked` is passed down: an
+			// interface's members arrive as kind `method` and are re-kinded afterwards). No boundary line, and the
+			// whole block is declaration (see ImplementationMarker.AppliesTo).
+			return new Member(kind, name, string.Join("\n", inner).TrimEnd('\n'), "", ReturnType: returnType);
+		}
+		var (decl, impl, line) = SplitAtBoundary(inner, what);
+		// The text under the boundary begins with an optional Volt directive block; %FOLDER is ours (the child's
+		// sub-folder) and is peeled off before the body is checked against the language its line states.
 		var (folder, code) = PeelFolderDirective(impl);
-		var body = ImplementationMarker.Join(marker, code);
-		return new Member(kind, name, decl, body, Folder: folder, ReturnType: returnType);
+		return new Member(kind, name, decl, Body(line, code, what), Folder: folder, ReturnType: returnType);
 	}
 
 	private static Member ReadProperty(IList<string> lines, ref int i, int blockStart, bool marked)
@@ -482,7 +633,7 @@ public static class StReader
 		foreach (var (gStart, gEnd, gKind) in accessorBoundaries)
 		{
 			var inner = SliceLines(lines, gStart, gEnd); // includes GET/END_GET keywords
-			var acc = ParseAccessor(inner, marked);
+			var acc = ParseAccessor(inner, marked, $"property '{name}' {gKind.ToUpperInvariant()}");
 			if (gKind == "get") getter = acc;
 			else setter = acc;
 		}
@@ -493,7 +644,7 @@ public static class StReader
 			Folder: folder, DataType: dataType);
 	}
 
-	private static Accessor ParseAccessor(IList<string> accLines, bool marked)
+	private static Accessor ParseAccessor(IList<string> accLines, bool marked, string what)
 	{
 		// First line is GET / SET, last line is END_GET / END_SET — strip both.
 		// Between them: optional VAR sections + body. No signature line —
@@ -506,31 +657,16 @@ public static class StReader
 		var inner = SliceLines(accLines, 1, accLines.Count - 2);
 		// An INTERFACE's accessors are signatures — no body, so no marker and nothing to split.
 		if (!marked) return new Accessor(string.Join("\n", inner).TrimEnd('\n'), "");
-		int at = ImplementationMarker.IndexIn(inner);
-		if (at < 0) throw Unmarked("property accessor");
-		var (decl, impl, marker) = SplitAtMarker(inner, at);
-		return new Accessor(decl, ImplementationMarker.Join(marker, impl));
-	}
-
-	/// <summary>Split a child block's inner lines (signature..END_X exclusive) at its marker.
-	///
-	/// <para><paramref name="marked"/> is false only for an INTERFACE's members: those are SIGNATURES, carry no
-	/// marker, and the whole block is declaration (see <see cref="ImplementationMarker.AppliesTo"/>). It is the
-	/// OWNER that decides, which is why it is passed down rather than re-derived here — an interface's members
-	/// arrive as kind `method` and are re-kinded afterwards.</para></summary>
-	private static (string decl, string impl, string marker) SplitDeclImplOfChild(IList<string> innerLines, string kind, bool marked)
-	{
-		if (!marked) return (string.Join("\n", innerLines).TrimEnd('\n'), "", ImplementationMarker.Text);
-		int at = ImplementationMarker.IndexIn(innerLines);
-		if (at < 0) throw Unmarked(kind);
-		return SplitAtMarker(innerLines, at);
+		var (decl, impl, line) = SplitAtBoundary(inner, what);
+		return new Accessor(decl, Body(line, impl, what));
 	}
 
 	/// <summary>A file that does not say where its declaration ends. Refused, never guessed — see
 	/// <see cref="ImplementationMarker"/> for the three bugs the guessing cost.</summary>
 	private static BridgeException Unmarked(string what) => new BridgeException(BridgeErrorCodes.InvalidSt,
-		$"no '{ImplementationMarker.Text}' line in this {what} — the text does not say where its declaration " +
-		"ends. Run `volt pull` once to rewrite the workspace in the current format.");
+		$"{what} has no '{ImplementationMarker.Keyword} <ST|LD|FBD>' line — the text does not say where its " +
+		"declaration ends or what language its body is in. Run `volt pull` once to rewrite the workspace in the " +
+		"current format.");
 
 	// ─── Signature parsing (METHOD/ACTION/PROPERTY headers) ─────────
 
@@ -650,7 +786,7 @@ public static class StReader
 
 	/// <summary>Peel a leading `%FOLDER &lt;path&gt;` Volt directive out of a child body/decl into the
 	/// folder field, returning (folder, remaining-text). The signature line is clean; %FOLDER leads the
-	/// body's top directive block, ahead of the graphical content (the NETWORK marker for editable FBD/LD).</summary>
+	/// body's top directive block, under the body's boundary line.</summary>
 	private static (string? folder, string rest) PeelFolderDirective(string text)
 	{
 		var lines = text.Replace("\r", "").Split('\n');
@@ -667,7 +803,7 @@ public static class StReader
 			}
 			kept.Add(line);
 		}
-		// NOT `.Trim()`. Peeling a directive is not licence to reformat what is left: SplitAtMarker has already
+		// NOT `.Trim()`. Peeling a directive is not licence to reformat what is left: SplitAtBoundary has already
 		// decided which blank lines are separator and which are the engineer's, and trimming here undid that
 		// decision for every child — the blank under a method's opening comment vanished on the way through.
 		// When there is no %FOLDER at all this returns the text it was given, unchanged.

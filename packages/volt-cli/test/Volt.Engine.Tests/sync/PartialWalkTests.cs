@@ -24,7 +24,7 @@ namespace Volt.Engine.Tests;
 public class PartialWalkTests
 {
     private static string Prg(string name) =>
-        $"PROGRAM {name}\nVAR\nEND_VAR\n(* @volt-implementation *)\nn := 0;\n\nEND_PROGRAM\n";
+        $"PROGRAM {name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 0;\n\nEND_PROGRAM\n";
 
     /// <summary>Two items at the root and one inside a folder the driver will refuse to enumerate.</summary>
     private static FakeIde WithHiddenFolder()

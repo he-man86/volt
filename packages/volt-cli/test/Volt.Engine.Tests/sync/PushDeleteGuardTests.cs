@@ -26,7 +26,7 @@ namespace Volt.Engine.Tests;
 public class PushDeleteGuardTests
 {
     private static string Prg(string name, string body = "n := 0;") =>
-        $"PROGRAM {name}\nVAR\nEND_VAR\n(* @volt-implementation *)\n{body}\n\nEND_PROGRAM\n";
+        $"PROGRAM {name}\nVAR\nEND_VAR\nIMPLEMENTATION ST\n{body}\n\nEND_PROGRAM\n";
 
     private static FakeIde WithItem(string name, string folder = "")
     {

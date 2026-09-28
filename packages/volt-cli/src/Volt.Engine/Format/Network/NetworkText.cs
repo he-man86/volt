@@ -9,14 +9,14 @@ namespace Volt.Engine.Format.Network;
 
 /// <summary>
 /// The network text graphical-body contract. An EDITABLE graphical body (FBD/LD — a POU's, a method's, an
-/// action's or an accessor's) starts with its own implementation marker, <c>(* @volt-implementation FBD *)</c> or
-/// <c>(* @volt-implementation LD *)</c>, and round-trips; the language rides on that one line for the whole body
-/// (openspec <c>network-text-literal-nwl</c>, "the body language and the v1 refusal"). CFC/SFC/IL are NOT
-/// network-text bodies — they materialize as <c>BodyMarker.For</c>'s informational comment.
+/// action's or an accessor's) states its language on its boundary line, <c>IMPLEMENTATION FBD</c> or
+/// <c>IMPLEMENTATION LD</c>, which stays the body's first line and round-trips; the language rides on that one line for
+/// the whole body (openspec <c>implementation-keyword</c>). CFC/SFC/IL are NOT network-text bodies — they materialize
+/// as <c>BodyMarker.For</c>'s informational comment.
 /// </summary>
 public static class NetworkText
 {
-    /// <summary>The text is an editable graphical network-text body — its first line is a language marker.</summary>
+    /// <summary>The text is an editable graphical network-text body — its first line states LD or FBD.</summary>
     public static bool Is(string? impl) => LanguageOf(impl) != null;
 
     /// <summary>A network's TITLE or comment as the drivers hold it: trimmed at the end, and none where nothing is
@@ -27,18 +27,40 @@ public static class NetworkText
     public static string? Stored(string? s) =>
         string.IsNullOrEmpty(s) ? null : s!.TrimEnd() is { Length: > 0 } t ? t : null;
 
-    /// <summary>The body's language ("FBD"/"LD" from its implementation marker), or null if not a network-text
-    /// body. The marker is the body's FIRST line: a network-text body is the marker and its networks, nothing
-    /// before them.</summary>
+    /// <summary>The body's language ("FBD"/"LD", from the <c>IMPLEMENTATION</c> line it opens with), or null if not a
+    /// network-text body. The line is the body's FIRST line: a network-text body is that line and its networks, nothing
+    /// before them. A body stating ST is no network text — its language is the ST path's, and an ST body in memory
+    /// carries no line at all (<see cref="ImplementationMarker.Split"/>).</summary>
     public static string? LanguageOf(string? impl)
     {
         if (impl == null) return null;
         var text = impl.TrimStart();
         var eol = text.IndexOf('\n');
-        return ImplementationMarker.LanguageOf(eol < 0 ? text : text.Substring(0, eol));
+        var lang = ImplementationMarker.LanguageOf(eol < 0 ? text : text.Substring(0, eol));
+        return Languages.IsNetwork(lang) ? lang : null;
     }
 
-    /// <summary>How a body language is spelled — on its implementation marker, and in the vendor-neutral language
+    // `NETWORK` opening a line, alone or followed by a header field (`LABEL:`, `TITLE:`, `DISABLED`, v1's number) — the
+    // way every network-text body opens. An ST statement never has an identifier followed by a word there
+    // (`NETWORK := 1;` and `NETWORK(…)` are ST that merely uses the name), so the shape tells the two apart.
+    private static readonly System.Text.RegularExpressions.Regex NetworkHeader =
+        new(@"^\s*NETWORK(\s*$|\s+[A-Za-z0-9_])",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    /// <summary>Does <paramref name="code"/> — a body's text under its boundary line — open with a network: is its first
+    /// line of code a <c>NETWORK</c> header? The one rule a body is checked against its STATED language by
+    /// (<see cref="StReader"/>): network text under <c>IMPLEMENTATION ST</c> and ST under <c>IMPLEMENTATION LD</c> are both
+    /// refused by name. It decides nothing about how a body is read — the stated language does that; this only
+    /// catches the text that contradicts it, which would otherwise reach the IDE as the wrong language.</summary>
+    public static bool OpensNetwork(string code)
+    {
+        var lines = code.Replace("\r", "").Split('\n');
+        foreach (var line in StTrivia.Code(lines))
+            if (line.Trim().Length > 0) return NetworkHeader.IsMatch(line);
+        return false;
+    }
+
+    /// <summary>How a body language is spelled — on its <c>IMPLEMENTATION</c> line, and in the vendor-neutral language
     /// vocabulary (<see cref="Languages"/>). The one mapping: the marker's writer, its reader and the view-change
     /// refusal each spelled it by hand.</summary>
     public static string Spelling(BodyLanguage language) => language == BodyLanguage.Ld ? Languages.Ld : Languages.Fbd;
@@ -82,7 +104,7 @@ public static class NetworkText
     /// <summary>Refuse a push that changes the body's VIEW between FBD and LD.
     ///
     /// <para>The view is a property of the whole implementation object (the vendors' <c>DefaultViewMode</c>), and
-    /// network text spells it ONCE, on the body's implementation marker — so this is one comparison, the marker's
+    /// network text spells it ONCE, on the body's IMPLEMENTATION line — so this is one comparison, the line's
     /// language against the IDE's view. Neither driver writes the member on an update, so an edited marker would be
     /// accepted, write nothing, and be reverted by the next pull.</para>
     ///
@@ -180,12 +202,16 @@ public static class NetworkText
     }
 
     /// <summary>
-    /// The body still holds network text v1 — text the push refuses ("re-pull"): it IS a v1 body (<see cref="IsV1"/>),
-    /// or it is a v2 body holding a v1 construct (<see cref="V1Constructs"/>, the reader's own rule).
+    /// The body still holds network text v1 — text the push refuses ("re-pull"): a network-text body holding a v1
+    /// construct (<see cref="V1Constructs"/>, the reader's own rule), a whole v1 network included.
+    ///
+    /// <para>Network text is only ever a body STATED LD or FBD. A whole v1 body under any other line is either a file
+    /// from before the <c>IMPLEMENTATION</c> keyword (the retired comment: refused, "pull once") or network text under
+    /// <c>IMPLEMENTATION ST</c> (a contradiction, refused by name) — both by <see cref="StReader.Read"/>, before this
+    /// question can be asked.</para>
     /// </summary>
     private static bool HoldsV1(string? body)
     {
-        if (IsV1(body)) return true;
         if (!Is(body)) return false;
         var eol = body!.IndexOf('\n');
         return eol >= 0 && V1Constructs(body, eol).Count > 0;
@@ -217,29 +243,11 @@ public static class NetworkText
     public static bool FileHoldsV1(string wireName, string source) =>
         CanHold(wireName) && SourceHoldsV1(source, Volt.Engine.Item.ItemKind.KindForWireName(wireName)!);
 
-    /// <summary>The body is network text v1: its first non-blank line is a <c>NETWORK &lt;n&gt; &lt;LANG&gt;</c>
-    /// header. v1 bodies follow the BARE implementation marker, so none of them reaches the v2 reader through
-    /// <see cref="Is"/> — without this they would read as ST and a push would write their text into the IDE as
-    /// Structured Text.</summary>
-    private static bool IsV1(string? body)
-    {
-        if (body is null) return false;
-        foreach (var line in body.Split('\n'))
-            if (line.Trim().Length > 0) return IsV1Header(line);
-        return false;
-    }
-
     /// <summary>The v1 refusal's wording, one sentence for every place that meets v1 text (spec, "the body
     /// language and the v1 refusal": no translator, re-pull).</summary>
     public static string V1Refusal(string what) =>
         $"this is network text v1 ({what}), which Volt no longer reads and does not translate: re-pull the POU to get " +
         "the current form, and redo the edit on it.";
-
-    /// <summary>Refuse a v1 body by name (<c>NETWORK_PARSE</c>, "re-pull"); a no-op for any other body.</summary>
-    public static void RefuseV1(string? body)
-    {
-        if (IsV1(body)) throw new NetworkTextException(V1Refusal("`NETWORK <n> <LANG>` headers"));
-    }
 
     /// <summary>The push path's gate: validate a network-text body against the declarations it can see and
     /// return its model, or throw <see cref="NetworkTextException"/> carrying the FIRST finding — its

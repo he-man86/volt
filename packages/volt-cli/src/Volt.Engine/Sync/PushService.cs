@@ -222,7 +222,7 @@ public static class PushService
                     // Only a CREATE compares the extension with the text. An UPDATE that disagrees is a RE-TYPE,
                     // and `ItemKindIsNotRewritable` refuses it with the better message — it can name what the
                     // object actually is, which a create has nothing to ask.
-                    ValidateSourceOrThrow(ide, text, creating, pushedDeclarations, creating ? ItemKind.KindForWireName(set.Name) : null);
+                    ValidateSourceOrThrow(ide, Materializer.Bare(set.Name), text, creating, pushedDeclarations, creating ? ItemKind.KindForWireName(set.Name) : null);
                     // …and what only the DRIVER can decide without writing. This is the class the comment above
                     // used to name as out of reach — a body one vendor's format cannot express — and it is out
                     // of reach only for the ENGINE: TwinCAT's PLCopen writer is a pure function of the parsed
@@ -829,10 +829,10 @@ public static class PushService
     /// the IDE's. So this READS the project — once per operation, indexed in one walk the driver shares with the
     /// write (<see cref="ProjectDeclarations"/>) — and never per op, which is the cost <see cref="WillCreate"/> is
     /// written against.</para></summary>
-    private static void ValidateSourceOrThrow(IIdeDriver ide, string src, bool isCreate,
+    private static void ValidateSourceOrThrow(IIdeDriver ide, string name, string src, bool isCreate,
                                               IReadOnlyDictionary<string, string> pushedDeclarations, string? wireKind = null)
     {
-        var split = StReader.Read(src, wireKind);            // throws InvalidSt on a malformed document, or a kind the name contradicts
+        var split = StReader.Read(src, wireKind, name);      // throws InvalidSt on a malformed document, or a kind the name contradicts
         // …and every graphical body it carries, root and members alike: network text that does not parse is the
         // most common way an edit is refused, and it is knowable before anything is mutated.
         //
@@ -849,9 +849,6 @@ public static class PushService
         // wire name as free, only against the declarations (`NetworkScope`).
         foreach (var (body, declaration) in SourceScopes.BodiesOf(split))
         {
-            // v1 text follows the BARE marker, so nothing else would call it network text: refused by name here,
-            // or it would be written into the IDE as Structured Text.
-            NetworkText.RefuseV1(body);
             if (body is { } b && NetworkText.Is(b)) NetworkText.Validate(b, ide.NetworkScopeFor(declaration, pushedDeclarations));
         }
 
@@ -903,7 +900,7 @@ public static class PushService
         // the re-type guard below can name what the live object IS (the better message, when the text disagrees
         // with the object); the wire kind is then checked against the text by the reader's own refusal.
         var wireKind = ItemKind.KindForWireName(wireName);
-        var split = StReader.Read(src, existing is null ? wireKind : null);
+        var split = StReader.Read(src, existing is null ? wireKind : null, name);
 
 
         // Children (method/action/property) are keyed by name, so two children sharing a name would silently
@@ -929,8 +926,8 @@ public static class PushService
         // a slot the COM object doesn't expose crashes TwinCAT. A POU with an EMPTY body still passes "" so
         // the body is CLEARED (TcObjectModel.WriteText / CodesysObjectModel.WriteSourceText write on non-null).
 
-        // A ROOT FBD/LD body IS the editable network text language (it leads with the NETWORK marker). Write it
-        // back via the PLCopen transport. (Root CFC/SFC are unsupported and never reach push.)
+        // A ROOT body STATED `IMPLEMENTATION LD|FBD` is network text — the line stays its first line, and the stated
+        // language is the one signal (ImplementationMarker). (Root CFC/SFC are unsupported and never reach push.)
         var pouIsNetwork = NetworkText.Is(impl);
 
         // Read-only enforcement for an EXISTING graphical body is by LIVE IDE STATE, not content: it is refused

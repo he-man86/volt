@@ -97,7 +97,7 @@ public class NetworkTextGateTests
     public void A_body_without_its_graphical_marker()
     {
         Refused("NETWORK_PARSE", 1, "NETWORK\n  out := a;\nEND_NETWORK\n");
-        Refused("NETWORK_PARSE", 1, "(* @volt-implementation *)\nNETWORK\n  out := a;\nEND_NETWORK\n");
+        Refused("NETWORK_PARSE", 1, "IMPLEMENTATION ST\nNETWORK\n  out := a;\nEND_NETWORK\n");
     }
 
     /// <summary>Spec, "a view change is one comparison": the marker says FBD, the IDE holds LD. The body's language IS

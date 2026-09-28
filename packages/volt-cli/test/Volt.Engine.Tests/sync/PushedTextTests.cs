@@ -26,7 +26,7 @@ public class PushedTextTests
     public void A_graphical_body_is_compared_by_its_tokens(string statement, bool same)
     {
         static string Prg(string s) =>
-            "PROGRAM P\nVAR\n  a, b, out : BOOL;\nEND_VAR\n(* @volt-implementation FBD *)\nNETWORK\n" + s + "\nEND_NETWORK\nEND_PROGRAM\n";
+            "PROGRAM P\nVAR\n  a, b, out : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n" + s + "\nEND_NETWORK\nEND_PROGRAM\n";
         Assert.Equal(same, PushedText.SameExceptLayout("P.prg", Prg("  out := (a AND b);"), Prg(statement)));
     }
 
@@ -35,7 +35,7 @@ public class PushedTextTests
     [Fact]
     public void An_item_is_read_at_its_wire_kind()
     {
-        const string prg = "PROGRAM P\nVAR\nEND_VAR\n(* @volt-implementation *)\nx := 1;\nEND_PROGRAM\n";
+        const string prg = "PROGRAM P\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_PROGRAM\n";
         var e = Assert.Throws<BridgeException>(() => PushedText.SameExceptLayout("P.fb", prg, prg));
         Assert.Equal(BridgeErrorCodes.InvalidSt, e.ErrorCode);
     }

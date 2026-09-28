@@ -27,8 +27,8 @@ public class ConditionalPragmaSplitTests
     // The marker is what keeps the block whole: the boundary is STATED, so nothing has to decide whether
     // `{IF defined(X)}` is trivia or code. The rule that used to answer that question is gone with the guess.
     private const string MethodWithConditional =
-        "FUNCTION_BLOCK FB\nVAR\n\tiCounter : INT;\nEND_VAR\n(* @volt-implementation *)\n\nEND_FUNCTION_BLOCK\n\n" +
-        "METHOD Run\n(* @volt-implementation *)\n{define MY_FLAG}\n{IF defined (MY_FLAG)}\niCounter := 42;\n{ELSE}\nbroken_xyz;\n{END_IF}\nEND_METHOD\n";
+        "FUNCTION_BLOCK FB\nVAR\n\tiCounter : INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n" +
+        "METHOD Run\nIMPLEMENTATION ST\n{define MY_FLAG}\n{IF defined (MY_FLAG)}\niCounter := 42;\n{ELSE}\nbroken_xyz;\n{END_IF}\nEND_METHOD\n";
 
     [Fact]
     public void A_conditional_block_is_never_split_across_the_boundary()
@@ -53,8 +53,8 @@ public class ConditionalPragmaSplitTests
     {
         // The rule this narrows, not replaces: `{attribute …}` decorates what follows and is declaration trivia.
         const string st =
-            "FUNCTION_BLOCK FB\nVAR\n\tn : INT;\nEND_VAR\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK\n\n" +
-            "METHOD Run\n{attribute 'monitoring' := 'variable'}\n(* @volt-implementation *)\nn := 1;\nEND_METHOD\n";
+            "FUNCTION_BLOCK FB\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n" +
+            "METHOD Run\n{attribute 'monitoring' := 'variable'}\nIMPLEMENTATION ST\nn := 1;\nEND_METHOD\n";
         Assert.Contains("{attribute 'monitoring' := 'variable'}", DeclOf(st));
     }
 
@@ -63,8 +63,8 @@ public class ConditionalPragmaSplitTests
     {
         // The measured pro2193 shape, unchanged.
         const string st =
-            "FUNCTION_BLOCK FB\nVAR\n\tn : INT;\nEND_VAR\n(* @volt-implementation *)\nEND_FUNCTION_BLOCK\n\n" +
-            "METHOD Run\nVAR\n\tx : INT;\nEND_VAR\n// what this does\n(* @volt-implementation *)\nn := 1;\nEND_METHOD\n";
+            "FUNCTION_BLOCK FB\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n" +
+            "METHOD Run\nVAR\n\tx : INT;\nEND_VAR\n// what this does\nIMPLEMENTATION ST\nn := 1;\nEND_METHOD\n";
         Assert.Contains("// what this does", DeclOf(st));
     }
 

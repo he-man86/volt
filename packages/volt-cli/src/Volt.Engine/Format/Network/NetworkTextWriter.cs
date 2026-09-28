@@ -43,8 +43,7 @@ public static class NetworkTextWriter
         if (scope is null) throw new ArgumentNullException(nameof(scope));
 
         var sb = new StringBuilder();
-        // The body's language rides on its one implementation marker (spec: "the body language and the v1
-        // refusal"). v1 printed it on every network header, which invited a per-network edit nothing applied.
+        // The body's language rides on its one IMPLEMENTATION line (openspec implementation-keyword). v1 printed it on every network header, which invited a per-network edit nothing applied.
         sb.Append(St.ImplementationMarker.For(NetworkText.Spelling(body.Language))).Append('\n');
 
         for (var i = 0; i < body.Networks.Count; i++)
