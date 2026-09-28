@@ -15,7 +15,20 @@
 import type { Identifier, Interface, InterfaceMethod, InterfaceProperty, VarSection } from "../ast.js"
 import type { Cursor } from "../cursor.js"
 import { parseTypeExpression } from "../type-expr.js"
-import { collectVarSections, describeToken, identFromToken, joinSpans, skipFolderDirective } from "../util.js"
+import type { Keyword } from "../tokens.js"
+import {
+  closesDeclaration,
+  collectVarSections,
+  describeToken,
+  eatModifiers,
+  identFromToken,
+  joinSpans,
+  readFolderLine,
+  reportMisplacedFolder,
+} from "../util.js"
+
+/** Modifiers are allowed on an interface member, and are informational — but they are the file's text, so kept. */
+const MODIFIERS: readonly Keyword[] = ["PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "FINAL", "ABSTRACT", "OVERRIDE"]
 import { atVarSection, parseVarSection } from "../var-section.js"
 
 export function parseInterface(c: Cursor): Interface | undefined {
@@ -73,9 +86,13 @@ export function parseInterface(c: Cursor): Interface | undefined {
       }
     }
 
-    // A method that lives in a sub-folder carries a `%FOLDER <path>` directive (between members or
-    // just before its END_METHOD) — bridge metadata, not interface content.
-    if (skipFolderDirective(c)) continue
+    // A member's `%FOLDER` closes the member's OWN declaration (read in `parseInterfaceMethod`/`Property`). Between
+    // members it is the next member's declaration text, which the push refuses.
+    const stray = readFolderLine(c)
+    if (stray !== undefined) {
+      reportMisplacedFolder(c, stray)
+      continue
+    }
 
     // A VAR section here is illegal (C0149) but well-formed — parse and capture it rather than
     // spraying recovery errors token-by-token.
@@ -129,10 +146,7 @@ function parseQualifiedName(c: Cursor, ctx: string): Identifier | undefined {
 function parseInterfaceMethod(c: Cursor): InterfaceMethod | undefined {
   const start = c.expectKeyword("METHOD", "at start of interface method")
   if (start === undefined) return undefined
-  // Modifiers are allowed but informational on interfaces
-  while (c.eatAnyKeyword("PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "FINAL", "ABSTRACT", "OVERRIDE") !== undefined) {
-    // consume and ignore
-  }
+  const modifiers = eatModifiers(c, MODIFIERS)
   const nameTok = c.expectName("for interface method name")
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
@@ -140,8 +154,17 @@ function parseInterfaceMethod(c: Cursor): InterfaceMethod | undefined {
   if (c.eatPunct(":") !== undefined) {
     returnType = parseTypeExpression(c)
   }
-  const varSections = collectVarSections(c)
-  skipFolderDirective(c) // a folder-organized method carries `%FOLDER <path>` just before END_METHOD
+  // A method in a sub-folder closes its declaration with `%FOLDER <path>` — the line directly before END_METHOD, where
+  // the push reads it (`StReader.PeelFolderClosing`). Anywhere else in the method the push refuses it.
+  const varSections: VarSection[] = []
+  let folder: string | undefined
+  for (;;) {
+    varSections.push(...collectVarSections(c))
+    const directive = readFolderLine(c)
+    if (directive === undefined) break
+    if (directive.path !== undefined && closesDeclaration(c, ["END_METHOD"], true)) folder = directive.path
+    else reportMisplacedFolder(c, directive)
+  }
   // One canonical form (matches the bridge + what `volt pull` emits): every interface method is
   // closed by END_METHOD. Redline a missing one so the agent writes the canonical form, not a shape
   // the bridge will reject on push (LSP diagnostics ⊇ bridge rejections).
@@ -151,6 +174,8 @@ function parseInterfaceMethod(c: Cursor): InterfaceMethod | undefined {
   return {
     kind: "interface_method",
     name,
+    modifiers,
+    ...(folder !== undefined ? { folder } : {}),
     ...(returnType !== undefined ? { returnType } : {}),
     varSections,
     span: joinSpans(start.span, endSpan),
@@ -161,9 +186,7 @@ function parseInterfaceProperty(c: Cursor): InterfaceProperty | undefined {
   const start = c.expectKeyword("PROPERTY", "at start of interface property")
   if (start === undefined) return undefined
   // Modifiers are allowed but informational on interfaces (e.g. `PROPERTY PUBLIC Foo : T`).
-  while (c.eatAnyKeyword("PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "FINAL", "ABSTRACT", "OVERRIDE") !== undefined) {
-    // consume and ignore
-  }
+  const modifiers = eatModifiers(c, MODIFIERS)
   const nameTok = c.expectName("for interface property name")
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
@@ -183,20 +206,37 @@ function parseInterfaceProperty(c: Cursor): InterfaceProperty | undefined {
   // expecting it. Consume the declaration here, where it belongs.
   let hasGetter = false
   let hasSetter = false
+  let folder: string | undefined
   while (true) {
-    if (skipFolderDirective(c)) continue
+    // The property's `%FOLDER` is the last line of its declaration, before its first accessor (`StReader.ReadProperty`).
+    const directive = readFolderLine(c)
+    if (directive !== undefined) {
+      const closing =
+        directive.path !== undefined &&
+        folder === undefined &&
+        !hasGetter &&
+        !hasSetter &&
+        closesDeclaration(c, ["GET", "SET", "END_PROPERTY"], false)
+      if (closing) folder = directive.path
+      else reportMisplacedFolder(c, directive)
+      continue
+    }
     const accessor = c.eatAnyKeyword("GET", "SET")
     if (accessor === undefined) break
     if (accessor.keyword === "GET") hasGetter = true
     if (accessor.keyword === "SET") hasSetter = true
 
     // Block form: whatever the accessor declares, then its closer. The vars are local temps of a body that
-    // does not exist, so they are consumed rather than captured — but only VAR sections and folder
-    // directives are, so anything genuinely unexpected still reaches the recovery error instead of being
-    // swallowed here.
+    // does not exist, so they are consumed rather than captured — but only VAR sections are, so anything genuinely
+    // unexpected still reaches the recovery error instead of being swallowed here. A `%FOLDER` line in here is
+    // the accessor's declaration text, which the push refuses.
     const closer = accessor.keyword === "GET" ? "END_GET" : "END_SET"
     while (true) {
-      if (skipFolderDirective(c)) continue
+      const stray = readFolderLine(c)
+      if (stray !== undefined) {
+        reportMisplacedFolder(c, stray)
+        continue
+      }
       if (!atVarSection(c)) break
       if (parseVarSection(c) === undefined) break
     }
@@ -207,6 +247,8 @@ function parseInterfaceProperty(c: Cursor): InterfaceProperty | undefined {
   return {
     kind: "interface_property",
     name,
+    modifiers,
+    ...(folder !== undefined ? { folder } : {}),
     dataType,
     hasGetter,
     hasSetter,

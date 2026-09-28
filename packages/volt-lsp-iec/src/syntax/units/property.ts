@@ -15,13 +15,19 @@ import type { Cursor } from "../cursor.js"
 import type { Keyword } from "../tokens.js"
 import { parseTypeExpression } from "../type-expr.js"
 import {
+  closesDeclaration,
   codeBody,
   collectVarSections,
   describeToken,
+  eatModifiers,
   identFromToken,
   joinSpans,
-  skipFolderDirective,
+  readFolderLine,
+  reportMisplacedFolder,
 } from "../util.js"
+
+/** What may stand before a property's name, and before an accessor's VAR sections (`SET PRIVATE …`). */
+const MODIFIERS: readonly Keyword[] = ["PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "ABSTRACT", "FINAL"]
 
 export function parseProperty(c: Cursor): Property | undefined {
   const start = c.expectKeyword("PROPERTY", "at start of PROPERTY")
@@ -30,13 +36,9 @@ export function parseProperty(c: Cursor): Property | undefined {
   // Modifiers before the name, in any order: an access level plus optional ABSTRACT/FINAL
   // (e.g. `PROPERTY PUBLIC ABSTRACT Busy`). Keep the access level; ABSTRACT/FINAL are eaten but unused.
   let accessModifier: Keyword | undefined
-  for (;;) {
-    const m = c.eatAnyKeyword("PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "ABSTRACT", "FINAL")
-    if (m === undefined) break
-    if (m.keyword === "PUBLIC" || m.keyword === "PRIVATE" || m.keyword === "PROTECTED" || m.keyword === "INTERNAL") {
-      accessModifier = m.keyword
-    }
-  }
+  const modifiers = eatModifiers(c, MODIFIERS)
+  for (const m of modifiers)
+    if (m === "PUBLIC" || m === "PRIVATE" || m === "PROTECTED" || m === "INTERNAL") accessModifier = m
 
   const nameTok = c.expectName("for PROPERTY name")
   if (nameTok === undefined) return undefined
@@ -50,6 +52,7 @@ export function parseProperty(c: Cursor): Property | undefined {
 
   let getter: Property["getter"]
   let setter: Property["setter"]
+  let folder: string | undefined
 
   while (!c.atEof()) {
     const endProp = c.eatKeyword("END_PROPERTY")
@@ -58,15 +61,28 @@ export function parseProperty(c: Cursor): Property | undefined {
         kind: "property",
         name,
         ...(accessModifier !== undefined ? { accessModifier } : {}),
+        modifiers,
+        ...(folder !== undefined ? { folder } : {}),
         dataType,
         ...(getter !== undefined ? { getter } : {}),
         ...(setter !== undefined ? { setter } : {}),
         span: joinSpans(start.span, endProp.span),
       }
     }
-    // The bridge prepends a `%FOLDER <path>` directive to a child body when the item lives in a
-    // sub-folder (PouToStText). It sits before the accessors — skip it (LSP doesn't need the folder).
-    if (skipFolderDirective(c)) continue
+    // A property in a sub-folder closes its declaration with `%FOLDER <path>` (`StWriter.AssembleProperty`): the
+    // last line before its first accessor, which is where the push reads it. Anywhere else the push refuses it.
+    const directive = readFolderLine(c)
+    if (directive !== undefined) {
+      const closing =
+        directive.path !== undefined &&
+        folder === undefined &&
+        getter === undefined &&
+        setter === undefined &&
+        closesDeclaration(c, ["GET", "SET", "END_PROPERTY"], false)
+      if (closing) folder = directive.path
+      else reportMisplacedFolder(c, directive)
+      continue
+    }
     const accessor = parseInlineAccessor(c)
     if (accessor !== undefined) {
       if (accessor.kind === "get") getter = accessor
@@ -84,6 +100,8 @@ export function parseProperty(c: Cursor): Property | undefined {
     kind: "property",
     name,
     ...(accessModifier !== undefined ? { accessModifier } : {}),
+    modifiers,
+    ...(folder !== undefined ? { folder } : {}),
     dataType,
     ...(getter !== undefined ? { getter } : {}),
     ...(setter !== undefined ? { setter } : {}),
@@ -96,10 +114,8 @@ function parseInlineAccessor(c: Cursor): Property["getter"] | undefined {
   if (kw === undefined) return undefined
   const kind: "get" | "set" = kw.keyword === "GET" ? "get" : "set"
   // An accessor may carry its own access level + ABSTRACT/FINAL (`SET PRIVATE …`) before its
-  // VAR sections. Eat them so they don't leak into the accessor body.
-  while (c.eatAnyKeyword("PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "ABSTRACT", "FINAL") !== undefined) {
-    /* consumed */
-  }
+  // VAR sections — kept, so they don't leak into the accessor body and the formatter prints them back.
+  const modifiers = eatModifiers(c, MODIFIERS)
   const varSections = collectVarSections(c)
   const endAccessor: Keyword = kind === "get" ? "END_GET" : "END_SET"
 
@@ -117,6 +133,7 @@ function parseInlineAccessor(c: Cursor): Property["getter"] | undefined {
   const body = collectAccessorBody(c, endAccessor)
   return {
     kind,
+    modifiers,
     varSections,
     body,
     span: joinSpans(kw.span, body.span),

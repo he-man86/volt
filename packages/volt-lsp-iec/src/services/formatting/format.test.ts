@@ -12,11 +12,13 @@ function normalize(value: unknown): unknown {
     const obj = value as Record<string, unknown>
     if (obj.kind === "body") {
       // The body's `IMPLEMENTATION` line and a member's `%FOLDER` under it are compared too: they are out of the body's
-      // tokens, so a gate that looked at the statements alone passed a printer that deleted both from every file.
-      const line = (obj as { implementation?: { statement: unknown; folder?: string } }).implementation
+      // tokens, so a gate that looked at the statements alone passed a printer that deleted both from every file. So is
+      // what stands between the declaration and the line (`leading`), which is out of the tokens for the same reason — its
+      // line endings are layout, which the printer writes as `\n`.
+      const line = (obj as { implementation?: { statement: unknown; folder?: string; leading?: string } }).implementation
       return {
         kind: "body",
-        implementation: line === undefined ? undefined : { statement: line.statement, folder: line.folder },
+        implementation: line === undefined ? undefined : { statement: line.statement, folder: line.folder, leading: line.leading?.replace(/\r\n/g, "\n") },
         statements: normalize(parseStatements(obj as never).statements),
       }
     }
@@ -257,5 +259,78 @@ test("formatting keeps every body's IMPLEMENTATION line, and a member's %FOLDER 
     const ranged = formatRange(doc, { start: { line: 0, character: 0 }, end: { line: src.split("\n").length - 1, character: 0 } })
     for (const k of kept)
       expect({ name, kept: ranged.some((e) => e.newText.includes(k)) }).toEqual({ name, kept: true })
+  }
+})
+
+/**
+ * A PROPERTY'S AND AN INTERFACE MEMBER'S `%FOLDER` SURVIVE FORMATTING, AND SO DO AN INTERFACE MEMBER'S MODIFIERS. A
+ * property and an interface member have no body to stand a folder under, so the push reads their folder as the LAST
+ * line of their declaration (`StReader.PeelFolderClosing`) — which the parser skipped and the printer then could not
+ * print. The next push read "no folder" and moved the member to the POU's root. `PUBLIC` on an interface member was
+ * eaten the same way. pro2193's `IIMM_Default_XYControl.itf` has exactly this shape.
+ */
+test("formatting keeps a property's and an interface member's %FOLDER, and an interface member's modifiers", () => {
+  const cases: Record<string, { src: string; kept: string[]; gone: string[] }> = {
+    "a property in a folder": {
+      src:
+        "FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n\n" +
+        "PROPERTY P : INT\n%FOLDER sub/dir\nGET\nIMPLEMENTATION ST\nP := x;\nEND_GET\nEND_PROPERTY\n",
+      kept: ["PROPERTY P : INT\n%FOLDER sub/dir\nGET\nIMPLEMENTATION ST\nP := x;\nEND_GET\nEND_PROPERTY"],
+      // An accessor with no VAR section gained a blank line under its keyword — which the push keeps as the
+      // accessor's (a leading newline is the engineer's blank line, `StWriter.AssembleAccessor`).
+      gone: ["GET\n\n"],
+    },
+    "an interface's members in folders": {
+      src:
+        "INTERFACE I\n\nMETHOD PUBLIC M : BOOL\nVAR_INPUT\n\ta : INT;\nEND_VAR\n%FOLDER Commands\nEND_METHOD\n\n" +
+        "PROPERTY PUBLIC Q : INT\n%FOLDER Props\nGET\nEND_GET\nEND_PROPERTY\n\nEND_INTERFACE\n",
+      kept: ["METHOD PUBLIC M : BOOL\n", "END_VAR\n%FOLDER Commands\n\tEND_METHOD", "PROPERTY PUBLIC Q : INT\n%FOLDER Props\n"],
+      gone: [],
+    },
+  }
+  for (const [name, { src, kept, gone }] of Object.entries(cases)) {
+    const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src) }
+    expect({ name, errors: doc.parseResult.errors }).toEqual({ name, errors: [] })
+    const out = formatDocument(doc)
+    for (const k of kept) expect({ name, out, kept: out.includes(k) }).toEqual({ name, out, kept: true })
+    for (const g of gone) expect({ name, out, gone: !out.includes(g) }).toEqual({ name, out, gone: true })
+    astEqual(doc.parseResult, parseSource(out))
+  }
+})
+
+/**
+ * A CRLF FILE GAINS NO BLANK LINE UNDER ITS `IMPLEMENTATION` LINE. The line's own newline token opens the body's tokens,
+ * and a verbatim body stripped only a leading `\n` — so a `\r\n` stayed, under the `\n` the head already printed: a blank
+ * line the push writes into the IDE body (a leading newline is the engineer's), and a file of mixed line endings.
+ */
+test("formatting a CRLF file adds no blank line under the IMPLEMENTATION line or a member's %FOLDER", () => {
+  const cases = {
+    "a ladder": "FUNCTION_BLOCK F\r\nVAR\r\n\tx : BOOL;\r\nEND_VAR\r\nIMPLEMENTATION LD\r\nNETWORK\r\n  x := TRUE;\r\nEND_NETWORK\r\nEND_FUNCTION_BLOCK\r\n",
+    "a ladder method in a folder": "METHOD M\r\nIMPLEMENTATION LD\r\n%FOLDER a\r\nNETWORK\r\n  M := TRUE;\r\nEND_NETWORK\r\nEND_METHOD\r\n",
+    "a commented ST body": "FUNCTION_BLOCK F\r\nVAR\r\n\tx : INT;\r\nEND_VAR\r\nIMPLEMENTATION ST\r\n// c\r\nx := 1;\r\nEND_FUNCTION_BLOCK\r\n",
+  }
+  for (const [name, src] of Object.entries(cases)) {
+    const out = formatDocument({ uri: "file:///F.fb", source: src, parseResult: parseSource(src) })
+    expect({ name, out, blankLine: /(IMPLEMENTATION [A-Z]+|%FOLDER a)\r?\n\r?\n/.test(out), cr: out.includes("\r") }).toEqual({
+      name,
+      out,
+      blankLine: false,
+      cr: false,
+    })
+  }
+})
+
+/**
+ * WHAT STANDS BETWEEN A DECLARATION AND ITS `IMPLEMENTATION` LINE SURVIVES FORMATTING. It is declaration text on the
+ * push side — a `{warning}` or `{attribute}` pragma means something there — and it is neither code nor the line, so
+ * the body splitter set it aside and nothing printed it back.
+ */
+test("formatting keeps a comment or pragma between the declaration and the IMPLEMENTATION line", () => {
+  for (const between of ["{warning 'keep'}", "// keep me", "(* keep me *)"]) {
+    const src = `FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\n${between}\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n`
+    const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src) }
+    const out = formatDocument(doc)
+    expect({ between, out, kept: out.includes(`END_VAR\n${between}\nIMPLEMENTATION ST\n`) }).toEqual({ between, out, kept: true })
+    astEqual(doc.parseResult, parseSource(out))
   }
 })

@@ -15,6 +15,7 @@ import {
   type CaseArm,
   type Document,
   type EnumValue,
+  type PropertyAccessor,
   exprText,
   parseStatements,
   renderTypeExpr,
@@ -214,7 +215,13 @@ function printBody(body: BodySpan): string {
 function implementationHead(body: BodySpan): string {
   const line = body.implementation
   if (line === undefined) return ""
-  return `${statedLine(line)}\n${line.folder === undefined ? "" : `%FOLDER ${line.folder}\n`}`
+  const leading = line.leading === undefined ? "" : `${verbatimText(line.leading)}\n`
+  return `${leading}${statedLine(line)}\n${folderLine(line.folder)}`
+}
+
+/** A member's `%FOLDER` line, in the push's one spelling (`StReader.FolderOn`), or nothing. */
+function folderLine(folder: string | undefined): string {
+  return folder === undefined ? "" : `%FOLDER ${folder}\n`
 }
 
 function printCode(body: BodySpan): string {
@@ -226,12 +233,18 @@ function printCode(body: BodySpan): string {
 }
 
 function verbatim(body: BodySpan): string {
-  const raw = body.tokens
-    .map((t) => t.text)
-    .join("")
+  const raw = verbatimText(body.tokens.map((t) => t.text).join(""))
     .replace(/^\n+/, "")
     .replace(/\s+$/, "")
   return raw.length > 0 ? raw + "\n" : ""
+}
+
+/** Source text kept as written, in the printer's line ending. A body's tokens open with the newline that ends its
+ *  `IMPLEMENTATION` line (or a member's `%FOLDER`); left as `\r\n` in a CRLF file, it survived the strip of leading
+ *  newlines and stood under the `\n` the head prints — a blank line the push writes into the IDE body, in a file of
+ *  mixed line endings. */
+function verbatimText(text: string): string {
+  return text.replace(/\r\n/g, "\n")
 }
 
 function hasComment(body: BodySpan): boolean {
@@ -321,16 +334,26 @@ function printTry(s: Extract<Statement, { kind: "try" }>, depth: number): string
 
 // ─── declarations ────────────────────────────────────────────────────────────
 
+/** Modifiers as written, each followed by the space before the name. */
+function modifierText(written: readonly string[]): string {
+  return written.map((m) => `${m} `).join("")
+}
+
+// An interface member's `%FOLDER` closes its declaration — the last line before END_METHOD, or before a property's
+// accessors — which is where the push reads it (`StReader.PeelFolderClosing`).
 function printInterface(iface: Extract<TopLevel, { kind: "interface" }>): string {
   const ext = iface.extends && iface.extends.length > 0 ? ` EXTENDS ${iface.extends.map((i) => i.text).join(", ")}` : ""
   const methods = iface.methods.map((m) => {
     const ret = m.returnType ? ` : ${renderTypeExpr(m.returnType)}` : ""
     const vars = m.varSections.map(printVarSection).join("\n")
-    return `${TAB}METHOD ${m.name.text}${ret}\n${vars ? vars + "\n" : ""}${TAB}END_METHOD`
+    const head = `${TAB}METHOD ${modifierText(m.modifiers)}${m.name.text}${ret}\n`
+    return `${head}${vars ? vars + "\n" : ""}${folderLine(m.folder)}${TAB}END_METHOD`
   })
   const properties = iface.properties.map((p) => {
     const getset = `${p.hasGetter ? `\n${TAB}GET` : ""}${p.hasSetter ? `\n${TAB}SET` : ""}`
-    return `${TAB}PROPERTY ${p.name.text} : ${renderTypeExpr(p.dataType)}${getset}\n${TAB}END_PROPERTY`
+    const folder = p.folder === undefined ? "" : `\n%FOLDER ${p.folder}`
+    const head = `${TAB}PROPERTY ${modifierText(p.modifiers)}${p.name.text} : ${renderTypeExpr(p.dataType)}`
+    return `${head}${folder}${getset}\n${TAB}END_PROPERTY`
   })
   const members = [...methods, ...properties].join("\n")
   return `INTERFACE ${iface.name.text}${ext}\n${members ? members + "\n" : ""}END_INTERFACE`
@@ -356,10 +379,15 @@ function printEnumValue(v: EnumValue): string {
   return v.value !== undefined ? `${v.name.text} := ${exprText(v.value)}` : v.name.text
 }
 
+// A property's `%FOLDER` closes its declaration, before its accessors (`StWriter.AssembleProperty`). An accessor with no
+// VAR section prints none — not an empty line: a leading newline in an accessor is the engineer's blank line to the push.
 function printProperty(p: Extract<TopLevel, { kind: "property" }>): string {
-  const acc = (label: string, a: { varSections: readonly VarSection[]; body: BodySpan } | undefined, ender: string) =>
-    a ? `${label}\n${a.varSections.map(printVarSection).join("\n")}\n${printBody(a.body)}${ender}` : ""
+  const acc = (label: string, a: PropertyAccessor | undefined, ender: string) => {
+    if (a === undefined) return ""
+    const vars = a.varSections.map(printVarSection).join("\n")
+    return `${label}${a.modifiers.map((m) => ` ${m}`).join("")}\n${vars ? vars + "\n" : ""}${printBody(a.body)}${ender}`
+  }
   const parts = [acc("GET", p.getter, "END_GET"), acc("SET", p.setter, "END_SET")].filter(Boolean).join("\n")
-  const mod = p.accessModifier ? `${p.accessModifier} ` : ""
-  return `PROPERTY ${mod}${p.name.text} : ${renderTypeExpr(p.dataType)}\n${parts}\nEND_PROPERTY`
+  const head = `PROPERTY ${modifierText(p.modifiers)}${p.name.text} : ${renderTypeExpr(p.dataType)}\n`
+  return `${head}${folderLine(p.folder)}${parts}\nEND_PROPERTY`
 }

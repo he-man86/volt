@@ -111,10 +111,12 @@ function astKey(value: unknown): string {
       // A body's `IMPLEMENTATION` line and a member's `%FOLDER` stand outside its tokens, so they are compared here too:
       // comparing the statements alone passed a printer that deleted both from every file.
       if (obj.kind === "body") {
-        const line = (obj as { implementation?: { statement: unknown; folder?: string } }).implementation
+        // So is what stands between the declaration and the line (`leading`), out of the tokens for the same reason (its
+        // line endings are layout, which the printer writes as `\n`).
+        const line = (obj as { implementation?: { statement: unknown; folder?: string; leading?: string } }).implementation
         return {
           kind: "body",
-          implementation: line === undefined ? null : norm({ statement: line.statement, folder: line.folder ?? null }),
+          implementation: line === undefined ? null : norm({ statement: line.statement, folder: line.folder ?? null, leading: line.leading?.replace(/\r\n/g, "\n") ?? null }),
           st: norm(parseStatements(obj as never).statements),
         }
       }

@@ -220,6 +220,28 @@ export class Cursor {
     "NAMESPACE",
   ])
 
+  // ─── Raw lines — for the few rules that are about LINES, not tokens ──
+
+  /** The raw trivia (whitespace, comments, pragmas) between the cursor and the next meaningful token. */
+  triviaAhead(): readonly Token[] {
+    const out: Token[] = []
+    for (let i = this.pos; i < this.tokens.length && isTrivia(this.tokens[i].kind); i++) out.push(this.tokens[i])
+    return out
+  }
+
+  /** Consume the rest of the current line — every raw token up to the whitespace that ends it, which is left — and
+   *  return the consumed tokens. */
+  consumeRestOfLine(): Token[] {
+    const out: Token[] = []
+    while (this.pos < this.tokens.length) {
+      const t = this.tokens[this.pos]
+      if (t.kind === "eof" || (t.kind === "whitespace" && t.text.includes("\n"))) break
+      out.push(t)
+      this.pos += 1
+    }
+    return out
+  }
+
   // ─── Body collection (raw — preserves trivia) ──────────────────
 
   /**

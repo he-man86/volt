@@ -8,7 +8,7 @@ import type { BodySpan, Identifier, VarSection } from "./ast.js"
 import type { Cursor } from "./cursor.js"
 // Inherent recursive-descent recursion: util's block helpers call into var-section, which calls back into util. Function-body imports, no init hazard.
 import { atVarSection, parseVarSection } from "./var-section.js"
-import { type BodyOwner, splitImplementation } from "./implementation-keyword.js"
+import { type BodyOwner, folderOn, splitImplementation } from "./implementation-keyword.js"
 
 /** Build a span covering the source range from `a.start` to `b.end`. */
 export function joinSpans(a: Span, b: Span): Span {
@@ -27,17 +27,69 @@ export function identFromToken(tok: Token): Identifier {
   return { kind: "identifier", text: tok.text, span: tok.span }
 }
 
-/** Skip a `%FOLDER <path>` directive — bridge metadata (PouToStText) marking a child's sub-folder within
- *  its POU/interface. It occupies one line; the path may be multiple tokens (`%FOLDER PackML States`).
- *  Left unhandled its `%` mis-parses as a stray. Returns true if one was consumed. */
-export function skipFolderDirective(c: Cursor): boolean {
+/** Eat a run of member modifiers and return them as written, in order — the printer needs every one back. */
+export function eatModifiers(c: Cursor, allowed: readonly Keyword[]): Keyword[] {
+  const out: Keyword[] = []
+  for (let m = c.eatAnyKeyword(...allowed); m?.keyword !== undefined; m = c.eatAnyKeyword(...allowed)) out.push(m.keyword)
+  return out
+}
+
+/** A `%FOLDER` line the parser met in a declaration: the line as written, its path when it is the push's spelling
+ *  (`folderOn`) and opens its own line, and where it stands. */
+export interface FolderLine {
+  text: string
+  path: string | undefined
+  span: Span
+}
+
+/**
+ * The `%FOLDER` line at the cursor, consumed whole, or undefined when the cursor is not at one. Consumed whatever it
+ * says, so a misplaced or misspelled one is reported once (`reportMisplacedFolder`) instead of mis-parsing as strays.
+ * `path` is set only for a line the push would read as a folder: `%FOLDER <path>` in that case, first on its line.
+ * Whether it stands where the push reads one is the caller's to say (`closesDeclaration`).
+ */
+export function readFolderLine(c: Cursor): FolderLine | undefined {
   const p = c.peek()
-  if (p.kind !== "punct" || p.text !== "%") return false
-  if (c.peek(1).kind !== "identifier" || c.peek(1).text.toUpperCase() !== "FOLDER") return false
-  const line = p.span.startLine
+  if (p.kind !== "punct" || p.text !== "%") return undefined
+  if (c.peek(1).kind !== "identifier" || c.peek(1).text.toUpperCase() !== "FOLDER") return undefined
+  const before = c
+    .triviaAhead()
+    .map((t) => t.text)
+    .join("")
+  const nl = before.lastIndexOf("\n")
+  const opensLine = nl >= 0 ? /^[ \t]*$/.test(before.slice(nl + 1)) : p.span.startCol === 0
   c.consume() // %
-  while (!c.atEof() && c.peek().span.startLine === line) c.consume()
-  return true
+  const rest = c.consumeRestOfLine()
+  const text = "%" + rest.map((t) => t.text).join("")
+  const last = rest.at(-1)?.span ?? p.span
+  return { text: text.trim(), path: opensLine ? folderOn(text) : undefined, span: joinSpans(p.span, last) }
+}
+
+/**
+ * Does the declaration the cursor is in close HERE — only whitespace, then one of `closers`? That is where the push
+ * peels a property's or an interface member's `%FOLDER` (`StReader.PeelFolderClosing`: the last line of the
+ * declaration). `blankLinesOnly` is the interface method's stricter reading: its declaration is trimmed of empty lines
+ * only (`TrimEnd('\n')`), so a line of spaces between the directive and `END_METHOD` keeps it from being the last.
+ */
+export function closesDeclaration(c: Cursor, closers: readonly Keyword[], blankLinesOnly: boolean): boolean {
+  const trivia = c.triviaAhead()
+  if (trivia.some((t) => t.kind !== "whitespace")) return false
+  const next = c.peek()
+  if (next.kind !== "keyword" || next.keyword === undefined || !closers.includes(next.keyword)) return false
+  if (!blankLinesOnly) return true
+  const between = trivia.map((t) => t.text).join("")
+  return /^[\r\n]*$/.test(between.slice(0, between.lastIndexOf("\n") + 1))
+}
+
+/** A `%FOLDER` line where the push reads no folder: it would reach the IDE as declaration text, so the push refuses it
+ *  (`StReader.RefuseLinesInDeclarations`) — and the LSP reports it, on the line. */
+export function reportMisplacedFolder(c: Cursor, line: FolderLine): void {
+  c.pushError(
+    `'${line.text}' is no folder the push reads here. A %FOLDER line stands directly under a method's or an action's ` +
+      "IMPLEMENTATION line, or as the last line of a property's or an interface member's declaration — spelled " +
+      "`%FOLDER <path>`, alone on its line; anywhere else the push refuses it. Move it there, or remove it.",
+    line.span,
+  )
 }
 
 /**

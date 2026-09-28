@@ -146,6 +146,18 @@ The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comme
       That finding makes the pre-change corpora report themselves: four more corpus-backed `corpus.test.ts` rows (zero
       declaration errors, formatter round-trip, AMBIGUOUS NAMES, REFUSAL REACH — the last two are built from the files
       that parse clean) are red for the same reason as the three above, and go green with 4.2's re-pull.
+      Section-3 review round 2 (data lens), fixed with tests: a property's and an interface member's `%FOLDER` (the last
+      line of its declaration, `StReader.PeelFolderClosing`) is read into the AST (`folder`) and printed back — the
+      parser skipped it, so Format Document deleted it and the next push moved the member to the POU root; a `%FOLDER`
+      line anywhere else in a declaration (file scope, between interface members, inside an interface accessor, not
+      the declaration's last line, misspelled) is a parse error, as the push refuses it (`skipFolderDirective` deleted);
+      interface members, properties and accessors keep their modifiers (`modifiers`), so `PUBLIC`/`ABSTRACT` survive
+      formatting, and an accessor with no VAR section gains no blank line; a comment or pragma between the declaration
+      and the `IMPLEMENTATION` line is kept (`ImplementationLine.leading`) and printed back; a CRLF body gains no blank
+      line under its line (verbatim text is printed in `\n`); both round-trip gates compare `leading`.
+      `markImplementations` writes the line under the declaration's last line (a trailing comment after `END_VAR` stays
+      on it) and refuses a body that shares that line; no conformance fixture's placement changed.
+      (`services/formatting/format.test.ts`, `syntax/units/folder-directive.test.ts`, `mark-implementations.test.ts`.)
 
 ## 4. Data and docs
 

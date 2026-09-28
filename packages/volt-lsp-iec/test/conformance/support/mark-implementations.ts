@@ -25,18 +25,45 @@ import { implementationLine, parseSource, type BodySpan, type TopLevel } from ".
 /** The line an ST fixture body is pushed under — `syntax/implementation-keyword`'s one spelling. */
 export const IMPLEMENTATION_ST = implementationLine("ST")
 
-/** Offsets in `source` where an `IMPLEMENTATION ST` line belongs, ascending. */
+/** Offsets in `source` where an `IMPLEMENTATION ST` line belongs (`lineUnder`), ascending. */
 function boundaries(source: string): number[] {
   const at: number[] = []
   for (const unit of parseSource(source).units) push(unit, at)
   return at.sort((a, b) => a - b)
 }
 
+/**
+ * Where the line goes for a body that states none: the start of the first non-blank line UNDER the declaration's last
+ * line. The body's tokens begin right after the declaration's last token, so they open with whatever else stands on
+ * that line — a trailing comment or pragma after `END_VAR` — and that belongs to the declaration: the line goes under
+ * it, never above it (where `END_VAR` would become body code). Code on that line (`VAR x : INT; END_VAR x := 1;`) leaves no line
+ * between the halves to write the keyword on, and is refused rather than split at a place someone made up.
+ */
+function lineUnder(body: BodySpan): number {
+  const tokens = body.tokens
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i]
+    if (t.kind === "whitespace" && t.text.includes("\n")) {
+      // Blank lines under the declaration stay above the line, as they always have: the recordings were made with them
+      // there, and a blank line is nobody's code. The line goes at the start of the first line holding anything.
+      let blank = ""
+      for (let j = i; j < tokens.length && tokens[j].kind === "whitespace"; j++) blank += tokens[j].text
+      return t.span.start + blank.lastIndexOf("\n") + 1
+    }
+    if (t.kind === "line_comment" || t.kind === "block_comment" || t.kind === "pragma" || t.kind === "whitespace") continue
+    break
+  }
+  throw new Error(
+    `the body at line ${body.span.startLine} shares a line with the end of its declaration, so there is no line ` +
+      `between the two to write '${IMPLEMENTATION_ST}' on. Put the body on its own line in the fixture.`,
+  )
+}
+
 function push(unit: TopLevel, at: number[]): void {
   // A body that already states its language — a graphical fixture opens with `IMPLEMENTATION FBD|LD` — keeps its own
   // line: a second one above it would be a second boundary, which the push refuses.
   const mark = (body: BodySpan): void => {
-    if (body.implementation === undefined) at.push(body.span.start)
+    if (body.implementation === undefined) at.push(lineUnder(body))
   }
   switch (unit.kind) {
     // A POU and its code-bearing members: the declaration runs to the body's first token.
@@ -65,20 +92,15 @@ function push(unit: TopLevel, at: number[]): void {
  * the line is matched WHOLE (`ImplementationMarker.Is`: the keyword, the language and nothing else), so appending it
  * to the end of a declaration's last line would make it invisible to the reader and the file unpushable.
  *
- * A body's span STARTS ON THE NEWLINE that ends the declaration's last line, not on the body's first character —
- * `END_VAR` at offset 73..80 gives `body.span.start === 80`, the `\n` after it. Walking back to a line start from
- * there lands on the line holding `END_VAR` and writes the line ABOVE it, inside the variable block: measured
- * live (with the comment marker this line replaced), that produced "'END_VAR' expected instead of ''" and five more.
- * So the walk goes FORWARD over whitespace to the body's first real character first, and only then back to that
- * character's own line.
+ * A body's span STARTS right after the declaration's last token, still ON that token's line, so the line is written at
+ * the start of the NEXT line (`lineUnder`). Both earlier placements wrote it above a declaration line: walking back
+ * from the span start landed on the line holding `END_VAR` (measured live: "'END_VAR' expected instead of ''" and five
+ * more), and walking forward to the body's first character first still did whenever that character was a trailing
+ * comment on the `END_VAR` line.
  */
 export function markImplementations(source: string): string {
   let out = source
-  for (const offset of boundaries(source).reverse()) {
-    let first = offset
-    while (first < out.length && /\s/.test(out[first]!)) first += 1
-    const lineStart = out.lastIndexOf("\n", Math.max(0, first - 1)) + 1
+  for (const lineStart of boundaries(source).reverse())
     out = out.slice(0, lineStart) + IMPLEMENTATION_ST + "\n" + out.slice(lineStart)
-  }
   return out
 }

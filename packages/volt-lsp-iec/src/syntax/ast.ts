@@ -60,6 +60,10 @@ export interface ImplementationLine {
   span: Span
   /** The words an editor colours as keywords: the whole statement when it states one, else the keyword alone. */
   words: Token[]
+  /** The comments and pragmas between the declaration and this line, as written (trimmed), when there are any. They
+   *  are DECLARATION text on the push side — a `{warning}` or `{attribute}` pragma means something there — and neither
+   *  code nor the line, so they are out of the body's tokens and kept here for what prints the body back. */
+  leading?: string
   /** The path of a member's `%FOLDER` directive on the line directly under this one — taken out of the body with the
    *  line, and kept here so what prints the body (the formatter) prints it back. */
   folder?: string
@@ -556,6 +560,12 @@ export interface Property {
   kind: "property"
   name: Identifier
   accessModifier?: Keyword
+  /** Every modifier as written, in order (`PUBLIC ABSTRACT`): declaration text the push keeps, so the formatter prints
+   *  it back — eaten and dropped, formatting rewrote the member's signature. */
+  modifiers: Keyword[]
+  /** The member's `%FOLDER` path: the last line of its declaration, where the push reads it
+   *  (`StReader.PeelFolderClosing`). Kept so the formatter prints it back — skipped, the next push read "no folder". */
+  folder?: string
   dataType: TypeExpr
   getter?: PropertyAccessor
   setter?: PropertyAccessor
@@ -563,6 +573,9 @@ export interface Property {
 }
 export interface PropertyAccessor {
   kind: "get" | "set"
+  /** Every modifier as written, in order (`PUBLIC ABSTRACT`): declaration text the push keeps, so the formatter prints
+   *  it back — eaten and dropped, formatting rewrote the member's signature. */
+  modifiers: Keyword[]
   varSections: VarSection[]
   body: BodySpan
   span: Span
@@ -583,6 +596,12 @@ export interface Interface {
 export interface InterfaceMethod {
   kind: "interface_method"
   name: Identifier
+  /** Every modifier as written, in order (`PUBLIC ABSTRACT`): declaration text the push keeps, so the formatter prints
+   *  it back — eaten and dropped, formatting rewrote the member's signature. */
+  modifiers: Keyword[]
+  /** The member's `%FOLDER` path: the last line of its declaration, where the push reads it
+   *  (`StReader.PeelFolderClosing`). Kept so the formatter prints it back — skipped, the next push read "no folder". */
+  folder?: string
   returnType?: TypeExpr
   varSections: VarSection[]
   span: Span
@@ -590,6 +609,12 @@ export interface InterfaceMethod {
 export interface InterfaceProperty {
   kind: "interface_property"
   name: Identifier
+  /** Every modifier as written, in order (`PUBLIC ABSTRACT`): declaration text the push keeps, so the formatter prints
+   *  it back — eaten and dropped, formatting rewrote the member's signature. */
+  modifiers: Keyword[]
+  /** The member's `%FOLDER` path: the last line of its declaration, where the push reads it
+   *  (`StReader.PeelFolderClosing`). Kept so the formatter prints it back — skipped, the next push read "no folder". */
+  folder?: string
   dataType: TypeExpr
   hasGetter: boolean
   hasSetter: boolean

@@ -32,7 +32,7 @@ import { parseNamespace } from "./units/namespace.js"
 import { parseProgram } from "./units/program.js"
 import { parseProperty } from "./units/property.js"
 import { parseTypeDecl } from "./units/type-decl.js"
-import { describeToken, skipFolderDirective } from "./util.js"
+import { describeToken, readFolderLine, reportMisplacedFolder } from "./util.js"
 import { unitBodies } from "./bodies.js"
 import { opensKeywordLine, reportReservedNames, reportRetiredComments } from "./implementation-keyword.js"
 
@@ -47,10 +47,14 @@ export function parse(tokens: readonly Token[]): ParseResult {
   const units: TopLevel[] = []
 
   while (!c.atEof()) {
-    // Skip a `%FOLDER <path>` directive at file scope — the bridge emits it between top-level items
-    // (a POU's methods/properties) to mark their sub-folder. It's metadata, not a unit; left unhandled
-    // it desyncs the whole file (the following members mis-parse as strays).
-    if (skipFolderDirective(c)) continue
+    // A `%FOLDER` line at file scope: no Volt writes one there (a member's folder stands under its IMPLEMENTATION line
+    // or closes its declaration), and the push reads it as the next item's declaration text and refuses it. Consumed
+    // whole and reported once — left unhandled it would desync the file (the following members mis-parse as strays).
+    const directive = readFolderLine(c)
+    if (directive !== undefined) {
+      reportMisplacedFolder(c, directive)
+      continue
+    }
     const unit = parseTopLevel(c)
     if (unit !== undefined) {
       units.push(unit)

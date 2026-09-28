@@ -173,6 +173,13 @@ export function splitImplementation(
       span: { ...keyword.span, end: last.span.end, endLine: last.span.endLine, endCol: last.span.endCol },
       words: statement.kind === "read" || statement.kind === "read-only" ? words : [keyword],
     }
+    // What stands above the line is the declaration's (comments, pragmas) — kept, or the formatter deletes it.
+    const leading = tokens
+      .slice(0, first)
+      .map((t) => t.text)
+      .join("")
+      .trim()
+    if (leading !== "") implementation.leading = leading
     code = tokens.slice(end)
     if (owner === "member") {
       const folder = peelFolder(code)
@@ -197,6 +204,12 @@ export function splitImplementation(
 // space — and a path follows.
 const FOLDER_LINE = /^\s*%FOLDER (.*\S)\s*$/
 
+/** The folder a whole line states as the push reads it (`StReader.FolderOn`), or undefined — the one spelling of the
+ *  directive, for a member's body (`peelFolder`) and a declaration's closing line (`util.readFolderLine`) alike. */
+export function folderOn(line: string): string | undefined {
+  return FOLDER_LINE.exec(line)?.[1]?.trim()
+}
+
 /**
  * The `%FOLDER <path>` directive on the line DIRECTLY under a member's keyword line — `code` opens with the token
  * holding the newline that ends the keyword line — as its path and the index of the token that ends its line; or
@@ -211,8 +224,8 @@ function peelFolder(code: readonly Token[]): { path: string; end: number } | und
   if (newline?.kind !== "whitespace" || newline.text.slice(newline.text.indexOf("\n") + 1).includes("\n")) return undefined
   if (code.length < 2 || code[1]!.kind === "eof") return undefined
   const { text, end } = lineAround(code, 1)
-  const m = FOLDER_LINE.exec(text)
-  return m === null ? undefined : { path: m[1]!.trim(), end }
+  const path = folderOn(text)
+  return path === undefined ? undefined : { path, end }
 }
 
 // ── a Volt comment from before the line ──────────────────────────────────────────────────────────
