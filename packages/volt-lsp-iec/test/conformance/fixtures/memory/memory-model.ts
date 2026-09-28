@@ -14,7 +14,7 @@ export const MEMORY_MODEL_TESTS: readonly LanguageTest[] = [
   {
     name: "mem_sizeof_struct_mixed",
     pouName: "DUT_MEM_mixed",
-    kind: "dut",
+    kind: "struct",
     feature: "SIZEOF a struct of mixed widths, an array of it, one BOOL field and a STRING — alignment and padding",
     fromDoc: doc,
     // (`s` is not a usable name — the IL operator S is reserved)
@@ -34,7 +34,7 @@ END_TYPE
   {
     name: "mem_member_offsets",
     pouName: "DUT_MEM_offsets",
-    kind: "dut",
+    kind: "struct",
     feature: "each member's offset in a mixed struct, as the difference of two ADRs",
     fromDoc: doc,
     plcPrgVar: "sv : DUT_MEM_offsets; offI : ULINT; offD : ULINT; offX : ULINT; offL : ULINT;",
@@ -74,7 +74,7 @@ END_METHOD
   {
     name: "mem_pointer_index_struct_array",
     pouName: "DUT_MEM_pt",
-    kind: "dut",
+    kind: "struct",
     feature: "a POINTER TO a struct element: p^, p[i] and p + SIZEOF(T) over an array of structs",
     fromDoc: doc,
     // `(p + SIZEOF(DUT_MEM_pt))^.x` does not parse — "';' expected instead of '^'" (measured 2026-09-14): `^` follows a

@@ -582,12 +582,18 @@ reds, unchanged); Codesys 160, Twincat 231, Contracts 19, Connector 110, Repo.Ga
       and the hand regex (which still named `.dut`) is deleted. Neither committed fixture holds a DUT (CODESYS
       `refs`: 36 items, none a DUT), so the suite seeds one `VltE2E_` DUT of each subtype and asserts all four are
       swept: red with the old regex (all four left out), green after, on both vendors.
-- [ ] 4.8 Wire-driving scripts (1.4 census): `probe-tc-name-collision.ts` pushes `X.struct`;
+- [x] 4.8 Wire-driving scripts (1.4 census): `probe-tc-name-collision.ts` pushes `X.struct`;
       `corpus-migration.ts` compares names WITH extensions again (delete the `.struct`≠`.dut` stem workaround);
       `record-language.ts` sweeps DUT orphans by their subtype name (`extForKind` loses `dut: "dut"`) and its
       `unitExt` stops deciding a subtype: the fixture STATES it (`kind: "struct"|"enum"|…`, as a workspace file's
       name does), with no `alias`/`fb` default — an unstated kind fails loud; the
       `corpus-migration.ts:494` comment goes with the workaround.
+      Done 2026-09-28: `probe-tc-name-collision.ts` pushes `X.struct`; `corpus-migration.ts` matches refusals by
+      file name WITH its extension (the stem workaround and its comment are gone); the 31 DUT conformance fixtures
+      state `kind: "struct"|"enum"|"union"|"alias"` (20/5/1+pragma-tc struct/5 alias) and `record-language.ts`
+      pushes by that stated kind, failing loud on any kind with no extension. Found on the way: `unitExt` tested
+      `struct_body`/`enum_body`/…, names the parser never produces, so every DUT fixture was pushed as `X.alias`.
+      `bun typecheck` (LSP + volt-cli) clean; `bun test test/conformance` 4240 pass / 0 fail.
 - [x] 4.9 `Commands.cs` `V1Note` (1.4 census): the "which files can hold network text" decision moves behind ONE
       engine predicate keyed by the wire name (the rule `ImplementationMarker.AppliesTo` already owns); the CLI
       calls it and imports no `ItemKind`. Test first: the CLI's answer for `X.fb`, `X.gvl`, `X.struct`, `X.enum`

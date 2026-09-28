@@ -486,26 +486,19 @@ function pushAllItCan(
 			return refused
 		} catch (err) {
 			const message = String((err as Error).message)
-			// MATCHED BY BASE NAME, AND WITHOUT THE EXTENSION.
-			//
-			// The bridge names an item the way the WIRE does while the staged map is keyed by workspace PATH,
-			// so the folder has to go: `POUs/POUexecute.prg` against `POUexecute.prg`.
-			//
-			// The EXTENSION has to go too, and that is not obvious. A DUT is ONE wire kind with FOUR file
-			// extensions (`.struct`/`.enum`/`.union`/`.alias`), so lenze-mid's `sUDT_CamControlLS_Calculation`
-			// is `.struct` on disk and `.dut` on the wire. Comparing with extensions matched nothing, the
-			// refusal was rethrown as an unattributable failure, and a run that had found a real vendor limit
-			// reported "the migration itself failed" instead of naming it. Every other kind spells both the
-			// same, which is exactly why it survived the first four corpora.
+			// MATCHED BY BASE NAME. The bridge names an item the way the WIRE does while the staged map is keyed by
+			// workspace PATH, so the folder has to go: `POUs/POUexecute.prg` against `POUexecute.prg`. The extension
+			// stays: a workspace file's name IS its wire name (a DUT is `X.struct` on both sides), and dropping it
+			// would pair `X.fb` with a refused `X.struct` of the same name.
 			const lines = refusalLines(message)
-			const stem = (n: string) => n.split("/").pop()!.replace(/\.[^.]+$/, "")
-			const refusedStems = new Set([...lines.keys()].map(stem))
-			const named = [...remaining.keys()].filter((k) => refusedStems.has(stem(k)))
+			const base = (n: string) => n.split("/").pop()!
+			const refusedNames = new Set([...lines.keys()].map(base))
+			const named = [...remaining.keys()].filter((k) => refusedNames.has(base(k)))
 			if (named.length === 0) throw err
 
 			for (const k of named) {
 				remaining.delete(k)
-				const reason = [...lines].find(([n]) => stem(n) === stem(k))?.[1]
+				const reason = [...lines].find(([n]) => base(n) === base(k))?.[1]
 				refused.set(k, reason ?? "refused by the bridge")
 			}
 			// RE-STAGE FIRST, THEN PULL. `stage` deletes what is no longer in the map, so this drops the

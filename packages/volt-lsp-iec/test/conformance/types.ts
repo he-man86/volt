@@ -33,7 +33,7 @@ export interface LanguageTest {
    *  named otherwise is left behind in the project and the next run inherits it. */
   pouName: string
   /** Item kind on the bridge. Every writable source kind materializes as one kind-named file (`.fb`/`.prg`/`.fun`/`.itf`/`.gvl`, and a DUT under its subtype `.struct`/`.enum`/`.union`/`.alias`). */
-  kind: "function_block" | "function" | "program" | "gvl" | "dut" | "interface"
+  kind: "function_block" | "function" | "program" | "gvl" | "struct" | "enum" | "union" | "alias" | "interface"
   /** What the test exercises — short label for reports. */
   feature: string
   /** Self-contained workspace file content — POU + sibling children

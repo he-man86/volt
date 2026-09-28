@@ -57,7 +57,7 @@ async function step(label: string, op: any): Promise<boolean> {
 const prg = (n: string, folder: string) =>
 	({ op: "set", name: `${n}.prg`, toFolder: folder, sourceText: src(n), ifVersion: null })
 const dut = (n: string, folder: string) =>
-	({ op: "set", name: `${n}.dut`, toFolder: folder, sourceText: `TYPE ${n} :
+	({ op: "set", name: `${n}.struct`, toFolder: folder, sourceText: `TYPE ${n} :
 STRUCT
 	x : INT;
 END_STRUCT

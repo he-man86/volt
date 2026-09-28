@@ -143,7 +143,7 @@ const CONFIGURABLE_SEVERITY: ReadonlySet<string> = new Set(["pointer-not-convert
 
 /** The file extension a fixture's kind materializes as — one object per file, as the wire keys them. */
 function extFor(kind: LanguageTest["kind"]): string {
-  return kind === "function_block" ? "fb" : kind === "function" ? "fun" : kind === "program" ? "prg" : kind === "gvl" ? "gvl" : kind === "interface" ? "itf" : "dut"
+  return kind === "function_block" ? "fb" : kind === "function" ? "fun" : kind === "program" ? "prg" : kind === "gvl" ? "gvl" : kind === "interface" ? "itf" : kind
 }
 
 let libraries: { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }[] | undefined

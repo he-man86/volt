@@ -1234,8 +1234,10 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
 
 
 function extFor(kind: string): string {
-  const map: Record<string, string> = { function_block: "fb", function: "fun", program: "prg", gvl: "gvl", dut: "dut", interface: "itf" }
-  return map[kind] ?? "fb"
+  const map: Record<string, string> = { function_block: "fb", function: "fun", program: "prg", gvl: "gvl", interface: "itf", struct: "struct", enum: "enum", union: "union", alias: "alias" }
+  const ext = map[kind]
+  if (!ext) throw new Error(`fixture kind "${kind}" has no file extension`)
+  return ext
 }
 
 // Cross-fixture declaration context: every fixture's interfaces/DUTs/GVLs and FBs (with their standalone

@@ -43,16 +43,29 @@ import { markImplementations } from "../test/conformance/support/mark-implementa
 // first. Group each fixture source into items: a top-level POU/type/gvl starts one; trailing method/action/
 // property units append to it (they are that POU's members).
 const TOP = new Set(["function_block", "program", "function", "interface", "global_var_list", "type_decl", "namespace"])
+// A unit's wire extension, from what its text states. A DUT's is its body kind as the parser names it
+// (struct/enum/union/alias) — this used to test `struct_body`/`enum_body`/…, names the parser never produces, so
+// EVERY DUT fell through to "alias" and was pushed as `X.alias`. An unknown kind now fails loud instead of
+// defaulting: a guessed extension is a wrong wire name, and the engine refuses a name its body contradicts.
+const UNIT_EXT: Record<string, string> = { function_block: "fb", program: "prg", function: "fun", interface: "itf", global_var_list: "gvl", namespace: "namespace" }
+const DUT_SUBTYPES = new Set(["struct", "enum", "union", "alias"])
 function unitExt(u: any): string {
   if (u.kind === "type_decl") {
     const bk = u.body?.kind
-    return bk === "struct_body" ? "struct" : bk === "enum_body" ? "enum" : bk === "union_body" ? "union" : "alias"
+    if (DUT_SUBTYPES.has(bk)) return bk
+    throw new Error(`TYPE ${u.name?.text ?? "?"} states no subtype the wire can name (body kind "${bk}")`)
   }
-  return { function_block: "fb", program: "prg", function: "fun", interface: "itf", global_var_list: "gvl", namespace: "namespace" }[u.kind as string] ?? "fb"
+  const ext = UNIT_EXT[u.kind as string]
+  if (!ext) throw new Error(`a "${u.kind}" unit has no wire extension`)
+  return ext
 }
-/** The wire extension for a FIXTURE's declared kind — the identity it states, not the one the parser infers. */
+/** The wire extension for a FIXTURE's declared kind — the identity it states, not the one the parser infers. A DUT
+ *  fixture states its subtype (`kind: "struct"`…), which IS its extension. */
+const KIND_EXT: Record<string, string> = { function_block: "fb", program: "prg", function: "fun", interface: "itf", gvl: "gvl", namespace: "namespace", struct: "struct", enum: "enum", union: "union", alias: "alias" }
 function extForKind(kind: string): string {
-  return { function_block: "fb", program: "prg", function: "fun", interface: "itf", gvl: "gvl", dut: "dut", namespace: "namespace" }[kind] ?? "fb"
+  const ext = KIND_EXT[kind]
+  if (!ext) throw new Error(`fixture kind "${kind}" has no wire extension`)
+  return ext
 }
 
 function splitItems(source: string, pouName: string, gvlNames?: readonly string[], kind?: string): { wire: string; src: string }[] {
@@ -75,9 +88,8 @@ function splitItems(source: string, pouName: string, gvlNames?: readonly string[
     // a VAR_GLOBAL block names nothing in its text — the fixture's pouName is its object's name, or its entry in
     // `gvlNames` where the fixture holds more than one list
     wire: single
-      // a DUT keeps the sub-kind extension the parse gives it (struct/enum/union/alias) — the fixture's `dut`
-      // says nothing about WHICH, and that spelling is what every existing DUT recording used
-      ? `${u.kind === "global_var_list" ? (gvlNames?.[0] ?? pouName) : pouName}.${u.kind === "type_decl" ? unitExt(u) : extForKind(kind)}`
+      // the fixture STATES its kind, a DUT's subtype included — that is the name the item is pushed under
+      ? `${u.kind === "global_var_list" ? (gvlNames?.[0] ?? pouName) : pouName}.${extForKind(kind)}`
       : `${u.kind === "global_var_list" ? (gvlNames?.[lists.indexOf(u)] ?? pouName) : (u as any).name.text}.${unitExt(u)}`,
     // MARKED on the way out. A push without `(* @volt-implementation *)` is refused, and the marker goes
     // where the PARSER says the body starts — see mark-implementations.ts. Leaving it off recorded a
